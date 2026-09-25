@@ -143,3 +143,22 @@ export const buildMissingClaudeResultMessage = ({ lastToolResultError, lastMessa
   if (!detail) return 'Claude stream ended without a terminal result event';
   return `Claude stream ended without a terminal result event after: ${String(detail).slice(0, 500)}`;
 };
+
+/**
+ * Issue #2296: Claude Code reports some API failures (401 "OAuth session
+ * expired and could not be refreshed") as `{"subtype":"success","is_error":true}`.
+ * Only a result that is not flagged `is_error` counts as a successful run: its
+ * text is the solution summary and its cost is the authoritative total.
+ */
+export const isSuccessfulClaudeResult = data => data?.type === 'result' && data.subtype === 'success' && data.is_error !== true;
+
+/**
+ * Label for a result event in logs, e.g. "subtype: error_max_turns" or, for an
+ * error reported with subtype "success", "error result, is_error: true,
+ * subtype: success, error: authentication_failed".
+ */
+export const describeClaudeResultKind = data => {
+  const subtype = data?.subtype || 'unknown';
+  if (data?.is_error !== true || subtype !== 'success') return `subtype: ${subtype}`;
+  return ['error result', 'is_error: true', `subtype: ${subtype}`, data.error ? `error: ${data.error}` : null, data.api_error_status ? `status: ${data.api_error_status}` : null].filter(Boolean).join(', ');
+};

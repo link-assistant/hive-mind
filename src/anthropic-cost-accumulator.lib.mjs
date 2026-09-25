@@ -43,6 +43,7 @@
  */
 
 import { isFormalAiModel } from './models/index.mjs'; // Issue #2119
+import { describeClaudeResultKind, isSuccessfulClaudeResult } from './claude.stream-events.lib.mjs'; // Issue #2296
 
 // Module-level singleton: the cumulative Anthropic cost for the active logical
 // session (including anything seeded by a true resume from a prior process).
@@ -148,11 +149,12 @@ export const captureAnthropicResultCost = async ({ data, model, log }) => {
     await log(`💰 Ignoring Anthropic cost $${cost.toFixed(6)} reported for a Formal AI session (Link.Assistant, free)`, { verbose: true });
     return null;
   }
-  if (data.subtype === 'success') {
+  if (isSuccessfulClaudeResult(data)) {
     await log(`💰 Anthropic official cost captured from success result: $${cost.toFixed(6)}`, { verbose: true });
     return { total: cost };
   }
-  await log(`💰 Anthropic cost from ${data.subtype || 'unknown'} result kept as fallback for accumulation: $${cost.toFixed(6)}`, { verbose: true });
+  // Issue #2296: `{"subtype":"success","is_error":true}` is an error result, not a success.
+  await log(`💰 Anthropic cost from result (${describeClaudeResultKind(data)}) kept as fallback for accumulation: $${cost.toFixed(6)}`, { verbose: true });
   return { fallback: cost };
 };
 

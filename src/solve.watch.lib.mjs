@@ -64,6 +64,7 @@ const { interruptibleSleep } = await import('./interruptible-sleep.lib.mjs');
 const autoRestartBudget = await import('./auto-restart-budget.lib.mjs');
 const { beginAutoRestartBudget, consumeAutoRestartIteration, formatAutoRestartLabel, formatAutoRestartLimit, getAutoRestartIterationsUsed, getRemainingAutoRestartIterations, hasExhaustedAutoRestartBudget } = autoRestartBudget;
 const { failOnAutoRestartBudgetExhausted } = await import('./auto-restart-exhaustion.lib.mjs');
+const { describePreservedWork, failOnToolFailure } = await import('./tool-failure-exit.lib.mjs'); // Issue #2296
 // Issue #2247 (H3): the Scala reproduction run restarted five times, each
 // session byte-identical to the last, and committed nothing in any of them.
 const { stopWhenSessionRepeated } = await import('./session-progress.lib.mjs');
@@ -506,6 +507,8 @@ export const watchForFeedback = async params => {
               await log('  2. You have proper authentication configured');
               await log('  3. The API endpoint is accessible');
               await log('');
+              // Issue #2296: the run failed - exit 1 and keep the uncommitted work.
+              const preserved = await failOnToolFailure({ tempDir, branchName: prBranch || branchName, $, log, reason: 'tool_failure', subsystem: 'watch' });
               // Issue #2144: say on GitHub why the loop stopped.
               await reportAutomationStop({
                 $,
@@ -515,6 +518,7 @@ export const watchForFeedback = async params => {
                 reason: 'tool_failure',
                 mode: 'watch',
                 message: `${argv.tool.toUpperCase()} failed ${consecutiveApiErrors} times in a row: ${extractToolErrorCore({ toolResult }) || 'unknown API error'}`,
+                details: [describePreservedWork(preserved)],
                 verbose: argv.verbose,
                 log,
               });

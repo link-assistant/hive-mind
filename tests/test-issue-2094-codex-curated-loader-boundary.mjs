@@ -189,11 +189,12 @@ const preflight = async ({ fixture, codex }) =>
   assert.equal(execution.success, true);
   assert.equal(actualExecOptions.cwd, fixture.projectDir, 'codex exec uses the same target checkout as preflight');
   assert.deepEqual(actualExecOptions.env, promptProbeEnv, 'executeCodexCommand receives exactly the environment verified by prompt-input');
-  // Issue #2190: Docker execution shares only auth.json and sessions/ with the
-  // task; the operator home (and with it the repaired repository scope) stays
-  // per container, so the scope is rebuilt from the image defaults every task.
-  const dockerMounts = getDockerIsolationAuthMounts({ tool: 'codex', homeDir: fixture.root, existsSync: candidate => candidate === fixture.baseCodexHome || candidate === path.join(fixture.baseCodexHome, 'auth.json') });
-  assert.deepEqual(dockerMounts, [{ source: path.join(fixture.baseCodexHome, 'auth.json'), target: '/home/box/.codex/auth.json' }], 'Docker execution mounts the credential file, not the whole operator home (issue #2190)');
+  // Issue #2296: Docker execution shares the operator `.codex` (auth.json and
+  // its refresh state) but overlays `hive-mind/` per task (issue #2190), so the
+  // repaired repository scope is rebuilt from an empty directory every task.
+  const dockerMounts = getDockerIsolationAuthMounts({ tool: 'codex', homeDir: fixture.root, sessionId: 'task', existsSync: candidate => candidate === fixture.baseCodexHome || candidate === path.join(fixture.baseCodexHome, 'auth.json') });
+  assert.deepEqual(dockerMounts[0], { source: fixture.baseCodexHome, target: '/home/box/.codex' }, 'Docker execution shares the operator .codex directory (issue #2296)');
+  assert.equal(dockerMounts.find(mount => mount.target === '/home/box/.codex/hive-mind')?.source, path.join(fixture.root, '.hive-mind', 'docker-isolation', 'task', 'codex', 'hive-mind'), 'the repository scope is a per-task overlay, not the operator copy (issue #2190)');
   assert.equal(path.relative(fixture.baseCodexHome, first.codexHome), path.join('hive-mind', 'repositories', 'CEHR2005', 'GCS-TS'), 'the scoped state keeps the same relative path under the (per-container) codex home');
 
   // A continued/restarted task refreshes operator settings and rematerializes

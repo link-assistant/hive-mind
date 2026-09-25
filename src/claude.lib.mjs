@@ -34,7 +34,7 @@ import { deployHandoffSkill } from './handoff-skill.lib.mjs'; // Issue #1877
 import { deployPlaywrightSkill } from './playwright-skill.lib.mjs'; // Issue #2190
 import { formatRouterAuthViolation, startRouterAuthGuard } from './router-auth-guard.lib.mjs'; // Issue #2190
 import { createThinkingBlockRecovery } from './claude.thinking-block-recovery.lib.mjs'; // Issue #1834 (PR #1835 feedback)
-import { buildMissingClaudeResultMessage, collectClaudeStreamEventFacts, getClaudeMessageContent, shouldFailClaudeStreamWithoutResult, updateTerminalToolResult } from './claude.stream-events.lib.mjs';
+import { buildMissingClaudeResultMessage, collectClaudeStreamEventFacts, describeClaudeResultKind, getClaudeMessageContent, isSuccessfulClaudeResult, shouldFailClaudeStreamWithoutResult, updateTerminalToolResult } from './claude.stream-events.lib.mjs';
 import { createRepeatedToolCallBreaker, explainFailureWithToolHistory } from './repeated-tool-call-breaker.lib.mjs'; // Issue #2247 (H4/H10)
 import { formatNumber, mapModelToId, checkModelVisionCapability, resolveClaudeModelForExecution } from './claude.model-utils.lib.mjs';
 import { renameLogToSessionId } from './session-log-rename.lib.mjs'; // Issue #2160
@@ -605,12 +605,13 @@ export const executeClaudeCommand = async params => {
                     if (argv.verbose) await log(`⚠️ Bidirectional mode: markAiIdle error: ${idleErr.message}`, { verbose: true });
                   }
                 }
-                if (data.subtype === 'success') resultSuccessReceived = true;
+                const resultSucceeded = isSuccessfulClaudeResult(data); // Issue #2296: subtype "success" + is_error is a failure
+                if (resultSucceeded) resultSuccessReceived = true;
                 const capturedCost = await captureAnthropicResultCost({ data, model: argv.model, log });
                 if (capturedCost?.total !== undefined) anthropicTotalCostUSD = capturedCost.total;
                 if (capturedCost?.fallback !== undefined) anthropicCostFromAnyResult = capturedCost.fallback;
                 // Issue #1263: Extract result summary (AI's summary of work done) for --attach-solution-summary
-                if (data.subtype === 'success' && data.result && typeof data.result === 'string') {
+                if (resultSucceeded && data.result && typeof data.result === 'string') {
                   resultSummary = data.result;
                   await log('📝 Captured result summary from Claude output', { verbose: true });
                 }
@@ -618,7 +619,7 @@ export const executeClaudeCommand = async params => {
                   resultNumTurns = data.num_turns;
                   await log(`📊 Session num_turns: ${resultNumTurns}`, { verbose: true });
                 }
-                if (data.subtype === 'success' && data.modelUsage) resultModelUsage = data.modelUsage; // Issue #1454
+                if (resultSucceeded && data.modelUsage) resultModelUsage = data.modelUsage; // Issue #1454
                 if (data.is_error === true) {
                   lastMessage = data.result || JSON.stringify(data);
                   const subtype = data.subtype || 'unknown';
@@ -632,7 +633,7 @@ export const executeClaudeCommand = async params => {
                     }
                   } else {
                     commandFailed = true;
-                    await log(`⚠️ Detected error from Claude CLI (subtype: ${subtype})`, { verbose: true });
+                    await log(`⚠️ Detected error from Claude CLI (${describeClaudeResultKind(data)})`, { verbose: true });
                   }
                   if (lastMessage.includes('Session limit reached') || lastMessage.includes('limit reached')) {
                     limitReached = true;
@@ -834,7 +835,7 @@ export const executeClaudeCommand = async params => {
           }
           if (data?.type === 'result') {
             resultEventReceived = true;
-            if (data.subtype === 'success') {
+            if (isSuccessfulClaudeResult(data)) {
               resultSuccessReceived = true;
               if (data.result && typeof data.result === 'string') resultSummary = data.result;
               if (data.modelUsage) resultModelUsage = data.modelUsage;
@@ -1056,7 +1057,7 @@ export const executeClaudeCommand = async params => {
               const resumeInfo = isStartupTimeout ? 'Session will be restarted (fresh start).' : `Session will be resumed with \`--resume\` (context preserved).`;
               const commentBody = `## :warning: ${SESSION_FORCE_KILLED_MARKER} (${timeoutType} timeout)\n\nThe working session was force-killed due to ${timeoutType} timeout (no stream output for ${isActivityTimeout ? timeouts.streamActivityMs / 1000 : timeouts.streamStartupMs / 1000}s).\n\n**Auto-resuming**: Retry ${retryCount + 1}/${maxRetries} in ${delayLabel}. ${resumeInfo}${sessionInfo}\n\n*This is an automated notification — the session will continue automatically.*`;
               const posted = await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: commentBody });
-              await log(posted.ok ? `   Posted force-kill notification to PR #${prNumber}${posted.commentId ? ` (id=${posted.commentId})` : ''}` : `   Warning: Could not post force-kill comment to PR: ${posted.stderr || 'unknown error'}`, { verbose: true });
+              await log(posted.ok ? `   Posted force-kill notification to PR #${prNumber}${posted.commentId ? ` (id=${posted.commentId})` : ''}` : `   Warning: Could not post force-kill comment to PR: ${posted.stderr?.toString() || 'unknown error'}`, { verbose: true });
             } catch (commentError) {
               await log(`   Warning: Could not post force-kill comment to PR: ${commentError.message}`, { verbose: true });
             }

@@ -54,8 +54,9 @@ function assertIncludes(haystack, needle, label) {
 const valueAfter = (arr, flag) => arr[arr.indexOf(flag) + 1];
 
 const url = 'https://github.com/link-assistant/hive-mind/issues/1914';
-// Issue #2190: only the credential file and the session directories are shared, never the application directories.
-const existing = new Set(['/home/box/.config/gh', '/home/box/.claude/.credentials.json', '/home/box/.claude/projects', '/home/box/.claude/sessions', '/home/box/.codex/auth.json', '/home/box/.codex/sessions']);
+// Issue #2296: the tool's config directory is shared (so OAuth refreshes and the
+// refresh lock are shared); its application directories get private overlays.
+const existing = new Set(['/home/box/.config/gh', '/home/box/.claude', '/home/box/.claude/.credentials.json', '/home/box/.claude/projects', '/home/box/.claude/sessions', '/home/box/.codex', '/home/box/.codex/auth.json', '/home/box/.codex/sessions']);
 const existsSync = p => existing.has(p);
 
 console.log('\n--- Complaint 1: --isolation docker uses ACTUAL docker isolation (not screen) ---');
@@ -101,7 +102,7 @@ const regularArgs = buildDockerIsolationStartArgs('solve', [url], {
 assertEqual(valueAfter(regularArgs, '--image'), 'konard/hive-mind:latest', 'regular variant runs the regular Hive Mind image');
 assertEqual(regularArgs.includes('--privileged'), false, 'regular variant does NOT request docker privileges (no nested dockerd)');
 assertEqual(valueAfter(regularArgs, '--shell'), 'sh', 'regular variant also forces the sh shell');
-assertEqual(regularArgs.includes('/home/box/.claude/.credentials.json:/home/box/.claude/.credentials.json'), true, 'a claude task mounts Claude credentials');
+assertEqual(regularArgs.includes('/home/box/.claude:/home/box/.claude'), true, 'a claude task mounts the Claude config directory holding its credentials');
 assertNotIncludes(regularArgs.join(' '), '.codex', 'a claude task does not mount Codex credentials');
 
 console.log('\n--- Explicit image override ---');

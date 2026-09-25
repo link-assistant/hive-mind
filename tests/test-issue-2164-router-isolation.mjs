@@ -48,8 +48,8 @@ const matches = (actual, expected) => JSON.stringify(actual) === JSON.stringify(
 const TASK_TOKEN = 'la_sk_x';
 
 const HOME = '/home/box';
-// Issue #2190: the split layout — credential file + session directories, never the whole application directory.
-const hostPaths = new Set([`${HOME}/.config/gh`, `${HOME}/.gitconfig`, `${HOME}/.config/git`, `${HOME}/.codex/auth.json`, `${HOME}/.codex/sessions`, `${HOME}/.claude/.credentials.json`, `${HOME}/.claude/projects`, `${HOME}/.claude/sessions`]);
+// Issue #2296: the tool directory is shared (credentials + refresh lock), with per-task overlays for plugins/skills/settings (#2190).
+const hostPaths = new Set([`${HOME}/.config/gh`, `${HOME}/.gitconfig`, `${HOME}/.config/git`, `${HOME}/.codex`, `${HOME}/.claude`, `${HOME}/.codex/auth.json`, `${HOME}/.codex/sessions`, `${HOME}/.claude/.credentials.json`, `${HOME}/.claude/projects`, `${HOME}/.claude/sessions`]);
 const existsAll = candidate => hostPaths.has(candidate);
 const mountPairs = mounts => mounts.map(mount => `${mount.source}:${mount.target}`);
 // Matched as a whole hostname rather than with `includes`: a substring test on a
@@ -150,7 +150,8 @@ assertDeepEqual(getRouterSuppressedCredentialPaths({ tool: 'codex' }), ['.codex'
 assertDeepEqual(getRouterSuppressedCredentialPaths({ tool: 'claude', ghRouted: true }), ['.claude', '.claude.json', '.config/gh'], 'the gh credential is withheld once GitHub is routed');
 
 const defaultClaudeMounts = mountPairs(getDockerIsolationAuthMounts({ tool: 'claude', homeDir: HOME, env: {}, existsSync: existsAll }));
-assertDeepEqual(defaultClaudeMounts, [`${HOME}/.config/gh:${HOME}/.config/gh`, `${HOME}/.gitconfig:${HOME}/.gitconfig`, `${HOME}/.config/git:${HOME}/.config/git`, `${HOME}/.claude/.credentials.json:${HOME}/.claude/.credentials.json`, `${HOME}/.claude/projects:${HOME}/.claude/projects`, `${HOME}/.claude/sessions:${HOME}/.claude/sessions`], 'default behaviour is unchanged: claude tasks still receive the real subscription (R9)');
+// Issue #2296: the subscription arrives through the shared ~/.claude directory (credentials + refresh lock), with private overlays after it.
+assertDeepEqual(defaultClaudeMounts.slice(0, 4), [`${HOME}/.config/gh:${HOME}/.config/gh`, `${HOME}/.gitconfig:${HOME}/.gitconfig`, `${HOME}/.config/git:${HOME}/.config/git`, `${HOME}/.claude:${HOME}/.claude`], 'default behaviour is unchanged: claude tasks still receive the real subscription (R9)');
 
 const routedClaudeMounts = mountPairs(getDockerIsolationAuthMounts({ tool: 'claude', homeDir: HOME, env: {}, existsSync: existsAll, useRouter: true }));
 assertEqual(

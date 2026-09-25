@@ -32,22 +32,19 @@ const statePath = buildCodexCapabilityStatePath({ baseCodexHome: baseHome, owner
 assert.equal(statePath, '/persistent/.codex/hive-mind/repositories/CEHR2005/GCS-TS');
 assert.deepEqual(applyCodexCapabilityEnv({ PATH: '/bin' }, { codexHome: statePath, baseCodexHome: baseHome }), { PATH: '/bin', CODEX_HOME: statePath, HIVE_MIND_PARENT_CODEX_HOME: baseHome }, 'direct codex execution receives the repository-scoped state');
 
-// Issue #2190: a Docker-isolated task no longer inherits the whole `.codex`
-// directory (nor `.agents`). Only `auth.json` and `sessions/` are shared; the
-// repository-scoped capability state is installed per task container from the
-// image defaults, so one task can never enable a plugin for the tasks after it.
-const mounts = getDockerIsolationAuthMounts({
-  tool: 'codex',
-  homeDir: '/persistent',
-  existsSync: candidate => candidate === `${baseHome}/auth.json` || candidate === `${baseHome}/sessions`,
-});
-assert.deepEqual(mounts, [
-  { source: `${baseHome}/auth.json`, target: '/home/box/.codex/auth.json' },
-  { source: `${baseHome}/sessions`, target: '/home/box/.codex/sessions' },
-]);
-const everything = getDockerIsolationAuthMounts({ tool: 'codex', homeDir: '/persistent', existsSync: () => true });
-assert(!everything.some(mount => mount.source === baseHome || mount.source === '/persistent/.agents'), 'Docker isolation no longer propagates the whole .codex directory or the user Agent Skills folder (issue #2190)');
-assert(!everything.some(mount => statePath.startsWith(`${mount.source}/`)), 'repository-scoped capability state stays inside the task container (issue #2190)');
+// Issue #2190: a Docker-isolated task never inherits the operator's plugins,
+// skills or repository-scoped capability state. Issue #2296: `.codex` itself is
+// shared (so a refreshed auth.json reaches every task), with `hive-mind/`,
+// `plugins/`, `skills/`, `.tmp/` and `config.toml` overlaid per task.
+const mounts = getDockerIsolationAuthMounts({ tool: 'codex', homeDir: '/persistent', sessionId: 'task', existsSync: () => true });
+assert.deepEqual(
+  mounts.find(mount => mount.source === baseHome),
+  { source: baseHome, target: '/home/box/.codex' }
+);
+assert(!mounts.some(mount => mount.source === '/persistent/.agents'), 'Docker isolation does not propagate the user Agent Skills folder (issue #2190)');
+const stateOverlay = mounts.find(mount => mount.target === '/home/box/.codex/hive-mind');
+assert(stateOverlay && stateOverlay.source.startsWith('/persistent/.hive-mind/docker-isolation/task/codex/'), 'repository-scoped capability state is overlaid by a per-task directory (issue #2190)');
+assert(mounts.indexOf(stateOverlay) > mounts.findIndex(mount => mount.source === baseHome), 'the overlay is mounted after the shared directory it shadows');
 
 const fixtureRoot = await mkdtemp(path.join(os.tmpdir(), 'codex-capability-preflight-'));
 const pluginRoot = path.join(fixtureRoot, 'marketplace', 'plugins', 'superpowers');

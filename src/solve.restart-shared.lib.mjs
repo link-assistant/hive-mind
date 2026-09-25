@@ -42,6 +42,8 @@ const { classifyFormalAiToolResult } = await import('./formal-ai.lib.mjs');
 const { ensurePullRequestIsDraft, ensurePullRequestIsReady, ensurePullRequestStaysDraftAfterFailure } = await import('./pr-draft-state.lib.mjs');
 // Issue #2247 (H3): fingerprint each restart session so an identical repeat can be detected.
 const { captureSessionOutcome } = await import('./session-progress.lib.mjs');
+// Issue #2296: a transient auth failure is retried by resuming the same session.
+const { runWithTransientAuthRetry } = await import('./auth-transient-retry.lib.mjs');
 
 // Import Sentry integration
 const sentryLib = await import('./sentry.lib.mjs');
@@ -186,8 +188,23 @@ export const getUncommittedChangesDetails = async tempDir => {
  * This is the shared tool execution logic used by both watch mode and auto-restart-until-mergeable mode
  * @param {Object} params - Execution parameters
  * @returns {Promise<Object>} - Tool execution result
+ *
+ * Issue #2296: every watch, auto-restart, auto-merge, escalation and
+ * ensure-requirements iteration funnels through here, so a transient auth
+ * failure (401 / "OAuth session expired and could not be refreshed") is
+ * recovered once for all of them: wait for fresh credentials, then resume the
+ * same session with a "Continue" prompt, up to `--auth-retry-attempts` times.
  */
-export const executeToolIteration = async params => {
+export const executeToolIteration = params =>
+  runWithTransientAuthRetry({
+    tool: params.argv?.tool,
+    argv: params.argv,
+    log,
+    run: (argv, retry) => executeToolIterationOnce(retry === 0 ? params : { ...params, argv, feedbackLines: ['Continue'] }),
+  });
+
+// One iteration: draft the PR, run the tool once, restore the PR state.
+const executeToolIterationOnce = async params => {
   const { issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, workspaceTmpDir, mergeStateStatus, feedbackLines, argv } = params;
 
   await recordResourceSnapshot({

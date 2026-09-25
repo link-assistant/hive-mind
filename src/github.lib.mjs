@@ -10,6 +10,7 @@ import { batchCheckPullRequestsForIssues as batchCheckPRs, batchCheckArchivedRep
 import { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeOutput, sanitizeLogContent, sanitizeForPublication, writeSanitizedPublicationFile } from './token-sanitization.lib.mjs';
 export { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeOutput, sanitizeLogContent, sanitizeForPublication, writeSanitizedPublicationFile }; // Re-export for backward compatibility
 import { uploadLogWithGhUploadLog } from './log-upload.lib.mjs';
+import { formatLogPartLinks } from './log-upload-parts.lib.mjs'; // Issue #2296
 // Issue #2189: bracket the log-upload phase with resource samples. The incident
 // log's last sample was `after_agent`, ten minutes before the heap OOM, so the
 // phase that actually died left no telemetry at all.
@@ -154,7 +155,7 @@ export const checkRepositoryWritePermission = async (owner, repo, options = {}) 
     const permResult = await ghCmdRetry(() => $`gh api repos/${owner}/${repo} --jq .permissions`, { label: `write perms ${owner}/${repo}` });
     if (permResult.code !== 0) {
       // API call failed - might be a private repo or network issue
-      const errorOutput = (permResult.stderr ? permResult.stderr.toString() : '') + (permResult.stdout ? permResult.stdout.toString() : '');
+      const errorOutput = (permResult.stderr?.toString() ? permResult.stderr.toString() : '') + (permResult.stdout?.toString() ? permResult.stdout.toString() : '');
       // If it's a 404, the repo doesn't exist or we don't have read access
       if (errorOutput.includes('404') || errorOutput.includes('Not Found')) {
         await log('❌ Repository not found or no access', { level: 'error' });
@@ -239,7 +240,7 @@ export const checkMaintainerCanModifyPR = async (owner, repo, prNumber) => {
     // Use GitHub API to check PR details including maintainer_can_modify
     const prResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber} --jq '{maintainer_can_modify: .maintainer_can_modify, head: .head}'`;
     if (prResult.code !== 0) {
-      const errorOutput = (prResult.stderr ? prResult.stderr.toString() : '') + (prResult.stdout ? prResult.stdout.toString() : '');
+      const errorOutput = (prResult.stderr?.toString() ? prResult.stderr.toString() : '') + (prResult.stdout?.toString() ? prResult.stdout.toString() : '');
       await log(`⚠️  Warning: Could not check maintainer_can_modify: ${cleanErrorMessage(errorOutput)}`, {
         level: 'warning',
       });
@@ -298,7 +299,7 @@ Thank you! 🙏`;
       await log(`✅ Comment posted successfully${posted.commentId ? ` (id=${posted.commentId})` : ''}`, { verbose: true });
       return true;
     } else {
-      await log(`⚠️  Warning: Failed to post comment: ${cleanErrorMessage(posted.stderr || 'unknown error')}`, { level: 'warning' });
+      await log(`⚠️  Warning: Failed to post comment: ${cleanErrorMessage(posted.stderr?.toString() || 'unknown error')}`, { level: 'warning' });
       return false;
     }
   } catch (error) {
@@ -672,6 +673,7 @@ export async function attachLogToGitHub(options) {
           isPublic: isPublicRepo,
           description: uploadDescription,
           verbose,
+          failureMessages: errorMessage ? [errorMessage] : [], // Issue #2296
         });
         if (uploadResult.success) {
           // Use rawUrl for direct file access (single chunk) or url for repository (multiple chunks) Requirements: 1 chunk = direct raw link, >1 chunks = repo link Private repository raw URLs can contain short-lived tokens, so keep private uploads on the stable repository/tree page URL.
@@ -683,7 +685,10 @@ export async function attachLogToGitHub(options) {
             return false;
           }
           const uploadTypeLabel = uploadResult.type === 'gist' ? 'Gist' : 'Repository';
-          const chunkInfo = uploadResult.chunks > 1 ? ` (${uploadResult.chunks} chunks)` : '';
+          const chunkInfo = uploadResult.chunks > 1 ? ` (${uploadResult.chunks} parts)` : '';
+          // Issue #2296: link every part of a split log and name the one with the failure.
+          const partLinks = formatLogPartLinks({ parts: uploadResult.parts, failurePartIndex: uploadResult.failurePartIndex ?? null, failureLocated: uploadResult.failureLocated === true });
+          const partLinksBlock = partLinks ? `\n${partLinks}` : '';
           // Create comment with log link
           let logUploadComment;
           // For usage limit cases, always use the dedicated format regardless of errorMessage
@@ -732,7 +737,7 @@ ${resumeCommand}
             logUploadComment += `${modelInfoString}
 
 ### 📎 **Execution log uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
-- [View complete execution log](${logUrl})
+- [View complete execution log](${logUrl})${partLinksBlock}
 
 ---
 ${uploadFooterNote}`;
@@ -745,7 +750,7 @@ ${errorMessage}
 \`\`\`${failureAction}${modelInfoString}
 
 ### 📎 **Failure log uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
-- [View complete failure log](${logUrl})
+- [View complete failure log](${logUrl})${partLinksBlock}
 
 ---
 *${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`;
@@ -758,7 +763,7 @@ This log file contains the complete execution trace of the AI ${targetType === '
 > **Note**: The session encountered errors during execution, but some work may have been completed. Please review the changes carefully.
 
 ### 📎 **Log file uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
-- [View complete solution draft log](${logUrl})
+- [View complete solution draft log](${logUrl})${partLinksBlock}
 
 ---
 *${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`;
@@ -782,7 +787,7 @@ This log file contains the complete execution trace of the AI ${targetType === '
 This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}${budgetStats}${modelInfoString}
 ${sessionNote}
 ### 📎 **Log file uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
-- [View complete solution draft log](${logUrl})
+- [View complete solution draft log](${logUrl})${partLinksBlock}
 
 ---
 *${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`;
@@ -805,7 +810,7 @@ ${sessionNote}
             global.logAttachedToGitHub = true;
             return true;
           } else {
-            await log(`  ❌ Failed to post comment with log link: ${posted.stderr || 'unknown error'}`);
+            await log(`  ❌ Failed to post comment with log link: ${posted.stderr?.toString() || 'unknown error'}`);
             return false;
           }
         } else {
@@ -876,7 +881,7 @@ async function attachRegularComment(options, logComment) {
     await log(`  📊 Log size: ${Math.round(logStats.size / 1024)}KB`);
     return true;
   } else {
-    await log(`  ❌ Failed to upload log to ${targetName}: ${posted.stderr || 'unknown error'}`);
+    await log(`  ❌ Failed to upload log to ${targetName}: ${posted.stderr?.toString() || 'unknown error'}`);
     return false;
   }
 }
@@ -1000,7 +1005,7 @@ export async function fetchProjectIssues(projectNumber, owner, statusFilter) {
     });
     const result = await $`gh project item-list ${projectNumber} --owner ${owner} --format json --limit 100`;
     const endTime = Date.now();
-    const projectData = JSON.parse(result.stdout || '{"items": []}');
+    const projectData = JSON.parse(result.stdout?.toString() || '{"items": []}');
     const allItems = projectData.items || [];
     await log(`   📊 Found ${allItems.length} total project items in ${Math.round((endTime - startTime) / 1000)}s`);
     // Filter by status and item type (only Issues)
@@ -1067,7 +1072,7 @@ export async function ghPrView({ prNumber, owner, repo, jsonFields = 'headRefNam
   try {
     const prResult = await $(QUIET_PROBE)`gh pr view ${prNumber} --repo ${owner}/${repo} --json ${jsonFields}`;
     const stdout = prResult.stdout.toString();
-    const stderr = prResult.stderr ? prResult.stderr.toString() : '';
+    const stderr = prResult.stderr?.toString() ? prResult.stderr.toString() : '';
     const code = prResult.code || 0;
     let data = null;
     if (code === 0 && stdout && !(stderr && stderr.includes('Could not resolve'))) {
@@ -1107,7 +1112,7 @@ export async function ghIssueView({ issueNumber, owner, repo, jsonFields = 'numb
   try {
     const issueResult = await $(QUIET_PROBE)`gh issue view ${issueNumber} --repo ${owner}/${repo} --json ${jsonFields}`;
     const stdout = issueResult.stdout.toString();
-    const stderr = issueResult.stderr ? issueResult.stderr.toString() : '';
+    const stderr = issueResult.stderr?.toString() ? issueResult.stderr.toString() : '';
     const code = issueResult.code || 0;
     let data = null;
     if (code === 0 && stdout && !(stderr && stderr.includes('Could not resolve'))) {

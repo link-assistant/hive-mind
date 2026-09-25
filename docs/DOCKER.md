@@ -501,24 +501,26 @@ The mounted Codex directory keeps the files we rely on:
 
 The optional `/home/box/.agents/skills/` mount stores user-level Agent Skills for the long-running container itself. It is **not** propagated into `--isolation docker` task containers (see the next section). Hive Mind does not deploy or commit these capabilities to the target repository.
 
-### What a `--isolation docker` task receives (issue #2190)
+### What a `--isolation docker` task receives (issues #2190 and #2296)
 
-Since [issue #2190](https://github.com/link-assistant/hive-mind/issues/2190) a task container no longer inherits the whole `~/.claude`, `~/.claude.json`, `~/.codex` or `~/.agents` tree of the host. Only the credential file and the session directories are shared:
+Since [issue #2190](https://github.com/link-assistant/hive-mind/issues/2190) a task container no longer inherits the global plugins, skills, settings or MCP registrations of the host. Since [issue #2296](https://github.com/link-assistant/hive-mind/issues/2296) the tool's config directory itself is shared (so OAuth refresh keeps working), and the entries that carry global configuration are replaced by per-task private overlays mounted on top of it:
 
-| Tool   | Shared with every task (bind-mounted)                                       | Per container (from the image)                                                   |
-| ------ | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| claude | `~/.claude/.credentials.json`, `~/.claude/projects/`, `~/.claude/sessions/` | `~/.claude.json`, `settings.json`, `plugins/`, `skills/`, `commands/`, `agents/` |
-| codex  | `~/.codex/auth.json`, `~/.codex/sessions/`                                  | `config.toml`, `plugins/`, `skills/`, `~/.agents/`                               |
-| all    | `~/.config/gh`, `~/.gitconfig`, `~/.config/git`                             |                                                                                  |
+| Tool   | Shared with every task (bind-mounted directory)                             | Private per task (overlay from `~/.hive-mind/docker-isolation/<session>/<tool>/`)                                        |
+| ------ | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| claude | `~/.claude/` (credentials, `.oauth_refresh.lock`, `projects/`, `sessions/`) | `plugins/`, `skills/`, `agents/`, `commands/`, `hooks/`, `output-styles/`, `rules/`, `settings.json` (`{}`), `CLAUDE.md` |
+| codex  | `~/.codex/` (`auth.json`, `sessions/`)                                      | `plugins/`, `skills/`, `rules/`, `prompts/`, `.tmp/`, `hive-mind/`, `config.toml` (`remote_plugin = false`), `AGENTS.md` |
+| all    | `~/.config/gh`, `~/.gitconfig`, `~/.config/git`                             | `~/.claude.json`, `~/.agents/` (from the image)                                                                          |
 
 Why:
 
-- **One credential file for all tasks.** A token refreshed by one task (or by the host) is immediately visible to every other task, because they all mount the very same file.
-- **No global reconfiguration from inside a task.** Plugins, marketplaces, skills, MCP registrations and settings a task installs stay in that container and disappear with it; the next task starts from the image defaults again.
-- **No inherited bloat.** A plugin synced into the host's global state (the `superpowers` plugin from the Codex remote catalog or the official Claude marketplace was the trigger for issue #2190) is never mounted into a task, so it cannot make the agent refuse to work or inflate its token usage.
-- **Audit stays global.** `projects/` and `sessions/` are still mounted from the host, so transcripts of every task can be discovered and audited in one place.
+- **The credential file is never mounted on its own.** Claude Code and Codex rotate their tokens atomically (write a temp file, then rename it over the old one). A single-file bind mount pins the inode it was created with, so a task never sees a token the host (or another task) rotated, and its own rename onto the mount fails with `EBUSY`. Claude Code also serialises refreshes with `.oauth_refresh.lock` next to the credential file; only a shared directory shares that lock. Issue #2296 was a 20-hour task that died with `OAuth session expired and could not be refreshed` because of the single-file mount (reproduced in `experiments/issue-2296/probe-credential-mounts.mjs`).
+- **No global reconfiguration from inside a task.** Plugins, marketplaces, skills, hooks and settings a task installs land in its private overlay and never reach the host or the next task.
+- **No inherited bloat.** A plugin synced into the host's global state (the `superpowers` plugin from the Codex remote catalog or the official Claude marketplace was the trigger for issue #2190) is hidden behind the empty private overlay, so it cannot make the agent refuse to work or inflate its token usage.
+- **Audit stays global.** `projects/` and `sessions/` live in the shared directory, so transcripts of every task can be discovered and audited in one place.
 
-Hive Mind creates the session directories on the host before launching a task. The credential file is never created for you: an empty `auth.json` makes Codex fail with `EOF while parsing`, so log in once on the host (or seed it with `{}` and log in from a task). With `--use-router` none of the vendor paths is mounted at all: the task authenticates only with its own router token ([docs/ROUTER.md](./ROUTER.md)).
+Hive Mind creates the config directory, the overlay mount points and the private overlay sources on the host before launching a task (overlays older than 14 days are pruned). The credential file is never created for you: an empty `auth.json` makes Codex fail with `EOF while parsing`, so log in once on the host (or seed it with `{}` and log in from a task). With `--use-router` none of the vendor paths is mounted at all: the task authenticates only with its own router token ([docs/ROUTER.md](./ROUTER.md)).
+
+Every `solve`/`hive` start also checks `/proc/self/mountinfo` and prints a warning when the credential file is itself a mount point (a hand-written `docker run -v ~/.claude/.credentials.json:...`): mount the whole directory instead.
 
 On top of the mount split, every `solve`/`hive` start audits the global Claude/Codex configuration and, by default, removes anything that is not part of the minimal profile (plugins, marketplaces, global skills, MCP servers other than Playwright, and the Codex remote plugin sync). Disable the repair with `--no-agent-config-auto-repair` or `HIVE_MIND_AGENT_CONFIG_AUTO_REPAIR=0`; the warnings are still printed.
 

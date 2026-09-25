@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { sanitizeForPublication } from './token-sanitization.lib.mjs';
 import { sanitizeLogFileToFileBounded } from './log-sanitize-worker.lib.mjs';
+import { describeUploadedLogParts } from './log-upload-parts.lib.mjs'; // Issue #2296
 
 // Log upload module for hive-mind
 // Uses gh-upload-log for uploading log files to GitHub
@@ -145,9 +146,10 @@ export const parseGhUploadLogOutput = outputValue => {
  * @param {boolean} options.isPublic - Whether to make the upload public
  * @param {string} options.description - Description for the upload
  * @param {boolean} [options.verbose=false] - Enable verbose logging
- * @returns {Promise<{success: boolean, url: string|null, rawUrl: string|null, type: 'gist'|'repository'|null, chunks: number, repositoryName?: string|null, repositoryPath?: string|null}>}
+ * @param {string[]} [options.failureMessages] - Issue #2296: error text used to find the part that holds the failure
+ * @returns {Promise<{success: boolean, url: string|null, rawUrl: string|null, type: 'gist'|'repository'|null, chunks: number, parts?: Array, failurePartIndex?: number|null, failureLocated?: boolean, repositoryName?: string|null, repositoryPath?: string|null}>}
  */
-export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description, verbose = false, runUpload = runGhUploadLogCommand }) => {
+export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description, verbose = false, failureMessages = [], runUpload = runGhUploadLogCommand, ghApi = apiPath => $silent`gh api ${apiPath}` }) => {
   const result = { success: false, url: null, rawUrl: null, type: null, chunks: 1 };
   let privateTempDirectory = null;
 
@@ -192,6 +194,22 @@ export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description,
     }
 
     Object.assign(result, parseGhUploadLogOutput(output));
+
+    // Issue #2296: gh-upload-log prints "File count" only with --verbose, so a
+    // split log looked like one file and was linked as its first part (or as
+    // the bare folder). List the folder, link every part and name the part
+    // that holds the failure, located in the same sanitized file that was split.
+    if (result.url && result.type === 'repository') {
+      try {
+        const described = await describeUploadedLogParts({ url: result.url, uploadedFile: privateLogFile, failureMessages, ghApi });
+        if (described.parts.length > 1) {
+          Object.assign(result, { chunks: described.parts.length, parts: described.parts, failurePartIndex: described.failurePartIndex, failureLocated: described.failureLocated });
+          if (verbose) await log(`  🧩 Log uploaded in ${described.parts.length} parts${described.failurePartIndex !== null ? `; failure ${described.failureLocated ? 'found in' : 'assumed at the end of'} part ${described.failurePartIndex + 1}` : ''}`, { verbose: true });
+        }
+      } catch (partsError) {
+        if (verbose) await log(`  ⚠️  Could not list log parts: ${partsError.message}`, { verbose: true });
+      }
+    }
 
     // Construct raw URL based on type and chunks
     if (result.url) {

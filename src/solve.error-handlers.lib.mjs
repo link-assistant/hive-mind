@@ -262,11 +262,28 @@ export const handleMainExecutionError = async options => {
     await log('\n❌ AUTHENTICATION ERROR', { level: 'error' });
     await log('', { level: 'error' });
     await log('   The AI tool authentication has failed.', { level: 'error' });
-    await log('   This error cannot be resolved by retrying.', { level: 'error' });
+    // Issue #2296: a transient auth failure is retried first, so say what was tried.
+    if (error.authRetry && !error.authRetry.skipped) {
+      await log(`   Hive Mind re-read the credentials and resumed the session ${error.authRetry.attempts} time(s); authentication failed each time.`, { level: 'error' });
+    } else {
+      await log('   This error cannot be resolved by retrying.', { level: 'error' });
+    }
     await log('', { level: 'error' });
     await log(`   Error: ${cleanErrorMessage(error)}`, { level: 'error' });
     await log('', { level: 'error' });
     await log(`   📁 Full log file: ${absoluteLogPath}`, { level: 'error' });
+
+    // Issue #2296: the container is removed with the workspace, so preserve the
+    // agent's uncommitted work (commit + push) before exiting, as handleFailure does.
+    try {
+      const { criticalErrorRecovery } = await import('./config.lib.mjs');
+      if (criticalErrorRecovery.autoCommitUncommittedChanges && cleanupContext?.tempDir) {
+        const { commitUncommittedChangesOnCriticalError } = await import('./critical-error-commit.lib.mjs');
+        await commitUncommittedChangesOnCriticalError({ tempDir: cleanupContext.tempDir, branchName: cleanupContext.branchName, $, log, reason: 'authentication error' });
+      }
+    } catch (preserveError) {
+      await log(`  ⚠️  Could not auto-commit changes before failure exit: ${preserveError.message}`, { verbose: true });
+    }
 
     // Don't try to attach logs or create issues for auth errors
     await safeExit(1, 'Authentication error');

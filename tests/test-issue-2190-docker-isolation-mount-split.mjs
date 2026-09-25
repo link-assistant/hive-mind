@@ -16,8 +16,12 @@
  *      settings.json, installed plugins) and thereby reconfigure every task
  *      that followed it.
  *
- * After the fix only the credential file and the session directories are
- * shared; a task's application folder is per container.
+ * After the fix only the credential file and the session directories were
+ * shared. Issue #2296 showed that a single-file credential mount goes stale on
+ * the first host-side token rotation and cannot share the OAuth refresh lock,
+ * so the config directory is shared again — with every entry that carries
+ * plugins, skills, settings or memory overlaid by a per-task private copy. This
+ * test keeps the #2190 guarantee under that layout.
  */
 import fs from 'fs';
 import os from 'os';
@@ -57,82 +61,87 @@ const existsSync = candidate => host.has(candidate);
 
 console.log('\n--- Reproduction: a task must not inherit the global application folder ---');
 
+const SESSION = 'task-2190';
+const privateDir = tool => `${HOME}/.hive-mind/docker-isolation/${SESSION}/${tool}`;
+// The overlay sources exist once prepareDockerIsolationHostPaths has run.
+const prepared = candidate => host.has(candidate) || candidate.startsWith(`${HOME}/.hive-mind/docker-isolation/`);
 for (const tool of ['claude', 'codex']) {
-  const args = buildDockerIsolationStartArgs('solve', [url, '--tool', tool], { tool, homeDir: HOME, env: {}, existsSync });
-  const volumes = args.filter((value, index) => args[index - 1] === '--volume');
-  const sources = volumes.map(volume => volume.split(':')[0]);
-  assertEqual(sources.includes(`${HOME}/.claude`), false, `${tool}: the whole ~/.claude directory is not mounted`);
+  const args = buildDockerIsolationStartArgs('solve', [url, '--tool', tool], { tool, sessionId: SESSION, homeDir: HOME, env: {}, existsSync: prepared });
+  const volumes = args.filter((value, index) => args[index - 1] === '--volume').map(volume => ({ source: volume.split(':')[0], target: volume.split(':')[1] }));
+  const sources = volumes.map(volume => volume.source);
+  const own = tool === 'claude' ? '.claude' : '.codex';
+  const other = tool === 'claude' ? '.codex' : '.claude';
+  assertEqual(sources.includes(`${HOME}/${other}`), false, `${tool}: the other tool's ${other} directory is not mounted`);
   assertEqual(sources.includes(`${HOME}/.claude.json`), false, `${tool}: ~/.claude.json (MCP/plugin registry) is not mounted`);
-  assertEqual(sources.includes(`${HOME}/.codex`), false, `${tool}: the whole ~/.codex directory is not mounted`);
   assertEqual(sources.includes(`${HOME}/.agents`), false, `${tool}: ~/.agents (global skills) is not mounted`);
-  assertEqual(
-    sources.some(source => source.includes('plugins') || source.includes('superpowers') || source.endsWith('config.toml') || source.endsWith('settings.json')),
-    false,
-    `${tool}: no plugin cache, skill, config.toml or settings.json reaches the task`
-  );
-  const own = tool === 'claude' ? `${HOME}/.claude/.credentials.json` : `${HOME}/.codex/auth.json`;
-  assertEqual(sources.includes(own), true, `${tool}: the credential file itself is still shared (token refresh visible to every task)`);
-  const sessionDirs = tool === 'claude' ? [`${HOME}/.claude/projects`, `${HOME}/.claude/sessions`] : [`${HOME}/.codex/sessions`];
-  for (const dir of sessionDirs) assertEqual(sources.includes(dir), true, `${tool}: ${path.relative(HOME, dir)} is still shared for audit/discovery`);
+  assertEqual(sources.includes(`${HOME}/${own}`), true, `${tool}: ${own} is shared as a directory (credentials and refresh lock together, issue #2296)`);
+  // Every host path that carries a plugin, skill, setting or config is shadowed by a private overlay mounted after the shared directory.
+  const sharedIndex = sources.indexOf(`${HOME}/${own}`);
+  for (const hostPath of [...host].filter(candidate => candidate.startsWith(`${HOME}/${own}/`) && /plugins|skills|settings\.json|config\.toml/.test(candidate))) {
+    const covering = volumes.findIndex(volume => volume.source.startsWith(privateDir(tool)) && (hostPath === `${HOME}/${own}/${path.basename(volume.target)}` || hostPath.startsWith(`${HOME}/${own}/${path.basename(volume.target)}/`)));
+    assertEqual(covering > sharedIndex, true, `${tool}: host ${path.relative(HOME, hostPath)} is hidden by a per-task overlay`);
+  }
 }
 
 console.log('\n--- Exact mount list ---');
 
-assertDeepEqual(mountPairs(getDockerIsolationAuthMounts({ tool: 'claude', homeDir: HOME, env: {}, existsSync })), [`${HOME}/.config/gh:${HOME}/.config/gh`, `${HOME}/.gitconfig:${HOME}/.gitconfig`, `${HOME}/.claude/.credentials.json:${HOME}/.claude/.credentials.json`, `${HOME}/.claude/projects:${HOME}/.claude/projects`, `${HOME}/.claude/sessions:${HOME}/.claude/sessions`], 'claude: gh, git identity, credential file, projects, sessions — nothing else');
-assertDeepEqual(mountPairs(getDockerIsolationAuthMounts({ tool: 'codex', homeDir: HOME, env: {}, existsSync })), [`${HOME}/.config/gh:${HOME}/.config/gh`, `${HOME}/.gitconfig:${HOME}/.gitconfig`, `${HOME}/.codex/auth.json:${HOME}/.codex/auth.json`, `${HOME}/.codex/sessions:${HOME}/.codex/sessions`], 'codex: gh, git identity, auth.json, sessions — nothing else');
-
-const noAuth = candidate => host.has(candidate) && !candidate.endsWith('.credentials.json') && !candidate.endsWith('auth.json');
+const overlayPairs = (tool, names) => names.map(name => `${privateDir(tool)}/${name}:${HOME}/.${tool}/${name}`);
+assertDeepEqual(mountPairs(getDockerIsolationAuthMounts({ tool: 'claude', sessionId: SESSION, homeDir: HOME, env: {}, existsSync: prepared })), [`${HOME}/.config/gh:${HOME}/.config/gh`, `${HOME}/.gitconfig:${HOME}/.gitconfig`, `${HOME}/.claude:${HOME}/.claude`, ...overlayPairs('claude', ['plugins', 'skills', 'agents', 'commands', 'hooks', 'output-styles', 'rules', 'settings.json', 'CLAUDE.md'])], 'claude: gh, git identity, the shared ~/.claude, then the private overlays — nothing else');
+assertDeepEqual(mountPairs(getDockerIsolationAuthMounts({ tool: 'codex', sessionId: SESSION, homeDir: HOME, env: {}, existsSync: prepared })), [`${HOME}/.config/gh:${HOME}/.config/gh`, `${HOME}/.gitconfig:${HOME}/.gitconfig`, `${HOME}/.codex:${HOME}/.codex`, ...overlayPairs('codex', ['plugins', 'skills', 'rules', 'prompts', '.tmp', 'hive-mind', 'config.toml', 'AGENTS.md'])], 'codex: gh, git identity, the shared ~/.codex, then the private overlays — nothing else');
 assertEqual(
-  mountPairs(getDockerIsolationAuthMounts({ tool: 'codex', homeDir: HOME, env: {}, existsSync: noAuth })).some(pair => pair.includes('auth.json')),
+  mountPairs(getDockerIsolationAuthMounts({ tool: 'claude', sessionId: SESSION, homeDir: HOME, env: {}, existsSync })).some(pair => pair.includes('settings.json') || pair.includes('CLAUDE.md')),
   false,
-  'a missing credential file is skipped rather than mounted (Docker would otherwise create a directory in its place)'
+  'a missing file overlay source is skipped rather than mounted (Docker would otherwise create a directory in its place)'
 );
 
 console.log('\n--- The mount table is the single source of truth ---');
 
-assertDeepEqual(
-  DOCKER_ISOLATION_TOOL_MOUNTS.claude.map(entry => entry.relativePath),
-  ['.claude/.credentials.json', '.claude/projects', '.claude/sessions'],
-  'claude shares exactly the credential file and the two session directories'
-);
-assertDeepEqual(
-  DOCKER_ISOLATION_TOOL_MOUNTS.codex.map(entry => entry.relativePath),
-  ['.codex/auth.json', '.codex/sessions'],
-  'codex shares exactly auth.json and the sessions directory'
-);
-assertEqual(Object.isFrozen(DOCKER_ISOLATION_TOOL_MOUNTS) && Object.isFrozen(DOCKER_ISOLATION_TOOL_MOUNTS.claude), true, 'the table is frozen so a task or a test cannot widen it at runtime');
+assertDeepEqual([DOCKER_ISOLATION_TOOL_MOUNTS.claude.configDir, DOCKER_ISOLATION_TOOL_MOUNTS.claude.authFile], ['.claude', '.credentials.json'], 'claude shares ~/.claude, which holds .credentials.json and .oauth_refresh.lock');
+assertDeepEqual([DOCKER_ISOLATION_TOOL_MOUNTS.codex.configDir, DOCKER_ISOLATION_TOOL_MOUNTS.codex.authFile], ['.codex', 'auth.json'], 'codex shares ~/.codex, which holds auth.json');
+assertEqual(Object.isFrozen(DOCKER_ISOLATION_TOOL_MOUNTS) && Object.isFrozen(DOCKER_ISOLATION_TOOL_MOUNTS.claude) && Object.isFrozen(DOCKER_ISOLATION_TOOL_MOUNTS.claude.privateOverlays), true, 'the table is frozen so a task or a test cannot widen it at runtime');
 
-console.log('\n--- Router suppression still covers the split entries (issue #2164) ---');
+console.log('\n--- Router suppression still covers the tool directory (issue #2164) ---');
 
 for (const tool of ['claude', 'codex']) {
   const suppressed = getRouterSuppressedCredentialPaths({ tool });
-  const routed = mountPairs(getDockerIsolationAuthMounts({ tool, homeDir: HOME, env: {}, existsSync, useRouter: true }));
+  const routed = mountPairs(getDockerIsolationAuthMounts({ tool, sessionId: SESSION, homeDir: HOME, env: {}, existsSync: prepared, useRouter: true }));
   assertEqual(
     routed.some(pair => suppressed.some(prefix => pair.includes(`/${prefix}`))),
     false,
-    `${tool}: with --use-router none of the split ${tool} paths survives (prefix suppression)`
+    `${tool}: with --use-router none of the ${tool} paths survives (prefix suppression)`
   );
   assertEqual(routed.includes(`${HOME}/.config/gh:${HOME}/.config/gh`), true, `${tool}: gh is still mounted when GitHub is not routed`);
 }
 
-console.log('\n--- Host-side preparation creates the session directories, never the credential file ---');
+console.log('\n--- Host-side preparation creates mount points and overlays, never the credential file ---');
 
 const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), 'issue-2190-home-'));
 try {
-  const codexPrep = prepareDockerIsolationHostPaths({ tool: 'codex', homeDir: tmpHome });
-  assertDeepEqual(codexPrep.created, [path.join(tmpHome, '.codex', 'sessions')], 'codex: the sessions directory is created on a fresh host');
+  const codexPrep = prepareDockerIsolationHostPaths({ tool: 'codex', sessionId: SESSION, homeDir: tmpHome });
+  assertEqual(codexPrep.created.includes(path.join(tmpHome, '.codex')), true, 'codex: the config directory is created on a fresh host');
+  assertEqual(codexPrep.created.includes(path.join(tmpHome, '.hive-mind', 'docker-isolation', SESSION, 'codex', 'config.toml')), true, 'codex: a private config.toml is seeded for the task');
+  assertEqual(fs.readFileSync(path.join(tmpHome, '.hive-mind', 'docker-isolation', SESSION, 'codex', 'config.toml'), 'utf8').includes('remote_plugin = false'), true, 'codex: the private config.toml pins remote_plugin = false');
   assertDeepEqual(codexPrep.missingAuth, [path.join(tmpHome, '.codex', 'auth.json')], 'codex: a missing auth.json is reported, not fabricated');
   assertEqual(fs.existsSync(path.join(tmpHome, '.codex', 'auth.json')), false, 'codex: auth.json is never created (an empty file breaks codex: "EOF while parsing")');
 
-  fs.mkdirSync(path.join(tmpHome, '.claude'), { recursive: true });
+  fs.mkdirSync(path.join(tmpHome, '.claude', 'plugins', 'cache', 'superpowers'), { recursive: true });
   fs.writeFileSync(path.join(tmpHome, '.claude', '.credentials.json'), '{}');
-  const claudePrep = prepareDockerIsolationHostPaths({ tool: 'claude', homeDir: tmpHome });
-  assertDeepEqual(claudePrep.created, [path.join(tmpHome, '.claude', 'projects'), path.join(tmpHome, '.claude', 'sessions')], 'claude: projects and sessions are created on a fresh host');
+  fs.writeFileSync(path.join(tmpHome, '.claude', 'settings.json'), '{"enabledPlugins":{"superpowers@claude-plugins-official":true}}');
+  const claudePrep = prepareDockerIsolationHostPaths({ tool: 'claude', sessionId: SESSION, homeDir: tmpHome });
   assertDeepEqual(claudePrep.missingAuth, [], 'claude: an existing credential file is not reported');
-  const again = prepareDockerIsolationHostPaths({ tool: 'claude', homeDir: tmpHome });
+  assertEqual(fs.readFileSync(path.join(tmpHome, '.claude', 'settings.json'), 'utf8').includes('superpowers'), true, 'claude: the host settings.json is left untouched');
+  assertEqual(fs.readFileSync(path.join(tmpHome, '.hive-mind', 'docker-isolation', SESSION, 'claude', 'settings.json'), 'utf8'), '{}\n', 'claude: the task gets its own empty settings.json (solve re-applies the baseline at runtime)');
+  assertDeepEqual(fs.readdirSync(path.join(tmpHome, '.hive-mind', 'docker-isolation', SESSION, 'claude', 'plugins')), [], 'claude: the task gets an empty private plugins directory');
+  const mounts = getDockerIsolationAuthMounts({ tool: 'claude', sessionId: SESSION, homeDir: tmpHome, env: {} });
+  assertEqual(
+    mounts.every(mount => fs.existsSync(mount.source)),
+    true,
+    'claude: after preparation every mount source exists'
+  );
+  const again = prepareDockerIsolationHostPaths({ tool: 'claude', sessionId: SESSION, homeDir: tmpHome });
   assertDeepEqual(again.created, [], 'preparation is idempotent');
-  const routed = prepareDockerIsolationHostPaths({ tool: 'codex', homeDir: tmpHome, useRouter: true });
-  assertDeepEqual(routed, { created: [], missingAuth: [] }, 'a routed task prepares nothing: it mounts no vendor state at all');
+  const routed = prepareDockerIsolationHostPaths({ tool: 'codex', sessionId: SESSION, homeDir: tmpHome, useRouter: true });
+  assertDeepEqual(routed, { created: [], missingAuth: [], pruned: [] }, 'a routed task prepares nothing: it mounts no vendor state at all');
 } finally {
   fs.rmSync(tmpHome, { recursive: true, force: true });
 }

@@ -331,7 +331,7 @@ export const createIssueForError = async options => {
       await log(`✅ Issue created: ${issueUrl}`);
       return issueUrl;
     } else {
-      await log(`❌ Failed to create issue: ${result.stderr || 'Unknown error'}`, { level: 'error' });
+      await log(`❌ Failed to create issue: ${result.stderr?.toString() || 'Unknown error'}`, { level: 'error' });
       return null;
     }
   } catch (createError) {

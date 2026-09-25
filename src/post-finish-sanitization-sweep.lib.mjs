@@ -35,7 +35,7 @@ import { quietProbe } from './quiet-probe.lib.mjs'; // issue #2130: keep read-on
 const detectBotLogin = async $ => {
   try {
     const result = await quietProbe($)`gh api user --jq .login`;
-    if (result && result.code === 0 && result.stdout) {
+    if (result && result.code === 0 && result.stdout?.toString()) {
       const login = result.stdout.toString().trim();
       return login || null;
     }

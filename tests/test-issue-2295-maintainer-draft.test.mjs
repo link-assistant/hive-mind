@@ -23,6 +23,7 @@
 import { ensurePullRequestIsDraft, ensurePullRequestIsReady, findMaintainerDraftConversion, getOutstandingWorkingSessionDrafts, getPullRequestLeftInDraft, resetWorkingSessionDrafts } from '../src/pr-draft-state.lib.mjs';
 import { readFileSync } from 'fs';
 import { resolveDraftBlocker } from '../src/solve.auto-merge-guards.lib.mjs';
+import { postWorkSessionStartComment, SESSION_TYPES } from '../src/solve.session.lib.mjs';
 
 let passed = 0;
 let failed = 0;
@@ -126,13 +127,41 @@ await test('watch loop draft self-heal stops instead of overriding the maintaine
   assert(state.isDraft === true && !$.commands.some(c => c.includes('gh pr ready')), 'no ready conversion attempted');
 });
 
+await test('the next session still sees the maintainer draft after an AI `gh pr ready` and our restore', async () => {
+  // With the fix, session 2 ends with hive-mind restoring the draft, so the latest transition is ours.
+  const state = session2State();
+  state.timeline.push(['ready_for_review', 'konard', '2026-09-24T18:45:13Z'], ['convert_to_draft', 'konard', '2026-09-24T18:48:00Z']);
+  const $ = makeFakeDollar(state);
+  const conversion = await findMaintainerDraftConversion({ ...pr, $ });
+  assert(conversion?.actor === 'ilyar', `got ${JSON.stringify(conversion)}`);
+});
+
+await test('session 3 (PR left ready by the session 2 AI) re-drafts it as the maintainer draft', async () => {
+  const state = session2State();
+  state.isDraft = false;
+  state.timeline.push(['ready_for_review', 'konard', '2026-09-24T18:45:13Z']);
+  const $ = makeFakeDollar(state);
+  const result = await ensurePullRequestIsDraft({ ...pr, $, log: silentLog, formatAligned: fmt });
+  assert(result.changed && state.isDraft, 'converted to draft at session start');
+  assert(result.maintainerDraft?.actor === 'ilyar', 'recognised as the maintainer draft');
+  const ready = await ensurePullRequestIsReady({ ...pr, $, log: silentLog, formatAligned: fmt });
+  assert(ready.reason === 'left_in_draft_on_purpose' && state.isDraft, 'stays a draft at session end');
+  assert(getOutstandingWorkingSessionDrafts().length === 0, 'no working-session obligation');
+});
+
+await test('the maintainer marking it ready again ends the maintainer draft', async () => {
+  const state = session2State();
+  state.timeline.push(['ready_for_review', 'ilyar', '2026-09-24T20:00:00Z']);
+  const $ = makeFakeDollar(state);
+  assert((await findMaintainerDraftConversion({ ...pr, $ })) === null, 'maintainer readied it');
+});
+
 await test('a draft made by hive-mind itself is still converted back (issue #2182 unchanged)', async () => {
   const state = {
     isDraft: true,
     self: 'konard',
     timeline: [
-      ['convert_to_draft', 'ilyar', '2026-09-24T05:51:01Z'],
-      ['ready_for_review', 'konard', '2026-09-24T18:45:13Z'],
+      ['ready_for_review', 'konard', '2026-09-23T22:26:18Z'],
       ['convert_to_draft', 'konard', '2026-09-25T03:29:11Z'],
     ],
   };
@@ -154,6 +183,19 @@ await test('a timeline lookup failure never blocks the session', async () => {
 await test('a PR opened as draft (no transition events) is not a maintainer draft', async () => {
   const $ = makeFakeDollar({ isDraft: true, self: 'konard', timeline: [] });
   assert((await findMaintainerDraftConversion({ ...pr, $ })) === null, 'no conversion');
+});
+
+await test('the session start comment does not promise to mark a maintainer draft ready', async () => {
+  const postedBodies = async () => {
+    const bodies = [];
+    const $ = options => (options && options.stdin ? () => (bodies.push(JSON.parse(options.stdin).body), Promise.resolve({ code: 0, stdout: '{"id":1}', stderr: '' })) : Promise.resolve({ code: 0, stdout: '', stderr: '' }));
+    await postWorkSessionStartComment({ ...pr, $, log: silentLog, formatAligned: fmt, sessionType: SESSION_TYPES.NEW, resolveRuntime: async () => null });
+    return bodies.join('\n');
+  };
+  assert((await postedBodies()).includes('converted to draft mode while work is in progress'), 'default wording unchanged');
+  await ensurePullRequestIsDraft({ ...pr, $: makeFakeDollar(session2State()), log: silentLog, formatAligned: fmt });
+  const body = await postedBodies();
+  assert(body.includes('The PR stays a draft: @ilyar converted it to draft'), `got: ${body}`);
 });
 
 await test('every system prompt tells the AI not to override a maintainer draft and to use "Part of #N"', async () => {

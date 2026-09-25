@@ -76,13 +76,13 @@ export const failOnToolFailure = async ({ tempDir, branchName, $, log, reason = 
 export const inspectUnsavedWork = async ({ tempDir, $ }) => {
   if (!tempDir || typeof $ !== 'function') return null;
   try {
-    const status = await $({ cwd: tempDir })`git status --porcelain 2>/dev/null`;
+    const status = await $({ cwd: tempDir, mirror: false })`git status --porcelain 2>/dev/null`;
     if (status.code !== 0) return null;
     const uncommitted = String(status.stdout || '')
       .split('\n')
       .map(line => line.trimEnd())
       .filter(Boolean);
-    const unpushed = await $({ cwd: tempDir })`git rev-list --count HEAD --not --remotes 2>/dev/null`;
+    const unpushed = await $({ cwd: tempDir, mirror: false })`git rev-list --count HEAD --not --remotes 2>/dev/null`;
     const unpushedCommits = unpushed.code === 0 ? Number.parseInt(String(unpushed.stdout).trim(), 10) || 0 : 0;
     return { uncommitted, unpushedCommits };
   } catch {

@@ -131,6 +131,14 @@ export const ensurePullRequestIssueLink = async ({ prNumber, issueNumber, owner,
     return { checked: false, updated: false, body: prBody, issueRef: buildIssueReference({ issueNumber, owner, repo, fork: argv.fork }), error };
   }
   prBody = prBodyResult.stdout.toString();
+  // Issue #2293: without a linked issue, solve falls back to issueNumber = prNumber.
+  // Issues and pull requests share one number space, so this is the PR itself;
+  // writing "Fixes #<own number>" would make every later run treat the PR as its
+  // own linked issue and read the solver's PR edits as issue edits.
+  if (Number(issueNumber) === Number(prNumber)) {
+    await logger(`  ℹ️  PR #${prNumber} has no separate linked issue - skipping self-referencing issue link`);
+    return { checked: true, updated: false, body: prBody, issueRef: null, skipped: 'self-reference' };
+  }
   const linkResult = ensureIssueLinkInPullRequestBody(prBody, {
     issueNumber,
     owner,

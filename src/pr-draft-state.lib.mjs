@@ -45,6 +45,7 @@
 
 // rate-limit marker (#1726): callers pass in a `$` already wrapped by wrapDollarWithGhRetry.
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs';
+import { quietProbe } from './quiet-probe.lib.mjs';
 
 const noopLog = async () => {};
 
@@ -303,7 +304,9 @@ export const findMaintainerDraftConversion = async ({ owner, repo, prNumber, $, 
   if (!owner || !repo || !prNumber || typeof $ !== 'function') return null;
   try {
     const jq = '.[] | select(.event == "convert_to_draft" or .event == "ready_for_review") | [.event, (.actor.login // ""), .created_at] | @tsv';
-    const timeline = await $`gh api repos/${owner}/${repo}/issues/${prNumber}/timeline --paginate --jq ${jq}`;
+    // Issue #2130: probes stay out of the log; the verbose line below says what was found.
+    const probe = quietProbe($);
+    const timeline = await probe`gh api repos/${owner}/${repo}/issues/${prNumber}/timeline --paginate --jq ${jq}`;
     if (!timeline || timeline.code !== 0) return null;
     const transitions = (timeline.stdout || '')
       .toString()
@@ -312,7 +315,7 @@ export const findMaintainerDraftConversion = async ({ owner, repo, prNumber, $, 
       .filter(fields => fields.length === 3 && (fields[0] === 'convert_to_draft' || fields[0] === 'ready_for_review'));
     if (!transitions.some(fields => fields[0] === 'convert_to_draft')) return null;
 
-    const user = await $`gh api user --jq .login`;
+    const user = await probe`gh api user --jq .login`;
     const self = user && user.code === 0 ? (user.stdout || '').toString().trim().toLowerCase() : '';
     if (!self) return null;
     const last = transitions.filter(fields => fields[1] && fields[1].toLowerCase() !== self).pop();

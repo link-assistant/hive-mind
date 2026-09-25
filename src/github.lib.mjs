@@ -10,6 +10,7 @@ import { batchCheckPullRequestsForIssues as batchCheckPRs, batchCheckArchivedRep
 import { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeOutput, sanitizeLogContent, sanitizeForPublication, writeSanitizedPublicationFile } from './token-sanitization.lib.mjs';
 export { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeOutput, sanitizeLogContent, sanitizeForPublication, writeSanitizedPublicationFile }; // Re-export for backward compatibility
 import { uploadLogWithGhUploadLog } from './log-upload.lib.mjs';
+import { formatLogPartLinks } from './log-upload-parts.lib.mjs'; // Issue #2296
 // Issue #2189: bracket the log-upload phase with resource samples. The incident
 // log's last sample was `after_agent`, ten minutes before the heap OOM, so the
 // phase that actually died left no telemetry at all.
@@ -672,6 +673,7 @@ export async function attachLogToGitHub(options) {
           isPublic: isPublicRepo,
           description: uploadDescription,
           verbose,
+          failureMessages: errorMessage ? [errorMessage] : [], // Issue #2296
         });
         if (uploadResult.success) {
           // Use rawUrl for direct file access (single chunk) or url for repository (multiple chunks) Requirements: 1 chunk = direct raw link, >1 chunks = repo link Private repository raw URLs can contain short-lived tokens, so keep private uploads on the stable repository/tree page URL.
@@ -683,7 +685,10 @@ export async function attachLogToGitHub(options) {
             return false;
           }
           const uploadTypeLabel = uploadResult.type === 'gist' ? 'Gist' : 'Repository';
-          const chunkInfo = uploadResult.chunks > 1 ? ` (${uploadResult.chunks} chunks)` : '';
+          const chunkInfo = uploadResult.chunks > 1 ? ` (${uploadResult.chunks} parts)` : '';
+          // Issue #2296: link every part of a split log and name the one with the failure.
+          const partLinks = formatLogPartLinks({ parts: uploadResult.parts, failurePartIndex: uploadResult.failurePartIndex ?? null, failureLocated: uploadResult.failureLocated === true });
+          const partLinksBlock = partLinks ? `\n${partLinks}` : '';
           // Create comment with log link
           let logUploadComment;
           // For usage limit cases, always use the dedicated format regardless of errorMessage
@@ -732,7 +737,7 @@ ${resumeCommand}
             logUploadComment += `${modelInfoString}
 
 ### 📎 **Execution log uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
-- [View complete execution log](${logUrl})
+- [View complete execution log](${logUrl})${partLinksBlock}
 
 ---
 ${uploadFooterNote}`;
@@ -745,7 +750,7 @@ ${errorMessage}
 \`\`\`${failureAction}${modelInfoString}
 
 ### 📎 **Failure log uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
-- [View complete failure log](${logUrl})
+- [View complete failure log](${logUrl})${partLinksBlock}
 
 ---
 *${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`;
@@ -758,7 +763,7 @@ This log file contains the complete execution trace of the AI ${targetType === '
 > **Note**: The session encountered errors during execution, but some work may have been completed. Please review the changes carefully.
 
 ### 📎 **Log file uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
-- [View complete solution draft log](${logUrl})
+- [View complete solution draft log](${logUrl})${partLinksBlock}
 
 ---
 *${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`;
@@ -782,7 +787,7 @@ This log file contains the complete execution trace of the AI ${targetType === '
 This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}${budgetStats}${modelInfoString}
 ${sessionNote}
 ### 📎 **Log file uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
-- [View complete solution draft log](${logUrl})
+- [View complete solution draft log](${logUrl})${partLinksBlock}
 
 ---
 *${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`;

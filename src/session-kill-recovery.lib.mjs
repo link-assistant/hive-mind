@@ -189,11 +189,11 @@ export async function postKillRecoveryNotice({ pullRequestUrl, body, runCommand 
     await writeFile(bodyFile, await sanitizeForPublication(body));
     const result = await runCommand('gh', ['pr', 'comment', pullRequestUrl, '--body-file', bodyFile]);
     if (result?.code === 0) {
-      const url = String(result.stdout || '').trim() || null;
+      const url = String(result.stdout?.toString() || '').trim() || null;
       if (verbose) console.log(`[VERBOSE] Posted killed-session notice to ${pullRequestUrl}${url ? ` (${url})` : ''}`);
       return { posted: true, url, error: null };
     }
-    const error = String(result?.stderr || result?.stdout || describeChildExit({ command: 'gh pr comment', code: result?.code, signal: result?.signal })).trim();
+    const error = String(result?.stderr?.toString() || result?.stdout?.toString() || describeChildExit({ command: 'gh pr comment', code: result?.code, signal: result?.signal })).trim();
     if (verbose) console.log(`[VERBOSE] Failed to post killed-session notice: ${error}`);
     return { posted: false, url: null, error };
   } catch (error) {

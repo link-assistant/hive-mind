@@ -52,7 +52,7 @@ export async function detectContributingGuidelines(owner, repo) {
       // swallowed - every repository looked as if it had no contributing
       // guidelines. The command-stream result fields are read directly instead.
       const checkResult = await $(QUIET_PROBE)`gh api repos/${owner}/${repo}/contents/${path} 2>/dev/null`;
-      const checkText = checkResult.stdout ? checkResult.stdout.toString().trim() : '';
+      const checkText = checkResult.stdout?.toString() ? checkResult.stdout.toString().trim() : '';
       if (checkResult.code === 0 && checkText) {
         result.found = true;
         result.path = path;
@@ -81,7 +81,7 @@ export async function detectContributingGuidelines(owner, repo) {
     try {
       // Issue #2135: `mirror: false`, and the same `.raw()` fix as above.
       const readme = await $(QUIET_PROBE)`gh api repos/${owner}/${repo}/readme 2>/dev/null`;
-      const readmeText = readme.stdout ? readme.stdout.toString().trim() : '';
+      const readmeText = readme.stdout?.toString() ? readme.stdout.toString().trim() : '';
       if (readme.code === 0 && readmeText) {
         const readmeData = JSON.parse(readmeText);
         const readmeContent = Buffer.from(readmeData.content, 'base64').toString('utf-8');

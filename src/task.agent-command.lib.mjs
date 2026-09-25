@@ -41,7 +41,7 @@ export async function resolveStartAgentCommand(options = {}) {
   if (result.code !== 0) return null;
 
   return (
-    (result.stdout || '')
+    (result.stdout?.toString() || '')
       .split(/\r?\n/)
       .map(line => line.trim())
       .find(Boolean) || null

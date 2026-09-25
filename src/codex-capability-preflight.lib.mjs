@@ -172,16 +172,16 @@ export function applyCodexCapabilityEnv(env, { codexHome, baseCodexHome } = {}) 
 const defaultRunCommand = async ({ command, args, env = process.env, cwd }) => {
   try {
     const result = await execFileAsync(command, args, { cwd, env, encoding: 'utf8', maxBuffer: 20 * 1024 * 1024 });
-    return { stdout: result.stdout || '', stderr: result.stderr || '', code: 0 };
+    return { stdout: result.stdout?.toString() || '', stderr: result.stderr?.toString() || '', code: 0 };
   } catch (error) {
     return { stdout: error.stdout || '', stderr: error.stderr || error.message, code: Number.isInteger(error.code) ? error.code : 1 };
   }
 };
 
 const parseJsonCommand = (result, label) => {
-  if (result.code !== 0) throw new CodexCapabilityPreflightError(`${label} failed: ${String(result.stderr || result.stdout).trim()}`);
+  if (result.code !== 0) throw new CodexCapabilityPreflightError(`${label} failed: ${String(result.stderr?.toString() || result.stdout?.toString()).trim()}`);
   try {
-    return JSON.parse(result.stdout || 'null');
+    return JSON.parse(result.stdout?.toString() || 'null');
   } catch (error) {
     throw new CodexCapabilityPreflightError(`${label} returned invalid JSON: ${error.message}`);
   }
@@ -202,7 +202,7 @@ export const parseModelVisibleSkills = (promptInput = '') => {
   return catalog ? new Set(catalog.entries.map(entry => entry.name)) : null;
 };
 
-const unsupportedPromptProbe = result => result.code !== 0 && /(?:unrecognized|unknown) (?:command|subcommand).*prompt-input|prompt-input.*(?:unrecognized|unknown) (?:command|subcommand)/iu.test(String(result.stderr || result.stdout));
+const unsupportedPromptProbe = result => result.code !== 0 && /(?:unrecognized|unknown) (?:command|subcommand).*prompt-input|prompt-input.*(?:unrecognized|unknown) (?:command|subcommand)/iu.test(String(result.stderr?.toString() || result.stdout?.toString()));
 
 const catalogBoundaryError = (message, details = {}) => new CodexCapabilityPreflightError(message, { ...details, failClosed: true, securityBoundary: true });
 
@@ -215,13 +215,13 @@ const readModelVisibleSkills = async ({ command, env, runCommand, log }) => {
     if (!unsupportedPromptProbe(result))
       throw catalogBoundaryError(
         `Could not verify the model-visible Codex skill catalog: ${
-          String(result.stderr || result.stdout)
+          String(result.stderr?.toString() || result.stdout?.toString())
             .trim()
             .slice(0, 300) || `prompt probe exited with code ${result.code}`
         }.`
       );
     await log(
-      `   ⚠️  This Codex CLI does not support the model-visible skill catalog probe: ${String(result.stderr || result.stdout)
+      `   ⚠️  This Codex CLI does not support the model-visible skill catalog probe: ${String(result.stderr?.toString() || result.stdout?.toString())
         .trim()
         .slice(0, 200)}`,
       { verbose: true }

@@ -136,7 +136,7 @@ Hive Mind में अधिकांश (औसत) प्रोग्रा�
 - labels द्वारा फ़िल्टर करें या सभी issues प्रोसेस करें
 - write पहुंच के बिना repos के लिए auto-fork
 - कॉन्फ़िगर करने योग्य अंतराल के साथ निरंतर निगरानी
-- Repository मोड: `solve` को repository URL पास करें और सभी open issues एक ही issue में GitHub native sub-issues के रूप में संयोजित हो जाते हैं, जिन्हें एक ही pull request से बंद किया जा सकता है; खाली repository को सफल no-op बताया जाता है और Telegram work session शुरू नहीं होता
+- Repository मोड: `solve` को repository URL पास करें और सभी open issues एक ही issue में GitHub native sub-issues के रूप में संयोजित हो जाते हैं, सभी वर्तमान user को assign किए जाते हैं ताकि स्पष्ट रहे कि वे प्रगति में हैं, और उन्हें एक ही pull request से बंद किया जा सकता है; खाली repository को सफल no-op बताया जाता है और Telegram work session शुरू नहीं होता
 
 ### 9. जहां मायने रखती है वहां मानव निगरानी
 

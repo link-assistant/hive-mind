@@ -170,7 +170,7 @@ export const getPullRequestDraftState = async ({ owner, repo, prNumber, $, log =
   try {
     const result = await $`gh pr view ${prNumber} --repo ${owner}/${repo} --json isDraft,state`;
     if (result.code !== 0) {
-      const stderr = result.stderr ? result.stderr.toString().trim() : '';
+      const stderr = result.stderr?.toString() ? result.stderr.toString().trim() : '';
       return { ok: false, isDraft: null, state: null, merged: false, error: stderr || `gh exited with code ${result.code}` };
     }
 
@@ -250,7 +250,7 @@ const setPullRequestDraftState = async ({ target, owner, repo, prNumber, $, log 
       return { ok: true, changed: true, skipped: false, reason: null, error: null };
     }
 
-    const stderr = convertResult.stderr ? convertResult.stderr.toString().trim() : '';
+    const stderr = convertResult.stderr?.toString() ? convertResult.stderr.toString().trim() : '';
     await log(`Warning: Could not convert PR #${prNumber} to ${label}${stderr ? `: ${stderr}` : ''}`, { level: 'warning' });
     return { ok: false, changed: false, skipped: false, reason: 'conversion_failed', error: stderr || `gh exited with code ${convertResult.code}` };
   } catch (error) {
@@ -308,7 +308,7 @@ export const findMaintainerDraftConversion = async ({ owner, repo, prNumber, $, 
     const probe = quietProbe($);
     const timeline = await probe`gh api repos/${owner}/${repo}/issues/${prNumber}/timeline --paginate --jq ${jq}`;
     if (!timeline || timeline.code !== 0) return null;
-    const transitions = (timeline.stdout || '')
+    const transitions = (timeline.stdout?.toString() || '')
       .toString()
       .split('\n')
       .map(line => line.trim().split('\t'))
@@ -316,7 +316,7 @@ export const findMaintainerDraftConversion = async ({ owner, repo, prNumber, $, 
     if (!transitions.some(fields => fields[0] === 'convert_to_draft')) return null;
 
     const user = await probe`gh api user --jq .login`;
-    const self = user && user.code === 0 ? (user.stdout || '').toString().trim().toLowerCase() : '';
+    const self = user && user.code === 0 ? (user.stdout?.toString() || '').trim().toLowerCase() : '';
     if (!self) return null;
     const last = transitions.filter(fields => fields[1] && fields[1].toLowerCase() !== self).pop();
     if (!last || last[0] !== 'convert_to_draft') return null;

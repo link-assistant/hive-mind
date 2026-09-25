@@ -38,7 +38,7 @@ export async function prepareFeedbackAndTimestamps({ tempDir = null, prNumber, b
     const issueResult = await $`gh api repos/${owner}/${repo}/issues/${issueNumber} --jq .updated_at`;
 
     if (issueResult.code !== 0) {
-      throw new Error(`Failed to get issue details: ${issueResult.stderr ? issueResult.stderr.toString() : 'Unknown error'}`);
+      throw new Error(`Failed to get issue details: ${issueResult.stderr?.toString() ? issueResult.stderr.toString() : 'Unknown error'}`);
     }
 
     const issueUpdatedAt = new Date(issueResult.stdout.toString().trim());
@@ -52,7 +52,7 @@ export async function prepareFeedbackAndTimestamps({ tempDir = null, prNumber, b
     const commentsResult = await quietProbe($)`gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate`;
 
     if (commentsResult.code !== 0) {
-      await log(`Warning: Failed to get comments: ${commentsResult.stderr ? commentsResult.stderr.toString() : 'Unknown error'}`, { level: 'warning' });
+      await log(`Warning: Failed to get comments: ${commentsResult.stderr?.toString() ? commentsResult.stderr.toString() : 'Unknown error'}`, { level: 'warning' });
       // Continue anyway, comments are optional
     }
 
@@ -68,7 +68,7 @@ export async function prepareFeedbackAndTimestamps({ tempDir = null, prNumber, b
     const prsResult = await $`gh pr list --repo ${owner}/${repo} --limit 1 --json createdAt`;
 
     if (prsResult.code !== 0) {
-      await log(`Warning: Failed to get PRs: ${prsResult.stderr ? prsResult.stderr.toString() : 'Unknown error'}`, {
+      await log(`Warning: Failed to get PRs: ${prsResult.stderr?.toString() ? prsResult.stderr.toString() : 'Unknown error'}`, {
         level: 'warning',
       });
       // Continue anyway, PRs are optional for timestamp calculation

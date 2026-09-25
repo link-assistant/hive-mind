@@ -206,6 +206,110 @@ export function buildCombinedIssueBody({ repository, issues, totalOpen, limit = 
 }
 
 /**
+ * `gh api` arguments that fetch the parent of an issue
+ * (https://docs.github.com/en/rest/issues/sub-issues#get-parent-issue).
+ *
+ * @param {object} params
+ * @param {string} params.owner
+ * @param {string} params.repo
+ * @param {number} params.number - sub-issue number
+ * @param {string} params.apiVersion - GitHub REST API version header value
+ * @returns {string[]}
+ */
+export function buildGetParentIssueApiArgs({ owner, repo, number, apiVersion }) {
+  const issueNumber = Number(number);
+  if (!owner || !repo) throw new Error('buildGetParentIssueApiArgs requires owner and repo');
+  if (!Number.isInteger(issueNumber) || issueNumber <= 0) throw new Error(`Invalid issue number: ${number}`);
+  const args = ['api', `repos/${owner}/${repo}/issues/${issueNumber}/parent`, '-H', 'Accept: application/vnd.github+json'];
+  if (apiVersion) args.push('-H', `X-GitHub-Api-Version: ${apiVersion}`);
+  return args;
+}
+
+/**
+ * Whether a sub-issue attachment failed only because the issue already has a
+ * parent. GitHub answers HTTP 422 "Sub issue may only have one parent".
+ *
+ * @param {Error|string} error
+ * @returns {boolean}
+ */
+export function isAlreadyHasParentError(error) {
+  const message = String(error?.message ?? error ?? '');
+  return /may only have one parent/i.test(message);
+}
+
+/**
+ * `gh api` arguments that print the login of the authenticated user — the
+ * account that is about to work on the issues and should be their assignee
+ * (issue #2284).
+ *
+ * @returns {string[]}
+ */
+export function buildCurrentUserLoginApiArgs() {
+  return ['api', 'user', '--jq', '.login'];
+}
+
+/**
+ * `gh api` arguments that check whether `login` can be assigned to issues of
+ * the repository. GitHub answers 204 when it can and 404 when it cannot
+ * (https://docs.github.com/en/rest/issues/assignees#check-if-a-user-can-be-assigned),
+ * so a non-zero `gh` exit means "not assignable".
+ *
+ * @param {object} params
+ * @param {string} params.owner
+ * @param {string} params.repo
+ * @param {string} params.login
+ * @returns {string[]}
+ */
+export function buildAssignableCheckApiArgs({ owner, repo, login }) {
+  if (!owner || !repo || !login) throw new Error('buildAssignableCheckApiArgs requires owner, repo and login');
+  return ['api', `repos/${owner}/${repo}/assignees/${encodeURIComponent(login)}`];
+}
+
+/**
+ * `gh api` arguments that add `login` to the assignees of an issue.
+ *
+ * The endpoint only *adds* assignees — anyone already assigned stays assigned
+ * (https://docs.github.com/en/rest/issues/assignees#add-assignees-to-an-issue).
+ * `assignees[]=` is the `gh api` syntax for a JSON array field.
+ *
+ * @param {object} params
+ * @param {string} params.owner
+ * @param {string} params.repo
+ * @param {number} params.number - issue number
+ * @param {string} params.login
+ * @returns {string[]}
+ */
+export function buildAddAssigneeApiArgs({ owner, repo, number, login }) {
+  const issueNumber = Number(number);
+  if (!owner || !repo || !login) throw new Error('buildAddAssigneeApiArgs requires owner, repo and login');
+  if (!Number.isInteger(issueNumber) || issueNumber <= 0) throw new Error(`Invalid issue number: ${number}`);
+  return ['api', '-X', 'POST', `repos/${owner}/${repo}/issues/${issueNumber}/assignees`, '-f', `assignees[]=${login}`];
+}
+
+/**
+ * Whether the issue returned by the add-assignees endpoint lists `login`.
+ *
+ * GitHub silently drops assignees it cannot add (no permission, or the issue
+ * already has the maximum of 10 assignees) and still answers 201, so the
+ * response has to be checked instead of trusting the exit code.
+ *
+ * @param {string} responseText - JSON issue returned by the endpoint
+ * @param {string} login
+ * @returns {boolean}
+ */
+export function responseListsAssignee(responseText, login) {
+  let issue;
+  try {
+    issue = JSON.parse(responseText || '{}');
+  } catch {
+    return false;
+  }
+  const wanted = String(login || '').toLowerCase();
+  const assignees = Array.isArray(issue?.assignees) ? issue.assignees : [];
+  return Boolean(wanted) && assignees.some(assignee => String(assignee?.login || '').toLowerCase() === wanted);
+}
+
+/**
  * Human-readable summary of what repository mode is about to do, for logs.
  *
  * @param {object} params
@@ -229,5 +333,11 @@ export default {
   buildCombinedIssueTitle,
   buildClosingKeywordBlock,
   buildCombinedIssueBody,
+  buildGetParentIssueApiArgs,
+  isAlreadyHasParentError,
+  buildCurrentUserLoginApiArgs,
+  buildAssignableCheckApiArgs,
+  buildAddAssigneeApiArgs,
+  responseListsAssignee,
   buildRepositoryModeSummaryLines,
 };

@@ -211,11 +211,15 @@ export function buildIssueRestIdApiArgs(issue) {
   return ['api', `repos/${issue.owner}/${issue.repo}/issues/${issue.number}`, '--jq', '.id'];
 }
 
-export function buildAddSubIssueApiArgs({ parentIssue, subIssueId }) {
+export function buildAddSubIssueApiArgs({ parentIssue, subIssueId, replaceParent = false }) {
   const numericId = Number(subIssueId);
   if (!Number.isInteger(numericId) || numericId <= 0) {
     throw new Error(`Invalid sub-issue REST id: ${subIssueId}`);
   }
 
-  return ['api', '-X', 'POST', `repos/${parentIssue.owner}/${parentIssue.repo}/issues/${parentIssue.number}/sub_issues`, '-H', 'Accept: application/vnd.github+json', '-H', `X-GitHub-Api-Version: ${GITHUB_SUB_ISSUES_API_VERSION}`, '-F', `sub_issue_id=${numericId}`];
+  const args = ['api', '-X', 'POST', `repos/${parentIssue.owner}/${parentIssue.repo}/issues/${parentIssue.number}/sub_issues`, '-H', 'Accept: application/vnd.github+json', '-H', `X-GitHub-Api-Version: ${GITHUB_SUB_ISSUES_API_VERSION}`, '-F', `sub_issue_id=${numericId}`];
+  // `replace_parent` moves an issue that already has a parent; without it
+  // GitHub answers HTTP 422 "Sub issue may only have one parent".
+  if (replaceParent) args.push('-F', 'replace_parent=true');
+  return args;
 }

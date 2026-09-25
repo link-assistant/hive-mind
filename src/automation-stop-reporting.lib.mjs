@@ -209,6 +209,24 @@ export const buildAutoMergeBlockedComment = ({ blockers = [], issueNumber = null
 };
 
 /**
+ * Build the notice posted when `--auto-merge` cannot work at all (fork mode or
+ * no write access). It is posted before any CI or mergeability check.
+ *
+ * Issue #2295: this notice used to start with "✅ Ready to merge … This pull
+ * request is ready to be merged", which claimed a readiness nobody had checked.
+ *
+ * @param {Object} options
+ * @param {string} options.reason - why auto-merge is impossible (full sentence)
+ * @param {string} options.footer - footer text, without surrounding asterisks
+ * @returns {{heading: string, body: string}} heading doubles as the dedup signature
+ */
+export const buildManualMergeNoticeComment = ({ reason, footer }) => {
+  const heading = `## ⚠️ ${AUTO_MERGE_BLOCKED_MARKER}: hive-mind cannot merge this pull request`;
+  const body = `${heading}\n\nAuto-merge (\`--auto-merge\`) was requested but cannot be performed because ${reason}\n\nhive-mind has not checked CI, reviews or mergeability for this notice. A maintainer decides whether and when to merge.\n\n---\n*${footer}*`;
+  return { heading, body };
+};
+
+/**
  * Post a stop report to the pull request (or issue), deduplicated per reason.
  *
  * Never throws: a failed comment must not mask the stop itself.

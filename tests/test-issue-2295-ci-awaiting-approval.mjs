@@ -122,6 +122,19 @@ assert(findNonExecutedWorkflowRuns(null).length === 0, 'null input is safe');
   assert(/buildMergeReadinessComment\(/.test(loop), 'watch loop builds the readiness comment with the helper');
 }
 
+// 7. The --auto-merge preflight notice (fork / no write access) is posted before
+// any CI or mergeability check, so it must not claim the PR is ready to merge.
+{
+  const { buildManualMergeNoticeComment, AUTO_MERGE_BLOCKED_MARKER } = await import('../src/automation-stop-reporting.lib.mjs');
+  const { heading, body } = buildManualMergeNoticeComment({ reason: 'this PR was created from a fork (no write access to the target repository).', footer: 'hive-mind with --auto-merge flag (fork mode)' });
+  assert(heading.startsWith(`## ⚠️ ${AUTO_MERGE_BLOCKED_MARKER}`), 'preflight notice uses the "Auto-merge blocked" heading', heading);
+  assert(!/ready to (be )?merge/i.test(body), 'preflight notice does not claim the PR is ready to merge', body);
+  assert(/has not checked CI/.test(body), 'preflight notice says CI was not checked', body);
+  assert(body.includes('this PR was created from a fork') && body.endsWith('*hive-mind with --auto-merge flag (fork mode)*'), 'preflight notice keeps the reason and footer', body);
+  const preflight = await fs.readFile(path.join(repoRoot, 'src/solve.auto-merge-preflight.lib.mjs'), 'utf8');
+  assert(/buildManualMergeNoticeComment\(/.test(preflight) && !/This pull request is ready to be merged/.test(preflight), 'preflight uses the honest notice');
+}
+
 console.log('='.repeat(70));
 console.log(`Passed: ${testsPassed}, Failed: ${testsFailed}`);
 if (testsFailed > 0) {

@@ -888,7 +888,8 @@ zh
                 仔细复核 PR 中所有变更确实满足 issue 的原始需求，
                 认真阅读 gh pr diff 以排查 PR 中新引入的 bug，
                 检查没有未经 issue 描述、issue 评论或 PR 评论明确请求而被移除的旧功能。
-             - 当你完成实现时，使用 gh pr ready {{prNumber}}。
+             - 当拉取请求只部分解决问题时，请在其描述中使用 "Part of #N"，而不是 "Fixes #N" 之类的关闭关键字。
+             - 当你完成实现时，使用 gh pr ready {{prNumber}}，除非维护者已将拉取请求转换为草稿或要求修改；此时请保持草稿状态，由维护者决定。
         """
       workflow """
         工作流与协作。

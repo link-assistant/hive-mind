@@ -21,6 +21,7 @@
  */
 
 import { ensurePullRequestIsDraft, ensurePullRequestIsReady, findMaintainerDraftConversion, getOutstandingWorkingSessionDrafts, getPullRequestLeftInDraft, resetWorkingSessionDrafts } from '../src/pr-draft-state.lib.mjs';
+import { readFileSync } from 'fs';
 import { resolveDraftBlocker } from '../src/solve.auto-merge-guards.lib.mjs';
 
 let passed = 0;
@@ -153,6 +154,15 @@ await test('a timeline lookup failure never blocks the session', async () => {
 await test('a PR opened as draft (no transition events) is not a maintainer draft', async () => {
   const $ = makeFakeDollar({ isDraft: true, self: 'konard', timeline: [] });
   assert((await findMaintainerDraftConversion({ ...pr, $ })) === null, 'no conversion');
+});
+
+await test('every system prompt tells the AI not to override a maintainer draft and to use "Part of #N"', async () => {
+  const files = ['claude', 'codex', 'opencode', 'agent', 'qwen', 'gemini'].map(tool => `src/${tool}.prompts.lib.mjs`).concat(['src/locales/en.lino']);
+  for (const file of files) {
+    const source = readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
+    assert(source.includes('unless a maintainer converted the pull request to draft or requested changes'), `${file}: maintainer draft guidance`);
+    assert(source.includes('"Part of #N" instead of a closing keyword'), `${file}: partial-scope guidance`);
+  }
 });
 
 console.log(`\nPassed: ${passed}, Failed: ${failed}`);

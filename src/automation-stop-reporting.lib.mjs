@@ -256,8 +256,8 @@ export const reportAutomationStop = async ({ $, owner, repo, targetNumber, reaso
 
     const result = await postTrackedComment({ $, owner, repo, targetNumber, body: commentBody });
     if (!result.ok) {
-      await write(`   ⚠️  Could not post stop reason comment: ${result.stderr || 'unknown error'}`);
-      return { posted: false, reason: description.reason, error: result.stderr || 'post_failed' };
+      await write(`   ⚠️  Could not post stop reason comment: ${result.stderr?.toString() || 'unknown error'}`);
+      return { posted: false, reason: description.reason, error: result.stderr?.toString() || 'post_failed' };
     }
 
     await write(`   💬 Posted stop reason to #${targetNumber}: ${description.title}`);

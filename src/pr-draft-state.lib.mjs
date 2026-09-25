@@ -163,7 +163,7 @@ export const getPullRequestDraftState = async ({ owner, repo, prNumber, $, log =
   try {
     const result = await $`gh pr view ${prNumber} --repo ${owner}/${repo} --json isDraft,state`;
     if (result.code !== 0) {
-      const stderr = result.stderr ? result.stderr.toString().trim() : '';
+      const stderr = result.stderr?.toString() ? result.stderr.toString().trim() : '';
       return { ok: false, isDraft: null, state: null, merged: false, error: stderr || `gh exited with code ${result.code}` };
     }
 
@@ -243,7 +243,7 @@ const setPullRequestDraftState = async ({ target, owner, repo, prNumber, $, log 
       return { ok: true, changed: true, skipped: false, reason: null, error: null };
     }
 
-    const stderr = convertResult.stderr ? convertResult.stderr.toString().trim() : '';
+    const stderr = convertResult.stderr?.toString() ? convertResult.stderr.toString().trim() : '';
     await log(`Warning: Could not convert PR #${prNumber} to ${label}${stderr ? `: ${stderr}` : ''}`, { level: 'warning' });
     return { ok: false, changed: false, skipped: false, reason: 'conversion_failed', error: stderr || `gh exited with code ${convertResult.code}` };
   } catch (error) {

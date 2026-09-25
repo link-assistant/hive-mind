@@ -463,7 +463,7 @@ export const processPRMode = async (isPrUrl, urlNumber, owner, repo, argv) => {
             shouldAttachLogs: argv.attachLogs || argv['attach-logs'],
           });
         } else {
-          await log(`Error: ${prResult.stderr || 'Unknown error'}`, { level: 'error' });
+          await log(`Error: ${prResult.stderr?.toString() || 'Unknown error'}`, { level: 'error' });
         }
 
         await safeExit(1, 'Auto-continue failed');

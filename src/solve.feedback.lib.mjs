@@ -83,7 +83,7 @@ export const detectAndCountFeedback = async params => {
         // Fallback: Get last commit time from GitHub API
         try {
           const prCommitsResult = await quietProbe($)`gh api repos/${owner}/${repo}/pulls/${prNumber}/commits --paginate --jq 'last.commit.author.date'`;
-          if (prCommitsResult.code === 0 && prCommitsResult.stdout) {
+          if (prCommitsResult.code === 0 && prCommitsResult.stdout?.toString()) {
             lastCommitTime = new Date(prCommitsResult.stdout.toString().trim());
             await log(formatAligned('📅', 'Last commit time (from API):', lastCommitTime.toISOString(), 2));
           }

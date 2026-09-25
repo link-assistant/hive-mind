@@ -139,7 +139,7 @@ const runDocker = async (args, { timeoutMs = TASK_IMAGE_PULL_TIMEOUT_MS } = {}) 
 export const readTaskImageDigest = async ({ image, run = runDocker, timeoutMs = 60_000 } = {}) => {
   const result = await run(['image', 'inspect', '--format', '{{.Id}}\t{{join .RepoDigests ","}}', image], { timeoutMs });
   if (result?.code !== 0) return { digest: null, source: null };
-  const [id = '', repoDigests = ''] = String(result.stdout || '')
+  const [id = '', repoDigests = ''] = String(result.stdout?.toString() || '')
     .trim()
     .split('\t');
   const published = repoDigests
@@ -192,7 +192,7 @@ export const refreshTaskImage = async ({ image, env = process.env, run = runDock
     if (result?.code === 0) pulled = true;
     else {
       error =
-        String(result?.stderr || '')
+        String(result?.stderr?.toString() || '')
           .trim()
           .split('\n')
           .filter(Boolean)

@@ -118,7 +118,7 @@ export const checkForExistingComment = async (owner, repo, prNumber, commentSign
     // Fetch every PR comment page so long threads don't scope deduplication to
     // a stale first-page session-ending marker.
     const result = await commandRunner`gh api repos/${owner}/${repo}/issues/${prNumber}/comments --paginate --jq '[.[].body]' 2>/dev/null`;
-    if (result.code === 0 && result.stdout) {
+    if (result.code === 0 && result.stdout?.toString()) {
       const rawOutput = result.stdout.toString().trim();
       if (!rawOutput) return false;
 
@@ -236,14 +236,14 @@ export const checkForNonBotComments = async (owner, repo, prNumber, issueNumber,
     // Fetch PR conversation comments
     const prCommentsResult = await commandRunner`gh api repos/${owner}/${repo}/issues/${prNumber}/comments --paginate`;
     let prComments = [];
-    if (prCommentsResult.code === 0 && prCommentsResult.stdout) {
+    if (prCommentsResult.code === 0 && prCommentsResult.stdout?.toString()) {
       prComments = JSON.parse(prCommentsResult.stdout.toString() || '[]');
     }
 
     // Fetch PR review comments (inline code comments)
     const prReviewCommentsResult = await commandRunner`gh api repos/${owner}/${repo}/pulls/${prNumber}/comments --paginate`;
     let prReviewComments = [];
-    if (prReviewCommentsResult.code === 0 && prReviewCommentsResult.stdout) {
+    if (prReviewCommentsResult.code === 0 && prReviewCommentsResult.stdout?.toString()) {
       prReviewComments = JSON.parse(prReviewCommentsResult.stdout.toString() || '[]');
     }
 
@@ -251,7 +251,7 @@ export const checkForNonBotComments = async (owner, repo, prNumber, issueNumber,
     let issueComments = [];
     if (issueNumber && issueNumber !== prNumber) {
       const issueCommentsResult = await commandRunner`gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate`;
-      if (issueCommentsResult.code === 0 && issueCommentsResult.stdout) {
+      if (issueCommentsResult.code === 0 && issueCommentsResult.stdout?.toString()) {
         issueComments = JSON.parse(issueCommentsResult.stdout.toString() || '[]');
       }
     }
@@ -373,7 +373,7 @@ export const trackAuthenticatedUserCommentsSince = async (owner, repo, prNumber,
     const fetchComments = async path => {
       try {
         const result = await commandRunner`gh api ${path} --paginate`;
-        if (result.code === 0 && result.stdout) {
+        if (result.code === 0 && result.stdout?.toString()) {
           return JSON.parse(result.stdout.toString() || '[]');
         }
       } catch {
@@ -1032,7 +1032,7 @@ export const checkForIssueMetadataChanges = async (owner, repo, issueNumber, pre
   let snapshot;
   try {
     const result = await commandRunner`gh api repos/${owner}/${repo}/issues/${issueNumber} --jq '{title: .title, body: .body}'`;
-    if (result.code !== 0 || !result.stdout) return empty;
+    if (result.code !== 0 || !result.stdout?.toString()) return empty;
     const parsed = JSON.parse(result.stdout.toString() || '{}');
     snapshot = {
       title: typeof parsed.title === 'string' ? parsed.title : '',

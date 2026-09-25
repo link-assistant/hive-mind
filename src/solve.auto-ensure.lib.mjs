@@ -92,7 +92,7 @@ export const runAutoEnsureRequirements = async ({ issueUrl, owner, repo, issueNu
     if (pullResult.code === 0) {
       await log(`   Synced local branch ${branchName} from remote`, { verbose: true });
     } else {
-      throw new Error(`git pull failed (code ${pullResult.code}): ${pullResult.stdout || pullResult.stderr || 'no output'}`);
+      throw new Error(`git pull failed (code ${pullResult.code}): ${pullResult.stdout?.toString() || pullResult.stderr?.toString() || 'no output'}`);
     }
 
     const ensureFeedbackLines = ['', '='.repeat(60), '🔍 FINALIZE REQUIREMENTS CHECK:', '='.repeat(60), '', 'We need to ensure all changes are correct, consistent, validated, tested, logged and fully meet all discussed requirements (check issue description and all comments in issue and in pull request). Ensure all CI/CD checks pass.', ''];

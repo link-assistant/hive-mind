@@ -99,6 +99,7 @@ const { handleBillingLimitBlocker } = await import('./billing-limit-stop.lib.mjs
 // changed something. Five byte-identical sessions is a stall, not progress.
 const { stopWhenSessionRepeated } = await import('./session-progress.lib.mjs');
 const { describeAuthRetryStop } = await import('./auth-transient-retry.lib.mjs'); // Issue #2296
+const { describePreservedWork, failOnToolFailure } = await import('./tool-failure-exit.lib.mjs'); // Issue #2296
 // Issue #2119: an empty pull request must not be reported as ready to merge.
 const { buildEmptyPullRequestBlocker, getPullRequestChangeStats } = await import('./pull-request-changes.lib.mjs');
 // Issue #2263: a terminal session failure is a run-wide readiness veto. The
@@ -1004,7 +1005,8 @@ export const watchUntilMergeable = async params => {
                     await log(formatAligned('', `⚠️  Failure log upload error: ${cleanErrorMessage(logUploadError)}`, '', 2));
                   }
                 }
-                await reportAutomationStop({ $, owner, repo, targetNumber: prNumber, reason: 'tool_failure_after_resume', mode: 'auto-restart-until-mergeable', message: extractToolErrorCore({ toolResult: resumeResult }) || formatToolExecutionFailure({ tool: argv.tool, toolResult: resumeResult }), verbose: argv.verbose, log });
+                const preserved = await failOnToolFailure({ tempDir, branchName: prBranch || branchName, $, log, reason: 'tool_failure_after_resume', subsystem: 'auto-restart-until-mergeable' }); // Issue #2296: exit 1, keep the work
+                await reportAutomationStop({ $, owner, repo, targetNumber: prNumber, reason: 'tool_failure_after_resume', mode: 'auto-restart-until-mergeable', message: extractToolErrorCore({ toolResult: resumeResult }) || formatToolExecutionFailure({ tool: argv.tool, toolResult: resumeResult }), details: [describePreservedWork(preserved)], verbose: argv.verbose, log });
                 return { success: false, reason: 'tool_failure_after_resume', latestSessionId, latestAnthropicCost };
               }
             } else {
@@ -1060,7 +1062,8 @@ export const watchUntilMergeable = async params => {
             }
             // Issue #2296: an auth failure that survived the automatic resume says what was tried.
             const stop = describeAuthRetryStop(toolResult);
-            await reportAutomationStop({ $, owner, repo, targetNumber: prNumber, reason: stop.reason, mode: 'auto-restart-until-mergeable', message: extractToolErrorCore({ toolResult }) || formatToolExecutionFailure({ tool: argv.tool, toolResult }), details: stop.details, verbose: argv.verbose, log });
+            const preserved = await failOnToolFailure({ tempDir, branchName: prBranch || branchName, $, log, reason: stop.reason, subsystem: 'auto-restart-until-mergeable' }); // exit 1, keep the work
+            await reportAutomationStop({ $, owner, repo, targetNumber: prNumber, reason: stop.reason, mode: 'auto-restart-until-mergeable', message: extractToolErrorCore({ toolResult }) || formatToolExecutionFailure({ tool: argv.tool, toolResult }), details: [...stop.details, describePreservedWork(preserved)], verbose: argv.verbose, log });
             return { success: false, reason: stop.reason, latestSessionId, latestAnthropicCost };
           }
         }

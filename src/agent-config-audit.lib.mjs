@@ -31,6 +31,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { setTomlTableBoolean } from './codex-capability-preflight.lib.mjs';
+import { detectSingleFileCredentialMount, formatSingleFileCredentialMountWarning } from './isolation-tool-mounts.lib.mjs';
 
 /** MCP servers that belong to the minimal hive-mind configuration. */
 export const MINIMAL_MCP_SERVERS = Object.freeze(['playwright']);
@@ -374,14 +375,19 @@ export const formatAgentConfigFinding = finding => `${finding.tool} ${finding.ki
  * Audit, log, and (optionally) repair. This is the entry point solve/hive/the
  * Docker launcher use.
  *
- * @param {{ tool?: string, homeDir?: string, autoRepair?: boolean, log?: Function, verbose?: boolean, fsImpl?: typeof fs, allowedMcpServers?: string[] }} [options]
- * @returns {Promise<{ findings: object[], repaired: object[], failed: object[], skipped: object[] }>}
+ * Issue #2296: it also warns when the tool's credential file is a single-file
+ * mount, which goes stale on the first host-side token rotation.
+ *
+ * @param {{ tool?: string, homeDir?: string, autoRepair?: boolean, log?: Function, verbose?: boolean, fsImpl?: typeof fs, allowedMcpServers?: string[], detectCredentialMount?: Function }} [options]
+ * @returns {Promise<{ findings: object[], repaired: object[], failed: object[], skipped: object[], singleFileCredentialMounts: string[] }>}
  */
-export const runAgentConfigAudit = async ({ tool = 'all', homeDir = os.homedir(), autoRepair = true, log = async () => {}, verbose = false, fsImpl = fs, allowedMcpServers = MINIMAL_MCP_SERVERS } = {}) => {
+export const runAgentConfigAudit = async ({ tool = 'all', homeDir = os.homedir(), autoRepair = true, log = async () => {}, verbose = false, fsImpl = fs, allowedMcpServers = MINIMAL_MCP_SERVERS, detectCredentialMount = detectSingleFileCredentialMount } = {}) => {
   const scope = AUDITABLE_TOOLS.includes(tool) ? tool : 'all';
+  const singleFileCredentialMounts = (scope === 'all' ? AUDITABLE_TOOLS : [scope]).map(auditedTool => detectCredentialMount({ tool: auditedTool, homeDir })).filter(Boolean);
+  for (const authPath of singleFileCredentialMounts) await log(formatSingleFileCredentialMountWarning(authPath), { level: 'warn' });
   const { findings, repairable, warnOnly } = auditAgentConfig({ tool: scope, homeDir, fsImpl, allowedMcpServers });
   if (verbose) await log(`🔍 ${LOG_PREFIX}: inspected global ${scope === 'all' ? 'claude/codex' : scope} configuration under ${homeDir} (${findings.length} finding${findings.length === 1 ? '' : 's'})`, { verbose: true });
-  if (findings.length === 0) return { findings, repaired: [], failed: [], skipped: [] };
+  if (findings.length === 0) return { findings, repaired: [], failed: [], skipped: [], singleFileCredentialMounts };
 
   await log(`⚠️  Global agent configuration is not minimal (issue #2190): ${findings.length} finding${findings.length === 1 ? '' : 's'}`, { level: 'warn' });
   for (const finding of findings) await log(`   • ${formatAgentConfigFinding(finding)}`, { level: 'warn' });
@@ -390,7 +396,7 @@ export const runAgentConfigAudit = async ({ tool = 'all', homeDir = os.homedir()
   }
   if (!autoRepair) {
     await log('   Auto-repair is disabled (--no-agent-config-auto-repair); nothing was changed. Non-minimal skills and plugins may change agent behaviour and token usage.', { level: 'warn' });
-    return { findings, repaired: [], failed: [], skipped: repairable };
+    return { findings, repaired: [], failed: [], skipped: repairable, singleFileCredentialMounts };
   }
   const { repaired, failed } = repairAgentConfig(repairable, { fsImpl });
   if (repaired.length) await log(`🧹 Auto-repaired ${repaired.length} global agent configuration item${repaired.length === 1 ? '' : 's'} (disable with --no-agent-config-auto-repair)`);
@@ -398,5 +404,5 @@ export const runAgentConfigAudit = async ({ tool = 'all', homeDir = os.homedir()
     if (verbose) await log(`   ✓ ${finding.repair.type}: ${finding.repair.target}${finding.repair.table ? ` [${finding.repair.table}]` : ''}${finding.repair.keyPath ? ` ${finding.repair.keyPath.join('.')}` : ''}`, { verbose: true });
   }
   for (const { finding, error } of failed) await log(`   ✗ could not repair ${formatAgentConfigFinding(finding)}: ${error}`, { level: 'warn' });
-  return { findings, repaired, failed, skipped: [] };
+  return { findings, repaired, failed, skipped: [], singleFileCredentialMounts };
 };

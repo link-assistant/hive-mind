@@ -30,6 +30,7 @@ import { buildTaskImageProvenanceEnv, refreshTaskImage } from './task-image-refr
 import { buildRouterGitConfigEntries, buildRouterTaskEnv, getRouterSuppressedCredentialPaths, hasUseRouterFlag, isRouterEnabled, resolveRouterBaseUrl, resolveRouterGitHubRouting } from './router-isolation.lib.mjs';
 import { acquireRouterForTask, attachRouterTaskContainer, registerFormalAiWithRouter, releaseRouterForTask, watchRouterTaskContainer } from './router-task-isolation.lib.mjs';
 import { buildGitConfigEnv, GIT_PUSH_GUARD_CONTAINER_DIR, GIT_PUSH_GUARD_ESCAPE_ENV, hasForcePushOptIn, installGitPushGuard } from './git-push-guard.lib.mjs';
+import { DOCKER_ISOLATION_TOOL_MOUNTS, detectSingleFileCredentialMount, formatSingleFileCredentialMountWarning, getToolConfigMounts, prepareToolConfigHostPaths, resolvePrivateOverlayDir } from './isolation-tool-mounts.lib.mjs';
 import { applyDockerContainerResourceLimits, hasContainerResourceLimits, normalizeContainerResourceLimits } from './container-resource-limits.lib.mjs';
 export { getDockerIsolationImage, resolveDockerIsolationImageTag } from './hive-mind-image.lib.mjs';
 // Re-export the shared status predicates so existing callers that reach them via the isolation-runner module (e.g. session-monitor's `runner.isExecutingSessionStatus`) keep working. The canonical definitions live in session-status.lib.mjs so the killed/terminated/oom vocabulary stays consistent everywhere (issue #1927).
@@ -103,29 +104,10 @@ export function resolveHostDockerSock({ env = process.env } = {}) {
   const explicit = String(env.DIND_HOST_DOCKER_SOCK || '').trim();
   return explicit || DEFAULT_HOST_DOCKER_SOCK;
 }
-/**
- * Per-tool host paths that a Docker-isolated task receives (issue #2190).
- *
- * Only the credential *file* and the session/transcript *directories* are
- * mounted — never the whole `~/.claude` / `~/.codex` application directory and
- * never `~/.claude.json` or `~/.agents`:
- *
- *   - the credential file is shared by every task, so a token refreshed by one
- *     task (or by the host) is immediately visible to all of them;
- *   - `projects/` and `sessions/` stay on the host for audit and discovery;
- *   - everything else (config, plugins, marketplaces, skills, MCP registrations,
- *     settings) comes from the image, so a task can neither inherit a globally
- *     synced plugin such as Superpowers nor reconfigure the global state for the
- *     tasks that follow it.
- *
- * `kind: 'file'` entries are only mounted when the host file exists (Docker
- * would otherwise create a directory in its place); `kind: 'dir'` entries are
- * created on the host by {@link prepareDockerIsolationHostPaths}.
- */
-export const DOCKER_ISOLATION_TOOL_MOUNTS = Object.freeze({
-  claude: Object.freeze([Object.freeze({ relativePath: path.join('.claude', '.credentials.json'), kind: 'file', role: 'auth' }), Object.freeze({ relativePath: path.join('.claude', 'projects'), kind: 'dir', role: 'sessions' }), Object.freeze({ relativePath: path.join('.claude', 'sessions'), kind: 'dir', role: 'sessions' })]),
-  codex: Object.freeze([Object.freeze({ relativePath: path.join('.codex', 'auth.json'), kind: 'file', role: 'auth' }), Object.freeze({ relativePath: path.join('.codex', 'sessions'), kind: 'dir', role: 'sessions' })]),
-});
+// Issue #2190/#2296: the shared config directory + per-task private overlays
+// live in their own module (see its header for why the credential file cannot
+// be mounted on its own). Re-exported so importers are unaffected.
+export { DOCKER_ISOLATION_TOOL_MOUNTS, detectSingleFileCredentialMount, formatSingleFileCredentialMountWarning, getToolConfigMounts, resolvePrivateOverlayDir };
 /**
  * Is `relativePath` covered by one of the router-suppressed credential paths?
  * Suppression is by prefix so that `.claude` withholds `.claude/.credentials.json`
@@ -147,8 +129,10 @@ function isSuppressedPath(relativePath, suppressed) {
  * container that authenticates with gh but inherits no git identity still cannot
  * commit. See issue #1939. Tool credentials are deliberately scoped: Codex
  * sessions do not receive Claude files and Claude sessions do not receive Codex
- * files, and (issue #2190) only the entries in {@link DOCKER_ISOLATION_TOOL_MOUNTS}
- * are shared — the application directories themselves stay per container.
+ * files. The tool's config directory is shared as a whole, because the OAuth
+ * refresh lock lives next to the credential file (issue #2296), and the entries
+ * that carry plugins, skills, settings and memory are overlaid per task (issue
+ * #2190) — see {@link DOCKER_ISOLATION_TOOL_MOUNTS}.
  *
  * Issue #2164 (EXPERIMENTAL): with `useRouter` the vendor credential mounts are
  * withheld entirely, so the task never holds the subscription — it reaches the
@@ -157,7 +141,7 @@ function isSuppressedPath(relativePath, suppressed) {
  * (issue #1939). The gh config is only withheld when `ghRouted` says gh has
  * somewhere else to go; otherwise the task would lose GitHub access entirely.
  */
-export function getDockerIsolationAuthMounts({ tool = 'claude', env = process.env, homeDir = os.homedir(), existsSync = fs.existsSync, useRouter = false, ghRouted = false } = {}) {
+export function getDockerIsolationAuthMounts({ tool = 'claude', env = process.env, homeDir = os.homedir(), existsSync = fs.existsSync, useRouter = false, ghRouted = false, sessionId = null } = {}) {
   const mounts = [];
   const normalizedTool = normalizeTool(tool);
   const suppressed = useRouter ? getRouterSuppressedCredentialPaths({ tool: normalizedTool, ghRouted }) : [];
@@ -167,41 +151,22 @@ export function getDockerIsolationAuthMounts({ tool = 'claude', env = process.en
   // Git identity (tool-agnostic, required for commits). Honor the same env vars git itself reads for an alternate global config location (GIT_CONFIG_GLOBAL) and the XDG base dir, falling back to the conventional `~/.gitconfig` and `~/.config/git`. Missing host paths are skipped, so a container image that already bakes a git identity is left untouched. See issue #1939.
   maybeAddMount(mounts, env.GIT_CONFIG_GLOBAL || path.join(homeDir, '.gitconfig'), path.join(DOCKER_CONTAINER_HOME, '.gitconfig'), existsSync);
   maybeAddMount(mounts, env.XDG_CONFIG_HOME ? path.join(env.XDG_CONFIG_HOME, 'git') : path.join(homeDir, '.config', 'git'), path.join(DOCKER_CONTAINER_HOME, '.config', 'git'), existsSync);
-  for (const entry of DOCKER_ISOLATION_TOOL_MOUNTS[normalizedTool] || []) {
-    if (isSuppressedPath(entry.relativePath, suppressed)) continue;
-    maybeAddMount(mounts, path.join(homeDir, entry.relativePath), path.join(DOCKER_CONTAINER_HOME, entry.relativePath), existsSync);
+  const spec = DOCKER_ISOLATION_TOOL_MOUNTS[normalizedTool];
+  if (spec && !isSuppressedPath(spec.configDir, suppressed)) {
+    for (const { source, target } of getToolConfigMounts({ tool: normalizedTool, homeDir, sessionId, existsSync, containerHome: DOCKER_CONTAINER_HOME })) mounts.push({ source, target });
   }
   return mounts;
 }
 /**
- * Create the host-side session directories a Docker-isolated task mounts and
- * report a missing credential file, so a first run on a fresh host does not
- * silently launch a task with no `projects/` to write to or no credentials.
+ * Create the host-side config directory, overlay mount points and per-task
+ * overlay sources a Docker-isolated task mounts, and report a missing credential
+ * file. Kept separate from {@link getDockerIsolationAuthMounts} because that
+ * function is pure and is exercised in tests with paths that must not be created.
  *
- * Kept separate from {@link getDockerIsolationAuthMounts} because that function
- * is pure and is exercised in tests with paths that must not be created.
- *
- * @returns {{ created: string[], missingAuth: string[] }}
+ * @returns {{ created: string[], missingAuth: string[], pruned: string[] }}
  */
-export function prepareDockerIsolationHostPaths({ tool = 'claude', homeDir = os.homedir(), fsImpl = fs, useRouter = false } = {}) {
-  const created = [];
-  const missingAuth = [];
-  if (useRouter) return { created, missingAuth };
-  for (const entry of DOCKER_ISOLATION_TOOL_MOUNTS[normalizeTool(tool)] || []) {
-    const hostPath = path.join(homeDir, entry.relativePath);
-    if (entry.kind === 'dir') {
-      if (fsImpl.existsSync(hostPath)) continue;
-      try {
-        fsImpl.mkdirSync(hostPath, { recursive: true });
-        created.push(hostPath);
-      } catch {
-        // A read-only or foreign home is not fatal: the mount is simply skipped.
-      }
-    } else if (entry.role === 'auth' && !fsImpl.existsSync(hostPath)) {
-      missingAuth.push(hostPath);
-    }
-  }
-  return { created, missingAuth };
+export function prepareDockerIsolationHostPaths(options = {}) {
+  return prepareToolConfigHostPaths(options);
 }
 /**
  * Resolve the image-variant marker recorded inside the isolated container.
@@ -296,7 +261,7 @@ export function buildDockerIsolationStartArgs(command, args = [], options = {}) 
   for (const [name, value] of Object.entries(routerEnv)) {
     startArgs.push('-e', `${name}=${value}`);
   }
-  const mounts = getDockerIsolationAuthMounts({ tool, env, homeDir, existsSync, useRouter: routerWired, ghRouted: routerWired && routerGitHub.mode !== 'off' });
+  const mounts = getDockerIsolationAuthMounts({ tool, env, homeDir, existsSync, sessionId, useRouter: routerWired, ghRouted: routerWired && routerGitHub.mode !== 'off' });
   // Issue #2164 (R13): a routed task also loses the ability to destroy remote
   // history by accident. The hook lives on the host and is mounted read-only, so
   // the task cannot edit the rule it is being held to; git is pointed at it with
@@ -494,11 +459,11 @@ export async function executeWithIsolation(command, args, options = {}) {
         }
       : options;
   if (backend === 'docker') {
-    // Issue #2190: only the credential file and the session directories are
-    // shared with the task; make sure the directories exist on the host and say
-    // so when the credential file does not.
-    const prepared = prepareDockerIsolationHostPaths({ tool: effectiveOptions.tool, homeDir: effectiveOptions.homeDir || os.homedir(), useRouter: Boolean(router) });
-    for (const dir of prepared.created) if (verbose) console.log(`[VERBOSE] isolation-runner: created host directory for task mounts: ${dir}`);
+    // Issues #2190/#2296: the config directory is shared and its plugin/skill/
+    // settings entries are overlaid per task; create both on the host and say
+    // so when the credential file is missing.
+    const prepared = prepareDockerIsolationHostPaths({ tool: effectiveOptions.tool, homeDir: effectiveOptions.homeDir || os.homedir(), sessionId, useRouter: Boolean(router) });
+    for (const entry of [...prepared.created, ...prepared.pruned.map(dir => `${dir} (pruned)`)]) if (verbose) console.log(`[VERBOSE] isolation-runner: prepared host path for task mounts: ${entry}`);
     for (const file of prepared.missingAuth) console.warn(`[WARN] isolation-runner: ${file} is missing on the host; the task container will start without ${effectiveOptions.tool ?? 'claude'} credentials`);
   }
   // Issue #2247 (H1): `konard/hive-mind:latest` pulled a week earlier is still

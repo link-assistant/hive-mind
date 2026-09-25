@@ -78,6 +78,11 @@ export const STOP_REASONS = {
     detail: 'The AI tool exited with an error that is not a usage limit, so restarting it automatically would most likely fail the same way.',
     nextSteps: ['Review the attached working session log for the failure, fix the cause, and re-run the command.'],
   },
+  auth_failure_after_retry: {
+    title: 'the AI tool could not authenticate, even after automatic recovery',
+    detail: 'Issue #2296: the session failed with an authentication error (401 / "OAuth session expired and could not be refreshed"). That is usually a race for the single-use OAuth refresh token, so Hive Mind re-read the stored credentials, waited for them to be refreshed, and resumed the same session with `--resume` — and authentication failed again every time.',
+    nextSteps: ['Log the AI tool in again on the host (for example `claude /login` or `codex login`), then re-run the command — it resumes the preserved branch.', 'If this keeps happening, make sure no other process uses the same login concurrently without sharing its config directory.', 'Raise `--auth-retry-attempts` (or `HIVE_MIND_AUTH_RETRY_MAX_WAIT_MS`) to wait longer for a refresh.'],
+  },
   tool_failure_after_resume: {
     title: 'the AI session failed after resuming from a usage limit',
     detail: 'The session was resumed once the usage limit reset, but the resumed run exited with an error.',

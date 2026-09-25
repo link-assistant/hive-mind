@@ -16,6 +16,7 @@ import { promisify } from 'node:util';
 
 import { CODEX_PLUGIN_CLI, buildPluginCachePath as buildAgentPluginCachePath, buildPluginPayloadRepairs, pluginIdParts, readMaterializedPluginSkills as readAgentMaterializedPluginSkills, repairPluginPayloads } from './agent-plugin-cache.lib.mjs';
 import { AGENTS_MD_FILENAMES, CLAUDE_MD_FILENAME } from './agents-md-claude-support.lib.mjs';
+import { reconcileCredentialCopy } from './auth-transient-retry.lib.mjs';
 import { parseModelVisibleSkillCatalog, validateModelVisibleSkillCatalog } from './codex-skill-catalog.lib.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -707,13 +708,34 @@ const syncScopedConfig = async ({ baseConfigPath, scopedConfigPath }) => {
   await fs.writeFile(scopedConfigPath, baseWithoutPlugins ? `${baseWithoutPlugins}\n` : '');
 };
 
+/**
+ * Issue #2296: Codex refreshes its OAuth token inside the scoped CODEX_HOME,
+ * and the refresh token it replaced is single-use. Copy the refreshed login
+ * back to the operator home once the run ends so the next task (and the
+ * operator) do not start from a spent token.
+ */
+export const syncScopedCodexAuthBack = async ({ capabilityPreflight, log = async () => {} } = {}) => {
+  const { codexHome, baseCodexHome } = capabilityPreflight || {};
+  if (!codexHome || !baseCodexHome || path.resolve(codexHome) === path.resolve(baseCodexHome)) return 'unchanged';
+  try {
+    const outcome = await reconcileCredentialCopy({ primary: path.join(baseCodexHome, 'auth.json'), copy: path.join(codexHome, 'auth.json'), fsImpl: fs });
+    if (outcome === 'copied-to-primary') await log(`   🔑 Codex refreshed its login during the run; saved it to ${path.join(baseCodexHome, 'auth.json')}`, { verbose: true });
+    return outcome;
+  } catch (error) {
+    await log(`   ⚠️ Could not reconcile the scoped Codex auth.json: ${error.message}`, { verbose: true });
+    return 'failed';
+  }
+};
+
 const prepareScopedCodexHome = async ({ baseCodexHome, codexHome, needsMarketplace }) => {
   await fs.mkdir(codexHome, { recursive: true });
   // These directories can contribute instructions independently of current
   // installation metadata. Remove them before copying any runtime state.
   await Promise.all([fs.rm(path.join(codexHome, 'plugins'), { recursive: true, force: true }), fs.rm(path.join(codexHome, 'skills'), { recursive: true, force: true }), fs.rm(path.join(codexHome, '.tmp', 'plugins'), { recursive: true, force: true }), fs.rm(path.join(codexHome, '.tmp', 'plugins.sha'), { force: true }), fs.rm(path.join(codexHome, '.tmp', 'plugins.sync.lock'), { force: true })]);
   await syncScopedConfig({ baseConfigPath: path.join(baseCodexHome, 'config.toml'), scopedConfigPath: path.join(codexHome, 'config.toml') });
-  await syncFileIfPresent(path.join(baseCodexHome, 'auth.json'), path.join(codexHome, 'auth.json'));
+  // Issue #2296: newest wins, so a token the previous task refreshed in its
+  // scoped copy is not overwritten by the operator's now-spent refresh token.
+  await reconcileCredentialCopy({ primary: path.join(baseCodexHome, 'auth.json'), copy: path.join(codexHome, 'auth.json'), fsImpl: fs });
   await syncFileIfPresent(path.join(baseCodexHome, 'installation_id'), path.join(codexHome, 'installation_id'));
 
   if (!needsMarketplace) return;

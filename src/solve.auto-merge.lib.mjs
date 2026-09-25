@@ -98,6 +98,7 @@ const { handleBillingLimitBlocker } = await import('./billing-limit-stop.lib.mjs
 // Issue #2247 (H3): a restart is only worth its cost when the previous session
 // changed something. Five byte-identical sessions is a stall, not progress.
 const { stopWhenSessionRepeated } = await import('./session-progress.lib.mjs');
+const { describeAuthRetryStop } = await import('./auth-transient-retry.lib.mjs'); // Issue #2296
 // Issue #2119: an empty pull request must not be reported as ready to merge.
 const { buildEmptyPullRequestBlocker, getPullRequestChangeStats } = await import('./pull-request-changes.lib.mjs');
 // Issue #2263: a terminal session failure is a run-wide readiness veto. The
@@ -1057,8 +1058,10 @@ export const watchUntilMergeable = async params => {
                 await log(formatAligned('', `⚠️  Failure log upload error: ${cleanErrorMessage(logUploadError)}`, '', 2));
               }
             }
-            await reportAutomationStop({ $, owner, repo, targetNumber: prNumber, reason: 'tool_failure', mode: 'auto-restart-until-mergeable', message: extractToolErrorCore({ toolResult }) || formatToolExecutionFailure({ tool: argv.tool, toolResult }), verbose: argv.verbose, log });
-            return { success: false, reason: 'tool_failure', latestSessionId, latestAnthropicCost };
+            // Issue #2296: an auth failure that survived the automatic resume says what was tried.
+            const stop = describeAuthRetryStop(toolResult);
+            await reportAutomationStop({ $, owner, repo, targetNumber: prNumber, reason: stop.reason, mode: 'auto-restart-until-mergeable', message: extractToolErrorCore({ toolResult }) || formatToolExecutionFailure({ tool: argv.tool, toolResult }), details: stop.details, verbose: argv.verbose, log });
+            return { success: false, reason: stop.reason, latestSessionId, latestAnthropicCost };
           }
         }
         if (toolResult.success) {

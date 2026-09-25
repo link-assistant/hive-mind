@@ -176,6 +176,14 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Maximum number of automatic recovery working sessions started for one killed session when --on-session-kill=resume. Can also be set with HIVE_MIND_SESSION_KILL_RESUME_ATTEMPTS.',
     default: 1,
   },
+  // Issue #2296: a 401 / "OAuth session expired and could not be refreshed" is
+  // usually a refresh race, not a revoked login — wait for fresh credentials and
+  // resume the same session before giving up.
+  'auth-retry-attempts': {
+    type: 'number',
+    description: 'Maximum number of times a session that failed with a transient authentication error (401, "OAuth session expired and could not be refreshed") is resumed with --resume after the credentials are re-read (0 = never). The wait for refreshed credentials is capped by HIVE_MIND_AUTH_RETRY_MAX_WAIT_MS (default 10 minutes).',
+    default: 2,
+  },
   'auto-close-pull-request-on-fail': {
     type: 'boolean',
     description: 'Automatically close the pull request if execution fails',

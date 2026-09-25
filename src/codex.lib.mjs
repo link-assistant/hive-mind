@@ -47,7 +47,7 @@ import { getCumulativeContextInputTokens } from './context-fill.lib.mjs';
 import { deployHandoffSkill } from './handoff-skill.lib.mjs'; // Issue #1877
 import { deployPlaywrightSkill } from './playwright-skill.lib.mjs'; // Issue #2190
 import { formatRouterAuthViolation, startRouterAuthGuard } from './router-auth-guard.lib.mjs'; // Issue #2190
-import { applyCodexCapabilityEnv, runCodexCapabilityPreflight, setTomlTableBoolean, verifyCodexCapabilityExecutionCatalog } from './codex-capability-preflight.lib.mjs'; // Issues #2074 and #2254
+import { applyCodexCapabilityEnv, runCodexCapabilityPreflight, setTomlTableBoolean, syncScopedCodexAuthBack, verifyCodexCapabilityExecutionCatalog } from './codex-capability-preflight.lib.mjs'; // Issues #2074, #2254 and #2296
 import { createPullRequestBaseBranchCommandIntervention } from './solve.pr-base-command-intervention.lib.mjs';
 import Decimal from 'decimal.js-light';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
@@ -1039,6 +1039,7 @@ export const executeCodexCommand = async params => {
         // Throw an error to stop retries and propagate the auth failure
         const error = new Error(`Codex authentication failed - 401 Unauthorized.${codexAuthRemedyLines.map(line => ` ${line.replace(/^\s*💡\s*/, '')}`).join('')}`);
         error.isAuthError = true;
+        error.sessionId = sessionId; // Issue #2296: lets the auth retry resume this session
         throw error;
       }
       const codexErrorSummary = getCodexErrorEventSummary(codexJsonState);
@@ -1235,6 +1236,7 @@ export const executeCodexCommand = async params => {
         resultSummary: null, // Issue #1263: No result summary available on error
       };
     } finally {
+      await syncScopedCodexAuthBack({ capabilityPreflight, log }); // Issue #2296
       await log(`🧹 Removing temporary Codex prompt file: ${promptFile}`, { verbose: true });
       await fs.rm(promptFile, { force: true }).catch(() => {});
       await log(`🧹 Removing temporary Codex last-message file: ${lastMessageFile}`, { verbose: true });

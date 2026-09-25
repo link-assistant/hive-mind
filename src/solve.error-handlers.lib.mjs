@@ -262,7 +262,12 @@ export const handleMainExecutionError = async options => {
     await log('\n❌ AUTHENTICATION ERROR', { level: 'error' });
     await log('', { level: 'error' });
     await log('   The AI tool authentication has failed.', { level: 'error' });
-    await log('   This error cannot be resolved by retrying.', { level: 'error' });
+    // Issue #2296: a transient auth failure is retried first, so say what was tried.
+    if (error.authRetry && !error.authRetry.skipped) {
+      await log(`   Hive Mind re-read the credentials and resumed the session ${error.authRetry.attempts} time(s); authentication failed each time.`, { level: 'error' });
+    } else {
+      await log('   This error cannot be resolved by retrying.', { level: 'error' });
+    }
     await log('', { level: 'error' });
     await log(`   Error: ${cleanErrorMessage(error)}`, { level: 'error' });
     await log('', { level: 'error' });

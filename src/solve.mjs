@@ -73,6 +73,7 @@ const { autoAcceptInviteForRepo } = await import('./solve.accept-invite.lib.mjs'
 const { handleAutoForkOption, handleMaintainerForkAccess } = await import('./solve.fork-detection.lib.mjs');
 const { resolveUncommittedChangesTool } = await import('./solve.tool-uncommitted.lib.mjs');
 const { classifyFormalAiToolResult } = await import('./formal-ai.lib.mjs');
+const { formatAuthRetrySummary, runWithTransientAuthRetry } = await import('./auth-transient-retry.lib.mjs'); // Issue #2296
 const logFile = await initializeLogFile(null);
 const versionInfo = await getVersionInfo();
 const rawCommand = await logSolveStartup(versionInfo);
@@ -597,91 +598,27 @@ try {
       await safeExit(1, 'agent-commander not available');
     }
     await log(`\n[agent-commander] Using agent-commander for ${argv.tool || 'claude'} execution`);
-    toolResult = await agentCommanderLib.executeWithAgentCommander({
-      issueUrl,
-      issueNumber,
-      prNumber,
-      prUrl,
-      branchName,
-      tempDir,
-      workspaceTmpDir,
-      isContinueMode,
-      mergeStateStatus,
-      forkedRepo,
-      feedbackLines,
-      forkActionsUrl,
-      owner,
-      repo,
-      argv,
-      log,
-      setLogFile,
-      getLogFile,
-      formatAligned,
-      getResourceSnapshot,
-      $,
-    });
-  } else if (['opencode', 'codex', 'agent', 'gemini', 'qwen'].includes(argv.tool)) {
-    const toolDispatch = {
-      opencode: { lib: './opencode.lib.mjs', execFn: 'executeOpenCode', envVar: 'OPENCODE_PATH', defaultBin: 'opencode', pathKey: 'opencodePath' },
-      codex: { lib: './codex.lib.mjs', execFn: 'executeCodex', envVar: 'CODEX_PATH', defaultBin: 'codex', pathKey: 'codexPath' },
-      agent: { lib: './agent.lib.mjs', execFn: 'executeAgent', envVar: 'AGENT_PATH', defaultBin: 'agent', pathKey: 'agentPath' },
-      gemini: { lib: './gemini.lib.mjs', execFn: 'executeGemini', envVar: 'GEMINI_PATH', defaultBin: 'gemini', pathKey: 'geminiPath' },
-      qwen: { lib: './qwen.lib.mjs', execFn: 'executeQwen', envVar: 'QWEN_PATH', defaultBin: 'qwen', pathKey: 'qwenPath' },
-    }[argv.tool];
-    const toolLib = await import(toolDispatch.lib);
-    toolResult = await toolLib[toolDispatch.execFn]({
-      issueUrl,
-      issueNumber,
-      prNumber,
-      prUrl,
-      branchName,
-      tempDir,
-      workspaceTmpDir,
-      isContinueMode,
-      mergeStateStatus,
-      forkedRepo,
-      feedbackLines,
-      forkActionsUrl,
-      owner,
-      repo,
-      argv,
-      log,
-      setLogFile,
-      getLogFile,
-      formatAligned,
-      getResourceSnapshot,
-      [toolDispatch.pathKey]: process.env[toolDispatch.envVar] || toolDispatch.defaultBin,
-      $,
-    });
-  } else {
-    // Default to Claude
-    const claudeResult = await executeClaude({
-      issueUrl,
-      issueNumber,
-      prNumber,
-      prUrl,
-      branchName,
-      tempDir,
-      workspaceTmpDir,
-      isContinueMode,
-      mergeStateStatus,
-      forkedRepo,
-      feedbackLines,
-      forkActionsUrl,
-      owner,
-      repo,
-      argv,
-      log,
-      setLogFile,
-      getLogFile,
-      formatAligned,
-      getResourceSnapshot,
-      claudePath,
-      $,
-    });
-    toolResult = claudeResult;
   }
-  toolResult = classifyFormalAiToolResult({ model: argv.model, toolResult });
+  const toolDispatch = {
+    opencode: { lib: './opencode.lib.mjs', execFn: 'executeOpenCode', envVar: 'OPENCODE_PATH', defaultBin: 'opencode', pathKey: 'opencodePath' },
+    codex: { lib: './codex.lib.mjs', execFn: 'executeCodex', envVar: 'CODEX_PATH', defaultBin: 'codex', pathKey: 'codexPath' },
+    agent: { lib: './agent.lib.mjs', execFn: 'executeAgent', envVar: 'AGENT_PATH', defaultBin: 'agent', pathKey: 'agentPath' },
+    gemini: { lib: './gemini.lib.mjs', execFn: 'executeGemini', envVar: 'GEMINI_PATH', defaultBin: 'gemini', pathKey: 'geminiPath' },
+    qwen: { lib: './qwen.lib.mjs', execFn: 'executeQwen', envVar: 'QWEN_PATH', defaultBin: 'qwen', pathKey: 'qwenPath' },
+  }[argv.tool];
+  // One tool run. Issue #2296: a transient auth failure (401 / "OAuth session expired
+  // and could not be refreshed") waits for fresh credentials and resumes the same
+  // session with a "Continue" prompt, up to --auth-retry-attempts times.
+  const runToolOnce = async (runArgv, retry) => {
+    const toolParams = { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, mergeStateStatus, forkedRepo, feedbackLines: retry === 0 ? feedbackLines : ['Continue'], forkActionsUrl, owner, repo, argv: runArgv, log, setLogFile, getLogFile, formatAligned, getResourceSnapshot, $ };
+    if (argv.useAgentCommander) return classifyFormalAiToolResult({ model: argv.model, toolResult: await agentCommanderLib.executeWithAgentCommander(toolParams) });
+    if (toolDispatch) {
+      const toolLib = await import(toolDispatch.lib);
+      return classifyFormalAiToolResult({ model: argv.model, toolResult: await toolLib[toolDispatch.execFn]({ ...toolParams, [toolDispatch.pathKey]: process.env[toolDispatch.envVar] || toolDispatch.defaultBin }) });
+    }
+    return classifyFormalAiToolResult({ model: argv.model, toolResult: await executeClaude({ ...toolParams, claudePath }) }); // Default to Claude
+  };
+  toolResult = await runWithTransientAuthRetry({ tool: argv.tool, argv, log, run: runToolOnce });
   // Issue #2190: the router auth guard killed the CLI because the task tried to
   // authenticate with something other than its router token. Not a tool
   // failure to retry or a mergeability problem — a security stop, with its own
@@ -988,6 +925,7 @@ try {
       });
       for (const line of reportLines) await log(line, { level: 'error' });
     }
+    if (toolResult?.authRetry) await log(`🔐 ${formatAuthRetrySummary(toolResult.authRetry)}`, { level: 'error' }); // Issue #2296
     // Attach failure logs before exiting (Issues #1212, #1462: fall back to issue if no PR)
     const hasPR = global.createdPR && global.createdPR.number;
     const hasIssue = global.issueNumber;

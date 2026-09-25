@@ -78,7 +78,7 @@ export const inspectUnsavedWork = async ({ tempDir, $ }) => {
   try {
     const status = await $({ cwd: tempDir, mirror: false })`git status --porcelain 2>/dev/null`;
     if (status.code !== 0) return null;
-    const uncommitted = String(status.stdout || '')
+    const uncommitted = (status.stdout?.toString() || '')
       .split('\n')
       .map(line => line.trimEnd())
       .filter(Boolean);

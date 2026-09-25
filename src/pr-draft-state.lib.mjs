@@ -33,7 +33,13 @@
  * @see https://github.com/link-assistant/hive-mind/issues/2123
  * @see https://github.com/link-assistant/hive-mind/issues/2182
  * @see https://github.com/link-assistant/hive-mind/issues/2247
+ * Issue #2295: a pull request that a *maintainer* converted to draft is the
+ * maintainer's decision, not a working-session draft. {@link ensurePullRequestIsDraft}
+ * records it as a deliberate `maintainer_draft`, so neither the session end nor the
+ * AI tool's own `gh pr ready` can flip it back to "ready for review".
+ *
  * @see https://github.com/link-assistant/hive-mind/issues/2263
+ * @see https://github.com/link-assistant/hive-mind/issues/2295
  * @see docs/case-studies/issue-2182/README.md for the full timeline and evidence
  */
 
@@ -281,14 +287,61 @@ export const ensurePullRequestStaysDraftAfterFailure = async options => {
 };
 
 /**
+ * Issue #2295: who put an already-draft pull request into draft?
+ *
+ * Returns the latest `convert_to_draft` timeline event when it is the latest
+ * draft/ready transition and was made by someone other than the authenticated
+ * gh user (i.e. not by hive-mind or its AI tool). Returns null on any error, so
+ * a failed lookup never blocks a session.
+ *
+ * @returns {Promise<{actor: string, createdAt: string}|null>}
+ */
+export const findMaintainerDraftConversion = async ({ owner, repo, prNumber, $, log = noopLog }) => {
+  if (!owner || !repo || !prNumber || typeof $ !== 'function') return null;
+  try {
+    const jq = '.[] | select(.event == "convert_to_draft" or .event == "ready_for_review") | [.event, (.actor.login // ""), .created_at] | @tsv';
+    const timeline = await $`gh api repos/${owner}/${repo}/issues/${prNumber}/timeline --paginate --jq ${jq}`;
+    if (!timeline || timeline.code !== 0) return null;
+    const transitions = (timeline.stdout || '')
+      .toString()
+      .split('\n')
+      .map(line => line.trim().split('\t'))
+      .filter(fields => fields.length === 3 && (fields[0] === 'convert_to_draft' || fields[0] === 'ready_for_review'));
+    const last = transitions[transitions.length - 1];
+    if (!last || last[0] !== 'convert_to_draft' || !last[1]) return null;
+
+    const user = await $`gh api user --jq .login`;
+    const self = user && user.code === 0 ? (user.stdout || '').toString().trim() : '';
+    if (!self || self.toLowerCase() === last[1].toLowerCase()) return null;
+
+    await log(`   🔍 PR #${prNumber} was converted to draft by @${last[1]} at ${last[2]} (authenticated as @${self})`, { verbose: true });
+    return { actor: last[1], createdAt: last[2] };
+  } catch {
+    return null;
+  }
+};
+
+/**
  * Put a pull request into draft mode when a working session starts/restarts/resumes.
  * No-op when the PR is already a draft, merged, or closed.
+ *
+ * Issue #2295: when the PR already is a draft because a maintainer converted it,
+ * the draft is recorded as the maintainer's (`kind: 'maintainer_draft'`), and
+ * {@link ensurePullRequestIsReady} will keep it a draft at the end of the session.
  */
 export const ensurePullRequestIsDraft = async options => {
   // Issue #2247: a new session invalidates a previous session's "nothing to
   // review" verdict; it is about to try again.
   clearPullRequestLeftInDraft({ owner: options?.owner, repo: options?.repo, prNumber: options?.prNumber });
-  return setPullRequestDraftState({ ...options, target: 'draft' });
+  const result = await setPullRequestDraftState({ ...options, target: 'draft' });
+  if (result.reason !== 'already_in_target_state') return result;
+
+  const conversion = await findMaintainerDraftConversion(options);
+  if (!conversion) return result;
+  const reason = `@${conversion.actor} converted it to draft at ${conversion.createdAt}; only a maintainer should mark it ready for review`;
+  markPullRequestLeftInDraft({ owner: options.owner, repo: options.repo, prNumber: options.prNumber, reason, kind: 'maintainer_draft' });
+  await (options.log || noopLog)(`  ℹ️  PR #${options.prNumber} was converted to draft by a maintainer (@${conversion.actor}); it will stay a draft after this session`);
+  return { ...result, maintainerDraft: conversion };
 };
 
 /** Default source of truth for "did this pull request change anything?". */
@@ -319,6 +372,12 @@ export const ensurePullRequestIsReady = async ({ requireChanges = false, changeS
     const deliberate = getPullRequestLeftInDraft({ owner, repo, prNumber });
     if (deliberate) {
       await log(`  ℹ️  PR #${prNumber} stays a draft: ${deliberate.reason || 'this session produced no changes'}`);
+      if (deliberate.kind === 'maintainer_draft') {
+        // Issue #2295: the AI tool may have run `gh pr ready` itself (the prompt
+        // asks it to); put the maintainer's draft back. Not a session draft.
+        await setPullRequestDraftState({ ...options, target: 'draft', reason: 'restoring the maintainer draft' });
+        untrackWorkingSessionDraft({ owner, repo, prNumber });
+      }
       return { ok: true, changed: false, skipped: true, reason: 'left_in_draft_on_purpose', error: null, changeStats: deliberate.changeStats };
     }
   }
@@ -349,6 +408,7 @@ export default {
   ensurePullRequestIsDraft,
   ensurePullRequestIsReady,
   ensurePullRequestStaysDraftAfterFailure,
+  findMaintainerDraftConversion,
   getOutstandingWorkingSessionDrafts,
   markPullRequestLeftInDraft,
   restorePullRequestsLeftInDraft,

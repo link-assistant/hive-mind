@@ -20,6 +20,10 @@ const buildTokenUsageString = tokenUsage => {
   return `\n- Token usage: ${parts.join(', ')}`;
 };
 
+// Issue #2295: a maintainer of an external repository read "Public pricing estimate: $32.635322"
+// on a pull request and asked whether it was a hint or a requirement. Say what the number is.
+export const COST_INFO_NOTE = '\n\n_Informational only: the estimated AI compute cost of this work session. It is not a request for payment._';
+
 /** Build cost estimation string for log comments (Issue #1250, Issue #1557, Issue #1600: Decimal precision) */
 export const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo, options = {}) => {
   const includeTokenUsage = options.includeTokenUsage !== false;
@@ -75,5 +79,5 @@ export const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricing
       costInfo += `\n- Difference: $${diff.toFixed(6)} (${pct.gt(0) ? '+' : ''}${pct.toFixed(2)}%)`;
     }
   }
-  return costInfo;
+  return costInfo + COST_INFO_NOTE;
 };

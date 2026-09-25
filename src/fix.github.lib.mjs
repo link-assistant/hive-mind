@@ -46,7 +46,7 @@ export function runCommand(command, args, options = {}) {
 export async function commandOutput(run, command, args) {
   const result = await run(command, args);
   if (result.code !== 0) {
-    const output = `${result.stderr || ''}${result.stdout || ''}`.trim();
+    const output = `${result.stderr?.toString() || ''}${result.stdout?.toString() || ''}`.trim();
     // Issue #2135: `describeChildExit` names a signal instead of "code null".
     throw new Error(output || describeChildExit({ command, code: result.code, signal: result.signal }));
   }

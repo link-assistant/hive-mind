@@ -192,13 +192,13 @@ Proceed.
 
     if (addResult.code !== 0) {
       await log(`❌ Failed to add ${fileName}`, { level: 'error' });
-      await log(`   Error: ${addResult.stderr || 'Unknown error'}`, { level: 'error' });
+      await log(`   Error: ${addResult.stderr?.toString() || 'Unknown error'}`, { level: 'error' });
       throw new Error(`Failed to add ${fileName}`);
     }
 
     // Verify the file was actually staged
     let statusResult = await $({ cwd: tempDir })`git status --short`;
-    let gitStatus = statusResult.stdout ? statusResult.stdout.toString().trim() : '';
+    let gitStatus = statusResult.stdout?.toString() ? statusResult.stdout.toString().trim() : '';
 
     if (argv.verbose) {
       await log(`   Git status after add: ${gitStatus || 'empty'}`);
@@ -239,13 +239,13 @@ Proceed.
 
           if (gitkeepAddResult.code !== 0) {
             await log('❌ Failed to add .gitkeep', { level: 'error' });
-            await log(`   Error: ${gitkeepAddResult.stderr || 'Unknown error'}`, { level: 'error' });
+            await log(`   Error: ${gitkeepAddResult.stderr?.toString() || 'Unknown error'}`, { level: 'error' });
             throw new Error('Failed to add .gitkeep');
           }
 
           // Verify .gitkeep was staged
           statusResult = await $({ cwd: tempDir })`git status --short`;
-          gitStatus = statusResult.stdout ? statusResult.stdout.toString().trim() : '';
+          gitStatus = statusResult.stdout?.toString() ? statusResult.stdout.toString().trim() : '';
 
           if (!gitStatus || gitStatus.length === 0) {
             await log('');
@@ -282,8 +282,8 @@ Proceed.
     const commitResult = await $({ cwd: tempDir })`git commit -m ${commitMessage}`;
 
     if (commitResult.code !== 0) {
-      const commitStderr = commitResult.stderr ? commitResult.stderr.toString() : '';
-      const commitStdout = commitResult.stdout ? commitResult.stdout.toString() : '';
+      const commitStderr = commitResult.stderr?.toString() ? commitResult.stderr.toString() : '';
+      const commitStdout = commitResult.stdout?.toString() ? commitResult.stdout.toString() : '';
 
       await log('');
       await log(formatAligned('❌', 'COMMIT FAILED:', 'Could not create initial commit'), { level: 'error' });
@@ -340,22 +340,22 @@ Proceed.
       // Verify commit was created before pushing
       const verifyCommitResult = await $({ cwd: tempDir })`git log --format="%h %s" -1 2>&1`;
       if (verifyCommitResult.code === 0) {
-        const latestCommit = verifyCommitResult.stdout ? verifyCommitResult.stdout.toString().trim() : '';
+        const latestCommit = verifyCommitResult.stdout?.toString() ? verifyCommitResult.stdout.toString().trim() : '';
         if (argv.verbose) {
           await log(`   Latest commit: ${latestCommit || '(empty - this is a problem!)'}`);
 
           // Show git status
           const statusResult = await $({ cwd: tempDir })`git status --short 2>&1`;
-          await log(`   Git status: ${statusResult.stdout ? statusResult.stdout.toString().trim() || 'clean' : 'clean'}`);
+          await log(`   Git status: ${statusResult.stdout?.toString() ? statusResult.stdout.toString().trim() || 'clean' : 'clean'}`);
 
           // Show remote info
           const remoteResult = await $({ cwd: tempDir })`git remote -v 2>&1`;
-          const remoteOutput = remoteResult.stdout ? remoteResult.stdout.toString().trim() : 'none';
+          const remoteOutput = remoteResult.stdout?.toString() ? remoteResult.stdout.toString().trim() : 'none';
           await log(`   Remotes: ${remoteOutput ? remoteOutput.split('\n')[0] : 'none configured'}`);
 
           // Show branch info
           const branchResult = await $({ cwd: tempDir })`git branch -vv 2>&1`;
-          await log(`   Branch info: ${branchResult.stdout ? branchResult.stdout.toString().trim() : 'none'}`);
+          await log(`   Branch info: ${branchResult.stdout?.toString() ? branchResult.stdout.toString().trim() : 'none'}`);
         }
       }
 
@@ -372,10 +372,10 @@ Proceed.
 
       if (argv.verbose) {
         await log(`   Push exit code: ${pushResult.code}`);
-        if (pushResult.stdout) {
+        if (pushResult.stdout?.toString()) {
           await log(`   Push output: ${pushResult.stdout.toString().trim()}`);
         }
-        if (pushResult.stderr) {
+        if (pushResult.stderr?.toString()) {
           await log(`   Push stderr: ${pushResult.stderr.toString().trim()}`);
         }
       }
@@ -384,7 +384,7 @@ Proceed.
       let recoveredFromPushRejection = false;
 
       if (pushResult.code !== 0) {
-        const errorOutput = pushResult.stderr ? pushResult.stderr.toString() : pushResult.stdout ? pushResult.stdout.toString() : 'Unknown error';
+        const errorOutput = pushResult.stderr?.toString() ? pushResult.stderr.toString() : pushResult.stdout?.toString() ? pushResult.stdout.toString() : 'Unknown error';
 
         // Check for archived repository error
         if (errorOutput.includes('archived') && errorOutput.includes('read-only')) {
@@ -629,7 +629,7 @@ Proceed.
         if (fetchBaseResult.code !== 0) {
           await log(`⚠️ Warning: Could not fetch latest ${targetBranch}`, { level: 'warning' });
           if (argv.verbose) {
-            await log(`   Fetch output: ${fetchBaseResult.stdout || fetchBaseResult.stderr || 'none'}`, {
+            await log(`   Fetch output: ${fetchBaseResult.stdout?.toString() || fetchBaseResult.stderr?.toString() || 'none'}`, {
               verbose: true,
             });
           }
@@ -722,7 +722,7 @@ Proceed.
         } else {
           await log('⚠️ Warning: Could not verify commit count', { level: 'warning' });
           if (argv.verbose) {
-            await log(`   Check output: ${commitCheckResult.stdout || commitCheckResult.stderr || 'none'}`, {
+            await log(`   Check output: ${commitCheckResult.stdout?.toString() || commitCheckResult.stderr?.toString() || 'none'}`, {
               verbose: true,
             });
           }
@@ -829,7 +829,7 @@ ${prBody}`,
                 label,
                 log: prCreateRetryLogger,
               });
-              return { stdout: result.stdout, stderr: result.stderr || '' };
+              return { stdout: result.stdout, stderr: result.stderr?.toString() || '' };
             } catch (error) {
               if (!isPullRequestAlreadyExistsError(error)) throw error;
               await log(`   ${label}: GitHub reports a pull request already exists for ${prHeadRef} — treating the retried creation as already applied.`, { level: 'warn' });
@@ -957,7 +957,7 @@ ${prBody}`,
                     }
                   }
                 } else if (argv.verbose) {
-                  const attemptStderr = lastVerifyResult.stderr ? lastVerifyResult.stderr.toString().trim() : '';
+                  const attemptStderr = lastVerifyResult.stderr?.toString() ? lastVerifyResult.stderr.toString().trim() : '';
                   await log(`   Verify attempt ${verifyAttempts}: PR not found yet${attemptStderr ? ` (${attemptStderr})` : ''}`, { verbose: true });
                 }
               }
@@ -965,7 +965,7 @@ ${prBody}`,
               if (!prVerified) {
                 // PR does not exist after all retries - gh pr create must have failed silently
                 // Issue #1462: Include gh pr create stderr for root cause diagnosis
-                const verifyStderr = lastVerifyResult && lastVerifyResult.stderr ? lastVerifyResult.stderr.toString().trim() : '';
+                const verifyStderr = lastVerifyResult && lastVerifyResult.stderr?.toString() ? lastVerifyResult.stderr.toString().trim() : '';
                 const stderrInfo = prCreateStderr ? ` (gh pr create stderr: ${prCreateStderr.trim()})` : '';
                 const verifyInfo = verifyStderr ? ` (gh pr view stderr: ${verifyStderr})` : '';
                 throw new Error(`PR verification failed - gh pr create returned URL "${prUrl}" but PR #${localPrNumber} does not exist on GitHub after ${maxVerifyAttempts} verification attempts${stderrInfo}${verifyInfo}`);

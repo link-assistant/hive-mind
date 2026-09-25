@@ -42,6 +42,8 @@ const { checkPRMergeable, checkForBillingLimitError, getDetailedCIStatus, getWor
 // CI failure rather than a re-triggerable cancellation that stops for human review.
 const cancelledCiRerunLib = await import('./cancelled-ci-rerun.lib.mjs');
 const { classifyCancelledCIByWorkflowRuns } = cancelledCiRerunLib;
+// Issue #2295: detect completed-but-never-executed workflow runs (fork approval).
+const { findNonExecutedWorkflowRuns } = await import('./ci-run-approval.lib.mjs');
 
 /**
  * Issue #1712: Plain-English meaning of GitHub Actions / check-run statuses, so the
@@ -118,7 +120,7 @@ export const checkForExistingComment = async (owner, repo, prNumber, commentSign
     // Fetch every PR comment page so long threads don't scope deduplication to
     // a stale first-page session-ending marker.
     const result = await commandRunner`gh api repos/${owner}/${repo}/issues/${prNumber}/comments --paginate --jq '[.[].body]' 2>/dev/null`;
-    if (result.code === 0 && result.stdout) {
+    if (result.code === 0 && result.stdout?.toString()) {
       const rawOutput = result.stdout.toString().trim();
       if (!rawOutput) return false;
 
@@ -236,14 +238,14 @@ export const checkForNonBotComments = async (owner, repo, prNumber, issueNumber,
     // Fetch PR conversation comments
     const prCommentsResult = await commandRunner`gh api repos/${owner}/${repo}/issues/${prNumber}/comments --paginate`;
     let prComments = [];
-    if (prCommentsResult.code === 0 && prCommentsResult.stdout) {
+    if (prCommentsResult.code === 0 && prCommentsResult.stdout?.toString()) {
       prComments = JSON.parse(prCommentsResult.stdout.toString() || '[]');
     }
 
     // Fetch PR review comments (inline code comments)
     const prReviewCommentsResult = await commandRunner`gh api repos/${owner}/${repo}/pulls/${prNumber}/comments --paginate`;
     let prReviewComments = [];
-    if (prReviewCommentsResult.code === 0 && prReviewCommentsResult.stdout) {
+    if (prReviewCommentsResult.code === 0 && prReviewCommentsResult.stdout?.toString()) {
       prReviewComments = JSON.parse(prReviewCommentsResult.stdout.toString() || '[]');
     }
 
@@ -251,7 +253,7 @@ export const checkForNonBotComments = async (owner, repo, prNumber, issueNumber,
     let issueComments = [];
     if (issueNumber && issueNumber !== prNumber) {
       const issueCommentsResult = await commandRunner`gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate`;
-      if (issueCommentsResult.code === 0 && issueCommentsResult.stdout) {
+      if (issueCommentsResult.code === 0 && issueCommentsResult.stdout?.toString()) {
         issueComments = JSON.parse(issueCommentsResult.stdout.toString() || '[]');
       }
     }
@@ -373,7 +375,7 @@ export const trackAuthenticatedUserCommentsSince = async (owner, repo, prNumber,
     const fetchComments = async path => {
       try {
         const result = await commandRunner`gh api ${path} --paginate`;
-        if (result.code === 0 && result.stdout) {
+        if (result.code === 0 && result.stdout?.toString()) {
           return JSON.parse(result.stdout.toString() || '[]');
         }
       } catch {
@@ -489,6 +491,8 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
   // never fires and /merge loops forever (e.g. fork PR + push-only workflow + a passing
   // external check reporting status 'success').
   let noWorkflowRunsForCommit = false;
+  // Issue #2295: completed workflow runs that never executed (e.g. awaiting fork approval).
+  let nonExecutedWorkflowRuns = [];
 
   // Use detailed CI status to distinguish between all possible states
   const ciStatus = await getDetailedCIStatus(owner, repo, prNumber, verbose);
@@ -555,7 +559,7 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
               await log(`[VERBOSE] /merge: PR #${prNumber} has ${workflowRuns.length} workflow run(s) for SHA ${ciStatus.sha.substring(0, 7)}, but all completed without executing (conclusions: ${conclusions}) — check-runs will never appear`);
             }
             await log(formatAligned('ℹ️', 'CI workflows completed without executing:', `${conclusions} (${workflowRuns.map(r => r.name).join(', ')})`, 2));
-            return { blockers, ciStatus, noCiConfigured: false, noCiTriggered: true, workflowRunConclusions: conclusions };
+            return { blockers, ciStatus, noCiConfigured: false, noCiTriggered: true, workflowRunConclusions: conclusions, nonExecutedWorkflowRuns: findNonExecutedWorkflowRuns(workflowRuns) };
           }
 
           // Issue #1690: Detect invalid workflow files (e.g. YAML/expression errors).
@@ -778,7 +782,19 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
           details: incompleteRuns.map(r => r.name),
         });
       }
-      // All workflow runs completed — the check-runs we see are the final set, trust the 'success' status
+      // Issue #2295: a completed run is not necessarily an executed run. A fork PR's
+      // `pull_request` runs wait for maintainer approval (conclusion=action_required,
+      // zero jobs, no check-runs) while a `pull_request_target` workflow reports
+      // success — the rollup then says 'success' although no CI job ran.
+      nonExecutedWorkflowRuns = findNonExecutedWorkflowRuns(workflowRuns);
+      if (nonExecutedWorkflowRuns.length > 0) {
+        const labels = nonExecutedWorkflowRuns.map(r => `${r.name} (${r.conclusion})`).join(', ');
+        await log(formatAligned('⚠️', 'CI workflows did not execute:', labels, 2), { level: 'warning' });
+        if (verbose) {
+          await log(`[VERBOSE] /merge: PR #${prNumber} CI status is 'success' only from ${ciStatus.passedChecks.length} check-run(s); ${nonExecutedWorkflowRuns.length} workflow run(s) on ${ciStatus.sha.substring(0, 7)} never executed — not reporting "All CI checks have passed"`);
+        }
+      }
+      // Otherwise all workflow runs completed — the check-runs we see are the final set, trust the 'success' status
     } else {
       // No workflow runs for this SHA — the passed checks are from external services only
       // (e.g., CodeFactor, Codecov). Check if the repo has workflows that should produce runs.
@@ -998,7 +1014,7 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
     });
   }
 
-  return { blockers, ciStatus, noCiConfigured: false, noCiTriggered: false, noWorkflowRunsForCommit };
+  return { blockers, ciStatus, noCiConfigured: false, noCiTriggered: false, noWorkflowRunsForCommit, nonExecutedWorkflowRuns };
 };
 
 /**
@@ -1029,7 +1045,7 @@ export const checkForIssueMetadataChanges = async (owner, repo, issueNumber, pre
   let snapshot;
   try {
     const result = await commandRunner`gh api repos/${owner}/${repo}/issues/${issueNumber} --jq '{title: .title, body: .body}'`;
-    if (result.code !== 0 || !result.stdout) return empty;
+    if (result.code !== 0 || !result.stdout?.toString()) return empty;
     const parsed = JSON.parse(result.stdout.toString() || '{}');
     snapshot = {
       title: typeof parsed.title === 'string' ? parsed.title : '',

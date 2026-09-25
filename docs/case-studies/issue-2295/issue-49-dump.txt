@@ -1,0 +1,133 @@
+Stage DevShard v5 and Gonka v0.2.16 qualification ilyar OPEN 2026-08-26T02:34:45Z https://github.com/paranjko/external-test-lab/issues/49 
+## Goal
+
+Qualify DevShard v5 and Gonka `v0.2.16` as separate, state-preserving Community DevNet changes so that a result is attributable to the component that changed.
+
+This is an independent laboratory evaluation, not an official Gonka release or Mainnet readiness statement.
+
+## Current status
+
+The Community DevNet remains on Gonka `v0.2.15` and DAPI `v0.2.15-post3`.
+
+The complete DevShard-only candidate [v2026.09.09-rc.0](https://github.com/paranjko/external-test-lab/releases/tag/v2026.09.09-rc.0) is published. Its upgrade archive and three OCI archives were independently downloaded, checked against their SHA-256 sidecars, verified with GitHub attestations, and materialized into the stable-core composition.
+
+The candidate is not deployed. The shared public inference contract is implemented and merged, but its post-merge static-site publisher only installs static assets. It correctly failed public verification because neither the gateway-host health producer nor the public-edge proxy is installed, so the public health endpoint still exposes the preceding schema. The next operation is owner-authorized `gdc ops site` followed by `gdc ops edge`, then public API, browser, metrics, canary, and Telegram acceptance. This is not a DevShard v5 rollout. The later Gonka `v0.2.16` and hash-aware DAPI transition remains separate.
+
+## Campaign progress
+
+### Preparation and stable rehearsal
+
+- [x] Publish and merge candidate lifecycle and secure build automation
+- [x] Recover retained operator context without replacing validator identities
+- [x] Complete the internal stable-update rehearsal with its scoped `INCONCLUSIVE` verdict
+- [x] Separate core and DevShard candidate identities and add deterministic deployed-state composition contracts
+
+### DevShard v5 update
+
+- [x] Freeze one immutable DevShard-only candidate definition
+- [x] Publish and independently verify the final DevShard v5 archive, OCI artefacts, profile, and stable-core composition
+- [x] Preserve Gonka `v0.2.15` and DAPI `v0.2.15-post3` as the DevShard-only rollout baseline
+- [ ] Repair and accept the shared public API, gateway, and Telegram inference-service contract
+- [ ] Deploy the verified DevShard v5 candidate by controlled cohort with rollback evidence
+- [ ] Run automated height-sync and residual feature packages
+- [ ] Complete a paired v4/v5 functional and load comparison under equivalent working compositions
+- [ ] Publish the DevShard v5 update report
+
+### Gonka v0.2.16 and hash-aware DAPI
+
+- [ ] Freeze and independently verify one immutable Gonka `v0.2.16` and hash-aware DAPI profile
+- [ ] Complete the separate state-preserving protocol and Host-software update
+- [ ] Repeat applicable v5 compatibility, height-stamp, and block-hash checks
+- [ ] Publish the protocol update report
+
+## Acceptance criteria
+
+- [x] Core and DevShard candidates have independent immutable identities
+- [x] The DevShard candidate changes no Gonka core or DAPI component
+- [x] Published candidate artefacts have independently verified checksums, provenance, profile, and composition
+- [ ] Public inference has one truthful admission and terminal-response contract across API, site, and Telegram
+- [ ] The v5 rollout proves runtime identity, consensus continuity, rollback readiness, and recovered public inference
+- [ ] v4/v5 results report functional, load, quiet height-sync, busy-stamp, and residual outcomes with explicit limitations
+- [ ] Public reports state the tested composition and scoped verdict without credentials or private infrastructure state
+
+## Boundaries
+
+- Do not reset or recreate the network to turn a failure into a pass
+- Do not replace validator identities or reuse evidence from another network lineage
+- Do not change core and DevShard in the same measured transition
+- Do not patch official Gonka or DevShard source as a laboratory workaround
+- A failed test is a result, not a reason to repeat the same cell until it passes
+- A branch name, running process, container, HTTP health response, configured version, `ACTIVE` state, or one successful request is not acceptance
+
+## Related work
+
+- [#52](https://github.com/paranjko/external-test-lab/issues/52) is an independent public DevShard visibility follow-up. It starts after this campaign and is not part of this issue's acceptance.
+
+COMMENTS 5
+
+## ilyar 2026-08-26T03:23:41Z https://github.com/paranjko/external-test-lab/issues/49#issuecomment-5420132498 
+Baseline capture is complete. The candidate source heads still match the expected 2026-08-25 laboratory label, so the first profile remains `v2026.08.25-rc.0`.
+
+The repository currently has only the existing read-only runbook workflow and no laboratory-candidate packages. The live DevNet is advancing across all five public Host endpoints, but it is still running the `v2026.07.23` core stack. Validator effectiveness and gateway routability changed across the sampled lifecycle boundary, and the public software-version route currently returns 503, so this is not a proven `v2026.08.06` baseline.
+
+I am freezing the immutable two-source candidate manifest and implementing the candidate lifecycle next. The network will not be updated until reviewed default-branch automation exists and the `v2026.08.06` baseline is verified without resetting lineage.
+
+
+## ilyar 2026-08-26T04:03:29Z https://github.com/paranjko/external-test-lab/issues/49#issuecomment-5420407325 
+Correction: all current review findings are corrected together and the exact-head validation cycle is green; the campaign remains `In review` until the unchanged current revision is approved and merged
+
+## Current result
+
+- The OPS Compose model declares a protocol-isolated v5 gateway state volume, and the rendered v5 configuration mounts that volume successfully
+- Build manifest verification binds every image and binary entry to its component key, exact candidate tag, publication run identity, archive filename, release URL and OCI repository
+- Immutable release locks use an atomic no-clobber claim, so concurrent incompatible writers cannot both succeed
+- The candidate definition excludes v5 HA deployment and renders `GONKA_HA=false` with memory storage until a reviewed replica, router and shared-storage lifecycle exists
+- Binary OCI tags are stable across partial failed-job reruns because they bind to the profile, definition checksum and immutable publication run ID without the workflow attempt number
+
+## Verification
+
+- Regressions render the v5 Compose configuration, reject swapped manifest entries and cross-component URLs, synchronize incompatible lock writers and verify the disabled HA definition and lock values
+- Retry regressions accept unchanged binary references from a later workflow attempt and reject attempt-scoped binary tags
+- The complete local gate passes, including the full test suite, ShellCheck, actionlint, release-profile verification, Docker Bats, DinD Bats and a real pinned-Syft binary payload check
+- The exact-head GitHub runbook workflow passes and all 27 review threads are resolved
+
+## Authorization boundary
+
+No candidate package has been published, default-branch candidate automation has not been run and the live DevNet has not been changed
+
+Approval of the unchanged current revision by `ever-guild-ops` and an authorized merge into `main` remain required before candidate publication or any network update
+
+## Next action
+
+A fresh review from `ever-guild-ops` is requested; wait for the verdict on the unchanged revision without duplicate requests or routine polling
+
+If the revision changes, repeat the complete exact-head checks and review
+
+After approval and an authorized merge, move the campaign to `In progress` for candidate publication and independent verification, not `Done`
+
+
+## ilyar 2026-08-26T19:11:36Z https://github.com/paranjko/external-test-lab/issues/49#issuecomment-5429912399 
+The stable `v2026.08.06` rehearsal is complete on the existing Community DevNet lineage. The update preserved the chain and validator identities, and all five public chain endpoints continued advancing after activation.
+
+The accessible Hosts now run Gonka `v0.2.15` and DAPI `v0.2.15-post3`. Node1, node2, and node4 are synchronized effective validators. The Genesis Host is synchronized on the target runtime but is not selected in the current validator set, so its current voting power is zero.
+
+The gateway recovered to `READY` without a bypass and completed authenticated inference. The Telegram consumer also completed chain-accounted inference, and Grafana passed its target, expression, and browser checks.
+
+The public site remains available. Its fullscreen mobile map check still reports hidden validator markers; that is a separate presentation defect and does not block DevShard testing.
+
+Next, finish the internal rehearsal report and keep the DevShard v5 transition separate from the later Gonka protocol update.
+
+
+## ilyar 2026-08-28T01:15:13Z https://github.com/paranjko/external-test-lab/issues/49#issuecomment-5447158387 
+The final DevShard-only candidate is now published as [v2026.09.09-rc.0](https://github.com/paranjko/external-test-lab/releases/tag/v2026.09.09-rc.0).
+
+The upgrade archive and all three OCI archives were independently downloaded. Every SHA-256 sidecar and GitHub attestation verified, and the downloaded manifest rendered a verified composition with the unchanged stable core and DAPI baseline.
+
+No DevNet rollout occurred. The next work is to repair and prove one public inference-service contract across the API, gateway status, and Telegram bot. Only then can the verified candidate be deployed and tested against the v4 baseline.
+
+
+## ilyar 2026-09-09T18:03:58Z https://github.com/paranjko/external-test-lab/issues/49#issuecomment-5606471558 
+Public inference admission repair is now merged. API admission, site status, and Telegram preflight share a fail-closed contract, while public status observations are bounded to avoid backend amplification.
+
+The candidate is still not deployed and live inference acceptance is not claimed. Next is truthful readiness diagnostics and an uncached public canary before any controlled rollout.
+

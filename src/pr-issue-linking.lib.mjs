@@ -4,7 +4,7 @@
  * Helpers for preserving GitHub issue-closing links in pull request bodies.
  */
 
-import { hasGitHubLinkingKeyword } from './github-linking.lib.mjs';
+import { findNonClosingIssueReference, hasGitHubLinkingKeyword } from './github-linking.lib.mjs';
 
 /**
  * Build the issue reference text to use in a GitHub closing keyword.
@@ -31,13 +31,18 @@ export function buildIssueReference({ issueNumber, owner = null, repo = null, fo
 /**
  * Ensure a pull request body has a GitHub-recognized closing keyword for the issue.
  *
+ * If the body deliberately references the issue with a non-closing phrase
+ * ("Part of #N", "Relates to #N", "Refs #N", ...), the body is left unchanged:
+ * the PR is declared as partial work and appending "Fixes #N" would falsely
+ * claim that it resolves the issue (issue #2295).
+ *
  * @param {string|null|undefined} prBody
  * @param {Object} options
  * @param {string|number} options.issueNumber
  * @param {string|null} [options.owner]
  * @param {string|null} [options.repo]
  * @param {boolean} [options.fork]
- * @returns {{body: string, updated: boolean, issueRef: string}}
+ * @returns {{body: string, updated: boolean, issueRef: string, nonClosingReference?: string}}
  */
 export function ensureIssueLinkInPullRequestBody(prBody, { issueNumber, owner = null, repo = null, fork = false } = {}) {
   const body = prBody ?? '';
@@ -50,6 +55,11 @@ export function ensureIssueLinkInPullRequestBody(prBody, { issueNumber, owner = 
   const hasLinkingKeyword = hasGitHubLinkingKeyword(body, issueNumber, owner, repo);
   if (hasLinkingKeyword) {
     return { body, updated: false, issueRef };
+  }
+
+  const nonClosingReference = findNonClosingIssueReference(body, issueNumber, owner, repo);
+  if (nonClosingReference) {
+    return { body, updated: false, issueRef, nonClosingReference };
   }
 
   const separator = body.length > 0 ? '\n\n' : '';

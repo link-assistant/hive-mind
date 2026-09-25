@@ -121,7 +121,7 @@ export const cleanupAgentsMdAsClaudeMd = async params => {
 
   const rmResult = await removeTrackedClaudeMd({ $, tempDir });
   if (rmResult.code !== 0) {
-    await log(`   Warning: could not remove temporary CLAUDE.md from git: ${rmResult.stderr || rmResult.stdout}`, { verbose: true });
+    await log(`   Warning: could not remove temporary CLAUDE.md from git: ${rmResult.stderr?.toString() || rmResult.stdout?.toString()}`, { verbose: true });
     return { action: 'remove-failed' };
   }
 
@@ -133,14 +133,14 @@ export const cleanupAgentsMdAsClaudeMd = async params => {
 
   const commitResult = await commitClaudeMdRemoval({ $, tempDir });
   if (commitResult.code !== 0) {
-    await log(`   Warning: temporary CLAUDE.md was removed locally but commit failed: ${commitResult.stderr || commitResult.stdout}`, { verbose: true });
+    await log(`   Warning: temporary CLAUDE.md was removed locally but commit failed: ${commitResult.stderr?.toString() || commitResult.stdout?.toString()}`, { verbose: true });
     return { action: 'removed-uncommitted' };
   }
 
   if (branchName) {
     const pushResult = await $({ cwd: tempDir })`git push origin ${branchName} 2>&1`;
     if (pushResult.code !== 0) {
-      await log(`   Warning: temporary CLAUDE.md removal commit was created but push failed: ${pushResult.stderr || pushResult.stdout}`, { verbose: true });
+      await log(`   Warning: temporary CLAUDE.md removal commit was created but push failed: ${pushResult.stderr?.toString() || pushResult.stdout?.toString()}`, { verbose: true });
     }
   }
 

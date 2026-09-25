@@ -270,8 +270,8 @@ export async function notifyIssueAboutPrePullRequestFailure(options) {
       await log(`  ✅ Solver failure comment posted to ${targetLabel}${posted.commentId ? ` (id=${posted.commentId})` : ''}`);
       return { notified: true, method: 'comment', commentId: posted.commentId || null };
     }
-    await log(`  ⚠️  Could not post solver failure comment: ${posted.stderr || 'unknown error'}`, { level: 'warning' });
-    return { notified: false, error: posted.stderr || 'unknown error' };
+    await log(`  ⚠️  Could not post solver failure comment: ${posted.stderr?.toString() || 'unknown error'}`, { level: 'warning' });
+    return { notified: false, error: posted.stderr?.toString() || 'unknown error' };
   } finally {
     globalState.preExitFailureNotificationInProgress = false;
     if (targetType === 'pr') {

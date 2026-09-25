@@ -79,6 +79,8 @@ const sessionLib = await import('./solve.session.lib.mjs');
 const { postWorkSessionStartComment, SESSION_TYPES } = sessionLib;
 const externalReviewLimitLib = await import('./external-review-limit.lib.mjs');
 const { buildReadyForReviewComment } = externalReviewLimitLib;
+// Issue #2295: honest CI wording when fork workflow runs await approval
+const { buildCiStatusLine, buildMergeReadinessComment, getRunsAwaitingApproval, CI_AWAITING_APPROVAL_MARKER } = await import('./ci-run-approval.lib.mjs');
 // Issue #1728: Per-iteration working session summary attachment helper
 // Issue #1763: Per-iteration PR ↔ issue link verification (so a clobbered
 // PR body is restored before the next stop condition fires).
@@ -268,7 +270,7 @@ export const watchUntilMergeable = async params => {
       // Issue #1503: Increment counter; getMergeBlockers uses it as a safety valve
       consecutiveNoRunsChecks++;
       // Get merge blockers
-      const { blockers, noCiConfigured, noCiTriggered, workflowRunConclusions, ciStatus, noWorkflowRunsForCommit } = await getMergeBlockers(owner, repo, prNumber, argv.verbose, consecutiveNoRunsChecks, prBranch);
+      const { blockers, noCiConfigured, noCiTriggered, workflowRunConclusions, ciStatus, noWorkflowRunsForCommit, nonExecutedWorkflowRuns = [] } = await getMergeBlockers(owner, repo, prNumber, argv.verbose, consecutiveNoRunsChecks, prBranch);
       const terminalGitHubBlocker = blockers.find(b => b.type === 'terminal_github_entity_error');
       if (terminalGitHubBlocker) {
         await log('');
@@ -408,7 +410,10 @@ export const watchUntilMergeable = async params => {
             continue;
           }
         }
-        await log(formatAligned('✅', 'PR IS MERGEABLE!', ''));
+        // Issue #2295: fork workflow runs awaiting approval never executed; the
+        // code is untested by CI, so never auto-merge and never claim readiness.
+        const ciAwaitingApproval = getRunsAwaitingApproval(nonExecutedWorkflowRuns).length > 0;
+        await log(ciAwaitingApproval ? formatAligned('⏸️', 'NO BLOCKERS, BUT CI HAS NOT RUN:', 'workflow runs are awaiting maintainer approval') : formatAligned('✅', 'PR IS MERGEABLE!', ''));
         // Issue #2144: the pull request is ready. A closed/unavailable linked
         // issue blocks only the *automatic* merge — the loop already did its
         // job of making the pull request mergeable. Ask the user to reopen the
@@ -417,7 +422,7 @@ export const watchUntilMergeable = async params => {
           await reportAutoMergeBlockedByIssue({ owner, repo, prNumber, issueNumber, mergeBlockers: issueMergeBlockers, verbose: argv.verbose });
           return { success: false, reason: issueMergeBlockers[0].reason, mergeBlockers: issueMergeBlockers, latestSessionId, latestAnthropicCost };
         }
-        if (isAutoMerge) {
+        if (isAutoMerge && !ciAwaitingApproval) {
           // Attempt to merge the PR
           await log(formatAligned('🔀', 'Auto-merging PR...', ''));
           const deleteAfterMerge = shouldDeleteBranchAfterMerge(argv);
@@ -432,7 +437,7 @@ export const watchUntilMergeable = async params => {
             // Post success comment
             try {
               // Issue #1345: Differentiate message when no CI is configured
-              const ciLine = noCiConfigured ? '- No CI/CD checks are configured for this repository' : noCiTriggered ? (workflowRunConclusions ? `- CI workflows completed without executing (${workflowRunConclusions})` : '- CI workflows exist but were not triggered for this commit') : '- All CI checks have passed';
+              const ciLine = buildCiStatusLine({ noCiConfigured, noCiTriggered, workflowRunConclusions, nonExecutedWorkflowRuns });
               const commentBody = `## 🎉 ${AUTO_MERGED_MARKER}\n\nThis pull request has been automatically merged by hive-mind.\n${ciLine}\n\n---\n*Auto-merged by hive-mind with --auto-merge flag*`;
               await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: commentBody });
             } catch {
@@ -488,13 +493,15 @@ export const watchUntilMergeable = async params => {
               // Issue #1567: Cross-process deduplication — check if another process already
               // posted a "Ready to merge" comment. This catches the case where two concurrent
               // watchUntilMergeable processes both detect mergeability simultaneously.
-              const hasExistingReadyComment = await checkForExistingComment(owner, repo, prNumber, `## ✅ ${READY_TO_MERGE_MARKER}`, argv.verbose);
+              // Issue #2295: while CI runs wait for approval the comment must not claim readiness.
+              const readinessHeading = ciAwaitingApproval ? `## ⏸️ ${CI_AWAITING_APPROVAL_MARKER}` : `## ✅ ${READY_TO_MERGE_MARKER}`;
+              const hasExistingReadyComment = await checkForExistingComment(owner, repo, prNumber, readinessHeading, argv.verbose);
               if (hasExistingReadyComment) {
-                await log(formatAligned('', `Skipping duplicate "${READY_TO_MERGE_MARKER}" comment (already posted by another process)`, '', 2));
+                await log(formatAligned('', `Skipping duplicate "${readinessHeading.replace(/^## \S+ /, '')}" comment (already posted by another process)`, '', 2));
                 readyToMergeCommentPosted = true;
               } else {
                 // Issue #1345: Differentiate message when no CI is configured
-                const ciLine = noCiConfigured ? '- No CI/CD checks are configured for this repository' : noCiTriggered ? (workflowRunConclusions ? `- CI workflows completed without executing (${workflowRunConclusions})` : '- CI workflows exist but were not triggered for this commit') : '- All CI checks have passed';
+                const ciLine = buildCiStatusLine({ noCiConfigured, noCiTriggered, workflowRunConclusions, nonExecutedWorkflowRuns });
                 // Issue #2144: a closed/unavailable linked issue does not stop this
                 // mode, but it is worth stating in the comment so the reader knows
                 // why no automatic merge will follow.
@@ -505,7 +512,7 @@ export const watchUntilMergeable = async params => {
                         .filter(Boolean)
                         .join(' ')}`
                     : '';
-                const commentBody = `## ✅ ${READY_TO_MERGE_MARKER}\n\nThis pull request is now ready to be merged:\n${ciLine}\n- No merge conflicts\n- No pending changes${issueLine}\n\n---\n*Monitored by hive-mind with --auto-restart-until-mergeable flag*`;
+                const { body: commentBody } = buildMergeReadinessComment({ readyMarker: READY_TO_MERGE_MARKER, ciLine, nonExecutedWorkflowRuns, issueLine });
                 // Issue #1625: Track this comment ID so it can't falsely count as an AI-authored comment
                 await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: commentBody });
                 readyToMergeCommentPosted = true;
@@ -516,7 +523,7 @@ export const watchUntilMergeable = async params => {
           } catch {
             // Don't fail if comment posting fails
           }
-          return { success: true, reason: 'mergeable', latestSessionId, latestAnthropicCost };
+          return { success: true, reason: ciAwaitingApproval ? 'ci_awaiting_approval' : 'mergeable', latestSessionId, latestAnthropicCost };
         }
       }
       // Determine if we need to restart
@@ -769,7 +776,7 @@ export const watchUntilMergeable = async params => {
           if (pullResult.code === 0) {
             await log(formatAligned('🔄', 'Synced:', `Local branch ${effectiveBranch} updated from remote`));
           } else {
-            const pullOutput = `${pullResult.stdout || ''}${pullResult.stderr || ''}`.trim() || 'no output';
+            const pullOutput = `${pullResult.stdout?.toString() || ''}${pullResult.stderr?.toString() || ''}`.trim() || 'no output';
             const pullLeftLocalChanges = await checkForUncommittedChanges(tempDir, argv);
             if (pullLeftLocalChanges && /CONFLICT|MERGE_HEAD|unmerged|Automatic merge failed|not concluded your merge/i.test(pullOutput)) {
               await log(formatAligned('⚠️', 'Sync produced merge state:', 'Proceeding with AI restart to resolve it', 2));

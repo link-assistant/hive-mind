@@ -103,7 +103,7 @@ export const inspectPluginPayloads = async ({ agentHome, plugins, expectedSkills
 export const buildPluginPayloadRepairs = ({ cli, onInstalled = async () => {}, onCopied = async () => {} }) => {
   const install = async ({ command, env, runCommand, pluginId }) => {
     const result = await runCommand({ command, args: cli.install(pluginId), env });
-    if (result?.code !== 0) throw new Error(`${command} ${cli.install(pluginId).join(' ')} exited with code ${result?.code}: ${String(result?.stderr || result?.stdout || '').trim()}`);
+    if (result?.code !== 0) throw new Error(`${command} ${cli.install(pluginId).join(' ')} exited with code ${result?.code}: ${String(result?.stderr?.toString() || result?.stdout?.toString() || '').trim()}`);
     await onInstalled({ result, pluginId });
     return result;
   };

@@ -19,7 +19,7 @@
  */
 
 const { classifyMergeError, MAX_CONSECUTIVE_MERGE_FAILURES } = await import('./merge-error-classification.lib.mjs');
-const { ensurePullRequestIsReady } = await import('./pr-draft-state.lib.mjs');
+const { ensurePullRequestIsReady, findMaintainerDraftConversion, getPullRequestLeftInDraft, markPullRequestLeftInDraft } = await import('./pr-draft-state.lib.mjs');
 
 export { MAX_CONSECUTIVE_MERGE_FAILURES };
 
@@ -83,6 +83,18 @@ export const evaluateWatchTimeout = ({ watchTimeoutHours, watchStartedAt, now, c
  * @returns {Promise<{action: 'stop'|'retry'|'continue', reason?: string}>}
  */
 export const resolveDraftBlocker = async ({ owner, repo, prNumber, $, log, formatAligned, reportError, reportAutomationStop, verbose, state }) => {
+  // Issue #2295: a maintainer who converts the pull request to draft is saying
+  // "not ready". Flipping it back is overriding them; stop quietly instead
+  // (no automation-stop comment: the maintainer already knows it is a draft).
+  const deliberate = getPullRequestLeftInDraft({ owner, repo, prNumber });
+  const conversion = deliberate?.kind === 'maintainer_draft' ? { reason: deliberate.reason } : await findMaintainerDraftConversion({ owner, repo, prNumber, $, log });
+  if (conversion) {
+    const reason = conversion.reason || `@${conversion.actor} converted it to draft at ${conversion.createdAt}; only a maintainer should mark it ready for review`;
+    markPullRequestLeftInDraft({ owner, repo, prNumber, reason, kind: 'maintainer_draft' });
+    await log(formatAligned('⏹️', 'PR is a maintainer draft:', `${reason} - stopping without changing it`, 2), { level: 'warning' });
+    return { action: 'stop', reason: 'maintainer_draft' };
+  }
+
   await log(formatAligned('📝', 'PR is a draft:', 'no AI session is running - restoring "ready for review"', 2), { level: 'warning' });
 
   if (state.draftSelfHealCount >= MAX_DRAFT_SELF_HEALS) {

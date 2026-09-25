@@ -363,7 +363,7 @@ review --repo owner/repo --pr 456
 solve <issue-url> [options]
 ```
 
-> **📦 Repository mode**: pass a repository URL instead of an issue URL and solve collects every open issue of that repository (oldest first, at most 100 — GitHub's sub-issue limit per parent), creates one combined issue that lists them as GitHub native sub-issues, and solves that issue — so a single pull request can close all of them at once. It also turns on `--deep-analysis` and `--ensure-all-sub-issues-addressed`. When no issues are open, the CLI exits successfully without creating anything; Telegram reports the no-work result directly without starting a work session. See [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#solve-options).
+> **📦 Repository mode**: pass a repository URL instead of an issue URL and solve collects every open issue of that repository (oldest first, at most 100 — GitHub's sub-issue limit per parent), creates one combined issue that lists them as GitHub native sub-issues, and solves that issue — so a single pull request can close all of them at once. The current GitHub user is assigned (best effort) to the combined issue and every attached issue, so it is visible which issues are in progress; issues left over from an earlier, already closed combined issue are moved to the new one. It also turns on `--deep-analysis` and `--ensure-all-sub-issues-addressed`. When no issues are open, the CLI exits successfully without creating anything; Telegram reports the no-work result directly without starting a work session. See [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#solve-options).
 
 **Most frequently used options:**
 

@@ -277,7 +277,7 @@ Telegram 机器人部署不会让 Formal AI 常驻运行。请求 `--model forma
 | `TELEGRAM_AUTH`                            | true     | 为白名单聊天所有者启用实验性的私聊 /auth 命令                    |
 | `TELEGRAM_AUTO_START_SCREEN_WATCH_MESSAGE` | false    | 为公开仓库的 /solve 会话自动启动单独的 live terminal watch 消息  |
 | `TELEGRAM_CONTAINER_CPU`                   | （无）   | Docker 任务 CPU 限制：固定核心数（`1.5`）或宿主机百分比（`50%`） |
-| `TELEGRAM_CONTAINER_MEMORY`                | （无）   | Docker 任务内存限制：容量（`2GiB`）或宿主机百分比（`25%`）       |
+| `TELEGRAM_CONTAINER_MEMORY`                | 25%      | Docker 任务内存限制：容量（`2GiB`）或宿主机百分比（`25%`）       |
 | `TELEGRAM_CONTAINER_DISK`                  | （无）   | Docker 任务可写层限制：容量（`20GB`）或可用磁盘百分比（`10%`）   |
 | `TELEGRAM_BOT_VERBOSE`                     | false    | 启用详细日志                                                     |
 | `TELEGRAM_CONFIGURATION`                   | （无）   | LINO 配置字符串                                                  |

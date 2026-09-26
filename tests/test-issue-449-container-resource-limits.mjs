@@ -203,8 +203,8 @@ await test('Telegram startup adapter logs configured limits and exits cleanly on
     logError: message => logs.push(message),
     exit: code => logs.push(`exit:${code}`),
   });
-  assert.deepEqual(limits, { cpu: '50%', memory: null, disk: null });
-  assert.match(logs[0], /CPU=50%, RAM=unlimited, disk=unlimited/);
+  assert.deepEqual(limits, { cpu: '50%', memory: '25%', disk: null });
+  assert.match(logs[0], /CPU=50%, RAM=25%, disk=unlimited/);
 
   logs.length = 0;
   initializeTelegramContainerResourceLimits({ containerCpu: '1' }, 'screen', {

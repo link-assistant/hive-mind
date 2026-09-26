@@ -996,7 +996,7 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
         // message is built so the Telegram report and the pull-request notice
         // below name the very same recovery session.
         let killRecovery = { resumed: false, sessionId: null, attempt: 0, maxAttempts: 0 };
-        if (killReport.killed && !sessionInfo?.containerResourceLimitExceeded) {
+        if ((killReport.killed || killReport.oomEventOnly) && !sessionInfo?.containerResourceLimitExceeded) {
           const recovered = await runKillRecoveryForCompletion({
             sessionName,
             sessionInfo,
@@ -1034,7 +1034,7 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
           pullRequestState,
           extraSections: [...subscriptionBlockedExtraSections, ...resourceLimitExtraSections, ...limitsExtraSections, ...killReport.sections, ...resumeExtraSections, ...diskExtraSections, ...dockerTaskContainerExtraSections],
         });
-        if (killReport.killed || killReport.recovered) {
+        if (killReport.killed || killReport.recovered || killReport.oomEventOnly) {
           const notice = await announceKillOnPullRequest({
             pullRequestUrl,
             sessionName,
@@ -1044,6 +1044,7 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
             observedAt: killReport.observedAt,
             policy: killReport.policy,
             recovered: killReport.recovered,
+            oomEventOnly: killReport.oomEventOnly,
             resumed: killRecovery.resumed,
             recoverySessionId: killRecovery.resumed ? killRecovery.sessionId : null,
             attempt: killRecovery.resumed ? killRecovery.attempt : null,

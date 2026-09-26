@@ -93,7 +93,7 @@ export const createYargsConfig = yargsInstance =>
     .option('showLimits', { type: 'boolean', description: 'Experimental: allow /solve and /hive callers to use --show-limits to embed Claude/Codex usage at start, end, and delta in the completion message', alias: 'show-limits', default: getenv('TELEGRAM_SHOW_LIMITS', 'true') !== 'false' })
     .option('isolation', { type: 'string', description: "Isolation backend (screen/tmux/docker). Defaults to 'docker' so Telegram-bot work sessions run in Docker isolation; pass --isolation '' (or set TELEGRAM_ISOLATION='') to disable.", default: getenv('TELEGRAM_ISOLATION', 'docker') })
     .option('containerCpu', { type: 'string', description: 'Optional Docker task CPU limit as a core count (for example 1.5) or host percentage (for example 50%)', alias: 'container-cpu', default: getenv('TELEGRAM_CONTAINER_CPU', '') })
-    .option('containerMemory', { type: 'string', description: 'Optional Docker task RAM limit as a byte size (for example 2GiB) or host percentage (for example 25%)', alias: 'container-memory', default: getenv('TELEGRAM_CONTAINER_MEMORY', '') })
+    .option('containerMemory', { type: 'string', description: 'Docker task RAM limit as a byte size (for example 2GiB) or host percentage; defaults to 25% for Docker tasks', alias: 'container-memory', default: getenv('TELEGRAM_CONTAINER_MEMORY', '') })
     .option('containerDisk', { type: 'string', description: 'Optional Docker task writable-layer disk limit as a byte size (for example 20GB) or available-filesystem percentage (for example 10%)', alias: 'container-disk', default: getenv('TELEGRAM_CONTAINER_DISK', '') })
     .help('h')
     .alias('h', 'help')

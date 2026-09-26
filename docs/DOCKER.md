@@ -278,7 +278,8 @@ with `HIVE_MIND_KEEP_TASK_CONTAINER=always|on-failure|never` (default:
 
 #### Docker task resource limits
 
-Telegram-launched Docker tasks can have optional per-container resource limits:
+Telegram-launched Docker tasks have a default memory cap of 25% of host RAM.
+CPU and disk limits are optional; override the memory cap as needed:
 
 ```bash
 hive-telegram-bot --isolation docker \

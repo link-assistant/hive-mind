@@ -280,7 +280,7 @@ pull request target is not mergeable yet, the merge queue waits up to
 | `TELEGRAM_AUTH`                            | true       | Enable experimental private /auth command for allowlisted chat owners                    |
 | `TELEGRAM_AUTO_START_SCREEN_WATCH_MESSAGE` | false      | Auto-start a separate live terminal watch message for public /solve sessions             |
 | `TELEGRAM_CONTAINER_CPU`                   | (none)     | Docker task CPU limit as fixed cores (`1.5`) or host percentage (`50%`)                  |
-| `TELEGRAM_CONTAINER_MEMORY`                | (none)     | Docker task RAM limit as a size (`2GiB`) or host percentage (`25%`)                      |
+| `TELEGRAM_CONTAINER_MEMORY`                | 25%        | Docker task RAM limit as a size (`2GiB`) or host percentage (`25%`)                      |
 | `TELEGRAM_CONTAINER_DISK`                  | (none)     | Docker task writable-layer limit as a size (`20GB`) or available-disk percentage (`10%`) |
 | `TELEGRAM_BOT_VERBOSE`                     | false      | Enable verbose logging                                                                   |
 | `TELEGRAM_CONFIGURATION`                   | (none)     | LINO configuration string                                                                |

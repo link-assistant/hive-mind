@@ -382,6 +382,8 @@ export function describeKillCause({ logText = null, resourceMarkers = null, oomK
     // Quote what it saw rather than falling back to the host-memory phrasing,
     // which would again read as a contradiction on a healthy machine.
     summary = `out of memory — start-command reported memory exhaustion${reportedMechanism ? ` (${reportedMechanism})` : ''}${reportedMemoryExhaustedReason ? `: \`${reportedMemoryExhaustedReason}\`` : ''}${memoryLine ? ` (host memory was fine: ${memoryLine})` : ''}`;
+  } else if (cause === KILL_CAUSE_OUT_OF_MEMORY && oomKilled && !memoryExhausted && victims.length === 0 && memoryLine) {
+    summary = `container OOM event — a process in the task cgroup was killed earlier; the session-end memory reading was ${memoryLine}`;
   } else if (cause === KILL_CAUSE_OUT_OF_MEMORY) {
     const victim = victims.length > 0 ? `, kernel OOM killer terminated \`${victims[victims.length - 1].comm || 'unknown'}\` (pid ${victims[victims.length - 1].pid ?? '?'})` : '';
     summary = `out of memory${memoryLine ? ` — ${memoryLine}` : ''}${victim}`;

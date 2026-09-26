@@ -2,10 +2,15 @@
 import { getenv } from './cli-arguments.lib.mjs';
 import { hasContainerResourceLimits, normalizeContainerResourceLimits } from './container-resource-limits.lib.mjs';
 
+// Three concurrent tasks at this cap use at most 75% of host RAM. Docker
+// applies it before releasing each task's start gate; operators can override
+// it with --container-memory or TELEGRAM_CONTAINER_MEMORY (issue #2301).
+export const DEFAULT_DOCKER_TASK_MEMORY = '25%';
+
 export function resolveTelegramContainerResourceLimits(config = {}, isolationBackend = '') {
   const limits = normalizeContainerResourceLimits({
     cpu: config.containerCpu || getenv('TELEGRAM_CONTAINER_CPU', ''),
-    memory: config.containerMemory || getenv('TELEGRAM_CONTAINER_MEMORY', ''),
+    memory: config.containerMemory || getenv('TELEGRAM_CONTAINER_MEMORY', '') || (isolationBackend === 'docker' ? DEFAULT_DOCKER_TASK_MEMORY : ''),
     disk: config.containerDisk || getenv('TELEGRAM_CONTAINER_DISK', ''),
   });
   if (!hasContainerResourceLimits(limits)) return { limits, summary: null };

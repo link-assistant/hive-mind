@@ -201,7 +201,8 @@ host-side start-command log उपलब्ध रहता है। Failed run
 
 #### Docker task resource limits
 
-Telegram से शुरू किए गए Docker tasks में वैकल्पिक per-container resource limits हो सकते हैं:
+Telegram से शुरू किए गए Docker tasks की memory limit default रूप से host RAM का 25% है।
+CPU और disk limits वैकल्पिक हैं; आवश्यकता के अनुसार memory limit बदलें:
 
 ```bash
 hive-telegram-bot --isolation docker \

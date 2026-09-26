@@ -63,7 +63,9 @@ export function killRecoveryHeadline(cause) {
  * @param {string} [options.sessionName]
  * @param {string|null} [options.observedAt] - ISO timestamp of the kill/OOM event
  * @param {string} [options.policy] - Resolved --on-session-kill policy
- * @param {boolean} [options.resumed] - A new working session was started
+ * @param {boolean} [options.resumed] - A new working session was actually started
+ * @param {boolean} [options.survived] - The work session completed after a child OOM event
+ * @param {boolean} [options.oomEventOnly] - A child OOM event preceded an ordinary work failure
  * @param {string|null} [options.recoverySessionId] - Id of that working session
  * @param {string|null} [options.resumeCommand] - Command to resume manually
  * @param {number|null} [options.attempt] - Resume attempt number
@@ -72,9 +74,9 @@ export function killRecoveryHeadline(cause) {
  * @param {string|null} [options.logUrl] - URL of the uploaded intermediate log
  * @returns {string} Markdown body
  */
-export function buildKillRecoveryNotice({ diagnosis = null, exitCode = null, sessionName = null, observedAt = null, policy = null, resumed = false, recoverySessionId = null, resumeCommand = null, attempt = null, maxAttempts = null, attachLogs = false, logAttached = false, logUrl = null } = {}) {
+export function buildKillRecoveryNotice({ diagnosis = null, exitCode = null, sessionName = null, observedAt = null, policy = null, resumed = false, survived = false, oomEventOnly = false, recoverySessionId = null, resumeCommand = null, attempt = null, maxAttempts = null, attachLogs = false, logAttached = false, logUrl = null } = {}) {
   const cause = diagnosis?.cause || null;
-  const title = resumed ? `⚠️ Working session ${killRecoveryHeadline(cause)}` : `❌ ${CAUSE_TITLES[cause] || 'Working session was killed'}`;
+  const title = oomEventOnly ? (resumed ? '⚠️ Work session restarted after a failed run with a container OOM event' : '⚠️ Container OOM event during a failed work session') : resumed || survived ? `⚠️ Working session ${killRecoveryHeadline(cause)}` : `❌ ${CAUSE_TITLES[cause] || 'Working session was killed'}`;
 
   const lines = [KILL_RECOVERY_NOTICE_MARKER, `## ${title}`, ''];
 
@@ -98,6 +100,10 @@ export function buildKillRecoveryNotice({ diagnosis = null, exitCode = null, ses
     const attemptSuffix = attempt && maxAttempts ? ` (attempt ${attempt}/${maxAttempts})` : '';
     const sessionSuffix = recoverySessionId ? ` Its working session is \`${recoverySessionId}\`.` : '';
     lines.push(`🔄 A **new working session was started** to recover from this event${attemptSuffix}. Progress below continues in that session.${sessionSuffix}`, '');
+  } else if (survived) {
+    lines.push('The work session survived the container OOM event and completed. No replacement session was launched.', '');
+  } else if (oomEventOnly) {
+    lines.push('The work process survived the container OOM event but later exited with a failure. No replacement session was launched.', '');
   } else {
     lines.push('This working session did not continue. Nothing below this comment was produced by it.', '');
   }

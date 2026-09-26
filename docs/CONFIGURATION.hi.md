@@ -279,7 +279,7 @@ failed माना जाता है।
 | `TELEGRAM_AUTH`                            | true       | allowlisted chat owners के लिए experimental private /auth command सक्षम करें         |
 | `TELEGRAM_AUTO_START_SCREEN_WATCH_MESSAGE` | false      | public /solve sessions के लिए अलग live terminal watch message auto-start करें        |
 | `TELEGRAM_CONTAINER_CPU`                   | (कोई नहीं) | Docker task CPU limit: fixed cores (`1.5`) या host percentage (`50%`)                |
-| `TELEGRAM_CONTAINER_MEMORY`                | (कोई नहीं) | Docker task RAM limit: size (`2GiB`) या host percentage (`25%`)                      |
+| `TELEGRAM_CONTAINER_MEMORY`                | 25%        | Docker task RAM limit: size (`2GiB`) या host percentage (`25%`)                      |
 | `TELEGRAM_CONTAINER_DISK`                  | (कोई नहीं) | Docker task writable-layer limit: size (`20GB`) या available-disk percentage (`10%`) |
 | `TELEGRAM_BOT_VERBOSE`                     | false      | verbose logging सक्षम करें                                                           |
 | `TELEGRAM_CONFIGURATION`                   | (कोई नहीं) | LINO configuration string                                                            |

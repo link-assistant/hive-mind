@@ -78,13 +78,14 @@ export function argvFromSessionArgs(args) {
  * @returns {Promise<{sections: string[], diagnosis: Object|null, killed: boolean, recovered: boolean, policy: string|null, observedAt: string|null}>}
  */
 export async function buildKillCompletionSections({ sessionName, sessionInfo, statusResult = null, exitCode = null, status = null, verbose = false, readFile = fs.readFile, env = process.env } = {}) {
-  const empty = { sections: [], diagnosis: null, killed: false, recovered: false, policy: null, observedAt: null };
+  const empty = { sections: [], diagnosis: null, killed: false, recovered: false, oomEventOnly: false, policy: null, observedAt: null };
   try {
     const outcome = classifySessionOutcome({ exitCode, status });
     const observedAt = getOomEventObservedAt(sessionInfo);
     const killed = outcome.killed === true;
-    const recovered = !killed && Boolean(observedAt);
-    if (!killed && !recovered) return empty;
+    const recovered = !outcome.failed && Boolean(observedAt);
+    const oomEventOnly = outcome.failed && !killed && Boolean(observedAt);
+    if (!killed && !recovered && !oomEventOnly) return empty;
 
     const locale = sessionInfo?.locale || null;
     const logPath = statusResult?.logPath || sessionInfo?.logPath || null;
@@ -111,14 +112,15 @@ export async function buildKillCompletionSections({ sessionName, sessionInfo, st
     const sections = [];
     if (recovered) {
       // The session outlived the event — this is the warning the issue asks for.
-      sections.push(formatKillRecoverySection({ cause: diagnosis?.cause || KILL_CAUSE_OUT_OF_MEMORY, observedAt, locale, resumed: sessionInfo?.killRecoveryResumed === true }));
+      sections.push(formatKillRecoverySection({ cause: diagnosis?.cause || KILL_CAUSE_OUT_OF_MEMORY, observedAt, locale }));
     }
+    if (oomEventOnly) sections.push(`⚠️ A container OOM event affected a child process at ${observedAt}; the work process continued and later failed with exit code ${exitCode}.`);
     if (section) sections.push(section);
 
     if (verbose) {
-      console.log(`[VERBOSE] Session ${sessionName} kill reporting: killed=${killed} recovered=${recovered} cause=${diagnosis?.cause || 'n/a'} policy=${policy}`);
+      console.log(`[VERBOSE] Session ${sessionName} kill reporting: killed=${killed} recovered=${recovered} oomEventOnly=${oomEventOnly} cause=${diagnosis?.cause || 'n/a'} policy=${policy}`);
     }
-    return { sections: sections.filter(Boolean), diagnosis, killed, recovered, policy, observedAt };
+    return { sections: sections.filter(Boolean), diagnosis, killed, recovered, oomEventOnly, policy, observedAt };
   } catch (error) {
     if (verbose) {
       console.log(`[VERBOSE] Could not build kill sections for ${sessionName}: ${error?.message || error}`);
@@ -160,7 +162,7 @@ export async function defaultAttachLog(options) {
  * @param {Object} options
  * @returns {Promise<{posted: boolean, url: string|null, skipped: string|null, logUploaded: boolean}>}
  */
-export async function announceKillOnPullRequest({ pullRequestUrl, sessionName, sessionInfo, diagnosis, exitCode = null, observedAt = null, policy = null, recovered = false, resumed = false, recoverySessionId = null, attempt = null, maxAttempts = null, resumeCommand = null, runCommand = spawnCapture, attachLog = defaultAttachLog, attachOptions = {}, verbose = false } = {}) {
+export async function announceKillOnPullRequest({ pullRequestUrl, sessionName, sessionInfo, diagnosis, exitCode = null, observedAt = null, policy = null, recovered = false, oomEventOnly = false, resumed = false, recoverySessionId = null, attempt = null, maxAttempts = null, resumeCommand = null, runCommand = spawnCapture, attachLog = defaultAttachLog, attachOptions = {}, verbose = false } = {}) {
   const skip = reason => ({ posted: false, url: null, skipped: reason, logUploaded: false });
   if (!pullRequestUrl) return skip('no-pull-request');
   if (typeof runCommand !== 'function') return skip('no-command-runner');
@@ -183,7 +185,9 @@ export async function announceKillOnPullRequest({ pullRequestUrl, sessionName, s
     sessionName,
     observedAt,
     policy,
-    resumed: recovered || resumed || sessionInfo?.killRecoveryResumed === true,
+    survived: recovered,
+    oomEventOnly,
+    resumed,
     recoverySessionId,
     attempt,
     maxAttempts,

@@ -654,6 +654,10 @@ export const getClaudeEnv = (options = {}) => {
     MCP_TIMEOUT: String(claudeCode.mcpTimeout),
     MCP_TOOL_TIMEOUT: String(claudeCode.mcpToolTimeout),
   });
+  // Claude Code print mode cannot continue waiting after the turn ends. Use
+  // its native switch so Bash/Agent calls run to completion in one-shot solve
+  // sessions; stream-input sessions can still receive later turns (#2301).
+  if (options.disableBackgroundTasks) env.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS = '1';
 
   // Opus 4.7+ always uses adaptive thinking — MAX_THINKING_TOKENS has no effect (Issue #1620, Issue #1832)
   // Opus 4.8 inherits this constraint: adaptive thinking is the only thinking mode.

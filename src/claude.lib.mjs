@@ -34,7 +34,7 @@ import { deployHandoffSkill } from './handoff-skill.lib.mjs'; // Issue #1877
 import { deployPlaywrightSkill } from './playwright-skill.lib.mjs'; // Issue #2190
 import { formatRouterAuthViolation, startRouterAuthGuard } from './router-auth-guard.lib.mjs'; // Issue #2190
 import { createThinkingBlockRecovery } from './claude.thinking-block-recovery.lib.mjs'; // Issue #1834 (PR #1835 feedback)
-import { buildMissingClaudeResultMessage, collectClaudeStreamEventFacts, getClaudeMessageContent, shouldFailClaudeStreamWithoutResult, updateTerminalToolResult } from './claude.stream-events.lib.mjs';
+import { assessClaudeTurnCompletion, buildMissingClaudeResultMessage, collectClaudeStreamEventFacts, getClaudeMessageContent, shouldFailClaudeStreamWithoutResult, updateTerminalToolResult } from './claude.stream-events.lib.mjs';
 import { createRepeatedToolCallBreaker, explainFailureWithToolHistory } from './repeated-tool-call-breaker.lib.mjs'; // Issue #2247 (H4/H10)
 import { formatNumber, mapModelToId, checkModelVisionCapability, resolveClaudeModelForExecution } from './claude.model-utils.lib.mjs';
 import { renameLogToSessionId } from './session-log-rename.lib.mjs'; // Issue #2160
@@ -162,7 +162,8 @@ import { calculateSessionTokens } from './claude.session-tokens.lib.mjs';
 export { calculateSessionTokens };
 // Extracted to claude.stderr.lib.mjs (Issue #477, #1337)
 import { isStderrError } from './claude.stderr.lib.mjs';
-import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
+import { checkForUncommittedChanges } from './claude.uncommitted-changes.lib.mjs';
+export { checkForUncommittedChanges };
 export { isStderrError };
 export const executeClaudeCommand = async params => {
   const {
@@ -198,12 +199,14 @@ export const executeClaudeCommand = async params => {
   const transientRetryBudget = createTransientRetryBudget();
   let baseBranchInterventionPrompt = null;
   let baseBranchInterventionResumeCount = 0;
+  let incompleteTurnRecoveryAttempts = 0;
+  let incompleteTurnPrompt = null;
   // Issue #1834 (PR #1835 feedback): corrupted-thinking-block recovery — resume the session first,
   // then escalate to a fresh restart, auto-committing uncommitted work before each attempt. Created
   // once so its resume/restart caps persist across recursive retry calls.
   const tryThinkingBlockRecovery = createThinkingBlockRecovery({ argv, tempDir, branchName, $, log });
   const executeWithRetry = async () => {
-    const promptForAttempt = baseBranchInterventionPrompt ? `${prompt}\n\n${baseBranchInterventionPrompt}\n` : prompt;
+    const promptForAttempt = [prompt, baseBranchInterventionPrompt, incompleteTurnPrompt].filter(Boolean).join('\n\n');
     const escapedPromptForAttempt = escapePromptForShell(promptForAttempt);
     if (retryCount === 0) {
       await log(`\n${formatAligned('🤖', 'Executing Claude:', argv.model.toUpperCase())}`);
@@ -343,7 +346,7 @@ export const executeClaudeCommand = async params => {
       const { parsed: parsedSubSessionSize, contextWindowTokens } = await resolveSubSessionSize({ rawValue: argv.subSessionSize, tool: 'claude', modelId: effectiveModel, fetchModelInfo, log });
       // Issue #817: streaming mode sets exitAfterStopDelayMs=60000 so the headless Claude process stays alive between NDJSON turns.
       // Issue #2130: `toolInvocation.env` points the native CLI at the local Formal AI server (base URL + API key).
-      const claudeEnv = { ...getClaudeEnv({ thinkingBudget: resolvedThinkingBudget, model: effectiveModel, thinkLevel, maxBudget, planModel: resolvedPlanModel, executionModel: resolvedExecutionModel, subAgentModel: resolvedSubAgentModel, showThinkingContent: argv.showThinkingContent, exitAfterStopDelayMs: streamingInput ? 60_000 : undefined, disable1mContext: !!argv.disable1mContext, subSessionSize: parsedSubSessionSize, contextWindowTokens }), ...toolInvocation.env };
+      const claudeEnv = { ...getClaudeEnv({ thinkingBudget: resolvedThinkingBudget, model: effectiveModel, thinkLevel, maxBudget, planModel: resolvedPlanModel, executionModel: resolvedExecutionModel, subAgentModel: resolvedSubAgentModel, showThinkingContent: argv.showThinkingContent, exitAfterStopDelayMs: streamingInput ? 60_000 : undefined, disableBackgroundTasks: !streamingInput, disable1mContext: !!argv.disable1mContext, subSessionSize: parsedSubSessionSize, contextWindowTokens }), ...toolInvocation.env };
       if (argv.verbose) claudeEnv.ANTHROPIC_LOG = 'debug';
       const modelMaxOutputTokens = getMaxOutputTokensForModel(effectiveModel);
       if (argv.verbose) {
@@ -389,6 +392,9 @@ export const executeClaudeCommand = async params => {
       let exitCode = 0;
       let stdoutLineBuffer = '';
       let resultEventReceived = false;
+      let resultEvent = null;
+      let postResultStoppedTaskCount = 0;
+      let postResultCancelledToolResultCount = 0;
       let resultTimeoutId = null;
       let forceExitTriggered = false;
       const streamCloseTimeoutMs = timeouts.resultStreamCloseMs;
@@ -539,15 +545,18 @@ export const executeClaudeCommand = async params => {
                 }
               }
               const eventFacts = collectClaudeStreamEventFacts(data);
-              terminalToolResult = updateTerminalToolResult(terminalToolResult, eventFacts);
+              const afterResult = resultEventReceived && !streamingInput;
+              terminalToolResult = updateTerminalToolResult(terminalToolResult, eventFacts, { afterResult });
               messageCount += eventFacts.messageCountDelta;
               toolUseCount += eventFacts.toolUseCountDelta;
-              if (eventFacts.lastText) lastMessage = eventFacts.lastText;
+              if (eventFacts.lastText && !afterResult) lastMessage = eventFacts.lastText;
               if (!resultSummary && eventFacts.compactionSummary) {
                 resultSummary = eventFacts.compactionSummary;
                 await log('📝 Captured fallback summary from Claude compaction context', { verbose: true });
               }
-              if (eventFacts.toolResultError) {
+              if (afterResult && eventFacts.toolResultError) {
+                postResultCancelledToolResultCount++;
+              } else if (eventFacts.toolResultError) {
                 // Issue #2160: an in-session tool failure the AI handles itself is not a warning,
                 // and it must not replace the last assistant message — that message is what a
                 // truncated-stream failure is reported "after".
@@ -558,10 +567,11 @@ export const executeClaudeCommand = async params => {
                   lastToolResultError = eventFacts.toolResultError;
                   await log(`⚠️ Tool result error detected: ${eventFacts.toolResultError.substring(0, 200)}`, { verbose: true });
                 }
-              } else if (eventFacts.toolResultObserved) {
+              } else if (eventFacts.toolResultObserved && !afterResult) {
                 lastToolResultError = null;
                 lastBenignToolResultError = null;
               }
+              if (afterResult && data.type === 'system' && data.subtype === 'task_notification' && data.status === 'stopped') postResultStoppedTaskCount++;
               // Issue #2247 (H4): a session that keeps making the same failing tool
               // call is not working, it is looping. Stop it here instead of letting
               // it spend the whole context budget (547 repeats in the Kotlin run).
@@ -591,6 +601,7 @@ export const executeClaudeCommand = async params => {
               }
               if (progressMonitor) await progressMonitor.processStreamEvent(data).catch(e => log(`⚠️ Progress: ${e.message}`, { verbose: true }));
               if (data.type === 'result') {
+                resultEvent = data;
                 if (!resultEventReceived) {
                   resultEventReceived = true;
                   await log(`📌 Result event received, starting ${streamCloseTimeoutMs / 1000}s stream close timeout (Issue #1280)`, { verbose: true });
@@ -818,22 +829,27 @@ export const executeClaudeCommand = async params => {
           await log(JSON.stringify(data, null, 2));
           await baseBranchCommandIntervention.handleStreamEvent(data);
           const eventFacts = collectClaudeStreamEventFacts(data);
-          terminalToolResult = updateTerminalToolResult(terminalToolResult, eventFacts);
+          const afterResult = resultEventReceived && !streamingInput;
+          terminalToolResult = updateTerminalToolResult(terminalToolResult, eventFacts, { afterResult });
           messageCount += eventFacts.messageCountDelta;
           toolUseCount += eventFacts.toolUseCountDelta;
-          if (eventFacts.lastText) lastMessage = eventFacts.lastText;
+          if (eventFacts.lastText && !afterResult) lastMessage = eventFacts.lastText;
           if (!resultSummary && eventFacts.compactionSummary) resultSummary = eventFacts.compactionSummary;
           // Issue #2160: same classification as the streaming path above.
-          if (eventFacts.toolResultError && eventFacts.toolResultErrorIsBenign) {
+          if (afterResult && eventFacts.toolResultError) {
+            postResultCancelledToolResultCount++;
+          } else if (eventFacts.toolResultError && eventFacts.toolResultErrorIsBenign) {
             lastBenignToolResultError = eventFacts.toolResultError;
           } else if (eventFacts.toolResultError) {
             lastToolResultError = eventFacts.toolResultError;
-          } else if (eventFacts.toolResultObserved) {
+          } else if (eventFacts.toolResultObserved && !afterResult) {
             lastToolResultError = null;
             lastBenignToolResultError = null;
           }
+          if (afterResult && data.type === 'system' && data.subtype === 'task_notification' && data.status === 'stopped') postResultStoppedTaskCount++;
           if (data?.type === 'result') {
             resultEventReceived = true;
+            resultEvent = data;
             if (data.subtype === 'success') {
               resultSuccessReceived = true;
               if (data.result && typeof data.result === 'string') resultSummary = data.result;
@@ -952,6 +968,23 @@ export const executeClaudeCommand = async params => {
         commandFailed = true;
         errorDuringExecution = true;
         lastMessage = `Final tool result failed: ${terminalToolResult.error}`;
+        await log(`\n\n❌ Command failed: ${lastMessage}`, { level: 'error' });
+      }
+      const turnCompletion = assessClaudeTurnCompletion({ resultEvent: streamingInput ? null : resultEvent, stoppedTaskCount: postResultStoppedTaskCount, recoveryAttempts: incompleteTurnRecoveryAttempts, sessionId: sessionId || argv.resume });
+      if (turnCompletion.cancelledTasks > 0 || postResultCancelledToolResultCount > 0) {
+        await log(`⚠️ Background tasks cancelled at Claude print-mode exit: ${turnCompletion.cancelledTasks} task(s), ${postResultCancelledToolResultCount} synthetic tool result(s)`, { verbose: true });
+      }
+      if (turnCompletion.shouldResume && !commandFailed && exitCode === 0) {
+        incompleteTurnRecoveryAttempts++;
+        argv.resume = turnCompletion.sessionId;
+        incompleteTurnPrompt = 'Continue the unfinished work. The previous print-mode turn ended while background tasks or subagents were still running, so Claude Code cancelled them. Re-run those tasks, wait for their actual results in this turn, then finish all remaining issue and pull-request requirements. Do not end your turn merely to wait for background work.';
+        await log(`\n🔄 Resuming Claude session ${argv.resume} because ${turnCompletion.cancelledTasks} background task(s) were cancelled at exit (issue #2301).`);
+        return await executeWithRetry();
+      }
+      if (turnCompletion.incomplete && !commandFailed) {
+        commandFailed = true;
+        errorDuringExecution = true;
+        lastMessage = `Claude ended print mode with ${turnCompletion.cancelledTasks} unfinished background task(s); automatic same-session continuation was exhausted`;
         await log(`\n\n❌ Command failed: ${lastMessage}`, { level: 'error' });
       }
       // Issue #2247 (H4/H10): the loop is the reason the session ended, so it is what
@@ -1272,76 +1305,6 @@ export const executeClaudeCommand = async params => {
   // session was published with Anthropic's cost and no provider at all.
   const formalAiPricing = applyFormalAiPricingOverride({ model: argv.model, pricingInfo: claudeResult.pricingInfo ?? null, publicPricingEstimate: claudeResult.publicPricingEstimate ?? null, anthropicTotalCostUSD: claudeResult.anthropicTotalCostUSD ?? null, tokenUsage: claudeResult.streamTokenUsage ?? null });
   return { ...claudeResult, ...formalAiPricing };
-};
-export const checkForUncommittedChanges = async (tempDir, owner, repo, branchName, $, log, autoCommit = false, autoRestartEnabled = true) => {
-  await log('\n🔍 Checking for uncommitted changes...');
-  // Issue #2119: AI tools leave scratch state (.formal-ai/, .playwright-mcp/) in
-  // the workspace. Ignoring it here keeps it out of both this check and 'git add -A'.
-  await ensureAiToolScratchIgnored(tempDir, log);
-  try {
-    const gitStatusResult = await $({ cwd: tempDir })`git status --porcelain 2>&1`;
-    if (gitStatusResult.code === 0) {
-      const statusOutput = filterAiToolScratchFromStatus(gitStatusResult.stdout.toString().trim());
-      if (statusOutput) {
-        await log('📝 Found uncommitted changes');
-        await log('Changes:');
-        for (const line of statusOutput.split('\n')) {
-          await log(`   ${line}`);
-        }
-        if (autoCommit) {
-          await log('💾 Auto-committing changes (--auto-commit-uncommitted-changes is enabled)...');
-          const addResult = await $({ cwd: tempDir })`git add -A`;
-          if (addResult.code === 0) {
-            const commitMessage = 'Auto-commit: Changes made by Claude during problem-solving session';
-            const commitResult = await $({ cwd: tempDir })`git commit -m ${commitMessage}`;
-            if (commitResult.code === 0) {
-              await log('✅ Changes committed successfully');
-              await log('📤 Pushing changes to remote...');
-              const pushResult = await $({ cwd: tempDir })`git push origin ${branchName} 2>&1`;
-              if (pushResult.code === 0) {
-                await log('✅ Changes pushed successfully');
-              } else {
-                await log(`⚠️ Warning: Could not push changes: ${pushResult.stderr?.toString().trim() || pushResult.stdout?.toString().trim()}`, {
-                  level: 'warning',
-                });
-              }
-            } else {
-              await log(`⚠️ Warning: Could not commit changes: ${commitResult.stderr?.toString().trim()}`, {
-                level: 'warning',
-              });
-            }
-          } else {
-            await log(`⚠️ Warning: Could not stage changes: ${addResult.stderr?.toString().trim()}`, {
-              level: 'warning',
-            });
-          }
-          return false;
-        } else if (autoRestartEnabled) {
-          await log('\n⚠️  IMPORTANT: Uncommitted changes detected!');
-          await log('   Claude made changes that were not committed.\n');
-          await log('🔄 AUTO-RESTART: Restarting Claude to handle uncommitted changes...');
-          await log('   Claude will review the changes and decide what to commit.\n');
-          return true;
-        } else {
-          await log('\n⚠️  Uncommitted changes detected but auto-restart is disabled.');
-          await log('   Use --auto-restart-on-uncommitted-changes to enable or commit manually.\n');
-          return false;
-        }
-      } else {
-        await log('✅ No uncommitted changes found');
-        return false;
-      }
-    } else {
-      await log(`⚠️ Warning: Could not check git status: ${gitStatusResult.stderr?.toString().trim()}`, {
-        level: 'warning',
-      });
-      return false;
-    }
-  } catch (gitError) {
-    reportError(gitError, { context: 'check_uncommitted_changes', tempDir, operation: 'git_status_check' });
-    await log(`⚠️ Warning: Error checking for uncommitted changes: ${gitError.message}`, { level: 'warning' });
-    return false;
-  }
 };
 // Export all functions as default object too
 // prettier-ignore

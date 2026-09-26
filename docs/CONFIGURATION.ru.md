@@ -279,7 +279,7 @@ pull request ещё не mergeable, очередь слияния ждёт до
 | `TELEGRAM_AUTH`                            | true          | Включить экспериментальную приватную команду /auth для владельцев разрешённых чатов            |
 | `TELEGRAM_AUTO_START_SCREEN_WATCH_MESSAGE` | false         | Автоматически запускать отдельное live terminal watch сообщение для публичных /solve сессий    |
 | `TELEGRAM_CONTAINER_CPU`                   | (нет)         | Ограничение CPU Docker-задачи: фиксированные ядра (`1.5`) или процент хоста (`50%`)            |
-| `TELEGRAM_CONTAINER_MEMORY`                | (нет)         | Ограничение ОЗУ Docker-задачи: размер (`2GiB`) или процент хоста (`25%`)                       |
+| `TELEGRAM_CONTAINER_MEMORY`                | 25%           | Ограничение ОЗУ Docker-задачи: размер (`2GiB`) или процент хоста (`25%`)                       |
 | `TELEGRAM_CONTAINER_DISK`                  | (нет)         | Ограничение writable layer Docker-задачи: размер (`20GB`) или процент доступного диска (`10%`) |
 | `TELEGRAM_BOT_VERBOSE`                     | false         | Включить подробное журналирование                                                              |
 | `TELEGRAM_CONFIGURATION`                   | (нет)         | Строка конфигурации LINO                                                                       |

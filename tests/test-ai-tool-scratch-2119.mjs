@@ -108,13 +108,15 @@ try {
 
 // --- every tool integration must use it --------------------------------------
 // Issue #2119 asks to "fully apply requirements to entire codebase"; there are
-// eight copies of checkForUncommittedChanges and fixing one would fix nothing.
+// eight tool integrations call checkForUncommittedChanges and fixing one would fix nothing.
 const toolLibs = ['qwen.lib.mjs', 'agent.lib.mjs', 'gemini.lib.mjs', 'opencode.lib.mjs', 'claude.lib.mjs', 'codex.lib.mjs', 'agent-commander.lib.mjs', 'solve.restart-shared.lib.mjs'];
 for (const file of toolLibs) {
   const source = await readFile(path.join(repoRoot, 'src', file), 'utf8');
   assert.ok(source.includes('checkForUncommittedChanges'), `${file} still defines the check`);
-  assert.ok(source.includes('ensureAiToolScratchIgnored'), `${file} excludes AI tool scratch state before reading git status`);
-  assert.ok(source.includes('filterAiToolScratchFromStatus'), `${file} filters scratch state out of the status it acts on`);
+  const implementation = file === 'claude.lib.mjs' ? await readFile(path.join(repoRoot, 'src', 'claude.uncommitted-changes.lib.mjs'), 'utf8') : source;
+  if (file === 'claude.lib.mjs') assert.ok(source.includes("from './claude.uncommitted-changes.lib.mjs'"), 'Claude imports its extracted uncommitted-work check');
+  assert.ok(implementation.includes('ensureAiToolScratchIgnored'), `${file} excludes AI tool scratch state before reading git status`);
+  assert.ok(implementation.includes('filterAiToolScratchFromStatus'), `${file} filters scratch state out of the status it acts on`);
 }
 
 // The workspace is set up once at clone time so the very first check is clean.

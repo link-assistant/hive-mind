@@ -110,7 +110,11 @@ export const collectClaudeStreamEventFacts = data => {
  * only by the provider's top-level `subtype: success` is not verified success
  * (#2263); bare exit-status probes retain issue #2160's benign classification.
  */
-export const updateTerminalToolResult = (previous, facts) => {
+export const updateTerminalToolResult = (previous, facts, { afterResult = false } = {}) => {
+  // Print mode emits task shutdown notifications and synthetic tool errors after
+  // its authoritative result event. They describe cancelled background work,
+  // not a user permission decision or the result of the completed turn (#2301).
+  if (afterResult) return previous || { observed: false, failed: false, benign: false, error: null };
   if (!facts?.toolResultObserved) return previous || { observed: false, failed: false, benign: false, error: null };
   return {
     observed: true,
@@ -118,6 +122,14 @@ export const updateTerminalToolResult = (previous, facts) => {
     benign: facts.toolResultFailed === true && facts.toolResultErrorIsBenign === true,
     error: facts.toolResultFailed === true ? facts.toolResultError || 'Tool result failed without diagnostics' : null,
   };
+};
+
+/** Decide whether print mode ended while background work was still pending. */
+export const assessClaudeTurnCompletion = ({ resultEvent = null, stoppedTaskCount = 0, recoveryAttempts = 0, sessionId = null } = {}) => {
+  const systemKilled = Number(resultEvent?.subagent_stats?.killed?.system) || 0;
+  const cancelledTasks = Math.max(systemKilled, stoppedTaskCount);
+  const incomplete = resultEvent?.subtype === 'success' && cancelledTasks > 0;
+  return { incomplete, cancelledTasks, shouldResume: incomplete && recoveryAttempts < 1 && Boolean(sessionId), sessionId };
 };
 
 export const shouldFailClaudeStreamWithoutResult = ({ commandFailed, streamingInput, resultEventReceived }) => {

@@ -174,7 +174,9 @@ export function appendPullRequestLine(infoBlock, pullRequestUrl, { locale = null
   return [...before, prLine, ...after].join('\n');
 }
 
-export function formatSessionCompletionMessage({ sessionName, sessionInfo, statusResult = null, observedEndTime = new Date(), exitCode = null, infoBlock = '', pullRequestUrl = null, pullRequestState = null, extraSections = [], locale = null } = {}) {
+const KILL_CAUSE_LABELS = { 'out-of-memory': 'out of memory', 'disk-full': 'disk full', 'forced-kill': 'forced kill' };
+
+export function formatSessionCompletionMessage({ sessionName, sessionInfo, statusResult = null, observedEndTime = new Date(), exitCode = null, infoBlock = '', pullRequestUrl = null, pullRequestState = null, extraSections = [], locale = null, killCause = null } = {}) {
   const finalExitCode = getSessionCompletionExitCode({ exitCode, statusResult });
   const outcome = classifySessionOutcome({ exitCode: finalExitCode, status: statusResult?.status || null });
   const { failed, killed, signal } = outcome;
@@ -203,7 +205,11 @@ export function formatSessionCompletionMessage({ sessionName, sessionInfo, statu
     // sentinel, so suppress the misleading "(exit code: 1)" in that case.
     const showCode = finalExitCode !== null && !(!signal && finalExitCode === 1);
     const exitSuffix = showCode ? ` (exit code: ${finalExitCode})` : '';
-    const reason = signal ? signal.reason : 'killed';
+    // Issue #2303: a kill with no signal exit (the container was removed from
+    // under the session) used to read as a bare "killed"; name the diagnosed
+    // cause so "disk full" is visible in the headline, not only in the details.
+    const causeLabel = KILL_CAUSE_LABELS[killCause] || null;
+    const reason = signal ? signal.reason : causeLabel ? `killed (${causeLabel})` : 'killed';
     statusText = text(messageLocale, 'telegram.work_session_killed', `Work session ${reason}${exitSuffix}`, { reason, exitCode: finalExitCode ?? '', signal: signal?.signal ?? '', exitSuffix });
   } else if (failed && pullRequestMerged) {
     // Issue #2117: the runner's exit code is still authoritative and must not

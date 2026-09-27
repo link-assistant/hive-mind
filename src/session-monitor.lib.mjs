@@ -38,6 +38,9 @@ import { runKillRecoveryForCompletion } from './session-kill-resume.lib.mjs';
 import { isCompletionHandled, markCompletionHandled, resolveCachedLastToolSessionId } from './session-completion-state.lib.mjs';
 import { createSessionRegistryQueries } from './session-monitor.queries.lib.mjs';
 import { enforceContainerDiskLimitForSession as enforceContainerDiskLimit, formatContainerResourceLimitExceededSection } from './container-resource-monitor.lib.mjs';
+// Issue #2303: a docker "success" docker never observed is a kill (start-command's watcher removed a running container on a full disk).
+import { reclassifyUnobservedDockerExit } from './session-monitor.unobserved-exit.lib.mjs';
+import { observeHostDiskForSession } from './session-monitor.host-disk.lib.mjs';
 export { formatSessionCompletionMessage, getSessionCompletionExitCode } from './work-session-formatting.lib.mjs';
 export { DOCKER_TERMINAL_FOOTER_GRACE_MS } from './session-monitor.docker-terminal.lib.mjs';
 export { STALE_EXECUTING_MIN_AGE_MS, DOCKER_BACKEND_GONE_GRACE_MS } from './session-monitor.stale-executing.lib.mjs';
@@ -524,7 +527,7 @@ function isSuccessfulTaskCompletion({ exitCode = null, status = null } = {}) {
 function formatDockerTaskContainerKeptSection({ containerName, keepPolicy }) {
   return ['*Docker container kept*', `Container: \`${containerName}\``, `Policy: \`HIVE_MIND_KEEP_TASK_CONTAINER=${keepPolicy}\``, `Inspect: \`docker start -ai ${containerName}\``, `Shell: \`docker exec -it ${containerName} sh\``, `Remove when done: \`docker rm -f ${containerName}\``].join('\n');
 }
-export function buildDockerTaskContainerCompletionAction({ sessionName, sessionInfo, exitCode = null, status = null, env = process.env, verbose = false } = {}) {
+export function buildDockerTaskContainerCompletionAction({ sessionName, sessionInfo, exitCode = null, status = null, env = process.env, verbose = false, containerRemoved = false } = {}) {
   if (sessionInfo?.isolationBackend !== 'docker') {
     return { applies: false, containerName: null, keepPolicy: null, shouldRemove: false, extraSection: '' };
   }
@@ -533,6 +536,12 @@ export function buildDockerTaskContainerCompletionAction({ sessionName, sessionI
     return { applies: false, containerName: null, keepPolicy: null, shouldRemove: false, extraSection: '' };
   }
   const keepPolicy = resolveDockerTaskContainerKeepPolicy({ env, verbose });
+  if (containerRemoved) {
+    // Issue #2303: start-command's watcher already removed it — "Docker container
+    // kept" would point the operator at a container that no longer exists.
+    if (verbose) console.log(`[VERBOSE] Docker task container '${containerName}' was already removed by start-command; neither keeping nor removing it`);
+    return { applies: false, containerName, keepPolicy, shouldRemove: false, extraSection: '' };
+  }
   const successful = isSuccessfulTaskCompletion({ exitCode, status });
   const shouldKeep = keepPolicy === 'always' || (keepPolicy === 'on-failure' && !successful);
   return {
@@ -593,6 +602,9 @@ function resolveStaleExecutingState(sessionName, sessionInfo, statusResult, opti
   return resolveStaleExecutingStateImpl(sessionName, sessionInfo, statusResult, { ...options, persistSnapshot: () => persistSessionSnapshot(sessionName, sessionInfo) });
 }
 async function getIsolationSessionState(sessionName, sessionInfo, options = {}) {
+  return reclassifyUnobservedDockerExit(sessionName, sessionInfo, await readIsolationSessionState(sessionName, sessionInfo, options), { verbose: options.verbose === true });
+}
+async function readIsolationSessionState(sessionName, sessionInfo, options = {}) {
   const { verbose = false, statusProvider = null, exitFromLog = null, backendAlive = null, sessionRunning = null } = options;
   const sessionId = sessionInfo.sessionId || sessionName;
   try {
@@ -708,9 +720,11 @@ async function getIsolationSessionState(sessionName, sessionInfo, options = {}) 
     };
   } catch (error) {
     if (verbose) {
-      console.error(`[VERBOSE] Error refreshing isolated session ${sessionId}: ${error.message}`);
+      console.error(`[VERBOSE] Error refreshing isolated session ${sessionId}: ${error.message}; keeping it tracked until a status is available`);
     }
-    return { running: false, exitCode: null, status: null, statusResult: null };
+    // Issue #2303: an unknown state is not a clean exit — reporting it as
+    // finished (code null, no status) sent "✅ finished successfully". Retry.
+    return { running: true, exitCode: null, status: null, statusResult: null, error: error?.message || String(error) };
   }
 }
 /**
@@ -803,6 +817,12 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
         }
       }
     }
+    if (sessionInfo.isolationBackend) {
+      // Issue #2303: the log markers can be an hour stale when the disk fills,
+      // and the container's removal frees it again — only a live sample shows it.
+      const hostDisk = await observeHostDiskForSession(sessionInfo, { statusResult, statfs: options.hostDiskProvider, verbose });
+      if (hostDisk?.significant) persistSessionSnapshot(sessionName, sessionInfo);
+    }
     if (shouldRefreshDockerFilesystemSize(sessionInfo, { stillRunning })) {
       observedContainerFilesystemBytes = await refreshDockerContainerFilesystemSizeForSession(sessionName, sessionInfo, {
         verbose,
@@ -832,6 +852,7 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
           status: resolvedStatus,
           env: options.env || process.env,
           verbose,
+          containerRemoved: Boolean(statusResult?.unobservedExit),
         });
         // Issue #1688/#1905: Resolve the created PR from GitHub or, when its
         // linked-issue API lags, from the completed solve log.
@@ -1033,6 +1054,7 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
           pullRequestUrl,
           pullRequestState,
           extraSections: [...subscriptionBlockedExtraSections, ...resourceLimitExtraSections, ...limitsExtraSections, ...killReport.sections, ...resumeExtraSections, ...diskExtraSections, ...dockerTaskContainerExtraSections],
+          killCause: killReport.diagnosis?.cause || null,
         });
         if (killReport.killed || killReport.recovered) {
           const notice = await announceKillOnPullRequest({

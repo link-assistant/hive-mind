@@ -601,6 +601,8 @@ function shouldDeferUnverifiedDockerTerminal(sessionName, sessionInfo, { exitCod
 function resolveStaleExecutingState(sessionName, sessionInfo, statusResult, options) {
   return resolveStaleExecutingStateImpl(sessionName, sessionInfo, statusResult, { ...options, persistSnapshot: () => persistSessionSnapshot(sessionName, sessionInfo) });
 }
+/** Consecutive status-query errors (monitor ticks) before a session is given up as failed (issue #2303). */
+export const STATUS_QUERY_ERROR_LIMIT = 20;
 async function getIsolationSessionState(sessionName, sessionInfo, options = {}) {
   return reclassifyUnobservedDockerExit(sessionName, sessionInfo, await readIsolationSessionState(sessionName, sessionInfo, options), { verbose: options.verbose === true });
 }
@@ -610,6 +612,7 @@ async function readIsolationSessionState(sessionName, sessionInfo, options = {})
   try {
     const runner = await getIsolationRunner();
     const statusResult = statusProvider ? await statusProvider(sessionId, sessionInfo) : await runner.querySessionStatus(sessionId, verbose);
+    sessionInfo.statusQueryErrorCount = 0;
     if (statusResult?.exists && statusResult.status) {
       if (statusResult.oomKilled === true) {
         // Issue #2134: `oomKilled` is a *container* flag — the kernel sets it when any process in the cgroup is OOM-killed — so it is verified against the log footer and container liveness before a kill is announced.
@@ -719,12 +722,20 @@ async function readIsolationSessionState(sessionName, sessionInfo, options = {})
       statusResult,
     };
   } catch (error) {
-    if (verbose) {
-      console.error(`[VERBOSE] Error refreshing isolated session ${sessionId}: ${error.message}; keeping it tracked until a status is available`);
-    }
     // Issue #2303: an unknown state is not a clean exit — reporting it as
-    // finished (code null, no status) sent "✅ finished successfully". Retry.
-    return { running: true, exitCode: null, status: null, statusResult: null, error: error?.message || String(error) };
+    // finished (code null, no status) sent "✅ finished successfully". Retry,
+    // and only give up (as a failure, never a success) after a bounded streak.
+    const message = error?.message || String(error);
+    const errorCount = (sessionInfo.statusQueryErrorCount || 0) + 1;
+    sessionInfo.statusQueryErrorCount = errorCount;
+    if (errorCount >= STATUS_QUERY_ERROR_LIMIT) {
+      console.error(`[session-monitor] Session ${sessionId}: status unavailable after ${errorCount} attempts (${message}); reporting it as failed`);
+      return { running: false, exitCode: null, status: 'failed', statusResult: { status: 'failed', exitCode: null, error: message }, error: message };
+    }
+    if (verbose) {
+      console.error(`[VERBOSE] Error refreshing isolated session ${sessionId}: ${message}; keeping it tracked until a status is available (attempt ${errorCount}/${STATUS_QUERY_ERROR_LIMIT})`);
+    }
+    return { running: true, exitCode: null, status: null, statusResult: null, error: message };
   }
 }
 /**

@@ -35,7 +35,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { initI18n, preloadAllLocales } from '../src/i18n.lib.mjs';
-import { monitorSessions, resetSessionMonitorForTests, trackSession, getActiveSessionCount, getIsolationSessionStateForTests, __setIsolationRunnerForTests } from '../src/session-monitor.lib.mjs';
+import { monitorSessions, resetSessionMonitorForTests, trackSession, getActiveSessionCount, getIsolationSessionStateForTests, __setIsolationRunnerForTests, STATUS_QUERY_ERROR_LIMIT } from '../src/session-monitor.lib.mjs';
 import { isUnknownDockerExitCode, isExecutingSessionStatus, isTerminalSessionStatus } from '../src/isolation-runner.lib.mjs';
 import { detectUnobservedDockerExit, reclassifyUnobservedDockerExit } from '../src/session-monitor.unobserved-exit.lib.mjs';
 import { observeHostDiskForSession, describeObservedHostDisk } from '../src/session-monitor.host-disk.lib.mjs';
@@ -132,6 +132,13 @@ __setIsolationRunnerForTests({
 const errorInfo = { ...dockerInfo };
 const errored = await getIsolationSessionStateForTests(SESSION, errorInfo);
 assert(errored.running === true, 'a status query error keeps the session tracked instead of reporting success');
+let lastErrored = errored;
+for (let attempt = 2; attempt <= STATUS_QUERY_ERROR_LIMIT; attempt++) lastErrored = await getIsolationSessionStateForTests(SESSION, errorInfo);
+assert(lastErrored.running === false && lastErrored.status === 'failed', `a status that stays unavailable is given up as failed, never as success, after ${STATUS_QUERY_ERROR_LIMIT} attempts`);
+__setIsolationRunnerForTests(stubRunner({ status: { ...incidentStatus, status: 'executing', exitCode: null, endTimeSource: undefined }, isSessionRunning: true }));
+const recoveredInfo = { ...dockerInfo, statusQueryErrorCount: STATUS_QUERY_ERROR_LIMIT - 1 };
+await getIsolationSessionStateForTests(SESSION, recoveredInfo);
+assert(recoveredInfo.statusQueryErrorCount === 0, 'a successful status query resets the error streak');
 __setIsolationRunnerForTests(null);
 
 // ---------------------------------------------------------------------------

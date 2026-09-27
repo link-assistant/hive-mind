@@ -5,7 +5,7 @@ import { wrapUseWithSingleFlight } from './use-m-single-flight.lib.mjs';
 
 // Both URLs are immutable and use independent CDNs. A mutable `latest` URL
 // allowed an upstream publication to change unchanged CI runs (issue #2150).
-export const USE_M_BOOTSTRAP_URL = 'https://unpkg.com/use-m@8.16.3/use.js';
+export const USE_M_BOOTSTRAP_URL = 'https://unpkg.com/use-m@8.16.4/use.js';
 // Issue #2113: the fallback previously pinned 8.13.8 — the last release *without* any
 // corrupt-alias self-healing. A CDN hiccup therefore silently downgraded every
 // dependency import to the least resilient loader available. 8.14.4 is the first
@@ -21,8 +21,8 @@ export const USE_M_BOOTSTRAP_URL = 'https://unpkg.com/use-m@8.16.3/use.js';
 // expose the same binary name through multiple dependency aliases (use-m #73).
 // 8.16.1 additionally makes npm registry resolution resilient to transient
 // response and network failures (use-m #52/#53).
-// 8.16.3 carries the same protections with the latest upstream fixes.
-export const USE_M_BOOTSTRAP_FALLBACK_URL = 'https://cdn.jsdelivr.net/npm/use-m@8.16.3/use.js';
+// 8.16.4 carries the same protections with the latest upstream fixes.
+export const USE_M_BOOTSTRAP_FALLBACK_URL = 'https://cdn.jsdelivr.net/npm/use-m@8.16.4/use.js';
 
 const isMissingUseMBundle = code => /^Not found: \/use-m@[^/]+\/use\.js\s*$/.test(code.trim());
 

@@ -1,0 +1,537 @@
+[
+  {
+    "date": "2026-09-23T09:15:50Z",
+    "message": "Initial commit with task details",
+    "sha": "8d117ce38d3d"
+  },
+  {
+    "date": "2026-09-23T10:06:38Z",
+    "message": "feat: add four-language representation contracts",
+    "sha": "031fb15d2c45"
+  },
+  {
+    "date": "2026-09-23T10:06:46Z",
+    "message": "docs: define four-language fidelity boundaries",
+    "sha": "c1ec894bff73"
+  },
+  {
+    "date": "2026-09-23T14:59:56Z",
+    "message": "feat: expand grammar-backed CST coverage",
+    "sha": "0c1c8be1bb7d"
+  },
+  {
+    "date": "2026-09-23T15:00:07Z",
+    "message": "docs: preserve the full issue 195 delivery target",
+    "sha": "3f05259a3439"
+  },
+  {
+    "date": "2026-09-23T15:12:59Z",
+    "message": "refactor: reject silent grammar fallbacks",
+    "sha": "b066cfe60cfd"
+  },
+  {
+    "date": "2026-09-23T15:19:28Z",
+    "message": "fix: retain zero-width grammar nodes",
+    "sha": "dc7d6252c418"
+  },
+  {
+    "date": "2026-09-23T17:40:45Z",
+    "message": "test: enforce issue 195 acceptance evidence",
+    "sha": "2529023e280c"
+  },
+  {
+    "date": "2026-09-23T20:44:57Z",
+    "message": "feat: parse Rocq with its native Rust grammar",
+    "sha": "0c8635d0c190"
+  },
+  {
+    "date": "2026-09-23T20:53:42Z",
+    "message": "feat: add Rust Markdown and JSON5 grammars",
+    "sha": "67e3eba3ab2e"
+  },
+  {
+    "date": "2026-09-23T21:05:00Z",
+    "message": "feat: add JavaScript document and natural language CSTs",
+    "sha": "f2c457adac16"
+  },
+  {
+    "date": "2026-09-23T21:19:32Z",
+    "message": "feat: complete Rust default grammar CST coverage",
+    "sha": "a6d3af88be3d"
+  },
+  {
+    "date": "2026-09-23T21:41:45Z",
+    "message": "feat(js): add resolved program representation",
+    "sha": "505e8ee0eaff"
+  },
+  {
+    "date": "2026-09-23T22:09:17Z",
+    "message": "feat(rust): add resolved program representation",
+    "sha": "b46f3bb841d7"
+  },
+  {
+    "date": "2026-09-23T22:26:07Z",
+    "message": "feat: add reversible four-language translations",
+    "sha": "d91b55995bff"
+  },
+  {
+    "date": "2026-09-23T22:39:50Z",
+    "message": "feat: add structured four-language transformations",
+    "sha": "bd214fc3a285"
+  },
+  {
+    "date": "2026-09-23T22:51:08Z",
+    "message": "test: cover malformed input across all CST frontends",
+    "sha": "76ad42d35f74"
+  },
+  {
+    "date": "2026-09-23T23:03:55Z",
+    "message": "feat: persist structured program snapshots",
+    "sha": "1db6ea3a6fcb"
+  },
+  {
+    "date": "2026-09-23T23:16:30Z",
+    "message": "feat: attach embedded grammar trees in JavaScript",
+    "sha": "51fa3bad72c9"
+  },
+  {
+    "date": "2026-09-23T23:41:22Z",
+    "message": "feat: add shared grammar importers",
+    "sha": "75105300062d"
+  },
+  {
+    "date": "2026-09-23T23:56:36Z",
+    "message": "feat: resolve project-aware language capabilities",
+    "sha": "02cf80a20110"
+  },
+  {
+    "date": "2026-09-24T00:06:10Z",
+    "message": "test: add shared issue 195 evidence corpus",
+    "sha": "62f82f293e24"
+  },
+  {
+    "date": "2026-09-24T00:09:13Z",
+    "message": "fix(js): expose embedded region link type",
+    "sha": "98059e901b97"
+  },
+  {
+    "date": "2026-09-24T00:30:49Z",
+    "message": "test: enforce cross-runtime issue 195 parity",
+    "sha": "17ddf66547d3"
+  },
+  {
+    "date": "2026-09-24T01:07:34Z",
+    "message": "fix(packages): vendor portable Rocq grammar",
+    "sha": "ed3939efbfcd"
+  },
+  {
+    "date": "2026-09-24T01:30:30Z",
+    "message": "refactor: keep acceptance sources within size limit",
+    "sha": "96ff1ef0fb3b"
+  },
+  {
+    "date": "2026-09-24T01:30:47Z",
+    "message": "test: produce complete issue 195 evidence",
+    "sha": "e9f34b2ec82d"
+  },
+  {
+    "date": "2026-09-24T01:40:43Z",
+    "message": "docs: record passing issue 195 pre-merge gate",
+    "sha": "de9e27a030d7"
+  },
+  {
+    "date": "2026-09-24T01:41:55Z",
+    "message": "style(js): normalize query algebra module ending",
+    "sha": "47d03b06a3b4"
+  },
+  {
+    "date": "2026-09-24T01:44:30Z",
+    "message": "fix(rust): close vendored parser before compilation",
+    "sha": "e25d96e66de9"
+  },
+  {
+    "date": "2026-09-24T01:54:57Z",
+    "message": "refactor(rust): remove unreachable formal parser fallback",
+    "sha": "c9b5fe9e248a"
+  },
+  {
+    "date": "2026-09-24T02:12:47Z",
+    "message": "fix(ci): install Lean without Lake project setup",
+    "sha": "1f6e5167a9b8"
+  },
+  {
+    "date": "2026-09-24T02:20:33Z",
+    "message": "fix(ci): install Rocq from its release repository",
+    "sha": "3aa8d110bb2f"
+  },
+  {
+    "date": "2026-09-24T02:30:34Z",
+    "message": "fix(js): complete optional dependency lock metadata",
+    "sha": "26f3a0675580"
+  },
+  {
+    "date": "2026-09-24T02:41:14Z",
+    "message": "fix(ci): export installed Rocq tools",
+    "sha": "ced1a4c4ebd0"
+  },
+  {
+    "date": "2026-09-24T19:19:08Z",
+    "message": "fix: tie issue 195 acceptance to observed behavior",
+    "sha": "2106e8a989ea"
+  },
+  {
+    "date": "2026-09-24T19:24:59Z",
+    "message": "fix: reject Rust names reserved in JavaScript modules",
+    "sha": "c6696db1d938"
+  },
+  {
+    "date": "2026-09-24T19:35:25Z",
+    "message": "test: use configured MSVC linker for nested rustc",
+    "sha": "b965ba192b9a"
+  },
+  {
+    "date": "2026-09-24T19:40:32Z",
+    "message": "test: execute Rust-generated JavaScript in both runtimes",
+    "sha": "b0a312b13fc4"
+  },
+  {
+    "date": "2026-09-24T19:45:45Z",
+    "message": "test: keep linker option before rustc output path",
+    "sha": "6cc52142d46e"
+  },
+  {
+    "date": "2026-09-24T19:55:20Z",
+    "message": "docs: record observed issue 195 acceptance gaps",
+    "sha": "fdbd69357624"
+  },
+  {
+    "date": "2026-09-24T20:25:19Z",
+    "message": "fix: preserve JavaScript property semantics in binding rename",
+    "sha": "92cc8bc59d63"
+  },
+  {
+    "date": "2026-09-24T20:26:57Z",
+    "message": "test: refresh issue 195 fixture digests",
+    "sha": "7ebf0a58eaf4"
+  },
+  {
+    "date": "2026-09-24T20:37:06Z",
+    "message": "docs: refresh observed issue 195 acceptance ledger",
+    "sha": "f68e91759448"
+  },
+  {
+    "date": "2026-09-24T20:44:20Z",
+    "message": "fix: resolve JavaScript destructuring aliases as bindings",
+    "sha": "5c0e4e50c054"
+  },
+  {
+    "date": "2026-09-24T20:54:20Z",
+    "message": "docs: refresh issue 195 ledger after binding fix",
+    "sha": "f7b19689ccb2"
+  },
+  {
+    "date": "2026-09-24T21:33:35Z",
+    "message": "test: record observed malformed CST evidence in both runtimes",
+    "sha": "7111bfd8bce1"
+  },
+  {
+    "date": "2026-09-24T21:44:14Z",
+    "message": "docs: refresh issue 195 ledger with observed negative CST evidence",
+    "sha": "b9272eae1e12"
+  },
+  {
+    "date": "2026-09-24T22:33:45Z",
+    "message": "fix: reject binding rename that captures unresolved references",
+    "sha": "cd83d902e184"
+  },
+  {
+    "date": "2026-09-24T23:14:54Z",
+    "message": "fix: permit noncapturing nested binding renames",
+    "sha": "617fae7dd258"
+  },
+  {
+    "date": "2026-09-25T00:00:11Z",
+    "message": "fix: hoist JavaScript var bindings in both runtimes",
+    "sha": "5da98f8b16bf"
+  },
+  {
+    "date": "2026-09-25T19:41:10Z",
+    "message": "feat: share grammars, natural-language layer and language identifier across runtimes",
+    "sha": "3a0760383b08"
+  },
+  {
+    "date": "2026-09-25T20:00:32Z",
+    "message": "fix: vendor RFC 4180 CSV grammar that parses single-character fields",
+    "sha": "e242d0676842"
+  },
+  {
+    "date": "2026-09-25T20:00:40Z",
+    "message": "fix: stop labeling hidden grammar text as whitespace trivia",
+    "sha": "0daba067c82b"
+  },
+  {
+    "date": "2026-09-25T20:16:09Z",
+    "message": "feat: parse Markdown inline content with the inline grammar in both runtimes",
+    "sha": "eed6e6c84c5a"
+  },
+  {
+    "date": "2026-09-25T20:44:57Z",
+    "message": "fix: retain text before the tree-sitter root in both runtimes",
+    "sha": "6d1bfbeb32a1"
+  },
+  {
+    "date": "2026-09-25T20:51:34Z",
+    "message": "feat: give every grammar language a multi-construct positive source and a recovery source",
+    "sha": "4c520d160055"
+  },
+  {
+    "date": "2026-09-25T21:07:36Z",
+    "message": "feat: generate grammar-derived default CST expectations cross-checked with the native tree-sitter CLI",
+    "sha": "517cae58d48b"
+  },
+  {
+    "date": "2026-09-25T21:18:29Z",
+    "message": "fix: keep grammar node kinds when flagging prohibited NUL input",
+    "sha": "fb88834c7da3"
+  },
+  {
+    "date": "2026-09-25T21:18:29Z",
+    "message": "test: compare Rust public CSTs with grammar-derived default rows",
+    "sha": "50aeab797c62"
+  },
+  {
+    "date": "2026-09-25T21:18:29Z",
+    "message": "refactor: take requirement extensions from the inventory dispatch table",
+    "sha": "96d66fd6ad5c"
+  },
+  {
+    "date": "2026-09-25T21:31:43Z",
+    "message": "feat: dispatch languages, aliases, extensions and grammar provenance from a shared generated catalog",
+    "sha": "d6f09f608995"
+  },
+  {
+    "date": "2026-09-25T21:51:47Z",
+    "message": "feat: detect embedded regions from the host grammar CST in both runtimes",
+    "sha": "12b50d31e351"
+  },
+  {
+    "date": "2026-09-25T21:58:45Z",
+    "message": "feat: record grammar provenance links in parsed networks in both runtimes",
+    "sha": "d68845cc9d27"
+  },
+  {
+    "date": "2026-09-25T22:07:02Z",
+    "message": "fix: keep JavaScript grammar gap text as tokens and compare CST rows in both runtimes",
+    "sha": "922ec7df211e"
+  },
+  {
+    "date": "2026-09-25T22:15:41Z",
+    "message": "feat: attach Trivia links to extra tokens in JavaScript and compare trivia and built-in whitespace in runtime parity",
+    "sha": "5c5ae8bbff60"
+  },
+  {
+    "date": "2026-09-25T22:23:15Z",
+    "message": "feat: derive LiNo Relation and Concept links in JavaScript as in Rust and compare built-in networks in runtime parity",
+    "sha": "9028ae0a4b83"
+  },
+  {
+    "date": "2026-09-25T22:44:43Z",
+    "message": "feat: parse LiNo with a CST that mirrors the official links-notation grammar in both runtimes",
+    "sha": "42dea59a8e57"
+  },
+  {
+    "date": "2026-09-25T23:16:04Z",
+    "message": "feat: parse PDF with a COS grammar CST checked against pdf-lib in both runtimes",
+    "sha": "395b489ec6fb"
+  },
+  {
+    "date": "2026-09-25T23:37:16Z",
+    "message": "feat: parse plain and natural-language text with versioned built-in grammars and record built-in grammar provenance",
+    "sha": "6556e43795e6"
+  },
+  {
+    "date": "2026-09-25T23:48:01Z",
+    "message": "test: check every inventory language's complete lossless default CST in both runtimes and record positive CST evidence",
+    "sha": "0c70253a0117"
+  },
+  {
+    "date": "2026-09-26T00:09:53Z",
+    "message": "test: check every embedded-language path's complete lossless CST in both runtimes and write observation records atomically",
+    "sha": "edf77251be6d"
+  },
+  {
+    "date": "2026-09-26T01:18:31Z",
+    "message": "test: validate native toolchains and install exact npm and crate candidates into clean consumers on every platform",
+    "sha": "5df14671d96c"
+  },
+  {
+    "date": "2026-09-26T01:26:04Z",
+    "message": "feat: check a Lean frontend's portable core with proof plans and emit Rocq that compiles and matches the Lean program's output",
+    "sha": "0fa6d3f7d703"
+  },
+  {
+    "date": "2026-09-26T01:33:16Z",
+    "message": "feat: emit JavaScript and Lean from the checked portable core, with output matching the Lean source program and closed Lean proofs",
+    "sha": "6a08318e0dcc"
+  },
+  {
+    "date": "2026-09-26T01:38:03Z",
+    "message": "feat: emit Rust with an unbounded-integer prelude from the portable core, with output matching the Lean source program",
+    "sha": "087d2eaf5ba9"
+  },
+  {
+    "date": "2026-09-26T01:50:16Z",
+    "message": "feat: read Rocq programs into the portable core, split natural zero tests into structural cases, and match the Lean program's output in all four targets",
+    "sha": "c49d7bf72f22"
+  },
+  {
+    "date": "2026-09-26T02:00:27Z",
+    "message": "feat: read Rust programs into the portable core, split unsigned machine-integer zero tests into structural cases, honour Euclidean division on machine integers, and match the Lean program's output in all four targets",
+    "sha": "3b7087c716c7"
+  },
+  {
+    "date": "2026-09-26T02:29:26Z",
+    "message": "feat: read JavaScript programs into the portable core and match the corpus and edge-semantics output in all four targets",
+    "sha": "8dc6624e29c4"
+  },
+  {
+    "date": "2026-09-26T02:55:16Z",
+    "message": "feat: add the Rust translation foundation (types, diagnostics, decimal literals, lexer, surface AST, checked IR)",
+    "sha": "ea35a042893d"
+  },
+  {
+    "date": "2026-09-26T04:04:06Z",
+    "message": "feat: port the checker and proof normaliser to Rust with stage parity; accept exhaustive boolean literal matches",
+    "sha": "b0fe0ef393bb"
+  },
+  {
+    "date": "2026-09-26T04:09:08Z",
+    "message": "feat: add the Rust emitter state, Lean root names and stage probes for the frontends and emitters",
+    "sha": "5a81e70f4e80"
+  },
+  {
+    "date": "2026-09-26T04:34:25Z",
+    "message": "test: move the language identification and translation foundation tests out of rust/src; keep grammar and corpus bytes LF on every platform",
+    "sha": "b3dcef6ad8bf"
+  },
+  {
+    "date": "2026-09-26T04:34:25Z",
+    "message": "test: record every JavaScript translation stage as golden fixtures for the Rust pipeline; keep numeric pattern literals as exact decimal text",
+    "sha": "c962a5201ebf"
+  },
+  {
+    "date": "2026-09-26T04:34:25Z",
+    "message": "ci: report the output of a failing clean-consumer command in the error itself",
+    "sha": "6d427aecf475"
+  },
+  {
+    "date": "2026-09-26T04:37:18Z",
+    "message": "ci: keep a single PATH for Windows clean consumers so npm resolves",
+    "sha": "450c4012ab77"
+  },
+  {
+    "date": "2026-09-26T04:49:04Z",
+    "message": "test: share one issue #195 observation writer across the JavaScript and Rust suites",
+    "sha": "5a78470298fc"
+  },
+  {
+    "date": "2026-09-26T04:54:59Z",
+    "message": "refactor: split link network trivia and verification, and the translation behavior tests, under the 1000-line file limit",
+    "sha": "4d234098593e"
+  },
+  {
+    "date": "2026-09-26T04:57:05Z",
+    "message": "feat: port the JavaScript emitter to Rust with emit-stage parity",
+    "sha": "3919800bface"
+  },
+  {
+    "date": "2026-09-26T04:58:49Z",
+    "message": "feat: port the Lean frontend to Rust with parse-stage parity",
+    "sha": "3eef1ba2e0ba"
+  },
+  {
+    "date": "2026-09-26T05:00:25Z",
+    "message": "Merge the Rust port of the JavaScript emitter; keep its cases as the emit-javascript translation case set",
+    "sha": "9a18f9c48fb7"
+  },
+  {
+    "date": "2026-09-26T05:01:49Z",
+    "message": "feat: port the Rust emitter to Rust with emit-stage parity",
+    "sha": "422cd1f1c8ad"
+  },
+  {
+    "date": "2026-09-26T05:04:34Z",
+    "message": "Merge the Rust port of the Lean frontend; keep its cases as the frontend-lean translation case set",
+    "sha": "7620bf503155"
+  },
+  {
+    "date": "2026-09-26T05:07:37Z",
+    "message": "feat: port the Rust-source frontend to Rust with parse-stage parity",
+    "sha": "e32933b97a6a"
+  },
+  {
+    "date": "2026-09-26T05:07:46Z",
+    "message": "feat: port the Rocq frontend to Rust with parse-stage parity",
+    "sha": "b6990cbe53b7"
+  },
+  {
+    "date": "2026-09-26T05:10:34Z",
+    "message": "refactor: split the Rust Lean frontend's proofs and expressions into submodules under the 1000-line file limit",
+    "sha": "f1da3efe6a63"
+  },
+  {
+    "date": "2026-09-26T05:12:39Z",
+    "message": "feat: port the Lean emitter to Rust with emit-stage parity",
+    "sha": "c9100fca1eeb"
+  },
+  {
+    "date": "2026-09-26T05:13:41Z",
+    "message": "Merge the Rust port of the Rust emitter; keep its cases as the emit-rust translation case set",
+    "sha": "89247ac735af"
+  },
+  {
+    "date": "2026-09-26T05:13:51Z",
+    "message": "feat: port the Rocq emitter to Rust with emit-stage parity",
+    "sha": "ced791e3c12b"
+  },
+  {
+    "date": "2026-09-26T05:16:15Z",
+    "message": "Merge the Rust port of the Lean emitter with its emit-lean translation case set",
+    "sha": "fd5f3acc4e6c"
+  },
+  {
+    "date": "2026-09-26T05:19:25Z",
+    "message": "Merge the Rust port of the Rocq emitter with its emit-rocq translation case set",
+    "sha": "b1372881f08e"
+  },
+  {
+    "date": "2026-09-26T05:20:23Z",
+    "message": "feat: port the JavaScript frontend to Rust with parse-stage parity",
+    "sha": "e7fac57d11c7"
+  },
+  {
+    "date": "2026-09-26T05:23:43Z",
+    "message": "Merge the Rust port of the Rust-source frontend; keep its cases as the frontend-rust translation case set",
+    "sha": "8d453ce1851c"
+  },
+  {
+    "date": "2026-09-26T05:33:29Z",
+    "message": "Merge the Rust port of the Rocq frontend; keep its cases as the frontend-rocq translation case set",
+    "sha": "93a1ff1e0296"
+  },
+  {
+    "date": "2026-09-26T05:44:52Z",
+    "message": "Merge the Rust port of the JavaScript frontend; keep its cases as the frontend-javascript translation case set",
+    "sha": "be6cd11d3792"
+  },
+  {
+    "date": "2026-09-26T06:33:44Z",
+    "message": "fix: box parsed Lean and Rocq function definitions so clippy's large_enum_variant lint passes",
+    "sha": "4b87d85401d6"
+  },
+  {
+    "date": "2026-09-26T06:33:44Z",
+    "message": "fix: compile large natural numeral patterns as equality tests and bound n + k offsets in both runtimes",
+    "sha": "df0b04865b1a"
+  }
+]

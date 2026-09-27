@@ -23,16 +23,16 @@ const expected = {
   box: '2.10.2',
   bun: '1.4.2',
   eslint: '10.11.0',
-  formalAi: '0.351.0',
+  formalAi: '0.352.1',
   jscpd: '5.3.2',
   jscpdThreshold: 12,
-  lintStaged: '17.5.1',
+  lintStaged: '17.6.0',
   node: '24.21.0',
   prettier: '3.9.9',
   sentry: '11.0.0',
   sentryProfiler: '2.4.4',
   startCommand: '0.34.0',
-  useM: '8.16.3',
+  useM: '8.16.4',
 };
 
 const regularDockerfiles = ['Dockerfile', 'coolify/Dockerfile'];

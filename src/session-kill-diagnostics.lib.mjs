@@ -263,6 +263,33 @@ function describeDisk(disk, timestamp) {
   return `disk ${disk?.path || '/'}: ${parts.join(' ')}${at}`;
 }
 
+const DISK_FULL_LINE_PATTERN = /\bENOSPC\b|no space left on device/i;
+const DISK_FULL_LINE_MAX_LENGTH = 300;
+
+/**
+ * Issue #2303: the last line of a log that reports the disk as full
+ * (`ENOSPC` / "No space left on device"). Scans from the end, because the line
+ * that matters is the one written as the session died.
+ *
+ * @param {string|null} logText
+ * @returns {{line: string}|null}
+ */
+export function findDiskFullMarker(logText) {
+  if (typeof logText !== 'string' || !logText) return null;
+  const lines = logText.split('\n');
+  for (let index = lines.length - 1; index >= 0; index--) {
+    const line = lines[index].trim();
+    if (line && DISK_FULL_LINE_PATTERN.test(line)) return { line: line.length > DISK_FULL_LINE_MAX_LENGTH ? `${line.slice(0, DISK_FULL_LINE_MAX_LENGTH)}…` : line };
+  }
+  return null;
+}
+
+function isDiskFull(disk) {
+  const usedPercent = finite(disk?.usedPercent);
+  const available = finite(disk?.availableBytes);
+  return (usedPercent !== null && usedPercent >= DISK_FULL_USED_PERCENT) || (available !== null && available <= DISK_FULL_AVAILABLE_BYTES);
+}
+
 /**
  * Decide WHY a session was killed, from the evidence available.
  *
@@ -281,9 +308,11 @@ function describeDisk(disk, timestamp) {
  * @param {boolean|null} [params.reportedMemoryExhausted] - `$ --status` `memoryExhausted` (start-command >= 0.33.0)
  * @param {string|null} [params.reportedMemoryExhaustedReason] - `$ --status` `memoryExhaustedReason` (the evidence line)
  * @param {string|null} [params.reportedExitReason] - `$ --status` `exitReason` hint, e.g. `memory-exhaustion (v8-heap-limit)`
+ * @param {Object|null} [params.observedDisk] - Lowest host disk reading the monitor took while the session ran (issue #2303)
+ * @param {string|null} [params.unobservedExit] - Why the reported success was not trusted (issue #2303)
  * @returns {{cause: string, summary: string, evidence: string[], memory: Object|null, disk: Object|null, victims: Array}}
  */
-export function describeKillCause({ logText = null, resourceMarkers = null, oomKilled = false, exitCode = null, system = null, stopRequestedByUser = false, reportedMemoryExhausted = null, reportedMemoryExhaustedReason = null, reportedExitReason = null } = {}) {
+export function describeKillCause({ logText = null, resourceMarkers = null, oomKilled = false, exitCode = null, system = null, stopRequestedByUser = false, reportedMemoryExhausted = null, reportedMemoryExhaustedReason = null, reportedExitReason = null, observedDisk = null, unobservedExit = null } = {}) {
   const parsed = resourceMarkers || (logText ? parseResourceMarkers(logText) : { markers: [], byPhase: {} });
   const memoryMarker = selectLastMemoryResourceMarker(parsed);
   const heapMarker = selectLastHeapResourceMarker(parsed);
@@ -304,6 +333,11 @@ export function describeKillCause({ logText = null, resourceMarkers = null, oomK
   if (heapLine) evidence.push(`last session V8 heap reading — ${heapLine} (phase \`${heapMarker.phase}\`)`);
   const diskLine = describeDisk(disk, diskMarker?.timestamp || null);
   if (diskLine) evidence.push(`last session ${diskLine} (phase \`${diskMarker.phase}\`)`);
+  // Issue #2303: the in-band markers are written at phase boundaries and can be
+  // an hour stale when the disk fills; the monitor's own lowest reading is not.
+  const observedDiskLine = describeDisk(observedDisk, observedDisk?.observedAt || null);
+  if (observedDiskLine) evidence.push(`lowest host ${observedDiskLine} observed by the monitor while the session ran`);
+  if (unobservedExit) evidence.push(`the reported success was not trusted — ${unobservedExit}`);
   if (oomKilled) evidence.push('container reports `State.OOMKilled = true` (an OOM event hit the container cgroup)');
   if (cgroupOomKills !== null && cgroupOomKills > 0) evidence.push(`cgroup \`memory.events\` reports ${cgroupOomKills} OOM kill(s)`);
   const systemMemoryLine = describeMemory(system?.memory, null);
@@ -319,6 +353,8 @@ export function describeKillCause({ logText = null, resourceMarkers = null, oomK
   // so a log that merely mentions the phrase cannot manufacture a diagnosis.
   const abnormalExit = exitCode === null || exitCode !== 0;
   const fatalMemoryMarker = abnormalExit ? findFatalMemoryMarker(logText) : null;
+  const diskFullMarker = abnormalExit ? findDiskFullMarker(logText) : null;
+  if (diskFullMarker) evidence.push(`the log reports a full disk: \`${diskFullMarker.line}\``);
   if (fatalMemoryMarker) {
     evidence.push(`the ${fatalMemoryMarker.runtime} runtime aborted on its own heap limit: \`${fatalMemoryMarker.line}\` (a self-abort is invisible to \`docker inspect\` and to cgroup OOM counters)`);
   }
@@ -352,9 +388,9 @@ export function describeKillCause({ logText = null, resourceMarkers = null, oomK
   // A heap already at the limit is only evidence of a kill when the session
   // actually ended abnormally — a healthy run may legitimately end near its cap.
   const heapExhausted = abnormalExit && heapUsedPercent !== null && heapUsedPercent >= HEAP_EXHAUSTED_PERCENT;
-  const diskUsedPercent = finite(disk?.usedPercent);
-  const diskAvailable = finite(disk?.availableBytes);
-  const diskFull = (diskUsedPercent !== null && diskUsedPercent >= DISK_FULL_USED_PERCENT) || (diskAvailable !== null && diskAvailable <= DISK_FULL_AVAILABLE_BYTES);
+  const markerDiskFull = isDiskFull(disk);
+  const observedDiskFull = isDiskFull(observedDisk);
+  const diskFull = markerDiskFull || observedDiskFull || Boolean(diskFullMarker);
 
   let cause = KILL_CAUSE_UNKNOWN;
   if (stopRequestedByUser) {
@@ -386,15 +422,18 @@ export function describeKillCause({ logText = null, resourceMarkers = null, oomK
     const victim = victims.length > 0 ? `, kernel OOM killer terminated \`${victims[victims.length - 1].comm || 'unknown'}\` (pid ${victims[victims.length - 1].pid ?? '?'})` : '';
     summary = `out of memory${memoryLine ? ` — ${memoryLine}` : ''}${victim}`;
   } else if (cause === KILL_CAUSE_DISK_FULL) {
-    summary = `disk full${diskLine ? ` — ${diskLine}` : ''}`;
+    const fullDiskLine = markerDiskFull ? diskLine : observedDiskFull ? `host ${observedDiskLine}` : diskFullMarker ? `\`${diskFullMarker.line}\`` : diskLine;
+    summary = `disk full${fullDiskLine ? ` — ${fullDiskLine}` : ''}`;
   } else if (cause === KILL_CAUSE_FORCED_KILL) {
     const healthy = [memoryLine ? `memory (${memoryLine})` : null, diskLine ? diskLine : null].filter(Boolean).join(', ');
     summary = stopRequestedByUser ? 'forced kill — an operator requested the stop' : `forced kill${healthy ? ` — ${healthy} were within normal limits` : ' — no resource exhaustion was observed'}`;
+  } else if (unobservedExit) {
+    summary = 'unknown — the container was removed while still running, and no memory or disk exhaustion was observed';
   } else {
     summary = 'unknown — no resource marker, cgroup counter or kernel OOM report was available';
   }
 
-  return { cause, summary, evidence, memory, heap: heapMemory, heapUsedPercent, disk, victims, fatalMemoryMarker, reportedMemoryExhaustion, reportedExitReason: reportedExitReasonText };
+  return { cause, summary, evidence, memory, heap: heapMemory, heapUsedPercent, disk, observedDisk, diskFullMarker, victims, fatalMemoryMarker, reportedMemoryExhaustion, reportedExitReason: reportedExitReasonText };
 }
 
 /**
@@ -471,7 +510,7 @@ export function formatKillResumeSection({ sessionId = null, attempt = null, maxA
  * @param {Object} [options]
  * @returns {Promise<{section: string, diagnosis: Object|null}>}
  */
-export async function buildKillDiagnosticsSection(logPath, { verbose = false, readFile = fsPromises.readFile, maxLogBytes = KILL_DIAGNOSTICS_LOG_BYTES, oomKilled = false, exitCode = null, stopRequestedByUser = false, locale = null, collectSystem = collectSystemKillDiagnostics, reportedMemoryExhausted = null, reportedMemoryExhaustedReason = null, reportedExitReason = null } = {}) {
+export async function buildKillDiagnosticsSection(logPath, { verbose = false, readFile = fsPromises.readFile, maxLogBytes = KILL_DIAGNOSTICS_LOG_BYTES, oomKilled = false, exitCode = null, stopRequestedByUser = false, locale = null, collectSystem = collectSystemKillDiagnostics, reportedMemoryExhausted = null, reportedMemoryExhaustedReason = null, reportedExitReason = null, observedDisk = null, unobservedExit = null } = {}) {
   try {
     let logText = '';
     if (logPath) {
@@ -483,7 +522,7 @@ export async function buildKillDiagnosticsSection(logPath, { verbose = false, re
       logText = await readLogTextBounded(logPath, { readFile, maxBytes: maxLogBytes, verbose });
     }
     const system = await collectSystem({ verbose });
-    const diagnosis = describeKillCause({ logText, oomKilled, exitCode, system, stopRequestedByUser, reportedMemoryExhausted, reportedMemoryExhaustedReason, reportedExitReason });
+    const diagnosis = describeKillCause({ logText, oomKilled, exitCode, system, stopRequestedByUser, reportedMemoryExhausted, reportedMemoryExhaustedReason, reportedExitReason, observedDisk, unobservedExit });
     if (verbose) console.log(`[VERBOSE] kill-diagnostics: cause=${diagnosis.cause} — ${diagnosis.summary}`);
     return { section: formatKillDiagnosticsSection(diagnosis, { locale }), diagnosis };
   } catch (error) {

@@ -21,6 +21,7 @@ import { classifySessionOutcome } from './work-session-formatting.lib.mjs';
 import { buildKillDiagnosticsSection, formatKillRecoverySection, KILL_CAUSE_FORCED_KILL, KILL_CAUSE_OUT_OF_MEMORY } from './session-kill-diagnostics.lib.mjs';
 import { getOomEventObservedAt } from './session-monitor.oom.lib.mjs';
 import { resolveOnSessionKillPolicy } from './session-kill-policy.lib.mjs';
+import { describeObservedHostDisk } from './session-monitor.host-disk.lib.mjs';
 import { buildKillRecoveryNotice, postKillRecoveryNotice, attachIntermediateSessionLog, spawnCapture } from './session-kill-recovery.lib.mjs';
 
 /**
@@ -103,6 +104,10 @@ export async function buildKillCompletionSections({ sessionName, sessionInfo, st
       reportedMemoryExhausted: statusResult?.memoryExhausted ?? null,
       reportedMemoryExhaustedReason: statusResult?.memoryExhaustedReason ?? null,
       reportedExitReason: statusResult?.exitReason ?? null,
+      // Issue #2303: the lowest host disk reading taken while the session ran,
+      // and why its reported exit 0 was not trusted.
+      observedDisk: describeObservedHostDisk(sessionInfo),
+      unobservedExit: statusResult?.unobservedExit ?? null,
     });
 
     const argv = argvFromSessionArgs(sessionInfo?.args);

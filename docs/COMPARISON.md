@@ -187,6 +187,23 @@ Key differences:
 - Pre-installed development environment (25GB+ ready)
 - Token efficiency (routine tasks in code, not AI tokens)
 
+### 6. Agent Orchestration Runtimes (Google AX)
+
+**What it is**: [Google AX](https://github.com/google/ax) (Agent eXecutor) is an open-source (Apache-2.0) Kubernetes-style control plane that runs any agent command as a sandboxed, suspendable task on [Agent Substrate](https://github.com/agent-substrate/substrate). It is infrastructure, not an issue solver, so it complements Hive Mind rather than replacing it.
+
+| Aspect               | Google AX                                              | Hive Mind                                                    |
+| -------------------- | ------------------------------------------------------ | ------------------------------------------------------------ |
+| **Layer**            | Execution runtime (where and how an agent runs)        | Application (issue → reviewed pull request)                  |
+| **Input**            | `Task`/`Workspace`/`Model` YAML via `ax apply`         | Issue or PR URL via CLI or Telegram                          |
+| **Agent**            | Bring your own command                                 | Claude Code, Codex, OpenCode, Agent, Qwen Code, Gemini CLI   |
+| **GitHub workflow**  | None                                                   | Fork, branch, draft PR, CI checks, feedback loop, auto-merge |
+| **Isolation**        | gVisor or microVM sandboxes                            | `screen`, `tmux`, or Docker (full sudo and internet)         |
+| **Suspend / resume** | `ax suspend` / `ax resume`, workspace volume kept      | Resumes the AI session after limits, kills, and restarts     |
+| **Requirements**     | Kubernetes, Agent Substrate, Redis, container registry | One host with Node.js or Docker (Helm chart optional)        |
+| **Maturity**         | `v1alpha1`, redesigned in September 2026               | v2.x, released continuously                                  |
+
+AX could one day become one of Hive Mind's isolation backends. Its stronger sandbox and cheap suspension of idle work are the ideas worth adopting. See the [case study for issue #2289](case-studies/issue-2289/README.md) for the full analysis, sources, and solution plans.
+
 ## The Hive Mind Advantage: Time Freedom
 
 The most significant difference is **how much of your time is freed**:
@@ -275,6 +292,7 @@ Hive Mind excels when:
 - **AI-Assisted IDEs**: Interactive coding sessions, real-time exploration
 - **Vibe Coding**: Quick prototypes, non-developers, demos
 - **Other AI Agents**: Different workflow preferences, specific model needs
+- **Agent orchestration runtimes (Google AX)**: Running thousands of arbitrary agent tasks on Kubernetes with strong sandboxing; can host Hive Mind rather than replace it
 
 ## Summary: Hive Mind's Unique Position
 

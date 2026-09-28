@@ -14,7 +14,7 @@
  * - Handles free model special case
  */
 
-import { buildCostInfoString } from '../src/github-cost-info.lib.mjs';
+import { buildCostInfoString, COST_INFO_NOTE } from '../src/github-cost-info.lib.mjs';
 
 // Test framework
 let testsPassed = 0;
@@ -651,6 +651,17 @@ runTest('still shows full format when difference is exactly $0.000001 (Issue #17
   const result = buildCostInfoString(5.207635, 5.207636, null);
   assertContains(result, '### 💰 **Cost estimation:**', 'Should show full header at 1e-6 difference');
   assertContains(result, 'Difference: $0.000001', 'Should show the actual one-millionth difference');
+});
+
+console.log('\n📋 Test Group: Issue #2295 - Say that the cost breakdown is informational\n');
+
+runTest('full breakdown ends with a note that the estimate is not a request for payment (Issue #2295)', () => {
+  // paranjko/external-test-lab#177: a maintainer asked whether "Public pricing estimate: $32.635322"
+  // was "a hint or a requirement".
+  const result = buildCostInfoString(32.635322, null, { modelName: 'GPT-5.6 sol', tokenUsage: { inputTokens: 1, outputTokens: 1 } });
+  assertContains(result, 'Public pricing estimate: $32.635322');
+  assertEqual(result.endsWith(COST_INFO_NOTE), true, 'note is the last line of the cost section');
+  assertContains(COST_INFO_NOTE, 'not a request for payment');
 });
 
 // Summary

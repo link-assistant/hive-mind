@@ -1139,7 +1139,7 @@ export async function getWorkflowRunsForSha(owner, repo, sha, verbose = false) {
     const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/runs?head_sha=${sha}&per_page=100" --paginate --slurp`);
     const runs = JSON.parse(stdout.trim() || '[]')
       .flatMap(page => page.workflow_runs || [])
-      .map(run => ({ id: run.id, status: run.status, conclusion: run.conclusion, name: run.name, html_url: run.html_url, path: run.path }));
+      .map(run => ({ id: run.id, status: run.status, conclusion: run.conclusion, name: run.name, html_url: run.html_url, path: run.path, workflow_id: run.workflow_id, event: run.event, created_at: run.created_at }));
 
     if (verbose) {
       // Issue #1712: Include the commit URL (not just SHA) and the workflow run html_url

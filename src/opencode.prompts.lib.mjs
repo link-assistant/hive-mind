@@ -213,7 +213,8 @@ Preparing pull request.
       double-check that all changes in the pull request address the original requirements of the issue,
       check for newly introduced bugs in the pull request by carefully reading gh pr diff,
       check that no previously existing features were removed without an explicit request in the issue description, issue comments, or pull request comments.
-   - When you finish implementation, use gh pr ready ${prNumber}.
+   - When the pull request only partially solves the issue, say so in its description with "Part of #N" instead of a closing keyword such as "Fixes #N".
+   - When you finish implementation, use gh pr ready ${prNumber}, unless a maintainer converted the pull request to draft or requested changes; then leave it in draft and let the maintainer decide.
 
 Workflow and collaboration.
    - When you check branch, verify with git branch --show-current.

@@ -92,6 +92,59 @@ export function hasGitHubLinkingKeyword(prBody, issueNumber, owner = null, repo 
 }
 
 /**
+ * Phrases that reference an issue WITHOUT claiming to close it.
+ *
+ * Many repositories use them for partial / preparatory pull requests, e.g.
+ * paranjko/external-test-lab uses "Part of #49" and "Relates to #49".
+ * GitHub does not treat these as closing keywords, so the issue stays open
+ * after merge. When a PR body already uses one of them for the solved issue,
+ * the author (human or AI) has made an explicit scope decision that automation
+ * must not override with "Fixes #N" (issue #2295).
+ *
+ * @returns {string[]} Array of non-closing reference phrases (regex-safe)
+ */
+export function getNonClosingReferencePhrases() {
+  return ['part of', 'partially addresses', 'partially implements', 'partial fix for', 'relates to', 'related to', 'related', 'refs', 'ref', 'references', 'see also', 'see', 'towards', 'toward', 'contributes to', 'progress on', 'progress toward', 'progress towards', 'follow-up to', 'follow-up for', 'follow up to', 'prerequisite for', 'preparation for', 'step toward', 'step towards'];
+}
+
+/**
+ * Check whether text explicitly references an issue with a non-closing phrase
+ * such as "Part of #49", "Relates to owner/repo#49" or "Refs: #49".
+ *
+ * A bare mention such as "for issue #49" is intentionally NOT treated as an
+ * explicit non-closing reference, so the existing "restore Fixes #N" behaviour
+ * (issues #1616 and #1763) still applies when an AI simply drops the keyword.
+ *
+ * @param {string} text - Pull request body or title text
+ * @param {string|number} issueNumber - Issue number to check for
+ * @param {string} [owner] - Repository owner for exact owner/repo references
+ * @param {string} [repo] - Repository name for exact owner/repo references
+ * @returns {string|null} The matched phrase (lower-cased) or null
+ */
+export function findNonClosingIssueReference(text, issueNumber, owner = null, repo = null) {
+  if (!text || typeof text !== 'string' || issueNumber === null || issueNumber === undefined || String(issueNumber).trim() === '') {
+    return null;
+  }
+
+  const issueNumStr = escapeRegExp(String(issueNumber).trim());
+  const references = [String.raw`#${issueNumStr}\b`, String.raw`[\w.-]+/[\w.-]+#${issueNumStr}\b`, `https://github\\.com/[^/\\s]+/[^/\\s]+/issues/${issueNumStr}\\b`];
+  if (owner && repo) {
+    references.unshift(`${escapeRegExp(owner)}/${escapeRegExp(repo)}#${issueNumStr}\\b`);
+  }
+  const phrases = getNonClosingReferencePhrases()
+    .map(phrase =>
+      phrase
+        .split(/[\s-]+/)
+        .map(escapeRegExp)
+        .join(String.raw`[\s-]+`)
+    )
+    .join('|');
+  const pattern = new RegExp(String.raw`(?:^|[^\w-])(${phrases})(?:\s+|\s*:\s*)(?:issue\s+)?(?:${references.join('|')})`, 'i');
+  const match = text.match(pattern);
+  return match ? match[1].toLowerCase().replace(/\s+/g, ' ') : null;
+}
+
+/**
  * Extract issue number from PR body using GitHub linking keywords
  * This is used to find which issue a PR is linked to
  *

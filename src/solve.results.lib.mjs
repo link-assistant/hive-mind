@@ -139,6 +139,12 @@ export const ensurePullRequestIssueLink = async ({ prNumber, issueNumber, owner,
   });
 
   if (!linkResult.updated) {
+    if (linkResult.nonClosingReference) {
+      // Issue #2295: the PR deliberately declares partial scope ("Part of #N").
+      // Appending "Fixes #N" would contradict the PR and close the issue on merge.
+      await logger(`  ℹ️  PR body references issue #${issueNumber} with "${linkResult.nonClosingReference}" (partial scope); not adding a closing keyword`);
+      return { checked: true, updated: false, body: linkResult.body, issueRef: linkResult.issueRef, nonClosingReference: linkResult.nonClosingReference };
+    }
     await logger('  ✅ PR body already contains issue reference');
     return { checked: true, updated: false, body: linkResult.body, issueRef: linkResult.issueRef };
   }

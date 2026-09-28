@@ -1,0 +1,14 @@
+repository	stars_2026-09-27	license	language	description
+kubernetes-sigs/agent-sandbox	4042	apache-2.0	Go	agent-sandbox enables easy management of isolated, stateful, singleton workloads, ideal for use cases like AI agent runtimes  and reinforcement learning (RL).
+kagent-dev/kagent	3867	apache-2.0	Go	Cloud Native Agentic AI | Discord: https://bit.ly/kagentdiscord
+GoogleCloudPlatform/scion	1724	apache-2.0	Go	
+google/gvisor	19430	apache-2.0	Go	Application Kernel for Containers
+kata-containers/kata-containers	8803	apache-2.0	Rust	Kata Containers is an open source project and community working to build a standard implementation of lightweight Virtual Machines (VMs) that feel and perform like containers, but provide the workload isolation and security advantages of VMs. https://katacontainers.io/
+firecracker-microvm/firecracker	36972	apache-2.0	Rust	Secure and fast microVMs for serverless computing.
+checkpoint-restore/criu	4005	other	C	Checkpoint/Restore tool
+e2b-dev/E2B	13985	apache-2.0	Python	Open-source, secure environment with real-world tools for enterprise-grade agents.
+daytonaio/daytona	71702	-	-	Daytona is a Secure and Elastic Infrastructure for Running AI-Generated Code
+temporalio/temporal	23317	mit	Go	Temporal service
+OpenHands/OpenHands	89292	mit	TypeScript	🙌 OpenHands: AI-Driven Development
+SWE-agent/SWE-agent	20425	mit	Python	SWE-agent takes a GitHub issue and tries to automatically fix it, using your LM of choice. It can also be employed for offensive cybersecurity or competitive coding challenges. [NeurIPS 2024] 
+link-foundation/start	1	unlicense	JavaScript	Gamification of coding, execute any command with ability to auto-report issues on GitHub

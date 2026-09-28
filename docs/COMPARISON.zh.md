@@ -187,6 +187,23 @@
 - 预安装开发环境（25GB+ 就绪）
 - Token 效率（常规任务在代码中完成，而非消耗 AI token）
 
+### 6. Agent 编排运行时（Google AX）
+
+**是什么**：[Google AX](https://github.com/google/ax)（Agent eXecutor）是一个开源（Apache-2.0）的 Kubernetes 风格控制平面，它在 [Agent Substrate](https://github.com/agent-substrate/substrate) 上把任意 Agent 命令作为可挂起的沙箱任务运行。它是基础设施，而不是 issue 解决器，因此它是 Hive Mind 的补充，而不是替代。
+
+| 方面              | Google AX                                            | Hive Mind                                                  |
+| ----------------- | ---------------------------------------------------- | ---------------------------------------------------------- |
+| **层级**          | 执行运行时（Agent 在哪里、如何运行）                 | 应用（issue → 经过审查的 pull request）                    |
+| **输入**          | 通过 `ax apply` 提交 `Task`/`Workspace`/`Model` YAML | 通过 CLI 或 Telegram 提交 issue 或 PR URL                  |
+| **Agent**         | 自带任意命令                                         | Claude Code、Codex、OpenCode、Agent、Qwen Code、Gemini CLI |
+| **GitHub 工作流** | 无                                                   | Fork、分支、草稿 PR、CI 检查、反馈循环、自动合并           |
+| **隔离**          | gVisor 或 microVM 沙箱                               | `screen`、`tmux` 或 Docker（完整 sudo 和互联网）           |
+| **挂起 / 恢复**   | `ax suspend` / `ax resume`，保留工作区卷             | 在限额、终止和重启后恢复 AI 会话                           |
+| **部署要求**      | Kubernetes、Agent Substrate、Redis、容器镜像仓库     | 一台装有 Node.js 或 Docker 的主机（Helm chart 可选）       |
+| **成熟度**        | `v1alpha1`，2026 年 9 月重新设计                     | v2.x，持续发布                                             |
+
+AX 将来可能成为 Hive Mind 的隔离后端之一。值得借鉴的是它更强的沙箱以及低成本挂起空闲任务的能力。完整分析、来源和解决方案计划见 [issue #2289 案例研究](case-studies/issue-2289/README.md)。
+
 ## Hive Mind 优势：时间自由
 
 最显著的差异在于**您的时间有多少得到解放**：
@@ -275,6 +292,7 @@ Hive Mind 在以下情况下表现出色：
 - **AI 辅助 IDE**：交互式编程会话、实时探索
 - **氛围编程**：快速原型、非开发者、演示
 - **其他 AI Agent**：不同的工作流偏好、特定模型需求
+- **Agent 编排运行时（Google AX）**：在 Kubernetes 上以强隔离运行成千上万个任意 Agent 任务；可以承载 Hive Mind，而不是取代它
 
 ## 总结：Hive Mind 的独特定位
 

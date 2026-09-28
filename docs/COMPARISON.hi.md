@@ -187,6 +187,23 @@ AI-सहायता प्राप्त विकास पर विचा�
 - पूर्व-स्थापित विकास वातावरण (25GB+ तैयार)
 - Token दक्षता (नियमित tasks कोड में, AI tokens नहीं)
 
+### 6. Agent Orchestration Runtimes (Google AX)
+
+**यह क्या है**: [Google AX](https://github.com/google/ax) (Agent eXecutor) एक open-source (Apache-2.0) Kubernetes-शैली का control plane है जो किसी भी agent command को [Agent Substrate](https://github.com/agent-substrate/substrate) पर sandboxed, suspend किए जा सकने वाले task के रूप में चलाता है। यह infrastructure है, issue solver नहीं, इसलिए यह Hive Mind की जगह नहीं लेता बल्कि उसका पूरक है।
+
+| पहलू                 | Google AX                                              | Hive Mind                                                       |
+| -------------------- | ------------------------------------------------------ | --------------------------------------------------------------- |
+| **स्तर**             | Execution runtime (agent कहाँ और कैसे चलता है)         | Application (issue → review किया गया pull request)              |
+| **Input**            | `ax apply` से `Task`/`Workspace`/`Model` YAML          | CLI या Telegram से issue या PR URL                              |
+| **Agent**            | अपना कोई भी command                                    | Claude Code, Codex, OpenCode, Agent, Qwen Code, Gemini CLI      |
+| **GitHub workflow**  | नहीं                                                   | Fork, branch, draft PR, CI checks, feedback loop, auto-merge    |
+| **Isolation**        | gVisor या microVM sandboxes                            | `screen`, `tmux` या Docker (पूरा sudo और internet)              |
+| **Suspend / resume** | `ax suspend` / `ax resume`, workspace volume सुरक्षित  | Limits, kills और restarts के बाद AI session फिर से शुरू करता है |
+| **आवश्यकताएं**       | Kubernetes, Agent Substrate, Redis, container registry | Node.js या Docker वाला एक host (Helm chart वैकल्पिक)            |
+| **परिपक्वता**        | `v1alpha1`, सितंबर 2026 में फिर से डिज़ाइन किया गया    | v2.x, लगातार releases                                           |
+
+AX भविष्य में Hive Mind के isolation backends में से एक बन सकता है। इसका मज़बूत sandbox और idle काम को सस्ते में suspend करना अपनाने लायक विचार हैं। पूरा विश्लेषण, स्रोत और समाधान योजनाएं [issue #2289 case study](case-studies/issue-2289/README.md) में देखें।
+
 ## Hive Mind लाभ: समय की स्वतंत्रता
 
 सबसे महत्वपूर्ण अंतर यह है कि **आपका कितना समय मुक्त होता है**:
@@ -275,6 +292,7 @@ Hive Mind तब उत्कृष्ट होता है जब:
 - **AI-Assisted IDEs**: Interactive coding sessions, real-time exploration
 - **Vibe Coding**: Quick prototypes, गैर-डेवलपर्स, demos
 - **अन्य AI Agents**: अलग कार्यप्रवाह प्राथमिकताएं, विशिष्ट model जरूरतें
+- **Agent orchestration runtimes (Google AX)**: Kubernetes पर मज़बूत sandboxing के साथ हज़ारों मनमाने agent tasks चलाना; Hive Mind की जगह लेने के बजाय उसे host कर सकते हैं
 
 ## सारांश: Hive Mind की अनन्य स्थिति
 

@@ -1,0 +1,7 @@
+Continue the unfinished work. The previous turn ended while background tasks were still running: Claude Code stopped background tasks after its 8s print-mode wait ceiling (CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS). The wait ceiling was 8s (CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS). This was an automatic timeout, not a user decision. Any "[Request interrupted by user]" or "The user doesn't want to proceed with this tool use" messages from those tasks came from the timeout.
+
+Cancelled tasks:
+- Run bash command with sleep loop (partial output: /tmp/claude-1001/-tmp-repro-out/d3365c2e-7ce9-4282-a2cd-083967a365cb/tasks/a79ba45bc849097a4.output)
+- Run loop with 4 sleep commands then echo DONE
+
+Check what they already changed (git status, git log, their partial output), then redo only what is missing and finish every remaining issue and pull-request requirement. Background tools and agents are still allowed and wake you with their results, but only within the wait ceiling after your turn ends. Run work that may take longer than that in the foreground (run_in_background: false).

@@ -44,14 +44,15 @@ test('a post-result cancellation cannot veto a successful Claude result', () => 
   assert.equal(terminal.failed, false, 'a successful turn does not become a permission failure at shutdown');
 });
 
-test('unfinished background agents cause one same-session continuation', () => {
+test('unfinished background agents cause a bounded same-session continuation', () => {
   const first = assessClaudeTurnCompletion({ resultEvent: completedResult, stoppedTaskCount: 2, recoveryAttempts: 0, sessionId: '85671f31-4459-422e-8fef-04ee03fd3aa0' });
   assert.equal(first.shouldResume, true);
   assert.equal(first.sessionId, '85671f31-4459-422e-8fef-04ee03fd3aa0');
   assert.equal(first.cancelledTasks, 5);
-  const exhausted = assessClaudeTurnCompletion({ resultEvent: completedResult, stoppedTaskCount: 2, recoveryAttempts: 1, sessionId: first.sessionId });
+  assert.equal(assessClaudeTurnCompletion({ resultEvent: completedResult, stoppedTaskCount: 2, recoveryAttempts: 4, sessionId: first.sessionId }).shouldResume, true, 'the default cap allows five resumes');
+  const exhausted = assessClaudeTurnCompletion({ resultEvent: completedResult, stoppedTaskCount: 2, recoveryAttempts: 1, maxRecoveryAttempts: 1, sessionId: first.sessionId });
   assert.equal(exhausted.shouldResume, false);
-  assert.equal(exhausted.incomplete, true, 'a second incomplete turn must fail visibly');
+  assert.equal(exhausted.incomplete, true, 'an incomplete turn past the cap must fail visibly');
   const clean = assessClaudeTurnCompletion({ resultEvent: { type: 'result', subtype: 'success', result: 'Done.' }, stoppedTaskCount: 0, recoveryAttempts: 0, sessionId: first.sessionId });
   assert.equal(clean.incomplete, false);
 });
@@ -106,8 +107,10 @@ test('Docker task memory is capped by default and remains configurable', () => {
   assert.equal(resolveTelegramContainerResourceLimits({}, 'screen').limits.memory, null);
 });
 
-test('one-shot Claude execution can disable background tasks at the CLI', () => {
-  assert.equal(getClaudeEnv({ disableBackgroundTasks: true }).CLAUDE_CODE_DISABLE_BACKGROUND_TASKS, '1');
+test('one-shot Claude execution keeps background tasks and raises the print-mode wait ceiling', () => {
+  const env = getClaudeEnv({});
+  assert.equal(env.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS, process.env.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS);
+  assert.ok(Number(env.CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS) >= 600000 || process.env.CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS !== undefined);
 });
 
 test('the monitor resumes an exit-1 session after a child OOM event and reports the actual new session', async () => {

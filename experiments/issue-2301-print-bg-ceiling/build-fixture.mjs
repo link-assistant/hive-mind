@@ -25,7 +25,7 @@ const trimContent = content =>
   });
 const compact = d => {
   const out = { __logTs: d.__logTs, type: d.type };
-  for (const key of ['subtype', 'status', 'task_id', 'summary', 'parent_tool_use_id', 'terminal_reason', 'subagent_stats', 'is_error', 'origin']) if (d[key] !== undefined && d[key] !== null) out[key] = d[key];
+  for (const key of ['subtype', 'status', 'task_id', 'summary', 'parent_tool_use_id', 'terminal_reason', 'subagent_stats', 'is_error', 'origin', 'output_file']) if (d[key] !== undefined && d[key] !== null) out[key] = d[key];
   if (typeof d.tool_use_result === 'string') out.tool_use_result = d.tool_use_result.slice(0, 200);
   if (typeof d.result === 'string') out.result = d.result.slice(0, 400);
   if (d.message) out.message = { role: d.message.role, content: trimContent(d.message.content) };

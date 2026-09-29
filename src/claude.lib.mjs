@@ -35,7 +35,7 @@ import { deployPlaywrightSkill } from './playwright-skill.lib.mjs'; // Issue #21
 import { formatRouterAuthViolation, startRouterAuthGuard } from './router-auth-guard.lib.mjs'; // Issue #2190
 import { createThinkingBlockRecovery } from './claude.thinking-block-recovery.lib.mjs'; // Issue #1834 (PR #1835 feedback)
 import { buildMissingClaudeResultMessage, collectClaudeStreamEventFacts, getClaudeMessageContent, shouldFailClaudeStreamWithoutResult, updateTerminalToolResult } from './claude.stream-events.lib.mjs';
-import { assessClaudeTurnCompletion, createClaudePrintTurnTracker, INCOMPLETE_TURN_CONTINUATION_PROMPT } from './claude.print-turn.lib.mjs'; // Issue #2301
+import { assessClaudeTurnCompletion, buildIncompleteTurnContinuationPrompt, createClaudePrintTurnTracker } from './claude.print-turn.lib.mjs'; // Issue #2301
 import { createRepeatedToolCallBreaker, explainFailureWithToolHistory, publishRepeatedToolCallVerdict } from './repeated-tool-call-breaker.lib.mjs'; // Issue #2247 (H4/H10), #2316
 import { formatNumber, mapModelToId, checkModelVisionCapability, resolveClaudeModelForExecution } from './claude.model-utils.lib.mjs';
 import { renameLogToSessionId } from './session-log-rename.lib.mjs'; // Issue #2160
@@ -347,7 +347,7 @@ export const executeClaudeCommand = async params => {
       const { parsed: parsedSubSessionSize, contextWindowTokens } = await resolveSubSessionSize({ rawValue: argv.subSessionSize, tool: 'claude', modelId: effectiveModel, fetchModelInfo, log });
       // Issue #817: streaming mode sets exitAfterStopDelayMs=60000 so the headless Claude process stays alive between NDJSON turns.
       // Issue #2130: `toolInvocation.env` points the native CLI at the local Formal AI server (base URL + API key).
-      const claudeEnv = { ...getClaudeEnv({ thinkingBudget: resolvedThinkingBudget, model: effectiveModel, thinkLevel, maxBudget, planModel: resolvedPlanModel, executionModel: resolvedExecutionModel, subAgentModel: resolvedSubAgentModel, showThinkingContent: argv.showThinkingContent, exitAfterStopDelayMs: streamingInput ? 60_000 : undefined, disableBackgroundTasks: !streamingInput, disable1mContext: !!argv.disable1mContext, subSessionSize: parsedSubSessionSize, contextWindowTokens }), ...toolInvocation.env };
+      const claudeEnv = { ...getClaudeEnv({ thinkingBudget: resolvedThinkingBudget, model: effectiveModel, thinkLevel, maxBudget, planModel: resolvedPlanModel, executionModel: resolvedExecutionModel, subAgentModel: resolvedSubAgentModel, showThinkingContent: argv.showThinkingContent, exitAfterStopDelayMs: streamingInput ? 60_000 : undefined, disable1mContext: !!argv.disable1mContext, subSessionSize: parsedSubSessionSize, contextWindowTokens }), ...toolInvocation.env };
       if (argv.verbose) claudeEnv.ANTHROPIC_LOG = 'debug';
       const modelMaxOutputTokens = getMaxOutputTokensForModel(effectiveModel);
       if (argv.verbose) {
@@ -965,7 +965,7 @@ export const executeClaudeCommand = async params => {
       // Issue #2301: an incomplete print-mode turn is checked first. Its last tool results are the
       // cancellation artifacts of the background-task sweep, not the verdict of finished work.
       const printTurnState = printTurn.snapshot();
-      const turnCompletion = assessClaudeTurnCompletion({ resultEvent: streamingInput ? null : printTurnState.resultEvent, stoppedTaskCount: printTurnState.stoppedTaskCount, ceilingSeconds: printTurnState.ceilingSeconds, recoveryAttempts: incompleteTurnRecoveryAttempts, sessionId: sessionId || argv.resume });
+      const turnCompletion = assessClaudeTurnCompletion({ resultEvent: streamingInput ? null : printTurnState.resultEvent, stoppedTaskCount: printTurnState.stoppedTaskCount, ceilingSeconds: printTurnState.ceilingSeconds, recoveryAttempts: incompleteTurnRecoveryAttempts, maxRecoveryAttempts: claudeCode.incompleteTurnMaxResumes, sessionId: sessionId || argv.resume });
       if (subagentToolResultErrorCount > 0) await log(`ℹ️ ${subagentToolResultErrorCount} subagent tool result error(s) were handled inside subagents and do not decide this session's result`, { verbose: true });
       if (turnCompletion.cancelledTasks > 0 || postResultCancelledToolResultCount > 0) {
         await log(`⚠️ ${turnCompletion.cause}: ${turnCompletion.cancelledTasks} task(s) [${printTurnState.stoppedTaskIds.join(', ')}], ${postResultCancelledToolResultCount} synthetic tool result(s), ${printTurnState.resultCount} result event(s)`, { verbose: true });
@@ -973,8 +973,9 @@ export const executeClaudeCommand = async params => {
       if (turnCompletion.shouldResume && !commandFailed && exitCode === 0) {
         incompleteTurnRecoveryAttempts++;
         argv.resume = turnCompletion.sessionId;
-        incompleteTurnPrompt = INCOMPLETE_TURN_CONTINUATION_PROMPT;
-        await log(`\n🔄 Resuming Claude session ${argv.resume}: ${turnCompletion.cause} (${turnCompletion.cancelledTasks} task(s), issue #2301).`);
+        incompleteTurnPrompt = buildIncompleteTurnContinuationPrompt({ cause: turnCompletion.cause, ceilingSeconds: printTurnState.ceilingSeconds, stoppedTasks: printTurnState.stoppedTasks });
+        // Silent auto-resume: logged only, no PR comment or user notification.
+        await log(`\n🔄 Resuming Claude session ${argv.resume} (${incompleteTurnRecoveryAttempts}/${claudeCode.incompleteTurnMaxResumes}): ${turnCompletion.cause} (${turnCompletion.cancelledTasks} task(s), issue #2301).`);
         return await executeWithRetry();
       }
       if (turnCompletion.incomplete && !commandFailed) {

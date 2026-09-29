@@ -1,7 +1,7 @@
 /**
  * @hive-mind-test-suite default
- * Issue #2301: replay the two real print-mode background-task sweeps (links-notation#315 and
- * browser-commander#106) and the reproduced bash-only exit through the same stream folding that
+ * Issue #2301: replay the three real print-mode background-task sweeps (links-notation#315 and two
+ * browser-commander#106 runs) and the reproduced bash-only exit through the same stream folding that
  * src/claude.lib.mjs performs, and assert there is neither a false "user rejected tool use"
  * failure nor a missed incomplete turn.
  */
@@ -11,8 +11,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { collectClaudeStreamEventFacts, updateTerminalToolResult } from '../src/claude.stream-events.lib.mjs';
-import { assessClaudeTurnCompletion, createClaudePrintTurnTracker, CLAUDE_PRINT_BG_CEILING_PATTERN } from '../src/claude.print-turn.lib.mjs';
-import { getClaudeEnv } from '../src/config.lib.mjs';
+import { assessClaudeTurnCompletion, buildIncompleteTurnContinuationPrompt, createClaudePrintTurnTracker, CLAUDE_PRINT_BG_CEILING_PATTERN } from '../src/claude.print-turn.lib.mjs';
+import { claudeCode, getClaudeEnv } from '../src/config.lib.mjs';
 
 const fixtureDir = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures', 'issue-2301');
 const readFixture = name =>
@@ -43,11 +43,14 @@ const replay = events => {
   return { state, snapshot: tracker.snapshot() };
 };
 
-const assessReplay = (snapshot, recoveryAttempts = 0) => assessClaudeTurnCompletion({ resultEvent: snapshot.resultEvent, stoppedTaskCount: snapshot.stoppedTaskCount, ceilingSeconds: snapshot.ceilingSeconds, recoveryAttempts, sessionId: 'session' });
+const assessReplay = (snapshot, recoveryAttempts = 0, maxRecoveryAttempts = 5) => assessClaudeTurnCompletion({ resultEvent: snapshot.resultEvent, stoppedTaskCount: snapshot.stoppedTaskCount, ceilingSeconds: snapshot.ceilingSeconds, recoveryAttempts, maxRecoveryAttempts, sessionId: 'session' });
 
 for (const [name, expected] of [
   ['links-notation-315-sweep.jsonl', { stopped: 10, killedSystem: 5, results: 2 }],
   ['browser-commander-106-sweep.jsonl', { stopped: 11, killedSystem: 9, results: 1 }],
+  // Third incident (solve v2.33.1, Claude Code 2.1.284): four background subagents were still
+  // starting commands seconds before the sweep; all three results were emitted at exit.
+  ['browser-commander-106-rerun-sweep.jsonl', { stopped: 4, killedSystem: 4, results: 3 }],
 ]) {
   test(`${name}: the 600s sweep is an incomplete turn, not a user rejection`, () => {
     const events = readFixture(name);
@@ -69,9 +72,14 @@ for (const [name, expected] of [
     assert.equal(verdict.incomplete, true);
     assert.equal(verdict.ceilingHit, true);
     assert.equal(verdict.cancelledTasks, expected.stopped);
-    assert.equal(verdict.shouldResume, true, 'the same session is resumed once');
+    assert.equal(verdict.shouldResume, true, 'the same session is resumed');
     assert.match(verdict.cause, /600s print-mode wait ceiling/);
-    assert.equal(assessReplay(snapshot, 1).shouldResume, false, 'continuation is bounded');
+    assert.equal(assessReplay(snapshot, 4).shouldResume, true, 'several sweeps in a row are still resumed');
+    assert.equal(assessReplay(snapshot, 5).shouldResume, false, 'continuation is bounded');
+    const prompt = buildIncompleteTurnContinuationPrompt({ cause: verdict.cause, ceilingSeconds: snapshot.ceilingSeconds, stoppedTasks: snapshot.stoppedTasks });
+    assert.match(prompt, /after its 600s print-mode wait ceiling/, 'the model is told the timeout was exceeded');
+    assert.match(prompt, /not a user decision/);
+    for (const task of snapshot.stoppedTasks.filter(t => t.summary).slice(0, 20)) assert.ok(prompt.includes(task.summary), `the cancelled task "${task.summary}" is listed`);
   });
 }
 
@@ -124,10 +132,48 @@ test('the ceiling pattern matches the exact Claude Code 2.1.284 stderr text', ()
   assert.equal(tracker.observeStderr(`some prefix\n${line}\n`), 8);
 });
 
-test('one-shot solve keeps Agent, Bash, Workflow and MCP work in the foreground', () => {
-  const env = getClaudeEnv({ disableBackgroundTasks: true });
-  assert.equal(env.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS, '1');
-  assert.equal(env.CLAUDE_CODE_DISABLE_WORKFLOWS, '1');
-  assert.equal(env.CLAUDE_CODE_DISABLE_MCP_TASK_BACKGROUND, '1');
-  assert.equal(env.CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS, process.env.CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS, 'the ceiling is not set to 0, so print mode can never hang forever');
+test('background work stays enabled with a finite ceiling of 4x the Claude Code default', () => {
+  const env = getClaudeEnv({});
+  for (const name of ['CLAUDE_CODE_DISABLE_BACKGROUND_TASKS', 'CLAUDE_CODE_DISABLE_WORKFLOWS', 'CLAUDE_CODE_DISABLE_MCP_TASK_BACKGROUND']) assert.equal(env[name], process.env[name], `${name} is not forced on`);
+  const expected = process.env.CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS ?? process.env.HIVE_MIND_CLAUDE_PRINT_BG_WAIT_CEILING_MS ?? '2400000';
+  assert.equal(env.CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS, String(expected));
+  assert.equal(String(claudeCode.printBgWaitCeilingMs), env.CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS);
+});
+
+test('the rerun fixture lists its cancelled subagents with their partial output files', () => {
+  const { snapshot } = replay(readFixture('browser-commander-106-rerun-sweep.jsonl'));
+  assert.deepEqual(
+    snapshot.stoppedTasks.map(task => task.summary),
+    ['JS attach modes (#102)', 'Python port of #102/#103 features', 'Rust port of #102/#103 features', 'Port JS migration tests to pytest']
+  );
+  const prompt = buildIncompleteTurnContinuationPrompt({ cause: 'x', ceilingSeconds: 600, stoppedTasks: snapshot.stoppedTasks });
+  assert.match(prompt, /partial output: \/tmp\/claude-1001\/.*adfa585720348d6fe\.output/);
+});
+
+test('the continuation prompt caps long task lists and works without the stderr line', () => {
+  const stoppedTasks = Array.from({ length: 25 }, (_, i) => ({ id: `b${i}`, summary: null, outputFile: null }));
+  const prompt = buildIncompleteTurnContinuationPrompt({ cause: 'Claude Code stopped background tasks when print mode exited', stoppedTasks });
+  assert.match(prompt, /- b19\n- …and 5 more/);
+  assert.match(prompt, /running, and Claude Code stopped background tasks when print mode exited\. This was an automatic timeout/);
+});
+
+// Live captures from experiments/issue-2301-print-bg-ceiling/repro-ceiling.sh (Claude Code 2.1.284).
+test('live: a raised ceiling lets the background agent finish, and the resume after a hit completes the work', () => {
+  const hit = replay(readFixture('live-agent-ceiling.jsonl'));
+  const verdict = assessReplay(hit.snapshot);
+  assert.equal(verdict.shouldResume, true, 'the 8 s ceiling run is resumed');
+  assert.equal(hit.snapshot.ceilingSeconds, 8);
+  assert.equal(hit.state.terminal?.failed ?? false, false, 'no false user rejection');
+
+  const raised = replay(readFixture('live-agent-raised.jsonl'));
+  assert.equal(raised.snapshot.stoppedTaskCount, 0, 'with a 40 s ceiling nothing is stopped');
+  assert.equal(assessReplay(raised.snapshot).incomplete, false);
+  assert.match(raised.snapshot.resultEvent.result, /DONE/, 'the background agent woke the main thread with its reply');
+
+  // On --resume, Claude Code first replays the stale `stopped` notification and an empty result
+  // (num_turns 0); the real turn that follows must decide the verdict, so the resume is not repeated.
+  const resumed = replay(readFixture('live-agent-resumed.jsonl'));
+  assert.equal(resumed.snapshot.resultCount, 2);
+  assert.equal(assessReplay(resumed.snapshot, 1).incomplete, false);
+  assert.match(resumed.snapshot.resultEvent.result, /DONE/);
 });

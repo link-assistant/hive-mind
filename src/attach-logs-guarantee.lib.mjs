@@ -77,3 +77,54 @@ export const attachFinalLogIfMissing = async ({ shouldAttachLogs, prNumber, owne
 
   return globalState.logAttachedToGitHub === true;
 };
+
+/**
+ * Issue #2306: re-attach the session log after the post-solve restart loops
+ * (escalation, auto-ensure, keep-working, ensure-sub-issues) ran at least one
+ * AI iteration.
+ *
+ * `verifyResults()` uploads the log *before* those loops start, and none of them
+ * uploads again, so `attachFinalLogIfMissing` saw "already attached" and the
+ * iterations were never published. In the reported run the only attached log
+ * ended at 05:55, while restart iterations kept committing until 07:48 and the
+ * pull request was merged at 07:53 — two hours of work with no log.
+ *
+ * @param {Object} params - same as {@link attachFinalLogIfMissing}, plus:
+ * @param {number} params.restartIterationsRan - how many post-solve loops ran iterations
+ * @returns {Promise<boolean>} `true` if the updated log was attached
+ */
+export const attachLogAfterPostSolveRestarts = async ({ restartIterationsRan, shouldAttachLogs, prNumber, owner, repo, $, log, sanitizeLogContent, getLogFile, attachLogToGitHub, argv, sessionId = null, tempDir = null, anthropicTotalCostUSD = null, resultModelUsage = null }) => {
+  if (!shouldAttachLogs || !prNumber || !(restartIterationsRan > 0)) return false;
+
+  await log('');
+  await log(`📎 Uploading the working session log again: ${restartIterationsRan} post-solve restart loop(s) ran after the first upload...`);
+  try {
+    const logUploadSuccess = await attachLogToGitHub({
+      logFile: getLogFile(),
+      targetType: 'pr',
+      targetNumber: prNumber,
+      owner,
+      repo,
+      $,
+      log,
+      sanitizeLogContent,
+      verbose: argv?.verbose,
+      sessionId,
+      tempDir,
+      anthropicTotalCostUSD,
+      argv,
+      requestedModel: argv?.originalModel || argv?.model,
+      tool: argv?.tool || 'claude',
+      resultModelUsage,
+    });
+    if (logUploadSuccess) {
+      await log('✅ Updated working session log attached');
+    } else {
+      await log('⚠️  Updated log attachment did not succeed (see messages above)', { level: 'warning' });
+    }
+    return logUploadSuccess === true;
+  } catch (uploadError) {
+    await log(`⚠️  Error attaching updated log: ${uploadError.message}`, { level: 'warning' });
+    return false;
+  }
+};

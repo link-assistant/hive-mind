@@ -4,6 +4,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
 import { findFormalAiClient, loadFormalAiClientRegistry, prepareFormalAiRuntime } from './formal-ai-runtime.lib.mjs';
+import { SECRET_TOOL_ENV_NAMES } from './tool-env-gh-auth.lib.mjs';
 import { assertSupportedFormalAiVersion, parseFormalAiVersion, readFormalAiBinaryVersion } from './formal-ai-version.lib.mjs';
 import { isFormalAiModel } from './models/index.mjs';
 
@@ -111,6 +112,8 @@ export const resolveFormalAiToolExecution = async ({ tool, model, toolPath, work
  */
 export const buildFormalAiEnvExports = env =>
   Object.entries(env || {})
+    // Issue #2314: the command line is logged; a token reaches the tool through the process env only.
+    .filter(([name]) => !SECRET_TOOL_ENV_NAMES.includes(name))
     .map(([name, value]) => `export ${name}=${shellQuote(value)}; `)
     .join('');
 
@@ -221,36 +224,6 @@ export const createPreparedToolResult = preparedCommand => ({
   limitReached: false,
   errorDuringExecution: false,
 });
-
-const FORMAL_AI_NON_EXECUTION_PATTERNS = [/^\s*planned,\s*not executed\b/im, /^\s*planned_not_executed\s*$/im, /^\s*terminal_state\s+["']?planned_not_executed\b/im];
-
-/**
- * Turn Formal AI's explicit non-execution terminal state into a failed tool
- * result (issue #2158).
- *
- * Formal AI 0.339.1 truthfully reports repository work as
- * `planned_not_executed`, but each native CLI exits zero. Treating that process
- * exit as a successful solve made `--auto-restart-until-mergeable` repeat the
- * same deterministic plan five times. Keep the model's summary for evidence,
- * while giving Hive Mind an actionable terminal failure.
- */
-export const classifyFormalAiToolResult = ({ model, toolResult } = {}) => {
-  if (!toolResult || !isFormalAiModel(model) || toolResult.success === false) return toolResult;
-
-  const evidence = [toolResult.resultSummary, toolResult.result, toolResult.lastMessage, toolResult.output].filter(value => typeof value === 'string').join('\n');
-  if (!FORMAL_AI_NON_EXECUTION_PATTERNS.some(pattern => pattern.test(evidence))) return toolResult;
-
-  return {
-    ...toolResult,
-    success: false,
-    errorDuringExecution: true,
-    formalAiNonExecution: true,
-    errorInfo: {
-      code: 'FORMAL_AI_PLANNED_NOT_EXECUTED',
-      message: "Formal AI did not execute repository work; it returned the terminal state planned_not_executed. Fix or upgrade Formal AI's repository-work executor before retrying.",
-    },
-  };
-};
 
 export const logPreparedToolCommand = async ({ argv, fullCommand, log, formatAligned }) => {
   await log(`\n${formatAligned('📝', 'Raw command:', '')}`);

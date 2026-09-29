@@ -32,6 +32,7 @@ import { createDisabledAttributionSession, resolveFormalAiAttributionSession } f
 import { checkPlaywrightMcpPackageAvailability, getAgentPlaywrightMcpDisableEnv } from './playwright-mcp.lib.mjs';
 import { createAgentTokenUsage, accumulateAgentStepFinishUsage, parseAgentTokenUsage } from './agent-token-usage.lib.mjs';
 import { createJsonStreamScanner, parseJsonRecords } from './json-stream.lib.mjs';
+import { createToolCallLoopGuard } from './tool-call-loop-guard.lib.mjs'; // Issue #2316
 import { firstErrorText, stringifyErrorValue } from './error-text.lib.mjs';
 import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { attachStreamingInput, finalizeBidirectionalHandler, setupBidirectionalHandler } from './bidirectional-interactive.lib.mjs';
@@ -782,6 +783,7 @@ export const executeAgentCommand = async params => {
       // newlines, and surfaces anything that is not JSON as plain text.
       const stdoutScanner = createJsonStreamScanner();
       const stderrScanner = createJsonStreamScanner();
+      const toolCallLoopGuard = createToolCallLoopGuard({ log, stopSession: async () => execCommand?.kill?.('SIGTERM') }); // Issue #2316
 
       const handleAgentJsonEvent = async (raw, value) => {
         const data = sanitizeObjectStrings(value);
@@ -884,6 +886,7 @@ export const executeAgentCommand = async params => {
         if (chunk.type === 'stdout') {
           const output = chunk.data.toString();
           await handleAgentStreamEvents(stdoutScanner.write(output));
+          await toolCallLoopGuard.observeOutput(output);
           lastMessage = output;
           fullOutput += output; // Collect for both pricing calculation and error detection
         }
@@ -894,6 +897,7 @@ export const executeAgentCommand = async params => {
             // Agent sends all output (including verbose logs and structured events) to stderr
             // Process it exactly like stdout so telemetry is never stream-specific
             await handleAgentStreamEvents(stderrScanner.write(errorOutput));
+            await toolCallLoopGuard.observeOutput(errorOutput, 'stderr');
             // Also collect stderr for error detection
             fullOutput += errorOutput;
           }

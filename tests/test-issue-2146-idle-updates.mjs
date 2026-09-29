@@ -62,7 +62,8 @@ const receipt = {
 
 const healthyOn = version => ({ version, memory: { compatible: true, schema_version: 2, migration_required: false, migration_state: 'current' } });
 const fastUpdate = { healthAttempts: 2, healthDelayMs: 0, sleepImpl: async () => {} };
-const seedRunningSidecar = (env, digest) => writeFormalAiSidecarState({ ...readFormalAiSidecarState({ env }), image: UPDATE_IMAGE, imageDigest: digest }, { env });
+// A Formal AI task ran recently: since issue #2305 only such a host is updated.
+const seedRunningSidecar = (env, digest) => writeFormalAiSidecarState({ ...readFormalAiSidecarState({ env }), image: UPDATE_IMAGE, imageDigest: digest, lastUsedAt: new Date().toISOString() }, { env });
 
 // ---------------------------------------------------------------------------
 // Which image an update pulls, and when it refuses to run at all.

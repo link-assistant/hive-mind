@@ -47,6 +47,8 @@ const stopReporting = await import('./automation-stop-reporting.lib.mjs');
 const { AUTO_MERGE_BLOCKED_MARKER, buildAutoMergeBlockedComment, reportAutomationStop } = stopReporting;
 
 const { ensureLinkedIssueClosedAfterMerge } = await import('./github-issue-auto-close.lib.mjs');
+// Issue #2306: never auto-merge a pull request that leaves required issues open.
+const { checkClosingReferencesBeforeMerge } = await import('./solve.ensure-sub-issues.lib.mjs');
 
 // Issue #2182: a pull request left in draft state by a restart iteration reports
 // mergeable=MERGEABLE/CLEAN, but `gh pr merge` refuses it with "Pull Request is
@@ -221,9 +223,11 @@ export const attemptAutoMerge = async params => {
   // Issue #2144: the pull request is ready. If the linked issue is closed or
   // gone, do not merge automatically — ask the user to reopen it or merge
   // manually, and say so on the pull request.
-  if (issueMergeBlockers.length > 0) {
-    await reportAutoMergeBlockedByIssue({ owner, repo, prNumber, issueNumber, mergeBlockers: issueMergeBlockers, verbose: argv.verbose });
-    return { success: false, reason: issueMergeBlockers[0].reason, error: issueMergeBlockers[0].message, mergeBlockers: issueMergeBlockers };
+  // Issue #2306: and never merge while required closing references are missing.
+  const mergeBlockers = [...issueMergeBlockers, await checkClosingReferencesBeforeMerge({ owner, repo, issueNumber, prNumber, argv })].filter(Boolean);
+  if (mergeBlockers.length > 0) {
+    await reportAutoMergeBlockedByIssue({ owner, repo, prNumber, issueNumber, mergeBlockers, verbose: argv.verbose });
+    return { success: false, reason: mergeBlockers[0].reason, error: mergeBlockers[0].message, mergeBlockers };
   }
 
   await log(formatAligned('✅', 'PR is mergeable:', 'Attempting to merge...', 2));

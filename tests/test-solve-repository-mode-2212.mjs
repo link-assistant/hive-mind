@@ -348,8 +348,10 @@ test('attachSubIssues retries a rate-limited attachment and gives up on other er
   assert.deepEqual(waits, [...SUB_ISSUE_ATTACH_BACKOFF_MS]);
 
   let otherAttempts = 0;
-  const failingRun = async () => {
-    otherAttempts++;
+  const failingRun = async (command, args) => {
+    // Issue #2306: a one-parent error also reads the current parent (a GET);
+    // only the attachment POSTs count as attempts.
+    if (args.includes('-X')) otherAttempts++;
     return { code: 1, stdout: '', stderr: 'Issue already has a parent' };
   };
   const other = await attachSubIssues({ parentIssue: { owner: 'o', repo: 'r', number: 1 }, issues: [{ number: 8, id: 108 }], run: failingRun, delayMs: 0, sleep: async () => {} });

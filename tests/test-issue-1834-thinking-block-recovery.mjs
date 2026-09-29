@@ -64,6 +64,10 @@ const makeFake$ = (statusOutput = '') => {
     const cmd = strings.join(' ');
     calls.push(cmd);
     if (cmd.includes('git status')) return { code: 0, stdout: statusOutput, stderr: '' };
+    // Issue #2315: the work is snapshotted into a private index and committed to recovery/<branch>.
+    if (cmd.includes('write-tree')) return { code: 0, stdout: 'a1b2c3', stderr: '' };
+    if (cmd.includes('HEAD^{tree}')) return { code: 0, stdout: 'f0e0d0', stderr: '' };
+    if (cmd.includes('commit-tree')) return { code: 0, stdout: 'c0ffee00c0ffee00', stderr: '' };
     return { code: 0, stdout: '', stderr: '' };
   };
   fake.calls = calls;

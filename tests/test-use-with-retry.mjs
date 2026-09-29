@@ -448,7 +448,7 @@ console.log('\n📋 wrapUseWithRetry (issue #2092)\n');
 
 await test('pins mutable runtime package specifiers (issue #2150)', () => {
   assert.equal(pinUseMSpecifier('command-stream'), 'command-stream@1.1.0');
-  assert.equal(pinUseMSpecifier('@dotenvx/dotenvx'), '@dotenvx/dotenvx@2.30.0');
+  assert.equal(pinUseMSpecifier('@dotenvx/dotenvx'), '@dotenvx/dotenvx@2.31.1');
   assert.equal(pinUseMSpecifier('yargs@18.1.0'), 'yargs@18.1.0');
   assert.equal(pinUseMSpecifier('node:path'), 'node:path');
 });

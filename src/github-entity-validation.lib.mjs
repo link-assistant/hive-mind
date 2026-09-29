@@ -90,7 +90,7 @@ export async function checkBaseBranchExists({ owner, repo, baseBranch, verbose =
     if (result.code === 0) {
       return { exists: true };
     }
-    const errorOutput = (result.stderr ? result.stderr.toString() : '') + (result.stdout ? result.stdout.toString() : '');
+    const errorOutput = (result.stderr?.toString() ? result.stderr.toString() : '') + (result.stdout?.toString() ? result.stdout.toString() : '');
     if (errorOutput.includes('404') || errorOutput.includes('Not Found') || errorOutput.includes('Branch not found')) {
       return { exists: false };
     }
@@ -169,7 +169,7 @@ export async function validateGitHubEntityExistence({ owner, repo, number, type,
   try {
     const userResult = await ghCmdRetry(() => $`gh api users/${owner} --jq .login`, { label: `check user ${owner}` });
     if (userResult.code !== 0) {
-      const errorOutput = (userResult.stderr ? userResult.stderr.toString() : '') + (userResult.stdout ? userResult.stdout.toString() : '');
+      const errorOutput = (userResult.stderr?.toString() ? userResult.stderr.toString() : '') + (userResult.stdout?.toString() ? userResult.stdout.toString() : '');
       if (errorOutput.includes('404') || errorOutput.includes('Not Found')) {
         return {
           valid: false,
@@ -188,7 +188,7 @@ export async function validateGitHubEntityExistence({ owner, repo, number, type,
   try {
     const repoResult = await ghCmdRetry(() => $`gh api repos/${owner}/${repo} --jq .full_name`, { label: `check repo ${owner}/${repo}` });
     if (repoResult.code !== 0) {
-      const errorOutput = (repoResult.stderr ? repoResult.stderr.toString() : '') + (repoResult.stdout ? repoResult.stdout.toString() : '');
+      const errorOutput = (repoResult.stderr?.toString() ? repoResult.stderr.toString() : '') + (repoResult.stdout?.toString() ? repoResult.stdout.toString() : '');
       if (errorOutput.includes('404') || errorOutput.includes('Not Found')) {
         const bullets = ['• Repository may be private — ensure the bot has been granted access', '• The repository name is spelled correctly', '• The repository has not been deleted, transferred, or never existed'];
         if (!autoAcceptInvite) {

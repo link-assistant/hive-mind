@@ -10,7 +10,13 @@
  * message on stderr) so the modules' `try`/`catch` branches are exercised
  * rather than mocked away.
  *
+ * Issue #2305 added the image store: tags, registry digests, sizes, `docker
+ * rmi` (which refuses images a container still uses), `docker system df`, the
+ * registry-only `docker buildx imagetools inspect`, and the anonymous volumes
+ * an image `VOLUME` leaks when nothing is mounted over it.
+ *
  * @see https://github.com/link-assistant/hive-mind/issues/2146
+ * @see https://github.com/link-assistant/hive-mind/issues/2305
  * @hive-mind-test-skip
  */
 
@@ -29,7 +35,18 @@ const flagValue = (args, flag) => {
 };
 
 /** Flags of `docker run` that consume the argument after them. */
-const VALUE_FLAGS = new Set(['--name', '--label', '-l', '--network', '--network-alias', '--restart', '--env', '-e', '--volume', '-v', '--entrypoint', '--user', '-u', '--workdir', '-w', '--publish', '-p']);
+const VALUE_FLAGS = new Set(['--name', '--label', '-l', '--network', '--network-alias', '--restart', '--env', '-e', '--volume', '-v', '--entrypoint', '--user', '-u', '--workdir', '-w', '--publish', '-p', '--tmpfs', '--mount']);
+
+const FORMAL_AI_REPOSITORY = 'ghcr.io/link-assistant/formal-ai';
+
+/** `repo:tag` → `repo` (a registry port is not a tag). */
+const repositoryOf = reference => {
+  const colon = reference.lastIndexOf(':');
+  return colon > reference.lastIndexOf('/') ? reference.slice(0, colon) : reference;
+};
+
+/** The registry manifest digest of a build — distinct from its local image ID, as in real Docker. */
+export const manifestDigestOf = imageId => `sha256:manifest-${String(imageId).replace(/^sha256:/, '')}`;
 
 /**
  * The image reference in a `docker run` argv: the first positional argument.
@@ -59,9 +76,12 @@ const imageOf = args => {
  * @param {object|Function} [options.health] - `/health` payload, or a function of `(reference, digest)` of the running image.
  * @param {object} [options.memory] - `formal-ai memory <subcommand>` → JSON payload.
  * @param {string} [options.memorySha256] - What `sha256sum` reports for a file in the volume.
+ * @param {object|null} [options.registry] - Reference → image ID the registry serves. When set, `docker buildx imagetools inspect` answers from it and `docker pull` installs it; when null the command is unsupported, as on a host without buildx.
+ * @param {object} [options.sizes] - Image ID → bytes (default 24 GB each).
+ * @param {string[]} [options.imageVolumes] - `VOLUME` paths of every image; each one not mounted over becomes an anonymous volume.
  * @returns {object} `{ run, calls, containers, networks, volumes, images, createContainer, ... }`
  */
-export const createDockerSimulator = ({ images = {}, pull = {}, health = DEFAULT_HEALTH, memory = {}, memorySha256 = null, pullError = null } = {}) => {
+export const createDockerSimulator = ({ images = {}, pull = {}, health = DEFAULT_HEALTH, memory = {}, memorySha256 = null, pullError = null, registry = null, sizes = {}, imageVolumes = [] } = {}) => {
   const simulator = {
     calls: [],
     containers: new Map(),
@@ -76,7 +96,16 @@ export const createDockerSimulator = ({ images = {}, pull = {}, health = DEFAULT
     memorySha256,
     health,
     nextOctet: 2,
+    // Image ID → the `repo@sha256:…` references it was pulled under.
+    repoDigests: new Map(),
+    sizes: new Map(Object.entries(sizes)),
+    nextAnonymousVolume: 1,
   };
+  for (const [reference, digest] of Object.entries(images)) if (repositoryOf(reference) === FORMAL_AI_REPOSITORY) simulator.repoDigests.set(digest, new Set([`${FORMAL_AI_REPOSITORY}@${manifestDigestOf(digest)}`]));
+
+  simulator.tagsOf = id => [...simulator.images.entries()].filter(([, digest]) => digest === id).map(([reference]) => reference);
+  simulator.sizeOf = id => simulator.sizes.get(id) ?? 24_000_000_000;
+  simulator.anonymousVolumes = () => [...simulator.volumes].filter(name => name.startsWith('anonymous-'));
 
   /** Pretend a task container was created by start-command. */
   simulator.createContainer = (name, { image = 'ghcr.io/link-assistant/isolation:latest', running = true } = {}) => {
@@ -98,6 +127,7 @@ export const createDockerSimulator = ({ images = {}, pull = {}, health = DEFAULT
   simulator.resolveImage = reference => {
     if (simulator.images.has(reference)) return simulator.images.get(reference);
     if (simulator.digests.has(reference)) return reference;
+    for (const [id, references] of simulator.repoDigests.entries()) if (references.has(reference) && simulator.digests.has(id)) return id;
     return null;
   };
 
@@ -207,12 +237,53 @@ export const createDockerSimulator = ({ images = {}, pull = {}, health = DEFAULT
     const image = imageOf(args);
     const digest = simulator.resolveImage(image);
     if (!digest) fail(`Unable to find image '${image}' locally`);
+    // An image `VOLUME` nothing is mounted over gets a fresh anonymous volume.
+    const mounted = new Set();
+    args.forEach((arg, index) => {
+      if (arg === '--tmpfs') mounted.add(args[index + 1].split(':')[0]);
+      if (arg === '--volume' || arg === '-v') mounted.add(args[index + 1].split(':')[1]);
+    });
+    const anonymousVolumes = imageVolumes.filter(path => !mounted.has(path)).map(() => `anonymous-${simulator.nextAnonymousVolume++}`);
+    for (const volume of anonymousVolumes) simulator.volumes.add(volume);
     // `{{.Config.Image}}` echoes the reference the container was created from,
     // so a container booted by digest reports the digest.
-    simulator.containers.set(name, { image, imageDigest: digest, running: true, networks: new Map() });
+    simulator.containers.set(name, { image, imageDigest: digest, running: true, networks: new Map(), labels: args.flatMap((arg, index) => (arg === '--label' ? [args[index + 1]] : [])), anonymousVolumes });
     const network = flagValue(args, '--network');
     if (network) attach(network, name);
     return `${name}-id`;
+  };
+
+  /** `docker image ls --quiet [repository] [--filter label=…]`. */
+  const listImages = args => {
+    const positional = args.slice(2).filter((arg, index, rest) => !arg.startsWith('-') && rest[index - 1] !== '--filter');
+    const label = flagValue(args, '--filter');
+    const isFormalAi = id => simulator.tagsOf(id).some(tag => repositoryOf(tag) === FORMAL_AI_REPOSITORY) || [...(simulator.repoDigests.get(id) ?? [])].some(reference => reference.startsWith(`${FORMAL_AI_REPOSITORY}@`));
+    return [...simulator.digests]
+      .filter(id => {
+        // Every Formal AI build carries the release's source label.
+        if (label) return isFormalAi(id);
+        if (positional.length === 0) return true;
+        return simulator.tagsOf(id).some(tag => repositoryOf(tag) === positional[0]) || [...(simulator.repoDigests.get(id) ?? [])].some(reference => reference.startsWith(`${positional[0]}@`));
+      })
+      .join('\n');
+  };
+
+  /** `docker rmi <tag|id>` without `--force`, refusing the way the daemon does. */
+  const removeImage = target => {
+    const id = simulator.resolveImage(target);
+    if (!id) fail(`Error response from daemon: No such image: ${target}`);
+    const inUse = [...simulator.containers.entries()].find(([, container]) => container.imageDigest === id);
+    const isTag = simulator.images.has(target);
+    const lastReference = !isTag || simulator.tagsOf(id).length === 1;
+    if (lastReference && inUse) fail(`Error response from daemon: conflict: unable to remove repository reference "${target}" (must force) - container ${inUse[0]} is using its referenced image ${id}`);
+    if (!isTag && simulator.tagsOf(id).length > 0) fail(`Error response from daemon: conflict: unable to delete ${id} (must be forced) - image is referenced in multiple repositories`);
+    if (isTag) simulator.images.delete(target);
+    if (simulator.tagsOf(id).length === 0) {
+      simulator.digests.delete(id);
+      simulator.repoDigests.delete(id);
+      return `Untagged: ${target}\nDeleted: ${id}`;
+    }
+    return `Untagged: ${target}`;
   };
 
   const run = async (command, args) => {
@@ -221,14 +292,49 @@ export const createDockerSimulator = ({ images = {}, pull = {}, health = DEFAULT
 
     if (args[0] === 'inspect') return { stdout: inspectContainer(args) };
     if (args[0] === 'image' && args[1] === 'inspect') {
-      const digest = simulator.resolveImage(args[2]);
-      if (!digest) fail(`Error: No such image: ${args[2]}`);
+      const reference = args.slice(2).find((arg, index, rest) => !arg.startsWith('-') && rest[index - 1] !== '--format');
+      const digest = simulator.resolveImage(reference);
+      if (!digest) fail(`Error: No such image: ${reference}`);
+      const format = flagValue(args, '--format') ?? '';
+      if (format.includes('RepoTags')) return { stdout: `${digest}|${JSON.stringify(simulator.tagsOf(digest))}|${JSON.stringify([...(simulator.repoDigests.get(digest) ?? [])])}|${simulator.sizeOf(digest)}` };
       return { stdout: digest };
+    }
+    if (args[0] === 'image' && args[1] === 'ls') return { stdout: listImages(args) };
+    if (args[0] === 'rmi') return { stdout: removeImage(args[args.length - 1]) };
+    if (args[0] === 'system' && args[1] === 'df') return { stdout: `Images|${[...simulator.digests].reduce((sum, id) => sum + simulator.sizeOf(id), 0)}B\nContainers|0B` };
+    if (args[0] === 'ps') {
+      const label = flagValue(args, '--filter')?.replace(/^label=/, '');
+      return {
+        stdout: [...simulator.containers.entries()]
+          .filter(([, container]) => (args.includes('--all') || container.running) && (!label || container.labels?.includes(label)))
+          .map(([name]) => name)
+          .join('\n'),
+      };
+    }
+    if (args[0] === 'buildx' && args[1] === 'imagetools') {
+      if (!registry) fail(`docker: 'buildx' is not a docker command.`);
+      const id = registry[args[3]];
+      if (!id) fail(`ERROR: ${args[3]}: not found`);
+      return { stdout: JSON.stringify({ mediaType: 'application/vnd.oci.image.index.v1+json', digest: manifestDigestOf(id), size: 1234 }) };
     }
     if (args[0] === 'pull') {
       if (pullError) fail(pullError);
       const image = args[args.length - 1];
-      if (pull[image]) simulator.retag(image, pull[image]);
+      const at = image.indexOf('@');
+      if (at >= 0) {
+        // A pull by registry digest installs that exact build and no tag.
+        const id = Object.values(registry ?? {}).find(candidate => manifestDigestOf(candidate) === image.slice(at + 1));
+        if (!id) fail(`Error response from daemon: manifest for ${image} not found`);
+        simulator.digests.add(id);
+        simulator.repoDigests.set(id, new Set([...(simulator.repoDigests.get(id) ?? []), image]));
+        return { stdout: image };
+      }
+      const target = pull[image] ?? registry?.[image];
+      if (registry && !target) fail(`Error response from daemon: manifest for ${image} not found: manifest unknown`);
+      if (target) {
+        simulator.retag(image, target);
+        simulator.repoDigests.set(target, new Set([...(simulator.repoDigests.get(target) ?? []), `${repositoryOf(image)}@${manifestDigestOf(target)}`]));
+      }
       return { stdout: simulator.images.get(image) ?? '' };
     }
     if (args[0] === 'network') return { stdout: handleNetwork(args) };
@@ -252,6 +358,7 @@ export const createDockerSimulator = ({ images = {}, pull = {}, health = DEFAULT
       const container = simulator.containers.get(name);
       if (!container) fail(`Error response from daemon: No such container: ${name}`);
       for (const network of container.networks.keys()) simulator.networks.get(network)?.containers.delete(name);
+      if (args.includes('--volumes')) for (const volume of container.anonymousVolumes ?? []) simulator.volumes.delete(volume);
       simulator.containers.delete(name);
       return { stdout: name };
     }

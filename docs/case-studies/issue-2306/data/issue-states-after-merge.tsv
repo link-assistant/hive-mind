@@ -1,0 +1,8 @@
+16	open	null	Revalidate the privacy-safe 40-source Telegram audit on the next release	parent=#20 closed
+39	open	null	Bootstrap npm publication and complete the first immutable release	parent=#44 closed
+40	open	null	Make the complete 10-source VI/EN/RU browser audit pass	parent=#44 closed
+41	open	null	Fix deploy command execution and revalidate same-bind handoff	parent=#44 closed
+42	open	null	Complete identity-pinned native mtcute user-only and combined real E2E	parent=#44 closed
+43	open	null	Finish bounded, checkpointed 40-source Telegram acceptance	parent=#44 closed
+48	open	null	Address all 6 open issues in konard/vietnam-accomodation-search	parent=#50 closed
+50	closed	2026-09-27T07:53:38Z	Address all 7 open issues in konard/vietnam-accomodation-search	parent={"message":"No parent issue found","documentation_url":"https://docs.github.com/rest/issues/sub-issues#get-parent-issue","status":"404"}none

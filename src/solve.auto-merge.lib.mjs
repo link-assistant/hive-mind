@@ -34,7 +34,7 @@ const { mergePullRequest, getDetailedCIStatus, rerunWorkflowRun, getWorkflowRuns
 // Issue #2182: guard rails for this loop (wall-clock ceiling, draft self-heal,
 // classified merge failures). See solve.auto-merge-guards.lib.mjs.
 const autoMergeGuards = await import('./solve.auto-merge-guards.lib.mjs');
-const { DRAFT_RECHECK_DELAY_MS, evaluateWatchTimeout, resolveDraftBlocker, resolveMergeFailure, revertPlaceholderBeforeMerge } = autoMergeGuards;
+const { buildDeliberateDraftFeedback, DRAFT_RECHECK_DELAY_MS, evaluateWatchTimeout, resolveDraftBlocker, resolveMergeFailure, revertPlaceholderBeforeMerge } = autoMergeGuards;
 // Re-exported so callers and tests keep a single entry point for the watch loop.
 export const { DEFAULT_WATCH_TIMEOUT_HOURS, normalizeWatchTimeoutHours } = autoMergeGuards;
 // Import GitHub functions for log attachment
@@ -43,7 +43,7 @@ const { sanitizeLogContent, attachLogToGitHub } = githubLib;
 
 // Import shared utilities from the restart-shared module
 const restartShared = await import('./solve.restart-shared.lib.mjs');
-const { checkForUncommittedChanges, getUncommittedChangesDetails, executeToolIteration, buildAutoRestartInstructions, isUsageLimitReached } = restartShared;
+const { checkForUncommittedChanges, getUncommittedChangesDetails, executeToolIteration, buildAutoRestartInstructions, buildUncommittedChangesFeedback, isUsageLimitReached } = restartShared;
 // Issue #1931: deleted/inaccessible repositories, PRs, issues, and branches
 // are terminal states for long-running watch loops, not retryable CI states.
 const terminalStateLib = await import('./github-terminal-state.lib.mjs');
@@ -58,6 +58,8 @@ const { quietProbe } = await import('./quiet-probe.lib.mjs');
 // stating exactly why it stopped.
 const stopReportingLib = await import('./automation-stop-reporting.lib.mjs');
 const { reportAutomationStop } = stopReportingLib;
+// Issue #2306: never auto-merge a pull request that leaves required issues open.
+const { checkClosingReferencesBeforeMerge } = await import('./solve.ensure-sub-issues.lib.mjs');
 // Import validation functions for time parsing (used for usage limit wait)
 const validation = await import('./solve.validation.lib.mjs');
 const { calculateWaitTime } = validation;
@@ -173,10 +175,13 @@ export const watchUntilMergeable = async params => {
   }
   await log('');
 
+  // Issue #2263: a failed session still vetoes "ready for review" - the draft
+  // stays. Issue #2312: but it no longer ends the loop before any restart; the
+  // draft blocker below restarts the AI with the failure as feedback, and only an
+  // exhausted restart budget stops the run.
   const readinessVeto = getPullRequestLeftInDraft({ owner, repo, prNumber });
   if (readinessVeto?.kind === 'failure') {
-    await log(formatAligned('❌', 'MONITORING STOPPED:', `The solution session failed: ${readinessVeto.reason || 'verification did not succeed'}`, 2), { level: 'error' });
-    return { success: false, reason: 'solution_session_failed', latestSessionId, latestAnthropicCost };
+    await log(formatAligned('⚠️', 'Previous session failed:', `${readinessVeto.reason || 'verification did not succeed'} - the next AI session will get this as feedback`, 2), { level: 'warning' });
   }
 
   await log('Press Ctrl+C to stop watching manually');
@@ -287,6 +292,7 @@ export const watchUntilMergeable = async params => {
       // so nothing else in this loop notices — the merge then fails with
       // "Pull Request is still a draft" on every single check. Restore
       // "ready for review" here instead of burning an AI restart iteration.
+      let deliberateDraft = null;
       if (blockers.find(b => b.type === 'draft')) {
         const decision = await resolveDraftBlocker({ owner, repo, prNumber, $, log, formatAligned, reportError, reportAutomationStop, verbose: argv.verbose, state: guardState });
         if (decision.action === 'stop') {
@@ -297,6 +303,8 @@ export const watchUntilMergeable = async params => {
           await interruptibleSleep(DRAFT_RECHECK_DELAY_MS);
           continue;
         }
+        // Issue #2312: a draft left on purpose is answered with an AI restart.
+        if (decision.action === 'restart') deliberateDraft = decision.deliberate;
       }
       // Issue #1503/#1918: Reset counter when CI checks exist (safety valve only for
       // consecutive "no runs"). Issue #1918: do NOT reset while getMergeBlockers is still
@@ -413,9 +421,12 @@ export const watchUntilMergeable = async params => {
         // issue blocks only the *automatic* merge — the loop already did its
         // job of making the pull request mergeable. Ask the user to reopen the
         // issue or merge manually instead of merging behind their back.
-        if (isAutoMerge && issueMergeBlockers.length > 0) {
-          await reportAutoMergeBlockedByIssue({ owner, repo, prNumber, issueNumber, mergeBlockers: issueMergeBlockers, verbose: argv.verbose });
-          return { success: false, reason: issueMergeBlockers[0].reason, mergeBlockers: issueMergeBlockers, latestSessionId, latestAnthropicCost };
+        // Issue #2306: the pull request must also close every issue it was
+        // asked to close; re-checked here because the description can change.
+        const mergeBlockers = isAutoMerge ? [...issueMergeBlockers, await checkClosingReferencesBeforeMerge({ owner, repo, issueNumber, prNumber, argv })].filter(Boolean) : issueMergeBlockers;
+        if (isAutoMerge && mergeBlockers.length > 0) {
+          await reportAutoMergeBlockedByIssue({ owner, repo, prNumber, issueNumber, mergeBlockers, verbose: argv.verbose });
+          return { success: false, reason: mergeBlockers[0].reason, mergeBlockers, latestSessionId, latestAnthropicCost };
         }
         if (isAutoMerge) {
           // Attempt to merge the PR
@@ -542,6 +553,14 @@ export const watchUntilMergeable = async params => {
         feedbackLines.push(`📭 ${emptyPullRequestBlocker}.`);
         feedbackLines.push('');
         feedbackLines.push('Implement the requested change and commit it to the pull request branch. Do not report the work as done while the diff is empty.');
+      }
+      // Issue #2312: Reason 1c: the last working session left the draft on purpose
+      // (the empty diff is already reported above).
+      if (deliberateDraft && !(deliberateDraft.kind === 'no_changes' && isEmptyPullRequest)) {
+        const draftFeedback = buildDeliberateDraftFeedback(deliberateDraft);
+        shouldRestart = true;
+        restartReason = restartReason ? `${restartReason}; ${draftFeedback.restartReason}` : draftFeedback.restartReason;
+        feedbackLines.push(...draftFeedback.feedbackLines);
       }
       // Issue #2007: Reason 1b: Issue title/description edited by the user.
       if (hasIssueMetadataChanges) {
@@ -717,14 +736,8 @@ export const watchUntilMergeable = async params => {
         restartReason = restartReason ? `${restartReason}; Uncommitted changes` : 'Uncommitted changes detected';
         // Get uncommitted changes for display using shared utility
         const changes = await getUncommittedChangesDetails(tempDir);
-        feedbackLines.push('📝 Uncommitted changes detected:');
-        for (const line of changes) {
-          feedbackLines.push(`  ${line}`);
-        }
-        feedbackLines.push('');
-        feedbackLines.push('IMPORTANT: You MUST handle these uncommitted changes by either:');
-        feedbackLines.push('1. COMMITTING them if they are part of the solution (git add + git commit + git push)');
-        feedbackLines.push('2. REVERTING them if they are not needed (git checkout -- <file> or git clean -fd)');
+        // Issue #2313: the exact `git status --porcelain` output and the commit / ignore / delete instruction.
+        feedbackLines.push(...buildUncommittedChangesFeedback(changes));
       }
       if (shouldRestart) {
         // Issue #2119: the run-wide budget is exhausted (it may already have been
@@ -769,7 +782,7 @@ export const watchUntilMergeable = async params => {
           if (pullResult.code === 0) {
             await log(formatAligned('🔄', 'Synced:', `Local branch ${effectiveBranch} updated from remote`));
           } else {
-            const pullOutput = `${pullResult.stdout || ''}${pullResult.stderr || ''}`.trim() || 'no output';
+            const pullOutput = `${pullResult.stdout?.toString() || ''}${pullResult.stderr?.toString() || ''}`.trim() || 'no output';
             const pullLeftLocalChanges = await checkForUncommittedChanges(tempDir, argv);
             if (pullLeftLocalChanges && /CONFLICT|MERGE_HEAD|unmerged|Automatic merge failed|not concluded your merge/i.test(pullOutput)) {
               await log(formatAligned('⚠️', 'Sync produced merge state:', 'Proceeding with AI restart to resolve it', 2));

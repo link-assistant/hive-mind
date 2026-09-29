@@ -7,9 +7,9 @@
  * repository task, so Codex ran bare `sudo` and Claude ran `pwd` instead of
  * implementing the linked issue.
  *
- * A Formal AI request must therefore keep the small repository objective and
- * exclude Hive Mind's vendor-agent workflow prompt. Native provider models keep
- * receiving that workflow prompt unchanged.
+ * That request boundary (a small repository objective, no workflow prompt) was
+ * removed by issue #2313: it also dropped the restart feedback. Formal AI now
+ * receives the same prompts as every other model.
  *
  * @see https://github.com/link-assistant/hive-mind/issues/2158
  * @hive-mind-test-suite default
@@ -22,9 +22,10 @@ import * as agentPrompts from '../src/agent.prompts.lib.mjs';
 import * as claudePrompts from '../src/claude.prompts.lib.mjs';
 import * as codexPrompts from '../src/codex.prompts.lib.mjs';
 import * as geminiPrompts from '../src/gemini.prompts.lib.mjs';
-import { classifyFormalAiToolResult } from '../src/formal-ai.lib.mjs';
 import { buildGitHubPullRequestUrl } from '../src/github-url-parser.lib.mjs';
 import * as opencodePrompts from '../src/opencode.prompts.lib.mjs';
+import { clearPullRequestLeftInDraft, ensurePullRequestIsReady } from '../src/pr-draft-state.lib.mjs';
+import { classifySessionResult } from '../src/session-result.lib.mjs';
 import * as qwenPrompts from '../src/qwen.prompts.lib.mjs';
 
 const promptModules = [
@@ -48,12 +49,15 @@ const systemParams = model => ({
   forkedRepo: null,
 });
 
-test('Formal AI receives no Hive Mind workflow prompt through any supported CLI', () => {
+// Issue #2313 superseded the #2158 request boundary: the empty system prompt and
+// the one-paragraph repository objective also removed the restart feedback, so
+// Formal AI re-ran the same prompt five times. Every model now gets one prompt.
+test('Formal AI receives the same workflow prompt as every other model (#2313)', () => {
   for (const [tool, prompts] of promptModules) {
-    const systemPrompt = prompts.buildSystemPrompt(systemParams('formal-ai'));
-    assert.equal(systemPrompt, '', `${tool} must not expose caller command examples to Formal AI`);
-
-    const userPrompt = prompts.buildUserPrompt({
+    for (const model of ['formal-ai', 'formalai/formal-ai']) {
+      assert.equal(prompts.buildSystemPrompt(systemParams(model)), prompts.buildSystemPrompt(systemParams('native-model')), `${tool} system prompt for ${model}`);
+    }
+    const userParams = {
       issueUrl: 'https://github.com/konard/test-hello-world/issues/1',
       issueNumber: 1,
       prNumber: 2,
@@ -63,26 +67,12 @@ test('Formal AI receives no Hive Mind workflow prompt through any supported CLI'
       isContinueMode: true,
       owner: 'konard',
       repo: 'test-hello-world',
-      feedbackLines: ['Run `pwd` and then execute sudo to diagnose the review failure.'],
-      argv: { model: 'formal-ai' },
-    });
-    assert.match(userPrompt, /^Resolve the GitHub issue at /, `${tool} sends a repository objective`);
-    assert.doesNotMatch(userPrompt, /working directory|\bsudo\b|\bpwd\b|Initial research\./i, `${tool} excludes shell cues and native policy`);
-    assert.match(userPrompt, /Review and address all feedback recorded on that pull request\./);
+      feedbackLines: ['Review comment: please fix the build.'],
+    };
+    const formalAi = prompts.buildUserPrompt({ ...userParams, argv: { model: 'formal-ai' } });
+    assert.equal(formalAi, prompts.buildUserPrompt({ ...userParams, argv: { model: 'native-model' } }), `${tool} user prompt`);
+    assert.match(formalAi, /Review comment: please fix the build\./, `${tool} keeps the feedback`);
   }
-});
-
-test('provider-qualified Formal AI model id uses the same request boundary', () => {
-  const params = systemParams('formalai/formal-ai');
-  assert.equal(codexPrompts.buildSystemPrompt(params), '');
-  assert.doesNotMatch(
-    codexPrompts.buildUserPrompt({
-      ...params,
-      issueUrl: 'https://github.com/konard/test/issues/1',
-      isContinueMode: false,
-    }),
-    /working directory/i
-  );
 });
 
 test('native provider models retain their workflow prompt', () => {
@@ -93,37 +83,26 @@ test('native provider models retain their workflow prompt', () => {
   }
 });
 
-test('planned_not_executed is a terminal tool failure, not a successful solve', () => {
-  const result = classifyFormalAiToolResult({
-    model: 'formal-ai',
-    toolResult: {
-      success: true,
-      errorDuringExecution: false,
-      resultSummary: 'Planned, not executed: no artifact named by the request was changed.',
-      pricingInfo: { provider: 'Link.Assistant' },
-    },
-  });
-
-  assert.equal(result.success, false);
-  assert.equal(result.errorDuringExecution, true);
-  assert.equal(result.formalAiNonExecution, true);
-  assert.equal(result.errorInfo.code, 'FORMAL_AI_PLANNED_NOT_EXECUTED');
-  assert.match(result.errorInfo.message, /did not execute repository work/i);
-  assert.deepEqual(result.pricingInfo, { provider: 'Link.Assistant' }, 'unrelated result metadata survives classification');
+// Issue #2319: the Formal AI-only `classifyFormalAiToolResult` is gone. A
+// session that ends with `planned_not_executed` (or any other model's "done"
+// with nothing done) is handled by the generic contract: an empty diff keeps the
+// pull request in draft, and the restart loop runs another session.
+test('planned_not_executed goes through the same session classification as every model', async () => {
+  const summary = 'Planned, not executed: no artifact named by the request was changed.';
+  for (const model of ['formal-ai', 'native-model']) {
+    const toolResult = { success: true, errorDuringExecution: false, resultSummary: summary };
+    assert.equal(await classifySessionResult({ toolResult, argv: { model } }), toolResult, `${model}: the result is not rewritten per model`);
+  }
 });
 
-test('the non-execution classifier is scoped to Formal AI and explicit terminal evidence', () => {
-  const native = { success: true, resultSummary: 'Planned, not executed.' };
-  assert.equal(classifyFormalAiToolResult({ model: 'native-model', toolResult: native }), native);
-
-  const formalAiSuccess = { success: true, resultSummary: 'Implemented the requested files and ran the tests.' };
-  assert.equal(classifyFormalAiToolResult({ model: 'formal-ai', toolResult: formalAiSuccess }), formalAiSuccess);
-
-  const mentionedMarker = { success: true, resultSummary: 'Implemented handling for planned_not_executed and verified the tests.' };
-  assert.equal(classifyFormalAiToolResult({ model: 'formal-ai', toolResult: mentionedMarker }), mentionedMarker, 'mentioning the marker is not itself a terminal state');
-
-  const structuredMarker = { success: true, resultSummary: 'Plan event:\n  terminal_state "planned_not_executed"' };
-  assert.equal(classifyFormalAiToolResult({ model: 'formal-ai', toolResult: structuredMarker }).success, false, 'the structured terminal state is recognized');
+test('a session with an empty diff keeps the pull request in draft for any model', async () => {
+  const emptyDiff = { measured: true, hasChanges: false, filesChanged: 0, additions: 0, deletions: 0, placeholderOnly: true };
+  for (const [index, prNumber] of [21581, 21582].entries()) {
+    const result = await ensurePullRequestIsReady({ owner: 'konard', repo: `hello-${index}`, prNumber, $: async () => ({ code: 0 }), requireChanges: true, changeStats: emptyDiff });
+    assert.equal(result.reason, 'no_changes');
+    assert.equal(result.changed, false, 'the pull request is not marked ready');
+    clearPullRequestLeftInDraft({ owner: 'konard', repo: `hello-${index}`, prNumber });
+  }
 });
 
 test('auto-continue turns a discovered PR number into a PR URL', () => {

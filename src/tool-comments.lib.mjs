@@ -261,11 +261,11 @@ export const postTrackedComment = async ({ $, owner, repo, targetNumber, body, s
   }
 
   if (result.code !== 0) {
-    const stderr = result.stderr ? result.stderr.toString() : '';
+    const stderr = result.stderr?.toString() ? result.stderr.toString() : '';
     return { ok: false, commentId: null, stderr };
   }
 
-  const stdout = result.stdout ? result.stdout.toString() : '';
+  const stdout = result.stdout?.toString() ? result.stdout.toString() : '';
   let commentId = null;
   try {
     const parsed = JSON.parse(stdout);

@@ -628,7 +628,7 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
         }
 
         // Always capture output to parse actual fork name
-        const forkOutput = (forkResult.stderr ? forkResult.stderr.toString() : '') + (forkResult.stdout ? forkResult.stdout.toString() : '');
+        const forkOutput = (forkResult.stderr?.toString() ? forkResult.stderr.toString() : '') + (forkResult.stdout?.toString() ? forkResult.stdout.toString() : '');
         if (argv.verbose) await log(`${formatAligned('🔧', 'Fork output:', forkOutput.split('\n')[0] || '(empty)')}`); // Issue #1518
         // Parse actual fork name from output (e.g., "konard/netkeep80-jsonRVM already exists")
         // Issue #1819: repository names can contain dots, such as "*.github.io".
@@ -950,7 +950,7 @@ export const cloneRepository = async (repoToClone, tempDir, argv, owner, repo) =
 
     // Use 2>&1 to capture all output and filter "Cloning into" message
     const cloneResult = await $`gh repo clone ${repoToClone} ${tempDir} 2>&1`;
-    const cloneOutput = (cloneResult.stdout || cloneResult.stderr || '').toString().trim();
+    const cloneOutput = (cloneResult.stdout?.toString() || cloneResult.stderr?.toString() || '').toString().trim();
     // Issue #1957: `gh repo clone` (and the `git clone` it wraps) can exit 0 even when
     // the underlying transfer was interrupted — e.g. "fetch-pack: unexpected disconnect
     // while reading sideband packet" — leaving an incomplete or completely missing
@@ -962,7 +962,7 @@ export const cloneRepository = async (repoToClone, tempDir, argv, owner, repo) =
       const validityCheck = await $({ cwd: tempDir })`git rev-parse --is-inside-work-tree 2>&1`;
       repoIsValid = validityCheck.code === 0 && validityCheck.stdout.toString().trim() === 'true';
       if (!repoIsValid && argv.verbose) {
-        await log(`${formatAligned('🔧', 'Clone validation:', `git rev-parse failed despite exit 0 — ${(validityCheck.stdout || validityCheck.stderr || '').toString().trim().split('\n')[0]}`)}`);
+        await log(`${formatAligned('🔧', 'Clone validation:', `git rev-parse failed despite exit 0 — ${(validityCheck.stdout?.toString() || validityCheck.stderr?.toString() || '').toString().trim().split('\n')[0]}`)}`);
       }
     }
 
@@ -976,7 +976,7 @@ export const cloneRepository = async (repoToClone, tempDir, argv, owner, repo) =
 
       // Verify and fix remote configuration
       const remoteCheckResult = await $({ cwd: tempDir })`git remote -v 2>&1`;
-      if (!remoteCheckResult.stdout || !remoteCheckResult.stdout.toString().includes('origin')) {
+      if (!remoteCheckResult.stdout?.toString() || !remoteCheckResult.stdout.toString().includes('origin')) {
         await log('   Setting up git remote...', { verbose: true });
         // Add origin remote manually
         await $({ cwd: tempDir })`git remote add origin https://github.com/${repoToClone}.git 2>&1`;
@@ -987,7 +987,7 @@ export const cloneRepository = async (repoToClone, tempDir, argv, owner, repo) =
     // Issue #1957: when the wrapper exited 0 but left no valid repo, surface the
     // interrupted-transfer output (which carries the real "unexpected disconnect"
     // reason) so it is classified as a retryable network error rather than UNKNOWN.
-    const errorOutput = cloneResult.code === 0 && !repoIsValid ? cloneOutput || 'Clone exited 0 but no valid git repository was created (interrupted transfer / incomplete clone)' : (cloneResult.stderr || cloneResult.stdout || 'Unknown error').toString().trim();
+    const errorOutput = cloneResult.code === 0 && !repoIsValid ? cloneOutput || 'Clone exited 0 but no valid git repository was created (interrupted transfer / incomplete clone)' : (cloneResult.stderr?.toString() || cloneResult.stdout?.toString() || 'Unknown error').toString().trim();
 
     // Issue #1957: a partial clone can leave stray files behind that make a retry of
     // `gh repo clone <dir>` fail with "directory exists and is not empty". Clean the
@@ -1130,7 +1130,7 @@ export const setupPrForkRemote = async (tempDir, argv, prForkOwner, repo, isCont
     // Issue #2135: `mirror: false` - a popular repository has thousands of
     // forks, and only the matching name is used.
     const forksResult = await $(QUIET_PROBE)`gh api repos/${owner}/${repo}/forks --paginate --jq ${forkNameFilter}`;
-    if (forksResult.code === 0 && forksResult.stdout) {
+    if (forksResult.code === 0 && forksResult.stdout?.toString()) {
       const forkName = forksResult.stdout.toString().trim().split('\n')[0]; // Take first match
       if (forkName) {
         prForkRepoName = forkName;
@@ -1171,7 +1171,7 @@ export const setupPrForkRemote = async (tempDir, argv, prForkOwner, repo, isCont
   })`git remote add pr-fork https://github.com/${prForkOwner}/${prForkRepoName}.git`;
   if (addRemoteResult.code !== 0) {
     await log(`${formatAligned('❌', 'Error:', 'Failed to add pr-fork remote')}`);
-    if (addRemoteResult.stderr) {
+    if (addRemoteResult.stderr?.toString()) {
       await log(`${formatAligned('', 'Details:', addRemoteResult.stderr.toString().trim())}`);
     }
     await log(`${formatAligned('', 'Suggestion:', 'The PR branch may not be accessible')}`);
@@ -1184,7 +1184,7 @@ export const setupPrForkRemote = async (tempDir, argv, prForkOwner, repo, isCont
   const fetchPrForkResult = await $({ cwd: tempDir })`git fetch pr-fork`;
   if (fetchPrForkResult.code !== 0) {
     await log(`${formatAligned('❌', 'Error:', 'Failed to fetch from pr-fork')}`);
-    if (fetchPrForkResult.stderr) {
+    if (fetchPrForkResult.stderr?.toString()) {
       await log(`${formatAligned('', 'Details:', fetchPrForkResult.stderr.toString().trim())}`);
     }
     await log(`${formatAligned('', 'Suggestion:', 'Check if you have access to the fork')}`);
@@ -1274,7 +1274,7 @@ export const checkoutPrBranch = async (tempDir, branchName, prForkRemote, prFork
         }
       } else {
         await log(`${formatAligned('⚠️', 'PR refs fallback failed:', 'Could not fetch PR head')}`);
-        if (prRefFetchResult.stderr) {
+        if (prRefFetchResult.stderr?.toString()) {
           await log(`${formatAligned('', 'Details:', prRefFetchResult.stderr.toString().trim())}`);
         }
       }

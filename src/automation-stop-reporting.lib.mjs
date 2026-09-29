@@ -98,6 +98,11 @@ export const STOP_REASONS = {
     detail: 'The pull request is ready to merge. A missing issue never stops work on the pull request — it only blocks the automatic merge.',
     nextSteps: ['Restore or re-create the linked issue and re-run the command so auto-merge can complete.', 'Or merge this pull request manually — it is ready.'],
   },
+  missing_closing_references: {
+    title: 'the pull request does not close every required issue, so auto-merge was held back',
+    detail: 'Issue #2306: merging would close only some of the issues this pull request was asked to close. A missing closing reference never stops work on the pull request — it only blocks the automatic merge.',
+    nextSteps: ['Add the missing `Fixes #N` lines to the pull request description (one keyword per issue) and re-run the command so auto-merge can complete.', 'Or merge this pull request manually if leaving those issues open is intended.'],
+  },
   no_progress_between_sessions: {
     title: 'two consecutive AI sessions produced identical results',
     detail: 'Issue #2247: the AI session ended with the same final message, the same working tree and the same commit as the session before it. Restarting again would repeat the same session at the same cost, so the remaining restart budget was left unused.',
@@ -176,7 +181,8 @@ export const buildAutomationStopComment = ({ reason, mode = null, message = null
 
 /**
  * Build the comment posted when the pull request is ready but `--auto-merge`
- * is blocked by the state of the linked issue.
+ * is blocked by the state of the linked issue, or (issue #2306) because its
+ * description does not close every required issue.
  *
  * Issue #2144: a closed issue must never stop the loop from making the pull
  * request mergeable — it only blocks the *automatic* merge, and then the user
@@ -201,8 +207,19 @@ export const buildAutoMergeBlockedComment = ({ blockers = [], issueNumber = null
     }
   }
 
+  // Issue #2306: the next steps depend on what holds the merge back.
+  const nextSteps = [];
+  if (reasons.some(blocker => blocker.reason !== 'missing_closing_references')) {
+    nextSteps.push(issueNumber ? `Reopen issue #${issueNumber} and re-run the command so auto-merge can complete.` : 'Reopen the linked issue and re-run the command so auto-merge can complete.');
+  }
+  if (reasons.some(blocker => blocker.reason === 'missing_closing_references')) {
+    nextSteps.push('Add the missing closing references listed above to the pull request description and re-run the command so auto-merge can complete.');
+    nextSteps.push('Or merge this pull request manually — the issues listed above will then stay open.');
+  } else {
+    nextSteps.push('Or merge this pull request manually — it is ready.');
+  }
   sections.push('', '**What to do next:**');
-  sections.push(bulletList([issueNumber ? `Reopen issue #${issueNumber} and re-run the command so auto-merge can complete.` : 'Reopen the linked issue and re-run the command so auto-merge can complete.', 'Or merge this pull request manually — it is ready.']));
+  sections.push(bulletList(nextSteps));
   sections.push('', '---', '*Reported automatically by hive-mind with the --auto-merge flag.*');
 
   return sections.join('\n');
@@ -256,8 +273,8 @@ export const reportAutomationStop = async ({ $, owner, repo, targetNumber, reaso
 
     const result = await postTrackedComment({ $, owner, repo, targetNumber, body: commentBody });
     if (!result.ok) {
-      await write(`   ⚠️  Could not post stop reason comment: ${result.stderr || 'unknown error'}`);
-      return { posted: false, reason: description.reason, error: result.stderr || 'post_failed' };
+      await write(`   ⚠️  Could not post stop reason comment: ${result.stderr?.toString() || 'unknown error'}`);
+      return { posted: false, reason: description.reason, error: result.stderr?.toString() || 'post_failed' };
     }
 
     await write(`   💬 Posted stop reason to #${targetNumber}: ${description.title}`);

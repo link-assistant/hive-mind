@@ -35,7 +35,7 @@ import { deployPlaywrightSkill } from './playwright-skill.lib.mjs'; // Issue #21
 import { formatRouterAuthViolation, startRouterAuthGuard } from './router-auth-guard.lib.mjs'; // Issue #2190
 import { createThinkingBlockRecovery } from './claude.thinking-block-recovery.lib.mjs'; // Issue #1834 (PR #1835 feedback)
 import { assessClaudeTurnCompletion, buildMissingClaudeResultMessage, collectClaudeStreamEventFacts, getClaudeMessageContent, shouldFailClaudeStreamWithoutResult, updateTerminalToolResult } from './claude.stream-events.lib.mjs';
-import { createRepeatedToolCallBreaker, explainFailureWithToolHistory } from './repeated-tool-call-breaker.lib.mjs'; // Issue #2247 (H4/H10)
+import { createRepeatedToolCallBreaker, explainFailureWithToolHistory, publishRepeatedToolCallVerdict } from './repeated-tool-call-breaker.lib.mjs'; // Issue #2247 (H4/H10), #2316
 import { formatNumber, mapModelToId, checkModelVisionCapability, resolveClaudeModelForExecution } from './claude.model-utils.lib.mjs';
 import { renameLogToSessionId } from './session-log-rename.lib.mjs'; // Issue #2160
 import { showResumeCommand } from './claude.resume-output.lib.mjs';
@@ -578,7 +578,7 @@ export const executeClaudeCommand = async params => {
               if (!repeatedToolCallFailure) {
                 const toolCallLoop = repeatedToolCallBreaker.observe(data);
                 if (toolCallLoop) {
-                  repeatedToolCallFailure = toolCallLoop;
+                  repeatedToolCallFailure = publishRepeatedToolCallVerdict(toolCallLoop);
                   await log(`\n🛑 ${toolCallLoop.reason}`, { level: 'error' });
                   await log('   Stopping the session — repeating it cannot make progress (issue #2247).', { level: 'error' });
                   if (!forceExitTriggered && execCommand?.kill) {
@@ -1089,7 +1089,7 @@ export const executeClaudeCommand = async params => {
               const resumeInfo = isStartupTimeout ? 'Session will be restarted (fresh start).' : `Session will be resumed with \`--resume\` (context preserved).`;
               const commentBody = `## :warning: ${SESSION_FORCE_KILLED_MARKER} (${timeoutType} timeout)\n\nThe working session was force-killed due to ${timeoutType} timeout (no stream output for ${isActivityTimeout ? timeouts.streamActivityMs / 1000 : timeouts.streamStartupMs / 1000}s).\n\n**Auto-resuming**: Retry ${retryCount + 1}/${maxRetries} in ${delayLabel}. ${resumeInfo}${sessionInfo}\n\n*This is an automated notification — the session will continue automatically.*`;
               const posted = await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: commentBody });
-              await log(posted.ok ? `   Posted force-kill notification to PR #${prNumber}${posted.commentId ? ` (id=${posted.commentId})` : ''}` : `   Warning: Could not post force-kill comment to PR: ${posted.stderr || 'unknown error'}`, { verbose: true });
+              await log(posted.ok ? `   Posted force-kill notification to PR #${prNumber}${posted.commentId ? ` (id=${posted.commentId})` : ''}` : `   Warning: Could not post force-kill comment to PR: ${posted.stderr?.toString() || 'unknown error'}`, { verbose: true });
             } catch (commentError) {
               await log(`   Warning: Could not post force-kill comment to PR: ${commentError.message}`, { verbose: true });
             }

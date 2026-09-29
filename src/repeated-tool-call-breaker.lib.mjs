@@ -19,11 +19,26 @@
  * alternates between two equally hopeless calls is in the same loop as one that
  * repeats a single call, and neither is making progress.
  *
+ * Issue #2316: the Rust `--tool codex` run issued the same `gh issue view`
+ * 78 times in a row, every one succeeding with the same output, and the breaker
+ * never saw it (it lived only in the claude adapter and only counted failures).
+ * `recordCall()` is the tool-agnostic entry point every adapter feeds with
+ * `(tool, input, output, isError)`; identical *successful* calls trip too, once
+ * `SUCCESS_LIMIT_FACTOR x limit` of them arrive back to back. Successes need a
+ * consecutive run (re-reading a file after editing it is normal), and waiting
+ * commands (`sleep`, `gh run watch`, ...) are exempt: polling is their job.
+ *
  * @see https://github.com/link-assistant/hive-mind/issues/2247
  */
 
 /** The issue prescribes breaking after 3 identical failing calls. */
 export const REPEATED_TOOL_CALL_LIMIT_DEFAULT = 3;
+
+/** Issue #2316: identical successful calls may recur more often than failing ones before they are a loop. */
+export const SUCCESS_LIMIT_FACTOR = 2;
+
+/** Commands whose repetition is the point: waiting for CI, a server, a file. */
+const POLLING_INPUT_PATTERN = /\b(sleep|wait|watch|tail -f)\b|--watch\b/;
 
 /**
  * A pending `tool_use` is only interesting until its result arrives. Claude can
@@ -65,12 +80,22 @@ const stableStringify = value => {
 
 export const buildToolCallSignature = ({ name, input } = {}) => `${name || 'unknown'}${SIGNATURE_SEPARATOR}${stableStringify(input === undefined ? null : input)}`;
 
-export const describeRepeatedToolCall = ({ tool, input, count, error = null }) => {
+export const describeRepeatedToolCall = ({ tool, input, count, error = null, succeeded = false }) => {
   const inputText = stableStringify(input === undefined ? null : input);
   const inputPreview = inputText.length > INPUT_PREVIEW_LENGTH ? `${inputText.slice(0, INPUT_PREVIEW_LENGTH)}...` : inputText;
+  if (succeeded) return `Identical tool call repeated ${count} times in a row, returning the same output every time: ${tool}(${inputPreview}).`;
   const errorPreview = typeof error === 'string' && error.trim() ? ` Last error: ${error.trim().slice(0, INPUT_PREVIEW_LENGTH)}` : '';
   return `Identical tool call repeated ${count} times, failing every time: ${tool}(${inputPreview}).${errorPreview}`;
 };
+
+/**
+ * Issue #2316: the feedback the next session receives after the breaker ended
+ * this one, so it does not start the same loop again.
+ *
+ * @param {{reason: string}} verdict
+ * @returns {string[]}
+ */
+export const buildRepeatedToolCallFeedback = verdict => [`The previous session was stopped by the repeated-tool-call breaker: ${verdict.reason}`, 'Do not repeat that call. Its output is already known; act on it (edit files, commit, push) or try a different approach.'];
 
 /**
  * Issue #2247 (H10): put the cause in front of the consequence.
@@ -89,6 +114,40 @@ export const explainFailureWithToolHistory = ({ message, dominant = null }) => {
   if (!dominant) return message;
   const cause = describeRepeatedToolCall(dominant);
   return message ? `${cause} The session then ended with: ${message}` : cause;
+};
+
+// ---------------------------------------------------------------------------
+// Published verdict (one per session, taken once by the session-result layer)
+// ---------------------------------------------------------------------------
+
+let pendingVerdict = null;
+let pendingFeedback = null;
+
+/** Issue #2316: record that the breaker ended the current session (any adapter). */
+export const publishRepeatedToolCallVerdict = verdict => {
+  if (!verdict) return verdict;
+  pendingVerdict = verdict;
+  pendingFeedback = buildRepeatedToolCallFeedback(verdict);
+  return verdict;
+};
+
+/** The verdict of the session that just ended, returned once. */
+export const takeRepeatedToolCallVerdict = () => {
+  const verdict = pendingVerdict;
+  pendingVerdict = null;
+  return verdict;
+};
+
+/** Feedback lines for the next session's prompt, returned once. */
+export const takeRepeatedToolCallFeedback = () => {
+  const feedback = pendingFeedback || [];
+  pendingFeedback = null;
+  return feedback;
+};
+
+export const resetRepeatedToolCallState = () => {
+  pendingVerdict = null;
+  pendingFeedback = null;
 };
 
 const asArray = value => (Array.isArray(value) ? value : value ? [value] : []);
@@ -110,7 +169,8 @@ const normalizeToolResultError = content => {
 /**
  * @param {Object} [params]
  * @param {number} [params.limit] - break after this many identical failing calls
- * @returns {{observe: (event: any) => (null|Object), tripped: boolean, verdict: Object|null, counts: () => Map<string, number>}}
+ *   (identical successful calls: `SUCCESS_LIMIT_FACTOR * limit` in a row)
+ * @returns {{observe: (event: any) => (null|Object), recordCall: (call: Object) => (null|Object), tripped: boolean, verdict: Object|null, counts: () => Map<string, number>}}
  */
 export const createRepeatedToolCallBreaker = ({ limit = getRepeatedToolCallLimit() } = {}) => {
   const pending = new Map();
@@ -118,6 +178,8 @@ export const createRepeatedToolCallBreaker = ({ limit = getRepeatedToolCallLimit
   // Issue #2247 (H10): the call behind each signature, so a failure report can
   // name it even when the count stayed below the breaker's limit.
   const details = new Map();
+  // Issue #2316: the current run of identical successful calls.
+  let successRun = { key: null, count: 0 };
   let verdict = null;
 
   const rememberToolUse = item => {
@@ -126,21 +188,46 @@ export const createRepeatedToolCallBreaker = ({ limit = getRepeatedToolCallLimit
     pending.set(item.id, { name: item.name || 'unknown', input: item.input });
   };
 
-  const recordFailure = item => {
-    if (!item || typeof item !== 'object' || item.type !== 'tool_result' || item.is_error !== true) return null;
+  /**
+   * Issue #2316: one finished tool call, from any adapter.
+   *
+   * @param {{tool: string, input: any, output?: any, isError?: boolean}} call
+   * @returns {Object|null} the verdict once the breaker trips
+   */
+  const recordCall = ({ tool, input, output = null, isError = false }) => {
+    if (verdict) return verdict;
+    const name = tool || 'unknown';
+    const signature = buildToolCallSignature({ name, input });
+    if (isError) {
+      successRun = { key: null, count: 0 };
+      const count = (failures.get(signature) || 0) + 1;
+      failures.set(signature, count);
+      const error = normalizeToolResultError(output);
+      details.set(signature, { tool: name, input, error });
+      if (!(limit > 0) || count < limit) return null;
+      verdict = { tool: name, input, count, limit, error, succeeded: false, reason: describeRepeatedToolCall({ tool: name, input, count, error }) };
+      return verdict;
+    }
+    if (POLLING_INPUT_PATTERN.test(stableStringify(input === undefined ? null : input))) {
+      successRun = { key: null, count: 0 };
+      return null;
+    }
+    const key = `${signature}${SIGNATURE_SEPARATOR}${normalizeToolResultError(output) ?? ''}`;
+    successRun = successRun.key === key ? { key, count: successRun.count + 1 } : { key, count: 1 };
+    const successLimit = limit * SUCCESS_LIMIT_FACTOR;
+    if (!(limit > 0) || successRun.count < successLimit) return null;
+    verdict = { tool: name, input, count: successRun.count, limit: successLimit, error: null, succeeded: true, reason: describeRepeatedToolCall({ tool: name, input, count: successRun.count, succeeded: true }) };
+    return verdict;
+  };
+
+  const recordResult = item => {
+    if (!item || typeof item !== 'object' || item.type !== 'tool_result') return null;
     const call = item.tool_use_id ? pending.get(item.tool_use_id) : null;
     // A result whose call was never seen (a resumed session replaying history,
     // a truncated stream) cannot be attributed, so it is not counted.
     if (!call) return null;
     pending.delete(item.tool_use_id);
-    const signature = buildToolCallSignature(call);
-    const count = (failures.get(signature) || 0) + 1;
-    failures.set(signature, count);
-    const error = normalizeToolResultError(item.content);
-    details.set(signature, { tool: call.name, input: call.input, error });
-    if (!(limit > 0) || count < limit) return null;
-    verdict = { tool: call.name, input: call.input, count, limit, error, reason: describeRepeatedToolCall({ tool: call.name, input: call.input, count, error }) };
-    return verdict;
+    return recordCall({ tool: call.name, input: call.input, output: item.content, isError: item.is_error === true });
   };
 
   return {
@@ -167,12 +254,14 @@ export const createRepeatedToolCallBreaker = ({ limit = getRepeatedToolCallLimit
       }
       return best && best.count >= minimum ? best : null;
     },
+    recordCall,
+    /** Claude/qwen stream-json: `tool_use` and `tool_result` items of `message.content`. */
     observe(event) {
       if (verdict) return verdict;
       if (!event || typeof event !== 'object') return null;
       for (const item of asArray(event.message?.content)) {
         rememberToolUse(item);
-        const tripped = recordFailure(item);
+        const tripped = recordResult(item);
         if (tripped) return tripped;
       }
       return null;
@@ -180,4 +269,4 @@ export const createRepeatedToolCallBreaker = ({ limit = getRepeatedToolCallLimit
   };
 };
 
-export default { createRepeatedToolCallBreaker, buildToolCallSignature, describeRepeatedToolCall, explainFailureWithToolHistory, getRepeatedToolCallLimit, DOMINANT_FAILURE_MIN_COUNT, REPEATED_TOOL_CALL_LIMIT_DEFAULT };
+export default { createRepeatedToolCallBreaker, publishRepeatedToolCallVerdict, takeRepeatedToolCallVerdict, takeRepeatedToolCallFeedback, resetRepeatedToolCallState, buildRepeatedToolCallFeedback, buildToolCallSignature, describeRepeatedToolCall, explainFailureWithToolHistory, getRepeatedToolCallLimit, DOMINANT_FAILURE_MIN_COUNT, REPEATED_TOOL_CALL_LIMIT_DEFAULT, SUCCESS_LIMIT_FACTOR };

@@ -12,8 +12,6 @@ import { getThinkingPromptInstruction } from './thinking-prompt.lib.mjs';
 import { buildWorkLanguageDirective } from './work-language.prompts.lib.mjs';
 import { buildRequestedBaseBranchDirective } from './solve-option-contract.prompts.lib.mjs';
 import { buildIssueResearchPrompt } from './deep-analysis.lib.mjs';
-import { buildFormalAiRepositoryPrompt } from './formal-ai-prompt.lib.mjs';
-import { isFormalAiModel } from './formal-ai-model.lib.mjs';
 
 /**
  * Build the user prompt for Claude
@@ -21,9 +19,6 @@ import { isFormalAiModel } from './formal-ai-model.lib.mjs';
  * @returns {string} The formatted user prompt
  */
 export const buildUserPrompt = params => {
-  const formalAiPrompt = buildFormalAiRepositoryPrompt(params);
-  if (formalAiPrompt !== null) return formalAiPrompt;
-
   const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, forkedRepo, feedbackLines, owner, repo, argv, contributingGuidelines, claudeVersion } = params;
 
   if (argv?.minimalRestartContext && argv.resume) {
@@ -110,10 +105,6 @@ export const buildUserPrompt = params => {
  */
 export const buildSystemPrompt = params => {
   const { owner, repo, issueNumber, prNumber, branchName, workspaceTmpDir, argv, modelSupportsVision, forkedRepo } = params;
-
-  // Issue #2158: keep caller workflow instructions out of Formal AI's task
-  // classifier. Formal AI provides its own execution policy.
-  if (isFormalAiModel(argv?.model)) return '';
 
   if (argv?.minimalRestartContext && argv.resume) {
     return '';

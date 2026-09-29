@@ -213,12 +213,14 @@ const measureDiff = diff => {
   let deletions = 0;
   let placeholderSections = 0;
   let section = null;
+  const files = [];
 
   const closeSection = () => {
     if (!section) return;
     if (isPlaceholderSection(section.path, section.body)) placeholderSections += 1;
     else {
       filesChanged += 1;
+      files.push(section.path);
       additions += section.additions;
       deletions += section.deletions;
     }
@@ -249,7 +251,7 @@ const measureDiff = diff => {
   }
   closeSection();
 
-  return { filesChanged, additions, deletions, placeholderSections };
+  return { filesChanged, additions, deletions, placeholderSections, files };
 };
 
 /**
@@ -291,7 +293,7 @@ export const getPullRequestChangeStats = async ({ owner, repo, prNumber, $, log 
     // Leave measured false: an unreachable API must not read as "no changes".
   }
 
-  const { filesChanged, additions, deletions, placeholderSections } = measureDiff(diffOutput);
+  const { filesChanged, additions, deletions, placeholderSections, files } = measureDiff(diffOutput);
   const diffBytes = diffOutput.length;
 
   if (measured && diffBytes >= LARGE_DIFF_WARNING_BYTES && typeof log === 'function') {
@@ -312,6 +314,8 @@ export const getPullRequestChangeStats = async ({ owner, repo, prNumber, $, log 
     placeholderSections,
     measured,
     diffBytes,
+    // Issue #2318: the changed paths, for the "Changes" section of the description.
+    files,
   };
 };
 
@@ -339,6 +343,112 @@ export const formatChangeSummary = stats => {
 };
 
 /**
+ * Issue #2318: the "Changes" section is a solver artifact, regenerated from the
+ * real diff at the end of every working session for every model.
+ *
+ * It used to be written once, while the description still held placeholder
+ * text, and never again: the Kotlin PR kept "1 file(s) modified" after its
+ * branch grew to six files, because whether the description stays accurate
+ * depended on the model editing it. The markers delimit what the solver owns,
+ * so the issue reference and any human-written text are left alone.
+ */
+export const CHANGES_SECTION_START = '<!-- hive-mind:changes:start -->';
+export const CHANGES_SECTION_END = '<!-- hive-mind:changes:end -->';
+const MAX_LISTED_FILES = 50;
+
+/** A bullet `formatChangeSummary` wrote before the section had markers. */
+const GENERATED_SUMMARY_LINE = /^- (\d+ file\(s\) modified|\d+ line\(s\) (added|removed)|No files were changed by this pull request yet.*|The diff could not be read.*)$/;
+const SOLVER_FOOTER = /\n+---\n+\*This PR was created automatically by the AI issue solver\*\s*$/;
+
+/** The marked "### Changes" section: the summary plus the changed paths. */
+export const formatChangesSection = stats => {
+  const files = Array.isArray(stats?.files) ? stats.files : [];
+  const listed = files.slice(0, MAX_LISTED_FILES).map(file => `  - \`${file}\``);
+  if (files.length > MAX_LISTED_FILES) listed.push(`  - …and ${files.length - MAX_LISTED_FILES} more`);
+  const summary = formatChangeSummary(stats);
+  const body = listed.length > 0 ? `${summary}\n- Files:\n${listed.join('\n')}` : summary;
+  return `${CHANGES_SECTION_START}\n### Changes\n${body}\n${CHANGES_SECTION_END}`;
+};
+
+/**
+ * Put a freshly measured "Changes" section into a pull request description.
+ *
+ * Replaces, in order of preference: the marked section; the unmarked
+ * `### Changes` section the solver wrote before markers existed (recognised by
+ * its generated bullets only, so a human "### Changes" is never touched);
+ * otherwise the section is added above the solver footer, or at the end.
+ *
+ * @param {string} body - the current description
+ * @param {Object} stats - `getPullRequestChangeStats()` result
+ * @returns {string} the new description
+ */
+export const replaceChangesSection = (body, stats) => {
+  const text = String(body ?? '').replace(/\r\n/g, '\n');
+  const section = formatChangesSection(stats);
+  const start = text.indexOf(CHANGES_SECTION_START);
+  const end = start === -1 ? -1 : text.indexOf(CHANGES_SECTION_END, start);
+  if (start !== -1 && end !== -1) return `${text.slice(0, start)}${section}${text.slice(end + CHANGES_SECTION_END.length)}`;
+
+  const legacy = /^### Changes\n((?:- .*(?:\n|$))+)/m.exec(text);
+  if (
+    legacy &&
+    legacy[1]
+      .trimEnd()
+      .split('\n')
+      .every(line => GENERATED_SUMMARY_LINE.test(line))
+  ) {
+    const tail = text.slice(legacy.index + legacy[0].length);
+    // The match consumed the last bullet's newline; put it back.
+    return `${text.slice(0, legacy.index)}${section}${tail === '' ? '' : '\n'}${tail}`;
+  }
+
+  const footer = SOLVER_FOOTER.exec(text);
+  if (footer) return `${text.slice(0, footer.index).trimEnd()}\n\n${section}${text.slice(footer.index)}`;
+  return text.trim() ? `${text.trimEnd()}\n\n${section}\n` : `${section}\n`;
+};
+
+/**
+ * Regenerate the "Changes" section of a pull request description from its diff.
+ *
+ * A diff that could not be read leaves the description alone: "unavailable" is
+ * not more accurate than what is already there.
+ *
+ * @returns {Promise<{updated: boolean, reason: string, changeStats: Object|null}>}
+ */
+export const refreshPullRequestChangesSection = async ({ owner, repo, prNumber, $, log = async () => {}, changeStats = null }) => {
+  if (!owner || !repo || !prNumber || typeof $ !== 'function') return { updated: false, reason: 'no_pull_request', changeStats };
+  try {
+    const stats = changeStats || (await getPullRequestChangeStats({ owner, repo, prNumber, $, log }));
+    if (!stats?.measured) return { updated: false, reason: 'diff_unavailable', changeStats: stats };
+    const view = await quietProbe($)`gh pr view ${prNumber} --repo ${owner}/${repo} --json body,state --jq ${'[.state, .body] | @json'}`;
+    if (view.code !== 0) return { updated: false, reason: 'body_unavailable', changeStats: stats };
+    const [state, body] = JSON.parse(view.stdout.toString().trim());
+    if (state !== 'OPEN') return { updated: false, reason: 'not_open', changeStats: stats };
+    const next = replaceChangesSection(body, stats);
+    if (next === String(body ?? '').replace(/\r\n/g, '\n')) return { updated: false, reason: 'unchanged', changeStats: stats };
+
+    const { writeSanitizedPublicationFile } = await import('./token-sanitization.lib.mjs');
+    const { promises: fsp } = await import('node:fs');
+    const bodyFile = `/tmp/pr-body-changes-${prNumber}-${Date.now()}.md`;
+    await writeSanitizedPublicationFile(bodyFile, next);
+    try {
+      const edit = await $`gh pr edit ${prNumber} --repo ${owner}/${repo} --body-file ${bodyFile}`;
+      if (edit.code !== 0) {
+        await log(`  ⚠️  Could not refresh the PR description's Changes section: ${edit.stderr?.toString().trim() || 'unknown error'}`, { level: 'warning' });
+        return { updated: false, reason: 'edit_failed', changeStats: stats };
+      }
+    } finally {
+      await fsp.unlink(bodyFile).catch(() => {});
+    }
+    await log(`  📝 PR description Changes section regenerated from the diff (${stats.filesChanged} file(s))`);
+    return { updated: true, reason: 'updated', changeStats: stats };
+  } catch (error) {
+    await log(`  ⚠️  Could not refresh the PR description's Changes section: ${error.message}`, { level: 'warning' });
+    return { updated: false, reason: 'error', changeStats };
+  }
+};
+
+/**
  * The blocker to report when a pull request is otherwise mergeable but empty.
  *
  * Merging it would close the issue without changing anything, so this is
@@ -362,4 +472,4 @@ export const buildEmptyPullRequestBlocker = (stats = null) => (stats?.placeholde
  */
 export const __measureDiffForTests = measureDiff;
 
-export default { getPullRequestChangeStats, formatChangeSummary, EMPTY_PULL_REQUEST_BLOCKER, buildEmptyPullRequestBlocker, __measureDiffForTests: measureDiff };
+export default { getPullRequestChangeStats, formatChangeSummary, formatChangesSection, replaceChangesSection, refreshPullRequestChangesSection, EMPTY_PULL_REQUEST_BLOCKER, buildEmptyPullRequestBlocker, __measureDiffForTests: measureDiff };

@@ -22,7 +22,7 @@
  * remaining blocker and what was preserved.
  */
 
-import { commitUncommittedChangesOnCriticalError } from './critical-error-commit.lib.mjs';
+import { commitUncommittedChangesOnCriticalError, describePreservedWork } from './critical-error-commit.lib.mjs';
 import { formatAutoRestartLabel, formatAutoRestartLimit, getAutoRestartIterationsUsed } from './auto-restart-budget.lib.mjs';
 import { ensurePullRequestStaysDraftAfterFailure } from './pr-draft-state.lib.mjs';
 import { AUTO_RESTART_MARKER, postTrackedComment } from './tool-comments.lib.mjs';
@@ -87,9 +87,8 @@ export const failOnAutoRestartBudgetExhausted = async ({ owner, repo, prNumber, 
   }
 
   // Fail recovery: the work that kept triggering restarts lives in a temporary
-  // clone that is about to be discarded. Commit and push it so the result is
-  // visible in the PR instead of vanishing with the clone. The failure veto
-  // above ensures this evidence commit cannot be mistaken for success (#2263).
+  // clone that is about to be discarded. Preserve it on `recovery/<branch>` -
+  // never in the PR branch, where build output became part of the diff (#2315).
   const preserved = await commitUncommittedChangesOnCriticalError({
     tempDir,
     branchName,
@@ -100,7 +99,7 @@ export const failOnAutoRestartBudgetExhausted = async ({ owner, repo, prNumber, 
   });
 
   if (prNumber) {
-    const preservedText = preserved.committed ? `The uncommitted changes were auto-committed${preserved.pushed ? ' and pushed' : ' locally (push failed - see the log)'} so the partial result stays visible in this pull request.` : 'There were no uncommitted changes left to preserve.';
+    const preservedText = describePreservedWork(preserved);
     const body = `## ❌ ${AUTO_RESTART_MARKER} ${label} - limit reached
 
 Hive Mind stopped after ${label} automatic restart iterations without resolving the blocker.
@@ -123,7 +122,7 @@ No further AI sessions will be started automatically for this run. Review the re
     }
   }
 
-  limitFailure = { reason: AUTO_RESTART_LIMIT_REACHED_REASON, iterationsUsed, committed: preserved.committed, pushed: preserved.pushed };
+  limitFailure = { reason: AUTO_RESTART_LIMIT_REACHED_REASON, iterationsUsed, committed: preserved.committed, pushed: preserved.pushed, recoveryBranch: preserved.recoveryBranch || null };
   return limitFailure;
 };
 

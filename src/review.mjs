@@ -232,7 +232,7 @@ try {
 
   if (prDetailsResult.code !== 0) {
     await log('Error: Failed to get PR details', { level: 'error' });
-    await log(prDetailsResult.stderr ? prDetailsResult.stderr.toString() : 'Unknown error', { level: 'error' });
+    await log(prDetailsResult.stderr?.toString() ? prDetailsResult.stderr.toString() : 'Unknown error', { level: 'error' });
     process.exit(1);
   }
 
@@ -256,7 +256,7 @@ try {
   // Verify clone was successful
   if (cloneResult.code !== 0) {
     await log('Error: Failed to clone repository', { level: 'error' });
-    await log(cloneResult.stderr ? cloneResult.stderr.toString() : 'Unknown error', { level: 'error' });
+    await log(cloneResult.stderr?.toString() ? cloneResult.stderr.toString() : 'Unknown error', { level: 'error' });
     process.exit(1);
   }
 
@@ -274,7 +274,7 @@ try {
 
   if (fetchResult.code !== 0) {
     await log('Error: Failed to checkout PR branch', { level: 'error' });
-    await log(fetchResult.stderr ? fetchResult.stderr.toString() : 'Unknown error', { level: 'error' });
+    await log(fetchResult.stderr?.toString() ? fetchResult.stderr.toString() : 'Unknown error', { level: 'error' });
     process.exit(1);
   }
 
@@ -290,7 +290,7 @@ try {
 
   if (diffResult.code !== 0) {
     await log('Error: Failed to get PR diff', { level: 'error' });
-    await log(diffResult.stderr ? diffResult.stderr.toString() : 'Unknown error', { level: 'error' });
+    await log(diffResult.stderr?.toString() ? diffResult.stderr.toString() : 'Unknown error', { level: 'error' });
     process.exit(1);
   }
 

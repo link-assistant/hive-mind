@@ -273,7 +273,7 @@ export async function verifyDefaultBranchAndStatus({ tempDir, log, formatAligned
   const statusResult = await $({ cwd: tempDir })`git status --porcelain`;
   if (statusResult.code !== 0) {
     await log('Error: Failed to check git status');
-    await log(statusResult.stderr ? statusResult.stderr.toString() : 'Unknown error');
+    await log(statusResult.stderr?.toString() ? statusResult.stderr.toString() : 'Unknown error');
     throw new Error('Failed to check git status');
   }
 
@@ -349,7 +349,7 @@ async function detectEmptyRepository(tempDir, $) {
   }
 
   // git rev-parse HEAD fails when there are no commits
-  const output = (logResult.stdout || logResult.stderr || '').toString();
+  const output = (logResult.stdout?.toString() || logResult.stderr?.toString() || '').toString();
   if (output.includes('unknown revision') || output.includes('ambiguous argument') || output.includes('bad default revision') || output.includes('does not have any commits') || output.includes('Needed a single revision')) {
     return true;
   }

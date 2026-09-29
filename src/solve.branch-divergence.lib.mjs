@@ -4,8 +4,8 @@ const toCount = value => {
 };
 
 const outputOf = result => {
-  const stdout = result?.stdout ? result.stdout.toString().trim() : '';
-  const stderr = result?.stderr ? result.stderr.toString().trim() : '';
+  const stdout = result?.stdout?.toString() ? result.stdout.toString().trim() : '';
+  const stderr = result?.stderr?.toString() ? result.stderr.toString().trim() : '';
   return stdout || stderr;
 };
 

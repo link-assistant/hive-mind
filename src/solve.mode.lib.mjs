@@ -129,7 +129,7 @@ export async function resolveSolveMode({ argv, owner, repo, urlNumber, issueUrl,
         if (prResult.output.includes('Could not resolve to a PullRequest')) {
           await githubLib.handlePRNotFoundError({ prNumber, owner, repo, argv, shouldAttachLogs });
         } else {
-          await log(`Error: ${prResult.stderr || 'Unknown error'}`, { level: 'error' });
+          await log(`Error: ${prResult.stderr?.toString() || 'Unknown error'}`, { level: 'error' });
         }
         await safeExit(1, 'Failed to get PR details');
       }

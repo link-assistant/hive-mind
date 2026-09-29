@@ -95,6 +95,18 @@ export { FORMAL_AI_IMAGE_REPOSITORY, readAcceptedFormalAiImage, resolveAcceptedF
 /** Applied to the sidecar, its network and its volume so reconciliation can find them. */
 export const FORMAL_AI_SIDECAR_LABEL = 'com.link-assistant.hive-mind.formal-ai';
 
+/**
+ * Paths the published image declares as `VOLUME`s (`/var/lib/docker` for its
+ * inner daemon, `/root/.formal-ai` for root's default memory).
+ *
+ * Neither is used by the sidecar — the inner daemon is skipped and memory lives
+ * on the named volume under `/home/box` — yet Docker creates a fresh anonymous
+ * volume for each on every `docker run`, and `docker rm` without `--volumes`
+ * leaves them behind. Issue #2305 found them accumulating as orphans, so they
+ * are covered by a `tmpfs` that disappears with the container instead.
+ */
+export const FORMAL_AI_SIDECAR_SCRATCH_PATHS = Object.freeze(['/var/lib/docker', '/root/.formal-ai']);
+
 const STATE_FILE_NAME = 'formal-ai-sidecar.json';
 const SIDECAR_LOCK_NAME = 'formal-ai-sidecar';
 // Pulling a sidecar image is the one Docker call that legitimately takes many
@@ -106,9 +118,10 @@ const DEFAULT_HEALTH_DELAY_MS = 1000;
  * `lastUpdate` is the accepted-release record (issue #2207) and `serving` is the
  * provenance of the container that last answered a lease (issue #2208). Neither
  * is derivable from `image`/`imageDigest`, which are only a cache of whatever is
- * running right now.
+ * running right now. `lastUsedAt` is when a Formal AI task last held a lease;
+ * it gates idle updates and the image unload (issue #2305).
  */
-const EMPTY_STATE = Object.freeze({ version: 1, image: null, imageReference: null, imageDigest: null, startedAt: null, leases: [], lastUpdate: null, serving: null });
+const EMPTY_STATE = Object.freeze({ version: 1, image: null, imageReference: null, imageDigest: null, startedAt: null, leases: [], lastUpdate: null, serving: null, lastUsedAt: null });
 
 /**
  * True when a task will be driven by Formal AI.
@@ -226,6 +239,9 @@ export const buildFormalAiSidecarRunArgs = ({ image, env = process.env, containe
     `FORMAL_AI_MEMORY_PATH=${FORMAL_AI_MEMORY_PATH}`,
     '--volume',
     `${FORMAL_AI_MEMORY_VOLUME_NAME}:${FORMAL_AI_MEMORY_MOUNT}`,
+    // Issue #2305: without an explicit mount every sidecar creation leaked one
+    // anonymous volume per image `VOLUME`.
+    ...FORMAL_AI_SIDECAR_SCRATCH_PATHS.flatMap(scratch => ['--tmpfs', scratch]),
     image,
     'formal-ai',
     'serve',
@@ -296,13 +312,18 @@ const reconcileLeases = async (leases, options) => reconcileSidecarLeases(leases
  * as well as the durable store, so a bot restart converges instead of leaving
  * an orphaned container running with nothing to serve.
  */
-export const reconcileFormalAiSidecar = async ({ env = process.env, fsImpl = fs, run = execFileAsync, timeoutMs, log = null, verbose = false } = {}) => {
+export const reconcileFormalAiSidecar = async ({ env = process.env, fsImpl = fs, run = execFileAsync, timeoutMs, log = null, verbose = false, now = () => new Date() } = {}) => {
   const state = readFormalAiSidecarState({ env, fsImpl });
   const leases = await reconcileLeases(state.leases, { run, timeoutMs, log, verbose });
   const container = await inspectDockerContainer(FORMAL_AI_SIDECAR_CONTAINER_NAME, { run, timeoutMs });
   const next = {
     ...state,
     leases,
+    // A task that held a lease until now was using Formal AI until now, even if
+    // it crashed and its lease is being dropped here — otherwise a long task
+    // would look idle since its start and be unloaded the moment it ends
+    // (issue #2305).
+    lastUsedAt: state.leases.length > 0 ? now().toISOString() : (state.lastUsedAt ?? null),
     image: container.exists ? container.image : state.image,
     imageDigest: container.exists ? container.imageDigest : state.imageDigest,
     startedAt: container.running ? state.startedAt : null,
@@ -319,7 +340,9 @@ export const stopFormalAiSidecar = async ({ env = process.env, fsImpl = fs, run 
   const container = await inspectDockerContainer(FORMAL_AI_SIDECAR_CONTAINER_NAME, { run, timeoutMs });
   if (container.exists) {
     await dockerOk(run, ['stop', FORMAL_AI_SIDECAR_CONTAINER_NAME], { timeoutMs });
-    await dockerOk(run, ['rm', '--force', FORMAL_AI_SIDECAR_CONTAINER_NAME], { timeoutMs });
+    // `--volumes` removes anonymous volumes only; the named memory volume is
+    // never touched by it (issue #2305).
+    await dockerOk(run, ['rm', '--force', '--volumes', FORMAL_AI_SIDECAR_CONTAINER_NAME], { timeoutMs });
   }
   await dockerOk(run, ['network', 'rm', FORMAL_AI_SIDECAR_NETWORK_NAME], { timeoutMs });
 
@@ -348,7 +371,7 @@ export const acquireFormalAiSidecar = async ({ sessionId, tool = null, model = n
       if (container.exists && !container.running) {
         // A stopped container may predate an image change; recreate instead of
         // resurrecting an unknown revision.
-        await dockerOk(run, ['rm', '--force', FORMAL_AI_SIDECAR_CONTAINER_NAME], { timeoutMs });
+        await dockerOk(run, ['rm', '--force', '--volumes', FORMAL_AI_SIDECAR_CONTAINER_NAME], { timeoutMs });
         container = { exists: false, running: false, image: null, imageDigest: null };
       }
 
@@ -406,7 +429,7 @@ export const acquireFormalAiSidecar = async ({ sessionId, tool = null, model = n
         acceptedAt: accepted?.updatedAt ?? null,
         observedAt: acquiredAt,
       };
-      writeFormalAiSidecarState({ ...state, image: container.image || image, imageReference, imageDigest: container.imageDigest, startedAt: state.startedAt || acquiredAt, leases: nextLeases, serving }, { env, fsImpl });
+      writeFormalAiSidecarState({ ...state, image: container.image || image, imageReference, imageDigest: container.imageDigest, startedAt: state.startedAt || acquiredAt, leases: nextLeases, serving, lastUsedAt: acquiredAt }, { env, fsImpl });
 
       if (verbose && log) await log(`[VERBOSE] formal-ai-sidecar: lease '${sessionId}' acquired (${nextLeases.length} active), image=${imageReference} (${resolved.source}), digest=${container.imageDigest ?? 'unknown'}, address=${address ?? 'unknown'}, formal-ai=${reportedVersion ?? 'unknown'}, memory schema=${serving.memorySchemaVersion ?? 'unknown'}`);
 
@@ -451,7 +474,7 @@ export const attachTaskToFormalAiNetwork = async ({ sessionId, run = execFileAsy
  *
  * @returns {Promise<{leaseCount: number, stopped: boolean}>}
  */
-export const releaseFormalAiSidecar = async ({ sessionId, env = process.env, fsImpl = fs, run = execFileAsync, timeoutMs, log = null, verbose = false, sleepImpl = sleep, lockOptions = {} } = {}) => {
+export const releaseFormalAiSidecar = async ({ sessionId, env = process.env, fsImpl = fs, run = execFileAsync, timeoutMs, log = null, verbose = false, now = () => new Date(), sleepImpl = sleep, lockOptions = {} } = {}) => {
   return withFormalAiSidecarLock(
     async () => {
       const state = readFormalAiSidecarState({ env, fsImpl });
@@ -459,7 +482,8 @@ export const releaseFormalAiSidecar = async ({ sessionId, env = process.env, fsI
         state.leases.filter(lease => lease.sessionId !== sessionId),
         { run, timeoutMs, log, verbose }
       );
-      writeFormalAiSidecarState({ ...state, leases: remaining }, { env, fsImpl });
+      // The unload window (issue #2305) counts from the end of the last task.
+      writeFormalAiSidecarState({ ...state, leases: remaining, lastUsedAt: now().toISOString() }, { env, fsImpl });
 
       if (remaining.length > 0) {
         if (verbose && log) await log(`[VERBOSE] formal-ai-sidecar: lease '${sessionId}' released, ${remaining.length} still active; sidecar stays up`);

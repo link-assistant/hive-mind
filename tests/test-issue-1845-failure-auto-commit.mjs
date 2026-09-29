@@ -43,12 +43,19 @@ const noopLog = async () => {};
 // `git status --porcelain` as configured. Mirrors the pattern used in the #1834 test.
 const makeFake$ = (statusOutput = '') => {
   const calls = [];
-  const fake = () => async strings => {
-    const cmd = strings.join(' ');
-    calls.push(cmd);
-    if (cmd.includes('git status')) return { code: 0, stdout: statusOutput, stderr: '' };
-    return { code: 0, stdout: '', stderr: '' };
-  };
+  const fake =
+    () =>
+    async (strings, ...values) => {
+      const cmd = strings.reduce((text, part, index) => `${text}${part}${index < values.length ? values[index] : ''}`, '');
+      calls.push(cmd);
+      if (cmd.includes('git status')) return { code: 0, stdout: statusOutput, stderr: '' };
+      // Issue #2315: the work is snapshotted through a private index, so the plumbing must answer.
+      if (cmd.includes('git rev-parse --git-path')) return { code: 0, stdout: '.git/hive-mind-recovery.index', stderr: '' };
+      if (cmd.includes('git write-tree')) return { code: 0, stdout: 'worktree-tree', stderr: '' };
+      if (cmd.includes('git rev-parse HEAD^{tree}')) return { code: 0, stdout: 'head-tree', stderr: '' };
+      if (cmd.includes('git commit-tree')) return { code: 0, stdout: 'abc1234567', stderr: '' };
+      return { code: 0, stdout: '', stderr: '' };
+    };
   fake.calls = calls;
   return fake;
 };
@@ -81,7 +88,8 @@ await testAsync('autoCommitUncommittedChanges defaults to true (preserve work on
 
 console.log('\n=== handleFailure auto-commit behaviour ===');
 
-await testAsync('Commits and pushes uncommitted work when cleanupContext.tempDir is set and tree is dirty', async () => {
+// Issue #2315: the work is preserved on recovery/<branch>; the PR branch and its index are never touched.
+await testAsync('Preserves uncommitted work on recovery/<branch> when cleanupContext.tempDir is set and tree is dirty', async () => {
   const fake$ = makeFake$(' M src/foo.mjs');
   await handleFailure(baseOptions(fake$, { tempDir: '/tmp/none', branchName: 'issue-1845' }));
   assert(
@@ -89,17 +97,18 @@ await testAsync('Commits and pushes uncommitted work when cleanupContext.tempDir
     'Should inspect the working tree'
   );
   assert(
-    fake$.calls.some(c => c.includes('git add')),
-    'Should stage the uncommitted changes'
+    fake$.calls.some(c => c.includes('GIT_INDEX_FILE') && c.includes('git add')),
+    'Should stage the uncommitted changes in a private index'
   );
   assert(
-    fake$.calls.some(c => c.includes('git commit')),
+    fake$.calls.some(c => c.includes('git commit-tree')),
     'Should commit the preserved work'
   );
   assert(
-    fake$.calls.some(c => c.includes('git push')),
-    'Should push the preserved work to the branch'
+    fake$.calls.some(c => c.includes('git push') && c.includes('refs/heads/recovery/')),
+    'Should push the preserved work to the recovery branch'
   );
+  assert(!fake$.calls.some(c => /git (add -A|commit )/.test(c) && !c.includes('GIT_INDEX_FILE')), 'Must not stage or commit into the PR branch');
 });
 
 await testAsync('Does NOT commit when the working tree is clean', async () => {

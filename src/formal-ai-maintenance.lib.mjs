@@ -2,27 +2,33 @@
  * Background maintenance for the Formal AI sidecar and the agentic CLIs
  * (issue #2146, PR #2147 review).
  *
- * One periodic tick performs the three idle-only duties the review asked for,
- * in the only order that is safe:
+ * One periodic tick performs the idle-only duties the review asked for, in the
+ * only order that is safe:
  *
  *   1. **Reconcile and stop.** Drop leases whose task container is gone and, if
  *      nothing is left, stop the sidecar. Must run first — the update and the
  *      CLI refresh both require an idle host, and a crashed task would
  *      otherwise keep the sidecar alive forever.
- *   2. **Update the Formal AI image**, including the non-destructive memory
- *      migration, while the sidecar is stopped.
- *   3. **Refresh the agentic CLIs**, which is throttled independently because
+ *   2. **Unload the image** once Formal AI has been unused for
+ *      `HIVE_MIND_FORMAL_AI_UNLOAD_AFTER` (issue #2305). Runs before the
+ *      update so an unused host is never offered a new release.
+ *   3. **Update the Formal AI image**, including the non-destructive memory
+ *      migration, while the sidecar is stopped — only on hosts that used
+ *      Formal AI recently (issue #2305).
+ *   4. **Refresh the agentic CLIs**, which is throttled independently because
  *      it queries the npm registry.
  *
  * Every step is best-effort: maintenance must never take the bot down, and a
  * failure is reported and retried on the next tick rather than thrown.
  *
  * @see https://github.com/link-assistant/hive-mind/issues/2146
+ * @see https://github.com/link-assistant/hive-mind/issues/2305
  */
 
 import { updateAgenticClisWhenIdle } from './agentic-cli-updater.lib.mjs';
 import { startSidecarMaintenance } from './docker-sidecar.lib.mjs';
 import { reconcileFormalAiSidecar, stopFormalAiSidecar, withFormalAiSidecarLock } from './formal-ai-sidecar.lib.mjs';
+import { unloadIdleFormalAiSidecar } from './formal-ai-unload.lib.mjs';
 import { updateFormalAiSidecarWhenIdle } from './formal-ai-updater.lib.mjs';
 
 /** Default gap between maintenance ticks. */
@@ -51,9 +57,9 @@ export const stopIdleFormalAiSidecar = async ({ env = process.env, run, log = nu
 /**
  * Run one maintenance tick.
  *
- * @returns {Promise<{idle: object, formalAi: object|null, agenticClis: object|null, errors: object[]}>}
+ * @returns {Promise<{idle: object, unload: object|null, formalAi: object|null, agenticClis: object|null, errors: object[]}>}
  */
-export const runFormalAiMaintenanceTick = async ({ env = process.env, run, log = null, verbose = false, updateFormalAi = updateFormalAiSidecarWhenIdle, updateClis = updateAgenticClisWhenIdle, stopIdle = stopIdleFormalAiSidecar } = {}) => {
+export const runFormalAiMaintenanceTick = async ({ env = process.env, run, log = null, verbose = false, updateFormalAi = updateFormalAiSidecarWhenIdle, updateClis = updateAgenticClisWhenIdle, stopIdle = stopIdleFormalAiSidecar, unloadIdle = unloadIdleFormalAiSidecar } = {}) => {
   const errors = [];
 
   let idle = { leaseCount: null, stopped: false };
@@ -61,6 +67,13 @@ export const runFormalAiMaintenanceTick = async ({ env = process.env, run, log =
     idle = await stopIdle({ env, run, log, verbose });
   } catch (error) {
     errors.push({ stage: 'stop-idle', error: error?.message || String(error) });
+  }
+
+  let unload = null;
+  try {
+    unload = await unloadIdle({ env, run, log, verbose });
+  } catch (error) {
+    errors.push({ stage: 'unload-idle', error: error?.message || String(error) });
   }
 
   let formalAi = null;
@@ -78,8 +91,8 @@ export const runFormalAiMaintenanceTick = async ({ env = process.env, run, log =
   }
 
   if (log && errors.length > 0) await log(`⚠️ Formal AI maintenance tick had ${errors.length} problem(s): ${errors.map(entry => `${entry.stage}: ${entry.error}`).join('; ')}`);
-  if (verbose && log) await log(`[VERBOSE] formal-ai-maintenance: leases=${idle.leaseCount ?? 'unknown'} stopped=${idle.stopped} update=${formalAi?.status ?? 'skipped'} clis=${agenticClis?.status ?? 'skipped'}`);
-  return { idle, formalAi, agenticClis, errors };
+  if (verbose && log) await log(`[VERBOSE] formal-ai-maintenance: leases=${idle.leaseCount ?? 'unknown'} stopped=${idle.stopped} unload=${unload?.status ?? 'skipped'} update=${formalAi?.status ?? 'skipped'} clis=${agenticClis?.status ?? 'skipped'}`);
+  return { idle, unload, formalAi, agenticClis, errors };
 };
 
 /**

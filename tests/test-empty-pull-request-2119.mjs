@@ -135,7 +135,7 @@ assert.ok(/!hasUncommittedChanges && !isEmptyPullRequest/.test(autoMergeSource),
 assert.ok(autoMergeSource.includes('buildEmptyPullRequestBlocker(changeStats)'), 'an empty pull request is reported as a restart reason, naming the placeholder when that is all there is');
 
 const resultsSource = await readFile(path.join(repoRoot, 'src', 'solve.results.lib.mjs'), 'utf8');
-assert.ok(resultsSource.includes('formatChangeSummary(changeStats)'), 'the generated description renders the shared change summary');
+assert.ok(resultsSource.includes('formatChangesSection(changeStats)'), 'the generated description renders the shared change summary');
 assert.ok(!/- \$\{filesChanged\} file\(s\) modified/.test(resultsSource), 'the old unconditional file count is gone');
 
 assert.ok(EMPTY_PULL_REQUEST_BLOCKER.includes('net diff is empty'), EMPTY_PULL_REQUEST_BLOCKER);

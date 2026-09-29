@@ -67,6 +67,31 @@ export const setPreExitHandler = preExit => {
   preExitFunction = preExit;
 };
 
+// Issue #2312: work that must happen once on every exit path, success or failure,
+// before the process goes away (e.g. restoring pull requests left in draft).
+let runEndHook = null;
+let runEndHookRan = false;
+
+export const setRunEndHook = hook => {
+  runEndHook = hook;
+  runEndHookRan = false;
+};
+
+const runRunEndHookOnce = async ({ code, reason }) => {
+  if (!runEndHook || runEndHookRan) return;
+  runEndHookRan = true;
+  try {
+    await runEndHook({ code, reason });
+  } catch (error) {
+    const message = error && error.message ? error.message : String(error);
+    if (logFunction) {
+      await logFunction(`⚠️  Run-end handler failed: ${message}`, { level: 'warning' });
+    } else {
+      console.warn(`⚠️  Run-end handler failed: ${message}`);
+    }
+  }
+};
+
 /**
  * Issue #1823: Delegate SIGINT/SIGTERM handling to an external graceful shutdown owner.
  *
@@ -247,6 +272,7 @@ export const safeExit = async (code = 0, reason = 'Process completed', { skipPre
   // Issue #2117: every best-effort step below is diagnostic housekeeping. It may
   // fail, but it must never change the exit code the caller asked for — neither
   // by masking a failure nor by turning a success into an uncaught exception.
+  await runRunEndHookOnce({ code, reason });
   try {
     await showExitMessage(reason, code);
   } catch (error) {
@@ -498,6 +524,7 @@ export const installGlobalExitHandlers = ({ handleProcessErrors = true } = {}) =
  */
 export const resetExitHandler = () => {
   exitMessageShown = false;
+  runEndHookRan = false;
   interruptHandlerRan = false;
   signalHandlingDelegated = false;
 };

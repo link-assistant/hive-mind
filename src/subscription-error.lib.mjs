@@ -321,7 +321,7 @@ export const formatSubscriptionErrorReport = (info, { tool = null, sessionId = n
   lines.push('');
   lines.push('   What to do:');
   for (const step of info.guidance || []) lines.push(`     • ${step}`);
-  if (committed === true) lines.push('   💾 Uncommitted changes were auto-committed and pushed before stopping.');
+  if (committed === true) lines.push('   💾 Uncommitted changes were auto-committed to the recovery/<branch> branch and pushed before stopping (the PR branch was not changed).');
   else if (committed === false) lines.push('   ⚠️  No uncommitted changes to preserve (working tree was clean).');
   if (tempDir) lines.push(`   📁 Working directory: ${tempDir}`);
   if (branchName) lines.push(`   🌿 Branch: ${branchName}`);

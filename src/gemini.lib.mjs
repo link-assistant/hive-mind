@@ -31,6 +31,7 @@ import { getCumulativeContextInputTokens, toTokenCount } from './context-fill.li
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
 import { getTerminalEventCompletionHealth } from './tool-run-health.lib.mjs'; // Issue #1990
 import { takeJsonRecords } from './json-stream.lib.mjs'; // Issue #2119
+import { createToolCallLoopGuard } from './tool-call-loop-guard.lib.mjs'; // Issue #2316
 import { ensureGeminiFamilyMemoryDisabled, isAgentMemoryDisabled } from './agent-memory-policy.lib.mjs'; // Issue #2178
 import { ensureGeminiFamilyAuxiliaryDisabled, isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236
 
@@ -478,12 +479,14 @@ export const executeGeminiCommand = async params => {
 
       await log(`\n${formatAligned('▶️', 'Streaming output:', '')}\n`);
 
+      const toolCallLoopGuard = createToolCallLoopGuard({ log, stopSession: async () => execCommand?.kill?.('SIGTERM') }); // Issue #2316
       for await (const chunk of execCommand.stream()) {
         if (chunk.type === 'stdout') {
           const output = chunk.data.toString();
           await log(output, { stream: 'stdout' });
           allOutput += output;
           geminiJsonState = parseGeminiJsonOutput(output, geminiJsonState, mappedModel);
+          await toolCallLoopGuard.observeOutput(output);
           if (geminiJsonState.sessionId) {
             sessionId = geminiJsonState.sessionId;
           }

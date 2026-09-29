@@ -107,7 +107,7 @@ export const resolvePlaywrightSkillSource = async ({ $, log = noopLog, cwd = pro
   cachedSource = null;
   if (!$) return null;
   const quiet = $({ mirror: false, capture: true });
-  const stdoutOf = result => (result?.stdout || '').toString();
+  const stdoutOf = result => result?.stdout?.toString() || '';
   const probes = [
     { label: 'npm root -g', run: () => quiet`npm root -g 2>/dev/null`, dirs: out => (out.trim() ? playwrightSkillDirsUnderNpmRoot(out.trim()) : []) },
     { label: 'playwright-cli --help', run: () => quiet`CLAUDECODE=1 playwright-cli --help 2>/dev/null`, dirs: out => [parsePlaywrightSkillPathFromHelp(out, cwd)] },
@@ -145,7 +145,7 @@ const resolveExcludePath = async ({ $, tempDir }) => {
   if ($) {
     try {
       const result = await $({ cwd: tempDir })`git rev-parse --git-path info/exclude 2>/dev/null`;
-      const rel = (result.stdout || '').toString().trim();
+      const rel = (result.stdout?.toString() || '').trim();
       if (result.code === 0 && rel) return path.isAbsolute(rel) ? rel : path.join(tempDir, rel);
     } catch {
       // fall through

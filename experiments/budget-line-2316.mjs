@@ -1,0 +1,3 @@
+import { buildAgentBudgetStats, buildBudgetStatsString } from '../src/claude.budget-stats.lib.mjs';
+console.log(buildBudgetStatsString(buildAgentBudgetStats({ inputTokens: 15000, outputTokens: 1000, cacheReadTokens: 0, cacheWriteTokens: 0, stepCount: 5, respondedModelId: 'm', contextLimit: 204800, outputLimit: 32000, peakContextUsage: 14000 }, { modelName: 'M', totalCostUSD: 0.005 })));
+console.log(buildBudgetStatsString(buildAgentBudgetStats({ inputTokens: 6183844, outputTokens: 27382, cacheReadTokens: 0, cacheWriteTokens: 0, stepCount: 1, respondedModelId: 'formal-ai', contextLimit: 200000, outputLimit: 100000, peakContextUsage: 6183844 }, { modelName: 'Formal AI', totalCostUSD: 0 })));

@@ -220,7 +220,7 @@ async function getPullRequestBranchRange({ owner, repo, prNumber, $, log }) {
 
   let branchRange;
   try {
-    branchRange = JSON.parse(String(result.stdout || '').trim());
+    branchRange = JSON.parse(String(result.stdout?.toString() || '').trim());
   } catch {
     throw new Error(`Could not verify pull request branches for #${prNumber}: gh returned invalid JSON`);
   }

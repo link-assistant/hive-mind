@@ -733,7 +733,7 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'ensure-all-sub-issues-addressed': {
     type: 'string',
-    description: '[EXPERIMENTAL] After the main solve completes, check that the pull request description closes every GitHub native sub-issue of the issue being solved with a reference GitHub actually recognizes. When references are missing, automatically restart the AI tool and ask it to double check that each of those sub-issues was really addressed in this single pull request. Accepts a number of restarts (default: 5), or "forever"/"unlimited" to remove the limit. Bare flag means the default of 5. Enabled automatically when solving a repository URL.',
+    description: '[EXPERIMENTAL] After the main solve completes, check that the pull request description closes every GitHub native sub-issue of the issue being solved with a reference GitHub actually recognizes. When references are missing, automatically restart the AI tool and ask it to double check that each of those sub-issues was really addressed in this single pull request. Accepts a number of restarts (default: 5), or "forever"/"unlimited" to remove the limit. Bare flag means the default of 5. Enabled automatically when solving a repository URL; there the closing references required by the combined issue body are checked too, and --auto-merge is held back while any of them is missing.',
     alias: ['ensure-all-sub-issues', 'ensure-sub-issues'],
     default: undefined,
   },

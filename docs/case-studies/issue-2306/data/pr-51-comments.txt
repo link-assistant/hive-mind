@@ -1,0 +1,53 @@
+2026-09-27T05:42:23Z 5853081523
+The draft now has a passing local Node/Bun/Deno matrix and two complete 10/10 mutable-candidate browser runs. The remaining acceptance work needs operator inputs that are unavailable in this workspace:
+
+1. **npm owner:** add an appropriately scoped first-publish `NPM_TOKEN` as a repository secret. The package still returns registry `E404`, and the prior release job failed with `ENEEDAUTH`. Please provide the secret through GitHub settings, not in this discussion. After the first publish, trusted publishing and token rotation can be verified.
+2. **Telegram operator:** arrange a protected native mtcute login and independent bot, runtime-user, and E2E-driver identity pins; provide authorized local access to the retained private 40-source checkpoint and the supported `clink` binary. Please do not post credentials, numeric IDs, aliases, messages, or traces here.
+3. **Deployment operator:** arrange an authorized live Bot API handoff window and the eventual published `linux/amd64` and `linux/arm64` image digests for the downtime, failed-candidate restoration, and exact-image checks.
+
+The [issue #50 ledger](https://github.com/konard/vietnam-accomodation-search/blob/issue-50-653f58325aee/docs/case-studies/issue-50/README.md) records the exact remaining gates. PR #51 remains draft, with no closing references, until the linked acceptance checklists pass.
+
+======
+2026-09-27T05:55:17Z 5853161689
+## 🤖 Solution Draft Log
+This log file contains the complete execution trace of the AI solution draft process.
+
+### 💰 **Cost estimation:**
+- Model: GPT-6 Sol
+- Provider: OpenAI
+- Public pricing estimate: $27.379461
+
+### 📊 **Context and tokens usage:**
+- 636.7K / 200K (318%) input tokens, 133.6K / 128K (104%) output tokens
+
+Total: (636.7K + 57.1M cached) input tokens, 133.6K output tokens, $27.379461 cost
+
+### 🤖 **Models used:**
+- Tool: OpenAI Codex
+- Requested: `gpt-6-sol`
+- Thinking level: xhigh (~31999 tokens)
+- **Model: GPT-6 Sol** (`gpt-6-sol`)
+
+### 📎 **Log file uploaded as Gist** (22323KB)
+- [View complete solution draft log](https://gist.githubusercontent.com/konard/379234934a3ba89e3e23a7fd860e860c/raw/78bb1bbd89c571f821e85e45d087a17c329f3e21/tmp-hive-mind-log-upload-vfNC9h-sanitized.log.txt)
+
+---
+*Now working session is ended, feel free to review and add any feedback on the solution draft.*
+======
+2026-09-27T06:24:46Z 5853355730
+At commit `6c7382f`, the Node/Bun/Deno suites and `npm run check` pass, and the private-safe `clink` phase profiler is available. I rechecked #48's acceptance gates: `npm view vietnam-accomodation-search` still returns `E404`, local `npm whoami` returns `ENEEDAUTH`, and this workspace has no protected native mtcute session, independent identity pins, or retained private 40-source corpus. Those gates cannot be claimed from fixture or synthetic evidence.
+
+There is also a release-ordering constraint: `.github/workflows/release.yml` publishes on a `main` push; its manual instant-release job writes a version commit to `main`. #48 requires this PR to stay draft until one immutable candidate passes, so the current workflow cannot publish this branch's exact candidate while keeping that rule and the branch-only contribution policy.
+
+Please provide the scoped first-publish `NPM_TOKEN` through repository secrets and the protected Telegram/corpus/deployment inputs described above, plus an approved branch-candidate publication path or release ordering for this draft PR. Do not put credentials, numeric identities, source aliases, posts, or private traces in comments. I have left PR #51 draft and have not added `Fixes #48` while its acceptance checklist is open.
+
+======
+2026-09-27T07:53:38Z 5853978374
+## 🎉 Auto-merged
+
+This pull request has been automatically merged by hive-mind.
+- All CI checks have passed
+
+---
+*Auto-merged by hive-mind with --auto-merge flag*
+======

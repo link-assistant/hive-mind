@@ -123,7 +123,7 @@ export const setupUpstreamAndSync = async (tempDir, forkedRepo, upstreamRemote, 
       upstreamExists = true;
     } else {
       await log(`${formatAligned('⚠️', 'Warning:', 'Failed to add upstream remote')}`);
-      if (upstreamResult.stderr) {
+      if (upstreamResult.stderr?.toString()) {
         await log(`${formatAligned('', 'Error details:', upstreamResult.stderr.toString().trim())}`);
       }
     }
@@ -211,7 +211,7 @@ export const setupUpstreamAndSync = async (tempDir, forkedRepo, upstreamRemote, 
                 await log(`${formatAligned('✅', 'Fork updated:', 'Default branch pushed to fork')}`);
               } else {
                 // Check if it's a non-fast-forward error (fork has diverged from upstream)
-                const errorMsg = (pushResult.stderr ? pushResult.stderr.toString().trim() : '') || (pushResult.stdout ? pushResult.stdout.toString().trim() : '');
+                const errorMsg = (pushResult.stderr?.toString() ? pushResult.stderr.toString().trim() : '') || (pushResult.stdout?.toString() ? pushResult.stdout.toString().trim() : '');
 
                 // Issue #1893: a "permission denied" rejection is NOT a divergence.
                 // It means the current user cannot write to this fork (e.g. it
@@ -290,7 +290,7 @@ export const setupUpstreamAndSync = async (tempDir, forkedRepo, upstreamRemote, 
                       await log('     Both normal push and force-with-lease push failed');
                       await log('');
                       await log('  📦 Error details:');
-                      const forceErrorMsg = forcePushResult.stderr ? forcePushResult.stderr.toString().trim() : '';
+                      const forceErrorMsg = forcePushResult.stderr?.toString() ? forcePushResult.stderr.toString().trim() : '';
                       for (const line of forceErrorMsg.split('\n')) {
                         if (line.trim()) await log(`     ${line}`);
                       }
@@ -339,7 +339,7 @@ export const setupUpstreamAndSync = async (tempDir, forkedRepo, upstreamRemote, 
               }
             } else {
               await log(`${formatAligned('⚠️', 'Warning:', `Failed to sync ${upstreamDefaultBranch} with upstream`)}`);
-              if (syncResult.stderr) {
+              if (syncResult.stderr?.toString()) {
                 await log(`${formatAligned('', 'Sync error:', syncResult.stderr.toString().trim())}`);
               }
             }
@@ -352,7 +352,7 @@ export const setupUpstreamAndSync = async (tempDir, forkedRepo, upstreamRemote, 
       }
     } else {
       await log(`${formatAligned('⚠️', 'Warning:', 'Failed to fetch upstream')}`);
-      if (fetchResult.stderr) {
+      if (fetchResult.stderr?.toString()) {
         await log(`${formatAligned('', 'Fetch error:', fetchResult.stderr.toString().trim())}`);
       }
     }

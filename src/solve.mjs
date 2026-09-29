@@ -62,7 +62,7 @@ const { setupRepositoryAndClone, verifyDefaultBranchAndStatus } = await import('
 const { recordAfterCloneSize, recordAfterAgentSize } = await import('./solve.disk-diagnostics.lib.mjs');
 const { createOrCheckoutBranch } = await import('./solve.branch.lib.mjs');
 const { startWorkSession, endWorkSession, SESSION_TYPES } = await import('./solve.session.lib.mjs');
-const { attachFinalLogIfMissing } = await import('./attach-logs-guarantee.lib.mjs'); // Issue #1952
+const { attachFinalLogIfMissing, attachLogAfterPostSolveRestarts } = await import('./attach-logs-guarantee.lib.mjs'); // Issue #1952, #2306
 const { collectAndCommitDevelopmentLogArtifacts, fetchIssueType, isDevelopmentLogEnabled, isIssueTypeAwarePromptEnabled } = await import('./development-log.lib.mjs');
 const { createDevelopmentLogFinalizer } = await import('./development-log.finalize.lib.mjs');
 // Issue #1625: centralized markers + tracked comment posting for solve.mjs's own usage-limit notifications (so they're excluded from the "did the AI post anything?" check in --auto-attach-solution-summary).
@@ -72,7 +72,7 @@ const { validateAndExitOnInvalidClaudeSubAgentModel, validateAndExitOnInvalidMod
 const { autoAcceptInviteForRepo } = await import('./solve.accept-invite.lib.mjs');
 const { handleAutoForkOption, handleMaintainerForkAccess } = await import('./solve.fork-detection.lib.mjs');
 const { resolveUncommittedChangesTool } = await import('./solve.tool-uncommitted.lib.mjs');
-const { classifyFormalAiToolResult } = await import('./formal-ai.lib.mjs');
+const { classifySessionResult } = await import('./session-result.lib.mjs'); // Issue #2316
 const logFile = await initializeLogFile(null);
 const versionInfo = await getVersionInfo();
 const rawCommand = await logSolveStartup(versionInfo);
@@ -134,6 +134,7 @@ const cleanupWrapper = async () => {
 };
 const interruptWrapper = createInterruptWrapper({ cleanupContext, checkForUncommittedChanges, shouldAttachLogs, attachLogToGitHub, getLogFile, sanitizeLogContent, $, log });
 initializeExitHandler(getAbsoluteLogPath, log, cleanupWrapper, interruptWrapper, ({ code, reason, failureActionSection }) => notifyIssueAboutPrePullRequestFailure({ code, reason, failureActionSection, argv, globalState: global, $, log, getLogFile, shouldAttachLogs, attachLogToGitHub, sanitizeLogContent, rawCommand }));
+exitHandler.setRunEndHook(async ({ reason }) => (await import('./pr-draft-state.lib.mjs')).restoreDeliberateDraftsAtRunEnd({ $, log, formatAligned, reason: `run end (${reason})`, reportError })); // #2312: never leave a PR in draft at run end
 installGlobalExitHandlers({ handleProcessErrors: false }); // #2117: solve's richer process-error handlers below must not race a duplicate pair.
 // Issue #1823: Configure the working-session guard. When the experimental --do-not-shutdown-in-the-middle-of-working-session flag is set (hive passes it to every worker), an interrupt received during an AI working session is deferred: solve lets the AI finish, auto-commits, then shuts down gracefully instead of aborting the AI tool mid-run.
 configureWorkingSession({ enabled: argv['do-not-shutdown-in-the-middle-of-working-session'] === true, log });
@@ -681,19 +682,13 @@ try {
     });
     toolResult = claudeResult;
   }
-  toolResult = classifyFormalAiToolResult({ model: argv.model, toolResult });
-  // Issue #2190: the router auth guard killed the CLI because the task tried to
-  // authenticate with something other than its router token. Not a tool
-  // failure to retry or a mergeability problem — a security stop, with its own
-  // exit code so the supervisor can tell it apart.
+  toolResult = await classifySessionResult({ toolResult, argv, owner, repo, prNumber, $, log });
+  // Issue #2190: the router auth guard killed the CLI (the task used a credential other than its router token).
+  // Not a tool failure to retry — a security stop, with its own exit code so the supervisor can tell it apart.
   if (toolResult?.routerAuthViolation) {
     const { EXIT_CODE_ROUTER_AUTH_VIOLATION, formatRouterAuthViolation } = await import('./router-auth-guard.lib.mjs');
     await log(`❌ ${formatRouterAuthViolation(toolResult.routerAuthViolation)}`, { level: 'error' });
     await safeExit(EXIT_CODE_ROUTER_AUTH_VIOLATION, 'Router auth guard: the task tried to use a credential other than its router token (issue #2190)');
-  }
-  if (toolResult?.formalAiNonExecution) {
-    await log(`❌ ${toolResult.errorInfo.message}`, { level: 'error' });
-    await log('   The deterministic terminal response will not be retried as a mergeability problem.', { level: 'error' });
   }
   try {
     await recordAfterAgentSize({ tempDir, beforeBytes: cleanupContext.diskDiagnostics?.beforeBytes ?? null, log });
@@ -928,7 +923,7 @@ try {
     }
   }
   // Skip failure exit if limit reached with auto-resume (continues to showSessionSummary/autoContinueWhenLimitResets)
-  const shouldSkipFailureExitForAutoLimitContinue = limitReached && argv.autoResumeOnLimitReset;
+  const shouldSkipFailureExitForAutoLimitContinue = (limitReached && argv.autoResumeOnLimitReset) || toolResult.restartWithFeedback; // Issue #2316: the restart loop runs the next session with feedback
   if ((!success || errorDuringExecution) && !shouldSkipFailureExitForAutoLimitContinue) {
     // Issue #942: show all three resume options on failure for richer guidance.   1. Interactive claude  - opens Claude Code interactively (claude only)   2. Autonomous claude   - one-shot claude --resume w/ --dangerously-skip-permissions -p (claude only)   3. Solve resume        - re-enters solve.mjs with --resume, preserving tool/model/dir
     const toolForFailure = argv.tool || 'claude';
@@ -1062,7 +1057,7 @@ try {
   }
   // When limit is reached, force auto-commit of any uncommitted changes to preserve work. Issue #1834 (PR #1835 feedback): "on all critical errors we auto commit uncommitted changes by default." A failed/errored session is a critical error, so auto-commit (and push) to preserve any work the agent left on disk. On by default; disable via HIVE_MIND_AUTO_COMMIT_ON_CRITICAL_ERROR=false.
   const { criticalErrorRecovery } = await import('./config.lib.mjs');
-  const criticalError = success === false || errorDuringExecution === true;
+  const criticalError = (success === false || errorDuringExecution === true) && !toolResult.restartWithFeedback;
   const shouldAutoCommit = argv['auto-commit-uncommitted-changes'] || limitReached || (criticalError && criticalErrorRecovery.autoCommitUncommittedChanges);
   const autoRestartEnabled = argv['autoRestartOnUncommittedChanges'] !== false;
   const shouldRestart = await checkForUncommittedChanges(tempDir, owner, repo, branchName, $, log, shouldAutoCommit, autoRestartEnabled);
@@ -1070,6 +1065,7 @@ try {
   await showSessionSummary(sessionId, limitReached, argv, issueUrl, tempDir, shouldAttachLogs);
   // Issue #1571: Defense-in-depth guard — skip post-processing if auto-continue is handling it (prevents "Solution Draft Log" / "Ready to merge" comments before "Auto Resume")
   if (limitReached && (argv.autoResumeOnLimitReset || argv.autoRestartOnLimitReset) && global.limitResetTime) {
+    exitHandler.setRunEndHook(null); // #2312: the run continues in the child process
     await safeExit(0, 'Auto-continue child process will handle post-processing');
   }
   await enforceRequestedBaseBranch();
@@ -1130,14 +1126,16 @@ try {
       await log('⚠️  PR title/description still not updated after restart');
     }
   }
-  // Post-solve restart loops (escalate #1885 first, then finalize #1383, then keep-working #1883):
-  applyRestartResult(await runEscalation({ issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, workspaceTmpDir, argv, cleanupClaudeFile, resultSummary }));
-  applyRestartResult(await runAutoEnsureRequirements({ issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, argv, cleanupClaudeFile }));
-  applyRestartResult(await runKeepWorkingUntilDone({ issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, workspaceTmpDir, argv, cleanupClaudeFile, resultSummary }));
-  // Issue #2212: runs last on purpose — the earlier loops may still rewrite the
-  // pull request description, so the closing references are verified against its
-  // final state.
-  applyRestartResult(await runEnsureAllSubIssuesAddressed({ issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, workspaceTmpDir, argv, cleanupClaudeFile }));
+  // Post-solve restart loops (escalate #1885 first, then finalize #1383, then keep-working #1883); #2306: a non-null result means iterations ran
+  const postSolveRestarts = [];
+  const applyPostSolveRestart = result => applyRestartResult(postSolveRestarts.push(result) && result);
+  applyPostSolveRestart(await runEscalation({ issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, workspaceTmpDir, argv, cleanupClaudeFile, resultSummary }));
+  applyPostSolveRestart(await runAutoEnsureRequirements({ issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, argv, cleanupClaudeFile }));
+  applyPostSolveRestart(await runKeepWorkingUntilDone({ issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, workspaceTmpDir, argv, cleanupClaudeFile, resultSummary }));
+  // Issue #2212: runs last on purpose — the earlier loops may still rewrite the pull
+  // request description, so the closing references are verified against its final state.
+  applyPostSolveRestart(await runEnsureAllSubIssuesAddressed({ issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, workspaceTmpDir, argv, cleanupClaudeFile }));
+  await attachLogAfterPostSolveRestarts({ restartIterationsRan: postSolveRestarts.filter(Boolean).length, shouldAttachLogs, prNumber, owner, repo, $, log, sanitizeLogContent, getLogFile, attachLogToGitHub, argv, sessionId, tempDir, anthropicTotalCostUSD, resultModelUsage });
   // Start watch mode if enabled OR if we need to handle uncommitted changes
   if (argv.verbose) {
     await log('');

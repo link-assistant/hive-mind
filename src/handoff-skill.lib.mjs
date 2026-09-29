@@ -87,7 +87,7 @@ const resolveExcludePath = async ({ $, tempDir }) => {
   if ($) {
     try {
       const result = await $({ cwd: tempDir })`git rev-parse --git-path info/exclude 2>/dev/null`;
-      const rel = (result.stdout || '').toString().trim();
+      const rel = (result.stdout?.toString() || '').trim();
       if (result.code === 0 && rel) {
         return path.isAbsolute(rel) ? rel : path.join(tempDir, rel);
       }

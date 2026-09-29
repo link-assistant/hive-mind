@@ -31,6 +31,7 @@ import { getCumulativeContextInputTokens, getRestoredContextInputTokens, toToken
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
 import { getTerminalEventCompletionHealth } from './tool-run-health.lib.mjs'; // Issue #1990
 import { takeJsonRecords } from './json-stream.lib.mjs'; // Issue #2119
+import { createToolCallLoopGuard } from './tool-call-loop-guard.lib.mjs'; // Issue #2316
 import { stringifyErrorValue } from './error-text.lib.mjs'; // Issue #2141
 import { ensureGeminiFamilyMemoryDisabled, isAgentMemoryDisabled } from './agent-memory-policy.lib.mjs'; // Issue #2178
 import { ensureGeminiFamilyAuxiliaryDisabled, isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236
@@ -568,12 +569,14 @@ export const executeQwenCommand = async params => {
       let qwenState = createQwenParserState();
       let allOutput = '';
 
+      const toolCallLoopGuard = createToolCallLoopGuard({ log, stopSession: async () => execCommand?.kill?.('SIGTERM') }); // Issue #2316
       for await (const chunk of execCommand.stream()) {
         if (chunk.type === 'stdout') {
           const output = chunk.data.toString();
           await log(output, { stream: 'stdout' });
           allOutput += output;
           qwenState = parseQwenStreamJsonOutput(output, qwenState);
+          await toolCallLoopGuard.observeOutput(output);
         }
 
         if (chunk.type === 'stderr') {

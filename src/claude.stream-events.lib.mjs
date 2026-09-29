@@ -32,6 +32,9 @@ const normalizeToolResultError = value => {
  *   - `harness_blocked`     the AI tool's own harness refused the command (e.g. foreground sleep)
  *   - `command_timeout`     the AI's command hit its Bash timeout (SIGTERM ⇒ exit code 143)
  *   - `command_exit_code`   a bare non-zero exit status with no further detail
+ *   - `nothing_to_commit`   `git commit` found nothing to commit (issue #2313): it exits 1, but
+ *                           it says nothing about whether the solution works - the pull request
+ *                           diff and CI decide that, not the last command's exit status
  * Anything else is left unclassified and keeps being treated as a real error signal.
  *
  * @param {string|null} toolResultError - normalized tool_result error text
@@ -46,6 +49,7 @@ export const classifyToolResultError = toolResultError => {
   // A bare "Exit code 143" is the SIGTERM the AI tool sends when its own Bash timeout fires.
   if (/^Exit code 143\.?$/i.test(text)) return { benign: true, category: 'command_timeout' };
   if (/^Exit code \d+\.?$/i.test(text)) return { benign: true, category: 'command_exit_code' };
+  if (/^(Error: )?Exit code 1\b/i.test(text) && /^(nothing to commit|nothing added to commit|no changes added to commit)\b/im.test(text)) return { benign: true, category: 'nothing_to_commit' };
 
   return { benign: false, category: null };
 };

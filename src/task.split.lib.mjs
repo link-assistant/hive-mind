@@ -211,11 +211,38 @@ export function buildIssueRestIdApiArgs(issue) {
   return ['api', `repos/${issue.owner}/${issue.repo}/issues/${issue.number}`, '--jq', '.id'];
 }
 
-export function buildAddSubIssueApiArgs({ parentIssue, subIssueId }) {
+/**
+ * Build the `gh api` arguments that attach an issue as a sub-issue.
+ *
+ * Issue #2306: GitHub allows one parent per sub-issue and answers a second
+ * attachment with HTTP 422 "Sub issue may only have one parent". The documented
+ * `replace_parent` body parameter moves the sub-issue to the new parent instead
+ * (https://docs.github.com/en/rest/issues/sub-issues#add-sub-issue). `-F` sends
+ * it as a JSON boolean. `sub_issue_id` stays the last argument.
+ *
+ * @param {object} params
+ * @param {{owner: string, repo: string, number: number}} params.parentIssue
+ * @param {number|string} params.subIssueId - REST database id of the sub-issue
+ * @param {boolean} [params.replaceParent=false]
+ * @returns {string[]}
+ */
+export function buildAddSubIssueApiArgs({ parentIssue, subIssueId, replaceParent = false }) {
   const numericId = Number(subIssueId);
   if (!Number.isInteger(numericId) || numericId <= 0) {
     throw new Error(`Invalid sub-issue REST id: ${subIssueId}`);
   }
 
-  return ['api', '-X', 'POST', `repos/${parentIssue.owner}/${parentIssue.repo}/issues/${parentIssue.number}/sub_issues`, '-H', 'Accept: application/vnd.github+json', '-H', `X-GitHub-Api-Version: ${GITHUB_SUB_ISSUES_API_VERSION}`, '-F', `sub_issue_id=${numericId}`];
+  const replaceParentArgs = replaceParent ? ['-F', 'replace_parent=true'] : [];
+  return ['api', '-X', 'POST', `repos/${parentIssue.owner}/${parentIssue.repo}/issues/${parentIssue.number}/sub_issues`, '-H', 'Accept: application/vnd.github+json', '-H', `X-GitHub-Api-Version: ${GITHUB_SUB_ISSUES_API_VERSION}`, ...replaceParentArgs, '-F', `sub_issue_id=${numericId}`];
+}
+
+/**
+ * Build the `gh api` arguments that read the current parent of an issue
+ * (https://docs.github.com/en/rest/issues/sub-issues#get-parent-issue).
+ *
+ * @param {{owner: string, repo: string, number: number}} issue
+ * @returns {string[]}
+ */
+export function buildParentIssueApiArgs(issue) {
+  return ['api', `repos/${issue.owner}/${issue.repo}/issues/${issue.number}/parent`, '-H', 'Accept: application/vnd.github+json', '-H', `X-GitHub-Api-Version: ${GITHUB_SUB_ISSUES_API_VERSION}`];
 }

@@ -20,6 +20,9 @@ const buildTokenUsageString = tokenUsage => {
   return `\n- Token usage: ${parts.join(', ')}`;
 };
 
+/** The session's price is known to be $0.00 (a free model priced as itself, not via a base model). */
+export const isFreeModelPricing = pricingInfo => Boolean(pricingInfo?.isFreeModel && !pricingInfo?.baseModelName);
+
 /** Build cost estimation string for log comments (Issue #1250, Issue #1557, Issue #1600: Decimal precision) */
 export const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo, options = {}) => {
   const includeTokenUsage = options.includeTokenUsage !== false;
@@ -40,7 +43,7 @@ export const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricing
     if (pricingInfo.provider) costInfo += `\n- Provider: ${pricingInfo.provider}`;
   }
   if (hasPublic) {
-    if (pricingInfo?.isFreeModel && publicDec.eq(0) && !pricingInfo?.baseModelName) {
+    if (isFreeModelPricing(pricingInfo) && publicDec.eq(0)) {
       costInfo += '\n- Public pricing estimate: $0.00 (Free model)';
     } else {
       let pricingRef = '';
@@ -51,7 +54,7 @@ export const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricing
       }
       costInfo += `\n- Public pricing estimate: $${publicDec.toFixed(6)}${pricingRef}`;
     }
-  } else if (pricingInfo?.isFreeModel && !pricingInfo?.baseModelName) {
+  } else if (isFreeModelPricing(pricingInfo)) {
     // Issue #2119: a free model has a known price - $0.00 - even when no
     // usage-derived estimate was produced. Reporting "unknown" for it was a
     // false negative (`--model formal-ai` is served free by Link.Assistant).

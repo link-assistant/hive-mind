@@ -1,5 +1,25 @@
 # @link-assistant/hive-mind
 
+## 2.33.1
+
+### Patch Changes
+
+- c5d1ea2: Run every model through one code path (#2320). A deliberate draft restarts the AI instead of stopping after fake restores (#2312). Restart feedback names the uncommitted files, and Formal AI no longer has a private prompt dialect (#2313). `--tool agent` keeps gh auth (#2314). Critical-error recovery pushes to `recovery/<branch>`, never to the PR branch (#2315). The repeated-tool-call breaker covers every adapter (#2316). Attribution identity is read only from generation records (#2317). The PR Changes section is regenerated from the diff after every session (#2318). A manual Hello World end-to-end matrix is added (#2319).
+
+## 2.33.0
+
+### Minor Changes
+
+- 0e0e824: Formal AI no longer costs disk, bandwidth or CPU on hosts that do not use it (#2305). The ~24 GB sidecar image is pulled by the first `--model formal-ai` task instead of in advance. Updates are checked hourly, and only while the image is present and was used within the unload window. The registry manifest digest is compared before any pull, so an unchanged release downloads nothing. A verified update removes the image it replaced. After `HIVE_MIND_FORMAL_AI_UNLOAD_AFTER` (default `5h`) without a Formal AI task, the sidecar container, its network and every Formal AI image are removed under the sidecar lock, and the log reports the bytes freed. The `hive-mind-formal-ai-memory` volume is always kept. The sidecar mounts tmpfs over its image `VOLUME`s and is removed with `--volumes`, so it no longer leaks anonymous volumes. `HIVE_MIND_FORMAL_AI_PREFETCH=true` restores eager pulling and updating.
+
+## 2.32.1
+
+### Patch Changes
+
+- 6ee39cf: Repository mode no longer merges a pull request that leaves the listed issues open (#2306): issues still attached to a stale combined issue are moved with `replace_parent`, the closing references required by the combined issue body are checked together with native sub-issues, `--auto-merge` is held back while any of them is missing, and the log is uploaded again after post-solve restart iterations.
+
+  Also refreshes the CI-enforced dependency pins (use-m 8.16.4, command-stream 1.1.0, links-notation 0.21.3, secretlint 13.0.6, lint-staged 17.6.0, Formal AI 0.352.1) and adapts command result handling to command-stream 1.x, whose `stdout`/`stderr` are always-truthy stream objects.
+
 ## 2.32.0
 
 ### Minor Changes

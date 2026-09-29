@@ -38,7 +38,7 @@ export async function prepareFeedbackAndTimestamps({ tempDir = null, prNumber, b
     const issueResult = await $`gh api repos/${owner}/${repo}/issues/${issueNumber} --jq .updated_at`;
 
     if (issueResult.code !== 0) {
-      throw new Error(`Failed to get issue details: ${issueResult.stderr ? issueResult.stderr.toString() : 'Unknown error'}`);
+      throw new Error(`Failed to get issue details: ${issueResult.stderr?.toString() ? issueResult.stderr.toString() : 'Unknown error'}`);
     }
 
     const issueUpdatedAt = new Date(issueResult.stdout.toString().trim());
@@ -52,7 +52,7 @@ export async function prepareFeedbackAndTimestamps({ tempDir = null, prNumber, b
     const commentsResult = await quietProbe($)`gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate`;
 
     if (commentsResult.code !== 0) {
-      await log(`Warning: Failed to get comments: ${commentsResult.stderr ? commentsResult.stderr.toString() : 'Unknown error'}`, { level: 'warning' });
+      await log(`Warning: Failed to get comments: ${commentsResult.stderr?.toString() ? commentsResult.stderr.toString() : 'Unknown error'}`, { level: 'warning' });
       // Continue anyway, comments are optional
     }
 
@@ -68,7 +68,7 @@ export async function prepareFeedbackAndTimestamps({ tempDir = null, prNumber, b
     const prsResult = await $`gh pr list --repo ${owner}/${repo} --limit 1 --json createdAt`;
 
     if (prsResult.code !== 0) {
-      await log(`Warning: Failed to get PRs: ${prsResult.stderr ? prsResult.stderr.toString() : 'Unknown error'}`, {
+      await log(`Warning: Failed to get PRs: ${prsResult.stderr?.toString() ? prsResult.stderr.toString() : 'Unknown error'}`, {
         level: 'warning',
       });
       // Continue anyway, PRs are optional for timestamp calculation
@@ -122,25 +122,9 @@ export async function checkUncommittedChanges({ tempDir, argv, log, $ }) {
         if (statusOutput) {
           await log('📝 Found uncommitted changes - adding to feedback');
 
-          // Add uncommitted changes info to feedbackLines
-          let feedbackLines = [];
-
-          feedbackLines.push('');
-          feedbackLines.push('⚠️ UNCOMMITTED CHANGES DETECTED:');
-          feedbackLines.push('The following uncommitted changes were found in the repository:');
-          feedbackLines.push('');
-
-          for (const line of statusOutput.split('\n')) {
-            feedbackLines.push(`  ${line}`);
-          }
-
-          feedbackLines.push('');
-          feedbackLines.push('IMPORTANT: You MUST handle these uncommitted changes by either:');
-          feedbackLines.push('1. COMMITTING them if they are part of the solution (git add + git commit + git push)');
-          feedbackLines.push('2. REVERTING them if they are not needed (git checkout -- <file> or git clean -fd)');
-          feedbackLines.push('');
-          feedbackLines.push('DO NOT leave uncommitted changes behind. The session will auto-restart until all changes are resolved.');
-          return feedbackLines;
+          // Issue #2313: the same restart feedback every other uncommitted-changes path uses.
+          const { buildUncommittedChangesFeedback } = await import('./uncommitted-changes-feedback.lib.mjs');
+          return buildUncommittedChangesFeedback(statusOutput.split('\n'));
         } else {
           await log('✅ No uncommitted changes found');
         }

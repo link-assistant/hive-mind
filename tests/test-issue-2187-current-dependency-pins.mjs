@@ -19,19 +19,19 @@ const read = relativePath => fs.readFileSync(path.join(repoRoot, relativePath), 
 const escapeRegExp = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const expected = {
-  agent: '0.26.5',
+  agent: '0.26.6',
   box: '2.10.2',
   bun: '1.4.2',
   eslint: '10.11.0',
   formalAi: '0.352.1',
-  jscpd: '5.3.2',
+  jscpd: '5.3.3',
   jscpdThreshold: 12,
   lintStaged: '17.6.0',
   node: '24.21.0',
   prettier: '3.9.9',
-  sentry: '11.0.0',
+  sentry: '11.1.0',
   sentryProfiler: '2.4.4',
-  startCommand: '0.34.0',
+  startCommand: '0.34.1',
   useM: '8.16.4',
 };
 

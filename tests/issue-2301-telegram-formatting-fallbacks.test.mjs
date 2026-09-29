@@ -143,3 +143,11 @@ test('non-GitHub queue URLs are escaped for top-level Markdown', () => {
   assert.ok(parsed.ok);
   assert.equal(parsed.text, url);
 });
+
+test('backslashes in bare queue URLs are shown exactly, not doubled', () => {
+  for (const url of ['https://example.com/a\\_b', 'https://example.com/a\\\\_b', 'https://example.com/x\\', 'C:\\dir\\file_name']) {
+    const parsed = parseTelegramLegacyMarkdown(formatQueueItemLink(url));
+    assert.ok(parsed.ok, url);
+    assert.equal(parsed.text, url);
+  }
+});

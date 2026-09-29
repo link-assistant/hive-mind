@@ -139,7 +139,7 @@ test('the killed-session notice falls back to the pull request the session was s
     },
   });
   assert.equal(notice.posted, true);
-  assert.ok(posted[0].includes(PR_URL));
+  assert.deepEqual(posted[0].slice(0, 3), ['pr', 'comment', PR_URL]);
 
   const issueNotice = await announceKillOnPullRequest({ pullRequestUrl: null, sessionName: 's', sessionInfo: { urlContext: { ...pullContext, type: 'issue' } }, runCommand: async () => assert.fail('an issue is not a pull request') });
   assert.equal(issueNotice.skipped, 'no-pull-request');

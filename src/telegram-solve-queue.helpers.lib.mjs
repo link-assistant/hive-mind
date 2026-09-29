@@ -32,6 +32,9 @@ export function formatQueueItemLink(url) {
 }
 
 // Escape the four characters legacy Markdown treats as entity openers at top level.
+// `\` itself is deliberately not escaped: legacy Markdown only treats it as an
+// escape before `_`, `*`, `` ` `` or `[`, so any other `\` is shown as is and a
+// `\\` would be shown doubled (experiments/issue-2301-codeql/backslash-escaping.mjs).
 function escapeTopLevelMarkdown(text) {
   return String(text).replace(/[_*`[]/g, '\\$&');
 }

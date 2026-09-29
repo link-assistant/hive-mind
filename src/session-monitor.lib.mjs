@@ -1033,6 +1033,7 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
           pullRequestUrl,
           pullRequestState,
           extraSections: [...subscriptionBlockedExtraSections, ...resourceLimitExtraSections, ...limitsExtraSections, ...killReport.sections, ...resumeExtraSections, ...diskExtraSections, ...dockerTaskContainerExtraSections],
+          resumedAs: killRecovery.resumed ? killRecovery.sessionId : null,
         });
         if (killReport.killed || killReport.recovered || killReport.oomEventOnly) {
           const notice = await announceKillOnPullRequest({

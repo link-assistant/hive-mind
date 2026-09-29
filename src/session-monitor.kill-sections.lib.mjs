@@ -164,6 +164,10 @@ export async function defaultAttachLog(options) {
  */
 export async function announceKillOnPullRequest({ pullRequestUrl, sessionName, sessionInfo, diagnosis, exitCode = null, observedAt = null, policy = null, recovered = false, oomEventOnly = false, resumed = false, recoverySessionId = null, attempt = null, maxAttempts = null, resumeCommand = null, runCommand = spawnCapture, attachLog = defaultAttachLog, attachOptions = {}, verbose = false } = {}) {
   const skip = reason => ({ posted: false, url: null, skipped: reason, logUploaded: false });
+  // Issue #2301: a session started on a pull request URL has no *linked* pull
+  // request to look up — the pull request is the one it was started on.
+  const started = sessionInfo?.urlContext;
+  if (!pullRequestUrl && started?.type === 'pull' && started.owner && started.repo && started.number) pullRequestUrl = `https://github.com/${started.owner}/${started.repo}/pull/${started.number}`;
   if (!pullRequestUrl) return skip('no-pull-request');
   if (typeof runCommand !== 'function') return skip('no-command-runner');
 

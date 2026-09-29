@@ -681,10 +681,13 @@ en
         killed "Work session {{reason}}{{exitSuffix}}"
         stopped "Work session stopped by user{{requestedBy}}{{exitSuffix}}"
         not_launched "The work session was not launched, so it has no log and is not listed by `--list`."
+        recovering "Work session still in progress: recovering from exit code {{exitCode}}"
     duration
       label "Duration"
     session
       label "Session"
+      recovery
+        label "Recovery session"
       recovered
         oom "recovered from out of memory"
         kill "recovered from forced kill"

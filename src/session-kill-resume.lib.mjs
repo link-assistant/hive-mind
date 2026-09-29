@@ -127,6 +127,10 @@ export async function startKillRecoverySession({ sessionName, sessionInfo, plan,
         [KILL_RESUME_ATTEMPTS_FIELD]: plan.attempt,
         killRecoveryResumed: true,
         killRecoveryOfSession: sessionName,
+        // Issue #2301: the Telegram message keeps naming the session the work
+        // was started with, however many recovery sessions follow.
+        rootSessionName: sessionInfo?.rootSessionName || sessionName,
+        rootStartTime: sessionInfo?.rootStartTime || sessionInfo?.startTime || null,
         // A resumed execution keeps its UUID; a fresh launch gets a new one, and
         // inheriting the dead session's would make `$ --status` answer about the
         // wrong execution until the monitor happened to correct it.

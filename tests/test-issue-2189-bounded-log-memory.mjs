@@ -293,6 +293,7 @@ try {
     repo: 'hive-mind',
     $: () => async () => ({ code: 0, stdout: 'public', stderr: '' }),
     log: async message => attachLogs.push(String(message)),
+    uploadRetryDelaysMs: [], // Issue #2301: one attempt, no backoff wait in this test
   });
 } finally {
   fsMod.promises.readFile = realReadFile;

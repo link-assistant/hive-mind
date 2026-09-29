@@ -10,6 +10,7 @@ import { batchCheckPullRequestsForIssues as batchCheckPRs, batchCheckArchivedRep
 import { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeOutput, sanitizeLogContent, sanitizeForPublication, writeSanitizedPublicationFile } from './token-sanitization.lib.mjs';
 export { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeOutput, sanitizeLogContent, sanitizeForPublication, writeSanitizedPublicationFile }; // Re-export for backward compatibility
 import { uploadLogWithGhUploadLog } from './log-upload.lib.mjs';
+import { formatLogLinkLines, postLogUploadFailureComment } from './log-upload-failure.lib.mjs'; // Issue #2301
 // Issue #2189: bracket the log-upload phase with resource samples. The incident
 // log's last sample was `after_agent`, ten minutes before the heap OOM, so the
 // phase that actually died left no telemetry at all.
@@ -507,6 +508,7 @@ export async function attachLogToGitHub(options) {
     budgetStatsData = null, // Issue #1491: budget stats for comment
     failureActionSection = null,
     recordResources = recordResourceSnapshot, // Issue #2189: injectable for tests
+    uploadRetryDelaysMs = null, // Issue #2301: override the upload retry backoff (tests)
   } = options;
   // Issue #2318: a free model's comment carries one cost figure, the $0.00 of the cost estimation section.
   const budgetStats = budgetStatsData ? buildBudgetStatsString(budgetStatsData.tokenUsage, budgetStatsData.subAgentCalls, { freeModel: isFreeModelPricing(pricingInfo) }) : '';
@@ -673,7 +675,10 @@ export async function attachLogToGitHub(options) {
           isPublic: isPublicRepo,
           description: uploadDescription,
           verbose,
+          ...(uploadRetryDelaysMs ? { retryDelaysMs: uploadRetryDelaysMs, partRetryDelaysMs: uploadRetryDelaysMs } : {}),
         });
+        // Issue #2301: when the complete log cannot be published, say so on the pull request instead of posting nothing.
+        const reportUploadFailure = failureReason => postLogUploadFailureComment({ $, owner, repo, targetNumber, targetType, log, errorMessage, failureReason, attempts: uploadResult.attempts, logSizeBytes: logStats.size, logFile, isPublic: isPublicRepo, failureAction: errorMessage ? failureAction : '' });
         if (uploadResult.success) {
           // Use rawUrl for direct file access (single chunk) or url for repository (multiple chunks) Requirements: 1 chunk = direct raw link, >1 chunks = repo link Private repository raw URLs can contain short-lived tokens, so keep private uploads on the stable repository/tree page URL.
           const logUrl = selectLogUploadUrl({ uploadResult, isPublicRepo });
@@ -681,10 +686,13 @@ export async function attachLogToGitHub(options) {
             await log('  ❌ gh-upload-log completed but no usable log URL was resolved');
             await log('  ⚠️  Full log upload failed; not posting a broken log link');
             await log(`  📁 Full log remains available locally at: ${logFile}`);
+            await reportUploadFailure('gh-upload-log completed but printed no usable log URL');
             return false;
           }
           const uploadTypeLabel = uploadResult.type === 'gist' ? 'Gist' : 'Repository';
-          const chunkInfo = uploadResult.chunks > 1 ? ` (${uploadResult.chunks} chunks)` : '';
+          const chunkInfo = uploadResult.chunks > 1 ? ` (${uploadResult.chunks} ${uploadResult.parts?.length > 1 ? 'parts' : 'chunks'})` : '';
+          // Issue #2301: a log published as several parts links every part.
+          const logLinks = label => formatLogLinkLines({ uploadResult, logUrl, label, selectUrl: part => selectLogUploadUrl({ uploadResult: { ...part, success: true }, isPublicRepo }) });
           // Create comment with log link
           let logUploadComment;
           // For usage limit cases, always use the dedicated format regardless of errorMessage
@@ -733,7 +741,7 @@ ${resumeCommand}
             logUploadComment += `${modelInfoString}
 
 ### 📎 **Execution log uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
-- [View complete execution log](${logUrl})
+${logLinks('View complete execution log')}
 
 ---
 ${uploadFooterNote}`;
@@ -746,7 +754,7 @@ ${errorMessage}
 \`\`\`${failureAction}${modelInfoString}
 
 ### 📎 **Failure log uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
-- [View complete failure log](${logUrl})
+${logLinks('View complete failure log')}
 
 ---
 *${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`;
@@ -759,7 +767,7 @@ This log file contains the complete execution trace of the AI ${targetType === '
 > **Note**: The session encountered errors during execution, but some work may have been completed. Please review the changes carefully.
 
 ### 📎 **Log file uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
-- [View complete solution draft log](${logUrl})
+${logLinks('View complete solution draft log')}
 
 ---
 *${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`;
@@ -783,7 +791,7 @@ This log file contains the complete execution trace of the AI ${targetType === '
 This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}${budgetStats}${modelInfoString}
 ${sessionNote}
 ### 📎 **Log file uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
-- [View complete solution draft log](${logUrl})
+${logLinks('View complete solution draft log')}
 
 ---
 *${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`;
@@ -813,6 +821,7 @@ ${sessionNote}
           await log('  ❌ gh-upload-log failed');
           await log('  ⚠️  Full log upload failed; not posting a truncated log because --attach-logs must preserve complete logs');
           await log(`  📁 Full log remains available locally at: ${logFile}`);
+          await reportUploadFailure(uploadResult.failureReason);
           return false;
         }
       } catch (uploadError) {

@@ -12,7 +12,7 @@ const oldPath = path.join(os.tmpdir(), `claude.stream-events.main-${process.pid}
 fs.writeFileSync(oldPath, execFileSync('git', ['show', 'origin/main:src/claude.stream-events.lib.mjs'], { cwd: root }));
 const before = await import(oldPath);
 
-for (const name of ['links-notation-315-sweep.jsonl', 'browser-commander-106-sweep.jsonl']) {
+for (const name of ['links-notation-315-sweep.jsonl', 'browser-commander-106-sweep.jsonl', 'browser-commander-106-rerun-sweep.jsonl']) {
   const events = fs
     .readFileSync(path.join(root, 'tests/fixtures/issue-2301', name), 'utf8')
     .split('\n')

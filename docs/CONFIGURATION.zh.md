@@ -179,13 +179,15 @@ Telegram 机器人部署不会让 Formal AI 常驻运行。请求 `--model forma
 
 这些设置控制 Claude Code CLI 的行为，包括输出限制和 MCP 超时。
 
-| 环境变量                                | 默认值 | 描述                                                                                           |
-| --------------------------------------- | ------ | ---------------------------------------------------------------------------------------------- |
-| `CLAUDE_CODE_MAX_OUTPUT_TOKENS`         | 64000  | Claude Code CLI 响应的最大输出 token 数（也可使用：`HIVE_MIND_CLAUDE_CODE_MAX_OUTPUT_TOKENS`） |
-| `CLAUDE_CODE_MAX_OUTPUT_TOKENS_OPUS_46` | 128000 | Opus 4.6+ 的最大输出 token 数（也可使用：`HIVE_MIND_CLAUDE_CODE_MAX_OUTPUT_TOKENS_OPUS_46`）   |
-| `MCP_TIMEOUT`                           | 900000 | MCP 服务器启动超时（毫秒，15 分钟）（也可使用：`HIVE_MIND_MCP_TIMEOUT`）                       |
-| `MCP_TOOL_TIMEOUT`                      | 900000 | MCP 工具执行超时（毫秒，15 分钟）（也可使用：`HIVE_MIND_MCP_TOOL_TIMEOUT`）                    |
-| `HIVE_MIND_MAX_THINKING_BUDGET_OPUS_46` | 31999  | Opus 4.6+ 模型的默认最大思考预算                                                               |
+| 环境变量                                       | 默认值  | 描述                                                                                                                                                                                                                                                                                 |
+| ---------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `CLAUDE_CODE_MAX_OUTPUT_TOKENS`                | 64000   | Claude Code CLI 响应的最大输出 token 数（也可使用：`HIVE_MIND_CLAUDE_CODE_MAX_OUTPUT_TOKENS`）                                                                                                                                                                                       |
+| `CLAUDE_CODE_MAX_OUTPUT_TOKENS_OPUS_46`        | 128000  | Opus 4.6+ 的最大输出 token 数（也可使用：`HIVE_MIND_CLAUDE_CODE_MAX_OUTPUT_TOKENS_OPUS_46`）                                                                                                                                                                                         |
+| `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS`         | 2400000 | 主线程空闲后 `claude -p` 等待后台任务的时长（毫秒，40 分钟，是 Claude Code 默认值 600000 的 4 倍）。后台任务保持启用。`0` 表示无限等待，不推荐（也可使用：`HIVE_MIND_CLAUDE_PRINT_BG_WAIT_CEILING_MS`）。参见 [Issue #2301](https://github.com/link-assistant/hive-mind/issues/2301) |
+| `HIVE_MIND_CLAUDE_INCOMPLETE_TURN_MAX_RESUMES` | 5       | 等待上限取消后台工作后，`solve` 连续静默恢复同一 Claude 会话的最大次数。每次恢复都会告知模型这是超时，并列出被取消的任务                                                                                                                                                             |
+| `MCP_TIMEOUT`                                  | 900000  | MCP 服务器启动超时（毫秒，15 分钟）（也可使用：`HIVE_MIND_MCP_TIMEOUT`）                                                                                                                                                                                                             |
+| `MCP_TOOL_TIMEOUT`                             | 900000  | MCP 工具执行超时（毫秒，15 分钟）（也可使用：`HIVE_MIND_MCP_TOOL_TIMEOUT`）                                                                                                                                                                                                          |
+| `HIVE_MIND_MAX_THINKING_BUDGET_OPUS_46`        | 31999   | Opus 4.6+ 模型的默认最大思考预算                                                                                                                                                                                                                                                     |
 
 **注意：** Claude 模型支持不同的最大输出 token 数：Opus 4.6 及更高版本——包括 Opus 5（默认 `opus` 别名）和 Sonnet 5（默认 `sonnet` 别名）——支持 128K token，而 Sonnet 4.5、Opus 4.5 和 Haiku 4.5 支持 64K token。MCP 超时时间（默认 15 分钟）可容纳长时间运行的 Playwright 操作。详情请参阅 [Issue #1076](https://github.com/link-assistant/hive-mind/issues/1076) 和 [Issue #1066](https://github.com/link-assistant/hive-mind/issues/1066)。
 

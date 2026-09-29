@@ -12,7 +12,7 @@
  * All three incidents (links-notation#315 and two browser-commander#106 runs) were the same sweep:
  * every stop arrived after the last main-thread assistant event, some before and some after the
  * final `result`, and `killed.system` omitted the stopped local_bash tasks. In the third run the
- * subagents were still starting commands 7 s before the sweep: the ceiling counts from the main
+ * subagents were still starting commands 2 s before the sweep: the ceiling counts from the main
  * thread's last message, not from the tasks' last progress.
  *
  * hive-mind keeps background work enabled, raises the ceiling (config.lib.mjs) and, when a sweep

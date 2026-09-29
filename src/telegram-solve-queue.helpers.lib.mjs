@@ -35,8 +35,10 @@ export function formatQueueItemLink(url) {
 // `\` itself is deliberately not escaped: legacy Markdown only treats it as an
 // escape before `_`, `*`, `` ` `` or `[`, so any other `\` is shown as is and a
 // `\\` would be shown doubled (experiments/issue-2301-codeql/backslash-escaping.mjs).
+// CodeQL's js/incomplete-sanitization assumes `\` always escapes, which holds for
+// MarkdownV2 but not for this legacy dialect, so the prefix is added per match.
 function escapeTopLevelMarkdown(text) {
-  return String(text).replace(/[_*`[]/g, '\\$&');
+  return String(text).replace(/[_*`[]/g, entityOpener => `\\${entityOpener}`);
 }
 
 /**

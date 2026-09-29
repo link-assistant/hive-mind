@@ -984,11 +984,14 @@ export const watchUntilMergeable = async params => {
                 await log(formatAligned('', 'Action:', 'Stopping auto-restart — tool execution failed after limit reset', 2));
                 // Issue #1439: Attach failure log before stopping, so user can see what happened
                 const shouldAttachLogsOnResumeFail = argv.attachLogs || argv['attach-logs'];
+                // Issue #2301: the stop comment must not point to a log that failed to upload.
+                let resumeFailLogAttached = null;
                 if (prNumber && shouldAttachLogsOnResumeFail) {
+                  resumeFailLogAttached = false;
                   try {
                     const logFile = getLogFile();
                     if (logFile) {
-                      await attachLogToGitHub({
+                      resumeFailLogAttached = await attachLogToGitHub({
                         logFile,
                         targetType: 'pr',
                         targetNumber: prNumber,
@@ -1016,7 +1019,7 @@ export const watchUntilMergeable = async params => {
                     await log(formatAligned('', `⚠️  Failure log upload error: ${cleanErrorMessage(logUploadError)}`, '', 2));
                   }
                 }
-                await reportAutomationStop({ $, owner, repo, targetNumber: prNumber, reason: 'tool_failure_after_resume', mode: 'auto-restart-until-mergeable', message: extractToolErrorCore({ toolResult: resumeResult }) || formatToolExecutionFailure({ tool: argv.tool, toolResult: resumeResult }), verbose: argv.verbose, log });
+                await reportAutomationStop({ $, owner, repo, targetNumber: prNumber, reason: 'tool_failure_after_resume', mode: 'auto-restart-until-mergeable', message: extractToolErrorCore({ toolResult: resumeResult }) || formatToolExecutionFailure({ tool: argv.tool, toolResult: resumeResult }), verbose: argv.verbose, log, logAttached: resumeFailLogAttached });
                 return { success: false, reason: 'tool_failure_after_resume', latestSessionId, latestAnthropicCost };
               }
             } else {
@@ -1038,11 +1041,14 @@ export const watchUntilMergeable = async params => {
             await log(formatAligned('', 'Action:', 'Stopping auto-restart — tool execution failed', 2));
             // Issue #1439: Attach failure log before stopping, so user can see what happened
             const shouldAttachLogsOnFail = argv.attachLogs || argv['attach-logs'];
+            // Issue #2301: the stop comment must not point to a log that failed to upload.
+            let failLogAttached = null;
             if (prNumber && shouldAttachLogsOnFail) {
+              failLogAttached = false;
               try {
                 const logFile = getLogFile();
                 if (logFile) {
-                  await attachLogToGitHub({
+                  failLogAttached = await attachLogToGitHub({
                     logFile,
                     targetType: 'pr',
                     targetNumber: prNumber,
@@ -1070,7 +1076,7 @@ export const watchUntilMergeable = async params => {
                 await log(formatAligned('', `⚠️  Failure log upload error: ${cleanErrorMessage(logUploadError)}`, '', 2));
               }
             }
-            await reportAutomationStop({ $, owner, repo, targetNumber: prNumber, reason: 'tool_failure', mode: 'auto-restart-until-mergeable', message: extractToolErrorCore({ toolResult }) || formatToolExecutionFailure({ tool: argv.tool, toolResult }), verbose: argv.verbose, log });
+            await reportAutomationStop({ $, owner, repo, targetNumber: prNumber, reason: 'tool_failure', mode: 'auto-restart-until-mergeable', message: extractToolErrorCore({ toolResult }) || formatToolExecutionFailure({ tool: argv.tool, toolResult }), verbose: argv.verbose, log, logAttached: failLogAttached });
             return { success: false, reason: 'tool_failure', latestSessionId, latestAnthropicCost };
           }
         }

@@ -514,6 +514,9 @@ export async function attachLogToGitHub(options) {
   const budgetStats = budgetStatsData ? buildBudgetStatsString(budgetStatsData.tokenUsage, budgetStatsData.subAgentCalls, { freeModel: isFreeModelPricing(pricingInfo) }) : '';
   const targetName = targetType === 'pr' ? 'Pull Request' : 'Issue';
   let uploadPhaseEntered = false;
+  // Issue #2301: every path that leaves the pull request without the log says so there, instead of posting nothing.
+  const failureReport = { logSizeBytes: 0, isPublic: false, attempts: null, failureAction: '' };
+  const reportUploadFailure = failureReason => postLogUploadFailureComment({ $, owner, repo, targetNumber, targetType, log, errorMessage, failureReason, logFile, ...failureReport });
   try {
     // Issue #1212: Check disk space before attempting log upload (100MB minimum)
     try {
@@ -521,6 +524,8 @@ export async function attachLogToGitHub(options) {
       const diskCheck = await checkDiskSpace(100, { log: async () => {} });
       if (!diskCheck.success) {
         await log(`  ❌ Insufficient disk space for log upload (${diskCheck.availableMB}MB available, 100MB required). Free disk space and retry.`);
+        failureReport.logSizeBytes = (await fs.stat(logFile).catch(() => null))?.size || 0;
+        if (failureReport.logSizeBytes > 0) await reportUploadFailure(`Insufficient disk space for the log upload: ${diskCheck.availableMB}MB available, 100MB required.`);
         return false;
       }
     } catch {
@@ -532,6 +537,7 @@ export async function attachLogToGitHub(options) {
       await log('  ⚠️  Log file is empty, skipping upload');
       return false;
     }
+    failureReport.logSizeBytes = logStats.size;
     // Issue #2189: sample resources on the way in and on the way out of the
     // upload, tagged with the log size, so a future post-mortem can see the V8
     // heap climbing against its own limit instead of guessing from a machine
@@ -603,6 +609,7 @@ export async function attachLogToGitHub(options) {
       }
     }
     const failureAction = normalizeFailureActionSection(failureActionSection ?? buildIssueFailureActionSection(targetType));
+    if (errorMessage) failureReport.failureAction = failureAction;
     // Issue #2189: choose the publication route from the file size BEFORE touching
     // the bytes. The old order read the log, sanitized it and escaped it — three
     // full-size strings — and only then discovered the comment was far over
@@ -670,6 +677,7 @@ export async function attachLogToGitHub(options) {
         // There is now exactly one sanitize pass, and it never buffers the file.
         // Use gh-upload-log default auto mode and shared repository fallback.
         const uploadDescription = `Solution draft log for https://github.com/${owner}/${repo}/${targetType === 'pr' ? 'pull' : 'issues'}/${targetNumber}`;
+        failureReport.isPublic = isPublicRepo;
         const uploadResult = await uploadLogWithGhUploadLog({
           logFile,
           isPublic: isPublicRepo,
@@ -677,8 +685,7 @@ export async function attachLogToGitHub(options) {
           verbose,
           ...(uploadRetryDelaysMs ? { retryDelaysMs: uploadRetryDelaysMs, partRetryDelaysMs: uploadRetryDelaysMs } : {}),
         });
-        // Issue #2301: when the complete log cannot be published, say so on the pull request instead of posting nothing.
-        const reportUploadFailure = failureReason => postLogUploadFailureComment({ $, owner, repo, targetNumber, targetType, log, errorMessage, failureReason, attempts: uploadResult.attempts, logSizeBytes: logStats.size, logFile, isPublic: isPublicRepo, failureAction: errorMessage ? failureAction : '' });
+        failureReport.attempts = uploadResult.attempts;
         if (uploadResult.success) {
           // Use rawUrl for direct file access (single chunk) or url for repository (multiple chunks) Requirements: 1 chunk = direct raw link, >1 chunks = repo link Private repository raw URLs can contain short-lived tokens, so keep private uploads on the stable repository/tree page URL.
           const logUrl = selectLogUploadUrl({ uploadResult, isPublicRepo });
@@ -832,6 +839,7 @@ ${logLinks('View complete solution draft log')}
         await log(`  ❌ Error uploading log: ${uploadError.message}`);
         await log('  ⚠️  Full log upload failed; not posting a truncated log because --attach-logs must preserve complete logs');
         await log(`  📁 Full log remains available locally at: ${logFile}`);
+        await reportUploadFailure(uploadError.message);
         return false;
       }
     } else {
@@ -847,6 +855,7 @@ ${logLinks('View complete solution draft log')}
     // Issue #1212: ENOSPC-specific actionable guidance
     const msg = isENOSPC(uploadError) ? 'ENOSPC: No space left on device during log upload. Free disk space and retry.' : `Error uploading log file: ${uploadError.message}`;
     await log(`  ❌ ${msg}`);
+    if (failureReport.logSizeBytes > 0) await reportUploadFailure(msg);
     return false;
   } finally {
     // Issue #2189: the closing sample must run on every exit path, including the

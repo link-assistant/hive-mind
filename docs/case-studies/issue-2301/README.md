@@ -109,7 +109,7 @@ The log line numbers refer to **uncompressed** files; read them in bounded chunk
 ## Upstream and existing solutions
 
 - Claude Code's [environment-variable documentation](https://code.claude.com/docs/en/env-vars) describes `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS`. The ceiling variable is named only in the stderr message.
-- [anthropics/claude-code#85066](https://github.com/anthropics/claude-code/issues/85066) reports a silent success with orphaned subagents. [This follow-up](https://github.com/anthropics/claude-code/issues/85066#issuecomment-5842704259) gives the reproduction, workaround and suggested fixes, and a second follow-up adds the exact ceiling mechanism, the misleading "User rejected tool use" text under `bypassPermissions`, and the bash kill with `killed.system=0`.
+- [anthropics/claude-code#85066](https://github.com/anthropics/claude-code/issues/85066) reports a silent success with orphaned subagents. [This follow-up](https://github.com/anthropics/claude-code/issues/85066#issuecomment-5842704259) gives the reproduction, workaround and suggested fixes, and a [second follow-up](https://github.com/anthropics/claude-code/issues/85066#issuecomment-5885429221) adds the exact ceiling mechanism, the misleading "User rejected tool use" text under `bypassPermissions`, and the bash kill with `killed.system=0`.
 - [#89495](https://github.com/anthropics/claude-code/issues/89495) has a small `claude -p` Bash reproduction confirming the env workaround. [#82235](https://github.com/anthropics/claude-code/issues/82235) describes a related post-turn task-notification error.
 - Suggested upstream fixes:
   - Emit `result` with a non-success subtype, or a `terminal_reason` such as `background_tasks_terminated`, when the sweep cancels work.

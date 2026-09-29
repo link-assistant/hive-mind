@@ -71,7 +71,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.6",
     "husky": "^9.1.7",
-    "jscpd": "^5.3.2",
+    "jscpd": "^5.3.3",
     "lint-staged": "^17.6.0",
     "prettier": "^3.9.9",
     "test-anywhere": "^0.9.1"
@@ -79,8 +79,8 @@
   "dependencies": {
     "@secretlint/core": "^13.0.6",
     "@secretlint/secretlint-rule-preset-recommend": "^13.0.6",
-    "@sentry/node": "^11.0.0",
-    "@sentry/profiling-node": "^11.0.0",
+    "@sentry/node": "^11.1.0",
+    "@sentry/profiling-node": "^11.1.0",
     "agent-commander": "^0.10.1",
     "dayjs": "^1.11.23",
     "decimal.js-light": "^2.5.1",

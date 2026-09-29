@@ -204,7 +204,7 @@ test('attachLogToGitHub posts the upload-failure comment when gh-upload-log fail
     const logFile = path.join(dir, 'big.log');
     await fs.writeFile(logFile, 'a transcript line\n'.repeat(8000));
     const posts = [];
-    const $ = (first, ...values) => {
+    const $ = first => {
       if (Array.isArray(first)) return Promise.resolve({ code: 0, stdout: 'public', stderr: '' });
       return async (strings, ...rest) => {
         const command = strings.reduce((text, part, index) => text + part + (index < rest.length ? rest[index] : ''), '');

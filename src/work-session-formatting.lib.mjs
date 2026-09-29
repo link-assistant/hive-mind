@@ -174,7 +174,7 @@ export function appendPullRequestLine(infoBlock, pullRequestUrl, { locale = null
   return [...before, prLine, ...after].join('\n');
 }
 
-export function formatSessionCompletionMessage({ sessionName, sessionInfo, statusResult = null, observedEndTime = new Date(), exitCode = null, infoBlock = '', pullRequestUrl = null, pullRequestState = null, extraSections = [], locale = null } = {}) {
+export function formatSessionCompletionMessage({ sessionName, sessionInfo, statusResult = null, observedEndTime = new Date(), exitCode = null, infoBlock = '', pullRequestUrl = null, pullRequestState = null, extraSections = [], locale = null, resumedAs = null } = {}) {
   const finalExitCode = getSessionCompletionExitCode({ exitCode, statusResult });
   const outcome = classifySessionOutcome({ exitCode: finalExitCode, status: statusResult?.status || null });
   const { failed, killed, signal } = outcome;
@@ -191,7 +191,13 @@ export function formatSessionCompletionMessage({ sessionName, sessionInfo, statu
   const pullRequestMerged = pullRequestState?.merged === true || Boolean(pullRequestState?.mergedAt);
   let statusEmojiOverride = null;
   let statusText;
-  if (killed && stopRequestedByUser) {
+  if (resumedAs) {
+    // Issue #2301: a recovery session was started for this work, so the work is
+    // not finished. Neither "finished successfully" nor "failed" is true yet;
+    // the recovery session edits this message again when it actually ends.
+    statusEmojiOverride = '🔄';
+    statusText = text(messageLocale, 'telegram.work_session_recovering', `Work session still in progress: recovering from exit code ${finalExitCode}`, { exitCode: finalExitCode ?? '' });
+  } else if (killed && stopRequestedByUser) {
     const showCode = finalExitCode !== null && !(!signal && finalExitCode === 1);
     const exitSuffix = showCode ? ` (exit code: ${finalExitCode})` : '';
     const requestedBy = sessionInfo?.stopRequestedBy ? ` by ${sessionInfo.stopRequestedBy}` : '';
@@ -229,7 +235,8 @@ export function formatSessionCompletionMessage({ sessionName, sessionInfo, statu
   const executionLabel = text(messageLocale, 'telegram.execution_label', 'Execution');
   const executionUuid = sessionInfo?.executionUuid || statusResult?.uuid || null;
   const executionInfo = executionUuid ? `\n🆔 ${executionLabel}: \`${executionUuid}\`` : '';
-  const startTime = parseDateValue(statusResult?.startTime) || parseDateValue(sessionInfo?.startTime) || observedEndTime;
+  // Issue #2301: after a recovery session the duration covers the whole work.
+  const startTime = parseDateValue(sessionInfo?.rootStartTime) || parseDateValue(statusResult?.startTime) || parseDateValue(sessionInfo?.startTime) || observedEndTime;
   const endTime = parseDateValue(statusResult?.endTime) || observedEndTime;
   const durationSeconds = Math.max(0, (endTime.getTime() - startTime.getTime()) / 1000);
   let resolvedInfoBlock = infoBlock || sessionInfo?.infoBlock || '';
@@ -238,10 +245,17 @@ export function formatSessionCompletionMessage({ sessionName, sessionInfo, statu
   if (pullRequestUrl) resolvedInfoBlock = appendPullRequestLine(resolvedInfoBlock, pullRequestUrl, { locale: messageLocale });
   const details = resolvedInfoBlock ? `\n\n${resolvedInfoBlock}` : '';
 
+  // Issue #2301: the work keeps the id it was started with. A recovery session
+  // (see session-kill-resume.lib.mjs) runs under its own id, which is listed on
+  // its own line so the Telegram thread still names the session it began with.
+  const rootSessionName = sessionInfo?.rootSessionName || sessionName || 'unknown';
+  const recoverySessionName = resumedAs || (sessionName && sessionName !== rootSessionName ? sessionName : null);
+  const recoveryInfo = recoverySessionName && recoverySessionName !== rootSessionName ? `\n🔁 ${text(messageLocale, 'telegram.session_recovery_label', 'Recovery session')}: \`${recoverySessionName}\`` : '';
+
   const statusEmoji = statusEmojiOverride || (failed ? '❌' : '✅');
   let message = `${statusEmoji} *${statusText}*\n\n`;
   message += `⏱️ ${durationLabel}: ${formatSessionDurationSeconds(durationSeconds)}\n`;
-  message += `📊 ${sessionLabel}: \`${sessionName || 'unknown'}\`${executionInfo}${isolationInfo}${details}`;
+  message += `📊 ${sessionLabel}: \`${rootSessionName}\`${recoveryInfo}${executionInfo}${isolationInfo}${details}`;
 
   // Issue #594: --show-limits virtual option appends snapshot/delta sections
   // (Markdown code blocks) below the standard completion details.

@@ -195,7 +195,8 @@ Telegram 完成消息会包含检查和清理命令。可通过
 
 #### Docker 任务资源限制
 
-从 Telegram 启动的 Docker 任务可以设置可选的每容器资源限制：
+从 Telegram 启动的 Docker 任务默认将内存限制为宿主机 RAM 的 25%。
+CPU 和磁盘限制可选；可按需覆盖内存限制：
 
 ```bash
 hive-telegram-bot --isolation docker \

@@ -681,10 +681,13 @@ zh
         killed "工作会话已终止：{{reason}}{{exitSuffix}}"
         stopped "工作会话已由用户停止{{requestedBy}}{{exitSuffix}}"
         not_launched "工作会话未启动，因此没有日志，也不会出现在 `--list` 中。"
+        recovering "工作会话仍在进行：正在从退出代码 {{exitCode}} 恢复"
     duration
       label "耗时"
     session
       label "会话"
+      recovery
+        label "恢复会话"
       recovered
         oom "已从内存不足中恢复"
         kill "已从强制终止中恢复"

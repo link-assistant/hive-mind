@@ -55,6 +55,8 @@ const { quietProbe } = await import('./quiet-probe.lib.mjs');
 // condition here at all.
 const stopReportingLib = await import('./automation-stop-reporting.lib.mjs');
 const { reportAutomationStop } = stopReportingLib;
+// Issue #2301: a failed AI session in this loop fails the run (see automation-failure.lib.mjs).
+const { recordLoopToolFailure } = await import('./automation-failure.lib.mjs');
 
 // Issue #1574: Interruptible sleep so CTRL+C is never blocked by a lingering timer
 const { interruptibleSleep } = await import('./interruptible-sleep.lib.mjs');
@@ -487,54 +489,13 @@ export const watchForFeedback = async params => {
         }
 
         if (!toolResult.success) {
-          // Check if this is an API error using shared utility
-          if (isApiError(toolResult)) {
-            consecutiveApiErrors++;
-            await log(formatAligned('⚠️', `${argv.tool.toUpperCase()} execution failed`, `API error detected (${consecutiveApiErrors}/${MAX_API_ERROR_RETRIES})`, 2));
-
-            if (consecutiveApiErrors >= MAX_API_ERROR_RETRIES) {
-              await log('');
-              await log(formatAligned('❌', 'MAXIMUM API ERROR RETRIES REACHED', ''));
-              // Issue #1845: surface the core error (e.g. "API Error: Output blocked by content
-              // filtering policy"); toolResult.result is often unset on failure, so prefer errorInfo.
-              await log(formatAligned('', 'Error details:', extractToolErrorCore({ toolResult }) || 'Unknown API error', 2));
-              await log(formatAligned('', 'Consecutive failures:', `${consecutiveApiErrors}`, 2));
-              await log(formatAligned('', 'Action:', 'Exiting watch mode to prevent infinite loop', 2));
-              await log('');
-              await log('Please check:');
-              await log('  1. The model name is valid for the selected tool');
-              await log('  2. You have proper authentication configured');
-              await log('  3. The API endpoint is accessible');
-              await log('');
-              // Issue #2144: say on GitHub why the loop stopped.
-              await reportAutomationStop({
-                $,
-                owner,
-                repo,
-                targetNumber: prNumber,
-                reason: 'tool_failure',
-                mode: 'watch',
-                message: `${argv.tool.toUpperCase()} failed ${consecutiveApiErrors} times in a row: ${extractToolErrorCore({ toolResult }) || 'unknown API error'}`,
-                verbose: argv.verbose,
-                log,
-              });
-              break; // Exit the watch loop
-            }
-
-            // Apply exponential backoff for API errors
-            currentBackoffSeconds = Math.min(currentBackoffSeconds * 2, 300); // Cap at 5 minutes
-            await log(formatAligned('', 'Backing off:', `Will retry after ${currentBackoffSeconds} seconds`, 2));
-          } else {
-            // Non-API error, reset consecutive counter
-            consecutiveApiErrors = 0;
-            currentBackoffSeconds = watchInterval;
-            await log(formatAligned('⚠️', `${argv.tool.toUpperCase()} execution failed`, 'Will retry in next check', 2));
-          }
-
           // Issue #1290: Upload failure logs for auto-restart iterations when --attach-logs is enabled
           // This ensures that failed auto-restart sessions still report their logs
-          const shouldAttachLogs = argv.attachLogs || argv['attach-logs'];
-          if (isTemporaryWatch && prNumber && shouldAttachLogs) {
+          // Issue #2301: returns whether the log was attached (null: not attempted), so a stop
+          // comment posted after it never points to a log that is not there.
+          const attachFailureLog = async () => {
+            if (!(isTemporaryWatch && prNumber && (argv.attachLogs || argv['attach-logs']))) return null;
+            let attached = false;
             await log('');
             await log(formatAligned('📎', 'Uploading auto-restart failure log...', ''));
             try {
@@ -574,6 +535,7 @@ export const watchForFeedback = async params => {
                 if (logUploadSuccess) {
                   await log(formatAligned('', '✅ Auto-restart failure log uploaded to PR', '', 2));
                   lastIterationLogUploaded = true; // Issue #1290: Mark that logs were uploaded
+                  attached = true;
                 } else {
                   await log(formatAligned('', '⚠️  Could not upload auto-restart failure log', '', 2));
                 }
@@ -589,7 +551,58 @@ export const watchForFeedback = async params => {
               });
               await log(formatAligned('', `⚠️  Log upload error: ${cleanErrorMessage(logUploadError)}`, '', 2));
             }
+            return attached;
+          };
+
+          // Check if this is an API error using shared utility
+          if (isApiError(toolResult)) {
+            consecutiveApiErrors++;
+            await log(formatAligned('⚠️', `${argv.tool.toUpperCase()} execution failed`, `API error detected (${consecutiveApiErrors}/${MAX_API_ERROR_RETRIES})`, 2));
+
+            if (consecutiveApiErrors >= MAX_API_ERROR_RETRIES) {
+              await log('');
+              await log(formatAligned('❌', 'MAXIMUM API ERROR RETRIES REACHED', ''));
+              // Issue #1845: surface the core error (e.g. "API Error: Output blocked by content
+              // filtering policy"); toolResult.result is often unset on failure, so prefer errorInfo.
+              await log(formatAligned('', 'Error details:', extractToolErrorCore({ toolResult }) || 'Unknown API error', 2));
+              await log(formatAligned('', 'Consecutive failures:', `${consecutiveApiErrors}`, 2));
+              await log(formatAligned('', 'Action:', 'Exiting watch mode to prevent infinite loop', 2));
+              await log('');
+              await log('Please check:');
+              await log('  1. The model name is valid for the selected tool');
+              await log('  2. You have proper authentication configured');
+              await log('  3. The API endpoint is accessible');
+              await log('');
+              // Issue #2301: attach this session's failure log before saying why the loop stopped.
+              const logAttached = await attachFailureLog();
+              // Issue #2144: say on GitHub why the loop stopped.
+              await reportAutomationStop({
+                $,
+                owner,
+                repo,
+                targetNumber: prNumber,
+                reason: 'tool_failure',
+                mode: 'watch',
+                message: `${argv.tool.toUpperCase()} failed ${consecutiveApiErrors} times in a row: ${extractToolErrorCore({ toolResult }) || 'unknown API error'}`,
+                verbose: argv.verbose,
+                log,
+                logAttached,
+              });
+              recordLoopToolFailure({ reason: 'tool_failure', mode: 'watch', message: extractToolErrorCore({ toolResult }) || 'unknown API error' });
+              break; // Exit the watch loop
+            }
+
+            // Apply exponential backoff for API errors
+            currentBackoffSeconds = Math.min(currentBackoffSeconds * 2, 300); // Cap at 5 minutes
+            await log(formatAligned('', 'Backing off:', `Will retry after ${currentBackoffSeconds} seconds`, 2));
+          } else {
+            // Non-API error, reset consecutive counter
+            consecutiveApiErrors = 0;
+            currentBackoffSeconds = watchInterval;
+            await log(formatAligned('⚠️', `${argv.tool.toUpperCase()} execution failed`, 'Will retry in next check', 2));
           }
+
+          await attachFailureLog();
         } else {
           // Success - reset error counters
           consecutiveApiErrors = 0;

@@ -1,0 +1,47 @@
+[
+  {
+    "url": "https://api.github.com/repos/link-foundation/links-notation/issues/comments/5837901286",
+    "html_url": "https://github.com/link-foundation/links-notation/pull/319#issuecomment-5837901286",
+    "issue_url": "https://api.github.com/repos/link-foundation/links-notation/issues/319",
+    "id": 5837901286,
+    "node_id": "IC_kwDODRLdSM8AAAABW_dN5g",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "created_at": "2026-09-25T18:54:13Z",
+    "updated_at": "2026-09-25T18:54:13Z",
+    "body": "## 🚨 Solution Draft Failed\nThe automated solution draft encountered an error:\n```\nCLAUDE execution failed with Final tool result failed: The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.\n```\n\n### 🤖 **Models used:**\n- Tool: Anthropic Claude Code\n- Requested: `opus` (`claude-opus-5`)\n- Thinking level: high (~23999 tokens)\n- **Model: Claude Opus 5** (`claude-opus-5`)\n\n### 📎 **Failure log uploaded as Gist** (7391KB)\n- [View complete failure log](https://gist.githubusercontent.com/konard/57e1927f923c6593a70e15bf7733a7a9/raw/5f49125a115015754e180fedabc5032c23feddb1/tmp-hive-mind-log-upload-MzdBtR-sanitized.log.txt)\n\n---\n*Now working session is ended, feel free to review and add any feedback on the solution draft.*",
+    "author_association": "MEMBER",
+    "reactions": { "url": "https://api.github.com/repos/link-foundation/links-notation/issues/comments/5837901286/reactions", "total_count": 0, "+1": 0, "-1": 0, "laugh": 0, "hooray": 0, "confused": 0, "heart": 0, "rocket": 0, "eyes": 0 },
+    "performed_via_github_app": null,
+    "minimized": null
+  },
+  {
+    "url": "https://api.github.com/repos/link-foundation/links-notation/issues/comments/5837915561",
+    "html_url": "https://github.com/link-foundation/links-notation/pull/319#issuecomment-5837915561",
+    "issue_url": "https://api.github.com/repos/link-foundation/links-notation/issues/319",
+    "id": 5837915561,
+    "node_id": "IC_kwDODRLdSM8AAAABW_eFqQ",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "created_at": "2026-09-25T18:55:05Z",
+    "updated_at": "2026-09-25T18:55:05Z",
+    "body": "## 📎 Intermediate working-session log (killed session)\nThis log file contains the complete execution trace of the AI solution draft process.\n\n### 📎 **Log file uploaded as Gist** (4852KB)\n- [View complete solution draft log](https://gist.githubusercontent.com/konard/d495a372e5466f9396ca8aa44ad2c722/raw/2b7cd268040268f06c85daa82ea22158ec35f661/tmp-hive-mind-log-upload-GimKvv-sanitized.log.txt)\n\n---\n*Now working session is ended, feel free to review and add any feedback on the solution draft.*",
+    "author_association": "MEMBER",
+    "reactions": { "url": "https://api.github.com/repos/link-foundation/links-notation/issues/comments/5837915561/reactions", "total_count": 0, "+1": 0, "-1": 0, "laugh": 0, "hooray": 0, "confused": 0, "heart": 0, "rocket": 0, "eyes": 0 },
+    "performed_via_github_app": null,
+    "minimized": null
+  },
+  {
+    "url": "https://api.github.com/repos/link-foundation/links-notation/issues/comments/5837915932",
+    "html_url": "https://github.com/link-foundation/links-notation/pull/319#issuecomment-5837915932",
+    "issue_url": "https://api.github.com/repos/link-foundation/links-notation/issues/319",
+    "id": 5837915932,
+    "node_id": "IC_kwDODRLdSM8AAAABW_eHHA",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "created_at": "2026-09-25T18:55:06Z",
+    "updated_at": "2026-09-25T18:55:06Z",
+    "body": "<!-- hive-mind:session-kill-notice -->\n## ⚠️ Working session recovered from out of memory\n\nout of memory — 9.8 GB of 11.7 GB RAM available (16.3% used) at 2026-09-25T18:54:13.880Z\n\n- **Exit code:** 1\n- **Detected at:** 2026-09-25T18:13:10.431Z\n- **Working session:** `933a1ab3-1630-48a3-b35a-3087d7b2603c`\n- **On-kill policy:** `resume` (`--on-session-kill=resume`)\n\n<details><summary>Kill diagnostics</summary>\n\n- last session memory reading — 9.8 GB of 11.7 GB RAM available (16.3% used) at 2026-09-25T18:54:13.880Z (phase `solve_exit`)\n- last session V8 heap reading — 100 MB used of 2.2 GB limit (4.5%) at 2026-09-25T18:54:13.880Z (phase `solve_exit`)\n- last session disk /: 99.6 GB free of 192.7 GB (48.3% used) at 2026-09-25T18:54:13.880Z (phase `solve_exit`)\n- container reports `State.OOMKilled = true` (an OOM event hit the container cgroup)\n- host memory now — 9.8 GB of 11.7 GB RAM available (15.7% used)\n- `/proc/pressure/memory`: some avg10=0.00 avg60=0.00 avg300=1.18 total=356892630\n- `$ --status` reports memory exhaustion (`cgroup-oom-killer`): `Docker reported State.OOMKilled=true`\n\n</details>\n\n🔄 A **new working session was started** to recover from this event. Progress below continues in that session.\n\n📎 The intermediate working-session log was uploaded as a separate comment.\n\n<sub>Reported by Hive Mind — [issue #2134](https://github.com/link-assistant/hive-mind/issues/2134)</sub>",
+    "author_association": "MEMBER",
+    "reactions": { "url": "https://api.github.com/repos/link-foundation/links-notation/issues/comments/5837915932/reactions", "total_count": 0, "+1": 0, "-1": 0, "laugh": 0, "hooray": 0, "confused": 0, "heart": 0, "rocket": 0, "eyes": 0 },
+    "performed_via_github_app": null,
+    "minimized": null
+  }
+]

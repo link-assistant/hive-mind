@@ -10,6 +10,7 @@ import { batchCheckPullRequestsForIssues as batchCheckPRs, batchCheckArchivedRep
 import { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeOutput, sanitizeLogContent, sanitizeForPublication, writeSanitizedPublicationFile } from './token-sanitization.lib.mjs';
 export { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeOutput, sanitizeLogContent, sanitizeForPublication, writeSanitizedPublicationFile }; // Re-export for backward compatibility
 import { uploadLogWithGhUploadLog } from './log-upload.lib.mjs';
+import { formatLogLinkLines, postLogUploadFailureComment } from './log-upload-failure.lib.mjs'; // Issue #2301
 // Issue #2189: bracket the log-upload phase with resource samples. The incident
 // log's last sample was `after_agent`, ten minutes before the heap OOM, so the
 // phase that actually died left no telemetry at all.
@@ -473,7 +474,22 @@ ${logContent}
   return logComment;
 }
 /** Attaches a log file to a GitHub PR or issue as a comment. Returns true if upload succeeded. */
+/**
+ * Attach the session log to a pull request or issue.
+ *
+ * Issue #2301: also records whether the most recent attempt failed. In
+ * link-foundation/meta-language#196 an early iteration's log was attached and
+ * the failing iteration's log was not, yet the session ended with "logs already
+ * attached", because only "some log was attached at some point" was tracked.
+ * @returns {Promise<boolean>} Whether the log was attached.
+ */
 export async function attachLogToGitHub(options) {
+  const attached = await attachLogToGitHubOnce(options);
+  global.latestLogAttachFailed = attached !== true;
+  return attached;
+}
+
+async function attachLogToGitHubOnce(options) {
   const fs = (await use('fs')).promises;
   const {
     logFile,
@@ -507,11 +523,15 @@ export async function attachLogToGitHub(options) {
     budgetStatsData = null, // Issue #1491: budget stats for comment
     failureActionSection = null,
     recordResources = recordResourceSnapshot, // Issue #2189: injectable for tests
+    uploadRetryDelaysMs = null, // Issue #2301: override the upload retry backoff (tests)
   } = options;
   // Issue #2318: a free model's comment carries one cost figure, the $0.00 of the cost estimation section.
   const budgetStats = budgetStatsData ? buildBudgetStatsString(budgetStatsData.tokenUsage, budgetStatsData.subAgentCalls, { freeModel: isFreeModelPricing(pricingInfo) }) : '';
   const targetName = targetType === 'pr' ? 'Pull Request' : 'Issue';
   let uploadPhaseEntered = false;
+  // Issue #2301: every path that leaves the pull request without the log says so there, instead of posting nothing.
+  const failureReport = { logSizeBytes: 0, isPublic: false, attempts: null, failureAction: '' };
+  const reportUploadFailure = failureReason => postLogUploadFailureComment({ $, owner, repo, targetNumber, targetType, log, errorMessage, failureReason, logFile, ...failureReport });
   try {
     // Issue #1212: Check disk space before attempting log upload (100MB minimum)
     try {
@@ -519,6 +539,8 @@ export async function attachLogToGitHub(options) {
       const diskCheck = await checkDiskSpace(100, { log: async () => {} });
       if (!diskCheck.success) {
         await log(`  ❌ Insufficient disk space for log upload (${diskCheck.availableMB}MB available, 100MB required). Free disk space and retry.`);
+        failureReport.logSizeBytes = (await fs.stat(logFile).catch(() => null))?.size || 0;
+        if (failureReport.logSizeBytes > 0) await reportUploadFailure(`Insufficient disk space for the log upload: ${diskCheck.availableMB}MB available, 100MB required.`);
         return false;
       }
     } catch {
@@ -530,6 +552,7 @@ export async function attachLogToGitHub(options) {
       await log('  ⚠️  Log file is empty, skipping upload');
       return false;
     }
+    failureReport.logSizeBytes = logStats.size;
     // Issue #2189: sample resources on the way in and on the way out of the
     // upload, tagged with the log size, so a future post-mortem can see the V8
     // heap climbing against its own limit instead of guessing from a machine
@@ -601,6 +624,7 @@ export async function attachLogToGitHub(options) {
       }
     }
     const failureAction = normalizeFailureActionSection(failureActionSection ?? buildIssueFailureActionSection(targetType));
+    if (errorMessage) failureReport.failureAction = failureAction;
     // Issue #2189: choose the publication route from the file size BEFORE touching
     // the bytes. The old order read the log, sanitized it and escaped it — three
     // full-size strings — and only then discovered the comment was far over
@@ -668,12 +692,15 @@ export async function attachLogToGitHub(options) {
         // There is now exactly one sanitize pass, and it never buffers the file.
         // Use gh-upload-log default auto mode and shared repository fallback.
         const uploadDescription = `Solution draft log for https://github.com/${owner}/${repo}/${targetType === 'pr' ? 'pull' : 'issues'}/${targetNumber}`;
+        failureReport.isPublic = isPublicRepo;
         const uploadResult = await uploadLogWithGhUploadLog({
           logFile,
           isPublic: isPublicRepo,
           description: uploadDescription,
           verbose,
+          ...(uploadRetryDelaysMs ? { retryDelaysMs: uploadRetryDelaysMs, partRetryDelaysMs: uploadRetryDelaysMs } : {}),
         });
+        failureReport.attempts = uploadResult.attempts;
         if (uploadResult.success) {
           // Use rawUrl for direct file access (single chunk) or url for repository (multiple chunks) Requirements: 1 chunk = direct raw link, >1 chunks = repo link Private repository raw URLs can contain short-lived tokens, so keep private uploads on the stable repository/tree page URL.
           const logUrl = selectLogUploadUrl({ uploadResult, isPublicRepo });
@@ -681,10 +708,13 @@ export async function attachLogToGitHub(options) {
             await log('  ❌ gh-upload-log completed but no usable log URL was resolved');
             await log('  ⚠️  Full log upload failed; not posting a broken log link');
             await log(`  📁 Full log remains available locally at: ${logFile}`);
+            await reportUploadFailure('gh-upload-log completed but printed no usable log URL');
             return false;
           }
           const uploadTypeLabel = uploadResult.type === 'gist' ? 'Gist' : 'Repository';
-          const chunkInfo = uploadResult.chunks > 1 ? ` (${uploadResult.chunks} chunks)` : '';
+          const chunkInfo = uploadResult.chunks > 1 ? ` (${uploadResult.chunks} ${uploadResult.parts?.length > 1 ? 'parts' : 'chunks'})` : '';
+          // Issue #2301: a log published as several parts links every part.
+          const logLinks = label => formatLogLinkLines({ uploadResult, logUrl, label, selectUrl: part => selectLogUploadUrl({ uploadResult: { ...part, success: true }, isPublicRepo }) });
           // Create comment with log link
           let logUploadComment;
           // For usage limit cases, always use the dedicated format regardless of errorMessage
@@ -733,7 +763,7 @@ ${resumeCommand}
             logUploadComment += `${modelInfoString}
 
 ### 📎 **Execution log uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
-- [View complete execution log](${logUrl})
+${logLinks('View complete execution log')}
 
 ---
 ${uploadFooterNote}`;
@@ -746,7 +776,7 @@ ${errorMessage}
 \`\`\`${failureAction}${modelInfoString}
 
 ### 📎 **Failure log uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
-- [View complete failure log](${logUrl})
+${logLinks('View complete failure log')}
 
 ---
 *${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`;
@@ -759,7 +789,7 @@ This log file contains the complete execution trace of the AI ${targetType === '
 > **Note**: The session encountered errors during execution, but some work may have been completed. Please review the changes carefully.
 
 ### 📎 **Log file uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
-- [View complete solution draft log](${logUrl})
+${logLinks('View complete solution draft log')}
 
 ---
 *${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`;
@@ -783,7 +813,7 @@ This log file contains the complete execution trace of the AI ${targetType === '
 This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}${budgetStats}${modelInfoString}
 ${sessionNote}
 ### 📎 **Log file uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
-- [View complete solution draft log](${logUrl})
+${logLinks('View complete solution draft log')}
 
 ---
 *${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`;
@@ -813,6 +843,7 @@ ${sessionNote}
           await log('  ❌ gh-upload-log failed');
           await log('  ⚠️  Full log upload failed; not posting a truncated log because --attach-logs must preserve complete logs');
           await log(`  📁 Full log remains available locally at: ${logFile}`);
+          await reportUploadFailure(uploadResult.failureReason);
           return false;
         }
       } catch (uploadError) {
@@ -823,6 +854,7 @@ ${sessionNote}
         await log(`  ❌ Error uploading log: ${uploadError.message}`);
         await log('  ⚠️  Full log upload failed; not posting a truncated log because --attach-logs must preserve complete logs');
         await log(`  📁 Full log remains available locally at: ${logFile}`);
+        await reportUploadFailure(uploadError.message);
         return false;
       }
     } else {
@@ -838,6 +870,7 @@ ${sessionNote}
     // Issue #1212: ENOSPC-specific actionable guidance
     const msg = isENOSPC(uploadError) ? 'ENOSPC: No space left on device during log upload. Free disk space and retry.' : `Error uploading log file: ${uploadError.message}`;
     await log(`  ❌ ${msg}`);
+    if (failureReport.logSizeBytes > 0) await reportUploadFailure(msg);
     return false;
   } finally {
     // Issue #2189: the closing sample must run on every exit path, including the

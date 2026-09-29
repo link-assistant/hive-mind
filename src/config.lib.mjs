@@ -213,6 +213,15 @@ export const claudeCode = {
   // Set via MCP_TIMEOUT/MCP_TOOL_TIMEOUT or HIVE_MIND_MCP_TIMEOUT/HIVE_MIND_MCP_TOOL_TIMEOUT
   mcpTimeout: parseIntWithDefault('MCP_TIMEOUT', parseIntWithDefault('HIVE_MIND_MCP_TIMEOUT', 900000)),
   mcpToolTimeout: parseIntWithDefault('MCP_TOOL_TIMEOUT', parseIntWithDefault('HIVE_MIND_MCP_TOOL_TIMEOUT', 900000)),
+  // Issue #2301: after the main thread goes idle, `claude -p` waits for background Agent/Bash/
+  // Workflow tasks only up to CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS (Claude Code default 600000 ms),
+  // then kills them. Background work stays enabled; the ceiling is 4x the default (40 minutes) and
+  // still finite, so a stuck task cannot hang solve forever. A sweep that happens anyway is resumed
+  // in the same session up to incompleteTurnMaxResumes times.
+  // Set via CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS or HIVE_MIND_CLAUDE_PRINT_BG_WAIT_CEILING_MS
+  // (0 waits indefinitely, as in Claude Code) and HIVE_MIND_CLAUDE_INCOMPLETE_TURN_MAX_RESUMES.
+  printBgWaitCeilingMs: parseIntWithDefault('CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS', parseIntWithDefault('HIVE_MIND_CLAUDE_PRINT_BG_WAIT_CEILING_MS', 2400000)),
+  incompleteTurnMaxResumes: parseIntWithDefault('HIVE_MIND_CLAUDE_INCOMPLETE_TURN_MAX_RESUMES', 5),
 };
 
 // Default max thinking budget for Claude Code (see issue #1146)
@@ -653,6 +662,8 @@ export const getClaudeEnv = (options = {}) => {
     // See: https://github.com/link-assistant/hive-mind/issues/1066
     MCP_TIMEOUT: String(claudeCode.mcpTimeout),
     MCP_TOOL_TIMEOUT: String(claudeCode.mcpToolTimeout),
+    // Issue #2301: raise print mode's background-task wait ceiling instead of disabling background work.
+    CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS: String(claudeCode.printBgWaitCeilingMs),
   });
 
   // Opus 4.7+ always uses adaptive thinking — MAX_THINKING_TOKENS has no effect (Issue #1620, Issue #1832)

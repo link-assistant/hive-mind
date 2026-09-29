@@ -70,8 +70,14 @@ export const collectClaudeStreamEventFacts = data => {
     toolResultErrorIsBenign: false,
     toolResultErrorCategory: null,
     compactionSummary: null,
+    // Issue #2301: subagent events carry `parent_tool_use_id`. Their tool errors, text and
+    // compaction summaries belong to the subagent, which handles them itself; they must not
+    // become the main session's final tool result, last message, or summary fallback.
+    fromSubagent: false,
+    subagentToolResultError: null,
   };
   if (!data || typeof data !== 'object') return facts;
+  facts.fromSubagent = typeof data.parent_tool_use_id === 'string' && data.parent_tool_use_id.length > 0;
 
   if (data.type === 'message' || data.type === 'assistant' || data.type === 'user') facts.messageCountDelta = 1;
   if (data.type === 'tool_use') facts.toolUseCountDelta = 1;
@@ -97,6 +103,12 @@ export const collectClaudeStreamEventFacts = data => {
     facts.toolResultError = data.tool_use_result.trim();
   }
 
+  if (facts.fromSubagent) {
+    facts.subagentToolResultError = facts.toolResultError;
+    Object.assign(facts, { lastText: null, compactionSummary: null, toolResultObserved: false, toolResultFailed: false, toolResultError: null });
+    return facts;
+  }
+
   if (facts.toolResultError) {
     const classification = classifyToolResultError(facts.toolResultError);
     facts.toolResultErrorIsBenign = classification.benign;
@@ -114,7 +126,11 @@ export const collectClaudeStreamEventFacts = data => {
  * only by the provider's top-level `subtype: success` is not verified success
  * (#2263); bare exit-status probes retain issue #2160's benign classification.
  */
-export const updateTerminalToolResult = (previous, facts) => {
+export const updateTerminalToolResult = (previous, facts, { afterResult = false } = {}) => {
+  // Issue #2301: between a `result` and the next main-thread turn, print mode only emits
+  // shutdown noise (task stop notifications, synthetic cancellation results). They describe
+  // cancelled background work, not a user decision or the result of the completed turn.
+  if (afterResult) return previous || { observed: false, failed: false, benign: false, error: null };
   if (!facts?.toolResultObserved) return previous || { observed: false, failed: false, benign: false, error: null };
   return {
     observed: true,

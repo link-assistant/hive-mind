@@ -107,7 +107,9 @@ export async function resolveOomKilledState(sessionName, sessionInfo, statusResu
   if (footer?.finished) {
     const footerExitCode = normalizeExitCode(footer.exitCode);
     const correctedStatus = classifyExitStatus(footerExitCode) || (footerExitCode === 0 ? 'executed' : 'failed');
-    const survivedOom = footerExitCode === 0;
+    // Any ordinary exit proves the main work process outlived the cgroup OOM
+    // event, even when the lost child later caused it to fail (issue #2301).
+    const survivedOom = footerExitCode !== null && footerExitCode < 128;
     if (survivedOom) markOomEventObserved(sessionInfo, persistSnapshot);
     if (verbose) {
       console.log(`[VERBOSE] Session ${sessionName} reported oomKilled=true, but its log footer says exit ${footerExitCode} (${correctedStatus}) and wins${survivedOom ? ' — the session SURVIVED the out-of-memory event (issue #2134)' : ''}`);

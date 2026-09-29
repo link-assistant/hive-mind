@@ -11,29 +11,29 @@ const execAsync = promisify(exec);
  * /queue detailed status (issue #1837).
  *
  * For GitHub issue/PR URLs we render a compact `[owner/repo#number](url)`
- * Markdown link so the list is scannable and clickable. When the label would
- * contain Markdown-special characters (e.g. `_` or `*` in an owner/repo name)
- * that could break Telegram's legacy Markdown parser, we fall back to the bare
- * URL — which Telegram still auto-links and renders as clickable.
- *
- * Non-GitHub or unparseable URLs also fall back to the bare URL.
+ * Markdown link so the list is scannable and clickable. Telegram's legacy
+ * Markdown copies a link label verbatim up to `]` and its URL up to `)`, so
+ * `_` or `*` in an owner/repo name is safe there. A bare URL is not: at top
+ * level `save_visiogetbb` opens an italic entity that never closes and the
+ * whole message is rejected (issue #2301). Labels therefore always become a
+ * link, and any other URL is escaped for top level.
  *
  * @param {string} url - The issue/PR URL.
- * @returns {string} A Markdown link or bare URL safe for `parse_mode: 'Markdown'`.
+ * @returns {string} A Markdown link or escaped bare URL safe for `parse_mode: 'Markdown'`.
  */
 export function formatQueueItemLink(url) {
   if (!url || typeof url !== 'string') return String(url ?? '');
   const match = url.match(/github\.com\/([^/\s]+)\/([^/\s]+)\/(?:issues|pull)\/(\d+)/i);
-  if (!match) return url;
-  const [, owner, repo, number] = match;
-  const label = `${owner}/${repo}#${number}`;
-  // Only build a Markdown link when the label has no Markdown-special chars
-  // that would break the legacy parser inside link text. Otherwise the bare
-  // URL is still clickable in Telegram.
-  if (/^[A-Za-z0-9/#.-]+$/.test(label)) {
-    return `[${label}](${url})`;
+  if (match && !/[\])]/.test(url)) {
+    const [, owner, repo, number] = match;
+    return `[${owner}/${repo}#${number}](${url})`;
   }
-  return url;
+  return escapeTopLevelMarkdown(url);
+}
+
+// Escape the four characters legacy Markdown treats as entity openers at top level.
+function escapeTopLevelMarkdown(text) {
+  return String(text).replace(/[_*`[]/g, '\\$&');
 }
 
 /**
@@ -55,7 +55,7 @@ export function formatQueueHistorySection({ items, emoji, label, max, locale, wi
   let section = `${indent}*${label}* (${items.length}):\n`;
   for (const item of [...items].reverse().slice(0, max)) {
     section += `${indent}  ${emoji} ${formatQueueItemLink(item.url)}`;
-    if (withError && item.error) section += ` — ${item.error}`;
+    if (withError && item.error) section += ` — ${escapeTopLevelMarkdown(item.error)}`;
     section += '\n';
   }
   if (items.length > max) {

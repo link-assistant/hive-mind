@@ -18,7 +18,7 @@ import { reserveStartSlotForQueue } from './queue-start-reservation.lib.mjs';
 import { formatExecutingWorkSessionMessage, formatFailedLaunchMessage, formatStartingWorkSessionMessage } from './work-session-formatting.lib.mjs';
 import { canonicalizeGitHubUrl as canonicalizeQueueUrl } from './github-url-parser.lib.mjs';
 import { t } from './i18n.lib.mjs';
-import { safeEditMessageText } from './telegram-safe-reply.lib.mjs';
+import { isTelegramMessageNotModifiedError, safeEditMessageText } from './telegram-safe-reply.lib.mjs';
 import { lt } from './limits-i18n.lib.mjs';
 // Issue #2175: throttling decisions live in their own module to keep this file under the 1350-line warning threshold.
 import { checkApiLimits as checkApiLimitsImpl, checkSystemResources as checkSystemResourcesImpl, getLocale } from './telegram-solve-queue.throttling.lib.mjs';
@@ -716,6 +716,11 @@ export class SolveQueue {
         item.lastMessageUpdateTime = Date.now();
       }
     } catch (error) {
+      if (isTelegramMessageNotModifiedError(error)) {
+        // The message already shows this text (issue #2301), so it is up to date.
+        if (trackUpdateTime) item.lastMessageUpdateTime = Date.now();
+        return;
+      }
       this.log(`Failed to update message: ${error.message}`);
     }
   }

@@ -34,7 +34,8 @@ import { deployHandoffSkill } from './handoff-skill.lib.mjs'; // Issue #1877
 import { deployPlaywrightSkill } from './playwright-skill.lib.mjs'; // Issue #2190
 import { formatRouterAuthViolation, startRouterAuthGuard } from './router-auth-guard.lib.mjs'; // Issue #2190
 import { createThinkingBlockRecovery } from './claude.thinking-block-recovery.lib.mjs'; // Issue #1834 (PR #1835 feedback)
-import { assessClaudeTurnCompletion, buildMissingClaudeResultMessage, collectClaudeStreamEventFacts, getClaudeMessageContent, shouldFailClaudeStreamWithoutResult, updateTerminalToolResult } from './claude.stream-events.lib.mjs';
+import { buildMissingClaudeResultMessage, collectClaudeStreamEventFacts, getClaudeMessageContent, shouldFailClaudeStreamWithoutResult, updateTerminalToolResult } from './claude.stream-events.lib.mjs';
+import { assessClaudeTurnCompletion, createClaudePrintTurnTracker, INCOMPLETE_TURN_CONTINUATION_PROMPT } from './claude.print-turn.lib.mjs'; // Issue #2301
 import { createRepeatedToolCallBreaker, explainFailureWithToolHistory, publishRepeatedToolCallVerdict } from './repeated-tool-call-breaker.lib.mjs'; // Issue #2247 (H4/H10), #2316
 import { formatNumber, mapModelToId, checkModelVisionCapability, resolveClaudeModelForExecution } from './claude.model-utils.lib.mjs';
 import { renameLogToSessionId } from './session-log-rename.lib.mjs'; // Issue #2160
@@ -392,9 +393,9 @@ export const executeClaudeCommand = async params => {
       let exitCode = 0;
       let stdoutLineBuffer = '';
       let resultEventReceived = false;
-      let resultEvent = null;
-      let postResultStoppedTaskCount = 0;
+      const printTurn = createClaudePrintTurnTracker(); // Issue #2301
       let postResultCancelledToolResultCount = 0;
+      let subagentToolResultErrorCount = 0;
       let resultTimeoutId = null;
       let forceExitTriggered = false;
       const streamCloseTimeoutMs = timeouts.resultStreamCloseMs;
@@ -545,7 +546,7 @@ export const executeClaudeCommand = async params => {
                 }
               }
               const eventFacts = collectClaudeStreamEventFacts(data);
-              const afterResult = resultEventReceived && !streamingInput;
+              const afterResult = printTurn.observeEvent(data).afterResult && !streamingInput;
               terminalToolResult = updateTerminalToolResult(terminalToolResult, eventFacts, { afterResult });
               messageCount += eventFacts.messageCountDelta;
               toolUseCount += eventFacts.toolUseCountDelta;
@@ -554,7 +555,10 @@ export const executeClaudeCommand = async params => {
                 resultSummary = eventFacts.compactionSummary;
                 await log('📝 Captured fallback summary from Claude compaction context', { verbose: true });
               }
-              if (afterResult && eventFacts.toolResultError) {
+              if (eventFacts.subagentToolResultError) {
+                subagentToolResultErrorCount++;
+                await log(`ℹ️ Subagent tool result error (handled by the subagent): ${eventFacts.subagentToolResultError.substring(0, 200)}`, { verbose: true });
+              } else if (afterResult && eventFacts.toolResultError) {
                 postResultCancelledToolResultCount++;
               } else if (eventFacts.toolResultError) {
                 // Issue #2160: an in-session tool failure the AI handles itself is not a warning,
@@ -571,7 +575,6 @@ export const executeClaudeCommand = async params => {
                 lastToolResultError = null;
                 lastBenignToolResultError = null;
               }
-              if (afterResult && data.type === 'system' && data.subtype === 'task_notification' && data.status === 'stopped') postResultStoppedTaskCount++;
               // Issue #2247 (H4): a session that keeps making the same failing tool
               // call is not working, it is looping. Stop it here instead of letting
               // it spend the whole context budget (547 repeats in the Kotlin run).
@@ -601,7 +604,6 @@ export const executeClaudeCommand = async params => {
               }
               if (progressMonitor) await progressMonitor.processStreamEvent(data).catch(e => log(`⚠️ Progress: ${e.message}`, { verbose: true }));
               if (data.type === 'result') {
-                resultEvent = data;
                 if (!resultEventReceived) {
                   resultEventReceived = true;
                   await log(`📌 Result event received, starting ${streamCloseTimeoutMs / 1000}s stream close timeout (Issue #1280)`, { verbose: true });
@@ -808,6 +810,8 @@ export const executeClaudeCommand = async params => {
               apiMarkedNotRetryable = true;
               await log('⚠️ API signaled error is not retryable (x-should-retry: false)', { verbose: true });
             }
+            const ceilingSeconds = printTurn.observeStderr(errorOutput);
+            if (ceilingSeconds !== null) await log(`⚠️ Claude Code print mode reached its ${ceilingSeconds}s background-task wait ceiling and is stopping background tasks (issue #2301)`, { level: 'warning' });
             for (const line of errorOutput.split('\n')) {
               if (isStderrError(line)) stderrErrors.push(line.trim());
             }
@@ -829,14 +833,16 @@ export const executeClaudeCommand = async params => {
           await log(JSON.stringify(data, null, 2));
           await baseBranchCommandIntervention.handleStreamEvent(data);
           const eventFacts = collectClaudeStreamEventFacts(data);
-          const afterResult = resultEventReceived && !streamingInput;
+          const afterResult = printTurn.observeEvent(data).afterResult && !streamingInput;
           terminalToolResult = updateTerminalToolResult(terminalToolResult, eventFacts, { afterResult });
           messageCount += eventFacts.messageCountDelta;
           toolUseCount += eventFacts.toolUseCountDelta;
           if (eventFacts.lastText && !afterResult) lastMessage = eventFacts.lastText;
           if (!resultSummary && eventFacts.compactionSummary) resultSummary = eventFacts.compactionSummary;
           // Issue #2160: same classification as the streaming path above.
-          if (afterResult && eventFacts.toolResultError) {
+          if (eventFacts.subagentToolResultError) {
+            subagentToolResultErrorCount++;
+          } else if (afterResult && eventFacts.toolResultError) {
             postResultCancelledToolResultCount++;
           } else if (eventFacts.toolResultError && eventFacts.toolResultErrorIsBenign) {
             lastBenignToolResultError = eventFacts.toolResultError;
@@ -846,10 +852,8 @@ export const executeClaudeCommand = async params => {
             lastToolResultError = null;
             lastBenignToolResultError = null;
           }
-          if (afterResult && data.type === 'system' && data.subtype === 'task_notification' && data.status === 'stopped') postResultStoppedTaskCount++;
           if (data?.type === 'result') {
             resultEventReceived = true;
-            resultEvent = data;
             if (data.subtype === 'success') {
               resultSuccessReceived = true;
               if (data.result && typeof data.result === 'string') resultSummary = data.result;
@@ -958,33 +962,37 @@ export const executeClaudeCommand = async params => {
         lastMessage = buildMissingClaudeResultMessage({ lastToolResultError, lastMessage, lastBenignToolResultError });
         await log(`\n\n❌ Command failed: ${lastMessage}`, { level: 'error' });
       }
+      // Issue #2301: an incomplete print-mode turn is checked first. Its last tool results are the
+      // cancellation artifacts of the background-task sweep, not the verdict of finished work.
+      const printTurnState = printTurn.snapshot();
+      const turnCompletion = assessClaudeTurnCompletion({ resultEvent: streamingInput ? null : printTurnState.resultEvent, stoppedTaskCount: printTurnState.stoppedTaskCount, ceilingSeconds: printTurnState.ceilingSeconds, recoveryAttempts: incompleteTurnRecoveryAttempts, sessionId: sessionId || argv.resume });
+      if (subagentToolResultErrorCount > 0) await log(`ℹ️ ${subagentToolResultErrorCount} subagent tool result error(s) were handled inside subagents and do not decide this session's result`, { verbose: true });
+      if (turnCompletion.cancelledTasks > 0 || postResultCancelledToolResultCount > 0) {
+        await log(`⚠️ ${turnCompletion.cause}: ${turnCompletion.cancelledTasks} task(s) [${printTurnState.stoppedTaskIds.join(', ')}], ${postResultCancelledToolResultCount} synthetic tool result(s), ${printTurnState.resultCount} result event(s)`, { verbose: true });
+      }
+      if (turnCompletion.shouldResume && !commandFailed && exitCode === 0) {
+        incompleteTurnRecoveryAttempts++;
+        argv.resume = turnCompletion.sessionId;
+        incompleteTurnPrompt = INCOMPLETE_TURN_CONTINUATION_PROMPT;
+        await log(`\n🔄 Resuming Claude session ${argv.resume}: ${turnCompletion.cause} (${turnCompletion.cancelledTasks} task(s), issue #2301).`);
+        return await executeWithRetry();
+      }
+      if (turnCompletion.incomplete && !commandFailed) {
+        commandFailed = true;
+        errorDuringExecution = true;
+        lastMessage = `${turnCompletion.cause}; ${turnCompletion.cancelledTasks} task(s) were unfinished and automatic same-session continuation was exhausted`;
+        await log(`\n\n❌ Command failed: ${lastMessage}`, { level: 'error' });
+      }
       // Issue #2263: Formal AI correctly surfaced `javac`'s non-zero result,
       // then Claude's stream ended with a provider-level success envelope. A
       // diagnostic-rich failed final tool result means verification did not
       // succeed regardless of that envelope. Earlier failures remain harmless
       // when a later success supersedes them, and issue #2160's bare self-handled
       // exit statuses remain benign (updateTerminalToolResult).
-      if (resultSuccessReceived && terminalToolResult.failed && !terminalToolResult.benign) {
+      if (!turnCompletion.incomplete && resultSuccessReceived && terminalToolResult.failed && !terminalToolResult.benign) {
         commandFailed = true;
         errorDuringExecution = true;
         lastMessage = `Final tool result failed: ${terminalToolResult.error}`;
-        await log(`\n\n❌ Command failed: ${lastMessage}`, { level: 'error' });
-      }
-      const turnCompletion = assessClaudeTurnCompletion({ resultEvent: streamingInput ? null : resultEvent, stoppedTaskCount: postResultStoppedTaskCount, recoveryAttempts: incompleteTurnRecoveryAttempts, sessionId: sessionId || argv.resume });
-      if (turnCompletion.cancelledTasks > 0 || postResultCancelledToolResultCount > 0) {
-        await log(`⚠️ Background tasks cancelled at Claude print-mode exit: ${turnCompletion.cancelledTasks} task(s), ${postResultCancelledToolResultCount} synthetic tool result(s)`, { verbose: true });
-      }
-      if (turnCompletion.shouldResume && !commandFailed && exitCode === 0) {
-        incompleteTurnRecoveryAttempts++;
-        argv.resume = turnCompletion.sessionId;
-        incompleteTurnPrompt = 'Continue the unfinished work. The previous print-mode turn ended while background tasks or subagents were still running, so Claude Code cancelled them. Re-run those tasks, wait for their actual results in this turn, then finish all remaining issue and pull-request requirements. Do not end your turn merely to wait for background work.';
-        await log(`\n🔄 Resuming Claude session ${argv.resume} because ${turnCompletion.cancelledTasks} background task(s) were cancelled at exit (issue #2301).`);
-        return await executeWithRetry();
-      }
-      if (turnCompletion.incomplete && !commandFailed) {
-        commandFailed = true;
-        errorDuringExecution = true;
-        lastMessage = `Claude ended print mode with ${turnCompletion.cancelledTasks} unfinished background task(s); automatic same-session continuation was exhausted`;
         await log(`\n\n❌ Command failed: ${lastMessage}`, { level: 'error' });
       }
       // Issue #2247 (H4/H10): the loop is the reason the session ended, so it is what
@@ -1145,7 +1153,7 @@ export const executeClaudeCommand = async params => {
         } else if (lastMessage.includes('context_length_exceeded')) {
           await log('\n\n❌ Context length exceeded. Try with a smaller issue or split the work.', { level: 'error' });
         } else {
-          await log(`\n\n❌ Claude command failed with exit code ${exitCode}`, { level: 'error' });
+          await log(exitCode === 0 ? `\n\n❌ Claude session failed (the CLI itself exited with code 0): ${String(lastMessage).slice(0, 300)}` : `\n\n❌ Claude command failed with exit code ${exitCode}`, { level: 'error' });
           if (sessionId && !argv.resume && tempDir) {
             await log(`📌 Session ID: ${sessionId}`);
             await showResumeCommand(sessionId, tempDir, claudePath, argv.model, log, argv);

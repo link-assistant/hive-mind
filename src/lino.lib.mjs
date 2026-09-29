@@ -7,6 +7,8 @@ if (typeof use === 'undefined') {
 const { useWithRetry } = await import('./use-with-retry.lib.mjs');
 const linoModule = await useWithRetry(globalThis.use, 'links-notation');
 const LinoParser = linoModule.Parser || linoModule.default?.Parser;
+const LinoLink = linoModule.Link || linoModule.default?.Link;
+const linoFormatLinks = linoModule.formatLinks || linoModule.default?.formatLinks;
 
 const fs = await import('fs');
 const path = await import('path');
@@ -149,17 +151,14 @@ export class LinksNotationManager {
   }
 
   formatLinks(pairs) {
-    if (!pairs || pairs.length === 0) return '()';
-
-    const formattedValues = pairs.map(pair => `  ${pair.source} ${pair.target}`).join('\n');
-    return `(\n${formattedValues}\n)`;
+    // The parse methods read one top-level link, so keep the pairs in one group.
+    const links = (pairs || []).map(pair => new LinoLink(null, [new LinoLink(String(pair.source)), new LinoLink(String(pair.target))]));
+    return linoFormatLinks([new LinoLink(null, links)]);
   }
 
   format(values) {
-    if (!values || values.length === 0) return '()';
-
-    const formattedValues = values.map(value => `  ${value}`).join('\n');
-    return `(\n${formattedValues}\n)`;
+    const links = (values || []).map(value => new LinoLink(String(value)));
+    return linoFormatLinks([new LinoLink(null, links)]);
   }
 
   async ensureCacheDir() {

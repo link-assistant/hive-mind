@@ -220,23 +220,13 @@ runTest('format null', () => {
 // Test 19: format simple values
 runTest('format simple values', () => {
   const result = lino.format(['value1', 'value2', 'value3']);
-  const expected = `(
-  value1
-  value2
-  value3
-)`;
-  assertEqual(result, expected, 'Should format values with indentation');
+  assertEqual(result, '(value1 value2 value3)', 'Should format values with the package serializer');
 });
 
 // Test 20: format command-line options
 runTest('format command-line options', () => {
   const result = lino.format(['--verbose', '--all-issues', '--model=opus']);
-  const expected = `(
-  --verbose
-  --all-issues
-  --model=opus
-)`;
-  assertEqual(result, expected, 'Should format options correctly');
+  assertEqual(result, '(--verbose --all-issues --model=opus)', 'Should format options correctly');
 });
 
 console.log('\n📋 Round-Trip Tests (parse -> format)\n');
@@ -255,6 +245,18 @@ runTest('round-trip with numeric strings', () => {
   const formatted = lino.format(original);
   const parsed = lino.parseStringValues(formatted);
   assertEqual(parsed, original, 'Should preserve numeric strings through round-trip');
+});
+
+runTest('format round-trips references requiring quoting', () => {
+  const original = ['plain', 'two words', '#tag', 'has (parentheses)', 'line\nbreak'];
+  const formatted = lino.format(original);
+  assertEqual(lino.parse(formatted), original, 'parse should recover every reference');
+  assertEqual(lino.parseStringValues(formatted), original, 'parseStringValues should recover every reference');
+});
+
+runTest('format round-trips numeric IDs', () => {
+  const original = [-1002975819706, 857];
+  assertEqual(lino.parseNumericIds(lino.format(original)), original);
 });
 
 console.log('\n📋 Edge Case Tests (Issue #1086 Related)\n');

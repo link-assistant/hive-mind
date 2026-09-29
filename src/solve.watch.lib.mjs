@@ -55,6 +55,8 @@ const { quietProbe } = await import('./quiet-probe.lib.mjs');
 // condition here at all.
 const stopReportingLib = await import('./automation-stop-reporting.lib.mjs');
 const { reportAutomationStop } = stopReportingLib;
+// Issue #2301: a failed AI session in this loop fails the run (see automation-failure.lib.mjs).
+const { recordLoopToolFailure } = await import('./automation-failure.lib.mjs');
 
 // Issue #1574: Interruptible sleep so CTRL+C is never blocked by a lingering timer
 const { interruptibleSleep } = await import('./interruptible-sleep.lib.mjs');
@@ -586,6 +588,7 @@ export const watchForFeedback = async params => {
                 log,
                 logAttached,
               });
+              recordLoopToolFailure({ reason: 'tool_failure', mode: 'watch', message: extractToolErrorCore({ toolResult }) || 'unknown API error' });
               break; // Exit the watch loop
             }
 

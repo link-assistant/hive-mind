@@ -58,6 +58,8 @@ const { quietProbe } = await import('./quiet-probe.lib.mjs');
 // stating exactly why it stopped.
 const stopReportingLib = await import('./automation-stop-reporting.lib.mjs');
 const { reportAutomationStop } = stopReportingLib;
+// Issue #2301: a failed AI session in this loop fails the run (see automation-failure.lib.mjs).
+const { recordLoopToolFailure } = await import('./automation-failure.lib.mjs');
 // Issue #2306: never auto-merge a pull request that leaves required issues open.
 const { checkClosingReferencesBeforeMerge } = await import('./solve.ensure-sub-issues.lib.mjs');
 // Import validation functions for time parsing (used for usage limit wait)
@@ -1020,6 +1022,7 @@ export const watchUntilMergeable = async params => {
                   }
                 }
                 await reportAutomationStop({ $, owner, repo, targetNumber: prNumber, reason: 'tool_failure_after_resume', mode: 'auto-restart-until-mergeable', message: extractToolErrorCore({ toolResult: resumeResult }) || formatToolExecutionFailure({ tool: argv.tool, toolResult: resumeResult }), verbose: argv.verbose, log, logAttached: resumeFailLogAttached });
+                recordLoopToolFailure({ reason: 'tool_failure_after_resume', mode: 'auto-restart-until-mergeable', message: extractToolErrorCore({ toolResult: resumeResult }) || formatToolExecutionFailure({ tool: argv.tool, toolResult: resumeResult }) });
                 return { success: false, reason: 'tool_failure_after_resume', latestSessionId, latestAnthropicCost };
               }
             } else {
@@ -1077,6 +1080,7 @@ export const watchUntilMergeable = async params => {
               }
             }
             await reportAutomationStop({ $, owner, repo, targetNumber: prNumber, reason: 'tool_failure', mode: 'auto-restart-until-mergeable', message: extractToolErrorCore({ toolResult }) || formatToolExecutionFailure({ tool: argv.tool, toolResult }), verbose: argv.verbose, log, logAttached: failLogAttached });
+            recordLoopToolFailure({ reason: 'tool_failure', mode: 'auto-restart-until-mergeable', message: extractToolErrorCore({ toolResult }) || formatToolExecutionFailure({ tool: argv.tool, toolResult }) });
             return { success: false, reason: 'tool_failure', latestSessionId, latestAnthropicCost };
           }
         }

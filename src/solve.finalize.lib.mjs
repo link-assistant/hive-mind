@@ -6,6 +6,9 @@ import { getAutoRestartLimitFailure, hasAutoRestartLimitFailure } from './auto-r
 // Issue #2247 (H3): stopping because two consecutive sessions were identical is
 // a failure for the same reason an exhausted budget is - the task is unfinished.
 import { getNoProgressFailure, hasNoProgressFailure } from './session-progress.lib.mjs';
+// Issue #2301: an AI session that failed inside the auto-restart or watch loop fails the run,
+// exactly as a failed first session does.
+import { getLoopToolFailure, hasLoopToolFailure } from './automation-failure.lib.mjs';
 
 export async function finalizeSolveProcess({ tempDir, argv, limitReached, path, getLogFile, log, closeSentry, logActiveHandles, cleanupTempDirectory, safeExit }) {
   const runFinalizationStep = async (label, step) => {
@@ -56,6 +59,14 @@ export async function finalizeSolveProcess({ tempDir, argv, limitReached, path, 
     await log('\n❌ Stopped after two consecutive AI sessions produced identical results - no restart can make progress.', { level: 'error' });
     await log(failure.committed ? '   Uncommitted work was auto-committed before exit, so the partial result is visible.' : '   No uncommitted work was left to preserve.', { level: 'error' });
     await safeExit(1, 'No progress between sessions');
+    return;
+  }
+
+  if (hasLoopToolFailure()) {
+    const failure = getLoopToolFailure();
+    await log(`\n❌ The AI session failed and ${failure.mode ? `\`--${failure.mode}\`` : 'the automation'} stopped (${failure.reason}).`, { level: 'error' });
+    if (failure.message) await log(`   ${failure.message}`, { level: 'error' });
+    await safeExit(1, `AI session failed (${failure.reason})`);
     return;
   }
 

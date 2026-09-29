@@ -37,11 +37,18 @@
  * @param {number|null} [params.anthropicTotalCostUSD]
  * @param {Object|null} [params.resultModelUsage]
  * @param {Object} [params.globalState] - Defaults to the process `global`; injectable for tests.
- * @returns {Promise<boolean>} `true` if a log has been attached (by this helper or earlier).
+ * @returns {Promise<boolean>} `true` if the latest log has been attached (by this helper or earlier).
  */
 export const attachFinalLogIfMissing = async ({ shouldAttachLogs, prNumber, owner, repo, $, log, sanitizeLogContent, getLogFile, attachLogToGitHub, argv, sessionId = null, tempDir = null, anthropicTotalCostUSD = null, resultModelUsage = null, globalState = global }) => {
   // Only fire as a last resort: --attach-logs enabled, a PR to attach to, and nothing attached yet.
   if (!shouldAttachLogs || !prNumber || globalState.logAttachedToGitHub) {
+    // Issue #2301: an earlier log does not make the latest one attached. A failed
+    // upload was already retried and reported on the pull request ("Log Upload
+    // Failed"), so it is not repeated here; it is only reported as not attached.
+    if (globalState.logAttachedToGitHub === true && globalState.latestLogAttachFailed === true) {
+      await log('ℹ️  The latest session log could not be attached (see the "Log Upload Failed" comment); an earlier log is attached');
+      return false;
+    }
     return globalState.logAttachedToGitHub === true;
   }
 
@@ -75,7 +82,7 @@ export const attachFinalLogIfMissing = async ({ shouldAttachLogs, prNumber, owne
     await log(`⚠️  Error attaching final log: ${uploadError.message}`, { level: 'warning' });
   }
 
-  return globalState.logAttachedToGitHub === true;
+  return globalState.logAttachedToGitHub === true && globalState.latestLogAttachFailed !== true;
 };
 
 /**

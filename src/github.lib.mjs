@@ -474,7 +474,22 @@ ${logContent}
   return logComment;
 }
 /** Attaches a log file to a GitHub PR or issue as a comment. Returns true if upload succeeded. */
+/**
+ * Attach the session log to a pull request or issue.
+ *
+ * Issue #2301: also records whether the most recent attempt failed. In
+ * link-foundation/meta-language#196 an early iteration's log was attached and
+ * the failing iteration's log was not, yet the session ended with "logs already
+ * attached", because only "some log was attached at some point" was tracked.
+ * @returns {Promise<boolean>} Whether the log was attached.
+ */
 export async function attachLogToGitHub(options) {
+  const attached = await attachLogToGitHubOnce(options);
+  global.latestLogAttachFailed = attached !== true;
+  return attached;
+}
+
+async function attachLogToGitHubOnce(options) {
   const fs = (await use('fs')).promises;
   const {
     logFile,

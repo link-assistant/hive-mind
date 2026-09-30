@@ -843,6 +843,10 @@ jobs:
       pages: write
       id-token: write
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - name: Resolve GitHub credentials
         id: gh
         uses: ./.github/actions/resolve-github-token # https://github.com/link-foundation/.github/issues/1
@@ -851,10 +855,6 @@ jobs:
           app-private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
           token: ${{ secrets.AUTOMATION_TOKEN }}
           default-token: ${{ github.token }}
-      - name: Checkout repository
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
       - name: Install Helm
         uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
         with:
@@ -1208,6 +1208,10 @@ jobs:
       pages: write
       id-token: write
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - name: Resolve GitHub credentials
         id: gh
         uses: ./.github/actions/resolve-github-token # https://github.com/link-foundation/.github/issues/1
@@ -1216,10 +1220,6 @@ jobs:
           app-private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
           token: ${{ secrets.AUTOMATION_TOKEN }}
           default-token: ${{ github.token }}
-      - name: Checkout repository
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
       - name: Install Helm
         uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
         with:

@@ -188,3 +188,26 @@ test('freshness uses the selected GH_TOKEN for GitHub registry requests', async 
     else process.env.GH_TOKEN = previous;
   }
 });
+
+test('standalone automation jobs install GitHub helper dependencies before running scripts', () => {
+  for (const [file, name, invocation] of [
+    ['e2e-hello-world-matrix', 'prepare', 'node scripts/e2e-matrix-schedule.mjs'],
+    ['e2e-hello-world-matrix', 'hello-world', 'node scripts/e2e-hello-world.mjs'],
+    ['cleanup-test-repos', 'cleanup', 'node scripts/cleanup-task-fixtures.mjs'],
+    ['formal-ai-draft', 'health', 'node scripts/formal-ai-draft-health.mjs'],
+    ['formal-ai-draft', 'draft', 'uses: ./.github/actions/dispatch-checks'],
+  ]) {
+    const source = readFileSync(`.github/workflows/${file}.yml`, 'utf8');
+    const job = source.split(/^ {2}(?=[A-Za-z0-9_-]+:$)/m).find(block => block.startsWith(`${name}:`));
+    const install = job.indexOf('npm ci --omit=dev --ignore-scripts');
+    assert.ok(install >= 0 && install < job.indexOf(invocation), `${file}/${name} installs runtime dependencies first`);
+  }
+});
+
+test('every release job checks out the local credential action before using it', () => {
+  const workflow = readFileSync('.github/workflows/release.yml', 'utf8');
+  for (const name of ['release', 'instant-release', 'helm-release', 'helm-release-instant', 'changeset-pr']) {
+    const job = workflow.split(/^ {2}(?=[A-Za-z0-9_-]+:$)/m).find(block => block.startsWith(`${name}:`));
+    assert.ok(job.indexOf('uses: actions/checkout@') < job.indexOf('uses: ./.github/actions/resolve-github-token'), `${name} checks out its local action first`);
+  }
+});

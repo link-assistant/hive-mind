@@ -46,6 +46,8 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: 24.x
+      - name: Install dependencies for GitHub API retries
+        run: node scripts/npm-install-with-retry.mjs ci
       - name: Clean stale GitHub test resources
         env:
           GH_TOKEN: ${{ steps.gh.outputs.token }}

@@ -54,3 +54,11 @@ test('default-token drafts dispatch the four checks even after a failed solve', 
   assert.match(draft, /if:[^\n]*!cancelled\(\)[^\n]*head_ref/);
   for (const file of ['release.yml', 'security.yml', 'links.yml', 'workflows.yml']) assert.ok(draft.includes(file));
 });
+
+test('standalone API jobs install the dependencies of the retained retry helper', () => {
+  for (const name of ['cleanup-test-repos', 'draft-activity', 'e2e-hello-world-matrix']) {
+    const source = workflow(name);
+    assert.match(source, /run: node scripts\/npm-install-with-retry\.mjs ci/, name);
+    assert.ok(source.indexOf('npm-install-with-retry.mjs ci') < source.lastIndexOf('run: node scripts/'), name);
+  }
+});

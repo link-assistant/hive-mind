@@ -73,6 +73,9 @@ jobs:
         with:
           node-version: 24.x
 
+      - name: Install dependencies for GitHub API retries
+        run: node scripts/npm-install-with-retry.mjs ci
+
       - name: Free disk space for the hive-mind image
         run: node scripts/free-disk-space.mjs
 

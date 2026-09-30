@@ -4,6 +4,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { gh, ghJson } from './github-actions.lib.mjs';
+import { E2E_MATRIX } from './e2e-hello-world.lib.mjs';
 
 const repository = process.env.GITHUB_REPOSITORY;
 const event = process.env.GITHUB_EVENT_PATH ? JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8')) : {};
@@ -16,6 +17,10 @@ if (process.env.GITHUB_EVENT_NAME === 'schedule') {
   for (const run of runs) {
     const directory = await mkdtemp(join(tmpdir(), 'hive-e2e-metadata-'));
     try {
+      // A successful prepare-only run uploads metadata without testing any model.
+      // Only a completed, passing row for every required model establishes a tested tag.
+      const { jobs } = await ghJson(['run', 'view', String(run.databaseId), '--repo', repository, '--json', 'jobs']);
+      if (!E2E_MATRIX.every(({ tool, model }) => jobs.some(job => job.name === `${tool} / ${model}` && job.status === 'completed' && job.conclusion === 'success'))) continue;
       await gh(['run', 'download', String(run.databaseId), '--repo', repository, '--name', 'e2e-matrix-metadata', '--dir', directory]);
       previousTag = JSON.parse(readFileSync(join(directory, 'matrix.json'), 'utf8')).formalAiTag;
       break;

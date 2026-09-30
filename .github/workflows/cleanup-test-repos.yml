@@ -1,18 +1,15 @@
 name: Cleanup Test Repositories
 
 on:
+  schedule:
+    - cron: '43 7 * * *'
   workflow_dispatch:
     inputs:
       dry_run:
-        description: 'Dry run mode - shows what would be deleted without actually deleting'
-        required: false
+        description: 'List stale resources without deleting them'
         type: boolean
         default: false
 
-# Least privilege by default (zizmor excessive-permissions): `read-all` also
-# grants read access to actions, packages, security events and more. This
-# workflow only needs to check out the repository; every deletion it performs
-# goes through TEST_GITHUB_USER_REPO_DELETION_TOKEN, not GITHUB_TOKEN.
 permissions:
   contents: read
 
@@ -25,48 +22,33 @@ jobs:
   cleanup:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
-    env:
-      # Provision this secret with delete_repo (classic PAT) or repository
-      # Administration: write (fine-grained PAT). GitHub CLI consumes GH_TOKEN
-      # directly; scope elevation only applies to stored interactive credentials.
-      GH_TOKEN: ${{ secrets.TEST_GITHUB_USER_REPO_DELETION_TOKEN }}
-
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    concurrency:
+      group: github-test-cleanup-${{ github.repository }}
+      cancel-in-progress: false
     steps:
+      - name: Resolve GitHub credentials
+        id: gh
+        uses: link-foundation/.github/actions/resolve-github-token@main
+        with:
+          app-id: ${{ vars.AUTOMATION_APP_ID }}
+          app-private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
+          token: ${{ secrets.AUTOMATION_TOKEN }}
+          default-token: ${{ github.token }}
       - name: Checkout repository
         uses: actions/checkout@v7
-
+        with:
+          persist-credentials: false
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
           node-version: 24.x
-
-      - name: Verify GitHub CLI authentication
-        run: |
-          echo "Checking GitHub authentication status..."
-          gh auth status
-          authenticated_user="$(gh api user --jq '.login')"
-          echo "Authenticated as ${authenticated_user}"
-
-      - name: Run cleanup script
-        run: |
-          echo "Starting test repository cleanup..."
-          echo ""
-
-          if [ "${{ inputs.dry_run }}" = "true" ]; then
-            echo "Running in DRY RUN mode..."
-            ./cleanup-test-repos.mjs --skip-archived --dry-run
-          else
-            echo "Running in FORCE mode (will delete repositories)..."
-            ./cleanup-test-repos.mjs --skip-archived --force
-          fi
-
-      - name: Summary
-        if: always()
-        run: |
-          echo ""
-          echo "Cleanup workflow completed!"
-          if [ "${{ inputs.dry_run }}" = "true" ]; then
-            echo "Mode: DRY RUN (no repositories were deleted)"
-          else
-            echo "Mode: FORCE (repositories were deleted)"
-          fi
+      - name: Clean stale GitHub test resources
+        env:
+          GH_TOKEN: ${{ steps.gh.outputs.token }}
+          AUTOMATION_LAYER: ${{ steps.gh.outputs.layer }}
+          CLEANUP_DRY_RUN: ${{ inputs.dry_run }}
+        run: node scripts/cleanup-github-tests.mjs

@@ -104,7 +104,6 @@ export const DRAFT_DECISION_CODES = Object.freeze({
   optOut: 'opt-out-label',
   alreadyDrafted: 'already-drafted',
   missingIssue: 'no-issue-in-event',
-  missingToken: 'no-draft-token',
 });
 
 const labelNames = issue =>
@@ -131,20 +130,18 @@ export function readIssueEvent(event) {
 /**
  * Decide whether this event should produce a Formal AI draft.
  *
- * The order of the checks is the order of the answers a maintainer wants: what
- * the event *is* first, then policy, then configuration. A missing token is
- * reported last on purpose — otherwise every bot-filed issue in a repository
- * without the secret would report "no token" and hide the real reason.
+ * Event and policy decide whether to attempt. Credentials only choose how the
+ * resulting pull request gets its checks; the default token always works.
  *
  * @param {object} params
  * @param {string} [params.eventName] `github.event_name`
  * @param {string} [params.action] webhook action (`opened`, `labeled`, …)
  * @param {object} [params.issue] the issue object from the payload
- * @param {boolean} [params.hasToken] whether the draft token secret is configured
+ * @param {string} [params.layer] the shared resolver's app, token or default layer
  * @param {string} [params.optOutLabel]
  * @returns {{run: boolean, code: string, reason: string}}
  */
-export function decideDraft({ eventName = 'issues', action = null, issue = null, hasToken = false, optOutLabel = FORMAL_AI_DRAFT_OPT_OUT_LABEL } = {}) {
+export function decideDraft({ eventName = 'issues', action = null, issue = null, layer = 'default', optOutLabel = FORMAL_AI_DRAFT_OPT_OUT_LABEL } = {}) {
   const deny = (code, reason) => ({ run: false, code, reason });
 
   if (eventName === 'issues' && action !== 'opened') return deny(DRAFT_DECISION_CODES.notOpened, `the \`issues\` event action was "${action ?? 'missing'}", not "opened"`);
@@ -156,9 +153,7 @@ export function decideDraft({ eventName = 'issues', action = null, issue = null,
   if (labels.includes(optOutLabel.toLowerCase())) return deny(DRAFT_DECISION_CODES.optOut, `#${issue.number} carries the \`${optOutLabel}\` label`);
   if (labels.includes(FORMAL_AI_DRAFT_LABEL)) return deny(DRAFT_DECISION_CODES.alreadyDrafted, `#${issue.number} already carries the \`${FORMAL_AI_DRAFT_LABEL}\` label`);
 
-  if (!hasToken) return deny(DRAFT_DECISION_CODES.missingToken, 'no draft token is configured. A pull request opened with GITHUB_TOKEN does not trigger `pull_request` workflows, so its checks would never run and the draft could not be "red until a later run succeeds" — see docs/FORMAL-AI-DRAFTS.md');
-
-  return { run: true, code: DRAFT_DECISION_CODES.run, reason: `#${issue.number} was just opened by ${issue.user?.login ?? 'a human'}` };
+  return { run: true, code: DRAFT_DECISION_CODES.run, reason: `#${issue.number} was just opened by ${issue.user?.login ?? 'a human'}`, checkStrategy: layer === 'default' ? 'dispatch' : 'pull_request' };
 }
 
 /**

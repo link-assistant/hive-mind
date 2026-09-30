@@ -9,10 +9,17 @@ on:
       - '.github/zizmor.yml'
   pull_request:
     types: [opened, synchronize, reopened]
+    branches-ignore: ['e2e/**', 'integration/**']
     paths:
       - '.github/workflows/**'
       - '.github/zizmor.yml'
   workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Run checks'
+        type: choice
+        default: checks
+        options: [checks]
 
 # Least-privilege default; these jobs only need to read the checked-out tree.
 permissions:

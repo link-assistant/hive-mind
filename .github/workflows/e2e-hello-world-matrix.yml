@@ -8,8 +8,8 @@
 # comment. Formal AI runs through every tool; the LLM row is the control, so a
 # row that fails only for Formal AI is a model-specific path by construction.
 #
-# Manual only: every row creates a public repository and spends a full working
-# session. `cleanup-test-repos.yml` removes the repositories afterwards.
+# Manual only: every row creates an orphan fixture in this repository and
+# spends a full working session. Each row cleans its resources afterwards.
 # The assertions live in scripts/e2e-hello-world.lib.mjs and are unit-tested by
 # tests/e2e-hello-world-matrix-2319.test.mjs.
 name: E2E Hello World Matrix
@@ -23,8 +23,7 @@ on:
         type: string
         default: ''
 
-# Everything the run writes (repositories, branches, pull requests) goes through
-# E2E_GITHUB_TOKEN, a token of the test user; GITHUB_TOKEN only reads this repo.
+# Optional credentials resolve once; branch isolation also works token-free.
 permissions:
   contents: read
 
@@ -34,6 +33,11 @@ jobs:
     runs-on: ubuntu-24.04
     # A session plus up to 30 minutes waiting for the task repository's checks.
     timeout-minutes: 120
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      actions: write
     strategy:
       fail-fast: false
       # Keep in sync with E2E_MATRIX in scripts/e2e-hello-world.lib.mjs
@@ -50,6 +54,15 @@ jobs:
             model: nemotron-3-super-free
 
     steps:
+      - name: Resolve GitHub credentials
+        id: gh
+        uses: link-foundation/.github/actions/resolve-github-token@main
+        with:
+          app-id: ${{ vars.AUTOMATION_APP_ID }}
+          app-private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
+          token: ${{ secrets.AUTOMATION_TOKEN }}
+          default-token: ${{ github.token }}
+
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
@@ -63,6 +76,16 @@ jobs:
       - name: Free disk space for the hive-mind image
         run: node scripts/free-disk-space.mjs
 
+      - name: Install act for default-token generated workflows
+        if: steps.gh.outputs.layer == 'default'
+        env:
+          GH_TOKEN: ${{ steps.gh.outputs.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/act"
+          gh release download v0.2.89 --repo nektos/act --pattern act_Linux_x86_64.tar.gz --dir "$RUNNER_TEMP/act"
+          tar -xzf "$RUNNER_TEMP/act/act_Linux_x86_64.tar.gz" -C "$RUNNER_TEMP/act"
+          echo "$RUNNER_TEMP/act" >> "$GITHUB_PATH"
+
       # Inputs reach the script through the environment, never through `run:`
       # interpolation (zizmor template-injection).
       - name: Run and verify
@@ -72,7 +95,9 @@ jobs:
           E2E_ISSUE_URL: ${{ inputs.issue_url }}
           E2E_IMAGE: ${{ vars.E2E_IMAGE || 'konard/hive-mind:latest' }}
           E2E_LOG_DIR: ${{ runner.temp }}/e2e-hello-world-logs
-          GH_TOKEN: ${{ secrets.E2E_GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.gh.outputs.token }}
+          AUTOMATION_LAYER: ${{ steps.gh.outputs.layer }}
+          AUTOMATION_CAN_CREATE_REPOSITORIES: ${{ steps.gh.outputs.can-create-repositories }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

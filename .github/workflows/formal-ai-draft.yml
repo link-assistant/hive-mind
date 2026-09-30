@@ -26,13 +26,9 @@ on:
         required: true
         type: string
 
-# Least privilege: everything this workflow writes (the branch, the pull
-# request, the label) goes through FORMAL_AI_DRAFT_TOKEN, never GITHUB_TOKEN.
-# A pull request opened with GITHUB_TOKEN does not trigger `pull_request`
-# workflows, so its checks would never run and the draft could not be red.
+# The default layer can open drafts and dispatch their checks without secrets.
 permissions:
   contents: read
-  issues: read
 
 jobs:
   draft:
@@ -43,6 +39,11 @@ jobs:
     # own restart loop is disabled for this run, so nothing legitimately runs
     # longer.
     timeout-minutes: 90
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      actions: write
     # Per-issue, and never cancelling: two attempts on the same issue must not
     # race for the same branch, and an attempt already writing to a branch must
     # not be killed halfway through by a manual replay.
@@ -51,6 +52,15 @@ jobs:
       cancel-in-progress: false
 
     steps:
+      - name: Resolve GitHub credentials
+        id: gh
+        uses: link-foundation/.github/actions/resolve-github-token@main
+        with:
+          app-id: ${{ vars.AUTOMATION_APP_ID }}
+          app-private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
+          token: ${{ secrets.AUTOMATION_TOKEN }}
+          default-token: ${{ github.token }}
+
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
@@ -67,8 +77,8 @@ jobs:
         id: decide
         env:
           FORMAL_AI_DRAFT_ISSUE: ${{ github.event.inputs.issue_number }}
-          FORMAL_AI_DRAFT_TOKEN: ${{ secrets.FORMAL_AI_DRAFT_TOKEN }}
-          GH_TOKEN: ${{ secrets.FORMAL_AI_DRAFT_TOKEN || secrets.GITHUB_TOKEN }}
+          AUTOMATION_LAYER: ${{ steps.gh.outputs.layer }}
+          GH_TOKEN: ${{ steps.gh.outputs.token }}
         run: node scripts/formal-ai-draft.mjs --decide
 
       - name: Free disk space for the hive-mind image
@@ -76,14 +86,23 @@ jobs:
         run: node scripts/free-disk-space.mjs
 
       - name: Open the Formal AI draft
+        id: attempt
         if: steps.decide.outputs.should_run == 'true'
         env:
           FORMAL_AI_DRAFT_ISSUE: ${{ github.event.inputs.issue_number }}
           FORMAL_AI_DRAFT_IMAGE: ${{ vars.FORMAL_AI_DRAFT_IMAGE || 'konard/hive-mind:latest' }}
           FORMAL_AI_DRAFT_LOG_DIR: ${{ runner.temp }}/formal-ai-draft-logs
-          FORMAL_AI_DRAFT_TOKEN: ${{ secrets.FORMAL_AI_DRAFT_TOKEN }}
-          GH_TOKEN: ${{ secrets.FORMAL_AI_DRAFT_TOKEN }}
+          AUTOMATION_LAYER: ${{ steps.gh.outputs.layer }}
+          GH_TOKEN: ${{ steps.gh.outputs.token }}
         run: node scripts/formal-ai-draft.mjs
+
+      - name: Dispatch checks for the default credential layer
+        if: ${{ !cancelled() && steps.attempt.outputs.head_ref != '' && steps.gh.outputs.triggers-workflows != 'true' }}
+        uses: link-foundation/.github/actions/dispatch-checks@main
+        with:
+          ref: ${{ steps.attempt.outputs.head_ref }}
+          workflows: release.yml security.yml links.yml workflows.yml
+          token: ${{ steps.gh.outputs.token }}
 
       # `--attach-logs` already puts the session log on the pull request. This
       # is the copy for the case where no pull request was opened at all, which

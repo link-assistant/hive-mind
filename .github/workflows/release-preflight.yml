@@ -56,12 +56,12 @@ jobs:
       - name: Probe publishing credentials
         id: preflight
         env:
-          # A push to main and a manual dispatch publish, so they fail fast;
-          # everything else reports. The `github` context inside a reusable
+          # A push to main and an explicit instant release publish, so they
+          # fail fast; checks dispatches report. Inside a reusable workflow the
           # workflow is the caller's, so this reads the original event.
           # Passed through the environment rather than interpolated into the
           # `run:` line (zizmor template-injection).
-          PREFLIGHT_MODE: ${{ ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch') && 'release' || 'report' }}
+          PREFLIGHT_MODE: ${{ (github.ref == 'refs/heads/main' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'release' && github.event.inputs.release_mode == 'instant'))) && 'release' || 'report' }}
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
           # Reachability, not just writability: what an anonymous consumer gets

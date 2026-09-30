@@ -1,0 +1,63 @@
+name: Helm Release
+
+# Shared by changeset and instant releases to keep release.yml below its limit.
+on:
+  workflow_call:
+    inputs:
+      release-version:
+        required: true
+        type: string
+    secrets:
+      AUTOMATION_APP_PRIVATE_KEY:
+        required: false
+      AUTOMATION_TOKEN:
+        required: false
+
+permissions:
+  contents: read
+
+env:
+  GIT_CONFIG_COUNT: '1'
+  GIT_CONFIG_KEY_0: init.defaultBranch
+  GIT_CONFIG_VALUE_0: main
+
+jobs:
+  helm:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      packages: write
+      pages: write
+      id-token: write
+    steps:
+      - name: Resolve GitHub credentials
+        id: gh
+        uses: link-foundation/.github/actions/resolve-github-token@main
+        with:
+          app-id: ${{ vars.AUTOMATION_APP_ID }}
+          app-private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
+          token: ${{ secrets.AUTOMATION_TOKEN }}
+          default-token: ${{ github.token }}
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          token: ${{ steps.gh.outputs.token }}
+
+      - name: Install Helm
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+        with:
+          version: v4.3.0
+      - name: Release Helm chart
+        env:
+          GH_TOKEN: ${{ steps.gh.outputs.token }}
+          RELEASE_VERSION: ${{ inputs.release-version }}
+        run: node scripts/helm-release.mjs --release-version "$RELEASE_VERSION"
+      - name: Upload chart to release
+        # Uses the gh CLI rather than softprops/action-gh-release@v2, which is a
+        # Node 20 action and makes every run emit a deprecation warning (#2175).
+        env:
+          GH_TOKEN: ${{ steps.gh.outputs.token }}
+          RELEASE_VERSION: ${{ inputs.release-version }}
+        run: bash scripts/upload-release-assets.sh "v$RELEASE_VERSION" .helm-packages/*.tgz

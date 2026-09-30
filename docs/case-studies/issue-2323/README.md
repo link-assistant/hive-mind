@@ -1,0 +1,44 @@
+# Optional GitHub credentials: validation evidence
+
+This implements [issue #2323](https://github.com/link-assistant/hive-mind/issues/2323) in [PR #2330](https://github.com/link-assistant/hive-mind/pull/2330).
+
+## Reproduction and regressions
+
+Before the change, an eligible issue passed to `decideDraft` without a configured token returned `no-draft-token` and skipped its model step. The new regression expects an attempt with `checkStrategy=dispatch`; it failed against the original implementation. Workflow assertions also failed on the four workload secrets and the default manual instant-release path.
+
+The regression files ending in `2323.test.mjs` cover all three check strategies, checks-only dispatch defaults, outputting the draft head after a failed model session, orphan commit ancestry, repository creation capability, partial fixture cleanup, discovery of interrupted solver PRs, stale resource cleanup, protection of active fixtures, skipped/cancelled model steps, and generated-workflow approval refusal with `act` exit-code propagation. The GitHub API adapter retains the integration suite's rate-limit and transient retries, while permission failures remain visible. The change-detector regression also checks a dispatched head whose earlier code commit is followed by a documentation commit.
+
+Run the focused regressions with:
+
+```bash
+node --test tests/*2323.test.mjs tests/detect-code-changes-untested-head-2198.test.mjs
+```
+
+## Real GitHub integration
+
+```bash
+GITHUB_REPOSITORY=link-assistant/hive-mind \
+  AUTOMATION_LAYER=default \
+  AUTOMATION_CAN_CREATE_REPOSITORIES=false \
+  node tests/test-feedback-lines-integration.mjs
+```
+
+On 2026-09-30 this created [fixture PR #2334](https://github.com/link-assistant/hive-mind/pull/2334) against an orphan `integration/1790764179018-baa421ea-86ed-48ed-92cf-025bfe399377/base` branch. The feedback assertions passed through the real `solve.mjs --dry-run` command: two comments posted after the baseline commit were reported and included in the prompt. The issue and PR were closed by cleanup.
+
+The command used the workstation's existing GitHub authentication with repository creation disabled. It validates branch isolation, not the identity or scopes of an actual Actions `GITHUB_TOKEN`. Cleanup exited nonzero because GitHub rejected deletion of both fixture refs with HTTP 422, `Repository rule violations found: Cannot delete this branch`. The refs remain as evidence; the failure is reported rather than silently ignored.
+
+The finite [generated-workflow probe](../../../experiments/issue-2323/probe-generated-workflow.mjs) ran the real `act` v0.2.89 fallback against a local API fixture. Its generated workflow executed `actions/checkout@v7` and a JavaScript Hello World program in Docker, printed `Hello, World!`, and returned success. This checks the executor independently of a model session or live run approval.
+
+The real activity monitor reported 25 eligible issues and zero executed draft attempts during the preceding seven days, then exited 1 as required. Existing green workflows with skipped model steps did not hide the inactivity.
+
+## External blockers
+
+As of 2026-09-30, `gh api repos/link-foundation/.github/contents/actions` returns HTTP 404. Neither shared action exists on `main`. The workflows use the input/output contract specified in [link-foundation/.github issue #1](https://github.com/link-foundation/.github/issues/1); their live execution requires that dependency to be published. No second implementation of the credential resolver is maintained here.
+
+The repository's active [no-destruction-possible ruleset](https://github.com/link-assistant/hive-mind/rules/21204104) applies deletion and non-fast-forward prohibitions to `~ALL`, excludes no branches, and has no bypass actors. Its API reports `current_user_can_bypass: never`. This blocks deletion of temporary refs in every credential layer. Branch cleanup requires a rule exemption for disposable test refs and their associated solver heads; this PR does not modify repository rules.
+
+Until the shared actions exist and disposable refs can be deleted, live default-token draft/dispatch, App/PAT workflow comparisons, the full model matrix, and successful integration cleanup cannot be claimed as passing.
+
+## Initial CI failures
+
+The initial PR head was `7ed1de4d0a5f16ecb9ef10fe8e7c848cd53a9a1a`. Its [Checks and release run](https://github.com/link-assistant/hive-mind/actions/runs/36699394925) failed dependency freshness: `@dotenvx/dotenvx` was pinned at 2.31.1 while 2.32.2 was current (captured log lines 2288–2291). Its [Security run](https://github.com/link-assistant/hive-mind/actions/runs/36699394508) failed the npm lock audit on vulnerable `brace-expansion` 5.0.9 (lines 235–247). The source pin and lockfile were updated. A later freshness check also required the Docker images' agent pin to advance from 0.26.8 to 0.26.9, published during this investigation.

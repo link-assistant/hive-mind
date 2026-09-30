@@ -15,6 +15,12 @@
 
 灵感来源于 [konard/problem-solving](https://github.com/konard/problem-solving)
 
+## GitHub 工作流凭据
+
+GitHub 凭据是可选的。写入工作流依次使用已安装的 GitHub App（变量 `AUTOMATION_APP_ID` 和密钥 `AUTOMATION_APP_PRIVATE_KEY`）、供所有任务共用的密钥 `AUTOMATION_TOKEN`，最后使用内置 `github.token`。默认层无需配置，并在任务摘要中显示。
+
+默认令牌创建的草稿通过 dispatch 运行检查；检查默认使用 `mode=checks`，发布必须在 `main` 上明确选择发布模式。无创建仓库权限时，测试使用孤立分支。清理关闭过期测试问题和 PR，并删除允许删除的测试分支；删除仓库需要管理或删除权限。每日监控会在七天内有符合条件的问题却无实际草稿尝试时失败。权限及共享 action 依赖详见 [Formal AI 草稿](docs/FORMAL-AI-DRAFTS.zh.md)。
+
 ## 为什么选择 Hive Mind？
 
 **Hive Mind 是最自主、最适合云端部署的 AI 问题解决方案，无需开发者全程盯守，同时在关键决策上保留人工监督。**

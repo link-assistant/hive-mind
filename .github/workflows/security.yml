@@ -5,9 +5,16 @@ on:
     branches: [main]
   pull_request:
     types: [opened, synchronize, reopened]
+    branches-ignore: ['e2e/**', 'integration/**']
   schedule:
     - cron: '0 6 * * 1'
   workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Run checks'
+        type: choice
+        default: checks
+        options: [checks]
 
 # Least-privilege default; jobs escalate individually when needed.
 permissions:
@@ -37,6 +44,14 @@ jobs:
       matrix:
         language: [javascript-typescript, actions]
     steps:
+      - name: Resolve GitHub credentials
+        id: gh
+        uses: link-foundation/.github/actions/resolve-github-token@main
+        with:
+          app-id: ${{ vars.AUTOMATION_APP_ID }}
+          app-private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
+          token: ${{ secrets.AUTOMATION_TOKEN }}
+          default-token: ${{ github.token }}
       - uses: actions/checkout@v7
 
       - name: Initialize CodeQL
@@ -50,6 +65,8 @@ jobs:
 
       - name: Analyze
         uses: github/codeql-action/analyze@v4
+        with:
+          token: ${{ steps.gh.outputs.token }}
 
   dependency-review:
     name: Dependency Review
@@ -63,11 +80,20 @@ jobs:
       contents: read
       pull-requests: write
     steps:
+      - name: Resolve GitHub credentials
+        id: gh
+        uses: link-foundation/.github/actions/resolve-github-token@main
+        with:
+          app-id: ${{ vars.AUTOMATION_APP_ID }}
+          app-private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
+          token: ${{ secrets.AUTOMATION_TOKEN }}
+          default-token: ${{ github.token }}
       - uses: actions/checkout@v7
 
       - name: Review dependency changes
         uses: actions/dependency-review-action@v5
         with:
+          repo-token: ${{ steps.gh.outputs.token }}
           fail-on-severity: high
           comment-summary-in-pr: on-failure
 

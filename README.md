@@ -15,6 +15,12 @@ It is also possible to connect this AI to collective human intelligence, meaning
 
 Inspired by [konard/problem-solving](https://github.com/konard/problem-solving)
 
+## GitHub workflow credentials
+
+GitHub credentials are optional. Write workflows use the shared resolver in order: an installed GitHub App (`AUTOMATION_APP_ID` variable plus `AUTOMATION_APP_PRIVATE_KEY` secret), one `AUTOMATION_TOKEN` secret for all workloads, then the built-in `github.token`. The default layer needs no configuration. Each job reports its layer.
+
+Formal AI drafts use dispatched checks with the default token; their `pull_request` runs wait for approval. Checks dispatches default to `mode=checks`, and manual releases require explicit release inputs on `main`. Tests use isolated orphan branches when repository creation is unavailable. Cleanup closes stale test issues/PRs and deletes their branches with any layer; repository deletion requires administration/deletion capability. The daily draft activity check fails when eligible issues were opened but no attempt executed in seven days. See [Formal AI drafts](docs/FORMAL-AI-DRAFTS.md#setup) for permissions and the shared-action dependency.
+
 ## Why Hive Mind?
 
 **Hive Mind is the most autonomous, cloud-ready AI issue solver that eliminates developer babysitting while maintaining human oversight on critical decisions.**

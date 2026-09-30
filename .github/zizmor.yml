@@ -36,4 +36,7 @@ rules:
         lycheeverse/*: ref-pin
         zizmorcore/*: ref-pin
         changesets/*: ref-pin
+        # Shared automation maintained by the same organization; issue #2323
+        # consumes its published main-branch action contract.
+        link-foundation/.github/*: ref-pin
         '*': hash-pin

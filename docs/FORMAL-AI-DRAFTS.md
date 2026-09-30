@@ -55,14 +55,27 @@ A draft is identifiable by the `formal-ai-draft` label and by its branch name, `
 
 ## Setup
 
-| Name                    | Kind                | Required | Purpose                                                                                                     |
-| ----------------------- | ------------------- | -------- | ----------------------------------------------------------------------------------------------------------- |
-| `FORMAL_AI_DRAFT_TOKEN` | Secret              | yes      | Opens the branch and the pull request, and reads the issue.                                                 |
-| `FORMAL_AI_DRAFT_IMAGE` | Repository variable | no       | Overrides the image. Defaults to `konard/hive-mind:latest`; pin a release tag to make a draft reproducible. |
+Nothing needs configuring for the default credential layer. Every write workflow uses the shared `link-foundation/.github/actions/resolve-github-token` action, in this order:
 
-`FORMAL_AI_DRAFT_TOKEN` must be a personal access token, not `GITHUB_TOKEN`. A pull request opened with `GITHUB_TOKEN` does not trigger `pull_request` workflows, so its checks would never run — and a draft that cannot go red cannot "stay open and red until a later run succeeds". It needs `repo` scope (`contents`, `pull_requests` and `issues` write on a fine-grained token).
+| Layer     | Configuration (all optional)                                                                                             | Checks on bot pull requests                       |
+| --------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------- |
+| `app`     | Repository/organization variable `AUTOMATION_APP_ID` and secret `AUTOMATION_APP_PRIVATE_KEY` for an installed GitHub App | Normal `pull_request` events                      |
+| `token`   | One secret, `AUTOMATION_TOKEN`, shared by every workload                                                                 | Normal `pull_request` events                      |
+| `default` | Built-in `github.token`; no secrets or variables                                                                         | `dispatch-checks` starts checks on the draft head |
 
-Without the secret the workflow **skips** rather than fails, with the reason printed in the job log. That keeps forks and unconfigured clones green.
+The resolver logs the chosen layer and writes it to the job summary. The draft never skips for missing credentials. An existing PAT can be copied once into `AUTOMATION_TOKEN`; separate draft, e2e, integration and deletion secrets are no longer read.
+
+The optional App or token needs repository Contents, Issues, Pull requests and Actions write permissions for drafts and their checks. Release jobs also use Checks write permission, and CodeQL uses Security events write permission. Creating separate test repositories needs repository creation capability; deleting them needs Administration write (App/fine-grained token) or `delete_repo` (classic PAT). Without those capabilities, integration and matrix tests use orphan branches in this repository, and cleanup closes their issues/PRs and removes stale branches. Archived repositories remain preserved.
+
+A pull request created or updated with `GITHUB_TOKEN` creates `pull_request` runs that **wait for approval**, according to [GitHub's event documentation](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows). The draft workflow immediately dispatches `release.yml`, `security.yml`, `links.yml` and `workflows.yml` after the attempt, including failed attempts that pushed a draft. These dispatched checks attach to the head commit. Their files must already exist on the default branch. Every dispatch defaults to `mode=checks`; publishing requires both `mode=release` and an explicit `release_mode` on `main`.
+
+The matrix's generated workflow is absent from the default branch, so it tries approval and falls back to executing that workflow with `act` when approval is refused. Its summary identifies the execution method. Test issues carry `no-formal-ai-draft` to prevent recursive drafting. Daily cleanup preserves resources updated within the last 24 hours. The daily Formal AI Draft Activity check reports executed attempts over seven days and fails when eligible issues were opened but no model attempt ran; a green workflow that skipped the attempt does not count.
+
+`FORMAL_AI_DRAFT_IMAGE` remains an optional repository variable (default `konard/hive-mind:latest`). Pin a release tag to make an attempt reproducible.
+
+The shared actions are supplied by [link-foundation/.github issue #1](https://github.com/link-foundation/.github/issues/1). They must be published before these workflows can execute; the integration/cleanup logic and local regressions can be tested independently.
+
+Branch cleanup also needs repository rules to permit deleting `e2e/**` and `integration/**` refs and their associated solver heads. A rule that forbids deletion on every branch blocks cleanup in every credential layer; failures are reported rather than skipped. See the [issue #2323 validation evidence](case-studies/issue-2323/README.md) for the existing repository rule and the real integration result.
 
 ## Opting out, and re-running
 

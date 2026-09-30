@@ -316,6 +316,13 @@ async function getChangedFiles() {
   const eventName = process.env.GITHUB_EVENT_NAME || 'local';
   const eventAction = process.env.GITHUB_EVENT_ACTION || '';
 
+  // A dispatched check must validate the whole head. Comparing only HEAD^
+  // misses earlier commits in a bot draft and can make an untested head green.
+  if (eventName === 'workflow_dispatch') {
+    console.log('Checks dispatch: validating every tracked file at the head');
+    return exec('git ls-files').split('\n').filter(Boolean);
+  }
+
   if (eventName === 'pull_request') {
     if (eventAction === 'synchronize') {
       const synchronizeFiles = await getPullRequestSynchronizeChangedFiles();

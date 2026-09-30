@@ -6,6 +6,7 @@ on:
       - main
   pull_request:
     types: [opened, synchronize, reopened]
+    branches-ignore: ['e2e/**', 'integration/**']
     # Do not use workflow-level path filters here. The detect-changes job must
     # run for every PR update so non-code-only changes still produce completed
     # checks while expensive jobs are skipped by job-level conditions.
@@ -14,16 +15,22 @@ on:
   # must go through this workflow (release.yml)
   workflow_dispatch:
     inputs:
+      mode:
+        description: 'Checks only, or an explicitly selected release'
+        type: choice
+        default: checks
+        options: [checks, release]
       release_mode:
         description: 'Manual release mode'
         required: true
         type: choice
-        default: 'instant'
-        options: [instant, changeset-pr]
+        default: 'checks'
+        options: [checks, instant, changeset-pr]
       bump_type:
         description: 'Manual release type'
-        required: true
+        required: false
         type: choice
+        default: patch
         options:
           - patch
           - minor
@@ -136,7 +143,6 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: '24.x'
-
       - name: Install dependencies
         run: node scripts/npm-install-with-retry.mjs install
       - name: Check for changesets
@@ -170,7 +176,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
-
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
@@ -203,7 +208,6 @@ jobs:
         with:
           # For PRs, fetch enough history to merge with base branch
           fetch-depth: 0
-
       - name: Simulate fresh merge with base branch (PR only)
         if: github.event_name == 'pull_request'
         env:
@@ -230,7 +234,6 @@ jobs:
           echo "Running ESLint code quality checks..."
           npm run lint
           echo "ESLint checks passed"
-
       - name: Run code duplication check
         run: |
           echo "Running jscpd code duplication detection..."
@@ -284,6 +287,10 @@ jobs:
       (needs.lint.result == 'success' || needs.lint.result == 'skipped') &&
       (needs.check-file-line-limits.result == 'success' || needs.check-file-line-limits.result == 'skipped') &&
       (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v7
       - name: Use Node.js 24.x
@@ -296,12 +303,21 @@ jobs:
         run: node scripts/preinstall-use-m-packages.mjs
       - name: Run default test suite
         run: npm test
-
+      - name: Resolve GitHub credentials
+        id: gh
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        uses: link-foundation/.github/actions/resolve-github-token@main
+        with:
+          app-id: ${{ vars.AUTOMATION_APP_ID }}
+          app-private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
+          token: ${{ secrets.AUTOMATION_TOKEN }}
+          default-token: ${{ github.token }}
       - name: Run GitHub integration test suite
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         env:
-          GITHUB_TOKEN: ${{ secrets.TEST_GITHUB_USER_TOKEN || secrets.GITHUB_TOKEN }}
-          TEST_GITHUB_USERNAME: ${{ secrets.TEST_GITHUB_USERNAME }}
-          TEST_GITHUB_USER_TOKEN: ${{ secrets.TEST_GITHUB_USER_TOKEN }}
+          GH_TOKEN: ${{ steps.gh.outputs.token }}
+          AUTOMATION_LAYER: ${{ steps.gh.outputs.layer }}
+          AUTOMATION_CAN_CREATE_REPOSITORIES: ${{ steps.gh.outputs.can-create-repositories }}
         run: node scripts/run-tests.mjs --suite github-integration
   # === EXECUTION TESTS ===
   test-execution:
@@ -326,7 +342,6 @@ jobs:
         run: node scripts/npm-install-with-retry.mjs install
       - name: Pre-install use-m packages (issue #1724)
         run: node scripts/preinstall-use-m-packages.mjs
-
       - name: Test solve.mjs execution
         run: |
           echo "Testing solve.mjs basic execution..."
@@ -343,7 +358,6 @@ jobs:
           timeout 10s ./src/hive.mjs --version
       - name: Test telegram-bot.mjs execution
         run: bash scripts/test-telegram-bot-execution.sh
-
       - name: Test memory-check.mjs execution
         run: |
           ./src/memory-check.mjs --help
@@ -454,7 +468,6 @@ jobs:
           echo "This pinned version ensures stable, reproducible builds."
       - name: Build Docker images and check build logs
         run: bash scripts/docker-pr-build.sh
-
       - name: Verify system & development tools in running containers
         run: bash scripts/docker-pr-verify-containers.sh
   # === HELM PR CHECK (FAST) ===
@@ -484,7 +497,6 @@ jobs:
           echo "Linting Helm chart..."
           helm lint helm/hive-mind
           echo "Helm chart validation passed"
-
       - name: Verify Chart.yaml structure
         run: bash scripts/verify-chart-yaml.sh
   # === RELEASE PREFLIGHT - prove the release can be published before building it ===
@@ -520,9 +532,18 @@ jobs:
       checks: write
       id-token: write
     steps:
+      - name: Resolve GitHub credentials
+        id: gh
+        uses: link-foundation/.github/actions/resolve-github-token@main
+        with:
+          app-id: ${{ vars.AUTOMATION_APP_ID }}
+          app-private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
+          token: ${{ secrets.AUTOMATION_TOKEN }}
+          default-token: ${{ github.token }}
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          token: ${{ steps.gh.outputs.token }}
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
@@ -536,7 +557,6 @@ jobs:
         # Remove the deprecated always-auth entry setup-node writes, which npm 11
         # warns about on every command (issue #2028).
         run: node scripts/sanitize-npm-userconfig.mjs
-
       - name: Check whether a release is needed
         id: check_changesets
         # Also detects the self-healing case: no changesets, but package.json's
@@ -555,7 +575,7 @@ jobs:
         # built-in token attests that result on the deterministic version PR
         # through the Checks API; no long-lived PAT is needed (#2281).
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.gh.outputs.token }}
         run: node scripts/version-and-commit.mjs --mode changeset
       - name: Publish to npm
         # Run if version was committed, OR a previous attempt already committed
@@ -572,16 +592,15 @@ jobs:
           echo "published=true" >> "$GITHUB_OUTPUT"
           echo "published_version=${{ steps.publish_npm.outputs.published_version }}" >> "$GITHUB_OUTPUT"
           echo "Docker publish will be triggered with version: ${{ steps.publish_npm.outputs.published_version }}"
-
       - name: Create GitHub Release
         if: steps.publish.outputs.published == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.gh.outputs.token }}
         run: node scripts/create-github-release.mjs --release-version "${{ steps.publish.outputs.published_version }}" --repository "${{ github.repository }}"
       - name: Format GitHub release notes
         if: steps.publish.outputs.published == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.gh.outputs.token }}
         run: node scripts/format-github-release.mjs --release-version "${{ steps.publish.outputs.published_version }}" --repository "${{ github.repository }}" --commit-sha "${{ github.sha }}"
       - name: Post-publish - Upload Source Maps to Sentry
         if: steps.publish.outputs.published == 'true'
@@ -645,7 +664,6 @@ jobs:
           # Set version label to actual release version, not Git ref "main" (issue #1419)
           labels: |
             org.opencontainers.image.version=${{ needs.release.outputs.published_version }}
-
       - name: Build and push by digest
         id: build
         uses: docker/build-push-action@v7
@@ -699,7 +717,6 @@ jobs:
           path: /tmp/digests
           pattern: hive-mind-digests-*
           merge-multiple: true
-
       - name: Set up Docker Buildx (resilient)
         uses: ./.github/actions/setup-buildx-resilient
       - name: Log in to Docker Hub
@@ -726,7 +743,6 @@ jobs:
         run: |
           echo "Inspecting multi-platform image..."
           docker buildx imagetools inspect ${{ env.IMAGE_NAME }}:${{ needs.release.outputs.published_version }}
-
       - name: Verify published image
         run: |
           echo "Docker image published successfully"
@@ -761,7 +777,6 @@ jobs:
         run: node scripts/free-disk-space.mjs
       - name: Wait for NPM package availability
         run: node scripts/wait-for-npm.mjs --release-version "${{ needs.release.outputs.published_version }}"
-
       - name: Set up Docker Buildx (resilient)
         uses: ./.github/actions/setup-buildx-resilient
       - name: Log in to Docker Hub
@@ -843,7 +858,6 @@ jobs:
             type=raw,value=latest
           labels: |
             org.opencontainers.image.version=${{ needs.release.outputs.published_version }}
-
       - name: Create manifest list and push
         env:
           DIGESTS_DIR: /tmp/digests
@@ -862,37 +876,23 @@ jobs:
     # Use !cancelled() instead of always() to allow concurrency cancellation.
     # See: docs/case-studies/issue-1278/README.md for why this change was necessary.
     if: "!cancelled() && needs.release.result == 'success' && needs.docker-publish-merge.result == 'success' && needs.docker-publish-dind-merge.result == 'success' && needs.release.outputs.published == 'true'"
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    uses: ./.github/workflows/release-helm.yml
     permissions:
       contents: write
       packages: write
       pages: write
       id-token: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-
-      - name: Install Helm
-        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
-        with:
-          version: v4.3.0
-      - name: Release Helm chart
-        run: node scripts/helm-release.mjs --release-version "${{ needs.release.outputs.published_version }}"
-      - name: Upload chart to release
-        # Uses the gh CLI rather than softprops/action-gh-release@v2, which is a
-        # Node 20 action and makes every run emit a deprecation warning (#2175).
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: bash scripts/upload-release-assets.sh "v${{ needs.release.outputs.published_version }}" .helm-packages/*.tgz
+    with:
+      release-version: ${{ needs.release.outputs.published_version }}
+    secrets:
+      AUTOMATION_APP_PRIVATE_KEY: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
+      AUTOMATION_TOKEN: ${{ secrets.AUTOMATION_TOKEN }}
   # === MANUAL INSTANT RELEASE ===
   instant-release:
     name: Instant Release
     needs: [detect-changes, version-check, changeset-check, test-compilation, lint, check-file-line-limits, test-suites, test-execution, memory-check-linux, validate-docs, docker-pr-check, helm-pr-check, release-preflight]
     # Issue #2221: a manual release publishes too, so it waits on the same proof.
-    if: ${{ !cancelled() && !contains(needs.*.result, 'failure') && github.event_name == 'workflow_dispatch' && github.event.inputs.release_mode == 'instant' && needs.release-preflight.result == 'success' }}
+    if: ${{ !cancelled() && !contains(needs.*.result, 'failure') && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.mode != 'checks' && github.event.inputs.release_mode == 'instant' && needs.release-preflight.result == 'success' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     outputs:
@@ -904,9 +904,18 @@ jobs:
       checks: write
       id-token: write
     steps:
+      - name: Resolve GitHub credentials
+        id: gh
+        uses: link-foundation/.github/actions/resolve-github-token@main
+        with:
+          app-id: ${{ vars.AUTOMATION_APP_ID }}
+          app-private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
+          token: ${{ secrets.AUTOMATION_TOKEN }}
+          default-token: ${{ github.token }}
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          token: ${{ steps.gh.outputs.token }}
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
@@ -925,7 +934,7 @@ jobs:
         # The built-in GitHub Actions App token publishes the required check on
         # the deterministic version PR after parent validation passes (#2281).
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.gh.outputs.token }}
           # Read through the environment, never interpolated into the script:
           # `description` is free-form text from whoever dispatched the run
           # (zizmor template-injection).
@@ -947,13 +956,12 @@ jobs:
       - name: Create GitHub Release
         if: steps.publish.outputs.published == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.gh.outputs.token }}
         run: node scripts/create-github-release.mjs --release-version "${{ steps.publish.outputs.published_version }}" --repository "${{ github.repository }}"
-
       - name: Format GitHub release notes
         if: steps.publish.outputs.published == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.gh.outputs.token }}
         run: node scripts/format-github-release.mjs --release-version "${{ steps.publish.outputs.published_version }}" --repository "${{ github.repository }}" --commit-sha "${{ github.sha }}"
   # === DOCKER PUBLISH FOR INSTANT RELEASE ===
   # Same multi-platform setup as docker-publish above (native runners, no QEMU).
@@ -990,7 +998,6 @@ jobs:
         run: node scripts/free-disk-space.mjs
       - name: Wait for NPM package availability
         run: node scripts/wait-for-npm.mjs --release-version "${{ needs.instant-release.outputs.published_version }}"
-
       - name: Set up Docker Buildx (resilient)
         uses: ./.github/actions/setup-buildx-resilient
       - name: Log in to Docker Hub
@@ -1026,7 +1033,6 @@ jobs:
           digest="${{ steps.build.outputs.digest }}"
           touch "/tmp/digests/${digest#sha256:}"
           echo "Digest for ${{ matrix.platform }}: $digest"
-
       - name: Upload digest
         uses: actions/upload-artifact@v7
         with:
@@ -1067,7 +1073,6 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v6
@@ -1136,7 +1141,6 @@ jobs:
           images: ${{ env.IMAGE_NAME }}
           labels: |
             org.opencontainers.image.version=${{ needs.instant-release.outputs.published_version }}
-
       - name: Build and push by digest
         id: build
         uses: docker/build-push-action@v7
@@ -1210,7 +1214,6 @@ jobs:
         run: bash scripts/create-manifest-list.sh
       - name: Inspect image
         run: docker buildx imagetools inspect ${{ env.IMAGE_NAME }}:${{ needs.instant-release.outputs.published_version }}
-
       - name: Verify published image
         run: |
           echo "Docker DinD image published successfully"
@@ -1223,44 +1226,39 @@ jobs:
     # Use !cancelled() instead of always() to allow concurrency cancellation.
     # See: docs/case-studies/issue-1278/README.md for why this change was necessary.
     if: "!cancelled() && needs.instant-release.result == 'success' && needs.docker-publish-instant-merge.result == 'success' && needs.docker-publish-dind-instant-merge.result == 'success' && needs.instant-release.outputs.published == 'true'"
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    uses: ./.github/workflows/release-helm.yml
     permissions:
       contents: write
       packages: write
       pages: write
       id-token: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-      - name: Install Helm
-        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
-        with:
-          version: v4.3.0
-      - name: Release Helm chart
-        run: node scripts/helm-release.mjs --release-version "${{ needs.instant-release.outputs.published_version }}"
-      - name: Upload chart to release
-        # Uses the gh CLI rather than softprops/action-gh-release@v2, which is a
-        # Node 20 action and makes every run emit a deprecation warning (#2175).
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: bash scripts/upload-release-assets.sh "v${{ needs.instant-release.outputs.published_version }}" .helm-packages/*.tgz
-
+    with:
+      release-version: ${{ needs.instant-release.outputs.published_version }}
+    secrets:
+      AUTOMATION_APP_PRIVATE_KEY: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
+      AUTOMATION_TOKEN: ${{ secrets.AUTOMATION_TOKEN }}
   # === MANUAL CHANGESET PR ===
   changeset-pr:
     name: Create Changeset PR
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.release_mode == 'changeset-pr'
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.mode != 'checks' && github.event.inputs.release_mode == 'changeset-pr'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       contents: write
       pull-requests: write
     steps:
+      - name: Resolve GitHub credentials
+        id: gh
+        uses: link-foundation/.github/actions/resolve-github-token@main
+        with:
+          app-id: ${{ vars.AUTOMATION_APP_ID }}
+          app-private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
+          token: ${{ secrets.AUTOMATION_TOKEN }}
+          default-token: ${{ github.token }}
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          token: ${{ steps.gh.outputs.token }}
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
@@ -1281,7 +1279,7 @@ jobs:
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ steps.gh.outputs.token }}
           commit-message: 'chore: add changeset for manual ${{ github.event.inputs.bump_type }} release'
           branch: changeset-manual-release-${{ github.run_id }}
           delete-branch: true

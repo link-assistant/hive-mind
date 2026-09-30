@@ -55,14 +55,7 @@ Formal-AI-Pull-Request: https://github.com/link-assistant/hive-mind/pull/<n>
 
 ## 设置
 
-| 名称                    | 类型     | 必需 | 用途                                                                         |
-| ----------------------- | -------- | ---- | ---------------------------------------------------------------------------- |
-| `FORMAL_AI_DRAFT_TOKEN` | Secret   | 是   | 开出分支和 pull request，并读取 issue。                                      |
-| `FORMAL_AI_DRAFT_IMAGE` | 仓库变量 | 否   | 覆盖镜像。默认为 `konard/hive-mind:latest`；固定一个发布标签可让草稿可复现。 |
-
-`FORMAL_AI_DRAFT_TOKEN` 必须是个人访问令牌，而不是 `GITHUB_TOKEN`。用 `GITHUB_TOKEN` 开出的 pull request 不会触发 `pull_request` 工作流，因此它的检查永远不会运行——而一个无法变红的草稿，也就无法"保持开启且保持红色，直到后来的某次运行成功"。它需要 `repo` 权限范围（细粒度令牌上为 `contents`、`pull_requests` 与 `issues` 的写权限）。
-
-没有这个 secret 时，工作流会**跳过**而不是失败，并在 job 日志中打印原因。这让 fork 和未配置的克隆保持绿色。
+默认 `github.token` 层无需配置。所有写入工作流按顺序选择：可选 GitHub App（变量 `AUTOMATION_APP_ID` 和密钥 `AUTOMATION_APP_PRIVATE_KEY`）、所有任务共用的单一密钥 `AUTOMATION_TOKEN`、默认令牌。缺少可选密钥不会跳过草稿。默认令牌创建的 pull request 检查等待批准；`dispatch-checks` 立即启动四个检查工作流。日志和 job 摘要显示使用的层。集成测试使用独立的孤立分支，清理关闭其 issue 和 PR 并删除旧分支。只有拥有管理或删除权限的 App/令牌才删除测试仓库。详见[英文设置说明](FORMAL-AI-DRAFTS.md#setup)。`FORMAL_AI_DRAFT_IMAGE` 仍是可选镜像变量。
 
 ## 如何退出与重跑
 

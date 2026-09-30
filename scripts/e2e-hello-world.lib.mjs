@@ -73,11 +73,13 @@ export function parseIssue(issueUrl) {
  * The `solve` arguments for one matrix row. Identical for every model: the
  * only thing a row may change is `--tool` and `--model`.
  */
-export function buildE2eSolveArgv({ issueUrl, tool, model, logDir } = {}) {
+export function buildE2eSolveArgv({ issueUrl, tool, model, logDir, baseBranch, defaultToken = false } = {}) {
   parseIssue(issueUrl);
   if (!tool || !model) throw new Error('buildE2eSolveArgv needs a tool and a model');
   const argv = [issueUrl, '--tool', tool, '--model', model, ...E2E_SOLVE_FLAGS];
   if (logDir) argv.push('--log-dir', logDir);
+  if (baseBranch) argv.push('--base-branch', baseBranch);
+  if (defaultToken) argv.push('--no-auto-restart-until-mergeable');
   return argv;
 }
 
@@ -133,6 +135,7 @@ export function logPrintsHelloWorld(logText) {
     .split(/\r?\n/)
     .map(line => line.split('\t').pop())
     .map(line => line.replace(/^\uFEFF?\d{4}-\d{2}-\d{2}T[\d:.]+Z ?/, ''))
+    .map(line => line.replace(/^\[[^\]]+\]\s+(?:[^\s|]+\s+)*\| ?/, ''))
     .some(line => line === HELLO_WORLD_OUTPUT);
 }
 

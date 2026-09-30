@@ -160,7 +160,7 @@ test('an orphan fixture contains only the README and persists partial resources'
 
 test('cleanup tries every resource even after one API error', async () => {
   const calls = [];
-  const errors = await cleanupBranchFixture(
+  const { errors } = await cleanupBranchFixture(
     { repository: 'o/r', pullRequestNumber: 2, issueNumber: 1, branches: ['base', 'head'] },
     {
       api: async (endpoint, options) => {

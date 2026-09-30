@@ -291,6 +291,14 @@ jobs:
           AUTOMATION_CAN_CREATE_REPOSITORIES: ${{ steps.gh.outputs.can-create-repositories }}
           AUTOMATION_CAN_DELETE_REPOSITORIES: ${{ steps.gh.outputs.can-delete-repositories }}
         run: node scripts/run-tests.mjs --suite github-integration
+      - name: Upload integration evidence
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: feedback-lines-integration
+          path: |
+            ${{ runner.temp }}/feedback-lines-integration.log
+            ${{ runner.temp }}/feedback-lines-cleanup.json
   test-execution:
     runs-on: ubuntu-24.04
     timeout-minutes: 20

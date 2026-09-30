@@ -21,7 +21,7 @@ const baseBranch = fixtureBranch({ kind: 'integration', runId: randomUUID(), too
 let fixture;
 let directory;
 let testError;
-let errors = [];
+let cleanup = { errors: [], retainedBranches: [] };
 try {
   if (process.env.AUTOMATION_CAN_CREATE_REPOSITORIES === 'true') {
     repository = `${repository.split('/')[0]}/test-feedback-lines-${randomUUID()}`;
@@ -83,17 +83,18 @@ try {
   console.error('Feedback integration failure before cleanup:', error);
 } finally {
   if (fixture && process.env.E2E_KEEP !== 'true') {
-    errors = await cleanupBranchFixture(fixture);
+    cleanup = await cleanupBranchFixture(fixture);
   }
   if (disposableRepository && process.env.AUTOMATION_CAN_DELETE_REPOSITORIES === 'true' && process.env.E2E_KEEP !== 'true') {
     try {
       await gh(['repo', 'delete', repository, '--yes']);
-      errors = []; // Deleting the repository also removes its fixture resources.
+      cleanup = { errors: [], retainedBranches: [] }; // Repository deletion removes its fixture resources.
     } catch (error) {
-      errors.push(error.message);
+      cleanup.errors.push(error.message);
     }
   }
   if (directory) await rm(directory, { recursive: true, force: true });
+  await writeFile(join(process.env.RUNNER_TEMP || tmpdir(), 'feedback-lines-cleanup.json'), JSON.stringify({ resources: fixture, kept: process.env.E2E_KEEP === 'true', testError: testError?.message, ...cleanup }, null, 2));
 }
-if (testError) throw new AggregateError([testError, ...errors.map(message => new Error(message))], 'Feedback integration failed; cleanup errors are included', { cause: testError });
-assert.deepEqual(errors, [], 'All owned integration resources must be cleaned');
+if (testError) throw new AggregateError([testError, ...cleanup.errors.map(message => new Error(message))], 'Feedback integration failed; cleanup errors are included', { cause: testError });
+assert.deepEqual(cleanup.errors, [], 'Fixture cleanup must succeed except for explicitly reported repository deletion rules');

@@ -151,8 +151,11 @@ try {
         evidence.cleanupDiscoveryError = error.message;
       }
     }
-    evidence.cleanupErrors = await cleanupBranchFixture(resource);
-    if (evidence.cleanupErrors.length) evidence.passed = false;
+    const cleanup = await cleanupBranchFixture(resource);
+    evidence.cleanupErrors = cleanup.errors;
+    evidence.cleanupRetainedBranches = cleanup.retainedBranches;
+    // R5 requires physical branch deletion for a fully passing matrix row.
+    if (cleanup.errors.length || cleanup.retainedBranches.length) evidence.passed = false;
   }
   if (workspace) await rm(workspace, { recursive: true, force: true });
   evidence.finishedAt = new Date().toISOString();

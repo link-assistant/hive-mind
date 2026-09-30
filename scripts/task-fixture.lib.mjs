@@ -1,4 +1,5 @@
 /** Token-free fixture isolation. Git trees are created without the host repo. */
+import { appendFileSync } from 'node:fs';
 import { ghApi, gh } from './github-actions.lib.mjs';
 
 export function fixtureBranch({ kind = 'hello-world', runId, tool, model }) {
@@ -23,9 +24,10 @@ export async function createBranchFixture({ repository, baseBranch, readme, titl
   return resource;
 }
 
-/** Every operation is attempted even if an earlier cleanup request fails. */
-export async function cleanupBranchFixture(resource, { api = ghApi } = {}) {
+/** Every operation is attempted; deletion-rule retention is reported separately. */
+export async function cleanupBranchFixture(resource, { api = ghApi, log = console.warn, summaryFile = process.env.GITHUB_STEP_SUMMARY } = {}) {
   const errors = [];
+  const retainedBranches = [];
   const root = `repos/${resource.repository}`;
   const operations = [];
   if (resource.pullRequestNumber) operations.push([`${root}/pulls/${resource.pullRequestNumber}`, { method: 'PATCH', body: { state: 'closed' } }]);
@@ -37,8 +39,16 @@ export async function cleanupBranchFixture(resource, { api = ghApi } = {}) {
     } catch (error) {
       // A branch already removed by solve is successfully cleaned up.
       if (options.method === 'DELETE' && /404|Reference does not exist/.test(error.message)) continue;
+      if (options.method === 'DELETE' && /\bHTTP 422\b/i.test(error.message) && /Repository rule violations found/i.test(error.message) && /Cannot delete this branch/i.test(error.message)) {
+        const branch = endpoint.slice(`${root}/git/refs/heads/`.length);
+        retainedBranches.push(branch);
+        const message = `Fixture branch ${branch} retained by a repository rule that prohibits deletion; scheduled cleanup will retry. Removing it requires a disposable-branch rule exemption.`;
+        log(`::warning::${message}`);
+        if (summaryFile) appendFileSync(summaryFile, `${message}\n\n`);
+        continue;
+      }
       errors.push(`${endpoint}: ${error.message}`);
     }
   }
-  return errors;
+  return { errors, retainedBranches };
 }

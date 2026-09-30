@@ -24,10 +24,11 @@ export async function cleanupStaleTestResources({ api = githubApi, repository, n
   const operations = [];
   const prNumbers = [];
   const issueNumbers = [];
+  const stalePulls = [];
   // Resolve every active fixture before planning writes. PRs can share a base,
   // and their API order must never decide whether a live solver is deleted.
   for (const pr of pulls) {
-    if (!selected.has(pr.base?.ref) && !selected.has(pr.head?.ref)) continue;
+    if (!isTestBranch(pr.base?.ref) && !isTestBranch(pr.head?.ref)) continue;
     // A live solver may have pushed since creating its orphan base. Never
     // close its PR or remove its base merely because that base is old.
     const commit = await api(`${root}/commits/${pr.head.sha}`);
@@ -36,11 +37,15 @@ export async function cleanupStaleTestResources({ api = githubApi, repository, n
         const prefix = fixturePrefix(ref);
         if (prefix) protectedPrefixes.add(prefix);
       }
+    } else {
+      // The orphan base may already be gone after a partial cleanup. Its PR
+      // still identifies a solver head outside the disposable-ref prefixes.
+      stalePulls.push(pr);
     }
   }
   for (const ref of selected) if (protectedPrefixes.has(fixturePrefix(ref))) selected.delete(ref);
-  for (const pr of pulls) {
-    if (!selected.has(pr.base?.ref) && !selected.has(pr.head?.ref)) continue;
+  for (const pr of stalePulls) {
+    if ([pr.base?.ref, pr.head?.ref].some(ref => protectedPrefixes.has(fixturePrefix(ref)))) continue;
     prNumbers.push(pr.number);
     if (pr.state !== 'closed') operations.push([`${root}/pulls/${pr.number}`, { method: 'PATCH', body: { state: 'closed' } }]);
     if (pr.head?.repo?.full_name === repository) selected.add(pr.head.ref);

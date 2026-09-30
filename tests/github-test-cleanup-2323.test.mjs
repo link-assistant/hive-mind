@@ -87,6 +87,21 @@ test('marked stale issues are closed even if a previous cleanup already removed 
   assert.equal(writes[0].endpoint, 'repos/o/r/issues/5');
 });
 
+test('a stale solver head is cleaned when its orphan base was already removed', async () => {
+  const writes = [];
+  const api = async (endpoint, options = {}) => {
+    if (options.method) writes.push({ endpoint, ...options });
+    if (endpoint.includes('/branches?')) return [[{ name: 'issue-41-solver', commit: { sha: 'old' } }]];
+    if (endpoint.includes('/commits/')) return { commit: { committer: { date: '2026-09-01T00:00:00Z' } } };
+    if (endpoint.includes('/pulls?')) return [[{ number: 42, state: 'open', base: { ref: 'integration/old/base' }, head: { ref: 'issue-41-solver', sha: 'old', repo: { full_name: 'o/r' } } }]];
+    return [[]];
+  };
+  await cleanupStaleTestResources({ api, repository: 'o/r', now: Date.parse('2026-09-30T01:00:00Z') });
+  assert.ok(writes.some(call => call.endpoint.endsWith('/pulls/42') && call.body?.state === 'closed'));
+  assert.ok(writes.some(call => call.endpoint.endsWith('/heads/issue-41-solver') && call.method === 'DELETE'));
+  assert.ok(!writes.some(call => call.endpoint.endsWith('/heads/integration/old/base')));
+});
+
 test('default cleanup never calls repository deletion and reports the unavailable capability', async () => {
   const logs = [];
   await cleanupTestRepositories({

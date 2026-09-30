@@ -14,6 +14,8 @@ Run the focused regressions with:
 node --test tests/*2323.test.mjs tests/detect-code-changes-untested-head-2198.test.mjs
 ```
 
+Final review reproduced another partial-cleanup case: a stale PR still references its orphan base after that base has been deleted, while its ordinary solver head remains. The regression failed because cleanup selected PRs only through existing disposable refs. Cleanup now recognizes fixture PRs by their base/head names, checks their head age, and removes stale solver heads even when the orphan base is gone, while keeping active fixtures protected.
+
 ## Real GitHub integration
 
 ```bash

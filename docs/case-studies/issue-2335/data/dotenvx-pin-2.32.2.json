@@ -1,0 +1,28 @@
+[
+  {
+    "version": "2.32.2",
+    "dist": {
+      "shasum": "a591c7535321662f762080e81712456c0ac5643c",
+      "tarball": "https://registry.npmjs.org/@dotenvx/dotenvx/-/dotenvx-2.32.2.tgz",
+      "fileCount": 268,
+      "integrity": "sha512-JwF1VUWhDJyU92S7CGX44Gm/cr9pFYqmo1SqfzhIoChmnQ/1sDV4O+UVmd6extES4FmU5N58NFn7S4k/Jin0wg==",
+      "signatures": [
+        {
+          "sig": "MEQCIHeuCZjwWPTAebjpbo0Me48iFEu4pHto+yqe1FAlmjCyAiBWGq1R+HEUP/7JDhZ8gviqZ1rtWDTB/re9ZdDuN6wstw==",
+          "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+        },
+        {
+          "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U",
+          "sig": "MEQCIGRdxoqp3ICoXJ7SjAtOKMK25Ouvd+xxRv1iHDRAuuy/AiAa4EjrkqKwSv4EORsHVUPAZqVFoFRjsBiCUk6CkMNxKw=="
+        }
+      ],
+      "attestations": {
+        "url": "https://registry.npmjs.org/-/npm/v1/attestations/@dotenvx%2fdotenvx@2.32.2",
+        "provenance": {
+          "predicateType": "https://slsa.dev/provenance/v1"
+        }
+      },
+      "unpackedSize": 764138
+    }
+  }
+]

@@ -4,7 +4,7 @@ Hive Mind एप्लिकेशन environment variables और command-line 
 
 > **OpenRouter एकीकरण**: Claude Code CLI या @link-assistant/agent को OpenRouter (60+ प्रदाताओं से 500+ models) के साथ उपयोग करने के लिए, समर्पित [OpenRouter सेटअप गाइड](./OPENROUTER.hi.md) देखें।
 
-Issue से जुड़े automatic merges के लिए closing links और वर्तमान requirements report हमेशा आवश्यक हैं, चाहे optional restart flags सक्षम हों या नहीं। Repository mode में 100 native children की सीमा से आगे भी सभी open issues आवश्यक रहते हैं। देखें [issue completion](ISSUE_COMPLETION.md)।
+Issue से जुड़े automatic merges के लिए closing links और वर्तमान requirements report हमेशा आवश्यक हैं, चाहे optional restart flags सक्षम हों या नहीं। Repository mode में 100 native children की सीमा से आगे भी सभी open issues आवश्यक रहते हैं। देखें [issue completion](ISSUE_COMPLETION.hi.md)।
 
 ## विषय-सूची
 

@@ -1,0 +1,9 @@
+[
+  { "path": "docs/case-studies/issue-34/README.md", "url": "https://github.com/link-assistant/agent/blob/27f5366e593f5f3b33f2567905466525029527a7/docs/case-studies/issue-34/README.md" },
+  { "path": "js/src/session/prompt/gemini.txt", "url": "https://github.com/link-assistant/agent/blob/27f5366e593f5f3b33f2567905466525029527a7/js/src/session/prompt/gemini.txt" },
+  { "path": "docs/case-studies/issue-102/verbose-log.txt", "url": "https://github.com/link-assistant/agent/blob/27f5366e593f5f3b33f2567905466525029527a7/docs/case-studies/issue-102/verbose-log.txt" },
+  { "path": "docs/case-studies/issue-36/README.md", "url": "https://github.com/link-assistant/agent/blob/27f5366e593f5f3b33f2567905466525029527a7/docs/case-studies/issue-36/README.md" },
+  { "path": "js/src/session/prompt/codex.txt", "url": "https://github.com/link-assistant/agent/blob/27f5366e593f5f3b33f2567905466525029527a7/js/src/session/prompt/codex.txt" },
+  { "path": "js/src/session/prompt/copilot-gpt-5.txt", "url": "https://github.com/link-assistant/agent/blob/27f5366e593f5f3b33f2567905466525029527a7/js/src/session/prompt/copilot-gpt-5.txt" },
+  { "path": "docs/case-studies/issue-264/code-deep-dive.md", "url": "https://github.com/link-assistant/agent/blob/27f5366e593f5f3b33f2567905466525029527a7/docs/case-studies/issue-264/code-deep-dive.md" }
+]

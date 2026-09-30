@@ -1,0 +1,14 @@
+[
+  {
+    "version": "0.25.10",
+    "code": 0,
+    "stdout": "\nup to date in 5s\n",
+    "stderr": "npm warn EBADENGINE Unsupported engine {\nnpm warn EBADENGINE   package: '@opentui/core@0.5.13',\nnpm warn EBADENGINE   required: { bun: '>=1.3.0', node: '>=26.4.0' },\nnpm warn EBADENGINE   current: { node: 'v24.21.0', npm: '12.0.2' }\nnpm warn EBADENGINE }\n"
+  },
+  {
+    "version": "0.27.0",
+    "code": 1,
+    "stdout": "",
+    "stderr": "npm error code ERESOLVE\nnpm error ERESOLVE unable to resolve dependency tree\nnpm error\nnpm error While resolving: opentui-peer-reproduction@1.0.0\nnpm error Found: web-tree-sitter@0.27.0\nnpm error node_modules/web-tree-sitter\nnpm error   web-tree-sitter@\"0.27.0\" from the root project\nnpm error\nnpm error Could not resolve dependency:\nnpm error peer web-tree-sitter@\"0.25.10\" from @opentui/core@0.5.13\nnpm error node_modules/@opentui/core\nnpm error   @opentui/core@\"0.5.13\" from the root project\nnpm error\nnpm error Fix the upstream dependency conflict, or retry this command with --no-strict-peer-deps, --force, or --legacy-peer-deps to accept an incorrect (and potentially broken) dependency resolution.\nnpm error\nnpm error\nnpm error For a full report see:\nnpm error /home/box/.npm/_logs/2026-09-30T12_10_05_344Z-eresolve-report.txt\nnpm error A complete log of this run can be found in: /home/box/.npm/_logs/2026-09-30T12_10_05_344Z-debug-0.log\n"
+  }
+]

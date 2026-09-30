@@ -82,6 +82,7 @@ const buildCodexToolOptions = (argv = {}) => {
   appendExtraArgs(options, reasoningArgs);
 
   appendExtraArgs(options, buildCodexDisable1mContextConfigArgs(!!argv.disable1mContext));
+  appendExtraArgs(options, ['-c', 'features.goals=true']); // Issue #2335: completion goals are essential.
   appendExtraArgs(options, buildCodexMemoryDisableConfigArgs(isAgentMemoryDisabled(argv))); // Issue #2178
   appendExtraArgs(options, buildCodexAuxiliaryDisableConfigArgs(isAuxiliaryModelCallsDisabled(argv))); // Issue #2236
   try {

@@ -69,20 +69,20 @@ test('reproduction: only #48 was a native sub-issue, the check therefore missed 
 test('reproduction: the merged #51 description blocks auto-merge (7 of 7 missing)', () => {
   const gate = evaluateClosingReferencesGate({ ensureEnabled: false, issueBody: issue50.body, subIssues: [{ number: 48 }], prText: pr51Text, owner: 'konard', repo: 'vietnam-accomodation-search', issueNumber: 50, prNumber: 51 });
   assert.equal(gate.enabled, true, 'the repository-mode marker alone enables the gate');
-  assert.equal(gate.total, 7);
+  assert.equal(gate.total, 8);
   assert.deepEqual(
     gate.missing.map(entry => entry.number).sort((a, b) => a - b),
     [16, 39, 40, 41, 42, 43, 48]
   );
   assert.equal(gate.blocker.reason, MISSING_CLOSING_REFERENCES_REASON);
-  assert.match(gate.blocker.message, /#51 description does not close 7 of the 7 issue\(s\) required by #50/);
+  assert.match(gate.blocker.message, /#51 description does not close 7 of the 8 issue\(s\) required by #50/);
   assert.match(gate.blocker.resolution, /Fixes #48/);
 });
 
 test('a description that closes every required issue passes the gate', () => {
   const fixed = `${pr51Text}\n\nFixes #16\nFixes #39\nFixes #40\nFixes #41\nFixes #42\nFixes #43\nFixes #48`;
   const gate = evaluateClosingReferencesGate({ ensureEnabled: false, issueBody: issue50.body, subIssues: [{ number: 48 }], prText: fixed, owner: 'konard', repo: 'vietnam-accomodation-search', issueNumber: 50, prNumber: 51 });
-  assert.equal(gate.total, 7);
+  assert.equal(gate.total, 8);
   assert.equal(gate.missing.length, 0);
   assert.equal(gate.blocker, null);
 });
@@ -95,7 +95,7 @@ test('a comma separated list still leaves all but the first issue open', () => {
   );
 });
 
-test('the gate stays off for an ordinary issue without --ensure-all-sub-issues-addressed', () => {
+test('the pure gate stays off when no primary issue or repository-mode context is supplied', () => {
   const gate = evaluateClosingReferencesGate({ ensureEnabled: false, issueBody: 'Fixes #1\n\nA normal issue', subIssues: [{ number: 2 }], prText: '' });
   assert.deepEqual(gate, { enabled: false, total: 0, missing: [], blocker: null });
 });
@@ -104,7 +104,7 @@ test('with --ensure-all-sub-issues-addressed the gate checks native sub-issues o
   const gate = evaluateClosingReferencesGate({ ensureEnabled: true, issueBody: 'plain', subIssues: [{ number: 2 }, { number: 3 }], prText: 'Fixes #2', owner: 'o', repo: 'r', issueNumber: 1, prNumber: 9 });
   assert.deepEqual(
     gate.missing.map(entry => entry.number),
-    [3]
+    [3, 1]
   );
   assert.equal(gate.blocker.reason, MISSING_CLOSING_REFERENCES_REASON);
 });
@@ -248,7 +248,8 @@ test('the blocked-merge comment explains the missing references instead of askin
   const comment = buildAutoMergeBlockedComment({ blockers: [gate.blocker], issueNumber: 50 });
   assert.match(comment, /missing_closing_references/);
   assert.match(comment, /Add the missing closing references/);
-  assert.match(comment, /will then stay open/);
+  assert.match(comment, /Complete every issue requirement/);
+  assert.doesNotMatch(comment, /merge this pull request manually/);
   assert.doesNotMatch(comment, /Reopen issue #50/);
   assert.ok(STOP_REASONS[MISSING_CLOSING_REFERENCES_REASON], 'the stop reason is documented');
 });

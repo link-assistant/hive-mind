@@ -24,6 +24,7 @@ import { cancellableSleep } from './interruptible-sleep.lib.mjs';
 // Issue #2182: draft detection and merge-failure classification live in one
 // pure module shared by every merge call site.
 import { classifyMergeError, evaluatePullRequestMergeability } from './merge-error-classification.lib.mjs';
+import { checkIssueCompletionBeforeMerge, closeVerifiedIssuesAfterMerge } from './issue-completion.lib.mjs';
 
 // Issue #1722: gh api `--paginate --slurp` responses for repos with many
 // historical workflow runs can easily exceed Node's default 1 MB exec buffer
@@ -569,7 +570,11 @@ export async function mergePullRequest(owner, repo, prNumber, options = {}, verb
   const { mergeMethod = 'merge', squash = false, deleteAfter = false } = options;
 
   try {
+    // Every merge entry point, including the queue, must re-read current evidence.
+    const completion = await checkIssueCompletionBeforeMerge({ owner, repo, prNumber, issueNumber: options.issueNumber, logger: async message => console.log(message), verbose });
+    if (completion.blocker) return { success: false, error: completion.blocker.message, category: completion.blocker.reason, terminal: true, recoverable: false, resolution: completion.blocker.resolution, blocker: completion.blocker };
     let mergeArgs = `--repo ${owner}/${repo}`;
+    mergeArgs += ` --match-head-commit ${completion.headSha}`;
 
     // Issue #1269: gh pr merge requires --merge, --squash, or --rebase when running non-interactively
     // We must always specify a merge method to prevent the command from hanging or failing
@@ -587,13 +592,14 @@ export async function mergePullRequest(owner, repo, prNumber, options = {}, verb
     }
 
     const { stdout } = await exec(`gh pr merge ${prNumber} ${mergeArgs}`);
+    const unclosedIssues = await closeVerifiedIssuesAfterMerge(completion.snapshot, { logger: async message => console.warn(message) });
 
     if (verbose) {
       console.log(`[VERBOSE] /merge: Successfully merged PR #${prNumber}`);
       if (stdout) console.log(`[VERBOSE] /merge: stdout: ${stdout.trim()}`);
     }
 
-    return { success: true, error: null };
+    return { success: true, error: null, unclosedIssues };
   } catch (error) {
     // Issue #2182: classify the failure so watch loops can stop (or self-heal)
     // instead of retrying an impossible merge every 120 seconds forever.

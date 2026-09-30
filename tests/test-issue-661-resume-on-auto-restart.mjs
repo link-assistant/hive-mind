@@ -45,7 +45,8 @@ test('minimal restart context omits the full issue prompt', () => {
     argv: { minimalRestartContext: true, resume: 'session-123' },
   });
 
-  assert.equal(prompt, 'Minimal auto-restart prompt\n');
+  assert.ok(prompt.startsWith('Minimal auto-restart prompt\n'));
+  assert.match(prompt, /Do not stop until every requirement/);
   assert(!prompt.includes('Issue to solve:'));
   assert(!prompt.includes('Your prepared branch:'));
 });

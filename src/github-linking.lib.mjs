@@ -74,6 +74,14 @@ export function prClosesIssue(text, issueNumber, owner = null, repo = null, { al
   });
 }
 
+/** Bare issue numbers are relative to the source PR's repository. */
+export function pullRequestClosesIssue(pr, issueNumber, owner = null, repo = null) {
+  const url = pr.url || pr.html_url;
+  const source = url?.match(/^https:\/\/github\.com\/([\w.-]+)\/([\w.-]+)\/pull\/[1-9]\d*(?:$|[/?#])/i);
+  const allowShortReference = !owner || !repo || !url || Boolean(source && source[1].toLowerCase() === owner.toLowerCase() && source[2].toLowerCase() === repo.toLowerCase());
+  return prClosesIssue(pr.body || '', issueNumber, owner, repo, { allowShortReference });
+}
+
 /**
  * Check if PR body contains a valid GitHub linking keyword for the given issue
  *
@@ -94,6 +102,11 @@ export function hasGitHubLinkingKeyword(prBody, issueNumber, owner = null, repo 
  * @param {string} prBody - The pull request body text
  * @returns {string|null} The issue number if found, null otherwise
  */
-export function extractLinkedIssueNumber(prBody) {
-  return extractClosingIssueReferences(prBody)[0]?.number || null;
+export function extractLinkedIssueNumber(prBody, owner = null, repo = null) {
+  return extractClosingIssueReferences(prBody).find(reference => !reference.owner || !owner || !repo || (reference.owner.toLowerCase() === owner.toLowerCase() && reference.repo.toLowerCase() === repo.toLowerCase()))?.number || null;
+}
+
+/** Recover deleted primary references from our issue branch convention. */
+export function resolvePrimaryIssueNumber({ body, branch, owner, repo }) {
+  return branch?.match(/^issue-([1-9]\d*)-/)?.[1] || extractLinkedIssueNumber(body, owner, repo);
 }

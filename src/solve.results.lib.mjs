@@ -58,7 +58,7 @@ const sentryLib = await import('./sentry.lib.mjs');
 const { reportError } = sentryLib;
 // Import pull request issue-link preservation helpers
 const prIssueLinking = await import('./pr-issue-linking.lib.mjs');
-const { buildIssueReference, ensureIssueLinkInPullRequestBody } = prIssueLinking;
+const { buildIssueReference } = prIssueLinking;
 
 // Issue #2119: the one place that decides whether a pull request changed anything.
 const { formatChangesSection, getPullRequestChangeStats, refreshPullRequestChangesSection } = await import('./pull-request-changes.lib.mjs');
@@ -119,49 +119,14 @@ export const buildPRNotUpdatedHint = (titleNotUpdated, descriptionNotUpdated) =>
  * @returns {Promise<{checked: boolean, updated: boolean, body: string, issueRef: string, error?: string}>}
  */
 export const ensurePullRequestIssueLink = async ({ prNumber, issueNumber, owner, repo, argv = {}, command = $, logger = log }) => {
-  if (!prNumber || !issueNumber || !owner || !repo) {
-    return { checked: false, updated: false, body: '', issueRef: buildIssueReference({ issueNumber, owner, repo, fork: argv.fork }), error: 'missing required pull request or issue data' };
-  }
-
-  let prBody = '';
-  const prBodyResult = await command`gh pr view ${prNumber} --repo ${owner}/${repo} --json body --jq .body`;
-  if (prBodyResult.code !== 0) {
-    const error = prBodyResult.stderr?.toString() ? prBodyResult.stderr.toString().trim() : 'Unknown error';
-    await logger(`  ⚠️  Could not read PR body for issue link check: ${error}`);
-    return { checked: false, updated: false, body: prBody, issueRef: buildIssueReference({ issueNumber, owner, repo, fork: argv.fork }), error };
-  }
-  prBody = prBodyResult.stdout.toString();
-  const linkResult = ensureIssueLinkInPullRequestBody(prBody, {
-    issueNumber,
-    owner,
-    repo,
-    fork: argv.fork,
-  });
-
-  if (!linkResult.updated) {
-    await logger('  ✅ PR body already contains issue reference');
-    return { checked: true, updated: false, body: linkResult.body, issueRef: linkResult.issueRef };
-  }
-  await logger(`  📝 Updating PR body to link issue #${issueNumber}...`);
-  const fs = (await use('fs')).promises;
-  const tempBodyFile = `/tmp/pr-body-update-${prNumber}-${Date.now()}.md`;
-  await writeSanitizedPublicationFile(tempBodyFile, linkResult.body);
-
-  try {
-    const updateResult = await command`gh pr edit ${prNumber} --repo ${owner}/${repo} --body-file ${tempBodyFile}`;
-    await fs.unlink(tempBodyFile).catch(() => {});
-    if (updateResult.code === 0) {
-      await logger(`  ✅ Updated PR body to include "Fixes ${linkResult.issueRef}"`);
-      return { checked: true, updated: true, body: linkResult.body, issueRef: linkResult.issueRef };
-    }
-
-    const error = updateResult.stderr?.toString() ? updateResult.stderr.toString().trim() : 'Unknown error';
-    await logger(`  ⚠️  Could not update PR body: ${error}`);
-    return { checked: true, updated: false, body: prBody, issueRef: linkResult.issueRef, error };
-  } catch (updateError) {
-    await fs.unlink(tempBodyFile).catch(() => {});
-    throw updateError;
-  }
+  const { repairRequiredIssueLinks } = await import('./pr-issue-link-repair.lib.mjs');
+  // Preserve the existing command-stream injection contract with separate argv.
+  const run = args => {
+    const strings = ['gh ', ...args.slice(1).map(() => ' '), ''];
+    strings.raw = [...strings];
+    return command(strings, ...args);
+  };
+  return repairRequiredIssueLinks({ prNumber, issueNumber, owner, repo, argv, run, logger });
 };
 export const verifyPullRequestIssueLinkAfterAutoRestart = async ({ prNumber, issueNumber, owner, repo, argv = {}, cleanErrorMessage = error => error.message }) => {
   if (!prNumber) {
@@ -781,6 +746,8 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
 
             // Build new description
             const fs = (await use('fs')).promises;
+            const { parseRequirementsReport, formatRequirementsReport } = await import('./issue-requirements.lib.mjs');
+            const requirementsReport = parseRequirementsReport(prBody);
             const issueRef = buildIssueReference({ issueNumber, owner, repo, fork: argv.fork });
             const newDescription = `## Summary
 
@@ -790,6 +757,7 @@ ${formatChangesSection(changeStats)}
 
 ### Issue Reference
 Fixes ${issueRef}
+${requirementsReport ? `\n${formatRequirementsReport(requirementsReport)}\n` : ''}
 
 ---
 *This PR was created automatically by the AI issue solver*`;
@@ -801,6 +769,7 @@ Fixes ${issueRef}
 
               if (descResult.code === 0) {
                 await log(`  ✅ Updated PR description with solution summary`);
+                await ensurePullRequestIssueLink({ owner, repo, issueNumber, prNumber: pr.number, argv });
               } else {
                 await log(`  ⚠️  Could not update PR description: ${descResult.stderr?.toString() ? descResult.stderr.toString().trim() : 'Unknown error'}`);
               }

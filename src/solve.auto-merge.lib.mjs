@@ -437,7 +437,7 @@ export const watchUntilMergeable = async params => {
           if (deleteAfterMerge) {
             await log(formatAligned('', 'Branch cleanup:', 'will delete branch after successful merge', 2));
           }
-          const mergeResult = await mergePullRequest(owner, repo, prNumber, { squash: argv.squash || false, deleteAfter: deleteAfterMerge }, argv.verbose);
+          const mergeResult = await mergePullRequest(owner, repo, prNumber, { issueNumber, squash: argv.squash || false, deleteAfter: deleteAfterMerge }, argv.verbose);
 
           if (mergeResult.success) {
             await log(formatAligned('🎉', 'PR MERGED SUCCESSFULLY!', ''));
@@ -468,6 +468,10 @@ export const watchUntilMergeable = async params => {
             }
             return { success: true, reason: 'auto-merged', latestSessionId, latestAnthropicCost };
           } else {
+            if (mergeResult.blocker) {
+              await reportAutoMergeBlockedByIssue({ owner, repo, prNumber, issueNumber, mergeBlockers: [mergeResult.blocker], verbose: argv.verbose });
+              return { success: false, reason: mergeResult.category, mergeBlockers: [mergeResult.blocker], latestSessionId, latestAnthropicCost };
+            }
             // Issue #2182: an unclassified merge failure used to be logged as
             // "Will continue monitoring..." and retried every 120 seconds
             // forever (5384 identical failures in the reported run). Classify

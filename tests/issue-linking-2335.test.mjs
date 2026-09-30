@@ -1,6 +1,8 @@
 /** @hive-mind-test-suite default */
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { classifyIssueLinkStatus } from '../src/github-issue-auto-close.lib.mjs';
+import { extractLinkedPullRequestsForIssue } from '../src/github.batch.lib.mjs';
 import { prClosesIssue, extractLinkedIssueNumber } from '../src/github-linking.lib.mjs';
 import { ensureIssueLinkInPullRequestBody } from '../src/pr-issue-linking.lib.mjs';
 import { findMissingSubIssueReferences } from '../src/solve.ensure-sub-issues.detect.lib.mjs';
@@ -32,4 +34,23 @@ test('a local reference cannot satisfy a foreign sub-issue with the same number'
   const subIssues = [{ number: 322, owner: 'other', repo: 'agent' }];
   assert.equal(findMissingSubIssueReferences({ text: 'Fixes #322', subIssues, ...repository }).missing.length, 1);
   assert.equal(findMissingSubIssueReferences({ text: 'Fixes other/agent#322', subIssues, ...repository }).missing.length, 0);
+});
+test('a title alone cannot replace a closing reference in the description', () => {
+  const status = classifyIssueLinkStatus({ prBody: 'Related work.', prTitle: 'Fixes #322', issueNumber: 322, owner: 'link-assistant', repo: 'agent', baseBranch: 'feature', defaultBranch: 'main' });
+  assert.equal(status.hasClosingKeyword, false);
+  assert.equal(status.requiresManualClose, false);
+  assert.equal(status.reason, 'missing-keyword');
+});
+
+test('hive batch discovery uses description links and the exact issue repository', async () => {
+  const issueData = { timelineItems: { nodes: [{ source: { number: 1, state: 'OPEN', title: 'Fixes #322', body: 'Related work.' } }, { source: { number: 2, state: 'OPEN', title: 'Work', body: 'Fixes foreign/project#322' } }, { source: { number: 3, state: 'OPEN', title: 'Work', body: 'Fixes link-assistant/agent#322' } }] } };
+  assert.deepEqual(
+    (await extractLinkedPullRequestsForIssue(issueData, 322, async () => {}, { owner: 'link-assistant', repo: 'agent' })).map(pr => pr.number),
+    [3]
+  );
+  issueData.timelineItems.nodes.push({ source: { number: 4, state: 'OPEN', url: 'https://github.com/foreign/project/pull/4', body: 'Fixes #322' } }, { source: { number: 5, state: 'OPEN', url: 'https://github.com/foreign/project/pull/5', body: 'Fixes link-assistant/agent#322' } });
+  assert.deepEqual(
+    (await extractLinkedPullRequestsForIssue(issueData, 322, async () => {}, { owner: 'link-assistant', repo: 'agent' })).map(pr => pr.number),
+    [3, 5]
+  );
 });

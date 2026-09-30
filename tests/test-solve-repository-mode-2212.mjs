@@ -198,8 +198,8 @@ test('combined issue body says how many issues were left out over the limit', ()
 
 test('summary lines mention the skipped issues only when there are any', () => {
   const repository = { owner: 'o', repo: 'r' };
-  assert.equal(buildRepositoryModeSummaryLines({ repository, totalOpen: 2, selectedCount: 2, skipped: 0 }).length, 2);
-  assert.equal(buildRepositoryModeSummaryLines({ repository, totalOpen: 120, selectedCount: 100, skipped: 20 }).length, 3);
+  assert.equal(buildRepositoryModeSummaryLines({ repository, totalOpen: 2, selectedCount: 2, skipped: 0 }).length, 3);
+  assert.equal(buildRepositoryModeSummaryLines({ repository, totalOpen: 120, selectedCount: 100, skipped: 20 }).length, 4);
 });
 
 // ---------------------------------------------------------------------------

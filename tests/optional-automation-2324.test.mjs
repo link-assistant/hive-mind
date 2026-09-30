@@ -6,6 +6,15 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { execFileSync } from 'node:child_process';
 
+test('Codex cancellation stops the real shell after the repeated-call breaker fires', { timeout: 15_000 }, () => {
+  const evidence = JSON.parse(execFileSync(process.execPath, ['--max-old-space-size=128', 'experiments/issue-2324/codex-cancellation-probe.mjs'], { encoding: 'utf8', timeout: 10_000, stdio: ['ignore', 'pipe', 'pipe'] }));
+  assert.equal(evidence.success, false);
+  assert.equal(evidence.input, 'finite cancellation probe | prompt data');
+  assert.match(evidence.breaker, /Repeated-tool-call breaker/);
+  assert.ok(evidence.observations.length > 0, 'the production adapter must spawn a real child');
+  assert.ok(evidence.observations.filter(observation => observation.delay === 500).every(observation => !observation.exists));
+});
+
 test('the feedback integration supplies a local git identity on a clean CI runner', () => {
   const operations = JSON.parse(execFileSync(process.execPath, ['--experimental-vm-modules', 'experiments/issue-2324/feedback-git-identity-probe.mjs'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }));
   assert.deepEqual(

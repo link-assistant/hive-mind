@@ -10,8 +10,11 @@
 - [x] Schedule e2e on Hive Mind releases and daily only for untested Formal AI tags, using downloadable success artifacts.
 - [x] Grant workspace prerequisite installation to task-container Formal AI sidecars and address Links Notation duplication from #2325.
 - [x] Clean the historical Hello World branches using the authorized cleanup workflow and record results.
-- [ ] Run targeted tests and all local CI checks/default tests; save large output in files. Add a changeset and update the #2320 case study with the first matrix run and precise per-row evidence/upstream issues.
-- [ ] Commit useful atomic changes, merge current main, push only issue-2324-6664a8331822, and update PR #2329 title/body with reproduction and verification.
-- [ ] Review the complete PR diff for regressions, inspect fresh CI logs for any failures, resolve actionable failures, ensure a clean worktree, and mark PR #2329 ready.
+- [x] Run targeted tests and all local CI checks/default tests; save large output in files. Add a changeset and update the #2320 case study with the first matrix run and precise per-row evidence/upstream issues.
+- [x] Commit useful atomic changes, verify current main is included, push only issue-2324-6664a8331822, and update PR #2329 title/body with reproduction and verification.
+- [x] Review the complete PR diff for regressions, inspect fresh CI logs for failures, and resolve actionable failures while preserving upstream model and repository-policy errors.
+- [x] Reproduce the Codex shell leak with the production adapter, add a failing regression, fix prompt input redirection, and verify cancellation plus existing Codex execution behavior.
 
 All commands and delegated work must finish before completion. Stress experiments use finite inputs and resource limits. No routine implementation approvals are needed. Preserve forward-moving commit history.
+
+The final full-suite result, hosted matrix and CI conclusions, clean-worktree check, and PR readiness are recorded in [PR #2329](https://github.com/link-assistant/hive-mind/pull/2329).

@@ -130,11 +130,12 @@ export async function findOpenPullRequest({ runner, head, base, verbose = false,
  * @param {string} opts.repository owner/name
  * @param {string} opts.headSha
  * @param {string} [opts.detailsUrl]
+ * @param {string} [opts.checkToken] Built-in Actions token required by the check's protected source.
  * @param {Console} [opts.logger]
  * @param {boolean} [opts.verbose]
  * @returns {Promise<void>}
  */
-export async function createReleaseValidationCheck({ runner, repository, headSha, detailsUrl, logger = console, verbose = false }) {
+export async function createReleaseValidationCheck({ runner, repository, headSha, detailsUrl, checkToken = process.env.RELEASE_CHECK_TOKEN, logger = console, verbose = false }) {
   if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository || '')) {
     throw new Error(`Cannot create the release validation check: invalid repository ${JSON.stringify(repository || '')}`);
   }
@@ -146,7 +147,9 @@ export async function createReleaseValidationCheck({ runner, repository, headSha
   if (detailsUrl) {
     args.push('-f', `details_url=${detailsUrl}`);
   }
-  await runStrict('gh', args, { runner, verbose, logger });
+  // Branch protection pins this check to GitHub Actions. Other GitHub writes
+  // still use the resolved App/PAT/default credentials inherited by the job.
+  await runStrict('gh', args, { runner, verbose, logger, ...(checkToken ? { env: { ...process.env, GH_TOKEN: checkToken } } : {}) });
   logger.log(`Published the required Pipeline Status check for ${headSha}.`);
 }
 

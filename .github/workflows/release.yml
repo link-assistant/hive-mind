@@ -539,6 +539,7 @@ jobs:
         # through the Checks API; no long-lived PAT is needed (#2281).
         env:
           GH_TOKEN: ${{ steps.gh.outputs.token }}
+          RELEASE_CHECK_TOKEN: ${{ github.token }}
         run: node scripts/version-and-commit.mjs --mode changeset
       - name: Publish to npm
         # Run if version was committed, OR a previous attempt already committed
@@ -913,6 +914,7 @@ jobs:
         # the deterministic version PR after parent validation passes (#2281).
         env:
           GH_TOKEN: ${{ steps.gh.outputs.token }}
+          RELEASE_CHECK_TOKEN: ${{ github.token }}
           # Read through the environment, never interpolated into the script:
           # `description` is free-form text from whoever dispatched the run
           # (zizmor template-injection).

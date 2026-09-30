@@ -12,7 +12,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-import { landViaPullRequest } from '../scripts/release-pull-request.lib.mjs';
+import { createReleaseValidationCheck, landViaPullRequest } from '../scripts/release-pull-request.lib.mjs';
 import { assertReleaseMetadataOnly } from '../scripts/version-and-commit.lib.mjs';
 
 assert.doesNotThrow(() => assertReleaseMetadataOnly(['package.json', 'package-lock.json', 'CHANGELOG.md', '.changeset/fair-owls-release.md']), 'generated release metadata preserves the source tree validated by the parent workflow');
@@ -108,5 +108,19 @@ assert.ok((releaseWorkflow.match(/GH_TOKEN: \$\{\{ steps\.gh\.outputs\.token \}\
 assert.ok((releaseWorkflow.match(/default-token: \$\{\{ github\.token \}\}/g) || []).length >= 2, 'the built-in token remains sufficient without configuration');
 assert.doesNotMatch(releaseWorkflow, /RELEASE_PULL_REQUEST_TOKEN/, 'release must not depend on an unprovisioned PAT or App secret');
 assert.equal((releaseWorkflow.match(/checks: write/g) || []).length, 2, 'only the two release jobs need permission to publish the attestation');
+assert.equal((releaseWorkflow.match(/RELEASE_CHECK_TOKEN: \$\{\{ github\.token \}\}/g) || []).length, 2, 'both release jobs retain the GitHub Actions identity required by branch protection');
+
+let checkEnvironment;
+await createReleaseValidationCheck({
+  runner: async (_command, _args, options) => {
+    checkEnvironment = options.env;
+    return { code: 0 };
+  },
+  repository: 'link-assistant/hive-mind',
+  headSha: 'a'.repeat(40),
+  checkToken: 'fixture-github-actions-token',
+  logger: { log() {} },
+});
+assert.equal(checkEnvironment.GH_TOKEN, 'fixture-github-actions-token', 'only the attestation must override an optional PAT/App with the required GitHub Actions identity');
 
 console.log('release-built-in-token-2281.test.mjs: all assertions passed');

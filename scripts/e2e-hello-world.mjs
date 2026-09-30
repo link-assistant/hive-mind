@@ -13,7 +13,8 @@ import { createBranchFixture, cleanupBranchFixture, fixtureBranch } from './task
 import { verifyGeneratedWorkflow } from './e2e-workflow.lib.mjs';
 import { gh, ghApi, ghJson, ghList } from './github-actions.lib.mjs';
 
-const env = { ...process.env, FORMAL_AI_INSTALL_GRANT: process.env.FORMAL_AI_INSTALL_GRANT || 'workspace' };
+const env = process.env;
+env.FORMAL_AI_INSTALL_GRANT ||= 'workspace';
 const args = process.argv.slice(2);
 const option = name => (args.includes(name) ? args[args.indexOf(name) + 1] : null);
 const tool = option('--tool');

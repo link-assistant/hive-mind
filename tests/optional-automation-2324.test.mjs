@@ -4,6 +4,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
+import { execFileSync } from 'node:child_process';
 
 import { decideDraft } from '../scripts/formal-ai-draft.lib.mjs';
 import { buildE2eSolveArgv } from '../scripts/e2e-hello-world.lib.mjs';
@@ -27,6 +28,16 @@ test('every matrix row targets its isolated base branch', () => {
 test('the task sidecar carries the workspace install grant', () => {
   assert.ok(buildFormalAiSidecarRunArgs({ image: 'fixture', env: {} }).includes('FORMAL_AI_INSTALL_GRANT=workspace'));
   assert.ok(buildFormalAiSidecarRunArgs({ image: 'fixture', env: { FORMAL_AI_INSTALL_GRANT: 'deny' } }).includes('FORMAL_AI_INSTALL_GRANT=deny'));
+});
+
+test('matrix dry-run logs forward credential names without exposing their values', () => {
+  const output = execFileSync(process.execPath, ['scripts/e2e-hello-world.mjs', '--tool', 'agent', '--model', 'formal-ai', '--dry-run'], {
+    encoding: 'utf8',
+    env: { ...process.env, GH_TOKEN: 'fixture-private-github-token', OPENAI_API_KEY: 'fixture-private-model-key' },
+  });
+  assert.match(output, /-e GH_TOKEN/);
+  assert.doesNotMatch(output, /fixture-private/);
+  assert.doesNotMatch(output, /-e OPENAI_API_KEY/);
 });
 
 test('unmapped Docker version arguments fail closed instead of disappearing', () => {

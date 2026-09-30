@@ -206,6 +206,7 @@ export function buildGitIdentityEnv(identity = DRAFT_GIT_IDENTITY) {
  *
  * @param {object} params
  * @param {string[]} params.solveArgv from `buildSolveArgv()`
+ * @param {string} [params.solveCommand] explicit candidate path when PATH also contains a published solve
  * @param {string} [params.image]
  * @param {string} [params.hostLogDir] host directory bind-mounted for the session log
  * @param {string} [params.containerLogDir] where that directory appears in the container
@@ -213,14 +214,14 @@ export function buildGitIdentityEnv(identity = DRAFT_GIT_IDENTITY) {
  * @param {Record<string,string>} [params.setEnv] literal, non-secret variables to set
  * @returns {string[]}
  */
-export function buildDockerArgv({ solveArgv, image = DEFAULT_HIVE_MIND_IMAGE, hostLogDir = null, containerLogDir = '/home/box/logs', forwardEnv = ['GH_TOKEN'], setEnv = buildGitIdentityEnv() } = {}) {
+export function buildDockerArgv({ solveArgv, solveCommand = 'solve', image = DEFAULT_HIVE_MIND_IMAGE, hostLogDir = null, containerLogDir = '/home/box/logs', forwardEnv = ['GH_TOKEN'], setEnv = buildGitIdentityEnv() } = {}) {
   if (!Array.isArray(solveArgv) || solveArgv.length === 0) throw new Error('buildDockerArgv needs the solve argv from buildSolveArgv()');
 
   const argv = ['run', '--rm', '--user', 'box'];
   for (const name of forwardEnv) argv.push('-e', name);
   for (const [name, value] of Object.entries(setEnv)) argv.push('-e', `${name}=${value}`);
   if (hostLogDir) argv.push('-v', `${hostLogDir}:${containerLogDir}`);
-  argv.push(image, 'solve', ...solveArgv);
+  argv.push(image, solveCommand, ...solveArgv);
   return argv;
 }
 

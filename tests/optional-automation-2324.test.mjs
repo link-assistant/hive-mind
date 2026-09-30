@@ -36,8 +36,19 @@ test('matrix dry-run logs forward credential names without exposing their values
     env: { ...process.env, GH_TOKEN: 'fixture-private-github-token', OPENAI_API_KEY: 'fixture-private-model-key' },
   });
   assert.match(output, /-e GH_TOKEN/);
+  assert.match(output, /\/opt\/hive-e2e\/src\/solve\.mjs/);
   assert.doesNotMatch(output, /fixture-private/);
   assert.doesNotMatch(output, /-e OPENAI_API_KEY/);
+});
+
+test('the task overlay installs packages as the runtime user', () => {
+  const dockerfile = readFileSync('Dockerfile.e2e', 'utf8');
+  let user = 'root';
+  for (const line of dockerfile.split('\n')) {
+    if (line.startsWith('USER ')) user = line.slice(5).trim();
+    if (/^RUN .*\b(?:npm|bun)\b/.test(line)) assert.equal(user, 'box', 'package installs must not leave root-owned cache entries in the task user home');
+  }
+  assert.match(dockerfile, /COPY --chown=box:box package\.json package-lock\.json/);
 });
 
 test('unmapped Docker version arguments fail closed instead of disappearing', () => {

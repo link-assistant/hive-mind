@@ -82,7 +82,7 @@ try {
   evidence.issueUrl = issueUrl;
   evidence.resources = resource || null;
   const modelKeys = model === 'formal-ai' || model === 'nemotron-3-super-free' ? [] : tool === 'claude' ? ['ANTHROPIC_API_KEY', 'CLAUDE_CODE_OAUTH_TOKEN'] : ['OPENAI_API_KEY'];
-  const dockerArgv = buildDockerArgv({ solveArgv: buildE2eSolveArgv({ issueUrl, tool, model, baseBranch, logDir: '/home/box/logs' }), image: env.E2E_IMAGE || DEFAULT_HIVE_MIND_IMAGE, hostLogDir, forwardEnv: ['GH_TOKEN', ...modelKeys, 'FORMAL_AI_INSTALL_GRANT'] });
+  const dockerArgv = buildDockerArgv({ solveArgv: buildE2eSolveArgv({ issueUrl, tool, model, baseBranch, logDir: '/home/box/logs' }), solveCommand: '/opt/hive-e2e/src/solve.mjs', image: env.E2E_IMAGE || DEFAULT_HIVE_MIND_IMAGE, hostLogDir, forwardEnv: ['GH_TOKEN', ...modelKeys, 'FORMAL_AI_INSTALL_GRANT'] });
   console.log(`$ docker ${dockerArgv.join(' ')}`);
   if (dryRun) process.exit(0);
   const image = env.E2E_IMAGE || DEFAULT_HIVE_MIND_IMAGE;

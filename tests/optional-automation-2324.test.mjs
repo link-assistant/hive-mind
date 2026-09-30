@@ -6,6 +6,15 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { execFileSync } from 'node:child_process';
 
+test('the feedback integration supplies a local git identity on a clean CI runner', () => {
+  const operations = JSON.parse(execFileSync(process.execPath, ['--experimental-vm-modules', 'experiments/issue-2324/feedback-git-identity-probe.mjs'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }));
+  assert.deepEqual(
+    operations.filter(operation => operation.command === 'git').map(operation => operation.args.slice(-2)[0]),
+    ['user.name', 'user.email']
+  );
+  assert.equal(operations.at(-1).command, process.execPath);
+});
+
 test('stale cleanup also removes the task head after its pull request was closed', () => {
   const operations = JSON.parse(execFileSync(process.execPath, ['--experimental-vm-modules', 'experiments/issue-2324/stale-fixture-cleanup-probe.mjs'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }));
   assert.ok(operations.some(operation => operation.method === 'DELETE' && operation.endpoint.endsWith('/issue-1-fixture')));

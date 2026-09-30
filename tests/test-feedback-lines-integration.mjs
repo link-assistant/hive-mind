@@ -62,6 +62,8 @@ try {
   await comment('Fourth comment, new after baseline');
   directory = await mkdtemp(join(tmpdir(), 'hive-feedback-'));
   await gh(['repo', 'clone', repository, directory, '--', '--branch', head, '--single-branch', '--depth', '2']);
+  await execute('git', ['-C', directory, 'config', 'user.name', 'Hive Mind integration']);
+  await execute('git', ['-C', directory, 'config', 'user.email', 'hive-mind-integration@users.noreply.github.com']);
   const solve = new URL('../src/solve.mjs', import.meta.url).pathname;
   let output;
   try {

@@ -1,0 +1,1 @@
+# Isolated test fixture

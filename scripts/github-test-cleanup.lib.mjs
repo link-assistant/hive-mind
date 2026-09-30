@@ -1,6 +1,6 @@
 /** Cleanup isolated resources without touching ordinary branches or issues. */
 import { githubApi, githubList } from './github-api.lib.mjs';
-import { isTestBranch } from './github-test-resources.lib.mjs';
+import { isTestBranch, isBranchDeletionRuleError, reportRetainedTestBranch } from './github-test-resources.lib.mjs';
 
 export const mayDeleteTestRepository = (repo, layer) => layer !== 'default' && repo?.permissions?.admin === true;
 export const isTestRepositoryName = name => /^test-feedback-lines-(?:[0-9a-z]+|\d{13}-[0-9a-f-]{36})$/.test(name || '') || /^test-hello-world-[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(name || '');
@@ -59,6 +59,7 @@ export async function cleanupStaleTestResources({ api = githubApi, repository, n
   }
   for (const branch of selected) operations.push([`${root}/git/refs/heads/${branch}`, { method: 'DELETE' }]);
   const errors = [];
+  const retainedBranches = [];
   for (const [endpoint, options] of operations) {
     log(`${dryRun ? 'Would perform' : 'Performing'} ${options.method} ${endpoint}`);
     if (dryRun) continue;
@@ -67,16 +68,22 @@ export async function cleanupStaleTestResources({ api = githubApi, repository, n
     } catch (error) {
       // A previous attempt may already have removed a solver's head ref.
       if (options.method === 'DELETE' && /Reference does not exist|404|Not Found/i.test(error.message)) continue;
+      if (options.method === 'DELETE' && isBranchDeletionRuleError(error)) {
+        const branch = endpoint.split('/git/refs/heads/')[1];
+        retainedBranches.push(branch);
+        reportRetainedTestBranch(branch, log);
+        continue;
+      }
       errors.push(error);
     }
   }
   if (errors.length) throw new AggregateError(errors, `Test cleanup failed: ${errors.map(error => error.message).join('; ')}`);
-  return { branches: [...selected], issues: issueNumbers, pulls: prNumbers };
+  return { branches: [...selected], retainedBranches, issues: issueNumbers, pulls: prNumbers };
 }
 
 export async function cleanupTestRepositories({ api = githubApi, repository, layer = 'default', dryRun = false, log = console.log } = {}) {
   if (layer === 'default') {
-    log('Repository deletion unavailable with layer default; isolated branches, issues and PRs were cleaned.');
+    log('Repository deletion unavailable with layer default; isolated fixture cleanup was attempted.');
     return;
   }
   const owners = new Set([repository.split('/')[0]]);

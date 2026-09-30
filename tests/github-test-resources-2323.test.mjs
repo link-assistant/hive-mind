@@ -80,3 +80,35 @@ test('an interrupted e2e session discovers its solver PR before cleaning the fix
   assert.ok(calls.some(call => call.endpoint.endsWith('/pulls/42') && call.method === 'PATCH'));
   assert.ok(calls.some(call => call.endpoint.endsWith('/heads/issue-41-solver') && call.method === 'DELETE'));
 });
+
+test('repository deletion rules retain fixture refs visibly after issues and PRs close', async () => {
+  const calls = [];
+  const warnings = [];
+  const fixture = { repository: 'o/r', prefix: 'integration/a', prNumber: 42, issueNumber: 41, branches: ['integration/a/base', 'integration/a/head'] };
+  const api = async (endpoint, options) => {
+    calls.push({ endpoint, ...options });
+    if (options.method === 'DELETE') throw new Error('HTTP 422: Repository rule violations found: Cannot delete this branch');
+  };
+  const result = await cleanupGithubTestFixture(fixture, { api, log: message => warnings.push(message) });
+  assert.deepEqual(result.retainedBranches, ['integration/a/head', 'integration/a/base']);
+  assert.equal(calls.filter(call => call.method === 'PATCH').length, 2);
+  assert.equal(warnings.length, 2);
+  assert.match(warnings[0], /::warning::.*retained.*repository rule/i);
+});
+
+test('ordinary deletion permission and server failures still fail fixture cleanup', async () => {
+  for (const message of ['HTTP 403: Resource not accessible', 'HTTP 503: unavailable', 'HTTP 422: validation failed']) {
+    await assert.rejects(
+      cleanupGithubTestFixture(
+        { repository: 'o/r', branches: ['integration/a/head'] },
+        {
+          api: async () => {
+            throw new Error(message);
+          },
+          log: () => {},
+        }
+      ),
+      /Test fixture cleanup failed/
+    );
+  }
+});

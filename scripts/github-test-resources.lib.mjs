@@ -1,9 +1,17 @@
 /** Shared orphan-branch fixtures for the default GitHub token (issue #2323). */
 import { randomUUID } from 'node:crypto';
+import { appendFileSync } from 'node:fs';
 import { githubApi, githubList } from './github-api.lib.mjs';
 
 export const TEST_RESOURCE_MARKER = 'hive-mind-test:';
 export const isTestBranch = name => /^(?:e2e|integration)\/.+/.test(name || '');
+
+export const isBranchDeletionRuleError = error => /Repository rule violations found/i.test(error.message) && /Cannot delete this branch/i.test(error.message);
+export function reportRetainedTestBranch(branch, log = console.log) {
+  const message = `Test branch ${branch} retained by a repository rule that prohibits deletion; scheduled cleanup will retry. Repository rules must exempt disposable fixture refs to remove it.`;
+  log(`::warning::${message}`);
+  if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${message}\n`);
+}
 
 /** Create a repository when allowed, otherwise an orphan base here. */
 export async function createGithubTestFixture({ api = githubApi, repository = process.env.GITHUB_REPOSITORY, canCreateRepositories = false, kind = 'integration', title = 'Test feedback lines feature', body = 'This issue tests comment detection in solve.mjs.', createPullRequest = true } = {}) {
@@ -70,10 +78,11 @@ export async function createGithubTestFixture({ api = githubApi, repository = pr
 }
 
 /** Close the issue/PR and remove only refs owned by this fixture. */
-export async function cleanupGithubTestFixture(fixture, { api = githubApi } = {}) {
+export async function cleanupGithubTestFixture(fixture, { api = githubApi, log = console.log } = {}) {
   const root = `repos/${fixture.repository}`;
   const operations = [];
   const errors = [];
+  const retainedBranches = [];
   const pullNumbers = new Set(fixture.prNumber ? [fixture.prNumber] : []);
   const branches = new Set(fixture.branches || []);
   // The model can open a PR before a session is interrupted or evidence
@@ -102,8 +111,15 @@ export async function cleanupGithubTestFixture(fixture, { api = githubApi } = {}
       await api(endpoint, options);
     } catch (error) {
       if (options.method === 'DELETE' && /Reference does not exist|404|Not Found/i.test(error.message)) continue;
+      if (options.method === 'DELETE' && isBranchDeletionRuleError(error)) {
+        const branch = endpoint.split('/git/refs/heads/')[1];
+        retainedBranches.push(branch);
+        reportRetainedTestBranch(branch, log);
+        continue;
+      }
       errors.push(error);
     }
   }
   if (errors.length) throw new AggregateError(errors, `Test fixture cleanup failed for ${fixture.prefix || fixture.repository}: ${errors.map(error => error.message).join('; ')}`);
+  return { retainedBranches };
 }

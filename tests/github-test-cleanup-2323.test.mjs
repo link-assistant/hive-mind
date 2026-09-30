@@ -55,6 +55,23 @@ test('dry run lists stale resources without writing', async () => {
   assert.equal(result.branches.length, 1);
 });
 
+test('scheduled cleanup reports rule-retained branches and still closes stale fixture issues', async () => {
+  const warnings = [];
+  const closed = [];
+  const api = async (endpoint, options = {}) => {
+    if (endpoint.includes('/branches?')) return [[{ name: 'integration/a/base', commit: { sha: 'old' } }]];
+    if (endpoint.includes('/commits/')) return { commit: { committer: { date: '2026-09-01T00:00:00Z' } } };
+    if (endpoint.includes('/issues?')) return [[{ number: 5, created_at: '2026-09-01T00:00:00Z', body: '<!-- hive-mind-test: integration/a -->' }]];
+    if (options.method === 'PATCH') closed.push(endpoint);
+    if (options.method === 'DELETE') throw new Error('HTTP 422: Repository rule violations found: Cannot delete this branch');
+    return [[]];
+  };
+  const result = await cleanupStaleTestResources({ api, repository: 'o/r', log: message => warnings.push(message) });
+  assert.deepEqual(result.retainedBranches, ['integration/a/base']);
+  assert.deepEqual(closed, ['repos/o/r/issues/5']);
+  assert.match(warnings.join('\n'), /::warning::.*retained/);
+});
+
 test('one active PR protects a shared fixture even when an older PR is listed first', async () => {
   const writes = [];
   const api = async (endpoint, options = {}) => {

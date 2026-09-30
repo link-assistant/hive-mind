@@ -1,0 +1,13 @@
+name: Prepare shared GitHub actions
+description: Prefer the published shared actions and stage the compatibility contract until publication
+inputs:
+  token:
+    description: Token for downloading the public shared action source
+    required: true
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+      run: node scripts/prepare-shared-github-actions.mjs

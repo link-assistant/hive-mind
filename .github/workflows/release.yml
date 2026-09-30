@@ -1,5 +1,4 @@
 name: Checks and release
-
 on:
   push:
     branches:
@@ -86,7 +85,6 @@ jobs:
       docker-changed: ${{ steps.changes.outputs.docker }}
       any-code-changed: ${{ steps.changes.outputs.code }}
       helm-changed: ${{ steps.changes.outputs.helm }}
-
     steps:
       - uses: actions/checkout@v7
         with:
@@ -239,7 +237,6 @@ jobs:
           echo "Running jscpd code duplication detection..."
           npm run check:duplication
           echo "Code duplication check passed"
-
       # Issue #2198: secretlint shipped as a devDependency for the log
       # sanitizer but no job ever ran it, so a committed credential would
       # have passed CI unnoticed. Fail-closed; .secretlintignore lists the
@@ -273,7 +270,6 @@ jobs:
         run: bash scripts/check-file-line-limits.sh
   # === LONG-RUNNING CHECKS ===
   # These checks take significant time (30s to 4+ minutes) and only run after all fast checks pass
-
   # === UNIT TESTS ===
   test-suites:
     runs-on: ubuntu-24.04
@@ -306,12 +302,13 @@ jobs:
       - name: Resolve GitHub credentials
         id: gh
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-        uses: link-foundation/.github/actions/resolve-github-token@main
+        uses: ./.github/actions/resolve-github-token
         with:
           app-id: ${{ vars.AUTOMATION_APP_ID }}
           app-private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
           token: ${{ secrets.AUTOMATION_TOKEN }}
           default-token: ${{ github.token }}
+          permissions: '{"contents":"write","issues":"write","pull_requests":"write"}'
       - name: Run GitHub integration test suite
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         env:
@@ -368,7 +365,6 @@ jobs:
         run: bash scripts/test-hive-dry-run-integration.sh
       - name: Test --auto-fork option
         run: bash scripts/test-auto-fork-option.sh
-
   # === MEMORY CHECKS - LINUX ===
   memory-check-linux:
     runs-on: ubuntu-24.04
@@ -404,7 +400,6 @@ jobs:
     needs: [detect-changes, changeset-check]
     # Run if: push event, OR changeset-check succeeded, OR changeset-check was skipped (docs-only PR)
     if: ${{ !cancelled() && (github.event_name == 'push' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') && needs.detect-changes.outputs.docs-changed == 'true' }}
-
     steps:
       - uses: actions/checkout@v7
         with:
@@ -441,7 +436,6 @@ jobs:
       REGISTRY: docker.io
       IMAGE_NAME: konard/hive-mind
       DIND_IMAGE_NAME: konard/hive-mind-dind
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -532,14 +526,18 @@ jobs:
       checks: write
       id-token: write
     steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - name: Resolve GitHub credentials
         id: gh
-        uses: link-foundation/.github/actions/resolve-github-token@main
+        uses: ./.github/actions/resolve-github-token
         with:
           app-id: ${{ vars.AUTOMATION_APP_ID }}
           app-private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
           token: ${{ secrets.AUTOMATION_TOKEN }}
           default-token: ${{ github.token }}
+          permissions: '{"contents":"write","pull_requests":"write","checks":"write"}'
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
@@ -641,7 +639,6 @@ jobs:
     outputs:
       digest-amd64: ${{ steps.build.outputs.digest }}
       digest-arm64: ${{ steps.build.outputs.digest }}
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -817,7 +814,6 @@ jobs:
           path: /tmp/digests/*
           if-no-files-found: error
           retention-days: 1
-
   docker-publish-dind-merge:
     name: Docker Publish DinD (Merge)
     needs: [release, docker-publish-dind]
@@ -904,14 +900,18 @@ jobs:
       checks: write
       id-token: write
     steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - name: Resolve GitHub credentials
         id: gh
-        uses: link-foundation/.github/actions/resolve-github-token@main
+        uses: ./.github/actions/resolve-github-token
         with:
           app-id: ${{ vars.AUTOMATION_APP_ID }}
           app-private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
           token: ${{ secrets.AUTOMATION_TOKEN }}
           default-token: ${{ github.token }}
+          permissions: '{"contents":"write","pull_requests":"write","checks":"write"}'
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
@@ -1119,7 +1119,6 @@ jobs:
     env:
       REGISTRY: docker.io
       IMAGE_NAME: konard/hive-mind-dind
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -1178,7 +1177,6 @@ jobs:
       packages: write
     env:
       IMAGE_NAME: konard/hive-mind-dind
-
     steps:
       # First step: this job builds nothing, but it needs the working tree for
       # scripts/create-manifest-list.sh and for ./.github/actions/setup-buildx-resilient
@@ -1247,14 +1245,18 @@ jobs:
       contents: write
       pull-requests: write
     steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - name: Resolve GitHub credentials
         id: gh
-        uses: link-foundation/.github/actions/resolve-github-token@main
+        uses: ./.github/actions/resolve-github-token
         with:
           app-id: ${{ vars.AUTOMATION_APP_ID }}
           app-private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
           token: ${{ secrets.AUTOMATION_TOKEN }}
           default-token: ${{ github.token }}
+          permissions: '{"contents":"write","pull_requests":"write"}'
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0

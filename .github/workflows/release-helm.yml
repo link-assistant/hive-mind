@@ -31,14 +31,18 @@ jobs:
       pages: write
       id-token: write
     steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - name: Resolve GitHub credentials
         id: gh
-        uses: link-foundation/.github/actions/resolve-github-token@main
+        uses: ./.github/actions/resolve-github-token
         with:
           app-id: ${{ vars.AUTOMATION_APP_ID }}
           app-private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
           token: ${{ secrets.AUTOMATION_TOKEN }}
           default-token: ${{ github.token }}
+          permissions: '{"contents":"write","packages":"write","pages":"write"}'
       - name: Checkout repository
         uses: actions/checkout@v7
         with:

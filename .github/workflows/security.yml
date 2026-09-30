@@ -44,16 +44,18 @@ jobs:
       matrix:
         language: [javascript-typescript, actions]
     steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - name: Resolve GitHub credentials
         id: gh
-        uses: link-foundation/.github/actions/resolve-github-token@main
+        uses: ./.github/actions/resolve-github-token
         with:
           app-id: ${{ vars.AUTOMATION_APP_ID }}
           app-private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
           token: ${{ secrets.AUTOMATION_TOKEN }}
           default-token: ${{ github.token }}
-      - uses: actions/checkout@v7
-
+          permissions: '{"contents":"read","actions":"read","security_events":"write"}'
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:
@@ -80,16 +82,18 @@ jobs:
       contents: read
       pull-requests: write
     steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - name: Resolve GitHub credentials
         id: gh
-        uses: link-foundation/.github/actions/resolve-github-token@main
+        uses: ./.github/actions/resolve-github-token
         with:
           app-id: ${{ vars.AUTOMATION_APP_ID }}
           app-private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
           token: ${{ secrets.AUTOMATION_TOKEN }}
           default-token: ${{ github.token }}
-      - uses: actions/checkout@v7
-
+          permissions: '{"contents":"read","pull_requests":"write"}'
       - name: Review dependency changes
         uses: actions/dependency-review-action@v5
         with:

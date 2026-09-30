@@ -29,7 +29,7 @@ test('workflows use one shared resolver and remove workload-specific secrets', (
     assert.doesNotMatch(readFileSync(`.github/workflows/${name}`, 'utf8'), /secrets\.(?:FORMAL_AI_DRAFT_TOKEN|E2E_GITHUB_TOKEN|TEST_GITHUB_USER_TOKEN|TEST_GITHUB_USER_REPO_DELETION_TOKEN)\b/, name);
   }
   for (const name of ['formal-ai-draft', 'e2e-hello-world-matrix', 'cleanup-test-repos', 'release', 'release-helm', 'security']) {
-    assert.match(workflow(name), /uses: link-foundation\/\.github\/actions\/resolve-github-token@/);
+    assert.match(workflow(name), /uses: \.\/\.github\/actions\/resolve-github-token/);
     assert.match(workflow(name), /default-token: \$\{\{ github.token \}\}/);
     assert.match(workflow(name), /token: \$\{\{ secrets.AUTOMATION_TOKEN \}\}/);
   }
@@ -50,7 +50,7 @@ test('dispatch defaults to checks and release jobs require an explicit mode on m
 
 test('default-token drafts dispatch the four checks even after a failed solve', () => {
   const draft = workflow('formal-ai-draft');
-  assert.match(draft, /uses: link-foundation\/\.github\/actions\/dispatch-checks@/);
+  assert.match(draft, /uses: \.\/\.github\/actions\/shared-github\/actions\/dispatch-checks/);
   assert.match(draft, /if:[^\n]*!cancelled\(\)[^\n]*head_ref/);
   for (const file of ['release.yml', 'security.yml', 'links.yml', 'workflows.yml']) assert.ok(draft.includes(file));
 });

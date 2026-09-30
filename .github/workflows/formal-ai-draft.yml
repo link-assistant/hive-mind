@@ -52,19 +52,18 @@ jobs:
       cancel-in-progress: false
 
     steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - name: Resolve GitHub credentials
         id: gh
-        uses: link-foundation/.github/actions/resolve-github-token@main
+        uses: ./.github/actions/resolve-github-token
         with:
           app-id: ${{ vars.AUTOMATION_APP_ID }}
           app-private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
           token: ${{ secrets.AUTOMATION_TOKEN }}
           default-token: ${{ github.token }}
-
-      - name: Checkout repository
-        uses: actions/checkout@v7
-        with:
-          persist-credentials: false
+          permissions: '{"contents":"write","issues":"write","pull_requests":"write","actions":"write","workflows":"write"}'
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
@@ -98,7 +97,7 @@ jobs:
 
       - name: Dispatch checks for the default credential layer
         if: ${{ !cancelled() && steps.attempt.outputs.head_ref != '' && steps.gh.outputs.triggers-workflows != 'true' }}
-        uses: link-foundation/.github/actions/dispatch-checks@main
+        uses: ./.github/actions/shared-github/actions/dispatch-checks
         with:
           ref: ${{ steps.attempt.outputs.head_ref }}
           workflows: release.yml security.yml links.yml workflows.yml

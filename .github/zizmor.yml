@@ -23,6 +23,13 @@ rules:
   self-repository:
     ignore:
       - release.yml
+      # The runtime loader must stage local actions after checkout. The same
+      # actionlint incompatibility described above applies to these callers.
+      - security.yml
+      - formal-ai-draft.yml
+      - e2e-hello-world-matrix.yml
+      - cleanup-test-repos.yml
+      - release-helm.yml
   unpinned-uses:
     config:
       policies:

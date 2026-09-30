@@ -1,0 +1,46 @@
+name: Resolve GitHub credentials through shared actions
+description: Load the shared implementation or its unpublished-action compatibility contract
+inputs:
+  app-id:
+    description: Optional GitHub App ID
+    default: ''
+  app-private-key:
+    description: Optional GitHub App private key
+    default: ''
+  token:
+    description: Optional single automation token
+    default: ''
+  default-token:
+    description: Built-in GitHub token
+    required: true
+  permissions:
+    description: Explicit GitHub App permissions for this job
+    default: '{"contents":"read"}'
+outputs:
+  token:
+    description: Resolved GitHub credential
+    value: ${{ steps.gh.outputs.token }}
+  layer:
+    description: Credential layer
+    value: ${{ steps.gh.outputs.layer }}
+  triggers-workflows:
+    description: Whether ordinary events trigger checks
+    value: ${{ steps.gh.outputs.triggers-workflows }}
+  can-create-repositories:
+    description: Verified repository creation capability
+    value: ${{ steps.gh.outputs.can-create-repositories }}
+runs:
+  using: composite
+  steps:
+    # actionlint does not yet support the $/ syntax; see .github/zizmor.yml.
+    - uses: ./.github/actions/prepare-shared-github-actions # zizmor: ignore[self-repository]
+      with:
+        token: ${{ inputs.default-token }}
+    - id: gh
+      uses: ./.github/actions/shared-github/actions/resolve-github-token # zizmor: ignore[self-repository]
+      with:
+        app-id: ${{ inputs.app-id }}
+        app-private-key: ${{ inputs.app-private-key }}
+        token: ${{ inputs.token }}
+        default-token: ${{ inputs.default-token }}
+        permissions: ${{ inputs.permissions }}

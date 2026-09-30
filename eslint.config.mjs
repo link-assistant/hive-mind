@@ -108,7 +108,7 @@ export default [
         URL: 'readonly',
       },
     },
-    files: ['src/**/*.{js,mjs,cjs}', 'scripts/**/*.{js,mjs,cjs}', 'eslint-rules/**/*.{js,mjs,cjs}', 'tests/**/*.{js,mjs,cjs}'],
+    files: ['src/**/*.{js,mjs,cjs}', 'scripts/**/*.{js,mjs,cjs}', 'eslint-rules/**/*.{js,mjs,cjs}', 'tests/**/*.{js,mjs,cjs}', '.github/actions/shared-github-fallback/**/*.{js,mjs,cjs}'],
     rules: {
       'no-undef': 'error',
       'no-unused-vars': [

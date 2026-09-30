@@ -55,7 +55,7 @@ A draft is identifiable by the `formal-ai-draft` label and by its branch name, `
 
 ## Setup
 
-Nothing needs configuring for the default credential layer. Every write workflow uses the shared `link-foundation/.github/actions/resolve-github-token` action, in this order:
+Nothing needs configuring for the default credential layer. Every write workflow uses the `link-foundation/.github/actions/resolve-github-token` contract, in this order:
 
 | Layer     | Configuration (all optional)                                                                                             | Checks on bot pull requests                       |
 | --------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------- |
@@ -73,9 +73,11 @@ The matrix's generated workflow is absent from the default branch, so it tries a
 
 `FORMAL_AI_DRAFT_IMAGE` remains an optional repository variable (default `konard/hive-mind:latest`). Pin a release tag to make an attempt reproducible.
 
-The shared actions are supplied by [link-foundation/.github issue #1](https://github.com/link-foundation/.github/issues/1). They must be published before these workflows can execute; the integration/cleanup logic and local regressions can be tested independently.
+The shared actions are supplied by [link-foundation/.github issue #1](https://github.com/link-foundation/.github/issues/1). A runtime loader checks one upstream commit and stages both actions together. Until both are published, it stages the compatibility implementation in `.github/actions/shared-github-fallback` and reports this in the log and summary. This avoids GitHub's job-setup failure for a missing remote action, which occurs even when that action's step is conditional. Once published, the upstream actions are selected automatically; API/download errors remain fatal.
 
-Branch cleanup also needs repository rules to permit deleting `e2e/**` and `integration/**` refs and their associated solver heads. A rule that forbids deletion on every branch blocks cleanup in every credential layer; failures are reported rather than skipped. See the [issue #2323 validation evidence](case-studies/issue-2323/README.md) for the existing repository rule and the real integration result.
+The compatibility resolver scopes App tokens to this repository and the job's explicit permissions. It verifies separate-repository creation only for a classic PAT with repository scope owned by the target owner. App and unverified fine-grained tokens use orphan fixtures until the shared action can verify their creation capability. Every credential layer still runs the integration suite.
+
+Branch cleanup also needs repository rules to permit deleting `e2e/**` and `integration/**` refs and their associated solver heads. When GitHub specifically refuses deletion because of a repository rule, cleanup closes fixture issues/PRs, reports the retained branches as warnings and in the job summary, and scheduled cleanup retries them. Other permission/API failures and failures to close issues/PRs remain fatal. The repository's deletion prohibition still prevents complete branch removal; no rule is changed by this implementation. See the [issue #2323 validation evidence](case-studies/issue-2323/README.md).
 
 ## Opting out, and re-running
 

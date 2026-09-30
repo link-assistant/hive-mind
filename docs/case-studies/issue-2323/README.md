@@ -37,13 +37,23 @@ The [fresh-runner probe](../../../experiments/issue-2323/probe-fresh-runner.mjs)
 
 A [live branch dispatch with default inputs](https://github.com/link-assistant/hive-mind/actions/runs/36711771917) ran release preflight in report mode and skipped every publishing job. Its test-suite setup failed on the unpublished shared resolver. Publishing credentials were present in that CI run. A separate local invocation of `preflight-credentials.mjs --mode report`, with the Docker Hub and OIDC credential variables removed, exited 0 and reported zero verified capabilities, three warnings and zero failures. This verifies that checks-only preflight does not require publishing credentials.
 
-## External blockers
+## Original external blockers
 
-As of 2026-09-30, `gh api repos/link-foundation/.github/contents/actions` returns HTTP 404. Neither shared action exists on `main`. The workflows use the input/output contract specified in [link-foundation/.github issue #1](https://github.com/link-foundation/.github/issues/1); their live execution requires that dependency to be published. No second implementation of the credential resolver is maintained here.
+At the previous PR head, `gh api repos/link-foundation/.github/contents/actions` returned HTTP 404. Neither shared action existed on `main`. The workflows directly referenced the input/output contract specified in [link-foundation/.github issue #1](https://github.com/link-foundation/.github/issues/1), so their live execution required that dependency to be published. The CI follow-up below introduces a temporary compatibility implementation until publication.
 
 The repository's active [no-destruction-possible ruleset](https://github.com/link-assistant/hive-mind/rules/21204104) applies deletion and non-fast-forward prohibitions to `~ALL`, excludes no branches, and has no bypass actors. Its API reports `current_user_can_bypass: never`. This blocks deletion of temporary refs in every credential layer. Branch cleanup requires a rule exemption for disposable test refs and their associated solver heads; this PR does not modify repository rules.
 
-Until the shared actions exist and disposable refs can be deleted, live default-token draft/dispatch, App/PAT workflow comparisons, the full model matrix, and successful integration cleanup cannot be claimed as passing.
+These were the blockers at the previous PR head. The CI follow-up below handles unpublished actions and explicitly reports policy-retained refs. Live App/PAT comparisons and the full model matrix still require their actual credentials/model sessions; branch deletion remains prohibited by repository policy.
+
+## CI follow-up
+
+The latest failing runs at the start of this follow-up were [Security 36713516822](https://github.com/link-assistant/hive-mind/actions/runs/36713516822) and [Checks and release 36713516679](https://github.com/link-assistant/hive-mind/actions/runs/36713516679), both for `a2cc0506f4d50fe7222145e219a9b4f12f6bcb8e` after its commit timestamp. Security log lines 34, 69 and 104 and release log line 28859 all report `Can't find 'action.yml', 'action.yaml' or 'Dockerfile'` for the resolver. Pipeline Status failed because of test-suites, at release log lines 36711–36712. These were setup failures, not failed scans or tests.
+
+The shared repository still had no action directory. GitHub downloads statically referenced actions before evaluating step conditions, so adding an `if` cannot fix this. Workflows now check out first, stage both actions from one immutable upstream commit when published, and otherwise use a visible compatibility implementation. That implementation supports App → single token → built-in token precedence, scopes App tokens to the current repository and explicit job permissions, masks credentials, and dispatches checks with bounded polling for new runs on the correct head. Transport errors are not treated as unpublished actions. The [runtime probe](../../../experiments/issue-2323/probe-shared-actions.mjs) executes the real local composite actions with each Node process limited to a 256 MiB heap.
+
+The repository's `Cannot delete this branch` rule was reproduced in a failing regression. Fixture and scheduled cleanup now close issues/PRs and report retained branch names in warnings and job summaries, rather than misreporting those refs as removed. Scheduled cleanup retries retained refs. All other cleanup errors remain fatal. Complete physical branch removal still requires an exemption for disposable refs; this PR leaves repository rules unchanged.
+
+The runtime probe passed with the real nested composite actions, reporting `layer=default`, `triggers-workflows=false` and `can-create-repositories=false`. The live integration rerun created [fixture PR #2362](https://github.com/link-assistant/hive-mind/pull/2362) and issue #2361, passed the feedback assertions, closed both resources, and exited successfully with explicit warnings for the two policy-retained refs. This rerun again used workstation authentication with repository creation disabled; actual Actions token behavior is checked by CI. The 40 focused regressions, ESLint, Prettier, actionlint, zizmor, dependency freshness, duplication, secret scanning and lockfile audit all passed locally.
 
 ## Initial CI failures
 

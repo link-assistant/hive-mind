@@ -11,6 +11,7 @@ on:
       - 'scripts/check-web-archive.mjs'
       - '.github/workflows/links.yml'
   pull_request:
+    branches-ignore: ['e2e/**']
     types: [opened, synchronize, reopened]
     paths:
       - '**.md'
@@ -19,6 +20,12 @@ on:
       - 'scripts/check-web-archive.mjs'
       - '.github/workflows/links.yml'
   workflow_dispatch:
+    inputs:
+      mode:
+        description: Checks-only dispatch
+        type: choice
+        default: checks
+        options: [checks]
 
 # Least-privilege default; jobs escalate individually when needed.
 permissions:

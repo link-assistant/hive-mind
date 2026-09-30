@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { helloWorldIssue, helloWorldReadme } from './scripts/hello-world-task.lib.mjs';
 // Use use-m to dynamically import modules for cross-runtime compatibility.
 // Issue #2113: bootstrap through the shared helper so this utility inherits the
 // same corrupt/incomplete-alias recovery as the rest of the codebase instead of
@@ -50,8 +51,10 @@ console.log('');
 
 try {
   // Get current GitHub user
-  const userResult = await $`gh api user --jq .login`;
-  const githubUser = userResult.stdout.toString().trim();
+  const userResult = process.env.AUTOMATION_LAYER === 'app' ? null : await $`gh api user --jq .login`;
+  const githubUser = userResult ? userResult.stdout.toString().trim() : process.env.GITHUB_REPOSITORY_OWNER;
+  if (!githubUser) throw new Error('App repository creation requires GITHUB_REPOSITORY_OWNER');
+  const fullName = `${githubUser}/${repoName}`;
   console.log(`👤 User: ${githubUser}`);
 
   // Define repoUrl at the beginning
@@ -66,7 +69,7 @@ try {
 
   try {
     // Create the repository (will fail if it already exists, that's OK)
-    const createResult = await $`gh repo create ${repoName} --public --description "Test repository for automated issue solving" --clone=false 2>&1`;
+    const createResult = await $`gh repo create ${fullName} --public --description "Test repository for automated issue solving" --clone=false 2>&1`;
     if (createResult.code === 0) {
       console.log('created new repository... ');
     } else if (createResult.stderr && createResult.stderr.toString().includes('already exists')) {
@@ -99,21 +102,7 @@ try {
     }
 
     // Always create README to ensure non-empty repo
-    const readmeContent = `# ${repoName}
-
-This is a test repository for automated issue solving.
-
-## Purpose
-This repository is used to test the \`solve.mjs\` script that automatically solves GitHub issues.
-
-## Test Issue
-An issue will be created asking to implement a "Hello World" program in ${randomLanguage}.
-
-## Repository Status
-- **Created**: ${new Date().toISOString()}
-- **Language**: ${randomLanguage}
-- **Type**: Test repository
-`;
+    const readmeContent = helloWorldReadme({ repoName, randomLanguage });
 
     const readmePath = `${tempDir}/README.md`;
     await fs.writeFile(readmePath, readmeContent);
@@ -292,53 +281,7 @@ An issue will be created asking to implement a "Hello World" program in ${random
   // Create the issue
   process.stdout.write('🎯 Creating issue... ');
 
-  const issueTitle = `Implement Hello World in ${randomLanguage}`;
-  const issueBody = `## Task
-Please implement a "Hello World" program in ${randomLanguage}.
-
-## Requirements
-1. Create a file with the appropriate extension for ${randomLanguage}
-2. The program should print exactly: \`Hello, World!\`
-3. Add clear comments explaining the code
-4. Ensure the code follows ${randomLanguage} best practices and idioms
-5. If applicable, include build/run instructions in a comment at the top of the file
-6. **Create a GitHub Actions workflow that automatically runs and tests the program on every push and pull request**
-
-## Expected Output
-When the program runs, it should output:
-\`\`\`
-Hello, World!
-\`\`\`
-
-## GitHub Actions Requirements
-The CI/CD workflow should:
-- Trigger on push to main branch and on pull requests
-- Set up the appropriate ${randomLanguage} runtime/compiler
-- Run the Hello World program
-- Verify the output is exactly "Hello, World!"
-- Show a green check mark when tests pass
-
-Example workflow structure:
-- Checkout code
-- Setup ${randomLanguage} environment
-- Run the program
-- Assert output matches expected string
-
-## Additional Notes
-- The implementation should be simple and straightforward
-- Focus on clarity and correctness
-- Use the standard library only (no external dependencies unless absolutely necessary for ${randomLanguage})
-- The GitHub Actions workflow should be in \`.github/workflows/\` directory
-- The workflow should have a meaningful name like \`test-hello-world.yml\`
-
-## Definition of Done
-- [ ] Program file created with correct extension
-- [ ] Code prints "Hello, World!" exactly
-- [ ] Code is properly commented
-- [ ] Code follows ${randomLanguage} conventions
-- [ ] Instructions for running the program are included (if needed)
-- [ ] GitHub Actions workflow created and passing
-- [ ] CI badge showing build status (optional but recommended)`;
+  const { title: issueTitle, body: issueBody } = helloWorldIssue(randomLanguage);
 
   let createIssueResult;
   let issueUrl;

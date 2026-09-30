@@ -1,0 +1,27 @@
+# Compatibility implementation: https://github.com/link-foundation/.github/issues/1
+name: Dispatch pull request checks
+description: Run checks on a PR head created using the default workflow token
+inputs:
+  ref:
+    description: Pull request head branch
+    required: true
+  workflows:
+    description: Checks workflow filenames
+    default: 'release.yml security.yml links.yml workflows.yml'
+  token:
+    description: Resolved GitHub token
+    required: true
+  triggers-workflows:
+    description: True when native pull_request runs start
+    default: 'false'
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        CHECKS_REF: ${{ inputs.ref }}
+        CHECKS_WORKFLOWS: ${{ inputs.workflows }}
+        GH_TOKEN: ${{ inputs.token }}
+        TRIGGERS_WORKFLOWS: ${{ inputs.triggers-workflows }}
+        ACTION_PATH: ${{ github.action_path }}
+      run: node "$ACTION_PATH/../../../scripts/dispatch-checks.mjs"

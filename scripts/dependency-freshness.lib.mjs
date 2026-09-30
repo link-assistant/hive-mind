@@ -197,7 +197,7 @@ export const collectDependencyRecords = async ({ root = process.cwd() } = {}) =>
   });
 };
 
-const fetchJson = async (url, { fetchImpl = globalThis.fetch, token = process.env.GITHUB_TOKEN } = {}) => {
+const fetchJson = async (url, { fetchImpl = globalThis.fetch, token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN } = {}) => {
   const isGitHub = url.startsWith('https://api.github.com/');
   const headers = { accept: isGitHub ? 'application/vnd.github+json' : 'application/json', 'user-agent': 'hive-mind-dependency-freshness' };
   if (isGitHub && token) headers.authorization = `Bearer ${token}`;

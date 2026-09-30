@@ -17,7 +17,8 @@ const preflightWorkflow = readFileSync('.github/workflows/release-preflight.yml'
 
 assert.doesNotMatch(releaseWorkflow, /validate-pr/, 'the ineligible workflow_dispatch validation mode must stay removed');
 assert.equal((releaseWorkflow.match(/actions: write/g) || []).length, 0, 'dispatch-only Actions write permissions must stay removed');
-assert.ok((releaseWorkflow.match(/GH_TOKEN: \$\{\{ secrets\.GITHUB_TOKEN \}\}/g) || []).length >= 2, 'both release modes must use the existing built-in token');
+assert.ok((releaseWorkflow.match(/GH_TOKEN: \$\{\{ steps\.gh\.outputs\.token \}\}/g) || []).length >= 2, 'both release modes use the resolver');
+assert.ok((releaseWorkflow.match(/default-token: \$\{\{ github\.token \}\}/g) || []).length >= 2, 'the default token remains available in both modes');
 assert.doesNotMatch(releaseWorkflow, /RELEASE_PULL_REQUEST_TOKEN/, 'release must not require an unprovisioned long-lived token');
 assert.match(releaseHelper, /repos\/\$\{repository\}\/check-runs/, 'the helper must publish a check through the GitHub Actions App');
 assert.match(releaseHelper, /--required/, 'the helper must wait for the ruleset-required check before merge');

@@ -104,7 +104,8 @@ for (const [name, job] of [
   }
   assert.match(job, /!contains\(needs\.\*\.result, 'failure'\)/, `${name} must not attest a failed validation graph`);
 }
-assert.ok((releaseWorkflow.match(/GH_TOKEN: \$\{\{ secrets\.GITHUB_TOKEN \}\}/g) || []).length >= 2, 'both release modes must use the built-in token');
+assert.ok((releaseWorkflow.match(/GH_TOKEN: \$\{\{ steps\.gh\.outputs\.token \}\}/g) || []).length >= 2, 'both release modes use resolved credentials');
+assert.ok((releaseWorkflow.match(/default-token: \$\{\{ github\.token \}\}/g) || []).length >= 2, 'the built-in token remains sufficient without configuration');
 assert.doesNotMatch(releaseWorkflow, /RELEASE_PULL_REQUEST_TOKEN/, 'release must not depend on an unprovisioned PAT or App secret');
 assert.equal((releaseWorkflow.match(/checks: write/g) || []).length, 2, 'only the two release jobs need permission to publish the attestation');
 

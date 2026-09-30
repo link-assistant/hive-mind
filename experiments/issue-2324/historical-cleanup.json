@@ -1,0 +1,24 @@
+[
+  {
+    "repository": "konard/test-hello-world-019fb330-fa49-7c9d-a664-b7ea33bb698a",
+    "pullRequest": "https://github.com/konard/test-hello-world-019fb330-fa49-7c9d-a664-b7ea33bb698a/pull/2",
+    "branch": "issue-1-604f2202fd18",
+    "removed": ["Main.class", "Main.jar", "Main.java"],
+    "commit": "https://github.com/konard/test-hello-world-019fb330-fa49-7c9d-a664-b7ea33bb698a/commit/bec00a2996dae7b48003fe9fe19e34350219e834",
+    "clean": true
+  },
+  {
+    "repository": "konard/test-hello-world-019fb330-00e1-73b9-955e-f357a1600d5b",
+    "pullRequest": "https://github.com/konard/test-hello-world-019fb330-00e1-73b9-955e-f357a1600d5b/pull/2",
+    "branch": "issue-1-1f3e3886bcb8",
+    "removed": [],
+    "clean": true
+  },
+  {
+    "repository": "konard/test-hello-world-019fb331-c107-78c7-8ff6-9f127a3c593c",
+    "pullRequest": "https://github.com/konard/test-hello-world-019fb331-c107-78c7-8ff6-9f127a3c593c/pull/2",
+    "branch": "issue-1-09b0c76bd0e4",
+    "removed": [],
+    "clean": true
+  }
+]

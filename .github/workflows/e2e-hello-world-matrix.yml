@@ -1,43 +1,74 @@
-# The Hello World end-to-end matrix (issue #2319).
-#
-# One run per row: `solve <issue> --tool <tool> --model <model>` against a
-# fresh Hello World task (or a given one), then assert on the pull request it
-# produced — ready for review, the diff is only the program, the workflow and a
-# test script, the program prints exactly `Hello, World!`, the workflow is
-# green, the body was regenerated, and there is no `🛑 Automation stopped`
-# comment. Formal AI runs through every tool; the LLM row is the control, so a
-# row that fails only for Formal AI is a model-specific path by construction.
-#
-# Manual only: every row creates a public repository and spends a full working
-# session. `cleanup-test-repos.yml` removes the repositories afterwards.
-# The assertions live in scripts/e2e-hello-world.lib.mjs and are unit-tested by
-# tests/e2e-hello-world-matrix-2319.test.mjs.
+# Every row uses an isolated orphan branch, even with the default GitHub token.
 name: E2E Hello World Matrix
 
-on:
+on: # zizmor: ignore[dangerous-triggers] Only successful trusted main completions are admitted by prepare.
   workflow_dispatch:
     inputs:
+      isolation:
+        description: Branch isolation works with every credential layer
+        type: choice
+        default: branch
+        options: [branch, repository]
+      keep:
+        description: Keep the task issue, pull request and branches for review
+        type: boolean
+        default: false
       issue_url:
-        description: 'Existing Hello World issue to reuse for every row (empty: create a fresh one per row)'
-        required: false
+        description: Optional existing task (owned resources are never cleaned up)
         type: string
         default: ''
+  workflow_run:
+    workflows: ['Checks and release']
+    types: [completed]
+    branches: [main]
+  schedule:
+    - cron: '23 5 * * *'
 
-# Everything the run writes (repositories, branches, pull requests) goes through
-# E2E_GITHUB_TOKEN, a token of the test user; GITHUB_TOKEN only reads this repo.
 permissions:
   contents: read
 
 jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      should_run: ${{ steps.prepare.outputs.should_run }}
+      formal_ai_tag: ${{ steps.prepare.outputs.formal_ai_tag }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+      - name: Compare the latest Formal AI tag with the last successful matrix
+        id: prepare
+        env:
+          GH_TOKEN: ${{ github.token }}
+          E2E_METADATA_DIR: ${{ runner.temp }}/e2e-metadata
+        run: node scripts/e2e-matrix-schedule.mjs
+      - uses: actions/upload-artifact@v7
+        with:
+          name: e2e-matrix-metadata
+          path: ${{ runner.temp }}/e2e-metadata
+          retention-days: 90
+
   hello-world:
     name: ${{ matrix.tool }} / ${{ matrix.model }}
+    needs: prepare
+    if: needs.prepare.outputs.should_run == 'true'
     runs-on: ubuntu-24.04
-    # A session plus up to 30 minutes waiting for the task repository's checks.
     timeout-minutes: 120
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      actions: read
     strategy:
       fail-fast: false
-      # Keep in sync with E2E_MATRIX in scripts/e2e-hello-world.lib.mjs
-      # (asserted by tests/e2e-hello-world-matrix-2319.test.mjs).
       matrix:
         include:
           - tool: claude
@@ -48,42 +79,71 @@ jobs:
             model: formal-ai
           - tool: agent
             model: nemotron-3-super-free
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
           persist-credentials: false
-
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
           node-version: 24.x
-
-      - name: Free disk space for the hive-mind image
+      - name: Resolve GitHub credentials
+        id: gh
+        uses: ./.github/actions/resolve-github-token # https://github.com/link-foundation/.github/issues/1
+        with:
+          app-id: ${{ vars.AUTOMATION_APP_ID }}
+          app-private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
+          token: ${{ secrets.AUTOMATION_TOKEN }}
+          default-token: ${{ github.token }}
+          repository-operations: ${{ inputs.isolation == 'repository' }}
+      - name: Free disk space for the task image and act
         run: node scripts/free-disk-space.mjs
-
-      # Inputs reach the script through the environment, never through `run:`
-      # interpolation (zizmor template-injection).
+      - name: Install act for generated workflows that require approval
+        if: steps.gh.outputs.layer == 'default'
+        env:
+          GH_TOKEN: ${{ steps.gh.outputs.token }}
+          ACT_VERSION: v0.2.89
+          ACT_DIR: ${{ runner.temp }}/act
+        run: |
+          mkdir -p "$ACT_DIR"
+          gh release download "$ACT_VERSION" --repo nektos/act --pattern act_Linux_x86_64.tar.gz --pattern checksums.txt --dir "$ACT_DIR"
+          (cd "$ACT_DIR" && sha256sum --check --ignore-missing checksums.txt)
+          tar -xzf "$ACT_DIR/act_Linux_x86_64.tar.gz" -C "$ACT_DIR" act
+          echo "$ACT_DIR" >> "$GITHUB_PATH"
+      - name: Build the task overlay for the scheduled Formal AI release
+        env:
+          FORMAL_AI_VERSION: ${{ needs.prepare.outputs.formal_ai_tag }}
+          E2E_IMAGE_OVERRIDE: ${{ vars.E2E_IMAGE }}
+          E2E_LOG_DIR: ${{ runner.temp }}/e2e-hello-world-logs
+        run: |
+          mkdir -p "$E2E_LOG_DIR"
+          if [ -z "$E2E_IMAGE_OVERRIDE" ]; then
+            docker build -f Dockerfile.formal-ai --build-arg FORMAL_AI_VERSION="${FORMAL_AI_VERSION#v}" --build-arg HIVE_MIND_VERSION=latest -t hive-e2e:task . 2>&1 | tee "$E2E_LOG_DIR/build.log"
+            docker build -f Dockerfile.e2e -t hive-e2e:candidate . 2>&1 | tee "$E2E_LOG_DIR/candidate-build.log"
+          fi
       - name: Run and verify
         env:
           E2E_TOOL: ${{ matrix.tool }}
           E2E_MODEL: ${{ matrix.model }}
           E2E_ISSUE_URL: ${{ inputs.issue_url }}
-          E2E_IMAGE: ${{ vars.E2E_IMAGE || 'konard/hive-mind:latest' }}
+          E2E_ISOLATION: ${{ inputs.isolation || 'branch' }}
+          E2E_KEEP: ${{ inputs.keep || false }}
+          E2E_IMAGE: ${{ vars.E2E_IMAGE || 'hive-e2e:candidate' }}
+          E2E_FORMAL_AI_TAG: ${{ needs.prepare.outputs.formal_ai_tag }}
           E2E_LOG_DIR: ${{ runner.temp }}/e2e-hello-world-logs
-          GH_TOKEN: ${{ secrets.E2E_GITHUB_TOKEN }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GH_TOKEN: ${{ steps.gh.outputs.token }}
+          AUTOMATION_LAYER: ${{ steps.gh.outputs.layer }}
+          AUTOMATION_CAN_CREATE_REPOSITORIES: ${{ steps.gh.outputs.can-create-repositories }}
+          FORMAL_AI_INSTALL_GRANT: workspace
+          ANTHROPIC_API_KEY: ${{ matrix.model != 'formal-ai' && matrix.tool == 'claude' && secrets.ANTHROPIC_API_KEY || '' }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ matrix.model != 'formal-ai' && matrix.tool == 'claude' && secrets.CLAUDE_CODE_OAUTH_TOKEN || '' }}
+          OPENAI_API_KEY: ${{ matrix.model != 'formal-ai' && matrix.model != 'nemotron-3-super-free' && matrix.tool != 'claude' && secrets.OPENAI_API_KEY || '' }}
         run: |
-          set -- --tool "$E2E_TOOL" --model "$E2E_MODEL"
+          set -- --tool "$E2E_TOOL" --model "$E2E_MODEL" --isolation "$E2E_ISOLATION"
           if [ -n "$E2E_ISSUE_URL" ]; then set -- "$@" --issue "$E2E_ISSUE_URL"; fi
           node scripts/e2e-hello-world.mjs "$@"
-
-      # `!cancelled()` rather than `always()`: see
-      # tests/ci-workflow-cancellation-2082.test.mjs.
-      - name: Upload the session log
+      - name: Upload links, approval evidence, assertions and logs
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:

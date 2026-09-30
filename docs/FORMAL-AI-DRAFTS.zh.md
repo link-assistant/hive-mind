@@ -55,14 +55,11 @@ Formal-AI-Pull-Request: https://github.com/link-assistant/hive-mind/pull/<n>
 
 ## 设置
 
-| 名称                    | 类型     | 必需 | 用途                                                                         |
-| ----------------------- | -------- | ---- | ---------------------------------------------------------------------------- |
-| `FORMAL_AI_DRAFT_TOKEN` | Secret   | 是   | 开出分支和 pull request，并读取 issue。                                      |
-| `FORMAL_AI_DRAFT_IMAGE` | 仓库变量 | 否   | 覆盖镜像。默认为 `konard/hive-mind:latest`；固定一个发布标签可让草稿可复现。 |
+无需配置凭据。所有写入工作流使用同一个解析器：GitHub App（变量 `AUTOMATION_APP_ID` 和 secret `AUTOMATION_APP_PRIVATE_KEY`）→ 一个 secret `AUTOMATION_TOKEN` → 内置 `github.token`。采用首个可用层。个人令牌需要 contents、issues、pull requests 和 Actions 写入权限。`FORMAL_AI_DRAFT_IMAGE` 仍为可选变量。
 
-`FORMAL_AI_DRAFT_TOKEN` 必须是个人访问令牌，而不是 `GITHUB_TOKEN`。用 `GITHUB_TOKEN` 开出的 pull request 不会触发 `pull_request` 工作流，因此它的检查永远不会运行——而一个无法变红的草稿，也就无法"保持开启且保持红色，直到后来的某次运行成功"。它需要 `repo` 权限范围（细粒度令牌上为 `contents`、`pull_requests` 与 `issues` 的写权限）。
+默认令牌创建的 pull request 可以产生等待批准的检查。草稿工作流立即通过 `dispatch-checks`，在草稿分支以 `mode=checks` 启动 `release.yml`、`security.yml`、`links.yml` 和 `workflows.yml`。发布必须显式选择发布模式且位于 `main`。缺少可选凭据不会跳过尝试；摘要注明使用的层。每日健康检查统计过去七天实际执行的尝试。
 
-没有这个 secret 时，工作流会**跳过**而不是失败，并在 job 日志中打印原因。这让 fork 和未配置的克隆保持绿色。
+共享 actions 尚未发布，见 [link-foundation/.github#1](https://github.com/link-foundation/.github/issues/1)。目前 `.github/actions/` 提供兼容实现。
 
 ## 如何退出与重跑
 

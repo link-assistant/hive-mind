@@ -502,8 +502,8 @@ jobs:
   # === RELEASE PREFLIGHT - prove the release can be published before building it ===
   # Issue #2221. A push to main exists to produce a release, so the credentials
   # that release needs are proven before anything is built or published. The
-  # steps live in .github/workflows/release-preflight.yml; pull requests get a
-  # report, main and workflow_dispatch fail fast.
+  # steps live in .github/workflows/release-preflight.yml; PRs and checks-only
+  # dispatches report. Publishing on main fails fast.
   release-preflight:
     name: Release Preflight
     # !cancelled() so concurrency cancellation still works.

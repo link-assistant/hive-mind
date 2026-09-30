@@ -21,6 +21,7 @@ const baseBranch = fixtureBranch({ kind: 'integration', runId: randomUUID(), too
 let fixture;
 let directory;
 let testError;
+let errors = [];
 try {
   if (process.env.AUTOMATION_CAN_CREATE_REPOSITORIES === 'true') {
     repository = `${repository.split('/')[0]}/test-feedback-lines-${randomUUID()}`;
@@ -79,7 +80,6 @@ try {
   testError = error;
   console.error('Feedback integration failure before cleanup:', error);
 } finally {
-  let errors = [];
   if (fixture && process.env.E2E_KEEP !== 'true') {
     errors = await cleanupBranchFixture(fixture);
   }
@@ -92,6 +92,6 @@ try {
     }
   }
   if (directory) await rm(directory, { recursive: true, force: true });
-  if (testError) throw new AggregateError([testError, ...errors.map(message => new Error(message))], 'Feedback integration failed; cleanup errors are included', { cause: testError });
-  assert.deepEqual(errors, [], 'All owned integration resources must be cleaned');
 }
+if (testError) throw new AggregateError([testError, ...errors.map(message => new Error(message))], 'Feedback integration failed; cleanup errors are included', { cause: testError });
+assert.deepEqual(errors, [], 'All owned integration resources must be cleaned');

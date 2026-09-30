@@ -23,9 +23,9 @@ for (const branch of branches.filter(branch => /^e2e\/(hello-world|integration)\
   const commit = await ghApi(`repos/${repository}/commits/${branch.commit.sha}`);
   if (stale(commit.commit.committer.date)) owned.push(branch.name);
 }
-for (const pr of await ghList(`repos/${repository}/pulls?state=open&per_page=100`)) {
+for (const pr of await ghList(`repos/${repository}/pulls?state=all&per_page=100`)) {
   if (owned.includes(pr.base.ref) || owned.includes(pr.head.ref)) {
-    await mutate(`repos/${repository}/pulls/${pr.number}`, { method: 'PATCH', body: { state: 'closed' } });
+    if (pr.state === 'open') await mutate(`repos/${repository}/pulls/${pr.number}`, { method: 'PATCH', body: { state: 'closed' } });
     if (pr.head.repo?.full_name === repository && !owned.includes(pr.head.ref)) owned.push(pr.head.ref);
   }
 }

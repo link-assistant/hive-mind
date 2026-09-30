@@ -6,6 +6,16 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { execFileSync } from 'node:child_process';
 
+test('stale cleanup also removes the task head after its pull request was closed', () => {
+  const operations = JSON.parse(execFileSync(process.execPath, ['--experimental-vm-modules', 'experiments/issue-2324/stale-fixture-cleanup-probe.mjs'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }));
+  assert.ok(operations.some(operation => operation.method === 'DELETE' && operation.endpoint.endsWith('/issue-1-fixture')));
+  assert.ok(operations.some(operation => operation.method === 'DELETE' && operation.endpoint.endsWith('/e2e/hello-world/1/agent-formal-ai')));
+  assert.ok(
+    operations.every(operation => operation.method === 'DELETE'),
+    'already closed pull requests need no mutation'
+  );
+});
+
 import { decideDraft } from '../scripts/formal-ai-draft.lib.mjs';
 import { buildE2eSolveArgv } from '../scripts/e2e-hello-world.lib.mjs';
 import { buildFormalAiSidecarRunArgs } from '../src/formal-ai-sidecar.lib.mjs';

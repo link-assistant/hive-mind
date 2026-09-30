@@ -25,6 +25,7 @@ export { buildCostInfoString };
 // #1756: route gh exec calls through transient + rate-limit retry wrapper
 import { execGhWithRetry } from './github-rate-limit.lib.mjs';
 import { QUIET_PROBE } from './quiet-probe.lib.mjs'; // issues #2130, #2135: keep read-only probe payloads out of the attached log
+import { repositoryWriteAccess } from './github-write-access.lib.mjs';
 import { buildGitHubPullRequestUrl, buildGitHubPullRequestUrlOrNull, isGitHubUrlType, normalizeGitHubUrl, parseGitHubUrl } from './github-url-parser.lib.mjs';
 export { buildGitHubPullRequestUrl, buildGitHubPullRequestUrlOrNull, isGitHubUrlType, normalizeGitHubUrl, parseGitHubUrl };
 // Issue #1625: Named marker constants (single source of truth) + in-memory tracking for tool-posted comments. See tool-comments.lib.mjs for design.
@@ -171,7 +172,12 @@ export const checkRepositoryWritePermission = async (owner, repo, options = {}) 
     // Parse permissions
     const permissions = JSON.parse(permResult.stdout.toString().trim());
     // Check if user has push (write) access
-    if (permissions.push === true || permissions.admin === true || permissions.maintain === true) {
+    const hasWriteAccess = repositoryWriteAccess(permissions);
+    if (hasWriteAccess === null) {
+      await log('ℹ️ User roles do not establish token write access; GitHub will enforce token permissions on write');
+      return true;
+    }
+    if (hasWriteAccess) {
       await log('✅ Repository write access: Confirmed');
       return true;
     }

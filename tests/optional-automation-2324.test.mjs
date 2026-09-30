@@ -23,6 +23,7 @@ test('every matrix row targets its isolated base branch', () => {
   const baseBranch = 'e2e/hello-world/123/agent-formal-ai';
   const args = buildE2eSolveArgv({ issueUrl: 'https://github.com/o/r/issues/1', tool: 'agent', model: 'formal-ai', baseBranch });
   assert.equal(args[args.indexOf('--base-branch') + 1], baseBranch);
+  assert.match(readFileSync('.github/workflows/e2e-hello-world-matrix.yml', 'utf8'), /hello-world:[\s\S]*permissions:[\s\S]*actions: write/);
 });
 
 test('the task sidecar carries the workspace install grant', () => {
@@ -36,7 +37,7 @@ test('matrix dry-run logs forward credential names without exposing their values
     env: { ...process.env, GH_TOKEN: 'fixture-private-github-token', OPENAI_API_KEY: 'fixture-private-model-key' },
   });
   assert.match(output, /-e GH_TOKEN/);
-  assert.match(output, /\/opt\/hive-e2e\/src\/solve\.mjs/);
+  assert.match(output, /hive-e2e:candidate \/opt\/hive-e2e\/src\/solve\.mjs/);
   assert.doesNotMatch(output, /fixture-private/);
   assert.doesNotMatch(output, /-e OPENAI_API_KEY/);
 });
@@ -57,6 +58,33 @@ test('unmapped Docker version arguments fail closed instead of disappearing', ()
   assert.ok(records.some(record => record.kind === 'unresolved' && record.name === 'NEW_TOOL_VERSION'));
   assert.ok(records.some(record => record.kind === 'crate' && record.name === 'example'));
   assert.ok(records.some(record => record.kind === 'container' && record.name === 'alpine'));
+});
+
+test('container freshness compares stable tags of each flavor independently', async () => {
+  const records = ['1.0.0-alpine', '2.0.0-bookworm'].map(current => ({ kind: 'container', name: 'example/image', current, policy: 'exact', location: `Dockerfile:${current}` }));
+  const result = await freshness.checkDependencyRecords(records, {
+    resolveContainerLatest: (name, record) =>
+      freshness.resolveContainerLatest(name, record, {
+        fetchImpl: async () => ({ ok: true, json: async () => ({ tags: ['1.0.0-alpine', '2.0.0-bookworm', '3.0.0-rc.1-alpine'] }) }),
+      }),
+  });
+  assert.equal(result.errors.length, 0);
+  assert.equal(result.current.length, 2);
+  assert.equal(result.stale.length, 0);
+});
+
+test('a single-component repository in a custom registry has no Docker Hub library prefix', async () => {
+  const latest = await freshness.resolveContainerLatest(
+    'registry.example/image',
+    { current: '1.0.0' },
+    {
+      fetchImpl: async url => {
+        assert.equal(url, 'https://registry.example/v2/image/tags/list');
+        return { ok: true, json: async () => ({ tags: ['1.0.0', '1.1.0'] }) };
+      },
+    }
+  );
+  assert.equal(latest, '1.1.0');
 });
 
 test('manual checks default safely and e2e PRs do not run the host CI', () => {

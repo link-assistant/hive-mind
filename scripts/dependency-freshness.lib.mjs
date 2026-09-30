@@ -238,12 +238,14 @@ export const resolveCrateLatest = async (name, options = {}) => {
   return metadata.crate.max_stable_version;
 };
 
+const containerTagSuffix = current => String(current ?? '').replace(/^v?\d+(?:\.\d+){0,2}/, '');
+
 /** Docker Registry v2 supports Docker Hub and registries advertising Bearer auth. */
 export const resolveContainerLatest = async (name, record = {}, { fetchImpl = globalThis.fetch } = {}) => {
   const parts = name.split('/');
   const custom = parts[0].includes('.') || parts[0].includes(':');
   const registry = custom ? parts.shift() : 'registry-1.docker.io';
-  const repository = parts.length === 1 ? `library/${parts[0]}` : parts.join('/');
+  const repository = !custom && parts.length === 1 ? `library/${parts[0]}` : parts.join('/');
   const url = `https://${registry}/v2/${repository}/tags/list`;
   let response = await fetchImpl(url);
   if (response.status === 401) {
@@ -259,15 +261,15 @@ export const resolveContainerLatest = async (name, record = {}, { fetchImpl = gl
     response = await fetchImpl(url, { headers: { authorization: `Bearer ${credentials.token ?? credentials.access_token}` } });
   }
   if (!response.ok) throw new Error(`Registry returned ${response.status}`);
-  const suffix = String(record.current ?? '').replace(/^v?\d+(?:\.\d+){0,2}/, '');
+  const suffix = containerTagSuffix(record.current).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const tagPattern = new RegExp(`^v?(\\d+(?:\\.\\d+){0,2})${suffix}$`);
   const metadata = await response.json();
   const candidates = (metadata.tags ?? [])
-    .filter(tag => tag.endsWith(suffix))
-    .map(parseVersion)
-    .filter(version => version && !version.prerelease)
-    .sort((a, b) => compareParsedVersions(b, a));
+    .map(tag => ({ tag, version: parseVersion(tag.match(tagPattern)?.[1]) }))
+    .filter(candidate => candidate.version)
+    .sort((a, b) => compareParsedVersions(b.version, a.version));
   if (!candidates.length) throw new Error(`No stable container tags found for ${name}`);
-  return candidates[0].raw;
+  return candidates[0].tag;
 };
 
 export const resolveOpenIssue = async (url, options = {}) => {
@@ -298,7 +300,7 @@ export const checkDependencyRecords = async (records, { resolveNpmLatest: npmRes
           }
           throw new Error(record.error ?? `Unknown dependency kind ${record.kind}`);
         }
-        const key = `${record.kind}:${record.name}:${record.tagPrefix ?? ''}:${record.versionMajor ?? ''}`;
+        const key = `${record.kind}:${record.name}:${record.tagPrefix ?? ''}:${record.versionMajor ?? ''}:${record.kind === 'container' ? containerTagSuffix(record.current) : ''}`;
         if (!latestByDependency.has(key)) latestByDependency.set(key, resolvers[record.kind](record.name, record));
         const latest = await latestByDependency.get(key);
         const assessment = assessVersionPin({ current: record.current, latest, policy: record.policy });

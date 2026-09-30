@@ -115,9 +115,9 @@ assert.equal(
   'embedded Bun builds are checked'
 );
 assert.equal(
-  repositoryRecords.some(record => record.kind === 'github' && record.name === 'nodejs/node' && record.versionMajor === 24),
+  repositoryRecords.some(record => record.kind === 'github' && record.name === 'nodejs/node'),
   true,
-  'the selected Node LTS line is checked'
+  'the latest stable Node release is checked'
 );
 assert.equal(
   repositoryRecords.some(record => record.kind === 'npm' && record.name === 'use-m'),

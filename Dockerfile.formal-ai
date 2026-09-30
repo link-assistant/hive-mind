@@ -27,6 +27,8 @@ ENV OPENSSL_STATIC=1
 RUN cargo install formal-ai --version "${FORMAL_AI_VERSION}" --locked
 
 FROM konard/hive-mind-dind:${HIVE_MIND_VERSION}
+# Task-container prerequisite installs stay within the workspace (formal-ai#1159).
+ENV FORMAL_AI_INSTALL_GRANT=workspace
 
 USER root
 COPY --from=formal-ai-builder /usr/local/cargo/bin/formal-ai /usr/local/bin/formal-ai

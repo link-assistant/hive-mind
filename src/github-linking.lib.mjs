@@ -26,25 +26,30 @@ export function getGitHubLinkingKeywords() {
   return ['close', 'closes', 'closed', 'fix', 'fixes', 'fixed', 'resolve', 'resolves', 'resolved'];
 }
 
-function escapeRegExp(value) {
-  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+/** Ignore examples and hidden metadata when interpreting a closing declaration. */
+export function getClosingReferenceText(text) {
+  return String(text || '')
+    .replace(/<!--[^]*?-->/g, ' ')
+    .replace(/(^|\n)[ \t]*(`{3,}|~{3,})[^\n]*\n[^]*?(?:\n[ \t]*\2[^\n]*(?=\n|$)|$)/g, '\n')
+    .replace(/(`+)[^]*?\1/g, ' ');
 }
 
-function buildClosingReferencePatterns(keyword, issueNumber, owner = null, repo = null) {
-  const issueNumStr = escapeRegExp(issueNumber);
-  const separator = String.raw`(?:\s+|\s*:\s*)`;
-  const prefix = String.raw`\b${keyword}${separator}`;
-  const references = [String.raw`#${issueNumStr}\b`];
-
-  if (owner && repo) {
-    references.push(`${escapeRegExp(owner)}/${escapeRegExp(repo)}#${issueNumStr}\\b`);
-    references.push(`https://github\\.com/${escapeRegExp(owner)}/${escapeRegExp(repo)}/issues/${issueNumStr}\\b`);
+/** Shared parser: repair, discovery, and merge checks must agree. */
+export function extractClosingIssueReferences(text) {
+  const visible = getClosingReferenceText(text);
+  const pattern = /\b(close[sd]?|fix(?:es|ed)?|resolve[sd]?)(?:\s+|\s*:\s*)(?:https:\/\/github\.com\/([\w.-]+)\/([\w.-]+)\/issues\/|([\w.-]+)\/([\w.-]+)#|#)([1-9]\d*)\b/gi;
+  const references = [];
+  for (const match of visible.matchAll(pattern)) {
+    // The old regex accepted "does not close #322" (PR agent#326).
+    // Inspect the current clause, keeping a later "but fixes #N" independent.
+    const clause = visible
+      .slice(0, match.index)
+      .split(/[\n.!?;,]|\bbut\b/i)
+      .at(-1);
+    if (/\b(?:not|never|cannot|can['’]t|won['’]t|don['’]t|doesn['’]t|didn['’]t|without|unable to)\b/i.test(clause)) continue;
+    references.push({ owner: match[2] || match[4] || null, repo: match[3] || match[5] || null, number: match[6] });
   }
-
-  references.push(String.raw`[\w.-]+/[\w.-]+#${issueNumStr}\b`);
-  references.push(`https://github\\.com/[^/\\s]+/[^/\\s]+/issues/${issueNumStr}\\b`);
-
-  return references.map(reference => new RegExp(`${prefix}${reference}`, 'i'));
+  return references;
 }
 
 /**
@@ -59,23 +64,14 @@ function buildClosingReferencePatterns(keyword, issueNumber, owner = null, repo 
  * @param {string} [repo] - Repository name for exact owner/repo references
  * @returns {boolean} True if a valid closing reference is found
  */
-export function prClosesIssue(text, issueNumber, owner = null, repo = null) {
-  if (!text || typeof text !== 'string' || issueNumber === null || issueNumber === undefined || String(issueNumber).trim() === '') {
-    return false;
-  }
-
-  const issueNumStr = String(issueNumber).trim();
-
-  for (const keyword of getGitHubLinkingKeywords()) {
-    const patterns = buildClosingReferencePatterns(keyword, issueNumStr, owner, repo);
-    for (const pattern of patterns) {
-      if (pattern.test(text)) {
-        return true;
-      }
-    }
-  }
-
-  return false;
+export function prClosesIssue(text, issueNumber, owner = null, repo = null, { allowShortReference = true } = {}) {
+  if (!issueNumber) return false;
+  return extractClosingIssueReferences(text).some(reference => {
+    if (reference.number !== String(issueNumber).trim()) return false;
+    if (!reference.owner) return allowShortReference;
+    if (!owner || !repo) return true;
+    return reference.owner.toLowerCase() === owner.toLowerCase() && reference.repo.toLowerCase() === repo.toLowerCase();
+  });
 }
 
 /**
@@ -99,34 +95,5 @@ export function hasGitHubLinkingKeyword(prBody, issueNumber, owner = null, repo 
  * @returns {string|null} The issue number if found, null otherwise
  */
 export function extractLinkedIssueNumber(prBody) {
-  if (!prBody) {
-    return null;
-  }
-
-  const keywords = getGitHubLinkingKeywords();
-
-  for (const keyword of keywords) {
-    // Try to match: KEYWORD #123
-    const pattern1 = new RegExp(`\\b${keyword}\\s+#(\\d+)\\b`, 'i');
-    const match1 = prBody.match(pattern1);
-    if (match1) {
-      return match1[1];
-    }
-
-    // Try to match: KEYWORD owner/repo#123
-    const pattern2 = new RegExp(`\\b${keyword}\\s+[^/\\s]+/[^/\\s]+#(\\d+)\\b`, 'i');
-    const match2 = prBody.match(pattern2);
-    if (match2) {
-      return match2[1];
-    }
-
-    // Try to match: KEYWORD https://github.com/owner/repo/issues/123
-    const pattern3 = new RegExp(`\\b${keyword}\\s+https://github\\.com/[^/]+/[^/]+/issues/(\\d+)\\b`, 'i');
-    const match3 = prBody.match(pattern3);
-    if (match3) {
-      return match3[1];
-    }
-  }
-
-  return null;
+  return extractClosingIssueReferences(prBody)[0]?.number || null;
 }

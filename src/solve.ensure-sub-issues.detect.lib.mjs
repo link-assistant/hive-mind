@@ -110,7 +110,7 @@ export function findMissingSubIssueReferences({ text, subIssues, owner = null, r
   const referenced = [];
 
   for (const subIssue of normalized) {
-    if (prClosesIssue(text, subIssue.number, subIssue.owner, subIssue.repo)) {
+    if (prClosesIssue(text, subIssue.number, subIssue.owner, subIssue.repo, { allowShortReference: !owner || !repo || (subIssue.owner?.toLowerCase() === owner.toLowerCase() && subIssue.repo?.toLowerCase() === repo.toLowerCase()) })) {
       referenced.push(subIssue);
     } else {
       missing.push(subIssue);

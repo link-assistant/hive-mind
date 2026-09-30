@@ -9,6 +9,7 @@ import { writeFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { githubApi } from '../scripts/github-api.lib.mjs';
 import { createGithubTestFixture, cleanupGithubTestFixture } from '../scripts/github-test-resources.lib.mjs';
+import { buildGitIdentityEnv } from '../scripts/formal-ai-draft.lib.mjs';
 
 let fixture;
 try {
@@ -33,7 +34,11 @@ try {
   const solve = fileURLToPath(new URL('../src/solve.mjs', import.meta.url));
   let output;
   try {
-    output = execFileSync(process.execPath, [solve, fixture.prUrl, '--dry-run', '--verbose', '--skip-tool-connection-check'], { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+    output = execFileSync(process.execPath, [solve, fixture.prUrl, '--dry-run', '--verbose', '--skip-tool-connection-check'], {
+      encoding: 'utf8',
+      maxBuffer: 32 * 1024 * 1024,
+      env: { ...process.env, ...buildGitIdentityEnv() },
+    });
   } catch (error) {
     throw new Error(`solve dry run failed (${error.status}): ${error.stdout || error.stderr}`, { cause: error });
   }

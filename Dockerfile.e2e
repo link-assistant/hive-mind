@@ -5,7 +5,7 @@ FROM ${E2E_TASK_IMAGE}
 # The runner owns Docker/act; this task only runs solve and its local Formal AI server.
 ENTRYPOINT []
 USER root
-RUN npm install --global @link-assistant/agent@0.26.9 start-command@0.34.1 && agent --version
+RUN npm install --global @link-assistant/agent@0.26.10 start-command@0.34.1 && agent --version
 COPY package.json package-lock.json /opt/hive-e2e/
 RUN npm --prefix /opt/hive-e2e ci --omit=dev --ignore-scripts
 COPY src /opt/hive-e2e/src

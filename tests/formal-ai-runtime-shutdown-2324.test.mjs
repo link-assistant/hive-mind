@@ -28,7 +28,6 @@ for (const code of [0, 1]) {
         import { safeExit } from ${JSON.stringify(exitUrl)};
         import { writeFile } from 'node:fs/promises';
         import { setTimeout } from 'node:timers/promises';
-        const stopped = [];
         const homes = [];
         for (const tool of ['claude', 'agent', 'codex']) {
           const runtime = await prepareFormalAiRuntime({
@@ -39,8 +38,8 @@ for (const code of [0, 1]) {
               probeBackendImpl: async () => ({ ok: true, version: '0.352.1', memory: { compatible: true } }),
               startServerImpl: async () => { if (tool === 'codex') throw new Error('External sidecars must not be started or stopped'); return { baseUrl: 'http://127.0.0.1:12345', stop: async () => {
                 await setTimeout(20);
-                stopped.push(tool);
-                await writeFile(${JSON.stringify(record)}, JSON.stringify({ stopped, homes }));
+                // Concurrent server stops must not overwrite the same evidence file.
+                await writeFile(${JSON.stringify(record)} + '.' + tool, JSON.stringify({ tool, homes }));
               } }; },
               loadRegistryImpl: async () => [{ id: tool, default_protocol: 'openai', global_configs: [] }],
               seedImpl: async () => [], configureImpl: async () => {}, ghAuthImpl: async () => ({})
@@ -54,9 +53,11 @@ for (const code of [0, 1]) {
         { encoding: 'utf8', timeout: 10_000 }
       );
       assert.equal(child.status, code, child.stderr);
-      const evidence = JSON.parse(await readFile(record, 'utf8'));
-      assert.deepEqual(evidence.stopped.sort(), ['agent', 'claude']);
-      for (const home of evidence.homes) await assert.rejects(stat(home), { code: 'ENOENT' });
+      for (const tool of ['agent', 'claude']) {
+        const evidence = JSON.parse(await readFile(`${record}.${tool}`, 'utf8'));
+        assert.equal(evidence.tool, tool);
+        for (const home of evidence.homes) await assert.rejects(stat(home), { code: 'ENOENT' });
+      }
     } finally {
       await rm(root, { recursive: true, force: true });
     }

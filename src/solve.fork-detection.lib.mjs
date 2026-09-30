@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
+import { probeInstallationWriteAccess } from './github-write-permission.lib.mjs';
 
 /**
  * Fork-detection helpers for solve.mjs
@@ -78,7 +79,7 @@ export async function handleAutoForkOption({ owner, repo, argv, safeExit }) {
 
   if (permResult.code === 0) {
     const permissions = JSON.parse(permResult.stdout.toString().trim());
-    const hasWriteAccess = permissions.push === true || permissions.admin === true || permissions.maintain === true;
+    const hasWriteAccess = permissions.push === true || permissions.admin === true || permissions.maintain === true || (await probeInstallationWriteAccess({ owner, repo }));
 
     if (!hasWriteAccess) {
       const { isPublic } = await detectRepositoryVisibility(owner, repo);

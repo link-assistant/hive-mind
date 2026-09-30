@@ -23,7 +23,7 @@ test('every matrix row targets its isolated base branch', () => {
   const baseBranch = 'e2e/hello-world/123/agent-formal-ai';
   const args = buildE2eSolveArgv({ issueUrl: 'https://github.com/o/r/issues/1', tool: 'agent', model: 'formal-ai', baseBranch });
   assert.equal(args[args.indexOf('--base-branch') + 1], baseBranch);
-  assert.match(readFileSync('.github/workflows/e2e-hello-world-matrix.yml', 'utf8'), /hello-world:[\s\S]*permissions:[\s\S]*actions: write/);
+  assert.match(readFileSync('.github/workflows/e2e-hello-world-matrix.yml', 'utf8'), /hello-world:[\s\S]*permissions:[\s\S]*actions: read/);
 });
 
 test('the task sidecar carries the workspace install grant', () => {

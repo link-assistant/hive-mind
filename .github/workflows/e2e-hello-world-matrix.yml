@@ -68,7 +68,7 @@ jobs:
       contents: write
       issues: write
       pull-requests: write
-      actions: write # Required for the requested approve-workflow-run attempt.
+      actions: read
     strategy:
       fail-fast: false
       matrix:

@@ -20,6 +20,7 @@ let disposableRepository = false;
 const baseBranch = fixtureBranch({ kind: 'integration', runId: randomUUID(), tool: 'feedback', model: 'lines' });
 let fixture;
 let directory;
+let testError;
 try {
   if (process.env.AUTOMATION_CAN_CREATE_REPOSITORIES === 'true') {
     repository = `${repository.split('/')[0]}/test-feedback-lines-${randomUUID()}`;
@@ -74,6 +75,9 @@ try {
   const prompt = output.slice(output.indexOf('Issue to solve:'));
   assert.match(prompt, /New comments on the pull request: 2\b/);
   console.log(`Feedback integration passed: ${pr.html_url}; log: ${report}`);
+} catch (error) {
+  testError = error;
+  console.error('Feedback integration failure before cleanup:', error);
 } finally {
   let errors = [];
   if (fixture && process.env.E2E_KEEP !== 'true') {
@@ -88,5 +92,6 @@ try {
     }
   }
   if (directory) await rm(directory, { recursive: true, force: true });
+  if (testError) throw new AggregateError([testError, ...errors.map(message => new Error(message))], 'Feedback integration failed; cleanup errors are included', { cause: testError });
   assert.deepEqual(errors, [], 'All owned integration resources must be cleaned');
 }

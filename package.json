@@ -78,6 +78,7 @@
   },
   "dependencies": {
     "@secretlint/core": "^13.0.6",
+    "@secretlint/profiler": "^13.0.6",
     "@secretlint/secretlint-rule-preset-recommend": "^13.0.6",
     "@sentry/node": "^11.2.0",
     "@sentry/profiling-node": "^11.2.0",

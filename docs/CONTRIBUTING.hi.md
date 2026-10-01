@@ -51,9 +51,20 @@ Add support for automatic fork creation with --auto-fork flag
 
 #### रिलीज़ प्रक्रिया
 
-1. जब changesets वाले PRs को main में merge किया जाता है, तो Release workflow स्वचालित रूप से "Version Packages" PR बनाता है
-2. Version Packages PR, package.json संस्करणों और CHANGELOG.md को अपडेट करता है
-3. जब Version Packages PR को merge किया जाता है, तो पैकेज स्वचालित रूप से NPM पर प्रकाशित होता है
+1. जब changesets वाला PR main में merge होता है, तो Release workflow `changeset version` चलाता है और version bump, अपडेट किया गया CHANGELOG.md तथा उपयोग की गई `.changeset/*.md` फ़ाइलें `github-actions[bot]` के रूप में **सीधे main में commit** करता है
+2. वही run पैकेज को NPM पर प्रकाशित करता है और GitHub release बनाता है
+3. कोई "Version Packages" या `release/*` PR नहीं बनाया जाता: हर release के लिए एक अतिरिक्त PR और एक न हटाई जा सकने वाली branch बनती थी, और विफल run एक पुराना release PR छोड़ जाता था (issue #2402)। यदि कोई repository rule push को अस्वीकार करता है, तो release rule के आउटपुट के साथ विफल होता है; rule ठीक करें, release PR न जोड़ें
+
+### कोड changelog नहीं है
+
+Release इतिहास `.changeset/*.md`, बनाए गए `CHANGELOG.md`, GitHub releases, commit messages और code comments में रहता है। Runtime पर उपयोगकर्ता जो कुछ भी पढ़ता है, वह केवल यह बताता है कि **software अभी क्या करता है**: `--help` और usage स्क्रीन, option descriptions, console output, Telegram bot के जवाब और `src/locales/*.lino`, तथा tool द्वारा पोस्ट किए गए comments, issues और commits।
+
+हम ऐसा कोड स्वीकार नहीं करते जो:
+
+- बताता है कि क्या बदला: "पुराना व्यवहार", "नए संस्करणों में default", "अब X करता है", "अब Y नहीं करता", "legacy script को command बना दिया गया", "से नाम बदला गया", "vX.Y में नया", "What's new" banners या release notes
+- उपयोगकर्ता को दिखने वाले टेक्स्ट पर उस issue या PR का टैग लगाता है जिसने इसे जोड़ा, जैसे "(issue #1234)", "(#594)" या "Reference: https://github.com/link-assistant/hive-mind/issues/1234"
+
+लिखें कि option या संदेश आज क्या करता है। इतिहास changeset में, कारण code comment में, और issue link उस comment या test में रखें जो व्यवहार को तय करता है। Deprecation सूचनाएँ वर्तमान मार्गदर्शन हैं, इसलिए वे रहती हैं: वे विकल्प का नाम बताती हैं ("deprecated; use `--isolated screen`") और बदलाव की कहानी नहीं सुनातीं। Diagnostic log lines किसी ज्ञात विफलता का वर्णन करने वाले issue का हवाला दे सकती हैं, क्योंकि यह troubleshooting संकेत है, release इतिहास नहीं। `tests/no-changelog-in-ui-2402.test.mjs` help text, option descriptions, locales और GitHub पर पोस्ट की गई reports के लिए इसे लागू करता है।
 
 ### AI Agent कॉन्फ़िगरेशन
 

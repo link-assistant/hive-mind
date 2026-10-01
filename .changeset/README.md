@@ -27,8 +27,10 @@ The changeset will be saved as a markdown file in this folder.
 
 When changesets are merged to the main branch, the release workflow will:
 
-1. Create a "Version Packages" PR with version bumps and changelog updates
-2. When that PR is merged, it will publish to npm using Trusted Publishing (OIDC)
+1. Run `changeset version` and commit the version bump, CHANGELOG.md and the consumed changesets directly to main
+2. Publish to npm using Trusted Publishing (OIDC) and create the GitHub release
+
+No "Version Packages" or `release/*` pull request is opened.
 
 ## Semantic Versioning
 

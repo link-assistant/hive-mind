@@ -51,9 +51,20 @@ Add support for automatic fork creation with --auto-fork flag
 
 #### Release Process
 
-1. When PRs with changesets are merged to main, the Release workflow automatically creates a "Version Packages" PR
-2. The Version Packages PR updates package.json versions and CHANGELOG.md
-3. When the Version Packages PR is merged, the package is automatically published to NPM
+1. When a PR with changesets is merged to main, the Release workflow runs `changeset version` and commits the version bump, the updated CHANGELOG.md and the consumed `.changeset/*.md` files **directly to main** as `github-actions[bot]`
+2. The same run publishes the package to NPM and creates the GitHub release
+3. No "Version Packages" or `release/*` pull request is created: a PR per release added one more PR and one undeletable branch for every version, and a failed run left a stale release PR behind (issue #2402). If a repository rule ever rejects the push, the release fails with the rule's output; fix the rule, do not add a release PR
+
+### The Code Is Not a Changelog
+
+Release history lives in `.changeset/*.md`, the generated `CHANGELOG.md`, GitHub releases, commit messages and code comments. Everything a user reads at runtime describes **what the software does now**. That covers `--help` and usage screens, option descriptions, console output, Telegram bot replies and `src/locales/*.lino`, and the comments, issues and commits the tool posts.
+
+We do not accept code that:
+
+- explains what changed: "old behavior", "the default in newer versions", "now does X", "no longer does Y", "the legacy script has been promoted", "renamed from", "New in vX.Y", "What's new" banners or release notes
+- tags a user-facing text with the issue or pull request that introduced it, such as "(issue #1234)", "(#594)" or "Reference: https://github.com/link-assistant/hive-mind/issues/1234"
+
+Write what the option or message does today. Put the history in the changeset, the reason in a code comment, and the issue link in the comment or test that pins the behaviour. Deprecation notices are current guidance, so they stay: they name the replacement ("deprecated; use `--isolated screen`") and do not tell the story of the change. Diagnostic log lines may cite the issue that documents a known failure mode, because that is a troubleshooting pointer, not release history. `tests/no-changelog-in-ui-2402.test.mjs` enforces this for help text, option descriptions, locales and GitHub-posted reports.
 
 ### AI Agent Configuration
 

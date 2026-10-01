@@ -25,7 +25,7 @@
 1. **Check for Changesets**（`changeset-check`）
    - 确保每个 PR 包含用于版本管理的 changeset
    - 仅在 PR 上运行，不在主分支推送时运行
-   - 自动发布 PR 会跳过此检查
+   - 适用于每个 PR：发布流程将版本号提升直接提交到 main，因此不存在发布 PR
 
 2. **test-compilation**
    - 验证所有 `.mjs` 文件的 JavaScript 语法

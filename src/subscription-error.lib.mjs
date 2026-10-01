@@ -233,6 +233,8 @@ const buildGuidance = (kind, tool) => {
       // Issue #2397: a lapsed paid plan shows up as "model not supported", not as billing.
       if (accountUrl) steps.push(`Check that the subscription is still active and renew it if it has lapsed: ${accountUrl}`);
       steps.push(`After a plan change, re-login so the new entitlements are picked up: ${loginHint}`);
+      // openai/codex#49396: an active plan gets the same 400 from a stale app-server daemon.
+      if (tool === 'codex') steps.push('If the plan is active, update Codex and its app-server daemon, which returns the same error when it is older than the model: `codex app-server daemon update`');
       break;
     case K.API_KEY_INVALID:
       steps.push('Fix or regenerate the configured API key / auth token, then re-run.');

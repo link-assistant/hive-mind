@@ -60,6 +60,7 @@ test('guidance names the subscription page so a lapsed plan can be renewed', () 
   assert.match(guidance, /renew/i);
   assert.match(guidance, /--model/);
   assert.match(guidance, /codex login/);
+  assert.match(guidance, /codex app-server daemon update/, 'a stale daemon gives the same error (openai/codex#49396)');
 });
 
 test('summary used in the PR comment states the plan problem', () => {

@@ -183,14 +183,54 @@ await test('every adapter resolves the limit from argv (opt-in), not from a hard
 
 await test('the auto-merge loop continues with feedback after an opted-in breaker stop instead of reporting a tool failure', async () => {
   const source = await readFile(join(repoRoot, 'src', 'solve.auto-merge.lib.mjs'), 'utf8');
-  const feedbackBranch = source.indexOf('if (!toolResult.success && toolResult.restartWithFeedback) {');
+  const feedbackBranch = source.indexOf('if (isRestartWithFeedback(toolResult)) {');
   const failureBranch = source.indexOf('// Any other failure (not usage limit): stop the auto-restart loop');
   assert.ok(feedbackBranch > 0, 'restartWithFeedback is handled');
   assert.ok(feedbackBranch < failureBranch, 'before the generic tool_failure stop');
   const branch = source.slice(feedbackBranch, failureBranch);
   assert.match(branch, /continue;/);
-  assert.match(branch, /attachLogToGitHub\(/, 'the full log of the stopped session is attached');
+  assert.match(branch, /await reportSessionStoppedForFeedback\(\{ toolResult, argv,.* attachLogToGitHub,/, 'the full log of the stopped session is attached');
   assert.doesNotMatch(branch, /reason: 'tool_failure'/);
+});
+
+await test('a breaker stop in the auto-merge loop attaches the full log of the stopped session and never throws', async () => {
+  const { isRestartWithFeedback, reportSessionStoppedForFeedback } = await import('../src/solve.auto-merge-session-stop.lib.mjs');
+  const stopped = { success: false, restartWithFeedback: true, stopReason: 'repeated_tool_call', sessionId: 's-1' };
+  assert.equal(isRestartWithFeedback(stopped), true);
+  assert.equal(isRestartWithFeedback({ success: false }), false);
+  assert.equal(isRestartWithFeedback({ success: true, restartWithFeedback: true }), false);
+  const uploads = [];
+  const reported = [];
+  const params = {
+    toolResult: stopped,
+    argv: { attachLogs: true, tool: 'codex' },
+    restartLabel: '#2',
+    prNumber: 323,
+    owner: 'link-assistant',
+    repo: 'agent',
+    $: null,
+    log: async () => {},
+    formatAligned: (...parts) => parts.join(' '),
+    getLogFile: () => '/home/box/solve.log',
+    attachLogToGitHub: async options => uploads.push(options) > 0,
+    sanitizeLogContent: text => text,
+    formatToolExecutionFailure: () => 'codex stopped',
+    reportError: error => reported.push(error),
+    cleanErrorMessage: error => error.message,
+  };
+  assert.equal(await reportSessionStoppedForFeedback(params), true);
+  assert.equal(uploads[0].targetNumber, 323);
+  assert.equal(uploads[0].sessionId, 's-1');
+  assert.match(uploads[0].customTitle, /#2 Log \(session stopped: repeated_tool_call\)/);
+  assert.equal(await reportSessionStoppedForFeedback({ ...params, argv: { tool: 'codex' } }), false, 'no upload without --attach-logs');
+  const failing = {
+    ...params,
+    attachLogToGitHub: async () => {
+      throw new Error('gist quota');
+    },
+  };
+  assert.equal(await reportSessionStoppedForFeedback(failing), false);
+  assert.equal(reported.length, 1);
 });
 
 await test('the 🔁 comment documents that the breaker is opt-in and ignores CI polling', async () => {

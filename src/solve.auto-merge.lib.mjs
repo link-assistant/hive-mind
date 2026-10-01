@@ -62,8 +62,9 @@ const { reportAutomationStop } = stopReportingLib;
 const { recordLoopToolFailure } = await import('./automation-failure.lib.mjs');
 // Issue #2306: never auto-merge a pull request that leaves required issues open.
 const { checkClosingReferencesBeforeMerge } = await import('./solve.ensure-sub-issues.lib.mjs');
-// Issue #2395: never auto-merge a pull request that is not linked to its issue.
+// Issue #2395: never auto-merge a pull request that is not linked to its issue; a breaker stop continues with feedback.
 const { ensureIssueLinkBeforeMerge } = await import('./pr-issue-link-merge-gate.lib.mjs');
+const { isRestartWithFeedback, reportSessionStoppedForFeedback } = await import('./solve.auto-merge-session-stop.lib.mjs');
 // Import validation functions for time parsing (used for usage limit wait)
 const validation = await import('./solve.validation.lib.mjs');
 const { calculateWaitTime } = validation;
@@ -1038,38 +1039,9 @@ export const watchUntilMergeable = async params => {
             }
           }
           // Issue #2395: a session the repeated-tool-call breaker ended is not a tool
-          // failure. classifySessionResult already posted "🔁 Session stopped" saying
-          // the next session continues with feedback; stopping here as `tool_failure`
-          // contradicted that comment (agent#323). Attach this session's log and go on.
-          if (!toolResult.success && toolResult.restartWithFeedback) {
-            await log(formatAligned('🔁', 'Session stopped:', `${toolResult.stopReason || 'restart with feedback'} — the next iteration continues with feedback`, 2));
-            if (prNumber && (argv.attachLogs || argv['attach-logs'])) {
-              try {
-                const logFile = getLogFile();
-                if (logFile) {
-                  await attachLogToGitHub({
-                    logFile,
-                    targetType: 'pr',
-                    targetNumber: prNumber,
-                    owner,
-                    repo,
-                    $,
-                    log,
-                    sanitizeLogContent,
-                    verbose: argv.verbose,
-                    customTitle: `🔁 Auto-restart ${formatAutoRestartLabel(restartCount)} Log (session stopped: ${toolResult.stopReason || 'restart with feedback'})`,
-                    errorMessage: formatToolExecutionFailure({ tool: argv.tool, toolResult }),
-                    sessionId: toolResult.sessionId || latestSessionId,
-                    tempDir,
-                    requestedModel: argv.originalModel || argv.model,
-                    tool: argv.tool || 'claude',
-                  });
-                }
-              } catch (logUploadError) {
-                reportError(logUploadError, { context: 'attach_restart_with_feedback_log', prNumber, owner, repo, operation: 'upload_session_log' });
-                await log(formatAligned('', `⚠️  Session log upload error: ${cleanErrorMessage(logUploadError)}`, '', 2));
-              }
-            }
+          // failure — attach its log and continue with feedback (agent#323).
+          if (isRestartWithFeedback(toolResult)) {
+            await reportSessionStoppedForFeedback({ toolResult, argv, restartLabel: formatAutoRestartLabel(restartCount), prNumber, owner, repo, $, log, formatAligned, getLogFile, attachLogToGitHub, sanitizeLogContent, formatToolExecutionFailure, reportError, cleanErrorMessage, latestSessionId, tempDir });
             lastCheckTime = new Date();
             continue;
           }

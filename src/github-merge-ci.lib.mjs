@@ -13,6 +13,7 @@ import { promisify } from 'util';
 import { exec as execCallback } from 'child_process';
 import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
 import { cancellableSleep } from './interruptible-sleep.lib.mjs';
+import { evaluateBranchCIHealth, BRANCH_CI_LOOKBACK_COMMITS, BRANCH_CI_START_GRACE_MS } from './github-branch-ci-health.lib.mjs';
 
 const execRaw = promisify(execCallback);
 // Issue #1726: every gh call must be rate-limit safe.
@@ -159,108 +160,56 @@ export async function waitForCommitCI(owner, repo, sha, options = {}, verbose = 
  * Issue #1341: Used to detect pre-existing failures before starting the merge queue
  * Issue #1425: Fixed to resolve the actual HEAD SHA first, then check CI for that SHA,
  *              so that in-progress runs on the latest commit are not mistaken for failures.
+ * Issue #2404: When HEAD has no branch CI of its own (e.g. a release version-bump commit pushed
+ *              with GITHUB_TOKEN, which starts no workflows), judge the newest first-parent
+ *              ancestor that does — see github-branch-ci-health.lib.mjs.
  *
  * @param {string} owner - Repository owner
  * @param {string} repo - Repository name
  * @param {string} branch - Branch name (usually 'main' or 'master')
- * @param {Object} options - Check options (currently unused, kept for API compatibility)
+ * @param {Object} [options] - Check options
+ * @param {number} [options.lookback] - Max first-parent commits to inspect (default BRANCH_CI_LOOKBACK_COMMITS)
+ * @param {number} [options.graceMs] - Grace period for a fresh HEAD without runs (default BRANCH_CI_START_GRACE_MS)
  * @param {boolean} verbose - Whether to log verbose output
- * @returns {Promise<{healthy: boolean, pending: boolean, failedRuns: Array, pendingRuns: Array, error: string|null}>}
+ * @returns {Promise<{healthy: boolean, pending: boolean, failedRuns: Array, pendingRuns: Array, error: string|null, headSha?: string|null, checkedSha?: string|null, skippedCommits?: number}>}
  */
-export async function checkBranchCIHealth(owner, repo, branch = 'main', options, verbose = false) {
+export async function checkBranchCIHealth(owner, repo, branch = 'main', options = {}, verbose = false) {
+  const log = message => {
+    if (verbose) console.log(`[VERBOSE] /merge: ${message}`);
+  };
+  const lookback = options?.lookback || BRANCH_CI_LOOKBACK_COMMITS;
   try {
-    // Issue #1425: First, resolve the actual HEAD SHA of the branch.
-    // This avoids the bug where only completed runs are queried: if the latest commit has
-    // an in-progress CI run, querying ?status=completed would return the previous commit's
-    // runs and could incorrectly report a failure from an older (now superseded) commit.
-    let headSha;
+    // Issue #1425: start from the actual HEAD of the branch (first entry of the commits list),
+    // never from "the most recently completed run", which may belong to a superseded commit.
+    let commits;
     try {
-      const { stdout: refOut } = await exec(`gh api "repos/${owner}/${repo}/git/ref/heads/${branch}" --jq '.object.sha'`);
-      headSha = refOut.trim();
-    } catch (refError) {
-      if (verbose) {
-        console.log(`[VERBOSE] /merge: Error resolving HEAD SHA for ${branch}: ${refError.message}`);
-      }
+      // Only the newest `lookback` commits matter, so a single page is intentional.
+      /* eslint-disable-next-line gh-paginate/require-gh-paginate */
+      const { stdout } = await exec(`gh api "repos/${owner}/${repo}/commits?sha=${encodeURIComponent(branch)}&per_page=${lookback}" --jq '[.[] | {sha: .sha, parent: (.parents[0].sha // null), date: .commit.committer.date, message: (.commit.message | split("\\n")[0])}]'`);
+      commits = JSON.parse(stdout.trim() || '[]');
+    } catch (listError) {
+      log(`Error listing recent commits of ${branch}: ${listError.message}`);
       // On error, assume healthy to avoid blocking merges due to API issues
       return { healthy: true, pending: false, failedRuns: [], pendingRuns: [], error: null };
     }
 
-    if (!headSha) {
-      if (verbose) {
-        console.log(`[VERBOSE] /merge: Could not resolve HEAD SHA for ${branch}, assuming healthy`);
-      }
-      return { healthy: true, pending: false, failedRuns: [], pendingRuns: [], error: null };
-    }
-
-    if (verbose) {
-      console.log(`[VERBOSE] /merge: Checking CI for latest ${branch} commit ${headSha.substring(0, 7)}`);
-    }
-
-    // Issue #1425: Query CI runs specifically for the HEAD SHA (no status filter).
-    // This ensures we see in-progress runs for the latest commit, not just completed ones.
-    const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/runs?head_sha=${headSha}&per_page=100" --paginate --slurp`);
-    const runs = JSON.parse(stdout.trim() || '[]')
-      .flatMap(page => page.workflow_runs || [])
-      .map(run => ({ id: run.id, name: run.name, status: run.status, conclusion: run.conclusion, html_url: run.html_url, head_sha: run.head_sha, created_at: run.created_at }));
-
-    if (verbose) {
-      console.log(`[VERBOSE] /merge: Found ${runs.length} CI run(s) for HEAD commit ${headSha.substring(0, 7)} on ${owner}/${repo} branch ${branch}`);
-    }
-
-    if (runs.length === 0) {
-      // No runs for the latest commit - CI may not have started yet or is not configured.
-      // Assume healthy to avoid blocking merges.
-      return { healthy: true, pending: false, failedRuns: [], pendingRuns: [], error: null };
-    }
-
-    // Issue #1425: Check for in-progress runs on the latest commit.
-    // If the latest commit's CI is still running, we should NOT report failure —
-    // the previous commit's failure (which may appear in completed runs) is no longer relevant.
-    const pendingRuns = runs.filter(r => r.status === 'in_progress' || r.status === 'queued' || r.status === 'waiting' || r.status === 'requested' || r.status === 'pending');
-    if (pendingRuns.length > 0) {
-      if (verbose) {
-        console.log(`[VERBOSE] /merge: ${pendingRuns.length} CI run(s) still in progress on ${branch} (latest commit ${headSha.substring(0, 7)})`);
-        for (const run of pendingRuns) {
-          console.log(`[VERBOSE] /merge:   - ${run.name}: ${run.status} (${run.html_url})`);
-        }
-      }
-      // Healthy but pending: caller should wait for CI rather than block the queue
-      return { healthy: true, pending: true, failedRuns: [], pendingRuns, error: null };
-    }
-
-    // All runs for the latest commit are completed — check for failures
-    // Issue #1952: Treat `startup_failure` as a failure too (a workflow that failed to start is a
-    // genuine failure, not a transient state). `cancelled` is intentionally NOT treated as a
-    // failure here: this branch-health check resolves the HEAD SHA up front (issue #1425), and a
-    // cancelled run on the resolved HEAD is normally a superseded/manual cancellation rather than a
-    // timeout — a timeout surfaces as `failure`/`timed_out` at the workflow-run level and is caught.
-    const failedRuns = runs.filter(r => r.conclusion === 'failure' || r.conclusion === 'timed_out' || r.conclusion === 'startup_failure');
-
-    if (failedRuns.length > 0) {
-      if (verbose) {
-        console.log(`[VERBOSE] /merge: Found ${failedRuns.length} failed CI run(s) on ${branch} (latest commit ${headSha.substring(0, 7)}):`);
-        for (const run of failedRuns) {
-          console.log(`[VERBOSE] /merge:   - ${run.name}: ${run.conclusion} (${run.html_url})`);
-        }
-      }
-      return {
-        healthy: false,
-        pending: false,
-        failedRuns,
-        pendingRuns: [],
-        error: `${failedRuns.length} CI run(s) failed on ${branch}: ${failedRuns.map(r => r.name).join(', ')}`,
-      };
-    }
-
-    if (verbose) {
-      console.log(`[VERBOSE] /merge: Branch ${branch} CI is healthy (${runs.length} run(s) passed for commit ${headSha.substring(0, 7)})`);
-    }
-
-    return { healthy: true, pending: false, failedRuns: [], pendingRuns: [], error: null };
+    log(`Checking CI for latest ${branch} commit ${(commits[0]?.sha || '').substring(0, 7)}`);
+    return await evaluateBranchCIHealth({
+      branch,
+      commits,
+      lookback,
+      graceMs: options?.graceMs ?? BRANCH_CI_START_GRACE_MS,
+      log,
+      // Issue #1425: query runs for one exact SHA without a status filter, so in-progress runs are seen.
+      getRuns: async sha => {
+        const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/runs?head_sha=${sha}&per_page=100" --paginate --slurp`);
+        return JSON.parse(stdout.trim() || '[]')
+          .flatMap(page => page.workflow_runs || [])
+          .map(run => ({ id: run.id, name: run.name, event: run.event, status: run.status, conclusion: run.conclusion, html_url: run.html_url, head_sha: run.head_sha, created_at: run.created_at }));
+      },
+    });
   } catch (error) {
-    if (verbose) {
-      console.log(`[VERBOSE] /merge: Error checking branch CI health: ${error.message}`);
-    }
+    log(`Error checking branch CI health: ${error.message}`);
     // On error, assume healthy to avoid blocking merges due to API issues
     return { healthy: true, pending: false, failedRuns: [], pendingRuns: [], error: null };
   }

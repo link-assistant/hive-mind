@@ -116,6 +116,16 @@ const isTokenCounterAssignment = (prefix, value) => NUMERIC_VALUE.test(String(va
 const VERSION_COMPARATOR = String.raw`(?:\^|~|[><]=?|=)?\s*v?\d+(?:\.\d+){1,2}(?:[-+][0-9A-Za-z.-]+)?`;
 const VERSION_RANGE_VALUE = new RegExp(`^${VERSION_COMPARATOR}(?:(?:\\s*(?:\\|\\||-)\\s*|\\s+)${VERSION_COMPARATOR})*$`);
 const isVersionRangeAssignment = value => VERSION_RANGE_VALUE.test(String(value ?? '').trim());
+// Issue #2400: in source code a sensitive-named variable is usually assigned an
+// expression, not a literal — `const fileTokens = await getTokens()`,
+// `skipActiveTokensOutputSanitization: false`, `const getTokens = async () =>`.
+// Masking the leading keyword rewrote published code excerpts into
+// `fileTokens = [REDACTED] getTokens()`, which hides nothing and misleads the
+// reader. A language keyword or literal is never a credential, and any value
+// that short would be reduced to `[REDACTED]` by `maskToken` anyway, so only
+// the exact keyword (not a value that merely starts with one) is exempt.
+const KEYWORD_VALUE = /^(?:true|false|null|undefined|none|nil|await|async|new|typeof|function|this|void|yield)$/i;
+const isKeywordAssignment = value => KEYWORD_VALUE.test(String(value ?? '').trim());
 const SENSITIVE_ENV_NAME = /(?:API_?KEY|ACCOUNT_?KEY|CLIENT_?SECRET|CONSUMER_?SECRET|WEBHOOK_?SECRET|ACCESS_?TOKEN|REFRESH_?TOKEN|AUTH_?TOKEN|PASSWORD|PASSWD|PRIVATE_?KEY|SECRET|TOKEN|COOKIE|AUTH)$/i;
 // Issue #2156: structured output is routinely nested inside another JSON
 // document — an agent tool result embeds the command's stdout as a JSON
@@ -210,7 +220,7 @@ const sanitizePlaintextCredentials = (input, options = {}) => {
   // escaped payload may not balance them symmetrically; each is preserved as
   // written so the surrounding document stays byte-for-byte parseable.
   output = output.replace(QUOTED_ASSIGNMENT, (match, prefix, openQuote, value, closeQuote) => (isTokenCounterAssignment(prefix, value) || isVersionRangeAssignment(value) ? match : `${prefix}${openQuote}${maskValue(value)}${closeQuote}`));
-  output = output.replace(UNQUOTED_ASSIGNMENT, (match, prefix, value) => (isTokenCounterAssignment(prefix, value) || isVersionRangeAssignment(value) ? match : `${prefix}${maskValue(value)}`));
+  output = output.replace(UNQUOTED_ASSIGNMENT, (match, prefix, value) => (isTokenCounterAssignment(prefix, value) || isVersionRangeAssignment(value) || isKeywordAssignment(value) ? match : `${prefix}${maskValue(value)}`));
 
   // CLI arguments and sensitive query parameters.
   output = output.replace(CLI_CREDENTIAL_QUOTED, (_match, prefix, quote, value) => `${prefix}${quote}${maskValue(value)}${quote}`);

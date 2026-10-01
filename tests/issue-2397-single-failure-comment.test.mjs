@@ -19,6 +19,7 @@
 import assert from 'assert';
 import { notifyIssueAboutPrePullRequestFailure, resolvePreExitFailureNotificationTarget } from '../src/solve.pre-pr-failure-notifier.lib.mjs';
 import { buildLogUploadFailureComment } from '../src/log-upload-failure.lib.mjs';
+import { buildAutomationStopComment } from '../src/automation-stop-reporting.lib.mjs';
 import { isFailureAlreadyReportedOnTarget, isFailureReportCommentBody, postTrackedComment, resetTrackedToolCommentIds } from '../src/tool-comments.lib.mjs';
 
 let passed = 0;
@@ -174,9 +175,40 @@ await test('registry is per target and case-insensitive on owner/repo', async ()
   assert.equal(isFailureAlreadyReportedOnTarget({ owner: 'konard', repo: 'vietnam-accomodation-search', targetNumber: 76 }), false);
 });
 
+await test('a stop comment that already states the reason is not followed by a second failure comment', async () => {
+  // konard/test-hello-world-019fb330-fa49-7c9d-a664-b7ea33bb698a#2 (2026-09-27): "🛑 Automation stopped:
+  // two consecutive AI sessions produced identical results" and, 7 s later, "🚨 Solution Draft Failed ...
+  // Reason: No progress between sessions".
+  const { $, posts } = createFakeGh();
+  const body = buildAutomationStopComment({ reason: 'no_progress_between_sessions', mode: 'watch', message: 'Two consecutive AI sessions ended with the same final message.' });
+  await postTrackedComment({ $, owner: 'konard', repo: 'vietnam-accomodation-search', targetNumber: 76, body });
+  const logs = [];
+  const result = await notifyIssueAboutPrePullRequestFailure({ code: 1, reason: 'No progress between sessions', globalState: prRunState(), $, log: async m => logs.push(m) });
+  assert.equal(posts.length, 1, `expected only the stop comment, got ${posts.length}`);
+  assert.equal(result.skipped, true);
+  assert.ok(
+    logs.some(m => /already reported on pull request #76/.test(m)),
+    'the skip must be logged'
+  );
+});
+
+await test('an auto-restart limit comment is not followed by a second failure comment', async () => {
+  // Same pull request (2026-08-15): "❌ Auto-restart 5/5 - limit reached" then "🚨 Solution Draft Failed ...
+  // Reason: Auto-restart limit reached" 9 s later.
+  const { $, posts } = createFakeGh();
+  await postTrackedComment({ $, owner: 'konard', repo: 'vietnam-accomodation-search', targetNumber: 76, body: '## ❌ Auto-restart 5/5 - limit reached\n\nHive Mind stopped after 5/5 automatic restart iterations without resolving the blocker.' });
+  const result = await notify({ $, globalState: prRunState(), shouldAttachLogs: false });
+  assert.equal(posts.length, 1);
+  assert.equal(result.skipped, true);
+});
+
 await test('isFailureReportCommentBody recognises every failure-report template', async () => {
   assert.equal(isFailureReportCommentBody(buildLogUploadFailureComment({ errorMessage: CODEX_ERROR, logSizeBytes: 1, logFile: '/tmp/x.log' })), true);
   assert.equal(isFailureReportCommentBody(buildLogUploadFailureComment({ logSizeBytes: 1, logFile: '/tmp/x.log' })), false);
+  assert.equal(isFailureReportCommentBody(buildAutomationStopComment({ reason: 'no_progress_between_sessions' })), true);
+  assert.equal(isFailureReportCommentBody('## ❌ Auto-restart 5/5 - limit reached'), true);
+  assert.equal(isFailureReportCommentBody('## 🔄 Auto-restart 1/5'), false);
+  assert.equal(isFailureReportCommentBody('## ✅ Ready to merge'), false);
   assert.equal(isFailureReportCommentBody('## 🤖 Solution Draft Log'), false);
   assert.equal(isFailureReportCommentBody(null), false);
 });

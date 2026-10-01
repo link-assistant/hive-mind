@@ -228,11 +228,18 @@ const latestToolCommentByTarget = new Map();
 const toolCommentTargetKey = ({ owner, repo, targetNumber }) => `${String(owner || '').toLowerCase()}/${String(repo || '').toLowerCase()}#${targetNumber}`;
 
 /**
- * Whether a comment body is a failure report ("🚨 Solution Draft Failed").
+ * Whether a comment body already tells the reader why the run failed:
+ * "🚨 Solution Draft Failed", "🛑 Automation stopped: ..." or
+ * "❌ Auto-restart N/N - limit reached". Each of these was followed by a
+ * redundant "Solution Draft Failed ... Reason: <same reason>" comment from the
+ * exit-handler notifier on konard/test-hello-world-019fb330-fa49-…#2.
  * @param {string} body
  * @returns {boolean}
  */
-export const isFailureReportCommentBody = body => String(body || '').includes(`🚨 ${SOLUTION_DRAFT_FAILED_MARKER}`);
+export const isFailureReportCommentBody = body => {
+  const text = String(body || '');
+  return text.includes(`🚨 ${SOLUTION_DRAFT_FAILED_MARKER}`) || text.includes(`## 🛑 ${AUTOMATION_STOPPED_MARKER}`) || /## ❌ Auto-restart \S+ - limit reached/.test(text);
+};
 
 /**
  * Record a comment posted on a target. Called by postTrackedComment.

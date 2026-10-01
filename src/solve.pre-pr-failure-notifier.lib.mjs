@@ -200,6 +200,10 @@ export async function notifyIssueAboutPrePullRequestFailure(options) {
 
   const target = resolvePreExitFailureNotificationTarget({ code, globalState });
   if (!target) {
+    const prNumber = globalState?.createdPR?.number || globalState?.prNumber || null;
+    if (code !== 0 && prNumber && isFailureAlreadyReportedOnTarget({ owner: globalState.owner, repo: globalState.repo, targetNumber: prNumber })) {
+      await log(`  ℹ️  Failure already reported on pull request #${prNumber} by the latest tool comment; not posting another.`);
+    }
     return { notified: false, skipped: true };
   }
 

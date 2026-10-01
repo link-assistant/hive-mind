@@ -7,7 +7,7 @@ import { log, maskToken, cleanErrorMessage, isENOSPC, ghCmdRetry } from './lib.m
 import { reportError } from './sentry.lib.mjs';
 import { describeRequestedThinking, githubLimits, timeouts } from './config.lib.mjs';
 import { batchCheckPullRequestsForIssues as batchCheckPRs, batchCheckArchivedRepositories as batchCheckArchived } from './github.batch.lib.mjs';
-import { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeOutput, sanitizeLogContent, sanitizeForPublication, writeSanitizedPublicationFile } from './token-sanitization.lib.mjs';
+import { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeOutput, sanitizeLogContent, sanitizeForPublication, writeSanitizedPublicationFile, describeCredentialSanitizationFailure } from './token-sanitization.lib.mjs';
 export { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeOutput, sanitizeLogContent, sanitizeForPublication, writeSanitizedPublicationFile }; // Re-export for backward compatibility
 import { uploadLogWithGhUploadLog } from './log-upload.lib.mjs';
 import { formatLogLinkLines, postLogUploadFailureComment } from './log-upload-failure.lib.mjs'; // Issue #2301
@@ -851,10 +851,10 @@ ${logLinks('View complete solution draft log')}
           context: 'upload_log_gh_upload_log',
           level: 'error',
         });
-        await log(`  ❌ Error uploading log: ${uploadError.message}`);
+        await log(`  ❌ Error uploading log: ${describeCredentialSanitizationFailure(uploadError)}`);
         await log('  ⚠️  Full log upload failed; not posting a truncated log because --attach-logs must preserve complete logs');
         await log(`  📁 Full log remains available locally at: ${logFile}`);
-        await reportUploadFailure(uploadError.message);
+        await reportUploadFailure(describeCredentialSanitizationFailure(uploadError));
         return false;
       }
     } else {
@@ -868,7 +868,7 @@ ${logLinks('View complete solution draft log')}
     }
   } catch (uploadError) {
     // Issue #1212: ENOSPC-specific actionable guidance
-    const msg = isENOSPC(uploadError) ? 'ENOSPC: No space left on device during log upload. Free disk space and retry.' : `Error uploading log file: ${uploadError.message}`;
+    const msg = isENOSPC(uploadError) ? 'ENOSPC: No space left on device during log upload. Free disk space and retry.' : `Error uploading log file: ${describeCredentialSanitizationFailure(uploadError)}`;
     await log(`  ❌ ${msg}`);
     if (failureReport.logSizeBytes > 0) await reportUploadFailure(msg);
     return false;

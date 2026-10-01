@@ -126,13 +126,20 @@ const SENSITIVE_ENV_NAME = /(?:API_?KEY|ACCOUNT_?KEY|CLIENT_?SECRET|CONSUMER_?SE
 // is therefore any run of backslashes followed by a quote character, and the
 // value is matched lazily so it stops at the escape rather than swallowing it.
 const QUOTE = String.raw`\\*["']`;
-const QUOTED_ASSIGNMENT = new RegExp(`((?:${QUOTE})?${SENSITIVE_KEY}(?:${QUOTE})?\\s*(?:=>|[:=])\\s*)(${QUOTE})([^"'\\r\\n]*?)(${QUOTE})`, 'gi');
+// Issue #2397: `=` and `:` must not be followed by `>`. Otherwise, once
+// `token => !token` was masked to `token => [REDACTED]`, the structural guard
+// below refused `[`, the separator backtracked from `=>` to `=`, and a second
+// pass produced `token =[REDACTED] [REDACTED]`. The publication boundary treats
+// "a second pass would change the text" as a leaked credential, so every log with
+// a `token =>` arrow function was blocked from upload.
+const ASSIGNMENT_SEPARATOR = '(?:=>|[:=](?!>))';
+const QUOTED_ASSIGNMENT = new RegExp(`((?:${QUOTE})?${SENSITIVE_KEY}(?:${QUOTE})?\\s*${ASSIGNMENT_SEPARATOR}\\s*)(${QUOTE})([^"'\\r\\n]*?)(${QUOTE})`, 'gi');
 // Issue #2119: a value that *opens* a JSON/JS structure is punctuation, not a
 // secret. Without this guard `"tokens": {` was rewritten to `"tokens": [REDACTED]`,
 // which silently truncated the object and made the whole record unparseable.
 // The guard only rejects a structural character in first position, so a
 // credential that merely contains a brace (`password=ab{cd`) is still masked whole.
-const UNQUOTED_ASSIGNMENT = new RegExp(`((?:${QUOTE})?${SENSITIVE_KEY}(?:${QUOTE})?\\s*(?:=>|[:=])\\s*)(?!${QUOTE}|[{[]|(?:Bearer|Basic|SharedAccessSignature)\\s)([^\\s,;}&'"\\r\\n]+)`, 'gi');
+const UNQUOTED_ASSIGNMENT = new RegExp(`((?:${QUOTE})?${SENSITIVE_KEY}(?:${QUOTE})?\\s*${ASSIGNMENT_SEPARATOR}\\s*)(?!${QUOTE}|[{[]|(?:Bearer|Basic|SharedAccessSignature)\\s)([^\\s,;}&'"\\r\\n]+)`, 'gi');
 const XML_CREDENTIAL = new RegExp(`(<(${SENSITIVE_KEY})\\b[^>]*>)([\\s\\S]*?)(<\\/\\2\\s*>)`, 'gi');
 const CLI_CREDENTIAL_QUOTED = new RegExp(`(--${SENSITIVE_KEY}(?:\\s+|=))(["'])([^"'\\r\\n]*)(\\2)`, 'gi');
 const CLI_CREDENTIAL = new RegExp(`(--${SENSITIVE_KEY}(?:\\s+|=))(?!["'])([^\\s"'\\r\\n]+)`, 'gi');
@@ -247,6 +254,8 @@ const collectKnownTokenValues = options => {
  * recover it. Encoded runs are therefore decoded, sanitized with the same
  * rules, and re-encoded in place.
  */
+const MAX_SANITIZATION_PASSES = 3;
+
 export const sanitizeCredentialText = (input, options = {}) => {
   const knownTokens = collectKnownTokenValues(options);
 
@@ -259,7 +268,17 @@ export const sanitizeCredentialText = (input, options = {}) => {
     });
   };
 
-  return sanitizeAtDepth(String(input ?? ''), 0);
+  // Issue #2397: the publication boundary blocks any text that a further pass
+  // would still change, so a rule that is not idempotent on its own output
+  // blocked whole logs although nothing was leaked. Run to a fixed point (bounded;
+  // a text that still changes after that is left to the residual check).
+  let previous = String(input ?? '');
+  let output = sanitizeAtDepth(previous, 0);
+  for (let pass = 1; pass < MAX_SANITIZATION_PASSES && output !== previous; pass++) {
+    previous = output;
+    output = sanitizeAtDepth(previous, 0);
+  }
+  return output;
 };
 
 /**

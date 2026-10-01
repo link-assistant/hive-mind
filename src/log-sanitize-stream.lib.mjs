@@ -203,10 +203,25 @@ export async function sanitizeLogFileToFile(options = {}) {
     dest = await fsImpl.open(destPath, 'wx', 0o600);
     destCreated = true;
 
+    let blockIndex = 0;
+    let blockStartChar = 0;
     const stats = await forEachLogBlock(
       sourcePath,
       async text => {
-        const sanitized = String(await sanitize(text));
+        blockIndex += 1;
+        let sanitized;
+        try {
+          sanitized = String(await sanitize(text));
+        } catch (error) {
+          // Issue #2397: say where in the log publication was blocked.
+          if (error && typeof error === 'object' && !Number.isFinite(error.blockIndex)) {
+            error.blockIndex = blockIndex;
+            error.blockStartChar = blockStartChar;
+            error.blockChars = text.length;
+          }
+          throw error;
+        }
+        blockStartChar += text.length;
         const out = transform ? String(transform(sanitized)) : sanitized;
         if (!out) return;
         await dest.write(out, null, 'utf8');

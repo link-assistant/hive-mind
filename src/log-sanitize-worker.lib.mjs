@@ -113,6 +113,7 @@ export async function sanitizeLogFileInWorker(options = {}) {
         const error = new Error(message.message);
         error.name = message.name || 'Error';
         if (message.code) error.code = message.code;
+        if (message.diagnostics && typeof message.diagnostics === 'object') Object.assign(error, message.diagnostics); // Issue #2397
         error.sanitizeWorkerStarted = true;
         settle(reject, error);
         worker.terminate().catch(() => {});

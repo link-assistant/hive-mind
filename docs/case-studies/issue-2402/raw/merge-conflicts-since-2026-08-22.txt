@@ -1,0 +1,20 @@
+Merge commits since 2026-08-22 (all refs): 109
+Merges recording "# Conflicts:": 5
+Release-file conflicts (package.json, package-lock.json, CHANGELOG.md, .changeset/*): []
+
+de01cc4f|2026-10-01|Merge remote-tracking branch 'origin/main' into issue-2397-36ba658228ab :: scripts/dependency-freshness.lib.mjs, tests/dependency-freshness-2264.test.mjs
+0244a939|2026-09-29|Merge remote-tracking branch 'origin/main' into issue-2301-1462dcec50ad :: src/claude.lib.mjs, src/use-with-retry.lib.mjs, tests/test-preinstall-use-m-packages-1724.mjs, tests/test-use-with-retry.mjs
+c6db4882|2026-09-20|Merge remote-tracking branch 'origin/main' into issue-2263-96644000662c :: src/hive.mjs
+dc05c8ad|2026-09-04|Merge remote-tracking branch 'origin/main' into issue-2202-70688fb26570 :: .gitkeep
+f096b213|2026-09-04|Merge remote-tracking branch 'origin/main' into issue-2198-e2820ae6e497 :: bun.lock
+
+Per-file conflict counts:
+1 scripts/dependency-freshness.lib.mjs
+1 tests/dependency-freshness-2264.test.mjs
+1 src/claude.lib.mjs
+1 src/use-with-retry.lib.mjs
+1 tests/test-preinstall-use-m-packages-1724.mjs
+1 tests/test-use-with-retry.mjs
+1 src/hive.mjs
+1 .gitkeep
+1 bun.lock

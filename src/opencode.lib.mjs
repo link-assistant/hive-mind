@@ -28,7 +28,7 @@ import { isPrepareOnly, logPreparedToolCommand, resolveFormalAiToolExecution } f
 import { checkPlaywrightMcpPackageAvailability, getOpenCodePlaywrightMcpDisableEnv } from './playwright-mcp.lib.mjs';
 import { createAgentTokenUsage, accumulateAgentStepFinishUsage, parseAgentTokenUsage as parseOpenCodeTokenUsage } from './agent-token-usage.lib.mjs';
 import { createJsonStreamScanner } from './json-stream.lib.mjs';
-import { createToolCallLoopGuard } from './tool-call-loop-guard.lib.mjs'; // Issue #2316
+import { createToolCallLoopGuard, resolveRepeatedToolCallLimit } from './tool-call-loop-guard.lib.mjs'; // Issue #2316, #2395
 import { calculateAgentPricing } from './agent.lib.mjs';
 import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
@@ -362,7 +362,7 @@ export const executeOpenCodeCommand = async params => {
       // chunk as soon as one line was not JSON.
       const stdoutScanner = createJsonStreamScanner();
       const stderrScanner = createJsonStreamScanner();
-      const toolCallLoopGuard = createToolCallLoopGuard({ log, stopSession: async () => execCommand?.kill?.('SIGTERM') }); // Issue #2316
+      const toolCallLoopGuard = createToolCallLoopGuard({ log, limit: resolveRepeatedToolCallLimit({ argv }), stopSession: async () => execCommand?.kill?.('SIGTERM') }); // Issue #2316; opt-in since #2395
 
       // Issue #2136: count the JSON records that arrive on stderr. OpenCode has
       // no terminal-event completion gate (success is decided by the exit code),

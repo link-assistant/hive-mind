@@ -36,7 +36,7 @@ import { formatRouterAuthViolation, startRouterAuthGuard } from './router-auth-g
 import { createThinkingBlockRecovery } from './claude.thinking-block-recovery.lib.mjs'; // Issue #1834 (PR #1835 feedback)
 import { buildMissingClaudeResultMessage, collectClaudeStreamEventFacts, getClaudeMessageContent, shouldFailClaudeStreamWithoutResult, updateTerminalToolResult } from './claude.stream-events.lib.mjs';
 import { assessClaudeTurnCompletion, buildIncompleteTurnContinuationPrompt, createClaudePrintTurnTracker } from './claude.print-turn.lib.mjs'; // Issue #2301
-import { createRepeatedToolCallBreaker, explainFailureWithToolHistory, publishRepeatedToolCallVerdict } from './repeated-tool-call-breaker.lib.mjs'; // Issue #2247 (H4/H10), #2316
+import { createRepeatedToolCallBreaker, explainFailureWithToolHistory, publishRepeatedToolCallVerdict, resolveRepeatedToolCallLimit } from './repeated-tool-call-breaker.lib.mjs'; // Issue #2247 (H4/H10), #2316, #2395
 import { formatNumber, mapModelToId, checkModelVisionCapability, resolveClaudeModelForExecution } from './claude.model-utils.lib.mjs';
 import { renameLogToSessionId } from './session-log-rename.lib.mjs'; // Issue #2160
 import { showResumeCommand } from './claude.resume-output.lib.mjs';
@@ -269,7 +269,8 @@ export const executeClaudeCommand = async params => {
     // reason even if the provider's own error (`Prompt is too long`) arrives
     // later, which is exactly what hid the loop in the Kotlin run.
     let repeatedToolCallFailure = null;
-    const repeatedToolCallBreaker = createRepeatedToolCallBreaker();
+    // Issue #2395: opt-in (--detect-repeated-tool-calls). Disabled, it still counts failures for the report below.
+    const repeatedToolCallBreaker = createRepeatedToolCallBreaker({ limit: resolveRepeatedToolCallLimit({ argv }) });
     // Issue #1590: Track sub-agent calls (Agent tool invocations) for per-call stats
     const subAgentCalls = [];
     // Issue #1590: Map tool_use_id -> subAgentCalls index for accumulating per-call usage from parent_tool_use_id events
@@ -1005,7 +1006,7 @@ export const executeClaudeCommand = async params => {
         await log(`\n\n❌ Command failed: ${lastMessage}`, { level: 'error' });
       }
       // Issue #2247 (H10): the breaker only trips on its own limit, and it can be raised or
-      // switched off (HIVE_MIND_REPEATED_TOOL_CALL_LIMIT). When a session fails without tripping
+      // switched off (off by default since #2395). When a session fails without tripping
       // it, the call it kept failing is still the most useful thing to report.
       const dominantToolCallFailure = repeatedToolCallFailure ? null : repeatedToolCallBreaker.dominantFailure();
       if (dominantToolCallFailure) {

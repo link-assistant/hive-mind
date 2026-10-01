@@ -100,11 +100,33 @@ export const attachFinalLogIfMissing = async ({ shouldAttachLogs, prNumber, owne
  * @param {number} params.restartIterationsRan - how many post-solve loops ran iterations
  * @returns {Promise<boolean>} `true` if the updated log was attached
  */
-export const attachLogAfterPostSolveRestarts = async ({ restartIterationsRan, shouldAttachLogs, prNumber, owner, repo, $, log, sanitizeLogContent, getLogFile, attachLogToGitHub, argv, sessionId = null, tempDir = null, anthropicTotalCostUSD = null, resultModelUsage = null }) => {
+export const attachLogAfterPostSolveRestarts = async ({ restartIterationsRan, shouldAttachLogs, prNumber, ...params }) => {
   if (!shouldAttachLogs || !prNumber || !(restartIterationsRan > 0)) return false;
+  return attachUpdatedLog({ ...params, prNumber, reason: `${restartIterationsRan} post-solve restart loop(s) ran after the first upload` });
+};
 
+/**
+ * Issue #2395: re-attach the session log when `--auto-merge` held the merge back.
+ *
+ * The merge gates (closed issue, missing closing references, unverified issue
+ * link) only post an "auto-merge blocked" comment. When a log was attached
+ * earlier — for example by the failed session that preceded the merge attempt —
+ * `attachFinalLogIfMissing` sees "already attached" and the part of the log that
+ * explains why the merge was held back is never published.
+ *
+ * @param {Object} params - same as {@link attachFinalLogIfMissing}, plus:
+ * @param {Object|null} params.autoMergeResult - the result of `startAutoRestartUntilMergeable`
+ * @returns {Promise<boolean>} `true` if the updated log was attached
+ */
+export const attachLogAfterAutoMergeBlocked = async ({ autoMergeResult, shouldAttachLogs, prNumber, ...params }) => {
+  const blockers = autoMergeResult?.success === false ? autoMergeResult.mergeBlockers || [] : [];
+  if (!shouldAttachLogs || !prNumber || blockers.length === 0) return false;
+  return attachUpdatedLog({ ...params, prNumber, reason: `the auto-merge was held back (${blockers.map(blocker => blocker.reason).join(', ')})` });
+};
+
+const attachUpdatedLog = async ({ reason, prNumber, owner, repo, $, log, sanitizeLogContent, getLogFile, attachLogToGitHub, argv, sessionId = null, tempDir = null, anthropicTotalCostUSD = null, resultModelUsage = null }) => {
   await log('');
-  await log(`📎 Uploading the working session log again: ${restartIterationsRan} post-solve restart loop(s) ran after the first upload...`);
+  await log(`📎 Uploading the working session log again: ${reason}...`);
   try {
     const logUploadSuccess = await attachLogToGitHub({
       logFile: getLogFile(),

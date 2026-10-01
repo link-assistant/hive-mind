@@ -102,8 +102,12 @@ const addContainerReleasePins = (records, source, file) => {
   for (const match of source.matchAll(/FROM\s+ghcr\.io\/link-foundation\/box(?:-dind)?:v?(\d+\.\d+\.\d+)/g)) {
     records.push({ kind: 'github', name: 'link-foundation/box', current: match[1], policy: 'exact', location: `${file}:${lineNumberAt(source, match.index)}` });
   }
+  // The pin names a Docker Hub image, not a rust-lang/rust tag: a toolchain
+  // release is only adoptable once the official image publishes it, which can
+  // lag the GitHub tag by hours (issue #2395: 1.99.0 was tagged before
+  // `rust:1.99-*` existed, so the gate demanded a FROM line that cannot pull).
   for (const match of source.matchAll(/FROM\s+rust:(\d+\.\d+)(?:[.-][^\s]+)?/g)) {
-    records.push({ kind: 'github', name: 'rust-lang/rust', current: match[1], policy: 'minor', location: `${file}:${lineNumberAt(source, match.index)}` });
+    records.push({ kind: 'docker', name: 'library/rust', current: match[1], policy: 'minor', location: `${file}:${lineNumberAt(source, match.index)}` });
   }
   for (const match of source.matchAll(/ARG\s+FORMAL_AI_VERSION=(\d+\.\d+\.\d+)/g)) {
     records.push({ kind: 'github', name: 'link-assistant/formal-ai', current: match[1], policy: 'exact', location: `${file}:${lineNumberAt(source, match.index)}` });
@@ -200,8 +204,20 @@ export const resolveGitHubLatest = async (repository, record = {}, options = {})
   return semanticTags[0].tag;
 };
 
+/** Newest stable `X.Y.Z` tag of a Docker Hub repository such as `library/rust`. */
+export const resolveDockerHubLatest = async (repository, _record = {}, options = {}) => {
+  const page = await fetchJson(`https://hub.docker.com/v2/repositories/${repository}/tags?page_size=100&ordering=last_updated`, options);
+  const semanticTags = (page?.results ?? [])
+    .map(tag => ({ tag: tag?.name, parsed: /^\d+\.\d+\.\d+$/.test(tag?.name ?? '') ? parseVersion(tag.name) : null }))
+    .filter(candidate => candidate.parsed)
+    .sort((left, right) => compareParsedVersions(right.parsed, left.parsed));
+  if (semanticTags.length === 0) throw new Error(`Docker Hub returned no semantic tags for ${repository}`);
+  return semanticTags[0].tag;
+};
+
 /** Resolve and classify records. Registry failures are errors, never passes. */
-export const checkDependencyRecords = async (records, { resolveNpmLatest: npmResolver = resolveNpmLatest, resolveGitHubLatest: githubResolver = resolveGitHubLatest } = {}) => {
+export const checkDependencyRecords = async (records, { resolveNpmLatest: npmResolver = resolveNpmLatest, resolveGitHubLatest: githubResolver = resolveGitHubLatest, resolveDockerHubLatest: dockerResolver = resolveDockerHubLatest } = {}) => {
+  const resolvers = { npm: npmResolver, github: githubResolver, docker: dockerResolver };
   const latestByDependency = new Map();
   const current = [];
   const stale = [];
@@ -213,7 +229,9 @@ export const checkDependencyRecords = async (records, { resolveNpmLatest: npmRes
       try {
         let latestPromise = latestByDependency.get(key);
         if (!latestPromise) {
-          latestPromise = record.kind === 'npm' ? npmResolver(record.name, record) : githubResolver(record.name, record);
+          const resolver = Object.hasOwn(resolvers, record.kind) ? resolvers[record.kind] : null;
+          if (!resolver) throw new Error(`unknown dependency kind ${record.kind}`);
+          latestPromise = resolver(record.name, record);
           latestByDependency.set(key, latestPromise);
         }
         const latest = await latestPromise;

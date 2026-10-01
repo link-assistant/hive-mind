@@ -547,13 +547,24 @@ const maskKnownTokenValues = (text, values) => {
 };
 
 /**
+ * Shortest known-local token value that is masked, and therefore verified.
+ *
+ * Issue #2397: the maskers skipped shorter values while the publication
+ * verifier ({@link containsKnownToken}) did not, so a short non-secret value
+ * such as `TELEGRAM_OWNER_CHAT_ID=123456789` blocked every log mentioning it.
+ */
+export const MIN_KNOWN_TOKEN_LENGTH = 12;
+
+const isMaskableTokenValue = value => typeof value === 'string' && value.length >= MIN_KNOWN_TOKEN_LENGTH;
+
+/**
  * Narrow a raw token list to the values worth searching for.
  *
  * @param {Array<string|{value: string}>} tokens
  * @param {Set<string>} [excludedSet] issue #1745 user-content carve-out
  * @returns {Array<string>}
  */
-const usableTokenValues = (tokens, excludedSet) => [...new Set((tokens || []).map(t => (typeof t === 'string' ? t : t?.value)).filter(value => typeof value === 'string' && value.length >= 12))].filter(value => !excludedSet?.has(value));
+const usableTokenValues = (tokens, excludedSet) => [...new Set((tokens || []).map(t => (typeof t === 'string' ? t : t?.value)).filter(isMaskableTokenValue))].filter(value => !excludedSet?.has(value));
 
 /**
  * Mask encoded occurrences of known-local tokens.
@@ -680,11 +691,14 @@ export const sanitizeOutput = async (output, options = {}) => {
       // Step 1: Get known tokens from files and commands
       const fileTokens = await getGitHubTokensFromFiles();
       const commandTokens = await getGitHubTokensFromCommand();
-      const allKnownTokens = [...new Set([...fileTokens, ...commandTokens])];
+      // Issue #2397: also the env tokens, which sanitizeForPublication verifies;
+      // a GITHUB_PAT that matched no vendor pattern blocked the log instead.
+      const envTokens = getEnvironmentTokens().map(({ value }) => value);
+      const allKnownTokens = [...new Set([...fileTokens, ...commandTokens, ...envTokens])];
 
       // Mask known tokens first
       for (const token of allKnownTokens) {
-        if (token && token.length >= 12) {
+        if (isMaskableTokenValue(token)) {
           if (isExcluded(token)) {
             sanitizationStats.excluded++;
             continue;
@@ -1151,7 +1165,8 @@ export const containsKnownToken = async (text, tokens) => {
   const list = tokens || (await getAllKnownLocalTokens());
   const hits = [];
   for (const t of list) {
-    if (!t.value) continue;
+    // Issue #2397: verify only what the maskers mask, or a short value blocks forever.
+    if (!isMaskableTokenValue(t.value)) continue;
     if (text.includes(t.value)) {
       hits.push({ name: t.name, source: t.source, encoding: 'plaintext' });
       continue;
@@ -1189,7 +1204,7 @@ export const sanitizeCommentBody = async (body, options = {}) => {
   if (!options.skipActiveTokensOutputSanitization) {
     const knownTokens = options.knownTokens || (await getAllKnownLocalTokens());
     for (const { value } of knownTokens) {
-      if (value && value.length >= 12 && sanitized.includes(value)) {
+      if (isMaskableTokenValue(value) && sanitized.includes(value)) {
         if (excludedSet.has(value)) {
           sanitizationStats.excluded++;
           continue;

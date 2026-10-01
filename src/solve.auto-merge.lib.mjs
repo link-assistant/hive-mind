@@ -1034,6 +1034,42 @@ export const watchUntilMergeable = async params => {
               continue;
             }
           }
+          // Issue #2395: a session the repeated-tool-call breaker ended is not a tool
+          // failure. classifySessionResult already posted "🔁 Session stopped" saying
+          // the next session continues with feedback; stopping here as `tool_failure`
+          // contradicted that comment (agent#323). Attach this session's log and go on.
+          if (!toolResult.success && toolResult.restartWithFeedback) {
+            await log(formatAligned('🔁', 'Session stopped:', `${toolResult.stopReason || 'restart with feedback'} — the next iteration continues with feedback`, 2));
+            if (prNumber && (argv.attachLogs || argv['attach-logs'])) {
+              try {
+                const logFile = getLogFile();
+                if (logFile) {
+                  await attachLogToGitHub({
+                    logFile,
+                    targetType: 'pr',
+                    targetNumber: prNumber,
+                    owner,
+                    repo,
+                    $,
+                    log,
+                    sanitizeLogContent,
+                    verbose: argv.verbose,
+                    customTitle: `🔁 Auto-restart ${formatAutoRestartLabel(restartCount)} Log (session stopped: ${toolResult.stopReason || 'restart with feedback'})`,
+                    errorMessage: formatToolExecutionFailure({ tool: argv.tool, toolResult }),
+                    sessionId: toolResult.sessionId || latestSessionId,
+                    tempDir,
+                    requestedModel: argv.originalModel || argv.model,
+                    tool: argv.tool || 'claude',
+                  });
+                }
+              } catch (logUploadError) {
+                reportError(logUploadError, { context: 'attach_restart_with_feedback_log', prNumber, owner, repo, operation: 'upload_session_log' });
+                await log(formatAligned('', `⚠️  Session log upload error: ${cleanErrorMessage(logUploadError)}`, '', 2));
+              }
+            }
+            lastCheckTime = new Date();
+            continue;
+          }
           // Any other failure (not usage limit): stop the auto-restart loop
           // Per reviewer feedback: non-limit failures should fail and stop attempts
           if (!toolResult.success) {

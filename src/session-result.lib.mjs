@@ -23,7 +23,7 @@ import { postTrackedComment } from './tool-comments.lib.mjs';
 /** A restart loop runs another session after this one. */
 export const willRestartAfterSession = argv => !!(argv?.autoRestartUntilMergeable || argv?.watch);
 
-export const buildRepeatedToolCallComment = ({ verdict, restarting }) => ['## 🔁 Session stopped: repeated tool call', '', verdict.reason, '', restarting ? `The session was ended by the repeated-tool-call breaker (\`${REPEATED_TOOL_CALL_REASON}\`). The next session is told about this call and asked not to repeat it.` : `The session was ended by the repeated-tool-call breaker (\`${REPEATED_TOOL_CALL_REASON}\`).`, '', '_Limit: `HIVE_MIND_REPEATED_TOOL_CALL_LIMIT` identical failing calls, or twice that many identical successful calls in a row (0 disables the breaker)._'].join('\n');
+export const buildRepeatedToolCallComment = ({ verdict, restarting }) => ['## 🔁 Session stopped: repeated tool call', '', verdict.reason, '', restarting ? `The session was ended by the repeated-tool-call breaker (\`${REPEATED_TOOL_CALL_REASON}\`). The next session is told about this call and asked not to repeat it.` : `The session was ended by the repeated-tool-call breaker (\`${REPEATED_TOOL_CALL_REASON}\`).`, '', '_The breaker is opt-in (`--detect-repeated-tool-calls` or `HIVE_MIND_DETECT_REPEATED_TOOL_CALLS=true`). Limit: `--repeated-tool-call-limit` / `HIVE_MIND_REPEATED_TOOL_CALL_LIMIT` (default 10) identical failing calls with identical output, or twice that many identical successful calls in a row; CI polling and wait commands are never counted._'].join('\n');
 
 /**
  * @param {Object} params

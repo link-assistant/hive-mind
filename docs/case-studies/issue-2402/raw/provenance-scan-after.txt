@@ -1,0 +1,55 @@
+src/agent-config-audit.lib.mjs:386: await log(`⚠️  Global agent configuration is not minimal (issue #2190): ${findings.length} finding${findings.length === 1 ? '' : 's'}`, { level: 'warn' });
+src/ai-tool-scratch.lib.mjs:46: const EXCLUDE_HEADER = '# hive-mind: AI tool scratch directories (issue #2119)';
+src/claude.lib.mjs:460: await log(`\n⚠️ No output from Claude CLI after ${timeouts.streamStartupMs / 1000}s — force-killing (Issue #1472/#1475)`, { level: 'warning' });
+src/claude.lib.mjs:474: await log(`\n⚠️ No stream output for ${timeouts.streamActivityMs / 1000}s after previous activity (idle: ${idleSeconds}) — force-killing (Issue #1472)`, { level: 'warning' });
+src/claude.lib.mjs:587: await log('   Stopping the session — repeating it cannot make progress (issue #2247).', { level: 'error' });
+src/claude.lib.mjs:815: if (ceilingSeconds !== null) await log(`⚠️ Claude Code print mode reached its ${ceilingSeconds}s background-task wait ceiling and is stopping background tasks (issue #2301)`, { level: 'warning' });
+src/claude.lib.mjs:915: await log('⚠️ Interactive mode: No events received from Claude CLI — zero comments posted (Issue #1472)', { level: 'warning' });
+src/claude.lib.mjs:979: await log(`\n🔄 Resuming Claude session ${argv.resume} (${incompleteTurnRecoveryAttempts}/${claudeCode.incompleteTurnMaxResumes}): ${turnCompletion.cause} (${turnCompletion.cancelledTasks} task(s), is
+src/claude.lib.mjs:1056: await log(`   This error is not recoverable. Failing fast to avoid a stuck retry loop (Issue #1437).`, { level: 'error' });
+src/claude.lib.mjs:1085: const errorLabel = isStartupTimeout ? 'Stream startup timeout (Issue #1472/#1475)' : isActivityTimeout ? 'Stream activity timeout (Issue #1472)' : isRequestTimeout ? 'Request timeout' : retryableLastE
+src/claude.thinking-block-recovery.lib.mjs:62: await log(`\n⚠️ ${classified.label} (${source}). Resume attempt ${resumeCount}/${retryLimits.maxThinkingBlockResumes} — repairing the corrupted transcript then resuming the existing session before dis
+src/claude.thinking-block-recovery.lib.mjs:83: await log(`\n⚠️ ${classified.label} (${source}). Resume not possible — restart ${restartCount}/${retryLimits.maxThinkingBlockRestarts} with a fresh session (Issue #1834)...`, { level: 'warning' });
+src/claude.thinking-block-recovery.lib.mjs:91: await log(`\n\n❌ Corrupted thinking blocks persisted after ${resumeCount} resume + ${restartCount} fresh-session attempt(s) (Issue #1834).\n   This is an upstream Claude Code bug (anthropics/claude-co
+src/codex-health.lib.mjs:86: reason: 'Codex turn completed successfully with no turn.failed; stray non-turn error event is non-fatal (Issue #1955)',
+src/codex-health.lib.mjs:292: reasons.push(`Echo diagnostics (issues #2136/#2140): ${echoParts.join('; ')}.`);
+src/development-log.lib.mjs:360: await log?.(`🧹 Discarded unpublished development log artifacts in ${sessionRelativeDirectory} so they cannot be mistaken for the AI's uncommitted work (issue #2135)`);
+src/exit-handler.lib.mjs:200: const errorMsg = `❌ ERROR: Surviving ChildProcess detected at exit (${detail}). This indicates a leaked process that was not properly terminated. Investigate the root cause — do NOT suppress this erro
+src/formal-ai-attribution.lib.mjs:976: const header = '# hive-mind: Formal AI evidence bundle, committed explicitly (issue #2229)';
+src/formal-ai-image.lib.mjs:252: lines.push('Formal AI tasks fail closed by design (issue #2146): Hive Mind will not silently run them on another model.');
+src/formal-ai-isolation.lib.mjs:36: const message = `Formal AI sidecar could not be started, so the task was not launched (issue #2146): ${error?.message || error}`;
+src/formal-ai-version.lib.mjs:170: throw new Error(`${where} requires Hive Mind >= ${required}, but this task is running ${version}. Update the Hive Mind image before retrying; the running task image is stale (issue #2247).`);
+src/git-push-guard.lib.mjs:129: echo "Destructive pushes are blocked for routed tasks (--use-router, issue #2164)." >&2
+src/github-issue-auto-close.lib.mjs:220: const comment = await sanitizeForPublication([`Closed by #${prNumber}, which targeted the non-default branch \`${baseBranch}\` (repository default: \`${defaultBranch}\`).`, '', 'GitHub only auto-close
+src/github-merge-issue-close.lib.mjs:80: const comment = await sanitizeForPublication(`Closed by #${prNumber}, which targeted the non-default branch \`${baseBranch}\` (repository default: \`${defaultBranch}\`).\n\nGitHub only auto-closes lin
+src/handoff-skill.lib.mjs:131: const header = '# hive-mind --use-handoff: experimental HANDOFF.md Agent Skill (issue #1877)';
+src/isolation-runner.lib.mjs:587: return failLaunch(`Formal AI task container could not be attached to the internal Formal AI network, so the task was stopped instead of falling back to another model (issue #2146): ${formalAiAttachErr
+src/isolation-runner.lib.mjs:592: return failLaunch(`The task container could not be joined to the router (internal network, CA trust or api.github.com interception), so it was stopped rather than run without a route to any model (iss
+src/isolation-runner.lib.mjs:1158: result.warnings.push(`The Docker daemon backing '--isolation docker' is using the 'vfs' storage driver, which performs NO copy-on-write: ` + `it stores a full copy of every image layer, so the multi-G
+src/isolation-runner.lib.mjs:1176: result.warnings.push(`Only ~${diskAvailableGiB.toFixed(0)} GiB free on ${root} and the isolation image '${image}' is not present yet. ` + `The Hive Mind isolation image is well over 30 GB extracted, s
+src/isolation-runner.lib.mjs:1180: info(`✅ Docker isolation image '${image}' is already present locally — isolated tasks reuse it (no multi-GB pull). See issue #1914.`);
+src/isolation-runner.lib.mjs:1234: info('✅ Host git identity present — docker-isolated tasks inherit it via the mounted ~/.gitconfig (issue #1939).');
+src/isolation-runner.lib.mjs:1254: info('✅ Host git identity was missing; derived it from the authenticated gh account via gh-setup-git-identity so docker-isolated tasks can mount it (issue #1939).');
+src/isolation-runner.lib.mjs:1257: result.warnings.push(`No host git identity (~/.gitconfig) to mount into docker-isolated containers, so isolated 'solve' tasks will fail with "Git identity not configured" even though gh is authenticat
+src/model-catalogue-sources.lib.mjs:80: throw new Error(`Refusing to fetch a model catalogue from a billable endpoint (source "${sourceId}"): ${url}. Model extraction must never spend tokens (issue #2202, R7).`);
+src/model-catalogue-sources.lib.mjs:87: if (!source || typeof source !== 'object') throw new Error('Model catalogue source must be an object (issue #2202, R7).');
+src/model-catalogue-sources.lib.mjs:89: throw new Error(`Model catalogue source "${source.id ?? 'unnamed'}" must declare billable: false. Sources that can spend tokens are excluded from this codebase (issue #2202, R7).`);
+src/playwright-skill.lib.mjs:44: const GIT_EXCLUDE_HEADER = '# hive-mind --playwright-skill: Playwright CLI Agent Skill (issue #2190)';
+src/queue-config.lib.mjs:205: warnExplicitEnv(START_INTERVAL_ENV, 'recommendation', `[queue-config] ${START_INTERVAL_ENV}=${interval} is below the recommended ${DEFAULT_MINIMUM_START_INTERVAL_MS} ms; short intervals can start a ba
+src/router-auth-guard.lib.mjs:233: return `Security violation (issue #2190): ${first.reason} — ${first.path}${extra}. A task run with --use-router may authenticate only with its router token; the session was stopped.`;
+src/router-session-drain.lib.mjs:117: fsImpl.writeFileSync(path.join(staging, 'manifest.json'), `${JSON.stringify({ sessionId, drainedAt: now().toISOString(), paths: drained, source: 'hive-mind router session drain (issue #2164)' }, null,
+src/router-sidecar.lib.mjs:396: if (log) await log('⚠️ Using an external router: the token is shared by every task, so per-task attribution (issue #2164, R6) does not apply');
+src/router-sidecar.lib.mjs:425: if (log) await log(`🔀 Router sidecar was created on '${primaryNetwork}' and listens beyond the internal network; restarting it bound to '${ROUTER_SIDECAR_NETWORK_NAME}' only (issue #2190)`);
+src/router-sidecar.lib.mjs:429: await log(`⚠️ Router sidecar was created on '${primaryNetwork}' and is reachable from it; it will be restarted on the internal network once its ${state.leases.length} lease(s) end (issue #2190)`);
+src/router-task-isolation.lib.mjs:43: const message = `Router isolation was requested but the router is unavailable, so the task was not launched rather than being given direct access to the subscription (issue #2164): ${acquired?.error |
+src/router-task-isolation.lib.mjs:50: await log(`🔀 [EXPERIMENTAL] Task '${sessionId}' routed through the router; vendor credentials stay in the sidecar (issue #2164)`);
+src/router-task-isolation.lib.mjs:82: if (!attached?.attached) return `Router isolation was requested for a Formal AI task, but the router could not join the '${FORMAL_AI_SIDECAR_NETWORK_NAME}' network, so it could not reach Formal AI (is
+src/router-task-isolation.lib.mjs:85: if (!registered?.registered) return `Router isolation was requested for a Formal AI task, but the router refused to store it as a provider (issue #2164): ${registered?.error || 'unknown error'}`;
+src/router-task-isolation.lib.mjs:86: if (log) await log(`🧮 [EXPERIMENTAL] Formal AI is registered on the router as '${ROUTER_FORMAL_AI_PROVIDER_NAME}', so '--model formal-ai' is mediated and logged like every other model (issue #2164)`)
+src/solve.auto-pr-compare-readiness.lib.mjs:227: await log('  ➡️  Proceeding to PR creation despite the compare API error (issue #1829).');
+src/solve.auto-pr-fork-diagnostic.lib.mjs:39: await log('  🔬 Fork-aware diagnostic (Issue #1774):');
+src/solve.mjs:691: await safeExit(EXIT_CODE_ROUTER_AUTH_VIOLATION, 'Router auth guard: the task tried to use a credential other than its router token (issue #2190)');
+src/solve.mode.lib.mjs:73: await log('   Working directly on the private upstream repository (Issue #1716).');
+src/solve.mode.lib.mjs:147: await log('   Working directly on the private upstream repository (Issue #1716).');
+src/solve.repository.lib.mjs:509: const detail = !forkValidation.isFork ? `Repository ${existingForkName} is NOT a GitHub fork (see issue #1518)` : `Fork ${existingForkName} was created from ${forkValidation.parent} instead of ${owner
+src/telegram-bot.mjs:1017: console.warn(`[WARNING] Command /${extracted.command} matched by text fallback, not by entity-based bot.command(). ` + `Entities: ${JSON.stringify(ctx.message.entities || [])}. ` + `User: ${ctx.from?.

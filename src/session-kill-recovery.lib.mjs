@@ -120,7 +120,7 @@ export function buildKillRecoveryNotice({ diagnosis = null, exitCode = null, ses
     lines.push('To continue manually:', '', '```bash', resumeCommand, '```', '');
   }
 
-  lines.push(`<sub>Reported by Hive Mind — [issue #2134](https://github.com/link-assistant/hive-mind/issues/2134)</sub>`);
+  lines.push(`<sub>Reported by Hive Mind</sub>`);
   return lines.join('\n');
 }
 

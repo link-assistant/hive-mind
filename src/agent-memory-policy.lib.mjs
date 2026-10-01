@@ -202,7 +202,7 @@ export const ensureGeminiFamilyMemoryDisabled = async ({ tool, settingsPath, hom
     settingsPath,
     homeDir,
     log,
-    describe: '\u{1F9E0} Cross-task memory policy (issue #2178)',
+    describe: '\u{1F9E0} Cross-task memory policy',
     fsImpl,
   });
 

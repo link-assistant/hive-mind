@@ -253,8 +253,8 @@ changeset-check:
 - **OIDC 受信发布** - CI 中无需 API token（npm、PyPI、crates.io）
 - **仅验证通过的发布** - 所有检查必须在发布前通过
 - **双触发模式** - 自动（合并时）和手动（工作流调度）
-- **被规则拒绝不等于发布失败** - 当仓库规则集要求变更必须经由拉取请求时，发布任务应为其版本升级开一个 PR，而不是死在这次拒绝上。该路径与竞争失败时的 rebase 重试路径，是对两种打印同一个词的拒绝的两种不同恢复方式（参见原则 10）
-- **无需长期令牌也要保持发布回退可审计** - 由 `GITHUB_TOKEN` 打开的拉取请求未经人工批准无法运行子工作流，而 `workflow_dispatch` 检查不能满足拉取请求的必需检查。让发布任务依赖所有发布前验证任务；若生成的提交修改了发布元数据以外的内容则立即失败，从而保证其源代码树就是已验证的父源代码树。仅向该任务授予 `checks: write`，并使用 GitHub Actions App 令牌在精确的版本提交上发布成功验证结果。合并前等待该必需检查。Ruleset 保持不变，机器人仍不能直接推送，普通 PR 仍运行完整矩阵。
+- **将版本升级直接提交到默认分支** - 发布任务以 `github-actions[bot]` 身份把生成的版本提交（包元数据、锁文件、changelog、已消费的 changesets）直接推送到 `main`；若该提交修改了发布元数据以外的任何内容则立即失败。不要让它经由自动合并的发布拉取请求：那样每次发布都会多出一个拉取请求和一个分支（禁止删除的规则集会永久保留它），而失败的运行会留下一个需要有人关闭的未关闭发布拉取请求
+- **被规则拒绝的推送应修改规则，而不是修改工作流** - 当仓库规则拒绝版本推送时，让发布带着规则的输出失败，并修复规则（删除它，或将 `github-actions` 添加为绕过者）。竞争失败时的 rebase 重试路径，是针对打印同一个词的另一种拒绝的不同恢复方式（参见原则 10）
 
 **禁止在 PR 中手动更改版本** — 所有版本升级应由 CI 发布工作流管理：
 
@@ -310,14 +310,14 @@ jobs:
 
 **不要用 checkout 的 `ref: main` 来“修复”它。** 那样只是让拒绝消声，转而去构建、测试并发布一棵 CI 从未验证过的代码树，而日志里对此只字不提。拒绝才是诚实的结果；缺少的是恢复手段。
 
-**为每个写入任务提供一个先分类拒绝、再 rebase 重试的推送。** 仓库规则集的拒绝（GH006、GH013——“Changes must be made through a pull request”）同样会打印 `[rejected]`，而再多次 rebase 也无法满足规则；它需要的是拉取请求路径（参见原则 9）。重试只会浪费队列名额，并报告错误的原因。
+**为每个写入任务提供一个先分类拒绝、再 rebase 重试的推送。** 仓库规则集的拒绝（GH006、GH013——“Changes must be made through a pull request”）同样会打印 `[rejected]`，而再多次 rebase 也无法满足规则；应改为带着规则的输出失败，以便修复规则（参见原则 9）。重试只会浪费队列名额，并报告错误的原因。
 
 ```js
 for (let attempt = 1; attempt <= maxAttempts; attempt++) {
   const result = await run('git', ['push', remote, branch]);
   if (result.code === 0) return { pushed: true, attempt };
-  // 规则无法通过 rebase 满足：让同一个提交经由 PR 落地。
-  if (isBlockedByRepositoryRule(result)) return landViaPullRequest({ branch, ...ctx });
+  // 规则无法通过 rebase 满足：带着规则的输出失败。
+  if (isBlockedByRepositoryRule(result)) throw repositoryRuleError({ branch, version, cause: result });
   // 认证、网络、缺失的 remote：rebase 会掩盖真正的错误。
   if (!isNonFastForward(result) || attempt === maxAttempts) throw new CommandFailedError('git', ['push', remote, branch], result);
   await run('git', ['pull', '--rebase', remote, branch]);

@@ -398,9 +398,9 @@ export const validateAgentConnection = async (model = defaultModels.agent, optio
 
       if (!agentVersion || !semver.gte(agentVersion, MIN_AGENT_SNAPSHOT_HYGIENE_VERSION)) {
         await log(`❌ Hive Mind requires @link-assistant/agent >= ${MIN_AGENT_SNAPSHOT_HYGIENE_VERSION}`, { level: 'error' });
-        await log('   Older releases write a full, standalone copy of the repository into', { level: 'error' });
+        await log(`   Versions below ${MIN_AGENT_SNAPSHOT_HYGIENE_VERSION} write a full, standalone copy of the repository into`, { level: 'error' });
         await log('   ~/.local/share/link-assistant-agent/snapshot/ per project and never reclaim it', { level: 'error' });
-        await log('   (link-assistant/agent#298): issue #2186 lost 31 GB to 115 orphaned stores in one task.', { level: 'error' });
+        await log('   (link-assistant/agent#298), which can fill the disk within a single task.', { level: 'error' });
         if (agentVersion) {
           await log(`   Installed Agent CLI version: ${agentVersion}`, { level: 'error' });
         } else {
@@ -427,8 +427,8 @@ export const validateAgentConnection = async (model = defaultModels.agent, optio
 
       if (isFormalAiModel(model) && !(agentVersion && semver.gte(agentVersion, MIN_AGENT_FORMAL_AI_VERSION))) {
         await log(`❌ Formal AI tasks require @link-assistant/agent >= ${MIN_AGENT_FORMAL_AI_VERSION}`, { level: 'error' });
-        await log('   Older releases answer with their default model when they cannot parse the requested one', { level: 'error' });
-        await log('   (link-assistant/agent#293), and issue #2146 forbids any model other than Formal AI.', { level: 'error' });
+        await log(`   Versions below ${MIN_AGENT_FORMAL_AI_VERSION} answer with their default model when they cannot parse the requested one`, { level: 'error' });
+        await log('   (link-assistant/agent#293), and a Formal AI task must never run any other model.', { level: 'error' });
         if (agentVersion) {
           await log(`   Installed Agent CLI version: ${agentVersion}`, { level: 'error' });
         } else {

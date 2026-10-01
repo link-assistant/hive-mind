@@ -55,9 +55,6 @@ Examples:
   hive-models --tool codex         # just codex
   hive-models --tool claude --details --refresh
   hive-models --json | jq '.tools.claude.liveOnly'
-
-Reference:
-  https://github.com/link-assistant/hive-mind/issues/2202
 `;
 
 const VALUE_FLAGS = new Set(['--tool', '-t']);

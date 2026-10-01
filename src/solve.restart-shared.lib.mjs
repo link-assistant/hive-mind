@@ -516,7 +516,7 @@ export const executeToolIteration = async params => {
       });
     }
 
-    toolResult = await classifySessionResult({ toolResult, argv, owner, repo, prNumber, $, log });
+    toolResult = await classifySessionResult({ toolResult, argv, owner, repo, prNumber, $, log, tempDir });
 
     await ensurePullRequestBaseBranch({ owner, repo, prNumber, argv, log, formatAligned, $ });
     await recordResourceSnapshot({

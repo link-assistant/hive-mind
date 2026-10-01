@@ -19,6 +19,7 @@
 
 import { REPEATED_TOOL_CALL_REASON, takeRepeatedToolCallVerdict } from './tool-call-loop-guard.lib.mjs';
 import { postTrackedComment } from './tool-comments.lib.mjs';
+import { logProcessesSurvivingSession } from './session-survivors.lib.mjs';
 
 /** A restart loop runs another session after this one. */
 export const willRestartAfterSession = argv => !!(argv?.autoRestartUntilMergeable || argv?.watch);
@@ -34,9 +35,11 @@ export const buildRepeatedToolCallComment = ({ verdict, restarting }) => ['## ðŸ
  * @param {number} [params.prNumber]
  * @param {Function} [params.$] - command-stream, for posting the comment
  * @param {Function} [params.log]
+ * @param {string} [params.tempDir] - the work directory, checked for leftover processes with `--verbose` (#2395)
  * @returns {Promise<Object>} the classified tool result
  */
-export const classifySessionResult = async ({ toolResult, argv, owner, repo, prNumber, $, log = async () => {} }) => {
+export const classifySessionResult = async ({ toolResult, argv, owner, repo, prNumber, $, log = async () => {}, tempDir = null }) => {
+  await logProcessesSurvivingSession({ tempDir, argv, log });
   let result = toolResult;
   const verdict = takeRepeatedToolCallVerdict();
   if (!verdict || !result) return result;

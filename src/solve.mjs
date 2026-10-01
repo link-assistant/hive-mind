@@ -682,7 +682,7 @@ try {
     });
     toolResult = claudeResult;
   }
-  toolResult = await classifySessionResult({ toolResult, argv, owner, repo, prNumber, $, log });
+  toolResult = await classifySessionResult({ toolResult, argv, owner, repo, prNumber, $, log, tempDir });
   // Issue #2190: the router auth guard killed the CLI (the task used a credential other than its router token).
   // Not a tool failure to retry — a security stop, with its own exit code so the supervisor can tell it apart.
   if (toolResult?.routerAuthViolation) {

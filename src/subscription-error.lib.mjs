@@ -125,6 +125,10 @@ const MESSAGE_RULES = [
   { kind: K.LOGIN_REQUIRED, tool: 'codex', needles: ['access token could not be refreshed'] },
   { kind: K.LOGIN_REQUIRED, tool: 'codex', needles: ['oauth refresh token was rejected'] },
   { kind: K.LOGIN_REQUIRED, tool: 'codex', needles: ["not signed in. please run 'codex login'"] },
+  // Issue #2397: HTTP 400 invalid_request_error from the Responses API when the
+  // ChatGPT plan behind `codex login` does not include the requested model — seen
+  // when a ChatGPT Pro subscription lapsed mid-run (openai/codex#17642, #49619).
+  { kind: K.PLAN_RESTRICTED, tool: 'codex', needles: ['model is not supported when using codex with a chatgpt account'] },
 
   // ---- Qwen Code ---------------------------------------------------------
   { kind: K.LOGIN_REQUIRED, tool: 'qwen', needles: ['qwen oauth credentials expired'] },
@@ -226,6 +230,8 @@ const buildGuidance = (kind, tool) => {
       break;
     case K.PLAN_RESTRICTED:
       steps.push('Pick a model/mode included in the current plan (see --model), or upgrade the plan.');
+      // Issue #2397: a lapsed paid plan shows up as "model not supported", not as billing.
+      if (accountUrl) steps.push(`Check that the subscription is still active and renew it if it has lapsed: ${accountUrl}`);
       steps.push(`After a plan change, re-login so the new entitlements are picked up: ${loginHint}`);
       break;
     case K.API_KEY_INVALID:

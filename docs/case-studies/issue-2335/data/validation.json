@@ -212,5 +212,96 @@
       "completedAt": "2026-09-30T13:08:05.826Z",
       "uncompressedSha256": "f9aafe43aaf44eb382d8d6d626e6c6f229674ea0c57f4829d6697f15043649b5"
     }
-  ]
+  ],
+  "postMerge": {
+    "collectedAt": "2026-10-01T20:19:50.228Z",
+    "sourceCommit": "2f6ea6308698c0b98fdd14723a99b68d6d2da300",
+    "mergedMain": "5ddb537ff9e110c70348ec7df3842a8ae5fe86cd",
+    "node": "v24.21.0",
+    "defaultSuiteFiles": 529,
+    "focusedCoverage": {
+      "modules": [
+        "issue-completion.lib.mjs",
+        "issue-requirements.lib.mjs",
+        "pr-issue-link-repair.lib.mjs",
+        "solve.issue-completion.lib.mjs"
+      ],
+      "lines": 100,
+      "branches": 100,
+      "functions": 100,
+      "note": "Measured for the focused completion modules, not whole-application coverage."
+    },
+    "logs": [
+      {
+        "command": "npm test -- --continue-on-failure",
+        "exitCode": 0,
+        "file": "local-post-merge-all-tests.log.gz",
+        "completedAt": "2026-10-01T20:19:32.669Z",
+        "uncompressedSha256": "661f29797f80805f07d9d9a9623721a9ddb77890f75d5139132e99351e5b136e"
+      },
+      {
+        "command": "NODE_V8_COVERAGE=/tmp/issue-2335-v8-post-merge node --test --experimental-test-coverage --test-coverage-include=src/issue-completion.lib.mjs --test-coverage-include=src/issue-requirements.lib.mjs --test-coverage-include=src/pr-issue-link-repair.lib.mjs --test-coverage-include=src/solve.issue-completion.lib.mjs tests/issue-completion-2335.test.mjs",
+        "exitCode": 0,
+        "file": "local-post-merge-coverage.log.gz",
+        "completedAt": "2026-10-01T20:07:14.954Z",
+        "uncompressedSha256": "d45276965bdf4d982d050d538958f068a4abdd42c5ca6a1b985054739724f1d4"
+      },
+      {
+        "command": "node --test tests/issue-linking-2335.test.mjs tests/pr-issue-link-before-merge-2395.test.mjs tests/no-changelog-in-ui-2402.test.mjs",
+        "exitCode": 0,
+        "file": "local-post-merge-linking.log.gz",
+        "completedAt": "2026-10-01T20:01:24.992Z",
+        "uncompressedSha256": "fd92263111096b6e1c9dae564f1c11991f34f1e5edee10a94c4be39a74afaaea"
+      },
+      {
+        "command": "npm run lint",
+        "exitCode": 0,
+        "file": "local-post-merge-lint.log.gz",
+        "completedAt": "2026-10-01T20:02:32.287Z",
+        "uncompressedSha256": "21311cfdb914cddbda5bd01c2822d43fa29e027d3d6028528f4892ed954e5619"
+      },
+      {
+        "command": "npm run format:check",
+        "exitCode": 0,
+        "file": "local-post-merge-format.log.gz",
+        "completedAt": "2026-10-01T20:05:07.434Z",
+        "uncompressedSha256": "bb081cbd6f8d754122f0d03a7853c9aa4e2736ef1058bd67645756019ed581d7"
+      },
+      {
+        "command": "npm run check:duplication",
+        "exitCode": 0,
+        "file": "local-post-merge-duplication.log.gz",
+        "completedAt": "2026-10-01T20:05:30.954Z",
+        "uncompressedSha256": "5645c2d0c3c094ebdf62c750746e157e439b0d96503511ce3b787822bfc8e5a7"
+      },
+      {
+        "command": "npm run check:secrets",
+        "exitCode": 0,
+        "file": "local-post-merge-secrets.log.gz",
+        "completedAt": "2026-10-01T20:05:38.300Z",
+        "uncompressedSha256": "9abe2a490cb47484291baa9c7bfc1904a46cbb4205eac60707956494b6e39409"
+      },
+      {
+        "command": "bash scripts/check-file-line-limits.sh",
+        "exitCode": 0,
+        "file": "local-post-merge-lines.log.gz",
+        "completedAt": "2026-10-01T20:05:23.005Z",
+        "uncompressedSha256": "13710604dcd5cadd3642d5711d81d631e9e01e50fc34d8441210c6d6e13d331b"
+      },
+      {
+        "command": "bash scripts/check-mjs-syntax.sh",
+        "exitCode": 0,
+        "file": "local-post-merge-syntax.log.gz",
+        "completedAt": "2026-10-01T20:06:43.193Z",
+        "uncompressedSha256": "7cf039042fd0e4c3a2a4071dd35a97d57d2700ddbeea96e7ef583a55e1dfbfbe"
+      },
+      {
+        "command": "BASE_SHA=origin/main HEAD_SHA=HEAD node scripts/validate-changeset.mjs",
+        "exitCode": 0,
+        "file": "local-post-merge-changeset.log.gz",
+        "completedAt": "2026-10-01T20:06:43.316Z",
+        "uncompressedSha256": "5035a3464a9243bb099a523c1dd6a35d612fa379dc05d8ef45d0f3452e41a600"
+      }
+    ]
+  }
 }

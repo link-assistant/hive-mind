@@ -892,8 +892,48 @@ export class CredentialSanitizationError extends Error {
     super(CREDENTIAL_SANITIZATION_FAILURE_MESSAGE, options);
     this.name = 'CredentialSanitizationError';
     this.code = CREDENTIAL_SANITIZATION_ERROR_CODE;
+    // Issue #2397: which check blocked publication. Only stage names and rule
+    // identifiers are kept here — never the matched text — so they are safe to
+    // print in logs and in the "Log Upload Failed" comment.
+    this.stage = options.stage || null;
+    this.findings = Array.isArray(options.findings) ? options.findings : [];
   }
 }
+
+/**
+ * Summarize residual findings as `[{ruleId, count}]` without any matched text.
+ * @param {Array<Object>} residuals
+ * @returns {Array<{ruleId: string, count: number}>}
+ */
+const summarizeResidualFindings = residuals => {
+  const counts = new Map();
+  for (const residual of Array.isArray(residuals) ? residuals : []) {
+    const ruleId = String(residual?.ruleId || 'unknown').slice(0, 120);
+    counts.set(ruleId, (counts.get(ruleId) || 0) + 1);
+  }
+  return [...counts].map(([ruleId, count]) => ({ ruleId, count }));
+};
+
+/**
+ * Issue #2397: "Credential sanitization failed; publication was blocked." was
+ * the whole upload failure reason on konard/vietnam-accomodation-search#76, and
+ * the error's cause was discarded, so nobody could tell which check had failed.
+ * Render the stage, rule identifiers and block position (all non-sensitive).
+ *
+ * @param {Error} error
+ * @returns {string}
+ */
+export const describeCredentialSanitizationFailure = error => {
+  const message = error?.message || String(error);
+  if (error?.code !== CREDENTIAL_SANITIZATION_ERROR_CODE) return message;
+  const details = [];
+  if (error.stage) details.push(`stage: ${error.stage}`);
+  if (Array.isArray(error.findings) && error.findings.length > 0) details.push(`findings: ${error.findings.map(f => `${f.ruleId}×${f.count}`).join(', ')}`);
+  if (Number.isFinite(error.blockIndex)) details.push(`log block ${error.blockIndex}${Number.isFinite(error.blockStartChar) ? ` starting at character ${error.blockStartChar}` : ''}${Number.isFinite(error.blockChars) ? `, ${error.blockChars} characters` : ''}`);
+  const causeMessage = error.cause?.message;
+  if (causeMessage && !details.length) details.push(causeMessage);
+  return details.length > 0 ? `${message} (${details.join('; ')})` : message;
+};
 
 /**
  * Exact publication-boundary sanitizer.
@@ -904,6 +944,9 @@ export class CredentialSanitizationError extends Error {
  * them. Any scanner failure or residual finding blocks publication.
  */
 export const sanitizeForPublication = async (input, options = {}) => {
+  // Issue #2397: remember which step failed so the error can say so.
+  let stage = 'primary';
+  let findings = [];
   try {
     const scanner =
       options.scanner ||
@@ -922,16 +965,22 @@ export const sanitizeForPublication = async (input, options = {}) => {
         return sanitized;
       });
     const sanitized = String(await scanner(String(input ?? '')));
+    stage = 'residual-scan';
     const residualScanner =
       options.residualScanner ||
       (async value => {
         const residuals = findCredentialResiduals(value);
+        stage = 'secretlint';
         const secretlintResiduals = await detectSecretsWithSecretlint(value, { required: true });
+        stage = 'known-token-scan';
         const knownTokenResiduals = await containsKnownToken(value);
-        return [...residuals, ...secretlintResiduals, ...knownTokenResiduals];
+        stage = 'residual-scan';
+        return [...residuals, ...secretlintResiduals, ...knownTokenResiduals.map(hit => ({ ...hit, ruleId: `known-token:${hit.name || 'unnamed'}${hit.encoding && hit.encoding !== 'plaintext' ? `:${hit.encoding}` : ''}` }))];
       });
     const residuals = await residualScanner(sanitized);
     if (!Array.isArray(residuals) || residuals.length > 0) {
+      stage = 'residual';
+      findings = summarizeResidualFindings(residuals);
       throw new Error('Residual credential material detected.');
     }
     return sanitized;
@@ -939,8 +988,10 @@ export const sanitizeForPublication = async (input, options = {}) => {
     reportError(new Error('Credential publication boundary blocked unsafe output.'), {
       context: 'credential_publication_boundary',
       level: 'warning',
+      stage,
+      findings: findings.map(f => f.ruleId).join(','),
     });
-    throw new CredentialSanitizationError({ cause });
+    throw new CredentialSanitizationError({ cause, stage, findings });
   }
 };
 

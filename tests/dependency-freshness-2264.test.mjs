@@ -14,7 +14,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { AGENTIC_CLI_TARGETS, parseBunGlobalPackageVersion, updateAgenticClisWhenIdle } from '../src/agentic-cli-updater.lib.mjs';
-import { assessVersionPin, checkDependencyRecords, collectDependencyRecords, parseGitHubActionPins, parseNpmPackagePins, resolveGitHubLatest } from '../scripts/dependency-freshness.lib.mjs';
+import { assessVersionPin, checkDependencyRecords, collectDependencyRecords, parseGitHubActionPins, parseNpmPackagePins, resolveDockerHubLatest, resolveGitHubLatest } from '../scripts/dependency-freshness.lib.mjs';
 
 const repositoryRoot = path.resolve(import.meta.dirname, '..');
 
@@ -40,6 +40,26 @@ assert.equal(
   'v7.2.1',
   'pre-release tags do not make stable dependency declarations stale'
 );
+
+// A `FROM rust:` pin is pulled from Docker Hub. rust-lang/rust tagged 1.99.0
+// before the official image existed, so following the Git tag demanded
+// `rust:1.99-slim-bookworm`, which failed with "not found" (issue #2397 CI).
+{
+  const requested = [];
+  const latest = await resolveDockerHubLatest(
+    'library/rust',
+    { tagSuffix: '-slim-bookworm' },
+    {
+      fetchImpl: async url => {
+        requested.push(url);
+        return { ok: true, json: async () => ({ results: [{ name: 'slim-bookworm' }, { name: '1.98-slim-bookworm' }, { name: '1.98.1-slim-bookworm' }, { name: '1.98.0-slim-bookworm' }, { name: '1.99.0-slim-trixie' }, { name: '1.97.1-slim-bookworm' }] }) };
+      },
+    }
+  );
+  assert.equal(latest, '1.98.1', 'only full versions of the same image variant count');
+  assert.match(requested[0], /^https:\/\/hub\.docker\.com\/v2\/repositories\/library\/rust\/tags\?/);
+  assert.equal(assessVersionPin({ current: '1.98', latest, policy: 'minor' }).current, true);
+}
 
 assert.deepEqual(
   parseGitHubActionPins('steps:\n  - uses: actions/checkout@v7\n  - uses: zizmorcore/zizmor-action@v0.6.2\n  - uses: ./local-action\n', 'fixture.yml').map(record => [record.name, record.current, record.policy]),
@@ -104,6 +124,7 @@ assert.equal(
   true,
   'container base releases are checked'
 );
+assert.deepEqual([...new Set(repositoryRecords.filter(record => record.name === 'library/rust').map(record => `${record.kind}:${record.tagSuffix}`))], ['docker:-slim-bookworm'], 'the Formal AI builder image is checked against published Docker Hub tags');
 assert.equal(
   repositoryRecords.some(record => record.kind === 'github' && record.name === 'link-assistant/formal-ai'),
   true,

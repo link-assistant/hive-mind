@@ -19,7 +19,7 @@
 import { createJsonStreamScanner } from './json-stream.lib.mjs';
 import { createRepeatedToolCallBreaker, publishRepeatedToolCallVerdict } from './repeated-tool-call-breaker.lib.mjs';
 
-export { publishRepeatedToolCallVerdict, resetRepeatedToolCallState, takeRepeatedToolCallFeedback, takeRepeatedToolCallVerdict } from './repeated-tool-call-breaker.lib.mjs';
+export { publishRepeatedToolCallVerdict, resetRepeatedToolCallState, resolveRepeatedToolCallLimit, takeRepeatedToolCallFeedback, takeRepeatedToolCallVerdict } from './repeated-tool-call-breaker.lib.mjs';
 
 export const REPEATED_TOOL_CALL_REASON = 'repeated_tool_call';
 
@@ -82,7 +82,7 @@ const geminiCalls = (record, pending) => {
  * @param {Object} params
  * @param {Function} [params.log] - async logger
  * @param {Function} [params.stopSession] - ends the running tool process
- * @param {number} [params.limit] - breaker limit (default: HIVE_MIND_REPEATED_TOOL_CALL_LIMIT or 3)
+ * @param {number} [params.limit] - breaker limit; 0 disables (default: off unless HIVE_MIND_DETECT_REPEATED_TOOL_CALLS, then HIVE_MIND_REPEATED_TOOL_CALL_LIMIT or 10). Adapters pass `resolveRepeatedToolCallLimit({ argv })` (issue #2395)
  * @param {Object} [params.breaker] - an existing breaker to feed (claude keeps its own for failure reports)
  */
 export const createToolCallLoopGuard = ({ log = async () => {}, stopSession = async () => false, limit, breaker = createRepeatedToolCallBreaker(limit === undefined ? {} : { limit }) } = {}) => {

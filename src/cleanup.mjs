@@ -139,7 +139,7 @@ System / Ubuntu cleanup (opt-in):
   --system                    Shorthand for --apt --journal --npm
   --sudo                      Prefix package-manager commands with sudo
 
-Agent state cleanup (issue #2186):
+Agent state cleanup:
   --no-agent-snapshots        Do not reclaim orphaned @link-assistant/agent
                               snapshot stores under
                               $XDG_DATA_HOME/link-assistant-agent/snapshot/

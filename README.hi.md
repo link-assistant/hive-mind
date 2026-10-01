@@ -1045,6 +1045,31 @@ s=$(screen -ls | awk '/Detached/ {print $1; exit}'); echo "Entering $s"; screen 
 s=$(screen -ls | awk '/Detached/ {last=$1} END{print last}'); echo "Entering $s"; screen -r "$s"; echo "Left $s";
 ```
 
+### स्क्रीन प्रबंधन के लिए स्क्रिप्ट
+
+`hive-screens` पूरे हो चुके solve sessions का प्रबंधन करता है। यह `@link-assistant/hive-mind` के साथ आता है, इसलिए पैकेज इंस्टॉल होने के बाद (globally, `npx` के माध्यम से, या किसी project में) यह `PATH` पर उपलब्ध रहता है।
+
+यह detached GNU screen sessions को स्कैन करता है, ऐसे solve runs खोजता है जो पूरे हो चुके हैं और जिनका PR merge किया जा सकता है (scrollback में `process completed` और `PR is mergeable!` या `PR merged!` दोनों हों), और फिर उन्हें सूचीबद्ध करता है, उनमें प्रवेश करता है या उन्हें बंद करता है। `--list`, `--enter` और `--close` **एक ही matching शर्त** का उपयोग करते हैं, इसलिए `--list` में दिखने वाला सेट ठीक वही है जिस पर `--close` काम करेगा — पहले `--list` से जाँचें, फिर `--close` के साथ दोबारा चलाएँ।
+
+```bash
+# सुरक्षित पूर्वावलोकन — सभी पूरे हो चुके, merge योग्य solve sessions दिखाएँ।
+hive-screens --list
+
+# सबसे पुराना पूरा हुआ session बंद करें।
+hive-screens --close
+
+# सबसे नए पूरे हुए session में प्रवेश करें।
+hive-screens --enter --newest
+
+# सभी पूरे हुए sessions बंद करें।
+hive-screens --close --all
+
+# स्कैन करते समय diagnostic output दिखाएँ (matching विफल होने पर उपयोगी)।
+hive-screens --list --verbose
+```
+
+`--list` का default `--all` है, इसलिए केवल `hive-screens --list` सभी matches दिखाता है। `--enter` और `--close` का default `--oldest` है क्योंकि वे स्थिति बदलते हैं। इसे बदलने के लिए `--oldest`, `--newest` या `--all` दें। पूरी option सूची के लिए `hive-screens --help` चलाएँ।
+
 ### सर्वर रिबूट करें।
 
 ```bash

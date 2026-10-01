@@ -117,12 +117,12 @@ export const STOP_REASONS = {
   },
   missing_closing_references: {
     title: 'the pull request does not close every required issue, so auto-merge was held back',
-    detail: 'Issue #2306: merging would close only some of the issues this pull request was asked to close. A missing closing reference never stops work on the pull request — it only blocks the automatic merge.',
+    detail: 'Merging would close only some of the issues this pull request was asked to close. A missing closing reference never stops work on the pull request — it only blocks the automatic merge.',
     nextSteps: ['Add the missing `Fixes #N` lines to the pull request description (one keyword per issue) and re-run the command so auto-merge can complete.', 'Or merge this pull request manually if leaving those issues open is intended.'],
   },
   no_progress_between_sessions: {
     title: 'two consecutive AI sessions produced identical results',
-    detail: 'Issue #2247: the AI session ended with the same final message, the same working tree and the same commit as the session before it. Restarting again would repeat the same session at the same cost, so the remaining restart budget was left unused.',
+    detail: 'The AI session ended with the same final message, the same working tree and the same commit as the session before it. Restarting again would repeat the same session at the same cost, so the remaining restart budget was left unused.',
     nextSteps: ['Read the two working session logs named below to see what the AI kept doing.', 'Fix the blocker it kept hitting (a missing toolchain, an unreachable service, an impossible instruction), then re-run the command.', 'Or re-run with different instructions so the next session has something new to work with.'],
   },
   watch_stopped: {
@@ -213,7 +213,7 @@ export const buildAutomationStopComment = ({ reason, mode = null, message = null
  */
 export const buildAutoMergeBlockedComment = ({ blockers = [], issueNumber = null }) => {
   const reasons = blockers.filter(Boolean);
-  const completionReasons = new Set(['missing_closing_references', 'incomplete_issue_requirements', 'unverified_issue_links', 'issue_completion_verification_failed']);
+  const completionReasons = new Set(['missing_closing_references', 'issue_link_unverified', 'incomplete_issue_requirements', 'unverified_issue_links', 'issue_completion_verification_failed']);
   const completionBlocked = reasons.some(blocker => completionReasons.has(blocker.reason));
   const sections = [`## ⚠️ ${AUTO_MERGE_BLOCKED_MARKER}: ${completionBlocked ? 'issue completion has not been verified' : 'this pull request is ready, but it was not merged automatically'}`, '', 'CI and GitHub mergeability checks passed. Issue completion is checked separately before merging.', '', 'Auto-merge (`--auto-merge`) was requested but is being held back:'];
 
@@ -228,11 +228,13 @@ export const buildAutoMergeBlockedComment = ({ blockers = [], issueNumber = null
   }
 
   // Issue #2306: the next steps depend on what holds the merge back.
+  // Issue #2395: an unverified issue link is fixed in the description too.
+  const descriptionReasons = ['missing_closing_references', 'issue_link_unverified'];
   const nextSteps = [];
   if (reasons.some(blocker => !completionReasons.has(blocker.reason))) {
     nextSteps.push(issueNumber ? `Reopen issue #${issueNumber} and re-run the command so auto-merge can complete.` : 'Reopen the linked issue and re-run the command so auto-merge can complete.');
   }
-  if (reasons.some(blocker => blocker.reason === 'missing_closing_references')) {
+  if (reasons.some(blocker => descriptionReasons.includes(blocker.reason))) {
     nextSteps.push('Add the missing closing references listed above to the pull request description and re-run the command so auto-merge can complete.');
   }
   if (completionBlocked) {

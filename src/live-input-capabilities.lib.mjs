@@ -55,7 +55,7 @@ export const LIVE_INPUT_EVENT_SOURCES = Object.freeze([
     id: 'pull-request-description',
     label: 'Pull request description updates',
     requiredByIssue2007: false,
-    note: 'Issue #2007 explicitly treats the PR description as AI-owned, so it is not a required user-feedback source.',
+    note: 'The PR description is AI-owned, so it is not a required user-feedback source.',
   }),
 ]);
 

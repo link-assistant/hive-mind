@@ -461,7 +461,7 @@ export const cleanupClaudeFile = async (tempDir, branchName, claudeCommitHash = 
         // File didn't exist before the session — this is a real leftover, force remove it
         await log(`   ⚠️  WARNING: ${fileName} still exists after cleanup — attempting direct removal...`);
         await $({ cwd: tempDir })`git rm -f ${fileName} 2>&1`;
-        const fallbackCommit = await $({ cwd: tempDir })`git commit -m "Remove leftover ${fileName} (post-cleanup fallback, Issue #1436)" 2>&1`;
+        const fallbackCommit = await $({ cwd: tempDir })`git commit -m "Remove leftover ${fileName} (post-cleanup fallback)" 2>&1`;
         if (fallbackCommit.code === 0) {
           const fallbackPush = await $({ cwd: tempDir })`git push origin ${branchName} 2>&1`;
           if (fallbackPush.code === 0) {

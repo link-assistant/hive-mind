@@ -255,8 +255,8 @@ Automated release workflows सुनिश्चित करते हैं:
 - **OIDC trusted publishing** - CI में कोई API tokens आवश्यक नहीं (npm, PyPI, crates.io)
 - **केवल validated releases** - Publishing से पहले सभी checks pass होने चाहिए
 - **Dual trigger modes** - Automatic (on merge) और manual (workflow dispatch) दोनों
-- **Rule से रुका हुआ push विफल release नहीं है** - जब repository ruleset यह माँगता है कि बदलाव pull request से आएँ, तब release job अस्वीकृति पर मरने के बजाय अपने version bump के लिए एक PR खोलता है। यह रास्ता और हारी हुई दौड़ का rebase-and-retry रास्ता, एक ही शब्द छापने वाली दो अस्वीकृतियों के दो अलग recovery हैं (देखें सिद्धांत 10)
-- **लंबे समय तक रहने वाले token के बिना release fallback को auditable रखें** - `GITHUB_TOKEN` से खोला गया pull request human approval के बिना child workflows नहीं चला सकता, और `workflow_dispatch` checks pull-request required check को पूरा नहीं करते। Release job को सभी pre-release validation jobs पर निर्भर बनाएँ, और generated commit केवल release metadata बदलता हो यह जाँचकर fail closed करें (जिससे उसका source tree validated parent source tree ही रहे)। केवल उस job को `checks: write` दें, और GitHub Actions App token से exact version commit पर सफल validation result publish करें। Merge से पहले उस required check की प्रतीक्षा करें। Ruleset अपरिवर्तित रहता है, bot सीधे push नहीं कर सकता और सामान्य PRs पूरा matrix चलाते हैं।
+- **Version bump को सीधे default branch पर commit करें** - Release job अपना generated version commit (package metadata, lockfile, changelog, consumed changesets) `github-actions[bot]` के रूप में सीधे `main` पर push करता है, और यदि वह commit release metadata के अलावा कुछ भी बदलता है तो fail closed करता है। इसे auto-merged release pull request के रास्ते न भेजें: तब हर release एक और pull request और एक और branch जोड़ता है (no-deletion ruleset उसे हमेशा के लिए रखता है), और विफल run एक खुला release pull request छोड़ जाता है जिसे किसी को बंद करना पड़ता है
+- **Rule से रुका हुआ push rule में ठीक होता है, workflow में नहीं** - जब कोई repository rule version push को अस्वीकार करे, तो release को rule के output के साथ विफल करें और rule को ठीक करें (उसे हटाएँ, या `github-actions` को bypass actor के रूप में जोड़ें)। हारी हुई दौड़ का rebase-and-retry रास्ता उसी शब्द को छापने वाली अस्वीकृति का एक अलग recovery है (देखें सिद्धांत 10)
 
 **PRs में manual version changes prohibit करें** — सभी version bumps CI release workflow द्वारा प्रबंधित होने चाहिए:
 
@@ -312,14 +312,14 @@ Job conditions में `always()` के बजाय `!cancelled()` उपय
 
 **इसे checkout में `ref: main` से मत "ठीक" करें।** इससे अस्वीकृति तो चुप हो जाती है, पर आप उस tree को build, test और publish करते हैं जिसे CI ने validate नहीं किया, और log में इसका कोई निशान नहीं होता। अस्वीकृति ईमानदार परिणाम है; जो कमी है वह recovery की है।
 
-**हर write job को ऐसा push दें जो पहले अस्वीकृति को वर्गीकृत करे, फिर rebase करके दोबारा कोशिश करे।** Repository ruleset की अस्वीकृति (GH006, GH013 — "Changes must be made through a pull request") भी `[rejected]` छापती है, और कितने भी rebase किसी rule को संतुष्ट नहीं कर सकते; वहाँ pull request वाला रास्ता चाहिए (देखें सिद्धांत 9)। दोबारा कोशिश करना केवल queue slot खर्च करता है और गलत कारण बताता है।
+**हर write job को ऐसा push दें जो पहले अस्वीकृति को वर्गीकृत करे, फिर rebase करके दोबारा कोशिश करे।** Repository ruleset की अस्वीकृति (GH006, GH013 — "Changes must be made through a pull request") भी `[rejected]` छापती है, और कितने भी rebase किसी rule को संतुष्ट नहीं कर सकते; इसके बजाय rule के output के साथ विफल हों, ताकि rule ठीक किया जाए (देखें सिद्धांत 9)। दोबारा कोशिश करना केवल queue slot खर्च करता है और गलत कारण बताता है।
 
 ```js
 for (let attempt = 1; attempt <= maxAttempts; attempt++) {
   const result = await run('git', ['push', remote, branch]);
   if (result.code === 0) return { pushed: true, attempt };
-  // Rule को rebase से संतुष्ट नहीं किया जा सकता: वही commit PR के रास्ते land करें।
-  if (isBlockedByRepositoryRule(result)) return landViaPullRequest({ branch, ...ctx });
+  // Rule को rebase से संतुष्ट नहीं किया जा सकता: rule के output के साथ विफल हों।
+  if (isBlockedByRepositoryRule(result)) throw repositoryRuleError({ branch, version, cause: result });
   // Auth, network, गायब remote: rebase असली error को छिपा देता।
   if (!isNonFastForward(result) || attempt === maxAttempts) throw new CommandFailedError('git', ['push', remote, branch], result);
   await run('git', ['pull', '--rebase', remote, branch]);

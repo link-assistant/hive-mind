@@ -62,7 +62,7 @@ const { setupRepositoryAndClone, verifyDefaultBranchAndStatus } = await import('
 const { recordAfterCloneSize, recordAfterAgentSize } = await import('./solve.disk-diagnostics.lib.mjs');
 const { createOrCheckoutBranch } = await import('./solve.branch.lib.mjs');
 const { startWorkSession, endWorkSession, SESSION_TYPES } = await import('./solve.session.lib.mjs');
-const { attachFinalLogIfMissing, attachLogAfterPostSolveRestarts } = await import('./attach-logs-guarantee.lib.mjs'); // Issue #1952, #2306
+const { attachFinalLogIfMissing, attachLogAfterPostSolveRestarts, attachLogAfterAutoMergeBlocked } = await import('./attach-logs-guarantee.lib.mjs'); // Issue #1952, #2306, #2395
 const { collectAndCommitDevelopmentLogArtifacts, fetchIssueType, isDevelopmentLogEnabled, isIssueTypeAwarePromptEnabled } = await import('./development-log.lib.mjs');
 const { createDevelopmentLogFinalizer } = await import('./development-log.finalize.lib.mjs');
 // Issue #1625: centralized markers + tracked comment posting for solve.mjs's own usage-limit notifications (so they're excluded from the "did the AI post anything?" check in --auto-attach-solution-summary).
@@ -682,7 +682,7 @@ try {
     });
     toolResult = claudeResult;
   }
-  toolResult = await classifySessionResult({ toolResult, argv, owner, repo, prNumber, $, log });
+  toolResult = await classifySessionResult({ toolResult, argv, owner, repo, prNumber, $, log, tempDir });
   // Issue #2190: the router auth guard killed the CLI (the task used a credential other than its router token).
   // Not a tool failure to retry — a security stop, with its own exit code so the supervisor can tell it apart.
   if (toolResult?.routerAuthViolation) {
@@ -1302,6 +1302,8 @@ try {
         }
       }
     }
+    // Issue #2395: a held-back merge is a failure too — publish the log that explains it.
+    logsAttached = (await attachLogAfterAutoMergeBlocked({ autoMergeResult, shouldAttachLogs, prNumber, owner, repo, $, log, sanitizeLogContent, getLogFile, attachLogToGitHub, argv, sessionId, tempDir, anthropicTotalCostUSD, resultModelUsage })) || logsAttached;
   }
   // Issue #1952: Final --attach-logs safety net + logsAttached reconciliation. See attach-logs-guarantee.lib.mjs.
   logsAttached = (await attachFinalLogIfMissing({ shouldAttachLogs, prNumber, owner, repo, $, log, sanitizeLogContent, getLogFile, attachLogToGitHub, argv, sessionId, tempDir, anthropicTotalCostUSD, resultModelUsage })) || logsAttached;

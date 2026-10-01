@@ -181,15 +181,14 @@ export function buildClosingKeywordBlock(issues, keyword = 'Fixes') {
  * @param {Array<object>} params.issues - selected sub-issues (oldest first)
  * @param {number} params.totalOpen
  * @param {number} [params.limit=MAX_SUB_ISSUES_PER_PARENT]
- * @param {string} [params.sourceIssueUrl] - issue that introduced repository mode
  * @returns {string}
  */
-export function buildCombinedIssueBody({ repository, issues, totalOpen, limit = MAX_SUB_ISSUES_PER_PARENT, attachmentCount = issues?.length || 0, sourceIssueUrl = 'https://github.com/link-assistant/hive-mind/issues/2212' }) {
+export function buildCombinedIssueBody({ repository, issues, totalOpen, limit = MAX_SUB_ISSUES_PER_PARENT, attachmentCount = issues?.length || 0 }) {
   const list = Array.isArray(issues) ? issues : [];
   const repositoryUrl = repository.url || `https://github.com/${repository.owner}/${repository.repo}`;
   const skipped = Math.max(0, Number(totalOpen || 0) - list.length);
 
-  const lines = [REPOSITORY_MODE_MARKER, '', '## Objective', '', `Address every open issue listed below in [${repository.owner}/${repository.repo}](${repositoryUrl}) with a **single pull request**.`, '', `This issue was generated automatically by \`/solve ${repositoryUrl}\` (repository mode, see ${sourceIssueUrl}). Native sub-issues and the complete closing-reference block below jointly define the required scope.`, '', '## Scope', '', `- Open issues found in the repository: ${totalOpen}`, `- Issues requested in this single pull request: ${list.length}`, `- Issues selected for native sub-issue attachment: ${attachmentCount}`, `- GitHub sub-issue limit per parent issue: ${limit}`];
+  const lines = [REPOSITORY_MODE_MARKER, '', '## Objective', '', `Address every open issue listed below in [${repository.owner}/${repository.repo}](${repositoryUrl}) with a **single pull request**.`, '', `This issue was generated automatically by \`/solve ${repositoryUrl}\` (repository mode). Native sub-issues and the complete closing-reference block below jointly define the required scope.`, '', '## Scope', '', `- Open issues found in the repository: ${totalOpen}`, `- Issues requested in this single pull request: ${list.length}`, `- Issues selected for native sub-issue attachment: ${attachmentCount}`, `- GitHub sub-issue limit per parent issue: ${limit}`];
 
   if (list.length > attachmentCount) lines.push(`- Issues required through the body beyond the native attachment limit: ${list.length - attachmentCount}`);
 

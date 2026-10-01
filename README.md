@@ -1076,8 +1076,7 @@ s=$(screen -ls | awk '/Detached/ {last=$1} END{print last}'); echo "Entering $s"
 
 ### Script for managing screens
 
-The legacy `hive-screens.sh` script has been promoted to a first-class command:
-`hive-screens`. It ships with `@link-assistant/hive-mind`, so once the package is
+`hive-screens` manages finished solve sessions. It ships with `@link-assistant/hive-mind`, so once the package is
 installed (globally, through `npx`, or in a project) it is available on `PATH`.
 
 It scans detached GNU screen sessions, looks for solve runs that are done and
@@ -1091,7 +1090,7 @@ you see under `--list` is guaranteed to be the same set `--close` will act on
 # Safe preview — show every finished, mergeable solve session.
 hive-screens --list
 
-# Close the oldest finished session (same as the legacy script's default).
+# Close the oldest finished session.
 hive-screens --close
 
 # Attach to the newest finished session.

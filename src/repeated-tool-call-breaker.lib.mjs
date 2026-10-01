@@ -28,17 +28,43 @@
  * consecutive run (re-reading a file after editing it is normal), and waiting
  * commands (`sleep`, `gh run watch`, ...) are exempt: polling is their job.
  *
+ * Issue #2395: the breaker is opt-in. With the old always-on limit of 3 it
+ * killed two codex sessions that were legitimately waiting for CI: `gh pr
+ * checks` exits 8 while checks are pending, codex reports any non-zero exit as
+ * a failed call, and three polls one minute apart looked like "the same failing
+ * call". It now runs only with `--detect-repeated-tool-calls` (or
+ * `HIVE_MIND_DETECT_REPEATED_TOOL_CALLS=true`), its default limit is 10, CI
+ * polling commands are never counted, and a failing call is only "the same" when
+ * its output is the same too.
+ *
  * @see https://github.com/link-assistant/hive-mind/issues/2247
+ * @see https://github.com/link-assistant/hive-mind/issues/2395
  */
 
-/** The issue prescribes breaking after 3 identical failing calls. */
-export const REPEATED_TOOL_CALL_LIMIT_DEFAULT = 3;
+/** Issue #2395: raised from 3 - the limit applies only once detection is enabled. */
+export const REPEATED_TOOL_CALL_LIMIT_DEFAULT = 10;
+
+/** Issue #2395: setting this to a truthy value enables the breaker, like `--detect-repeated-tool-calls`. */
+export const DETECT_REPEATED_TOOL_CALLS_ENV_VAR = 'HIVE_MIND_DETECT_REPEATED_TOOL_CALLS';
+
+export const REPEATED_TOOL_CALL_LIMIT_ENV_VAR = 'HIVE_MIND_REPEATED_TOOL_CALL_LIMIT';
 
 /** Issue #2316: identical successful calls may recur more often than failing ones before they are a loop. */
 export const SUCCESS_LIMIT_FACTOR = 2;
 
-/** Commands whose repetition is the point: waiting for CI, a server, a file. */
-const POLLING_INPUT_PATTERN = /\b(sleep|wait|watch|tail -f)\b|--watch\b/;
+/**
+ * Commands whose repetition is the point: waiting for CI, a server, a file.
+ *
+ * Issue #2395: CI status queries are polling too. `gh pr checks` exits 8 while
+ * checks are pending and 1 once one has failed (`gh help exit-codes`), so a
+ * session waiting for CI produces a run of "failing" calls whose output changes
+ * every time a job finishes. They are exempt from both the failure and the
+ * success count.
+ */
+const POLLING_INPUT_PATTERN = new RegExp([String.raw`\b(sleep|wait|watch|tail -f)\b|--watch\b`, String.raw`\bgh\s+pr\s+checks\b`, String.raw`\bgh\s+run\s+(view|list|watch)\b`, String.raw`\bgh\s+pr\s+view\b.*\b(statusCheckRollup|mergeStateStatus|mergeable)\b`, String.raw`\bgh\s+api\b.*(check-runs|check-suites|actions\/runs|actions\/jobs|\/status\b)`, String.raw`\bglab\s+ci\s+(status|view|list)\b`].join('|'));
+
+/** Issue #2395: whether a tool call's input is a polling / CI-status command. */
+export const isPollingToolInput = input => POLLING_INPUT_PATTERN.test(stableStringify(input === undefined ? null : input));
 
 /**
  * A pending `tool_use` is only interesting until its result arrives. Claude can
@@ -52,20 +78,58 @@ const INPUT_PREVIEW_LENGTH = 200;
 /**
  * Issue #2247 (H10): how often one failing call must recur before it is worth
  * naming in the failure report. Two is already a pattern the reader needs; the
- * breaker's own limit (3) is about stopping, this one is about explaining.
+ * breaker's own limit is about stopping (and is off by default, issue #2395),
+ * this one is about explaining.
  */
 export const DOMINANT_FAILURE_MIN_COUNT = 2;
 
 /** Separator that cannot occur in a tool name or in JSON output. */
 const SIGNATURE_SEPARATOR = '\u0000';
 
-export const getRepeatedToolCallLimit = (env = process.env) => {
-  const raw = env?.HIVE_MIND_REPEATED_TOOL_CALL_LIMIT;
-  if (raw === undefined || raw === null || String(raw).trim() === '') return REPEATED_TOOL_CALL_LIMIT_DEFAULT;
+const TRUTHY = new Set(['1', 'true', 'yes', 'on']);
+
+const parseLimit = raw => {
+  if (raw === undefined || raw === null || raw === false || String(raw).trim() === '') return null;
   const parsed = Number.parseInt(String(raw), 10);
   // 0 or a negative value switches the breaker off; anything unparseable keeps the default.
-  if (!Number.isFinite(parsed)) return REPEATED_TOOL_CALL_LIMIT_DEFAULT;
-  return parsed;
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+/**
+ * Issue #2395: whether the breaker is switched on. It never is by default.
+ *
+ * @param {Object} [options]
+ * @param {Object} [options.argv] - yargs argv (`detectRepeatedToolCalls`)
+ * @param {Object} [options.env=process.env]
+ * @returns {boolean}
+ */
+export const isRepeatedToolCallDetectionEnabled = ({ argv = null, env = process.env } = {}) => {
+  if ((argv?.detectRepeatedToolCalls ?? argv?.['detect-repeated-tool-calls']) === true) return true;
+  return TRUTHY.has(
+    String(env?.[DETECT_REPEATED_TOOL_CALLS_ENV_VAR] ?? '')
+      .trim()
+      .toLowerCase()
+  );
+};
+
+/**
+ * The breaker limit configured by the environment alone: 0 (off) unless
+ * `HIVE_MIND_DETECT_REPEATED_TOOL_CALLS` enables it, then
+ * `HIVE_MIND_REPEATED_TOOL_CALL_LIMIT` or 10.
+ */
+export const getRepeatedToolCallLimit = (env = process.env) => resolveRepeatedToolCallLimit({ env });
+
+/**
+ * Issue #2395: the limit an adapter's breaker runs with. 0 means disabled.
+ *
+ * @param {Object} [options]
+ * @param {Object} [options.argv] - yargs argv (`detectRepeatedToolCalls`, `repeatedToolCallLimit`)
+ * @param {Object} [options.env=process.env]
+ * @returns {number}
+ */
+export const resolveRepeatedToolCallLimit = ({ argv = null, env = process.env } = {}) => {
+  if (!isRepeatedToolCallDetectionEnabled({ argv, env })) return 0;
+  return parseLimit(argv?.repeatedToolCallLimit ?? argv?.['repeated-tool-call-limit']) ?? parseLimit(env?.[REPEATED_TOOL_CALL_LIMIT_ENV_VAR]) ?? REPEATED_TOOL_CALL_LIMIT_DEFAULT;
 };
 
 /** Stable stringification so `{a:1,b:2}` and `{b:2,a:1}` are the same call. */
@@ -169,12 +233,16 @@ const normalizeToolResultError = content => {
 /**
  * @param {Object} [params]
  * @param {number} [params.limit] - break after this many identical failing calls
- *   (identical successful calls: `SUCCESS_LIMIT_FACTOR * limit` in a row)
+ *   with identical output (identical successful calls: `SUCCESS_LIMIT_FACTOR *
+ *   limit` in a row); 0 disables. Defaults to the environment, which is off
+ *   unless `HIVE_MIND_DETECT_REPEATED_TOOL_CALLS` enables it (issue #2395).
  * @returns {{observe: (event: any) => (null|Object), recordCall: (call: Object) => (null|Object), tripped: boolean, verdict: Object|null, counts: () => Map<string, number>}}
  */
 export const createRepeatedToolCallBreaker = ({ limit = getRepeatedToolCallLimit() } = {}) => {
   const pending = new Map();
   const failures = new Map();
+  // Issue #2395: what trips the breaker - the same call failing with the same output.
+  const identicalFailures = new Map();
   // Issue #2247 (H10): the call behind each signature, so a failure report can
   // name it even when the count stayed below the breaker's limit.
   const details = new Map();
@@ -198,17 +266,25 @@ export const createRepeatedToolCallBreaker = ({ limit = getRepeatedToolCallLimit
     if (verdict) return verdict;
     const name = tool || 'unknown';
     const signature = buildToolCallSignature({ name, input });
+    const polling = isPollingToolInput(input);
     if (isError) {
       successRun = { key: null, count: 0 };
+      // Failure reports (`dominantFailure`) group by call alone, whatever the breaker does.
       const count = (failures.get(signature) || 0) + 1;
       failures.set(signature, count);
       const error = normalizeToolResultError(output);
       details.set(signature, { tool: name, input, error });
-      if (!(limit > 0) || count < limit) return null;
-      verdict = { tool: name, input, count, limit, error, succeeded: false, reason: describeRepeatedToolCall({ tool: name, input, count, error }) };
+      // Issue #2395: waiting for CI is not a loop, and neither is a call whose
+      // failure changes from one attempt to the next.
+      if (!(limit > 0) || polling) return null;
+      const outcome = `${signature}${SIGNATURE_SEPARATOR}${error ?? ''}`;
+      const identical = (identicalFailures.get(outcome) || 0) + 1;
+      identicalFailures.set(outcome, identical);
+      if (identical < limit) return null;
+      verdict = { tool: name, input, count: identical, limit, error, succeeded: false, reason: describeRepeatedToolCall({ tool: name, input, count: identical, error }) };
       return verdict;
     }
-    if (POLLING_INPUT_PATTERN.test(stableStringify(input === undefined ? null : input))) {
+    if (polling) {
       successRun = { key: null, count: 0 };
       return null;
     }
@@ -269,4 +345,4 @@ export const createRepeatedToolCallBreaker = ({ limit = getRepeatedToolCallLimit
   };
 };
 
-export default { createRepeatedToolCallBreaker, publishRepeatedToolCallVerdict, takeRepeatedToolCallVerdict, takeRepeatedToolCallFeedback, resetRepeatedToolCallState, buildRepeatedToolCallFeedback, buildToolCallSignature, describeRepeatedToolCall, explainFailureWithToolHistory, getRepeatedToolCallLimit, DOMINANT_FAILURE_MIN_COUNT, REPEATED_TOOL_CALL_LIMIT_DEFAULT, SUCCESS_LIMIT_FACTOR };
+export default { createRepeatedToolCallBreaker, isRepeatedToolCallDetectionEnabled, resolveRepeatedToolCallLimit, isPollingToolInput, DETECT_REPEATED_TOOL_CALLS_ENV_VAR, REPEATED_TOOL_CALL_LIMIT_ENV_VAR, publishRepeatedToolCallVerdict, takeRepeatedToolCallVerdict, takeRepeatedToolCallFeedback, resetRepeatedToolCallState, buildRepeatedToolCallFeedback, buildToolCallSignature, describeRepeatedToolCall, explainFailureWithToolHistory, getRepeatedToolCallLimit, DOMINANT_FAILURE_MIN_COUNT, REPEATED_TOOL_CALL_LIMIT_DEFAULT, SUCCESS_LIMIT_FACTOR };

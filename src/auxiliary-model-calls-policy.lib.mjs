@@ -197,7 +197,7 @@ export const GEMINI_FAMILY_SUMMARIZATION_KEEP_SETTINGS = Object.freeze({
 export const ensureGeminiFamilyAuxiliaryDisabled = async ({ tool, settingsPath, homeDir, log, fsImpl } = {}) => {
   const settings = GEMINI_FAMILY_AUXILIARY_DISABLE_SETTINGS[tool];
   if (!settings) return { applied: false, path: null, changed: [], error: null };
-  return ensureGeminiFamilySettings({ tool, settings, settingsPath, homeDir, log, describe: '\u{1F515} Non-essential model calls policy (issue #2236)', fsImpl });
+  return ensureGeminiFamilySettings({ tool, settings, settingsPath, homeDir, log, describe: '\u{1F515} Non-essential model calls policy', fsImpl });
 };
 
 /**

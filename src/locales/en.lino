@@ -605,7 +605,7 @@ en
         label "*/merge* - Merge queue (experimental)"
         usage "Usage: `/merge <github-repo-url>`"
         description "Merges all PRs with 'ready' label sequentially."
-      subscribe "*/subscribe* / */unsubscribe* - 🔔 Get private DM forward of /solve completion (experimental, #1688)"
+      subscribe "*/subscribe* / */unsubscribe* - 🔔 Get private DM forward of /solve completion (experimental)"
       help "*/help* - Show this help message"
       stop
         start "*/stop* / */start* - Stop or resume accepting new tasks (owner only)"
@@ -631,7 +631,7 @@ en
         option "• `--verbose` or `-v` - Verbose output | `--attach-logs` - Attach logs to PR"
       show
         limits
-          option "• `--show-limits` - Experimental: embed Claude/Codex usage at start, end and delta (#594)"
+          option "• `--show-limits` - Experimental: embed Claude/Codex usage at start, end and delta"
       tip "💡 *Tip:* Many more options available. See full documentation for complete list."
       restricted
         mode "🔒 *Restricted Mode:* Authorized: {{authorized}}"

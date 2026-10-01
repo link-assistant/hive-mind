@@ -62,6 +62,9 @@ const { reportAutomationStop } = stopReportingLib;
 const { recordLoopToolFailure } = await import('./automation-failure.lib.mjs');
 // Issue #2306: never auto-merge a pull request that leaves required issues open.
 const { checkClosingReferencesBeforeMerge } = await import('./solve.ensure-sub-issues.lib.mjs');
+// Issue #2395: never auto-merge a pull request that is not linked to its issue; a breaker stop continues with feedback.
+const { ensureIssueLinkBeforeMerge } = await import('./pr-issue-link-merge-gate.lib.mjs');
+const { isRestartWithFeedback, reportSessionStoppedForFeedback } = await import('./solve.auto-merge-session-stop.lib.mjs');
 // Import validation functions for time parsing (used for usage limit wait)
 const validation = await import('./solve.validation.lib.mjs');
 const { calculateWaitTime } = validation;
@@ -425,7 +428,8 @@ export const watchUntilMergeable = async params => {
         // issue or merge manually instead of merging behind their back.
         // Issue #2306: the pull request must also close every issue it was
         // asked to close; re-checked here because the description can change.
-        const mergeBlockers = isAutoMerge ? [...issueMergeBlockers, await checkClosingReferencesBeforeMerge({ owner, repo, issueNumber, prNumber, argv })].filter(Boolean) : issueMergeBlockers;
+        // Issue #2395: the same goes for the "Fixes #N" link to the issue itself.
+        const mergeBlockers = isAutoMerge ? [...issueMergeBlockers, await ensureIssueLinkBeforeMerge({ owner, repo, issueNumber, prNumber, argv, log }), await checkClosingReferencesBeforeMerge({ owner, repo, issueNumber, prNumber, argv })].filter(Boolean) : issueMergeBlockers;
         if (isAutoMerge && mergeBlockers.length > 0) {
           await reportAutoMergeBlockedByIssue({ owner, repo, prNumber, issueNumber, mergeBlockers, verbose: argv.verbose });
           return { success: false, reason: mergeBlockers[0].reason, mergeBlockers, latestSessionId, latestAnthropicCost };
@@ -1037,6 +1041,13 @@ export const watchUntilMergeable = async params => {
               lastCheckTime = new Date();
               continue;
             }
+          }
+          // Issue #2395: a session the repeated-tool-call breaker ended is not a tool
+          // failure — attach its log and continue with feedback (agent#323).
+          if (isRestartWithFeedback(toolResult)) {
+            await reportSessionStoppedForFeedback({ toolResult, argv, restartLabel: formatAutoRestartLabel(restartCount), prNumber, owner, repo, $, log, formatAligned, getLogFile, attachLogToGitHub, sanitizeLogContent, formatToolExecutionFailure, reportError, cleanErrorMessage, latestSessionId, tempDir });
+            lastCheckTime = new Date();
+            continue;
           }
           // Any other failure (not usage limit): stop the auto-restart loop
           // Per reviewer feedback: non-limit failures should fail and stop attempts

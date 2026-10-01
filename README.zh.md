@@ -1026,6 +1026,31 @@ s=$(screen -ls | awk '/Detached/ {print $1; exit}'); echo "Entering $s"; screen 
 s=$(screen -ls | awk '/Detached/ {last=$1} END{print last}'); echo "Entering $s"; screen -r "$s"; echo "Left $s";
 ```
 
+### 管理 Screen 会话的脚本
+
+`hive-screens` 管理已完成的 solve 会话。它随 `@link-assistant/hive-mind` 一起发布，因此安装该包后（全局安装、通过 `npx` 或在项目中）即可在 `PATH` 中使用。
+
+它会扫描已分离的 GNU screen 会话，查找已完成且 PR 可合并的 solve 运行（回滚内容同时包含 `process completed` 以及 `PR is mergeable!` 或 `PR merged!`），然后列出、进入或关闭它们。`--list`、`--enter` 和 `--close` 使用**相同的匹配条件**，因此 `--list` 显示的内容正是 `--close` 将要处理的集合——先用 `--list` 排查，再用 `--close` 重新运行。
+
+```bash
+# 安全预览——显示所有已完成且可合并的 solve 会话。
+hive-screens --list
+
+# 关闭最旧的已完成会话。
+hive-screens --close
+
+# 进入最新的已完成会话。
+hive-screens --enter --newest
+
+# 关闭所有已完成会话。
+hive-screens --close --all
+
+# 扫描时输出诊断信息（匹配失败时很有用）。
+hive-screens --list --verbose
+```
+
+`--list` 默认使用 `--all`，因此单独的 `hive-screens --list` 会显示所有匹配项。`--enter` 和 `--close` 默认使用 `--oldest`，因为它们会改变状态。可传入 `--oldest`、`--newest` 或 `--all` 覆盖默认值。运行 `hive-screens --help` 查看完整选项列表。
+
 ### 重启服务器
 
 ```bash

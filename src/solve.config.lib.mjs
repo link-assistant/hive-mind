@@ -67,7 +67,7 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'tool-update': {
     type: 'boolean',
-    description: 'Check for a newer version of the agentic CLI before starting the task (issue #2202). Use --no-tool-update to skip.',
+    description: 'Check for a newer version of the agentic CLI before starting the task. Use --no-tool-update to skip.',
     default: true,
   },
   'tool-connection-check': {
@@ -121,12 +121,12 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'force-git-keep-commit': {
     type: 'boolean',
-    description: 'If the auto-PR placeholder (.gitkeep) is listed in .gitignore, commit it anyway with `git add -f` instead of stopping (issue #1825). Off by default.',
+    description: 'If the auto-PR placeholder (.gitkeep) is listed in .gitignore, commit it anyway with `git add -f` instead of stopping. Off by default.',
     default: false,
   },
   'remove-git-keep-from-git-ignore': {
     type: 'boolean',
-    description: 'If the auto-PR placeholder (.gitkeep) is listed in .gitignore, remove that entry from .gitignore first, then commit normally (issue #1825). Off by default.',
+    description: 'If the auto-PR placeholder (.gitkeep) is listed in .gitignore, remove that entry from .gitignore first, then commit normally. Off by default.',
     default: false,
   },
   'auto-support-agents-md-as-claude-md': {
@@ -175,6 +175,17 @@ export const SOLVE_OPTION_DEFINITIONS = {
     type: 'number',
     description: 'Maximum number of automatic recovery working sessions started for one killed session when --on-session-kill=resume. Can also be set with HIVE_MIND_SESSION_KILL_RESUME_ATTEMPTS.',
     default: 1,
+  },
+  // Issue #2395: the repeated-tool-call breaker (#2247, #2316) stopped sessions
+  // that were waiting for CI, so it never runs unless explicitly enabled.
+  'detect-repeated-tool-calls': {
+    type: 'boolean',
+    description: 'Stop the AI session when it repeats the same tool call with the same result (--repeated-tool-call-limit identical failing calls, or twice that many identical successful calls in a row). CI polling (gh pr checks, gh run view/watch, sleep, ...) is never counted. Disabled by default. Can also be enabled with HIVE_MIND_DETECT_REPEATED_TOOL_CALLS=true.',
+    default: false,
+  },
+  'repeated-tool-call-limit': {
+    type: 'number',
+    description: 'Identical failing tool calls that stop the session when --detect-repeated-tool-calls is enabled (default: 10; identical successful calls need twice as many in a row; 0 disables). Can also be set with HIVE_MIND_REPEATED_TOOL_CALL_LIMIT.',
   },
   'auto-close-pull-request-on-fail': {
     type: 'boolean',
@@ -271,7 +282,7 @@ export const SOLVE_OPTION_DEFINITIONS = {
   // by autoContinueWhenLimitResets when spawning the resumed solve process.
   'previous-anthropic-cost': {
     type: 'number',
-    description: 'Internal: cumulative Anthropic total_cost_usd carried forward from previous resume iterations (issue #1886)',
+    description: 'Internal: cumulative Anthropic total_cost_usd carried forward from previous resume iterations',
     default: 0,
     hidden: true,
   },
@@ -327,7 +338,7 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'auto-delete-branch-on-merge': {
     type: 'boolean',
-    description: 'Automatically delete the branch after the pull request is merged in --watch mode or by --auto-merge. Enables full GitHub Flow support (issue #401).',
+    description: 'Automatically delete the branch after the pull request is merged in --watch mode or by --auto-merge. Enables full GitHub Flow support.',
     default: false,
   },
   'min-disk-space': {
@@ -374,12 +385,12 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'sub-session-size': {
     type: 'string',
-    description: 'Cap on sub-session size between auto-compaction events. Accepts a token count (e.g. 150k, 1m, 200000), a percentage of the model context window (e.g. 50%), or "default" to keep the tool\'s built-in threshold. Default: 150k. For Claude this maps to CLAUDE_CODE_AUTO_COMPACT_WINDOW + CLAUDE_AUTOCOMPACT_PCT_OVERRIDE env vars. For Codex this maps to -c model_auto_compact_token_limit. (Issue #1706)',
+    description: 'Cap on sub-session size between auto-compaction events. Accepts a token count (e.g. 150k, 1m, 200000), a percentage of the model context window (e.g. 50%), or "default" to keep the tool\'s built-in threshold. Default: 150k. For Claude this maps to CLAUDE_CODE_AUTO_COMPACT_WINDOW + CLAUDE_AUTOCOMPACT_PCT_OVERRIDE env vars. For Codex this maps to -c model_auto_compact_token_limit.',
     default: '150k',
   },
   'disable-1m-context': {
     type: 'boolean',
-    description: 'Disable 1M extended context window so the model uses its standard 200K-400K window. Helps preserve reasoning quality and reduces cost. Default: true. For Claude this sets CLAUDE_CODE_DISABLE_1M_CONTEXT=1 (also forbids the [1m] model-name suffix). For Codex this sets -c model_context_window=200000. Use --no-disable-1m-context to allow the 1M window. (Issue #1706)',
+    description: 'Disable 1M extended context window so the model uses its standard 200K-400K window. Helps preserve reasoning quality and reduces cost. Default: true. For Claude this sets CLAUDE_CODE_DISABLE_1M_CONTEXT=1 (also forbids the [1m] model-name suffix). For Codex this sets -c model_context_window=200000. Use --no-disable-1m-context to allow the 1M window.',
     default: true,
   },
   'fallback-model': {
@@ -595,7 +606,7 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'use-handoff': {
     type: 'boolean',
-    description: '[EXPERIMENTAL] Enable the HANDOFF.md continuity Agent Skill so a session can continue the work of a previous session — even when a different AI tool is used (e.g. Claude and Codex continuing each other in the same pull request). A real SKILL.md (the open Agent Skills standard) is deployed into the working directory so each tool loads it natively (.claude/skills/handoff/ for Claude, .agents/skills/handoff/ for Codex). The AI reads HANDOFF.md (repository root) first when present and keeps it updated with task, current state, decisions, next steps, gotchas, and critical files. HANDOFF.md is committed to the PR branch so it persists across the ephemeral per-session working directories; the SKILL.md itself is re-deployed each session and git-excluded so it never pollutes the PR. The same skill file is used identically for --tool claude and --tool codex. Disabled by default (issue #1877).',
+    description: '[EXPERIMENTAL] Enable the HANDOFF.md continuity Agent Skill so a session can continue the work of a previous session — even when a different AI tool is used (e.g. Claude and Codex continuing each other in the same pull request). A real SKILL.md (the open Agent Skills standard) is deployed into the working directory so each tool loads it natively (.claude/skills/handoff/ for Claude, .agents/skills/handoff/ for Codex). The AI reads HANDOFF.md (repository root) first when present and keeps it updated with task, current state, decisions, next steps, gotchas, and critical files. HANDOFF.md is committed to the PR branch so it persists across the ephemeral per-session working directories; the SKILL.md itself is re-deployed each session and git-excluded so it never pollutes the PR. The same skill file is used identically for --tool claude and --tool codex. Disabled by default.',
     default: false,
   },
   'prompt-playwright-mcp': {
@@ -635,28 +646,28 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'playwright-skill': {
     type: 'boolean',
-    description: 'Deploy the Playwright CLI skills (playwright-cli install --skills) into the task workspace so the agent can drive a browser through the CLI instead of, or in addition to, the Playwright MCP server. Default: MCP only. --playwright-skill: MCP + skill. --no-playwright-mcp --playwright-skill: skill only (issue #2190).',
+    description: 'Deploy the Playwright CLI skills (playwright-cli install --skills) into the task workspace so the agent can drive a browser through the CLI instead of, or in addition to, the Playwright MCP server. Default: MCP only. --playwright-skill: MCP + skill. --no-playwright-mcp --playwright-skill: skill only.',
     default: false,
   },
   'useless-tools-disabled': {
     type: 'boolean',
-    description: 'Disable Claude Code built-in tools and MCP servers that have no value (and may be harmful) in autonomous headless runs: AskUserQuestion, CronCreate/Delete/List, EnterPlanMode/ExitPlanMode, EnterWorktree/ExitWorktree, Monitor, NotebookEdit, PushNotification, RemoteTrigger, ScheduleWakeup, and the claude.ai Gmail/Drive/Calendar OAuth connectors. Default: true. Use --no-useless-tools-disabled to keep them enabled. Supported for --tool claude (issue #1627).',
+    description: 'Disable Claude Code built-in tools and MCP servers that have no value (and may be harmful) in autonomous headless runs: AskUserQuestion, CronCreate/Delete/List, EnterPlanMode/ExitPlanMode, EnterWorktree/ExitWorktree, Monitor, NotebookEdit, PushNotification, RemoteTrigger, ScheduleWakeup, and the claude.ai Gmail/Drive/Calendar OAuth connectors. Default: true. Use --no-useless-tools-disabled to keep them enabled. Supported for --tool claude.',
     default: true,
   },
   'agent-memory-disabled': {
     type: 'boolean',
-    description: "Disable every AI tool's own cross-task memory and permission classifier, so the repository stays the only memory a task keeps. For --tool codex: -c features.memories=false and -c features.external_agent_memory_import=false. For --tool gemini: tools.exclude=[save_memory] and experimental.autoMemory=false. For --tool qwen: the same, plus memory.enableManagedAutoMemory=false and memory.enableManagedAutoDream=false, the keys qwen-code renamed auto-memory to (issue #2236). --tool opencode and --tool agent have no cross-session memory feature. Default: true; --no-agent-memory-disabled lets those tools keep their own memory. For --tool claude the same switches (CLAUDE_CODE_DISABLE_AUTO_MEMORY, CLAUDE_CODE_DISABLE_ORG_MEMORY, autoMemoryEnabled=false, permissions.disableAutoMode=disable) are part of the quiet configuration baked into the Docker image, so they stay off regardless of this flag (issue #2178).",
+    description: "Disable every AI tool's own cross-task memory and permission classifier, so the repository stays the only memory a task keeps. For --tool codex: -c features.memories=false and -c features.external_agent_memory_import=false. For --tool gemini: tools.exclude=[save_memory] and experimental.autoMemory=false. For --tool qwen: the same, plus memory.enableManagedAutoMemory=false and memory.enableManagedAutoDream=false. --tool opencode and --tool agent have no cross-session memory feature. Default: true; --no-agent-memory-disabled lets those tools keep their own memory. For --tool claude the same switches (CLAUDE_CODE_DISABLE_AUTO_MEMORY, CLAUDE_CODE_DISABLE_ORG_MEMORY, autoMemoryEnabled=false, permissions.disableAutoMode=disable) are part of the quiet configuration baked into the Docker image, so they stay off regardless of this flag.",
     default: true,
   },
   'auxiliary-model-calls-disabled': {
     type: 'boolean',
     description:
-      "Disable every AI tool's non-essential auxiliary model calls — the safety classifier, conversation-title generation, recap, narration, next-prompt suggestion and per-tool-batch summaries — so a run pays only for the task. Summarization is the exception and stays on: auto-compaction is what lets a long-horizon task survive its context window, and no compaction switch is ever touched. For --tool codex: -c features.personality=false; essential completion goals stay enabled. For --tool gemini: model.skipNextSpeakerCheck=true and tools.disableLLMCorrection=true. For --tool qwen: model.skipNextSpeakerCheck=true, experimental.emitToolUseSummaries=false and ui.enableFollowupSuggestions=false. For --tool opencode: the built-in `title` and `summary` agents are disabled in the per-task opencode.json, while `compaction` stays enabled. --tool agent already ships this way (--generate-title defaults to false, --summarize-session stays on). Default: true; --no-auxiliary-model-calls-disabled lets those tools make the calls. For --tool claude the same switches (CLAUDE_CODE_CLASSIFIER_SUMMARY, CLAUDE_CODE_EMIT_TOOL_USE_SUMMARIES, CLAUDE_CODE_ENABLE_NARRATION, CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION, CLAUDE_CODE_ENABLE_REMOTE_RECAP, all pinned to 0) are part of the quiet configuration baked into the Docker image, so they stay off regardless of this flag (issue #2236).",
+      "Disable every AI tool's non-essential auxiliary model calls — the safety classifier, conversation-title generation, recap, narration, next-prompt suggestion and per-tool-batch summaries — so a run pays only for the task. Summarization is the exception and stays on: auto-compaction is what lets a long-horizon task survive its context window, and no compaction switch is ever touched. For --tool codex: -c features.personality=false; essential completion goals stay enabled. For --tool gemini: model.skipNextSpeakerCheck=true and tools.disableLLMCorrection=true. For --tool qwen: model.skipNextSpeakerCheck=true, experimental.emitToolUseSummaries=false and ui.enableFollowupSuggestions=false. For --tool opencode: the built-in `title` and `summary` agents are disabled in the per-task opencode.json, while `compaction` stays enabled. --tool agent makes none of these calls by default (--generate-title defaults to false, --summarize-session stays on). Default: true; --no-auxiliary-model-calls-disabled lets those tools make the calls. For --tool claude the same switches (CLAUDE_CODE_CLASSIFIER_SUMMARY, CLAUDE_CODE_EMIT_TOOL_USE_SUMMARIES, CLAUDE_CODE_ENABLE_NARRATION, CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION, CLAUDE_CODE_ENABLE_REMOTE_RECAP, all pinned to 0) are part of the quiet configuration baked into the Docker image, so they stay off regardless of this flag.",
     default: true,
   },
   'agent-config-auto-repair': {
     type: 'boolean',
-    description: 'Automatically remove non-minimal items from the global Claude/Codex configuration (plugins, marketplaces, global skills, MCP servers other than Playwright, Codex remote plugin sync) before a task starts (enabled by default). Use --no-agent-config-auto-repair to only warn (issue #2190).',
+    description: 'Automatically remove non-minimal items from the global Claude/Codex configuration (plugins, marketplaces, global skills, MCP servers other than Playwright, Codex remote plugin sync) before a task starts (enabled by default). Use --no-agent-config-auto-repair to only warn.',
     default: true,
   },
   'auto-gh-configuration-repair': {

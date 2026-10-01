@@ -1,4 +1,4 @@
-import { getTrackedToolCommentIds, postTrackedComment, SOLUTION_DRAFT_FAILED_MARKER } from './tool-comments.lib.mjs';
+import { getTrackedToolCommentIds, isFailureAlreadyReportedOnTarget, postTrackedComment, SOLUTION_DRAFT_FAILED_MARKER } from './tool-comments.lib.mjs';
 import { extractForkReplacementBlockedDetails, isForkReplacementBlockedReason, GITHUB_FORK_SUPPORT_URL } from './solve.repository-recovery-message.lib.mjs';
 import { FORK_DIVERGENCE_RESOLUTION_OPTION, buildForkDivergenceFailureActionSection } from './solve.branch-divergence.lib.mjs';
 
@@ -105,6 +105,10 @@ export function resolvePreExitFailureNotificationTarget({ code, globalState }) {
 
   if (prNumber) {
     if (globalState.pullRequestFailureNotificationPosted || globalState.pullRequestFailureNotificationInProgress) return null;
+    // Issue #2397: the failure path may already have posted a failure report
+    // (e.g. attachLogToGitHub's "Log Upload Failed" comment, which returns
+    // false and therefore never set the flags above). One report is enough.
+    if (isFailureAlreadyReportedOnTarget({ owner, repo, targetNumber: prNumber })) return null;
     return {
       targetType: 'pr',
       targetNumber: prNumber,
@@ -237,6 +241,14 @@ export async function notifyIssueAboutPrePullRequestFailure(options) {
       } catch (error) {
         const message = error && error.message ? error.message : String(error);
         await log(`  ⚠️  Could not upload solver failure log: ${message}`, { level: 'warning' });
+      }
+      // Issue #2397: a failed upload still posts a "Log Upload Failed"
+      // failure report carrying the reason. Posting the fallback below on
+      // top of it produced a second comment saying the same thing.
+      if (isFailureAlreadyReportedOnTarget({ owner, repo, targetNumber })) {
+        markNotificationPosted({ globalState, targetType });
+        await log(`  ℹ️  Failure already reported on ${targetLabel} by the log upload failure comment; not posting another.`);
+        return { notified: true, method: 'log-upload-failure-report' };
       }
     }
 

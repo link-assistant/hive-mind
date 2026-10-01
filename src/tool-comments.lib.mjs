@@ -210,7 +210,54 @@ export const getTrackedToolCommentIds = () => new Set(trackedToolCommentIds);
  */
 export const resetTrackedToolCommentIds = () => {
   trackedToolCommentIds.clear();
+  latestToolCommentByTarget.clear();
 };
+
+/**
+ * Issue #2397: the latest tool-posted comment on each pull request or issue.
+ *
+ * On konard/vietnam-accomodation-search#76 one Codex failure produced three
+ * "Solution Draft Failed" comments within five seconds: the failure path posted
+ * one, then the exit-handler notifier, unaware of it, posted a second through
+ * attachLogToGitHub and a third as its own fallback. Every comment goes through
+ * postTrackedComment, so recording here lets any later safety net ask whether
+ * the target already says the run failed.
+ */
+const latestToolCommentByTarget = new Map();
+
+const toolCommentTargetKey = ({ owner, repo, targetNumber }) => `${String(owner || '').toLowerCase()}/${String(repo || '').toLowerCase()}#${targetNumber}`;
+
+/**
+ * Whether a comment body is a failure report ("🚨 Solution Draft Failed").
+ * @param {string} body
+ * @returns {boolean}
+ */
+export const isFailureReportCommentBody = body => String(body || '').includes(`🚨 ${SOLUTION_DRAFT_FAILED_MARKER}`);
+
+/**
+ * Record a comment posted on a target. Called by postTrackedComment.
+ * @param {Object} params
+ * @param {string} params.owner
+ * @param {string} params.repo
+ * @param {number|string} params.targetNumber
+ * @param {string} params.body
+ * @param {string|null} [params.commentId]
+ */
+export const recordToolCommentPosted = ({ owner, repo, targetNumber, body, commentId = null }) => {
+  if (!owner || !repo || targetNumber === null || targetNumber === undefined) return;
+  latestToolCommentByTarget.set(toolCommentTargetKey({ owner, repo, targetNumber }), { commentId, isFailureReport: isFailureReportCommentBody(body) });
+};
+
+/**
+ * Whether the latest tool comment on the target is a failure report, i.e. the
+ * failure was already reported there and nothing was posted after it.
+ * @param {Object} params
+ * @param {string} params.owner
+ * @param {string} params.repo
+ * @param {number|string} params.targetNumber
+ * @returns {boolean}
+ */
+export const isFailureAlreadyReportedOnTarget = ({ owner, repo, targetNumber }) => latestToolCommentByTarget.get(toolCommentTargetKey({ owner, repo, targetNumber }))?.isFailureReport === true;
 
 /**
  * Post a GitHub comment on a PR or issue via `gh api` and return the
@@ -283,6 +330,7 @@ export const postTrackedComment = async ({ $, owner, repo, targetNumber, body, s
   }
 
   trackToolCommentId(commentId);
+  recordToolCommentPosted({ owner, repo, targetNumber, body: sanitizedBody, commentId });
 
   return { ok: true, commentId };
 };

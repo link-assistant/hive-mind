@@ -202,6 +202,20 @@ await test('an auto-restart limit comment is not followed by a second failure co
   assert.equal(result.skipped, true);
 });
 
+await test('a stop comment still counts after a later Ready to merge comment', async () => {
+  // Same pull request (2026-09-16): "🛑 Automation stopped" at 09:48:58, "✅ Ready to merge" at 09:51:16
+  // and "🚨 Solution Draft Failed ... Reason: No progress between sessions" at 09:51:23.
+  const { $, posts } = createFakeGh();
+  const owner = 'konard';
+  const repo = 'vietnam-accomodation-search';
+  await postTrackedComment({ $, owner, repo, targetNumber: 76, body: buildAutomationStopComment({ reason: 'no_progress_between_sessions' }) });
+  await postTrackedComment({ $, owner, repo, targetNumber: 76, body: '## ✅ Ready to merge\n\nThis pull request is now ready to be merged.' });
+  assert.equal(isFailureAlreadyReportedOnTarget({ owner, repo, targetNumber: 76 }), true);
+  const result = await notify({ $, globalState: prRunState(), shouldAttachLogs: false });
+  assert.equal(posts.length, 2, `expected the stop and ready comments only, got ${posts.length}`);
+  assert.equal(result.skipped, true);
+});
+
 await test('isFailureReportCommentBody recognises every failure-report template', async () => {
   assert.equal(isFailureReportCommentBody(buildLogUploadFailureComment({ errorMessage: CODEX_ERROR, logSizeBytes: 1, logFile: '/tmp/x.log' })), true);
   assert.equal(isFailureReportCommentBody(buildLogUploadFailureComment({ logSizeBytes: 1, logFile: '/tmp/x.log' })), false);

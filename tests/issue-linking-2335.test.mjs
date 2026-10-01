@@ -16,6 +16,14 @@ test('PR 326: a negated closing keyword is not a closing reference', () => {
   assert.equal(ensureIssueLinkInPullRequestBody(body, { ...repository, issueNumber: 322 }).updated, true);
 });
 
+test('PR 2336: a quoted negative example before the real link does not misroute the session', () => {
+  // `solve` on PR 2336 itself resolved issue #322: the old parser tried `close`
+  // before `fixes` and matched the quoted sentence ahead of "Fixes #2335".
+  const body = 'Agent PR #326 merged while leaving Agent #322 unfinished. Its negated sentence (`does not close #322`) fooled local link detection.\n\nFixes #2335';
+  assert.equal(extractLinkedIssueNumber(body, 'link-assistant', 'hive-mind'), '2335');
+  assert.equal(prClosesIssue(body, 322, 'link-assistant', 'hive-mind'), false);
+});
+
 test('negated, hypothetical, and example references do not satisfy the repair check', () => {
   for (const body of ['Does not fix #322', "This PR won't resolve #322", 'Never closes #322', 'Cannot close #322', 'Not intended to fix #322', 'Example: `Fixes #322`', '```\nFixes #322\n```', '<!-- Fixes #322 -->']) {
     assert.equal(prClosesIssue(body, 322), false, body);

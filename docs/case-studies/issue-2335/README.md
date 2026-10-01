@@ -43,6 +43,12 @@ All times are UTC.
 
 The history distinguishes a longstanding parser defect from a recently scoped gate: the deduplication did not introduce negation handling and then remove it. The earlier guarantee depended on a parser that was already incomplete. A separate unmerged commit, `1f71f363`, proposed preserving partial-scope declarations for #2295; it is not an ancestor of the incident's main branch and is not evidence of this incident's deployed root cause. Its [request](data/related-issue-2295.json) is retained as relevant alternative policy context.
 
+## Recurrence while continuing this pull request
+
+On 2026-10-01 the deployed `solve` v2.33.2 resumed PR #2336 itself and was told to solve hive-mind issue #322, an unrelated issue closed in 2025. GitHub's `closingIssuesReferences` for the PR listed only #2335. The deployed `extractLinkedIssueNumber` tries the keywords in a fixed order, `close` before `fixes`, and does not skip code spans. It therefore matched the quoted example `` `does not close #322` `` in the description before reaching `Fixes #2335`. This is the same parser defect as in Agent PR #326, and the description that triggered it is [archived](data/hive-mind-pr-2336-body-at-misroute.md).
+
+On this branch, the shared parser ignores code spans and negated clauses, and continue mode first derives the issue from the `issue-<number>-` branch name. [The replay script](../../../experiments/issue-2335-pr2336-self-misdetection.mjs) reports `322` for `main`'s parser and `2335` for this branch on the archived description. `tests/issue-linking-2335.test.mjs` covers the minimal form of that description.
+
 ## What remained incomplete in Agent #322
 
 | Acceptance criterion                                                                      | State at merge                                                                                                                   | Evidence                                                                                         |

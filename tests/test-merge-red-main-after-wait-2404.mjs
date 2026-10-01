@@ -188,5 +188,14 @@ await asyncTest('Exact production timeline: HEAD moves to the run-less 2.33.4 bu
   assert.match(result.error, /cb3bb2d/, 'error should point at the commit whose CI failed');
 });
 
+await asyncTest('checkBranchCIHealthBeforeStart() (compat API) reports red main and does not wait', async () => {
+  const { processor, calls } = await buildProcessor({ healthSequence: [red] });
+  const result = await processor.checkBranchCIHealthBeforeStart();
+  assert.equal(result.healthy, false);
+  assert.match(result.error, /Cannot start merge queue: .*Checks and release/);
+  assert.deepEqual(result.failedRuns, [FAILED_RUN]);
+  assert.equal(calls.branchWait, 0);
+});
+
 console.log(`\n📊 Results: ${testsPassed} passed, ${testsFailed} failed\n`);
 if (testsFailed > 0) process.exit(1);

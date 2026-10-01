@@ -900,47 +900,14 @@ export class MergeQueueProcessor {
   }
   /**
    * Check if the default branch has any failed CI runs before starting the queue
-   * Issue #1341: Prevents merging on top of a broken branch
-   * @returns {Promise<{healthy: boolean, failedRuns: Array, error: string|null}>}
+   * Issue #1341: Prevents merging on top of a broken branch. Kept for API compatibility —
+   * `run()` uses `ensureTargetBranchReady()`, which also waits for and re-checks running CI (#2404).
+   * @returns {Promise<{healthy: boolean, pending: boolean, failedRuns: Array, error: string|null}>}
    */
   async checkBranchCIHealthBeforeStart() {
-    try {
-      const targetBranch = await this.getDefaultBranch(this.owner, this.repo, this.verbose);
-      this.log(`Checking CI health on ${targetBranch} branch before starting queue...`);
-      const healthResult = await this.checkBranchCIHealth(this.owner, this.repo, targetBranch, {}, this.verbose);
-      if (!healthResult.healthy) {
-        this.log(`Branch ${targetBranch} has ${healthResult.failedRuns.length} failed CI run(s)`);
-        return {
-          healthy: false,
-          failedRuns: healthResult.failedRuns,
-          error: `Cannot start merge queue: ${healthResult.error}. Please fix the CI failures first.`,
-        };
-      }
-      // Issue #1425: If the latest commit's CI is still in progress it is not red yet.
-      // Issue #2404: callers must re-check after waiting — `ensureTargetBranchReady()` does that.
-      if (healthResult.pending) {
-        this.log(`Branch ${targetBranch} has ${healthResult.pendingRuns.length} CI run(s) in progress on the latest commit. Will wait for them to complete.`);
-        return {
-          healthy: true,
-          failedRuns: [],
-          error: null,
-        };
-      }
-      this.log(`Branch ${targetBranch} CI is healthy. Ready to proceed.`);
-      return {
-        healthy: true,
-        failedRuns: [],
-        error: null,
-      };
-    } catch (error) {
-      // On error, assume healthy to avoid blocking merges due to API issues
-      console.warn(`[WARN] /merge-queue: Error checking branch CI health: ${error.message}. Proceeding anyway.`);
-      return {
-        healthy: true,
-        failedRuns: [],
-        error: null,
-      };
-    }
+    const gate = await ensureTargetBranchReadyHelper(this, { checkHealth: true, waitForActiveRuns: false, context: 'before starting queue' });
+    const failed = gate.status === 'failed';
+    return { healthy: !failed, pending: false, failedRuns: gate.failedRuns, error: failed ? `Cannot start merge queue: ${gate.error}. Please fix the CI failures first.` : null };
   }
   /**
    * Wait for post-merge CI to complete for a merged PR

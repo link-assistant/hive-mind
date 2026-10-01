@@ -422,13 +422,10 @@ export const watchUntilMergeable = async params => {
           }
         }
         await log(formatAligned('✅', 'PR IS MERGEABLE!', ''));
-        // Issue #2144: the pull request is ready. A closed/unavailable linked
-        // issue blocks only the *automatic* merge — the loop already did its
-        // job of making the pull request mergeable. Ask the user to reopen the
-        // issue or merge manually instead of merging behind their back.
-        // Issue #2306: the pull request must also close every issue it was
-        // asked to close; re-checked here because the description can change.
-        // Issue #2395: the same goes for the "Fixes #N" link to the issue itself.
+        // Issue #2144: a closed/unavailable linked issue blocks only the
+        // *automatic* merge; the user is asked to reopen it or merge manually.
+        // Issues #2306/#2395: the description can change, so its issue link and
+        // every required closing reference are re-checked right before merging.
         const mergeBlockers = isAutoMerge ? [...issueMergeBlockers, await ensureIssueLinkBeforeMerge({ owner, repo, issueNumber, prNumber, argv, log }), await checkClosingReferencesBeforeMerge({ owner, repo, issueNumber, prNumber, argv })].filter(Boolean) : issueMergeBlockers;
         if (isAutoMerge && mergeBlockers.length > 0) {
           await reportAutoMergeBlockedByIssue({ owner, repo, prNumber, issueNumber, mergeBlockers, verbose: argv.verbose });

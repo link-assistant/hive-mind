@@ -213,6 +213,25 @@ test('non-default base branches still require evidence; PR-only workflows remain
   assert.equal((await checkIssueCompletionBeforeMerge({ ...repository, prNumber: 326, run: f.run })).blocker, null);
 });
 
+test('the temporary description file is removed after successful, failed and throwing writes', async () => {
+  const f = fixture();
+  const exists = async path => !(await access(path).catch(error => error));
+  f.pr.body = 'Human description.';
+  assert.equal((await repairRequiredIssueLinks({ ...context, run: f.run })).updated, true);
+  const written = [...f.files];
+  for (const outcome of [{ code: 1, stderr: 'write failed' }, new Error('gh crashed')]) {
+    f.pr.body = 'Human description.';
+    const run = args => {
+      if (args[0] !== 'pr') return f.run(args);
+      written.push(args[args.indexOf('--body-file') + 1]);
+      return outcome instanceof Error ? Promise.reject(outcome) : Promise.resolve(outcome);
+    };
+    assert.equal((await repairRequiredIssueLinks({ ...context, run })).checked, false);
+  }
+  assert.equal(written.length, 3);
+  for (const path of written) assert.equal(await exists(path), false, path);
+});
+
 test('repair is idempotent, preserves descriptions, and does not claim success on failed writes', async () => {
   const f = fixture();
   assert.equal((await repairRequiredIssueLinks({ ...context, run: f.run })).updated, false);

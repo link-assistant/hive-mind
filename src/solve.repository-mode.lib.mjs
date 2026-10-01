@@ -181,15 +181,14 @@ export function buildClosingKeywordBlock(issues, keyword = 'Fixes') {
  * @param {Array<object>} params.issues - selected sub-issues (oldest first)
  * @param {number} params.totalOpen
  * @param {number} [params.limit=MAX_SUB_ISSUES_PER_PARENT]
- * @param {string} [params.sourceIssueUrl] - issue that introduced repository mode
  * @returns {string}
  */
-export function buildCombinedIssueBody({ repository, issues, totalOpen, limit = MAX_SUB_ISSUES_PER_PARENT, sourceIssueUrl = 'https://github.com/link-assistant/hive-mind/issues/2212' }) {
+export function buildCombinedIssueBody({ repository, issues, totalOpen, limit = MAX_SUB_ISSUES_PER_PARENT }) {
   const list = Array.isArray(issues) ? issues : [];
   const repositoryUrl = repository.url || `https://github.com/${repository.owner}/${repository.repo}`;
   const skipped = Math.max(0, Number(totalOpen || 0) - list.length);
 
-  const lines = [REPOSITORY_MODE_MARKER, '', '## Objective', '', `Address every open issue listed below in [${repository.owner}/${repository.repo}](${repositoryUrl}) with a **single pull request**.`, '', `This issue was generated automatically by \`/solve ${repositoryUrl}\` (repository mode, see ${sourceIssueUrl}). Every issue below is attached to this issue as a GitHub native sub-issue.`, '', '## Scope', '', `- Open issues found in the repository: ${totalOpen}`, `- Issues attached as sub-issues of this issue: ${list.length}`, `- GitHub sub-issue limit per parent issue: ${limit}`];
+  const lines = [REPOSITORY_MODE_MARKER, '', '## Objective', '', `Address every open issue listed below in [${repository.owner}/${repository.repo}](${repositoryUrl}) with a **single pull request**.`, '', `This issue was generated automatically by \`/solve ${repositoryUrl}\` (repository mode). Every issue below is attached to this issue as a GitHub native sub-issue.`, '', '## Scope', '', `- Open issues found in the repository: ${totalOpen}`, `- Issues attached as sub-issues of this issue: ${list.length}`, `- GitHub sub-issue limit per parent issue: ${limit}`];
 
   if (skipped > 0) {
     lines.push(`- Open issues intentionally left out of this run (newest ${skipped}, over the sub-issue limit): ${skipped}`);

@@ -605,7 +605,7 @@ hi
         label "*/merge* - Merge queue (experimental)"
         usage "उपयोग: `/merge <github-repo-url>`"
         description "'ready' label वाले सभी PRs को क्रम से merge करता है।"
-      subscribe "*/subscribe* / */unsubscribe* - 🔔 /solve completion की private DM forwarding पाएँ (experimental, #1688)"
+      subscribe "*/subscribe* / */unsubscribe* - 🔔 /solve completion की private DM forwarding पाएँ (experimental)"
       help "*/help* - यह help message दिखाएँ"
       stop
         start "*/stop* / */start* - नए tasks स्वीकार करना रोकें या फिर शुरू करें (केवल owner)"
@@ -631,7 +631,7 @@ hi
         option "• `--verbose` या `-v` - verbose output | `--attach-logs` - logs को PR से attach करें"
       show
         limits
-          option "• `--show-limits` - Experimental: start, end और delta पर Claude/Codex usage जोड़ें (#594)"
+          option "• `--show-limits` - Experimental: start, end और delta पर Claude/Codex usage जोड़ें"
       tip "💡 *Tip:* और भी options उपलब्ध हैं। पूरी सूची documentation में देखें।"
       restricted
         mode "🔒 *Restricted Mode:* Authorized: {{authorized}}"

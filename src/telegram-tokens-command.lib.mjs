@@ -77,7 +77,7 @@ export const formatTokenList = tokens => {
     const masked = maskToken(t.value);
     return `• ${t.name} (${t.source}): \`${masked}\``;
   });
-  return ['🔐 *Active local tokens (masked):*', '', ...lines, '', '_Use this list to search public places (GitHub, Slack, etc.) for accidentally leaked tokens before they become a problem. Tokens are masked with first 3 + last 3 characters per issue #1745._'].join('\n');
+  return ['🔐 *Active local tokens (masked):*', '', ...lines, '', '_Use this list to search public places (GitHub, Slack, etc.) for accidentally leaked tokens before they become a problem. Tokens are masked with first 3 + last 3 characters._'].join('\n');
 };
 
 /**

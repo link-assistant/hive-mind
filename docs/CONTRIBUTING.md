@@ -62,7 +62,7 @@ Release history lives in `.changeset/*.md`, the generated `CHANGELOG.md`, GitHub
 We do not accept code that:
 
 - explains what changed: "old behavior", "the default in newer versions", "now does X", "no longer does Y", "the legacy script has been promoted", "renamed from", "New in vX.Y", "What's new" banners or release notes
-- tags a user-facing text with the issue or pull request that introduced it, such as "(issue #1234)", "(#594)" or "Reference: https://github.com/link-assistant/hive-mind/issues/1234"
+- tags a user-facing text with the issue or pull request that introduced it, such as "(issue #1234)", "(#594)" or `Reference: https://github.com/link-assistant/hive-mind/issues/1234`
 
 Write what the option or message does today. Put the history in the changeset, the reason in a code comment, and the issue link in the comment or test that pins the behaviour. Deprecation notices are current guidance, so they stay: they name the replacement ("deprecated; use `--isolated screen`") and do not tell the story of the change. Diagnostic log lines may cite the issue that documents a known failure mode, because that is a troubleshooting pointer, not release history. `tests/no-changelog-in-ui-2402.test.mjs` enforces this for help text, option descriptions, locales and GitHub-posted reports.
 

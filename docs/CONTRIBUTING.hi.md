@@ -62,7 +62,7 @@ Release इतिहास `.changeset/*.md`, बनाए गए `CHANGELOG.md`
 हम ऐसा कोड स्वीकार नहीं करते जो:
 
 - बताता है कि क्या बदला: "पुराना व्यवहार", "नए संस्करणों में default", "अब X करता है", "अब Y नहीं करता", "legacy script को command बना दिया गया", "से नाम बदला गया", "vX.Y में नया", "What's new" banners या release notes
-- उपयोगकर्ता को दिखने वाले टेक्स्ट पर उस issue या PR का टैग लगाता है जिसने इसे जोड़ा, जैसे "(issue #1234)", "(#594)" या "Reference: https://github.com/link-assistant/hive-mind/issues/1234"
+- उपयोगकर्ता को दिखने वाले टेक्स्ट पर उस issue या PR का टैग लगाता है जिसने इसे जोड़ा, जैसे "(issue #1234)", "(#594)" या `Reference: https://github.com/link-assistant/hive-mind/issues/1234`
 
 लिखें कि option या संदेश आज क्या करता है। इतिहास changeset में, कारण code comment में, और issue link उस comment या test में रखें जो व्यवहार को तय करता है। Deprecation सूचनाएँ वर्तमान मार्गदर्शन हैं, इसलिए वे रहती हैं: वे विकल्प का नाम बताती हैं ("deprecated; use `--isolated screen`") और बदलाव की कहानी नहीं सुनातीं। Diagnostic log lines किसी ज्ञात विफलता का वर्णन करने वाले issue का हवाला दे सकती हैं, क्योंकि यह troubleshooting संकेत है, release इतिहास नहीं। `tests/no-changelog-in-ui-2402.test.mjs` help text, option descriptions, locales और GitHub पर पोस्ट की गई reports के लिए इसे लागू करता है।
 

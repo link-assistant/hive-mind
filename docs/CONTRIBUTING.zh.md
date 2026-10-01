@@ -62,7 +62,7 @@ Add support for automatic fork creation with --auto-fork flag
 我们不接受以下代码：
 
 - 解释发生了什么变化："旧行为"、"新版本中的默认值"、"现在会做 X"、"不再做 Y"、"旧脚本已升级为命令"、"由……重命名而来"、"vX.Y 新增"、"新功能"横幅或发布说明
-- 用引入该行为的 issue 或 PR 标记面向用户的文本，例如 "(issue #1234)"、"(#594)" 或 "Reference: https://github.com/link-assistant/hive-mind/issues/1234"
+- 用引入该行为的 issue 或 PR 标记面向用户的文本，例如 "(issue #1234)"、"(#594)" 或 `Reference: https://github.com/link-assistant/hive-mind/issues/1234`
 
 请描述选项或消息今天的作用。历史写进 changeset，原因写进代码注释，issue 链接写进固定该行为的注释或测试。弃用提示属于当前的指导，因此保留：它们指出替代方案（"deprecated; use `--isolated screen`"），而不讲述变更的经过。诊断日志可以引用记录已知故障的 issue，因为那是排障线索，而不是发布历史。`tests/no-changelog-in-ui-2402.test.mjs` 会对帮助文本、选项描述、本地化文件和发布到 GitHub 的报告执行这一规则。
 

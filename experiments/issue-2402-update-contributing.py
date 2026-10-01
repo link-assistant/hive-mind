@@ -15,7 +15,7 @@ Release history lives in `.changeset/*.md`, the generated `CHANGELOG.md`, GitHub
 We do not accept code that:
 
 - explains what changed: "old behavior", "the default in newer versions", "now does X", "no longer does Y", "the legacy script has been promoted", "renamed from", "New in vX.Y", "What's new" banners or release notes
-- tags a user-facing text with the issue or pull request that introduced it, such as "(issue #1234)", "(#594)" or "Reference: https://github.com/link-assistant/hive-mind/issues/1234"
+- tags a user-facing text with the issue or pull request that introduced it, such as "(issue #1234)", "(#594)" or `Reference: https://github.com/link-assistant/hive-mind/issues/1234`
 
 Write what the option or message does today. Put the history in the changeset, the reason in a code comment, and the issue link in the comment or test that pins the behaviour. Deprecation notices are current guidance, so they stay: they name the replacement ("deprecated; use `--isolated screen`") and do not tell the story of the change. Diagnostic log lines may cite the issue that documents a known failure mode, because that is a troubleshooting pointer, not release history. `tests/no-changelog-in-ui-2402.test.mjs` enforces this for help text, option descriptions, locales and GitHub-posted reports.
 
@@ -31,7 +31,7 @@ Write what the option or message does today. Put the history in the changeset, t
 Мы не принимаем код, который:
 
 - объясняет, что изменилось: «старое поведение», «по умолчанию в новых версиях», «теперь делает X», «больше не делает Y», «устаревший скрипт стал командой», «переименовано из», «Новое в vX.Y», баннеры «Что нового» или заметки о выпуске
-- помечает пользовательский текст issue или PR, в котором он появился, например «(issue #1234)», «(#594)» или «Reference: https://github.com/link-assistant/hive-mind/issues/1234»
+- помечает пользовательский текст issue или PR, в котором он появился, например «(issue #1234)», «(#594)» или `Reference: https://github.com/link-assistant/hive-mind/issues/1234`
 
 Пишите, что опция или сообщение делает сегодня. Историю — в changeset, причину — в комментарий в коде, ссылку на issue — в комментарий или тест, закрепляющий поведение. Уведомления об устаревании — это текущая инструкция, поэтому они остаются: они называют замену («deprecated; use `--isolated screen`») и не пересказывают историю изменения. Диагностические строки журнала могут ссылаться на issue с описанием известного сбоя: это подсказка для отладки, а не история релизов. `tests/no-changelog-in-ui-2402.test.mjs` проверяет это для справки, описаний опций, локалей и отчётов, публикуемых в GitHub.
 
@@ -47,7 +47,7 @@ Write what the option or message does today. Put the history in the changeset, t
 我们不接受以下代码：
 
 - 解释发生了什么变化："旧行为"、"新版本中的默认值"、"现在会做 X"、"不再做 Y"、"旧脚本已升级为命令"、"由……重命名而来"、"vX.Y 新增"、"新功能"横幅或发布说明
-- 用引入该行为的 issue 或 PR 标记面向用户的文本，例如 "(issue #1234)"、"(#594)" 或 "Reference: https://github.com/link-assistant/hive-mind/issues/1234"
+- 用引入该行为的 issue 或 PR 标记面向用户的文本，例如 "(issue #1234)"、"(#594)" 或 `Reference: https://github.com/link-assistant/hive-mind/issues/1234`
 
 请描述选项或消息今天的作用。历史写进 changeset，原因写进代码注释，issue 链接写进固定该行为的注释或测试。弃用提示属于当前的指导，因此保留：它们指出替代方案（"deprecated; use `--isolated screen`"），而不讲述变更的经过。诊断日志可以引用记录已知故障的 issue，因为那是排障线索，而不是发布历史。`tests/no-changelog-in-ui-2402.test.mjs` 会对帮助文本、选项描述、本地化文件和发布到 GitHub 的报告执行这一规则。
 
@@ -63,7 +63,7 @@ Release इतिहास `.changeset/*.md`, बनाए गए `CHANGELOG.md`
 हम ऐसा कोड स्वीकार नहीं करते जो:
 
 - बताता है कि क्या बदला: "पुराना व्यवहार", "नए संस्करणों में default", "अब X करता है", "अब Y नहीं करता", "legacy script को command बना दिया गया", "से नाम बदला गया", "vX.Y में नया", "What's new" banners या release notes
-- उपयोगकर्ता को दिखने वाले टेक्स्ट पर उस issue या PR का टैग लगाता है जिसने इसे जोड़ा, जैसे "(issue #1234)", "(#594)" या "Reference: https://github.com/link-assistant/hive-mind/issues/1234"
+- उपयोगकर्ता को दिखने वाले टेक्स्ट पर उस issue या PR का टैग लगाता है जिसने इसे जोड़ा, जैसे "(issue #1234)", "(#594)" या `Reference: https://github.com/link-assistant/hive-mind/issues/1234`
 
 लिखें कि option या संदेश आज क्या करता है। इतिहास changeset में, कारण code comment में, और issue link उस comment या test में रखें जो व्यवहार को तय करता है। Deprecation सूचनाएँ वर्तमान मार्गदर्शन हैं, इसलिए वे रहती हैं: वे विकल्प का नाम बताती हैं ("deprecated; use `--isolated screen`") और बदलाव की कहानी नहीं सुनातीं। Diagnostic log lines किसी ज्ञात विफलता का वर्णन करने वाले issue का हवाला दे सकती हैं, क्योंकि यह troubleshooting संकेत है, release इतिहास नहीं। `tests/no-changelog-in-ui-2402.test.mjs` help text, option descriptions, locales और GitHub पर पोस्ट की गई reports के लिए इसे लागू करता है।
 

@@ -101,7 +101,12 @@ const initSecretlint = async () => {
   }
 
   try {
-    const [core, preset] = await Promise.all([import('@secretlint/core'), import('@secretlint/secretlint-rule-preset-recommend')]);
+    const [core, preset, profiler] = await Promise.all([import('@secretlint/core'), import('@secretlint/secretlint-rule-preset-recommend'), import('@secretlint/profiler').catch(() => null)]);
+    // Issue #2400: the profiler is enabled by default for library users. Every
+    // lintSource call adds performance marks that its observer keeps forever
+    // (~11 KB per call), so a long-running bot or solver grows without bound.
+    // Upstream documents setEnabled(false) for library use (secretlint#1673).
+    profiler?.secretLintProfiler?.setEnabled(false);
 
     secretlintCore = core;
     secretlintConfig = {

@@ -32,7 +32,7 @@ import { createDisabledAttributionSession, resolveFormalAiAttributionSession } f
 import { checkPlaywrightMcpPackageAvailability, getAgentPlaywrightMcpDisableEnv } from './playwright-mcp.lib.mjs';
 import { createAgentTokenUsage, accumulateAgentStepFinishUsage, parseAgentTokenUsage } from './agent-token-usage.lib.mjs';
 import { createJsonStreamScanner, parseJsonRecords } from './json-stream.lib.mjs';
-import { createToolCallLoopGuard } from './tool-call-loop-guard.lib.mjs'; // Issue #2316
+import { createToolCallLoopGuard, resolveRepeatedToolCallLimit } from './tool-call-loop-guard.lib.mjs'; // Issue #2316, #2395
 import { firstErrorText, stringifyErrorValue } from './error-text.lib.mjs';
 import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { attachStreamingInput, finalizeBidirectionalHandler, setupBidirectionalHandler } from './bidirectional-interactive.lib.mjs';
@@ -783,7 +783,7 @@ export const executeAgentCommand = async params => {
       // newlines, and surfaces anything that is not JSON as plain text.
       const stdoutScanner = createJsonStreamScanner();
       const stderrScanner = createJsonStreamScanner();
-      const toolCallLoopGuard = createToolCallLoopGuard({ log, stopSession: async () => execCommand?.kill?.('SIGTERM') }); // Issue #2316
+      const toolCallLoopGuard = createToolCallLoopGuard({ log, limit: resolveRepeatedToolCallLimit({ argv }), stopSession: async () => execCommand?.kill?.('SIGTERM') }); // Issue #2316; opt-in since #2395
 
       const handleAgentJsonEvent = async (raw, value) => {
         const data = sanitizeObjectStrings(value);

@@ -176,6 +176,17 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Maximum number of automatic recovery working sessions started for one killed session when --on-session-kill=resume. Can also be set with HIVE_MIND_SESSION_KILL_RESUME_ATTEMPTS.',
     default: 1,
   },
+  // Issue #2395: the repeated-tool-call breaker (#2247, #2316) stopped sessions
+  // that were waiting for CI, so it never runs unless explicitly enabled.
+  'detect-repeated-tool-calls': {
+    type: 'boolean',
+    description: 'Stop the AI session when it repeats the same tool call with the same result (--repeated-tool-call-limit identical failing calls, or twice that many identical successful calls in a row). CI polling (gh pr checks, gh run view/watch, sleep, ...) is never counted. Disabled by default. Can also be enabled with HIVE_MIND_DETECT_REPEATED_TOOL_CALLS=true.',
+    default: false,
+  },
+  'repeated-tool-call-limit': {
+    type: 'number',
+    description: 'Identical failing tool calls that stop the session when --detect-repeated-tool-calls is enabled (default: 10; identical successful calls need twice as many in a row; 0 disables). Can also be set with HIVE_MIND_REPEATED_TOOL_CALL_LIMIT.',
+  },
   'auto-close-pull-request-on-fail': {
     type: 'boolean',
     description: 'Automatically close the pull request if execution fails',

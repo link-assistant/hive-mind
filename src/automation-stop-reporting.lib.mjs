@@ -226,11 +226,13 @@ export const buildAutoMergeBlockedComment = ({ blockers = [], issueNumber = null
   }
 
   // Issue #2306: the next steps depend on what holds the merge back.
+  // Issue #2395: an unverified issue link is fixed in the description too.
+  const descriptionReasons = ['missing_closing_references', 'issue_link_unverified'];
   const nextSteps = [];
-  if (reasons.some(blocker => blocker.reason !== 'missing_closing_references')) {
+  if (reasons.some(blocker => !descriptionReasons.includes(blocker.reason))) {
     nextSteps.push(issueNumber ? `Reopen issue #${issueNumber} and re-run the command so auto-merge can complete.` : 'Reopen the linked issue and re-run the command so auto-merge can complete.');
   }
-  if (reasons.some(blocker => blocker.reason === 'missing_closing_references')) {
+  if (reasons.some(blocker => descriptionReasons.includes(blocker.reason))) {
     nextSteps.push('Add the missing closing references listed above to the pull request description and re-run the command so auto-merge can complete.');
     nextSteps.push('Or merge this pull request manually — the issues listed above will then stay open.');
   } else {

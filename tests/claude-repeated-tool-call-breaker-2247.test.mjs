@@ -56,10 +56,13 @@ const replayClicks = (breaker, times, input = CLICK_INPUT) => {
   return verdicts.filter(Boolean);
 };
 
-assert.equal(REPEATED_TOOL_CALL_LIMIT_DEFAULT, 3, 'the issue prescribes breaking after 3 identical failing calls');
+// Issue #2395: the breaker is opt-in and its default limit was raised from 3 to
+// 10. The Kotlin scenario below runs it explicitly at the original limit of 3.
+assert.equal(REPEATED_TOOL_CALL_LIMIT_DEFAULT, 10, 'issue #2395 raised the default limit from 3 to 10');
+const KOTLIN_LIMIT = 3;
 
 {
-  const breaker = createRepeatedToolCallBreaker();
+  const breaker = createRepeatedToolCallBreaker({ limit: KOTLIN_LIMIT });
   const first = replayClicks(breaker, 2);
   assert.deepEqual(first, [], 'two identical failures are not yet a loop');
   assert.equal(breaker.tripped, false);
@@ -82,7 +85,7 @@ assert.equal(REPEATED_TOOL_CALL_LIMIT_DEFAULT, 3, 'the issue prescribes breaking
   // loop threshold, and a success in between resets nothing on the failure side.
   // (Issue #2316 made a *run* of identical successful calls trip too - see
   // tests/repeated-tool-call-all-tools-2316.test.mjs.)
-  const breaker = createRepeatedToolCallBreaker();
+  const breaker = createRepeatedToolCallBreaker({ limit: KOTLIN_LIMIT });
   for (let i = 0; i < 5; i++) {
     const { id, event } = toolUseEvent();
     breaker.observe(event);
@@ -95,7 +98,7 @@ assert.equal(REPEATED_TOOL_CALL_LIMIT_DEFAULT, 3, 'the issue prescribes breaking
 {
   // A different input is a different call: retrying with a real selector after
   // two empty ones is progress, not a loop.
-  const breaker = createRepeatedToolCallBreaker();
+  const breaker = createRepeatedToolCallBreaker({ limit: KOTLIN_LIMIT });
   replayClicks(breaker, 2);
   const verdicts = replayClicks(breaker, 2, { target: '#submit' });
   assert.deepEqual(verdicts, [], 'the counter is per (tool, input) pair');
@@ -111,18 +114,22 @@ assert.equal(REPEATED_TOOL_CALL_LIMIT_DEFAULT, 3, 'the issue prescribes breaking
 {
   // A `tool_result` whose `tool_use` was never seen (a resumed session replaying
   // history) cannot be attributed to a call and must not be counted.
-  const breaker = createRepeatedToolCallBreaker();
+  const breaker = createRepeatedToolCallBreaker({ limit: KOTLIN_LIMIT });
   for (let i = 0; i < 5; i++) breaker.observe(toolResultEvent('toolu_unknown'));
   assert.equal(breaker.tripped, false);
 }
 
 {
-  // The limit is configurable, and 0 switches the breaker off entirely.
-  assert.equal(getRepeatedToolCallLimit({ HIVE_MIND_REPEATED_TOOL_CALL_LIMIT: '10' }), 10);
-  assert.equal(getRepeatedToolCallLimit({ HIVE_MIND_REPEATED_TOOL_CALL_LIMIT: '' }), REPEATED_TOOL_CALL_LIMIT_DEFAULT);
-  assert.equal(getRepeatedToolCallLimit({ HIVE_MIND_REPEATED_TOOL_CALL_LIMIT: 'nonsense' }), REPEATED_TOOL_CALL_LIMIT_DEFAULT);
-  assert.equal(getRepeatedToolCallLimit({}), REPEATED_TOOL_CALL_LIMIT_DEFAULT);
-  const disabled = createRepeatedToolCallBreaker({ limit: getRepeatedToolCallLimit({ HIVE_MIND_REPEATED_TOOL_CALL_LIMIT: '0' }) });
+  // The limit is configurable, and 0 switches the breaker off entirely. Since
+  // issue #2395 the environment only sets a limit once detection is enabled.
+  const enabled = { HIVE_MIND_DETECT_REPEATED_TOOL_CALLS: 'true' };
+  assert.equal(getRepeatedToolCallLimit({ ...enabled, HIVE_MIND_REPEATED_TOOL_CALL_LIMIT: '5' }), 5);
+  assert.equal(getRepeatedToolCallLimit({ ...enabled, HIVE_MIND_REPEATED_TOOL_CALL_LIMIT: '' }), REPEATED_TOOL_CALL_LIMIT_DEFAULT);
+  assert.equal(getRepeatedToolCallLimit({ ...enabled, HIVE_MIND_REPEATED_TOOL_CALL_LIMIT: 'nonsense' }), REPEATED_TOOL_CALL_LIMIT_DEFAULT);
+  assert.equal(getRepeatedToolCallLimit(enabled), REPEATED_TOOL_CALL_LIMIT_DEFAULT);
+  assert.equal(getRepeatedToolCallLimit({}), 0, 'issue #2395: off unless enabled');
+  assert.equal(getRepeatedToolCallLimit({ HIVE_MIND_REPEATED_TOOL_CALL_LIMIT: '5' }), 0, 'issue #2395: a limit alone does not enable it');
+  const disabled = createRepeatedToolCallBreaker({ limit: getRepeatedToolCallLimit({ ...enabled, HIVE_MIND_REPEATED_TOOL_CALL_LIMIT: '0' }) });
   replayClicks(disabled, 547);
   assert.equal(disabled.tripped, false, 'HIVE_MIND_REPEATED_TOOL_CALL_LIMIT=0 disables the breaker');
 }

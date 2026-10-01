@@ -210,6 +210,78 @@ export const getTrackedToolCommentIds = () => new Set(trackedToolCommentIds);
  */
 export const resetTrackedToolCommentIds = () => {
   trackedToolCommentIds.clear();
+  latestToolCommentByTarget.clear();
+};
+
+/**
+ * Issue #2397: the latest tool-posted comment on each pull request or issue.
+ *
+ * On konard/vietnam-accomodation-search#76 one Codex failure produced three
+ * "Solution Draft Failed" comments within five seconds: the failure path posted
+ * one, then the exit-handler notifier, unaware of it, posted a second through
+ * attachLogToGitHub and a third as its own fallback. Every comment goes through
+ * postTrackedComment, so recording here lets any later safety net ask whether
+ * the target already says the run failed.
+ */
+const latestToolCommentByTarget = new Map();
+
+const toolCommentTargetKey = ({ owner, repo, targetNumber }) => `${String(owner || '').toLowerCase()}/${String(repo || '').toLowerCase()}#${targetNumber}`;
+
+/**
+ * Whether a comment body already tells the reader why the run failed:
+ * "🚨 Solution Draft Failed", "🛑 Automation stopped: ..." or
+ * "❌ Auto-restart N/N - limit reached". Each of these was followed by a
+ * redundant "Solution Draft Failed ... Reason: <same reason>" comment from the
+ * exit-handler notifier on konard/test-hello-world-019fb330-fa49-…#2.
+ * @param {string} body
+ * @returns {boolean}
+ */
+export const isFailureReportCommentBody = body => {
+  const text = String(body || '');
+  return text.includes(`🚨 ${SOLUTION_DRAFT_FAILED_MARKER}`) || isAutomationStopCommentBody(text);
+};
+
+/**
+ * Whether a comment body ends the automation: "🛑 Automation stopped: ..." or
+ * "❌ Auto-restart N/N - limit reached". Nothing restarts after it, so it
+ * stays the run's failure report even when e.g. "✅ Ready to merge" follows
+ * (konard/test-hello-world-019fb330-fa49-…#2, 2026-09-16).
+ * @param {string} body
+ * @returns {boolean}
+ */
+const isAutomationStopCommentBody = body => {
+  const text = String(body || '');
+  return text.includes(`## 🛑 ${AUTOMATION_STOPPED_MARKER}`) || /## ❌ Auto-restart \S+ - limit reached/.test(text);
+};
+
+/**
+ * Record a comment posted on a target. Called by postTrackedComment.
+ * @param {Object} params
+ * @param {string} params.owner
+ * @param {string} params.repo
+ * @param {number|string} params.targetNumber
+ * @param {string} params.body
+ * @param {string|null} [params.commentId]
+ */
+export const recordToolCommentPosted = ({ owner, repo, targetNumber, body, commentId = null }) => {
+  if (!owner || !repo || targetNumber === null || targetNumber === undefined) return;
+  const key = toolCommentTargetKey({ owner, repo, targetNumber });
+  const automationStopped = latestToolCommentByTarget.get(key)?.automationStopped === true || isAutomationStopCommentBody(body);
+  latestToolCommentByTarget.set(key, { commentId, isFailureReport: isFailureReportCommentBody(body), automationStopped });
+};
+
+/**
+ * Whether the failure was already reported on the target: the latest tool
+ * comment is a failure report, or the automation-stop comment was posted.
+ * @param {Object} params
+ * @param {string} params.owner
+ * @param {string} params.repo
+ * @param {number|string} params.targetNumber
+ * @returns {boolean}
+ */
+export const isFailureAlreadyReportedOnTarget = ({ owner, repo, targetNumber }) => {
+  const latest = latestToolCommentByTarget.get(toolCommentTargetKey({ owner, repo, targetNumber }));
+  return latest?.isFailureReport === true || latest?.automationStopped === true;
 };
 
 /**
@@ -283,6 +355,7 @@ export const postTrackedComment = async ({ $, owner, repo, targetNumber, body, s
   }
 
   trackToolCommentId(commentId);
+  recordToolCommentPosted({ owner, repo, targetNumber, body: sanitizedBody, commentId });
 
   return { ok: true, commentId };
 };

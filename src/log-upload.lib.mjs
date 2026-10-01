@@ -3,7 +3,7 @@ import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { sanitizeForPublication } from './token-sanitization.lib.mjs';
+import { describeCredentialSanitizationFailure, sanitizeForPublication } from './token-sanitization.lib.mjs';
 import { sanitizeLogFileToFileBounded } from './log-sanitize-worker.lib.mjs';
 
 // Log upload module for hive-mind
@@ -463,8 +463,10 @@ export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description,
       logFile,
       operation: 'gh_upload_log_command',
     });
-    await log(`  ❌ Error running gh-upload-log: ${error.message}`);
-    result.failureReason = result.failureReason || error.message;
+    // Issue #2397: name the sanitizer stage/rule that blocked publication.
+    const errorDescription = describeCredentialSanitizationFailure(error);
+    await log(`  ❌ Error running gh-upload-log: ${errorDescription}`);
+    result.failureReason = result.failureReason || errorDescription;
     return result;
   } finally {
     if (privateTempDirectory) {

@@ -145,16 +145,9 @@ jobs:
           GITHUB_BASE_REF: ${{ github.base_ref }}
           GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          # Read through the environment, never interpolated into the script:
-          # a branch name is attacker-controlled on a fork PR.
-          GITHUB_HEAD_REF: ${{ github.head_ref }}
         run: |
-          # Skip changeset check for automated version PRs
-          if [[ "$GITHUB_HEAD_REF" == "changeset-release/"* ]]; then
-            echo "Skipping changeset check for automated release PR"
-            exit 0
-          fi
-          # Run changeset validation script
+          # Version bumps are committed directly to main (issue #2402), so no
+          # automated pull request is exempt from this check.
           # This validates that exactly ONE changeset was ADDED by this PR
           # Pre-existing changesets from other merged PRs are ignored
           node scripts/validate-changeset.mjs
@@ -516,8 +509,6 @@ jobs:
     # Permissions required for npm OIDC trusted publishing
     permissions:
       contents: write
-      pull-requests: write
-      checks: write
       id-token: write
     steps:
       - uses: actions/checkout@v7
@@ -551,11 +542,8 @@ jobs:
       - name: Version packages and commit to main
         if: steps.check_changesets.outputs.has_changesets == 'true'
         id: version
-        # The parent workflow has passed every pre-release validation job. Its
-        # built-in token attests that result on the deterministic version PR
-        # through the Checks API; no long-lived PAT is needed (#2281).
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # Commits the bump directly to main with the checkout's built-in token;
+        # no release pull request is opened (issue #2402).
         run: node scripts/version-and-commit.mjs --mode changeset
       - name: Publish to npm
         # Run if version was committed, OR a previous attempt already committed
@@ -900,8 +888,6 @@ jobs:
       published_version: ${{ steps.publish.outputs.published_version }}
     permissions:
       contents: write
-      pull-requests: write
-      checks: write
       id-token: write
     steps:
       - uses: actions/checkout@v7
@@ -922,10 +908,8 @@ jobs:
         run: node scripts/sanitize-npm-userconfig.mjs
       - name: Version packages and commit to main
         id: version
-        # The built-in GitHub Actions App token publishes the required check on
-        # the deterministic version PR after parent validation passes (#2281).
+        # Commits the bump directly to main, like the release job (issue #2402).
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Read through the environment, never interpolated into the script:
           # `description` is free-form text from whoever dispatched the run
           # (zizmor template-injection).
@@ -1297,8 +1281,7 @@ jobs:
             ### Next Steps
             1. Review the changeset in this PR
             2. Merge this PR to main
-            3. The automated release workflow will create a version PR
-            4. Merge the version PR to publish to npm and create a GitHub release
+            3. The automated release workflow commits the version bump to main, publishes to npm and creates a GitHub release
   # GitHub classifies timeout-minutes as cancellation. Observe every job so a
   # timed-out main run cannot finish without a failing status.
   pipeline-status:

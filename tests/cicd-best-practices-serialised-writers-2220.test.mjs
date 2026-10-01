@@ -61,11 +61,12 @@ assert.match(concurrency, /The rejection is the honest outcome/, 'it says the re
 assert.match(concurrency, /classifies the rejection, then rebases and retries/, 'it requires classification before the retry');
 assert.match(concurrency, /Recompute after the rebase/, 'it warns that a version chosen against the stale tip may be taken');
 assert.match(concurrency, /Bound the retries/, 'it keeps a protected branch from turning into an unbounded loop');
-assert.match(concurrency, /see principle 9/, 'it points at the pull-request recovery for a rule-blocked push');
+assert.match(concurrency, /see principle 9/, 'it points at the rule fix for a rule-blocked push');
 
 // Principle 9 must hold up its end of that cross-reference.
 const releaseAutomation = englishGuide.match(/### 9\.[\s\S]*?\n### 10\./)?.[0];
-assert.match(releaseAutomation, /rule-blocked push is not a failed release/i, 'principle 9 names the pull-request recovery principle 10 refers to');
+assert.match(releaseAutomation, /rule-blocked push is fixed in the rule, not in the workflow/i, 'principle 9 names the rule fix principle 10 refers to (issue #2402)');
+assert.match(releaseAutomation, /Commit the version bump directly to the default branch/, 'principle 9 keeps the version bump off release pull requests (issue #2402)');
 assert.match(releaseAutomation, /see principle 10/, 'the cross-reference points back');
 
 // The principle is only worth documenting if this repository follows it.

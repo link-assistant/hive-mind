@@ -8,7 +8,7 @@
  *
  * Key behavior:
  * - For PRs: compares PR head against base branch to detect version changes
- * - Skips check for automated release PRs (changeset-release/* branches)
+ * - Skips check for manual changeset PRs (changeset-manual-release-* branches)
  * - Fails the build if manual version changes are detected
  *
  * Usage:
@@ -47,8 +47,9 @@ function exec(command) {
 function shouldSkipVersionCheck() {
   const headRef = process.env.GITHUB_HEAD_REF || '';
 
-  // Skip check for automated release PRs created by changeset
-  const skipPatterns = ['changeset-release/', 'changeset-manual-release-'];
+  // Skip check for changeset PRs created by the manual `changeset-pr` release
+  // mode. Version bumps themselves are committed directly to main (#2402).
+  const skipPatterns = ['changeset-manual-release-'];
 
   for (const pattern of skipPatterns) {
     if (headRef.startsWith(pattern)) {

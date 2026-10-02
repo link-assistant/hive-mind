@@ -704,6 +704,7 @@ zh
       label "隔离"
     execution
       label "执行"
+      earlier "更早的日志"
     error
       executing
         command "❌ 执行 {{commandName}} 命令时出错"

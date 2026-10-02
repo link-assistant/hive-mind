@@ -243,7 +243,10 @@ export function formatSessionCompletionMessage({ sessionName, sessionInfo, statu
   // session UUID, so the finished task can still be found in the session list.
   const executionLabel = text(messageLocale, 'telegram.execution_label', 'Execution');
   const executionUuid = sessionInfo?.executionUuid || statusResult?.uuid || null;
-  const executionInfo = executionUuid ? `\n🆔 ${executionLabel}: \`${executionUuid}\`` : '';
+  // Issue #2408: a recovery launched fresh writes a new log, so name the earlier ones too.
+  const previousExecutions = (Array.isArray(sessionInfo?.previousExecutionUuids) ? sessionInfo.previousExecutionUuids : []).filter(uuid => uuid && uuid !== executionUuid);
+  const earlierExecutions = previousExecutions.length > 0 ? ` (${text(messageLocale, 'telegram.execution_earlier', 'earlier logs')}: ${previousExecutions.map(uuid => `\`${uuid}\``).join(', ')})` : '';
+  const executionInfo = executionUuid ? `\n🆔 ${executionLabel}: \`${executionUuid}\`${earlierExecutions}` : '';
   // Issue #2301: after a recovery session the duration covers the whole work.
   const startTime = parseDateValue(sessionInfo?.rootStartTime) || parseDateValue(statusResult?.startTime) || parseDateValue(sessionInfo?.startTime) || observedEndTime;
   const endTime = parseDateValue(statusResult?.endTime) || observedEndTime;

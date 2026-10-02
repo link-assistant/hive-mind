@@ -23,7 +23,7 @@ import { initI18n, preloadAllLocales, t } from '../src/i18n.lib.mjs';
 import { monitorSessions, resetSessionMonitorForTests, trackSession, STALE_EXECUTING_MIN_AGE_MS } from '../src/session-monitor.lib.mjs';
 import { resolveOomKilledState } from '../src/session-monitor.oom.lib.mjs';
 import { buildKillRecoveryNotice } from '../src/session-kill-recovery.lib.mjs';
-import { recoverKilledSession } from '../src/session-kill-resume.lib.mjs';
+import { recoverKilledSession, collectPreviousExecutionUuids } from '../src/session-kill-resume.lib.mjs';
 import { resolveSessionKillResumeAttempts, DEFAULT_SESSION_KILL_RESUME_ATTEMPTS } from '../src/session-kill-policy.lib.mjs';
 import { formatSessionCompletionMessage } from '../src/work-session-formatting.lib.mjs';
 import { collectExecutingItems, formatQueueExecutingItems } from '../src/telegram-solve-queue.helpers.lib.mjs';
@@ -263,4 +263,14 @@ test('a tool process killed by SIGKILL resumes its own session in-process, with 
   assert.equal(calls, 2);
   assert.equal(exhausted.toolResult.success, false);
   assert.match(buildToolKillWarningComment({ resuming: false, maxAttempts: 2 }), /budget \(2\) is spent/);
+});
+
+test('a fresh recovery launch keeps pointing at the earlier execution logs', async () => {
+  await initI18n('en');
+  assert.deepEqual(collectPreviousExecutionUuids({ executionUuid: '0760afb4' }, '88951cec'), ['0760afb4']);
+  assert.deepEqual(collectPreviousExecutionUuids({ executionUuid: '88951cec', previousExecutionUuids: ['0760afb4'] }, 'c0ffee00'), ['0760afb4', '88951cec']);
+  assert.deepEqual(collectPreviousExecutionUuids({ executionUuid: '0760afb4' }, '0760afb4'), [], 'an in-place resume keeps one log');
+
+  const message = formatSessionCompletionMessage({ sessionName: '2b185a46', observedEndTime: new Date(3600_000), sessionInfo: { startTime: new Date(0), rootSessionName: '6bf35d99', executionUuid: '88951cec', previousExecutionUuids: ['0760afb4'], killRecoveryResumed: true, killRecoveryAttempts: 1 }, exitCode: 0 });
+  assert.match(message, /🆔 Execution: `88951cec` \(earlier logs: `0760afb4`\)/);
 });

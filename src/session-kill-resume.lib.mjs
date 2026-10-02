@@ -64,6 +64,21 @@ export function planKillRecovery({ sessionInfo = {}, logPath = null, killed = fa
 }
 
 /**
+ * Execution UUIDs whose start-command logs precede a recovery session's own
+ * (issue #2408). An in-place resume keeps its UUID and adds nothing.
+ *
+ * @param {Object} sessionInfo - The killed session's info
+ * @param {string|null} nextExecutionUuid - The recovery session's execution UUID
+ * @returns {string[]}
+ */
+export function collectPreviousExecutionUuids(sessionInfo, nextExecutionUuid) {
+  const chain = Array.isArray(sessionInfo?.previousExecutionUuids) ? sessionInfo.previousExecutionUuids.filter(Boolean) : [];
+  const current = sessionInfo?.executionUuid || null;
+  if (current && current !== nextExecutionUuid && !chain.includes(current)) chain.push(current);
+  return chain;
+}
+
+/**
  * Start the recovery working session decided by {@link planKillRecovery}.
  *
  * Two ways in, in order of preference:
@@ -135,6 +150,9 @@ export async function startKillRecoverySession({ sessionName, sessionInfo, plan,
         // inheriting the dead session's would make `$ --status` answer about the
         // wrong execution until the monitor happened to correct it.
         executionUuid,
+        // Issue #2408: a fresh launch writes a new start-command log, so keep the
+        // earlier executions' UUIDs to let the report point at the whole log chain.
+        previousExecutionUuids: collectPreviousExecutionUuids(sessionInfo, executionUuid),
         killRecoveryInPlace: inPlace.resumed,
         killRecoveryResumeMode: inPlace.mode || null,
         oomEventObservedAt: undefined,

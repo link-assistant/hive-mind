@@ -704,6 +704,7 @@ ru
       label "Изоляция"
     execution
       label "Запуск"
+      earlier "ранние журналы"
     error
       executing
         command "❌ Ошибка выполнения команды {{commandName}}"

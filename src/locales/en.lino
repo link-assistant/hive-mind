@@ -704,6 +704,7 @@ en
       label "Isolation"
     execution
       label "Execution"
+      earlier "earlier logs"
     error
       executing
         command "❌ Error executing {{commandName}} command"

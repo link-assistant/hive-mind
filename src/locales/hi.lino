@@ -704,6 +704,7 @@ hi
       label "Isolation"
     execution
       label "निष्पादन"
+      earlier "पहले के लॉग"
     error
       executing
         command "❌ {{commandName}} command चलाने में त्रुटि"

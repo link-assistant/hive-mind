@@ -49,7 +49,8 @@ const timer = setInterval(() => {
     branchName: 'fixture',
     prompt,
     systemPrompt: '',
-    argv: { model: 'gpt-5', verbose: true },
+    // The breaker is opt-in since #2395; the probe enables it explicitly.
+    argv: { model: 'gpt-5', verbose: true, detectRepeatedToolCalls: true },
     codexPath: binary,
     $: trackedShell,
     formatAligned: (...parts) => parts.join(' '),

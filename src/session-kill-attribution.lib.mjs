@@ -1,9 +1,11 @@
 /**
  * Who ended a failed work session: the OOM event, or solve itself? (issue #2408)
  *
- * Docker's `State.OOMKilled` is a container-wide flag (moby#47618): once any
- * child in the cgroup is OOM-killed it stays `true`, so every later exit of the
- * container carries it. Issue #2301 resumes a session that exits with an
+ * Docker's `State.OOMKilled` is a container-wide flag: moby sets it on every
+ * OOM event of the container cgroup (daemon/monitor.go, `EventOOM`) and clears
+ * it only when the container starts again (daemon/container/state.go,
+ * `SetRunning`). Once any child is OOM-killed it stays `true`, so every later
+ * exit of the container carries it. Issue #2301 resumes a session that exits with an
  * ordinary failure after such an event, because the lost child usually *is* why
  * the work failed.
  *

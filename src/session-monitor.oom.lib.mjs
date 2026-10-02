@@ -6,7 +6,9 @@
  * half of the problem: Docker's `State.OOMKilled` is a *container* flag, not a
  * statement about the container's main process. The kernel sets it when ANY
  * process in the container cgroup is OOM-killed, and it stays `true` afterwards
- * — so a container can be flagged, keep running, and exit 0 (see
+ * — so a container can be flagged, keep running, and exit 0 (moby sets it in
+ * daemon/monitor.go on `EventOOM` and clears it only in
+ * daemon/container/state.go `SetRunning`; see also
  * https://github.com/moby/moby/issues/47618).
  *
  * That is exactly what happened in #2134: the host ran out of memory, the OOM

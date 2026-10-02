@@ -881,11 +881,13 @@ export const mergeQueue = {
   mergeMethod: getenv('HIVE_MIND_MERGE_QUEUE_MERGE_METHOD', 'merge'),
   // Issue #1307: Wait for main branch CI to complete before processing merge queue
   // When enabled, the merge queue will wait for any active CI runs on the target branch
-  // (usually main) to complete before merging the first PR.
+  // (usually main) to complete before merging each PR.
+  // Issue #2404: after the wait, the runs' conclusions are re-checked (see checkBranchCIHealthBeforeStart).
   // Default: true - ensures all post-merge CI workflows complete before next merge
   waitForTargetBranchCI: getenv('HIVE_MIND_MERGE_QUEUE_WAIT_FOR_TARGET_CI', 'true').toLowerCase() === 'true',
   // Issue #1307: Timeout for waiting on target branch CI (in milliseconds)
-  // If active runs don't complete within this time, proceed with merge anyway
+  // Issue #2404: if the branch CI is still running after this time, the queue stops (it no longer
+  // merges blindly); runs unrelated to the branch CI being still active do not block it.
   // Default: 45 minutes (2700000ms)
   targetBranchCITimeoutMs: parseIntWithDefault('HIVE_MIND_MERGE_QUEUE_TARGET_CI_TIMEOUT_MS', 45 * 60 * 1000),
   // Issue #1307: Polling interval for checking target branch CI status (in milliseconds)
@@ -906,6 +908,9 @@ export const mergeQueue = {
   // When enabled, the merge queue will check if there are any failed CI runs on
   // the default branch before starting to process PRs. If failures exist, it will
   // report them and stop.
+  // Issue #2404: the check now runs before every merge (and before the auto-resolve pass),
+  // re-checks conclusions after waiting for active runs, and judges a HEAD without CI of its
+  // own (e.g. a release version bump) by the newest ancestor that has push CI.
   // Default: true - ensure a healthy branch before merging
   checkBranchCIHealthBeforeStart: getenv('HIVE_MIND_MERGE_QUEUE_CHECK_BRANCH_HEALTH', 'true').toLowerCase() === 'true',
   // Issue #1341: Timeout for waiting on post-merge CI (in milliseconds)

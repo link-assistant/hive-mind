@@ -1,0 +1,38 @@
+✔ PR 326: a negated closing keyword is not a closing reference (4.363163ms)
+✔ negated, hypothetical, and example references do not satisfy the repair check (5.607997ms)
+✔ repository-qualified links must match the issue repository (0.721777ms)
+✔ a local reference cannot satisfy a foreign sub-issue with the same number (2.390462ms)
+✔ a title alone cannot replace a closing reference in the description (0.542272ms)
+✖ hive batch discovery uses description links and the exact issue repository (8.792309ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 5
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2014.537281
+
+✖ failing tests:
+
+test at tests/issue-linking-2335.test.mjs:45:1
+✖ hive batch discovery uses description links and the exact issue repository (8.792309ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      3,
+  +   4,
+      5
+    ]
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1790767368526/tests/issue-linking-2335.test.mjs:52:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 3, 4, 5 ],
+    expected: [ 3, 5 ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

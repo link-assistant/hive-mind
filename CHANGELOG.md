@@ -1,5 +1,46 @@
 # @link-assistant/hive-mind
 
+## 2.33.7
+
+### Patch Changes
+
+- 03f4550: Keep pull requests linked to every issue they solve: reject negated, quoted and foreign issue references, repair every required closing link after working sessions and restarts, keep all open issues in repository-mode scope beyond the native sub-issue limit, and block automated merges while a required issue link is missing or not confirmed by GitHub.
+- c7c9001: fix(merge): `/merge` now stops when the target branch CI fails (#2404). The queue re-checks the default branch's CI conclusions before every merge and after every wait, instead of only waiting for the runs to finish. A HEAD commit without CI of its own, such as a release version bump pushed with `GITHUB_TOKEN`, is judged by the newest ancestor that has push CI. The queue also stops, rather than merging blindly, when main CI is still running after the wait times out.
+
+  `scripts/wait-for-npm.mjs` now also waits until the version's tarball can be downloaded, not only until `npm view` returns the version. The arm64 Docker build that turned main red failed with a tarball 404 three minutes after the metadata became visible.
+
+## 2.33.6
+
+### Patch Changes
+
+- 3f1e89e: Post one "Log Upload Failed" comment per failed log (#2400): the `--attach-logs` safety net no longer repeats the report already on the pull request when another comment landed in between. In Docker isolation, the comment and console now say the log path is inside the session's container, that the container is removed on success, and how to reach the log (`docker cp`, `/log <session>`, `$ --status <session>`), instead of claiming it is on the host. Language keywords and literals assigned to sensitive-named variables (`fileTokens = await …`, `…Tokens: false`) are no longer masked as credentials. The Secretlint profiler is disabled, so each credential scan no longer retains memory for the life of the process.
+
+  Includes #2398 (not yet merged on its own): Post a single failure comment per failure (#2397). The exit handler no longer repeats a failure already reported by the "Log Upload Failed", "Automation stopped" or "Auto-restart limit reached" comment. Codex's "model is not supported when using Codex with a ChatGPT account" is reported as a plan problem with renewal and daemon-update guidance. Logs containing `token => …` or a short known env value are no longer blocked from publication, env tokens are masked in logs, and a blocked publication now names the failed check, rule ids and log block.
+
+## 2.33.5
+
+### Patch Changes
+
+- e06a31f: Post a single failure comment per failure (#2397). The exit handler no longer repeats a failure already reported by the "Log Upload Failed", "Automation stopped" or "Auto-restart limit reached" comment. Codex's "model is not supported when using Codex with a ChatGPT account" is reported as a plan problem with renewal and daemon-update guidance. Logs containing `token => …` or a short known env value are no longer blocked from publication, env tokens are masked in logs, and a blocked publication now names the failed check, rule ids and log block.
+
+## 2.33.4
+
+### Patch Changes
+
+- a4006da: Commit release version bumps directly to `main` again instead of opening and auto-merging a `release/*` pull request; a push rejected by a repository rule now fails the release with an actionable error. Help text, option descriptions, Telegram replies and text posted to GitHub describe current behaviour only, without change narration or issue provenance tags, and the contributing guide states that the code is not a changelog.
+
+## 2.33.3
+
+### Patch Changes
+
+- c45c429: Make the repeated-tool-call breaker opt-in (`--detect-repeated-tool-calls` / `HIVE_MIND_DETECT_REPEATED_TOOL_CALLS=true`) with a default limit of 10 (was 3, always on). CI polling commands (`gh pr checks`, `gh run view`, …) are never counted, and failing calls only count as repeated when their output repeats too. The auto-merge loop continues with feedback after a breaker stop instead of reporting a tool failure.
+
+  `--auto-merge` now ensures the pull request still links its issue ("Fixes #N") right before merging, restores the link when a later session removed it, and holds the merge back when the link cannot be ensured, so a pull request is never auto-merged unattached to its issue.
+
+  When the auto-merge is held back, the full session log is attached again so the reason is always published, even if an earlier failed session already attached a log.
+
+  With `--verbose`, every finished AI session now logs any process still running in its work directory, so a process that outlives a stopped session is visible in the attached log.
+
 ## 2.33.2
 
 ### Patch Changes

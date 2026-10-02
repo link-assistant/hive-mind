@@ -11,7 +11,7 @@ if (typeof globalThis.use === 'undefined') {
 // Import dependencies
 import { log, cleanErrorMessage } from './lib.mjs';
 import { githubLimits, timeouts } from './config.lib.mjs';
-import { prClosesIssue } from './github-linking.lib.mjs';
+import { prClosesIssue, pullRequestClosesIssue } from './github-linking.lib.mjs';
 
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry, execGhWithRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller. execGhWithRetry adds transient-network retry (#1756).
 export { prClosesIssue };
@@ -32,16 +32,14 @@ export { prClosesIssue };
  * @param {Array<string>} [options.includeStates=['OPEN']] - PR states to report
  * @returns {Promise<Array<Object>>} Linked PRs (in the requested states) that close the issue
  */
-export async function extractLinkedPullRequestsForIssue(issueData, issueNum, logger = log, { includeStates = ['OPEN'] } = {}) {
+export async function extractLinkedPullRequestsForIssue(issueData, issueNum, logger = log, { includeStates = ['OPEN'], owner = null, repo = null } = {}) {
   const linkedPRs = [];
   const wantedStates = new Set(includeStates);
 
   for (const item of issueData.timelineItems?.nodes || []) {
     if (item?.source && wantedStates.has(item.source.state)) {
       // Check if PR actually closes this issue (has "fixes #N", "closes #N", or "resolves #N")
-      const prBody = item.source.body || '';
-      const prTitle = item.source.title || '';
-      const closesThisIssue = prClosesIssue(prBody, issueNum) || prClosesIssue(prTitle, issueNum);
+      const closesThisIssue = pullRequestClosesIssue(item.source, issueNum, owner, repo);
 
       if (closesThisIssue) {
         linkedPRs.push({
@@ -149,7 +147,7 @@ export async function batchCheckPullRequestsForIssues(owner, repo, issueNumbers,
             // Issue #1094: Only count PRs that explicitly fix/close/resolve this issue
             // This prevents false positives from PRs that only mention issues without solving them
             // Issue #1760: Draft PRs are still active solution drafts and must block duplicate work
-            const linkedPRs = await extractLinkedPullRequestsForIssue(issueData, issueNum, log, { includeStates });
+            const linkedPRs = await extractLinkedPullRequestsForIssue(issueData, issueNum, log, { includeStates, owner, repo });
 
             results[issueNum] = {
               title: issueData.title,
@@ -191,7 +189,7 @@ export async function batchCheckPullRequestsForIssues(owner, repo, issueNumbers,
             const crossReferenced = JSON.parse(stdout.trim() || '[]');
             const linkedPRs = crossReferenced
               .filter(pr => wantedStates.has(pr.state))
-              .filter(pr => prClosesIssue(pr.body || '', issueNum) || prClosesIssue(pr.title || '', issueNum))
+              .filter(pr => pullRequestClosesIssue(pr, issueNum, owner, repo))
               .map(({ number, title, state, isDraft, url }) => ({ number, title, state, isDraft: Boolean(isDraft), url }));
 
             results[issueNum] = {

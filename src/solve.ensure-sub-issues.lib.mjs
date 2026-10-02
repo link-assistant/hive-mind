@@ -340,8 +340,8 @@ export const runEnsureAllSubIssuesAddressed = async ({ issueUrl, owner, repo, is
  * (restart limit, usage limit, errors), and the AI can remove references in a
  * later session. The merge is the last point where this can be caught.
  *
- * Fails open: when GitHub cannot be read, the merge is not blocked (the
- * restart loop has already checked), but the failure is logged.
+ * Issue #2335: always checks the primary issue and all required sub-issues,
+ * and a failed GitHub read blocks the merge.
  *
  * @param {object} params
  * @param {string} params.owner
@@ -352,29 +352,9 @@ export const runEnsureAllSubIssuesAddressed = async ({ issueUrl, owner, repo, is
  * @returns {Promise<{reason: string, message: string, details: string[], resolution: string}|null>} merge blocker, or null
  */
 export const checkClosingReferencesBeforeMerge = async ({ owner, repo, issueNumber, prNumber, argv = {} }) => {
-  if (!owner || !repo || !issueNumber || !prNumber) return null;
-  const ensureEnabled = normalizeEnsureSubIssuesLimit(argv.ensureAllSubIssuesAddressed ?? argv['ensure-all-sub-issues-addressed']) > 0;
-
-  try {
-    const issueBody = await fetchIssueBody({ owner, repo, issueNumber });
-    const gate = evaluateClosingReferencesGate({ ensureEnabled, issueBody, subIssues: [], prText: '', owner, repo, issueNumber, prNumber });
-    if (!gate.enabled) return null;
-
-    const subIssues = await fetchSubIssues({ owner, repo, issueNumber }).catch(async error => {
-      await log(`⚠️  Could not list sub-issues before merge (${cleanErrorMessage(error)}); checking the issue body references only.`, { level: 'warning' });
-      return [];
-    });
-    const prText = await fetchPullRequestText({ owner, repo, prNumber });
-    const result = evaluateClosingReferencesGate({ ensureEnabled, issueBody, subIssues, prText, owner, repo, issueNumber, prNumber });
-    if (argv.verbose) {
-      await log(`   🧩 Closing references before merge: ${result.total - result.missing.length}/${result.total} required issue(s) closed by PR #${prNumber}`, { verbose: true });
-    }
-    return result.blocker;
-  } catch (error) {
-    reportError(error, { context: 'ensure_sub_issues_merge_gate', owner, repo, issueNumber, prNumber, operation: 'check_closing_references' });
-    await log(`⚠️  Could not verify closing references before merge: ${cleanErrorMessage(error)}`, { level: 'warning' });
-    return null;
-  }
+  const { checkIssueLinksBeforeMerge } = await import('./issue-link-verification.lib.mjs');
+  const { blocker } = await checkIssueLinksBeforeMerge({ owner, repo, issueNumber, prNumber, logger: log, verbose: argv.verbose });
+  return blocker;
 };
 
 export default {

@@ -25,7 +25,7 @@ All pull requests to `main` must have these checks pass before merging:
 1. **Check for Changesets** (`changeset-check`)
    - Ensures every PR includes a changeset for version management
    - Only runs on PRs, not on main branch pushes
-   - Skipped for automated release PRs
+   - Applies to every PR: releases commit the version bump directly to main, so no release PR exists
 
 2. **test-compilation**
    - Validates JavaScript syntax for all `.mjs` files

@@ -29,7 +29,7 @@ const __codexBuildSolveResumeCmd = (argv, sessionId, tempDir) => (sessionId && a
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import { firstErrorText } from './error-text.lib.mjs'; // Issue #2141
 import { createLineBuffer } from './json-stream.lib.mjs'; // Issue #2119
-import { createToolCallLoopGuard } from './tool-call-loop-guard.lib.mjs'; // Issue #2316
+import { createToolCallLoopGuard, resolveRepeatedToolCallLimit } from './tool-call-loop-guard.lib.mjs'; // Issue #2316, #2395
 import { mapModelToId, resolveCodexReasoningEffort } from './codex.options.lib.mjs';
 import { buildCodexRunDiagnostics, codexRunAlreadyFailed, describeCodexLastMessageOutcome } from './codex.run-diagnostics.lib.mjs'; // Issue #2130
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
@@ -846,7 +846,7 @@ export const executeCodexCommand = async params => {
           return true;
         },
       });
-      const toolCallLoopGuard = createToolCallLoopGuard({ log, stopSession: async () => execCommand?.kill?.('SIGTERM') }); // Issue #2316
+      const toolCallLoopGuard = createToolCallLoopGuard({ log, limit: resolveRepeatedToolCallLimit({ argv }), stopSession: async () => execCommand?.kill?.('SIGTERM') }); // Issue #2316; opt-in since #2395
       let codexJsonState = {
         sessionId: null,
         authError: false,

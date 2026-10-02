@@ -1,0 +1,8 @@
+[
+  {
+    "version": "0.5.13",
+    "peerDependencies": {
+      "web-tree-sitter": "0.25.10"
+    }
+  }
+]

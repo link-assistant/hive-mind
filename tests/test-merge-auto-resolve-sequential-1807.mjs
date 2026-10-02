@@ -15,6 +15,13 @@
 import assert from 'node:assert/strict';
 import { MergeItemStatus, MergeQueueProcessor, MERGE_CONFLICT_SKIP_REASON, MERGE_QUEUE_CONFIG } from '../src/telegram-merge-queue.lib.mjs';
 
+// Issue #2404: runAutoResolve() now verifies the target branch first — keep these unit tests offline.
+const GREEN_BRANCH = {
+  getDefaultBranch: async () => 'main',
+  checkBranchCIHealth: async () => ({ healthy: true, pending: false, failedRuns: [], pendingRuns: [], error: null }),
+  waitForBranchCI: async () => ({ success: true, waitedForRuns: false, completedRuns: 0, error: null }),
+};
+
 let testsPassed = 0;
 let testsFailed = 0;
 
@@ -97,7 +104,7 @@ test('Issue #1807: MERGE_QUEUE_CONFIG exposes AUTO_RESOLVE_WAIT_TIMEOUT_MS and A
 test('Issue #1807: constructor accepts injectable getPRStatus and getMergeCommitSha hooks', () => {
   const stubStatus = async () => ({ state: 'MERGED', mergeStateStatus: 'CLEAN', mergeable: 'MERGEABLE', error: null });
   const stubSha = async () => ({ sha: 'abc', error: null });
-  const p = new MergeQueueProcessor({ owner: 'o', repo: 'r', autoResolve: true, spawnSolveSession: async () => ({ success: true }), getPRStatus: stubStatus, getMergeCommitSha: stubSha });
+  const p = new MergeQueueProcessor({ ...GREEN_BRANCH, owner: 'o', repo: 'r', autoResolve: true, spawnSolveSession: async () => ({ success: true }), getPRStatus: stubStatus, getMergeCommitSha: stubSha });
   assert.equal(p.getPRStatus, stubStatus, 'getPRStatus is overridden by constructor option');
   assert.equal(p.getMergeCommitSha, stubSha, 'getMergeCommitSha is overridden by constructor option');
 });
@@ -136,7 +143,7 @@ await asyncTest('Issue #1807: spawner for PR N is only called after PR N-1 has r
     return { state: 'OPEN', mergeStateStatus: 'DIRTY', mergeable: 'CONFLICTING', error: null };
   };
 
-  const p = new MergeQueueProcessor({ owner: 'o', repo: 'r', autoResolve: true, spawnSolveSession: spawn, getPRStatus, getMergeCommitSha: async () => ({ sha: 'sha', error: null }) });
+  const p = new MergeQueueProcessor({ ...GREEN_BRANCH, owner: 'o', repo: 'r', autoResolve: true, spawnSolveSession: spawn, getPRStatus, getMergeCommitSha: async () => ({ sha: 'sha', error: null }) });
   // Disable the post-merge CI wait for this test — exercised separately below.
   p.waitForPostMergeCI = async () => ({ success: true, failedRuns: [], error: null });
   p.sleep = async () => undefined; // collapse the 5s SHA delay
@@ -168,7 +175,7 @@ await asyncTest('Issue #1807: waitForPostMergeCI is invoked between resolutions,
   };
   const getMergeCommitSha = async (_owner, _repo, prNumber) => ({ sha: `sha-${prNumber}`, error: null });
 
-  const p = new MergeQueueProcessor({ owner: 'o', repo: 'r', autoResolve: true, spawnSolveSession: spawn, getPRStatus, getMergeCommitSha });
+  const p = new MergeQueueProcessor({ ...GREEN_BRANCH, owner: 'o', repo: 'r', autoResolve: true, spawnSolveSession: spawn, getPRStatus, getMergeCommitSha });
   p.sleep = async () => undefined;
   p.waitForPostMergeCI = async function (item) {
     events.push(`ci-${item.pr.number}`);
@@ -213,7 +220,7 @@ await asyncTest('Issue #1807: cancellation during wait halts the loop and leaves
     return { success: true };
   };
   let calls = 0;
-  const p = new MergeQueueProcessor({ owner: 'o', repo: 'r', autoResolve: true, spawnSolveSession: spawn });
+  const p = new MergeQueueProcessor({ ...GREEN_BRANCH, owner: 'o', repo: 'r', autoResolve: true, spawnSolveSession: spawn });
   p.getPRStatus = async () => {
     calls++;
     // Trip cancellation on the second poll (so we exercise the in-loop check).
@@ -243,7 +250,7 @@ await asyncTest('Issue #1807: cancellation during wait halts the loop and leaves
 
 await asyncTest('Issue #1807: timed-out wait marks item RESOLVE_FAILED', async () => {
   const spawn = async () => ({ success: true });
-  const p = new MergeQueueProcessor({ owner: 'o', repo: 'r', autoResolve: true, spawnSolveSession: spawn });
+  const p = new MergeQueueProcessor({ ...GREEN_BRANCH, owner: 'o', repo: 'r', autoResolve: true, spawnSolveSession: spawn });
   // PR never transitions away from OPEN — the wait must time out.
   p.getPRStatus = async () => ({ state: 'OPEN', mergeStateStatus: 'DIRTY', mergeable: 'CONFLICTING', error: null });
   p.waitForPostMergeCI = async () => ({ success: true, failedRuns: [], error: null });
@@ -265,7 +272,7 @@ await asyncTest('Issue #1807: timed-out wait marks item RESOLVE_FAILED', async (
 
 await asyncTest('Issue #1807: closed PR (without merge) marks item RESOLVE_FAILED', async () => {
   const spawn = async () => ({ success: true });
-  const p = new MergeQueueProcessor({ owner: 'o', repo: 'r', autoResolve: true, spawnSolveSession: spawn });
+  const p = new MergeQueueProcessor({ ...GREEN_BRANCH, owner: 'o', repo: 'r', autoResolve: true, spawnSolveSession: spawn });
   p.getPRStatus = async () => ({ state: 'CLOSED', mergeStateStatus: 'DIRTY', mergeable: 'CONFLICTING', error: null });
   p.sleep = async () => undefined;
   MERGE_QUEUE_CONFIG.AUTO_RESOLVE_POLL_INTERVAL_MS = 1;
@@ -283,7 +290,7 @@ await asyncTest('Issue #1807: closed PR (without merge) marks item RESOLVE_FAILE
 await asyncTest('Issue #1807: getProgressUpdate exposes the current auto-resolve phase and elapsed time', async () => {
   const phases = [];
   const spawn = async () => ({ success: true });
-  const p = new MergeQueueProcessor({ owner: 'o', repo: 'r', autoResolve: true, spawnSolveSession: spawn });
+  const p = new MergeQueueProcessor({ ...GREEN_BRANCH, owner: 'o', repo: 'r', autoResolve: true, spawnSolveSession: spawn });
   p.getPRStatus = async () => ({ state: 'MERGED', mergeStateStatus: 'CLEAN', mergeable: 'MERGEABLE', error: null });
   p.getMergeCommitSha = async () => ({ sha: 'abc', error: null });
   p.sleep = async () => undefined;
@@ -312,7 +319,7 @@ await asyncTest('Issue #1807: getProgressUpdate exposes the current auto-resolve
 });
 
 await asyncTest('Issue #1807: formatProgressMessage renders phase-aware auto-resolve lines', async () => {
-  const p = new MergeQueueProcessor({ owner: 'o', repo: 'r', autoResolve: true });
+  const p = new MergeQueueProcessor({ ...GREEN_BRANCH, owner: 'o', repo: 'r', autoResolve: true });
   p.items = [makeStubItem({ prNumber: 600, status: MergeItemStatus.RESOLVING, prUrl: 'https://github.com/o/r/pull/600' })];
   p.stats.total = 1;
   p.autoResolveActive = true;
@@ -338,7 +345,7 @@ await asyncTest('Issue #1807: stops the pass when post-merge CI fails and STOP_O
     spawned.push(target.prNumber);
     return { success: true };
   };
-  const p = new MergeQueueProcessor({ owner: 'o', repo: 'r', autoResolve: true, spawnSolveSession: spawn });
+  const p = new MergeQueueProcessor({ ...GREEN_BRANCH, owner: 'o', repo: 'r', autoResolve: true, spawnSolveSession: spawn });
   p.getPRStatus = async () => ({ state: 'MERGED', mergeStateStatus: 'CLEAN', mergeable: 'MERGEABLE', error: null });
   p.getMergeCommitSha = async () => ({ sha: 'abc', error: null });
   p.sleep = async () => undefined;

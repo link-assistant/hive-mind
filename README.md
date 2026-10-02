@@ -363,7 +363,7 @@ review --repo owner/repo --pr 456
 solve <issue-url> [options]
 ```
 
-> **📦 Repository mode**: pass a repository URL instead of an issue URL and solve collects every open issue of that repository (oldest first, at most 100 — GitHub's sub-issue limit per parent), creates one combined issue that lists them as GitHub native sub-issues, and solves that issue — so a single pull request can close all of them at once. It also turns on `--deep-analysis` and `--ensure-all-sub-issues-addressed`. Issues still attached to an earlier, closed combined issue are moved to the new one, and with `--auto-merge` the pull request is merged only once its description closes every listed issue. When no issues are open, the CLI exits successfully without creating anything; Telegram reports the no-work result directly without starting a work session. See [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#solve-options).
+> **📦 Repository mode**: pass a repository URL instead of an issue URL and solve collects every open issue of that repository (oldest first), creates one combined issue that attaches up to 100 of them as GitHub native sub-issues (GitHub's limit per parent) and lists every one of them, including the rest, as a required closing reference, and solves that issue — so a single pull request can close all of them at once. It also turns on `--deep-analysis` and `--ensure-all-sub-issues-addressed`. Issues still attached to an earlier, closed combined issue are moved to the new one, and with `--auto-merge` the pull request is merged only once its description closes every listed issue. When no issues are open, the CLI exits successfully without creating anything; Telegram reports the no-work result directly without starting a work session. See [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#solve-options).
 
 **Most frequently used options:**
 
@@ -1076,8 +1076,7 @@ s=$(screen -ls | awk '/Detached/ {last=$1} END{print last}'); echo "Entering $s"
 
 ### Script for managing screens
 
-The legacy `hive-screens.sh` script has been promoted to a first-class command:
-`hive-screens`. It ships with `@link-assistant/hive-mind`, so once the package is
+`hive-screens` manages finished solve sessions. It ships with `@link-assistant/hive-mind`, so once the package is
 installed (globally, through `npx`, or in a project) it is available on `PATH`.
 
 It scans detached GNU screen sessions, looks for solve runs that are done and
@@ -1091,7 +1090,7 @@ you see under `--list` is guaranteed to be the same set `--close` will act on
 # Safe preview — show every finished, mergeable solve session.
 hive-screens --list
 
-# Close the oldest finished session (same as the legacy script's default).
+# Close the oldest finished session.
 hive-screens --close
 
 # Attach to the newest finished session.

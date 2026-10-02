@@ -134,15 +134,19 @@ export async function fetchOpenIssues({ repository, run = runCommand }) {
 export async function prepareRepositoryModeIssue({ repository, limit = MAX_SUB_ISSUES_PER_PARENT, run = runCommand }) {
   const entries = await fetchOpenIssues({ repository, run });
   const { selected, totalOpen, skipped } = selectOldestOpenIssues(entries, { limit });
+  // GitHub caps native attachments, not the requested scope of the single PR.
+  const allIssues = selectOldestOpenIssues(entries, { limit: Number.MAX_SAFE_INTEGER }).selected;
 
   return {
     repository,
     selected,
+    allIssues,
     totalOpen,
-    skipped,
+    skipped: 0,
+    unattachedCount: skipped,
     limit,
-    title: buildCombinedIssueTitle({ owner: repository.owner, repo: repository.repo, count: selected.length, totalOpen }),
-    body: buildCombinedIssueBody({ repository, issues: selected, totalOpen, limit }),
+    title: buildCombinedIssueTitle({ owner: repository.owner, repo: repository.repo, count: allIssues.length, totalOpen }),
+    body: buildCombinedIssueBody({ repository, issues: allIssues, totalOpen, limit, attachmentCount: selected.length }),
   };
 }
 
@@ -336,7 +340,7 @@ export async function resolveRepositoryModeTarget({ url, log = null, run = runCo
     return { handled: true, error: `Could not list open issues of ${repository.fullName}: ${error.message}` };
   }
 
-  for (const line of buildRepositoryModeSummaryLines({ totalOpen: prepared.totalOpen, selectedCount: prepared.selected.length, skipped: prepared.skipped, limit })) {
+  for (const line of buildRepositoryModeSummaryLines({ totalOpen: prepared.totalOpen, requestedCount: prepared.allIssues.length, selectedCount: prepared.selected.length, skipped: prepared.skipped, limit })) {
     await emit(line);
   }
 

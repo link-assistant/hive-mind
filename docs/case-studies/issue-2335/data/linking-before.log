@@ -1,0 +1,96 @@
+✖ PR 326: a negated closing keyword is not a closing reference (3.349256ms)
+✖ negated, hypothetical, and example references do not satisfy the repair check (2.693342ms)
+✖ repository-qualified links must match the issue repository (2.361924ms)
+✖ a local reference cannot satisfy a foreign sub-issue with the same number (1.642253ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 0
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 161.40583
+
+✖ failing tests:
+
+test at tests/issue-linking-2335.test.mjs:10:1
+✖ PR 326: a negated closing keyword is not a closing reference (3.349256ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1790767368526/tests/issue-linking-2335.test.mjs:12:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/issue-linking-2335.test.mjs:17:1
+✖ negated, hypothetical, and example references do not satisfy the repair check (2.693342ms)
+  AssertionError [ERR_ASSERTION]: Does not fix #322
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1790767368526/tests/issue-linking-2335.test.mjs:19:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/issue-linking-2335.test.mjs:24:1
+✖ repository-qualified links must match the issue repository (2.361924ms)
+  AssertionError [ERR_ASSERTION]: Fixes elsewhere/agent#322
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1790767368526/tests/issue-linking-2335.test.mjs:26:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/issue-linking-2335.test.mjs:31:1
+✖ a local reference cannot satisfy a foreign sub-issue with the same number (1.642253ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1790767368526/tests/issue-linking-2335.test.mjs:33:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

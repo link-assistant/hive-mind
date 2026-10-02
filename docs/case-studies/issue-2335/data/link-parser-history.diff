@@ -1,0 +1,225 @@
+commit f974cbfe57089787d510df115f5dc5832eeb7d17
+Author: konard <drakonard@gmail.com>
+Date:   Sat May 9 04:13:54 2026 +0000
+
+    Deduplicate GitHub issue link detection
+
+diff --git a/src/github-linking.lib.mjs b/src/github-linking.lib.mjs
+index f2a5d384..108083bc 100644
+--- a/src/github-linking.lib.mjs
++++ b/src/github-linking.lib.mjs
+@@ -26,66 +26,71 @@ export function getGitHubLinkingKeywords() {
+   return ['close', 'closes', 'closed', 'fix', 'fixes', 'fixed', 'resolve', 'resolves', 'resolved'];
+ }
+ 
+-/**
+- * Check if PR body contains a valid GitHub linking keyword for the given issue
+- *
+- * @param {string} prBody - The pull request body text
+- * @param {string|number} issueNumber - The issue number to check for
+- * @param {string} [owner] - Repository owner (for cross-repo references)
+- * @param {string} [repo] - Repository name (for cross-repo references)
+- * @returns {boolean} True if a valid linking keyword is found
+- */
+-export function hasGitHubLinkingKeyword(prBody, issueNumber, owner = null, repo = null) {
+-  if (!prBody || !issueNumber) {
+-    return false;
+-  }
++function escapeRegExp(value) {
++  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
++}
+ 
+-  const keywords = getGitHubLinkingKeywords();
+-  const issueNumStr = issueNumber.toString();
++function buildClosingReferencePatterns(keyword, issueNumber, owner = null, repo = null) {
++  const issueNumStr = escapeRegExp(issueNumber);
++  const separator = String.raw`(?:\s+|\s*:\s*)`;
++  const prefix = String.raw`\b${keyword}${separator}`;
++  const references = [String.raw`#${issueNumStr}\b`];
+ 
+-  // Build regex patterns for each valid format:
+-  // 1. KEYWORD #123
+-  // 2. KEYWORD owner/repo#123
+-  // 3. KEYWORD https://github.com/owner/repo/issues/123
++  if (owner && repo) {
++    references.push(`${escapeRegExp(owner)}/${escapeRegExp(repo)}#${issueNumStr}\\b`);
++    references.push(`https://github\\.com/${escapeRegExp(owner)}/${escapeRegExp(repo)}/issues/${issueNumStr}\\b`);
++  }
+ 
+-  for (const keyword of keywords) {
+-    // Pattern 1: KEYWORD #123
+-    // Must have word boundary before keyword and # immediately before number
+-    const pattern1 = new RegExp(`\\b${keyword}\\s+#${issueNumStr}\\b`, 'i');
++  references.push(String.raw`[\w.-]+/[\w.-]+#${issueNumStr}\b`);
++  references.push(`https://github\\.com/[^/\\s]+/[^/\\s]+/issues/${issueNumStr}\\b`);
+ 
+-    if (pattern1.test(prBody)) {
+-      return true;
+-    }
+-
+-    // Pattern 2: KEYWORD owner/repo#123 (for cross-repo or fork references)
+-    if (owner && repo) {
+-      const pattern2 = new RegExp(`\\b${keyword}\\s+${owner}/${repo}#${issueNumStr}\\b`, 'i');
++  return references.map(reference => new RegExp(`${prefix}${reference}`, 'i'));
++}
+ 
+-      if (pattern2.test(prBody)) {
+-        return true;
+-      }
+-    }
++/**
++ * Check whether text contains a GitHub closing keyword for a specific issue.
++ *
++ * This is the shared parser used by solve and hive code paths so they agree on
++ * which PR body/title references are real closing links.
++ *
++ * @param {string} text - Pull request body or title text
++ * @param {string|number} issueNumber - Issue number to check for
++ * @param {string} [owner] - Repository owner for exact owner/repo references
++ * @param {string} [repo] - Repository name for exact owner/repo references
++ * @returns {boolean} True if a valid closing reference is found
++ */
++export function prClosesIssue(text, issueNumber, owner = null, repo = null) {
++  if (!text || typeof text !== 'string' || issueNumber === null || issueNumber === undefined || String(issueNumber).trim() === '') {
++    return false;
++  }
+ 
+-    // Pattern 3: KEYWORD https://github.com/owner/repo/issues/123
+-    if (owner && repo) {
+-      const pattern3 = new RegExp(`\\b${keyword}\\s+https://github\\.com/${owner}/${repo}/issues/${issueNumStr}\\b`, 'i');
++  const issueNumStr = String(issueNumber).trim();
+ 
+-      if (pattern3.test(prBody)) {
++  for (const keyword of getGitHubLinkingKeywords()) {
++    const patterns = buildClosingReferencePatterns(keyword, issueNumStr, owner, repo);
++    for (const pattern of patterns) {
++      if (pattern.test(text)) {
+         return true;
+       }
+     }
+-
+-    // Pattern 4: Also check for any URL format (generic)
+-    const pattern4 = new RegExp(`\\b${keyword}\\s+https://github\\.com/[^/]+/[^/]+/issues/${issueNumStr}\\b`, 'i');
+-
+-    if (pattern4.test(prBody)) {
+-      return true;
+-    }
+   }
+ 
+   return false;
+ }
+ 
++/**
++ * Check if PR body contains a valid GitHub linking keyword for the given issue
++ *
++ * @param {string} prBody - The pull request body text
++ * @param {string|number} issueNumber - The issue number to check for
++ * @param {string} [owner] - Repository owner (for cross-repo references)
++ * @param {string} [repo] - Repository name (for cross-repo references)
++ * @returns {boolean} True if a valid linking keyword is found
++ */
++export function hasGitHubLinkingKeyword(prBody, issueNumber, owner = null, repo = null) {
++  return prClosesIssue(prBody, issueNumber, owner, repo);
++}
++
+ /**
+  * Extract issue number from PR body using GitHub linking keywords
+  * This is used to find which issue a PR is linked to
+diff --git a/src/github.batch.lib.mjs b/src/github.batch.lib.mjs
+index e1710d59..98555b54 100644
+--- a/src/github.batch.lib.mjs
++++ b/src/github.batch.lib.mjs
+@@ -10,54 +10,10 @@ if (typeof globalThis.use === 'undefined') {
+ // Import dependencies
+ import { log, cleanErrorMessage } from './lib.mjs';
+ import { githubLimits, timeouts } from './config.lib.mjs';
++import { prClosesIssue } from './github-linking.lib.mjs';
+ 
+ import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry, execGhWithRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller. execGhWithRetry adds transient-network retry (#1756).
+-/**
+- * Check if a PR body/title indicates it fixes/closes/resolves a specific issue number
+- * GitHub auto-closes issues when PR body contains keywords like "fixes #123", "closes #123", "resolves #123"
+- * See: https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue
+- * @param {string} text - PR body or title text
+- * @param {number} issueNumber - Issue number to check for
+- * @returns {boolean} True if the text contains a closing keyword for this issue
+- */
+-export function prClosesIssue(text, issueNumber) {
+-  if (!text || typeof text !== 'string') {
+-    return false;
+-  }
+-
+-  // GitHub closing keywords (case-insensitive)
+-  // Supports: fix, fixes, fixed, close, closes, closed, resolve, resolves, resolved
+-  // Also supports variations with repository prefix like "fixes owner/repo#123"
+-  const closingKeywords = ['fix', 'fixes', 'fixed', 'close', 'closes', 'closed', 'resolve', 'resolves', 'resolved'];
+-
+-  // Build regex pattern that matches any of the keywords followed by #N or repo#N
+-  // Examples matched:
+-  //   - "fixes #123"
+-  //   - "Closes #123"
+-  //   - "RESOLVED #123"
+-  //   - "fixes owner/repo#123"
+-  //   - "fix: #123" (common commit style)
+-  const issueNum = issueNumber.toString();
+-
+-  for (const keyword of closingKeywords) {
+-    // Pattern: keyword + optional colon/space + optional repo prefix + # + issue number
+-    // Must be followed by word boundary (not part of larger number)
+-    const patterns = [
+-      // Standard format: "fixes #123"
+-      new RegExp(`\\b${keyword}\\s*:?\\s*#${issueNum}\\b`, 'i'),
+-      // With repo prefix: "fixes owner/repo#123"
+-      new RegExp(`\\b${keyword}\\s*:?\\s*[\\w.-]+/[\\w.-]+#${issueNum}\\b`, 'i'),
+-    ];
+-
+-    for (const pattern of patterns) {
+-      if (pattern.test(text)) {
+-        return true;
+-      }
+-    }
+-  }
+-
+-  return false;
+-}
++export { prClosesIssue };
+ 
+ /**
+  * Extract open pull requests that are linked to an issue with closing keywords.
+diff --git a/tests/pr-closes-issue.test.mjs b/tests/pr-closes-issue.test.mjs
+index e062354a..7017f85d 100644
+--- a/tests/pr-closes-issue.test.mjs
++++ b/tests/pr-closes-issue.test.mjs
+@@ -11,7 +11,7 @@
+  */
+ 
+ import assert from 'node:assert/strict';
+-import { prClosesIssue } from '../src/github.batch.lib.mjs';
++import { prClosesIssue } from '../src/github-linking.lib.mjs';
+ 
+ // Test utilities
+ let testsPassed = 0;
+diff --git a/tests/test-github-linking.mjs b/tests/test-github-linking.mjs
+index 9c660c78..1f0eddfe 100755
+--- a/tests/test-github-linking.mjs
++++ b/tests/test-github-linking.mjs
+@@ -67,6 +67,7 @@ const validFormats = [
+   { prBody: 'This PR FIXES #515', issueNumber: '515', desc: 'All caps FIXES #N' },
+   { prBody: 'Closes #42', issueNumber: '42', desc: 'closes #N' },
+   { prBody: 'Resolves #123', issueNumber: '123', desc: 'Resolves #N' },
++  { prBody: 'fixes: #515', issueNumber: '515', desc: 'Commit-style fixes: #N' },
+   { prBody: 'Fix #99', issueNumber: '99', desc: 'Fix #N' },
+   { prBody: 'Close #88', issueNumber: '88', desc: 'Close #N' },
+   { prBody: 'Resolve #77', issueNumber: '77', desc: 'Resolve #N' },
+@@ -81,6 +82,11 @@ const validFormats = [
+     repo: 'hive-mind',
+     desc: 'Fixes owner/repo#N',
+   },
++  {
++    prBody: 'Fixes labtgbot/marketcap#110',
++    issueNumber: '110',
++    desc: 'Fixes generic owner/repo#N',
++  },
+   {
+     prBody: 'Resolves https://github.com/link-assistant/hive-mind/issues/515',
+     issueNumber: '515',

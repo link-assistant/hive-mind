@@ -357,7 +357,7 @@ review --repo owner/repo --pr 456
 solve <issue-url> [options]
 ```
 
-> **📦 仓库模式**：传入仓库 URL（而不是 issue URL），solve 会收集该仓库的所有开放 issue（最旧优先，最多 100 个 —— GitHub 每个父 issue 的子 issue 上限），创建一个把它们列为 GitHub 原生子 issue 的合并 issue，并解决该 issue —— 这样一个 pull request 就能一次性关闭它们全部。该模式还会自动启用 `--deep-analysis` 和 `--ensure-all-sub-issues-addressed`。仍挂在更早的已关闭合并 issue 下的 issue 会被移到新的合并 issue 中；使用 `--auto-merge` 时，只有当 pull request 描述关闭了列出的每一个 issue 时才会合并。如果没有开放的 issue，CLI 会成功退出且不会创建任何内容；Telegram 会直接报告无需执行任何操作，不会启动工作会话。参见 [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#solve-options)。
+> **📦 仓库模式**：传入仓库 URL（而不是 issue URL），solve 会收集该仓库的所有开放 issue（最旧优先），创建一个合并 issue，将其中最多 100 个附加为 GitHub 原生子 issue（GitHub 每个父 issue 的上限），并把每一个 issue（包括其余的）都列为必需的关闭引用，并解决该 issue —— 这样一个 pull request 就能一次性关闭它们全部。该模式还会自动启用 `--deep-analysis` 和 `--ensure-all-sub-issues-addressed`。仍挂在更早的已关闭合并 issue 下的 issue 会被移到新的合并 issue 中；使用 `--auto-merge` 时，只有当 pull request 描述关闭了列出的每一个 issue 时才会合并。如果没有开放的 issue，CLI 会成功退出且不会创建任何内容；Telegram 会直接报告无需执行任何操作，不会启动工作会话。参见 [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#solve-options)。
 
 **最常用选项：**
 
@@ -1025,6 +1025,31 @@ s=$(screen -ls | awk '/Detached/ {print $1; exit}'); echo "Entering $s"; screen 
 ```bash
 s=$(screen -ls | awk '/Detached/ {last=$1} END{print last}'); echo "Entering $s"; screen -r "$s"; echo "Left $s";
 ```
+
+### 管理 Screen 会话的脚本
+
+`hive-screens` 管理已完成的 solve 会话。它随 `@link-assistant/hive-mind` 一起发布，因此安装该包后（全局安装、通过 `npx` 或在项目中）即可在 `PATH` 中使用。
+
+它会扫描已分离的 GNU screen 会话，查找已完成且 PR 可合并的 solve 运行（回滚内容同时包含 `process completed` 以及 `PR is mergeable!` 或 `PR merged!`），然后列出、进入或关闭它们。`--list`、`--enter` 和 `--close` 使用**相同的匹配条件**，因此 `--list` 显示的内容正是 `--close` 将要处理的集合——先用 `--list` 排查，再用 `--close` 重新运行。
+
+```bash
+# 安全预览——显示所有已完成且可合并的 solve 会话。
+hive-screens --list
+
+# 关闭最旧的已完成会话。
+hive-screens --close
+
+# 进入最新的已完成会话。
+hive-screens --enter --newest
+
+# 关闭所有已完成会话。
+hive-screens --close --all
+
+# 扫描时输出诊断信息（匹配失败时很有用）。
+hive-screens --list --verbose
+```
+
+`--list` 默认使用 `--all`，因此单独的 `hive-screens --list` 会显示所有匹配项。`--enter` 和 `--close` 默认使用 `--oldest`，因为它们会改变状态。可传入 `--oldest`、`--newest` 或 `--all` 覆盖默认值。运行 `hive-screens --help` 查看完整选项列表。
 
 ### 重启服务器
 

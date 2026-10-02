@@ -132,7 +132,11 @@ export const parseDockerDependencyPins = (source, file) => {
     const name = image.slice(0, colon),
       tag = image.slice(colon + 1);
     if (/^ghcr\.io\/link-foundation\/box(?:-dind)?$/.test(name)) add({ kind: 'github', name: 'link-foundation/box', current: tag }, match);
-    else if (name === 'rust') add({ kind: 'github', name: 'rust-lang/rust', current: tag, policy: 'minor' }, match);
+    // The pin names a Docker Hub image, not a rust-lang/rust tag: a toolchain
+    // release is only adoptable once the official image publishes it, which can
+    // lag the GitHub tag by hours (issue #2395: 1.99.0 was tagged before
+    // `rust:1.99-*` existed, so the gate demanded a FROM line that cannot pull).
+    else if (name === 'rust') add({ kind: 'docker', name: 'library/rust', current: tag.match(/^\d+\.\d+/)?.[0] ?? tag, policy: 'minor' }, match);
     else add({ kind: 'container', name, current: tag }, match);
   }
   return records;
@@ -238,6 +242,17 @@ export const resolveCrateLatest = async (name, options = {}) => {
   return metadata.crate.max_stable_version;
 };
 
+/** Newest stable `X.Y.Z` tag of a Docker Hub repository such as `library/rust`. */
+export const resolveDockerHubLatest = async (repository, _record = {}, options = {}) => {
+  const page = await fetchJson(`https://hub.docker.com/v2/repositories/${repository}/tags?page_size=100&ordering=last_updated`, options);
+  const semanticTags = (page?.results ?? [])
+    .map(tag => ({ tag: tag?.name, parsed: /^\d+\.\d+\.\d+$/.test(tag?.name ?? '') ? parseVersion(tag.name) : null }))
+    .filter(candidate => candidate.parsed)
+    .sort((left, right) => compareParsedVersions(right.parsed, left.parsed));
+  if (semanticTags.length === 0) throw new Error(`Docker Hub returned no semantic tags for ${repository}`);
+  return semanticTags[0].tag;
+};
+
 const containerTagSuffix = current => String(current ?? '').replace(/^v?\d+(?:\.\d+){0,2}/, '');
 
 /** Docker Registry v2 supports Docker Hub and registries advertising Bearer auth. */
@@ -280,13 +295,13 @@ export const resolveOpenIssue = async (url, options = {}) => {
 };
 
 /** Registry errors and unrecognized pins fail closed; only verified open issues waive pins. */
-export const checkDependencyRecords = async (records, { resolveNpmLatest: npmResolver = resolveNpmLatest, resolveGitHubLatest: githubResolver = resolveGitHubLatest, resolveCrateLatest: crateResolver = resolveCrateLatest, resolveContainerLatest: containerResolver = resolveContainerLatest, resolveOpenIssue: issueResolver = resolveOpenIssue } = {}) => {
+export const checkDependencyRecords = async (records, { resolveNpmLatest: npmResolver = resolveNpmLatest, resolveGitHubLatest: githubResolver = resolveGitHubLatest, resolveCrateLatest: crateResolver = resolveCrateLatest, resolveDockerHubLatest: dockerResolver = resolveDockerHubLatest, resolveContainerLatest: containerResolver = resolveContainerLatest, resolveOpenIssue: issueResolver = resolveOpenIssue } = {}) => {
   const latestByDependency = new Map(),
     current = [],
     stale = [],
     errors = [],
     exceptions = [];
-  const resolvers = { npm: npmResolver, github: githubResolver, crate: crateResolver, container: containerResolver };
+  const resolvers = { npm: npmResolver, github: githubResolver, crate: crateResolver, docker: dockerResolver, container: containerResolver };
   await Promise.all(
     records.map(async record => {
       try {

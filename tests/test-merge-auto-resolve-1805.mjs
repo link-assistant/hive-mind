@@ -14,6 +14,13 @@ import assert from 'node:assert/strict';
 import { MergeStatus, MergeItemStatus, MergeQueueProcessor, MERGE_CONFLICT_SKIP_REASON } from '../src/telegram-merge-queue.lib.mjs';
 import { parseMergeArgs } from '../src/telegram-merge-command.lib.mjs';
 
+// Issue #2404: runAutoResolve() now verifies the target branch first — keep these unit tests offline.
+const GREEN_BRANCH = {
+  getDefaultBranch: async () => 'main',
+  checkBranchCIHealth: async () => ({ healthy: true, pending: false, failedRuns: [], pendingRuns: [], error: null }),
+  waitForBranchCI: async () => ({ success: true, waitedForRuns: false, completedRuns: 0, error: null }),
+};
+
 let testsPassed = 0;
 let testsFailed = 0;
 
@@ -92,7 +99,7 @@ test('Issue #1805: MERGE_CONFLICT_SKIP_REASON matches the github-merge reason te
 
 test('Issue #1805: constructor accepts autoResolve and spawnSolveSession', () => {
   const spawn = () => ({ success: true });
-  const p = new MergeQueueProcessor({ owner: 'o', repo: 'r', autoResolve: true, spawnSolveSession: spawn });
+  const p = new MergeQueueProcessor({ ...GREEN_BRANCH, owner: 'o', repo: 'r', autoResolve: true, spawnSolveSession: spawn });
   assert.equal(p.autoResolve, true, 'autoResolve should be flagged on');
   assert.equal(p.spawnSolveSession, spawn, 'spawnSolveSession should be stored');
   assert.equal(p.stats.autoResolved, 0);
@@ -100,13 +107,13 @@ test('Issue #1805: constructor accepts autoResolve and spawnSolveSession', () =>
 });
 
 test('Issue #1805: constructor defaults autoResolve to false', () => {
-  const p = new MergeQueueProcessor({ owner: 'o', repo: 'r' });
+  const p = new MergeQueueProcessor({ ...GREEN_BRANCH, owner: 'o', repo: 'r' });
   assert.equal(p.autoResolve, false);
   assert.equal(p.spawnSolveSession, null);
 });
 
 test('Issue #1805: getConflictedItems returns only SKIPPED + merge-conflict items', () => {
-  const p = new MergeQueueProcessor({ owner: 'o', repo: 'r' });
+  const p = new MergeQueueProcessor({ ...GREEN_BRANCH, owner: 'o', repo: 'r' });
   p.items = [makeStubItem({ prNumber: 1, status: MergeItemStatus.SKIPPED, error: MERGE_CONFLICT_SKIP_REASON }), makeStubItem({ prNumber: 2, status: MergeItemStatus.SKIPPED, error: 'Cancelled' }), makeStubItem({ prNumber: 3, status: MergeItemStatus.FAILED, error: 'CI failed' }), makeStubItem({ prNumber: 4, status: MergeItemStatus.MERGED }), makeStubItem({ prNumber: 5, status: MergeItemStatus.SKIPPED, error: MERGE_CONFLICT_SKIP_REASON })];
   const conflicted = p.getConflictedItems();
   assert.equal(conflicted.length, 2, 'should match only conflict-skipped items');
@@ -125,7 +132,7 @@ await asyncTest('Issue #1805: runAutoResolve dispatches each conflicted PR exact
   // MERGED instead of polling the real gh CLI.
   const getPRStatus = async () => ({ state: 'MERGED', mergeStateStatus: 'CLEAN', mergeable: 'MERGEABLE', error: null });
   const getMergeCommitSha = async () => ({ sha: 'deadbeefdeadbeef', error: null });
-  const p = new MergeQueueProcessor({ owner: 'o', repo: 'r', autoResolve: true, spawnSolveSession: spawn, getPRStatus, getMergeCommitSha });
+  const p = new MergeQueueProcessor({ ...GREEN_BRANCH, owner: 'o', repo: 'r', autoResolve: true, spawnSolveSession: spawn, getPRStatus, getMergeCommitSha });
   p.items = [makeStubItem({ prNumber: 1, status: MergeItemStatus.SKIPPED, error: MERGE_CONFLICT_SKIP_REASON }), makeStubItem({ prNumber: 2, status: MergeItemStatus.MERGED }), makeStubItem({ prNumber: 3, status: MergeItemStatus.SKIPPED, error: MERGE_CONFLICT_SKIP_REASON })];
   // Issue #1807: skip the post-merge CI wait — exercised in dedicated tests.
   p.waitForPostMergeCI = async () => ({ success: true, failedRuns: [], error: null });
@@ -151,7 +158,7 @@ await asyncTest('Issue #1805: runAutoResolve dispatches each conflicted PR exact
 });
 
 await asyncTest('Issue #1805: runAutoResolve marks RESOLVE_FAILED when no spawner is provided', async () => {
-  const p = new MergeQueueProcessor({ owner: 'o', repo: 'r', autoResolve: true });
+  const p = new MergeQueueProcessor({ ...GREEN_BRANCH, owner: 'o', repo: 'r', autoResolve: true });
   p.items = [makeStubItem({ prNumber: 11, status: MergeItemStatus.SKIPPED, error: MERGE_CONFLICT_SKIP_REASON })];
   await p.runAutoResolve();
   assert.equal(p.items[0].status, MergeItemStatus.RESOLVE_FAILED);
@@ -163,7 +170,7 @@ await asyncTest('Issue #1805: runAutoResolve records errors when the spawner rej
   const spawn = async () => {
     throw new Error('start-screen missing');
   };
-  const p = new MergeQueueProcessor({ owner: 'o', repo: 'r', autoResolve: true, spawnSolveSession: spawn });
+  const p = new MergeQueueProcessor({ ...GREEN_BRANCH, owner: 'o', repo: 'r', autoResolve: true, spawnSolveSession: spawn });
   p.items = [makeStubItem({ prNumber: 21, status: MergeItemStatus.SKIPPED, error: MERGE_CONFLICT_SKIP_REASON })];
   await p.runAutoResolve();
   assert.equal(p.items[0].status, MergeItemStatus.RESOLVE_FAILED);
@@ -173,7 +180,7 @@ await asyncTest('Issue #1805: runAutoResolve records errors when the spawner rej
 
 await asyncTest('Issue #1805: runAutoResolve records warning when the spawner returns success=false', async () => {
   const spawn = async () => ({ success: false, error: 'screen exited 1' });
-  const p = new MergeQueueProcessor({ owner: 'o', repo: 'r', autoResolve: true, spawnSolveSession: spawn });
+  const p = new MergeQueueProcessor({ ...GREEN_BRANCH, owner: 'o', repo: 'r', autoResolve: true, spawnSolveSession: spawn });
   p.items = [makeStubItem({ prNumber: 31, status: MergeItemStatus.SKIPPED, error: MERGE_CONFLICT_SKIP_REASON })];
   await p.runAutoResolve();
   assert.equal(p.items[0].status, MergeItemStatus.RESOLVE_FAILED);
@@ -183,7 +190,7 @@ await asyncTest('Issue #1805: runAutoResolve records warning when the spawner re
 
 await asyncTest('Issue #1805: runAutoResolve stops mid-pass when cancelled', async () => {
   const calls = [];
-  const p = new MergeQueueProcessor({ owner: 'o', repo: 'r', autoResolve: true });
+  const p = new MergeQueueProcessor({ ...GREEN_BRANCH, owner: 'o', repo: 'r', autoResolve: true });
   const spawn = async target => {
     calls.push(target.prNumber);
     p.isCancelled = true; // cancel after the first dispatch
@@ -202,14 +209,14 @@ await asyncTest('Issue #1805: runAutoResolve stops mid-pass when cancelled', asy
 });
 
 test('Issue #1805: escapeMarkdownLinkUrl escapes only ) and backslash', () => {
-  const p = new MergeQueueProcessor({ owner: 'o', repo: 'r' });
+  const p = new MergeQueueProcessor({ ...GREEN_BRANCH, owner: 'o', repo: 'r' });
   assert.equal(p.escapeMarkdownLinkUrl('https://example.com/path'), 'https://example.com/path');
   assert.equal(p.escapeMarkdownLinkUrl('https://example.com/(p)ath'), 'https://example.com/(p\\)ath');
   assert.equal(p.escapeMarkdownLinkUrl('a\\b)c'), 'a\\\\b\\)c');
 });
 
 test('Issue #1805: formatPrLink emits a clickable MarkdownV2 link', () => {
-  const p = new MergeQueueProcessor({ owner: 'o', repo: 'r' });
+  const p = new MergeQueueProcessor({ ...GREEN_BRANCH, owner: 'o', repo: 'r' });
   const out = p.formatPrLink(42, 'Fix bug', 'https://github.com/owner/repo/pull/42');
   // Label: `\#42: Fix bug` (Fix bug has no specials so it survives escaping verbatim)
   assert.ok(out.startsWith('[\\#42: Fix bug]('), `expected MarkdownV2 link prefix, got: ${out}`);
@@ -218,37 +225,37 @@ test('Issue #1805: formatPrLink emits a clickable MarkdownV2 link', () => {
 });
 
 test('Issue #1805: formatPrLink truncates long titles and escapes ellipsis', () => {
-  const p = new MergeQueueProcessor({ owner: 'o', repo: 'r' });
+  const p = new MergeQueueProcessor({ ...GREEN_BRANCH, owner: 'o', repo: 'r' });
   const longTitle = 'a'.repeat(80);
   const out = p.formatPrLink(7, longTitle, 'https://example.com/pull/7');
   assert.ok(out.endsWith('\\.\\.\\.](https://example.com/pull/7)'), `expected escaped ellipsis suffix in: ${out}`);
 });
 
 test('Issue #1805: formatPrLink falls back to escaped plain text without a URL', () => {
-  const p = new MergeQueueProcessor({ owner: 'o', repo: 'r' });
+  const p = new MergeQueueProcessor({ ...GREEN_BRANCH, owner: 'o', repo: 'r' });
   const out = p.formatPrLink(5, 'Title', null);
   assert.equal(out, '\\#5: Title', 'no brackets/url means plain escaped text');
 });
 
 test('Issue #1805: formatPrLink without title still emits the bare number', () => {
-  const p = new MergeQueueProcessor({ owner: 'o', repo: 'r' });
+  const p = new MergeQueueProcessor({ ...GREEN_BRANCH, owner: 'o', repo: 'r' });
   const out = p.formatPrLink(8, '', 'https://example.com/pull/8');
   assert.equal(out, '[\\#8](https://example.com/pull/8)');
 });
 
 test('Issue #1805: formatIssueRef renders a clickable issue suffix', () => {
-  const p = new MergeQueueProcessor({ owner: 'o', repo: 'r' });
+  const p = new MergeQueueProcessor({ ...GREEN_BRANCH, owner: 'o', repo: 'r' });
   const out = p.formatIssueRef(99, 'https://github.com/owner/repo/issues/99');
   assert.equal(out, ' \\([Issue \\#99](https://github.com/owner/repo/issues/99)\\)');
 });
 
 test('Issue #1805: formatIssueRef returns empty string when no issue is linked', () => {
-  const p = new MergeQueueProcessor({ owner: 'o', repo: 'r' });
+  const p = new MergeQueueProcessor({ ...GREEN_BRANCH, owner: 'o', repo: 'r' });
   assert.equal(p.formatIssueRef(null, null), '');
 });
 
 test('Issue #1805: formatProgressMessage Queue contains clickable PR links', () => {
-  const p = new MergeQueueProcessor({ owner: 'o', repo: 'r' });
+  const p = new MergeQueueProcessor({ ...GREEN_BRANCH, owner: 'o', repo: 'r' });
   p.items = [makeStubItem({ prNumber: 314, title: 'Pi', prUrl: 'https://github.com/owner/repo/pull/314', status: MergeItemStatus.PENDING })];
   p.stats.total = 1;
   const msg = p.formatProgressMessage();
@@ -256,7 +263,7 @@ test('Issue #1805: formatProgressMessage Queue contains clickable PR links', () 
 });
 
 test('Issue #1805: formatFinalMessage Results section emits links and issue ref links', () => {
-  const p = new MergeQueueProcessor({ owner: 'o', repo: 'r' });
+  const p = new MergeQueueProcessor({ ...GREEN_BRANCH, owner: 'o', repo: 'r' });
   p.items = [
     makeStubItem({
       prNumber: 200,
@@ -277,7 +284,7 @@ test('Issue #1805: formatFinalMessage Results section emits links and issue ref 
 });
 
 test('Issue #1805: formatFinalMessage shows auto-resolve summary when enabled', () => {
-  const p = new MergeQueueProcessor({ owner: 'o', repo: 'r', autoResolve: true, spawnSolveSession: async () => ({ success: true }) });
+  const p = new MergeQueueProcessor({ ...GREEN_BRANCH, owner: 'o', repo: 'r', autoResolve: true, spawnSolveSession: async () => ({ success: true }) });
   p.items = [];
   p.stats.total = 0;
   p.stats.autoResolved = 3;
@@ -291,7 +298,7 @@ test('Issue #1805: formatFinalMessage shows auto-resolve summary when enabled', 
 });
 
 test('Issue #1805: formatFinalMessage omits auto-resolve summary when not enabled', () => {
-  const p = new MergeQueueProcessor({ owner: 'o', repo: 'r' });
+  const p = new MergeQueueProcessor({ ...GREEN_BRANCH, owner: 'o', repo: 'r' });
   p.items = [];
   p.stats.total = 0;
   p.startedAt = new Date();

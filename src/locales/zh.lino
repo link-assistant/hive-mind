@@ -605,7 +605,7 @@ zh
         label "*/merge* - 合并队列（实验性）"
         usage "用法：`/merge <github-repo-url>`"
         description "按顺序合并所有带有 'ready' 标签的 PR。"
-      subscribe "*/subscribe* / */unsubscribe* - 🔔 私聊转发 /solve 完成通知（实验性，#1688）"
+      subscribe "*/subscribe* / */unsubscribe* - 🔔 私聊转发 /solve 完成通知（实验性）"
       help "*/help* - 显示此帮助消息"
       stop
         start "*/stop* / */start* - 停止或恢复接收新任务（仅所有者）"
@@ -631,7 +631,7 @@ zh
         option "• `--verbose` 或 `-v` - 详细输出 | `--attach-logs` - 将日志附加到 PR"
       show
         limits
-          option "• `--show-limits` - 实验性：在开始、结束和变化量中嵌入 Claude/Codex 使用情况（#594）"
+          option "• `--show-limits` - 实验性：在开始、结束和变化量中嵌入 Claude/Codex 使用情况"
       tip "💡 *提示：* 还有更多选项。完整列表见文档。"
       restricted
         mode "🔒 *受限模式：* 已授权：{{authorized}}"

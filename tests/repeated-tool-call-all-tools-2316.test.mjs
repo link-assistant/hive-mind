@@ -141,7 +141,9 @@ await test('HIVE_MIND_REPEATED_TOOL_CALL_LIMIT=0 disables the breaker', async ()
 await test('replaying the Rust codex run ends the session within the limit, not after 78 calls', async () => {
   const log = await readFile(join(repoRoot, 'docs/case-studies/issue-2320/logs/rust-codex.log'), 'utf8');
   const stops = [];
-  const guard = createToolCallLoopGuard({ stopSession: async verdict => stops.push(verdict) });
+  // Issue #2395: the breaker is opt-in now (`--detect-repeated-tool-calls`); this
+  // replays the Rust run with it enabled at the limit the run was designed for.
+  const guard = createToolCallLoopGuard({ limit: 3, stopSession: async verdict => stops.push(verdict) });
   let commands = 0;
   for (const line of log.split('\n')) {
     const match = line.match(/^\[[^\]]+\] \[STDOUT\] (.*)$/);
@@ -186,7 +188,7 @@ await test('the reason is posted to the pull request', async () => {
 await test('every adapter feeds the shared guard, and the restart loop hands over its feedback', async () => {
   for (const adapter of ['codex', 'agent', 'opencode', 'gemini', 'qwen']) {
     const source = await readFile(join(repoRoot, 'src', `${adapter}.lib.mjs`), 'utf8');
-    assert.match(source, /createToolCallLoopGuard\(\{ log, stopSession/, `${adapter} creates the guard`);
+    assert.match(source, /createToolCallLoopGuard\(\{ log, limit: resolveRepeatedToolCallLimit\(\{ argv \}\), stopSession/, `${adapter} creates the guard`);
     assert.match(source, /await toolCallLoopGuard\.observeOutput\(/, `${adapter} feeds its stdout`);
   }
   assert.match(await readFile(join(repoRoot, 'src', 'claude.lib.mjs'), 'utf8'), /publishRepeatedToolCallVerdict\(toolCallLoop\)/, 'claude publishes its own breaker verdict');

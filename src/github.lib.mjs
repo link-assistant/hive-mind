@@ -7,10 +7,10 @@ import { log, maskToken, cleanErrorMessage, isENOSPC, ghCmdRetry } from './lib.m
 import { reportError } from './sentry.lib.mjs';
 import { describeRequestedThinking, githubLimits, timeouts } from './config.lib.mjs';
 import { batchCheckPullRequestsForIssues as batchCheckPRs, batchCheckArchivedRepositories as batchCheckArchived } from './github.batch.lib.mjs';
-import { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeOutput, sanitizeLogContent, sanitizeForPublication, writeSanitizedPublicationFile } from './token-sanitization.lib.mjs';
+import { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeOutput, sanitizeLogContent, sanitizeForPublication, writeSanitizedPublicationFile, describeCredentialSanitizationFailure } from './token-sanitization.lib.mjs';
 export { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeOutput, sanitizeLogContent, sanitizeForPublication, writeSanitizedPublicationFile }; // Re-export for backward compatibility
 import { uploadLogWithGhUploadLog } from './log-upload.lib.mjs';
-import { formatLogLinkLines, postLogUploadFailureComment } from './log-upload-failure.lib.mjs'; // Issue #2301
+import { forgetLogUploadFailureReports, formatLogLinkLines, formatLogLocationConsoleLines, postLogUploadFailureComment } from './log-upload-failure.lib.mjs'; // Issue #2301, #2400
 // Issue #2189: bracket the log-upload phase with resource samples. The incident
 // log's last sample was `after_agent`, ten minutes before the heap OOM, so the
 // phase that actually died left no telemetry at all.
@@ -492,6 +492,8 @@ ${logContent}
 export async function attachLogToGitHub(options) {
   const attached = await attachLogToGitHubOnce(options);
   global.latestLogAttachFailed = attached !== true;
+  // Issue #2400: once the log is attached, a later failure is news again.
+  if (attached === true) forgetLogUploadFailureReports(options);
   return attached;
 }
 
@@ -713,7 +715,7 @@ async function attachLogToGitHubOnce(options) {
           if (!isUsableLogUrl(logUrl)) {
             await log('  ❌ gh-upload-log completed but no usable log URL was resolved');
             await log('  ⚠️  Full log upload failed; not posting a broken log link');
-            await log(`  📁 Full log remains available locally at: ${logFile}`);
+            for (const line of formatLogLocationConsoleLines(logFile)) await log(line); // Issue #2400
             await reportUploadFailure('gh-upload-log completed but printed no usable log URL');
             return false;
           }
@@ -848,7 +850,7 @@ ${logLinks('View complete solution draft log')}
         } else {
           await log('  ❌ gh-upload-log failed');
           await log('  ⚠️  Full log upload failed; not posting a truncated log because --attach-logs must preserve complete logs');
-          await log(`  📁 Full log remains available locally at: ${logFile}`);
+          for (const line of formatLogLocationConsoleLines(logFile)) await log(line); // Issue #2400
           await reportUploadFailure(uploadResult.failureReason);
           return false;
         }
@@ -857,10 +859,10 @@ ${logLinks('View complete solution draft log')}
           context: 'upload_log_gh_upload_log',
           level: 'error',
         });
-        await log(`  ❌ Error uploading log: ${uploadError.message}`);
+        await log(`  ❌ Error uploading log: ${describeCredentialSanitizationFailure(uploadError)}`);
         await log('  ⚠️  Full log upload failed; not posting a truncated log because --attach-logs must preserve complete logs');
-        await log(`  📁 Full log remains available locally at: ${logFile}`);
-        await reportUploadFailure(uploadError.message);
+        for (const line of formatLogLocationConsoleLines(logFile)) await log(line); // Issue #2400
+        await reportUploadFailure(describeCredentialSanitizationFailure(uploadError));
         return false;
       }
     } else {
@@ -874,7 +876,7 @@ ${logLinks('View complete solution draft log')}
     }
   } catch (uploadError) {
     // Issue #1212: ENOSPC-specific actionable guidance
-    const msg = isENOSPC(uploadError) ? 'ENOSPC: No space left on device during log upload. Free disk space and retry.' : `Error uploading log file: ${uploadError.message}`;
+    const msg = isENOSPC(uploadError) ? 'ENOSPC: No space left on device during log upload. Free disk space and retry.' : `Error uploading log file: ${describeCredentialSanitizationFailure(uploadError)}`;
     await log(`  ❌ ${msg}`);
     if (failureReport.logSizeBytes > 0) await reportUploadFailure(msg);
     return false;

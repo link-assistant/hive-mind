@@ -1,0 +1,10 @@
+{
+  "body": "## Summary\n\n`@opentui/core@0.5.12` still requires the exact `web-tree-sitter@0.25.10` peer, while `web-tree-sitter@0.27.0` is current. This blocks the standing requirement in #319 to keep all direct Agent dependencies at their latest releases.\n\n## Reproduction\n\n1. Add `@opentui/core@0.5.12` and `web-tree-sitter@0.27.0` as dependencies of a package.\n2. Pack it and install it in a fresh Bun project.\n\nThe install reports `warn: incorrect peer dependency \"web-tree-sitter@0.27.0\"`. `npm ls web-tree-sitter --all` also exits with `ELSPROBLEMS` because the peer is exactly `0.25.10`.\n\nThe incompatibility is functional: the OpenTUI worker imports `web-tree-sitter/tree-sitter.wasm`, which was renamed in 0.26. The upstream maintainer [confirmed that 0.26+ is unsupported](https://github.com/anomalyco/opentui/issues/1201#issuecomment-4806912949).\n\nAgent itself also uses the old WASM path in `js/src/tool/bash.ts`. Until OpenTUI supports the newer API and Agent adapts its parser, Agent must pin `web-tree-sitter@0.25.10` and link this issue in its dependency freshness exception.\n\n## Done when\n\n- OpenTUI supports the current `web-tree-sitter` release.\n- Agent's bash parser loads the current WASM asset and passes its bash tool tests.\n- The packed Agent package installs without peer warnings, and the direct pin can be upgraded to the latest version.\n",
+  "closedAt": null,
+  "comments": [],
+  "createdAt": "2026-09-29T17:26:01Z",
+  "state": "OPEN",
+  "title": "Track OpenTUI support for current web-tree-sitter before lifting 0.25.10 pin",
+  "updatedAt": "2026-09-29T17:26:01Z",
+  "url": "https://github.com/link-assistant/agent/issues/322"
+}

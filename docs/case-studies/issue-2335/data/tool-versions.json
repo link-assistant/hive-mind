@@ -1,0 +1,7 @@
+{
+  "node": "v24.21.0",
+  "npm": "12.0.2",
+  "bun": "1.4.2",
+  "codex": "codex-cli 0.159.2",
+  "gh": "gh version 2.100.0 (2026-09-03)\nhttps://github.com/cli/cli/releases/tag/v2.100.0"
+}

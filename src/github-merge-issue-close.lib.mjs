@@ -50,7 +50,7 @@ export async function closeLinkedIssueIfNotAutoClosed(owner, repo, prNumber, ver
     const prBody = pr.body || '';
     const prTitle = pr.title || '';
 
-    const issueNumber = extractLinkedIssueNumber(prBody) || extractLinkedIssueNumber(prTitle);
+    const issueNumber = extractLinkedIssueNumber(prBody, owner, repo);
     if (!issueNumber) {
       if (verbose) console.log(`[VERBOSE] /merge: PR #${prNumber} has no closing keyword; no issue to close`);
       return { closed: false, skipped: true, reason: 'no-linked-issue' };

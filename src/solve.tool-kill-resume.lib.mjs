@@ -1,9 +1,9 @@
 /**
  * Resume the AI tool in-process when its process was killed (issue #2408).
  *
- * In link-foundation/meta-language#196 a `cargo build` run by Claude inside the
- * working container drove the container out of memory at 13:37:15; the kernel
- * SIGKILLed it, Claude exited 137 twenty seconds later, and the
+ * In link-foundation/meta-language#196 two Claude subagents ran `cargo test` in
+ * separate worktrees at once and drove the container out of memory. At 13:37:35
+ * the kernel SIGKILLed Claude ("Killed", exit code 137), and the
  * `--auto-restart-until-mergeable` loop treated that like any other tool
  * failure: "❌ CLAUDE EXECUTION FAILED — Stopping auto-restart". The whole
  * container then exited 1, and the bot had no recovery attempt left.
@@ -26,7 +26,7 @@ import { postTrackedComment } from './tool-comments.lib.mjs';
 export const SIGKILL_EXIT_CODE = 137;
 
 /** The feedback the resumed AI session receives. */
-export const TOOL_KILL_RESUME_FEEDBACK = 'Continue. Your previous run was killed with SIGKILL (exit code 137) — most likely by the out-of-memory killer while a memory-hungry command (for example a parallel `cargo build` or test run) was running. Continue from where you stopped, and prefer lower-memory commands (for example `cargo build -j 1`, `CARGO_BUILD_JOBS=1`, or running one test target at a time).';
+export const TOOL_KILL_RESUME_FEEDBACK = 'Continue. Your previous run was killed with SIGKILL (exit code 137) — most likely by the out-of-memory killer while memory-hungry commands were running (for example `cargo test` in several subagent worktrees at once, each with its own build directory). Continue from where you stopped, and prefer lower-memory commands: run builds and tests one at a time, not in parallel subagents or worktrees, and use `cargo build -j 1` / `CARGO_BUILD_JOBS=1` or one test target at a time.';
 
 /**
  * Whether a failed tool result describes a process killed by SIGKILL rather

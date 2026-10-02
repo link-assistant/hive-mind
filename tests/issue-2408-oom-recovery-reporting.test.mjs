@@ -29,6 +29,8 @@ import { formatSessionCompletionMessage } from '../src/work-session-formatting.l
 import { collectExecutingItems, formatQueueExecutingItems } from '../src/telegram-solve-queue.helpers.lib.mjs';
 import { findDeliberateSolveStop, detectDeliberateSolveStop } from '../src/session-kill-attribution.lib.mjs';
 import { isToolProcessKilled, resumeAfterToolKill, buildToolKillWarningComment, TOOL_KILL_RESUME_FEEDBACK } from '../src/solve.tool-kill-resume.lib.mjs';
+import { recordToolCommentPosted, resetTrackedToolCommentIds } from '../src/tool-comments.lib.mjs';
+import { resolvePreExitFailureNotificationTarget } from '../src/solve.pre-pr-failure-notifier.lib.mjs';
 
 const PR_URL = 'https://github.com/link-foundation/meta-language/pull/196';
 const pullContext = { type: 'pull', owner: 'link-foundation', repo: 'meta-language', number: 196, normalized: PR_URL };
@@ -273,4 +275,16 @@ test('a fresh recovery launch keeps pointing at the earlier execution logs', asy
 
   const message = formatSessionCompletionMessage({ sessionName: '2b185a46', observedEndTime: new Date(3600_000), sessionInfo: { startTime: new Date(0), rootSessionName: '6bf35d99', executionUuid: '88951cec', previousExecutionUuids: ['0760afb4'], killRecoveryResumed: true, killRecoveryAttempts: 1 }, exitCode: 0 });
   assert.match(message, /🆔 Execution: `88951cec` \(earlier logs: `0760afb4`\)/);
+});
+
+test('the exit notifier does not post a second failure report after the loop posted one', () => {
+  // 13:41:15 the auto-restart loop posted comment 5953703216 ("🚨 Solution Draft Failed …
+  // exit code 137"); 13:44:24 solve 2.33.2's exit notifier posted 5953753740 for the same
+  // failure. The #2397 guard (v2.33.5+) now recognises the first report.
+  resetTrackedToolCommentIds();
+  const globalState = { owner: 'link-foundation', repo: 'meta-language', prNumber: 196 };
+  assert.ok(resolvePreExitFailureNotificationTarget({ code: 1, globalState }), 'nothing posted yet: the notifier reports');
+  recordToolCommentPosted({ owner: 'link-foundation', repo: 'meta-language', targetNumber: 196, commentId: '5953703216', body: '## 🚨 Solution Draft Failed\nThe automated solution draft encountered an error:\n```\nCLAUDE execution failed with Claude command failed with exit code 137\n```' });
+  assert.equal(resolvePreExitFailureNotificationTarget({ code: 1, globalState }), null);
+  resetTrackedToolCommentIds();
 });

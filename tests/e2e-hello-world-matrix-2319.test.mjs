@@ -139,6 +139,7 @@ test('every row runs the same solve command; only --tool and --model differ', as
     assert.equal(parsed.issueUrl, ISSUE_URL);
     assert.equal(parsed.attachLogs, true);
     assert.equal(parsed.autoRestartUntilMergeable, false, 'the runner performs approval and act verification after solve');
+    assert.equal(parsed.detectRepeatedToolCalls, true, 'a looping model must end its row instead of running until compaction (#2395 made the breaker opt-in)');
     commands.push(argv.filter((arg, index) => !['--tool', '--model'].includes(argv[index - 1]) && !['--tool', '--model'].includes(arg)));
   }
   for (const command of commands) assert.deepEqual(command, commands[0]);

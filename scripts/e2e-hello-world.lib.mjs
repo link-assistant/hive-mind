@@ -41,9 +41,11 @@ export const E2E_MATRIX = Object.freeze([Object.freeze({ tool: 'claude', model: 
  * The flags of the #2320 command, minus the operator-only ones.
  *
  * The runner owns workflow approval and verification, so solve does not wait
- * for checks that only the runner can start.
+ * for checks that only the runner can start. The repeated-tool-call breaker
+ * is opt-in since #2395; the matrix enables it so a looping model (Formal AI
+ * #1154) ends its row instead of running until context compaction.
  */
-export const E2E_SOLVE_FLAGS = Object.freeze(['--attach-logs', '--verbose', '--no-tool-check', '--disable-report-issue', '--language', 'en', '--no-auto-restart-until-mergeable']);
+export const E2E_SOLVE_FLAGS = Object.freeze(['--attach-logs', '--verbose', '--no-tool-check', '--disable-report-issue', '--language', 'en', '--no-auto-restart-until-mergeable', '--detect-repeated-tool-calls']);
 
 const ISSUE_URL_PATTERN = /https:\/\/github\.com\/[^/\s]+\/[^/\s]+\/issues\/\d+/g;
 

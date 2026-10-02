@@ -2,8 +2,7 @@
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { completionJson, fetchRequiredIssueScope, runCompletionGh } from './issue-completion.lib.mjs';
-import { missingIssueLinks } from './issue-requirements.lib.mjs';
+import { ghJson, fetchRequiredIssueScope, missingIssueLinks, runLinkGh } from './issue-link-verification.lib.mjs';
 import { buildIssueReference } from './pr-issue-linking.lib.mjs';
 import { writeSanitizedPublicationFile } from './token-sanitization.lib.mjs';
 
@@ -16,14 +15,14 @@ const publishBody = async ({ run, owner, repo, prNumber, body }) => {
     .finally(() => rm(directory, { recursive: true, force: true }));
 };
 
-export async function repairRequiredIssueLinks({ owner, repo, issueNumber, prNumber, argv = {}, run = runCompletionGh, logger = async () => {} }) {
+export async function repairRequiredIssueLinks({ owner, repo, issueNumber, prNumber, argv = {}, run = runLinkGh, logger = async () => {} }) {
   const issueRef = buildIssueReference({ owner, repo, issueNumber, fork: argv.fork });
   let body = '';
   try {
     if (!owner || !repo || !issueNumber || !prNumber) throw new Error('missing required pull request or issue data');
     const required = await fetchRequiredIssueScope({ owner, repo, issueNumber, run });
     const readBody = async () => {
-      const pr = await completionJson(run, ['api', `repos/${owner}/${repo}/pulls/${prNumber}`]);
+      const pr = await ghJson(run, ['api', `repos/${owner}/${repo}/pulls/${prNumber}`]);
       if (typeof pr.body !== 'string' && pr.body !== null) throw new Error('Invalid pull request body');
       return pr.body || '';
     };

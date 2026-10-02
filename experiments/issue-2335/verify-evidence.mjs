@@ -7,7 +7,7 @@ import { gunzipSync } from 'node:zlib';
 const root = new URL('../../', import.meta.url);
 const data = new URL('docs/case-studies/issue-2335/data/', root);
 const sha256 = content => createHash('sha256').update(content).digest('hex');
-const manifests = ['agent-ci-manifest.json', 'validation.json'];
+const manifests = ['agent-ci-manifest.json'];
 let checkedLogs = 0;
 for (const file of manifests) {
   const manifest = JSON.parse(await readFile(new URL(file, data), 'utf8'));
@@ -31,7 +31,7 @@ for (const file of (await readdir(data)).sort()) {
   inventory.push({ file, bytes: raw.length, sha256: sha256(raw) });
 }
 
-for (const path of ['docs/ISSUE_COMPLETION.md', 'docs/ISSUE_COMPLETION.zh.md', 'docs/ISSUE_COMPLETION.hi.md', 'docs/ISSUE_COMPLETION.ru.md', 'docs/case-studies/issue-2335/README.md']) {
+for (const path of ['docs/case-studies/issue-2335/README.md']) {
   const source = new URL(path, root);
   for (const [, target] of (await readFile(source, 'utf8')).matchAll(/\]\(([^)]+)\)/g)) {
     if (target.includes('://') || target.startsWith('#')) continue;
@@ -42,4 +42,4 @@ for (const path of ['docs/ISSUE_COMPLETION.md', 'docs/ISSUE_COMPLETION.zh.md', '
 const manifestPath = new URL('evidence-manifest.json', data);
 if (process.argv.includes('--write-manifest')) await writeFile(manifestPath, `${JSON.stringify(inventory, null, 2)}\n`);
 else assert.deepEqual(inventory, JSON.parse(await readFile(manifestPath, 'utf8')));
-console.log(`Verified ${checkedLogs} compressed logs, ${inventory.length} archive files, and all guide/case-study local links.`);
+console.log(`Verified ${checkedLogs} compressed logs, ${inventory.length} archive files, and all case-study local links.`);

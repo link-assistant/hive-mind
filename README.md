@@ -363,7 +363,7 @@ review --repo owner/repo --pr 456
 solve <issue-url> [options]
 ```
 
-> **📦 Repository mode**: pass a repository URL instead of an issue URL and solve collects every open issue (oldest first), creates one combined issue, and solves all of them in one pull request. Up to 100 issues are attached as native GitHub sub-issues; every remaining issue stays in the combined issue’s required reference list. It enables `--deep-analysis` and `--ensure-all-sub-issues-addressed`, and moves children of earlier closed combined issues when possible. Automated merging requires closing references and current completion evidence for every required issue. When no issues are open, solve exits successfully without creating a work session. See [issue completion](./docs/ISSUE_COMPLETION.md).
+> **📦 Repository mode**: pass a repository URL instead of an issue URL and solve collects every open issue of that repository (oldest first), creates one combined issue that attaches up to 100 of them as GitHub native sub-issues (GitHub's limit per parent) and lists every one of them, including the rest, as a required closing reference, and solves that issue — so a single pull request can close all of them at once. It also turns on `--deep-analysis` and `--ensure-all-sub-issues-addressed`. Issues still attached to an earlier, closed combined issue are moved to the new one, and with `--auto-merge` the pull request is merged only once its description closes every listed issue. When no issues are open, the CLI exits successfully without creating anything; Telegram reports the no-work result directly without starting a work session. See [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#solve-options).
 
 **Most frequently used options:**
 

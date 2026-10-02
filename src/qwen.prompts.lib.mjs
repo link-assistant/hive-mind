@@ -1,4 +1,3 @@
-import { getIssueCompletionSubPrompt, ISSUE_COMPLETION_GOAL } from './issue-completion.prompts.lib.mjs';
 /**
  * Qwen prompts module
  * Handles building prompts for Qwen Code commands
@@ -70,7 +69,7 @@ export const buildUserPrompt = params => {
     promptLines.push(thinkingPromptInstruction);
   }
 
-  promptLines.push(ISSUE_COMPLETION_GOAL, isContinueMode ? 'Continue.' : 'Proceed.');
+  promptLines.push(isContinueMode ? 'Continue.' : 'Proceed.');
 
   return promptLines.join('\n') + '\n';
 };
@@ -258,7 +257,7 @@ Visual UI work and screenshots.
    - When the fix is visual, include side-by-side or sequential comparison of before/after states in the PR description.
    - When possible, create automated visual regression tests to prevent the UI bug from recurring.`
        : ''
-   }${ciExamples}${getArchitectureCareSubPrompt(argv)}${getUpdateAllDependenciesSubPrompt(argv)}${getIssueCompletionSubPrompt(params)}${buildWorkLanguageDirective()}`;
+   }${ciExamples}${getArchitectureCareSubPrompt(argv)}${getUpdateAllDependenciesSubPrompt(argv)}${buildWorkLanguageDirective()}`;
 };
 
 export default {

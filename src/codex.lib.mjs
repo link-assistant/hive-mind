@@ -755,8 +755,6 @@ export const executeCodexCommand = async params => {
     // Issue #2236: no auxiliary model calls nobody in an autonomous run will read.
     // Compaction is deliberately untouched — `remote_compaction_v2` and
     // `compaction_image_budget` stay on, they are what makes long tasks survivable.
-    // Issue #2335: persistent completion goals are essential in every run.
-    codexArgs += ` -c ${shellQuote('features.goals=true')}`;
     const auxiliaryDisableArgs = buildCodexAuxiliaryDisableConfigArgs(isAuxiliaryModelCallsDisabled(argv));
     for (const arg of auxiliaryDisableArgs) {
       codexArgs += ` ${shellQuote(arg)}`;

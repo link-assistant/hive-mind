@@ -340,8 +340,8 @@ export const runEnsureAllSubIssuesAddressed = async ({ issueUrl, owner, repo, is
  * (restart limit, usage limit, errors), and the AI can remove references in a
  * later session. The merge is the last point where this can be caught.
  *
- * Issue #2335: always checks the primary issue, all required sub-issues, and
- * completion evidence. A failed GitHub read blocks the merge.
+ * Issue #2335: always checks the primary issue and all required sub-issues,
+ * and a failed GitHub read blocks the merge.
  *
  * @param {object} params
  * @param {string} params.owner
@@ -352,8 +352,8 @@ export const runEnsureAllSubIssuesAddressed = async ({ issueUrl, owner, repo, is
  * @returns {Promise<{reason: string, message: string, details: string[], resolution: string}|null>} merge blocker, or null
  */
 export const checkClosingReferencesBeforeMerge = async ({ owner, repo, issueNumber, prNumber, argv = {} }) => {
-  const { checkIssueCompletionBeforeMerge } = await import('./issue-completion.lib.mjs');
-  const { blocker } = await checkIssueCompletionBeforeMerge({ owner, repo, issueNumber, prNumber, logger: log, verbose: argv.verbose });
+  const { checkIssueLinksBeforeMerge } = await import('./issue-link-verification.lib.mjs');
+  const { blocker } = await checkIssueLinksBeforeMerge({ owner, repo, issueNumber, prNumber, logger: log, verbose: argv.verbose });
   return blocker;
 };
 

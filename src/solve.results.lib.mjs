@@ -746,8 +746,6 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
 
             // Build new description
             const fs = (await use('fs')).promises;
-            const { parseRequirementsReport, formatRequirementsReport } = await import('./issue-requirements.lib.mjs');
-            const requirementsReport = parseRequirementsReport(prBody);
             const issueRef = buildIssueReference({ issueNumber, owner, repo, fork: argv.fork });
             const newDescription = `## Summary
 
@@ -757,7 +755,6 @@ ${formatChangesSection(changeStats)}
 
 ### Issue Reference
 Fixes ${issueRef}
-${requirementsReport ? `\n${formatRequirementsReport(requirementsReport)}\n` : ''}
 
 ---
 *This PR was created automatically by the AI issue solver*`;

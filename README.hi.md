@@ -357,7 +357,7 @@ review --repo owner/repo --pr 456
 solve <issue-url> [options]
 ```
 
-> **📦 Repository mode**: issue URL की जगह repository URL दें। solve सभी open issues को सबसे पुराने पहले इकट्ठा करके एक ही pull request में पूरा करता है। अधिकतम 100 issues GitHub native sub-issues के रूप में attach होते हैं; बाकी भी संयुक्त issue की आवश्यक references सूची में रहते हैं। `--deep-analysis` और `--ensure-all-sub-issues-addressed` सक्षम होते हैं और जहाँ संभव हो पुराने बंद संयुक्त issues के children स्थानांतरित होते हैं। Automatic merge के लिए हर आवश्यक issue के closing references और सभी requirements के वर्तमान verification evidence चाहिए। कोई open issue न होने पर work session नहीं बनता। देखें [issue completion](./docs/ISSUE_COMPLETION.md)।
+> **📦 Repository mode**: issue URL की जगह repository URL दें — solve उस repository के सभी open issues इकट्ठा करता है (सबसे पुराने पहले), एक संयुक्त issue बनाता है जिसमें अधिकतम 100 issues GitHub native sub-issues के रूप में जुड़ते हैं (GitHub की प्रति parent सीमा) और बाकी समेत हर issue आवश्यक closing reference के रूप में सूचीबद्ध होता है, और उसी issue को हल करता है — ताकि एक ही pull request उन सबको एक साथ बंद कर सके। यह `--deep-analysis` और `--ensure-all-sub-issues-addressed` को भी चालू कर देता है। जो issues अब भी किसी पुराने, बंद संयुक्त issue से जुड़े हैं, उन्हें नए संयुक्त issue में ले जाया जाता है, और `--auto-merge` के साथ pull request तभी merge होता है जब उसका description सूचीबद्ध हर issue को बंद करता है। कोई open issue न होने पर CLI बिना कुछ बनाए सफलतापूर्वक समाप्त होता है; Telegram बिना work session शुरू किए सीधे no-work परिणाम बताता है। देखें [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#solve-options)।
 
 **सबसे अधिक उपयोग किए जाने वाले विकल्प:**
 

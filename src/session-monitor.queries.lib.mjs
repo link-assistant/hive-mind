@@ -221,7 +221,7 @@ export function createSessionRegistryQueries({ activeSessions, normalizeSessionU
    * @param {Object} [options] - Test/support options
    * @param {Function} [options.statusProvider] - Optional `$ --status` provider
    * @param {Function} [options.screenChecker] - Optional screen-existence checker
-   * @returns {Promise<Array<{sessionName: string, url: string|null, tool: string, status: string|null, startTime: (Date|string|number|null), isolationBackend: (string|null)}>>}
+   * @returns {Promise<Array<{sessionName: string, url: string|null, tool: string, status: string|null, startTime: (Date|string|number|null), rootStartTime: (Date|string|number|null), recoveries: number, isolationBackend: (string|null)}>>}
    * @see https://github.com/link-assistant/hive-mind/issues/1837
    */
   async function getRunningSessionItems(verbose = false, options = {}) {
@@ -270,6 +270,10 @@ export function createSessionRegistryQueries({ activeSessions, normalizeSessionU
         tool: sessionInfo.tool || 'claude',
         status,
         startTime: sessionInfo.startTime || null,
+        // Issue #2408: a recovery session restarts `startTime`; the queue shows
+        // the whole work's active time and how often it had to be recovered.
+        rootStartTime: sessionInfo.rootStartTime || null,
+        recoveries: sessionInfo.killRecoveryResumed && Number.isFinite(sessionInfo.killRecoveryAttempts) ? sessionInfo.killRecoveryAttempts : 0,
         isolationBackend: sessionInfo.isolationBackend || null,
       });
     }

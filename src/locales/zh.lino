@@ -682,6 +682,8 @@ zh
         stopped "工作会话已由用户停止{{requestedBy}}{{exitSuffix}}"
         not_launched "工作会话未启动，因此没有日志，也不会出现在 `--list` 中。"
         recovering "工作会话仍在进行：正在从退出代码 {{exitCode}} 恢复"
+        recovered "工作会话在自动恢复后成功完成"
+        recoveries "自动恢复次数：{{count}}"
     duration
       label "耗时"
     session

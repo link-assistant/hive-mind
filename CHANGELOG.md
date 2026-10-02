@@ -1,5 +1,14 @@
 # @link-assistant/hive-mind
 
+## 2.33.7
+
+### Patch Changes
+
+- 03f4550: Keep pull requests linked to every issue they solve: reject negated, quoted and foreign issue references, repair every required closing link after working sessions and restarts, keep all open issues in repository-mode scope beyond the native sub-issue limit, and block automated merges while a required issue link is missing or not confirmed by GitHub.
+- c7c9001: fix(merge): `/merge` now stops when the target branch CI fails (#2404). The queue re-checks the default branch's CI conclusions before every merge and after every wait, instead of only waiting for the runs to finish. A HEAD commit without CI of its own, such as a release version bump pushed with `GITHUB_TOKEN`, is judged by the newest ancestor that has push CI. The queue also stops, rather than merging blindly, when main CI is still running after the wait times out.
+
+  `scripts/wait-for-npm.mjs` now also waits until the version's tarball can be downloaded, not only until `npm view` returns the version. The arm64 Docker build that turned main red failed with a tarball 404 three minutes after the metadata became visible.
+
 ## 2.33.6
 
 ### Patch Changes

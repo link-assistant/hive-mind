@@ -1,0 +1,15 @@
+# Run the pull request's solve implementation on the prepared task toolchains.
+# The parent is built from Dockerfile.formal-ai for the scheduled Formal AI tag.
+ARG E2E_TASK_IMAGE=hive-e2e:task
+FROM ${E2E_TASK_IMAGE}
+# The runner owns Docker/act; this task only runs solve and its local Formal AI server.
+ENTRYPOINT []
+USER root
+COPY --chown=box:box package.json package-lock.json /opt/hive-e2e/
+COPY --chown=box:box src /opt/hive-e2e/src
+RUN chmod +x /opt/hive-e2e/src/solve.mjs && \
+    ln -sf /opt/hive-e2e/src/solve.mjs /usr/local/bin/solve
+USER box
+# Match the inherited Bun CLI paths and keep every package cache owned by box.
+RUN bun install --global @link-assistant/agent@0.26.11 start-command@0.34.1 && agent --version
+RUN npm --prefix /opt/hive-e2e ci --omit=dev --ignore-scripts

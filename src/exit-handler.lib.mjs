@@ -279,6 +279,14 @@ export const safeExit = async (code = 0, reason = 'Process completed', { skipPre
     console.warn(`⚠️  Could not show exit message: ${error?.message || error}`);
   }
 
+  // Issue #2324: the synchronous runtime exit hook cannot await server shutdown
+  // and runs after leaked-child diagnostics. Finish owned runtimes while async
+  // work is still possible, on successful tasks and on early tool failures.
+  try {
+    await (await import('./formal-ai-runtime.lib.mjs')).stopFormalAiRuntimes();
+  } catch (error) {
+    console.warn(`⚠️  Could not stop Formal AI runtimes: ${error?.message || error}`);
+  }
   // Issue #2090: collect the working session that is still uncollected (and the
   // log tail produced after it) before the process goes away.
   try {

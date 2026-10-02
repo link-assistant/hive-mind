@@ -18,6 +18,7 @@
  * @see docs/MODEL-SPECIFIC-BEHAVIOURS.md
  */
 
+import { stripVTControlCharacters } from 'node:util';
 import { selectDraftPullRequest } from './formal-ai-draft.lib.mjs';
 
 /** The exact line the task asks the program to print. */
@@ -39,11 +40,12 @@ export const E2E_MATRIX = Object.freeze([Object.freeze({ tool: 'claude', model: 
 /**
  * The flags of the #2320 command, minus the operator-only ones.
  *
- * `--auto-restart-until-mergeable` is left at its default (on): the umbrella's
- * acceptance is that a run ends ready for review with a green workflow, and
- * restarting until the checks pass is how solve gets there.
+ * The runner owns workflow approval and verification, so solve does not wait
+ * for checks that only the runner can start. The repeated-tool-call breaker
+ * is opt-in since #2395; the matrix enables it so a looping model (Formal AI
+ * #1154) ends its row instead of running until context compaction.
  */
-export const E2E_SOLVE_FLAGS = Object.freeze(['--attach-logs', '--verbose', '--no-tool-check', '--disable-report-issue', '--language', 'en']);
+export const E2E_SOLVE_FLAGS = Object.freeze(['--attach-logs', '--verbose', '--no-tool-check', '--disable-report-issue', '--language', 'en', '--no-auto-restart-until-mergeable', '--detect-repeated-tool-calls']);
 
 const ISSUE_URL_PATTERN = /https:\/\/github\.com\/[^/\s]+\/[^/\s]+\/issues\/\d+/g;
 
@@ -73,10 +75,11 @@ export function parseIssue(issueUrl) {
  * The `solve` arguments for one matrix row. Identical for every model: the
  * only thing a row may change is `--tool` and `--model`.
  */
-export function buildE2eSolveArgv({ issueUrl, tool, model, logDir } = {}) {
+export function buildE2eSolveArgv({ issueUrl, tool, model, logDir, baseBranch } = {}) {
   parseIssue(issueUrl);
   if (!tool || !model) throw new Error('buildE2eSolveArgv needs a tool and a model');
   const argv = [issueUrl, '--tool', tool, '--model', model, ...E2E_SOLVE_FLAGS];
+  if (baseBranch) argv.push('--base-branch', baseBranch);
   if (logDir) argv.push('--log-dir', logDir);
   return argv;
 }
@@ -131,6 +134,14 @@ export function checkDiffShape(files) {
 export function logPrintsHelloWorld(logText) {
   return String(logText ?? '')
     .split(/\r?\n/)
+    .map(line => {
+      try {
+        return JSON.parse(line).msg || line;
+      } catch {
+        return line;
+      }
+    })
+    .map(line => stripVTControlCharacters(line).replace(/^\[[^\]]+\]\s*\|\s?/, ''))
     .map(line => line.split('\t').pop())
     .map(line => line.replace(/^\uFEFF?\d{4}-\d{2}-\d{2}T[\d:.]+Z ?/, ''))
     .some(line => line === HELLO_WORLD_OUTPUT);

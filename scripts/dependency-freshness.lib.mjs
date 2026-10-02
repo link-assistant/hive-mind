@@ -12,7 +12,6 @@ import path from 'node:path';
 
 import { USE_M_PACKAGE_VERSIONS } from '../src/use-with-retry.lib.mjs';
 
-const DOCKERFILES = ['Dockerfile', 'Dockerfile.dind', 'Dockerfile.formal-ai', 'coolify/Dockerfile'];
 const VERSION = /\d+(?:\.\d+){0,2}(?:-[0-9A-Za-z.-]+)?/;
 
 const parseVersion = value => {
@@ -49,11 +48,15 @@ export const parseGitHubActionPins = (source, file) => {
     const ref = match[2];
     const documentedVersion = match[3];
     const semanticRef = ref.match(/^v?(\d+(?:\.\d+){0,2})$/)?.[0];
-    if (!documentedVersion && !semanticRef) continue;
+    if (!documentedVersion && !semanticRef) {
+      records.push({ kind: 'unresolved', name: match[1], current: ref, location: `${file}:${lineNumberAt(source, match.index)}`, error: 'Action refs require a semantic version or a SHA with a version comment', exception: pinException(source, match.index) });
+      continue;
+    }
     const current = documentedVersion ?? semanticRef;
     const components = current.replace(/^v/, '').split('.').length;
     records.push({
       kind: 'github',
+      exception: pinException(source, match.index),
       name: match[1],
       current,
       policy: documentedVersion || components === 3 ? 'exact' : components === 2 ? 'minor' : 'major',
@@ -73,7 +76,7 @@ export const parseNpmPackagePins = (source, file) => {
   const records = [];
   const expression = /(?:^|[\s"'=])((?:@[a-z0-9._-]+\/)?[a-z0-9._-]+)@(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)/gim;
   for (const match of source.matchAll(expression)) {
-    records.push({ kind: 'npm', name: match[1], current: match[2], policy: 'exact', location: `${file}:${lineNumberAt(source, match.index)}` });
+    records.push({ exception: pinException(source, match.index), kind: 'npm', name: match[1], current: match[2], policy: 'exact', location: `${file}:${lineNumberAt(source, match.index)}` });
   }
   return records;
 };
@@ -98,26 +101,56 @@ const readIfPresent = async target => {
   }
 };
 
-const addContainerReleasePins = (records, source, file) => {
-  for (const match of source.matchAll(/FROM\s+ghcr\.io\/link-foundation\/box(?:-dind)?:v?(\d+\.\d+\.\d+)/g)) {
-    records.push({ kind: 'github', name: 'link-foundation/box', current: match[1], policy: 'exact', location: `${file}:${lineNumberAt(source, match.index)}` });
+const pinException = (source, index) => source.split('\n')[lineNumberAt(source, index) - 1]?.match(/https:\/\/github\.com\/([\w.-]+\/[\w.-]+)\/issues\/(\d+)/)?.[0];
+
+const ARG_SOURCES = {
+  FORMAL_AI_VERSION: { kind: 'github', name: 'link-assistant/formal-ai' },
+  HIVE_MIND_BUN_VERSION: { kind: 'github', name: 'oven-sh/bun', tagPrefix: 'bun-v' },
+  HIVE_MIND_NODE_VERSION: { kind: 'github', name: 'nodejs/node' },
+  HIVE_MIND_VERSION: { kind: 'npm', name: '@link-assistant/hive-mind' },
+};
+
+/** Unknown version arguments are errors, so adding a pin cannot evade CI. */
+export const parseDockerDependencyPins = (source, file) => {
+  const records = parseNpmPackagePins(source, file);
+  const args = new Map();
+  const add = (record, match) => records.push({ policy: 'exact', ...record, location: `${file}:${lineNumberAt(source, match.index)}`, exception: pinException(source, match.index) });
+  for (const match of source.matchAll(/ARG\s+(\w+_VERSION)=([^\s#]+)/g)) {
+    args.set(match[1], match[2]);
+    if (['latest', 'stable'].includes(match[2])) continue; // Floating refs follow the publisher automatically.
+    add({ ...(ARG_SOURCES[match[1]] ?? { kind: 'unresolved', name: match[1], error: 'Map this version argument to its publisher' }), current: match[2] }, match);
   }
-  // The pin names a Docker Hub image, not a rust-lang/rust tag: a toolchain
-  // release is only adoptable once the official image publishes it, which can
-  // lag the GitHub tag by hours (issue #2395: 1.99.0 was tagged before
-  // `rust:1.99-*` existed, so the gate demanded a FROM line that cannot pull).
-  for (const match of source.matchAll(/FROM\s+rust:(\d+\.\d+)(?:[.-][^\s]+)?/g)) {
-    records.push({ kind: 'docker', name: 'library/rust', current: match[1], policy: 'minor', location: `${file}:${lineNumberAt(source, match.index)}` });
+  for (const match of source.matchAll(/cargo\s+install\s+([\w-]+)[^\n]*?--version\s+["']?([^"'\s]+)/g)) {
+    const current = match[2].replace(/\$\{(\w+)\}/g, (_, name) => args.get(name) ?? `unresolved:${name}`);
+    add({ kind: 'crate', name: match[1], current }, match);
   }
-  for (const match of source.matchAll(/ARG\s+FORMAL_AI_VERSION=(\d+\.\d+\.\d+)/g)) {
-    records.push({ kind: 'github', name: 'link-assistant/formal-ai', current: match[1], policy: 'exact', location: `${file}:${lineNumberAt(source, match.index)}` });
+  for (const match of source.matchAll(/FROM\s+(?:--platform=\S+\s+)?([^\s]+)(?:\s+AS\s+\w+)?/gi)) {
+    const image = match[1];
+    if (image.includes('${')) continue; // Declared ARG is checked above.
+    const colon = image.lastIndexOf(':');
+    if (colon < 0 || image.slice(colon + 1) === 'latest') continue;
+    const name = image.slice(0, colon),
+      tag = image.slice(colon + 1);
+    if (/^ghcr\.io\/link-foundation\/box(?:-dind)?$/.test(name)) add({ kind: 'github', name: 'link-foundation/box', current: tag }, match);
+    // The pin names a Docker Hub image, not a rust-lang/rust tag: a toolchain
+    // release is only adoptable once the official image publishes it, which can
+    // lag the GitHub tag by hours (issue #2395: 1.99.0 was tagged before
+    // `rust:1.99-*` existed, so the gate demanded a FROM line that cannot pull).
+    else if (name === 'rust') add({ kind: 'docker', name: 'library/rust', current: tag.match(/^\d+\.\d+/)?.[0] ?? tag, policy: 'minor' }, match);
+    else add({ kind: 'container', name, current: tag }, match);
   }
-  for (const match of source.matchAll(/ARG\s+HIVE_MIND_BUN_VERSION=(\d+\.\d+\.\d+)/g)) {
-    records.push({ kind: 'github', name: 'oven-sh/bun', current: match[1], policy: 'exact', tagPrefix: 'bun-v', location: `${file}:${lineNumberAt(source, match.index)}` });
+  return records;
+};
+
+const discoverDockerfiles = async (root, relative = '') => {
+  const files = [];
+  for (const entry of await fs.readdir(path.join(root, relative), { withFileTypes: true })) {
+    if (['.git', 'node_modules', 'reports'].includes(entry.name)) continue;
+    const target = path.join(relative, entry.name);
+    if (entry.isDirectory()) files.push(...(await discoverDockerfiles(root, target)));
+    else if (entry.name.startsWith('Dockerfile')) files.push(target);
   }
-  for (const match of source.matchAll(/ARG\s+HIVE_MIND_NODE_VERSION=(\d+\.\d+\.\d+)/g)) {
-    records.push({ kind: 'github', name: 'nodejs/node', current: match[1], policy: 'exact', versionMajor: Number(match[1].split('.')[0]), location: `${file}:${lineNumberAt(source, match.index)}` });
-  }
+  return files;
 };
 
 /** Discover every dependency surface maintained by the freshness gate. */
@@ -139,18 +172,18 @@ export const collectDependencyRecords = async ({ root = process.cwd() } = {}) =>
     records.push({ kind: 'npm', name: 'use-m', current: match[1], policy: 'exact', location: `src/use-m-bootstrap.lib.mjs:${lineNumberAt(bootstrapSource, match.index)}` });
   }
 
-  for (const relative of DOCKERFILES) {
+  for (const relative of await discoverDockerfiles(root)) {
     const source = await readIfPresent(path.join(root, relative));
     if (!source) continue;
-    records.push(...parseNpmPackagePins(source, relative));
-    addContainerReleasePins(records, source, relative);
+    records.push(...parseDockerDependencyPins(source, relative));
   }
 
-  const workflowRoot = path.join(root, '.github', 'workflows');
+  const workflowRoot = path.join(root, '.github');
   for (const target of await walkYamlFiles(workflowRoot)) {
     const relative = path.relative(root, target);
     const source = await fs.readFile(target, 'utf8');
     records.push(...parseGitHubActionPins(source, relative));
+    for (const match of source.matchAll(/ACT_VERSION:\s*v?(\d+\.\d+\.\d+)/g)) records.push({ kind: 'github', name: 'nektos/act', current: match[1], policy: 'exact', location: `${relative}:${lineNumberAt(source, match.index)}`, exception: pinException(source, match.index) });
     for (const match of source.matchAll(/\bversion:\s*v(\d+\.\d+\.\d+)/g)) {
       const preceding = source.slice(Math.max(0, match.index - 250), match.index);
       if (preceding.includes('azure/setup-helm@')) {
@@ -168,7 +201,7 @@ export const collectDependencyRecords = async ({ root = process.cwd() } = {}) =>
   });
 };
 
-const fetchJson = async (url, { fetchImpl = globalThis.fetch, token = process.env.GITHUB_TOKEN } = {}) => {
+const fetchJson = async (url, { fetchImpl = globalThis.fetch, token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN } = {}) => {
   const isGitHub = url.startsWith('https://api.github.com/');
   const headers = { accept: isGitHub ? 'application/vnd.github+json' : 'application/json', 'user-agent': 'hive-mind-dependency-freshness' };
   if (isGitHub && token) headers.authorization = `Bearer ${token}`;
@@ -204,6 +237,11 @@ export const resolveGitHubLatest = async (repository, record = {}, options = {})
   return semanticTags[0].tag;
 };
 
+export const resolveCrateLatest = async (name, options = {}) => {
+  const metadata = await fetchJson(`https://crates.io/api/v1/crates/${encodeURIComponent(name)}`, options);
+  return metadata.crate.max_stable_version;
+};
+
 /** Newest stable `X.Y.Z` tag of a Docker Hub repository such as `library/rust`. */
 export const resolveDockerHubLatest = async (repository, _record = {}, options = {}) => {
   const page = await fetchJson(`https://hub.docker.com/v2/repositories/${repository}/tags?page_size=100&ordering=last_updated`, options);
@@ -215,38 +253,80 @@ export const resolveDockerHubLatest = async (repository, _record = {}, options =
   return semanticTags[0].tag;
 };
 
-/** Resolve and classify records. Registry failures are errors, never passes. */
-export const checkDependencyRecords = async (records, { resolveNpmLatest: npmResolver = resolveNpmLatest, resolveGitHubLatest: githubResolver = resolveGitHubLatest, resolveDockerHubLatest: dockerResolver = resolveDockerHubLatest } = {}) => {
-  const resolvers = { npm: npmResolver, github: githubResolver, docker: dockerResolver };
-  const latestByDependency = new Map();
-  const current = [];
-  const stale = [];
-  const errors = [];
+const containerTagSuffix = current => String(current ?? '').replace(/^v?\d+(?:\.\d+){0,2}/, '');
 
+/** Docker Registry v2 supports Docker Hub and registries advertising Bearer auth. */
+export const resolveContainerLatest = async (name, record = {}, { fetchImpl = globalThis.fetch } = {}) => {
+  const parts = name.split('/');
+  const custom = parts[0].includes('.') || parts[0].includes(':');
+  const registry = custom ? parts.shift() : 'registry-1.docker.io';
+  const repository = !custom && parts.length === 1 ? `library/${parts[0]}` : parts.join('/');
+  const url = `https://${registry}/v2/${repository}/tags/list`;
+  let response = await fetchImpl(url);
+  if (response.status === 401) {
+    const auth = response.headers.get('www-authenticate') ?? '';
+    const realm = auth.match(/realm="([^"]+)"/)?.[1];
+    if (!realm?.startsWith('https://')) throw new Error('Registry has no HTTPS Bearer authentication realm');
+    const tokenUrl = new URL(realm);
+    for (const key of ['service', 'scope']) {
+      const value = auth.match(new RegExp(`${key}="([^"]+)"`))?.[1];
+      if (value) tokenUrl.searchParams.set(key, value);
+    }
+    const credentials = await fetchJson(tokenUrl.toString(), { fetchImpl });
+    response = await fetchImpl(url, { headers: { authorization: `Bearer ${credentials.token ?? credentials.access_token}` } });
+  }
+  if (!response.ok) throw new Error(`Registry returned ${response.status}`);
+  const suffix = containerTagSuffix(record.current).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const tagPattern = new RegExp(`^v?(\\d+(?:\\.\\d+){0,2})${suffix}$`);
+  const metadata = await response.json();
+  const candidates = (metadata.tags ?? [])
+    .map(tag => ({ tag, version: parseVersion(tag.match(tagPattern)?.[1]) }))
+    .filter(candidate => candidate.version)
+    .sort((a, b) => compareParsedVersions(b.version, a.version));
+  if (!candidates.length) throw new Error(`No stable container tags found for ${name}`);
+  return candidates[0].tag;
+};
+
+export const resolveOpenIssue = async (url, options = {}) => {
+  const match = url.match(/^https:\/\/github\.com\/([\w.-]+\/[\w.-]+)\/issues\/(\d+)$/);
+  if (!match) throw new Error('Exceptions must link a GitHub issue on the declaration line');
+  const issue = await fetchJson(`https://api.github.com/repos/${match[1]}/issues/${match[2]}`, options);
+  return issue.state === 'open' && !issue.pull_request;
+};
+
+/** Registry errors and unrecognized pins fail closed; only verified open issues waive pins. */
+export const checkDependencyRecords = async (records, { resolveNpmLatest: npmResolver = resolveNpmLatest, resolveGitHubLatest: githubResolver = resolveGitHubLatest, resolveCrateLatest: crateResolver = resolveCrateLatest, resolveDockerHubLatest: dockerResolver = resolveDockerHubLatest, resolveContainerLatest: containerResolver = resolveContainerLatest, resolveOpenIssue: issueResolver = resolveOpenIssue } = {}) => {
+  const latestByDependency = new Map(),
+    current = [],
+    stale = [],
+    errors = [],
+    exceptions = [];
+  const resolvers = { npm: npmResolver, github: githubResolver, crate: crateResolver, docker: dockerResolver, container: containerResolver };
   await Promise.all(
     records.map(async record => {
-      const key = `${record.kind}:${record.name}:${record.tagPrefix ?? ''}:${record.versionMajor ?? ''}`;
       try {
-        let latestPromise = latestByDependency.get(key);
-        if (!latestPromise) {
-          const resolver = Object.hasOwn(resolvers, record.kind) ? resolvers[record.kind] : null;
-          if (!resolver) throw new Error(`unknown dependency kind ${record.kind}`);
-          latestPromise = resolver(record.name, record);
-          latestByDependency.set(key, latestPromise);
+        if (record.exception) {
+          if (!(await issueResolver(record.exception))) throw new Error(`Exception issue is closed or invalid: ${record.exception}`);
         }
-        const latest = await latestPromise;
+        if (!resolvers[record.kind]) {
+          if (record.exception) {
+            exceptions.push(record);
+            return;
+          }
+          throw new Error(record.error ?? `Unknown dependency kind ${record.kind}`);
+        }
+        const key = `${record.kind}:${record.name}:${record.tagPrefix ?? ''}:${record.versionMajor ?? ''}:${record.kind === 'container' ? containerTagSuffix(record.current) : ''}`;
+        if (!latestByDependency.has(key)) latestByDependency.set(key, resolvers[record.kind](record.name, record));
+        const latest = await latestByDependency.get(key);
         const assessment = assessVersionPin({ current: record.current, latest, policy: record.policy });
         const result = { ...record, latest, reason: assessment.reason };
-        (assessment.current ? current : stale).push(result);
+        (assessment.current ? current : record.exception ? exceptions : stale).push(result);
       } catch (error) {
         errors.push({ ...record, error: error?.message ?? String(error) });
       }
     })
   );
-
-  const byLocation = (left, right) => left.location.localeCompare(right.location) || left.name.localeCompare(right.name);
-  current.sort(byLocation);
-  stale.sort(byLocation);
-  errors.sort(byLocation);
-  return { records, current, stale, errors };
+  const byLocation = (a, b) => a.location.localeCompare(b.location) || a.name.localeCompare(b.name);
+  for (const results of [current, stale, errors, exceptions]) results.sort(byLocation);
+  return { records, current, stale, errors, exceptions };
 };

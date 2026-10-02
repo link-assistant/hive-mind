@@ -23,6 +23,9 @@ rules:
   self-repository:
     ignore:
       - release.yml
+      - formal-ai-draft.yml
+      - cleanup-test-repos.yml
+      - e2e-hello-world-matrix.yml
   unpinned-uses:
     config:
       policies:

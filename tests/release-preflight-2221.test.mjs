@@ -338,7 +338,11 @@ describe('release.yml', () => {
   });
 
   it('lets the preflight report on pull requests instead of blocking them', () => {
-    assert.match(preflight, /PREFLIGHT_MODE: \$\{\{ .*'release' \|\| 'report' \}\}/, 'a push to main and a manual dispatch fail fast; everything else reports');
+    const caller = jobOf('release-preflight');
+    assert.match(caller, /mode: \$\{\{ github.ref == 'refs\/heads\/main'/, 'publishing credentials are enforced only on main');
+    assert.match(caller, /github.event_name == 'push' \|\| \(github.event_name == 'workflow_dispatch' && inputs.mode == 'release'\)/, 'a checks-only dispatch reports even on main');
+    assert.match(caller, /&& 'release' \|\| 'report' \}\}/, 'all other events report');
+    assert.match(preflight, /PREFLIGHT_MODE: \$\{\{ inputs.mode \}\}/, 'the reusable workflow honors the caller mode');
     assert.match(preflight, /--mode "\$PREFLIGHT_MODE"/, 'the mode reaches the script through the environment, not through the run line');
   });
 });

@@ -771,8 +771,11 @@ export const prepareFormalAiRuntime = async ({ tool, workdir, log = async () => 
       backend,
       stop: async () => {
         runtimeCache.delete(cacheKey);
-        await server?.stop?.();
-        await rm(home, { recursive: true, force: true }).catch(() => {});
+        try {
+          await server?.stop?.();
+        } finally {
+          await rm(home, { recursive: true, force: true }).catch(() => {});
+        }
       },
     };
     runtimeCache.set(cacheKey, { runtime, server });
@@ -782,6 +785,13 @@ export const prepareFormalAiRuntime = async ({ tool, workdir, log = async () => 
     await rm(home, { recursive: true, force: true }).catch(() => {});
     throw error;
   }
+};
+
+/** Finish task-owned servers before process-exit diagnostics; external sidecars stay running. */
+export const stopFormalAiRuntimes = async () => {
+  const results = await Promise.allSettled([...runtimeCache.values()].map(({ runtime }) => runtime.stop()));
+  const errors = results.filter(result => result.status === 'rejected').map(result => result.reason);
+  if (errors.length) throw new AggregateError(errors, 'Could not stop every task-owned Formal AI runtime');
 };
 
 /** Test seam: forget cached runtimes without stopping their servers. */

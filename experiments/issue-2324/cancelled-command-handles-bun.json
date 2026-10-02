@@ -1,0 +1,5 @@
+[
+  { "delay": 0, "exists": false, "activeHandle": false, "exitCode": null, "signalCode": "SIGTERM", "killed": true },
+  { "delay": 50, "exists": false, "activeHandle": false, "exitCode": null, "signalCode": "SIGTERM", "killed": true },
+  { "delay": 500, "exists": false, "activeHandle": false, "exitCode": null, "signalCode": "SIGTERM", "killed": true }
+]

@@ -235,6 +235,9 @@ export const buildFormalAiSidecarRunArgs = ({ image, env = process.env, containe
     // weight and would demand --privileged.
     '--env',
     'DIND_SKIP_DAEMON=1',
+    // Issue #2324 / formal-ai#1159: prerequisite recovery is workspace-scoped.
+    '--env',
+    `FORMAL_AI_INSTALL_GRANT=${env.FORMAL_AI_INSTALL_GRANT || 'workspace'}`,
     '--env',
     `FORMAL_AI_MEMORY_PATH=${FORMAL_AI_MEMORY_PATH}`,
     '--volume',

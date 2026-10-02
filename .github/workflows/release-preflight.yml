@@ -18,6 +18,11 @@ name: Release Preflight
 
 on:
   workflow_call:
+    inputs:
+      mode:
+        description: Report for checks, enforce credentials for an explicit main release
+        type: string
+        default: report
     secrets:
       DOCKERHUB_USERNAME:
         required: false
@@ -56,12 +61,11 @@ jobs:
       - name: Probe publishing credentials
         id: preflight
         env:
-          # A push to main and a manual dispatch publish, so they fail fast;
-          # everything else reports. The `github` context inside a reusable
-          # workflow is the caller's, so this reads the original event.
+          # The caller enforces credentials for main publishing events and
+          # reports for pull requests and checks-only dispatches.
           # Passed through the environment rather than interpolated into the
           # `run:` line (zizmor template-injection).
-          PREFLIGHT_MODE: ${{ ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch') && 'release' || 'report' }}
+          PREFLIGHT_MODE: ${{ inputs.mode }}
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
           # Reachability, not just writability: what an anonymous consumer gets

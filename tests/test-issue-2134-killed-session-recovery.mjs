@@ -261,7 +261,8 @@ assert(resolveOnSessionKillPolicy({ argv: { 'on-session-kill': 'resume' }, env: 
 assert(resolveOnSessionKillPolicy({ argv: {}, env: { HIVE_MIND_ON_SESSION_KILL: 'resume' } }) === ON_SESSION_KILL_RESUME, 'HIVE_MIND_ON_SESSION_KILL selects the policy');
 assert(resolveOnSessionKillPolicy({ argv: { onSessionKill: 'report' }, env: { HIVE_MIND_ON_SESSION_KILL: 'resume' } }) === ON_SESSION_KILL_REPORT, 'the flag wins over the environment');
 assert(resolveOnSessionKillPolicy({ argv: { onSessionKill: 'nonsense' }, env: {} }) === ON_SESSION_KILL_RESUME, 'an invalid policy falls back to the default');
-assert(resolveSessionKillResumeAttempts({ argv: {}, env: {} }) === 1, 'one automatic resume attempt by default');
+// Issue #2408: one attempt could not recover the second OOM of a long session.
+assert(resolveSessionKillResumeAttempts({ argv: {}, env: {} }) === 3, 'three automatic resume attempts by default (issue #2408)');
 assert(resolveSessionKillResumeAttempts({ argv: {}, env: { HIVE_MIND_SESSION_KILL_RESUME_ATTEMPTS: '3' } }) === 3, 'the resume attempt cap is configurable');
 assert(shouldResumeKilledSession({ policy: ON_SESSION_KILL_RESUME, killed: true }) === true, 'resume policy resumes a killed session');
 assert(shouldResumeKilledSession({ policy: ON_SESSION_KILL_REPORT, killed: true }) === false, 'report policy never auto-resumes');
@@ -322,7 +323,7 @@ const resumePlan = planKillRecovery({ sessionInfo: resumableInfo(), killed: true
 assert(resumePlan.shouldResume === true && resumePlan.attempt === 1, '--on-session-kill=resume plans exactly one recovery session');
 assert(resumePlan.command.args.includes('--resume') && resumePlan.command.args.includes(TOOL_SESSION), 'the recovery session resumes the tool session found in the log');
 
-const exhaustedPlan = planKillRecovery({ sessionInfo: { ...resumableInfo(), [KILL_RESUME_ATTEMPTS_FIELD]: 1 }, killed: true, env: {}, readLastSessionId: readTool });
+const exhaustedPlan = planKillRecovery({ sessionInfo: { ...resumableInfo(), [KILL_RESUME_ATTEMPTS_FIELD]: 3 }, killed: true, env: {}, readLastSessionId: readTool });
 assert(exhaustedPlan.shouldResume === false && exhaustedPlan.reason === 'max-attempts-reached', 'the attempt cap stops a session that keeps getting killed');
 
 const stoppedPlan = planKillRecovery({ sessionInfo: { ...resumableInfo(), stopRequestedByUser: true }, killed: true, env: {}, readLastSessionId: readTool });

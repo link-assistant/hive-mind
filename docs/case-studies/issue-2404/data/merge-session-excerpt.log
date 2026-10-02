@@ -1,0 +1,373 @@
+[VERBOSE] /merge command received
+[VERBOSE] /merge: Processing repository target https://github.com/link-assistant/hive-mind in link-assistant/hive-mind
+[VERBOSE] /merge: Repository permissions for link-assistant/hive-mind: {"admin":true,"maintain":true,"pull":true,"push":true,"triage":true}
+[VERBOSE] /merge: Can manage labels: true
+[VERBOSE] /merge: 'ready' label exists in link-assistant/hive-mind
+[VERBOSE] /merge-queue: Initializing merge queue for link-assistant/hive-mind
+[VERBOSE] /merge: 'ready' label exists in link-assistant/hive-mind
+[VERBOSE] /merge: Syncing 'ready' tags for link-assistant/hive-mind...
+[VERBOSE] /merge: Found 2 open PRs with 'ready' label for tag sync
+[VERBOSE] /merge: Found 0 open issues with 'ready' label for tag sync
+[VERBOSE] /merge: PR #2401 has 'ready', adding to linked issue #2400
+[VERBOSE] /merge: Added 'ready' label to issue #2400
+[VERBOSE] /merge: PR #2398 has 'ready', adding to linked issue #2397
+[VERBOSE] /merge: Added 'ready' label to issue #2397
+[VERBOSE] /merge: Tag sync complete. Synced: 2, Errors: 0
+[VERBOSE] /merge-queue: Synced 'ready' tag: 2 item(s) updated
+[VERBOSE] /merge: Found 1 open issues with 'ready' label in link-assistant/hive-mind
+[VERBOSE] /merge: Found 2 open PRs with 'ready' label in link-assistant/hive-mind
+[VERBOSE] /merge: Issue #2400 linked to PR #2401
+[VERBOSE] /merge: Total unique ready PRs: 2
+[VERBOSE] /merge:   PR #2398: fix: one failure comment with a clear reason, and unblock log upload (#2397)
+[VERBOSE] /merge:   PR #2401: fix: one Log Upload Failed comment, correct isolated log location, no keyword over-masking, no Secretlint profiler leak (#2400) (linked to issue #2400)
+[VERBOSE] /merge-queue: Initialized with 2 PRs to merge
+[VERBOSE] /merge: Default branch for link-assistant/hive-mind: main
+[VERBOSE] /merge-queue: Checking CI health on main branch before starting queue...
+[VERBOSE] /merge: Checking CI for latest main commit cb3bb2d
+[VERBOSE] /merge: Found 4 CI run(s) for HEAD commit cb3bb2d on link-assistant/hive-mind branch main
+[VERBOSE] /merge: 1 CI run(s) still in progress on main (latest commit cb3bb2d)
+[VERBOSE] /merge:   - Checks and release: in_progress (https://github.com/link-assistant/hive-mind/actions/runs/36914477944)
+[VERBOSE] /merge-queue: Branch main has 1 CI run(s) in progress on the latest commit. Will wait for them to complete.
+[VERBOSE] /merge: Default branch for link-assistant/hive-mind: main
+[VERBOSE] /merge-queue: Checking for active CI runs on main branch before processing queue...
+[VERBOSE] /merge: Checking for active CI runs on link-assistant/hive-mind branch main...
+[VERBOSE] /merge: Found 1 active runs on link-assistant/hive-mind branch main
+[VERBOSE] /merge:   - Run #36914477944: Checks and release (in_progress)
+[VERBOSE] /merge: Waiting for 1 active runs on main... (5s elapsed)
+[VERBOSE] /merge: Found 1 active runs on link-assistant/hive-mind branch main
+[VERBOSE] /merge:   - Run #36914477944: Checks and release (in_progress)
+[VERBOSE] /merge: Waiting for 1 active runs on main... (38s elapsed)
+[VERBOSE] /merge: Found 1 active runs on link-assistant/hive-mind branch main
+[VERBOSE] /merge:   - Run #36914477944: Checks and release (in_progress)
+[VERBOSE] /merge: Waiting for 1 active runs on main... (71s elapsed)
+[VERBOSE] /merge: Found 1 active runs on link-assistant/hive-mind branch main
+[VERBOSE] /merge:   - Run #36914477944: Checks and release (in_progress)
+[VERBOSE] /merge: Waiting for 1 active runs on main... (104s elapsed)
+[VERBOSE] /merge: Found 1 active runs on link-assistant/hive-mind branch main
+[VERBOSE] /merge:   - Run #36914477944: Checks and release (in_progress)
+[VERBOSE] /merge: Waiting for 1 active runs on main... (137s elapsed)
+[VERBOSE] /merge: Found 1 active runs on link-assistant/hive-mind branch main
+[VERBOSE] /merge:   - Run #36914477944: Checks and release (in_progress)
+[VERBOSE] /merge: Waiting for 1 active runs on main... (170s elapsed)
+[VERBOSE] /merge: Found 1 active runs on link-assistant/hive-mind branch main
+[VERBOSE] /merge:   - Run #36914477944: Checks and release (in_progress)
+[VERBOSE] /merge: Waiting for 1 active runs on main... (203s elapsed)
+[VERBOSE] /merge: Found 1 active runs on link-assistant/hive-mind branch main
+[VERBOSE] /merge:   - Run #36914477944: Checks and release (in_progress)
+[VERBOSE] /merge: Waiting for 1 active runs on main... (236s elapsed)
+[VERBOSE] /merge: Found 1 active runs on link-assistant/hive-mind branch main
+[VERBOSE] /merge:   - Run #36914477944: Checks and release (in_progress)
+[VERBOSE] /merge: Waiting for 1 active runs on main... (269s elapsed)
+[VERBOSE] /merge: Found 1 active runs on link-assistant/hive-mind branch main
+[VERBOSE] /merge:   - Run #36914477944: Checks and release (in_progress)
+[VERBOSE] /merge: Waiting for 1 active runs on main... (302s elapsed)
+[VERBOSE] /merge: Found 1 active runs on link-assistant/hive-mind branch main
+[VERBOSE] /merge:   - Run #36914477944: Checks and release (in_progress)
+[VERBOSE] /merge: Waiting for 1 active runs on main... (335s elapsed)
+[VERBOSE] /merge: Found 1 active runs on link-assistant/hive-mind branch main
+[VERBOSE] /merge:   - Run #36914477944: Checks and release (in_progress)
+[VERBOSE] /merge: Waiting for 1 active runs on main... (369s elapsed)
+[VERBOSE] /merge: Found 1 active runs on link-assistant/hive-mind branch main
+[VERBOSE] /merge:   - Run #36914477944: Checks and release (in_progress)
+[VERBOSE] /merge: Waiting for 1 active runs on main... (402s elapsed)
+[VERBOSE] /merge: Found 1 active runs on link-assistant/hive-mind branch main
+[VERBOSE] /merge:   - Run #36914477944: Checks and release (in_progress)
+[VERBOSE] /merge: Waiting for 1 active runs on main... (435s elapsed)
+[VERBOSE] /merge: Found 1 active runs on link-assistant/hive-mind branch main
+[VERBOSE] /merge:   - Run #36914477944: Checks and release (in_progress)
+[VERBOSE] /merge: Waiting for 1 active runs on main... (468s elapsed)
+[VERBOSE] /merge: Found 1 active runs on link-assistant/hive-mind branch main
+[VERBOSE] /merge:   - Run #36914477944: Checks and release (in_progress)
+[VERBOSE] /merge: Waiting for 1 active runs on main... (501s elapsed)
+[VERBOSE] /merge: Found 1 active runs on link-assistant/hive-mind branch main
+[VERBOSE] /merge:   - Run #36914477944: Checks and release (in_progress)
+[VERBOSE] /merge: Waiting for 1 active runs on main... (534s elapsed)
+[VERBOSE] /merge: Found 1 active runs on link-assistant/hive-mind branch main
+[VERBOSE] /merge:   - Run #36914477944: Checks and release (in_progress)
+[VERBOSE] /merge: Waiting for 1 active runs on main... (567s elapsed)
+[VERBOSE] /merge: Found 1 active runs on link-assistant/hive-mind branch main
+[VERBOSE] /merge:   - Run #36914477944: Checks and release (in_progress)
+[VERBOSE] /merge: Waiting for 1 active runs on main... (600s elapsed)
+[VERBOSE] /merge: Found 1 active runs on link-assistant/hive-mind branch main
+[VERBOSE] /merge:   - Run #36914477944: Checks and release (in_progress)
+[VERBOSE] /merge: Waiting for 1 active runs on main... (633s elapsed)
+[VERBOSE] /merge: Found 1 active runs on link-assistant/hive-mind branch main
+[VERBOSE] /merge:   - Run #36914477944: Checks and release (in_progress)
+[VERBOSE] /merge: Waiting for 1 active runs on main... (668s elapsed)
+[VERBOSE] /merge: Found 1 active runs on link-assistant/hive-mind branch main
+[VERBOSE] /merge:   - Run #36914477944: Checks and release (in_progress)
+[VERBOSE] /merge: Waiting for 1 active runs on main... (701s elapsed)
+[VERBOSE] /merge: Found 1 active runs on link-assistant/hive-mind branch main
+[VERBOSE] /merge:   - Run #36914477944: Checks and release (in_progress)
+[VERBOSE] /merge: Waiting for 1 active runs on main... (735s elapsed)
+[VERBOSE] /merge: Found 1 active runs on link-assistant/hive-mind branch main
+[VERBOSE] /merge:   - Run #36914477944: Checks and release (in_progress)
+[VERBOSE] /merge: Waiting for 1 active runs on main... (767s elapsed)
+[VERBOSE] /merge: Found 1 active runs on link-assistant/hive-mind branch main
+[VERBOSE] /merge:   - Run #36914477944: Checks and release (in_progress)
+[VERBOSE] /merge: Waiting for 1 active runs on main... (801s elapsed)
+[VERBOSE] /merge: Found 1 active runs on link-assistant/hive-mind branch main
+[VERBOSE] /merge:   - Run #36914477944: Checks and release (in_progress)
+[VERBOSE] /merge: Waiting for 1 active runs on main... (834s elapsed)
+[VERBOSE] /merge: Found 1 active runs on link-assistant/hive-mind branch main
+[VERBOSE] /merge:   - Run #36914477944: Checks and release (in_progress)
+[VERBOSE] /merge: Waiting for 1 active runs on main... (867s elapsed)
+[VERBOSE] /merge: Found 1 active runs on link-assistant/hive-mind branch main
+[VERBOSE] /merge:   - Run #36914477944: Checks and release (in_progress)
+[VERBOSE] /merge: Waiting for 1 active runs on main... (900s elapsed)
+[VERBOSE] /merge: Found 1 active runs on link-assistant/hive-mind branch main
+[VERBOSE] /merge:   - Run #36914477944: Checks and release (in_progress)
+[VERBOSE] /merge: Waiting for 1 active runs on main... (933s elapsed)
+[VERBOSE] /merge: Found 1 active runs on link-assistant/hive-mind branch main
+[VERBOSE] /merge:   - Run #36914477944: Checks and release (in_progress)
+[VERBOSE] /merge: Waiting for 1 active runs on main... (968s elapsed)
+[VERBOSE] /merge: Found 1 active runs on link-assistant/hive-mind branch main
+[VERBOSE] /merge:   - Run #36914477944: Checks and release (in_progress)
+[VERBOSE] /merge: Waiting for 1 active runs on main... (1002s elapsed)
+[VERBOSE] /merge: Found 1 active runs on link-assistant/hive-mind branch main
+[VERBOSE] /merge:   - Run #36914477944: Checks and release (in_progress)
+[VERBOSE] /merge: Waiting for 1 active runs on main... (1036s elapsed)
+[VERBOSE] /merge: Found 1 active runs on link-assistant/hive-mind branch main
+[VERBOSE] /merge:   - Run #36914477944: Checks and release (in_progress)
+[VERBOSE] /merge: Waiting for 1 active runs on main... (1068s elapsed)
+[VERBOSE] /merge: Found 1 active runs on link-assistant/hive-mind branch main
+[VERBOSE] /merge:   - Run #36914477944: Checks and release (in_progress)
+[VERBOSE] /merge: Waiting for 1 active runs on main... (1102s elapsed)
+[VERBOSE] /merge: Found 1 active runs on link-assistant/hive-mind branch main
+[VERBOSE] /merge:   - Run #36914477944: Checks and release (in_progress)
+[VERBOSE] /merge: Waiting for 1 active runs on main... (1135s elapsed)
+[VERBOSE] /merge: Found 1 active runs on link-assistant/hive-mind branch main
+[VERBOSE] /merge:   - Run #36914477944: Checks and release (queued)
+[VERBOSE] /merge: Waiting for 1 active runs on main... (1168s elapsed)
+[VERBOSE] /merge: Found 1 active runs on link-assistant/hive-mind branch main
+[VERBOSE] /merge:   - Run #36914477944: Checks and release (in_progress)
+[VERBOSE] /merge: Waiting for 1 active runs on main... (1201s elapsed)
+[VERBOSE] /merge: Found 0 active runs on link-assistant/hive-mind branch main
+[VERBOSE] /merge: No active CI runs on main branch. Ready to proceed.
+[VERBOSE] /merge-queue: Waited for 1 CI runs to complete on main branch
+[VERBOSE] /merge-queue: Processing PR #2398: fix: one failure comment with a clear reason, and unblock log upload (#2397)
+[VERBOSE] /merge: PR #2398 mergeability is UNKNOWN (attempt 1/3), retrying in 5s...
+[VERBOSE] /merge: PR #2398 mergeable: true, state: CLEAN, isDraft: false
+[VERBOSE] /merge: PR #2398 CI status: success
+[VERBOSE] /merge:   Checks: 33, Passed: true, Pending: false
+[VERBOSE] /merge:     - Helm Release (Instant): completed/skipped
+[VERBOSE] /merge:     - Helm Release: completed/skipped
+[VERBOSE] /merge:     - Docker Publish Instant (Merge): completed/skipped
+[VERBOSE] /merge:     - Pipeline Status: completed/success
+[VERBOSE] /merge:     - Docker Publish (Merge): completed/skipped
+[VERBOSE] /merge:     - Docker Publish DinD (Merge): completed/skipped
+[VERBOSE] /merge:     - Docker Publish DinD Instant (Merge): completed/skipped
+[VERBOSE] /merge:     - Docker Publish Instant (${{ matrix.platform }}): completed/skipped
+[VERBOSE] /merge:     - Docker Publish DinD (${{ matrix.platform }}): completed/skipped
+[VERBOSE] /merge:     - Docker Publish (${{ matrix.platform }}): completed/skipped
+[VERBOSE] /merge:     - Docker Publish DinD Instant (${{ matrix.platform }}): completed/skipped
+[VERBOSE] /merge:     - Instant Release: completed/skipped
+[VERBOSE] /merge:     - Release: completed/skipped
+[VERBOSE] /merge:     - docker-pr-check: completed/skipped
+[VERBOSE] /merge:     - memory-check-linux: completed/success
+[VERBOSE] /merge:     - test-execution: completed/success
+[VERBOSE] /merge:     - test-suites: completed/success
+[VERBOSE] /merge:     - CodeQL: completed/success
+[VERBOSE] /merge:     - check-file-line-limits: completed/skipped
+[VERBOSE] /merge:     - helm-pr-check: completed/success
+[VERBOSE] /merge:     - validate-docs: completed/success
+[VERBOSE] /merge:     - test-compilation: completed/success
+[VERBOSE] /merge:     - Check for Manual Version Changes: completed/success
+[VERBOSE] /merge:     - Check for Changesets: completed/success
+[VERBOSE] /merge:     - lint: completed/success
+[VERBOSE] /merge:     - Create Changeset PR: completed/skipped
+[VERBOSE] /merge:     - Release Preflight / Probe publishing credentials: completed/success
+[VERBOSE] /merge:     - detect-changes: completed/success
+[VERBOSE] /merge:     - Check Links: completed/success
+[VERBOSE] /merge:     - CodeQL (actions): completed/success
+[VERBOSE] /merge:     - Audit npm lock: completed/success
+[VERBOSE] /merge:     - CodeQL (javascript-typescript): completed/success
+[VERBOSE] /merge:     - Dependency Review: completed/success
+[VERBOSE] /merge: Successfully merged PR #2398
+[VERBOSE] /merge-queue: Successfully merged PR #2398
+[VERBOSE] /merge: Default branch for link-assistant/hive-mind: main
+[VERBOSE] /merge: Issue #2397 will be handled by GitHub (base 'main', default 'main')
+[VERBOSE] /merge: PR #2398 merge commit: 5ddb537
+[VERBOSE] /merge-queue: PR #2398 merge commit: 5ddb537
+[VERBOSE] /merge-queue: Waiting for post-merge CI on commit 5ddb537 (PR #2398)...
+[VERBOSE] /merge: Waiting for CI runs on commit 5ddb537 to complete...
+[VERBOSE] /merge: Found 3 workflow run(s) for https://github.com/link-assistant/hive-mind/commit/5ddb537ff9e110c70348ec7df3842a8ae5fe86cd
+[VERBOSE] /merge:   - Checks and release [in_progress]: https://github.com/link-assistant/hive-mind/actions/runs/36917996687
+[VERBOSE] /merge:   - Security [queued]: https://github.com/link-assistant/hive-mind/actions/runs/36917996052
+[VERBOSE] /merge:   - Broken Link Checker [in_progress]: https://github.com/link-assistant/hive-mind/actions/runs/36917996084
+[VERBOSE] /merge: Waiting for 3 CI run(s) to complete... (1s elapsed)
+[VERBOSE] /merge: Found 3 workflow run(s) for https://github.com/link-assistant/hive-mind/commit/5ddb537ff9e110c70348ec7df3842a8ae5fe86cd
+[VERBOSE] /merge:   - Checks and release [in_progress]: https://github.com/link-assistant/hive-mind/actions/runs/36917996687
+[VERBOSE] /merge:   - Broken Link Checker [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996084
+[VERBOSE] /merge:   - Security [in_progress]: https://github.com/link-assistant/hive-mind/actions/runs/36917996052
+[VERBOSE] /merge: Waiting for 2 CI run(s) to complete... (32s elapsed)
+[VERBOSE] /merge: Found 3 workflow run(s) for https://github.com/link-assistant/hive-mind/commit/5ddb537ff9e110c70348ec7df3842a8ae5fe86cd
+[VERBOSE] /merge:   - Checks and release [in_progress]: https://github.com/link-assistant/hive-mind/actions/runs/36917996687
+[VERBOSE] /merge:   - Security [in_progress]: https://github.com/link-assistant/hive-mind/actions/runs/36917996052
+[VERBOSE] /merge:   - Broken Link Checker [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996084
+[VERBOSE] /merge: Waiting for 2 CI run(s) to complete... (63s elapsed)
+[VERBOSE] /merge: Found 3 workflow run(s) for https://github.com/link-assistant/hive-mind/commit/5ddb537ff9e110c70348ec7df3842a8ae5fe86cd
+[VERBOSE] /merge:   - Checks and release [in_progress]: https://github.com/link-assistant/hive-mind/actions/runs/36917996687
+[VERBOSE] /merge:   - Security [in_progress]: https://github.com/link-assistant/hive-mind/actions/runs/36917996052
+[VERBOSE] /merge:   - Broken Link Checker [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996084
+[VERBOSE] /merge: Waiting for 2 CI run(s) to complete... (94s elapsed)
+[VERBOSE] /merge: Found 3 workflow run(s) for https://github.com/link-assistant/hive-mind/commit/5ddb537ff9e110c70348ec7df3842a8ae5fe86cd
+[VERBOSE] /merge:   - Checks and release [in_progress]: https://github.com/link-assistant/hive-mind/actions/runs/36917996687
+[VERBOSE] /merge:   - Security [in_progress]: https://github.com/link-assistant/hive-mind/actions/runs/36917996052
+[VERBOSE] /merge:   - Broken Link Checker [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996084
+[VERBOSE] /merge: Waiting for 2 CI run(s) to complete... (124s elapsed)
+[VERBOSE] /merge: Found 3 workflow run(s) for https://github.com/link-assistant/hive-mind/commit/5ddb537ff9e110c70348ec7df3842a8ae5fe86cd
+[VERBOSE] /merge:   - Checks and release [in_progress]: https://github.com/link-assistant/hive-mind/actions/runs/36917996687
+[VERBOSE] /merge:   - Security [in_progress]: https://github.com/link-assistant/hive-mind/actions/runs/36917996052
+[VERBOSE] /merge:   - Broken Link Checker [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996084
+[VERBOSE] /merge: Waiting for 2 CI run(s) to complete... (155s elapsed)
+[VERBOSE] /merge: Found 3 workflow run(s) for https://github.com/link-assistant/hive-mind/commit/5ddb537ff9e110c70348ec7df3842a8ae5fe86cd
+[VERBOSE] /merge:   - Checks and release [in_progress]: https://github.com/link-assistant/hive-mind/actions/runs/36917996687
+[VERBOSE] /merge:   - Security [in_progress]: https://github.com/link-assistant/hive-mind/actions/runs/36917996052
+[VERBOSE] /merge:   - Broken Link Checker [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996084
+[VERBOSE] /merge: Waiting for 2 CI run(s) to complete... (189s elapsed)
+[VERBOSE] /merge: Found 3 workflow run(s) for https://github.com/link-assistant/hive-mind/commit/5ddb537ff9e110c70348ec7df3842a8ae5fe86cd
+[VERBOSE] /merge:   - Checks and release [in_progress]: https://github.com/link-assistant/hive-mind/actions/runs/36917996687
+[VERBOSE] /merge:   - Security [in_progress]: https://github.com/link-assistant/hive-mind/actions/runs/36917996052
+[VERBOSE] /merge:   - Broken Link Checker [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996084
+[VERBOSE] /merge: Waiting for 2 CI run(s) to complete... (220s elapsed)
+[VERBOSE] /merge: Found 3 workflow run(s) for https://github.com/link-assistant/hive-mind/commit/5ddb537ff9e110c70348ec7df3842a8ae5fe86cd
+[VERBOSE] /merge:   - Checks and release [in_progress]: https://github.com/link-assistant/hive-mind/actions/runs/36917996687
+[VERBOSE] /merge:   - Security [in_progress]: https://github.com/link-assistant/hive-mind/actions/runs/36917996052
+[VERBOSE] /merge:   - Broken Link Checker [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996084
+[VERBOSE] /merge: Waiting for 2 CI run(s) to complete... (251s elapsed)
+[VERBOSE] /merge: Found 3 workflow run(s) for https://github.com/link-assistant/hive-mind/commit/5ddb537ff9e110c70348ec7df3842a8ae5fe86cd
+[VERBOSE] /merge:   - Checks and release [in_progress]: https://github.com/link-assistant/hive-mind/actions/runs/36917996687
+[VERBOSE] /merge:   - Broken Link Checker [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996084
+[VERBOSE] /merge:   - Security [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996052
+[VERBOSE] /merge: Waiting for 1 CI run(s) to complete... (282s elapsed)
+[VERBOSE] /merge: Found 3 workflow run(s) for https://github.com/link-assistant/hive-mind/commit/5ddb537ff9e110c70348ec7df3842a8ae5fe86cd
+[VERBOSE] /merge:   - Checks and release [in_progress]: https://github.com/link-assistant/hive-mind/actions/runs/36917996687
+[VERBOSE] /merge:   - Broken Link Checker [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996084
+[VERBOSE] /merge:   - Security [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996052
+[VERBOSE] /merge: Waiting for 1 CI run(s) to complete... (313s elapsed)
+[VERBOSE] /merge: Found 3 workflow run(s) for https://github.com/link-assistant/hive-mind/commit/5ddb537ff9e110c70348ec7df3842a8ae5fe86cd
+[VERBOSE] /merge:   - Checks and release [in_progress]: https://github.com/link-assistant/hive-mind/actions/runs/36917996687
+[VERBOSE] /merge:   - Broken Link Checker [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996084
+[VERBOSE] /merge:   - Security [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996052
+[VERBOSE] /merge: Waiting for 1 CI run(s) to complete... (344s elapsed)
+[VERBOSE] /merge: Found 3 workflow run(s) for https://github.com/link-assistant/hive-mind/commit/5ddb537ff9e110c70348ec7df3842a8ae5fe86cd
+[VERBOSE] /merge:   - Checks and release [in_progress]: https://github.com/link-assistant/hive-mind/actions/runs/36917996687
+[VERBOSE] /merge:   - Broken Link Checker [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996084
+[VERBOSE] /merge:   - Security [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996052
+[VERBOSE] /merge: Waiting for 1 CI run(s) to complete... (375s elapsed)
+[VERBOSE] /merge: Found 3 workflow run(s) for https://github.com/link-assistant/hive-mind/commit/5ddb537ff9e110c70348ec7df3842a8ae5fe86cd
+[VERBOSE] /merge:   - Checks and release [in_progress]: https://github.com/link-assistant/hive-mind/actions/runs/36917996687
+[VERBOSE] /merge:   - Broken Link Checker [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996084
+[VERBOSE] /merge:   - Security [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996052
+[VERBOSE] /merge: Waiting for 1 CI run(s) to complete... (406s elapsed)
+[VERBOSE] /merge: Found 3 workflow run(s) for https://github.com/link-assistant/hive-mind/commit/5ddb537ff9e110c70348ec7df3842a8ae5fe86cd
+[VERBOSE] /merge:   - Checks and release [in_progress]: https://github.com/link-assistant/hive-mind/actions/runs/36917996687
+[VERBOSE] /merge:   - Broken Link Checker [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996084
+[VERBOSE] /merge:   - Security [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996052
+[VERBOSE] /merge: Waiting for 1 CI run(s) to complete... (437s elapsed)
+[VERBOSE] /merge: Found 3 workflow run(s) for https://github.com/link-assistant/hive-mind/commit/5ddb537ff9e110c70348ec7df3842a8ae5fe86cd
+[VERBOSE] /merge:   - Checks and release [in_progress]: https://github.com/link-assistant/hive-mind/actions/runs/36917996687
+[VERBOSE] /merge:   - Broken Link Checker [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996084
+[VERBOSE] /merge:   - Security [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996052
+[VERBOSE] /merge: Waiting for 1 CI run(s) to complete... (468s elapsed)
+[VERBOSE] /merge: Found 3 workflow run(s) for https://github.com/link-assistant/hive-mind/commit/5ddb537ff9e110c70348ec7df3842a8ae5fe86cd
+[VERBOSE] /merge:   - Checks and release [in_progress]: https://github.com/link-assistant/hive-mind/actions/runs/36917996687
+[VERBOSE] /merge:   - Broken Link Checker [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996084
+[VERBOSE] /merge:   - Security [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996052
+[VERBOSE] /merge: Waiting for 1 CI run(s) to complete... (499s elapsed)
+[VERBOSE] /merge: Found 3 workflow run(s) for https://github.com/link-assistant/hive-mind/commit/5ddb537ff9e110c70348ec7df3842a8ae5fe86cd
+[VERBOSE] /merge:   - Checks and release [in_progress]: https://github.com/link-assistant/hive-mind/actions/runs/36917996687
+[VERBOSE] /merge:   - Broken Link Checker [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996084
+[VERBOSE] /merge:   - Security [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996052
+[VERBOSE] /merge: Waiting for 1 CI run(s) to complete... (529s elapsed)
+[VERBOSE] /merge: Found 3 workflow run(s) for https://github.com/link-assistant/hive-mind/commit/5ddb537ff9e110c70348ec7df3842a8ae5fe86cd
+[VERBOSE] /merge:   - Checks and release [in_progress]: https://github.com/link-assistant/hive-mind/actions/runs/36917996687
+[VERBOSE] /merge:   - Broken Link Checker [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996084
+[VERBOSE] /merge:   - Security [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996052
+[VERBOSE] /merge: Waiting for 1 CI run(s) to complete... (560s elapsed)
+[VERBOSE] /merge: Found 3 workflow run(s) for https://github.com/link-assistant/hive-mind/commit/5ddb537ff9e110c70348ec7df3842a8ae5fe86cd
+[VERBOSE] /merge:   - Checks and release [in_progress]: https://github.com/link-assistant/hive-mind/actions/runs/36917996687
+[VERBOSE] /merge:   - Broken Link Checker [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996084
+[VERBOSE] /merge:   - Security [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996052
+[VERBOSE] /merge: Waiting for 1 CI run(s) to complete... (591s elapsed)
+[VERBOSE] /merge: Found 3 workflow run(s) for https://github.com/link-assistant/hive-mind/commit/5ddb537ff9e110c70348ec7df3842a8ae5fe86cd
+[VERBOSE] /merge:   - Checks and release [in_progress]: https://github.com/link-assistant/hive-mind/actions/runs/36917996687
+[VERBOSE] /merge:   - Broken Link Checker [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996084
+[VERBOSE] /merge:   - Security [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996052
+[VERBOSE] /merge: Waiting for 1 CI run(s) to complete... (622s elapsed)
+[VERBOSE] /merge: Found 3 workflow run(s) for https://github.com/link-assistant/hive-mind/commit/5ddb537ff9e110c70348ec7df3842a8ae5fe86cd
+[VERBOSE] /merge:   - Checks and release [in_progress]: https://github.com/link-assistant/hive-mind/actions/runs/36917996687
+[VERBOSE] /merge:   - Broken Link Checker [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996084
+[VERBOSE] /merge:   - Security [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996052
+[VERBOSE] /merge: Waiting for 1 CI run(s) to complete... (653s elapsed)
+[VERBOSE] /merge: Found 3 workflow run(s) for https://github.com/link-assistant/hive-mind/commit/5ddb537ff9e110c70348ec7df3842a8ae5fe86cd
+[VERBOSE] /merge:   - Checks and release [in_progress]: https://github.com/link-assistant/hive-mind/actions/runs/36917996687
+[VERBOSE] /merge:   - Broken Link Checker [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996084
+[VERBOSE] /merge:   - Security [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996052
+[VERBOSE] /merge: Waiting for 1 CI run(s) to complete... (684s elapsed)
+[VERBOSE] /merge: Found 3 workflow run(s) for https://github.com/link-assistant/hive-mind/commit/5ddb537ff9e110c70348ec7df3842a8ae5fe86cd
+[VERBOSE] /merge:   - Checks and release [in_progress]: https://github.com/link-assistant/hive-mind/actions/runs/36917996687
+[VERBOSE] /merge:   - Broken Link Checker [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996084
+[VERBOSE] /merge:   - Security [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996052
+[VERBOSE] /merge: Waiting for 1 CI run(s) to complete... (715s elapsed)
+[VERBOSE] /merge: Found 3 workflow run(s) for https://github.com/link-assistant/hive-mind/commit/5ddb537ff9e110c70348ec7df3842a8ae5fe86cd
+[VERBOSE] /merge:   - Checks and release [in_progress]: https://github.com/link-assistant/hive-mind/actions/runs/36917996687
+[VERBOSE] /merge:   - Broken Link Checker [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996084
+[VERBOSE] /merge:   - Security [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996052
+[VERBOSE] /merge: Waiting for 1 CI run(s) to complete... (746s elapsed)
+[VERBOSE] /merge: Found 3 workflow run(s) for https://github.com/link-assistant/hive-mind/commit/5ddb537ff9e110c70348ec7df3842a8ae5fe86cd
+[VERBOSE] /merge:   - Checks and release [in_progress]: https://github.com/link-assistant/hive-mind/actions/runs/36917996687
+[VERBOSE] /merge:   - Broken Link Checker [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996084
+[VERBOSE] /merge:   - Security [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996052
+[VERBOSE] /merge: Waiting for 1 CI run(s) to complete... (776s elapsed)
+[VERBOSE] /merge: Found 3 workflow run(s) for https://github.com/link-assistant/hive-mind/commit/5ddb537ff9e110c70348ec7df3842a8ae5fe86cd
+[VERBOSE] /merge:   - Checks and release [in_progress]: https://github.com/link-assistant/hive-mind/actions/runs/36917996687
+[VERBOSE] /merge:   - Broken Link Checker [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996084
+[VERBOSE] /merge:   - Security [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996052
+[VERBOSE] /merge: Waiting for 1 CI run(s) to complete... (807s elapsed)
+[VERBOSE] /merge: Found 3 workflow run(s) for https://github.com/link-assistant/hive-mind/commit/5ddb537ff9e110c70348ec7df3842a8ae5fe86cd
+[VERBOSE] /merge:   - Checks and release [in_progress]: https://github.com/link-assistant/hive-mind/actions/runs/36917996687
+[VERBOSE] /merge:   - Broken Link Checker [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996084
+[VERBOSE] /merge:   - Security [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996052
+[VERBOSE] /merge: Waiting for 1 CI run(s) to complete... (838s elapsed)
+[VERBOSE] /merge: Found 3 workflow run(s) for https://github.com/link-assistant/hive-mind/commit/5ddb537ff9e110c70348ec7df3842a8ae5fe86cd
+[VERBOSE] /merge:   - Checks and release [in_progress]: https://github.com/link-assistant/hive-mind/actions/runs/36917996687
+[VERBOSE] /merge:   - Broken Link Checker [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996084
+[VERBOSE] /merge:   - Security [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996052
+[VERBOSE] /merge: Waiting for 1 CI run(s) to complete... (869s elapsed)
+[VERBOSE] /merge: Found 3 workflow run(s) for https://github.com/link-assistant/hive-mind/commit/5ddb537ff9e110c70348ec7df3842a8ae5fe86cd
+[VERBOSE] /merge:   - Checks and release [in_progress]: https://github.com/link-assistant/hive-mind/actions/runs/36917996687
+[VERBOSE] /merge:   - Broken Link Checker [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996084
+[VERBOSE] /merge:   - Security [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996052
+[VERBOSE] /merge: Waiting for 1 CI run(s) to complete... (900s elapsed)
+[VERBOSE] /merge: Found 3 workflow run(s) for https://github.com/link-assistant/hive-mind/commit/5ddb537ff9e110c70348ec7df3842a8ae5fe86cd
+[VERBOSE] /merge:   - Checks and release [in_progress]: https://github.com/link-assistant/hive-mind/actions/runs/36917996687
+[VERBOSE] /merge:   - Broken Link Checker [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996084
+[VERBOSE] /merge:   - Security [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996052
+[VERBOSE] /merge: Waiting for 1 CI run(s) to complete... (931s elapsed)
+[VERBOSE] /merge: Found 3 workflow run(s) for https://github.com/link-assistant/hive-mind/commit/5ddb537ff9e110c70348ec7df3842a8ae5fe86cd
+[VERBOSE] /merge:   - Checks and release [in_progress]: https://github.com/link-assistant/hive-mind/actions/runs/36917996687
+[VERBOSE] /merge:   - Broken Link Checker [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996084
+[VERBOSE] /merge:   - Security [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996052
+[VERBOSE] /merge: Waiting for 1 CI run(s) to complete... (962s elapsed)
+[VERBOSE] /merge: Found 3 workflow run(s) for https://github.com/link-assistant/hive-mind/commit/5ddb537ff9e110c70348ec7df3842a8ae5fe86cd
+[VERBOSE] /merge:   - Checks and release [in_progress]: https://github.com/link-assistant/hive-mind/actions/runs/36917996687
+[VERBOSE] /merge:   - Broken Link Checker [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996084
+[VERBOSE] /merge:   - Security [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996052
+[VERBOSE] /merge: Waiting for 1 CI run(s) to complete... (993s elapsed)
+[VERBOSE] /merge: Found 3 workflow run(s) for https://github.com/link-assistant/hive-mind/commit/5ddb537ff9e110c70348ec7df3842a8ae5fe86cd
+[VERBOSE] /merge:   - Checks and release [in_progress]: https://github.com/link-assistant/hive-mind/actions/runs/36917996687
+[VERBOSE] /merge:   - Broken Link Checker [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996084
+[VERBOSE] /merge:   - Security [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996052
+[VERBOSE] /merge: Waiting for 1 CI run(s) to complete... (1023s elapsed)
+[VERBOSE] /merge: Found 3 workflow run(s) for https://github.com/link-assistant/hive-mind/commit/5ddb537ff9e110c70348ec7df3842a8ae5fe86cd
+[VERBOSE] /merge:   - Checks and release [in_progress]: https://github.com/link-assistant/hive-mind/actions/runs/36917996687
+[VERBOSE] /merge:   - Broken Link Checker [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996084
+[VERBOSE] /merge:   - Security [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996052
+[VERBOSE] /merge: Waiting for 1 CI run(s) to complete... (1054s elapsed)
+[VERBOSE] /merge: Found 3 workflow run(s) for https://github.com/link-assistant/hive-mind/commit/5ddb537ff9e110c70348ec7df3842a8ae5fe86cd
+[VERBOSE] /merge:   - Checks and release [in_progress]: https://github.com/link-assistant/hive-mind/actions/runs/36917996687
+[VERBOSE] /merge:   - Broken Link Checker [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996084
+[VERBOSE] /merge:   - Security [completed/success]: https://github.com/link-assistant/hive-mind/actions/runs/36917996052
+[VERBOSE] /merge: Waiting for 1 CI run(s) to complete... (1085s elapsed)

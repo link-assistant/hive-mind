@@ -8,7 +8,8 @@ import { ensureUseM } from '../src/use-m-bootstrap.lib.mjs';
  *
  * This script waits for a specific version of @link-assistant/hive-mind
  * to become available on the npm registry. This is necessary because there
- * can be a delay between publishing and availability.
+ * can be a delay between publishing and availability. Both the version metadata
+ * and the tarball download must succeed (issue #2404).
  *
  * Uses link-foundation libraries:
  * - use-m: Dynamic package loading without package.json dependencies
@@ -69,11 +70,19 @@ for (let i = 1; i <= maxAttempts; i++) {
   console.log(`Attempt ${i}/${maxAttempts}: Checking NPM registry...`);
 
   try {
-    const result = await $`npm view "${PACKAGE_NAME}@${version}" version`.run({ capture: true });
+    const result = await $`npm view "${PACKAGE_NAME}@${version}" dist.tarball`.run({ capture: true });
+    const tarball = String(result.stdout || '').trim();
 
-    if (result.code === 0) {
-      console.log(`Package ${PACKAGE_NAME}@${version} is now available on NPM!`);
-      process.exit(0);
+    if (result.code === 0 && tarball) {
+      // Issue #2404: the version metadata can be visible while the tarball still returns 404
+      // (Docker Publish (linux/arm64) failed with `GET .../hive-mind-2.33.4.tgz - 404` three
+      // minutes after this script reported the version as available). Wait for the tarball too.
+      const response = await globalThis.fetch(tarball, { method: 'HEAD' });
+      if (response.ok) {
+        console.log(`Package ${PACKAGE_NAME}@${version} is now available on NPM (tarball ${tarball} → HTTP ${response.status})!`);
+        process.exit(0);
+      }
+      console.log(`Version metadata is published, but the tarball ${tarball} returned HTTP ${response.status}`);
     }
   } catch (_error) {
     // Package not found yet, continue waiting

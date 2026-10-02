@@ -7,7 +7,7 @@
 ARG FORMAL_AI_VERSION=0.352.1
 ARG HIVE_MIND_VERSION=latest
 # Bookworm's glibc 2.36 remains compatible with the Ubuntu 24.04 Box runtime.
-FROM rust:1.98-slim-bookworm AS formal-ai-builder
+FROM rust:1.99-slim-bookworm AS formal-ai-builder
 ARG FORMAL_AI_VERSION
 # Formal AI 0.333.0-0.338.0 reached OpenSSL (formal-ai -> web-search ->
 # web-capture -> reqwest with default features -> native-tls -> openssl-sys), so

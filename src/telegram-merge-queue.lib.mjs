@@ -18,6 +18,7 @@
 import { getAllReadyPRs, checkPRCIStatus, checkPRMergeable, mergePullRequest, waitForCI, ensureReadyLabel, waitForBranchCI, getDefaultBranch, waitForCommitCI, checkBranchCIHealth, getMergeCommitSha, getPRStatus, syncReadyTags, closeLinkedIssueIfNotAutoClosed } from './github-merge.lib.mjs';
 import { resolveMergeTargetItems } from './github-merge-targets.lib.mjs';
 import { waitForPRReady as waitForPRReadyHelper } from './telegram-merge-wait.lib.mjs';
+import { ensureTargetBranchReady as ensureTargetBranchReadyHelper } from './telegram-merge-branch-gate.lib.mjs';
 import { mergeQueue as mergeQueueConfig } from './config.lib.mjs';
 import { getProgressBar } from './limits.lib.mjs';
 import { cancellableSleep as cancellableSleepUntil } from './interruptible-sleep.lib.mjs';
@@ -202,6 +203,11 @@ export class MergeQueueProcessor {
     this.ensureReadyLabel = typeof options.ensureReadyLabel === 'function' ? options.ensureReadyLabel : ensureReadyLabel;
     this.syncReadyTags = typeof options.syncReadyTags === 'function' ? options.syncReadyTags : syncReadyTags;
     this.getAllReadyPRs = typeof options.getAllReadyPRs === 'function' ? options.getAllReadyPRs : getAllReadyPRs;
+    // Issue #2404: target-branch CI helpers are injectable so tests can replay a red main branch.
+    this.getDefaultBranch = typeof options.getDefaultBranch === 'function' ? options.getDefaultBranch : getDefaultBranch;
+    this.checkBranchCIHealth = typeof options.checkBranchCIHealth === 'function' ? options.checkBranchCIHealth : checkBranchCIHealth;
+    this.waitForBranchCI = typeof options.waitForBranchCI === 'function' ? options.waitForBranchCI : waitForBranchCI;
+    this.waitForCommitCI = typeof options.waitForCommitCI === 'function' ? options.waitForCommitCI : waitForCommitCI;
     this.targetItemsTimeoutMs = options.targetItemsTimeoutMs ?? MERGE_QUEUE_CONFIG.CI_TIMEOUT_MS;
     this.targetItemsPollIntervalMs = options.targetItemsPollIntervalMs ?? MERGE_QUEUE_CONFIG.CI_POLL_INTERVAL_MS;
     // Statistics
@@ -293,36 +299,25 @@ export class MergeQueueProcessor {
     this.startedAt = new Date();
     this.isCancelled = false;
     try {
-      // Issue #1341: Check if the default branch has any failed CI runs before starting
-      // This prevents merging on top of a broken branch
-      if (MERGE_QUEUE_CONFIG.CHECK_BRANCH_CI_HEALTH_BEFORE_START) {
-        const healthCheckResult = await this.checkBranchCIHealthBeforeStart();
-        if (!healthCheckResult.healthy) {
-          this.status = MergeStatus.FAILED;
-          this.error = healthCheckResult.error;
-          this.completedAt = new Date();
-          // Store the failed runs for the error report
-          this.branchCIFailedRuns = healthCheckResult.failedRuns;
-          if (this.onError) {
-            await this.onError(new Error(healthCheckResult.error));
-          }
-          return {
-            success: false,
-            stats: this.stats,
-            error: healthCheckResult.error,
-          };
-        }
-      }
-      // Issue #1307: Wait for any active CI runs on the target branch before processing
-      // This prevents merging while post-merge CI from previous merges is still running
-      if (MERGE_QUEUE_CONFIG.WAIT_FOR_TARGET_BRANCH_CI) {
-        await this.waitForTargetBranchCI();
-      }
       // Process each PR sequentially
       for (this.currentIndex = 0; this.currentIndex < this.items.length; this.currentIndex++) {
         if (this.isCancelled) {
           this.status = MergeStatus.CANCELLED;
           break;
+        }
+        // Issue #1307 / #1341 / #2404: never merge on top of a red (or still-unknown) target branch.
+        // The gate runs before every merge and re-checks CI conclusions after each wait, so a HEAD
+        // run that was in progress when the queue started and then failed stops the queue.
+        const branchGate = await this.ensureTargetBranchReady(`before merging PR #${this.items[this.currentIndex].pr.number}`);
+        if (branchGate.status === 'cancelled' || this.isCancelled) {
+          this.status = MergeStatus.CANCELLED;
+          break;
+        }
+        if (!branchGate.ok) {
+          const prefix = this.currentIndex === 0 ? 'Cannot start merge queue' : `Merge queue stopped before PR #${this.items[this.currentIndex].pr.number}`;
+          const advice = branchGate.status === 'pending' ? 'Please run /merge again once CI finishes.' : 'Please fix the CI failures first.';
+          const error = `${prefix}: ${branchGate.error}. ${advice}`;
+          return this.failQueue(error, { branchCIFailedRuns: branchGate.failedRuns });
         }
         const item = this.items[this.currentIndex];
         await this.processItem(item);
@@ -337,19 +332,7 @@ export class MergeQueueProcessor {
             const postMergeCIResult = await this.waitForPostMergeCI(item);
             // Issue #1341: Stop the queue if post-merge CI failed
             if (!postMergeCIResult.success && MERGE_QUEUE_CONFIG.STOP_ON_POST_MERGE_CI_FAILURE) {
-              this.status = MergeStatus.FAILED;
-              this.error = postMergeCIResult.error;
-              this.completedAt = new Date();
-              // Store the failed runs for the error report
-              this.postMergeCIFailedRuns = postMergeCIResult.failedRuns;
-              if (this.onError) {
-                await this.onError(new Error(postMergeCIResult.error));
-              }
-              return {
-                success: false,
-                stats: this.stats,
-                error: postMergeCIResult.error,
-              };
+              return this.failQueue(postMergeCIResult.error, { postMergeCIFailedRuns: postMergeCIResult.failedRuns });
             }
           } else {
             // Fallback: short wait before processing next PR
@@ -389,6 +372,35 @@ export class MergeQueueProcessor {
         error: error.message,
       };
     }
+  }
+  /**
+   * Stop the queue with an error, keeping the failed CI runs for the final report.
+   * @param {string} error
+   * @param {{branchCIFailedRuns?: Array, postMergeCIFailedRuns?: Array}} failedRuns
+   */
+  async failQueue(error, { branchCIFailedRuns, postMergeCIFailedRuns } = {}) {
+    this.status = MergeStatus.FAILED;
+    this.error = error;
+    this.completedAt = new Date();
+    if (branchCIFailedRuns) this.branchCIFailedRuns = branchCIFailedRuns;
+    if (postMergeCIFailedRuns) this.postMergeCIFailedRuns = postMergeCIFailedRuns;
+    console.warn(`[WARN] /merge-queue: ${error}`);
+    if (this.onError) {
+      await this.onError(new Error(error));
+    }
+    return { success: false, stats: this.stats, error };
+  }
+  /**
+   * Issue #2404: verify the target branch CI is not red before a merge, waiting for active runs
+   * and re-checking their conclusions afterwards.
+   * @param {string} context - Log context, e.g. "before merging PR #12"
+   */
+  ensureTargetBranchReady(context) {
+    return ensureTargetBranchReadyHelper(this, {
+      checkHealth: MERGE_QUEUE_CONFIG.CHECK_BRANCH_CI_HEALTH_BEFORE_START,
+      waitForActiveRuns: MERGE_QUEUE_CONFIG.WAIT_FOR_TARGET_BRANCH_CI,
+      context,
+    });
   }
   /**
    * Resolve targeted PR data, waiting for issue-linked PRs that may be created
@@ -633,6 +645,16 @@ export class MergeQueueProcessor {
       }
       return;
     }
+    // Issue #2404: `/solve --auto-merge` sessions merge on their own, so don't dispatch them onto a red branch.
+    const branchGate = await this.ensureTargetBranchReady('before auto-resolve pass');
+    if (!branchGate.ok) {
+      if (branchGate.status !== 'cancelled') {
+        this.branchCIFailedRuns = branchGate.failedRuns;
+        this.error = `Auto-resolve skipped: ${branchGate.error}`;
+        this.log(this.error);
+      }
+      return;
+    }
     this.autoResolveActive = true;
     this.log(`Auto-resolve: dispatching ${conflicted.length} conflict PR(s) sequentially to /solve --auto-merge`);
     try {
@@ -832,7 +854,8 @@ export class MergeQueueProcessor {
   /**
    * Wait for any active CI runs on the target branch to complete
    * Issue #1307: Prevents merging while post-merge CI from previous merges is still running
-   * @returns {Promise<void>}
+   * Issue #2404: returns the wait result so the branch gate can re-check CI conclusions afterwards
+   * @returns {Promise<{success: boolean, waitedForRuns: boolean, completedRuns: number, error: string|null}>}
    */
   async waitForTargetBranchCI() {
     // Track if we're waiting for CI (for progress updates)
@@ -840,9 +863,9 @@ export class MergeQueueProcessor {
     this.targetBranchCIStatus = null;
     try {
       // Get the default branch (usually 'main' or 'master')
-      const targetBranch = await getDefaultBranch(this.owner, this.repo, this.verbose);
+      const targetBranch = await this.getDefaultBranch(this.owner, this.repo, this.verbose);
       this.log(`Checking for active CI runs on ${targetBranch} branch before processing queue...`);
-      const waitResult = await waitForBranchCI(
+      const waitResult = await this.waitForBranchCI(
         this.owner,
         this.repo,
         targetBranch,
@@ -862,13 +885,14 @@ export class MergeQueueProcessor {
         this.verbose
       );
       if (!waitResult.success) {
-        // Log warning but don't fail - proceed with merge anyway
-        console.warn(`[WARN] /merge-queue: ${waitResult.error}. Proceeding with merge anyway.`);
+        // Issue #2404: the branch gate decides whether to proceed by re-checking the HEAD commit's CI
+        if (!this.isCancelled) console.warn(`[WARN] /merge-queue: Target branch CI wait ended without success: ${waitResult.error}`);
       } else if (waitResult.waitedForRuns) {
         this.log(`Waited for ${waitResult.completedRuns} CI runs to complete on ${targetBranch} branch`);
       } else {
-        this.log(`No active CI runs on ${targetBranch} branch. Ready to proceed.`);
+        this.log(`No active CI runs on ${targetBranch} branch.`);
       }
+      return waitResult;
     } finally {
       this.waitingForTargetBranchCI = false;
       this.targetBranchCIStatus = null;
@@ -876,49 +900,14 @@ export class MergeQueueProcessor {
   }
   /**
    * Check if the default branch has any failed CI runs before starting the queue
-   * Issue #1341: Prevents merging on top of a broken branch
-   * @returns {Promise<{healthy: boolean, failedRuns: Array, error: string|null}>}
+   * Issue #1341: Prevents merging on top of a broken branch. Kept for API compatibility —
+   * `run()` uses `ensureTargetBranchReady()`, which also waits for and re-checks running CI (#2404).
+   * @returns {Promise<{healthy: boolean, pending: boolean, failedRuns: Array, error: string|null}>}
    */
   async checkBranchCIHealthBeforeStart() {
-    try {
-      const targetBranch = await getDefaultBranch(this.owner, this.repo, this.verbose);
-      this.log(`Checking CI health on ${targetBranch} branch before starting queue...`);
-      const healthResult = await checkBranchCIHealth(this.owner, this.repo, targetBranch, {}, this.verbose);
-      if (!healthResult.healthy) {
-        this.log(`Branch ${targetBranch} has ${healthResult.failedRuns.length} failed CI run(s)`);
-        return {
-          healthy: false,
-          failedRuns: healthResult.failedRuns,
-          error: `Cannot start merge queue: ${healthResult.error}. Please fix the CI failures first.`,
-        };
-      }
-      // Issue #1425: If the latest commit's CI is still in progress, wait for it to complete
-      // rather than proceeding immediately. The WAIT_FOR_TARGET_BRANCH_CI step (below) will
-      // also wait, but checking here ensures we don't skip the health check entirely.
-      if (healthResult.pending) {
-        this.log(`Branch ${targetBranch} has ${healthResult.pendingRuns.length} CI run(s) in progress on the latest commit. Will wait for them to complete.`);
-        // Return healthy so the queue proceeds to the waitForTargetBranchCI step which handles waiting
-        return {
-          healthy: true,
-          failedRuns: [],
-          error: null,
-        };
-      }
-      this.log(`Branch ${targetBranch} CI is healthy. Ready to proceed.`);
-      return {
-        healthy: true,
-        failedRuns: [],
-        error: null,
-      };
-    } catch (error) {
-      // On error, assume healthy to avoid blocking merges due to API issues
-      console.warn(`[WARN] /merge-queue: Error checking branch CI health: ${error.message}. Proceeding anyway.`);
-      return {
-        healthy: true,
-        failedRuns: [],
-        error: null,
-      };
-    }
+    const gate = await ensureTargetBranchReadyHelper(this, { checkHealth: true, waitForActiveRuns: false, context: 'before starting queue' });
+    const failed = gate.status === 'failed';
+    return { healthy: !failed, pending: false, failedRuns: gate.failedRuns, error: failed ? `Cannot start merge queue: ${gate.error}. Please fix the CI failures first.` : null };
   }
   /**
    * Wait for post-merge CI to complete for a merged PR
@@ -937,7 +926,7 @@ export class MergeQueueProcessor {
     this.currentPostMergePR = item.pr.number;
     try {
       this.log(`Waiting for post-merge CI on commit ${item.mergeCommitSha.substring(0, 7)} (PR #${item.pr.number})...`);
-      const waitResult = await waitForCommitCI(
+      const waitResult = await this.waitForCommitCI(
         this.owner,
         this.repo,
         item.mergeCommitSha,

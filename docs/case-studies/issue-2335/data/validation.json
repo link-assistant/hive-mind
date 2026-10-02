@@ -1,0 +1,307 @@
+{
+  "collectedAt": "2026-09-30T14:02:36.966Z",
+  "sourceCommit": "293a73d58cfdd7e2b11eb5beddb6fc749fb791cd",
+  "node": "v24.21.0",
+  "defaultSuiteFiles": 523,
+  "focusedCoverage": {
+    "modules": [
+      "issue-completion.lib.mjs",
+      "issue-requirements.lib.mjs",
+      "pr-issue-link-repair.lib.mjs",
+      "solve.issue-completion.lib.mjs"
+    ],
+    "lines": 100,
+    "functions": 100,
+    "branches": 99.64,
+    "note": "Link repair has one V8 zero-count range: the space on the finally line (96.88% module branches); no executable line is uncovered. This is not whole-application coverage."
+  },
+  "logs": [
+    {
+      "command": "npm test -- --continue-on-failure",
+      "exitCode": 0,
+      "file": "local-all-tests-verified.log.gz",
+      "completedAt": "2026-09-30T13:58:15.072Z",
+      "uncompressedSha256": "89dfb6dba55d1cb4c1f4e4b23ee5228d80a6717950851588025b79547a860e98"
+    },
+    {
+      "command": "NODE_V8_COVERAGE=/tmp/issue-2335-v8-complete node --test --experimental-test-coverage --test-coverage-include=src/issue-completion.lib.mjs --test-coverage-include=src/issue-requirements.lib.mjs --test-coverage-include=src/pr-issue-link-repair.lib.mjs --test-coverage-include=src/solve.issue-completion.lib.mjs tests/issue-completion-2335.test.mjs",
+      "exitCode": 0,
+      "file": "local-coverage-complete.log.gz",
+      "completedAt": "2026-09-30T13:51:28.204Z",
+      "uncompressedSha256": "40ef981a435dc66ae7514d846a8a26500a796d66e02360844b0d1c70bc9d7010"
+    },
+    {
+      "command": "node --test tests/issue-linking-2335.test.mjs tests/issue-completion-2335.test.mjs",
+      "exitCode": 0,
+      "file": "local-discovery-tests.log.gz",
+      "completedAt": "2026-09-30T13:17:39.706Z",
+      "uncompressedSha256": "40aa6cdcf2db7cd7f08b6b9f02e603e3d4857647353175c005202e28df511e0e"
+    },
+    {
+      "command": "node --test tests/test-issue-1760-draft-linked-prs.mjs tests/test-timeline-linked-prs.mjs tests/pr-closes-issue.test.mjs tests/issue-linking-2335.test.mjs",
+      "exitCode": 0,
+      "file": "local-discovery-existing-fixed.log.gz",
+      "completedAt": "2026-09-30T13:26:58.023Z",
+      "uncompressedSha256": "e592343f4282dbe2e4da9a025b88d64956f142ed282f6f4e0d1f2877c2fe4eac"
+    },
+    {
+      "command": "node --test tests/issue-completion-prompts-2335.test.mjs tests/issue-linking-2335.test.mjs tests/test-issue-2236-auxiliary-model-calls-policy.mjs tests/test-issue-661-resume-on-auto-restart.mjs tests/test-repository-mode-closing-references-2306.mjs tests/test-solve-repository-mode-2212.mjs tests/test-agent-commander-option.mjs tests/dependency-freshness-2264.test.mjs tests/test-merge-queue.mjs tests/test-merge-targets-2013.mjs",
+      "exitCode": 0,
+      "file": "local-focused-final.log.gz",
+      "completedAt": "2026-09-30T13:10:18.782Z",
+      "uncompressedSha256": "dcb3800669be995bbc13411716dc5bd65c2442262fd29e16d4ed650b2cd276cc"
+    },
+    {
+      "command": "node --test tests/test-use-with-retry.mjs tests/test-preinstall-use-m-packages-1724.mjs tests/test-issue-2186-agent-snapshot-leak.mjs tests/test-issue-2187-current-dependency-pins.mjs",
+      "exitCode": 0,
+      "file": "local-pin-tests-final.log.gz",
+      "completedAt": "2026-09-30T13:12:42.186Z",
+      "uncompressedSha256": "7b761ddb6d26a7dfcee46186b04e221bb8ccc72e19349e6975db4c6a051a8d62"
+    },
+    {
+      "command": "node tests/test-docs-language-sync.mjs",
+      "exitCode": 0,
+      "file": "local-docs-sync-fixed.log.gz",
+      "completedAt": "2026-09-30T13:30:22.298Z",
+      "uncompressedSha256": "c74f6a71c4929b447937e6e8308ba08baa53954cc69d525b95bd168e97aadbd5"
+    },
+    {
+      "command": "npm run lint",
+      "exitCode": 0,
+      "file": "local-lint-final.log.gz",
+      "completedAt": "2026-09-30T12:59:13.493Z",
+      "uncompressedSha256": "7c4dee1a550b59e1e9ca20e6e17a246a796a7f39b1104bd68e98a2ea142c2cdc"
+    },
+    {
+      "command": "npx eslint (subsequent discovery, queue, pin changes and tests; see case study)",
+      "exitCode": 0,
+      "file": "local-lint-last.log.gz",
+      "completedAt": "2026-09-30T13:23:48.898Z",
+      "uncompressedSha256": "c033855b0f9d288e378e87d71715a2a2f20951bc7282616afca28328b848c670"
+    },
+    {
+      "command": "npx eslint src/github-linking.lib.mjs",
+      "exitCode": 0,
+      "file": "local-linking-lint-fixed.log.gz",
+      "completedAt": "2026-09-30T13:30:55.429Z",
+      "uncompressedSha256": "637861c636163ea1019a4dcf36c120eab3d20e099bade15527b2ffb1dd7fece7"
+    },
+    {
+      "command": "npx eslint src/github-merge.lib.mjs",
+      "exitCode": 0,
+      "file": "local-merge-diagnostics-lint.log.gz",
+      "completedAt": "2026-09-30T13:51:10.808Z",
+      "uncompressedSha256": "2e336e17dac1f08964915f3f1313a019c3a74a26aa99499fceeeef7e922f561d"
+    },
+    {
+      "command": "npm run format:check",
+      "exitCode": 0,
+      "file": "local-format-last.log.gz",
+      "completedAt": "2026-09-30T13:29:54.081Z",
+      "uncompressedSha256": "cbb2ec143276df74713d1ef054c9ae5b9351d74079fdd6318e738b0be86fe1f4"
+    },
+    {
+      "command": "npx prettier --check docs/ISSUE_COMPLETION*.md docs/case-studies/issue-2335/README.md experiments/issue-2335/*.mjs src/github-linking.lib.mjs",
+      "exitCode": 0,
+      "file": "local-final-additions-format.log.gz",
+      "completedAt": "2026-09-30T13:39:15.213Z",
+      "uncompressedSha256": "74f93faf7becbb622f9027055c367bc072b38350ec288a5a73100d3c49407606"
+    },
+    {
+      "command": "npx prettier --write docs/ISSUE_COMPLETION*.md docs/case-studies/issue-2335/README.md src/github-linking.lib.mjs",
+      "exitCode": 0,
+      "file": "local-translations-format.log.gz",
+      "completedAt": "2026-09-30T13:30:24.665Z",
+      "uncompressedSha256": "1e155d475fbb2afd740046de3730b012b3c85de586f73a9dc42a38b5977dfb3f"
+    },
+    {
+      "command": "npm run check:duplication",
+      "exitCode": 0,
+      "file": "local-duplication-complete.log.gz",
+      "completedAt": "2026-09-30T13:39:15.014Z",
+      "uncompressedSha256": "5bbff9296cd38082f293e52b1ee94e1c63678e97a4030a7585ec7ef09657b74a"
+    },
+    {
+      "command": "npm run check:secrets",
+      "exitCode": 0,
+      "file": "local-secrets-last.log.gz",
+      "completedAt": "2026-09-30T13:23:45.778Z",
+      "uncompressedSha256": "af2289213a0b9797c88ae6ab151af2f86bb6959b2e989a631c15c17a2cc6b3d1"
+    },
+    {
+      "command": "bash scripts/check-file-line-limits.sh",
+      "exitCode": 0,
+      "file": "local-lines-last.log.gz",
+      "completedAt": "2026-09-30T13:26:08.093Z",
+      "uncompressedSha256": "282e0401499517d6ab3b60d5f2cff187fff3dee62d8efe6599d1beb98d3fd838"
+    },
+    {
+      "command": "bash scripts/check-mjs-syntax.sh",
+      "exitCode": 0,
+      "file": "local-syntax-complete.log.gz",
+      "completedAt": "2026-09-30T13:41:00.005Z",
+      "uncompressedSha256": "1a423966b8a4b12a8fac6e442b5932d4881cbeffc87ede45ee6302b4d4a4fe91"
+    },
+    {
+      "command": "npm audit --audit-level=moderate",
+      "exitCode": 0,
+      "file": "local-audit-patched.log.gz",
+      "completedAt": "2026-09-30T13:01:37.621Z",
+      "uncompressedSha256": "6d8c5c8f3d7684adb070417bd608d01ae90aa3dc26a65af03ffda4955f38d9a3"
+    },
+    {
+      "command": "node scripts/check-dependency-freshness.mjs",
+      "exitCode": 0,
+      "file": "local-freshness-patched.log.gz",
+      "completedAt": "2026-09-30T13:10:11.547Z",
+      "uncompressedSha256": "99016561cd02274b9929dbb7e54ff9041983ef6df231ee52ac255f718d9bd8cf"
+    },
+    {
+      "command": "node scripts/validate-changeset.mjs",
+      "exitCode": 0,
+      "file": "local-changeset-local.log.gz",
+      "completedAt": "2026-09-30T13:07:02.638Z",
+      "uncompressedSha256": "3f3ab469083d135e1d09f6d207e2b043340bff33f3173788cd5fa8aba196a714"
+    },
+    {
+      "command": "BASE_SHA=origin/main HEAD_SHA=HEAD node scripts/validate-changeset.mjs",
+      "exitCode": 0,
+      "file": "local-changeset-committed.log.gz",
+      "completedAt": "2026-09-30T14:00:08.209Z",
+      "uncompressedSha256": "e91bb53280ab07c36dc676eaaffa9372e418d728d71bb6bc35d164dd18ed38b2"
+    },
+    {
+      "command": "node scripts/check-package-manager.mjs",
+      "exitCode": 0,
+      "file": "local-package-manager-final.log.gz",
+      "completedAt": "2026-09-30T13:12:41.357Z",
+      "uncompressedSha256": "8b74d275a17d9b99b8961bcad5809aa1fa04fde9a2ccb09af562d60091d49d13"
+    },
+    {
+      "command": "npm test -- --continue-on-failure (initial investigation)",
+      "exitCode": 1,
+      "file": "local-all-tests.log.gz",
+      "completedAt": "2026-09-30T12:40:39.453Z",
+      "uncompressedSha256": "c41fe1d1c9bbfe2c638194f6fdd5afc6ec5b9c3f946c9d4f268a5a9d1230ebfd"
+    },
+    {
+      "command": "npm test -- --continue-on-failure (before translated guide siblings)",
+      "exitCode": 1,
+      "file": "local-all-tests-final.log.gz",
+      "completedAt": "2026-09-30T13:26:56.072Z",
+      "uncompressedSha256": "ce3eca4de3b470c9b2364fe561388be798920ed04291e22f9425265fcc1ea2b7"
+    },
+    {
+      "command": "node --test (before preserving the unscoped discovery contract)",
+      "exitCode": 1,
+      "file": "local-discovery-existing.log.gz",
+      "completedAt": "2026-09-30T13:23:55.902Z",
+      "uncompressedSha256": "a1b69896b707ec8f4075738afec9878c167574809a8b058e89208bbd69b8f110"
+    },
+    {
+      "command": "npm audit --audit-level=moderate (before lock refresh)",
+      "exitCode": 1,
+      "file": "local-audit-final.log.gz",
+      "completedAt": "2026-09-30T12:59:16.150Z",
+      "uncompressedSha256": "0c0b4de76cd946c119c889e9cd06758e6efa6fa4d96eccbe408bf5b1bb3d5b35"
+    },
+    {
+      "command": "node scripts/check-dependency-freshness.mjs (before pin refresh)",
+      "exitCode": 1,
+      "file": "local-freshness-final.log.gz",
+      "completedAt": "2026-09-30T13:08:05.826Z",
+      "uncompressedSha256": "f9aafe43aaf44eb382d8d6d626e6c6f229674ea0c57f4829d6697f15043649b5"
+    }
+  ],
+  "postMerge": {
+    "collectedAt": "2026-10-01T20:19:50.228Z",
+    "sourceCommit": "2f6ea6308698c0b98fdd14723a99b68d6d2da300",
+    "mergedMain": "5ddb537ff9e110c70348ec7df3842a8ae5fe86cd",
+    "node": "v24.21.0",
+    "defaultSuiteFiles": 529,
+    "focusedCoverage": {
+      "modules": [
+        "issue-completion.lib.mjs",
+        "issue-requirements.lib.mjs",
+        "pr-issue-link-repair.lib.mjs",
+        "solve.issue-completion.lib.mjs"
+      ],
+      "lines": 100,
+      "branches": 100,
+      "functions": 100,
+      "note": "Measured for the focused completion modules, not whole-application coverage."
+    },
+    "logs": [
+      {
+        "command": "npm test -- --continue-on-failure",
+        "exitCode": 0,
+        "file": "local-post-merge-all-tests.log.gz",
+        "completedAt": "2026-10-01T20:19:32.669Z",
+        "uncompressedSha256": "661f29797f80805f07d9d9a9623721a9ddb77890f75d5139132e99351e5b136e"
+      },
+      {
+        "command": "NODE_V8_COVERAGE=/tmp/issue-2335-v8-post-merge node --test --experimental-test-coverage --test-coverage-include=src/issue-completion.lib.mjs --test-coverage-include=src/issue-requirements.lib.mjs --test-coverage-include=src/pr-issue-link-repair.lib.mjs --test-coverage-include=src/solve.issue-completion.lib.mjs tests/issue-completion-2335.test.mjs",
+        "exitCode": 0,
+        "file": "local-post-merge-coverage.log.gz",
+        "completedAt": "2026-10-01T20:07:14.954Z",
+        "uncompressedSha256": "d45276965bdf4d982d050d538958f068a4abdd42c5ca6a1b985054739724f1d4"
+      },
+      {
+        "command": "node --test tests/issue-linking-2335.test.mjs tests/pr-issue-link-before-merge-2395.test.mjs tests/no-changelog-in-ui-2402.test.mjs",
+        "exitCode": 0,
+        "file": "local-post-merge-linking.log.gz",
+        "completedAt": "2026-10-01T20:01:24.992Z",
+        "uncompressedSha256": "fd92263111096b6e1c9dae564f1c11991f34f1e5edee10a94c4be39a74afaaea"
+      },
+      {
+        "command": "npm run lint",
+        "exitCode": 0,
+        "file": "local-post-merge-lint.log.gz",
+        "completedAt": "2026-10-01T20:02:32.287Z",
+        "uncompressedSha256": "21311cfdb914cddbda5bd01c2822d43fa29e027d3d6028528f4892ed954e5619"
+      },
+      {
+        "command": "npm run format:check",
+        "exitCode": 0,
+        "file": "local-post-merge-format.log.gz",
+        "completedAt": "2026-10-01T20:05:07.434Z",
+        "uncompressedSha256": "bb081cbd6f8d754122f0d03a7853c9aa4e2736ef1058bd67645756019ed581d7"
+      },
+      {
+        "command": "npm run check:duplication",
+        "exitCode": 0,
+        "file": "local-post-merge-duplication.log.gz",
+        "completedAt": "2026-10-01T20:05:30.954Z",
+        "uncompressedSha256": "5645c2d0c3c094ebdf62c750746e157e439b0d96503511ce3b787822bfc8e5a7"
+      },
+      {
+        "command": "npm run check:secrets",
+        "exitCode": 0,
+        "file": "local-post-merge-secrets.log.gz",
+        "completedAt": "2026-10-01T20:05:38.300Z",
+        "uncompressedSha256": "9abe2a490cb47484291baa9c7bfc1904a46cbb4205eac60707956494b6e39409"
+      },
+      {
+        "command": "bash scripts/check-file-line-limits.sh",
+        "exitCode": 0,
+        "file": "local-post-merge-lines.log.gz",
+        "completedAt": "2026-10-01T20:05:23.005Z",
+        "uncompressedSha256": "13710604dcd5cadd3642d5711d81d631e9e01e50fc34d8441210c6d6e13d331b"
+      },
+      {
+        "command": "bash scripts/check-mjs-syntax.sh",
+        "exitCode": 0,
+        "file": "local-post-merge-syntax.log.gz",
+        "completedAt": "2026-10-01T20:06:43.193Z",
+        "uncompressedSha256": "7cf039042fd0e4c3a2a4071dd35a97d57d2700ddbeea96e7ef583a55e1dfbfbe"
+      },
+      {
+        "command": "BASE_SHA=origin/main HEAD_SHA=HEAD node scripts/validate-changeset.mjs",
+        "exitCode": 0,
+        "file": "local-post-merge-changeset.log.gz",
+        "completedAt": "2026-10-01T20:06:43.316Z",
+        "uncompressedSha256": "5035a3464a9243bb099a523c1dd6a35d612fa379dc05d8ef45d0f3452e41a600"
+      }
+    ]
+  }
+}

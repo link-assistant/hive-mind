@@ -151,8 +151,9 @@ await checkAsync('every image baseline carries the auxiliary gates and no compac
 // ---------------------------------------------------------------------------
 
 check('Codex auxiliary features are pinned off as -c overrides', () => {
-  assert.deepEqual(buildCodexAuxiliaryDisableConfigArgs(true), ['-c', 'features.goals=false', '-c', 'features.personality=false']);
-  assert.deepEqual([...CODEX_AUXILIARY_DISABLE_FEATURES], ['goals', 'personality']);
+  assert.deepEqual(buildCodexAuxiliaryDisableConfigArgs(true), ['-c', 'features.personality=false']);
+  assert.deepEqual([...CODEX_AUXILIARY_DISABLE_FEATURES], ['personality']);
+  assert.ok(!CODEX_AUXILIARY_DISABLE_FEATURES.includes('goals'), 'issue #2335: completion goals are essential');
 });
 
 check('--no-auxiliary-model-calls-disabled leaves the Codex command line untouched', () => {
@@ -334,7 +335,7 @@ await checkAsync('solve exposes --auxiliary-model-calls-disabled, defaulting to 
 
 check('every tool description mentions something concrete', () => {
   assert.match(describeAuxiliaryModelCallsPolicy('claude'), /CLAUDE_CODE_ENABLE_REMOTE_RECAP=0/);
-  assert.equal(describeAuxiliaryModelCallsPolicy('codex'), '-c features.goals=false -c features.personality=false');
+  assert.equal(describeAuxiliaryModelCallsPolicy('codex'), '-c features.personality=false');
   assert.match(describeAuxiliaryModelCallsPolicy('gemini'), /skipNextSpeakerCheck/);
   assert.match(describeAuxiliaryModelCallsPolicy('qwen'), /emitToolUseSummaries/);
   assert.match(describeAuxiliaryModelCallsPolicy('opencode'), /"title":\{"disable":true\}/);

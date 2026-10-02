@@ -357,7 +357,7 @@ review --repo owner/repo --pr 456
 solve <issue-url> [options]
 ```
 
-> **📦 仓库模式**：传入仓库 URL（而不是 issue URL），solve 会收集该仓库的所有开放 issue（最旧优先），创建一个合并 issue，将其中最多 100 个附加为 GitHub 原生子 issue（GitHub 每个父 issue 的上限），并把每一个 issue（包括其余的）都列为必需的关闭引用，并解决该 issue —— 这样一个 pull request 就能一次性关闭它们全部。该模式还会自动启用 `--deep-analysis` 和 `--ensure-all-sub-issues-addressed`。仍挂在更早的已关闭合并 issue 下的 issue 会被移到新的合并 issue 中；使用 `--auto-merge` 时，只有当 pull request 描述关闭了列出的每一个 issue 时才会合并。如果没有开放的 issue，CLI 会成功退出且不会创建任何内容；Telegram 会直接报告无需执行任何操作，不会启动工作会话。参见 [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#solve-options)。
+> **📦 仓库模式**：传入仓库 URL 而不是 issue URL。solve 按最旧优先收集所有开放 issue，并在一个 pull request 中解决全部需求。最多 100 个 issue 附加为 GitHub 原生子 issue，其余 issue 仍保留在合并 issue 的必需引用列表中。该模式启用 `--deep-analysis` 和 `--ensure-all-sub-issues-addressed`，并在可能时移动旧的已关闭合并 issue 的子 issue。自动合并要求每个必需 issue 都有关闭引用和最新的完整需求验证证据。没有开放 issue 时不会创建工作会话。参见[需求完成验证](./docs/ISSUE_COMPLETION.md)。
 
 **最常用选项：**
 

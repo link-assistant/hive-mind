@@ -87,10 +87,8 @@ export const CLAUDE_SUMMARIZATION_KEEP_ENV = Object.freeze(['DISABLE_AUTO_COMPAC
 /**
  * Codex feature flags pinned off for `codex exec`.
  *
- * - `goals` is the goal-tracking subsystem (`goal/src/{runtime,steering,tool}.rs`,
- *   `state/src/runtime/goals.rs`): it keeps a running model-maintained statement
- *   of what the thread is trying to do. A hive-mind task's goal is the issue, it
- *   is already in the prompt, and it does not change mid-run.
+ * Goals are essential completion state, not auxiliary calls (issue #2335).
+ * They are enabled independently by the Codex executor and survive this policy.
  * - `personality` injects a `personality.spec_instructions` block into the
  *   system prompt of every request. It is style for a human reader, paid for on
  *   each turn of a run no human reads.
@@ -100,7 +98,7 @@ export const CLAUDE_SUMMARIZATION_KEEP_ENV = Object.freeze(['DISABLE_AUTO_COMPAC
  * `tui/src/branch_summary.rs`) and are unreachable from `codex exec`, so there is
  * no flag to set for them — see the case study for the full path inventory.
  */
-export const CODEX_AUXILIARY_DISABLE_FEATURES = Object.freeze(['goals', 'personality']);
+export const CODEX_AUXILIARY_DISABLE_FEATURES = Object.freeze(['personality']);
 
 /**
  * Codex feature flags that must stay on: these are the compaction path.

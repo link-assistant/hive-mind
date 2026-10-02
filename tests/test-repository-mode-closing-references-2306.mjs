@@ -248,7 +248,8 @@ test('the blocked-merge comment explains the missing references instead of askin
   const comment = buildAutoMergeBlockedComment({ blockers: [gate.blocker], issueNumber: 50 });
   assert.match(comment, /missing_closing_references/);
   assert.match(comment, /Add the missing closing references/);
-  assert.match(comment, /will then stay open/);
+  assert.match(comment, /Complete every issue requirement/);
+  assert.doesNotMatch(comment, /merge this pull request manually/);
   assert.doesNotMatch(comment, /Reopen issue #50/);
   assert.ok(STOP_REASONS[MISSING_CLOSING_REFERENCES_REASON], 'the stop reason is documented');
 });

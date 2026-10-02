@@ -328,7 +328,7 @@ test('queue preserves known issue context even if its branch and description los
   }
 });
 
-test('the actual shared merge boundary blocks missing links and merges once they are verified', { timeout: 30000 }, async () => {
+test('the actual shared merge boundary blocks missing links, then holds linked work for its requirements report', { timeout: 30000 }, async () => {
   const directory = await mkdtemp(join(tmpdir(), 'issue-2335-merge-test-'));
   try {
     const fixtureFile = join(directory, 'responses.json');
@@ -359,6 +359,7 @@ test('the actual shared merge boundary blocks missing links and merges once they
       (await invoke('timeline')).result.map(pr => pr.number),
       [326]
     );
+    for (const endpoint of ['issues/326/comments', 'pulls/326/comments', 'pulls/326/reviews', 'issues/322/comments']) f.responses.set(`repos/link-assistant/agent/${endpoint}`, [[]]);
     f.pr.body = 'Related to #322.';
     const blocked = await invoke();
     assert.equal(blocked.result.success, false);
@@ -367,10 +368,16 @@ test('the actual shared merge boundary blocks missing links and merges once they
       blocked.calls.some(args => args[0] === 'pr' && args[1] === 'merge'),
       false
     );
+    // Issue #2406 layers completion evidence on top of the links; a verified merge
+    // with a report is covered in tests/issue-completion-2335.test.mjs.
     f.pr.body = 'Fixes #322';
-    const allowed = await invoke();
-    assert.equal(allowed.result.success, true);
-    assert.ok(allowed.calls.some(args => args[0] === 'pr' && args[1] === 'merge'));
+    const linked = await invoke();
+    assert.equal(linked.result.success, false);
+    assert.equal(linked.result.category, 'incomplete_issue_requirements');
+    assert.equal(
+      linked.calls.some(args => args[0] === 'pr' && args[1] === 'merge'),
+      false
+    );
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

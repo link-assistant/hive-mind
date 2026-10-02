@@ -8,7 +8,7 @@
  * returned facts into the Telegram completion message AND into the pull request
  * notice, so a reader of either surface knows a recovery session exists.
  *
- * The restart is bounded by `--session-kill-resume-attempts` (default 1), so a
+ * The restart is bounded by `--session-kill-resume-attempts` (default 3), so a
  * job that reliably runs the host out of memory cannot storm the queue.
  *
  * Issue #2189 made `resume` the default: a killed session that is only ever
@@ -139,13 +139,19 @@ export async function startKillRecoverySession({ sessionName, sessionInfo, plan,
         killRecoveryResumeMode: inPlace.mode || null,
         oomEventObservedAt: undefined,
         dockerBackendGoneFirstSeenAt: undefined,
+        // The recovery session has not been recovered itself (yet) (#2408).
+        killRecoverySessionId: undefined,
         containerFilesystemStartBytes,
         containerResourceLimits,
       },
       verbose
     );
 
-    if (sessionInfo) sessionInfo[KILL_RESUME_ATTEMPTS_FIELD] = plan.attempt;
+    if (sessionInfo) {
+      sessionInfo[KILL_RESUME_ATTEMPTS_FIELD] = plan.attempt;
+      // Persisted with the counter, so a repeated completion finds it (#2408).
+      sessionInfo.killRecoverySessionId = newSessionId;
+    }
     if (typeof persistSnapshot === 'function') {
       try {
         persistSnapshot();
@@ -175,6 +181,17 @@ export async function startKillRecoverySession({ sessionName, sessionInfo, plan,
  * @returns {Promise<{resumed: boolean, reason: string, policy: string, sessionId: string|null, display: string|null, attempt: number, maxAttempts: number, inPlace: boolean}>}
  */
 export async function recoverKilledSession({ sessionName, sessionInfo, logPath = null, killed = false, env = process.env, runner = null, trackSession = null, persistSnapshot = null, verbose = false, readLastSessionId = readLastSessionIdFromLog } = {}) {
+  // Issue #2408: one kill gets one recovery. A completion that runs again for
+  // the same session (an overlapping monitor tick, a bot restart between the
+  // launch and the completion latch) must report the session already started,
+  // not spend another attempt — or, with the budget spent, report "failed".
+  const existing = sessionInfo?.killRecoverySessionId || null;
+  if (existing) {
+    const argv = argvFromSessionArgs(sessionInfo?.args);
+    const attempt = Number.isFinite(sessionInfo?.[KILL_RESUME_ATTEMPTS_FIELD]) ? sessionInfo[KILL_RESUME_ATTEMPTS_FIELD] : 1;
+    if (verbose) console.log(`[VERBOSE] Session ${sessionName} already started recovery session ${existing}; not starting another (issue #2408)`);
+    return { resumed: true, reason: 'already-recovered', policy: resolveOnSessionKillPolicy({ argv, env, sessionInfo }), sessionId: existing, display: null, attempt, maxAttempts: resolveSessionKillResumeAttempts({ argv, env }), inPlace: false };
+  }
   let plan;
   try {
     plan = planKillRecovery({ sessionInfo, logPath, killed, env, verbose, readLastSessionId });

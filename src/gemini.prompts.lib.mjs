@@ -1,3 +1,4 @@
+import { getIssueCompletionSubPrompt, ISSUE_COMPLETION_GOAL } from './issue-completion.prompts.lib.mjs';
 /**
  * Gemini prompts module
  * Handles building prompts for Google Gemini CLI commands
@@ -69,7 +70,7 @@ export const buildUserPrompt = params => {
     promptLines.push(thinkingPromptInstruction);
   }
 
-  promptLines.push(isContinueMode ? 'Continue.' : 'Proceed.');
+  promptLines.push(ISSUE_COMPLETION_GOAL, isContinueMode ? 'Continue.' : 'Proceed.');
 
   return promptLines.join('\n') + '\n';
 };
@@ -241,7 +242,7 @@ Visual UI work and screenshots.
    - When you work on visual UI changes, include a render or screenshot of the final result in the pull request description.
    - When you save screenshots to the repository, use permanent links in the PR description such as https://github.com/${screenshotRepoPath}/blob/${branchName}/docs/screenshots/result.png?raw=true.`
        : ''
-   }${ciExamples}${getArchitectureCareSubPrompt(argv)}${getUpdateAllDependenciesSubPrompt(argv)}${buildWorkLanguageDirective()}`;
+   }${ciExamples}${getArchitectureCareSubPrompt(argv)}${getUpdateAllDependenciesSubPrompt(argv)}${getIssueCompletionSubPrompt(params)}${buildWorkLanguageDirective()}`;
 };
 
 export default {

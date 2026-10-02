@@ -77,31 +77,36 @@ export function buildIssueLinkBlocker(details, reason) {
 const CLOSING_QUERY = 'query($owner:String!,$repo:String!,$number:Int!,$endCursor:String) { repository(owner:$owner,name:$repo) { pullRequest(number:$number) { closingIssuesReferences(first:100,after:$endCursor) { nodes { number repository { nameWithOwner } } pageInfo { hasNextPage endCursor } } } } }';
 
 /**
- * Verify, right before merging, that the description closes every required
- * issue and, for default-branch merges, that GitHub itself recognizes each link.
+ * Links that block a merge for an already read scope: a missing closing reference
+ * or, for default-branch merges, a link GitHub itself does not recognize.
+ * Records the default branch on the snapshot for closeLinkedIssuesAfterMerge.
  */
+export async function findIssueLinkBlocker(snapshot, { owner, repo, prNumber, run = runLinkGh }) {
+  const { pr, issues } = snapshot;
+  const missing = missingIssueLinks(pr.body, issues, { owner, repo });
+  if (missing.length) return { ...buildIssueLinkBlocker(missing.map(issueKey), 'missing_closing_references'), message: 'The pull request description is missing required issue-closing references.' };
+  const repository = await ghJson(run, ['api', `repos/${owner}/${repo}`]);
+  if (!repository.default_branch || !pr.base?.ref) throw new Error('Cannot determine the pull request base or repository default branch');
+  snapshot.defaultBranch = repository.default_branch;
+  if (pr.base.ref !== repository.default_branch) return null;
+  const pages = await ghJson(run, ['api', 'graphql', '--paginate', '--slurp', '-f', `query=${CLOSING_QUERY}`, '-f', `owner=${owner}`, '-f', `repo=${repo}`, '-F', `number=${prNumber}`]);
+  const linked = pages.flatMap(page => {
+    const nodes = page?.data?.repository?.pullRequest?.closingIssuesReferences?.nodes;
+    if (page?.errors || !Array.isArray(nodes)) throw new Error('Cannot read GitHub closing issue references');
+    return nodes.map(node => `${node.repository.nameWithOwner}#${node.number}`.toLowerCase());
+  });
+  const unlinked = issues.filter(issue => !linked.includes(issueKey(issue)));
+  return unlinked.length ? buildIssueLinkBlocker(unlinked.map(issueKey), 'unverified_issue_links') : null;
+}
+
+/** Verify, right before merging, that every required issue is linked. */
 export async function checkIssueLinksBeforeMerge({ owner, repo, prNumber, issueNumber = null, run = runLinkGh, logger = async () => {}, verbose = false }) {
   try {
     const snapshot = await fetchPullRequestIssueScope({ owner, repo, prNumber, issueNumber, run });
-    const { pr, issues } = snapshot;
-    if (!issues.length) return { blocker: null, snapshot };
-    const missing = missingIssueLinks(pr.body, issues, { owner, repo });
-    if (missing.length) return { blocker: { ...buildIssueLinkBlocker(missing.map(issueKey), 'missing_closing_references'), message: 'The pull request description is missing required issue-closing references.' }, snapshot };
-    const repository = await ghJson(run, ['api', `repos/${owner}/${repo}`]);
-    if (!repository.default_branch || !pr.base?.ref) throw new Error('Cannot determine the pull request base or repository default branch');
-    snapshot.defaultBranch = repository.default_branch;
-    if (pr.base.ref === repository.default_branch) {
-      const pages = await ghJson(run, ['api', 'graphql', '--paginate', '--slurp', '-f', `query=${CLOSING_QUERY}`, '-f', `owner=${owner}`, '-f', `repo=${repo}`, '-F', `number=${prNumber}`]);
-      const linked = pages.flatMap(page => {
-        const nodes = page?.data?.repository?.pullRequest?.closingIssuesReferences?.nodes;
-        if (page?.errors || !Array.isArray(nodes)) throw new Error('Cannot read GitHub closing issue references');
-        return nodes.map(node => `${node.repository.nameWithOwner}#${node.number}`.toLowerCase());
-      });
-      const unlinked = issues.filter(issue => !linked.includes(issueKey(issue)));
-      if (unlinked.length) return { blocker: buildIssueLinkBlocker(unlinked.map(issueKey), 'unverified_issue_links'), snapshot };
-    }
-    if (verbose) await logger(`Issue links verified for ${issues.length} issue(s) on PR #${prNumber}`, { verbose: true });
-    return { blocker: null, snapshot };
+    if (!snapshot.issues.length) return { blocker: null, snapshot };
+    const blocker = await findIssueLinkBlocker(snapshot, { owner, repo, prNumber, run });
+    if (!blocker && verbose) await logger(`Issue links verified for ${snapshot.issues.length} issue(s) on PR #${prNumber}`, { verbose: true });
+    return { blocker, snapshot };
   } catch (error) {
     await logger(`Could not verify issue links before merge: ${error.message}`, { level: 'warning' });
     return { blocker: buildIssueLinkBlocker([error.message], 'issue_link_verification_failed'), snapshot: null };
@@ -109,7 +114,7 @@ export async function checkIssueLinksBeforeMerge({ owner, repo, prNumber, issueN
 }
 
 /** GitHub does not auto-close references for non-default branch merges. */
-export async function closeLinkedIssuesAfterMerge(snapshot, { run = runLinkGh, logger = async () => {} } = {}) {
+export async function closeLinkedIssuesAfterMerge(snapshot, { run = runLinkGh, logger = async () => {}, comment = `Closed by ${snapshot?.pr?.html_url}, merged into the non-default branch ${snapshot?.pr?.base?.ref}, whose description links this issue.` } = {}) {
   const failed = [];
   if (!snapshot?.issues?.length || snapshot.pr.base.ref === snapshot.defaultBranch) return failed;
   for (const issue of snapshot.issues) {
@@ -117,7 +122,7 @@ export async function closeLinkedIssuesAfterMerge(snapshot, { run = runLinkGh, l
       const source = await ghJson(run, ['api', `repos/${issue.owner}/${issue.repo}/issues/${issue.number}`]);
       if (source.state === 'closed') continue;
       if (source.state !== 'open') throw new Error('Cannot verify issue state after merge');
-      const result = await run(['issue', 'close', String(issue.number), '--repo', `${issue.owner}/${issue.repo}`, '--reason', 'completed', '--comment', `Closed by ${snapshot.pr.html_url}, merged into the non-default branch ${snapshot.pr.base.ref}, whose description links this issue.`]);
+      const result = await run(['issue', 'close', String(issue.number), '--repo', `${issue.owner}/${issue.repo}`, '--reason', 'completed', '--comment', comment]);
       if ((result.code ?? 0) !== 0) throw new Error(result.stderr?.toString() || 'Issue close failed');
     } catch (error) {
       failed.push(issueKey(issue));

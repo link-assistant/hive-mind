@@ -51,8 +51,9 @@ for (const [key, value] of Object.entries(CLAUDE_MEMORY_DISABLE_ENV)) {
 const memoryArgs = buildCodexMemoryDisableConfigArgs(true);
 assert.deepEqual(memoryArgs, ['-c', 'features.memories=false', '-c', 'features.external_agent_memory_import=false']);
 const auxiliaryArgs = buildCodexAuxiliaryDisableConfigArgs(true);
-assert.deepEqual(auxiliaryArgs, ['-c', 'features.goals=false', '-c', 'features.personality=false']);
-const policyArgs = [...memoryArgs, ...auxiliaryArgs];
+assert.deepEqual(auxiliaryArgs, ['-c', 'features.personality=false']);
+const goalArgs = ['-c', 'features.goals=true'];
+const policyArgs = [...goalArgs, ...memoryArgs, ...auxiliaryArgs];
 
 const codexToolOptions = buildAgentCommanderToolOptions({ verbose: true, fallbackModel: 'opus' }, 'codex');
 assert.deepEqual(codexToolOptions.extraArgs, ['-c', 'model_reasoning_effort=none', '-c', 'model_reasoning_summary=auto', ...policyArgs]);
@@ -70,15 +71,15 @@ const codexUltraCustomBudgetToolOptions = buildAgentCommanderToolOptions({ think
 assert.deepEqual(codexUltraCustomBudgetToolOptions.extraArgs, ['-c', 'model_reasoning_effort=ultra', '-c', 'model_reasoning_summary=auto', '-c', 'rollout_token_budget=250000', ...policyArgs]);
 
 const codexMemoryOptOut = buildAgentCommanderToolOptions({ agentMemoryDisabled: false }, 'codex');
-assert.deepEqual(codexMemoryOptOut.extraArgs, ['-c', 'model_reasoning_effort=none', '-c', 'model_reasoning_summary=auto', ...auxiliaryArgs], '--no-agent-memory-disabled should leave the codex command line alone apart from the unrelated #2236 policy');
+assert.deepEqual(codexMemoryOptOut.extraArgs, ['-c', 'model_reasoning_effort=none', '-c', 'model_reasoning_summary=auto', ...goalArgs, ...auxiliaryArgs], 'memory opt-out preserves completion goals and the auxiliary policy');
 
 // Issue #2236: the two opt-outs are independent — turning one off must not turn
-// the other off, and turning both off must leave the command line as it was.
+// the other off. Essential completion goals stay enabled with both disabled.
 const codexAuxiliaryOptOut = buildAgentCommanderToolOptions({ auxiliaryModelCallsDisabled: false }, 'codex');
-assert.deepEqual(codexAuxiliaryOptOut.extraArgs, ['-c', 'model_reasoning_effort=none', '-c', 'model_reasoning_summary=auto', ...memoryArgs], '--no-auxiliary-model-calls-disabled should leave the #2178 memory args alone');
+assert.deepEqual(codexAuxiliaryOptOut.extraArgs, ['-c', 'model_reasoning_effort=none', '-c', 'model_reasoning_summary=auto', ...goalArgs, ...memoryArgs], 'auxiliary opt-out preserves completion goals and memory policy');
 
 const codexBothOptOut = buildAgentCommanderToolOptions({ agentMemoryDisabled: false, auxiliaryModelCallsDisabled: false }, 'codex');
-assert.deepEqual(codexBothOptOut.extraArgs, ['-c', 'model_reasoning_effort=none', '-c', 'model_reasoning_summary=auto'], 'opting out of both policies must add no arguments at all');
+assert.deepEqual(codexBothOptOut.extraArgs, ['-c', 'model_reasoning_effort=none', '-c', 'model_reasoning_summary=auto', ...goalArgs], 'completion goals remain enabled independently of both optional policies');
 
 const geminiToolOptions = buildAgentCommanderToolOptions({ verbose: true }, 'gemini');
 assert.deepEqual(geminiToolOptions, { debug: true });

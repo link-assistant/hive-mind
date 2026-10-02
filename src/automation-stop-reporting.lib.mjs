@@ -213,7 +213,9 @@ export const buildAutomationStopComment = ({ reason, mode = null, message = null
  */
 export const buildAutoMergeBlockedComment = ({ blockers = [], issueNumber = null }) => {
   const reasons = blockers.filter(Boolean);
-  const sections = [`## ⚠️ ${AUTO_MERGE_BLOCKED_MARKER}: this pull request is ready, but it was not merged automatically`, '', 'All merge requirements are satisfied — CI passed, there are no conflicts, and there are no pending changes.', '', 'Auto-merge (`--auto-merge`) was requested but is being held back:'];
+  const completionReasons = new Set(['missing_closing_references', 'issue_link_unverified', 'incomplete_issue_requirements', 'unverified_issue_links', 'issue_link_verification_failed', 'issue_completion_verification_failed']);
+  const completionBlocked = reasons.some(blocker => completionReasons.has(blocker.reason));
+  const sections = [`## ⚠️ ${AUTO_MERGE_BLOCKED_MARKER}: ${completionBlocked ? 'issue completion has not been verified' : 'this pull request is ready, but it was not merged automatically'}`, '', 'CI and GitHub mergeability checks passed. Issue completion is checked separately before merging.', '', 'Auto-merge (`--auto-merge`) was requested but is being held back:'];
 
   for (const blocker of reasons) {
     sections.push('', `- **${blocker.message}** (\`${blocker.reason}\`)`);
@@ -230,12 +232,14 @@ export const buildAutoMergeBlockedComment = ({ blockers = [], issueNumber = null
   // Issue #2335: so are links GitHub does not recognize or could not confirm.
   const descriptionReasons = ['missing_closing_references', 'issue_link_unverified', 'unverified_issue_links', 'issue_link_verification_failed'];
   const nextSteps = [];
-  if (reasons.some(blocker => !descriptionReasons.includes(blocker.reason))) {
+  if (reasons.some(blocker => !completionReasons.has(blocker.reason))) {
     nextSteps.push(issueNumber ? `Reopen issue #${issueNumber} and re-run the command so auto-merge can complete.` : 'Reopen the linked issue and re-run the command so auto-merge can complete.');
   }
   if (reasons.some(blocker => descriptionReasons.includes(blocker.reason))) {
     nextSteps.push('Add the missing closing references listed above to the pull request description and re-run the command so auto-merge can complete.');
-    nextSteps.push('Or merge this pull request manually — the issues listed above will then stay open.');
+  }
+  if (completionBlocked) {
+    nextSteps.push('Complete every issue requirement, repair its closing references, and refresh the requirements report with current verification evidence before re-running the command.');
   } else {
     nextSteps.push('Or merge this pull request manually — it is ready.');
   }

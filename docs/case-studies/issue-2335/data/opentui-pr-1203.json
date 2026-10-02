@@ -1,0 +1,11 @@
+{
+  "body": "## Summary\n\n- Resolve `web-tree-sitter/web-tree-sitter.wasm` first for `web-tree-sitter@0.26+`.\n- Fall back to `web-tree-sitter/tree-sitter.wasm` for `web-tree-sitter@0.25`.\n- Add focused coverage for the preferred and fallback wasm path resolution.\n\nCloses #1201.\n\n## Testing\n\n- `bun test src/lib/tree-sitter/parser.worker.test.ts src/lib/tree-sitter/client.test.ts`\n- `bun test src/renderables/__tests__/Markdown.test.ts`\n- `bun run fmt:check`\n- `bun run lint`\n- `bunx tsc -p packages/core/tsconfig.build.json --noEmit --pretty false`\n- `bun test`\n- Temporary `web-tree-sitter@0.26.3` install with `--no-save`: `bun test src/lib/tree-sitter/parser.worker.test.ts src/lib/tree-sitter/client.test.ts`\n\nNot run: `bun run test:native` because `zig` is not installed in this environment.",
+  "comments": [{ "id": "IC_kwDOPQG3M88AAAABHnif3A", "author": { "login": "denghongcai" }, "authorAssociation": "NONE", "body": "Should update peerDependencies either?", "createdAt": "2026-06-26T03:47:29Z", "includesCreatedEdit": false, "isMinimized": false, "minimizedReason": "", "reactionGroups": [], "url": "https://github.com/anomalyco/opentui/pull/1203#issuecomment-4806189020", "viewerDidAuthor": false }],
+  "commits": [{ "authoredDate": "2026-06-25T17:30:09Z", "authors": [{ "email": "haoqian.li@finalroundai.com", "id": "MDQ6VXNlcjE4MjMzMDk3", "login": "snvtac", "name": "Haoqian Li" }], "committedDate": "2026-06-25T17:30:09Z", "messageBody": "", "messageHeadline": "fix(core): support web-tree-sitter 0.26 wasm path", "oid": "dbbde969b83a6fd0da72ce21c6d122287166fb3c" }],
+  "createdAt": "2026-06-25T17:31:04Z",
+  "mergedAt": null,
+  "state": "CLOSED",
+  "title": "fix(core): support web-tree-sitter 0.26 wasm path",
+  "updatedAt": "2026-06-26T06:24:25Z",
+  "url": "https://github.com/anomalyco/opentui/pull/1203"
+}

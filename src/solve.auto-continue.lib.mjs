@@ -481,7 +481,7 @@ export const processPRMode = async (isPrUrl, urlNumber, owner, repo, argv) => {
       // Extract issue number from PR body using GitHub linking detection library
       // This ensures we only detect actual GitHub-recognized linking keywords
       const prBody = prData.body || '';
-      const extractedIssueNumber = extractLinkedIssueNumber(prBody);
+      const extractedIssueNumber = prBranch?.match(/^issue-([1-9]\d*)-/)?.[1] || extractLinkedIssueNumber(prBody, owner, repo);
 
       if (extractedIssueNumber) {
         issueNumber = extractedIssueNumber;
@@ -490,8 +490,8 @@ export const processPRMode = async (isPrUrl, urlNumber, owner, repo, argv) => {
         // If no linked issue found, we can still continue but warn
         await log('⚠️  Warning: No linked issue found in PR body', { level: 'warning' });
         await log('   The PR should contain "Fixes #123" or similar to link an issue', { level: 'warning' });
-        // Set issueNumber to PR number as fallback
-        issueNumber = prNumber;
+        // A PR number is not an issue identity. Preserve PR-only workflows.
+        issueNumber = null;
       }
     } catch (error) {
       reportError(error, {

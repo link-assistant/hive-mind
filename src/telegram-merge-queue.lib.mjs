@@ -546,7 +546,7 @@ export class MergeQueueProcessor {
       // Step 4: Merge the PR
       // Issue #1269: Pass the configured merge method to prevent "not running interactively" error
       item.status = MergeItemStatus.MERGING;
-      const mergeResult = await this.mergePullRequest(this.owner, this.repo, item.pr.number, { mergeMethod: MERGE_QUEUE_CONFIG.MERGE_METHOD }, this.verbose);
+      const mergeResult = await this.mergePullRequest(this.owner, this.repo, item.pr.number, { issueNumber: item.issue?.number ?? null, mergeMethod: MERGE_QUEUE_CONFIG.MERGE_METHOD }, this.verbose);
       if (!mergeResult.success) {
         item.status = MergeItemStatus.FAILED;
         item.error = mergeResult.error;

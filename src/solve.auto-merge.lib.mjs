@@ -422,13 +422,10 @@ export const watchUntilMergeable = async params => {
           }
         }
         await log(formatAligned('✅', 'PR IS MERGEABLE!', ''));
-        // Issue #2144: the pull request is ready. A closed/unavailable linked
-        // issue blocks only the *automatic* merge — the loop already did its
-        // job of making the pull request mergeable. Ask the user to reopen the
-        // issue or merge manually instead of merging behind their back.
-        // Issue #2306: the pull request must also close every issue it was
-        // asked to close; re-checked here because the description can change.
-        // Issue #2395: the same goes for the "Fixes #N" link to the issue itself.
+        // Issue #2144: a closed/unavailable linked issue blocks only the
+        // *automatic* merge; the user is asked to reopen it or merge manually.
+        // Issues #2306/#2395: the description can change, so its issue link and
+        // every required closing reference are re-checked right before merging.
         const mergeBlockers = isAutoMerge ? [...issueMergeBlockers, await ensureIssueLinkBeforeMerge({ owner, repo, issueNumber, prNumber, argv, log }), await checkClosingReferencesBeforeMerge({ owner, repo, issueNumber, prNumber, argv })].filter(Boolean) : issueMergeBlockers;
         if (isAutoMerge && mergeBlockers.length > 0) {
           await reportAutoMergeBlockedByIssue({ owner, repo, prNumber, issueNumber, mergeBlockers, verbose: argv.verbose });
@@ -441,7 +438,7 @@ export const watchUntilMergeable = async params => {
           if (deleteAfterMerge) {
             await log(formatAligned('', 'Branch cleanup:', 'will delete branch after successful merge', 2));
           }
-          const mergeResult = await mergePullRequest(owner, repo, prNumber, { squash: argv.squash || false, deleteAfter: deleteAfterMerge }, argv.verbose);
+          const mergeResult = await mergePullRequest(owner, repo, prNumber, { issueNumber, squash: argv.squash || false, deleteAfter: deleteAfterMerge }, argv.verbose);
 
           if (mergeResult.success) {
             await log(formatAligned('🎉', 'PR MERGED SUCCESSFULLY!', ''));
@@ -472,6 +469,10 @@ export const watchUntilMergeable = async params => {
             }
             return { success: true, reason: 'auto-merged', latestSessionId, latestAnthropicCost };
           } else {
+            if (mergeResult.blocker) {
+              await reportAutoMergeBlockedByIssue({ owner, repo, prNumber, issueNumber, mergeBlockers: [mergeResult.blocker], verbose: argv.verbose });
+              return { success: false, reason: mergeResult.category, mergeBlockers: [mergeResult.blocker], latestSessionId, latestAnthropicCost };
+            }
             // Issue #2182: an unclassified merge failure used to be logged as
             // "Will continue monitoring..." and retried every 120 seconds
             // forever (5384 identical failures in the reported run). Classify

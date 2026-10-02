@@ -1,0 +1,36 @@
+✔ PR 326: a negated closing keyword is not a closing reference (3.723631ms)
+✔ negated, hypothetical, and example references do not satisfy the repair check (0.969527ms)
+✔ repository-qualified links must match the issue repository (0.354922ms)
+✔ a local reference cannot satisfy a foreign sub-issue with the same number (1.670024ms)
+✖ a title alone cannot replace a closing reference in the description (2.350131ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 4
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1576.760229
+
+✖ failing tests:
+
+test at tests/issue-linking-2335.test.mjs:37:1
+✖ a title alone cannot replace a closing reference in the description (2.350131ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1790767368526/tests/issue-linking-2335.test.mjs:39:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

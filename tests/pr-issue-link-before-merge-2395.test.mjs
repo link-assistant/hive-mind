@@ -47,16 +47,26 @@ const test = async (description, fn) => {
 const bodyAtMerge = await readFile(join(repoRoot, 'tests', 'fixtures', 'issue-2395-p-vs-np-pr623-body-at-merge.md'), 'utf8');
 const target = { owner: 'konard', repo: 'p-vs-np', issueNumber: 567, prNumber: 623, argv: {} };
 
-/** A fake `gh` behind `$`: serves the PR body and records `gh pr edit` bodies. */
+/**
+ * A fake `gh` behind `$`: serves the issue scope and the PR body, records
+ * `gh pr edit` bodies, and returns the saved body when it is read again.
+ */
 const fakeGh = ({ body, viewCode = 0, editCode = 0 }) => {
   const calls = [];
+  let currentBody = body;
+  const issue = { number: target.issueNumber, body: 'Prove P vs NP.' };
   const command = async (strings, ...values) => {
     const text = strings.reduce((acc, part, i) => acc + part + (i < values.length ? values[i] : ''), '');
     calls.push(text);
-    if (text.startsWith('gh pr view')) return { code: viewCode, stdout: viewCode === 0 ? body : '', stderr: viewCode === 0 ? '' : 'HTTP 502: Bad Gateway' };
+    const ok = value => ({ code: 0, stdout: JSON.stringify(value), stderr: '' });
+    if (text === `gh api repos/${target.owner}/${target.repo}/issues/${target.issueNumber}`) return ok(issue);
+    if (text === `gh api repos/${target.owner}/${target.repo}/issues/${target.issueNumber}/sub_issues --paginate --slurp`) return ok([[]]);
+    if (text === `gh api repos/${target.owner}/${target.repo}/pulls/${target.prNumber}`) return viewCode === 0 ? ok({ number: target.prNumber, body: currentBody }) : { code: viewCode, stdout: '', stderr: 'HTTP 502: Bad Gateway' };
     if (text.startsWith('gh pr edit')) {
       const bodyFile = text.split('--body-file ')[1].trim();
-      calls.push({ editedBody: await readFile(bodyFile, 'utf8').catch(() => '') });
+      const editedBody = await readFile(bodyFile, 'utf8').catch(() => '');
+      calls.push({ editedBody });
+      if (editCode === 0) currentBody = editedBody;
       return { code: editCode, stdout: '', stderr: editCode === 0 ? '' : 'GraphQL: Resource not accessible by integration' };
     }
     return { code: 1, stdout: '', stderr: `unexpected command: ${text}` };

@@ -1,0 +1,28 @@
+✖ queue preserves known issue context even if its branch and description lose the reference (10.394287ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3918.587584
+
+✖ failing tests:
+
+test at tests/issue-completion-2335.test.mjs:446:1
+✖ queue preserves known issue context even if its branch and description lose the reference (10.394287ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  undefined !== 322
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1790767368526/tests/issue-completion-2335.test.mjs:460:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 322,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

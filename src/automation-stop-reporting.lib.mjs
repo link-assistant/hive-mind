@@ -227,7 +227,8 @@ export const buildAutoMergeBlockedComment = ({ blockers = [], issueNumber = null
 
   // Issue #2306: the next steps depend on what holds the merge back.
   // Issue #2395: an unverified issue link is fixed in the description too.
-  const descriptionReasons = ['missing_closing_references', 'issue_link_unverified'];
+  // Issue #2335: so are links GitHub does not recognize or could not confirm.
+  const descriptionReasons = ['missing_closing_references', 'issue_link_unverified', 'unverified_issue_links', 'issue_link_verification_failed'];
   const nextSteps = [];
   if (reasons.some(blocker => !descriptionReasons.includes(blocker.reason))) {
     nextSteps.push(issueNumber ? `Reopen issue #${issueNumber} and re-run the command so auto-merge can complete.` : 'Reopen the linked issue and re-run the command so auto-merge can complete.');

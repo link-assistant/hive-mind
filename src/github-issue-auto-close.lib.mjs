@@ -72,8 +72,9 @@ export function gitHubAutoClosesOnMerge(baseBranch, defaultBranch) {
  *   reason: string,
  * }}
  */
-export function classifyIssueLinkStatus({ prBody = '', prTitle = '', issueNumber, owner = null, repo = null, baseBranch = null, defaultBranch = null, githubLinked = false } = {}) {
-  const hasClosingKeyword = prClosesIssue(prBody, issueNumber, owner, repo) || prClosesIssue(prTitle, issueNumber, owner, repo);
+export function classifyIssueLinkStatus({ prBody = '', issueNumber, owner = null, repo = null, baseBranch = null, defaultBranch = null, githubLinked = false } = {}) {
+  // GitHub recognizes description closing references, not PR title mentions.
+  const hasClosingKeyword = prClosesIssue(prBody, issueNumber, owner, repo);
   const autoCloses = gitHubAutoClosesOnMerge(baseBranch, defaultBranch);
   const targetsNonDefaultBranch = autoCloses === false;
 
@@ -127,7 +128,7 @@ export function buildNonDefaultBranchExplanation({ issueNumber, baseBranch, defa
  *
  * This is a no-op (returns a skipped result) when:
  *   - GitHub will auto-close the issue (PR merged into the default branch), or
- *   - the PR body/title does not contain a closing keyword for the issue, or
+ *   - the PR body does not contain a closing keyword for the issue, or
  *   - the issue is already closed.
  *
  * @param {Object} options
@@ -174,7 +175,7 @@ export async function ensureLinkedIssueClosedAfterMerge({ $: rawDollar, log = nu
 
     // Derive the linked issue from the PR body when the caller did not supply it.
     if (!issueNumber) {
-      issueNumber = extractLinkedIssueNumber(prBody || '') || extractLinkedIssueNumber(prTitle || '');
+      issueNumber = extractLinkedIssueNumber(prBody || '', owner, repo);
     }
     if (!issueNumber) {
       await note(`[auto-close] PR #${prNumber} has no closing keyword identifying an issue; nothing to close`);

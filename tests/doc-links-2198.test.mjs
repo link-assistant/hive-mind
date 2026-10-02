@@ -120,16 +120,6 @@ assert.match(workflow, /fail: false/, 'lychee defers failure to the reporting st
 assert.match(workflow, /exit 1/, 'the links workflow still fails when links are broken');
 assert.match(workflow, /scripts\/check-web-archive\.mjs/, 'broken links are checked against the Wayback Machine');
 
-// github.com `/blob/` pages answer CI runners with a lasting 503 (#2408), so
-// lychee checks them on raw.githubusercontent.com. The mapping must keep
-// owner, repo, ref and path, or a real file would be checked at a wrong URL.
-const remap = workflow.match(/--remap '(\S+) (\S+)'/);
-assert.ok(remap, 'the links workflow remaps github.com blob URLs (#2408)');
-const remapped = url => url.replace(new RegExp(remap[1]), remap[2]);
-assert.equal(remapped('https://github.com/link-assistant/hive-mind/blob/main/LICENSE'), 'https://raw.githubusercontent.com/link-assistant/hive-mind/main/LICENSE');
-assert.equal(remapped('https://github.com/o/r/blob/4f027b32/scripts/a.sh'), 'https://raw.githubusercontent.com/o/r/4f027b32/scripts/a.sh');
-assert.equal(remapped('https://github.com/o/r/tree/main/docs'), 'https://github.com/o/r/tree/main/docs', 'only blob URLs are remapped');
-
 for (const prefix of EXCLUDED_PREFIXES) {
   assert.ok(workflow.includes(`--exclude-path ${prefix.replace(/\/$/, '')}`), `the links workflow excludes ${prefix}, matching this test`);
 }

@@ -16,9 +16,21 @@ is not caused by a burst of requests. The 503 also outlasted
 URLs answer 200 from outside GitHub Actions, both through lychee 0.24.2 (the
 version the action installs) and through curl.
 
-## Fix
+## Outcome
 
-`.github/workflows/links.yml` remaps blob URLs to raw.githubusercontent.com:
+This branch first fixed the failure by remapping blob URLs to
+raw.githubusercontent.com in `.github/workflows/links.yml` (commit a677ca60;
+Check Links passed on it). Meanwhile `main` merged #2423, which fixes the same
+failure differently. Its "Re-check links that failed transiently" step
+(`scripts/recheck-broken-links.mjs`) retries 429, 5xx and connection failures
+with backoff, and checks github.com blob and tree pages through the
+authenticated contents API. With both fixes, lychee would report raw URLs, and
+that API fallback would never see a blob URL. So after merging `main`, this
+branch drops the remap and keeps `main`'s fix. The timings above still matter:
+the 503 came on the very first blob request.
+
+The remap is kept here as an alternative. It works without a token and adds
+no extra step.
 
 ```
 --remap 'https://github\.com/([^/]+)/([^/]+)/blob/(.+) https://raw.githubusercontent.com/$1/$2/$3'
@@ -41,8 +53,5 @@ lychee --no-progress --verbose --max-retries 1 \
   so the CI link check does not see the deliberately broken links.
 - `remap-run.log` shows the five real links passing and the missing file and
   missing branch each failing with 404.
-- `full-run-with-remap.log` is the whole repository, checked with the
-  workflow's exact args through `eval` (the way lychee-action runs them). It
-  had 0 errors.
-- `tests/doc-links-2198.test.mjs` asserts that the remap exists and keeps
-  owner, repo, ref and path.
+- `full-run-with-remap.log` is the whole repository, checked with the remap
+  through `eval` (the way lychee-action runs its args). It had 0 errors.

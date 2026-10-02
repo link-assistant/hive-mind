@@ -65,15 +65,6 @@ jobs:
           #   tests/fixtures         - the captured lychee report there holds
           #                            deliberately broken links used as
           #                            parser test input.
-          #
-          # --remap: github.com answers `/blob/` pages from some runners with
-          # a 503 that outlasts every retry, while the same URLs answer 200
-          # elsewhere (#2408: every blob link, and only blob links, failed on
-          # main and on branches on 2026-10-02). raw.githubusercontent.com
-          # serves the same file at the same owner/repo/ref/path and still
-          # answers 404 for a missing file, branch or commit, so the check
-          # keeps its meaning. Single quotes keep `$1` away from the shell
-          # that lychee-action evaluates these args in.
           args: >-
             --verbose
             --no-progress
@@ -81,7 +72,6 @@ jobs:
             --max-cache-age 1d
             --max-retries 3
             --timeout 30
-            --remap 'https://github\.com/([^/]+)/([^/]+)/blob/(.+) https://raw.githubusercontent.com/$1/$2/$3'
             --exclude-path docs/case-studies
             --exclude-path dev/log
             --exclude-path experiments/issue-2102/corpus

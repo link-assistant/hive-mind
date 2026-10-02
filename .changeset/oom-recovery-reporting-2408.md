@@ -1,0 +1,5 @@
+---
+'@link-assistant/hive-mind': patch
+---
+
+Report out-of-memory recovery truthfully (#2408). Each session exit is now completed only once: overlapping monitor ticks no longer post the same log and kill notice three or six times, or overwrite "recovering" with "❌ failed". An exit 1 under Docker's sticky container-wide `OOMKilled` flag is no longer called a kill. A deliberate solve stop (auto-restart, auto-resume or usage limit) no longer uses up the recovery budget. The default `--session-kill-resume-attempts` is now 3. When the AI tool itself is SIGKILLed (exit 137), solve posts a ⚠️ warning and resumes the same session in the same container instead of stopping. A recovered task is shown as ⚠️ "finished successfully after automatic recovery (automatic recoveries: N)". The Telegram message and `/queue` count the total active time and show `🔁 N`, and a fresh recovery launch names the earlier execution logs. Kill notices no longer print `[object Object]` as the resume command, and the "backend is still alive" verbose line is printed once instead of on every poll.

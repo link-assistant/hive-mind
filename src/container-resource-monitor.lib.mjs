@@ -20,7 +20,14 @@ export function formatContainerResourceLimitExceededSection(sessionInfo) {
   return [`🛑 *Container resource limit exceeded*`, `Writable layer: ${formatResourceLimitBytes(breach.observedBytes)} used; limit ${formatResourceLimitBytes(breach.limitBytes)}.`, action].join('\n');
 }
 
-export async function enforceContainerDiskLimitForSession(sessionName, sessionInfo, observedBytes, { verbose = false, killContainer = null, persistSnapshot = () => {} } = {}) {
+export async function enforceContainerDiskLimitForSession(sessionName, sessionInfo, containerBytes, { verbose = false, killContainer = null, persistSnapshot = () => {} } = {}) {
+  // Issue #2408: a session resumed from a snapshot keeps what its earlier
+  // containers wrote in image layers; that usage still counts toward the limit.
+  const inheritedBytes = Number.isFinite(sessionInfo?.containerFilesystemInheritedBytes) ? sessionInfo.containerFilesystemInheritedBytes : 0;
+  const observedBytes = Number.isFinite(containerBytes) ? containerBytes + inheritedBytes : containerBytes;
+  if (verbose && inheritedBytes > 0 && Number.isFinite(containerBytes)) {
+    console.log(`[VERBOSE] Session ${sessionName} disk usage: ${formatResourceLimitBytes(containerBytes)} in this container + ${formatResourceLimitBytes(inheritedBytes)} carried from earlier containers`);
+  }
   const breach = detectContainerDiskLimitBreach({ limitBytes: sessionInfo?.containerResourceLimits?.diskBytes, observedBytes });
   if (!breach) return null;
   sessionInfo.containerResourceLimitExceeded = { ...breach, observedAt: new Date().toISOString() };

@@ -161,6 +161,12 @@ export async function startKillRecoverySession({ sessionName, sessionInfo, plan,
         killRecoverySessionId: undefined,
         containerFilesystemStartBytes,
         containerResourceLimits,
+        // Issue #2408: a snapshot resume starts a new, empty writable layer;
+        // what the execution already wrote counts against the same disk limit.
+        // The new container's own usage is measured afresh by the monitor.
+        containerFilesystemInheritedBytes: inPlace.resumed && Number.isFinite(inPlace.containerFilesystemInheritedBytes) ? inPlace.containerFilesystemInheritedBytes : undefined,
+        containerFilesystemLastBytes: undefined,
+        containerFilesystemLastObservedAt: undefined,
       },
       verbose
     );

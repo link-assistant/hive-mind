@@ -1130,3 +1130,7 @@ Unlicense 许可证 - 参见 [LICENSE](./LICENSE)
 ## 🤖 贡献
 
 本项目采用 AI 驱动的开发模式。人机协作指南请参见 [CONTRIBUTING.zh.md](./docs/CONTRIBUTING.zh.md)。
+
+## GitHub 自动化凭据
+
+仓库自动化无需配置。工作流依次使用 GitHub App（`AUTOMATION_APP_ID` 变量和 `AUTOMATION_APP_PRIVATE_KEY` 密钥）、可选的统一 `AUTOMATION_TOKEN`，或内置 GitHub 令牌。使用默认令牌创建的草稿会在其源分支上触发检查。Hello World 矩阵和集成测试使用隔离的孤立分支，清理步骤会删除它们创建的资源。有关权限、检查和健康报告，请参阅 [Formal AI 草稿](docs/FORMAL-AI-DRAFTS.zh.md)。

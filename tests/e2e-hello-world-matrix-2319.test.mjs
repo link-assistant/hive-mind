@@ -138,7 +138,8 @@ test('every row runs the same solve command; only --tool and --model differ', as
     assert.equal(parsed.model, model);
     assert.equal(parsed.issueUrl, ISSUE_URL);
     assert.equal(parsed.attachLogs, true);
-    assert.equal(parsed.autoRestartUntilMergeable, true, 'the default restart loop is part of what is under test');
+    assert.equal(parsed.autoRestartUntilMergeable, false, 'the runner performs approval and act verification after solve');
+    assert.equal(parsed.detectRepeatedToolCalls, true, 'a looping model must end its row instead of running until compaction (#2395 made the breaker opt-in)');
     commands.push(argv.filter((arg, index) => !['--tool', '--model'].includes(argv[index - 1]) && !['--tool', '--model'].includes(arg)));
   }
   for (const command of commands) assert.deepEqual(command, commands[0]);
@@ -152,8 +153,10 @@ test('the matrix covers formal-ai on claude, agent and codex, plus one LLM model
 
 test('the workflow runs the tested script for exactly the E2E_MATRIX rows, manually, without leaking secrets', () => {
   const workflow = readFileSync('.github/workflows/e2e-hello-world-matrix.yml', 'utf8');
-  assert.match(workflow, /^on:\n {2}workflow_dispatch:/m, 'manual only: every row creates a repository');
-  assert.doesNotMatch(workflow, /^ {2}(push|pull_request|schedule):/m);
+  assert.match(workflow, /^on:[^\n]*\n {2}workflow_dispatch:/m, 'manual only: every row creates a repository');
+  assert.match(workflow, /^ {2}schedule:/m);
+  assert.match(workflow, /^ {2}workflow_run:/m);
+  assert.doesNotMatch(workflow, /^ {2}(push|pull_request):/m);
   assert.match(workflow, /node scripts\/e2e-hello-world\.mjs/);
   assert.match(workflow, /fail-fast: false/, 'one failing row must not hide the others');
   const rows = [...workflow.matchAll(/- tool: (\S+)\n\s+model: (\S+)/g)].map(match => ({ tool: match[1], model: match[2] }));

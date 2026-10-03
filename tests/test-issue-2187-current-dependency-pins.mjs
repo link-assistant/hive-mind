@@ -27,7 +27,7 @@ const expected = {
   jscpd: '5.4.0',
   jscpdThreshold: 12,
   lintStaged: '17.6.0',
-  node: '24.21.0',
+  node: '26.10.0',
   prettier: '3.9.9',
   sentry: '11.4.0',
   sentryProfiler: '2.4.4',
@@ -40,14 +40,14 @@ for (const file of regularDockerfiles) {
   const source = read(file);
   assert.match(source, new RegExp(`^FROM ghcr\\.io/link-foundation/box:${escapeRegExp(expected.box)}$`, 'm'), `${file} should pin Box ${expected.box}`);
   assert.match(source, new RegExp(`^ARG FORMAL_AI_VERSION=${escapeRegExp(expected.formalAi)}$`, 'm'), `${file} should pin Formal AI ${expected.formalAi}`);
-  assert.match(source, new RegExp(`^ARG HIVE_MIND_NODE_VERSION=${escapeRegExp(expected.node)}$`, 'm'), `${file} should align Node.js with Box ${expected.box}`);
+  assert.match(source, new RegExp(`^ARG HIVE_MIND_NODE_VERSION=${escapeRegExp(expected.node)}$`, 'm'), `${file} should pin current Node.js ${expected.node}`);
   assert.match(source, new RegExp(`^ARG HIVE_MIND_BUN_VERSION=${escapeRegExp(expected.bun)}$`, 'm'), `${file} should align Bun with Box ${expected.box}`);
 }
 
 const dindDockerfile = read('Dockerfile.dind');
 assert.match(dindDockerfile, new RegExp(`^FROM ghcr\\.io/link-foundation/box-dind:${escapeRegExp(expected.box)}$`, 'm'), `Dockerfile.dind should pin Box ${expected.box}`);
 assert.match(dindDockerfile, new RegExp(`^ARG FORMAL_AI_VERSION=${escapeRegExp(expected.formalAi)}$`, 'm'), `Dockerfile.dind should pin Formal AI ${expected.formalAi}`);
-assert.match(dindDockerfile, new RegExp(`^ARG HIVE_MIND_NODE_VERSION=${escapeRegExp(expected.node)}$`, 'm'), `Dockerfile.dind should align Node.js with Box ${expected.box}`);
+assert.match(dindDockerfile, new RegExp(`^ARG HIVE_MIND_NODE_VERSION=${escapeRegExp(expected.node)}$`, 'm'), `Dockerfile.dind should pin current Node.js ${expected.node}`);
 assert.match(dindDockerfile, new RegExp(`^ARG HIVE_MIND_BUN_VERSION=${escapeRegExp(expected.bun)}$`, 'm'), `Dockerfile.dind should align Bun with Box ${expected.box}`);
 
 const formalAiDockerfile = read('Dockerfile.formal-ai');

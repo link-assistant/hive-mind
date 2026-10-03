@@ -1193,3 +1193,7 @@ Unlicense License - see [LICENSE](./LICENSE)
 ## 🤖 Contributing
 
 This project uses AI-driven development. See [CONTRIBUTING.md](./docs/CONTRIBUTING.md) for human-AI collaboration guidelines.
+
+## GitHub automation credentials
+
+No setup is required for repository automation. Workflows use a GitHub App (`AUTOMATION_APP_ID` variable + `AUTOMATION_APP_PRIVATE_KEY` secret), then one optional `AUTOMATION_TOKEN`, then the built-in GitHub token. Default-token drafts dispatch checks on their head branches. Hello World matrix and integration tests use isolated orphan branches, and cleanup removes their owned resources. See [Formal AI drafts](docs/FORMAL-AI-DRAFTS.md) for permissions, checks and health reporting.

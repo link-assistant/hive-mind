@@ -55,14 +55,19 @@ A draft is identifiable by the `formal-ai-draft` label and by its branch name, `
 
 ## Setup
 
-| Name                    | Kind                | Required | Purpose                                                                                                     |
-| ----------------------- | ------------------- | -------- | ----------------------------------------------------------------------------------------------------------- |
-| `FORMAL_AI_DRAFT_TOKEN` | Secret              | yes      | Opens the branch and the pull request, and reads the issue.                                                 |
-| `FORMAL_AI_DRAFT_IMAGE` | Repository variable | no       | Overrides the image. Defaults to `konard/hive-mind:latest`; pin a release tag to make a draft reproducible. |
+No credential setup is required. Every write workflow uses the same resolver:
 
-`FORMAL_AI_DRAFT_TOKEN` must be a personal access token, not `GITHUB_TOKEN`. A pull request opened with `GITHUB_TOKEN` does not trigger `pull_request` workflows, so its checks would never run — and a draft that cannot go red cannot "stay open and red until a later run succeeds". It needs `repo` scope (`contents`, `pull_requests` and `issues` write on a fine-grained token).
+| Layer          | Optional configuration                                               | Check strategy    |
+| -------------- | -------------------------------------------------------------------- | ----------------- |
+| GitHub App     | Variable `AUTOMATION_APP_ID` and secret `AUTOMATION_APP_PRIVATE_KEY` | `pull_request`    |
+| Personal token | One secret `AUTOMATION_TOKEN`                                        | `pull_request`    |
+| Default        | Built-in `github.token`                                              | `dispatch-checks` |
 
-Without the secret the workflow **skips** rather than fails, with the reason printed in the job log. That keeps forks and unconfigured clones green.
+The first configured, working layer wins. `AUTOMATION_TOKEN` needs repository contents, issues and pull requests write access; dispatching checks also requires Actions write. The default workflow declares these permissions itself. `FORMAL_AI_DRAFT_IMAGE` remains an optional variable (default `konard/hive-mind:latest`).
+
+Default-token pull requests can create workflow runs waiting for approval. The draft immediately dispatches `release.yml`, `security.yml`, `links.yml` and `workflows.yml` on its head with `mode=checks`; these workflow files exist on the default branch. Manual dispatch defaults to checks, and publishing requires an explicit release mode on `main`. The job summary names the selected layer. Missing optional credentials never deny an eligible draft.
+
+The shared actions requested in [link-foundation/.github#1](https://github.com/link-foundation/.github/issues/1) have not been published. Local compatibility actions under `.github/actions/` implement that input/output contract; replace their `uses:` paths when the shared actions ship. A daily health job reports actual attempts over seven days and fails if eligible issues received none.
 
 ## Opting out, and re-running
 

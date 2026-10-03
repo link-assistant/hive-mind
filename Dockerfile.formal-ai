@@ -9,6 +9,7 @@ ARG HIVE_MIND_VERSION=latest
 # Bookworm's glibc 2.36 remains compatible with the Ubuntu 24.04 Box runtime.
 FROM rust:1.99-slim-bookworm AS formal-ai-builder
 ARG FORMAL_AI_VERSION
+ARG CARGO_BUILD_JOBS=2
 # Formal AI 0.333.0-0.338.0 reached OpenSSL (formal-ai -> web-search ->
 # web-capture -> reqwest with default features -> native-tls -> openssl-sys), so
 # the builder needs pkg-config and the OpenSSL headers; rust:slim ships neither
@@ -27,6 +28,8 @@ ENV OPENSSL_STATIC=1
 RUN cargo install formal-ai --version "${FORMAL_AI_VERSION}" --locked
 
 FROM konard/hive-mind-dind:${HIVE_MIND_VERSION}
+# Task-container prerequisite installs stay within the workspace (formal-ai#1159).
+ENV FORMAL_AI_INSTALL_GRANT=workspace
 
 USER root
 COPY --from=formal-ai-builder /usr/local/cargo/bin/formal-ai /usr/local/bin/formal-ai

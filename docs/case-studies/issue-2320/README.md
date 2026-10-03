@@ -70,6 +70,6 @@ The Rust run fails in a similar way:
 
 In each case the Formal AI-specific path was where the chain started. That is why #2319 removes such paths instead of patching them.
 
-## Not done here
+## Follow-up validation and cleanup
 
-The stray `Main.java`, `Main.class` and `Main.jar` commits on the `konard/test-hello-world-*` branches of the 2026-09-27 runs are still in those external repositories. Cleaning them up changes repositories outside this one, so it is left to the operator. Rerunning the tasks, or running `cleanup-test-repos.yml`, replaces them.
+The historical recovery paths were cleaned or verified absent on all three PR branches in the authorized #2324 follow-up. See [the follow-up report](follow-up-2324.md) for the forward cleanup commit, the first token-optional matrix runs, per-row evidence, and the repository policy that prevents deleting temporary `e2e/**` branches.

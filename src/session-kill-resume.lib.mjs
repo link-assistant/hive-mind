@@ -225,6 +225,7 @@ export async function recoverKilledSession({ sessionName, sessionInfo, logPath =
   }
 
   if (!plan.shouldResume) {
+    if (verbose) console.log(`[VERBOSE] Session ${sessionName}: no recovery session started (policy=${plan.policy}, reason=${plan.reason}, attempt ${plan.attempt}/${plan.maxAttempts})`);
     return { resumed: false, reason: plan.reason, policy: plan.policy, sessionId: null, display: plan.command?.display || null, attempt: plan.attempt, maxAttempts: plan.maxAttempts, inPlace: false };
   }
 

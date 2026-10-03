@@ -1019,7 +1019,22 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
       // message is built so the Telegram report and the pull-request notice
       // below name the very same recovery session.
       let killRecovery = { resumed: false, sessionId: null, attempt: 0, maxAttempts: 0 };
-      if ((killReport.killed || (killReport.oomEventOnly && !killReport.deliberateStop)) && !sessionInfo?.containerResourceLimitExceeded) {
+      const shouldAttemptKillRecovery = (killReport.killed || (killReport.oomEventOnly && !killReport.deliberateStop)) && !sessionInfo?.containerResourceLimitExceeded;
+      if (killReport.killed || killReport.oomEventOnly) {
+        // Issue #2408: one durable line per kill/OOM decision, so "why was this
+        // (not) restarted?" can be answered from the session log afterwards.
+        logEvent('session_kill_recovery_decision', {
+          sessionName,
+          exitCode: finalExitCode,
+          status: resolvedStatus,
+          killed: killReport.killed,
+          oomEventOnly: killReport.oomEventOnly,
+          deliberateStop: killReport.deliberateStop?.reason || null,
+          diskLimitExceeded: Boolean(sessionInfo?.containerResourceLimitExceeded),
+          attemptRecovery: shouldAttemptKillRecovery,
+        });
+      }
+      if (shouldAttemptKillRecovery) {
         const recovered = await runKillRecoveryForCompletion({
           sessionName,
           sessionInfo,
@@ -1036,6 +1051,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
           verbose,
         });
         killRecovery = recovered.recovery;
+        if (!killRecovery.resumed) logEvent('session_kill_not_recovered', { sessionName, reason: killRecovery.reason || null, policy: killRecovery.policy || null, attempt: killRecovery.attempt, maxAttempts: killRecovery.maxAttempts });
         if (killRecovery.resumed && killRecovery.sessionId) {
           // Issue #2189: remember which session took over, so the durable
           // history says what happened to this work and a restart cannot start

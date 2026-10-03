@@ -20,7 +20,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { initI18n, preloadAllLocales, t } from '../src/i18n.lib.mjs';
-import { monitorSessions, resetSessionMonitorForTests, trackSession, STALE_EXECUTING_MIN_AGE_MS } from '../src/session-monitor.lib.mjs';
+import { monitorSessions, resetSessionMonitorForTests, setSessionLogger, trackSession, STALE_EXECUTING_MIN_AGE_MS } from '../src/session-monitor.lib.mjs';
 import { resolveOomKilledState } from '../src/session-monitor.oom.lib.mjs';
 import { buildKillRecoveryNotice } from '../src/session-kill-recovery.lib.mjs';
 import { recoverKilledSession, collectPreviousExecutionUuids } from '../src/session-kill-resume.lib.mjs';
@@ -211,6 +211,8 @@ test('the 2026-10-03 rerun: the real "Auto-restart 5/5 - limit reached" log tail
   const logPath = await writeLog('rerun-2026-10-03', `📌 Session ID: ${TOOL_SESSION}\n${tail}`);
   const { bot, edits, comments, launches, options } = makeHarness(async () => ({ exists: true, status: 'executed', exitCode: 1, oomKilled: true, isolation: 'docker', logPath }));
   resetSessionMonitorForTests();
+  const events = [];
+  setSessionLogger({ event: (type, data) => events.push({ type, data }) });
   try {
     trackSession(sessionName, { ...makeSessionInfo(sessionName, logPath), oomEventObservedAt: '2026-10-02T16:55:17.158Z' }, false);
     await Promise.all([monitorSessions(bot, false, options), monitorSessions(bot, false, options), monitorSessions(bot, false, options), monitorSessions(bot, false, options)]);
@@ -220,6 +222,11 @@ test('the 2026-10-03 rerun: the real "Auto-restart 5/5 - limit reached" log tail
     const completions = edits.filter(edit => edit.messageId === 77);
     assert.equal(completions.length, 1, 'the Telegram message is completed once');
     assert.match(completions[0].message, /solve stopped on its own/);
+    // The session log records why nothing was restarted, for the next investigation.
+    const decisions = events.filter(event => event.type === 'session_kill_recovery_decision');
+    assert.equal(decisions.length, 1, 'one recovery decision is logged');
+    assert.equal(decisions[0].data.deliberateStop, 'auto-restart-limit');
+    assert.equal(decisions[0].data.attemptRecovery, false);
   } finally {
     resetSessionMonitorForTests();
     await fs.rm(logPath, { force: true });

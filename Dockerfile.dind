@@ -301,7 +301,7 @@ RUN bun install -g @openai/codex && \
 # resource-limited OOM recovery can stay in the same execution UUID and log
 # (see src/session-kill-resume.in-place.lib.mjs). Its new `--on-kill-resume`
 # is not used yet: it treats the sticky `OOMKilled` flag as a kill whatever the
-# exit code (see docs/case-studies/issue-2408).
+# exit code (start#178, see docs/case-studies/issue-2408).
 # `@link-assistant/agent` is pinned to current 0.26.11. Version 0.26.1 stopped the
 # unbounded snapshot leak of issue #2186. Up to 0.26.0 `Snapshot.track()` built a
 # standalone git object store per project — keyed on the worktree's root commit,

@@ -1,0 +1,9 @@
+# Probe
+
+- [license](https://github.com/link-assistant/hive-mind/blob/main/LICENSE)
+- [line anchor](https://github.com/link-assistant/hive-mind/blob/issue-2301-1462dcec50ad/experiments/issue-2301-print-bg-ceiling/repro-ceiling.sh#L1)
+- [commit ref](https://github.com/link-assistant/hive-mind/blob/4f027b32/scripts/ubuntu-24-server-install.sh)
+- [other repo](https://github.com/google-gemini/gemini-cli/blob/main/packages/cli/src/validateNonInterActiveAuth.ts)
+- [missing file](https://github.com/link-assistant/hive-mind/blob/main/NO-SUCH-FILE-2408.md)
+- [missing ref](https://github.com/link-assistant/hive-mind/blob/no-such-branch-2408/LICENSE)
+- [tree stays](https://github.com/link-assistant/hive-mind/tree/main/docs)

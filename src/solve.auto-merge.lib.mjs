@@ -65,6 +65,7 @@ const { checkClosingReferencesBeforeMerge } = await import('./solve.ensure-sub-i
 // Issue #2395: never auto-merge a pull request that is not linked to its issue; a breaker stop continues with feedback.
 const { ensureIssueLinkBeforeMerge } = await import('./pr-issue-link-merge-gate.lib.mjs');
 const { isRestartWithFeedback, reportSessionStoppedForFeedback } = await import('./solve.auto-merge-session-stop.lib.mjs');
+const { resumeAfterToolKill } = await import('./solve.tool-kill-resume.lib.mjs'); // Issue #2408
 // Import validation functions for time parsing (used for usage limit wait)
 const validation = await import('./solve.validation.lib.mjs');
 const { calculateWaitTime } = validation;
@@ -140,6 +141,7 @@ export const watchUntilMergeable = async params => {
   // Issue #2119: the count now lives in the shared budget module, so restarts
   // already spent by the watch loop earlier in this run are counted here too.
   let limitResumeCount = 0;
+  let toolKillResumeCount = 0; // Issue #2408: in-process resumes after a SIGKILL (OOM)
   // Issue #1371: In-memory dedup for "Ready to merge" comment (per-session, not all-time)
   let readyToMergeCommentPosted = false;
   let currentBackoffSeconds = watchInterval;
@@ -1039,6 +1041,8 @@ export const watchUntilMergeable = async params => {
               continue;
             }
           }
+          // Issue #2408: a tool killed by SIGKILL (exit 137, OOM) resumes its own session in-process.
+          if (!toolResult.success) ({ toolResult, attemptsUsed: toolKillResumeCount } = await resumeAfterToolKill({ toolResult, attemptsUsed: toolKillResumeCount, argv, runIteration: next => executeToolIteration({ issueUrl, owner, repo, issueNumber, prNumber, branchName: prBranch || branchName, tempDir, mergeStateStatus, feedbackLines: next.feedbackLines, argv: next.argv }), $, owner, repo, prNumber, log }));
           // Issue #2395: a session the repeated-tool-call breaker ended is not a tool
           // failure — attach its log and continue with feedback (agent#323).
           if (isRestartWithFeedback(toolResult)) {
@@ -1063,22 +1067,7 @@ export const watchUntilMergeable = async params => {
               try {
                 const logFile = getLogFile();
                 if (logFile) {
-                  failLogAttached = await attachLogToGitHub({
-                    logFile,
-                    targetType: 'pr',
-                    targetNumber: prNumber,
-                    owner,
-                    repo,
-                    $,
-                    log,
-                    sanitizeLogContent,
-                    verbose: argv.verbose,
-                    errorMessage: formatToolExecutionFailure({ tool: argv.tool, toolResult }),
-                    sessionId: latestSessionId,
-                    tempDir,
-                    requestedModel: argv.originalModel || argv.model,
-                    tool: argv.tool || 'claude',
-                  });
+                  failLogAttached = await attachLogToGitHub({ logFile, targetType: 'pr', targetNumber: prNumber, owner, repo, $, log, sanitizeLogContent, verbose: argv.verbose, errorMessage: formatToolExecutionFailure({ tool: argv.tool, toolResult }), sessionId: toolResult.sessionId || latestSessionId, tempDir, requestedModel: argv.originalModel || argv.model, tool: argv.tool || 'claude' });
                 }
               } catch (logUploadError) {
                 reportError(logUploadError, {

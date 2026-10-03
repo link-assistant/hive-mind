@@ -6,7 +6,9 @@
  * half of the problem: Docker's `State.OOMKilled` is a *container* flag, not a
  * statement about the container's main process. The kernel sets it when ANY
  * process in the container cgroup is OOM-killed, and it stays `true` afterwards
- * — so a container can be flagged, keep running, and exit 0 (see
+ * — so a container can be flagged, keep running, and exit 0 (moby sets it in
+ * daemon/monitor.go on `EventOOM` and clears it only in
+ * daemon/container/state.go `SetRunning`; see also
  * https://github.com/moby/moby/issues/47618).
  *
  * That is exactly what happened in #2134: the host ran out of memory, the OOM
@@ -32,7 +34,7 @@
  * @see https://github.com/link-assistant/hive-mind/issues/2134
  */
 
-import { classifyExitStatus, normalizeExitCode } from './session-status.lib.mjs';
+import { classifyExitStatus, normalizeExitCode, RUNNING_SESSION_STATUSES } from './session-status.lib.mjs';
 
 /**
  * Field written on the persisted session snapshot the first time an OOM event is
@@ -126,15 +128,36 @@ export async function resolveOomKilledState(sessionName, sessionInfo, statusResu
   // 2. Liveness: an alive container cannot have had its command killed.
   const alive = await probeBackendAlive(sessionName, sessionInfo, { verbose, runner, backendAlive });
   if (alive === true) {
-    markOomEventObserved(sessionInfo, persistSnapshot);
-    if (verbose) {
+    // Issue #2408: this branch runs on every 30 s poll for as long as the
+    // container lives on (1,800 identical lines in one 15-hour session), so
+    // say it once — when the event is first recorded.
+    const firstObservation = markOomEventObserved(sessionInfo, persistSnapshot);
+    if (verbose && firstObservation) {
       console.log(`[VERBOSE] Session ${sessionName} reported oomKilled=true but its ${sessionInfo.isolationBackend} backend is still alive; an OOM event hit the container, not the command — keeping the session tracked (issue #2134)`);
     }
     return { running: true, exitCode: null, status: statusResult?.status || 'executing', statusResult, deferred: true, oomEventObserved: true };
   }
 
-  // 3. Nothing contradicts the status record: this really is an OOM kill (#2015).
   const statusExitCode = normalizeExitCode(statusResult?.exitCode);
+  // 3. Issue #2408: the status record already carries an ordinary exit code
+  //    (1-127) — the main process exited by itself, it was not killed. This is
+  //    the footer case of step 1 arriving before the footer is flushed: the
+  //    first poll after exit used to announce "killed: out of memory", and the
+  //    next poll, reading the footer, "failed" — two verdicts for one session.
+  //    Exit 0 counts too once the record is terminal: a finished run must not
+  //    be read as an OOM kill (exit 137) and restarted.
+  const terminalRecord = !RUNNING_SESSION_STATUSES.has(String(statusResult?.status || '').toLowerCase());
+  if (statusExitCode !== null && statusExitCode < 128 && (statusExitCode > 0 || (statusExitCode === 0 && terminalRecord))) {
+    markOomEventObserved(sessionInfo, persistSnapshot);
+    const correctedStatus = classifyExitStatus(statusExitCode) || 'failed';
+    if (verbose) {
+      console.log(`[VERBOSE] Session ${sessionName} reported oomKilled=true with an ordinary exit ${statusExitCode} and no log footer yet; the main process exited by itself, so it SURVIVED the OOM event (${correctedStatus}, issue #2408)`);
+    }
+    const endTime = statusResult?.endTime || footer?.endTime || statusResult?.currentTime || null;
+    return { running: false, exitCode: statusExitCode, status: correctedStatus, statusResult: { ...statusResult, status: correctedStatus, exitCode: statusExitCode, endTime }, oomEventObserved: true };
+  }
+
+  // 4. Nothing contradicts the status record: this really is an OOM kill (#2015).
   let exitCode = 137;
   if (statusExitCode !== null && statusExitCode > 0) {
     exitCode = statusExitCode;

@@ -58,3 +58,52 @@ export async function findStartCommandBinary() {
     return null;
   }
 }
+
+const VERSION_PROBE_TIMEOUT_MS = 30_000;
+let startCommandVersionPromise = null;
+
+/**
+ * Parse the first line of `$ --version` (`start-command version: 0.35.0`).
+ *
+ * @param {string} output - `$ --version` stdout
+ * @returns {string|null} The semver version, or null when it is not reported
+ */
+export function parseStartCommandVersion(output) {
+  const match = /start-command version:\s*v?(\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)/.exec(String(output || ''));
+  return match ? match[1] : null;
+}
+
+/**
+ * The installed `$` version, probed once per process and cached.
+ *
+ * Feature gates use it to choose between behaviours that differ across
+ * start-command releases (issue #2408: a snapshot resume only keeps the
+ * container's CPU/RAM limits from 0.35.0, start#176). A failed probe is not
+ * cached, and resolves to null so callers take their conservative path.
+ *
+ * @param {Object} [options]
+ * @param {boolean} [options.verbose]
+ * @returns {Promise<string|null>}
+ */
+export async function getStartCommandVersion({ verbose = false } = {}) {
+  if (!startCommandVersionPromise) {
+    startCommandVersionPromise = (async () => {
+      const binPath = await findStartCommandBinary();
+      if (!binPath) return null;
+      const { execFile } = await import('node:child_process');
+      const stdout = await new Promise(resolve => {
+        execFile(binPath, ['--version'], { timeout: VERSION_PROBE_TIMEOUT_MS, encoding: 'utf8' }, (error, out) => resolve(error && !out ? '' : out || ''));
+      });
+      return parseStartCommandVersion(stdout);
+    })();
+  }
+  const version = await startCommandVersionPromise;
+  if (!version) startCommandVersionPromise = null;
+  if (verbose) console.log(`[VERBOSE] start-command: installed $ version ${version || '(unknown)'}`);
+  return version;
+}
+
+/** Forget the cached version (tests, and after an in-process upgrade). */
+export function resetStartCommandVersionCacheForTests() {
+  startCommandVersionPromise = null;
+}

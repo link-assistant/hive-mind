@@ -60,6 +60,7 @@ const { recordLoopToolFailure } = await import('./automation-failure.lib.mjs');
 
 // Issue #1574: Interruptible sleep so CTRL+C is never blocked by a lingering timer
 const { interruptibleSleep } = await import('./interruptible-sleep.lib.mjs');
+const { resumeAfterToolKill } = await import('./solve.tool-kill-resume.lib.mjs'); // Issue #2408
 // Issue #2119: one auto-restart budget shared with solve.auto-merge.lib.mjs, so
 // a limit of 5 means 5 AI sessions in total rather than 5 per subsystem, and
 // every label renders in the same `N/M` form.
@@ -120,6 +121,7 @@ export const watchForFeedback = async params => {
   // Track consecutive API errors for retry limit
   const MAX_API_ERROR_RETRIES = 3;
   let consecutiveApiErrors = 0;
+  let toolKillResumeCount = 0; // Issue #2408: in-process resumes after a SIGKILL (OOM)
   let currentBackoffSeconds = watchInterval;
 
   await log('');
@@ -453,18 +455,10 @@ export const watchForFeedback = async params => {
         }
 
         // Execute tool using shared utility
-        const toolResult = await executeToolIteration({
-          issueUrl,
-          owner,
-          repo,
-          issueNumber,
-          prNumber,
-          branchName: prBranch || branchName,
-          tempDir,
-          mergeStateStatus,
-          feedbackLines: restartFeedbackLines,
-          argv: restartArgv,
-        });
+        const runIteration = ({ argv: iterationArgv, feedbackLines }) => executeToolIteration({ issueUrl, owner, repo, issueNumber, prNumber, branchName: prBranch || branchName, tempDir, mergeStateStatus, feedbackLines, argv: iterationArgv });
+        let toolResult = await runIteration({ argv: restartArgv, feedbackLines: restartFeedbackLines });
+        // Issue #2408: a tool killed by SIGKILL (exit 137, OOM) resumes its own session in-process.
+        if (!toolResult.success) ({ toolResult, attemptsUsed: toolKillResumeCount } = await resumeAfterToolKill({ toolResult, attemptsUsed: toolKillResumeCount, argv, runIteration, $, owner, repo, prNumber, log }));
 
         if (toolResult.sessionId && (argv.resumeOnAutoRestart || argv['resume-on-auto-restart'])) {
           global.previousSessionId = toolResult.sessionId;

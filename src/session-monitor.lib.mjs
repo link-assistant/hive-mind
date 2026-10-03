@@ -52,6 +52,8 @@ async function getIsolationRunner() {
 }
 // In-memory session store
 const activeSessions = new Map();
+// Issue #2408: sessions whose monitor pass is running right now (see monitorSessions).
+const sessionsInFlight = new Set();
 // Issue #1927: optional durable mirror of the in-memory registry. When set (by the bot at startup via setSessionStore), every track/complete is persisted so a restart can reload and keep monitoring detached sessions. Left null in unit tests and one-off CLI paths, where in-memory tracking is sufficient.
 let sessionStore = null;
 let sessionLogger = null;
@@ -78,6 +80,7 @@ function logEvent(type, data) {
 }
 export function resetSessionMonitorForTests() {
   activeSessions.clear();
+  sessionsInFlight.clear();
   sessionStore = null;
   sessionLogger = null;
 }
@@ -220,7 +223,10 @@ export function getTrackedSessionInfo(sessionName) {
  */
 export function markSessionStopRequested(sessionId, { requestedBy = null, verbose = false } = {}) {
   if (!sessionId) return false;
-  const target = activeSessions.get(sessionId) || Array.from(activeSessions.values()).find(info => info?.sessionId === sessionId) || null;
+  // Issue #2408: a kill recovery is tracked under a new name, while the chat
+  // keeps showing the root session (#2301) — match the whole recovery chain.
+  const tracked = Array.from(activeSessions.values());
+  const target = activeSessions.get(sessionId) || tracked.find(info => info?.sessionId === sessionId) || tracked.find(info => [info?.executionUuid, info?.rootSessionName, info?.killRecoveryOfSession].includes(sessionId)) || null;
   if (!target) {
     if (verbose) console.log(`[VERBOSE] markSessionStopRequested: no tracked session found for ${sessionId}`);
     return false;
@@ -726,405 +732,433 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
   if (verbose) {
     console.log(`[VERBOSE] Checking ${sessions.length} active session(s)...`);
   }
-  for (const { sessionName, sessionInfo } of sessions) {
-    // Issue #2189: a session whose completion notification was already
-    // delivered is terminal. Without this latch the monitor re-entered the whole
-    // completion pipeline on every poll — re-resolving the linked pull request,
-    // re-scanning a 134 MB log, re-walking a 27 GB writable layer and re-sending
-    // a notification the user already had — because a late failure in that
-    // pipeline (or a bot restart) left the session tracked. Finalize it here,
-    // before any status probe, and do none of that work again.
-    if (isCompletionHandled(sessionInfo)) {
-      if (verbose) {
-        console.log(`[VERBOSE] Session ${sessionName} was already reported at ${sessionInfo.completionNotifiedAt}; finalizing without repeating the completion work (issue #2189)`);
-      }
-      completeSession(sessionName, sessionInfo.completionExitCode ?? 0, verbose, sessionInfo.completionStatus ?? null);
+  for (const entry of sessions) {
+    // Issue #2408: the monitor ticks every 30 s whether or not the previous
+    // tick has finished, and a completion (pull request lookup, log upload,
+    // recovery launch, Telegram edit) takes minutes. Overlapping ticks used to
+    // run the same completion three and six times over: every copy uploaded the
+    // log and posted a notice, and the later copies — finding the recovery
+    // budget already spent — overwrote "recovering" with "❌ failed".
+    if (sessionsInFlight.has(entry.sessionName)) {
+      if (verbose) console.log(`[VERBOSE] Session ${entry.sessionName} is still being handled by an earlier monitor tick; skipping it this tick (issue #2408)`);
       continue;
     }
-    let stillRunning;
-    let exitCode = null;
-    let statusResult = null;
-    let resolvedStatus = null;
-    let observedContainerFilesystemBytes = null;
-    if (sessionInfo.isolationBackend && sessionInfo.sessionId) {
-      // Isolation mode: use $ --status, with screen -ls only as a fallback
-      // when the status record is unavailable. Terminal $ statuses are
-      // authoritative so completed screen sessions do not stay blocked.
-      const state = await getIsolationSessionState(sessionName, sessionInfo, {
-        verbose,
-        statusProvider: options.statusProvider,
-        exitFromLog: options.exitFromLog,
-        backendAlive: options.backendAlive,
-        sessionRunning: options.sessionRunning,
-      });
-      stillRunning = state.running;
-      exitCode = state.exitCode;
-      statusResult = state.statusResult;
-      resolvedStatus = state.status || statusResult?.status || null;
-      if (state.stale && verbose) {
-        console.log(`[VERBOSE] Session ${sessionName} detected as killed/terminated despite an 'executing' status report (issue #1927 cross-check)`);
+    sessionsInFlight.add(entry.sessionName);
+    try {
+      await monitorTrackedSession(bot, entry, verbose, options);
+    } finally {
+      sessionsInFlight.delete(entry.sessionName);
+    }
+  }
+}
+/** One session of {@link monitorSessions}; never runs twice at once for a session. */
+async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose = false, options = {}) {
+  // Issue #2189: a session whose completion notification was already
+  // delivered is terminal. Without this latch the monitor re-entered the whole
+  // completion pipeline on every poll — re-resolving the linked pull request,
+  // re-scanning a 134 MB log, re-walking a 27 GB writable layer and re-sending
+  // a notification the user already had — because a late failure in that
+  // pipeline (or a bot restart) left the session tracked. Finalize it here,
+  // before any status probe, and do none of that work again.
+  if (isCompletionHandled(sessionInfo)) {
+    if (verbose) {
+      console.log(`[VERBOSE] Session ${sessionName} was already reported at ${sessionInfo.completionNotifiedAt}; finalizing without repeating the completion work (issue #2189)`);
+    }
+    completeSession(sessionName, sessionInfo.completionExitCode ?? 0, verbose, sessionInfo.completionStatus ?? null);
+    return;
+  }
+  let stillRunning;
+  let exitCode = null;
+  let statusResult = null;
+  let resolvedStatus = null;
+  let observedContainerFilesystemBytes = null;
+  if (sessionInfo.isolationBackend && sessionInfo.sessionId) {
+    // Isolation mode: use $ --status, with screen -ls only as a fallback
+    // when the status record is unavailable. Terminal $ statuses are
+    // authoritative so completed screen sessions do not stay blocked.
+    const state = await getIsolationSessionState(sessionName, sessionInfo, {
+      verbose,
+      statusProvider: options.statusProvider,
+      exitFromLog: options.exitFromLog,
+      backendAlive: options.backendAlive,
+      sessionRunning: options.sessionRunning,
+    });
+    stillRunning = state.running;
+    exitCode = state.exitCode;
+    statusResult = state.statusResult;
+    resolvedStatus = state.status || statusResult?.status || null;
+    if (state.stale && verbose) {
+      console.log(`[VERBOSE] Session ${sessionName} detected as killed/terminated despite an 'executing' status report (issue #1927 cross-check)`);
+    }
+    // Issue #1927: once start-command reveals the log path, record it in the
+    // durable snapshot. If the bot dies and restarts after start-command has
+    // garbage-collected the status record, the resumed session can still read
+    // the log footer to learn whether it was killed.
+    if (statusResult?.logPath && sessionInfo.logPath !== statusResult.logPath) {
+      sessionInfo.logPath = statusResult.logPath;
+      persistSessionSnapshot(sessionName, sessionInfo);
+    }
+    // Issue #2154: the same status record carries start-command's *execution*
+    // UUID — the only identifier `$ --list` prints. A session launched before
+    // this fix (or by a start-command whose banner we could not parse) has
+    // none, so backfill it here; otherwise that session stays impossible to
+    // find in the session list for its whole lifetime.
+    if (statusResult?.uuid && sessionInfo.executionUuid !== statusResult.uuid) {
+      if (verbose) {
+        console.log(`[VERBOSE] Session ${sessionName}: recorded start-command execution UUID ${statusResult.uuid} (this is what '$ --list' shows)`);
       }
-      // Issue #1927: once start-command reveals the log path, record it in the
-      // durable snapshot. If the bot dies and restarts after start-command has
-      // garbage-collected the status record, the resumed session can still read
-      // the log footer to learn whether it was killed.
-      if (statusResult?.logPath && sessionInfo.logPath !== statusResult.logPath) {
-        sessionInfo.logPath = statusResult.logPath;
-        persistSessionSnapshot(sessionName, sessionInfo);
-      }
-      // Issue #2154: the same status record carries start-command's *execution*
-      // UUID — the only identifier `$ --list` prints. A session launched before
-      // this fix (or by a start-command whose banner we could not parse) has
-      // none, so backfill it here; otherwise that session stays impossible to
-      // find in the session list for its whole lifetime.
-      if (statusResult?.uuid && sessionInfo.executionUuid !== statusResult.uuid) {
-        if (verbose) {
-          console.log(`[VERBOSE] Session ${sessionName}: recorded start-command execution UUID ${statusResult.uuid} (this is what '$ --list' shows)`);
-        }
-        sessionInfo.executionUuid = statusResult.uuid;
-        persistSessionSnapshot(sessionName, sessionInfo);
+      sessionInfo.executionUuid = statusResult.uuid;
+      persistSessionSnapshot(sessionName, sessionInfo);
+    }
+  } else {
+    // Issue #1586: Non-isolation screen sessions cannot reliably detect
+    // completion because start-screen keeps the screen alive via `exec bash`.
+    // Auto-expire after timeout; within timeout, use screen -ls as best-effort.
+    const startTime = sessionInfo.startTime instanceof Date ? sessionInfo.startTime : new Date(sessionInfo.startTime);
+    const elapsed = Date.now() - startTime.getTime();
+    if (elapsed >= NON_ISOLATION_SESSION_TIMEOUT_MS) {
+      stillRunning = false;
+      if (verbose) {
+        console.log(`[VERBOSE] Non-isolation session ${sessionName} expired after ${Math.round(elapsed / 1000)}s (timeout: ${NON_ISOLATION_SESSION_TIMEOUT_MS / 1000}s)`);
       }
     } else {
-      // Issue #1586: Non-isolation screen sessions cannot reliably detect
-      // completion because start-screen keeps the screen alive via `exec bash`.
-      // Auto-expire after timeout; within timeout, use screen -ls as best-effort.
-      const startTime = sessionInfo.startTime instanceof Date ? sessionInfo.startTime : new Date(sessionInfo.startTime);
-      const elapsed = Date.now() - startTime.getTime();
-      if (elapsed >= NON_ISOLATION_SESSION_TIMEOUT_MS) {
-        stillRunning = false;
-        if (verbose) {
-          console.log(`[VERBOSE] Non-isolation session ${sessionName} expired after ${Math.round(elapsed / 1000)}s (timeout: ${NON_ISOLATION_SESSION_TIMEOUT_MS / 1000}s)`);
-        }
-      } else {
-        stillRunning = await checkScreenSessionExists(sessionName);
-        if (verbose) {
-          const remainingSec = Math.round((NON_ISOLATION_SESSION_TIMEOUT_MS - elapsed) / 1000);
-          console.log(`[VERBOSE] Non-isolation session ${sessionName}: screen -ls says ${stillRunning ? 'running' : 'not found'} (timeout in ${remainingSec}s)`);
-        }
+      stillRunning = await checkScreenSessionExists(sessionName);
+      if (verbose) {
+        const remainingSec = Math.round((NON_ISOLATION_SESSION_TIMEOUT_MS - elapsed) / 1000);
+        console.log(`[VERBOSE] Non-isolation session ${sessionName}: screen -ls says ${stillRunning ? 'running' : 'not found'} (timeout in ${remainingSec}s)`);
       }
     }
-    if (shouldRefreshDockerFilesystemSize(sessionInfo, { stillRunning })) {
-      observedContainerFilesystemBytes = await refreshDockerContainerFilesystemSizeForSession(sessionName, sessionInfo, {
+  }
+  if (shouldRefreshDockerFilesystemSize(sessionInfo, { stillRunning })) {
+    observedContainerFilesystemBytes = await refreshDockerContainerFilesystemSizeForSession(sessionName, sessionInfo, {
+      verbose,
+      sizeProvider: options.dockerContainerSizeProvider,
+    });
+  } else if (sessionInfo?.isolationBackend === 'docker' && verbose) {
+    console.log(`[VERBOSE] Session ${sessionName}: reusing the writable-layer size observed at ${sessionInfo.containerFilesystemLastObservedAt} (issue #2189: not re-walking the layer every poll)`);
+  }
+  if (stillRunning && Number.isFinite(observedContainerFilesystemBytes)) {
+    const enforcement = await enforceContainerDiskLimitForSession(sessionName, sessionInfo, observedContainerFilesystemBytes, {
+      verbose,
+      killContainer: options.killDockerContainer || options.isolationRunner?.killDockerContainer,
+    });
+    // Let start-command observe the killed container and write its terminal
+    // status before the next monitor tick builds the completion report.
+    if (enforcement?.stopped) return;
+  }
+  if (!stillRunning) {
+    console.log(`Session ${sessionName} has finished. Sending notification to chat ${sessionInfo.chatId}`);
+    let dockerTaskContainerAction = null;
+    try {
+      const finalExitCode = getSessionCompletionExitCode({ exitCode, statusResult });
+      dockerTaskContainerAction = buildDockerTaskContainerCompletionAction({
+        sessionName,
+        sessionInfo,
+        exitCode: finalExitCode,
+        status: resolvedStatus,
+        env: options.env || process.env,
         verbose,
-        sizeProvider: options.dockerContainerSizeProvider,
       });
-    } else if (sessionInfo?.isolationBackend === 'docker' && verbose) {
-      console.log(`[VERBOSE] Session ${sessionName}: reusing the writable-layer size observed at ${sessionInfo.containerFilesystemLastObservedAt} (issue #2189: not re-walking the layer every poll)`);
-    }
-    if (stillRunning && Number.isFinite(observedContainerFilesystemBytes)) {
-      const enforcement = await enforceContainerDiskLimitForSession(sessionName, sessionInfo, observedContainerFilesystemBytes, {
-        verbose,
-        killContainer: options.killDockerContainer || options.isolationRunner?.killDockerContainer,
-      });
-      // Let start-command observe the killed container and write its terminal
-      // status before the next monitor tick builds the completion report.
-      if (enforcement?.stopped) continue;
-    }
-    if (!stillRunning) {
-      console.log(`Session ${sessionName} has finished. Sending notification to chat ${sessionInfo.chatId}`);
-      let dockerTaskContainerAction = null;
+      // Issue #1688/#1905: Resolve the created PR from GitHub or, when its
+      // linked-issue API lags, from the completed solve log.
+      let pullRequestUrl = null;
       try {
-        const finalExitCode = getSessionCompletionExitCode({ exitCode, statusResult });
-        dockerTaskContainerAction = buildDockerTaskContainerCompletionAction({
-          sessionName,
-          sessionInfo,
-          exitCode: finalExitCode,
-          status: resolvedStatus,
-          env: options.env || process.env,
+        pullRequestUrl = await resolvePullRequestUrlForSession(sessionInfo, {
           verbose,
-        });
-        // Issue #1688/#1905: Resolve the created PR from GitHub or, when its
-        // linked-issue API lags, from the completed solve log.
-        let pullRequestUrl = null;
-        try {
-          pullRequestUrl = await resolvePullRequestUrlForSession(sessionInfo, {
-            verbose,
-            lookupLinkedPullRequest: options.lookupLinkedPullRequest,
-            statusResult,
-            readFile: options.readFile,
-          });
-          if (pullRequestUrl && sessionInfo.resolvedPullRequestUrl !== pullRequestUrl) {
-            sessionInfo.resolvedPullRequestUrl = pullRequestUrl;
-            persistSessionSnapshot(sessionName, sessionInfo);
-          }
-        } catch (lookupError) {
-          if (verbose) {
-            console.log(`[VERBOSE] Pull request lookup failed for ${sessionName}: ${lookupError?.message || lookupError}`);
-          }
-        }
-        let pullRequestState = null;
-        const completionOutcome = classifySessionOutcome({ exitCode: finalExitCode, status: resolvedStatus });
-        try {
-          pullRequestState = await resolveFailedSessionPullRequestState({
-            pullRequestUrl,
-            outcome: completionOutcome,
-            lookupPullRequestState: options.lookupPullRequestState,
-            verbose,
-            sessionName,
-            exitCode: finalExitCode,
-            status: resolvedStatus,
-            logPath: statusResult?.logPath || sessionInfo?.logPath,
-          });
-        } catch (stateError) {
-          if (verbose) console.log(`[VERBOSE] Pull request state resolution failed for ${sessionName}: ${stateError?.message || stateError}`);
-        }
-        // Issue #594: append an end-of-task limits snapshot/delta. Cached
-        // helpers prevent parallel sessions from stampeding the upstream API.
-        const limitsExtraSections = [];
-        if (sessionInfo?.showLimits) {
-          try {
-            const showLimitsLib = await import('./telegram-show-limits.lib.mjs');
-            const limitsLib = await import('./limits.lib.mjs');
-            const { lt } = await import('./limits-i18n.lib.mjs');
-            const endSnapshot = await showLimitsLib.captureLimitsSnapshot({
-              tool: sessionInfo.tool || 'claude',
-              verbose,
-              limitsLib,
-            });
-            sessionInfo.limitsAtEnd = endSnapshot;
-            const locale = sessionInfo.locale || null;
-            const deltaBlock = showLimitsLib.formatLimitsDeltaBlock(sessionInfo.limitsAtStart || null, endSnapshot, { locale });
-            if (deltaBlock) limitsExtraSections.push(deltaBlock);
-            else {
-              // Either start snapshot was missing or tool changed — fall back
-              // to a plain end-of-task snapshot so the user still sees current state.
-              const endBlock = showLimitsLib.formatLimitsSnapshotBlock(endSnapshot, { title: `📊 ${lt('limits_at_end', {}, { locale })}`, locale });
-              if (endBlock) limitsExtraSections.push(endBlock);
-            }
-          } catch (limitsError) {
-            if (verbose) {
-              console.log(`[VERBOSE] Could not capture end-of-task limits for ${sessionName}: ${limitsError?.message || limitsError}`);
-            }
-          }
-        }
-        // Issue #2189: the last tool session id is read through the session
-        // record's cache, so the working-session log is scanned once per session
-        // instead of once per poll per consumer (the resume section below and the
-        // automatic recovery further down both need it, and both used to scan).
-        const resolveLastToolSessionId = logPath => {
-          const resolution = resolveCachedLastToolSessionId({ sessionInfo, logPath, verbose });
-          if (resolution.scanned) persistSessionSnapshot(sessionName, sessionInfo);
-          return resolution.id;
-        };
-        // Issue #1927: for a killed /solve, offer a command using the last tool
-        // session ID in the log. Issue #2189 additionally *starts* that command
-        // by default (`--on-session-kill=resume`), bounded by
-        // `--session-kill-resume-attempts`, so the work is not left for a human
-        // to notice hours later.
-        const resumeExtraSections = [];
-        let killResumeCommand = null;
-        try {
-          const outcome = classifySessionOutcome({ exitCode: finalExitCode, status: resolvedStatus });
-          const isResumableCommand = (sessionInfo?.command || 'solve') === 'solve';
-          if (outcome.killed && isResumableCommand && !sessionInfo?.containerResourceLimitExceeded) {
-            const logPath = statusResult?.logPath || sessionInfo?.logPath || null;
-            // The id must be the AI TOOL's session id, not the isolation session
-            //   id (sessionInfo.sessionId — wrong namespace for `solve --resume`).
-            //   Scan backwards through this task's captured log for its last
-            //   `Session ID:` marker. Do not guess from neighboring UUID-named
-            //   logs: start-command stores unrelated tasks in the same backend
-            //   directory, which caused issue #2109's invalid resume id.
-            const lastSessionId = resolveLastToolSessionId(logPath);
-            const resumeCommand = buildResumeCommand({ sessionInfo, lastSessionId });
-            const resumeSection = formatResumeSection({ lastSessionId, command: resumeCommand });
-            killResumeCommand = resumeCommand || null;
-            if (resumeSection) {
-              resumeExtraSections.push(resumeSection);
-              if (verbose) {
-                console.log(`[VERBOSE] Session ${sessionName} was killed; offering resume from last session ${lastSessionId}`);
-              }
-            }
-          }
-        } catch (resumeError) {
-          if (verbose) {
-            console.log(`[VERBOSE] Could not build resume section for ${sessionName}: ${resumeError?.message || resumeError}`);
-          }
-        }
-        // Issue #1945/#1988: append a "💾 Disk usage" block from repository
-        // size markers and, for docker isolation, the container writable layer.
-        const diskExtraSections = [];
-        try {
-          const diskLogPath = statusResult?.logPath || sessionInfo?.logPath || null;
-          const containerFilesystemAfterBytes = Number.isFinite(observedContainerFilesystemBytes) ? observedContainerFilesystemBytes : getLastKnownDockerContainerFilesystemSize(sessionInfo);
-          const diskBlock = await buildDiskDiagnosticsExtraSection(diskLogPath, {
-            verbose,
-            readFile: options.readFile,
-            isolationBackend: sessionInfo?.isolationBackend || statusResult?.isolation || null,
-            containerFilesystemStartBytes: Number.isFinite(sessionInfo?.containerFilesystemStartBytes) ? sessionInfo.containerFilesystemStartBytes : null,
-            containerFilesystemAfterBytes,
-          });
-          if (diskBlock) diskExtraSections.push(diskBlock);
-        } catch (diskError) {
-          if (verbose) {
-            console.log(`[VERBOSE] Could not build disk diagnostics section for ${sessionName}: ${diskError?.message || diskError}`);
-          }
-        }
-        const dockerTaskContainerExtraSections = dockerTaskContainerAction?.extraSection ? [dockerTaskContainerAction.extraSection] : [];
-        const resourceLimitExtraSections = [formatContainerResourceLimitExceededSection(sessionInfo)].filter(Boolean);
-        // Issue #2161: a blocked subscription/account explains every other
-        // symptom of the run, so it goes first in the completion message.
-        const subscriptionBlockedExtraSections = [];
-        try {
-          const blockedSection = await buildSubscriptionBlockedExtraSection(statusResult?.logPath || sessionInfo?.logPath || null, {
-            verbose,
-            readFile: options.readFile,
-            locale: sessionInfo?.locale || null,
-            outcome: completionOutcome,
-            expectedTool: sessionInfo?.tool || null,
-          });
-          if (blockedSection) subscriptionBlockedExtraSections.push(blockedSection);
-        } catch (blockedError) {
-          if (verbose) {
-            console.log(`[VERBOSE] Could not build subscription block section for ${sessionName}: ${blockedError?.message || blockedError}`);
-          }
-        }
-        // Issue #2134: say exactly WHY a session was killed, and warn when a
-        // session merely survived a kill event instead of reporting a plain
-        // success. The pull request gets the very same report below.
-        const killReport = await buildKillCompletionSections({
-          sessionName,
-          sessionInfo,
+          lookupLinkedPullRequest: options.lookupLinkedPullRequest,
           statusResult,
+          readFile: options.readFile,
+        });
+        if (pullRequestUrl && sessionInfo.resolvedPullRequestUrl !== pullRequestUrl) {
+          sessionInfo.resolvedPullRequestUrl = pullRequestUrl;
+          persistSessionSnapshot(sessionName, sessionInfo);
+        }
+      } catch (lookupError) {
+        if (verbose) {
+          console.log(`[VERBOSE] Pull request lookup failed for ${sessionName}: ${lookupError?.message || lookupError}`);
+        }
+      }
+      let pullRequestState = null;
+      const completionOutcome = classifySessionOutcome({ exitCode: finalExitCode, status: resolvedStatus });
+      try {
+        pullRequestState = await resolveFailedSessionPullRequestState({
+          pullRequestUrl,
+          outcome: completionOutcome,
+          lookupPullRequestState: options.lookupPullRequestState,
+          verbose,
+          sessionName,
           exitCode: finalExitCode,
           status: resolvedStatus,
+          logPath: statusResult?.logPath || sessionInfo?.logPath,
+        });
+      } catch (stateError) {
+        if (verbose) console.log(`[VERBOSE] Pull request state resolution failed for ${sessionName}: ${stateError?.message || stateError}`);
+      }
+      // Issue #594: append an end-of-task limits snapshot/delta. Cached
+      // helpers prevent parallel sessions from stampeding the upstream API.
+      const limitsExtraSections = [];
+      if (sessionInfo?.showLimits) {
+        try {
+          const showLimitsLib = await import('./telegram-show-limits.lib.mjs');
+          const limitsLib = await import('./limits.lib.mjs');
+          const { lt } = await import('./limits-i18n.lib.mjs');
+          const endSnapshot = await showLimitsLib.captureLimitsSnapshot({
+            tool: sessionInfo.tool || 'claude',
+            verbose,
+            limitsLib,
+          });
+          sessionInfo.limitsAtEnd = endSnapshot;
+          const locale = sessionInfo.locale || null;
+          const deltaBlock = showLimitsLib.formatLimitsDeltaBlock(sessionInfo.limitsAtStart || null, endSnapshot, { locale });
+          if (deltaBlock) limitsExtraSections.push(deltaBlock);
+          else {
+            // Either start snapshot was missing or tool changed — fall back
+            // to a plain end-of-task snapshot so the user still sees current state.
+            const endBlock = showLimitsLib.formatLimitsSnapshotBlock(endSnapshot, { title: `📊 ${lt('limits_at_end', {}, { locale })}`, locale });
+            if (endBlock) limitsExtraSections.push(endBlock);
+          }
+        } catch (limitsError) {
+          if (verbose) {
+            console.log(`[VERBOSE] Could not capture end-of-task limits for ${sessionName}: ${limitsError?.message || limitsError}`);
+          }
+        }
+      }
+      // Issue #2189: the last tool session id is read through the session
+      // record's cache, so the working-session log is scanned once per session
+      // instead of once per poll per consumer (the resume section below and the
+      // automatic recovery further down both need it, and both used to scan).
+      const resolveLastToolSessionId = logPath => {
+        const resolution = resolveCachedLastToolSessionId({ sessionInfo, logPath, verbose });
+        if (resolution.scanned) persistSessionSnapshot(sessionName, sessionInfo);
+        return resolution.id;
+      };
+      // Issue #1927: for a killed /solve, offer a command using the last tool
+      // session ID in the log. Issue #2189 additionally *starts* that command
+      // by default (`--on-session-kill=resume`), bounded by
+      // `--session-kill-resume-attempts`, so the work is not left for a human
+      // to notice hours later.
+      const resumeExtraSections = [];
+      let killResumeCommand = null;
+      try {
+        const outcome = classifySessionOutcome({ exitCode: finalExitCode, status: resolvedStatus });
+        const isResumableCommand = (sessionInfo?.command || 'solve') === 'solve';
+        if (outcome.killed && isResumableCommand && !sessionInfo?.containerResourceLimitExceeded) {
+          const logPath = statusResult?.logPath || sessionInfo?.logPath || null;
+          // The id must be the AI TOOL's session id, not the isolation session
+          //   id (sessionInfo.sessionId — wrong namespace for `solve --resume`).
+          //   Scan backwards through this task's captured log for its last
+          //   `Session ID:` marker. Do not guess from neighboring UUID-named
+          //   logs: start-command stores unrelated tasks in the same backend
+          //   directory, which caused issue #2109's invalid resume id.
+          const lastSessionId = resolveLastToolSessionId(logPath);
+          const resumeCommand = buildResumeCommand({ sessionInfo, lastSessionId });
+          const resumeSection = formatResumeSection({ lastSessionId, command: resumeCommand });
+          killResumeCommand = resumeCommand?.display || null;
+          if (resumeSection) {
+            resumeExtraSections.push(resumeSection);
+            if (verbose) {
+              console.log(`[VERBOSE] Session ${sessionName} was killed; offering resume from last session ${lastSessionId}`);
+            }
+          }
+        }
+      } catch (resumeError) {
+        if (verbose) {
+          console.log(`[VERBOSE] Could not build resume section for ${sessionName}: ${resumeError?.message || resumeError}`);
+        }
+      }
+      // Issue #1945/#1988: append a "💾 Disk usage" block from repository
+      // size markers and, for docker isolation, the container writable layer.
+      const diskExtraSections = [];
+      try {
+        const diskLogPath = statusResult?.logPath || sessionInfo?.logPath || null;
+        const containerFilesystemAfterBytes = Number.isFinite(observedContainerFilesystemBytes) ? observedContainerFilesystemBytes : getLastKnownDockerContainerFilesystemSize(sessionInfo);
+        const diskBlock = await buildDiskDiagnosticsExtraSection(diskLogPath, {
           verbose,
           readFile: options.readFile,
-          env: options.env || process.env,
+          isolationBackend: sessionInfo?.isolationBackend || statusResult?.isolation || null,
+          containerFilesystemStartBytes: Number.isFinite(sessionInfo?.containerFilesystemStartBytes) ? sessionInfo.containerFilesystemStartBytes : null,
+          containerFilesystemAfterBytes,
         });
-        // Issue #2134: `--on-session-kill=resume` must actually start a new
-        // working session, and both surfaces must say so. Done before the
-        // message is built so the Telegram report and the pull-request notice
-        // below name the very same recovery session.
-        let killRecovery = { resumed: false, sessionId: null, attempt: 0, maxAttempts: 0 };
-        if ((killReport.killed || killReport.oomEventOnly) && !sessionInfo?.containerResourceLimitExceeded) {
-          const recovered = await runKillRecoveryForCompletion({
-            sessionName,
-            sessionInfo,
-            logPath: statusResult?.logPath || sessionInfo?.logPath || null,
-            killed: true,
-            env: options.env || process.env,
-            runner: options.isolationRunner || null,
-            trackSession: options.trackSession || trackSession,
-            persistSnapshot: () => persistSessionSnapshot(sessionName, sessionInfo),
-            // Issue #2189: reuse the id already read above instead of scanning
-            // the same (possibly multi-gigabyte) log a second time.
-            readLastSessionId: logPath => resolveLastToolSessionId(logPath),
-            locale: sessionInfo?.locale || null,
-            verbose,
-          });
-          killRecovery = recovered.recovery;
-          if (killRecovery.resumed && killRecovery.sessionId) {
-            // Issue #2189: remember which session took over, so the durable
-            // history says what happened to this work and a restart cannot start
-            // a second recovery for the same kill.
-            sessionInfo.killRecoverySessionId = killRecovery.sessionId;
-            persistSessionSnapshot(sessionName, sessionInfo);
-            logEvent('session_kill_recovered', { sessionName, recoverySessionId: killRecovery.sessionId, attempt: killRecovery.attempt, maxAttempts: killRecovery.maxAttempts, policy: killRecovery.policy || null });
-          }
-          if (recovered.section) killReport.sections.push(recovered.section);
+        if (diskBlock) diskExtraSections.push(diskBlock);
+      } catch (diskError) {
+        if (verbose) {
+          console.log(`[VERBOSE] Could not build disk diagnostics section for ${sessionName}: ${diskError?.message || diskError}`);
         }
-        const message = formatSessionCompletionMessage({
+      }
+      const dockerTaskContainerExtraSections = dockerTaskContainerAction?.extraSection ? [dockerTaskContainerAction.extraSection] : [];
+      const resourceLimitExtraSections = [formatContainerResourceLimitExceededSection(sessionInfo)].filter(Boolean);
+      // Issue #2161: a blocked subscription/account explains every other
+      // symptom of the run, so it goes first in the completion message.
+      const subscriptionBlockedExtraSections = [];
+      try {
+        const blockedSection = await buildSubscriptionBlockedExtraSection(statusResult?.logPath || sessionInfo?.logPath || null, {
+          verbose,
+          readFile: options.readFile,
+          locale: sessionInfo?.locale || null,
+          outcome: completionOutcome,
+          expectedTool: sessionInfo?.tool || null,
+        });
+        if (blockedSection) subscriptionBlockedExtraSections.push(blockedSection);
+      } catch (blockedError) {
+        if (verbose) {
+          console.log(`[VERBOSE] Could not build subscription block section for ${sessionName}: ${blockedError?.message || blockedError}`);
+        }
+      }
+      // Issue #2134: say exactly WHY a session was killed, and warn when a
+      // session merely survived a kill event instead of reporting a plain
+      // success. The pull request gets the very same report below.
+      const killReport = await buildKillCompletionSections({
+        sessionName,
+        sessionInfo,
+        statusResult,
+        exitCode: finalExitCode,
+        status: resolvedStatus,
+        verbose,
+        readFile: options.readFile,
+        env: options.env || process.env,
+      });
+      // Issue #2134: `--on-session-kill=resume` must actually start a new
+      // working session, and both surfaces must say so. Done before the
+      // message is built so the Telegram report and the pull-request notice
+      // below name the very same recovery session.
+      let killRecovery = { resumed: false, sessionId: null, attempt: 0, maxAttempts: 0 };
+      const shouldAttemptKillRecovery = (killReport.killed || killReport.oomEventOnly) && !killReport.deliberateStop && !sessionInfo?.containerResourceLimitExceeded;
+      if (killReport.killed || killReport.oomEventOnly) {
+        // Issue #2408: one durable line per kill/OOM decision, so "why was this
+        // (not) restarted?" can be answered from the session log afterwards.
+        const decision = { exitCode: finalExitCode, status: resolvedStatus, killed: killReport.killed, oomEventOnly: killReport.oomEventOnly, deliberateStop: killReport.deliberateStop?.reason || null };
+        logEvent('session_kill_recovery_decision', { sessionName, ...decision, diskLimitExceeded: Boolean(sessionInfo?.containerResourceLimitExceeded), attemptRecovery: shouldAttemptKillRecovery });
+      }
+      if (shouldAttemptKillRecovery) {
+        const recovered = await runKillRecoveryForCompletion({
           sessionName,
           sessionInfo,
-          statusResult,
-          observedEndTime: new Date(),
-          exitCode: finalExitCode,
-          infoBlock: sessionInfo?.infoBlock || '',
-          pullRequestUrl,
-          pullRequestState,
-          extraSections: [...subscriptionBlockedExtraSections, ...resourceLimitExtraSections, ...limitsExtraSections, ...killReport.sections, ...resumeExtraSections, ...diskExtraSections, ...dockerTaskContainerExtraSections],
-          resumedAs: killRecovery.resumed ? killRecovery.sessionId : null,
+          logPath: statusResult?.logPath || sessionInfo?.logPath || null,
+          killed: true,
+          env: options.env || process.env,
+          runner: options.isolationRunner || null,
+          trackSession: options.trackSession || trackSession,
+          persistSnapshot: () => persistSessionSnapshot(sessionName, sessionInfo),
+          // Issue #2189: reuse the id already read above instead of scanning
+          // the same (possibly multi-gigabyte) log a second time.
+          readLastSessionId: logPath => resolveLastToolSessionId(logPath),
+          locale: sessionInfo?.locale || null,
+          verbose,
         });
-        if (killReport.killed || killReport.recovered || killReport.oomEventOnly) {
-          const notice = await announceKillOnPullRequest({
-            pullRequestUrl,
-            sessionName,
-            sessionInfo,
-            diagnosis: killReport.diagnosis,
-            exitCode: finalExitCode,
-            observedAt: killReport.observedAt,
-            policy: killReport.policy,
-            recovered: killReport.recovered,
-            oomEventOnly: killReport.oomEventOnly,
-            resumed: killRecovery.resumed,
-            recoverySessionId: killRecovery.resumed ? killRecovery.sessionId : null,
-            attempt: killRecovery.resumed ? killRecovery.attempt : null,
-            maxAttempts: killRecovery.resumed ? killRecovery.maxAttempts : null,
-            resumeCommand: killResumeCommand,
-            runCommand: options.runCommand || undefined,
-            attachLog: options.attachLog || undefined,
+        killRecovery = recovered.recovery;
+        if (!killRecovery.resumed) logEvent('session_kill_not_recovered', { sessionName, reason: killRecovery.reason || null, policy: killRecovery.policy || null, attempt: killRecovery.attempt, maxAttempts: killRecovery.maxAttempts });
+        if (killRecovery.resumed && killRecovery.sessionId) {
+          // Issue #2189: remember which session took over, so the durable
+          // history says what happened to this work and a restart cannot start
+          // a second recovery for the same kill.
+          sessionInfo.killRecoverySessionId = killRecovery.sessionId;
+          persistSessionSnapshot(sessionName, sessionInfo);
+          logEvent('session_kill_recovered', { sessionName, recoverySessionId: killRecovery.sessionId, attempt: killRecovery.attempt, maxAttempts: killRecovery.maxAttempts, policy: killRecovery.policy || null });
+        }
+        if (recovered.section) killReport.sections.push(recovered.section);
+      }
+      const message = formatSessionCompletionMessage({
+        sessionName,
+        sessionInfo,
+        statusResult,
+        observedEndTime: new Date(),
+        exitCode: finalExitCode,
+        infoBlock: sessionInfo?.infoBlock || '',
+        pullRequestUrl,
+        pullRequestState,
+        extraSections: [...subscriptionBlockedExtraSections, ...resourceLimitExtraSections, ...limitsExtraSections, ...killReport.sections, ...resumeExtraSections, ...diskExtraSections, ...dockerTaskContainerExtraSections],
+        resumedAs: killRecovery.resumed ? killRecovery.sessionId : null,
+        recoveryCount: killRecovery.resumed ? killRecovery.attempt : null,
+      });
+      if (killReport.killed || killReport.recovered || killReport.oomEventOnly) {
+        const notice = await announceKillOnPullRequest({
+          pullRequestUrl,
+          sessionName,
+          sessionInfo,
+          diagnosis: killReport.diagnosis,
+          exitCode: finalExitCode,
+          observedAt: killReport.observedAt,
+          policy: killReport.policy,
+          recovered: killReport.recovered,
+          oomEventOnly: killReport.oomEventOnly,
+          resumed: killRecovery.resumed,
+          recoverySessionId: killRecovery.resumed ? killRecovery.sessionId : null,
+          attempt: killRecovery.resumed ? killRecovery.attempt : null,
+          maxAttempts: killRecovery.resumed ? killRecovery.maxAttempts : null,
+          resumeCommand: killResumeCommand,
+          runCommand: options.runCommand || undefined,
+          attachLog: options.attachLog || undefined,
+          verbose,
+        });
+        if (verbose && !notice.posted) {
+          console.log(`[VERBOSE] Killed-session notice not posted for ${sessionName}: ${notice.skipped || 'unknown reason'}`);
+        }
+      }
+      // Update the original reply message if messageId is available, otherwise send new message
+      let notifyFromChatId = null;
+      let notifyMessageId = null;
+      const notificationOptions = buildSessionNotificationOptions(sessionInfo, verbose);
+      if (sessionInfo.messageId) {
+        await safeEditMessageText(bot.telegram, sessionInfo.chatId, sessionInfo.messageId, undefined, message, notificationOptions);
+        notifyFromChatId = sessionInfo.chatId;
+        notifyMessageId = sessionInfo.messageId;
+      } else {
+        const sent = await safeSendMessage(bot.telegram, sessionInfo.chatId, message, notificationOptions);
+        notifyFromChatId = sent?.chat?.id || sessionInfo.chatId;
+        notifyMessageId = sent?.message_id || null;
+      }
+      // Issue #2189: the user has now been told. Latch that fact durably
+      // BEFORE the remaining best-effort work (subscriber fan-out, container
+      // cleanup), because any failure after this point used to send the whole
+      // completion pipeline — and this notification — round again on the next
+      // poll. The snapshot write means even a bot restart in this window
+      // finalizes the session silently instead of re-notifying.
+      if (markCompletionHandled(sessionInfo, { exitCode: finalExitCode, status: resolvedStatus })) {
+        persistSessionSnapshot(sessionName, sessionInfo);
+        logEvent('session_completion_notified', { sessionName, exitCode: finalExitCode ?? null, status: resolvedStatus || null, notifiedAt: sessionInfo.completionNotifiedAt });
+      }
+      // Issue #1688: forward the same completion message to every /subscribe-d user
+      //   in their private chat with the bot. Failures are logged but don't block
+      //   completion of the parent session.
+      if (getSubscriberCount() > 0 && notifyFromChatId && notifyMessageId) {
+        try {
+          const skipUserIds = new Set();
+          if (sessionInfo?.requesterUserId) skipUserIds.add(sessionInfo.requesterUserId);
+          const summary = await notifySubscribers({
+            bot,
+            fromChatId: notifyFromChatId,
+            messageId: notifyMessageId,
+            fallbackText: message,
+            fallbackOptions: { parse_mode: 'Markdown' },
+            skipUserIds,
             verbose,
           });
-          if (verbose && !notice.posted) {
-            console.log(`[VERBOSE] Killed-session notice not posted for ${sessionName}: ${notice.skipped || 'unknown reason'}`);
+          if (verbose) {
+            console.log(`[VERBOSE] Subscribe notify summary for ${sessionName}: forwarded=${summary.forwarded}, sent=${summary.sent}, skipped=${summary.skipped}, failures=${summary.failures.length}`);
           }
+        } catch (notifyError) {
+          console.error(`[session-monitor] notifySubscribers failed for ${sessionName}:`, notifyError);
         }
-        // Update the original reply message if messageId is available, otherwise send new message
-        let notifyFromChatId = null;
-        let notifyMessageId = null;
-        const notificationOptions = buildSessionNotificationOptions(sessionInfo, verbose);
-        if (sessionInfo.messageId) {
-          await safeEditMessageText(bot.telegram, sessionInfo.chatId, sessionInfo.messageId, undefined, message, notificationOptions);
-          notifyFromChatId = sessionInfo.chatId;
-          notifyMessageId = sessionInfo.messageId;
-        } else {
-          const sent = await safeSendMessage(bot.telegram, sessionInfo.chatId, message, notificationOptions);
-          notifyFromChatId = sent?.chat?.id || sessionInfo.chatId;
-          notifyMessageId = sent?.message_id || null;
-        }
-        // Issue #2189: the user has now been told. Latch that fact durably
-        // BEFORE the remaining best-effort work (subscriber fan-out, container
-        // cleanup), because any failure after this point used to send the whole
-        // completion pipeline — and this notification — round again on the next
-        // poll. The snapshot write means even a bot restart in this window
-        // finalizes the session silently instead of re-notifying.
-        if (markCompletionHandled(sessionInfo, { exitCode: finalExitCode, status: resolvedStatus })) {
-          persistSessionSnapshot(sessionName, sessionInfo);
-          logEvent('session_completion_notified', { sessionName, exitCode: finalExitCode ?? null, status: resolvedStatus || null, notifiedAt: sessionInfo.completionNotifiedAt });
-        }
-        // Issue #1688: forward the same completion message to every /subscribe-d user
-        //   in their private chat with the bot. Failures are logged but don't block
-        //   completion of the parent session.
-        if (getSubscriberCount() > 0 && notifyFromChatId && notifyMessageId) {
-          try {
-            const skipUserIds = new Set();
-            if (sessionInfo?.requesterUserId) skipUserIds.add(sessionInfo.requesterUserId);
-            const summary = await notifySubscribers({
-              bot,
-              fromChatId: notifyFromChatId,
-              messageId: notifyMessageId,
-              fallbackText: message,
-              fallbackOptions: { parse_mode: 'Markdown' },
-              skipUserIds,
-              verbose,
-            });
-            if (verbose) {
-              console.log(`[VERBOSE] Subscribe notify summary for ${sessionName}: forwarded=${summary.forwarded}, sent=${summary.sent}, skipped=${summary.skipped}, failures=${summary.failures.length}`);
-            }
-          } catch (notifyError) {
-            console.error(`[session-monitor] notifySubscribers failed for ${sessionName}:`, notifyError);
-          }
-        }
+      }
+      await applyDockerTaskContainerCompletionAction(dockerTaskContainerAction, {
+        verbose,
+        removeDockerContainer: options.removeDockerContainer,
+      });
+      completeSession(sessionName, finalExitCode || 0, verbose, resolvedStatus);
+    } catch (error) {
+      console.error(`Failed to send completion notification for ${sessionName}:`, error);
+      if (isMessageAlreadyUpdatedError(error)) {
         await applyDockerTaskContainerCompletionAction(dockerTaskContainerAction, {
           verbose,
           removeDockerContainer: options.removeDockerContainer,
         });
-        completeSession(sessionName, finalExitCode || 0, verbose, resolvedStatus);
-      } catch (error) {
-        console.error(`Failed to send completion notification for ${sessionName}:`, error);
-        if (isMessageAlreadyUpdatedError(error)) {
-          await applyDockerTaskContainerCompletionAction(dockerTaskContainerAction, {
-            verbose,
-            removeDockerContainer: options.removeDockerContainer,
-          });
-          completeSession(sessionName, exitCode || 0, verbose, resolvedStatus);
-        } else {
-          sessionInfo.lastNotificationError = error.message;
-          sessionInfo.lastKnownStatus = statusResult?.status || sessionInfo.lastKnownStatus || null;
-          sessionInfo.lastKnownExitCode = exitCode ?? sessionInfo.lastKnownExitCode ?? null;
-          if (verbose) {
-            console.log(`[VERBOSE] Session ${sessionName} kept in memory so the completion notification can be retried`);
-          }
+        completeSession(sessionName, exitCode || 0, verbose, resolvedStatus);
+      } else {
+        sessionInfo.lastNotificationError = error.message;
+        sessionInfo.lastKnownStatus = statusResult?.status || sessionInfo.lastKnownStatus || null;
+        sessionInfo.lastKnownExitCode = exitCode ?? sessionInfo.lastKnownExitCode ?? null;
+        if (verbose) {
+          console.log(`[VERBOSE] Session ${sessionName} kept in memory so the completion notification can be retried`);
         }
       }
     }

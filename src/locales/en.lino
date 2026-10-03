@@ -682,6 +682,8 @@ en
         stopped "Work session stopped by user{{requestedBy}}{{exitSuffix}}"
         not_launched "The work session was not launched, so it has no log and is not listed by `--list`."
         recovering "Work session still in progress: recovering from exit code {{exitCode}}"
+        recovered "Work session finished successfully after automatic recovery"
+        recoveries "automatic recoveries: {{count}}"
     duration
       label "Duration"
     session
@@ -702,6 +704,7 @@ en
       label "Isolation"
     execution
       label "Execution"
+      earlier "earlier logs"
     error
       executing
         command "❌ Error executing {{commandName}} command"

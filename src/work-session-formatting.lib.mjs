@@ -174,7 +174,7 @@ export function appendPullRequestLine(infoBlock, pullRequestUrl, { locale = null
   return [...before, prLine, ...after].join('\n');
 }
 
-export function formatSessionCompletionMessage({ sessionName, sessionInfo, statusResult = null, observedEndTime = new Date(), exitCode = null, infoBlock = '', pullRequestUrl = null, pullRequestState = null, extraSections = [], locale = null, resumedAs = null } = {}) {
+export function formatSessionCompletionMessage({ sessionName, sessionInfo, statusResult = null, observedEndTime = new Date(), exitCode = null, infoBlock = '', pullRequestUrl = null, pullRequestState = null, extraSections = [], locale = null, resumedAs = null, recoveryCount = null } = {}) {
   const finalExitCode = getSessionCompletionExitCode({ exitCode, statusResult });
   const outcome = classifySessionOutcome({ exitCode: finalExitCode, status: statusResult?.status || null });
   const { failed, killed, signal } = outcome;
@@ -191,12 +191,20 @@ export function formatSessionCompletionMessage({ sessionName, sessionInfo, statu
   const pullRequestMerged = pullRequestState?.merged === true || Boolean(pullRequestState?.mergedAt);
   let statusEmojiOverride = null;
   let statusText;
+  // Issue #2408: how many automatic recoveries this work has needed so far — a
+  // recovery session inherits the counter of the session it replaced.
+  const recoveries = Number.isFinite(recoveryCount) ? recoveryCount : sessionInfo?.killRecoveryResumed && Number.isFinite(sessionInfo?.killRecoveryAttempts) ? sessionInfo.killRecoveryAttempts : 0;
   if (resumedAs) {
     // Issue #2301: a recovery session was started for this work, so the work is
     // not finished. Neither "finished successfully" nor "failed" is true yet;
     // the recovery session edits this message again when it actually ends.
-    statusEmojiOverride = '🔄';
+    // Issue #2408: that is a warning, not a failure and not a neutral state.
+    statusEmojiOverride = '⚠️';
     statusText = text(messageLocale, 'telegram.work_session_recovering', `Work session still in progress: recovering from exit code ${finalExitCode}`, { exitCode: finalExitCode ?? '' });
+  } else if (!failed && recoveries > 0) {
+    // Issue #2408: the work completed, but only because it was recovered.
+    statusEmojiOverride = '⚠️';
+    statusText = text(messageLocale, 'telegram.work_session_recovered', 'Work session finished successfully after automatic recovery');
   } else if (killed && stopRequestedByUser) {
     const showCode = finalExitCode !== null && !(!signal && finalExitCode === 1);
     const exitSuffix = showCode ? ` (exit code: ${finalExitCode})` : '';
@@ -224,6 +232,7 @@ export function formatSessionCompletionMessage({ sessionName, sessionInfo, statu
   } else {
     statusText = text(messageLocale, 'telegram.work_session_finished', 'Work session finished successfully');
   }
+  if (recoveries > 0) statusText += ` (${text(messageLocale, 'telegram.work_session_recoveries', `automatic recoveries: ${recoveries}`, { count: recoveries })})`;
   const durationLabel = text(messageLocale, 'telegram.duration_label', 'Duration');
   const sessionLabel = text(messageLocale, 'telegram.session_label', 'Session');
   const isolationLabel = text(messageLocale, 'telegram.isolation_label', 'Isolation');
@@ -234,7 +243,10 @@ export function formatSessionCompletionMessage({ sessionName, sessionInfo, statu
   // session UUID, so the finished task can still be found in the session list.
   const executionLabel = text(messageLocale, 'telegram.execution_label', 'Execution');
   const executionUuid = sessionInfo?.executionUuid || statusResult?.uuid || null;
-  const executionInfo = executionUuid ? `\n🆔 ${executionLabel}: \`${executionUuid}\`` : '';
+  // Issue #2408: a recovery launched fresh writes a new log, so name the earlier ones too.
+  const previousExecutions = (Array.isArray(sessionInfo?.previousExecutionUuids) ? sessionInfo.previousExecutionUuids : []).filter(uuid => uuid && uuid !== executionUuid);
+  const earlierExecutions = previousExecutions.length > 0 ? ` (${text(messageLocale, 'telegram.execution_earlier', 'earlier logs')}: ${previousExecutions.map(uuid => `\`${uuid}\``).join(', ')})` : '';
+  const executionInfo = executionUuid ? `\n🆔 ${executionLabel}: \`${executionUuid}\`${earlierExecutions}` : '';
   // Issue #2301: after a recovery session the duration covers the whole work.
   const startTime = parseDateValue(sessionInfo?.rootStartTime) || parseDateValue(statusResult?.startTime) || parseDateValue(sessionInfo?.startTime) || observedEndTime;
   const endTime = parseDateValue(statusResult?.endTime) || observedEndTime;

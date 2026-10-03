@@ -1,0 +1,31 @@
+# Issue #2408: first recovery at 07:09 (6bf35d99 -> 2b185a46) and its three duplicate completions
+# Source: bot-log-after-complete-failure.txt (not committed; 315121 lines). Chat ids and requester handles redacted, long lines truncated.
+
+# --- lines 268016-268017
+268016: [VERBOSE] isolation-runner: Backend: docker, Session ID: 2b185a46-1ec5-4916-8bb2-c97b9bf6568b
+268017: [VERBOSE] isolation-runner: '/home/box/.bun/bin/$' '--isolated' 'docker' '--image' 'konard/hive-mind-dind:2.33.2' '--privileged' '--shell' 'sh' '-e' 'HOME=/home/box' '-e' 'HIVE_MIND_PARENT_SESSION_ID=2b185a46-1ec5-4916-8bb2-c97b9bf6568b' '-e' 'HIVE_MIND_IMAGE_VARIANT=dind' '-e' 'HIVE_MIND_TASK_IMAGE=konard/hive-mind-dind:2.33.2' '-e' 'HIVE_MIND_TASK_IMAGE_DIGEST=sha256:44293c11f04ccf0fff04c8a5d6a249cfc9439bffb8adb1681984a433e7698478' '--volume' '/home/box/.config/gh:/home/box/.config/gh' '--volume' '/home/box/.gitconfig:/home/box/.gitconfig' '--volume' '/home/box/.claude/.credentials.json:/home/box/.claude/.credentials.json' '--volume' '/home/box/.claude/projects:/home/box/.claude/projects' 
+
+# --- lines 268038-268045
+268038: [VERBOSE] isolation-runner: start-command execution UUID for session 2b185a46-1ec5-4916-8bb2-c97b9bf6568b: 88951cec-7239-4c25-baf5-e90f2a2e2f10 (this is what '$ --list' shows)
+268039: [VERBOSE] Session 2b185a46-1ec5-4916-8bb2-c97b9bf6568b tracked in memory (mode: isolation:docker)
+268040: 2026-10-02T07:09:57.665Z DEBUG Persisted session 2b185a46-1ec5-4916-8bb2-c97b9bf6568b {"command":"solve","url":"https://github.com/link-foundation/meta-language/pull/196"}
+268041: 2026-10-02T07:09:57.666Z INFO  EVENT session_tracked {"sessionName":"2b185a46-1ec5-4916-8bb2-c97b9bf6568b","mode":"isolation:docker","url":"https://github.com/link-foundation/meta-language/pull/196","command":"solve","sessionId":"2b185a46-1ec5-4916-8bb2-c97b9bf6568b","executionUuid":"88951cec-7239-4c25-baf5-e90f2a2e2f10","startTime":"2026-10-02T07:09:57.662Z"}
+268042: 2026-10-02T07:09:57.669Z DEBUG Persisted session 6bf35d99-2e30-4ee6-89b3-dd5839a2b486 {"command":"solve","url":"https://github.com/link-foundation/meta-language/pull/196"}
+268043: [VERBOSE] Session 6bf35d99-2e30-4ee6-89b3-dd5839a2b486 was killed; recovery session 2b185a46-1ec5-4916-8bb2-c97b9bf6568b started fresh (in-place resume skipped: container-resource-limits) (attempt 1/1): /claude https://github.com/link-foundation/meta-language/pull/196 --think high --tool claude --attach-logs --verbose --no-tool-check --disable-report-issue --language en --resume 6588aa1c-f19c-42fb-b96a-8dbf5c943e40
+268044: 2026-10-02T07:09:57.682Z DEBUG Persisted session 6bf35d99-2e30-4ee6-89b3-dd5839a2b486 {"command":"solve","url":"https://github.com/link-foundation/meta-language/pull/196"}
+268045: 2026-10-02T07:09:57.684Z INFO  EVENT session_kill_recovered {"sessionName":"6bf35d99-2e30-4ee6-89b3-dd5839a2b486","recoverySessionId":"2b185a46-1ec5-4916-8bb2-c97b9bf6568b","attempt":1,"maxAttempts":1,"policy":"resume"}
+
+# --- lines 268139-268139
+268139: [telegram-send] s1307 safeEditMessageText → chat=<chat-id> message=<message-id> thread=857 parse_mode=Markdown chars=2262 bytes=2316 text="🔄 *Work session still in progress: recovering from exit code 1*\n\n⏱️ Duration: 10h 31m 17s\n📊 Session: `6bf35d99-2e30-4ee6-89b3-dd5839a2b486`\n🔁 Recovery session: `2b185a46-1ec5-4916-8bb2-c97b9bf6568b`\n🆔 Execution: `0760afb4-d0dc-4c8a-a90e-b7d60d6e8b94`\n🔒 Isolation: `docker`\n\nRequested by: [@<requester>](https://t.me/<requester>)\nPull request: https://github.com/link-foundation/meta-language/pull/196\n\n🛠 Options: --think high --tool claude\n🔒 Locked options: --attach-logs --verbose --no-tool-check --disable-report-issue --isolation docker\n\
+
+# --- lines 268145-268148
+268145: 2026-10-02T07:11:15.649Z INFO  EVENT session_completion_notified {"sessionName":"6bf35d99-2e30-4ee6-89b3-dd5839a2b486","exitCode":1,"status":"failed","notifiedAt":"2026-10-02T07:11:15.645Z"}
+268146: [VERBOSE] Session 6bf35d99-2e30-4ee6-89b3-dd5839a2b486 removed from tracking (exit: 1, status: failed)
+268147: 2026-10-02T07:11:15.654Z DEBUG Removed session 6bf35d99-2e30-4ee6-89b3-dd5839a2b486 from snapshot {"status":"failed","exitCode":1}
+268148: 2026-10-02T07:11:15.656Z INFO  EVENT session_completed {"sessionName":"6bf35d99-2e30-4ee6-89b3-dd5839a2b486","exitCode":1,"status":"failed"}
+
+# --- lines 268180-268180
+268180: 2026-10-02T07:11:30.896Z INFO  EVENT session_completed {"sessionName":"6bf35d99-2e30-4ee6-89b3-dd5839a2b486","exitCode":1,"status":"failed"}
+
+# --- lines 268227-268227
+268227: 2026-10-02T07:11:59.121Z INFO  EVENT session_completed {"sessionName":"6bf35d99-2e30-4ee6-89b3-dd5839a2b486","exitCode":1,"status":"failed"}

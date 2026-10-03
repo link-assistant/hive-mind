@@ -23,8 +23,8 @@
  * captured incident the offer reached the operator six hours after the crash,
  * and the work sat abandoned in between. "The bot should initiate the resume
  * itself with context preserved" — so it does, bounded by
- * `--session-kill-resume-attempts` (default 1) so a job that reliably dies still
- * cannot storm. `--on-session-kill=report` restores the announce-only
+ * `--session-kill-resume-attempts` (default 3, issue #2408) so a job that reliably
+ * dies still cannot storm. `--on-session-kill=report` restores the announce-only
  * behaviour verbatim for anyone who wants it.
  *
  * @see https://github.com/link-assistant/hive-mind/issues/2134
@@ -38,8 +38,13 @@ export const DEFAULT_ON_SESSION_KILL_POLICY = ON_SESSION_KILL_RESUME;
 
 export const ON_SESSION_KILL_ENV_VAR = 'HIVE_MIND_ON_SESSION_KILL';
 
-/** Hard cap on automatic resumes per session, so a reliably OOM-ing job cannot storm. */
-export const DEFAULT_SESSION_KILL_RESUME_ATTEMPTS = 1;
+/**
+ * Hard cap on automatic resumes per session, so a reliably OOM-ing job cannot
+ * storm. Issue #2408: a single attempt left a long session that met two
+ * independent OOM events failed, with its first recovery spent long before the
+ * second kill — three keeps the storm bounded while a second OOM is recovered.
+ */
+export const DEFAULT_SESSION_KILL_RESUME_ATTEMPTS = 3;
 export const SESSION_KILL_RESUME_ATTEMPTS_ENV_VAR = 'HIVE_MIND_SESSION_KILL_RESUME_ATTEMPTS';
 
 function normalize(value) {

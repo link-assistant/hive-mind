@@ -174,7 +174,8 @@ export const SOLVE_OPTION_DEFINITIONS = {
   'session-kill-resume-attempts': {
     type: 'number',
     description: 'Maximum number of automatic recovery working sessions started for one killed session when --on-session-kill=resume. Can also be set with HIVE_MIND_SESSION_KILL_RESUME_ATTEMPTS.',
-    default: 1,
+    // Issue #2408: one attempt could not recover a second OOM in a long run.
+    default: 3,
   },
   // Issue #2395: the repeated-tool-call breaker (#2247, #2316) stopped sessions
   // that were waiting for CI, so it never runs unless explicitly enabled.

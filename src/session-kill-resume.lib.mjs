@@ -8,7 +8,7 @@
  * returned facts into the Telegram completion message AND into the pull request
  * notice, so a reader of either surface knows a recovery session exists.
  *
- * The restart is bounded by `--session-kill-resume-attempts` (default 1), so a
+ * The restart is bounded by `--session-kill-resume-attempts` (default 3), so a
  * job that reliably runs the host out of memory cannot storm the queue.
  *
  * Issue #2189 made `resume` the default: a killed session that is only ever
@@ -61,6 +61,21 @@ export function planKillRecovery({ sessionInfo = {}, logPath = null, killed = fa
   const lastSessionId = readLastSessionId(logPath, { verbose });
   const plan = planKilledSessionResume({ sessionInfo, lastSessionId, attempts, maxAttempts });
   return { ...base, shouldResume: plan.resumable, reason: plan.reason, command: plan.command, attempt: plan.attempt, lastSessionId: lastSessionId || null };
+}
+
+/**
+ * Execution UUIDs whose start-command logs precede a recovery session's own
+ * (issue #2408). An in-place resume keeps its UUID and adds nothing.
+ *
+ * @param {Object} sessionInfo - The killed session's info
+ * @param {string|null} nextExecutionUuid - The recovery session's execution UUID
+ * @returns {string[]}
+ */
+export function collectPreviousExecutionUuids(sessionInfo, nextExecutionUuid) {
+  const chain = Array.isArray(sessionInfo?.previousExecutionUuids) ? sessionInfo.previousExecutionUuids.filter(Boolean) : [];
+  const current = sessionInfo?.executionUuid || null;
+  if (current && current !== nextExecutionUuid && !chain.includes(current)) chain.push(current);
+  return chain;
 }
 
 /**
@@ -135,17 +150,32 @@ export async function startKillRecoverySession({ sessionName, sessionInfo, plan,
         // inheriting the dead session's would make `$ --status` answer about the
         // wrong execution until the monitor happened to correct it.
         executionUuid,
+        // Issue #2408: a fresh launch writes a new start-command log, so keep the
+        // earlier executions' UUIDs to let the report point at the whole log chain.
+        previousExecutionUuids: collectPreviousExecutionUuids(sessionInfo, executionUuid),
         killRecoveryInPlace: inPlace.resumed,
         killRecoveryResumeMode: inPlace.mode || null,
         oomEventObservedAt: undefined,
         dockerBackendGoneFirstSeenAt: undefined,
+        // The recovery session has not been recovered itself (yet) (#2408).
+        killRecoverySessionId: undefined,
         containerFilesystemStartBytes,
         containerResourceLimits,
+        // Issue #2408: a snapshot resume starts a new, empty writable layer;
+        // what the execution already wrote counts against the same disk limit.
+        // The new container's own usage is measured afresh by the monitor.
+        containerFilesystemInheritedBytes: inPlace.resumed && Number.isFinite(inPlace.containerFilesystemInheritedBytes) ? inPlace.containerFilesystemInheritedBytes : undefined,
+        containerFilesystemLastBytes: undefined,
+        containerFilesystemLastObservedAt: undefined,
       },
       verbose
     );
 
-    if (sessionInfo) sessionInfo[KILL_RESUME_ATTEMPTS_FIELD] = plan.attempt;
+    if (sessionInfo) {
+      sessionInfo[KILL_RESUME_ATTEMPTS_FIELD] = plan.attempt;
+      // Persisted with the counter, so a repeated completion finds it (#2408).
+      sessionInfo.killRecoverySessionId = newSessionId;
+    }
     if (typeof persistSnapshot === 'function') {
       try {
         persistSnapshot();
@@ -175,6 +205,17 @@ export async function startKillRecoverySession({ sessionName, sessionInfo, plan,
  * @returns {Promise<{resumed: boolean, reason: string, policy: string, sessionId: string|null, display: string|null, attempt: number, maxAttempts: number, inPlace: boolean}>}
  */
 export async function recoverKilledSession({ sessionName, sessionInfo, logPath = null, killed = false, env = process.env, runner = null, trackSession = null, persistSnapshot = null, verbose = false, readLastSessionId = readLastSessionIdFromLog } = {}) {
+  // Issue #2408: one kill gets one recovery. A completion that runs again for
+  // the same session (an overlapping monitor tick, a bot restart between the
+  // launch and the completion latch) must report the session already started,
+  // not spend another attempt — or, with the budget spent, report "failed".
+  const existing = sessionInfo?.killRecoverySessionId || null;
+  if (existing) {
+    const argv = argvFromSessionArgs(sessionInfo?.args);
+    const attempt = Number.isFinite(sessionInfo?.[KILL_RESUME_ATTEMPTS_FIELD]) ? sessionInfo[KILL_RESUME_ATTEMPTS_FIELD] : 1;
+    if (verbose) console.log(`[VERBOSE] Session ${sessionName} already started recovery session ${existing}; not starting another (issue #2408)`);
+    return { resumed: true, reason: 'already-recovered', policy: resolveOnSessionKillPolicy({ argv, env, sessionInfo }), sessionId: existing, display: null, attempt, maxAttempts: resolveSessionKillResumeAttempts({ argv, env }), inPlace: false };
+  }
   let plan;
   try {
     plan = planKillRecovery({ sessionInfo, logPath, killed, env, verbose, readLastSessionId });
@@ -184,6 +225,7 @@ export async function recoverKilledSession({ sessionName, sessionInfo, logPath =
   }
 
   if (!plan.shouldResume) {
+    if (verbose) console.log(`[VERBOSE] Session ${sessionName}: no recovery session started (policy=${plan.policy}, reason=${plan.reason}, attempt ${plan.attempt}/${plan.maxAttempts})`);
     return { resumed: false, reason: plan.reason, policy: plan.policy, sessionId: null, display: plan.command?.display || null, attempt: plan.attempt, maxAttempts: plan.maxAttempts, inPlace: false };
   }
 

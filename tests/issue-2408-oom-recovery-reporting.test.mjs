@@ -197,6 +197,35 @@ test('a deliberate solve stop after an OOM event is reported, not recovered', as
   }
 });
 
+test('the 2026-10-03 rerun: the real "Auto-restart 5/5 - limit reached" log tail is reported once, never recovered', async () => {
+  // Same pull request, solve v2.33.7, before this fix: exit 1 + sticky OOMKilled
+  // after "❌ Auto-restart limit reached" was recovered as an OOM kill, three
+  // more ticks posted three more notices, and the recovery kept working under
+  // a fresh auto-restart budget while Telegram said "❌ failed".
+  await initI18n('en');
+  const fixture = new URL('../docs/case-studies/issue-2408/logs/solve-log-7edfe0cf-auto-restart-limit-tail.txt', import.meta.url);
+  const tail = await fs.readFile(fixture, 'utf8');
+  assert.equal(findDeliberateSolveStop(tail)?.reason, 'auto-restart-limit');
+  const sessionName = '7edfe0cf-a4a0-47f5-bd68-a9b93b4dc18c';
+  // The real 66 MB log names the Claude session near its start.
+  const logPath = await writeLog('rerun-2026-10-03', `📌 Session ID: ${TOOL_SESSION}\n${tail}`);
+  const { bot, edits, comments, launches, options } = makeHarness(async () => ({ exists: true, status: 'executed', exitCode: 1, oomKilled: true, isolation: 'docker', logPath }));
+  resetSessionMonitorForTests();
+  try {
+    trackSession(sessionName, { ...makeSessionInfo(sessionName, logPath), oomEventObservedAt: '2026-10-02T16:55:17.158Z' }, false);
+    await Promise.all([monitorSessions(bot, false, options), monitorSessions(bot, false, options), monitorSessions(bot, false, options), monitorSessions(bot, false, options)]);
+    assert.equal(launches.length, 0, 'no recovery session is started after a deliberate stop');
+    assert.equal(comments.length, 1, 'one pull-request notice, not four');
+    assert.match(comments[0], /No replacement session was launched|solve stopped on its own/);
+    const completions = edits.filter(edit => edit.messageId === 77);
+    assert.equal(completions.length, 1, 'the Telegram message is completed once');
+    assert.match(completions[0].message, /solve stopped on its own/);
+  } finally {
+    resetSessionMonitorForTests();
+    await fs.rm(logPath, { force: true });
+  }
+});
+
 test('the headline says how many automatic recoveries the work needed', async () => {
   await initI18n('en');
   const base = { sessionName: 'root', observedEndTime: new Date(15 * 3600_000) };

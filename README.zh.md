@@ -15,12 +15,6 @@
 
 灵感来源于 [konard/problem-solving](https://github.com/konard/problem-solving)
 
-## GitHub 工作流凭据
-
-GitHub 凭据是可选的。写入工作流依次使用已安装的 GitHub App（变量 `AUTOMATION_APP_ID` 和密钥 `AUTOMATION_APP_PRIVATE_KEY`）、供所有任务共用的密钥 `AUTOMATION_TOKEN`，最后使用内置 `github.token`。默认层无需配置，并在任务摘要中显示。
-
-默认令牌创建的草稿通过 dispatch 运行检查；检查默认使用 `mode=checks`，发布必须在 `main` 上明确选择发布模式。无创建仓库权限时，测试使用孤立分支。清理关闭过期测试问题和 PR，并删除允许删除的测试分支；删除仓库需要管理或删除权限。每日监控会在七天内有符合条件的问题却无实际草稿尝试时失败。权限及共享 action 依赖详见 [Formal AI 草稿](docs/FORMAL-AI-DRAFTS.zh.md)。
-
 ## 为什么选择 Hive Mind？
 
 **Hive Mind 是最自主、最适合云端部署的 AI 问题解决方案，无需开发者全程盯守，同时在关键决策上保留人工监督。**
@@ -363,7 +357,7 @@ review --repo owner/repo --pr 456
 solve <issue-url> [options]
 ```
 
-> **📦 仓库模式**：传入仓库 URL（而不是 issue URL），solve 会收集该仓库的所有开放 issue（最旧优先，最多 100 个 —— GitHub 每个父 issue 的子 issue 上限），创建一个把它们列为 GitHub 原生子 issue 的合并 issue，并解决该 issue —— 这样一个 pull request 就能一次性关闭它们全部。该模式还会自动启用 `--deep-analysis` 和 `--ensure-all-sub-issues-addressed`。仍挂在更早的已关闭合并 issue 下的 issue 会被移到新的合并 issue 中；使用 `--auto-merge` 时，只有当 pull request 描述关闭了列出的每一个 issue 时才会合并。如果没有开放的 issue，CLI 会成功退出且不会创建任何内容；Telegram 会直接报告无需执行任何操作，不会启动工作会话。参见 [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#solve-options)。
+> **📦 仓库模式**：传入仓库 URL（而不是 issue URL），solve 会收集该仓库的所有开放 issue（最旧优先），创建一个合并 issue，将其中最多 100 个附加为 GitHub 原生子 issue（GitHub 每个父 issue 的上限），并把每一个 issue（包括其余的）都列为必需的关闭引用，并解决该 issue —— 这样一个 pull request 就能一次性关闭它们全部。该模式还会自动启用 `--deep-analysis` 和 `--ensure-all-sub-issues-addressed`。仍挂在更早的已关闭合并 issue 下的 issue 会被移到新的合并 issue 中；使用 `--auto-merge` 时，只有当 pull request 描述关闭了列出的每一个 issue 时才会合并。如果没有开放的 issue，CLI 会成功退出且不会创建任何内容；Telegram 会直接报告无需执行任何操作，不会启动工作会话。参见 [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#solve-options)。
 
 **最常用选项：**
 
@@ -1032,6 +1026,31 @@ s=$(screen -ls | awk '/Detached/ {print $1; exit}'); echo "Entering $s"; screen 
 s=$(screen -ls | awk '/Detached/ {last=$1} END{print last}'); echo "Entering $s"; screen -r "$s"; echo "Left $s";
 ```
 
+### 管理 Screen 会话的脚本
+
+`hive-screens` 管理已完成的 solve 会话。它随 `@link-assistant/hive-mind` 一起发布，因此安装该包后（全局安装、通过 `npx` 或在项目中）即可在 `PATH` 中使用。
+
+它会扫描已分离的 GNU screen 会话，查找已完成且 PR 可合并的 solve 运行（回滚内容同时包含 `process completed` 以及 `PR is mergeable!` 或 `PR merged!`），然后列出、进入或关闭它们。`--list`、`--enter` 和 `--close` 使用**相同的匹配条件**，因此 `--list` 显示的内容正是 `--close` 将要处理的集合——先用 `--list` 排查，再用 `--close` 重新运行。
+
+```bash
+# 安全预览——显示所有已完成且可合并的 solve 会话。
+hive-screens --list
+
+# 关闭最旧的已完成会话。
+hive-screens --close
+
+# 进入最新的已完成会话。
+hive-screens --enter --newest
+
+# 关闭所有已完成会话。
+hive-screens --close --all
+
+# 扫描时输出诊断信息（匹配失败时很有用）。
+hive-screens --list --verbose
+```
+
+`--list` 默认使用 `--all`，因此单独的 `hive-screens --list` 会显示所有匹配项。`--enter` 和 `--close` 默认使用 `--oldest`，因为它们会改变状态。可传入 `--oldest`、`--newest` 或 `--all` 覆盖默认值。运行 `hive-screens --help` 查看完整选项列表。
+
 ### 重启服务器
 
 ```bash
@@ -1111,3 +1130,7 @@ Unlicense 许可证 - 参见 [LICENSE](./LICENSE)
 ## 🤖 贡献
 
 本项目采用 AI 驱动的开发模式。人机协作指南请参见 [CONTRIBUTING.zh.md](./docs/CONTRIBUTING.zh.md)。
+
+## GitHub 自动化凭据
+
+仓库自动化无需配置。工作流依次使用 GitHub App（`AUTOMATION_APP_ID` 变量和 `AUTOMATION_APP_PRIVATE_KEY` 密钥）、可选的统一 `AUTOMATION_TOKEN`，或内置 GitHub 令牌。使用默认令牌创建的草稿会在其源分支上触发检查。Hello World 矩阵和集成测试使用隔离的孤立分支，清理步骤会删除它们创建的资源。有关权限、检查和健康报告，请参阅 [Formal AI 草稿](docs/FORMAL-AI-DRAFTS.zh.md)。

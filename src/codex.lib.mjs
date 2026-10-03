@@ -29,7 +29,7 @@ const __codexBuildSolveResumeCmd = (argv, sessionId, tempDir) => (sessionId && a
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import { firstErrorText } from './error-text.lib.mjs'; // Issue #2141
 import { createLineBuffer } from './json-stream.lib.mjs'; // Issue #2119
-import { createToolCallLoopGuard } from './tool-call-loop-guard.lib.mjs'; // Issue #2316
+import { createToolCallLoopGuard, resolveRepeatedToolCallLimit } from './tool-call-loop-guard.lib.mjs'; // Issue #2316, #2395
 import { mapModelToId, resolveCodexReasoningEffort } from './codex.options.lib.mjs';
 import { buildCodexRunDiagnostics, codexRunAlreadyFailed, describeCodexLastMessageOutcome } from './codex.run-diagnostics.lib.mjs'; // Issue #2130
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
@@ -690,7 +690,7 @@ export const executeCodexCommand = async params => {
     // Codex doesn't have separate system prompt support in CLI mode
     const promptForAttempt = baseBranchInterventionPrompt ? `${prompt}\n\n${baseBranchInterventionPrompt}\n` : prompt;
     const combinedPrompt = systemPrompt ? `${systemPrompt}\n\n${promptForAttempt}` : promptForAttempt;
-    // Write the combined prompt to a file for piping
+    // Write the combined prompt to a file for stdin redirection
     // Use OS temporary directory instead of repository workspace to avoid polluting the repo
     const promptFile = path.join(os.tmpdir(), `codex_prompt_${Date.now()}_${process.pid}.txt`);
     const lastMessageFile = path.join(os.tmpdir(), `codex_last_message_${Date.now()}_${process.pid}.txt`);
@@ -772,7 +772,10 @@ export const executeCodexCommand = async params => {
     }
     // Issue #2130: re-export the Formal AI environment inside the `sh -lc` script so a
     // stale `formal-ai with --global` block in the operator profile cannot override it.
-    const fullCommand = `(${buildFormalAiEnvExports(toolInvocation.env)}cd ${shellQuote(tempDir)} && cat ${shellQuote(promptFile)} | ${toolInvocation.displayCommand} ${codexArgs})`;
+    // Issue #2324: a pipe inside the quoted script makes command-stream take its
+    // unowned Node pipeline path, so kill() cannot stop the actual shell. Redirect
+    // the same prompt file instead, keeping the shell and its process group owned.
+    const fullCommand = `(${buildFormalAiEnvExports(toolInvocation.env)}cd ${shellQuote(tempDir)} && ${toolInvocation.displayCommand} ${codexArgs} < ${shellQuote(promptFile)})`;
     const preparedResult = await logPreparedToolCommand({ argv, fullCommand, log, formatAligned });
     if (preparedResult) return preparedResult;
     try {
@@ -843,7 +846,7 @@ export const executeCodexCommand = async params => {
           return true;
         },
       });
-      const toolCallLoopGuard = createToolCallLoopGuard({ log, stopSession: async () => execCommand?.kill?.('SIGTERM') }); // Issue #2316
+      const toolCallLoopGuard = createToolCallLoopGuard({ log, limit: resolveRepeatedToolCallLimit({ argv }), stopSession: async () => execCommand?.kill?.('SIGTERM') }); // Issue #2316; opt-in since #2395
       let codexJsonState = {
         sessionId: null,
         authError: false,

@@ -55,9 +55,11 @@ Formal-AI-Pull-Request: https://github.com/link-assistant/hive-mind/pull/<n>
 
 ## सेटअप
 
-डिफ़ॉल्ट `github.token` स्तर के लिए कोई कॉन्फ़िगरेशन आवश्यक नहीं है। सभी लेखन वर्कफ़्लो क्रम से वैकल्पिक GitHub App (वेरिएबल `AUTOMATION_APP_ID`, secret `AUTOMATION_APP_PRIVATE_KEY`), सभी कार्यों के लिए एक secret `AUTOMATION_TOKEN`, फिर डिफ़ॉल्ट टोकन चुनते हैं। वैकल्पिक secret न होने से ड्राफ़्ट नहीं छोड़ा जाता। डिफ़ॉल्ट टोकन से बने pull request की जाँचें अनुमोदन की प्रतीक्षा करती हैं; `dispatch-checks` चार जाँच वर्कफ़्लो तुरंत चलाता है। लॉग और job सारांश स्तर दिखाते हैं। एकीकरण परीक्षण अलग orphan शाखाएँ बनाते हैं; सफ़ाई उनके issue/PR बंद करके पुरानी शाखाएँ हटाती है। परीक्षण रिपॉज़िटरी केवल प्रशासन या deletion अनुमति वाले App/टोकन से हटती हैं। [अंग्रेज़ी सेटअप](FORMAL-AI-DRAFTS.md#setup) में विवरण है। `FORMAL_AI_DRAFT_IMAGE` अभी भी वैकल्पिक इमेज वेरिएबल है।
+किसी credential setup की आवश्यकता नहीं है। सभी write workflows एक resolver का उपयोग करते हैं: GitHub App (`AUTOMATION_APP_ID` variable और `AUTOMATION_APP_PRIVATE_KEY` secret) → एक `AUTOMATION_TOKEN` secret → built-in `github.token`। पहला उपलब्ध layer चुना जाता है। व्यक्तिगत token को contents, issues, pull requests और Actions write permissions चाहिए। `FORMAL_AI_DRAFT_IMAGE` वैकल्पिक variable है।
 
-लोडर दोनों साझा action एक ही upstream कमिट से चुनता है। उनके प्रकाशित होने तक अस्थायी संगत कार्यान्वयन इस्तेमाल होता है और लॉग तथा सारांश में चेतावनी दिखती है। यदि रिपॉज़िटरी के नियम परीक्षण शाखा हटाने से रोकते हैं, तो सफ़ाई बची हुई शाखा का नाम बताती है और निर्धारित समय पर फिर प्रयास करती है; issue और PR बंद होते हैं, जबकि अन्य त्रुटियाँ रन को विफल करती हैं।
+Default token से बने pull request की जाँच approval की प्रतीक्षा कर सकती है। Draft workflow तुरंत `dispatch-checks` से draft branch पर `mode=checks` के साथ `release.yml`, `security.yml`, `links.yml` और `workflows.yml` चलाता है। Release के लिए स्पष्ट release mode और `main` branch चाहिए। वैकल्पिक credentials न होने पर प्रयास नहीं छोड़ा जाता; summary में layer दिखता है। दैनिक health check पिछले सात दिनों के वास्तविक प्रयास गिनता है।
+
+Shared actions अभी प्रकाशित नहीं हैं: [link-foundation/.github#1](https://github.com/link-foundation/.github/issues/1)। फिलहाल `.github/actions/` में compatible local actions हैं।
 
 ## बाहर निकलना, और दोबारा चलाना
 

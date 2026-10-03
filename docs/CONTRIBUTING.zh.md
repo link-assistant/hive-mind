@@ -51,9 +51,20 @@ Add support for automatic fork creation with --auto-fork flag
 
 #### 发布流程
 
-1. 当包含 changeset 的 PR 被合并到 main 分支时，发布工作流会自动创建一个"Version Packages" PR
-2. Version Packages PR 会更新 package.json 版本和 CHANGELOG.md
-3. 当 Version Packages PR 被合并时，包将自动发布到 NPM
+1. 当包含 changeset 的 PR 被合并到 main 分支时，发布工作流运行 `changeset version`，并以 `github-actions[bot]` 身份将版本号提升、更新后的 CHANGELOG.md 以及已消耗的 `.changeset/*.md` 文件**直接提交到 main**
+2. 同一次运行会将包发布到 NPM 并创建 GitHub release
+3. 不会创建 "Version Packages" 或 `release/*` PR：每次发布都会多出一个 PR 和一个无法删除的分支，失败的运行还会留下过期的发布 PR（issue #2402）。如果仓库规则拒绝推送，发布会带着规则的输出失败；应修改规则，而不是添加发布 PR
+
+### 代码不是变更日志
+
+发布历史保存在 `.changeset/*.md`、生成的 `CHANGELOG.md`、GitHub releases、提交信息和代码注释中。用户在运行时读到的一切内容都只描述**软件现在做什么**：`--help` 和用法说明、选项描述、控制台输出、Telegram 机器人回复和 `src/locales/*.lino`，以及工具发布的评论、issue 和提交。
+
+我们不接受以下代码：
+
+- 解释发生了什么变化："旧行为"、"新版本中的默认值"、"现在会做 X"、"不再做 Y"、"旧脚本已升级为命令"、"由……重命名而来"、"vX.Y 新增"、"新功能"横幅或发布说明
+- 用引入该行为的 issue 或 PR 标记面向用户的文本，例如 "(issue #1234)"、"(#594)" 或 `Reference: https://github.com/link-assistant/hive-mind/issues/1234`
+
+请描述选项或消息今天的作用。历史写进 changeset，原因写进代码注释，issue 链接写进固定该行为的注释或测试。弃用提示属于当前的指导，因此保留：它们指出替代方案（"deprecated; use `--isolated screen`"），而不讲述变更的经过。诊断日志可以引用记录已知故障的 issue，因为那是排障线索，而不是发布历史。`tests/no-changelog-in-ui-2402.test.mjs` 会对帮助文本、选项描述、本地化文件和发布到 GitHub 的报告执行这一规则。
 
 ### AI Agent 配置
 

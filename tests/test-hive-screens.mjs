@@ -360,7 +360,7 @@ assert.ok(helpLogs.join('\n').includes('hive-screens'), 'help text includes comm
 assert.ok(HIVE_SCREENS_HELP.includes('--list'), 'help text includes --list');
 assert.ok(HIVE_SCREENS_HELP.includes('--enter'), 'help text includes --enter');
 assert.ok(HIVE_SCREENS_HELP.includes('--close'), 'help text includes --close');
-assert.ok(HIVE_SCREENS_HELP.includes('issue #1649') || HIVE_SCREENS_HELP.includes('issues/1649'), 'help text references issue #1649');
+assert.doesNotMatch(HIVE_SCREENS_HELP, /issues?[/ ]#?\d+|legacy/i, 'help describes current behaviour only, not its history (issue #2402)');
 
 // --- bin smoke test: spawn the real mjs file with no args and confirm the validation error ---
 const runBin = (args = []) =>

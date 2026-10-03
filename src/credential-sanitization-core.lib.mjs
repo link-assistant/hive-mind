@@ -116,6 +116,16 @@ const isTokenCounterAssignment = (prefix, value) => NUMERIC_VALUE.test(String(va
 const VERSION_COMPARATOR = String.raw`(?:\^|~|[><]=?|=)?\s*v?\d+(?:\.\d+){1,2}(?:[-+][0-9A-Za-z.-]+)?`;
 const VERSION_RANGE_VALUE = new RegExp(`^${VERSION_COMPARATOR}(?:(?:\\s*(?:\\|\\||-)\\s*|\\s+)${VERSION_COMPARATOR})*$`);
 const isVersionRangeAssignment = value => VERSION_RANGE_VALUE.test(String(value ?? '').trim());
+// Issue #2400: in source code a sensitive-named variable is usually assigned an
+// expression, not a literal — `const fileTokens = await getTokens()`,
+// `skipActiveTokensOutputSanitization: false`, `const getTokens = async () =>`.
+// Masking the leading keyword rewrote published code excerpts into
+// `fileTokens = [REDACTED] getTokens()`, which hides nothing and misleads the
+// reader. A language keyword or literal is never a credential, and any value
+// that short would be reduced to `[REDACTED]` by `maskToken` anyway, so only
+// the exact keyword (not a value that merely starts with one) is exempt.
+const KEYWORD_VALUE = /^(?:true|false|null|undefined|none|nil|await|async|new|typeof|function|this|void|yield)$/i;
+const isKeywordAssignment = value => KEYWORD_VALUE.test(String(value ?? '').trim());
 const SENSITIVE_ENV_NAME = /(?:API_?KEY|ACCOUNT_?KEY|CLIENT_?SECRET|CONSUMER_?SECRET|WEBHOOK_?SECRET|ACCESS_?TOKEN|REFRESH_?TOKEN|AUTH_?TOKEN|PASSWORD|PASSWD|PRIVATE_?KEY|SECRET|TOKEN|COOKIE|AUTH)$/i;
 // Issue #2156: structured output is routinely nested inside another JSON
 // document — an agent tool result embeds the command's stdout as a JSON
@@ -126,13 +136,20 @@ const SENSITIVE_ENV_NAME = /(?:API_?KEY|ACCOUNT_?KEY|CLIENT_?SECRET|CONSUMER_?SE
 // is therefore any run of backslashes followed by a quote character, and the
 // value is matched lazily so it stops at the escape rather than swallowing it.
 const QUOTE = String.raw`\\*["']`;
-const QUOTED_ASSIGNMENT = new RegExp(`((?:${QUOTE})?${SENSITIVE_KEY}(?:${QUOTE})?\\s*(?:=>|[:=])\\s*)(${QUOTE})([^"'\\r\\n]*?)(${QUOTE})`, 'gi');
+// Issue #2397: `=` and `:` must not be followed by `>`. Otherwise, once
+// `token => !token` was masked to `token => [REDACTED]`, the structural guard
+// below refused `[`, the separator backtracked from `=>` to `=`, and a second
+// pass produced `token =[REDACTED] [REDACTED]`. The publication boundary treats
+// "a second pass would change the text" as a leaked credential, so every log with
+// a `token =>` arrow function was blocked from upload.
+const ASSIGNMENT_SEPARATOR = '(?:=>|[:=](?!>))';
+const QUOTED_ASSIGNMENT = new RegExp(`((?:${QUOTE})?${SENSITIVE_KEY}(?:${QUOTE})?\\s*${ASSIGNMENT_SEPARATOR}\\s*)(${QUOTE})([^"'\\r\\n]*?)(${QUOTE})`, 'gi');
 // Issue #2119: a value that *opens* a JSON/JS structure is punctuation, not a
 // secret. Without this guard `"tokens": {` was rewritten to `"tokens": [REDACTED]`,
 // which silently truncated the object and made the whole record unparseable.
 // The guard only rejects a structural character in first position, so a
 // credential that merely contains a brace (`password=ab{cd`) is still masked whole.
-const UNQUOTED_ASSIGNMENT = new RegExp(`((?:${QUOTE})?${SENSITIVE_KEY}(?:${QUOTE})?\\s*(?:=>|[:=])\\s*)(?!${QUOTE}|[{[]|(?:Bearer|Basic|SharedAccessSignature)\\s)([^\\s,;}&'"\\r\\n]+)`, 'gi');
+const UNQUOTED_ASSIGNMENT = new RegExp(`((?:${QUOTE})?${SENSITIVE_KEY}(?:${QUOTE})?\\s*${ASSIGNMENT_SEPARATOR}\\s*)(?!${QUOTE}|[{[]|(?:Bearer|Basic|SharedAccessSignature)\\s)([^\\s,;}&'"\\r\\n]+)`, 'gi');
 const XML_CREDENTIAL = new RegExp(`(<(${SENSITIVE_KEY})\\b[^>]*>)([\\s\\S]*?)(<\\/\\2\\s*>)`, 'gi');
 const CLI_CREDENTIAL_QUOTED = new RegExp(`(--${SENSITIVE_KEY}(?:\\s+|=))(["'])([^"'\\r\\n]*)(\\2)`, 'gi');
 const CLI_CREDENTIAL = new RegExp(`(--${SENSITIVE_KEY}(?:\\s+|=))(?!["'])([^\\s"'\\r\\n]+)`, 'gi');
@@ -203,7 +220,7 @@ const sanitizePlaintextCredentials = (input, options = {}) => {
   // escaped payload may not balance them symmetrically; each is preserved as
   // written so the surrounding document stays byte-for-byte parseable.
   output = output.replace(QUOTED_ASSIGNMENT, (match, prefix, openQuote, value, closeQuote) => (isTokenCounterAssignment(prefix, value) || isVersionRangeAssignment(value) ? match : `${prefix}${openQuote}${maskValue(value)}${closeQuote}`));
-  output = output.replace(UNQUOTED_ASSIGNMENT, (match, prefix, value) => (isTokenCounterAssignment(prefix, value) || isVersionRangeAssignment(value) ? match : `${prefix}${maskValue(value)}`));
+  output = output.replace(UNQUOTED_ASSIGNMENT, (match, prefix, value) => (isTokenCounterAssignment(prefix, value) || isVersionRangeAssignment(value) || isKeywordAssignment(value) ? match : `${prefix}${maskValue(value)}`));
 
   // CLI arguments and sensitive query parameters.
   output = output.replace(CLI_CREDENTIAL_QUOTED, (_match, prefix, quote, value) => `${prefix}${quote}${maskValue(value)}${quote}`);
@@ -247,6 +264,8 @@ const collectKnownTokenValues = options => {
  * recover it. Encoded runs are therefore decoded, sanitized with the same
  * rules, and re-encoded in place.
  */
+const MAX_SANITIZATION_PASSES = 3;
+
 export const sanitizeCredentialText = (input, options = {}) => {
   const knownTokens = collectKnownTokenValues(options);
 
@@ -259,7 +278,17 @@ export const sanitizeCredentialText = (input, options = {}) => {
     });
   };
 
-  return sanitizeAtDepth(String(input ?? ''), 0);
+  // Issue #2397: the publication boundary blocks any text that a further pass
+  // would still change, so a rule that is not idempotent on its own output
+  // blocked whole logs although nothing was leaked. Run to a fixed point (bounded;
+  // a text that still changes after that is left to the residual check).
+  let previous = String(input ?? '');
+  let output = sanitizeAtDepth(previous, 0);
+  for (let pass = 1; pass < MAX_SANITIZATION_PASSES && output !== previous; pass++) {
+    previous = output;
+    output = sanitizeAtDepth(previous, 0);
+  }
+  return output;
 };
 
 /**

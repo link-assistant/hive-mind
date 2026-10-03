@@ -4,14 +4,14 @@ on:
   push:
     branches: [main]
   pull_request:
+    branches-ignore: ['e2e/**']
     types: [opened, synchronize, reopened]
-    branches-ignore: ['e2e/**', 'integration/**']
   schedule:
     - cron: '0 6 * * 1'
   workflow_dispatch:
     inputs:
       mode:
-        description: 'Run checks'
+        description: Checks-only dispatch
         type: choice
         default: checks
         options: [checks]
@@ -45,17 +45,7 @@ jobs:
         language: [javascript-typescript, actions]
     steps:
       - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - name: Resolve GitHub credentials
-        id: gh
-        uses: ./.github/actions/resolve-github-token
-        with:
-          app-id: ${{ vars.AUTOMATION_APP_ID }}
-          app-private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
-          token: ${{ secrets.AUTOMATION_TOKEN }}
-          default-token: ${{ github.token }}
-          permissions: '{"contents":"read","actions":"read","security_events":"write"}'
+
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:
@@ -67,8 +57,6 @@ jobs:
 
       - name: Analyze
         uses: github/codeql-action/analyze@v4
-        with:
-          token: ${{ steps.gh.outputs.token }}
 
   dependency-review:
     name: Dependency Review
@@ -83,21 +71,10 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - name: Resolve GitHub credentials
-        id: gh
-        uses: ./.github/actions/resolve-github-token
-        with:
-          app-id: ${{ vars.AUTOMATION_APP_ID }}
-          app-private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
-          token: ${{ secrets.AUTOMATION_TOKEN }}
-          default-token: ${{ github.token }}
-          permissions: '{"contents":"read","pull_requests":"write"}'
+
       - name: Review dependency changes
         uses: actions/dependency-review-action@v5
         with:
-          repo-token: ${{ steps.gh.outputs.token }}
           fail-on-severity: high
           comment-summary-in-pr: on-failure
 

@@ -254,8 +254,8 @@ Automated release workflows ensure:
 - **OIDC trusted publishing** - No API tokens needed in CI (npm, PyPI, crates.io)
 - **Validated releases only** - All checks must pass before publishing
 - **Dual trigger modes** - Both automatic (on merge) and manual (workflow dispatch)
-- **A rule-blocked push is not a failed release** - When a repository ruleset requires that changes arrive through a pull request, the release job opens one for its version bump instead of dying on the rejection. That path, and the rebase-and-retry path for a lost race, are two different recoveries for two rejections that print the same word (see principle 10)
-- **Keep the release fallback auditable without a long-lived token** - A pull request opened by `GITHUB_TOKEN` cannot run child workflows without human approval, and `workflow_dispatch` checks do not satisfy a pull-request required check. Make the release job depend on every pre-release validation job, fail closed unless the generated commit changes release metadata only (so its source tree is the validated parent source tree), grant only that job `checks: write`, and use the GitHub Actions App token to publish the successful validation result on the exact version commit. Wait for that required check before merging. The ruleset stays unchanged, the bot still cannot push directly, and ordinary PRs still run the full matrix.
+- **Commit the version bump directly to the default branch** - The release job pushes its generated version commit (package metadata, lockfile, changelog, consumed changesets) straight to `main` as `github-actions[bot]`, and fails closed if that commit changes anything other than release metadata. Do not route it through an auto-merged release pull request: every release then adds one more pull request and one more branch (a no-deletion ruleset keeps it forever), and a failed run leaves an open release pull request behind for someone to close
+- **A rule-blocked push is fixed in the rule, not in the workflow** - When a repository rule rejects the version push, fail the release with the rule's output and fix the rule (remove it, or add `github-actions` as a bypass actor). The rebase-and-retry path for a lost race is a different recovery for a rejection that prints the same word (see principle 10)
 
 **Prohibit manual version changes** in PRs — all version bumps should be managed by the CI release workflow:
 
@@ -311,14 +311,14 @@ The bullets above without this one convert "two writers collide" into "the secon
 
 **Do not fix it with `ref: main` on the checkout.** That silences the rejection by building, testing and publishing a tree that is not the tree CI validated, with nothing in the log to say so. The rejection is the honest outcome; what is missing is the recovery.
 
-**Give every write job a push that classifies the rejection, then rebases and retries.** A repository-ruleset rejection (GH006, GH013 — "Changes must be made through a pull request") also prints `[rejected]`, and no number of rebases can ever satisfy a rule; it needs the pull-request path instead (see principle 9). Retrying it burns the queue slot and reports the wrong cause.
+**Give every write job a push that classifies the rejection, then rebases and retries.** A repository-ruleset rejection (GH006, GH013 — "Changes must be made through a pull request") also prints `[rejected]`, and no number of rebases can ever satisfy a rule; fail with the rule's output instead, so the rule gets fixed (see principle 9). Retrying it burns the queue slot and reports the wrong cause.
 
 ```js
 for (let attempt = 1; attempt <= maxAttempts; attempt++) {
   const result = await run('git', ['push', remote, branch]);
   if (result.code === 0) return { pushed: true, attempt };
-  // A rule can never be satisfied by a rebase: land the same commit via a PR.
-  if (isBlockedByRepositoryRule(result)) return landViaPullRequest({ branch, ...ctx });
+  // A rule can never be satisfied by a rebase: fail with the rule's output.
+  if (isBlockedByRepositoryRule(result)) throw repositoryRuleError({ branch, version, cause: result });
   // Auth, network, a missing remote: rebasing would hide the real error.
   if (!isNonFastForward(result) || attempt === maxAttempts) throw new CommandFailedError('git', ['push', remote, branch], result);
   await run('git', ['pull', '--rebase', remote, branch]);

@@ -1,56 +1,60 @@
 name: Cleanup Test Repositories
-
 on:
   schedule:
-    - cron: '43 7 * * *'
+    - cron: '47 3 * * *'
   workflow_dispatch:
     inputs:
       dry_run:
-        description: 'List stale resources without deleting them'
+        description: Preview cleanup operations
         type: boolean
         default: false
-
 permissions:
   contents: read
-
 env:
   GIT_CONFIG_COUNT: '1'
   GIT_CONFIG_KEY_0: init.defaultBranch
   GIT_CONFIG_VALUE_0: main
-
 jobs:
   cleanup:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
     permissions:
       contents: write
       issues: write
       pull-requests: write
-    concurrency:
-      group: github-test-cleanup-${{ github.repository }}
-      cancel-in-progress: false
+      actions: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+      - name: Install automation dependencies
+        run: npm ci --omit=dev --ignore-scripts
       - name: Resolve GitHub credentials
         id: gh
-        uses: ./.github/actions/resolve-github-token
+        uses: ./.github/actions/resolve-github-token # https://github.com/link-foundation/.github/issues/1
         with:
           app-id: ${{ vars.AUTOMATION_APP_ID }}
           app-private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
           token: ${{ secrets.AUTOMATION_TOKEN }}
           default-token: ${{ github.token }}
-          permissions: '{"contents":"write","issues":"write","pull_requests":"write"}'
-      - name: Setup Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: 24.x
-      - name: Install dependencies for GitHub API retries
-        run: node scripts/npm-install-with-retry.mjs ci
-      - name: Clean stale GitHub test resources
+          repository-operations: 'true'
+      - name: Clean stale branches, issues and pull requests
         env:
           GH_TOKEN: ${{ steps.gh.outputs.token }}
-          AUTOMATION_LAYER: ${{ steps.gh.outputs.layer }}
           CLEANUP_DRY_RUN: ${{ inputs.dry_run }}
-        run: node scripts/cleanup-github-tests.mjs
+        run: node scripts/cleanup-task-fixtures.mjs
+      - name: Delete disposable test repositories when authorized
+        if: ${{ !cancelled() && steps.gh.outputs.can-delete-repositories == 'true' }}
+        env:
+          GH_TOKEN: ${{ steps.gh.outputs.token }}
+          CLEANUP_DRY_RUN: ${{ inputs.dry_run }}
+          AUTOMATION_LAYER: ${{ steps.gh.outputs.layer }}
+        run: |
+          if [ "$CLEANUP_DRY_RUN" = 'true' ]; then
+            node cleanup-test-repos.mjs --skip-archived --dry-run
+          else
+            node cleanup-test-repos.mjs --skip-archived --force
+          fi

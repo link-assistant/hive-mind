@@ -15,12 +15,6 @@ It is also possible to connect this AI to collective human intelligence, meaning
 
 Inspired by [konard/problem-solving](https://github.com/konard/problem-solving)
 
-## GitHub workflow credentials
-
-GitHub credentials are optional. Write workflows use the shared resolver in order: an installed GitHub App (`AUTOMATION_APP_ID` variable plus `AUTOMATION_APP_PRIVATE_KEY` secret), one `AUTOMATION_TOKEN` secret for all workloads, then the built-in `github.token`. The default layer needs no configuration. Each job reports its layer.
-
-Formal AI drafts use dispatched checks with the default token; their `pull_request` runs wait for approval. Checks dispatches default to `mode=checks`, and manual releases require explicit release inputs on `main`. Tests use isolated orphan branches when repository creation is unavailable. Cleanup closes stale test issues/PRs and deletes their branches with any layer; repository deletion requires administration/deletion capability. The daily draft activity check fails when eligible issues were opened but no attempt executed in seven days. See [Formal AI drafts](docs/FORMAL-AI-DRAFTS.md#setup) for permissions and the shared-action dependency.
-
 ## Why Hive Mind?
 
 **Hive Mind is the most autonomous, cloud-ready AI issue solver that eliminates developer babysitting while maintaining human oversight on critical decisions.**
@@ -369,7 +363,7 @@ review --repo owner/repo --pr 456
 solve <issue-url> [options]
 ```
 
-> **📦 Repository mode**: pass a repository URL instead of an issue URL and solve collects every open issue of that repository (oldest first, at most 100 — GitHub's sub-issue limit per parent), creates one combined issue that lists them as GitHub native sub-issues, and solves that issue — so a single pull request can close all of them at once. It also turns on `--deep-analysis` and `--ensure-all-sub-issues-addressed`. Issues still attached to an earlier, closed combined issue are moved to the new one, and with `--auto-merge` the pull request is merged only once its description closes every listed issue. When no issues are open, the CLI exits successfully without creating anything; Telegram reports the no-work result directly without starting a work session. See [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#solve-options).
+> **📦 Repository mode**: pass a repository URL instead of an issue URL and solve collects every open issue of that repository (oldest first), creates one combined issue that attaches up to 100 of them as GitHub native sub-issues (GitHub's limit per parent) and lists every one of them, including the rest, as a required closing reference, and solves that issue — so a single pull request can close all of them at once. It also turns on `--deep-analysis` and `--ensure-all-sub-issues-addressed`. Issues still attached to an earlier, closed combined issue are moved to the new one, and with `--auto-merge` the pull request is merged only once its description closes every listed issue. When no issues are open, the CLI exits successfully without creating anything; Telegram reports the no-work result directly without starting a work session. See [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#solve-options).
 
 **Most frequently used options:**
 
@@ -1082,8 +1076,7 @@ s=$(screen -ls | awk '/Detached/ {last=$1} END{print last}'); echo "Entering $s"
 
 ### Script for managing screens
 
-The legacy `hive-screens.sh` script has been promoted to a first-class command:
-`hive-screens`. It ships with `@link-assistant/hive-mind`, so once the package is
+`hive-screens` manages finished solve sessions. It ships with `@link-assistant/hive-mind`, so once the package is
 installed (globally, through `npx`, or in a project) it is available on `PATH`.
 
 It scans detached GNU screen sessions, looks for solve runs that are done and
@@ -1097,7 +1090,7 @@ you see under `--list` is guaranteed to be the same set `--close` will act on
 # Safe preview — show every finished, mergeable solve session.
 hive-screens --list
 
-# Close the oldest finished session (same as the legacy script's default).
+# Close the oldest finished session.
 hive-screens --close
 
 # Attach to the newest finished session.
@@ -1200,3 +1193,7 @@ Unlicense License - see [LICENSE](./LICENSE)
 ## 🤖 Contributing
 
 This project uses AI-driven development. See [CONTRIBUTING.md](./docs/CONTRIBUTING.md) for human-AI collaboration guidelines.
+
+## GitHub automation credentials
+
+No setup is required for repository automation. Workflows use a GitHub App (`AUTOMATION_APP_ID` variable + `AUTOMATION_APP_PRIVATE_KEY` secret), then one optional `AUTOMATION_TOKEN`, then the built-in GitHub token. Default-token drafts dispatch checks on their head branches. Hello World matrix and integration tests use isolated orphan branches, and cleanup removes their owned resources. See [Formal AI drafts](docs/FORMAL-AI-DRAFTS.md) for permissions, checks and health reporting.

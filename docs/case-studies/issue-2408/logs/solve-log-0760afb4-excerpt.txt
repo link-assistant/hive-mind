@@ -1,0 +1,104 @@
+# Issue #2408: start-command log 0760afb4 (session 6bf35d99) — header, the survived OOM event, and the deliberate stop at the end
+# Source: private log (not committed; 508117 lines). Only these lines are reproduced.
+
+# --- header (lines 1-23)
+1: === Start Command Log ===
+2: Execution ID: 0760afb4-d0dc-4c8a-a90e-b7d60d6e8b94
+3: Timestamp: 2026-10-01 20:38:25.815
+4: Command: gate='/tmp/hive-mind-disk-baseline-6bf35d99-2e30-4ee6-89b3-dd5839a2b486'; while [ ! -e "$gate" ]; do sleep 0.1; done; rm -f "$gate"; exec 'solve' 'https://github.com/link-foundation/meta-language/pull/196' '--think' 'high' '--tool' 'claude' '--attach-logs' '--verbose' '--no-tool-check' '--d
+5: Environment: docker
+6: Mode: detached
+7: Session: 6bf35d99-2e30-4ee6-89b3-dd5839a2b486
+8: Image: konard/hive-mind-dind:2.33.2
+9: Platform: linux
+10: Node Version: v26.3.0
+11: Working Directory: /home/box
+12: ==================================================
+13: 
+14: Command started in detached docker container: 6bf35d99-2e30-4ee6-89b3-dd5839a2b486
+15: Container ID: dfecd27ad931
+16: Container will exit automatically after command completes.
+17: Container will be removed after successful completion.
+18: Container will be kept if the command fails or Docker reports OOMKilled.
+19: Remove when done: docker rm -f 6bf35d99-2e30-4ee6-89b3-dd5839a2b486
+20: Attach with: $ --attach 6bf35d99-2e30-4ee6-89b3-dd5839a2b486 (or docker attach 6bf35d99-2e30-4ee6-89b3-dd5839a2b486)
+21: View logs: docker logs 6bf35d99-2e30-4ee6-89b3-dd5839a2b486
+22: Live log: /tmp/start-command/logs/isolation/docker/0760afb4-d0dc-4c8a-a90e-b7d60d6e8b94.log
+23: [dind-entrypoint] Starting dockerd (storage-driver=fuse-overlayfs, data-root=/var/lib/docker)
+
+# --- the OOM event at 22:47 was survived: Claude saw its check killed and carried on (lines 95683, 95897)
+95683:     "stdout": "check 137\nnpm notice run meta-language@0.58.2 check\nnpm notice run npm run check:parity && npm run check:default-cst && npm run check:lino-grammar && npm run check:pdf-grammar && npm run check:builtin-cst && npm run check:l…
+95897:         "text": "The default-cst check ran out of memory and was killed; it is heavy and unrelated to this change, so CI will cover it. Next I'll run the relevant checks one at a time."…
+
+# --- the deliberate stop and the container post-mortem (last 70 lines)
+508047: 
+508048: ❌ Auto-restart limit reached after 5 iterations - the blocker was never resolved.
+508049:    No uncommitted work was left to preserve.
+508050: 📈 Resource usage (solve exit 1):
+508051:    CPU load: 0.23 0.25 0.26 (6 CPUs)
+508052:    Memory: 10.5 GB available / 11.7 GB total (1.2 GB used)
+508053:    Process RSS: 243 MB, V8 heap: 48 MB used of 1.6 GB limit (2.9%)
+508054:    Disk (/): 85.9 GB available / 192.7 GB total (55.4% used)
+508055: 📈 [RESOURCES] phase=solve_exit ts=2026-10-02T07%3A08%3A20.104Z load1=0.23 load5=0.25 load15=0.26 cpuCount=6 memTotalBytes=12541493248 memAvailableBytes=11246936064 memUsedBytes=1294557184 processRssBytes=254963712 processHeapUsedBytes=50608000 processHeapTota
+508056: 🩹 PR #196 was left in draft by a working session (auto-restart limit 5/5 reached); restoring its pre-run state at run end (Auto-restart limit reached)
+508057: {"isDraft":true,"state":"OPEN"}
+508058:    🔍 PR #196 draft state: isDraft=true, state=OPEN
+508059:   📝 Converting PR:          To ready for review (run end (Auto-restart limit reached))...
+508060: ✓ Pull request link-foundation/meta-language#196 is marked as "ready for review"
+508061:   ✅ PR converted:           Now in ready for review
+508062: [use-m] use('path') joined an in-flight load (alias path-v-latest)
+508063: 
+508064: ❌ Auto-restart limit reached
+508065: 📁 Full log file: /home/box/6588aa1c-f19c-42fb-b96a-8dbf5c943e40.log
+508066: 
+508067: 📄 Notifying pull request #196 about solver failure with logs...
+508068: [use-m] use('fs') joined an in-flight load (alias fs-v-latest)
+508069: 📈 Resource usage (log upload start, 59MB log):
+508070:    CPU load: 0.53 0.31 0.28 (6 CPUs)
+508071:    Memory: 10.4 GB available / 11.7 GB total (1.3 GB used)
+508072:    Process RSS: 244 MB, V8 heap: 50 MB used of 1.6 GB limit (3.0%)
+508073:    Disk (/): 85.9 GB available / 192.7 GB total (55.4% used)
+508074: 📈 [RESOURCES] phase=log_upload_start ts=2026-10-02T07%3A08%3A22.148Z load1=0.53 load5=0.31 load15=0.28 cpuCount=6 memTotalBytes=12541493248 memAvailableBytes=11177811968 memUsedBytes=1363681280 processRssBytes=255356928 processHeapUsedBytes=52764960 processHe
+508075:   📁 Large log file (59MB), will use gh-upload-log
+508076:   🤖 Model info fetched for comment
+508077:   ⏭️  Log is 59MB — skipping inline comment construction, the log goes straight to gh-upload-log
+508078:   📁 Log file too large for inline comment (59MB), using gh-upload-log
+508079:   📎 Uploading log using gh-upload-log...
+508080:   🔍 Repository visibility: public, log upload will be public
+508081:   🧼 Streamed sanitize: 61421145 bytes in 59 block(s) (bounded worker)
+508082:   📤 Running: gh-upload-log /tmp/hive-mind-log-upload-L1DXyO/sanitized.log --public --description "Solution draft log for https://github.com/link-foundation/meta-language/pull/196" --verbose
+508083: [use-m] use('child_process') joined an in-flight load (alias child_process-v-latest)
+508084:   ✅ Upload successful: https://github.com/konard/public-logs/tree/main/tmp-hive-mind-log-upload-L1DXyO/4df6d6521f620628
+508085:   📊 Type: repository, Chunks: 1
+508086:   🔗 Raw URL: https://raw.githubusercontent.com/konard/public-logs/main/tmp-hive-mind-log-upload-L1DXyO/4df6d6521f620628/sanitized.log.txt
+508087: [use-m] use('fs') joined an in-flight load (alias fs-v-latest)
+508088: {"url":"https://api.github.com/repos/link-foundation/meta-language/issues/comments/5947157839","html_url":"https://github.com/link-foundation/meta-language/pull/196#issuecomment-5947157839","issue_url":"https://api.github.com/repos/link-foundation/meta-languag
+508089:   🔗 Log URL: https://raw.githubusercontent.com/konard/public-logs/main/tmp-hive-mind-log-upload-L1DXyO/4df6d6521f620628/sanitized.log.txt
+508090:   📊 Log size: 59980KB
+508091: 📈 Resource usage (log upload end):
+508092:    CPU load: 0.79 0.46 0.33 (6 CPUs)
+508093:    Memory: 10.4 GB available / 11.7 GB total (1.3 GB used)
+508094:    Process RSS: 242 MB, V8 heap: 48 MB used of 1.6 GB limit (2.9%)
+508095:    Disk (/): 85.8 GB available / 192.7 GB total (55.5% used)
+508096: 📈 [RESOURCES] phase=log_upload_end ts=2026-10-02T07%3A09%3A40.986Z load1=0.79 load5=0.46 load15=0.33 cpuCount=6 memTotalBytes=12541493248 memAvailableBytes=11172470784 memUsedBytes=1369022464 processRssBytes=253648896 processHeapUsedBytes=50434040 processHeap
+508097: 
+508098: === Container post-mortem ===
+508099: Container:  6bf35d99-2e30-4ee6-89b3-dd5839a2b486
+508100: Exit Code:  1
+508101: OOMKilled:  true
+508102: StartedAt:  2026-10-01T20:38:28.310299029Z
+508103: FinishedAt: 2026-10-02T07:09:42.714150362Z
+508104: Lifetime:   37874.404s
+508105: Error:      (none)
+508106: 
+508107: Container kept for investigation: 6bf35d99-2e30-4ee6-89b3-dd5839a2b486
+508108: Reason: exitCode=1 oomKilled=true
+508109: Re-enter while running: $ --attach 6bf35d99-2e30-4ee6-89b3-dd5839a2b486
+508110: Continue the stored command: $ --resume 6bf35d99-2e30-4ee6-89b3-dd5839a2b486
+508111: Run another command in the same container: $ --resume 6bf35d99-2e30-4ee6-89b3-dd5839a2b486 -- <command>
+508112: Remove when done: docker rm -f 6bf35d99-2e30-4ee6-89b3-dd5839a2b486
+508113: 
+508114: ==================================================
+508115: Finished: 2026-10-02 07:09:43.659
+508116: Exit Code: 1
+508117: 

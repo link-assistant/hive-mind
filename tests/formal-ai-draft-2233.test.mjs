@@ -90,22 +90,21 @@ const openedIssue = (overrides = {}) => ({ number: 2233, html_url: ISSUE_URL, la
 // --- Whether to attempt at all -------------------------------------------
 
 {
-  assert.equal(decideDraft({ action: 'opened', issue: openedIssue(), layer: 'token' }).run, true, 'a freshly opened issue gets an attempt — no curated label required (#2233 item 1)');
+  assert.equal(decideDraft({ action: 'opened', issue: openedIssue(), hasToken: true }).run, true, 'a freshly opened issue gets an attempt — no curated label required (#2233 item 1)');
 
-  assert.equal(decideDraft({ action: 'labeled', issue: openedIssue(), layer: 'token' }).code, DRAFT_DECISION_CODES.notOpened, 'only the `opened` action attempts a draft; relabelling an old issue must not re-run the model');
-  assert.equal(decideDraft({ action: 'opened', issue: null, layer: 'token' }).code, DRAFT_DECISION_CODES.missingIssue);
-  assert.equal(decideDraft({ action: 'opened', issue: openedIssue({ pull_request: { url: 'x' } }), layer: 'token' }).code, DRAFT_DECISION_CODES.pullRequest, 'GitHub delivers pull requests on the `issues` event too');
-  assert.equal(decideDraft({ action: 'opened', issue: openedIssue({ user: { login: 'dependabot[bot]', type: 'Bot' } }), layer: 'token' }).code, DRAFT_DECISION_CODES.botAuthor, 'a bot-filed issue must not start a second automation');
-  assert.equal(decideDraft({ action: 'opened', issue: openedIssue({ labels: [{ name: FORMAL_AI_DRAFT_OPT_OUT_LABEL }] }), layer: 'token' }).code, DRAFT_DECISION_CODES.optOut);
-  assert.equal(decideDraft({ action: 'opened', issue: openedIssue({ labels: [FORMAL_AI_DRAFT_OPT_OUT_LABEL.toUpperCase()] }), layer: 'token' }).code, DRAFT_DECISION_CODES.optOut, 'labels are matched case-insensitively and in both payload shapes');
-  assert.equal(decideDraft({ action: 'opened', issue: openedIssue({ labels: [{ name: FORMAL_AI_DRAFT_LABEL }] }), layer: 'token' }).code, DRAFT_DECISION_CODES.alreadyDrafted);
+  assert.equal(decideDraft({ action: 'labeled', issue: openedIssue(), hasToken: true }).code, DRAFT_DECISION_CODES.notOpened, 'only the `opened` action attempts a draft; relabelling an old issue must not re-run the model');
+  assert.equal(decideDraft({ action: 'opened', issue: null, hasToken: true }).code, DRAFT_DECISION_CODES.missingIssue);
+  assert.equal(decideDraft({ action: 'opened', issue: openedIssue({ pull_request: { url: 'x' } }), hasToken: true }).code, DRAFT_DECISION_CODES.pullRequest, 'GitHub delivers pull requests on the `issues` event too');
+  assert.equal(decideDraft({ action: 'opened', issue: openedIssue({ user: { login: 'dependabot[bot]', type: 'Bot' } }), hasToken: true }).code, DRAFT_DECISION_CODES.botAuthor, 'a bot-filed issue must not start a second automation');
+  assert.equal(decideDraft({ action: 'opened', issue: openedIssue({ labels: [{ name: FORMAL_AI_DRAFT_OPT_OUT_LABEL }] }), hasToken: true }).code, DRAFT_DECISION_CODES.optOut);
+  assert.equal(decideDraft({ action: 'opened', issue: openedIssue({ labels: [FORMAL_AI_DRAFT_OPT_OUT_LABEL.toUpperCase()] }), hasToken: true }).code, DRAFT_DECISION_CODES.optOut, 'labels are matched case-insensitively and in both payload shapes');
+  assert.equal(decideDraft({ action: 'opened', issue: openedIssue({ labels: [{ name: FORMAL_AI_DRAFT_LABEL }] }), hasToken: true }).code, DRAFT_DECISION_CODES.alreadyDrafted);
 
   const noToken = decideDraft({ action: 'opened', issue: openedIssue(), layer: 'default' });
-  assert.equal(noToken.run, true, 'the default token attempts a draft without configuration');
+  assert.equal(noToken.run, true, 'no configuration is required');
   assert.equal(noToken.checkStrategy, 'dispatch');
 
-  // Bot policy still applies when the default token is used.
-  assert.equal(decideDraft({ action: 'opened', issue: openedIssue({ user: { login: 'renovate[bot]', type: 'Bot' } }), layer: 'default' }).code, DRAFT_DECISION_CODES.botAuthor);
+  assert.equal(decideDraft({ action: 'opened', issue: openedIssue({ user: { login: 'renovate[bot]', type: 'Bot' } }), hasToken: false }).code, DRAFT_DECISION_CODES.botAuthor);
 }
 
 {
@@ -175,7 +174,7 @@ const openedIssue = (overrides = {}) => ({ number: 2233, html_url: ISSUE_URL, la
   assert.match(workflow, /timeout-minutes:\s*\d+/, 'enforced repository-wide by tests/ci-workflow-timeouts-2082.test.mjs; asserted here because this job runs a model');
   assert.match(workflow, /cancel-in-progress:\s*false/, 'an attempt already writing to a branch must not be killed halfway through');
   assert.match(workflow, /group:\s*formal-ai-draft-.*issue/, 'the concurrency group is per issue, so unrelated issues do not queue behind each other');
-  assert.match(workflow, /permissions:\s*\n\s*contents:\s*write\s*\n\s*issues:\s*write/, 'the job grants the default layer the draft permissions');
+  assert.match(workflow, /draft:[\s\S]*permissions:\s*\n\s*contents:\s*write\s*\n\s*issues:\s*write/, 'the default token can open a draft');
   assert.match(workflow, /persist-credentials:\s*false/);
   assert.match(workflow, /node scripts\/formal-ai-draft\.mjs/, 'the command lives in the tested script, not inline in YAML');
   assert.match(workflow, /actions\/upload-artifact@v7/, 'the session log is uploaded even when no pull request was opened');
@@ -195,7 +194,7 @@ const openedIssue = (overrides = {}) => ({ number: 2233, html_url: ISSUE_URL, la
 {
   for (const suffix of ['', '.zh', '.hi', '.ru']) {
     const doc = readFileSync(`docs/FORMAL-AI-DRAFTS${suffix}.md`, 'utf8');
-    assert.match(doc, /AUTOMATION_TOKEN/, `docs/FORMAL-AI-DRAFTS${suffix}.md names the single optional automation secret`);
+    assert.match(doc, /AUTOMATION_TOKEN/, `docs/FORMAL-AI-DRAFTS${suffix}.md names the secret the workflow needs`);
     assert.match(doc, /formal-ai-draft/, `docs/FORMAL-AI-DRAFTS${suffix}.md names the label`);
     assert.match(doc, /--attach-logs/, `docs/FORMAL-AI-DRAFTS${suffix}.md quotes the command`);
     assert.match(doc, /2233/, `docs/FORMAL-AI-DRAFTS${suffix}.md links the issue it answers`);

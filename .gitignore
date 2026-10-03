@@ -167,6 +167,3 @@ tests/.test-*
 .nb-gradle/
 .gradle/
 .playwright-mcp/
-
-# Shared actions staged from upstream or the compatibility implementation.
-.github/actions/shared-github/

@@ -96,10 +96,10 @@ function normalizeQueueUrl(url) {
  *
  * @param {object} opts
  * @param {Iterable} [opts.processingItems] - `this.processing.values()` (each with `tool`, `url`, `status`, `getWaitTime()`).
- * @param {Array} [opts.sessionItems] - Tracked running sessions (`{url, tool, startTime, status}`).
+ * @param {Array} [opts.sessionItems] - Tracked running sessions (`{url, tool, startTime, rootStartTime, recoveries, status}`).
  * @param {string} opts.tool - Tool key to filter by.
  * @param {number} [opts.now] - Current epoch ms (injectable for tests).
- * @returns {Array<{url: string, queueStatus: (string|null), waitMs: number}>}
+ * @returns {Array<{url: string, queueStatus: (string|null), waitMs: number, recoveries?: number}>}
  */
 export function collectExecutingItems({ processingItems = [], sessionItems = [], tool, now = Date.now() }) {
   const byKey = new Map();
@@ -119,13 +119,16 @@ export function collectExecutingItems({ processingItems = [], sessionItems = [],
     if (!session.url) continue; // can't render a clickable link without a URL
     const key = normalizeQueueUrl(session.url);
     if (key && byKey.has(key)) continue; // already represented by an in-memory item
-    const startMs = session.startTime ? new Date(session.startTime).getTime() : null;
+    // Issue #2408: a recovery session counts from when the work started.
+    const since = session.rootStartTime || session.startTime;
+    const startMs = since ? new Date(since).getTime() : null;
     byKey.set(key || session.sessionName, {
       url: session.url,
       // Tracked sessions report a backend status (e.g. 'executing'); fall back to
       // the generic "processing" label rendered by formatQueueProcessingItems.
       queueStatus: null,
       waitMs: startMs && !Number.isNaN(startMs) ? Math.max(0, now - startMs) : 0,
+      recoveries: Number.isFinite(session.recoveries) ? session.recoveries : 0,
     });
   }
 
@@ -158,7 +161,9 @@ export function formatQueueExecutingItems({ items, max = Infinity, locale, label
   const itemIndent = label ? '    ' : '  ';
   let out = label ? `  *${label}* (${items.length}):\n` : '';
   for (const item of items.slice(0, max)) {
-    out += `${itemIndent}• ${formatQueueItemLink(item.url)} (▶️ ${formatDuration(item.waitMs, { locale })})\n`;
+    // Issue #2408: `🔁 N` marks work that was automatically recovered N times.
+    const recovered = item.recoveries > 0 ? `, 🔁 ${item.recoveries}` : '';
+    out += `${itemIndent}• ${formatQueueItemLink(item.url)} (▶️ ${formatDuration(item.waitMs, { locale })}${recovered})\n`;
   }
   if (items.length > max) {
     out += `${itemIndent}  ... ${lt('queue_and_more', { count: items.length - max }, { locale })}\n`;

@@ -605,7 +605,7 @@ hi
         label "*/merge* - Merge queue (experimental)"
         usage "उपयोग: `/merge <github-repo-url>`"
         description "'ready' label वाले सभी PRs को क्रम से merge करता है।"
-      subscribe "*/subscribe* / */unsubscribe* - 🔔 /solve completion की private DM forwarding पाएँ (experimental, #1688)"
+      subscribe "*/subscribe* / */unsubscribe* - 🔔 /solve completion की private DM forwarding पाएँ (experimental)"
       help "*/help* - यह help message दिखाएँ"
       stop
         start "*/stop* / */start* - नए tasks स्वीकार करना रोकें या फिर शुरू करें (केवल owner)"
@@ -631,7 +631,7 @@ hi
         option "• `--verbose` या `-v` - verbose output | `--attach-logs` - logs को PR से attach करें"
       show
         limits
-          option "• `--show-limits` - Experimental: start, end और delta पर Claude/Codex usage जोड़ें (#594)"
+          option "• `--show-limits` - Experimental: start, end और delta पर Claude/Codex usage जोड़ें"
       tip "💡 *Tip:* और भी options उपलब्ध हैं। पूरी सूची documentation में देखें।"
       restricted
         mode "🔒 *Restricted Mode:* Authorized: {{authorized}}"
@@ -682,6 +682,8 @@ hi
         stopped "कार्य सत्र उपयोगकर्ता द्वारा रोका गया{{requestedBy}}{{exitSuffix}}"
         not_launched "कार्य सत्र शुरू ही नहीं हुआ, इसलिए उसका कोई log नहीं है और वह `--list` में नहीं दिखता।"
         recovering "कार्य सत्र अभी जारी है: exit code {{exitCode}} के बाद पुनर्प्राप्ति हो रही है"
+        recovered "स्वचालित पुनर्प्राप्ति के बाद कार्य सत्र सफलतापूर्वक पूरा हुआ"
+        recoveries "स्वचालित पुनर्प्राप्तियाँ: {{count}}"
     duration
       label "अवधि"
     session
@@ -702,6 +704,7 @@ hi
       label "Isolation"
     execution
       label "निष्पादन"
+      earlier "पहले के लॉग"
     error
       executing
         command "❌ {{commandName}} command चलाने में त्रुटि"

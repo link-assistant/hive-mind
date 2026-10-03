@@ -67,7 +67,7 @@ export function killRecoveryHeadline(cause) {
  * @param {boolean} [options.survived] - The work session completed after a child OOM event
  * @param {boolean} [options.oomEventOnly] - A child OOM event preceded an ordinary work failure
  * @param {string|null} [options.recoverySessionId] - Id of that working session
- * @param {string|null} [options.resumeCommand] - Command to resume manually
+ * @param {string|{display: string}|null} [options.resumeCommand] - Command to resume manually
  * @param {number|null} [options.attempt] - Resume attempt number
  * @param {number|null} [options.maxAttempts]
  * @param {boolean} [options.attachLogs] - Whether --attach-logs is enabled
@@ -116,11 +116,14 @@ export function buildKillRecoveryNotice({ diagnosis = null, exitCode = null, ses
     lines.push('_The intermediate working-session log was not uploaded because `--attach-logs` is disabled._', '');
   }
 
-  if (resumeCommand) {
-    lines.push('To continue manually:', '', '```bash', resumeCommand, '```', '');
+  // Issue #2408: callers hold buildResumeCommand()'s `{ binary, args, display }`
+  // object, which a template rendered as "[object Object]".
+  const manualCommand = typeof resumeCommand === 'string' ? resumeCommand : resumeCommand?.display || null;
+  if (manualCommand) {
+    lines.push('To continue manually:', '', '```bash', manualCommand, '```', '');
   }
 
-  lines.push(`<sub>Reported by Hive Mind — [issue #2134](https://github.com/link-assistant/hive-mind/issues/2134)</sub>`);
+  lines.push(`<sub>Reported by Hive Mind</sub>`);
   return lines.join('\n');
 }
 

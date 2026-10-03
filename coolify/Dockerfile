@@ -21,7 +21,7 @@
 
 ARG FORMAL_AI_VERSION=0.352.1
 # Bookworm's glibc 2.36 remains compatible with the Ubuntu 24.04 Box runtime.
-FROM rust:1.98-slim-bookworm AS formal-ai-builder
+FROM rust:1.99-slim-bookworm AS formal-ai-builder
 ARG FORMAL_AI_VERSION
 # Formal AI 0.333.0-0.338.0 reached OpenSSL (formal-ai -> web-search ->
 # web-capture -> reqwest with default features -> native-tls -> openssl-sys), so
@@ -47,6 +47,8 @@ RUN cargo install formal-ai --version "${FORMAL_AI_VERSION}" --locked
 # of record, as the reproducible source for this pin.
 FROM ghcr.io/link-foundation/box:2.10.2
 ARG HIVE_MIND_VERSION=latest
+# Task-container prerequisite installs stay within the workspace (formal-ai#1159).
+ENV FORMAL_AI_INSTALL_GRANT=workspace
 # Release builds pass the exact published package version here. Bake it as the
 # default child isolation image tag so a parent started via :latest still runs
 # Docker-isolated tasks on the same immutable release image.
@@ -151,7 +153,7 @@ SHELL ["/bin/bash", "-c"]
 # pointing at browsers the image does not have), then every other version
 # directory is removed. `.node-bin`, `nvm use default` and a bare `node` then
 # all resolve to the same, newest runtime (issue #2187, item A).
-ARG HIVE_MIND_NODE_VERSION=24.21.0
+ARG HIVE_MIND_NODE_VERSION=26.10.0
 ARG HIVE_MIND_BUN_VERSION=1.4.2
 RUN set -e && \
     . "$NVM_DIR/nvm.sh" && \

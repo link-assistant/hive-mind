@@ -1,5 +1,8 @@
-name: Resolve GitHub credentials through shared actions
-description: Load the shared implementation or its unpublished-action compatibility contract
+# Compatibility implementation: https://github.com/link-foundation/.github/issues/1
+# The shared action does not exist yet. Keep its input/output contract so the
+# callers can switch their uses: line when it is published.
+name: Resolve GitHub token
+description: GitHub App, one AUTOMATION_TOKEN, then the default workflow token
 inputs:
   app-id:
     description: Optional GitHub App ID
@@ -8,39 +11,77 @@ inputs:
     description: Optional GitHub App private key
     default: ''
   token:
-    description: Optional single automation token
+    description: Optional AUTOMATION_TOKEN
     default: ''
   default-token:
-    description: Built-in GitHub token
+    description: The caller's github.token
     required: true
-  permissions:
-    description: Explicit GitHub App permissions for this job
-    default: '{"contents":"read"}'
+  repository-operations:
+    description: Request owner-wide Administration write for verified disposable repository operations
+    default: 'false'
+  owner:
+    description: Owner used for the repository capability probe
+    default: ${{ github.repository_owner }}
 outputs:
   token:
-    description: Resolved GitHub credential
-    value: ${{ steps.gh.outputs.token }}
+    description: Selected token
+    value: ${{ steps.resolve.outputs.token }}
   layer:
-    description: Credential layer
-    value: ${{ steps.gh.outputs.layer }}
+    description: app, token, or default
+    value: ${{ steps.resolve.outputs.layer }}
   triggers-workflows:
-    description: Whether ordinary events trigger checks
-    value: ${{ steps.gh.outputs.triggers-workflows }}
+    description: Whether events start workflows without approval
+    value: ${{ steps.resolve.outputs.triggers-workflows }}
   can-create-repositories:
     description: Verified repository creation capability
-    value: ${{ steps.gh.outputs.can-create-repositories }}
+    value: ${{ steps.resolve.outputs.can-create-repositories }}
+  can-delete-repositories:
+    description: Verified repository deletion capability
+    value: ${{ steps.resolve.outputs.can-delete-repositories }}
 runs:
   using: composite
   steps:
-    # actionlint does not yet support the $/ syntax; see .github/zizmor.yml.
-    - uses: ./.github/actions/prepare-shared-github-actions # zizmor: ignore[self-repository]
-      with:
-        token: ${{ inputs.default-token }}
-    - id: gh
-      uses: ./.github/actions/shared-github/actions/resolve-github-token # zizmor: ignore[self-repository]
+    - name: Mint installation token
+      id: app
+      if: inputs.app-id != '' && inputs.app-private-key != ''
+      continue-on-error: true
+      uses: actions/create-github-app-token@v3
       with:
         app-id: ${{ inputs.app-id }}
-        app-private-key: ${{ inputs.app-private-key }}
-        token: ${{ inputs.token }}
-        default-token: ${{ inputs.default-token }}
-        permissions: ${{ inputs.permissions }}
+        private-key: ${{ inputs.app-private-key }}
+        owner: ${{ inputs.owner }}
+        repositories: ${{ github.event.repository.name }}
+        permission-contents: write
+        permission-issues: write
+        permission-pull-requests: write
+        permission-actions: write
+        permission-checks: write
+        permission-workflows: write
+    # Owner-wide scope is necessary only for creating/deleting disposable repositories.
+    - name: Mint repository administration token
+      id: admin
+      if: inputs.repository-operations == 'true' && inputs.app-id != '' && inputs.app-private-key != ''
+      continue-on-error: true
+      uses: actions/create-github-app-token@v3
+      with:
+        app-id: ${{ inputs.app-id }}
+        private-key: ${{ inputs.app-private-key }}
+        owner: ${{ inputs.owner }} # zizmor: ignore[github-app] Explicit opt-in repository administration for cleanup and repository isolation.
+        permission-administration: write
+        permission-contents: write
+        permission-issues: write
+        permission-pull-requests: write
+        permission-actions: write
+        permission-checks: write
+        permission-workflows: write
+    - name: Resolve and report credentials
+      id: resolve
+      shell: bash
+      env:
+        RESOLVED_APP_TOKEN: ${{ steps.admin.outputs.token || steps.app.outputs.token }}
+        APP_ADMINISTRATION_GRANTED: ${{ steps.admin.outputs.token != '' }}
+        AUTOMATION_TOKEN: ${{ inputs.token }}
+        DEFAULT_TOKEN: ${{ inputs.default-token }}
+        AUTOMATION_OWNER: ${{ inputs.owner }}
+        ACTION_PATH: ${{ github.action_path }}
+      run: node "$ACTION_PATH/../../../scripts/resolve-automation-token.mjs"

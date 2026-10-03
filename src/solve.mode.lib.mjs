@@ -162,7 +162,7 @@ export async function resolveSolveMode({ argv, owner, repo, urlNumber, issueUrl,
       }
       await log(`📝 PR branch: ${prBranch}`);
       const prBody = prData.body || '';
-      const extractedIssueNumber = extractLinkedIssueNumber(prBody);
+      const extractedIssueNumber = prBranch?.match(/^issue-([1-9]\d*)-/)?.[1] || extractLinkedIssueNumber(prBody, owner, repo);
       if (extractedIssueNumber) {
         issueNumber = extractedIssueNumber;
         await log(`🔗 Found linked issue #${issueNumber}`);
@@ -170,8 +170,8 @@ export async function resolveSolveMode({ argv, owner, repo, urlNumber, issueUrl,
         // If no linked issue found, we can still continue but warn
         await log('⚠️  Warning: No linked issue found in PR body', { level: 'warning' });
         await log('   The PR should contain "Fixes #123" or similar to link an issue', { level: 'warning' });
-        // Set issueNumber to PR number as fallback
-        issueNumber = prNumber;
+        // A PR number is not an issue identity. Preserve PR-only workflows.
+        issueNumber = null;
       }
     } catch (error) {
       reportError(error, {

@@ -130,14 +130,14 @@ export function readIssueEvent(event) {
 /**
  * Decide whether this event should produce a Formal AI draft.
  *
- * Event and policy decide whether to attempt. Credentials only choose how the
- * resulting pull request gets its checks; the default token always works.
+ * Policy is independent of credential configuration. The default workflow
+ * token always provides a draft attempt, with checks started through dispatch.
  *
  * @param {object} params
  * @param {string} [params.eventName] `github.event_name`
  * @param {string} [params.action] webhook action (`opened`, `labeled`, …)
  * @param {object} [params.issue] the issue object from the payload
- * @param {string} [params.layer] the shared resolver's app, token or default layer
+ * @param {string} [params.layer] resolved credential layer
  * @param {string} [params.optOutLabel]
  * @returns {{run: boolean, code: string, reason: string}}
  */
@@ -206,6 +206,7 @@ export function buildGitIdentityEnv(identity = DRAFT_GIT_IDENTITY) {
  *
  * @param {object} params
  * @param {string[]} params.solveArgv from `buildSolveArgv()`
+ * @param {string} [params.solveCommand] explicit candidate path when PATH also contains a published solve
  * @param {string} [params.image]
  * @param {string} [params.hostLogDir] host directory bind-mounted for the session log
  * @param {string} [params.containerLogDir] where that directory appears in the container
@@ -213,14 +214,14 @@ export function buildGitIdentityEnv(identity = DRAFT_GIT_IDENTITY) {
  * @param {Record<string,string>} [params.setEnv] literal, non-secret variables to set
  * @returns {string[]}
  */
-export function buildDockerArgv({ solveArgv, image = DEFAULT_HIVE_MIND_IMAGE, hostLogDir = null, containerLogDir = '/home/box/logs', forwardEnv = ['GH_TOKEN'], setEnv = buildGitIdentityEnv() } = {}) {
+export function buildDockerArgv({ solveArgv, solveCommand = 'solve', image = DEFAULT_HIVE_MIND_IMAGE, hostLogDir = null, containerLogDir = '/home/box/logs', forwardEnv = ['GH_TOKEN'], setEnv = buildGitIdentityEnv() } = {}) {
   if (!Array.isArray(solveArgv) || solveArgv.length === 0) throw new Error('buildDockerArgv needs the solve argv from buildSolveArgv()');
 
   const argv = ['run', '--rm', '--user', 'box'];
   for (const name of forwardEnv) argv.push('-e', name);
   for (const [name, value] of Object.entries(setEnv)) argv.push('-e', `${name}=${value}`);
   if (hostLogDir) argv.push('-v', `${hostLogDir}:${containerLogDir}`);
-  argv.push(image, 'solve', ...solveArgv);
+  argv.push(image, solveCommand, ...solveArgv);
   return argv;
 }
 

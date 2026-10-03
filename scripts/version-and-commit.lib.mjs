@@ -19,17 +19,19 @@
  *     instead of assuming the first attempt won the race.
  *   - Emits `version_committed=true` only after a push that actually landed.
  *
- * Issue #2175 added the second half of that contract: when the push is rejected
- * by a repository ruleset ("Changes must be made through a pull request")
- * rather than by a lost race, the same commit is landed through a pull request
- * (see release-pull-request.lib.mjs) instead of failing the release.
+ * Issue #2402 restored the original contract: the version bump is committed
+ * directly to main. Between issue #2175 (2026-08-22) and issue #2402
+ * (2026-10-01) a "Main ruleset" forced the bump through an auto-merged
+ * `release/vX.Y.Z-<run>` pull request; that ruleset is gone, and the pull
+ * request detour left stale release PRs and undeletable branches behind. A push
+ * rejected by a repository rule now fails the release with an explanation
+ * instead of opening a pull request, because only a repository admin can fix it.
  *
  * Uses only Node built-ins so it has no dependency on node_modules state.
  */
 
 import { readFileSync } from 'node:fs';
 
-import { isBlockedByRepositoryRule, landViaPullRequest } from './release-pull-request.lib.mjs';
 import { CommandFailedError, runCommand, runStrict } from './run-command.lib.mjs';
 
 const DEFAULT_PUSH_ATTEMPTS = 5;
@@ -59,6 +61,41 @@ export function assertReleaseMetadataOnly(paths) {
  */
 export function readPackageVersion(path = './package.json') {
   return JSON.parse(readFileSync(path, 'utf8')).version;
+}
+
+/**
+ * Whether the remote rejected a push because of a branch protection or
+ * repository ruleset rule.
+ *
+ * Distinguished from a non-fast-forward rejection because rebasing cannot fix a
+ * rule violation: retrying the same push only burns the remaining attempts and
+ * then fails with a misleading "remote has advanced" story (issue #2175).
+ *
+ * @param {{stdout?: string, stderr?: string, message?: string}} result
+ * @returns {boolean}
+ */
+export function isBlockedByRepositoryRule(result) {
+  const output = `${result.stdout || ''}\n${result.stderr || ''}\n${result.message || ''}`.toLowerCase();
+  return (
+    output.includes('gh006') || // legacy protected-branch rejection
+    output.includes('gh013') || // repository rule violations
+    output.includes('repository rule violations') ||
+    output.includes('changes must be made through a pull request') ||
+    output.includes('protected branch') ||
+    output.includes('push declined')
+  );
+}
+
+/**
+ * Explain a rule-blocked version push to whoever reads the failed release log.
+ *
+ * @param {{branch: string, remote: string, version: string, cause: Error}} opts
+ * @returns {Error}
+ */
+export function repositoryRuleError({ branch, remote, version, cause }) {
+  const error = new Error([`Direct push of version ${version} to ${remote}/${branch} was rejected by a repository rule.`, `The release workflow commits the version bump directly to ${branch} (issue #2402) and does not open release pull requests.`, `Remove the rule that blocks direct pushes to ${branch}, or add github-actions as its bypass actor, then re-run the release.`, `Underlying error: ${cause.message}`, (cause.stderr || '').trim()].filter(Boolean).join('\n'));
+  error.cause = cause;
+  return error;
 }
 
 /**
@@ -132,21 +169,19 @@ export async function pushWithRebaseRetry({ runner = runCommand, branch = 'main'
  * @param {(source?: 'local') => string} [opts.readVersion]
  * @param {() => number} opts.countChangesets
  * @param {string} [opts.branch]
- * @param {string} [opts.runId] GitHub run id, used to name the fallback release branch
  * @param {(ms: number) => Promise<void>} [opts.sleeper]
  * @param {Console} [opts.logger]
  * @param {boolean} [opts.verbose]
- * @param {(text: string) => Promise<string>} [opts.sanitizeForPublication] injectable for tests
  * @returns {Promise<{versionCommitted: boolean, newVersion?: string, alreadyReleased?: boolean}>}
  */
-export async function versionAndCommit({ mode, bumpType, description, runner = runCommand, output, readVersion = readPackageVersion, countChangesets, branch = 'main', remote = 'origin', runId = process.env.GITHUB_RUN_ID, sleeper, logger = console, verbose = false, sanitizeForPublication }) {
+export async function versionAndCommit({ mode, bumpType, description, runner = runCommand, output, readVersion = readPackageVersion, countChangesets, branch = 'main', remote = 'origin', sleeper, logger = console, verbose = false }) {
   const strict = (command, args) => runStrict(command, args, { runner, verbose, logger });
 
   await strict('git', ['config', 'user.name', 'github-actions[bot]']);
   // The numeric prefix is what links the commit to the github-actions[bot]
   // account. Without it the commit is "unattributed", and the Main ruleset's
   // `require_extra_approval_for_unattributed_changes` would demand a human
-  // approval before the version pull request could be merged (issue #2175).
+  // approval for it (issue #2175).
   await strict('git', ['config', 'user.email', '41898282+github-actions[bot]@users.noreply.github.com']);
 
   logger.log('Checking for remote changes...');
@@ -234,13 +269,12 @@ export async function versionAndCommit({ mode, bumpType, description, runner = r
   try {
     await pushWithRebaseRetry({ runner, branch, remote, sleeper, logger, verbose });
   } catch (error) {
-    // A repository ruleset ("Changes must be made through a pull request") is
-    // not a lost race, so no amount of rebasing fixes it. Land the same commit
-    // through a pull request instead (issue #2175).
-    if (!isBlockedByRepositoryRule(error)) {
-      throw error;
+    // A repository rule is not a lost race, so no amount of rebasing fixes it.
+    // Fail with the cause instead of detouring through a pull request (#2402).
+    if (isBlockedByRepositoryRule(error)) {
+      throw repositoryRuleError({ branch, remote, version: newVersion, cause: error });
     }
-    await landViaPullRequest({ runner, version: newVersion, branch, remote, runId, sleeper, logger, verbose, output, sanitizeForPublication });
+    throw error;
   }
 
   logger.log(`Version bump committed and pushed to ${branch}`);

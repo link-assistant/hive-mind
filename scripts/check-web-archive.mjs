@@ -14,6 +14,7 @@
  *
  * Environment variables:
  *   - LYCHEE_OUTPUT: Path to lychee markdown output file (default: lychee/out.md)
+ *   - RECOVERED_URLS: Optional file of URLs (one per line) to treat as healthy
  *
  * GitHub Actions outputs:
  *   - all_archived: 'true' if all broken links have a web archive version
@@ -259,7 +260,13 @@ async function main() {
   }
 
   const content = readFileSync(lycheeOutput, 'utf-8');
-  const { urls: brokenUrls, others: unarchivableLinks } = extractBrokenLinks(content);
+  const { urls: allBrokenUrls, others: unarchivableLinks } = extractBrokenLinks(content);
+
+  // URLs that scripts/recheck-broken-links.mjs found healthy were only
+  // transiently unavailable to lychee; they are not broken.
+  const recoveredFile = process.env.RECOVERED_URLS;
+  const recovered = new Set(recoveredFile && existsSync(recoveredFile) ? readFileSync(recoveredFile, 'utf-8').split('\n').filter(Boolean) : []);
+  const brokenUrls = allBrokenUrls.filter(url => !recovered.has(url));
 
   reportUnarchivableLinks(unarchivableLinks);
 

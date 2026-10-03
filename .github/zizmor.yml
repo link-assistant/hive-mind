@@ -23,13 +23,9 @@ rules:
   self-repository:
     ignore:
       - release.yml
-      # The runtime loader must stage local actions after checkout. The same
-      # actionlint incompatibility described above applies to these callers.
-      - security.yml
       - formal-ai-draft.yml
-      - e2e-hello-world-matrix.yml
       - cleanup-test-repos.yml
-      - release-helm.yml
+      - e2e-hello-world-matrix.yml
   unpinned-uses:
     config:
       policies:
@@ -43,7 +39,4 @@ rules:
         lycheeverse/*: ref-pin
         zizmorcore/*: ref-pin
         changesets/*: ref-pin
-        # Shared automation maintained by the same organization; issue #2323
-        # consumes its published main-branch action contract.
-        link-foundation/.github/*: ref-pin
         '*': hash-pin

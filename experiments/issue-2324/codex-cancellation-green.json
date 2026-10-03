@@ -1,0 +1,31 @@
+{
+  "success": false,
+  "input": "finite cancellation probe | prompt data",
+  "breaker": "\n🛑 Repeated-tool-call breaker (repeated_tool_call): Identical tool call repeated 6 times in a row, returning the same output every time: shell({\"command\":\"echo fixture\"}). Ending the session.",
+  "observations": [
+    {
+      "delay": 0,
+      "exists": false,
+      "activeHandle": false,
+      "exitCode": null,
+      "signalCode": "SIGTERM",
+      "killed": false
+    },
+    {
+      "delay": 50,
+      "exists": false,
+      "activeHandle": false,
+      "exitCode": null,
+      "signalCode": "SIGTERM",
+      "killed": false
+    },
+    {
+      "delay": 500,
+      "exists": false,
+      "activeHandle": false,
+      "exitCode": null,
+      "signalCode": "SIGTERM",
+      "killed": false
+    }
+  ]
+}

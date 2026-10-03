@@ -1,72 +1,43 @@
-# Optional GitHub credentials: validation evidence
+# Optional GitHub credentials: requirements and merge resolution
 
-This implements [issue #2323](https://github.com/link-assistant/hive-mind/issues/2323) in [PR #2330](https://github.com/link-assistant/hive-mind/pull/2330).
+[Issue #2323](https://github.com/link-assistant/hive-mind/issues/2323) asks that every workflow work without workload-specific GitHub secrets. Credentials resolve as GitHub App → one `AUTOMATION_TOKEN` → `github.token`, and the Formal AI draft workflow must never skip because of a missing token.
 
-## Reproduction and regressions
+## Two implementations of the same issue
 
-Before the change, an eligible issue passed to `decideDraft` without a configured token returned `no-draft-token` and skipped its model step. The new regression expects an attempt with `checkStrategy=dispatch`; it failed against the original implementation. Workflow assertions also failed on the four workload secrets and the default manual instant-release path.
+[PR #2330](https://github.com/link-assistant/hive-mind/pull/2330) and [PR #2329](https://github.com/link-assistant/hive-mind/pull/2329) (issue #2324) implemented the same credential layers in parallel. #2329 was merged first, and `main` then conflicted with this branch in 32 files. Its implementation uses local `resolve-github-token` and `dispatch-checks` actions, `formal-ai-draft-health.mjs`, `cleanup-task-fixtures.mjs` and `github-write-access.lib.mjs`. This branch had a loader for upstream shared actions, a separate activity workflow and cleanup scripts, and a Git receive-pack write probe.
 
-The regression files ending in `2323.test.mjs` cover all three check strategies, checks-only dispatch defaults, outputting the draft head after a failed model session, orphan commit ancestry, repository creation capability, partial fixture cleanup, discovery of interrupted solver PRs, stale resource cleanup, protection of active fixtures, skipped/cancelled model steps, and generated-workflow approval refusal with `act` exit-code propagation. The GitHub API adapter retains the integration suite's rate-limit and transient retries, while permission failures remain visible. The change-detector regression also checks a dispatched head whose earlier code commit is followed by a documentation commit.
+The shared actions in [link-foundation/.github issue #1](https://github.com/link-foundation/.github/issues/1) remain unpublished. On 2026-10-03 the issue is open, and `gh api repos/link-foundation/.github/contents/actions` returns HTTP 404. Both designs are therefore local compatibility implementations of that contract. Keeping both would give the repository two resolvers, contradicting R1. The conflicts were resolved to `main`'s reviewed implementation. Branch files made unreachable by that resolution were removed, together with tests for those files.
 
-Run the focused regressions with:
+## Requirement coverage after the merge
+
+| Requirement                                                 | Where it is delivered on `main`                                                                                                                                         | Verified by                                                                             |
+| ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| R1: one resolver; the four workload secrets removed         | `.github/actions/resolve-github-token` in the draft, matrix, release and cleanup workflows; `git grep` finds none of the four secret names under `.github`              | `tests/optional-automation-2324.test.mjs` (token precedence)                            |
+| R2: drafts never skip; default-token drafts dispatch checks | `decideDraft` returns `checkStrategy` `dispatch` for `default` and `pull_request` otherwise; `formal-ai-draft.yml` runs `dispatch-checks` whenever a head branch exists | `tests/optional-automation-2324.test.mjs`, `tests/formal-ai-draft-2233.test.mjs`        |
+| R3: checks-only dispatch                                    | `mode` defaults to `checks` in `release.yml`, `security.yml`, `links.yml` and `workflows.yml`; release jobs require `inputs.mode == 'release'` on `refs/heads/main`     | `tests/optional-automation-2324.test.mjs`                                               |
+| R4: integration suite in every layer                        | `tests/test-feedback-lines-integration.mjs` creates a repository only when `AUTOMATION_CAN_CREATE_REPOSITORIES=true` and otherwise uses an orphan-branch fixture        | `tests/task-fixture-cleanup-2324.test.mjs`                                              |
+| R5: cleanup with any layer                                  | `cleanup-test-repos.yml` runs `cleanup-task-fixtures.mjs` with every layer; repository deletion requires `can-delete-repositories`                                      | `tests/task-fixture-cleanup-2324.test.mjs`, `tests/cleanup-workflow-auth-2286.test.mjs` |
+| R6: no silent state                                         | The scheduled `health` job in `formal-ai-draft.yml` runs `formal-ai-draft-health.mjs`; its decision now lives in `formal-ai-draft-health.lib.mjs`                       | `tests/formal-ai-draft-health-2323.test.mjs` (added here)                               |
+| R7: documentation                                           | `docs/FORMAL-AI-DRAFTS*.md` says default-token runs wait for approval; the README and its translations describe the three layers                                        | documentation checks                                                                    |
+
+The installation-token fork bug found in this PR's CI also has a merged fix: `71648d21` keeps installation tokens in direct repository mode, and `tests/installation-token-access-2324.test.mjs` covers it.
+
+## Remaining contribution: dispatched checks validate the whole head
+
+With the default layer, `formal-ai-draft.yml` starts `release.yml` on the draft head through `workflow_dispatch`. `scripts/detect-code-changes.mjs` treated `workflow_dispatch` like `push` and compared only `HEAD^` with `HEAD`. If a draft's last commit changes only documentation, earlier code commits are invisible, `code=false` skips the test jobs, and the untested head is reported green.
+
+The regression added to `tests/detect-code-changes-untested-head-2198.test.mjs` reuses that test's fixture: a code commit followed by a documentation commit. Run with `GITHUB_EVENT_NAME=workflow_dispatch`, it fails on `main`'s script because the input does not match `/code=true/`. With the fix it passes. `workflow_dispatch` now lists every tracked file at the head. A dispatched check has no base to diff against, so it validates the whole tree.
 
 ```bash
-node --test tests/*2323.test.mjs tests/detect-code-changes-untested-head-2198.test.mjs
+node --test tests/detect-code-changes-untested-head-2198.test.mjs tests/optional-automation-2324.test.mjs
 ```
 
-Final review reproduced another partial-cleanup case: a stale PR still references its orphan base after that base has been deleted, while its ordinary solver head remains. The regression failed because cleanup selected PRs only through existing disposable refs. Cleanup now recognizes fixture PRs by their base/head names, checks their head age, and removes stale solver heads even when the orphan base is gone, while keeping active fixtures protected.
+## Remaining contribution: tested R6 decision
 
-## Real GitHub integration
+On `main`, the health job was tested only for wiring: dependencies install before the script runs. Its decision logic sat in top-level code that calls GitHub, so nothing verified that a green run with a skipped model step was not counted. That run shape is the original `no-draft-token` failure. The decision is now in `scripts/formal-ai-draft-health.lib.mjs`, and the script's behavior is unchanged. `tests/formal-ai-draft-health-2323.test.mjs` covers eligibility, skipped or unstarted steps, failed sessions, schedule-event runs and the failure rule. Removing the `skipped` condition makes the test fail.
 
-```bash
-GITHUB_REPOSITORY=link-assistant/hive-mind \
-  AUTOMATION_LAYER=default \
-  AUTOMATION_CAN_CREATE_REPOSITORIES=false \
-  node tests/test-feedback-lines-integration.mjs
-```
+## Remaining limits
 
-On 2026-09-30 this created [fixture PR #2334](https://github.com/link-assistant/hive-mind/pull/2334) against an orphan `integration/1790764179018-baa421ea-86ed-48ed-92cf-025bfe399377/base` branch. The feedback assertions passed through the real `solve.mjs --dry-run` command: two comments posted after the baseline commit were reported and included in the prompt. The issue and PR were closed by cleanup.
-
-The command used the workstation's existing GitHub authentication with repository creation disabled. It validates branch isolation, not the identity or scopes of an actual Actions `GITHUB_TOKEN`. Cleanup exited nonzero because GitHub rejected deletion of both fixture refs with HTTP 422, `Repository rule violations found: Cannot delete this branch`. The refs remain as evidence; the failure is reported rather than silently ignored.
-
-The finite [generated-workflow probe](../../../experiments/issue-2323/probe-generated-workflow.mjs) ran the real `act` v0.2.89 fallback against a local API fixture. Its generated workflow executed `actions/checkout@v7` and a JavaScript Hello World program in Docker, printed `Hello, World!`, and returned success. This checks the executor independently of a model session or live run approval.
-
-The real activity monitor reported 25 eligible issues and zero executed draft attempts during the preceding seven days, then exited 1 as required. Existing green workflows with skipped model steps did not hide the inactivity.
-
-The [fresh-runner probe](../../../experiments/issue-2323/probe-fresh-runner.mjs) reproduced the retry helper's missing `semver` dependency on a checkout without `node_modules`. The workflow's retrying `npm ci` installed the locked dependencies, after which the API adapter loaded successfully. Standalone cleanup, activity and matrix jobs include that installation.
-
-A [live branch dispatch with default inputs](https://github.com/link-assistant/hive-mind/actions/runs/36711771917) ran release preflight in report mode and skipped every publishing job. Its test-suite setup failed on the unpublished shared resolver. Publishing credentials were present in that CI run. A separate local invocation of `preflight-credentials.mjs --mode report`, with the Docker Hub and OIDC credential variables removed, exited 0 and reported zero verified capabilities, three warnings and zero failures. This verifies that checks-only preflight does not require publishing credentials.
-
-## Original external blockers
-
-At the previous PR head, `gh api repos/link-foundation/.github/contents/actions` returned HTTP 404. Neither shared action existed on `main`. The workflows directly referenced the input/output contract specified in [link-foundation/.github issue #1](https://github.com/link-foundation/.github/issues/1), so their live execution required that dependency to be published. The CI follow-up below introduces a temporary compatibility implementation until publication.
-
-The repository's active [no-destruction-possible ruleset](https://github.com/link-assistant/hive-mind/rules/21204104) applies deletion and non-fast-forward prohibitions to `~ALL`, excludes no branches, and has no bypass actors. Its API reports `current_user_can_bypass: never`. This blocks deletion of temporary refs in every credential layer. Branch cleanup requires a rule exemption for disposable test refs and their associated solver heads; this PR does not modify repository rules.
-
-These were the blockers at the previous PR head. The CI follow-up below handles unpublished actions and explicitly reports policy-retained refs. Live App/PAT comparisons and the full model matrix still require their actual credentials/model sessions; branch deletion remains prohibited by repository policy.
-
-## CI follow-up
-
-The latest failing runs at the start of this follow-up were [Security 36713516822](https://github.com/link-assistant/hive-mind/actions/runs/36713516822) and [Checks and release 36713516679](https://github.com/link-assistant/hive-mind/actions/runs/36713516679), both for `a2cc0506f4d50fe7222145e219a9b4f12f6bcb8e` after its commit timestamp. Security log lines 34, 69 and 104 and release log line 28859 all report `Can't find 'action.yml', 'action.yaml' or 'Dockerfile'` for the resolver. Pipeline Status failed because of test-suites, at release log lines 36711–36712. These were setup failures, not failed scans or tests.
-
-The shared repository still had no action directory. GitHub downloads statically referenced actions before evaluating step conditions, so adding an `if` cannot fix this. Workflows now check out first, stage both actions from one immutable upstream commit when published, and otherwise use a visible compatibility implementation. That implementation supports App → single token → built-in token precedence, scopes App tokens to the current repository and explicit job permissions, masks credentials, and dispatches checks with bounded polling for new runs on the correct head. Transport errors are not treated as unpublished actions. The [runtime probe](../../../experiments/issue-2323/probe-shared-actions.mjs) executes the real local composite actions with each Node process limited to a 256 MiB heap.
-
-The repository's `Cannot delete this branch` rule was reproduced in a failing regression. Fixture and scheduled cleanup now close issues/PRs and report retained branch names in warnings and job summaries, rather than misreporting those refs as removed. Scheduled cleanup retries retained refs. All other cleanup errors remain fatal. Complete physical branch removal still requires an exemption for disposable refs; this PR leaves repository rules unchanged.
-
-The runtime probe passed with the real nested composite actions, reporting `layer=default`, `triggers-workflows=false` and `can-create-repositories=false`. The live integration rerun created [fixture PR #2362](https://github.com/link-assistant/hive-mind/pull/2362) and issue #2361, passed the feedback assertions, closed both resources, and exited successfully with explicit warnings for the two policy-retained refs. This rerun again used workstation authentication with repository creation disabled; actual Actions token behavior is checked by CI. The 41 focused regressions, ESLint, Prettier, actionlint, zizmor, dependency freshness, duplication, secret scanning and lockfile audit passed locally.
-
-Fresh CI on `35d0ad7c5d61209c06f3bed75c8f1aa29e11d824` passed both CodeQL jobs and Dependency Review in [Security 36721847356](https://github.com/link-assistant/hive-mind/actions/runs/36721847356), with logs confirming the built-in credential layer. In [test-suites job 109909408350](https://github.com/link-assistant/hive-mind/actions/runs/36721847646/job/109909408350), all 528 default test files passed (downloaded job log line 17778). The live feedback fixture used the built-in token, but `solve --dry-run` failed because the fresh runner had no Git identity (line 17938). Cleanup still closed its issue/PR and reported retained refs (lines 17947 and 17954).
-
-The [fresh-runner regression](../../../tests/feedback-integration-environment-2323.test.mjs) executes the integration script with mocked GitHub calls and real Git under empty system/global configuration. It reproduced the failure before the fix. The integration now supplies the existing bot identity helper to the `solve` child through environment variables, without changing the runner's Git configuration or disabling validation. The regression passes with the identity present and fixture cleanup verified.
-
-A live rerun with `GIT_CONFIG_GLOBAL=/dev/null` and `GIT_CONFIG_SYSTEM=/dev/null` passed against [fixture PR #2374](https://github.com/link-assistant/hive-mind/pull/2374), detected exactly two new comments, and closed issue #2373 and the PR. It used workstation authentication with repository creation disabled, and reported the two branches retained by the repository rule.
-
-The next CI head, `5f0c28f3ccb79b89474501d3bfc247d5960395a1`, passed all 529 default files and the Git identity check. The built-in token created another orphan fixture, but [test-suites job 109919360154](https://github.com/link-assistant/hive-mind/actions/runs/36724635604/job/109919360154) exposed a product permission bug: the repository API returned all user-role fields false despite the token's Contents write permission. Auto-fork incorrectly selected fork mode, then `/user` failed with HTTP 403 because installation tokens have no user identity. The downloaded job log records the default-suite success at line 17791 and the false fork decision and forbidden user lookup at lines 18000–18032. Both CodeQL scans and Dependency Review passed on this head.
-
-The [installation-token regressions](../../../tests/installation-token-permissions-2323.test.mjs) reproduce both the wrong fork decision and the direct write-check refusal using the production function bodies and mocked external calls. Both tests failed before the fix. Repository setup now checks the authenticated Git receive-pack advertisement when an installation token's user-role fields are false. This is a read-only GET: no push, pack, ref creation, or branch-rule bypass occurs. Only a successful response with the Git advertisement content type confirms authorization; denied, malformed, redirected, or failed responses cannot grant access. Ordinary user-token role checks remain unchanged.
-
-The finite [read-only permission experiment](../../../experiments/issue-2323/probe-git-write-permissions.mjs) uses the production probe against two real repositories. It confirmed write access to `link-assistant/hive-mind` and denied it for `octocat/Hello-World`, which the workstation account can read but cannot push to. The focused regression suite passes 48 tests, including denied credentials, unexpected response types, transport failures, token precedence, and Enterprise host validation. Actual built-in-token behavior is verified by the subsequent CI run.
-
-## Initial CI failures
-
-The initial PR head was `7ed1de4d0a5f16ecb9ef10fe8e7c848cd53a9a1a`. Its [Checks and release run](https://github.com/link-assistant/hive-mind/actions/runs/36699394925) failed dependency freshness: `@dotenvx/dotenvx` was pinned at 2.31.1 while 2.32.2 was current (captured log lines 2288–2291). Its [Security run](https://github.com/link-assistant/hive-mind/actions/runs/36699394508) failed the npm lock audit on vulnerable `brace-expansion` 5.0.9 (lines 235–247). The source pin and lockfile were updated. Freshness checks then required the Docker images' agent pin to advance from 0.26.8 to 0.26.9 and finally 0.26.10, both published during this investigation. The [first updated-head run](https://github.com/link-assistant/hive-mind/actions/runs/36707012910) recorded the latter at log lines 2298–2301. Its release preflight used report mode and passed with configured publishing credentials (five verified capabilities). The corresponding [Security run](https://github.com/link-assistant/hive-mind/actions/runs/36707012810) passed the lock audit but failed on the missing shared action at lines 299, 334 and 369; Workflows and Broken Link Checker passed.
+- Live App and `AUTOMATION_TOKEN` comparisons require those credentials, which are not configured in this repository.
+- The repository's [no-destruction-possible ruleset](https://github.com/link-assistant/hive-mind/rules/21204104) blocks deletion of fixture refs in every layer. Cleanup reports them as retained (#2329).
+- Once link-foundation/.github#1 is published, the local actions should be replaced with pinned references to the shared ones.

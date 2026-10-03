@@ -24,6 +24,7 @@ import { cancellableSleep } from './interruptible-sleep.lib.mjs';
 // Issue #2182: draft detection and merge-failure classification live in one
 // pure module shared by every merge call site.
 import { classifyMergeError, evaluatePullRequestMergeability } from './merge-error-classification.lib.mjs';
+import { checkIssueLinksBeforeMerge, closeLinkedIssuesAfterMerge } from './issue-link-verification.lib.mjs';
 
 // Issue #1722: gh api `--paginate --slurp` responses for repos with many
 // historical workflow runs can easily exceed Node's default 1 MB exec buffer
@@ -569,6 +570,10 @@ export async function mergePullRequest(owner, repo, prNumber, options = {}, verb
   const { mergeMethod = 'merge', squash = false, deleteAfter = false } = options;
 
   try {
+    // Issue #2335: every merge entry point, including the queue, re-reads the
+    // description and refuses to merge a pull request that does not close its issues.
+    const links = await checkIssueLinksBeforeMerge({ owner, repo, prNumber, issueNumber: options.issueNumber, logger: async message => console.log(message), verbose });
+    if (links.blocker) return { success: false, error: links.blocker.message, category: links.blocker.reason, terminal: true, recoverable: false, resolution: links.blocker.resolution, blocker: links.blocker };
     let mergeArgs = `--repo ${owner}/${repo}`;
 
     // Issue #1269: gh pr merge requires --merge, --squash, or --rebase when running non-interactively
@@ -587,13 +592,14 @@ export async function mergePullRequest(owner, repo, prNumber, options = {}, verb
     }
 
     const { stdout } = await exec(`gh pr merge ${prNumber} ${mergeArgs}`);
+    const unclosedIssues = await closeLinkedIssuesAfterMerge(links.snapshot, { logger: async message => console.warn(message) });
 
     if (verbose) {
       console.log(`[VERBOSE] /merge: Successfully merged PR #${prNumber}`);
       if (stdout) console.log(`[VERBOSE] /merge: stdout: ${stdout.trim()}`);
     }
 
-    return { success: true, error: null };
+    return { success: true, error: null, unclosedIssues };
   } catch (error) {
     // Issue #2182: classify the failure so watch loops can stop (or self-heal)
     // instead of retrying an impossible merge every 120 seconds forever.

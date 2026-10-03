@@ -65,12 +65,12 @@ export const createYargsConfig = yargsInstance =>
     })
     .option('use-router', {
       type: 'boolean',
-      description: '[EXPERIMENTAL] Route model traffic through the hive-mind-router sidecar instead of mounting AI credentials into the task container (issue #2164)',
+      description: '[EXPERIMENTAL] Route model traffic through the hive-mind-router sidecar instead of mounting AI credentials into the task container',
       default: false,
     })
     .option('tool-update', {
       type: 'boolean',
-      description: 'Check for a newer version of the agentic CLI before starting the task (issue #2202). Use --no-tool-update to skip.',
+      description: 'Check for a newer version of the agentic CLI before starting the task. Use --no-tool-update to skip.',
       default: true,
     })
     .option('screen-name', {

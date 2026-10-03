@@ -1,0 +1,174 @@
+name: Broken Link Checker
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '**.md'
+      - '**.html'
+      - '.github/workflows/links.yml'
+      - '.lycheeignore'
+      - 'scripts/check-web-archive.mjs'
+      - 'scripts/recheck-broken-links.mjs'
+      - 'tests/fixtures/lychee-report.md'
+      - 'tests/links-workflow.test.js'
+      - 'tests/recheck-broken-links.test.js'
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - '**.md'
+      - '**.html'
+      - '.github/workflows/links.yml'
+      - '.lycheeignore'
+      - 'scripts/check-web-archive.mjs'
+      - 'scripts/recheck-broken-links.mjs'
+      - 'tests/fixtures/lychee-report.md'
+      - 'tests/links-workflow.test.js'
+      - 'tests/recheck-broken-links.test.js'
+  workflow_dispatch:
+
+# Least-privilege default; jobs escalate individually when needed.
+permissions:
+  contents: read
+
+# Provide Git config to actions/checkout itself; checkout runs git init before
+# any workflow step can configure Git.
+env:
+  GIT_CONFIG_COUNT: '1'
+  GIT_CONFIG_KEY_0: init.defaultBranch
+  GIT_CONFIG_VALUE_0: main
+
+jobs:
+  link-checker:
+    name: Check Links
+    runs-on: ubuntu-24.04
+    # Typical run: <1min with lychee cache. 10min prevents slow
+    # external hosts or Wayback Machine probes from hanging the workflow.
+    timeout-minutes: 10
+    concurrency:
+      group: check-${{ github.workflow }}-${{ github.ref }}-link-checker
+      cancel-in-progress: true
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Check links with lychee
+        id: lychee
+        uses: lycheeverse/lychee-action@v2
+        with:
+          # Check all Markdown and HTML files
+          # Exclude case-studies directory - these are research documents from
+          # external repos with references to files and issues that don't exist
+          # in this repository (similar exclusion pattern as eslint.config.js)
+          # Exclude the Vite source HTML because its root-relative app asset
+          # URLs are only valid when served by Vite.
+          # Exclude tests/fixtures - the captured lychee reports there contain
+          # deliberately broken links used as parser test input.
+          args: >-
+            --verbose
+            --no-progress
+            --cache
+            --max-cache-age 1d
+            --max-retries 3
+            --timeout 30
+            --exclude-path docs/case-studies
+            --exclude-path examples/universal-app/index.html
+            --exclude-path tests/fixtures
+            './**/*.md'
+            './**/*.html'
+          # Don't fail the workflow immediately - we want to check web archive first
+          fail: false
+          # Output file for broken links report (used by check-web-archive.mjs)
+          output: lychee/out.md
+          # Write a job summary
+          jobSummary: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Re-check links that never got an answer
+        # --max-retries never retries a failure during the connect phase
+        # (lycheeverse/lychee#2297), so a healthy URL behind a connection
+        # reset is reported broken without one retry. Ask those URLs again
+        # outside lychee. A failure carrying a status code is a host's
+        # answer and stays final.
+        if: steps.lychee.outputs.exit_code != 0
+        id: recheck
+        run: node scripts/recheck-broken-links.mjs
+        env:
+          LYCHEE_OUTPUT: lychee/out.md
+          RECOVERED_OUTPUT: lychee/recovered.txt
+
+      - name: Check broken links against Web Archive
+        # `!= 'true'`, never `== 'false'`: a skipped re-check leaves the
+        # output empty, and only the != form fails safe.
+        if: >-
+          steps.lychee.outputs.exit_code != 0 &&
+          steps.recheck.outputs.all_recovered != 'true'
+        id: webarchive
+        run: node scripts/check-web-archive.mjs
+        env:
+          LYCHEE_OUTPUT: lychee/out.md
+          RECOVERED_URLS: lychee/recovered.txt
+
+      - name: Fail if broken links were found
+        if: >-
+          !cancelled() &&
+          steps.lychee.outputs.exit_code != 0 &&
+          steps.recheck.outputs.all_recovered != 'true'
+        run: |
+          echo "::error::Broken live links were detected."
+          echo ""
+          echo "What happened:"
+          echo "  lychee found one or more broken links in the *.md and *.html files of this repository."
+          echo "  An archive is a suggested replacement; it does not make the live link valid."
+          echo ""
+          echo "How to fix:"
+          echo "  1. Review the 'Check links with lychee' step above for a full list of broken links."
+          echo "  2. For links marked with a '::notice::' annotation above, a Web Archive replacement exists."
+          echo "     Replace those broken links with the suggested archive.org URL."
+          echo "  3. For links with no archive version, either:"
+          echo "     a. Find an updated URL that points to the same or equivalent content."
+          echo "     b. Remove the link if the content is no longer relevant."
+          echo "     c. Add the URL to .lycheeignore if it is a known false positive."
+          echo ""
+          echo "Report location: lychee/out.md (available as a workflow artifact if configured)."
+          exit 1
+
+  # Terminal status gate: runs even when the jobs above fail or are
+  # cancelled, and turns a `timeout-minutes` kill (reported as cancelled)
+  # into a red run. needs is derived and checked by the status-gate-coverage
+  # job in workflows.yml.
+  pipeline-status:
+    name: Pipeline Status
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    concurrency:
+      group: check-${{ github.workflow }}-${{ github.ref }}-pipeline-status
+      cancel-in-progress: true
+    # A status function is required: without one the gate inherits the
+    # implicit "every dependency succeeded" condition and is skipped in
+    # exactly the runs it exists to report.
+    if: >-
+      !cancelled()
+    needs:
+      - link-checker
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24.x'
+
+      - name: Fail the run when a required job was cancelled or failed
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+          RUN_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
+        run: bash scripts/check-pipeline-status.sh

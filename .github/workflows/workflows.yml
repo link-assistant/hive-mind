@@ -8,15 +8,15 @@ on:
       - '.github/workflows/**'
       - '.github/zizmor.yml'
   pull_request:
+    branches-ignore: ['e2e/**']
     types: [opened, synchronize, reopened]
-    branches-ignore: ['e2e/**', 'integration/**']
     paths:
       - '.github/workflows/**'
       - '.github/zizmor.yml'
   workflow_dispatch:
     inputs:
       mode:
-        description: 'Run checks'
+        description: Checks-only dispatch
         type: choice
         default: checks
         options: [checks]

@@ -255,8 +255,8 @@ changeset-check:
 - **Доверенная публикация OIDC** — не требуются API-токены в CI (npm, PyPI, crates.io)
 - **Только проверенные релизы** — все проверки должны пройти перед публикацией
 - **Два режима запуска** — автоматический (при слиянии) и ручной (workflow dispatch)
-- **Отклонение по правилу — это не провалившийся релиз** — когда repository ruleset требует, чтобы изменения приходили через pull request, релизный job открывает его для своего bump-а версии, а не умирает на отклонении. Этот путь и путь rebase-and-retry для проигранной гонки — два разных восстановления для двух отклонений, которые печатают одно и то же слово (см. принцип 10)
-- **Сохраняйте проверяемость fallback PR без долгоживущего токена** — pull request, открытый через `GITHUB_TOKEN`, не может запустить дочерние workflows без подтверждения человеком, а проверки `workflow_dispatch` не удовлетворяют обязательной проверке pull request. Сделайте release job зависимым от всех pre-release validation jobs и аварийно завершайте его, если сгенерированный commit меняет что-либо кроме release metadata (так его source tree останется проверенным parent source tree). Выдайте `checks: write` только этому job и опубликуйте успешный результат проверки на точном version commit с помощью токена GitHub Actions App. Перед merge дождитесь этой обязательной проверки. Ruleset остаётся неизменным, бот не может выполнить прямой push, а обычные PR запускают полный набор проверок.
+- **Коммитьте bump версии напрямую в ветку по умолчанию** — релизный job отправляет сгенерированный version commit (метаданные пакета, lockfile, changelog, использованные changesets) прямо в `main` от имени `github-actions[bot]` и аварийно завершается, если этот commit меняет что-либо кроме release metadata. Не проводите его через автоматически сливаемый release pull request: тогда каждый релиз добавляет ещё один pull request и ещё одну ветку (ruleset, запрещающий удаление, сохраняет её навсегда), а упавший run оставляет открытый release pull request, который кому-то придётся закрывать
+- **Push, отклонённый правилом, исправляется в правиле, а не в workflow** — если repository rule отклоняет push версии, завершайте релиз ошибкой с выводом правила и исправьте правило (удалите его или добавьте `github-actions` как bypass actor). Путь rebase-and-retry для проигранной гонки — это другое восстановление для отклонения, которое печатает то же слово (см. принцип 10)
 
 **Запрещайте ручные изменения версий** в PR — все обновления версий должны управляться рабочим процессом релиза CI:
 
@@ -312,14 +312,14 @@ jobs:
 
 **Не «чините» это через `ref: main` в checkout.** Так вы заглушаете отклонение, собирая, тестируя и публикуя дерево, которое CI не проверял, и в логе об этом не будет ни слова. Отклонение — честный исход; не хватает именно восстановления.
 
-**Дайте каждому write job push, который сначала классифицирует отклонение, а затем делает rebase и повтор.** Отклонение по repository ruleset (GH006, GH013 — «Changes must be made through a pull request») тоже печатает `[rejected]`, и никакое количество rebase не удовлетворит правило; здесь нужен путь через pull request (см. принцип 9). Повтор лишь тратит слот в очереди и сообщает неверную причину.
+**Дайте каждому write job push, который сначала классифицирует отклонение, а затем делает rebase и повтор.** Отклонение по repository ruleset (GH006, GH013 — «Changes must be made through a pull request») тоже печатает `[rejected]`, и никакое количество rebase не удовлетворит правило; вместо этого завершайтесь ошибкой с выводом правила, чтобы правило было исправлено (см. принцип 9). Повтор лишь тратит слот в очереди и сообщает неверную причину.
 
 ```js
 for (let attempt = 1; attempt <= maxAttempts; attempt++) {
   const result = await run('git', ['push', remote, branch]);
   if (result.code === 0) return { pushed: true, attempt };
-  // Правило нельзя удовлетворить через rebase: проводим тот же коммит через PR.
-  if (isBlockedByRepositoryRule(result)) return landViaPullRequest({ branch, ...ctx });
+  // Правило нельзя удовлетворить через rebase: завершаемся с выводом правила.
+  if (isBlockedByRepositoryRule(result)) throw repositoryRuleError({ branch, version, cause: result });
   // Auth, сеть, отсутствующий remote: rebase скрыл бы настоящую ошибку.
   if (!isNonFastForward(result) || attempt === maxAttempts) throw new CommandFailedError('git', ['push', remote, branch], result);
   await run('git', ['pull', '--rebase', remote, branch]);

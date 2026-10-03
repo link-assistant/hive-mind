@@ -1,0 +1,2 @@
+original: Memory=268435456 MemorySwap=268435456 NanoCpus=500000000 PidsLimit=64
+resumed:  Memory=0 MemorySwap=0 NanoCpus=0 PidsLimit=<no value>

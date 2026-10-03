@@ -55,9 +55,11 @@ Formal-AI-Pull-Request: https://github.com/link-assistant/hive-mind/pull/<n>
 
 ## 设置
 
-默认 `github.token` 层无需配置。所有写入工作流按顺序选择：可选 GitHub App（变量 `AUTOMATION_APP_ID` 和密钥 `AUTOMATION_APP_PRIVATE_KEY`）、所有任务共用的单一密钥 `AUTOMATION_TOKEN`、默认令牌。缺少可选密钥不会跳过草稿。默认令牌创建的 pull request 检查等待批准；`dispatch-checks` 立即启动四个检查工作流。日志和 job 摘要显示使用的层。集成测试使用独立的孤立分支，清理关闭其 issue 和 PR 并删除旧分支。只有拥有管理或删除权限的 App/令牌才删除测试仓库。详见[英文设置说明](FORMAL-AI-DRAFTS.md#setup)。`FORMAL_AI_DRAFT_IMAGE` 仍是可选镜像变量。
+无需配置凭据。所有写入工作流使用同一个解析器：GitHub App（变量 `AUTOMATION_APP_ID` 和 secret `AUTOMATION_APP_PRIVATE_KEY`）→ 一个 secret `AUTOMATION_TOKEN` → 内置 `github.token`。采用首个可用层。个人令牌需要 contents、issues、pull requests 和 Actions 写入权限。`FORMAL_AI_DRAFT_IMAGE` 仍为可选变量。
 
-加载器从同一个 upstream 提交中选择两个共享 action。在它们发布之前，会使用临时兼容实现，并在日志和摘要中显示警告。如果仓库规则禁止删除测试分支，清理会报告保留的分支名并定期重试；issue 和 PR 仍会关闭，其他错误仍会导致失败。
+默认令牌创建的 pull request 可以产生等待批准的检查。草稿工作流立即通过 `dispatch-checks`，在草稿分支以 `mode=checks` 启动 `release.yml`、`security.yml`、`links.yml` 和 `workflows.yml`。发布必须显式选择发布模式且位于 `main`。缺少可选凭据不会跳过尝试；摘要注明使用的层。每日健康检查统计过去七天实际执行的尝试。
+
+共享 actions 尚未发布，见 [link-foundation/.github#1](https://github.com/link-foundation/.github/issues/1)。目前 `.github/actions/` 提供兼容实现。
 
 ## 如何退出与重跑
 

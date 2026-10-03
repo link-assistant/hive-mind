@@ -29,14 +29,26 @@ import { readLogTailText } from './log-bounded-read.lib.mjs';
 export const DELIBERATE_STOP_TAIL_BYTES = 64 * 1024;
 
 /**
- * Lines solve writes when it stops on purpose. Each is printed by solve itself
- * right before `safeExit(1, …)` — see solve.finalize.lib.mjs and
- * solve.auto-continue.lib.mjs.
+ * Lines solve writes when it stops on purpose. Each is the `❌ <reason>` line
+ * `safeExit(1, reason)` prints (exit-handler.lib.mjs `showExitMessage`), or the
+ * finalize line right before it — see solve.finalize.lib.mjs, solve.mjs and
+ * solve.auto-continue.lib.mjs. They are anchored to the start of the line (after
+ * the optional `[timestamp] [LEVEL] ` prefix of solve's own log file), so
+ * AI output that merely quotes them (JSON stream lines, indented tool output —
+ * e.g. while working on Hive Mind itself) is not mistaken for solve's verdict.
+ *
+ * "AI session failed (…)" is deliberately absent: a tool that fails after a
+ * child was OOM-killed is the casualty issue #2301 recovers.
  */
+const LINE_START = String.raw`^(?:\[[^\]]*\] )*❌ `;
+const marker = text => new RegExp(LINE_START + text);
+
 export const DELIBERATE_STOP_MARKERS = Object.freeze([
-  { reason: 'auto-restart-limit', pattern: /Auto-restart limit reached/ },
-  { reason: 'auto-resume-limit', pattern: /Auto-resume limit reached/ },
-  { reason: 'usage-limit', pattern: /Usage limit reached - use --auto-resume-on-limit-reset/ },
+  { reason: 'auto-restart-limit', pattern: marker('Auto-restart limit reached') },
+  { reason: 'auto-resume-limit', pattern: marker('Auto-resume limit reached') },
+  { reason: 'usage-limit', pattern: marker('Usage limit reached - use --auto-resume-on-limit-reset') },
+  { reason: 'no-progress', pattern: marker('(?:No progress between sessions|Stopped after two consecutive AI sessions produced identical results)') },
+  { reason: 'subscription-blocked', pattern: marker('⚠️ SUBSCRIPTION/ACCESS UNAVAILABLE') },
 ]);
 
 /**
@@ -50,7 +62,7 @@ export function findDeliberateSolveStop(tailText) {
   const lines = String(tailText).split('\n');
   for (let i = lines.length - 1; i >= 0; i--) {
     for (const { reason, pattern } of DELIBERATE_STOP_MARKERS) {
-      if (pattern.test(lines[i])) return { reason, line: lines[i].trim() };
+      if (pattern.test(lines[i].replace(/\r$/, ''))) return { reason, line: lines[i].trim() };
     }
   }
   return null;

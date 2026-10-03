@@ -223,7 +223,10 @@ export function getTrackedSessionInfo(sessionName) {
  */
 export function markSessionStopRequested(sessionId, { requestedBy = null, verbose = false } = {}) {
   if (!sessionId) return false;
-  const target = activeSessions.get(sessionId) || Array.from(activeSessions.values()).find(info => info?.sessionId === sessionId) || null;
+  // Issue #2408: a kill recovery is tracked under a new name, while the chat
+  // keeps showing the root session (#2301) — match the whole recovery chain.
+  const tracked = Array.from(activeSessions.values());
+  const target = activeSessions.get(sessionId) || tracked.find(info => info?.sessionId === sessionId) || tracked.find(info => [info?.executionUuid, info?.rootSessionName, info?.killRecoveryOfSession].includes(sessionId)) || null;
   if (!target) {
     if (verbose) console.log(`[VERBOSE] markSessionStopRequested: no tracked session found for ${sessionId}`);
     return false;
@@ -1019,20 +1022,12 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
       // message is built so the Telegram report and the pull-request notice
       // below name the very same recovery session.
       let killRecovery = { resumed: false, sessionId: null, attempt: 0, maxAttempts: 0 };
-      const shouldAttemptKillRecovery = (killReport.killed || (killReport.oomEventOnly && !killReport.deliberateStop)) && !sessionInfo?.containerResourceLimitExceeded;
+      const shouldAttemptKillRecovery = (killReport.killed || killReport.oomEventOnly) && !killReport.deliberateStop && !sessionInfo?.containerResourceLimitExceeded;
       if (killReport.killed || killReport.oomEventOnly) {
         // Issue #2408: one durable line per kill/OOM decision, so "why was this
         // (not) restarted?" can be answered from the session log afterwards.
-        logEvent('session_kill_recovery_decision', {
-          sessionName,
-          exitCode: finalExitCode,
-          status: resolvedStatus,
-          killed: killReport.killed,
-          oomEventOnly: killReport.oomEventOnly,
-          deliberateStop: killReport.deliberateStop?.reason || null,
-          diskLimitExceeded: Boolean(sessionInfo?.containerResourceLimitExceeded),
-          attemptRecovery: shouldAttemptKillRecovery,
-        });
+        const decision = { exitCode: finalExitCode, status: resolvedStatus, killed: killReport.killed, oomEventOnly: killReport.oomEventOnly, deliberateStop: killReport.deliberateStop?.reason || null };
+        logEvent('session_kill_recovery_decision', { sessionName, ...decision, diskLimitExceeded: Boolean(sessionInfo?.containerResourceLimitExceeded), attemptRecovery: shouldAttemptKillRecovery });
       }
       if (shouldAttemptKillRecovery) {
         const recovered = await runKillRecoveryForCompletion({

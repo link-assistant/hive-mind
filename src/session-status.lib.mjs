@@ -115,6 +115,23 @@ export function describeExitSignal(exitCode) {
 }
 
 /**
+ * The exit code a parent should pass on for a child that closed with
+ * `(code, signal)`. Node reports `code === null` for a signal death, and
+ * `process.exit(null)` exits **0** — an OOM-killed child would read as success
+ * (issue #2408). A signal death becomes the shell's `128 + signum` (137 for
+ * SIGKILL); an unknown signal still counts as a kill.
+ *
+ * @param {number|null} code
+ * @param {string|null} [signal]
+ * @returns {number}
+ */
+export function exitCodeFromChildClose(code, signal = null) {
+  if (Number.isInteger(code)) return code;
+  const known = Object.entries(SIGNAL_DESCRIPTIONS).find(([, info]) => info.name === signal);
+  return 128 + (known ? Number(known[0]) : 9);
+}
+
+/**
  * Map an exit code to a canonical session status string.
  *
  *   - 0            → 'executed'  (success)

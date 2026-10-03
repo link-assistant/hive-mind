@@ -111,8 +111,10 @@ export async function buildKillCompletionSections({ sessionName, sessionInfo, st
     const policy = resolveOnSessionKillPolicy({ argv, env, sessionInfo, verbose });
 
     // Issue #2408: an OOM event earlier in the run does not make every later
-    // failure an OOM casualty — solve may have stopped on purpose.
-    const deliberateStop = oomEventOnly ? await detectDeliberateSolveStop(logPath, { readFile: readFile === fs.readFile ? null : readFile, verbose }) : null;
+    // failure an OOM casualty — solve may have stopped on purpose. A SIGKILL
+    // after that verdict (e.g. while the final log upload runs) ends a run that
+    // was already over, so a kill is checked too.
+    const deliberateStop = oomEventOnly || killed ? await detectDeliberateSolveStop(logPath, { readFile: readFile === fs.readFile ? null : readFile, verbose }) : null;
 
     const sections = [];
     if (recovered) {
@@ -120,7 +122,8 @@ export async function buildKillCompletionSections({ sessionName, sessionInfo, st
       sections.push(formatKillRecoverySection({ cause: diagnosis?.cause || KILL_CAUSE_OUT_OF_MEMORY, observedAt, locale }));
     }
     if (oomEventOnly) sections.push(`⚠️ A container OOM event affected a child process at ${observedAt}; the work process continued and later failed with exit code ${exitCode}.`);
-    if (deliberateStop) sections.push(`ℹ️ The work did not fail because of it: solve stopped on its own ("${deliberateStop.line}"), so it is not restarted automatically.`);
+    if (deliberateStop && killed) sections.push(`ℹ️ solve had already stopped on its own ("${deliberateStop.line}") before the process was killed, so it is not restarted automatically.`);
+    else if (deliberateStop) sections.push(`ℹ️ The work did not fail because of it: solve stopped on its own ("${deliberateStop.line}"), so it is not restarted automatically.`);
     if (section) sections.push(section);
 
     if (verbose) {

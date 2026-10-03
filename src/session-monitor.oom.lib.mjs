@@ -34,7 +34,7 @@
  * @see https://github.com/link-assistant/hive-mind/issues/2134
  */
 
-import { classifyExitStatus, normalizeExitCode } from './session-status.lib.mjs';
+import { classifyExitStatus, normalizeExitCode, RUNNING_SESSION_STATUSES } from './session-status.lib.mjs';
 
 /**
  * Field written on the persisted session snapshot the first time an OOM event is
@@ -144,7 +144,10 @@ export async function resolveOomKilledState(sessionName, sessionInfo, statusResu
   //    the footer case of step 1 arriving before the footer is flushed: the
   //    first poll after exit used to announce "killed: out of memory", and the
   //    next poll, reading the footer, "failed" — two verdicts for one session.
-  if (statusExitCode !== null && statusExitCode > 0 && statusExitCode < 128) {
+  //    Exit 0 counts too once the record is terminal: a finished run must not
+  //    be read as an OOM kill (exit 137) and restarted.
+  const terminalRecord = !RUNNING_SESSION_STATUSES.has(String(statusResult?.status || '').toLowerCase());
+  if (statusExitCode !== null && statusExitCode < 128 && (statusExitCode > 0 || (statusExitCode === 0 && terminalRecord))) {
     markOomEventObserved(sessionInfo, persistSnapshot);
     const correctedStatus = classifyExitStatus(statusExitCode) || 'failed';
     if (verbose) {

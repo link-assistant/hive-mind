@@ -10,14 +10,9 @@ const pages = await ghApi(`repos/${repository}/actions/workflows/formal-ai-draft
 let attempts = 0;
 for (const run of pages.flatMap(page => page.workflow_runs)) {
   if (!['issues', 'workflow_dispatch'].includes(run.event)) continue;
-  const jobs = await ghApi(`repos/${repository}/actions/runs/${run.id}/jobs?per_page=100`, { paginate: true });
-  if (
-    isExecutedAttempt(
-      run,
-      jobs.flatMap(page => page.jobs)
-    )
-  )
-    attempts++;
+  const pagesOfJobs = await ghApi(`repos/${repository}/actions/runs/${run.id}/jobs?per_page=100`, { paginate: true });
+  const jobs = pagesOfJobs.flatMap(page => page.jobs);
+  if (isExecutedAttempt(run, jobs)) attempts++;
 }
 const { healthy, report } = evaluateDraftHealth({ eligible: eligible.length, attempts });
 console.log(report);

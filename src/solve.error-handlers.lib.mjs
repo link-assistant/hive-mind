@@ -124,11 +124,13 @@ export const handleFailure = async options => {
     }
   }
 
-  // If --auto-close-pull-request-on-fail is enabled, close the PR
+  // If --auto-close-pull-request-on-fail is enabled, close the PR.
+  // Issue #2492: the close comment no longer says "Logs have been attached" -
+  // that was posted even without --attach-logs or after a failed upload.
   if (argv.autoClosePullRequestOnFail && global.createdPR && global.createdPR.number) {
     await log('\n🔒 Auto-closing pull request due to failure...');
     try {
-      const closeMessage = await sanitizeForPublication(errorType === 'uncaughtException' ? 'Auto-closed due to uncaught exception. Logs have been attached for debugging.' : errorType === 'unhandledRejection' ? 'Auto-closed due to unhandled rejection. Logs have been attached for debugging.' : 'Auto-closed due to execution failure. Logs have been attached for debugging.');
+      const closeMessage = await sanitizeForPublication(errorType === 'uncaughtException' ? 'Auto-closed due to uncaught exception.' : errorType === 'unhandledRejection' ? 'Auto-closed due to unhandled rejection.' : 'Auto-closed due to execution failure.');
 
       const result = await $`gh pr close ${global.createdPR.number} --repo ${global.owner || owner}/${global.repo || repo} --comment ${closeMessage}`;
       if (result.exitCode === 0) {

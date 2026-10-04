@@ -18,7 +18,8 @@ import { createSubAgentCallEntry, accumulateSubAgentUsage, displaySessionTokenUs
 import { buildClaudeResumeCommand, buildClaudeAutonomousResumeCommand } from './claude.command-builder.lib.mjs';
 import { beginAnthropicCostScope, seedCumulativeAnthropicCost, addAnthropicRunCost, captureAnthropicResultCost } from './anthropic-cost-accumulator.lib.mjs'; // Issues #1886, #2056, #2119
 import { buildSolveResumeCommand } from './solve.resume-command.lib.mjs'; // Issue #942
-import { SESSION_FORCE_KILLED_MARKER, postTrackedComment } from './tool-comments.lib.mjs'; // Issue #1625
+import { postTrackedComment } from './tool-comments.lib.mjs'; // Issue #1625
+import { buildSessionForceKilledComment } from './session-force-killed-comment.lib.mjs'; // Issue #1510/#2492
 import { handleClaudeRuntimeSwitch } from './claude.runtime-switch.lib.mjs'; // see issue #1141
 import { CLAUDE_MODELS as availableModels, mapClaudeSubAgentModelToEnvValue } from './models/index.mjs'; // Issue #1221, #1978
 import { applyFormalAiPricingOverride } from './formal-ai-pricing.lib.mjs'; // Issue #2119
@@ -1095,9 +1096,8 @@ export const executeClaudeCommand = async params => {
           if ((isActivityTimeout || isStartupTimeout) && owner && repo && prNumber && $) {
             try {
               const timeoutType = isActivityTimeout ? 'activity' : 'startup';
-              const sessionInfo = sessionId ? `\nSession ID: \`${sessionId}\`` : '';
-              const resumeInfo = isStartupTimeout ? 'Session will be restarted (fresh start).' : `Session will be resumed with \`--resume\` (context preserved).`;
-              const commentBody = `## :warning: ${SESSION_FORCE_KILLED_MARKER} (${timeoutType} timeout)\n\nThe working session was force-killed due to ${timeoutType} timeout (no stream output for ${isActivityTimeout ? timeouts.streamActivityMs / 1000 : timeouts.streamStartupMs / 1000}s).\n\n**Auto-resuming**: Retry ${retryCount + 1}/${maxRetries} in ${delayLabel}. ${resumeInfo}${sessionInfo}\n\n*This is an automated notification — the session will continue automatically.*`;
+              // Issue #2492: describe the retry that will actually run (argv.resume is set above only when a session id exists).
+              const commentBody = buildSessionForceKilledComment({ timeoutType, silentSeconds: isActivityTimeout ? timeouts.streamActivityMs / 1000 : timeouts.streamStartupMs / 1000, attempt: retryCount + 1, delayLabel, resumeSessionId: isStartupTimeout ? null : argv.resume || null });
               const posted = await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: commentBody });
               await log(posted.ok ? `   Posted force-kill notification to PR #${prNumber}${posted.commentId ? ` (id=${posted.commentId})` : ''}` : `   Warning: Could not post force-kill comment to PR: ${posted.stderr?.toString() || 'unknown error'}`, { verbose: true });
             } catch (commentError) {

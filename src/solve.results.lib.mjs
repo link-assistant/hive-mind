@@ -747,9 +747,11 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
             // Build new description
             const fs = (await use('fs')).promises;
             const issueRef = buildIssueReference({ issueNumber, owner, repo, fork: argv.fork });
+            // Issue #2492: an empty diff implements nothing, so do not say it does.
+            const summaryLine = changeStats.hasChanges ? `This pull request implements a solution for ${issueRef}: ${issueTitle}` : `This pull request is for ${issueRef}: ${issueTitle}. It has no changes yet.`;
             const newDescription = `## Summary
 
-This pull request implements a solution for ${issueRef}: ${issueTitle}
+${summaryLine}
 
 ${formatChangesSection(changeStats)}
 
@@ -880,9 +882,11 @@ Fixes ${issueRef}
       const lastComment = newCommentsByUser[newCommentsByUser.length - 1];
       await log(`  ✅ Found new comment by ${currentUser}`);
       // Upload log file to issue if requested
+      // Issue #2492: report and return the real upload result instead of assuming success.
+      let issueLogUploaded = false;
       if (shouldAttachLogs) {
         await log('\n📎 Uploading solution draft log to issue...');
-        await attachLogToGitHub({
+        issueLogUploaded = await attachLogToGitHub({
           logFile: getLogFile(),
           targetType: 'issue',
           targetNumber: issueNumber,
@@ -915,7 +919,7 @@ Fixes ${issueRef}
       await log('\n💬 SUCCESS: Comment posted on issue');
       await log(`📍 URL: ${lastComment.html_url}`);
       if (shouldAttachLogs) {
-        await log('📎 Solution draft log has been attached to the issue');
+        await log(issueLogUploaded ? '📎 Solution draft log has been attached to the issue' : '⚠️  Solution draft log could not be attached to the issue');
       }
       await log('\n✨ A clarifying comment has been added to the issue.');
       // Don't exit if watch mode is enabled OR if auto-restart is needed for uncommitted changes
@@ -925,7 +929,7 @@ Fixes ${issueRef}
         await safeExit(0, 'Process completed successfully');
       }
       // Issue #1154: Return logUploadSuccess to prevent duplicate log uploads
-      return { logUploadSuccess: true }; // Return for watch mode or auto-restart
+      return { logUploadSuccess: !shouldAttachLogs || Boolean(issueLogUploaded) }; // Return for watch mode or auto-restart
     } else if (allComments.length > 0) {
       await log(`  ℹ️  Issue has ${allComments.length} existing comment(s)`);
     } else {
@@ -1010,11 +1014,13 @@ export const handleExecutionError = async (error, shouldAttachLogs, owner, repo,
     }
   }
 
-  // If --auto-close-pull-request-on-fail is enabled, close the PR
+  // If --auto-close-pull-request-on-fail is enabled, close the PR.
+  // Issue #2492: the close comment no longer says "Logs have been attached" -
+  // that was posted even without --attach-logs or after a failed upload.
   if (argv.autoClosePullRequestOnFail && global.createdPR && global.createdPR.number) {
     await log('\n🔒 Auto-closing pull request due to failure...');
     try {
-      const result = await $`gh pr close ${global.createdPR.number} --repo ${owner}/${repo} --comment "Auto-closed due to execution failure. Logs have been attached for debugging."`;
+      const result = await $`gh pr close ${global.createdPR.number} --repo ${owner}/${repo} --comment "Auto-closed due to execution failure."`;
       if (result.exitCode === 0) {
         await log('✅ Pull request closed successfully');
       } else {

@@ -89,6 +89,20 @@ function finite(value) {
   return Number.isFinite(value) ? value : null;
 }
 
+function describeCgroupMemory(cgroup) {
+  if (!cgroup) return null;
+  const current = finite(cgroup.currentBytes);
+  const limit = finite(cgroup.limitBytes);
+  const peak = finite(cgroup.peakBytes);
+  const kills = finite(cgroup.oomKills);
+  const events = finite(cgroup.oomEvents);
+  const parts = [];
+  if (current !== null) parts.push(`${formatBytes(current)} used of ${limit !== null ? `${formatBytes(limit)} limit` : 'no limit of its own'}`);
+  if (peak !== null) parts.push(`peak ${formatBytes(peak)}`);
+  if (kills !== null) parts.push(`${kills} process(es) killed by the OOM killer${events !== null ? ` across ${events} OOM event(s) at the container limit` : ''}`);
+  return parts.length > 0 ? parts.join(', ') : null;
+}
+
 /**
  * The most recent `📈 [RESOURCES]` marker that carries usable memory data —
  * i.e. the closest reading to the moment the session died.
@@ -116,6 +130,21 @@ export function selectLastHeapResourceMarker(parsed) {
   const markers = Array.isArray(parsed?.markers) ? parsed.markers : [];
   for (let i = markers.length - 1; i >= 0; i--) {
     if (finite(markers[i]?.memory?.processHeapUsedBytes) !== null) return markers[i];
+  }
+  return null;
+}
+
+/**
+ * The most recent marker that carries the session's own cgroup memory reading
+ * (issue #2498). Markers written before that field existed have none.
+ *
+ * @param {{markers: Array}|null} parsed
+ * @returns {Object|null}
+ */
+export function selectLastCgroupResourceMarker(parsed) {
+  const markers = Array.isArray(parsed?.markers) ? parsed.markers : [];
+  for (let i = markers.length - 1; i >= 0; i--) {
+    if (markers[i]?.cgroupMemory) return markers[i];
   }
   return null;
 }
@@ -315,6 +344,11 @@ export function describeKillCause({ logText = null, resourceMarkers = null, oomK
   if (heapLine) evidence.push(`last session V8 heap reading — ${heapLine} (phase \`${heapMarker.phase}\`)`);
   const diskLine = describeDisk(disk, diskMarker?.timestamp || null);
   if (diskLine) evidence.push(`last session ${diskLine} (phase \`${diskMarker.phase}\`)`);
+  // Issue #2498: how close the container came to its own limit, and how many
+  // processes the OOM killer took there — one OOM event can take several.
+  const cgroupMarker = selectLastCgroupResourceMarker(parsed);
+  const cgroupLine = describeCgroupMemory(cgroupMarker?.cgroupMemory);
+  if (cgroupLine) evidence.push(`last session container cgroup reading — ${cgroupLine}${cgroupMarker.timestamp ? ` at ${cgroupMarker.timestamp}` : ''} (phase \`${cgroupMarker.phase}\`)`);
   if (oomKilled) evidence.push('container reports `State.OOMKilled = true` (an OOM event hit the container cgroup)');
   if (cgroupOomKills !== null && cgroupOomKills > 0) evidence.push(`cgroup \`memory.events\` reports ${cgroupOomKills} OOM kill(s)`);
   const systemMemoryLine = describeMemory(system?.memory, null);

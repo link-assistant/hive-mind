@@ -21,13 +21,16 @@
  */
 
 import { readLastSessionIdFromLog, planKilledSessionResume } from './session-resume.lib.mjs';
-import { resolveOnSessionKillPolicy, resolveSessionKillResumeAttempts, shouldResumeKilledSession, ON_SESSION_KILL_RESUME } from './session-kill-policy.lib.mjs';
+import { resolveOnSessionKillPolicy, resolveSessionKillResumeAttempts, pickSessionKillResumeDelayMs, shouldResumeKilledSession, ON_SESSION_KILL_RESUME } from './session-kill-policy.lib.mjs';
 import { argvFromSessionArgs } from './session-monitor.kill-sections.lib.mjs';
 import { formatKillResumeSection } from './session-kill-diagnostics.lib.mjs';
 import { resumeKilledSessionInPlace } from './session-kill-resume.in-place.lib.mjs';
 
 /** Field recording how many automatic recovery sessions this session produced. */
 export const KILL_RESUME_ATTEMPTS_FIELD = 'killRecoveryAttempts';
+
+/** Default wait used before a recovery starts; replaced in tests. */
+export const sleepBeforeRecovery = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
  * Decide whether a killed session should be auto-resumed, and with which
@@ -101,11 +104,15 @@ export function collectPreviousExecutionUuids(sessionInfo, nextExecutionUuid) {
  * @param {Object} options.runner - Isolation runner (executeWithIsolation/generateSessionId)
  * @param {Function} options.trackSession - Tracker for the new session
  * @param {Function} [options.persistSnapshot] - Persist the attempt counter
+ * @param {Object} [options.env] - Source of `HIVE_MIND_SESSION_KILL_RESUME_DELAY`
+ * @param {Function} [options.sleep] - Waits the random pre-launch delay (issue #2498)
+ * @param {Function} [options.random] - Test seam for the delay
  * @param {boolean} [options.verbose]
- * @returns {Promise<{resumed: boolean, reason: string, sessionId: string|null, display: string|null, inPlace: boolean}>}
+ * @returns {Promise<{resumed: boolean, reason: string, sessionId: string|null, display: string|null, inPlace: boolean, delayMs: number}>}
  */
-export async function startKillRecoverySession({ sessionName, sessionInfo, plan, runner, trackSession, persistSnapshot = null, verbose = false } = {}) {
-  const fail = reason => ({ resumed: false, reason, sessionId: null, display: plan?.command?.display || null, inPlace: false });
+export async function startKillRecoverySession({ sessionName, sessionInfo, plan, runner, trackSession, persistSnapshot = null, env = process.env, sleep = sleepBeforeRecovery, random = Math.random, verbose = false } = {}) {
+  let delayMs = 0;
+  const fail = reason => ({ resumed: false, reason, sessionId: null, display: plan?.command?.display || null, inPlace: false, delayMs });
   if (!plan?.shouldResume || !plan.command) return fail(plan?.reason || 'no-plan');
   if (!runner || typeof runner.executeWithIsolation !== 'function' || typeof runner.generateSessionId !== 'function') return fail('no-isolation-runner');
   if (typeof trackSession !== 'function') return fail('no-tracker');
@@ -113,6 +120,15 @@ export async function startKillRecoverySession({ sessionName, sessionInfo, plan,
   if (!backend) return fail('no-isolation-backend');
 
   try {
+    // Issue #2498: one OOM event may have killed several sessions at once.
+    // Restarting them all in the same second rushes the same memory, CPUs and
+    // API again, so each recovery waits its own random delay first. The monitor
+    // keeps the session in flight meanwhile, so no other tick launches it too.
+    delayMs = pickSessionKillResumeDelayMs({ argv: argvFromSessionArgs(sessionInfo?.args), env, random });
+    if (delayMs > 0) {
+      if (verbose) console.log(`[VERBOSE] Session ${sessionName}: waiting ${Math.round(delayMs / 1000)}s before starting the recovery session, so recoveries from one event do not start together (issue #2498)`);
+      await sleep(delayMs);
+    }
     // Preferred path: re-enter the container the work already happened in.
     const inPlace = await resumeKilledSessionInPlace({ sessionName, sessionInfo, plan, runner, verbose });
     let newSessionId = inPlace.sessionId;
@@ -188,7 +204,7 @@ export async function startKillRecoverySession({ sessionName, sessionInfo, plan,
       const how = inPlace.resumed ? `resumed in place (${inPlace.mode || 'unknown mode'})` : `started fresh (in-place resume skipped: ${inPlace.reason})`;
       console.log(`[VERBOSE] Session ${sessionName} was killed; recovery session ${newSessionId} ${how} (attempt ${plan.attempt}/${plan.maxAttempts}): ${plan.command.display}`);
     }
-    return { resumed: true, reason: inPlace.resumed ? inPlace.reason : 'started', sessionId: newSessionId, display: plan.command.display, inPlace: inPlace.resumed };
+    return { resumed: true, reason: inPlace.resumed ? inPlace.reason : 'started', sessionId: newSessionId, display: plan.command.display, inPlace: inPlace.resumed, delayMs };
   } catch (error) {
     if (verbose) {
       console.log(`[VERBOSE] Could not start recovery session for ${sessionName}: ${error?.message || error}`);
@@ -204,7 +220,7 @@ export async function startKillRecoverySession({ sessionName, sessionInfo, plan,
  * @param {Object} options - See planKillRecovery() and startKillRecoverySession()
  * @returns {Promise<{resumed: boolean, reason: string, policy: string, sessionId: string|null, display: string|null, attempt: number, maxAttempts: number, inPlace: boolean}>}
  */
-export async function recoverKilledSession({ sessionName, sessionInfo, logPath = null, killed = false, env = process.env, runner = null, trackSession = null, persistSnapshot = null, verbose = false, readLastSessionId = readLastSessionIdFromLog } = {}) {
+export async function recoverKilledSession({ sessionName, sessionInfo, logPath = null, killed = false, env = process.env, runner = null, trackSession = null, persistSnapshot = null, sleep = sleepBeforeRecovery, random = Math.random, verbose = false, readLastSessionId = readLastSessionIdFromLog } = {}) {
   // Issue #2408: one kill gets one recovery. A completion that runs again for
   // the same session (an overlapping monitor tick, a bot restart between the
   // launch and the completion latch) must report the session already started,
@@ -229,7 +245,7 @@ export async function recoverKilledSession({ sessionName, sessionInfo, logPath =
     return { resumed: false, reason: plan.reason, policy: plan.policy, sessionId: null, display: plan.command?.display || null, attempt: plan.attempt, maxAttempts: plan.maxAttempts, inPlace: false };
   }
 
-  const started = await startKillRecoverySession({ sessionName, sessionInfo, plan, runner, trackSession, persistSnapshot, verbose });
+  const started = await startKillRecoverySession({ sessionName, sessionInfo, plan, runner, trackSession, persistSnapshot, env, sleep, random, verbose });
   return { resumed: started.resumed, reason: started.reason, policy: plan.policy, sessionId: started.sessionId, display: started.display, attempt: plan.attempt, maxAttempts: plan.maxAttempts, inPlace: started.inPlace === true };
 }
 

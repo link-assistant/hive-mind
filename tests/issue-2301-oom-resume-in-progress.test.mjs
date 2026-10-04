@@ -60,7 +60,7 @@ test('the monitor keeps an OOM-recovered session in progress on its pull request
     dockerContainerSizeProvider: async () => null,
     readFile: async () => await fs.readFile(logPath, 'utf8'),
     lookupLinkedPullRequest: async () => null,
-    env: {},
+    env: { HIVE_MIND_SESSION_KILL_RESUME_DELAY: '0' },
     isolationRunner: { generateSessionId: () => recoverySessionId, executeWithIsolation: async () => ({ success: true }) },
     runCommand: async (_command, args) => {
       comments.push(await fs.readFile(args[args.indexOf('--body-file') + 1], 'utf8'));

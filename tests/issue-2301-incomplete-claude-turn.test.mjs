@@ -156,7 +156,7 @@ test('the monitor resumes an exit-1 session after a child OOM event and reports 
       dockerContainerSizeProvider: async () => null,
       readFile: async () => await fs.readFile(logPath, 'utf8'),
       lookupLinkedPullRequest: async () => 'https://github.com/link-foundation/links-notation/pull/319',
-      env: {},
+      env: { HIVE_MIND_SESSION_KILL_RESUME_DELAY: '0' },
       isolationRunner: {
         generateSessionId: () => recoverySessionId,
         executeWithIsolation: async (command, args, opts) => {

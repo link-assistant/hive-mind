@@ -19,7 +19,7 @@
  * @see https://github.com/link-assistant/hive-mind/issues/2408
  */
 
-import { resolveSessionKillResumeAttempts } from './session-kill-policy.lib.mjs';
+import { resolveSessionKillResumeAttempts, pickSessionKillResumeDelayMs } from './session-kill-policy.lib.mjs';
 import { postTrackedComment } from './tool-comments.lib.mjs';
 
 /** 128 + SIGKILL(9): what a shell reports for a process the OOM killer ended. */
@@ -77,9 +77,11 @@ export function buildToolKillWarningComment({ tool = 'claude', sessionId = null,
  * @param {number} [options.prNumber]
  * @param {Function} [options.log]
  * @param {Function} [options.postComment] - Test seam for postTrackedComment
+ * @param {Function} [options.sleep] - Waits the random pre-resume delay (issue #2498)
+ * @param {Function} [options.random] - Test seam for the delay
  * @returns {Promise<{toolResult: Object, attemptsUsed: number, resumed: boolean}>}
  */
-export async function resumeAfterToolKill({ toolResult, attemptsUsed = 0, argv = {}, runIteration, env = process.env, $ = null, owner = null, repo = null, prNumber = null, log = async () => {}, postComment = postTrackedComment } = {}) {
+export async function resumeAfterToolKill({ toolResult, attemptsUsed = 0, argv = {}, runIteration, env = process.env, $ = null, owner = null, repo = null, prNumber = null, log = async () => {}, postComment = postTrackedComment, sleep = ms => new Promise(resolve => setTimeout(resolve, ms)), random = Math.random } = {}) {
   let result = toolResult;
   let used = attemptsUsed;
   let resumed = false;
@@ -103,6 +105,13 @@ export async function resumeAfterToolKill({ toolResult, attemptsUsed = 0, argv =
     used++;
     await log(`\n⚠️  ${String(argv.tool || 'claude').toUpperCase()} process killed (exit code ${SIGKILL_EXIT_CODE}, likely out of memory) — ${sessionId ? `resuming session ${sessionId}` : 'restarting'} automatically (attempt ${used}/${maxAttempts}, issue #2408)`);
     await announce(buildToolKillWarningComment({ tool: argv.tool, sessionId, attempt: used, maxAttempts, resuming: true }));
+    // Issue #2498: one OOM event can kill the tools of several runs on the
+    // host at once; a random delay keeps their resumes from starting together.
+    const delayMs = pickSessionKillResumeDelayMs({ argv, env, random });
+    if (delayMs > 0) {
+      await log(`   ⏳ Waiting ${Math.round(delayMs / 1000)}s before resuming, so recoveries from one out-of-memory event do not start at the same moment (issue #2498)`);
+      await sleep(delayMs);
+    }
     try {
       result = await runIteration({ argv: sessionId ? { ...argv, resume: sessionId } : argv, feedbackLines: [TOOL_KILL_RESUME_FEEDBACK] });
       resumed = true;

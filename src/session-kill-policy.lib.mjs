@@ -47,6 +47,16 @@ export const ON_SESSION_KILL_ENV_VAR = 'HIVE_MIND_ON_SESSION_KILL';
 export const DEFAULT_SESSION_KILL_RESUME_ATTEMPTS = 3;
 export const SESSION_KILL_RESUME_ATTEMPTS_ENV_VAR = 'HIVE_MIND_SESSION_KILL_RESUME_ATTEMPTS';
 
+/**
+ * Issue #2498: one OOM event can kill several work sessions (or several tool
+ * processes) at once. Restarting all of them in the same second sends every
+ * recovery at the same memory, the same CPUs and the same API at once — the
+ * very rush that caused the event. Each recovery therefore waits a random
+ * delay, in seconds, drawn uniformly from this range before it starts.
+ */
+export const DEFAULT_SESSION_KILL_RESUME_DELAY_RANGE = Object.freeze({ minSeconds: 30, maxSeconds: 90 });
+export const SESSION_KILL_RESUME_DELAY_ENV_VAR = 'HIVE_MIND_SESSION_KILL_RESUME_DELAY';
+
 function normalize(value) {
   return String(value ?? '')
     .trim()
@@ -97,6 +107,40 @@ export function resolveSessionKillResumeAttempts({ argv = null, env = process.en
   const parsed = Number(text);
   if (!Number.isFinite(parsed) || parsed < 0) return DEFAULT_SESSION_KILL_RESUME_ATTEMPTS;
   return Math.floor(parsed);
+}
+
+/**
+ * Random delay range before an automatic recovery starts (issue #2498).
+ *
+ * Accepts `"<min>-<max>"` or a single `"<seconds>"` (a fixed delay); `0`
+ * disables the wait. Anything unparsable falls back to the default range.
+ *
+ * @param {Object} [options]
+ * @param {Object} [options.argv] - yargs argv (`sessionKillResumeDelay` / `session-kill-resume-delay`)
+ * @param {Object} [options.env=process.env]
+ * @returns {{minSeconds: number, maxSeconds: number}}
+ */
+export function resolveSessionKillResumeDelayRange({ argv = null, env = process.env } = {}) {
+  const raw = argv?.sessionKillResumeDelay ?? argv?.['session-kill-resume-delay'] ?? env?.[SESSION_KILL_RESUME_DELAY_ENV_VAR];
+  const match = String(raw ?? '')
+    .trim()
+    .match(/^(\d+(?:\.\d+)?)\s*(?:-\s*(\d+(?:\.\d+)?))?$/);
+  if (!match) return { ...DEFAULT_SESSION_KILL_RESUME_DELAY_RANGE };
+  const first = Number(match[1]);
+  const second = match[2] === undefined ? first : Number(match[2]);
+  return { minSeconds: Math.min(first, second), maxSeconds: Math.max(first, second) };
+}
+
+/**
+ * Pick the delay, in milliseconds, before one automatic recovery starts.
+ *
+ * @param {Object} [options] - See resolveSessionKillResumeDelayRange(); plus `random`
+ * @param {Function} [options.random=Math.random] - Test seam
+ * @returns {number}
+ */
+export function pickSessionKillResumeDelayMs({ argv = null, env = process.env, random = Math.random } = {}) {
+  const { minSeconds, maxSeconds } = resolveSessionKillResumeDelayRange({ argv, env });
+  return Math.round((minSeconds + (maxSeconds - minSeconds) * random()) * 1000);
 }
 
 /**

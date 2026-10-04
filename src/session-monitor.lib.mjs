@@ -1042,6 +1042,8 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
           // Issue #2189: reuse the id already read above instead of scanning
           // the same (possibly multi-gigabyte) log a second time.
           readLastSessionId: logPath => resolveLastToolSessionId(logPath),
+          // Issue #2498: the random pre-launch delay, replaceable in tests.
+          sleep: options.sleepBeforeRecovery,
           locale: sessionInfo?.locale || null,
           verbose,
         });

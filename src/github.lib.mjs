@@ -336,6 +336,30 @@ const getLogUploadTerminalStatus = ({ errorMessage, errorDuringExecution, isUsag
   return { emoji: '✅', label: 'Solution draft log' };
 };
 /**
+ * The usage-limit part shared by the inline and uploaded log comments.
+ *
+ * Issue #2492: says once how the session continues. The italic footer repeated
+ * the "How to Continue" line and "Limit Type: Usage limit exceeded" repeated the
+ * heading.
+ */
+export const buildUsageLimitSummary = ({ toolName, limitResetTime, sessionId, resumeCommand, isAutoResumeEnabled, autoResumeMode }) => {
+  let summary = `## ⏳ ${USAGE_LIMIT_REACHED_MARKER}\n\nThe ${toolName} usage limit was reached, so this session stopped.`;
+  const details = [];
+  // Shows "in 14m (Feb 6, 3:00 PM UTC)" instead of just "4:00 PM" (issue #1236)
+  if (limitResetTime) details.push(`- **Reset Time**: ${formatResetTimeWithRelative(limitResetTime, global.limitTimezone || null) || limitResetTime}`);
+  if (sessionId) details.push(`- **Session ID**: ${sessionId}`);
+  if (details.length) summary += `\n\n${details.join('\n')}`;
+  summary += '\n\n### 🔄 How to Continue\n';
+  // Auto-resume/auto-restart shows the automatic continuation instead of CLI commands (issue #1152)
+  if (isAutoResumeEnabled) {
+    return summary + (autoResumeMode === 'restart' ? '**Auto-restart is enabled.** The session will restart (fresh context) when the limit resets.' : '**Auto-resume is enabled.** The session will resume (previous context kept) when the limit resets.');
+  }
+  summary += limitResetTime ? `Once the limit resets at **${limitResetTime}**, ` : 'Once the limit resets, ';
+  if (resumeCommand) return summary + `you can resume this session by running:\n\`\`\`bash\n${resumeCommand}\n\`\`\``;
+  if (sessionId) return summary + `you can resume this session using session ID: \`${sessionId}\``;
+  return summary + 'you can retry the operation.';
+};
+/**
  * Build the inline `--attach-logs` comment body — the variant that embeds the
  * whole transcript inside a `<details>` block.
  *
@@ -356,46 +380,7 @@ function buildInlineLogComment({ logContent, logSizeBytes, targetType, customTit
   // Usage limit comments should be shown whenever isUsageLimit is true, regardless of whether a generic errorMessage is provided.
   if (isUsageLimit) {
     // Usage limit error format - separate from general failures
-    logComment = `## ⏳ ${USAGE_LIMIT_REACHED_MARKER}
-
-The automated solution draft was interrupted because the ${toolName} usage limit was reached.
-
-### 📊 Limit Information
-- **Tool**: ${toolName}
-- **Limit Type**: Usage limit exceeded`;
-    if (limitResetTime) {
-      // Format reset time with relative time and UTC for better user understanding Shows "in 14m (Feb 6, 3:00 PM UTC)" instead of just "4:00 PM" See: https://github.com/link-assistant/hive-mind/issues/1236
-      const formattedResetTime = formatResetTimeWithRelative(limitResetTime, global.limitTimezone || null) || limitResetTime;
-      logComment += `\n- **Reset Time**: ${formattedResetTime}`;
-    }
-    if (sessionId) {
-      logComment += `\n- **Session ID**: ${sessionId}`;
-    }
-    logComment += '\n\n### 🔄 How to Continue\n';
-    // If auto-resume/auto-restart is enabled, show automatic continuation message instead of CLI commands See: https://github.com/link-assistant/hive-mind/issues/1152
-    if (isAutoResumeEnabled) {
-      const modeName = autoResumeMode === 'restart' ? 'restart' : 'resume';
-      const modeDescription = autoResumeMode === 'restart' ? 'The session will automatically restart (fresh start) when the limit resets.' : 'The session will automatically resume (with context preserved) when the limit resets.';
-      logComment += `**Auto-${modeName} is enabled.** ${modeDescription}`;
-    } else {
-      // Manual resume mode - show CLI commands
-      if (limitResetTime) {
-        logComment += `Once the limit resets at **${limitResetTime}**, `;
-      } else {
-        logComment += 'Once the limit resets, ';
-      }
-      if (resumeCommand) {
-        logComment += `you can resume this session by running:
-\`\`\`bash
-${resumeCommand}
-\`\`\``;
-      } else if (sessionId) {
-        logComment += `you can resume this session using session ID: \`${sessionId}\``;
-      } else {
-        logComment += 'you can retry the operation.';
-      }
-    }
-    const footerNote = isAutoResumeEnabled ? (autoResumeMode === 'restart' ? '*This session was interrupted due to usage limits. The session will automatically restart when the limit resets.*' : '*This session was interrupted due to usage limits. The session will automatically resume when the limit resets.*') : '*This session was interrupted due to usage limits. You can resume once the limit resets.*';
+    logComment = buildUsageLimitSummary({ toolName, limitResetTime, sessionId, resumeCommand, isAutoResumeEnabled, autoResumeMode });
     logComment += `${modelInfoString}
 
 <details>
@@ -405,10 +390,7 @@ ${resumeCommand}
 ${logContent}
 \`\`\`
 
-</details>
-
----
-${footerNote}`;
+</details>`;
   } else if (errorMessage) {
     // Failure log format (non-usage-limit errors)
     logComment = `## 🚨 ${SOLUTION_DRAFT_FAILED_MARKER}
@@ -728,53 +710,11 @@ async function attachLogToGitHubOnce(options) {
           // For usage limit cases, always use the dedicated format regardless of errorMessage
           if (isUsageLimit) {
             // Usage limit error format
-            logUploadComment = `## ⏳ ${USAGE_LIMIT_REACHED_MARKER}
-
-The automated solution draft was interrupted because the ${toolName} usage limit was reached.
-
-### 📊 Limit Information
-- **Tool**: ${toolName}
-- **Limit Type**: Usage limit exceeded`;
-            if (limitResetTime) {
-              // Format reset time with relative time and UTC for better user understanding Shows "in 14m (Feb 6, 3:00 PM UTC)" instead of just "4:00 PM" See: https://github.com/link-assistant/hive-mind/issues/1236
-              const formattedUploadResetTime = formatResetTimeWithRelative(limitResetTime, global.limitTimezone || null) || limitResetTime;
-              logUploadComment += `\n- **Reset Time**: ${formattedUploadResetTime}`;
-            }
-            if (sessionId) {
-              logUploadComment += `\n- **Session ID**: ${sessionId}`;
-            }
-            logUploadComment += '\n\n### 🔄 How to Continue\n';
-            // If auto-resume/auto-restart is enabled, show automatic continuation message instead of CLI commands See: https://github.com/link-assistant/hive-mind/issues/1152
-            if (isAutoResumeEnabled) {
-              const modeName = autoResumeMode === 'restart' ? 'restart' : 'resume';
-              const modeDescription = autoResumeMode === 'restart' ? 'The session will automatically restart (fresh start) when the limit resets.' : 'The session will automatically resume (with context preserved) when the limit resets.';
-              logUploadComment += `**Auto-${modeName} is enabled.** ${modeDescription}`;
-            } else {
-              // Manual resume mode - show CLI commands
-              if (limitResetTime) {
-                logUploadComment += `Once the limit resets at **${limitResetTime}**, `;
-              } else {
-                logUploadComment += 'Once the limit resets, ';
-              }
-              if (resumeCommand) {
-                logUploadComment += `you can resume this session by running:
-\`\`\`bash
-${resumeCommand}
-\`\`\``;
-              } else if (sessionId) {
-                logUploadComment += `you can resume this session using session ID: \`${sessionId}\``;
-              } else {
-                logUploadComment += 'you can retry the operation.';
-              }
-            }
-            const uploadFooterNote = isAutoResumeEnabled ? (autoResumeMode === 'restart' ? '*This session was interrupted due to usage limits. The session will automatically restart when the limit resets.*' : '*This session was interrupted due to usage limits. The session will automatically resume when the limit resets.*') : '*This session was interrupted due to usage limits. You can resume once the limit resets.*';
+            logUploadComment = buildUsageLimitSummary({ toolName, limitResetTime, sessionId, resumeCommand, isAutoResumeEnabled, autoResumeMode });
             logUploadComment += `${modelInfoString}
 
 ### 📎 **Execution log uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
-${logLinks('View complete execution log')}
-
----
-${uploadFooterNote}`;
+${logLinks('View complete execution log')}`;
           } else if (errorMessage) {
             // Failure log format (non-usage-limit errors)
             logUploadComment = `## 🚨 ${SOLUTION_DRAFT_FAILED_MARKER}

@@ -906,11 +906,11 @@ try {
               return `${days}:${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
             };
             // For waiting comments, don't show CLI commands since auto-continue will handle it automatically See: https://github.com/link-assistant/hive-mind/issues/1152
-            const continueModeName = limitContinueMode === 'restart' ? 'auto-restart' : 'auto-resume';
-            const continueDescription = limitContinueMode === 'restart' ? 'The session will automatically restart (fresh start) when the limit resets.' : 'The session will automatically resume (with context preserved) when the limit resets.';
+            // Issue #2492: the heading already says the limit was reached; state the continuation once.
+            const continueDescription = limitContinueMode === 'restart' ? 'The session will restart (fresh context) when the limit resets.' : 'The session will resume (previous context kept) when the limit resets.';
             // Format reset time with relative time and UTC for better user understanding See: https://github.com/link-assistant/hive-mind/issues/1236
             const waitingResetTimeFormatted = formatResetTimeWithRelative(global.limitResetTime, global.limitTimezone || null) || global.limitResetTime;
-            const waitingComment = `⏳ **${USAGE_LIMIT_REACHED_MARKER} - Waiting to ${limitContinueMode === 'restart' ? 'Restart' : 'Continue'}**\n\nThe AI tool has reached its usage limit. ${continueModeName} is enabled.\n\n**Reset time:** ${waitingResetTimeFormatted}\n**Wait time:** ${formatWaitTime(waitMs)} (days:hours:minutes:seconds)\n\n${continueDescription}\n\nSession ID: \`${sessionId}\``;
+            const waitingComment = `⏳ **${USAGE_LIMIT_REACHED_MARKER} - Waiting to ${limitContinueMode === 'restart' ? 'Restart' : 'Continue'}**\n\n**Reset time:** ${waitingResetTimeFormatted}\n**Wait time:** ${formatWaitTime(waitMs)} (days:hours:minutes:seconds)\n\n${continueDescription}${sessionId ? `\n\nSession ID: \`${sessionId}\`` : ''}`;
             const posted = await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: waitingComment });
             if (posted.ok) {
               await log(`   Posted waiting comment to PR${posted.commentId ? ` (id=${posted.commentId})` : ''}`);
@@ -923,7 +923,8 @@ try {
     }
   }
   // Skip failure exit if limit reached with auto-resume (continues to showSessionSummary/autoContinueWhenLimitResets)
-  const shouldSkipFailureExitForAutoLimitContinue = (limitReached && argv.autoResumeOnLimitReset) || toolResult.restartWithFeedback; // Issue #2316: the restart loop runs the next session with feedback
+  // Issue #2492: --auto-restart-on-limit-reset alone must skip it too, or the run fails after the comment promised a restart.
+  const shouldSkipFailureExitForAutoLimitContinue = (limitReached && (argv.autoResumeOnLimitReset || argv.autoRestartOnLimitReset)) || toolResult.restartWithFeedback; // Issue #2316: the restart loop runs the next session with feedback
   if ((!success || errorDuringExecution) && !shouldSkipFailureExitForAutoLimitContinue) {
     // Issue #942: show all three resume options on failure for richer guidance.   1. Interactive claude  - opens Claude Code interactively (claude only)   2. Autonomous claude   - one-shot claude --resume w/ --dangerously-skip-permissions -p (claude only)   3. Solve resume        - re-enters solve.mjs with --resume, preserving tool/model/dir
     const toolForFailure = argv.tool || 'claude';

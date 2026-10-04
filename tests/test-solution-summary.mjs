@@ -503,9 +503,11 @@ runTest('Cross-module: comment bodies posted at each site embed the centralized 
   assertTrue(autoMerge.includes('READY_TO_MERGE_MARKER'), 'solve.auto-merge.lib.mjs should reference READY_TO_MERGE_MARKER');
   assertTrue(autoMerge.includes('AUTO_MERGED_MARKER'), 'solve.auto-merge.lib.mjs should reference AUTO_MERGED_MARKER');
   const watch = fs.readFileSync('./src/solve.watch.lib.mjs', 'utf-8');
-  assertTrue(watch.includes('AUTO_RESTART_MARKER'), 'solve.watch.lib.mjs should reference AUTO_RESTART_MARKER');
-  const claudeLib = fs.readFileSync('./src/claude.lib.mjs', 'utf-8');
-  assertTrue(claudeLib.includes('SESSION_FORCE_KILLED_MARKER'), 'claude.lib.mjs should reference SESSION_FORCE_KILLED_MARKER');
+  assertTrue(watch.includes('buildUncommittedChangesRestartComment'), 'solve.watch.lib.mjs should post the shared auto-restart comment');
+  const exhaustion = fs.readFileSync('./src/auto-restart-exhaustion.lib.mjs', 'utf-8');
+  assertTrue(exhaustion.includes('AUTO_RESTART_MARKER'), 'auto-restart-exhaustion.lib.mjs should reference AUTO_RESTART_MARKER');
+  const forceKilled = fs.readFileSync('./src/session-force-killed-comment.lib.mjs', 'utf-8');
+  assertTrue(forceKilled.includes('SESSION_FORCE_KILLED_MARKER'), 'session-force-killed-comment.lib.mjs should reference SESSION_FORCE_KILLED_MARKER');
   const repoSetup = fs.readFileSync('./src/solve.repo-setup.lib.mjs', 'utf-8');
   assertTrue(repoSetup.includes('REPOSITORY_INITIALIZATION_REQUIRED_MARKER'), 'solve.repo-setup.lib.mjs should reference REPOSITORY_INITIALIZATION_REQUIRED_MARKER');
   const interactive = fs.readFileSync('./src/interactive-mode.lib.mjs', 'utf-8');

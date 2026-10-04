@@ -52,6 +52,32 @@ export const resetAutoRestartLimitFailure = () => {
 };
 
 /**
+ * Issue #2492: auto-restart comments state each fact once. The `N/M` heading
+ * already carries the limit, so the footers that repeated it are gone.
+ */
+
+/** Posted by the auto-restart-until-mergeable loop before it starts the next session. */
+export const buildAutoRestartComment = ({ label, reason }) => `## 🔄 ${AUTO_RESTART_MARKER} ${label}
+
+**Reason:** ${reason}
+
+Starting a new session to address it.`;
+
+/** Posted by the watch loop when the previous session left uncommitted changes. */
+export const buildUncommittedChangesRestartComment = ({ label, uncommittedFilesList = '' }) => `## 🔄 ${AUTO_RESTART_MARKER} ${label}
+
+The previous session left uncommitted changes. Starting a new session to commit or discard them.${uncommittedFilesList}`;
+
+/** Posted once when the shared budget is exhausted; the run then fails. */
+export const buildAutoRestartLimitComment = ({ label, blocker, preservedText }) => `## ❌ ${AUTO_RESTART_MARKER} ${label} - limit reached
+
+**Remaining blocker:** ${blocker}
+
+${preservedText}
+
+No more sessions will start automatically. Resolve the blocker, or rerun with a higher \`--auto-restart-max-iterations\`.`;
+
+/**
  * Fail the run because the shared auto-restart budget is exhausted, preserving
  * any uncommitted work first.
  *
@@ -99,20 +125,7 @@ export const failOnAutoRestartBudgetExhausted = async ({ owner, repo, prNumber, 
   });
 
   if (prNumber) {
-    const preservedText = describePreservedWork(preserved);
-    const body = `## ❌ ${AUTO_RESTART_MARKER} ${label} - limit reached
-
-Hive Mind stopped after ${label} automatic restart iterations without resolving the blocker.
-
-**Configured limit:** ${formatAutoRestartLimit()}
-**Remaining blocker:** ${blocker}
-
-${preservedText}
-
-No further AI sessions will be started automatically for this run. Review the remaining blocker manually, or rerun with a higher \`--auto-restart-max-iterations\` value.
-
----
-*This run is reported as failed because the auto-restart limit was reached.*`;
+    const body = buildAutoRestartLimitComment({ label, blocker, preservedText: describePreservedWork(preserved) });
     try {
       await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body });
       await log(formatAligned('', '💬 Posted auto-restart limit notification to PR', '', 2));
@@ -126,4 +139,4 @@ No further AI sessions will be started automatically for this run. Review the re
   return limitFailure;
 };
 
-export default { AUTO_RESTART_LIMIT_REACHED_REASON, failOnAutoRestartBudgetExhausted, hasAutoRestartLimitFailure, getAutoRestartLimitFailure, resetAutoRestartLimitFailure };
+export default { AUTO_RESTART_LIMIT_REACHED_REASON, buildAutoRestartComment, buildAutoRestartLimitComment, buildUncommittedChangesRestartComment, failOnAutoRestartBudgetExhausted, hasAutoRestartLimitFailure, getAutoRestartLimitFailure, resetAutoRestartLimitFailure };

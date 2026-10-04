@@ -1097,7 +1097,7 @@ export const executeClaudeCommand = async params => {
             try {
               const timeoutType = isActivityTimeout ? 'activity' : 'startup';
               // Issue #2492: describe the retry that will actually run (argv.resume is set above only when a session id exists).
-              const commentBody = buildSessionForceKilledComment({ timeoutType, silentSeconds: isActivityTimeout ? timeouts.streamActivityMs / 1000 : timeouts.streamStartupMs / 1000, attempt: retryCount + 1, delayLabel, resumeSessionId: isStartupTimeout ? null : argv.resume || null });
+              const commentBody = buildSessionForceKilledComment({ timeoutType, silentSeconds: isActivityTimeout ? timeouts.streamActivityMs / 1000 : timeouts.streamStartupMs / 1000, attempt: `${retryCount + 1}/${maxRetries}`, delayLabel, resumeSessionId: isStartupTimeout ? null : argv.resume || null });
               const posted = await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: commentBody });
               await log(posted.ok ? `   Posted force-kill notification to PR #${prNumber}${posted.commentId ? ` (id=${posted.commentId})` : ''}` : `   Warning: Could not post force-kill comment to PR: ${posted.stderr?.toString() || 'unknown error'}`, { verbose: true });
             } catch (commentError) {

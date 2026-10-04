@@ -75,6 +75,8 @@ Summary of [`draft-claims-vs-timeline.tsv`](draft-claims-vs-timeline.tsv):
 
 All four session types appended "The PR has been converted to draft mode while work is in progress." without reading the PR state. The auto-resume and auto-restart paths (after a usage-limit reset) post the comment without calling `ensurePullRequestIsDraft` at all. That is why the 4 false claims appeared. The draft change is a GitHub timeline event that every reader sees, so the sentence was removed rather than made conditional.
 
+The end comment had the same problem the other way around: "The PR will be converted back to ready for review." A failed or empty session keeps the PR a draft (`ensurePullRequestStaysDraftAfterFailure`, `reason: 'no_changes'`), so that promise was not always kept. It was removed too.
+
 ### 3. Runtime provenance published by default
 
 Issue #2247 (H1) added `_Runtime: …_` to every session comment to show which code ran. That is useful for debugging, but the log already records it. `shouldPublishSessionRuntime(argv)` now returns true only for `--verbose`. The line is still always logged.
@@ -123,7 +125,7 @@ For the same case, the PR description said "This pull request implements a solut
 
 ### 9. Force-kill notice promised a resume that did not happen
 
-"Session will be resumed with `--resume` (context preserved)" was shown even when there was no session id, for example after a startup timeout. In that case the retry starts fresh. The text now follows the `resume` decision the caller already made.
+"Session will be resumed with `--resume` (context preserved)" was shown for every activity timeout, even when no session id had been captured. In that case the retry starts fresh. The text now follows the `resume` decision the caller already made.
 
 ### 10. Issue log upload assumed to succeed
 

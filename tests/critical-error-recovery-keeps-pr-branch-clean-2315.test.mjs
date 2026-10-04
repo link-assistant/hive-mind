@@ -132,7 +132,7 @@ await test('a modified tracked file is preserved outside the PR branch, next to 
 
 await test('every failure comment names the recovery branch', async () => {
   const exhaustion = await readFile(join(__dirname, '..', 'src', 'auto-restart-exhaustion.lib.mjs'), 'utf8');
-  assert.match(exhaustion, /const preservedText = describePreservedWork\(preserved\);/);
+  assert.match(exhaustion, /preservedText: describePreservedWork\(preserved\)/);
   const progress = await readFile(join(__dirname, '..', 'src', 'session-progress.lib.mjs'), 'utf8');
   assert.match(progress, /describePreservedWork\(preserved\)/);
   assert.match(progress, /reportNoProgressStop\(\{[^}]*preserved/);

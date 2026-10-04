@@ -160,12 +160,18 @@ export const checkForAiCreatedComments = async ({ sessionStartTime, owner, repo,
  * @param {Function} [options.log]
  * @returns {Promise<boolean>} true when the comment was posted
  */
+/**
+ * Issue #2492: only the net diff is measured, so the text does not claim that
+ * nothing was committed (reverted commits also leave an empty diff), that the PR
+ * "stays" a draft (it may already be ready), or that the log is "above" (it is
+ * uploaded after this comment, or not at all without --attach-logs).
+ */
+export const buildNoChangesProducedComment = (changeStats = null) => `⚠️ **${NO_CHANGES_PRODUCED_MARKER}**
+
+The pull request has an empty diff against its base branch${changeStats && changeStats.placeholderOnly ? ' (only the solver placeholder file is present)' : ''}, so it was not marked ready for review. Check the session log for why, then rerun the solver or continue manually.`;
+
 export const postNoChangesProducedComment = async ({ owner, repo, prNumber, changeStats = null, $: command, log: logger = noopLog }) => {
-  const body = `⚠️ **${NO_CHANGES_PRODUCED_MARKER}**
-
-The pull request still has an empty diff against its base branch${changeStats && changeStats.placeholderOnly ? ' (only the solver placeholder file is present)' : ''}, so it stays a draft instead of being marked ready for review.
-
-Nothing was implemented, committed or pushed during this working session. Review the session log above for why, then re-run the solver or continue manually.`;
+  const body = buildNoChangesProducedComment(changeStats);
 
   try {
     const { ok, commentId, stderr } = await postTrackedComment({ $: command, owner, repo, targetNumber: prNumber, body });
@@ -183,6 +189,7 @@ Nothing was implemented, committed or pushed during this working session. Review
 };
 
 export default {
+  buildNoChangesProducedComment,
   checkForAiCreatedComments,
   postNoChangesProducedComment,
 };

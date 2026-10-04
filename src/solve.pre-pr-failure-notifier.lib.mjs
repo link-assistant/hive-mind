@@ -80,9 +80,10 @@ export function buildPrePullRequestFailureActionSection(reason = '') {
 - Repository deletion can require a separate GitHub account or token with repository deletion permission; Hive Mind does not rely on that permission by default.`;
   }
 
+  // Issue #2492: the reason was not classified, so do not guess a cause (an
+  // "Auto-restart limit reached" run was told to fix its account or permissions).
   return `### What you can do
-- Resolve the repository, account, permissions, or environment problem described above, then rerun the solver.
-- Repository owner or Hive Mind administrator path: handle manual recreation or fix of the repository when the required action is outside the requester access.`;
+- Check the reason above and the log, then rerun the solver.`;
 }
 
 export function shouldNotifyIssueAboutPrePullRequestFailure({ code, globalState }) {

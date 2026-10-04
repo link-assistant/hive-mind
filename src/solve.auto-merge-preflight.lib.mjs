@@ -27,24 +27,30 @@ const { log, formatAligned } = lib;
 
 const { checkMergePermissions } = await import('./github-merge.lib.mjs');
 const { checkForExistingComment } = await import('./solve.auto-merge-helpers.lib.mjs');
-const { READY_TO_MERGE_MARKER, postTrackedComment } = await import('./tool-comments.lib.mjs');
+const { AUTO_MERGE_BLOCKED_MARKER, postTrackedComment } = await import('./tool-comments.lib.mjs');
 const { ensurePullRequestBaseBranch } = await import('./solve.pr-base-guard.lib.mjs');
+
+/**
+ * Issue #2492: this notice is posted before CI, conflicts or the diff are
+ * checked, so it must not claim the PR is "ready to be merged". It also used the
+ * "Ready to merge" signature, which hid the real readiness comment later on.
+ */
+export const buildManualMergeNotice = reason => `## ⚠️ ${AUTO_MERGE_BLOCKED_MARKER}\n\nAuto-merge (\`--auto-merge\`) cannot merge this pull request because ${reason} A maintainer has to merge it.`;
 
 /**
  * Issue #1323: notify the maintainer on the pull request that auto-merge was
  * requested but cannot be performed, without posting the same comment twice.
  */
-const postManualMergeNotice = async ({ owner, repo, prNumber, reason, verbose, footer }) => {
+const postManualMergeNotice = async ({ owner, repo, prNumber, reason, verbose }) => {
   try {
-    const readyToMergeSignature = `## ✅ ${READY_TO_MERGE_MARKER}`;
-    if (await checkForExistingComment(owner, repo, prNumber, readyToMergeSignature, verbose)) {
-      await log(formatAligned('', `Skipping duplicate "${READY_TO_MERGE_MARKER}" comment`, '', 2));
+    const signature = `## ⚠️ ${AUTO_MERGE_BLOCKED_MARKER}\n\nAuto-merge (\`--auto-merge\`) cannot merge`;
+    if (await checkForExistingComment(owner, repo, prNumber, signature, verbose)) {
+      await log(formatAligned('', `Skipping duplicate "${AUTO_MERGE_BLOCKED_MARKER}" comment`, '', 2));
       return;
     }
-    const commentBody = `${readyToMergeSignature}\n\nThis pull request is ready to be merged. Auto-merge was requested (\`--auto-merge\`) but cannot be performed because ${reason}\n\nPlease merge manually.\n\n---\n*${footer}*`;
     // Issue #1625: Track so this doesn't falsely count as AI-authored.
-    await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: commentBody });
-    await log(formatAligned('', '💬 Posted merge readiness notification to PR', '', 2));
+    await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: buildManualMergeNotice(reason) });
+    await log(formatAligned('', '💬 Posted auto-merge blocked notification to PR', '', 2));
   } catch {
     // Don't fail if comment posting fails
   }
@@ -90,9 +96,9 @@ export const runAutoMergePreflight = async params => {
     await log('');
     await log(formatAligned('⚠️', 'Auto-merge:', 'Cannot auto-merge fork PRs'));
     await log(formatAligned('', 'Reason:', 'Fork contributors do not have write access to merge PRs to upstream repositories', 2));
-    await log(formatAligned('', 'Action:', 'PR is ready for manual merge by a repository maintainer', 2));
+    await log(formatAligned('', 'Action:', 'A repository maintainer has to merge it', 2));
     await log('');
-    await postManualMergeNotice({ owner, repo, prNumber, verbose: argv.verbose, reason: 'this PR was created from a fork (no write access to the target repository).', footer: 'hive-mind with --auto-merge flag (fork mode)' });
+    await postManualMergeNotice({ owner, repo, prNumber, verbose: argv.verbose, reason: 'this PR was created from a fork (no write access to the target repository).' });
     return { stop: true, result: { success: false, reason: 'fork_no_write_access' } };
   }
 
@@ -104,9 +110,9 @@ export const runAutoMergePreflight = async params => {
       await log(formatAligned('⚠️', 'Auto-merge:', 'Insufficient permissions to merge'));
       await log(formatAligned('', 'Permission level:', permission || 'unknown', 2));
       await log(formatAligned('', 'Required:', 'push, maintain, or admin access', 2));
-      await log(formatAligned('', 'Action:', 'PR is ready for manual merge by a repository maintainer', 2));
+      await log(formatAligned('', 'Action:', 'A repository maintainer has to merge it', 2));
       await log('');
-      await postManualMergeNotice({ owner, repo, prNumber, verbose: argv.verbose, reason: `the authenticated user lacks write access to \`${owner}/${repo}\` (current permission: \`${permission || 'unknown'}\`).`, footer: 'hive-mind with --auto-merge flag' });
+      await postManualMergeNotice({ owner, repo, prNumber, verbose: argv.verbose, reason: `the authenticated user lacks write access to \`${owner}/${repo}\` (current permission: \`${permission || 'unknown'}\`).` });
       return { stop: true, result: { success: false, reason: 'insufficient_permissions' } };
     }
   }

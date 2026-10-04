@@ -137,16 +137,21 @@ console.log('\u2500'.repeat(60));
 
 {
   const claudeLibContent = await readFile(join(__dirname, '..', 'src', 'claude.lib.mjs'), 'utf-8');
+  // Issue #2492: the comment body is built in its own module.
+  const { buildSessionForceKilledComment } = await import('../src/session-force-killed-comment.lib.mjs');
+  const resumed = buildSessionForceKilledComment({ timeoutType: 'activity', silentSeconds: 600, attempt: 1, delayLabel: '30s', resumeSessionId: 'abc' });
+  const fresh = buildSessionForceKilledComment({ timeoutType: 'startup', silentSeconds: 120, attempt: 2, delayLabel: '1 min', resumeSessionId: null });
 
   // Test: PR comment is posted on activity timeout
-  assert(claudeLibContent.includes('Session Force-Killed'), 'Force-kill PR comment contains "Session Force-Killed" header');
+  assert(claudeLibContent.includes('buildSessionForceKilledComment') && resumed.includes('Session Force-Killed'), 'Force-kill PR comment contains "Session Force-Killed" header');
 
   // Test: Comment includes timeout type (activity/startup)
   assert(claudeLibContent.includes('activity timeout'), 'Force-kill comment mentions activity timeout type');
   assert(claudeLibContent.includes('startup timeout'), 'Force-kill comment mentions startup timeout type');
 
   // Test: Comment includes auto-resume information
-  assert(claudeLibContent.includes('Auto-resuming'), 'Force-kill comment mentions auto-resuming');
+  assert(resumed.includes('resuming session `abc`'), 'Force-kill comment names the session it resumes');
+  assert(fresh.includes('starting fresh') && !fresh.includes('resuming'), 'Force-kill comment does not promise a resume without a session');
 
   // Test: Comment includes session ID for traceability
   assert(claudeLibContent.includes('Session ID:'), 'Force-kill comment includes session ID');

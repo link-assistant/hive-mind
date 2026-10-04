@@ -217,11 +217,13 @@ export const handleExecutionError = async (error, shouldAttachLogs, owner, repo,
     }
   }
 
-  // If --auto-close-pull-request-on-fail is enabled, close the PR
+  // If --auto-close-pull-request-on-fail is enabled, close the PR.
+  // Issue #2492: the close comment no longer says "Logs have been attached" -
+  // that was posted even without --attach-logs or after a failed upload.
   if (argv.autoClosePullRequestOnFail && global.createdPR && global.createdPR.number) {
     await log('\n🔒 Auto-closing pull request due to failure...');
     try {
-      const result = await $`gh pr close ${global.createdPR.number} --repo ${owner}/${repo} --comment "Auto-closed due to execution failure. Logs have been attached for debugging."`;
+      const result = await $`gh pr close ${global.createdPR.number} --repo ${owner}/${repo} --comment "Auto-closed due to execution failure."`;
       if (result.exitCode === 0) {
         await log('✅ Pull request closed successfully');
       } else {

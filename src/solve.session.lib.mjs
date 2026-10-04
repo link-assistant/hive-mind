@@ -30,45 +30,41 @@ export const SESSION_TYPES = {
 };
 
 /**
- * Get session comment header and description based on session type
+ * Get session comment header and description based on session type.
+ *
+ * Issue #2492: the comment states only what is true when it is posted. It does not
+ * claim a draft conversion (GitHub's timeline already shows the real draft/ready
+ * changes, and the PR may have been a draft already), and the runtime line is
+ * appended only on request, because the solution log already records it.
+ *
  * @param {string} sessionType - One of SESSION_TYPES values
  * @param {Date} timestamp - Session start timestamp
+ * @param {string} [runtimeLine] - Optional runtime provenance line
  * @returns {Object} - { emoji, header, description }
  */
-function getSessionCommentContent(sessionType, timestamp, runtimeLine = '') {
+export function getSessionCommentContent(sessionType, timestamp, runtimeLine = '') {
   const isoTime = timestamp.toISOString();
-  // Issue #2247 (H1): stated on every session type, not only the first one - an
-  // auto-restart can pick up a different image than the session before it.
   const runtime = runtimeLine ? `\n\n${runtimeLine}` : '';
+  const wait = 'Please wait for it to finish before giving feedback.';
 
   switch (sessionType) {
     case SESSION_TYPES.RESUME:
-      return {
-        emoji: '🔄',
-        header: AI_WORK_SESSION_RESUMED_MARKER,
-        description: `Resuming automated work session at ${isoTime}\n\nThis session continues from a previous session using the \`--resume\` flag.\n\nThe PR has been converted to draft mode while work is in progress.\n\n_This comment marks the resumption of an AI work session. Please wait for the session to finish, and provide your feedback._${runtime}`,
-      };
+      return { emoji: '🔄', header: AI_WORK_SESSION_RESUMED_MARKER, description: `Resumed at ${isoTime} with \`--resume\` (previous context kept). ${wait}${runtime}` };
     case SESSION_TYPES.AUTO_RESUME:
-      return {
-        emoji: '⏰',
-        header: AUTO_RESUME_ON_LIMIT_RESET_MARKER,
-        description: `Auto-resuming automated work session at ${isoTime}\n\nThis session automatically resumed after the usage limit reset, continuing with the previous context preserved.\n\nThe PR has been converted to draft mode while work is in progress.\n\n_This is an auto-resumed session. Please wait for the session to finish, and provide your feedback._${runtime}`,
-      };
+      return { emoji: '⏰', header: AUTO_RESUME_ON_LIMIT_RESET_MARKER, description: `Resumed at ${isoTime} after the usage limit reset (previous context kept). ${wait}${runtime}` };
     case SESSION_TYPES.AUTO_RESTART:
-      return {
-        emoji: '🔄',
-        header: AUTO_RESTART_ON_LIMIT_RESET_MARKER,
-        description: `Auto-restarting automated work session at ${isoTime}\n\nThis session automatically restarted after the usage limit reset (fresh start without previous context).\n\nThe PR has been converted to draft mode while work is in progress.\n\n_This is a fresh restart after limit reset. Please wait for the session to finish, and provide your feedback._${runtime}`,
-      };
+      return { emoji: '🔄', header: AUTO_RESTART_ON_LIMIT_RESET_MARKER, description: `Restarted at ${isoTime} after the usage limit reset (fresh context). ${wait}${runtime}` };
     case SESSION_TYPES.NEW:
     default:
-      return {
-        emoji: '🤖',
-        header: AI_WORK_SESSION_STARTED_MARKER,
-        description: `Starting automated work session at ${isoTime}\n\nThe PR has been converted to draft mode while work is in progress.\n\n_This comment marks the beginning of an AI work session. Please wait for the session to finish, and provide your feedback._${runtime}`,
-      };
+      return { emoji: '🤖', header: AI_WORK_SESSION_STARTED_MARKER, description: `Started at ${isoTime}. ${wait}${runtime}` };
   }
 }
+
+/**
+ * Issue #2492: the runtime provenance (issue #2247) is always written to the log;
+ * it goes into the GitHub comment only with --verbose.
+ */
+export const shouldPublishSessionRuntime = argv => Boolean(argv?.verbose);
 
 /**
  * Post the tracked comment that marks a work-session start.
@@ -95,8 +91,9 @@ export async function postWorkSessionStartComment({ owner, repo, prNumber, $, lo
     let runtimeLine = '';
     try {
       const runtime = await resolveRuntime({ model: argv?.model ?? null, tool: argv?.tool ?? null });
-      runtimeLine = runtime?.line || '';
-      if (runtimeLine) await log(formatAligned('🧾', 'Runtime:', runtimeLine.replace(/^_Runtime: /, '').replace(/_$/, ''), 2));
+      const line = runtime?.line || '';
+      if (line) await log(formatAligned('🧾', 'Runtime:', line.replace(/^_Runtime: /, '').replace(/_$/, ''), 2));
+      if (shouldPublishSessionRuntime(argv)) runtimeLine = line;
     } catch {
       runtimeLine = '';
     }
@@ -201,7 +198,9 @@ export async function endWorkSession({ isContinueMode, prNumber, argv, log, form
       // Post a comment marking the end of work session.
       // Issue #1625: Track the comment ID so it won't be mistaken for AI-authored content.
       try {
-        const endComment = `🤖 **${AI_WORK_SESSION_COMPLETED_MARKER}**\n\nWork session ended at ${workEndTime.toISOString()}\n\nThe PR will be converted back to ready for review.\n\n_This comment marks the end of an AI work session. New comments after this time will be considered as feedback._`;
+        // Issue #2492: no "will be converted back to ready" promise - the ready conversion
+        // below can be refused (empty diff, failed session, human draft).
+        const endComment = `🤖 **${AI_WORK_SESSION_COMPLETED_MARKER}**\n\nEnded at ${workEndTime.toISOString()}. Comments after this one are treated as feedback.`;
         const { ok, commentId, stderr } = await postTrackedComment({ $, owner: global.owner, repo: global.repo, targetNumber: prNumber, body: endComment });
         if (ok) {
           await log(formatAligned('💬', 'Posted:', `Work session end comment${commentId ? ` (id=${commentId})` : ''}`, 2));

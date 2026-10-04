@@ -1105,13 +1105,11 @@ export const attachSolutionSummary = async ({ resultSummary, prNumber, issueNumb
     // summary said "The `pwd` command completed" and printed the solver's own
     // /tmp workspace, on a pull request that was still empty.
     const noChangesNotice = buildNoChangesNotice(changeStats);
-    // Issue #2247 (H8): an oversized summary is folded into a `<details>` block
-    // and the overflow is left to the session log. The Scala run published a
-    // ~13 KB plan record - with the whole request prompt inside it - once per
-    // session, six times on one pull request.
+    // Issue #2492: the summary is always shown in full (no `<details>` fold).
+    // It is cut only past GitHub's comment size limit, pointing to the log.
     const capped = capWorkingSessionSummary(formatWorkingSessionSummaryMarkdown(redactWorkspacePaths(resultSummary)), { logUrl });
-    if (capped.folded) {
-      await log(`📏 Working session summary folded into a <details> block${capped.omittedCharacters > 0 ? ` (${capped.omittedCharacters} characters left to the session log)` : ''}`, { verbose: true });
+    if (capped.truncated) {
+      await log(`📏 Working session summary cut to fit GitHub's comment limit (${capped.omittedCharacters} characters left to the session log)`, { verbose: true });
     }
     const summaryBody = capped.body;
 

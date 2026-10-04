@@ -44,6 +44,7 @@ The fixes and regression tests are in [PR #2493](https://github.com/link-assista
 | 2026-10-04 12:00:57 | GitHub records `convert_to_draft`.                                                                                                                                                                                                           |
 | 2026-10-04 12:00:59 | The reported comment 5979703717 is posted: "Starting…", the draft sentence and the runtime line. 17 of the 188 comments on the PR carry the same runtime line.                                                                               |
 | 2026-10-04 13:09:16 | Issue #2492 is opened.                                                                                                                                                                                                                       |
+| 2026-10-04 15:04:04 | PR feedback: the working session summary on PR #2493 (comment 5980860458) showed 16 lines and hid the rest under "Rest of the working session summary (1 KB)". The summary must always be shown in full.                                     |
 
 Summary of [`draft-claims-vs-timeline.tsv`](draft-claims-vs-timeline.tsv):
 
@@ -64,6 +65,7 @@ Summary of [`draft-claims-vs-timeline.tsv`](draft-claims-vs-timeline.tsv):
 | R8  | Debug output where the root cause cannot be proven                                       | Not needed: every root cause here is proven from the source code and the PR data. The runtime line, removed from comments, is still logged (`🧾 Runtime:`)                    |
 | R9  | Report problems that belong to other repositories                                        | None found. All messages are produced by hive-mind itself (see [External issues](#external-issues))                                                                           |
 | R10 | Apply each fix everywhere it occurs                                                      | Shared builders are used by every code path that posts the message, and the test checks the sources for the removed phrases                                                   |
+| R11 | Always show the entire working session summary (PR feedback)                             | The `<details>` fold is removed (root cause 12)                                                                                                                               |
 
 ## Root causes and fixes
 
@@ -134,6 +136,10 @@ In the issue-comment path of `solve.results.lib.mjs`, the log said the solution 
 ### 11. A guessed cause for an unclassified failure
 
 The fallback "What you can do" section of the pre-PR failure comment suggested account or permission problems for any unknown reason, including "Auto-restart limit reached". It now says to check the reason and the log.
+
+### 12. The working session summary was folded after 16 lines
+
+Issue #2247 folded any summary longer than 16 lines or 1200 characters into a "Rest of the working session summary" `<details>` block, and dropped everything past 3000 more characters. A normal final report is longer than that, so most of it was hidden (PR #2493, comment 5980860458). `capWorkingSessionSummary` now returns the summary unchanged. It cuts only a summary over 60000 characters, because GitHub rejects comments over 65536, and then links the session log for the rest.
 
 ## Audited and kept
 

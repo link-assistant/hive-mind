@@ -67,7 +67,7 @@ await postWorkSessionStartComment({
 
 assert.match(postedPayload.body, /⏰ \*\*Auto Resume \(on limit reset\)\*\*/);
 assert.match(postedPayload.body, /2026-08-11T02:00:54\.000Z/);
-assert.match(postedPayload.body, /previous context preserved/);
+assert.match(postedPayload.body, /previous context kept/);
 assert.ok(logLines.some(line => line.includes('Auto Resume (on limit reset) comment (id=2148001)')));
 
 console.log('Issue #2148 auto-resume reporting regression test passed');

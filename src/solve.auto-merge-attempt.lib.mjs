@@ -101,7 +101,8 @@ export const reportAutoMergeBlockedByIssue = async ({ owner, repo, prNumber, iss
     verbose,
     log,
     body: buildAutoMergeBlockedComment({ blockers, issueNumber }),
-    signature: AUTO_MERGE_BLOCKED_MARKER,
+    // Issue #2492: the pre-flight manual-merge notice shares the marker, so match this heading only.
+    signature: `${AUTO_MERGE_BLOCKED_MARKER}: this pull request is ready`,
   });
 };
 
@@ -257,7 +258,8 @@ export const attemptAutoMerge = async params => {
 
     // Post success comment
     try {
-      const commentBody = `## 🎉 ${AUTO_MERGED_MARKER}\n\nThis pull request has been automatically merged by hive-mind after all CI checks passed and the PR became mergeable.\n\n---\n*Auto-merged by hive-mind with --auto-merge flag*`;
+      // Issue #2492: no footer repeating the heading.
+      const commentBody = `## 🎉 ${AUTO_MERGED_MARKER}\n\nThis pull request has been automatically merged by hive-mind after all CI checks passed and the PR became mergeable.`;
       await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: commentBody });
     } catch {
       // Don't fail if comment posting fails

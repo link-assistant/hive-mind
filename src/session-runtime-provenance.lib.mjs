@@ -11,9 +11,11 @@
  * nothing published which `solve`, which image, or which Formal AI release the
  * session used. A reader of those three pull requests could not have told.
  *
- * The *AI Work Session Started* comment is where a reader looks first, so that
- * is where the provenance goes. Everything here is best-effort and never
- * throws: a session must not fail because it could not name its own version.
+ * The provenance is written to the solution log of every session (attached to
+ * the pull request with --attach-logs) and, with --verbose, also to the *AI Work
+ * Session Started* comment (issue #2492: by default that comment stays short).
+ * Everything here is best-effort and never throws: a session must not fail
+ * because it could not name its own version.
  *
  * @see https://github.com/link-assistant/hive-mind/issues/2247
  */

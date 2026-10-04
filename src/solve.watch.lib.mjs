@@ -65,15 +65,15 @@ const { resumeAfterToolKill } = await import('./solve.tool-kill-resume.lib.mjs')
 // a limit of 5 means 5 AI sessions in total rather than 5 per subsystem, and
 // every label renders in the same `N/M` form.
 const autoRestartBudget = await import('./auto-restart-budget.lib.mjs');
-const { beginAutoRestartBudget, consumeAutoRestartIteration, formatAutoRestartLabel, formatAutoRestartLimit, getAutoRestartIterationsUsed, getRemainingAutoRestartIterations, hasExhaustedAutoRestartBudget } = autoRestartBudget;
-const { failOnAutoRestartBudgetExhausted } = await import('./auto-restart-exhaustion.lib.mjs');
+const { beginAutoRestartBudget, consumeAutoRestartIteration, formatAutoRestartLabel, formatAutoRestartLimit, getAutoRestartIterationsUsed, hasExhaustedAutoRestartBudget } = autoRestartBudget;
+const { buildUncommittedChangesRestartComment, failOnAutoRestartBudgetExhausted } = await import('./auto-restart-exhaustion.lib.mjs');
 // Issue #2247 (H3): the Scala reproduction run restarted five times, each
 // session byte-identical to the last, and committed nothing in any of them.
 const { stopWhenSessionRepeated } = await import('./session-progress.lib.mjs');
 
 // Issue #1625: Central marker constants + tracked comment posting
 const toolComments = await import('./tool-comments.lib.mjs');
-const { AUTO_RESTART_MARKER, postTrackedComment } = toolComments;
+const { postTrackedComment } = toolComments;
 
 // Issue #1827: After each AI session, register the authenticated account's own
 // comments (free-form status updates the agent posts itself) so the next
@@ -346,17 +346,14 @@ export const watchForFeedback = async params => {
           // Post a comment to PR about auto-restart
           if (prNumber) {
             try {
-              const remainingIterations = getRemainingAutoRestartIterations();
-
               // Get uncommitted files list for the comment
               let uncommittedFilesList = '';
               if (changes.length > 0) {
                 uncommittedFilesList = '\n\n**Uncommitted files:**\n```\n' + changes.join('\n') + '\n```';
               }
 
-              const iterationLabel = formatAutoRestartLabel(autoRestartCount);
-              const stopText = remainingIterations === null ? 'Auto-restart is configured with no iteration limit.' : `Auto-restart will stop after changes are committed or discarded, or after ${remainingIterations} more iteration${remainingIterations !== 1 ? 's' : ''}.`;
-              const commentBody = `## 🔄 ${AUTO_RESTART_MARKER} ${iterationLabel}\n\nDetected uncommitted changes from previous run. Starting new session to review and commit or discard them.${uncommittedFilesList}\n\n---\n*${stopText} Please wait until working session will end and give your feedback.*`;
+              // Issue #2492: the `N/M` heading already states the limit.
+              const commentBody = buildUncommittedChangesRestartComment({ label: formatAutoRestartLabel(autoRestartCount), uncommittedFilesList });
               // Issue #1625: Track so this doesn't falsely count as AI-authored.
               await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: commentBody });
               await log(formatAligned('', '💬 Posted auto-restart notification to PR', '', 2));

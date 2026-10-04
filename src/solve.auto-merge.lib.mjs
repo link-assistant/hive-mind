@@ -80,7 +80,7 @@ const { buildCancelledCIReviewComment, getRetriggerableWorkflowRuns, shouldStopF
 
 // Issue #1625: Shared marker constants + posting/tracking helpers
 const toolComments = await import('./tool-comments.lib.mjs');
-const { READY_TO_MERGE_MARKER, READY_FOR_REVIEW_MARKER, AUTO_RESUME_ON_LIMIT_RESET_MARKER, AUTO_RESTART_MARKER, AUTO_RESTART_UNTIL_MERGEABLE_LOG_MARKER, AUTO_MERGED_MARKER, postTrackedComment } = toolComments;
+const { READY_TO_MERGE_MARKER, READY_FOR_REVIEW_MARKER, AUTO_RESUME_ON_LIMIT_RESET_MARKER, AUTO_RESTART_UNTIL_MERGEABLE_LOG_MARKER, AUTO_MERGED_MARKER, postTrackedComment } = toolComments;
 // Issue #2148: in-process usage-limit continuations bypass startWorkSession,
 // so post their session boundary explicitly before invoking `--resume`.
 const sessionLib = await import('./solve.session.lib.mjs');
@@ -101,7 +101,7 @@ const { formatAutoIterationLimit, hasReachedAutoIterationLimit, normalizeAutoIte
 // ("Auto-restart triggered (iteration 1)" vs "Auto-restart 1/5 Log").
 const autoRestartBudget = await import('./auto-restart-budget.lib.mjs');
 const { beginAutoRestartBudget, consumeAutoRestartIteration, formatAutoRestartLabel, formatAutoRestartLimit, hasExhaustedAutoRestartBudget } = autoRestartBudget;
-const { failOnAutoRestartBudgetExhausted } = await import('./auto-restart-exhaustion.lib.mjs');
+const { buildAutoRestartComment, failOnAutoRestartBudgetExhausted } = await import('./auto-restart-exhaustion.lib.mjs');
 const { handleBillingLimitBlocker } = await import('./billing-limit-stop.lib.mjs');
 // Issue #2247 (H3): a restart is only worth its cost when the previous session
 // changed something. Five byte-identical sessions is a stall, not progress.
@@ -129,7 +129,7 @@ export const watchUntilMergeable = async params => {
   const watchInterval = Math.max(rawWatchInterval, MIN_CI_CHECK_INTERVAL_SECONDS);
   const isAutoMerge = argv.autoMerge || false;
   // Issue #2119: join the shared budget instead of starting a second counter.
-  const maxAutoRestartIterations = beginAutoRestartBudget({ maxIterations: argv.autoRestartMaxIterations });
+  beginAutoRestartBudget({ maxIterations: argv.autoRestartMaxIterations });
   const maxAutoResumeIterations = normalizeAutoIterationLimit(argv.autoResumeMaxIterations);
   // Issue #1503/#1573/#1612: repo-wide action gating is opt-in strict mode.
   // The config default may be bypassed when this module is reused directly, so normalize here.
@@ -449,7 +449,8 @@ export const watchUntilMergeable = async params => {
             try {
               // Issue #1345: Differentiate message when no CI is configured
               const ciLine = noCiConfigured ? '- No CI/CD checks are configured for this repository' : noCiTriggered ? (workflowRunConclusions ? `- CI workflows completed without executing (${workflowRunConclusions})` : '- CI workflows exist but were not triggered for this commit') : '- All CI checks have passed';
-              const commentBody = `## 🎉 ${AUTO_MERGED_MARKER}\n\nThis pull request has been automatically merged by hive-mind.\n${ciLine}\n\n---\n*Auto-merged by hive-mind with --auto-merge flag*`;
+              // Issue #2492: no footer repeating the heading.
+              const commentBody = `## 🎉 ${AUTO_MERGED_MARKER}\n\nThis pull request has been automatically merged by hive-mind.\n${ciLine}`;
               await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: commentBody });
             } catch {
               // Don't fail if comment posting fails
@@ -525,7 +526,9 @@ export const watchUntilMergeable = async params => {
                         .filter(Boolean)
                         .join(' ')}`
                     : '';
-                const commentBody = `## ✅ ${READY_TO_MERGE_MARKER}\n\nThis pull request is now ready to be merged:\n${ciLine}\n- No merge conflicts\n- No pending changes${issueLine}\n\n---\n*Monitored by hive-mind with --auto-restart-until-mergeable flag*`;
+                // Issue #2492: "uncommitted" is what was checked ("pending" read broader), and the
+                // mode footer is gone - the comment is short and states checked facts only.
+                const commentBody = `## ✅ ${READY_TO_MERGE_MARKER}\n\nThis pull request is now ready to be merged:\n${ciLine}\n- No merge conflicts\n- No uncommitted changes${issueLine}`;
                 // Issue #1625: Track this comment ID so it can't falsely count as an AI-authored comment
                 await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: commentBody });
                 readyToMergeCommentPosted = true;
@@ -816,11 +819,12 @@ export const watchUntilMergeable = async params => {
         // Post a comment to PR about the restart after preflight succeeds, so every
         // posted restart notification corresponds to an actual tool session.
         try {
-          const limitText = maxAutoRestartIterations === 0 ? 'No automatic restart limit is configured.' : `This run will stop after ${maxAutoRestartIterations} restart iteration${maxAutoRestartIterations !== 1 ? 's' : ''} in total.`;
           // Issue #2119: the same `N/M` heading the uncommitted-changes loop posts.
           // "triggered (iteration N)" hid the limit and made one auto-restart
           // system look like two.
-          const commentBody = `## 🔄 ${AUTO_RESTART_MARKER} ${formatAutoRestartLabel(restartCount)}\n\n**Reason:** ${restartReason}\n\nStarting new session to address the issues.\n\n---\n*Auto-restart-until-mergeable mode is active. ${limitText}*`;
+          // Issue #2492: the `N/M` heading already states the limit, so the footer
+          // that repeated it is gone.
+          const commentBody = buildAutoRestartComment({ label: formatAutoRestartLabel(restartCount), reason: restartReason });
           // Issue #1625: Track so this doesn't falsely count as an AI-authored comment
           await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: commentBody });
           await log(formatAligned('', '💬 Posted auto-restart notification to PR', '', 2));

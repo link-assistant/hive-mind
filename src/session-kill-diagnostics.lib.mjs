@@ -69,7 +69,8 @@ export const UPSTREAM_MEMORY_EXHAUSTION_PREFIX = 'memory-exhaustion';
  * non-zero exit when Docker's sticky `State.OOMKilled` flag is set — even exit 1
  * of a main process that outlived an OOM-killed child. That report is the
  * container flag restated, not separate evidence, so it is recognised by its
- * mechanism and reason and folded into `oomKilled`.
+ * mechanism and reason and folded into `oomKilled`. Reported upstream as
+ * link-foundation/start#180.
  */
 export const UPSTREAM_CONTAINER_FLAG_MECHANISM = 'cgroup-oom-killer';
 export const UPSTREAM_CONTAINER_FLAG_REASON = 'Docker reported State.OOMKilled=true';

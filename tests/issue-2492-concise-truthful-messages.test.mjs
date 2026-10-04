@@ -15,6 +15,7 @@
 
 import assert from 'node:assert/strict';
 
+import { buildPrePullRequestFailureActionSection } from '../src/solve.pre-pr-failure-notifier.lib.mjs';
 import { getSessionCommentContent, postWorkSessionStartComment, SESSION_TYPES, shouldPublishSessionRuntime } from '../src/solve.session.lib.mjs';
 
 const AT = new Date('2026-10-04T12:00:55.290Z');
@@ -78,5 +79,13 @@ assert.ok(
 
 const verbose = await postStart({ tool: 'claude', model: 'opus', verbose: true });
 assert.match(verbose.body, /_Runtime: solve `v2\.33\.11`/);
+
+// ---------------------------------------------------------------------------
+// 3. An unclassified failure does not get a guessed cause.
+// ---------------------------------------------------------------------------
+
+const limitGuidance = buildPrePullRequestFailureActionSection('Auto-restart limit reached');
+assert.doesNotMatch(limitGuidance, /account|permissions/i, 'a restart limit is not an account or permissions problem');
+assert.equal(limitGuidance, '### What you can do\n- Check the reason above and the log, then rerun the solver.');
 
 console.log('PASS: issue #2492 session comments are short and claim only checked facts');

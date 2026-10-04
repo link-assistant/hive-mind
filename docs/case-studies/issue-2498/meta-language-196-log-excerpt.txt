@@ -1,0 +1,17 @@
+# Excerpt from the link-foundation/meta-language#196 failure log (solve v2.33.11, same host as package-registry-manager#27)
+# Full log: https://raw.githubusercontent.com/konard/public-logs/main/tmp-hive-mind-log-upload-PQElhC/7f6e03bbc420e311/sanitized.log.txt
+# Intermediate log: https://raw.githubusercontent.com/konard/public-logs/main/tmp-hive-mind-log-upload-1x7VUh/aacab4f498556668/sanitized.log.txt
+# Lines are cut to 600 characters. Original line numbers are shown before each line.
+
+607989: [2026-10-04T19:33:22.347Z] [INFO]           "command": "cd /tmp/formal-ai-src && B=/tmp/meta-language-experiments/formal-ai-corpus-memory/target/release/formal-ai-corpus-memory; head -c 120000 js/app.js > /tmp/app120.js; head -c 240000 js/app.js > /tmp/app240.js; for f in /tmp/app120.js /tmp/app240.js; do (ulimit -v 8000000; timeout 600 $B javascript $f); done",
+608130: [2026-10-04T19:37:53.550Z] [INFO]         "content": "Exit code 137\n/bin/bash: line 1: 706741 Killed                  ( ulimit -v 8000000; timeout 600 $B javascript $f )\n/bin/bash: line 1: 706773 Killed                  ( ulimit -v 8000000; timeout 600 $B javascript $f )",
+608143: [2026-10-04T19:37:53.557Z] [INFO] /bin/bash: line 1: 706741 Killed                  ( ulimit -v 8000000; timeout 600 $B javascript $f )
+608144: [2026-10-04T19:37:53.557Z] [INFO] /bin/bash: line 1: 706773 Killed                  ( ulimit -v 8000000; timeout 600 $
+608357: [2026-10-04T19:37:58.234Z] [INFO]           "command": "cd /tmp/formal-ai-src && B=/tmp/meta-language-experiments/formal-ai-corpus-memory/target/release/formal-ai-corpus-memory; wc -l js/app.js; for n in 200 400 800; do head -n $n js/app.js > /tmp/app$n.js; (ulimit -v 4000000; timeout 300 $B javascript /tmp/app$n.js; echo \"exit $?\"); done 2>&1",
+608529: [2026-10-04T19:44:03.231Z] [INFO]         "content": "54 js/app.js\n/bin/bash: line 1: 707082 Killed                  timeout 300 $B javascript /tmp/app$n.js\nexit 137\n/bin/bash: line 1: 707116 Killed                  timeout 300 $B javascript /tmp/app$n.js\nexit 137\n/bin/bash: line 1: 707139 Killed                  timeout 300 $B javascript /tmp/app$n.js\nexit 137\nShell cwd was reset to /tmp/gh-issue-solver-1791115241678",
+608590: [2026-10-04T19:44:03.568Z] [INFO]   "error": "authentication_failed",
+608593: [2026-10-04T19:44:03.574Z] [INFO] ⚠️ SUBSCRIPTION/ACCESS UNAVAILABLE — Authentication expired — re-login required
+608594: [2026-10-04T19:44:03.578Z] [INFO]    code=authentication_failed request_id=unknown uuid=bd7ee845-abf7-4b55-80d2-32c812f0c0fb
+608741: [2026-10-04T19:44:06.278Z] [INFO] 💾 Critical error (CLAUDE stopped: Authentication expired — re-login required [authentication_failed] — Failed to authenticate: OAuth session expired and could not be refreshed) — preserving uncommitted changes on recovery/issue-195-cc10e17ab860 (the PR branch is not changed)...
+608758: [2026-10-04T19:44:11.376Z] [ERROR] ⚠️ SUBSCRIPTION/ACCESS UNAVAILABLE — CLAUDE: Authentication expired — re-login required
+608760: [2026-10-04T19:44:11.381Z] [ERROR]    Error code: authentication_failed

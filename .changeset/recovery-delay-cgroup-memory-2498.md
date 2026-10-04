@@ -1,5 +1,0 @@
----
-'@link-assistant/hive-mind': patch
----
-
-Spread out automatic recoveries after an out-of-memory kill, and record the container's own memory limit (#2498). Every automatic recovery now waits its own random delay before it starts, whether it is a killed session resumed by the monitor or a tool resumed by solve after the tool was OOM-killed. The delay is 30–90 s by default, set with `--session-kill-resume-delay <min-max>` or `HIVE_MIND_SESSION_KILL_RESUME_DELAY`; `0` turns it off. Sessions hit by the same event therefore no longer compete for memory, CPU and the API in the same second. Resource snapshots now also read the task's cgroup: its memory limit, current and peak usage, and the `memory.events` `oom`/`oom_kill` counters. These are logged and stored in the `📈 [RESOURCES]` marker, and the kill diagnosis quotes them. Until now the logs only showed host RAM (for example "10.4 GB of 11.7 GB available") for a container capped at 2.9 GB, and nothing showed how many processes the OOM killer took.

@@ -18,7 +18,7 @@
 
 import fs from 'fs/promises';
 import { classifySessionOutcome } from './work-session-formatting.lib.mjs';
-import { buildKillDiagnosticsSection, formatKillRecoverySection, KILL_CAUSE_FORCED_KILL, KILL_CAUSE_OUT_OF_MEMORY } from './session-kill-diagnostics.lib.mjs';
+import { buildKillDiagnosticsSection, formatKillDiagnosticsSection, formatKillRecoverySection, KILL_CAUSE_FORCED_KILL, KILL_CAUSE_OUT_OF_MEMORY } from './session-kill-diagnostics.lib.mjs';
 import { getOomEventObservedAt } from './session-monitor.oom.lib.mjs';
 import { resolveOnSessionKillPolicy } from './session-kill-policy.lib.mjs';
 import { detectDeliberateSolveStop } from './session-kill-attribution.lib.mjs';
@@ -124,7 +124,8 @@ export async function buildKillCompletionSections({ sessionName, sessionInfo, st
     if (oomEventOnly) sections.push(`⚠️ A container OOM event affected a child process at ${observedAt}; the work process continued and later failed with exit code ${exitCode}.`);
     if (deliberateStop && killed) sections.push(`ℹ️ solve had already stopped on its own ("${deliberateStop.line}") before the process was killed, so it is not restarted automatically.`);
     else if (deliberateStop) sections.push(`ℹ️ The work did not fail because of it: solve stopped on its own ("${deliberateStop.line}"), so it is not restarted automatically.`);
-    if (section) sections.push(section);
+    // Issue #2498: the diagnostics must not then call the OOM event the "Cause".
+    if (section) sections.push(deliberateStop && oomEventOnly ? formatKillDiagnosticsSection(diagnosis, { locale, notTheCause: true }) : section);
 
     if (verbose) {
       console.log(`[VERBOSE] Session ${sessionName} kill reporting: killed=${killed} recovered=${recovered} oomEventOnly=${oomEventOnly} deliberateStop=${deliberateStop?.reason || 'none'} cause=${diagnosis?.cause || 'n/a'} policy=${policy}`);
@@ -171,7 +172,7 @@ export async function defaultAttachLog(options) {
  * @param {Object} options
  * @returns {Promise<{posted: boolean, url: string|null, skipped: string|null, logUploaded: boolean}>}
  */
-export async function announceKillOnPullRequest({ pullRequestUrl, sessionName, sessionInfo, diagnosis, exitCode = null, observedAt = null, policy = null, recovered = false, oomEventOnly = false, resumed = false, recoverySessionId = null, attempt = null, maxAttempts = null, resumeCommand = null, runCommand = spawnCapture, attachLog = defaultAttachLog, attachOptions = {}, verbose = false } = {}) {
+export async function announceKillOnPullRequest({ pullRequestUrl, sessionName, sessionInfo, diagnosis, exitCode = null, observedAt = null, policy = null, recovered = false, oomEventOnly = false, deliberateStop = null, resumed = false, recoverySessionId = null, attempt = null, maxAttempts = null, resumeCommand = null, runCommand = spawnCapture, attachLog = defaultAttachLog, attachOptions = {}, verbose = false } = {}) {
   const skip = reason => ({ posted: false, url: null, skipped: reason, logUploaded: false });
   // Issue #2301: a session started on a pull request URL has no *linked* pull
   // request to look up — the pull request is the one it was started on.
@@ -200,6 +201,7 @@ export async function announceKillOnPullRequest({ pullRequestUrl, sessionName, s
     policy,
     survived: recovered,
     oomEventOnly,
+    deliberateStop,
     resumed,
     recoverySessionId,
     attempt,

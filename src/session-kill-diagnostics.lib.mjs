@@ -64,6 +64,16 @@ export const HEAP_EXHAUSTED_PERCENT = 90;
  */
 export const UPSTREAM_MEMORY_EXHAUSTION_PREFIX = 'memory-exhaustion';
 
+/**
+ * Issue #2498: start-command (<= 0.35.1) also reports memory exhaustion for any
+ * non-zero exit when Docker's sticky `State.OOMKilled` flag is set — even exit 1
+ * of a main process that outlived an OOM-killed child. That report is the
+ * container flag restated, not separate evidence, so it is recognised by its
+ * mechanism and reason and folded into `oomKilled`.
+ */
+export const UPSTREAM_CONTAINER_FLAG_MECHANISM = 'cgroup-oom-killer';
+export const UPSTREAM_CONTAINER_FLAG_REASON = 'Docker reported State.OOMKilled=true';
+
 /** Disk is considered full at or above this used percentage… */
 export const DISK_FULL_USED_PERCENT = 95;
 /** …or below this much free space, whichever triggers first. */
@@ -330,7 +340,7 @@ export function describeKillCause({ logText = null, resourceMarkers = null, oomK
   // bounded window we read, but `$` saw it when the command exited. The local
   // scan stays as defense in depth — these fields are absent on an older `$`.
   const reportedExitReasonText = typeof reportedExitReason === 'string' && reportedExitReason.trim() ? reportedExitReason.trim() : null;
-  const reportedMemoryExhaustion = abnormalExit && (reportedMemoryExhausted === true || (reportedExitReasonText !== null && reportedExitReasonText.startsWith(UPSTREAM_MEMORY_EXHAUSTION_PREFIX)));
+  let reportedMemoryExhaustion = abnormalExit && (reportedMemoryExhausted === true || (reportedExitReasonText !== null && reportedExitReasonText.startsWith(UPSTREAM_MEMORY_EXHAUSTION_PREFIX)));
   // `memory-exhaustion (v8-heap-limit)` → `v8-heap-limit`: the prefix is already
   // said in words by the surrounding sentence, so only the mechanism is new.
   const reportedMechanism =
@@ -340,7 +350,14 @@ export function describeKillCause({ logText = null, resourceMarkers = null, oomK
           .trim()
           .replace(/^\((.*)\)$/, '$1') || null
       : null;
-  if (reportedMemoryExhaustion) {
+  // Issue #2498: a report derived only from the sticky container flag says no
+  // more than `oomKilled` — and for an ordinary exit nothing about the main process.
+  const reportedFromContainerFlag = reportedMemoryExhaustion && (reportedMemoryExhaustedReason === UPSTREAM_CONTAINER_FLAG_REASON || (reportedMechanism === UPSTREAM_CONTAINER_FLAG_MECHANISM && !reportedMemoryExhaustedReason));
+  if (reportedFromContainerFlag) {
+    if (!oomKilled) evidence.push('container reports `State.OOMKilled = true` via `$ --status` (an OOM event hit the container cgroup)');
+    oomKilled = true;
+    reportedMemoryExhaustion = false;
+  } else if (reportedMemoryExhaustion) {
     const detail = reportedMemoryExhaustedReason ? `: \`${reportedMemoryExhaustedReason}\`` : '';
     evidence.push(`\`$ --status\` reports memory exhaustion${reportedMechanism ? ` (\`${reportedMechanism}\`)` : ''}${detail}`);
   } else if (reportedExitReasonText && abnormalExit) {
@@ -405,14 +422,15 @@ export function describeKillCause({ logText = null, resourceMarkers = null, oomK
  * @param {Object} diagnosis - describeKillCause() result
  * @param {Object} [options]
  * @param {string|null} [options.locale]
+ * @param {boolean} [options.notTheCause] - Issue #2498: solve stopped on its own, so the event is reported, not blamed
  * @returns {string} Markdown block, or '' when there is nothing to report
  */
-export function formatKillDiagnosticsSection(diagnosis, { locale = null } = {}) {
+export function formatKillDiagnosticsSection(diagnosis, { locale = null, notTheCause = false } = {}) {
   if (!diagnosis || diagnosis.cause === KILL_CAUSE_UNKNOWN) {
     if (!diagnosis?.evidence?.length) return '';
   }
-  const title = text(locale, 'telegram.session_kill_diagnostics', 'Kill diagnostics');
-  const causeLabel = text(locale, 'telegram.session_kill_cause', 'Cause');
+  const title = notTheCause ? text(locale, 'telegram.session_kill_event_diagnostics', 'Container OOM event diagnostics (not the cause of this stop)') : text(locale, 'telegram.session_kill_diagnostics', 'Kill diagnostics');
+  const causeLabel = notTheCause ? text(locale, 'telegram.session_kill_event', 'Event') : text(locale, 'telegram.session_kill_cause', 'Cause');
   const lines = [`🔎 *${title}*`, `${causeLabel}: ${diagnosis.summary}`];
   for (const item of diagnosis.evidence) lines.push(`• ${item}`);
   return lines.join('\n');

@@ -1081,6 +1081,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
           policy: killReport.policy,
           recovered: killReport.recovered,
           oomEventOnly: killReport.oomEventOnly,
+          deliberateStop: killReport.deliberateStop,
           resumed: killRecovery.resumed,
           recoverySessionId: killRecovery.resumed ? killRecovery.sessionId : null,
           attempt: killRecovery.resumed ? killRecovery.attempt : null,

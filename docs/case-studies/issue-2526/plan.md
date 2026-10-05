@@ -10,4 +10,6 @@
 - [x] Record root causes, solutions, evidence and remaining external limitations in the case study; report any demonstrated upstream defect with a reproducer.
 - [x] Add a release changeset, run targeted tests and all local CI checks, then commit atomic changes on the prepared branch.
 - [x] Merge the current default branch if needed, push only the prepared branch and update PR #2527's title and description.
-- [x] Review the complete PR diff, confirm clean status, inspect fresh CI runs and logs, and mark the PR ready when implementation is complete.
+- [ ] Review the complete PR diff, confirm clean status, inspect fresh CI runs and logs, and mark the PR ready when implementation is complete.
+
+- [ ] Refresh the dependency published during final CI, verify its existing regressions and all current-head checks, and retain the failing/passing evidence.

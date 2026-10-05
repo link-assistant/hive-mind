@@ -27,6 +27,6 @@ All 547 default-suite test files pass locally and in CI against final source com
 
 [Case study, evidence and timeline](https://github.com/link-assistant/hive-mind/blob/issue-2526-977f266926a4/docs/case-studies/issue-2526/README.md) · [Validation record](https://github.com/link-assistant/hive-mind/blob/issue-2526-977f266926a4/docs/case-studies/issue-2526/validation.md) · [Upstream metadata report with reproducer, workaround and code suggestions](https://github.com/openai/codex/issues/44219#issuecomment-6000649081).
 
-CI exposed five pre-existing stale dependency pins, now refreshed with 168/168 declarations current. The case study preserves failed reproductions, unavailable prior-solver evidence, runner-acquisition cancellations during GitHub's Actions outage, and the successful verification after service recovery. No test timeout or check was relaxed.
+CI exposed five pre-existing stale dependency pins, which were refreshed. A subsequent command-stream release during final CI required one additional pin/fixture update; final-head verification is in progress. The case study preserves failed reproductions, unavailable prior-solver evidence, runner-acquisition cancellations during GitHub's Actions outage, and the successful verification after service recovery. No test timeout or check was relaxed.
 
 Fixes #2526.

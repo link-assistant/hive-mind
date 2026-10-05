@@ -112,3 +112,9 @@ Docker verification completed successfully at 21:55:35 UTC. Both images built, a
 GitHub reported Actions operating normally at 21:54:23 UTC. The retained incident snapshot includes that recovery update and the earlier outage history; the broader incident still covered other services. No workflow enforcement or test timeout was relaxed to obtain these passing results.
 
 The final evidence update changes documentation only. Source and tests remain identical to the commit that passed all local and implementation CI checks. The fetched default branch remains an ancestor, the implementation diff has been reviewed, and archived evidence is scanned explicitly with secretlint's ignore file disabled before publication.
+
+## Dependency release during final verification
+
+The evidence-only commit `d108c2da30ccd146fbbca945026e6b8b2c8db3a2` was pushed at 22:06 UTC. Its link checking passed, and Security passed. Checks failed before change detection because `command-stream@1.5.0` had been published at 21:43:51 UTC, after the preceding run's dependency check. At lines 2494–2496 of `ci-logs/checks-37380307025-attempt-1.log`, the mandatory freshness gate reports 167/168 current declarations and the runtime pin `1.4.0 -> 1.5.0`. The exact lines, failed-run metadata and registry publication timestamp are retained under `data/`.
+
+The local freshness check reproduces the same failure in `data/freshness-1.5.0-before.log`. Updating the existing expected-pin regression first fails with actual `command-stream@1.4.0`, expected `command-stream@1.5.0`; `data/command-stream-1.5.0-before.log` retains that assertion. The maintenance follow-up updates the runtime pin and its existing alias/preinstall fixtures; reasoning behavior is unchanged. All applicable checks and the full suite are rerun against this source update before completion.

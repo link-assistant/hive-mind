@@ -16,9 +16,9 @@ Session replacement has finished. Sending notification to chat 42
 test at tests/issue-2498-recovery-lifecycle.test.mjs:298:1
 ✖ a recovery whose terminal exit is unavailable is reported as unknown, never successful (1414.93834ms)
   AssertionError [ERR_ASSERTION]: the completion audit must not manufacture exit 0
-  
+
   0 !== null
-  
+
       at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791240758223/tests/issue-2498-recovery-lifecycle.test.mjs:319:12)
       at async Test.run (node:internal/test_runner/test:1409:7)
       at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {

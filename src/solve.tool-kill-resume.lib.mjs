@@ -42,7 +42,7 @@ export async function resumeAfterToolKill({ toolResult, attemptsUsed = 0, argv =
     if (!$ || !owner || !repo || !prNumber) return;
     try {
       const posted = await postComment({ $, owner, repo, targetNumber: prNumber, body, commentId });
-      if (posted?.ok === false) throw new Error(posted.stderr || 'GitHub comment publication failed');
+      if (posted?.ok === false) throw new Error(posted.stderr?.toString() || 'GitHub comment publication failed');
       if (posted?.commentId) commentId = posted.commentId;
     } catch (error) {
       await log(`   ⚠️  Could not publish recovery status: ${error?.message || error}`);

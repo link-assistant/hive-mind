@@ -201,6 +201,9 @@ export function formatSessionCompletionMessage({ sessionName, sessionInfo, statu
     // Issue #2408: that is a warning, not a failure and not a neutral state.
     statusEmojiOverride = '⚠️';
     statusText = text(messageLocale, 'telegram.work_session_recovering', `Work session still in progress: recovering from exit code ${finalExitCode}`, { exitCode: finalExitCode ?? '' });
+  } else if (finalExitCode === null && !killed && (sessionInfo?.killRecoveryResumed || sessionInfo?.recoveryLifecycle)) {
+    statusEmojiOverride = '⚠️';
+    statusText = 'Work session ended; final outcome could not be confirmed';
   } else if (!failed && recoveries > 0) {
     // Issue #2408: the work completed, but only because it was recovered.
     statusEmojiOverride = '⚠️';

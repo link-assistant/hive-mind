@@ -547,7 +547,7 @@ export function formatKillResumeSection({ sessionId = null, attempt = null, maxA
  * @param {Object} [options]
  * @returns {Promise<{section: string, diagnosis: Object|null}>}
  */
-export async function buildKillDiagnosticsSection(logPath, { verbose = false, readFile = fsPromises.readFile, maxLogBytes = KILL_DIAGNOSTICS_LOG_BYTES, oomKilled = false, exitCode = null, stopRequestedByUser = false, locale = null, collectSystem = collectSystemKillDiagnostics, reportedMemoryExhausted = null, reportedMemoryExhaustedReason = null, reportedExitReason = null, reportedCgroupMemory = null } = {}) {
+export async function buildKillDiagnosticsSection(logPath, { verbose = false, readFile = fsPromises.readFile, maxLogBytes = KILL_DIAGNOSTICS_LOG_BYTES, minByteOffset = 0, oomKilled = false, exitCode = null, stopRequestedByUser = false, locale = null, collectSystem = collectSystemKillDiagnostics, reportedMemoryExhausted = null, reportedMemoryExhaustedReason = null, reportedExitReason = null, reportedCgroupMemory = null } = {}) {
   try {
     let logText = '';
     if (logPath) {
@@ -556,7 +556,7 @@ export async function buildKillDiagnosticsSection(logPath, { verbose = false, re
       // transcript was pulled into the bot's own heap over and over. Everything
       // this function needs — the `📈 [RESOURCES]` markers and the runtime's
       // dying `FATAL ERROR` line — lives at the two ends of the transcript.
-      logText = await readLogTextBounded(logPath, { readFile, maxBytes: maxLogBytes, verbose });
+      logText = await readLogTextBounded(logPath, { readFile, maxBytes: maxLogBytes, minByteOffset, verbose });
     }
     const system = await collectSystem({ verbose });
     const diagnosis = describeKillCause({ logText, oomKilled, exitCode, system, stopRequestedByUser, reportedMemoryExhausted, reportedMemoryExhaustedReason, reportedExitReason, reportedCgroupMemory });

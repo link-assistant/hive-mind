@@ -211,7 +211,7 @@ assert(/claude/.test(victimDiagnosis.summary), 'the summary names the process th
 console.log('\n-- pull request notice --');
 
 const notice = buildKillRecoveryNotice({ diagnosis: oomDiagnosis, exitCode: 137, sessionName: SESSION, observedAt: '2026-08-02T17:42:06.000Z', policy: ON_SESSION_KILL_RESUME, resumed: true, resumeCommand: 'solve --resume abc', attachLogs: false });
-assert(/recovered from out of memory/.test(notice), 'the PR notice uses the same wording as the Telegram warning');
+assert(/restarted after a kill.*outcome pending/.test(notice), 'launch acceptance does not establish successful recovery');
 assert(/new working session was started/.test(notice), 'the PR notice states that a new working session was started');
 assert(/`--attach-logs` is disabled/.test(notice), 'the PR notice explains why no log was uploaded');
 assert(/solve --resume abc/.test(notice), 'the PR notice offers the resume command');
@@ -412,7 +412,7 @@ await monitorSessions(killedBot, false, {
   },
 });
 
-const killedText = killedBot.edits[0]?.text || '';
+const killedText = killedBot.edits.at(-1)?.text || '';
 assert(recoveryLaunches.length === 1, 'a killed session under --on-session-kill=resume starts exactly one recovery session');
 assert(/recovery-1111-2222-3333-444455556666/.test(killedText), 'Telegram names the recovery working session');
 assert(/new working session was started/i.test(killedText), 'Telegram says a new working session was started');

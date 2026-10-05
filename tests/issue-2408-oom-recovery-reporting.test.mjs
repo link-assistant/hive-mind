@@ -89,7 +89,9 @@ function makeHarness(statusProvider) {
       },
     },
     runCommand: async (_command, args) => {
-      comments.push(await fs.readFile(args[args.indexOf('--body-file') + 1], 'utf8'));
+      const editing = args.includes('--input');
+      const payload = await fs.readFile(args[args.indexOf(editing ? '--input' : '--body-file') + 1], 'utf8');
+      comments.push(editing ? JSON.parse(payload).body : payload);
       return { code: 0, stdout: `${PR_URL}#issuecomment-1`, stderr: '' };
     },
   };
@@ -109,9 +111,9 @@ test('overlapping monitor ticks recover a killed session once and report it once
     await Promise.all([monitorSessions(bot, false, options), monitorSessions(bot, false, options), monitorSessions(bot, false, options)]);
 
     assert.equal(launches.length, 1, 'exactly one recovery session is started');
-    assert.equal(comments.length, 1, 'exactly one pull-request notice is posted');
+    assert.equal(comments.filter(body => body.includes('<!-- hive-mind:session-kill-notice -->')).length, 1, 'exactly one kill notice is posted; lifecycle status is updated separately');
     assert.doesNotMatch(comments[0], /\[object Object\]/);
-    const completions = edits.filter(edit => edit.messageId === 77);
+    const completions = edits.filter(edit => edit.messageId === 77 && edit.message.includes('Work session still in progress'));
     assert.equal(completions.length, 1, 'the Telegram message is completed once');
     assert.doesNotMatch(completions[0].message, /Work session failed/);
     assert.match(completions[0].message, /^⚠️ /, 'a running recovery is a warning, not a failure');

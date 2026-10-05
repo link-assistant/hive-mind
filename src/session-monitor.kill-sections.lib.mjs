@@ -90,9 +90,11 @@ export async function buildKillCompletionSections({ sessionName, sessionInfo, st
 
     const locale = sessionInfo?.locale || null;
     const logPath = statusResult?.logPath || sessionInfo?.logPath || null;
+    const minByteOffset = sessionInfo?.killRecoveryInPlace ? sessionInfo.killRecoveryLogStartBytes || 0 : 0;
     const { section, diagnosis } = await buildKillDiagnosticsSection(logPath, {
       verbose,
       readFile,
+      minByteOffset,
       oomKilled: statusResult?.oomKilled === true || recovered,
       exitCode,
       stopRequestedByUser: sessionInfo?.stopRequestedByUser === true,
@@ -115,7 +117,7 @@ export async function buildKillCompletionSections({ sessionName, sessionInfo, st
     // failure an OOM casualty — solve may have stopped on purpose. A SIGKILL
     // after that verdict (e.g. while the final log upload runs) ends a run that
     // was already over, so a kill is checked too.
-    const deliberateStop = oomEventOnly || killed ? await detectDeliberateSolveStop(logPath, { readFile: readFile === fs.readFile ? null : readFile, verbose }) : null;
+    const deliberateStop = oomEventOnly || killed ? await detectDeliberateSolveStop(logPath, { readFile: readFile === fs.readFile ? null : readFile, verbose, minByteOffset }) : null;
 
     const sections = [];
     if (recovered) {

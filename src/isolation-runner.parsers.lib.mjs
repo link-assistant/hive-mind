@@ -282,12 +282,14 @@ export function parseSessionExitFooter(text) {
  * @returns {{finished: boolean, exitCode: number|null, endTime: string|null}}
  */
 export function readSessionExitFromLog(logPath, options = {}) {
-  const { fsImpl = fs, tailBytes = 16384, verbose = false } = options;
+  const { fsImpl = fs, tailBytes = 16384, minByteOffset = 0, verbose = false } = options;
   if (!logPath) return { finished: false, exitCode: null, endTime: null };
   try {
     const { size } = fsImpl.statSync(logPath);
     if (!size) return { finished: false, exitCode: null, endTime: null };
-    const start = Math.max(0, size - tailBytes);
+    // A resumed execution appends to the same log. Earlier footers describe
+    // earlier attempts, even while the replacement container is alive (#2498).
+    const start = Math.min(size, Math.max(0, size - tailBytes, Number.isSafeInteger(minByteOffset) ? minByteOffset : 0));
     const length = size - start;
     const buffer = Buffer.alloc(length);
     const fd = fsImpl.openSync(logPath, 'r');

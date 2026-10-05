@@ -85,7 +85,8 @@ export function buildKillRecoveryNotice({ diagnosis = null, exitCode = null, ses
   if (stopLine && oomEventOnly) title = 'ℹ️ Work session stopped on its own — the earlier container OOM event did not cause it';
   else if (stopLine) title = '⚠️ Working session was killed after solve had already stopped on its own';
   else if (oomEventOnly) title = resumed ? '⚠️ Work session restarted after a failed run with a container OOM event' : '⚠️ Container OOM event during a failed work session';
-  else title = resumed || survived ? `⚠️ Working session ${killRecoveryHeadline(cause)}` : `❌ ${CAUSE_TITLES[cause] || 'Working session was killed'}`;
+  else if (resumed) title = '⚠️ Working session restarted after a kill — outcome pending';
+  else title = survived ? `⚠️ Working session ${killRecoveryHeadline(cause)}` : `❌ ${CAUSE_TITLES[cause] || 'Working session was killed'}`;
 
   const lines = [KILL_RECOVERY_NOTICE_MARKER, `## ${title}`, ''];
 
@@ -109,7 +110,7 @@ export function buildKillRecoveryNotice({ diagnosis = null, exitCode = null, ses
   if (resumed) {
     const attemptSuffix = attempt && maxAttempts ? ` (attempt ${attempt}/${maxAttempts})` : '';
     const sessionSuffix = recoverySessionId ? ` Its working session is \`${recoverySessionId}\`.` : '';
-    lines.push(`🔄 A **new working session was started** to recover from this event${attemptSuffix}. Progress below continues in that session.${sessionSuffix}`, '');
+    lines.push(`🔄 A **new working session was started** to recover from this event${attemptSuffix}. The launch was accepted; activity and the final outcome are not yet confirmed.${sessionSuffix}`, '');
   } else if (stopLine && oomEventOnly) {
     lines.push('A child process was OOM-killed earlier, but the work process kept running and later stopped for the reason above. No replacement session was launched.', '');
   } else if (stopLine) {
@@ -203,14 +204,18 @@ const defaultUnlink = async filePath => {
  * @param {boolean} [options.verbose]
  * @returns {Promise<{posted: boolean, url: string|null, error: string|null}>}
  */
-export async function postKillRecoveryNotice({ pullRequestUrl, body, runCommand = spawnCapture, tempDir = '/tmp', fileSuffix = 'notice', writeFile = defaultWriteFile, unlink = defaultUnlink, verbose = false }) {
+export async function postKillRecoveryNotice({ pullRequestUrl, commentUrl = null, body, runCommand = spawnCapture, tempDir = '/tmp', fileSuffix = 'notice', writeFile = defaultWriteFile, unlink = defaultUnlink, verbose = false }) {
   if (!pullRequestUrl) return { posted: false, url: null, error: 'no pull request url' };
   if (typeof runCommand !== 'function') return { posted: false, url: null, error: 'no command runner' };
 
   const bodyFile = `${tempDir.replace(/\/$/, '')}/hive-mind-kill-notice-${fileSuffix}.md`;
   try {
-    await writeFile(bodyFile, await sanitizeForPublication(body));
-    const result = await runCommand('gh', ['pr', 'comment', pullRequestUrl, '--body-file', bodyFile]);
+    const comment = /^https:\/\/github\.com\/([\w.-]+)\/([\w.-]+)\/pull\/(\d+)#issuecomment-(\d+)$/.exec(commentUrl || '');
+    const target = /^https:\/\/github\.com\/([\w.-]+)\/([\w.-]+)\/pull\/(\d+)$/.exec(pullRequestUrl);
+    const canEdit = comment && target && comment[1] === target[1] && comment[2] === target[2] && comment[3] === target[3];
+    const sanitizedBody = await sanitizeForPublication(body);
+    await writeFile(bodyFile, canEdit ? JSON.stringify({ body: sanitizedBody }) : sanitizedBody);
+    const result = await runCommand('gh', canEdit ? ['api', `repos/${comment[1]}/${comment[2]}/issues/comments/${comment[4]}`, '--method', 'PATCH', '--input', bodyFile, '--jq', '.html_url'] : ['pr', 'comment', pullRequestUrl, '--body-file', bodyFile]);
     if (result?.code === 0) {
       const url = String(result.stdout?.toString() || '').trim() || null;
       if (verbose) console.log(`[VERBOSE] Posted killed-session notice to ${pullRequestUrl}${url ? ` (${url})` : ''}`);

@@ -263,8 +263,9 @@ await monitorSessions(
 );
 
 assert(recoveryLaunches.length === 1, 'the killed session is resumed by the bot itself, with no flag set (defect 1)');
-assert(bot.edits.length === 1, 'the user is notified exactly once');
-assert(/recovery-2189-0000-1111-222233334444/.test(bot.edits[0].text), 'the notification names the working session that took over');
+const completionEdits = bot.edits.filter(edit => /Work session still in progress/.test(edit.text));
+assert(completionEdits.length === 1, 'the completion pipeline notifies exactly once, alongside lifecycle updates');
+assert(/recovery-2189-0000-1111-222233334444/.test(completionEdits[0]?.text || ''), 'the notification names the working session that took over');
 const latchedSnapshot = snapshots.filter(entry => entry.record.completionNotifiedAt).pop();
 assert(latchedSnapshot !== undefined, 'the delivered notification is latched into the durable snapshot');
 assert(latchedSnapshot.record.completionExitCode === 139, 'the latched snapshot carries the exit code the user was told about');

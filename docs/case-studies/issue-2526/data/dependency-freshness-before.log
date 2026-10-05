@@ -1,0 +1,6 @@
+Dependency freshness: 164/168 declarations current
+STALE Dockerfile:309: start-command 0.35.1 -> 0.35.3 (exact)
+STALE Dockerfile.dind:324: start-command 0.35.1 -> 0.35.3 (exact)
+STALE Dockerfile.e2e:14: start-command 0.35.1 -> 0.35.3 (exact)
+STALE src/use-with-retry.lib.mjs#USE_M_PACKAGE_VERSIONS: command-stream 1.3.0 -> 1.4.0 (exact)
+Dependency freshness failed: 4 stale, 0 unresolved.

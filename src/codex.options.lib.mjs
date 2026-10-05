@@ -1,20 +1,16 @@
 #!/usr/bin/env node
 
-import { codexModels } from './models/index.mjs';
+import { CODEX_MODEL_VARIANTS } from './models/catalog.mjs';
+import { getModelReasoningCapabilities, normalizeReasoningCapabilities, selectSupportedReasoningEffort } from './model-reasoning.lib.mjs';
 
-export const mapModelToId = model => codexModels[model] || model;
+export const mapModelToId = model => CODEX_MODEL_VARIANTS[model] || model;
 
-// Issue #2027: Map the shared hive-mind --think levels to Codex `model_reasoning_effort`
-// values. GPT-5.6 Sol (the default Codex model) keeps the full ladder inherited from the
-// GPT-5.5/GPT-5.4 generation — low/medium/high/xhigh — and adds `max` *above* xhigh for the
-// deepest single-agent reasoning, plus a multi-agent `ultra` mode. Because every hive level
-// has a same-named Codex reasoning effort, the mapping is a predictable identity: `xhigh`
-// stays `xhigh` (natively supported per `codex debug models`), `ultra` selects GPT-5.6's
-// multi-agent ultra mode (the counterpart of Claude's "ultracode"), and `max` selects the
-// deepest single-agent effort. `off` disables reasoning (`none`). See docs/case-studies/issue-2027.
+// Translate the shared --think level into a requested Codex effort. The selected
+// model's capabilities are applied below: none, minimal, max and ultra are not
+// universal. Ultra is a delegation mode above the single-agent max effort.
 const THINK_LEVEL_TO_CODEX_REASONING = {
   off: 'none',
-  // Issue #2038: Codex/GPT-5.x natively exposes a `minimal` reasoning effort below `low`.
+  // Minimal expresses an intent below low; models may require a nearby tier.
   minimal: 'minimal',
   low: 'low',
   medium: 'medium',
@@ -36,7 +32,7 @@ const resolveUltraRolloutTokenBudget = argv => {
   return Number.isFinite(override) && override > 0 ? override : CODEX_ULTRA_ROLLOUT_TOKEN_BUDGET;
 };
 
-export const resolveCodexReasoningEffort = argv => {
+const resolveRequestedCodexReasoningEffort = argv => {
   const maxBudget = Number.isFinite(argv?.maxThinkingBudget) && argv.maxThinkingBudget > 0 ? argv.maxThinkingBudget : 31999;
   const thinkingBudget = Number.isFinite(argv?.thinkingBudget) ? argv.thinkingBudget : undefined;
 
@@ -49,10 +45,8 @@ export const resolveCodexReasoningEffort = argv => {
     }
 
     const ratio = Math.min(1, thinkingBudget / maxBudget);
-    // Issue #2027: the budget-derived effort caps at `xhigh` — the deepest tier every Codex
-    // model (including the gpt-5.5 runtime fallback) supports. `max` is GPT-5.6-only and `ultra`
-    // needs a paired rollout token budget, so both require an explicit `--think max`/`--think ultra`
-    // to stay predictable rather than being reached implicitly through a token budget.
+    // Budget-derived intent caps at xhigh. Max and delegation require an explicit
+    // --think request; the selected model's supported tiers constrain this intent below.
     const reasoningEffort = ratio <= 0.2 ? 'minimal' : ratio <= 0.4 ? 'low' : ratio <= 0.6 ? 'medium' : ratio <= 0.8 ? 'high' : 'xhigh';
 
     return {
@@ -77,6 +71,20 @@ export const resolveCodexReasoningEffort = argv => {
     reasoningEffort: 'none',
     source: 'default',
   };
+};
+
+export const resolveCodexReasoningEffort = (argv, { capabilities = null, catalogue = null } = {}) => {
+  const requested = resolveRequestedCodexReasoningEffort(argv);
+  // Preserve the model-independent mapping API for callers asking only about levels.
+  if (!argv?.model && !capabilities && !catalogue) return requested;
+  const resolved = normalizeReasoningCapabilities(capabilities) ?? getModelReasoningCapabilities(argv?.model, catalogue);
+  const reasoningEffort = selectSupportedReasoningEffort(requested.reasoningEffort, resolved);
+  const result = { reasoningEffort, source: requested.source };
+  if (reasoningEffort !== requested.reasoningEffort) {
+    result.source += `; ${requested.reasoningEffort} -> ${reasoningEffort ?? 'model default'} (${resolved?.source ?? (resolved ? 'model capabilities' : 'capabilities unavailable')})`;
+  }
+  if (reasoningEffort === 'ultra') result.rolloutTokenBudget = resolveUltraRolloutTokenBudget(argv);
+  return result;
 };
 
 export default {

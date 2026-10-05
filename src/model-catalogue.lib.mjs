@@ -34,6 +34,7 @@ import { resolveRouterBaseUrl, resolveRouterDialect } from './router-isolation.l
 import { acquireRouterSidecar, releaseRouterSidecar } from './router-sidecar.lib.mjs';
 import { resolveBotStateDir } from './session-store.lib.mjs';
 import { withStateLock } from './state-lock.lib.mjs';
+import { getModelReasoningCapabilities } from './model-reasoning.lib.mjs';
 
 const CACHE_FILE_NAME = 'model-catalogue-cache.json';
 const CACHE_LOCK_NAME = 'model-catalogue';
@@ -143,10 +144,14 @@ export const isModelCatalogueEntryFresh = (entry, { ttlMs = null, env = process.
  * ("last known catalog retained"), and for the same reason — a provider blip
  * should not turn into an empty model list in front of a user.
  */
-const loadOneSource = async (source, { tool, env, cache, refresh, now, fetchers, routerContext }) => {
+const loadOneSource = async (source, { tool, env, cache, refresh, now, fetchers, routerContext, codexBinary, cacheOnlySourceIds }) => {
   const key = modelCatalogueCacheKey(source.id, tool);
-  const cached = cache.entries?.[key] ?? null;
+  const previous = cache.entries?.[key] ?? null;
+  const cached = source.id === 'codex-cli' && codexBinary && previous?.meta?.binary !== codexBinary ? null : previous;
   const fresh = !refresh && isModelCatalogueEntryFresh(cached, { env, now });
+  if (cacheOnlySourceIds.includes(source.id)) {
+    return cached?.status === 'ok' ? { ...cached, id: source.id, label: source.label, kind: source.kind, cached: true, stale: !fresh, ageMs: modelCatalogueEntryAgeMs(cached, now) } : { id: source.id, status: 'skipped', models: [], meta: {}, error: 'no cached metadata' };
+  }
   if (fresh && cached?.status === 'ok') {
     return { ...cached, id: source.id, label: source.label, kind: source.kind, cached: true, ageMs: modelCatalogueEntryAgeMs(cached, now) };
   }
@@ -243,14 +248,16 @@ export const buildDefaultCatalogueFetchers = ({ fetchImpl = globalThis.fetch, ru
  * The router lease is opened lazily and only when the router source is actually
  * going to be read: with a fresh cache entry the answer is already on disk, and
  * starting a container to re-derive it would defeat the point of R9's cache.
+ * `sourceIds` restricts discovery; `cacheOnlySourceIds` reuses source metadata
+ * without network/container work for runtime effort selection.
  *
  * @returns {Promise<{tool: string, ttlMs: number, hotLoad: boolean, sources: object[], metadata: object, router: object}>}
  */
-export const loadModelCatalogue = async ({ tool = 'claude', env = process.env, fsImpl = fs, refresh = false, now = Date.now(), fetchImpl = globalThis.fetch, run = undefined, fetchers = null, openRouter = openRouterCatalogueSession, log = null, lockOptions = {} } = {}) => {
+export const loadModelCatalogue = async ({ tool = 'claude', env = process.env, fsImpl = fs, refresh = false, now = Date.now(), fetchImpl = globalThis.fetch, run = undefined, fetchers = null, sourceIds = null, cacheOnlySourceIds = [], codexBinary = null, openRouter = openRouterCatalogueSession, log = null, lockOptions = {} } = {}) => {
   const toolName = String(tool || 'claude').toLowerCase();
   const hotLoad = isModelHotLoadEnabled(env);
   const readers = fetchers ?? buildDefaultCatalogueFetchers({ fetchImpl, run });
-  const applicable = listModelCatalogueSourcesForTool(toolName).filter(source => hotLoad || source.kind === 'bundled');
+  const applicable = listModelCatalogueSourcesForTool(toolName).filter(source => (hotLoad || source.kind === 'bundled') && (!sourceIds || sourceIds.includes(source.id)));
 
   return withStateLock(
     CACHE_LOCK_NAME,
@@ -261,7 +268,7 @@ export const loadModelCatalogue = async ({ tool = 'claude', env = process.env, f
       let routerSession = { available: false, reason: hotLoad ? 'router was not needed' : 'hot load is disabled' };
       const routerEntry = cache.entries[modelCatalogueCacheKey('router', toolName)];
       const routerIsFresh = !refresh && routerEntry?.status === 'ok' && isModelCatalogueEntryFresh(routerEntry, { env, now });
-      if (hotLoad && !routerIsFresh && applicable.some(source => source.id === 'router')) {
+      if (hotLoad && !routerIsFresh && !cacheOnlySourceIds.includes('router') && applicable.some(source => source.id === 'router')) {
         routerSession = await openRouter({ env, run, log });
       }
 
@@ -269,7 +276,7 @@ export const loadModelCatalogue = async ({ tool = 'claude', env = process.env, f
       try {
         for (const source of applicable) {
           try {
-            sources.push(await loadOneSource(source, { tool: toolName, env, cache, refresh, now, fetchers: readers, routerContext: routerSession }));
+            sources.push(await loadOneSource(source, { tool: toolName, env, cache, refresh, now, fetchers: readers, routerContext: routerSession, codexBinary, cacheOnlySourceIds }));
           } catch (error) {
             // A reader that throws is a bug in that reader, not a reason to
             // return nothing: the remaining sources — including `bundled`, which
@@ -333,6 +340,7 @@ export const mergeModelCatalogue = ({ tool = 'claude', catalogue = null, metadat
     aliases: bundledSet.has(id) ? listBundledAliasesFor(toolName, id) : [],
     sources: live?.sources ?? [],
     services: live?.services ?? [],
+    ...getModelReasoningCapabilities(id, catalogue),
     // R8: the specification, from models.dev when no first-party source carried
     // it. Looked up bare and by last path segment, because `opencode/grok-code`
     // is one model with a routing prefix.

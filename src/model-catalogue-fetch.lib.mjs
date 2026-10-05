@@ -21,6 +21,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
 import { assertTokenFreeUrl } from './model-catalogue-sources.lib.mjs';
+import { normalizeCodexReasoningCapabilities, normalizeReasoningCapabilities } from './model-reasoning.lib.mjs';
 import { ROUTER_SIDECAR_CONTAINER_NAME, ROUTER_SIDECAR_PORT } from './router-isolation.lib.mjs';
 import { buildRouterCatalogueEndpoints, ROUTER_TOOL_SERVICE } from './router-routes.lib.mjs';
 
@@ -60,6 +61,8 @@ export const normalizeCataloguePayload = ({ shape, payload } = {}) => {
         label: entry?.display_name ?? null,
         visibility: entry?.visibility ?? null,
         supportedInApi: entry?.supported_in_api ?? null,
+        ...normalizeCodexReasoningCapabilities(entry),
+        contextWindow: entry?.context_window ?? null,
       }))
       .filter(entry => entry.id);
   }
@@ -72,6 +75,7 @@ export const normalizeCataloguePayload = ({ shape, payload } = {}) => {
       label: entry?.display_name ?? null,
       createdAt: entry?.created_at ?? (typeof entry?.created === 'number' ? new Date(entry.created * 1000).toISOString() : null),
       ownedBy: entry?.owned_by ?? null,
+      ...normalizeReasoningCapabilities(entry),
     }))
     .filter(entry => entry.id);
 };

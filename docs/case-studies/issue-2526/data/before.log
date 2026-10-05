@@ -1,0 +1,19 @@
+node:internal/modules/run_main:111
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: GPT-6.1 Sol rejects none; off must use its lowest supported effort
+
+'none' !== 'low'
+
+    at file:///tmp/gh-issue-solver-1791224072909/tests/issue-2526-reasoning-effort.test.mjs:8:8
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: 'none',
+  expected: 'low',
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v26.10.0

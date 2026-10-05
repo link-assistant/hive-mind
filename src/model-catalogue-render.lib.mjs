@@ -67,6 +67,7 @@ export const formatModelSpec = (model = {}) => {
   const outputCost = spec?.cost?.output;
   if (Number.isFinite(Number(input)) && Number.isFinite(Number(outputCost))) parts.push(`$${input}/$${outputCost} per Mtok`);
   if (spec?.reasoning === true) parts.push('reasoning');
+  if (model.supportedReasoningEfforts?.length) parts.push(`effort: ${model.supportedReasoningEfforts.join('/')}`);
   if (Array.isArray(spec?.modalities?.input) && spec.modalities.input.length > 1) parts.push(spec.modalities.input.join('+'));
   if (spec?.release_date) parts.push(String(spec.release_date));
   return parts.join(' · ');

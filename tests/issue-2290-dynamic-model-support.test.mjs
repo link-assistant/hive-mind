@@ -63,10 +63,10 @@ assert.equal(
   'a future Sol release becomes the default from the installed CLI catalogue alone'
 );
 
-const futureCodex = await validateRuntimeModelName('gpt-6.1-sol', 'codex', {
-  availableModels: ['gpt-6-sol', 'gpt-6.1-sol'],
+const futureCodex = await validateRuntimeModelName('gpt-6.2-sol', 'codex', {
+  availableModels: ['gpt-6-sol', 'gpt-6.2-sol'],
 });
-assert.deepEqual({ valid: futureCodex.valid, mappedModel: futureCodex.mappedModel, source: futureCodex.source }, { valid: true, mappedModel: 'gpt-6.1-sol', source: 'live' }, 'an installed model is accepted without adding it to the bundled map');
+assert.deepEqual({ valid: futureCodex.valid, mappedModel: futureCodex.mappedModel, source: futureCodex.source }, { valid: true, mappedModel: 'gpt-6.2-sol', source: 'live' }, 'an installed model is accepted without adding it to the bundled map');
 
 const futureRoutedModel = await validateRuntimeModelName('router-vendor/new-coder-1', 'codex', {
   availableModels: ['router-vendor/new-coder-1'],

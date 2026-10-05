@@ -31,6 +31,7 @@ import { firstErrorText } from './error-text.lib.mjs'; // Issue #2141
 import { createLineBuffer } from './json-stream.lib.mjs'; // Issue #2119
 import { createToolCallLoopGuard, resolveRepeatedToolCallLimit } from './tool-call-loop-guard.lib.mjs'; // Issue #2316, #2395
 import { mapModelToId, resolveCodexReasoningEffort } from './codex.options.lib.mjs';
+import { resolveRuntimeCodexReasoningEffort } from './codex.reasoning.lib.mjs';
 import { buildCodexRunDiagnostics, codexRunAlreadyFailed, describeCodexLastMessageOutcome } from './codex.run-diagnostics.lib.mjs'; // Issue #2130
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
 import { initProgressMonitoring } from './solve.progress-monitoring.lib.mjs';
@@ -444,6 +445,8 @@ export const calculateCodexPricing = async (modelId, tokenUsage) => {
 export const validateCodexConnection = async (model = defaultModels.codex, verbose = false) => {
   // Map model alias to full ID
   const mappedModel = mapModelToId(model);
+  const { reasoningEffort } = await resolveRuntimeCodexReasoningEffort({ model: mappedModel, codexPath: 'codex' }, { log });
+  const reasoningArgs = reasoningEffort ? ['-c', `model_reasoning_effort=${reasoningEffort}`] : [];
   // Retry configuration
   const maxRetries = 3;
   let retryCount = 0;
@@ -471,7 +474,7 @@ export const validateCodexConnection = async (model = defaultModels.codex, verbo
       }
       // Test basic Codex functionality with a simple "echo hi" command
       // Using exec mode with JSON output for validation
-      const testResult = await $({ env: getCodexExecEnv(verbose) })`printf "echo hi" | timeout ${Math.floor(timeouts.codexCli / 1000)} codex exec --model ${mappedModel} --json --skip-git-repo-check -c model_reasoning_effort="none" --dangerously-bypass-approvals-and-sandbox`;
+      const testResult = await $({ env: getCodexExecEnv(verbose) })`printf "echo hi" | timeout ${Math.floor(timeouts.codexCli / 1000)} codex exec --model ${mappedModel} --json --skip-git-repo-check ${reasoningArgs} --dangerously-bypass-approvals-and-sandbox`;
       if (testResult.code !== 0) {
         const stderr = testResult.stderr?.toString() || '';
         const stdout = testResult.stdout?.toString() || '';
@@ -652,7 +655,7 @@ export const executeCodexCommand = async params => {
     await log(`   Load: ${resourcesBefore.load}`, { verbose: true });
     let execCommand;
     const mappedModel = mapModelToId(argv.model);
-    const { reasoningEffort, source: reasoningEffortSource, rolloutTokenBudget } = resolveCodexReasoningEffort(argv);
+    const { reasoningEffort, source: reasoningEffortSource, rolloutTokenBudget } = await resolveRuntimeCodexReasoningEffort({ ...argv, model: mappedModel, codexPath }, { log });
     const isResumeMode = !!argv.resume;
     const codexEnv = applyCodexCapabilityEnv(capabilityPreflight?.codexBaseEnv || getCodexExecEnv(argv.verbose), {
       codexHome: capabilityPreflight?.codexHome,
@@ -718,7 +721,8 @@ export const executeCodexCommand = async params => {
     for (const arg of codexPlaywrightMcpDisableConfigArgs) {
       codexArgs += ` ${shellQuote(arg)}`;
     }
-    codexArgs += ` --json --skip-git-repo-check -o ${shellQuote(lastMessageFile)} -c ${shellQuote(`model_reasoning_effort=${reasoningEffort}`)} -c ${shellQuote('model_reasoning_summary=auto')}`;
+    codexArgs += ` --json --skip-git-repo-check -o ${shellQuote(lastMessageFile)} -c ${shellQuote('model_reasoning_summary=auto')}`;
+    if (reasoningEffort) codexArgs += ` -c ${shellQuote(`model_reasoning_effort=${reasoningEffort}`)}`;
     // Issue #2027: pair GPT-5.6 Sol's multi-agent `ultra` effort with a rollout token budget cap so it stays predictable and does not run away on cost.
     if (rolloutTokenBudget) codexArgs += ` -c ${shellQuote(`rollout_token_budget=${rolloutTokenBudget}`)}`;
     codexArgs += ' --dangerously-bypass-approvals-and-sandbox';
@@ -823,7 +827,7 @@ export const executeCodexCommand = async params => {
       await log(formatAligned('📂', 'Working directory:', tempDir, 2));
       await log(formatAligned('🌿', 'Branch:', branchName, 2));
       await log(formatAligned('🤖', 'Model:', `Codex ${argv.model.toUpperCase()}`, 2));
-      await log(formatAligned('🧠', 'Reasoning effort:', `${reasoningEffort} (${reasoningEffortSource})`, 2));
+      await log(formatAligned('🧠', 'Reasoning effort:', `${reasoningEffort ?? 'model default'} (${reasoningEffortSource})`, 2));
       if (argv.fork && forkedRepo) {
         await log(formatAligned('🍴', 'Fork:', forkedRepo, 2));
       }

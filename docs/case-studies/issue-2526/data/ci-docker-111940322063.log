@@ -1,0 +1,5 @@
+docker-pr-check: cancelled before acquiring a hosted runner; runner_id=0, steps=[]
+The job was not acquired by Runner of type hosted even after multiple attempts
+No Docker build or test steps ran; the initial log request reported the workflow was still in progress.
+Queued always() Pipeline Status prevented retries; normal cancellation left it queued.
+The documented force-cancel endpoint closed the attempt; Docker and dependent jobs were then rerun.

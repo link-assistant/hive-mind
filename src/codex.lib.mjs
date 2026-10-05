@@ -445,8 +445,9 @@ export const calculateCodexPricing = async (modelId, tokenUsage) => {
 export const validateCodexConnection = async (model = defaultModels.codex, verbose = false) => {
   // Map model alias to full ID
   const mappedModel = mapModelToId(model);
-  const { reasoningEffort } = await resolveRuntimeCodexReasoningEffort({ model: mappedModel, codexPath: 'codex' }, { log });
+  const { reasoningEffort, rolloutTokenBudget } = await resolveRuntimeCodexReasoningEffort({ model: mappedModel, codexPath: 'codex' }, { log });
   const reasoningArgs = reasoningEffort ? ['-c', `model_reasoning_effort=${reasoningEffort}`] : [];
+  if (rolloutTokenBudget) reasoningArgs.push('-c', `rollout_token_budget=${rolloutTokenBudget}`);
   // Retry configuration
   const maxRetries = 3;
   let retryCount = 0;

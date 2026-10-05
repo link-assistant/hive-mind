@@ -8,6 +8,6 @@
 - [x] Select the nearest supported effort for explicit levels, defaults, token budgets and auxiliary Codex calls; preserve supported behavior and explain fallbacks in verbose output.
 - [x] Exercise unknown models, missing/stale/malformed metadata and offline operation with deterministic tests.
 - [x] Record root causes, solutions, evidence and remaining external limitations in the case study; report any demonstrated upstream defect with a reproducer.
-- [ ] Add a release changeset, run targeted tests and all local CI checks, then commit atomic changes on the prepared branch.
-- [ ] Merge the current default branch if needed, push only the prepared branch and update PR #2527's title and description.
+- [x] Add a release changeset, run targeted tests and all local CI checks, then commit atomic changes on the prepared branch.
+- [x] Merge the current default branch if needed, push only the prepared branch and update PR #2527's title and description.
 - [ ] Review the complete PR diff, confirm clean status, inspect fresh CI runs and logs, and mark the PR ready when implementation is complete.

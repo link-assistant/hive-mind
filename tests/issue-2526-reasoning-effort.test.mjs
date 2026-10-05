@@ -26,6 +26,11 @@ const clamped = resolveCodexReasoningEffort({ model: 'future', think: 'ultra' },
 assert.equal(clamped.reasoningEffort, 'high');
 assert.equal(clamped.rolloutTokenBudget, undefined, 'a fallback must not retain a delegation budget');
 assert.match(clamped.source, /ultra -> high/);
+const planningCapabilities = { supportedReasoningEfforts: ['none', 'ultra'] };
+const planningSettings = resolveCodexReasoningEffort({ model: 'future', think: 'xhigh' }, { capabilities: planningCapabilities, maxEffort: 'xhigh' });
+assert.equal(planningSettings.reasoningEffort, 'none', 'planning must select within its ceiling even when ultra is closer');
+assert.equal(planningSettings.rolloutTokenBudget, undefined);
+assert.throws(() => resolveCodexReasoningEffort({ model: 'future', think: 'xhigh' }, { capabilities: { supportedReasoningEfforts: ['ultra'] }, maxEffort: 'xhigh' }), /at or below xhigh/, 'an incompatible model must not enable delegation in planning');
 assert.equal(resolveCodexReasoningEffort({ model: 'future' }).reasoningEffort, null, 'unknown capabilities use the model default');
 assert.equal(resolveCodexReasoningEffort({ model: 'future', think: 'off' }, { capabilities: { supportedReasoningEfforts: ['auto', 'low'] } }).reasoningEffort, 'auto');
 assert.equal(selectSupportedReasoningEffort('medium', { supportedReasoningEfforts: ['high', 'low'] }), 'low', 'ties prefer less expensive effort independently of source ordering');
@@ -51,6 +56,7 @@ const unknownOptions = buildAgentCommanderToolOptions({ model: 'future', think: 
 assert.ok(!unknownOptions.extraArgs.some(arg => arg.startsWith('model_reasoning_effort=')));
 const invocation = buildOrganizationInvocation({ tool: 'codex', model: 'gpt-6.1-sol', think: 'off', systemPrompt: 'system', userPrompt: 'user', tempDir: '/tmp/organize' });
 assert.ok(invocation.args.includes('model_reasoning_effort="low"'));
+assert.throws(() => buildOrganizationInvocation({ tool: 'codex', model: 'future', codexReasoningSettings: { reasoningEffort: 'ultra' }, systemPrompt: 'system', userPrompt: 'user', tempDir: '/tmp/organize' }), /planning.*ultra/, 'the command builder must reject an injected delegation setting');
 const adaptiveClaude = buildAgentCommanderToolOptions({ model: 'opus', think: 'off', thinkingBudget: 0 }, 'claude');
 assert.equal(adaptiveClaude.extraEnv.MAX_THINKING_TOKENS, undefined, 'adaptive-only Claude models must not receive a zero manual thinking budget');
 assert.equal(adaptiveClaude.extraEnv.CLAUDE_CODE_EFFORT_LEVEL, 'low');

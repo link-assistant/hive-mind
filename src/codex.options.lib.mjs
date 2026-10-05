@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { CODEX_MODEL_VARIANTS } from './models/catalog.mjs';
-import { getModelReasoningCapabilities, normalizeReasoningCapabilities, selectSupportedReasoningEffort } from './model-reasoning.lib.mjs';
+import { REASONING_EFFORT_ORDER, getModelReasoningCapabilities, normalizeReasoningCapabilities, selectSupportedReasoningEffort } from './model-reasoning.lib.mjs';
 
 export const mapModelToId = model => CODEX_MODEL_VARIANTS[model] || model;
 
@@ -73,13 +73,20 @@ const resolveRequestedCodexReasoningEffort = argv => {
   };
 };
 
-export const resolveCodexReasoningEffort = (argv, { capabilities = null, catalogue = null } = {}) => {
+export const resolveCodexReasoningEffort = (argv, { capabilities = null, catalogue = null, maxEffort = null } = {}) => {
   const requested = resolveRequestedCodexReasoningEffort(argv);
   // Preserve the model-independent mapping API for callers asking only about levels.
   if (!argv?.model && !capabilities && !catalogue) return requested;
-  const resolved = normalizeReasoningCapabilities(capabilities) ?? getModelReasoningCapabilities(argv?.model, catalogue);
+  let resolved = normalizeReasoningCapabilities(capabilities) ?? getModelReasoningCapabilities(argv?.model, catalogue);
+  const ceiling = REASONING_EFFORT_ORDER.indexOf(maxEffort);
+  if (resolved && ceiling >= 0) {
+    const supportedReasoningEfforts = resolved.supportedReasoningEfforts.filter(effort => effort === 'auto' || REASONING_EFFORT_ORDER.indexOf(effort) <= ceiling);
+    if (!supportedReasoningEfforts.length) throw new Error(`Model ${argv?.model} does not support a reasoning effort at or below ${maxEffort}`);
+    resolved = { ...resolved, supportedReasoningEfforts };
+  }
   const reasoningEffort = selectSupportedReasoningEffort(requested.reasoningEffort, resolved);
   const result = { reasoningEffort, source: requested.source };
+  if (ceiling >= 0) result.source += `; ceiling ${maxEffort}`;
   if (reasoningEffort !== requested.reasoningEffort) {
     result.source += `; ${requested.reasoningEffort} -> ${reasoningEffort ?? 'model default'} (${resolved?.source ?? (resolved ? 'model capabilities' : 'capabilities unavailable')})`;
   }

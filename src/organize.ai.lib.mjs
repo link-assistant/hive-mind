@@ -50,7 +50,8 @@ export function buildOrganizationInvocation({ tool, model, think = null, codexRe
     case 'codex': {
       // Organization planning keeps delegation disabled and caps its effort at xhigh.
       const planningThink = ['ultra', 'max'].includes(think) ? 'xhigh' : think;
-      const { reasoningEffort: effort } = codexReasoningSettings ?? resolveCodexReasoningEffort({ model, think: planningThink });
+      const { reasoningEffort: effort } = codexReasoningSettings ?? resolveCodexReasoningEffort({ model, think: planningThink }, { maxEffort: 'xhigh' });
+      if (['max', 'ultra'].includes(effort)) throw new Error(`Organization planning does not support ${effort} reasoning effort`);
       const args = ['exec', '--model', model, '--output-schema', schemaFile, '--output-last-message', outputFile, '--ephemeral', '--ignore-user-config', '--ignore-rules', '--strict-config', '-c', 'default_permissions="organize-classifier"', '-c', 'permissions.organize-classifier.filesystem={":root"="deny"}', '-c', 'permissions.organize-classifier.network.enabled=false', '-c', 'shell_environment_policy.inherit="none"', '-c', 'web_search="disabled"', '--skip-git-repo-check', '-C', tempDir];
       if (effort) args.push('-c', `model_reasoning_effort="${effort}"`);
       return { command: 'codex', args, input: `<TRUSTED_SYSTEM_INSTRUCTIONS>\n${systemPrompt}\n</TRUSTED_SYSTEM_INSTRUCTIONS>\n${userPrompt}`, outputFile, env };
@@ -183,7 +184,7 @@ export async function runOrganizationClassifier({ prompts, tool = 'claude', mode
     await writeFile(join(tempDir, 'plan-schema.json'), JSON.stringify(ORGANIZE_PLAN_SCHEMA), { mode: 0o600 });
     await writeFile(join(tempDir, 'opencode.json'), JSON.stringify({ permission: { '*': 'deny' }, instructions: [join(tempDir, 'system-prompt.txt')] }), { mode: 0o600 });
     await writeFile(join(tempDir, 'gemini-deny-tools.toml'), '[[rule]]\ntoolName = "*"\ndecision = "deny"\npriority = 999\n', { mode: 0o600 });
-    const codexReasoningSettings = normalizedTool === 'codex' ? await resolveRuntimeCodexReasoningEffort({ model: mappedModel, think: ['ultra', 'max'].includes(think) ? 'xhigh' : think }) : null;
+    const codexReasoningSettings = normalizedTool === 'codex' ? await resolveRuntimeCodexReasoningEffort({ model: mappedModel, think: ['ultra', 'max'].includes(think) ? 'xhigh' : think }, { maxEffort: 'xhigh' }) : null;
     const invocation = buildOrganizationInvocation({ tool: normalizedTool, model: mappedModel, think, codexReasoningSettings, systemPrompt: prompts.system, userPrompt: prompts.user, tempDir });
     const result = await run(invocation.command, invocation.args, { cwd: tempDir, env: invocation.env, input: invocation.input, maxBuffer: 64 * 1024 * 1024 });
     if (result.code !== 0) throw new Error(`Organization classifier (${normalizedTool}) exited with code ${result.code}`);

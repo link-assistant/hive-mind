@@ -49,6 +49,8 @@ try {
   const cached = await resolveRuntimeCodexReasoningEffort({ model: 'future-coder', think: 'max' }, { env, fetchers, now: now + 1000, openRouter: forbiddenRouter });
   assert.equal(cached.reasoningEffort, 'medium');
   assert.equal(reads, 1, 'fresh capabilities should be served from the shared cache');
+  const planning = await resolveRuntimeCodexReasoningEffort({ model: 'future-planner', think: 'xhigh' }, { maxEffort: 'xhigh', getCatalogue: async () => ({ sources: [{ id: 'codex-cli', status: 'ok', models: [{ id: 'future-planner', supportedReasoningEfforts: ['none', 'ultra'] }] }] }) });
+  assert.equal(planning.reasoningEffort, 'none', 'runtime capability selection must retain the organization ceiling');
   const stored = readModelCatalogueCache({ env });
   stored.entries['router:codex'] = { fetchedAt: new Date(now).toISOString(), status: 'ok', models: [{ id: 'future-coder', supportedReasoningEfforts: ['auto', 'high'] }] };
   writeModelCatalogueCache(stored, { env });

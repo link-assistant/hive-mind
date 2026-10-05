@@ -1,0 +1,149 @@
+✔ the default delay is a random 30–90 seconds (3.426047ms)
+✔ the delay is configurable by flag or environment, and 0 turns it off (0.409493ms)
+✔ a recovery session starts only after its random delay (2.308945ms)
+✔ sessions killed by one OOM event are not restarted at the same moment (0.857389ms)
+✔ a delay of 0 starts the recovery immediately, and a refused plan never waits (0.583557ms)
+✔ an in-process resume after a tool kill waits its random delay too, and says so (1.069334ms)
+✖ a stop requested during the recovery delay cancels both launch paths (2.016368ms)
+✖ status and list preserve the watcher counters; missing and malformed counters remain unknown (4.901127ms)
+✖ links-notation counters come from the cgroupMemory block, not recoveryHistory (3.397594ms)
+✖ the monitor uses counters without OOMKilled, while footer and liveness still win (1.36788ms)
+✖ watcher counters reach diagnostics even without a final solve resource snapshot (2.482087ms)
+✖ a prior container OOM does not explain SIGTERM or a runtime self-abort (1.15332ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 6
+ℹ fail 6
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1846.228595
+
+✖ failing tests:
+
+test at tests/issue-2498-recovery-delay.test.mjs:109:1
+✖ a stop requested during the recovery delay cancels both launch paths (2.016368ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791199465026/tests/issue-2498-recovery-delay.test.mjs:126:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/issue-2498-start-status.test.mjs:16:1
+✖ status and list preserve the watcher counters; missing and malformed counters remain unknown (4.901127ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + undefined
+  - {
+  -   limitBytes: 3135373312,
+  -   oomEvents: 2,
+  -   oomKills: 5,
+  -   peakBytes: 3100000000
+  - }
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791199465026/tests/issue-2498-start-status.test.mjs:18:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: { limitBytes: 3135373312, peakBytes: 3100000000, oomEvents: 2, oomKills: 5 },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests/issue-2498-start-status.test.mjs:28:1
+✖ links-notation counters come from the cgroupMemory block, not recoveryHistory (3.397594ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + undefined
+  - {
+  -   limitBytes: 3135373312,
+  -   oomEvents: 2,
+  -   oomKills: 5,
+  -   peakBytes: 3100000000
+  - }
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791199465026/tests/issue-2498-start-status.test.mjs:30:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: { limitBytes: 3135373312, peakBytes: 3100000000, oomEvents: 2, oomKills: 5 },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests/issue-2498-start-status.test.mjs:34:1
+✖ the monitor uses counters without OOMKilled, while footer and liveness still win (1.36788ms)
+  AssertionError [ERR_ASSERTION]: exit 0 retains the child OOM observation
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791199465026/tests/issue-2498-start-status.test.mjs:45:14)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests/issue-2498-start-status.test.mjs:65:1
+✖ watcher counters reach diagnostics even without a final solve resource snapshot (2.482087ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'forced-kill'
+  - 'out-of-memory'
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791199465026/tests/issue-2498-start-status.test.mjs:71:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'forced-kill',
+    expected: 'out-of-memory',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/issue-2498-start-status.test.mjs:77:1
+✖ a prior container OOM does not explain SIGTERM or a runtime self-abort (1.15332ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'out-of-memory'
+  - 'forced-kill'
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791199465026/tests/issue-2498-start-status.test.mjs:79:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'out-of-memory',
+    expected: 'forced-kill',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

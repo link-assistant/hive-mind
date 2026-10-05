@@ -13,16 +13,19 @@
 
 ## Data in this folder
 
-| File                                | What it is                                                                                                                              |
-| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `failure-log.txt`                   | Full `solve` log, uploaded by solve itself (timestamped lines, 58 926 lines)                                                            |
-| `intermediate-log.txt`              | The start-command log of the container, uploaded by the bot with the kill notice (comment 5983686167)                                   |
-| `gist-log.txt`                      | The gist linked from the issue                                                                                                          |
-| `comment-*.md`                      | Bodies of the three pull-request comments                                                                                               |
-| `meta-language-196-*.md`            | The parallel session on link-foundation/meta-language#196: its failure comment, log comment, kill notice and the audit the owner linked |
-| `meta-language-196-log-excerpt.txt` | The lines of that session's 56 MB log that show the OOM kills and the authentication stop, with links to the full logs                  |
-| `pr-2499-feedback.md`               | The owner's review comment on PR #2499                                                                                                  |
-| `upstream-start-*.md`               | Bodies of the upstream reports #181 and #182                                                                                            |
+| File                                                                       | What it is                                                                                                                              |
+| -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `failure-log.txt`                                                          | Full `solve` log, uploaded by solve itself (timestamped lines, 58 926 lines)                                                            |
+| `intermediate-log.txt`                                                     | The start-command log of the container, uploaded by the bot with the kill notice (comment 5983686167)                                   |
+| `gist-log.txt`                                                             | The gist linked from the issue                                                                                                          |
+| `comment-*.md`                                                             | Bodies of the three pull-request comments                                                                                               |
+| `meta-language-196-*.md`                                                   | The parallel session on link-foundation/meta-language#196: its failure comment, log comment, kill notice and the audit the owner linked |
+| `meta-language-196-log-excerpt.txt`                                        | The lines of that session's 56 MB log that show the OOM kills and the authentication stop, with links to the full logs                  |
+| `pr-2499-feedback.md`                                                      | The owner's review comment on PR #2499                                                                                                  |
+| `*.txt.gz`                                                                 | Full meta-language incident logs and both PR #2499 feedback gists, compressed losslessly                                                |
+| `dependency-freshness-*.txt`                                               | Before/after comprehensive dependency audit                                                                                             |
+| `*-reproduction-before.txt`, `targeted-after.txt`, `upstream-contract.txt` | Reproducing failures, regression results and actual upstream package probe                                                              |
+| `upstream-start-*.md`                                                      | Bodies of the upstream reports #181 and #182                                                                                            |
 
 **Is the gist different from the logs in the comments?** No, apart from sanitisation. `gist-log.txt` and `intermediate-log.txt` are the same start-command log. If every 40-character hex SHA is replaced with a placeholder, the two files are identical: the only differences are commit SHAs, which the gist has in full and the bot's sanitised upload shortened to `abc…def` in some places (59 075 lines each). Both end with the same container post-mortem:
 
@@ -35,6 +38,8 @@ Reason: exitCode=1 oomKilled=true
 ```
 
 `failure-log.txt` is solve's own log of the same run, with timestamps on every line. The timeline below is built from it.
+
+The [`raw`](./raw) directory preserves the issue, PR description/comments before this review and the upstream release metadata; [`upstream-pr-184.diff`](./upstream-pr-184.diff) records the upstream implementation audited here. Compressed archives have a [SHA-256 manifest](./archive-sha256.txt) and can be read with `gzip -dc <file>`.
 
 ## Timeline (UTC, 2026-10-04)
 
@@ -58,10 +63,10 @@ Reason: exitCode=1 oomKilled=true
 
 ## What was real and what was false
 
-- **Real:** there were OOM events. At least one `rustc` process inside the container was OOM-killed: `SIGKILL` at 19:38:41, with the monitor observing the cgroup flag at 19:32:49. The memory pressure came from parallel `cargo` builds of a large crate (`chromiumoxide_cdp`) in a container capped at 25% of the 11.7 GB host (2.9 GB, see "Did one OOM event kill several tasks?" below).
+- **Real:** there were OOM events. The monitor observed the container OOM flag at 19:32:49; a `rustc` process later received SIGKILL at 19:38:41, consistent with another OOM kill but not individually attributable from the old counters. Parallel `cargo` builds are a plausible source of container memory pressure. The configured default is 25% of host RAM (about 2.9 GB here), but the incident logs did not capture this container’s actual limit or attributable kernel OOM records.
 - **False:** the OOM events did not end the session. The work process (`solve`, then `claude`) outlived both of them and kept working. Eight minutes after the first one, it stopped because the **Claude OAuth session expired and could not be refreshed**. That is an account/authentication stop, which is the `subscription-blocked` deliberate stop of issue #2408.
 
-So a real but harmless OOM event was presented as the reason for the failure, and the actual reason was hidden. That is the "false positive" the issue reports.
+So a real OOM event that the main process survived was presented as the reason for the failure, and the actual reason was hidden. That is the "false positive" the issue reports.
 
 ## Requirements (from the issue)
 
@@ -134,9 +139,9 @@ The data was **not** enough to answer the owner's follow-up question: whether on
 - `readCgroupMemory()` in `src/solve.resource-diagnostics.lib.mjs` reads the task's own cgroup: `memory.max`, `memory.current`, `memory.peak` and the `memory.events` counters `oom` and `oom_kill` (cgroup v2, with a v1 fallback);
 - every resource snapshot logs `Container memory (cgroup v2): 2.7 GB used of 2.9 GB limit, peak 2.9 GB; processes killed by the OOM killer so far: 5`, and warns once `oom_kill > 0`;
 - the `📈 [RESOURCES]` marker carries `cgroupVersion`, `cgroupMemLimitBytes`, `cgroupMemCurrentBytes`, `cgroupMemPeakBytes`, `cgroupOomEvents` and `cgroupOomKills`, and older markers still parse;
-- `describeKillCause()` quotes the last reading as evidence: "last session container cgroup reading — … 5 process(es) killed by the OOM killer across 2 OOM event(s) at the container limit".
+- `describeKillCause()` quotes the last reading as evidence: "last session container cgroup reading — … 5 process(es) killed by the OOM killer, memory.events oom=2".
 
-Per the [kernel cgroup v2 documentation](https://docs.kernel.org/admin-guide/cgroup-v2.html#memory-interface-files), `oom` counts how often the cgroup's own limit was hit, and `oom_kill` counts processes of the cgroup killed by _any_ OOM killer. `oom_kill` greater than `oom` therefore points to a host-wide OOM, and `oom_kill` greater than 1 shows that several processes were killed. Tests: `tests/issue-2498-cgroup-memory-diagnostics.test.mjs`.
+Per the [kernel cgroup v2 documentation](https://docs.kernel.org/admin-guide/cgroup-v2.html#memory-interface-files), `oom` counts allocation attempts reaching the limit and `oom_kill` counts processes killed by any OOM killer. They measure different things. With `memory.oom.group=1`, one container OOM can kill several processes; neither their ratio nor `oom_kill > 1` establishes the number or scope of OOM incidents. Correlating task cgroups, counter changes and attributed kernel records is necessary. Tests: `tests/issue-2498-cgroup-memory-diagnostics.test.mjs` and `tests/issue-2498-start-status.test.mjs`.
 
 ## Follow-up: owner feedback on PR #2499
 
@@ -165,10 +170,10 @@ A second session ran on the same bot and host at the same time: link-foundation/
 
 What the evidence shows:
 
-- **Yes, several processes were OOM-killed per container.** In meta-language#196 five runs of `formal-ai-corpus-memory` were killed, and in package-registry-manager#27 at least one `rustc`. They were killed one after another (each loop iteration starts the next run after the previous one died), so these were several OOM kills inside one container, not one kill that took several tasks.
-- **The two containers most likely hit their own limits rather than one host-wide OOM.** hive-mind caps each task container at `DEFAULT_DOCKER_TASK_MEMORY = '25%'` of host RAM (`src/telegram-container-resource-limits.lib.mjs`). On this 11.7 GB host (`memTotalBytes=12541493248`) that is 2.9 GB: a hive-mind task container on the same host reads `memory.max = 3135373312`, exactly 25%. The `ulimit -v` caps of 8 GB and 4 GB are above 2.9 GB. A process that hit its `ulimit -v` would get an allocation failure (a Rust abort, exit 134), not SIGKILL/137. The kills are therefore the cgroup's OOM killer at the 2.9 GB limit. Host memory stayed at 4.6–6.7 GB available in every sample of package-registry-manager#27, and at 10.4 GB available at the meta-language session's end.
-- **The kill notice misled here too.** It says "10.4 GB of 11.7 GB RAM available". That is host RAM, and the meta-language audit read it as "11.7 GB limit". The real limit, 2.9 GB, was not in any log. That is why the cgroup reading was added (see "Debug output").
-- **What really ended both sessions at almost the same time was not memory.** Both Claude CLIs failed to refresh the same account's OAuth token, 3 min 21 s apart (19:40:42 and 19:44:03). Both containers share the account's `~/.claude/.credentials.json`. Neither session would have ended at that point because of the OOM kills: in both, Claude was already reacting to the kills and retrying with smaller inputs or fewer jobs.
+- **Several child processes were killed while the main processes survived.** The meta-language log shows five `formal-ai-corpus-memory` runs returning SIGKILL/137, and package-registry-manager shows a killed `rustc`. Docker’s flags establish container OOM observations, but the old logs cannot attribute every individual SIGKILL to an OOM or correlate the two containers to one event. The sequential loop retries rule out one simultaneous group kill as the explanation for all five recorded child deaths.
+- **Container limits are plausible; a shared host or parent OOM remains possible.** The configured default `DEFAULT_DOCKER_TASK_MEMORY = '25%'` would give about 2.9 GB on this 11.7 GB host. A different contemporary task reads `memory.max = 3135373312`, consistent with that default. This does not measure either affected container. The 8 GB and 4 GB address-space limits in the experiments are also above the default. Healthy host memory samples between kills cannot rule out brief host-wide pressure between snapshots.
+- **Host RAM was mistaken for the task’s limit.** The notice’s "10.4 GB of 11.7 GB RAM available" describes host memory; the actual task limit was absent. New task cgroup snapshots and upstream watcher counters make that distinction explicit.
+- **Both terminal logs name authentication failure.** Claude reports expired OAuth sessions at 19:40:42 and 19:44:03, and solve deliberately exits 1. This is the recorded stop reason in both sessions. Shared credentials are an operational possibility, but the logs do not establish why refresh failed or whether earlier memory pressure contributed.
 
 So the OOM _detection_ worked as expected, and the policy worked as expected: no recovery for a deliberate stop (#2408). What did not work was the _report_, which named the OOM event as the reason for an authentication stop, in both sessions. The fix in this PR applies to both.
 
@@ -181,24 +186,25 @@ Every automatic recovery now waits its own random delay before it starts. This w
 - The range is set by `--session-kill-resume-delay` (default `30-90`) or `HIVE_MIND_SESSION_KILL_RESUME_DELAY`. A single number is a fixed delay, `0` turns the delay off, a reversed range is normalised, and an invalid value falls back to the default. Documented in `docs/CONFIGURATION*.md`.
 - Tests: `tests/issue-2498-recovery-delay.test.mjs` covers the range, the configuration, the order sleep → launch, different delays for three sessions killed together, no wait for a refused recovery, and the in-process path.
 
-start-command's own `--on-kill-resume` has no such delay. hive-mind does not use it (it runs its own recovery), but the gap is reported as [link-foundation/start#181](https://github.com/link-foundation/start/issues/181).
+start-command 0.35.2 adds a cancellable `--on-kill-resume-delay` for its own recovery. Hive Mind retains its own delayed recovery because it checks deliberate stops, persists attempt budgets and chooses guarded same-container or fresh-session recovery. Enabling both schedulers would create competing resumes. A `/stop` during Hive Mind’s wait cancels the pending launch.
 
 ### Dependencies and start-command features
 
-Checked on 2026-10-04:
+Rechecked on 2026-10-05 after the latest owner comment ([copy](./pr-2499-latest-feedback.md)).
 
-- `npm outdated` (direct dependencies): empty. Every direct dependency and devDependency in `package.json` is already at its latest version. Only transitive packages pinned by their parents are behind. That is not something this repository controls.
-- Global tools pinned in `Dockerfile`/`Dockerfile.dind`/`Dockerfile.e2e`: `start-command@0.35.1` and `@link-assistant/agent@0.26.11` are the latest npm releases. The other CLIs (Claude Code, Codex, Qwen, Gemini, OpenCode) are installed unpinned, so they are always latest.
-- link-foundation/start: latest release js-0.35.1 / rust-0.22.1 (2026-10-03). hive-mind needs the following from it, and it is all present: detached Docker isolation, `--status` with `oomKilled`, exit code, `memoryExhausted`/`exitReason` (0.33.0, #164/#165), and resume that keeps resource limits (0.35.0, #176). The remaining gaps:
-  - [#180](https://github.com/link-foundation/start/issues/180) (open): `memoryExhausted` is derived from the sticky flag for any exit code. hive-mind works around it in `describeKillCause()`.
-  - [#181](https://github.com/link-foundation/start/issues/181) (new): no random delay for `--on-kill-resume`.
-  - [#182](https://github.com/link-foundation/start/issues/182) (new): `--status` cannot report the container's cgroup `oom`/`oom_kill`/peak, because the cgroup is gone once the container stops. hive-mind now records these from inside the task.
+- `npm ci` completed with zero audit vulnerabilities; `npm outdated --json` is empty. The repository’s dependency freshness check covers direct npm dependencies, dynamic `use-m` imports, image and tool pins, Node/Bun, GitHub Actions and FormalAI. Before the update, 165/168 declarations were current: only three start-command image pins were stale. After updating all three, 168/168 are current ([before](./dependency-freshness-before.txt), [after](./dependency-freshness-after.txt)). No other dependency declaration needed changing.
+- `Dockerfile`, `Dockerfile.dind` and `Dockerfile.e2e` now pin `start-command@0.35.2`. The related pin tests are updated. The existing patch changeset prepares the next Hive Mind release.
+- Upstream [PR #184](https://github.com/link-foundation/start/pull/184) and release js-0.35.2/rust-0.22.2 resolve #180, #181 and #182: an earlier container OOM no longer explains ordinary exits, native recovery supports a cancellable random delay, and the detached watcher saves per-task cgroup counters before the cgroup disappears. Existing Docker isolation, runtime memory reasons and resource-preserving resume remain available.
+- Hive Mind now retains the new nullable `cgroupMemory` object in JSON status/list and links-notation status. Counters reach diagnostics even without a final solve snapshot. The monitor uses a positive kill count as an observation, while the authoritative footer and backend liveness still win. SIGTERM/SIGABRT keep their actual classification even after an earlier OOM. Bot cgroup counters and unrelated host victims remain labelled context.
+- The published upstream package was exercised directly with `experiments/issue-2498-start-command-contract.cjs` ([output](./upstream-contract.txt)). The raw counters work, but upstream derives OOM scope by comparing process kills with allocation events. This is insufficient evidence, reported as [start#185](https://github.com/link-foundation/start/issues/185) with a bounded reproduction, workaround and suggested fix ([report](./upstream-start-oom-scope.md)). Hive Mind reports raw quantities without that scope inference.
+- The watcher’s 1-second sampling is best effort: a cgroup disappearing between reads can lose the final increment; remote Docker daemons, unsupported cgroups or inaccessible `/proc` leave fields unknown. Solve’s cgroup v1/v2 phase snapshots provide complementary evidence. Neither source proves host scope without correlation.
+- Added regressions cover status/list parsing, nullable counters, footer/liveness precedence, distinct signals/runtime limits, unrelated bot/host evidence, stop cancellation during recovery, actual parsed CLI environment precedence and timer overflow. The original authentication-stop fixture still passes. Reproducing failures and final results are archived in this folder, including a missed-final-sample regression ([before](./last-sample-reproduction-before.txt)).
 
 ## Existing components and facts used
 
 - **Docker / moby**: `State.OOMKilled` is container-wide and sticky (moby/moby#43564). A main process that is OOM-killed exits 137. A child that is OOM-killed while PID 1 survives leaves exit codes unchanged ([Netdata: Docker OOMKilled](https://www.netdata.cloud/guides/docker/docker-oomkilled/), [Netdata: exit code 137](https://www.netdata.cloud/guides/docker/docker-exit-code-137/)).
-- **cgroup v2 `memory.events`**: `oom_kill` counts every OOM kill in the cgroup. It is the precise source for "how many / when", but it is only available from inside the container or from the host cgroup path.
-- **Claude Code OAuth**: "OAuth session expired and could not be refreshed" means the refresh token was refused (revoked session, very long idle/offline period, corrupt credentials, or a refresh race between two processes sharing `~/.claude/.credentials.json`). It needs `claude /login`. See anthropics/claude-code#72017 ("OAuth session expires every ~8 hours"). Nothing in the logs connects the OOM kills to the refresh failure: the refresh happens in the `claude` process, which was not killed.
+- **cgroup v2 `memory.events`**: `oom_kill` counts every OOM kill in the cgroup. It measures killed processes cumulatively, rather than incident times or scope, but it is only available from inside the container or from the host cgroup path.
+- **Claude Code OAuth**: the exact terminal message is "OAuth session expired and could not be refreshed". The logs prove the authentication stop, but do not identify whether credentials expired, were revoked or raced during refresh. Reauthentication is the indicated operational action; this PR does not change authentication handling.
 - **hive-mind building blocks reused**:
   - `detectDeliberateSolveStop()` / `DELIBERATE_STOP_MARKERS` (#2408);
   - `resolveOomKilledState()` (#2134, #2408);
@@ -208,7 +214,7 @@ Checked on 2026-10-04:
 ## Remaining uncertainty and possible follow-ups
 
 - The 19:32 event: the monitor observed the flag at 19:32:49, during `cargo clippy` running alongside a background cargo build. Clippy's output was piped through `grep | head`, so the log does not name the victim. The 19:38:41 `rustc` SIGKILL is the one directly visible in the log.
-- Whether memory pressure contributed to the OAuth refresh failure cannot be proven or ruled out from these logs. No error in the log suggests it, and the access-token lifetime explains it on its own.
+- Whether memory pressure contributed to the OAuth refresh failure cannot be proven or ruled out from these logs. No error in the log establishes that connection, and token-lifetime details were not captured.
 - Possible improvement (not done here): name the OOM victims by scanning the log for `(signal: 9, SIGKILL: kill)` next to compiler commands. The PR notice could then say "rustc was OOM-killed at 19:38". The count of victims is now available from `memory.events` (see "Debug output").
-- The resource snapshots are taken at solve's phase boundaries (start, after clone, after the agent, exit), not continuously. A host-wide OOM between two samples cannot be fully ruled out for the 19:32–19:44 window; the new cgroup counters will settle this for future incidents.
-- Running parallel `cargo` builds of large crates in an 11.7 GB container will keep producing OOM kills. Limiting `CARGO_BUILD_JOBS` in the container image is a separate, operational change.
+- The resource snapshots are taken at solve's phase boundaries (start, after clone, after the agent, exit), not continuously. A host-wide OOM between two samples cannot be fully ruled out for the 19:32–19:44 window; new task counters improve evidence, but kernel/cgroup correlation is still required to establish scope.
+- Running parallel `cargo` builds of large crates in a container with a smaller task memory limit will keep producing OOM kills. Limiting `CARGO_BUILD_JOBS` in the container image is a separate, operational change.

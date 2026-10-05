@@ -1,0 +1,31 @@
+Session replacement has finished. Sending notification to chat 42
+[telegram-send] s1 safeEditMessageText → chat=42 message=77 parse_mode=Markdown chars=411 bytes=425 text="⚠️ *Work session ended; final outcome could not be confirmed (automatic recoveries: 1)*\n\n⏱️ Duration: 1s\n📊 Session: `original`\n🔁 Recovery session: `replacement`\n🔒 Isolation: `docker`\n\n*Docker container kept*\nContainer: `replacement`\nPolicy: `HIVE_MIND_KEEP_TASK_CONTAINER=on-failure`\nInspect: `doc"… (+111 chars)
+[telegram-send] s1 safeEditMessageText ✓ delivered
+✖ a recovery whose terminal exit is unavailable is reported as unknown, never successful (1414.93834ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3056.138762
+
+✖ failing tests:
+
+test at tests/issue-2498-recovery-lifecycle.test.mjs:298:1
+✖ a recovery whose terminal exit is unavailable is reported as unknown, never successful (1414.93834ms)
+  AssertionError [ERR_ASSERTION]: the completion audit must not manufacture exit 0
+  
+  0 !== null
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791240758223/tests/issue-2498-recovery-lifecycle.test.mjs:319:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: null,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

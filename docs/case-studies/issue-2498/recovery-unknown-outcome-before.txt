@@ -1,0 +1,33 @@
+✖ a recovery whose terminal exit is unavailable is reported as unknown, never successful (918.955191ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1921.721575
+
+✖ failing tests:
+
+test at tests/issue-2498-recovery-lifecycle.test.mjs:264:1
+✖ a recovery whose terminal exit is unavailable is reported as unknown, never successful (918.955191ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /outcome unknown/i. Input:
+  
+  '❌ Recovery attempt failed (attempt 1)\n' +
+    'Updated: 2026-10-05T23:11:49.944Z\n' +
+    'Attempt started: 2026-10-05T23:11:49.943Z\n' +
+    'Recovery session: replacement\n' +
+    'Previous session: original\n' +
+    'This attempt has stopped. No replacement session was launched.'
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791240758223/tests/issue-2498-recovery-lifecycle.test.mjs:269:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '❌ Recovery attempt failed (attempt 1)\nUpdated: 2026-10-05T23:11:49.944Z\nAttempt started: 2026-10-05T23:11:49.943Z\nRecovery session: replacement\nPrevious session: original\nThis attempt has stopped. No replacement session was launched.',
+    expected: /outcome unknown/i,
+    operator: 'match',
+    diff: 'simple'
+  }

@@ -128,6 +128,8 @@ export function resolveSessionKillResumeDelayRange({ argv = null, env = process.
   if (!match) return { ...DEFAULT_SESSION_KILL_RESUME_DELAY_RANGE };
   const first = Number(match[1]);
   const second = match[2] === undefined ? first : Number(match[2]);
+  // Node turns an overflowing setTimeout into a 1ms wait, defeating the jitter.
+  if (!Number.isFinite(first) || !Number.isFinite(second) || Math.max(first, second) * 1000 > 2_147_483_647) return { ...DEFAULT_SESSION_KILL_RESUME_DELAY_RANGE };
   return { minSeconds: Math.min(first, second), maxSeconds: Math.max(first, second) };
 }
 

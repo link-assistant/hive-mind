@@ -605,7 +605,7 @@ async function getIsolationSessionState(sessionName, sessionInfo, options = {}) 
     const runner = await getIsolationRunner();
     const statusResult = statusProvider ? await statusProvider(sessionId, sessionInfo) : await runner.querySessionStatus(sessionId, verbose);
     if (statusResult?.exists && statusResult.status) {
-      if (statusResult.oomKilled === true) {
+      if (statusResult.oomKilled === true || statusResult.cgroupMemory?.oomKills > 0) {
         // Issue #2134: `oomKilled` is a *container* flag — the kernel sets it when any process in the cgroup is OOM-killed — so it is verified against the log footer and container liveness before a kill is announced.
         return await resolveOomKilledState(sessionName, sessionInfo, statusResult, {
           verbose,

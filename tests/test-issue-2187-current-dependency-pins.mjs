@@ -31,7 +31,7 @@ const expected = {
   prettier: '3.9.9',
   sentry: '11.4.0',
   sentryProfiler: '2.4.4',
-  startCommand: '0.35.1',
+  startCommand: '0.35.2',
   useM: '8.16.4',
 };
 

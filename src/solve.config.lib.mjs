@@ -182,7 +182,9 @@ export const SOLVE_OPTION_DEFINITIONS = {
   'session-kill-resume-delay': {
     type: 'string',
     description: 'Random delay in seconds, as "<min>-<max>" or a fixed "<seconds>" ("0" disables), waited before each automatic recovery after a kill, so sessions killed by the same out-of-memory event do not all restart at the same moment. Can also be set with HIVE_MIND_SESSION_KILL_RESUME_DELAY.',
-    default: '30-90',
+    // Resolve the default after parsing so the environment can still override it.
+    default: undefined,
+    defaultDescription: '30-90',
   },
   // Issue #2395: the repeated-tool-call breaker (#2247, #2316) stopped sessions
   // that were waiting for CI, so it never runs unless explicitly enabled.

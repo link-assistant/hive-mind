@@ -79,8 +79,8 @@ function parseKeyedCounters(text) {
  * container, so a container capped at 25% of the host could hit its own limit
  * while the snapshot still showed gigabytes "available". The cgroup is what
  * the kernel OOM killer acts on, and `memory.events` counts every process it
- * killed there — exactly what was missing to tell whether one OOM event killed
- * one process or several. cgroup v2 first, v1 as a fallback; `null` when
+ * killed there. These cumulative counts do not identify the number or scope
+ * of OOM incidents. cgroup v2 first, v1 as a fallback; `null` when
  * neither is readable (non-Linux, or no memory controller).
  *
  * @param {Function} [readFileSync]
@@ -99,7 +99,7 @@ export function readCgroupMemory(readFileSync = fs.readFileSync, platform = proc
     return {
       version: 2,
       path: dir,
-      // "max" means no limit of its own; the host's memory is the limit then.
+      // "max" means no limit of its own; ancestor/host limits can still apply.
       limitBytes: parseCgroupBytes(max),
       currentBytes: parseCgroupBytes(current),
       peakBytes: parseCgroupBytes(readTextFile(readFileSync, `${dir}/memory.peak`)),
@@ -568,7 +568,7 @@ export function formatResourceSnapshotForLog(snapshot, label = null) {
     const peak = Number.isFinite(cgroup.peakBytes) ? `, peak ${formatBytes(cgroup.peakBytes)}` : '';
     const kills = Number.isFinite(cgroup.oomKills) ? `; processes killed by the OOM killer so far: ${cgroup.oomKills}` : '';
     lines.push(`   Container memory (cgroup v${cgroup.version}): ${formatBytes(cgroup.currentBytes)} used of ${limit}${peak}${kills}`);
-    if (cgroup.oomKills > 0) lines.push(`   ⚠️  The kernel OOM killer has killed ${cgroup.oomKills} process(es) in this container's cgroup${Number.isFinite(cgroup.oomEvents) ? ` across ${cgroup.oomEvents} OOM event(s)` : ''}`);
+    if (cgroup.oomKills > 0) lines.push(`   ⚠️  The kernel OOM killer has killed ${cgroup.oomKills} process(es) in this container's cgroup${Number.isFinite(cgroup.oomEvents) ? `; memory.events oom=${cgroup.oomEvents}` : ''}`);
   }
   if (isHeapUnderPressure(memory)) lines.push(`   ⚠️  V8 heap is at ${memory.processHeapUsedPercent.toFixed(1)}% of its limit — a further allocation can abort the process with "JavaScript heap out of memory"`);
   if (disk.error) lines.push(`   Disk probe error: ${disk.error}`);

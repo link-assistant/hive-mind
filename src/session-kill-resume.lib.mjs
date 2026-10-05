@@ -129,6 +129,9 @@ export async function startKillRecoverySession({ sessionName, sessionInfo, plan,
       if (verbose) console.log(`[VERBOSE] Session ${sessionName}: waiting ${Math.round(delayMs / 1000)}s before starting the recovery session, so recoveries from one event do not start together (issue #2498)`);
       await sleep(delayMs);
     }
+    // A /stop can arrive while this session is waiting. Recheck the mutable
+    // tracked record before either resume path so cancellation wins (#2498).
+    if (sessionInfo?.stopRequestedByUser === true) return fail('stopped-by-user');
     // Preferred path: re-enter the container the work already happened in.
     const inPlace = await resumeKilledSessionInPlace({ sessionName, sessionInfo, plan, runner, verbose });
     let newSessionId = inPlace.sessionId;

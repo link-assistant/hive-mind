@@ -11,6 +11,7 @@ import { DEFAULT_SESSION_KILL_RESUME_DELAY_RANGE, SESSION_KILL_RESUME_DELAY_ENV_
 import { recoverKilledSession } from '../src/session-kill-resume.lib.mjs';
 import { resumeAfterToolKill } from '../src/solve.tool-kill-resume.lib.mjs';
 import { SOLVE_OPTION_DEFINITIONS } from '../src/solve.config.lib.mjs';
+import { getLinoYargsFactory } from '../src/cli-arguments.lib.mjs';
 
 const PR_URL = 'https://github.com/link-foundation/meta-language/pull/196';
 const TOOL_SESSION = '48959e41-0000-4000-8000-000000000196';
@@ -34,7 +35,19 @@ test('the delay is configurable by flag or environment, and 0 turns it off', () 
   assert.deepEqual(resolveSessionKillResumeDelayRange({ env: { HIVE_MIND_SESSION_KILL_RESUME_DELAY: '90-30' } }), { minSeconds: 30, maxSeconds: 90 }, 'a reversed range is normalised');
   assert.deepEqual(resolveSessionKillResumeDelayRange({ env: { HIVE_MIND_SESSION_KILL_RESUME_DELAY: 'soon' } }), { minSeconds: 30, maxSeconds: 90 }, 'garbage falls back to the default');
   assert.deepEqual(resolveSessionKillResumeDelayRange({ argv: { 'session-kill-resume-delay': '5-6' }, env: { HIVE_MIND_SESSION_KILL_RESUME_DELAY: '0' } }), { minSeconds: 5, maxSeconds: 6 }, 'the flag wins over the environment');
-  assert.equal(SOLVE_OPTION_DEFINITIONS['session-kill-resume-delay']?.default, '30-90');
+});
+
+test('parsed CLI defaults allow the environment delay and explicit flags override it', () => {
+  const parse = args => getLinoYargsFactory()().options(SOLVE_OPTION_DEFINITIONS).parse(args);
+  const env = { HIVE_MIND_SESSION_KILL_RESUME_DELAY: '0' };
+  assert.deepEqual(resolveSessionKillResumeDelayRange({ argv: parse([]), env }), { minSeconds: 0, maxSeconds: 0 });
+  assert.deepEqual(resolveSessionKillResumeDelayRange({ argv: parse(['--session-kill-resume-delay', '5-6']), env }), { minSeconds: 5, maxSeconds: 6 });
+});
+
+test('non-finite and overflowing timer delays fall back to the default', () => {
+  for (const value of ['9'.repeat(400), '2147484', '1-2147484']) {
+    assert.deepEqual(resolveSessionKillResumeDelayRange({ env: { HIVE_MIND_SESSION_KILL_RESUME_DELAY: value } }), { minSeconds: 30, maxSeconds: 90 });
+  }
 });
 
 function killedSession(name) {
@@ -104,4 +117,30 @@ test('an in-process resume after a tool kill waits its random delay too, and say
   assert.equal(result.resumed, true);
   assert.deepEqual(events, ['sleep 75000', 'resume']);
   assert.ok(logs.some(line => /Waiting 75s before resuming/.test(line)));
+});
+
+test('a stop requested during the recovery delay cancels both launch paths', async () => {
+  const info = killedSession('stopped-during-wait');
+  info.isolationBackend = 'docker';
+  const calls = [];
+  const result = await recoverKilledSession({
+    sessionName: info.sessionId,
+    sessionInfo: info,
+    killed: true,
+    env: {},
+    runner: {
+      generateSessionId: () => 'new',
+      resumeIsolatedSession: async () => calls.push('in-place'),
+      executeWithIsolation: async () => (calls.push('fresh'), { success: true }),
+    },
+    trackSession: () => calls.push('track'),
+    readLastSessionId: () => TOOL_SESSION,
+    sleep: async () => {
+      info.stopRequestedByUser = true;
+    },
+  });
+  assert.equal(result.resumed, false);
+  assert.equal(result.reason, 'stopped-by-user');
+  assert.deepEqual(calls, []);
+  assert.equal(info.killRecoveryAttempts, undefined);
 });

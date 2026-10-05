@@ -105,6 +105,7 @@ export async function buildKillCompletionSections({ sessionName, sessionInfo, st
       reportedMemoryExhausted: statusResult?.memoryExhausted ?? null,
       reportedMemoryExhaustedReason: statusResult?.memoryExhaustedReason ?? null,
       reportedExitReason: statusResult?.exitReason ?? null,
+      reportedCgroupMemory: statusResult?.cgroupMemory ?? null,
     });
 
     const argv = argvFromSessionArgs(sessionInfo?.args);

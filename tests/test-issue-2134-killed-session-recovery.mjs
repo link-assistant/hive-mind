@@ -201,7 +201,7 @@ assert(victims.length === 2, 'both kernel OOM report formats are parsed');
 assert(victims[0].comm === 'node' && victims[0].pid === 4711, 'the classic OOM line names the victim process');
 assert(victims[1].comm === 'claude' && victims[1].pid === 4712, 'the modern oom-kill line names the victim process');
 
-const victimDiagnosis = describeKillCause({ logText: forcedLog, exitCode: 137, system: { victims, cgroup: {}, memory: {} } });
+const victimDiagnosis = describeKillCause({ logText: forcedLog, exitCode: 137, system: { sessionScoped: true, victims, cgroup: {}, memory: {} } });
 assert(victimDiagnosis.cause === KILL_CAUSE_OUT_OF_MEMORY, 'a kernel OOM report outweighs healthy resource markers');
 assert(/claude/.test(victimDiagnosis.summary), 'the summary names the process the kernel killed');
 

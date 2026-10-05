@@ -99,7 +99,7 @@ test('the snapshot marker carries the cgroup data, and old markers still parse',
 test('the log says how many processes the OOM killer took in this container', () => {
   const text = formatResourceSnapshotForLog({ phase: 'solve_exit', memory: {}, disk: {}, cgroupMemory: readCgroupMemory(fakeReader(V2_FILES), 'linux') });
   assert.match(text, /Container memory \(cgroup v2\): .* used of 2\.9 GB limit, peak 2\.9 GB; processes killed by the OOM killer so far: 5/);
-  assert.match(text, /The kernel OOM killer has killed 5 process\(es\) in this container's cgroup across 2 OOM event\(s\)/);
+  assert.match(text, /The kernel OOM killer has killed 5 process\(es\) in this container's cgroup; memory.events oom=2/);
 
   const quiet = formatResourceSnapshotForLog({ phase: 'solve_start', memory: {}, disk: {}, cgroupMemory: { version: 2, limitBytes: null, currentBytes: 10, peakBytes: null, oomEvents: 0, oomKills: 0 } });
   assert.match(quiet, /no limit of its own; processes killed by the OOM killer so far: 0/);
@@ -110,6 +110,6 @@ test('the kill diagnosis quotes the last in-container cgroup reading as evidence
   const { describeKillCause } = await import('../src/session-kill-diagnostics.lib.mjs');
   const marker = `📈 [RESOURCES] phase=solve_exit ts=2026-10-04T19:44:10.000Z cgroupVersion=2 cgroupMemLimitBytes=${LIMIT} cgroupMemCurrentBytes=2900000000 cgroupMemPeakBytes=${LIMIT} cgroupOomEvents=2 cgroupOomKills=5`;
   const diagnosis = describeKillCause({ logText: `${marker}\n`, oomKilled: true, exitCode: 1 });
-  assert.match(diagnosis.evidence.join('\n'), /last session container cgroup reading — 2\.7 GB used of 2\.9 GB limit, peak 2\.9 GB, 5 process\(es\) killed by the OOM killer across 2 OOM event\(s\) at the container limit at 2026-10-04T19:44:10\.000Z \(phase `solve_exit`\)/);
+  assert.match(diagnosis.evidence.join('\n'), /last session container cgroup reading — 2\.7 GB used, 2\.9 GB limit, peak 2\.9 GB, 5 process\(es\) killed by the OOM killer, memory\.events oom=2 at 2026-10-04T19:44:10\.000Z \(phase `solve_exit`\)/);
   assert.doesNotMatch(describeKillCause({ logText: '📈 [RESOURCES] phase=solve_exit rssBytes=1\n', exitCode: 1 }).evidence.join('\n'), /cgroup reading/);
 });

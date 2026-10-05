@@ -12,7 +12,7 @@
 
 ## Reproduction and tests
 
-The minimal regression failed before the fix with `none !== low`. Separate tests reproduced an invalid adaptive-only Claude token budget and ignored gateway capabilities. New default-suite tests cover every nonempty effort subset, explicit/default/budget settings, future/unknown models, malformed/stale/offline metadata, gateway/direct isolation, custom CLI binaries and native new/resumed command construction. The reproducer and native tests do not run inference.
+The minimal regression failed before the fix with `none !== low`. Separate tests reproduced an invalid adaptive-only Claude token budget and ignored gateway capabilities. New default-suite tests cover every nonempty effort subset, explicit/default/budget settings, future/unknown models, malformed/stale/offline metadata, gateway/direct isolation, custom CLI binaries and native new/resumed command construction. Final review added failing/passing planning-ceiling and connection rollout-cap regressions; the latter captures actual fake-CLI subprocess arguments. The reproducer and native tests do not run inference.
 
 ```sh
 node tests/issue-2526-reasoning-effort.test.mjs
@@ -21,14 +21,12 @@ node tests/issue-2526-native-codex.test.mjs
 node experiments/issue-2526/reproduce.mjs
 ```
 
-All 547 default-suite test files pass. Local lint, formatting, syntax, duplication, secret scanning, documentation, release metadata and dependency-freshness checks pass. The results are recorded in the case study's validation record; fresh implementation CI is being checked against the pushed head SHA.
+All 547 default-suite test files pass locally and in CI against final source commit `220b0009`. CI also passes the GitHub integration test, Docker image/tool/nested-container verification, CodeQL, npm audit, lint, formatting, syntax, duplication, secrets, memory, documentation and release/dependency checks. All three implementation workflows are green: [Checks](https://github.com/link-assistant/hive-mind/actions/runs/37369373277), [Security](https://github.com/link-assistant/hive-mind/actions/runs/37369373033) and [link checking](https://github.com/link-assistant/hive-mind/actions/runs/37369373006). [Latest PR checks](https://github.com/link-assistant/hive-mind/pull/2527/checks) cover the final evidence update.
 
 ## Investigation
 
 [Case study, evidence and timeline](https://github.com/link-assistant/hive-mind/blob/issue-2526-977f266926a4/docs/case-studies/issue-2526/README.md) · [Validation record](https://github.com/link-assistant/hive-mind/blob/issue-2526-977f266926a4/docs/case-studies/issue-2526/validation.md) · [Upstream metadata report with reproducer, workaround and code suggestions](https://github.com/openai/codex/issues/44219#issuecomment-6000649081).
 
-The original CI gate was approved. Its Checks attempt exposed five pre-existing stale pins, now refreshed with 168/168 declarations current locally; Security passed. Fresh implementation CI is verified against the new head SHA. No visual UI changed.
-
-The first implementation CI passed all 547 default-suite files, its GitHub integration test, source checks, CodeQL, dependency review and link checking. Audit and Docker jobs were cancelled with zero steps because hosted runners could not acquire them; GitHub reports an [active Actions runner-assignment incident](https://www.githubstatus.com/incidents/3q1yb5m7ltvb). Their first retries had the same acquisition failure. Final review also reproduced and fixed a future-model planning ceiling violation and a missing connection-validation rollout cap. Both regressions pass, and the planning-stage complete suite passed all 547 files. Full-suite verification of the final commit and fresh CI remain pending. No test timeout or check was relaxed.
+CI exposed five pre-existing stale dependency pins, now refreshed with 168/168 declarations current. The case study preserves failed reproductions, unavailable prior-solver evidence, runner-acquisition cancellations during GitHub's Actions outage, and the successful verification after service recovery. No test timeout or check was relaxed.
 
 Fixes #2526.

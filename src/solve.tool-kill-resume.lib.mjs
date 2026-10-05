@@ -32,7 +32,7 @@ export function buildToolKillWarningComment({ tool = 'claude', sessionId = null,
  * the retry is still awaiting its result, never that it made task progress.
  * Timers are cleared and pending publications drained before returning.
  */
-export async function resumeAfterToolKill({ toolResult, attemptsUsed = 0, argv = {}, runIteration, env = process.env, $ = null, owner = null, repo = null, prNumber = null, log = async () => {}, postComment = postTrackedComment, sleep = ms => new Promise(resolve => setTimeout(resolve, ms)), random = Math.random, now = Date.now, setIntervalFn = setInterval, clearIntervalFn = clearInterval } = {}) {
+export async function resumeAfterToolKill({ toolResult, attemptsUsed = 0, argv = {}, runIteration, env = process.env, $ = null, owner = null, repo = null, prNumber = null, log = async () => {}, postComment = postTrackedComment, sleep = ms => new Promise(resolve => setTimeout(resolve, ms)), random, now = Date.now, setIntervalFn = setInterval, clearIntervalFn = clearInterval } = {}) {
   let result = toolResult;
   let used = attemptsUsed;
   let resumed = false;

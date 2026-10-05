@@ -10,8 +10,8 @@
  *     request gets the same notice.
  *   - `resume` (default since issue #2189): the kill is treated as recoverable.
  *     A new working session is started from the last tool session id, and BOTH
- *     surfaces say so ("recovered from out of memory" / "a new working session
- *     was started").
+ *     surfaces report the accepted launch, then monitor activity and the
+ *     eventual outcome of that new attempt.
  *
  * Selected by `--on-session-kill=<policy>` or `HIVE_MIND_ON_SESSION_KILL`, with
  * the CLI flag winning over the environment. Nothing is removed by choosing one
@@ -30,6 +30,8 @@
  * @see https://github.com/link-assistant/hive-mind/issues/2134
  * @see https://github.com/link-assistant/hive-mind/issues/2189
  */
+
+import { randomInt } from 'node:crypto';
 
 export const ON_SESSION_KILL_REPORT = 'report';
 export const ON_SESSION_KILL_RESUME = 'resume';
@@ -137,10 +139,10 @@ export function resolveSessionKillResumeDelayRange({ argv = null, env = process.
  * Pick the delay, in milliseconds, before one automatic recovery starts.
  *
  * @param {Object} [options] - See resolveSessionKillResumeDelayRange(); plus `random`
- * @param {Function} [options.random=Math.random] - Test seam
+ * @param {Function} [options.random] - Optional deterministic test seam
  * @returns {number}
  */
-export function pickSessionKillResumeDelayMs({ argv = null, env = process.env, random = Math.random } = {}) {
+export function pickSessionKillResumeDelayMs({ argv = null, env = process.env, random = () => randomInt(0, 2 ** 32) / 2 ** 32 } = {}) {
   const { minSeconds, maxSeconds } = resolveSessionKillResumeDelayRange({ argv, env });
   return Math.round((minSeconds + (maxSeconds - minSeconds) * random()) * 1000);
 }

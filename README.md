@@ -646,6 +646,36 @@ Shows:
 - Solve queue status
 ```
 
+#### `/pause` and `/resume` - Stop and Continue a Task
+
+```text
+/pause <session-uuid or GitHub issue/PR URL>
+/resume <session-uuid or GitHub issue/PR URL>
+```
+
+Reply to a task message with either command, or use `/resume` without arguments
+to list your paused tasks. The task requester and the originating chat owner
+can control a task in its group chat or in a direct message with the bot.
+
+`/pause` stops the entire Docker task container, releasing its execution CPU
+and RAM while preserving its filesystem. Paused tasks survive bot restarts,
+stay protected from automatic recovery and cleanup, and free a running queue
+slot. Submitting the same URL again points to the existing paused task.
+
+`/resume` continues from a snapshot of the retained filesystem. Solve tasks
+reuse their original working directory and the latest recorded AI session,
+including local edits and installed dependencies. Other commands restart their
+original invocation against the retained files. The execution UUID remains
+addressable, and completion monitoring resumes. This continues work from disk
+and AI conversation state; process memory is released when the task stops.
+
+Task pause/resume requires Docker isolation and a version of `start-command`
+supporting snapshot resume (0.33.0 or later; 0.35.0 or later for tasks with
+resource limits). Router and Formal AI sidecar tasks are currently unsupported.
+A missing retained container or unavailable workspace prevents resume rather
+than starting with an empty filesystem. Docker system pruning is skipped while
+paused tasks need their stopped containers.
+
 #### `/terminal_watch` - Live Session Log
 
 ```

@@ -695,7 +695,8 @@ async function handleSolveCommand(ctx) {
   // Issue #1567: Prevent concurrent sessions on the same PR/issue
   const activeSession = await hasActiveSessionForUrlAsync(normalizedUrl, VERBOSE);
   if (activeSession.isActive) {
-    await safeReply(ctx, t('telegram.url_session_running', { url: escapeMarkdown(normalizedUrl), session: activeSession.sessionName }, { locale: solveLocale }), { reply_to_message_id: ctx.message.message_id });
+    const sessionMessageKey = ['paused', 'pausing', 'resuming'].includes(activeSession.status) ? 'telegram.url_session_paused' : 'telegram.url_session_running';
+    await safeReply(ctx, t(sessionMessageKey, { url: escapeMarkdown(normalizedUrl), session: activeSession.sessionName }, { locale: solveLocale }), { reply_to_message_id: ctx.message.message_id });
     return;
   }
   const queueStats = solveQueue.getStats();
@@ -903,6 +904,8 @@ const { registerStartStopCommands } = await import('./telegram-start-stop-comman
 const { registerLogCommand } = await import('./telegram-log-command.lib.mjs');
 registerTopCommand(bot, sharedCommandOpts);
 const { handleStopCommand } = registerStartStopCommands(bot, { ...sharedCommandOpts, getSolveQueue, findRunningSessionByUrl: (url, verbose) => findStoppableSessionByUrl(url, verbose) });
+const { registerPauseResumeCommands } = await import('./telegram-pause-resume-command.lib.mjs');
+const { handlePauseCommand, handleResumeCommand } = registerPauseResumeCommands(bot, sharedCommandOpts);
 await registerLogCommand(bot, sharedCommandOpts);
 await registerTerminalWatchCommand(bot, sharedCommandOpts);
 // Issue #1745: hidden /tokens command for chat owners (private DMs only,
@@ -1009,7 +1012,7 @@ bot.on('message', async (ctx, next) => {
   const taskHandlers = Object.fromEntries(TASK_COMMAND_NAMES.map(command => [command, handleTaskCommand]));
   const fixHandlers = Object.fromEntries(FIX_COMMAND_NAMES.map(command => [command, handleFixCommand]));
   const organizeHandlers = Object.fromEntries(ORGANIZE_COMMAND_NAMES.map(command => [command, handleOrganizeCommand]));
-  const handlers = { ...solveHandlers, ...taskHandlers, ...fixHandlers, ...organizeHandlers, auth: handleAuthCommand, hive: handleHiveCommand, merge: handleMergeCommand, queue: handleSolveQueueCommand, models: handleModelsCommand, stop: handleStopCommand };
+  const handlers = { ...solveHandlers, ...taskHandlers, ...fixHandlers, ...organizeHandlers, auth: handleAuthCommand, hive: handleHiveCommand, merge: handleMergeCommand, queue: handleSolveQueueCommand, models: handleModelsCommand, stop: handleStopCommand, pause: handlePauseCommand, resume: handleResumeCommand };
 
   const handler = handlers[extracted.command];
   if (!handler) return next();

@@ -607,6 +607,31 @@ Shows:
 - Solve queue status
 ```
 
+#### `/pause` 和 `/resume` - 停止并继续任务
+
+```text
+/pause <会话 UUID 或 GitHub issue/PR URL>
+/resume <会话 UUID 或 GitHub issue/PR URL>
+```
+
+也可以用任一命令回复任务消息。不带参数的 `/resume` 会列出您暂停的任务。
+任务请求者和原始聊天所有者可以在该群聊或与机器人的私聊中控制任务。
+
+`/pause` 会停止整个 Docker 任务容器，释放执行占用的 CPU 和 RAM，同时保留
+文件系统。暂停的任务在机器人重启后仍会保留，受到自动恢复和清理保护，
+并释放运行队列名额。再次提交相同 URL 会指向已有的暂停任务。
+
+`/resume` 从保留的文件系统快照继续工作。Solve 任务复用原始工作目录和最新
+记录的 AI 会话，保留本地修改及已安装的依赖。其他命令会使用保留的文件重新
+执行原始调用。执行 UUID 仍可用于查询，完成监控也会恢复。这会从磁盘数据和
+AI 对话状态继续工作；停止任务时会释放进程内存。
+
+任务暂停和继续需要 Docker 隔离以及支持快照恢复的 `start-command`
+（0.33.0 或更高版本；有限制资源的任务需要 0.35.0 或更高版本）。
+目前不支持 Router 和 Formal AI sidecar 任务。如果保留的容器或工作目录不可用，
+则拒绝继续，避免从空文件系统开始。暂停任务需要保留停止的容器时，
+会跳过 Docker system prune 清理。
+
 #### `/terminal_watch` - Live Session Log
 
 ```

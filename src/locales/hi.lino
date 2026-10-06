@@ -462,6 +462,7 @@ hi
           💡 कतार स्थिति देखने के लिए /queue का उपयोग करें।
         """
       session
+        paused "इस URL का task paused है: `{{session}}`। फ़ाइलें सुरक्षित हैं। जारी रखने के लिए /resume {{session}} उपयोग करें।"
         running """
           ❌ इस URL के लिए पहले से एक कार्य सत्र चल रहा है।
 
@@ -610,6 +611,8 @@ hi
       stop
         start "*/stop* / */start* - नए tasks स्वीकार करना रोकें या फिर शुरू करें (केवल owner)"
         uuid "*/stop* `<uuid>` - isolated solve/hive session को CTRL+C भेजें (केवल owner)। UUID वाले message पर reply के रूप में भी काम करता है।"
+      pause
+        resume "*/pause* / */resume* `<uuid या URL>` - फ़ाइलें सुरक्षित रखते हुए Docker task रोकें या जारी रखें (task requester या chat owner)। Groups और DMs में reply से भी काम करता है।"
       log "*/log* - isolated session log लाएँ (केवल owner)। उपयोग: `/log <uuid>` या `/log` से reply करें"
       terminal
         watch "*/terminal\\_watch* (alias: */watch*) - isolated session log को live-update करें (chat owner या session requester)। उपयोग: `/terminal_watch <uuid>`, `/watch <uuid>`, या इनमें से किसी command से reply करें"

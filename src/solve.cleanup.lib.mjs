@@ -19,6 +19,7 @@ import { reportError } from './sentry.lib.mjs';
 import { reclaimAgentSnapshotStores } from './agent-snapshot-store.lib.mjs';
 import { collectDockerImageReclaimPlan, formatDockerImageReclaimSummary, reclaimDockerImages, resolveDockerImageReclaimMode } from './docker-image-reclaim.lib.mjs';
 import { formatBytes } from './cleanup.lib.mjs';
+import { TASK_PAUSE_MARKER } from './task-pause-marker.lib.mjs';
 
 /**
  * Reclaim orphaned `@link-assistant/agent` snapshot stores (issue #2186).
@@ -81,7 +82,18 @@ export const cleanupSupersededDockerImages = async argv => {
 };
 
 // Cleanup temporary directory
-export const cleanupTempDirectory = async (tempDir, argv, limitReached) => {
+export const cleanupTempDirectory = async (tempDir, argv, limitReached, { pauseMarkerPath = TASK_PAUSE_MARKER } = {}) => {
+  // docker stop sends SIGTERM, which runs this cleanup even on private tasks
+  // with --auto-cleanup. The bot marks the container before sending the stop.
+  if (
+    await fs.access(pauseMarkerPath).then(
+      () => true,
+      () => false
+    )
+  ) {
+    await log(`\n📁 Keeping paused task directory: ${tempDir}`);
+    return;
+  }
   // Determine if we should skip cleanup
   const shouldKeepDirectory = !argv.autoCleanup || argv.resume || limitReached || (argv.autoResumeOnLimitReset && global.limitResetTime);
   if (!shouldKeepDirectory) {

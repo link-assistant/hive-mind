@@ -49,7 +49,10 @@ test('the Telegram validator reports the screenshot typo and preserves the origi
   assert.equal(result.valid, false);
   assert.equal(result.suggestion, issueUrl);
   assert.match(result.error, /URL path segment "issuese"/);
-  assert.ok(result.error.includes(url));
+  assert.equal(
+    result.error.split('\n').find(line => line.startsWith('Input: ')),
+    `Input: ${JSON.stringify(url)}`
+  );
 });
 
 for (const [input, part, suggestion] of [
@@ -83,7 +86,10 @@ test('URL rejections echo input even when no safe correction is known', () => {
   for (const input of ['https://example.com/o/r/issues/1', 'https://github.com/o/r/pull', 'https://github.com/o/r/actions/runs/1']) {
     const result = validateTelegramGitHubUrl(input);
     assert.equal(result.valid, false);
-    assert.ok(result.error.includes(input));
+    assert.equal(
+      result.error.split('\n').find(line => line.startsWith('Input: ')),
+      `Input: ${JSON.stringify(input)}`
+    );
     assert.equal(result.suggestion, undefined);
   }
   assert.match(validateTelegramGitHubUrl('https://github.com/o/r/pull').error, /NUMBER/);

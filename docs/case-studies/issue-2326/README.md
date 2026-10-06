@@ -48,6 +48,14 @@ That assertion checks displayed error text, not host authorization. It now
 compares the complete `Input:` field against the quoted original URL, which
 tests the intended behavior more precisely without disabling the scanner.
 
+A later [security run](https://github.com/link-assistant/hive-mind/actions/runs/37484415408)
+failed npm audit at log lines 235–247 for existing `shell-quote` 1.10.0, a
+development dependency of Changesets through `launch-editor`.
+[GHSA-pqg4-j6r4-53mv](https://github.com/advisories/GHSA-pqg4-j6r4-53mv) identifies
+a command injection vulnerability fixed from 1.11.0. Updating only that lockfile
+entry to 1.12.0 stays within the existing dependency range; npm audit then
+reports zero vulnerabilities.
+
 ## Visual evidence
 
 Original screenshot from the issue:

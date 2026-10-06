@@ -31,8 +31,9 @@
  * solver's own placeholder is excluded from the counts here rather than being
  * reported as the AI's work.
  *
- * This module is the single place that answers the question, so both the
- * readiness gate and the mergeability watcher agree.
+ * This module is the single place that answers the question, so the
+ * placeholder description writer, the readiness gate and the mergeability
+ * watcher agree.
  */
 
 import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
@@ -314,9 +315,52 @@ export const getPullRequestChangeStats = async ({ owner, repo, prNumber, $, log 
     placeholderSections,
     measured,
     diffBytes,
-    // Changed paths are diagnostic data, not generated PR description content.
+    // Issue #2318: the changed paths, for the placeholder description's "Changes" section.
     files,
   };
+};
+
+/**
+ * Render the "### Changes" summary of the description solve writes when the
+ * agent left the initial placeholder description in place (issue #1162).
+ *
+ * When the diff is empty this says so instead of inventing a file count, so a
+ * reviewer reading the description learns the same thing the diff would tell
+ * them.
+ *
+ * @param {{hasChanges: boolean, filesChanged: number, additions: number, deletions: number, measured: boolean}} stats
+ * @returns {string}
+ */
+export const formatChangeSummary = stats => {
+  if (!stats.measured) {
+    return '- The diff could not be read, so the change summary is unavailable';
+  }
+  if (!stats.hasChanges) {
+    if (stats.placeholderOnly) {
+      return '- No files were changed by this pull request yet (it contains only the placeholder file the solver commits to open a pull request)';
+    }
+    return '- No files were changed by this pull request yet';
+  }
+  return [`- ${stats.filesChanged} file(s) modified`, `- ${stats.additions} line(s) added`, `- ${stats.deletions} line(s) removed`].join('\n');
+};
+
+/**
+ * Issue #2549: this section is only part of the description that replaces the
+ * initial placeholder when the agent never wrote one. A description the agent
+ * wrote is never given a generated "Changes" section afterwards.
+ */
+export const CHANGES_SECTION_START = '<!-- hive-mind:changes:start -->';
+export const CHANGES_SECTION_END = '<!-- hive-mind:changes:end -->';
+const MAX_LISTED_FILES = 50;
+
+/** The marked "### Changes" section: the summary plus the changed paths. */
+export const formatChangesSection = stats => {
+  const files = Array.isArray(stats?.files) ? stats.files : [];
+  const listed = files.slice(0, MAX_LISTED_FILES).map(file => `  - \`${file}\``);
+  if (files.length > MAX_LISTED_FILES) listed.push(`  - …and ${files.length - MAX_LISTED_FILES} more`);
+  const summary = formatChangeSummary(stats);
+  const body = listed.length > 0 ? `${summary}\n- Files:\n${listed.join('\n')}` : summary;
+  return `${CHANGES_SECTION_START}\n### Changes\n${body}\n${CHANGES_SECTION_END}`;
 };
 
 /**
@@ -343,4 +387,4 @@ export const buildEmptyPullRequestBlocker = (stats = null) => (stats?.placeholde
  */
 export const __measureDiffForTests = measureDiff;
 
-export default { getPullRequestChangeStats, EMPTY_PULL_REQUEST_BLOCKER, buildEmptyPullRequestBlocker, __measureDiffForTests: measureDiff };
+export default { getPullRequestChangeStats, formatChangeSummary, formatChangesSection, EMPTY_PULL_REQUEST_BLOCKER, buildEmptyPullRequestBlocker, __measureDiffForTests: measureDiff };

@@ -93,11 +93,27 @@ for (const restart of [false, true]) {
   });
 }
 
-test('placeholder completion leaves the body for the agent and retains restart detection', { timeout: 5000 }, async () => {
+test('an untouched placeholder is still replaced by the generated description (issue #1162)', { timeout: 5000 }, async () => {
   const f = await complete(`${placeholder}\n\nFixes #1`, false, { autoRestartOnNonUpdatedPullRequestDescription: false });
+  assert.equal(f.result.prBodyHasPlaceholder, true);
+  assert.equal(f.calls.filter(call => call.includes('--body-file')).length, 1);
+  assert.ok(!f.body().includes(placeholder), 'the placeholder is gone');
+  assert.match(f.body(), /^## Summary\n\nThis pull request implements a solution for #1: Example issue\n/);
+  assert.match(f.body(), /### Changes\n- 1 file\(s\) modified/);
+  assert.match(f.body(), /### Issue Reference\nFixes #1/);
+});
+
+test('with auto-restart on a non-updated description, the placeholder is left for the agent', { timeout: 5000 }, async () => {
+  const f = await complete(`${placeholder}\n\nFixes #1`, false, { autoRestartOnNonUpdatedPullRequestDescription: true });
   assert.equal(f.body(), `${placeholder}\n\nFixes #1`);
   assert.equal(f.result.prBodyHasPlaceholder, true);
   assert.equal(f.calls.filter(call => call.includes('--body-file')).length, 0);
+});
+
+test('completion has no post-agent Changes regeneration left', () => {
+  for (const file of ['solve.results.lib.mjs', 'solve.restart-shared.lib.mjs', 'pull-request-changes.lib.mjs']) {
+    assert.doesNotMatch(read(file), /refreshPullRequestChangesSection|replaceChangesSection/, file);
+  }
 });
 
 test('single-issue repair appends only the missing link after a separator', () => {
@@ -132,12 +148,16 @@ test('multi-issue repair preserves every byte and appends only missing links onc
   assert.equal(edits, 1);
 });
 
-test('live progress requested as pr mode posts a comment without editing the description', { timeout: 5000 }, async () => {
+test('default live progress posts a comment without editing the description', { timeout: 5000 }, async () => {
   const f = fixture(description);
-  const monitor = createProgressMonitor({ ...context, $: f.$, log: async () => {}, displayMode: 'pr' });
+  const monitor = createProgressMonitor({ ...context, $: f.$, log: async () => {} });
   assert.equal(await monitor.updateProgress([{ content: 'Implement fix', status: 'completed' }], true), true);
   assert.ok(f.calls.some(call => call.includes('/issues/2/comments')));
   assert.ok(f.calls.every(call => !call.startsWith('gh pr edit') && !call.startsWith('gh pr view')));
-  assert.equal(monitor.displayMode, 'comment');
-  assert.equal(normalizeDisplayMode('pr'), 'comment');
+  assert.equal(f.body(), description);
+});
+
+test('the opt-in pr live progress mode is kept', () => {
+  assert.equal(normalizeDisplayMode('pr'), 'pr');
+  assert.equal(createProgressMonitor({ ...context, $: async () => ({}), log: async () => {}, displayMode: 'pr' }).displayMode, 'pr');
 });

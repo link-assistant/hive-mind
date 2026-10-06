@@ -1,14 +1,17 @@
-✔ normal completion preserves an already linked description byte for byte (4.756763ms)
-✔ restart completion preserves an already linked description byte for byte (1.064166ms)
-✔ placeholder completion leaves the body for the agent and retains restart detection (0.887568ms)
-✔ single-issue repair appends only the missing link after a separator (0.328304ms)
-✔ multi-issue repair preserves every byte and appends only missing links once (919.858156ms)
-✔ live progress requested as pr mode posts a comment without editing the description (68.906811ms)
-ℹ tests 6
+✔ normal completion preserves an already linked description byte for byte (6.590471ms)
+✔ restart completion preserves an already linked description byte for byte (1.538101ms)
+✔ an untouched placeholder is still replaced by the generated description (issue #1162) (8.663982ms)
+✔ with auto-restart on a non-updated description, the placeholder is left for the agent (1.746931ms)
+✔ completion has no post-agent Changes regeneration left (1.534213ms)
+✔ single-issue repair appends only the missing link after a separator (0.4072ms)
+✔ multi-issue repair preserves every byte and appends only missing links once (936.901994ms)
+✔ default live progress posts a comment without editing the description (52.665178ms)
+✔ the opt-in pr live progress mode is kept (0.660142ms)
+ℹ tests 9
 ℹ suites 0
-ℹ pass 6
+ℹ pass 9
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 1004.239595
+ℹ duration_ms 1022.211534

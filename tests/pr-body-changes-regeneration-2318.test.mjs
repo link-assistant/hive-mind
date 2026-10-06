@@ -1,9 +1,13 @@
 #!/usr/bin/env node
 
 /**
- * Regression tests for issue #2318 pricing and title formatting.
- * Description ownership is covered by pr-description-preservation-2549.test.mjs.
+ * Regression tests for issue #2318: the changed-path list of the placeholder
+ * description, pricing and title formatting.
  *
+ * - The description solve writes when the agent left the placeholder in place
+ *   (#1162) lists the changed paths in a marked "### Changes" section. Issue
+ *   #2549: a description the agent wrote is no longer regenerated afterwards;
+ *   that is covered by pr-description-preservation-2549.test.mjs.
  * - Kotlin comment: `Public pricing estimate: $0.00 (Free model)` next to
  *   `Total: 122.3K input tokens, 4.4K output tokens, $0.576812 cost`.
  * - Kotlin/Scala titles `'Implement Hello World in Kotlin'`: renamed on
@@ -20,6 +24,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { formatChangesSection, getPullRequestChangeStats } from '../src/pull-request-changes.lib.mjs';
 import { buildBudgetStatsString } from '../src/claude.budget-stats.lib.mjs';
 import { buildCostInfoString, isFreeModelPricing } from '../src/github-cost-info.lib.mjs';
 import { buildFormalAiPricingInfo } from '../src/formal-ai-pricing.lib.mjs';
@@ -41,7 +46,43 @@ const test = async (description, fn) => {
   }
 };
 
-console.log('Issue #2318: one cost for a free model; no quoted titles\n');
+const fileDiff = (file, lines) => [`diff --git a/${file} b/${file}`, 'new file mode 100644', '--- /dev/null', `+++ b/${file}`, `@@ -0,0 +1,${lines.length} @@`, ...lines.map(line => `+${line}`)].join('\n');
+// The Kotlin branch on 2026-09-27: the program, the workflow and the build files.
+const KOTLIN_DIFF = [fileDiff('src/main/kotlin/Main.kt', ['fun main() {', '    println("Hello, World!")', '}']), fileDiff('.github/workflows/ci.yml', ['name: CI', 'on: [push]']), fileDiff('verify.sh', ['#!/bin/sh'])].join('\n');
+const STATS = { hasChanges: true, measured: true, filesChanged: 3, additions: 6, deletions: 0, files: ['src/main/kotlin/Main.kt', '.github/workflows/ci.yml', 'verify.sh'] };
+
+console.log('Issue #2318: the placeholder description lists the diff; one cost for a free model; no quoted titles\n');
+
+await test('the marked Changes section lists the summary and the changed paths', () => {
+  const section = formatChangesSection(STATS);
+  assert.ok(section.startsWith('<!-- hive-mind:changes:start -->\n### Changes\n- 3 file(s) modified\n- 6 line(s) added\n- 0 line(s) removed\n- Files:\n'));
+  assert.match(section, / {2}- `src\/main\/kotlin\/Main\.kt`/);
+  assert.ok(section.endsWith('<!-- hive-mind:changes:end -->'));
+});
+
+await test('the file list is capped', () => {
+  const files = Array.from({ length: 53 }, (_, index) => `f${index}.txt`);
+  const section = formatChangesSection({ ...STATS, filesChanged: 53, files });
+  assert.match(section, /`f49\.txt`/);
+  assert.doesNotMatch(section, /`f50\.txt`/);
+  assert.match(section, /…and 3 more/);
+});
+
+await test('getPullRequestChangeStats lists the changed paths', async () => {
+  const $ = first => {
+    if (!Array.isArray(first)) return $;
+    return Promise.resolve({ code: 0, stdout: KOTLIN_DIFF, stderr: '' });
+  };
+  const stats = await getPullRequestChangeStats({ owner: 'o', repo: 'r', prNumber: 2, $ });
+  assert.deepEqual(stats.files, ['src/main/kotlin/Main.kt', '.github/workflows/ci.yml', 'verify.sh']);
+});
+
+await test('only the placeholder replacement renders the section', () => {
+  const results = read('src/solve.results.lib.mjs');
+  assert.match(results, /\$\{formatChangesSection\(changeStats\)\}/, 'the placeholder body uses the marked section');
+  assert.equal(results.match(/formatChangesSection\(/g).length, 1);
+  assert.doesNotMatch(read('src/solve.restart-shared.lib.mjs'), /formatChangesSection|refreshPullRequestChangesSection/);
+});
 
 // The Kotlin session's usage: claude's result event priced "formal-ai" at $0.576812.
 const kotlinTokenUsage = () => ({

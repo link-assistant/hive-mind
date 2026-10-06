@@ -28,7 +28,7 @@ const githubLib = await import('./github.lib.mjs');
 const { sanitizeLogContent, attachLogToGitHub } = githubLib;
 // Issue #1745: process-wide sanitization counters used to print a one-line
 // "we masked N secrets" summary at the end of each run.
-const { formatSanitizationSummary, sanitizeForPublication } = await import('./token-sanitization.lib.mjs');
+const { formatSanitizationSummary, sanitizeForPublication, writeSanitizedPublicationFile } = await import('./token-sanitization.lib.mjs');
 // Issue #1745: post-finish retroactive sanitization of bot-authored PR
 // comments and the PR description. This external repair boundary always runs
 // when PR coordinates are available.
@@ -60,7 +60,8 @@ const { reportError } = sentryLib;
 const prIssueLinking = await import('./pr-issue-linking.lib.mjs');
 const { buildIssueReference } = prIssueLinking;
 
-const { getPullRequestChangeStats } = await import('./pull-request-changes.lib.mjs');
+// Issue #2119: the one place that decides whether a pull request changed anything.
+const { formatChangesSection, getPullRequestChangeStats } = await import('./pull-request-changes.lib.mjs');
 const { buildNoChangesNotice, capWorkingSessionSummary, formatWorkingSessionSummaryMarkdown, redactWorkspacePaths } = await import('./working-session-summary.lib.mjs');
 /**
  * Placeholder patterns used to detect auto-generated PR content that was not updated by the agent.
@@ -695,7 +696,7 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
         // Declare placeholder detection variables outside block scopes for use in return value
         let prTitleHasPlaceholder = false;
         let prBodyHasPlaceholder = false;
-        // Skip issue-link repair and ready conversion for merged PRs
+        // Skip PR body update and ready conversion for merged PRs (they can't be edited)
         if (!isPrMerged) {
           const issueLinkResult = await ensurePullRequestIssueLink({
             prNumber: pr.number,
@@ -726,9 +727,59 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
             }
           }
 
-          // Issue #2549: the agent owns the description. Finalization only
-          // repairs missing issue links; placeholder detection still requests
-          // an agent restart when configured.
+          // Issue #1162: Update PR description if still contains placeholder text
+          // Skip cleanup if auto-restart-on-non-updated-pull-request-description is enabled
+          const hasPlaceholder = prBodyHasPlaceholder;
+          if (hasPlaceholder && !argv.autoRestartOnNonUpdatedPullRequestDescription) {
+            await log(`  📝 Updating PR description to remove placeholder text...`);
+            // Issue #2119: measure the net diff. The reproduction PRs published
+            // "1 file(s) modified, 1 line(s) added" for a pull request that
+            // changed nothing, because the stats were never checked for being
+            // empty.
+            const changeStats = await getPullRequestChangeStats({ owner, repo, prNumber: pr.number, $, log });
+            if (!changeStats.hasChanges) {
+              await log(`  ⚠️  PR #${pr.number} has an empty diff - the description will say so instead of claiming changes`, { level: 'warning' });
+            }
+            // Get the issue title for context
+            const issueTitleResult = await $`gh issue view ${issueNumber} --repo ${owner}/${repo} --json title --jq .title 2>&1`;
+            const issueTitle = issueTitleResult.code === 0 ? issueTitleResult.stdout.toString().trim() : 'the issue';
+
+            // Build new description
+            const fs = (await use('fs')).promises;
+            const issueRef = buildIssueReference({ issueNumber, owner, repo, fork: argv.fork });
+            // Issue #2492: an empty diff implements nothing, so do not say it does.
+            const summaryLine = changeStats.hasChanges ? `This pull request implements a solution for ${issueRef}: ${issueTitle}` : `This pull request is for ${issueRef}: ${issueTitle}. It has no changes yet.`;
+            const newDescription = `## Summary
+
+${summaryLine}
+
+${formatChangesSection(changeStats)}
+
+### Issue Reference
+Fixes ${issueRef}
+
+---
+*This PR was created automatically by the AI issue solver*`;
+            const tempBodyFile = `/tmp/pr-body-finalize-${pr.number}-${Date.now()}.md`;
+            await writeSanitizedPublicationFile(tempBodyFile, newDescription);
+            try {
+              const descResult = await $`gh pr edit ${pr.number} --repo ${owner}/${repo} --body-file ${tempBodyFile}`;
+              await fs.unlink(tempBodyFile).catch(() => {});
+
+              if (descResult.code === 0) {
+                await log(`  ✅ Updated PR description with solution summary`);
+                await ensurePullRequestIssueLink({ owner, repo, issueNumber, prNumber: pr.number, argv });
+              } else {
+                await log(`  ⚠️  Could not update PR description: ${descResult.stderr?.toString() ? descResult.stderr.toString().trim() : 'Unknown error'}`);
+              }
+            } catch (descError) {
+              await fs.unlink(tempBodyFile).catch(() => {});
+              await log(`  ⚠️  Error updating PR description: ${descError.message}`);
+            }
+          }
+          // Issue #2549: a description the agent wrote is left as it is.
+          // Only the placeholder above is replaced; issue links are repaired
+          // separately. No generated "Changes" section is appended to it.
           // Check if PR is ready for review (convert from draft if necessary).
           // Issue #2182: this used to be an inline `gh pr ready` that bypassed
           // pr-draft-state.lib.mjs, so it neither skipped merged/closed PRs nor cleared the

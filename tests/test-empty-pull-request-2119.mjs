@@ -36,7 +36,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { EMPTY_PULL_REQUEST_BLOCKER, buildEmptyPullRequestBlocker, getPullRequestChangeStats } from '../src/pull-request-changes.lib.mjs';
+import { EMPTY_PULL_REQUEST_BLOCKER, buildEmptyPullRequestBlocker, formatChangeSummary, getPullRequestChangeStats } from '../src/pull-request-changes.lib.mjs';
 
 const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -62,7 +62,7 @@ const changed = await getPullRequestChangeStats({ owner: 'konard', repo: 'test-h
 assert.equal(changed.hasChanges, true, 'a pull request that adds a file has changes');
 assert.equal(changed.filesChanged, 1);
 assert.equal(changed.additions, 3, 'the `+++ b/...` header is not counted as an added line');
-assert.deepEqual(changed.files, ['examples/hello.scala'], 'diff measurement retains changed paths for diagnostics');
+assert.deepEqual(changed.files, ['examples/hello.scala'], 'diff measurement retains changed paths');
 
 // --- the solver's own placeholder is not a change ----------------------------
 
@@ -82,6 +82,7 @@ for (const [label, diff] of [
   assert.equal(stats.filesChanged, 0, `${label}: the placeholder is not counted as the AI's work`);
   assert.equal(stats.additions, 0, `${label}: the placeholder's lines are not counted either`);
   assert.equal(stats.placeholderOnly, true, `${label}: the caller can tell an empty diff from a placeholder-only one`);
+  assert.ok(formatChangeSummary(stats).includes('placeholder'), `${label}: the description names the placeholder instead of claiming a file was modified`);
   assert.ok(buildEmptyPullRequestBlocker(stats).includes('placeholder'), `${label}: the restart reason names the placeholder`);
 }
 
@@ -99,7 +100,7 @@ const mixed = await getPullRequestChangeStats({ owner: 'konard', repo: 'test-hel
 assert.equal(mixed.hasChanges, true, 'the placeholder does not hide real work');
 assert.equal(mixed.filesChanged, 1, 'only the real file is counted');
 assert.equal(mixed.additions, 3, 'the placeholder line is excluded from the addition count');
-assert.deepEqual(mixed.files, ['examples/hello.scala'], 'diagnostic paths exclude the generated placeholder');
+assert.deepEqual(mixed.files, ['examples/hello.scala'], 'listed paths exclude the generated placeholder');
 assert.equal(mixed.placeholderOnly, false, 'a pull request with real work is not placeholder-only');
 
 // An empty diff is empty, not placeholder-only - the two get different wording.
@@ -115,6 +116,18 @@ for (const broken of [fake$({ code: 1 }), fake$({ throws: true })]) {
   assert.equal(stats.hasChanges, false, 'unmeasured stats claim no changes, so callers must gate on `measured`');
 }
 
+// --- the published description ----------------------------------------------
+
+assert.equal(formatChangeSummary(empty), '- No files were changed by this pull request yet', 'the description states the diff is empty instead of inventing a file count');
+assert.ok(!formatChangeSummary(empty).includes('1 file(s) modified'), 'the false positive from the reproduction PRs is gone');
+
+const summary = formatChangeSummary(changed);
+assert.ok(summary.includes('- 1 file(s) modified'), summary);
+assert.ok(summary.includes('- 3 line(s) added'), summary);
+
+const unavailable = formatChangeSummary({ measured: false, hasChanges: false, filesChanged: 0, additions: 0, deletions: 0 });
+assert.ok(unavailable.includes('could not be read'), 'an unreadable diff is reported as unknown, not as empty');
+
 // --- the callers must actually use it ----------------------------------------
 
 const autoMergeSource = await readFile(path.join(repoRoot, 'src', 'solve.auto-merge.lib.mjs'), 'utf8');
@@ -124,7 +137,7 @@ assert.ok(/!hasUncommittedChanges && !isEmptyPullRequest/.test(autoMergeSource),
 assert.ok(autoMergeSource.includes('buildEmptyPullRequestBlocker(changeStats)'), 'an empty pull request is reported as a restart reason, naming the placeholder when that is all there is');
 
 const resultsSource = await readFile(path.join(repoRoot, 'src', 'solve.results.lib.mjs'), 'utf8');
-assert.ok(resultsSource.includes('requireChanges: true'), 'the readiness gate checks for real changes');
+assert.ok(resultsSource.includes('formatChangesSection(changeStats)'), 'the generated description renders the shared change summary');
 assert.ok(!/- \$\{filesChanged\} file\(s\) modified/.test(resultsSource), 'the old unconditional file count is gone');
 
 assert.ok(EMPTY_PULL_REQUEST_BLOCKER.includes('net diff is empty'), EMPTY_PULL_REQUEST_BLOCKER);

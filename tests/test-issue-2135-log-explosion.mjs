@@ -126,8 +126,7 @@ const QUIETED_PROBES = [
   ['src/github-entity-validation.lib.mjs', 'branches --paginate'],
   ['src/solve.auto-continue.lib.mjs', 'branches'],
   ['src/bidirectional-interactive.lib.mjs', '--paginate --slurp'],
-  // Issue #2549 removed the progress description probe entirely. Its
-  // comment-only behavior is covered by pr-description-preservation-2549.
+  ['src/solve.progress-monitoring.lib.mjs', 'gh pr view'],
   ['src/solve.minimal-restart-prompt.lib.mjs', 'git diff'],
   ['src/contributing-guidelines.lib.mjs', 'gh api repos'],
   ['src/github.lib.mjs', 'gh pr view'],

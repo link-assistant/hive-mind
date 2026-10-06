@@ -193,12 +193,12 @@ test('normalizeDisplayMode returns "comment" for "comment"', () => {
   assert.equal(normalizeDisplayMode('comment'), 'comment');
 });
 
-test('normalizeDisplayMode treats "pr" as a comment alias', () => {
-  assert.equal(normalizeDisplayMode('pr'), 'comment');
+test('normalizeDisplayMode returns "pr" for "pr"', () => {
+  assert.equal(normalizeDisplayMode('pr'), 'pr');
 });
 
-test('normalizeDisplayMode treats "PR" as a comment alias (case insensitive)', () => {
-  assert.equal(normalizeDisplayMode('PR'), 'comment');
+test('normalizeDisplayMode returns "pr" for "PR" (case insensitive)', () => {
+  assert.equal(normalizeDisplayMode('PR'), 'pr');
 });
 
 test('normalizeDisplayMode returns "comment" for "Comment" (case insensitive)', () => {
@@ -420,7 +420,7 @@ test('createProgressMonitor defaults to comment display mode', () => {
   assert.equal(monitor.displayMode, 'comment');
 });
 
-test('createProgressMonitor accepts pr as a comment alias', () => {
+test('createProgressMonitor accepts pr display mode', () => {
   const monitor = progressModule.createProgressMonitor({
     owner: 'test',
     repo: 'test',
@@ -429,7 +429,7 @@ test('createProgressMonitor accepts pr as a comment alias', () => {
     log: async () => {},
     displayMode: 'pr',
   });
-  assert.equal(monitor.displayMode, 'comment');
+  assert.equal(monitor.displayMode, 'pr');
 });
 
 test('createProgressMonitor accepts comment display mode', () => {
@@ -880,10 +880,10 @@ await asyncTest('initProgressMonitoring returns monitor with comment mode', asyn
   assert.equal(typeof result.generateSection, 'function', 'Should have generateSection');
 });
 
-await asyncTest('initProgressMonitoring treats pr as a comment alias', async () => {
+await asyncTest('initProgressMonitoring returns monitor with pr mode', async () => {
   const result = await progressModule.initProgressMonitoring({ workingSessionLiveProgress: 'pr' }, { owner: 'o', repo: 'r', prNumber: 1, $: async () => ({ stdout: '{}' }), log: async () => {} });
   assert.notEqual(result, null, 'Should return a monitor object');
-  assert.equal(result.displayMode, 'comment', 'The pr alias posts comments');
+  assert.equal(result.displayMode, 'pr', 'Should be in pr mode');
 });
 
 await asyncTest('initProgressMonitoring treats bare true as comment mode', async () => {

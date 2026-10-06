@@ -28,6 +28,9 @@
 | `dependency-freshness-*.txt`                                               | Before/after comprehensive dependency audit                                                                                             |
 | `*-reproduction-before.txt`, `targeted-after.txt`, `upstream-contract.txt` | Reproducing failures, regression results and actual upstream package probe                                                              |
 | `upstream-start-*.md`                                                      | Bodies of the upstream reports #181, #182, #185 and #187                                                                                |
+| `prm-31/`                                                                  | package-registry-manager#31: PR metadata, all comments, the post-merge notice/log comments and the owner's feedback comment             |
+| `merged-pr-recovery-*.txt`                                                 | The post-auto-merge regression before (10 failing) and after (11 passing) the fix                                                       |
+| `start-0.35.4-resume-state.json`, `command-stream-sigkill-*.jsonl`         | The same start-command resume probe on 0.35.4, and command-stream 1.5.0 vs 1.6.2 exit reporting for SIGKILL/SIGTERM                     |
 
 **Is the gist different from the logs in the comments?** No, apart from sanitisation. `gist-log.txt` and `intermediate-log.txt` are the same start-command log. If every 40-character hex SHA is replaced with a placeholder, the two files are identical: the only differences are commit SHAs, which the gist has in full and the bot's sanitised upload shortened to `abc…def` in some places (59 075 lines each). Both end with the same container post-mortem:
 
@@ -264,3 +267,56 @@ Activity reporting observes execution output, not semantic completion or guarant
 The [pre-publication validation snapshot](./follow-up-validation.txt) links the complete [default-suite investigation](./follow-up-default-investigation.log.gz) and [GitHub integration run](./follow-up-github-integration.log.gz). The full clean replay and current-commit CI results are recorded in [PR #2499](https://github.com/link-assistant/hive-mind/pull/2499).
 
 The first follow-up CI scan at commit `6f4c3d10` uploaded successfully (security run `37390145695`, log lines 4101–4108), but its separate CodeQL result reported [alert #280](https://github.com/link-assistant/hive-mind/security/code-scanning/280), `js/insecure-randomness`, at `solve.tool-kill-resume.lib.mjs:16`. The retry-delay value flowed from `Math.random()` into published recovery text. The shared delay generator now uses Node's cryptographic `randomInt()` with the same range and deterministic test seam; both resume paths use that default. All 71 targeted regressions pass after this change. The final CI result is reported in the PR; the alert was not dismissed or suppressed.
+
+## Follow-up: recovery reported after auto-merge (2026-10-06)
+
+The owner's [third feedback comment](https://github.com/link-assistant/hive-mind/pull/2499#issuecomment-6012117153) ([archive](./prm-31/feedback-comment.json)) points to [package-registry-manager#31](https://github.com/link-foundation/package-registry-manager/pull/31#issuecomment-6011824151): after auto-merge the work is fully done, so nothing should be recovered or reported as recovered. It also asks to re-check the OOM status at every stage and to update the dependencies again.
+
+### Timeline (UTC, 2026-10-06), from the [archived comments](./prm-31/pr-31-comments.json)
+
+| Time     | Event                                                                                                                                               |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 06:17:11 | PR #31 opened by the session (`ce5a24df-…`, Docker isolation, `--auto-merge --attach-logs --on-session-kill=resume`)                                |
+| 06:23:56 | A child process in the task container is OOM-killed. Docker sets the sticky `State.OOMKilled` flag; the session itself keeps working                |
+| 07:31:54 | Working-session summary; 07:32:22 solution-draft log uploaded by solve                                                                              |
+| 07:48:14 | PR merged; 07:48:16 "🎉 Auto-merged" comment                                                                                                        |
+| 07:48:18 | Session exits with **code 0**                                                                                                                       |
+| 07:48:49 | The bot uploads "📎 Intermediate working-session log (killed session)" ([archive](./prm-31/comment-6011823819.md)) — a duplicate of solve's own log |
+| 07:48:50 | The bot posts "⚠️ Working session recovered from out of memory" ([archive](./prm-31/comment-6011824151.md)) on the merged PR                        |
+
+### Root causes
+
+1. **The completion path never looked at the merge state for a successful session.** `resolveFailedSessionPullRequestState()` looked the PR up only for failed sessions. An exit-0 session with the sticky OOM flag was classified as `recovered` (issue #2134's survived-OOM notice) and reported without knowing the work was already merged. A killed session after the merge was likewise still recovered and offered `--resume`.
+2. **A session started on a pull request URL had no PR for the merge check.** `resolvePullRequestUrlForSession()` resolves only issue URLs. The kill notice itself already fell back to the started PR (#2301), so it was posted while the merge check had no URL to check. The new regression caught this.
+3. **The survived-OOM wording and log upload were misleading.** "Recovered from out of memory" describes a recovery that never happened, and a session that completed normally had its log re-uploaded as an "intermediate … (killed session)" log.
+4. **solve's in-process retry of a killed AI tool did not check the merge state.** In `--auto-merge`/watch mode, a tool SIGKILL after (or during the retry delay of) a merge would still schedule and launch a retry and post recovery comments.
+
+### Fix
+
+- The merge state is now resolved whenever a session has kill or container-OOM evidence (`killEvidence`), using the started PR when there is no linked one. Plain successes still make no extra API call.
+- If the pull request is merged, `buildKillCompletionSections()` returns nothing to report (`skippedReason: 'pull-request-merged'`): no kill/OOM sections, no recovery launch, no resume hint, no PR notice and no log upload. The decision is logged as `session_kill_report_skipped` with `mergedAt`.
+- A killed session after a merge is shown in Telegram as "Pull request merged, but the work session exited with code: …", the same wording already used for failed sessions.
+- With the PR still open, an OOM event that did not stop the session is titled "ℹ️ Work session completed — an earlier container OOM event did not stop it" and says no recovery was needed. Its log is not uploaded again, since solve already published the final log.
+- `resumeAfterToolKill()` takes `isWorkDone` (auto-merge and watch pass `checkPRMerged`). A merged PR before scheduling means no record and no comment; a merge during the delay updates the scheduled comment to "✅ Recovery cancelled — work already complete" and launches nothing. A failing merge check never blocks a retry.
+
+[Before the fix](./merged-pr-recovery-before.txt) 10 of 11 regressions in `tests/issue-2498-merged-pr-recovery.test.mjs` fail (the remaining one asserts preserved behaviour); [after it](./merged-pr-recovery-after.txt) all pass. Seven existing monitor tests resolved real pull requests over the network and two of those PRs (links-notation#319, formal-ai#1070) have since merged; those tests now inject an offline `lookupPullRequestState`.
+
+### OOM status at each stage
+
+| Stage                                     | GitHub                                                                    | Telegram                                                     |
+| ----------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| OOM event, session keeps running, PR open | "Work session completed — an earlier container OOM event did not stop it" | Completion message plus the kill diagnostics                 |
+| OOM event, PR merged                      | Nothing after the merge                                                   | "finished successfully", no OOM section                      |
+| Session killed, PR open                   | Kill notice, then the recovery lifecycle comment                          | Kill section and the replacement session                     |
+| Session killed, PR merged                 | Nothing                                                                   | "Pull request merged, but the work session exited with code" |
+| Tool killed inside solve, PR merged       | Nothing, or "Recovery cancelled" if a retry was already scheduled         | The lifecycle reply shows the cancellation                   |
+
+### Dependencies
+
+The authenticated [freshness audit](./dependency-freshness-2026-10-06-after.txt) reports **168/168 declarations current** ([before](./dependency-freshness-2026-10-06-before.txt): start-command 0.35.3 → 0.35.4 in three Dockerfiles, `command-stream` 1.5.0 → 1.6.2 and `links-notation` 0.22.0 → 0.23.0 in the dynamic loader). `npm outdated` reports no stale direct dependencies.
+
+- **start-command 0.35.4** fixes our [start#187](https://github.com/link-foundation/start/issues/187). The same reproduction against the published package ([output](./start-0.35.4-resume-state.json)) shows the earlier attempt's memory evidence moved into `attemptHistory`, an `attempt` record with start time, log byte offset, launch/watcher timestamps, and an appended lifecycle boundary. Hive Mind keeps its own byte boundary as the workaround for older records and other clients.
+- **command-stream 1.6.2** adds a `signal` field and signal-based exit codes. A [probe](../../../experiments/issue-2498-command-stream-sigkill.mjs) ([output](./command-stream-sigkill-1.5.0-vs-1.6.2.jsonl)) shows that under Node both versions report 137/143 for SIGKILL/SIGTERM; the tool-kill check accepts exit 137 or `signal === 'SIGKILL'`, so it works with both.
+- **links-notation 0.23.0** only adds the binary codec exports.
+
+No new upstream gap was found for this follow-up: the post-merge report was entirely a Hive Mind decision, and the information needed (merge state) comes from GitHub.

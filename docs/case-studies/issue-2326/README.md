@@ -42,6 +42,12 @@ three Dockerfiles and `command-stream` 1.5.0 → 1.6.2 in the runtime package ma
 The mandatory freshness check reproduced these failures locally. The pins and
 matching fixtures were refreshed without changing the check.
 
+The [follow-up run](https://github.com/link-assistant/hive-mind/actions/runs/37486418864)
+failed the same gate for `links-notation` 0.22.0 → 0.23.0 (detector job log
+lines 2517–2519). Registry metadata shows 0.23.0 was published at
+2026-10-06 15:23:08 UTC, after this run was queued at 15:18:48 UTC. Its runtime
+pin and matching alias fixture were also refreshed.
+
 The first security scan of the implementation flagged the regression test's
 URL substring assertion as incomplete URL validation ([annotation](https://github.com/link-assistant/hive-mind/pull/2562#discussion_r4196927353)).
 That assertion checks displayed error text, not host authorization. It now

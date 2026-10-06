@@ -39,7 +39,7 @@ export const USE_M_PACKAGE_VERSIONS = Object.freeze({
   '@dotenvx/dotenvx': '2.33.0',
   'command-stream': '1.6.2',
   getenv: '2.0.0',
-  'links-notation': '0.22.0',
+  'links-notation': '0.23.0',
   'lino-arguments': '0.3.0',
   telegraf: '4.16.3',
   yargs: '18.2.0',

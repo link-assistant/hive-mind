@@ -145,6 +145,7 @@ export const codexModels = {
   ...formalAiNativeModelAliases,
   // GPT-6 Sol is the current default, Luna is the smaller tier, and Reserve is
   // exposed by the Codex CLI catalogue (Issue #2290).
+  'gpt-6.1-sol': 'gpt-6.1-sol',
   'gpt-6-sol': 'gpt-6-sol',
   'gpt-6-luna': 'gpt-6-luna',
   'gpt-reserve': 'gpt-reserve',

@@ -1,0 +1,9 @@
+{
+  "version": "1.5.0",
+  "repository": {
+    "url": "git+https://github.com/link-foundation/command-stream.git",
+    "type": "git",
+    "directory": "js"
+  },
+  "publishedAt": "2026-10-05T21:43:51.861Z"
+}

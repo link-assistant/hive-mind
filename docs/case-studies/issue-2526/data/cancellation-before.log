@@ -1,0 +1,62 @@
+[81/547] tests/optional-automation-2324.test.mjs
+✖ Codex cancellation stops the real shell after the repeated-call breaker fires (10048.521865ms)
+✔ the feedback integration supplies a local git identity on a clean CI runner (1162.496504ms)
+✔ stale cleanup also removes the task head after its pull request was closed (117.363683ms)
+✔ a human issue is attempted in every credential layer (0.998873ms)
+✔ every matrix row targets its isolated base branch (14.512435ms)
+✔ the task sidecar carries the workspace install grant (1.033678ms)
+✔ matrix dry-run logs forward credential names without exposing their values (1104.185613ms)
+✔ the task overlay installs packages as the runtime user (1.135558ms)
+✔ unmapped Docker version arguments fail closed instead of disappearing (6.385369ms)
+✔ container freshness compares stable tags of each flavor independently (23.446507ms)
+✔ a single-component repository in a custom registry has no Docker Hub library prefix (1.020443ms)
+✔ manual checks default safely and e2e PRs do not run the host CI (2.714252ms)
+✔ credentials prefer the app, then one token, then the default (0.575263ms)
+✔ default and unknown capabilities cannot authorize repository operations (6.429081ms)
+✔ an orphan fixture contains only the README and persists partial resources (1.755445ms)
+✔ cleanup tries every resource even after one API error (0.958788ms)
+✔ real Actions conclusions and logs are verified without act (1.015404ms)
+✔ default-token approval refusal is recorded before act fallback (0.505383ms)
+✔ an approved run is awaited and its real result is retained (0.532743ms)
+✔ no generated run records the platform limitation and uses act only for default credentials (0.639122ms)
+✔ lowered pins fail, open issues waive them, closed issues and registry failures fail closed (2.113452ms)
+✔ scoped app tokens cannot operate on repositories, administration requires an explicit successful grant (0.431495ms)
+✔ freshness uses the selected GH_TOKEN for GitHub registry requests (1.239521ms)
+✔ standalone automation jobs install GitHub helper dependencies before running scripts (0.979416ms)
+✔ every release job checks out the local credential action before using it (10.916839ms)
+ℹ tests 25
+ℹ suites 0
+ℹ pass 24
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 12541.039424
+
+✖ failing tests:
+
+test at tests/optional-automation-2324.test.mjs:9:1
+✖ Codex cancellation stops the real shell after the repeated-call breaker fires (10048.521865ms)
+  <ref *1> Error: spawnSync /home/box/.nvm/versions/node/v26.10.0/bin/node ETIMEDOUT
+      at Object.spawnSync (node:internal/child_process:1175:20)
+      at spawnSync (node:child_process:929:24)
+      at execFileSync (node:child_process:972:15)
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791224072909/tests/optional-automation-2324.test.mjs:10:31)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    errno: -110,
+    code: 'ETIMEDOUT',
+    syscall: 'spawnSync /home/box/.nvm/versions/node/v26.10.0/bin/node',
+    path: '/home/box/.nvm/versions/node/v26.10.0/bin/node',
+    spawnargs: [ '--max-old-space-size=128', 'experiments/issue-2324/codex-cancellation-probe.mjs' ],
+    error: [Circular *1],
+    status: null,
+    signal: 'SIGTERM',
+    output: [ null, '', '' ],
+    pid: 90264,
+    stdout: '',
+    stderr: ''
+  }
+

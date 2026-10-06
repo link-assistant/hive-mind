@@ -1,0 +1,6 @@
+🔍 Validating Codex CLI connection...
+codex-cli 0.160.0
+📦 Codex CLI version: codex-cli 0.160.0
+ok
+✅ Codex CLI connection validated successfully
+Issue #2526 native Codex new/resume/connection command tests passed.

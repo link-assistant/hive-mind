@@ -5,6 +5,9 @@ import { join } from 'node:path';
 
 import { resolveClaudeModelForExecution } from './claude.model-utils.lib.mjs';
 import { ORGANIZE_PLAN_SCHEMA } from './organize.prompts.lib.mjs';
+import { resolveCodexReasoningEffort } from './codex.options.lib.mjs';
+import { resolveRuntimeCodexReasoningEffort } from './codex.reasoning.lib.mjs';
+import { getClaudeEnv, getThinkingLevelToTokens } from './config.lib.mjs';
 
 export const ORGANIZE_TOOLS = Object.freeze(['claude', 'agent', 'codex', 'opencode', 'gemini', 'qwen']);
 
@@ -19,7 +22,7 @@ export function sanitizeOrganizationEnvironment(source = process.env, emptyGhCon
  * Produce argv without a shell. Every adapter runs in a read-only/planning mode
  * in an empty directory and receives no GitHub credentials.
  */
-export function buildOrganizationInvocation({ tool, model, think = null, systemPrompt, userPrompt, tempDir, baseEnv = process.env }) {
+export function buildOrganizationInvocation({ tool, model, think = null, codexReasoningSettings = null, systemPrompt, userPrompt, tempDir, baseEnv = process.env }) {
   const systemFile = join(tempDir, 'system-prompt.txt');
   const schemaFile = join(tempDir, 'plan-schema.json');
   const outputFile = join(tempDir, 'last-message.json');
@@ -28,7 +31,11 @@ export function buildOrganizationInvocation({ tool, model, think = null, systemP
 
   switch (tool) {
     case 'claude': {
-      const effort = think && think !== 'adaptive' ? (think === 'max' ? 'max' : ['high', 'xhigh', 'ultra'].includes(think) ? 'high' : think === 'medium' ? 'medium' : 'low') : null;
+      const thinkingEnv = getClaudeEnv({ model, thinkLevel: think, thinkingBudget: getThinkingLevelToTokens()[think] });
+      const effort = think ? thinkingEnv.CLAUDE_CODE_EFFORT_LEVEL : null;
+      delete env.MAX_THINKING_TOKENS;
+      delete env.CLAUDE_CODE_EFFORT_LEVEL;
+      if (think && thinkingEnv.MAX_THINKING_TOKENS !== undefined) env.MAX_THINKING_TOKENS = thinkingEnv.MAX_THINKING_TOKENS;
       const args = ['--print', '--output-format', 'json', '--model', model, '--system-prompt-file', systemFile, '--json-schema', JSON.stringify(ORGANIZE_PLAN_SCHEMA), '--safe-mode', '--restricted', '--strict-mcp-config', '--permission-mode', 'plan', '--permission-prompts', 'none', '--no-session-persistence'];
       if (effort) args.push('--effort', effort);
       return { command: 'claude', args, input: userPrompt, env };
@@ -41,7 +48,10 @@ export function buildOrganizationInvocation({ tool, model, think = null, systemP
         env,
       };
     case 'codex': {
-      const effort = think && think !== 'adaptive' ? (think === 'off' ? 'none' : ['ultra', 'max'].includes(think) ? 'xhigh' : think) : null;
+      // Organization planning keeps delegation disabled and caps its effort at xhigh.
+      const planningThink = ['ultra', 'max'].includes(think) ? 'xhigh' : think;
+      const { reasoningEffort: effort } = codexReasoningSettings ?? resolveCodexReasoningEffort({ model, think: planningThink }, { maxEffort: 'xhigh' });
+      if (['max', 'ultra'].includes(effort)) throw new Error(`Organization planning does not support ${effort} reasoning effort`);
       const args = ['exec', '--model', model, '--output-schema', schemaFile, '--output-last-message', outputFile, '--ephemeral', '--ignore-user-config', '--ignore-rules', '--strict-config', '-c', 'default_permissions="organize-classifier"', '-c', 'permissions.organize-classifier.filesystem={":root"="deny"}', '-c', 'permissions.organize-classifier.network.enabled=false', '-c', 'shell_environment_policy.inherit="none"', '-c', 'web_search="disabled"', '--skip-git-repo-check', '-C', tempDir];
       if (effort) args.push('-c', `model_reasoning_effort="${effort}"`);
       return { command: 'codex', args, input: `<TRUSTED_SYSTEM_INSTRUCTIONS>\n${systemPrompt}\n</TRUSTED_SYSTEM_INSTRUCTIONS>\n${userPrompt}`, outputFile, env };
@@ -174,7 +184,8 @@ export async function runOrganizationClassifier({ prompts, tool = 'claude', mode
     await writeFile(join(tempDir, 'plan-schema.json'), JSON.stringify(ORGANIZE_PLAN_SCHEMA), { mode: 0o600 });
     await writeFile(join(tempDir, 'opencode.json'), JSON.stringify({ permission: { '*': 'deny' }, instructions: [join(tempDir, 'system-prompt.txt')] }), { mode: 0o600 });
     await writeFile(join(tempDir, 'gemini-deny-tools.toml'), '[[rule]]\ntoolName = "*"\ndecision = "deny"\npriority = 999\n', { mode: 0o600 });
-    const invocation = buildOrganizationInvocation({ tool: normalizedTool, model: mappedModel, think, systemPrompt: prompts.system, userPrompt: prompts.user, tempDir });
+    const codexReasoningSettings = normalizedTool === 'codex' ? await resolveRuntimeCodexReasoningEffort({ model: mappedModel, think: ['ultra', 'max'].includes(think) ? 'xhigh' : think }, { maxEffort: 'xhigh' }) : null;
+    const invocation = buildOrganizationInvocation({ tool: normalizedTool, model: mappedModel, think, codexReasoningSettings, systemPrompt: prompts.system, userPrompt: prompts.user, tempDir });
     const result = await run(invocation.command, invocation.args, { cwd: tempDir, env: invocation.env, input: invocation.input, maxBuffer: 64 * 1024 * 1024 });
     if (result.code !== 0) throw new Error(`Organization classifier (${normalizedTool}) exited with code ${result.code}`);
     let output = result.stdout;

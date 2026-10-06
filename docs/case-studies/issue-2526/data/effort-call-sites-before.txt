@@ -1,0 +1,56 @@
+src/claude.lib.mjs:348:      const { thinkingBudget: resolvedThinkingBudget, thinkLevel, isNewVersion, maxBudget } = await resolveThinkingSettings(argv, log);
+src/claude.lib.mjs:352:      const claudeEnv = { ...getClaudeEnv({ thinkingBudget: resolvedThinkingBudget, model: effectiveModel, thinkLevel, maxBudget, planModel: resolvedPlanModel, executionModel: resolvedExecutionModel, subAgentModel: resolvedSubAgentModel, showThinkingContent: argv.showThinkingContent, exitAfterStopDelayMs: streamingInput ? 60_000 : undefined, disable1mContext: !!argv.disable1mContext, subSessionSize: parsedSubSessionSize, contextWindowTokens }), ...toolInvocation.env };
+src/claude.lib.mjs:365:        if (!isNewVersion && thinkLevel) await log(`📊 Thinking level (via keywords): ${thinkLevel}`, { verbose: true });
+src/solve.config.lib.mjs:1031:  const thinkingBudgetExplicitlyProvided = hasRawOption(rawArgs, '--thinking-budget');
+src/solve.config.lib.mjs:1035:  if (!thinkExplicitlyProvided && thinkingBudgetExplicitlyProvided) {
+src/agent-commander.lib.mjs:58:  if (argv.thinkingBudget !== undefined) extraEnv.MAX_THINKING_TOKENS = argv.thinkingBudget;
+src/agent-commander.lib.mjs:77:  const reasoningArgs = ['-c', `model_reasoning_effort=${reasoningEffort}`, '-c', 'model_reasoning_summary=auto'];
+src/sub-session-size.lib.mjs:22: * Codex controls (via -c key=value, same mechanism as model_reasoning_effort):
+src/codex.options.lib.mjs:7:// Issue #2027: Map the shared hive-mind --think levels to Codex `model_reasoning_effort`
+src/codex.options.lib.mjs:41:  const thinkingBudget = Number.isFinite(argv?.thinkingBudget) ? argv.thinkingBudget : undefined;
+src/codex.options.lib.mjs:43:  if (thinkingBudget !== undefined) {
+src/codex.options.lib.mjs:44:    if (thinkingBudget <= 0) {
+src/codex.options.lib.mjs:47:        source: `--thinking-budget ${thinkingBudget}`,
+src/codex.options.lib.mjs:51:    const ratio = Math.min(1, thinkingBudget / maxBudget);
+src/codex.options.lib.mjs:60:      source: `--thinking-budget ${thinkingBudget}`,
+src/github.lib.mjs:1148:      if (argv.thinkingBudget !== undefined) commandParts.push('--thinking-budget', argv.thinkingBudget);
+src/thinking-prompt.lib.mjs:27:export const toolSupportsStructuredThinkingBudget = ({ tool = 'claude', claudeVersion, thinkingBudgetClaudeMinimumVersion } = {}) => {
+src/thinking-prompt.lib.mjs:29:    return supportsThinkingBudget(claudeVersion || '0.0.0', thinkingBudgetClaudeMinimumVersion || '2.1.12');
+src/thinking-prompt.lib.mjs:32:  // Codex maps --think/--thinking-budget to model_reasoning_effort instead of prompt text.
+src/thinking-prompt.lib.mjs:37:  const thinkLevel = argv?.think;
+src/thinking-prompt.lib.mjs:38:  if (!thinkLevel || !THINK_PROMPT_MESSAGES[thinkLevel]) {
+src/thinking-prompt.lib.mjs:54:    thinkingBudgetClaudeMinimumVersion: argv?.thinkingBudgetClaudeMinimumVersion,
+src/claude.connection.lib.mjs:165:  const minVersion = argv.thinkingBudgetClaudeMinimumVersion || '2.1.12';
+src/claude.connection.lib.mjs:171:  let thinkingBudget = argv.thinkingBudget;
+src/claude.connection.lib.mjs:172:  let thinkLevel = argv.think;
+src/claude.connection.lib.mjs:177:    if (thinkLevel !== undefined && thinkLevel !== 'adaptive' && thinkingBudget === undefined) {
+src/claude.connection.lib.mjs:178:      thinkingBudget = thinkingLevelToTokens[thinkLevel];
+src/claude.connection.lib.mjs:179:      translation = `--think ${thinkLevel} → --thinking-budget ${thinkingBudget}`;
+src/claude.connection.lib.mjs:189:    if (thinkingBudget !== undefined && thinkLevel === undefined) {
+src/claude.connection.lib.mjs:190:      thinkLevel = tokensToThinkingLevel(thinkingBudget);
+src/claude.connection.lib.mjs:191:      translation = `--thinking-budget ${thinkingBudget} → --think ${thinkLevel}`;
+src/claude.connection.lib.mjs:196:      thinkingBudget = undefined;
+src/claude.connection.lib.mjs:199:  return { thinkingBudget, thinkLevel, translation, isNewVersion, maxBudget };
+src/config.lib.mjs:509: * `argv.thinkingBudget` (an explicit token budget), mirroring the same translation
+src/config.lib.mjs:516: * @param {Object} argv - Parsed CLI args (reads think, thinkingBudget, maxThinkingBudget)
+src/config.lib.mjs:526:  let budget = argv.thinkingBudget;
+src/config.lib.mjs:563: * @param {string|undefined} thinkLevel - The thinking level (off/low/medium/high/xhigh/ultra/max)
+src/config.lib.mjs:570:export const thinkLevelToEffortLevel = (thinkLevel, options = {}) => {
+src/config.lib.mjs:571:  if (!thinkLevel || thinkLevel === 'off') {
+src/config.lib.mjs:578:  switch (thinkLevel) {
+src/config.lib.mjs:608: * @param {number|undefined} thinkingBudget - The thinking budget in tokens
+src/config.lib.mjs:616:export const thinkingBudgetToEffortLevel = (thinkingBudget, maxBudget = DEFAULT_MAX_THINKING_BUDGET, options = {}) => {
+src/config.lib.mjs:617:  if (thinkingBudget === undefined || thinkingBudget === 0) {
+src/config.lib.mjs:621:  const thinkLevel = getTokensToThinkingLevel(maxBudget)(thinkingBudget);
+src/config.lib.mjs:622:  return thinkLevelToEffortLevel(thinkLevel, options);
+src/config.lib.mjs:641:// Optionally sets MAX_THINKING_TOKENS when thinkingBudget is provided (see issue #1146)
+src/config.lib.mjs:681:    env.MAX_THINKING_TOKENS = String(options.thinkingBudget ?? 0);
+src/config.lib.mjs:701:    if (options.thinkLevel) {
+src/config.lib.mjs:702:      effortLevel = thinkLevelToEffortLevel(options.thinkLevel, effortOptions);
+src/config.lib.mjs:703:    } else if (options.thinkingBudget !== undefined && options.thinkingBudget > 0) {
+src/config.lib.mjs:704:      effortLevel = thinkingBudgetToEffortLevel(options.thinkingBudget, options.maxBudget, effortOptions);
+src/config.lib.mjs:709:    } else if (options.thinkLevel === 'off' && adaptiveThinkingOnly) {
+src/codex.lib.mjs:474:      const testResult = await $({ env: getCodexExecEnv(verbose) })`printf "echo hi" | timeout ${Math.floor(timeouts.codexCli / 1000)} codex exec --model ${mappedModel} --json --skip-git-repo-check -c model_reasoning_effort="none" --dangerously-bypass-approvals-and-sandbox`;
+src/codex.lib.mjs:721:    codexArgs += ` --json --skip-git-repo-check -o ${shellQuote(lastMessageFile)} -c ${shellQuote(`model_reasoning_effort=${reasoningEffort}`)} -c ${shellQuote('model_reasoning_summary=auto')}`;
+src/organize.ai.lib.mjs:33:      if (effort) args.push('--effort', effort);
+src/organize.ai.lib.mjs:46:      if (effort) args.push('-c', `model_reasoning_effort="${effort}"`);

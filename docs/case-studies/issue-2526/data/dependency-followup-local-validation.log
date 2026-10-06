@@ -1,0 +1,9 @@
+Source commit: dec195ea544b588bd9384dc793149f63057d0a69
+Complete default suite: All 547 selected test file(s) passed; exit 0.
+Completed at: 2026-10-05T22:27:22.489225+00:00
+Runtime pin: command-stream@1.5.0.
+Existing retry regressions: 43/43 passed.
+Existing preinstall regressions: 8/8 passed.
+Dependency freshness: 168/168 declarations current.
+Lint, formatting, syntax, duplication (11.32% < 12%), secrets, explicit evidence scanning, documentation, language synchronization and line limits: pass.
+No source/test changes during the complete suite.

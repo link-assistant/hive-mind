@@ -1,0 +1,15 @@
+Final local validation, 2026-10-05, Node.js 26.10.0 / npm 11.19.1
+node scripts/run-tests.mjs --suite default --continue-on-failure: exit 0
+All 547 selected test file(s) passed.
+npm ci: pass; 266 packages installed, zero audit vulnerabilities
+npm run lint: pass
+npm run format:check: pass
+npm run check:duplication: pass; 11.33% below 12% threshold
+npm run check:secrets: pass
+Explicit archived-evidence scan with secretlintignore /dev/null: pass
+Repository .mjs syntax checks: pass
+Repository .mjs/workflow line limits: pass
+Package-manager, changeset and version checks: pass
+Documentation validation and language synchronization: pass
+Authenticated dependency freshness: 168/168 declarations current
+Raw command logs: ignored ci-logs/issue-2526-*.log

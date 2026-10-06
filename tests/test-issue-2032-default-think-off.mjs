@@ -32,7 +32,7 @@ const explicitBudget = await parse(['--tool', 'codex', '--model', 'gpt-5.5', '--
 assert.equal(explicitBudget.think, undefined, 'an explicit thinking budget must not be overridden by the implicit off default');
 assert.equal(resolveCodexReasoningEffort(explicitBudget).reasoningEffort, 'medium');
 
-assert.deepEqual(resolveCodexReasoningEffort(omitted), {
+assert.deepEqual(resolveCodexReasoningEffort({ ...omitted, model: 'gpt-6-sol' }), {
   reasoningEffort: 'none',
   source: '--think off',
 });

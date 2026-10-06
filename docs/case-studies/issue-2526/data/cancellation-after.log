@@ -1,0 +1,33 @@
+✔ Codex cancellation stops the real shell after the repeated-call breaker fires (2919.392281ms)
+✔ the feedback integration supplies a local git identity on a clean CI runner (1084.789876ms)
+✔ stale cleanup also removes the task head after its pull request was closed (189.071494ms)
+✔ a human issue is attempted in every credential layer (0.877312ms)
+✔ every matrix row targets its isolated base branch (1.641411ms)
+✔ the task sidecar carries the workspace install grant (0.569335ms)
+✔ matrix dry-run logs forward credential names without exposing their values (1441.768016ms)
+✔ the task overlay installs packages as the runtime user (1.193643ms)
+✔ unmapped Docker version arguments fail closed instead of disappearing (2.102335ms)
+✔ container freshness compares stable tags of each flavor independently (17.950375ms)
+✔ a single-component repository in a custom registry has no Docker Hub library prefix (1.03205ms)
+✔ manual checks default safely and e2e PRs do not run the host CI (2.367489ms)
+✔ credentials prefer the app, then one token, then the default (0.395972ms)
+✔ default and unknown capabilities cannot authorize repository operations (1.818814ms)
+✔ an orphan fixture contains only the README and persists partial resources (1.051557ms)
+✔ cleanup tries every resource even after one API error (0.730837ms)
+✔ real Actions conclusions and logs are verified without act (0.848466ms)
+✔ default-token approval refusal is recorded before act fallback (0.467795ms)
+✔ an approved run is awaited and its real result is retained (0.430947ms)
+✔ no generated run records the platform limitation and uses act only for default credentials (1.058782ms)
+✔ lowered pins fail, open issues waive them, closed issues and registry failures fail closed (0.560008ms)
+✔ scoped app tokens cannot operate on repositories, administration requires an explicit successful grant (0.287978ms)
+✔ freshness uses the selected GH_TOKEN for GitHub registry requests (0.874646ms)
+✔ standalone automation jobs install GitHub helper dependencies before running scripts (0.832688ms)
+✔ every release job checks out the local credential action before using it (5.918955ms)
+ℹ tests 25
+ℹ suites 0
+ℹ pass 25
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5700.659925

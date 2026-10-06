@@ -1,0 +1,18 @@
+node:internal/modules/run_main:111
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: planning must select within its ceiling even when ultra is closer
+
+'ultra' !== 'none'
+
+    at file:///tmp/gh-issue-solver-1791224072909/tests/issue-2526-reasoning-effort.test.mjs:31:8 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: 'ultra',
+  expected: 'none',
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v26.10.0

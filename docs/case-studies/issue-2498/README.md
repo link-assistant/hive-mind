@@ -31,6 +31,7 @@
 | `prm-31/`                                                                  | package-registry-manager#31: PR metadata, all comments, the post-merge notice/log comments and the owner's feedback comment             |
 | `merged-pr-recovery-*.txt`                                                 | The post-auto-merge regression before (10 failing) and after (11 passing) the fix                                                       |
 | `start-0.35.4-resume-state.json`, `command-stream-sigkill-*.jsonl`         | The same start-command resume probe on 0.35.4, and command-stream 1.5.0 vs 1.6.2 exit reporting for SIGKILL/SIGTERM                     |
+| `merged-pr-follow-up-default-suite.log.gz`                                 | Complete default-suite run (553 files) for the post-auto-merge follow-up                                                                |
 
 **Is the gist different from the logs in the comments?** No, apart from sanitisation. `gist-log.txt` and `intermediate-log.txt` are the same start-command log. If every 40-character hex SHA is replaced with a placeholder, the two files are identical: the only differences are commit SHAs, which the gist has in full and the bot's sanitised upload shortened to `abc…def` in some places (59 075 lines each). Both end with the same container post-mortem:
 
@@ -320,3 +321,7 @@ The authenticated [freshness audit](./dependency-freshness-2026-10-06-after.txt)
 - **links-notation 0.23.0** only adds the binary codec exports.
 
 No new upstream gap was found for this follow-up: the post-merge report was entirely a Hive Mind decision, and the information needed (merge state) comes from GitHub.
+
+### Validation
+
+The [complete default-suite run](./merged-pr-follow-up-default-suite.log.gz) exercised all 553 files. Its only failure, `tests/test-preinstall-use-m-packages-1724.mjs`, still expected the old `command-stream`/`links-notation` alias names. That test now expects the new pins and passes. During CI, `npm audit` reported a newly published critical advisory, [GHSA-pqg4-j6r4-53mv](https://github.com/advisories/GHSA-pqg4-j6r4-53mv), against `shell-quote` 1.10.0, which comes in via `@changesets/cli` → `launch-editor`. The lock file now resolves `shell-quote` 1.12.0, and `npm audit` reports 0 vulnerabilities.

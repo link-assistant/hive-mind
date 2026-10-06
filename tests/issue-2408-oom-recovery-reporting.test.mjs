@@ -78,6 +78,7 @@ function makeHarness(statusProvider) {
     dockerContainerSizeProvider: async () => null,
     readFile: async file => await fs.readFile(file, 'utf8'),
     lookupLinkedPullRequest: async () => null,
+    lookupPullRequestState: async () => null, // #2498: offline — the real pull request may have merged since
     env: { HIVE_MIND_SESSION_KILL_RESUME_DELAY: '0' },
     isolationRunner: {
       generateSessionId: () => `recovery-${++counter}`,

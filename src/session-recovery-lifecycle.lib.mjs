@@ -19,7 +19,7 @@ export function parseRecoveryLogEvent(text) {
     if (!match) continue;
     try {
       const event = JSON.parse(match[1]);
-      if (event.kind === 'tool' && Number.isSafeInteger(event.attempt) && event.attempt > 0 && ['waiting', 'launching', 'running', 'completed', 'failed'].includes(event.phase) && Number.isFinite(Date.parse(event.at))) return event;
+      if (event.kind === 'tool' && Number.isSafeInteger(event.attempt) && event.attempt > 0 && ['waiting', 'launching', 'running', 'completed', 'failed', 'cancelled'].includes(event.phase) && Number.isFinite(Date.parse(event.at))) return event;
     } catch {
       // Tool output may contain malformed or quoted markers.
     }
@@ -28,7 +28,7 @@ export function parseRecoveryLogEvent(text) {
 }
 
 export function formatRecoveryLifecycle({ phase, attempt = null, sessionName = null, previousSession = null, executionUuid = null, at, startedAt = null, lastOutputAt = null, logAvailable = false, delayMs = null, exitCode = null, reason = null, nextSession = null, kind = 'container', outerTerminal = false } = {}) {
-  const titles = { waiting: '⏳ Recovery scheduled', launching: '🔄 Recovery attempt launching — outcome pending', running: '🔄 Recovery attempt under monitoring — outcome pending', completed: '✅ Recovery attempt completed successfully', failed: '❌ Recovery attempt failed', stopped: '🛑 Recovery stopped by user', unknown: '⚠️ Recovery session stopped — outcome unknown' };
+  const titles = { waiting: '⏳ Recovery scheduled', launching: '🔄 Recovery attempt launching — outcome pending', running: '🔄 Recovery attempt under monitoring — outcome pending', completed: '✅ Recovery attempt completed successfully', failed: '❌ Recovery attempt failed', stopped: '🛑 Recovery stopped by user', cancelled: '✅ Recovery cancelled — work already complete', unknown: '⚠️ Recovery session stopped — outcome unknown' };
   const lines = [`${titles[phase] || titles.running}${attempt ? ` (attempt ${attempt})` : ''}`, `Updated: ${at}`];
   if (startedAt) lines.push(`Attempt started: ${startedAt}`);
   if (sessionName) lines.push(`Recovery session: ${sessionName}`);
@@ -41,6 +41,7 @@ export function formatRecoveryLifecycle({ phase, attempt = null, sessionName = n
   }
   if (exitCode !== null) lines.push(`This attempt exited with code ${exitCode}.`);
   if (reason) lines.push(`Reason: ${String(reason).slice(0, 500)}`);
+  if (phase === 'cancelled') lines.push('No recovery attempt was launched.');
   if (nextSession) lines.push(`A further recovery was launched as ${nextSession}; its outcome is pending.`);
   else if (['failed', 'stopped'].includes(phase) && kind === 'container') lines.push('This attempt has stopped. No replacement session was launched.');
   if (kind === 'tool' && ['completed', 'failed'].includes(phase)) lines.push(outerTerminal ? 'This is the final outcome of the enclosing solve run.' : 'This is the AI tool attempt result; the enclosing solve run is still under monitoring and reports its own final outcome.');
@@ -70,10 +71,10 @@ export async function reportRecoveryLifecycle({ bot, sessionName, sessionInfo, s
     }
     if (stat) state.lastBytes = stat.size;
     const eventPhase = toolEvent?.phase === 'launching' ? 'running' : toolEvent?.phase;
-    const nextPhase = phase || (nextSession ? 'launching' : !running ? (sessionInfo.stopRequestedByUser ? 'stopped' : exitCode === null ? 'unknown' : exitCode === 0 ? 'completed' : 'failed') : eventPhase || 'running');
+    const nextPhase = phase || (nextSession ? 'launching' : !running ? (sessionInfo.stopRequestedByUser ? 'stopped' : toolEvent?.phase === 'cancelled' ? 'cancelled' : exitCode === null ? 'unknown' : exitCode === 0 ? 'completed' : 'failed') : eventPhase || 'running');
     const changed = state.phase !== nextPhase || state.outerTerminal !== !running;
     const due = !state.lastReportedMs || now - state.lastReportedMs >= RECOVERY_HEARTBEAT_MS;
-    const terminal = ['completed', 'failed', 'stopped', 'unknown'].includes(nextPhase);
+    const terminal = ['completed', 'failed', 'stopped', 'unknown', 'cancelled'].includes(nextPhase);
     sessionInfo.recoveryLifecycle = state;
     if (!changed && (!due || (terminal && !running))) {
       persist();

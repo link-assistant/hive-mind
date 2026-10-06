@@ -46,8 +46,11 @@ export async function resolvePullRequestState(pullRequestUrl, { lookupPullReques
   }
 }
 
-export async function resolveFailedSessionPullRequestState({ pullRequestUrl, outcome, lookupPullRequestState = null, verbose = false, sessionName = 'unknown', exitCode = null, status = null, logPath = null } = {}) {
-  if (!outcome?.failed || outcome.killed || !pullRequestUrl) return null;
+export async function resolveFailedSessionPullRequestState({ pullRequestUrl, outcome, killEvidence = false, lookupPullRequestState = null, verbose = false, sessionName = 'unknown', exitCode = null, status = null, logPath = null } = {}) {
+  // Issue #2498: a killed session, or a successful one that saw a container OOM
+  // event, is checked too — once its pull request is merged the work is done,
+  // so nothing may be recovered or reported as a recovery after the merge.
+  if (!pullRequestUrl || !(outcome?.failed || outcome?.killed || killEvidence)) return null;
   const state = await resolvePullRequestState(pullRequestUrl, { lookupPullRequestState, verbose });
   if (verbose && state) {
     console.log(`[VERBOSE] Completion evidence for ${sessionName}: exitCode=${exitCode}, status=${status || 'unknown'}, pullRequest=${pullRequestUrl}, merged=${state.merged}, mergedAt=${state.mergedAt || 'unknown'}, logPath=${logPath || 'unknown'}`);

@@ -63,6 +63,31 @@ export function argvFromSessionArgs(args) {
 }
 
 /**
+ * The pull request a session was started on (`solve <pull request URL>`), or null.
+ * Such a session has no *linked* pull request to look up.
+ *
+ * @see https://github.com/link-assistant/hive-mind/issues/2301
+ * @see https://github.com/link-assistant/hive-mind/issues/2498
+ */
+export function startedPullRequestUrl(sessionInfo) {
+  const started = sessionInfo?.urlContext;
+  return started?.type === 'pull' && started.owner && started.repo && started.number ? `https://github.com/${started.owner}/${started.repo}/pull/${started.number}` : null;
+}
+
+/**
+ * Whether the session carries container OOM evidence: the event the monitor
+ * remembered while it ran, or the (sticky) flag in the final status.
+ *
+ * @param {Object} options
+ * @param {Object} [options.sessionInfo]
+ * @param {Object|null} [options.statusResult]
+ * @returns {boolean}
+ */
+export function hasContainerOomEvidence({ sessionInfo = null, statusResult = null } = {}) {
+  return Boolean(getOomEventObservedAt(sessionInfo)) || statusResult?.oomKilled === true;
+}
+
+/**
  * Build the kill/recovery sections for a completed session.
  *
  * Never throws: a failed diagnosis must never block a completion notification.
@@ -73,13 +98,14 @@ export function argvFromSessionArgs(args) {
  * @param {Object|null} [options.statusResult]
  * @param {number|null} [options.exitCode]
  * @param {string|null} [options.status]
+ * @param {{merged: boolean, mergedAt: string|null}|null} [options.pullRequestState] - Issue #2498: a merged pull request ends the work
  * @param {boolean} [options.verbose]
  * @param {Function} [options.readFile]
  * @param {Object} [options.env]
- * @returns {Promise<{sections: string[], diagnosis: Object|null, killed: boolean, recovered: boolean, oomEventOnly: boolean, deliberateStop: Object|null, policy: string|null, observedAt: string|null}>}
+ * @returns {Promise<{sections: string[], diagnosis: Object|null, killed: boolean, recovered: boolean, oomEventOnly: boolean, deliberateStop: Object|null, policy: string|null, observedAt: string|null, skippedReason: string|null}>}
  */
-export async function buildKillCompletionSections({ sessionName, sessionInfo, statusResult = null, exitCode = null, status = null, verbose = false, readFile = fs.readFile, env = process.env } = {}) {
-  const empty = { sections: [], diagnosis: null, killed: false, recovered: false, oomEventOnly: false, deliberateStop: null, policy: null, observedAt: null };
+export async function buildKillCompletionSections({ sessionName, sessionInfo, statusResult = null, exitCode = null, status = null, pullRequestState = null, verbose = false, readFile = fs.readFile, env = process.env } = {}) {
+  const empty = { sections: [], diagnosis: null, killed: false, recovered: false, oomEventOnly: false, deliberateStop: null, policy: null, observedAt: null, skippedReason: null };
   try {
     const outcome = classifySessionOutcome({ exitCode, status });
     const observedAt = getOomEventObservedAt(sessionInfo);
@@ -87,6 +113,15 @@ export async function buildKillCompletionSections({ sessionName, sessionInfo, st
     const recovered = !outcome.failed && Boolean(observedAt);
     const oomEventOnly = outcome.failed && !killed && Boolean(observedAt);
     if (!killed && !recovered && !oomEventOnly) return empty;
+    // Issue #2498 (package-registry-manager#31): the session auto-merged its
+    // pull request and exited 0, yet the sticky OOM flag produced "Working
+    // session recovered from out of memory" after the merge. A merged pull
+    // request means the work is fully done: nothing is recovered and no kill,
+    // recovery or OOM notice is shown on either surface.
+    if (pullRequestState?.merged === true || Boolean(pullRequestState?.mergedAt)) {
+      if (verbose) console.log(`[VERBOSE] Session ${sessionName}: pull request merged at ${pullRequestState.mergedAt || 'unknown time'}; skipping kill/OOM reporting and recovery (exit=${exitCode}, killed=${killed}, oomEventObservedAt=${observedAt || 'none'})`);
+      return { ...empty, observedAt, skippedReason: 'pull-request-merged' };
+    }
 
     const locale = sessionInfo?.locale || null;
     const logPath = statusResult?.logPath || sessionInfo?.logPath || null;
@@ -179,16 +214,18 @@ export async function announceKillOnPullRequest({ pullRequestUrl, sessionName, s
   const skip = reason => ({ posted: false, url: null, skipped: reason, logUploaded: false });
   // Issue #2301: a session started on a pull request URL has no *linked* pull
   // request to look up — the pull request is the one it was started on.
-  const started = sessionInfo?.urlContext;
-  if (!pullRequestUrl && started?.type === 'pull' && started.owner && started.repo && started.number) pullRequestUrl = `https://github.com/${started.owner}/${started.repo}/pull/${started.number}`;
+  pullRequestUrl = pullRequestUrl || startedPullRequestUrl(sessionInfo);
   if (!pullRequestUrl) return skip('no-pull-request');
   if (typeof runCommand !== 'function') return skip('no-command-runner');
 
   const attachLogs = argsIncludeAttachLogs(sessionInfo?.args);
   const logPath = sessionInfo?.logPath || null;
 
+  // Issue #2498: a session that completed (`recovered`) already published its
+  // own final log under `--attach-logs`; a second copy titled "killed session"
+  // duplicated it and called a finished run killed.
   const upload = await attachIntermediateSessionLog({
-    attachLogs,
+    attachLogs: attachLogs && !recovered,
     logPath,
     pullRequestUrl,
     attachLog,

@@ -227,6 +227,7 @@ function monitorOptions(extra = {}) {
       probes.linkedPr += 1;
       return 'https://github.com/link-assistant/formal-ai/pull/1070';
     },
+    lookupPullRequestState: async () => null, // #2498: offline — the real pull request may have merged since
     env: { HIVE_MIND_SESSION_KILL_RESUME_DELAY: '0' },
     // Every outward-facing call is injected: this test must never talk to
     // GitHub or Telegram for real.

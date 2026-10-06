@@ -159,6 +159,7 @@ await monitorSessions(recoveredBot, false, {
   dockerContainerSizeProvider: async () => null,
   readFile: async () => '📈 [RESOURCES] phase=before-agent memAvailableBytes=822000000 memTotalBytes=12500000000 diskUsedPercent=41.0\n',
   lookupLinkedPullRequest: async () => 'https://github.com/link-assistant/hive-mind/pull/2131',
+  lookupPullRequestState: async () => null, // #2498: offline — the real pull request may have merged since
   runCommand: async (command, args) => {
     postedComments.push({ command, args });
     return { code: 0, stdout: 'https://github.com/link-assistant/hive-mind/pull/2131#issuecomment-1\n', stderr: '' };
@@ -398,6 +399,7 @@ await monitorSessions(killedBot, false, {
   dockerContainerSizeProvider: async () => null,
   readFile: async () => `${oomLog}📌 Session ID: ${TOOL_SESSION}\n`,
   lookupLinkedPullRequest: async () => 'https://github.com/link-assistant/hive-mind/pull/2131',
+  lookupPullRequestState: async () => null, // #2498: offline — the real pull request may have merged since
   env: { HIVE_MIND_SESSION_KILL_RESUME_DELAY: '0' },
   isolationRunner: {
     generateSessionId: () => 'recovery-1111-2222-3333-444455556666',

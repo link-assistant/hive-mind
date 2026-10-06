@@ -31,12 +31,27 @@ export function buildToolKillWarningComment({ tool = 'claude', sessionId = null,
  * update Telegram and the same GitHub comment. A heartbeat confirms only that
  * the retry is still awaiting its result, never that it made task progress.
  * Timers are cleared and pending publications drained before returning.
+ *
+ * Issue #2498: `isWorkDone` (e.g. "is the pull request merged?") is checked
+ * before an attempt is scheduled and again after the delay. Once the work is
+ * done nothing is retried, and a scheduled attempt is recorded as cancelled;
+ * `workDone: true` tells the caller to finish instead of reporting a failure.
  */
-export async function resumeAfterToolKill({ toolResult, attemptsUsed = 0, argv = {}, runIteration, env = process.env, $ = null, owner = null, repo = null, prNumber = null, log = async () => {}, postComment = postTrackedComment, sleep = ms => new Promise(resolve => setTimeout(resolve, ms)), random, now = Date.now, setIntervalFn = setInterval, clearIntervalFn = clearInterval } = {}) {
+export async function resumeAfterToolKill({ toolResult, attemptsUsed = 0, argv = {}, runIteration, env = process.env, $ = null, owner = null, repo = null, prNumber = null, log = async () => {}, postComment = postTrackedComment, sleep = ms => new Promise(resolve => setTimeout(resolve, ms)), random, now = Date.now, setIntervalFn = setInterval, clearIntervalFn = clearInterval, isWorkDone = null } = {}) {
   let result = toolResult;
   let used = attemptsUsed;
   let resumed = false;
   let commentId = null;
+  const workDone = async () => {
+    if (typeof isWorkDone !== 'function') return false;
+    try {
+      return (await isWorkDone()) === true;
+    } catch (error) {
+      await log(`   ⚠️  Could not check whether the work is already done: ${error?.message || error}`);
+      return false;
+    }
+  };
+  const WORK_DONE_REASON = 'the pull request is already merged, so the work is complete';
   const maxAttempts = resolveSessionKillResumeAttempts({ argv, env });
   const announce = async body => {
     if (!$ || !owner || !repo || !prNumber) return;
@@ -51,6 +66,12 @@ export async function resumeAfterToolKill({ toolResult, attemptsUsed = 0, argv =
 
   while (isToolProcessKilled(result)) {
     const sessionId = result.sessionId || null;
+    if (await workDone()) {
+      // Nothing was scheduled or announced, so no lifecycle record is written:
+      // the monitor must not open a recovery comment after the merge.
+      await log(`ℹ️ Working process killed, but ${WORK_DONE_REASON}. No recovery is needed.`);
+      return { toolResult: result, attemptsUsed: used, resumed, workDone: true };
+    }
     if (used >= maxAttempts || typeof runIteration !== 'function') {
       const reason = used >= maxAttempts ? `automatic recovery budget ${used}/${maxAttempts} is spent` : 'no retry execution callback is available';
       await log(`⚠️ Working process killed; ${reason}. No further retry is scheduled.`);
@@ -72,6 +93,11 @@ export async function resumeAfterToolKill({ toolResult, attemptsUsed = 0, argv =
     if (delayMs > 0) {
       await log(`   ⏳ Waiting ${Math.round(delayMs / 1000)}s before resuming to spread recovery launches.`);
       await sleep(delayMs);
+    }
+    if (await workDone()) {
+      await record('cancelled', { reason: WORK_DONE_REASON });
+      await log(`Recovery attempt ${used}/${maxAttempts} cancelled: ${WORK_DONE_REASON}.`);
+      return { toolResult: result, attemptsUsed: used, resumed, workDone: true };
     }
     let timer = null;
     let heartbeat = Promise.resolve();
@@ -95,7 +121,7 @@ export async function resumeAfterToolKill({ toolResult, attemptsUsed = 0, argv =
     await record(result?.success ? 'completed' : 'failed', { exitCode, reason });
     await log(`Recovery attempt ${used}/${maxAttempts} ${result?.success ? 'finished successfully' : 'failed'} (exit ${exitCode ?? 'unknown'})${reason ? `: ${String(reason).slice(0, 500)}` : ''}.`);
   }
-  return { toolResult: result, attemptsUsed: used, resumed };
+  return { toolResult: result, attemptsUsed: used, resumed, workDone: false };
 }
 
 export default { SIGKILL_EXIT_CODE, TOOL_KILL_RESUME_FEEDBACK, isToolProcessKilled, buildToolKillWarningComment, resumeAfterToolKill };

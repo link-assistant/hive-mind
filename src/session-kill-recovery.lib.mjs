@@ -86,6 +86,10 @@ export function buildKillRecoveryNotice({ diagnosis = null, exitCode = null, ses
   else if (stopLine) title = '⚠️ Working session was killed after solve had already stopped on its own';
   else if (oomEventOnly) title = resumed ? '⚠️ Work session restarted after a failed run with a container OOM event' : '⚠️ Container OOM event during a failed work session';
   else if (resumed) title = '⚠️ Working session restarted after a kill — outcome pending';
+  // Issue #2498 (package-registry-manager#31): a session that exited 0 was
+  // never killed or restarted, so "recovered from out of memory" read as if a
+  // recovery had happened. Say what did happen instead.
+  else if (survived && cause === KILL_CAUSE_OUT_OF_MEMORY) title = 'ℹ️ Work session completed — an earlier container OOM event did not stop it';
   else title = survived ? `⚠️ Working session ${killRecoveryHeadline(cause)}` : `❌ ${CAUSE_TITLES[cause] || 'Working session was killed'}`;
 
   const lines = [KILL_RECOVERY_NOTICE_MARKER, `## ${title}`, ''];
@@ -116,7 +120,7 @@ export function buildKillRecoveryNotice({ diagnosis = null, exitCode = null, ses
   } else if (stopLine) {
     lines.push('solve had already stopped for the reason above before the process was killed. No replacement session was launched.', '');
   } else if (survived) {
-    lines.push('The work session survived the container OOM event and completed. No replacement session was launched.', '');
+    lines.push('The work session survived the container OOM event and completed. No recovery was needed and no replacement session was launched.', '');
   } else if (oomEventOnly) {
     lines.push('The work process survived the container OOM event but later exited with a failure. No replacement session was launched.', '');
   } else {
@@ -127,7 +131,7 @@ export function buildKillRecoveryNotice({ diagnosis = null, exitCode = null, ses
     lines.push(`📎 Intermediate working-session log: ${logUrl}`, '');
   } else if (logAttached) {
     lines.push('📎 The intermediate working-session log was uploaded as a separate comment.', '');
-  } else if (!attachLogs) {
+  } else if (!attachLogs && !survived) {
     lines.push('_The intermediate working-session log was not uploaded because `--attach-logs` is disabled._', '');
   }
 

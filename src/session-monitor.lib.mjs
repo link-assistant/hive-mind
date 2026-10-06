@@ -31,7 +31,7 @@ import { readLogMarkerLines, readLogTextBounded, scanLogTextChunks } from './log
 import { resolveFailedSessionPullRequestState } from './github-pr-state.lib.mjs';
 import { sessionStartMs } from './session-monitor.stale-executing.lib.mjs';
 // Issue #2134: kill-cause diagnostics + the matching pull-request notice.
-import { buildKillCompletionSections, announceKillOnPullRequest } from './session-monitor.kill-sections.lib.mjs';
+import { buildKillCompletionSections, announceKillOnPullRequest, hasContainerOomEvidence, startedPullRequestUrl } from './session-monitor.kill-sections.lib.mjs';
 import { runKillRecoveryForCompletion } from './session-kill-resume.lib.mjs';
 // Issue #2189: the handled latch + the memoized last-tool-session-id read that keep a completed session from replaying its whole completion pipeline on every poll.
 import { isCompletionHandled, markCompletionHandled, resolveCachedLastToolSessionId } from './session-completion-state.lib.mjs';
@@ -757,9 +757,11 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
       let pullRequestState = null;
       const completionOutcome = classifySessionOutcome({ exitCode: finalExitCode, status: resolvedStatus });
       try {
+        // Issue #2498: a session started on a pull request has no linked one, but its merge state still decides whether a kill is reported.
         pullRequestState = await resolveFailedSessionPullRequestState({
-          pullRequestUrl,
+          pullRequestUrl: pullRequestUrl || startedPullRequestUrl(sessionInfo),
           outcome: completionOutcome,
+          killEvidence: hasContainerOomEvidence({ sessionInfo, statusResult }),
           lookupPullRequestState: options.lookupPullRequestState,
           verbose,
           sessionName,
@@ -818,7 +820,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
       try {
         const outcome = classifySessionOutcome({ exitCode: finalExitCode, status: resolvedStatus });
         const isResumableCommand = (sessionInfo?.command || 'solve') === 'solve';
-        if (outcome.killed && isResumableCommand && !sessionInfo?.containerResourceLimitExceeded) {
+        if (outcome.killed && isResumableCommand && !sessionInfo?.containerResourceLimitExceeded && pullRequestState?.merged !== true) {
           const logPath = statusResult?.logPath || sessionInfo?.logPath || null;
           // The id must be the AI TOOL's session id, not the isolation session
           //   id (sessionInfo.sessionId — wrong namespace for `solve --resume`).
@@ -889,10 +891,14 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
         statusResult,
         exitCode: finalExitCode,
         status: resolvedStatus,
+        pullRequestState,
         verbose,
         readFile: options.readFile,
         env: options.env || process.env,
       });
+      // Issue #2498: a merged pull request means the work is fully done — no
+      // recovery is started and no recovery or kill notice is published.
+      if (killReport.skippedReason) logEvent('session_kill_report_skipped', { sessionName, reason: killReport.skippedReason, exitCode: finalExitCode ?? null, status: resolvedStatus || null, mergedAt: pullRequestState?.mergedAt || null });
       // Issue #2134: `--on-session-kill=resume` must actually start a new
       // working session, and both surfaces must say so. Done before the
       // message is built so the Telegram report and the pull-request notice

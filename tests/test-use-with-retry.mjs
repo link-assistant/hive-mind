@@ -447,7 +447,7 @@ await test('does not cache-bust for resolve-path failures', async () => {
 console.log('\n📋 wrapUseWithRetry (issue #2092)\n');
 
 await test('pins mutable runtime package specifiers (issue #2150)', () => {
-  assert.equal(pinUseMSpecifier('command-stream'), 'command-stream@1.5.0');
+  assert.equal(pinUseMSpecifier('command-stream'), 'command-stream@1.6.2');
   assert.equal(pinUseMSpecifier('@dotenvx/dotenvx'), '@dotenvx/dotenvx@2.33.0');
   assert.equal(pinUseMSpecifier('yargs@18.1.0'), 'yargs@18.1.0');
   assert.equal(pinUseMSpecifier('node:path'), 'node:path');

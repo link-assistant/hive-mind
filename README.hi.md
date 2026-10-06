@@ -623,6 +623,35 @@ Shows:
 - Solve queue status
 ```
 
+#### `/pause` और `/resume` - Task रोकें और जारी रखें
+
+```text
+/pause <session-uuid या GitHub issue/PR URL>
+/resume <session-uuid या GitHub issue/PR URL>
+```
+
+Task message का reply इनमें से किसी command से करें। बिना arguments का `/resume`
+आपके paused tasks दिखाता है। Task requester और मूल chat owner उस group chat
+या bot को direct message में task नियंत्रित कर सकते हैं।
+
+`/pause` पूरे Docker task container को रोकता है, जिससे execution का CPU और RAM
+खाली होता है और filesystem सुरक्षित रहती है। Paused tasks bot restart के बाद
+भी सुरक्षित रहते हैं, automatic recovery और cleanup से संरक्षित रहते हैं और
+running queue slot खाली करते हैं। वही URL दोबारा भेजने पर मौजूदा paused task दिखता है।
+
+`/resume` सुरक्षित filesystem के snapshot से काम जारी करता है। Solve tasks अपना
+मूल working directory और अंतिम recorded AI session इस्तेमाल करते हैं, जिसमें
+local edits और installed dependencies सुरक्षित रहते हैं। दूसरी commands सुरक्षित
+files के साथ अपना मूल invocation फिर चलाती हैं। Execution UUID उपलब्ध रहता है
+और completion monitoring फिर शुरू होती है। Disk और AI conversation state से
+काम जारी होता है; task रुकने पर process memory खाली हो जाती है।
+
+Task pause/resume के लिए Docker isolation और snapshot resume वाला `start-command`
+चाहिए (0.33.0 या बाद का; resource limits वाले tasks के लिए 0.35.0 या बाद का)।
+Router और Formal AI sidecar tasks अभी समर्थित नहीं हैं। सुरक्षित container या
+workspace न मिलने पर खाली filesystem से शुरू करने के बजाय resume रोका जाता है।
+जब paused tasks को उनके stopped containers चाहिए, Docker system pruning नहीं होती।
+
 #### `/terminal_watch` - Live Session Log
 
 ```

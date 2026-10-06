@@ -11,5 +11,5 @@ RUN chmod +x /opt/hive-e2e/src/solve.mjs && \
     ln -sf /opt/hive-e2e/src/solve.mjs /usr/local/bin/solve
 USER box
 # Match the inherited Bun CLI paths and keep every package cache owned by box.
-RUN bun install --global @link-assistant/agent@0.26.11 start-command@0.35.3 && agent --version
+RUN bun install --global @link-assistant/agent@0.26.11 start-command@0.35.4 && agent --version
 RUN npm --prefix /opt/hive-e2e ci --omit=dev --ignore-scripts

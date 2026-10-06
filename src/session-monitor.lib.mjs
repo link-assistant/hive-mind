@@ -37,6 +37,7 @@ import { runKillRecoveryForCompletion } from './session-kill-resume.lib.mjs';
 // Issue #2189: the handled latch + the memoized last-tool-session-id read that keep a completed session from replaying its whole completion pipeline on every poll.
 import { isCompletionHandled, markCompletionHandled, resolveCachedLastToolSessionId } from './session-completion-state.lib.mjs';
 import { createSessionRegistryQueries } from './session-monitor.queries.lib.mjs';
+import { createSessionPauseControls, isSessionPaused } from './session-pause.lib.mjs';
 import { enforceContainerDiskLimitForSession as enforceContainerDiskLimit, formatContainerResourceLimitExceededSection } from './container-resource-monitor.lib.mjs';
 export { formatSessionCompletionMessage, getSessionCompletionExitCode } from './work-session-formatting.lib.mjs';
 export { DOCKER_TERMINAL_FOOTER_GRACE_MS } from './session-monitor.docker-terminal.lib.mjs';
@@ -281,32 +282,6 @@ export function untrackSession(sessionName, verbose = false, details = {}) {
   });
 }
 /**
- * Get the number of active sessions being tracked
- * @param {boolean} verbose - Whether to log verbose output
- * @returns {number} Number of active sessions
- */
-export function getActiveSessionCount(verbose = false) {
-  if (verbose) {
-    console.log(`[VERBOSE] Active sessions: ${activeSessions.size}`);
-  }
-  return activeSessions.size;
-}
-/**
- * Get all active sessions
- * @param {boolean} verbose - Whether to log verbose output
- * @returns {Array<{sessionName: string, sessionInfo: Object}>} Array of active sessions
- */
-function getActiveSessions(verbose = false) {
-  const sessions = [];
-  for (const [sessionName, sessionInfo] of activeSessions.entries()) {
-    sessions.push({ sessionName, sessionInfo });
-  }
-  if (verbose) {
-    console.log(`[VERBOSE] Retrieved ${sessions.length} active session(s)`);
-  }
-  return sessions;
-}
-/**
  * Remove a session from tracking
  * @param {string} sessionName - Name of the session to remove
  * @param {boolean} verbose - Whether to log verbose output
@@ -531,7 +506,7 @@ function formatDockerTaskContainerKeptSection({ containerName, keepPolicy }) {
   return ['*Docker container kept*', `Container: \`${containerName}\``, `Policy: \`HIVE_MIND_KEEP_TASK_CONTAINER=${keepPolicy}\``, `Inspect: \`docker start -ai ${containerName}\``, `Shell: \`docker exec -it ${containerName} sh\``, `Remove when done: \`docker rm -f ${containerName}\``].join('\n');
 }
 export function buildDockerTaskContainerCompletionAction({ sessionName, sessionInfo, exitCode = null, status = null, env = process.env, verbose = false } = {}) {
-  if (sessionInfo?.isolationBackend !== 'docker') {
+  if (sessionInfo?.isolationBackend !== 'docker' || isSessionPaused(sessionInfo)) {
     return { applies: false, containerName: null, keepPolicy: null, shouldRemove: false, extraSection: '' };
   }
   const containerName = sessionInfo.sessionId || sessionName || null;
@@ -733,6 +708,7 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
     console.log(`[VERBOSE] Checking ${sessions.length} active session(s)...`);
   }
   for (const entry of sessions) {
+    if (isSessionPaused(entry.sessionInfo)) continue;
     // Issue #2408: the monitor ticks every 30 s whether or not the previous
     // tick has finished, and a completion (pull request lookup, log upload,
     // recovery launch, Telegram edit) takes minutes. Overlapping ticks used to
@@ -1311,6 +1287,13 @@ export async function resumeTrackedSessions(options = {}) {
       continue;
     }
     activeSessions.set(sessionName, sessionInfo);
+    if (isSessionPaused(sessionInfo)) {
+      try {
+        await reconcilePausedSession(sessionName, { runner: options.isolationRunner, verbose });
+      } catch (error) {
+        console.error(`[session-monitor] Could not reconcile paused task ${sessionName}: ${error.message}`);
+      }
+    }
     resumed.push({ sessionName, sessionInfo });
     logEvent('session_resumed', {
       sessionName,
@@ -1335,7 +1318,7 @@ export async function resumeTrackedSessions(options = {}) {
 }
 // Issue #2175: the read-only registry queries live in their own module so this
 // file stays under the 1350-line early-warning threshold (see issue #1593).
-const { hasActiveSessionForUrl, findStoppableSessionByUrl, hasActiveSessionForUrlAsync, getRunningTrackedIsolationSessions, getRunningSessionItems, getSessionStats } = createSessionRegistryQueries({
+const { getActiveSessionCount, getActiveSessions, hasActiveSessionForUrl, findStoppableSessionByUrl, hasActiveSessionForUrlAsync, getRunningTrackedIsolationSessions, getRunningSessionItems, getSessionStats } = createSessionRegistryQueries({
   activeSessions,
   normalizeSessionUrl,
   isNonIsolationSessionActive,
@@ -1343,4 +1326,16 @@ const { hasActiveSessionForUrl, findStoppableSessionByUrl, hasActiveSessionForUr
   checkScreenSessionExists,
   NON_ISOLATION_SESSION_TIMEOUT_MS,
 });
-export { hasActiveSessionForUrl, findStoppableSessionByUrl, hasActiveSessionForUrlAsync, getRunningTrackedIsolationSessions, getRunningSessionItems, getSessionStats };
+export { getActiveSessionCount, hasActiveSessionForUrl, findStoppableSessionByUrl, hasActiveSessionForUrlAsync, getRunningTrackedIsolationSessions, getRunningSessionItems, getSessionStats };
+const { findControllableSession, getPausedSessions, pauseTrackedSession, resumePausedSession, reconcilePausedSession } = createSessionPauseControls({
+  activeSessions,
+  sessionsInFlight,
+  getRunner: getIsolationRunner,
+  logEvent,
+  // Pause persistence is mandatory when a durable store is attached: failure
+  // must stop the operation before stopping/starting a container.
+  persist: (name, info, previousName = null) => {
+    if (sessionStore) sessionStore.persist(name, info, { strict: true, replaceSessionName: previousName });
+  },
+});
+export { findControllableSession, getPausedSessions, pauseTrackedSession, resumePausedSession };

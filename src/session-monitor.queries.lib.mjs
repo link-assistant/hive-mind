@@ -13,6 +13,7 @@
  *
  * @see https://github.com/link-assistant/hive-mind/issues/2175
  */
+import { isSessionPaused } from './session-pause.lib.mjs';
 
 /**
  * Bind the registry queries to a session-monitor instance.
@@ -27,6 +28,19 @@
  * @returns {{hasActiveSessionForUrl: Function, findStoppableSessionByUrl: Function, hasActiveSessionForUrlAsync: Function, getRunningTrackedIsolationSessions: Function, getRunningSessionItems: Function, getSessionStats: Function}}
  */
 export function createSessionRegistryQueries({ activeSessions, normalizeSessionUrl, isNonIsolationSessionActive, getIsolationSessionState, checkScreenSessionExists, NON_ISOLATION_SESSION_TIMEOUT_MS }) {
+  /** Count tasks consuming queue capacity, including pending stop/start. */
+  function getActiveSessionCount(verbose = false) {
+    const count = [...activeSessions.values()].filter(info => info.pauseState !== 'paused').length;
+    if (verbose) console.log(`[VERBOSE] Active sessions: ${count}`);
+    return count;
+  }
+
+  /** All tracked tasks, including paused tasks retained for explicit resume. */
+  function getActiveSessions(verbose = false) {
+    const sessions = [...activeSessions].map(([sessionName, sessionInfo]) => ({ sessionName, sessionInfo }));
+    if (verbose) console.log(`[VERBOSE] Retrieved ${sessions.length} active session(s)`);
+    return sessions;
+  }
   /**
    * Issue #1567: Check if there's an active session for a given URL.
    * This prevents concurrent sessions on the same PR/issue, which causes
@@ -147,6 +161,7 @@ export function createSessionRegistryQueries({ activeSessions, normalizeSessionU
       if (!sessionInfo.url || normalizeSessionUrl(sessionInfo.url) !== normalizedUrl) {
         continue;
       }
+      if (isSessionPaused(sessionInfo)) return { isActive: true, sessionName, status: sessionInfo.pauseState };
       if (!sessionInfo.isolationBackend) {
         if (isNonIsolationSessionActive(sessionName, sessionInfo, verbose)) {
           return { isActive: true, sessionName, status: null };
@@ -186,13 +201,15 @@ export function createSessionRegistryQueries({ activeSessions, normalizeSessionU
     const sessions = [];
     const byTool = {};
     for (const [sessionName, sessionInfo] of activeSessions.entries()) {
-      if (!sessionInfo.isolationBackend) {
+      if (sessionInfo.pauseState === 'paused' || !sessionInfo.isolationBackend) {
         continue;
       }
-      const state = await getIsolationSessionState(sessionName, sessionInfo, {
-        verbose,
-        statusProvider: options.statusProvider,
-      });
+      const state = isSessionPaused(sessionInfo)
+        ? { running: true, status: sessionInfo.pauseState }
+        : await getIsolationSessionState(sessionName, sessionInfo, {
+            verbose,
+            statusProvider: options.statusProvider,
+          });
       if (!state.running) {
         sessionInfo.lastKnownStatus = state.status || null;
         sessionInfo.lastKnownExitCode = state.exitCode ?? null;
@@ -228,9 +245,13 @@ export function createSessionRegistryQueries({ activeSessions, normalizeSessionU
     const items = [];
     const screenChecker = options.screenChecker || checkScreenSessionExists;
     for (const [sessionName, sessionInfo] of activeSessions.entries()) {
+      if (sessionInfo.pauseState === 'paused') continue;
       let running;
       let status = null;
-      if (sessionInfo.isolationBackend) {
+      if (isSessionPaused(sessionInfo)) {
+        // Reserve capacity until stop/start has been confirmed by its owner.
+        status = sessionInfo.pauseState;
+      } else if (sessionInfo.isolationBackend) {
         // Forward every injectable seam so the listing applies the same #1927
         // stale-`executing` reconciliation the monitor does — a session that
         // start-command still reports as `executing` but whose backend is gone (or
@@ -295,7 +316,8 @@ export function createSessionRegistryQueries({ activeSessions, normalizeSessionU
     }
     return {
       total: activeSessions.size,
-      executing: activeSessions.size,
+      executing: sessions.filter(s => s.pauseState !== 'paused').length,
+      paused: sessions.filter(s => s.pauseState === 'paused').length,
       executed: 0,
       successful: 0,
       failed: 0,
@@ -304,5 +326,5 @@ export function createSessionRegistryQueries({ activeSessions, normalizeSessionU
     };
   }
 
-  return { hasActiveSessionForUrl, findStoppableSessionByUrl, hasActiveSessionForUrlAsync, getRunningTrackedIsolationSessions, getRunningSessionItems, getSessionStats };
+  return { getActiveSessionCount, getActiveSessions, hasActiveSessionForUrl, findStoppableSessionByUrl, hasActiveSessionForUrlAsync, getRunningTrackedIsolationSessions, getRunningSessionItems, getSessionStats };
 }

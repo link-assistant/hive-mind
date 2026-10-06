@@ -90,7 +90,7 @@ function toIso(value) {
  */
 export function serializeSessionInfo(sessionInfo = {}) {
   const out = {};
-  for (const field of PERSISTABLE_FIELDS) {
+  for (const field of [...PERSISTABLE_FIELDS, 'pauseState', 'pausedAt', 'pauseWorkingDirectory', 'pauseRequestedBy']) {
     if (sessionInfo[field] === undefined) continue;
     if (field === 'startTime') {
       const iso = toIso(sessionInfo.startTime);
@@ -166,7 +166,7 @@ export function createSessionStore(options = {}) {
   }
 
   function writeSnapshotMap(sessions) {
-    if (!ensureDir()) return;
+    if (!ensureDir()) return false;
     const payload = JSON.stringify({ version: 1, updatedAt: toIso(now()), sessions }, null, 2);
     const tmpPath = `${snapshotPath}.tmp`;
     try {
@@ -174,8 +174,10 @@ export function createSessionStore(options = {}) {
       // a half-written snapshot.
       fsImpl.writeFileSync(tmpPath, payload);
       fsImpl.renameSync(tmpPath, snapshotPath);
+      return true;
     } catch (error) {
       log('error', `Could not write session snapshot: ${error.message}`);
+      return false;
     }
   }
 
@@ -205,13 +207,15 @@ export function createSessionStore(options = {}) {
      * @param {string} sessionName
      * @param {object} sessionInfo
      */
-    persist(sessionName, sessionInfo) {
+    persist(sessionName, sessionInfo, { strict = false, replaceSessionName = null } = {}) {
       if (!sessionName) return;
       const sessions = readSnapshotMap();
+      if (replaceSessionName && replaceSessionName !== sessionName) delete sessions[replaceSessionName];
       const serialized = serializeSessionInfo(sessionInfo);
       serialized.persistedAt = toIso(now());
       sessions[sessionName] = serialized;
-      writeSnapshotMap(sessions);
+      const written = writeSnapshotMap(sessions);
+      if (strict && !written) throw new Error('Could not persist task state.');
       appendEvent('track', sessionName, { sessionInfo: serialized });
       log('debug', `Persisted session ${sessionName}`, { command: serialized.command, url: serialized.url });
     },
@@ -250,4 +254,14 @@ export function createSessionStore(options = {}) {
       return out;
     },
   };
+}
+
+/** Stopped task containers that cleanup must retain for an explicit resume. */
+export function getPausedTaskContainerNames(store = createSessionStore()) {
+  return new Set(
+    store
+      .load()
+      .filter(({ sessionInfo }) => sessionInfo.pauseState && sessionInfo.isolationBackend === 'docker')
+      .map(({ sessionName, sessionInfo }) => sessionInfo.sessionId || sessionName)
+  );
 }

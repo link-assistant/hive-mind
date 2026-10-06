@@ -593,7 +593,9 @@ export function planDockerIsolationCleanup(options = {}) {
     let reason;
     let action = 'keep';
 
-    if (mode === 'none') {
+    if (container.pausedByUser) {
+      reason = 'paused-task';
+    } else if (mode === 'none') {
       reason = 'disabled';
     } else if (outcome.running) {
       reason = 'active-container';
@@ -628,6 +630,7 @@ export function planDockerIsolationCleanup(options = {}) {
 export function describeDockerIsolationReason(reason) {
   const map = {
     disabled: 'docker-isolation cleanup disabled',
+    'paused-task': 'paused task kept for resume',
     'active-container': 'running docker-isolation task',
     'unknown-container-state': 'container state is not terminal',
     'successful-container': 'successful docker-isolation task container',

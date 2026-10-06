@@ -22,6 +22,7 @@ import { execFileSync } from 'node:child_process';
 import { extractTaskRefsFromCommand, isDockerIsolationSessionName, parseDockerContainerExitCode, parseRemoteUrl } from './cleanup.lib.mjs';
 import { correlateProcesses, parseStartCommandLogMetadata, redactProcessText } from './process-debug.lib.mjs';
 import { buildSystemCleanupPlan, estimateSystemCleanupPlan, formatSystemCleanupEstimateLine, formatSystemCleanupTotalLine } from './system-cleanup-estimates.lib.mjs';
+import { getPausedTaskContainerNames } from './session-store.lib.mjs';
 
 /** Run a command, returning trimmed stdout or null on any failure. */
 function tryExec(cmd, args, options = {}) {
@@ -368,7 +369,8 @@ export function parseDockerPsJsonLines(output) {
  */
 export function listDockerIsolationContainers() {
   const out = tryExec('docker', ['ps', '-a', '--format', '{{json .}}']);
-  return out ? parseDockerPsJsonLines(out) : [];
+  const paused = getPausedTaskContainerNames();
+  return out ? parseDockerPsJsonLines(out).map(container => ({ ...container, pausedByUser: paused.has(container.name) })) : [];
 }
 
 function listStartCommandLogFiles(logRoot, maxFiles) {
@@ -863,6 +865,7 @@ export function removePath(targetPath) {
  */
 export function removeDockerContainer(containerName) {
   if (!isDockerIsolationSessionName(containerName)) return false;
+  if (getPausedTaskContainerNames().has(containerName)) return false;
   return tryExec('docker', ['rm', '-f', containerName], { timeout: 180000, stdio: ['ignore', 'pipe', 'pipe'] }) !== null;
 }
 
@@ -883,7 +886,9 @@ export function removeDockerContainer(containerName) {
  */
 export async function runSystemCleanup(options = {}) {
   const { apt = false, journal = false, docker = false, npm = false, journalVacuumTime = '2weeks', dryRun = false, useSudo = false, logFn = () => {}, execFn = tryExec } = options;
-  const plan = buildSystemCleanupPlan({ apt, journal, docker, npm, journalVacuumTime, useSudo });
+  const paused = docker ? options.pausedContainerNames || getPausedTaskContainerNames() : new Set();
+  if (paused.size > 0) await logFn('   Docker system prune skipped: paused task files are preserved for /resume.');
+  const plan = buildSystemCleanupPlan({ apt, journal, docker: docker && paused.size === 0, npm, journalVacuumTime, useSudo });
   const results = [];
 
   if (dryRun) {

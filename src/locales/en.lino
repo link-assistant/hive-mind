@@ -462,6 +462,7 @@ en
           💡 Use /queue to check the queue status.
         """
       session
+        paused "This URL has a paused task: `{{session}}`. Its files are preserved. Use /resume {{session}} to continue."
         running """
           ❌ A working session is already running for this URL.
 
@@ -610,6 +611,8 @@ en
       stop
         start "*/stop* / */start* - Stop or resume accepting new tasks (owner only)"
         uuid "*/stop* `<uuid>` - Send CTRL+C to an isolated solve/hive session (owner only). Also works as a reply to a message containing the UUID."
+      pause
+        resume "*/pause* / */resume* `<uuid or URL>` - Stop a Docker task, preserving its files, or continue it (task requester or chat owner). Also works as a reply, in groups and DMs."
       log "*/log* - Fetch isolation session log (owner only). Usage: `/log <uuid>` or reply with `/log`"
       terminal
         watch "*/terminal\\_watch* (alias: */watch*) - Live-update an isolation session log (chat owner or session requester). Usage: `/terminal_watch <uuid>`, `/watch <uuid>`, or reply with either command"

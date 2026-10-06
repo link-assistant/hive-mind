@@ -766,7 +766,7 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'working-session-live-progress': {
     type: 'string',
-    description: '[EXPERIMENTAL] Enable live progress monitoring. Accepts "comment" (default, updates a per-session PR comment) or "pr" (updates PR description). Plain --working-session-live-progress means "comment". Works with or without --interactive-mode.',
+    description: '[EXPERIMENTAL] Enable live progress monitoring. Updates a per-session PR comment. Accepts "comment" (default) or "pr" (alias for "comment"). Plain --working-session-live-progress means "comment". Works with or without --interactive-mode.',
     default: false,
   },
   language: {
@@ -1170,7 +1170,7 @@ export const parseArguments = async (yargs = getLinoYargsFactory(), hideBinFn = 
     } else if (typeof val === 'string' && !['comment', 'pr'].includes(val.toLowerCase())) {
       throw new Error(`Invalid --working-session-live-progress value: "${val}". Expected "comment" or "pr".`);
     } else if (typeof val === 'string') {
-      argv.workingSessionLiveProgress = val.toLowerCase();
+      argv.workingSessionLiveProgress = 'comment';
     }
   }
 

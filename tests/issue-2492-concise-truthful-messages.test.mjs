@@ -170,7 +170,7 @@ assert.doesNotMatch(noChanges, /stays a draft|Nothing was implemented|above/, 'd
 assert.doesNotMatch(buildNoChangesProducedComment(), /placeholder/);
 
 const resultsSource = readFileSync(new URL('../src/solve.results.lib.mjs', import.meta.url), 'utf8');
-assert.match(resultsSource, /changeStats\.hasChanges \? `This pull request implements a solution/, 'an empty pull request is not described as implementing a solution');
+assert.doesNotMatch(resultsSource, /This pull request implements a solution/, 'completion does not invent a solution description');
 
 // ---------------------------------------------------------------------------
 // 9. Force-killed session: promise a resume only when there is one.

@@ -3,11 +3,11 @@
  * Progress Monitoring Library
  *
  * [EXPERIMENTAL] This module provides live progress monitoring for work sessions
- * by tracking TODO list updates and reflecting them in PR comments or descriptions.
+ * by tracking TODO list updates and reflecting them in PR comments.
  *
  * Display modes:
  * - "comment" (default): Creates a per-session PR comment with updatable progress section
- * - "pr": Updates the PR description with a live progress section
+ * - "pr": Alias for comment mode
  *
  * Features:
  * - Tracks TODO list state from TodoWrite tool calls
@@ -30,7 +30,6 @@ import { LIVE_PROGRESS_SECTION_START_MARKER, LIVE_PROGRESS_SECTION_END_MARKER, p
 import { writeSanitizedPublicationFile } from './token-sanitization.lib.mjs';
 
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
-import { quietProbe } from './quiet-probe.lib.mjs'; // issue #2135: keep large read-only probe payloads out of the attached log
 /**
  * Configuration constants for progress monitoring
  */
@@ -44,7 +43,7 @@ const CONFIG = {
   // tool-comments.lib.mjs — single source of truth).
   PROGRESS_SECTION_START: LIVE_PROGRESS_SECTION_START_MARKER,
   PROGRESS_SECTION_END: LIVE_PROGRESS_SECTION_END_MARKER,
-  // Minimum interval between PR description updates (in ms)
+  // Minimum interval between progress comment updates (in ms)
   MIN_UPDATE_INTERVAL: 10000, // 10 seconds to avoid rate limiting
   // Valid display modes
   DISPLAY_MODES: ['comment', 'pr'],
@@ -174,7 +173,7 @@ ${CONFIG.PROGRESS_SECTION_END}`;
  * Normalize the display mode value.
  * - false/falsy → null (disabled)
  * - true or "true" → default mode ("comment")
- * - "comment" or "pr" → that mode
+ * - "comment" or "pr" → "comment"
  *
  * @param {*} value - Raw option value
  * @returns {string|null} Normalized display mode or null if disabled
@@ -183,7 +182,7 @@ export const normalizeDisplayMode = value => {
   if (!value || value === 'false') return null;
   if (value === true || value === 'true') return CONFIG.DEFAULT_DISPLAY_MODE;
   const mode = String(value).toLowerCase();
-  if (CONFIG.DISPLAY_MODES.includes(mode)) return mode;
+  if (CONFIG.DISPLAY_MODES.includes(mode)) return CONFIG.DEFAULT_DISPLAY_MODE;
   // Unknown value falls back to default
   return CONFIG.DEFAULT_DISPLAY_MODE;
 };
@@ -199,7 +198,7 @@ export const normalizeDisplayMode = value => {
  * @param {Function} options.log - Logging function
  * @param {boolean} options.verbose - Enable verbose logging
  * @param {string} options.sessionId - Work session identifier
- * @param {string} options.displayMode - Display mode: "comment" or "pr"
+ * @param {string} options.displayMode - "comment" ("pr" is an alias)
  * @returns {Object} Progress monitor instance
  */
 export const createProgressMonitor = ({ owner, repo, prNumber, $, log, verbose = false, sessionId = null, displayMode = 'comment' }) => {
@@ -208,7 +207,7 @@ export const createProgressMonitor = ({ owner, repo, prNumber, $, log, verbose =
     currentTodos: null,
     sessionId: sessionId || `session-${Date.now()}`,
     commentId: null, // For comment mode: the ID of the progress comment to update
-    displayMode: displayMode || CONFIG.DEFAULT_DISPLAY_MODE,
+    displayMode: normalizeDisplayMode(displayMode) || CONFIG.DEFAULT_DISPLAY_MODE,
   };
 
   /**
@@ -271,64 +270,6 @@ export const createProgressMonitor = ({ owner, repo, prNumber, $, log, verbose =
   };
 
   /**
-   * Update progress via PR description (pr mode)
-   *
-   * @param {Array<Object>} todos - Array of TODO items
-   * @returns {Promise<boolean>} True if update was successful
-   */
-  const updateProgressPrDescription = async todos => {
-    try {
-      state.currentTodos = todos;
-
-      // Fetch current PR description
-      // Issue #2135: `mirror: false`. This runs on every progress update and
-      // the answer is the whole pull-request description, which by then holds
-      // the progress section itself.
-      const prData = await quietProbe($)`gh pr view ${prNumber} --repo ${owner}/${repo} --json body`;
-      const prInfo = JSON.parse(prData.stdout);
-      let currentBody = prInfo.body || '';
-
-      // Generate new progress section
-      const progressSection = generateProgressSection(todos, state.sessionId);
-
-      // Check if progress section already exists
-      const hasProgressSection = currentBody.includes(CONFIG.PROGRESS_SECTION_START);
-
-      let updatedBody;
-      if (hasProgressSection) {
-        // Replace existing progress section
-        const startIdx = currentBody.indexOf(CONFIG.PROGRESS_SECTION_START);
-        const endIdx = currentBody.indexOf(CONFIG.PROGRESS_SECTION_END);
-
-        if (startIdx !== -1 && endIdx !== -1) {
-          updatedBody = currentBody.substring(0, startIdx) + progressSection + currentBody.substring(endIdx + CONFIG.PROGRESS_SECTION_END.length);
-        } else {
-          updatedBody = currentBody + '\n\n' + progressSection;
-        }
-      } else {
-        updatedBody = currentBody + '\n\n' + progressSection;
-      }
-
-      // Write to temp file and update PR
-      const fs = (await import('fs')).promises;
-      const tempBodyFile = `/tmp/pr-progress-${prNumber}-${Date.now()}.md`;
-      await writeSanitizedPublicationFile(tempBodyFile, updatedBody);
-      try {
-        await $`gh pr edit ${prNumber} --repo ${owner}/${repo} --body-file ${tempBodyFile}`;
-      } finally {
-        await fs.unlink(tempBodyFile).catch(() => {});
-      }
-
-      const stats = calculateProgress(todos);
-      await log(`📊 Updated PR progress: ${stats.percentage}% (${stats.completed}/${stats.total} tasks completed)`);
-      return true;
-    } catch (error) {
-      await log(`⚠️  Failed to update PR progress: ${error.message}`);
-      return false;
-    }
-  };
-
-  /**
    * Update progress using the configured display mode
    *
    * @param {Array<Object>} todos - Array of TODO items
@@ -346,12 +287,7 @@ export const createProgressMonitor = ({ owner, repo, prNumber, $, log, verbose =
       return false;
     }
 
-    let result;
-    if (state.displayMode === 'pr') {
-      result = await updateProgressPrDescription(todos);
-    } else {
-      result = await updateProgressComment(todos);
-    }
+    const result = await updateProgressComment(todos);
 
     if (result) {
       state.lastUpdate = now;

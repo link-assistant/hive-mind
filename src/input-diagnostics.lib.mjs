@@ -60,7 +60,9 @@ export function formatInputLocation(input, location = {}) {
     .join('\n')}`;
 }
 
-const escapeLegacyMarkdown = text => text.replace(/([_*`[])/g, '\\$1');
+// Legacy Markdown treats a backslash as an escape only before _ * ` [ and shows any other
+// backslash as typed, so backslashes stay unescaped (escaping them would show them doubled).
+const escapeLegacyMarkdown = text => text.replace(/[_*`[]/g, char => `\\${char}`);
 
 /**
  * Telegram legacy-Markdown hint: the part in bold and a caret snippet in a code block.

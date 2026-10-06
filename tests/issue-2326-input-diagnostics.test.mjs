@@ -75,6 +75,12 @@ test('Telegram hints fall back to escaped text with capitals when a code block c
   assert.match(formatInputLocationMarkdown('a_b', { part: 'a_b', start: 0, end: 3, label: 'URL' }), /^Check URL:\n```\na_b\n\^\^\^\n```$/);
 });
 
+test('Telegram legacy-Markdown fallback keeps backslashes as typed', () => {
+  // Outside entities legacy Markdown reads `\` as an escape only before _ * ` [, so `\\_` shows `\_`.
+  assert.equal(formatInputLocationMarkdown('o\\_r`x', { part: 'r', start: 3, end: 4 }), 'Check input *r* (column 4):\no\\\\_R\\`x');
+  assert.equal(formatInputLocationMarkdown('o/r`\\x', { part: '`\\', start: 3, end: 5 }), 'Check input "\\`\\\\" (column 4):\no/r\\`\\x');
+});
+
 test('Telegram /task replies use the same caret block', () => {
   const input = 'https://github.com/o/r/issuese/1';
   const reply = formatTaskUrlError(parseTaskIssueUrl(input), input);

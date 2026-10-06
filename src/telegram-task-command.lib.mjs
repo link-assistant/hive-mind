@@ -9,10 +9,18 @@ import { FIX_MODE_CI_CD, FIX_MODE_UPDATE_ALL_DEPENDENCIES, parseFixRepository } 
 import { createTaskIssue, parseTaskIssueCreationInput, resolveTaskIssueCreationInput } from './task.issue-creation.lib.mjs';
 import { parseTaskIssueUrl } from './task.split.lib.mjs';
 import { escapeMarkdown } from './telegram-markdown.lib.mjs';
+import { formatInputLocationMarkdown } from './input-diagnostics.lib.mjs';
 import { parseTelegramCommandPrefix } from './telegram-command-text.lib.mjs';
 import { extractIsolationFromArgs, isValidPerCommandIsolation } from './telegram-isolation.lib.mjs';
 import { moveArgumentToFront, parseArgsWithYargs, parseCommandArgs } from './telegram-solve-command.lib.mjs';
 import { formatStartingWorkSessionMessage } from './work-session-formatting.lib.mjs';
+
+/** Issue #2326: show the offending URL part under a caret in a monospace block. */
+export function formatTaskUrlError(parsedIssue, url) {
+  const { reason, parsed } = parsedIssue;
+  if (!reason || !parsed?.inputLocation) return `❌ ${escapeMarkdown(parsedIssue.error || 'Invalid GitHub issue URL')}`;
+  return `❌ ${escapeMarkdown(reason)}\n\n${formatInputLocationMarkdown(url, parsed.inputLocation)}${parsed.suggestion ? `\n\n💡 Did you mean: \`${parsed.suggestion}\`` : ''}`;
+}
 
 export const TASK_COMMAND_NAMES = Object.freeze(['task', 'split']);
 
@@ -264,7 +272,7 @@ export function registerTaskCommands(bot, options) {
 
     const parsedIssue = parseTaskIssueUrl(built.issueUrl);
     if (!parsedIssue.valid) {
-      await safeReply(ctx, `❌ ${escapeMarkdown(parsedIssue.error || 'Invalid GitHub issue URL')}`, { reply_to_message_id: ctx.message.message_id });
+      await safeReply(ctx, formatTaskUrlError(parsedIssue, built.issueUrl), { reply_to_message_id: ctx.message.message_id });
       return;
     }
 

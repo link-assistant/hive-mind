@@ -35,7 +35,7 @@ export function addGitHubUrlInputLocation(result, input) {
         }
       }
     } else {
-      location = { part: input, start: 0, end: input.length, label: 'URL (missing issue or pull request number)' };
+      location = { part: '', start: input.length, end: input.length, label: 'an issue or pull request number' };
     }
   }
   if (!result.valid || location) {

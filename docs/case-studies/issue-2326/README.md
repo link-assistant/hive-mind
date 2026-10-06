@@ -19,6 +19,42 @@ unrelated argument values are omitted. Malformed flags also include their
 positions. `solve` previously swallowed some validation failures and continued
 with `error.argv` or `{}`; those failures now reach its existing error handler.
 
+## Caret display (review feedback)
+
+Review of the first version ([comment](https://github.com/link-assistant/hive-mind/pull/2562#issuecomment-6023335244))
+found a quoted segment and a column number not user friendly enough, and asked
+for bold text, a capitalization fallback, or — preferably — a compiler-style
+arrow in a code block. Hints now show the input with a caret line under the
+offending part:
+
+```text
+Check URL path segment "issuese" (column 37):
+  https://github.com/bpmbpm/mdld-test/issuese/1
+                                      ^^^^^^^
+```
+
+Telegram replies use legacy Markdown (`parse_mode: 'Markdown'` in
+`safeReply`): the part is bold and the snippet is in a ` ``` ` block, so the
+caret stays aligned in a monospace font. Telegram's legacy Markdown does not
+allow escapes inside entities ([Bot API, Markdown style](https://core.telegram.org/bots/api#markdown-style)),
+so input containing a backtick falls back to escaped text with the offending
+part in capitals, and a part containing Markdown characters is quoted instead
+of bold. For the same reason, the "Did you mean" suggestion inside inline code is no
+longer escaped (an underscore would otherwise show as `\_`). Wide characters
+count as two columns and zero-width characters as none. Telegram snippets
+longer than 48 columns are trimmed around the offending part at a `/` or space
+boundary, so a long URL is less likely to wrap and misalign the caret on a
+narrow phone screen (wrapping was not verified on a device). Missing issue or
+pull request numbers put the caret after the end of the URL. The `/task` reply
+uses the same block.
+
+Preview the Telegram replies without contacting Telegram:
+
+```sh
+node experiments/issue-2326/preview-telegram.mjs
+node experiments/issue-2326/preview-task.mjs
+```
+
 ## Reproduction and verification
 
 ```sh
@@ -29,7 +65,7 @@ npm test
 
 The regression file reproduced the missing URL correction/location, missing
 option positions, and swallowed validation error before the implementation.
-It covers 20 cases, including the production Telegram validator, CLI and
+It covers 24 cases, including caret alignment, trimming and Markdown fallbacks, the production Telegram validator and `/task` reply, CLI and
 Telegram parsers, malformed flags, invalid values, multiple errors, duplicate
 path words, unsafe guesses, preserved recovery, and error metadata/idempotence.
 

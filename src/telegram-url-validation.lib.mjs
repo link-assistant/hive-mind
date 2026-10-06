@@ -1,6 +1,6 @@
 import { parseGitHubUrl } from './github-url-parser.lib.mjs';
 import { formatUrlRepairs, hasNotableRepair, namesGitHubHost } from './github-url-recovery.lib.mjs';
-import { formatInputLocation } from './input-diagnostics.lib.mjs';
+import { formatInputLocationMarkdown } from './input-diagnostics.lib.mjs';
 import { t } from './i18n.lib.mjs';
 import { cleanNonPrintableChars, escapeMarkdown, makeSpecialCharsVisible } from './telegram-markdown.lib.mjs';
 
@@ -11,7 +11,7 @@ export function validateTelegramGitHubUrl(rawUrl, { allowedTypes = ['issue', 'pu
   const parsed = parseGitHubUrl(url);
   const reject = error => ({
     valid: false,
-    error: `${error}\n\n${escapeMarkdown(parsed.inputHint || formatInputLocation(rawUrl, { label: 'URL' }))}`,
+    error: `${error}\n\n${formatInputLocationMarkdown(url, parsed.inputLocation || { label: 'URL' })}`,
     suggestion: parsed.suggestion,
   });
   if (!namesGitHubHost(url)) return reject(t('telegram.first_arg_must_be_github_url', {}, { locale }));

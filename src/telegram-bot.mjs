@@ -563,7 +563,7 @@ async function handleSolveCommand(ctx) {
   if (!validation.valid) {
     let errorMsg = `❌ ${validation.error}`;
     if (validation.suggestion) {
-      errorMsg += `\n\n${t('telegram.did_you_mean', { suggestion: escapeMarkdown(validation.suggestion) }, { locale: solveLocale })}`;
+      errorMsg += `\n\n${t('telegram.did_you_mean', { suggestion: validation.suggestion }, { locale: solveLocale })}`;
     }
     errorMsg += `\n\n${t('telegram.solve_invalid_url_help', {}, { locale: solveLocale })}`;
     await safeReply(ctx, errorMsg, { reply_to_message_id: ctx.message.message_id });
@@ -793,7 +793,7 @@ async function handleHiveCommand(ctx) {
   const validation = await validateGitHubUrl(userArgs, { allowedTypes: ['repo', 'organization', 'user', 'issues_list', 'pulls_list'], commandName: 'hive', createYargsConfig: createHiveYargsConfig, positionalNames: ['github-url'], locale: hiveLocale });
   if (!validation.valid) {
     let errorMsg = `❌ ${validation.error}`;
-    if (validation.suggestion) errorMsg += `\n\n${t('telegram.did_you_mean', { suggestion: escapeMarkdown(validation.suggestion) }, { locale: hiveLocale })}`;
+    if (validation.suggestion) errorMsg += `\n\n${t('telegram.did_you_mean', { suggestion: validation.suggestion }, { locale: hiveLocale })}`;
     errorMsg += `\n\n${t('telegram.hive_invalid_url_help', {}, { locale: hiveLocale })}`;
     await safeReply(ctx, errorMsg, { reply_to_message_id: ctx.message.message_id });
     return;

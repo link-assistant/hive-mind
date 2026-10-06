@@ -8,6 +8,8 @@
  */
 
 import { resolveCodexReasoningEffort } from './codex.options.lib.mjs';
+import { resolveRuntimeCodexReasoningEffort } from './codex.reasoning.lib.mjs';
+import { getClaudeEnv, getThinkingLevelToTokens } from './config.lib.mjs';
 import { mapModelToId as mapClaudeModelToId } from './claude.model-utils.lib.mjs';
 import { mapClaudeSubAgentModelToEnvValue, mapModelForTool } from './models/index.mjs';
 import { buildCodexDisable1mContextConfigArgs, buildCodexSubSessionSizeConfigArgs, parseSubSessionSize } from './sub-session-size.lib.mjs';
@@ -55,7 +57,12 @@ const buildClaudeToolOptions = (argv = {}) => {
   if (argv.fallbackModel) options.fallbackModel = argv.fallbackModel;
 
   const extraEnv = {};
-  if (argv.thinkingBudget !== undefined) extraEnv.MAX_THINKING_TOKENS = argv.thinkingBudget;
+  if (argv.think !== undefined || argv.thinkingBudget !== undefined) {
+    const thinkingBudget = argv.thinkingBudget ?? getThinkingLevelToTokens(argv.maxThinkingBudget)[argv.think];
+    const thinkingEnv = getClaudeEnv({ model: argv.model || 'opus', thinkLevel: argv.think, thinkingBudget, maxBudget: argv.maxThinkingBudget });
+    if (thinkingEnv.MAX_THINKING_TOKENS !== undefined) extraEnv.MAX_THINKING_TOKENS = thinkingEnv.MAX_THINKING_TOKENS;
+    if (thinkingEnv.CLAUDE_CODE_EFFORT_LEVEL) extraEnv.CLAUDE_CODE_EFFORT_LEVEL = thinkingEnv.CLAUDE_CODE_EFFORT_LEVEL;
+  }
   if (argv.disable1mContext) extraEnv.CLAUDE_CODE_DISABLE_1M_CONTEXT = '1';
   if (argv.showThinkingContent) extraEnv.CLAUDE_CODE_SHOW_THINKING = '1';
   if (argv.planModel) extraEnv.ANTHROPIC_DEFAULT_OPUS_MODEL = argv.planModel;
@@ -73,8 +80,10 @@ const buildClaudeToolOptions = (argv = {}) => {
 
 const buildCodexToolOptions = (argv = {}) => {
   const options = {};
-  const { reasoningEffort, rolloutTokenBudget } = resolveCodexReasoningEffort(argv);
-  const reasoningArgs = ['-c', `model_reasoning_effort=${reasoningEffort}`, '-c', 'model_reasoning_summary=auto'];
+  const { reasoningEffort, rolloutTokenBudget } = argv.codexReasoningSettings ?? resolveCodexReasoningEffort(argv);
+  const reasoningArgs = [];
+  if (reasoningEffort) reasoningArgs.push('-c', `model_reasoning_effort=${reasoningEffort}`);
+  reasoningArgs.push('-c', 'model_reasoning_summary=auto');
   // Issue #2027: pair GPT-5.6 Sol's multi-agent `ultra` effort with a rollout token budget cap.
   if (rolloutTokenBudget) {
     reasoningArgs.push('-c', `rollout_token_budget=${rolloutTokenBudget}`);
@@ -363,7 +372,8 @@ export const executeWithAgentCommander = async params => {
   const promptBuilderParams = { ...promptParams, tempDir, workspaceTmpDir, argv };
   const prompt = prompts.buildUserPrompt(promptBuilderParams);
   const systemPrompt = prompts.buildSystemPrompt(promptBuilderParams);
-  const controllerOptions = buildAgentCommanderControllerOptions({ tool, tempDir, prompt, systemPrompt, argv });
+  const resolvedArgv = tool === 'codex' ? { ...argv, codexReasoningSettings: await resolveRuntimeCodexReasoningEffort(argv, { log }) } : argv;
+  const controllerOptions = buildAgentCommanderControllerOptions({ tool, tempDir, prompt, systemPrompt, argv: resolvedArgv });
 
   if (argv.verbose) {
     await log('\n[agent-commander] Final prompt structure:', { verbose: true });

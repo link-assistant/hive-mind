@@ -1,0 +1,17 @@
+link-assistant/router:src/codex_catalog.rs: pub supported_reasoning_levels: Value,
+link-assistant/router:src/codex_catalog.rs: "supported_reasoning_levels": model.supported_reasoning_levels,
+link-assistant/formal-ai:experiments/issue_859_codex_e2e/write-model-catalog.mjs: supported_reasoning_levels: [],
+link-assistant/router:src/with_command_codex_catalog.rs: let Some(supported) = model.supported_reasoning_levels.as_ref() else {
+link-assistant/router:src/with_command_codex_catalog.rs: supported_reasoning_levels: json!([]),
+link-assistant/router:src/model_routing_aggregate.rs: "supported_reasoning_levels",
+link-assistant/router:src/model_routing_aggregate.rs: projected.insert("supported_reasoning_levels".into(), levels);
+link-assistant/hive-mind:docs/case-studies/issue-1992/data/codex-debug-models-summary.json: "supported_reasoning_levels": ["low", "medium", "high", "xhigh"]
+link-assistant/hive-mind:docs/case-studies/issue-1992/data/codex-debug-models-summary.json: "supported_reasoning_levels": ["low", "medium", "high", "xhigh"]
+link-assistant/hive-mind:docs/case-studies/issue-1992/data/openai-codex-models-summary.json: "supported_reasoning_levels": ["low", "medium", "high", "xhigh"],
+link-assistant/hive-mind:docs/case-studies/issue-1992/data/openai-codex-models-summary.json: "supported_reasoning_levels": ["low", "medium", "high", "xhigh"],
+link-assistant/formal-ai:rust/src/client_integrations.rs: "supported_reasoning_levels": [],
+link-assistant/router:src/model_command.rs: "supported_reasoning_levels",
+link-assistant/router:src/model_command.rs: "supported_reasoning_levels": ["low", "high"],
+link-assistant/router:src/model_routing_native_catalog.rs: .get("supported_reasoning_levels")
+link-assistant/router:src/model_routing_native_catalog.rs: supported_reasoning_levels: levels,
+link-assistant/router:src/clients/catalog.rs: pub supported_reasoning_levels: Option<Vec<RouterReasoningLevel>>,

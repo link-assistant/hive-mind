@@ -1,0 +1,4 @@
+Audit npm lock: cancelled before acquiring a hosted runner; runner_id=0, steps=[]
+The job was not acquired by Runner of type hosted even after multiple attempts
+gh run view --log: log not found: 111938841270
+Successful CodeQL/dependency-review job logs were downloaded to ci-logs/security-37362077403-attempt-1.log; audit produced no log.

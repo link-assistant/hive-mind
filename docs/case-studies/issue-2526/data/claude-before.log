@@ -1,0 +1,19 @@
+node:internal/modules/run_main:111
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: adaptive-only Claude models must not receive a zero manual thinking budget
+
+'0' !== undefined
+
+    at file:///tmp/gh-issue-solver-1791224072909/tests/issue-2526-reasoning-effort.test.mjs:55:8
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: '0',
+  expected: undefined,
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v26.10.0

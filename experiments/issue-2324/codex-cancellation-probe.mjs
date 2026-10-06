@@ -13,11 +13,17 @@ const prompt = 'finite cancellation probe | prompt data';
 const inputFile = join(directory, 'input.txt');
 const children = [];
 const messages = [];
+const previousStateDir = process.env.HIVE_MIND_STATE_DIR;
+process.env.HIVE_MIND_STATE_DIR = join(directory, 'state');
 try {
   await writeFile(
     binary,
     `#!/usr/bin/env node
 import { readFileSync, writeFileSync } from 'node:fs';
+if (process.argv[2] === 'debug' && process.argv[3] === 'models') {
+  console.log(JSON.stringify({models:[{slug:'gpt-5',supported_reasoning_levels:[{effort:'none'},{effort:'high'}]}]}));
+  process.exit(0);
+}
 writeFileSync(${JSON.stringify(inputFile)}, readFileSync(0));
 let calls = 0;
 const timer = setInterval(() => {
@@ -76,6 +82,8 @@ const timer = setInterval(() => {
   console.log(JSON.stringify({ success: result.success, input, breaker: messages.find(message => String(message).includes('Repeated-tool-call breaker')), observations }, null, 2));
   if (input !== prompt || !observations.length || observations.some(observation => observation.delay === 500 && observation.exists)) process.exitCode = 1;
 } finally {
+  if (previousStateDir === undefined) delete process.env.HIVE_MIND_STATE_DIR;
+  else process.env.HIVE_MIND_STATE_DIR = previousStateDir;
   await rm(directory, { recursive: true, force: true });
   resetRepeatedToolCallState();
 }

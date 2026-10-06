@@ -1,0 +1,9 @@
+Final source review, 2026-10-05 UTC
+Planning ceiling regression: failed before correction with ultra !== none; passes afterward.
+Connection rollout cap regression: failed before correction; fake-CLI arguments include rollout_token_budget=500000 afterward.
+Planning-stage complete default-suite run: All 547 selected test file(s) passed; exit 0.
+Both final-review regressions pass independently.
+Final source lint, formatting, syntax, documentation, language synchronization, line limits, secret scans and release metadata: pass.
+Duplication: 11.32%, below 12% threshold.
+Dependency freshness: 168/168 declarations current.
+Full default suite against source commit 220b0009b17d8bd3386a13917e90184f2cb8cbcb: All 547 selected test file(s) passed; exit 0, finished at 20:42 UTC. No source/test changes during the run.

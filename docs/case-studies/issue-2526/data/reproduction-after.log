@@ -1,0 +1,20 @@
+{"model":"gpt-6.1-sol","think":"off","reasoningEffort":"low","source":"--think off; none -> low (codex-cli)"}
+{"model":"gpt-6.1-sol","think":"minimal","reasoningEffort":"low","source":"--think minimal; minimal -> low (codex-cli)"}
+{"model":"gpt-6.1-sol","think":"max","reasoningEffort":"max","source":"--think max"}
+{"model":"gpt-6.1-sol","think":"ultra","reasoningEffort":"ultra","source":"--think ultra","rolloutTokenBudget":500000}
+{"model":"gpt-6-astra","think":"off","reasoningEffort":"low","source":"--think off; none -> low (codex-cli)"}
+{"model":"gpt-6-astra","think":"minimal","reasoningEffort":"low","source":"--think minimal; minimal -> low (codex-cli)"}
+{"model":"gpt-6-astra","think":"max","reasoningEffort":"max","source":"--think max"}
+{"model":"gpt-6-astra","think":"ultra","reasoningEffort":"ultra","source":"--think ultra","rolloutTokenBudget":500000}
+{"model":"gpt-6-sol","think":"off","reasoningEffort":"none","source":"--think off"}
+{"model":"gpt-6-sol","think":"minimal","reasoningEffort":"none","source":"--think minimal; minimal -> none (codex-cli)"}
+{"model":"gpt-6-sol","think":"max","reasoningEffort":"max","source":"--think max"}
+{"model":"gpt-6-sol","think":"ultra","reasoningEffort":"ultra","source":"--think ultra","rolloutTokenBudget":500000}
+{"model":"gpt-5.5","think":"off","reasoningEffort":"none","source":"--think off"}
+{"model":"gpt-5.5","think":"minimal","reasoningEffort":"none","source":"--think minimal; minimal -> none (codex-cli)"}
+{"model":"gpt-5.5","think":"max","reasoningEffort":"xhigh","source":"--think max; max -> xhigh (codex-cli)"}
+{"model":"gpt-5.5","think":"ultra","reasoningEffort":"xhigh","source":"--think ultra; ultra -> xhigh (codex-cli)"}
+{"model":"future-without-metadata","think":"off","reasoningEffort":null,"source":"--think off; none -> model default (capabilities unavailable)"}
+{"model":"future-without-metadata","think":"minimal","reasoningEffort":null,"source":"--think minimal; minimal -> model default (capabilities unavailable)"}
+{"model":"future-without-metadata","think":"max","reasoningEffort":null,"source":"--think max; max -> model default (capabilities unavailable)"}
+{"model":"future-without-metadata","think":"ultra","reasoningEffort":null,"source":"--think ultra; ultra -> model default (capabilities unavailable)"}

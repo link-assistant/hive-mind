@@ -1,0 +1,188 @@
+✖ normal completion preserves an already linked description byte for byte (1014.489947ms)
+✖ restart completion preserves an already linked description byte for byte (26.154869ms)
+✖ placeholder completion leaves the body for the agent and retains restart detection (6.351621ms)
+✖ single-issue repair appends only the missing link after a separator (1.586412ms)
+✖ multi-issue repair preserves every byte and appends only missing links once (17.922057ms)
+✖ live progress requested as pr mode posts a comment without editing the description (58.777144ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 0
+ℹ fail 6
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1137.09247
+
+✖ failing tests:
+
+test at ../issue-2549-baseline-g8zevi/tests/pr-description-preservation-2549.test.mjs:85:3
+✖ normal completion preserves an already linked description byte for byte (1014.489947ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'Implements the fix.\n' +
+  +   '\n' +
+  +   '### Changes\n' +
+  +   '- A hand-written explanation.\n' +
+  +   '\n' +
+  +   'Fixes #1\n' +
+  +   '\n' +
+  +   '<!-- hive-mind:changes:start -->\n' +
+  +   '### Changes\n' +
+  +   '- 1 file(s) modified\n' +
+  +   '- 1 line(s) added\n' +
+  +   '- 1 line(s) removed\n' +
+  +   '- Files:\n' +
+  +   '  - `f.txt`\n' +
+  +   '<!-- hive-mind:changes:end -->\n'
+  - 'Implements the fix.\r\n' +
+  -   '\r\n' +
+  -   '### Changes\r\n' +
+  -   '- A hand-written explanation.\r\n' +
+  -   '\r\n' +
+  -   'Fixes #1\r\n'
+  
+      at TestContext.<anonymous> (file:///tmp/issue-2549-baseline-g8zevi/tests/pr-description-preservation-2549.test.mjs:87:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'Implements the fix.\n\n### Changes\n- A hand-written explanation.\n\nFixes #1\n\n<!-- hive-mind:changes:start -->\n### Changes\n- 1 file(s) modified\n...',
+    expected: 'Implements the fix.\r\n\r\n### Changes\r\n- A hand-written explanation.\r\n\r\nFixes #1\r\n',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at ../issue-2549-baseline-g8zevi/tests/pr-description-preservation-2549.test.mjs:85:3
+✖ restart completion preserves an already linked description byte for byte (26.154869ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'Implements the fix.\n' +
+  +   '\n' +
+  +   '### Changes\n' +
+  +   '- A hand-written explanation.\n' +
+  +   '\n' +
+  +   'Fixes #1\n' +
+  +   '\n' +
+  +   '<!-- hive-mind:changes:start -->\n' +
+  +   '### Changes\n' +
+  +   '- 1 file(s) modified\n' +
+  +   '- 1 line(s) added\n' +
+  +   '- 1 line(s) removed\n' +
+  +   '- Files:\n' +
+  +   '  - `f.txt`\n' +
+  +   '<!-- hive-mind:changes:end -->\n'
+  - 'Implements the fix.\r\n' +
+  -   '\r\n' +
+  -   '### Changes\r\n' +
+  -   '- A hand-written explanation.\r\n' +
+  -   '\r\n' +
+  -   'Fixes #1\r\n'
+  
+      at TestContext.<anonymous> (file:///tmp/issue-2549-baseline-g8zevi/tests/pr-description-preservation-2549.test.mjs:87:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'Implements the fix.\n\n### Changes\n- A hand-written explanation.\n\nFixes #1\n\n<!-- hive-mind:changes:start -->\n### Changes\n- 1 file(s) modified\n...',
+    expected: 'Implements the fix.\r\n\r\n### Changes\r\n- A hand-written explanation.\r\n\r\nFixes #1\r\n',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at ../issue-2549-baseline-g8zevi/tests/pr-description-preservation-2549.test.mjs:94:1
+✖ placeholder completion leaves the body for the agent and retains restart detection (6.351621ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + '## Summary\n' +
+  +   '\n' +
+  +   'This pull request implements a solution for #1: Example issue\n' +
+  +   '\n' +
+  +   '<!-- hive-mind:changes:start -->\n' +
+  +   '### Changes\n' +
+  +   '- 1 file(s) modified\n' +
+  +   '- 1 line(s) added\n' +
+  +   '- 1 line(s) removed\n' +
+  +   '- Files:\n' +
+  +   '  - `f.txt`\n' +
+  +   '<!-- hive-mind:changes:end -->\n' +
+  +   '\n' +
+  +   '### Issue Reference\n' +
+  +   'Fixes #1\n' +
+  +   '\n' +
+  +   '---\n' +
+  +   '*This PR was created automatically by the AI issue solver*'
+  - '_Details will be added as the solution draft is developed..._\n\nFixes #1'
+  
+      at TestContext.<anonymous> (file:///tmp/issue-2549-baseline-g8zevi/tests/pr-description-preservation-2549.test.mjs:96:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '## Summary\n\nThis pull request implements a solution for #1: Example issue\n\n<!-- hive-mind:changes:start -->\n### Changes\n- 1 file(s) modified\n- 1 line(s) added\n- 1 line(s) removed\n- Files:\n...',
+    expected: '_Details will be added as the solution draft is developed..._\n\nFixes #1',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at ../issue-2549-baseline-g8zevi/tests/pr-description-preservation-2549.test.mjs:101:1
+✖ single-issue repair appends only the missing link after a separator (1.586412ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'Agent text.\r\n  \n\nFixes #1'
+  - 'Agent text.\r\n  \n\n---\n\nFixes #1'
+                          ^
+  
+      at TestContext.<anonymous> (file:///tmp/issue-2549-baseline-g8zevi/tests/pr-description-preservation-2549.test.mjs:104:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'Agent text.\r\n  \n\nFixes #1',
+    expected: 'Agent text.\r\n  \n\n---\n\nFixes #1',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at ../issue-2549-baseline-g8zevi/tests/pr-description-preservation-2549.test.mjs:108:1
+✖ multi-issue repair preserves every byte and appends only missing links once (17.922057ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'Agent text.\r\n\r\nFixes #1\n\nFixes #3\n'
+  - 'Agent text.\r\n\r\nFixes #1\r\n  \n\n---\n\nFixes #3'
+  
+      at TestContext.<anonymous> (file:///tmp/issue-2549-baseline-g8zevi/tests/pr-description-preservation-2549.test.mjs:128:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'Agent text.\r\n\r\nFixes #1\n\nFixes #3\n',
+    expected: 'Agent text.\r\n\r\nFixes #1\r\n  \n\n---\n\nFixes #3',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at ../issue-2549-baseline-g8zevi/tests/pr-description-preservation-2549.test.mjs:133:1
+✖ live progress requested as pr mode posts a comment without editing the description (58.777144ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(f.calls.some(call => call.includes('/issues/2/comments')))
+  
+      at TestContext.<anonymous> (file:///tmp/issue-2549-baseline-g8zevi/tests/pr-description-preservation-2549.test.mjs:137:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

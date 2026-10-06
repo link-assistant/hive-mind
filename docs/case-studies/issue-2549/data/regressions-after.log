@@ -1,0 +1,14 @@
+✔ normal completion preserves an already linked description byte for byte (4.756763ms)
+✔ restart completion preserves an already linked description byte for byte (1.064166ms)
+✔ placeholder completion leaves the body for the agent and retains restart detection (0.887568ms)
+✔ single-issue repair appends only the missing link after a separator (0.328304ms)
+✔ multi-issue repair preserves every byte and appends only missing links once (919.858156ms)
+✔ live progress requested as pr mode posts a comment without editing the description (68.906811ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1004.239595

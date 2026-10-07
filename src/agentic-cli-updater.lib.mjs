@@ -226,7 +226,9 @@ export const updateAgenticClisWhenIdle = async ({ env = process.env, fsImpl = fs
 
         const latest = await readLatestPublishedVersion(target, { run });
         if (!latest) {
-          failed.push({ id: target.id, installed, error: `could not read the published version of ${target.package}` });
+          const error = `could not read the published version of ${target.package}`;
+          if (verbose && log) await log(`[VERBOSE] agentic-cli-updater: ${target.id}: ${error}`);
+          failed.push({ id: target.id, installed, error });
           continue;
         }
         if (latest === installed) {
@@ -253,13 +255,17 @@ export const updateAgenticClisWhenIdle = async ({ env = process.env, fsImpl = fs
           updated.push({ id: target.id, from: installed, to: after });
           tools[target.id] = { version: after, previousVersion: installed, updatedAt: now().toISOString(), checkedAt: now().toISOString() };
         } else {
-          failed.push({ id: target.id, installed, latest, error: `after install the binary reports ${after ?? 'nothing'}` });
+          // Issue #2571: the production log said "2 failed" and nothing else —
+          // the install exited 0, so only this check knew why.
+          const error = `after install the binary reports ${after ?? 'nothing'}`;
+          if (log) await log(`⚠️ Could not update ${target.id}: ${error} (expected ${latest})`);
+          failed.push({ id: target.id, installed, latest, error });
         }
       }
 
       writeAgenticCliState({ ...state, lastCheckedAt: now().toISOString(), tools }, { env, fsImpl });
       if (log && updated.length > 0) await log(`✅ Agentic CLIs updated while idle: ${updated.map(entry => `${entry.id} ${entry.from}→${entry.to}`).join(', ')}`);
-      if (verbose && log) await log(`[VERBOSE] agentic-cli-updater: ${updated.length} updated, ${upToDate.length} current, ${failed.length} failed`);
+      if (verbose && log) await log(`[VERBOSE] agentic-cli-updater: ${updated.length} updated, ${upToDate.length} current, ${failed.length} failed${failed.length > 0 ? ` (${failed.map(entry => `${entry.id}: ${entry.error}`).join('; ')})` : ''}`);
       return { status: 'checked', updated, upToDate, failed };
     },
     { env, fsImpl, log, ...lockOptions }

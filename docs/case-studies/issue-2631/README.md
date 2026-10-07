@@ -10,6 +10,8 @@ The host launch reproduction empties PATH so neither Docker nor start-command ca
 
 Container-retention regression failed before the policy change. Coverage also verifies that a clean working tree with unpushed commits, incomplete recovery or failed log upload cannot produce a cleanup receipt. Only a system `RECOVERY` log record authorizes the monitor; quoted tool output does not.
 
+The refusal-report probe reproduces missing guidance on the original issue when failure logs were uploaded to its PR. The fixed helper posts the rephrase/`--tool claude` guidance on the issue and avoids a duplicate when the issue already received the log report.
+
 Cooldown tests cover persisted commit identity, elapsed time, routine automation comments, new/edited feedback and paginated issue/PR/inline/review reads. The budget-exhaustion summary carries the failing checks and the remote PR commit; deferred queue entries can be evaluated in later iterations.
 
 Reusable probes:
@@ -17,7 +19,8 @@ Reusable probes:
 ```bash
 node experiments/reproduce-host-preflight-2631.mjs
 node experiments/reproduce-claude-authentication-2631.mjs
+node experiments/reproduce-model-refusal-2631.mjs
 node --test tests/*2631.test.mjs
 ```
 
-The probes compare against commit `900a6443`, which contains binary recovery but precedes host preflight and Claude retry. Baseline adapters are temporary and removed after the probe. See [production recovery](../../PRODUCTION-RECOVERY.md) for upgrade instructions, operating behavior and the boundaries with credential-mount, TTL and resume-image work.
+The host and Claude probes compare against commit `900a6443`, which contains binary recovery but precedes host preflight and Claude retry. The refusal probe uses `7a7f1c75`, before original-issue reporting was fixed. Baseline adapters are temporary and removed after each probe. See [production recovery](../../PRODUCTION-RECOVERY.md) for upgrade instructions, operating behavior and the boundaries with credential-mount, TTL and resume-image work.

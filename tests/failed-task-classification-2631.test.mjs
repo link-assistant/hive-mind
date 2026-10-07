@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { classifyRetryableError } from '../src/tool-retry.lib.mjs';
 import { detectSubscriptionError } from '../src/subscription-error.lib.mjs';
+const { reportModelRefusal } = await import(process.env.HIVE_TEST_RETENTION_ADAPTER || '../src/failed-task-retention.lib.mjs');
 
 test('Codex cybersecurity refusal is terminal and carries rephrase/tool guidance', () => {
   const refusal = classifyRetryableError('This content was flagged for possible cybersecurity risk. If this seems wrong, try rephrasing your request.');
@@ -19,4 +20,24 @@ test('Codex 401 is a login-required failure that stops the shared queue', () => 
   assert.equal(classifyRetryableError('Codex authentication failed - 401 Unauthorized').isSubscriptionError, true);
   assert.equal(detectSubscriptionError({ tool: 'claude', message: 'Codex authentication failed - 401 Unauthorized' }), null);
   assert.equal(detectSubscriptionError({ tool: 'codex', message: 'PR #401 Unauthorized route test' }), null);
+});
+
+test('refusal guidance reaches the original issue when failure logs are on its PR', async () => {
+  const posts = [];
+  const options = {
+    refusal: classifyRetryableError('This content was flagged for possible cybersecurity risk.'),
+    logsUploaded: true,
+    targetNumber: 2,
+    issueNumber: 1,
+    log: async () => {},
+    postComment: async payload => {
+      posts.push(payload);
+      return { ok: true };
+    },
+  };
+  assert.equal(await reportModelRefusal(options), true);
+  assert.equal(posts[0].targetNumber, 1);
+  assert.match(posts[0].body, /--tool claude/);
+  assert.equal(await reportModelRefusal({ ...options, targetNumber: 1 }), false, 'an uploaded issue report already includes the guidance');
+  assert.equal(posts.length, 1);
 });

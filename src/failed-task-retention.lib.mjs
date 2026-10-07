@@ -46,9 +46,11 @@ export async function recordDisposableFailure(options) {
   return true;
 }
 
-export async function reportModelRefusal({ refusal, logsUploaded, $, owner, repo, targetNumber, log }) {
-  if (!refusal?.isModelRefusal || logsUploaded || !targetNumber) return false;
-  const result = await postTrackedComment({ $, owner, repo, targetNumber, body: `## Model refused the task\n\n${refusal.guidance}` });
+export async function reportModelRefusal({ refusal, logsUploaded, $, owner, repo, targetNumber, issueNumber = null, log, postComment = postTrackedComment }) {
+  const reportTarget = issueNumber || targetNumber;
+  const alreadyReported = logsUploaded && Number(reportTarget) === Number(targetNumber);
+  if (!refusal?.isModelRefusal || alreadyReported || !reportTarget) return false;
+  const result = await postComment({ $, owner, repo, targetNumber: reportTarget, body: `## Model refused the task\n\n${refusal.guidance}` });
   if (!result.ok) await log('Could not post model refusal guidance; see the local log.', { level: 'warning' });
   return result.ok;
 }

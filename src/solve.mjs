@@ -1032,7 +1032,7 @@ try {
       }
     }
     const { recordDisposableFailure, reportModelRefusal } = await import('./failed-task-retention.lib.mjs');
-    await reportModelRefusal({ refusal, logsUploaded: failureLogsUploaded, $, owner, repo, targetNumber: logTargetNumber, log });
+    await reportModelRefusal({ refusal, logsUploaded: failureLogsUploaded, $, owner, repo, targetNumber: logTargetNumber, issueNumber: global.issueNumber, log });
     await recordDisposableFailure({ reason: subscriptionInfo?.kind === 'login_required' ? 'authentication' : refusal.isModelRefusal ? 'model_refusal' : null, logsUploaded: failureLogsUploaded, preserved: preservedWork, tempDir, branchName, $, log, argv });
     // Issue #2161: the exit message is what /hive and the session monitor see, so
     // it carries the marker rather than the generic tool-failure sentence.

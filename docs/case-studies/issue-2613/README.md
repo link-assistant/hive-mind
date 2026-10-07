@@ -49,6 +49,8 @@ The uploader stops on explicit permanent permission/authentication failures and 
 
 A real local-Git test confirms that unrelated staged changes remain staged and do not enter the log commit. A separate test verifies that secrets are removed before the fallback receives bytes. PR-less failures still rely on inline comments or the workflow artifact; a repository with no usable PR branch cannot publish a branch attachment. Push failures remain explicit failures.
 
+The repository-fallback limitation is reported as [gh-upload-log #47](https://github.com/link-foundation/gh-upload-log/issues/47), with the real workflow reproduction, workaround and a proposed explicit repository/branch target that avoids `/user`.
+
 ### 3. Formal AI logs never reach the mounted artifact directory
 
 The workflow bind-mounts `/home/box/logs` and passes `--log-dir`, but solve initialized its log with `null` before parsing and never applied the parsed log directory. The logs were written elsewhere inside a disposable container. The final artifact step correctly says no files were found; this was a location bug, not an artifact-service failure.
@@ -70,6 +72,8 @@ The model runs and accepts tools; successful startup does not establish useful i
 The independent replay uses installed formal-ai 0.352.1, temperature zero, three local API requests, a 2 GiB address-space limit, 16 MiB stack limit, 30-second CPU/watchdog limits and five-second request deadlines. `Read README.md (e.g., the project documentation).` produces two reads: `README.md` **and `e.g`**. Replacing `e.g.` with “for example” produces only the intended read. Returning a real tool error for `e.g` results in that error being formatted as file contents in this minimal recipe. The actual Agent sessions instead emit a terminal error and perform no useful work. The full responses and server trace are [saved here](evidence/formal-ai-replay.json).
 
 Replacing abbreviations is a limited prompt workaround. It cannot reliably cover arbitrary issue text, paths or upstream planning failures, so this PR does not rewrite every user's issue or claim that Formal AI can solve arbitrary issues. The upstream suggested fix is to distinguish dotted abbreviations from file paths in the shared path predicate and add Rust tests for `e.g`, `i.e`, `a.k.a` and real filenames. This requirement remains dependent on the upstream implementation; the failure and evidence are reported rather than hidden by an empty `e.g` file or a false success classification.
+
+The independent replay and tool-error observation are reported in [this upstream comment](https://github.com/link-assistant/formal-ai/issues/1189#issuecomment-6041117942); the original report and follow-up are preserved in the evidence directory.
 
 ## Requirements and validation
 

@@ -30,6 +30,7 @@ import { isPrepareOnly, logPreparedToolCommand, resolveFormalAiToolExecution } f
 import { buildFormalAiPricingInfo } from './formal-ai-pricing.lib.mjs'; // Issue #2119
 import { createDisabledAttributionSession, resolveFormalAiAttributionSession } from './formal-ai-attribution.lib.mjs'; // Issue #2229
 import { checkPlaywrightMcpPackageAvailability, getAgentPlaywrightMcpDisableEnv } from './playwright-mcp.lib.mjs';
+import { getAgentModelOverlayEnv } from './agent-model-overlay.lib.mjs';
 import { createAgentTokenUsage, accumulateAgentStepFinishUsage, parseAgentTokenUsage } from './agent-token-usage.lib.mjs';
 import { createJsonStreamScanner, parseJsonRecords } from './json-stream.lib.mjs';
 import { createToolCallLoopGuard, resolveRepeatedToolCallLimit } from './tool-call-loop-guard.lib.mjs'; // Issue #2316, #2395
@@ -440,7 +441,9 @@ export const validateAgentConnection = async (model = defaultModels.agent, optio
 
       // Test basic Agent functionality with a simple "hi" message
       // Agent uses the same JSON interface as OpenCode
-      const testResult = await $`printf "hi" | timeout ${Math.floor(timeouts.opencodeCli / 1000)} agent --model ${mappedModel}`;
+      // Issue #2625: describe models Agent's own provider table no longer reaches.
+      const validationEnv = { ...process.env, ...getAgentModelOverlayEnv({ mappedModel }) };
+      const testResult = await $({ env: validationEnv })`printf "hi" | timeout ${Math.floor(timeouts.opencodeCli / 1000)} agent --model ${mappedModel}`;
 
       if (testResult.code !== 0) {
         const stderr = testResult.stderr?.toString() || '';
@@ -653,6 +656,11 @@ export const executeAgentCommand = async params => {
     // Issue #2130: Formal AI runs the native CLI against a local Formal AI server (no argv wrapper).
     const toolInvocation = await resolveFormalAiToolExecution({ tool: 'agent', model: argv.model, toolPath: agentPath, workdir: tempDir, log, verbose: argv.verbose, prepareOnly: isPrepareOnly(argv), env: agentEnv });
     Object.assign(agentEnv, toolInvocation.env);
+    // Issue #2625: the default free model is served by Kilo, which Agent only
+    // reaches with the provider entry Hive Mind supplies.
+    const modelOverlayEnv = getAgentModelOverlayEnv({ env: agentEnv, mappedModel });
+    if (modelOverlayEnv.LINK_ASSISTANT_AGENT_CONFIG_CONTENT) await log(`   Agent provider entry supplied for ${mappedModel} (LINK_ASSISTANT_AGENT_CONFIG_CONTENT)`, { verbose: true });
+    Object.assign(agentEnv, modelOverlayEnv);
 
     if (argv.resume) {
       await log(`🔄 Resuming from session: ${argv.resume}`);

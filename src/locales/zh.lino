@@ -658,7 +658,7 @@ zh
       label "原因"
     did
       you
-        mean "💡 你是指：`{{suggestion}}`"
+        mean "💡 你是指 `{{suggestion}}`？"
     missing
       github
         url "缺少 GitHub URL。用法：/{{commandName}} <github-url> [options]"

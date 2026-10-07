@@ -1,0 +1,128 @@
+✖ a timed-out version probe kills its shell descendants (633.898587ms)
+  ❌ gh-upload-log failed (log, attempt 1/3): HTTP 403: Resource not accessible by integration (https://api.github.com/gists)
+  🔁 Retrying the log upload in 30s (attempt 2/3)...
+  ❌ gh-upload-log failed (log, attempt 2/3): HTTP 403: Resource not accessible by integration (https://api.github.com/gists)
+  🔁 Retrying the log upload in 2m (attempt 3/3)...
+  ❌ gh-upload-log failed (log, attempt 3/3): HTTP 403: Resource not accessible by integration (https://api.github.com/gists)
+  🔁 Uploading the complete log as 7 parts of about 0 KB each...
+  ❌ gh-upload-log failed (log part 1 of 7, attempt 1/3): HTTP 403: Resource not accessible by integration (https://api.github.com/gists)
+  🔁 Retrying the log part 1 of 7 upload in 15s (attempt 2/3)...
+  ❌ gh-upload-log failed (log part 1 of 7, attempt 2/3): HTTP 403: Resource not accessible by integration (https://api.github.com/gists)
+  🔁 Retrying the log part 1 of 7 upload in 1m (attempt 3/3)...
+  ❌ gh-upload-log failed (log part 1 of 7, attempt 3/3): HTTP 403: Resource not accessible by integration (https://api.github.com/gists)
+  ❌ Uploading the log as parts stopped at part 1 of 7
+✖ permanent Gist permission failure is attempted once without splitting (687.865146ms)
+  ❌ gh-upload-log failed (log, attempt 1/3): HTTP 403: Resource not accessible by integration (https://api.github.com/gists)
+  🔁 Retrying the log upload in 30s (attempt 2/3)...
+  ❌ gh-upload-log failed (log, attempt 2/3): HTTP 403: Resource not accessible by integration (https://api.github.com/gists)
+  🔁 Retrying the log upload in 2m (attempt 3/3)...
+  ❌ gh-upload-log failed (log, attempt 3/3): HTTP 403: Resource not accessible by integration (https://api.github.com/gists)
+✖ failed Gist upload publishes the complete sanitized log through the branch fallback (18.127222ms)
+✖ solve --log-dir writes startup and parsing diagnostics in the requested directory (554.49988ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 0
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1905.616827
+
+✖ failing tests:
+
+test at tests/issue-2613-regressions.test.mjs:28:1
+✖ a timed-out version probe kills its shell descendants (633.898587ms)
+  AssertionError [ERR_ASSERTION]: version probe left process 4611 running: 4611 (node-MainThread) S 1 4482 4482 0 -1 4194560 2987 0 0 0 3 2 0 0 20 0 7 0 27144586 1384226816 11951 18446744073709551615 8577024 55083077 140735501720576 0 0 0 0 16781312 17922 0 0 0 17 0 0 0 0 0 0 120222368 120616000 736739328 140735501728926 140735501729030 140735501729030 140735501733833 0
+  
+      at file:///tmp/gh-issue-solver-1791384270780/tests/issue-2613-regressions.test.mjs:40:14
+      at async withDirectory (file:///tmp/gh-issue-solver-1791384270780/tests/issue-2613-regressions.test.mjs:22:5)
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791384270780/tests/issue-2613-regressions.test.mjs:29:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests/issue-2613-regressions.test.mjs:50:1
+✖ permanent Gist permission failure is attempted once without splitting (687.865146ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  6 !== 1
+  
+      at file:///tmp/gh-issue-solver-1791384270780/tests/issue-2613-regressions.test.mjs:58:12
+      at async withDirectory (file:///tmp/gh-issue-solver-1791384270780/tests/issue-2613-regressions.test.mjs:22:5)
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791384270780/tests/issue-2613-regressions.test.mjs:51:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 6,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/issue-2613-regressions.test.mjs:63:1
+✖ failed Gist upload publishes the complete sanitized log through the branch fallback (18.127222ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at file:///tmp/gh-issue-solver-1791384270780/tests/issue-2613-regressions.test.mjs:76:12
+      at async withDirectory (file:///tmp/gh-issue-solver-1791384270780/tests/issue-2613-regressions.test.mjs:22:5)
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791384270780/tests/issue-2613-regressions.test.mjs:64:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/issue-2613-regressions.test.mjs:82:1
+✖ solve --log-dir writes startup and parsing diagnostics in the requested directory (554.49988ms)
+  Error: Command failed: /home/box/.nvm/versions/node/v26.10.0/bin/node /tmp/gh-issue-solver-1791384270780/src/solve.mjs --log-dir /tmp/issue-2613-KkRF2s/mounted-logs --help
+  node:internal/errors:999
+    const err = new Error(message);
+                ^
+  
+  Error: Command failed: npm root -g
+  /bin/sh: 1: npm: not found
+  
+      at genericNodeError (node:internal/errors:999:15)
+      at wrappedFn (node:internal/errors:544:14)
+      at ChildProcess.exithandler (node:child_process:417:12)
+      at ChildProcess.emit (node:events:514:20)
+      at maybeClose (node:internal/child_process:1156:16)
+      at Socket.<anonymous> (node:internal/child_process:526:11)
+      at Socket.emit (node:events:514:20)
+      at Pipe.<anonymous> (node:net:362:12) {
+    code: 127,
+    killed: false,
+    signal: null,
+    cmd: 'npm root -g',
+    stdout: '',
+    stderr: '/bin/sh: 1: npm: not found\n'
+  }
+  
+  Node.js v26.10.0
+  
+      at genericNodeError (node:internal/errors:999:15)
+      at wrappedFn (node:internal/errors:544:14)
+      at ChildProcess.exithandler (node:child_process:417:12)
+      at ChildProcess.emit (node:events:514:20)
+      at maybeClose (node:internal/child_process:1156:16)
+      at ChildProcess._handle.onexit (node:internal/child_process:334:5) {
+    code: 1,
+    killed: false,
+    signal: null,
+    cmd: '/home/box/.nvm/versions/node/v26.10.0/bin/node /tmp/gh-issue-solver-1791384270780/src/solve.mjs --log-dir /tmp/issue-2613-KkRF2s/mounted-logs --help',
+    stdout: '',
+    stderr: "node:internal/errors:999\n  const err = new Error(message);\n              ^\n\nError: Command failed: npm root -g\n/bin/sh: 1: npm: not found\n\n    at genericNodeError (node:internal/errors:999:15)\n    at wrappedFn (node:internal/errors:544:14)\n    at ChildProcess.exithandler (node:child_process:417:12)\n    at ChildProcess.emit (node:events:514:20)\n    at maybeClose (node:internal/child_process:1156:16)\n    at Socket.<anonymous> (node:internal/child_process:526:11)\n    at Socket.emit (node:events:514:20)\n    at Pipe.<anonymous> (node:net:362:12) {\n  code: 127,\n  killed: false,\n  signal: null,\n  cmd: 'npm root -g',\n  stdout: '',\n  stderr: '/bin/sh: 1: npm: not found\\n'\n}\n\nNode.js v26.10.0\n"
+  }

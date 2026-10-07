@@ -1,0 +1,13 @@
+✔ the label is created with a description when it is missing (3.246906ms)
+✔ an existing label is applied with a single call (1.012549ms)
+✔ a missing label is created, then applied (4.915116ms)
+✔ other labelling errors are not hidden (1.270289ms)
+✔ the workflow script labels through the helper (2.623393ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 29.601118

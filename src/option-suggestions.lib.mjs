@@ -287,12 +287,12 @@ export function detectMalformedFlags(args) {
     { regex: /^---+\w/, description: 'Too many dashes', suggestion: arg => arg.replace(/^-+/, '--') },
   ];
 
-  for (const arg of args) {
+  for (const [index, arg] of args.entries()) {
     for (const pattern of malformedPatterns) {
       if (pattern.regex.test(arg)) {
         malformed.push(arg);
         const suggestion = pattern.suggestion(arg);
-        errors.push(`Malformed option "${arg}": ${pattern.description}. Did you mean "${suggestion}"?`);
+        errors.push(`Malformed option "${arg}": ${pattern.description}. Did you mean "${suggestion}"?\nCheck argument ${index + 1}: ${JSON.stringify(arg)}`);
         break; // Don't double-report the same argument
       }
     }
@@ -310,7 +310,7 @@ export function detectMalformedFlags(args) {
         const lowerNextArg = nextArg.toLowerCase();
         if (KNOWN_OPTION_NAMES.includes(lowerNextArg)) {
           malformed.push(`-- ${nextArg}`);
-          errors.push(`Malformed option "-- ${nextArg}": Space after "--". Did you mean "--${nextArg}"?`);
+          errors.push(`Malformed option "-- ${nextArg}": Space after "--". Did you mean "--${nextArg}"?\nCheck arguments ${i + 1}–${i + 2}: ${JSON.stringify(`-- ${nextArg}`)}`);
         }
       }
     }

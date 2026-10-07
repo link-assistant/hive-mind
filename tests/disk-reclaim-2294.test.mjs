@@ -4,7 +4,7 @@
  */
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -12,6 +12,7 @@ import { scan, clean, emergency, LocalEnv } from 'disk-space-saviour';
 import { ensureDiskSpaceForWorker } from '../src/disk-guard.lib.mjs';
 import { reclaimDiskSpace, probeDiskSpaceWithReclaim, startWorkspaceReclaim } from '../src/disk-reclaim.lib.mjs';
 import { createResourceSafeExit } from '../src/solve.resource-diagnostics.lib.mjs';
+import { runBunCacheCleanup, withBunCacheFixture } from '../experiments/issue-2294-bun-cache.mjs';
 
 const guardOptions = {
   requiredMB: 100,
@@ -99,6 +100,7 @@ test('host reclaim caps the emergency tier, disables Docker and logs every actio
   });
   assert.deepEqual(scanned.scanners, ['global']);
   assert.deepEqual(scanned.exclude, ['/keep']);
+  assert.equal(scanned.noNative, true);
   assert(scanned.only.includes('bun-cache'));
   assert(!scanned.only.includes('node-modules'));
   assert(!scanned.only.includes('opam-download-cache'));
@@ -299,8 +301,58 @@ test('npm and Bun caches are cleared in each Docker installation layer', async (
     const runs = content.match(/^RUN .*?(?:\\\n.*?)*$/gm);
     assert(runs?.length > 0);
     for (const run of runs) {
-      if (run.includes('bun install -g')) assert(run.includes('bun pm cache rm'), `${filename}: ${run}`);
+      if (run.includes('bun install -g')) assert(run.includes('bun pm -g cache rm'), `${filename}: ${run}`);
       if (run.includes('npm install -g')) assert(run.includes('npm cache clean --force'), `${filename}: ${run}`);
     }
   }
+});
+
+test('Docker Bun cleanup works without a project manifest and preserves installed CLIs', { timeout: 30000 }, async t => {
+  if (spawnSync('bun', ['--version']).error?.code === 'ENOENT') return t.skip('Bun is validated by the Docker build job');
+  const content = await fs.readFile(new URL('../Dockerfile', import.meta.url), 'utf8');
+  const command = content.match(/\bbun pm[^&;\n]*/)[0];
+  const result = await runBunCacheCleanup(command.trim().split(/\s+/).slice(1));
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.cacheExists, false);
+  assert.equal(result.cliContents, 'installed CLI must survive');
+});
+
+test('host Bun reclaim cleans only scanned cache paths without requiring a project manifest', { timeout: 30000 }, async t => {
+  if (spawnSync('bun', ['--version']).error?.code === 'ENOENT') return t.skip('Bun is unavailable');
+  await withBunCacheFixture(async ({ root, cache, cli, options }) => {
+    class FixtureEnv extends LocalEnv {
+      async processes() {
+        return [];
+      }
+      async openPaths() {
+        return new Set();
+      }
+      async diskUsage() {
+        const present = await this.exists(cache);
+        return { total: 200 * 1024 * 1024, free: present ? 0 : 150 * 1024 * 1024, used: present ? 200 * 1024 * 1024 : 50 * 1024 * 1024 };
+      }
+      run(argv, input) {
+        if (argv[0] !== 'bun') return super.run(argv, input);
+        const result = spawnSync('bun', argv.slice(1), options);
+        return Promise.resolve({ code: result.status, stdout: result.stdout, stderr: result.stderr });
+      }
+    }
+    const fixture = new FixtureEnv({ homes: [root], tmpDirs: [], vars: {} });
+    fixture.currentHome = root;
+    const audit = await reclaimDiskSpace({
+      requiredMB: 100,
+      diskPath: root,
+      env: {},
+      load: async () => ({
+        scan: input => scan({ ...input, env: fixture }),
+        emergency: input => emergency({ ...input, env: fixture, audit: false }),
+      }),
+    });
+    assert(
+      audit.entries.some(entry => entry.rule === 'bun-cache' && entry.status === 'removed'),
+      JSON.stringify(audit.entries)
+    );
+    await assert.rejects(fs.access(cache), { code: 'ENOENT' });
+    assert.equal(await fs.readFile(cli, 'utf8'), 'installed CLI must survive');
+  });
 });

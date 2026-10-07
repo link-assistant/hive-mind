@@ -19,6 +19,9 @@ function optionsFor({ env, workspace, protectedPaths = new Set() }) {
     docker: false,
     host: true,
     tier: 'safe',
+    // Native cache commands can require a project manifest or affect paths
+    // outside the scanned filesystem/exclusions. Remove selected paths only.
+    noNative: true,
     olderThan: env.HIVE_MIND_RECLAIM_STALE_AGE || '1h',
     scanners: workspace ? ['projects'] : ['global'],
     roots: workspace ? [path.resolve(workspace)] : null,

@@ -6,6 +6,8 @@ pnpm, pip, uv and Cargo registry caches. The emergency pass is capped at the
 **safe** tier and stops when the required free space is available. It only
 cleans caches on the filesystem being checked. The disk gate measures free
 space again afterward; an estimated cache size cannot admit a task.
+Cleanup removes only the scanned cache paths (`noNative: true`), so package
+manager commands cannot require a project manifest or clear unselected caches.
 
 During a working session, a maintenance pass runs every 30 minutes inside
 the task workspace. Another pass runs after the AI tool finishes. These passes
@@ -65,7 +67,9 @@ is admitted. An optimistic reclaimed-byte report without increased free space
 still refuses work. Real DSS tests use temporary Rust build files, verify
 active-build protection, and remove only the superseded hash after Cargo exits.
 Timer tests verify that passes do not overlap and shutdown drains all work.
-Dockerfile checks pin cache cleanup to each installation layer.
+Dockerfile checks pin cache cleanup to each installation layer. Bun regression
+tests run without a project manifest and preserve a hard-linked installed CLI;
+`node experiments/issue-2294-bun-cache.mjs` reproduces the command failure and fix.
 
 The reproducing disk-gate test failed before the reclaim hook was added
 (`attempts: 0`, expected `1`). See

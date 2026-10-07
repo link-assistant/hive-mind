@@ -234,7 +234,7 @@ RUN bun install -g @openai/codex && \
     bun install -g @google/gemini-cli && \
     bun install -g @github/copilot && \
     bun install -g opencode-ai && \
-    bun pm cache rm
+    bun pm -g cache rm
 
 # Install hive-mind workflow utilities
 # Release builds pass HIVE_MIND_VERSION after npm publish, so Docker installs
@@ -322,7 +322,7 @@ RUN echo "Installing @link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
     bun install -g gh-load-issue && \
     bun install -g gh-load-pull-request && \
     bun install -g gh-upload-log@latest && \
-    bun pm cache rm
+    bun pm -g cache rm
 
 # --- Playwright MCP Setup ---
 # Box 2.1.1 pre-installs Playwright browsers and @playwright/test.

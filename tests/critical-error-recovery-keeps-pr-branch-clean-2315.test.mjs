@@ -84,7 +84,7 @@ await test('untracked Main.jar and target/ are never committed; the PR branch is
     assert.equal(git(work, 'rev-parse HEAD'), head);
     assert.equal(git(remote, 'rev-parse issue-1-604f2202fd18'), head);
     assert.equal(git(remote, 'branch --list "recovery/*"'), '', 'no recovery branch for build output');
-    assert.match(describePreservedWork(preserved), /build output \(Main\.jar/);
+    assert.match(describePreservedWork(preserved), /Main\.jar \(build output\)/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

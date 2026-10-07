@@ -273,6 +273,7 @@ Telegram 机器人部署不会让 Formal AI 常驻运行。请求 `--model forma
 | 环境变量                                   | 默认值   | 描述                                                             |
 | ------------------------------------------ | -------- | ---------------------------------------------------------------- |
 | `TELEGRAM_BOT_TOKEN`                       | （必填） | 来自 @BotFather 的 Telegram bot token                            |
+| `HIVE_MIND_CONFIGURATION_FILE`             |          | LINO 文件路径（等同于 `--configuration-file`）                   |
 | `TELEGRAM_ALLOWED_CHATS`                   | （全部） | 允许的聊天 ID（Links Notation）                                  |
 | `TELEGRAM_SOLVE_OVERRIDES`                 | （无）   | /solve 的覆盖选项（Links Notation）                              |
 | `TELEGRAM_HIVE_OVERRIDES`                  | （无）   | /hive 的覆盖选项（Links Notation）                               |
@@ -641,7 +642,8 @@ hive-telegram-bot [options]
 | `--hive`                            |      | boolean | true     | 启用 /hive 命令（使用 --no-hive 禁用）                                                                                                                                               |
 | `--task`                            |      | boolean | true     | 启用 /task 和 /split 命令（使用 --no-task 禁用）                                                                                                                                     |
 | `--auth`                            |      | boolean | true     | 为白名单聊天所有者启用实验性的私聊 /auth 命令（使用 --no-auth 禁用）                                                                                                                 |
-| `--configuration`                   | `-c` | string  |          | LINO 配置字符串                                                                                                                                                                      |
+| `--configuration`                   | `-c` | string  |          | 内联 LINO 配置；机密请使用 `--configuration-file`                                                                                                                                    |
+| `--configuration-file`              |      | string  |          | LINO 配置文件路径（机密文件权限设为 `0600`）                                                                                                                                         |
 | `--verbose`                         | `-v` | boolean | false    | 启用详细日志                                                                                                                                                                         |
 | `--dry-run`                         |      | boolean | false    | 验证而不启动 bot                                                                                                                                                                     |
 | `--auto-start-screen-watch-message` |      | boolean | false    | 实验性：为公开仓库的 `/solve` 会话自动启动单独的 `/terminal_watch` 消息。私有仓库或可见性未知的仓库不会自动启动 watch 消息。                                                         |

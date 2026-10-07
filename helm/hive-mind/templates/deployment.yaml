@@ -59,6 +59,13 @@ spec:
               name: {{ .Values.secrets.claudeApiKey }}
               key: apiKey
         {{- end }}
+        {{- if and .Values.secrets .Values.secrets.telegramToken (ne .Values.secrets.telegramToken "") }}
+        - name: TELEGRAM_BOT_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.secrets.telegramToken }}
+              key: token
+        {{- end }}
         {{- range $key, $value := .Values.env }}
         - name: {{ $key }}
           value: {{ $value | quote }}

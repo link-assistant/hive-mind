@@ -1,6 +1,16 @@
 #!/usr/bin/env node
-import { ensureUseM } from './use-m-bootstrap.lib.mjs';
-import { maskToken, setupStdioLogInterceptor } from './lib.mjs';
+import { secureTelegramArgv, loadTelegramStartupConfig } from './telegram-startup-config.lib.mjs';
+
+let inlineOptions;
+try {
+  inlineOptions = secureTelegramArgv();
+} catch (error) {
+  console.error(error.message);
+  process.exit(1);
+}
+
+const { maskToken, setupStdioLogInterceptor } = await import('./lib.mjs');
+const { ensureUseM } = await import('./use-m-bootstrap.lib.mjs');
 
 setupStdioLogInterceptor();
 // Early exit for --version (issue #1318: avoid dotenvx MISSING_ENV_FILE warnings)
@@ -22,6 +32,12 @@ const dotenvx = dotenvxModule.default || dotenvxModule;
 // Load .env/.lenv configuration (issue #1318)
 dotenvx.config({ quiet: true, ignore: ['MISSING_ENV_FILE'] });
 await loadLenvConfig({ override: true, quiet: true });
+try {
+  await loadTelegramStartupConfig({ loadLenvConfig, inlineOptions, getenv });
+} catch (error) {
+  console.error(error.message);
+  process.exit(1);
+}
 
 const yargs = getLinoYargsFactory();
 const { createYargsConfig: createTelegramYargsConfig } = await import('./telegram.config.lib.mjs');
@@ -33,16 +49,13 @@ const { mergeArgsWithOverrides } = await import('./args-overrides.lib.mjs'); // 
 const { validateCommandOverrides } = await import('./telegram-overrides-validation.lib.mjs'); // issue #2198
 const config = createTelegramYargsConfig(yargs(hideBin(process.argv))).parse();
 
-// Configuration priority: CLI option > --configuration LINO > .lenv > .env
-if (config.configuration) {
-  await loadLenvConfig({ configuration: config.configuration, override: true, quiet: true });
-}
+// CLI defaults already include inline/file/environment configuration.
 const BOT_TOKEN = config.token || getenv('TELEGRAM_BOT_TOKEN', '');
-const VERBOSE = config.verbose || getenv('TELEGRAM_BOT_VERBOSE', 'false') === 'true';
+const VERBOSE = config.verbose;
 const AUTO_WATCH_MESSAGE = config.autoStartScreenWatchMessage === true;
 const SHOW_LIMITS_ENABLED = config.showLimits === true;
 if (!BOT_TOKEN) {
-  console.error('Error: TELEGRAM_BOT_TOKEN not set. Use --token or TELEGRAM_BOT_TOKEN env var.');
+  console.error('Error: TELEGRAM_BOT_TOKEN not set. Use --configuration-file, .lenv/.env, or the TELEGRAM_BOT_TOKEN environment variable.');
   process.exit(1);
 }
 
@@ -73,7 +86,7 @@ const fixEnabled = config.fix;
 const organizeEnabled = config.organize;
 const authEnabled = config.auth;
 // Isolation mode (experimental): uses `$` from start-command with specified backend
-const ISOLATION_BACKEND = (config.isolation || getenv('TELEGRAM_ISOLATION', '')).trim().toLowerCase();
+const ISOLATION_BACKEND = (config.isolation ?? '').trim().toLowerCase();
 const { initializeTelegramContainerResourceLimits } = await import('./telegram-container-resource-limits.lib.mjs');
 const CONTAINER_RESOURCE_LIMITS = initializeTelegramContainerResourceLimits(config, ISOLATION_BACKEND);
 let isolationRunner = null;

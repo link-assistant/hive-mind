@@ -431,7 +431,8 @@ Hive Mind включает интерфейс Telegram-бота (SwarmMindBot) �
    cp .env.example .env
 
    # Edit and add your bot token
-   echo "TELEGRAM_BOT_TOKEN=your_bot_token_here" >> .env
+   chmod 600 .env
+   nano .env
 
    # Optional: Restrict to specific chats
    # Get chat ID using /help command, then add:

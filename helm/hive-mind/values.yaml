@@ -97,6 +97,9 @@ secrets:
   # Name of an existing secret containing Claude API key
   claudeApiKey: ""
 
+  # Name of an existing secret containing the Telegram bot token (key: token)
+  telegramToken: ""
+
 # Node selector for pod assignment
 nodeSelector: {}
 
@@ -128,7 +131,9 @@ command: []
 #   - -c
 #   - |
 #     gh auth login -h github.com -s repo,workflow,user,read:org,gist
-#     hive-telegram-bot --configuration "..."
+#     exec hive-telegram-bot
+# secrets:
+#   telegramToken: "hive-telegram-token"
 
 # Arguments for the command
 args: []

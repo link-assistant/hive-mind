@@ -12,13 +12,18 @@ export const createYargsConfig = yargsInstance =>
     .usage('Usage: hive-telegram-bot [options]')
     .option('configuration', {
       type: 'string',
-      description: 'LINO configuration string for environment variables',
+      description: 'Inline LINO configuration (replaces process arguments at startup); prefer --configuration-file',
       alias: 'c',
-      default: getenv('TELEGRAM_CONFIGURATION', ''),
+    })
+    .option('configurationFile', {
+      type: 'string',
+      description: 'Path to a LINO configuration file; use mode 0600 for secrets',
+      alias: 'configuration-file',
+      default: getenv('HIVE_MIND_CONFIGURATION_FILE', ''),
     })
     .option('token', {
       type: 'string',
-      description: 'Telegram bot token from @BotFather',
+      description: 'Telegram bot token from @BotFather; prefer TELEGRAM_BOT_TOKEN in a file or environment variable',
       alias: 't',
       default: getenv('TELEGRAM_BOT_TOKEN', ''),
     })

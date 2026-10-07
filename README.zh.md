@@ -431,7 +431,8 @@ Hive Mind 内置 Telegram 机器人接口（SwarmMindBot），支持远程命令
    cp .env.example .env
 
    # Edit and add your bot token
-   echo "TELEGRAM_BOT_TOKEN=your_bot_token_here" >> .env
+   chmod 600 .env
+   nano .env
 
    # Optional: Restrict to specific chats
    # Get chat ID using /help command, then add:

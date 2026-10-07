@@ -1,0 +1,11 @@
+gpt-6-astra | list | 2 | Frontier intelligence for the most demanding work. | 
+gpt-6.1-sol | list | 1 | Latest workhorse model for coding and everyday work. | 
+gpt-6-sol | list | 3 | Previous generation workhorse model. | 
+gpt-6-luna | list | 4 | Fast and affordable model for easier tasks. | 
+gpt-5.6-sol | list | 5 | Older generation workhorse model. | gpt-6-sol
+gpt-5.6-terra | list | 8 | Older balanced model for straightforward work. | gpt-6-sol
+gpt-5.6-luna | list | 9 | Older fast and efficient model. | gpt-6-luna
+gpt-daybreak-blue-latest | hide | 11 | Latest frontier agentic coding model for broad defensive cybersecurity work. | 
+gpt-daybreak-red-latest | hide | 12 | Cyber-permissive variant of our latest frontier agentic coding model for advanced, authorized cybersecurity research. | 
+gpt-5.5 | list | 13 | Legacy coding model. | gpt-6-sol
+codex-auto-review | hide | 43 | Automatic approval review model for Codex. | 

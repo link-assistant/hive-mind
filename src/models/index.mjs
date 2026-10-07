@@ -767,6 +767,8 @@ export const mapClaudeSubAgentModelToEnvValue = model => {
  */
 export const validateAndExitOnInvalidModel = async (model, tool = 'claude', exitFn = null, options = {}) => {
   const result = await validateRuntimeModelName(model, tool, options);
+  // --verbose shows which catalogue resolved the model (Issue #2591).
+  if (result.valid) await log(`   Model "${model}" → ${result.mappedModel} (source: ${result.source})`, { verbose: true });
   if (result.warning) await log(`⚠️  ${result.warning}`, { level: 'warning' });
 
   if (!result.valid) {

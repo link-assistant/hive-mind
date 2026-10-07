@@ -123,7 +123,8 @@ test('resolveModelId resolves "gpt-5.5" for codex tool', () => {
 });
 
 test('resolveModelId resolves "flash" for gemini tool', () => {
-  assert.equal(resolveModelId('flash', 'gemini'), 'gemini-2.5-flash');
+  // Gemini CLI resolves its own rolling aliases (Issue #2591).
+  assert.equal(resolveModelId('flash', 'gemini'), 'flash');
 });
 
 test('resolveModelId strips [1m] suffix', () => {
@@ -385,7 +386,7 @@ test('resolveModelId resolves "qwen" for qwen tool', () => {
 });
 
 test('resolveModelId resolves "gemini" for gemini tool', () => {
-  assert.equal(resolveModelId('gemini', 'gemini'), 'gemini-2.5-flash');
+  assert.equal(resolveModelId('gemini', 'gemini'), 'flash');
 });
 
 // ============================================================================

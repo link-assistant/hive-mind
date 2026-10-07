@@ -1,0 +1,94 @@
+# @link-assistant/agent 0.26.11 models (evidence collected 2026-10-07)
+# Binary: /home/box/.bun/install/global/node_modules/@link-assistant/agent/src/index.js  version: 0.26.11
+# No 'models' subcommand: 'agent --help' lists only 'agent auth' and 'agent' (run).
+
+## $ agent --help | grep -A1 -- --model
+      --model                       Model to use in format providerID/modelID
+                                [string] [default: "opencode/minimax-m2.5-free"]
+--
+                                    the --model model when --model points at
+                                    another provider. Overridden by
+--
+                                    OpenCode-specific: when --model points at
+                                    another provider, its entries from other
+
+## /home/box/.bun/install/global/node_modules/@link-assistant/agent/src/config/defaults.ts
+19:export const DEFAULT_MODEL = 'opencode/minimax-m2.5-free';
+25:export const DEFAULT_COMPACTION_MODEL = 'opencode/gpt-5-nano';
+50: * Note: qwen3.6-plus-free was removed because the free promotion ended in April 2026.
+51: * Note: minimax-m2.5-free is the default model again as of issue #266.
+
+## /home/box/.bun/install/global/node_modules/@link-assistant/agent/src/provider/opencode-zen.ts (live list fetched from https://opencode.ai/zen/v1/models; hardcoded overrides below)
+6:  const MODELS_URL = 'https://opencode.ai/zen/v1/models';
+7:  const DEPRECATED_FREE_MODEL_IDS = new Set(['trinity-large-preview-free']);
+13:    'minimax-m2.5-free': {
+20:    'ling-2.6-flash-free': {
+27:    'hy3-preview-free': {
+34:    'nemotron-3-super-free': {
+41:    'gpt-5-nano': {
+50:    'big-pickle': {
+70:    if (DEPRECATED_FREE_MODEL_IDS.has(modelID)) return false;
+79:    const response = await fetchFn(MODELS_URL, {
+69:  function isFreeModelID(modelID: string) {
+70-    if (DEPRECATED_FREE_MODEL_IDS.has(modelID)) return false;
+71-    return (
+72-      modelID.endsWith('-free') ||
+73-      modelID === 'gpt-5-nano' ||
+74-      modelID === 'big-pickle'
+75-    );
+
+## /home/box/.bun/install/global/node_modules/@link-assistant/agent/src/provider/provider.ts kilo free model map (short name -> Kilo API id)
+ id: 'kilo',	 'glm-5-free': {
+ id: 'z-ai/glm-5:free',	 'glm-4.5-air-free': {
+ id: 'z-ai/glm-4.5-air:free',	 'minimax-m2.5-free': {
+ id: 'minimax/minimax-m2.5:free',	 'giga-potato-free': {
+ id: 'giga-potato',	 'trinity-large-preview': {
+ id: 'arcee-ai/trinity-large-preview:free',	 'deepseek-r1-free': {
+ id: 'deepseek/deepseek-r1-0528:free',	
+
+## /home/box/.bun/install/global/node_modules/@link-assistant/agent/src/provider/provider.ts resolveShortModelName (~2085-2110)
+   *    - kilo: glm-5-free, glm-4.5-air-free, giga-potato-free, deepseek-r1-free (unique to Kilo)
+   *    - opencode: minimax-m2.5-free, ling-2.6-flash-free, hy3-preview-free, big-pickle, gpt-5-nano, nemotron-3-super-free
+    const kiloUniqueModels = [
+      'glm-5-free',
+      'glm-4.5-air-free',
+      'giga-potato-free',
+      'trinity-large-preview',
+      'deepseek-r1-free',
+    ];
+
+## /home/box/.bun/install/global/node_modules/@link-assistant/agent/src/provider/provider.ts default sort priority (~1994-2005)
+  const priority = [
+    'big-pickle',
+    'gpt-5-nano',
+    'nemotron-3-super-free',
+    'hy3-preview-free',
+    'ling-2.6-flash-free',
+    'minimax-m2.5-free',
+    'glm-5-free',
+    'gpt-5',
+    'claude-sonnet-4',
+    'gemini-3-pro',
+  ];
+
+## Cross-check vs models.dev snapshot ~/.cache/opencode/models.json (see opencode-1.18.34-models.txt):
+opencode/minimax-m2.5-free -> deprecated free
+opencode/nemotron-3-super-free -> deprecated free
+opencode/hy3-preview-free -> deprecated free
+opencode/ling-2.6-flash-free -> deprecated free
+opencode/gpt-5-nano -> active paid
+opencode/big-pickle -> active free
+opencode/grok-code -> deprecated free
+opencode/qwen3.6-plus-free -> deprecated free
+opencode/kimi-k2.5-free -> deprecated free
+opencode/glm-4.7-free -> deprecated free
+opencode/minimax-m2.1-free -> deprecated free
+opencode/glm-5-free -> deprecated free
+opencode/trinity-large-preview-free -> deprecated free
+kilo :free ids in snapshot: ['cohere/north-mini-code:free', 'dots-studio/dots-3-note-preview:free', 'inclusionai/ling-3.0-flash-sante:free', 'liquid/lfm-2.5-2.6b:free', 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free', 'nvidia/nemotron-3-super-120b-a12b:free', 'nvidia/nemotron-3-ultra-550b-a55b:free', 'nvidia/nemotron-3.5-content-safety:free', 'nvidia/nemotron-3.5-lightning:free', 'poolside/laguna-s-2.1:free', 'poolside/laguna-xs-2.1:free', 'stepfun/step-3.7-flash:free', 'thinkingmachines/inkling-small:free']
+kilo/z-ai/glm-5:free -> MISSING
+kilo/z-ai/glm-4.5-air:free -> MISSING
+kilo/minimax/minimax-m2.5:free -> MISSING
+kilo/arcee-ai/trinity-large-preview:free -> MISSING
+kilo/deepseek/deepseek-r1-0528:free -> MISSING
+kilo/giga-potato -> MISSING

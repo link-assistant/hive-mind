@@ -1,0 +1,10 @@
+# Model alias excerpts from /home/box/.local/share/claude/versions/2.1.292
+
+## Alias list accepted by --model
+_2=["sonnet","opus","haiku","fable","best","sonnet[1m]","opus[1m]","fable[1m]","opusplan"],b2=["sonnet","opus","haiku","fable"];var eRt="claude-mythos-p
+
+## Known first-party model IDs
+e}from"/$bunfs/root/chunk-rvqggygd.js";var oce=["claude-3-5-haiku","claude-3-5-sonnet","claude-3-7-sonnet","claude-fable-5","claude-fable-5-1","claude-haiku-4-5","claude-mythos-5","claude-mythos-5-1","claude-opus-4-0","claude-opus-4-1","claude-opus-4-5","claude-opus-4-6","claude-opus-4-7","claude-opus-4-8","claude-opus-5","claude-opus-5-5","claude-sonnet-4-0","claude-sonnet-4-5","claude-sonnet-4-6","claude-sonnet-5","claude-sonnet-5-5"],_2=
+
+## Alias defaults (aliases / best / latest_per_family)
+_cost_index:{low:0.75,medium:0.86,high:1,xhigh:1.38,max:1.74},image_limits:{maxWidth:2000,maxHeight:2000},advisor_rank:9}],aliases:{opus:{default:"claude-opus-5-5",per_provider:{bedrock:"claude-opus-5-5",vertex:"claude-opus-5-5",foundry:"claude-opus-4-6",mantle:"claude-opus-5-5",anthropic_aws:"claude-opus-5-5",gateway:"claude-opus-4-7"}},sonnet:{default:"claude-sonnet-5-5",per_provider:{bedrock:"claude-sonnet-4-5",vertex:"claude-sonnet-4-5",foundry:"claude-sonnet-4-5",mantle:"claude-sonnet-4-5",anthropic_aws:"claude-sonnet-4-6",gateway:"claude-sonnet-4-6"}},haiku:{default:"claude-haiku-4-5"},fable:{default:"claude-fable-5-1",per_provider:{gateway:"claude-fable-5"}}},defaults:{},best:"fable",latest_per_family:{fable:"claude-fable-5-1",opus:"claude-opus-5-5",sonnet:"claude-sonnet-5-5",haiku:"claude-haiku-4-5"},alias_migration:{}}

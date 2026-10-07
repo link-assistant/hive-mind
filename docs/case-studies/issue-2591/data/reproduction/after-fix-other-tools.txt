@@ -1,0 +1,13 @@
+# node experiments/issue-2591-other-tools-validation.mjs (5103bbe9)
+gemini gemini-3.1-pro-preview: bundled=gemini-3.1-pro-preview runtime=gemini-3.1-pro-preview (bundled)
+gemini gemini-3.5-flash: bundled=gemini-3.5-flash runtime=gemini-3.5-flash (bundled)
+gemini gemini-3.8-flash: bundled=gemini-3.8-flash runtime=gemini-3.8-flash (bundled)
+gemini gemini-3.5-flash-lite: bundled=gemini-3.5-flash-lite runtime=gemini-3.5-flash-lite (bundled)
+qwen coder-model: bundled=coder-model runtime=coder-model (bundled)
+qwen qwen3.7-max: bundled=qwen3.7-max runtime=qwen3.7-max (bundled)
+qwen qwen3.8-max: bundled=qwen3.8-max runtime=qwen3.8-max (bundled)
+opencode opencode/big-pickle: bundled=invalid runtime=opencode/big-pickle (provider)
+opencode opencode/nemotron-3-ultra-free: bundled=invalid runtime=opencode/nemotron-3-ultra-free (provider)
+opencode opencode/claude-opus-5-5: bundled=invalid runtime=opencode/claude-opus-5-5 (provider)
+agent opencode/nemotron-3-ultra-free: bundled=invalid runtime=opencode/nemotron-3-ultra-free (provider)
+agent nemotron-3.5-lightning-free: bundled=invalid runtime=invalid

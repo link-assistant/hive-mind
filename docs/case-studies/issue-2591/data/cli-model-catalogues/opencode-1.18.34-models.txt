@@ -1,0 +1,156 @@
+# OpenCode 1.18.34 models (evidence collected 2026-10-07)
+# Binary: /home/box/.bun/install/global/node_modules/opencode-ai/bin/opencode.exe  version: 1.18.34
+
+## $ timeout 90 opencode models   (no paid credentials configured -> only zero-cost OpenCode Zen models)
+opencode/big-pickle
+opencode/exo-free
+opencode/fledge-alpha-free
+opencode/ling-3.0-flash-fin-free
+opencode/ling-3.1-flash-free
+opencode/longcat-2.5-preview-free
+opencode/mimo-v2.6-flash-free
+opencode/muse-spark-1.3-contributor-free
+opencode/nemotron-3-ultra-free
+opencode/nemotron-3.5-lightning-free
+opencode/space-bunny-free
+
+## Default model selection (strings from /home/box/.bun/install/global/node_modules/opencode-ai/bin/opencode.exe, Provider.defaultModel):
+## config.model -> recent entry in state/model.json -> first provider's models sorted by priority list
+Mv=["gpt-5","claude-sonnet-4","big-pickle","gemini-3-pro"],fN=["gemini-flash","gpt-nano","claude-haiku"];function tJ($){return N7($,[(Z)=>Mv.findIndex((Q)=>Z.id.includes(Q)),"desc"],[(Z)=>Z.id.includes("latest")?0:1,"asc"],[(Z)=>Z.id,"desc"])}function dJ($){le
+## => with only free Zen models available, the default resolves to opencode/big-pickle (only id matching the priority list)
+
+## ~/.cache/opencode/models.json (models.dev snapshot, mtime 2026-10-07T09:18:06+00:00) provider 'opencode':
+## id | status | free(cost 0) | release_date
+big-pickle | active | free | 2025-10-17
+claude-3-5-haiku | deprecated | - | 2024-10-22
+claude-fable-5 | active | - | 2026-06-09
+claude-fable-5-1 | active | - | 2026-09-01
+claude-haiku-4-5 | active | - | 2025-10-15
+claude-opus-4-1 | deprecated | - | 2025-08-05
+claude-opus-4-5 | active | - | 2025-11-24
+claude-opus-4-6 | active | - | 2026-02-05
+claude-opus-4-7 | active | - | 2026-04-16
+claude-opus-4-8 | active | - | 2026-05-28
+claude-opus-5 | active | - | 2026-07-24
+claude-opus-5-5 | active | - | 2026-09-22
+claude-sonnet-4 | active | - | 2025-05-22
+claude-sonnet-4-5 | active | - | 2025-09-29
+claude-sonnet-4-6 | active | - | 2026-02-17
+claude-sonnet-5 | active | - | 2026-06-30
+claude-sonnet-5-5 | active | - | 2026-09-28
+deepseek-v4-flash | active | - | 2026-07-31
+deepseek-v4-flash-free | deprecated | free | 2026-07-31
+deepseek-v4-flash-vision-exp | active | - | 2026-08-21
+deepseek-v4-pro | active | - | 2026-04-24
+deepseek-v4.1-flash | active | - | 2026-09-10
+exo-free | active | free | 2026-10-06
+fledge-alpha-free | active | free | 2026-10-01
+gemini-3-flash | active | - | 2025-12-17
+gemini-3-pro | deprecated | - | 2025-11-18
+gemini-3.1-pro | active | - | 2026-02-19
+gemini-3.5-flash | active | - | 2026-05-19
+gemini-3.5-flash-lite | active | - | 2026-07-21
+gemini-3.6-flash | active | - | 2026-07-21
+gemini-3.7-flash | active | - | 2026-08-13
+gemini-3.8-flash | active | - | 2026-09-02
+glm-4.6 | deprecated | - | 2025-09-30
+glm-4.7 | deprecated | - | 2025-12-22
+glm-4.7-free | deprecated | free | 2025-12-22
+glm-5 | active | - | 2026-02-11
+glm-5-free | deprecated | free | 2026-02-11
+glm-5.1 | active | - | 2026-04-07
+glm-5.2 | active | - | 2026-06-13
+glm-5.3 | active | - | 2026-08-14
+glm-5.3-flash | active | - | 2026-08-26
+gpt-5 | active | - | 2025-08-07
+gpt-5-codex | active | - | 2025-09-15
+gpt-5-nano | active | - | 2025-08-07
+gpt-5.1 | active | - | 2025-11-13
+gpt-5.1-codex | active | - | 2025-11-13
+gpt-5.1-codex-max | active | - | 2025-11-13
+gpt-5.1-codex-mini | active | - | 2025-11-13
+gpt-5.2 | active | - | 2025-12-11
+gpt-5.2-codex | active | - | 2026-01-14
+gpt-5.3-codex | active | - | 2026-02-24
+gpt-5.3-codex-spark | active | - | 2026-02-12
+gpt-5.4 | active | - | 2026-03-05
+gpt-5.4-mini | active | - | 2026-03-17
+gpt-5.4-nano | active | - | 2026-03-17
+gpt-5.4-pro | active | - | 2026-03-05
+gpt-5.5 | active | - | 2026-04-23
+gpt-5.5-pro | active | - | 2026-04-24
+gpt-5.6-luna | active | - | 2026-07-09
+gpt-5.6-sol | active | - | 2026-07-09
+gpt-5.6-terra | active | - | 2026-07-09
+gpt-6-astra | active | - | 2026-09-04
+gpt-6-luna | active | - | 2026-09-22
+gpt-6-sol | active | - | 2026-09-22
+gpt-6.1-sol | active | - | 2026-09-29
+grok-4.5 | active | - | 2026-07-08
+grok-4.6 | active | - | 2026-08-12
+grok-4.7 | active | - | 2026-09-21
+grok-build-0.1 | active | - | 2026-04-16
+grok-code | deprecated | free | 2025-08-20
+hy3-free | deprecated | free | 2026-07-06
+hy3-preview-free | deprecated | free | 2026-04-20
+kimi-k2 | deprecated | - | 2025-09-05
+kimi-k2-thinking | deprecated | - | 2025-09-05
+kimi-k2.5 | active | - | 2026-01-27
+kimi-k2.5-free | deprecated | free | 2026-01-27
+kimi-k2.6 | active | - | 2026-04-21
+kimi-k2.7-code | active | - | 2026-06-12
+kimi-k3 | active | - | 2026-07-16
+laguna-s-2.1-free | deprecated | free | 2026-07-21
+ling-2.6-flash-free | deprecated | free | 2026-04-21
+ling-3.0-flash-fin-free | active | free | 2026-08-27
+ling-3.0-flash-free | deprecated | free | 2026-07-23
+ling-3.0-tiny-free | deprecated | free | 2026-08-06
+ling-3.1-flash-free | active | free | 2026-09-29
+longcat-2.0-free | deprecated | free | 2026-06-30
+longcat-2.5-preview-free | active | free | 2026-09-25
+mimo-v2-flash-free | deprecated | free | 2025-12-16
+mimo-v2-omni-free | deprecated | free | 2026-03-18
+mimo-v2-pro-free | deprecated | free | 2026-03-18
+mimo-v2.5-free | deprecated | free | 2026-04-24
+mimo-v2.6-flash-free | active | free | 2026-09-22
+minimax-m2.1 | deprecated | - | 2025-12-23
+minimax-m2.1-free | deprecated | free | 2025-12-23
+minimax-m2.5 | active | - | 2026-02-12
+minimax-m2.5-free | deprecated | free | 2026-02-12
+minimax-m2.7 | active | - | 2026-03-18
+minimax-m3 | active | - | 2026-06-01
+minimax-m3-free | deprecated | free | 2026-05-31
+mistral-large-4 | active | - | 2026-10-06
+muse-spark-1.2 | active | - | 2026-08-05
+muse-spark-1.2-contributor-free | deprecated | free | 2026-08-05
+muse-spark-1.3 | active | - | 2026-09-02
+muse-spark-1.3-contributor-free | active | free | 2026-09-02
+nemotron-3-super-free | deprecated | free | 2026-03-11
+nemotron-3-ultra-free | active | free | 2026-06-04
+nemotron-3.5-lightning-free | active | free | 2026-08-11
+north-mini-code-free | deprecated | free | 2026-06-09
+qwen3-coder | deprecated | - | 2025-07-23
+qwen3.5-plus | active | - | 2026-02-16
+qwen3.6-plus | active | - | 2026-04-02
+qwen3.6-plus-free | deprecated | free | 2026-04-02
+qwen3.8-flash | active | - | 2026-08-26
+qwen3.8-max | active | - | 2026-08-03
+ring-2.6-1t-free | deprecated | free | 2026-05-08
+space-bunny-free | active | free | 2026-09-23
+trinity-large-preview-free | deprecated | free | 2026-01-27
+x-preview-f-free | deprecated | free | 2026-08-21
+
+## Cross-check of hive-mind agentModels/opencodeModels premium targets vs models.dev snapshot
+anthropic/claude-3-5-sonnet -> MISSING
+anthropic/claude-3-5-haiku -> MISSING
+anthropic/claude-3-opus -> MISSING
+google/gemini-3-pro -> MISSING
+google/gemini-pro -> MISSING
+openai/gpt-4 -> deprecated
+openai/gpt-4o -> active
+opencode/grok-code -> deprecated
+opencode/gemini-3-pro -> deprecated
+opencode/claude-sonnet-5-5 -> active
+opencode/gemini-3.8-flash -> active
+anthropic/claude-sonnet-5-5 -> active
+google/gemini-3.1-pro-preview -> active

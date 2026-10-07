@@ -1,0 +1,43 @@
+# After the fix (5103bbe9), node experiments/issue-2591-print-model-listings.mjs, codex-cli 0.160.0 installed
+
+## codex (13)
+astra, sol, luna, terra, formal-ai, gpt-6-astra, gpt-6.1-sol, gpt-6-sol, gpt-6-luna, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna, gpt-5.5
+
+## claude (38)
+formal-ai, sonnet, opus, haiku, opusplan, best, fable, fable-5-1, claude-fable-5-1, fable-5, claude-fable-5, mythos-5-1, claude-mythos-5-1, mythos-5, claude-mythos-5, sonnet-5-5, sonnet-5, sonnet-4-6, opus-5-5, opus-5, opus-4-8, opus-4-7, opus-4-6, opus-4-5, sonnet-4-5, haiku-4-5, claude-opus-5-5, claude-opus-5, claude-opus-4-8, claude-opus-4-7, claude-sonnet-5-5, claude-sonnet-5, claude-sonnet-4-6, claude-opus-4-6, claude-opus-4-5, claude-sonnet-4-5, claude-haiku-4-5, mythos
+
+## agent (21)
+formal-ai, grok, grok-code, grok-code-fast-1, big-pickle, gpt-5-nano, minimax-m2.5-free, nemotron-3-super-free, glm-5-free, glm-4.5-air-free, deepseek-r1-free, giga-potato-free, trinity-large-preview, qwen3.6-plus-free, kimi-k2.5-free, glm-4.7-free, minimax-m2.1-free, sonnet, haiku, opus, gemini-3-pro
+
+## opencode (10)
+formal-ai, gpt4, gpt4o, claude, sonnet, opus, gemini, grok, grok-code, grok-code-fast-1
+
+## gemini (29)
+formal-ai, auto, gemini, flash, pro, lite, flash-lite, gemini-flash, gemini-pro, 3-flash, 3-pro, 3.1-pro, 3.5-flash, 3.8-flash, 3.1-flash-lite, 3.5-flash-lite, gemini-3.8-flash, gemini-3.5-flash, gemini-3.5-flash-lite, gemini-3.1-flash-lite, gemini-3.1-pro-preview, gemini-3-flash-preview, gemini-3-pro-preview, 2.5-flash, 2.5-pro, 2.5-lite, gemini-2.5-flash, gemini-2.5-pro, gemini-2.5-flash-lite
+
+## qwen (15)
+formal-ai, qwen, qwen-coder, qwen3, qwen3-coder, qwen3-coder-plus, qwen3-coder-flash, qwen3.6-plus, qwen3.6-coder-plus, coder-model, qwen3.7-plus, qwen3.7-max, qwen3.8-max, qwen3.8-flash, qwen3-coder-next
+
+codex astra: {"valid":true,"mappedModel":"gpt-6-astra","has1mSuffix":false}
+runtime codex astra: {"valid":true,"mappedModel":"gpt-6-astra","has1mSuffix":false,"source":"live-alias"}
+
+codex sol: {"valid":true,"mappedModel":"gpt-6.1-sol","has1mSuffix":false}
+runtime codex sol: {"valid":true,"mappedModel":"gpt-6.1-sol","has1mSuffix":false,"source":"live-alias"}
+
+codex luna: {"valid":true,"mappedModel":"gpt-6-luna","has1mSuffix":false}
+runtime codex luna: {"valid":true,"mappedModel":"gpt-6-luna","has1mSuffix":false,"source":"live-alias"}
+
+codex terra: {"valid":true,"mappedModel":"gpt-5.6-terra","has1mSuffix":false}
+runtime codex terra: {"valid":true,"mappedModel":"gpt-5.6-terra","has1mSuffix":false,"source":"live-alias"}
+
+claude mythos: {"valid":true,"mappedModel":"claude-mythos-5-1","has1mSuffix":false}
+runtime claude mythos: {"valid":true,"mappedModel":"claude-mythos-5-1","has1mSuffix":false,"source":"bundled"}
+
+claude opus-5.5: {"valid":true,"mappedModel":"claude-opus-5-5","has1mSuffix":false}
+runtime claude opus-5.5: {"valid":true,"mappedModel":"claude-opus-5-5","has1mSuffix":false,"source":"bundled"}
+
+claude opus-6: {"valid":false,"message":"Unrecognized model: \"opus-6\"\n   Did you mean: \"opus-5\", \"opus\", \"opus-4-6\"?\n   Available models for claude: formal-ai, sonnet, opus, haiku, opusplan, best, fable, fable-5-1, claude-fable-5-1, fable-5, claude-fable-5, mythos-5-1, claude-mythos-5-1, mythos-5, claude
+runtime claude opus-6: {"valid":true,"mappedModel":"claude-opus-6","has1mSuffix":false,"source":"provider"}
+
+codex astar: {"valid":false,"message":"Unrecognized model: \"astar\"\n   Did you mean: \"astra\"?\n   Available models for codex: astra, sol, luna, terra, formal-ai, gpt-6-astra, gpt-6.1-sol, gpt-6-sol, gpt-6-luna, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna, gpt-5.5","suggestions":["astra"]}
+runtime codex astar: {"valid":false,"message":"Unrecognized model: \"astar\"\n   Did you mean: \"astra\"?\n   Available models for codex: astra, sol, luna, terra, formal-ai, gpt-6-astra, gpt-6.1-sol, gpt-6-sol, gpt-6-luna, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna, gpt-5.5","suggestions":["astra"]}

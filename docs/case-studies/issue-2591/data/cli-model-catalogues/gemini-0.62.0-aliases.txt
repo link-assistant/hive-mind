@@ -1,0 +1,123 @@
+# Gemini CLI 0.62.0 model aliases/IDs (evidence collected 2026-10-07)
+# Binary: /home/box/.bun/install/global/node_modules/@google/gemini-cli/bundle/gemini.js
+# Version: 0.62.0
+
+## /home/box/.bun/install/global/node_modules/@google/gemini-cli/bundle/chunk-2DHAEQE2.js (packages/core/src/config/models.ts) lines 280324-280392
+var PREVIEW_GEMINI_MODEL = "gemini-3-pro-preview";
+var PREVIEW_GEMINI_3_1_MODEL = "gemini-3.1-pro-preview";
+var PREVIEW_GEMINI_3_1_CUSTOM_TOOLS_MODEL = "gemini-3.1-pro-preview-customtools";
+var PREVIEW_GEMINI_FLASH_MODEL = "gemini-3-flash-preview";
+var DEFAULT_GEMINI_MODEL = "gemini-2.5-pro";
+var BASE_GEMINI_FLASH_MODEL = "gemini-3.5-flash";
+var LATEST_GEMINI_FLASH_MODEL = "gemini-3.8-flash";
+var LEGACY_CCPA_FLASH_MODEL = "gemini-3-flash";
+var DEFAULT_GEMINI_3_5_FLASH_MODEL = BASE_GEMINI_FLASH_MODEL;
+var SECONDARY_GEMINI_3_5_FLASH_MODEL = LEGACY_CCPA_FLASH_MODEL;
+var BASE_GEMINI_FLASH_LITE_MODEL = "gemini-3.1-flash-lite";
+var LATEST_GEMINI_FLASH_LITE_MODEL = "gemini-3.5-flash-lite";
+var DEFAULT_GEMINI_FLASH_MODEL = BASE_GEMINI_FLASH_MODEL;
+var DEFAULT_GEMINI_FLASH_LITE_MODEL = BASE_GEMINI_FLASH_LITE_MODEL;
+function setFlashModels(preview, defaultFlash) {
+  PREVIEW_GEMINI_FLASH_MODEL = preview;
+  DEFAULT_GEMINI_FLASH_MODEL = defaultFlash;
+}
+function setFlashLiteModel(defaultFlashLite) {
+  DEFAULT_GEMINI_FLASH_LITE_MODEL = defaultFlashLite;
+}
+function resetModelsForTesting() {
+  PREVIEW_GEMINI_FLASH_MODEL = "gemini-3-flash-preview";
+  DEFAULT_GEMINI_FLASH_MODEL = BASE_GEMINI_FLASH_MODEL;
+  DEFAULT_GEMINI_FLASH_LITE_MODEL = BASE_GEMINI_FLASH_LITE_MODEL;
+}
+var PREVIEW_GEMINI_FLASH_LITE_MODEL = "none";
+...
+var PREVIEW_GEMINI_MODEL_AUTO = "auto-gemini-3";
+var DEFAULT_GEMINI_MODEL_AUTO = "auto-gemini-2.5";
+var GEMINI_MODEL_ALIAS_AUTO = "auto";
+var GEMINI_MODEL_ALIAS_PRO = "pro";
+var GEMINI_MODEL_ALIAS_FLASH = "flash";
+var GEMINI_MODEL_ALIAS_FLASH_LITE = "flash-lite";
+
+## VALID_GEMINI_MODELS (note: gemini-2.5-flash / gemini-2.5-flash-lite NOT in this set)
+var VALID_GEMINI_MODELS = /* @__PURE__ */ new Set([
+  PREVIEW_GEMINI_MODEL,
+  PREVIEW_GEMINI_3_1_MODEL,
+  PREVIEW_GEMINI_3_1_CUSTOM_TOOLS_MODEL,
+  PREVIEW_GEMINI_FLASH_MODEL,
+  PREVIEW_GEMINI_FLASH_LITE_MODEL,
+  DEFAULT_GEMINI_MODEL,
+  DEFAULT_GEMINI_FLASH_MODEL,
+  DEFAULT_GEMINI_3_5_FLASH_MODEL,
+  SECONDARY_GEMINI_3_5_FLASH_MODEL,
+  DEFAULT_GEMINI_FLASH_LITE_MODEL,
+  BASE_GEMINI_FLASH_MODEL,
+  LATEST_GEMINI_FLASH_MODEL,
+  LEGACY_CCPA_FLASH_MODEL,
+  BASE_GEMINI_FLASH_LITE_MODEL,
+  LATEST_GEMINI_FLASH_LITE_MODEL,
+  GEMMA_4_31B_IT_MODEL,
+  GEMMA_4_26B_A4B_IT_MODEL
+]);
+
+## resolveModel() legacy switch (chunk-2DHAEQE2.js ~280420-280450)
+26:    case GEMINI_MODEL_ALIAS_AUTO:
+27:    case GEMINI_MODEL_ALIAS_PRO: {
+29:        resolved = DEFAULT_GEMINI_MODEL;
+33:    case PREVIEW_GEMINI_MODEL:
+34:    case PREVIEW_GEMINI_MODEL_AUTO: {
+36:        resolved = useCustomToolModel ? PREVIEW_GEMINI_3_1_CUSTOM_TOOLS_MODEL : PREVIEW_GEMINI_3_1_MODEL;
+38:        resolved = PREVIEW_GEMINI_MODEL;
+43:      resolved = DEFAULT_GEMINI_MODEL;
+46:    case GEMINI_MODEL_ALIAS_FLASH: {
+47:      resolved = effectiveUseLatestFlash ? LATEST_GEMINI_FLASH_MODEL : PREVIEW_GEMINI_FLASH_MODEL;
+50:    case GEMINI_MODEL_ALIAS_FLASH_LITE: {
+51:      resolved = effectiveUseLatestFlashLite ? LATEST_GEMINI_FLASH_LITE_MODEL : BASE_GEMINI_FLASH_LITE_MODEL;
+55:      resolved = normalizedModel;
+72:      case PREVIEW_GEMINI_MODEL:
+
+## DEFAULT_MODEL_CONFIGS.modelIdResolutions (aliases, chunk-2DHAEQE2.js ~366060-366250), condensed:
+auto / pro / auto-gemini-3: default gemini-3-pro-preview; hasAccessToPreview=false -> gemini-2.5-pro; useGemini3_1 -> gemini-3.1-pro-preview (+customtools w/ API key)
+flash: default gemini-3-flash-preview; useLatestFlash -> gemini-3.8-flash; hasAccessToPreview=false -> gemini-3.5-flash
+flash-lite: default gemini-3.1-flash-lite; useLatestFlashLite -> gemini-3.5-flash-lite
+gemini-2.5-flash: default gemini-2.5-flash; useLatestFlash -> gemini-3.8-flash
+auto-gemini-2.5: default gemini-2.5-pro
+
+## modelDefinitions keys (concrete models, isPreview):
+ "gemini-3.1-flash-lite": {	 isPreview: false,
+ "gemini-3.5-flash-lite": {	 isPreview: false,
+ "gemini-3.1-pro-preview": {	 isPreview: true,
+ "gemini-3.1-pro-preview-customtools": {	 isPreview: true,
+ "gemini-3-pro-preview": {	 isPreview: true,
+ "gemini-3-flash-preview": {	 isPreview: true,
+ "gemini-3.5-flash": {	 isPreview: false,
+ "gemini-3.8-flash": {	 isPreview: false,
+ "gemini-2.5-pro": {	 isPreview: false,
+ "gemini-2.5-flash": {	 isPreview: false,
+ "gemini-2.5-flash-lite": {	 isPreview: false,
+ "gemma-4-31b-it": {	 isPreview: false,
+ "gemma-4-26b-a4b-it": {	 isPreview: false,
+ auto: {	 isPreview: true,
+ pro: {	 isPreview: false,
+ flash: {	 isPreview: false,
+ "flash-lite": {	 isPreview: false,
+ "auto-gemini-3": {	 isPreview: true,
+ "auto-gemini-2.5": {	 isPreview: false,
+
+## Default model: gemini-CGCV5XPN.js:8439-8442
+  const defaultModel = GEMINI_MODEL_ALIAS_AUTO;
+  const rawModel = argv.model || process3.env["GEMINI_MODEL"] || settings.model?.name;
+  const specifiedModel = Array.isArray(rawModel) ? String(rawModel.at(-1) ?? "").trim() || "" : rawModel === void 0 ? void 0 : String(rawModel ?? "").trim() || "";
+  const resolvedModel = specifiedModel === GEMINI_MODEL_ALIAS_AUTO ? defaultModel : specifiedModel || defaultModel;
+
+## /model dialog manual options (gemini-CGCV5XPN.js ~15014): DEFAULT_GEMINI_MODEL (gemini-2.5-pro), DEFAULT_GEMINI_FLASH_MODEL (gemini-3.5-flash), DEFAULT_GEMINI_FLASH_LITE_MODEL (gemini-3.1-flash-lite); with preview access also gemini-3-pro-preview|gemini-3.1-pro-preview(-customtools), gemini-3-flash-preview
+
+## Bundled docs (STALE vs code) /home/box/.bun/install/global/node_modules/@google/gemini-cli/bundle/docs/cli/cli-reference.md:81-86
+| Alias        | Resolves To                                | Description                                                                                                               |
+| ------------ | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| `auto`       | `gemini-2.5-pro` or `gemini-3-pro-preview` | **Default.** Resolves to the preview model if preview features are enabled, otherwise resolves to the standard pro model. |
+| `pro`        | `gemini-2.5-pro` or `gemini-3-pro-preview` | For complex reasoning tasks. Uses preview model if enabled.                                                               |
+| `flash`      | `gemini-2.5-flash`                         | Fast, balanced model for most tasks.                                                                                      |
+| `flash-lite` | `gemini-2.5-flash-lite`                    | Fastest model for simple tasks.                                                                                           |
+
+## gemini --help | grep model
+  -m, --model                     Model  [string]

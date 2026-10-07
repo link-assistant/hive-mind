@@ -1,0 +1,27 @@
+
+## codex (62)
+formal-ai, gpt-6.1-sol, gpt-6-sol, gpt-6-luna, gpt-reserve, gpt-6-astra, gpt5, gpt-5.5, gpt-5.5-mini, gpt-5.5-nano, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna, gpt-5.6-cyber, gpt-5.4, gpt-5.4-mini, gpt-5.4-nano, gpt-5.2, gpt-5.2-codex, gpt-5.3-codex, gpt-5.3-codex-spark, gpt-5.1-codex-max, gpt-daybreak-blue-latest, gpt-daybreak-red-latest, openai.gpt-5.5, openai.gpt-5.4, openai.gpt-5.6-sol, openai.gpt-5.6-terra, openai.gpt-5.6-luna, codex-auto-review, o3-mini, gpt4, gpt4o, sol, terra, luna, openai.formal-ai, openai.gpt-6.1-sol, openai.gpt-6-sol, openai.gpt-6-luna, openai.gpt-reserve, openai.gpt-6-astra, openai.gpt-5, openai.gpt-5.5-mini, openai.gpt-5.5-nano, openai.gpt-5.6-cyber, openai.gpt-5.4-mini, openai.gpt-5.4-nano, openai.gpt-5.2, openai.gpt-5.2-codex, openai.gpt-5.3-codex, openai.gpt-5.3-codex-spark, openai.gpt-5.1-codex-max, openai.gpt-daybreak-blue-latest, openai.gpt-daybreak-red-latest, openai.codex-auto-review, openai.o3-mini, openai.gpt-4, openai.gpt-4o, openai.sol, openai.terra, openai.luna
+
+codex astra: {"valid":false,"message":"Unrecognized model: \"astra\"\n   Did you mean: \"terra\"?\n   Available models for codex: formal-ai, gpt-6.1-sol, gpt-6-sol, gpt-6-luna, gpt-reserve, gpt-6-astra, gpt5, gpt-5.5, gpt-5.5-mini, gpt-5.5-nano, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna, gpt-5.6-cyber, gpt-5.4, g
+runtime codex astra: {"valid":false,"message":"Unrecognized model: \"astra\"\n   Did you mean: \"terra\"?\n   Available models for codex: formal-ai, gpt-6.1-sol, gpt-6-sol, gpt-6-luna, gpt-reserve, gpt-6-astra, gpt5, gpt-5.5, gpt-5.5-mini, gpt-5.5-nano, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna, gpt-5.6-cyber, gpt-5.4, g
+
+codex sol: {"valid":true,"mappedModel":"gpt-5.6-sol","has1mSuffix":false}
+runtime codex sol: {"valid":true,"mappedModel":"gpt-5.6-sol","has1mSuffix":false,"source":"bundled"}
+
+codex luna: {"valid":true,"mappedModel":"gpt-5.6-luna","has1mSuffix":false}
+runtime codex luna: {"valid":true,"mappedModel":"gpt-5.6-luna","has1mSuffix":false,"source":"bundled"}
+
+codex terra: {"valid":true,"mappedModel":"gpt-5.6-terra","has1mSuffix":false}
+runtime codex terra: {"valid":true,"mappedModel":"gpt-5.6-terra","has1mSuffix":false,"source":"bundled"}
+
+claude mythos: {"valid":false,"message":"Unrecognized model: \"mythos\"\n   Did you mean: \"mythos-5\"?\n   Available models for claude: formal-ai, sonnet, opus, haiku, haiku-3-5, haiku-3, opusplan, fable, fable-5-1, claude-fable-5-1, fable-5, claude-fable-5, mythos-5-1, claude-mythos-5-1, mythos-5, claude-mythos-
+runtime claude mythos: {"valid":false,"message":"Unrecognized model: \"mythos\"\n   Did you mean: \"mythos-5\"?\n   Available models for claude: formal-ai, sonnet, opus, haiku, haiku-3-5, haiku-3, opusplan, fable, fable-5-1, claude-fable-5-1, fable-5, claude-fable-5, mythos-5-1, claude-mythos-5-1, mythos-5, claude-mythos-
+
+claude opus-5.5: {"valid":false,"message":"Unrecognized model: \"opus-5.5\"\n   Did you mean: \"opus-5-5\", \"opus-5\", \"opus-4-5\"?\n   Available models for claude: formal-ai, sonnet, opus, haiku, haiku-3-5, haiku-3, opusplan, fable, fable-5-1, claude-fable-5-1, fable-5, claude-fable-5, mythos-5-1, claude-mythos-5
+runtime claude opus-5.5: {"valid":false,"message":"Unrecognized model: \"opus-5.5\"\n   Did you mean: \"opus-5-5\", \"opus-5\", \"opus-4-5\"?\n   Available models for claude: formal-ai, sonnet, opus, haiku, haiku-3-5, haiku-3, opusplan, fable, fable-5-1, claude-fable-5-1, fable-5, claude-fable-5, mythos-5-1, claude-mythos-5
+
+claude opus-6: {"valid":false,"message":"Unrecognized model: \"opus-6\"\n   Did you mean: \"opus-5\", \"opus\", \"opus-4-6\"?\n   Available models for claude: formal-ai, sonnet, opus, haiku, haiku-3-5, haiku-3, opusplan, fable, fable-5-1, claude-fable-5-1, fable-5, claude-fable-5, mythos-5-1, claude-mythos-5-1, my
+runtime claude opus-6: {"valid":false,"message":"Unrecognized model: \"opus-6\"\n   Did you mean: \"opus-5\", \"opus\", \"opus-4-6\"?\n   Available models for claude: formal-ai, sonnet, opus, haiku, haiku-3-5, haiku-3, opusplan, fable, fable-5-1, claude-fable-5-1, fable-5, claude-fable-5, mythos-5-1, claude-mythos-5-1, my
+
+codex astar: {"valid":false,"message":"Unrecognized model: \"astar\"\n   Available models for codex: formal-ai, gpt-6.1-sol, gpt-6-sol, gpt-6-luna, gpt-reserve, gpt-6-astra, gpt5, gpt-5.5, gpt-5.5-mini, gpt-5.5-nano, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna, gpt-5.6-cyber, gpt-5.4, gpt-5.4-mini, gpt-5.4-nano, gp
+runtime codex astar: {"valid":false,"message":"Unrecognized model: \"astar\"\n   Available models for codex: formal-ai, gpt-6.1-sol, gpt-6-sol, gpt-6-luna, gpt-reserve, gpt-6-astra, gpt5, gpt-5.5, gpt-5.5-mini, gpt-5.5-nano, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna, gpt-5.6-cyber, gpt-5.4, gpt-5.4-mini, gpt-5.4-nano, gp

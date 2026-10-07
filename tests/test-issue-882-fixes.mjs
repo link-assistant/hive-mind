@@ -97,7 +97,8 @@ test('Model mapping - Qwen should handle qwen alias correctly', () => {
 
 test('Model mapping - Gemini should handle gemini alias correctly', () => {
   const mapped = mapModelForTool('gemini', 'gemini');
-  assert.strictEqual(mapped, 'gemini-2.5-flash', 'gemini should map to gemini-2.5-flash for gemini');
+  // Gemini CLI resolves the flash alias to its current Flash model (Issue #2591).
+  assert.strictEqual(mapped, 'flash', 'gemini should map to the flash alias for gemini');
 
   const isCompatible = isModelCompatibleWithTool('gemini', 'gemini-2.5-pro');
   assert.strictEqual(isCompatible, true, 'gemini-2.5-pro should be compatible with gemini tool');

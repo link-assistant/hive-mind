@@ -364,14 +364,14 @@ export const executeClaudeCommand = async params => {
         if (sub1706.length) await log(`📊 ${sub1706.join(', ')}`, { verbose: true });
         if (!isNewVersion && thinkLevel) await log(`📊 Thinking level (via keywords): ${thinkLevel}`, { verbose: true });
       }
-      // command-stream quotes interpolations itself; keep review JSON literal.
-      const simpleEscapedSystem = argv.reviewMode ? systemPrompt : systemPrompt.replace(/"/g, '\\"');
+      // command-stream quotes interpolations itself; preserve literal prompt contents.
+      const simpleEscapedSystem = systemPrompt;
       const mcpDisableArgs = mcpConfigPath ? ['--strict-mcp-config', '--mcp-config', mcpConfigPath] : [];
       const disallowedToolsArgs = disallowedToolsList.length ? ['--disallowedTools', ...disallowedToolsList] : [];
       const fallbackModelArgs = useClaudeFallbackModel ? ['--fallback-model', mappedFallbackModel] : []; // Issue #1949: Claude Code's per-request overload fallback
       if (useClaudeFallbackModel && argv.verbose) await log(`📊 Claude --fallback-model: ${mappedFallbackModel} (Issue #1949 — primary --model ${effectiveModel} stays stable across overload retries)`, { verbose: true });
       if (argv.resume) {
-        const simpleEscapedPrompt = argv.reviewMode ? promptForAttempt : promptForAttempt.replace(/"/g, '\\"');
+        const simpleEscapedPrompt = promptForAttempt;
         execCommand = $({ cwd: tempDir, mirror: false, env: claudeEnv })`${toolInvocation.command} --resume ${argv.resume} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${fallbackModelArgs} ${mcpDisableArgs} ${disallowedToolsArgs} -p "${simpleEscapedPrompt}" --append-system-prompt "${simpleEscapedSystem}"`;
       } else if (streamingInput) {
         // Issue #817: Drive Claude via --input-format stream-json on a pipe

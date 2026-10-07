@@ -25,6 +25,7 @@ AI-решатель задач Hive Mind инструктирован обращ
 | Go                    | [go-ai-driven-development-pipeline-template](https://github.com/link-foundation/go-ai-driven-development-pipeline-template)         |
 | C#                    | [csharp-ai-driven-development-pipeline-template](https://github.com/link-foundation/csharp-ai-driven-development-pipeline-template) |
 | Java                  | [java-ai-driven-development-pipeline-template](https://github.com/link-foundation/java-ai-driven-development-pipeline-template)     |
+| C/C++                 | [cpp-ai-driven-development-pipeline-template](https://github.com/link-foundation/cpp-ai-driven-development-pipeline-template)       |
 | PHP                   | [php-ai-driven-development-pipeline-template](https://github.com/link-foundation/php-ai-driven-development-pipeline-template)       |
 
 > **Совет:** вам не нужно выбирать шаблон вручную. Запустите `fix <repository-url> --ci-cd` (см. раздел [Автоматическое исправление CI/CD](#автоматическое-исправление-cicd)), и Hive Mind определит языки репозитория и подберёт для вас подходящие шаблоны.
@@ -140,6 +141,7 @@ done
 | Go                    | gofmt                         |
 | C#                    | dotnet format                 |
 | Java                  | Spotless (Google Java Format) |
+| C/C++                 | clang-format                  |
 | PHP                   | PHP CS Fixer                  |
 
 Все шаблоны включают pre-commit хуки, автоматически запускающие форматтеры перед каждым коммитом.
@@ -148,15 +150,16 @@ done
 
 Выявляйте ошибки и применяйте паттерны до прохождения кода через ревью:
 
-| Язык                  | Инструменты                                |
-| --------------------- | ------------------------------------------ |
-| JavaScript/TypeScript | ESLint со строгими правилами               |
-| Rust                  | Clippy (pedantic + nursery)                |
-| Python                | Ruff + mypy                                |
-| Go                    | go vet + staticcheck                       |
-| C#                    | .NET analyzers (предупреждения как ошибки) |
-| Java                  | SpotBugs (максимальные усилия)             |
-| PHP                   | PHPStan (max level)                        |
+| Язык                  | Инструменты                                       |
+| --------------------- | ------------------------------------------------- |
+| JavaScript/TypeScript | ESLint со строгими правилами                      |
+| Rust                  | Clippy (pedantic + nursery)                       |
+| Python                | Ruff + mypy                                       |
+| Go                    | go vet + staticcheck                              |
+| C#                    | .NET analyzers (предупреждения как ошибки)        |
+| Java                  | SpotBugs (максимальные усилия)                    |
+| C/C++                 | clang-tidy + cppcheck (предупреждения как ошибки) |
+| PHP                   | PHPStan (max level)                               |
 
 ### 5. Порядок быстрого обнаружения ошибок
 
@@ -199,6 +202,7 @@ test-suites:
 | Rust                  | changelog.d + кастомные скрипты      |
 | Python                | Scriv                                |
 | PHP                   | changelog.d + кастомные скрипты      |
+| C/C++                 | changelog.d + кастомные скрипты      |
 | Go, C#, Java          | Кастомные рабочие процессы changeset |
 
 **Освобождайте PR только с документацией от требования changeset:**
@@ -508,7 +512,7 @@ fix https://github.com/owner/repo --ci-cd
 
 ### Сопоставление язык → шаблон
 
-Команда сопоставляет обнаруженные языки с шаблонами следующим образом (JavaScript и TypeScript используют один общий шаблон):
+Команда сопоставляет обнаруженные языки с шаблонами следующим образом (JavaScript и TypeScript используют один общий шаблон, как и C, C++ и CMake):
 
 | Обнаруженный язык(и)  | Шаблон                                                           |
 | --------------------- | ---------------------------------------------------------------- |
@@ -518,6 +522,7 @@ fix https://github.com/owner/repo --ci-cd
 | Go                    | `link-foundation/go-ai-driven-development-pipeline-template`     |
 | C#                    | `link-foundation/csharp-ai-driven-development-pipeline-template` |
 | Java                  | `link-foundation/java-ai-driven-development-pipeline-template`   |
+| C/C++, CMake          | `link-foundation/cpp-ai-driven-development-pipeline-template`    |
 | PHP                   | `link-foundation/php-ai-driven-development-pipeline-template`    |
 
 Языки без выделенного шаблона (например, Shell или Dockerfile) перечисляются в задаче для сведения, и для них рекомендуется наиболее близкий по соответствию шаблон.

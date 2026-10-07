@@ -25,6 +25,7 @@ Hive Mind का AI issue solver प्रत्येक pull request में
 | Go                    | [go-ai-driven-development-pipeline-template](https://github.com/link-foundation/go-ai-driven-development-pipeline-template)         |
 | C#                    | [csharp-ai-driven-development-pipeline-template](https://github.com/link-foundation/csharp-ai-driven-development-pipeline-template) |
 | Java                  | [java-ai-driven-development-pipeline-template](https://github.com/link-foundation/java-ai-driven-development-pipeline-template)     |
+| C/C++                 | [cpp-ai-driven-development-pipeline-template](https://github.com/link-foundation/cpp-ai-driven-development-pipeline-template)       |
 | PHP                   | [php-ai-driven-development-pipeline-template](https://github.com/link-foundation/php-ai-driven-development-pipeline-template)       |
 
 > **सुझाव:** आपको template हाथ से चुनने की आवश्यकता नहीं है। `fix <repository-url> --ci-cd` चलाएं ([Automatic CI/CD Remediation](#automatic-cicd-remediation) देखें) और Hive Mind repository की भाषाओं का पता लगाकर आपके लिए मेल खाते templates का चयन कर लेता है।
@@ -140,6 +141,7 @@ Consistent formatting style debates को समाप्त करती ह�
 | Go                    | gofmt                         |
 | C#                    | dotnet format                 |
 | Java                  | Spotless (Google Java Format) |
+| C/C++                 | clang-format                  |
 | PHP                   | PHP CS Fixer                  |
 
 सभी templates में pre-commit hooks शामिल हैं जो प्रत्येक commit से पहले automatically formatters चलाते हैं।
@@ -148,15 +150,16 @@ Consistent formatting style debates को समाप्त करती ह�
 
 Code review तक पहुँचने से पहले bugs पकड़ें और patterns लागू करें:
 
-| भाषा                  | Tools                               |
-| --------------------- | ----------------------------------- |
-| JavaScript/TypeScript | ESLint with strict rules            |
-| Rust                  | Clippy (pedantic + nursery)         |
-| Python                | Ruff + mypy                         |
-| Go                    | go vet + staticcheck                |
-| C#                    | .NET analyzers (warnings as errors) |
-| Java                  | SpotBugs (maximum effort)           |
-| PHP                   | PHPStan (max level)                 |
+| भाषा                  | Tools                                      |
+| --------------------- | ------------------------------------------ |
+| JavaScript/TypeScript | ESLint with strict rules                   |
+| Rust                  | Clippy (pedantic + nursery)                |
+| Python                | Ruff + mypy                                |
+| Go                    | go vet + staticcheck                       |
+| C#                    | .NET analyzers (warnings as errors)        |
+| Java                  | SpotBugs (maximum effort)                  |
+| C/C++                 | clang-tidy + cppcheck (warnings as errors) |
+| PHP                   | PHPStan (max level)                        |
 
 ### 5. Fast-Fail Job Ordering
 
@@ -199,6 +202,7 @@ test-suites:
 | Rust                  | changelog.d + custom scripts |
 | Python                | Scriv                        |
 | PHP                   | changelog.d + custom scripts |
+| C/C++                 | changelog.d + custom scripts |
 | Go, C#, Java          | Custom changeset workflows   |
 
 **Docs-only PRs को changeset requirements से exempt करें:**
@@ -508,7 +512,7 @@ fix https://github.com/owner/repo --ci-cd
 
 ### Language → Template Mapping
 
-command पता लगाई गई भाषाओं को templates से इस प्रकार map करता है (JavaScript और TypeScript एक ही template साझा करते हैं):
+command पता लगाई गई भाषाओं को templates से इस प्रकार map करता है (JavaScript और TypeScript एक ही template साझा करते हैं, और C, C++ तथा CMake भी एक ही template साझा करते हैं):
 
 | Detected Language(s)  | Template                                                         |
 | --------------------- | ---------------------------------------------------------------- |
@@ -518,6 +522,7 @@ command पता लगाई गई भाषाओं को templates से
 | Go                    | `link-foundation/go-ai-driven-development-pipeline-template`     |
 | C#                    | `link-foundation/csharp-ai-driven-development-pipeline-template` |
 | Java                  | `link-foundation/java-ai-driven-development-pipeline-template`   |
+| C/C++, CMake          | `link-foundation/cpp-ai-driven-development-pipeline-template`    |
 | PHP                   | `link-foundation/php-ai-driven-development-pipeline-template`    |
 
 जिन भाषाओं के लिए कोई समर्पित template नहीं है (उदाहरण के लिए Shell या Dockerfile) उन्हें जानकारी के लिए issue में सूचीबद्ध किया जाता है, और निकटतम मेल खाते template की अनुशंसा की जाती है।

@@ -78,7 +78,8 @@ function makeHarness(statusProvider) {
     dockerContainerSizeProvider: async () => null,
     readFile: async file => await fs.readFile(file, 'utf8'),
     lookupLinkedPullRequest: async () => null,
-    env: {},
+    lookupPullRequestState: async () => null, // #2498: offline — the real pull request may have merged since
+    env: { HIVE_MIND_SESSION_KILL_RESUME_DELAY: '0' },
     isolationRunner: {
       generateSessionId: () => `recovery-${++counter}`,
       executeWithIsolation: async (...args) => {
@@ -89,7 +90,9 @@ function makeHarness(statusProvider) {
       },
     },
     runCommand: async (_command, args) => {
-      comments.push(await fs.readFile(args[args.indexOf('--body-file') + 1], 'utf8'));
+      const editing = args.includes('--input');
+      const payload = await fs.readFile(args[args.indexOf(editing ? '--input' : '--body-file') + 1], 'utf8');
+      comments.push(editing ? JSON.parse(payload).body : payload);
       return { code: 0, stdout: `${PR_URL}#issuecomment-1`, stderr: '' };
     },
   };
@@ -109,9 +112,9 @@ test('overlapping monitor ticks recover a killed session once and report it once
     await Promise.all([monitorSessions(bot, false, options), monitorSessions(bot, false, options), monitorSessions(bot, false, options)]);
 
     assert.equal(launches.length, 1, 'exactly one recovery session is started');
-    assert.equal(comments.length, 1, 'exactly one pull-request notice is posted');
+    assert.equal(comments.filter(body => body.includes('<!-- hive-mind:session-kill-notice -->')).length, 1, 'exactly one kill notice is posted; lifecycle status is updated separately');
     assert.doesNotMatch(comments[0], /\[object Object\]/);
-    const completions = edits.filter(edit => edit.messageId === 77);
+    const completions = edits.filter(edit => edit.messageId === 77 && edit.message.includes('Work session still in progress'));
     assert.equal(completions.length, 1, 'the Telegram message is completed once');
     assert.doesNotMatch(completions[0].message, /Work session failed/);
     assert.match(completions[0].message, /^⚠️ /, 'a running recovery is a warning, not a failure');
@@ -159,7 +162,7 @@ test('a repeated completion for an already-recovered session does not start anot
   let launches = 0;
   const runner = { generateSessionId: () => 'new', executeWithIsolation: async () => (launches++, { success: true }) };
   const sessionInfo = { killRecoverySessionId: 'recovery-1', killRecoveryAttempts: 1, args: [PR_URL] };
-  const result = await recoverKilledSession({ sessionName: 's', sessionInfo, killed: true, env: {}, runner, trackSession: () => {} });
+  const result = await recoverKilledSession({ sessionName: 's', sessionInfo, killed: true, env: { HIVE_MIND_SESSION_KILL_RESUME_DELAY: '0' }, runner, trackSession: () => {} });
   assert.equal(result.resumed, true);
   assert.equal(result.reason, 'already-recovered');
   assert.equal(result.sessionId, 'recovery-1');
@@ -280,7 +283,7 @@ test('a tool process killed by SIGKILL resumes its own session in-process, with 
   const result = await resumeAfterToolKill({
     toolResult: killed,
     argv: { tool: 'claude' },
-    env: {},
+    env: { HIVE_MIND_SESSION_KILL_RESUME_DELAY: '0' },
     runIteration: async params => (runs.push(params), { success: true, sessionId: TOOL_SESSION }),
     $: () => {},
     owner: 'link-foundation',
@@ -297,7 +300,7 @@ test('a tool process killed by SIGKILL resumes its own session in-process, with 
 
   // A process that keeps getting killed stops at the budget, and says so.
   let calls = 0;
-  const exhausted = await resumeAfterToolKill({ toolResult: killed, argv: { tool: 'claude' }, env: { HIVE_MIND_SESSION_KILL_RESUME_ATTEMPTS: '2' }, runIteration: async () => (calls++, killed), postComment: async () => {} });
+  const exhausted = await resumeAfterToolKill({ toolResult: killed, argv: { tool: 'claude' }, env: { HIVE_MIND_SESSION_KILL_RESUME_ATTEMPTS: '2', HIVE_MIND_SESSION_KILL_RESUME_DELAY: '0' }, runIteration: async () => (calls++, killed), postComment: async () => {} });
   assert.equal(calls, 2);
   assert.equal(exhausted.toolResult.success, false);
   assert.match(buildToolKillWarningComment({ resuming: false, maxAttempts: 2 }), /budget \(2\) is spent/);

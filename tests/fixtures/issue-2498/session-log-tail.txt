@@ -1,0 +1,44 @@
+📈 Resource usage (log upload end):
+   CPU load: 4.59 5.18 5.42 (6 CPUs)
+   Memory: 4.9 GB available / 11.7 GB total (6.7 GB used)
+   Process RSS: 250 MB, V8 heap: 65 MB used of 1.6 GB limit (4.1%)
+   Disk (/): 127.0 GB available / 192.7 GB total (34.1% used)
+📈 [RESOURCES] phase=log_upload_end ts=2026-10-04T19%3A41%3A03.779Z load1=4.59 load5=5.18 load15=5.42 cpuCount=6 memTotalBytes=12541493248 memAvailableBytes=5304635392 memUsedBytes=7236857856 processRssBytes=262238208 processHeapUsedBytes=68151416 processHeapTotalBytes=129273856 processExternalBytes=9370386 processHeapLimitBytes=1668546560 processHeapUsedPercent=4.084477930301208 diskPath=%2F diskTotalBytes=206900281344 diskAvailableBytes=136348073984 diskUsedBytes=70535430144 diskUsedPercent=34.09151001913101 mem=4.9%20GB%20available%20%2F%2011.7%20GB%20total heap=65%20MB%20used%20of%201.6%20GB%20limit%20(4.1%25) disk=127.0%20GB%20available%20%2F%20192.7%20GB%20total
+  📎 Failure logs posted to Pull Request
+📈 Resource usage (solve exit 1):
+   CPU load: 4.59 5.18 5.42 (6 CPUs)
+   Memory: 4.9 GB available / 11.7 GB total (6.7 GB used)
+   Process RSS: 250 MB, V8 heap: 66 MB used of 1.6 GB limit (4.1%)
+   Disk (/): 127.0 GB available / 192.7 GB total (34.1% used)
+📈 [RESOURCES] phase=solve_exit ts=2026-10-04T19%3A41%3A03.796Z load1=4.59 load5=5.18 load15=5.42 cpuCount=6 memTotalBytes=12541493248 memAvailableBytes=5304369152 memUsedBytes=7237124096 processRssBytes=262238208 processHeapUsedBytes=68727144 processHeapTotalBytes=129273856 processExternalBytes=9370386 processHeapLimitBytes=1668546560 processHeapUsedPercent=4.118982691139287 diskPath=%2F diskTotalBytes=206900281344 diskAvailableBytes=136348065792 diskUsedBytes=70535438336 diskUsedPercent=34.0915139785263 mem=4.9%20GB%20available%20%2F%2011.7%20GB%20total heap=66%20MB%20used%20of%201.6%20GB%20limit%20(4.1%25) disk=127.0%20GB%20available%20%2F%20192.7%20GB%20total
+🩹 PR #27 was left in draft by a working session (CLAUDE execution failed with Failed to authenticate: OAuth session expired and could not be refreshed); restoring its pre-run state at run end (⚠️ SUBSCRIPTION/ACCESS UNAVAILABLE — CLAUDE stopped: Authentication expired — re-login required [authentication_failed] — Failed to authenticate: OAuth session expired and could not be refreshed)
+{"isDraft":true,"state":"OPEN"}
+   🔍 PR #27 draft state: isDraft=true, state=OPEN
+  📝 Converting PR:          To ready for review (run end (⚠️ SUBSCRIPTION/ACCESS UNAVAILABLE — CLAUDE stopped: Authentication expired — re-login required [authentication_failed] — Failed to authenticate: OAuth session expired and could not be refreshed))...
+✓ Pull request link-foundation/package-registry-manager#27 is marked as "ready for review"
+  ✅ PR converted:           Now in ready for review
+[use-m] use('path') joined an in-flight load (alias path-v-latest)
+
+❌ ⚠️ SUBSCRIPTION/ACCESS UNAVAILABLE — CLAUDE stopped: Authentication expired — re-login required [authentication_failed] — Failed to authenticate: OAuth session expired and could not be refreshed
+📁 Full log file: /home/box/1087a9e0-da17-438b-be63-05838549e4c6.log
+  ℹ️  Failure already reported on pull request #27 by an earlier tool comment; not posting another.
+
+=== Container post-mortem ===
+Container:  bebf2e57-01e1-4b47-af4a-06290e562446
+Exit Code:  1
+OOMKilled:  true
+StartedAt:  2026-10-04T18:59:06.159003017Z
+FinishedAt: 2026-10-04T19:41:06.490191654Z
+Lifetime:   2520.331s
+Error:      (none)
+
+Container kept for investigation: bebf2e57-01e1-4b47-af4a-06290e562446
+Reason: exitCode=1 oomKilled=true
+Re-enter while running: $ --attach bebf2e57-01e1-4b47-af4a-06290e562446
+Continue the stored command: $ --resume bebf2e57-01e1-4b47-af4a-06290e562446
+Run another command in the same container: $ --resume bebf2e57-01e1-4b47-af4a-06290e562446 -- <command>
+Remove when done: docker rm -f bebf2e57-01e1-4b47-af4a-06290e562446
+
+==================================================
+Finished: 2026-10-04 19:41:07.241
+Exit Code: 1

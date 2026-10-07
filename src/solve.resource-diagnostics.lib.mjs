@@ -48,6 +48,82 @@ function readLinuxMemAvailableBytes(readFileSync = fs.readFileSync, platform = p
   }
 }
 
+function readTextFile(readFileSync, filePath) {
+  try {
+    return String(readFileSync(filePath, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function parseCgroupBytes(text) {
+  const value = String(text ?? '').trim();
+  if (!/^\d+$/.test(value)) return null;
+  return Number.parseInt(value, 10);
+}
+
+function parseKeyedCounters(text) {
+  const counters = {};
+  for (const line of String(text ?? '').split(/\r?\n/)) {
+    const match = line.trim().match(/^(\w+)\s+(\d+)$/);
+    if (match) counters[match[1]] = Number.parseInt(match[2], 10);
+  }
+  return counters;
+}
+
+/**
+ * Memory limit, usage and OOM counters of the cgroup this process runs in
+ * (issue #2498).
+ *
+ * `os.totalmem()` and `/proc/meminfo` describe the *host*, even inside a
+ * container, so a container capped at 25% of the host could hit its own limit
+ * while the snapshot still showed gigabytes "available". The cgroup is what
+ * the kernel OOM killer acts on, and `memory.events` counts every process it
+ * killed there. These cumulative counts do not identify the number or scope
+ * of OOM incidents. cgroup v2 first, v1 as a fallback; `null` when
+ * neither is readable (non-Linux, or no memory controller).
+ *
+ * @param {Function} [readFileSync]
+ * @param {string} [platform]
+ * @returns {{version: number, path: string, limitBytes: number|null, currentBytes: number|null, peakBytes: number|null, oomEvents: number|null, oomKills: number|null}|null}
+ */
+export function readCgroupMemory(readFileSync = fs.readFileSync, platform = process.platform) {
+  if (platform !== 'linux' || typeof readFileSync !== 'function') return null;
+  const ownPath = (readTextFile(readFileSync, '/proc/self/cgroup') || '').match(/^0::(\/\S*)$/m)?.[1] || null;
+  const v2Dirs = [...new Set([ownPath && ownPath !== '/' ? `/sys/fs/cgroup${ownPath}` : null, '/sys/fs/cgroup'].filter(Boolean))];
+  for (const dir of v2Dirs) {
+    const max = readTextFile(readFileSync, `${dir}/memory.max`);
+    const current = readTextFile(readFileSync, `${dir}/memory.current`);
+    if (max === null && current === null) continue;
+    const events = parseKeyedCounters(readTextFile(readFileSync, `${dir}/memory.events`));
+    return {
+      version: 2,
+      path: dir,
+      // "max" means no limit of its own; ancestor/host limits can still apply.
+      limitBytes: parseCgroupBytes(max),
+      currentBytes: parseCgroupBytes(current),
+      peakBytes: parseCgroupBytes(readTextFile(readFileSync, `${dir}/memory.peak`)),
+      oomEvents: finiteNumber(events.oom),
+      oomKills: finiteNumber(events.oom_kill),
+    };
+  }
+  const v1 = '/sys/fs/cgroup/memory';
+  const limit = readTextFile(readFileSync, `${v1}/memory.limit_in_bytes`);
+  if (limit === null) return null;
+  const limitBytes = parseCgroupBytes(limit);
+  const oomControl = parseKeyedCounters(readTextFile(readFileSync, `${v1}/memory.oom_control`));
+  return {
+    version: 1,
+    path: v1,
+    // cgroup v1 reports "no limit" as a page-rounded LONG_MAX.
+    limitBytes: Number.isFinite(limitBytes) && limitBytes < 2 ** 60 ? limitBytes : null,
+    currentBytes: parseCgroupBytes(readTextFile(readFileSync, `${v1}/memory.usage_in_bytes`)),
+    peakBytes: parseCgroupBytes(readTextFile(readFileSync, `${v1}/memory.max_usage_in_bytes`)),
+    oomEvents: null,
+    oomKills: finiteNumber(oomControl.oom_kill),
+  };
+}
+
 /**
  * Detect where the current process is running so the solve command can scope
  * per-task disk usage to the correct context (issue #2001).
@@ -201,6 +277,14 @@ export function captureResourceSnapshot(options = {}) {
     }
   })();
 
+  const cgroupMemory = (() => {
+    try {
+      return readCgroupMemory(fsImpl.readFileSync?.bind(fsImpl), processImpl.platform || process.platform);
+    } catch {
+      return null;
+    }
+  })();
+
   const availableMemoryBytes = readLinuxMemAvailableBytes(fsImpl.readFileSync?.bind(fsImpl), processImpl.platform || process.platform) ?? freeMemoryBytes;
   const usedMemoryBytes = totalMemoryBytes !== null && availableMemoryBytes !== null ? Math.max(0, totalMemoryBytes - availableMemoryBytes) : null;
 
@@ -277,6 +361,7 @@ export function captureResourceSnapshot(options = {}) {
       processHeapLimitBytes: heapLimitBytes,
       processHeapUsedPercent: heapUsedPercent,
     },
+    cgroupMemory,
     disk,
   };
 }
@@ -330,6 +415,7 @@ export function buildResourceMarker(snapshot) {
   const memory = s.memory || {};
   const disk = s.disk || {};
   const agentState = s.agentState || null;
+  const cgroup = s.cgroupMemory || null;
   return [
     RESOURCE_MARKER_PREFIX,
     `phase=${encodeValue(s.phase || 'snapshot')}`,
@@ -361,6 +447,8 @@ export function buildResourceMarker(snapshot) {
     agentState ? `agentStatePath=${encodeValue(agentState.path)}` : null,
     agentState ? numberField('agentStoreCount', finiteNumber(agentState.count)) : null,
     agentState ? numberField('agentStoreBytes', finiteNumber(agentState.bytes)) : null,
+    // Issue #2498: the same, for the cgroup the OOM killer acts on.
+    ...(cgroup ? [numberField('cgroupVersion', cgroup.version), numberField('cgroupMemLimitBytes', cgroup.limitBytes), numberField('cgroupMemCurrentBytes', cgroup.currentBytes), numberField('cgroupMemPeakBytes', cgroup.peakBytes), numberField('cgroupOomEvents', cgroup.oomEvents), numberField('cgroupOomKills', cgroup.oomKills)] : []),
   ]
     .filter(Boolean)
     .join(' ');
@@ -421,6 +509,18 @@ function parseMarkerLine(line) {
           bytes: parseNumber(fields.agentStoreBytes),
         }
       : null,
+    // Issue #2498: absent in markers written before cgroup memory was read.
+    cgroupMemory:
+      fields.cgroupVersion !== undefined
+        ? {
+            version: parseNumber(fields.cgroupVersion),
+            limitBytes: parseNumber(fields.cgroupMemLimitBytes),
+            currentBytes: parseNumber(fields.cgroupMemCurrentBytes),
+            peakBytes: parseNumber(fields.cgroupMemPeakBytes),
+            oomEvents: parseNumber(fields.cgroupOomEvents),
+            oomKills: parseNumber(fields.cgroupOomKills),
+          }
+        : null,
   };
 }
 
@@ -461,6 +561,14 @@ export function formatResourceSnapshotForLog(snapshot, label = null) {
   // `~/.local/share`, so name the directory that is actually filling up.
   if (s.agentState && Number(s.agentState.count) > 0) {
     lines.push(`   Agent snapshot stores (${s.agentState.path}): ${s.agentState.count} store(s), ${formatBytes(s.agentState.bytes)}${s.agentState.truncated ? '+ (measurement truncated)' : ''}`);
+  }
+  const cgroup = s.cgroupMemory || null;
+  if (cgroup) {
+    const limit = Number.isFinite(cgroup.limitBytes) ? `${formatBytes(cgroup.limitBytes)} limit` : 'no limit of its own';
+    const peak = Number.isFinite(cgroup.peakBytes) ? `, peak ${formatBytes(cgroup.peakBytes)}` : '';
+    const kills = Number.isFinite(cgroup.oomKills) ? `; processes killed by the OOM killer so far: ${cgroup.oomKills}` : '';
+    lines.push(`   Container memory (cgroup v${cgroup.version}): ${formatBytes(cgroup.currentBytes)} used of ${limit}${peak}${kills}`);
+    if (cgroup.oomKills > 0) lines.push(`   ⚠️  The kernel OOM killer has killed ${cgroup.oomKills} process(es) in this container's cgroup${Number.isFinite(cgroup.oomEvents) ? `; memory.events oom=${cgroup.oomEvents}` : ''}`);
   }
   if (isHeapUnderPressure(memory)) lines.push(`   ⚠️  V8 heap is at ${memory.processHeapUsedPercent.toFixed(1)}% of its limit — a further allocation can abort the process with "JavaScript heap out of memory"`);
   if (disk.error) lines.push(`   Disk probe error: ${disk.error}`);

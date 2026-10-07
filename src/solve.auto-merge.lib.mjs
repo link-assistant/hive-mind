@@ -43,7 +43,7 @@ const { sanitizeLogContent, attachLogToGitHub } = githubLib;
 
 // Import shared utilities from the restart-shared module
 const restartShared = await import('./solve.restart-shared.lib.mjs');
-const { checkForUncommittedChanges, getUncommittedChangesDetails, executeToolIteration, buildAutoRestartInstructions, buildUncommittedChangesFeedback, isUsageLimitReached } = restartShared;
+const { checkPRMerged, checkForUncommittedChanges, getUncommittedChangesDetails, executeToolIteration, buildAutoRestartInstructions, buildUncommittedChangesFeedback, isUsageLimitReached } = restartShared;
 // Issue #1931: deleted/inaccessible repositories, PRs, issues, and branches
 // are terminal states for long-running watch loops, not retryable CI states.
 const terminalStateLib = await import('./github-terminal-state.lib.mjs');
@@ -1048,7 +1048,13 @@ export const watchUntilMergeable = async params => {
             }
           }
           // Issue #2408: a tool killed by SIGKILL (exit 137, OOM) resumes its own session in-process.
-          if (!toolResult.success) ({ toolResult, attemptsUsed: toolKillResumeCount } = await resumeAfterToolKill({ toolResult, attemptsUsed: toolKillResumeCount, argv, runIteration: next => executeToolIteration({ issueUrl, owner, repo, issueNumber, prNumber, branchName: prBranch || branchName, tempDir, mergeStateStatus, feedbackLines: next.feedbackLines, argv: next.argv }), $, owner, repo, prNumber, log }));
+          // Issue #2498: once the pull request is merged nothing is recovered; the next pass sees the merge and finishes.
+          let toolKillWorkDone = false;
+          if (!toolResult.success) ({ toolResult, attemptsUsed: toolKillResumeCount, workDone: toolKillWorkDone } = await resumeAfterToolKill({ toolResult, attemptsUsed: toolKillResumeCount, argv, runIteration: next => executeToolIteration({ issueUrl, owner, repo, issueNumber, prNumber, branchName: prBranch || branchName, tempDir, mergeStateStatus, feedbackLines: next.feedbackLines, argv: next.argv }), $, owner, repo, prNumber, log, isWorkDone: () => checkPRMerged(owner, repo, prNumber) }));
+          if (toolKillWorkDone) {
+            lastCheckTime = new Date();
+            continue;
+          }
           // Issue #2395: a session the repeated-tool-call breaker ended is not a tool
           // failure — attach its log and continue with feedback (agent#323).
           if (isRestartWithFeedback(toolResult)) {

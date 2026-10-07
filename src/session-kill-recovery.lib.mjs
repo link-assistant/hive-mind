@@ -66,6 +66,7 @@ export function killRecoveryHeadline(cause) {
  * @param {boolean} [options.resumed] - A new working session was actually started
  * @param {boolean} [options.survived] - The work session completed after a child OOM event
  * @param {boolean} [options.oomEventOnly] - A child OOM event preceded an ordinary work failure
+ * @param {{reason: string, line: string}|null} [options.deliberateStop] - solve's own stop verdict (issue #2408)
  * @param {string|null} [options.recoverySessionId] - Id of that working session
  * @param {string|{display: string}|null} [options.resumeCommand] - Command to resume manually
  * @param {number|null} [options.attempt] - Resume attempt number
@@ -74,24 +75,38 @@ export function killRecoveryHeadline(cause) {
  * @param {string|null} [options.logUrl] - URL of the uploaded intermediate log
  * @returns {string} Markdown body
  */
-export function buildKillRecoveryNotice({ diagnosis = null, exitCode = null, sessionName = null, observedAt = null, policy = null, resumed = false, survived = false, oomEventOnly = false, recoverySessionId = null, resumeCommand = null, attempt = null, maxAttempts = null, attachLogs = false, logAttached = false, logUrl = null } = {}) {
+export function buildKillRecoveryNotice({ diagnosis = null, exitCode = null, sessionName = null, observedAt = null, policy = null, resumed = false, survived = false, oomEventOnly = false, deliberateStop = null, recoverySessionId = null, resumeCommand = null, attempt = null, maxAttempts = null, attachLogs = false, logAttached = false, logUrl = null } = {}) {
   const cause = diagnosis?.cause || null;
-  const title = oomEventOnly ? (resumed ? '⚠️ Work session restarted after a failed run with a container OOM event' : '⚠️ Container OOM event during a failed work session') : resumed || survived ? `⚠️ Working session ${killRecoveryHeadline(cause)}` : `❌ ${CAUSE_TITLES[cause] || 'Working session was killed'}`;
+  // Issue #2498: when solve stopped on its own (e.g. expired authentication),
+  // the OOM event did not end the run — lead with the real reason instead of
+  // a headline that reads as an OOM failure.
+  const stopLine = !resumed && !survived && deliberateStop?.line ? String(deliberateStop.line).replace(/^(?:\[[^\]]*\] )*/, '') : null;
+  let title;
+  if (stopLine && oomEventOnly) title = 'ℹ️ Work session stopped on its own — the earlier container OOM event did not cause it';
+  else if (stopLine) title = '⚠️ Working session was killed after solve had already stopped on its own';
+  else if (oomEventOnly) title = resumed ? '⚠️ Work session restarted after a failed run with a container OOM event' : '⚠️ Container OOM event during a failed work session';
+  else if (resumed) title = '⚠️ Working session restarted after a kill — outcome pending';
+  // Issue #2498 (package-registry-manager#31): a session that exited 0 was
+  // never killed or restarted, so "recovered from out of memory" read as if a
+  // recovery had happened. Say what did happen instead.
+  else if (survived && cause === KILL_CAUSE_OUT_OF_MEMORY) title = 'ℹ️ Work session completed — an earlier container OOM event did not stop it';
+  else title = survived ? `⚠️ Working session ${killRecoveryHeadline(cause)}` : `❌ ${CAUSE_TITLES[cause] || 'Working session was killed'}`;
 
   const lines = [KILL_RECOVERY_NOTICE_MARKER, `## ${title}`, ''];
 
-  if (diagnosis?.summary) lines.push(diagnosis.summary, '');
+  if (stopLine) lines.push('**Why the work session stopped** (from its log):', '', `> ${stopLine}`, '');
+  if (diagnosis?.summary) lines.push(stopLine && oomEventOnly ? `Earlier event (not the cause of this stop): ${diagnosis.summary}` : diagnosis.summary, '');
 
   const facts = [];
   if (exitCode !== null && exitCode !== undefined) facts.push(`- **Exit code:** ${exitCode}`);
-  if (observedAt) facts.push(`- **Detected at:** ${observedAt}`);
+  if (observedAt) facts.push(oomEventOnly || survived ? `- **OOM event observed at:** ${observedAt}` : `- **Detected at:** ${observedAt}`);
   if (sessionName) facts.push(`- **Working session:** \`${sessionName}\``);
   if (policy) facts.push(`- **On-kill policy:** \`${policy}\`${policy === ON_SESSION_KILL_RESUME ? ' (`--on-session-kill=resume`)' : ' (`--on-session-kill=report`)'}`);
   if (facts.length > 0) lines.push(...facts, '');
 
   const evidence = Array.isArray(diagnosis?.evidence) ? diagnosis.evidence.filter(Boolean) : [];
   if (evidence.length > 0) {
-    lines.push('<details><summary>Kill diagnostics</summary>', '');
+    lines.push(`<details><summary>${stopLine && oomEventOnly ? 'OOM event diagnostics' : 'Kill diagnostics'}</summary>`, '');
     for (const item of evidence) lines.push(`- ${item}`);
     lines.push('', '</details>', '');
   }
@@ -99,9 +114,13 @@ export function buildKillRecoveryNotice({ diagnosis = null, exitCode = null, ses
   if (resumed) {
     const attemptSuffix = attempt && maxAttempts ? ` (attempt ${attempt}/${maxAttempts})` : '';
     const sessionSuffix = recoverySessionId ? ` Its working session is \`${recoverySessionId}\`.` : '';
-    lines.push(`🔄 A **new working session was started** to recover from this event${attemptSuffix}. Progress below continues in that session.${sessionSuffix}`, '');
+    lines.push(`🔄 A **new working session was started** to recover from this event${attemptSuffix}. The launch was accepted; activity and the final outcome are not yet confirmed.${sessionSuffix}`, '');
+  } else if (stopLine && oomEventOnly) {
+    lines.push('A child process was OOM-killed earlier, but the work process kept running and later stopped for the reason above. No replacement session was launched.', '');
+  } else if (stopLine) {
+    lines.push('solve had already stopped for the reason above before the process was killed. No replacement session was launched.', '');
   } else if (survived) {
-    lines.push('The work session survived the container OOM event and completed. No replacement session was launched.', '');
+    lines.push('The work session survived the container OOM event and completed. No recovery was needed and no replacement session was launched.', '');
   } else if (oomEventOnly) {
     lines.push('The work process survived the container OOM event but later exited with a failure. No replacement session was launched.', '');
   } else {
@@ -112,7 +131,7 @@ export function buildKillRecoveryNotice({ diagnosis = null, exitCode = null, ses
     lines.push(`📎 Intermediate working-session log: ${logUrl}`, '');
   } else if (logAttached) {
     lines.push('📎 The intermediate working-session log was uploaded as a separate comment.', '');
-  } else if (!attachLogs) {
+  } else if (!attachLogs && !survived) {
     lines.push('_The intermediate working-session log was not uploaded because `--attach-logs` is disabled._', '');
   }
 
@@ -189,14 +208,18 @@ const defaultUnlink = async filePath => {
  * @param {boolean} [options.verbose]
  * @returns {Promise<{posted: boolean, url: string|null, error: string|null}>}
  */
-export async function postKillRecoveryNotice({ pullRequestUrl, body, runCommand = spawnCapture, tempDir = '/tmp', fileSuffix = 'notice', writeFile = defaultWriteFile, unlink = defaultUnlink, verbose = false }) {
+export async function postKillRecoveryNotice({ pullRequestUrl, commentUrl = null, body, runCommand = spawnCapture, tempDir = '/tmp', fileSuffix = 'notice', writeFile = defaultWriteFile, unlink = defaultUnlink, verbose = false }) {
   if (!pullRequestUrl) return { posted: false, url: null, error: 'no pull request url' };
   if (typeof runCommand !== 'function') return { posted: false, url: null, error: 'no command runner' };
 
   const bodyFile = `${tempDir.replace(/\/$/, '')}/hive-mind-kill-notice-${fileSuffix}.md`;
   try {
-    await writeFile(bodyFile, await sanitizeForPublication(body));
-    const result = await runCommand('gh', ['pr', 'comment', pullRequestUrl, '--body-file', bodyFile]);
+    const comment = /^https:\/\/github\.com\/([\w.-]+)\/([\w.-]+)\/pull\/(\d+)#issuecomment-(\d+)$/.exec(commentUrl || '');
+    const target = /^https:\/\/github\.com\/([\w.-]+)\/([\w.-]+)\/pull\/(\d+)$/.exec(pullRequestUrl);
+    const canEdit = comment && target && comment[1] === target[1] && comment[2] === target[2] && comment[3] === target[3];
+    const sanitizedBody = await sanitizeForPublication(body);
+    await writeFile(bodyFile, canEdit ? JSON.stringify({ body: sanitizedBody }) : sanitizedBody);
+    const result = await runCommand('gh', canEdit ? ['api', `repos/${comment[1]}/${comment[2]}/issues/comments/${comment[4]}`, '--method', 'PATCH', '--input', bodyFile, '--jq', '.html_url'] : ['pr', 'comment', pullRequestUrl, '--body-file', bodyFile]);
     if (result?.code === 0) {
       const url = String(result.stdout?.toString() || '').trim() || null;
       if (verbose) console.log(`[VERBOSE] Posted killed-session notice to ${pullRequestUrl}${url ? ` (${url})` : ''}`);

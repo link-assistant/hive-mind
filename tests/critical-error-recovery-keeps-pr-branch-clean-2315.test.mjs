@@ -74,17 +74,18 @@ const writeBuildOutput = async work => {
 
 console.log('Issue #2315: recovery never changes the PR branch\n');
 
-await test('untracked Main.jar and target/ are never committed; the PR branch is unchanged', async () => {
+await test('a small root binary is preserved only in recovery; target/ and the PR branch are unchanged', async () => {
   const { root, remote, work, head } = await createKotlinBranch();
   try {
     await writeBuildOutput(work);
     const preserved = await commitUncommittedChangesOnCriticalError({ tempDir: work, branchName: 'issue-1-604f2202fd18', $: quiet$, log: silentLog, reason: 'stopped after two identical AI sessions' });
-    assert.equal(preserved.committed, false, 'only build output was uncommitted: nothing to preserve');
-    assert.deepEqual(preserved.skipped.sort(), ['Main.jar', 'target/build.log', 'target/classes/MainKt.class']);
+    assert.equal(preserved.pushed, true);
+    assert.deepEqual(preserved.preserved, ['Main.jar']);
+    assert.deepEqual(preserved.skipped.sort(), ['target/build.log', 'target/classes/MainKt.class']);
     assert.equal(git(work, 'rev-parse HEAD'), head);
     assert.equal(git(remote, 'rev-parse issue-1-604f2202fd18'), head);
-    assert.equal(git(remote, 'branch --list "recovery/*"'), '', 'no recovery branch for build output');
-    assert.match(describePreservedWork(preserved), /build output \(Main\.jar/);
+    assert.equal(git(remote, `ls-tree -r --name-only ${preserved.recoveryBranch}`), 'Main.jar\nMain.kt');
+    assert.match(describePreservedWork(preserved), /target\/build\.log \(build output\)/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -102,7 +103,7 @@ await test('a modified tracked file is preserved outside the PR branch, next to 
     assert.equal(preserved.pushed, true);
     assert.equal(preserved.recoveryBranch, recoveryBranchFor('issue-1-604f2202fd18'));
     assert.equal(preserved.recoveryBranch, 'recovery/issue-1-604f2202fd18');
-    assert.deepEqual(preserved.preserved.sort(), ['Main.kt', 'NOTES.md']);
+    assert.deepEqual(preserved.preserved.sort(), ['Main.jar', 'Main.kt', 'NOTES.md']);
 
     // The PR branch - local and remote - is exactly where it was.
     assert.equal(git(work, 'rev-parse HEAD'), head);
@@ -112,7 +113,7 @@ await test('a modified tracked file is preserved outside the PR branch, next to 
     // The recovery branch holds the modification and no build output.
     assert.equal(git(remote, `rev-parse ${preserved.recoveryBranch}`), preserved.commit);
     assert.equal(git(remote, `rev-parse ${preserved.recoveryBranch}^`), head, 'the recovery commit sits on top of the PR head');
-    assert.equal(git(remote, `ls-tree -r --name-only ${preserved.recoveryBranch}`), 'Main.kt\nNOTES.md');
+    assert.equal(git(remote, `ls-tree -r --name-only ${preserved.recoveryBranch}`), 'Main.jar\nMain.kt\nNOTES.md');
     assert.match(git(remote, `show ${preserved.recoveryBranch}:Main.kt`), /Hello, Kotlin!/);
 
     // Index and working tree are untouched: the next session still sees them.

@@ -27,6 +27,8 @@ import { formatAutoRestartLabel, formatAutoRestartLimit, getAutoRestartIteration
 import { ensurePullRequestStaysDraftAfterFailure } from './pr-draft-state.lib.mjs';
 import { AUTO_RESTART_MARKER, postTrackedComment } from './tool-comments.lib.mjs';
 import { reportError } from './sentry.lib.mjs';
+import { buildRestartCooldownMarker } from './auto-restart-cooldown.lib.mjs';
+import { recordDisposableFailure } from './failed-task-retention.lib.mjs';
 
 /**
  * The single reason string returned by every auto-restart subsystem when the
@@ -69,13 +71,13 @@ export const buildUncommittedChangesRestartComment = ({ label, uncommittedFilesL
 The previous session left uncommitted changes. Starting a new session to commit or discard them.${uncommittedFilesList}`;
 
 /** Posted once when the shared budget is exhausted; the run then fails. */
-export const buildAutoRestartLimitComment = ({ label, blocker, preservedText }) => `## ❌ ${AUTO_RESTART_MARKER} ${label} - limit reached
+export const buildAutoRestartLimitComment = ({ label, blocker, preservedText, headSha = null }) => `## ❌ ${AUTO_RESTART_MARKER} ${label} - limit reached
 
 **Remaining blocker:** ${blocker}
 
 ${preservedText}
 
-No more sessions will start automatically. Resolve the blocker, or rerun with a higher \`--auto-restart-max-iterations\`.`;
+No more sessions will start automatically. Resolve the blocker, or rerun with a higher \`--auto-restart-max-iterations\`. Automatic issue requeues wait for the configured cooldown (six hours by default) unless the PR has new commits or feedback.\n\n${buildRestartCooldownMarker(headSha)}`;
 
 /**
  * Fail the run because the shared auto-restart budget is exhausted, preserving
@@ -96,7 +98,8 @@ No more sessions will start automatically. Resolve the blocker, or rerun with a 
  * @param {string} [params.subsystem] which loop hit the limit, for the log line
  * @returns {Promise<{reason: string, iterationsUsed: number, committed: boolean, pushed: boolean}>}
  */
-export const failOnAutoRestartBudgetExhausted = async ({ owner, repo, prNumber, tempDir, branchName, $, log, formatAligned, blocker = 'uncommitted changes', subsystem = 'auto-restart' }) => {
+export const failOnAutoRestartBudgetExhausted = async ({ owner, repo, prNumber, tempDir, branchName, $, log, formatAligned, blocker = 'uncommitted changes', subsystem = 'auto-restart', uploadFailureLog = null, argv = null }) => {
+  if (limitFailure) return limitFailure;
   const iterationsUsed = getAutoRestartIterationsUsed();
   const label = formatAutoRestartLabel(iterationsUsed);
 
@@ -125,9 +128,17 @@ export const failOnAutoRestartBudgetExhausted = async ({ owner, repo, prNumber, 
   });
 
   if (prNumber) {
-    const body = buildAutoRestartLimitComment({ label, blocker, preservedText: describePreservedWork(preserved) });
+    let headSha = null;
     try {
-      await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body });
+      const head = await $({ mirror: false, noThrow: true })`gh pr view ${prNumber} --repo ${`${owner}/${repo}`} --json headRefOid`;
+      if (head.code === 0) headSha = JSON.parse(head.stdout?.toString() || '{}').headRefOid;
+    } catch {
+      /* Still report exhaustion when Git is unavailable. */
+    }
+    const body = buildAutoRestartLimitComment({ label, blocker, preservedText: describePreservedWork(preserved), headSha });
+    try {
+      const comment = await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body });
+      if (!comment.ok) throw new Error('GitHub rejected the exhaustion comment');
       await log(formatAligned('', '💬 Posted auto-restart limit notification to PR', '', 2));
     } catch (commentError) {
       reportError(commentError, { context: 'post_auto_restart_limit_comment', owner, repo, prNumber, operation: 'comment_on_pr' });
@@ -135,7 +146,14 @@ export const failOnAutoRestartBudgetExhausted = async ({ owner, repo, prNumber, 
     }
   }
 
-  limitFailure = { reason: AUTO_RESTART_LIMIT_REACHED_REASON, iterationsUsed, committed: preserved.committed, pushed: preserved.pushed, recoveryBranch: preserved.recoveryBranch || null };
+  let logsUploaded = false;
+  try {
+    logsUploaded = uploadFailureLog ? Boolean(await uploadFailureLog()) : false;
+  } catch {
+    /* Retain the container on upload failure. */
+  }
+  await recordDisposableFailure({ reason: 'auto_restart_limit', logsUploaded, preserved, tempDir, branchName, $, log, argv });
+  limitFailure = { reason: AUTO_RESTART_LIMIT_REACHED_REASON, iterationsUsed, committed: preserved.committed, pushed: preserved.pushed, recoveryBranch: preserved.recoveryBranch || null, preservedText: describePreservedWork(preserved) };
   return limitFailure;
 };
 

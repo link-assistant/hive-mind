@@ -9,19 +9,20 @@
 // a garbage `Main.java` became part of the reviewable diff. The work is now preserved as a snapshot
 // commit on a separate `recovery/<branch>` branch, built in a private index: the PR branch, the
 // index and the working tree are left exactly as they were (the next session still sees the
-// uncommitted files and is told to commit, ignore or delete them). Untracked binaries and known
-// build directories are not preserved at all.
+// uncommitted files and is told to commit, ignore or delete them). Build output is excluded,
+// while screenshots and binary fixtures are preserved with a bounded file size (#2631).
 //
 // It is intentionally dependency-light (receives `$` and `log`) and NEVER throws: a failure to
 // preserve must not mask the original critical error or break the recovery flow.
 
-import { open, rm } from 'node:fs/promises';
+import { lstat, open, rm } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 
 import { reportError } from './sentry.lib.mjs';
 
 /** Directories that hold build output in the ecosystems Hive Mind works on. */
 export const BUILD_OUTPUT_DIR_PATTERN = /(^|\/)(target|build|out|bin|obj|dist|node_modules|__pycache__|\.gradle|\.venv|venv|\.next|coverage)\//;
+export const MAX_RECOVERY_BINARY_BYTES = 5 * 1024 * 1024;
 
 /** The branch that receives the preserved work of `branchName`. */
 export const recoveryBranchFor = branchName => `recovery/${branchName || 'detached-head'}`;
@@ -34,8 +35,6 @@ const isBinaryFile = async path => {
     const buffer = Buffer.alloc(8000);
     const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
     return buffer.subarray(0, bytesRead).includes(0);
-  } catch {
-    return true;
   } finally {
     await handle?.close();
   }
@@ -46,16 +45,30 @@ const isBinaryFile = async path => {
  *
  * @param {string} tempDir
  * @param {string[]} paths - `git ls-files --others --exclude-standard` output
- * @returns {Promise<{keep: string[], skipped: string[]}>}
+ * @returns {Promise<{keep: string[], skipped: string[], skippedDetails: object[], complete: boolean}>}
  */
 export const classifyUntrackedFiles = async (tempDir, paths) => {
   const keep = [];
   const skipped = [];
+  const skippedDetails = [];
   for (const path of paths) {
-    if (BUILD_OUTPUT_DIR_PATTERN.test(path) || (await isBinaryFile(join(tempDir, path)))) skipped.push(path);
-    else keep.push(path);
+    let reason = null;
+    try {
+      if (BUILD_OUTPUT_DIR_PATTERN.test(path)) reason = 'build output';
+      else {
+        const file = join(tempDir, path);
+        const stat = await lstat(file);
+        if (!stat.isSymbolicLink() && (await isBinaryFile(file)) && stat.size > MAX_RECOVERY_BINARY_BYTES) reason = 'binary exceeds 5 MiB';
+      }
+    } catch {
+      reason = 'unreadable file';
+    }
+    if (reason) {
+      skipped.push(path);
+      skippedDetails.push({ path, reason });
+    } else keep.push(path);
   }
-  return { keep, skipped };
+  return { keep, skipped, skippedDetails, complete: skippedDetails.every(file => file.reason === 'build output') };
 };
 
 /**
@@ -65,12 +78,15 @@ export const classifyUntrackedFiles = async (tempDir, paths) => {
  * @returns {string}
  */
 export const describePreservedWork = preserved => {
+  const omitted = preserved?.skippedDetails?.length ? ` Not preserved: ${preserved.skippedDetails.map(file => `${file.path} (${file.reason})`).join(', ')}.` : '';
+  if (preserved?.error) return `Work preservation failed; keep the working directory and inspect the log.${omitted}`;
   if (!preserved?.committed) {
+    if (omitted) return `No uncommitted changes were preserved.${omitted}`;
     return preserved?.skipped?.length ? `The uncommitted files were build output (${preserved.skipped.join(', ')}) and were not preserved.` : 'There were no uncommitted changes left to preserve.';
   }
   const where = preserved.pushed ? `pushed to the branch \`${preserved.recoveryBranch}\` (commit ${preserved.commit.slice(0, 8)})` : `committed locally as \`${preserved.recoveryBranch}\` (push failed - see the log)`;
   const drop = preserved.pushed ? ` To drop it: \`git push origin --delete ${preserved.recoveryBranch}\`.` : '';
-  return `The uncommitted changes were preserved outside this pull request: ${where}; the pull request branch was not changed.${drop}`;
+  return `The uncommitted changes were preserved outside this pull request: ${where}; the pull request branch was not changed.${drop}${omitted}`;
 };
 
 /**
@@ -88,25 +104,27 @@ export const describePreservedWork = preserved => {
  */
 export const commitUncommittedChangesOnCriticalError = async ({ tempDir, branchName, $, log, reason = 'critical error', push = true }) => {
   if (!tempDir || typeof $ !== 'function') {
-    return { committed: false, pushed: false };
+    return { committed: false, pushed: false, error: true };
   }
   const git = $({ cwd: tempDir });
   let indexFile = null;
   try {
     const statusResult = await git`git status --porcelain --untracked-files=all 2>&1`;
+    if (statusResult.code !== 0) throw new Error('Could not inspect the working tree');
     const statusOutput = statusResult.stdout?.toString().trim() || '';
     if (!statusOutput) {
       await log('   ℹ️ No uncommitted changes to preserve before recovery.', { verbose: true });
-      return { committed: false, pushed: false };
+      return { committed: false, pushed: false, clean: true, complete: true };
     }
     const recoveryBranch = recoveryBranchFor(branchName);
     await log(`💾 Critical error (${reason}) — preserving uncommitted changes on ${recoveryBranch} (the PR branch is not changed)...`);
     for (const line of statusOutput.split('\n')) await log(`   ${line}`, { verbose: true });
 
     const untrackedResult = await git`git ls-files --others --exclude-standard`;
+    if (untrackedResult.code !== 0) throw new Error('Could not list untracked work');
     const untracked = (untrackedResult.stdout?.toString() || '').split('\n').filter(Boolean);
-    const { keep, skipped } = await classifyUntrackedFiles(tempDir, untracked);
-    if (skipped.length) await log(`   ⏭️ Not preserved (build output): ${skipped.join(', ')}`);
+    const { keep, ...classification } = await classifyUntrackedFiles(tempDir, untracked);
+    for (const file of classification.skippedDetails) await log(`   ⏭️ Not preserved (${file.reason}): ${file.path}`);
 
     const indexPath = (await git`git rev-parse --git-path hive-mind-recovery.index`).stdout?.toString().trim();
     indexFile = isAbsolute(indexPath) ? indexPath : join(tempDir, indexPath);
@@ -115,25 +133,28 @@ export const commitUncommittedChangesOnCriticalError = async ({ tempDir, branchN
       const result = await step();
       if (result.code !== 0) {
         await log(`⚠️ Could not stage changes for ${recoveryBranch}: ${result.stderr?.toString().trim()}`, { level: 'warning' });
-        return { committed: false, pushed: false, skipped };
+        return { committed: false, pushed: false, ...classification, error: true };
       }
     }
-    const tree = (await git`GIT_INDEX_FILE=${indexFile} git write-tree`).stdout?.toString().trim();
+    const treeResult = await git`GIT_INDEX_FILE=${indexFile} git write-tree`;
+    const tree = treeResult.stdout?.toString().trim();
+    if (treeResult.code !== 0 || !tree) throw new Error('Could not write the recovery tree');
     const headTree = (await git`git rev-parse HEAD^{tree}`).stdout?.toString().trim();
     if (!tree || tree === headTree) {
-      await log('   ℹ️ Nothing but build output was uncommitted; nothing to preserve.');
-      return { committed: false, pushed: false, skipped };
+      await log('   ℹ️ No changes eligible for recovery; see the skipped-file reasons above.');
+      return { committed: false, pushed: false, ...classification };
     }
     const commitMessage = `🛟 Work preserved before critical-error recovery (${reason})`;
     const commitResult = await git`git commit-tree ${tree} -p HEAD -m ${commitMessage}`;
     const commit = commitResult.stdout?.toString().trim();
     if (commitResult.code !== 0 || !commit) {
       await log(`⚠️ Could not commit changes before recovery: ${commitResult.stderr?.toString().trim()}`, { level: 'warning' });
-      return { committed: false, pushed: false, skipped };
+      return { committed: false, pushed: false, ...classification, error: true };
     }
-    await git`git update-ref ${`refs/heads/${recoveryBranch}`} ${commit}`;
+    const refResult = await git`git update-ref ${`refs/heads/${recoveryBranch}`} ${commit}`;
+    if (refResult.code !== 0) throw new Error('Could not record the recovery branch');
     const preserved = ((await git`git diff-tree -r --name-only HEAD ${tree}`).stdout?.toString() || '').split('\n').filter(Boolean);
-    const outcome = { committed: true, pushed: false, recoveryBranch, commit, preserved, skipped };
+    const outcome = { committed: true, pushed: false, recoveryBranch, commit, preserved, ...classification };
     await log(`✅ Uncommitted changes preserved as ${commit.slice(0, 8)} on ${recoveryBranch}.`);
     if (!push || !branchName) return outcome;
     const pushResult = await git`git push --force origin ${`${commit}:refs/heads/${recoveryBranch}`} 2>&1`;
@@ -146,7 +167,7 @@ export const commitUncommittedChangesOnCriticalError = async ({ tempDir, branchN
   } catch (error) {
     reportError(error, { context: 'commit_uncommitted_on_critical_error', tempDir, operation: 'auto_commit_recovery' });
     await log(`⚠️ Error while preserving work before recovery (continuing anyway): ${error.message}`, { level: 'warning' });
-    return { committed: false, pushed: false };
+    return { committed: false, pushed: false, error: true };
   } finally {
     if (indexFile) await rm(indexFile, { force: true }).catch(() => {});
   }

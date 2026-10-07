@@ -4,6 +4,7 @@
 import { log, cleanErrorMessage } from './lib.mjs';
 import { batchCheckPullRequestsForIssues, batchCheckArchivedRepositories } from './github.lib.mjs';
 import { reportError } from './sentry.lib.mjs';
+import { checkPullRequestRestartCooldown } from './auto-restart-cooldown.lib.mjs';
 
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
 /**
@@ -60,6 +61,15 @@ export async function recheckIssueConditions(issueUrl, argv) {
       await log(`      ✅ Issue still has no open PRs`, { verbose: true });
     }
 
+    if (argv.autoContinue) {
+      const { collectIssuePrCandidates } = await import('./solve.auto-continue.lib.mjs');
+      const { matchesIssuePattern } = await import('./solve.branch.lib.mjs');
+      for (const pr of await collectIssuePrCandidates({ owner, repo, issueNumber: issueNum })) {
+        if (!matchesIssuePattern(pr.headRefName, issueNum)) continue;
+        const cooldown = await checkPullRequestRestartCooldown({ owner, repo, prNumber: pr.number, issueNumber: issueNum });
+        if (cooldown) return { shouldProcess: false, deferred: true, reason: cooldown.reason };
+      }
+    }
     // Check 3: Verify repository is not archived
     const archivedStatusMap = await batchCheckArchivedRepositories([{ owner, name: repo }]);
     const repoKey = `${owner}/${repo}`;

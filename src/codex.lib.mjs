@@ -1047,10 +1047,8 @@ export const executeCodexCommand = async params => {
       // Check for authentication errors first - these should never be retried
       if (authError) {
         await logCodexResourceSnapshot({ getResourceSnapshot, log });
-        // Throw an error to stop retries and propagate the auth failure
-        const error = new Error(`Codex authentication failed - 401 Unauthorized.${codexAuthRemedyLines.map(line => ` ${line.replace(/^\s*💡\s*/, '')}`).join('')}`);
-        error.isAuthError = true;
-        throw error;
+        const message = `Codex authentication failed - 401 Unauthorized.${codexAuthRemedyLines.map(line => ` ${line.replace(/^\s*💡\s*/, '')}`).join('')}`;
+        return buildRunResult({ success: false, result: message, errorInfo: { hasError: true, message } });
       }
       const codexErrorSummary = getCodexErrorEventSummary(codexJsonState);
       if (codexErrorSummary.ignoredEvents.length > 0) {

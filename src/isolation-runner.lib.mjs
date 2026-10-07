@@ -31,6 +31,7 @@ import { buildRouterGitConfigEntries, buildRouterTaskEnv, getRouterSuppressedCre
 import { acquireRouterForTask, attachRouterTaskContainer, registerFormalAiWithRouter, releaseRouterForTask, watchRouterTaskContainer } from './router-task-isolation.lib.mjs';
 import { buildGitConfigEnv, GIT_PUSH_GUARD_CONTAINER_DIR, GIT_PUSH_GUARD_ESCAPE_ENV, hasForcePushOptIn, installGitPushGuard } from './git-push-guard.lib.mjs';
 import { applyDockerContainerResourceLimits, hasContainerResourceLimits, normalizeContainerResourceLimits } from './container-resource-limits.lib.mjs';
+import { preflightHostTool } from './host-tool-preflight.lib.mjs';
 export { getDockerIsolationImage, resolveDockerIsolationImageTag } from './hive-mind-image.lib.mjs';
 // Re-export the shared status predicates so existing callers that reach them via the isolation-runner module (e.g. session-monitor's `runner.isExecutingSessionStatus`) keep working. The canonical definitions live in session-status.lib.mjs so the killed/terminated/oom vocabulary stays consistent everywhere (issue #1927).
 export { isExecutingSessionStatus, isTerminalSessionStatus, isKilledSessionStatus } from './session-status.lib.mjs';
@@ -453,6 +454,10 @@ export async function executeWithIsolation(command, args, options = {}) {
   }
   if (backend !== 'docker' && containerResourceLimitsConfigured) {
     return failLaunch(`Container resource limits require the Docker isolation backend, not '${backend}'`);
+  }
+  if (backend === 'docker') {
+    const preflight = await (options.hostPreflight || preflightHostTool)(args, options);
+    if (!preflight.success) return failLaunch(preflight.error, { failureKind: preflight.failureKind });
   }
   const binPath = await findStartCommandBinary();
   if (!binPath) {
@@ -919,24 +924,24 @@ export async function releaseDockerContainerStartGate(containerName, verbose = f
  * @param {boolean} [verbose] - Enable verbose logging
  * @returns {Promise<{success: boolean, output: string, error: string|null}>}
  */
-export async function removeDockerContainer(containerName, verbose = false) {
+export async function removeDockerContainer(containerName, verbose = false, { force = true } = {}) {
   if (!containerName) {
     return { success: false, output: '', error: 'missing container name' };
   }
   try {
     const $ = await getCommandStreamDollar();
-    const result = await $({ mirror: false })`docker rm -f ${containerName}`;
+    const result = force ? await $({ mirror: false })`docker rm -f ${containerName}` : await $({ mirror: false })`docker rm ${containerName}`;
     const stdout = result.stdout?.toString() || '';
     const stderr = result.stderr?.toString() || '';
     if (verbose) {
-      console.log(`[VERBOSE] isolation-runner: docker rm -f '${containerName}' succeeded`);
+      console.log(`[VERBOSE] isolation-runner: docker rm${force ? ' -f' : ''} '${containerName}' succeeded`);
     }
     return { success: true, output: stdout || stderr, error: null };
   } catch (error) {
     const stderr = error?.stderr?.toString?.() || '';
     const stdout = error?.stdout?.toString?.() || '';
     if (verbose) {
-      console.log(`[VERBOSE] isolation-runner: docker rm -f '${containerName}' failed: ${stderr.trim() || error?.message || error}`);
+      console.log(`[VERBOSE] isolation-runner: docker rm${force ? ' -f' : ''} '${containerName}' failed: ${stderr.trim() || error?.message || error}`);
     }
     return {
       success: false,

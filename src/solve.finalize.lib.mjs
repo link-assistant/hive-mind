@@ -47,7 +47,7 @@ export async function finalizeSolveProcess({ tempDir, argv, limitReached, path, 
   if (hasAutoRestartLimitFailure()) {
     const failure = getAutoRestartLimitFailure();
     await log(`\n❌ Auto-restart limit reached after ${failure.iterationsUsed} iteration${failure.iterationsUsed !== 1 ? 's' : ''} - the blocker was never resolved.`, { level: 'error' });
-    await log(failure.committed ? '   Uncommitted work was auto-committed before exit, so the partial result is visible.' : '   No uncommitted work was left to preserve.', { level: 'error' });
+    await log(failure.preservedText || (failure.committed ? '   Uncommitted work was auto-committed before exit, so the partial result is visible.' : '   Check the recovery log for preservation status.'), { level: 'error' });
     await safeExit(1, 'Auto-restart limit reached');
     return;
   }

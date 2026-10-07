@@ -719,11 +719,10 @@ export const watchUntilMergeable = async params => {
       }
       if (ciBlocker && !billingBlocker) {
         shouldRestart = true;
-        restartReason = restartReason ? `${restartReason}; CI failures` : 'CI failures detected';
+        const failingChecks = ciBlocker.details?.length ? ciBlocker.details.join('; ') : ciBlocker.message || 'CI/CD checks are failing';
+        restartReason = `${restartReason ? `${restartReason}; ` : ''}CI failures detected: ${failingChecks}`;
         feedbackLines.push('❌ CI/CD checks are failing:');
-        // Issue #1690: Surface the blocker message so AI sees structured failure context
-        // (e.g. "CI/CD workflow file is invalid — no jobs were instantiated") even when
-        // the failure didn't produce traditional check-runs.
+        // Include structured workflow failures even when no check runs exist (#1690).
         if (ciBlocker.message && ciBlocker.message !== 'CI/CD checks are failing') {
           feedbackLines.push(`  ${ciBlocker.message}`);
         }
@@ -769,6 +768,8 @@ export const watchUntilMergeable = async params => {
             formatAligned,
             blocker: restartReason,
             subsystem: 'auto-restart-until-mergeable',
+            argv,
+            uploadFailureLog: prNumber && (argv.attachLogs || argv['attach-logs']) ? () => attachLogToGitHub({ logFile: getLogFile(), targetType: 'pr', targetNumber: prNumber, owner, repo, $, log, sanitizeLogContent, argv, tempDir, errorMessage: restartReason }) : null,
           });
           return { success: false, reason: exhaustion.reason, latestSessionId, latestAnthropicCost };
         }
@@ -1339,7 +1340,6 @@ export const startAutoRestartUntilMergeable = async params => {
   if (preflight.stop) {
     return preflight.result ?? null;
   }
-  // Start the watch loop
   return await watchUntilMergeable(params);
 };
 export default {

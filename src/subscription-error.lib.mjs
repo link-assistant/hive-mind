@@ -124,6 +124,7 @@ const MESSAGE_RULES = [
   { kind: K.ACCOUNT_NO_ACCESS, tool: 'codex', needles: ['contact your workspace administrator to request access to codex'] },
   { kind: K.LOGIN_REQUIRED, tool: 'codex', needles: ['access token could not be refreshed'] },
   { kind: K.LOGIN_REQUIRED, tool: 'codex', needles: ['oauth refresh token was rejected'] },
+  { kind: K.LOGIN_REQUIRED, tool: 'codex', needles: ['codex authentication failed', '401 unauthorized'] },
   { kind: K.LOGIN_REQUIRED, tool: 'codex', needles: ["not signed in. please run 'codex login'"] },
   // Issue #2397: HTTP 400 invalid_request_error from the Responses API when the
   // ChatGPT plan behind `codex login` does not include the requested model — seen

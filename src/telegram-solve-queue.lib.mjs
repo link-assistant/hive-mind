@@ -382,7 +382,7 @@ export class SolveQueue {
     for (const [tool, toolQueue] of Object.entries(this.queues)) {
       if (toolQueue.length === 0) continue;
       // Check if first item in this tool's queue can start
-      const check = await this.canStartCommand({ tool, locale: toolQueue[0]?.locale || null });
+      const check = await this.canStartCommand({ tool, args: toolQueue[0]?.args, locale: toolQueue[0]?.locale || null });
       // When a 'reject' strategy threshold is exceeded, immediately reject all items in this tool's queue instead of leaving them waiting. See: https://github.com/link-assistant/hive-mind/issues/1555
       if (check.rejected) {
         await this.rejectAllItemsInQueue(tool, toolQueue, check.rejectReason);
@@ -539,6 +539,9 @@ export class SolveQueue {
    */
   async canStartCommand(options = {}) {
     const tool = options.tool || 'claude';
+    const { getHostAuthenticationBlock, usesHostSubscription } = await import('./host-tool-preflight.lib.mjs');
+    const authenticationBlock = usesHostSubscription(options.args, options) ? await getHostAuthenticationBlock(tool) : null;
+    if (authenticationBlock) return { canStart: false, reason: authenticationBlock, reasons: [authenticationBlock] };
     const locale = getLocale(options);
     const reasons = [];
     let oneAtATime = false;
@@ -830,7 +833,7 @@ export class SolveQueue {
       // First check if the tool's threshold triggers a 'reject' strategy.
       // If so, reject all items at once rather than iterating one by one.
       // See: https://github.com/link-assistant/hive-mind/issues/1555
-      const toolCheck = await this.canStartCommand({ tool, locale: toolQueue[0]?.locale || null });
+      const toolCheck = await this.canStartCommand({ tool, args: toolQueue[0]?.args, locale: toolQueue[0]?.locale || null });
       if (toolCheck.rejected) {
         await this.rejectAllItemsInQueue(tool, toolQueue, toolCheck.rejectReason);
         continue;
@@ -838,7 +841,7 @@ export class SolveQueue {
       for (let i = 0; i < toolQueue.length; i++) {
         const item = toolQueue[i];
         if (item.status === QueueItemStatus.QUEUED || item.status === QueueItemStatus.WAITING) {
-          const itemCheck = item.locale === (toolQueue[0]?.locale || null) ? toolCheck : await this.canStartCommand({ tool, locale: item.locale });
+          const itemCheck = item === toolQueue[0] ? toolCheck : await this.canStartCommand({ tool, args: item.args, locale: item.locale });
           const waitReason = itemCheck.reason || lt('queue_waiting_in_queue', {}, { locale: item.locale });
           item.setWaiting(waitReason);
           const position = i + 1; // Position within this tool's queue

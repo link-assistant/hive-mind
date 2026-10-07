@@ -1,0 +1,1654 @@
+cleanup	UNKNOWN STEP	﻿2026-10-06T10:48:28.3525521Z Current runner version: '2.337.0'
+cleanup	UNKNOWN STEP	2026-10-06T10:48:28.3544845Z ##[group]Runner Image Provisioner
+cleanup	UNKNOWN STEP	2026-10-06T10:48:28.3545392Z Hosted Compute Agent
+cleanup	UNKNOWN STEP	2026-10-06T10:48:28.3545884Z Version: 20260901.588
+cleanup	UNKNOWN STEP	2026-10-06T10:48:28.3546271Z Commit: f88ec8081b781fac6c440065ac7ff9e710ce3d0b
+cleanup	UNKNOWN STEP	2026-10-06T10:48:28.3546693Z Build Date: 2026-09-01T19:56:44Z
+cleanup	UNKNOWN STEP	2026-10-06T10:48:28.3547149Z Worker ID: {6bdcceec-18aa-42c5-92bf-8e030ded0d85}
+cleanup	UNKNOWN STEP	2026-10-06T10:48:28.3547585Z Azure Region: centralus
+cleanup	UNKNOWN STEP	2026-10-06T10:48:28.3547994Z ##[endgroup]
+cleanup	UNKNOWN STEP	2026-10-06T10:48:28.3549188Z ##[group]Operating System
+cleanup	UNKNOWN STEP	2026-10-06T10:48:28.3549640Z Ubuntu
+cleanup	UNKNOWN STEP	2026-10-06T10:48:28.3550036Z 24.04.5
+cleanup	UNKNOWN STEP	2026-10-06T10:48:28.3550358Z LTS
+cleanup	UNKNOWN STEP	2026-10-06T10:48:28.3550789Z ##[endgroup]
+cleanup	UNKNOWN STEP	2026-10-06T10:48:28.3551137Z ##[group]Runner Image
+cleanup	UNKNOWN STEP	2026-10-06T10:48:28.3551506Z Image: ubuntu-24.04
+cleanup	UNKNOWN STEP	2026-10-06T10:48:28.3551909Z Version: 20260927.320.1
+cleanup	UNKNOWN STEP	2026-10-06T10:48:28.3552708Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260927.320/images/ubuntu/Ubuntu2404-Readme.md
+cleanup	UNKNOWN STEP	2026-10-06T10:48:28.3553614Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260927.320
+cleanup	UNKNOWN STEP	2026-10-06T10:48:28.3554175Z ##[endgroup]
+cleanup	UNKNOWN STEP	2026-10-06T10:48:28.3555015Z ##[group]GITHUB_TOKEN Permissions
+cleanup	UNKNOWN STEP	2026-10-06T10:48:28.3556605Z Actions: read
+cleanup	UNKNOWN STEP	2026-10-06T10:48:28.3557313Z Contents: write
+cleanup	UNKNOWN STEP	2026-10-06T10:48:28.3557652Z Issues: write
+cleanup	UNKNOWN STEP	2026-10-06T10:48:28.3557975Z Metadata: read
+cleanup	UNKNOWN STEP	2026-10-06T10:48:28.3558376Z PullRequests: write
+cleanup	UNKNOWN STEP	2026-10-06T10:48:28.3558880Z ##[endgroup]
+cleanup	UNKNOWN STEP	2026-10-06T10:48:28.3560353Z Secret source: Actions
+cleanup	UNKNOWN STEP	2026-10-06T10:48:28.3560889Z Cache mode: write
+cleanup	UNKNOWN STEP	2026-10-06T10:48:28.3561491Z Prepare workflow directory
+cleanup	UNKNOWN STEP	2026-10-06T10:48:28.4019943Z Prepare all required actions
+cleanup	UNKNOWN STEP	2026-10-06T10:48:28.4063820Z Getting action download info
+cleanup	UNKNOWN STEP	2026-10-06T10:48:28.6536050Z Download action repository 'actions/checkout@v7' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:28.8976704Z Download action repository 'actions/setup-node@v7' (SHA:820762786026740c76f36085b0efc47a31fe5020)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.2488332Z Complete job name: cleanup
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.3224873Z ##[group]Run actions/checkout@v7
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.3225607Z with:
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.3226066Z   persist-credentials: false
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.3226661Z   repository: link-assistant/hive-mind
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.3231999Z   token: ***
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.3232456Z   ssh-strict: true
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.3232930Z   ssh-user: git
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.3233382Z   clean: true
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.3233864Z   sparse-checkout-cone-mode: true
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.3234443Z   fetch-depth: 1
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.3234902Z   fetch-tags: false
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.3235382Z   show-progress: true
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.3235865Z   lfs: false
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.3236317Z   submodules: false
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.3236834Z   set-safe-directory: true
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.3237398Z   allow-unsafe-pr-checkout: false
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.3238033Z env:
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.3238543Z   GIT_CONFIG_COUNT: 1
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.3239074Z   GIT_CONFIG_KEY_0: init.defaultBranch
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.3239744Z   GIT_CONFIG_VALUE_0: main
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.3240263Z ##[endgroup]
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.3973617Z Syncing repository: link-assistant/hive-mind
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.3976315Z ##[group]Getting Git version info
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.3977510Z Working directory is '/home/runner/work/hive-mind/hive-mind'
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.3980097Z [command]/usr/bin/git version
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.4062710Z git version 2.55.0
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.4079833Z ##[endgroup]
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.4088006Z Temporarily overriding HOME='/home/runner/work/_temp/1719617a-3fe0-421b-a422-21c960079570' before making global git config changes
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.4091065Z Adding repository directory to the temporary git global config as a safe directory
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.4095756Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/hive-mind/hive-mind
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.4393243Z Deleting the contents of '/home/runner/work/hive-mind/hive-mind'
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.4398741Z ##[group]Determining repository object format
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.4400921Z ##[endgroup]
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.4402254Z ##[group]Initializing the repository
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.4403592Z [command]/usr/bin/git init /home/runner/work/hive-mind/hive-mind
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.4715754Z Initialized empty Git repository in /home/runner/work/hive-mind/hive-mind/.git/
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.4725032Z [command]/usr/bin/git remote add origin https://github.com/link-assistant/hive-mind
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.4794821Z ##[endgroup]
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.4795691Z ##[group]Disabling automatic garbage collection
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.4797785Z [command]/usr/bin/git config --local gc.auto 0
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.4989152Z ##[endgroup]
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.4991372Z ##[group]Setting up auth
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.4992432Z Removing SSH command configuration
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.4998378Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.5032823Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.5422859Z Removing HTTP extra header
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.5427450Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.5457985Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.5639144Z Removing includeIf entries pointing to credentials config files
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.5640261Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.5673754Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.5873943Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-2811cd5e-702d-4ca9-ae98-2abdd61229a3.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.6003861Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path /home/runner/work/_temp/git-credentials-2811cd5e-702d-4ca9-ae98-2abdd61229a3.config
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.6702778Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-2811cd5e-702d-4ca9-ae98-2abdd61229a3.config
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.7400417Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-2811cd5e-702d-4ca9-ae98-2abdd61229a3.config
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.7994631Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-2811cd5e-702d-4ca9-ae98-2abdd61229a3.config
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.8894519Z ##[endgroup]
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.8895315Z ##[group]Fetching the repository
+cleanup	UNKNOWN STEP	2026-10-06T10:48:29.8900628Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +03dcb2e67bb50e0abba719f0990423178b7da6eb:refs/remotes/origin/main
+cleanup	UNKNOWN STEP	2026-10-06T10:48:45.6524611Z From https://github.com/link-assistant/hive-mind
+cleanup	UNKNOWN STEP	2026-10-06T10:48:45.6525215Z  * [new ref]         03dcb2e67bb50e0abba719f0990423178b7da6eb -> origin/main
+cleanup	UNKNOWN STEP	2026-10-06T10:48:45.6531188Z [command]/usr/bin/git branch --list --remote origin/main
+cleanup	UNKNOWN STEP	2026-10-06T10:48:45.6561040Z   origin/main
+cleanup	UNKNOWN STEP	2026-10-06T10:48:45.6567016Z [command]/usr/bin/git rev-parse refs/remotes/origin/main
+cleanup	UNKNOWN STEP	2026-10-06T10:48:45.6589539Z 03dcb2e67bb50e0abba719f0990423178b7da6eb
+cleanup	UNKNOWN STEP	2026-10-06T10:48:45.6592773Z ##[endgroup]
+cleanup	UNKNOWN STEP	2026-10-06T10:48:45.6593261Z ##[group]Determining the checkout info
+cleanup	UNKNOWN STEP	2026-10-06T10:48:45.6593853Z ##[endgroup]
+cleanup	UNKNOWN STEP	2026-10-06T10:48:45.6597034Z [command]/usr/bin/git sparse-checkout disable
+cleanup	UNKNOWN STEP	2026-10-06T10:48:45.6643407Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+cleanup	UNKNOWN STEP	2026-10-06T10:48:45.6672200Z ##[group]Checking out the ref
+cleanup	UNKNOWN STEP	2026-10-06T10:48:45.6675421Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+cleanup	UNKNOWN STEP	2026-10-06T10:48:46.6885836Z Updating files:  33% (2558/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:46.6971044Z Updating files:  34% (2609/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:46.7110349Z Updating files:  35% (2686/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:46.7623500Z Updating files:  36% (2762/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:46.8484288Z Updating files:  37% (2839/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:46.8887629Z Updating files:  38% (2916/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:46.9538204Z Updating files:  39% (2993/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:47.0463669Z Updating files:  40% (3069/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:47.0900934Z Updating files:  41% (3146/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:47.1394308Z Updating files:  42% (3223/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:47.1714831Z Updating files:  43% (3299/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:47.2018393Z Updating files:  44% (3376/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:47.2647495Z Updating files:  45% (3453/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:47.2754662Z Updating files:  46% (3530/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:47.3204344Z Updating files:  47% (3606/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:47.3394252Z Updating files:  48% (3683/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:47.3545404Z Updating files:  49% (3760/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:47.3826153Z Updating files:  50% (3836/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:47.4067710Z Updating files:  51% (3913/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:47.4099819Z Updating files:  52% (3990/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:47.4866034Z Updating files:  53% (4067/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:47.5087891Z Updating files:  54% (4143/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:47.5657591Z Updating files:  55% (4220/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:47.5695741Z Updating files:  56% (4297/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:47.5775226Z Updating files:  57% (4374/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:47.6007150Z Updating files:  58% (4450/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:47.6118619Z Updating files:  59% (4527/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:47.6329078Z Updating files:  60% (4604/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:47.6375175Z Updating files:  61% (4680/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:47.6435083Z Updating files:  62% (4757/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:47.7009940Z Updating files:  63% (4834/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:47.7216438Z Updating files:  63% (4869/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:47.7441145Z Updating files:  64% (4911/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:47.7747861Z Updating files:  65% (4987/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:47.7788122Z Updating files:  66% (5064/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:47.7877060Z Updating files:  67% (5141/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:47.8569158Z Updating files:  68% (5217/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:47.8636164Z Updating files:  69% (5294/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.0107165Z Updating files:  70% (5371/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.0435373Z Updating files:  71% (5448/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.0699623Z Updating files:  72% (5524/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.0878877Z Updating files:  73% (5601/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.0911516Z Updating files:  74% (5678/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.0942197Z Updating files:  75% (5754/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.0970474Z Updating files:  76% (5831/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.1006934Z Updating files:  77% (5908/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.1046254Z Updating files:  78% (5985/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.1090138Z Updating files:  79% (6061/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.1117103Z Updating files:  80% (6138/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.1151435Z Updating files:  81% (6215/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.1178192Z Updating files:  82% (6292/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.1207097Z Updating files:  83% (6368/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.1235130Z Updating files:  84% (6445/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.1264475Z Updating files:  85% (6522/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.1300700Z Updating files:  86% (6598/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.1349285Z Updating files:  87% (6675/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.1403508Z Updating files:  88% (6752/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.1461259Z Updating files:  89% (6829/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.1519131Z Updating files:  90% (6905/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.1572114Z Updating files:  91% (6982/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.1616056Z Updating files:  92% (7059/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.1657024Z Updating files:  93% (7135/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.1701674Z Updating files:  94% (7212/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.1745204Z Updating files:  95% (7289/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.1785636Z Updating files:  96% (7366/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.1832065Z Updating files:  97% (7442/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.1876475Z Updating files:  98% (7519/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.1916511Z Updating files:  99% (7596/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.1916798Z Updating files: 100% (7672/7672)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.1916965Z Updating files: 100% (7672/7672), done.
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.2361306Z Reset branch 'main'
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.2461614Z branch 'main' set up to track 'origin/main'.
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.2568063Z ##[endgroup]
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.2570838Z [command]/usr/bin/git log -1 --format=%H
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.2599920Z 03dcb2e67bb50e0abba719f0990423178b7da6eb
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.2606997Z ##[group]Removing auth
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.2607236Z Removing SSH command configuration
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.2610036Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.2639820Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.2830770Z Removing HTTP extra header
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.2833529Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.2862078Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.3052824Z Removing includeIf entries pointing to credentials config files
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.3055287Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.3180100Z includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.3180532Z includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.3180905Z includeif.gitdir:/github/workspace/.git.path
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.3181591Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.3197669Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.3215682Z /home/runner/work/_temp/git-credentials-2811cd5e-702d-4ca9-ae98-2abdd61229a3.config
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.3223266Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-2811cd5e\-702d\-4ca9\-ae98\-2abdd61229a3\.config
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.3494853Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.3525340Z /home/runner/work/_temp/git-credentials-2811cd5e-702d-4ca9-ae98-2abdd61229a3.config
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.3532102Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-2811cd5e\-702d\-4ca9\-ae98\-2abdd61229a3\.config
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.3992662Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.4020009Z /github/runner_temp/git-credentials-2811cd5e-702d-4ca9-ae98-2abdd61229a3.config
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.4026891Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-2811cd5e\-702d\-4ca9\-ae98\-2abdd61229a3\.config
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.4491656Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.4516576Z /github/runner_temp/git-credentials-2811cd5e-702d-4ca9-ae98-2abdd61229a3.config
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.4522453Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-2811cd5e\-702d\-4ca9\-ae98\-2abdd61229a3\.config
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.4587141Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.4791008Z Removing credentials config '/home/runner/work/_temp/git-credentials-2811cd5e-702d-4ca9-ae98-2abdd61229a3.config'
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.4800838Z ##[endgroup]
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.5107312Z ##[group]Run actions/setup-node@v7
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.5107478Z with:
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.5107594Z   node-version: 24.x
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.5107720Z   check-latest: false
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.5109294Z   token: ***
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.5109423Z   package-manager-cache: true
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.5109560Z env:
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.5109666Z   GIT_CONFIG_COUNT: 1
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.5109795Z   GIT_CONFIG_KEY_0: init.defaultBranch
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.5109946Z   GIT_CONFIG_VALUE_0: main
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.5110075Z ##[endgroup]
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.5979700Z Found in cache @ /opt/hostedtoolcache/node/24.21.0/x64
+cleanup	UNKNOWN STEP	2026-10-06T10:48:48.5980246Z ##[group]Environment details
+cleanup	UNKNOWN STEP	2026-10-06T10:48:51.5906429Z node: v24.21.0
+cleanup	UNKNOWN STEP	2026-10-06T10:48:51.5906730Z npm: 11.19.0
+cleanup	UNKNOWN STEP	2026-10-06T10:48:51.5906898Z yarn: 1.22.22
+cleanup	UNKNOWN STEP	2026-10-06T10:48:51.5907402Z ##[endgroup]
+cleanup	UNKNOWN STEP	2026-10-06T10:48:51.5911204Z Detected npm as the package manager from package.json's packageManager field. Auto caching has been enabled for npm. If you want to disable it, set package-manager-cache input to false
+cleanup	UNKNOWN STEP	2026-10-06T10:48:51.5921339Z [command]/opt/hostedtoolcache/node/24.21.0/x64/bin/npm config get cache
+cleanup	UNKNOWN STEP	2026-10-06T10:48:51.8993502Z /home/runner/.npm
+cleanup	UNKNOWN STEP	2026-10-06T10:48:52.0432660Z Cache hit for: node-cache-Linux-x64-npm-9f1e8f0dee0b71d09daf5b75983915b59683367e07a39f22e444f2d50e0f463a
+cleanup	UNKNOWN STEP	2026-10-06T10:48:52.7363813Z Received 31917938 of 31917938 (100.0%), 53.8 MBs/sec
+cleanup	UNKNOWN STEP	2026-10-06T10:48:52.7364168Z Cache Size: ~30 MB (31917938 B)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:52.7384590Z [command]/usr/bin/tar -xf /home/runner/work/_temp/16fb99a9-608e-483b-9735-cfe838b8f73b/cache.tzst -P -C /home/runner/work/hive-mind/hive-mind --use-compress-program unzstd
+cleanup	UNKNOWN STEP	2026-10-06T10:48:52.7942072Z Cache restored successfully
+cleanup	UNKNOWN STEP	2026-10-06T10:48:52.7961206Z Cache restored from key: node-cache-Linux-x64-npm-9f1e8f0dee0b71d09daf5b75983915b59683367e07a39f22e444f2d50e0f463a
+cleanup	UNKNOWN STEP	2026-10-06T10:48:52.8185962Z ##[group]Run npm ci --omit=dev --ignore-scripts
+cleanup	UNKNOWN STEP	2026-10-06T10:48:52.8186314Z ^[[36;1mnpm ci --omit=dev --ignore-scripts^[[0m
+cleanup	UNKNOWN STEP	2026-10-06T10:48:52.9266178Z shell: /usr/bin/bash -e {0}
+cleanup	UNKNOWN STEP	2026-10-06T10:48:52.9266410Z env:
+cleanup	UNKNOWN STEP	2026-10-06T10:48:52.9266591Z   GIT_CONFIG_COUNT: 1
+cleanup	UNKNOWN STEP	2026-10-06T10:48:52.9266788Z   GIT_CONFIG_KEY_0: init.defaultBranch
+cleanup	UNKNOWN STEP	2026-10-06T10:48:52.9267017Z   GIT_CONFIG_VALUE_0: main
+cleanup	UNKNOWN STEP	2026-10-06T10:48:52.9267206Z ##[endgroup]
+cleanup	UNKNOWN STEP	2026-10-06T10:48:55.8651931Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:48:55.8658344Z added 144 packages, and audited 145 packages in 3s
+cleanup	UNKNOWN STEP	2026-10-06T10:48:55.8658785Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:48:55.8658926Z 36 packages are looking for funding
+cleanup	UNKNOWN STEP	2026-10-06T10:48:55.8659116Z   run `npm fund` for details
+cleanup	UNKNOWN STEP	2026-10-06T10:48:55.8659638Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:48:55.8659741Z found 0 vulnerabilities
+cleanup	UNKNOWN STEP	2026-10-06T10:48:55.9278143Z Prepare all required actions
+cleanup	UNKNOWN STEP	2026-10-06T10:48:55.9278627Z Getting action download info
+cleanup	UNKNOWN STEP	2026-10-06T10:48:56.0465834Z Download action repository 'actions/create-github-app-token@v3' (SHA:bcd2ba49218906704ab6c1aa796996da409d3eb1)
+cleanup	UNKNOWN STEP	2026-10-06T10:48:56.3800781Z ##[group]Run ./.github/actions/resolve-github-token
+cleanup	UNKNOWN STEP	2026-10-06T10:48:56.3800977Z with:
+cleanup	UNKNOWN STEP	2026-10-06T10:48:56.3802396Z   default-token: ***
+cleanup	UNKNOWN STEP	2026-10-06T10:48:56.3802538Z   repository-operations: true
+cleanup	UNKNOWN STEP	2026-10-06T10:48:56.3802685Z   owner: link-assistant
+cleanup	UNKNOWN STEP	2026-10-06T10:48:56.3802814Z env:
+cleanup	UNKNOWN STEP	2026-10-06T10:48:56.3802926Z   GIT_CONFIG_COUNT: 1
+cleanup	UNKNOWN STEP	2026-10-06T10:48:56.3803063Z   GIT_CONFIG_KEY_0: init.defaultBranch
+cleanup	UNKNOWN STEP	2026-10-06T10:48:56.3803222Z   GIT_CONFIG_VALUE_0: main
+cleanup	UNKNOWN STEP	2026-10-06T10:48:56.3803355Z ##[endgroup]
+cleanup	UNKNOWN STEP	2026-10-06T10:48:56.3860764Z ##[start-action display=Mint installation token;id=gh.app]
+cleanup	UNKNOWN STEP	2026-10-06T10:48:56.3867947Z ##[end-action id=gh.app;outcome=skipped;conclusion=skipped;duration_ms=0]
+cleanup	UNKNOWN STEP	2026-10-06T10:48:56.3869331Z ##[start-action display=Mint repository administration token;id=gh.admin]
+cleanup	UNKNOWN STEP	2026-10-06T10:48:56.3872460Z ##[end-action id=gh.admin;outcome=skipped;conclusion=skipped;duration_ms=0]
+cleanup	UNKNOWN STEP	2026-10-06T10:48:56.3878282Z ##[start-action display=Resolve and report credentials;id=gh.resolve]
+cleanup	UNKNOWN STEP	2026-10-06T10:48:56.3895079Z ##[group]Run node "$ACTION_PATH/../../../scripts/resolve-automation-token.mjs"
+cleanup	UNKNOWN STEP	2026-10-06T10:48:56.3895400Z ^[[36;1mnode "$ACTION_PATH/../../../scripts/resolve-automation-token.mjs"^[[0m
+cleanup	UNKNOWN STEP	2026-10-06T10:48:56.3950755Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+cleanup	UNKNOWN STEP	2026-10-06T10:48:56.3950945Z env:
+cleanup	UNKNOWN STEP	2026-10-06T10:48:56.3951054Z   GIT_CONFIG_COUNT: 1
+cleanup	UNKNOWN STEP	2026-10-06T10:48:56.3951191Z   GIT_CONFIG_KEY_0: init.defaultBranch
+cleanup	UNKNOWN STEP	2026-10-06T10:48:56.3951345Z   GIT_CONFIG_VALUE_0: main
+cleanup	UNKNOWN STEP	2026-10-06T10:48:56.3951474Z   RESOLVED_APP_TOKEN: 
+cleanup	UNKNOWN STEP	2026-10-06T10:48:56.3951607Z   APP_ADMINISTRATION_GRANTED: false
+cleanup	UNKNOWN STEP	2026-10-06T10:48:56.3951754Z   AUTOMATION_TOKEN: 
+cleanup	UNKNOWN STEP	2026-10-06T10:48:56.3953154Z   DEFAULT_TOKEN: ***
+cleanup	UNKNOWN STEP	2026-10-06T10:48:56.3953297Z   AUTOMATION_OWNER: link-assistant
+cleanup	UNKNOWN STEP	2026-10-06T10:48:56.3953542Z   ACTION_PATH: /home/runner/work/hive-mind/hive-mind/./.github/actions/resolve-github-token
+cleanup	UNKNOWN STEP	2026-10-06T10:48:56.3953792Z ##[endgroup]
+cleanup	UNKNOWN STEP	2026-10-06T10:48:56.4257746Z GitHub credentials: layer default (built-in github.token; optional credentials unavailable); pull request checks through dispatch-checks.
+cleanup	UNKNOWN STEP	2026-10-06T10:48:56.4320891Z ##[end-action id=gh.resolve;outcome=success;conclusion=success;duration_ms=44]
+cleanup	UNKNOWN STEP	2026-10-06T10:48:56.4358716Z ##[group]Run node scripts/cleanup-task-fixtures.mjs
+cleanup	UNKNOWN STEP	2026-10-06T10:48:56.4359007Z ^[[36;1mnode scripts/cleanup-task-fixtures.mjs^[[0m
+cleanup	UNKNOWN STEP	2026-10-06T10:48:56.4410609Z shell: /usr/bin/bash -e {0}
+cleanup	UNKNOWN STEP	2026-10-06T10:48:56.4410746Z env:
+cleanup	UNKNOWN STEP	2026-10-06T10:48:56.4410858Z   GIT_CONFIG_COUNT: 1
+cleanup	UNKNOWN STEP	2026-10-06T10:48:56.4410988Z   GIT_CONFIG_KEY_0: init.defaultBranch
+cleanup	UNKNOWN STEP	2026-10-06T10:48:56.4411139Z   GIT_CONFIG_VALUE_0: main
+cleanup	UNKNOWN STEP	2026-10-06T10:48:56.4412564Z   GH_TOKEN: ***
+cleanup	UNKNOWN STEP	2026-10-06T10:48:56.4412680Z   CLEANUP_DRY_RUN: 
+cleanup	UNKNOWN STEP	2026-10-06T10:48:56.4412797Z ##[endgroup]
+cleanup	UNKNOWN STEP	2026-10-06T10:50:05.6624418Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/issue-2349-c76f90a460ad
+cleanup	UNKNOWN STEP	2026-10-06T10:50:06.7488309Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:06.7489056Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/issue-2350-a8b3e81de55f
+cleanup	UNKNOWN STEP	2026-10-06T10:50:07.2650030Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:07.2650900Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/issue-2351-59039330a112
+cleanup	UNKNOWN STEP	2026-10-06T10:50:07.6873644Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:07.6875521Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/issue-2352-1b1739a320e4
+cleanup	UNKNOWN STEP	2026-10-06T10:50:08.1570215Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:08.1570820Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/issue-2363-f5a8b1c6b7a4
+cleanup	UNKNOWN STEP	2026-10-06T10:50:08.6354043Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:08.6354635Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/issue-2364-a348d5feded1
+cleanup	UNKNOWN STEP	2026-10-06T10:50:09.0668608Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:09.0669237Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/issue-2365-d4f6a81c8b8f
+cleanup	UNKNOWN STEP	2026-10-06T10:50:09.5849133Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:09.5849604Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/issue-2366-addbb3bad2f0
+cleanup	UNKNOWN STEP	2026-10-06T10:50:10.0844900Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:10.0845332Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/issue-2377-3f16f6258628
+cleanup	UNKNOWN STEP	2026-10-06T10:50:10.4909567Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:10.4910454Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/issue-2379-6a22fc89851b
+cleanup	UNKNOWN STEP	2026-10-06T10:50:10.9130297Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:10.9131284Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/issue-2380-aefb00cc841e
+cleanup	UNKNOWN STEP	2026-10-06T10:50:11.4205998Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:11.4206415Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/issue-2381-f4aacb266efa
+cleanup	UNKNOWN STEP	2026-10-06T10:50:11.8379575Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:11.8381528Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/issue-2412-aaf1c9e0853a
+cleanup	UNKNOWN STEP	2026-10-06T10:50:12.3883578Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:12.3884004Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/issue-2413-dc04d59623c4
+cleanup	UNKNOWN STEP	2026-10-06T10:50:12.8588810Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:12.8589231Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/issue-2415-145b49126f6f
+cleanup	UNKNOWN STEP	2026-10-06T10:50:13.3931635Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:13.3932376Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/issue-2417-09b408ce3c6d
+cleanup	UNKNOWN STEP	2026-10-06T10:50:13.8883550Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:13.8883967Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/issue-2422-852bf832120a
+cleanup	UNKNOWN STEP	2026-10-06T10:50:14.4002248Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:14.4002906Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/issue-2424-a491f07c03f6
+cleanup	UNKNOWN STEP	2026-10-06T10:50:14.9249256Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:14.9249799Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/issue-2425-452c715785a6
+cleanup	UNKNOWN STEP	2026-10-06T10:50:15.3347287Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:15.3347716Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/issue-2427-6f7582b06f28
+cleanup	UNKNOWN STEP	2026-10-06T10:50:15.7713087Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:15.7713794Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/issue-2442-4b40b8c8e451
+cleanup	UNKNOWN STEP	2026-10-06T10:50:16.4152025Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:16.4152669Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/issue-2443-c4bd345dfa8e
+cleanup	UNKNOWN STEP	2026-10-06T10:50:16.9653352Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:16.9659189Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/issue-2446-6ed56579a8cf
+cleanup	UNKNOWN STEP	2026-10-06T10:50:17.5685679Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:17.5686115Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/issue-2445-a616d2778bb9
+cleanup	UNKNOWN STEP	2026-10-06T10:50:18.1156977Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:18.1157405Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/issue-2454-1d2e8fe96812
+cleanup	UNKNOWN STEP	2026-10-06T10:50:18.5165214Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:18.5169253Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/issue-2456-ad2dbd937c38
+cleanup	UNKNOWN STEP	2026-10-06T10:50:18.9248868Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:18.9249254Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/issue-2458-894b9657e301
+cleanup	UNKNOWN STEP	2026-10-06T10:50:19.3574091Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:19.3576078Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/issue-2459-4d58c4cb649a
+cleanup	UNKNOWN STEP	2026-10-06T10:50:19.7934681Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:19.7935121Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/issue-2468-ecd6b43aeda4
+cleanup	UNKNOWN STEP	2026-10-06T10:50:20.2457058Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:20.2457472Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/issue-2470-a857dd747f60
+cleanup	UNKNOWN STEP	2026-10-06T10:50:20.7380957Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:20.7389462Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/issue-2472-d3152fe7f3ba
+cleanup	UNKNOWN STEP	2026-10-06T10:50:21.2220144Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:21.2220798Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/issue-2471-afedc59b3a70
+cleanup	UNKNOWN STEP	2026-10-06T10:50:21.6869665Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:21.6870101Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/issue-2476-2bd745603906
+cleanup	UNKNOWN STEP	2026-10-06T10:50:22.2061121Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:22.2076779Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/issue-2478-515f81c4b67b
+cleanup	UNKNOWN STEP	2026-10-06T10:50:22.6255997Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:22.6256411Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/issue-2479-bff99b272dd5
+cleanup	UNKNOWN STEP	2026-10-06T10:50:23.0547981Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:23.0548795Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/issue-2482-e2959729265d
+cleanup	UNKNOWN STEP	2026-10-06T10:50:23.4590725Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:23.4591535Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/issue-2484-053303997de6
+cleanup	UNKNOWN STEP	2026-10-06T10:50:23.9251070Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:23.9255416Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/issue-2485-b89650e7fda1
+cleanup	UNKNOWN STEP	2026-10-06T10:50:24.5314506Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:24.5314980Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/issue-2486-b9fef77b4344
+cleanup	UNKNOWN STEP	2026-10-06T10:50:24.9776585Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:24.9777230Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/issue-2490-35a57993b5f9
+cleanup	UNKNOWN STEP	2026-10-06T10:50:25.4673638Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:25.4674078Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/issue-2504-c210ece1466a
+cleanup	UNKNOWN STEP	2026-10-06T10:50:25.9667874Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:25.9668774Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/issue-2506-8c30dba4c892
+cleanup	UNKNOWN STEP	2026-10-06T10:50:26.3902247Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:26.3904144Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/issue-2508-f623b51f1165
+cleanup	UNKNOWN STEP	2026-10-06T10:50:26.9342993Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:26.9343613Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/issue-2507-e3f410312a39
+cleanup	UNKNOWN STEP	2026-10-06T10:50:27.3283010Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:27.3283768Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/74369850-ee84-43b6-8104-fca67221197b/feedback-lines-head
+cleanup	UNKNOWN STEP	2026-10-06T10:50:27.7872640Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:27.7873170Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/74369850-ee84-43b6-8104-fca67221197b/feedback-lines
+cleanup	UNKNOWN STEP	2026-10-06T10:50:28.3205178Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:28.3205722Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/624184f3-2c65-471d-ae9b-10e978c9cd5a/feedback-lines-head
+cleanup	UNKNOWN STEP	2026-10-06T10:50:28.8242753Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:28.8243265Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/624184f3-2c65-471d-ae9b-10e978c9cd5a/feedback-lines
+cleanup	UNKNOWN STEP	2026-10-06T10:50:29.2154521Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:29.2155059Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/91648cb9-467f-4c82-929e-ce688174e81d/feedback-lines-head
+cleanup	UNKNOWN STEP	2026-10-06T10:50:29.7390596Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:29.7391442Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/91648cb9-467f-4c82-929e-ce688174e81d/feedback-lines
+cleanup	UNKNOWN STEP	2026-10-06T10:50:30.2455689Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:30.2456552Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/1700ec9e-b9dc-4eb8-a94c-80e38ae43c44/feedback-lines-head
+cleanup	UNKNOWN STEP	2026-10-06T10:50:30.7310469Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:30.7326939Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/1700ec9e-b9dc-4eb8-a94c-80e38ae43c44/feedback-lines
+cleanup	UNKNOWN STEP	2026-10-06T10:50:31.2474339Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:31.2475184Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/703da797-e07f-4bdb-b346-0cb9ce455800/feedback-lines-head
+cleanup	UNKNOWN STEP	2026-10-06T10:50:31.6209660Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:31.6226353Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/703da797-e07f-4bdb-b346-0cb9ce455800/feedback-lines
+cleanup	UNKNOWN STEP	2026-10-06T10:50:32.0206273Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:32.0206813Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/553af823-849b-4290-8cce-807f00c4583b/feedback-lines-head
+cleanup	UNKNOWN STEP	2026-10-06T10:50:32.5172940Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:32.5189614Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/553af823-849b-4290-8cce-807f00c4583b/feedback-lines
+cleanup	UNKNOWN STEP	2026-10-06T10:50:33.0269493Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:33.0270335Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/63dee823-ef0a-48bb-9032-83bd8936839d/feedback-lines-head
+cleanup	UNKNOWN STEP	2026-10-06T10:50:33.5359567Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:33.5360331Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/63dee823-ef0a-48bb-9032-83bd8936839d/feedback-lines
+cleanup	UNKNOWN STEP	2026-10-06T10:50:34.0885027Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:34.0901694Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/55d80558-5745-4e86-9172-26ae726de0ff/feedback-lines-head
+cleanup	UNKNOWN STEP	2026-10-06T10:50:34.5012878Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:34.5013624Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/55d80558-5745-4e86-9172-26ae726de0ff/feedback-lines
+cleanup	UNKNOWN STEP	2026-10-06T10:50:34.9920880Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:34.9921402Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/09ba8e12-23f0-43f3-90f4-a411e7fdde75/feedback-lines-head
+cleanup	UNKNOWN STEP	2026-10-06T10:50:35.5543468Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:35.5543998Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/09ba8e12-23f0-43f3-90f4-a411e7fdde75/feedback-lines
+cleanup	UNKNOWN STEP	2026-10-06T10:50:35.9361546Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:35.9363546Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/6eb35fe4-6de5-4db8-b105-681204641221/feedback-lines-head
+cleanup	UNKNOWN STEP	2026-10-06T10:50:36.3726771Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:36.3729307Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/6eb35fe4-6de5-4db8-b105-681204641221/feedback-lines
+cleanup	UNKNOWN STEP	2026-10-06T10:50:36.8217037Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:36.8217883Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/5f0592c2-c7cb-4246-9bbb-0d00242db7d8/feedback-lines-head
+cleanup	UNKNOWN STEP	2026-10-06T10:50:37.3195514Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:37.3196027Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/5f0592c2-c7cb-4246-9bbb-0d00242db7d8/feedback-lines
+cleanup	UNKNOWN STEP	2026-10-06T10:50:37.8277389Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:37.8277928Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/5d87901e-dd5c-4468-8ff8-ae8a3e4a909d/feedback-lines-head
+cleanup	UNKNOWN STEP	2026-10-06T10:50:38.2110777Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:38.2111304Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/5d87901e-dd5c-4468-8ff8-ae8a3e4a909d/feedback-lines
+cleanup	UNKNOWN STEP	2026-10-06T10:50:38.7429461Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:38.7430046Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/4f68bddf-0107-4160-9398-92b2af16ef56/feedback-lines-head
+cleanup	UNKNOWN STEP	2026-10-06T10:50:39.1464671Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:39.1465213Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/4f68bddf-0107-4160-9398-92b2af16ef56/feedback-lines
+cleanup	UNKNOWN STEP	2026-10-06T10:50:39.6200195Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:39.6200734Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/4aec84cf-e54e-4465-b472-abd647c22142/feedback-lines-head
+cleanup	UNKNOWN STEP	2026-10-06T10:50:40.1822137Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:40.1839326Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/4aec84cf-e54e-4465-b472-abd647c22142/feedback-lines
+cleanup	UNKNOWN STEP	2026-10-06T10:50:40.7395172Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:40.7395721Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/3e00f2e7-a137-463e-9b30-93f2883832cc/feedback-lines-head
+cleanup	UNKNOWN STEP	2026-10-06T10:50:41.1876317Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:41.1876869Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/3e00f2e7-a137-463e-9b30-93f2883832cc/feedback-lines
+cleanup	UNKNOWN STEP	2026-10-06T10:50:41.6181593Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:41.6182427Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/2a4a4bcd-d652-4020-8c72-d2a556c3637b/feedback-lines-head
+cleanup	UNKNOWN STEP	2026-10-06T10:50:41.9830037Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:41.9830835Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/2a4a4bcd-d652-4020-8c72-d2a556c3637b/feedback-lines
+cleanup	UNKNOWN STEP	2026-10-06T10:50:42.3895411Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:42.3895960Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/f13cfb4c-de59-474f-a39f-db839fd0761e/feedback-lines-head
+cleanup	UNKNOWN STEP	2026-10-06T10:50:42.9022947Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:42.9026285Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/f13cfb4c-de59-474f-a39f-db839fd0761e/feedback-lines
+cleanup	UNKNOWN STEP	2026-10-06T10:50:43.3381133Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:43.3381679Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/e2e7552d-e59c-4e80-8214-19b00e61b547/feedback-lines-head
+cleanup	UNKNOWN STEP	2026-10-06T10:50:43.8118727Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:43.8137242Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/e2e7552d-e59c-4e80-8214-19b00e61b547/feedback-lines
+cleanup	UNKNOWN STEP	2026-10-06T10:50:44.2837815Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:44.2838832Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/ddb3f01d-aff5-4a82-a718-51ec4e5c9510/feedback-lines-head
+cleanup	UNKNOWN STEP	2026-10-06T10:50:44.6962268Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:44.6978853Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/ddb3f01d-aff5-4a82-a718-51ec4e5c9510/feedback-lines
+cleanup	UNKNOWN STEP	2026-10-06T10:50:45.1324425Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:45.1325305Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/c3804047-231f-4db7-986e-2b0d1bc8f225/feedback-lines-head
+cleanup	UNKNOWN STEP	2026-10-06T10:50:45.5469863Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:45.5470656Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/c3804047-231f-4db7-986e-2b0d1bc8f225/feedback-lines
+cleanup	UNKNOWN STEP	2026-10-06T10:50:45.9737803Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:45.9738792Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/c6b1a974-0624-4128-9d5a-fec205c04b56/feedback-lines-head
+cleanup	UNKNOWN STEP	2026-10-06T10:50:46.4155839Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:46.4156577Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/c6b1a974-0624-4128-9d5a-fec205c04b56/feedback-lines
+cleanup	UNKNOWN STEP	2026-10-06T10:50:46.8114011Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:46.8129980Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/c3b86c92-ff40-4df2-a232-5cc6890b9eb1/feedback-lines-head
+cleanup	UNKNOWN STEP	2026-10-06T10:50:47.2327986Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:47.2328653Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/c3b86c92-ff40-4df2-a232-5cc6890b9eb1/feedback-lines
+cleanup	UNKNOWN STEP	2026-10-06T10:50:47.6509466Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:47.6510000Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/af101602-f8ad-4dbc-9bb7-004e65076200/feedback-lines-head
+cleanup	UNKNOWN STEP	2026-10-06T10:50:48.1086736Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:48.1087569Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/af101602-f8ad-4dbc-9bb7-004e65076200/feedback-lines
+cleanup	UNKNOWN STEP	2026-10-06T10:50:48.5278133Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:48.5279122Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/ae882eda-d8b6-4985-83b9-30a71bd1e268/feedback-lines-head
+cleanup	UNKNOWN STEP	2026-10-06T10:50:48.9344037Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:48.9361495Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/ae882eda-d8b6-4985-83b9-30a71bd1e268/feedback-lines
+cleanup	UNKNOWN STEP	2026-10-06T10:50:49.3469497Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:49.3479684Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/ab466ad9-5430-4b37-abb2-29d908a49263/feedback-lines-head
+cleanup	UNKNOWN STEP	2026-10-06T10:50:49.7800895Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:49.7817570Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/ab466ad9-5430-4b37-abb2-29d908a49263/feedback-lines
+cleanup	UNKNOWN STEP	2026-10-06T10:50:50.1570215Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:50.1570779Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/a90a9a09-ba41-472e-9b07-c65a8ad483ef/feedback-lines-head
+cleanup	UNKNOWN STEP	2026-10-06T10:50:50.6088216Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:50.6104840Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/a90a9a09-ba41-472e-9b07-c65a8ad483ef/feedback-lines
+cleanup	UNKNOWN STEP	2026-10-06T10:50:51.0686841Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:51.0687318Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37241196333/codex-formal-ai
+cleanup	UNKNOWN STEP	2026-10-06T10:50:51.4806284Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:51.4823344Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37241196333/claude-formal-ai
+cleanup	UNKNOWN STEP	2026-10-06T10:50:51.8723577Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:51.8740478Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37241196333/agent-nemotron-3-super-free
+cleanup	UNKNOWN STEP	2026-10-06T10:50:52.3071147Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:52.3071631Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37241196333/agent-formal-ai
+cleanup	UNKNOWN STEP	2026-10-06T10:50:52.6987922Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:52.7004494Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37197770400/codex-formal-ai
+cleanup	UNKNOWN STEP	2026-10-06T10:50:53.1253205Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:53.1253995Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37197770400/claude-formal-ai
+cleanup	UNKNOWN STEP	2026-10-06T10:50:53.5219133Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:53.5229439Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37197770400/agent-nemotron-3-super-free
+cleanup	UNKNOWN STEP	2026-10-06T10:50:53.9500187Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:53.9500663Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37197770400/agent-formal-ai
+cleanup	UNKNOWN STEP	2026-10-06T10:50:54.3824735Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:54.3825209Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37116506182/codex-formal-ai
+cleanup	UNKNOWN STEP	2026-10-06T10:50:54.7796811Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:54.7799271Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37116506182/claude-formal-ai
+cleanup	UNKNOWN STEP	2026-10-06T10:50:55.1962009Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:55.1978980Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37116506182/agent-nemotron-3-super-free
+cleanup	UNKNOWN STEP	2026-10-06T10:50:55.6087525Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:55.6104374Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37116506182/agent-formal-ai
+cleanup	UNKNOWN STEP	2026-10-06T10:50:55.9970896Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:55.9971414Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37112600581/codex-formal-ai
+cleanup	UNKNOWN STEP	2026-10-06T10:50:56.3981045Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:56.3981646Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37112600581/claude-formal-ai
+cleanup	UNKNOWN STEP	2026-10-06T10:50:56.8541576Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:56.8542132Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37112600581/agent-nemotron-3-super-free
+cleanup	UNKNOWN STEP	2026-10-06T10:50:57.3196742Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:57.3197533Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37112600581/agent-formal-ai
+cleanup	UNKNOWN STEP	2026-10-06T10:50:57.7256236Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:57.7256716Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37108218954/codex-formal-ai
+cleanup	UNKNOWN STEP	2026-10-06T10:50:58.1331342Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:58.1349143Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37108218954/claude-formal-ai
+cleanup	UNKNOWN STEP	2026-10-06T10:50:58.5393577Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:58.5394851Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37108218954/agent-nemotron-3-super-free
+cleanup	UNKNOWN STEP	2026-10-06T10:50:58.9752106Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:58.9752571Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37108218954/agent-formal-ai
+cleanup	UNKNOWN STEP	2026-10-06T10:50:59.3515376Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:59.3519388Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37048638353/codex-formal-ai
+cleanup	UNKNOWN STEP	2026-10-06T10:50:59.7726795Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:50:59.7727287Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37048638353/claude-formal-ai
+cleanup	UNKNOWN STEP	2026-10-06T10:51:00.2375941Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:51:00.2376450Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37048638353/agent-nemotron-3-super-free
+cleanup	UNKNOWN STEP	2026-10-06T10:51:00.6455913Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:51:00.6472505Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37048638353/agent-formal-ai
+cleanup	UNKNOWN STEP	2026-10-06T10:51:01.0529573Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:51:01.0539654Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37033623696/codex-formal-ai
+cleanup	UNKNOWN STEP	2026-10-06T10:51:01.4556256Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:51:01.4556940Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37033623696/claude-formal-ai
+cleanup	UNKNOWN STEP	2026-10-06T10:51:01.8380178Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:51:01.8380974Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37033623696/agent-nemotron-3-super-free
+cleanup	UNKNOWN STEP	2026-10-06T10:51:02.2579921Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:51:02.2580451Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37033623696/agent-formal-ai
+cleanup	UNKNOWN STEP	2026-10-06T10:51:02.6707037Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:51:02.6707708Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37030226629/codex-formal-ai
+cleanup	UNKNOWN STEP	2026-10-06T10:51:03.0756487Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:51:03.0756985Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37030226629/claude-formal-ai
+cleanup	UNKNOWN STEP	2026-10-06T10:51:03.5138738Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:51:03.5139485Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37030226629/agent-nemotron-3-super-free
+cleanup	UNKNOWN STEP	2026-10-06T10:51:03.9197661Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:51:03.9201281Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37030226629/agent-formal-ai
+cleanup	UNKNOWN STEP	2026-10-06T10:51:04.3061141Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:51:04.3064301Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36723556172/codex-formal-ai
+cleanup	UNKNOWN STEP	2026-10-06T10:51:04.7046781Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:51:04.7047298Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36723556172/claude-formal-ai
+cleanup	UNKNOWN STEP	2026-10-06T10:51:05.1273131Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:51:05.1273749Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36723556172/agent-nemotron-3-super-free
+cleanup	UNKNOWN STEP	2026-10-06T10:51:05.6386979Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:51:05.6387527Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36723556172/agent-formal-ai
+cleanup	UNKNOWN STEP	2026-10-06T10:51:06.0431607Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:51:06.0432554Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36717545376/codex-formal-ai
+cleanup	UNKNOWN STEP	2026-10-06T10:51:06.4452492Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:51:06.4453026Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36717545376/claude-formal-ai
+cleanup	UNKNOWN STEP	2026-10-06T10:51:06.8373499Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:51:06.8374051Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36717545376/agent-nemotron-3-super-free
+cleanup	UNKNOWN STEP	2026-10-06T10:51:07.2233801Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:51:07.2234329Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36717545376/agent-formal-ai
+cleanup	UNKNOWN STEP	2026-10-06T10:51:07.6080942Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:51:07.6081602Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36713132806/codex-formal-ai
+cleanup	UNKNOWN STEP	2026-10-06T10:51:08.0307921Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:51:08.0308385Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36713132806/claude-formal-ai
+cleanup	UNKNOWN STEP	2026-10-06T10:51:08.4343962Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:51:08.4344439Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36713132806/agent-nemotron-3-super-free
+cleanup	UNKNOWN STEP	2026-10-06T10:51:08.8420790Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:51:08.8421292Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36713132806/agent-formal-ai
+cleanup	UNKNOWN STEP	2026-10-06T10:51:09.2821924Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:51:09.2822371Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36710090105/codex-formal-ai
+cleanup	UNKNOWN STEP	2026-10-06T10:51:09.6783048Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:51:09.6783518Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36710090105/claude-formal-ai
+cleanup	UNKNOWN STEP	2026-10-06T10:51:10.2187096Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:51:10.2187931Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36710090105/agent-nemotron-3-super-free
+cleanup	UNKNOWN STEP	2026-10-06T10:51:10.6267641Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:51:10.6268110Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36710090105/agent-formal-ai
+cleanup	UNKNOWN STEP	2026-10-06T10:51:11.0248189Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:51:11.0250739Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36707256826/codex-formal-ai
+cleanup	UNKNOWN STEP	2026-10-06T10:51:11.5551322Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:51:11.5551843Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36707256826/claude-formal-ai
+cleanup	UNKNOWN STEP	2026-10-06T10:51:11.9384303Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:51:11.9384786Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36707256826/agent-nemotron-3-super-free
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.4229152Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.4229631Z Will DELETE repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36707256826/agent-formal-ai
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8303004Z ℹ️ gh: error is not retryable [transient=no]; propagating to caller.
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8303324Z Stale fixture branches: 148
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8306317Z file:///home/runner/work/hive-mind/hive-mind/scripts/cleanup-task-fixtures.mjs:37
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8306765Z if (errors.length) throw new Error(errors.join('\n'));
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8307044Z                          ^
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8307653Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8308381Z Error: repos/link-assistant/hive-mind/git/refs/heads/issue-2349-c76f90a460ad: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/issue-2349-c76f90a460ad --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8309207Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8309373Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8309472Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8309643Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8309729Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8309829Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8312192Z repos/link-assistant/hive-mind/git/refs/heads/issue-2350-a8b3e81de55f: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/issue-2350-a8b3e81de55f --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8313024Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8313184Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8313299Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8313447Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8313520Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8313641Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8314268Z repos/link-assistant/hive-mind/git/refs/heads/issue-2351-59039330a112: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/issue-2351-59039330a112 --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8314884Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8314985Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8315044Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8315130Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8315178Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8315237Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8315763Z repos/link-assistant/hive-mind/git/refs/heads/issue-2352-1b1739a320e4: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/issue-2352-1b1739a320e4 --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8316174Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8316271Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8316431Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8316512Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8316556Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8316618Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8317000Z repos/link-assistant/hive-mind/git/refs/heads/issue-2363-f5a8b1c6b7a4: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/issue-2363-f5a8b1c6b7a4 --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8317414Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8317511Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8317568Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8317650Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8317698Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8317757Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8318142Z repos/link-assistant/hive-mind/git/refs/heads/issue-2364-a348d5feded1: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/issue-2364-a348d5feded1 --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8318740Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8318838Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8318897Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8318976Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8319022Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8319083Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8319459Z repos/link-assistant/hive-mind/git/refs/heads/issue-2365-d4f6a81c8b8f: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/issue-2365-d4f6a81c8b8f --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8319870Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8319972Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8320029Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8320110Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8320156Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8320216Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8320596Z repos/link-assistant/hive-mind/git/refs/heads/issue-2366-addbb3bad2f0: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/issue-2366-addbb3bad2f0 --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8321014Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8321115Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8321174Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8321253Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8321300Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8321361Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8321738Z repos/link-assistant/hive-mind/git/refs/heads/issue-2377-3f16f6258628: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/issue-2377-3f16f6258628 --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8322147Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8322242Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8322302Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8322502Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8322547Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8322610Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8322991Z repos/link-assistant/hive-mind/git/refs/heads/issue-2379-6a22fc89851b: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/issue-2379-6a22fc89851b --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8323400Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8323498Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8323563Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8323642Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8323690Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8323753Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8324128Z repos/link-assistant/hive-mind/git/refs/heads/issue-2380-aefb00cc841e: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/issue-2380-aefb00cc841e --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8324541Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8324637Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8324697Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8324778Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8324822Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8324884Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8325267Z repos/link-assistant/hive-mind/git/refs/heads/issue-2381-f4aacb266efa: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/issue-2381-f4aacb266efa --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8325678Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8325776Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8325834Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8325916Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8326044Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8326107Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8326483Z repos/link-assistant/hive-mind/git/refs/heads/issue-2412-aaf1c9e0853a: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/issue-2412-aaf1c9e0853a --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8326903Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8326999Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8327059Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8327140Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8327184Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8327247Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8327623Z repos/link-assistant/hive-mind/git/refs/heads/issue-2413-dc04d59623c4: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/issue-2413-dc04d59623c4 --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8328036Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8328134Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8328191Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8328272Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8328320Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8328378Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8328909Z repos/link-assistant/hive-mind/git/refs/heads/issue-2415-145b49126f6f: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/issue-2415-145b49126f6f --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8329322Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8329419Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8329479Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8329560Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8329605Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8329730Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8330107Z repos/link-assistant/hive-mind/git/refs/heads/issue-2417-09b408ce3c6d: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/issue-2417-09b408ce3c6d --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8332074Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8332226Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8332316Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8332435Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8332507Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8332599Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8333197Z repos/link-assistant/hive-mind/git/refs/heads/issue-2422-852bf832120a: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/issue-2422-852bf832120a --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8333831Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8333983Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8334078Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8334204Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8334274Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8334369Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8334970Z repos/link-assistant/hive-mind/git/refs/heads/issue-2424-a491f07c03f6: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/issue-2424-a491f07c03f6 --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8335634Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8335790Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8336001Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8336084Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8336132Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8336194Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8336569Z repos/link-assistant/hive-mind/git/refs/heads/issue-2425-452c715785a6: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/issue-2425-452c715785a6 --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8336984Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8337080Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8337140Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8337222Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8337267Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8337329Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8337706Z repos/link-assistant/hive-mind/git/refs/heads/issue-2427-6f7582b06f28: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/issue-2427-6f7582b06f28 --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8338113Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8338211Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8338268Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8338349Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8338396Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8338629Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8339007Z repos/link-assistant/hive-mind/git/refs/heads/issue-2442-4b40b8c8e451: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/issue-2442-4b40b8c8e451 --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8339417Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8339512Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8339573Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8339742Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8339789Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8339852Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8340229Z repos/link-assistant/hive-mind/git/refs/heads/issue-2443-c4bd345dfa8e: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/issue-2443-c4bd345dfa8e --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8340642Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8340739Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8340798Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8340879Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8340925Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8340984Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8341361Z repos/link-assistant/hive-mind/git/refs/heads/issue-2446-6ed56579a8cf: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/issue-2446-6ed56579a8cf --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8341771Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8341869Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8341928Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8342008Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8342055Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8342116Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8342497Z repos/link-assistant/hive-mind/git/refs/heads/issue-2445-a616d2778bb9: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/issue-2445-a616d2778bb9 --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8342905Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8343005Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8343061Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8343142Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8343189Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8343248Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8343625Z repos/link-assistant/hive-mind/git/refs/heads/issue-2454-1d2e8fe96812: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/issue-2454-1d2e8fe96812 --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8344037Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8344134Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8344192Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8344270Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8344317Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8344379Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8344759Z repos/link-assistant/hive-mind/git/refs/heads/issue-2456-ad2dbd937c38: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/issue-2456-ad2dbd937c38 --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8345170Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8345268Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8345324Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8345404Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8345451Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8345509Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8345884Z repos/link-assistant/hive-mind/git/refs/heads/issue-2458-894b9657e301: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/issue-2458-894b9657e301 --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8346289Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8346475Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8346537Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8346616Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8346665Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8346728Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8347101Z repos/link-assistant/hive-mind/git/refs/heads/issue-2459-4d58c4cb649a: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/issue-2459-4d58c4cb649a --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8347517Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8347613Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8347674Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8347755Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8347800Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8347864Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8348242Z repos/link-assistant/hive-mind/git/refs/heads/issue-2468-ecd6b43aeda4: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/issue-2468-ecd6b43aeda4 --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8348808Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8348906Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8348966Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8349051Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8349098Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8349159Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8349534Z repos/link-assistant/hive-mind/git/refs/heads/issue-2470-a857dd747f60: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/issue-2470-a857dd747f60 --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8349948Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8350043Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8350190Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8350273Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8350317Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8350381Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8350758Z repos/link-assistant/hive-mind/git/refs/heads/issue-2472-d3152fe7f3ba: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/issue-2472-d3152fe7f3ba --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8351172Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8351271Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8351328Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8351409Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8351456Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8351516Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8351897Z repos/link-assistant/hive-mind/git/refs/heads/issue-2471-afedc59b3a70: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/issue-2471-afedc59b3a70 --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8352315Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8352413Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8352473Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8352556Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8352604Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8352666Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8353043Z repos/link-assistant/hive-mind/git/refs/heads/issue-2476-2bd745603906: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/issue-2476-2bd745603906 --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8353450Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8353549Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8353607Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8353690Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8353738Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8353798Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8354180Z repos/link-assistant/hive-mind/git/refs/heads/issue-2478-515f81c4b67b: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/issue-2478-515f81c4b67b --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8354593Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8354691Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8354749Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8354828Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8354875Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8354936Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8355318Z repos/link-assistant/hive-mind/git/refs/heads/issue-2479-bff99b272dd5: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/issue-2479-bff99b272dd5 --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8355728Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8355823Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8355883Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8355963Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8356009Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8356071Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8356446Z repos/link-assistant/hive-mind/git/refs/heads/issue-2482-e2959729265d: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/issue-2482-e2959729265d --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8356943Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8357041Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8357098Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8357179Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8357226Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8357285Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8357663Z repos/link-assistant/hive-mind/git/refs/heads/issue-2484-053303997de6: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/issue-2484-053303997de6 --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8358072Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8358168Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8358228Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8358309Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8358353Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8358415Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8358939Z repos/link-assistant/hive-mind/git/refs/heads/issue-2485-b89650e7fda1: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/issue-2485-b89650e7fda1 --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8359352Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8359451Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8359514Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8359595Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8359642Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8359702Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8360081Z repos/link-assistant/hive-mind/git/refs/heads/issue-2486-b9fef77b4344: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/issue-2486-b9fef77b4344 --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8360576Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8360677Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8360736Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8360818Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8360863Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8360925Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8361302Z repos/link-assistant/hive-mind/git/refs/heads/issue-2490-35a57993b5f9: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/issue-2490-35a57993b5f9 --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8361713Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8361812Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8361869Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8361950Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8361999Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8362061Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8362438Z repos/link-assistant/hive-mind/git/refs/heads/issue-2504-c210ece1466a: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/issue-2504-c210ece1466a --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8362848Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8362946Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8363006Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8363092Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8363139Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8363201Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8363580Z repos/link-assistant/hive-mind/git/refs/heads/issue-2506-8c30dba4c892: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/issue-2506-8c30dba4c892 --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8363998Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8364096Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8364155Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8364236Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8364283Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8364343Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8364718Z repos/link-assistant/hive-mind/git/refs/heads/issue-2508-f623b51f1165: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/issue-2508-f623b51f1165 --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8365129Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8365228Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8365287Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8365365Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8365412Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8365475Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8365856Z repos/link-assistant/hive-mind/git/refs/heads/issue-2507-e3f410312a39: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/issue-2507-e3f410312a39 --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8366267Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8366362Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8366422Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8366528Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8366573Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8366635Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8367254Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/74369850-ee84-43b6-8104-fca67221197b/feedback-lines-head: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/74369850-ee84-43b6-8104-fca67221197b/feedback-lines-head --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8367964Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8368063Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8368122Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8368202Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8368249Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8368310Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8369018Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/74369850-ee84-43b6-8104-fca67221197b/feedback-lines: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/74369850-ee84-43b6-8104-fca67221197b/feedback-lines --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8369593Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8369691Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8369749Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8369830Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8369877Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8369937Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8370549Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/624184f3-2c65-471d-ae9b-10e978c9cd5a/feedback-lines-head: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/624184f3-2c65-471d-ae9b-10e978c9cd5a/feedback-lines-head --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8371151Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8371249Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8371309Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8371470Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8371522Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8371606Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8372188Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/624184f3-2c65-471d-ae9b-10e978c9cd5a/feedback-lines: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/624184f3-2c65-471d-ae9b-10e978c9cd5a/feedback-lines --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8372765Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8372864Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8372924Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8373004Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8373052Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8373114Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8373725Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/91648cb9-467f-4c82-929e-ce688174e81d/feedback-lines-head: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/91648cb9-467f-4c82-929e-ce688174e81d/feedback-lines-head --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8374319Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8374422Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8374480Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8374562Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8374609Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8374669Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8375249Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/91648cb9-467f-4c82-929e-ce688174e81d/feedback-lines: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/91648cb9-467f-4c82-929e-ce688174e81d/feedback-lines --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8375846Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8375946Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8376006Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8376088Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8376135Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8376197Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8376812Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/1700ec9e-b9dc-4eb8-a94c-80e38ae43c44/feedback-lines-head: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/1700ec9e-b9dc-4eb8-a94c-80e38ae43c44/feedback-lines-head --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8377416Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8377515Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8377573Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8377655Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8377703Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8377762Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8378358Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/1700ec9e-b9dc-4eb8-a94c-80e38ae43c44/feedback-lines: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/1700ec9e-b9dc-4eb8-a94c-80e38ae43c44/feedback-lines --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8379063Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8379256Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8379316Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8379398Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8379443Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8379506Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8380121Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/703da797-e07f-4bdb-b346-0cb9ce455800/feedback-lines-head: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/703da797-e07f-4bdb-b346-0cb9ce455800/feedback-lines-head --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8380717Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8380815Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8380873Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8380954Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8381002Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8381062Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8381645Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/703da797-e07f-4bdb-b346-0cb9ce455800/feedback-lines: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/703da797-e07f-4bdb-b346-0cb9ce455800/feedback-lines --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8382228Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8382323Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8382384Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8382465Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8382510Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8382572Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8383331Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/553af823-849b-4290-8cce-807f00c4583b/feedback-lines-head: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/553af823-849b-4290-8cce-807f00c4583b/feedback-lines-head --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8383926Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8384026Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8384083Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8384165Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8384212Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8384272Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8384850Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/553af823-849b-4290-8cce-807f00c4583b/feedback-lines: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/553af823-849b-4290-8cce-807f00c4583b/feedback-lines --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8385427Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8385524Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8385585Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8385666Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8385711Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8385774Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8386386Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/63dee823-ef0a-48bb-9032-83bd8936839d/feedback-lines-head: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/63dee823-ef0a-48bb-9032-83bd8936839d/feedback-lines-head --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8386983Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8387082Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8387140Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8387221Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8387268Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8387330Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8387917Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/63dee823-ef0a-48bb-9032-83bd8936839d/feedback-lines: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/63dee823-ef0a-48bb-9032-83bd8936839d/feedback-lines --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8388635Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8388733Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8388793Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8388875Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8388919Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8388985Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8389587Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/55d80558-5745-4e86-9172-26ae726de0ff/feedback-lines-head: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/55d80558-5745-4e86-9172-26ae726de0ff/feedback-lines-head --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8390178Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8390277Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8390337Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8390441Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8390486Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8390548Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8391125Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/55d80558-5745-4e86-9172-26ae726de0ff/feedback-lines: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/55d80558-5745-4e86-9172-26ae726de0ff/feedback-lines --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8391792Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8391891Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8391953Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8392033Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8392081Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8392143Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8392752Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/09ba8e12-23f0-43f3-90f4-a411e7fdde75/feedback-lines-head: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/09ba8e12-23f0-43f3-90f4-a411e7fdde75/feedback-lines-head --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8393349Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8393447Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8393505Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8393586Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8393633Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8393696Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8394276Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/09ba8e12-23f0-43f3-90f4-a411e7fdde75/feedback-lines: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/09ba8e12-23f0-43f3-90f4-a411e7fdde75/feedback-lines --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8394845Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8395026Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8395087Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8395167Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8395215Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8395277Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8395886Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/6eb35fe4-6de5-4db8-b105-681204641221/feedback-lines-head: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/6eb35fe4-6de5-4db8-b105-681204641221/feedback-lines-head --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8396486Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8396585Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8396642Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8396728Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8396776Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8396836Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8397427Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/6eb35fe4-6de5-4db8-b105-681204641221/feedback-lines: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/6eb35fe4-6de5-4db8-b105-681204641221/feedback-lines --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8397999Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8398099Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8398160Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8398239Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8398287Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8398350Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8399095Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/5f0592c2-c7cb-4246-9bbb-0d00242db7d8/feedback-lines-head: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/5f0592c2-c7cb-4246-9bbb-0d00242db7d8/feedback-lines-head --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8399694Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8399798Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8399856Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8399937Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8399985Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8400045Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8400632Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/5f0592c2-c7cb-4246-9bbb-0d00242db7d8/feedback-lines: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/5f0592c2-c7cb-4246-9bbb-0d00242db7d8/feedback-lines --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8401208Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8401307Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8401367Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8401446Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8401493Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8401555Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8402169Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/5d87901e-dd5c-4468-8ff8-ae8a3e4a909d/feedback-lines-head: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/5d87901e-dd5c-4468-8ff8-ae8a3e4a909d/feedback-lines-head --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8402859Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8402959Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8403016Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8403099Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8403146Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8403206Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8403807Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/5d87901e-dd5c-4468-8ff8-ae8a3e4a909d/feedback-lines: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/5d87901e-dd5c-4468-8ff8-ae8a3e4a909d/feedback-lines --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8404386Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8404486Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8404546Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8404627Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8404672Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8404735Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8405343Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/4f68bddf-0107-4160-9398-92b2af16ef56/feedback-lines-head: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/4f68bddf-0107-4160-9398-92b2af16ef56/feedback-lines-head --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8406385Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8406545Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8406635Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8406762Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8406837Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8406929Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8408038Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/4f68bddf-0107-4160-9398-92b2af16ef56/feedback-lines: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/4f68bddf-0107-4160-9398-92b2af16ef56/feedback-lines --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8409132Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8409289Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8409385Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8409513Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8409587Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8409686Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8410721Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/4aec84cf-e54e-4465-b472-abd647c22142/feedback-lines-head: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/4aec84cf-e54e-4465-b472-abd647c22142/feedback-lines-head --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8411733Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8411895Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8411992Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8412127Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8412209Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8412303Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8413170Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/4aec84cf-e54e-4465-b472-abd647c22142/feedback-lines: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/4aec84cf-e54e-4465-b472-abd647c22142/feedback-lines --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8413752Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8413848Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8413909Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8413991Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8414036Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8414099Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8414715Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/3e00f2e7-a137-463e-9b30-93f2883832cc/feedback-lines-head: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/3e00f2e7-a137-463e-9b30-93f2883832cc/feedback-lines-head --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8415319Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8415417Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8415477Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8415560Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8415608Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8415669Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8416244Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/3e00f2e7-a137-463e-9b30-93f2883832cc/feedback-lines: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/3e00f2e7-a137-463e-9b30-93f2883832cc/feedback-lines --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8416815Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8416911Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8416971Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8417053Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8417244Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8417308Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8417914Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/2a4a4bcd-d652-4020-8c72-d2a556c3637b/feedback-lines-head: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/2a4a4bcd-d652-4020-8c72-d2a556c3637b/feedback-lines-head --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8418679Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8418779Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8418839Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8418918Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8418965Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8419028Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8419615Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/2a4a4bcd-d652-4020-8c72-d2a556c3637b/feedback-lines: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/2a4a4bcd-d652-4020-8c72-d2a556c3637b/feedback-lines --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8420190Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8420286Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8420353Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8420436Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8420482Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8420544Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8421245Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/f13cfb4c-de59-474f-a39f-db839fd0761e/feedback-lines-head: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/f13cfb4c-de59-474f-a39f-db839fd0761e/feedback-lines-head --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8421844Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8421943Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8422003Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8422083Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8422131Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8422193Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8422776Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/f13cfb4c-de59-474f-a39f-db839fd0761e/feedback-lines: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/f13cfb4c-de59-474f-a39f-db839fd0761e/feedback-lines --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8423355Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8423451Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8423512Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8423594Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8423639Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8423701Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8424312Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/e2e7552d-e59c-4e80-8214-19b00e61b547/feedback-lines-head: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/e2e7552d-e59c-4e80-8214-19b00e61b547/feedback-lines-head --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8424908Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8425006Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8425067Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8425146Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8425195Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8425256Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8425831Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/e2e7552d-e59c-4e80-8214-19b00e61b547/feedback-lines: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/e2e7552d-e59c-4e80-8214-19b00e61b547/feedback-lines --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8426405Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8426501Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8426561Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8426643Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8426690Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8426750Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8427366Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/ddb3f01d-aff5-4a82-a718-51ec4e5c9510/feedback-lines-head: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/ddb3f01d-aff5-4a82-a718-51ec4e5c9510/feedback-lines-head --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8427963Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8428062Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8428123Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8428203Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8428250Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8428312Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8429025Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/ddb3f01d-aff5-4a82-a718-51ec4e5c9510/feedback-lines: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/ddb3f01d-aff5-4a82-a718-51ec4e5c9510/feedback-lines --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8429721Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8429819Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8429877Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8429959Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8430006Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8430068Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8430676Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/c3804047-231f-4db7-986e-2b0d1bc8f225/feedback-lines-head: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/c3804047-231f-4db7-986e-2b0d1bc8f225/feedback-lines-head --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8431266Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8431365Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8431425Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8431504Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8431554Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8431616Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8432193Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/c3804047-231f-4db7-986e-2b0d1bc8f225/feedback-lines: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/c3804047-231f-4db7-986e-2b0d1bc8f225/feedback-lines --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8432771Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8432869Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8432927Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8433089Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8433138Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8433199Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8433805Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/c6b1a974-0624-4128-9d5a-fec205c04b56/feedback-lines-head: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/c6b1a974-0624-4128-9d5a-fec205c04b56/feedback-lines-head --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8434397Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8434495Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8434555Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8434635Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8434683Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8434749Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8435327Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/c6b1a974-0624-4128-9d5a-fec205c04b56/feedback-lines: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/c6b1a974-0624-4128-9d5a-fec205c04b56/feedback-lines --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8435897Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8436000Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8436058Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8436138Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8436185Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8436245Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8436855Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/c3b86c92-ff40-4df2-a232-5cc6890b9eb1/feedback-lines-head: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/c3b86c92-ff40-4df2-a232-5cc6890b9eb1/feedback-lines-head --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8437452Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8437550Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8437609Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8437694Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8437739Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8437800Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8438383Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/c3b86c92-ff40-4df2-a232-5cc6890b9eb1/feedback-lines: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/c3b86c92-ff40-4df2-a232-5cc6890b9eb1/feedback-lines --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8439106Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8439204Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8439261Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8439345Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8439393Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8439453Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8440062Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/af101602-f8ad-4dbc-9bb7-004e65076200/feedback-lines-head: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/af101602-f8ad-4dbc-9bb7-004e65076200/feedback-lines-head --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8440659Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8440854Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8440916Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8440997Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8441043Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8441106Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8441686Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/af101602-f8ad-4dbc-9bb7-004e65076200/feedback-lines: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/af101602-f8ad-4dbc-9bb7-004e65076200/feedback-lines --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8442278Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8442376Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8442434Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8442515Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8442562Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8442622Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8443230Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/ae882eda-d8b6-4985-83b9-30a71bd1e268/feedback-lines-head: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/ae882eda-d8b6-4985-83b9-30a71bd1e268/feedback-lines-head --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8443830Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8443927Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8443987Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8444068Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8444114Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8444177Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8444857Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/ae882eda-d8b6-4985-83b9-30a71bd1e268/feedback-lines: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/ae882eda-d8b6-4985-83b9-30a71bd1e268/feedback-lines --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8445436Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8445534Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8445591Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8445672Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8445732Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8445795Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8446400Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/ab466ad9-5430-4b37-abb2-29d908a49263/feedback-lines-head: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/ab466ad9-5430-4b37-abb2-29d908a49263/feedback-lines-head --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8447012Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8447110Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8447170Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8447251Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8447296Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8447359Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8447956Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/ab466ad9-5430-4b37-abb2-29d908a49263/feedback-lines: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/ab466ad9-5430-4b37-abb2-29d908a49263/feedback-lines --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8448650Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8448749Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8448809Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8448887Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8448934Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8448996Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8449606Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/a90a9a09-ba41-472e-9b07-c65a8ad483ef/feedback-lines-head: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/a90a9a09-ba41-472e-9b07-c65a8ad483ef/feedback-lines-head --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8450203Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8450299Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8450359Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8450440Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8450490Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8450553Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8451134Z repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/a90a9a09-ba41-472e-9b07-c65a8ad483ef/feedback-lines: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/integration/a90a9a09-ba41-472e-9b07-c65a8ad483ef/feedback-lines --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8451711Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8451809Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8451869Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8451947Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8451994Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8452057Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8452524Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37241196333/codex-formal-ai: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37241196333/codex-formal-ai --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8453140Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8453294Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8453388Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8453515Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8453586Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8453803Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8454277Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37241196333/claude-formal-ai: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37241196333/claude-formal-ai --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8454755Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8454853Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8454912Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8454991Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8455038Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8455100Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8455626Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37241196333/agent-nemotron-3-super-free: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37241196333/agent-nemotron-3-super-free --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8456160Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8456257Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8456318Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8456399Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8456544Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8456608Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8457070Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37241196333/agent-formal-ai: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37241196333/agent-formal-ai --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8457549Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8457647Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8457706Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8457784Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8457832Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8457893Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8458351Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37197770400/codex-formal-ai: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37197770400/codex-formal-ai --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8459611Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8459709Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8459769Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8459850Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8459900Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8459962Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8460431Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37197770400/claude-formal-ai: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37197770400/claude-formal-ai --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8460907Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8461006Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8461066Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8461145Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8461193Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8461255Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8461776Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37197770400/agent-nemotron-3-super-free: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37197770400/agent-nemotron-3-super-free --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8462311Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8462408Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8462468Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8462549Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8462596Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8462659Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8463118Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37197770400/agent-formal-ai: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37197770400/agent-formal-ai --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8463592Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8463691Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8463751Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8463830Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8463878Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8463939Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8464399Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37116506182/codex-formal-ai: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37116506182/codex-formal-ai --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8464978Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8465073Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8465133Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8465214Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8465264Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8465327Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8465790Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37116506182/claude-formal-ai: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37116506182/claude-formal-ai --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8466268Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8466365Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8466422Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8466529Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8466577Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8466638Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8467160Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37116506182/agent-nemotron-3-super-free: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37116506182/agent-nemotron-3-super-free --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8467694Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8467789Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8467849Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8467930Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8468055Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8468119Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8468712Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37116506182/agent-formal-ai: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37116506182/agent-formal-ai --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8469187Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8469285Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8469342Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8469423Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8469470Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8469532Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8469991Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37112600581/codex-formal-ai: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37112600581/codex-formal-ai --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8470472Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8470567Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8470626Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8470707Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8470752Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8470818Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8471283Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37112600581/claude-formal-ai: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37112600581/claude-formal-ai --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8471766Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8471863Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8471920Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8472001Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8472049Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8472109Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8472628Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37112600581/agent-nemotron-3-super-free: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37112600581/agent-nemotron-3-super-free --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8473159Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8473255Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8473315Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8473397Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8473441Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8473540Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8474001Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37112600581/agent-formal-ai: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37112600581/agent-formal-ai --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8474475Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8474572Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8474629Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8474710Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8474757Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8474821Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8475278Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37108218954/codex-formal-ai: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37108218954/codex-formal-ai --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8475883Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8475978Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8476038Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8476120Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8476165Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8476227Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8476693Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37108218954/claude-formal-ai: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37108218954/claude-formal-ai --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8477171Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8477269Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8477327Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8477410Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8477457Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8477516Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8478038Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37108218954/agent-nemotron-3-super-free: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37108218954/agent-nemotron-3-super-free --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8478998Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8479097Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8479158Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8479240Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8479285Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8479347Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8479900Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37108218954/agent-formal-ai: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37108218954/agent-formal-ai --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8480373Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8480472Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8480529Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8480611Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8480658Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8480720Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8481179Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37048638353/codex-formal-ai: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37048638353/codex-formal-ai --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8481657Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8481752Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8481812Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8481893Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8481939Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8482003Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8482470Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37048638353/claude-formal-ai: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37048638353/claude-formal-ai --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8482945Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8483044Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8483101Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8483182Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8483229Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8483288Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8483811Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37048638353/agent-nemotron-3-super-free: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37048638353/agent-nemotron-3-super-free --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8484340Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8484436Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8484495Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8484577Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8484621Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8484683Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8485145Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37048638353/agent-formal-ai: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37048638353/agent-formal-ai --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8485620Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8485719Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8485776Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8485858Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8485905Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8485964Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8486425Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37033623696/codex-formal-ai: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37033623696/codex-formal-ai --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8486991Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8487085Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8487145Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8487226Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8487271Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8487333Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8487801Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37033623696/claude-formal-ai: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37033623696/claude-formal-ai --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8488279Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8488375Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8488689Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8488773Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8488819Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8488879Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8489403Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37033623696/agent-nemotron-3-super-free: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37033623696/agent-nemotron-3-super-free --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8489935Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8490030Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8490089Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8490169Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8490214Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8490276Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8490821Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37033623696/agent-formal-ai: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37033623696/agent-formal-ai --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8491296Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8491394Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8491451Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8491532Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8491579Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8491639Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8492097Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37030226629/codex-formal-ai: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37030226629/codex-formal-ai --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8492573Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8492668Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8492727Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8492808Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8492853Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8492915Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8493385Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37030226629/claude-formal-ai: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37030226629/claude-formal-ai --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8493864Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8493961Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8494017Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8494099Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8494145Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8494204Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8494727Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37030226629/agent-nemotron-3-super-free: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37030226629/agent-nemotron-3-super-free --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8495255Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8495357Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8495417Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8495499Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8495543Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8495605Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8496065Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37030226629/agent-formal-ai: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/37030226629/agent-formal-ai --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8496537Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8496636Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8496693Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8496774Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8496821Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8496881Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8497341Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36723556172/codex-formal-ai: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36723556172/codex-formal-ai --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8497896Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8497993Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8498052Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8498134Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8498179Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8498240Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8499022Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36723556172/claude-formal-ai: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36723556172/claude-formal-ai --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8499516Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8499614Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8499671Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8499753Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8499799Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8499859Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8500383Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36723556172/agent-nemotron-3-super-free: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36723556172/agent-nemotron-3-super-free --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8500912Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8501010Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8501070Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8501150Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8501194Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8501255Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8501803Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36723556172/agent-formal-ai: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36723556172/agent-formal-ai --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8502279Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8502376Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8502432Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8502513Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8502560Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8502620Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8503082Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36717545376/codex-formal-ai: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36717545376/codex-formal-ai --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8503561Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8503658Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8503718Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8503796Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8503843Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8503904Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8504379Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36717545376/claude-formal-ai: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36717545376/claude-formal-ai --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8504861Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8504958Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8505015Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8505095Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8505149Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8505210Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8505734Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36717545376/agent-nemotron-3-super-free: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36717545376/agent-nemotron-3-super-free --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8506266Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8506364Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8506425Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8506503Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8506550Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8506612Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8507080Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36717545376/agent-formal-ai: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36717545376/agent-formal-ai --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8507555Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8507655Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8507711Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8507792Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8507839Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8507899Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8508360Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36713132806/codex-formal-ai: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36713132806/codex-formal-ai --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8509055Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8509152Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8509213Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8509292Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8509340Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8509402Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8509872Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36713132806/claude-formal-ai: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36713132806/claude-formal-ai --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8510351Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8510449Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8510507Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8510628Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8510724Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8510904Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8511483Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36713132806/agent-nemotron-3-super-free: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36713132806/agent-nemotron-3-super-free --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8523158Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8523288Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8523360Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8523464Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8523513Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8523589Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8524186Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36713132806/agent-formal-ai: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36713132806/agent-formal-ai --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8524668Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8524770Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8524830Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8524910Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8524957Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8525019Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8525476Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36710090105/codex-formal-ai: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36710090105/codex-formal-ai --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8525957Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8526053Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8526113Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8526194Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8526237Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8526300Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8526766Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36710090105/claude-formal-ai: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36710090105/claude-formal-ai --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8527243Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8527342Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8527399Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8527480Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8527529Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8527592Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8528113Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36710090105/agent-nemotron-3-super-free: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36710090105/agent-nemotron-3-super-free --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8528726Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8528822Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8528882Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8528963Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8529007Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8529070Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8529535Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36710090105/agent-formal-ai: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36710090105/agent-formal-ai --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8530007Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8530106Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8530163Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8530244Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8530290Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8530352Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8530808Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36707256826/codex-formal-ai: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36707256826/codex-formal-ai --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8531404Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8531499Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8531559Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8531641Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8531686Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8531746Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8532212Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36707256826/claude-formal-ai: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36707256826/claude-formal-ai --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8532688Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8532784Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8532841Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8532923Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8532969Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8533028Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8533547Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36707256826/agent-nemotron-3-super-free: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36707256826/agent-nemotron-3-super-free --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8534078Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8534175Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8534234Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8534314Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8534358Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8534419Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8534956Z repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36707256826/agent-formal-ai: Command failed: gh api repos/link-assistant/hive-mind/git/refs/heads/e2e/hello-world/36707256826/agent-formal-ai --method DELETE
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8535429Z gh: Repository rule violations found
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8535526Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8535583Z Cannot delete this branch
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8535664Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8535710Z  (HTTP 422)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8535769Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8535945Z     at file:///home/runner/work/hive-mind/hive-mind/scripts/cleanup-task-fixtures.mjs:37:26
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8536297Z     at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8536475Z 
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8536533Z Node.js v24.21.0
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8543492Z ##[error]Process completed with exit code 1.
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8645755Z Post job cleanup.
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.8685476Z Post job cleanup.
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.9241318Z [command]/usr/bin/git version
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.9273826Z git version 2.55.0
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.9299833Z Temporarily overriding HOME='/home/runner/work/_temp/3a9e8307-b43b-4f2e-a4b6-07f30e6ea96d' before making global git config changes
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.9300676Z Adding repository directory to the temporary git global config as a safe directory
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.9311595Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/hive-mind/hive-mind
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.9337915Z Removing SSH command configuration
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.9342442Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.9372839Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.9575193Z Removing HTTP extra header
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.9580388Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.9615236Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.9845620Z Removing includeIf entries pointing to credentials config files
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.9850997Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+cleanup	UNKNOWN STEP	2026-10-06T10:51:12.9881706Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+cleanup	UNKNOWN STEP	2026-10-06T10:51:13.0180782Z Cleaning up orphan processes

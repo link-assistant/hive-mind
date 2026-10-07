@@ -51,7 +51,7 @@ This is the part to read before touching a draft.
 3. **A poor draft is closed, and the defect is filed against the meta algorithm.** Not patched on the branch. The question to answer in the new issue is "why did the algorithm produce this", not "how do I make this diff correct". Link the closed draft and its session log from the new issue.
 4. **No human commit ever lands on a draft branch.** A human commit makes the branch unusable as evidence: it can no longer be said what the model produced. If a branch needs a human commit, it needs to be a different branch.
 
-A draft is identifiable by the `formal-ai-draft` label and by its branch name, `issue-<number>-<suffix>`.
+A draft is identifiable by the `formal-ai-draft` label (the workflow creates it the first time it is missing) and by its branch name, `issue-<number>-<suffix>`.
 
 ## Setup
 

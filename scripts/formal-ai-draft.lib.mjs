@@ -271,6 +271,34 @@ export function labelPullRequestArgs({ repository, number, label = FORMAL_AI_DRA
 }
 
 /**
+ * `gh` arguments that create the draft label. No `--force`, so a label a
+ * maintainer has already customised is never overwritten.
+ *
+ * @param {{repository: string, label?: string}} params
+ * @returns {string[]}
+ */
+export function createDraftLabelArgs({ repository, label = FORMAL_AI_DRAFT_LABEL }) {
+  return ['label', 'create', label, '--color', 'C5DEF5', '--description', 'Pull request drafted by the Formal AI draft workflow', '--repo', repository];
+}
+
+/**
+ * Label a draft, creating the label the first time it is missing (#2625:
+ * the repository never had it, so `gh pr edit --add-label` failed with
+ * "'formal-ai-draft' not found" and no draft was ever labelled).
+ *
+ * @param {{gh: (args: string[]) => Promise<string>, repository: string, number: number|string}} params
+ */
+export async function labelDraftPullRequest({ gh, repository, number }) {
+  try {
+    await gh(labelPullRequestArgs({ repository, number }));
+  } catch (error) {
+    if (!/'[^']+' not found/.test(String(error?.message))) throw error;
+    await gh(createDraftLabelArgs({ repository }));
+    await gh(labelPullRequestArgs({ repository, number }));
+  }
+}
+
+/**
  * Render a decision as `key=value` lines for `$GITHUB_OUTPUT`.
  *
  * Newlines are stripped rather than escaped: a reason is one sentence, and a

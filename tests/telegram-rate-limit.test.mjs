@@ -171,7 +171,8 @@ await test('captures Telegram 429 retry_after responses without swallowing error
     },
   };
   const tracker = new TelegramRateLimitTracker({ now: () => now });
-  installTelegramRateLimitTracker(telegram, { tracker });
+  // Retries are covered by the governor tests below; this one checks the error passes through.
+  installTelegramRateLimitTracker(telegram, { tracker, maxRetries: 0 });
 
   await assert.rejects(
     () => telegram.callApi('sendMessage', { chat_id: -42 }),

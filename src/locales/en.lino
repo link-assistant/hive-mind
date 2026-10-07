@@ -658,7 +658,7 @@ en
       label "Reason"
     did
       you
-        mean "💡 Did you mean: `{{suggestion}}`"
+        mean "💡 Did you mean `{{suggestion}}`?"
     missing
       github
         url "Missing GitHub URL. Usage: /{{commandName}} <github-url> [options]"

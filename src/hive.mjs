@@ -178,7 +178,7 @@ if (isRunningDirectly) {
       if (!parsedUrl.valid) {
         console.error('Error: Invalid GitHub URL format');
         if (parsedUrl.error) console.error(`  ${parsedUrl.error}`);
-        if (parsedUrl.inputHint || parsedUrl.suggestion) console.error([parsedUrl.inputHint, parsedUrl.suggestion && `💡 Did you mean: ${parsedUrl.suggestion}`].filter(Boolean).join('\n'));
+        if (parsedUrl.inputHint || parsedUrl.suggestion) console.error([parsedUrl.inputHint, parsedUrl.suggestion && `💡 Did you mean ${parsedUrl.suggestion}?`].filter(Boolean).join('\n'));
         console.error('\nExpected: https://github.com/owner or https://github.com/owner/repo');
         console.error('You can use any of these formats:');
         console.error('  - https://github.com/owner');
@@ -201,7 +201,7 @@ if (isRunningDirectly) {
       if (parsedUrl.type !== 'user' && parsedUrl.type !== 'repo') {
         console.error('Error: Invalid GitHub URL for monitoring');
         console.error(`  URL type '${parsedUrl.type}' is not supported`);
-        if (parsedUrl.inputHint || parsedUrl.suggestion) console.error([parsedUrl.inputHint, parsedUrl.suggestion && `💡 Did you mean: ${parsedUrl.suggestion}`].filter(Boolean).join('\n'));
+        if (parsedUrl.inputHint || parsedUrl.suggestion) console.error([parsedUrl.inputHint, parsedUrl.suggestion && `💡 Did you mean ${parsedUrl.suggestion}?`].filter(Boolean).join('\n'));
         console.error('Expected: https://github.com/owner or https://github.com/owner/repo');
         await safeExit(1, 'Error occurred');
       }

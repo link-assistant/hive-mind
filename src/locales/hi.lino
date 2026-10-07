@@ -658,7 +658,7 @@ hi
       label "कारण"
     did
       you
-        mean "💡 क्या आपका मतलब था: `{{suggestion}}`"
+        mean "💡 क्या आपका मतलब `{{suggestion}}` था?"
     missing
       github
         url "GitHub URL नहीं मिला। उपयोग: /{{commandName}} <github-url> [options]"

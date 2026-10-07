@@ -85,7 +85,7 @@ test('Telegram /task replies use the same caret block', () => {
   const input = 'https://github.com/o/r/issuese/1';
   const reply = formatTaskUrlError(parseTaskIssueUrl(input), input);
   assert.match(reply, /\*issuese\* \(column 24\):\n```\nhttps:\/\/github\.com\/o\/r\/issuese\/1\n {23}\^{7}\n```/);
-  assert.match(reply, /Did you mean: `https:\/\/github\.com\/o\/r\/issues\/1`/);
+  assert.equal(reply.split('\n').at(-1), '💡 Did you mean `https://github.com/o/r/issues/1`?');
 });
 
 for (const [input, part, suggestion] of [

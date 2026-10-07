@@ -48,6 +48,13 @@ narrow phone screen (wrapping was not verified on a device). Missing issue or
 pull request numbers put the caret after the end of the URL. The `/task` reply
 uses the same block.
 
+Further [review feedback](https://github.com/link-assistant/hive-mind/pull/2562#issuecomment-6035517822)
+asked for natural questions: `Did you mean …?`, without a colon after “mean”.
+URL suggestions in `solve`, `hive`, `task`, and Telegram, issue/PR corrections,
+and model suggestions use this punctuation. Telegram's English, Russian,
+Chinese, and Hindi translations also ask a complete question. Existing option
+and branch suggestions already ended with question marks.
+
 Preview the Telegram replies without contacting Telegram:
 
 ```sh
@@ -59,15 +66,22 @@ node experiments/issue-2326/preview-task.mjs
 
 ```sh
 node tests/issue-2326-input-diagnostics.test.mjs
+node tests/issue-2326-suggestion-questions.test.mjs
 node experiments/issue-2326/reproduce.mjs
 npm test
 ```
 
 The regression file reproduced the missing URL correction/location, missing
 option positions, and swallowed validation error before the implementation.
-It covers 24 cases, including caret alignment, trimming and Markdown fallbacks, the production Telegram validator and `/task` reply, CLI and
+It covers 25 cases, including caret alignment, trimming and Markdown fallbacks, the production Telegram validator and `/task` reply, CLI and
 Telegram parsers, malformed flags, invalid values, multiple errors, duplicate
 path words, unsafe guesses, preserved recovery, and error metadata/idempotence.
+
+The suggestion-question regression file adds ten cases. All ten failed before
+the punctuation fix and pass afterward. They exercise the production locale
+translations, CLI and Telegram task replies, both rejection paths of solve's
+URL validator, both rejection paths of the `hive` CLI, and runtime model typo
+suggestions. CLI subprocess tests have finite timeouts.
 
 Logs are saved locally in `experiments/issue-2326/*.log`; GitHub workflow logs
 are saved in `ci-logs/`. The initial workflow
@@ -109,3 +123,7 @@ validator's reply. This is a reply preview, not a live Telegram conversation.
 Recreate its HTML with the experiment script above.
 
 ![Before and after validation replies](comparison.png)
+
+The preceding reply preview, before the question-punctuation correction:
+
+![Reply preview before question punctuation](comparison-before-question.png)

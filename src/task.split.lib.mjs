@@ -13,7 +13,7 @@ export function parseTaskIssueUrl(url) {
     const reason = parsed.type === 'pull' ? 'The task command accepts GitHub issues, not pull requests' : 'The task command requires a specific GitHub issue URL';
     return {
       valid: false,
-      error: reason + (parsed.inputHint ? `\n\n${parsed.inputHint}` : '') + (parsed.suggestion ? `\n\nDid you mean: ${parsed.suggestion}` : ''),
+      error: reason + (parsed.inputHint ? `\n\n${parsed.inputHint}` : '') + (parsed.suggestion ? `\n\nDid you mean ${parsed.suggestion}?` : ''),
       reason,
       parsed,
     };

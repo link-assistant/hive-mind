@@ -19,7 +19,7 @@ import { formatStartingWorkSessionMessage } from './work-session-formatting.lib.
 export function formatTaskUrlError(parsedIssue, url) {
   const { reason, parsed } = parsedIssue;
   if (!reason || !parsed?.inputLocation) return `❌ ${escapeMarkdown(parsedIssue.error || 'Invalid GitHub issue URL')}`;
-  return `❌ ${escapeMarkdown(reason)}\n\n${formatInputLocationMarkdown(url, parsed.inputLocation)}${parsed.suggestion ? `\n\n💡 Did you mean: \`${parsed.suggestion}\`` : ''}`;
+  return `❌ ${escapeMarkdown(reason)}\n\n${formatInputLocationMarkdown(url, parsed.inputLocation)}${parsed.suggestion ? `\n\n💡 Did you mean \`${parsed.suggestion}\`?` : ''}`;
 }
 
 export const TASK_COMMAND_NAMES = Object.freeze(['task', 'split']);

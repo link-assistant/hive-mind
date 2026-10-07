@@ -76,6 +76,21 @@ test('a timed-out version probe kills its shell descendants', { timeout: 10_000,
   });
 });
 
+test('diagnostic sink errors do not interrupt version probe cleanup', { timeout: 5000 }, async () => {
+  const sinks = [
+    () => {
+      throw new Error('diagnostic sink failed');
+    },
+    async () => {
+      throw new Error('async diagnostic sink failed');
+    },
+  ];
+  for (const onDiagnostic of sinks) {
+    const result = await execVersionCommand(`${JSON.stringify(process.execPath)} --max-old-space-size=32 -e 'setTimeout(() => console.log("1.0.0"), 50)'`, 2000, { onDiagnostic });
+    assert.equal(result, '1.0.0');
+  }
+});
+
 test('startup log directory supports aliases, equals syntax and the argument separator', () => {
   assert.equal(resolveStartupLogDirectory(['--log-dir', '/first', '-l=/last']), '/last');
   assert.equal(resolveStartupLogDirectory(['--log-dir=/logs']), '/logs');
@@ -98,6 +113,17 @@ test('formal drafts preserve development logs and create missing labels', async 
   assert.equal(calls.length, 3);
   assert.equal(calls[1][0], 'label');
   assert.deepEqual(calls[0], calls[2]);
+  let racedCalls = 0;
+  await labelDraftPullRequest({
+    repository: 'o/r',
+    number: 2,
+    gh: async () => {
+      racedCalls++;
+      if (racedCalls === 1) throw new Error("'formal-ai-draft' not found");
+      if (racedCalls === 2) throw new Error('label already exists');
+    },
+  });
+  assert.equal(racedCalls, 3, 'simultaneous label creation must still apply the label');
   await assert.rejects(
     labelDraftPullRequest({
       repository: 'o/r',
@@ -113,7 +139,7 @@ test('formal drafts preserve development logs and create missing labels', async 
 test('checks-only workflow dispatch has defaults for all required inputs', async () => {
   const workflow = await fs.readFile(path.join(root, '.github/workflows/release.yml'), 'utf8');
   const dispatch = workflow.slice(workflow.indexOf('  workflow_dispatch:'), workflow.indexOf('\npermissions:'));
-  assert.match(dispatch, /bump_type:[\s\S]*?default: 'patch'/);
+  assert.match(dispatch, /bump_type:[\s\S]*?default: (?:'patch'|"patch"|patch)\s*\n/);
 });
 
 test('branch fallback commits only its sanitized log and refuses other checkouts', { timeout: 20_000 }, async () => {
@@ -232,5 +258,15 @@ test('solve --log-dir writes startup and parsing diagnostics in the requested di
     assert.match(content, /Solve\.mjs Log/);
     assert.match(content, /Raw command executed/);
     assert.match(content, /Unknown argument/);
+
+    const blockedDirectory = path.join(directory, 'not-a-directory');
+    await fs.writeFile(blockedDirectory, 'ordinary file');
+    await assert.rejects(execFileAsync(process.execPath, [path.join(root, 'src/solve.mjs'), 'https://github.com/o/r/issues/1', '--log-dir', blockedDirectory, '--definitely-invalid-option'], { cwd: directory, env: { ...process.env, PATH: emptyPath }, maxBuffer: 1024 * 1024 }), { code: 1 });
+    const fallbackLog = (await fs.readdir(directory)).find(name => /^solve-.*\.log$/.test(name));
+    assert.ok(fallbackLog, 'an unusable log directory must retain startup diagnostics in the working directory');
+    const fallbackContent = await fs.readFile(path.join(directory, fallbackLog), 'utf8');
+    assert.match(fallbackContent, /Could not move the session log/);
+    assert.match(fallbackContent, /Raw command executed/);
+    assert.match(fallbackContent, /Unknown argument/);
   });
 });

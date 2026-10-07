@@ -71,7 +71,8 @@ const { autoAcceptInviteForRepo } = await import('./solve.accept-invite.lib.mjs'
 const { handleAutoForkOption, handleMaintainerForkAccess } = await import('./solve.fork-detection.lib.mjs');
 const { resolveUncommittedChangesTool } = await import('./solve.tool-uncommitted.lib.mjs');
 const { classifySessionResult } = await import('./session-result.lib.mjs'); // Issue #2316
-const logFile = await initializeLogFile(resolveStartupLogDirectory(earlyArgs));
+await initializeLogFile(null);
+await (await import('./solve.log-dir.lib.mjs')).moveLogFileToLogDir(resolveStartupLogDirectory(earlyArgs), { getLogFile, setLogFile, log });
 const versionInfo = await getVersionInfo();
 const rawCommand = await logSolveStartup(versionInfo);
 let finalResourceSnapshotRecorded = false;
@@ -93,6 +94,7 @@ try {
   await safeExit(1, 'Invalid command-line arguments');
 }
 global.verboseMode = argv.verbose;
+await (await import('./solve.log-dir.lib.mjs')).moveLogFileToLogDir(argv.logDir, { getLogFile, setLogFile, log }); // Issue #2625: --log-dir was parsed but never applied
 setupVerboseLogInterceptor(); // Issue #1466: capture [VERBOSE] output in log files
 setupStdioLogInterceptor(); // Issue #1549: capture ALL terminal output in log file
 configureGitHubRateLimitLogging({
@@ -103,7 +105,7 @@ await recordResourceSnapshot({ phase: RESOURCE_PHASE_SOLVE_START, log, diskPath:
 let { checkForUncommittedChanges, agentCommanderLib } = await resolveUncommittedChangesTool({ argv, claudeLib });
 const shouldAttachLogs = argv.attachLogs || argv['attach-logs'];
 await showAttachLogsWarning(shouldAttachLogs);
-const absoluteLogPath = path.resolve(logFile);
+const absoluteLogPath = path.resolve(getLogFile());
 // Initialize Sentry integration (unless disabled)
 if (argv.sentry) {
   await initializeSentry({

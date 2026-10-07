@@ -10,7 +10,10 @@ await fs.mkdir(destination, { recursive: true });
 const manifest = [];
 for (const name of (await fs.readdir(source)).filter(name => name.endsWith('.log')).sort()) {
   const target = path.join(destination, name);
-  const stats = await sanitizeLogFileToFileBounded({ sourcePath: path.join(source, name), destPath: target });
+  const temporary = `${target}.sanitized`;
+  await fs.rm(temporary, { force: true });
+  const stats = await sanitizeLogFileToFileBounded({ sourcePath: path.join(source, name), destPath: temporary });
+  await fs.rename(temporary, target);
   const published = await fs.readFile(target);
   manifest.push({ file: name, bytes: published.length, sha256: createHash('sha256').update(published).digest('hex'), stats });
 }

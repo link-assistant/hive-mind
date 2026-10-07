@@ -270,7 +270,24 @@ export function labelPullRequestArgs({ repository, number, label = FORMAL_AI_DRA
   return ['pr', 'edit', String(number), '--add-label', label, '--repo', repository];
 }
 
-/** A fresh repository may not have the workflow's label yet. */
+/**
+ * `gh` arguments that create the draft label. No `--force`, so a label a
+ * maintainer has already customised is never overwritten.
+ *
+ * @param {{repository: string, label?: string}} params
+ * @returns {string[]}
+ */
+export function createDraftLabelArgs({ repository, label = FORMAL_AI_DRAFT_LABEL }) {
+  return ['label', 'create', label, '--color', 'C5DEF5', '--description', 'Pull request drafted by the Formal AI draft workflow', '--repo', repository];
+}
+
+/**
+ * Label a draft, creating the label the first time it is missing (#2625:
+ * the repository never had it, so `gh pr edit --add-label` failed with
+ * "'formal-ai-draft' not found" and no draft was ever labelled).
+ *
+ * @param {{gh: (args: string[]) => Promise<string>, repository: string, number: number|string}} params
+ */
 export async function labelDraftPullRequest({ gh, repository, number }) {
   const args = labelPullRequestArgs({ repository, number });
   try {
@@ -278,7 +295,7 @@ export async function labelDraftPullRequest({ gh, repository, number }) {
   } catch (error) {
     if (!/label.*not found|not found.*label|formal-ai-draft.*not found/i.test(`${error.message}\n${error.stderr || ''}`)) throw error;
     try {
-      await gh(['label', 'create', FORMAL_AI_DRAFT_LABEL, '--repo', repository, '--description', 'Automated Formal AI draft attempt', '--color', '5319e7']);
+      await gh(createDraftLabelArgs({ repository }));
     } catch (creationError) {
       // Another issue's simultaneous run may have created it first.
       if (!/already exists/i.test(`${creationError.message}\n${creationError.stderr || ''}`)) throw creationError;

@@ -1,0 +1,12 @@
+✔ the session log moves into --log-dir with everything written so far (31.069365ms)
+✔ without --log-dir, or when it is already the log directory, nothing moves (1.965296ms)
+✔ a --log-dir that cannot be used keeps the original log and says why (1.531918ms)
+✔ solve applies --log-dir right after parsing its arguments, before the path is reported (1.46398ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 45.597933

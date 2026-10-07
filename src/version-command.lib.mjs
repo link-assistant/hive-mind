@@ -20,12 +20,21 @@ function release() {
 /** Run a bounded probe, cleaning up its shell and descendants before returning. */
 export async function execVersionCommand(command, timeout = 5000, { onDiagnostic = null } = {}) {
   await acquire();
+  const diagnostic = onDiagnostic
+    ? message => {
+        try {
+          onDiagnostic(message)?.catch?.(() => {});
+        } catch {
+          // A diagnostic sink must never interrupt the probe's cleanup.
+        }
+      }
+    : null;
   try {
     return await new Promise(resolve => {
       const grouped = process.platform !== 'win32';
       const child = spawn(command, { shell: true, detached: grouped, stdio: ['ignore', 'pipe', 'pipe'] });
       const started = Date.now();
-      onDiagnostic?.(`version probe started: pid=${child.pid ?? 'unavailable'}, timeout=${timeout}ms, command=${command}`);
+      diagnostic?.(`version probe started: pid=${child.pid ?? 'unavailable'}, timeout=${timeout}ms, command=${command}`);
       let output = '';
       let bytes = 0;
       let failed = false;
@@ -51,7 +60,7 @@ export async function execVersionCommand(command, timeout = 5000, { onDiagnostic
       };
       const timer = setTimeout(() => {
         failed = true;
-        onDiagnostic?.(`version probe timed out: pid=${child.pid}, elapsed=${Date.now() - started}ms`);
+        diagnostic?.(`version probe timed out: pid=${child.pid}, elapsed=${Date.now() - started}ms`);
         stop();
       }, timeout);
       const consume = (chunk, stdout) => {
@@ -72,7 +81,7 @@ export async function execVersionCommand(command, timeout = 5000, { onDiagnostic
       child.on('close', code => {
         clearTimeout(timer);
         clearTimeout(drainTimer);
-        onDiagnostic?.(`version probe finished: pid=${child.pid ?? 'unavailable'}, code=${code}, elapsed=${Date.now() - started}ms, bytes=${bytes}, failed=${failed}`);
+        diagnostic?.(`version probe finished: pid=${child.pid ?? 'unavailable'}, code=${code}, elapsed=${Date.now() - started}ms, bytes=${bytes}, failed=${failed}`);
         const trimmed = output.trim();
         resolve(failed || code !== 0 || !trimmed || trimmed.includes('not found') ? null : trimmed);
       });

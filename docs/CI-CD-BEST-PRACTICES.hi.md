@@ -457,6 +457,25 @@ release:
 - **प्रकाशित परिणाम को अनाम रूप से, और अलग से सत्यापित करें।** Release को कभी push पर मत टिकाइए (एक विफल mirror एक अच्छे release को मिटाए नहीं), लेकिन बाद में बिना किसी credential के अवश्य जाँचिए कि जो आपने प्रकाशित किया वह pull हो सकता है या नहीं। Authenticate करने वाली जाँच publisher का दृष्टिकोण मापती है; पाठक को न वह login मिलता है और न ही संदेह का लाभ।
 - **अनुमान नहीं, `unknown` रिपोर्ट करें।** Timeout देने वाली या HTTP 429 लौटाने वाली registry ने यह नहीं कहा कि credential टूटा हुआ है, और जिस run में कुछ भी सत्यापित न हो सका वह pass नहीं है। बताइए कि इनमें से क्या हुआ: "0 सत्यापित, 3 unknown" पर कार्रवाई हो सकती है, "कोई विफलता नहीं" पर नहीं।
 
+### 17. टूटे हुए Pipeline और बदली हुई दुनिया में फ़र्क करें
+
+**जो job ऐसे कारण से fail होता है जिसे कोई commit ठीक नहीं कर सकता, वह false negative है, और वह सभी को लाल रंग को अनदेखा करना सिखा देता है।** Issue #2625 में `main` पर एक साथ चार ऐसे job मिले: एक dependency gate जो हर push पर fail होता था क्योंकि upstream का नया major version आ गया था; एक cleanup जो हर दिन fail होता था क्योंकि ruleset branches को delete करने से रोकता है; एक dispatch जिसे GitHub ने शुरू होने से पहले ही अस्वीकार कर दिया; और एक log upload जिसने एक इनकार को तीन बार retry किया। हर एक ने अपने पास की असली failures को छिपा दिया।
+
+```yaml
+on:
+  workflow_dispatch:
+    inputs:
+      bump_type:
+        required: true
+        default: patch # इसके बिना dispatch API HTTP 422 लौटाता है
+```
+
+- **बाहरी state पर pull request में रोकें; push पर केवल warning दें।** "एक नया version publish हुआ है" दुनिया के बारे में तथ्य है, commit के बारे में नहीं। Push को fail करना ऐसे बदलाव के लिए lint, tests और release को छोड़ देता है जिसने कुछ नहीं तोड़ा; इस पर कार्रवाई pull request में की जा सकती है।
+- **Policy का इनकार एक निर्णय है, अस्थायी error नहीं।** `Resource not accessible by integration` (workflow का `GITHUB_TOKEN` gists नहीं बना सकता) और ruleset का `Repository rule violations found` हर प्रयास पर एक जैसा जवाब देते हैं। `HTTP 429` और `5xx` को retry करें; इनकार को एक बार report करें, बताएं कि क्या उसे अनुमति देगा, और आगे बढ़ें।
+- **API से dispatch होने वाले workflow के हर input को default चाहिए।** `gh workflow run` form नहीं भर सकता: `default:` के बिना `required: true` input पर GitHub `HTTP 422: Required input '<name>' not provided` लौटाता है, और run बनता ही नहीं। Test से पुष्टि करें कि हर dispatch होने वाला workflow ठीक वही inputs स्वीकार करता है जो caller भेजता है।
+- **जिस पर आप निर्भर हैं उसे बनाएं, या उसकी अनुपस्थिति सहें।** जिस repository में label कभी था ही नहीं, वहां `gh pr edit --add-label` `'<label>' not found` के साथ fail होता है। पहली बार उपयोग पर उसे बनाएं (`gh label create`), बजाय उस run को fail करने के जो अपना काम कर चुका है।
+- **Logs वहां लिखें जहां upload step उन्हें खोजता है।** जो artifact step कुछ नहीं पाता वह `No files were found with the provided path` की warning देकर pass हो जाता है; जल्दी fail हुआ run — ठीक वही जिसके लिए artifact है — कोई सबूत नहीं छोड़ता। गायब log को tests में ज़ोर से fail होने दें, production में चुपचाप नहीं।
+
 ## Quality Enforcement रणनीति
 
 Templates एक defense-in-depth दृष्टिकोण implement करते हैं:

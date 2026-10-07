@@ -1,5 +1,31 @@
 [
   {
+    "file": "agent-commander-updated-dependencies.log",
+    "bytes": 36,
+    "sha256": "804b89793503e5230fb5d8fb16d322f784788e42a24ff1868e22def252c301d1",
+    "stats": {
+      "sourceSize": 36,
+      "bytesRead": 36,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 36,
+      "worker": false
+    }
+  },
+  {
+    "file": "case-study-final-format.log",
+    "bytes": 57,
+    "sha256": "217024e880b9114aaa4530ee050e3e87b6761b43ea3ce1ea6d0101a1ed4d4391",
+    "stats": {
+      "sourceSize": 57,
+      "bytesRead": 57,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 57,
+      "worker": false
+    }
+  },
+  {
     "file": "changed-format-check.log",
     "bytes": 66,
     "sha256": "17aa973d3f004560237d9a95171210b0671deff23d61628eecf7322ff5938f20",
@@ -26,6 +52,32 @@
     }
   },
   {
+    "file": "changeset-merged-main.log",
+    "bytes": 809,
+    "sha256": "ba2d20b7cf759f3091a8e5f2fa29f4a15de190cc6c76946e77bcc9993fa3988f",
+    "stats": {
+      "sourceSize": 809,
+      "bytesRead": 809,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 809,
+      "worker": false
+    }
+  },
+  {
+    "file": "changeset-updated-dependencies.log",
+    "bytes": 809,
+    "sha256": "ba2d20b7cf759f3091a8e5f2fa29f4a15de190cc6c76946e77bcc9993fa3988f",
+    "stats": {
+      "sourceSize": 809,
+      "bytesRead": 809,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 809,
+      "worker": false
+    }
+  },
+  {
     "file": "changeset-validation.log",
     "bytes": 632,
     "sha256": "340a7a51c5cc7d42f8295cb0b6e01d3accd20abbd71d04e8b2cd82fec409f546",
@@ -35,6 +87,45 @@
       "blocks": 1,
       "forcedReleases": 0,
       "charsWritten": 632,
+      "worker": false
+    }
+  },
+  {
+    "file": "command-stream-updated-dependencies.log",
+    "bytes": 476,
+    "sha256": "d7ba4ab5fe5a2ff710b40f7c1f6f81421609b3d9d91357840166e0f2a1aa0b7a",
+    "stats": {
+      "sourceSize": 476,
+      "bytesRead": 476,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 458,
+      "worker": false
+    }
+  },
+  {
+    "file": "commit-evidence.log",
+    "bytes": 7835,
+    "sha256": "d0dbc6b08d4d8e5e2018968960a1a6444f5dccf642da45446f008eaee863c6ff",
+    "stats": {
+      "sourceSize": 7835,
+      "bytesRead": 7835,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 7805,
+      "worker": false
+    }
+  },
+  {
+    "file": "commit-reports.log",
+    "bytes": 1008,
+    "sha256": "a156f2e236c1dda992a05cbe76e52376549c0eade4f7803f8cf7182151a8597a",
+    "stats": {
+      "sourceSize": 1008,
+      "bytesRead": 1008,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 978,
       "worker": false
     }
   },
@@ -65,6 +156,32 @@
     }
   },
   {
+    "file": "default-tests-merged-main.log",
+    "bytes": 994135,
+    "sha256": "799994eea344dfc8e7d3129cb6160150488ddd509569c4c4546fbcdbdf098011",
+    "stats": {
+      "sourceSize": 994375,
+      "bytesRead": 994375,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 965382,
+      "worker": false
+    }
+  },
+  {
+    "file": "default-tests-updated-dependencies.log",
+    "bytes": 989167,
+    "sha256": "b5a84494a0cea8e9c920ac6bc0d950337d41284fb4760debacfaac0415cea740",
+    "stats": {
+      "sourceSize": 989407,
+      "bytesRead": 989407,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 960600,
+      "worker": false
+    }
+  },
+  {
     "file": "default-tests.log",
     "bytes": 989143,
     "sha256": "612675ebc7b1be9491a78074d6a8a6b0ac4ae23d7264133e3f790ba412c97c81",
@@ -74,6 +191,136 @@
       "blocks": 1,
       "forcedReleases": 0,
       "charsWritten": 960576,
+      "worker": false
+    }
+  },
+  {
+    "file": "dependency-commit.log",
+    "bytes": 1994,
+    "sha256": "50f2974ac7d612039c16eab9374ac9416eba2090238843e490092e2adc2ea128",
+    "stats": {
+      "sourceSize": 1994,
+      "bytesRead": 1994,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 1964,
+      "worker": false
+    }
+  },
+  {
+    "file": "dependency-format-write.log",
+    "bytes": 540,
+    "sha256": "c3515bf03a9971f73c2c59a14de78a544a740f6bedf4f286a42fe1d41f088cfb",
+    "stats": {
+      "sourceSize": 540,
+      "bytesRead": 540,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 540,
+      "worker": false
+    }
+  },
+  {
+    "file": "dependency-freshness-after.log",
+    "bytes": 1651,
+    "sha256": "75f6f68ade9f703563f329372a8c9320d4e4ffa5b89952b2726edf2c89938bdf",
+    "stats": {
+      "sourceSize": 1651,
+      "bytesRead": 1651,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 1651,
+      "worker": false
+    }
+  },
+  {
+    "file": "dependency-freshness-authenticated.log",
+    "bytes": 100,
+    "sha256": "ce359bd1572fbc139cac45f086270abb3db2bf85fc842447493800b4ff2e78b5",
+    "stats": {
+      "sourceSize": 100,
+      "bytesRead": 100,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 100,
+      "worker": false
+    }
+  },
+  {
+    "file": "dependency-install.log",
+    "bytes": 145,
+    "sha256": "ac0662db6103c1578355ea0421d5cc0dfa1c3e7c669a8fe7d9598ea9591bd54e",
+    "stats": {
+      "sourceSize": 145,
+      "bytesRead": 145,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 145,
+      "worker": false
+    }
+  },
+  {
+    "file": "dependency-preinstall.log",
+    "bytes": 2415,
+    "sha256": "57468bc53d58079beeaa7cb849375ca558d7963ecedcefe3135fa952341813ec",
+    "stats": {
+      "sourceSize": 2415,
+      "bytesRead": 2415,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 2393,
+      "worker": false
+    }
+  },
+  {
+    "file": "diagnostic-sink-after.log",
+    "bytes": 1532,
+    "sha256": "d28b0208a3c846e39a4cef51fa30889103fefaa9a84b1ccbe6f6150db430cf6b",
+    "stats": {
+      "sourceSize": 1532,
+      "bytesRead": 1532,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 1484,
+      "worker": false
+    }
+  },
+  {
+    "file": "diagnostic-sink-before.log",
+    "bytes": 989,
+    "sha256": "6452af97809324e7a39c49db81cfa866718836abcef8d4af74ed9b9a48cc7521",
+    "stats": {
+      "sourceSize": 989,
+      "bytesRead": 989,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 967,
+      "worker": false
+    }
+  },
+  {
+    "file": "duplication-merged-main.log",
+    "bytes": 525413,
+    "sha256": "322eb1bd3d6806cf424c6df6df567b8421886e56f9df415831ea2643070270b8",
+    "stats": {
+      "sourceSize": 525413,
+      "bytesRead": 525413,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 524453,
+      "worker": false
+    }
+  },
+  {
+    "file": "duplication-updated-dependencies.log",
+    "bytes": 524988,
+    "sha256": "4f2e9cd3f3a4eafe543caa1b85df3c1cd922a35f612e16cb7735f2993b792cff",
+    "stats": {
+      "sourceSize": 524988,
+      "bytesRead": 524988,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 524028,
       "worker": false
     }
   },
@@ -91,6 +338,19 @@
     }
   },
   {
+    "file": "fetch-main-latest.log",
+    "bytes": 97,
+    "sha256": "d0eaafea3ff2a60edc293d57bd58ce769aa90fa781623cbfb11e7d11be41bee1",
+    "stats": {
+      "sourceSize": 97,
+      "bytesRead": 97,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 97,
+      "worker": false
+    }
+  },
+  {
     "file": "fetch-main.log",
     "bytes": 97,
     "sha256": "d0eaafea3ff2a60edc293d57bd58ce769aa90fa781623cbfb11e7d11be41bee1",
@@ -100,6 +360,149 @@
       "blocks": 1,
       "forcedReleases": 0,
       "charsWritten": 97,
+      "worker": false
+    }
+  },
+  {
+    "file": "final-docs-format.log",
+    "bytes": 169,
+    "sha256": "24eb734e198ffee99e71cdd675dead1ddba9f66f754b173044fbb0276dd1db43",
+    "stats": {
+      "sourceSize": 169,
+      "bytesRead": 169,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 169,
+      "worker": false
+    }
+  },
+  {
+    "file": "final-duplication.log",
+    "bytes": 525414,
+    "sha256": "aca63bf98203dcecdc1012e612eefa57972b05d7c11a40c2c88b192d64a4c9fa",
+    "stats": {
+      "sourceSize": 525414,
+      "bytesRead": 525414,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 524454,
+      "worker": false
+    }
+  },
+  {
+    "file": "final-format-check.log",
+    "bytes": 190,
+    "sha256": "1505896a7269ffccba901d75faed6a5f7d6ec8d9ccdbecb1f017592519aa21d7",
+    "stats": {
+      "sourceSize": 190,
+      "bytesRead": 190,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 190,
+      "worker": false
+    }
+  },
+  {
+    "file": "final-format.log",
+    "bytes": 523,
+    "sha256": "8b1fefbf4ade137621fbbe2723e0e45f5964712380bb925c3488e2d8bba3bcf4",
+    "stats": {
+      "sourceSize": 523,
+      "bytesRead": 523,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 523,
+      "worker": false
+    }
+  },
+  {
+    "file": "final-line-limits.log",
+    "bytes": 102337,
+    "sha256": "bb220acb65f7bb378273be419a5074a29c7a814bb91598f4b92c36d0cce71b52",
+    "stats": {
+      "sourceSize": 102090,
+      "bytesRead": 102090,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 102337,
+      "worker": false
+    }
+  },
+  {
+    "file": "final-lint.log",
+    "bytes": 163,
+    "sha256": "d89053bb5e35ac8ad3b6d1c58df76cdf4c5bf4887138339ee19ff43570f79666",
+    "stats": {
+      "sourceSize": 163,
+      "bytesRead": 163,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 163,
+      "worker": false
+    }
+  },
+  {
+    "file": "final-main-fetch.log",
+    "bytes": 146,
+    "sha256": "afe3810d221a40d465ee817397e2caba0b5b5018a16467f5bd5ae3d24e8e1f57",
+    "stats": {
+      "sourceSize": 146,
+      "bytesRead": 146,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 146,
+      "worker": false
+    }
+  },
+  {
+    "file": "final-package-manager.log",
+    "bytes": 150,
+    "sha256": "615e468df09b771bf9dda07d759fe14c41a676a18bd8e9ffba165944da7f7e4b",
+    "stats": {
+      "sourceSize": 150,
+      "bytesRead": 150,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 150,
+      "worker": false
+    }
+  },
+  {
+    "file": "final-regressions.log",
+    "bytes": 1535,
+    "sha256": "28284ec5e3e6719845accc2c7bb848d2f97a2220c6cc10e01663328d5c5bb06c",
+    "stats": {
+      "sourceSize": 1535,
+      "bytesRead": 1535,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 1487,
+      "worker": false
+    }
+  },
+  {
+    "file": "final-secrets.log",
+    "bytes": 101,
+    "sha256": "c042c4ba8b1b6eaf11ffca5355796e1eafc8f391306852cd57e1d2e29318c121",
+    "stats": {
+      "sourceSize": 109,
+      "bytesRead": 109,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 99,
+      "worker": false
+    }
+  },
+  {
+    "file": "final-syntax.log",
+    "bytes": 50746,
+    "sha256": "4681829627e2b49d6e6c016957d20a5c00684196fe29a8bf65f7271b39bc292d",
+    "stats": {
+      "sourceSize": 50746,
+      "bytesRead": 50746,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 50746,
       "worker": false
     }
   },
@@ -156,6 +559,19 @@
     }
   },
   {
+    "file": "format-merged-main.log",
+    "bytes": 190,
+    "sha256": "1505896a7269ffccba901d75faed6a5f7d6ec8d9ccdbecb1f017592519aa21d7",
+    "stats": {
+      "sourceSize": 190,
+      "bytesRead": 190,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 190,
+      "worker": false
+    }
+  },
+  {
     "file": "format-parsers.log",
     "bytes": 127,
     "sha256": "4d5efd5ae3f0437ecfc2f676a704fa4f42a1d1bdcaa2176bf7a542817321ff37",
@@ -182,6 +598,19 @@
     }
   },
   {
+    "file": "format-updated-dependencies.log",
+    "bytes": 190,
+    "sha256": "1505896a7269ffccba901d75faed6a5f7d6ec8d9ccdbecb1f017592519aa21d7",
+    "stats": {
+      "sourceSize": 190,
+      "bytesRead": 190,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 190,
+      "worker": false
+    }
+  },
+  {
     "file": "format-write.log",
     "bytes": 205,
     "sha256": "b2820bc4c4c289752348a810026671543283ccce59f0e9d3ecf48dad691c2fde",
@@ -195,6 +624,19 @@
     }
   },
   {
+    "file": "freshness-merged-main.log",
+    "bytes": 100,
+    "sha256": "ce359bd1572fbc139cac45f086270abb3db2bf85fc842447493800b4ff2e78b5",
+    "stats": {
+      "sourceSize": 100,
+      "bytesRead": 100,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 100,
+      "worker": false
+    }
+  },
+  {
     "file": "github-inventory.log",
     "bytes": 501,
     "sha256": "b6edda59c5cc4bd1de4dd9e23cad51324d245d0c417c1532ba5eeae6da5ea2f6",
@@ -204,6 +646,32 @@
       "blocks": 1,
       "forcedReleases": 0,
       "charsWritten": 501,
+      "worker": false
+    }
+  },
+  {
+    "file": "line-limits-merged-main.log",
+    "bytes": 102337,
+    "sha256": "99cc14225999c6f95e99116d1559d30780bbb5de20d5c2c837fab4e7ea96743a",
+    "stats": {
+      "sourceSize": 102090,
+      "bytesRead": 102090,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 102337,
+      "worker": false
+    }
+  },
+  {
+    "file": "line-limits-updated-dependencies.log",
+    "bytes": 101375,
+    "sha256": "4927282f9607c4731d59197300e6145a172742f2c26dfdbe65487303c1b3f032",
+    "stats": {
+      "sourceSize": 101144,
+      "bytesRead": 101144,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 101375,
       "worker": false
     }
   },
@@ -222,6 +690,32 @@
   },
   {
     "file": "lint-final.log",
+    "bytes": 163,
+    "sha256": "d89053bb5e35ac8ad3b6d1c58df76cdf4c5bf4887138339ee19ff43570f79666",
+    "stats": {
+      "sourceSize": 163,
+      "bytesRead": 163,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 163,
+      "worker": false
+    }
+  },
+  {
+    "file": "lint-merged-main.log",
+    "bytes": 163,
+    "sha256": "d89053bb5e35ac8ad3b6d1c58df76cdf4c5bf4887138339ee19ff43570f79666",
+    "stats": {
+      "sourceSize": 163,
+      "bytesRead": 163,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 163,
+      "worker": false
+    }
+  },
+  {
+    "file": "lint-updated-dependencies.log",
     "bytes": 163,
     "sha256": "d89053bb5e35ac8ad3b6d1c58df76cdf4c5bf4887138339ee19ff43570f79666",
     "stats": {
@@ -260,6 +754,136 @@
     }
   },
   {
+    "file": "log-dir-merge-after.log",
+    "bytes": 1450,
+    "sha256": "e71d188fdc2ee6591cb0ed6689318ca875dd8d1c2b3fcf10000a178ff3ea3402",
+    "stats": {
+      "sourceSize": 1450,
+      "bytesRead": 1450,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 1404,
+      "worker": false
+    }
+  },
+  {
+    "file": "log-dir-merge-before.log",
+    "bytes": 2371,
+    "sha256": "7ce4dfc7681041f3d34eaf43eb96f6f58e9fec71fe71f677998c1cbf095a75c2",
+    "stats": {
+      "sourceSize": 2371,
+      "bytesRead": 2371,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 2321,
+      "worker": false
+    }
+  },
+  {
+    "file": "main-merge.log",
+    "bytes": 437,
+    "sha256": "daaf39a828a52c2e43ee12aa5f5fcf35da3418050e2671606e760bd6320800d8",
+    "stats": {
+      "sourceSize": 437,
+      "bytesRead": 437,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 437,
+      "worker": false
+    }
+  },
+  {
+    "file": "merge-format-write.log",
+    "bytes": 329,
+    "sha256": "a46d2481ca11b4887fc0e9bce97e119652bf9b084ad45e508badddb0eed7d681",
+    "stats": {
+      "sourceSize": 329,
+      "bytesRead": 329,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 329,
+      "worker": false
+    }
+  },
+  {
+    "file": "merged-dispatch-tests.log",
+    "bytes": 618,
+    "sha256": "af52d2788530845bcf7389069edd2ec8bca4cc6fca78ebf3986c637d66960108",
+    "stats": {
+      "sourceSize": 618,
+      "bytesRead": 618,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 588,
+      "worker": false
+    }
+  },
+  {
+    "file": "merged-final-format-write.log",
+    "bytes": 424,
+    "sha256": "abe840180e585c7ea0990cf9267428febdef9659733fd423dfd768c9cfd1e52e",
+    "stats": {
+      "sourceSize": 424,
+      "bytesRead": 424,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 424,
+      "worker": false
+    }
+  },
+  {
+    "file": "merged-label-tests.log",
+    "bytes": 431,
+    "sha256": "92db230aa8f8b8046569fd873548244889bd5b23189760002559140f9b02a52c",
+    "stats": {
+      "sourceSize": 431,
+      "bytesRead": 431,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 405,
+      "worker": false
+    }
+  },
+  {
+    "file": "merged-log-dir-tests.log",
+    "bytes": 479,
+    "sha256": "11b10b73b91e7a1f14dc99271e02f379ed732495546a25483f48cb7004b3225d",
+    "stats": {
+      "sourceSize": 479,
+      "bytesRead": 479,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 455,
+      "worker": false
+    }
+  },
+  {
+    "file": "merged-permission-tests.log",
+    "bytes": 1571,
+    "sha256": "821fe2607bb23ef4cbd25d3d72bb27d4ca64ae05ba258734d3d09b7c6100b20c",
+    "stats": {
+      "sourceSize": 1571,
+      "bytesRead": 1571,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 1529,
+      "worker": false
+    }
+  },
+  {
+    "file": "merged-review-format.log",
+    "bytes": 79,
+    "sha256": "7977ef99b275a8fe854021bf4c51ba065568541617468ed040a4b417bf09cb6f",
+    "stats": {
+      "sourceSize": 79,
+      "bytesRead": 79,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 79,
+      "worker": false
+    }
+  },
+  {
     "file": "npm-ci.log",
     "bytes": 198,
     "sha256": "fb1f69ba48ad9a1748d471a800a92f61d229f2febbe67ca7ee0646de585209df",
@@ -273,6 +897,32 @@
     }
   },
   {
+    "file": "package-manager-merged-main.log",
+    "bytes": 150,
+    "sha256": "615e468df09b771bf9dda07d759fe14c41a676a18bd8e9ffba165944da7f7e4b",
+    "stats": {
+      "sourceSize": 150,
+      "bytesRead": 150,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 150,
+      "worker": false
+    }
+  },
+  {
+    "file": "package-manager-updated-dependencies.log",
+    "bytes": 150,
+    "sha256": "615e468df09b771bf9dda07d759fe14c41a676a18bd8e9ffba165944da7f7e4b",
+    "stats": {
+      "sourceSize": 150,
+      "bytesRead": 150,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 150,
+      "worker": false
+    }
+  },
+  {
     "file": "package-manager.log",
     "bytes": 150,
     "sha256": "615e468df09b771bf9dda07d759fe14c41a676a18bd8e9ffba165944da7f7e4b",
@@ -282,6 +932,84 @@
       "blocks": 1,
       "forcedReleases": 0,
       "charsWritten": 150,
+      "worker": false
+    }
+  },
+  {
+    "file": "preinstall-updated-dependencies-after.log",
+    "bytes": 1469,
+    "sha256": "dc765e74386dd581c7273779b7b7f645bc64d6f04dbc6ec6f8b96d8612d7ab31",
+    "stats": {
+      "sourceSize": 1469,
+      "bytesRead": 1469,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 1421,
+      "worker": false
+    }
+  },
+  {
+    "file": "preinstall-updated-dependencies.log",
+    "bytes": 1932,
+    "sha256": "a29e05f7997356e1112675f8efd9955ab5699f50af2fdbeb9cf13433b3096730",
+    "stats": {
+      "sourceSize": 1932,
+      "bytesRead": 1932,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 1884,
+      "worker": false
+    }
+  },
+  {
+    "file": "publish-dependency-validation.log",
+    "bytes": 795,
+    "sha256": "f5cf19401766a73fa5603c78de7c1670343a4d94d40542e52ca16c8d89693821",
+    "stats": {
+      "sourceSize": 795,
+      "bytesRead": 795,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 795,
+      "worker": false
+    }
+  },
+  {
+    "file": "push-reports.log",
+    "bytes": 125,
+    "sha256": "0817c8dfbe0ca990633796e7aa4d37e570968d2edf287006e75483387d15dac8",
+    "stats": {
+      "sourceSize": 125,
+      "bytesRead": 125,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 125,
+      "worker": false
+    }
+  },
+  {
+    "file": "push.log",
+    "bytes": 125,
+    "sha256": "9b7d1890df2974974f54dbe1058572d4311686fc6d809acfbd50db5d631e2e1f",
+    "stats": {
+      "sourceSize": 125,
+      "bytesRead": 125,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 125,
+      "worker": false
+    }
+  },
+  {
+    "file": "recovery-credential-mock.log",
+    "bytes": 84,
+    "sha256": "5f09fa1521a35ce0b59e85edd344d63dfa285706d09061e94f6fc5f11ed6fa08",
+    "stats": {
+      "sourceSize": 84,
+      "bytesRead": 84,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 84,
       "worker": false
     }
   },
@@ -312,6 +1040,19 @@
     }
   },
   {
+    "file": "regressions-updated-dependencies.log",
+    "bytes": 1193,
+    "sha256": "6ce5e12bd6d13dab22df847084b812b856e0b3731620e95dca837481c482f39d",
+    "stats": {
+      "sourceSize": 1193,
+      "bytesRead": 1193,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 1155,
+      "worker": false
+    }
+  },
+  {
     "file": "sanitize-evidence.log",
     "bytes": 0,
     "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
@@ -321,6 +1062,32 @@
       "blocks": 0,
       "forcedReleases": 0,
       "charsWritten": 0,
+      "worker": false
+    }
+  },
+  {
+    "file": "secrets-merged-main.log",
+    "bytes": 101,
+    "sha256": "c042c4ba8b1b6eaf11ffca5355796e1eafc8f391306852cd57e1d2e29318c121",
+    "stats": {
+      "sourceSize": 109,
+      "bytesRead": 109,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 99,
+      "worker": false
+    }
+  },
+  {
+    "file": "secrets-updated-dependencies.log",
+    "bytes": 101,
+    "sha256": "c042c4ba8b1b6eaf11ffca5355796e1eafc8f391306852cd57e1d2e29318c121",
+    "stats": {
+      "sourceSize": 109,
+      "bytesRead": 109,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 99,
       "worker": false
     }
   },
@@ -338,6 +1105,32 @@
     }
   },
   {
+    "file": "syntax-merged-main.log",
+    "bytes": 50746,
+    "sha256": "4681829627e2b49d6e6c016957d20a5c00684196fe29a8bf65f7271b39bc292d",
+    "stats": {
+      "sourceSize": 50746,
+      "bytesRead": 50746,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 50746,
+      "worker": false
+    }
+  },
+  {
+    "file": "syntax-updated-dependencies.log",
+    "bytes": 50097,
+    "sha256": "036455306f4c6674e5dfa2445366b5a64a9969e3ee30f25dd9588c2e909068ce",
+    "stats": {
+      "sourceSize": 50097,
+      "bytesRead": 50097,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 50097,
+      "worker": false
+    }
+  },
+  {
     "file": "syntax.log",
     "bytes": 50097,
     "sha256": "036455306f4c6674e5dfa2445366b5a64a9969e3ee30f25dd9588c2e909068ce",
@@ -347,6 +1140,19 @@
       "blocks": 1,
       "forcedReleases": 0,
       "charsWritten": 50097,
+      "worker": false
+    }
+  },
+  {
+    "file": "use-with-retry-updated-dependencies.log",
+    "bytes": 2915,
+    "sha256": "00830ddb1a0e8e1875ffac0a0d369a893501401f858febe90f257f5bc5bb84b4",
+    "stats": {
+      "sourceSize": 2915,
+      "bytesRead": 2915,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 2799,
       "worker": false
     }
   },

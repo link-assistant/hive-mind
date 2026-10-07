@@ -6,6 +6,7 @@
 > **संबंधित:**
 >
 > - [Agent CLI FREE_MODELS.md](https://github.com/link-assistant/agent/blob/main/FREE_MODELS.md) - Upstream free models सूची (canonical source)
+> - [Issue #2625](https://github.com/link-assistant/hive-mind/issues/2625) - OpenCode Zen ने nemotron-3-super-free हटा दिया और उसका free tier अब OpenCode के अलावा अन्य clients को `FreeTierError` (HTTP 403) देता है; default अब वही model Kilo Gateway पर `nvidia/nemotron-3-super-120b-a12b:free` के रूप में चलाता है, और Hive Mind वह provider entry देता है जो Agent में नहीं है ([agent#327](https://github.com/link-assistant/agent/issues/327))
 > - [Agent PR #243](https://github.com/link-assistant/agent/pull/243) - Upstream: deprecated qwen3.6-plus-free को nemotron-3-super-free से default के रूप में replace करें
 > - [Agent PR #234](https://github.com/link-assistant/agent/pull/234) - Upstream: qwen3.6-plus-free default के रूप में, nemotron-3-super-free जोड़ें
 > - [Agent PR #209](https://github.com/link-assistant/agent/pull/209) - Upstream free model updates (minimax-m2.5-free default के रूप में)
@@ -22,10 +23,10 @@ Hive-mind दो providers के free models का समर्थन कर�
 
 ## OpenCode Zen Free Models
 
-### 1. opencode/nemotron-3-super-free **डिफ़ॉल्ट Model**
+### 1. kilo/nemotron-3-super-free **डिफ़ॉल्ट Model**
 
 - **Short Alias**: `nemotron-3-super-free`
-- **Provider**: OpenCode Zen
+- **Provider**: Kilo Gateway (`nvidia/nemotron-3-super-120b-a12b:free`, Issue #2625)
 - **Status**: पूरी तरह समर्थित (Issue #1563 के अनुसार `--tool agent` के लिए Default)
 - **Features**: Reasoning, tool calling, hybrid Mamba-Transformer architecture
 - **Context Window**: ~262,144 tokens
@@ -190,7 +191,7 @@ solve https://github.com/owner/repo/issues/123 --tool agent --model nemotron-3-s
 hive https://github.com/owner/repo --tool agent --model minimax-m2.5-free
 
 # OpenCode Zen models (full model IDs)
-solve https://github.com/owner/repo/issues/123 --tool agent --model opencode/nemotron-3-super-free
+solve https://github.com/owner/repo/issues/123 --tool agent --model kilo/nemotron-3-super-free
 hive https://github.com/owner/repo --tool agent --model opencode/big-pickle
 
 # Kilo Gateway models (full model IDs)
@@ -218,7 +219,7 @@ hive https://github.com/owner/repo --tool agent --model deepseek-r1-free
 /solve https://github.com/owner/repo/issues/123 --tool agent --model glm-5-free
 /hive https://github.com/owner/repo --tool agent --model glm-4.5-air-free
 
-# Default model (OpenCode Zen के माध्यम से nemotron-3-super-free):
+# Default model (Kilo Gateway के माध्यम से nemotron-3-super-free):
 /solve https://github.com/owner/repo/issues/123 --tool agent
 /agent https://github.com/owner/repo/issues/123
 ```
@@ -226,8 +227,12 @@ hive https://github.com/owner/repo --tool agent --model deepseek-r1-free
 ### Direct Agent CLI उपयोग
 
 ```bash
+# Kilo Gateway पर डिफ़ॉल्ट मॉडल (Issue #2625): Hive Mind यह provider entry स्वयं देता है;
+# सीधे Agent 0.26.11 चलाने पर इसकी आवश्यकता है
+LINK_ASSISTANT_AGENT_CONFIG_CONTENT='{"provider":{"kilo":{"models":{"nemotron-3-super-free":{"id":"nvidia/nemotron-3-super-120b-a12b:free"}}}}}' \
+  agent --model kilo/nemotron-3-super-free <<< "Your prompt here"
+
 # OpenCode Zen models
-echo "Your prompt here" | agent --model opencode/nemotron-3-super-free
 echo "Your prompt here" | agent --model opencode/minimax-m2.5-free
 
 # Kilo Gateway models
@@ -243,7 +248,7 @@ echo "Your prompt here" | agent --model kilo/deepseek-r1-free
 
 **Flagship Free Models**:
 
-- `opencode/nemotron-3-super-free` - NVIDIA hybrid Mamba-Transformer, strong reasoning (OpenCode, default)
+- `kilo/nemotron-3-super-free` - NVIDIA hybrid Mamba-Transformer, strong reasoning (Kilo, default)
 - `kilo/glm-5-free` - Z.AI flagship, कई tasks पर Opus 4.5 से मेल खाता है (Kilo)
 
 **General Purpose और Reasoning**:
@@ -256,7 +261,7 @@ echo "Your prompt here" | agent --model kilo/deepseek-r1-free
 **Large Context Tasks के लिए**:
 
 - `opencode/gpt-5-nano` - बहुत बड़ा context (~400,000 tokens)
-- `opencode/nemotron-3-super-free` - बड़ा context (~262,144 tokens)
+- `kilo/nemotron-3-super-free` - बड़ा context (~262,144 tokens)
 - `kilo/giga-potato-free` - बड़ा context (256,000 tokens)
 - `opencode/minimax-m2.5-free` - बड़ा context (204,800 tokens)
 

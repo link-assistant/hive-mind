@@ -267,10 +267,6 @@ const defaultSleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 const formatDelay = ms => (ms >= 60_000 && ms % 60_000 === 0 ? `${ms / 60_000}m` : `${Math.round(ms / 1000)}s`);
 
-// Installation tokens cannot create Gists. Retrying or splitting the log cannot
-// grant this permission. Do not classify rate-limit 403s as permanent failures.
-export const isPermanentUploadFailure = output => /Resource not accessible by (?:integration|personal access token)|Bad credentials|requires authentication/i.test(String(output));
-
 /**
  * Pick the lines of a failed gh-upload-log run that explain the failure, e.g.
  * "error: RPC failed; HTTP 408 curl 22 ...", without its option dump and stack.
@@ -287,6 +283,15 @@ export const summarizeUploadFailure = output => {
   const picked = (explanatory.length > 0 ? explanatory : lines).slice(-6).join('\n');
   return picked.length > 1500 ? `…${picked.slice(-1500)}` : picked;
 };
+
+/**
+ * Whether gh-upload-log failed because the token cannot publish or authenticate.
+ * Installation tokens cannot create Gists; retries and splitting cannot grant
+ * that permission. Secondary rate limits are also HTTP 403 and remain retryable.
+ * @param {string} output - Combined stdout and stderr of gh-upload-log.
+ * @returns {boolean}
+ */
+export const isPermanentUploadFailure = output => /Resource not accessible by (?:integration|personal access token)|Bad credentials|requires authentication/i.test(String(output));
 
 /**
  * Split a log into parts of about `partSizeBytes` each, cutting only after a
@@ -346,7 +351,7 @@ export const splitLogIntoLineAlignedParts = async ({ sourcePath, directory, base
 
 /**
  * Run gh-upload-log until it reports a URL, waiting `delaysMs[i]` before retry i+1.
- * @returns {Promise<{ok: boolean, parsed: Object|null, output: string, attempts: number}>}
+ * @returns {Promise<{ok: boolean, parsed: Object|null, output: string, attempts: number, permanent?: boolean}>}
  */
 const runUploadWithRetries = async ({ commandArgs, runUpload, sleep, delaysMs, label, verbose }) => {
   const maxAttempts = delaysMs.length + 1;
@@ -363,6 +368,10 @@ const runUploadWithRetries = async ({ commandArgs, runUpload, sleep, delaysMs, l
       await log(`  ❌ gh-upload-log exited 0 but printed no log URL (${label}, attempt ${attempt}/${maxAttempts}): ${output}`);
     } else {
       await log(`  ❌ gh-upload-log failed (${label}, attempt ${attempt}/${maxAttempts}): ${output}`);
+    }
+    if (uploadResult.code !== 0 && isPermanentUploadFailure(output)) {
+      await log(`  ⚠️  The GitHub token may not publish logs (e.g. a workflow GITHUB_TOKEN cannot create gists); not retrying the ${label} upload`);
+      return { ok: false, parsed: null, output, attempts: attempt, permanent: true };
     }
     // 127: gh-upload-log is not installed; waiting will not change that.
     const permanent = uploadResult.code === 127 || isPermanentUploadFailure(output);

@@ -4,7 +4,7 @@
  * `npm outdated` sees package.json, but Hive Mind also pins dependencies in
  * Dockerfiles, use-m's runtime package map, GitHub Actions, base images and
  * setup-action inputs. Issue #2264 requires one fail-closed check over all of
- * those surfaces.
+ * those surfaces for pull requests; issue #2625 keeps it advisory elsewhere.
  */
 
 import fs from 'node:fs/promises';
@@ -329,4 +329,29 @@ export const checkDependencyRecords = async (records, { resolveNpmLatest: npmRes
   const byLocation = (a, b) => a.location.localeCompare(b.location) || a.name.localeCompare(b.name);
   for (const results of [current, stale, errors, exceptions]) results.sort(byLocation);
   return { records, current, stale, errors, exceptions };
+};
+
+/**
+ * Pull requests must converge on the newest releases before they merge (issue
+ * #2264). After the merge, a release published in the meantime is a reason
+ * for a new pull request, not for skipping main's tests and release (issue
+ * #2625), so every other event only warns. Local runs stay strict.
+ */
+export const freshnessEnforcement = eventName => (!eventName || eventName === 'pull_request' || eventName === 'merge_group' ? 'fail' : 'warn');
+
+/** Render the outcome for the given enforcement mode without printing it. */
+export const formatFreshnessReport = ({ stale, errors, mode }) => {
+  const staleText = record => `${record.location}: ${record.name} ${record.current} -> ${record.latest} (${record.policy})`;
+  const errorText = record => `${record.location}: ${record.name}: ${record.error}`;
+  if (stale.length === 0 && errors.length === 0) return { exitCode: 0, lines: ['All tracked dependency declarations are current.'], summary: '' };
+  const heading = `${stale.length} stale, ${errors.length} unresolved`;
+  const summary = [`### Dependency freshness: ${heading}`, '', ...stale.map(record => `- Stale: \`${staleText(record)}\``), ...errors.map(record => `- Unresolved: \`${errorText(record)}\``), ''].join('\n');
+  if (mode === 'warn') {
+    return {
+      exitCode: 0,
+      lines: [...stale.map(record => `::warning title=Stale dependency::${staleText(record)}`), ...errors.map(record => `::warning title=Unresolved dependency::${errorText(record)}`), `Dependency freshness: ${heading}; only pull requests are blocked, so open one to update.`],
+      summary,
+    };
+  }
+  return { exitCode: 1, lines: [...stale.map(record => `STALE ${staleText(record)}`), ...errors.map(record => `ERROR ${errorText(record)}`), `Dependency freshness failed: ${heading}.`], summary };
 };

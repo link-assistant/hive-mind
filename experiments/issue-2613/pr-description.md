@@ -1,16 +1,16 @@
 Version reports launched dozens of installed runtimes concurrently and left shell descendants alive after timeout. Failed Formal AI drafts also lost their logs when the Actions token could not create Gists and `--log-dir` was ignored during initialization.
 
-This PR limits version probes across concurrent reports and cleans up their process groups. Failed uploads can publish the complete sanitized log on the verified existing PR branch, without committing unrelated staged work. Startup honors the requested log directory; formal drafts retain development logs, create a missing label and can dispatch checks without supplying a release bump.
+This PR limits version probes across concurrent reports and cleans up their process groups. Failed uploads can publish the complete sanitized log on the verified existing PR branch, without committing unrelated staged work. Startup places logs in the requested directory before argument parsing can fail, retaining a working-directory log when that destination is unusable. Formal drafts retain development logs and handle simultaneous creation of a missing label.
 
-The dependency freshness gate initially stopped CI before tests with ten stale declarations. This PR refreshes the Node.js, Sentry, agent-commander and command-stream pins together, updates their lockfile and alias expectations, and retains real command-stream compatibility coverage. The authenticated local freshness check passes all 168 declarations; complete failed-run logs and release compatibility evidence are preserved in the case study.
+Current main, including PR #2626's dependency and Formal AI workflow fixes, is merged into this branch. Shared helpers are reconciled without duplicate classifiers or finalizers. The initial CI freshness failure, its repair and dependency compatibility checks are preserved in the case study.
 
 Refs #2613. Includes one patch changeset.
 
 ### Reproduction and validation
 
-`node tests/issue-2613-regressions.test.mjs` covers surviving descendants, shared concurrency, permanent Gist permission errors, secret removal, real local-Git publication, failed pushes, mismatched checkouts/origins, startup log placement, missing labels and dispatch defaults. Before/after captures are in the [case study](https://github.com/link-assistant/hive-mind/blob/issue-2613-2efa14ce78a7/docs/case-studies/issue-2613/README.md).
+`node tests/issue-2613-regressions.test.mjs` covers surviving descendants, shared concurrency, throwing diagnostic callbacks, permanent Gist permission errors, secret removal, real local-Git publication, failed pushes, mismatched checkouts/origins, startup log placement, missing labels and dispatch defaults. Before/after captures are in the [case study](https://github.com/link-assistant/hive-mind/blob/issue-2613-2efa14ce78a7/docs/case-studies/issue-2613/README.md). The recovery-budget unit test also mocks its sanitizer's credential discovery to remove a hidden live-network dependency.
 
-Local checks passed: all **563 default test files**, **9 focused regressions**, both version-info suites, formal-draft tests, live CI template inventory, ESLint, formatting, secret scanning, duplication (11.20%), syntax, file line limits and changeset validation. [Complete sanitized validation logs](https://github.com/link-assistant/hive-mind/tree/issue-2613-2efa14ce78a7/docs/case-studies/issue-2613/evidence/validation) are committed. Latest-head CI results are recorded in the PR checks.
+Local checks passed: all **572 default test files** after merging main, **10 focused regressions**, both version-info suites, formal-draft tests, live CI template inventory, ESLint, formatting, secret scanning, duplication, syntax, file line limits and changeset validation. The earlier 563-file run also passed. [Complete sanitized validation logs](https://github.com/link-assistant/hive-mind/tree/issue-2613-2efa14ce78a7/docs/case-studies/issue-2613/evidence/validation) are committed. Latest-head CI results are recorded in the PR checks.
 
 ### Evidence and remaining limits
 

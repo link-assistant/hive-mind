@@ -1,0 +1,16 @@
+node:internal/fs/promises:1425
+  return new FileHandle(await PromisePrototypeThen(
+                        ^
+
+Error: EEXIST: file already exists, open 'docs/case-studies/issue-2613/evidence/validation/changed-format-check.log'
+    at async Object.open (node:internal/fs/promises:1425:25)
+    at async sanitizeLogFileToFile (file:///tmp/gh-issue-solver-1791384270780/src/log-sanitize-stream.lib.mjs:203:12)
+    at async sanitizeLogFileToFileBounded (file:///tmp/gh-issue-solver-1791384270780/src/log-sanitize-worker.lib.mjs:162:18)
+    at async file:///tmp/gh-issue-solver-1791384270780/experiments/issue-2613/publish-validation.mjs:13:17 {
+  errno: -17,
+  code: 'EEXIST',
+  syscall: 'open',
+  path: 'docs/case-studies/issue-2613/evidence/validation/changed-format-check.log'
+}
+
+Node.js v26.10.0

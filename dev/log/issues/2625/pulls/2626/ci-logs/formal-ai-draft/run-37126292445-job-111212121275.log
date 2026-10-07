@@ -1,0 +1,283 @@
+﻿2026-10-03T13:28:25.4061233Z Current runner version: '2.337.0'
+2026-10-03T13:28:25.4095180Z ##[group]Runner Image Provisioner
+2026-10-03T13:28:25.4096441Z Hosted Compute Agent
+2026-10-03T13:28:25.4097589Z Version: 20260901.588
+2026-10-03T13:28:25.4098617Z Commit: f88ec8081b781fac6c440065ac7ff9e710ce3d0b
+2026-10-03T13:28:25.4100145Z Build Date: 2026-09-01T19:56:44Z
+2026-10-03T13:28:25.4101251Z Worker ID: {d57ae6d3-2945-4eaf-9778-c0ed85c80af5}
+2026-10-03T13:28:25.4102367Z Azure Region: centralus
+2026-10-03T13:28:25.4103480Z ##[endgroup]
+2026-10-03T13:28:25.4105400Z ##[group]Operating System
+2026-10-03T13:28:25.4106357Z Ubuntu
+2026-10-03T13:28:25.4107297Z 24.04.5
+2026-10-03T13:28:25.4108089Z LTS
+2026-10-03T13:28:25.4108949Z ##[endgroup]
+2026-10-03T13:28:25.4110173Z ##[group]Runner Image
+2026-10-03T13:28:25.4111117Z Image: ubuntu-24.04
+2026-10-03T13:28:25.4112143Z Version: 20260927.320.1
+2026-10-03T13:28:25.4114049Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260927.320/images/ubuntu/Ubuntu2404-Readme.md
+2026-10-03T13:28:25.4116836Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260927.320
+2026-10-03T13:28:25.4118589Z ##[endgroup]
+2026-10-03T13:28:25.4120864Z ##[group]GITHUB_TOKEN Permissions
+2026-10-03T13:28:25.4123930Z Actions: read
+2026-10-03T13:28:25.4124871Z Contents: read
+2026-10-03T13:28:25.4125712Z Issues: read
+2026-10-03T13:28:25.4126647Z Metadata: read
+2026-10-03T13:28:25.4127505Z ##[endgroup]
+2026-10-03T13:28:25.4131073Z Secret source: Actions
+2026-10-03T13:28:25.4132488Z Cache mode: write
+2026-10-03T13:28:25.4133793Z Prepare workflow directory
+2026-10-03T13:28:25.4528534Z Prepare all required actions
+2026-10-03T13:28:25.4598624Z Getting action download info
+2026-10-03T13:28:25.7682393Z Download action repository 'actions/checkout@v7' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+2026-10-03T13:28:26.2718177Z Download action repository 'actions/setup-node@v7' (SHA:820762786026740c76f36085b0efc47a31fe5020)
+2026-10-03T13:28:26.6508131Z Complete job name: health
+2026-10-03T13:28:26.7259052Z ##[group]Run actions/checkout@v7
+2026-10-03T13:28:26.7260385Z with:
+2026-10-03T13:28:26.7260882Z   persist-credentials: false
+2026-10-03T13:28:26.7261470Z   repository: link-assistant/hive-mind
+2026-10-03T13:28:26.7265375Z   token: ***
+2026-10-03T13:28:26.7265853Z   ssh-strict: true
+2026-10-03T13:28:26.7266326Z   ssh-user: git
+2026-10-03T13:28:26.7266790Z   clean: true
+2026-10-03T13:28:26.7267273Z   sparse-checkout-cone-mode: true
+2026-10-03T13:28:26.7267840Z   fetch-depth: 1
+2026-10-03T13:28:26.7268313Z   fetch-tags: false
+2026-10-03T13:28:26.7268796Z   show-progress: true
+2026-10-03T13:28:26.7269283Z   lfs: false
+2026-10-03T13:28:26.7269915Z   submodules: false
+2026-10-03T13:28:26.7270402Z   set-safe-directory: true
+2026-10-03T13:28:26.7270942Z   allow-unsafe-pr-checkout: false
+2026-10-03T13:28:26.7271714Z ##[endgroup]
+2026-10-03T13:28:26.8302754Z Syncing repository: link-assistant/hive-mind
+2026-10-03T13:28:26.8305180Z ##[group]Getting Git version info
+2026-10-03T13:28:26.8306091Z Working directory is '/home/runner/work/hive-mind/hive-mind'
+2026-10-03T13:28:26.8307624Z [command]/usr/bin/git version
+2026-10-03T13:28:26.8355377Z git version 2.55.0
+2026-10-03T13:28:26.8376008Z ##[endgroup]
+2026-10-03T13:28:26.8404783Z Temporarily overriding HOME='/home/runner/work/_temp/46bb6c8d-a5d3-448a-acbc-b51b44537eae' before making global git config changes
+2026-10-03T13:28:26.8407634Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-03T13:28:26.8410636Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/hive-mind/hive-mind
+2026-10-03T13:28:26.8455732Z Deleting the contents of '/home/runner/work/hive-mind/hive-mind'
+2026-10-03T13:28:26.8459236Z ##[group]Determining repository object format
+2026-10-03T13:28:26.8460988Z ##[endgroup]
+2026-10-03T13:28:26.8462311Z ##[group]Initializing the repository
+2026-10-03T13:28:26.8465067Z [command]/usr/bin/git init /home/runner/work/hive-mind/hive-mind
+2026-10-03T13:28:26.8581338Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-10-03T13:28:26.8583007Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-10-03T13:28:26.8584222Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-10-03T13:28:26.8585031Z hint: call:
+2026-10-03T13:28:26.8585500Z hint:
+2026-10-03T13:28:26.8586076Z hint: 	git config --global init.defaultBranch <name>
+2026-10-03T13:28:26.8586762Z hint:
+2026-10-03T13:28:26.8587401Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-10-03T13:28:26.8588381Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-10-03T13:28:26.8589166Z hint:
+2026-10-03T13:28:26.8589921Z hint: 	git branch -m <name>
+2026-10-03T13:28:26.8590462Z hint:
+2026-10-03T13:28:26.8591152Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-10-03T13:28:26.8597321Z Initialized empty Git repository in /home/runner/work/hive-mind/hive-mind/.git/
+2026-10-03T13:28:26.8607429Z [command]/usr/bin/git remote add origin https://github.com/link-assistant/hive-mind
+2026-10-03T13:28:26.8660078Z ##[endgroup]
+2026-10-03T13:28:26.8661480Z ##[group]Disabling automatic garbage collection
+2026-10-03T13:28:26.8663050Z [command]/usr/bin/git config --local gc.auto 0
+2026-10-03T13:28:26.8697238Z ##[endgroup]
+2026-10-03T13:28:26.8698704Z ##[group]Setting up auth
+2026-10-03T13:28:26.8699986Z Removing SSH command configuration
+2026-10-03T13:28:26.8702860Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-03T13:28:26.8737078Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-03T13:28:26.9086285Z Removing HTTP extra header
+2026-10-03T13:28:26.9098279Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-03T13:28:26.9142614Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-03T13:28:26.9382754Z Removing includeIf entries pointing to credentials config files
+2026-10-03T13:28:26.9388503Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-03T13:28:26.9433047Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-03T13:28:26.9675938Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-6e954a6f-8054-4b2b-8f12-88e66a3f7aea.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-10-03T13:28:26.9716671Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path /home/runner/work/_temp/git-credentials-6e954a6f-8054-4b2b-8f12-88e66a3f7aea.config
+2026-10-03T13:28:26.9752176Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-6e954a6f-8054-4b2b-8f12-88e66a3f7aea.config
+2026-10-03T13:28:26.9791693Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-6e954a6f-8054-4b2b-8f12-88e66a3f7aea.config
+2026-10-03T13:28:26.9828289Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-6e954a6f-8054-4b2b-8f12-88e66a3f7aea.config
+2026-10-03T13:28:26.9861157Z ##[endgroup]
+2026-10-03T13:28:26.9861990Z ##[group]Fetching the repository
+2026-10-03T13:28:26.9867511Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +54b8f010019227376e39f0561d5f865e81907358:refs/remotes/origin/main
+2026-10-03T13:28:43.4752821Z From https://github.com/link-assistant/hive-mind
+2026-10-03T13:28:43.4753651Z  * [new ref]         54b8f010019227376e39f0561d5f865e81907358 -> origin/main
+2026-10-03T13:28:43.4762403Z [command]/usr/bin/git branch --list --remote origin/main
+2026-10-03T13:28:43.4793705Z   origin/main
+2026-10-03T13:28:43.4802723Z [command]/usr/bin/git rev-parse refs/remotes/origin/main
+2026-10-03T13:28:43.4832321Z 54b8f010019227376e39f0561d5f865e81907358
+2026-10-03T13:28:43.4836337Z ##[endgroup]
+2026-10-03T13:28:43.4837127Z ##[group]Determining the checkout info
+2026-10-03T13:28:43.4837912Z ##[endgroup]
+2026-10-03T13:28:43.4840750Z [command]/usr/bin/git sparse-checkout disable
+2026-10-03T13:28:43.4894466Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-10-03T13:28:43.4930495Z ##[group]Checking out the ref
+2026-10-03T13:28:43.4934562Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+2026-10-03T13:28:44.6416624Z Updating files:  27% (2047/7552)
+2026-10-03T13:28:44.6972094Z Updating files:  28% (2115/7552)
+2026-10-03T13:28:44.7230649Z Updating files:  29% (2191/7552)
+2026-10-03T13:28:44.7473379Z Updating files:  30% (2266/7552)
+2026-10-03T13:28:44.7718157Z Updating files:  31% (2342/7552)
+2026-10-03T13:28:44.8070422Z Updating files:  32% (2417/7552)
+2026-10-03T13:28:44.8799885Z Updating files:  33% (2493/7552)
+2026-10-03T13:28:44.8996074Z Updating files:  34% (2568/7552)
+2026-10-03T13:28:44.9168321Z Updating files:  35% (2644/7552)
+2026-10-03T13:28:44.9381001Z Updating files:  36% (2719/7552)
+2026-10-03T13:28:45.0931742Z Updating files:  37% (2795/7552)
+2026-10-03T13:28:45.1143251Z Updating files:  38% (2870/7552)
+2026-10-03T13:28:45.1772898Z Updating files:  39% (2946/7552)
+2026-10-03T13:28:45.3518129Z Updating files:  40% (3021/7552)
+2026-10-03T13:28:45.3919386Z Updating files:  41% (3097/7552)
+2026-10-03T13:28:45.4767421Z Updating files:  42% (3172/7552)
+2026-10-03T13:28:45.5056122Z Updating files:  43% (3248/7552)
+2026-10-03T13:28:45.5197601Z Updating files:  43% (3293/7552)
+2026-10-03T13:28:45.5516930Z Updating files:  44% (3323/7552)
+2026-10-03T13:28:45.5987406Z Updating files:  45% (3399/7552)
+2026-10-03T13:28:45.6832744Z Updating files:  46% (3474/7552)
+2026-10-03T13:28:45.7189745Z Updating files:  47% (3550/7552)
+2026-10-03T13:28:45.7630360Z Updating files:  48% (3625/7552)
+2026-10-03T13:28:45.7895311Z Updating files:  49% (3701/7552)
+2026-10-03T13:28:45.8062400Z Updating files:  50% (3776/7552)
+2026-10-03T13:28:45.8483437Z Updating files:  51% (3852/7552)
+2026-10-03T13:28:45.8753684Z Updating files:  52% (3928/7552)
+2026-10-03T13:28:45.8797414Z Updating files:  53% (4003/7552)
+2026-10-03T13:28:45.9941884Z Updating files:  54% (4079/7552)
+2026-10-03T13:28:46.0253174Z Updating files:  55% (4154/7552)
+2026-10-03T13:28:46.1042895Z Updating files:  56% (4230/7552)
+2026-10-03T13:28:46.1099049Z Updating files:  57% (4305/7552)
+2026-10-03T13:28:46.1214754Z Updating files:  58% (4381/7552)
+2026-10-03T13:28:46.1542387Z Updating files:  59% (4456/7552)
+2026-10-03T13:28:46.1698496Z Updating files:  60% (4532/7552)
+2026-10-03T13:28:46.1993329Z Updating files:  61% (4607/7552)
+2026-10-03T13:28:46.2063983Z Updating files:  62% (4683/7552)
+2026-10-03T13:28:46.2150892Z Updating files:  63% (4758/7552)
+2026-10-03T13:28:46.3259875Z Updating files:  64% (4834/7552)
+2026-10-03T13:28:46.3580225Z Updating files:  65% (4909/7552)
+2026-10-03T13:28:46.3914174Z Updating files:  66% (4985/7552)
+2026-10-03T13:28:46.3952948Z Updating files:  67% (5060/7552)
+2026-10-03T13:28:46.4908058Z Updating files:  68% (5136/7552)
+2026-10-03T13:28:46.4999939Z Updating files:  69% (5211/7552)
+2026-10-03T13:28:46.5106540Z Updating files:  70% (5287/7552)
+2026-10-03T13:28:46.7270668Z Updating files:  70% (5288/7552)
+2026-10-03T13:28:46.7755035Z Updating files:  71% (5362/7552)
+2026-10-03T13:28:46.7942503Z Updating files:  72% (5438/7552)
+2026-10-03T13:28:46.8196122Z Updating files:  73% (5513/7552)
+2026-10-03T13:28:46.8235628Z Updating files:  74% (5589/7552)
+2026-10-03T13:28:46.8281205Z Updating files:  75% (5664/7552)
+2026-10-03T13:28:46.8317683Z Updating files:  76% (5740/7552)
+2026-10-03T13:28:46.8358141Z Updating files:  77% (5816/7552)
+2026-10-03T13:28:46.8405559Z Updating files:  78% (5891/7552)
+2026-10-03T13:28:46.8465775Z Updating files:  79% (5967/7552)
+2026-10-03T13:28:46.8503069Z Updating files:  80% (6042/7552)
+2026-10-03T13:28:46.8542948Z Updating files:  81% (6118/7552)
+2026-10-03T13:28:46.8585518Z Updating files:  82% (6193/7552)
+2026-10-03T13:28:46.8623811Z Updating files:  83% (6269/7552)
+2026-10-03T13:28:46.8663245Z Updating files:  84% (6344/7552)
+2026-10-03T13:28:46.8705672Z Updating files:  85% (6420/7552)
+2026-10-03T13:28:46.8753404Z Updating files:  86% (6495/7552)
+2026-10-03T13:28:46.8818803Z Updating files:  87% (6571/7552)
+2026-10-03T13:28:46.8890939Z Updating files:  88% (6646/7552)
+2026-10-03T13:28:46.8968295Z Updating files:  89% (6722/7552)
+2026-10-03T13:28:46.9051801Z Updating files:  90% (6797/7552)
+2026-10-03T13:28:46.9122400Z Updating files:  91% (6873/7552)
+2026-10-03T13:28:46.9182663Z Updating files:  92% (6948/7552)
+2026-10-03T13:28:46.9240017Z Updating files:  93% (7024/7552)
+2026-10-03T13:28:46.9302436Z Updating files:  94% (7099/7552)
+2026-10-03T13:28:46.9360701Z Updating files:  95% (7175/7552)
+2026-10-03T13:28:46.9413987Z Updating files:  96% (7250/7552)
+2026-10-03T13:28:46.9479093Z Updating files:  97% (7326/7552)
+2026-10-03T13:28:46.9547314Z Updating files:  98% (7401/7552)
+2026-10-03T13:28:46.9606700Z Updating files:  99% (7477/7552)
+2026-10-03T13:28:46.9607303Z Updating files: 100% (7552/7552)
+2026-10-03T13:28:46.9607749Z Updating files: 100% (7552/7552), done.
+2026-10-03T13:28:46.9701166Z Switched to a new branch 'main'
+2026-10-03T13:28:46.9706264Z branch 'main' set up to track 'origin/main'.
+2026-10-03T13:28:46.9780180Z ##[endgroup]
+2026-10-03T13:28:46.9831016Z [command]/usr/bin/git log -1 --format=%H
+2026-10-03T13:28:46.9863129Z 54b8f010019227376e39f0561d5f865e81907358
+2026-10-03T13:28:46.9871919Z ##[group]Removing auth
+2026-10-03T13:28:46.9872326Z Removing SSH command configuration
+2026-10-03T13:28:46.9876237Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-03T13:28:46.9913028Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-03T13:28:47.0163473Z Removing HTTP extra header
+2026-10-03T13:28:47.0167458Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-03T13:28:47.0206262Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-03T13:28:47.0454356Z Removing includeIf entries pointing to credentials config files
+2026-10-03T13:28:47.0457962Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-03T13:28:47.0491774Z includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path
+2026-10-03T13:28:47.0492625Z includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path
+2026-10-03T13:28:47.0493331Z includeif.gitdir:/github/workspace/.git.path
+2026-10-03T13:28:47.0493918Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-10-03T13:28:47.0504542Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path
+2026-10-03T13:28:47.0561131Z /home/runner/work/_temp/git-credentials-6e954a6f-8054-4b2b-8f12-88e66a3f7aea.config
+2026-10-03T13:28:47.0569882Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-6e954a6f\-8054\-4b2b\-8f12\-88e66a3f7aea\.config
+2026-10-03T13:28:47.0608302Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path
+2026-10-03T13:28:47.0637370Z /home/runner/work/_temp/git-credentials-6e954a6f-8054-4b2b-8f12-88e66a3f7aea.config
+2026-10-03T13:28:47.0646813Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-6e954a6f\-8054\-4b2b\-8f12\-88e66a3f7aea\.config
+2026-10-03T13:28:47.0701846Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+2026-10-03T13:28:47.0734178Z /github/runner_temp/git-credentials-6e954a6f-8054-4b2b-8f12-88e66a3f7aea.config
+2026-10-03T13:28:47.0742722Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-6e954a6f\-8054\-4b2b\-8f12\-88e66a3f7aea\.config
+2026-10-03T13:28:47.0781729Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-10-03T13:28:47.0809761Z /github/runner_temp/git-credentials-6e954a6f-8054-4b2b-8f12-88e66a3f7aea.config
+2026-10-03T13:28:47.0818091Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-6e954a6f\-8054\-4b2b\-8f12\-88e66a3f7aea\.config
+2026-10-03T13:28:47.0858180Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-03T13:28:47.1107107Z Removing credentials config '/home/runner/work/_temp/git-credentials-6e954a6f-8054-4b2b-8f12-88e66a3f7aea.config'
+2026-10-03T13:28:47.1117105Z ##[endgroup]
+2026-10-03T13:28:47.1439004Z ##[group]Run actions/setup-node@v7
+2026-10-03T13:28:47.1439285Z with:
+2026-10-03T13:28:47.1439887Z   node-version: 24.x
+2026-10-03T13:28:47.1440142Z   check-latest: false
+2026-10-03T13:28:47.1442798Z   token: ***
+2026-10-03T13:28:47.1443042Z   package-manager-cache: true
+2026-10-03T13:28:47.1443317Z ##[endgroup]
+2026-10-03T13:28:47.6102419Z Found in cache @ /opt/hostedtoolcache/node/24.21.0/x64
+2026-10-03T13:28:47.6106907Z ##[group]Environment details
+2026-10-03T13:28:48.6755636Z node: v24.21.0
+2026-10-03T13:28:48.6756039Z npm: 11.19.0
+2026-10-03T13:28:48.6756368Z yarn: 1.22.22
+2026-10-03T13:28:48.6757173Z ##[endgroup]
+2026-10-03T13:28:48.6762612Z Detected npm as the package manager from package.json's packageManager field. Auto caching has been enabled for npm. If you want to disable it, set package-manager-cache input to false
+2026-10-03T13:28:48.6778179Z [command]/opt/hostedtoolcache/node/24.21.0/x64/bin/npm config get cache
+2026-10-03T13:28:48.8057096Z /home/runner/.npm
+2026-10-03T13:28:48.9687923Z Cache hit for: node-cache-Linux-x64-npm-6ffbc7cf0117a33f9e4e99aca3d6a3af6c8c187dce4fbe90ea3509c9b9765bff
+2026-10-03T13:28:49.8265337Z Received 31918137 of 31918137 (100.0%), 42.8 MBs/sec
+2026-10-03T13:28:49.8266228Z Cache Size: ~30 MB (31918137 B)
+2026-10-03T13:28:49.8299997Z [command]/usr/bin/tar -xf /home/runner/work/_temp/42efc42f-7b9d-4db6-8077-e78fcc96f581/cache.tzst -P -C /home/runner/work/hive-mind/hive-mind --use-compress-program unzstd
+2026-10-03T13:28:49.9028452Z Cache restored successfully
+2026-10-03T13:28:49.9053372Z Cache restored from key: node-cache-Linux-x64-npm-6ffbc7cf0117a33f9e4e99aca3d6a3af6c8c187dce4fbe90ea3509c9b9765bff
+2026-10-03T13:28:49.9220670Z ##[group]Run npm ci --omit=dev --ignore-scripts
+2026-10-03T13:28:49.9221152Z [36;1mnpm ci --omit=dev --ignore-scripts[0m
+2026-10-03T13:28:49.9462064Z shell: /usr/bin/bash -e {0}
+2026-10-03T13:28:49.9462389Z ##[endgroup]
+2026-10-03T13:28:53.1644629Z 
+2026-10-03T13:28:53.1654469Z added 144 packages, and audited 145 packages in 3s
+2026-10-03T13:28:53.1655156Z 
+2026-10-03T13:28:53.1655767Z 36 packages are looking for funding
+2026-10-03T13:28:53.1656312Z   run `npm fund` for details
+2026-10-03T13:28:53.1659717Z 
+2026-10-03T13:28:53.1660020Z found 0 vulnerabilities
+2026-10-03T13:28:53.2310814Z ##[group]Run node scripts/formal-ai-draft-health.mjs
+2026-10-03T13:28:53.2311361Z [36;1mnode scripts/formal-ai-draft-health.mjs[0m
+2026-10-03T13:28:53.2385847Z shell: /usr/bin/bash -e {0}
+2026-10-03T13:28:53.2386126Z env:
+2026-10-03T13:28:53.2388996Z   GH_TOKEN: ***
+2026-10-03T13:28:53.2389250Z ##[endgroup]
+2026-10-03T13:29:12.0547902Z Formal AI draft health (7 days): 25 eligible issues, 0 executed attempts.
+2026-10-03T13:29:12.0548983Z Eligible issues received no draft attempt; inspect credentials and workflow decisions.
+2026-10-03T13:29:12.0658750Z ##[error]Process completed with exit code 1.
+2026-10-03T13:29:12.0804855Z Post job cleanup.
+2026-10-03T13:29:12.1656130Z [command]/usr/bin/git version
+2026-10-03T13:29:12.1702226Z git version 2.55.0
+2026-10-03T13:29:12.1750508Z Temporarily overriding HOME='/home/runner/work/_temp/fe23ca76-4319-4bfd-9a6e-5397d80d8e71' before making global git config changes
+2026-10-03T13:29:12.1751552Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-03T13:29:12.1756446Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/hive-mind/hive-mind
+2026-10-03T13:29:12.1790747Z Removing SSH command configuration
+2026-10-03T13:29:12.1797131Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-03T13:29:12.1832901Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-03T13:29:12.2106467Z Removing HTTP extra header
+2026-10-03T13:29:12.2123677Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-03T13:29:12.2170794Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-03T13:29:12.2454363Z Removing includeIf entries pointing to credentials config files
+2026-10-03T13:29:12.2461903Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-03T13:29:12.2502232Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-03T13:29:12.2916544Z Cleaning up orphan processes

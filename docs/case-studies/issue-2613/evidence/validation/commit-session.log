@@ -1,0 +1,19 @@
+⋯ Backing up original state…
+✔ Done backing up original state (1cbf9eda)!
+⋯ Running tasks for staged files…
+    *.{js,mjs,json,md} — 9 files
+      ⋯ prettier --write
+
+✔ prettier --write
+
+✔ Done running tasks for staged files!
+⋯ Staging changes from tasks…
+✔ Done staging changes from tasks!
+⋯ Cleaning up temporary files…
+✔ Done cleaning up temporary files!
+[issue-2613-2efa14ce78a7 33e3a76a] fix: preserve failed-session logs and repair formal draft finalization
+ 11 files changed, 352 insertions(+), 25 deletions(-)
+ create mode 100644 .changeset/fix-session-diagnostics-2613.md
+ delete mode 100644 .gitkeep
+ create mode 100644 src/log-upload-branch.lib.mjs
+ create mode 100644 tests/issue-2613-regressions.test.mjs

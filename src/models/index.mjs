@@ -480,7 +480,7 @@ export const validateModelName = (model, tool = 'claude') => {
   let message = `Unrecognized model: "${model}"`;
 
   if (suggestions.length > 0) {
-    message += `\n   Did you mean: ${suggestions.map(s => `"${s}"`).join(', ')}?`;
+    message += `\n   Did you mean ${suggestions.map(s => `"${s}"`).join(', ')}?`;
   }
   message += `\n   Available models for ${tool}: ${shortNames.join(', ')}`;
 

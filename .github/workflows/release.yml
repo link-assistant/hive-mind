@@ -22,9 +22,14 @@ on:
         type: choice
         default: 'checks'
         options: [checks, instant, changeset-pr]
+      # Issue #2625: a required input without a default makes GitHub refuse
+      # every API dispatch that omits it (HTTP 422 "Required input 'bump_type'
+      # not provided"), including the `mode=checks` dispatch of
+      # scripts/dispatch-checks.mjs. `patch` is what the web form preselects.
       bump_type:
         description: 'Manual release type'
         required: true
+        default: patch
         type: choice
         options:
           - patch
@@ -84,6 +89,9 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      # Issue #2625: freshness blocks pull requests only (#2264). On a push to
+      # main it warns, so a release published after a merge cannot skip the
+      # tests and the release of code that already passed the gate.
       - name: Verify dependency freshness and detect changes
         id: changes
         env:

@@ -47,6 +47,16 @@ const makeFake$ = (statusOutput = '') => {
   return fake;
 };
 
+// Posting the recovery comment also asks the publication sanitizer for active
+// credentials. Mock that command source as well as the injected recovery `$`;
+// otherwise this unit test silently runs a live `gh auth status` network probe.
+const originalUse = globalThis.use;
+const credentialProbe$ = makeFake$();
+globalThis.use = async name => {
+  if (name.replace(/@\d[^/]*$/, '') === 'command-stream') return { $: credentialProbe$ };
+  return originalUse ? originalUse(name) : import(name);
+};
+
 // --- the budget is shared, not per-subsystem --------------------------------
 resetAutoRestartBudget();
 assert.equal(getAutoRestartLimit(), DEFAULT_AUTO_ITERATION_LIMIT, 'the default limit is 5');
@@ -107,6 +117,10 @@ assert.equal(failure.reason, AUTO_RESTART_LIMIT_REACHED_REASON, 'the run reports
 assert.equal(failure.iterationsUsed, 5, 'the failure reports the run-wide iteration count');
 assert.equal(failure.committed, true, 'fail recovery auto-commits the uncommitted work');
 assert.equal(failure.pushed, true, 'fail recovery pushes it so the result is visible');
+assert.ok(
+  credentialProbe$.calls.some(command => command.includes('gh auth status')),
+  'credential discovery uses the mock instead of a live network probe'
+);
 assert.ok(
   dirty$.calls.some(c => c.includes('git commit')),
   'a real commit was made'

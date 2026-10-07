@@ -1,0 +1,645 @@
+[
+  {
+    "file": "claude-failure.log",
+    "findings": [
+      {
+        "line": 1121,
+        "text": "[2026-10-07T09:09:51.347Z] [INFO]         \"content\": \"title:\\tWe must support all obvious aliases for latest versions of models\\nstate:\\tOPEN\\nauthor:\\tkonard (Konstantin Diachenko)\\nlabels:\\tbug, documentation, enhancement\\ncomments:\\t0\\nassignees:\\t\\nprojects:\\t\\nmilestone:\\t\\nissue-type:\\tTask\\nparent:\\t\\nsub-issues:\\t\\nsub-issues-completed:\\t\\nblocked-by:\\t\\nblocking:\\t\\nnumber:\\t2591\\n--\\n<img width=\\\"876\\\" height=\\\"525\\\" alt=\\\"Image\\\" src=\\\"https://github.com/user-attachments/assets/90c3c822-6c50-47b1-aac1-96e611f5f9b1\\\" />\\n\\nFor example astra should go with latest gpt-6-astra (or whatever the latest will be at the moment).\\n\\nWe should also make sure we dynamically get new aliases when introduced from new model names, without needing code changes.\\n\\nAnyway we need to double check that we fully support all the available models to the full potential.\\n\\nAlso we must double check that:\\n\\n```\\nAvailable models for codex: formal-ai, gpt-6-sol, gpt-6-luna, gpt-reserve, gpt-6-astra, gpt5, gpt-5.5, gpt-5.5-mini, gpt-5.5-nano, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna, gpt-5.6-cyber, gpt-5.4, gpt-5.4-mini, gpt-5.4-nano, gpt-5.2, gpt-5.2-codex, gpt-5.3-codex, gpt-5.3-codex-spark, gpt-5.1-codex-max, gpt-daybreak-blue-latest, gpt-daybreak-red-latest, openai.gpt-5.5, openai.gpt-5.4, openai.gpt-5.6-sol, openai.gpt-5.6-terra, openai.gpt-5.6-luna, codex-auto-review, o3-mini, gpt4, gpt4o, sol, terra, luna, openai.formal-ai, openai.gpt-6-sol, openai.gpt-6-luna, openai.gpt-reserve, ope"
+      },
+      {
+        "line": 1131,
+        "text": "[2026-10-07T09:09:51.347Z] [INFO]     \"stdout\": \"title:\\tWe must support all obvious aliases for latest versions of models\\nstate:\\tOPEN\\nauthor:\\tkonard (Konstantin Diachenko)\\nlabels:\\tbug, documentation, enhancement\\ncomments:\\t0\\nassignees:\\t\\nprojects:\\t\\nmilestone:\\t\\nissue-type:\\tTask\\nparent:\\t\\nsub-issues:\\t\\nsub-issues-completed:\\t\\nblocked-by:\\t\\nblocking:\\t\\nnumber:\\t2591\\n--\\n<img width=\\\"876\\\" height=\\\"525\\\" alt=\\\"Image\\\" src=\\\"https://github.com/user-attachments/assets/90c3c822-6c50-47b1-aac1-96e611f5f9b1\\\" />\\n\\nFor example astra should go with latest gpt-6-astra (or whatever the latest will be at the moment).\\n\\nWe should also make sure we dynamically get new aliases when introduced from new model names, without needing code changes.\\n\\nAnyway we need to double check that we fully support all the available models to the full potential.\\n\\nAlso we must double check that:\\n\\n```\\nAvailable models for codex: formal-ai, gpt-6-sol, gpt-6-luna, gpt-reserve, gpt-6-astra, gpt5, gpt-5.5, gpt-5.5-mini, gpt-5.5-nano, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna, gpt-5.6-cyber, gpt-5.4, gpt-5.4-mini, gpt-5.4-nano, gpt-5.2, gpt-5.2-codex, gpt-5.3-codex, gpt-5.3-codex-spark, gpt-5.1-codex-max, gpt-daybreak-blue-latest, gpt-daybreak-red-latest, openai.gpt-5.5, openai.gpt-5.4, openai.gpt-5.6-sol, openai.gpt-5.6-terra, openai.gpt-5.6-luna, codex-auto-review, o3-mini, gpt4, gpt4o, sol, terra, luna, openai.formal-ai, openai.gpt-6-sol, openai.gpt-6-luna, openai.gpt-reserve, openai.g"
+      },
+      {
+        "line": 1778,
+        "text": "[2026-10-07T09:24:40.341Z] [INFO]                 \"-Stop presenting an earlier container OOM event as the cause of a failure (#2498). In the reported run, a child process (`rustc`) was OOM-killed and the session kept working. It later stopped for an unrelated reason, an expired Claude login. The pull-request notice is now titled \\\"\u2139\ufe0f Work session stopped on its own \u2014 the earlier container OOM event did not cause it\\\" and leads with the real stop line from the log; the old title was \\\"\u26a0\ufe0f Container OOM event during a failed work session\\\". The Telegram and PR diagnostics now label the OOM event \\\"Event \u2026 (not the cause of this stop)\\\" instead of \\\"Cause\\\". start-command's `memoryExhausted` / `exitReason: memory-exhaustion (cgroup-oom-killer)` derived only from Docker's sticky `State.OOMKilled` flag is no longer shown as separate evidence of memory exhaustion (reported upstream as link-foundation/start#180).\","
+      },
+      {
+        "line": 1780,
+        "text": "[2026-10-07T09:24:40.341Z] [INFO]                 \"-Also spread out automatic recoveries after an out-of-memory kill, and record the container's own memory limit (#2498). Every automatic recovery now waits its own random delay before it starts, whether it is a killed session resumed by the monitor or a tool resumed by solve after the tool was OOM-killed. The delay is 30\u201390 s by default, set with `--session-kill-resume-delay <min-max>` or `HIVE_MIND_SESSION_KILL_RESUME_DELAY`; `0` turns it off. Sessions hit by the same event therefore no longer compete for memory, CPU and the API in the same second. Resource snapshots now also read the task's cgroup: its memory limit, current and peak usage, and the `memory.events` `oom`/`oom_kill` counters. These are logged and stored in the `\ud83d\udcc8 [RESOURCES]` marker, and the kill diagnosis quotes them. Until now the logs only showed host RAM (for example \\\"10.4 GB of 11.7 GB available\\\") for a container capped at 2.9 GB, and nothing showed how many processes the OOM killer took.\","
+      },
+      {
+        "line": 1782,
+        "text": "[2026-10-07T09:24:40.341Z] [INFO]                 \"-Update all Docker images to start-command 0.35.4 (attempt-scoped resume evidence, start#187) and retain its per-task cgroup counters in status/list and diagnostics. An earlier container OOM cannot override a later SIGTERM or runtime heap abort; unrelated bot-cgroup counters and host victims are labelled as context. Report raw process and allocation-event counts without inferring OOM scope from their ratio. A user stop during the recovery delay cancels the pending launch, the environment delay works with parsed CLI defaults, and invalid timer ranges fall back to 30\u201390 seconds.\","
+      },
+      {
+        "line": 1784,
+        "text": "[2026-10-07T09:24:40.341Z] [INFO]                 \"-Keep resumed tasks under monitoring by reading terminal and stop evidence only from the current attempt, and reset inherited completion caches. Recovery notices now distinguish scheduling, launch acceptance, observed execution output, quiet pending runs and terminal outcomes. Update one durable GitHub lifecycle comment and the Telegram task reply at phase changes and five-minute intervals; in-process retries log and publish their actual result, clear their heartbeat timer, and do not infer OOM solely from SIGKILL. Preserve known tool outcomes after later output evicts them from the log tail. Report a missing recovery exit code as an unknown outcome in notifications and durable completion history, including restored completion latches. Refresh command-stream and dotenvx dynamic pins; all 168 dependency declarations are current.\","
+      },
+      {
+        "line": 1808,
+        "text": "[2026-10-07T09:24:40.341Z] [INFO]                 \"+- 65df4c1: Stop presenting an earlier container OOM event as the cause of a failure (#2498). In the reported run, a child process (`rustc`) was OOM-killed and the session kept working. It later stopped for an unrelated reason, an expired Claude login. The pull-request notice is now titled \\\"\u2139\ufe0f Work session stopped on its own \u2014 the earlier container OOM event did not cause it\\\" and leads with the real stop line from the log; the old title was \\\"\u26a0\ufe0f Container OOM event during a failed work session\\\". The Telegram and PR diagnostics now label the OOM event \\\"Event \u2026 (not the cause of this stop)\\\" instead of \\\"Cause\\\". start-command's `memoryExhausted` / `exitReason: memory-exhaustion (cgroup-oom-killer)` derived only from Docker's sticky `State.OOMKilled` flag is no longer shown as separate evidence of memory exhaustion (reported upstream as link-foundation/start#180).\","
+      },
+      {
+        "line": 1810,
+        "text": "[2026-10-07T09:24:40.341Z] [INFO]                 \"+  Also spread out automatic recoveries after an out-of-memory kill, and record the container's own memory limit (#2498). Every automatic recovery now waits its own random delay before it starts, whether it is a killed session resumed by the monitor or a tool resumed by solve after the tool was OOM-killed. The delay is 30\u201390 s by default, set with `--session-kill-resume-delay <min-max>` or `HIVE_MIND_SESSION_KILL_RESUME_DELAY`; `0` turns it off. Sessions hit by the same event therefore no longer compete for memory, CPU and the API in the same second. Resource snapshots now also read the task's cgroup: its memory limit, current and peak usage, and the `memory.events` `oom`/`oom_kill` counters. These are logged and stored in the `\ud83d\udcc8 [RESOURCES]` marker, and the kill diagnosis quotes them. Until now the logs only showed host RAM (for example \\\"10.4 GB of 11.7 GB available\\\") for a container capped at 2.9 GB, and nothing showed how many processes the OOM killer took.\","
+      },
+      {
+        "line": 1812,
+        "text": "[2026-10-07T09:24:40.341Z] [INFO]                 \"+  Update all Docker images to start-command 0.35.4 (attempt-scoped resume evidence, start#187) and retain its per-task cgroup counters in status/list and diagnostics. An earlier container OOM cannot override a later SIGTERM or runtime heap abort; unrelated bot-cgroup counters and host victims are labelled as context. Report raw process and allocation-event counts without inferring OOM scope from their ratio. A user stop during the recovery delay cancels the pending launch, the environment delay works with parsed CLI defaults, and invalid timer ranges fall back to 30\u201390 seconds.\","
+      },
+      {
+        "line": 1814,
+        "text": "[2026-10-07T09:24:40.341Z] [INFO]                 \"+  Keep resumed tasks under monitoring by reading terminal and stop evidence only from the current attempt, and reset inherited completion caches. Recovery notices now distinguish scheduling, launch acceptance, observed execution output, quiet pending runs and terminal outcomes. Update one durable GitHub lifecycle comment and the Telegram task reply at phase changes and five-minute intervals; in-process retries log and publish their actual result, clear their heartbeat timer, and do not infer OOM solely from SIGKILL. Preserve known tool outcomes after later output evicts them from the log tail. Report a missing recovery exit code as an unknown outcome in notifications and durable completion history, including restored completion latches. Refresh command-stream and dotenvx dynamic pins; all 168 dependency declarations are current.\","
+      },
+      {
+        "line": 5683,
+        "text": "[2026-10-07T09:24:41.891Z] [INFO]             \"text\": \"Async agent launched successfully. (This tool result is internal metadata \u2014 never quote or paste any part of it, including the agentId below, into a user-facing reply.)\\nagentId: a5d2048ebdee05143 (internal ID - do not mention to user. Use SendMessage with to: 'a5d2048ebdee05143', summary: '<5-10 word recap>' to continue this agent.)\\nThe agent is working in the background. You will be notified automatically when it completes. You know nothing about its results until that notification arrives \u2014 do not report, assume, or predict them; continue other work or respond to the user in the meantime.\\nDo not duplicate this agent's work \u2014 avoid working with the same files or topics it is using.\\noutput_file: /tmp/claude-1001/-tmp-gh-issue-solver-1791364120785/41cebf9b-7516-44c0-8422-5bbafe26cee9/tasks/a5d2048ebdee05143.output\\nDo NOT Read or tail this file via the shell tool \u2014 it is the full subagent JSONL transcript and reading it will overflow your context. If the user asks for progress, say the agent is still running; you'll get a completion notification.\""
+      },
+      {
+        "line": 9629,
+        "text": "[2026-10-07T09:24:44.547Z] [INFO]         \"content\": \"Command did not complete within its 120s timeout and was moved to the background (ID: bxd4srg4j). Output is being written to: /tmp/claude-1001/-tmp-gh-issue-solver-1791364120785/41cebf9b-7516-44c0-8422-5bbafe26cee9/tasks/bxd4srg4j.output. You will be notified when it completes. If it is still running after 10m in the background, it will be stopped and you will be notified. To check interim output, use Read on that file path.\\nSession cwd remains /tmp/gh-issue-solver-1791364120785; directory changes made by the backgrounded command do not apply to subsequent commands.\","
+      },
+      {
+        "line": 14081,
+        "text": "[2026-10-07T09:24:45.813Z] [INFO]         \"text\": \"This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation.\\n\\nSummary:\\n1. Primary Request and Intent:\\n   Solve GitHub issue https://github.com/link-assistant/hive-mind/issues/2591, titled \\\"We must support all obvious aliases for latest versions of models\\\". Work only on branch `issue-2591-1b69dfe657e2` in /tmp/gh-issue-solver-1791364120785, and update the existing PR #2592 instead of creating a new one.\\n\\n   The issue asks for the following:\\n   - **Bare family aliases.** In the screenshot, `/codex https://github.com/link-assistant/calculator/issues/227 \u2014think high \u2014model astra` fails with `Unrecognized model: \\\"astra\\\"`, `Did you mean: \\\"terra\\\"?` and then lists about 60 models. `astra` should resolve to the latest `gpt-6-astra`, or whatever the latest Astra is at that moment.\\n   - **Dynamic aliases.** New aliases should be picked up from new model names without code changes.\\n   - **Full model support.** Every available model should be supported to its full potential.\\n   - **Real model lists.** The \\\"Available models\\\" list must reflect what is actually available in Codex, Claude and the other harnesses, so obsolete models are not shown.\\n   - **Case study.** Download all related logs and data into `./docs/case-studies/issue-2591`. Write a deep case study covering:\\n     - a timeline,\\n     - every requirement in the issue,\\n "
+      },
+      {
+        "line": 20673,
+        "text": "[2026-10-07T09:28:35.695Z] [INFO]         \"text\": \"This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation.\\n\\nSummary:\\n1. Primary Request and Intent:\\n   Solve GitHub issue https://github.com/link-assistant/hive-mind/issues/2591, \\\"We must support all obvious aliases for latest versions of models\\\". Work in /tmp/gh-issue-solver-1791364120785, only on branch `issue-2591-1b69dfe657e2`, and update the existing PR #2592 rather than opening a new one.\\n\\n   What the issue asks for:\\n   - **Bare family aliases.** In the screenshot, `/codex ... --model astra` fails with `Unrecognized model: \\\"astra\\\"`, `Did you mean: \\\"terra\\\"?` and a list of about 60 models. `astra` must resolve to the latest GPT Astra.\\n   - **Dynamic aliases.** Aliases should be derived from new model names without code changes.\\n   - **Full model support.** Every available model should be supported to its full potential.\\n   - **Real model lists.** \\\"Available models\\\" must reflect what Codex, Claude and the other CLIs actually offer today, without obsolete entries.\\n   - **Case study.** Collect logs and data under `./docs/case-studies/issue-2591` and write a deep case study:\\n     - timeline\\n     - requirements\\n     - root causes\\n     - solutions\\n     - existing libraries\\n     - online research\\n   - **Debug output.** Add debug output if it is needed to find the cause.\\n   - **Upstream reports.** File issues in"
+      },
+      {
+        "line": 24920,
+        "text": "[2026-10-07T09:32:06.942Z] [INFO]           \"command\": \"npm test > /tmp/npm-test.log 2>&1; echo \\\"exit $?\\\" >> /tmp/npm-test.log\","
+      },
+      {
+        "line": 24955,
+        "text": "[2026-10-07T09:32:06.942Z] [INFO]       \"command\": \"cd /tmp/gh-issue-solver-1791364120785 && npm test > /tmp/npm-test.log 2>&1; echo \\\"exit $?\\\" >> /tmp/npm-test.log\","
+      },
+      {
+        "line": 24973,
+        "text": "[2026-10-07T09:32:06.979Z] [INFO]       \"description\": \"npm test > /tmp/npm-test.log 2>&1; echo \\\"exit $?\\\" >> /tmp/npm-test.log\""
+      },
+      {
+        "line": 24985,
+        "text": "[2026-10-07T09:32:06.985Z] [INFO]   \"description\": \"npm test > /tmp/npm-test.log 2>&1; echo \\\"exit $?\\\" >> /tmp/npm-test.log\","
+      },
+      {
+        "line": 27721,
+        "text": "[2026-10-07T09:33:23.282Z] [INFO]         \"content\": \"2026-10-07T07:06:06Z We must support all obvious aliases for latest versions of models\\n<img width=\\\"876\\\" height=\\\"525\\\" alt=\\\"Image\\\" src=\\\"https://github.com/user-attachments/assets/90c3c822-6c50-47b1-aac1-96e611f5f9b1\\\" />\\n\\nFor example astra should go with latest gpt-6-astra (or whatever the latest will be at the moment).\\n\\nWe should also make sure we dynamically get new aliases when introduced from new model names, without needing code changes.\\n\\nAnyway we need to double check that we fully support all the available models to the full potential.\\n\\nAlso we must double check that:\\n\\n```\\nAvailable models for codex: formal-ai, gpt-6-sol, gpt-6-luna, gpt-reserve, gpt-6-astra, gpt5, gpt-5.5, gpt-5.5-mini, gpt-5.5-nano, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna, gpt-5.6-cyber, gpt-5.4, gpt-5.4-mini, gpt-5.4-nano, gpt-5.2, gpt-5.2-codex, gpt-5.3-codex, gpt-5.3-codex-spark, gpt-5.1-codex-max, gpt-daybreak-blue-latest, gpt-daybreak-red-latest, openai.gpt-5.5, openai.gpt-5.4, openai.gpt-5.6-sol, openai.gpt-5.6-terra, openai.gpt-5.6-luna, codex-auto-review, o3-mini, gpt4, gpt4o, sol, terra, luna, openai.formal-ai, openai.gpt-6-sol, openai.gpt-6-luna, openai.gpt-reserve, openai.gpt-6-astra, openai.gpt-5, openai.gpt-5.5-mini, openai.gpt-5.5-nano, openai.gpt-5.6-cyber, openai.gpt-5.4-mini, openai.gpt-5.4-nano, openai.gpt-5.2, openai.gpt-5.2-codex, openai.gpt-5.3-codex, openai.gpt-5.3-codex-spark, openai.gpt-5.1-codex-max, open"
+      },
+      {
+        "line": 27731,
+        "text": "[2026-10-07T09:33:23.282Z] [INFO]     \"stdout\": \"2026-10-07T07:06:06Z We must support all obvious aliases for latest versions of models\\n<img width=\\\"876\\\" height=\\\"525\\\" alt=\\\"Image\\\" src=\\\"https://github.com/user-attachments/assets/90c3c822-6c50-47b1-aac1-96e611f5f9b1\\\" />\\n\\nFor example astra should go with latest gpt-6-astra (or whatever the latest will be at the moment).\\n\\nWe should also make sure we dynamically get new aliases when introduced from new model names, without needing code changes.\\n\\nAnyway we need to double check that we fully support all the available models to the full potential.\\n\\nAlso we must double check that:\\n\\n```\\nAvailable models for codex: formal-ai, gpt-6-sol, gpt-6-luna, gpt-reserve, gpt-6-astra, gpt5, gpt-5.5, gpt-5.5-mini, gpt-5.5-nano, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna, gpt-5.6-cyber, gpt-5.4, gpt-5.4-mini, gpt-5.4-nano, gpt-5.2, gpt-5.2-codex, gpt-5.3-codex, gpt-5.3-codex-spark, gpt-5.1-codex-max, gpt-daybreak-blue-latest, gpt-daybreak-red-latest, openai.gpt-5.5, openai.gpt-5.4, openai.gpt-5.6-sol, openai.gpt-5.6-terra, openai.gpt-5.6-luna, codex-auto-review, o3-mini, gpt4, gpt4o, sol, terra, luna, openai.formal-ai, openai.gpt-6-sol, openai.gpt-6-luna, openai.gpt-reserve, openai.gpt-6-astra, openai.gpt-5, openai.gpt-5.5-mini, openai.gpt-5.5-nano, openai.gpt-5.6-cyber, openai.gpt-5.4-mini, openai.gpt-5.4-nano, openai.gpt-5.2, openai.gpt-5.2-codex, openai.gpt-5.3-codex, openai.gpt-5.3-codex-spark, openai.gpt-5.1-codex-max, openai.gp"
+      },
+      {
+        "line": 34895,
+        "text": "[2026-10-07T09:36:47.202Z] [INFO]         \"text\": \"This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation.\\n\\nSummary:\\n1. Primary Request and Intent:\\n   Solve GitHub issue https://github.com/link-assistant/hive-mind/issues/2591, \\\"We must support all obvious aliases for latest versions of models\\\". Work in /tmp/gh-issue-solver-1791364120785, only on branch `issue-2591-1b69dfe657e2`, and update the existing PR #2592; do not create a new PR.\\n\\n   What the issue asks for:\\n   - **astra alias:** `astra` must resolve to the latest gpt-6-astra. The screenshot shows `/codex --model astra` failing with \\\"Did you mean terra\\\".\\n   - **Dynamic aliases:** derive aliases from new model names without code changes.\\n   - **Full support:** support all available models to their full potential.\\n   - **Real listings:** the \\\"Available models\\\" list must be the real current catalogue of codex, claude and the other CLIs, with no obsolete entries.\\n   - **Case study:** collect data in `./docs/case-studies/issue-2591` and write a deep case study covering timeline, requirements, root causes, solutions, existing libraries and online research.\\n   - **Debug output:** add debug output if it is needed.\\n   - **Upstream reports:** report issues to other repositories, with reproductions, workarounds and suggested fixes.\\n   - **Apply everywhere:** fix the problem in every place it occurs in the codebase.\\n"
+      },
+      {
+        "line": 35451,
+        "text": "[2026-10-07T09:36:52.973Z] [INFO]         \"text\": \"The suite is still running; the errors above are expected noise from tests. Meanwhile I'll run the model-related tests directly against the latest commit.\""
+      },
+      {
+        "line": 35596,
+        "text": "[2026-10-07T09:38:54.535Z] [INFO]       \"description\": \"npm test > /tmp/npm-test.log 2>&1; echo \\\"exit $?\\\" >> /tmp/npm-test.log\""
+      },
+      {
+        "line": 35627,
+        "text": "[2026-10-07T09:38:54.711Z] [INFO]         \"content\": \"Command did not complete within its 120s timeout and was moved to the background (ID: b6ut9xcnk). Output is being written to: /tmp/claude-1001/-tmp-gh-issue-solver-1791364120785/41cebf9b-7516-44c0-8422-5bbafe26cee9/tasks/b6ut9xcnk.output. You will be notified when it completes. If it is still running after 10m in the background, it will be stopped and you will be notified. To check interim output, use Read on that file path.\","
+      },
+      {
+        "line": 36132,
+        "text": "[2026-10-07T09:39:04.666Z] [INFO]         \"content\": \"gpt-6-astra | list | 2 | Frontier intelligence for the most demanding work. | \\ngpt-6.1-sol | list | 1 | Latest workhorse model for coding and everyday work. | \\ngpt-6-sol | list | 3 | Previous generation workhorse model. | \\ngpt-6-luna | list | 4 | Fast and affordable model for easier tasks. | \\ngpt-5.6-sol | list | 5 | Older generation workhorse model. | gpt-6-sol\\ngpt-5.6-terra | list | 8 | Older balanced model for straightforward work. | gpt-6-sol\\ngpt-5.6-luna | list | 9 | Older fast and efficient model. | gpt-6-luna\\ngpt-daybreak-blue-latest | hide | 11 | Latest frontier agentic coding model for broad defensive cybersecurity work. | \\ngpt-daybreak-red-latest | hide | 12 | Cyber-permissive variant of our latest frontier agentic coding model for advanced, authorized cybersecurity research. | \\ngpt-5.5 | list | 13 | Legacy coding model. | gpt-6-sol\\ncodex-auto-review | hide | 43 | Automatic approval review model for Codex. | \\n\\n## codex (62)\\nformal-ai, gpt-6.1-sol, gpt-6-sol, gpt-6-luna, gpt-reserve, gpt-6-astra, gpt5, gpt-5.5, gpt-5.5-mini, gpt-5.5-nano, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna, gpt-5.6-cyber, gpt-5.4, gpt-5.4-mini, gpt-5.4-nano, gpt-5.2, gpt-5.2-codex, gpt-5.3-codex, gpt-5.3-codex-spark, gpt-5.1-codex-max, gpt-daybreak-blue-latest, gpt-daybreak-red-latest, openai.gpt-5.5, openai.gpt-5.4, openai.gpt-5.6-sol, openai.gpt-5.6-terra, openai.gpt-5.6-luna, codex-auto-review, o3-mini, gpt4, gpt4o, sol, terr"
+      },
+      {
+        "line": 36142,
+        "text": "[2026-10-07T09:39:04.666Z] [INFO]     \"stdout\": \"gpt-6-astra | list | 2 | Frontier intelligence for the most demanding work. | \\ngpt-6.1-sol | list | 1 | Latest workhorse model for coding and everyday work. | \\ngpt-6-sol | list | 3 | Previous generation workhorse model. | \\ngpt-6-luna | list | 4 | Fast and affordable model for easier tasks. | \\ngpt-5.6-sol | list | 5 | Older generation workhorse model. | gpt-6-sol\\ngpt-5.6-terra | list | 8 | Older balanced model for straightforward work. | gpt-6-sol\\ngpt-5.6-luna | list | 9 | Older fast and efficient model. | gpt-6-luna\\ngpt-daybreak-blue-latest | hide | 11 | Latest frontier agentic coding model for broad defensive cybersecurity work. | \\ngpt-daybreak-red-latest | hide | 12 | Cyber-permissive variant of our latest frontier agentic coding model for advanced, authorized cybersecurity research. | \\ngpt-5.5 | list | 13 | Legacy coding model. | gpt-6-sol\\ncodex-auto-review | hide | 43 | Automatic approval review model for Codex. | \\n\\n## codex (62)\\nformal-ai, gpt-6.1-sol, gpt-6-sol, gpt-6-luna, gpt-reserve, gpt-6-astra, gpt5, gpt-5.5, gpt-5.5-mini, gpt-5.5-nano, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna, gpt-5.6-cyber, gpt-5.4, gpt-5.4-mini, gpt-5.4-nano, gpt-5.2, gpt-5.2-codex, gpt-5.3-codex, gpt-5.3-codex-spark, gpt-5.1-codex-max, gpt-daybreak-blue-latest, gpt-daybreak-red-latest, openai.gpt-5.5, openai.gpt-5.4, openai.gpt-5.6-sol, openai.gpt-5.6-terra, openai.gpt-5.6-luna, codex-auto-review, o3-mini, gpt4, gpt4o, sol, terra, lu"
+      },
+      {
+        "line": 41895,
+        "text": "[2026-10-07T09:41:08.416Z] [ERROR] \u274c Claude command failed with exit code 137"
+      },
+      {
+        "line": 41915,
+        "text": "[2026-10-07T09:41:14.105Z] [WARNING] \u26a0\ufe0f  105 process(es) still running in /tmp/gh-issue-solver-1791364120785 after the session ended:"
+      },
+      {
+        "line": 41917,
+        "text": "[2026-10-07T09:41:14.174Z] [WARNING]    pid 40721: npm test"
+      },
+      {
+        "line": 41924,
+        "text": "[2026-10-07T09:41:14.457Z] [WARNING]    pid 83371: timeout 120 node tests/test-version-info.mjs"
+      },
+      {
+        "line": 41925,
+        "text": "[2026-10-07T09:41:14.500Z] [WARNING]    pid 83372: node tests/test-version-info.mjs"
+      },
+      {
+        "line": 42066,
+        "text": "[2026-10-07T09:41:58.389Z] [INFO] \ud83d\udcbe Critical error (CLAUDE execution failed with Claude command failed with exit code 137) \u2014 preserving uncommitted changes on recovery/issue-2591-1b69dfe657e2 (the PR branch is not changed)..."
+      }
+    ]
+  },
+  {
+    "file": "formal-ai-replay-server.log",
+    "findings": [
+      {
+        "line": 10,
+        "text": "{\"model\":\"formal-ai\",\"temperature\":0,\"max_tokens\":256,\"messages\":[{\"role\":\"user\",\"content\":\"Read README.md (e.g., the project documentation).\"},{\"role\":\"assistant\",\"content\":\"Let me open README.md and read what it says.\",\"tool_calls\":[{\"id\":\"call_055ec482c1470832\",\"type\":\"function\",\"function\":{\"name\":\"read\",\"arguments\":\"{\\\"filePath\\\":\\\"README.md\\\"}\"}},{\"id\":\"call_f99a0419e8fe2812\",\"type\":\"function\",\"function\":{\"name\":\"read\",\"arguments\":\"{\\\"filePath\\\":\\\"e.g\\\"}\"}}]},{\"role\":\"tool\",\"tool_call_id\":\"call_055ec482c1470832\",\"content\":\"# Project documentation\\nThis is a fixture.\"},{\"role\":\"tool\",\"tool_call_id\":\"call_f99a0419e8fe2812\",\"content\":\"Error: File not found: e.g\"}],\"tools\":[{\"type\":\"function\",\"function\":{\"name\":\"read\",\"description\":\"Read a local file\",\"parameters\":{\"type\":\"object\",\"properties\":{\"filePath\":{\"type\":\"string\"}},\"required\":[\"filePath\"]}}}]}"
+      }
+    ]
+  },
+  {
+    "file": "formal-draft-2591.log",
+    "findings": [
+      {
+        "line": 1244,
+        "text": "Formal AI draft\tUNKNOWN STEP\t2026-10-07T07:14:46.2680082Z {\"message\":\"Resource not accessible by integration\",\"documentation_url\":\"https://docs.github.com/rest/users/users#get-the-authenticated-user\",\"status\":\"403\"}gh: Resource not accessible by integration (HTTP 403)"
+      }
+    ]
+  },
+  {
+    "file": "formal-draft-2613.log",
+    "findings": [
+      {
+        "line": 810,
+        "text": "Formal AI draft\tUNKNOWN STEP\t2026-10-07T10:00:50.2441715Z    Container memory (cgroup v2): 179 MB used of no limit of its own, peak 325 MB; processes killed by the OOM killer so far: 0"
+      },
+      {
+        "line": 811,
+        "text": "Formal AI draft\tUNKNOWN STEP\t2026-10-07T10:00:50.2446247Z \ud83d\udcc8 [RESOURCES] phase=solve_start ts=2026-10-07T10%3A00%3A50.235Z load1=2.2 load5=1.81 load15=0.87 cpuCount=4 memTotalBytes=16766414848 memAvailableBytes=15404404736 memUsedBytes=1362010112 processRssBytes=121712640 processHeapUsedBytes=30427000 processHeapTotalBytes=51937280 processExternalBytes=5059694 processHeapLimitBytes=4395630592 processHeapUsedPercent=0.6922101246491643 diskPath=%2F diskTotalBytes=154894188544 diskAvailableBytes=87438934016 diskUsedBytes=67438477312 diskUsedPercent=43.538416738497 mem=14.3%20GB%20available%20%2F%2015.6%20GB%20total heap=29%20MB%20used%20of%204.1%20GB%20limit%20(0.7%25) disk=81.4%20GB%20available%20%2F%20144.3%20GB%20total cgroupVersion=2 cgroupMemLimitBytes=null cgroupMemCurrentBytes=187523072 cgroupMemPeakBytes=340783104 cgroupOomEvents=0 cgroupOomKills=0"
+      },
+      {
+        "line": 1155,
+        "text": "Formal AI draft\tUNKNOWN STEP\t2026-10-07T10:01:25.8345338Z    Container memory (cgroup v2): 2.0 GB used of no limit of its own, peak 2.2 GB; processes killed by the OOM killer so far: 0"
+      },
+      {
+        "line": 1156,
+        "text": "Formal AI draft\tUNKNOWN STEP\t2026-10-07T10:01:25.8353028Z \ud83d\udcc8 [RESOURCES] phase=after_clone ts=2026-10-07T10%3A01%3A25.828Z load1=1.88 load5=1.77 load15=0.89 cpuCount=4 memTotalBytes=16766414848 memAvailableBytes=15371472896 memUsedBytes=1394941952 processRssBytes=136466432 processHeapUsedBytes=33390056 processHeapTotalBytes=64815104 processExternalBytes=5436262 processHeapLimitBytes=4395630592 processHeapUsedPercent=0.7596192469123666 diskPath=%2F diskTotalBytes=154894188544 diskAvailableBytes=85477830656 diskUsedBytes=69399580672 diskUsedPercent=44.80450901635088 mem=14.3%20GB%20available%20%2F%2015.6%20GB%20total heap=32%20MB%20used%20of%204.1%20GB%20limit%20(0.8%25) disk=79.6%20GB%20available%20%2F%20144.3%20GB%20total cgroupVersion=2 cgroupMemLimitBytes=null cgroupMemCurrentBytes=2181713920 cgroupMemPeakBytes=2367123456 cgroupOomEvents=0 cgroupOomKills=0"
+      },
+      {
+        "line": 1241,
+        "text": "Formal AI draft\tUNKNOWN STEP\t2026-10-07T10:01:32.1526212Z {\"message\":\"Resource not accessible by integration\",\"documentation_url\":\"https://docs.github.com/rest/users/users#get-the-authenticated-user\",\"status\":\"403\"}gh: Resource not accessible by integration (HTTP 403)"
+      }
+    ]
+  },
+  {
+    "file": "formal-job-2591.log",
+    "findings": [
+      {
+        "line": 1244,
+        "text": "2026-10-07T07:14:46.2680082Z {\"message\":\"Resource not accessible by integration\",\"documentation_url\":\"https://docs.github.com/rest/users/users#get-the-authenticated-user\",\"status\":\"403\"}gh: Resource not accessible by integration (HTTP 403)"
+      },
+      {
+        "line": 2543,
+        "text": "2026-10-07T07:15:05.4403013Z   \"bodyPreview\": \"data: {\\\"choices\\\":[{\\\"delta\\\":{\\\"role\\\":\\\"assistant\\\"},\\\"finish_reason\\\":null,\\\"index\\\":0}],\\\"created\\\":1791357302,\\\"id\\\":\\\"chatcmpl_5fb5d9f38bfcd0e0\\\",\\\"model\\\":\\\"formal-ai\\\",\\\"object\\\":\\\"chat.completion.chunk\\\"}\\n\\ndata: {\\\"choices\\\":[{\\\"delta\\\":{\\\"content\\\":\\\"Let me open e.g and read what it says.\\\"},\\\"finish_reason\\\":null,\\\"index\\\":0}],\\\"created\\\":1791357302,\\\"id\\\":\\\"chatcmpl_5fb5d9f38bfcd0e0\\\",\\\"model\\\":\\\"formal-ai\\\",\\\"object\\\":\\\"chat.completion.chunk\\\"}\\n\\ndata: {\\\"choices\\\":[{\\\"delta\\\":{\\\"tool_calls\\\":[{\\\"function\\\":{\\\"arguments\\\":\\\"{\\\\\\\"filePath\\\\\\\":\\\\\\\"/tmp/gh-issue-solver-1791357262243/e.g\\\\\\\"}\\\",\\\"name\\\":\\\"read\\\"},\\\"id\\\":\\\"call_2111f62237ac38e4\\\",\\\"index\\\":0,\\\"type\\\":\\\"function\\\"}]},\\\"finish_reason\\\":null,\\\"index\\\":0}],\\\"created\\\":1791357302,\\\"id\\\":\\\"chatcmpl_5fb5d9f38bfcd0e0\\\",\\\"model\\\":\\\"formal-ai\\\",\\\"object\\\":\\\"chat.completion.chunk\\\"}\\n\\ndata: {\\\"choices\\\":[{\\\"delta\\\":{},\\\"finish_reason\\\":\\\"tool_calls\\\",\\\"index\\\":0}],\\\"created\\\":1791357302,\\\"id\\\":\\\"chatcmpl_5fb5d9f38bfcd0e0\\\",\\\"model\\\":\\\"formal-ai\\\",\\\"object\\\":\\\"chat.completion.chunk\\\"}\\n\\ndata: {\\\"choices\\\":[],\\\"created\\\":1791357302,\\\"id\\\":\\\"chatcmpl_5fb5d9f38bfcd0e0\\\",\\\"model\\\":\\\"formal-ai\\\",\\\"object\\\":\\\"chat.completion.chunk\\\",\\\"usage\\\":{\\\"completion_tokens\\\":95,\\\"prompt_tokens\\\":24881,\\\"total_tokens\\\":24976}}\\n\\ndata: [DONE]\\n\\n\","
+      },
+      {
+        "line": 2567,
+        "text": "2026-10-07T07:15:05.4440473Z   \"bodyPreview\": \"data: {\\\"choices\\\":[{\\\"delta\\\":{\\\"role\\\":\\\"assistant\\\"},\\\"finish_reason\\\":null,\\\"index\\\":0}],\\\"created\\\":1791357302,\\\"id\\\":\\\"chatcmpl_5fb5d9f38bfcd0e0\\\",\\\"model\\\":\\\"formal-ai\\\",\\\"object\\\":\\\"chat.completion.chunk\\\"}\\n\\ndata: {\\\"choices\\\":[{\\\"delta\\\":{\\\"content\\\":\\\"Let me open e.g and read what it says.\\\"},\\\"finish_reason\\\":null,\\\"index\\\":0}],\\\"created\\\":1791357302,\\\"id\\\":\\\"chatcmpl_5fb5d9f38bfcd0e0\\\",\\\"model\\\":\\\"formal-ai\\\",\\\"object\\\":\\\"chat.completion.chunk\\\"}\\n\\ndata: {\\\"choices\\\":[{\\\"delta\\\":{\\\"tool_calls\\\":[{\\\"function\\\":{\\\"arguments\\\":\\\"{\\\\\\\"filePath\\\\\\\":\\\\\\\"/tmp/gh-issue-solver-1791357262243/e.g\\\\\\\"}\\\",\\\"name\\\":\\\"read\\\"},\\\"id\\\":\\\"call_2111f62237ac38e4\\\",\\\"index\\\":0,\\\"type\\\":\\\"function\\\"}]},\\\"finish_reason\\\":null,\\\"index\\\":0}],\\\"created\\\":1791357302,\\\"id\\\":\\\"chatcmpl_5fb5d9f38bfcd0e0\\\",\\\"model\\\":\\\"formal-ai\\\",\\\"object\\\":\\\"chat.completion.chunk\\\"}\\n\\ndata: {\\\"choices\\\":[{\\\"delta\\\":{},\\\"finish_reason\\\":\\\"tool_calls\\\",\\\"index\\\":0}],\\\"created\\\":1791357302,\\\"id\\\":\\\"chatcmpl_5fb5d9f38bfcd0e0\\\",\\\"model\\\":\\\"formal-ai\\\",\\\"object\\\":\\\"chat.completion.chunk\\\"}\\n\\ndata: {\\\"choices\\\":[],\\\"created\\\":1791357302,\\\"id\\\":\\\"chatcmpl_5fb5d9f38bfcd0e0\\\",\\\"model\\\":\\\"formal-ai\\\",\\\"object\\\":\\\"chat.completion.chunk\\\",\\\"usage\\\":{\\\"completion_tokens\\\":95,\\\"prompt_tokens\\\":24881,\\\"total_tokens\\\":24976}}\\n\\ndata: [DONE]\\n\\n\","
+      },
+      {
+        "line": 2654,
+        "text": "2026-10-07T07:15:09.5000108Z     \"text\": \"Let me open e.g and read what it says.\","
+      },
+      {
+        "line": 2713,
+        "text": "2026-10-07T07:15:09.5133271Z       \"error\": \"Error: File not found: /tmp/gh-issue-solver-1791357262243/e.g\","
+      },
+      {
+        "line": 2832,
+        "text": "2026-10-07T07:15:09.5418064Z       \"error\": \"Error: File not found: /tmp/gh-issue-solver-1791357262243/e.g\","
+      },
+      {
+        "line": 2839,
+        "text": "2026-10-07T07:15:09.5421754Z   \"message\": \"Error: File not found: /tmp/gh-issue-solver-1791357262243/e.g\","
+      },
+      {
+        "line": 2840,
+        "text": "2026-10-07T07:15:09.5422753Z   \"error\": \"Error: File not found: /tmp/gh-issue-solver-1791357262243/e.g\""
+      },
+      {
+        "line": 2842,
+        "text": "2026-10-07T07:15:09.5426989Z \u26a0\ufe0f  Error event detected in stream: Error: File not found: /tmp/gh-issue-solver-1791357262243/e.g"
+      },
+      {
+        "line": 2843,
+        "text": "2026-10-07T07:15:09.5446701Z    Raw error record: {\"type\":\"error\",\"timestamp\":1791357309490,\"sessionID\":\"ses_eeac8cf94ffeyTFAtT4RkpA28d\",\"part\":{\"id\":\"prt_11537522b0019DVBEMHEfab97e\",\"sessionID\":\"ses_eeac8cf94ffeyTFAtT4RkpA28d\",\"messageID\":\"msg_1153731d3001aX34wc3Rxa7eKw\",\"type\":\"tool\",\"callID\":\"call_2111f62237ac38e4\",\"tool\":\"read\",\"state\":{\"status\":\"error\",\"input\":{\"filePath\":\"/tmp/gh-issue-solver-1791357262243/e.g\"},\"error\":\"Error: File not found: /tmp/gh-issue-solver-1791357262243/e.g\",\"time\":{\"start\":1791357309485,\"end\":1791357309489}}},\"message\":\"Error: File not found: /tmp/gh-issue-solver-1791357262243/e.g\",\"error\":\"Error: File not found: /tmp/gh-issue-solver-1791357262243/e.g\"}"
+      },
+      {
+        "line": 3491,
+        "text": "2026-10-07T07:15:09.8652651Z   \"bodyPreview\": \"{\\\"model\\\":\\\"formal-ai\\\",\\\"max_tokens\\\":8192,\\\"temperature\\\":0,\\\"messages\\\":[{\\\"role\\\":\\\"system\\\",\\\"content\\\":\\\"You are Agent, the best coding agent on the planet.\\\\n\\\\nYou are an interactive CLI tool that helps users with software engineering tasks. Use the instructions below and the tools available to you to assist the user.\\\\n\\\\nIMPORTANT: You must NEVER generate or guess URLs for the user unless you are confident that the URLs are for helping the user with programming. You may use URLs provided by the user in their messages or local files.\\\\n\\\\nIf the user asks for help or wants to give feedback inform them of the following:\\\\n- ctrl+p to list available actions\\\\n- To give feedback, users should report the issue at\\\\n  https://github.com/link-assistant/agent\\\\n\\\\nWhen the user directly asks about Agent (eg. \\\\\\\"can Agent do...\\\\\\\", \\\\\\\"does Agent have...\\\\\\\"), or asks in second person (eg. \\\\\\\"are you able...\\\\\\\", \\\\\\\"can you do...\\\\\\\"), or asks how to use a specific Agent feature (eg. implement a hook, write a slash command, or install an MCP server), use the WebFetch tool to gather information to answer the question from Agent docs. The list of available docs is available at https://github.com/link-assistant/agent#readme\\\\n\\\\n# Tone and style\\\\n- Only use emojis if the user explicitly requests it. Avoid using emojis in all communication unless asked.\\\\n- Your output will be displayed on a command line interface. Your respon"
+      },
+      {
+        "line": 3593,
+        "text": "2026-10-07T07:15:13.3242120Z   \"bodyPreview\": \"data: {\\\"choices\\\":[{\\\"delta\\\":{\\\"role\\\":\\\"assistant\\\"},\\\"finish_reason\\\":null,\\\"index\\\":0}],\\\"created\\\":1791357309,\\\"id\\\":\\\"chatcmpl_5fb5d9f38bfcd0e0\\\",\\\"model\\\":\\\"formal-ai\\\",\\\"object\\\":\\\"chat.completion.chunk\\\"}\\n\\ndata: {\\\"choices\\\":[{\\\"delta\\\":{\\\"content\\\":\\\"The command failed: Error: File not found: /tmp/gh-issue-solver-1791357262243/e.g\\\\n\\\\nI detected a failure while working on this request. Would you like me to prepare an issue report with the diagnostic context? Reply `Report issue`.\\\"},\\\"finish_reason\\\":null,\\\"index\\\":0}],\\\"created\\\":1791357309,\\\"id\\\":\\\"chatcmpl_5fb5d9f38bfcd0e0\\\",\\\"model\\\":\\\"formal-ai\\\",\\\"object\\\":\\\"chat.completion.chunk\\\"}\\n\\ndata: {\\\"choices\\\":[{\\\"delta\\\":{},\\\"finish_reason\\\":\\\"stop\\\",\\\"index\\\":0}],\\\"created\\\":1791357309,\\\"id\\\":\\\"chatcmpl_5fb5d9f38bfcd0e0\\\",\\\"model\\\":\\\"formal-ai\\\",\\\"object\\\":\\\"chat.completion.chunk\\\"}\\n\\ndata: {\\\"choices\\\":[],\\\"created\\\":1791357309,\\\"id\\\":\\\"chatcmpl_5fb5d9f38bfcd0e0\\\",\\\"model\\\":\\\"formal-ai\\\",\\\"object\\\":\\\"chat.completion.chunk\\\",\\\"usage\\\":{\\\"completion_tokens\\\":230,\\\"prompt_tokens\\\":24980,\\\"total_tokens\\\":25210}}\\n\\ndata: [DONE]\\n\\n\","
+      },
+      {
+        "line": 3604,
+        "text": "2026-10-07T07:15:13.3277991Z   \"bodyPreview\": \"data: {\\\"choices\\\":[{\\\"delta\\\":{\\\"role\\\":\\\"assistant\\\"},\\\"finish_reason\\\":null,\\\"index\\\":0}],\\\"created\\\":1791357309,\\\"id\\\":\\\"chatcmpl_5fb5d9f38bfcd0e0\\\",\\\"model\\\":\\\"formal-ai\\\",\\\"object\\\":\\\"chat.completion.chunk\\\"}\\n\\ndata: {\\\"choices\\\":[{\\\"delta\\\":{\\\"content\\\":\\\"The command failed: Error: File not found: /tmp/gh-issue-solver-1791357262243/e.g\\\\n\\\\nI detected a failure while working on this request. Would you like me to prepare an issue report with the diagnostic context? Reply `Report issue`.\\\"},\\\"finish_reason\\\":null,\\\"index\\\":0}],\\\"created\\\":1791357309,\\\"id\\\":\\\"chatcmpl_5fb5d9f38bfcd0e0\\\",\\\"model\\\":\\\"formal-ai\\\",\\\"object\\\":\\\"chat.completion.chunk\\\"}\\n\\ndata: {\\\"choices\\\":[{\\\"delta\\\":{},\\\"finish_reason\\\":\\\"stop\\\",\\\"index\\\":0}],\\\"created\\\":1791357309,\\\"id\\\":\\\"chatcmpl_5fb5d9f38bfcd0e0\\\",\\\"model\\\":\\\"formal-ai\\\",\\\"object\\\":\\\"chat.completion.chunk\\\"}\\n\\ndata: {\\\"choices\\\":[],\\\"created\\\":1791357309,\\\"id\\\":\\\"chatcmpl_5fb5d9f38bfcd0e0\\\",\\\"model\\\":\\\"formal-ai\\\",\\\"object\\\":\\\"chat.completion.chunk\\\",\\\"usage\\\":{\\\"completion_tokens\\\":230,\\\"prompt_tokens\\\":24980,\\\"total_tokens\\\":25210}}\\n\\ndata: [DONE]\\n\\n\","
+      },
+      {
+        "line": 3659,
+        "text": "2026-10-07T07:15:13.3493417Z     \"text\": \"The command failed: Error: File not found: /tmp/gh-issue-solver-1791357262243/e.g\\n\\nI detected a failure while working on this request. Would you like me to prepare an issue report with the diagnostic context? Reply `Report issue`.\","
+      },
+      {
+        "line": 4203,
+        "text": "2026-10-07T07:15:13.4620901Z   \"bodyPreview\": \"{\\\"info\\\":{\\\"id\\\":\\\"msg_1153752c7001mKeNDbI1cetlVT\\\",\\\"sessionID\\\":\\\"ses_eeac8cf94ffeyTFAtT4RkpA28d\\\",\\\"role\\\":\\\"assistant\\\",\\\"time\\\":{\\\"created\\\":1791357309639,\\\"completed\\\":1791357313395},\\\"parentID\\\":\\\"msg_11537307f001Oc3LvcdN39nRz9\\\",\\\"modelID\\\":\\\"formal-ai\\\",\\\"providerID\\\":\\\"formalai\\\",\\\"mode\\\":\\\"build\\\",\\\"path\\\":{\\\"cwd\\\":\\\"/tmp/gh-issue-solver-1791357262243\\\",\\\"root\\\":\\\"/tmp/gh-issue-solver-1791357262243\\\"},\\\"cost\\\":0,\\\"tokens\\\":{\\\"input\\\":24980,\\\"output\\\":230,\\\"reasoning\\\":0,\\\"cache\\\":{\\\"read\\\":0,\\\"write\\\":0}},\\\"finish\\\":\\\"stop\\\"},\\\"parts\\\":[{\\\"id\\\":\\\"prt_1153760f7001uhjEwz2F9L2gRI\\\",\\\"sessionID\\\":\\\"ses_eeac8cf94ffeyTFAtT4RkpA28d\\\",\\\"messageID\\\":\\\"msg_1153752c7001mKeNDbI1cetlVT\\\",\\\"type\\\":\\\"step-start\\\",\\\"snapshot\\\":\\\"207916fcb58219bd53bba8639b31fcd7eac0b4d8\\\"},{\\\"id\\\":\\\"prt_1153760f8001pB4Yo3bc1XaDoe\\\",\\\"sessionID\\\":\\\"ses_eeac8cf94ffeyTFAtT4RkpA28d\\\",\\\"messageID\\\":\\\"msg_1153752c7001mKeNDbI1cetlVT\\\",\\\"type\\\":\\\"text\\\",\\\"text\\\":\\\"The command failed: Error: File not found: /tmp/gh-issue-solver-1791357262243/e.g\\\\n\\\\nI detected a failure while working on this request. Would you like me to prepare an issue report with the diagnostic context? Reply `Report issue`.\\\",\\\"time\\\":{\\\"start\\\":1791357313272,\\\"end\\\":1791357313272}},{\\\"id\\\":\\\"prt_1153760f9001tAg0FlaTVk0gpZ\\\",\\\"sessionID\\\":\\\"ses_eeac8cf94ffeyTFAtT4RkpA28d\\\",\\\"messageID\\\":\\\"msg_1153752c7001mKeNDbI1cetlVT\\\",\\\"type\\\":\\\"step-finish\\\",\\\"reason\\\":\\\"stop\\\",\\\"snapshot\\\":\\\"207916fc"
+      },
+      {
+        "line": 4273,
+        "text": "2026-10-07T07:15:13.4833929Z \u274c Agent reported error: Error: File not found: /tmp/gh-issue-solver-1791357262243/e.g"
+      },
+      {
+        "line": 4281,
+        "text": "2026-10-07T07:15:13.4855318Z   \"errorMatch\": \"Error: File not found: /tmp/gh-issue-solver-1791357262243/e.g\","
+      },
+      {
+        "line": 4282,
+        "text": "2026-10-07T07:15:13.4856030Z   \"message\": \"Agent reported error: Error: File not found: /tmp/gh-issue-solver-1791357262243/e.g\","
+      },
+      {
+        "line": 4292,
+        "text": "2026-10-07T07:15:35.8560245Z \u26a0\ufe0f  1 process(es) still running in /tmp/gh-issue-solver-1791357262243 after the session ended:"
+      },
+      {
+        "line": 4334,
+        "text": "2026-10-07T07:15:38.8361525Z X Failed to create gist: HTTP 403: Resource not accessible by integration (https://api.github.com/gists)"
+      },
+      {
+        "line": 4335,
+        "text": "2026-10-07T07:15:38.8362728Z \u274c Error: Failed to fetch authenticated GitHub username: gh: Resource not accessible by integration (HTTP 403)"
+      },
+      {
+        "line": 4341,
+        "text": "2026-10-07T07:16:09.3818032Z X Failed to create gist: HTTP 403: Resource not accessible by integration (https://api.github.com/gists)"
+      },
+      {
+        "line": 4342,
+        "text": "2026-10-07T07:16:09.3819316Z \u274c Error: Failed to fetch authenticated GitHub username: gh: Resource not accessible by integration (HTTP 403)"
+      },
+      {
+        "line": 4348,
+        "text": "2026-10-07T07:18:09.9100646Z X Failed to create gist: HTTP 403: Resource not accessible by integration (https://api.github.com/gists)"
+      },
+      {
+        "line": 4349,
+        "text": "2026-10-07T07:18:09.9102335Z \u274c Error: Failed to fetch authenticated GitHub username: gh: Resource not accessible by integration (HTTP 403)"
+      },
+      {
+        "line": 4355,
+        "text": "2026-10-07T07:18:11.0980688Z {\"url\":\"https://api.github.com/repos/link-assistant/hive-mind/issues/comments/6032993852\",\"html_url\":\"https://github.com/link-assistant/hive-mind/pull/2592#issuecomment-6032993852\",\"issue_url\":\"https://api.github.com/repos/link-assistant/hive-mind/issues/2592\",\"id\":6032993852,\"node_id\":\"IC_kwDOPUU0qc8AAAABZ5guPA\",\"user\":{\"login\":\"github-actions[bot]\",\"id\":41898282,\"node_id\":\"MDM6Qm90NDE4OTgyODI=\",\"avatar_url\":\"https://avatars.githubusercontent.com/in/15368?v=4\",\"gravatar_id\":\"\",\"url\":\"https://api.github.com/users/github-actions%5Bbot%5D\",\"html_url\":\"https://github.com/apps/github-actions\",\"followers_url\":\"https://api.github.com/users/github-actions%5Bbot%5D/followers\",\"following_url\":\"https://api.github.com/users/github-actions%5Bbot%5D/following{/other_user}\",\"gists_url\":\"https://api.github.com/users/github-actions%5Bbot%5D/gists{/gist_id}\",\"starred_url\":\"https://api.github.com/users/github-actions%5Bbot%5D/starred{/owner}{/repo}\",\"subscriptions_url\":\"https://api.github.com/users/github-actions%5Bbot%5D/subscriptions\",\"organizations_url\":\"https://api.github.com/users/github-actions%5Bbot%5D/orgs\",\"repos_url\":\"https://api.github.com/users/github-actions%5Bbot%5D/repos\",\"events_url\":\"https://api.github.com/users/github-actions%5Bbot%5D/events{/privacy}\",\"received_events_url\":\"https://api.github.com/users/github-actions%5Bbot%5D/received_events\",\"type\":\"Bot\",\"user_view_type\":\"public\",\"site_admin\":false},\"created_at\":\"2026-10-07T07:18:10Z\",\"updated_a"
+      },
+      {
+        "line": 4371,
+        "text": "2026-10-07T07:18:11.1237656Z \ud83e\ude79 PR #2592 was left in draft by a working session (AGENT execution failed with Agent reported error: Error: File not found: /tmp/gh-issue-solver-1791357262243/e.g); restoring its pre-run state at run end (AGENT execution failed with Agent reported error: Error: File not found: /tmp/gh-issue-solver-1791357262243/e.g)"
+      },
+      {
+        "line": 4374,
+        "text": "2026-10-07T07:18:11.4704738Z   \ud83d\udcdd Converting PR:          To ready for review (run end (AGENT execution failed with Agent reported error: Error: File not found: /tmp/gh-issue-solver-1791357262243/e.g))..."
+      },
+      {
+        "line": 4379,
+        "text": "2026-10-07T07:18:13.1431753Z \u274c AGENT execution failed with Agent reported error: Error: File not found: /tmp/gh-issue-solver-1791357262243/e.g"
+      },
+      {
+        "line": 4414,
+        "text": "2026-10-07T07:18:19.5502721Z could not create workflow dispatch event: HTTP 422: Required input 'bump_type' not provided (https://api.github.com/repos/link-assistant/hive-mind/actions/workflows/215799203/dispatches)"
+      },
+      {
+        "line": 4427,
+        "text": "2026-10-07T07:18:19.5509219Z   stderr: \"could not create workflow dispatch event: HTTP 422: Required input 'bump_type' not provided (https://api.github.com/repos/link-assistant/hive-mind/actions/workflows/215799203/dispatches)\\n\""
+      },
+      {
+        "line": 4444,
+        "text": "2026-10-07T07:18:19.8545533Z ##[warning]No files were found with the provided path: /home/runner/work/_temp/formal-ai-draft-logs. No artifacts will be uploaded."
+      }
+    ]
+  },
+  {
+    "file": "formal-job-2613.log",
+    "findings": [
+      {
+        "line": 810,
+        "text": "2026-10-07T10:00:50.2441715Z    Container memory (cgroup v2): 179 MB used of no limit of its own, peak 325 MB; processes killed by the OOM killer so far: 0"
+      },
+      {
+        "line": 811,
+        "text": "2026-10-07T10:00:50.2446247Z \ud83d\udcc8 [RESOURCES] phase=solve_start ts=2026-10-07T10%3A00%3A50.235Z load1=2.2 load5=1.81 load15=0.87 cpuCount=4 memTotalBytes=16766414848 memAvailableBytes=15404404736 memUsedBytes=1362010112 processRssBytes=121712640 processHeapUsedBytes=30427000 processHeapTotalBytes=51937280 processExternalBytes=5059694 processHeapLimitBytes=4395630592 processHeapUsedPercent=0.6922101246491643 diskPath=%2F diskTotalBytes=154894188544 diskAvailableBytes=87438934016 diskUsedBytes=67438477312 diskUsedPercent=43.538416738497 mem=14.3%20GB%20available%20%2F%2015.6%20GB%20total heap=29%20MB%20used%20of%204.1%20GB%20limit%20(0.7%25) disk=81.4%20GB%20available%20%2F%20144.3%20GB%20total cgroupVersion=2 cgroupMemLimitBytes=null cgroupMemCurrentBytes=187523072 cgroupMemPeakBytes=340783104 cgroupOomEvents=0 cgroupOomKills=0"
+      },
+      {
+        "line": 1155,
+        "text": "2026-10-07T10:01:25.8345338Z    Container memory (cgroup v2): 2.0 GB used of no limit of its own, peak 2.2 GB; processes killed by the OOM killer so far: 0"
+      },
+      {
+        "line": 1156,
+        "text": "2026-10-07T10:01:25.8353028Z \ud83d\udcc8 [RESOURCES] phase=after_clone ts=2026-10-07T10%3A01%3A25.828Z load1=1.88 load5=1.77 load15=0.89 cpuCount=4 memTotalBytes=16766414848 memAvailableBytes=15371472896 memUsedBytes=1394941952 processRssBytes=136466432 processHeapUsedBytes=33390056 processHeapTotalBytes=64815104 processExternalBytes=5436262 processHeapLimitBytes=4395630592 processHeapUsedPercent=0.7596192469123666 diskPath=%2F diskTotalBytes=154894188544 diskAvailableBytes=85477830656 diskUsedBytes=69399580672 diskUsedPercent=44.80450901635088 mem=14.3%20GB%20available%20%2F%2015.6%20GB%20total heap=32%20MB%20used%20of%204.1%20GB%20limit%20(0.8%25) disk=79.6%20GB%20available%20%2F%20144.3%20GB%20total cgroupVersion=2 cgroupMemLimitBytes=null cgroupMemCurrentBytes=2181713920 cgroupMemPeakBytes=2367123456 cgroupOomEvents=0 cgroupOomKills=0"
+      },
+      {
+        "line": 1241,
+        "text": "2026-10-07T10:01:32.1526212Z {\"message\":\"Resource not accessible by integration\",\"documentation_url\":\"https://docs.github.com/rest/users/users#get-the-authenticated-user\",\"status\":\"403\"}gh: Resource not accessible by integration (HTTP 403)"
+      },
+      {
+        "line": 2538,
+        "text": "2026-10-07T10:01:51.5980039Z   \"bodyPreview\": \"data: {\\\"choices\\\":[{\\\"delta\\\":{\\\"role\\\":\\\"assistant\\\"},\\\"finish_reason\\\":null,\\\"index\\\":0}],\\\"created\\\":1791367308,\\\"id\\\":\\\"chatcmpl_f95bfc06f5c6189e\\\",\\\"model\\\":\\\"formal-ai\\\",\\\"object\\\":\\\"chat.completion.chunk\\\"}\\n\\ndata: {\\\"choices\\\":[{\\\"delta\\\":{\\\"content\\\":\\\"Let me open e.g and read what it says.\\\"},\\\"finish_reason\\\":null,\\\"index\\\":0}],\\\"created\\\":1791367308,\\\"id\\\":\\\"chatcmpl_f95bfc06f5c6189e\\\",\\\"model\\\":\\\"formal-ai\\\",\\\"object\\\":\\\"chat.completion.chunk\\\"}\\n\\ndata: {\\\"choices\\\":[{\\\"delta\\\":{\\\"tool_calls\\\":[{\\\"function\\\":{\\\"arguments\\\":\\\"{\\\\\\\"filePath\\\\\\\":\\\\\\\"/tmp/gh-issue-solver-1791367266830/e.g\\\\\\\"}\\\",\\\"name\\\":\\\"read\\\"},\\\"id\\\":\\\"call_5828d21c23fa71de\\\",\\\"index\\\":0,\\\"type\\\":\\\"function\\\"}]},\\\"finish_reason\\\":null,\\\"index\\\":0}],\\\"created\\\":1791367308,\\\"id\\\":\\\"chatcmpl_f95bfc06f5c6189e\\\",\\\"model\\\":\\\"formal-ai\\\",\\\"object\\\":\\\"chat.completion.chunk\\\"}\\n\\ndata: {\\\"choices\\\":[{\\\"delta\\\":{},\\\"finish_reason\\\":\\\"tool_calls\\\",\\\"index\\\":0}],\\\"created\\\":1791367308,\\\"id\\\":\\\"chatcmpl_f95bfc06f5c6189e\\\",\\\"model\\\":\\\"formal-ai\\\",\\\"object\\\":\\\"chat.completion.chunk\\\"}\\n\\ndata: {\\\"choices\\\":[],\\\"created\\\":1791367308,\\\"id\\\":\\\"chatcmpl_f95bfc06f5c6189e\\\",\\\"model\\\":\\\"formal-ai\\\",\\\"object\\\":\\\"chat.completion.chunk\\\",\\\"usage\\\":{\\\"completion_tokens\\\":95,\\\"prompt_tokens\\\":24899,\\\"total_tokens\\\":24994}}\\n\\ndata: [DONE]\\n\\n\","
+      },
+      {
+        "line": 2562,
+        "text": "2026-10-07T10:01:51.6029017Z   \"bodyPreview\": \"data: {\\\"choices\\\":[{\\\"delta\\\":{\\\"role\\\":\\\"assistant\\\"},\\\"finish_reason\\\":null,\\\"index\\\":0}],\\\"created\\\":1791367308,\\\"id\\\":\\\"chatcmpl_f95bfc06f5c6189e\\\",\\\"model\\\":\\\"formal-ai\\\",\\\"object\\\":\\\"chat.completion.chunk\\\"}\\n\\ndata: {\\\"choices\\\":[{\\\"delta\\\":{\\\"content\\\":\\\"Let me open e.g and read what it says.\\\"},\\\"finish_reason\\\":null,\\\"index\\\":0}],\\\"created\\\":1791367308,\\\"id\\\":\\\"chatcmpl_f95bfc06f5c6189e\\\",\\\"model\\\":\\\"formal-ai\\\",\\\"object\\\":\\\"chat.completion.chunk\\\"}\\n\\ndata: {\\\"choices\\\":[{\\\"delta\\\":{\\\"tool_calls\\\":[{\\\"function\\\":{\\\"arguments\\\":\\\"{\\\\\\\"filePath\\\\\\\":\\\\\\\"/tmp/gh-issue-solver-1791367266830/e.g\\\\\\\"}\\\",\\\"name\\\":\\\"read\\\"},\\\"id\\\":\\\"call_5828d21c23fa71de\\\",\\\"index\\\":0,\\\"type\\\":\\\"function\\\"}]},\\\"finish_reason\\\":null,\\\"index\\\":0}],\\\"created\\\":1791367308,\\\"id\\\":\\\"chatcmpl_f95bfc06f5c6189e\\\",\\\"model\\\":\\\"formal-ai\\\",\\\"object\\\":\\\"chat.completion.chunk\\\"}\\n\\ndata: {\\\"choices\\\":[{\\\"delta\\\":{},\\\"finish_reason\\\":\\\"tool_calls\\\",\\\"index\\\":0}],\\\"created\\\":1791367308,\\\"id\\\":\\\"chatcmpl_f95bfc06f5c6189e\\\",\\\"model\\\":\\\"formal-ai\\\",\\\"object\\\":\\\"chat.completion.chunk\\\"}\\n\\ndata: {\\\"choices\\\":[],\\\"created\\\":1791367308,\\\"id\\\":\\\"chatcmpl_f95bfc06f5c6189e\\\",\\\"model\\\":\\\"formal-ai\\\",\\\"object\\\":\\\"chat.completion.chunk\\\",\\\"usage\\\":{\\\"completion_tokens\\\":95,\\\"prompt_tokens\\\":24899,\\\"total_tokens\\\":24994}}\\n\\ndata: [DONE]\\n\\n\","
+      },
+      {
+        "line": 2649,
+        "text": "2026-10-07T10:01:55.9033058Z     \"text\": \"Let me open e.g and read what it says.\","
+      },
+      {
+        "line": 2708,
+        "text": "2026-10-07T10:01:55.9154497Z       \"error\": \"Error: File not found: /tmp/gh-issue-solver-1791367266830/e.g\","
+      },
+      {
+        "line": 2732,
+        "text": "2026-10-07T10:01:55.9210070Z       \"error\": \"Error: File not found: /tmp/gh-issue-solver-1791367266830/e.g\","
+      },
+      {
+        "line": 2739,
+        "text": "2026-10-07T10:01:55.9212409Z   \"message\": \"Error: File not found: /tmp/gh-issue-solver-1791367266830/e.g\","
+      },
+      {
+        "line": 2740,
+        "text": "2026-10-07T10:01:55.9213262Z   \"error\": \"Error: File not found: /tmp/gh-issue-solver-1791367266830/e.g\""
+      },
+      {
+        "line": 2742,
+        "text": "2026-10-07T10:01:55.9241199Z \u26a0\ufe0f  Error event detected in stream: Error: File not found: /tmp/gh-issue-solver-1791367266830/e.g"
+      },
+      {
+        "line": 2743,
+        "text": "2026-10-07T10:01:55.9257972Z    Raw error record: {\"type\":\"error\",\"timestamp\":1791367315896,\"sessionID\":\"ses_eea3021fcffePVnhYj3ovsUsl4\",\"part\":{\"id\":\"prt_115d001b0001iFMTuh6OfToA0Y\",\"sessionID\":\"ses_eea3021fcffePVnhYj3ovsUsl4\",\"messageID\":\"msg_115cfdfd2001YOQmIPu1GCN4M3\",\"type\":\"tool\",\"callID\":\"call_5828d21c23fa71de\",\"tool\":\"read\",\"state\":{\"status\":\"error\",\"input\":{\"filePath\":\"/tmp/gh-issue-solver-1791367266830/e.g\"},\"error\":\"Error: File not found: /tmp/gh-issue-solver-1791367266830/e.g\",\"time\":{\"start\":1791367315890,\"end\":1791367315894}}},\"message\":\"Error: File not found: /tmp/gh-issue-solver-1791367266830/e.g\",\"error\":\"Error: File not found: /tmp/gh-issue-solver-1791367266830/e.g\"}"
+      },
+      {
+        "line": 3486,
+        "text": "2026-10-07T10:01:56.2921137Z   \"bodyPreview\": \"{\\\"model\\\":\\\"formal-ai\\\",\\\"max_tokens\\\":8192,\\\"temperature\\\":0,\\\"messages\\\":[{\\\"role\\\":\\\"system\\\",\\\"content\\\":\\\"You are Agent, the best coding agent on the planet.\\\\n\\\\nYou are an interactive CLI tool that helps users with software engineering tasks. Use the instructions below and the tools available to you to assist the user.\\\\n\\\\nIMPORTANT: You must NEVER generate or guess URLs for the user unless you are confident that the URLs are for helping the user with programming. You may use URLs provided by the user in their messages or local files.\\\\n\\\\nIf the user asks for help or wants to give feedback inform them of the following:\\\\n- ctrl+p to list available actions\\\\n- To give feedback, users should report the issue at\\\\n  https://github.com/link-assistant/agent\\\\n\\\\nWhen the user directly asks about Agent (eg. \\\\\\\"can Agent do...\\\\\\\", \\\\\\\"does Agent have...\\\\\\\"), or asks in second person (eg. \\\\\\\"are you able...\\\\\\\", \\\\\\\"can you do...\\\\\\\"), or asks how to use a specific Agent feature (eg. implement a hook, write a slash command, or install an MCP server), use the WebFetch tool to gather information to answer the question from Agent docs. The list of available docs is available at https://github.com/link-assistant/agent#readme\\\\n\\\\n# Tone and style\\\\n- Only use emojis if the user explicitly requests it. Avoid using emojis in all communication unless asked.\\\\n- Your output will be displayed on a command line interface. Your respon"
+      },
+      {
+        "line": 3588,
+        "text": "2026-10-07T10:01:59.8600679Z   \"bodyPreview\": \"data: {\\\"choices\\\":[{\\\"delta\\\":{\\\"role\\\":\\\"assistant\\\"},\\\"finish_reason\\\":null,\\\"index\\\":0}],\\\"created\\\":1791367316,\\\"id\\\":\\\"chatcmpl_f95bfc06f5c6189e\\\",\\\"model\\\":\\\"formal-ai\\\",\\\"object\\\":\\\"chat.completion.chunk\\\"}\\n\\ndata: {\\\"choices\\\":[{\\\"delta\\\":{\\\"content\\\":\\\"The command failed: Error: File not found: /tmp/gh-issue-solver-1791367266830/e.g\\\\n\\\\nI detected a failure while working on this request. Would you like me to prepare an issue report with the diagnostic context? Reply `Report issue`.\\\"},\\\"finish_reason\\\":null,\\\"index\\\":0}],\\\"created\\\":1791367316,\\\"id\\\":\\\"chatcmpl_f95bfc06f5c6189e\\\",\\\"model\\\":\\\"formal-ai\\\",\\\"object\\\":\\\"chat.completion.chunk\\\"}\\n\\ndata: {\\\"choices\\\":[{\\\"delta\\\":{},\\\"finish_reason\\\":\\\"stop\\\",\\\"index\\\":0}],\\\"created\\\":1791367316,\\\"id\\\":\\\"chatcmpl_f95bfc06f5c6189e\\\",\\\"model\\\":\\\"formal-ai\\\",\\\"object\\\":\\\"chat.completion.chunk\\\"}\\n\\ndata: {\\\"choices\\\":[],\\\"created\\\":1791367316,\\\"id\\\":\\\"chatcmpl_f95bfc06f5c6189e\\\",\\\"model\\\":\\\"formal-ai\\\",\\\"object\\\":\\\"chat.completion.chunk\\\",\\\"usage\\\":{\\\"completion_tokens\\\":230,\\\"prompt_tokens\\\":24998,\\\"total_tokens\\\":25228}}\\n\\ndata: [DONE]\\n\\n\","
+      },
+      {
+        "line": 3599,
+        "text": "2026-10-07T10:01:59.8630300Z   \"bodyPreview\": \"data: {\\\"choices\\\":[{\\\"delta\\\":{\\\"role\\\":\\\"assistant\\\"},\\\"finish_reason\\\":null,\\\"index\\\":0}],\\\"created\\\":1791367316,\\\"id\\\":\\\"chatcmpl_f95bfc06f5c6189e\\\",\\\"model\\\":\\\"formal-ai\\\",\\\"object\\\":\\\"chat.completion.chunk\\\"}\\n\\ndata: {\\\"choices\\\":[{\\\"delta\\\":{\\\"content\\\":\\\"The command failed: Error: File not found: /tmp/gh-issue-solver-1791367266830/e.g\\\\n\\\\nI detected a failure while working on this request. Would you like me to prepare an issue report with the diagnostic context? Reply `Report issue`.\\\"},\\\"finish_reason\\\":null,\\\"index\\\":0}],\\\"created\\\":1791367316,\\\"id\\\":\\\"chatcmpl_f95bfc06f5c6189e\\\",\\\"model\\\":\\\"formal-ai\\\",\\\"object\\\":\\\"chat.completion.chunk\\\"}\\n\\ndata: {\\\"choices\\\":[{\\\"delta\\\":{},\\\"finish_reason\\\":\\\"stop\\\",\\\"index\\\":0}],\\\"created\\\":1791367316,\\\"id\\\":\\\"chatcmpl_f95bfc06f5c6189e\\\",\\\"model\\\":\\\"formal-ai\\\",\\\"object\\\":\\\"chat.completion.chunk\\\"}\\n\\ndata: {\\\"choices\\\":[],\\\"created\\\":1791367316,\\\"id\\\":\\\"chatcmpl_f95bfc06f5c6189e\\\",\\\"model\\\":\\\"formal-ai\\\",\\\"object\\\":\\\"chat.completion.chunk\\\",\\\"usage\\\":{\\\"completion_tokens\\\":230,\\\"prompt_tokens\\\":24998,\\\"total_tokens\\\":25228}}\\n\\ndata: [DONE]\\n\\n\","
+      },
+      {
+        "line": 3654,
+        "text": "2026-10-07T10:01:59.8762017Z     \"text\": \"The command failed: Error: File not found: /tmp/gh-issue-solver-1791367266830/e.g\\n\\nI detected a failure while working on this request. Would you like me to prepare an issue report with the diagnostic context? Reply `Report issue`.\","
+      },
+      {
+        "line": 4213,
+        "text": "2026-10-07T10:02:00.0284381Z   \"bodyPreview\": \"{\\\"info\\\":{\\\"id\\\":\\\"msg_115d00257001YA41iGFY5a7N2B\\\",\\\"sessionID\\\":\\\"ses_eea3021fcffePVnhYj3ovsUsl4\\\",\\\"role\\\":\\\"assistant\\\",\\\"time\\\":{\\\"created\\\":1791367316055,\\\"completed\\\":1791367319971},\\\"parentID\\\":\\\"msg_115cfde10001sSSlm4YshCzmsz\\\",\\\"modelID\\\":\\\"formal-ai\\\",\\\"providerID\\\":\\\"formalai\\\",\\\"mode\\\":\\\"build\\\",\\\"path\\\":{\\\"cwd\\\":\\\"/tmp/gh-issue-solver-1791367266830\\\",\\\"root\\\":\\\"/tmp/gh-issue-solver-1791367266830\\\"},\\\"cost\\\":0,\\\"tokens\\\":{\\\"input\\\":24998,\\\"output\\\":230,\\\"reasoning\\\":0,\\\"cache\\\":{\\\"read\\\":0,\\\"write\\\":0}},\\\"finish\\\":\\\"stop\\\"},\\\"parts\\\":[{\\\"id\\\":\\\"prt_115d01105001aBvLvTK3u5uFq5\\\",\\\"sessionID\\\":\\\"ses_eea3021fcffePVnhYj3ovsUsl4\\\",\\\"messageID\\\":\\\"msg_115d00257001YA41iGFY5a7N2B\\\",\\\"type\\\":\\\"step-start\\\",\\\"snapshot\\\":\\\"06bcf026f7587474a1746660c9f4a6f694a3f5d7\\\"},{\\\"id\\\":\\\"prt_115d01105002FPiHs8uFhJ2lmr\\\",\\\"sessionID\\\":\\\"ses_eea3021fcffePVnhYj3ovsUsl4\\\",\\\"messageID\\\":\\\"msg_115d00257001YA41iGFY5a7N2B\\\",\\\"type\\\":\\\"text\\\",\\\"text\\\":\\\"The command failed: Error: File not found: /tmp/gh-issue-solver-1791367266830/e.g\\\\n\\\\nI detected a failure while working on this request. Would you like me to prepare an issue report with the diagnostic context? Reply `Report issue`.\\\",\\\"time\\\":{\\\"start\\\":1791367319814,\\\"end\\\":1791367319814}},{\\\"id\\\":\\\"prt_115d01107001WZ5L7bXsLkp6Ix\\\",\\\"sessionID\\\":\\\"ses_eea3021fcffePVnhYj3ovsUsl4\\\",\\\"messageID\\\":\\\"msg_115d00257001YA41iGFY5a7N2B\\\",\\\"type\\\":\\\"step-finish\\\",\\\"reason\\\":\\\"stop\\\",\\\"snapshot\\\":\\\"06bcf026"
+      },
+      {
+        "line": 4268,
+        "text": "2026-10-07T10:02:00.0534301Z \u274c Agent reported error: Error: File not found: /tmp/gh-issue-solver-1791367266830/e.g"
+      },
+      {
+        "line": 4276,
+        "text": "2026-10-07T10:02:00.0608539Z   \"errorMatch\": \"Error: File not found: /tmp/gh-issue-solver-1791367266830/e.g\","
+      },
+      {
+        "line": 4277,
+        "text": "2026-10-07T10:02:00.0609900Z   \"message\": \"Agent reported error: Error: File not found: /tmp/gh-issue-solver-1791367266830/e.g\","
+      },
+      {
+        "line": 4287,
+        "text": "2026-10-07T10:02:26.4515105Z \u26a0\ufe0f  1 process(es) still running in /tmp/gh-issue-solver-1791367266830 after the session ended:"
+      },
+      {
+        "line": 4297,
+        "text": "2026-10-07T10:02:26.5367071Z    Container memory (cgroup v2): 2.2 GB used of no limit of its own, peak 2.4 GB; processes killed by the OOM killer so far: 0"
+      },
+      {
+        "line": 4298,
+        "text": "2026-10-07T10:02:26.5373073Z \ud83d\udcc8 [RESOURCES] phase=after_agent ts=2026-10-07T10%3A02%3A26.524Z load1=1.41 load5=1.64 load15=0.91 cpuCount=4 memTotalBytes=16766414848 memAvailableBytes=15274254336 memUsedBytes=1492160512 processRssBytes=198250496 processHeapUsedBytes=47677008 processHeapTotalBytes=104894464 processExternalBytes=5041600 processHeapLimitBytes=4395630592 processHeapUsedPercent=1.084645467860098 diskPath=%2F diskTotalBytes=154894188544 diskAvailableBytes=85388619776 diskUsedBytes=69488791552 diskUsedPercent=44.86210374010299 mem=14.2%20GB%20available%20%2F%2015.6%20GB%20total heap=45%20MB%20used%20of%204.1%20GB%20limit%20(1.1%25) disk=79.5%20GB%20available%20%2F%20144.3%20GB%20total agentStatePath=%2Fhome%2Fbox%2F.local%2Fshare%2Flink-assistant-agent agentStoreCount=1 agentStoreBytes=1033650 cgroupVersion=2 cgroupMemLimitBytes=null cgroupMemCurrentBytes=2395467776 cgroupMemPeakBytes=2530758656 cgroupOomEvents=0 cgroupOomKills=0"
+      },
+      {
+        "line": 4316,
+        "text": "2026-10-07T10:02:27.0668439Z    Container memory (cgroup v2): 2.2 GB used of no limit of its own, peak 2.4 GB; processes killed by the OOM killer so far: 0"
+      },
+      {
+        "line": 4317,
+        "text": "2026-10-07T10:02:27.0677929Z \ud83d\udcc8 [RESOURCES] phase=log_upload_start ts=2026-10-07T10%3A02%3A27.054Z load1=1.38 load5=1.63 load15=0.91 cpuCount=4 memTotalBytes=16766414848 memAvailableBytes=15263596544 memUsedBytes=1502818304 processRssBytes=198381568 processHeapUsedBytes=57204032 processHeapTotalBytes=104894464 processExternalBytes=5119095 processHeapLimitBytes=4395630592 processHeapUsedPercent=1.3013839721679688 diskPath=%2F diskTotalBytes=154894188544 diskAvailableBytes=85388607488 diskUsedBytes=69488803840 diskUsedPercent=44.86211167326053 mem=14.2%20GB%20available%20%2F%2015.6%20GB%20total heap=55%20MB%20used%20of%204.1%20GB%20limit%20(1.3%25) disk=79.5%20GB%20available%20%2F%20144.3%20GB%20total agentStatePath=%2Fhome%2Fbox%2F.local%2Fshare%2Flink-assistant-agent agentStoreCount=1 agentStoreBytes=1033650 cgroupVersion=2 cgroupMemLimitBytes=null cgroupMemCurrentBytes=2396250112 cgroupMemPeakBytes=2530758656 cgroupOomEvents=0 cgroupOomKills=0"
+      },
+      {
+        "line": 4331,
+        "text": "2026-10-07T10:02:28.5078250Z X Failed to create gist: HTTP 403: Resource not accessible by integration (https://api.github.com/gists)"
+      },
+      {
+        "line": 4332,
+        "text": "2026-10-07T10:02:28.5079579Z \u274c Error: Failed to fetch authenticated GitHub username: gh: Resource not accessible by integration (HTTP 403)"
+      },
+      {
+        "line": 4338,
+        "text": "2026-10-07T10:02:59.1380893Z X Failed to create gist: HTTP 403: Resource not accessible by integration (https://api.github.com/gists)"
+      },
+      {
+        "line": 4339,
+        "text": "2026-10-07T10:02:59.1382884Z \u274c Error: Failed to fetch authenticated GitHub username: gh: Resource not accessible by integration (HTTP 403)"
+      },
+      {
+        "line": 4345,
+        "text": "2026-10-07T10:04:59.8500320Z X Failed to create gist: HTTP 403: Resource not accessible by integration (https://api.github.com/gists)"
+      },
+      {
+        "line": 4346,
+        "text": "2026-10-07T10:04:59.8501272Z \u274c Error: Failed to fetch authenticated GitHub username: gh: Resource not accessible by integration (HTTP 403)"
+      },
+      {
+        "line": 4352,
+        "text": "2026-10-07T10:05:00.8163538Z {\"url\":\"https://api.github.com/repos/link-assistant/hive-mind/issues/comments/6035655582\",\"html_url\":\"https://github.com/link-assistant/hive-mind/pull/2614#issuecomment-6035655582\",\"issue_url\":\"https://api.github.com/repos/link-assistant/hive-mind/issues/2614\",\"id\":6035655582,\"node_id\":\"IC_kwDOPUU0qc8AAAABZ8DLng\",\"user\":{\"login\":\"github-actions[bot]\",\"id\":41898282,\"node_id\":\"MDM6Qm90NDE4OTgyODI=\",\"avatar_url\":\"https://avatars.githubusercontent.com/in/15368?v=4\",\"gravatar_id\":\"\",\"url\":\"https://api.github.com/users/github-actions%5Bbot%5D\",\"html_url\":\"https://github.com/apps/github-actions\",\"followers_url\":\"https://api.github.com/users/github-actions%5Bbot%5D/followers\",\"following_url\":\"https://api.github.com/users/github-actions%5Bbot%5D/following{/other_user}\",\"gists_url\":\"https://api.github.com/users/github-actions%5Bbot%5D/gists{/gist_id}\",\"starred_url\":\"https://api.github.com/users/github-actions%5Bbot%5D/starred{/owner}{/repo}\",\"subscriptions_url\":\"https://api.github.com/users/github-actions%5Bbot%5D/subscriptions\",\"organizations_url\":\"https://api.github.com/users/github-actions%5Bbot%5D/orgs\",\"repos_url\":\"https://api.github.com/users/github-actions%5Bbot%5D/repos\",\"events_url\":\"https://api.github.com/users/github-actions%5Bbot%5D/events{/privacy}\",\"received_events_url\":\"https://api.github.com/users/github-actions%5Bbot%5D/received_events\",\"type\":\"Bot\",\"user_view_type\":\"public\",\"site_admin\":false},\"created_at\":\"2026-10-07T10:05:00Z\",\"updated_a"
+      },
+      {
+        "line": 4359,
+        "text": "2026-10-07T10:05:00.8265615Z    Container memory (cgroup v2): 2.2 GB used of no limit of its own, peak 2.4 GB; processes killed by the OOM killer so far: 0"
+      },
+      {
+        "line": 4360,
+        "text": "2026-10-07T10:05:00.8272263Z \ud83d\udcc8 [RESOURCES] phase=log_upload_end ts=2026-10-07T10%3A05%3A00.813Z load1=0.84 load5=1.22 load15=0.85 cpuCount=4 memTotalBytes=16766414848 memAvailableBytes=15404941312 memUsedBytes=1361473536 processRssBytes=138878976 processHeapUsedBytes=43814512 processHeapTotalBytes=47448064 processExternalBytes=5065531 processHeapLimitBytes=4395630592 processHeapUsedPercent=0.9967742075446907 diskPath=%2F diskTotalBytes=154894188544 diskAvailableBytes=85387763712 diskUsedBytes=69489647616 diskUsedPercent=44.862656416745054 mem=14.3%20GB%20available%20%2F%2015.6%20GB%20total heap=42%20MB%20used%20of%204.1%20GB%20limit%20(1.0%25) disk=79.5%20GB%20available%20%2F%20144.3%20GB%20total agentStatePath=%2Fhome%2Fbox%2F.local%2Fshare%2Flink-assistant-agent agentStoreCount=1 agentStoreBytes=1033650 cgroupVersion=2 cgroupMemLimitBytes=null cgroupMemCurrentBytes=2338746368 cgroupMemPeakBytes=2530758656 cgroupOomEvents=0 cgroupOomKills=0"
+      },
+      {
+        "line": 4368,
+        "text": "2026-10-07T10:05:00.8405475Z    Container memory (cgroup v2): 2.2 GB used of no limit of its own, peak 2.4 GB; processes killed by the OOM killer so far: 0"
+      },
+      {
+        "line": 4369,
+        "text": "2026-10-07T10:05:00.8410831Z \ud83d\udcc8 [RESOURCES] phase=solve_exit ts=2026-10-07T10%3A05%3A00.828Z load1=0.84 load5=1.22 load15=0.85 cpuCount=4 memTotalBytes=16766414848 memAvailableBytes=15404937216 memUsedBytes=1361477632 processRssBytes=138878976 processHeapUsedBytes=43934328 processHeapTotalBytes=47448064 processExternalBytes=5065531 processHeapLimitBytes=4395630592 processHeapUsedPercent=0.9995000052998084 diskPath=%2F diskTotalBytes=154894188544 diskAvailableBytes=85387739136 diskUsedBytes=69489672192 diskUsedPercent=44.86267228306014 mem=14.3%20GB%20available%20%2F%2015.6%20GB%20total heap=42%20MB%20used%20of%204.1%20GB%20limit%20(1.0%25) disk=79.5%20GB%20available%20%2F%20144.3%20GB%20total agentStatePath=%2Fhome%2Fbox%2F.local%2Fshare%2Flink-assistant-agent agentStoreCount=1 agentStoreBytes=1033650 cgroupVersion=2 cgroupMemLimitBytes=null cgroupMemCurrentBytes=2338660352 cgroupMemPeakBytes=2530758656 cgroupOomEvents=0 cgroupOomKills=0"
+      },
+      {
+        "line": 4370,
+        "text": "2026-10-07T10:05:00.8424681Z \ud83e\ude79 PR #2614 was left in draft by a working session (AGENT execution failed with Agent reported error: Error: File not found: /tmp/gh-issue-solver-1791367266830/e.g); restoring its pre-run state at run end (AGENT execution failed with Agent reported error: Error: File not found: /tmp/gh-issue-solver-1791367266830/e.g)"
+      },
+      {
+        "line": 4373,
+        "text": "2026-10-07T10:05:01.1931051Z   \ud83d\udcdd Converting PR:          To ready for review (run end (AGENT execution failed with Agent reported error: Error: File not found: /tmp/gh-issue-solver-1791367266830/e.g))..."
+      },
+      {
+        "line": 4378,
+        "text": "2026-10-07T10:05:02.2758355Z \u274c AGENT execution failed with Agent reported error: Error: File not found: /tmp/gh-issue-solver-1791367266830/e.g"
+      },
+      {
+        "line": 4413,
+        "text": "2026-10-07T10:05:11.2462892Z could not create workflow dispatch event: HTTP 422: Required input 'bump_type' not provided (https://api.github.com/repos/link-assistant/hive-mind/actions/workflows/215799203/dispatches)"
+      },
+      {
+        "line": 4426,
+        "text": "2026-10-07T10:05:11.2470904Z   stderr: \"could not create workflow dispatch event: HTTP 422: Required input 'bump_type' not provided (https://api.github.com/repos/link-assistant/hive-mind/actions/workflows/215799203/dispatches)\\n\""
+      },
+      {
+        "line": 4443,
+        "text": "2026-10-07T10:05:11.5060837Z ##[warning]No files were found with the provided path: /home/runner/work/_temp/formal-ai-draft-logs. No artifacts will be uploaded."
+      }
+    ]
+  },
+  {
+    "file": "killed-session.log",
+    "findings": [
+      {
+        "line": 20,
+        "text": "Container will be kept if the command fails or Docker reports OOMKilled."
+      },
+      {
+        "line": 1123,
+        "text": "        \"content\": \"title:\\tWe must support all obvious aliases for latest versions of models\\nstate:\\tOPEN\\nauthor:\\tkonard (Konstantin Diachenko)\\nlabels:\\tbug, documentation, enhancement\\ncomments:\\t0\\nassignees:\\t\\nprojects:\\t\\nmilestone:\\t\\nissue-type:\\tTask\\nparent:\\t\\nsub-issues:\\t\\nsub-issues-completed:\\t\\nblocked-by:\\t\\nblocking:\\t\\nnumber:\\t2591\\n--\\n<img width=\\\"876\\\" height=\\\"525\\\" alt=\\\"Image\\\" src=\\\"https://github.com/user-attachments/assets/90c3c822-6c50-47b1-aac1-96e611f5f9b1\\\" />\\n\\nFor example astra should go with latest gpt-6-astra (or whatever the latest will be at the moment).\\n\\nWe should also make sure we dynamically get new aliases when introduced from new model names, without needing code changes.\\n\\nAnyway we need to double check that we fully support all the available models to the full potential.\\n\\nAlso we must double check that:\\n\\n```\\nAvailable models for codex: formal-ai, gpt-6-sol, gpt-6-luna, gpt-reserve, gpt-6-astra, gpt5, gpt-5.5, gpt-5.5-mini, gpt-5.5-nano, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna, gpt-5.6-cyber, gpt-5.4, gpt-5.4-mini, gpt-5.4-nano, gpt-5.2, gpt-5.2-codex, gpt-5.3-codex, gpt-5.3-codex-spark, gpt-5.1-codex-max, gpt-daybreak-blue-latest, gpt-daybreak-red-latest, openai.gpt-5.5, openai.gpt-5.4, openai.gpt-5.6-sol, openai.gpt-5.6-terra, openai.gpt-5.6-luna, codex-auto-review, o3-mini, gpt4, gpt4o, sol, terra, luna, openai.formal-ai, openai.gpt-6-sol, openai.gpt-6-luna, openai.gpt-reserve, openai.gpt-6-astra, openai.gpt-5, ope"
+      },
+      {
+        "line": 1133,
+        "text": "    \"stdout\": \"title:\\tWe must support all obvious aliases for latest versions of models\\nstate:\\tOPEN\\nauthor:\\tkonard (Konstantin Diachenko)\\nlabels:\\tbug, documentation, enhancement\\ncomments:\\t0\\nassignees:\\t\\nprojects:\\t\\nmilestone:\\t\\nissue-type:\\tTask\\nparent:\\t\\nsub-issues:\\t\\nsub-issues-completed:\\t\\nblocked-by:\\t\\nblocking:\\t\\nnumber:\\t2591\\n--\\n<img width=\\\"876\\\" height=\\\"525\\\" alt=\\\"Image\\\" src=\\\"https://github.com/user-attachments/assets/90c3c822-6c50-47b1-aac1-96e611f5f9b1\\\" />\\n\\nFor example astra should go with latest gpt-6-astra (or whatever the latest will be at the moment).\\n\\nWe should also make sure we dynamically get new aliases when introduced from new model names, without needing code changes.\\n\\nAnyway we need to double check that we fully support all the available models to the full potential.\\n\\nAlso we must double check that:\\n\\n```\\nAvailable models for codex: formal-ai, gpt-6-sol, gpt-6-luna, gpt-reserve, gpt-6-astra, gpt5, gpt-5.5, gpt-5.5-mini, gpt-5.5-nano, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna, gpt-5.6-cyber, gpt-5.4, gpt-5.4-mini, gpt-5.4-nano, gpt-5.2, gpt-5.2-codex, gpt-5.3-codex, gpt-5.3-codex-spark, gpt-5.1-codex-max, gpt-daybreak-blue-latest, gpt-daybreak-red-latest, openai.gpt-5.5, openai.gpt-5.4, openai.gpt-5.6-sol, openai.gpt-5.6-terra, openai.gpt-5.6-luna, codex-auto-review, o3-mini, gpt4, gpt4o, sol, terra, luna, openai.formal-ai, openai.gpt-6-sol, openai.gpt-6-luna, openai.gpt-reserve, openai.gpt-6-astra, openai.gpt-5, openai.g"
+      },
+      {
+        "line": 1780,
+        "text": "                \"-Stop presenting an earlier container OOM event as the cause of a failure (#2498). In the reported run, a child process (`rustc`) was OOM-killed and the session kept working. It later stopped for an unrelated reason, an expired Claude login. The pull-request notice is now titled \\\"\u2139\ufe0f Work session stopped on its own \u2014 the earlier container OOM event did not cause it\\\" and leads with the real stop line from the log; the old title was \\\"\u26a0\ufe0f Container OOM event during a failed work session\\\". The Telegram and PR diagnostics now label the OOM event \\\"Event \u2026 (not the cause of this stop)\\\" instead of \\\"Cause\\\". start-command's `memoryExhausted` / `exitReason: memory-exhaustion (cgroup-oom-killer)` derived only from Docker's sticky `State.OOMKilled` flag is no longer shown as separate evidence of memory exhaustion (reported upstream as link-foundation/start#180).\","
+      },
+      {
+        "line": 1782,
+        "text": "                \"-Also spread out automatic recoveries after an out-of-memory kill, and record the container's own memory limit (#2498). Every automatic recovery now waits its own random delay before it starts, whether it is a killed session resumed by the monitor or a tool resumed by solve after the tool was OOM-killed. The delay is 30\u201390 s by default, set with `--session-kill-resume-delay <min-max>` or `HIVE_MIND_SESSION_KILL_RESUME_DELAY`; `0` turns it off. Sessions hit by the same event therefore no longer compete for memory, CPU and the API in the same second. Resource snapshots now also read the task's cgroup: its memory limit, current and peak usage, and the `memory.events` `oom`/`oom_kill` counters. These are logged and stored in the `\ud83d\udcc8 [RESOURCES]` marker, and the kill diagnosis quotes them. Until now the logs only showed host RAM (for example \\\"10.4 GB of 11.7 GB available\\\") for a container capped at 2.9 GB, and nothing showed how many processes the OOM killer took.\","
+      },
+      {
+        "line": 1784,
+        "text": "                \"-Update all Docker images to start-command 0.35.4 (attempt-scoped resume evidence, start#187) and retain its per-task cgroup counters in status/list and diagnostics. An earlier container OOM cannot override a later SIGTERM or runtime heap abort; unrelated bot-cgroup counters and host victims are labelled as context. Report raw process and allocation-event counts without inferring OOM scope from their ratio. A user stop during the recovery delay cancels the pending launch, the environment delay works with parsed CLI defaults, and invalid timer ranges fall back to 30\u201390 seconds.\","
+      },
+      {
+        "line": 1786,
+        "text": "                \"-Keep resumed tasks under monitoring by reading terminal and stop evidence only from the current attempt, and reset inherited completion caches. Recovery notices now distinguish scheduling, launch acceptance, observed execution output, quiet pending runs and terminal outcomes. Update one durable GitHub lifecycle comment and the Telegram task reply at phase changes and five-minute intervals; in-process retries log and publish their actual result, clear their heartbeat timer, and do not infer OOM solely from SIGKILL. Preserve known tool outcomes after later output evicts them from the log tail. Report a missing recovery exit code as an unknown outcome in notifications and durable completion history, including restored completion latches. Refresh command-stream and dotenvx dynamic pins; all 168 dependency declarations are current.\","
+      },
+      {
+        "line": 1810,
+        "text": "                \"+- 65df4c1: Stop presenting an earlier container OOM event as the cause of a failure (#2498). In the reported run, a child process (`rustc`) was OOM-killed and the session kept working. It later stopped for an unrelated reason, an expired Claude login. The pull-request notice is now titled \\\"\u2139\ufe0f Work session stopped on its own \u2014 the earlier container OOM event did not cause it\\\" and leads with the real stop line from the log; the old title was \\\"\u26a0\ufe0f Container OOM event during a failed work session\\\". The Telegram and PR diagnostics now label the OOM event \\\"Event \u2026 (not the cause of this stop)\\\" instead of \\\"Cause\\\". start-command's `memoryExhausted` / `exitReason: memory-exhaustion (cgroup-oom-killer)` derived only from Docker's sticky `State.OOMKilled` flag is no longer shown as separate evidence of memory exhaustion (reported upstream as link-foundation/start#180).\","
+      },
+      {
+        "line": 1812,
+        "text": "                \"+  Also spread out automatic recoveries after an out-of-memory kill, and record the container's own memory limit (#2498). Every automatic recovery now waits its own random delay before it starts, whether it is a killed session resumed by the monitor or a tool resumed by solve after the tool was OOM-killed. The delay is 30\u201390 s by default, set with `--session-kill-resume-delay <min-max>` or `HIVE_MIND_SESSION_KILL_RESUME_DELAY`; `0` turns it off. Sessions hit by the same event therefore no longer compete for memory, CPU and the API in the same second. Resource snapshots now also read the task's cgroup: its memory limit, current and peak usage, and the `memory.events` `oom`/`oom_kill` counters. These are logged and stored in the `\ud83d\udcc8 [RESOURCES]` marker, and the kill diagnosis quotes them. Until now the logs only showed host RAM (for example \\\"10.4 GB of 11.7 GB available\\\") for a container capped at 2.9 GB, and nothing showed how many processes the OOM killer took.\","
+      },
+      {
+        "line": 1814,
+        "text": "                \"+  Update all Docker images to start-command 0.35.4 (attempt-scoped resume evidence, start#187) and retain its per-task cgroup counters in status/list and diagnostics. An earlier container OOM cannot override a later SIGTERM or runtime heap abort; unrelated bot-cgroup counters and host victims are labelled as context. Report raw process and allocation-event counts without inferring OOM scope from their ratio. A user stop during the recovery delay cancels the pending launch, the environment delay works with parsed CLI defaults, and invalid timer ranges fall back to 30\u201390 seconds.\","
+      },
+      {
+        "line": 1816,
+        "text": "                \"+  Keep resumed tasks under monitoring by reading terminal and stop evidence only from the current attempt, and reset inherited completion caches. Recovery notices now distinguish scheduling, launch acceptance, observed execution output, quiet pending runs and terminal outcomes. Update one durable GitHub lifecycle comment and the Telegram task reply at phase changes and five-minute intervals; in-process retries log and publish their actual result, clear their heartbeat timer, and do not infer OOM solely from SIGKILL. Preserve known tool outcomes after later output evicts them from the log tail. Report a missing recovery exit code as an unknown outcome in notifications and durable completion history, including restored completion latches. Refresh command-stream and dotenvx dynamic pins; all 168 dependency declarations are current.\","
+      },
+      {
+        "line": 5685,
+        "text": "            \"text\": \"Async agent launched successfully. (This tool result is internal metadata \u2014 never quote or paste any part of it, including the agentId below, into a user-facing reply.)\\nagentId: a5d2048ebdee05143 (internal ID - do not mention to user. Use SendMessage with to: 'a5d2048ebdee05143', summary: '<5-10 word recap>' to continue this agent.)\\nThe agent is working in the background. You will be notified automatically when it completes. You know nothing about its results until that notification arrives \u2014 do not report, assume, or predict them; continue other work or respond to the user in the meantime.\\nDo not duplicate this agent's work \u2014 avoid working with the same files or topics it is using.\\noutput_file: /tmp/claude-1001/-tmp-gh-issue-solver-1791364120785/41cebf9b-7516-44c0-8422-5bbafe26cee9/tasks/a5d2048ebdee05143.output\\nDo NOT Read or tail this file via the shell tool \u2014 it is the full subagent JSONL transcript and reading it will overflow your context. If the user asks for progress, say the agent is still running; you'll get a completion notification.\""
+      },
+      {
+        "line": 9631,
+        "text": "        \"content\": \"Command did not complete within its 120s timeout and was moved to the background (ID: bxd4srg4j). Output is being written to: /tmp/claude-1001/-tmp-gh-issue-solver-1791364120785/41cebf9b-7516-44c0-8422-5bbafe26cee9/tasks/bxd4srg4j.output. You will be notified when it completes. If it is still running after 10m in the background, it will be stopped and you will be notified. To check interim output, use Read on that file path.\\nSession cwd remains /tmp/gh-issue-solver-1791364120785; directory changes made by the backgrounded command do not apply to subsequent commands.\","
+      },
+      {
+        "line": 14083,
+        "text": "        \"text\": \"This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation.\\n\\nSummary:\\n1. Primary Request and Intent:\\n   Solve GitHub issue https://github.com/link-assistant/hive-mind/issues/2591, titled \\\"We must support all obvious aliases for latest versions of models\\\". Work only on branch `issue-2591-1b69dfe657e2` in /tmp/gh-issue-solver-1791364120785, and update the existing PR #2592 instead of creating a new one.\\n\\n   The issue asks for the following:\\n   - **Bare family aliases.** In the screenshot, `/codex https://github.com/link-assistant/calculator/issues/227 \u2014think high \u2014model astra` fails with `Unrecognized model: \\\"astra\\\"`, `Did you mean: \\\"terra\\\"?` and then lists about 60 models. `astra` should resolve to the latest `gpt-6-astra`, or whatever the latest Astra is at that moment.\\n   - **Dynamic aliases.** New aliases should be picked up from new model names without code changes.\\n   - **Full model support.** Every available model should be supported to its full potential.\\n   - **Real model lists.** The \\\"Available models\\\" list must reflect what is actually available in Codex, Claude and the other harnesses, so obsolete models are not shown.\\n   - **Case study.** Download all related logs and data into `./docs/case-studies/issue-2591`. Write a deep case study covering:\\n     - a timeline,\\n     - every requirement in the issue,\\n     - root causes,\\n     - propose"
+      },
+      {
+        "line": 20675,
+        "text": "        \"text\": \"This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation.\\n\\nSummary:\\n1. Primary Request and Intent:\\n   Solve GitHub issue https://github.com/link-assistant/hive-mind/issues/2591, \\\"We must support all obvious aliases for latest versions of models\\\". Work in /tmp/gh-issue-solver-1791364120785, only on branch `issue-2591-1b69dfe657e2`, and update the existing PR #2592 rather than opening a new one.\\n\\n   What the issue asks for:\\n   - **Bare family aliases.** In the screenshot, `/codex ... --model astra` fails with `Unrecognized model: \\\"astra\\\"`, `Did you mean: \\\"terra\\\"?` and a list of about 60 models. `astra` must resolve to the latest GPT Astra.\\n   - **Dynamic aliases.** Aliases should be derived from new model names without code changes.\\n   - **Full model support.** Every available model should be supported to its full potential.\\n   - **Real model lists.** \\\"Available models\\\" must reflect what Codex, Claude and the other CLIs actually offer today, without obsolete entries.\\n   - **Case study.** Collect logs and data under `./docs/case-studies/issue-2591` and write a deep case study:\\n     - timeline\\n     - requirements\\n     - root causes\\n     - solutions\\n     - existing libraries\\n     - online research\\n   - **Debug output.** Add debug output if it is needed to find the cause.\\n   - **Upstream reports.** File issues in other repositories where relevant"
+      },
+      {
+        "line": 24922,
+        "text": "          \"command\": \"npm test > /tmp/npm-test.log 2>&1; echo \\\"exit $?\\\" >> /tmp/npm-test.log\","
+      },
+      {
+        "line": 24957,
+        "text": "      \"command\": \"cd /tmp/gh-issue-solver-1791364120785 && npm test > /tmp/npm-test.log 2>&1; echo \\\"exit $?\\\" >> /tmp/npm-test.log\","
+      },
+      {
+        "line": 24975,
+        "text": "      \"description\": \"npm test > /tmp/npm-test.log 2>&1; echo \\\"exit $?\\\" >> /tmp/npm-test.log\""
+      },
+      {
+        "line": 24987,
+        "text": "  \"description\": \"npm test > /tmp/npm-test.log 2>&1; echo \\\"exit $?\\\" >> /tmp/npm-test.log\","
+      },
+      {
+        "line": 27723,
+        "text": "        \"content\": \"2026-10-07T07:06:06Z We must support all obvious aliases for latest versions of models\\n<img width=\\\"876\\\" height=\\\"525\\\" alt=\\\"Image\\\" src=\\\"https://github.com/user-attachments/assets/90c3c822-6c50-47b1-aac1-96e611f5f9b1\\\" />\\n\\nFor example astra should go with latest gpt-6-astra (or whatever the latest will be at the moment).\\n\\nWe should also make sure we dynamically get new aliases when introduced from new model names, without needing code changes.\\n\\nAnyway we need to double check that we fully support all the available models to the full potential.\\n\\nAlso we must double check that:\\n\\n```\\nAvailable models for codex: formal-ai, gpt-6-sol, gpt-6-luna, gpt-reserve, gpt-6-astra, gpt5, gpt-5.5, gpt-5.5-mini, gpt-5.5-nano, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna, gpt-5.6-cyber, gpt-5.4, gpt-5.4-mini, gpt-5.4-nano, gpt-5.2, gpt-5.2-codex, gpt-5.3-codex, gpt-5.3-codex-spark, gpt-5.1-codex-max, gpt-daybreak-blue-latest, gpt-daybreak-red-latest, openai.gpt-5.5, openai.gpt-5.4, openai.gpt-5.6-sol, openai.gpt-5.6-terra, openai.gpt-5.6-luna, codex-auto-review, o3-mini, gpt4, gpt4o, sol, terra, luna, openai.formal-ai, openai.gpt-6-sol, openai.gpt-6-luna, openai.gpt-reserve, openai.gpt-6-astra, openai.gpt-5, openai.gpt-5.5-mini, openai.gpt-5.5-nano, openai.gpt-5.6-cyber, openai.gpt-5.4-mini, openai.gpt-5.4-nano, openai.gpt-5.2, openai.gpt-5.2-codex, openai.gpt-5.3-codex, openai.gpt-5.3-codex-spark, openai.gpt-5.1-codex-max, openai.gpt-daybreak-blue-latest, opena"
+      },
+      {
+        "line": 27733,
+        "text": "    \"stdout\": \"2026-10-07T07:06:06Z We must support all obvious aliases for latest versions of models\\n<img width=\\\"876\\\" height=\\\"525\\\" alt=\\\"Image\\\" src=\\\"https://github.com/user-attachments/assets/90c3c822-6c50-47b1-aac1-96e611f5f9b1\\\" />\\n\\nFor example astra should go with latest gpt-6-astra (or whatever the latest will be at the moment).\\n\\nWe should also make sure we dynamically get new aliases when introduced from new model names, without needing code changes.\\n\\nAnyway we need to double check that we fully support all the available models to the full potential.\\n\\nAlso we must double check that:\\n\\n```\\nAvailable models for codex: formal-ai, gpt-6-sol, gpt-6-luna, gpt-reserve, gpt-6-astra, gpt5, gpt-5.5, gpt-5.5-mini, gpt-5.5-nano, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna, gpt-5.6-cyber, gpt-5.4, gpt-5.4-mini, gpt-5.4-nano, gpt-5.2, gpt-5.2-codex, gpt-5.3-codex, gpt-5.3-codex-spark, gpt-5.1-codex-max, gpt-daybreak-blue-latest, gpt-daybreak-red-latest, openai.gpt-5.5, openai.gpt-5.4, openai.gpt-5.6-sol, openai.gpt-5.6-terra, openai.gpt-5.6-luna, codex-auto-review, o3-mini, gpt4, gpt4o, sol, terra, luna, openai.formal-ai, openai.gpt-6-sol, openai.gpt-6-luna, openai.gpt-reserve, openai.gpt-6-astra, openai.gpt-5, openai.gpt-5.5-mini, openai.gpt-5.5-nano, openai.gpt-5.6-cyber, openai.gpt-5.4-mini, openai.gpt-5.4-nano, openai.gpt-5.2, openai.gpt-5.2-codex, openai.gpt-5.3-codex, openai.gpt-5.3-codex-spark, openai.gpt-5.1-codex-max, openai.gpt-daybreak-blue-latest, openai.gpt"
+      },
+      {
+        "line": 34897,
+        "text": "        \"text\": \"This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation.\\n\\nSummary:\\n1. Primary Request and Intent:\\n   Solve GitHub issue https://github.com/link-assistant/hive-mind/issues/2591, \\\"We must support all obvious aliases for latest versions of models\\\". Work in /tmp/gh-issue-solver-1791364120785, only on branch `issue-2591-1b69dfe657e2`, and update the existing PR #2592; do not create a new PR.\\n\\n   What the issue asks for:\\n   - **astra alias:** `astra` must resolve to the latest gpt-6-astra. The screenshot shows `/codex --model astra` failing with \\\"Did you mean terra\\\".\\n   - **Dynamic aliases:** derive aliases from new model names without code changes.\\n   - **Full support:** support all available models to their full potential.\\n   - **Real listings:** the \\\"Available models\\\" list must be the real current catalogue of codex, claude and the other CLIs, with no obsolete entries.\\n   - **Case study:** collect data in `./docs/case-studies/issue-2591` and write a deep case study covering timeline, requirements, root causes, solutions, existing libraries and online research.\\n   - **Debug output:** add debug output if it is needed.\\n   - **Upstream reports:** report issues to other repositories, with reproductions, workarounds and suggested fixes.\\n   - **Apply everywhere:** fix the problem in every place it occurs in the codebase.\\n   - **One PR:** do all of this in"
+      },
+      {
+        "line": 35453,
+        "text": "        \"text\": \"The suite is still running; the errors above are expected noise from tests. Meanwhile I'll run the model-related tests directly against the latest commit.\""
+      },
+      {
+        "line": 35598,
+        "text": "      \"description\": \"npm test > /tmp/npm-test.log 2>&1; echo \\\"exit $?\\\" >> /tmp/npm-test.log\""
+      },
+      {
+        "line": 35629,
+        "text": "        \"content\": \"Command did not complete within its 120s timeout and was moved to the background (ID: b6ut9xcnk). Output is being written to: /tmp/claude-1001/-tmp-gh-issue-solver-1791364120785/41cebf9b-7516-44c0-8422-5bbafe26cee9/tasks/b6ut9xcnk.output. You will be notified when it completes. If it is still running after 10m in the background, it will be stopped and you will be notified. To check interim output, use Read on that file path.\","
+      },
+      {
+        "line": 36134,
+        "text": "        \"content\": \"gpt-6-astra | list | 2 | Frontier intelligence for the most demanding work. | \\ngpt-6.1-sol | list | 1 | Latest workhorse model for coding and everyday work. | \\ngpt-6-sol | list | 3 | Previous generation workhorse model. | \\ngpt-6-luna | list | 4 | Fast and affordable model for easier tasks. | \\ngpt-5.6-sol | list | 5 | Older generation workhorse model. | gpt-6-sol\\ngpt-5.6-terra | list | 8 | Older balanced model for straightforward work. | gpt-6-sol\\ngpt-5.6-luna | list | 9 | Older fast and efficient model. | gpt-6-luna\\ngpt-daybreak-blue-latest | hide | 11 | Latest frontier agentic coding model for broad defensive cybersecurity work. | \\ngpt-daybreak-red-latest | hide | 12 | Cyber-permissive variant of our latest frontier agentic coding model for advanced, authorized cybersecurity research. | \\ngpt-5.5 | list | 13 | Legacy coding model. | gpt-6-sol\\ncodex-auto-review | hide | 43 | Automatic approval review model for Codex. | \\n\\n## codex (62)\\nformal-ai, gpt-6.1-sol, gpt-6-sol, gpt-6-luna, gpt-reserve, gpt-6-astra, gpt5, gpt-5.5, gpt-5.5-mini, gpt-5.5-nano, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna, gpt-5.6-cyber, gpt-5.4, gpt-5.4-mini, gpt-5.4-nano, gpt-5.2, gpt-5.2-codex, gpt-5.3-codex, gpt-5.3-codex-spark, gpt-5.1-codex-max, gpt-daybreak-blue-latest, gpt-daybreak-red-latest, openai.gpt-5.5, openai.gpt-5.4, openai.gpt-5.6-sol, openai.gpt-5.6-terra, openai.gpt-5.6-luna, codex-auto-review, o3-mini, gpt4, gpt4o, sol, terra, luna, openai.formal-ai, openai."
+      },
+      {
+        "line": 36144,
+        "text": "    \"stdout\": \"gpt-6-astra | list | 2 | Frontier intelligence for the most demanding work. | \\ngpt-6.1-sol | list | 1 | Latest workhorse model for coding and everyday work. | \\ngpt-6-sol | list | 3 | Previous generation workhorse model. | \\ngpt-6-luna | list | 4 | Fast and affordable model for easier tasks. | \\ngpt-5.6-sol | list | 5 | Older generation workhorse model. | gpt-6-sol\\ngpt-5.6-terra | list | 8 | Older balanced model for straightforward work. | gpt-6-sol\\ngpt-5.6-luna | list | 9 | Older fast and efficient model. | gpt-6-luna\\ngpt-daybreak-blue-latest | hide | 11 | Latest frontier agentic coding model for broad defensive cybersecurity work. | \\ngpt-daybreak-red-latest | hide | 12 | Cyber-permissive variant of our latest frontier agentic coding model for advanced, authorized cybersecurity research. | \\ngpt-5.5 | list | 13 | Legacy coding model. | gpt-6-sol\\ncodex-auto-review | hide | 43 | Automatic approval review model for Codex. | \\n\\n## codex (62)\\nformal-ai, gpt-6.1-sol, gpt-6-sol, gpt-6-luna, gpt-reserve, gpt-6-astra, gpt5, gpt-5.5, gpt-5.5-mini, gpt-5.5-nano, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna, gpt-5.6-cyber, gpt-5.4, gpt-5.4-mini, gpt-5.4-nano, gpt-5.2, gpt-5.2-codex, gpt-5.3-codex, gpt-5.3-codex-spark, gpt-5.1-codex-max, gpt-daybreak-blue-latest, gpt-daybreak-red-latest, openai.gpt-5.5, openai.gpt-5.4, openai.gpt-5.6-sol, openai.gpt-5.6-terra, openai.gpt-5.6-luna, codex-auto-review, o3-mini, gpt4, gpt4o, sol, terra, luna, openai.formal-ai, openai.gpt-6"
+      },
+      {
+        "line": 41897,
+        "text": "\u274c Claude command failed with exit code 137"
+      },
+      {
+        "line": 41917,
+        "text": "\u26a0\ufe0f  105 process(es) still running in /tmp/gh-issue-solver-1791364120785 after the session ended:"
+      },
+      {
+        "line": 41919,
+        "text": "   pid 40721: npm test"
+      },
+      {
+        "line": 41926,
+        "text": "   pid 83371: timeout 120 node tests/test-version-info.mjs"
+      },
+      {
+        "line": 41927,
+        "text": "   pid 83372: node tests/test-version-info.mjs"
+      },
+      {
+        "line": 42068,
+        "text": "\ud83d\udcbe Critical error (CLAUDE execution failed with Claude command failed with exit code 137) \u2014 preserving uncommitted changes on recovery/issue-2591-1b69dfe657e2 (the PR branch is not changed)..."
+      },
+      {
+        "line": 42162,
+        "text": "{\"url\":\"https://api.github.com/repos/link-assistant/hive-mind/issues/comments/6035301295\",\"html_url\":\"https://github.com/link-assistant/hive-mind/pull/2592#issuecomment-6035301295\",\"issue_url\":\"https://api.github.com/repos/link-assistant/hive-mind/issues/2592\",\"id\":6035301295,\"node_id\":\"IC_kwDOPUU0qc8AAAABZ7tjrw\",\"user\":{\"login\":\"konard\",\"id\":1431904,\"node_id\":\"MDQ6VXNlcjE0MzE5MDQ=\",\"avatar_url\":\"https://avatars.githubusercontent.com/u/1431904?u=eef2c91c80a671714d3fd8c08ef91b297840056b&v=4\",\"gravatar_id\":\"\",\"url\":\"https://api.github.com/users/konard\",\"html_url\":\"https://github.com/konard\",\"followers_url\":\"https://api.github.com/users/konard/followers\",\"following_url\":\"https://api.github.com/users/konard/following{/other_user}\",\"gists_url\":\"https://api.github.com/users/konard/gists{/gist_id}\",\"starred_url\":\"https://api.github.com/users/konard/starred{/owner}{/repo}\",\"subscriptions_url\":\"https://api.github.com/users/konard/subscriptions\",\"organizations_url\":\"https://api.github.com/users/konard/orgs\",\"repos_url\":\"https://api.github.com/users/konard/repos\",\"events_url\":\"https://api.github.com/users/konard/events{/privacy}\",\"received_events_url\":\"https://api.github.com/users/konard/received_events\",\"type\":\"User\",\"user_view_type\":\"public\",\"site_admin\":false},\"created_at\":\"2026-10-07T09:42:46Z\",\"updated_at\":\"2026-10-07T09:42:46Z\",\"author_association\":\"MEMBER\",\"body\":\"## \ud83d\udea8 Solution Draft Failed\\nThe automated solution draft encountered an error:\\n```\\nCLAUDE execution failed with Cla"
+      },
+      {
+        "line": 42181,
+        "text": "\u274c CLAUDE execution failed with Claude command failed with exit code 137"
+      },
+      {
+        "line": 42188,
+        "text": "OOMKilled:  true"
+      },
+      {
+        "line": 42195,
+        "text": "Reason: exitCode=1 oomKilled=true"
+      }
+    ]
+  }
+]

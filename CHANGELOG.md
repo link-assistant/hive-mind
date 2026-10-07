@@ -1,5 +1,25 @@
 # @link-assistant/hive-mind
 
+## 2.33.17
+
+### Patch Changes
+
+- 33e3a76: Bound version probes and clean up their descendants even when diagnostic callbacks fail. Preserve complete sanitized failed-session logs on verified pull request branches when Gist permissions are unavailable, honor log directories before argument parsing, retain Formal AI development logs, and tolerate simultaneous creation of the draft label.
+
+## 2.33.16
+
+### Patch Changes
+
+- 3ad8eb4: Identify the offending URL segment or argument in input validation errors (with a compiler-style caret under URL typos, bold and in a code block on Telegram), suggest likely URL path and host corrections as natural questions, and stop solve on invalid options.
+
+## 2.33.15
+
+### Patch Changes
+
+- fe9650e: Fix the CI/CD false negatives found on `main` (issue #2625). The dependency-freshness gate now blocks pull requests only and warns on pushes. The fixture cleanup reports ruleset-retained branches as retained, not as errors. `release.yml` can be dispatched with `mode=checks` alone. The Formal AI draft creates its label when it is missing. Log uploads no longer retry a token that cannot create gists. `solve --log-dir` now actually writes the session log into that directory. The default Agent model moves from the withdrawn `opencode/nemotron-3-super-free` to `kilo/nemotron-3-super-free`. Result verification works with integration tokens and prints the real failure reason. Command-stream is bumped to 2.0.0, Sentry to 11.5.0, agent-commander to 0.11.0 and the image Node.js to 26.11.0.
+- 3031ced: A pull request URL whose branch names an issue from another repository (such as `issue-320-…` created while solving `link-assistant/agent#320`) now uses the issue its description closes. Before, every pre-merge gate looked for the missing issue and held back `--auto-merge`. A held-back auto-merge no longer attaches a log that is already attached. AI work that is not attached yet is posted together with the held-back notice in one comment. Every solution draft log comment, for all tools, now shows cost estimation, context and tokens usage and models used (#2563).
+- 957e1ea: Stop appending a generated "Changes" section (file and line counts, file list) to a pull request description after the agent has written it, on both normal completion and restarts. Missing issue-closing links are still appended, now after a separator. The initial placeholder description and its replacement when the agent never updated it are unchanged.
+
 ## 2.33.14
 
 ### Patch Changes

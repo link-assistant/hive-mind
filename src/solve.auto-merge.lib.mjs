@@ -43,7 +43,7 @@ const { sanitizeLogContent, attachLogToGitHub } = githubLib;
 
 // Import shared utilities from the restart-shared module
 const restartShared = await import('./solve.restart-shared.lib.mjs');
-const { checkForUncommittedChanges, getUncommittedChangesDetails, executeToolIteration, buildAutoRestartInstructions, buildUncommittedChangesFeedback, isUsageLimitReached } = restartShared;
+const { checkPRMerged, checkForUncommittedChanges, getUncommittedChangesDetails, executeToolIteration, buildAutoRestartInstructions, buildUncommittedChangesFeedback, isUsageLimitReached } = restartShared;
 // Issue #1931: deleted/inaccessible repositories, PRs, issues, and branches
 // are terminal states for long-running watch loops, not retryable CI states.
 const terminalStateLib = await import('./github-terminal-state.lib.mjs');
@@ -136,6 +136,7 @@ export const watchUntilMergeable = async params => {
   const waitForAllRepoActionsFlag = argv.waitForAllActionsInRepositoryBeforeMergeable ?? argv['wait-for-all-actions-in-repository-before-mergeable'] ?? argv.waitForAllActionsInRepositoryBeforeMergable ?? argv['wait-for-all-actions-in-repository-before-mergable'] ?? false;
   // Track latest session data across all iterations for accurate pricing
   let latestSessionId = null;
+  const attachLogWithNotice = prNumber && (argv.attachLogs || argv['attach-logs']) ? leadingSection => attachLogToGitHub({ logFile: getLogFile(), targetType: 'pr', targetNumber: prNumber, owner, repo, $, log, sanitizeLogContent, verbose: argv.verbose, sessionId: latestSessionId, tempDir, argv, requestedModel: argv.originalModel || argv.model, tool: argv.tool || 'claude', leadingSection }) : null; // Issue #2563: a held-back merge publishes unattached AI work with its reason, in one comment
   let latestAnthropicCost = null;
   // Issue #1323: Track actual AI restarts separately from check cycle iterations
   // Issue #2119: the count now lives in the shared budget module, so restarts
@@ -430,7 +431,7 @@ export const watchUntilMergeable = async params => {
         // every required closing reference are re-checked right before merging.
         const mergeBlockers = isAutoMerge ? [...issueMergeBlockers, await ensureIssueLinkBeforeMerge({ owner, repo, issueNumber, prNumber, argv, log }), await checkClosingReferencesBeforeMerge({ owner, repo, issueNumber, prNumber, argv })].filter(Boolean) : issueMergeBlockers;
         if (isAutoMerge && mergeBlockers.length > 0) {
-          await reportAutoMergeBlockedByIssue({ owner, repo, prNumber, issueNumber, mergeBlockers, verbose: argv.verbose });
+          await reportAutoMergeBlockedByIssue({ owner, repo, prNumber, issueNumber, mergeBlockers, verbose: argv.verbose, attachLogWithNotice });
           return { success: false, reason: mergeBlockers[0].reason, mergeBlockers, latestSessionId, latestAnthropicCost };
         }
         if (isAutoMerge) {
@@ -473,7 +474,7 @@ export const watchUntilMergeable = async params => {
             return { success: true, reason: 'auto-merged', latestSessionId, latestAnthropicCost };
           } else {
             if (mergeResult.blocker) {
-              await reportAutoMergeBlockedByIssue({ owner, repo, prNumber, issueNumber, mergeBlockers: [mergeResult.blocker], verbose: argv.verbose });
+              await reportAutoMergeBlockedByIssue({ owner, repo, prNumber, issueNumber, mergeBlockers: [mergeResult.blocker], verbose: argv.verbose, attachLogWithNotice });
               return { success: false, reason: mergeResult.category, mergeBlockers: [mergeResult.blocker], latestSessionId, latestAnthropicCost };
             }
             // Issue #2182: an unclassified merge failure used to be logged as
@@ -1046,7 +1047,13 @@ export const watchUntilMergeable = async params => {
             }
           }
           // Issue #2408: a tool killed by SIGKILL (exit 137, OOM) resumes its own session in-process.
-          if (!toolResult.success) ({ toolResult, attemptsUsed: toolKillResumeCount } = await resumeAfterToolKill({ toolResult, attemptsUsed: toolKillResumeCount, argv, runIteration: next => executeToolIteration({ issueUrl, owner, repo, issueNumber, prNumber, branchName: prBranch || branchName, tempDir, mergeStateStatus, feedbackLines: next.feedbackLines, argv: next.argv }), $, owner, repo, prNumber, log }));
+          // Issue #2498: once the pull request is merged nothing is recovered; the next pass sees the merge and finishes.
+          let toolKillWorkDone = false;
+          if (!toolResult.success) ({ toolResult, attemptsUsed: toolKillResumeCount, workDone: toolKillWorkDone } = await resumeAfterToolKill({ toolResult, attemptsUsed: toolKillResumeCount, argv, runIteration: next => executeToolIteration({ issueUrl, owner, repo, issueNumber, prNumber, branchName: prBranch || branchName, tempDir, mergeStateStatus, feedbackLines: next.feedbackLines, argv: next.argv }), $, owner, repo, prNumber, log, isWorkDone: () => checkPRMerged(owner, repo, prNumber) }));
+          if (toolKillWorkDone) {
+            lastCheckTime = new Date();
+            continue;
+          }
           // Issue #2395: a session the repeated-tool-call breaker ended is not a tool
           // failure — attach its log and continue with feedback (agent#323).
           if (isRestartWithFeedback(toolResult)) {

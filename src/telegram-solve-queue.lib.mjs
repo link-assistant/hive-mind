@@ -19,6 +19,7 @@ import { formatExecutingWorkSessionMessage, formatFailedLaunchMessage, formatSta
 import { canonicalizeGitHubUrl as canonicalizeQueueUrl } from './github-url-parser.lib.mjs';
 import { t } from './i18n.lib.mjs';
 import { isTelegramMessageNotModifiedError, safeEditMessageText } from './telegram-safe-reply.lib.mjs';
+import { isTelegramRateLimitError, TELEGRAM_PRIORITY_LOW, withTelegramRequestPriority } from './telegram-rate-limit.lib.mjs';
 import { lt } from './limits-i18n.lib.mjs';
 // Issue #2175: throttling decisions live in their own module to keep this file under the 1350-line warning threshold.
 import { checkApiLimits as checkApiLimitsImpl, checkSystemResources as checkSystemResourcesImpl, getLocale } from './telegram-solve-queue.throttling.lib.mjs';
@@ -32,6 +33,17 @@ export const QueueItemStatus = {
 };
 function appendRemainingDuration(reason, ms, locale) {
   return `${reason} (${lt('remaining', { duration: formatDuration(ms, { locale }) }, { locale })})`;
+}
+
+/**
+ * A waiting reason with its numbers and durations blanked, so "CPU usage is 91%" and
+ * "CPU usage is 87%" are the same news while "CPU usage" and "Disk usage" are not (issue #2571).
+ * @param {string|null} reason
+ * @returns {string|null}
+ */
+export function waitingReasonSkeleton(reason) {
+  if (typeof reason !== 'string') return null;
+  return reason.replace(/(?:\d+(?:\.\d+)?\s?[dhms]\b\s*)+/g, '# ').replace(/\d+(?:\.\d+)?/g, '#');
 }
 
 function buildQueueItemTelegramOptions(item, verbose) {
@@ -74,6 +86,10 @@ class SolveQueueItem {
     this.messageInfo = null; // { chatId, messageId, messageThreadId }
     // Track when we last updated the Telegram message See: https://github.com/link-assistant/hive-mind/issues/1078
     this.lastMessageUpdateTime = null;
+    // Issue #2571: what the Telegram message shows now, to skip edits that would not change it.
+    this.lastRenderedText = null;
+    this.lastRenderedPosition = null;
+    this.lastRenderedReason = null;
   }
   /**
    * Update status to waiting with reason
@@ -706,22 +722,38 @@ export class SolveQueue {
    * @param {SolveQueueItem} item
    * @param {string} text
    * @param {boolean} trackUpdateTime - Whether to track this as a periodic update (default: true)
+   * @returns {Promise<'updated'|'unchanged'|'rate_limited'|'failed'|'skipped'>}
    */
   async updateItemMessage(item, text, trackUpdateTime = true) {
-    if (!item.messageInfo || !item.ctx) return;
+    if (!item.messageInfo || !item.ctx) return 'skipped';
+    // Issue #2571: 38% of production edits re-sent the text the message already showed. Telegram
+    // answers those with "message is not modified" but still counts them against the group limit.
+    if (item.lastRenderedText === text) {
+      if (trackUpdateTime) item.lastMessageUpdateTime = Date.now();
+      return 'unchanged';
+    }
     try {
       const { chatId, messageId } = item.messageInfo;
       await safeEditMessageText(item.ctx.telegram, chatId, messageId, undefined, text, buildQueueItemTelegramOptions(item, this.verbose));
+      item.lastRenderedText = text;
       if (trackUpdateTime) {
         item.lastMessageUpdateTime = Date.now();
       }
+      return 'updated';
     } catch (error) {
       if (isTelegramMessageNotModifiedError(error)) {
         // The message already shows this text (issue #2301), so it is up to date.
+        item.lastRenderedText = text;
         if (trackUpdateTime) item.lastMessageUpdateTime = Date.now();
-        return;
+        return 'unchanged';
+      }
+      if (isTelegramRateLimitError(error)) {
+        // Issue #2571: the governor already logged it; the next cycle retries this card.
+        if (this.verbose) this.log(`Message update deferred by Telegram rate limit: ${error.message}`);
+        return 'rate_limited';
       }
       this.log(`Failed to update message: ${error.message}`);
+      return 'failed';
     }
   }
   /**
@@ -793,6 +825,7 @@ export class SolveQueue {
    * @see https://github.com/link-assistant/hive-mind/issues/1555
    */
   async updateAllWaitingItems() {
+    const rateLimitedChats = new Set();
     for (const [tool, toolQueue] of Object.entries(this.queues)) {
       // First check if the tool's threshold triggers a 'reject' strategy.
       // If so, reject all items at once rather than iterating one by one.
@@ -806,15 +839,23 @@ export class SolveQueue {
         const item = toolQueue[i];
         if (item.status === QueueItemStatus.QUEUED || item.status === QueueItemStatus.WAITING) {
           const itemCheck = item.locale === (toolQueue[0]?.locale || null) ? toolCheck : await this.canStartCommand({ tool, locale: item.locale });
-          const previousStatus = item.status;
-          const previousReason = item.waitingReason;
           const waitReason = itemCheck.reason || lt('queue_waiting_in_queue', {}, { locale: item.locale });
           item.setWaiting(waitReason);
-          // Update message if status/reason changed or it's time for periodic update
-          const shouldUpdate = previousStatus !== item.status || previousReason !== item.waitingReason || this.shouldUpdateMessage(item);
-          if (shouldUpdate) {
-            const position = i + 1; // Position within this tool's queue
-            await this.updateItemMessage(item, `${t('telegram.solve_waiting', { tool, position }, { locale: item.locale })}\n\n${item.infoBlock}\n\n*${t('telegram.reason_label', {}, { locale: item.locale })}:*\n${item.waitingReason}`);
+          const position = i + 1; // Position within this tool's queue
+          // Issue #2571: CPU %, process counts and countdowns change the reason every cycle, so a
+          // text comparison edited every card every minute and a big queue hit Telegram's 20
+          // messages per minute group limit. Only a new kind of reason or a new position is news;
+          // changed numbers wait for the periodic refresh.
+          const changed = item.lastRenderedPosition !== position || waitingReasonSkeleton(item.lastRenderedReason) !== waitingReasonSkeleton(item.waitingReason);
+          const chatKey = String(item.messageInfo?.chatId);
+          if ((changed || this.shouldUpdateMessage(item)) && !rateLimitedChats.has(chatKey)) {
+            const outcome = await withTelegramRequestPriority(TELEGRAM_PRIORITY_LOW, () => this.updateItemMessage(item, `${t('telegram.solve_waiting', { tool, position }, { locale: item.locale })}\n\n${item.infoBlock}\n\n*${t('telegram.reason_label', {}, { locale: item.locale })}:*\n${item.waitingReason}`));
+            if (outcome === 'updated' || outcome === 'unchanged') {
+              item.lastRenderedPosition = position;
+              item.lastRenderedReason = item.waitingReason;
+            }
+            // The rest of this chat's cards would be refused too; they get their turn next cycle.
+            if (outcome === 'rate_limited') rateLimitedChats.add(chatKey);
           }
         }
       }

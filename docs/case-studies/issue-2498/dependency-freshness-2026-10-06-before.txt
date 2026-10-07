@@ -1,0 +1,4 @@
+Dependency freshness: 166/168 declarations current
+STALE src/use-with-retry.lib.mjs#USE_M_PACKAGE_VERSIONS: command-stream 1.5.0 -> 1.6.2 (exact)
+STALE src/use-with-retry.lib.mjs#USE_M_PACKAGE_VERSIONS: links-notation 0.22.0 -> 0.23.0 (exact)
+Dependency freshness failed: 2 stale, 0 unresolved.

@@ -46,6 +46,7 @@ function makeHarness(statusProvider) {
     dockerContainerSizeProvider: async () => null,
     readFile: async file => await fs.readFile(file, 'utf8'),
     lookupLinkedPullRequest: async () => null,
+    lookupPullRequestState: async () => null, // #2498: offline — the real pull request may have merged since
     env: {},
     isolationRunner: { generateSessionId: () => 'recovery-1', executeWithIsolation: async (...args) => (launches.push(args), { success: true }) },
     runCommand: async (_command, args) => {

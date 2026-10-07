@@ -15,6 +15,19 @@
  * window it landed in is allowed, and a 429 proves the window it landed in is
  * not. The documented values are only a starting point.
  *
+ * Issue #2571 turned the observer into a governor. Counting 429s is useless if
+ * nothing reacts to them: a big queue kept editing ~20 waiting cards back to back
+ * in one group every minute and collected 86 refusals in 20 minutes, each new
+ * edit landing inside the `retry_after` Telegram had just announced. The
+ * governor now, at the same `callApi` choke point:
+ *
+ * - holds every request to a chat until that chat's `retry_after` has elapsed;
+ * - paces message requests so no modelled window goes over its learned limit;
+ * - drops low-priority requests (periodic status edits, see
+ *   `withTelegramRequestPriority`) instead of delaying them, and keeps a
+ *   reserve of each window free for replies to people;
+ * - retries a normal-priority request once after a 429 when the wait is short.
+ *
  * References:
  * - https://core.telegram.org/bots/faq#my-bot-is-hitting-limits-how-do-i-avoid-this
  * - https://core.telegram.org/bots/api#responseparameters
@@ -22,7 +35,11 @@
  * - https://github.com/tdlib/telegram-bot-api/blob/master/telegram-bot-api/Client.cpp
  * - https://github.com/tdlib/td/issues/3034 (message edits share the sending limits)
  * - https://grammy.dev/advanced/flood
+ * - https://grammy.dev/plugins/auto-retry and https://grammy.dev/plugins/transformer-throttler
+ * - https://docs.python-telegram-bot.org/en/stable/telegram.ext.aioratelimiter.html
  */
+
+import { AsyncLocalStorage } from 'node:async_hooks';
 
 const SECOND_MS = 1_000;
 const MINUTE_MS = 60_000;
@@ -44,6 +61,90 @@ export const TELEGRAM_LIMIT_RULES = Object.freeze([Object.freeze({ id: 'chat', k
 
 /** A window must be at least this full before a 429 can be blamed on it. */
 const BLAME_UTILIZATION = 0.5;
+
+/**
+ * How long a refusal outranks contradicting successes (issue #2571).
+ *
+ * Telegram's window is not aligned with ours, so the same group was refused at
+ * 20 requests in our window and accepted at 23 a few minutes later. Letting each
+ * success raise the limit made the estimate climb straight back into the next
+ * refusal ("observed limit 21, peak 23"). Within this horizon a refusal wins;
+ * once it passes without another 429 a lowered limit returns to the documented
+ * value and successes may raise it again.
+ */
+export const LIMIT_EVIDENCE_TTL_MS = 30 * MINUTE_MS;
+
+/**
+ * Share of every window that low-priority requests may not use, so a reply to a
+ * person still fits when periodic status edits have used up their part.
+ */
+export const LOW_PRIORITY_RESERVE = 0.25;
+
+/** Longest a normal-priority request waits for pacing or `retry_after` before failing locally. */
+export const DEFAULT_MAX_WAIT_MS = 75 * SECOND_MS;
+
+/** Normal-priority requests are retried this many times after a real 429. */
+export const DEFAULT_MAX_RETRIES = 1;
+
+/** Margin added to computed waits so the request lands after the window edge. */
+const PACING_MARGIN_MS = 50;
+
+export const TELEGRAM_PRIORITY_NORMAL = 'normal';
+export const TELEGRAM_PRIORITY_LOW = 'low';
+
+const priorityStorage = new AsyncLocalStorage();
+
+/**
+ * Run `fn` with every Bot API call it makes tagged with `priority`.
+ *
+ * Low priority is for traffic nobody is waiting for — periodic queue card edits,
+ * progress refreshes. Such requests never wait and never retry: when the chat is
+ * under flood control or its window is past the reserve, they fail at once with
+ * a local throttle error (see `isTelegramLocalThrottleError`) and the caller
+ * tries again on its next cycle.
+ *
+ * @template T
+ * @param {'normal'|'low'} priority
+ * @param {() => T} fn
+ * @returns {T}
+ */
+export function withTelegramRequestPriority(priority, fn) {
+  return priorityStorage.run(priority === TELEGRAM_PRIORITY_LOW ? TELEGRAM_PRIORITY_LOW : TELEGRAM_PRIORITY_NORMAL, fn);
+}
+
+export function getTelegramRequestPriority() {
+  return priorityStorage.getStore() || TELEGRAM_PRIORITY_NORMAL;
+}
+
+/**
+ * Build the error thrown when the governor refuses a request without sending
+ * it. It mirrors Telegraf's `TelegramError` shape for a 429 so existing
+ * handlers (`retry_after`, `error_code`) keep working, and carries
+ * `localThrottle: true` so callers can tell it never reached Telegram.
+ */
+export function createTelegramLocalThrottleError({ method, chatId = null, retryAfterMs = 0, reason = 'rate_limit' }) {
+  const retryAfter = Math.max(1, Math.ceil(retryAfterMs / SECOND_MS));
+  const description = `Too Many Requests: retry after ${retryAfter} (held locally: ${reason})`;
+  const error = new Error(`429: ${description}`);
+  error.name = 'TelegramLocalThrottleError';
+  error.code = 429;
+  error.localThrottle = true;
+  error.reason = reason;
+  error.response = { ok: false, error_code: 429, description, parameters: { retry_after: retryAfter } };
+  error.parameters = error.response.parameters;
+  error.description = description;
+  error.on = { method, payload: chatId === null ? {} : { chat_id: chatId } };
+  return error;
+}
+
+export function isTelegramLocalThrottleError(error) {
+  return Boolean(error?.localThrottle);
+}
+
+/** True for a real or local 429 — anything that means "this chat is rate limited right now". */
+export function isTelegramRateLimitError(error) {
+  return isTelegramLocalThrottleError(error) || extractRateLimitError(error) !== null;
+}
 
 const TRACKER_INSTALLED = Symbol.for('hiveMind.telegramRateLimitTrackerInstalled');
 const MAX_WINDOW_MS = Math.max(...TELEGRAM_LIMIT_RULES.map(rule => rule.windowMs));
@@ -94,6 +195,15 @@ function ruleKey(rule, event) {
   return rule.scope === 'global' ? '' : event.chatId;
 }
 
+/**
+ * Flood control is announced for one chat, so `retry_after` holds that chat
+ * only. Calls without a chat (getUpdates, answerCallbackQuery) are held per
+ * method, so one refused method cannot stall long polling.
+ */
+function blockKey(event) {
+  return event.chatId !== null ? `chat:${event.chatId}` : `method:${event.method}`;
+}
+
 function extractRateLimitError(error) {
   const response = error?.response || error;
   const code = response?.error_code ?? response?.status ?? error?.code;
@@ -128,6 +238,14 @@ export class TelegramRateLimitTracker {
     this.messageRequests = 0;
     this.rateLimitResponses = 0;
     this.lastRateLimit = null;
+    // Issue #2571: what the governor did instead of letting Telegram refuse.
+    this.delayedRequests = 0;
+    this.delayedMs = 0;
+    this.heldRequests = 0;
+    this.retriedRequests = 0;
+    this.lastHeld = null;
+    /** @type {Map<string, {until: number, method: string, chatId: string|null}>} */
+    this.blocks = new Map();
     this.rules = new Map(
       TELEGRAM_LIMIT_RULES.map(rule => [
         rule.id,
@@ -137,6 +255,8 @@ export class TelegramRateLimitTracker {
           limitSource: rule.documentedLimit === null ? 'unknown' : 'documented',
           peak: 0,
           throttledUntil: null,
+          refusedAt: null,
+          refusedCount: null,
         },
       ])
     );
@@ -145,6 +265,27 @@ export class TelegramRateLimitTracker {
   prune(now = this.now()) {
     const oldestRelevant = now - MAX_WINDOW_MS;
     this.events = this.events.filter(event => event.at > oldestRelevant);
+    for (const [key, block] of this.blocks) {
+      if (block.until <= now) this.blocks.delete(key);
+    }
+    this.refreshLimits(now);
+  }
+
+  /**
+   * Let a limit lowered by a refusal recover once the refusal is old news.
+   * Without this a single 429 caused by penalty state, or by our window being
+   * misaligned with Telegram's, would cap the window for the life of the bot.
+   */
+  refreshLimits(now = this.now()) {
+    for (const state of this.rules.values()) {
+      if (state.refusedAt === null || now - state.refusedAt <= LIMIT_EVIDENCE_TTL_MS) continue;
+      state.refusedAt = null;
+      state.refusedCount = null;
+      if (state.rule.documentedLimit !== null && state.limit < state.rule.documentedLimit) {
+        state.limit = state.rule.documentedLimit;
+        state.limitSource = 'documented';
+      }
+    }
   }
 
   /** Count matching requests inside one rule's window, split by chat when scoped. */
@@ -157,6 +298,65 @@ export class TelegramRateLimitTracker {
       counts.set(key, (counts.get(key) || 0) + 1);
     }
     return counts;
+  }
+
+  /** Timestamps of the requests in one rule's window for the key `event` falls in, oldest first. */
+  windowEventTimes(rule, event, now) {
+    const oldestRelevant = now - rule.windowMs;
+    const key = ruleKey(rule, event);
+    const times = [];
+    for (const candidate of this.events) {
+      if (candidate.at <= oldestRelevant || !ruleMatches(rule, candidate) || ruleKey(rule, candidate) !== key) continue;
+      times.push(candidate.at);
+    }
+    return times;
+  }
+
+  /**
+   * Decide whether a request may go out now (issue #2571).
+   *
+   * Returns `{ action: 'send' }`, `{ action: 'wait', waitMs, reason }` for a
+   * normal-priority request that must be delayed, or `{ action: 'hold',
+   * waitMs, reason }` for a low-priority request that should not be sent at all
+   * this time. Planning and `recordRequest` must run in the same tick so two
+   * concurrent callers cannot both take the last slot.
+   */
+  planRequest(method, payload = {}, { priority = TELEGRAM_PRIORITY_NORMAL } = {}) {
+    const now = this.now();
+    this.prune(now);
+    const event = classifyTelegramRequest(method, payload);
+    const low = priority === TELEGRAM_PRIORITY_LOW;
+
+    const block = this.blocks.get(blockKey(event));
+    if (block && block.until > now) {
+      return { action: low ? 'hold' : 'wait', waitMs: block.until - now, reason: 'retry_after' };
+    }
+
+    let pacing = null;
+    for (const rule of TELEGRAM_LIMIT_RULES) {
+      if (!ruleMatches(rule, event)) continue;
+      const { limit } = this.rules.get(rule.id);
+      if (limit === null) continue;
+      const allowed = low ? Math.max(1, Math.floor(limit * (1 - LOW_PRIORITY_RESERVE))) : limit;
+      const times = this.windowEventTimes(rule, event, now);
+      if (times.length < allowed) continue;
+      // Wait until enough of the oldest requests leave the window to make room.
+      const waitMs = times[times.length - allowed] + rule.windowMs - now + PACING_MARGIN_MS;
+      if (!pacing || waitMs > pacing.waitMs) pacing = { waitMs, reason: `${rule.id}_window` };
+    }
+    if (pacing) return { action: low ? 'hold' : 'wait', ...pacing };
+    return { action: 'send' };
+  }
+
+  recordDelay(ms) {
+    this.delayedRequests++;
+    this.delayedMs += Math.max(0, ms);
+  }
+
+  recordHeld(method, payload, plan, priority) {
+    this.heldRequests++;
+    const { chatId } = classifyTelegramRequest(method, payload);
+    this.lastHeld = { method: String(method || ''), chatId, reason: plan.reason, waitMs: plan.waitMs, priority, observedAt: this.now() };
   }
 
   /**
@@ -179,14 +379,18 @@ export class TelegramRateLimitTracker {
     return { event, counts };
   }
 
-  /** Telegram accepted the request, so every window it landed in tolerates its count. */
+  /**
+   * Telegram accepted the request, so every window it landed in tolerates its
+   * count — unless a recent refusal says otherwise, in which case the windows
+   * simply disagree and the refusal, the costlier mistake, wins.
+   */
   recordSuccess(pending) {
     if (!pending?.counts) return;
     for (const [id, count] of pending.counts) {
       const state = this.rules.get(id);
       if (count > state.peak) state.peak = count;
       // An unknown limit stays unknown: a success proves capacity, never a ceiling.
-      if (state.limit !== null && count > state.limit) {
+      if (state.limit !== null && count > state.limit && state.refusedAt === null) {
         state.limit = count;
         state.limitSource = 'observed';
       }
@@ -203,7 +407,7 @@ export class TelegramRateLimitTracker {
     for (const [id, count] of pending.counts) {
       const state = this.rules.get(id);
       const utilization = state.limit === null ? Infinity : count / state.limit;
-      candidates.push({ state, count, utilization, explained: state.limit !== null && count >= state.limit });
+      candidates.push({ state, count, utilization, explained: state.limit !== null && count > state.limit });
     }
 
     const explained = candidates.filter(candidate => candidate.explained);
@@ -230,13 +434,26 @@ export class TelegramRateLimitTracker {
     // ceiling the refusal just proved.
     const landed = this.events.indexOf(pending?.event);
     if (landed !== -1) this.events.splice(landed, 1);
-    if (blamed && !blamed.explained) {
-      // Telegram refused a window our estimate still considered allowed, so the
-      // estimate is too high: the real limit is below the refused count.
-      blamed.state.limit = Math.max(1, blamed.count - 1);
-      blamed.state.limitSource = 'observed';
+    if (blamed) {
+      if (!blamed.explained) {
+        // Telegram refused a window our estimate still considered allowed, so the
+        // estimate is too high: the real limit is below the refused count.
+        blamed.state.limit = Math.max(1, blamed.count - 1);
+        blamed.state.limitSource = 'observed';
+      }
+      blamed.state.throttledUntil = retryUntil;
+      blamed.state.refusedAt = at;
+      blamed.state.refusedCount = blamed.state.refusedCount === null ? blamed.count : Math.min(blamed.state.refusedCount, blamed.count);
     }
-    if (blamed) blamed.state.throttledUntil = retryUntil;
+    // Telegram told us when this chat may talk again; nothing to it goes out
+    // before then (issue #2571). Without a retry_after the refusal still means
+    // "not now", so hold for one second rather than not at all.
+    if (pending?.event) {
+      const until = retryUntil ?? at + SECOND_MS;
+      const key = blockKey(pending.event);
+      const existing = this.blocks.get(key);
+      if (!existing || existing.until < until) this.blocks.set(key, { until, method: pending.event.method, chatId: pending.event.chatId });
+    }
 
     this.lastRateLimit = {
       method: pending?.event?.method || 'unknown',
@@ -246,6 +463,7 @@ export class TelegramRateLimitTracker {
       observedAt: at,
       retryUntil,
       ruleId: blamed?.state.rule.id ?? null,
+      windowCount: blamed?.count ?? null,
     };
     return this.lastRateLimit;
   }
@@ -277,14 +495,24 @@ export class TelegramRateLimitTracker {
       remaining: Math.max(0, state.limit - busiest.count),
       usedPercentage: percentage(busiest.count, state.limit),
       throttled: state.throttledUntil !== null && state.throttledUntil > now,
+      lowPriorityLimit: Math.max(1, Math.floor(state.limit * (1 - LOW_PRIORITY_RESERVE))),
     };
+  }
+
+  /** Chats and methods still under a `retry_after` hold, soonest release first. */
+  describeBlocks(now) {
+    return [...this.blocks.values()]
+      .filter(block => block.until > now)
+      .sort((a, b) => a.until - b.until)
+      .map(block => ({ method: block.method, chatId: block.chatId, retryRemainingSeconds: Math.ceil((block.until - now) / SECOND_MS) }));
   }
 
   describeLastRateLimit(now) {
     if (!this.lastRateLimit) return null;
     const { retryUntil } = this.lastRateLimit;
     const retryRemainingSeconds = retryUntil === null ? null : Math.max(0, Math.ceil((retryUntil - now) / SECOND_MS));
-    return { ...this.lastRateLimit, retryRemainingSeconds };
+    const ageSeconds = Math.max(0, Math.floor((now - this.lastRateLimit.observedAt) / SECOND_MS));
+    return { ...this.lastRateLimit, retryRemainingSeconds, ageSeconds };
   }
 
   getSnapshot() {
@@ -302,9 +530,15 @@ export class TelegramRateLimitTracker {
       display,
       rules,
       throttled: Boolean(lastRateLimit?.retryRemainingSeconds),
+      blocks: this.describeBlocks(now),
       totalApiRequests: this.totalApiRequests,
       messageRequests: this.messageRequests,
       rateLimitResponses: this.rateLimitResponses,
+      delayedRequests: this.delayedRequests,
+      delayedMs: this.delayedMs,
+      heldRequests: this.heldRequests,
+      retriedRequests: this.retriedRequests,
+      lastHeld: this.lastHeld,
       lastRateLimit,
     };
   }
@@ -318,30 +552,78 @@ export function getTelegramRateLimits(verbose = false) {
   return { success: true, telegramRateLimit };
 }
 
+const defaultSleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+function formatWindows(counts) {
+  return JSON.stringify(Object.fromEntries(counts || []));
+}
+
 /**
- * Observe every Bot API call from Telegraf's single `callApi` choke point, which
- * also carries `getUpdates` long polling, without delaying, retrying, reordering
- * or swallowing anything.
+ * Govern every Bot API call from Telegraf's single `callApi` choke point, which
+ * also carries `getUpdates` long polling.
+ *
+ * Results and non-429 errors pass through untouched. A request the governor
+ * will not send fails with `createTelegramLocalThrottleError`, never silently.
+ *
+ * @param {object} telegram - Telegraf `Telegram` client
+ * @param {object} [options]
+ * @param {TelegramRateLimitTracker} [options.tracker] - shared state; every per-update client must use the same one
+ * @param {boolean} [options.verbose]
+ * @param {number} [options.maxWaitMs] - longest a normal-priority request may wait in total
+ * @param {number} [options.maxRetries] - retries of a normal-priority request after a real 429
+ * @param {(ms: number) => Promise<void>} [options.sleep]
  */
-export function installTelegramRateLimitTracker(telegram, { tracker = defaultTracker, verbose = false } = {}) {
+export function installTelegramRateLimitTracker(telegram, { tracker = defaultTracker, verbose = false, maxWaitMs = DEFAULT_MAX_WAIT_MS, maxRetries = DEFAULT_MAX_RETRIES, sleep = defaultSleep } = {}) {
   if (!telegram || telegram[TRACKER_INSTALLED]) return telegram;
   const originalCallApi = telegram.callApi;
   if (typeof originalCallApi !== 'function') return telegram;
 
-  telegram.callApi = async function trackedCallApi(method, payload = {}, ...rest) {
-    const pending = tracker.recordRequest(method, payload);
-    try {
-      const result = await originalCallApi.call(this, method, payload, ...rest);
-      tracker.recordSuccess(pending);
-      if (verbose) console.log(`[VERBOSE] Telegram Bot API ${method} accepted; windows: ${JSON.stringify(Object.fromEntries(pending.counts))}`);
-      return result;
-    } catch (error) {
-      const observed = tracker.recordError(error, pending);
-      if (observed) {
-        console.warn(`[telegram-bot] Telegram Bot API rate limit: method=${observed.method} chat=${observed.chatId ?? 'unknown'} retry_after=${observed.retryAfterSeconds ?? 'unknown'}s window=${observed.ruleId ?? 'unattributed'}`);
-        if (verbose) console.error('[VERBOSE] Telegram Bot API 429 response:', JSON.stringify(error?.response || { message: error?.message }, null, 2));
+  // Wait for the governor's permission; throws a local throttle error instead
+  // of sending when the wait is not allowed. The request is recorded in the
+  // same synchronous step as the decision, so concurrent callers cannot all
+  // see the same free slot.
+  async function admit(method, payload, priority, budget) {
+    for (;;) {
+      const plan = tracker.planRequest(method, payload, { priority });
+      if (plan.action === 'send') return tracker.recordRequest(method, payload);
+      const chat = payload?.chat_id ?? 'none';
+      if (plan.action === 'hold' || plan.waitMs > budget.remainingMs) {
+        tracker.recordHeld(method, payload, plan, priority);
+        if (verbose) console.log(`[VERBOSE] Telegram Bot API ${method} held locally: chat=${chat} priority=${priority} reason=${plan.reason} wait=${Math.ceil(plan.waitMs)}ms budget=${Math.max(0, Math.round(budget.remainingMs))}ms`);
+        throw createTelegramLocalThrottleError({ method, chatId: payload?.chat_id ?? null, retryAfterMs: plan.waitMs, reason: plan.reason });
       }
-      throw error;
+      tracker.recordDelay(plan.waitMs);
+      if (verbose) console.log(`[VERBOSE] Telegram Bot API ${method} delayed ${Math.ceil(plan.waitMs)}ms: chat=${chat} reason=${plan.reason}`);
+      budget.remainingMs -= plan.waitMs;
+      await sleep(plan.waitMs);
+    }
+  }
+
+  telegram.callApi = async function governedCallApi(method, payload = {}, ...rest) {
+    const priority = getTelegramRequestPriority();
+    const budget = { remainingMs: maxWaitMs };
+    for (let attempt = 0; ; attempt++) {
+      const pending = await admit(method, payload, priority, budget);
+      try {
+        const result = await originalCallApi.call(this, method, payload, ...rest);
+        tracker.recordSuccess(pending);
+        if (verbose) console.log(`[VERBOSE] Telegram Bot API ${method} accepted; windows: ${formatWindows(pending.counts)}`);
+        return result;
+      } catch (error) {
+        const observed = tracker.recordError(error, pending);
+        if (!observed) {
+          // Issue #2571: failed calls (e.g. "message is not modified") still count
+          // against Telegram's windows, so make them visible next to the counts.
+          if (verbose) console.log(`[VERBOSE] Telegram Bot API ${method} failed (${error?.response?.error_code ?? error?.code ?? 'no code'}): ${error?.response?.description || error?.message}; windows: ${formatWindows(pending.counts)}`);
+          throw error;
+        }
+        const retryAfterMs = observed.retryAfterSeconds === null ? null : observed.retryAfterSeconds * SECOND_MS;
+        const willRetry = priority !== TELEGRAM_PRIORITY_LOW && attempt < maxRetries && retryAfterMs !== null && retryAfterMs <= budget.remainingMs;
+        console.warn(`[telegram-bot] Telegram Bot API rate limit: method=${observed.method} chat=${observed.chatId ?? 'unknown'} retry_after=${observed.retryAfterSeconds ?? 'unknown'}s window=${observed.ruleId ?? 'unattributed'} windows=${formatWindows(pending.counts)} priority=${priority} at=${new Date(observed.observedAt).toISOString()}${willRetry ? ' (will retry)' : ''}`);
+        if (verbose) console.error('[VERBOSE] Telegram Bot API 429 response:', JSON.stringify(error?.response || { message: error?.message }, null, 2));
+        if (!willRetry) throw error;
+        tracker.retriedRequests++;
+      }
     }
   };
 

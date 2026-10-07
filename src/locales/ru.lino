@@ -350,6 +350,7 @@ ru
       last
         rate
           limit "Последний ответ 429: {{method}}"
+        refusal "Последний ответ 429: {{method}}, {{ago}} назад"
       observed
         limit "измеренный лимит"
       peak "пик {{peak}}"
@@ -357,7 +358,9 @@ ru
         limit
           responses "Ответов 429 с момента запуска: {{count}}"
       requests "{{used}}/{{limit}} запросов"
+      restraint "Сдержано ботом: отложено {{delayed}}, пропущено {{held}}, повторено {{retried}}"
       retry
+        after "retry_after {{duration}}"
         in "повтор через {{duration}}"
       scope
         broadcast "сообщения во все чаты, 1 с"
@@ -697,6 +700,8 @@ ru
         resumed "Для восстановления после завершения запущена новая рабочая сессия."
       kill
         cause "Причина"
+        event "Событие"
+        event_diagnostics "Диагностика OOM-события контейнера (не причина этой остановки)"
         diagnostics "Диагностика завершения"
         resumed "🔄 Запущена новая рабочая сессия для восстановления после этого завершения: {{sessionId}}"
         resumed_attempt "🔄 Запущена новая рабочая сессия для восстановления после этого завершения (попытка {{attempt}}): {{sessionId}}"

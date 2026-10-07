@@ -18,6 +18,8 @@
  * @see https://github.com/link-assistant/hive-mind/issues/1952
  */
 
+import { isLatestAiWorkAttached } from './log-attach-state.lib.mjs';
+
 /**
  * Attach the final session log if `--attach-logs` is enabled and nothing has attached a log yet.
  *
@@ -115,12 +117,23 @@ export const attachLogAfterPostSolveRestarts = async ({ restartIterationsRan, sh
  * explains why the merge was held back is never published.
  *
  * @param {Object} params - same as {@link attachFinalLogIfMissing}, plus:
+ * Issue #2563: only when an AI session finished after the latest attached log
+ * (or no log is attached). In link-foundation/command-stream#206 the loop only
+ * waited for CI after the first upload, and the same log was published twice.
+ * When the loop can, it already published that log together with the
+ * held-back notice (`reportAutoMergeBlockedByIssue`).
+ *
  * @param {Object|null} params.autoMergeResult - the result of `startAutoRestartUntilMergeable`
  * @returns {Promise<boolean>} `true` if the updated log was attached
  */
-export const attachLogAfterAutoMergeBlocked = async ({ autoMergeResult, shouldAttachLogs, prNumber, ...params }) => {
+export const attachLogAfterAutoMergeBlocked = async ({ autoMergeResult, shouldAttachLogs, prNumber, globalState = global, ...params }) => {
   const blockers = autoMergeResult?.success === false ? autoMergeResult.mergeBlockers || [] : [];
   if (!shouldAttachLogs || !prNumber || blockers.length === 0) return false;
+  // Issue #2563: the held-back comment explains the stop; the same log is not published twice.
+  if (isLatestAiWorkAttached(globalState)) {
+    await params.log('ℹ️  Not uploading the session log again: the attached log already covers every AI session, and the auto-merge held-back comment explains the stop');
+    return false;
+  }
   return attachUpdatedLog({ ...params, prNumber, reason: `the auto-merge was held back (${blockers.map(blocker => blocker.reason).join(', ')})` });
 };
 

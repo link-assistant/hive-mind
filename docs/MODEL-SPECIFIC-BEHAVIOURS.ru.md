@@ -29,7 +29,7 @@
 - diff содержит только программу, workflow и тестовый скрипт;
 - программа печатает ровно `Hello, World!`;
 - workflow зелёный;
-- тело PR пересоздано;
+- тело PR содержит завершённое описание агента;
 - нет комментария `🛑 Automation stopped`.
 
 Проверки находятся в `scripts/e2e-hello-world.lib.mjs` и покрыты тестами в `tests/e2e-hello-world-matrix-2319.test.mjs`.

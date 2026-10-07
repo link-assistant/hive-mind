@@ -196,6 +196,7 @@ const KNOWN_OPTION_NAMES = [
   'auto-close-pull-request-on-fail',
   'on-session-kill',
   'session-kill-resume-attempts',
+  'session-kill-resume-delay',
   'auto-pull-request-creation',
   'auto-commit-uncommitted-changes',
   'auto-restart-on-uncommitted-changes',

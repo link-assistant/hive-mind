@@ -6,6 +6,7 @@
 > **相关内容：**
 >
 > - [Agent CLI FREE_MODELS.md](https://github.com/link-assistant/agent/blob/main/FREE_MODELS.md) - 上游免费模型列表（权威来源）
+> - [Issue #2625](https://github.com/link-assistant/hive-mind/issues/2625) - OpenCode Zen 已下线 nemotron-3-super-free，其免费层现在对 OpenCode 以外的客户端返回 `FreeTierError`（HTTP 403）；默认模型改为在 Kilo Gateway 上以 `nvidia/nemotron-3-super-120b-a12b:free` 运行同一模型，并由 Hive Mind 提供 Agent 缺少的提供商条目（[agent#327](https://github.com/link-assistant/agent/issues/327)）
 > - [Agent PR #243](https://github.com/link-assistant/agent/pull/243) - 上游：将已弃用的 qwen3.6-plus-free 替换为 nemotron-3-super-free 作为默认模型
 > - [Agent PR #234](https://github.com/link-assistant/agent/pull/234) - 上游：qwen3.6-plus-free 作为默认模型，添加 nemotron-3-super-free
 > - [Agent PR #209](https://github.com/link-assistant/agent/pull/209) - 上游免费模型更新（minimax-m2.5-free 作为默认模型）
@@ -22,10 +23,10 @@ Hive-mind 支持来自两个提供商的免费模型：
 
 ## OpenCode Zen 免费模型
 
-### 1. opencode/nemotron-3-super-free **默认模型**
+### 1. kilo/nemotron-3-super-free **默认模型**
 
 - **短别名**：`nemotron-3-super-free`
-- **提供商**：OpenCode Zen
+- **提供商**：Kilo Gateway（`nvidia/nemotron-3-super-120b-a12b:free`，Issue #2625）
 - **状态**：完全支持（自 Issue #1563 起为 `--tool agent` 的默认模型）
 - **功能**：推理、工具调用、混合 Mamba-Transformer 架构
 - **上下文窗口**：约 262,144 个 token
@@ -190,7 +191,7 @@ solve https://github.com/owner/repo/issues/123 --tool agent --model nemotron-3-s
 hive https://github.com/owner/repo --tool agent --model minimax-m2.5-free
 
 # OpenCode Zen 模型（完整模型 ID）
-solve https://github.com/owner/repo/issues/123 --tool agent --model opencode/nemotron-3-super-free
+solve https://github.com/owner/repo/issues/123 --tool agent --model kilo/nemotron-3-super-free
 hive https://github.com/owner/repo --tool agent --model opencode/big-pickle
 
 # Kilo Gateway 模型（完整模型 ID）
@@ -218,7 +219,7 @@ hive https://github.com/owner/repo --tool agent --model deepseek-r1-free
 /solve https://github.com/owner/repo/issues/123 --tool agent --model glm-5-free
 /hive https://github.com/owner/repo --tool agent --model glm-4.5-air-free
 
-# 默认模型（通过 OpenCode Zen 的 nemotron-3-super-free）：
+# 默认模型（通过 Kilo Gateway 的 nemotron-3-super-free）：
 /solve https://github.com/owner/repo/issues/123 --tool agent
 /agent https://github.com/owner/repo/issues/123
 ```
@@ -226,8 +227,12 @@ hive https://github.com/owner/repo --tool agent --model deepseek-r1-free
 ### 直接使用 Agent CLI
 
 ```bash
+# Kilo Gateway 上的默认模型（Issue #2625）：Hive Mind 会自动提供此 provider 条目；
+# 直接调用 Agent 0.26.11 时需要它
+LINK_ASSISTANT_AGENT_CONFIG_CONTENT='{"provider":{"kilo":{"models":{"nemotron-3-super-free":{"id":"nvidia/nemotron-3-super-120b-a12b:free"}}}}}' \
+  agent --model kilo/nemotron-3-super-free <<< "Your prompt here"
+
 # OpenCode Zen 模型
-echo "Your prompt here" | agent --model opencode/nemotron-3-super-free
 echo "Your prompt here" | agent --model opencode/minimax-m2.5-free
 
 # Kilo Gateway 模型
@@ -243,7 +248,7 @@ echo "Your prompt here" | agent --model kilo/deepseek-r1-free
 
 **旗舰免费模型**：
 
-- `opencode/nemotron-3-super-free` - NVIDIA 混合 Mamba-Transformer，强大的推理能力（OpenCode，默认）
+- `kilo/nemotron-3-super-free` - NVIDIA 混合 Mamba-Transformer，强大的推理能力（Kilo，默认）
 - `kilo/glm-5-free` - Z.AI 旗舰，在许多任务上媲美 Opus 4.5（Kilo）
 
 **通用与推理**：
@@ -256,7 +261,7 @@ echo "Your prompt here" | agent --model kilo/deepseek-r1-free
 **大上下文任务**：
 
 - `opencode/gpt-5-nano` - 超大上下文（约 400,000 个 token）
-- `opencode/nemotron-3-super-free` - 大上下文（约 262,144 个 token）
+- `kilo/nemotron-3-super-free` - 大上下文（约 262,144 个 token）
 - `kilo/giga-potato-free` - 大上下文（256,000 个 token）
 - `opencode/minimax-m2.5-free` - 大上下文（204,800 个 token）
 

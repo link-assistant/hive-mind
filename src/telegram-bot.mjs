@@ -183,6 +183,7 @@ const { executeStartScreen: executeStartScreenCommand, buildExecuteAndUpdateMess
 const { isChatStopped, getChatStopInfo, getStoppedChatRejectMessage, DEFAULT_STOP_REASON } = await import('./telegram-start-stop-command.lib.mjs');
 const { isOldMessage: _isOldMessage, isGroupChat: _isGroupChat, isChatAuthorized: _isChatAuthorized, isForwarded: _isForwarded, isForwardedOrReply: _isForwardedOrReply, extractCommandFromText, extractGitHubUrl: _extractGitHubUrl } = await import('./telegram-message-filters.lib.mjs');
 const { isTelegramFormattingError, isTelegramMessageTooLongError, safeEditMessageText, safeReply, safeSendMessage, TELEGRAM_TEXT_LIMIT } = await import('./telegram-safe-reply.lib.mjs');
+const { isTelegramRateLimitError } = await import('./telegram-rate-limit.lib.mjs');
 const { installTelegramContextSafety } = await import('./telegram-context-safety.lib.mjs');
 const { registerTerminalWatchCommand, startAutoTerminalWatchForSession } = await import('./telegram-terminal-watch-command.lib.mjs');
 const { launchBotWithRetry } = await import('./telegram-bot-launcher.lib.mjs');
@@ -1026,6 +1027,13 @@ bot.catch((error, ctx) => {
       username: ctx.from?.username,
     },
   });
+  // Issue #2571: a reply about a 429 goes to the chat Telegram just told the bot to
+  // leave alone, so it was refused too (six 3×429 cascades in the production log).
+  // The rate-limit warning above the stack already names the chat and retry_after.
+  if (isTelegramRateLimitError(error)) {
+    console.error(`[telegram-bot] Not replying about update ${ctx.update.update_id}: Telegram rate limit in chat ${ctx.chat?.id ?? 'unknown'} (${error.response?.description || error.message})`);
+    return;
+  }
   // Try to notify the user about the error with more details
   if (ctx?.reply) {
     const isTelegramParsingError = isTelegramFormattingError(error);

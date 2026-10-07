@@ -29,7 +29,7 @@
 - diff में केवल program, workflow और एक test script है;
 - program ठीक `Hello, World!` छापता है;
 - workflow हरा है;
-- body फिर से बनाई गई है;
+- body में agent का पूरा किया गया विवरण है;
 - कोई `🛑 Automation stopped` टिप्पणी नहीं है।
 
 ये जाँचें `scripts/e2e-hello-world.lib.mjs` में हैं और `tests/e2e-hello-world-matrix-2319.test.mjs` उनकी unit testing करता है।

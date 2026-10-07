@@ -1,0 +1,57 @@
+✔ normal completion preserves an already linked description byte for byte (5.51326ms)
+✔ restart completion preserves an already linked description byte for byte (2.609521ms)
+✖ an untouched placeholder is still replaced by the generated description (issue #1162) (2.567612ms)
+✔ with auto-restart on a non-updated description, the placeholder is left for the agent (1.101986ms)
+✔ completion has no post-agent Changes regeneration left (1.461117ms)
+✔ single-issue repair appends only the missing link after a separator (0.382423ms)
+✔ multi-issue repair preserves every byte and appends only missing links once (1053.762981ms)
+✔ default live progress posts a comment without editing the description (57.372315ms)
+✖ the opt-in pr live progress mode is kept (0.873621ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 7
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1134.665035
+
+✖ failing tests:
+
+test at tests/pr-description-preservation-2549.test.mjs:96:1
+✖ an untouched placeholder is still replaced by the generated description (issue #1162) (2.567612ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file:///tmp/tmp.PPNV9j9Oue/tests/pr-description-preservation-2549.test.mjs:99:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/pr-description-preservation-2549.test.mjs:160:1
+✖ the opt-in pr live progress mode is kept (0.873621ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  'comment' !== 'pr'
+  
+      at TestContext.<anonymous> (file:///tmp/tmp.PPNV9j9Oue/tests/pr-description-preservation-2549.test.mjs:161:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'comment',
+    expected: 'pr',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

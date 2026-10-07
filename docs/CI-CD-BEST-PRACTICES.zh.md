@@ -25,6 +25,7 @@ Hive Mind 的 AI issue 求解器被指示关注每个 pull request 中的 CI/CD 
 | Go                    | [go-ai-driven-development-pipeline-template](https://github.com/link-foundation/go-ai-driven-development-pipeline-template)         |
 | C#                    | [csharp-ai-driven-development-pipeline-template](https://github.com/link-foundation/csharp-ai-driven-development-pipeline-template) |
 | Java                  | [java-ai-driven-development-pipeline-template](https://github.com/link-foundation/java-ai-driven-development-pipeline-template)     |
+| C/C++                 | [cpp-ai-driven-development-pipeline-template](https://github.com/link-foundation/cpp-ai-driven-development-pipeline-template)       |
 | PHP                   | [php-ai-driven-development-pipeline-template](https://github.com/link-foundation/php-ai-driven-development-pipeline-template)       |
 
 > **提示：** 您不必手动挑选模板。运行 `fix <repository-url> --ci-cd`（参见[自动 CI/CD 修复](#自动-cicd-修复)），Hive Mind 会检测仓库使用的语言并为您选择匹配的模板。
@@ -138,6 +139,7 @@ done
 | Go                    | gofmt                         |
 | C#                    | dotnet format                 |
 | Java                  | Spotless (Google Java Format) |
+| C/C++                 | clang-format                  |
 | PHP                   | PHP CS Fixer                  |
 
 所有模板都包含在每次提交前自动运行格式化工具的 pre-commit 钩子。
@@ -146,15 +148,16 @@ done
 
 在代码到达审查之前捕获 bug 并强制执行模式：
 
-| 语言                  | 工具                         |
-| --------------------- | ---------------------------- |
-| JavaScript/TypeScript | ESLint（严格规则）           |
-| Rust                  | Clippy（pedantic + nursery） |
-| Python                | Ruff + mypy                  |
-| Go                    | go vet + staticcheck         |
-| C#                    | .NET 分析器（警告视为错误）  |
-| Java                  | SpotBugs（最大力度）         |
-| PHP                   | PHPStan（最高级别）          |
+| 语言                  | 工具                                  |
+| --------------------- | ------------------------------------- |
+| JavaScript/TypeScript | ESLint（严格规则）                    |
+| Rust                  | Clippy（pedantic + nursery）          |
+| Python                | Ruff + mypy                           |
+| Go                    | go vet + staticcheck                  |
+| C#                    | .NET 分析器（警告视为错误）           |
+| Java                  | SpotBugs（最大力度）                  |
+| C/C++                 | clang-tidy + cppcheck（警告视为错误） |
+| PHP                   | PHPStan（最高级别）                   |
 
 ### 5. 快速失败任务排序
 
@@ -197,6 +200,7 @@ test-suites:
 | Rust                  | changelog.d + 自定义脚本 |
 | Python                | Scriv                    |
 | PHP                   | changelog.d + 自定义脚本 |
+| C/C++                 | changelog.d + 自定义脚本 |
 | Go、C#、Java          | 自定义 changeset 工作流  |
 
 **免除仅文档 PR 的 changeset 要求：**
@@ -451,6 +455,25 @@ release:
 - **匿名地、单独地验证发布结果。** 永远不要让发布依赖于推送的成败（一个失败的镜像不该抹掉一个好的发布），但事后一定要在不带任何凭据的情况下检查：你发布的东西能不能被拉取。带认证的检查测量的是发布者的视角；读者既拿不到那次登录，也得不到善意的假设。
 - **报告 `unknown`，而不是猜测。** 超时或返回 HTTP 429 的 registry 并没有说凭据坏了，而一次什么都没能验证的运行也不是通过。要说清楚发生的是哪一种："0 项已验证，3 项未知"是可以行动的，"没有失败"不是。
 
+### 17. 区分坏掉的 pipeline 和变化了的世界
+
+**一个因为任何提交都无法修复的原因而失败的 job 就是假阴性，它会让所有人习惯于忽略红色。** Issue #2625 在 `main` 上一次发现了四个这样的 job：一个 dependency gate 因为上游发布了新的 major 版本而在每次 push 时失败；一个 cleanup 因为 ruleset 禁止删除分支而每天失败；一个 dispatch 在启动之前就被 GitHub 拒绝；还有一个日志上传把一次拒绝重试了三次。每一个都掩盖了旁边真正的失败。
+
+```yaml
+on:
+  workflow_dispatch:
+    inputs:
+      bump_type:
+        required: true
+        default: patch # 没有它，dispatch API 会返回 HTTP 422
+```
+
+- **在 pull request 上按外部状态阻断；在 push 上只发出警告。** “发布了更新的版本”是关于世界的事实，而不是关于提交的事实。让 push 失败会为一个没有破坏任何东西的变更跳过 lint、测试和发布；能够对此采取行动的地方是 pull request。
+- **策略拒绝是一个决定，而不是暂时性错误。** `Resource not accessible by integration`（workflow 的 `GITHUB_TOKEN` 不能创建 gist）和 ruleset 的 `Repository rule violations found` 每次尝试都会得到相同的回答。重试 `HTTP 429` 和 `5xx`；对拒绝只报告一次，说明什么能允许它，然后继续。
+- **每个通过 API 触发的 workflow 的 input 都需要 default。** `gh workflow run` 无法填写表单：没有 `default:` 的 `required: true` input 会让 GitHub 返回 `HTTP 422: Required input '<name>' not provided`，运行根本不会被创建。用测试确认每个被触发的 workflow 恰好接受调用方传入的 inputs。
+- **创建你所依赖的东西，或者容忍它不存在。** 在从未有过该标签的仓库里，`gh pr edit --add-label` 会以 `'<label>' not found` 失败。在第一次使用时创建它（`gh label create`），而不是让一个已经完成工作的运行失败。
+- **把日志写到上传步骤查找的位置。** 找不到任何文件的 artifact 步骤会警告 `No files were found with the provided path` 并通过；而那个过早失败的运行——正是 artifact 存在的意义所在——不会留下任何证据。让缺失的日志在测试中大声失败，而不是在生产中悄无声息。
+
 ## 质量强制策略
 
 这些模板实现了纵深防御方法：
@@ -506,7 +529,7 @@ fix https://github.com/owner/repo --ci-cd
 
 ### 语言 → 模板映射
 
-该命令将检测到的语言映射到模板，规则如下（JavaScript 和 TypeScript 共用一个模板）：
+该命令将检测到的语言映射到模板，规则如下（JavaScript 和 TypeScript 共用一个模板，C、C++ 和 CMake 也共用一个模板）：
 
 | 检测到的语言          | 模板                                                             |
 | --------------------- | ---------------------------------------------------------------- |
@@ -516,6 +539,7 @@ fix https://github.com/owner/repo --ci-cd
 | Go                    | `link-foundation/go-ai-driven-development-pipeline-template`     |
 | C#                    | `link-foundation/csharp-ai-driven-development-pipeline-template` |
 | Java                  | `link-foundation/java-ai-driven-development-pipeline-template`   |
+| C/C++, CMake          | `link-foundation/cpp-ai-driven-development-pipeline-template`    |
 | PHP                   | `link-foundation/php-ai-driven-development-pipeline-template`    |
 
 没有专用模板的语言（例如 Shell 或 Dockerfile）会在 issue 中列出以供知悉，并推荐最接近的匹配模板。

@@ -25,6 +25,7 @@ We provide ready-to-use templates for multiple languages with all best practices
 | Go                    | [go-ai-driven-development-pipeline-template](https://github.com/link-foundation/go-ai-driven-development-pipeline-template)         |
 | C#                    | [csharp-ai-driven-development-pipeline-template](https://github.com/link-foundation/csharp-ai-driven-development-pipeline-template) |
 | Java                  | [java-ai-driven-development-pipeline-template](https://github.com/link-foundation/java-ai-driven-development-pipeline-template)     |
+| C/C++                 | [cpp-ai-driven-development-pipeline-template](https://github.com/link-foundation/cpp-ai-driven-development-pipeline-template)       |
 | PHP                   | [php-ai-driven-development-pipeline-template](https://github.com/link-foundation/php-ai-driven-development-pipeline-template)       |
 
 > **Tip:** You don't have to pick a template by hand. Run `fix <repository-url> --ci-cd` (see [Automatic CI/CD Remediation](#automatic-cicd-remediation)) and Hive Mind detects the repository's languages and selects the matching templates for you.
@@ -139,6 +140,7 @@ Consistent formatting eliminates style debates and reduces diff noise:
 | Go                    | gofmt                         |
 | C#                    | dotnet format                 |
 | Java                  | Spotless (Google Java Format) |
+| C/C++                 | clang-format                  |
 | PHP                   | PHP CS Fixer                  |
 
 All templates include pre-commit hooks that run formatters automatically before each commit.
@@ -147,15 +149,16 @@ All templates include pre-commit hooks that run formatters automatically before 
 
 Catch bugs and enforce patterns before code reaches review:
 
-| Language              | Tools                               |
-| --------------------- | ----------------------------------- |
-| JavaScript/TypeScript | ESLint with strict rules            |
-| Rust                  | Clippy (pedantic + nursery)         |
-| Python                | Ruff + mypy                         |
-| Go                    | go vet + staticcheck                |
-| C#                    | .NET analyzers (warnings as errors) |
-| Java                  | SpotBugs (maximum effort)           |
-| PHP                   | PHPStan (max level)                 |
+| Language              | Tools                                      |
+| --------------------- | ------------------------------------------ |
+| JavaScript/TypeScript | ESLint with strict rules                   |
+| Rust                  | Clippy (pedantic + nursery)                |
+| Python                | Ruff + mypy                                |
+| Go                    | go vet + staticcheck                       |
+| C#                    | .NET analyzers (warnings as errors)        |
+| Java                  | SpotBugs (maximum effort)                  |
+| C/C++                 | clang-tidy + cppcheck (warnings as errors) |
+| PHP                   | PHPStan (max level)                        |
 
 ### 5. Fast-Fail Job Ordering
 
@@ -198,6 +201,7 @@ All templates use a changeset system that:
 | Rust                  | changelog.d + custom scripts |
 | Python                | Scriv                        |
 | PHP                   | changelog.d + custom scripts |
+| C/C++                 | changelog.d + custom scripts |
 | Go, C#, Java          | Custom changeset workflows   |
 
 **Exempt docs-only PRs from changeset requirements:**
@@ -452,6 +456,25 @@ release:
 - **Verify the published result anonymously, and separately.** Never gate the release on the push (a failed mirror must not delete a good release), but do check afterwards, with no credentials, that what you published can be pulled. A check that authenticates measures the publisher's view; a reader gets neither the login nor the benefit of the doubt.
 - **Report `unknown`, never a guess.** A registry that times out or answers HTTP 429 has not said the credential is broken, and a run in which nothing could be verified is not a pass. Say which of the two happened: "0 verified, 3 unknown" is actionable, "no failures" is not.
 
+### 17. Tell a Broken Pipeline from a Changed World
+
+**A job that fails for a reason no commit can fix is a false negative, and it trains everyone to ignore red.** Issue #2625 found four of them on `main` at once: a dependency gate that failed every push because a new upstream major had appeared, a cleanup that failed every day because a ruleset forbids deleting branches, a dispatch that GitHub refused before it started, and a log upload that retried a refusal three times. Each one hid the real failures next to it.
+
+```yaml
+on:
+  workflow_dispatch:
+    inputs:
+      bump_type:
+        required: true
+        default: patch # the dispatch API answers HTTP 422 without it
+```
+
+- **Gate external state on pull requests; on push, warn.** "A newer version was published" is a fact about the world, not about the commit. Failing the push skips lint, tests and the release for a change that broke nothing; the pull request is where someone can act on it.
+- **A policy refusal is a decision, not a transient error.** `Resource not accessible by integration` (a workflow `GITHUB_TOKEN` cannot create gists) and a ruleset's `Repository rule violations found` answer the same way on every attempt. Retry `HTTP 429` and `5xx`; report a refusal once, name what would allow it, and move on.
+- **Every input a workflow is dispatched with by API needs a default.** `gh workflow run` cannot fill a form: a `required: true` input without `default:` makes GitHub answer `HTTP 422: Required input '<name>' not provided`, and the run never exists. Test that each dispatched workflow accepts exactly the inputs its caller passes.
+- **Create what you depend on, or tolerate its absence.** `gh pr edit --add-label` fails with `'<label>' not found` in a repository that never had the label. Create it on first use (`gh label create`) instead of failing a run that already did its work.
+- **Write logs where the upload step looks.** An artifact step that finds nothing warns `No files were found with the provided path` and passes; the run that failed early, the one the artifact exists for, leaves no evidence. Make a missing log fail loudly in the test suite, not silently in production.
+
 ## Quality Enforcement Strategy
 
 The templates implement a defense-in-depth approach:
@@ -507,7 +530,7 @@ The retired paragraph cannot be restored by an option combination; `--developmen
 
 ### Language → Template Mapping
 
-The command maps detected languages to templates as follows (JavaScript and TypeScript share a single template):
+The command maps detected languages to templates as follows (JavaScript and TypeScript share a single template, and so do C, C++ and CMake):
 
 | Detected Language(s)  | Template                                                         |
 | --------------------- | ---------------------------------------------------------------- |
@@ -517,6 +540,7 @@ The command maps detected languages to templates as follows (JavaScript and Type
 | Go                    | `link-foundation/go-ai-driven-development-pipeline-template`     |
 | C#                    | `link-foundation/csharp-ai-driven-development-pipeline-template` |
 | Java                  | `link-foundation/java-ai-driven-development-pipeline-template`   |
+| C/C++, CMake          | `link-foundation/cpp-ai-driven-development-pipeline-template`    |
 | PHP                   | `link-foundation/php-ai-driven-development-pipeline-template`    |
 
 Languages without a dedicated template (for example Shell or Dockerfile) are listed in the issue for awareness, and the closest matching template is recommended.

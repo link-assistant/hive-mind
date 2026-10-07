@@ -25,6 +25,7 @@ AI-решатель задач Hive Mind инструктирован обращ
 | Go                    | [go-ai-driven-development-pipeline-template](https://github.com/link-foundation/go-ai-driven-development-pipeline-template)         |
 | C#                    | [csharp-ai-driven-development-pipeline-template](https://github.com/link-foundation/csharp-ai-driven-development-pipeline-template) |
 | Java                  | [java-ai-driven-development-pipeline-template](https://github.com/link-foundation/java-ai-driven-development-pipeline-template)     |
+| C/C++                 | [cpp-ai-driven-development-pipeline-template](https://github.com/link-foundation/cpp-ai-driven-development-pipeline-template)       |
 | PHP                   | [php-ai-driven-development-pipeline-template](https://github.com/link-foundation/php-ai-driven-development-pipeline-template)       |
 
 > **Совет:** вам не нужно выбирать шаблон вручную. Запустите `fix <repository-url> --ci-cd` (см. раздел [Автоматическое исправление CI/CD](#автоматическое-исправление-cicd)), и Hive Mind определит языки репозитория и подберёт для вас подходящие шаблоны.
@@ -140,6 +141,7 @@ done
 | Go                    | gofmt                         |
 | C#                    | dotnet format                 |
 | Java                  | Spotless (Google Java Format) |
+| C/C++                 | clang-format                  |
 | PHP                   | PHP CS Fixer                  |
 
 Все шаблоны включают pre-commit хуки, автоматически запускающие форматтеры перед каждым коммитом.
@@ -148,15 +150,16 @@ done
 
 Выявляйте ошибки и применяйте паттерны до прохождения кода через ревью:
 
-| Язык                  | Инструменты                                |
-| --------------------- | ------------------------------------------ |
-| JavaScript/TypeScript | ESLint со строгими правилами               |
-| Rust                  | Clippy (pedantic + nursery)                |
-| Python                | Ruff + mypy                                |
-| Go                    | go vet + staticcheck                       |
-| C#                    | .NET analyzers (предупреждения как ошибки) |
-| Java                  | SpotBugs (максимальные усилия)             |
-| PHP                   | PHPStan (max level)                        |
+| Язык                  | Инструменты                                       |
+| --------------------- | ------------------------------------------------- |
+| JavaScript/TypeScript | ESLint со строгими правилами                      |
+| Rust                  | Clippy (pedantic + nursery)                       |
+| Python                | Ruff + mypy                                       |
+| Go                    | go vet + staticcheck                              |
+| C#                    | .NET analyzers (предупреждения как ошибки)        |
+| Java                  | SpotBugs (максимальные усилия)                    |
+| C/C++                 | clang-tidy + cppcheck (предупреждения как ошибки) |
+| PHP                   | PHPStan (max level)                               |
 
 ### 5. Порядок быстрого обнаружения ошибок
 
@@ -199,6 +202,7 @@ test-suites:
 | Rust                  | changelog.d + кастомные скрипты      |
 | Python                | Scriv                                |
 | PHP                   | changelog.d + кастомные скрипты      |
+| C/C++                 | changelog.d + кастомные скрипты      |
 | Go, C#, Java          | Кастомные рабочие процессы changeset |
 
 **Освобождайте PR только с документацией от требования changeset:**
@@ -453,6 +457,25 @@ release:
 - **Проверяйте опубликованный результат анонимно и отдельно.** Никогда не ставьте релиз в зависимость от push (упавшее зеркало не должно уничтожать хороший релиз), но потом обязательно проверьте, без всяких credentials, что опубликованное можно скачать. Проверка с аутентификацией измеряет взгляд публикующего; читателю не достаётся ни этот логин, ни презумпция доверия.
 - **Сообщайте `unknown`, а не догадку.** Registry, которая отвалилась по таймауту или ответила HTTP 429, не сказала, что credential сломан, а запуск, в котором ничего не удалось проверить, — не успех. Говорите, что именно произошло: «0 проверено, 3 неизвестно» — повод действовать, «сбоев нет» — нет.
 
+### 17. Отличайте сломанный pipeline от изменившегося мира
+
+**Job, который падает по причине, которую не исправит ни один коммит, — это ложноотрицательный результат, и он приучает всех игнорировать красный цвет.** В issue #2625 на `main` нашлось сразу четыре таких: dependency gate, который падал на каждом push, потому что вышла новая major-версия upstream; cleanup, который падал каждый день, потому что ruleset запрещает удалять ветки; dispatch, который GitHub отклонял до старта; и загрузка логов, которая трижды повторяла отказ. Каждый из них прятал настоящие падения рядом.
+
+```yaml
+on:
+  workflow_dispatch:
+    inputs:
+      bump_type:
+        required: true
+        default: patch # без него dispatch API отвечает HTTP 422
+```
+
+- **Блокируйте по внешнему состоянию в pull request; на push — предупреждайте.** «Вышла более новая версия» — это факт о мире, а не о коммите. Падение push пропускает lint, тесты и релиз для изменения, которое ничего не сломало; действовать по этому факту можно в pull request.
+- **Отказ политики — это решение, а не временная ошибка.** `Resource not accessible by integration` (workflow `GITHUB_TOKEN` не может создавать gists) и `Repository rule violations found` от ruleset отвечают одинаково при каждой попытке. Повторяйте `HTTP 429` и `5xx`; об отказе сообщите один раз, назовите, что его разрешило бы, и идите дальше.
+- **Каждому input workflow, который запускается через API, нужен default.** `gh workflow run` не умеет заполнять форму: input с `required: true` без `default:` заставляет GitHub ответить `HTTP 422: Required input '<name>' not provided`, и запуск даже не создаётся. Проверяйте тестом, что каждый запускаемый workflow принимает ровно те inputs, которые передаёт вызывающая сторона.
+- **Создавайте то, от чего зависите, или переживайте его отсутствие.** `gh pr edit --add-label` падает с `'<label>' not found` в репозитории, где такой метки никогда не было. Создайте её при первом использовании (`gh label create`), а не проваливайте запуск, который уже сделал свою работу.
+- **Пишите логи туда, где их ищет шаг загрузки.** Шаг artifact, который ничего не нашёл, предупреждает `No files were found with the provided path` и проходит; запуск, упавший рано, — ровно тот, ради которого artifact существует, — не оставляет следов. Пусть отсутствующий лог громко падает в тестах, а не тихо в production.
+
 ## Стратегия обеспечения качества
 
 Шаблоны реализуют многоуровневый подход к защите:
@@ -508,7 +531,7 @@ fix https://github.com/owner/repo --ci-cd
 
 ### Сопоставление язык → шаблон
 
-Команда сопоставляет обнаруженные языки с шаблонами следующим образом (JavaScript и TypeScript используют один общий шаблон):
+Команда сопоставляет обнаруженные языки с шаблонами следующим образом (JavaScript и TypeScript используют один общий шаблон, как и C, C++ и CMake):
 
 | Обнаруженный язык(и)  | Шаблон                                                           |
 | --------------------- | ---------------------------------------------------------------- |
@@ -518,6 +541,7 @@ fix https://github.com/owner/repo --ci-cd
 | Go                    | `link-foundation/go-ai-driven-development-pipeline-template`     |
 | C#                    | `link-foundation/csharp-ai-driven-development-pipeline-template` |
 | Java                  | `link-foundation/java-ai-driven-development-pipeline-template`   |
+| C/C++, CMake          | `link-foundation/cpp-ai-driven-development-pipeline-template`    |
 | PHP                   | `link-foundation/php-ai-driven-development-pipeline-template`    |
 
 Языки без выделенного шаблона (например, Shell или Dockerfile) перечисляются в задаче для сведения, и для них рекомендуется наиболее близкий по соответствию шаблон.

@@ -28,7 +28,7 @@ import { execFile, spawn } from 'node:child_process';
 import { appendFileSync, chmodSync, mkdirSync, readFileSync } from 'node:fs';
 import { promisify } from 'node:util';
 
-import { buildDockerArgv, buildSolveArgv, DEFAULT_HIVE_MIND_IMAGE, decideDraft, formatDecisionOutputs, keepPullRequestAsDraftArgs, labelPullRequestArgs, readIssueEvent, selectDraftPullRequest } from './formal-ai-draft.lib.mjs';
+import { buildDockerArgv, buildSolveArgv, DEFAULT_HIVE_MIND_IMAGE, decideDraft, formatDecisionOutputs, keepPullRequestAsDraftArgs, labelDraftPullRequest, readIssueEvent, selectDraftPullRequest } from './formal-ai-draft.lib.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -132,7 +132,7 @@ try {
     console.log(`Draft pull request: ${serverUrl}/${repository}/pull/${pullRequest.number}`);
     setOutput(`head_branch=${pullRequest.headRefName}\npull_request_number=${pullRequest.number}\n`);
     if (!pullRequest.isDraft) await gh(keepPullRequestAsDraftArgs({ repository, number: pullRequest.number }));
-    await gh(labelPullRequestArgs({ repository, number: pullRequest.number }));
+    await labelDraftPullRequest({ gh, repository, number: pullRequest.number });
   }
 } catch (error) {
   console.log(`Could not finalize the draft's state (${error.message}); the pull request itself is unaffected.`);

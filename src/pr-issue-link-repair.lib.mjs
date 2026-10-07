@@ -30,7 +30,8 @@ export async function repairRequiredIssueLinks({ owner, repo, issueNumber, prNum
     const missing = missingIssueLinks(body, required, { owner, repo });
     if (!missing.length) return { checked: true, updated: false, body, issueRef };
     const lines = missing.map(issue => `Fixes ${issue.owner.toLowerCase() === owner.toLowerCase() && issue.repo.toLowerCase() === repo.toLowerCase() && !argv.fork ? `#${issue.number}` : `${issue.owner}/${issue.repo}#${issue.number}`}`);
-    const updatedBody = `${body.trimEnd()}\n\n${lines.join('\n')}\n`.trimStart();
+    const separator = body.length > 0 ? '\n\n---\n\n' : '';
+    const updatedBody = `${body}${separator}${lines.join('\n')}`;
     const result = await publishBody({ run, owner, repo, prNumber, body: updatedBody });
     if ((result.code ?? 0) !== 0) throw new Error(result.stderr?.toString().trim() || 'Could not update pull request body');
     body = await readBody();

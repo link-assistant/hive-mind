@@ -17,8 +17,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
-import { buildE2eSolveArgv, checkBodyRegenerated, checkDiffShape, E2E_MATRIX, escapeTableCell, evaluateE2eRun, formatE2eReport, logPrintsHelloWorld, parseIssue, parseIssueUrl, selectPullRequest, summariseChecks } from '../scripts/e2e-hello-world.lib.mjs';
-import { formatChangesSection } from '../src/pull-request-changes.lib.mjs';
+import { buildE2eSolveArgv, checkBodyFinalized, checkDiffShape, E2E_MATRIX, escapeTableCell, evaluateE2eRun, formatE2eReport, logPrintsHelloWorld, parseIssue, parseIssueUrl, selectPullRequest, summariseChecks } from '../scripts/e2e-hello-world.lib.mjs';
 import { AUTOMATION_STOPPED_MARKER } from '../src/tool-comments.lib.mjs';
 import { createYargsConfig } from '../src/solve.config.lib.mjs';
 import { resolveYargsFactory } from '../src/yargs-factory.lib.mjs';
@@ -30,7 +29,7 @@ const RUN_LOG = ['build\tRun program\t2026-09-27T15:10:01.0000000Z Hello, World!
 const GREEN = [{ __typename: 'CheckRun', name: 'build', status: 'COMPLETED', conclusion: 'SUCCESS' }];
 
 const cleanRun = (overrides = {}) => ({
-  pullRequest: { number: 2, state: 'OPEN', isDraft: false, title: 'Implement Hello World in Kotlin', body: `## Summary\n\n${formatChangesSection({ measured: true, filesChanged: 3, additions: 30, deletions: 0, files: CLEAN_FILES })}` },
+  pullRequest: { number: 2, state: 'OPEN', isDraft: false, title: 'Implement Hello World in Kotlin', body: 'Implements Hello World in Kotlin with CI and an output check.\n\nFixes #1' },
   files: CLEAN_FILES,
   checks: GREEN,
   workflowLog: RUN_LOG,
@@ -50,7 +49,7 @@ test('a clean Hello World answer passes every assertion', () => {
   assert.equal(evaluation.passed, true);
 });
 
-test('the 2026-09-27 Kotlin run fails the matrix on the draft, the stray jar, the stale body and the stop comment', () => {
+test('the 2026-09-27 Kotlin run fails the matrix on the draft, the stray jar, the quoted title and the stop comment', () => {
   // kotlin-final.log: the critical-error auto-commit added Main.jar (5969-5977),
   // the body said "1 file(s) modified" (2089), the PR was left in draft and the
   // session ended in a stop comment.
@@ -62,7 +61,7 @@ test('the 2026-09-27 Kotlin run fails the matrix on the draft, the stray jar, th
     })
   );
   assert.equal(evaluation.passed, false);
-  assert.deepEqual(failed(evaluation), ['body regenerated', 'diff is the program, the workflow and a test script', 'no "🛑 Automation stopped" comment', 'ready for review', 'title is final'].sort());
+  assert.deepEqual(failed(evaluation), ['diff is the program, the workflow and a test script', 'no "🛑 Automation stopped" comment', 'ready for review', 'title is final'].sort());
 });
 
 test('a run that opened no pull request fails', () => {
@@ -102,11 +101,11 @@ test('checks: green only when every check completed successfully', () => {
   assert.deepEqual(summariseChecks([{ __typename: 'StatusContext', context: 'ci', state: 'ERROR' }]).failed, ['ci']);
 });
 
-test('body: the solve-generated Changes section must name every changed file', () => {
-  const body = formatChangesSection({ measured: true, filesChanged: 3, additions: 30, deletions: 0, files: CLEAN_FILES });
-  assert.equal(checkBodyRegenerated(body, CLEAN_FILES).ok, true);
-  assert.equal(checkBodyRegenerated(body, [...CLEAN_FILES, 'Main.jar']).ok, false);
-  assert.equal(checkBodyRegenerated('### Changes\n- Main.kt', ['Main.kt']).ok, false, 'a hand-written section is not the regenerated one');
+test('body: an agent-written description needs no generated file list', () => {
+  assert.equal(checkBodyFinalized(cleanRun().pullRequest.body).ok, true);
+  assert.equal(checkBodyFinalized('### Changes\n- Main.kt\n\nFixes #1').ok, true);
+  assert.equal(checkBodyFinalized('').ok, false);
+  assert.equal(checkBodyFinalized('_Details will be added as the solution draft is developed..._\n\nFixes #1').ok, false);
 });
 
 test('issue URL parsing and pull request selection', () => {

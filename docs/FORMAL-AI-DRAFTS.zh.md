@@ -51,7 +51,7 @@ Formal-AI-Pull-Request: https://github.com/link-assistant/hive-mind/pull/<n>
 3. **糟糕的草稿被关闭，缺陷记在元算法头上。** 不在分支上打补丁。新 issue 里要回答的问题是"算法为什么会产出这个"，而不是"我怎么把这个 diff 改对"。在新 issue 中链接已关闭的草稿及其会话日志。
 4. **草稿分支上永远不会落下人类提交。** 人类提交会让这条分支不再能作为证据：再也说不清模型究竟产出了什么。如果一条分支需要人类提交，那它就该是另一条分支。
 
-草稿可通过 `formal-ai-draft` 标签以及分支名 `issue-<number>-<suffix>` 识别。
+草稿可通过 `formal-ai-draft` 标签（若该标签不存在，工作流会在首次使用时创建）以及分支名 `issue-<number>-<suffix>` 识别。
 
 ## 设置
 

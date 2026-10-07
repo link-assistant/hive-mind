@@ -144,7 +144,7 @@ try {
       sessionInfo: { command: 'solve', commandAlias, url: URL },
       lastSessionId: ACTUAL_THREAD,
     });
-    assert(resume?.display.startsWith(`/${commandAlias} ${URL}`), `resume guidance uses the actual /${commandAlias} Telegram alias`);
+    assert(resume?.chatDisplay.startsWith(`/${commandAlias} ${URL}`), `resume guidance uses the actual /${commandAlias} Telegram alias`);
   }
 
   // Reproduce the production layout: the correct marker is more than one

@@ -251,7 +251,7 @@ export function stripResumeFlag(args) {
  * @param {Object} options.sessionInfo - Persisted session info (command/url/tool/args)
  * @param {string} options.lastSessionId - The session id to resume from
  * @param {string} [options.binary] - Override the invoked binary (default: the command)
- * @returns {{ binary: string, args: string[], display: string }|null}
+ * @returns {{ binary: string, args: string[], display: string, chatDisplay: string }|null}
  */
 export function buildResumeCommand({ sessionInfo = {}, lastSessionId = null, binary = null } = {}) {
   if (!lastSessionId) return null;
@@ -261,7 +261,8 @@ export function buildResumeCommand({ sessionInfo = {}, lastSessionId = null, bin
   if (!url) return null;
 
   const commandAlias = typeof sessionInfo.commandAlias === 'string' && /^[a-z0-9_-]+$/i.test(sessionInfo.commandAlias) ? sessionInfo.commandAlias : null;
-  const bin = binary || (commandAlias ? `/${commandAlias}` : command);
+  // Telegram aliases are chat syntax, never executable paths (#2630).
+  const bin = binary || command;
   let args;
   if (Array.isArray(sessionInfo.args) && sessionInfo.args.length > 0) {
     args = stripResumeFlag(sessionInfo.args);
@@ -270,7 +271,8 @@ export function buildResumeCommand({ sessionInfo = {}, lastSessionId = null, bin
     if (sessionInfo.tool && sessionInfo.tool !== 'claude') args.push('--tool', sessionInfo.tool);
   }
   args = [...args, '--resume', lastSessionId];
-  return { binary: bin, args, display: `${bin} ${args.map(quoteArg).join(' ')}` };
+  const argDisplay = args.map(quoteArg).join(' ');
+  return { binary: bin, args, display: `${quoteArg(bin)} ${argDisplay}`, chatDisplay: `${commandAlias ? `/${commandAlias}` : quoteArg(bin)} ${argDisplay}` };
 }
 
 /**
@@ -306,10 +308,10 @@ export function planKilledSessionResume({ sessionInfo = {}, lastSessionId = null
  *
  * @param {Object} options
  * @param {string|null} options.lastSessionId
- * @param {{ display: string }|null} options.command
+ * @param {{ display: string, chatDisplay?: string }|null} options.command
  * @returns {string}
  */
 export function formatResumeSection({ lastSessionId = null, command = null } = {}) {
   if (!lastSessionId || !command) return '';
-  return `♻️ *Resume from last session* \`${lastSessionId}\`:\n\`\`\`\n${command.display}\n\`\`\``;
+  return `♻️ *Resume from last session* \`${lastSessionId}\`:\n\`\`\`\n${command.chatDisplay || command.display}\n\`\`\``;
 }

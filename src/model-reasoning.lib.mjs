@@ -1,5 +1,6 @@
 /** Exact effort capabilities and nearest-level selection. No model calls or I/O. */
 import { CODEX_MODEL_VARIANTS } from './models/catalog.mjs';
+import { getRuntimeModelAlias } from './models/aliases.mjs';
 
 // Ultra is a separate, more expensive delegation mode above single-agent max.
 export const REASONING_EFFORT_ORDER = Object.freeze(['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra']);
@@ -44,14 +45,17 @@ export const normalizeReasoningCapabilities = (model = {}) => {
   return { supportedReasoningEfforts, defaultReasoningEffort: supportedReasoningEfforts.includes(defaultEffort) ? defaultEffort : null };
 };
 
+// Live family aliases (issue #2591) resolve to whatever validation recorded.
+const resolveCodexModelId = model => getRuntimeModelAlias('codex', model) ?? CODEX_MODEL_VARIANTS[model] ?? model;
+
 export const getBundledReasoningCapabilities = model => {
-  const id = String(CODEX_MODEL_VARIANTS[model] ?? model ?? '').replace(/^openai[/.]/, '');
+  const id = String(resolveCodexModelId(model) ?? '').replace(/^openai[/.]/, '');
   return bundledEfforts[id] ? { supportedReasoningEfforts: [...bundledEfforts[id]], defaultReasoningEffort: null } : null;
 };
 
 /** Fresh first-party data wins; stale data is used only without a bundled answer. */
 export const getModelReasoningCapabilities = (model, catalogue = null) => {
-  const id = CODEX_MODEL_VARIANTS[model] ?? model;
+  const id = resolveCodexModelId(model);
   const matches = candidate => candidate?.id === id || candidate?.id === String(id).replace(/^openai[/.]/, '');
   const sources = catalogue?.sources ?? [];
   for (const source of sources) {

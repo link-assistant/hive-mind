@@ -16,10 +16,12 @@ const assertValidCodexModel = (input, expected) => {
   assert.equal(validation.mappedModel, expected);
 };
 
+// Issue #2591: each family alias follows its own newest generation. GPT-6 has
+// Sol and Luna (and Astra) but no Terra, so terra stays on GPT-5.6.
 const generationAliases = {
-  sol: 'gpt-5.6-sol',
+  sol: 'gpt-6.1-sol',
   terra: 'gpt-5.6-terra',
-  luna: 'gpt-5.6-luna',
+  luna: 'gpt-6-luna',
 };
 
 for (const [alias, modelId] of Object.entries(generationAliases)) {

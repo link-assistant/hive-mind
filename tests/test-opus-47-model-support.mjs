@@ -108,7 +108,7 @@ test('claude-opus-4-5 alias maps to claude-opus-4-5-20251101', () => {
 test('sonnet alias still works (now maps to Sonnet 5, Issue #2003)', () => {
   const result = validateModelName('sonnet', 'claude');
   assert(result.valid, `sonnet should be valid, got: ${result.message}`);
-  assert.strictEqual(result.mappedModel, 'claude-sonnet-5', 'sonnet should map to claude-sonnet-5');
+  assert.strictEqual(result.mappedModel, 'claude-sonnet-5-5', 'sonnet should map to claude-sonnet-5-5');
 });
 
 test('haiku alias still works', () => {

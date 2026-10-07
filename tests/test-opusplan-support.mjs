@@ -204,13 +204,13 @@ console.log('\n=== 8. Backward Compatibility Tests ===');
 test('opus alias still works after adding opusplan', () => {
   const result = validateModelName('opus', 'claude');
   assert(result.valid, `opus should still be valid, got: ${result.message}`);
-  assert.strictEqual(result.mappedModel, 'claude-opus-4-6', 'opus should still map to claude-opus-4-6 (Issue #1433)');
+  assert.strictEqual(result.mappedModel, 'claude-opus-5-5', 'opus should map to claude-opus-5-5 (Issue #2591)');
 });
 
 test('sonnet alias still works after adding opusplan', () => {
   const result = validateModelName('sonnet', 'claude');
   assert(result.valid, `sonnet should still be valid, got: ${result.message}`);
-  assert.strictEqual(result.mappedModel, 'claude-sonnet-5', 'sonnet should map to claude-sonnet-5 (Issue #2003)');
+  assert.strictEqual(result.mappedModel, 'claude-sonnet-5-5', 'sonnet should map to claude-sonnet-5-5 (Issue #2591)');
 });
 
 test('haiku alias still works after adding opusplan', () => {
@@ -222,7 +222,7 @@ test('haiku alias still works after adding opusplan', () => {
 test('opus[1m] still works after adding opusplan', () => {
   const result = validateModelName('opus[1m]', 'claude');
   assert(result.valid, `opus[1m] should still be valid, got: ${result.message}`);
-  assert.strictEqual(result.mappedModel, 'claude-opus-4-6[1m]', 'opus[1m] should still map correctly');
+  assert.strictEqual(result.mappedModel, 'claude-opus-5-5[1m]', 'opus[1m] should still map correctly');
 });
 
 // ============================================================

@@ -39,7 +39,9 @@ export { FORMAL_AI_MODEL_ALIAS, FORMAL_AI_PROVIDER_MODEL_ID, isFormalAiModel } f
 // import site for callers. The named import is what the functions below read —
 // `export *` re-exports without binding the names locally.
 export * from './catalog.mjs';
-import { AGENT_MODELS, agentModels, CLAUDE_MODELS, claudeModels, CODEX_MODEL_VARIANTS, CODEX_MODELS, defaultModels, GEMINI_MODELS, geminiModels, MODELS_SUPPORTING_1M_CONTEXT, OPENCODE_MODELS, opencodeModels, QWEN_MODELS, qwenModels } from './catalog.mjs';
+import { AGENT_MODELS, agentModels, CLAUDE_MODELS, claudeModels, CODEX_FAMILY_ALIASES, CODEX_MODEL_VARIANTS, CODEX_MODELS, defaultModels, GEMINI_MODELS, geminiModels, HIDDEN_CODEX_MODEL_IDS, LEGACY_CLAUDE_MODEL_ALIASES, legacyCodexModels, MODELS_SUPPORTING_1M_CONTEXT, OPENCODE_MODELS, opencodeModels, QWEN_MODELS, qwenModels } from './catalog.mjs';
+import { deriveClaudeFamilyAliases, deriveCodexFamilyAliases, getRuntimeModelAlias, listClaudeFamilies, registerRuntimeModelAlias } from './aliases.mjs';
+export { clearRuntimeModelAliases, deriveClaudeFamilyAliases, deriveCodexFamilyAliases, getRuntimeModelAlias, registerRuntimeModelAlias } from './aliases.mjs';
 
 // ─── MODEL MAPPING FUNCTIONS ─────────────────────────────────────────────────
 
@@ -75,7 +77,12 @@ export const getModelMapForTool = tool => {
 export const getDefaultModelForTool = tool => {
   return defaultModels[tool] || defaultModels.claude;
 };
-let cachedInstalledCodexModelsPromise = null;
+let cachedInstalledCodexCatalogue = null;
+// Issue #2591: a long-running process (the Telegram bot) must notice models the
+// Codex CLI starts advertising after an upgrade, so the catalogue is re-read
+// once this TTL passes. Override with HIVE_MIND_CODEX_MODELS_CACHE_TTL_MS.
+const parsedCodexModelsCacheTtl = Number.parseInt(process.env.HIVE_MIND_CODEX_MODELS_CACHE_TTL_MS ?? '', 10);
+const CODEX_MODELS_CACHE_TTL_MS = Number.isFinite(parsedCodexModelsCacheTtl) && parsedCodexModelsCacheTtl >= 0 ? parsedCodexModelsCacheTtl : 60 * 60 * 1000;
 // Issue #2290: the preferred default is discovered from the installed Codex
 // catalogue. This chain is only consulted when that catalogue exposes no Sol
 // model at all, and remains ordered by capability rather than release number.
@@ -101,24 +108,37 @@ export const selectLatestCodexSolModel = (models = []) =>
     .filter(candidate => candidate.match)
     .sort((left, right) => compareNumericVersions(right.match[2], left.match[2]) || Number(Boolean(left.match[1])) - Number(Boolean(right.match[1])))[0]?.model ?? null;
 
-export const getInstalledCodexModels = async () => {
-  if (!cachedInstalledCodexModelsPromise) {
-    cachedInstalledCodexModelsPromise = (async () => {
-      try {
-        const { stdout } = await execFileAsync('codex', ['debug', 'models'], {
-          encoding: 'utf8',
-          maxBuffer: 10 * 1024 * 1024,
-        });
-        const parsed = JSON.parse(stdout);
-        const modelSlugs = parsed?.models?.map(model => model?.slug).filter(Boolean);
-        return Array.isArray(modelSlugs) ? [...new Set(modelSlugs)] : null;
-      } catch {
-        return null;
-      }
-    })();
+/**
+ * The installed Codex CLI's model catalogue (`codex debug models`) as
+ * `[{ slug, visibility }]`, or null when the CLI is unavailable.
+ */
+export const getInstalledCodexModelCatalogue = async () => {
+  if (!cachedInstalledCodexCatalogue || Date.now() - cachedInstalledCodexCatalogue.loadedAt > CODEX_MODELS_CACHE_TTL_MS) {
+    cachedInstalledCodexCatalogue = {
+      loadedAt: Date.now(),
+      promise: (async () => {
+        try {
+          const { stdout } = await execFileAsync('codex', ['debug', 'models'], {
+            encoding: 'utf8',
+            maxBuffer: 10 * 1024 * 1024,
+          });
+          const parsed = JSON.parse(stdout);
+          if (!Array.isArray(parsed?.models)) return null;
+          const seen = new Set();
+          return parsed.models.filter(model => model?.slug && !seen.has(model.slug) && seen.add(model.slug)).map(model => ({ slug: model.slug, visibility: model.visibility ?? 'list' }));
+        } catch {
+          return null;
+        }
+      })(),
+    };
   }
 
-  return cachedInstalledCodexModelsPromise;
+  return cachedInstalledCodexCatalogue.promise;
+};
+
+export const getInstalledCodexModels = async () => {
+  const catalogue = await getInstalledCodexModelCatalogue();
+  return catalogue ? catalogue.map(model => model.slug) : null;
 };
 
 export const resolveRuntimeDefaultModel = async (tool, options = {}) => {
@@ -148,6 +168,9 @@ export const resolveRuntimeDefaultModel = async (tool, options = {}) => {
  * @returns {string} The full model ID
  */
 export const mapModelForTool = (tool, model) => {
+  // Aliases resolved against a live catalogue during validation (Issue #2591).
+  const runtimeAlias = getRuntimeModelAlias(tool, model);
+  if (runtimeAlias) return runtimeAlias;
   switch (tool) {
     case 'claude':
       return claudeModels[model] || model;
@@ -223,9 +246,10 @@ export const getValidModelsForTool = tool => {
 // Primary (non-alias, non-deprecated) short names shown in CLI help descriptions
 // These are the recommended model names users should see in --model help text
 export const primaryModelNames = {
-  claude: ['opus', 'sonnet', 'haiku', 'opusplan', 'fable', FORMAL_AI_MODEL_ALIAS],
+  claude: ['opus', 'sonnet', 'haiku', 'opusplan', 'fable', 'mythos', 'best', FORMAL_AI_MODEL_ALIAS],
   opencode: ['grok', 'gpt4o', FORMAL_AI_MODEL_ALIAS],
-  codex: ['gpt-6-sol', 'gpt-6-luna', 'gpt-6-astra', 'gpt-5.6-sol', 'gpt-5.5', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.4', 'gpt-5.4-mini', FORMAL_AI_MODEL_ALIAS],
+  // Issue #2591: the Codex CLI's current models plus the family aliases that always name the newest of each
+  codex: ['sol', 'astra', 'luna', 'terra', 'gpt-6.1-sol', 'gpt-6-astra', 'gpt-6-sol', 'gpt-6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.5', FORMAL_AI_MODEL_ALIAS],
   agent: ['nemotron-3-super-free', 'minimax-m2.5-free', 'big-pickle', 'gpt-5-nano', 'glm-5-free', 'deepseek-r1-free', FORMAL_AI_MODEL_ALIAS],
   qwen: ['qwen3-coder-plus', 'qwen3-coder', 'qwen3-coder-flash', FORMAL_AI_MODEL_ALIAS],
   gemini: ['flash', 'pro', 'flash-lite', 'auto', FORMAL_AI_MODEL_ALIAS],
@@ -293,6 +317,25 @@ const getValidationModelMapForTool = tool => {
  * @param {string} tool - The tool name ('claude', 'opencode', 'codex', 'agent', 'qwen', 'gemini')
  * @returns {string[]} Array of available model short names
  */
+// Accepted for compatibility but not advertised: models the vendor CLI no
+// longer lists, provider-prefixed spellings, and dotted duplicates of pinned
+// Claude versions (Issue #2591).
+const CODEX_UNLISTED_MODEL_NAMES = new Set([...Object.keys(legacyCodexModels), ...HIDDEN_CODEX_MODEL_IDS]);
+const isListedModelName = (tool, key, modelId) => {
+  switch (tool) {
+    case 'codex': {
+      if (/^openai[/.]/.test(key)) return false;
+      if (CODEX_UNLISTED_MODEL_NAMES.has(key)) return false;
+      // An alias is only worth showing when its target is itself listed.
+      return !CODEX_UNLISTED_MODEL_NAMES.has(modelId);
+    }
+    case 'claude':
+      return !/\d\.\d/.test(key) && !LEGACY_CLAUDE_MODEL_ALIASES.includes(key);
+    default:
+      return true;
+  }
+};
+
 export const getAvailableModelNames = tool => {
   const modelMap = getValidationModelMapForTool(tool);
   // Get unique short names (aliases) - exclude full model IDs that contain '/' or long claude- prefixed IDs
@@ -306,7 +349,7 @@ export const getAvailableModelNames = tool => {
     if (key.includes('/')) return false;
     if (key.match(/^claude-.*-\d{8}$/)) return false; // Full claude model IDs with date
     if (key.match(/^gpt-\d+[a-z]?$/)) return false; // Full gpt-N or gpt-No model IDs only (e.g., gpt-4, gpt-4o, gpt-5)
-    return true;
+    return isListedModelName(tool, key, modelMap[key]);
   });
   return [...new Set(aliases)];
 };
@@ -474,7 +517,11 @@ export const validateModelName = (model, tool = 'claude') => {
   }
 
   // Model not found - provide helpful error with suggestions
-  const shortNames = getAvailableModelNames(tool);
+  return buildUnrecognizedModelResult(model, tool, getAvailableModelNames(tool));
+};
+
+const buildUnrecognizedModelResult = (model, tool, shortNames) => {
+  const { baseModel } = parseModelWith1mSuffix(model);
   const suggestions = findSimilarModels(baseModel, shortNames);
 
   let message = `Unrecognized model: "${model}"`;
@@ -525,48 +572,134 @@ const looksLikeDirectProviderModelId = (model, tool) => {
   }
 };
 
+const OPENAI_MODEL_PREFIX_PATTERN = /^openai[/.]/i;
+const CLAUDE_FAMILY_SHORTHAND_PATTERN = /^([a-z]+)-(\d+(?:[-.]\d+)?)$/;
+
+/** Whether an input is a bare family alias whose target a live catalogue may move (Issue #2591). */
+const isLiveFamilyAliasCandidate = (toolName, baseModel) => {
+  const alias = String(baseModel).toLowerCase();
+  if (toolName === 'codex') return Object.hasOwn(CODEX_FAMILY_ALIASES, alias.replace(OPENAI_MODEL_PREFIX_PATTERN, ''));
+  if (toolName === 'claude') return listClaudeFamilies(Object.values(claudeModels)).includes(alias);
+  return false;
+};
+
 /**
- * Validate an exact model ID against the authoritative runtime catalogue.
+ * Resolve a family alias against a live catalogue: `nova` once the Codex CLI
+ * lists `gpt-7-nova`, or `sol` → `gpt-6.2-sol` before this release knows it.
+ * Codex's own catalogue is authoritative; for Claude the live IDs extend the
+ * bundled ones, because the router catalogue is not exhaustive (Issue #2591).
+ */
+const resolveLiveFamilyAlias = (toolName, baseModel, liveModels) => {
+  if (liveModels.length === 0) return null;
+  if (toolName === 'codex') {
+    const prefix = baseModel.match(OPENAI_MODEL_PREFIX_PATTERN)?.[0]?.toLowerCase() ?? '';
+    const target = deriveCodexFamilyAliases(liveModels)[baseModel.slice(prefix.length).toLowerCase()];
+    return target ? `${prefix}${target}` : null;
+  }
+  if (toolName === 'claude') return deriveClaudeFamilyAliases([...Object.values(claudeModels), ...liveModels])[baseModel.toLowerCase()] ?? null;
+  return null;
+};
+
+/**
+ * Claude Code accepts any `claude-<family>-<version>` ID, so the shorthand
+ * `opus-6` / `sonnet-5.7` of a known family is expanded to that ID instead of
+ * being rejected for not existing when this release was cut (Issue #2591).
+ */
+const expandClaudeFamilyShorthand = (baseModel, liveModels) => {
+  const match = String(baseModel).toLowerCase().match(CLAUDE_FAMILY_SHORTHAND_PATTERN);
+  if (!match || !listClaudeFamilies([...Object.values(claudeModels), ...liveModels]).includes(match[1])) return null;
+  return `claude-${match[1]}-${match[2].replace(/\./g, '-')}`;
+};
+
+const loadRuntimeModels = async (toolName, options) => {
+  if (options.availableModels !== undefined) return { models: normalizeRuntimeModelIds(options.availableModels), hidden: new Set() };
+  const models = [];
+  const hidden = new Set();
+  if (toolName === 'codex') {
+    for (const entry of (await getInstalledCodexModelCatalogue()) ?? []) {
+      models.push(entry.slug);
+      if (entry.visibility === 'hide') hidden.add(entry.slug);
+    }
+  }
+
+  if (options.useRouter || options.loadCatalogue) {
+    try {
+      const getCatalogue = options.getCatalogue ?? (await import('../model-catalogue.lib.mjs')).getMergedModelCatalogue;
+      const merged = await getCatalogue({ tool: toolName, ...(options.catalogueOptions ?? {}) });
+      models.push(...listMergedLiveModelIds(merged));
+    } catch {
+      // Discovery is best-effort. The original validation error remains more
+      // useful than a Docker/network error from an optional catalogue source.
+    }
+  }
+  return { models: normalizeRuntimeModelIds(models), hidden };
+};
+
+// When the installed Codex CLI answers, the listing in an error is what that
+// CLI offers right now — its visible models and their family aliases — rather
+// than this release's snapshot (Issue #2591).
+const listRuntimeModelNames = (toolName, models, hidden) => {
+  if (toolName !== 'codex' || models.length === 0) return getAvailableModelNames(toolName);
+  const visible = models.filter(model => !hidden.has(model));
+  const aliases = Object.entries(deriveCodexFamilyAliases(visible))
+    .filter(([alias]) => !visible.includes(alias))
+    .map(([alias]) => alias);
+  return [...new Set([...aliases, FORMAL_AI_MODEL_ALIAS, ...visible])];
+};
+
+const withInstalledCatalogueWarning = (result, toolName, model, models) => {
+  if (!result.valid || toolName !== 'codex' || models.length === 0 || isFormalAiModel(model)) return result;
+  const bareModel = String(result.mappedModel).replace(OPENAI_MODEL_PREFIX_PATTERN, '');
+  if (models.includes(bareModel)) return result;
+  return { ...result, warning: `Model "${model}" (${result.mappedModel}) is not in the installed Codex CLI's catalogue (codex debug models); the run may fail if the account cannot use it.` };
+};
+
+/**
+ * Validate a model against the authoritative runtime catalogue.
  *
- * Static aliases are still handled first so their mappings and suggestions do
- * not change. A new exact ID is accepted when the installed CLI/router reports
- * it, even when Hive Mind was released before that model existed.
+ * Static aliases and IDs are checked first. Family aliases (`sol`, `astra`,
+ * `mythos`, or a family introduced after this release) are resolved against
+ * the installed CLI's catalogue so they always name its newest member, and the
+ * result is registered for the execution-time mapping (Issue #2591). A new
+ * exact ID is accepted when the installed CLI/router reports it, even when
+ * Hive Mind was released before that model existed.
  */
 export const validateRuntimeModelName = async (model, tool = 'claude', options = {}) => {
   const staticValidation = validateModelName(model, tool);
-  if (staticValidation.valid) return { ...staticValidation, source: 'bundled' };
-
   const toolName = String(tool || 'claude').toLowerCase();
   const { baseModel, has1mSuffix } = parseModelWith1mSuffix(model);
-  let availableModels = options.availableModels;
+  if (staticValidation.valid && (has1mSuffix || !isLiveFamilyAliasCandidate(toolName, baseModel))) return { ...staticValidation, source: 'bundled' };
 
-  if (availableModels === undefined) {
-    const discovered = [];
-    if (toolName === 'codex') discovered.push(...normalizeRuntimeModelIds(await getInstalledCodexModels()));
+  const { models: availableModels, hidden } = await loadRuntimeModels(toolName, options);
+  const finish = result => withInstalledCatalogueWarning(result, toolName, model, availableModels);
 
-    if (options.useRouter || options.loadCatalogue) {
-      try {
-        const getCatalogue = options.getCatalogue ?? (await import('../model-catalogue.lib.mjs')).getMergedModelCatalogue;
-        const merged = await getCatalogue({ tool: toolName, ...(options.catalogueOptions ?? {}) });
-        discovered.push(...listMergedLiveModelIds(merged));
-      } catch {
-        // Discovery is best-effort. The original validation error remains more
-        // useful than a Docker/network error from an optional catalogue source.
-      }
+  if (!has1mSuffix) {
+    const liveAlias = resolveLiveFamilyAlias(toolName, baseModel, availableModels);
+    if (liveAlias) {
+      registerRuntimeModelAlias(toolName, baseModel, liveAlias);
+      return finish({ valid: true, mappedModel: liveAlias, has1mSuffix: false, source: 'live-alias' });
     }
-    availableModels = discovered;
+  }
+  if (staticValidation.valid) return finish({ ...staticValidation, source: 'bundled' });
+
+  const exact = availableModels.find(candidate => candidate.toLowerCase() === String(baseModel).toLowerCase());
+  if (exact && !has1mSuffix) {
+    return finish({ valid: true, mappedModel: exact, has1mSuffix: false, source: 'live' });
   }
 
-  const exact = normalizeRuntimeModelIds(availableModels).find(candidate => candidate.toLowerCase() === String(baseModel).toLowerCase());
-  if (exact && !has1mSuffix) {
-    return { valid: true, mappedModel: exact, has1mSuffix: false, source: 'live' };
+  if (!has1mSuffix && toolName === 'claude') {
+    const expanded = expandClaudeFamilyShorthand(baseModel, availableModels);
+    if (expanded) {
+      registerRuntimeModelAlias(toolName, baseModel, expanded);
+      return { valid: true, mappedModel: expanded, has1mSuffix: false, source: 'provider' };
+    }
   }
 
   if (!has1mSuffix && looksLikeDirectProviderModelId(baseModel, toolName)) {
     return { valid: true, mappedModel: baseModel, has1mSuffix: false, source: 'provider' };
   }
 
-  return staticValidation;
+  return toolName === 'codex' && availableModels.length > 0 ? buildUnrecognizedModelResult(model, toolName, listRuntimeModelNames(toolName, availableModels, hidden)) : staticValidation;
 };
 
 export const CLAUDE_SUB_AGENT_MODEL_INHERIT = 'inherit';
@@ -634,6 +767,7 @@ export const mapClaudeSubAgentModelToEnvValue = model => {
  */
 export const validateAndExitOnInvalidModel = async (model, tool = 'claude', exitFn = null, options = {}) => {
   const result = await validateRuntimeModelName(model, tool, options);
+  if (result.warning) await log(`⚠️  ${result.warning}`, { level: 'warning' });
 
   if (!result.valid) {
     await log(`\u274C ${result.message}`, { level: 'error' });
@@ -1005,10 +1139,14 @@ export const defaultFallbackModels = {
     'claude-opus-5': 'opus-4-8',
     'claude-opus-4-8': 'opus-4-7',
     'claude-opus-4-7': 'opus-4-6',
-    // Claude Sonnet 5 falls back to the prior Sonnet generation (Issue #2003).
+    // Claude Sonnet 5.5 falls back to Sonnet 5, Sonnet 5 to the prior Sonnet generation (Issue #2003, #2591).
+    'claude-sonnet-5-5': 'sonnet-5',
     'claude-sonnet-5': 'sonnet-4-6',
   },
   codex: {
+    // GPT-6.1 Sol steps down to the previous Sol generation (Issue #2591).
+    'gpt-6.1-sol': 'gpt-6-sol',
+    'openai.gpt-6.1-sol': 'openai.gpt-6-sol',
     'gpt-6-sol': 'gpt-5.6-sol',
     'openai.gpt-6-sol': 'openai.gpt-5.6-sol',
     'gpt-6-luna': 'gpt-5.6-sol',
@@ -1026,8 +1164,9 @@ export const defaultFallbackModels = {
     // GPT-6 Astra is preview-gated, so a fallback is the difference between a
     // degraded run and a failed one; it steps down to the GPT-5.6 flagship
     // (Issue #2202).
-    'gpt-6-astra': 'gpt-5.6-sol',
-    'openai.gpt-6-astra': 'openai.gpt-5.6-sol',
+    // Astra now steps down to the latest workhorse, GPT-6.1 Sol (Issue #2591).
+    'gpt-6-astra': 'gpt-6.1-sol',
+    'openai.gpt-6-astra': 'openai.gpt-6.1-sol',
     'gpt-5.6-sol': 'gpt-5.6-terra',
     'gpt-5.6-terra': 'gpt-5.5',
     'gpt-5.6-luna': 'gpt-5.5',

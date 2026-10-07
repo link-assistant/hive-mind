@@ -92,8 +92,8 @@ test('Codex validates hidden codex-auto-review model id from CLI catalog', () =>
   assert.equal(result.mappedModel, 'codex-auto-review');
 });
 
-test('Codex primary model names prioritize GPT-6 Sol and current visible catalog entries', () => {
-  assert.deepEqual(primaryModelNames.codex, ['gpt-6-sol', 'gpt-6-luna', 'gpt-6-astra', 'gpt-5.6-sol', 'gpt-5.5', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.4', 'gpt-5.4-mini', 'formal-ai']);
+test('Codex primary model names list the family aliases and the codex-cli 0.160.0 catalogue (Issue #2591)', () => {
+  assert.deepEqual(primaryModelNames.codex, ['sol', 'astra', 'luna', 'terra', 'gpt-6.1-sol', 'gpt-6-astra', 'gpt-6-sol', 'gpt-6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.5', 'formal-ai']);
   assert.equal(primaryModelNames.codex.includes('codex-auto-review'), false);
 });
 
@@ -179,9 +179,9 @@ test('Codex default fallback chain walks gpt-5.6-sol -> terra -> gpt-5.5 -> gpt-
   assert.deepEqual(chain, ['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.5', 'gpt-5.4', 'gpt-5.2']);
 });
 
-test('Claude default fallback model resolves from opus to opus-4-8', () => {
-  // Updated for Issue #2096: opus is now claude-opus-5 with fallback to opus-4-8
-  assert.equal(resolveDefaultFallbackModel('claude', 'opus'), 'opus-4-8');
+test('Claude default fallback model resolves from opus to opus-5', () => {
+  // Updated for Issue #2591: opus is now claude-opus-5-5 with fallback to opus-5
+  assert.equal(resolveDefaultFallbackModel('claude', 'opus'), 'opus-5');
 });
 
 test('Models without configured defaults keep fallback unset', () => {

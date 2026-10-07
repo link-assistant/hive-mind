@@ -20,6 +20,7 @@
 
 import { checkLabelPermissions, ensureReadyLabel } from './github-merge.lib.mjs';
 import { safeReply, safeEditMessageText } from './telegram-safe-reply.lib.mjs';
+import { TELEGRAM_PRIORITY_LOW, withTelegramRequestPriority } from './telegram-rate-limit.lib.mjs';
 import { extractMergeTargetUrlFromText, parseMergeTargetUrl } from './github-merge-targets.lib.mjs';
 import { createMergeQueueProcessor, MergeStatus, MERGE_QUEUE_CONFIG } from './telegram-merge-queue.lib.mjs';
 import { executeStartScreen } from './telegram-command-execution.lib.mjs';
@@ -343,6 +344,7 @@ export function registerMergeCommand(bot, options) {
       const labelMsg = labelResult.created ? "\nCreated 'ready' label in repository\\." : '';
 
       // Create the merge queue processor
+      let lastProgressRendered = null;
       const processor = await createMergeQueueProcessor(owner, repo, {
         verbose: VERBOSE,
         target,
@@ -359,10 +361,17 @@ export function registerMergeCommand(bot, options) {
             // Without this check, progress updates from CI wait loops would re-add
             // the cancel button after the cancel handler had already removed it.
             const replyMarkup = processor.isCancelled ? undefined : { inline_keyboard: [[{ text: '🛑 Cancel', callback_data: `merge_cancel_${repoKey}` }]] };
-            await safeEditMessageText(ctx.telegram, statusMessage.chat.id, statusMessage.message_id, undefined, message, {
-              parse_mode: 'MarkdownV2',
-              ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
-            });
+            // Issue #2571: an unchanged edit still counts against Telegram's limits.
+            const rendered = `${message}\n${JSON.stringify(replyMarkup ?? null)}`;
+            if (rendered === lastProgressRendered) return;
+            // A missed progress refresh is harmless; replies keep their reserve.
+            await withTelegramRequestPriority(TELEGRAM_PRIORITY_LOW, () =>
+              safeEditMessageText(ctx.telegram, statusMessage.chat.id, statusMessage.message_id, undefined, message, {
+                parse_mode: 'MarkdownV2',
+                ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
+              })
+            );
+            lastProgressRendered = rendered;
           } catch (err) {
             // Ignore message edit errors (e.g., message not modified)
             if (!err.message?.includes('message is not modified')) {

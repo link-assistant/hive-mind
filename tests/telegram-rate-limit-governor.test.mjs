@@ -8,6 +8,7 @@
  */
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 import { TelegramRateLimitTracker, LIMIT_EVIDENCE_TTL_MS, createTelegramLocalThrottleError, installTelegramRateLimitTracker, isTelegramLocalThrottleError, isTelegramRateLimitError, withTelegramRequestPriority, getTelegramRequestPriority } from '../src/telegram-rate-limit.lib.mjs';
 
@@ -297,6 +298,16 @@ await test('a refusal at the estimated limit is explained and does not lower it'
   const group = tracker.getSnapshot().rules.find(rule => rule.id === 'group');
   assert.equal(group.limit, 20, 'The 21st was refused, which is exactly what the limit of 20 predicts');
   assert.equal(group.limitSource, 'documented');
+});
+
+await test('bot.catch does not reply into a chat that Telegram is rate limiting', () => {
+  // telegram-bot.mjs starts the bot on import, so its handler is checked at the source level.
+  const source = readFileSync(new URL('../src/telegram-bot.mjs', import.meta.url), 'utf8');
+  const handler = source.slice(source.indexOf('bot.catch((error, ctx) => {'));
+  const guard = handler.indexOf('if (isTelegramRateLimitError(error)) {');
+  assert.ok(guard > 0, 'bot.catch must recognise rate-limit errors');
+  assert.ok(guard < handler.indexOf('safeReply(ctx, errorMessage'), 'and return before replying');
+  assert.ok(handler.slice(guard, handler.indexOf('\n  }', guard)).includes('return;'));
 });
 
 console.log(`\nTests passed: ${passed}`);

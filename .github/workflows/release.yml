@@ -22,9 +22,14 @@ on:
         type: choice
         default: 'checks'
         options: [checks, instant, changeset-pr]
+      # Issue #2625: a required input without a default makes GitHub refuse
+      # every API dispatch that omits it (HTTP 422 "Required input 'bump_type'
+      # not provided"), including the `mode=checks` dispatch of
+      # scripts/dispatch-checks.mjs. `patch` is what the web form preselects.
       bump_type:
         description: 'Manual release type'
         required: true
+        default: patch
         type: choice
         options:
           - patch

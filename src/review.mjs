@@ -4,6 +4,7 @@ import path from 'node:path';
 import { log, setLogFile, getLogFile, formatAligned, extractToolErrorCore, setupStdioLogInterceptor } from './lib.mjs';
 import { parseReviewArguments } from './review.config.lib.mjs';
 import { executeReviewTool } from './review.lib.mjs';
+import { reportError } from './sentry.lib.mjs';
 
 setupStdioLogInterceptor();
 
@@ -20,8 +21,9 @@ if (process.argv.includes('--help') || process.argv.includes('-h')) {
   process.exit(0);
 }
 
+let argv;
 try {
-  const argv = await parseReviewArguments();
+  argv = await parseReviewArguments();
   global.verboseMode = argv.verbose;
   const { initI18n } = await import('./i18n.lib.mjs');
   await initI18n({ language: argv.language, uiLanguage: argv.uiLanguage, workLanguage: argv.workLanguage });
@@ -44,6 +46,7 @@ try {
     process.exitCode = 1;
   }
 } catch (error) {
+  reportError(error, { context: 'review_execution', prUrl: argv?.url });
   await log(`❌ Review failed: ${error.message}`, { level: 'error' });
   process.exitCode = 1;
 }

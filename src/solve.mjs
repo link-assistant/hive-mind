@@ -34,8 +34,6 @@ const results = await import('./solve.results.lib.mjs');
 const { cleanupClaudeFile, showSessionSummary, verifyResults, buildClaudeResumeCommand, buildClaudeAutonomousResumeCommand, buildSolveResumeCommand, maybeAttachWorkingSessionSummary, verifyPullRequestIssueLinkAfterAutoRestart } = results;
 const claudeLib = await import('./claude.lib.mjs');
 const { executeClaude } = claudeLib;
-const githubLinking = await import('./github-linking.lib.mjs');
-const { extractLinkedIssueNumber } = githubLinking;
 const usageLimitLib = await import('./usage-limit.lib.mjs');
 const { formatResetTimeWithRelative } = usageLimitLib;
 const errorHandlers = await import('./solve.error-handlers.lib.mjs');
@@ -342,7 +340,7 @@ const skipForkForPrivateUpstream = !isRepoPublic && !argv.fork && hasWriteAccess
 // Issue #2175: the mode/fork/linked-issue resolution lives in solve.mode.lib.mjs
 // so this file stays under the 1350-line early-warning threshold (issue #1593).
 const solveMode = await import('./solve.mode.lib.mjs');
-const resolvedMode = await solveMode.resolveSolveMode({ argv, owner, repo, urlNumber, issueUrl, isIssueUrl, isPrUrl, skipForkForPrivateUpstream, shouldAttachLogs, log, safeExit, githubLib, processAutoContinueForIssue, handleMaintainerForkAccess, extractLinkedIssueNumber, reportError, cleanErrorMessage });
+const resolvedMode = await solveMode.resolveSolveMode({ argv, owner, repo, urlNumber, issueUrl, isIssueUrl, isPrUrl, skipForkForPrivateUpstream, shouldAttachLogs, log, safeExit, githubLib, processAutoContinueForIssue, handleMaintainerForkAccess, reportError, cleanErrorMessage });
 const { issueNumber, prBranch, mergeStateStatus, prState, forkOwner, forkRepoName, isContinueMode } = resolvedMode;
 // `prNumber` is reassigned below when auto-PR creation opens the pull request.
 let prNumber = resolvedMode.prNumber;

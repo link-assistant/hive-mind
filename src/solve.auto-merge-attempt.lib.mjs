@@ -58,6 +58,7 @@ const { ensureIssueLinkBeforeMerge } = await import('./pr-issue-link-merge-gate.
 // (or, in the watch loop, retrying forever).
 const { classifyMergeError, MERGE_ERROR_CATEGORIES } = await import('./merge-error-classification.lib.mjs');
 const { ensurePullRequestIsReady, getPullRequestLeftInDraft } = await import('./pr-draft-state.lib.mjs');
+const { isLatestAiWorkAttached } = await import('./log-attach-state.lib.mjs'); // Issue #2563
 const { reportError } = await import('./sentry.lib.mjs');
 
 /**
@@ -75,9 +76,14 @@ const shouldDeleteBranchAfterMerge = argv => argv.autoDeleteBranchOnMerge || arg
  * Report the merge blockers that prevent an automatic merge of a pull request
  * which otherwise satisfies every merge requirement (Issue #2144).
  *
- * @returns {Promise<{posted: boolean, reason: string, skipped?: string, error?: string}>}
+ * Issue #2563: when an AI session finished after the latest attached log,
+ * `attachLogWithNotice(notice)` publishes that log and the notice as one
+ * comment. Otherwise the log is already on the pull request and only the
+ * notice is posted.
+ *
+ * @returns {Promise<{posted: boolean, reason: string, skipped?: string, error?: string, combinedWithLog?: boolean}>}
  */
-export const reportAutoMergeBlockedByIssue = async ({ owner, repo, prNumber, issueNumber, mergeBlockers, verbose = false, commandRunner = $ }) => {
+export const reportAutoMergeBlockedByIssue = async ({ owner, repo, prNumber, issueNumber, mergeBlockers, verbose = false, commandRunner = $, attachLogWithNotice = null, globalState = global }) => {
   const blockers = (mergeBlockers || []).filter(Boolean);
   if (blockers.length === 0) {
     return { posted: false, reason: 'no_blockers', skipped: 'no_blockers' };
@@ -91,6 +97,16 @@ export const reportAutoMergeBlockedByIssue = async ({ owner, repo, prNumber, iss
     }
   }
 
+  const body = buildAutoMergeBlockedComment({ blockers, issueNumber });
+  if (attachLogWithNotice && !isLatestAiWorkAttached(globalState)) {
+    await log('📎 Attaching the latest session log together with the auto-merge held-back notice...');
+    const combined = await attachLogWithNotice(body).catch(async error => {
+      await log(`⚠️  Could not attach the session log with the notice: ${error.message}`, { level: 'warning' });
+      return false;
+    });
+    if (combined === true) return { posted: true, reason: blockers[0].reason, combinedWithLog: true };
+  }
+
   return reportAutomationStop({
     $: commandRunner,
     owner,
@@ -100,7 +116,7 @@ export const reportAutoMergeBlockedByIssue = async ({ owner, repo, prNumber, iss
     mode: 'auto-merge',
     verbose,
     log,
-    body: buildAutoMergeBlockedComment({ blockers, issueNumber }),
+    body,
     // Issue #2492: the pre-flight manual-merge notice shares the marker, so match this heading only.
     signature: `${AUTO_MERGE_BLOCKED_MARKER}: this pull request is ready`,
   });

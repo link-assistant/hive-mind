@@ -161,7 +161,7 @@ test('the clone paths authenticate before the first git network call', async () 
   assert.ok(ensureIndex !== -1 && cloneIndex !== -1, 'both calls exist');
   assert.ok(ensureIndex < cloneIndex, 'authentication happens before the clone, not after it');
 
-  for (const file of ['src/review.mjs', 'create-test-repo.mjs']) {
+  for (const file of ['src/review.run.lib.mjs', 'create-test-repo.mjs']) {
     const source = await readFile(join(repoRoot, file), 'utf8');
     assert.ok(source.includes('ensureAuthenticatedGitTransport'), `${file} authenticates its clone`);
   }

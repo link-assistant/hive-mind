@@ -27,11 +27,12 @@ const MAX_LISTED_TASKS = 20;
  * Prompt for the same-session continuation. The model learns that the wait ceiling (not a user)
  * cancelled its tasks, which tasks those were, and where their partial output is.
  */
-export const buildIncompleteTurnContinuationPrompt = ({ cause, ceilingSeconds = null, stoppedTasks = [] } = {}) => {
+export const buildIncompleteTurnContinuationPrompt = ({ cause, ceilingSeconds = null, stoppedTasks = [], reviewMode = false } = {}) => {
   const listed = stoppedTasks.slice(0, MAX_LISTED_TASKS).map(task => `- ${task.summary || task.id}${task.outputFile ? ` (partial output: ${task.outputFile})` : ''}`);
   if (stoppedTasks.length > listed.length) listed.push(`- …and ${stoppedTasks.length - listed.length} more`);
   const reason = Number.isFinite(ceilingSeconds) ? `Claude Code cancelled them after its ${ceilingSeconds}s print-mode wait ceiling (CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS)` : cause;
-  return [`Continue the unfinished work. The previous turn ended while background tasks were still running, and ${reason}. This was an automatic timeout, not a user decision. Any "[Request interrupted by user]" or "The user doesn't want to proceed with this tool use" messages from those tasks came from the timeout.`, listed.length ? `Cancelled tasks:\n${listed.join('\n')}` : null, 'Check what they already changed (git status, git log, their partial output), then redo only what is missing and finish every remaining issue and pull-request requirement. Background tools and agents are still allowed and wake you with their results, but only within the wait ceiling after your turn ends. Run work that may take longer than that in the foreground (run_in_background: false).'].filter(Boolean).join('\n\n');
+  const continuation = reviewMode ? 'Continue the pull request review only. Do not edit code, commit, or push. Inspect partial results, complete remaining validation, and submit inline findings and the summary verdict.' : 'Check what they already changed (git status, git log, their partial output), then redo only what is missing and finish every remaining issue and pull-request requirement.';
+  return [`Continue the unfinished work. The previous turn ended while background tasks were still running, and ${reason}. This was an automatic timeout, not a user decision. Any "[Request interrupted by user]" or "The user doesn't want to proceed with this tool use" messages from those tasks came from the timeout.`, listed.length ? `Cancelled tasks:\n${listed.join('\n')}` : null, `${continuation} Background tools and agents are still allowed and wake you with their results, but only within the wait ceiling after your turn ends. Run work that may take longer than that in the foreground (run_in_background: false).`].filter(Boolean).join('\n\n');
 };
 
 const isMainThread = data => !(typeof data?.parent_tool_use_id === 'string' && data.parent_tool_use_id.length > 0);

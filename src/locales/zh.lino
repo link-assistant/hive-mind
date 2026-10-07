@@ -588,6 +588,11 @@ zh
         usage "用法：`/fix <github-repository-url> [options]`"
         example "示例：`/fix https://github.com/owner/repo --model sonnet`"
         disabled "*/fix* - ❌ 已禁用"
+      review
+        enabled "*/review* - 审查 pull request：逐行评论和总结，不修改代码"
+        usage "用法: `/review <pr-url> [--tool <tool>] [--model <model>] [--think <level>] [--approve]`"
+        example "示例: `/review https://github.com/owner/repo/pull/123 --tool codex --think high`"
+        disabled "*/review* - ❌ 已禁用"
       organize
         enabled "*/organize* - 使用现有议题类型和标签分类所有开放议题"
         usage "用法：`/organize <github-repository-url> [--dry-run] [--tool <tool>] [--model <model>]`；可在新行添加说明"
@@ -620,7 +625,7 @@ zh
       isolation
         mode "🔒 *隔离模式：* `{{isolationBackend}}`（实验性）"
       group
-        note "⚠️ *注意：* /solve、/do、/continue、/claude、/codex、/opencode、/agent、/gemini、/qwen、/task、/split、/fix、/organize、/hive、/queue、/models、/limits、/version、/accept\\_invites、/merge、/stop 和 /start 仅在群聊中有效。/terminal\\_watch、/watch、/subscribe 和 /unsubscribe 在私聊和群聊中有效。"
+        note "⚠️ *注意：* /solve、/do、/continue、/claude、/codex、/opencode、/agent、/gemini、/qwen、/task、/split、/fix、/review、/organize、/hive、/queue、/models、/limits、/version、/accept\\_invites、/merge、/stop 和 /start 仅在群聊中有效。/terminal\\_watch、/watch、/subscribe 和 /unsubscribe 在私聊和群聊中有效。"
       common
         options "🔧 *常用选项：*"
       model

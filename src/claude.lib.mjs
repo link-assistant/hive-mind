@@ -364,13 +364,14 @@ export const executeClaudeCommand = async params => {
         if (sub1706.length) await log(`📊 ${sub1706.join(', ')}`, { verbose: true });
         if (!isNewVersion && thinkLevel) await log(`📊 Thinking level (via keywords): ${thinkLevel}`, { verbose: true });
       }
-      const simpleEscapedSystem = systemPrompt.replace(/"/g, '\\"');
+      // command-stream quotes interpolations itself; keep review JSON literal.
+      const simpleEscapedSystem = argv.reviewMode ? systemPrompt : systemPrompt.replace(/"/g, '\\"');
       const mcpDisableArgs = mcpConfigPath ? ['--strict-mcp-config', '--mcp-config', mcpConfigPath] : [];
       const disallowedToolsArgs = disallowedToolsList.length ? ['--disallowedTools', ...disallowedToolsList] : [];
       const fallbackModelArgs = useClaudeFallbackModel ? ['--fallback-model', mappedFallbackModel] : []; // Issue #1949: Claude Code's per-request overload fallback
       if (useClaudeFallbackModel && argv.verbose) await log(`📊 Claude --fallback-model: ${mappedFallbackModel} (Issue #1949 — primary --model ${effectiveModel} stays stable across overload retries)`, { verbose: true });
       if (argv.resume) {
-        const simpleEscapedPrompt = promptForAttempt.replace(/"/g, '\\"');
+        const simpleEscapedPrompt = argv.reviewMode ? promptForAttempt : promptForAttempt.replace(/"/g, '\\"');
         execCommand = $({ cwd: tempDir, mirror: false, env: claudeEnv })`${toolInvocation.command} --resume ${argv.resume} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${fallbackModelArgs} ${mcpDisableArgs} ${disallowedToolsArgs} -p "${simpleEscapedPrompt}" --append-system-prompt "${simpleEscapedSystem}"`;
       } else if (streamingInput) {
         // Issue #817: Drive Claude via --input-format stream-json on a pipe
@@ -975,7 +976,7 @@ export const executeClaudeCommand = async params => {
       if (turnCompletion.shouldResume && !commandFailed && exitCode === 0) {
         incompleteTurnRecoveryAttempts++;
         argv.resume = turnCompletion.sessionId;
-        incompleteTurnPrompt = buildIncompleteTurnContinuationPrompt({ cause: turnCompletion.cause, ceilingSeconds: printTurnState.ceilingSeconds, stoppedTasks: printTurnState.stoppedTasks });
+        incompleteTurnPrompt = buildIncompleteTurnContinuationPrompt({ cause: turnCompletion.cause, ceilingSeconds: printTurnState.ceilingSeconds, stoppedTasks: printTurnState.stoppedTasks, reviewMode: argv.reviewMode });
         // Silent auto-resume: logged only, no PR comment or user notification.
         await log(`\n🔄 Resuming Claude session ${argv.resume} (${incompleteTurnRecoveryAttempts}/${claudeCode.incompleteTurnMaxResumes}): ${turnCompletion.cause} (${turnCompletion.cancelledTasks} task(s), issue #2301).`);
         return await executeWithRetry();
@@ -1149,7 +1150,7 @@ export const executeClaudeCommand = async params => {
             sessionId,
             interactiveResumeCommand: hasSession ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : null,
             autonomousResumeCommand: hasSession ? buildClaudeAutonomousResumeCommand({ tempDir, sessionId, model: argv.model }) : null,
-            solveResumeCommand: hasSession && argv?.url ? buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool: argv.tool || 'claude', model: argv.model, fallbackModel: argv.fallbackModel, tempDir }) : null,
+            solveResumeCommand: hasSession && argv?.url && !argv.reviewMode ? buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool: argv.tool || 'claude', model: argv.model, fallbackModel: argv.fallbackModel, tempDir }) : null,
           });
           for (const line of messageLines) await log(line, { level: 'warning' });
         } else if (lastMessage.includes('context_length_exceeded')) {

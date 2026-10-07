@@ -130,7 +130,7 @@ try {
   allPassed = false;
 } catch (error) {
   const output = error.stdout || error.stderr || error.output?.join('') || '';
-  if (output.includes("Must be 'solve' or 'hive'")) {
+  if (output.includes("Must be 'solve', 'hive', or 'review'")) {
     console.log('  Invalid command: ✓ PASSED\n');
   } else {
     console.log('  Invalid command: ✗ FAILED - Wrong error message\n');
@@ -158,7 +158,7 @@ try {
 console.log('Testing --auto-terminate flag position...');
 try {
   const helpOutput = execSync('./src/start-screen.mjs --help 2>&1', { encoding: 'utf8' });
-  if (helpOutput.includes('[--auto-terminate] <solve|hive>')) {
+  if (helpOutput.includes('[--auto-terminate] <solve|hive|review>')) {
     console.log('  --auto-terminate position in usage: ✓ PASSED\n');
   } else {
     console.log('  --auto-terminate position in usage: ✗ FAILED - Not in correct position\n');
@@ -166,7 +166,7 @@ try {
   }
 } catch (error) {
   const output = error.stdout || error.stderr || error.output?.join('') || '';
-  if (output.includes('[--auto-terminate] <solve|hive>')) {
+  if (output.includes('[--auto-terminate] <solve|hive|review>')) {
     console.log('  --auto-terminate position in usage: ✓ PASSED\n');
   } else {
     console.log('  --auto-terminate position in usage: ✗ FAILED - Not in correct position\n');
@@ -226,6 +226,18 @@ console.log('Testing --dry-run mode for hive command with repo URL...');
   } else {
     console.log('  hive --dry-run repo URL: ✗ FAILED - Unexpected output\n');
     console.log(`  Output: ${output}\n`);
+    allPassed = false;
+  }
+}
+
+// Review sessions must reach the same isolation launcher with their tool flags intact.
+console.log('Testing review command with a PR URL and tool options...');
+{
+  const { output } = runStartScreen(['review', 'https://github.com/link-assistant/hive-mind/pull/2706', '--tool', 'codex', '--dry-run'], noScreenEnv);
+  if (output.includes('GNU Screen is not installed') || output.includes('Screen is not installed')) {
+    console.log('  review --tool codex: ✓ PASSED (parse-only, screen disabled)\n');
+  } else {
+    console.log(`  review --tool codex: ✗ FAILED - Unexpected output\n${output}\n`);
     allPassed = false;
   }
 }

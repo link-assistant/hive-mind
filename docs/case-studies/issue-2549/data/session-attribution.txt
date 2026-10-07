@@ -1,0 +1,5 @@
+meta-theory-2026-06-05-session.log.gz: 77240 lines; 0 finalizer attribution records
+meta-theory-2026-10-05-session.log.gz:12024: [2026-10-05T15:26:59.329Z] [INFO]   📝 PR description Changes section regenerated from the diff (22 file(s))
+meta-theory-2026-10-05-session.log.gz: 12044 lines; 1 finalizer attribution records
+meta-theory-final-session.log.gz:12718: [2026-10-06T10:08:08.675Z] [INFO]   📝 PR description Changes section regenerated from the diff (40 file(s))
+meta-theory-final-session.log.gz: 12738 lines; 1 finalizer attribution records

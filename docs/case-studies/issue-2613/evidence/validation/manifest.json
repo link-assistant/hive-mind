@@ -1053,6 +1053,58 @@
     }
   },
   {
+    "file": "release-changeset.log",
+    "bytes": 685,
+    "sha256": "593c9b0120a4a84f55cef1e1626371a27c3204df31e25e92d260045648035cd9",
+    "stats": {
+      "sourceSize": 685,
+      "bytesRead": 685,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 685,
+      "worker": false
+    }
+  },
+  {
+    "file": "release-metadata-format.log",
+    "bytes": 66,
+    "sha256": "17aa973d3f004560237d9a95171210b0671deff23d61628eecf7322ff5938f20",
+    "stats": {
+      "sourceSize": 66,
+      "bytesRead": 66,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 66,
+      "worker": false
+    }
+  },
+  {
+    "file": "release-version-info-schema.log",
+    "bytes": 1837,
+    "sha256": "04259274adf317e4bb5614f5a913ebe8f5ad1e8f67415d05b239922b311c9f51",
+    "stats": {
+      "sourceSize": 1837,
+      "bytesRead": 1837,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 1781,
+      "worker": false
+    }
+  },
+  {
+    "file": "release-version-info-unit.log",
+    "bytes": 1494,
+    "sha256": "763311522a54729972774606c291fb0e709afeaeb512de52248d92d0e8b4717b",
+    "stats": {
+      "sourceSize": 1494,
+      "bytesRead": 1494,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 1448,
+      "worker": false
+    }
+  },
+  {
     "file": "sanitize-evidence.log",
     "bytes": 0,
     "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",

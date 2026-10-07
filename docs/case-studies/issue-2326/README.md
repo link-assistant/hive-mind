@@ -100,8 +100,8 @@ pin and matching alias fixture were also refreshed.
 
 The first security scan of the implementation flagged the regression test's
 URL substring assertion as incomplete URL validation ([annotation](https://github.com/link-assistant/hive-mind/pull/2562#discussion_r4196927353)).
-That assertion checks displayed error text, not host authorization. It now
-compares the complete `Input:` field against the quoted original URL, which
+That assertion checks displayed error text, not host authorization. It
+compares the complete echoed input line against the original URL, which
 tests the intended behavior more precisely without disabling the scanner.
 
 A later [security run](https://github.com/link-assistant/hive-mind/actions/runs/37484415408)

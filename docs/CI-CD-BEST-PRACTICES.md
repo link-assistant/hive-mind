@@ -25,6 +25,7 @@ We provide ready-to-use templates for multiple languages with all best practices
 | Go                    | [go-ai-driven-development-pipeline-template](https://github.com/link-foundation/go-ai-driven-development-pipeline-template)         |
 | C#                    | [csharp-ai-driven-development-pipeline-template](https://github.com/link-foundation/csharp-ai-driven-development-pipeline-template) |
 | Java                  | [java-ai-driven-development-pipeline-template](https://github.com/link-foundation/java-ai-driven-development-pipeline-template)     |
+| C/C++                 | [cpp-ai-driven-development-pipeline-template](https://github.com/link-foundation/cpp-ai-driven-development-pipeline-template)       |
 | PHP                   | [php-ai-driven-development-pipeline-template](https://github.com/link-foundation/php-ai-driven-development-pipeline-template)       |
 
 > **Tip:** You don't have to pick a template by hand. Run `fix <repository-url> --ci-cd` (see [Automatic CI/CD Remediation](#automatic-cicd-remediation)) and Hive Mind detects the repository's languages and selects the matching templates for you.
@@ -139,6 +140,7 @@ Consistent formatting eliminates style debates and reduces diff noise:
 | Go                    | gofmt                         |
 | C#                    | dotnet format                 |
 | Java                  | Spotless (Google Java Format) |
+| C/C++                 | clang-format                  |
 | PHP                   | PHP CS Fixer                  |
 
 All templates include pre-commit hooks that run formatters automatically before each commit.
@@ -147,15 +149,16 @@ All templates include pre-commit hooks that run formatters automatically before 
 
 Catch bugs and enforce patterns before code reaches review:
 
-| Language              | Tools                               |
-| --------------------- | ----------------------------------- |
-| JavaScript/TypeScript | ESLint with strict rules            |
-| Rust                  | Clippy (pedantic + nursery)         |
-| Python                | Ruff + mypy                         |
-| Go                    | go vet + staticcheck                |
-| C#                    | .NET analyzers (warnings as errors) |
-| Java                  | SpotBugs (maximum effort)           |
-| PHP                   | PHPStan (max level)                 |
+| Language              | Tools                                      |
+| --------------------- | ------------------------------------------ |
+| JavaScript/TypeScript | ESLint with strict rules                   |
+| Rust                  | Clippy (pedantic + nursery)                |
+| Python                | Ruff + mypy                                |
+| Go                    | go vet + staticcheck                       |
+| C#                    | .NET analyzers (warnings as errors)        |
+| Java                  | SpotBugs (maximum effort)                  |
+| C/C++                 | clang-tidy + cppcheck (warnings as errors) |
+| PHP                   | PHPStan (max level)                        |
 
 ### 5. Fast-Fail Job Ordering
 
@@ -198,6 +201,7 @@ All templates use a changeset system that:
 | Rust                  | changelog.d + custom scripts |
 | Python                | Scriv                        |
 | PHP                   | changelog.d + custom scripts |
+| C/C++                 | changelog.d + custom scripts |
 | Go, C#, Java          | Custom changeset workflows   |
 
 **Exempt docs-only PRs from changeset requirements:**
@@ -507,7 +511,7 @@ The retired paragraph cannot be restored by an option combination; `--developmen
 
 ### Language → Template Mapping
 
-The command maps detected languages to templates as follows (JavaScript and TypeScript share a single template):
+The command maps detected languages to templates as follows (JavaScript and TypeScript share a single template, and so do C, C++ and CMake):
 
 | Detected Language(s)  | Template                                                         |
 | --------------------- | ---------------------------------------------------------------- |
@@ -517,6 +521,7 @@ The command maps detected languages to templates as follows (JavaScript and Type
 | Go                    | `link-foundation/go-ai-driven-development-pipeline-template`     |
 | C#                    | `link-foundation/csharp-ai-driven-development-pipeline-template` |
 | Java                  | `link-foundation/java-ai-driven-development-pipeline-template`   |
+| C/C++, CMake          | `link-foundation/cpp-ai-driven-development-pipeline-template`    |
 | PHP                   | `link-foundation/php-ai-driven-development-pipeline-template`    |
 
 Languages without a dedicated template (for example Shell or Dockerfile) are listed in the issue for awareness, and the closest matching template is recommended.

@@ -297,7 +297,10 @@ export const QUEUE_CONFIG = {
   // safe 10-minute interval introduced for issue #2015.
   MIN_START_INTERVAL_MS: minimumStartIntervalMs,
   CONSUMER_POLL_INTERVAL_MS: parseIntWithDefault('HIVE_MIND_CONSUMER_POLL_INTERVAL_MS', 60000), // 1 minute between queue checks
-  MESSAGE_UPDATE_INTERVAL_MS: parseIntWithDefault('HIVE_MIND_MESSAGE_UPDATE_INTERVAL_MS', 60000), // 1 minute between status message updates
+  // Issue #2571: refresh of numbers-only changes (CPU %, countdowns) in waiting cards. New kinds of
+  // reasons and new positions are shown at once; 1 minute made a 20+ card queue hit Telegram's
+  // 20 messages per minute group limit every cycle.
+  MESSAGE_UPDATE_INTERVAL_MS: parseIntWithDefault('HIVE_MIND_MESSAGE_UPDATE_INTERVAL_MS', 300000), // 5 minutes between periodic status message refreshes
 
   // Process detection
   CLAUDE_PROCESS_NAMES: ['claude'], // Process names to detect

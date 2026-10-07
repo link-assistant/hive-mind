@@ -19,6 +19,8 @@ export { getProgressBar } from './progress-bar.lib.mjs';
 import { getProgressBar } from './progress-bar.lib.mjs';
 import { formatTelegramLimitsSection } from './telegram-limits-section.lib.mjs';
 import { getTelegramRateLimits } from './telegram-rate-limit.lib.mjs';
+import { getCachedUsageLimits, parseRetryAfterMs } from './usage-limits-cache.lib.mjs';
+export { parseRetryAfterMs };
 export { getCachedClaudeSubscription, getCachedCodexSubscription, getClaudeSubscriptionInfo, getCodexSubscriptionInfo };
 // Initialize dayjs plugins
 dayjs.extend(utc);
@@ -665,6 +667,7 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
       return {
         success: false,
         error: 'Could not read Claude credentials. Make sure Claude is properly installed and authenticated.',
+        failureKind: 'auth',
       };
     }
     const accessToken = credentials?.claudeAiOauth?.accessToken;
@@ -673,6 +676,7 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
       return {
         success: false,
         error: 'No access token found in Claude credentials. Please use `/solve` or `/hive` commands to trigger re-authentication of Claude.',
+        failureKind: 'auth',
       };
     }
     const requestHeaders = {
@@ -720,6 +724,7 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
         return {
           success: false,
           error: 'Claude authentication expired. Please use `/solve` or `/hive` commands to trigger re-authentication of Claude.',
+          failureKind: 'auth',
         };
       }
 
@@ -729,6 +734,8 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
         return {
           success: false,
           error: `Claude Usage API access has reached rate limit.${formatRetryAfterMessage(retryAfter)}`,
+          failureKind: 'rate_limited',
+          retryAfterMs: parseRetryAfterMs(retryAfter),
         };
       }
       return {
@@ -800,6 +807,7 @@ export async function getCodexUsageLimits(verbose = false, authPath = DEFAULT_CO
       return {
         success: false,
         error: 'Could not read Codex authentication. Make sure Codex is properly installed and authenticated.',
+        failureKind: 'auth',
       };
     }
 
@@ -807,6 +815,7 @@ export async function getCodexUsageLimits(verbose = false, authPath = DEFAULT_CO
       return {
         success: false,
         error: 'Codex rate limits require ChatGPT authentication. API key auth does not expose account usage windows.',
+        failureKind: 'auth',
       };
     }
     const accessToken = auth?.tokens?.access_token;
@@ -814,6 +823,7 @@ export async function getCodexUsageLimits(verbose = false, authPath = DEFAULT_CO
       return {
         success: false,
         error: 'No Codex access token found. Please authenticate Codex with your ChatGPT account.',
+        failureKind: 'auth',
       };
     }
 
@@ -867,6 +877,7 @@ export async function getCodexUsageLimits(verbose = false, authPath = DEFAULT_CO
         return {
           success: false,
           error: 'Codex authentication expired. Please re-authenticate Codex with your ChatGPT account.',
+          failureKind: 'auth',
         };
       }
       if (response.status === 429) {
@@ -874,6 +885,8 @@ export async function getCodexUsageLimits(verbose = false, authPath = DEFAULT_CO
         return {
           success: false,
           error: `Codex usage API access has reached rate limit.${formatRetryAfterMessage(retryAfter)}`,
+          failureKind: 'rate_limited',
+          retryAfterMs: parseRetryAfterMs(retryAfter),
         };
       }
 
@@ -1171,6 +1184,9 @@ class LimitCache {
   set(key, value, ttlMs) {
     this.cache.set(key, { value, timestamp: Date.now(), ttlMs: ttlMs ?? this.defaultTtlMs });
   }
+  delete(key) {
+    this.cache.delete(key);
+  }
   clear() {
     this.cache.clear();
   }
@@ -1202,59 +1218,13 @@ export function resetLimitCache() {
     globalCache = null;
   }
 }
-export async function getCachedClaudeLimits(verbose = false) {
-  const cache = getLimitCache();
-  // Use USAGE_API TTL (13 min by default, see issue #1798) for Claude limits to avoid rate limiting.
-  // The Claude Usage API returns null values or 429 errors when called too frequently.
-  // See: https://github.com/link-assistant/hive-mind/issues/1074
-  // See: https://github.com/link-assistant/hive-mind/issues/1798
-  const cached = cache.get('claude', CACHE_TTL.USAGE_API);
-  if (cached) {
-    if (verbose) console.log('[VERBOSE] /limits-cache: Using cached Claude limits (TTL: ' + Math.round(CACHE_TTL.USAGE_API / 60000) + ' minutes)');
-    return cached;
-  }
-  // Also check if we have a cached rate-limit error to avoid hammering a 429'd endpoint
-  const cachedError = cache.get('claude-rate-limited', CACHE_TTL.USAGE_API);
-  if (cachedError) {
-    if (verbose) console.log('[VERBOSE] /limits-cache: Using cached rate-limit error (avoiding repeated 429 requests)');
-    return cachedError;
-  }
-  if (verbose) console.log('[VERBOSE] /limits-cache: Cache miss for Claude limits, fetching from API...');
-  const result = await getClaudeUsageLimits(verbose);
-  if (result.success) {
-    cache.set('claude', result, CACHE_TTL.USAGE_API);
-  } else if (result.error && result.error.includes('Rate limited')) {
-    // Cache rate-limit errors to prevent hammering the API
-    // Use the same USAGE_API TTL (13 min by default) as successful responses
-    // See: https://github.com/link-assistant/hive-mind/issues/1446
-    // See: https://github.com/link-assistant/hive-mind/issues/1798
-    cache.set('claude-rate-limited', result, CACHE_TTL.USAGE_API);
-    if (verbose) console.log('[VERBOSE] /limits-cache: Cached rate-limit error for ' + Math.round(CACHE_TTL.USAGE_API / 60000) + ' minutes');
-  }
-  return result;
+// See: https://github.com/link-assistant/hive-mind/issues/1074, #1446, #1798, #2571
+export async function getCachedClaudeLimits(verbose = false, { credentialsPath = DEFAULT_CREDENTIALS_PATH, fetchLimits = () => getClaudeUsageLimits(verbose, credentialsPath) } = {}) {
+  return getCachedUsageLimits({ key: 'claude', fetchLimits, credentialsPath, verbose, cache: getLimitCache(), ttlMs: CACHE_TTL.USAGE_API });
 }
 
-export async function getCachedCodexLimits(verbose = false) {
-  const cache = getLimitCache();
-  const cached = cache.get('codex', CACHE_TTL.USAGE_API);
-  if (cached) {
-    if (verbose) console.log('[VERBOSE] /limits-cache: Using cached Codex limits (TTL: ' + Math.round(CACHE_TTL.USAGE_API / 60000) + ' minutes)');
-    return cached;
-  }
-  const cachedError = cache.get('codex-rate-limited', CACHE_TTL.USAGE_API);
-  if (cachedError) {
-    if (verbose) console.log('[VERBOSE] /limits-cache: Using cached Codex rate-limit error');
-    return cachedError;
-  }
-  if (verbose) console.log('[VERBOSE] /limits-cache: Cache miss for Codex limits, fetching from API...');
-  const result = await getCodexUsageLimits(verbose);
-  if (result.success) {
-    cache.set('codex', result, CACHE_TTL.USAGE_API);
-  } else if (result.error && result.error.includes('rate limit')) {
-    cache.set('codex-rate-limited', result, CACHE_TTL.USAGE_API);
-    if (verbose) console.log('[VERBOSE] /limits-cache: Cached Codex rate-limit error for ' + Math.round(CACHE_TTL.USAGE_API / 60000) + ' minutes');
-  }
-  return result;
+export async function getCachedCodexLimits(verbose = false, { authPath = DEFAULT_CODEX_AUTH_PATH, fetchLimits = () => getCodexUsageLimits(verbose, authPath) } = {}) {
+  return getCachedUsageLimits({ key: 'codex', fetchLimits, credentialsPath: authPath, verbose, cache: getLimitCache(), ttlMs: CACHE_TTL.USAGE_API });
 }
 export async function getCachedGitHubLimits(verbose = false) {
   const cache = getLimitCache();

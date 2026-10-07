@@ -2,6 +2,8 @@ Version reports launched dozens of installed runtimes concurrently and left shel
 
 This PR limits version probes across concurrent reports and cleans up their process groups. Failed uploads can publish the complete sanitized log on the verified existing PR branch, without committing unrelated staged work. Startup honors the requested log directory; formal drafts retain development logs, create a missing label and can dispatch checks without supplying a release bump.
 
+The dependency freshness gate initially stopped CI before tests with ten stale declarations. This PR refreshes the Node.js, Sentry, agent-commander and command-stream pins together, updates their lockfile and alias expectations, and retains real command-stream compatibility coverage. The authenticated local freshness check passes all 168 declarations; complete failed-run logs and release compatibility evidence are preserved in the case study.
+
 Refs #2613. Includes one patch changeset.
 
 ### Reproduction and validation

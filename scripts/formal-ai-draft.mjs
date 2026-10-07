@@ -24,13 +24,11 @@
  * @see docs/FORMAL-AI-DRAFTS.md
  */
 
-import { execFile, spawn } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { appendFileSync, chmodSync, mkdirSync, readFileSync } from 'node:fs';
-import { promisify } from 'node:util';
 
 import { buildDockerArgv, buildSolveArgv, DEFAULT_HIVE_MIND_IMAGE, decideDraft, formatDecisionOutputs, keepPullRequestAsDraftArgs, labelDraftPullRequest, readIssueEvent, selectDraftPullRequest } from './formal-ai-draft.lib.mjs';
-
-const execFileAsync = promisify(execFile);
+import { gh } from './github-actions.lib.mjs';
 
 const flags = new Set(process.argv.slice(2));
 const decideOnly = flags.has('--decide');
@@ -39,12 +37,6 @@ const dryRun = flags.has('--dry-run');
 const env = process.env;
 const repository = env.GITHUB_REPOSITORY || '';
 const serverUrl = env.GITHUB_SERVER_URL || 'https://github.com';
-
-/** `gh` with an argv array — no shell, so a webhook string can never become a command. */
-const gh = async args => {
-  const { stdout } = await execFileAsync('gh', args, { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
-  return stdout;
-};
 
 const setOutput = text => {
   if (env.GITHUB_OUTPUT) appendFileSync(env.GITHUB_OUTPUT, text);

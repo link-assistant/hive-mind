@@ -1,5 +1,23 @@
 # @link-assistant/hive-mind
 
+## 2.34.0
+
+### Minor Changes
+
+- 0307dcd: `hive` now respects GitHub sub-issues and issue dependencies (#2615). It only queues issues that have no open "blocked by" issues (their own or inherited from a parent issue) and no open sub-issues, and starts the issue that unblocks the longest chain of work first, so `--concurrency` runs exactly the issues that can be worked on in parallel. Waiting issues are listed with the reason, dependency cycles are reported, and a worker rechecks relations right before it starts an issue. With `--once`, hive checks again for newly unblocked issues while work keeps completing (for example with `--auto-merge`). `hive https://github.com/owner/repo/issues` is now accepted as the repository URL. Use `--no-respect-issue-relations` to queue every matching issue at once as before.
+
+## 2.33.17
+
+### Patch Changes
+
+- 33e3a76: Bound version probes and clean up their descendants even when diagnostic callbacks fail. Preserve complete sanitized failed-session logs on verified pull request branches when Gist permissions are unavailable, honor log directories before argument parsing, retain Formal AI development logs, and tolerate simultaneous creation of the draft label.
+
+## 2.33.16
+
+### Patch Changes
+
+- 3ad8eb4: Identify the offending URL segment or argument in input validation errors (with a compiler-style caret under URL typos, bold and in a code block on Telegram), suggest likely URL path and host corrections as natural questions, and stop solve on invalid options.
+
 ## 2.33.15
 
 ### Patch Changes

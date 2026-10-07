@@ -285,14 +285,13 @@ export const summarizeUploadFailure = output => {
 };
 
 /**
- * Whether gh-upload-log failed because the token is not allowed to publish,
- * e.g. a workflow's GITHUB_TOKEN creating a gist (issue #2625). Retrying, or
- * re-sending the log as parts, cannot change a permission refusal. Secondary
- * rate limits are also HTTP 403 but pass with time, so they do not match.
+ * Whether gh-upload-log failed because the token cannot publish or authenticate.
+ * Installation tokens cannot create Gists; retries and splitting cannot grant
+ * that permission. Secondary rate limits are also HTTP 403 and remain retryable.
  * @param {string} output - Combined stdout and stderr of gh-upload-log.
  * @returns {boolean}
  */
-export const isPermanentUploadFailure = output => /Resource not accessible by (integration|personal access token)/i.test(String(output || ''));
+export const isPermanentUploadFailure = output => /Resource not accessible by (?:integration|personal access token)|Bad credentials|requires authentication/i.test(String(output));
 
 /**
  * Split a log into parts of about `partSizeBytes` each, cutting only after a
@@ -375,8 +374,9 @@ const runUploadWithRetries = async ({ commandArgs, runUpload, sleep, delaysMs, l
       return { ok: false, parsed: null, output, attempts: attempt, permanent: true };
     }
     // 127: gh-upload-log is not installed; waiting will not change that.
-    if (uploadResult.code === 127 || attempt === maxAttempts) {
-      return { ok: false, parsed: null, output, attempts: attempt };
+    const permanent = uploadResult.code === 127 || isPermanentUploadFailure(output);
+    if (permanent || attempt === maxAttempts) {
+      return { ok: false, parsed: null, output, attempts: attempt, permanent };
     }
     const delayMs = delaysMs[attempt - 1];
     await log(`  🔁 Retrying the ${label} upload in ${formatDelay(delayMs)} (attempt ${attempt + 1}/${maxAttempts})...`);
@@ -395,7 +395,7 @@ const runUploadWithRetries = async ({ commandArgs, runUpload, sleep, delaysMs, l
  * @returns {Promise<{success: boolean, url: string|null, rawUrl: string|null, type: 'gist'|'repository'|null, chunks: number, repositoryName?: string|null, repositoryPath?: string|null, parts?: Object[], attempts?: number, failureReason?: string}>}
  *   `parts` is set when the log was published as several parts (issue #2301); `failureReason` when it was not published.
  */
-export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description, verbose = false, runUpload = runGhUploadLogCommand, sleep = defaultSleep, retryDelaysMs = LOG_UPLOAD_RETRY_DELAYS_MS, partRetryDelaysMs = LOG_UPLOAD_PART_RETRY_DELAYS_MS, partSizeBytes = LOG_UPLOAD_PART_SIZE_BYTES }) => {
+export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description, verbose = false, runUpload = runGhUploadLogCommand, sleep = defaultSleep, retryDelaysMs = LOG_UPLOAD_RETRY_DELAYS_MS, partRetryDelaysMs = LOG_UPLOAD_PART_RETRY_DELAYS_MS, partSizeBytes = LOG_UPLOAD_PART_SIZE_BYTES, publishToBranch = null }) => {
   const result = { success: false, url: null, rawUrl: null, type: null, chunks: 1 };
   let privateTempDirectory = null;
 
@@ -404,6 +404,18 @@ export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description,
     privateTempDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'hive-mind-log-upload-'));
     await fs.chmod(privateTempDirectory, 0o700);
     const privateLogFile = path.join(privateTempDirectory, 'sanitized.log');
+    const fallback = async () => {
+      if (publishToBranch) {
+        const publication = await publishToBranch(privateLogFile);
+        if (publication?.success && publication.url) {
+          Object.assign(result, publication);
+          delete result.failureReason;
+        } else if (publication?.failureReason) {
+          await log(`  ⚠️  Branch log publication failed: ${publication.failureReason}`);
+        }
+      }
+      return result;
+    };
     // Issue #2189: this used to be readFile → sanitizeForPublication → writeFile,
     // i.e. three full-size copies of the log in the heap at once. A 134 MB
     // transcript reliably killed the run with "Reached heap limit". The streaming
@@ -436,11 +448,11 @@ export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description,
       result.failureReason = summarizeUploadFailure(whole.output);
       const { size } = await fs.stat(privateLogFile);
       if (whole.permanent || size <= partSizeBytes) {
-        return result;
+        return await fallback();
       }
       const partPaths = await splitLogIntoLineAlignedParts({ sourcePath: privateLogFile, directory: privateTempDirectory, partSizeBytes });
-      // The parts hold every byte; drop the whole copy so the fallback does not double the disk use.
-      await fs.rm(privateLogFile, { force: true });
+      // Retain the sanitized whole file only when the branch fallback needs it.
+      if (!publishToBranch) await fs.rm(privateLogFile, { force: true });
       await log(`  🔁 Uploading the complete log as ${partPaths.length} parts of about ${partSizeBytes >= 1024 * 1024 ? `${Math.round(partSizeBytes / 1024 / 1024)} MB` : `${Math.round(partSizeBytes / 1024)} KB`} each...`);
       const parts = [];
       for (const [index, partPath] of partPaths.entries()) {
@@ -451,7 +463,7 @@ export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description,
         if (!partUpload.ok) {
           result.failureReason = summarizeUploadFailure(partUpload.output);
           await log(`  ❌ Uploading the log as parts stopped at ${partLabel}`);
-          return result;
+          return await fallback();
         }
         const part = { success: false, ...partUpload.parsed };
         await resolveUploadUrls(part, verbose);

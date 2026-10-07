@@ -58,7 +58,7 @@ export async function fetchRequiredIssueScope({ owner, repo, issueNumber, run = 
  * the number is a pull request, null when the answer is unknown (issue #2563).
  */
 export async function probeIssueExists({ owner, repo, number, run = runLinkGh }) {
-  const missing = failure => (/HTTP (?:404|410)\b|"status":\s*"(?:404|410)"/.test(`${failure.stderr || ''}${failure.stdout || ''}${failure.message || ''}`) ? false : null);
+  const missing = failure => (/HTTP (?:404|410)\b|"status":\s*"(?:404|410)"/.test(`${failure.stderr?.toString() ?? ''}${failure.stdout?.toString() ?? ''}${failure.message ?? ''}`) ? false : null);
   try {
     const result = await run(['api', `repos/${owner}/${repo}/issues/${number}`]);
     if ((result.code ?? 0) !== 0) return missing(result);

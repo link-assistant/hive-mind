@@ -1,0 +1,110 @@
+{
+  "binary": "formal-ai 0.352.1",
+  "limits": {
+    "requests": 3,
+    "memoryBytes": 2147483648,
+    "stackBytes": 16777216,
+    "cpuSeconds": 30
+  },
+  "results": [
+    {
+      "prompt": "Read README.md (e.g., the project documentation).",
+      "response": {
+        "id": "chatcmpl_50d814365c481625",
+        "object": "chat.completion",
+        "created": 1791385504,
+        "model": "formal-ai",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "Let me open README.md and read what it says.",
+              "tool_calls": [
+                {
+                  "id": "call_055ec482c1470832",
+                  "type": "function",
+                  "function": {
+                    "name": "read",
+                    "arguments": "{\"filePath\":\"README.md\"}"
+                  }
+                },
+                {
+                  "id": "call_f99a0419e8fe2812",
+                  "type": "function",
+                  "function": {
+                    "name": "read",
+                    "arguments": "{\"filePath\":\"e.g\"}"
+                  }
+                }
+              ]
+            },
+            "finish_reason": "tool_calls"
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 49,
+          "completion_tokens": 94,
+          "total_tokens": 143
+        }
+      }
+    },
+    {
+      "afterMissingFile": {
+        "id": "chatcmpl_50d814365c481625",
+        "object": "chat.completion",
+        "created": 1791385505,
+        "model": "formal-ai",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "Contents of `README.md`:\n\n```text\n# Project documentation\nThis is a fixture.\n```\n\nContents of `e.g`:\n\n```text\nError: File not found: e.g\n```"
+            },
+            "finish_reason": "stop"
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 161,
+          "completion_tokens": 140,
+          "total_tokens": 301
+        }
+      }
+    },
+    {
+      "prompt": "Read README.md, for example the project documentation.",
+      "response": {
+        "id": "chatcmpl_f7b84106210aeec5",
+        "object": "chat.completion",
+        "created": 1791385507,
+        "model": "formal-ai",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "Let me open README.md and read what it says.",
+              "tool_calls": [
+                {
+                  "id": "call_77d24e39f9ca2a52",
+                  "type": "function",
+                  "function": {
+                    "name": "read",
+                    "arguments": "{\"filePath\":\"README.md\"}"
+                  }
+                }
+              ]
+            },
+            "finish_reason": "tool_calls"
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 54,
+          "completion_tokens": 72,
+          "total_tokens": 126
+        }
+      }
+    }
+  ]
+}

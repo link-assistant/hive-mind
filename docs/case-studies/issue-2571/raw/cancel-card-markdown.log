@@ -1,0 +1,33 @@
+[VERBOSE] /limits-cache: Using cached memory info
+[VERBOSE] /limits-cache: Using cached CPU info
+[VERBOSE] /queue: CPU 5m load avg: 5.70, cpus: 6, usage: 95%
+[VERBOSE] /limits-cache: Using cached disk info
+[VERBOSE] /queue: Claude limits not applied for --tool agent
+[VERBOSE] /queue: Cannot start: CPU usage is 95% (threshold: 65%), Claude process is already running (1 processes)
+[VERBOSE] Telegram Bot API getUpdates accepted; windows: {"other":1}
+[VERBOSE] /stop command received
+[VERBOSE] isForwarded: Checking forwarding fields...
+[VERBOSE]   message.forward_origin: undefined
+[VERBOSE]   message.forward_origin?.type: undefined
+[VERBOSE]   message.forward_from: undefined
+[VERBOSE]   message.forward_from_chat: undefined
+[VERBOSE]   message.forward_from_message_id: undefined
+[VERBOSE]   message.forward_signature: undefined
+[VERBOSE]   message.forward_sender_name: undefined
+[VERBOSE]   message.forward_date: undefined
+[VERBOSE] isForwarded: FALSE - no forwarding detected
+[VERBOSE] /stop: detected URL https://github.com/xlabtg/tonbankcard-protocol/issues/501 (source=reply)
+[VERBOSE] findStoppableSessionByUrl: no tracked session for https://github.com/xlabtg/tonbankcard-protocol/issues/501
+[VERBOSE] /stop <URL> allowed for task requester 192802079
+[VERBOSE] /queue: Cancelled queued item: [solve-1791286064159-282jygx] https://github.com/xlabtg/tonbankcard-protocol/issues/501 (cancelled) from codex queue
+[VERBOSE] /stop: queue lookup for https://github.com/xlabtg/tonbankcard-protocol/issues/501 → cancel-queued
+[VERBOSE] /stop: cancelled queued item solve-1791286064159-282jygx for https://github.com/xlabtg/tonbankcard-protocol/issues/501
+[telegram-send] safeEditMessageText: pre-send validation rejected a Markdown message: Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 113
+[telegram-send] safeEditMessageText: byte offset 113 context: "ved from `codex` queue by @anton_poroshin via /stop."
+[telegram-bot] safeEditMessageText:preflight: formatted Telegram message failed: Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 113
+[telegram-bot] safeEditMessageText:preflight: Failing message (133 bytes): 🗑 *Cancelled*
+
+https://github.com/xlabtg/tonbankcard-protocol/issues/501
+
+Removed from `codex` queue by @anton_poroshin via /stop.
+[telegram-bot] safeEditMessageText:preflight: Byte offset 113 context [81..133]: "ved from `codex` queue by @anton_poroshin via /stop."

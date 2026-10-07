@@ -325,7 +325,7 @@ await testAsync('No-ops cleanly when the working tree is clean', async () => {
 
 await testAsync('Never throws and returns a safe result when misconfigured', async () => {
   const result = await commitUncommittedChangesOnCriticalError({ tempDir: '', $: undefined, log: noopLog });
-  assert.deepStrictEqual(result, { committed: false, pushed: false }, 'Must degrade gracefully without a working tree/$');
+  assert.deepStrictEqual(result, { committed: false, pushed: false, error: true }, 'Must report failed preservation without throwing when the working tree/$ is missing');
 });
 
 // ============================================================

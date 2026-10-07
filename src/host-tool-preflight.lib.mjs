@@ -5,7 +5,8 @@ import { readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
-import { getDefaultModelForTool, isFormalAiModel } from './models/index.mjs';
+import { defaultModels } from './models/catalog.mjs';
+import { isFormalAiModel } from './formal-ai-model.lib.mjs';
 import { resolveRuntimeCodexReasoningEffort } from './codex.reasoning.lib.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -52,7 +53,7 @@ export function parseHostToolOptions(args = [], options = {}) {
     const value = rest.length ? rest.join('=') : args[++index];
     parsed[names[flag]] = flag.includes('budget') ? Number(value) : value;
   }
-  parsed.model ||= getDefaultModelForTool(parsed.tool);
+  parsed.model ||= defaultModels[parsed.tool] || defaultModels.claude;
   return parsed;
 }
 

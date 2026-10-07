@@ -1340,7 +1340,6 @@ export const startAutoRestartUntilMergeable = async params => {
   if (preflight.stop) {
     return preflight.result ?? null;
   }
-  // Start the watch loop
   return await watchUntilMergeable(params);
 };
 export default {

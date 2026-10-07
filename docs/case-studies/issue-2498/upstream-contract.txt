@@ -1,0 +1,16 @@
+exit=0: earlier container OOM is not the terminal cause
+exit=1: earlier container OOM is not the terminal cause
+exit=42: earlier container OOM is not the terminal cause
+exit=127: earlier container OOM is not the terminal cause
+exit=143: earlier container OOM is not the terminal cause
+exit=137: task cgroup counters identify OOM even without the Docker flag
+{
+  "groupOomExample": {
+    "limitBytes": 3135373312,
+    "peakBytes": 3135373312,
+    "oomEvents": 1,
+    "oomKills": 3
+  },
+  "upstreamScope": "host-or-parent",
+  "evidenceSupports": "scope unknown; compatible with a container group OOM"
+}

@@ -1,0 +1,5 @@
+Dependency freshness: 165/168 declarations current
+STALE Dockerfile:309: start-command 0.35.1 -> 0.35.2 (exact)
+STALE Dockerfile.dind:324: start-command 0.35.1 -> 0.35.2 (exact)
+STALE Dockerfile.e2e:14: start-command 0.35.1 -> 0.35.2 (exact)
+Dependency freshness failed: 3 stale, 0 unresolved.

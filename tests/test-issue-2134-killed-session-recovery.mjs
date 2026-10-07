@@ -159,6 +159,7 @@ await monitorSessions(recoveredBot, false, {
   dockerContainerSizeProvider: async () => null,
   readFile: async () => '📈 [RESOURCES] phase=before-agent memAvailableBytes=822000000 memTotalBytes=12500000000 diskUsedPercent=41.0\n',
   lookupLinkedPullRequest: async () => 'https://github.com/link-assistant/hive-mind/pull/2131',
+  lookupPullRequestState: async () => null, // #2498: offline — the real pull request may have merged since
   runCommand: async (command, args) => {
     postedComments.push({ command, args });
     return { code: 0, stdout: 'https://github.com/link-assistant/hive-mind/pull/2131#issuecomment-1\n', stderr: '' };
@@ -201,7 +202,7 @@ assert(victims.length === 2, 'both kernel OOM report formats are parsed');
 assert(victims[0].comm === 'node' && victims[0].pid === 4711, 'the classic OOM line names the victim process');
 assert(victims[1].comm === 'claude' && victims[1].pid === 4712, 'the modern oom-kill line names the victim process');
 
-const victimDiagnosis = describeKillCause({ logText: forcedLog, exitCode: 137, system: { victims, cgroup: {}, memory: {} } });
+const victimDiagnosis = describeKillCause({ logText: forcedLog, exitCode: 137, system: { sessionScoped: true, victims, cgroup: {}, memory: {} } });
 assert(victimDiagnosis.cause === KILL_CAUSE_OUT_OF_MEMORY, 'a kernel OOM report outweighs healthy resource markers');
 assert(/claude/.test(victimDiagnosis.summary), 'the summary names the process the kernel killed');
 
@@ -211,7 +212,7 @@ assert(/claude/.test(victimDiagnosis.summary), 'the summary names the process th
 console.log('\n-- pull request notice --');
 
 const notice = buildKillRecoveryNotice({ diagnosis: oomDiagnosis, exitCode: 137, sessionName: SESSION, observedAt: '2026-08-02T17:42:06.000Z', policy: ON_SESSION_KILL_RESUME, resumed: true, resumeCommand: 'solve --resume abc', attachLogs: false });
-assert(/recovered from out of memory/.test(notice), 'the PR notice uses the same wording as the Telegram warning');
+assert(/restarted after a kill.*outcome pending/.test(notice), 'launch acceptance does not establish successful recovery');
 assert(/new working session was started/.test(notice), 'the PR notice states that a new working session was started');
 assert(/`--attach-logs` is disabled/.test(notice), 'the PR notice explains why no log was uploaded');
 assert(/solve --resume abc/.test(notice), 'the PR notice offers the resume command');
@@ -316,20 +317,20 @@ const resumableInfo = () => ({
 
 const readTool = () => TOOL_SESSION;
 
-const reportPlan = planKillRecovery({ sessionInfo: { ...resumableInfo(), args: ['--on-session-kill', 'report'] }, killed: true, env: {}, readLastSessionId: readTool });
+const reportPlan = planKillRecovery({ sessionInfo: { ...resumableInfo(), args: ['--on-session-kill', 'report'] }, killed: true, env: { HIVE_MIND_SESSION_KILL_RESUME_DELAY: '0' }, readLastSessionId: readTool });
 assert(reportPlan.shouldResume === false && reportPlan.reason === 'policy-report', 'an explicit report policy never starts a recovery session');
 
-const resumePlan = planKillRecovery({ sessionInfo: resumableInfo(), killed: true, env: {}, readLastSessionId: readTool });
+const resumePlan = planKillRecovery({ sessionInfo: resumableInfo(), killed: true, env: { HIVE_MIND_SESSION_KILL_RESUME_DELAY: '0' }, readLastSessionId: readTool });
 assert(resumePlan.shouldResume === true && resumePlan.attempt === 1, '--on-session-kill=resume plans exactly one recovery session');
 assert(resumePlan.command.args.includes('--resume') && resumePlan.command.args.includes(TOOL_SESSION), 'the recovery session resumes the tool session found in the log');
 
-const exhaustedPlan = planKillRecovery({ sessionInfo: { ...resumableInfo(), [KILL_RESUME_ATTEMPTS_FIELD]: 3 }, killed: true, env: {}, readLastSessionId: readTool });
+const exhaustedPlan = planKillRecovery({ sessionInfo: { ...resumableInfo(), [KILL_RESUME_ATTEMPTS_FIELD]: 3 }, killed: true, env: { HIVE_MIND_SESSION_KILL_RESUME_DELAY: '0' }, readLastSessionId: readTool });
 assert(exhaustedPlan.shouldResume === false && exhaustedPlan.reason === 'max-attempts-reached', 'the attempt cap stops a session that keeps getting killed');
 
-const stoppedPlan = planKillRecovery({ sessionInfo: { ...resumableInfo(), stopRequestedByUser: true }, killed: true, env: {}, readLastSessionId: readTool });
+const stoppedPlan = planKillRecovery({ sessionInfo: { ...resumableInfo(), stopRequestedByUser: true }, killed: true, env: { HIVE_MIND_SESSION_KILL_RESUME_DELAY: '0' }, readLastSessionId: readTool });
 assert(stoppedPlan.shouldResume === false && stoppedPlan.reason === 'stopped-by-user', 'a session stopped by the user is never auto-resumed');
 
-const noIdPlan = planKillRecovery({ sessionInfo: resumableInfo(), killed: true, env: {}, readLastSessionId: () => null });
+const noIdPlan = planKillRecovery({ sessionInfo: resumableInfo(), killed: true, env: { HIVE_MIND_SESSION_KILL_RESUME_DELAY: '0' }, readLastSessionId: () => null });
 assert(noIdPlan.shouldResume === false && noIdPlan.reason === 'no-session-id', 'nothing is resumed without a real tool session id');
 
 const launches = [];
@@ -339,7 +340,7 @@ const recovery = await recoverKilledSession({
   sessionName: SESSION,
   sessionInfo: killedInfo,
   killed: true,
-  env: {},
+  env: { HIVE_MIND_SESSION_KILL_RESUME_DELAY: '0' },
   readLastSessionId: readTool,
   runner: {
     generateSessionId: () => 'new-session-1234-5678-9012-345678901234',
@@ -357,14 +358,14 @@ assert(tracked[0].info[KILL_RESUME_ATTEMPTS_FIELD] === 1 && tracked[0].info.kill
 assert(killedInfo[KILL_RESUME_ATTEMPTS_FIELD] === 1, 'the killed session records the attempt it consumed');
 assert(tracked[0].info.oomEventObservedAt === undefined, 'the recovery session does not inherit the previous OOM observation');
 
-const noRunner = await recoverKilledSession({ sessionName: SESSION, sessionInfo: resumableInfo(), killed: true, env: {}, readLastSessionId: readTool, trackSession: () => {} });
+const noRunner = await recoverKilledSession({ sessionName: SESSION, sessionInfo: resumableInfo(), killed: true, env: { HIVE_MIND_SESSION_KILL_RESUME_DELAY: '0' }, readLastSessionId: readTool, trackSession: () => {} });
 assert(noRunner.resumed === false && noRunner.reason === 'no-isolation-runner', 'a missing isolation runner is reported, not thrown');
 
 const failedStart = await recoverKilledSession({
   sessionName: SESSION,
   sessionInfo: resumableInfo(),
   killed: true,
-  env: {},
+  env: { HIVE_MIND_SESSION_KILL_RESUME_DELAY: '0' },
   readLastSessionId: readTool,
   runner: { generateSessionId: () => 'x', executeWithIsolation: async () => ({ success: false }) },
   trackSession: () => {},
@@ -398,7 +399,8 @@ await monitorSessions(killedBot, false, {
   dockerContainerSizeProvider: async () => null,
   readFile: async () => `${oomLog}📌 Session ID: ${TOOL_SESSION}\n`,
   lookupLinkedPullRequest: async () => 'https://github.com/link-assistant/hive-mind/pull/2131',
-  env: {},
+  lookupPullRequestState: async () => null, // #2498: offline — the real pull request may have merged since
+  env: { HIVE_MIND_SESSION_KILL_RESUME_DELAY: '0' },
   isolationRunner: {
     generateSessionId: () => 'recovery-1111-2222-3333-444455556666',
     executeWithIsolation: async (command, args, opts) => {
@@ -412,7 +414,7 @@ await monitorSessions(killedBot, false, {
   },
 });
 
-const killedText = killedBot.edits[0]?.text || '';
+const killedText = killedBot.edits.at(-1)?.text || '';
 assert(recoveryLaunches.length === 1, 'a killed session under --on-session-kill=resume starts exactly one recovery session');
 assert(/recovery-1111-2222-3333-444455556666/.test(killedText), 'Telegram names the recovery working session');
 assert(/new working session was started/i.test(killedText), 'Telegram says a new working session was started');

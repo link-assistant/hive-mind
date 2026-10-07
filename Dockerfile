@@ -240,7 +240,7 @@ RUN bun install -g @openai/codex && \
 # Note: start-command provides `$` CLI for isolation modes (--isolation screen/tmux/docker)
 # The Box base image includes screen. For tmux/docker isolation, ensure they are
 # available in the base image or install them separately.
-# start-command is pinned to 0.35.3: 0.29.1 fixed detached docker
+# start-command is pinned to 0.35.4: 0.29.1 fixed detached docker
 # `--status`/`--list` reporting a terminal status (`executed`) with the `-1`
 # sentinel while the container is still running (link-foundation/start#136,
 # link-assistant/hive-mind#1939); 0.29.2 (start#138 / start PR #139) records the
@@ -287,7 +287,15 @@ RUN bun install -g @openai/codex && \
 # (see src/session-kill-resume.in-place.lib.mjs). Its new `--on-kill-resume`
 # is not used yet. 0.35.1 fixes start#178: it no longer treats the sticky
 # `OOMKilled` flag as a kill when the main process exits 0-127 on its own
-# (see docs/case-studies/issue-2408).
+# (see docs/case-studies/issue-2408). 0.35.2 fixes start#180: the sticky
+# flag no longer determines the exit reason for ordinary exits. It also
+# samples the task cgroup OOM counters/peak (#182) and supports cancellable
+# recovery delays (#181). Hive Mind consumes the counters but keeps its own
+# recovery policy so deliberate solve stops and attempt budgets are honoured.
+# 0.35.3 stops inferring OOM scope from process/event ratios (#185). 0.35.4 fixes
+# start#187 (filed from issue #2498): an explicit `--resume` moves the previous
+# attempt's memory evidence into `attemptHistory` and records the new attempt's
+# start time, log byte offset and lifecycle boundary.
 # `@link-assistant/agent` is pinned to current 0.26.11. Version 0.26.1 stopped the
 # unbounded snapshot leak of issue #2186. Up to 0.26.0 `Snapshot.track()` built a
 # standalone git object store per project — keyed on the worktree's root commit,
@@ -306,7 +314,7 @@ RUN echo "Installing @link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
     fi && \
     bun install -g @link-assistant/claude-profiles && \
     bun install -g @link-assistant/agent@0.26.11 && \
-    bun install -g start-command@0.35.3 && \
+    bun install -g start-command@0.35.4 && \
     bun install -g gh-setup-git-identity && \
     bun install -g gh-pull-all && \
     bun install -g gh-load-issue && \

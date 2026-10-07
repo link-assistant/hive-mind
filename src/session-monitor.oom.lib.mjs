@@ -112,7 +112,7 @@ export async function resolveOomKilledState(sessionName, sessionInfo, statusResu
     // Any ordinary exit proves the main work process outlived the cgroup OOM
     // event, even when the lost child later caused it to fail (issue #2301).
     const survivedOom = footerExitCode !== null && footerExitCode < 128;
-    if (survivedOom) markOomEventObserved(sessionInfo, persistSnapshot);
+    markOomEventObserved(sessionInfo, persistSnapshot);
     if (verbose) {
       console.log(`[VERBOSE] Session ${sessionName} reported oomKilled=true, but its log footer says exit ${footerExitCode} (${correctedStatus}) and wins${survivedOom ? ' — the session SURVIVED the out-of-memory event (issue #2134)' : ''}`);
     }
@@ -139,6 +139,13 @@ export async function resolveOomKilledState(sessionName, sessionInfo, statusResu
   }
 
   const statusExitCode = normalizeExitCode(statusResult?.exitCode);
+  // The kernel OOM killer sends SIGKILL. A sticky observation cannot explain
+  // SIGTERM, SIGABRT or SIGSEGV; retain the event and classify that exit as-is.
+  if (statusExitCode !== null && statusExitCode >= 128 && statusExitCode !== 137) {
+    markOomEventObserved(sessionInfo, persistSnapshot);
+    const status = classifyExitStatus(statusExitCode) || 'failed';
+    return { running: false, exitCode: statusExitCode, status, statusResult: { ...statusResult, status }, oomEventObserved: true };
+  }
   // 3. Issue #2408: the status record already carries an ordinary exit code
   //    (1-127) — the main process exited by itself, it was not killed. This is
   //    the footer case of step 1 arriving before the footer is flushed: the
@@ -164,6 +171,7 @@ export async function resolveOomKilledState(sessionName, sessionInfo, statusResu
   }
   const endTime = statusResult?.endTime || footer?.endTime || statusResult?.currentTime || null;
   const corrected = { ...statusResult, status: 'oom-killed', exitCode, endTime };
+  markOomEventObserved(sessionInfo, persistSnapshot);
 
   if (verbose) {
     console.log(`[VERBOSE] Session ${sessionName} status includes oomKilled=true (backend alive: ${alive === null ? 'unknown' : alive}); treating it as terminal oom-killed (exit ${exitCode})`);

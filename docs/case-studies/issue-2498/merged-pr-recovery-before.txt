@@ -1,0 +1,30 @@
+✖ package-registry-manager#31: an auto-merged session that exited 0 reports no recovery and uploads no "killed session" log (1037.789731ms)
+✖ a session killed after its pull request merged is neither recovered nor offered a resume (146.594107ms)
+✖ with the pull request still open, a survived OOM event is described without claiming a recovery (46.30229ms)
+✔ a killed session with an open pull request is still recovered (behaviour preserved) (106.245122ms)
+✖ buildKillCompletionSections returns nothing to report once the pull request is merged (13.480002ms)
+✖ the merge state is looked up for a kill or an OOM event, not for a plain success (5.091918ms)
+✖ the survived notice keeps the forced-kill wording and drops the --attach-logs hint (1.054906ms)
+✖ solve does not retry a killed AI tool once the pull request is merged, and posts nothing (2.457309ms)
+✖ a scheduled retry is cancelled when the pull request merges during the delay (1.045479ms)
+✖ a failing merge check never blocks the retry (behaviour preserved) (0.817944ms)
+✖ a cancelled tool retry is reported as cancelled when the enclosing run ends (0.505533ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 1
+ℹ fail 10
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2261.804909
+✖ failing tests:
+✖ package-registry-manager#31: an auto-merged session that exited 0 reports no recovery and uploads no "killed session" log (1037.789731ms)
+✖ a session killed after its pull request merged is neither recovered nor offered a resume (146.594107ms)
+✖ with the pull request still open, a survived OOM event is described without claiming a recovery (46.30229ms)
+✖ buildKillCompletionSections returns nothing to report once the pull request is merged (13.480002ms)
+✖ the merge state is looked up for a kill or an OOM event, not for a plain success (5.091918ms)
+✖ the survived notice keeps the forced-kill wording and drops the --attach-logs hint (1.054906ms)
+✖ solve does not retry a killed AI tool once the pull request is merged, and posts nothing (2.457309ms)
+✖ a scheduled retry is cancelled when the pull request merges during the delay (1.045479ms)
+✖ a failing merge check never blocks the retry (behaviour preserved) (0.817944ms)
+✖ a cancelled tool retry is reported as cancelled when the enclosing run ends (0.505533ms)

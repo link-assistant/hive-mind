@@ -66,24 +66,27 @@
    ```
    screen -R bot # bot के लिए नया screen दर्ज करें
 
-   hive-telegram-bot --configuration "
-     TELEGRAM_BOT_TOKEN: '849...355:AAG...rgk_YZk...aPU'
-     TELEGRAM_ALLOWED_CHATS:
-       -1002975819706
-       -1002861722681
-     TELEGRAM_HIVE_OVERRIDES:
-       --all-issues
-       --once
-       --skip-issues-with-prs
-       --attach-logs
-       --verbose
-       --no-tool-check
-     TELEGRAM_SOLVE_OVERRIDES:
-       --attach-logs
-       --verbose
-       --no-tool-check
-     TELEGRAM_BOT_VERBOSE: true
-   "
+   umask 077
+   cat > bot.lenv <<'LINO'
+   TELEGRAM_BOT_TOKEN: '849...355:AAG...rgk_YZk...aPU'
+   TELEGRAM_ALLOWED_CHATS:
+     -1002975819706
+     -1002861722681
+   TELEGRAM_HIVE_OVERRIDES:
+     --all-issues
+     --once
+     --skip-issues-with-prs
+     --attach-logs
+     --verbose
+     --no-tool-check
+   TELEGRAM_SOLVE_OVERRIDES:
+     --attach-logs
+     --verbose
+     --no-tool-check
+   TELEGRAM_BOT_VERBOSE: true
+   LINO
+   chmod 600 bot.lenv
+   hive-telegram-bot --configuration-file bot.lenv
 
    # screen से detach करने के लिए CTRL + A + D दबाएं
    ```
@@ -93,7 +96,7 @@
    ```
    screen -R bot # bot के लिए नया screen दर्ज करें
 
-   hive-telegram-bot --token 849...355:AAG...rgk_YZk...aPU --allowed-chats "(
+   HIVE_MIND_CONFIGURATION_FILE=bot.lenv hive-telegram-bot --allowed-chats "(
      -1002975819706
      -1002861722681
    )" --hive-overrides "(

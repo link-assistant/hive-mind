@@ -127,29 +127,28 @@ secrets:
 
 要在 Kubernetes 中将 Hive Mind 作为 Telegram bot 运行：
 
+创建权限为 `0600` 的 `/secure/telegram-token`，内容仅为令牌，末尾不含换行。Chart 通过 `env.valueFrom.secretKeyRef` 注入 `TELEGRAM_BOT_TOKEN`；请勿将令牌放入命令参数或 values 文件。
+
+```bash
+kubectl create secret generic hive-telegram-token \
+  --from-file=token=/secure/telegram-token
+```
+
 ```yaml
+secrets:
+  telegramToken: 'hive-telegram-token'
+
 command:
   - /bin/bash
   - -c
   - |
-    # Authenticate with GitHub using token from secret
     echo "$GITHUB_TOKEN" | gh auth login --with-token
-
-    # Start the telegram bot
-    hive-telegram-bot --configuration "
-      TELEGRAM_BOT_TOKEN: '$TELEGRAM_BOT_TOKEN'
-      TELEGRAM_ALLOWED_CHATS:
-        -1002975819706
-      TELEGRAM_HIVE_OVERRIDES:
-        --all-issues
-        --once
-        --attach-logs
-        --verbose
-      TELEGRAM_BOT_VERBOSE: true
-    "
+    exec hive-telegram-bot
 
 env:
-  TELEGRAM_BOT_TOKEN: 'your-telegram-bot-token'
+  TELEGRAM_ALLOWED_CHATS: '(-1002975819706)'
+  TELEGRAM_HIVE_OVERRIDES: '(--all-issues --once --attach-logs --verbose)'
+  TELEGRAM_BOT_VERBOSE: 'true'
 ```
 
 ### 自动扩缩容
@@ -265,13 +264,14 @@ resources:
 secrets:
   githubToken: 'hive-github-token'
   claudeApiKey: 'hive-claude-api-key'
+  telegramToken: 'hive-telegram-token'
 
 command:
   - /bin/bash
   - -c
   - |
     echo "$GITHUB_TOKEN" | gh auth login --with-token
-    hive-telegram-bot --token "$TELEGRAM_BOT_TOKEN" --verbose
+    exec hive-telegram-bot --verbose
 
 podAntiAffinity:
   requiredDuringSchedulingIgnoredDuringExecution:

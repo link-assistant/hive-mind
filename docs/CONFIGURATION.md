@@ -276,6 +276,7 @@ pull request target is not mergeable yet, the merge queue waits up to
 | Environment Variable                       | Default    | Description                                                                              |
 | ------------------------------------------ | ---------- | ---------------------------------------------------------------------------------------- |
 | `TELEGRAM_BOT_TOKEN`                       | (required) | Telegram bot token from @BotFather                                                       |
+| `HIVE_MIND_CONFIGURATION_FILE`             |            | Path to a LINO file (same as `--configuration-file`)                                     |
 | `TELEGRAM_ALLOWED_CHATS`                   | (all)      | Allowed chat IDs (Links Notation)                                                        |
 | `TELEGRAM_SOLVE_OVERRIDES`                 | (none)     | Override options for /solve (Links Notation)                                             |
 | `TELEGRAM_HIVE_OVERRIDES`                  | (none)     | Override options for /hive (Links Notation)                                              |
@@ -664,6 +665,25 @@ hive <github-url> [options]
 
 ### hive-telegram-bot Options
 
+Keep credentials out of command arguments. Store LINO configuration in a private
+file and launch with `hive-telegram-bot --configuration-file /secure/bot.lenv`,
+or set `HIVE_MIND_CONFIGURATION_FILE=/secure/bot.lenv`. Use `chmod 600` on files
+containing secrets. `.lenv`, `.env`, and environment variables are also supported.
+
+Configuration precedence is explicit CLI options, inline `--configuration`, the
+selected configuration file, `TELEGRAM_CONFIGURATION`, `.lenv`, then `.env`.
+The file is loaded before option defaults, so booleans such as `TELEGRAM_HIVE`
+and isolation settings apply consistently. An explicit unreadable file fails
+startup.
+
+Inline `--configuration`/`-c` and `--token`/`-t` print a warning and replace the
+process before initialization on runtimes supporting `process.execve`. The PID,
+runtime arguments, standard streams, exit status, and signal behavior are
+preserved. Runtimes without process replacement require file or environment
+configuration. Inline secrets are exposed until replacement, so use a file or
+environment variables when launching. If a token was previously supplied inline,
+rotate it through @BotFather (`/revoke`) and restart with private configuration.
+
 ```bash
 hive-telegram-bot [options]
 ```
@@ -678,7 +698,8 @@ hive-telegram-bot [options]
 | `--hive`                            |       | boolean | true       | Enable /hive command (--no-hive to disable)                                                                                                                                                                 |
 | `--task`                            |       | boolean | true       | Enable /task and /split commands (--no-task to disable)                                                                                                                                                     |
 | `--auth`                            |       | boolean | true       | Enable experimental private /auth command for allowlisted chat owners (--no-auth to disable)                                                                                                                |
-| `--configuration`                   | `-c`  | string  |            | LINO configuration string                                                                                                                                                                                   |
+| `--configuration`                   | `-c`  | string  |            | Inline LINO configuration; prefer `--configuration-file` for secrets                                                                                                                                        |
+| `--configuration-file`              |       | string  |            | LINO configuration file path (mode `0600` for secrets)                                                                                                                                                      |
 | `--verbose`                         | `-v`  | boolean | false      | Enable verbose logging                                                                                                                                                                                      |
 | `--dry-run`                         |       | boolean | false      | Validate without starting bot                                                                                                                                                                               |
 | `--auto-start-screen-watch-message` |       | boolean | false      | Experimental: auto-start a separate `/terminal_watch` message for public `/solve` sessions. Private or unknown-visibility repositories never auto-start watch messages.                                     |

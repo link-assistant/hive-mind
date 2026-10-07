@@ -891,6 +891,15 @@ hive-cleanup
 # Delete without the confirmation prompt
 hive-cleanup --force
 
+# Preview failed containers that stopped at least 48 hours ago
+hive-cleanup --dry-run --docker-isolation=failed-older-than=48h
+
+# Remove stopped task containers and unused resume snapshot images
+hive-cleanup --force --docker-isolation=all
+
+# Configure failed-container retention for periodic cleanup
+HIVE_MIND_CLEANUP_DOCKER_ISOLATION=failed-older-than=48h hive-cleanup --force
+
 # Also consider non-hive-mind temp entries (more aggressive)
 hive-cleanup --all --dry-run
 
@@ -917,8 +926,32 @@ hive-cleanup --no-keep-active-tasks-folders --dry-run
 ```
 
 Run `hive-cleanup --help` for the full list of options. The command is dry-run
-friendly and writes a timestamped `cleanup-*.log` for every run. Process
-diagnostic output redacts common token shapes before printing command lines.
+friendly and writes private `cleanup-*.log` files under
+`$XDG_STATE_HOME/hive-mind/logs/` (default: `~/.local/state/hive-mind/logs/`).
+It retains the latest 30 logs and any logs with a live cleanup writer.
+
+Docker task cleanup defaults to `succeeded`: successful stopped containers are
+removed and failed ones are kept for debugging. `failed-older-than=48h` also
+removes failed containers whose **finish time** is at least 48 hours old; unknown
+finish times are kept. Durations accept `s`, `m`, `h`, `d`, and `w` units.
+`all` selects stopped task containers, including `<uuid>-resume-<attempt>`
+containers, and orphaned `start-command-resume/<uuid>:<attempt>` images.
+Running, paused, restarting, and executing-session containers are kept in every
+mode. Removal rechecks state and uses `docker rm` without force, so a concurrent
+restart is refused by Docker. Current exit code and finish time are rechecked
+against the selected policy before deletion. Images are removed only when no container uses
+them; image removal also uses Docker's non-force safeguards.
+
+Container sizes show writable bytes; resume images show unique bytes, excluding
+shared base layers. Measurements are best effort and bounded; missing values
+appear as `?` and summary totals count unknown measurements explicitly. A Docker
+listing failure is retried and exits nonzero with the daemon error. A missing
+Docker CLI is optional. `--no-docker-isolation` disables this cleanup. Active
+session queries can be disabled with `--no-sessions`; Docker's state checks
+still apply. Start-command's session logs stay protected because session status
+and log viewing depend on them.
+
+Process diagnostic output redacts common token shapes before printing command lines.
 
 ## 🔍 Monitoring & Logging
 

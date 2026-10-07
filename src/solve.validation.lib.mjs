@@ -74,7 +74,8 @@ export const validateGitHubUrl = issueUrl => {
   if (!parsedUrl.valid) {
     console.error('Error: Invalid GitHub URL format');
     if (parsedUrl.error) console.error(`  ${parsedUrl.error}`);
-    if (parsedUrl.suggestion) console.error(`\n💡 Did you mean: ${parsedUrl.suggestion}`);
+    if (parsedUrl.inputHint) console.error(`\n${parsedUrl.inputHint}`);
+    if (parsedUrl.suggestion) console.error(`\n💡 Did you mean ${parsedUrl.suggestion}?`);
     console.error('\n  Please provide a valid GitHub issue or pull request URL');
     console.error('  Examples:');
     console.error('    https://github.com/owner/repo/issues/123 (issue)');
@@ -103,6 +104,8 @@ export const validateGitHubUrl = issueUrl => {
   if (!isIssueUrl && !isPrUrl) {
     console.error('Error: Invalid GitHub URL for solve command');
     console.error(`  URL type '${parsedUrl.type}' is not supported`);
+    if (parsedUrl.inputHint) console.error(`\n${parsedUrl.inputHint}`);
+    if (parsedUrl.suggestion) console.error(`\n💡 Did you mean ${parsedUrl.suggestion}?`);
     console.error('  Please provide a valid GitHub issue or pull request URL');
     console.error('  Examples:');
     console.error('    https://github.com/owner/repo/issues/123 (issue)');

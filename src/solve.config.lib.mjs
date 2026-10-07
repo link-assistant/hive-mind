@@ -7,7 +7,7 @@
 // Note: Strict options validation is now handled by yargs built-in .strict() mode (see below)
 // This approach was adopted per issue #482 feedback to minimize custom code maintenance
 
-import { enhanceErrorMessage, detectMalformedFlags } from './option-suggestions.lib.mjs';
+import { detectMalformedFlags } from './option-suggestions.lib.mjs';
 import { defaultModels, buildModelOptionDescription, resolveDefaultFallbackModel, resolveRuntimeDefaultModel } from './models/index.mjs';
 import { validateBranchName } from './solve.branch.lib.mjs';
 import { resolveEscalationConfig, isEscalateEnabled, DEFAULT_ESCALATE_RANGE } from './solve.escalate.lib.mjs';
@@ -930,8 +930,8 @@ export const normalizeAndValidateThink = argv => {
   }
 };
 
-// Parse command line arguments - now needs yargs and hideBin passed in
-export const parseArguments = async (yargs = getLinoYargsFactory(), hideBinFn = hideBin) => {
+// Parse CLI arguments through the shared Lino adapter; retain the factory parameter for callers.
+export const parseArguments = async (_yargs = getLinoYargsFactory(), hideBinFn = hideBin) => {
   const rawArgs = normalizeCliArgs(hideBinFn(process.argv));
 
   // Issue #1092: Detect malformed flag patterns BEFORE yargs parsing
@@ -948,86 +948,42 @@ export const parseArguments = async (yargs = getLinoYargsFactory(), hideBinFn = 
   // See: https://github.com/yargs/yargs/issues - .strict() only works with .parse()
 
   let argv;
-  let yargsInstance;
+  // Suppress stderr output from yargs during parsing to prevent validation errors from appearing
+  // This prevents "YError: Not enough arguments" from polluting stderr (issue #583)
+  // Save the original stderr.write
+  const originalStderrWrite = process.stderr.write;
+  const stderrBuffer = [];
+
+  // Temporarily override stderr.write to capture output
+  process.stderr.write = function (chunk, encoding, callback) {
+    stderrBuffer.push(chunk.toString());
+    // Call the callback if provided (for compatibility)
+    if (typeof encoding === 'function') {
+      encoding();
+    } else if (typeof callback === 'function') {
+      callback();
+    }
+    return true;
+  };
+
   try {
-    // Suppress stderr output from yargs during parsing to prevent validation errors from appearing
-    // This prevents "YError: Not enough arguments" from polluting stderr (issue #583)
-    // Save the original stderr.write
-    const originalStderrWrite = process.stderr.write;
-    const stderrBuffer = [];
+    argv = parseCliArgumentsWithLino({
+      argv: ['node', 'solve', ...rawArgs],
+      commandName: 'solve',
+      createYargsConfig,
+      positionalAliases: ['issue-url'],
+    });
+  } finally {
+    // Always restore stderr.write
+    process.stderr.write = originalStderrWrite;
 
-    // Temporarily override stderr.write to capture output
-    process.stderr.write = function (chunk, encoding, callback) {
-      stderrBuffer.push(chunk.toString());
-      // Call the callback if provided (for compatibility)
-      if (typeof encoding === 'function') {
-        encoding();
-      } else if (typeof callback === 'function') {
-        callback();
-      }
-      return true;
-    };
-
-    try {
-      yargsInstance = createYargsConfig(yargs());
-      argv = parseCliArgumentsWithLino({
-        argv: ['node', 'solve', ...rawArgs],
-        commandName: 'solve',
-        createYargsConfig,
-        positionalAliases: ['issue-url'],
-      });
-    } finally {
-      // Always restore stderr.write
-      process.stderr.write = originalStderrWrite;
-
-      // In verbose mode, show what was captured from stderr (for debugging)
-      if (global.verboseMode && stderrBuffer.length > 0) {
-        const captured = stderrBuffer.join('');
-        if (captured.trim()) {
-          console.error('[Suppressed yargs stderr]:', captured);
-        }
+    // In verbose mode, show what was captured from stderr (for debugging)
+    if (global.verboseMode && stderrBuffer.length > 0) {
+      const captured = stderrBuffer.join('');
+      if (captured.trim()) {
+        console.error('[Suppressed yargs stderr]:', captured);
       }
     }
-  } catch (error) {
-    // Issue #2041: the yargs `.check()` for --think (added to createYargsConfig so
-    // non-CLI consumers like the Telegram bot reject invalid values) throws an
-    // already-enhanced error. Propagate it verbatim instead of swallowing it into
-    // `error.argv`, otherwise the CLI would silently drop the invalid --think and
-    // crash later during normalization.
-    if (error && error._enhanced && !(error.message && /Unknown argument/.test(error.message))) {
-      throw error;
-    }
-    // Yargs throws errors for validation issues
-    // If the error is about unknown arguments (strict mode), enhance it with suggestions
-    // Check if this error has already been enhanced to avoid re-processing
-    if (error.message && /Unknown argument/.test(error.message) && !error._enhanced) {
-      try {
-        // Enhance the error message with helpful suggestions
-        // Use the yargsInstance we already created, or create a new one if needed
-        const yargsWithConfig = yargsInstance || createYargsConfig(yargs());
-        const enhancedMessage = enhanceErrorMessage(error.message, yargsWithConfig);
-        const enhancedError = new Error(enhancedMessage);
-        enhancedError.name = error.name;
-        enhancedError._enhanced = true; // Mark as enhanced to prevent re-processing
-        throw enhancedError;
-      } catch (enhanceErr) {
-        // If enhancing fails, just throw the original error
-        if (global.verboseMode) {
-          console.error('[VERBOSE] Failed to enhance error message:', enhanceErr.message);
-        }
-        // If the enhance error itself is already enhanced, throw it
-        if (enhanceErr._enhanced) {
-          throw enhanceErr;
-        }
-        throw error;
-      }
-    }
-    // For other validation errors, show a warning in verbose mode
-    if (error.message && global.verboseMode) {
-      console.error('Yargs parsing warning:', error.message);
-    }
-    // Try to get the argv even with the error
-    argv = error.argv || {};
   }
 
   // Post-processing: Fix model default for opencode and codex tools

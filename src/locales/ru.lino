@@ -658,7 +658,7 @@ ru
       label "Причина"
     did
       you
-        mean "💡 Вы имели в виду: `{{suggestion}}`"
+        mean "💡 Вы имели в виду `{{suggestion}}`?"
     missing
       github
         url "Не указан GitHub URL. Использование: /{{commandName}} <github-url> [options]"

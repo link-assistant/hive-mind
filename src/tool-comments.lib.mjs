@@ -284,6 +284,28 @@ export const isFailureAlreadyReportedOnTarget = ({ owner, repo, targetNumber }) 
   return latest?.isFailureReport === true || latest?.automationStopped === true;
 };
 
+/** gh's message when GitHub's response body was cut off mid-JSON. */
+const isTruncatedGhResponse = text => /unexpected end of JSON input/i.test(String(text || ''));
+
+/**
+ * Find a comment with exactly `body` created since `since` (ms).
+ * @returns {Promise<string|null|undefined>} its id, null when absent, undefined when unknown
+ */
+const findPostedComment = async ({ $, apiPath, body, since }) => {
+  // One minute of slack for clock skew between this host and GitHub.
+  const sinceIso = new Date(since - 60_000).toISOString();
+  try {
+    const listed = await $({ mirror: false })`gh api ${`${apiPath}?since=${sinceIso}&per_page=100`}`;
+    if (listed.code !== 0) return undefined;
+    const comments = JSON.parse(listed.stdout?.toString() || '');
+    if (!Array.isArray(comments)) return undefined;
+    const match = comments.find(comment => String(comment?.body ?? '').trim() === body.trim());
+    return match ? String(match.id) : null;
+  } catch {
+    return undefined;
+  }
+};
+
 /**
  * Post a GitHub comment on a PR or issue via `gh api` and return the
  * numeric comment ID (as string). The ID is also automatically tracked in
@@ -328,6 +350,7 @@ export const postTrackedComment = async ({ $, owner, repo, targetNumber, body, s
   // and caused `gh api --input -` to POST an empty body. GitHub's edge
   // replied with HTTP 400 "Whoa there!" *before* the API layer ran. See
   // issue #1631.
+  const startedAt = Date.now();
   let result;
   try {
     result = await $({ stdin: payload })`gh api ${apiPath} -X POST --input -`;
@@ -337,7 +360,22 @@ export const postTrackedComment = async ({ $, owner, repo, targetNumber, body, s
 
   if (result.code !== 0) {
     const stderr = result.stderr?.toString() ? result.stderr.toString() : '';
-    return { ok: false, commentId: null, stderr };
+    if (!isTruncatedGhResponse(`${stderr}\n${result.stdout?.toString() || ''}`)) return { ok: false, commentId: null, stderr };
+    // Issue #2571: gh printed "unexpected end of JSON input" — GitHub's reply was
+    // cut off, so the comment may or may not exist. Look before posting again,
+    // so a lost reply neither drops the log link nor duplicates it.
+    const existing = await findPostedComment({ $, apiPath, body: sanitizedBody, since: startedAt });
+    if (existing === undefined) return { ok: false, commentId: null, stderr };
+    if (existing === null) {
+      try {
+        result = await $({ stdin: payload })`gh api ${apiPath} -X POST --input -`;
+      } catch (err) {
+        return { ok: false, commentId: null, stderr: err && err.message ? err.message : String(err) };
+      }
+      if (result.code !== 0) return { ok: false, commentId: null, stderr: result.stderr?.toString() || stderr };
+    } else {
+      result = { code: 0, stdout: JSON.stringify({ id: existing }) };
+    }
   }
 
   const stdout = result.stdout?.toString() ? result.stdout.toString() : '';

@@ -335,7 +335,7 @@ hive https://github.com/owner/repo --monitor-tag "help wanted" --concurrency 3
 hive https://github.com/microsoft --all-issues --max-issues 10
 
 # Run collaborative review process
-review --repo owner/repo --pr 456
+review https://github.com/owner/repo/pull/456 --tool codex
 
 # Multiple AI reviewers for consensus
 ./reviewers-hive.mjs --agents 3 --consensus-threshold 0.8
@@ -347,7 +347,7 @@ review --repo owner/repo --pr 456
 | ------------------------------------ | ------------------- | ------------------------------------------------- |
 | `solve.mjs`（稳定版）                | GitHub Issue 解决器 | 自动 Fork、分支创建、PR 生成、会话恢复、Fork 支持 |
 | `hive.mjs`（稳定版）                 | AI 编排与监控       | 多仓库监控、并发工作进程、Issue 队列管理          |
-| `review.mjs`（Alpha 版）             | 代码审查自动化      | 协作式 AI 审查、自动反馈                          |
+| `review.mjs`（Alpha 版）             | 代码审查自动化      | 使用 Claude、Codex 等工具提交逐行评论和总结审查   |
 | `reviewers-hive.mjs`（Alpha/实验性） | 审查团队管理        | 多 Agent 共识、审查者分配                         |
 | `telegram-bot.mjs`（稳定版）         | Telegram 机器人接口 | 远程命令执行、群聊支持、诊断工具                  |
 
@@ -548,6 +548,39 @@ Examples:
 
 如果目标 PR 尚未完成，`/merge` 会等待它变为可合并后再合并。合并冲突跳过仍可配合
 `--auto-resolve` 使用。
+
+#### `/review` - 审查 Pull Request
+
+```text
+/review https://github.com/owner/repo/pull/456
+/review https://github.com/owner/repo/pull/456 --tool codex --think high
+/review https://github.com/owner/repo/pull/456 --tool claude --model opus --focus security --approve
+```
+
+`/review` 检查 pull request，提交逐行问题评论、总结和审查结论。
+提示词要求 agent 只做审查，不修改代码、不提交或推送、不合并，也不修改 PR 元数据。
+发现阻塞性缺陷时提交请求更改的审查；没有此类缺陷时通过评论建议批准。
+添加 `--approve` 可正式批准。GitHub 对自己的 PR 只允许评论，因此这种情况下
+总结会明确说明审查结论。
+
+可回复含有一个 PR 链接的消息并发送 `/review [options]`。命令使用与 `/solve`
+相同的群组和话题授权、聊天停止检查，支持 `--isolation screen|tmux|docker`。
+使用机器人的 `--no-review` 选项或 `TELEGRAM_REVIEW=false` 可禁用该命令。
+
+CLI 使用相同的选项：
+
+```bash
+review https://github.com/owner/repo/pull/456 --tool codex --model gpt-5.5 --think high
+review https://github.com/owner/repo/pull/456 --dry-run
+```
+
+支持的工具为 `claude`、`codex`、`opencode`、`agent`、`gemini` 和 `qwen`。
+默认模型、推理级别、备用模型、上下文控制及可选的 `--use-agent-commander`
+适配器均使用 solve 的共享工具机制。`--dry-run` 准备工作副本、diff 和审查提示词，
+不运行 AI 工具或提交反馈。会话目录会保留，以便通过输出的
+`review --resume <id> --working-directory <directory>` 命令使用相同工具和模型继续。
+如果工具修改了已跟踪代码或提交、审查过程中 PR head 发生变化，或未找到新提交的审查，
+命令会报告失败。使用 `review --help` 查看所有审查选项。
 
 #### `/fix` - 自动修复 CI/CD 与依赖
 

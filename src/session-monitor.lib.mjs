@@ -18,21 +18,20 @@
  * @see https://github.com/link-assistant/hive-mind/issues/380
  * @see https://github.com/link-assistant/hive-mind/issues/1927
  */
+import { reportRecoveryLifecycle, recoveryLifecycleCallback } from './session-recovery-lifecycle.lib.mjs';
+import { getIsolationSessionState as getIsolationSessionStateImpl } from './session-monitor.isolation-state.lib.mjs';
 import { exec as execCallback } from 'child_process';
 import fs from 'fs/promises';
 import { promisify } from 'util';
 import { formatSessionCompletionMessage, getSessionCompletionExitCode, classifySessionOutcome } from './work-session-formatting.lib.mjs';
 import { notifySubscribers, getSubscriberCount } from './telegram-subscribers.lib.mjs';
 import { safeSendMessage, safeEditMessageText } from './telegram-safe-reply.lib.mjs';
-import { classifyExitStatus, normalizeExitCode } from './session-status.lib.mjs';
 import { buildResumeCommand, formatResumeSection } from './session-resume.lib.mjs';
 import { readLogMarkerLines, readLogTextBounded, scanLogTextChunks } from './log-bounded-read.lib.mjs';
 import { resolveFailedSessionPullRequestState } from './github-pr-state.lib.mjs';
-// Issue #2117: a docker terminal failure that no anchored log footer corroborates may be an exit code start-command fabricated from the command's own output.
-import { clearUnverifiedDockerTerminalMarker as clearUnverifiedDockerTerminalMarkerImpl, shouldDeferUnverifiedDockerTerminal as shouldDeferUnverifiedDockerTerminalImpl } from './session-monitor.docker-terminal.lib.mjs';
-import { isDockerIsolation, sessionStartMs, resolveOomKilledState, resolveStaleExecutingState as resolveStaleExecutingStateImpl } from './session-monitor.stale-executing.lib.mjs';
+import { sessionStartMs } from './session-monitor.stale-executing.lib.mjs';
 // Issue #2134: kill-cause diagnostics + the matching pull-request notice.
-import { buildKillCompletionSections, announceKillOnPullRequest } from './session-monitor.kill-sections.lib.mjs';
+import { buildKillCompletionSections, announceKillOnPullRequest, hasContainerOomEvidence, startedPullRequestUrl } from './session-monitor.kill-sections.lib.mjs';
 import { runKillRecoveryForCompletion } from './session-kill-resume.lib.mjs';
 // Issue #2189: the handled latch + the memoized last-tool-session-id read that keep a completed session from replaying its whole completion pipeline on every poll.
 import { isCompletionHandled, markCompletionHandled, resolveCachedLastToolSessionId } from './session-completion-state.lib.mjs';
@@ -311,6 +310,9 @@ function getActiveSessions(verbose = false) {
  * @param {string} sessionName - Name of the session to remove
  * @param {boolean} verbose - Whether to log verbose output
  */
+function completionExitForAudit(sessionInfo, exitCode) {
+  return exitCode ?? (sessionInfo?.killRecoveryResumed || sessionInfo?.recoveryLifecycle ? null : 0);
+}
 function completeSession(sessionName, exitCode = 0, verbose = false, status = null) {
   const sessionInfo = activeSessions.get(sessionName) || null;
   activeSessions.delete(sessionName);
@@ -589,135 +591,8 @@ function isNonIsolationSessionActive(sessionName, sessionInfo, verbose = false) 
   }
   return true;
 }
-function clearUnverifiedDockerTerminalMarker(sessionName, sessionInfo) {
-  clearUnverifiedDockerTerminalMarkerImpl(sessionInfo, () => persistSessionSnapshot(sessionName, sessionInfo));
-}
-function shouldDeferUnverifiedDockerTerminal(sessionName, sessionInfo, { exitCode, endTime, verbose }) {
-  return shouldDeferUnverifiedDockerTerminalImpl(sessionName, sessionInfo, { exitCode, endTime, verbose, persistSnapshot: () => persistSessionSnapshot(sessionName, sessionInfo) });
-}
-function resolveStaleExecutingState(sessionName, sessionInfo, statusResult, options) {
-  return resolveStaleExecutingStateImpl(sessionName, sessionInfo, statusResult, { ...options, persistSnapshot: () => persistSessionSnapshot(sessionName, sessionInfo) });
-}
-async function getIsolationSessionState(sessionName, sessionInfo, options = {}) {
-  const { verbose = false, statusProvider = null, exitFromLog = null, backendAlive = null, sessionRunning = null } = options;
-  const sessionId = sessionInfo.sessionId || sessionName;
-  try {
-    const runner = await getIsolationRunner();
-    const statusResult = statusProvider ? await statusProvider(sessionId, sessionInfo) : await runner.querySessionStatus(sessionId, verbose);
-    if (statusResult?.exists && statusResult.status) {
-      if (statusResult.oomKilled === true) {
-        // Issue #2134: `oomKilled` is a *container* flag — the kernel sets it when any process in the cgroup is OOM-killed — so it is verified against the log footer and container liveness before a kill is announced.
-        return await resolveOomKilledState(sessionName, sessionInfo, statusResult, {
-          verbose,
-          runner,
-          exitFromLog,
-          backendAlive,
-          persistSnapshot: () => persistSessionSnapshot(sessionName, sessionInfo),
-        });
-      }
-      if (runner.isExecutingSessionStatus(statusResult.status)) {
-        // Issue #1927: an `executing` status is not trusted blindly — verify the process is really alive. start-command can keep reporting `executing` after a kill, which is exactly how an OOM-killed /solve went unreported.
-        const stale = await resolveStaleExecutingState(sessionName, sessionInfo, statusResult, { verbose, runner, exitFromLog, backendAlive });
-        if (stale) {
-          if (verbose) {
-            console.log(`[VERBOSE] Session ${sessionName} reported '${statusResult.status}' but is actually terminated (${stale.reason}); treating as ${stale.status} (exit ${stale.exitCode})`);
-          }
-          // Rewrite the status payload so downstream completion formatting sees the real terminal status/exit code instead of the stale `executing`.
-          const correctedStatus = stale.status || 'killed';
-          const corrected = { ...statusResult, status: correctedStatus, exitCode: stale.exitCode, endTime: statusResult.endTime || stale.endTime || null };
-          return { running: false, exitCode: stale.exitCode, status: correctedStatus, statusResult: corrected, stale: true };
-        }
-        // Back to a plain `executing` report: any earlier unverified terminal failure was provisional and is now moot (issue #2117).
-        clearUnverifiedDockerTerminalMarker(sessionName, sessionInfo);
-        return { running: true, exitCode: null, status: statusResult.status, statusResult };
-      }
-      if (runner.isTerminalSessionStatus(statusResult.status)) {
-        const exitCode = statusResult.exitCode !== undefined ? statusResult.exitCode : null;
-        const logPath = statusResult.logPath || sessionInfo?.logPath || null;
-        // The log FOOTER is the authoritative terminal result. It is anchored on the `=====` separator (see parseSessionExitFooter), so — unlike the exit code `$ --status` derives from an unanchored full-log scan — it cannot be forged by output the wrapped command printed (issue #2117). Prefer it whenever it exists: that both recovers a real code from a missing/sentinel status (issue #1927) and overrides a fabricated one.
-        const readFooter = exitFromLog || runner.readSessionExitFromLog;
-        const footer = logPath && readFooter ? readFooter(logPath, { verbose }) : null;
-        if (footer?.finished) {
-          const footerExitCode = footer.exitCode;
-          const correctedStatus = classifyExitStatus(footerExitCode) || statusResult.status;
-          if (verbose && normalizeExitCode(footerExitCode) !== normalizeExitCode(exitCode)) {
-            console.log(`[VERBOSE] Session ${sessionName} reported terminal '${statusResult.status}' with exit ${exitCode}; the log footer says exit ${footerExitCode} (${correctedStatus}) and wins (issues #1927/#2117)`);
-          }
-          clearUnverifiedDockerTerminalMarker(sessionName, sessionInfo);
-          return { running: false, exitCode: footerExitCode, status: correctedStatus, statusResult: { ...statusResult, status: correctedStatus, exitCode: footerExitCode } };
-        }
-        // Issue #1939: a native docker session can report a terminal status ("executed") with the unknown exit-code sentinel (-1) while the container is still running. When the log footer above did not recover a real terminal exit, such a status is provisional — fall through to isSessionRunning() below, which cross-checks the live container via `docker inspect` before we notify the user the work finished.
-        const dockerSession = isDockerIsolation(sessionInfo, statusResult);
-        const ambiguousDockerTerminal = dockerSession && typeof runner.isUnknownDockerExitCode === 'function' && runner.isUnknownDockerExitCode(exitCode);
-        // Issue #2117: a docker terminal FAILURE with no corroborating footer is provisional too — start-command can fabricate that exit code from the command's own output. Give the real footer a moment to appear instead of announcing a failure the run never had. Only a *freshly* reported end time can still be in that race, so an older terminal record is still reported without delay.
-        const normalizedExitCode = normalizeExitCode(exitCode);
-        const unverifiedDockerFailure = dockerSession && !ambiguousDockerTerminal && normalizedExitCode !== null && normalizedExitCode !== 0;
-        if (unverifiedDockerFailure && shouldDeferUnverifiedDockerTerminal(sessionName, sessionInfo, { exitCode, endTime: statusResult.endTime || null, verbose })) {
-          return { running: true, exitCode: null, status: statusResult.status, statusResult, deferred: true };
-        }
-        // Issue #2134: even after the grace window, a container that is verifiably still alive cannot have produced a terminal failure — the same liveness ladder used for `oomKilled` applies here, so no kill is announced while the working session keeps running (that is exactly what #2134 reported).
-        if (unverifiedDockerFailure) {
-          const probe = backendAlive || runner.checkBackendSessionAlive;
-          let alive = null;
-          if (probe && sessionInfo?.isolationBackend) {
-            try {
-              alive = await probe(sessionId, sessionInfo.isolationBackend, verbose);
-            } catch {
-              alive = null;
-            }
-          }
-          if (alive === true) {
-            if (verbose) {
-              console.log(`[VERBOSE] Session ${sessionName} reported terminal '${statusResult.status}' with exit ${exitCode}, but its docker backend is still alive; keeping the session tracked (issue #2134)`);
-            }
-            return { running: true, exitCode: null, status: statusResult.status, statusResult, deferred: true };
-          }
-        }
-        if (!ambiguousDockerTerminal) {
-          clearUnverifiedDockerTerminalMarker(sessionName, sessionInfo);
-          return { running: false, exitCode, status: statusResult.status, statusResult };
-        }
-      }
-    }
-    // The status record is unavailable (no `exists`/`status`). Fall back to a direct backend liveness check. `sessionRunning` is injectable purely so
-    // this path is testable without the real `$`/`screen` binaries; production
-    // always uses the runner's real check.
-    const checkRunning = sessionRunning || runner.isSessionRunning;
-    const running = await checkRunning(sessionId, {
-      backend: sessionInfo.isolationBackend,
-      verbose,
-    });
-    if (!running) {
-      // Issue #1927: the `$ --status` record is unavailable (e.g. garbage-
-      // collected while the bot was down) and the backend reports not-running.
-      // Before declaring a bare null exit — which classifies as success — try
-      // the log footer so a session that was killed while we were offline is
-      // reported as the kill it was, not a silent success.
-      const logPath = statusResult?.logPath || sessionInfo?.logPath || null;
-      if (logPath) {
-        const readFooter = exitFromLog || runner.readSessionExitFromLog;
-        const footer = readFooter ? readFooter(logPath, { verbose }) : null;
-        if (footer?.finished) {
-          const correctedStatus = classifyExitStatus(footer.exitCode) || (footer.exitCode === 0 ? 'executed' : 'failed');
-          if (verbose) {
-            console.log(`[VERBOSE] Session ${sessionName} has no live status record; recovered exit ${footer.exitCode} (${correctedStatus}) from log footer`);
-          }
-          return { running: false, exitCode: footer.exitCode, status: correctedStatus, statusResult: { ...(statusResult || {}), status: correctedStatus, exitCode: footer.exitCode, endTime: statusResult?.endTime || footer.endTime || null } };
-        }
-      }
-    }
-    return {
-      running,
-      exitCode: running ? null : (statusResult?.exitCode ?? null),
-      status: statusResult?.status || null,
-      statusResult,
-    };
-  } catch (error) {
-    if (verbose) {
-      console.error(`[VERBOSE] Error refreshing isolated session ${sessionId}: ${error.message}`);
-    }
-    return { running: false, exitCode: null, status: null, statusResult: null };
-  }
+function getIsolationSessionState(sessionName, sessionInfo, options = {}) {
+  return getIsolationSessionStateImpl(sessionName, sessionInfo, { ...options, runnerProvider: getIsolationRunner, persistSnapshot: () => persistSessionSnapshot(sessionName, sessionInfo) });
 }
 /**
  * Monitor active sessions and send notifications when they complete
@@ -764,7 +639,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
     if (verbose) {
       console.log(`[VERBOSE] Session ${sessionName} was already reported at ${sessionInfo.completionNotifiedAt}; finalizing without repeating the completion work (issue #2189)`);
     }
-    completeSession(sessionName, sessionInfo.completionExitCode ?? 0, verbose, sessionInfo.completionStatus ?? null);
+    completeSession(sessionName, completionExitForAudit(sessionInfo, sessionInfo.completionExitCode), verbose, sessionInfo.completionStatus ?? null);
     return;
   }
   let stillRunning;
@@ -829,6 +704,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
       }
     }
   }
+  if (stillRunning) await reportRecoveryLifecycle({ bot, sessionName, sessionInfo, statusResult, options, verbose, lookupPullRequest: () => resolvePullRequestUrlForSession(sessionInfo, { verbose, lookupLinkedPullRequest: options.lookupLinkedPullRequest, statusResult, readFile: options.readFile }), persist: () => persistSessionSnapshot(sessionName, sessionInfo), logEvent });
   if (shouldRefreshDockerFilesystemSize(sessionInfo, { stillRunning })) {
     observedContainerFilesystemBytes = await refreshDockerContainerFilesystemSizeForSession(sessionName, sessionInfo, {
       verbose,
@@ -881,9 +757,11 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
       let pullRequestState = null;
       const completionOutcome = classifySessionOutcome({ exitCode: finalExitCode, status: resolvedStatus });
       try {
+        // Issue #2498: a session started on a pull request has no linked one, but its merge state still decides whether a kill is reported.
         pullRequestState = await resolveFailedSessionPullRequestState({
-          pullRequestUrl,
+          pullRequestUrl: pullRequestUrl || startedPullRequestUrl(sessionInfo),
           outcome: completionOutcome,
+          killEvidence: hasContainerOomEvidence({ sessionInfo, statusResult }),
           lookupPullRequestState: options.lookupPullRequestState,
           verbose,
           sessionName,
@@ -942,7 +820,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
       try {
         const outcome = classifySessionOutcome({ exitCode: finalExitCode, status: resolvedStatus });
         const isResumableCommand = (sessionInfo?.command || 'solve') === 'solve';
-        if (outcome.killed && isResumableCommand && !sessionInfo?.containerResourceLimitExceeded) {
+        if (outcome.killed && isResumableCommand && !sessionInfo?.containerResourceLimitExceeded && pullRequestState?.merged !== true) {
           const logPath = statusResult?.logPath || sessionInfo?.logPath || null;
           // The id must be the AI TOOL's session id, not the isolation session
           //   id (sessionInfo.sessionId — wrong namespace for `solve --resume`).
@@ -1013,10 +891,14 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
         statusResult,
         exitCode: finalExitCode,
         status: resolvedStatus,
+        pullRequestState,
         verbose,
         readFile: options.readFile,
         env: options.env || process.env,
       });
+      // Issue #2498: a merged pull request means the work is fully done — no
+      // recovery is started and no recovery or kill notice is published.
+      if (killReport.skippedReason) logEvent('session_kill_report_skipped', { sessionName, reason: killReport.skippedReason, exitCode: finalExitCode ?? null, status: resolvedStatus || null, mergedAt: pullRequestState?.mergedAt || null });
       // Issue #2134: `--on-session-kill=resume` must actually start a new
       // working session, and both surfaces must say so. Done before the
       // message is built so the Telegram report and the pull-request notice
@@ -1039,9 +921,12 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
           runner: options.isolationRunner || null,
           trackSession: options.trackSession || trackSession,
           persistSnapshot: () => persistSessionSnapshot(sessionName, sessionInfo),
+          onLifecycle: recoveryLifecycleCallback({ bot, sessionName, sessionInfo, pullRequestUrl, options, verbose, persist: () => persistSessionSnapshot(sessionName, sessionInfo), logEvent }),
           // Issue #2189: reuse the id already read above instead of scanning
           // the same (possibly multi-gigabyte) log a second time.
           readLastSessionId: logPath => resolveLastToolSessionId(logPath),
+          // Issue #2498: the random pre-launch delay, replaceable in tests.
+          sleep: options.sleepBeforeRecovery,
           locale: sessionInfo?.locale || null,
           verbose,
         });
@@ -1053,9 +938,13 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
           // a second recovery for the same kill.
           sessionInfo.killRecoverySessionId = killRecovery.sessionId;
           persistSessionSnapshot(sessionName, sessionInfo);
-          logEvent('session_kill_recovered', { sessionName, recoverySessionId: killRecovery.sessionId, attempt: killRecovery.attempt, maxAttempts: killRecovery.maxAttempts, policy: killRecovery.policy || null });
+          logEvent('session_kill_recovery_launched', { sessionName, recoverySessionId: killRecovery.sessionId, attempt: killRecovery.attempt, maxAttempts: killRecovery.maxAttempts, policy: killRecovery.policy || null });
         }
         if (recovered.section) killReport.sections.push(recovered.section);
+      }
+      {
+        const lifecycle = await reportRecoveryLifecycle({ bot, sessionName, sessionInfo, statusResult, running: false, exitCode: finalExitCode, nextSession: killRecovery.sessionId, reason: killRecovery.reason, pullRequestUrl, options, verbose, persist: () => persistSessionSnapshot(sessionName, sessionInfo), logEvent });
+        if (lifecycle) killReport.sections.push(lifecycle);
       }
       const message = formatSessionCompletionMessage({
         sessionName,
@@ -1081,6 +970,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
           policy: killReport.policy,
           recovered: killReport.recovered,
           oomEventOnly: killReport.oomEventOnly,
+          deliberateStop: killReport.deliberateStop,
           resumed: killRecovery.resumed,
           recoverySessionId: killRecovery.resumed ? killRecovery.sessionId : null,
           attempt: killRecovery.resumed ? killRecovery.attempt : null,
@@ -1144,7 +1034,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
         verbose,
         removeDockerContainer: options.removeDockerContainer,
       });
-      completeSession(sessionName, finalExitCode || 0, verbose, resolvedStatus);
+      completeSession(sessionName, completionExitForAudit(sessionInfo, finalExitCode), verbose, resolvedStatus);
     } catch (error) {
       console.error(`Failed to send completion notification for ${sessionName}:`, error);
       if (isMessageAlreadyUpdatedError(error)) {
@@ -1152,7 +1042,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
           verbose,
           removeDockerContainer: options.removeDockerContainer,
         });
-        completeSession(sessionName, exitCode || 0, verbose, resolvedStatus);
+        completeSession(sessionName, completionExitForAudit(sessionInfo, exitCode), verbose, resolvedStatus);
       } else {
         sessionInfo.lastNotificationError = error.message;
         sessionInfo.lastKnownStatus = statusResult?.status || sessionInfo.lastKnownStatus || null;

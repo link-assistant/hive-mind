@@ -302,7 +302,15 @@ RUN bun install -g @openai/codex && \
 # (see src/session-kill-resume.in-place.lib.mjs). Its new `--on-kill-resume`
 # is not used yet. 0.35.1 fixes start#178: it no longer treats the sticky
 # `OOMKilled` flag as a kill when the main process exits 0-127 on its own
-# (see docs/case-studies/issue-2408).
+# (see docs/case-studies/issue-2408). 0.35.2 fixes start#180: the sticky
+# flag no longer determines the exit reason for ordinary exits. It also
+# samples the task cgroup OOM counters/peak (#182) and supports cancellable
+# recovery delays (#181). Hive Mind consumes the counters but keeps its own
+# recovery policy so deliberate solve stops and attempt budgets are honoured.
+# 0.35.3 stops inferring OOM scope from process/event ratios (#185). 0.35.4 fixes
+# start#187 (filed from issue #2498): an explicit `--resume` moves the previous
+# attempt's memory evidence into `attemptHistory` and records the new attempt's
+# start time, log byte offset and lifecycle boundary.
 # `@link-assistant/agent` is pinned to current 0.26.11. Version 0.26.1 stopped the
 # unbounded snapshot leak of issue #2186. Up to 0.26.0 `Snapshot.track()` built a
 # standalone git object store per project — keyed on the worktree's root commit,

@@ -1,0 +1,325 @@
+✔ a post-result cancellation cannot veto a successful Claude result (1.976758ms)
+✔ unfinished background agents cause a bounded same-session continuation (0.629754ms)
+✔ an OOM event in a child followed by exit 1 is a failed work session, not a recovered kill (103.720678ms)
+✔ a PR notice never claims a new session when the OOM event was only survived (1702.523834ms)
+✔ a recovery session surviving a later OOM does not claim another replacement (31.047606ms)
+✔ Docker task memory is capped by default and remains configurable (6.79511ms)
+✔ one-shot Claude execution keeps background tasks and raises the print-mode wait ceiling (1.13635ms)
+Session 933a1ab3-1630-48a3-b35a-3087d7b2603c has finished. Sending notification to chat 4242
+[telegram-send] s1 safeEditMessageText → chat=4242 message=77 parse_mode=Markdown chars=198 bytes=200 text="⏳ Recovery scheduled (attempt 1)\nUpdated: 2026-10-05T23:41:53.075Z\nAttempt started: 2026-10-05T23:41:53.075Z\nRecovery session: 933a1ab3-1630-48a3-b35a-3087d7b2603c\nWaiting 0 seconds before launch.\n\n"
+[telegram-send] s1 safeEditMessageText ✓ delivered
+[telegram-send] s2 safeEditMessageText → chat=4242 message=77 parse_mode=Markdown chars=192 bytes=196 text="🔄 Recovery attempt launching — outcome pending (attempt 1)\nUpdated: 2026-10-05T23:41:53.113Z\nAttempt started: 2026-10-05T23:41:53.075Z\nRecovery session: 933a1ab3-1630-48a3-b35a-3087d7b2603c\n\n"
+[telegram-send] s2 safeEditMessageText ✓ delivered
+[telegram-send] s3 safeEditMessageText → chat=4242 message=77 parse_mode=Markdown chars=1805 bytes=1851 text="⚠️ *Work session still in progress: recovering from exit code 1 (automatic recoveries: 1)*\n\n⏱️ Duration: 0s\n📊 Session: `933a1ab3-1630-48a3-b35a-3087d7b2603c`\n🔁 Recovery session: `c33ee381-7113-4c12-ad33-82b3409209f0`\n🔒 Isolation: `docker`\n\n✅ The requested pull request was merged successfully.\n⚠️ "… (+1505 chars)
+[telegram-send] s3 safeEditMessageText ✓ delivered
+✔ the monitor resumes an exit-1 session after a child OOM event and reports the actual new session (1737.837169ms)
+Session 8ed87a4c-09ed-4ac7-ae94-e04a42af9f74 has finished. Sending notification to chat 4242
+[telegram-send] s1 safeEditMessageText → chat=4242 message=77 parse_mode=Markdown chars=198 bytes=200 text="⏳ Recovery scheduled (attempt 1)\nUpdated: 2026-10-05T23:41:49.806Z\nAttempt started: 2026-10-05T23:41:49.806Z\nRecovery session: 8ed87a4c-09ed-4ac7-ae94-e04a42af9f74\nWaiting 0 seconds before launch.\n\n"
+[telegram-send] s1 safeEditMessageText ✓ delivered
+[telegram-send] s2 safeEditMessageText → chat=4242 message=77 parse_mode=Markdown chars=192 bytes=196 text="🔄 Recovery attempt launching — outcome pending (attempt 1)\nUpdated: 2026-10-05T23:41:52.118Z\nAttempt started: 2026-10-05T23:41:49.806Z\nRecovery session: 8ed87a4c-09ed-4ac7-ae94-e04a42af9f74\n\n"
+[telegram-send] s2 safeEditMessageText ✓ delivered
+[telegram-send] s3 safeEditMessageText → chat=4242 message=77 parse_mode=Markdown chars=1681 bytes=1721 text="⚠️ *Work session still in progress: recovering from exit code 1 (automatic recoveries: 1)*\n\n⏱️ Duration: 2m 33s\n📊 Session: `8ed87a4c-09ed-4ac7-ae94-e04a42af9f74`\n🔁 Recovery session: `c33ee381-7113-4c12-ad33-82b3409209f0`\n🔒 Isolation: `docker`\n\n⚠️ A container OOM event affected a child process at "… (+1381 chars)
+[telegram-send] s3 safeEditMessageText ✓ delivered
+Session c33ee381-7113-4c12-ad33-82b3409209f0 has finished. Sending notification to chat 4242
+[telegram-send] s4 safeEditMessageText → chat=4242 message=77 parse_mode=Markdown chars=519 bytes=535 text="⚠️ *Work session finished successfully after automatic recovery (automatic recoveries: 1)*\n\n⏱️ Duration: 2m 33s\n📊 Session: `8ed87a4c-09ed-4ac7-ae94-e04a42af9f74`\n🔁 Recovery session: `c33ee381-7113-4c12-ad33-82b3409209f0`\n🔒 Isolation: `docker`\n\n✅ Recovery attempt completed successfully (attempt 1)"… (+219 chars)
+[telegram-send] s4 safeEditMessageText ✓ delivered
+✔ the monitor keeps an OOM-recovered session in progress on its pull request and under its original id (3474.704559ms)
+✔ an ordinary session completion message is unchanged (2.696152ms)
+✔ the in-progress headline and recovery label exist in every locale (0.566157ms)
+✔ the killed-session notice falls back to the pull request the session was started on (33.237973ms)
+✔ the root session id survives a bot restart (3.521382ms)
+Session 2b185a46-0000-4000-8000-000000002408 has finished. Sending notification to chat 4242
+[telegram-send] s1 safeEditMessageText → chat=4242 message=77 parse_mode=Markdown chars=198 bytes=200 text="⏳ Recovery scheduled (attempt 1)\nUpdated: 2026-10-05T23:41:47.451Z\nAttempt started: 2026-10-05T23:41:47.451Z\nRecovery session: 2b185a46-0000-4000-8000-000000002408\nWaiting 0 seconds before launch.\n\n"
+[telegram-send] s1 safeEditMessageText ✓ delivered
+[telegram-send] s2 safeEditMessageText → chat=4242 message=77 parse_mode=Markdown chars=192 bytes=196 text="🔄 Recovery attempt launching — outcome pending (attempt 1)\nUpdated: 2026-10-05T23:41:48.878Z\nAttempt started: 2026-10-05T23:41:47.451Z\nRecovery session: 2b185a46-0000-4000-8000-000000002408\n\n"
+[telegram-send] s2 safeEditMessageText ✓ delivered
+[telegram-send] s3 safeEditMessageText → chat=4242 message=77 parse_mode=Markdown chars=1442 bytes=1476 text="⚠️ *Work session still in progress: recovering from exit code 137 (automatic recoveries: 1)*\n\n⏱️ Duration: 2m 32s\n📊 Session: `2b185a46-0000-4000-8000-000000002408`\n🔁 Recovery session: `recovery-1`\n🔒 Isolation: `docker`\n\n🔎 *Kill diagnostics*\nCause: out of memory\n• container reports `State.OOMKill"… (+1142 chars)
+[telegram-send] s3 safeEditMessageText ✓ delivered
+✔ overlapping monitor ticks recover a killed session once and report it once (1984.25066ms)
+✔ an exit 1 with the OOM flag and no footer yet is a survived OOM event, not a kill (1.803445ms)
+✔ the still-alive OOM verbose line is printed once, not on every poll (0.457173ms)
+✔ the pull-request notice renders a resume command object, never "[object Object]" (0.856017ms)
+✔ a repeated completion for an already-recovered session does not start another one (0.35902ms)
+✔ a second OOM in a long run can still be recovered by default (0.203399ms)
+Session 6bf35d99-0000-4000-8000-000000002408 has finished. Sending notification to chat 4242
+[telegram-send] s4 safeEditMessageText → chat=4242 message=77 parse_mode=Markdown chars=1060 bytes=1090 text="❌ *Work session failed (exit code: 1)*\n\n⏱️ Duration: 2m 30s\n📊 Session: `6bf35d99-0000-4000-8000-000000002408`\n🔒 Isolation: `docker`\n\n⚠️ A container OOM event affected a child process at 2026-10-02T10:02:24.000Z; the work process continued and later failed with exit code 1.\n\nℹ️ The work did not fai"… (+760 chars)
+[telegram-send] s4 safeEditMessageText ✓ delivered
+✔ a deliberate solve stop after an OOM event is reported, not recovered (77.176425ms)
+Session 7edfe0cf-a4a0-47f5-bd68-a9b93b4dc18c has finished. Sending notification to chat 4242
+[telegram-send] s5 safeEditMessageText → chat=4242 message=77 parse_mode=Markdown chars=1578 bytes=1620 text="❌ *Work session failed (exit code: 1)*\n\n⏱️ Duration: 2m 30s\n📊 Session: `7edfe0cf-a4a0-47f5-bd68-a9b93b4dc18c`\n🔒 Isolation: `docker`\n\n⚠️ A container OOM event affected a child process at 2026-10-02T16:55:17.158Z; the work process continued and later failed with exit code 1.\n\nℹ️ The work did not fai"… (+1278 chars)
+[telegram-send] s5 safeEditMessageText ✓ delivered
+✔ the 2026-10-03 rerun: the real "Auto-restart 5/5 - limit reached" log tail is reported once, never recovered (142.822223ms)
+✔ the headline says how many automatic recoveries the work needed (9.012818ms)
+✔ the queue shows the total active time of recovered work and its recovery count (9.969203ms)
+✔ a tool process killed by SIGKILL resumes its own session in-process, with a warning (9.894713ms)
+✔ a fresh recovery launch keeps pointing at the earlier execution logs (2.865948ms)
+✔ the exit notifier does not post a second failure report after the loop posted one (0.875363ms)
+✔ cgroup v2: limit, usage, peak and OOM counters are read (5.581825ms)
+✔ cgroup v2: the process own cgroup path is preferred, and "max" means no limit of its own (0.579782ms)
+✔ cgroup v1 fallback, and nothing at all outside Linux or without a memory controller (0.521835ms)
+✔ the snapshot marker carries the cgroup data, and old markers still parse (4.268285ms)
+✔ the log says how many processes the OOM killer took in this container (0.992792ms)
+✔ the kill diagnosis quotes the last in-container cgroup reading as evidence (24.917686ms)
+✔ the real log tail is recognised as a deliberate stop (expired authentication) (11.927527ms)
+✔ a flag-derived "memory exhaustion" from `$ --status` is not presented as separate evidence (2.334135ms)
+✔ the Telegram sections do not call the earlier OOM event the cause of the stop (376.449541ms)
+✔ the pull-request notice leads with the real reason for the stop (16.147281ms)
+Session bebf2e57-01e1-4b47-af4a-06290e562446 has finished. Sending notification to chat 4242
+[telegram-send] s1 safeEditMessageText → chat=4242 message=77 parse_mode=Markdown chars=1746 bytes=1798 text="❌ *Work session failed (exit code: 1)*\n\n⏱️ Duration: 2m 30s\n📊 Session: `bebf2e57-01e1-4b47-af4a-06290e562446`\n🔒 Isolation: `docker`\n\n⚠️ A container OOM event affected a child process at 2026-10-04T19:32:49.507Z; the work process continued and later failed with exit code 1.\n\nℹ️ The work did not fai"… (+1446 chars)
+[telegram-send] s1 safeEditMessageText ✓ delivered
+✔ the incident end to end: one corrected PR notice, no recovery, no OOM verdict (1922.692708ms)
+✔ announceKillOnPullRequest forwards the deliberate stop to the notice (15.302405ms)
+✔ the default delay is a random 30–90 seconds (7.368ms)
+✔ the delay is configurable by flag or environment, and 0 turns it off (3.907894ms)
+✔ parsed CLI defaults allow the environment delay and explicit flags override it (55.979911ms)
+✔ non-finite and overflowing timer delays fall back to the default (0.512857ms)
+✔ a recovery session starts only after its random delay (9.569326ms)
+✔ sessions killed by one OOM event are not restarted at the same moment (2.190428ms)
+✔ a delay of 0 starts the recovery immediately, and a refused plan never waits (1.903542ms)
+✔ an in-process resume after a tool kill waits its random delay too, and says so (4.754843ms)
+✔ a stop requested during the recovery delay cancels both launch paths (0.972596ms)
+[telegram-send] s1 safeEditMessageText → chat=42 message=77 parse_mode=Markdown chars=359 bytes=363 text="🔄 Recovery attempt under monitoring — outcome pending (attempt 1)\nUpdated: 2026-10-05T23:41:50.398Z\nAttempt started: 2026-10-05T23:41:50.345Z\nRecovery session: replacement\nPrevious session: original\nNo new execution output has been observed since monitoring this attempt began.\nNo terminal outcome i"… (+59 chars)
+[telegram-send] s1 safeEditMessageText ✓ delivered
+✔ a resumed executing record with OOM=false cannot reuse the original run's footer (2884.325365ms)
+[telegram-send] s2 safeEditMessageText → chat=42 message=77 parse_mode=Markdown chars=359 bytes=363 text="🔄 Recovery attempt under monitoring — outcome pending (attempt 1)\nUpdated: 2026-10-05T23:41:53.113Z\nAttempt started: 2026-10-05T23:41:53.112Z\nRecovery session: replacement\nPrevious session: original\nNo new execution output has been observed since monitoring this attempt began.\nNo terminal outcome i"… (+59 chars)
+[telegram-send] s2 safeEditMessageText ✓ delivered
+✔ a resumed executing record with OOM=true cannot reuse the original run's footer (62.654797ms)
+[telegram-send] s3 safeEditMessageText → chat=42 message=77 parse_mode=Markdown chars=359 bytes=363 text="🔄 Recovery attempt under monitoring — outcome pending (attempt 1)\nUpdated: 2026-10-05T23:41:53.175Z\nAttempt started: 2026-10-05T23:41:53.174Z\nRecovery session: replacement\nPrevious session: original\nNo new execution output has been observed since monitoring this attempt began.\nNo terminal outcome i"… (+59 chars)
+[telegram-send] s3 safeEditMessageText ✓ delivered
+✔ a resumed failed record with OOM=false cannot reuse the original run's footer (77.622106ms)
+✔ a launch notice says restart accepted and outcome pending, without promising recovery or future progress (6.640652ms)
+✔ in-process recovery posts the eventual failure and logs the entire attempt (7.988516ms)
+✔ a same-log resume reads only the current footer and current stop evidence (17.362108ms)
+[telegram-send] s4 safeEditMessageText → chat=42 message=77 parse_mode=Markdown chars=359 bytes=363 text="🔄 Recovery attempt under monitoring — outcome pending (attempt 1)\nUpdated: 2026-10-05T23:41:53.288Z\nAttempt started: 2026-10-05T23:41:53.288Z\nRecovery session: replacement\nPrevious session: original\nNo new execution output has been observed since monitoring this attempt began.\nNo terminal outcome i"… (+59 chars)
+[telegram-send] s4 safeEditMessageText ✓ delivered
+[telegram-send] s5 safeEditMessageText → chat=42 message=77 parse_mode=Markdown chars=359 bytes=363 text="🔄 Recovery attempt under monitoring — outcome pending (attempt 1)\nUpdated: 2026-10-05T23:46:53.288Z\nAttempt started: 2026-10-05T23:41:53.288Z\nRecovery session: replacement\nPrevious session: original\nNo new execution output has been observed since monitoring this attempt began.\nNo terminal outcome i"… (+59 chars)
+[telegram-send] s5 safeEditMessageText ✓ delivered
+[telegram-send] s6 safeEditMessageText → chat=42 message=77 parse_mode=Markdown chars=397 bytes=401 text="🔄 Recovery attempt under monitoring — outcome pending (attempt 1)\nUpdated: 2026-10-05T23:51:53.288Z\nAttempt started: 2026-10-05T23:41:53.288Z\nRecovery session: replacement\nPrevious session: original\nExecution log output observed at 2026-10-05T23:41:53.378Z. Output alone does not establish commits o"… (+97 chars)
+[telegram-send] s6 safeEditMessageText ✓ delivered
+✔ recovery heartbeats distinguish real output from quiet runs and edit one durable comment (173.91864ms)
+[telegram-send] s7 safeEditMessageText → chat=42 message=77 parse_mode=Markdown chars=353 bytes=355 text="❌ Recovery attempt failed (attempt 1)\nUpdated: 2026-10-05T23:41:53.460Z\nAttempt started: 2026-10-05T23:41:53.460Z\nRecovery session: original\nPrevious session: original\nThis attempt exited with code 1.\nReason: authentication failed\nThis is the AI tool attempt result; the enclosing solve run is still "… (+53 chars)
+[telegram-send] s7 safeEditMessageText ✓ delivered
+[telegram-send] s8 safeEditMessageText → chat=42 message=77 parse_mode=Markdown chars=353 bytes=355 text="❌ Recovery attempt failed (attempt 1)\nUpdated: 2026-10-05T23:46:53.460Z\nAttempt started: 2026-10-05T23:41:53.460Z\nRecovery session: original\nPrevious session: original\nThis attempt exited with code 1.\nReason: authentication failed\nThis is the AI tool attempt result; the enclosing solve run is still "… (+53 chars)
+[telegram-send] s8 safeEditMessageText ✓ delivered
+[telegram-send] s9 safeEditMessageText → chat=42 message=77 parse_mode=Markdown chars=353 bytes=355 text="❌ Recovery attempt failed (attempt 1)\nUpdated: 2026-10-05T23:51:53.460Z\nAttempt started: 2026-10-05T23:41:53.460Z\nRecovery session: original\nPrevious session: original\nThis attempt exited with code 1.\nReason: authentication failed\nThis is the AI tool attempt result; the enclosing solve run is still "… (+53 chars)
+[telegram-send] s9 safeEditMessageText ✓ delivered
+✔ a tool outcome and its enclosing run outcome are both reported, even when their phase matches (102.568617ms)
+✔ in-process status edits use the tracked comment and remain recognized as automation (29.764432ms)
+✔ failed publications retry next tick instead of silencing recovery status (15.0955ms)
+✔ in-process heartbeat is bounded and drained when retry succeeds (1.549422ms)
+✔ in-process heartbeat is bounded and drained when retry throws (0.851218ms)
+✔ fresh recovery clears completion caches, preserves limits and cannot inherit a dead log (5.200194ms)
+Session replacement has finished. Sending notification to chat 42
+[telegram-send] s10 safeEditMessageText → chat=42 message=77 parse_mode=Markdown chars=411 bytes=425 text="⚠️ *Work session ended; final outcome could not be confirmed (automatic recoveries: 1)*\n\n⏱️ Duration: 0s\n📊 Session: `original`\n🔁 Recovery session: `replacement`\n🔒 Isolation: `docker`\n\n*Docker container kept*\nContainer: `replacement`\nPolicy: `HIVE_MIND_KEEP_TASK_CONTAINER=on-failure`\nInspect: `doc"… (+111 chars)
+[telegram-send] s10 safeEditMessageText ✓ delivered
+✔ a recovery whose terminal exit is unavailable is reported as unknown, never successful (70.401833ms)
+✔ status and list preserve the watcher counters; missing and malformed counters remain unknown (11.279197ms)
+✔ links-notation counters come from the cgroupMemory block, not recoveryHistory (10.471801ms)
+✔ the monitor uses counters without OOMKilled, while footer and liveness still win (3.917451ms)
+✔ watcher counters reach diagnostics even without a final solve resource snapshot (10.475828ms)
+✔ a watcher sample missing the final increment does not erase a solve OOM observation (0.555758ms)
+✔ a prior container OOM does not explain SIGTERM or a runtime self-abort (1.227761ms)
+✔ the monitor cgroup and unrelated kernel victims cannot attribute a task kill (0.540749ms)
+✅ pinned command-stream returns truthy stream objects even for empty output
+✅ stream results still stringify and expose common string methods
+✅ postKillRecoveryNotice falls back to the exit description when gh prints nothing
+✅ postKillRecoveryNotice uses stdout when stderr is empty
+✅ postKillRecoveryNotice returns null url when gh succeeds silently
+✅ src/ has no truthiness checks on raw command-stream stdout/stderr
+
+📊 6 test(s): ✅ 6 passed, ❌ 0 failed
+
+✔ tests/test-command-stream-1x-results.mjs (3862.271964ms)
+Testing issue #2134: killed work sessions are verified, diagnosed and reported
+==============================================================================
+
+-- resolveOomKilledState evidence ladder --
+  ✅ PASS: a live container is not reported as OOM-killed (root cause of #2134)
+  ✅ PASS: the OOM event is remembered while the session keeps running
+  ✅ PASS: the OOM observation is written to the session snapshot
+  ✅ PASS: the OOM observation is persisted so it survives a bot restart
+  ✅ PASS: a log footer with exit 0 beats the container OOM flag
+  ✅ PASS: a session that survived the OOM event completes as executed
+  ✅ PASS: surviving an OOM event is still recorded for the completion warning
+  ✅ PASS: a dead container with an OOM flag is still terminal (issue #2015 preserved)
+
+-- monitor: false kill is not announced, recovery is --
+  ✅ PASS: no completion is announced while the container is alive (the #2134 defect)
+  ✅ PASS: the session stays tracked after a container-level OOM event
+  ✅ PASS: the monitor records the OOM event on the tracked session
+Session 30920087-c181-47f0-bc75-66a78402d400 has finished. Sending notification to chat 4242
+[telegram-send] s1 safeEditMessageText → chat=4242 message=77 parse_mode=Markdown chars=744 bytes=776 text="✅ *Work session finished successfully*\n\n⏱️ Duration: 0s\n📊 Session: `30920087-c181-47f0-bc75-66a78402d400`\n🔒 Isolation: `docker`\n\n⚠️ *recovered from out of memory*\nThe event was observed at 2026-10-05T23:41:53.231Z; the work session kept running and completed.\n\n🔎 *Kill diagnostics*\nCause: out of m"… (+444 chars)
+[telegram-send] s1 safeEditMessageText ✓ delivered
+  ✅ PASS: the surviving session is completed once its footer appears
+  ✅ PASS: the completion warns that the session recovered from out of memory
+  ✅ PASS: a recovered session is not reported as killed
+  ✅ PASS: the completion carries the kill diagnostics section
+  ✅ PASS: the same report is posted to the pull request (issue #2134 R2)
+
+-- kill cause diagnostics --
+  ✅ PASS: nearly exhausted RAM is diagnosed as out of memory
+  ✅ PASS: the OOM summary says the session ran out of memory
+  ✅ PASS: the OOM verdict comes with its evidence
+  ✅ PASS: a full disk with healthy memory is diagnosed as disk exhaustion
+  ✅ PASS: a signal kill with healthy resources is diagnosed as a forced kill
+  ✅ PASS: both kernel OOM report formats are parsed
+  ✅ PASS: the classic OOM line names the victim process
+  ✅ PASS: the modern oom-kill line names the victim process
+  ✅ PASS: a kernel OOM report outweighs healthy resource markers
+  ✅ PASS: the summary names the process the kernel killed
+
+-- pull request notice --
+  ✅ PASS: launch acceptance does not establish successful recovery
+  ✅ PASS: the PR notice states that a new working session was started
+  ✅ PASS: the PR notice explains why no log was uploaded
+  ✅ PASS: the PR notice offers the resume command
+  ✅ PASS: the PR notice points at the uploaded intermediate log
+  ✅ PASS: the disabled-logs note is dropped when logs are attached
+  ✅ PASS: the intermediate log is not uploaded without --attach-logs
+  ✅ PASS: no upload is attempted without --attach-logs
+  ✅ PASS: the upload targets the right pull request
+  ✅ PASS: the intermediate log is uploaded when --attach-logs is enabled
+  ✅ PASS: pull request URLs are parsed
+  ✅ PASS: non-PR URLs are rejected
+  ✅ PASS: the notice is posted and its URL returned
+  ✅ PASS: the notice body is passed via --body-file, never the command line
+  ✅ PASS: a failed post is reported, not thrown
+
+-- on-kill policy --
+  ✅ PASS: resume is the default on-kill policy (issue #2189)
+  ✅ PASS: --on-session-kill=report still turns automatic recovery off
+  ✅ PASS: --on-session-kill selects the policy
+  ✅ PASS: HIVE_MIND_ON_SESSION_KILL selects the policy
+  ✅ PASS: the flag wins over the environment
+  ✅ PASS: an invalid policy falls back to the default
+  ✅ PASS: three automatic resume attempts by default (issue #2408)
+  ✅ PASS: the resume attempt cap is configurable
+  ✅ PASS: resume policy resumes a killed session
+  ✅ PASS: report policy never auto-resumes
+  ✅ PASS: a session that was not killed is never resumed
+  ✅ PASS: --attach-logs is detected on the tracked session args
+  ✅ PASS: a session without --attach-logs is detected as such
+  ✅ PASS: kebab-case args stay kebab-case
+  ✅ PASS: session args are parsed into an argv-like object
+  ✅ PASS: a killed session is recognised at completion time
+  ✅ PASS: a killed session reports its diagnosis
+  ✅ PASS: the completion carries the resolved on-kill policy
+  ✅ PASS: an ordinary successful session gains no kill sections
+
+-- resume session id sanity --
+  ✅ PASS: a real session id is accepted
+  ✅ PASS: an unexpanded ${sessionId} placeholder is rejected
+  ✅ PASS: the literal "unknown" is rejected
+  ✅ PASS: a too-short id is rejected
+
+-- automatic recovery session --
+  ✅ PASS: an explicit report policy never starts a recovery session
+  ✅ PASS: --on-session-kill=resume plans exactly one recovery session
+  ✅ PASS: the recovery session resumes the tool session found in the log
+  ✅ PASS: the attempt cap stops a session that keeps getting killed
+  ✅ PASS: a session stopped by the user is never auto-resumed
+  ✅ PASS: nothing is resumed without a real tool session id
+  ✅ PASS: a killed session is actually restarted under --on-session-kill=resume
+  ✅ PASS: the recovery session runs through the same isolation backend
+  ✅ PASS: the recovery session is tracked so it reports its own completion
+  ✅ PASS: the recovery session carries the attempt counter forward
+  ✅ PASS: the killed session records the attempt it consumed
+  ✅ PASS: the recovery session does not inherit the previous OOM observation
+  ✅ PASS: a missing isolation runner is reported, not thrown
+  ✅ PASS: a recovery session that cannot start is reported, not thrown
+  ✅ PASS: the Telegram section names the recovery attempt
+  ✅ PASS: no recovery section is rendered when nothing was restarted
+  ✅ PASS: the recovery section is localised for ru
+  ✅ PASS: the recovery section is localised for zh
+  ✅ PASS: the recovery section is localised for hi
+Session 30920087-c181-47f0-bc75-66a78402d400 has finished. Sending notification to chat 4242
+[telegram-send] s2 safeEditMessageText → chat=4242 message=77 parse_mode=Markdown chars=198 bytes=200 text="⏳ Recovery scheduled (attempt 1)\nUpdated: 2026-10-05T23:41:54.584Z\nAttempt started: 2026-10-05T23:41:54.584Z\nRecovery session: 30920087-c181-47f0-bc75-66a78402d400\nWaiting 0 seconds before launch.\n\n"
+[telegram-send] s2 safeEditMessageText ✓ delivered
+[telegram-send] s3 safeEditMessageText → chat=4242 message=77 parse_mode=Markdown chars=192 bytes=196 text="🔄 Recovery attempt launching — outcome pending (attempt 1)\nUpdated: 2026-10-05T23:41:54.605Z\nAttempt started: 2026-10-05T23:41:54.584Z\nRecovery session: 30920087-c181-47f0-bc75-66a78402d400\n\n"
+[telegram-send] s3 safeEditMessageText ✓ delivered
+[telegram-send] s4 safeEditMessageText → chat=4242 message=77 parse_mode=Markdown chars=1639 bytes=1679 text="⚠️ *Work session still in progress: recovering from exit code 137 (automatic recoveries: 1)*\n\n⏱️ Duration: 2m 30s\n📊 Session: `30920087-c181-47f0-bc75-66a78402d400`\n🔁 Recovery session: `recovery-1111-2222-3333-444455556666`\n🔒 Isolation: `docker`\n\n🔎 *Kill diagnostics*\nCause: out of memory — 784 MB"… (+1339 chars)
+[telegram-send] s4 safeEditMessageText ✓ delivered
+  ✅ PASS: a killed session under --on-session-kill=resume starts exactly one recovery session
+  ✅ PASS: Telegram names the recovery working session
+  ✅ PASS: Telegram says a new working session was started
+  ✅ PASS: the pull request receives the killed-session notice as well
+
+==============================================================================
+Results: 87 passed, 0 failed, 87 total
+==============================================================================
+✔ tests/test-issue-2134-killed-session-recovery.mjs (3428.037814ms)
+Testing issue #2189: a killed session is resumed by default and reported exactly once
+==============================================================================
+  ✅ PASS: a killed session is resumed by default, not merely offered
+  ✅ PASS: --on-session-kill=report still opts out of automatic recovery
+  ✅ PASS: the environment variable can opt out too
+  ✅ PASS: the default plan for a killed /solve is to start a recovery session
+  ✅ PASS: a session stopped by a user is never auto-resumed, even under the new default
+  ✅ PASS: a fresh session is not yet handled
+  ✅ PASS: a missing session is not handled
+  ✅ PASS: the first delivered notification latches the session
+  ✅ PASS: the latch records when, with what exit code and status
+  ✅ PASS: the latched session reports as handled
+  ✅ PASS: a second notification attempt is refused
+  ✅ PASS: the refused attempt does not rewrite the latch
+  ✅ PASS: latching a missing session is a no-op, not a throw
+  ✅ PASS: the first resolution scans the log
+  ✅ PASS: the id is cached in the session record
+  ✅ PASS: a second consumer reuses the cache instead of re-scanning the log
+  ✅ PASS: a log without a marker resolves to no id
+  ✅ PASS: a fruitless scan is remembered as such
+  ✅ PASS: a fruitless multi-gigabyte scan is never repeated
+  ✅ PASS: a read error is reported, not thrown
+  ✅ PASS: a read error is not cached, so a later poll can still find the id
+  ✅ PASS: only docker sessions have a writable layer to measure
+  ✅ PASS: a finished docker session is always measured once more
+  ✅ PASS: a running docker session never measured before is measured now
+  ✅ PASS: a 27 GB writable layer is not re-walked on every 30 s poll
+  ✅ PASS: the measurement is refreshed once the throttle window elapses
+  ✅ PASS: completionNotifiedAt survives the session snapshot
+  ✅ PASS: completionExitCode survives the session snapshot
+  ✅ PASS: completionStatus survives the session snapshot
+  ✅ PASS: lastToolSessionId survives the session snapshot
+  ✅ PASS: a reloaded session is still handled after a restart
+  ✅ PASS: the recovery bookkeeping is persisted, so recovery cannot restart once per bot launch forever
+  ✅ PASS: a user stop survives a restart, so resume-by-default never relaunches cancelled work
+  ✅ PASS: the resolved pull request is persisted, so it is not looked up again
+Session 0ea1c630-cfdf-477e-8528-29d175a7fe64 has finished. Sending notification to chat 100
+[telegram-send] s1 safeEditMessageText → chat=100 message=200 parse_mode=Markdown chars=198 bytes=200 text="⏳ Recovery scheduled (attempt 1)\nUpdated: 2026-10-05T23:41:54.091Z\nAttempt started: 2026-10-05T23:41:54.091Z\nRecovery session: 0ea1c630-cfdf-477e-8528-29d175a7fe64\nWaiting 0 seconds before launch.\n\n"
+[telegram-send] s1 safeEditMessageText ✓ delivered message_id=200
+[telegram-send] s2 safeEditMessageText → chat=100 message=200 parse_mode=Markdown chars=192 bytes=196 text="🔄 Recovery attempt launching — outcome pending (attempt 1)\nUpdated: 2026-10-05T23:41:55.013Z\nAttempt started: 2026-10-05T23:41:54.091Z\nRecovery session: 0ea1c630-cfdf-477e-8528-29d175a7fe64\n\n"
+[telegram-send] s2 safeEditMessageText ✓ delivered message_id=200
+[telegram-send] s3 safeEditMessageText → chat=100 message=200 parse_mode=Markdown chars=1729 bytes=1765 text="⚠️ *Work session still in progress: recovering from exit code 139 (automatic recoveries: 1)*\n\n⏱️ Duration: 2m 31s\n📊 Session: `0ea1c630-cfdf-477e-8528-29d175a7fe64`\n🔁 Recovery session: `recovery-2189-0000-1111-222233334444`\n🔒 Isolation: `docker`\n\n🔎 *Kill diagnostics*\nCause: out of memory — the No"… (+1429 chars)
+[telegram-send] s3 safeEditMessageText ✓ delivered message_id=200
+  ✅ PASS: the killed session is resumed by the bot itself, with no flag set (defect 1)
+  ✅ PASS: the completion pipeline notifies exactly once, alongside lifecycle updates
+  ✅ PASS: the notification names the working session that took over
+  ✅ PASS: the delivered notification is latched into the durable snapshot
+  ✅ PASS: the latched snapshot carries the exit code the user was told about
+  ✅ PASS: the last tool session id is cached in the same snapshot, so no later poll re-scans the log
+  ✅ PASS: the resolved pull request is cached too
+  ✅ PASS: the linked pull request is resolved once for the completion
+  ✅ PASS: a session that was already reported is never reported again (issue #2189 comment)
+  ✅ PASS: no status probe is issued for an already-reported session
+  ✅ PASS: no log read and no pull request lookup happen again
+  ✅ PASS: the 27 GB writable layer is not walked again
+  ✅ PASS: no pull request comment and no log upload are repeated
+  ✅ PASS: the already-reported session reaches its terminal state instead of being re-detected every poll
+  ✅ PASS: the terminal session is removed from the durable store
+Session 0ea1c630-cfdf-477e-8528-29d175a7fe64 has finished. Sending notification to chat 100
+[telegram-send] s4 safeEditMessageText → chat=100 message=200 parse_mode=Markdown chars=1389 bytes=1421 text="⚠️ *Work session still in progress: recovering from exit code 139 (automatic recoveries: 1)*\n\n⏱️ Duration: 2m 31s\n📊 Session: `0ea1c630-cfdf-477e-8528-29d175a7fe64`\n🔁 Recovery session: `recovery-2189-0000-1111-222233334444`\n🔒 Isolation: `docker`\n\n🔎 *Kill diagnostics*\nCause: out of memory — the No"… (+1089 chars)
+[telegram-send] s4 safeEditMessageText ✓ delivered message_id=200
+  ✅ PASS: without the latch the very same completion runs again — the loop this fix removes
+
+==============================================================================
+Results: 50 passed, 0 failed, 50 total
+==============================================================================
+✔ tests/test-issue-2189-session-recovery-latch.mjs (2547.453165ms)
+ℹ tests 71
+ℹ suites 0
+ℹ pass 71
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 9226.730889

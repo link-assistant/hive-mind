@@ -700,6 +700,8 @@ en
         resumed "A new working session was started to recover from the kill."
       kill
         cause "Cause"
+        event "Event"
+        event_diagnostics "Container OOM event diagnostics (not the cause of this stop)"
         diagnostics "Kill diagnostics"
         resumed "🔄 A new working session was started to recover from this kill: {{sessionId}}"
         resumed_attempt "🔄 A new working session was started to recover from this kill (attempt {{attempt}}): {{sessionId}}"

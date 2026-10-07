@@ -700,6 +700,8 @@ zh
         resumed "已启动新的工作会话以从终止中恢复。"
       kill
         cause "原因"
+        event "事件"
+        event_diagnostics "容器 OOM 事件诊断（不是此次停止的原因）"
         diagnostics "终止诊断"
         resumed "🔄 已启动新的工作会话以从此次终止中恢复：{{sessionId}}"
         resumed_attempt "🔄 已启动新的工作会话以从此次终止中恢复（第 {{attempt}} 次尝试）：{{sessionId}}"

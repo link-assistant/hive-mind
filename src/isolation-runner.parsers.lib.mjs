@@ -25,6 +25,39 @@ function normalizeProcessIds(value) {
   return out;
 }
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// The watcher samples the task cgroup, unlike the bot's own system probes.
+// Unknown counters must stay null: converting null/empty strings to 0 would
+// turn missing evidence into a claim that no OOM occurred (issue #2498).
+function normalizeCgroupMemory(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const fields = ['limitBytes', 'peakBytes', 'oomEvents', 'oomKills'];
+  const result = Object.fromEntries(
+    fields.map(field => {
+      const raw = value[field];
+      const number = typeof raw === 'string' && /^\d+$/.test(raw) ? Number(raw) : raw;
+      return [field, Number.isSafeInteger(number) && number >= 0 ? number : null];
+    })
+  );
+  return Object.values(result).some(value => value !== null) ? result : null;
+}
+
+function readCgroupMemoryBlock(raw) {
+  // Restrict reads to this block. recoveryHistory also carries oomKills, but
+  // describes older containers and must never replace the current counters.
+  const lines = raw.split('\n');
+  const index = lines.findIndex(line => /^\s*cgroupMemory\s*$/.test(line));
+  if (index < 0) return null;
+  const indent = lines[index].match(/^\s*/)[0].length;
+  const fields = {};
+  for (const line of lines.slice(index + 1)) {
+    if (!line.trim()) continue;
+    if (line.match(/^\s*/)[0].length <= indent) break;
+    const match = /^\s*(limitBytes|peakBytes|oomEvents|oomKills)\s+(\S+)\s*$/.exec(line);
+    if (match) fields[match[1]] = match[2];
+  }
+  return normalizeCgroupMemory(fields);
+}
 /**
  * Extract start-command's own execution UUID from a launch banner.
  *
@@ -88,7 +121,7 @@ export function parseStartCommandExecutionUuid(output) {
 export function parseSessionStatusOutput(output) {
   const raw = (output || '').trim();
   if (!raw) {
-    return { exists: false, uuid: null, status: null, exitCode: null, startTime: null, endTime: null, currentTime: null, logPath: null, command: null, isolation: null, workingDirectory: null, sessionName: null, processIds: {}, oomKilled: null, exitReason: null, memoryExhausted: null, memoryExhaustedReason: null, raw: '' };
+    return { exists: false, uuid: null, status: null, exitCode: null, startTime: null, endTime: null, currentTime: null, logPath: null, command: null, isolation: null, workingDirectory: null, sessionName: null, processIds: {}, oomKilled: null, exitReason: null, memoryExhausted: null, memoryExhaustedReason: null, cgroupMemory: null, raw: '' };
   }
   const normalizeBooleanField = value => {
     if (typeof value === 'boolean') return value;
@@ -124,6 +157,7 @@ export function parseSessionStatusOutput(output) {
       exitReason: typeof data?.exitReason === 'string' && data.exitReason.trim() ? data.exitReason.trim() : null,
       memoryExhausted: normalizeBooleanField(data?.memoryExhausted),
       memoryExhaustedReason: typeof data?.memoryExhaustedReason === 'string' && data.memoryExhaustedReason.trim() ? data.memoryExhaustedReason.trim() : null,
+      cgroupMemory: normalizeCgroupMemory(data?.cgroupMemory),
       raw,
     };
   } catch {
@@ -176,6 +210,7 @@ export function parseSessionStatusOutput(output) {
     exitReason: readField('exitReason') || readField('Exit Reason'),
     memoryExhausted: readBooleanField('memoryExhausted') ?? readBooleanField('Memory Exhausted'),
     memoryExhaustedReason: readField('memoryExhaustedReason') || readField('Memory Evidence'),
+    cgroupMemory: readCgroupMemoryBlock(raw),
     raw,
   };
 }
@@ -247,12 +282,14 @@ export function parseSessionExitFooter(text) {
  * @returns {{finished: boolean, exitCode: number|null, endTime: string|null}}
  */
 export function readSessionExitFromLog(logPath, options = {}) {
-  const { fsImpl = fs, tailBytes = 16384, verbose = false } = options;
+  const { fsImpl = fs, tailBytes = 16384, minByteOffset = 0, verbose = false } = options;
   if (!logPath) return { finished: false, exitCode: null, endTime: null };
   try {
     const { size } = fsImpl.statSync(logPath);
     if (!size) return { finished: false, exitCode: null, endTime: null };
-    const start = Math.max(0, size - tailBytes);
+    // A resumed execution appends to the same log. Earlier footers describe
+    // earlier attempts, even while the replacement container is alive (#2498).
+    const start = Math.min(size, Math.max(0, size - tailBytes, Number.isSafeInteger(minByteOffset) ? minByteOffset : 0));
     const length = size - start;
     const buffer = Buffer.alloc(length);
     const fd = fsImpl.openSync(logPath, 'r');
@@ -312,6 +349,7 @@ export function parseSessionListOutput(output) {
         exitReason: typeof data.exitReason === 'string' && data.exitReason.trim() ? data.exitReason.trim() : null,
         memoryExhausted: typeof data.memoryExhausted === 'boolean' ? data.memoryExhausted : null,
         memoryExhaustedReason: typeof data.memoryExhaustedReason === 'string' && data.memoryExhaustedReason.trim() ? data.memoryExhaustedReason.trim() : null,
+        cgroupMemory: normalizeCgroupMemory(data.cgroupMemory),
       };
     })
     .filter(Boolean);

@@ -298,7 +298,7 @@ export async function labelDraftPullRequest({ gh, repository, number }) {
       await gh(createDraftLabelArgs({ repository }));
     } catch (creationError) {
       // Another issue's simultaneous run may have created it first.
-      if (!/already exists/i.test(`${creationError.message}\n${creationError.stderr || ''}`)) throw creationError;
+      if (!/already[ _]exists/i.test(`${creationError.message}\n${creationError.stderr || ''}`)) throw creationError;
     }
     await gh(args);
   }

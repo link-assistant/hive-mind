@@ -113,17 +113,19 @@ test('formal drafts preserve development logs and create missing labels', async 
   assert.equal(calls.length, 3);
   assert.equal(calls[1][0], 'label');
   assert.deepEqual(calls[0], calls[2]);
-  let racedCalls = 0;
-  await labelDraftPullRequest({
-    repository: 'o/r',
-    number: 2,
-    gh: async () => {
-      racedCalls++;
-      if (racedCalls === 1) throw new Error("'formal-ai-draft' not found");
-      if (racedCalls === 2) throw new Error('label already exists');
-    },
-  });
-  assert.equal(racedCalls, 3, 'simultaneous label creation must still apply the label');
+  for (const creationError of ['label already exists', 'HTTP 422: Validation Failed {"errors":[{"resource":"Label","code":"already_exists","field":"name"}]}']) {
+    let racedCalls = 0;
+    await labelDraftPullRequest({
+      repository: 'o/r',
+      number: 2,
+      gh: async () => {
+        racedCalls++;
+        if (racedCalls === 1) throw new Error("'formal-ai-draft' not found");
+        if (racedCalls === 2) throw new Error(creationError);
+      },
+    });
+    assert.equal(racedCalls, 3, 'simultaneous label creation must still apply the label');
+  }
   await assert.rejects(
     labelDraftPullRequest({
       repository: 'o/r',

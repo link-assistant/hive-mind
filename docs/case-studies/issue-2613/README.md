@@ -65,6 +65,8 @@ Formal drafts also pass `--development-log`, so failed attempts preserve reposit
 
 `gh pr edit --add-label formal-ai-draft` fails because the repository label does not exist. The draft finalizer now creates that label only on the matching missing-label error and retries the assignment; simultaneous creation is handled without overwriting an existing label. Other permission errors propagate. The script uses the shared rate-limit-aware GitHub runner.
 
+The race regression covers both CLI prose (`already exists`) and GitHub's [structured validation code](https://docs.github.com/en/rest/using-the-rest-api/troubleshooting-the-rest-api#validation-failed) (`already_exists`). `structured-label-before.log` reproduces the second form escaping the initial handler; the corrected handler accepts either separator and retains the final label-assignment retry.
+
 The checks action dispatches `release.yml` with `mode=checks`, but `bump_type` is required and had no default. A patch default makes a checks-only dispatch valid without changing the existing release-mode gate. The tests verify both command behavior and the required input default. Docker invocation, token forwarding, draft retention and forbidden auto-merge/auto-close flags remain covered by the existing formal-draft tests.
 
 ### 5. Formal AI mistakes an abbreviation for a file

@@ -390,6 +390,19 @@
     }
   },
   {
+    "file": "final-formal-draft.log",
+    "bytes": 53,
+    "sha256": "88f6e879e75a01756c1eb0128dac35a524f97c6dd0f18285711367e51d4430e2",
+    "stats": {
+      "sourceSize": 53,
+      "bytesRead": 53,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 53,
+      "worker": false
+    }
+  },
+  {
     "file": "final-format-check.log",
     "bytes": 190,
     "sha256": "1505896a7269ffccba901d75faed6a5f7d6ec8d9ccdbecb1f017592519aa21d7",
@@ -1153,6 +1166,58 @@
       "blocks": 1,
       "forcedReleases": 0,
       "charsWritten": 99,
+      "worker": false
+    }
+  },
+  {
+    "file": "structured-label-after.log",
+    "bytes": 1534,
+    "sha256": "c59f876c8fb666d6f2cafeacac37c27754b5a8bb025207a48cd2fd3d833affbe",
+    "stats": {
+      "sourceSize": 1534,
+      "bytesRead": 1534,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 1486,
+      "worker": false
+    }
+  },
+  {
+    "file": "structured-label-before.log",
+    "bytes": 2342,
+    "sha256": "5232097260815ae6a20ce0fb146c0ff0e6aee744289f22d35b4cddea77ff3029",
+    "stats": {
+      "sourceSize": 2342,
+      "bytesRead": 2342,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 2290,
+      "worker": false
+    }
+  },
+  {
+    "file": "structured-label-lint.log",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stats": {
+      "sourceSize": 0,
+      "bytesRead": 0,
+      "blocks": 0,
+      "forcedReleases": 0,
+      "charsWritten": 0,
+      "worker": false
+    }
+  },
+  {
+    "file": "structured-label-upstream-tests.log",
+    "bytes": 431,
+    "sha256": "7d67d12f8a67f2d02aba55f2a8e9278ec1634823cdb411e3d9d79d39d1155a1c",
+    "stats": {
+      "sourceSize": 431,
+      "bytesRead": 431,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 405,
       "worker": false
     }
   },

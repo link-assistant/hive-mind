@@ -511,7 +511,8 @@ export class TelegramRateLimitTracker {
     if (!this.lastRateLimit) return null;
     const { retryUntil } = this.lastRateLimit;
     const retryRemainingSeconds = retryUntil === null ? null : Math.max(0, Math.ceil((retryUntil - now) / SECOND_MS));
-    return { ...this.lastRateLimit, retryRemainingSeconds };
+    const ageSeconds = Math.max(0, Math.floor((now - this.lastRateLimit.observedAt) / SECOND_MS));
+    return { ...this.lastRateLimit, retryRemainingSeconds, ageSeconds };
   }
 
   getSnapshot() {

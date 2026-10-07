@@ -350,6 +350,7 @@ zh
       last
         rate
           limit "最近一次 429：{{method}}"
+        refusal "最近一次 429：{{method}}，{{ago}} 前"
       observed
         limit "实测上限"
       peak "峰值 {{peak}}"
@@ -357,7 +358,9 @@ zh
         limit
           responses "启动后的 429 响应：{{count}}"
       requests "{{used}}/{{limit}} 个请求"
+      restraint "机器人主动限流：延后 {{delayed}}，跳过 {{held}}，重试 {{retried}}"
       retry
+        after "retry_after {{duration}}"
         in "{{duration}} 后重试"
       scope
         broadcast "发送到所有聊天，1 秒"

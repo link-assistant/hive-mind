@@ -846,6 +846,15 @@ hive-cleanup
 # 删除时不显示确认提示
 hive-cleanup --force
 
+# 预览至少 48 小时前停止的失败容器
+hive-cleanup --dry-run --docker-isolation=failed-older-than=48h
+
+# 删除已停止的任务容器和未使用的恢复快照镜像
+hive-cleanup --force --docker-isolation=all
+
+# 为定期清理配置失败容器的保留时间
+HIVE_MIND_CLEANUP_DOCKER_ISOLATION=failed-older-than=48h hive-cleanup --force
+
 # 同时考虑非 hive-mind 临时项（更激进）
 hive-cleanup --all --dry-run
 
@@ -871,9 +880,28 @@ hive-cleanup --kill-orphaned-agents --force
 hive-cleanup --no-keep-active-tasks-folders --dry-run
 ```
 
-运行 `hive-cleanup --help` 查看完整的选项列表。该命令对 dry-run 友好，并为每次运行写入
-带时间戳的 `cleanup-*.log` 日志。进程诊断输出会在打印命令行前遮蔽常见 token
-格式。
+运行 `hive-cleanup --help` 查看完整的选项列表。该命令支持 dry-run，并将私有
+`cleanup-*.log` 日志写入 `$XDG_STATE_HOME/hive-mind/logs/`
+（默认：`~/.local/state/hive-mind/logs/`）。它保留最近 30 个日志，以及仍有清理进程写入的日志。
+
+Docker 任务清理默认使用 `succeeded`：删除成功退出的容器，保留失败容器供调试。
+`failed-older-than=48h` 还会删除**结束时间**距今至少 48 小时的失败容器；结束时间未知的容器会保留。
+时长支持 `s`、`m`、`h`、`d` 和 `w` 单位。
+`all` 选择已停止的任务容器，包括 `<uuid>-resume-<attempt>` 容器，以及孤立的
+`start-command-resume/<uuid>:<attempt>` 镜像。
+所有模式都会保留运行中、已暂停、正在重启或所属会话仍在执行的容器。
+删除前会重新检查状态，并使用不带强制选项的 `docker rm`，因此 Docker 会拒绝并发重启后的删除。
+当前退出码和结束时间也会重新与所选策略比较。只有没有容器使用的镜像才会被删除；
+镜像删除同样使用 Docker 的非强制安全检查。
+
+容器大小显示可写层字节数；恢复镜像显示独占字节数，不包括共享基础层。
+大小测量尽力而为且有时间限制；缺失值显示为 `?`，汇总中会明确统计未知测量值。
+Docker 列表获取失败会重试，持续失败则显示守护进程错误并以非零状态退出。
+未安装 Docker CLI 时可跳过。`--no-docker-isolation` 禁用此清理。
+`--no-sessions` 可禁用活动会话查询；Docker 状态检查仍然执行。
+Start-command 的会话日志仍受保护，因为会话状态和日志查看依赖它们。
+
+进程诊断输出会在打印命令行前遮蔽常见 token 格式。
 
 ## 🔍 监控与日志
 

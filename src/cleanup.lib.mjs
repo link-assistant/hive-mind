@@ -52,6 +52,9 @@ export const HIVE_MIND_TEMP_PATTERNS = [
   { name: 'solve workspace root', regex: /^hive-mind-solve-gh-/ },
   // github.lib.mjs log download working dirs
   { name: 'solution draft log dir', regex: /^log-tmp-solution-draft-log-/ },
+  // gh-upload-log clones of Hive Mind's sanitized upload and bot logs.
+  { name: 'log upload staging clone', regex: /^log-tmp-hive-mind-log-upload-.+$/ },
+  { name: 'Telegram bot log staging clone', regex: /^log-home-[^-]+-hive-telegram-bot-.+$/ },
   // claude.lib.mjs MCP config temp files
   { name: 'claude MCP config', regex: /^claude-mcp-no-useless-.+\.json$/ },
   { name: 'claude MCP config', regex: /^claude-mcp-.+\.json$/ },
@@ -391,7 +394,7 @@ function compactTaskType(type) {
 export function formatTaskSummary(task) {
   if (!task) return '';
   const number = task.number ?? task.issueNumber ?? null;
-  const parts = [`${task.owner}/${task.repo} ${compactTaskType(task.type)} #${number ?? '?'}`];
+  const parts = task.owner && task.repo ? [`${task.owner}/${task.repo} ${compactTaskType(task.type)} #${number ?? '?'}`] : ['isolation task'];
   if (task.branch) parts.push(`branch ${task.branch}`);
   if (task.sessionId || task.sessionName) parts.push(`session ${task.sessionId || task.sessionName}`);
   if (task.status) parts.push(`status ${task.status}`);
@@ -438,7 +441,20 @@ export function formatEntryContext(item) {
 export const DEFAULT_DOCKER_ISOLATION_CLEANUP_MODE = 'succeeded';
 export const DOCKER_ISOLATION_CLEANUP_MODES = new Set(['succeeded', 'all', 'none']);
 
-const DOCKER_ISOLATION_SESSION_NAME_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const DOCKER_ISOLATION_SESSION_NAME_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?:-resume-\d+)?$/i;
+
+/** Parse a positive retention duration, such as 48h or 7d. */
+export function parseCleanupDuration(value) {
+  const match = /^(\d+(?:\.\d+)?)([smhdw])$/i.exec(String(value || '').trim());
+  const duration = match ? Number(match[1]) * { s: 1000, m: 60000, h: 3600000, d: 86400000, w: 604800000 }[match[2].toLowerCase()] : NaN;
+  if (!Number.isFinite(duration) || duration <= 0) throw new Error(`Invalid cleanup duration: ${value}. Use a positive duration such as 48h or 7d`);
+  return duration;
+}
+
+/** Resume attempts share the original session's identity. */
+export function dockerIsolationSessionId(name) {
+  return isDockerIsolationSessionName(name) ? String(name).replace(/-resume-\d+$/i, '') : null;
+}
 
 function normalizeText(value) {
   return String(value || '')
@@ -453,9 +469,10 @@ function normalizeText(value) {
  *   - succeeded: default; remove successful exited containers, keep failures
  *   - all: remove all terminal/exited task containers
  *   - none: report only
+ *   - failed-older-than=<duration>: successful plus expired failed containers
  *
  * @param {string|null|undefined} value
- * @returns {'succeeded'|'all'|'none'}
+ * @returns {string} succeeded, all, none, or failed-older-than=<duration>
  */
 export function normalizeDockerIsolationCleanupMode(value) {
   const mode = normalizeText(value);
@@ -464,7 +481,11 @@ export function normalizeDockerIsolationCleanupMode(value) {
   }
   if (['false', '0', 'no', 'off', 'none', 'disabled'].includes(mode)) return 'none';
   if (['all', 'everything', 'finished', 'terminal'].includes(mode)) return 'all';
-  throw new Error(`Invalid docker isolation cleanup mode: ${value}. Expected one of: succeeded, all, none`);
+  if (mode.startsWith('failed-older-than=')) {
+    parseCleanupDuration(mode.slice('failed-older-than='.length));
+    return mode;
+  }
+  throw new Error(`Invalid docker isolation cleanup mode: ${value}. Expected one of: succeeded, all, none, failed-older-than=48h`);
 }
 
 /**
@@ -493,6 +514,7 @@ function createSessionLookup(sessionTasks) {
   const merge = (key, task) => {
     if (!key) return;
     const existing = lookup.get(key) || {};
+    if (isExecutingSessionStatus(existing.status) && !isExecutingSessionStatus(task.status)) return;
     lookup.set(key, {
       ...existing,
       ...task,
@@ -509,6 +531,8 @@ function createSessionLookup(sessionTasks) {
     if (!task) continue;
     merge(task.sessionId, task);
     merge(task.sessionName, task);
+    merge(dockerIsolationSessionId(task.sessionId), task);
+    merge(dockerIsolationSessionId(task.sessionName), task);
   }
   return lookup;
 }
@@ -520,7 +544,7 @@ function normalizeDockerContainer(container) {
   const state = normalizeText(container?.state || container?.State);
   const statusText = String(container?.status ?? container?.Status ?? '').trim();
   const exitCode = normalizeExitCode(container?.exitCode ?? container?.ExitCode ?? parseDockerContainerExitCode(statusText));
-  const running = container?.running === true || state === 'running' || /^Up\b/i.test(statusText);
+  const running = container?.running === true || ['running', 'paused', 'restarting'].includes(state) || /^Up\b/i.test(statusText);
   return {
     ...container,
     id: container?.id || container?.ID || null,
@@ -541,7 +565,7 @@ function inferDockerContainerOutcome(container, session) {
   const sessionTerminal = isTerminalSessionStatus(sessionStatus);
   const terminal = !running && (sessionTerminal || containerTerminal);
   const exitStatus = classifyExitStatus(exitCode);
-  const failed = terminal && (isFailureSessionStatus(sessionStatus) || isFailureSessionStatus(exitStatus) || (exitCode !== null && exitCode !== 0));
+  const failed = terminal && (exitCode !== null ? exitCode !== 0 : isFailureSessionStatus(sessionStatus) || isFailureSessionStatus(exitStatus));
   const successful = terminal && !failed && exitCode === 0;
   const unknown = terminal && !successful && !failed;
 
@@ -561,7 +585,7 @@ function dockerCleanupRecord(container, session, outcome, reason) {
     ...outcome,
     session: session || null,
     reason,
-    command: `docker rm -f ${container.name}`,
+    command: `docker rm ${container.name}`,
   };
 }
 
@@ -576,11 +600,14 @@ function dockerCleanupRecord(container, session, outcome, reason) {
  * @param {Array} options.containers
  * @param {Array} [options.sessionTasks]
  * @param {string} [options.mode]
+ * @param {number} [options.now] - current epoch milliseconds
  * @returns {{keep: Array, remove: Array, mode: string}}
  */
 export function planDockerIsolationCleanup(options = {}) {
   const mode = normalizeDockerIsolationCleanupMode(options.mode);
   const sessions = createSessionLookup(options.sessionTasks || []);
+  const failedRetentionMs = mode.startsWith('failed-older-than=') ? parseCleanupDuration(mode.slice('failed-older-than='.length)) : null;
+  const now = options.now ?? Date.now();
   const keep = [];
   const remove = [];
 
@@ -588,7 +615,9 @@ export function planDockerIsolationCleanup(options = {}) {
     const container = normalizeDockerContainer(rawContainer);
     if (!isDockerIsolationSessionName(container.name)) continue;
 
-    const session = sessions.get(container.name) || null;
+    const parentSession = sessions.get(dockerIsolationSessionId(container.name));
+    const exactSession = sessions.get(container.name);
+    const session = isExecutingSessionStatus(parentSession?.status) ? parentSession : exactSession || parentSession || null;
     const outcome = inferDockerContainerOutcome(container, session);
     let reason;
     let action = 'keep';
@@ -606,7 +635,13 @@ export function planDockerIsolationCleanup(options = {}) {
       reason = 'successful-container';
       action = 'remove';
     } else if (outcome.failed) {
-      reason = 'failed-container-kept';
+      const finishedAt = Date.parse(container.finishedAt || '');
+      if (failedRetentionMs !== null && Number.isFinite(finishedAt) && finishedAt > 0 && now - finishedAt >= failedRetentionMs) {
+        reason = 'expired-failed-container';
+        action = 'remove';
+      } else {
+        reason = 'failed-container-kept';
+      }
     } else {
       reason = 'unknown-outcome-kept';
     }
@@ -632,6 +667,7 @@ export function describeDockerIsolationReason(reason) {
     'unknown-container-state': 'container state is not terminal',
     'successful-container': 'successful docker-isolation task container',
     'finished-container': 'finished docker-isolation task container',
+    'expired-failed-container': 'failed container retention expired',
     'failed-container-kept': 'failed docker-isolation task kept for debugging',
     'unknown-outcome-kept': 'docker-isolation task outcome unknown',
     'all-mode': 'non-running docker-isolation container',
@@ -647,7 +683,7 @@ export function describeDockerIsolationReason(reason) {
  */
 export function formatDockerIsolationContainerSummary(item) {
   if (!item) return '';
-  const parts = [`session ${item.name}`];
+  const parts = [`session ${item.name}`, `size ${formatBytes(item.size)}`];
   if (item.image) parts.push(`image ${item.image}`);
   if (item.state) parts.push(`state ${item.state}`);
   if (item.status) parts.push(`status ${item.status}`);
@@ -657,4 +693,29 @@ export function formatDockerIsolationContainerSummary(item) {
     parts.push(`remove when done: ${item.command}`);
   }
   return parts.join(', ');
+}
+
+/** Report known bytes without presenting missing measurements as zero. */
+export function formatDockerCleanupBytes(items) {
+  const known = items.reduce((sum, item) => sum + (item.size ?? 0), 0);
+  const unknown = items.filter(item => item.size == null).length;
+  return `${formatBytes(known)}${unknown ? ` + ${unknown} unknown` : ''}`;
+}
+
+/** Select unused resume snapshots without deleting images of kept sessions. */
+export function planDockerResumeImageCleanup({ images = [], containerPlan, sessionTasks = [] }) {
+  const sessions = createSessionLookup(sessionTasks);
+  const keep = [];
+  const remove = [];
+  for (const image of images) {
+    const session = sessions.get(image.sessionId);
+    const uses = item => item.image === image.name || item.image === image.id || item.name === `${image.sessionId}-resume-${image.attempt}`;
+    const kept = containerPlan.keep.some(uses);
+    const removed = containerPlan.remove.some(uses);
+    const active = isExecutingSessionStatus(session?.status) || containerPlan.keep.some(item => item.running && dockerIsolationSessionId(item.name) === image.sessionId);
+    const eligible = !active && !kept && (removed || containerPlan.mode === 'all');
+    const record = { ...image, reason: active ? 'active session' : kept ? 'container kept' : eligible ? 'unused resume snapshot' : 'session outcome unknown' };
+    (eligible ? remove : keep).push(record);
+  }
+  return { keep, remove };
 }

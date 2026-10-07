@@ -136,8 +136,7 @@ export const watchUntilMergeable = async params => {
   const waitForAllRepoActionsFlag = argv.waitForAllActionsInRepositoryBeforeMergeable ?? argv['wait-for-all-actions-in-repository-before-mergeable'] ?? argv.waitForAllActionsInRepositoryBeforeMergable ?? argv['wait-for-all-actions-in-repository-before-mergable'] ?? false;
   // Track latest session data across all iterations for accurate pricing
   let latestSessionId = null;
-  // Issue #2563: a held-back merge publishes AI work no attached log covers in the same comment as its reason.
-  const attachLogWithNotice = prNumber && (argv.attachLogs || argv['attach-logs']) ? leadingSection => attachLogToGitHub({ logFile: getLogFile(), targetType: 'pr', targetNumber: prNumber, owner, repo, $, log, sanitizeLogContent, verbose: argv.verbose, sessionId: latestSessionId, tempDir, argv, requestedModel: argv.originalModel || argv.model, tool: argv.tool || 'claude', leadingSection }) : null;
+  const attachLogWithNotice = prNumber && (argv.attachLogs || argv['attach-logs']) ? leadingSection => attachLogToGitHub({ logFile: getLogFile(), targetType: 'pr', targetNumber: prNumber, owner, repo, $, log, sanitizeLogContent, verbose: argv.verbose, sessionId: latestSessionId, tempDir, argv, requestedModel: argv.originalModel || argv.model, tool: argv.tool || 'claude', leadingSection }) : null; // Issue #2563: a held-back merge publishes unattached AI work with its reason, in one comment
   let latestAnthropicCost = null;
   // Issue #1323: Track actual AI restarts separately from check cycle iterations
   // Issue #2119: the count now lives in the shared budget module, so restarts

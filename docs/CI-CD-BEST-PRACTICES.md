@@ -456,6 +456,25 @@ release:
 - **Verify the published result anonymously, and separately.** Never gate the release on the push (a failed mirror must not delete a good release), but do check afterwards, with no credentials, that what you published can be pulled. A check that authenticates measures the publisher's view; a reader gets neither the login nor the benefit of the doubt.
 - **Report `unknown`, never a guess.** A registry that times out or answers HTTP 429 has not said the credential is broken, and a run in which nothing could be verified is not a pass. Say which of the two happened: "0 verified, 3 unknown" is actionable, "no failures" is not.
 
+### 17. Tell a Broken Pipeline from a Changed World
+
+**A job that fails for a reason no commit can fix is a false negative, and it trains everyone to ignore red.** Issue #2625 found four of them on `main` at once: a dependency gate that failed every push because a new upstream major had appeared, a cleanup that failed every day because a ruleset forbids deleting branches, a dispatch that GitHub refused before it started, and a log upload that retried a refusal three times. Each one hid the real failures next to it.
+
+```yaml
+on:
+  workflow_dispatch:
+    inputs:
+      bump_type:
+        required: true
+        default: patch # the dispatch API answers HTTP 422 without it
+```
+
+- **Gate external state on pull requests; on push, warn.** "A newer version was published" is a fact about the world, not about the commit. Failing the push skips lint, tests and the release for a change that broke nothing; the pull request is where someone can act on it.
+- **A policy refusal is a decision, not a transient error.** `Resource not accessible by integration` (a workflow `GITHUB_TOKEN` cannot create gists) and a ruleset's `Repository rule violations found` answer the same way on every attempt. Retry `HTTP 429` and `5xx`; report a refusal once, name what would allow it, and move on.
+- **Every input a workflow is dispatched with by API needs a default.** `gh workflow run` cannot fill a form: a `required: true` input without `default:` makes GitHub answer `HTTP 422: Required input '<name>' not provided`, and the run never exists. Test that each dispatched workflow accepts exactly the inputs its caller passes.
+- **Create what you depend on, or tolerate its absence.** `gh pr edit --add-label` fails with `'<label>' not found` in a repository that never had the label. Create it on first use (`gh label create`) instead of failing a run that already did its work.
+- **Write logs where the upload step looks.** An artifact step that finds nothing warns `No files were found with the provided path` and passes; the run that failed early, the one the artifact exists for, leaves no evidence. Make a missing log fail loudly in the test suite, not silently in production.
+
 ## Quality Enforcement Strategy
 
 The templates implement a defense-in-depth approach:

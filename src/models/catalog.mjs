@@ -87,6 +87,8 @@ export const claudeModels = {
 // Issue #1300: Updated free models to match agent PR #191
 // Issue #1543: Added qwen3.6-plus-free (former default) and nemotron-3-super-free per agent PR #234
 // Issue #1563: qwen3.6-plus-free free promotion ended (April 2026), nemotron-3-super-free is now default per agent PR #243
+// Issue #2625: OpenCode Zen withdrew nemotron-3-super-free (agent#327) and reserves its free tier for OpenCode itself;
+// the same model is free on the Kilo gateway, described to Agent by src/agent-model-overlay.lib.mjs
 export const agentModels = {
   ...formalAiProviderModelAliases,
   // OpenCode Zen free models (current)
@@ -96,7 +98,7 @@ export const agentModels = {
   'big-pickle': 'opencode/big-pickle',
   'gpt-5-nano': 'opencode/gpt-5-nano',
   'minimax-m2.5-free': 'opencode/minimax-m2.5-free', // Upgraded from M2.1 (Issue #1391)
-  'nemotron-3-super-free': 'opencode/nemotron-3-super-free', // Default: NVIDIA hybrid Mamba-Transformer (Issue #1563)
+  'nemotron-3-super-free': 'kilo/nemotron-3-super-free', // Default: NVIDIA hybrid Mamba-Transformer (Issue #1563), via Kilo since Issue #2625
   // Kilo Gateway free models (Issue #1282, updated in #1300)
   // Short names for Kilo-exclusive models (Issue #1300)
   'glm-5-free': 'kilo/glm-5-free', // Kilo-exclusive
@@ -111,6 +113,7 @@ export const agentModels = {
   'kilo/deepseek-r1-free': 'kilo/deepseek-r1-free',
   'kilo/giga-potato-free': 'kilo/giga-potato-free',
   'kilo/trinity-large-preview': 'kilo/trinity-large-preview',
+  'kilo/nemotron-3-super-free': 'kilo/nemotron-3-super-free', // Issue #2625: provider entry from src/agent-model-overlay.lib.mjs
   // Deprecated free models (kept for backward compatibility)
   'qwen3.6-plus-free': 'opencode/qwen3.6-plus-free', // Deprecated: free promotion ended April 2026 (Issue #1563)
   'kimi-k2.5-free': 'opencode/kimi-k2.5-free', // Deprecated: not supported (Issue #1391)
@@ -412,7 +415,7 @@ export const AGENT_MODELS = {
   'opencode/big-pickle': 'opencode/big-pickle',
   'opencode/gpt-5-nano': 'opencode/gpt-5-nano',
   'opencode/minimax-m2.5-free': 'opencode/minimax-m2.5-free',
-  'opencode/nemotron-3-super-free': 'opencode/nemotron-3-super-free', // Issue #1563: now default
+  'opencode/nemotron-3-super-free': 'opencode/nemotron-3-super-free', // Deprecated: withdrawn from OpenCode Zen (Issue #2625, agent#327)
   'opencode/qwen3.6-plus-free': 'opencode/qwen3.6-plus-free', // Deprecated: free promotion ended (Issue #1563)
   'opencode/kimi-k2.5-free': 'opencode/kimi-k2.5-free', // Deprecated
   'opencode/glm-4.7-free': 'opencode/glm-4.7-free', // Deprecated

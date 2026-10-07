@@ -285,6 +285,16 @@ export const summarizeUploadFailure = output => {
 };
 
 /**
+ * Whether gh-upload-log failed because the token is not allowed to publish,
+ * e.g. a workflow's GITHUB_TOKEN creating a gist (issue #2625). Retrying, or
+ * re-sending the log as parts, cannot change a permission refusal. Secondary
+ * rate limits are also HTTP 403 but pass with time, so they do not match.
+ * @param {string} output - Combined stdout and stderr of gh-upload-log.
+ * @returns {boolean}
+ */
+export const isPermanentUploadFailure = output => /Resource not accessible by (integration|personal access token)/i.test(String(output || ''));
+
+/**
  * Split a log into parts of about `partSizeBytes` each, cutting only after a
  * newline so no line (and no multi-byte character) is broken across parts.
  * @returns {Promise<string[]>} Part paths in order.
@@ -342,7 +352,7 @@ export const splitLogIntoLineAlignedParts = async ({ sourcePath, directory, base
 
 /**
  * Run gh-upload-log until it reports a URL, waiting `delaysMs[i]` before retry i+1.
- * @returns {Promise<{ok: boolean, parsed: Object|null, output: string, attempts: number}>}
+ * @returns {Promise<{ok: boolean, parsed: Object|null, output: string, attempts: number, permanent?: boolean}>}
  */
 const runUploadWithRetries = async ({ commandArgs, runUpload, sleep, delaysMs, label, verbose }) => {
   const maxAttempts = delaysMs.length + 1;
@@ -359,6 +369,10 @@ const runUploadWithRetries = async ({ commandArgs, runUpload, sleep, delaysMs, l
       await log(`  ❌ gh-upload-log exited 0 but printed no log URL (${label}, attempt ${attempt}/${maxAttempts}): ${output}`);
     } else {
       await log(`  ❌ gh-upload-log failed (${label}, attempt ${attempt}/${maxAttempts}): ${output}`);
+    }
+    if (uploadResult.code !== 0 && isPermanentUploadFailure(output)) {
+      await log(`  ⚠️  The GitHub token may not publish logs (e.g. a workflow GITHUB_TOKEN cannot create gists); not retrying the ${label} upload`);
+      return { ok: false, parsed: null, output, attempts: attempt, permanent: true };
     }
     // 127: gh-upload-log is not installed; waiting will not change that.
     if (uploadResult.code === 127 || attempt === maxAttempts) {
@@ -421,7 +435,7 @@ export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description,
     } else {
       result.failureReason = summarizeUploadFailure(whole.output);
       const { size } = await fs.stat(privateLogFile);
-      if (size <= partSizeBytes) {
+      if (whole.permanent || size <= partSizeBytes) {
         return result;
       }
       const partPaths = await splitLogIntoLineAlignedParts({ sourcePath: privateLogFile, directory: privateTempDirectory, partSizeBytes });

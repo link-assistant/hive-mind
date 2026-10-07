@@ -196,6 +196,7 @@ export const executeClaudeCommand = async params => {
   const escapePromptForShell = promptText => String(promptText).replace(/"/g, '\\"').replace(/\$/g, '\\$');
   await validateBidirectionalModeConfig(argv, log);
   let retryCount = 0;
+  let authenticationRetryUsed = false;
   // Issue #2169: total-time budget shared by every transient-error retry of this run (default
   // 12 h). Created outside executeWithRetry so the elapsed clock survives the recursive calls.
   const transientRetryBudget = createTransientRetryBudget();
@@ -684,7 +685,7 @@ export const executeClaudeCommand = async params => {
                     });
                     if (subscriptionError) {
                       // Not verbose: this is the reason the whole run is about to end.
-                      await log(`${SUBSCRIPTION_BLOCKED_MARKER} — ${subscriptionError.label}`);
+                      await log(`${subscriptionError.kind === 'login_required' && !authenticationRetryUsed ? 'Authentication refresh required' : SUBSCRIPTION_BLOCKED_MARKER} — ${subscriptionError.label}`);
                       await log(`   code=${subscriptionError.code || 'n/a'} http=${data.api_error_status || 'n/a'} terminal_reason=${data.terminal_reason || 'n/a'} request_id=${data.request_id || 'unknown'}`, { verbose: true });
                     }
                   }
@@ -738,7 +739,7 @@ export const executeClaudeCommand = async params => {
                 });
                 if (subscriptionError) {
                   if (apiErrorText) lastMessage = apiErrorText;
-                  await log(`${SUBSCRIPTION_BLOCKED_MARKER} — ${subscriptionError.label}`);
+                  await log(`${subscriptionError.kind === 'login_required' && !authenticationRetryUsed ? 'Authentication refresh required' : SUBSCRIPTION_BLOCKED_MARKER} — ${subscriptionError.label}`);
                   await log(`   code=${subscriptionError.code || 'n/a'} request_id=${data.request_id || 'unknown'} uuid=${data.uuid || 'unknown'}`, { verbose: true });
                 }
               }
@@ -1031,6 +1032,13 @@ export const executeClaudeCommand = async params => {
       // all 11 attempts succeeded and were retried anyway, burning 3 h 54 min before the process
       // exited 1 with the summary text presented as the error.
       const runProducedSuccess = resultSuccessReceived && !commandFailed && !errorDuringExecution && exitCode === 0;
+      if (!runProducedSuccess && subscriptionError?.kind === 'login_required' && !authenticationRetryUsed) {
+        authenticationRetryUsed = true;
+        if (sessionId) argv.resume = sessionId;
+        await log('🔄 Re-reading shared Claude credentials in a fresh CLI process and retrying the session once.');
+        return await executeWithRetry();
+      }
+      if (!runProducedSuccess && subscriptionError) commandFailed = true;
       if (runProducedSuccess && isTransientError) {
         await log(`🔍 Transient-error pattern seen in a successful run — not retrying (Issue #2169). Pattern: ${retryableLastError.label || 'flagged by stream detector'}; last message: ${JSON.stringify(lastMessage.substring(0, 200))}`, { verbose: true });
         await log(`   Classification evidence: ${describeClassificationEvidence(lastMessage, retryableLastError.label)}`, { verbose: true });

@@ -219,8 +219,8 @@ try {
   await rm(remoteFixture, { recursive: true, force: true });
 }
 
-// Issue #2315: without a repository ignore rule, an untracked binary is still
-// build output - kotlinc's Main.jar ended up in the PR - and is not preserved.
+// Issue #2631: a small binary outside ignored/build directories is evidence.
+// Preserve it on recovery while keeping the PR branch clean (#2315).
 const unignoredFixture = await mkdtemp(path.join(os.tmpdir(), 'hive-mind-2263-unignored-'));
 try {
   await configureRepository(unignoredFixture);
@@ -228,8 +228,9 @@ try {
   await run(unignoredFixture, 'git add README.md && git commit -qm "baseline"');
   await writeFile(path.join(unignoredFixture, 'Main.class'), Buffer.from([0xca, 0xfe, 0xba, 0xbe, 0x00, 0x00, 0x00, 0x41]));
   const preserved = await commitUncommittedChangesOnCriticalError({ tempDir: unignoredFixture, $: command, log: silentLog, reason: 'unignored artifact fixture', push: false });
-  assert.equal(preserved.committed, false, 'nothing but a binary was uncommitted');
-  assert.deepEqual(preserved.skipped, ['Main.class']);
+  assert.equal(preserved.committed, true, 'small binary evidence is preserved');
+  assert.deepEqual(preserved.skipped, []);
+  assert.equal(await run(unignoredFixture, `git ls-tree -r --name-only ${preserved.commit}`), 'Main.class\nREADME.md');
   assert.equal(await run(unignoredFixture, 'git ls-tree -r --name-only HEAD'), 'README.md', 'the PR branch never receives the binary');
 } finally {
   await rm(unignoredFixture, { recursive: true, force: true });

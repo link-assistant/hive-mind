@@ -311,6 +311,8 @@ If you need to connect to other services:
 
 ## Updating
 
+Follow the [production recovery guide](../docs/PRODUCTION-RECOVERY.md) to verify both the host executable and the task image version after redeployment.
+
 To update to the latest version:
 
 1. **In Coolify**:

@@ -23,7 +23,7 @@ test('recovery pushes screenshots and binary fixtures byte for byte without chan
     git('remote', 'add', 'origin', remote);
     git('push', '-q', 'origin', 'issue-2631');
     const head = git('rev-parse', 'HEAD').toString();
-    const files = ['docs/case-studies/screenshot.png', 'tests/data/sample.pdf', 'fixtures/input.bin', 'experiments/evidence.dat', 'assets/icon.png'];
+    const files = ['docs/case-studies/screenshot.png', 'tests/data/sample.pdf', 'fixtures/native.dll', 'fixtures/input.bin', 'experiments/evidence.dat', 'assets/icon.png', 'sample.jar'];
     const binary = Buffer.from([0x89, 0x50, 0, 0x4e, 0x47]);
     for (const file of files) {
       await mkdir(join(work, file, '..'), { recursive: true });

@@ -594,6 +594,35 @@ await asyncTest('Codex command fails when JSON error events are emitted with exi
   );
 });
 
+await asyncTest('Codex 401 returns a terminal failure for work preservation without retrying', async () => {
+  let attempts = 0;
+  const fakeDollar = () => () => ({
+    async *stream() {
+      attempts++;
+      yield { type: 'stdout', data: Buffer.from('{"type":"error","message":"401 Unauthorized"}\n') };
+      yield { type: 'exit', code: 1 };
+    },
+  });
+  const result = await executeCodexCommand({
+    tempDir: process.cwd(),
+    branchName: 'issue-2631-test',
+    prompt: 'test',
+    systemPrompt: '',
+    argv: { model: 'gpt-6.1-sol', verbose: false },
+    log: async () => {},
+    formatAligned: (icon, label, value = '') => `${icon} ${label} ${value}`,
+    getResourceSnapshot: async () => ({ memory: 'Mem:\n  100 MB available', load: '0.00' }),
+    feedbackLines: [],
+    codexPath: 'codex',
+    $: fakeDollar,
+    calculatePricing: async () => null,
+  });
+  assert.equal(attempts, 1);
+  assert.equal(result.success, false);
+  assert.equal(result.errorInfo.hasError, true);
+  assert.match(result.errorInfo.message, /Codex authentication failed - 401 Unauthorized/);
+});
+
 await asyncTest('Codex command succeeds when only non-fatal app-server stream lag item errors are emitted', async () => {
   const jsonl = ['{"type":"thread.started","thread_id":"thread_issue_1696"}', '{"type":"item.completed","item":{"id":"item_115","type":"error","message":"in-process app-server event stream lagged; dropped 133 events"}}', '{"type":"item.completed","item":{"id":"item_116","type":"agent_message","text":"Done. PR is ready for review."}}', '{"type":"turn.completed","usage":{"input_tokens":1200,"cached_input_tokens":200,"output_tokens":50}}'].join('\n');
   const logLines = [];

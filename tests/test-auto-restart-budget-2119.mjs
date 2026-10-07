@@ -136,6 +136,9 @@ assert.ok(
 
 assert.equal(hasAutoRestartLimitFailure(), true, 'the failure is visible to finalizeSolveProcess');
 assert.equal(getAutoRestartLimitFailure().iterationsUsed, 5, 'the recorded failure carries the iteration count');
+const callsAfterExhaustion = dirty$.calls.length;
+assert.equal(await failOnAutoRestartBudgetExhausted({}), failure, 'a second subsystem sees the same terminal outcome');
+assert.equal(dirty$.calls.length, callsAfterExhaustion, 'exhaustion preserves work and posts its summary only once');
 
 resetAutoRestartLimitFailure();
 assert.equal(hasAutoRestartLimitFailure(), false, 'a fresh run starts without a recorded failure');

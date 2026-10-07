@@ -551,7 +551,8 @@ if (isRunningDirectly) {
         const recheckResult = await recheckIssueConditions(issueUrl, argv);
         if (!recheckResult.shouldProcess) {
           await log(`   ⏭️  Skipping issue: ${recheckResult.reason}`);
-          issueQueue.markCompleted(issueUrl);
+          if (recheckResult.deferred) issueQueue.defer(issueUrl);
+          else issueQueue.markCompleted(issueUrl);
           const stats = issueQueue.getStats();
           await log(`   📊 Queue: ${stats.queued} waiting, ${stats.processing} processing, ${stats.completed} completed, ${stats.failed} failed`);
           continue;

@@ -542,7 +542,7 @@ export function buildDockerTaskContainerCompletionAction({ sessionName, sessionI
   }
   const keepPolicy = resolveDockerTaskContainerKeepPolicy({ env, verbose });
   const successful = isSuccessfulTaskCompletion({ exitCode, status });
-  const shouldKeep = keepPolicy === 'always' || (keepPolicy === 'on-failure' && !successful);
+  const shouldKeep = keepPolicy === 'always' || (keepPolicy === 'on-failure' && !successful && !sessionInfo.disposableFailure);
   return {
     applies: true,
     containerName,
@@ -559,7 +559,7 @@ async function applyDockerTaskContainerCompletionAction(action, { verbose = fals
       removeDockerContainer ||
       (async (containerName, removeVerbose) => {
         const runner = await getIsolationRunner();
-        return runner.removeDockerContainer(containerName, removeVerbose);
+        return runner.removeDockerContainer(containerName, removeVerbose, { force: false });
       });
     const result = await removeFn(action.containerName, verbose);
     if (verbose) {
@@ -727,6 +727,13 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
     let dockerTaskContainerAction = null;
     try {
       const finalExitCode = getSessionCompletionExitCode({ exitCode, statusResult });
+      try {
+        const { hasDisposableFailureReceipt } = await import('./failed-task-retention.lib.mjs');
+        const receiptLogPath = statusResult?.logPath || sessionInfo?.logPath;
+        sessionInfo.disposableFailure = receiptLogPath ? hasDisposableFailureReceipt(await readLogMarkerLines(receiptLogPath, /HIVE_TASK_DISPOSABLE_FAILURE/, { readFile: options.readFile, verbose })) : false;
+      } catch {
+        sessionInfo.disposableFailure = false;
+      }
       dockerTaskContainerAction = buildDockerTaskContainerCompletionAction({
         sessionName,
         sessionInfo,
@@ -876,7 +883,11 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
           outcome: completionOutcome,
           expectedTool: sessionInfo?.tool || null,
         });
-        if (blockedSection) subscriptionBlockedExtraSections.push(blockedSection);
+        if (blockedSection) {
+          subscriptionBlockedExtraSections.push(blockedSection);
+          const { markHostAuthenticationBlocked } = await import('./host-tool-preflight.lib.mjs');
+          if (blockedSection.includes('Authentication expired')) await markHostAuthenticationBlocked(sessionInfo.tool, { env: options.env || process.env });
+        }
       } catch (blockedError) {
         if (verbose) {
           console.log(`[VERBOSE] Could not build subscription block section for ${sessionName}: ${blockedError?.message || blockedError}`);

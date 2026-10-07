@@ -60,6 +60,10 @@ export const classifyRetryableError = value => {
   if (subscriptionError) {
     return { message, isRetryable: false, isCapacity: false, isSubscriptionError: true, subscriptionError, label: 'subscription access unavailable' };
   }
+  // Provider refusal wording is terminal; backoff/model-capacity fallback cannot resolve it.
+  if (lower.includes('this content was flagged for possible cybersecurity risk')) {
+    return { message, isRetryable: false, isCapacity: false, isModelRefusal: true, label: 'model refusal', guidance: 'The model refused this task; try `--tool claude` or rephrase the request.' };
+  }
 
   // Issue #2161: the counterpart — Claude Code's own wording marks this
   // authentication failure as temporary ("This may be a temporary network

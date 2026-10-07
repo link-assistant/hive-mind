@@ -928,16 +928,15 @@ try {
     // Issue #942: show all three resume options on failure for richer guidance.   1. Interactive claude  - opens Claude Code interactively (claude only)   2. Autonomous claude   - one-shot claude --resume w/ --dangerously-skip-permissions -p (claude only)   3. Solve resume        - re-enters solve.mjs with --resume, preserving tool/model/dir
     const toolForFailure = argv.tool || 'claude';
     // Issue #1845: surface the core error instead of just "<TOOL> execution failed" (terminal + comment).
-    const toolFailureMessage = formatToolExecutionFailure({ tool: toolForFailure, toolResult });
-    // Issue #2161: an account/subscription block ("Your organization has disabled
-    // Claude subscription access for Claude Code", a revoked OAuth token, an
-    // expired plan) is terminal — the run must stop, say precisely what happened
-    // and preserve the work, instead of ending on a bare "<TOOL> execution failed
-    // with <provider sentence>". Adapters that parse structured provider codes
-    // (claude.lib.mjs) hand the classification over directly; for every other tool
-    // the rendered message is re-classified here, so the whole failure surface is
-    // covered by one chokepoint.
+    let toolFailureMessage = formatToolExecutionFailure({ tool: toolForFailure, toolResult });
+    // Account blocks are terminal; preserve work and publish operator guidance.
     const subscriptionInfo = toolResult?.subscriptionError || detectSubscriptionError({ message: extractToolErrorCore({ toolResult }) || toolFailureMessage, tool: toolForFailure });
+    const { classifyRetryableError } = await import('./tool-retry.lib.mjs');
+    const refusal = classifyRetryableError(extractToolErrorCore({ toolResult }) || toolFailureMessage);
+    if (refusal.isModelRefusal) {
+      toolFailureMessage = refusal.guidance;
+      await log(toolFailureMessage, { level: 'error' });
+    }
     // Issue #2263: record failure before recovery so later safety nets cannot mark the PR ready.
     if (prNumber) {
       const { ensurePullRequestStaysDraftAfterFailure } = await import('./pr-draft-state.lib.mjs');
@@ -962,9 +961,7 @@ try {
       const { criticalErrorRecovery } = await import('./config.lib.mjs');
       if (criticalErrorRecovery.autoCommitUncommittedChanges) {
         const { commitUncommittedChangesOnCriticalError } = await import('./critical-error-commit.lib.mjs');
-        // Issue #2161: when the subscription is gone it is unknown whether/when it
-        // will be restored, so the emergency commit is the only thing standing
-        // between the operator and hours of lost work — name it as such.
+        // Preserve uncommitted work before an account block can discard it.
         preservedWork = await commitUncommittedChangesOnCriticalError({ tempDir, branchName, $, log, reason: subscriptionInfo ? formatSubscriptionErrorSummary(subscriptionInfo, { tool: toolForFailure }) : toolFailureMessage });
       }
     } catch (preserveError) {
@@ -989,6 +986,7 @@ try {
     const logTargetType = hasPR ? 'pr' : hasIssue ? 'issue' : null;
     const logTargetNumber = hasPR ? global.createdPR.number : hasIssue ? global.issueNumber : null;
     const logTargetLabel = hasPR ? 'Pull Request' : `original issue #${logTargetNumber}`;
+    let failureLogsUploaded = false;
     if (shouldAttachLogs && logTargetType && logTargetNumber) {
       await log(`\n📄 Attaching failure logs to ${logTargetLabel}...`);
       try {
@@ -1021,6 +1019,7 @@ try {
           resultModelUsage, // Issue #1454: accurate multi-model display
         });
         if (logUploadSuccess) {
+          failureLogsUploaded = true;
           markFailureNotificationPosted(logTargetType);
           await log(`  📎 Failure logs posted to ${logTargetLabel}`);
         } else {
@@ -1032,6 +1031,9 @@ try {
         await log(`  ⚠️  Error uploading failure logs: ${uploadError.message}`);
       }
     }
+    const { recordDisposableFailure, reportModelRefusal } = await import('./failed-task-retention.lib.mjs');
+    await reportModelRefusal({ refusal, logsUploaded: failureLogsUploaded, $, owner, repo, targetNumber: logTargetNumber, log });
+    await recordDisposableFailure({ reason: subscriptionInfo?.kind === 'login_required' ? 'authentication' : refusal.isModelRefusal ? 'model_refusal' : null, logsUploaded: failureLogsUploaded, preserved: preservedWork, tempDir, branchName, $, log, argv });
     // Issue #2161: the exit message is what /hive and the session monitor see, so
     // it carries the marker rather than the generic tool-failure sentence.
     await safeExit(1, subscriptionInfo ? `${SUBSCRIPTION_BLOCKED_MARKER} — ${formatSubscriptionErrorSummary(subscriptionInfo, { tool: toolForFailure })}` : toolFailureMessage);

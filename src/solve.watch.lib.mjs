@@ -271,6 +271,8 @@ export const watchForFeedback = async params => {
           formatAligned,
           blocker: changes.length > 0 ? `uncommitted changes remained: ${changes.join(', ')}` : 'uncommitted changes remained',
           subsystem: 'auto-restart on uncommitted changes',
+          argv,
+          uploadFailureLog: prNumber && (argv.attachLogs || argv['attach-logs']) ? () => attachLogToGitHub({ logFile: getLogFile(), targetType: 'pr', targetNumber: prNumber, owner, repo, $, log, sanitizeLogContent, argv, tempDir, errorMessage: 'Auto-restart budget exhausted' }) : null,
         });
         break;
       }

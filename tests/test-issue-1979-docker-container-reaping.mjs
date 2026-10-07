@@ -26,7 +26,7 @@ __setIsolationRunnerForTests({
   readSessionExitFromLog: () => ({ finished: false, exitCode: null, endTime: null }),
 });
 
-async function runCompletedDockerSession({ status, exitCode, env = {} }) {
+async function runCompletedDockerSession({ status, exitCode, env = {}, logText = '' }) {
   resetSessionMonitorForTests();
   const sessionName = `1979-${status}-${exitCode ?? 'none'}`;
   const removals = [];
@@ -68,7 +68,9 @@ async function runCompletedDockerSession({ status, exitCode, env = {} }) {
       startTime: '2026-06-24T10:00:00.000Z',
       endTime: '2026-06-24T10:03:00.000Z',
       raw: '',
+      logPath: '/nonexistent/2631-captured.log',
     }),
+    readFile: async () => logText,
     removeDockerContainer: async (containerName, verbose) => {
       removals.push({ containerName, verbose });
       return { success: true, output: containerName, error: null };
@@ -118,6 +120,12 @@ assert(failure.removals.length === 0, 'failed docker task is kept by default');
 assert(failure.edits[0].text.includes('*Docker container kept*'), 'failed docker task completion message says the container was kept');
 assert(failure.edits[0].text.includes(`docker rm -f ${failure.sessionName}`), 'failed docker task message includes cleanup command');
 assert(failure.activeCount === 0, 'failed docker session is still completed in the monitor');
+
+const preservedFailure = await runCompletedDockerSession({ status: 'failed', exitCode: 1, logText: '[2026-10-07T10:00:00Z] [STDOUT] [2026-10-07T10:00:00Z] [RECOVERY] HIVE_TASK_DISPOSABLE_FAILURE model_refusal' });
+assert(preservedFailure.removals.length === 1, 'the real completion monitor recognizes a captured recovery receipt and removes the failed container');
+
+const quotedFailure = await runCompletedDockerSession({ status: 'failed', exitCode: 1, logText: '[2026-10-07T10:00:00Z] [STDOUT] {"quoted":"[2026-10-07T10:00:00Z] [RECOVERY] HIVE_TASK_DISPOSABLE_FAILURE model_refusal"}' });
+assert(quotedFailure.removals.length === 0, 'quoted recovery records do not authorize removal');
 
 const neverKeep = await runCompletedDockerSession({
   status: 'failed',

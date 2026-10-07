@@ -658,7 +658,7 @@ export async function getDiskSpaceInfo(verbose = false) {
  * @param {string} credentialsPath - Optional path to credentials file
  * @returns {Object} Object with success boolean, and either usage data or error message
  */
-export async function getClaudeUsageLimits(verbose = false, credentialsPath = DEFAULT_CREDENTIALS_PATH) {
+export async function getClaudeUsageLimits(verbose = false, credentialsPath = DEFAULT_CREDENTIALS_PATH, { signal } = {}) {
   try {
     // Read credentials
     const credentials = await readCredentials(credentialsPath, verbose);
@@ -702,6 +702,7 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
     const response = await fetch(USAGE_API_ENDPOINT, {
       method: 'GET',
       headers: requestHeaders,
+      signal,
     });
     // Log HTTP response status and headers for debugging (always in verbose mode, not just on error)
     if (verbose) {
@@ -800,7 +801,7 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
  * @param {string|null} baseUrl - Optional backend base URL override
  * @returns {Object} Object with success boolean, and either usage data or error message
  */
-export async function getCodexUsageLimits(verbose = false, authPath = DEFAULT_CODEX_AUTH_PATH, baseUrl = null) {
+export async function getCodexUsageLimits(verbose = false, authPath = DEFAULT_CODEX_AUTH_PATH, baseUrl = null, { signal } = {}) {
   try {
     const auth = await readCodexAuth(authPath, verbose);
     if (!auth) {
@@ -858,6 +859,7 @@ export async function getCodexUsageLimits(verbose = false, authPath = DEFAULT_CO
     const response = await fetch(usageEndpoint, {
       method: 'GET',
       headers: requestHeaders,
+      signal,
     });
     if (verbose) {
       console.log(`[VERBOSE] /limits Codex API HTTP status: ${response.status} ${response.statusText}`);

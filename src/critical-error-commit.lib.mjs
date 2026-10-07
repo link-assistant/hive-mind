@@ -23,8 +23,6 @@ import { reportError } from './sentry.lib.mjs';
 /** Directories that hold build output in the ecosystems Hive Mind works on. */
 export const BUILD_OUTPUT_DIR_PATTERN = /(^|\/)(target|build|out|bin|obj|dist|node_modules|__pycache__|\.gradle|\.venv|venv|\.next|coverage)\//;
 export const MAX_RECOVERY_BINARY_BYTES = 5 * 1024 * 1024;
-const EVIDENCE_DIR_PATTERN = /^(docs|tests|fixtures|experiments)\//;
-const COMPILED_FILE_PATTERN = /\.(jar|class|o|obj|so|dll|exe|pyc)$/i;
 
 /** The branch that receives the preserved work of `branchName`. */
 export const recoveryBranchFor = branchName => `recovery/${branchName || 'detached-head'}`;
@@ -56,7 +54,7 @@ export const classifyUntrackedFiles = async (tempDir, paths) => {
   for (const path of paths) {
     let reason = null;
     try {
-      if (BUILD_OUTPUT_DIR_PATTERN.test(path) || (!EVIDENCE_DIR_PATTERN.test(path) && COMPILED_FILE_PATTERN.test(path))) reason = 'build output';
+      if (BUILD_OUTPUT_DIR_PATTERN.test(path)) reason = 'build output';
       else {
         const file = join(tempDir, path);
         const stat = await lstat(file);
@@ -138,7 +136,9 @@ export const commitUncommittedChangesOnCriticalError = async ({ tempDir, branchN
         return { committed: false, pushed: false, ...classification, error: true };
       }
     }
-    const tree = (await git`GIT_INDEX_FILE=${indexFile} git write-tree`).stdout?.toString().trim();
+    const treeResult = await git`GIT_INDEX_FILE=${indexFile} git write-tree`;
+    const tree = treeResult.stdout?.toString().trim();
+    if (treeResult.code !== 0 || !tree) throw new Error('Could not write the recovery tree');
     const headTree = (await git`git rev-parse HEAD^{tree}`).stdout?.toString().trim();
     if (!tree || tree === headTree) {
       await log('   ℹ️ No changes eligible for recovery; see the skipped-file reasons above.');

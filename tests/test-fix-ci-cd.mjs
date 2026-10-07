@@ -7,11 +7,12 @@
  */
 
 import assert from 'assert/strict';
-import { buildCiCdIssueBody, buildCiCdIssueTitle, buildRunsSection, buildSolveArgs, buildStandardPrompt, buildStandardPromptParagraphs, buildTemplatesSection, CI_CD_ISSUE_LABELS, CI_CD_ISSUE_TITLE, CI_CD_ISSUE_TYPE, CI_CD_TEMPLATES, countDuplicateRuns, DEBUG_OUTPUT_PARAGRAPH, dedupeRunsByWorkflow, FIX_SOLVE_OPTIONS, mapLanguagesToTemplates, normalizeLanguages, parseFixRepository, partitionFixArgs, REPORT_UPSTREAM_PARAGRAPH, summarizeRunFailures, templateUrl } from '../src/fix.ci-cd.lib.mjs';
+import { buildCiCdIssueBody, buildCiCdIssueTitle, buildRunsSection, buildSolveArgs, buildStandardPrompt, buildStandardPromptParagraphs, buildTemplatesSection, CI_CD_ISSUE_LABELS, CI_CD_ISSUE_TITLE, CI_CD_ISSUE_TYPE, CI_CD_TEMPLATE_OWNER, CI_CD_TEMPLATE_REPO_SUFFIX, CI_CD_TEMPLATES, countDuplicateRuns, DEBUG_OUTPUT_PARAGRAPH, dedupeRunsByWorkflow, diffCiCdTemplates, FIX_SOLVE_OPTIONS, mapLanguagesToTemplates, normalizeLanguages, parseFixRepository, partitionFixArgs, REPORT_UPSTREAM_PARAGRAPH, summarizeRunFailures, templateUrl } from '../src/fix.ci-cd.lib.mjs';
 import { createCiCdIssue, prepareCiCdIssue } from '../src/fix.ci-cd-issue.lib.mjs';
 import { KEEP_WORKING_PROMPT } from '../src/solve.keep-working.detect.lib.mjs';
 import { buildCreateIssueArgs, createTaskIssue } from '../src/task.issue-creation.lib.mjs';
 import { isBugIssueType } from '../src/development-log.lib.mjs';
+import { readFile } from 'node:fs/promises';
 
 let passed = 0;
 let failed = 0;
@@ -33,6 +34,61 @@ await test('CI_CD_TEMPLATES includes the PHP template (issue #1733)', () => {
   assert.ok(php, 'PHP template must be present');
   assert.equal(php.repo, 'link-foundation/php-ai-driven-development-pipeline-template');
   assert.equal(templateUrl(php.repo), 'https://github.com/link-foundation/php-ai-driven-development-pipeline-template');
+});
+
+await test('CI_CD_TEMPLATES includes the C/C++ template (issue #2573)', () => {
+  const cpp = CI_CD_TEMPLATES.find(t => t.key === 'cpp');
+  assert.ok(cpp, 'C/C++ template must be present');
+  assert.equal(cpp.repo, 'link-foundation/cpp-ai-driven-development-pipeline-template');
+  assert.deepEqual(cpp.languages, ['C++', 'C', 'CMake']);
+});
+
+await test('mapLanguagesToTemplates recommends the C/C++ template for linksplatform/Interfaces (issue #2573)', () => {
+  // Linguist languages of linksplatform/Interfaces when #150 was created.
+  const languages = { 'C++': 80749, 'C#': 15034, JavaScript: 6203, C: 1553, CMake: 1391, Shell: 914, Python: 516 };
+  const { sortedTemplates, unmatchedLanguages } = mapLanguagesToTemplates(languages);
+  assert.deepEqual(
+    sortedTemplates.map(e => e.template.key),
+    ['cpp', 'csharp', 'javascript', 'python']
+  );
+  assert.equal(sortedTemplates[0].bytes, 80749 + 1553 + 1391);
+  assert.deepEqual(sortedTemplates[0].languages, ['C++', 'C', 'CMake']);
+  assert.deepEqual(unmatchedLanguages, ['Shell']);
+  assert.match(buildTemplatesSection(languages), /1\. \*\*C \/ C\+\+\*\* — \[link-foundation\/cpp-ai-driven-development-pipeline-template\]/);
+});
+
+await test('mapLanguagesToTemplates maps a C-only repository to the C/C++ template (issue #2573)', () => {
+  const { sortedTemplates, unmatchedLanguages } = mapLanguagesToTemplates({ C: 5000, Makefile: 300 });
+  assert.deepEqual(
+    sortedTemplates.map(e => e.template.key),
+    ['cpp']
+  );
+  assert.deepEqual(unmatchedLanguages, ['Makefile']);
+});
+
+await test('diffCiCdTemplates reports unlisted and stale template repositories (issue #2573)', () => {
+  const listed = CI_CD_TEMPLATES.map(t => t.repo.split('/')[1]);
+  assert.deepEqual(diffCiCdTemplates([...listed, 'hive-mind', '.github']), { unlisted: [], stale: [] });
+
+  // The state that hid the C/C++ template: a new template repository appears.
+  const withNew = diffCiCdTemplates([...listed, { name: `kotlin${CI_CD_TEMPLATE_REPO_SUFFIX}` }, { name: `old${CI_CD_TEMPLATE_REPO_SUFFIX}`, archived: true }]);
+  assert.deepEqual(withNew, { unlisted: [`${CI_CD_TEMPLATE_OWNER}/kotlin${CI_CD_TEMPLATE_REPO_SUFFIX}`], stale: [] });
+
+  // A listed template that was renamed, deleted or archived no longer resolves.
+  const withoutPhp = diffCiCdTemplates(listed.filter(name => !name.startsWith('php-')));
+  assert.deepEqual(withoutPhp, { unlisted: [], stale: ['link-foundation/php-ai-driven-development-pipeline-template'] });
+});
+
+await test('every CI-CD-BEST-PRACTICES translation lists every template in both tables (issue #2573)', async () => {
+  for (const suffix of ['', '.ru', '.zh', '.hi']) {
+    const file = `docs/CI-CD-BEST-PRACTICES${suffix}.md`;
+    const doc = await readFile(new URL(`../${file}`, import.meta.url), 'utf8');
+    for (const { repo } of CI_CD_TEMPLATES) {
+      const name = repo.split('/')[1];
+      assert.ok(doc.includes(`| [${name}](${templateUrl(repo)})`), `${file}: "Recommended CI/CD Templates" must link ${repo}`);
+      assert.ok(doc.includes(`| \`${repo}\``), `${file}: "Language → Template Mapping" must list ${repo}`);
+    }
+  }
 });
 
 await test('parseFixRepository accepts repo URLs and shorthand, rejects issues', () => {

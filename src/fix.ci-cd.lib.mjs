@@ -34,7 +34,8 @@ export { buildSolveArgs, FIX_MODE_CI_CD, FIX_MODE_UPDATE_ALL_DEPENDENCIES, FIX_M
  * link-foundation AI-driven-development pipeline templates.
  *
  * Order in this array is the stable tie-breaker when two languages contribute
- * an equal number of bytes. The PHP template was added per issue #1733.
+ * an equal number of bytes. The PHP template was added per issue #1733, the
+ * C/C++ template (which builds with CMake) per issue #2573.
  */
 export const CI_CD_TEMPLATES = Object.freeze([
   {
@@ -74,12 +75,47 @@ export const CI_CD_TEMPLATES = Object.freeze([
     repo: 'link-foundation/java-ai-driven-development-pipeline-template',
   },
   {
+    key: 'cpp',
+    label: 'C / C++',
+    languages: ['C++', 'C', 'CMake'],
+    repo: 'link-foundation/cpp-ai-driven-development-pipeline-template',
+  },
+  {
     key: 'php',
     label: 'PHP',
     languages: ['PHP'],
     repo: 'link-foundation/php-ai-driven-development-pipeline-template',
   },
 ]);
+
+/**
+ * Every repository of this owner whose name ends with this suffix is a
+ * pipeline template that `CI_CD_TEMPLATES` must list (issue #2573).
+ */
+export const CI_CD_TEMPLATE_OWNER = 'link-foundation';
+export const CI_CD_TEMPLATE_REPO_SUFFIX = '-ai-driven-development-pipeline-template';
+
+/**
+ * Compare `CI_CD_TEMPLATES` with the repositories of `CI_CD_TEMPLATE_OWNER`
+ * (names, or objects from `GET /orgs/{org}/repos`; archived ones are ignored).
+ *
+ * Returns:
+ *   - unlisted: template repositories that `CI_CD_TEMPLATES` does not list yet
+ *   - stale: `CI_CD_TEMPLATES` entries with no matching active repository
+ */
+export function diffCiCdTemplates(repositories) {
+  const existing = new Set();
+  for (const repository of repositories || []) {
+    if (repository?.archived) continue;
+    const name = String(typeof repository === 'string' ? repository : repository?.name || '').toLowerCase();
+    if (name.endsWith(CI_CD_TEMPLATE_REPO_SUFFIX)) existing.add(`${CI_CD_TEMPLATE_OWNER}/${name}`);
+  }
+  const listed = new Set(CI_CD_TEMPLATES.map(template => template.repo.toLowerCase()));
+  return {
+    unlisted: [...existing].filter(repo => !listed.has(repo)).sort(),
+    stale: [...listed].filter(repo => !existing.has(repo)).sort(),
+  };
+}
 
 export const CI_CD_BEST_PRACTICES_URL = 'https://github.com/link-assistant/hive-mind/blob/main/docs/CI-CD-BEST-PRACTICES.md';
 

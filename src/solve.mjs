@@ -49,7 +49,7 @@ const { runEnsureAllSubIssuesAddressed } = await import('./solve.ensure-sub-issu
 const { finalizeSolveProcess } = await import('./solve.finalize.lib.mjs');
 const exitHandler = await import('./exit-handler.lib.mjs');
 const { initializeExitHandler, installGlobalExitHandlers, safeExit: baseSafeExit, logActiveHandles } = exitHandler;
-const { RESOURCE_PHASE_AFTER_AGENT, RESOURCE_PHASE_AFTER_CLONE, RESOURCE_PHASE_SOLVE_EXIT, RESOURCE_PHASE_SOLVE_START, recordResourceSnapshot } = await import('./solve.resource-diagnostics.lib.mjs');
+const { RESOURCE_PHASE_AFTER_AGENT, RESOURCE_PHASE_AFTER_CLONE, RESOURCE_PHASE_SOLVE_START, recordResourceSnapshot, createResourceSafeExit } = await import('./solve.resource-diagnostics.lib.mjs');
 const { createInterruptWrapper } = await import('./solve.interrupt.lib.mjs');
 // Issue #1823: working-session guard for --do-not-shutdown-in-the-middle-of-working-session.
 const { configureWorkingSession, beginWorkingSession, endWorkingSession } = await import('./working-session.lib.mjs');
@@ -75,14 +75,9 @@ await initializeLogFile(null);
 await (await import('./solve.log-dir.lib.mjs')).moveLogFileToLogDir(resolveStartupLogDirectory(earlyArgs), { getLogFile, setLogFile, log });
 const versionInfo = await getVersionInfo();
 const rawCommand = await logSolveStartup(versionInfo);
-let finalResourceSnapshotRecorded = false;
-const safeExit = async (code = 0, reason = 'Process completed', options = {}) => {
-  if (!finalResourceSnapshotRecorded) {
-    finalResourceSnapshotRecorded = true;
-    await recordResourceSnapshot({ phase: RESOURCE_PHASE_SOLVE_EXIT, log, diskPath: '/', label: `solve exit ${code}` });
-  }
-  return await baseSafeExit(code, reason, options);
-};
+const { startWorkspaceReclaim } = await import('./disk-reclaim.lib.mjs');
+let stopWorkspaceReclaim = async () => {};
+const safeExit = createResourceSafeExit({ exit: baseSafeExit, log, beforeExit: () => stopWorkspaceReclaim() });
 let argv;
 try {
   argv = await parseArguments(yargs, hideBin);
@@ -127,6 +122,7 @@ if (argv.sentry) {
 // Create cleanup/interrupt wrappers populated with context as solve progresses
 let cleanupContext = { tempDir: null, argv: null, limitReached: false, branchName: null, prNumber: null, owner: null, repo: null };
 const cleanupWrapper = async () => {
+  await stopWorkspaceReclaim();
   if (cleanupContext.tempDir && cleanupContext.argv) {
     await cleanupTempDirectory(cleanupContext.tempDir, cleanupContext.argv, cleanupContext.limitReached);
   }
@@ -583,6 +579,7 @@ try {
   let toolResult;
   // Issue #1823: Mark the start of the AI working session. While this is active and the --do-not-shutdown-in-the-middle-of-working-session flag is set, an interrupt (CTRL+C/SIGTERM) is deferred until the AI tool finishes its turn (see exit-handler.lib.mjs + working-session.lib.mjs).
   beginWorkingSession();
+  if (!prepareOnly) stopWorkspaceReclaim = startWorkspaceReclaim({ workspace: tempDir, log });
   // If --use-agent-commander is enabled, use agent-commander for all tools
   if (argv.useAgentCommander) {
     // Ensure agent-commander is available
@@ -681,6 +678,7 @@ try {
     });
     toolResult = claudeResult;
   }
+  await stopWorkspaceReclaim({ final: true });
   toolResult = await classifySessionResult({ toolResult, argv, owner, repo, prNumber, $, log, tempDir });
   // Issue #2190: the router auth guard killed the CLI (the task used a credential other than its router token).
   // Not a tool failure to retry — a security stop, with its own exit code so the supervisor can tell it apart.
@@ -1311,6 +1309,7 @@ try {
   await finalizeDevelopmentLog(); // Issue #1596/#2048: idempotent no-op on the success path (already committed before readiness signal); still preserves late/error work.
   await endWorkSession({ isContinueMode, prNumber, argv, log, formatAligned, $, logsAttached });
 } catch (error) {
+  await stopWorkspaceReclaim();
   await finalizeDevelopmentLog(); // Preserve failed/interrupted sessions too.
   // Issue #2182: a failed session is still a finished session. Restore every pull request
   // this process put into draft, otherwise the failure leaves it permanently unmergeable.

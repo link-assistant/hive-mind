@@ -169,18 +169,18 @@ const guardOptions = {
   procRoot: path.join(root, 'no-proc'),
   collectReclaimable,
 };
-const denied = await ensureDiskSpaceForWorker({ ...guardOptions, getFreeMB: async () => 100 });
+const denied = await ensureDiskSpaceForWorker({ reclaimDiskSpace: async () => null, ...guardOptions, getFreeMB: async () => 100 });
 check(denied.ok === false, 'the gate still defers the task when the disk is full');
 check(denied.reclaimable === summary, 'the deferral carries the reclaimable-space summary');
 check(collectCalls === 1, 'the summary is collected once, on the failure path only');
 
-const allowed = await ensureDiskSpaceForWorker({ ...guardOptions, getFreeMB: async () => 999_999 });
+const allowed = await ensureDiskSpaceForWorker({ reclaimDiskSpace: async () => null, ...guardOptions, getFreeMB: async () => 999_999 });
 check(allowed.ok === true && collectCalls === 1, 'a healthy disk never pays for the summary');
 
 const brokenCollect = async () => {
   throw new Error('df exploded');
 };
-const stillDenied = await ensureDiskSpaceForWorker({ ...guardOptions, getFreeMB: async () => 100, collectReclaimable: brokenCollect });
+const stillDenied = await ensureDiskSpaceForWorker({ reclaimDiskSpace: async () => null, ...guardOptions, getFreeMB: async () => 100, collectReclaimable: brokenCollect });
 check(stillDenied.ok === false && stillDenied.reclaimable === null, 'a failing collector never breaks the gate');
 
 // --- the gate reclaims superseded images before deferring -------------------
@@ -196,6 +196,7 @@ const guardDocker = async (file, args) => {
   throw new Error(`unexpected docker command: ${command}`);
 };
 const recovered = await ensureDiskSpaceForWorker({
+  reclaimDiskSpace: async () => null,
   ...guardOptions,
   // Full until the superseded image is gone, then enough to start the task.
   getFreeMB: async () => (dockerCalls.some(call => call.startsWith('docker image rm')) ? 999_999 : 100),
@@ -208,7 +209,7 @@ check(dockerCalls.includes('docker image rm konard/hive-mind:v2.16.0'), 'the sup
 check(!dockerCalls.some(call => call.includes('konard/hive-mind:latest')), 'the image the next task needs is never removed');
 
 dockerCalls.length = 0;
-const withoutDocker = await ensureDiskSpaceForWorker({ ...guardOptions, getFreeMB: async () => 100, exec: guardDocker });
+const withoutDocker = await ensureDiskSpaceForWorker({ reclaimDiskSpace: async () => null, ...guardOptions, getFreeMB: async () => 100, exec: guardDocker });
 check(withoutDocker.ok === false && dockerCalls.length === 0, 'the docker daemon is left alone unless the run opted into cleanup');
 
 // --- and the startup check prints it before exiting -------------------------

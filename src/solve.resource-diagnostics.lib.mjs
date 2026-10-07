@@ -576,6 +576,19 @@ export function formatResourceSnapshotForLog(snapshot, label = null) {
   return lines.join('\n');
 }
 
+/** Drain maintenance before exit; record the final resource snapshot once. */
+export function createResourceSafeExit({ exit, log, beforeExit, record = recordResourceSnapshot }) {
+  let recorded = false;
+  return async (code = 0, reason = 'Process completed', options = {}) => {
+    await beforeExit();
+    if (!recorded) {
+      recorded = true;
+      await record({ phase: RESOURCE_PHASE_SOLVE_EXIT, log, diskPath: '/', label: `solve exit ${code}` });
+    }
+    return exit(code, reason, options);
+  };
+}
+
 export async function recordResourceSnapshot({ phase, log, diskPath = '/', label = null, capture = captureResourceSnapshot, logExecutionContext = false, detectContext = detectExecutionContext, measureAgentState = measureAgentSnapshotUsage } = {}) {
   if (typeof log !== 'function') return null;
   try {

@@ -190,7 +190,7 @@ console.log('\nensureDiskSpaceForWorker():\n');
 await test('the reported scenario: 10047MB free is recovered by reclaiming a finished workspace', async () => {
   // Verbatim numbers from the run log: the guard runs before solve would have refused to start.
   const disk = createFakeDisk({ freeMB: 10047, workspaces: { 'gh-issue-solver-finished': { mtimeMs: NOW - 2 * HOUR, sizeMB: 12000 } } });
-  const result = await ensureDiskSpaceForWorker({ requiredMB: 10240, tmpRoot: '/tmp', now: () => NOW, getFreeMB: disk.getFreeMB, remove: disk.remove, fileSystem: disk.fileSystem });
+  const result = await ensureDiskSpaceForWorker({ reclaimDiskSpace: async () => null, requiredMB: 10240, tmpRoot: '/tmp', now: () => NOW, getFreeMB: disk.getFreeMB, remove: disk.remove, fileSystem: disk.fileSystem });
   assert(result.ok, `expected the task to proceed, got ${JSON.stringify(result)}`);
   assert(result.reason === 'reclaimed', `expected reclamation, got ${result.reason}`);
   assert(result.reclaimed.join(',') === '/tmp/gh-issue-solver-finished', `expected the finished workspace to be reclaimed, got ${result.reclaimed.join(',')}`);
@@ -201,6 +201,7 @@ await test('waits for in-flight work to release space instead of deferring immed
   let clock = NOW;
   const sleeps = [];
   const result = await ensureDiskSpaceForWorker({
+    reclaimDiskSpace: async () => null,
     requiredMB: 10240,
     tmpRoot: '/tmp',
     maxWaitMs: 10 * 60 * 1000,
@@ -223,16 +224,7 @@ await test('waits for in-flight work to release space instead of deferring immed
 
 await test('defers when space cannot be recovered within the wait budget', async () => {
   const disk = createFakeDisk({ freeMB: 10047, workspaces: { 'gh-issue-solver-inflight': { mtimeMs: NOW - 3 * HOUR, sizeMB: 12000 } } });
-  const result = await ensureDiskSpaceForWorker({
-    requiredMB: 10240,
-    tmpRoot: '/tmp',
-    protectedPaths: new Set(['/tmp/gh-issue-solver-inflight']),
-    maxWaitMs: 0,
-    now: () => NOW,
-    getFreeMB: disk.getFreeMB,
-    remove: disk.remove,
-    fileSystem: disk.fileSystem,
-  });
+  const result = await ensureDiskSpaceForWorker({ reclaimDiskSpace: async () => null, requiredMB: 10240, tmpRoot: '/tmp', protectedPaths: new Set(['/tmp/gh-issue-solver-inflight']), maxWaitMs: 0, now: () => NOW, getFreeMB: disk.getFreeMB, remove: disk.remove, fileSystem: disk.fileSystem });
   assert(!result.ok, 'the guard must refuse to start work it knows will fail');
   assert(result.reason === 'insufficient_disk_space', `unexpected reason: ${result.reason}`);
   assert(result.freeMB === 10047, `the free space must be reported, got ${result.freeMB}`);
@@ -240,7 +232,7 @@ await test('defers when space cannot be recovered within the wait budget', async
 });
 
 await test('an unreadable df never blocks work', async () => {
-  const result = await ensureDiskSpaceForWorker({ requiredMB: 10240, getFreeMB: async () => null });
+  const result = await ensureDiskSpaceForWorker({ reclaimDiskSpace: async () => null, requiredMB: 10240, getFreeMB: async () => null });
   assert(result.ok && result.reason === 'unknown_free_space', `expected work to proceed, got ${JSON.stringify(result)}`);
 });
 
@@ -308,7 +300,7 @@ await test('solve exits 75 with an environment reason and without touching the i
     let exitCode = 0;
     let stdout = '';
     try {
-      const result = await execFileAsync(process.execPath, [join(__dirname, '..', 'src', 'solve.mjs'), 'https://github.com/link-assistant/hive-mind/issues/2160', '--min-disk-space', '999999999', '--dry-run', '--no-tool-check'], { cwd: workingDirectory, timeout: 180000 });
+      const result = await execFileAsync(process.execPath, [join(__dirname, '..', 'src', 'solve.mjs'), 'https://github.com/link-assistant/hive-mind/issues/2160', '--min-disk-space', '999999999', '--dry-run', '--no-tool-check'], { cwd: workingDirectory, timeout: 180000, env: { ...process.env, HIVE_MIND_AUTO_RECLAIM: 'off' } });
       stdout = result.stdout;
     } catch (error) {
       exitCode = error.code;

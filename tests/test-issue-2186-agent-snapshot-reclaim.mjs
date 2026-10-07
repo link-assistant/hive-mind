@@ -180,6 +180,7 @@ await test('ensureDiskSpaceForWorker reclaims orphaned agent stores when disk is
   try {
     let freeMB = 1000;
     const result = await ensureDiskSpaceForWorker({
+      reclaimDiskSpace: async () => null,
       requiredMB: 5000,
       tmpRoot,
       agentDataHome: dataHome,
@@ -204,7 +205,7 @@ await test('the disk guard can be pointed away from agent state entirely', async
   const tmpRoot = path.join(root, 'tmp');
   fs.mkdirSync(tmpRoot, { recursive: true });
   try {
-    const result = await ensureDiskSpaceForWorker({ requiredMB: 100, tmpRoot, agentDataHome: null, getFreeMB: async () => 9000 });
+    const result = await ensureDiskSpaceForWorker({ reclaimDiskSpace: async () => null, requiredMB: 100, tmpRoot, agentDataHome: null, getFreeMB: async () => 9000 });
     check(result.ok === true && result.reason === 'sufficient', 'agentDataHome: null keeps the previous behaviour when there is enough space');
   } finally {
     removeTree(root);

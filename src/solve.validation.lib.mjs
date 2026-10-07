@@ -234,7 +234,7 @@ export const performSystemChecks = async (minDiskSpace = 10240, skipToolConnecti
   // Issue #2160: record *which* check failed on argv. A full disk says nothing about the issue
   // being solved, so the caller exits with a retry-later code and skips the "Solution Draft
   // Failed" comment instead of blaming the task (hive counted 4 such exits as task failures).
-  const diskSpace = await memoryCheck.checkDiskSpace(minDiskSpace, { log });
+  const diskSpace = await memoryCheck.checkDiskSpace(minDiskSpace, { log, reclaimDiskSpace: argv.dryRun || argv.onlyPrepareCommand ? async () => null : undefined });
   if (!diskSpace.success) {
     argv.systemCheckFailure = { check: 'disk-space', availableMB: diskSpace.availableMB, requiredMB: minDiskSpace };
     return false;

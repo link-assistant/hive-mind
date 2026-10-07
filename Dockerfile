@@ -172,6 +172,7 @@ RUN set -e && \
     nvm alias default "${HIVE_MIND_NODE_VERSION}" && \
     nvm use default && \
     if [ -n "$GLOBAL_SPECS" ]; then npm install -g $GLOBAL_SPECS --no-fund --force; fi && \
+    npm cache clean --force && \
     for version_dir in "$NVM_DIR"/versions/node/*; do \
       [ -d "$version_dir" ] || continue; \
       if [ "$(basename "$version_dir")" = "v${HIVE_MIND_NODE_VERSION}" ]; then continue; fi; \
@@ -232,7 +233,8 @@ RUN bun install -g @openai/codex && \
     bun install -g @qwen-code/qwen-code && \
     bun install -g @google/gemini-cli && \
     bun install -g @github/copilot && \
-    bun install -g opencode-ai
+    bun install -g opencode-ai && \
+    bun pm cache rm
 
 # Install hive-mind workflow utilities
 # Release builds pass HIVE_MIND_VERSION after npm publish, so Docker installs
@@ -319,7 +321,8 @@ RUN echo "Installing @link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
     bun install -g gh-pull-all && \
     bun install -g gh-load-issue && \
     bun install -g gh-load-pull-request && \
-    bun install -g gh-upload-log@latest
+    bun install -g gh-upload-log@latest && \
+    bun pm cache rm
 
 # --- Playwright MCP Setup ---
 # Box 2.1.1 pre-installs Playwright browsers and @playwright/test.
@@ -327,7 +330,8 @@ RUN echo "Installing @link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
 # --force handles the shared 'playwright' binary conflict between packages.
 # Issue #2190: @playwright/cli ships the optional `playwright-cli` Agent Skill
 # deployed per task by --playwright-skill (default stays Playwright MCP only).
-RUN npm install -g @playwright/mcp@latest @playwright/cli@latest --no-fund --force
+RUN npm install -g @playwright/mcp@latest @playwright/cli@latest --no-fund --force && \
+    npm cache clean --force
 
 # Verify the Playwright CLI fallback, the locally installed MCP package, and
 # the skill --playwright-skill copies into a task. The skill is checked by path:

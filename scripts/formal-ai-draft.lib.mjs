@@ -83,7 +83,7 @@ export const DRAFT_GIT_IDENTITY = Object.freeze({
  * "it stays open and red until a later run succeeds": the later run is the next
  * scheduled attempt, not this one looping.
  */
-export const DRAFT_SOLVE_FLAGS = Object.freeze(['--tool', 'agent', '--model', 'formal-ai', '--attach-logs', '--verbose', '--attribution', 'formal-ai', '--no-auto-restart-until-mergeable']);
+export const DRAFT_SOLVE_FLAGS = Object.freeze(['--tool', 'agent', '--model', 'formal-ai', '--attach-logs', '--development-log', '--verbose', '--attribution', 'formal-ai', '--no-auto-restart-until-mergeable']);
 
 /**
  * Flags that must never appear in a draft run.
@@ -289,12 +289,18 @@ export function createDraftLabelArgs({ repository, label = FORMAL_AI_DRAFT_LABEL
  * @param {{gh: (args: string[]) => Promise<string>, repository: string, number: number|string}} params
  */
 export async function labelDraftPullRequest({ gh, repository, number }) {
+  const args = labelPullRequestArgs({ repository, number });
   try {
-    await gh(labelPullRequestArgs({ repository, number }));
+    await gh(args);
   } catch (error) {
-    if (!/'[^']+' not found/.test(String(error?.message))) throw error;
-    await gh(createDraftLabelArgs({ repository }));
-    await gh(labelPullRequestArgs({ repository, number }));
+    if (!/label.*not found|not found.*label|formal-ai-draft.*not found/i.test(`${error.message}\n${error.stderr || ''}`)) throw error;
+    try {
+      await gh(createDraftLabelArgs({ repository }));
+    } catch (creationError) {
+      // Another issue's simultaneous run may have created it first.
+      if (!/already[ _]exists/i.test(`${creationError.message}\n${creationError.stderr || ''}`)) throw creationError;
+    }
+    await gh(args);
   }
 }
 

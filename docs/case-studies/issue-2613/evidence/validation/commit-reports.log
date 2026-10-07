@@ -1,0 +1,21 @@
+⋯ Backing up original state…
+✔ Done backing up original state (02c7e2c7)!
+⋯ Running tasks for staged files…
+    *.{js,mjs,json,md} — 5 files
+      ⋯ prettier --write
+
+✔ prettier --write
+
+✔ Done running tasks for staged files!
+⋯ Staging changes from tasks…
+✔ Done staging changes from tasks!
+⋯ Cleaning up temporary files…
+✔ Done cleaning up temporary files!
+[issue-2613-2efa14ce78a7 24dd0785] docs: link upstream reports and record implementation review
+ 8 files changed, 1901 insertions(+), 11 deletions(-)
+ create mode 100644 docs/case-studies/issue-2613/evidence/implementation-review.diff
+ create mode 100644 docs/case-studies/issue-2613/evidence/upstream-formal-ai-1189-comments.json
+ create mode 100644 docs/case-studies/issue-2613/evidence/upstream-upload-log-47.json
+ create mode 100644 experiments/issue-2613/formal-report-comment-url.txt
+ create mode 100644 experiments/issue-2613/pr-description.md
+ create mode 100644 experiments/issue-2613/upload-log-report-url.txt

@@ -173,11 +173,12 @@ const { formatUsageMessage, formatCodexLimitsSection, getAllCachedLimits } = lim
 const { handleShowLimitsFlag, captureStartSnapshotAndAppend } = await import('./telegram-show-limits.lib.mjs'); // #594
 const { getVersionInfo, formatVersionMessage } = await import('./version-info.lib.mjs');
 const { escapeMarkdown, escapeMarkdownV2, cleanNonPrintableChars, makeSpecialCharsVisible } = await import('./telegram-markdown.lib.mjs');
-const { formatUrlRepairs, hasNotableRepair, namesGitHubHost, revealHiddenCharacters } = await import('./github-url-recovery.lib.mjs'); // #2194
+const { revealHiddenCharacters } = await import('./github-url-recovery.lib.mjs'); // #2194
 
 const { getSolveQueue, createQueueExecuteCallback } = await import('./telegram-solve-queue.lib.mjs');
 const { applySolveToolAlias, getFirstParsedPositionalArg, getSolveCommandNameFromText, getSolveToolAliasFromText, moveArgumentToFront, parseArgsWithYargs, parseCommandArgs, SOLVE_COMMAND_NAMES } = await import('./telegram-solve-command.lib.mjs');
 const { replyIfRepositoryHasNoWork } = await import('./telegram-solve-repository-preflight.lib.mjs');
+const { validateTelegramGitHubUrl } = await import('./telegram-url-validation.lib.mjs');
 const { executeStartScreen: executeStartScreenCommand, buildExecuteAndUpdateMessage } = await import('./telegram-command-execution.lib.mjs');
 const { isChatStopped, getChatStopInfo, getStoppedChatRejectMessage, DEFAULT_STOP_REASON } = await import('./telegram-start-stop-command.lib.mjs');
 const { isOldMessage: _isOldMessage, isGroupChat: _isGroupChat, isChatAuthorized: _isChatAuthorized, isForwarded: _isForwarded, isForwardedOrReply: _isForwardedOrReply, extractCommandFromText, extractGitHubUrl: _extractGitHubUrl } = await import('./telegram-message-filters.lib.mjs');
@@ -274,31 +275,7 @@ async function getCommandUrlArg(args, createYargsConfig, positionalNames) {
 async function validateGitHubUrl(args, options = {}) {
   const { allowedTypes = ['issue', 'pull'], commandName = 'solve', createYargsConfig = null, positionalNames = [], locale = null } = options;
   const rawUrl = await getCommandUrlArg(args, createYargsConfig, positionalNames);
-  if (!rawUrl) return { valid: false, error: t('telegram.missing_github_url', { commandName }, { locale }) };
-  // Issue #1102: Clean non-printable chars (Zero-Width Space, BOM, etc.) from URLs
-  const url = cleanNonPrintableChars(rawUrl);
-  // Issue #2194: the host may be typed in any case (GITHUB.COM) or hidden behind
-  // look-alike punctuation, and "github.com" in the path of another host is not a
-  // GitHub URL at all — so the recovery layer's host check makes the call, not a
-  // substring test that both misses the first case and accepts the second.
-  if (!namesGitHubHost(url)) return { valid: false, error: t('telegram.first_arg_must_be_github_url', {}, { locale }) };
-  const parsed = parseGitHubUrl(url);
-  if (!parsed.valid) return { valid: false, error: parsed.error || 'Invalid GitHub URL', suggestion: parsed.suggestion };
-  // Issue #2194: tell the user which URL we actually understood when we had to repair theirs.
-  const recoveryNotice = hasNotableRepair(parsed.repairs) ? t('telegram.url_recovered', { original: escapeMarkdown(makeSpecialCharsVisible(rawUrl)), used: escapeMarkdown(parsed.canonical), repairs: escapeMarkdown(formatUrlRepairs(parsed.repairs, { notableOnly: true })) }, { locale }) : null;
-  if (!allowedTypes.includes(parsed.type)) {
-    const allowedTypesStr = allowedTypes.map(t => (t === 'pull' ? 'pull request' : t)).join(', ');
-    const baseUrl = `https://github.com/${parsed.owner}/${parsed.repo}`;
-    const escapedUrl = escapeMarkdown(url),
-      escapedBaseUrl = escapeMarkdown(baseUrl); // Issue #1102: escape for Markdown
-    let error;
-    if (parsed.type === 'issues_list') error = t('telegram.url_issues_list_error', { url: escapedBaseUrl, example: `${escapedBaseUrl}/issues/1` }, { locale });
-    else if (parsed.type === 'pulls_list') error = t('telegram.url_pulls_list_error', { url: escapedBaseUrl, example: `${escapedBaseUrl}/pull/1` }, { locale });
-    else if (parsed.type === 'repo') error = t('telegram.url_repo_error', { allowedTypes: allowedTypesStr, url: escapedUrl, example: `${escapedBaseUrl}/issues/1` }, { locale });
-    else error = t('telegram.url_must_be_type', { allowedTypes: allowedTypesStr, type: parsed.type.replace('_', ' ') }, { locale });
-    return { valid: false, error };
-  }
-  return { valid: true, parsed, normalizedUrl: url, recoveryNotice };
+  return validateTelegramGitHubUrl(rawUrl, { allowedTypes, commandName, locale });
 }
 
 const executeAndUpdateMessage = buildExecuteAndUpdateMessage({ resolveIsolation, ISOLATION_BACKEND, isolationRunner, CONTAINER_RESOURCE_LIMITS, VERBOSE, executeStartScreen, trackSession, untrackSession, AUTO_WATCH_MESSAGE, startAutoTerminalWatchForSession, bot, formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage });
@@ -817,7 +794,7 @@ async function handleHiveCommand(ctx) {
   const validation = await validateGitHubUrl(userArgs, { allowedTypes: ['repo', 'organization', 'user', 'issues_list', 'pulls_list'], commandName: 'hive', createYargsConfig: createHiveYargsConfig, positionalNames: ['github-url'], locale: hiveLocale });
   if (!validation.valid) {
     let errorMsg = `❌ ${validation.error}`;
-    if (validation.suggestion) errorMsg += `\n\n${t('telegram.did_you_mean', { suggestion: escapeMarkdown(validation.suggestion) }, { locale: hiveLocale })}`;
+    if (validation.suggestion) errorMsg += `\n\n${t('telegram.did_you_mean', { suggestion: validation.suggestion }, { locale: hiveLocale })}`;
     errorMsg += `\n\n${t('telegram.hive_invalid_url_help', {}, { locale: hiveLocale })}`;
     await safeReply(ctx, errorMsg, { reply_to_message_id: ctx.message.message_id });
     return;

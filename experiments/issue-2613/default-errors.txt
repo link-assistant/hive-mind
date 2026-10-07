@@ -1,0 +1,72 @@
+780:  ❌ gh-upload-log failed (log, attempt 1/3): Options: {
+789:❌ Error: Failed to push shared repository upload to public-logs: error: RPC failed; HTTP 408 curl 22 The requested URL returned error: 408
+793:  ❌ gh-upload-log failed (log, attempt 2/3): Options: {
+802:❌ Error: Failed to push shared repository upload to public-logs: error: RPC failed; HTTP 408 curl 22 The requested URL returned error: 408
+807:  ❌ gh-upload-log failed (log, attempt 1/3): Options: {
+816:❌ Error: Failed to push shared repository upload to public-logs: error: RPC failed; HTTP 408 curl 22 The requested URL returned error: 408
+820:  ❌ gh-upload-log failed (log, attempt 2/3): Options: {
+829:❌ Error: Failed to push shared repository upload to public-logs: error: RPC failed; HTTP 408 curl 22 The requested URL returned error: 408
+833:  ❌ gh-upload-log failed (log, attempt 3/3): Options: {
+842:❌ Error: Failed to push shared repository upload to public-logs: error: RPC failed; HTTP 408 curl 22 The requested URL returned error: 408
+848:  ❌ gh-upload-log failed (log, attempt 1/3): Options: {
+857:❌ Error: Failed to push shared repository upload to public-logs: error: RPC failed; HTTP 408 curl 22 The requested URL returned error: 408
+861:  ❌ gh-upload-log failed (log, attempt 2/3): Options: {
+870:❌ Error: Failed to push shared repository upload to public-logs: error: RPC failed; HTTP 408 curl 22 The requested URL returned error: 408
+874:  ❌ gh-upload-log failed (log, attempt 3/3): Options: {
+883:❌ Error: Failed to push shared repository upload to public-logs: error: RPC failed; HTTP 408 curl 22 The requested URL returned error: 408
+887:  ❌ gh-upload-log failed (log part 1 of 5, attempt 1/3): Options: {
+896:❌ Error: Failed to push shared repository upload to public-logs: error: RPC failed; HTTP 408 curl 22 The requested URL returned error: 408
+900:  ❌ gh-upload-log failed (log part 1 of 5, attempt 2/3): Options: {
+909:❌ Error: Failed to push shared repository upload to public-logs: error: RPC failed; HTTP 408 curl 22 The requested URL returned error: 408
+913:  ❌ gh-upload-log failed (log part 1 of 5, attempt 3/3): Options: {
+922:❌ Error: Failed to push shared repository upload to public-logs: error: RPC failed; HTTP 408 curl 22 The requested URL returned error: 408
+927:  ❌ gh-upload-log failed (log, attempt 1/3): spawn gh-upload-log ENOENT
+934:  ❌ gh-upload-log failed (log, attempt 1/1): error: RPC failed; HTTP 408 curl 22 The requested URL returned error: 408
+950:✔ an earlier attached log does not count when the latest upload failed (0.866516ms)
+1178:[telegram-send] s4 safeEditMessageText → chat=4242 message=77 parse_mode=Markdown chars=1060 bytes=1090 text="❌ *Work session failed (exit code: 1)*\n\n⏱️ Duration: 2m 30s\n📊 Session: `6bf35d99-0000-4000-8000-000000002408`\n🔒 Isolation: `docker`\n\n⚠️ A container OOM event affected a child process at 2026-10-02T10:02:24.000Z; the work process continued and later failed with exit code 1.\n\nℹ️ The work did not fai"… (+760 chars)
+1182:[telegram-send] s5 safeEditMessageText → chat=4242 message=77 parse_mode=Markdown chars=1578 bytes=1620 text="❌ *Work session failed (exit code: 1)*\n\n⏱️ Duration: 2m 30s\n📊 Session: `7edfe0cf-a4a0-47f5-bd68-a9b93b4dc18c`\n🔒 Isolation: `docker`\n\n⚠️ A container OOM event affected a child process at 2026-10-02T16:55:17.158Z; the work process continued and later failed with exit code 1.\n\nℹ️ The work did not fai"… (+1278 chars)
+1279:[telegram-send] s1 safeEditMessageText → chat=4242 message=77 parse_mode=Markdown chars=1746 bytes=1798 text="❌ *Work session failed (exit code: 1)*\n\n⏱️ Duration: 2m 30s\n📊 Session: `bebf2e57-01e1-4b47-af4a-06290e562446`\n🔒 Isolation: `docker`\n\n⚠️ A container OOM event affected a child process at 2026-10-04T19:32:49.507Z; the work process continued and later failed with exit code 1.\n\nℹ️ The work did not fai"… (+1446 chars)
+1331:[telegram-send] s7 safeEditMessageText → chat=42 message=77 parse_mode=Markdown chars=353 bytes=355 text="❌ Recovery attempt failed (attempt 1)\nUpdated: 2026-10-07T15:05:54.493Z\nAttempt started: 2026-10-07T15:05:54.493Z\nRecovery session: original\nPrevious session: original\nThis attempt exited with code 1.\nReason: authentication failed\nThis is the AI tool attempt result; the enclosing solve run is still "… (+53 chars)
+1333:[telegram-send] s8 safeEditMessageText → chat=42 message=77 parse_mode=Markdown chars=353 bytes=355 text="❌ Recovery attempt failed (attempt 1)\nUpdated: 2026-10-07T15:10:54.493Z\nAttempt started: 2026-10-07T15:05:54.493Z\nRecovery session: original\nPrevious session: original\nThis attempt exited with code 1.\nReason: authentication failed\nThis is the AI tool attempt result; the enclosing solve run is still "… (+53 chars)
+1335:[telegram-send] s9 safeEditMessageText → chat=42 message=77 parse_mode=Markdown chars=353 bytes=355 text="❌ Recovery attempt failed (attempt 1)\nUpdated: 2026-10-07T15:15:54.493Z\nAttempt started: 2026-10-07T15:05:54.493Z\nRecovery session: original\nPrevious session: original\nThis attempt exited with code 1.\nReason: authentication failed\nThis is the AI tool attempt result; the enclosing solve run is still "… (+53 chars)
+1433:✔ a post-install version mismatch and an unreachable registry both say why they failed (11.361861ms)
+1657:  ❌ gh-upload-log failed (log, attempt 1/3): HTTP 403: Resource not accessible by integration (https://api.github.com/gists)
+1659:  ❌ gh-upload-log failed (log, attempt 1/3): HTTP 403: Resource not accessible by integration (https://api.github.com/gists)
+4696:  ❌ gh-upload-log failed (log, attempt 1/3): synthetic upload failure
+4698:  ❌ gh-upload-log failed (log, attempt 2/3): synthetic upload failure
+4700:  ❌ gh-upload-log failed (log, attempt 3/3): synthetic upload failure
+6923:✅ PASS: Plain "Error:" prefix
+6964:✅ PASS: Multi-line: warn line + plain Error: line — only the error line is detected
+6965:✅ PASS: Multi-line: warn line + plain Error: line — correct error is found
+6979:✅ PASS: Plain "Error:" line — is an error
+7119:Failed to send completion notification for 6a0ec9c3-04b5-4c22-acc2-8f21e934036e: Error: temporary Telegram API failure
+7785:[ERROR] /stop: getTrackedSessionInfo failed: Error: session monitor down
+8378:  ✅ retryable: "Error: connection reset by peer"
+8380:  ✅ retryable: "TypeError: fetch failed"
+8384:  ✅ non-retryable: "Error: ENOENT: no such file or directory"
+8385:  ✅ non-retryable: "SyntaxError: Unexpected token"
+8393:  ✅ "API Error: 503" remains retryable
+8638:  ✅ retryable: "API Error: rate_limit (429)"
+8649:  ✅ "API Error: 503" remains retryable
+8653:  ✅ non-retryable: "Error: ENOENT: no such file or directory"
+8654:  ✅ non-retryable: "SyntaxError: Unexpected token"
+8758:  ✅ PASS: exit 137 → failed (a kill is a failure)
+8782:  ✅ PASS: plain failure shows "failed (exit code: 1)"
+8998:  ✅ PASS: classifyExitStatus(1) === failed (ordinary non-zero)
+9022:  ✅ PASS: KILLED ⊆ FAILURE
+9023:  ✅ PASS: FAILURE ⊆ TERMINAL
+9158:  ✅ retryable: "API Error: Stream idle timeout - partial response receiv"
+9161:  ✅ retryable: "API Error: idle timeout reached, partial response receiv"
+9164:  ✅ non-retryable: "Error: ENOENT: no such file or directory"
+9165:  ✅ non-retryable: "SyntaxError: Unexpected token"
+9336:  ✅ retryable but NOT capacity: "API Error: 529 Overloaded"
+9338:  ✅ retryable but NOT capacity: "Error: Overloaded (overloaded_error)"
+9385:  ✅ a real error + turn.failed (no turn.completed) is still fatal
+9392:  ✅ retryable: "Error: connect ETIMEDOUT 140.82.121.6:443" -> Transient network connection failure
+9402:  ✅ non-retryable: "Error: ENOENT: no such file or directory"
+9403:  ✅ non-retryable: "SyntaxError: Unexpected token"
+9467:[telegram-send] s2 safeEditMessageText → chat=12345 message=67890 parse_mode=Markdown chars=370 bytes=382 text="❌ *Work session failed (exit code: 2)*\n\n⏱️ Duration: 3m\n📊 Session: `1979-failed-2`\n🆔 Execution: `1979-failed-2`\n🔒 Isolation: `docker`\n\n*Docker container kept*\nContainer: `1979-failed-2`\nPolicy: `HIVE_MIND_KEEP_TASK_CONTAINER=on-failure`\nInspect: `docker start -ai 1979-failed-2`\nShell: `docker exe"… (+70 chars)
+9474:[telegram-send] s3 safeEditMessageText → chat=12345 message=67890 parse_mode=Markdown chars=136 bytes=148 text="❌ *Work session failed (exit code: 2)*\n\n⏱️ Duration: 3m\n📊 Session: `1979-failed-2`\n🆔 Execution: `1979-failed-2`\n🔒 Isolation: `docker`"
+10291:  ✅ a genuinely incomplete run is still failed (#1990 end-to-end guard)
+11133:  ✅ PASS: the startup check still exits 75 (EX_TEMPFAIL) on a full disk
+11378:  ❌ gh-upload-log failed (log, attempt 1/1): stubbed upload

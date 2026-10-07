@@ -1,0 +1,32 @@
+
+📋 getVersionInfo Tests
+
+✅ getVersionInfo returns success object
+✅ getVersionInfo includes gatherTimeMs metric
+   (actual time: 1ms)
+✅ getVersionInfo completes within the reasonable CI bound
+✅ getVersionInfo includes hiveMind version
+✅ getVersionInfo includes Node.js version from process
+✅ getVersionInfo includes platform info
+✅ getVersionInfo includes AI agent version fields
+✅ getVersionInfo with processVersion tracks restart warning
+
+📋 formatVersionMessage Tests
+
+✅ formatVersionMessage returns string
+✅ formatVersionMessage includes Hive-Mind header
+✅ formatVersionMessage shows restart warning when needsRestart is true
+✅ formatVersionMessage does not show restart warning when needsRestart is false
+✅ formatVersionMessage groups JavaScript tools under JavaScript/Node.js section
+✅ formatVersionMessage groups Python tools under Python section
+✅ formatVersionMessage groups Rust tools under Rust section
+✅ formatVersionMessage groups AI agents under AI Agents section
+✅ formatVersionMessage shows mixed Playwright MCP connection state for Claude and Codex
+✅ formatVersionMessage groups C/C++ tools under C/C++ section
+✅ formatVersionMessage does not include empty sections
+✅ formatVersionMessage includes platform at the end
+✅ formatVersionMessage localizes Russian UI labels
+
+============================================================
+Results: 21 passed, 0 failed, 21 total
+============================================================

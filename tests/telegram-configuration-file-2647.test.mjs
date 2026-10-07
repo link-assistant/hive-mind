@@ -67,6 +67,7 @@ test('the bot reads a private LINO file and honors CLI overrides of file boolean
   for (const [args, env] of [
     [['--configuration-file', path], {}],
     [[], { HIVE_MIND_CONFIGURATION_FILE: path }],
+    [[], { hiveMindConfigurationFile: path }],
     [[`--configuration-file=${path}`, '--hive', '--isolation', 'tmux'], {}],
     [['--configuration-file', path, '--isolation', ''], {}],
   ]) {
@@ -101,4 +102,13 @@ test('an explicit unreadable file fails instead of silently using another creden
   assert.equal(code, 1, output);
   assert.ok(output.includes('Unable to read'), output);
   assert.ok(!output.includes('All validations passed'), output);
+});
+
+test('environment configuration keeps the getenv case aliases', { timeout: 90000 }, async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'hive-env-2647-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const { code, output } = await dryRun([], directory, { telegramConfiguration: fileConfig });
+  assert.equal(code, 0, output);
+  assert.ok(output.includes('123456789'), output);
+  assert.ok(output.includes('hive: false'), output);
 });

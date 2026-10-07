@@ -33,7 +33,7 @@ const dotenvx = dotenvxModule.default || dotenvxModule;
 dotenvx.config({ quiet: true, ignore: ['MISSING_ENV_FILE'] });
 await loadLenvConfig({ override: true, quiet: true });
 try {
-  await loadTelegramStartupConfig({ loadLenvConfig, inlineOptions });
+  await loadTelegramStartupConfig({ loadLenvConfig, inlineOptions, getenv });
 } catch (error) {
   console.error(error.message);
   process.exit(1);

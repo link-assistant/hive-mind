@@ -91,9 +91,10 @@ function configurationFileFromArgs(argv) {
 
 // Called after dotenv/.lenv but before creating the CLI parser, so all defaults
 // (including booleans and isolation) reflect the selected configuration.
-export async function loadTelegramStartupConfig({ loadLenvConfig, inlineOptions = {}, argv = process.argv.slice(2), env = process.env } = {}) {
-  const path = configurationFileFromArgs(argv) ?? env.HIVE_MIND_CONFIGURATION_FILE;
-  if (env.TELEGRAM_CONFIGURATION) await loadLenvConfig({ configuration: env.TELEGRAM_CONFIGURATION, override: true, quiet: true });
+export async function loadTelegramStartupConfig({ loadLenvConfig, inlineOptions = {}, argv = process.argv.slice(2), env = process.env, getenv = (key, fallback) => env[key] ?? fallback } = {}) {
+  const path = configurationFileFromArgs(argv) ?? getenv('HIVE_MIND_CONFIGURATION_FILE', '');
+  const environmentConfiguration = getenv('TELEGRAM_CONFIGURATION', '');
+  if (environmentConfiguration) await loadLenvConfig({ configuration: environmentConfiguration, override: true, quiet: true });
   if (path) {
     let content;
     try {

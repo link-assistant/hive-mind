@@ -26,6 +26,7 @@ on:
         description: 'Manual release type'
         required: true
         type: choice
+        default: 'patch'
         options:
           - patch
           - minor

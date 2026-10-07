@@ -83,7 +83,7 @@ export const DRAFT_GIT_IDENTITY = Object.freeze({
  * "it stays open and red until a later run succeeds": the later run is the next
  * scheduled attempt, not this one looping.
  */
-export const DRAFT_SOLVE_FLAGS = Object.freeze(['--tool', 'agent', '--model', 'formal-ai', '--attach-logs', '--verbose', '--attribution', 'formal-ai', '--no-auto-restart-until-mergeable']);
+export const DRAFT_SOLVE_FLAGS = Object.freeze(['--tool', 'agent', '--model', 'formal-ai', '--attach-logs', '--development-log', '--verbose', '--attribution', 'formal-ai', '--no-auto-restart-until-mergeable']);
 
 /**
  * Flags that must never appear in a draft run.
@@ -268,6 +268,23 @@ export function keepPullRequestAsDraftArgs({ repository, number }) {
  */
 export function labelPullRequestArgs({ repository, number, label = FORMAL_AI_DRAFT_LABEL }) {
   return ['pr', 'edit', String(number), '--add-label', label, '--repo', repository];
+}
+
+/** A fresh repository may not have the workflow's label yet. */
+export async function labelDraftPullRequest({ gh, repository, number }) {
+  const args = labelPullRequestArgs({ repository, number });
+  try {
+    await gh(args);
+  } catch (error) {
+    if (!/label.*not found|not found.*label|formal-ai-draft.*not found/i.test(`${error.message}\n${error.stderr || ''}`)) throw error;
+    try {
+      await gh(['label', 'create', FORMAL_AI_DRAFT_LABEL, '--repo', repository, '--description', 'Automated Formal AI draft attempt', '--color', '5319e7']);
+    } catch (creationError) {
+      // Another issue's simultaneous run may have created it first.
+      if (!/already exists/i.test(`${creationError.message}\n${creationError.stderr || ''}`)) throw creationError;
+    }
+    await gh(args);
+  }
 }
 
 /**

@@ -3,7 +3,7 @@
 import './instrument.mjs';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 const earlyArgs = process.argv.slice(2);
-const { handleSolveEarlyExit } = await import('./solve.bootstrap.lib.mjs');
+const { handleSolveEarlyExit, resolveStartupLogDirectory } = await import('./solve.bootstrap.lib.mjs');
 await handleSolveEarlyExit(earlyArgs);
 const use = (globalThis.use = await ensureUseM());
 const { $: __rawDollar$ } = await use('command-stream');
@@ -71,7 +71,7 @@ const { autoAcceptInviteForRepo } = await import('./solve.accept-invite.lib.mjs'
 const { handleAutoForkOption, handleMaintainerForkAccess } = await import('./solve.fork-detection.lib.mjs');
 const { resolveUncommittedChangesTool } = await import('./solve.tool-uncommitted.lib.mjs');
 const { classifySessionResult } = await import('./session-result.lib.mjs'); // Issue #2316
-const logFile = await initializeLogFile(null);
+const logFile = await initializeLogFile(resolveStartupLogDirectory(earlyArgs));
 const versionInfo = await getVersionInfo();
 const rawCommand = await logSolveStartup(versionInfo);
 let finalResourceSnapshotRecorded = false;
@@ -100,7 +100,6 @@ configureGitHubRateLimitLogging({
   log,
 });
 await recordResourceSnapshot({ phase: RESOURCE_PHASE_SOLVE_START, log, diskPath: '/', label: 'solve start', logExecutionContext: true }); // #2001: detect+report container context
-// Early logs go to cwd; custom log dir takes effect after argv is parsed.
 let { checkForUncommittedChanges, agentCommanderLib } = await resolveUncommittedChangesTool({ argv, claudeLib });
 const shouldAttachLogs = argv.attachLogs || argv['attach-logs'];
 await showAttachLogsWarning(shouldAttachLogs);

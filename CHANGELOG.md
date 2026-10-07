@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.33.16
+
+### Patch Changes
+
+- 3ad8eb4: Identify the offending URL segment or argument in input validation errors (with a compiler-style caret under URL typos, bold and in a code block on Telegram), suggest likely URL path and host corrections as natural questions, and stop solve on invalid options.
+
 ## 2.33.15
 
 ### Patch Changes

@@ -84,6 +84,9 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      # Issue #2625: freshness blocks pull requests only (#2264). On a push to
+      # main it warns, so a release published after a merge cannot skip the
+      # tests and the release of code that already passed the gate.
       - name: Verify dependency freshness and detect changes
         id: changes
         env:

@@ -201,6 +201,9 @@ export function formatSessionCompletionMessage({ sessionName, sessionInfo, statu
     // Issue #2408: that is a warning, not a failure and not a neutral state.
     statusEmojiOverride = '⚠️';
     statusText = text(messageLocale, 'telegram.work_session_recovering', `Work session still in progress: recovering from exit code ${finalExitCode}`, { exitCode: finalExitCode ?? '' });
+  } else if (finalExitCode === null && !killed && (sessionInfo?.killRecoveryResumed || sessionInfo?.recoveryLifecycle)) {
+    statusEmojiOverride = '⚠️';
+    statusText = 'Work session ended; final outcome could not be confirmed';
   } else if (!failed && recoveries > 0) {
     // Issue #2408: the work completed, but only because it was recovered.
     statusEmojiOverride = '⚠️';
@@ -211,6 +214,16 @@ export function formatSessionCompletionMessage({ sessionName, sessionInfo, statu
     const requestedBy = sessionInfo?.stopRequestedBy ? ` by ${sessionInfo.stopRequestedBy}` : '';
     statusEmojiOverride = '🛑';
     statusText = text(messageLocale, 'telegram.work_session_stopped', `Work session stopped by user${requestedBy}${exitSuffix}`, { requestedBy, exitCode: finalExitCode ?? '', signal: signal?.signal ?? '', exitSuffix });
+  } else if ((failed || killed) && pullRequestMerged) {
+    // Issue #2117: the runner's exit code is still authoritative and must not
+    // be hidden, but calling the entire session "failed" contradicts the
+    // externally verified result when its pull request has already merged.
+    // Describe both outcomes so operators know the requested goal completed
+    // and that a later orchestration failure still needs investigation.
+    // Issue #2498: the same holds for a kill after the merge — the work is
+    // done, so it is neither "killed" nor something to recover.
+    statusEmojiOverride = '⚠️';
+    statusText = text(messageLocale, 'telegram.work_session_merged_but_failed', `Pull request merged, but the work session exited with code: ${finalExitCode ?? 'unknown'}`, { exitCode: finalExitCode ?? 'unknown' });
   } else if (killed) {
     // A real signal exit is always >128; an exit code of exactly 1 on a
     // status-only kill (process vanished, code unknown) is a synthesized failure
@@ -219,14 +232,6 @@ export function formatSessionCompletionMessage({ sessionName, sessionInfo, statu
     const exitSuffix = showCode ? ` (exit code: ${finalExitCode})` : '';
     const reason = signal ? signal.reason : 'killed';
     statusText = text(messageLocale, 'telegram.work_session_killed', `Work session ${reason}${exitSuffix}`, { reason, exitCode: finalExitCode ?? '', signal: signal?.signal ?? '', exitSuffix });
-  } else if (failed && pullRequestMerged) {
-    // Issue #2117: the runner's exit code is still authoritative and must not
-    // be hidden, but calling the entire session "failed" contradicts the
-    // externally verified result when its pull request has already merged.
-    // Describe both outcomes so operators know the requested goal completed
-    // and that a later orchestration failure still needs investigation.
-    statusEmojiOverride = '⚠️';
-    statusText = text(messageLocale, 'telegram.work_session_merged_but_failed', `Pull request merged, but the work session exited with code: ${finalExitCode}`, { exitCode: finalExitCode });
   } else if (failed) {
     statusText = text(messageLocale, 'telegram.work_session_failed', `Work session failed (exit code: ${finalExitCode})`, { exitCode: finalExitCode });
   } else {

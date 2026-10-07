@@ -455,7 +455,10 @@ export const watchForFeedback = async params => {
         const runIteration = ({ argv: iterationArgv, feedbackLines }) => executeToolIteration({ issueUrl, owner, repo, issueNumber, prNumber, branchName: prBranch || branchName, tempDir, mergeStateStatus, feedbackLines, argv: iterationArgv });
         let toolResult = await runIteration({ argv: restartArgv, feedbackLines: restartFeedbackLines });
         // Issue #2408: a tool killed by SIGKILL (exit 137, OOM) resumes its own session in-process.
-        if (!toolResult.success) ({ toolResult, attemptsUsed: toolKillResumeCount } = await resumeAfterToolKill({ toolResult, attemptsUsed: toolKillResumeCount, argv, runIteration, $, owner, repo, prNumber, log }));
+        // Issue #2498: once the pull request is merged nothing is recovered; the next pass sees the merge and finishes.
+        let toolKillWorkDone = false;
+        if (!toolResult.success) ({ toolResult, attemptsUsed: toolKillResumeCount, workDone: toolKillWorkDone } = await resumeAfterToolKill({ toolResult, attemptsUsed: toolKillResumeCount, argv, runIteration, $, owner, repo, prNumber, log, isWorkDone: () => checkPRMerged(owner, repo, prNumber) }));
+        if (toolKillWorkDone) continue;
 
         if (toolResult.sessionId && (argv.resumeOnAutoRestart || argv['resume-on-auto-restart'])) {
           global.previousSessionId = toolResult.sessionId;

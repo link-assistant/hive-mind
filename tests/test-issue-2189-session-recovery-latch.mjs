@@ -58,9 +58,9 @@ assert(resolveOnSessionKillPolicy({ argv: {}, env: {} }) === ON_SESSION_KILL_RES
 assert(resolveOnSessionKillPolicy({ argv: { 'on-session-kill': 'report' }, env: {} }) === ON_SESSION_KILL_REPORT, '--on-session-kill=report still opts out of automatic recovery');
 assert(resolveOnSessionKillPolicy({ argv: {}, env: { HIVE_MIND_ON_SESSION_KILL: 'report' } }) === ON_SESSION_KILL_REPORT, 'the environment variable can opt out too');
 
-const defaultPlan = planKillRecovery({ sessionInfo: { command: 'solve', url: 'https://github.com/link-assistant/formal-ai/issues/1069', isolationBackend: 'docker' }, killed: true, env: {}, readLastSessionId: () => TOOL_SESSION });
+const defaultPlan = planKillRecovery({ sessionInfo: { command: 'solve', url: 'https://github.com/link-assistant/formal-ai/issues/1069', isolationBackend: 'docker' }, killed: true, env: { HIVE_MIND_SESSION_KILL_RESUME_DELAY: '0' }, readLastSessionId: () => TOOL_SESSION });
 assert(defaultPlan.shouldResume === true && defaultPlan.policy === ON_SESSION_KILL_RESUME, 'the default plan for a killed /solve is to start a recovery session');
-const stoppedPlan = planKillRecovery({ sessionInfo: { command: 'solve', url: 'https://github.com/x/y/issues/1', isolationBackend: 'docker', stopRequestedByUser: true }, killed: true, env: {}, readLastSessionId: () => TOOL_SESSION });
+const stoppedPlan = planKillRecovery({ sessionInfo: { command: 'solve', url: 'https://github.com/x/y/issues/1', isolationBackend: 'docker', stopRequestedByUser: true }, killed: true, env: { HIVE_MIND_SESSION_KILL_RESUME_DELAY: '0' }, readLastSessionId: () => TOOL_SESSION });
 assert(stoppedPlan.shouldResume === false && stoppedPlan.reason === 'stopped-by-user', 'a session stopped by a user is never auto-resumed, even under the new default');
 
 // ---------------------------------------------------------------------------
@@ -227,7 +227,8 @@ function monitorOptions(extra = {}) {
       probes.linkedPr += 1;
       return 'https://github.com/link-assistant/formal-ai/pull/1070';
     },
-    env: {},
+    lookupPullRequestState: async () => null, // #2498: offline — the real pull request may have merged since
+    env: { HIVE_MIND_SESSION_KILL_RESUME_DELAY: '0' },
     // Every outward-facing call is injected: this test must never talk to
     // GitHub or Telegram for real.
     runCommand: async (command, args) => {
@@ -263,8 +264,9 @@ await monitorSessions(
 );
 
 assert(recoveryLaunches.length === 1, 'the killed session is resumed by the bot itself, with no flag set (defect 1)');
-assert(bot.edits.length === 1, 'the user is notified exactly once');
-assert(/recovery-2189-0000-1111-222233334444/.test(bot.edits[0].text), 'the notification names the working session that took over');
+const completionEdits = bot.edits.filter(edit => /Work session still in progress/.test(edit.text));
+assert(completionEdits.length === 1, 'the completion pipeline notifies exactly once, alongside lifecycle updates');
+assert(/recovery-2189-0000-1111-222233334444/.test(completionEdits[0]?.text || ''), 'the notification names the working session that took over');
 const latchedSnapshot = snapshots.filter(entry => entry.record.completionNotifiedAt).pop();
 assert(latchedSnapshot !== undefined, 'the delivered notification is latched into the durable snapshot');
 assert(latchedSnapshot.record.completionExitCode === 139, 'the latched snapshot carries the exit code the user was told about');

@@ -1,0 +1,21 @@
+Recovery-visibility follow-up validation (before publication):
+- Authenticated dependency audit: 168/168 declarations current.
+- Targeted recovery regressions: 71 passed, 0 failed.
+- Existing GitHub integration suite: 1 file passed.
+- Initial default-suite investigation: all 549 files exercised. Its two failures
+  were an older recovery test expecting one notification and the command-stream
+  guard catching a raw stderr fallback in recovery-publication diagnostics. The
+  notification assertion/mock were adapted to lifecycle updates, and the
+  stderr fallback now explicitly reads stream text. Both files pass separately. The complete initial log is follow-up-default-investigation.log.gz.
+- A full clean replay is recorded locally in /tmp/issue-2498-review/full-tests-final.txt;
+  its final result and current-commit CI are reported in PR #2499.
+- Formatting, lint, syntax, file limits, documentation/language sync,
+  version and single-changeset checks passed.
+- Duplication: 11.29%, within the repository threshold.
+- Secret scanning passed; compressed archives validated with gzip.
+- The latest origin/main is already an ancestor of this branch.
+
+GitHub integration logs record a cleanup retry because the disposable fixture
+branches cannot be deleted under existing repository rules. Protections were
+not changed. Published-package resume probes use mocked Docker launch and a
+no-op watcher, with finite inputs and a 128 MB Node heap.

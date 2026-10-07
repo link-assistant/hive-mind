@@ -60,10 +60,13 @@ test('the monitor keeps an OOM-recovered session in progress on its pull request
     dockerContainerSizeProvider: async () => null,
     readFile: async () => await fs.readFile(logPath, 'utf8'),
     lookupLinkedPullRequest: async () => null,
-    env: {},
+    lookupPullRequestState: async () => null, // #2498: offline — the real pull request may have merged since
+    env: { HIVE_MIND_SESSION_KILL_RESUME_DELAY: '0' },
     isolationRunner: { generateSessionId: () => recoverySessionId, executeWithIsolation: async () => ({ success: true }) },
     runCommand: async (_command, args) => {
-      comments.push(await fs.readFile(args[args.indexOf('--body-file') + 1], 'utf8'));
+      const inputFlag = args.includes('--input') ? '--input' : '--body-file';
+      const body = await fs.readFile(args[args.indexOf(inputFlag) + 1], 'utf8');
+      comments.push(inputFlag === '--input' ? JSON.parse(body).body : body);
       return { code: 0, stdout: `${PR_URL}#issuecomment-1`, stderr: '' };
     },
   });
@@ -76,12 +79,16 @@ test('the monitor keeps an OOM-recovered session in progress on its pull request
       monitorOptions(async () => ({ exists: true, status: 'executed', exitCode: 1, oomKilled: true, isolation: 'docker', logPath }))
     );
 
-    assert.equal(comments.length, 1, 'the pull request the session was started on gets the notice');
-    assert.match(comments[0], /container OOM event/i);
-    assert.match(comments[0], new RegExp(recoverySessionId));
+    const killNotices = comments.filter(comment => comment.includes('<!-- hive-mind:session-kill-notice -->'));
+    assert.equal(killNotices.length, 1, 'the pull request the session was started on gets the notice');
+    assert.match(killNotices[0], /container OOM event/i);
+    assert.match(killNotices[0], new RegExp(recoverySessionId));
 
-    assert.equal(edits.length, 1);
-    const first = edits[0].message;
+    assert.ok(
+      edits.some(edit => /Recovery attempt launching.*outcome pending/i.test(edit.message)),
+      'Telegram also shows the pending restart'
+    );
+    const first = edits.at(-1).message;
     assert.doesNotMatch(first, /finished successfully/);
     assert.doesNotMatch(first, /Work session failed/);
     // Issue #2408: a recovery in progress is a warning, and says how many recoveries it took.
@@ -89,18 +96,20 @@ test('the monitor keeps an OOM-recovered session in progress on its pull request
     assert.match(first, new RegExp(`📊 Session: \`${sessionName}\``));
     assert.match(first, new RegExp(`🔁 Recovery session: \`${recoverySessionId}\``));
 
+    const initialEditCount = edits.length;
     // The recovery session finishes: the same message now reports the real outcome, under the same id.
     await monitorSessions(
       bot,
       false,
       monitorOptions(async id => (id === recoverySessionId ? { exists: true, status: 'executed', exitCode: 0, isolation: 'docker', logPath } : { exists: false }))
     );
-    assert.equal(edits.length, 2);
-    assert.equal(edits[1].messageId, 77, 'the original reply is edited');
-    assert.match(edits[1].message, /^⚠️ \*Work session finished successfully after automatic recovery \(automatic recoveries: 1\)\*/);
-    assert.match(edits[1].message, /⏱️ Duration: 2m \d+s/, 'the duration covers the whole work, not only the recovery session');
-    assert.match(edits[1].message, new RegExp(`📊 Session: \`${sessionName}\``));
-    assert.match(edits[1].message, new RegExp(`🔁 Recovery session: \`${recoverySessionId}\``));
+    assert.equal(edits.length, initialEditCount + 1, 'completion adds exactly one final Telegram update');
+    const finalEdit = edits.at(-1);
+    assert.equal(finalEdit.messageId, 77, 'the original reply is edited');
+    assert.match(finalEdit.message, /^⚠️ \*Work session finished successfully after automatic recovery \(automatic recoveries: 1\)\*/);
+    assert.match(finalEdit.message, /⏱️ Duration: 2m \d+s/, 'the duration covers the whole work, not only the recovery session');
+    assert.match(finalEdit.message, new RegExp(`📊 Session: \`${sessionName}\``));
+    assert.match(finalEdit.message, new RegExp(`🔁 Recovery session: \`${recoverySessionId}\``));
   } finally {
     resetSessionMonitorForTests();
     await fs.rm(logPath, { force: true });

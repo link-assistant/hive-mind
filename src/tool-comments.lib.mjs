@@ -107,6 +107,9 @@ export const LIVE_PROGRESS_SECTION_END_MARKER = '<!-- LIVE-PROGRESS-END -->';
 // claude.lib.mjs — "session force-killed due to stream timeout" notifications
 export const SESSION_FORCE_KILLED_MARKER = 'Session Force-Killed';
 
+// Recovery status is bookkeeping, including after a bot restart.
+export const RECOVERY_LIFECYCLE_MARKER = '<!-- hive-mind:recovery-lifecycle -->';
+
 // solve.repo-setup.lib.mjs / solve.repository.lib.mjs — issue comments posted
 // when the target repository is empty / uninitialized so solving can't start.
 export const REPOSITORY_INITIALIZATION_REQUIRED_MARKER = 'Repository Initialization Required';
@@ -131,7 +134,7 @@ export const LOG_UPLOAD_FAILED_MARKER = 'Log Upload Failed';
  * named constants above so that adding a new marker only requires adding
  * the constant and appending it here.
  */
-export const TOOL_GENERATED_COMMENT_MARKERS = [AI_WORK_SESSION_STARTED_MARKER, AI_WORK_SESSION_COMPLETED_MARKER, AI_WORK_SESSION_RESUMED_MARKER, AUTO_RESUME_ON_LIMIT_RESET_MARKER, AUTO_RESTART_ON_LIMIT_RESET_MARKER, SOLUTION_DRAFT_LOG_MARKER, AUTO_RESTART_MARKER, AUTO_RESTART_UNTIL_MERGEABLE_LOG_MARKER, READY_TO_MERGE_MARKER, READY_FOR_REVIEW_MARKER, AUTO_MERGED_MARKER, BILLING_LIMIT_MARKER, CANCELLED_CI_REVIEW_MARKER, AUTOMATION_STOPPED_MARKER, AUTO_MERGE_BLOCKED_MARKER, MAINTAINER_ACCESS_REQUEST_MARKER, LIVE_PROGRESS_SECTION_START_MARKER, SESSION_FORCE_KILLED_MARKER, REPOSITORY_INITIALIZATION_REQUIRED_MARKER, INTERACTIVE_SESSION_STARTED_MARKER, INTERACTIVE_SESSION_ENDED_MARKER, NOW_WORKING_SESSION_IS_ENDED_MARKER, SOLUTION_DRAFT_FAILED_MARKER, SOLUTION_DRAFT_FINISHED_WITH_ERRORS_MARKER, USAGE_LIMIT_REACHED_MARKER, LOG_UPLOAD_FAILED_MARKER, WORKING_SESSION_SUMMARY_AUTOMATION_MARKER, NO_CHANGES_PRODUCED_MARKER];
+export const TOOL_GENERATED_COMMENT_MARKERS = [RECOVERY_LIFECYCLE_MARKER, AI_WORK_SESSION_STARTED_MARKER, AI_WORK_SESSION_COMPLETED_MARKER, AI_WORK_SESSION_RESUMED_MARKER, AUTO_RESUME_ON_LIMIT_RESET_MARKER, AUTO_RESTART_ON_LIMIT_RESET_MARKER, SOLUTION_DRAFT_LOG_MARKER, AUTO_RESTART_MARKER, AUTO_RESTART_UNTIL_MERGEABLE_LOG_MARKER, READY_TO_MERGE_MARKER, READY_FOR_REVIEW_MARKER, AUTO_MERGED_MARKER, BILLING_LIMIT_MARKER, CANCELLED_CI_REVIEW_MARKER, AUTOMATION_STOPPED_MARKER, AUTO_MERGE_BLOCKED_MARKER, MAINTAINER_ACCESS_REQUEST_MARKER, LIVE_PROGRESS_SECTION_START_MARKER, SESSION_FORCE_KILLED_MARKER, REPOSITORY_INITIALIZATION_REQUIRED_MARKER, INTERACTIVE_SESSION_STARTED_MARKER, INTERACTIVE_SESSION_ENDED_MARKER, NOW_WORKING_SESSION_IS_ENDED_MARKER, SOLUTION_DRAFT_FAILED_MARKER, SOLUTION_DRAFT_FINISHED_WITH_ERRORS_MARKER, USAGE_LIMIT_REACHED_MARKER, LOG_UPLOAD_FAILED_MARKER, WORKING_SESSION_SUMMARY_AUTOMATION_MARKER, NO_CHANGES_PRODUCED_MARKER];
 
 /**
  * Markers that indicate the end of a working session. Used by
@@ -307,7 +310,7 @@ export const isFailureAlreadyReportedOnTarget = ({ owner, repo, targetNumber }) 
  * @param {string} options.body
  * @returns {Promise<{ok: boolean, commentId: string|null, stderr?: string}>}
  */
-export const postTrackedComment = async ({ $, owner, repo, targetNumber, body, sanitizationOptions: _sanitizationOptions }) => {
+export const postTrackedComment = async ({ $, owner, repo, targetNumber, body, commentId: existingCommentId = null, sanitizationOptions: _sanitizationOptions }) => {
   if (!$) {
     throw new Error('postTrackedComment requires a command-stream $ helper');
   }
@@ -316,7 +319,9 @@ export const postTrackedComment = async ({ $, owner, repo, targetNumber, body, s
   // bodies and to get JSON back so we can extract the comment ID.
   // We use the /issues/<n>/comments endpoint because it works identically
   // for both PRs and issues (a PR is an issue at this endpoint).
-  const apiPath = `repos/${owner}/${repo}/issues/${targetNumber}/comments`;
+  const updating = /^\d+$/.test(String(existingCommentId || ''));
+  const apiPath = updating ? `repos/${owner}/${repo}/issues/comments/${existingCommentId}` : `repos/${owner}/${repo}/issues/${targetNumber}/comments`;
+  const method = updating ? 'PATCH' : 'POST';
   const { sanitizeForPublication } = await import('./token-sanitization.lib.mjs');
   // This is the exact outbound mutation boundary. Dangerous local-output
   // bypasses and user-content carve-outs must not weaken GitHub publication.
@@ -330,7 +335,7 @@ export const postTrackedComment = async ({ $, owner, repo, targetNumber, body, s
   // issue #1631.
   let result;
   try {
-    result = await $({ stdin: payload })`gh api ${apiPath} -X POST --input -`;
+    result = await $({ stdin: payload })`gh api ${apiPath} -X ${method} --input -`;
   } catch (err) {
     return { ok: false, commentId: null, stderr: err && err.message ? err.message : String(err) };
   }

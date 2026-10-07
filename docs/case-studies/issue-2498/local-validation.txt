@@ -1,0 +1,29 @@
+Local validation, 2026-10-05 UTC (Node 26.10.0):
+- npm ci: successful; npm audit reported 0 vulnerabilities
+- npm outdated --json: empty
+- node scripts/check-dependency-freshness.mjs: 168/168 current
+- npm test: all 548 default test files passed
+- node scripts/run-tests.mjs --suite github-integration: 1 selected file passed
+- node --test tests/issue-2498-*.test.mjs: 28 tests passed
+- npm run format:check: passed; final changed files checked after edits
+- npm run lint: passed
+- npm run check:duplication: passed (11.31%, within repository threshold)
+- npm run check:secrets: passed
+- bash scripts/check-mjs-syntax.sh: passed
+- bash scripts/check-file-line-limits.sh: passed
+- node tests/docs-validation.mjs: passed
+- node tests/test-docs-language-sync.mjs: passed
+- node scripts/check-version.mjs: passed
+- node scripts/validate-changeset.mjs: passed (one patch changeset)
+- git diff --check: passed
+- gzip -t: compressed incident archives validated
+- actual published start-command 0.35.2 contract probe: passed
+
+The GitHub integration test passed. Its disposable fixture branches could not
+be deleted because an existing repository rule prohibits deletion; the test
+records scheduled cleanup retries. No repository protections were bypassed.
+
+Full default and GitHub integration output is archived as local-*.log.gz.
+Reproducing failures, targeted results and dependency audits are separate text
+files. The default suite ran once, with the final cgroup changes additionally
+verified by the 28 targeted regressions and a final status-test run.

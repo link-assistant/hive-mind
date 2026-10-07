@@ -26,7 +26,7 @@
  * @param {object} deps every collaborator solve.mjs already has in scope
  * @returns {Promise<{issueNumber: number|undefined, prNumber: number|undefined, prBranch: string|undefined, mergeStateStatus: string|undefined, prState: string|undefined, forkOwner: string|null, forkRepoName: string|null, isContinueMode: boolean}>}
  */
-export async function resolveSolveMode({ argv, owner, repo, urlNumber, issueUrl, isIssueUrl, isPrUrl, skipForkForPrivateUpstream, shouldAttachLogs, log, safeExit, githubLib, processAutoContinueForIssue, handleMaintainerForkAccess, extractLinkedIssueNumber, reportError, cleanErrorMessage }) {
+export async function resolveSolveMode({ argv, owner, repo, urlNumber, issueUrl, isIssueUrl, isPrUrl, skipForkForPrivateUpstream, shouldAttachLogs, log, safeExit, githubLib, processAutoContinueForIssue, handleMaintainerForkAccess, reportError, cleanErrorMessage }) {
   let issueNumber;
   let prNumber;
   let prBranch;
@@ -162,7 +162,9 @@ export async function resolveSolveMode({ argv, owner, repo, urlNumber, issueUrl,
       }
       await log(`📝 PR branch: ${prBranch}`);
       const prBody = prData.body || '';
-      const extractedIssueNumber = prBranch?.match(/^issue-([1-9]\d*)-/)?.[1] || extractLinkedIssueNumber(prBody, owner, repo);
+      // Issue #2563: the branch name is a hint, the description's same-repository closing reference wins over a foreign or missing branch issue.
+      const { resolvePullRequestPrimaryIssue } = await import('./issue-link-verification.lib.mjs');
+      const extractedIssueNumber = await resolvePullRequestPrimaryIssue({ owner, repo, body: prBody, branch: prBranch, log });
       if (extractedIssueNumber) {
         issueNumber = extractedIssueNumber;
         await log(`🔗 Found linked issue #${issueNumber}`);

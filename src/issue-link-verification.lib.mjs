@@ -4,7 +4,7 @@ import { promisify } from 'node:util';
 import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
 import { parseRequiredClosingReferences, isRepositoryModeIssueBody } from './solve.repository-mode.lib.mjs';
 import { normalizeSubIssueEntry } from './solve.ensure-sub-issues.detect.lib.mjs';
-import { extractClosingIssueReferences, prClosesIssue } from './github-linking.lib.mjs';
+import { extractBranchIssueNumber, extractClosingIssueReferences, prClosesIssue, resolvePullRequestIssueNumber } from './github-linking.lib.mjs';
 
 const execFileAsync = promisify(execFile);
 export const runLinkGh = args => ghWithRateLimitRetry(() => execFileAsync('gh', args, { maxBuffer: 20 * 1024 * 1024 }), { label: `issue links: gh ${args[0]}` });
@@ -53,6 +53,30 @@ export async function fetchRequiredIssueScope({ owner, repo, issueNumber, run = 
   return required;
 }
 
+/**
+ * Whether owner/repo#number is an issue: false when GitHub answers 404/410 or
+ * the number is a pull request, null when the answer is unknown (issue #2563).
+ */
+export async function probeIssueExists({ owner, repo, number, run = runLinkGh }) {
+  const missing = failure => (/HTTP (?:404|410)\b|"status":\s*"(?:404|410)"/.test(`${failure.stderr || ''}${failure.stdout || ''}${failure.message || ''}`) ? false : null);
+  try {
+    const result = await run(['api', `repos/${owner}/${repo}/issues/${number}`]);
+    if ((result.code ?? 0) !== 0) return missing(result);
+    const issue = JSON.parse(result.stdout.toString());
+    return issue?.number === Number(number) ? !issue.pull_request : null;
+  } catch (error) {
+    return missing(error);
+  }
+}
+
+/** The primary issue of a pull request, probing GitHub only when its branch and description disagree. */
+export async function resolvePullRequestPrimaryIssue({ owner, repo, body, branch, run = runLinkGh, log = null }) {
+  const issueNumber = await resolvePullRequestIssueNumber({ body, branch, owner, repo, checkIssueExists: number => probeIssueExists({ owner, repo, number, run }) });
+  const branchNumber = extractBranchIssueNumber(branch);
+  if (log && branchNumber && issueNumber !== branchNumber) await log(`ℹ️  Branch ${branch} suggests issue #${branchNumber}, but the description closes #${issueNumber} (#${branchNumber} belongs to another repository or does not exist in ${owner}/${repo})`);
+  return issueNumber;
+}
+
 /** Every issue a pull request must close: the primary issue's scope plus its own positive references. */
 export async function fetchPullRequestIssueScope({ owner, repo, prNumber, issueNumber = null, run = runLinkGh }) {
   const pr = await ghJson(run, ['api', `repos/${owner}/${repo}/pulls/${prNumber}`]);
@@ -60,8 +84,7 @@ export async function fetchPullRequestIssueScope({ owner, repo, prNumber, issueN
   // Recover an issue whose body reference was deleted, without confusing the PR
   // number with an issue number. Explicit issue context always takes precedence.
   const references = extractClosingIssueReferences(pr.body);
-  const local = references.find(reference => !reference.owner || `${reference.owner}/${reference.repo}`.toLowerCase() === `${owner}/${repo}`.toLowerCase());
-  issueNumber ||= pr.head.ref?.match(/^issue-(\d+)-/)?.[1] || local?.number;
+  issueNumber ||= await resolvePullRequestPrimaryIssue({ owner, repo, body: pr.body, branch: pr.head.ref, run });
   const issues = issueNumber ? await fetchRequiredIssueScope({ owner, repo, issueNumber, run }) : [];
   for (const reference of references) {
     const entry = { owner: reference.owner || owner, repo: reference.repo || repo, number: Number(reference.number) };

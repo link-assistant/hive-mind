@@ -2,6 +2,7 @@ import { getenv, makeConfig, yargs as linoYargs } from 'lino-arguments';
 
 import { normalizeCliArgs } from './argument-normalization.lib.mjs';
 import { enhanceUnknownArgumentError } from './option-suggestions.lib.mjs';
+import { enhanceArgumentError } from './input-diagnostics.lib.mjs';
 
 export { getenv };
 export { normalizeCliArgs, normalizeTypographicOptionDashes, splitJoinedGitHubLongOptionArg } from './argument-normalization.lib.mjs';
@@ -72,7 +73,7 @@ export function parseCliArgumentsWithLino({ argv = process.argv, commandName = '
       },
     });
   } catch (error) {
-    throw enhanceUnknownArgumentError(error, configuredParser);
+    throw enhanceArgumentError(enhanceUnknownArgumentError(error, configuredParser), fullArgv.slice(2));
   }
 
   return addCliCompatibilityAliases(parsed, { positionalAliases });

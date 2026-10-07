@@ -1,0 +1,46 @@
+Usage: bun <log-file> [options]
+
+Positionals:
+  logFile  Path to the log file to upload                               [string]
+
+Options:
+  -c, --configuration      Path to configuration .lenv file             [string]
+  -p, --public             Make the upload public (default: private)   [boolean]
+      --private            Make the upload private (default)           [boolean]
+      --auto               Automatically choose upload strategy based on file si
+                           ze (default)                [boolean] [default: true]
+      --only-gist          Upload only as GitHub Gist (disables auto mode)
+                                                                       [boolean]
+      --only-repository    Upload only as GitHub Repository (disables auto mode)
+                                                                       [boolean]
+      --shared-repository  Upload repository-mode logs into shared private-logs/
+                           public-logs repositories (default: true)
+                                                       [boolean] [default: true]
+      --dry-mode, --dry    Dry run mode - show what would be done without upload
+                           ing                        [boolean] [default: false]
+  -d, --description        Description for the upload     [string] [default: ""]
+  -v, --verbose            Enable verbose output      [boolean] [default: false]
+      --gist-limit         Maximum file size uploaded as a gist (e.g. 25MB, 100M
+                           B). Larger files use repository mode
+                                                          [string] [default: ""]
+      --check-raw-url      Verify that the resulting raw URL is reachable before
+                            reporting success         [boolean] [default: false]
+  -t, --test               Run self-test to verify upload functionality
+                                                      [boolean] [default: false]
+  -q, --quick              Run quick self-test (only 1MB file)
+                                                      [boolean] [default: false]
+  -h, --help               Show help                                   [boolean]
+      --version            Show version number                         [boolean]
+
+Examples:
+  bun /var/log/app.log                      Upload log file (auto mode, private)
+  bun /var/log/app.log --public             Upload log file (auto mode, public)
+  bun ./error.log --only-gist               Upload only as gist
+  bun ./large.log --only-repository --publ  Upload only as public repository
+  ic
+  bun ./large.log --only-repository --no-s  Use the legacy dedicated repository
+  hared-repository                          mode for a large file
+  bun ./app.log --dry-mode                  Dry run - show what would be done
+  bun --test                                Run self-test to verify functionalit
+                                            y
+  bun --quick                               Run quick self-test (1MB file only)

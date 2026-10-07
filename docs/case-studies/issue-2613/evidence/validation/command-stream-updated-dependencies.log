@@ -1,0 +1,9 @@
+✅ pinned command-stream returns truthy stream objects even for empty output
+✅ stream results still stringify and expose common string methods
+✅ postKillRecoveryNotice falls back to the exit description when gh prints nothing
+✅ postKillRecoveryNotice uses stdout when stderr is empty
+✅ postKillRecoveryNotice returns null url when gh succeeds silently
+✅ src/ has no truthiness checks on raw command-stream stdout/stderr
+
+📊 6 test(s): ✅ 6 passed, ❌ 0 failed
+

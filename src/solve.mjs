@@ -3,7 +3,7 @@
 import './instrument.mjs';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 const earlyArgs = process.argv.slice(2);
-const { handleSolveEarlyExit } = await import('./solve.bootstrap.lib.mjs');
+const { handleSolveEarlyExit, resolveStartupLogDirectory } = await import('./solve.bootstrap.lib.mjs');
 await handleSolveEarlyExit(earlyArgs);
 const use = (globalThis.use = await ensureUseM());
 const { $: __rawDollar$ } = await use('command-stream');
@@ -72,6 +72,7 @@ const { handleAutoForkOption, handleMaintainerForkAccess } = await import('./sol
 const { resolveUncommittedChangesTool } = await import('./solve.tool-uncommitted.lib.mjs');
 const { classifySessionResult } = await import('./session-result.lib.mjs'); // Issue #2316
 await initializeLogFile(null);
+await (await import('./solve.log-dir.lib.mjs')).moveLogFileToLogDir(resolveStartupLogDirectory(earlyArgs), { getLogFile, setLogFile, log });
 const versionInfo = await getVersionInfo();
 const rawCommand = await logSolveStartup(versionInfo);
 let finalResourceSnapshotRecorded = false;

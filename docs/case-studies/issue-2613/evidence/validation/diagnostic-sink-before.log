@@ -1,0 +1,22 @@
+✖ diagnostic sink errors do not interrupt version probe cleanup (9.279918ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1513.197864
+
+✖ failing tests:
+
+test at tests/issue-2613-regressions.test.mjs:79:1
+✖ diagnostic sink errors do not interrupt version probe cleanup (9.279918ms)
+  Error: diagnostic sink failed
+      at onDiagnostic (file:///tmp/gh-issue-solver-1791384270780/tests/issue-2613-regressions.test.mjs:82:13)
+      at file:///tmp/gh-issue-solver-1791384270780/src/version-command.lib.mjs:28:21
+      at new Promise (<anonymous>)
+      at execVersionCommand (file:///tmp/gh-issue-solver-1791384270780/src/version-command.lib.mjs:24:18)
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791384270780/tests/issue-2613-regressions.test.mjs:80:18)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)

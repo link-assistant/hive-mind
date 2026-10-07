@@ -1,0 +1,39 @@
+✔ simultaneous version reports share the concurrency limit and return valid output (518.924538ms)
+✔ a timed-out version probe kills its shell descendants (625.454931ms)
+✔ startup log directory supports aliases, equals syntax and the argument separator (0.614868ms)
+✔ formal drafts preserve development logs and create missing labels (2.365292ms)
+✔ checks-only workflow dispatch has defaults for all required inputs (2.63195ms)
+✔ branch fallback commits only its sanitized log and refuses other checkouts (1760.004614ms)
+  ❌ gh-upload-log failed (log, attempt 1/3): HTTP 403: Resource not accessible by integration (https://api.github.com/gists)
+  ⚠️  The GitHub token may not publish logs (e.g. a workflow GITHUB_TOKEN cannot create gists); not retrying the log upload
+✔ permanent Gist permission failure is attempted once without splitting (42.321811ms)
+  ❌ gh-upload-log failed (log, attempt 1/3): HTTP 403: Resource not accessible by integration (https://api.github.com/gists)
+  ⚠️  The GitHub token may not publish logs (e.g. a workflow GITHUB_TOKEN cannot create gists); not retrying the log upload
+✔ failed Gist upload publishes the complete sanitized log through the branch fallback (43.986757ms)
+✖ solve --log-dir writes startup and parsing diagnostics in the requested directory (3122.377521ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 8
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6145.289034
+
+✖ failing tests:
+
+test at tests/issue-2613-regressions.test.mjs:221:1
+✖ solve --log-dir writes startup and parsing diagnostics in the requested directory (3122.377521ms)
+  AssertionError [ERR_ASSERTION]: an unusable log directory must retain startup diagnostics in the working directory
+      at file:///tmp/gh-issue-solver-1791384270780/tests/issue-2613-regressions.test.mjs:240:12
+      at async withDirectory (file:///tmp/gh-issue-solver-1791384270780/tests/issue-2613-regressions.test.mjs:40:5)
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791384270780/tests/issue-2613-regressions.test.mjs:222:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

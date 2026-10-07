@@ -237,7 +237,7 @@ export async function validateGitHubEntityExistence({ owner, repo, number, type,
             try {
               const issueCheck = await ghIssueView({ issueNumber: number, owner, repo, jsonFields: 'number,title' });
               if (issueCheck.code === 0 && issueCheck.data) {
-                suggestion = `\n\n💡 However, Issue #${number} exists: "${issueCheck.data.title}"\n   Did you mean: https://github.com/${owner}/${repo}/issues/${number}`;
+                suggestion = `\n\n💡 However, Issue #${number} exists: "${issueCheck.data.title}"\n   Did you mean https://github.com/${owner}/${repo}/issues/${number}?`;
               }
             } catch {
               /* ignore */
@@ -265,7 +265,7 @@ export async function validateGitHubEntityExistence({ owner, repo, number, type,
             try {
               const prCheck = await ghPrView({ prNumber: number, owner, repo, jsonFields: 'number,title' });
               if (prCheck.code === 0 && prCheck.data) {
-                suggestion = `\n\n💡 However, Pull Request #${number} exists: "${prCheck.data.title}"\n   Did you mean: https://github.com/${owner}/${repo}/pull/${number}`;
+                suggestion = `\n\n💡 However, Pull Request #${number} exists: "${prCheck.data.title}"\n   Did you mean https://github.com/${owner}/${repo}/pull/${number}?`;
               }
             } catch {
               /* ignore */

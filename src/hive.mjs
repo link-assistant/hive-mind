@@ -109,6 +109,10 @@ if (isRunningDirectly) {
     const solveCommand = isLocalScript ? './solve.mjs' : 'solve';
     // Repository-by-repository fallback lives in its own module so hive.mjs stays
     // under the 1350-line early-warning threshold (issue #2175, warning from #1593).
+    // Issue #2615: queue + sub-issue/dependency relations gate, kept out of hive.mjs for line limits.
+    const { IssueQueue } = await import('./hive.issue-queue.lib.mjs');
+    const { createIssueRelationsGate, createIssueRelationsFetcher, createGhGraphQLRunner } = await import('./hive.issue-relations.lib.mjs');
+    const { githubLimits } = await import('./config.lib.mjs');
     const repositoryFallbackLib = await import('./hive.repository-fallback.lib.mjs');
     const fetchIssuesFromRepositories = repositoryFallbackLib.createRepositoryIssueFetcher({ log, cleanErrorMessage, tryFetchIssuesWithGraphQL, execGhWithRetry, fetchAllIssuesWithPagination, reportError });
     // Configure command line arguments - GitHub URL as positional argument
@@ -197,6 +201,8 @@ if (isRunningDirectly) {
         console.error(`     Using:     ${parsedUrl.canonical || parsedUrl.normalized}`);
         console.error(`     Repaired:  ${formatUrlRepairs(parsedUrl.repairs, { notableOnly: true })}`);
       }
+      // Issue #2615: `owner/repo/issues` (or `/pulls`) means that repository, as in the Telegram bot.
+      if (parsedUrl.type === 'issues_list' || parsedUrl.type === 'pulls_list') Object.assign(parsedUrl, { type: 'repo', normalized: `https://github.com/${parsedUrl.owner}/${parsedUrl.repo}` });
       // Check if it's a valid type for hive (user or repo)
       if (parsedUrl.type !== 'user' && parsedUrl.type !== 'repo') {
         console.error('Error: Invalid GitHub URL for monitoring');
@@ -495,73 +501,10 @@ if (isRunningDirectly) {
     if (argv.autoCleanup) await log('   🧹 Auto-cleanup: ENABLED (will clean /tmp/* /var/tmp/* on success)');
     if (argv.interactiveMode) await log('   🔌 Interactive Mode: ENABLED');
     await log('');
-    // Producer/Consumer Queue implementation
-    class IssueQueue {
-      constructor() {
-        this.queue = [];
-        this.processing = new Set();
-        this.completed = new Set();
-        this.failed = new Set();
-        this.deferrals = new Map(); // Issue #2160: issueUrl -> environment deferral count
-        this.workers = [];
-        this.isRunning = true;
-      }
-      // Add issue to queue if not already processed or in queue
-      enqueue(issueUrl) {
-        if (this.completed.has(issueUrl) || this.processing.has(issueUrl) || this.queue.includes(issueUrl)) {
-          return false;
-        }
-        this.queue.push(issueUrl);
-        return true;
-      }
-      // Get next issue from queue
-      dequeue() {
-        if (this.queue.length === 0) {
-          return null;
-        }
-        const issue = this.queue.shift();
-        this.processing.add(issue);
-        return issue;
-      }
-      // Mark issue as completed
-      markCompleted(issueUrl) {
-        this.processing.delete(issueUrl);
-        this.completed.add(issueUrl);
-      }
-      // Mark issue as failed
-      markFailed(issueUrl) {
-        this.processing.delete(issueUrl);
-        this.failed.add(issueUrl);
-      }
-      // Issue #2160: put an issue back at the head of the queue after an *environment* block (a
-      // full host disk). It is neither completed nor failed — the task was never attempted.
-      // Returns how many times this issue has been deferred so the caller can stop looping.
-      requeue(issueUrl) {
-        this.processing.delete(issueUrl);
-        const deferrals = (this.deferrals.get(issueUrl) || 0) + 1;
-        this.deferrals.set(issueUrl, deferrals);
-        if (!this.completed.has(issueUrl) && !this.queue.includes(issueUrl)) {
-          this.queue.unshift(issueUrl);
-        }
-        return deferrals;
-      }
-      // Get queue statistics
-      getStats() {
-        return {
-          queued: this.queue.length,
-          processing: this.processing.size,
-          completed: this.completed.size,
-          failed: this.failed.size,
-          processingIssues: Array.from(this.processing),
-        };
-      }
-      // Stop all workers
-      stop() {
-        this.isRunning = false;
-      }
-    }
-    // Create global queue instance
+    // Producer/Consumer queue (hive.issue-queue.lib.mjs) and the issue #2615 relations gate:
+    // only issues with no open blockers / sub-issues are queued, critical path first.
     const issueQueue = new IssueQueue();
+    const relationsGate = createIssueRelationsGate({ enabled: argv.respectIssueRelations !== false, fetchIssueRelations: createIssueRelationsFetcher({ log, execGraphQL: createGhGraphQLRunner({ execGhWithRetry, maxBuffer: githubLimits.bufferMaxSize }) }), log, cleanErrorMessage });
     // Issue #1823: Track in-flight solve child processes. A *first* interrupt forwards a
     // controlled SIGTERM to each (they run in their own detached process group, so the
     // terminal's SIGINT never reaches them); a *second* interrupt force-kills the groups.
@@ -608,6 +551,15 @@ if (isRunningDirectly) {
         if (!recheckResult.shouldProcess) {
           await log(`   ⏭️  Skipping issue: ${recheckResult.reason}`);
           issueQueue.markCompleted(issueUrl);
+          const stats = issueQueue.getStats();
+          await log(`   📊 Queue: ${stats.queued} waiting, ${stats.processing} processing, ${stats.completed} completed, ${stats.failed} failed`);
+          continue;
+        }
+        // Issue #2615: a blocker or sub-issue may have been added (or reopened) since queueing.
+        const relationsCheck = await relationsGate.checkIssueReady(issueUrl);
+        if (!relationsCheck.ready) {
+          await log(`   ⏳ Not ready yet (${relationsCheck.reason}), deferring it until a later iteration`);
+          issueQueue.defer(issueUrl);
           const stats = issueQueue.getStats();
           await log(`   📊 Queue: ${stats.queued} waiting, ${stats.processing} processing, ${stats.completed} completed, ${stats.failed} failed`);
           continue;
@@ -1158,6 +1110,9 @@ if (isRunningDirectly) {
           }
           issuesToProcess = filteredIssues;
         }
+        // Issue #2615: keep only issues with no open blockers / sub-issues, critical path first.
+        // Done before --max-issues so the limit is spent on issues that can actually start.
+        issuesToProcess = await relationsGate.filterReadyIssues(issuesToProcess);
         // Apply max issues limit if set (after filtering to exclude skipped issues from count)
         if (argv.maxIssues > 0 && issuesToProcess.length > argv.maxIssues) {
           issuesToProcess = issuesToProcess.slice(0, argv.maxIssues);
@@ -1201,7 +1156,7 @@ if (isRunningDirectly) {
         // Add new issues to queue
         let newIssues = 0;
         for (const url of issueUrls) {
-          if (issueQueue.enqueue(url)) {
+          if (issueQueue.enqueue(url, { skipFailed: argv.once })) {
             newIssues++;
             await log(`   ➕ Added to queue: ${url}`);
           }
@@ -1236,6 +1191,11 @@ if (isRunningDirectly) {
               await log(`   ⏳ Waiting... Queue: ${currentStats.queued}, Processing: ${currentStats.processing}`);
             }
             Object.assign(stats, currentStats);
+          }
+          // Issue #2615: finished (e.g. --auto-merge'd) work may have unblocked issues held back by relations.
+          if (relationsGate.shouldStartAnotherOnceRound(stats.completed, issueQueue.waiting.size)) {
+            await log('\n🔗 Issues were waiting on sub-issues/blockers and work has completed since — checking for newly unblocked issues...');
+            continue;
           }
           // List completed issues with their solution draft PRs
           if (stats.completed > 0) {

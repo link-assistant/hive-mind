@@ -1,0 +1,51 @@
+🐝 Hive Mind - AI-powered issue solver
+   Initializing...
+   Loading dependencies (this may take a moment)...
+📁 Log file: /tmp/gh-issue-solver-1791423791876/experiments/issue-2685/hive-fixture.log
+   (All output will be logged here)
+🎯 Monitoring Configuration:
+   📍 Target: Repository - link-assistant/calculator
+   🏷️  Mode: ALL ISSUES (no label filter)
+   🚫 Skipping: Issues with open PRs
+   🔄 Concurrency: 2 parallel workers
+   📊 Pull Requests per Issue: 1
+   🤖 Model: gpt-6.1-sol
+   🍴 Auto-Fork: ENABLED (will auto-fork public repos without write access)
+   🚀 Mode: Single run
+
+
+🚀 Starting Hive Mind monitoring system...
+
+👷 Starting 2 workers...
+
+🔄 Monitoring iteration 1 at 2026-10-08T02:22:23.377Z
+
+🔍 Fetching ALL open issues...
+   🔎 Fetching all issues with pagination and rate limiting...
+   📋 Found 19 open issue(s)
+   🔍 Checking for existing pull requests using batch GraphQL query...
+   ⏭️  Skipped 19 issue(s) with existing pull requests
+   ℹ️  No eligible issues to add; see discovery and filtering details above
+
+📊 Current Status:
+   📋 Queued: 0
+   ⚙️  Processing: 0
+   ✅ Completed: 0
+   ❌ Failed: 0
+   📁 Hive log file: /tmp/gh-issue-solver-1791423791876/experiments/issue-2685/hive-fixture.log
+
+🏁 Single run mode - waiting for queue to empty...
+
+⚠️ No issues processed
+   Found: 19
+   Completed: 0
+   Failed: 0
+   Skipped: 19
+   Waiting: 0
+   ⏭️ 19 skipped: existing open pull requests
+   🔗 Existing PR: https://github.com/link-assistant/calculator/pull/228 (19 skipped issue(s))
+   Review the existing PR closing references; remove links for unfinished work, or use --no-skip-issues-with-prs --auto-continue to continue those PRs.
+
+👋 Hive Mind monitoring stopped
+   📁 Full log file: /tmp/gh-issue-solver-1791423791876/experiments/issue-2685/hive-fixture.log
+EXIT: 3 ⚠️ No issues processed

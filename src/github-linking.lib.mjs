@@ -145,6 +145,18 @@ export function resolvePrimaryIssueNumber({ body, branch, owner, repo, branchIss
   return branchNumber;
 }
 
+/** An ancestor's PR belongs to that ancestor even if its description closes descendants. */
+export function isAncestorPullRequest(pr, ancestorUrls, owner, repo) {
+  const source = (pr.url || pr.html_url)?.match(/^https:\/\/github\.com\/([\w.-]+)\/([\w.-]+)\/pull\/[1-9]\d*(?:$|[/?#])/i);
+  const sourceOwner = source?.[1] || owner;
+  const sourceRepo = source?.[2] || repo;
+  if (!sourceOwner || !sourceRepo) return false;
+  const number = resolvePrimaryIssueNumber({ body: pr.body, branch: pr.headRefName || pr.head?.ref, owner: sourceOwner, repo: sourceRepo });
+  if (!number) return false;
+  const primaryUrl = `https://github.com/${sourceOwner}/${sourceRepo}/issues/${number}`.toLowerCase();
+  return ancestorUrls.some(url => url.toLowerCase() === primaryUrl);
+}
+
 /**
  * {@link resolvePrimaryIssueNumber}, probing the branch issue only when the
  * branch and the description disagree. `checkIssueExists(number)` resolves to

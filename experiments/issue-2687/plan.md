@@ -12,5 +12,5 @@
 - [x] Run targeted tests, full local default tests, lint, format, and relevant CI checks; save large output to log files.
 - [x] Commit atomic work on the prepared branch after local checks; verify the latest default branch is already an ancestor, or merge it and resolve conflicts if necessary.
 - [x] Push only issue-2687-cdf77e59ffa9; update PR 2690 title/description with reproduction and validation.
-- [ ] Review the complete PR diff for unintended regressions; verify fresh CI on the latest SHA, download every failed-run log, and resolve failures.
-- [ ] Mark PR 2690 ready, verify a clean working tree, and report the PR URL with any concrete limitations.
+- [x] Review the complete PR diff for unintended regressions; verify fresh CI on the implementation SHA, download every failed-run log, and resolve failures.
+- [x] Mark PR 2690 ready after implementation checks pass; archive final validation and verify the clean working tree before reporting the PR URL with any concrete limitations.

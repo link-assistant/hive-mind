@@ -19,3 +19,6 @@
 {"source":"2301-turn.log","name":"local-2301-turn.log","sourceSize":2226,"bytesRead":2226,"blocks":1,"forcedReleases":0,"charsWritten":2156}
 {"source":"1935.log","name":"local-1935.log","sourceSize":1383,"bytesRead":1383,"blocks":1,"forcedReleases":0,"charsWritten":1345}
 {"source":"npm-ci.log","name":"local-npm-ci.log","sourceSize":197,"bytesRead":197,"blocks":1,"forcedReleases":0,"charsWritten":197}
+{"sourcePath":"ci-logs/Checks-and-release-37717540140-attempt-2.log","destPath":"docs/case-studies/issue-2687/data/ci-37717540140-attempt-2.log","sourceSize":6781977,"bytesRead":6781977,"blocks":26,"forcedReleases":0,"charsWritten":6748271}
+{"sourcePath":"ci-logs/Checks-and-release-37717540140-attempt-2.json","destPath":"docs/case-studies/issue-2687/data/ci-37717540140-attempt-2.json","sourceSize":26540,"bytesRead":26540,"blocks":1,"forcedReleases":0,"charsWritten":26540}
+{"sourcePath":"ci-logs/runs-after-docker-retry.json","destPath":"docs/case-studies/issue-2687/data/ci-runs-after-retry.json","sourceSize":692,"bytesRead":692,"blocks":1,"forcedReleases":0,"charsWritten":692}

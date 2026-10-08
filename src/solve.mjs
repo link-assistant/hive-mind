@@ -1310,6 +1310,7 @@ try {
   logsAttached = (await attachFinalLogIfMissing({ shouldAttachLogs, prNumber, owner, repo, $, log, sanitizeLogContent, getLogFile, attachLogToGitHub, argv, sessionId, tempDir, anthropicTotalCostUSD, resultModelUsage })) || logsAttached;
   await finalizeDevelopmentLog(); // Issue #1596/#2048: idempotent no-op on the success path (already committed before readiness signal); still preserves late/error work.
   await endWorkSession({ isContinueMode, prNumber, argv, log, formatAligned, $, logsAttached });
+  if (argv.autoFixCiCd) await (await import('./solve.auto-fix-ci-cd.lib.mjs')).runAutoFixCiCd({ argv, owner, repo, prNumber, log });
 } catch (error) {
   await finalizeDevelopmentLog(); // Preserve failed/interrupted sessions too.
   // Issue #2182: a failed session is still a finished session. Restore every pull request

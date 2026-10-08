@@ -18,7 +18,7 @@ docker run -it konard/hive-mind:latest
 # 这允许 Docker 构建成功完成，无需交互式提示
 
 # 在容器内，使用 GitHub 进行身份验证
-gh auth login -h github.com -s repo,workflow,user,read:org,gist
+gh-setup-git-identity
 
 # 使用 Claude 进行身份验证
 claude
@@ -52,6 +52,64 @@ docker run --rm --privileged -it konard/hive-mind-dind:latest bash
 docker info
 docker run hello-world
 ```
+
+让镜像使用已配置的 `box` 用户，不要覆盖 `--user`。入口脚本通过配置好的 sudoers 规则启动 dockerd。标准 dind 模式需要 `--privileged`（或下方的 Sysbox runtime）。缺少该参数时，shell 可能正常打开，但 `docker info` 会显示 `Cannot connect to the Docker daemon at unix:///var/run/docker.sock`，或 daemon 启动超时。增加等待时间前先检查 `docker logs hive-mind` 和 `/var/log/dockerd.log`（可通过 `DIND_LOG_FILE` 更改路径）。运行环境要求见上游 [dind 使用指南](https://github.com/link-foundation/box/blob/main/docs/dind/USAGE.md)。
+
+#### dind 生产部署
+
+持久化机器人部署使用与普通镜像相同的凭据挂载。在宿主机上运行以下命令；若 `hive-mind` 已存在，请使用其他容器名称。镜像使用 `fuse-overlayfs` 以控制嵌套镜像的磁盘占用。就绪检查最多尝试 180 次，失败时输出诊断日志。
+
+```bash
+mkdir -p /root/.hive-mind/claude /root/.hive-mind/codex /root/.hive-mind/agents/skills /root/.hive-mind/gh
+touch -a /root/.hive-mind/claude.json
+
+docker run -dit --privileged --name hive-mind --restart unless-stopped \
+  -e DIND_STORAGE_DRIVER=fuse-overlayfs \
+  -e DIND_WAIT_SECONDS=180 \
+  -v /root/.hive-mind/claude:/home/box/.claude \
+  -v /root/.hive-mind/codex:/home/box/.codex \
+  -v /root/.hive-mind/agents:/home/box/.agents \
+  -v /root/.hive-mind/claude.json:/home/box/.claude.json \
+  -v /root/.hive-mind/gh:/home/box/.config/gh \
+  konard/hive-mind-dind:latest bash -l -c 'bash /home/box/start-bot.sh'
+
+ready=0
+for attempt in $(seq 1 180); do
+  if docker exec hive-mind docker info >/dev/null 2>&1; then
+    ready=1
+    break
+  fi
+  sleep 1
+done
+if [ "$ready" -ne 1 ]; then
+  docker logs hive-mind
+  docker exec hive-mind sh -c 'cat "${DIND_LOG_FILE:-/var/log/dockerd.log}"'
+  exit 1
+fi
+docker exec hive-mind docker ps
+
+docker exec -it hive-mind bash
+```
+
+在打开的 shell 中按下方身份验证章节操作：两个镜像都使用 `gh-setup-git-identity`、`claude` 和 `codex login --device-auth`。按 README 配置 Telegram 机器人。
+
+#### 提交 dind 容器为镜像
+
+`docker commit` 会保留容器的环境变量。若设置容器以 `DIND_SKIP_DAEMON=1` 启动，提交时必须重置该变量，否则生成的镜像会跳过 dockerd：
+
+```bash
+docker run -d --name hive-mind-setup -e DIND_SKIP_DAEMON=1 \
+  konard/hive-mind-dind:latest sleep infinity
+docker exec -it hive-mind-setup bash
+
+docker commit --change 'ENV DIND_SKIP_DAEMON=0' \
+  hive-mind-setup hive-mind-dind:configured
+docker run -d --privileged --name hive-mind-configured \
+  hive-mind-dind:configured sleep infinity
+docker exec hive-mind-configured docker ps
+```
+
+在 shell 中完成设置并退出，然后在宿主机提交。身份验证优先使用持久化凭据挂载：`docker commit` 不会包含绑定挂载的文件，而写入容器层的凭据会进入镜像。含凭据的镜像必须保持私有。详见上游 [Commit Cycles](https://github.com/link-foundation/box/blob/main/docs/dind/USAGE.md#commit-cycles)。
 
 该镜像默认将内部 Docker daemon 设置为 `DIND_STORAGE_DRIVER=fuse-overlayfs`。这是一个**写时复制（copy-on-write）**驱动，因此数 GB 的 Hive Mind 镜像在磁盘上只占用约一份真实大小——而 `vfs` 会完整复制每一层，使磁盘占用膨胀到镜像大小的数倍，最终以 `failed to register layer: no space left on device` 耗尽磁盘（[issue #1914](https://github.com/link-assistant/hive-mind/issues/1914)）。`fuse-overlayfs` 同时支持 overlay-on-overlay（这正是当初选择 `vfs` 的兼容性原因），镜像已内置 `fuse-overlayfs` 二进制，且 Hive Mind 以 `--privileged` 启动 DinD 容器，因此 `/dev/fuse` 可用。覆盖选项：
 
@@ -262,8 +320,10 @@ docker run --rm -it \
 
 ```bash
 # 在容器内，容器运行后执行
-gh auth login -h github.com -s repo,workflow,user,read:org,gist
+gh-setup-git-identity
 ```
+
+两个镜像都安装了 `gh-setup-git-identity`。该工具处理 GitHub 身份验证，并配置提交所需的 Git 用户名和邮箱。
 
 **注意**：安装脚本故意不在构建过程中调用 `gh auth login`。这是为了支持无超时的 Docker 构建而有意为之。
 
@@ -273,6 +333,31 @@ gh auth login -h github.com -s repo,workflow,user,read:org,gist
 # 在容器内，容器运行后执行
 claude
 ```
+
+完成身份验证后，验证模型确实返回了回复：
+
+```bash
+claude_reply="$(claude -p "reply with only OK" --model haiku)" &&
+  test "$claude_reply" = OK
+```
+
+### Codex 身份验证
+
+在运行中的容器内安装或更新 Codex，然后使用设备身份验证：
+
+```bash
+bun install -g @openai/codex@latest
+codex login --device-auth
+```
+
+看到 `Successfully logged in` 后，在 Git 仓库之外验证模型回复：
+
+```bash
+codex_reply="$(codex exec --skip-git-repo-check --model gpt-5.4-mini "reply with only OK")" &&
+  test "$codex_reply" = OK
+```
+
+两个检查都要求命令成功，且最终回复必须恰好是 `OK`。登录成功、CLI 可用或退出码为 0 都不能证明推理成功：信任检查拒绝或 `You've hit your weekly limit` 等配额提示都代表测试失败。由于 `/home/box` 不是 Git 仓库，此处 Codex 必须使用 `--skip-git-repo-check`。详见 [Codex 官方非交互模式指南](https://learn.chatgpt.com/docs/non-interactive-mode)。
 
 此方法允许：
 
@@ -410,7 +495,7 @@ docker-compose run --rm hive-mind
 gh auth status
 
 # 如需重新验证
-gh auth login -h github.com -s repo,workflow,user,read:org,gist
+gh-setup-git-identity
 ```
 
 ### Claude 身份验证问题

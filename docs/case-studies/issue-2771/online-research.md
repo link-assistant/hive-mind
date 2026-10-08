@@ -550,6 +550,64 @@ All six model pages list a 1,050,000-token context window. Their wording differs
 
 ---
 
+## Q9. Batch APIs: can a coding agent use them? (PR #2772 review)
+
+Question from the PR review: "May be we can use batch speed for Codex by default? Or it does not work at all?" Short answer: **Batch does not work for interactive CLIs. Flex is the synchronous tier at the Batch price.** Docs re-read on 2026-10-08.
+
+| Vendor    | Batch: how it works                                                                                                                                                                                             | Batch price                     | Synchronous tier at the Batch price                                                                                                                                    | Can the hive CLI send it?                                                                  |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| OpenAI    | Upload a `.jsonl` file (`purpose="batch"`), `POST /v1/batches`; "the completion window can only be set to `24h`"; results come back as an output file whose "line order **may not match** the input line order" | 0.5x ("50% lower costs")        | **Flex**: "Tokens are priced at Batch API rates"; `service_tier: "flex"`; beta, limited models; `429 Resource Unavailable` (not charged); 10-minute default timeout    | Codex: yes, `-c service_tier=flex` (`--speed flex`, alias `--speed batch`)                 |
+| Anthropic | Message Batches API; "most batches finishing in less than 1 hour", results "after 24 hours, whichever comes first"; `stream: true` and `speed` are not supported                                                | 0.5x                            | None on the first-party API (tiers are Priority, Standard, Batch; Priority Tier is closed to new commitments). Bedrock has `flex` via `ANTHROPIC_BEDROCK_SERVICE_TIER` | No: Claude Code has no batch option; it streams every turn                                 |
+| Google    | Batch Mode, "target turnaround time is 24 hours"                                                                                                                                                                | 0.5x                            | **Flex** (preview): "50% cost reduction", "synchronous", latency "Minutes (1–15 min target)", "Best-effort (Sheddable)", "No server-side fallback"                     | No: Gemini CLI 0.63.0 has no service-tier setting (no `serviceTier` string in the package) |
+| Alibaba   | OpenAI-compatible batch, "processes them asynchronously", `completion_window="24h"`                                                                                                                             | 0.5x ("50% of real-time calls") | None                                                                                                                                                                   | No: and no `qwen3-coder-*` model is on the batch-supported lists                           |
+
+Why Batch cannot drive an agent loop (derived, Medium–High):
+
+- A coding agent sends one request per turn and must read the tool calls in the reply before it can send the next turn. A batch is submitted as a file and answered as a file, up to 24 hours later, with no streaming. A single solve session has hundreds of such dependent turns.
+- Anthropic says the same about its own agent product: Managed Agents pricing excludes the Batch discount because "Sessions are stateful and interactive. There is no batch mode."
+
+What Codex does with `service_tier=batch` (High, local capture with Codex CLI 0.161.0, `codex-service-tier-capture.txt`):
+
+- `batch`, `scale` and any unknown value are dropped silently. The request goes out with no `service_tier` (standard price), and Codex prints no warning.
+- The Responses API reference lists `auto`, `default`, `flex`, `scale`, `priority`, `fast` and `ultrafast`. There is no `batch`.
+- So hive maps `--speed batch` to `flex`. Otherwise `batch` would quietly bill at the standard price.
+
+Sources:
+
+- https://developers.openai.com/api/docs/guides/batch
+- https://developers.openai.com/api/docs/guides/flex-processing
+- https://developers.openai.com/api/reference/resources/responses/methods/create (`service_tier`)
+- https://platform.claude.com/docs/en/build-with-claude/batch-processing
+- https://platform.claude.com/docs/en/api/service-tiers
+- https://ai.google.dev/gemini-api/docs/batch-mode
+- https://ai.google.dev/gemini-api/docs/flex-inference
+- https://www.alibabacloud.com/help/en/model-studio/batch-interfaces-compatible-with-openai
+
+## Re-check of all model docs (2026-10-08, PR #2772 review)
+
+Re-read the vendor pages listed in Q1–Q7. Results:
+
+- **OpenAI:**
+  - Short context is still "≤272K input tokens".
+  - gpt-6.1-sol is $2 / $0.10 cached / $10, the cheapest Sol. Its cached input is half of gpt-6-sol's $0.20.
+  - Fast is 2x on GPT-6 and 5.6.
+  - The Codex speed page still says "With an API key, Codex uses API token pricing instead, and ChatGPT credit multipliers don't apply".
+  - No Codex doc mentions Flex for ChatGPT login, so open question 3 stays open.
+- **Anthropic:**
+  - Opus 5.5 is $4 / $20, cheaper than Opus 5 and 4.8 ($5 / $25).
+  - Sonnet 5.5 is $2 / $10. Haiku 5.5 is $0.10 / $0.50 up to 100K input and $0.50 / $2.50 above.
+  - "Claude 4.6 and later models (except Claude Haiku 5.5) ... include the full 1M token context window at standard pricing."
+  - Fast mode is supported on Opus 5.5, 5 and 4.8 only.
+  - `CLAUDE_CODE_AUTO_COMPACT_WINDOW` "Accepts a plain integer ... only" in the range 100000–1000000, which is what hive passes.
+- **Google:**
+  - The pricing page was last updated 2026-10-07.
+  - The 200K split still applies only to the Pro models.
+  - Flex and Batch are 0.5x, Priority is 1.8x.
+  - `model.compressionThreshold` still defaults to `0.5`.
+- **Qwen:**
+  - Qwen Code uses `context.autoCompactThreshold` (default 0.85). It "Replaces the old `model.chatCompression.contextPercentageThreshold`", which is removed and ignored. hive already writes the new key.
+  - The Model Studio models page no longer shows the per-range qwen3-coder prices, so Q7.1 could not be re-confirmed from the current page. The text-generation page now lists Qwen3-Coder under "Legacy models", with a 1M window for `qwen3-coder-plus` and `-flash`.
+
 ## Not verified / open questions
 
 1. **Original Opus 4.6 fast-mode price.** Widely reported as $30 / $150 (6x). It does not appear in current docs, and I could not reach Wayback. Only "premium pricing" (release notes, 2026-02-07) is verified. Fast mode no longer exists on Opus 4.6.

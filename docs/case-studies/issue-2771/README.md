@@ -57,11 +57,11 @@ Prices are USD per 1M tokens. Details and sources are in `online-research.md`.
 
 Speed tiers:
 
-| Tool          | Tiers and multipliers                                                      | Default before this change                                                                                                                                                     | Evidence                               |
-| ------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------- |
-| Claude Code   | Fast mode 2x on Opus 4.8 / 5 / 5.5                                         | Off, but it persists once enabled (`/fast`) and can come from user settings                                                                                                    | Claude Code docs, §2.3 of the research |
-| Codex CLI     | `flex` 0.5x, standard 1x, `fast` (sent as `priority`) 2x, `ultrafast` 6-8x | Fast on eligible ChatGPT plans; the gpt-6-sol and gpt-6-luna catalog entries carry `default_service_tier: "priority"`; any `service_tier` in `~/.codex/config.toml` is honored | Capture below and §5.3 of the research |
-| Gemini / Qwen | No speed tier in the CLIs                                                  | n/a                                                                                                                                                                            | §6, §7                                 |
+| Tool          | Tiers and multipliers                                                                                                                   | Default before this change                                                                                                                                                     | Evidence                               |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------- |
+| Claude Code   | Fast mode 2x on Opus 4.8 / 5 / 5.5                                                                                                      | Off, but it persists once enabled (`/fast`) and can come from user settings                                                                                                    | Claude Code docs, §2.3 of the research |
+| Codex CLI     | `flex` 0.5x, standard 1x, `fast` (sent as `priority`) 2x, `ultrafast` 6-8x                                                              | Fast on eligible ChatGPT plans; the gpt-6-sol and gpt-6-luna catalog entries carry `default_service_tier: "priority"`; any `service_tier` in `~/.codex/config.toml` is honored | Capture below and §5.3 of the research |
+| Gemini / Qwen | No speed tier in the CLIs (the Gemini API has Flex 0.5x and Priority 1.8x, but Gemini CLI 0.63.0 and Qwen Code 0.25.0 cannot send them) | n/a                                                                                                                                                                            | §6, §7                                 |
 
 ### Wire capture: Codex `service_tier`
 
@@ -73,6 +73,10 @@ no override (before #2771)                       requests:  1  service_tier: (om
 hive default: -c service_tier=default            requests:  1  service_tier: (omitted = standard)
 hive --speed fast: -c service_tier=fast          requests:  1  service_tier: priority
 hive --speed flex: -c service_tier=flex          requests:  1  service_tier: flex
+batch: -c service_tier=batch                     requests:  1  service_tier: (omitted = standard)
+priority: -c service_tier=priority               requests:  1  service_tier: priority
+scale: -c service_tier=scale                     requests:  1  service_tier: (omitted = standard)
+unknown: -c service_tier=nonsense                requests:  1  service_tier: (omitted = standard)
 config.toml service_tier=fast, no override       requests:  1  service_tier: priority
 config.toml service_tier=fast + hive default     requests:  1  service_tier: (omitted = standard)
 ```
@@ -82,6 +86,7 @@ What the capture shows:
 - With API-key auth and no user config, Codex already sends the standard tier. The catalog's `default_service_tier: "priority"` is applied for ChatGPT-login plans, which a mock endpoint cannot exercise (research §5.3, PR openai/codex#19053).
 - A `service_tier = "fast"` in the user's `config.toml` turns every request into `priority` (2x). `-c service_tier=default` overrides it and puts the request back on standard. Because of this, hive-mind now pins the tier on every run.
 - `default` is Codex's sentinel for explicit standard routing: the field is left out of the request.
+- `batch`, `scale` and unknown values are dropped silently (no warning) and the request goes out at the standard price. That is why `--speed batch` is mapped to `flex` (see "Why not Batch" in §5.4).
 
 ## 4. Root causes
 
@@ -144,7 +149,7 @@ Added and kept:
 | Option                                             | Default      | Notes                                                                                                      |
 | -------------------------------------------------- | ------------ | ---------------------------------------------------------------------------------------------------------- |
 | `--disable-1m-context` / `--no-disable-1m-context` | auto (unset) | Auto = short context unless `--sub-session-size` asks for more than the short tier or the model has `[1m]` |
-| `--speed flex\|standard\|fast\|ultrafast`          | `standard`   | Aliases: `default`, `normal`, `auto` → standard; `slow`, `economy` → flex; `priority` → fast               |
+| `--speed flex\|standard\|fast\|ultrafast`          | `standard`   | Aliases: `default`, `normal`, `auto` → standard; `slow`, `economy`, `batch` → flex; `priority` → fast      |
 
 Both options are forwarded from `hive` to `solve` workers automatically.
 
@@ -154,9 +159,17 @@ The issue asks for the slowest setting. Only OpenAI has a slower tier (`flex`, 0
 
 - Flex requests can fail with `429 Resource Unavailable` when capacity is short, and they can be much slower. Both would turn into failed or timed-out solve sessions.
 - No vendor document confirms that ChatGPT-login Codex (the usual hive setup) honors `flex` or how it counts against plan limits (research, open question 3).
-- Claude, Gemini and Qwen have no slower tier, so standard is already their cheapest.
+- Claude has no slower synchronous tier on the first-party API. The Gemini API has Flex, but neither Gemini CLI nor Qwen Code can request it. For these tools, standard is already the cheapest tier they can use.
 
 `--speed flex` is available for anyone who wants it on API-key Codex.
+
+#### Why not Batch (PR #2772 review)
+
+The review asked whether Codex could use "batch speed" by default. It cannot, and neither can the other CLIs (research Q9):
+
+- Every vendor's Batch API is an asynchronous job API. You upload a file of requests and download a file of results, OpenAI and Google within 24 hours and Anthropic usually within an hour. Nothing is streamed. An agent needs the reply to each turn (the tool calls) before it can send the next turn, so one solve session would take hundreds of round trips of up to 24 hours each.
+- There is no `batch` service tier for synchronous requests. The Responses API accepts `auto`, `default`, `flex`, `scale`, `priority`, `fast` and `ultrafast`. Codex 0.161 silently drops `service_tier=batch` and bills the request as standard (capture above).
+- OpenAI's Flex is the synchronous equivalent: "Tokens are priced at Batch API rates". `--speed batch` is therefore an alias for `--speed flex`, so the cheaper price is real. Flex stays opt-in for the reasons above.
 
 ## 6. Not changed, and why
 

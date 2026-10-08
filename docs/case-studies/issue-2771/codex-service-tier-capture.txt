@@ -3,6 +3,10 @@ no override (before #2771)                       requests:  1  service_tier: (om
 hive default: -c service_tier=default            requests:  1  service_tier: (omitted = standard)
 hive --speed fast: -c service_tier=fast          requests:  1  service_tier: priority
 hive --speed flex: -c service_tier=flex          requests:  1  service_tier: flex
+batch: -c service_tier=batch                     requests:  1  service_tier: (omitted = standard)
+priority: -c service_tier=priority               requests:  1  service_tier: priority
+scale: -c service_tier=scale                     requests:  1  service_tier: (omitted = standard)
+unknown: -c service_tier=nonsense                requests:  1  service_tier: (omitted = standard)
 config.toml service_tier=fast, no override       requests:  1  service_tier: priority
 config.toml service_tier=fast + hive default     requests:  1  service_tier: (omitted = standard)
 codex codex-cli 0.161.0 model=gpt-6.1-sol
@@ -10,5 +14,9 @@ no override (before #2771)                       requests:  1  service_tier: (om
 hive default: -c service_tier=default            requests:  1  service_tier: (omitted = standard)
 hive --speed fast: -c service_tier=fast          requests:  1  service_tier: priority
 hive --speed flex: -c service_tier=flex          requests:  1  service_tier: flex
+batch: -c service_tier=batch                     requests:  1  service_tier: (omitted = standard)
+priority: -c service_tier=priority               requests:  1  service_tier: priority
+scale: -c service_tier=scale                     requests:  1  service_tier: (omitted = standard)
+unknown: -c service_tier=nonsense                requests:  1  service_tier: (omitted = standard)
 config.toml service_tier=fast, no override       requests:  1  service_tier: priority
 config.toml service_tier=fast + hive default     requests:  1  service_tier: (omitted = standard)

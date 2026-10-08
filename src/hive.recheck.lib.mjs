@@ -48,7 +48,7 @@ export async function recheckIssueConditions(issueUrl, argv) {
 
     // Check 2: If skipIssuesWithPrs is enabled, verify issue still has no open PRs
     if (argv.skipIssuesWithPrs) {
-      const prResults = await batchCheckPullRequestsForIssues(owner, repo, [issueNum]);
+      const prResults = await batchCheckPullRequestsForIssues(owner, repo, [issueNum], { excludeAncestorPullRequests: true });
       const prInfo = prResults[issueNum];
 
       if (prInfo && prInfo.openPRCount > 0) {

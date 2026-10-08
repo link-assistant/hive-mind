@@ -5,6 +5,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 const scenario = process.env.HIVE_FIXTURE_SCENARIO;
+const parentScenario = scenario.startsWith('parent-prs');
 const root = new URL('../../src/', import.meta.url);
 const url = name => new URL(name, root).href;
 const noop = '() => {}';
@@ -37,10 +38,11 @@ stub('tool-connection-validation.lib.mjs', "export const validateToolConnection 
 stub('agent-config-audit.lib.mjs', `export const isAgentConfigAutoRepairEnabled = () => false, runAgentConfigAudit = ${noop};`);
 stub('disk-guard.lib.mjs', `export const EXIT_CODE_INSUFFICIENT_DISK_SPACE = 75, ensureDiskSpaceForWorker = async () => ({ ok: ${scenario !== 'disk-halt'}, freeMB: ${scenario === 'disk-halt' ? 0 : 99999} }), extractSolverWorkspacePaths = () => [];`);
 stub('reclaimable-space.lib.mjs', `export const logReclaimableSpace = ${noop}, formatReclaimableSpaceLines = () => [];`);
-stub('hive.recheck.lib.mjs', `export const recheckIssueConditions = async () => ({ shouldProcess: ${scenario !== 'recheck-skip'}, reason: 'An open pull request appeared', pullRequests: [{ state: 'OPEN', url: 'https://github.com/link-assistant/calculator/pull/228' }] });`);
-stub(
-  'hive.issue-relations.lib.mjs',
-  `
+if (!parentScenario) stub('hive.recheck.lib.mjs', `export const recheckIssueConditions = async () => ({ shouldProcess: ${scenario !== 'recheck-skip'}, reason: 'An open pull request appeared', pullRequests: [{ state: 'OPEN', url: 'https://github.com/link-assistant/calculator/pull/228' }] });`);
+if (!parentScenario)
+  stub(
+    'hive.issue-relations.lib.mjs',
+    `
 let waiting = [];
 export const createGhGraphQLRunner = () => {}, createIssueRelationsFetcher = () => {};
 export const createIssueRelationsGate = () => ({
@@ -48,7 +50,10 @@ filterReadyIssues: async issues => { waiting = ${scenario === 'blocked' ? 'issue
 checkIssueReady: async () => ({ ready: true }),
 shouldStartAnotherOnceRound: () => false, getWaitingCount: () => waiting.length, getWaitingIssues: () => waiting.map(issue => issue.url)
 });`
-);
+  );
+if (parentScenario) {
+  stub('github-rate-limit.lib.mjs', `export { answerGh as execGhWithRetry } from ${JSON.stringify(new URL('parent-pr-fixture-data.mjs', import.meta.url).href)}; export const wrapDollarWithGhRetry = value => value;`);
+}
 stub(
   'github.lib.mjs',
   `
@@ -57,13 +62,17 @@ export { parseGitHubUrl } from ${JSON.stringify(url('github-url-parser.lib.mjs')
 export const checkGitHubPermissions = async () => true, isRateLimitError = () => false;
 const issues = JSON.parse(readFileSync(${JSON.stringify(new URL('../../docs/case-studies/issue-2685/data/calculator-open-issues.json', import.meta.url).pathname)}, 'utf8')).filter(issue => !issue.pull_request).map(issue => ({ ...issue, url: issue.html_url }));
 export const fetchAllIssuesWithPagination = async () => {
-  ${scenario === 'discovery-error' ? "throw new Error('GitHub discovery unavailable');" : `return ${scenario === 'empty' ? '[]' : ['all-prs', 'blocked', 'partial'].includes(scenario) ? 'issues' : 'issues.slice(0, 1)'};`}
+  ${scenario === 'discovery-error' ? "throw new Error('GitHub discovery unavailable');" : `return ${scenario === 'empty' ? '[]' : parentScenario || ['all-prs', 'blocked', 'partial'].includes(scenario) ? 'issues' : 'issues.slice(0, 1)'};`}
 };
 export const fetchProjectIssues = fetchAllIssuesWithPagination;
 export const batchCheckArchivedRepositories = async () => (${scenario === 'archived' ? "{ 'link-assistant/calculator': true }" : '{}'});
-export const batchCheckPullRequestsForIssues = async (owner, repo, numbers) => Object.fromEntries(numbers.map(number => [number, {
+${
+  parentScenario
+    ? `export { batchCheckPullRequestsForIssues } from ${JSON.stringify(url('github.batch.lib.mjs'))};`
+    : `export const batchCheckPullRequestsForIssues = async (owner, repo, numbers) => Object.fromEntries(numbers.map(number => [number, {
 openPRCount: ${scenario === 'all-prs' ? 1 : 0}, linkedPRs: ${scenario === 'all-prs' ? "[{ number: 228, state: 'OPEN', url: 'https://github.com/link-assistant/calculator/pull/228' }]" : '[]'}
 }]));`
+}`
 );
 stub('list-solution-drafts.lib.mjs', 'export const listSolutionDrafts = async () => {};');
 stub('github.graphql.lib.mjs', 'export const tryFetchIssuesWithGraphQL = async () => ({ success: false });');
@@ -73,6 +82,11 @@ stub('youtrack/youtrack-sync.mjs', `export const syncYouTrackToGitHub = async ()
 registerHooks({
   load(moduleUrl, context, nextLoad) {
     if (stubs.has(moduleUrl)) return { format: 'module', source: stubs.get(moduleUrl), shortCircuit: true };
+    if (parentScenario && moduleUrl === url('hive.recheck.lib.mjs')) {
+      // Stub only the issue-state transport; exercise the production PR recheck.
+      const source = readFileSync(new URL(moduleUrl), 'utf8').replace("const { execSync } = await import('child_process');", "const execSync = () => 'open';");
+      return { format: 'module', source, shortCircuit: true };
+    }
     if (moduleUrl === url('hive.mjs')) {
       // Speed up polling without changing queue or outcome behavior.
       const source = readFileSync(new URL(moduleUrl), 'utf8').replaceAll('setTimeout(resolve, 5000)', 'setTimeout(resolve, 10)');

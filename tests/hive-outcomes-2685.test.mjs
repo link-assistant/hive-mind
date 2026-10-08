@@ -36,17 +36,39 @@ export function runHive(scenario, args = []) {
   });
 }
 
-test('production replay: nineteen PR skips produce no-work exit and name PR #228', { timeout: 15000 }, async () => {
+test('all issues with their own PRs produce no-work exit, a PR link and continuation guidance', { timeout: 15000 }, async () => {
   const result = await runHive('all-prs');
   assert.equal(result.code, 3, result.output);
   assert.match(result.output, /No issues processed/);
   assert.match(result.output, /Skipped.*19/);
   assert.match(result.output, /https:\/\/github.com\/link-assistant\/calculator\/pull\/228/);
+  assert.match(result.output, /--no-skip-issues-with-prs --auto-continue/);
+  assert.match(result.output, /No eligible issues found\./);
   assert.doesNotMatch(result.output, /All issues processed|FIXTURE_SOLVER_STARTED/);
   assert.doesNotMatch(result.output, /Discovery details:/);
   const verbose = await runHive('all-prs', ['--verbose']);
   assert.equal(verbose.code, 3, verbose.output);
   assert.match(verbose.output, /Discovery details:.*existing open pull requests/);
+});
+
+for (const scenario of ['parent-prs', 'parent-prs-rest']) {
+  test(`${scenario}: production lookup and scheduler keep children eligible`, { timeout: 15000 }, async () => {
+    const result = await runHive(scenario, ['--max-issues', '1', '--verbose']);
+    assert.equal(result.code, 4, result.output);
+    assert.match(result.output, /Skipped: 1/);
+    assert.match(result.output, /FIXTURE_SOLVER_STARTED https:\/\/github.com\/link-assistant\/calculator\/issues\/229/);
+    assert.doesNotMatch(result.output, /FIXTURE_SOLVER_STARTED .*\/issues\/227/);
+    assert.match(result.output, /PR #228 belongs to an ancestor/);
+  });
+}
+
+test('including existing PRs retains parent gating and forwards continuation to ready children', { timeout: 15000 }, async () => {
+  const result = await runHive('parent-prs', ['--no-skip-issues-with-prs', '--auto-continue']);
+  assert.equal(result.code, 4, result.output);
+  assert.match(result.output, /Completed: 4/);
+  assert.match(result.output, /Waiting: 15/);
+  assert.match(result.output, /Command: .*\/issues\/229 .*--auto-continue/);
+  assert.doesNotMatch(result.output, /FIXTURE_SOLVER_STARTED .*\/issues\/227/);
 });
 
 for (const scenario of ['empty', 'blocked', 'archived', 'recheck-skip']) {
@@ -199,7 +221,9 @@ test('Telegram reports hive no-work as a warning and preserves unrelated failure
     assert.match(message, /^⚠️/);
     assert.doesNotMatch(message, /finished successfully/);
     assert.doesNotMatch(message, /telegram\.work_session/);
+    assert.match(message, /--no-skip-issues-with-prs --auto-continue/);
   }
   const message = formatSessionCompletionMessage({ exitCode: 3, sessionInfo: { command: 'solve' } });
   assert.match(message, /^❌.*failed/);
+  assert.doesNotMatch(message, /--no-skip-issues-with-prs/);
 });

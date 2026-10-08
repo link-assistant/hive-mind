@@ -1,6 +1,7 @@
 // A drained queue describes scheduling, not whether any solver completed work.
 export const EXIT_CODE_HIVE_NO_WORK = 3;
 export const EXIT_CODE_HIVE_INCOMPLETE = 4;
+export const HIVE_EXISTING_PRS_HINT = 'To work on issues with existing PRs, use --no-skip-issues-with-prs --auto-continue. Parent issues wait until their sub-issues are closed.';
 
 export class HiveRunReport {
   constructor() {
@@ -61,7 +62,7 @@ export class HiveRunReport {
     for (const [reason, count] of reasons) await log(`   ⏭️ ${count} skipped: ${reason}`);
     for (const [url, issues] of pullRequests) await log(`   🔗 Existing PR: ${url} (${issues.size} skipped issue(s))`);
     for (const error of outcome.errors) await log(`   ❌ Discovery error: ${error}`, { level: 'error' });
-    if (pullRequests.size || reasons.has('existing open pull requests')) await log('   Review the existing PR closing references; remove links for unfinished work, or use --no-skip-issues-with-prs --auto-continue to continue those PRs.');
+    if (pullRequests.size || reasons.has('existing open pull requests')) await log(`   ${HIVE_EXISTING_PRS_HINT}`);
     await log(`   Discovery details: ${JSON.stringify({ found: outcome.found, skipped: [...outcome.skipped], waiting: outcome.pending, errors: outcome.errors })}`, { verbose: true });
     return outcome;
   }

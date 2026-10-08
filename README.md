@@ -415,7 +415,7 @@ hive <github-url> [options]
 
 With `--once`, the final summary reports found, completed, failed, skipped and waiting issues, including PR links that caused skips. Exit 3 means no issues were processed; exit 4 means some work completed with issues still waiting; exit 1 indicates worker or discovery failures. Explicit dry runs exit 0. A successful solver exit does not establish that its PR was merged.
 
-When `--skip-issues-with-prs` excludes unfinished work, review the named PR's closing references. To continue existing drafts, use `--no-skip-issues-with-prs --auto-continue`. Telegram displays no-work and partial hive runs as warnings; `--verbose` adds discovery details to the log.
+`--skip-issues-with-prs` skips issues with their own open PRs. A parent issue's PR belongs to the parent even when it references its sub-issues. Parents wait until their open sub-issues are closed; dependency ordering also applies when including existing PRs. When no eligible issues remain, Hive suggests `--no-skip-issues-with-prs --auto-continue` to continue existing drafts. Telegram displays no-work and partial hive runs as warnings; `--verbose` adds discovery details to the log.
 
 ## 🤖 Telegram Bot
 

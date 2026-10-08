@@ -43,7 +43,7 @@ import { createShutdownManager } from './hive.shutdown.lib.mjs';
 import { EXIT_CODE_INSUFFICIENT_DISK_SPACE, ensureDiskSpaceForWorker, extractSolverWorkspacePaths } from './disk-guard.lib.mjs';
 import { logReclaimableSpace } from './reclaimable-space.lib.mjs';
 import { resolveDockerImageReclaimMode } from './docker-image-reclaim.lib.mjs';
-import { HiveRunReport } from './hive.run-outcome.lib.mjs';
+import { HiveRunReport, HIVE_EXISTING_PRS_HINT } from './hive.run-outcome.lib.mjs';
 const isRunningDirectly = isDirectExecution(process.argv[1], import.meta.url);
 if (isRunningDirectly) {
   console.log('🐝 Hive Mind - AI-powered issue solver');
@@ -1072,6 +1072,7 @@ if (isRunningDirectly) {
           issuesToProcess = filteredIssues;
         }
         // Filter out issues with open PRs if option is enabled
+        let existingPrSkipCount = 0;
         if (argv.skipIssuesWithPrs) {
           await log('   🔍 Checking for existing pull requests using batch GraphQL query...');
           // Extract issue numbers and repository info from URLs
@@ -1099,7 +1100,7 @@ if (isRunningDirectly) {
           let totalSkipped = 0;
           for (const repoData of Object.values(issuesByRepo)) {
             const issueNumbers = repoData.issues.map(i => i.number);
-            const prResults = await batchCheckPullRequestsForIssues(repoData.owner, repoData.repo, issueNumbers);
+            const prResults = await batchCheckPullRequestsForIssues(repoData.owner, repoData.repo, issueNumbers, { excludeAncestorPullRequests: true });
             // Process results
             for (const issueData of repoData.issues) {
               const prInfo = prResults[issueData.number];
@@ -1116,10 +1117,14 @@ if (isRunningDirectly) {
             await log(`   ⏭️  Skipped ${totalSkipped} issue(s) with existing pull requests`);
           }
           issuesToProcess = filteredIssues;
+          existingPrSkipCount = totalSkipped;
         }
         // Issue #2615: keep only issues with no open blockers / sub-issues, critical path first.
         // Done before --max-issues so the limit is spent on issues that can actually start.
         issuesToProcess = await relationsGate.filterReadyIssues(issuesToProcess);
+        if (issuesToProcess.length === 0 && existingPrSkipCount > 0) {
+          await log(`   ℹ️  No eligible issues found. ${HIVE_EXISTING_PRS_HINT}`);
+        }
         // Apply max issues limit if set (after filtering to exclude skipped issues from count)
         if (argv.maxIssues > 0 && issuesToProcess.length > argv.maxIssues) {
           issuesToProcess = issuesToProcess.slice(0, argv.maxIssues);

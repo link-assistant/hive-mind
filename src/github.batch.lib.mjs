@@ -11,7 +11,8 @@ if (typeof globalThis.use === 'undefined') {
 // Import dependencies
 import { log, cleanErrorMessage } from './lib.mjs';
 import { githubLimits, timeouts } from './config.lib.mjs';
-import { prClosesIssue, pullRequestClosesIssue } from './github-linking.lib.mjs';
+import { prClosesIssue, pullRequestClosesIssue, isAncestorPullRequest } from './github-linking.lib.mjs';
+import { ISSUE_ANCESTOR_FIELDS, getIssueAncestorUrls, createRestIssueOwnershipFetcher } from './github-issue-pr-ownership.lib.mjs';
 
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry, execGhWithRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller. execGhWithRetry adds transient-network retry (#1756).
 export { prClosesIssue };
@@ -30,9 +31,10 @@ export { prClosesIssue };
  * @param {Function} logger - Async logger, defaults to shared log helper
  * @param {Object} [options]
  * @param {Array<string>} [options.includeStates=['OPEN']] - PR states to report
+ * @param {boolean} [options.excludeAncestorPullRequests=false] - Ignore PRs belonging to native ancestors when gating work
  * @returns {Promise<Array<Object>>} Linked PRs (in the requested states) that close the issue
  */
-export async function extractLinkedPullRequestsForIssue(issueData, issueNum, logger = log, { includeStates = ['OPEN'], owner = null, repo = null } = {}) {
+export async function extractLinkedPullRequestsForIssue(issueData, issueNum, logger = log, { includeStates = ['OPEN'], owner = null, repo = null, excludeAncestorPullRequests = false } = {}) {
   const linkedPRs = [];
   const wantedStates = new Set(includeStates);
 
@@ -40,6 +42,11 @@ export async function extractLinkedPullRequestsForIssue(issueData, issueNum, log
     if (item?.source && wantedStates.has(item.source.state)) {
       // Check if PR actually closes this issue (has "fixes #N", "closes #N", or "resolves #N")
       const closesThisIssue = pullRequestClosesIssue(item.source, issueNum, owner, repo);
+
+      if (closesThisIssue && excludeAncestorPullRequests && isAncestorPullRequest(item.source, getIssueAncestorUrls(issueData), owner, repo)) {
+        await logger(`      ℹ️  PR #${item.source.number} belongs to an ancestor of issue #${issueNum}; keeping this sub-issue eligible`, { verbose: true });
+        continue;
+      }
 
       if (closesThisIssue) {
         linkedPRs.push({
@@ -67,9 +74,10 @@ export async function extractLinkedPullRequestsForIssue(issueData, issueNum, log
  * @param {Object} [options]
  * @param {Array<string>} [options.includeStates=['OPEN']] - PR states to report in `linkedPRs`
  *   (issue #2160). `openPRCount` always counts only OPEN pull requests.
+ * @param {boolean} [options.excludeAncestorPullRequests=false] - Use issue-specific ownership for hive discovery and rechecks
  * @returns {Promise<Object>} Object mapping issue numbers to their linked PRs
  */
-export async function batchCheckPullRequestsForIssues(owner, repo, issueNumbers, { includeStates = ['OPEN'] } = {}) {
+export async function batchCheckPullRequestsForIssues(owner, repo, issueNumbers, { includeStates = ['OPEN'], excludeAncestorPullRequests = false } = {}) {
   try {
     if (!issueNumbers || issueNumbers.length === 0) {
       return {};
@@ -80,6 +88,7 @@ export async function batchCheckPullRequestsForIssues(owner, repo, issueNumbers,
     // GraphQL has complexity limits, so batch in groups of 50
     const BATCH_SIZE = 50;
     const results = {};
+    const ownership = createRestIssueOwnershipFetcher({ execGhWithRetry, log });
 
     for (let i = 0; i < issueNumbers.length; i += BATCH_SIZE) {
       const batch = issueNumbers.slice(i, i + BATCH_SIZE);
@@ -97,6 +106,7 @@ export async function batchCheckPullRequestsForIssues(owner, repo, issueNumbers,
               number
               title
               state
+              ${excludeAncestorPullRequests ? ISSUE_ANCESTOR_FIELDS : ''}
               timelineItems(first: 100, itemTypes: [CROSS_REFERENCED_EVENT]) {
                 nodes {
                   ... on CrossReferencedEvent {
@@ -105,6 +115,7 @@ export async function batchCheckPullRequestsForIssues(owner, repo, issueNumbers,
                         number
                         title
                         body
+                        headRefName
                         state
                         isDraft
                         url
@@ -147,7 +158,7 @@ export async function batchCheckPullRequestsForIssues(owner, repo, issueNumbers,
             // Issue #1094: Only count PRs that explicitly fix/close/resolve this issue
             // This prevents false positives from PRs that only mention issues without solving them
             // Issue #1760: Draft PRs are still active solution drafts and must block duplicate work
-            const linkedPRs = await extractLinkedPullRequestsForIssue(issueData, issueNum, log, { includeStates, owner, repo });
+            const linkedPRs = await extractLinkedPullRequestsForIssue(issueData, issueNum, log, { includeStates, owner, repo, excludeAncestorPullRequests });
 
             results[issueNum] = {
               title: issueData.title,
@@ -178,7 +189,7 @@ export async function batchCheckPullRequestsForIssues(owner, repo, issueNumbers,
           try {
             // Issue #2160: return the PRs themselves, not just a count, so the end-of-run summary
             // can name a merged solution draft even when GraphQL was unavailable.
-            const cmd = `gh api repos/${owner}/${repo}/issues/${issueNum}/timeline --paginate --jq '[.[] | select(.event == "cross-referenced" and .source.issue.pull_request != null) | {number: .source.issue.number, title: .source.issue.title, body: .source.issue.body, state: (if .source.issue.pull_request.merged_at then "MERGED" else (.source.issue.state | ascii_upcase) end), isDraft: (.source.issue.draft // false), url: .source.issue.html_url}]'`;
+            const cmd = `gh api repos/${owner}/${repo}/issues/${issueNum}/timeline --paginate --slurp`;
 
             // #1756: route REST fallback through execGhWithRetry for transient 5xx + rate-limit
             const { stdout } = await execGhWithRetry(cmd, {
@@ -186,11 +197,29 @@ export async function batchCheckPullRequestsForIssues(owner, repo, issueNumbers,
               label: `gh api timeline (issue #${issueNum})`,
             });
             const wantedStates = new Set(includeStates);
-            const crossReferenced = JSON.parse(stdout.trim() || '[]');
-            const linkedPRs = crossReferenced
-              .filter(pr => wantedStates.has(pr.state))
-              .filter(pr => pullRequestClosesIssue(pr, issueNum, owner, repo))
-              .map(({ number, title, state, isDraft, url }) => ({ number, title, state, isDraft: Boolean(isDraft), url }));
+            const crossReferenced = JSON.parse(stdout.trim() || '[]')
+              .flat()
+              .filter(event => event.event === 'cross-referenced' && event.source?.issue?.pull_request)
+              .map(({ source: { issue } }) => ({
+                number: issue.number,
+                title: issue.title,
+                body: issue.body,
+                state: issue.pull_request.merged_at ? 'MERGED' : issue.state.toUpperCase(),
+                isDraft: Boolean(issue.draft),
+                url: issue.html_url,
+              }));
+            const candidates = crossReferenced.filter(pr => wantedStates.has(pr.state)).filter(pr => pullRequestClosesIssue(pr, issueNum, owner, repo));
+            const ancestorUrls = excludeAncestorPullRequests && candidates.length ? await ownership.getAncestors(owner, repo, issueNum) : [];
+            const linkedPRs = [];
+            for (const candidate of candidates) {
+              const pr = ancestorUrls.length ? await ownership.getPullRequestSource(candidate) : candidate;
+              if (isAncestorPullRequest(pr, ancestorUrls, owner, repo)) {
+                await log(`      ℹ️  PR #${pr.number} belongs to an ancestor of issue #${issueNum}; keeping this sub-issue eligible`, { verbose: true });
+                continue;
+              }
+              const { number, title, state, isDraft, url } = pr;
+              linkedPRs.push({ number, title, state, isDraft: Boolean(isDraft), url });
+            }
 
             results[issueNum] = {
               openPRCount: linkedPRs.filter(pr => pr.state === 'OPEN').length,

@@ -235,7 +235,7 @@ export function formatSessionCompletionMessage({ sessionName, sessionInfo, statu
     statusText = text(messageLocale, 'telegram.work_session_killed', `Work session ${reason}${exitSuffix}`, { reason, exitCode: finalExitCode ?? '', signal: signal?.signal ?? '', exitSuffix });
   } else if (sessionInfo?.command === 'hive' && (finalExitCode === EXIT_CODE_HIVE_NO_WORK || finalExitCode === EXIT_CODE_HIVE_INCOMPLETE)) {
     statusEmojiOverride = '⚠️';
-    statusText = finalExitCode === EXIT_CODE_HIVE_NO_WORK ? text(messageLocale, 'telegram.work_session_hive_no_work', 'No issues processed; check the log for skipped issues or blockers') : text(messageLocale, 'telegram.work_session_hive_incomplete', 'Hive session ended with issues still waiting; check the log for blockers');
+    statusText = finalExitCode === EXIT_CODE_HIVE_NO_WORK ? text(messageLocale, 'telegram.work_session_hive_no_work', 'No issues processed; check the log for skipped issues or blockers. To continue issues with existing PRs, use `--no-skip-issues-with-prs --auto-continue`') : text(messageLocale, 'telegram.work_session_hive_incomplete', 'Hive session ended with issues still waiting; check the log for blockers');
   } else if (failed) {
     statusText = text(messageLocale, 'telegram.work_session_failed', `Work session failed (exit code: ${finalExitCode})`, { exitCode: finalExitCode });
   } else {

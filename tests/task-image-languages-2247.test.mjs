@@ -10,7 +10,7 @@
  *     /bin/sh: 1: scalac: not found        (Scala draft log, line 4367)
  *     /bin/sh: 1: scala: not found         (line 5548)
  *
- * The image is built `FROM ghcr.io/link-foundation/box:2.10.2` and box ships no
+ * The image is built `FROM ghcr.io/link-foundation/box:2.10.3` and box ships no
  * Scala toolchain - twenty-two other languages in that pool were in the same
  * position. The task was impossible before any AI tool was chosen.
  *

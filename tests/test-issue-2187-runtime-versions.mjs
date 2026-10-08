@@ -6,7 +6,7 @@
  *
  * Box releases through 2.4.0 installed Node.js 20 (`nvm install 20` in box's
  * ubuntu/24.04/js/install.sh), while this package declares `engines.node >= 24`,
- * so tasks downloaded their own node/bun into /tmp on every run. Box 2.10.2 now
+ * so tasks downloaded their own node/bun into /tmp on every run. Box 2.10.3 now
  * provides the baseline runtimes. The hive-mind layer installs current
  * pinned releases and deletes any superseded Node.js version so future base-image
  * drift cannot recreate stacked runtime copies.
@@ -39,7 +39,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.join(__dirname, '..');
 
 const DOCKERFILES = ['Dockerfile', 'Dockerfile.dind', 'coolify/Dockerfile'];
-const BOX_RELEASE = '2.10.2';
+const BOX_RELEASE = '2.10.3';
 const TASK_NODE_VERSION = '26.11.1';
 const BOX_BUN_VERSION = '1.4.2';
 

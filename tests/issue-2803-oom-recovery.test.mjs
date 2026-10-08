@@ -9,6 +9,9 @@
  *   1. only the watch/auto-merge iterations resumed a SIGKILLed tool in-process, not the primary session;
  *   2. the cgroup OOM counters solve had logged never reached the GitHub comment;
  *   3. processes the killed tool left running (`cargo test -j 2`) kept their memory;
+ *   4. the bot could neither resume a `/fix` session (only `solve` takes `--resume`) nor find its
+ *      pull request (a `/fix` URL names a repository), so recovery was refused as "not-resumable"
+ *      and the notice was skipped with "no-pull-request".
  */
 import assert from 'node:assert/strict';
 import test from 'node:test';
@@ -17,6 +20,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resumeAfterToolKill, buildToolKillWarningComment, formatToolKillMemoryEvidence, TOOL_KILL_RESUME_FEEDBACK } from '../src/solve.tool-kill-resume.lib.mjs';
 import { stopProcessesSurvivingSession } from '../src/session-survivors.lib.mjs';
+import { formatFixHandoff, parseFixHandoff, readFixHandoffFromLog, resolveSolveSessionInfo } from '../src/fix-handoff.lib.mjs';
+import { planKillRecovery, startKillRecoverySession } from '../src/session-kill-resume.lib.mjs';
+import { resumeKilledSessionInPlace } from '../src/session-kill-resume.in-place.lib.mjs';
+import { buildResumeCommand } from '../src/session-resume.lib.mjs';
 
 const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const CLAUDE_SESSION = 'd9aa4383-bc63-4d77-a02d-27065219b12b';
@@ -113,4 +120,102 @@ test('stopProcessesSurvivingSession sends SIGTERM, then SIGKILL to what is still
   assert.equal(stopped.length, 2);
   assert.deepEqual(signals, ['SIGTERM 107443', 'SIGTERM 107732', '0 107732', 'SIGKILL 107732']);
   assert.deepEqual(await stopProcessesSurvivingSession({ tempDir: null }), []);
+});
+
+// Lines 69 and 3 of the incident's start-command log (session 05b20a82-...).
+const ISSUE_URL = 'https://github.com/link-assistant/web-capture/issues/177';
+const SOLVE_ARGS = [ISSUE_URL, '--development-log', '--deep-analysis', '--auto-merge', '--think', 'high', '--attach-logs', '--verbose', '--no-tool-check', '--disable-report-issue', '--language', 'en'];
+const LEGACY_LOG = `$ fix https://github.com/link-assistant/web-capture --ci-cd\n🔎 Looking for failing CI runs...\n🚀 Starting /solve: ${['solve', ...SOLVE_ARGS].join(' ')}\n`;
+const FIX_SESSION = { command: 'fix', url: 'https://github.com/link-assistant/web-capture', urlContext: { type: 'repo', owner: 'link-assistant', repo: 'web-capture' }, args: ['https://github.com/link-assistant/web-capture', '--ci-cd', '--on-session-kill', 'resume'], tool: 'claude', isolationBackend: 'docker', sessionId: '05b20a82-0000-4000-8000-000000002803', logPath: '/logs/05b20a82.log' };
+
+test('the /fix handoff is read from both the marker and the legacy line of the log', () => {
+  const legacy = parseFixHandoff(LEGACY_LOG);
+  assert.equal(legacy.source, 'legacy');
+  assert.equal(legacy.issueUrl, ISSUE_URL);
+  assert.deepEqual(legacy.args, SOLVE_ARGS);
+  assert.deepEqual(legacy.urlContext, { type: 'issue', owner: 'link-assistant', repo: 'web-capture', number: 177, normalized: ISSUE_URL });
+
+  const withSpaces = [ISSUE_URL, '--prompt', 'two words'];
+  const marker = parseFixHandoff(`${LEGACY_LOG}${formatFixHandoff(withSpaces)}\n`);
+  assert.equal(marker.source, 'marker', 'the marker wins over the human-readable line');
+  assert.deepEqual(marker.args, withSpaces, 'arguments with spaces survive the marker round-trip');
+
+  assert.equal(parseFixHandoff('🧭 [FIX-HANDOFF] {"command":"solve","args":["https://github.com/a/b/pull/1"]}'), null, 'only an issue URL is a handoff');
+  assert.equal(parseFixHandoff('🧭 [FIX-HANDOFF] {"command":"solve","ar'), null, 'a truncated marker is ignored');
+  assert.equal(parseFixHandoff(''), null);
+});
+
+test('readFixHandoffFromLog reads the head of a real log and never throws', async () => {
+  const dir = await fs.mkdtemp(path.join((await import('node:os')).tmpdir(), 'hive-mind-2803-'));
+  try {
+    const logPath = path.join(dir, 'session.log');
+    await fs.writeFile(logPath, `${LEGACY_LOG}${'x'.repeat(4096)}\n`);
+    assert.equal(readFixHandoffFromLog(logPath)?.issueUrl, ISSUE_URL);
+    assert.equal(readFixHandoffFromLog(logPath, { maxBytes: 64 }), null, 'only the head is read');
+    assert.equal(readFixHandoffFromLog(path.join(dir, 'missing.log')), null);
+    assert.equal(readFixHandoffFromLog(null), null);
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('fix.mjs prints the machine-readable handoff next to the human-readable line', async () => {
+  const source = await fs.readFile(path.join(repoRoot, 'src/fix.mjs'), 'utf8');
+  assert.match(source, /console\.log\(formatFixHandoff\(solveArgs\)\)/);
+});
+
+test('a /fix session is resolved as the solve it handed off to; other commands are not', () => {
+  const readHandoff = () => parseFixHandoff(LEGACY_LOG);
+  const solve = resolveSolveSessionInfo(FIX_SESSION, { readHandoff });
+  assert.equal(solve.command, 'solve');
+  assert.equal(solve.url, ISSUE_URL);
+  assert.equal(solve.urlContext.number, 177);
+  assert.deepEqual(solve.fixHandoff, { issueUrl: ISSUE_URL, source: 'legacy' });
+  assert.equal(resolveSolveSessionInfo(FIX_SESSION, { readHandoff: () => null }), null, 'a /fix that never reached solve stays not resumable');
+  assert.equal(resolveSolveSessionInfo({ command: 'hive' }, { readHandoff }), null);
+  const plain = { command: 'solve', url: ISSUE_URL };
+  assert.equal(resolveSolveSessionInfo(plain), plain);
+});
+
+test('the bot plans to resume the incident /fix session as solve --resume <claude session>', () => {
+  const plan = planKillRecovery({ sessionInfo: FIX_SESSION, logPath: FIX_SESSION.logPath, killed: true, env: {}, readLastSessionId: () => CLAUDE_SESSION, readHandoff: () => parseFixHandoff(LEGACY_LOG) });
+  assert.equal(plan.shouldResume, true, `was refused: ${plan.reason}`);
+  assert.equal(plan.command.command, 'solve');
+  assert.deepEqual(plan.command.args, [...SOLVE_ARGS, '--resume', CLAUDE_SESSION]);
+  assert.equal(plan.command.shell, `solve ${SOLVE_ARGS.join(' ')} --resume ${CLAUDE_SESSION}`);
+
+  const before = planKillRecovery({ sessionInfo: FIX_SESSION, killed: true, env: {}, readLastSessionId: () => CLAUDE_SESSION, readHandoff: () => null });
+  assert.equal(before.shouldResume, false);
+  assert.equal(before.reason, 'not-resumable', 'the pre-fix behaviour for a /fix session without a handoff');
+});
+
+test('a fresh recovery launches solve, and tracks it as an issue-backed solve session', async () => {
+  const plan = planKillRecovery({ sessionInfo: FIX_SESSION, killed: true, env: {}, readLastSessionId: () => CLAUDE_SESSION, readHandoff: () => parseFixHandoff(LEGACY_LOG) });
+  const launches = [];
+  const tracked = [];
+  const runner = {
+    generateSessionId: () => 'recovery-2803',
+    executeWithIsolation: async (command, args, options) => (launches.push({ command, args, options }), { success: true, executionUuid: 'exec-2803', logPath: '/logs/recovery-2803.log' }),
+  };
+  const started = await startKillRecoverySession({ sessionName: FIX_SESSION.sessionId, sessionInfo: { ...FIX_SESSION, isolationBackend: 'screen' }, plan, runner, trackSession: (id, info) => tracked.push({ id, info }), env: { HIVE_MIND_SESSION_KILL_RESUME_DELAY: '0' }, sleep: async () => {} });
+  assert.equal(started.resumed, true, started.reason);
+  assert.equal(launches[0].command, 'solve');
+  assert.deepEqual(launches[0].args, [...SOLVE_ARGS, '--resume', CLAUDE_SESSION]);
+  assert.equal(tracked[0].info.command, 'solve');
+  assert.equal(tracked[0].info.url, ISSUE_URL);
+  assert.equal(tracked[0].info.urlContext.type, 'issue');
+  assert.equal(tracked[0].info.killRecoveryOfSession, FIX_SESSION.sessionId);
+});
+
+test('the same-container resume runs the real command, never the Telegram alias', async () => {
+  const command = buildResumeCommand({ sessionInfo: { command: 'solve', commandAlias: 'codex', args: [ISSUE_URL, '--tool', 'codex'] }, lastSessionId: CLAUDE_SESSION });
+  assert.match(command.display, /^\/codex /, 'the alias stays in what the user reads');
+  assert.equal(command.shell, `solve ${ISSUE_URL} --tool codex --resume ${CLAUDE_SESSION}`);
+  const calls = [];
+  const runner = {
+    checkDockerContainerExists: async () => true,
+    resumeIsolatedSession: async (identifier, options) => (calls.push({ identifier, ...options }), { success: true, sessionId: 'same-container' }),
+  };
+  await resumeKilledSessionInPlace({ sessionName: 's', sessionInfo: { isolationBackend: 'docker', sessionId: 's', executionUuid: 'exec-1', args: [ISSUE_URL] }, plan: { command }, runner });
+  assert.equal(calls[0].command, command.shell);
 });

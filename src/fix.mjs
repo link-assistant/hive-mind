@@ -23,6 +23,7 @@ import { fileURLToPath } from 'url';
 import { FIX_MODE_CI_CD, FIX_MODE_UPDATE_ALL_DEPENDENCIES, FIX_MODES, buildSolveArgs, partitionFixArgs } from './fix.args.lib.mjs';
 import { summarizeRunFailures } from './fix.ci-cd.lib.mjs';
 import { describeChildExit } from './child-exit.lib.mjs';
+import { formatFixHandoff } from './fix-handoff.lib.mjs';
 import { createCiCdIssue, prepareCiCdIssue } from './fix.ci-cd-issue.lib.mjs';
 import { createUpdateDependenciesIssue, prepareUpdateDependenciesIssue } from './fix.update-dependencies-issue.lib.mjs';
 import { setupStdioLogInterceptor } from './lib.mjs';
@@ -160,6 +161,8 @@ async function main() {
 
   const solveCommand = resolveSolveCommand();
   console.log(`\n🚀 Starting /solve: solve ${solveArgs.join(' ')}`);
+  // Issue #2803: lets the bot resume (and report on) this session as the solve it became.
+  console.log(formatFixHandoff(solveArgs));
 
   await new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [solveCommand, ...solveArgs], {

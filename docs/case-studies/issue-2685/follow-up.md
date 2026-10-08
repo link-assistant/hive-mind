@@ -38,6 +38,8 @@ The final focused run covers 11 ownership tests and 26 outcome/CLI/locale tests.
 
 All 578 default test files and both GitHub integration files passed locally. Lint, formatting, syntax, line limits, secrets, duplication, documentation, package-manager, version and changeset checks passed; all 168 tracked dependency declarations were current. [Follow-up evidence metadata](data/follow-up-evidence.json) identifies the commands, results, archived complete logs and decoded SHA-256 hashes. The final REST correction was followed by another focused run, lint and formatting checks. The integration closed its fixture issue and PR; repository deletion rules retained two disposable branches, documented in its [cleanup record](data/follow-up-integration-cleanup.json).
 
+GitHub Actions also validated source commit `5f2e47e537e189e946028ded1e53b6cfefb41811`: the [checks workflow](https://github.com/link-assistant/hive-mind/actions/runs/37733486083) passed its full test suites, GitHub integrations, lint, documentation, Helm, both Docker builds and running-container checks. The [security workflow](https://github.com/link-assistant/hive-mind/actions/runs/37733485803) and [link checker](https://github.com/link-assistant/hive-mind/actions/runs/37733485787) passed on the same head. [CI review-validation metadata](data/ci-review-validation.json) preserves timestamps, job and step results, complete compressed logs and decoded SHA-256 hashes. Subsequent evidence-only commits preserve this tested source and test code.
+
 ## Evidence and online research
 
 - [Follow-up conversation comments](data/pr-comments-follow-up.json) and [edited PR description before this change](data/pr-before-follow-up.json).

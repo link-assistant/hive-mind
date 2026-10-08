@@ -5,7 +5,8 @@
  * for their own CLIs. `fix` creates the issue for the requested mode (`--ci-cd`
  * or `--update-all-dependencies`, issue #2184) and then hands it off to
  * `/solve --development-log --deep-analysis --auto-merge` itself, so this
- * handler only has to validate the request and start the session.
+ * handler validates the request, admits it through the shared resource queue,
+ * and starts the session.
  */
 
 import { buildUserMention } from './buildUserMention.lib.mjs';
@@ -23,7 +24,10 @@ import { mergeArgsWithOverrides } from './args-overrides.lib.mjs';
 import { moveArgumentToFront, parseCommandArgs } from './telegram-solve-command.lib.mjs';
 import { safeReply as defaultSafeReply } from './telegram-safe-reply.lib.mjs';
 import { partitionFixArgs } from './fix.args.lib.mjs';
-import { formatStartingWorkSessionMessage } from './work-session-formatting.lib.mjs';
+import { submitTelegramWork } from './telegram-work-queue.lib.mjs';
+import { getSolveQueue as defaultGetSolveQueue } from './telegram-solve-queue.lib.mjs';
+import { getToolFromArgs as getFixToolFromArgs } from './telegram-command-args.lib.mjs';
+export { getFixToolFromArgs };
 
 export const FIX_COMMAND_NAMES = Object.freeze(['fix']);
 
@@ -47,14 +51,6 @@ export function applyFixCommandDefaults(args) {
 
 export function findFixRepositoryArg(args) {
   return args.find(arg => !arg.startsWith('-') && parseFixRepository(arg)) || null;
-}
-
-export function getFixToolFromArgs(args) {
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--tool' && i + 1 < args.length) return args[i + 1];
-    if (args[i].startsWith('--tool=')) return args[i].substring('--tool='.length);
-  }
-  return 'claude';
 }
 
 async function validateFixModel(args) {
@@ -139,7 +135,7 @@ function injectLanguageIfMissing(args, locale) {
 }
 
 export function registerFixCommand(bot, options) {
-  const { VERBOSE, fixEnabled, addBreadcrumb, isOldMessage, isForwardedOrReply, isGroupChat, isTopicAuthorized, buildAuthErrorMessage, isChatStopped, getStoppedChatRejectMessage, safeReply = defaultSafeReply, executeAndUpdateMessage, resolveLocale = null, solveOverrides = [] } = options;
+  const { VERBOSE, fixEnabled, addBreadcrumb, isOldMessage, isForwardedOrReply, isGroupChat, isTopicAuthorized, buildAuthErrorMessage, isChatStopped, getStoppedChatRejectMessage, safeReply = defaultSafeReply, executeAndUpdateMessage, resolveLocale = null, solveOverrides = [], getSolveQueue = defaultGetSolveQueue } = options;
 
   async function handleFixCommand(ctx) {
     const commandDisplay = '/fix';
@@ -227,10 +223,10 @@ export function registerFixCommand(bot, options) {
     if (solveOverrides.length > 0) infoBlock += `\n\n🔒 Solve overrides: ${escapeMarkdown(solveOverrides.join(' '))}`;
 
     const fixUrlContext = { owner: built.repository.owner, repo: built.repository.repo, normalized: built.repository.url };
-    const startingMessage = await safeReply(ctx, formatStartingWorkSessionMessage({ infoBlock }), { reply_to_message_id: ctx.message.message_id });
     const fixLocale = resolveLocale ? resolveLocale(ctx) : null;
     const argsForExec = injectLanguageIfMissing(mergedArgs, fixLocale);
-    await executeAndUpdateMessage(ctx, startingMessage, 'fix', argsForExec, infoBlock, effectiveIsolation || null, getFixToolFromArgs(argsForExec), fixUrlContext);
+    const tool = getFixToolFromArgs(argsForExec);
+    await submitTelegramWork({ ctx, command: 'fix', args: argsForExec, tool, requester, infoBlock, perCommandIsolation: effectiveIsolation, urlContext: fixUrlContext, locale: fixLocale, verbose: VERBOSE, queue: getSolveQueue({ verbose: VERBOSE }), safeReply, execute: message => executeAndUpdateMessage(ctx, message, 'fix', argsForExec, infoBlock, effectiveIsolation || null, tool, fixUrlContext, { locale: fixLocale, commandAlias: 'fix' }) });
   }
 
   bot.command(

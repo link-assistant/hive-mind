@@ -168,7 +168,10 @@ export function buildExecuteAndUpdateMessage(deps) {
         trackSession(session, sessionInfo, VERBOSE);
       }
     }
-    if (result.warning) return safeEdit(`⚠️  ${result.warning}`);
+    if (result.warning) {
+      await safeEdit(`⚠️  ${result.warning}`);
+      return { ...result, sessionName: session, isolationBackend: iso?.backend || null };
+    }
     if (result.success) {
       await safeEdit(formatExecutingWorkSessionMessage({ sessionName: session, executionUuid: result.executionUuid || null, isolationBackend: iso?.backend || null, infoBlock, locale }));
       if (AUTO_WATCH_MESSAGE && commandName === 'solve' && sessionInfo?.isolationBackend) await startAutoTerminalWatchForSession({ bot, ctx, sessionId: session, sessionInfo, verbose: VERBOSE });
@@ -179,6 +182,7 @@ export function buildExecuteAndUpdateMessage(deps) {
       if (!iso) console.error(`[telegram-bot] ${commandName} command failed to start (no isolation, tool=${tool}): ${result.error || result.output || 'unknown error'}`);
       await safeEdit(formatFailedLaunchMessage({ commandName, sessionName: iso ? session : null, isolationBackend: iso?.backend || null, infoBlock, error: result.error || result.output, locale }));
     }
+    return { ...result, sessionName: session, isolationBackend: iso?.backend || null };
   };
 }
 

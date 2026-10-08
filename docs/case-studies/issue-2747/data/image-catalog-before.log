@@ -1,0 +1,15 @@
+node:internal/modules/run_main:111
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: Dockerfile must still build FROM ghcr.io/link-foundation/box:2.10.2; update the language list when the base image changes
+    at file:///tmp/gh-issue-solver-1791450272284/tests/task-image-languages-2247.test.mjs:93:8 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: '==',
+  diff: 'simple'
+}
+
+Node.js v26.11.0

@@ -1,0 +1,69 @@
+src/telegram-accept-invitations.lib.mjs:130:export function registerAcceptInvitesCommand(bot, options) {
+src/telegram-accept-invitations.lib.mjs:133:  bot.command(/^accept[_-]?invites$/i, async ctx => {
+src/telegram-auth-command.lib.mjs:224:export function registerAuthCommand(bot, options = {}) {
+src/telegram-auth-command.lib.mjs:282:  bot.command('auth', handleAuthCommand);
+src/telegram-merge-command.lib.mjs:182:export async function spawnAutoResolveSolve(target, { ctx, verbose = false, queue = defaultGetSolveQueue({ verbose }), executeAndUpdateMessage, solveOverrides = [], locale = null, reply = safeReply }) {
+src/telegram-merge-command.lib.mjs:192:    const submitted = await submitTelegramWork({ ctx, command: 'solve', args, tool, infoBlock, perCommandIsolation: backend, urlContext, locale, verbose, queue, safeReply: reply, signal: target.signal, execute: message => executeAndUpdateMessage(ctx, message, 'solve', args, infoBlock, backend, tool, urlContext, { locale, commandAlias: 'solve' }) });
+src/telegram-merge-command.lib.mjs:246:export function registerMergeCommand(bot, options) {
+src/telegram-merge-command.lib.mjs:355:        spawnSolveSession: autoResolve ? target => spawnAutoResolveSolve(target, { ctx, verbose: VERBOSE, queue: getSolveQueue({ verbose: VERBOSE }), executeAndUpdateMessage, solveOverrides, locale: resolveLocale ? resolveLocale(ctx) : null }) : null,
+src/telegram-merge-command.lib.mjs:496:  bot.command(/^merge$/i, handleMergeCommand);
+src/telegram-task-command.lib.mjs:302:    await submitTelegramWork({ ctx, command: 'task', commandAlias: commandName, args: argsForExec, tool, requester, infoBlock, perCommandIsolation, urlContext: taskUrlContext, locale: taskLocale, verbose: VERBOSE, queue: getSolveQueue({ verbose: VERBOSE }), safeReply, execute: message => executeAndUpdateMessage(ctx, message, 'task', argsForExec, infoBlock, perCommandIsolation || null, tool, taskUrlContext, { locale: taskLocale, commandAlias: commandName }) });
+src/telegram-task-command.lib.mjs:305:  bot.command(
+src/telegram-solve-queue.lib.mjs:1126:    const result = await executeStartScreen(item.command || 'solve', item.args);
+src/telegram-organize-command.lib.mjs:61:export function registerOrganizeCommand(bot, options) {
+src/telegram-organize-command.lib.mjs:107:        const result = await organizeRepository({
+src/telegram-organize-command.lib.mjs:144:  bot.command(/^organize$/i, handleOrganizeCommand);
+src/telegram-solve-queue-command.lib.mjs:41:export function registerSolveQueueCommand(bot, options) {
+src/telegram-solve-queue-command.lib.mjs:101:  bot.command(/^queue$/i, handleSolveQueueCommand);
+src/telegram-terminal-watch-command.lib.mjs:353:export async function registerTerminalWatchCommand(bot, options) {
+src/telegram-terminal-watch-command.lib.mjs:451:  bot.command('terminal_watch', handleTerminalWatchCommand);
+src/telegram-terminal-watch-command.lib.mjs:452:  bot.command('watch', handleTerminalWatchCommand);
+src/telegram-subscribers.lib.mjs:186:  bot.command('subscribe', async ctx => {
+src/telegram-subscribers.lib.mjs:209:  bot.command('unsubscribe', async ctx => {
+src/telegram-language-command.lib.mjs:17:export function registerLanguageCommand(bot, options = {}) {
+src/telegram-language-command.lib.mjs:20:  bot.command('language', async ctx => {
+src/telegram-command-execution.lib.mjs:103: * @returns {Function} executeAndUpdateMessage(ctx, startingMessage, commandName, args, infoBlock, perCommandIsolation, tool, urlContext, sessionExtras)
+src/telegram-command-execution.lib.mjs:107:  return async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, infoBlock, perCommandIsolation = null, tool = 'claude', urlContext = null, { showLimits = false, limitsAtStart = null, locale = null, commandAlias = null } = {}) {
+src/telegram-command-execution.lib.mjs:136:      result = await iso.runner.executeWithIsolation(commandName, args, { backend: iso.backend, sessionId: session, tool, verbose: VERBOSE, containerResourceLimits: selectContainerResourceLimitsForBackend(iso.backend, CONTAINER_RESOURCE_LIMITS) });
+src/telegram-command-execution.lib.mjs:162:      result = await executeStartScreen(commandName, args);
+src/telegram-command-execution.lib.mjs:189:export async function executeStartScreen(command, args, options = {}) {
+src/telegram-isolation.lib.mjs:85:      const r = await iso.runner.executeWithIsolation(item.command || 'solve', item.args, { backend: iso.backend, sessionId: sid, tool, verbose, containerResourceLimits: selectContainerResourceLimitsForBackend(iso.backend, containerResourceLimits) });
+src/telegram-message-filters.lib.mjs:190: * This is a fallback for when Telegraf's entity-based bot.command() fails
+src/telegram-top-command.lib.mjs:59:export function registerTopCommand(bot, options) {
+src/telegram-top-command.lib.mjs:65:  bot.command('top', async ctx => {
+src/telegram-bot.mjs:255:async function executeStartScreen(command, args) {
+src/telegram-bot.mjs:282:bot.command('help', async ctx => {
+src/telegram-bot.mjs:331:bot.command('limits', async ctx => {
+src/telegram-bot.mjs:381:bot.command('version', async ctx => {
+src/telegram-bot.mjs:402:registerLanguageCommand(bot, { VERBOSE, isOldMessage, isForwardedOrReply });
+src/telegram-bot.mjs:407:registerAcceptInvitesCommand(bot, sharedCommandOpts);
+src/telegram-bot.mjs:409:const { handleMergeCommand } = registerMergeCommand(bot, { ...sharedCommandOpts, executeAndUpdateMessage, solveOverrides, resolveLocale: resolveLocaleFromTelegramCtx });
+src/telegram-bot.mjs:411:const { handleSolveQueueCommand } = registerSolveQueueCommand(bot, { ...sharedCommandOpts, getSolveQueue, safeReply, resolveLocale: resolveLocaleFromTelegramCtx });
+src/telegram-bot.mjs:414:const { handleModelsCommand } = registerModelsCommand(bot, { ...sharedCommandOpts, safeReply });
+src/telegram-bot.mjs:420:const { handleFixCommand, FIX_COMMAND_NAMES } = registerFixCommand(bot, { ...sharedCommandOpts, fixEnabled, safeReply, executeAndUpdateMessage, resolveLocale: resolveLocaleFromTelegramCtx, solveOverrides });
+src/telegram-bot.mjs:422:const { handleOrganizeCommand, ORGANIZE_COMMAND_NAMES } = registerOrganizeCommand(bot, {
+src/telegram-bot.mjs:430:const { handleAuthCommand } = registerAuthCommand(bot, { ...sharedCommandOpts, allowedChats, authEnabled, safeReply });
+src/telegram-bot.mjs:700:    await executeAndUpdateMessage(ctx, startingMessage, 'solve', argsWithLocale, infoBlock, effectiveSolveIsolation, solveTool, solveUrlContext, { showLimits: solveShowLimits, limitsAtStart: solveLimitsAtStart, locale: solveLocale, commandAlias: solveCommandName });
+src/telegram-bot.mjs:717:bot.command(
+src/telegram-bot.mjs:876:  await executeAndUpdateMessage(ctx, startingMessage, 'hive', hiveArgsWithLocale, infoBlock, effectiveHiveIsolation, hiveTool, null, { showLimits: hiveShowLimits, limitsAtStart: hiveLimitsAtStart, locale: hiveLocale });
+src/telegram-bot.mjs:878:bot.command(/^hive$/i, handleHiveCommand);
+src/telegram-bot.mjs:883:registerTopCommand(bot, sharedCommandOpts);
+src/telegram-bot.mjs:885:await registerLogCommand(bot, sharedCommandOpts);
+src/telegram-bot.mjs:886:await registerTerminalWatchCommand(bot, sharedCommandOpts);
+src/telegram-bot.mjs:891:registerTokensCommand(bot, { ...sharedCommandOpts, allowedChats });
+src/telegram-bot.mjs:965:// Telegraf's bot.command() relies on Telegram's bot_command entities. In rare cases,
+src/telegram-bot.mjs:967:// with message formatting, or entity ordering), causing bot.command() to silently skip
+src/telegram-bot.mjs:969:// It runs AFTER bot.command() handlers, so it only fires when entity-based matching fails.
+src/telegram-bot.mjs:986:  // /subscribe + /unsubscribe (#1688) are intentionally not in the text fallback — Telegraf's bot.command() is sufficient.
+src/telegram-bot.mjs:995:  // Log that fallback was triggered - this indicates bot.command() entity matching failed
+src/telegram-bot.mjs:996:  console.warn(`[WARNING] Command /${extracted.command} matched by text fallback, not by entity-based bot.command(). ` + `Entities: ${JSON.stringify(ctx.message.entities || [])}. ` + `User: ${ctx.from?.username || ctx.from?.id}. ` + `This may indicate a Telegram client entity issue (issue #1207).`);
+src/telegram-fix-command.lib.mjs:137:export function registerFixCommand(bot, options) {
+src/telegram-fix-command.lib.mjs:229:    await submitTelegramWork({ ctx, command: 'fix', args: argsForExec, tool, requester, infoBlock, perCommandIsolation: effectiveIsolation, urlContext: fixUrlContext, locale: fixLocale, verbose: VERBOSE, queue: getSolveQueue({ verbose: VERBOSE }), safeReply, execute: message => executeAndUpdateMessage(ctx, message, 'fix', argsForExec, infoBlock, effectiveIsolation || null, tool, fixUrlContext, { locale: fixLocale, commandAlias: 'fix' }) });
+src/telegram-fix-command.lib.mjs:232:  bot.command(
+src/telegram-log-command.lib.mjs:186:export async function registerLogCommand(bot, options) {
+src/telegram-log-command.lib.mjs:193:  bot.command('log', async ctx => {
+src/telegram-tokens-command.lib.mjs:97:  bot.command('tokens', async ctx => {
+src/telegram-start-stop-command.lib.mjs:763:  bot.command('stop', handleStopCommand);
+src/telegram-start-stop-command.lib.mjs:769:  bot.command('start', async ctx => {
+src/telegram-models-command.lib.mjs:93:export function registerModelsCommand(bot, options = {}) {
+src/telegram-models-command.lib.mjs:153:  bot.command(/^models$/i, handleModelsCommand);

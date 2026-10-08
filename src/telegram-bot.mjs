@@ -406,7 +406,7 @@ const { registerAcceptInvitesCommand } = await import('./telegram-accept-invitat
 const sharedCommandOpts = { VERBOSE, isOldMessage, isForwarded, isForwardedOrReply, isGroupChat: _isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, addBreadcrumb, isChatStopped, getStoppedChatRejectMessage, safeReply, safeEditMessageText };
 registerAcceptInvitesCommand(bot, sharedCommandOpts);
 const { registerMergeCommand } = await import('./telegram-merge-command.lib.mjs');
-const { handleMergeCommand } = registerMergeCommand(bot, sharedCommandOpts);
+const { handleMergeCommand } = registerMergeCommand(bot, { ...sharedCommandOpts, executeAndUpdateMessage, solveOverrides, resolveLocale: resolveLocaleFromTelegramCtx });
 const { registerSolveQueueCommand } = await import('./telegram-solve-queue-command.lib.mjs');
 const { handleSolveQueueCommand } = registerSolveQueueCommand(bot, { ...sharedCommandOpts, getSolveQueue, safeReply, resolveLocale: resolveLocaleFromTelegramCtx });
 // Issue #2202 (R5): /models lists the merged model catalogue per tool.
@@ -422,6 +422,7 @@ const { registerOrganizeCommand } = await import('./telegram-organize-command.li
 const { handleOrganizeCommand, ORGANIZE_COMMAND_NAMES } = registerOrganizeCommand(bot, {
   ...sharedCommandOpts,
   organizeEnabled,
+  resolveLocale: resolveLocaleFromTelegramCtx,
   safeReply,
   safeEditMessageText: (ctx, message, text) => safeEditMessageText(ctx.telegram, message.chat.id, message.message_id, undefined, text, { verbose: VERBOSE }),
 });

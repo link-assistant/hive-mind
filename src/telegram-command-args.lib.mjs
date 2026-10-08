@@ -6,6 +6,16 @@
  */
 import { validateClaudeSubAgentModelName, validateModelName, validateRuntimeModelName } from './models/index.mjs';
 
+/** Read the effective tool after operator overrides have been applied. */
+export function getToolFromArgs(args) {
+  let tool = 'claude';
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--tool' && i + 1 < args.length) tool = args[++i];
+    else if (args[i].startsWith('--tool=')) tool = args[i].substring('--tool='.length);
+  }
+  return tool;
+}
+
 /**
  * Validate model-related flags in an argument array.
  *

@@ -5,6 +5,7 @@
  */
 
 import assert from 'assert/strict';
+import { createTestWorkQueue } from './helpers/telegram-work-queue.mjs';
 import { applyTaskCommandDefaults, buildTaskCiCdCommandArgs, buildTaskCommandArgs, findTaskIssueUrl, getTaskCommandNameFromText, getTaskToolFromArgs, registerTaskCommands } from '../src/telegram-task-command.lib.mjs';
 import { buildTaskIssueTitle, parseTaskIssueCreationInput, resolveTaskIssueCreationInput, stripTaskCommandPrefix } from '../src/task.issue-creation.lib.mjs';
 
@@ -347,6 +348,7 @@ function buildTaskHarness(overrides = {}) {
   const bot = { command() {} };
   const calls = { createdIssues: [], executed: [], replies: [] };
   const { handleTaskCommand } = registerTaskCommands(bot, {
+    getSolveQueue: createTestWorkQueue,
     VERBOSE: false,
     taskEnabled: true,
     addBreadcrumb: async () => {},

@@ -1,0 +1,82 @@
+✖ /fix --ci-cd waits for Codex admission and preserves its CLI when dequeued (56.789511ms)
+✖ /fix --update-all-dependencies waits for Codex admission and preserves its CLI when dequeued (46.774235ms)
+✖ /split joins the tool queue before starting task (14.935228ms)
+✖ /organize defers its in-process classifier and keeps its final summary (611.599722ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 0
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2342.686885
+
+✖ failing tests:
+
+test at tests/telegram-work-queue-2747.test.mjs:51:3
+✖ /fix --ci-cd waits for Codex admission and preserves its CLI when dequeued (56.789511ms)
+  AssertionError [ERR_ASSERTION]: blocked /fix must not start a session
+
+  1 !== 0
+
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791450272284/tests/telegram-work-queue-2747.test.mjs:54:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/telegram-work-queue-2747.test.mjs:51:3
+✖ /fix --update-all-dependencies waits for Codex admission and preserves its CLI when dequeued (46.774235ms)
+  AssertionError [ERR_ASSERTION]: blocked /fix must not start a session
+
+  1 !== 0
+
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791450272284/tests/telegram-work-queue-2747.test.mjs:54:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/telegram-work-queue-2747.test.mjs:70:1
+✖ /split joins the tool queue before starting task (14.935228ms)
+  AssertionError [ERR_ASSERTION]: blocked /split must not start a session
+
+  1 !== 0
+
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791450272284/tests/telegram-work-queue-2747.test.mjs:73:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/telegram-work-queue-2747.test.mjs:83:1
+✖ /organize defers its in-process classifier and keeps its final summary (611.599722ms)
+  AssertionError [ERR_ASSERTION]: blocked /organize must not run its classifier
+
+  1 !== 0
+
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791450272284/tests/telegram-work-queue-2747.test.mjs:86:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

@@ -4,6 +4,8 @@ import { formatOrganizationSummary, organizeRepository as defaultOrganizeReposit
 import { parseCommandArgs } from './telegram-solve-command.lib.mjs';
 import { safeEditMessageText as defaultSafeEditMessageText, safeReply as defaultSafeReply } from './telegram-safe-reply.lib.mjs';
 import { sanitizeForPublication } from './token-sanitization.lib.mjs';
+import { submitTelegramWork } from './telegram-work-queue.lib.mjs';
+import { getSolveQueue as defaultGetSolveQueue } from './telegram-solve-queue.lib.mjs';
 
 export const ORGANIZE_COMMAND_NAMES = Object.freeze(['organize']);
 const GITHUB_URL_PATTERN = /https?:\/\/(?:www\.)?github\.com\/[^\s<>()]+/gi;
@@ -57,7 +59,7 @@ export function parseOrganizeRequest({ commandText = '', replyText = '' } = {}) 
 }
 
 export function registerOrganizeCommand(bot, options) {
-  const { VERBOSE = false, organizeEnabled = true, addBreadcrumb = async () => {}, isOldMessage, isForwarded, isGroupChat, isTopicAuthorized, buildAuthErrorMessage, isChatStopped, getStoppedChatRejectMessage, safeReply = defaultSafeReply, safeEditMessageText = async (ctx, message, text) => defaultSafeEditMessageText(ctx.telegram, message.chat.id, message.message_id, undefined, text, { verbose: VERBOSE }), organizeRepository = defaultOrganizeRepository } = options;
+  const { VERBOSE = false, organizeEnabled = true, addBreadcrumb = async () => {}, isOldMessage, isForwarded, isGroupChat, isTopicAuthorized, buildAuthErrorMessage, isChatStopped, getStoppedChatRejectMessage, safeReply = defaultSafeReply, safeEditMessageText = async (ctx, message, text) => defaultSafeEditMessageText(ctx.telegram, message.chat.id, message.message_id, undefined, text, { verbose: VERBOSE }), organizeRepository = defaultOrganizeRepository, getSolveQueue = defaultGetSolveQueue, resolveLocale = null } = options;
 
   async function handleOrganizeCommand(ctx) {
     await addBreadcrumb({
@@ -98,29 +100,44 @@ export function registerOrganizeCommand(bot, options) {
     }
 
     activeOrganizationRuns.add(repositoryKey);
-    let status;
+    const startingText = `${parsed.dryRun ? '🔎 Planning organization' : '🗂 Organizing'} ${parsed.repository.fullName}…`;
+    const execute = async status => {
+      try {
+        await safeEditMessageText(ctx, status, startingText);
+        const result = await organizeRepository({
+          repositoryUrl: parsed.repository.url,
+          dryRun: parsed.dryRun,
+          operatorInstructions: parsed.operatorInstructions,
+          tool: parsed.tool,
+          model: parsed.model,
+          think: parsed.think,
+          requestedBy: { telegramUserId: ctx.from?.id || null, username: ctx.from?.username || null, chatId: ctx.chat?.id || null, topicId: ctx.message?.message_thread_id || null },
+          progress: async update => {
+            VERBOSE && console.log(`[VERBOSE] /organize: ${update.message}`);
+          },
+        });
+        await safeEditMessageText(ctx, status, await formatOrganizationSummary(result));
+        return { success: true };
+      } catch (error) {
+        const safeError = await sanitizeForPublication(error?.message || String(error));
+        await safeEditMessageText(ctx, status, `❌ Organization failed: ${safeError}`);
+        return { success: false, error: safeError };
+      } finally {
+        activeOrganizationRuns.delete(repositoryKey);
+      }
+    };
     try {
-      status = await safeReply(ctx, `${parsed.dryRun ? '🔎 Planning organization' : '🗂 Organizing'} ${parsed.repository.fullName}…`, { reply_to_message_id: ctx.message.message_id });
-      const result = await organizeRepository({
-        repositoryUrl: parsed.repository.url,
-        dryRun: parsed.dryRun,
-        operatorInstructions: parsed.operatorInstructions,
-        tool: parsed.tool,
-        model: parsed.model,
-        think: parsed.think,
-        requestedBy: { telegramUserId: ctx.from?.id || null, username: ctx.from?.username || null, chatId: ctx.chat?.id || null, topicId: ctx.message?.message_thread_id || null },
-        progress: async update => {
-          VERBOSE && console.log(`[VERBOSE] /organize: ${update.message}`);
-        },
-      });
-      const summary = await formatOrganizationSummary(result);
-      await safeEditMessageText(ctx, status, summary);
+      const submitted = await submitTelegramWork({ ctx, command: 'organize', url: parsed.repository.url, tool: parsed.tool, infoBlock: `Repository: ${parsed.repository.url}`, locale: resolveLocale ? resolveLocale(ctx) : null, verbose: VERBOSE, queue: getSolveQueue({ verbose: VERBOSE }), safeReply, startingText, execute });
+      if (submitted.status === 'queued') {
+        // Cancellation/rejection must release the repository lock too.
+        submitted.item.completion.then(() => activeOrganizationRuns.delete(repositoryKey));
+      } else {
+        activeOrganizationRuns.delete(repositoryKey);
+      }
     } catch (error) {
-      const safeError = await sanitizeForPublication(error?.message || String(error));
-      if (status) await safeEditMessageText(ctx, status, `❌ Organization failed: ${safeError}`);
-      else await safeReply(ctx, `❌ Organization failed: ${safeError}`, { reply_to_message_id: ctx.message.message_id });
-    } finally {
       activeOrganizationRuns.delete(repositoryKey);
+      const safeError = await sanitizeForPublication(error?.message || String(error));
+      await safeReply(ctx, `❌ Organization failed: ${safeError}`, { reply_to_message_id: ctx.message.message_id });
     }
   }
 

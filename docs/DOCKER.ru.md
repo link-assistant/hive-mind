@@ -106,7 +106,16 @@ docker commit --change 'ENV DIND_SKIP_DAEMON=0' \
   hive-mind-setup hive-mind-dind:configured
 docker run -d --privileged --name hive-mind-configured \
   hive-mind-dind:configured sleep infinity
-docker exec hive-mind-configured docker ps
+docker exec hive-mind-configured sh -c '
+  for attempt in $(seq 1 180); do
+    if docker info >/dev/null 2>&1; then
+      docker ps
+      exit $?
+    fi
+    sleep 1
+  done
+  exit 1
+'
 ```
 
 Завершите настройку в оболочке и выйдите из неё, затем выполните commit на хосте. Для аутентификации предпочтительны постоянные монтирования учётных данных: `docker commit` не включает файлы bind mount, а учётные данные, записанные в слой контейнера, попадают в образ. Образ с учётными данными должен оставаться приватным. Подробнее в upstream-разделе [Commit Cycles](https://github.com/link-foundation/box/blob/main/docs/dind/USAGE.md#commit-cycles).

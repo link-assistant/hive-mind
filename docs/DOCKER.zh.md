@@ -106,7 +106,16 @@ docker commit --change 'ENV DIND_SKIP_DAEMON=0' \
   hive-mind-setup hive-mind-dind:configured
 docker run -d --privileged --name hive-mind-configured \
   hive-mind-dind:configured sleep infinity
-docker exec hive-mind-configured docker ps
+docker exec hive-mind-configured sh -c '
+  for attempt in $(seq 1 180); do
+    if docker info >/dev/null 2>&1; then
+      docker ps
+      exit $?
+    fi
+    sleep 1
+  done
+  exit 1
+'
 ```
 
 在 shell 中完成设置并退出，然后在宿主机提交。身份验证优先使用持久化凭据挂载：`docker commit` 不会包含绑定挂载的文件，而写入容器层的凭据会进入镜像。含凭据的镜像必须保持私有。详见上游 [Commit Cycles](https://github.com/link-foundation/box/blob/main/docs/dind/USAGE.md#commit-cycles)。

@@ -130,7 +130,16 @@ docker commit --change 'ENV DIND_SKIP_DAEMON=0' \
   hive-mind-setup hive-mind-dind:configured
 docker run -d --privileged --name hive-mind-configured \
   hive-mind-dind:configured sleep infinity
-docker exec hive-mind-configured docker ps
+docker exec hive-mind-configured sh -c '
+  for attempt in $(seq 1 180); do
+    if docker info >/dev/null 2>&1; then
+      docker ps
+      exit $?
+    fi
+    sleep 1
+  done
+  exit 1
+'
 ```
 
 Perform any setup in the shell, then exit before committing on the host. Prefer persistent credential mounts for authentication: `docker commit` does not include bind-mounted files, and credentials written into the container layer become part of the image. Keep any credential-bearing image private. See the upstream [Commit Cycles](https://github.com/link-foundation/box/blob/main/docs/dind/USAGE.md#commit-cycles) guide.

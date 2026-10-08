@@ -106,7 +106,16 @@ docker commit --change 'ENV DIND_SKIP_DAEMON=0' \
   hive-mind-setup hive-mind-dind:configured
 docker run -d --privileged --name hive-mind-configured \
   hive-mind-dind:configured sleep infinity
-docker exec hive-mind-configured docker ps
+docker exec hive-mind-configured sh -c '
+  for attempt in $(seq 1 180); do
+    if docker info >/dev/null 2>&1; then
+      docker ps
+      exit $?
+    fi
+    sleep 1
+  done
+  exit 1
+'
 ```
 
 Shell में setup पूरा करके exit करें, फिर host पर commit करें। Authentication के लिए persistent credential mounts को प्राथमिकता दें: `docker commit` bind-mounted files शामिल नहीं करता, लेकिन container layer में लिखे credentials image में चले जाते हैं। Credentials वाली image private रखें। पूरा विवरण upstream [Commit Cycles](https://github.com/link-foundation/box/blob/main/docs/dind/USAGE.md#commit-cycles) में है।

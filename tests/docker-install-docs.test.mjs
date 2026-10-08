@@ -46,6 +46,44 @@ for (const file of files) {
       assert.match(commands, /docker commit --change 'ENV DIND_SKIP_DAEMON=0'/);
     });
 
+    test(`${file}: committed-image verification waits for daemon startup`, () => {
+      const commitBlock = blocks.find(block => block.includes('docker commit'));
+      const containerCommand = commitBlock?.split('docker exec hive-mind-configured ')[1]?.trim();
+      assert.ok(containerCommand, 'missing committed-image verification');
+      const verification = containerCommand.startsWith("sh -c '") ? containerCommand.slice(7, -1) : containerCommand;
+      for (const [readyAfter, expectedStatus] of [
+        [3, 0],
+        [181, 1],
+      ]) {
+        const result = spawnSync(
+          'sh',
+          [
+            '-c',
+            `
+attempts=0
+docker() {
+  case "$*" in
+    info) attempts=$((attempts + 1)); [ "$attempts" -ge "$READY_AFTER" ] ;;
+    ps) [ "$attempts" -ge "$READY_AFTER" ] && printf 'daemon ready\\n' ;;
+    *) return 1 ;;
+  esac
+}
+sleep() { :; }
+${verification}
+`,
+          ],
+          {
+            encoding: 'utf8',
+            env: { ...process.env, READY_AFTER: String(readyAfter) },
+            timeout: 5000,
+          }
+        );
+        assert.ifError(result.error);
+        assert.equal(result.status, expectedStatus, result.stderr);
+        assert.equal(result.stdout.includes('daemon ready'), expectedStatus === 0);
+      }
+    });
+
     test(`${file}: readiness waits for Docker and reports failure after finite attempts`, () => {
       const readiness = blocks.join('\n').match(/ready=0[\s\S]*?docker exec hive-mind docker ps/)?.[0];
       assert.ok(readiness, 'missing bounded daemon readiness check');

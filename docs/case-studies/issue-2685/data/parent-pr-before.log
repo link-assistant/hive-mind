@@ -1,0 +1,202 @@
+✖ captured parent PR does not cover a child just because it closes it (10.522869ms)
+✖ a draft child PR still blocks duplicate work alongside the parent PR (3.539251ms)
+✖ parent PR ownership is inferred from its closing reference on an ordinary branch (1.281802ms)
+✖ branch ownership takes priority over the order of closing references (0.735303ms)
+✖ grandparent PRs also belong to the ancestor, not the child (7.115182ms)
+✖ cross-repository ancestor PRs use the source repository for branch ownership (0.673877ms)
+✔ ordinary multi-issue PRs and missing hierarchy data retain closing-reference behavior (1.589575ms)
+✔ solution reporting still includes parent PR closing links (1.132392ms)
+✖ a merged parent PR is still excluded when the ownership filter is requested (1.562875ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 2
+ℹ fail 7
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1388.484098
+
+✖ failing tests:
+
+test at tests/github-parent-pr-2685.test.mjs:16:1
+✖ captured parent PR does not cover a child just because it closes it (10.522869ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + [
+  +   {
+  +     isDraft: false,
+  +     number: 228,
+  +     state: 'OPEN',
+  +     title: 'Case study and sub-issue plan for competitor parity in natural-language math (#227)',
+  +     url: 'https://github.com/link-assistant/calculator/pull/228'
+  +   }
+  + ]
+  - []
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791436281198/tests/github-parent-pr-2685.test.mjs:17:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ { number: 228, title: 'Case study and sub-issue plan for competitor parity in natural-language math (#227)', state: 'OPEN', isDraft: false, url: 'https://github.com/link-assistant/calculator/pull/228' } ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests/github-parent-pr-2685.test.mjs:20:1
+✖ a draft child PR still blocks duplicate work alongside the parent PR (3.539251ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   228,
+      250
+    ]
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791436281198/tests/github-parent-pr-2685.test.mjs:23:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 228, 250 ],
+    expected: [ 250 ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests/github-parent-pr-2685.test.mjs:27:1
+✖ parent PR ownership is inferred from its closing reference on an ordinary branch (1.281802ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + [
+  +   {
+  +     isDraft: false,
+  +     number: 228,
+  +     state: 'OPEN',
+  +     title: 'Case study and sub-issue plan for competitor parity in natural-language math (#227)',
+  +     url: 'https://github.com/link-assistant/calculator/pull/228'
+  +   }
+  + ]
+  - []
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791436281198/tests/github-parent-pr-2685.test.mjs:28:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ { number: 228, title: 'Case study and sub-issue plan for competitor parity in natural-language math (#227)', state: 'OPEN', isDraft: false, url: 'https://github.com/link-assistant/calculator/pull/228' } ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests/github-parent-pr-2685.test.mjs:31:1
+✖ branch ownership takes priority over the order of closing references (0.735303ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + [
+  +   {
+  +     isDraft: false,
+  +     number: 228,
+  +     state: 'OPEN',
+  +     title: 'Case study and sub-issue plan for competitor parity in natural-language math (#227)',
+  +     url: 'https://github.com/link-assistant/calculator/pull/228'
+  +   }
+  + ]
+  - []
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791436281198/tests/github-parent-pr-2685.test.mjs:32:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ { number: 228, title: 'Case study and sub-issue plan for competitor parity in natural-language math (#227)', state: 'OPEN', isDraft: false, url: 'https://github.com/link-assistant/calculator/pull/228' } ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests/github-parent-pr-2685.test.mjs:35:1
+✖ grandparent PRs also belong to the ancestor, not the child (7.115182ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + [
+  +   {
+  +     isDraft: false,
+  +     number: 228,
+  +     state: 'OPEN',
+  +     title: 'Case study and sub-issue plan for competitor parity in natural-language math (#227)',
+  +     url: 'https://github.com/link-assistant/calculator/pull/228'
+  +   }
+  + ]
+  - []
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791436281198/tests/github-parent-pr-2685.test.mjs:36:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ { number: 228, title: 'Case study and sub-issue plan for competitor parity in natural-language math (#227)', state: 'OPEN', isDraft: false, url: 'https://github.com/link-assistant/calculator/pull/228' } ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests/github-parent-pr-2685.test.mjs:39:1
+✖ cross-repository ancestor PRs use the source repository for branch ownership (0.673877ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + [
+  +   {
+  +     isDraft: false,
+  +     number: 228,
+  +     state: 'OPEN',
+  +     title: 'Case study and sub-issue plan for competitor parity in natural-language math (#227)',
+  +     url: 'https://github.com/other/project/pull/228'
+  +   }
+  + ]
+  - []
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791436281198/tests/github-parent-pr-2685.test.mjs:41:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ { number: 228, title: 'Case study and sub-issue plan for competitor parity in natural-language math (#227)', state: 'OPEN', isDraft: false, url: 'https://github.com/other/project/pull/228' } ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests/github-parent-pr-2685.test.mjs:54:1
+✖ a merged parent PR is still excluded when the ownership filter is requested (1.562875ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + [
+  +   {
+  +     isDraft: false,
+  +     number: 228,
+  +     state: 'MERGED',
+  +     title: 'Case study and sub-issue plan for competitor parity in natural-language math (#227)',
+  +     url: 'https://github.com/link-assistant/calculator/pull/228'
+  +   }
+  + ]
+  - []
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791436281198/tests/github-parent-pr-2685.test.mjs:55:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ { number: 228, title: 'Case study and sub-issue plan for competitor parity in natural-language math (#227)', state: 'MERGED', isDraft: false, url: 'https://github.com/link-assistant/calculator/pull/228' } ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

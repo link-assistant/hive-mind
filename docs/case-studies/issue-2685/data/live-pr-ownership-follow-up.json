@@ -1,0 +1,411 @@
+{
+  "recordedAt": "2026-10-08T05:22:57.042Z",
+  "repository": "link-assistant/calculator",
+  "closingLinks": {
+    "227": {
+      "title": "We need to double check that we beat exactly all competitors for math expressions in natural language",
+      "state": "OPEN",
+      "openPRCount": 1,
+      "linkedPRs": [
+        {
+          "number": 228,
+          "title": "Case study and sub-issue plan for competitor parity in natural-language math (#227)",
+          "state": "OPEN",
+          "isDraft": false,
+          "url": "https://github.com/link-assistant/calculator/pull/228"
+        }
+      ]
+    },
+    "229": {
+      "title": "Run the competitor coverage checker in CI and fail on regressions",
+      "state": "OPEN",
+      "openPRCount": 2,
+      "linkedPRs": [
+        {
+          "number": 228,
+          "title": "Case study and sub-issue plan for competitor parity in natural-language math (#227)",
+          "state": "OPEN",
+          "isDraft": false,
+          "url": "https://github.com/link-assistant/calculator/pull/228"
+        },
+        {
+          "number": 248,
+          "title": "ci: enforce competitor coverage and refresh weekly gap reports (#229)",
+          "state": "OPEN",
+          "isDraft": true,
+          "url": "https://github.com/link-assistant/calculator/pull/248"
+        }
+      ]
+    },
+    "230": {
+      "title": "Keep the imported open-source calculator test suites current and add the missing engines",
+      "state": "OPEN",
+      "openPRCount": 1,
+      "linkedPRs": [
+        {
+          "number": 228,
+          "title": "Case study and sub-issue plan for competitor parity in natural-language math (#227)",
+          "state": "OPEN",
+          "isDraft": false,
+          "url": "https://github.com/link-assistant/calculator/pull/228"
+        }
+      ]
+    },
+    "231": {
+      "title": "Complete the closed-source calculator documentation corpus",
+      "state": "OPEN",
+      "openPRCount": 1,
+      "linkedPRs": [
+        {
+          "number": 228,
+          "title": "Case study and sub-issue plan for competitor parity in natural-language math (#227)",
+          "state": "OPEN",
+          "isDraft": false,
+          "url": "https://github.com/link-assistant/calculator/pull/228"
+        }
+      ]
+    },
+    "232": {
+      "title": "Grow the multilingual scientific-quote corpus beyond the 13 seeded languages",
+      "state": "OPEN",
+      "openPRCount": 1,
+      "linkedPRs": [
+        {
+          "number": 228,
+          "title": "Case study and sub-issue plan for competitor parity in natural-language math (#227)",
+          "state": "OPEN",
+          "isDraft": false,
+          "url": "https://github.com/link-assistant/calculator/pull/228"
+        }
+      ]
+    },
+    "233": {
+      "title": "Thousands separators and locale decimal commas give silently wrong answers",
+      "state": "OPEN",
+      "openPRCount": 1,
+      "linkedPRs": [
+        {
+          "number": 228,
+          "title": "Case study and sub-issue plan for competitor parity in natural-language math (#227)",
+          "state": "OPEN",
+          "isDraft": false,
+          "url": "https://github.com/link-assistant/calculator/pull/228"
+        }
+      ]
+    },
+    "234": {
+      "title": "Percent arithmetic differs from every competitor",
+      "state": "OPEN",
+      "openPRCount": 1,
+      "linkedPRs": [
+        {
+          "number": 228,
+          "title": "Case study and sub-issue plan for competitor parity in natural-language math (#227)",
+          "state": "OPEN",
+          "isDraft": false,
+          "url": "https://github.com/link-assistant/calculator/pull/228"
+        }
+      ]
+    },
+    "235": {
+      "title": "General dimensional unit algebra: length, temperature, electrical and compound units",
+      "state": "OPEN",
+      "openPRCount": 1,
+      "linkedPRs": [
+        {
+          "number": 228,
+          "title": "Case study and sub-issue plan for competitor parity in natural-language math (#227)",
+          "state": "OPEN",
+          "isDraft": false,
+          "url": "https://github.com/link-assistant/calculator/pull/228"
+        }
+      ]
+    },
+    "236": {
+      "title": "Scientific notation as written in papers: superscripts, SI prefixes, ± uncertainty, scale words after digits",
+      "state": "OPEN",
+      "openPRCount": 1,
+      "linkedPRs": [
+        {
+          "number": 228,
+          "title": "Case study and sub-issue plan for competitor parity in natural-language math (#227)",
+          "state": "OPEN",
+          "isDraft": false,
+          "url": "https://github.com/link-assistant/calculator/pull/228"
+        }
+      ]
+    },
+    "237": {
+      "title": "English noun-phrase operators: squared, cubed, sum of, half of, dozen, rounded, log base",
+      "state": "OPEN",
+      "openPRCount": 1,
+      "linkedPRs": [
+        {
+          "number": 228,
+          "title": "Case study and sub-issue plan for competitor parity in natural-language math (#227)",
+          "state": "OPEN",
+          "isDraft": false,
+          "url": "https://github.com/link-assistant/calculator/pull/228"
+        }
+      ]
+    },
+    "238": {
+      "title": "Multilingual phrase operators, spelled numbers and CJK tokenization",
+      "state": "OPEN",
+      "openPRCount": 1,
+      "linkedPRs": [
+        {
+          "number": 228,
+          "title": "Case study and sub-issue plan for competitor parity in natural-language math (#227)",
+          "state": "OPEN",
+          "isDraft": false,
+          "url": "https://github.com/link-assistant/calculator/pull/228"
+        }
+      ]
+    },
+    "239": {
+      "title": "Number bases, bitwise operators, repeating decimals and display formats (fraction, roman, words, eng, hex)",
+      "state": "OPEN",
+      "openPRCount": 1,
+      "linkedPRs": [
+        {
+          "number": 228,
+          "title": "Case study and sub-issue plan for competitor parity in natural-language math (#227)",
+          "state": "OPEN",
+          "isDraft": false,
+          "url": "https://github.com/link-assistant/calculator/pull/228"
+        }
+      ]
+    },
+    "240": {
+      "title": "Complex numbers, vectors and matrices, infinity/NaN and the missing special functions",
+      "state": "OPEN",
+      "openPRCount": 1,
+      "linkedPRs": [
+        {
+          "number": 228,
+          "title": "Case study and sub-issue plan for competitor parity in natural-language math (#227)",
+          "state": "OPEN",
+          "isDraft": false,
+          "url": "https://github.com/link-assistant/calculator/pull/228"
+        }
+      ]
+    },
+    "241": {
+      "title": "Symbolic algebra: variables in expressions, non-polynomial equations, calculus and simplification",
+      "state": "OPEN",
+      "openPRCount": 1,
+      "linkedPRs": [
+        {
+          "number": 228,
+          "title": "Case study and sub-issue plan for competitor parity in natural-language math (#227)",
+          "state": "OPEN",
+          "isDraft": false,
+          "url": "https://github.com/link-assistant/calculator/pull/228"
+        }
+      ]
+    },
+    "242": {
+      "title": "Notepad state: variables, line references, totals, booleans, strings, comments and conditionals",
+      "state": "OPEN",
+      "openPRCount": 1,
+      "linkedPRs": [
+        {
+          "number": 228,
+          "title": "Case study and sub-issue plan for competitor parity in natural-language math (#227)",
+          "state": "OPEN",
+          "isDraft": false,
+          "url": "https://github.com/link-assistant/calculator/pull/228"
+        }
+      ]
+    },
+    "243": {
+      "title": "Date and time parity: sign of clock differences, natural display, IANA/city zones, relative dates, workdays, timecode",
+      "state": "OPEN",
+      "openPRCount": 1,
+      "linkedPRs": [
+        {
+          "number": 228,
+          "title": "Case study and sub-issue plan for competitor parity in natural-language math (#227)",
+          "state": "OPEN",
+          "isDraft": false,
+          "url": "https://github.com/link-assistant/calculator/pull/228"
+        }
+      ]
+    },
+    "244": {
+      "title": "Finance, statistics and rate phrases: VAT, interest, mortgages, mean/median, per-unit rates",
+      "state": "OPEN",
+      "openPRCount": 1,
+      "linkedPRs": [
+        {
+          "number": 228,
+          "title": "Case study and sub-issue plan for competitor parity in natural-language math (#227)",
+          "state": "OPEN",
+          "isDraft": false,
+          "url": "https://github.com/link-assistant/calculator/pull/228"
+        }
+      ]
+    },
+    "245": {
+      "title": "Accept LaTeX, MathML and Unicode math notation copied from papers",
+      "state": "OPEN",
+      "openPRCount": 1,
+      "linkedPRs": [
+        {
+          "number": 228,
+          "title": "Case study and sub-issue plan for competitor parity in natural-language math (#227)",
+          "state": "OPEN",
+          "isDraft": false,
+          "url": "https://github.com/link-assistant/calculator/pull/228"
+        }
+      ]
+    },
+    "246": {
+      "title": "Milestone: every competitor and scientific-quote corpus row is supported or has a documented difference",
+      "state": "OPEN",
+      "openPRCount": 1,
+      "linkedPRs": [
+        {
+          "number": 228,
+          "title": "Case study and sub-issue plan for competitor parity in natural-language math (#227)",
+          "state": "OPEN",
+          "isDraft": false,
+          "url": "https://github.com/link-assistant/calculator/pull/228"
+        }
+      ]
+    }
+  },
+  "issueOwnership": {
+    "227": {
+      "title": "We need to double check that we beat exactly all competitors for math expressions in natural language",
+      "state": "OPEN",
+      "openPRCount": 1,
+      "linkedPRs": [
+        {
+          "number": 228,
+          "title": "Case study and sub-issue plan for competitor parity in natural-language math (#227)",
+          "state": "OPEN",
+          "isDraft": false,
+          "url": "https://github.com/link-assistant/calculator/pull/228"
+        }
+      ]
+    },
+    "229": {
+      "title": "Run the competitor coverage checker in CI and fail on regressions",
+      "state": "OPEN",
+      "openPRCount": 1,
+      "linkedPRs": [
+        {
+          "number": 248,
+          "title": "ci: enforce competitor coverage and refresh weekly gap reports (#229)",
+          "state": "OPEN",
+          "isDraft": true,
+          "url": "https://github.com/link-assistant/calculator/pull/248"
+        }
+      ]
+    },
+    "230": {
+      "title": "Keep the imported open-source calculator test suites current and add the missing engines",
+      "state": "OPEN",
+      "openPRCount": 0,
+      "linkedPRs": []
+    },
+    "231": {
+      "title": "Complete the closed-source calculator documentation corpus",
+      "state": "OPEN",
+      "openPRCount": 0,
+      "linkedPRs": []
+    },
+    "232": {
+      "title": "Grow the multilingual scientific-quote corpus beyond the 13 seeded languages",
+      "state": "OPEN",
+      "openPRCount": 0,
+      "linkedPRs": []
+    },
+    "233": {
+      "title": "Thousands separators and locale decimal commas give silently wrong answers",
+      "state": "OPEN",
+      "openPRCount": 0,
+      "linkedPRs": []
+    },
+    "234": {
+      "title": "Percent arithmetic differs from every competitor",
+      "state": "OPEN",
+      "openPRCount": 0,
+      "linkedPRs": []
+    },
+    "235": {
+      "title": "General dimensional unit algebra: length, temperature, electrical and compound units",
+      "state": "OPEN",
+      "openPRCount": 0,
+      "linkedPRs": []
+    },
+    "236": {
+      "title": "Scientific notation as written in papers: superscripts, SI prefixes, ± uncertainty, scale words after digits",
+      "state": "OPEN",
+      "openPRCount": 0,
+      "linkedPRs": []
+    },
+    "237": {
+      "title": "English noun-phrase operators: squared, cubed, sum of, half of, dozen, rounded, log base",
+      "state": "OPEN",
+      "openPRCount": 0,
+      "linkedPRs": []
+    },
+    "238": {
+      "title": "Multilingual phrase operators, spelled numbers and CJK tokenization",
+      "state": "OPEN",
+      "openPRCount": 0,
+      "linkedPRs": []
+    },
+    "239": {
+      "title": "Number bases, bitwise operators, repeating decimals and display formats (fraction, roman, words, eng, hex)",
+      "state": "OPEN",
+      "openPRCount": 0,
+      "linkedPRs": []
+    },
+    "240": {
+      "title": "Complex numbers, vectors and matrices, infinity/NaN and the missing special functions",
+      "state": "OPEN",
+      "openPRCount": 0,
+      "linkedPRs": []
+    },
+    "241": {
+      "title": "Symbolic algebra: variables in expressions, non-polynomial equations, calculus and simplification",
+      "state": "OPEN",
+      "openPRCount": 0,
+      "linkedPRs": []
+    },
+    "242": {
+      "title": "Notepad state: variables, line references, totals, booleans, strings, comments and conditionals",
+      "state": "OPEN",
+      "openPRCount": 0,
+      "linkedPRs": []
+    },
+    "243": {
+      "title": "Date and time parity: sign of clock differences, natural display, IANA/city zones, relative dates, workdays, timecode",
+      "state": "OPEN",
+      "openPRCount": 0,
+      "linkedPRs": []
+    },
+    "244": {
+      "title": "Finance, statistics and rate phrases: VAT, interest, mortgages, mean/median, per-unit rates",
+      "state": "OPEN",
+      "openPRCount": 0,
+      "linkedPRs": []
+    },
+    "245": {
+      "title": "Accept LaTeX, MathML and Unicode math notation copied from papers",
+      "state": "OPEN",
+      "openPRCount": 0,
+      "linkedPRs": []
+    },
+    "246": {
+      "title": "Milestone: every competitor and scientific-quote corpus row is supported or has a documented difference",
+      "state": "OPEN",
+      "openPRCount": 0,
+      "linkedPRs": []
+    }
+  }
+}

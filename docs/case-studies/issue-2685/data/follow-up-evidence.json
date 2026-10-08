@@ -1,0 +1,309 @@
+{
+  "recorded_at": "2026-10-08T05:38:27.619786+00:00",
+  "base_head": "17fdeee2570e6515ac5b487091df8b81c2601e31",
+  "node": "v26.11.0",
+  "default_test_files": 578,
+  "focused_tests": 37,
+  "checks": [
+    {
+      "command": "node --test tests/github-parent-pr-2685.test.mjs (before the fix)",
+      "exit_code": 1,
+      "archive": "parent-pr-before.log",
+      "decoded_bytes": 8433,
+      "decoded_lines": 202,
+      "decoded_sha256": "f7a57b04167840547501fc6679a5dbabcb07e519eed656c68a50fe0615841614"
+    },
+    {
+      "command": "node --test --test-name-pattern=parent-prs-rest tests/hive-outcomes-2685.test.mjs (before correcting REST pagination)",
+      "exit_code": 1,
+      "archive": "follow-up-rest-before.log.gz",
+      "decoded_bytes": 23096,
+      "decoded_lines": 170,
+      "decoded_sha256": "79146e547e35d5547ded7eb810219ac5f5234951c232accbf4bdbf1cbea4c1e7"
+    },
+    {
+      "command": "gh api repos/link-assistant/calculator/issues/230/timeline --paginate --slurp --jq '.' (expected CLI rejection)",
+      "exit_code": 1,
+      "archive": "follow-up-rest-invalid-cli.log.gz",
+      "decoded_bytes": 7837,
+      "decoded_lines": 178,
+      "decoded_sha256": "a2ca9e12b8a001cd6cb079ffdbae48c9328132ff2782bf881e91b45ce1aed09b"
+    },
+    {
+      "command": "node --test tests/github-parent-pr-2685.test.mjs tests/hive-outcomes-2685.test.mjs",
+      "exit_code": 0,
+      "archive": "follow-up-focused-final.log.gz",
+      "decoded_bytes": 3086,
+      "decoded_lines": 45,
+      "decoded_sha256": "ac13ab8160f7ec175ebd3ebeb06d0cefbfd447e08a3c52d74f0fbd82e425bc92"
+    },
+    {
+      "command": "npm test -- --continue-on-failure",
+      "exit_code": 0,
+      "archive": "follow-up-default-suite.log.gz",
+      "decoded_bytes": 1004298,
+      "decoded_lines": 18721,
+      "decoded_sha256": "371fe17bcb835b7182d74969be8894f8acaaa2f466a1f176bd63a38ce44264db"
+    },
+    {
+      "command": "node scripts/run-tests.mjs --suite github-integration",
+      "exit_code": 0,
+      "archive": "follow-up-github-integration.log.gz",
+      "decoded_bytes": 1590,
+      "decoded_lines": 14,
+      "decoded_sha256": "324551ec99838cbc6568c2c0ebbadce6cc1b74e5f835a48a8688729517d7b625"
+    },
+    {
+      "command": "npm run lint",
+      "exit_code": 0,
+      "archive": "follow-up-lint-final.log.gz",
+      "decoded_bytes": 162,
+      "decoded_lines": 4,
+      "decoded_sha256": "1841c4199c5954a99fabba469ce09e48e68c5cdb949ddb57316046f7aa9d177f"
+    },
+    {
+      "command": "npm run format:check",
+      "exit_code": 0,
+      "archive": "follow-up-format.log.gz",
+      "decoded_bytes": 189,
+      "decoded_lines": 6,
+      "decoded_sha256": "a3a35d838c22d7041e679a72e207b3ea24ac4f5b479b220a51d5cd2fef631ec9"
+    },
+    {
+      "command": "npm run check:duplication",
+      "exit_code": 0,
+      "archive": "follow-up-duplication.log.gz",
+      "decoded_bytes": 527429,
+      "decoded_lines": 8382,
+      "decoded_sha256": "ee547072f9bdc5fafd648f8b956b5130d86416596d561fc13058a9c69a422915"
+    },
+    {
+      "command": "npm run check:secrets",
+      "exit_code": 0,
+      "archive": "follow-up-secrets.log.gz",
+      "decoded_bytes": 108,
+      "decoded_lines": 4,
+      "decoded_sha256": "5fc23ab91bc0d51acd02d852093aa566ba867096bda334ff7679cd1d5b2a1af8"
+    },
+    {
+      "command": "bash scripts/check-mjs-syntax.sh",
+      "exit_code": 0,
+      "archive": "follow-up-syntax.log.gz",
+      "decoded_bytes": 51386,
+      "decoded_lines": 1031,
+      "decoded_sha256": "b4c9a57e568a77a5959b4abcc25369551e3744689e09a785a3590e91892db524"
+    },
+    {
+      "command": "bash scripts/check-file-line-limits.sh",
+      "exit_code": 0,
+      "archive": "follow-up-line-limits.log.gz",
+      "decoded_bytes": 103517,
+      "decoded_lines": 1930,
+      "decoded_sha256": "7004826ed401a8f90ffc68ad97bc5b8eb35980a1321aa00ced2d8fafe6f0adef"
+    },
+    {
+      "command": "node scripts/check-dependency-freshness.mjs",
+      "exit_code": 0,
+      "archive": "follow-up-freshness.log.gz",
+      "decoded_bytes": 100,
+      "decoded_lines": 2,
+      "decoded_sha256": "ce359bd1572fbc139cac45f086270abb3db2bf85fc842447493800b4ff2e78b5"
+    },
+    {
+      "command": "node tests/docs-validation.mjs",
+      "exit_code": 0,
+      "archive": "follow-up-docs-validation.log.gz",
+      "decoded_bytes": 4185,
+      "decoded_lines": 98,
+      "decoded_sha256": "04b871887fe90bf72919932013e4ffd6e097926c188ce85d8f1939f4b01a28ef"
+    },
+    {
+      "command": "node tests/test-docs-language-sync.mjs",
+      "exit_code": 0,
+      "archive": "follow-up-docs-language.log.gz",
+      "decoded_bytes": 323,
+      "decoded_lines": 9,
+      "decoded_sha256": "c74f6a71c4929b447937e6e8308ba08baa53954cc69d525b95bd168e97aadbd5"
+    },
+    {
+      "command": "node scripts/check-package-manager.mjs",
+      "exit_code": 0,
+      "archive": "follow-up-package-manager.log.gz",
+      "decoded_bytes": 150,
+      "decoded_lines": 5,
+      "decoded_sha256": "b1ce2afa037580f03c8d13113f5950ed73010fb83d3043a82a5f66fcfc9a0f56"
+    },
+    {
+      "command": "node scripts/check-version.mjs",
+      "exit_code": 0,
+      "archive": "follow-up-version.log.gz",
+      "decoded_bytes": 106,
+      "decoded_lines": 3,
+      "decoded_sha256": "49355c289b3304fd15dc52a3e5aec72d95cdf261757a3dbf74a9b2a850b64824"
+    },
+    {
+      "command": "node scripts/validate-changeset.mjs",
+      "exit_code": 0,
+      "archive": "follow-up-changeset.log.gz",
+      "decoded_bytes": 912,
+      "decoded_lines": 11,
+      "decoded_sha256": "d7b74e8abf720244ba01517d3893d0950e898b2efcffb9c266d83cc64fd2cda8"
+    },
+    {
+      "command": "node tests/solve-auto-continue-detection-1895.test.mjs",
+      "exit_code": 0,
+      "archive": "follow-up-auto-continue.log.gz",
+      "decoded_bytes": 480,
+      "decoded_lines": 13,
+      "decoded_sha256": "36a7d5d6c478b46eab54b8f36207d1c69e84c1ac4090be6e9c75c5308e84b881"
+    },
+    {
+      "command": "node --test tests/hive-issue-relations-2615.test.mjs",
+      "exit_code": 0,
+      "archive": "follow-up-relations.log.gz",
+      "decoded_bytes": 1461,
+      "decoded_lines": 21,
+      "decoded_sha256": "ae05d33e6cbfe8165663d0c385b2fad7ba9e54ac78ad19c75722439995f52b39"
+    },
+    {
+      "command": "node tests/test-issue-1760-draft-linked-prs.mjs",
+      "exit_code": 0,
+      "archive": "follow-up-draft-prs.log.gz",
+      "decoded_bytes": 160,
+      "decoded_lines": 3,
+      "decoded_sha256": "a0ee37c4e9bad8f353a0374a75349719379f733d8175d2b27fff56b05cd7c0d6"
+    },
+    {
+      "command": "node tests/solution-draft-listing-2160.test.mjs",
+      "exit_code": 0,
+      "archive": "follow-up-solution-reporting.log.gz",
+      "decoded_bytes": 549,
+      "decoded_lines": 9,
+      "decoded_sha256": "515ebb3b5370319fe1595d2748cadee8f20c0714d5f0f17f2c489298e291c959"
+    },
+    {
+      "command": "node experiments/issue-2685/verify-parent-pr-lookup.mjs",
+      "exit_code": 0,
+      "archive": "follow-up-live-lookup.log.gz",
+      "decoded_bytes": 83,
+      "decoded_lines": 2,
+      "decoded_sha256": "d2c130dd45000e2e05de8e10ce18f4ebdcc701b3cbccc6c1fb9e49717fe5d4dd"
+    },
+    {
+      "command": "./src/hive.mjs --help",
+      "exit_code": 0,
+      "archive": "follow-up-hive-help.log.gz",
+      "decoded_bytes": 84854,
+      "decoded_lines": 1070,
+      "decoded_sha256": "953e82de991eaec5cc4aa49ad74fe5ce5005dfe927ec2fc5c11f14ed0937325f"
+    },
+    {
+      "command": "./src/hive.mjs --version",
+      "exit_code": 0,
+      "archive": "follow-up-hive-version.log.gz",
+      "decoded_bytes": 16,
+      "decoded_lines": 1,
+      "decoded_sha256": "3cbfe4777f701a4815ea38c5d2d54b2a912caa74f607d43ccaad667b3483bae0"
+    }
+  ],
+  "previous_successful_session": {
+    "archive": "previous-successful-session.log.gz",
+    "decoded_bytes": 13267381,
+    "decoded_lines": 30617,
+    "decoded_sha256": "8231eb7d78bd6edc8dba5e6bef3b8f5cf73dd6158f7d35e59ea978d396a7437b",
+    "source": "https://gist.github.com/konard/89660cd6f530afcd6234fb1169db5ec8"
+  },
+  "integration_details": {
+    "archive": "follow-up-integration-details.log.gz",
+    "decoded_bytes": 57898,
+    "decoded_lines": 649,
+    "decoded_sha256": "94c1ccd4f5cdcb77ddef485d40e207f42b237278611aeec98df83fada0119ec2"
+  },
+  "integration_cleanup": "follow-up-integration-cleanup.json",
+  "intermediate_logs": [
+    {
+      "archive": "follow-up-intermediate-commit-fix.log.gz",
+      "decoded_bytes": 724,
+      "decoded_lines": 18,
+      "decoded_sha256": "35c4d2e80933a5f967039b9c7d44add920c01001dc97e3ded910e41dd04c17b1"
+    },
+    {
+      "archive": "follow-up-intermediate-completion-preview.log.gz",
+      "decoded_bytes": 82,
+      "decoded_lines": 1,
+      "decoded_sha256": "2f0e1ab598a6b3ff79f3d9d7a4e8198e3ecd0dffc8dd3cc99d81929f77f7bb54"
+    },
+    {
+      "archive": "follow-up-intermediate-fetch-main.log.gz",
+      "decoded_bytes": 97,
+      "decoded_lines": 2,
+      "decoded_sha256": "d0eaafea3ff2a60edc293d57bd58ce769aa90fa781623cbfb11e7d11be41bee1"
+    },
+    {
+      "archive": "follow-up-intermediate-focused.log.gz",
+      "decoded_bytes": 2903,
+      "decoded_lines": 43,
+      "decoded_sha256": "3a393a111628a9ced102b4cfd08aa08b3aed0c251315544ab16a541b6d38fef7"
+    },
+    {
+      "archive": "follow-up-intermediate-format-fix-final.log.gz",
+      "decoded_bytes": 885,
+      "decoded_lines": 19,
+      "decoded_sha256": "ec9eb233f9b6fdc6a5b3c4ec61a8f080bd3fd78d26ff7ea41292ab5f78ee8601"
+    },
+    {
+      "archive": "follow-up-intermediate-format-fix-rest.log.gz",
+      "decoded_bytes": 170,
+      "decoded_lines": 3,
+      "decoded_sha256": "d02b94f4af407d00120417c176eac3749d7c0308a8c350f0cba8c36f48e1e12a"
+    },
+    {
+      "archive": "follow-up-intermediate-format-fix.log.gz",
+      "decoded_bytes": 728,
+      "decoded_lines": 17,
+      "decoded_sha256": "61f86e203ea392fe0f5573533f7d7c5e3fca863b267bb10b1d4aea873c84e263"
+    },
+    {
+      "archive": "follow-up-intermediate-format-rest.log.gz",
+      "decoded_bytes": 66,
+      "decoded_lines": 2,
+      "decoded_sha256": "17aa973d3f004560237d9a95171210b0671deff23d61628eecf7322ff5938f20"
+    },
+    {
+      "archive": "follow-up-intermediate-hive-after.log.gz",
+      "decoded_bytes": 2110,
+      "decoded_lines": 34,
+      "decoded_sha256": "180e58879eefa41b5327c7ff578232d692ac5b5688eb86c54adcb68f315dd2c7"
+    },
+    {
+      "archive": "follow-up-intermediate-lint.log.gz",
+      "decoded_bytes": 763,
+      "decoded_lines": 14,
+      "decoded_sha256": "d4de9dc0531d83119e25b35a518d3ae3b861cf3e741655c9552cd60ad74a1b2c"
+    },
+    {
+      "archive": "follow-up-intermediate-npm-ci.log.gz",
+      "decoded_bytes": 197,
+      "decoded_lines": 11,
+      "decoded_sha256": "544be972e641bc29a872d82e46b24002ed4d29ed1df0c93162abb6abc1d1ea88"
+    },
+    {
+      "archive": "follow-up-intermediate-parent-pr-after.log.gz",
+      "decoded_bytes": 910,
+      "decoded_lines": 17,
+      "decoded_sha256": "f058721f3496a8a1f7133385163d2dacbf71b5e7950c855ac859fff8aac3404f"
+    },
+    {
+      "archive": "follow-up-intermediate-preview-server.log.gz",
+      "decoded_bytes": 328,
+      "decoded_lines": 6,
+      "decoded_sha256": "d84aafe22bbe1c5353d42b2a53673ab6911b57c089bbacac0b6eac851682f75c"
+    },
+    {
+      "archive": "follow-up-intermediate-rest-query.log.gz",
+      "decoded_bytes": 0,
+      "decoded_lines": 0,
+      "decoded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ]
+}

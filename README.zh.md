@@ -379,6 +379,8 @@ solve <issue-url> [options]
 
 > **📖 完整选项列表**：包含 Fork、自动续行、监视模式及实验性功能在内的所有可用选项，请参见 [docs/CONFIGURATION.zh.md](./docs/CONFIGURATION.zh.md#solve-options)。
 
+将 [`--auto-fix-ci-cd`](./docs/AUTO-FIX-CI-CD.zh.md) 与 `--auto-merge` 一起使用，可在合并后验证 CI/CD 发布与部署，并自动创建和解决修复 issue，直到验证通过。
+
 ## 🔧 hive 选项
 
 ```bash

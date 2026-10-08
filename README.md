@@ -385,6 +385,8 @@ solve <issue-url> [options]
 
 > **📖 Full options list**: See [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#solve-options) for all available options including forking, auto-continue, watch mode, and experimental features.
 
+Use [`--auto-fix-ci-cd`](./docs/AUTO-FIX-CI-CD.md) with `--auto-merge` to verify CI/CD releases and deployments after merging, then automatically create and solve remediation issues until verification passes.
+
 ## 🔧 hive Options
 
 ```bash

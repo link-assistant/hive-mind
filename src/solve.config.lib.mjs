@@ -15,6 +15,7 @@ import { getLinoYargsFactory, hideBin, normalizeCliArgs, parseCliArgumentsWithLi
 import { normalizeThinkLevel, ADAPTIVE_THINK_LEVEL } from './think-level.lib.mjs';
 import { supportsAdaptiveThinking } from './config.lib.mjs';
 import { resolvePromptModelForTool } from './thinking-prompt.lib.mjs';
+import { validateAutoFixCiCd } from './solve.auto-fix-ci-cd.detect.lib.mjs';
 
 // Re-export for use by telegram-bot.mjs (avoids extra import lines there)
 export { detectMalformedFlags };
@@ -299,6 +300,11 @@ export const SOLVE_OPTION_DEFINITIONS = {
   'auto-merge': {
     type: 'boolean',
     description: 'Automatically merge the pull request when the working session is finished and all CI/CD statuses pass and PR is mergeable. Implies --auto-restart-until-mergeable.',
+    default: false,
+  },
+  'auto-fix-ci-cd': {
+    type: 'boolean',
+    description: 'After merging, verify target-branch CI/CD, GitHub releases, package publications and GitHub Pages. Create and solve remediation issues until verified. Requires --auto-merge; respects --auto-restart-max-iterations (0 = unlimited).',
     default: false,
   },
   'auto-restart-until-mergeable': {
@@ -883,6 +889,7 @@ export const createYargsConfig = yargsInstance => {
     // --think values instead of silently accepting them. Mirrors hive.config.
     .check(argv => {
       normalizeAndValidateThink(argv);
+      validateAutoFixCiCd(argv);
       return true;
     })
     // Use yargs built-in strict mode to reject unrecognized options

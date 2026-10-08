@@ -4,6 +4,7 @@
 // This module has no heavy dependencies to allow fast loading for --help
 
 import { SOLVE_OPTION_DEFINITIONS, normalizeAndValidateThink } from './solve.config.lib.mjs';
+import { validateAutoFixCiCd } from './solve.auto-fix-ci-cd.detect.lib.mjs';
 import { buildModelOptionDescription, defaultModels } from './models/index.mjs';
 
 // Hive-only options that are NOT solve options (hive-specific functionality).
@@ -233,6 +234,7 @@ export const createYargsConfig = yargsInstance => {
     // minimal, adaptive, percentages/fractions/0|1; fail fast on unsupported adaptive).
     .check(argv => {
       normalizeAndValidateThink(argv);
+      validateAutoFixCiCd(argv);
       return true;
     })
     .showHelpOnFail(false) // Don't show help on validation failures

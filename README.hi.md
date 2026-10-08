@@ -379,6 +379,8 @@ solve <issue-url> [options]
 
 > **📖 पूर्ण विकल्प सूची**: फोर्किंग, ऑटो-कंटिन्यू, वॉच मोड और प्रयोगात्मक विशेषताओं सहित सभी उपलब्ध विकल्पों के लिए [docs/CONFIGURATION.hi.md](./docs/CONFIGURATION.hi.md#solve-options) देखें।
 
+[`--auto-fix-ci-cd`](./docs/AUTO-FIX-CI-CD.hi.md) को `--auto-merge` के साथ उपयोग करें ताकि merge के बाद CI/CD releases और deployments सत्यापित हों और verification पास होने तक remediation issues स्वचालित रूप से बनाए और हल किए जाएँ।
+
 ## 🔧 hive विकल्प
 
 ```bash

@@ -11,7 +11,7 @@ import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-l
  * This ensures the issue should still be processed even if conditions changed since queuing
  * @param {string} issueUrl - The URL of the issue to check
  * @param {Object} argv - Command line arguments with configuration
- * @returns {Promise<{shouldProcess: boolean, reason?: string}>}
+ * @returns {Promise<{shouldProcess: boolean, reason?: string, pullRequests?: Array}>}
  */
 export async function recheckIssueConditions(issueUrl, argv) {
   try {
@@ -55,6 +55,7 @@ export async function recheckIssueConditions(issueUrl, argv) {
         return {
           shouldProcess: false,
           reason: `Issue now has ${prInfo.openPRCount} open PR${prInfo.openPRCount > 1 ? 's' : ''}`,
+          pullRequests: prInfo.linkedPRs,
         };
       }
       await log(`      ✅ Issue still has no open PRs`, { verbose: true });

@@ -1,0 +1,93 @@
+{
+  "recorded_at": "2026-10-08T02:43:52.337179+00:00",
+  "branch": "issue-2685-429d60c8a3fc",
+  "node": "v26.11.0",
+  "full_suite": {
+    "exit_code": 0,
+    "files_passed": 576,
+    "failed_files": 0,
+    "decoded_bytes": 996677,
+    "decoded_lines": 18558,
+    "decoded_sha256": "c49f90321fcc0451c140787bf789994d759e3633455fdee45746f7a7378b8c1c"
+  },
+  "checks": [
+    {
+      "name": "focused regressions",
+      "command": "node --test tests/hive-outcomes-2685.test.mjs tests/hive-issue-relations-2615.test.mjs tests/temp-cleanup-2160.test.mjs",
+      "exit_code": 0,
+      "result": "25 Node test entries passed, including 23 new regressions"
+    },
+    {
+      "name": "default suite",
+      "command": "npm test -- --continue-on-failure",
+      "exit_code": 0,
+      "result": "576/576 selected files passed"
+    },
+    {
+      "name": "extracted modules",
+      "command": "node tests/hive-extracted-modules-2175.test.mjs",
+      "exit_code": 0,
+      "result": "passed"
+    },
+    {
+      "name": "lint",
+      "command": "npm run lint",
+      "exit_code": 0,
+      "result": "passed"
+    },
+    {
+      "name": "formatting",
+      "command": "npm run format:check",
+      "exit_code": 0,
+      "result": "passed; final edited files also checked"
+    },
+    {
+      "name": "secrets",
+      "command": "npm run check:secrets",
+      "exit_code": 0,
+      "result": "passed; decoded production archives and both full-suite logs also scanned"
+    },
+    {
+      "name": "duplication",
+      "command": "npm run check:duplication",
+      "exit_code": 0,
+      "result": "11.12%, below 12% threshold"
+    },
+    {
+      "name": "syntax",
+      "command": "bash scripts/check-mjs-syntax.sh",
+      "exit_code": 0,
+      "result": "passed"
+    },
+    {
+      "name": "file size",
+      "command": "bash scripts/check-file-line-limits.sh",
+      "exit_code": 0,
+      "result": "passed"
+    },
+    {
+      "name": "package manager",
+      "command": "node scripts/check-package-manager.mjs",
+      "exit_code": 0,
+      "result": "passed"
+    },
+    {
+      "name": "version",
+      "command": "node scripts/check-version.mjs",
+      "exit_code": 0,
+      "result": "no manual version changes"
+    },
+    {
+      "name": "dependency freshness",
+      "command": "GITHUB_EVENT_NAME=pull_request node scripts/check-dependency-freshness.mjs",
+      "exit_code": 0,
+      "result": "168/168 declarations current"
+    },
+    {
+      "name": "changeset",
+      "command": "node scripts/validate-changeset.mjs",
+      "exit_code": 0,
+      "result": "exactly one patch changeset; directory fallback before commit"
+    }
+  ]
+}

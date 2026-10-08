@@ -407,6 +407,10 @@ hive <github-url> [options]
 
 > **📖 完整选项列表**：包含项目监控、YouTrack 集成及实验性功能在内的所有可用选项，请参见 [docs/CONFIGURATION.zh.md](./docs/CONFIGURATION.zh.md#hive-options)。
 
+使用 `--once` 时，最终摘要会显示发现、完成、失败、跳过和等待的 Issue 数量，以及导致跳过的 PR 链接。退出码 3 表示没有处理任何 Issue；4 表示已完成部分工作，但仍有 Issue 等待；1 表示执行器或获取 Issue 失败。显式使用 `--dry-run` 时退出码为 0。执行器成功退出并不代表 PR 已合并。
+
+如果 `--skip-issues-with-prs` 排除了尚未完成的工作，请检查所列 PR 中用于关闭 Issue 的引用。要继续现有草稿，请使用 `--no-skip-issues-with-prs --auto-continue`。Telegram 会将没有处理 Issue 和部分完成的 hive 运行显示为警告；`--verbose` 会在日志中添加获取 Issue 的详细信息。
+
 ## 🤖 Telegram 机器人
 
 Hive Mind 内置 Telegram 机器人接口（SwarmMindBot），支持远程命令执行。

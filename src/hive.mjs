@@ -43,6 +43,7 @@ import { createShutdownManager } from './hive.shutdown.lib.mjs';
 import { EXIT_CODE_INSUFFICIENT_DISK_SPACE, ensureDiskSpaceForWorker, extractSolverWorkspacePaths } from './disk-guard.lib.mjs';
 import { logReclaimableSpace } from './reclaimable-space.lib.mjs';
 import { resolveDockerImageReclaimMode } from './docker-image-reclaim.lib.mjs';
+import { HiveRunReport } from './hive.run-outcome.lib.mjs';
 const isRunningDirectly = isDirectExecution(process.argv[1], import.meta.url);
 if (isRunningDirectly) {
   console.log('🐝 Hive Mind - AI-powered issue solver');
@@ -114,7 +115,8 @@ if (isRunningDirectly) {
     const { createIssueRelationsGate, createIssueRelationsFetcher, createGhGraphQLRunner } = await import('./hive.issue-relations.lib.mjs');
     const { githubLimits } = await import('./config.lib.mjs');
     const repositoryFallbackLib = await import('./hive.repository-fallback.lib.mjs');
-    const fetchIssuesFromRepositories = repositoryFallbackLib.createRepositoryIssueFetcher({ log, cleanErrorMessage, tryFetchIssuesWithGraphQL, execGhWithRetry, fetchAllIssuesWithPagination, reportError });
+    const runReport = new HiveRunReport();
+    const fetchIssuesFromRepositories = repositoryFallbackLib.createRepositoryIssueFetcher({ log, cleanErrorMessage, tryFetchIssuesWithGraphQL, execGhWithRetry, fetchAllIssuesWithPagination, reportError, onFetchError: error => runReport.recordError(error) });
     // Configure command line arguments - GitHub URL as positional argument
     const rawArgs = normalizeCliArgs(hideBin(process.argv));
     // Use .parse() instead of .argv to ensure .strict() mode works correctly
@@ -165,10 +167,10 @@ if (isRunningDirectly) {
         }
         throw error;
       }
-      // Normalize deprecated flags to new names
-      if (argv && (argv.skipToolCheck || argv.skipClaudeCheck)) argv.skipToolConnectionCheck = true;
-      if (argv && argv.toolCheck === false) argv.toolConnectionCheck = false;
     }
+    // Apply aliases after successful parsing as well as the legacy error.argv path.
+    if (argv && (argv.skipToolCheck || argv.skipClaudeCheck)) argv.skipToolConnectionCheck = true;
+    if (argv && argv.toolCheck === false) argv.toolConnectionCheck = false;
     let githubUrl = argv['github-url'];
     // Set global verbose mode
     global.verboseMode = argv.verbose;
@@ -551,7 +553,7 @@ if (isRunningDirectly) {
         const recheckResult = await recheckIssueConditions(issueUrl, argv);
         if (!recheckResult.shouldProcess) {
           await log(`   ⏭️  Skipping issue: ${recheckResult.reason}`);
-          issueQueue.markCompleted(issueUrl);
+          issueQueue.markSkipped(issueUrl, recheckResult.reason, recheckResult.pullRequests);
           const stats = issueQueue.getStats();
           await log(`   📊 Queue: ${stats.queued} waiting, ${stats.processing} processing, ${stats.completed} completed, ${stats.failed} failed`);
           continue;
@@ -820,6 +822,7 @@ if (isRunningDirectly) {
     // in github.lib.mjs for better performance and reduced API calls
     // Function to fetch issues from GitHub
     async function fetchIssues() {
+      runReport.beginDiscovery();
       if (argv.youtrackMode) {
         await log(`\n🔍 Fetching issues from YouTrack project ${youTrackConfig.projectCode} (stage: "${youTrackConfig.stage}")...`);
       } else if (argv.projectMode) {
@@ -892,10 +895,10 @@ if (isRunningDirectly) {
                   operation: 'fallback_all_fetch',
                 });
                 await log(`   ❌ Repository fallback failed: ${cleanErrorMessage(fallbackError)}`, { verbose: true });
-                issues = [];
+                throw fallbackError;
               }
             } else {
-              issues = [];
+              throw searchError;
             }
           }
         } else {
@@ -917,7 +920,7 @@ if (isRunningDirectly) {
                 operation: 'list_repository_issues',
               });
               await log(`   ⚠️  List failed: ${cleanErrorMessage(listError)}`, { verbose: true });
-              issues = [];
+              throw listError;
             }
           } else {
             // For organizations and users, use search (may not work with new repos)
@@ -967,14 +970,15 @@ if (isRunningDirectly) {
                     operation: 'fallback_labeled_fetch',
                   });
                   await log(`   ❌ Repository fallback failed: ${cleanErrorMessage(fallbackError)}`, { verbose: true });
-                  issues = [];
+                  throw fallbackError;
                 }
               } else {
-                issues = [];
+                throw searchError;
               }
             }
           }
         }
+        runReport.recordFound(issues);
         if (issues.length === 0) {
           if (argv.youtrackMode) {
             await log(`   ℹ️  No issues found in YouTrack with stage "${youTrackConfig.stage}"`);
@@ -1048,6 +1052,7 @@ if (isRunningDirectly) {
             if (repoOwner && repoName) {
               const repoKey = `${repoOwner}/${repoName}`;
               if (archivedStatusMap[repoKey] === true) {
+                runReport.recordSkipped(issue.url, 'archived repository');
                 await log(`      ⏭️  Skipping (archived repository): ${issue.title || 'Untitled'} (${issue.url})`, {
                   verbose: true,
                 });
@@ -1089,8 +1094,8 @@ if (isRunningDirectly) {
               });
             }
           }
-          // Batch check PRs for each repository
-          const filteredIssues = [];
+          // Keep issues whose repository cannot be parsed, matching archived filtering.
+          const filteredIssues = issuesToProcess.filter(issue => !issue.url.match(/github\.com\/([^/]+)\/([^/]+)\/issues\/(\d+)/));
           let totalSkipped = 0;
           for (const repoData of Object.values(issuesByRepo)) {
             const issueNumbers = repoData.issues.map(i => i.number);
@@ -1099,6 +1104,7 @@ if (isRunningDirectly) {
             for (const issueData of repoData.issues) {
               const prInfo = prResults[issueData.number];
               if (prInfo && prInfo.openPRCount > 0) {
+                runReport.recordSkipped(issueData.issue.url, 'existing open pull requests', prInfo.linkedPRs);
                 await log(`      ⏭️  Skipping (has ${prInfo.openPRCount} PR${prInfo.openPRCount > 1 ? 's' : ''}): ${issueData.issue.title || 'Untitled'} (${issueData.issue.url})`, { verbose: true });
                 totalSkipped++;
               } else {
@@ -1128,6 +1134,7 @@ if (isRunningDirectly) {
         }
         return issuesToProcess.map(issue => issue.url);
       } catch (error) {
+        runReport.recordError(error);
         reportError(error, {
           context: 'fetchIssues',
           projectMode: argv.projectMode,
@@ -1165,7 +1172,7 @@ if (isRunningDirectly) {
         if (newIssues > 0) {
           await log(`   📥 Added ${newIssues} new issue(s) to queue`);
         } else {
-          await log('   ℹ️  No new issues to add (all already processed or in queue)');
+          await log(issueUrls.length ? '   ℹ️  No new issues to add (all already processed or in queue)' : '   ℹ️  No eligible issues to add; see discovery and filtering details above');
         }
         // Show current stats
         const stats = issueQueue.getStats();
@@ -1185,7 +1192,7 @@ if (isRunningDirectly) {
         // If running once, wait for queue to empty then exit
         if (argv.once) {
           await log('\n🏁 Single run mode - waiting for queue to empty...');
-          while (stats.queued > 0 || stats.processing > 0) {
+          while (issueQueue.isRunning && (stats.queued > 0 || stats.processing > 0)) {
             await new Promise(resolve => setTimeout(resolve, 5000));
             const currentStats = issueQueue.getStats();
             if (currentStats.queued !== stats.queued || currentStats.processing !== stats.processing) {
@@ -1194,21 +1201,9 @@ if (isRunningDirectly) {
             Object.assign(stats, currentStats);
           }
           // Issue #2615: finished (e.g. --auto-merge'd) work may have unblocked issues held back by relations.
-          if (relationsGate.shouldStartAnotherOnceRound(stats.completed, issueQueue.waiting.size)) {
+          if (issueQueue.isRunning && relationsGate.shouldStartAnotherOnceRound(stats.completed, issueQueue.waiting.size)) {
             await log('\n🔗 Issues were waiting on sub-issues/blockers and work has completed since — checking for newly unblocked issues...');
             continue;
-          }
-          // List completed issues with their solution draft PRs
-          if (stats.completed > 0) {
-            await listSolutionDrafts(issueQueue, log, batchCheckPullRequestsForIssues);
-          }
-          await log('\n✅ All issues processed!');
-          await log(`   Completed: ${stats.completed}`);
-          await log(`   Failed: ${stats.failed}`);
-          await log(`   📁 Full log file: ${absoluteLogPath}`);
-          // Perform cleanup if enabled and there were successful completions
-          if (stats.completed > 0) {
-            await cleanupTempDirectories(argv);
           }
           // Stop workers before breaking to avoid hanging
           issueQueue.stop();
@@ -1221,6 +1216,10 @@ if (isRunningDirectly) {
       // Stop workers
       issueQueue.stop();
       await Promise.all(issueQueue.workers);
+      if (argv.once) {
+        if (issueQueue.completed.size > 0) await listSolutionDrafts(issueQueue, log, batchCheckPullRequestsForIssues);
+        await runReport.logSummary(issueQueue, { waitingIssues: relationsGate.getWaitingIssues(), dryRun: argv.dryRun }, log);
+      }
       // Perform cleanup if enabled and there were successful completions
       const finalStats = issueQueue.getStats();
       if (finalStats.completed > 0) {
@@ -1295,6 +1294,8 @@ if (isRunningDirectly) {
     if (diskSpaceHalt) {
       await safeExit(EXIT_CODE_INSUFFICIENT_DISK_SPACE, `${diskSpaceHalt} — ${finalStats.completed} task(s) completed, ${finalStats.queued} left queued (no task failures)`);
     }
+    const outcome = runReport.getOutcome(issueQueue, { waitingIssues: relationsGate.getWaitingIssues(), dryRun: argv.dryRun });
+    if (outcome.exitCode) await safeExit(outcome.exitCode, outcome.message);
   } catch (fatalError) {
     // Handle fatal errors during initialization or execution
     console.error('\n❌ Fatal error occurred during hive initialization or execution');

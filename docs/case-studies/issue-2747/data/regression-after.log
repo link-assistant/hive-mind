@@ -1,0 +1,38 @@
+✔ /fix --ci-cd waits for Codex admission and preserves its CLI when dequeued (96.649387ms)
+✔ /fix --update-all-dependencies waits for Codex admission and preserves its CLI when dequeued (50.889428ms)
+✔ /split joins the tool queue before starting task (15.355119ms)
+[solve_queue] Item solve-1791451450549-25qxajf was not launched (session unknown): launch denied
+[solve_queue] Item failed: solve-1791451450551-b39w99s Error: launch denied
+    at executeCallback (file:///tmp/gh-issue-solver-1791450272284/tests/telegram-work-queue-2747.test.mjs:215:27)
+    at SolveQueue.executeItem (file:///tmp/gh-issue-solver-1791450272284/src/telegram-solve-queue.lib.mjs:883:30)
+    at startHead (file:///tmp/gh-issue-solver-1791450272284/tests/telegram-work-queue-2747.test.mjs:69:15)
+    at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791450272284/tests/telegram-work-queue-2747.test.mjs:219:5)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+✔ /organize defers its in-process classifier and keeps its final summary (606.666863ms)
+✔ /fix uses the claude queue after operator overrides (38.715465ms)
+✔ /fix uses the codex queue after operator overrides (20.889946ms)
+✔ /fix uses the agent queue after operator overrides (24.678825ms)
+✔ /fix uses the gemini queue after operator overrides (25.696766ms)
+✔ /fix uses the qwen queue after operator overrides (21.155462ms)
+✔ pending work keeps FIFO precedence even after resources clear (21.302024ms)
+✔ reject strategy refuses /fix without enqueueing or executing (21.186799ms)
+✔ overlapping direct starts reserve one global slot across tools (1.883364ms)
+✔ work queued during an asynchronous admission check takes precedence (0.35367ms)
+✔ queued launch failure settles completion (refusal) (1.819095ms)
+✔ queued launch failure settles completion (exception) (1.151038ms)
+✔ queued organization cancellation releases its repository lock (5.825538ms)
+[telegram-send] s1 safeEditMessageText → chat=100 message=301 thread=400 parse_mode=Markdown chars=120 bytes=124 text="❌ Solve command rejected.\n\nRepository: https://github.com/link-assistant/web-capture\n\n🚫 Reason: Disk threshold exceeded"
+[telegram-send] s1 safeEditMessageText ✓ delivered
+✔ consumer rejection releases a queued organization lock (44.18526ms)
+✔ merge auto-resolve awaits queue admission and uses solve overrides (1.648236ms)
+✔ merge cancellation removes an auto-resolve task still awaiting admission (1.388811ms)
+✔ queue callbacks preserve fix/task commands for screen, tmux and docker (1.402907ms)
+ℹ tests 20
+ℹ suites 0
+ℹ pass 20
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2566.368883

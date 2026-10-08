@@ -1,0 +1,12 @@
+⏳ Waiting (codex queue #9)
+
+Requested by: [@drakonard](https://t.me/drakonard)
+Repository: https://github.com/link-assistant/web-capture
+
+🛠 Options: --update-all-dependencies --tool codex --think xhigh
+
+🔒 Solve overrides: --attach-logs --verbose --no-tool-check --disable-report-issue --isolation docker
+
+⏳ Waiting: CPU usage is 67% (threshold: 65%)
+Codex process is already running (3 processes)
+sessionsStarted=0 codexPending=9

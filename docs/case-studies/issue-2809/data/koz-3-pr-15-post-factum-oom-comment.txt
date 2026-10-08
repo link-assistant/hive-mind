@@ -1,0 +1,25 @@
+<!-- hive-mind:session-kill-notice -->
+## ℹ️ Work session completed — an earlier container OOM event did not stop it
+
+container OOM event — a process in the task cgroup was killed earlier; the session-end memory reading was 8.9 GB of 11.7 GB RAM available (23.7% used) at 2026-10-08T15:10:59.712Z
+
+- **Exit code:** 0
+- **OOM event observed at:** 2026-10-08T11:13:13.140Z
+- **Working session:** `29d1aa53-d8df-4853-a54a-48d248eb1c51`
+- **On-kill policy:** `resume` (`--on-session-kill=resume`)
+
+<details><summary>Kill diagnostics</summary>
+
+- last session memory reading — 8.9 GB of 11.7 GB RAM available (23.7% used) at 2026-10-08T15:10:59.712Z (phase `solve_exit`)
+- last session V8 heap reading — 42 MB used of 1.6 GB limit (2.7%) at 2026-10-08T15:10:59.712Z (phase `solve_exit`)
+- last session disk /: 86.3 GB free of 192.7 GB (55.2% used) at 2026-10-08T15:10:59.712Z (phase `solve_exit`)
+- last session container cgroup reading — 2.1 GB used, 2.9 GB limit, peak 2.9 GB, 9 process(es) killed by the OOM killer, memory.events oom=20 at 2026-10-08T15:10:59.712Z (phase `solve_exit`)
+- container reports `State.OOMKilled = true` (an OOM event hit the container cgroup)
+- host memory now — 9.1 GB of 11.7 GB RAM available (22.1% used)
+- `/proc/pressure/memory`: some avg10=0.00 avg60=0.00 avg300=0.02 total=609569381
+
+</details>
+
+The work session survived the container OOM event and completed. No recovery was needed and no replacement session was launched.
+
+<sub>Reported by Hive Mind</sub>

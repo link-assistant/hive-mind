@@ -1,0 +1,6 @@
+#!/bin/sh
+# Issue #2809 experiment: records every gh invocation made by a test run and fails it,
+# so a test that forgets to mock GitHub cannot post a real comment.
+printf '%s\n' "$*" >> "${FAKE_GH_LOG:-/tmp/fake-gh.log}"
+echo "fake gh: network disabled" >&2
+exit 1

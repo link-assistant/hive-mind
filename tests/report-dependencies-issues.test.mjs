@@ -74,7 +74,7 @@ test('issue creation applies default reporting and opt-out without a prepared dr
     if (args[1]?.includes('/git/trees/')) return { code: 0, stdout: '{"files":[],"truncated":false}', stderr: '' };
     return { code: 0, stdout: '{}', stderr: '' };
   };
-  for (const reportDependenciesIssues of [undefined, false]) {
+  for (const reportDependenciesIssues of [undefined, true, false]) {
     await createUpdateDependenciesIssue({ repository, run, warn: () => {}, reportDependenciesIssues });
     assert.equal(typeof body, 'string');
     if (reportDependenciesIssues === false) assert.doesNotMatch(body, reportText);
@@ -111,7 +111,7 @@ test('/fix preserves reporting controls in the solve handoff', () => {
   }
 });
 
-test('Telegram /task passes the opt-out to issue generation and its suggested solve', { timeout: 5000 }, async () => {
+test('Telegram /task preserves reporting choices through issue generation and its suggested solve', { timeout: 5000 }, async () => {
   const replies = [];
   let generated;
   const { handleTaskCommand } = registerTaskCommands(
@@ -129,16 +129,32 @@ test('Telegram /task passes the opt-out to issue generation and its suggested so
       },
     }
   );
-  await handleTaskCommand({
-    chat: { id: 1, type: 'group' },
-    from: { id: 2, username: 'tester' },
-    message: { text: '/task --update-all-dependencies owner/repo --no-report-dependencies-issues', message_id: 1 },
-    reply: async text => {
-      replies.push(text);
-      return { chat: { id: 1 }, message_id: 2 };
-    },
-    telegram: { editMessageText: async (_chatId, _messageId, _inlineId, text) => replies.push(text) },
-  });
-  assert.equal(generated?.reportDependenciesIssues, false);
-  assert.match(replies.at(-1), /\/solve .*--no-report-dependencies-issues/);
+  for (const [args, enabled] of [
+    [[], true],
+    [['--report-dependencies-issues'], true],
+    [['--no-report-dependencies-issues'], false],
+    [['--report-dependencies-issues=false'], false],
+    [['--report-dependencies-issues', 'false'], false],
+    [['--no-report-dependencies-issues', '--report-dependencies-issues'], true],
+    [['--report-dependencies-issues', '--no-report-dependencies-issues'], false],
+  ]) {
+    await handleTaskCommand({
+      chat: { id: 1, type: 'group' },
+      from: { id: 2, username: 'tester' },
+      message: { text: `/task --update-all-dependencies owner/repo ${args.join(' ')}`, message_id: 1 },
+      reply: async text => {
+        replies.push(text);
+        return { chat: { id: 1 }, message_id: 2 };
+      },
+      telegram: { editMessageText: async (_chatId, _messageId, _inlineId, text) => replies.push(text) },
+    });
+    assert.equal(generated?.reportDependenciesIssues, enabled, args.join(' '));
+    const body = buildUpdateDependenciesIssueBody(generated);
+    assert.equal(reportText.test(body), enabled, 'the generated issue reflects the choice');
+    const followUp = replies.at(-1).match(/with (\/solve .*) to continue/)?.[1];
+    assert.ok(followUp, replies.at(-1));
+    const solveArgv = parse(followUp.split(' ').slice(1));
+    assert.equal(solveArgv.updateAllDependencies, true);
+    assert.equal(solveArgv.reportDependenciesIssues ?? solveArgv.updateAllDependencies, enabled, 'the suggested solve preserves the choice');
+  }
 });

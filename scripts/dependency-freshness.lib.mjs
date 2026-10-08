@@ -106,7 +106,7 @@ const pinException = (source, index) => source.split('\n')[lineNumberAt(source, 
 const ARG_SOURCES = {
   FORMAL_AI_VERSION: { kind: 'github', name: 'link-assistant/formal-ai' },
   HIVE_MIND_BUN_VERSION: { kind: 'github', name: 'oven-sh/bun', tagPrefix: 'bun-v' },
-  HIVE_MIND_NODE_VERSION: { kind: 'github', name: 'nodejs/node' },
+  HIVE_MIND_NODE_VERSION: { kind: 'node', name: 'nodejs/node' },
   HIVE_MIND_VERSION: { kind: 'npm', name: '@link-assistant/hive-mind' },
 };
 
@@ -242,6 +242,17 @@ export const resolveCrateLatest = async (name, options = {}) => {
   return metadata.crate.max_stable_version;
 };
 
+/** Node tags can precede downloads; both Docker image architectures must exist. */
+export const resolveNodeLatest = async (_name, _record = {}, options = {}) => {
+  const releases = await fetchJson('https://nodejs.org/dist/index.json', options);
+  const published = releases
+    .map(release => ({ ...release, parsed: parseVersion(release.version) }))
+    .filter(release => release.parsed && !release.parsed.prerelease && release.files?.includes('linux-x64') && release.files.includes('linux-arm64'))
+    .sort((left, right) => compareParsedVersions(right.parsed, left.parsed));
+  if (published.length === 0) throw new Error('Node.js returned no published Linux x64/arm64 releases');
+  return published[0].version;
+};
+
 /** Newest stable `X.Y.Z` tag of a Docker Hub repository such as `library/rust`. */
 export const resolveDockerHubLatest = async (repository, _record = {}, options = {}) => {
   const page = await fetchJson(`https://hub.docker.com/v2/repositories/${repository}/tags?page_size=100&ordering=last_updated`, options);
@@ -295,13 +306,13 @@ export const resolveOpenIssue = async (url, options = {}) => {
 };
 
 /** Registry errors and unrecognized pins fail closed; only verified open issues waive pins. */
-export const checkDependencyRecords = async (records, { resolveNpmLatest: npmResolver = resolveNpmLatest, resolveGitHubLatest: githubResolver = resolveGitHubLatest, resolveCrateLatest: crateResolver = resolveCrateLatest, resolveDockerHubLatest: dockerResolver = resolveDockerHubLatest, resolveContainerLatest: containerResolver = resolveContainerLatest, resolveOpenIssue: issueResolver = resolveOpenIssue } = {}) => {
+export const checkDependencyRecords = async (records, { resolveNpmLatest: npmResolver = resolveNpmLatest, resolveGitHubLatest: githubResolver = resolveGitHubLatest, resolveCrateLatest: crateResolver = resolveCrateLatest, resolveDockerHubLatest: dockerResolver = resolveDockerHubLatest, resolveContainerLatest: containerResolver = resolveContainerLatest, resolveNodeLatest: nodeResolver = resolveNodeLatest, resolveOpenIssue: issueResolver = resolveOpenIssue } = {}) => {
   const latestByDependency = new Map(),
     current = [],
     stale = [],
     errors = [],
     exceptions = [];
-  const resolvers = { npm: npmResolver, github: githubResolver, crate: crateResolver, docker: dockerResolver, container: containerResolver };
+  const resolvers = { npm: npmResolver, github: githubResolver, crate: crateResolver, docker: dockerResolver, container: containerResolver, node: nodeResolver };
   await Promise.all(
     records.map(async record => {
       try {

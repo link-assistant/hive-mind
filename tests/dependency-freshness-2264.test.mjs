@@ -149,7 +149,7 @@ assert.equal(
   'embedded Bun builds are checked'
 );
 assert.equal(
-  repositoryRecords.some(record => record.kind === 'github' && record.name === 'nodejs/node'),
+  repositoryRecords.some(record => record.kind === 'node' && record.name === 'nodejs/node'),
   true,
   'the latest stable Node release is checked'
 );

@@ -188,6 +188,7 @@ const KNOWN_OPTION_NAMES = [
   'auto-fork',
   'auto-cleanup',
   'base-branch',
+  'auto-base-branch-creation',
   'log-dir',
   'skip-tool-check',
   'skip-tool-connection-check',

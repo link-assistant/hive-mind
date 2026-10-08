@@ -353,6 +353,16 @@ export async function createOrCheckoutBranch({ isContinueMode, prBranch, issueNu
       });
     }
 
+    // Issue #1771: a reused working directory can predate creation of the base
+    // on GitHub. Fresh clones already have it; fork mode syncs it above.
+    if (argv.autoBaseBranchCreation && argv.baseBranch && !(await originHasBaseBranch(tempDir, baseBranch, $))) {
+      await log(`${formatAligned('🔄', 'Fetching base branch:', baseBranch)}`);
+      const fetched = await $({ cwd: tempDir })`git fetch origin ${`refs/heads/${baseBranch}:refs/remotes/origin/${baseBranch}`}`;
+      if (fetched.code !== 0) {
+        throw new Error(`Could not fetch base branch '${baseBranch}' from origin: ${fetched.stderr?.toString() || fetched.stdout?.toString() || 'Unknown error'}`);
+      }
+    }
+
     // IMPORTANT: Don't use 2>&1 here as it can interfere with exit codes
     // Git checkout -b outputs to stderr but that's normal
     // Create branch from the specified base branch (origin/baseBranch)

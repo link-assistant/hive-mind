@@ -428,6 +428,11 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Target branch for the pull request (defaults to repository default branch)',
     alias: 'b',
   },
+  'auto-base-branch-creation': {
+    type: 'boolean',
+    description: 'Create a missing --base-branch in the target repository from its default branch (requires write access)',
+    default: false,
+  },
   sentry: {
     type: 'boolean',
     description: 'Enable Sentry error tracking and monitoring (disabled by default for privacy; use --sentry to enable)',

@@ -12,8 +12,13 @@ import { QUIET_PROBE } from './quiet-probe.lib.mjs'; // issue #2130: keep read-o
 // container still got throttled as anonymous. The token has to be sent
 // preemptively, before the first git network call.
 import { ensureAuthenticatedGitTransport } from './git-auth-transport.lib.mjs';
+import { ensureBaseBranchExists } from './solve.base-branch.lib.mjs';
 
 export async function setupRepositoryAndClone({ argv, owner, repo, forkOwner, forkRepoName, tempDir, isContinueMode, issueUrl, log, $, needsClone = true }) {
+  // Issue #1771: create the canonical PR target after entity validation and
+  // before cloning, so fork setup can copy it using the custom-base sync path.
+  await ensureBaseBranchExists({ owner, repo, baseBranch: argv.baseBranch, autoBaseBranchCreation: !!argv.autoBaseBranchCreation, $, log });
+
   // Issue #2192: authenticate git *before* the first clone/fetch. Doing this
   // afterwards (as setupGitCredentialHelper does) is too late — the clone is the
   // call GitHub rejected with "temporarily limiting some unauthenticated downloads".

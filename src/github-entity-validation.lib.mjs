@@ -80,13 +80,14 @@ export function findClosestBranchName(target, candidates) {
  * @param {string} options.repo - Repository name
  * @param {string} options.baseBranch - Branch name to check
  * @param {boolean} [options.verbose=false] - Verbose logging
+ * @param {Function} [options.$] - Command runner for branch probes.
  * @returns {Promise<{exists: boolean, indeterminate?: boolean}>}
  *   - exists: true if the branch is present (or the check was inconclusive — fail open)
  *   - indeterminate: true when a non-404 error prevented a definitive answer
  */
-export async function checkBaseBranchExists({ owner, repo, baseBranch, verbose = false }) {
+export async function checkBaseBranchExists({ owner, repo, baseBranch, verbose = false, $: runCommand = $ }) {
   try {
-    const result = await ghCmdRetry(() => $`gh api repos/${owner}/${repo}/branches/${baseBranch} --jq .name`, { label: `check branch ${baseBranch}` });
+    const result = await ghCmdRetry(() => runCommand`gh api repos/${owner}/${repo}/branches/${baseBranch} --jq .name`, { label: `check branch ${baseBranch}` });
     if (result.code === 0) {
       return { exists: true };
     }
@@ -112,14 +113,15 @@ export async function checkBaseBranchExists({ owner, repo, baseBranch, verbose =
  * @param {string} options.repo
  * @param {string} options.baseBranch
  * @param {boolean} [options.verbose=false]
+ * @param {Function} [options.$] - Command runner for the branch listing.
  * @returns {Promise<string>} The formatted error message
  */
-export async function buildMissingBaseBranchErrorMessage({ owner, repo, baseBranch, verbose = false }) {
+export async function buildMissingBaseBranchErrorMessage({ owner, repo, baseBranch, verbose = false, $: runCommand = $ }) {
   let suggestion = '';
   try {
     // Issue #2135: `mirror: false`. Only the closest name is reported (below),
     // yet the raw answer is every branch in the repository.
-    const listResult = await ghCmdRetry(() => $(QUIET_PROBE)`gh api repos/${owner}/${repo}/branches --paginate --jq .[].name`, { label: `list branches ${owner}/${repo}` });
+    const listResult = await ghCmdRetry(() => runCommand(QUIET_PROBE)`gh api repos/${owner}/${repo}/branches --paginate --jq .[].name`, { label: `list branches ${owner}/${repo}` });
     if (listResult.code === 0) {
       const branches = listResult.stdout
         .toString()
@@ -158,16 +160,19 @@ export async function buildMissingBaseBranchErrorMessage({ owner, repo, baseBran
  * @param {boolean} [options.autoAcceptInvite=false] - Whether the caller already passed
  *   `--auto-accept-invite`. When true, the repo-404 message omits the suggestion to
  *   use that flag, since it would not be actionable (issue #1692).
+ * @param {boolean} [options.autoBaseBranchCreation=false] - Allow a missing base
+ *   branch through read-only validation; solve creates it after validation succeeds.
+ * @param {Function} [options.$] - Command runner for user, repository and branch probes.
  * @returns {Promise<{valid: boolean, error?: string, level?: string, details?: string}>}
  *   - valid: true if all entities exist and are accessible
  *   - error: user-facing error message (when valid=false)
  *   - level: which entity level failed ('user', 'repo', 'branch', 'issue', 'pull')
  *   - details: additional context for verbose logging
  */
-export async function validateGitHubEntityExistence({ owner, repo, number, type, baseBranch, verbose = false, autoAcceptInvite = false }) {
+export async function validateGitHubEntityExistence({ owner, repo, number, type, baseBranch, verbose = false, autoAcceptInvite = false, autoBaseBranchCreation = false, $: runCommand = $ }) {
   // Step 1: Check user/organization existence
   try {
-    const userResult = await ghCmdRetry(() => $`gh api users/${owner} --jq .login`, { label: `check user ${owner}` });
+    const userResult = await ghCmdRetry(() => runCommand`gh api users/${owner} --jq .login`, { label: `check user ${owner}` });
     if (userResult.code !== 0) {
       const errorOutput = (userResult.stderr?.toString() ? userResult.stderr.toString() : '') + (userResult.stdout?.toString() ? userResult.stdout.toString() : '');
       if (errorOutput.includes('404') || errorOutput.includes('Not Found')) {
@@ -186,7 +191,7 @@ export async function validateGitHubEntityExistence({ owner, repo, number, type,
 
   // Step 2: Check repository existence
   try {
-    const repoResult = await ghCmdRetry(() => $`gh api repos/${owner}/${repo} --jq .full_name`, { label: `check repo ${owner}/${repo}` });
+    const repoResult = await ghCmdRetry(() => runCommand`gh api repos/${owner}/${repo} --jq .full_name`, { label: `check repo ${owner}/${repo}` });
     if (repoResult.code !== 0) {
       const errorOutput = (repoResult.stderr?.toString() ? repoResult.stderr.toString() : '') + (repoResult.stdout?.toString() ? repoResult.stdout.toString() : '');
       if (errorOutput.includes('404') || errorOutput.includes('Not Found')) {
@@ -213,12 +218,14 @@ export async function validateGitHubEntityExistence({ owner, repo, number, type,
   // and was even misdiagnosed as an "empty repository". Failing here gives the
   // same fast, explicit feedback we already provide for repo/issue/PR — in the CLI
   // and in the GitHub comment, and BEFORE the Telegram bot starts the solve run.
-  if (baseBranch) {
-    const branchCheck = await checkBaseBranchExists({ owner, repo, baseBranch, verbose });
+  // Creation is owned by solve after entity validation, never by Telegram's
+  // queue preflight. Opting in defers this branch gate to that creation step.
+  if (baseBranch && !autoBaseBranchCreation) {
+    const branchCheck = await checkBaseBranchExists({ owner, repo, baseBranch, verbose, $: runCommand });
     if (!branchCheck.exists) {
       return {
         valid: false,
-        error: await buildMissingBaseBranchErrorMessage({ owner, repo, baseBranch, verbose }),
+        error: await buildMissingBaseBranchErrorMessage({ owner, repo, baseBranch, verbose, $: runCommand }),
         level: 'branch',
       };
     }

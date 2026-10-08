@@ -9,8 +9,8 @@
 - [x] Implement the root-cause fix across affected paths, keeping diagnostics off by default and preserving real session failures.
 - [x] Document requirements, evidence, root causes, alternatives, upstream-report assessment, and remaining limits in the case study.
 - [x] Add a patch changeset and remove the initial PR placeholder.
-- [ ] Run targeted tests, full local default tests, lint, format, and relevant CI checks; save large output to log files.
-- [ ] Commit atomic work on the prepared branch after local checks; merge the latest default branch and resolve conflicts if necessary.
-- [ ] Push only issue-2687-cdf77e59ffa9; update PR 2690 title/description with reproduction and validation.
+- [x] Run targeted tests, full local default tests, lint, format, and relevant CI checks; save large output to log files.
+- [x] Commit atomic work on the prepared branch after local checks; verify the latest default branch is already an ancestor, or merge it and resolve conflicts if necessary.
+- [x] Push only issue-2687-cdf77e59ffa9; update PR 2690 title/description with reproduction and validation.
 - [ ] Review the complete PR diff for unintended regressions; verify fresh CI on the latest SHA, download every failed-run log, and resolve failures.
 - [ ] Mark PR 2690 ready, verify a clean working tree, and report the PR URL with any concrete limitations.

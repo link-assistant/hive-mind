@@ -492,6 +492,102 @@ export const executeClaudeCommand = async params => {
           return true;
         },
       });
+      // Apply the same result semantics to NDJSON lines and the final unterminated buffer.
+      const processResultEvent = async data => {
+        if (!resultEventReceived) {
+          resultEventReceived = true;
+          await log(`📌 Result event received, starting ${streamCloseTimeoutMs / 1000}s stream close timeout (Issue #1280)`, { verbose: true });
+          resultTimeoutId = setTimeout(forceExitOnTimeout, streamCloseTimeoutMs);
+        }
+        // Issue #1708: result event = AI is idle and waiting for next
+        // user input. Flush any frames queued by --queue-comments-to-input.
+        if (bidirectionalHandler && typeof bidirectionalHandler.markAiIdle === 'function') {
+          try {
+            await bidirectionalHandler.markAiIdle();
+          } catch (idleErr) {
+            if (argv.verbose) await log(`⚠️ Bidirectional mode: markAiIdle error: ${idleErr.message}`, { verbose: true });
+          }
+        }
+        // Issue #2687: error results can also carry subtype: success. The error flag
+        // decides success; a prior tool failure must not replace the provider diagnosis.
+        resultSuccessReceived = data.subtype === 'success' && data.is_error !== true;
+        await log(`📌 Claude result: subtype=${data.subtype || 'unknown'} is_error=${data.is_error === true} api_error=${data.api_error || 'none'} http=${data.api_error_status || 'n/a'}`, { verbose: true });
+        const capturedCost = await captureAnthropicResultCost({ data, model: argv.model, log });
+        if (capturedCost?.total !== undefined) anthropicTotalCostUSD = capturedCost.total;
+        if (capturedCost?.fallback !== undefined) anthropicCostFromAnyResult = capturedCost.fallback;
+        // Issue #1263: Extract result summary (AI's summary of work done) for --attach-solution-summary
+        if (resultSuccessReceived && data.result && typeof data.result === 'string') {
+          resultSummary = data.result;
+          await log('📝 Captured result summary from Claude output', { verbose: true });
+        }
+        if (data.num_turns !== undefined) {
+          resultNumTurns = data.num_turns;
+          await log(`📊 Session num_turns: ${resultNumTurns}`, { verbose: true });
+        }
+        if (resultSuccessReceived && data.modelUsage) resultModelUsage = data.modelUsage; // Issue #1454
+        if (data.is_error === true) {
+          lastMessage = data.result || JSON.stringify(data);
+          const subtype = data.subtype || 'unknown';
+          if (subtype === 'error_during_execution') {
+            errorDuringExecution = true;
+            if ((data.errors || []).some(e => isENOSPC(e))) {
+              commandFailed = true;
+              await log('❌ ENOSPC: No space left on device. Free disk space (check ~/.claude/debug).');
+            } else {
+              await log(`⚠️ Error during execution (subtype: ${subtype}) - work may be completed`, { verbose: true });
+            }
+          } else {
+            commandFailed = true;
+            await log(`⚠️ Detected error from Claude CLI (subtype: ${subtype})`, { verbose: true });
+          }
+          if (data.api_error === 'usage_limit_reached' || isUsageLimitError(lastMessage)) {
+            commandFailed = true;
+            limitReached = true;
+            await log('⚠️ Detected session limit in result', { verbose: true });
+          }
+          if (lastMessage.includes('Internal server error') && !lastMessage.includes('Overloaded')) {
+            isInternalServerError = true;
+          }
+          // Issue #1353: Detect "Request timed out" from Claude CLI
+          if (lastMessage.includes('Request timed out')) {
+            isRequestTimeout = true;
+            await log('⏱️ Detected request timeout from Claude CLI (will retry with --resume)', { verbose: true });
+          }
+          // Issue #1924: server-side temporary rate limiting (HTTP 429) is a transient
+          // throttle ("...not your usage limit..."), so retry with --resume. Issue #1935
+          // (regression from #1924): account usage limits ("session limit" / "weekly limit")
+          // ALSO arrive with api_error_status === 429 plus an explicit reset time, so the
+          // isUsageLimitError() guard routes those to the usage-limit handler below instead.
+          if (data.api_error_status === 429 && data.api_error !== 'usage_limit_reached' && !isUsageLimitError(lastMessage)) {
+            isRateLimitError = true;
+            await log(`⚠️ Detected server-side rate limiting (429) from Claude CLI (will retry with --resume). request_id=${data.request_id || 'unknown'}`, { verbose: true });
+          }
+          // Issue #2161: account/subscription block. `data.error` carries the
+          // machine-readable code ("oauth_org_not_allowed" for the reported
+          // case) alongside api_error_status 403 — a far stronger signal than
+          // the rendered sentence, so it is passed to the detector first.
+          if (!subscriptionError) {
+            subscriptionError = detectSubscriptionError({
+              message: lastMessage,
+              tool: 'claude',
+              errorCode: typeof data.error === 'string' ? data.error : null,
+              apiErrorStatus: data.api_error_status,
+              terminalReason: data.terminal_reason,
+            });
+            if (subscriptionError) {
+              // Not verbose: this is the reason the whole run is about to end.
+              await log(`${SUBSCRIPTION_BLOCKED_MARKER} — ${subscriptionError.label}`);
+              await log(`   code=${subscriptionError.code || 'n/a'} http=${data.api_error_status || 'n/a'} terminal_reason=${data.terminal_reason || 'n/a'} request_id=${data.request_id || 'unknown'}`, { verbose: true });
+            }
+          }
+          // Issue #1834: Detect corrupted extended-thinking-block 400 (un-resumable session).
+          // Capture diagnostics (request id, content path) to aid debugging and upstream reports.
+          if ((lastMessage.includes('thinking') || lastMessage.includes('redacted_thinking')) && lastMessage.includes('cannot be modified')) {
+            const contentPath = (lastMessage.match(/messages\.\d+\.content\.\d+/) || [])[0] || 'unknown';
+            await log(`🧠 Detected corrupted thinking-block error (un-resumable session). request_id=${data.request_id || 'unknown'}, at=${contentPath}. Will discard the session and restart fresh (Issue #1834, upstream anthropics/claude-code#63147).`, { verbose: true });
+          }
+        }
+      };
       for await (const chunk of execCommand.stream()) {
         // Issue #1510: Continue processing stream after SIGTERM to capture final output
         // The stream will naturally end when the process exits (SIGTERM) or is force-killed (SIGKILL after 5s)
@@ -605,97 +701,7 @@ export const executeClaudeCommand = async params => {
                 }
               }
               if (progressMonitor) await progressMonitor.processStreamEvent(data).catch(e => log(`⚠️ Progress: ${e.message}`, { verbose: true }));
-              if (data.type === 'result') {
-                if (!resultEventReceived) {
-                  resultEventReceived = true;
-                  await log(`📌 Result event received, starting ${streamCloseTimeoutMs / 1000}s stream close timeout (Issue #1280)`, { verbose: true });
-                  resultTimeoutId = setTimeout(forceExitOnTimeout, streamCloseTimeoutMs);
-                }
-                // Issue #1708: result event = AI is idle and waiting for next
-                // user input. Flush any frames queued by --queue-comments-to-input.
-                if (bidirectionalHandler && typeof bidirectionalHandler.markAiIdle === 'function') {
-                  try {
-                    await bidirectionalHandler.markAiIdle();
-                  } catch (idleErr) {
-                    if (argv.verbose) await log(`⚠️ Bidirectional mode: markAiIdle error: ${idleErr.message}`, { verbose: true });
-                  }
-                }
-                if (data.subtype === 'success') resultSuccessReceived = true;
-                const capturedCost = await captureAnthropicResultCost({ data, model: argv.model, log });
-                if (capturedCost?.total !== undefined) anthropicTotalCostUSD = capturedCost.total;
-                if (capturedCost?.fallback !== undefined) anthropicCostFromAnyResult = capturedCost.fallback;
-                // Issue #1263: Extract result summary (AI's summary of work done) for --attach-solution-summary
-                if (data.subtype === 'success' && data.result && typeof data.result === 'string') {
-                  resultSummary = data.result;
-                  await log('📝 Captured result summary from Claude output', { verbose: true });
-                }
-                if (data.num_turns !== undefined) {
-                  resultNumTurns = data.num_turns;
-                  await log(`📊 Session num_turns: ${resultNumTurns}`, { verbose: true });
-                }
-                if (data.subtype === 'success' && data.modelUsage) resultModelUsage = data.modelUsage; // Issue #1454
-                if (data.is_error === true) {
-                  lastMessage = data.result || JSON.stringify(data);
-                  const subtype = data.subtype || 'unknown';
-                  if (subtype === 'error_during_execution') {
-                    errorDuringExecution = true;
-                    if ((data.errors || []).some(e => isENOSPC(e))) {
-                      commandFailed = true;
-                      await log('❌ ENOSPC: No space left on device. Free disk space (check ~/.claude/debug).');
-                    } else {
-                      await log(`⚠️ Error during execution (subtype: ${subtype}) - work may be completed`, { verbose: true });
-                    }
-                  } else {
-                    commandFailed = true;
-                    await log(`⚠️ Detected error from Claude CLI (subtype: ${subtype})`, { verbose: true });
-                  }
-                  if (lastMessage.includes('Session limit reached') || lastMessage.includes('limit reached')) {
-                    limitReached = true;
-                    await log('⚠️ Detected session limit in result', { verbose: true });
-                  }
-                  if (lastMessage.includes('Internal server error') && !lastMessage.includes('Overloaded')) {
-                    isInternalServerError = true;
-                  }
-                  // Issue #1353: Detect "Request timed out" from Claude CLI
-                  if (lastMessage.includes('Request timed out')) {
-                    isRequestTimeout = true;
-                    await log('⏱️ Detected request timeout from Claude CLI (will retry with --resume)', { verbose: true });
-                  }
-                  // Issue #1924: server-side temporary rate limiting (HTTP 429) is a transient
-                  // throttle ("...not your usage limit..."), so retry with --resume. Issue #1935
-                  // (regression from #1924): account usage limits ("session limit" / "weekly limit")
-                  // ALSO arrive with api_error_status === 429 plus an explicit reset time, so the
-                  // isUsageLimitError() guard routes those to the usage-limit handler below instead.
-                  if (data.api_error_status === 429 && !isUsageLimitError(lastMessage)) {
-                    isRateLimitError = true;
-                    await log(`⚠️ Detected server-side rate limiting (429) from Claude CLI (will retry with --resume). request_id=${data.request_id || 'unknown'}`, { verbose: true });
-                  }
-                  // Issue #2161: account/subscription block. `data.error` carries the
-                  // machine-readable code ("oauth_org_not_allowed" for the reported
-                  // case) alongside api_error_status 403 — a far stronger signal than
-                  // the rendered sentence, so it is passed to the detector first.
-                  if (!subscriptionError) {
-                    subscriptionError = detectSubscriptionError({
-                      message: lastMessage,
-                      tool: 'claude',
-                      errorCode: typeof data.error === 'string' ? data.error : null,
-                      apiErrorStatus: data.api_error_status,
-                      terminalReason: data.terminal_reason,
-                    });
-                    if (subscriptionError) {
-                      // Not verbose: this is the reason the whole run is about to end.
-                      await log(`${SUBSCRIPTION_BLOCKED_MARKER} — ${subscriptionError.label}`);
-                      await log(`   code=${subscriptionError.code || 'n/a'} http=${data.api_error_status || 'n/a'} terminal_reason=${data.terminal_reason || 'n/a'} request_id=${data.request_id || 'unknown'}`, { verbose: true });
-                    }
-                  }
-                  // Issue #1834: Detect corrupted extended-thinking-block 400 (un-resumable session).
-                  // Capture diagnostics (request id, content path) to aid debugging and upstream reports.
-                  if ((lastMessage.includes('thinking') || lastMessage.includes('redacted_thinking')) && lastMessage.includes('cannot be modified')) {
-                    const contentPath = (lastMessage.match(/messages\.\d+\.content\.\d+/) || [])[0] || 'unknown';
-                    await log(`🧠 Detected corrupted thinking-block error (un-resumable session). request_id=${data.request_id || 'unknown'}, at=${contentPath}. Will discard the session and restart fresh (Issue #1834, upstream anthropics/claude-code#63147).`, { verbose: true });
-                  }
-                }
-              }
+              if (data.type === 'result') await processResultEvent(data);
               if (data.type === 'text' && data.text) lastMessage = data.text;
               else if (data.type === 'error') {
                 lastMessage = stringifyErrorValue(data.error, { fallback: JSON.stringify(data) }); // Issue #2141: `data.error` is often an object; render it as text so the reason is never "[object Object]" and the substring checks below get a real string
@@ -854,17 +860,7 @@ export const executeClaudeCommand = async params => {
             lastToolResultError = null;
             lastBenignToolResultError = null;
           }
-          if (data?.type === 'result') {
-            resultEventReceived = true;
-            if (data.subtype === 'success') {
-              resultSuccessReceived = true;
-              if (data.result && typeof data.result === 'string') resultSummary = data.result;
-              if (data.modelUsage) resultModelUsage = data.modelUsage;
-            }
-            const capturedCost = await captureAnthropicResultCost({ data, model: argv.model, log });
-            if (capturedCost?.total !== undefined) anthropicTotalCostUSD = capturedCost.total;
-            if (capturedCost?.fallback !== undefined) anthropicCostFromAnyResult = capturedCost.fallback;
-          }
+          if (data?.type === 'result') await processResultEvent(data);
           // Issue #1472: Forward remaining buffer event to interactive handler (was previously missed)
           if (interactiveHandler) {
             try {
@@ -900,14 +896,17 @@ export const executeClaudeCommand = async params => {
       }
       if (execCommand.result && typeof execCommand.result.code === 'number') {
         const resultExitCode = execCommand.result.code;
-        if (exitCode === 0 && resultExitCode !== 0) {
-          exitCode = resultExitCode;
-          await log(`⚠️ Updated exit code from command result: ${resultExitCode}`, { verbose: true });
-        }
         // Specifically detect "command not found" via exit code 127
         if (resultExitCode === 127 && !commandFailed) {
           commandFailed = true;
           await log(`\n❌ Command not found (exit code 127) - "${claudePath}" is not installed or not in PATH\n   Please ensure Claude CLI is installed: npm install -g @anthropic-ai/claude-code`, { level: 'error' });
+        }
+        if (exitCode === 0 && resultExitCode !== 0) {
+          exitCode = resultExitCode;
+          // A real CLI failure takes precedence over an earlier in-session tool failure.
+          // A forced close after a result is handled by the timeout/recovery logic.
+          if (!forceExitTriggered) commandFailed = true;
+          await log(`⚠️ Updated exit code from command result: ${resultExitCode}`, { verbose: true });
         }
       }
       // Issue #1472: Flush remaining queued comments, log diagnostic summary, warn on zero events
@@ -992,7 +991,7 @@ export const executeClaudeCommand = async params => {
       // succeed regardless of that envelope. Earlier failures remain harmless
       // when a later success supersedes them, and issue #2160's bare self-handled
       // exit statuses remain benign (updateTerminalToolResult).
-      if (!turnCompletion.incomplete && resultSuccessReceived && terminalToolResult.failed && !terminalToolResult.benign) {
+      if (!commandFailed && !errorDuringExecution && exitCode === 0 && !turnCompletion.incomplete && resultSuccessReceived && terminalToolResult.failed && !terminalToolResult.benign) {
         commandFailed = true;
         errorDuringExecution = true;
         lastMessage = `Final tool result failed: ${terminalToolResult.error}`;
@@ -1040,7 +1039,9 @@ export const executeClaudeCommand = async params => {
       // one, say) must not schedule a retry that is guaranteed to fail the same
       // way — and each retry would burn another full startup against a provider
       // that has already refused the credentials.
-      if (!runProducedSuccess && isTransientError && !subscriptionError) {
+      // Issue #2687: a terminal account limit also supersedes transient flags
+      // retained from earlier stream events; only the reset-time handler can recover it.
+      if (!runProducedSuccess && isTransientError && !subscriptionError && !limitReached) {
         // Issue #1472/#1475: Startup/activity timeout → 30s–2min backoff; #1353: Request timeout → 5min–1hr; general → 3min–30min
         const isTimeoutRetry = isStartupTimeout || isActivityTimeout;
         // Issue #2169: stream timeouts keep their own short count cap; API errors are governed by

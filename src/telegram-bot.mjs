@@ -74,8 +74,9 @@ const organizeEnabled = config.organize;
 const authEnabled = config.auth;
 // Isolation mode (experimental): uses `$` from start-command with specified backend
 const ISOLATION_BACKEND = (config.isolation || getenv('TELEGRAM_ISOLATION', '')).trim().toLowerCase();
-const { initializeTelegramContainerResourceLimits } = await import('./telegram-container-resource-limits.lib.mjs');
+const { initializeTelegramContainerResourceLimits, initializeTelegramDockerCpuPenalty } = await import('./telegram-container-resource-limits.lib.mjs');
 const CONTAINER_RESOURCE_LIMITS = initializeTelegramContainerResourceLimits(config, ISOLATION_BACKEND);
+const CONTAINER_CPU_PENALTY = initializeTelegramDockerCpuPenalty(config, ISOLATION_BACKEND);
 let isolationRunner = null;
 if (ISOLATION_BACKEND) {
   if (!['screen', 'tmux', 'docker'].includes(ISOLATION_BACKEND)) {
@@ -1120,7 +1121,8 @@ function startSessionMonitoringOnce() {
   if (sessionMonitoringTimer) return;
   // Issue #2134: the monitor needs the isolation runner to start a recovery
   // working session when `--on-session-kill=resume` is in effect.
-  sessionMonitoringTimer = startSessionMonitoring(bot, VERBOSE, 30000, { isolationRunner });
+  // Issue #2801: it also applies and lifts the Docker task CPU penalty.
+  sessionMonitoringTimer = startSessionMonitoring(bot, VERBOSE, 30000, { isolationRunner, cpuPenalty: CONTAINER_CPU_PENALTY });
 }
 // Issue #2146 (PR #2147 review): stop the Formal AI sidecar once no Formal AI
 // task holds a lease, then — while the host is idle — update its image (with a

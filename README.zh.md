@@ -587,6 +587,8 @@ issue 的情况下预览，使用 `--no-solve` 可只创建 issue 而不启动 `
 `/solve --development-log --deep-analysis --auto-merge`（对依赖 issue 再加上
 `--update-all-dependencies`）即可通过常规 solve 流程继续。
 
+`--update-all-dependencies` 启用 `--report-dependencies-issues`：向依赖的上游报告通用逻辑、重复代码、缺失功能及导致本地变通方案的缺陷。可以保留必要的变通方案，让 pull request 继续推进。添加 `--no-report-dependencies-issues` 可关闭报告，也可在 `/solve` 或 `/hive` 上单独使用 `--report-dependencies-issues` 而不更新依赖。
+
 #### `/organize` - 分类开放议题
 
 ```text

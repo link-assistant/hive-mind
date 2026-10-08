@@ -598,6 +598,8 @@ manifests, फिर से generate किए जाने वाले lockfil
 `/solve --development-log --deep-analysis --auto-merge` (dependency issue के लिए
 `--update-all-dependencies` भी जोड़कर) से reply करें।
 
+`--update-all-dependencies` से `--report-dependencies-issues` चालू होता है: साझा logic, duplicated code, missing features और workarounds की वजह बनने वाले bugs की सूचना dependency के upstream को दें। pull request आगे बढ़ सके इसलिए ज़रूरी स्थानीय workarounds रख सकते हैं। reporting बंद करने के लिए `--no-report-dependencies-issues` जोड़ें, या dependencies अपडेट किए बिना `/solve` या `/hive` पर `--report-dependencies-issues` का उपयोग करें।
+
 #### `/organize` - खुले issues को वर्गीकृत करें
 
 ```text

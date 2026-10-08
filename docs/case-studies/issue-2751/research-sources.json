@@ -1,0 +1,33 @@
+{
+  "researchedAt": "2026-10-08",
+  "sources": [
+    {
+      "url": "https://github.com/link-foundation/lino-arguments",
+      "finding": "The existing JavaScript configuration component supports yargs and CLI-over-default precedence. Reuse the project's getLinoYargsFactory rather than adding a second boolean parser. Local probes and regression tests verify unspecified, negative and explicit false values."
+    },
+    {
+      "url": "https://cli.github.com/manual/gh_issue_create",
+      "finding": "GitHub CLI supports noninteractive issue bodies, --body-file, --repo, labels and issue types; no additional issue-reporting dependency is necessary."
+    },
+    {
+      "url": "https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/creating-an-issue",
+      "finding": "GitHub supports creating issues with CLI and repository templates. The solver can submit upstream feedback through existing tracker tooling."
+    },
+    {
+      "url": "https://docs.github.com/en/code-security/concepts/supply-chain-security/dependabot-version-updates",
+      "finding": "Dependabot creates pull requests for dependency version updates. It remains complementary to the requested solver analysis of duplicated logic, missing features and workaround-causing bugs."
+    },
+    {
+      "url": "https://docs.renovatebot.com/",
+      "finding": "Renovate documents automatic dependency and lockfile update PRs across platforms and languages. Inference: that maintenance function alone does not replace this task's upstream-feedback prompt."
+    },
+    {
+      "url": "https://github.com/link-assistant/hive-mind/pull/2214",
+      "finding": "The most directly related merged implementation introduced shared dependency-update paragraphs, generated issue helpers, automatic solve/hive passthrough, and six tool prompt integrations; extend those existing components."
+    },
+    {
+      "url": "https://github.com/link-assistant/hive-mind/pull/2265",
+      "finding": "The newer dependency-maintenance implementation adds the freshness inventory and grouped Dependabot updates, and documents upstream dependency defects alongside a retained local executable fallback. It provides a concrete upstream-reporting example and the existing freshness validation used here."
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "date": "2026-10-08",
+  "focusedTests": {
+    "reportDependenciesIssues": {
+      "passed": 13,
+      "failed": 0
+    },
+    "fixUpdateDependencies": {
+      "passed": 52,
+      "failed": 0
+    },
+    "telegramTask": {
+      "passed": 28,
+      "failed": 0
+    }
+  },
+  "cliDryRun": {
+    "defaultIncludesReporting": true,
+    "explicitOptOutOmitsReporting": true,
+    "createdIssues": 0,
+    "startedSolvers": 0,
+    "solveAndHiveHelpExposeOption": true
+  },
+  "checks": {
+    "eslint": "passed",
+    "duplication": "passed (11.12%, threshold 12%)",
+    "secretlint": "passed",
+    "lineLimits": "passed",
+    "docsValidation": "passed",
+    "docsLanguageSync": "passed",
+    "prettier": "passed",
+    "syntax": "passed",
+    "changeset": "passed (exactly one minor Changeset added relative to origin/main)",
+    "manualVersionChanges": "passed (none)",
+    "dependencyFreshness": "passed (168/168 current)",
+    "packageManagerDeclaration": "passed"
+  },
+  "defaultTests": {
+    "command": "node scripts/run-tests.mjs --suite default --continue-on-failure",
+    "passedFiles": 579,
+    "failedFiles": 0,
+    "exitCode": 0,
+    "log": "evidence/default-tests.log.gz"
+  }
+}

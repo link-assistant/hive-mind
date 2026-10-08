@@ -121,6 +121,10 @@ WORKDIR /home/box
 # steps run as they read (issue #2187).
 SHELL ["/bin/bash", "-c"]
 
+# The solver verifies downloaded attachments with file before opening them.
+# Box's runtime does not guarantee this utility (issue #2687).
+RUN command -v file >/dev/null || HOMEBREW_NO_AUTO_UPDATE=1 brew install file
+
 # --- Current Node.js and Bun (issue #2187) ---
 # Box bases up to 2.4.0 installed Node.js 20 (`nvm install 20` in box's
 # ubuntu/24.04/js/install.sh) plus whatever Bun was current when the base was

@@ -14,7 +14,7 @@ The existing relation scheduler already waits for open children and blockers, re
 
 ## Reproduction and validation
 
-The nine initial ownership tests were run against the unchanged matcher: seven failed and two passed. The failing cases demonstrate the captured parent PR, a draft child's own PR, an ordinary planning branch, reordered closing references, a grandparent, cross-repository ancestry and a merged ancestor PR. [Red-before output](data/parent-pr-before.log) preserves the failures.
+The nine initial ownership tests were run against the unchanged matcher: seven failed and two passed. The failing cases demonstrate the captured parent PR, a draft child's own PR, an ordinary planning branch, reordered closing references, a grandparent, cross-repository ancestry and a merged ancestor PR. [Red-before output](data/follow-up-parent-pr-before.log.gz) preserves the failures.
 
 A live REST transport check caught the CLI prohibition against combining `--slurp` with `--jq`. The fallback fixture now enforces that contract and serves two raw timeline pages, including an unrelated event. Its [failing run before correction](data/follow-up-rest-before.log.gz) demonstrates that the invalid command lost the parent's PR association. Filtering now happens in JavaScript after collecting all pages. The corrected command was also run read-only against the real calculator timeline, whose [raw response](data/rest-timeline-pages-follow-up.json) preserves the API shape.
 

@@ -8,7 +8,7 @@
     {
       "command": "node --test tests/github-parent-pr-2685.test.mjs (before the fix)",
       "exit_code": 1,
-      "archive": "parent-pr-before.log",
+      "archive": "follow-up-parent-pr-before.log.gz",
       "decoded_bytes": 8433,
       "decoded_lines": 202,
       "decoded_sha256": "f7a57b04167840547501fc6679a5dbabcb07e519eed656c68a50fe0615841614"

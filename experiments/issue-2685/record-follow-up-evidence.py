@@ -65,7 +65,7 @@ def archive(source, name):
 
 records = []
 for name, (command, exit_code) in commands.items():
-    target = "parent-pr-before.log" if name == "parent-pr-before" else f"follow-up-{name}.log.gz"
+    target = f"follow-up-{name}.log.gz"
     records.append({"command": command, "exit_code": exit_code, **archive(SOURCE / f"{name}.log", target)})
 
 session = archive(SOURCE / "previous-successful-session.log", "previous-successful-session.log.gz")

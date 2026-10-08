@@ -1,0 +1,14 @@
+codex codex-cli 0.161.0 model=gpt-6-sol
+no override (before #2771)                       requests:  1  service_tier: (omitted = standard)
+hive default: -c service_tier=default            requests:  1  service_tier: (omitted = standard)
+hive --speed fast: -c service_tier=fast          requests:  1  service_tier: priority
+hive --speed flex: -c service_tier=flex          requests:  1  service_tier: flex
+config.toml service_tier=fast, no override       requests:  1  service_tier: priority
+config.toml service_tier=fast + hive default     requests:  1  service_tier: (omitted = standard)
+codex codex-cli 0.161.0 model=gpt-6.1-sol
+no override (before #2771)                       requests:  1  service_tier: (omitted = standard)
+hive default: -c service_tier=default            requests:  1  service_tier: (omitted = standard)
+hive --speed fast: -c service_tier=fast          requests:  1  service_tier: priority
+hive --speed flex: -c service_tier=flex          requests:  1  service_tier: flex
+config.toml service_tier=fast, no override       requests:  1  service_tier: priority
+config.toml service_tier=fast + hive default     requests:  1  service_tier: (omitted = standard)

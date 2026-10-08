@@ -154,6 +154,16 @@ sudo docker run hello-world
 
 **注意：** Docker 对本地安装更为安全，也可用于在服务器或 Kubernetes 集群上安装多个隔离实例。Kubernetes 部署请参见下方的 [Helm chart 安装](#helm-安装kubernetes实验性) 部分。
 
+**何时使用 dind 镜像：** 如果需要嵌套 Docker、Docker Compose、Testcontainers 或 `start-command --isolation docker`，请选择 `konard/hive-mind-dind:latest`。用以下命令替代下方普通镜像的启动命令，然后在容器内执行相同的 GitHub、Claude 和 Codex 手动身份验证步骤：
+
+```bash
+docker pull konard/hive-mind-dind:latest
+docker run -dit --privileged --name hive-mind konard/hive-mind-dind:latest
+docker exec -it hive-mind bash
+```
+
+两个镜像都使用已配置的 `box` 用户。包含持久化凭据、daemon 就绪检查和容器提交指导的机器人部署示例见 [Docker 指南](./docs/DOCKER.zh.md)。
+
 ```bash
 # Pull the latest image from Docker Hub
 docker pull konard/hive-mind:latest
@@ -182,15 +192,18 @@ claude
 # Claude in Chrome enabled by default       false # No need for Chrome support on server
 
 # Optionally test Claude connection
-claude -p hi --model haiku
+claude_reply="$(claude -p "reply with only OK" --model haiku)" &&
+  test "$claude_reply" = OK
 
 # Authenticate with Codex (if you have ChatGPT Pro)
 codex login --device-auth
 
-# Optionally test Codex connection. codex exec refuses to run unless
-# either cwd is a git repo it trusts or --skip-git-repo-check is passed.
-# It prints the refusal to STDOUT but still exits 0, so do not skip the flag.
-codex exec --skip-git-repo-check --model gpt-5.4-mini "reply with only OK"
+# Verify a model reply outside a Git repository
+codex_reply="$(codex exec --skip-git-repo-check --model gpt-5.4-mini "reply with only OK")" &&
+  test "$codex_reply" = OK
+
+# Both model checks must return exactly OK and exit successfully.
+# A quota/trust message with exit code 0 is a failed check.
 
 # You might need to update hive-mind and agent to latest versions:
 bun install -g @link-assistant/hive-mind

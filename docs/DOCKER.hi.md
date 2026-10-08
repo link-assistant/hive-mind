@@ -18,7 +18,7 @@ docker run -it konard/hive-mind:latest
 # यह Docker build को interactive prompts के बिना सफलतापूर्वक पूर्ण करने की अनुमति देता है
 
 # Container के अंदर, GitHub के साथ authenticate करें
-gh auth login -h github.com -s repo,workflow,user,read:org,gist
+gh-setup-git-identity
 
 # Claude के साथ authenticate करें
 claude
@@ -52,6 +52,73 @@ docker run --rm --privileged -it konard/hive-mind-dind:latest bash
 docker info
 docker run hello-world
 ```
+
+Image के configured `box` user का उपयोग करें; `--user` override न दें। Entrypoint configured sudoers rules से dockerd शुरू करता है। Standard dind के लिए `--privileged` (या नीचे वाला Sysbox runtime) चाहिए। इसके बिना shell खुल सकती है, लेकिन `docker info` में `Cannot connect to the Docker daemon at unix:///var/run/docker.sock` दिखता है या daemon startup timeout होता है। Wait time बढ़ाने से पहले `docker logs hive-mind` और `/var/log/dockerd.log` जांचें (`DIND_LOG_FILE` से path बदल सकते हैं)। Runtime requirements के लिए upstream [dind usage guide](https://github.com/link-foundation/box/blob/main/docs/dind/USAGE.md) देखें।
+
+#### dind के लिए Production setup
+
+Persistent bot deployment में plain image वाले credential mounts ही उपयोग करें। ये commands host पर चलाएं; यदि `hive-mind` पहले से मौजूद है तो दूसरा container name चुनें। Image nested storage का disk उपयोग सीमित रखने के लिए `fuse-overlayfs` उपयोग करती है। Readiness check अधिकतम 180 बार प्रयास करता है और विफलता पर diagnostic logs दिखाता है।
+
+```bash
+mkdir -p /root/.hive-mind/claude /root/.hive-mind/codex /root/.hive-mind/agents/skills /root/.hive-mind/gh
+touch -a /root/.hive-mind/claude.json
+
+docker run -dit --privileged --name hive-mind --restart unless-stopped \
+  -e DIND_STORAGE_DRIVER=fuse-overlayfs \
+  -e DIND_WAIT_SECONDS=180 \
+  -v /root/.hive-mind/claude:/home/box/.claude \
+  -v /root/.hive-mind/codex:/home/box/.codex \
+  -v /root/.hive-mind/agents:/home/box/.agents \
+  -v /root/.hive-mind/claude.json:/home/box/.claude.json \
+  -v /root/.hive-mind/gh:/home/box/.config/gh \
+  konard/hive-mind-dind:latest bash -l -c 'bash /home/box/start-bot.sh'
+
+ready=0
+for attempt in $(seq 1 180); do
+  if docker exec hive-mind docker info >/dev/null 2>&1; then
+    ready=1
+    break
+  fi
+  sleep 1
+done
+if [ "$ready" -ne 1 ]; then
+  docker logs hive-mind
+  docker exec hive-mind sh -c 'cat "${DIND_LOG_FILE:-/var/log/dockerd.log}"'
+  exit 1
+fi
+docker exec hive-mind docker ps
+
+docker exec -it hive-mind bash
+```
+
+Shell के अंदर नीचे वाले Authentication section का पालन करें: दोनों images में `gh-setup-git-identity`, `claude` और `codex login --device-auth` समान हैं। Telegram bot को README के अनुसार configure करें।
+
+#### dind containers को commit करना
+
+`docker commit` container environment variables सुरक्षित रखता है। `DIND_SKIP_DAEMON=1` के साथ शुरू किए setup container को commit करते समय यह variable reset करें, वरना बनी हुई image dockerd शुरू नहीं करेगी:
+
+```bash
+docker run -d --name hive-mind-setup -e DIND_SKIP_DAEMON=1 \
+  konard/hive-mind-dind:latest sleep infinity
+docker exec -it hive-mind-setup bash
+
+docker commit --change 'ENV DIND_SKIP_DAEMON=0' \
+  hive-mind-setup hive-mind-dind:configured
+docker run -d --privileged --name hive-mind-configured \
+  hive-mind-dind:configured sleep infinity
+docker exec hive-mind-configured sh -c '
+  for attempt in $(seq 1 180); do
+    if docker info >/dev/null 2>&1; then
+      docker ps
+      exit $?
+    fi
+    sleep 1
+  done
+  exit 1
+'
+```
+
+Shell में setup पूरा करके exit करें, फिर host पर commit करें। Authentication के लिए persistent credential mounts को प्राथमिकता दें: `docker commit` bind-mounted files शामिल नहीं करता, लेकिन container layer में लिखे credentials image में चले जाते हैं। Credentials वाली image private रखें। पूरा विवरण upstream [Commit Cycles](https://github.com/link-foundation/box/blob/main/docs/dind/USAGE.md#commit-cycles) में है।
 
 यह image inner Docker daemon को default रूप से `DIND_STORAGE_DRIVER=fuse-overlayfs` पर चलाती है। यह एक **copy-on-write** driver है, इसलिए कई गीगाबाइट की Hive Mind images डिस्क पर लगभग अपने असली आकार जितनी ही जगह (एक बार) लेती हैं — जबकि `vfs` हर layer की पूरी copy बनाता है और on-disk footprint को image आकार के कई गुना तक बढ़ा देता है, जिससे डिस्क `failed to register layer: no space left on device` के साथ भर जाती है ([issue #1914](https://github.com/link-assistant/hive-mind/issues/1914))। `fuse-overlayfs` overlay-on-overlay भी काम करता है (वही compatibility जिसके लिए शुरू में `vfs` चुना गया था), image में `fuse-overlayfs` binary पहले से मौजूद है, और Hive Mind DinD container को `--privileged` के साथ launch करता है, इसलिए `/dev/fuse` उपलब्ध रहता है। Override विकल्प:
 
@@ -272,8 +339,10 @@ Production Docker image (`Dockerfile`) Ubuntu 24.04 और आधिकारि
 
 ```bash
 # Container के अंदर, AFTER चलने के बाद
-gh auth login -h github.com -s repo,workflow,user,read:org,gist
+gh-setup-git-identity
 ```
+
+दोनों images में `gh-setup-git-identity` installed है। यह GitHub authentication के साथ commits के लिए Git name और email configure करता है।
 
 **नोट:** Installation script जानबूझकर build प्रक्रिया के दौरान `gh auth login` नहीं चलाता। यह timeouts के बिना Docker builds का समर्थन करने के लिए डिज़ाइन द्वारा है।
 
@@ -283,6 +352,31 @@ gh auth login -h github.com -s repo,workflow,user,read:org,gist
 # Container के अंदर, AFTER चलने के बाद
 claude
 ```
+
+Authentication के बाद model का वास्तविक reply जांचें:
+
+```bash
+claude_reply="$(claude -p "reply with only OK" --model haiku)" &&
+  test "$claude_reply" = OK
+```
+
+### Codex Authentication
+
+Running container में Codex install या update करें, फिर device authentication उपयोग करें:
+
+```bash
+bun install -g @openai/codex@latest
+codex login --device-auth
+```
+
+`Successfully logged in` मिलने के बाद Git repository के बाहर model reply जांचें:
+
+```bash
+codex_reply="$(codex exec --skip-git-repo-check --model gpt-5.4-mini "reply with only OK")" &&
+  test "$codex_reply" = OK
+```
+
+दोनों checks में command सफल होनी चाहिए और final reply बिल्कुल `OK` होना चाहिए। Login success, CLI उपलब्ध होना या exit code 0 अपने आप inference की सफलता नहीं हैं: trust refusal या `You've hit your weekly limit` जैसा quota message smoke test की विफलता है। `/home/box` Git repository नहीं है, इसलिए यहां Codex को `--skip-git-repo-check` चाहिए। [Official non-interactive Codex guide](https://learn.chatgpt.com/docs/non-interactive-mode) देखें।
 
 यह दृष्टिकोण अनुमति देता है:
 
@@ -430,7 +524,7 @@ docker-compose run --rm hive-mind
 gh auth status
 
 # यदि आवश्यक हो तो फिर से authenticate करें
-gh auth login -h github.com -s repo,workflow,user,read:org,gist
+gh-setup-git-identity
 ```
 
 ### Claude Authentication समस्याएं

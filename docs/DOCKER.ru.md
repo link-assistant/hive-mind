@@ -18,7 +18,7 @@ docker run -it konard/hive-mind:latest
 # This allows the Docker build to complete successfully without interactive prompts
 
 # Inside the container, authenticate with GitHub
-gh auth login -h github.com -s repo,workflow,user,read:org,gist
+gh-setup-git-identity
 
 # Authenticate with Claude
 claude
@@ -52,6 +52,73 @@ docker run --rm --privileged -it konard/hive-mind-dind:latest bash
 docker info
 docker run hello-world
 ```
+
+Используйте настроенного в образе пользователя `box`, без переопределения `--user`. Entrypoint запускает dockerd через настроенные правила sudoers. Стандартный режим dind требует `--privileged` (или Sysbox runtime ниже). Без него оболочка может открыться, но `docker info` сообщит `Cannot connect to the Docker daemon at unix:///var/run/docker.sock` либо запуск daemon завершится по таймауту. Перед увеличением времени ожидания проверьте `docker logs hive-mind` и `/var/log/dockerd.log` (путь задаётся через `DIND_LOG_FILE`). Требования к среде описаны в upstream-[руководстве dind](https://github.com/link-foundation/box/blob/main/docs/dind/USAGE.md).
+
+#### Постоянное развёртывание dind
+
+Для постоянного развёртывания бота используйте те же монтирования учётных данных, что и для обычного образа. Выполняйте команды на хосте; если `hive-mind` уже существует, выберите другое имя контейнера. Образ использует `fuse-overlayfs` для экономного хранения вложенных образов. Проверка готовности делает не более 180 попыток и выводит диагностические журналы при ошибке.
+
+```bash
+mkdir -p /root/.hive-mind/claude /root/.hive-mind/codex /root/.hive-mind/agents/skills /root/.hive-mind/gh
+touch -a /root/.hive-mind/claude.json
+
+docker run -dit --privileged --name hive-mind --restart unless-stopped \
+  -e DIND_STORAGE_DRIVER=fuse-overlayfs \
+  -e DIND_WAIT_SECONDS=180 \
+  -v /root/.hive-mind/claude:/home/box/.claude \
+  -v /root/.hive-mind/codex:/home/box/.codex \
+  -v /root/.hive-mind/agents:/home/box/.agents \
+  -v /root/.hive-mind/claude.json:/home/box/.claude.json \
+  -v /root/.hive-mind/gh:/home/box/.config/gh \
+  konard/hive-mind-dind:latest bash -l -c 'bash /home/box/start-bot.sh'
+
+ready=0
+for attempt in $(seq 1 180); do
+  if docker exec hive-mind docker info >/dev/null 2>&1; then
+    ready=1
+    break
+  fi
+  sleep 1
+done
+if [ "$ready" -ne 1 ]; then
+  docker logs hive-mind
+  docker exec hive-mind sh -c 'cat "${DIND_LOG_FILE:-/var/log/dockerd.log}"'
+  exit 1
+fi
+docker exec hive-mind docker ps
+
+docker exec -it hive-mind bash
+```
+
+В открытой оболочке выполните шаги из раздела аутентификации ниже: `gh-setup-git-identity`, `claude` и `codex login --device-auth` одинаковы для обоих образов. Настройте Telegram-бота по README.
+
+#### Сохранение dind-контейнеров в образ
+
+`docker commit` сохраняет переменные окружения контейнера. При сохранении настроечного контейнера, запущенного с `DIND_SKIP_DAEMON=1`, сбросьте эту переменную, иначе полученный образ пропустит запуск dockerd:
+
+```bash
+docker run -d --name hive-mind-setup -e DIND_SKIP_DAEMON=1 \
+  konard/hive-mind-dind:latest sleep infinity
+docker exec -it hive-mind-setup bash
+
+docker commit --change 'ENV DIND_SKIP_DAEMON=0' \
+  hive-mind-setup hive-mind-dind:configured
+docker run -d --privileged --name hive-mind-configured \
+  hive-mind-dind:configured sleep infinity
+docker exec hive-mind-configured sh -c '
+  for attempt in $(seq 1 180); do
+    if docker info >/dev/null 2>&1; then
+      docker ps
+      exit $?
+    fi
+    sleep 1
+  done
+  exit 1
+'
+```
+
+Завершите настройку в оболочке и выйдите из неё, затем выполните commit на хосте. Для аутентификации предпочтительны постоянные монтирования учётных данных: `docker commit` не включает файлы bind mount, а учётные данные, записанные в слой контейнера, попадают в образ. Образ с учётными данными должен оставаться приватным. Подробнее в upstream-разделе [Commit Cycles](https://github.com/link-foundation/box/blob/main/docs/dind/USAGE.md#commit-cycles).
 
 Образ по умолчанию запускает внутренний Docker daemon с `DIND_STORAGE_DRIVER=fuse-overlayfs`. Это драйвер с **копированием при записи (copy-on-write)**, поэтому многогигабайтные образы Hive Mind занимают на диске примерно свой реальный размер один раз — в отличие от `vfs`, который копирует каждый слой целиком и раздувал занятое место до многократного размера образа, переполняя диск ошибкой `failed to register layer: no space left on device` ([issue #1914](https://github.com/link-assistant/hive-mind/issues/1914)). `fuse-overlayfs` также работает overlay-on-overlay (совместимость, ради которой изначально выбрали `vfs`), бинарник `fuse-overlayfs` уже включён в образ, а Hive Mind запускает DinD-контейнер с `--privileged`, поэтому `/dev/fuse` доступен. Переопределения:
 
@@ -310,8 +377,10 @@ Production Docker-образ (`Dockerfile`) использует Ubuntu 24.04 и
 
 ```bash
 # Inside the container, AFTER it's running
-gh auth login -h github.com -s repo,workflow,user,read:org,gist
+gh-setup-git-identity
 ```
+
+`gh-setup-git-identity` установлен в обоих образах. Он выполняет аутентификацию GitHub и настраивает имя и email Git, необходимые для коммитов.
 
 **Примечание:** Скрипт установки намеренно НЕ вызывает `gh auth login` в процессе сборки. Это сделано специально для поддержки сборок Docker без таймаутов.
 
@@ -321,6 +390,31 @@ gh auth login -h github.com -s repo,workflow,user,read:org,gist
 # Inside the container, AFTER it's running
 claude
 ```
+
+После аутентификации проверьте фактический ответ модели:
+
+```bash
+claude_reply="$(claude -p "reply with only OK" --model haiku)" &&
+  test "$claude_reply" = OK
+```
+
+### Аутентификация Codex
+
+В работающем контейнере установите или обновите Codex, затем используйте аутентификацию устройства:
+
+```bash
+bun install -g @openai/codex@latest
+codex login --device-auth
+```
+
+После `Successfully logged in` проверьте ответ модели вне Git-репозитория:
+
+```bash
+codex_reply="$(codex exec --skip-git-repo-check --model gpt-5.4-mini "reply with only OK")" &&
+  test "$codex_reply" = OK
+```
+
+Обе проверки требуют успешного завершения команды и итогового ответа ровно `OK`. Успешный вход, наличие CLI и код выхода 0 сами по себе не подтверждают работу модели: отказ проверки доверия или сообщение о квоте вроде `You've hit your weekly limit` означают провал проверки. Здесь нужен `--skip-git-repo-check`, поскольку `/home/box` не является Git-репозиторием. См. [официальное руководство Codex по неинтерактивному режиму](https://learn.chatgpt.com/docs/non-interactive-mode).
 
 Этот подход позволяет:
 
@@ -468,7 +562,7 @@ docker-compose run --rm hive-mind
 gh auth status
 
 # Re-authenticate if needed
-gh auth login -h github.com -s repo,workflow,user,read:org,gist
+gh-setup-git-identity
 ```
 
 ### Проблемы с аутентификацией Claude

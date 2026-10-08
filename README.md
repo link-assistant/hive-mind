@@ -154,6 +154,16 @@ Run the Hive Mind using Docker for safer local installation - no manual setup re
 
 **Note:** Docker is much safer for local installation and can be used to install multiple isolated instances on a server or Kubernetes cluster. For Kubernetes deployments, see the [Helm chart installation](#helm-installation-kubernetes-experimental) section below.
 
+**When to use the dind variant:** Choose `konard/hive-mind-dind:latest` for nested Docker, Docker Compose, Testcontainers, or `start-command --isolation docker`. Use this launch example in place of the plain-image launch below, then run the same manual GitHub, Claude, and Codex authentication steps inside the container:
+
+```bash
+docker pull konard/hive-mind-dind:latest
+docker run -dit --privileged --name hive-mind konard/hive-mind-dind:latest
+docker exec -it hive-mind bash
+```
+
+Let both images use their configured `box` user. For a detached bot with persistent credentials, daemon readiness checks, and setup/commit guidance, see [Production setup for dind](./docs/DOCKER.md#production-setup-for-dind).
+
 ```bash
 # Pull the latest image from Docker Hub
 docker pull konard/hive-mind:latest
@@ -181,15 +191,18 @@ claude
 # Claude in Chrome enabled by default       false # No need for Chrome support on server
 
 # Optionally test Claude connection
-claude -p hi --model haiku
+claude_reply="$(claude -p "reply with only OK" --model haiku)" &&
+  test "$claude_reply" = OK
 
 # Authenticate with Codex (if you have ChatGPT Pro)
 codex login --device-auth
 
-# Optionally test Codex connection. codex exec refuses to run unless
-# either cwd is a git repo it trusts or --skip-git-repo-check is passed.
-# It prints the refusal to STDOUT but still exits 0, so do not skip the flag.
-codex exec --skip-git-repo-check --model gpt-5.4-mini "reply with only OK"
+# Verify a model reply outside a Git repository
+codex_reply="$(codex exec --skip-git-repo-check --model gpt-5.4-mini "reply with only OK")" &&
+  test "$codex_reply" = OK
+
+# Both model checks must return exactly OK and exit successfully.
+# A quota/trust message with exit code 0 is a failed check.
 
 # Verify Playwright MCP is registered for both CLIs in this container image
 claude mcp list | grep playwright
@@ -222,7 +235,7 @@ touch -a /root/.hive-mind/claude.json
 
 # In our Docker images HOME=/home/box, so Codex stores its data in /home/box/.codex.
 # Mount the full Codex directory so auth.json, config.toml, and sessions survive restarts.
-docker run -dit --user box --name hive-mind --restart unless-stopped \
+docker run -dit --name hive-mind --restart unless-stopped \
   -v /root/.hive-mind/claude:/home/box/.claude \
   -v /root/.hive-mind/codex:/home/box/.codex \
   -v /root/.hive-mind/agents:/home/box/.agents \

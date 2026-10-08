@@ -154,6 +154,16 @@ sudo docker run hello-world
 
 **Примечание:** Docker значительно безопаснее для локальной установки и позволяет запускать несколько изолированных экземпляров на сервере или в кластере Kubernetes. Для развёртывания в Kubernetes см. раздел [Установка через Helm](#установка-через-helm-kubernetes-экспериментально) ниже.
 
+**Когда использовать dind:** Для вложенного Docker, Docker Compose, Testcontainers или `start-command --isolation docker` выбирайте `konard/hive-mind-dind:latest`. Используйте эти команды вместо запуска обычного образа ниже, затем выполните в контейнере те же ручные шаги аутентификации GitHub, Claude и Codex:
+
+```bash
+docker pull konard/hive-mind-dind:latest
+docker run -dit --privileged --name hive-mind konard/hive-mind-dind:latest
+docker exec -it hive-mind bash
+```
+
+Оба образа используют настроенного пользователя `box`. Постоянное развёртывание бота с сохранением учётных данных, проверкой готовности daemon и рекомендациями по commit описано в [руководстве Docker](./docs/DOCKER.ru.md).
+
 ```bash
 # Pull the latest image from Docker Hub
 docker pull konard/hive-mind:latest
@@ -182,15 +192,18 @@ claude
 # Claude in Chrome enabled by default       false # No need for Chrome support on server
 
 # Optionally test Claude connection
-claude -p hi --model haiku
+claude_reply="$(claude -p "reply with only OK" --model haiku)" &&
+  test "$claude_reply" = OK
 
 # Authenticate with Codex (if you have ChatGPT Pro)
 codex login --device-auth
 
-# Optionally test Codex connection. codex exec refuses to run unless
-# either cwd is a git repo it trusts or --skip-git-repo-check is passed.
-# It prints the refusal to STDOUT but still exits 0, so do not skip the flag.
-codex exec --skip-git-repo-check --model gpt-5.4-mini "reply with only OK"
+# Verify a model reply outside a Git repository
+codex_reply="$(codex exec --skip-git-repo-check --model gpt-5.4-mini "reply with only OK")" &&
+  test "$codex_reply" = OK
+
+# Both model checks must return exactly OK and exit successfully.
+# A quota/trust message with exit code 0 is a failed check.
 
 # You might need to update hive-mind and agent to latest versions:
 bun install -g @link-assistant/hive-mind

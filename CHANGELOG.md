@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.34.1
+
+### Patch Changes
+
+- feca4bc: Preserve Claude provider errors and usage-limit reset information when an earlier tool command failed, including streams without a final newline. Prevent background-task continuation of error results and include the file utility in all task images for attachment validation.
+
 ## 2.34.0
 
 ### Minor Changes

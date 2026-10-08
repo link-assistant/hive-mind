@@ -96,3 +96,52 @@ export async function detectDeliberateSolveStop(logPath, { readFile = null, verb
     return null;
   }
 }
+
+/**
+ * Issue #2803: the "child process" an OOM event killed may be the AI tool
+ * itself. In link-assistant/web-capture#178 the OOM killer SIGKILLed Claude
+ * (exit 137) while `cargo test` filled the container, and solve then exited 1.
+ * The Telegram message called that "an OOM event affected a child process; the
+ * work process continued", which hid the actual casualty. The tool line is
+ * the one each `<tool>.lib.mjs` logs on a non-zero exit.
+ */
+const KILLED_TOOL_PATTERN = new RegExp(LINE_START + String.raw`(Claude|Codex|OpenCode|Gemini|Agent|Qwen Code) command failed with exit code 137\b`);
+
+/**
+ * @param {string} tailText - The end of the work-session log
+ * @returns {{tool: string, line: string}|null} the last SIGKILLed AI tool
+ */
+export function findKilledAiTool(tailText) {
+  if (!tailText) return null;
+  const lines = String(tailText).split('\n');
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const match = lines[i].replace(/\r$/, '').match(KILLED_TOOL_PATTERN);
+    if (match) return { tool: match[1], line: lines[i].trim() };
+  }
+  return null;
+}
+
+/**
+ * Read the log tail and look for an AI tool killed with exit 137. Never throws.
+ *
+ * @param {string|null} logPath
+ * @param {Object} [options] - Same as detectDeliberateSolveStop()
+ * @returns {Promise<{tool: string, line: string}|null>}
+ */
+export async function detectKilledAiTool(logPath, { readFile = null, verbose = false, minByteOffset = 0 } = {}) {
+  if (!logPath) return null;
+  try {
+    const text = readFile
+      ? Buffer.from(String((await readFile(logPath, 'utf8')) || ''))
+          .subarray(minByteOffset)
+          .toString('utf8')
+          .slice(-DELIBERATE_STOP_TAIL_BYTES)
+      : await readLogTailText(logPath, { maxBytes: DELIBERATE_STOP_TAIL_BYTES, minByteOffset });
+    const killed = findKilledAiTool(text);
+    if (verbose) console.log(`[VERBOSE] Killed-tool scan of ${logPath}: ${killed ? `${killed.tool} ("${killed.line}")` : 'none found'} (issue #2803)`);
+    return killed;
+  } catch (error) {
+    if (verbose) console.log(`[VERBOSE] Killed-tool scan of ${logPath} failed: ${error?.message || error}`);
+    return null;
+  }
+}

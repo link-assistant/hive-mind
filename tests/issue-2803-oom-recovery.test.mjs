@@ -11,7 +11,9 @@
  *   3. processes the killed tool left running (`cargo test -j 2`) kept their memory;
  *   4. the bot could neither resume a `/fix` session (only `solve` takes `--resume`) nor find its
  *      pull request (a `/fix` URL names a repository), so recovery was refused as "not-resumable"
- *      and the notice was skipped with "no-pull-request".
+ *      and the notice was skipped with "no-pull-request";
+ *   5. the Telegram message and PR notice said "an OOM event affected a child process; the work
+ *      process continued" while the process the OOM killer took was Claude itself.
  */
 import assert from 'node:assert/strict';
 import test from 'node:test';
@@ -24,6 +26,9 @@ import { formatFixHandoff, parseFixHandoff, readFixHandoffFromLog, resolveSolveS
 import { planKillRecovery, startKillRecoverySession } from '../src/session-kill-resume.lib.mjs';
 import { resumeKilledSessionInPlace } from '../src/session-kill-resume.in-place.lib.mjs';
 import { buildResumeCommand } from '../src/session-resume.lib.mjs';
+import { findKilledAiTool } from '../src/session-kill-attribution.lib.mjs';
+import { buildKillCompletionSections } from '../src/session-monitor.kill-sections.lib.mjs';
+import { buildKillRecoveryNotice } from '../src/session-kill-recovery.lib.mjs';
 
 const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const CLAUDE_SESSION = 'd9aa4383-bc63-4d77-a02d-27065219b12b';
@@ -218,4 +223,36 @@ test('the same-container resume runs the real command, never the Telegram alias'
   };
   await resumeKilledSessionInPlace({ sessionName: 's', sessionInfo: { isolationBackend: 'docker', sessionId: 's', executionUuid: 'exec-1', args: [ISSUE_URL] }, plan: { command }, runner });
   assert.equal(calls[0].command, command.shell);
+});
+
+// Line 6 of solve-log.kill-window.excerpt.log, then solve's own exit.
+const INCIDENT_TAIL = '[2026-10-08T13:21:06.383Z] [ERROR] ❌ Claude command failed with exit code 137\n[2026-10-08T13:21:08.988Z] [INFO] 💾 Critical error (CLAUDE execution failed with Claude command failed with exit code 137) — preserving uncommitted changes\nExit Code: 1\n';
+
+test('the killed AI tool is found in the log tail, and quoted output is not mistaken for it', () => {
+  assert.deepEqual(findKilledAiTool(INCIDENT_TAIL), { tool: 'Claude', line: '[2026-10-08T13:21:06.383Z] [ERROR] ❌ Claude command failed with exit code 137' });
+  assert.equal(findKilledAiTool('❌ Qwen Code command failed with exit code 137')?.tool, 'Qwen Code');
+  assert.equal(findKilledAiTool('❌ Claude command failed with exit code 1'), null, 'an ordinary failure is not a kill');
+  assert.equal(findKilledAiTool('{"text":"❌ Claude command failed with exit code 137"}'), null);
+  assert.equal(findKilledAiTool(''), null);
+});
+
+test('the Telegram section names the AI tool the OOM killer took, not "a child process"', async () => {
+  const info = { isolationBackend: 'docker', sessionId: 'session', logPath: '/logs/05b20a82.log', args: ['--on-session-kill', 'report'], oomEventObservedAt: '2026-10-08T13:19:10.963Z' };
+  const report = await buildKillCompletionSections({ sessionName: 'session', sessionInfo: info, statusResult: { oomKilled: true }, status: 'failed', exitCode: 1, readFile: async () => INCIDENT_TAIL });
+  assert.equal(report.oomEventOnly, true);
+  assert.equal(report.killedTool?.tool, 'Claude');
+  const text = report.sections.join('\n');
+  assert.match(text, /the AI tool \(Claude\) was killed with SIGKILL \(exit code 137\), most likely by the OOM killer, and solve then exited with code 1/);
+  assert.doesNotMatch(text, /work process continued/);
+
+  const other = await buildKillCompletionSections({ sessionName: 'session', sessionInfo: { ...info }, statusResult: { oomKilled: true }, status: 'failed', exitCode: 1, readFile: async () => 'error: could not compile\nExit Code: 1\n' });
+  assert.match(other.sections.join('\n'), /affected a child process/, 'without the tool line the old wording stays');
+});
+
+test('the PR notice says the AI tool was killed', () => {
+  const body = buildKillRecoveryNotice({ exitCode: 1, observedAt: '2026-10-08T13:19:10.963Z', oomEventOnly: true, killedTool: { tool: 'Claude' } });
+  assert.match(body, /## ❌ Claude was killed by the container OOM killer/);
+  assert.match(body, /The AI tool \(Claude\) was killed with SIGKILL \(exit code 137\)/);
+  assert.match(buildKillRecoveryNotice({ oomEventOnly: true, killedTool: { tool: 'Claude' }, resumed: true }), /## ⚠️ Claude was killed by the container OOM killer — work session restarted/);
+  assert.match(buildKillRecoveryNotice({ oomEventOnly: true }), /survived the container OOM event/);
 });

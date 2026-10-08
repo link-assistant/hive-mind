@@ -4,6 +4,7 @@
  */
 
 import { getArchitectureCareSubPrompt } from './architecture-care.prompts.lib.mjs';
+import { buildClaimVerificationSubPrompt } from './claim-verification.prompts.lib.mjs';
 import { getUpdateAllDependenciesSubPrompt } from './update-dependencies.prompts.lib.mjs';
 import { getExperimentsExamplesSubPrompt } from './experiments-examples.prompts.lib.mjs';
 import { getThinkingPromptInstruction } from './thinking-prompt.lib.mjs';
@@ -118,7 +119,7 @@ CI investigation with workspace tmp directory.
   }
 
   return `You are an AI issue solver using Google Gemini CLI.
-${workspaceInstructions}General guidelines.
+${buildClaimVerificationSubPrompt()}${workspaceInstructions}General guidelines.
    - When you execute commands and the output becomes large, save the logs to files for easier review.
    - When running commands, avoid setting a timeout yourself. Let them run as long as needed. The default timeout of 2 minutes is usually enough, and once commands finish, review the logs in the file.
    - When running sudo commands, especially package installations like apt-get, yum, or npm install, run them in the background to avoid timeout issues and permission errors when the process needs to be killed. Use the run_in_background parameter or append & to the command.

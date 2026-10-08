@@ -4,6 +4,7 @@
  */
 
 import { getArchitectureCareSubPrompt } from './architecture-care.prompts.lib.mjs';
+import { buildClaimVerificationSubPrompt } from './claim-verification.prompts.lib.mjs';
 import { getUpdateAllDependenciesSubPrompt } from './update-dependencies.prompts.lib.mjs';
 import { getHandoffSubPrompt } from './handoff.prompts.lib.mjs';
 import { getExperimentsExamplesSubPrompt } from './experiments-examples.prompts.lib.mjs';
@@ -132,7 +133,7 @@ CI investigation with workspace tmp directory.
   }
 
   return `You are an AI issue solver using OpenAI Codex.
-${workspaceInstructions}General guidelines.
+${buildClaimVerificationSubPrompt()}${workspaceInstructions}General guidelines.
    - When you execute commands and the output becomes large, save the logs to files for easier review.
    - Wait for background commands and any delegated work to finish before ending your turn, then complete dependent work. Do not end a turn merely to say you are waiting.
    - Bound experiments that deliberately stress stack or memory. Set finite inputs and process memory or stack limits so a probe cannot exhaust the host.

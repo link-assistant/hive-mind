@@ -5,6 +5,10 @@ dependency updates to enable upstream reporting automatically, with an independe
 switch to disable it. [PR #2754](https://github.com/link-assistant/hive-mind/pull/2754)
 implements the complete change.
 
+The [follow-up requirements audit](requirements-audit.md) addresses the request
+to double-check every requirement, expands handoff verification, documents the
+resolution of the later merge conflicts, and records current validation.
+
 ## Evidence and scope
 
 The [issue snapshot](data/issue.json) and [issue comments](data/issue-comments.json)

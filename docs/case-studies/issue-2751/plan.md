@@ -31,3 +31,16 @@ timeline and checks retain the results of the remote finalization procedure.
 - [x] Refresh the three pins and the existing pin/runtime test expectations.
 - [x] Recheck freshness and all five affected test files; preserve the successful local logs.
 - Verify fresh CI on the follow-up commit using the PR finalization procedure above.
+
+## Follow-up review
+
+- [x] Collect the edited PR description and latest issue/PR comments.
+- [x] Audit every original requirement against implementation and tests.
+- [x] Resolve the Docker comment conflicts using the current default branch; retain both case-study formatting exclusions.
+- [x] Expand Telegram coverage to seven reporting choices and add seven cases through the production hive argument forwarder.
+- [x] Revisit primary-source research and reproduce the new Sentry freshness failure.
+- [x] Refresh the Sentry packages and validate before/after dependency-pin checks.
+- [x] Preserve the final default-suite and local-check evidence in `review-validation.json` (581/581 test files passed after the Sentry refresh).
+- [x] Preserve the default-branch merge and expanded reporting regression coverage in separate commits.
+- Commit the validated dependency refresh and case study, push the prepared branch, and update the PR description using the finalization procedure above.
+- Verify fresh CI for the latest SHA, mark the PR ready, and confirm the working tree is clean using the finalization procedure above; retain the results in the PR timeline.

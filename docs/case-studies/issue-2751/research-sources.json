@@ -32,6 +32,11 @@
     {
       "url": "https://github.com/link-foundation/box/releases/tag/v2.10.3",
       "finding": "The upstream release published at 09:38:56 UTC on October 8, 2026 adds attachment file/MIME support and image checks. The authenticated v2.10.2...v2.10.3 file comparison shows no runtime installation changes. Refresh the three Docker base pins, current task-image metadata and test expectations to satisfy the repository freshness gate."
+    },
+    {
+      "url": "https://github.com/getsentry/sentry-javascript/releases/tag/11.6.0",
+      "finding": "The release was published at 15:12:09 UTC on October 8, 2026, after the previous PR checks. It includes telemetry clock and Node listener fixes. Both npm package engine ranges support this repository; the native profiler remains ^2.4.4. Refresh both Sentry declarations and lockfile entries to satisfy the current freshness gate."
     }
-  ]
+  ],
+  "reviewedAt": "2026-10-08"
 }

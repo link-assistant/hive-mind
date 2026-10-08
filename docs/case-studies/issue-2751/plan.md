@@ -21,3 +21,13 @@
 
 Local verification is recorded in [validation.json](validation.json). The PR
 timeline and checks retain the results of the remote finalization procedure.
+
+## Fresh CI failure investigation
+
+- [x] List the latest runs with timestamps and head SHAs; identify the failure on `5ba4ccc9` after its commit timestamp.
+- [x] Download Checks and release run `37759757893` to `ci-logs/` and preserve it in the case study.
+- [x] Read the failing log section: three Box base pins are stale; all other declarations resolve.
+- [x] Verify the new upstream release, reproduce the freshness failure locally with authentication, and record a failing pin regression.
+- [x] Refresh the three pins and the existing pin/runtime test expectations.
+- [x] Recheck freshness and all five affected test files; preserve the successful local logs.
+- Verify fresh CI on the follow-up commit using the PR finalization procedure above.

@@ -8,3 +8,6 @@ issues and all solver tools ask for upstream reports of shared logic, duplicated
 code, missing features and bugs requiring workarounds, while allowing local
 workarounds to keep the pull request moving. Preserve explicit opt-outs through
 /fix and Telegram /task issue generation and solve handoffs.
+
+Refresh Box and Box DinD base image pins to 2.10.3 to satisfy the dependency
+freshness gate after the new upstream release.

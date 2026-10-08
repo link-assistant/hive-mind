@@ -132,6 +132,38 @@ promise that a third-party tracker accepts every submission. Existing unrelated
 deep-analysis guidance retains its own behavior; the opt-out controls the
 dependency-reporting instruction introduced here.
 
+## Fresh CI investigation
+
+The initial local freshness check reported 168/168 declarations current. The
+first implementation run,
+[Checks and release #37759757893](https://github.com/link-assistant/hive-mind/actions/runs/37759757893),
+started at 09:53:24 UTC for `5ba4ccc9`, after that commit's 09:53:09 timestamp;
+its [run metadata](data/checks-and-release-37759757893.json) records the head SHA and jobs.
+It failed before feature tests ran: lines 2723–2727 of the
+[preserved log](evidence/checks-and-release-37759757893.log.gz) report
+165/168 current declarations and three stale Box 2.10.2 pins in `Dockerfile`,
+`Dockerfile.dind` and `coolify/Dockerfile`, with no unresolved declarations.
+
+[Box v2.10.3](https://github.com/link-foundation/box/releases/tag/v2.10.3) was
+published at 09:38:56 UTC. Its [release snapshot](data/box-v2.10.3.json) and
+[comparison with v2.10.2](data/box-v2.10.3-diff.json) show attachment file/MIME
+support added to the essentials image chain and its image checks, with no runtime
+installation changes. The authenticated local freshness check reproduces the
+same three stale pins. An initial anonymous retry encountered GitHub API rate
+limits; using the existing GitHub CLI credential resolves that access problem
+without changing the gate.
+
+The follow-up refreshes those three base-image pins to 2.10.3 and adjusts the
+existing Docker pin/runtime test expectations. It also synchronizes the current
+task-image metadata and the two existing image-verification scripts; historical
+experiment baselines retain their original versions. The
+[pin regression before the refresh](evidence/box-pins-before.log.gz) fails on
+the old Dockerfile reference. The same test and the four related image tests
+pass after the refresh (52 runtime assertions and 22 task-language assertions).
+The [post-refresh freshness check](evidence/dependency-freshness-after-box-update.log.gz)
+returns 168/168 current declarations. This follow-up is required by the repository's CI gate; the
+dependency-reporting implementation remains the change requested by #2751.
+
 ## Reproduction and validation
 
 The smallest offline reproduction exercises the generated issue body and all
@@ -159,7 +191,8 @@ suggestion. It uses finite fixtures and five-second timeouts for the async cases
 The default suite discovers it through its `@hive-mind-test-suite default` marker.
 
 Validation logs are saved locally under `ci-logs/` and compressed evidence is
-stored in `evidence/`. All 579 default test files passed; the complete
+stored in `evidence/`. All 579 default test files passed again after the Box
+2.10.3 refresh; the complete
 [default-suite log](evidence/default-tests.log.gz) preserves that result. The
 final validation results are recorded in
 [validation.json](validation.json). Documentation is updated in English,

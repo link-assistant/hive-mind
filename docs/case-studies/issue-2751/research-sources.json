@@ -28,6 +28,10 @@
     {
       "url": "https://github.com/link-assistant/hive-mind/pull/2265",
       "finding": "The newer dependency-maintenance implementation adds the freshness inventory and grouped Dependabot updates, and documents upstream dependency defects alongside a retained local executable fallback. It provides a concrete upstream-reporting example and the existing freshness validation used here."
+    },
+    {
+      "url": "https://github.com/link-foundation/box/releases/tag/v2.10.3",
+      "finding": "The upstream release published at 09:38:56 UTC on October 8, 2026 adds attachment file/MIME support and image checks. The authenticated v2.10.2...v2.10.3 file comparison shows no runtime installation changes. Refresh the three Docker base pins, current task-image metadata and test expectations to satisfy the repository freshness gate."
     }
   ]
 }

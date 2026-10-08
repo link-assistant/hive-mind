@@ -400,12 +400,12 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'disable-1m-context': {
     type: 'boolean',
-    description: 'Hold the model to its short-context (cheapest) pricing tier instead of the 1M extended window. Default: auto — short context unless --sub-session-size asks for more than the short tier (e.g. --sub-session-size 500k) or the model has a [1m] suffix. Pass --disable-1m-context to force short context, or --no-disable-1m-context to allow the 1M window. Short tiers: Claude 200K (Haiku 5.5: 100K), Codex/OpenAI 272K, Gemini Pro 200K, Qwen3 Coder Plus/Flash 256K. For Claude this sets CLAUDE_CODE_DISABLE_1M_CONTEXT=1 and passes plain model names; for Codex -c model_context_window=272000; for Gemini/Qwen the compaction threshold. See issue #2771.',
+    description: 'Hold the model to its short-context (cheapest) pricing tier instead of the 1M extended window. Default: auto — short context unless --sub-session-size asks for more than the short tier (e.g. --sub-session-size 500k) or the model has a [1m] suffix. Pass --disable-1m-context to force short context, or --no-disable-1m-context to allow the 1M window. Short tiers: Claude 200K (Haiku 5.5: 100K), Codex/OpenAI 272K, Gemini Pro 200K, Qwen3 Coder Plus/Flash 256K. For Claude this sets CLAUDE_CODE_DISABLE_1M_CONTEXT=1 and passes plain model names; for Codex -c model_context_window=272000; for Gemini/Qwen the compaction threshold.',
     default: undefined,
   },
   speed: {
     type: 'string',
-    description: 'Service/speed tier: standard (default, cheapest normal tier), flex (Codex/OpenAI only, ~0.5x price, slower and may be queued), fast (priority, ~2x price), ultrafast (Codex only, up to 8x). Claude: standard/flex set CLAUDE_CODE_DISABLE_FAST_MODE=1, fast/ultrafast leave Claude Code fast mode to your Claude settings. Codex: -c service_tier=default|flex|fast|ultrafast. See issue #2771.',
+    description: 'Service/speed tier: standard (default, cheapest normal tier), flex (Codex/OpenAI only, ~0.5x price, slower and may be queued), fast (priority, ~2x price), ultrafast (Codex only, up to 8x). Claude: standard/flex set CLAUDE_CODE_DISABLE_FAST_MODE=1, fast/ultrafast leave Claude Code fast mode to your Claude settings. Codex: -c service_tier=default|flex|fast|ultrafast.',
     choices: ['standard', 'flex', 'fast', 'ultrafast'],
     default: 'standard',
   },

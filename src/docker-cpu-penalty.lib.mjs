@@ -236,7 +236,7 @@ const HOST_CPUS_CACHE_MS = 5 * MINUTE_MS;
 export async function getDockerHostCpus({ now = Date.now(), osImpl = os, ...options } = {}) {
   if (hostCpusCache && now - hostCpusCache.at < HOST_CPUS_CACHE_MS) return hostCpusCache.cpus;
   const result = await runDocker(['info', '--format', '{{.NCPU}}'], options);
-  const daemonCpus = Number(String(result.stdout || '').trim());
+  const daemonCpus = Number(result.stdout.trim());
   const cpus = result.success && Number.isFinite(daemonCpus) && daemonCpus > 0 ? daemonCpus : typeof osImpl.availableParallelism === 'function' ? osImpl.availableParallelism() : osImpl.cpus().length;
   hostCpusCache = { at: now, cpus };
   return cpus;
@@ -259,7 +259,7 @@ export async function updateDockerContainerCpus(containerName, cpus, options = {
 /** Current `--cpus` cap of a container in cores, or null when it has none / cannot be read. */
 export async function inspectDockerContainerCpus(containerName, options = {}) {
   const result = await runDocker(['inspect', '--format', '{{.HostConfig.NanoCpus}}', containerName], options);
-  const nanoCpus = Number(String(result.stdout || '').trim());
+  const nanoCpus = Number(result.stdout.trim());
   return result.success && Number.isFinite(nanoCpus) && nanoCpus > 0 ? nanoCpus / 1e9 : null;
 }
 

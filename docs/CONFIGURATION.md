@@ -273,24 +273,30 @@ pull request target is not mergeable yet, the merge queue waits up to
 
 ### 13. Telegram Bot
 
-| Environment Variable                       | Default    | Description                                                                              |
-| ------------------------------------------ | ---------- | ---------------------------------------------------------------------------------------- |
-| `TELEGRAM_BOT_TOKEN`                       | (required) | Telegram bot token from @BotFather                                                       |
-| `TELEGRAM_ALLOWED_CHATS`                   | (all)      | Allowed chat IDs (Links Notation)                                                        |
-| `TELEGRAM_SOLVE_OVERRIDES`                 | (none)     | Override options for /solve (Links Notation)                                             |
-| `TELEGRAM_HIVE_OVERRIDES`                  | (none)     | Override options for /hive (Links Notation)                                              |
-| `TELEGRAM_SOLVE`                           | true       | Enable /solve command                                                                    |
-| `TELEGRAM_HIVE`                            | true       | Enable /hive command                                                                     |
-| `TELEGRAM_TASK`                            | true       | Enable /task and /split commands                                                         |
-| `TELEGRAM_FIX`                             | true       | Enable /fix command                                                                      |
-| `TELEGRAM_ORGANIZE`                        | true       | Enable /organize issue taxonomy command                                                  |
-| `TELEGRAM_AUTH`                            | true       | Enable experimental private /auth command for allowlisted chat owners                    |
-| `TELEGRAM_AUTO_START_SCREEN_WATCH_MESSAGE` | false      | Auto-start a separate live terminal watch message for public /solve sessions             |
-| `TELEGRAM_CONTAINER_CPU`                   | (none)     | Docker task CPU limit as fixed cores (`1.5`) or host percentage (`50%`)                  |
-| `TELEGRAM_CONTAINER_MEMORY`                | 25%        | Docker task RAM limit as a size (`2GiB`) or host percentage (`25%`)                      |
-| `TELEGRAM_CONTAINER_DISK`                  | (none)     | Docker task writable-layer limit as a size (`20GB`) or available-disk percentage (`10%`) |
-| `TELEGRAM_BOT_VERBOSE`                     | false      | Enable verbose logging                                                                   |
-| `TELEGRAM_CONFIGURATION`                   | (none)     | LINO configuration string                                                                |
+| Environment Variable                            | Default    | Description                                                                                                  |
+| ----------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------ |
+| `TELEGRAM_BOT_TOKEN`                            | (required) | Telegram bot token from @BotFather                                                                           |
+| `TELEGRAM_ALLOWED_CHATS`                        | (all)      | Allowed chat IDs (Links Notation)                                                                            |
+| `TELEGRAM_SOLVE_OVERRIDES`                      | (none)     | Override options for /solve (Links Notation)                                                                 |
+| `TELEGRAM_HIVE_OVERRIDES`                       | (none)     | Override options for /hive (Links Notation)                                                                  |
+| `TELEGRAM_SOLVE`                                | true       | Enable /solve command                                                                                        |
+| `TELEGRAM_HIVE`                                 | true       | Enable /hive command                                                                                         |
+| `TELEGRAM_TASK`                                 | true       | Enable /task and /split commands                                                                             |
+| `TELEGRAM_FIX`                                  | true       | Enable /fix command                                                                                          |
+| `TELEGRAM_ORGANIZE`                             | true       | Enable /organize issue taxonomy command                                                                      |
+| `TELEGRAM_AUTH`                                 | true       | Enable experimental private /auth command for allowlisted chat owners                                        |
+| `TELEGRAM_AUTO_START_SCREEN_WATCH_MESSAGE`      | false      | Auto-start a separate live terminal watch message for public /solve sessions                                 |
+| `TELEGRAM_CONTAINER_CPU`                        | (none)     | Docker task CPU limit as fixed cores (`1.5`) or host percentage (`50%`)                                      |
+| `TELEGRAM_CONTAINER_MEMORY`                     | 25%        | Docker task RAM limit as a size (`2GiB`) or host percentage (`25%`)                                          |
+| `TELEGRAM_CONTAINER_DISK`                       | (none)     | Docker task writable-layer limit as a size (`20GB`) or available-disk percentage (`10%`)                     |
+| `TELEGRAM_CONTAINER_CPU_PENALTY`                | `true`     | Cap a Docker task that keeps all of its CPUs busy (issue #2801); `false` disables it                         |
+| `TELEGRAM_CONTAINER_CPU_PENALTY_CPUS`           | `2`        | CPUs a penalized Docker task is capped to                                                                    |
+| `TELEGRAM_CONTAINER_CPU_PENALTY_TRIGGER`        | `95%`      | Average share of the task's CPUs (host CPUs, or `TELEGRAM_CONTAINER_CPU` when lower) that counts as all CPUs |
+| `TELEGRAM_CONTAINER_CPU_PENALTY_TRIGGER_WINDOW` | `15m`      | How long the trigger average must hold before the cap is applied                                             |
+| `TELEGRAM_CONTAINER_CPU_PENALTY_RELEASE`        | `65%`      | Average share of the cap the task must stay below to have it lifted                                          |
+| `TELEGRAM_CONTAINER_CPU_PENALTY_RELEASE_WINDOW` | `15m`      | How long the release average must hold before the cap is lifted                                              |
+| `TELEGRAM_BOT_VERBOSE`                          | false      | Enable verbose logging                                                                                       |
+| `TELEGRAM_CONFIGURATION`                        | (none)     | LINO configuration string                                                                                    |
 
 ### 14. YouTrack Integration
 
@@ -668,24 +674,30 @@ hive <github-url> [options]
 hive-telegram-bot [options]
 ```
 
-| Option                              | Alias | Type    | Default    | Description                                                                                                                                                                                                 |
-| ----------------------------------- | ----- | ------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--token`                           | `-t`  | string  | (required) | Telegram bot token from @BotFather                                                                                                                                                                          |
-| `--allowed-chats`                   |       | string  | (all)      | Allowed chat IDs (Links Notation)                                                                                                                                                                           |
-| `--solve-overrides`                 |       | string  | (none)     | Override options for /solve                                                                                                                                                                                 |
-| `--hive-overrides`                  |       | string  | (none)     | Override options for /hive                                                                                                                                                                                  |
-| `--solve`                           |       | boolean | true       | Enable /solve command (--no-solve to disable)                                                                                                                                                               |
-| `--hive`                            |       | boolean | true       | Enable /hive command (--no-hive to disable)                                                                                                                                                                 |
-| `--task`                            |       | boolean | true       | Enable /task and /split commands (--no-task to disable)                                                                                                                                                     |
-| `--auth`                            |       | boolean | true       | Enable experimental private /auth command for allowlisted chat owners (--no-auth to disable)                                                                                                                |
-| `--configuration`                   | `-c`  | string  |            | LINO configuration string                                                                                                                                                                                   |
-| `--verbose`                         | `-v`  | boolean | false      | Enable verbose logging                                                                                                                                                                                      |
-| `--dry-run`                         |       | boolean | false      | Validate without starting bot                                                                                                                                                                               |
-| `--auto-start-screen-watch-message` |       | boolean | false      | Experimental: auto-start a separate `/terminal_watch` message for public `/solve` sessions. Private or unknown-visibility repositories never auto-start watch messages.                                     |
-| `--isolation`                       |       | string  | `docker`   | Isolation backend (`screen`, `tmux`, `docker`). Default `docker` runs Telegram-bot work sessions in Docker isolation with success cleanup. Pass `--isolation ''` (or set `TELEGRAM_ISOLATION=`) to opt out. |
-| `--container-cpu`                   |       | string  |            | Docker task CPU limit as fixed cores (`1.5`) or a host percentage (`50%`).                                                                                                                                  |
-| `--container-memory`                |       | string  |            | Docker task RAM limit as a fixed size (`2GiB`) or a host percentage (`25%`).                                                                                                                                |
-| `--container-disk`                  |       | string  |            | Docker task writable-layer limit as a fixed size (`20GB`) or an available-filesystem percentage (`10%`).                                                                                                    |
+| Option                                   | Alias | Type    | Default    | Description                                                                                                                                                                                                 |
+| ---------------------------------------- | ----- | ------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--token`                                | `-t`  | string  | (required) | Telegram bot token from @BotFather                                                                                                                                                                          |
+| `--allowed-chats`                        |       | string  | (all)      | Allowed chat IDs (Links Notation)                                                                                                                                                                           |
+| `--solve-overrides`                      |       | string  | (none)     | Override options for /solve                                                                                                                                                                                 |
+| `--hive-overrides`                       |       | string  | (none)     | Override options for /hive                                                                                                                                                                                  |
+| `--solve`                                |       | boolean | true       | Enable /solve command (--no-solve to disable)                                                                                                                                                               |
+| `--hive`                                 |       | boolean | true       | Enable /hive command (--no-hive to disable)                                                                                                                                                                 |
+| `--task`                                 |       | boolean | true       | Enable /task and /split commands (--no-task to disable)                                                                                                                                                     |
+| `--auth`                                 |       | boolean | true       | Enable experimental private /auth command for allowlisted chat owners (--no-auth to disable)                                                                                                                |
+| `--configuration`                        | `-c`  | string  |            | LINO configuration string                                                                                                                                                                                   |
+| `--verbose`                              | `-v`  | boolean | false      | Enable verbose logging                                                                                                                                                                                      |
+| `--dry-run`                              |       | boolean | false      | Validate without starting bot                                                                                                                                                                               |
+| `--auto-start-screen-watch-message`      |       | boolean | false      | Experimental: auto-start a separate `/terminal_watch` message for public `/solve` sessions. Private or unknown-visibility repositories never auto-start watch messages.                                     |
+| `--isolation`                            |       | string  | `docker`   | Isolation backend (`screen`, `tmux`, `docker`). Default `docker` runs Telegram-bot work sessions in Docker isolation with success cleanup. Pass `--isolation ''` (or set `TELEGRAM_ISOLATION=`) to opt out. |
+| `--container-cpu`                        |       | string  |            | Docker task CPU limit as fixed cores (`1.5`) or a host percentage (`50%`).                                                                                                                                  |
+| `--container-memory`                     |       | string  |            | Docker task RAM limit as a fixed size (`2GiB`) or a host percentage (`25%`).                                                                                                                                |
+| `--container-disk`                       |       | string  |            | Docker task writable-layer limit as a fixed size (`20GB`) or an available-filesystem percentage (`10%`).                                                                                                    |
+| `--container-cpu-penalty`                |       | boolean | `true`     | Cap a Docker task that keeps all of its CPUs busy for the trigger window and lift the cap after the release window (issue #2801). `--no-container-cpu-penalty` disables it.                                 |
+| `--container-cpu-penalty-cpus`           |       | string  | `2`        | CPUs a penalized Docker task is capped to.                                                                                                                                                                  |
+| `--container-cpu-penalty-trigger`        |       | string  | `95%`      | Average share of the task's CPUs (host CPUs, or `--container-cpu` when lower) that counts as all CPUs.                                                                                                      |
+| `--container-cpu-penalty-trigger-window` |       | string  | `15m`      | How long the trigger average must hold (`ms`/`s`/`m`/`h`; a bare number is minutes).                                                                                                                        |
+| `--container-cpu-penalty-release`        |       | string  | `65%`      | Average share of the cap the task must stay below to have it lifted.                                                                                                                                        |
+| `--container-cpu-penalty-release-window` |       | string  | `15m`      | How long the release average must hold before the cap is lifted.                                                                                                                                            |
 
 When `/solve` is enabled, the Telegram bot also accepts `/do` and `/continue`
 as plain `/solve` aliases. The `/claude`, `/codex`, `/opencode`, `/agent`, `/qwen`,

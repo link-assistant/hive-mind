@@ -24,27 +24,34 @@ const fs = (await use('fs')).promises;
 // Import log function from lib.mjs
 const lib = await import('./lib.mjs');
 const { log: libLog, setLogFile } = lib;
+const { probeDiskSpaceWithReclaim } = await import('./disk-reclaim.lib.mjs');
 
 // Function to check available disk space
 export const checkDiskSpace = async (minSpaceMB = 10240, options = {}) => {
   const log = options.log || libLog;
 
   try {
-    let availableMB;
+    const getFreeMB =
+      options.getFreeMB ||
+      (async () => {
+        let availableMB;
 
-    if (process.platform === 'darwin') {
-      // macOS: use df -m (megabytes) and get the 4th column
-      const { stdout } = await $silent`df -m . 2>/dev/null | tail -1 | awk '{print $4}'`;
-      availableMB = parseInt(stdout.toString().trim());
-    } else if (process.platform === 'win32') {
-      // Windows: use PowerShell to get free space
-      const { stdout } = await $silent`powershell -Command "(Get-PSDrive -Name (Get-Location).Drive.Name).Free / 1MB"`;
-      availableMB = Math.floor(parseFloat(stdout.toString().trim()));
-    } else {
-      // Linux: use df -BM and get the 4th column
-      const { stdout } = await $silent`df -BM . 2>/dev/null | tail -1 | awk '{print $4}'`;
-      availableMB = parseInt(stdout.toString().replace('M', ''));
-    }
+        if (process.platform === 'darwin') {
+          // macOS: use df -m (megabytes) and get the 4th column
+          const { stdout } = await $silent`df -m . 2>/dev/null | tail -1 | awk '{print $4}'`;
+          availableMB = parseInt(stdout.toString().trim());
+        } else if (process.platform === 'win32') {
+          // Windows: use PowerShell to get free space
+          const { stdout } = await $silent`powershell -Command "(Get-PSDrive -Name (Get-Location).Drive.Name).Free / 1MB"`;
+          availableMB = Math.floor(parseFloat(stdout.toString().trim()));
+        } else {
+          // Linux: use df -BM and get the 4th column
+          const { stdout } = await $silent`df -BM . 2>/dev/null | tail -1 | awk '{print $4}'`;
+          availableMB = parseInt(stdout.toString().replace('M', ''));
+        }
+        return availableMB;
+      });
+    const availableMB = await probeDiskSpaceWithReclaim({ requiredMB: minSpaceMB, diskPath: process.cwd(), getFreeMB, reclaim: options.reclaimDiskSpace, log });
 
     if (isNaN(availableMB)) {
       await log('❌ Failed to parse disk space information');

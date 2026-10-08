@@ -153,7 +153,7 @@ SHELL ["/bin/bash", "-c"]
 # pointing at browsers the image does not have), then every other version
 # directory is removed. `.node-bin`, `nvm use default` and a bare `node` then
 # all resolve to the same, newest runtime (issue #2187, item A).
-ARG HIVE_MIND_NODE_VERSION=26.11.0
+ARG HIVE_MIND_NODE_VERSION=26.11.1
 ARG HIVE_MIND_BUN_VERSION=1.4.2
 RUN set -e && \
     . "$NVM_DIR/nvm.sh" && \
@@ -170,6 +170,7 @@ RUN set -e && \
     nvm alias default "${HIVE_MIND_NODE_VERSION}" && \
     nvm use default && \
     if [ -n "$GLOBAL_SPECS" ]; then npm install -g $GLOBAL_SPECS --no-fund --force; fi && \
+    npm cache clean --force && \
     for version_dir in "$NVM_DIR"/versions/node/*; do \
       [ -d "$version_dir" ] || continue; \
       if [ "$(basename "$version_dir")" = "v${HIVE_MIND_NODE_VERSION}" ]; then continue; fi; \
@@ -227,7 +228,8 @@ RUN bun install -g @openai/codex && \
     bun install -g @qwen-code/qwen-code && \
     bun install -g @google/gemini-cli && \
     bun install -g @github/copilot && \
-    bun install -g opencode-ai
+    bun install -g opencode-ai && \
+    bun pm -g cache rm
 
 # Install hive-mind workflow utilities
 # Release builds pass HIVE_MIND_VERSION after npm publish, so Docker installs
@@ -247,13 +249,15 @@ RUN echo "Installing @link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
     bun install -g gh-pull-all && \
     bun install -g gh-load-issue && \
     bun install -g gh-load-pull-request && \
-    bun install -g gh-upload-log@latest
+    bun install -g gh-upload-log@latest && \
+    bun pm -g cache rm
 
 # --- Playwright MCP Setup ---
 # Box 2.1.1 pre-installs Playwright browsers and @playwright/test.
 # We only add @playwright/mcp (AI-specific MCP server for Claude/Codex).
 # --force handles the shared 'playwright' binary conflict between packages.
-RUN npm install -g @playwright/mcp@latest --no-fund --force
+RUN npm install -g @playwright/mcp@latest --no-fund --force && \
+    npm cache clean --force
 
 # Verify both the Playwright CLI fallback and the locally installed MCP package.
 RUN playwright --version && \

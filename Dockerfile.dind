@@ -188,7 +188,7 @@ SHELL ["/bin/bash", "-c"]
 # pointing at browsers the image does not have), then every other version
 # directory is removed. `.node-bin`, `nvm use default` and a bare `node` then
 # all resolve to the same, newest runtime (issue #2187, item A).
-ARG HIVE_MIND_NODE_VERSION=26.11.0
+ARG HIVE_MIND_NODE_VERSION=26.11.1
 ARG HIVE_MIND_BUN_VERSION=1.4.2
 RUN set -e && \
     . "$NVM_DIR/nvm.sh" && \
@@ -205,6 +205,7 @@ RUN set -e && \
     nvm alias default "${HIVE_MIND_NODE_VERSION}" && \
     nvm use default && \
     if [ -n "$GLOBAL_SPECS" ]; then npm install -g $GLOBAL_SPECS --no-fund --force; fi && \
+    npm cache clean --force && \
     for version_dir in "$NVM_DIR"/versions/node/*; do \
       [ -d "$version_dir" ] || continue; \
       if [ "$(basename "$version_dir")" = "v${HIVE_MIND_NODE_VERSION}" ]; then continue; fi; \
@@ -253,7 +254,8 @@ RUN bun install -g @openai/codex && \
     bun install -g @qwen-code/qwen-code && \
     bun install -g @google/gemini-cli && \
     bun install -g @github/copilot && \
-    bun install -g opencode-ai
+    bun install -g opencode-ai && \
+    bun pm -g cache rm
 
 # start-command is pinned to 0.35.4: 0.29.1 fixed detached docker
 # `--status`/`--list` reporting a terminal status (`executed`) with the `-1`
@@ -334,11 +336,13 @@ RUN echo "Installing @link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
     bun install -g gh-pull-all && \
     bun install -g gh-load-issue && \
     bun install -g gh-load-pull-request && \
-    bun install -g gh-upload-log@latest
+    bun install -g gh-upload-log@latest && \
+    bun pm -g cache rm
 
 # Issue #2190: @playwright/cli ships the optional `playwright-cli` Agent Skill
 # deployed per task by --playwright-skill (default stays Playwright MCP only).
-RUN npm install -g @playwright/mcp@latest @playwright/cli@latest --no-fund --force
+RUN npm install -g @playwright/mcp@latest @playwright/cli@latest --no-fund --force && \
+    npm cache clean --force
 
 # The skill is checked by path: `playwright-cli --help` prints its `Agent skill:`
 # hint only when CLAUDECODE or COPILOT_CLI is set, so that line is not a

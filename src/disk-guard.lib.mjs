@@ -26,6 +26,7 @@ import fsPromises from 'node:fs/promises';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { reclaimDiskSpace as defaultReclaimDiskSpace } from './disk-reclaim.lib.mjs';
 
 import { DEFAULT_AGENT_SNAPSHOT_MIN_IDLE_MS, getAgentDataHome, reclaimAgentSnapshotStores } from './agent-snapshot-store.lib.mjs';
 import { collectDockerImageReclaimPlan, normalizeDockerImageReclaimMode, reclaimDockerImages } from './docker-image-reclaim.lib.mjs';
@@ -275,7 +276,7 @@ const measureReclaimableSpace = async ({ collectReclaimable, ...options }) => {
  * `@link-assistant/agent` snapshot stores in the home directory, which no `/tmp`-scoped check
  * could see. Pass `agentDataHome: null` to opt out.
  */
-export const ensureDiskSpaceForWorker = async ({ requiredMB = 10240, tmpRoot = DEFAULT_TMP_ROOT, protectedPaths = new Set(), minIdleMs = DEFAULT_MIN_IDLE_MS, maxWaitMs = 0, pollIntervalMs = 30000, log = async () => {}, now = Date.now, sleep = defaultSleep, getFreeMB = getFreeDiskSpaceMB, fileSystem = fsPromises, procRoot = '/proc', remove = defaultRemove, agentDataHome = getAgentDataHome(), agentSnapshotMinIdleMs = DEFAULT_AGENT_SNAPSHOT_MIN_IDLE_MS, collectReclaimable = defaultCollectReclaimableSpace, dockerImageReclaimMode = 'none', exec = execFileAsync } = {}) => {
+export const ensureDiskSpaceForWorker = async ({ requiredMB = 10240, tmpRoot = DEFAULT_TMP_ROOT, protectedPaths = new Set(), minIdleMs = DEFAULT_MIN_IDLE_MS, maxWaitMs = 0, pollIntervalMs = 30000, log = async () => {}, now = Date.now, sleep = defaultSleep, getFreeMB = getFreeDiskSpaceMB, fileSystem = fsPromises, procRoot = '/proc', remove = defaultRemove, agentDataHome = getAgentDataHome(), agentSnapshotMinIdleMs = DEFAULT_AGENT_SNAPSHOT_MIN_IDLE_MS, collectReclaimable = defaultCollectReclaimableSpace, dockerImageReclaimMode = 'none', exec = execFileAsync, reclaimDiskSpace = defaultReclaimDiskSpace } = {}) => {
   const startedAt = now();
   const reclaimed = [];
   const reclaimedImages = [];
@@ -288,6 +289,12 @@ export const ensureDiskSpaceForWorker = async ({ requiredMB = 10240, tmpRoot = D
   if (freeMB >= requiredMB) {
     await log(`   💾 Disk space before starting work: ${freeMB}MB free (${requiredMB}MB required)`, { verbose: true });
     return { ok: true, freeMB, reason: 'sufficient', reclaimed, waitedMs: 0 };
+  }
+  await reclaimDiskSpace({ requiredMB, diskPath: tmpRoot, protectedPaths, log });
+  const afterReclaim = await getFreeMB(tmpRoot);
+  if (afterReclaim !== null && afterReclaim !== undefined) freeMB = afterReclaim;
+  if (freeMB >= requiredMB) {
+    return { ok: true, freeMB, reason: 'reclaimed', reclaimed, waitedMs: now() - startedAt };
   }
   await log(`   💾 Low disk space: ${freeMB}MB free, ${requiredMB}MB required — reclaiming idle solver workspaces before starting work`, { level: 'warning' });
   for (;;) {

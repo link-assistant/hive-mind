@@ -588,6 +588,11 @@ ru
         usage "Использование: `/fix <github-repository-url> [options]`"
         example "Пример: `/fix https://github.com/owner/repo --model sonnet`"
         disabled "*/fix* - ❌ Отключено"
+      test
+        enabled "*/test* - Проверить вручную сценарии из README и документации"
+        usage "Использование: `/test <github-repository-url> [options]`"
+        example "Пример: `/test https://github.com/owner/repo --tool codex`"
+        disabled "*/test* - ❌ Отключено"
       organize
         enabled "*/organize* - Классифицировать все открытые задачи существующими типами и метками"
         usage "Использование: `/organize <github-repository-url> [--dry-run] [--tool <tool>] [--model <model>]`; дополнительные инструкции — с новой строки"

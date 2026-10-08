@@ -588,6 +588,11 @@ hi
         usage "उपयोग: `/fix <github-repository-url> [options]`"
         example "उदाहरण: `/fix https://github.com/owner/repo --model sonnet`"
         disabled "*/fix* - ❌ अक्षम"
+      test
+        enabled "*/test* - README और दस्तावेज़ों के कार्यप्रवाह का मैन्युअल परीक्षण करें"
+        usage "उपयोग: `/test <github-repository-url> [options]`"
+        example "उदाहरण: `/test https://github.com/owner/repo --tool codex`"
+        disabled "*/test* - ❌ अक्षम"
       organize
         enabled "*/organize* - मौजूदा Issue Types और लेबल से सभी खुले मुद्दों का वर्गीकरण करें"
         usage "उपयोग: `/organize <github-repository-url> [--dry-run] [--tool <tool>] [--model <model>]`; वैकल्पिक निर्देश नई पंक्ति पर दें"

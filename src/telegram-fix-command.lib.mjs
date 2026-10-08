@@ -8,22 +8,17 @@
  * handler only has to validate the request and start the session.
  */
 
-import { buildUserMention } from './buildUserMention.lib.mjs';
+import { registerRepositoryTaskCommand } from './telegram-repository-task-command.lib.mjs';
+export { getRepositoryTaskToolFromArgs as getFixToolFromArgs } from './telegram-repository-task-command.lib.mjs';
+
 import { calculateLevenshteinDistance } from './option-suggestions.lib.mjs';
 import { getLinoYargsFactory } from './cli-arguments.lib.mjs';
 import { createYargsConfig as createSolveYargsConfig, detectMalformedFlags } from './solve.config.lib.mjs';
 import { parseArgsWithYargs } from './telegram-solve-command.lib.mjs';
-import { validateRuntimeModelName } from './models/index.mjs';
 import { FIX_MODES, parseFixRepository } from './fix.args.lib.mjs';
-import { getModelFromArgs } from './model-args.lib.mjs';
-import { escapeMarkdown } from './telegram-markdown.lib.mjs';
 import { parseTelegramCommandPrefix } from './telegram-command-text.lib.mjs';
-import { extractIsolationFromArgs, isValidPerCommandIsolation } from './telegram-isolation.lib.mjs';
-import { mergeArgsWithOverrides } from './args-overrides.lib.mjs';
 import { moveArgumentToFront, parseCommandArgs } from './telegram-solve-command.lib.mjs';
-import { safeReply as defaultSafeReply } from './telegram-safe-reply.lib.mjs';
 import { partitionFixArgs } from './fix.args.lib.mjs';
-import { formatStartingWorkSessionMessage } from './work-session-formatting.lib.mjs';
 
 export const FIX_COMMAND_NAMES = Object.freeze(['fix']);
 
@@ -47,22 +42,6 @@ export function applyFixCommandDefaults(args) {
 
 export function findFixRepositoryArg(args) {
   return args.find(arg => !arg.startsWith('-') && parseFixRepository(arg)) || null;
-}
-
-export function getFixToolFromArgs(args) {
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--tool' && i + 1 < args.length) return args[i + 1];
-    if (args[i].startsWith('--tool=')) return args[i].substring('--tool='.length);
-  }
-  return 'claude';
-}
-
-async function validateFixModel(args) {
-  const model = getModelFromArgs(args);
-  if (!model) return null;
-  const useRouter = args.some(arg => arg === '--use-router' || arg === '--use-router=true');
-  const validation = await validateRuntimeModelName(model, getFixToolFromArgs(args), { useRouter });
-  return validation.valid ? null : validation.message;
 }
 
 export function buildFixCommandArgs(text) {
@@ -126,117 +105,14 @@ export async function validateFixCommandOptions(args) {
   return null;
 }
 
-// Issue #378: inject --language LOCALE into spawn args if no language flag is
-// already present, so spawned fix sessions inherit the user's effective locale.
-function injectLanguageIfMissing(args, locale) {
-  if (!locale || !args || !Array.isArray(args)) return args;
-  const langFlags = new Set(['--language', '--ui-language', '--work-language']);
-  for (const arg of args) {
-    const flag = arg.startsWith('--') ? arg.split('=')[0] : null;
-    if (flag && langFlags.has(flag)) return args;
-  }
-  return [...args, '--language', locale];
-}
-
 export function registerFixCommand(bot, options) {
-  const { VERBOSE, fixEnabled, addBreadcrumb, isOldMessage, isForwardedOrReply, isGroupChat, isTopicAuthorized, buildAuthErrorMessage, isChatStopped, getStoppedChatRejectMessage, safeReply = defaultSafeReply, executeAndUpdateMessage, resolveLocale = null, solveOverrides = [] } = options;
-
-  async function handleFixCommand(ctx) {
-    const commandDisplay = '/fix';
-    VERBOSE && console.log(`[VERBOSE] ${commandDisplay} command received`);
-
-    await addBreadcrumb({
-      category: 'telegram.command',
-      message: `${commandDisplay} command received`,
-      level: 'info',
-      data: { chatId: ctx.chat?.id, chatType: ctx.chat?.type, userId: ctx.from?.id, username: ctx.from?.username },
-    });
-
-    if (!fixEnabled) {
-      await safeReply(ctx, '❌ The fix command is disabled on this bot instance.');
-      return;
-    }
-    if (isOldMessage(ctx)) return;
-    // Issue #1922: a forwarded or replied-to /fix command must never be
-    // re-executed. Unlike /task, /fix takes no input from the replied message,
-    // so both cases are ignored.
-    if (isForwardedOrReply && isForwardedOrReply(ctx)) {
-      VERBOSE && console.log(`[VERBOSE] ${commandDisplay} ignored: forwarded or reply message`);
-      return;
-    }
-    if (!isGroupChat(ctx)) {
-      await safeReply(ctx, `❌ The ${commandDisplay} command only works in group chats. Please add this bot to a group and make it an admin.`, { reply_to_message_id: ctx.message.message_id });
-      return;
-    }
-    if (!isTopicAuthorized(ctx)) {
-      await safeReply(ctx, buildAuthErrorMessage(ctx), { reply_to_message_id: ctx.message.message_id });
-      return;
-    }
-    if (isChatStopped(ctx.chat.id)) {
-      await safeReply(ctx, getStoppedChatRejectMessage(ctx.chat.id, 'Fix'), { reply_to_message_id: ctx.message.message_id });
-      return;
-    }
-
-    const built = buildFixCommandArgs(ctx.message.text);
-    if (!built.repository) {
-      await safeReply(ctx, `❌ Missing GitHub repository URL. Usage: \`${commandDisplay} <github-repository-url> [options]\`\n\nExample: \`${commandDisplay} https://github.com/owner/repo\``, { reply_to_message_id: ctx.message.message_id });
-      return;
-    }
-
-    const { backend: perCommandIsolation, filteredArgs } = extractIsolationFromArgs(built.args);
-    if (perCommandIsolation && !isValidPerCommandIsolation(perCommandIsolation)) {
-      await safeReply(ctx, `❌ Invalid --isolation value '${escapeMarkdown(perCommandIsolation)}'. Must be: screen, tmux, or docker`, { reply_to_message_id: ctx.message.message_id });
-      return;
-    }
-
-    // Issue #2166: fail immediately on any unsupported option, before a work
-    // session is spawned, so a typo can never turn into a silent no-op. Runs
-    // after --isolation extraction because that flag is consumed by /fix itself
-    // and is not part of the solve vocabulary the probe parser validates.
-    const optionsError = await validateFixCommandOptions(filteredArgs);
-    if (optionsError) {
-      await safeReply(ctx, `❌ Invalid options: ${escapeMarkdown(optionsError)}\n\nUse /help to see available options`, { reply_to_message_id: ctx.message.message_id });
-      return;
-    }
-
-    // Issue #2085: /fix hands the generated issue off to /solve, so it must
-    // apply the operator's solve overrides (TELEGRAM_SOLVE_OVERRIDES) exactly
-    // like the /solve handler does — otherwise the solve started by /fix runs
-    // without the operator's defaults (e.g. --attach-logs). The overrides are
-    // forwarded to /solve because /fix passes every option it does not consume
-    // through to solve.mjs. An --isolation override applies to the /fix work
-    // session itself (which contains the nested /solve), mirroring /solve.
-    const { backend: overrideIsolation, filteredArgs: solveOverridesWithoutIsolation } = extractIsolationFromArgs(solveOverrides);
-    if (overrideIsolation && !isValidPerCommandIsolation(overrideIsolation)) {
-      await safeReply(ctx, `❌ Invalid --isolation value '${escapeMarkdown(overrideIsolation)}' in solve overrides. Must be: screen, tmux, or docker`, { reply_to_message_id: ctx.message.message_id });
-      return;
-    }
-    const effectiveIsolation = overrideIsolation || perCommandIsolation;
-    const mergedArgs = mergeArgsWithOverrides(filteredArgs, solveOverridesWithoutIsolation);
-
-    const modelError = await validateFixModel(mergedArgs);
-    if (modelError) {
-      await safeReply(ctx, `❌ ${escapeMarkdown(modelError)}`, { reply_to_message_id: ctx.message.message_id });
-      return;
-    }
-
-    const requester = buildUserMention({ user: ctx.from, parseMode: 'Markdown' });
-    const userOptionsRaw = built.args.slice(1).join(' ');
-    let infoBlock = `Requested by: ${requester}\nRepository: ${escapeMarkdown(built.repository.url)}`;
-    if (userOptionsRaw) infoBlock += `\n\n🛠 Options: ${escapeMarkdown(userOptionsRaw)}`;
-    if (solveOverrides.length > 0) infoBlock += `\n\n🔒 Solve overrides: ${escapeMarkdown(solveOverrides.join(' '))}`;
-
-    const fixUrlContext = { owner: built.repository.owner, repo: built.repository.repo, normalized: built.repository.url };
-    const startingMessage = await safeReply(ctx, formatStartingWorkSessionMessage({ infoBlock }), { reply_to_message_id: ctx.message.message_id });
-    const fixLocale = resolveLocale ? resolveLocale(ctx) : null;
-    const argsForExec = injectLanguageIfMissing(mergedArgs, fixLocale);
-    await executeAndUpdateMessage(ctx, startingMessage, 'fix', argsForExec, infoBlock, effectiveIsolation || null, getFixToolFromArgs(argsForExec), fixUrlContext);
-  }
-
-  bot.command(
-    FIX_COMMAND_NAMES.map(command => new RegExp(`^${command}$`, 'i')),
-    handleFixCommand
-  );
-
-  return { handleFixCommand, FIX_COMMAND_NAMES };
+  const { handleRepositoryCommand } = registerRepositoryTaskCommand(bot, {
+    ...options,
+    enabled: options.fixEnabled,
+    commandName: 'fix',
+    commandNames: FIX_COMMAND_NAMES,
+    buildCommandArgs: buildFixCommandArgs,
+    validateCommandOptions: validateFixCommandOptions,
+  });
+  return { handleFixCommand: handleRepositoryCommand, FIX_COMMAND_NAMES };
 }

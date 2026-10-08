@@ -66,6 +66,11 @@ export const createYargsConfig = yargsInstance =>
       description: 'Enable /fix command (use --no-fix to disable)',
       default: getenv('TELEGRAM_FIX', 'true') !== 'false',
     })
+    .option('test', {
+      type: 'boolean',
+      description: 'Enable /test manual testing command (use --no-test to disable)',
+      default: getenv('TELEGRAM_TEST', 'true') !== 'false',
+    })
     .option('organize', {
       type: 'boolean',
       description: 'Enable /organize issue taxonomy command (use --no-organize to disable)',

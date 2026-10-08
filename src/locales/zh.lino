@@ -588,6 +588,11 @@ zh
         usage "用法：`/fix <github-repository-url> [options]`"
         example "示例：`/fix https://github.com/owner/repo --model sonnet`"
         disabled "*/fix* - ❌ 已禁用"
+      test
+        enabled "*/test* - 手动测试 README 和文档中的工作流程"
+        usage "用法：`/test <github-repository-url> [options]`"
+        example "示例：`/test https://github.com/owner/repo --tool codex`"
+        disabled "*/test* - ❌ 已禁用"
       organize
         enabled "*/organize* - 使用现有议题类型和标签分类所有开放议题"
         usage "用法：`/organize <github-repository-url> [--dry-run] [--tool <tool>] [--model <model>]`；可在新行添加说明"

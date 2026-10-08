@@ -594,6 +594,22 @@ manifests, फिर से generate किए जाने वाले lockfil
 `/solve --development-log --deep-analysis --auto-merge` (dependency issue के लिए
 `--update-all-dependencies` भी जोड़कर) से reply करें।
 
+#### `/test` — मैन्युअल परीक्षण
+
+`/test <github-repository-url> [options]` GitHub परीक्षण कार्य बनाता है और
+परीक्षक/उपयोगकर्ता की भूमिका में एजेंट चलाता है। एजेंट सभी README और दस्तावेज़
+पढ़कर हर वर्णित कार्यप्रवाह चलाता है तथा pull request में
+`docs/testing/report.md` सहेजता है। रिपोर्ट में चरण, अपेक्षित और वास्तविक परिणाम,
+प्रमाण और PASS/FAIL/BLOCKED/NOT RUN स्थिति होती है। त्रुटियाँ अलग सुधारों के लिए
+निष्कर्ष बनी रहती हैं; अनुपलब्ध सेवाओं या प्रमाणपत्रों वाले परीक्षण BLOCKED होते हैं।
+
+उदाहरण: `/test https://github.com/owner/repository --tool codex`। `--dry-run`
+कार्य का पूर्वावलोकन करता है, issue या एजेंट नहीं बनाता; `--no-solve` केवल कार्य
+बनाता है। एजेंट विकल्प `solve` को दिए जाते हैं और बॉट के solve ओवरराइड तथा
+आइसोलेशन लागू होते हैं। `--no-test` या `TELEGRAM_TEST=false` से कमांड बंद करें।
+CLI: `hive-test <github-repository-url> [options]`; एजेंट चलाने के लिए GitHub
+प्रमाणीकरण और स्थापित, प्रमाणित AI उपकरण आवश्यक हैं।
+
 #### `/organize` - खुले issues को वर्गीकृत करें
 
 ```text

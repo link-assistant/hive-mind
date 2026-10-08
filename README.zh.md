@@ -583,6 +583,21 @@ issue 的情况下预览，使用 `--no-solve` 可只创建 issue 而不启动 `
 `/solve --development-log --deep-analysis --auto-merge`（对依赖 issue 再加上
 `--update-all-dependencies`）即可通过常规 solve 流程继续。
 
+#### `/test` — 手动测试
+
+`/test <github-repository-url> [options]` 创建 GitHub 测试任务并启动扮演
+测试者/用户的代理。代理阅读所有 README 和文档，实际执行每个文档工作流程，
+并在拉取请求中提交 `docs/testing/report.md`，包含步骤、预期与实际结果、证据
+以及 PASS/FAIL/BLOCKED/NOT RUN 覆盖状态。发现的问题作为后续修复的依据；
+缺少凭据或服务的场景标记为 BLOCKED，未执行的场景明确列出。
+
+示例：`/test https://github.com/owner/repository --tool codex`。
+`--dry-run` 仅预览任务，不创建 issue 或启动代理；`--no-solve` 仅创建任务。
+代理选项转发给 `solve`，机器人 solve 覆盖配置和隔离设置同样适用。
+通过 `--no-test` 或 `TELEGRAM_TEST=false` 禁用命令。CLI 等效命令为
+`hive-test <github-repository-url> [options]`；启动测试代理需要 GitHub 身份验证
+以及已安装并完成身份验证的 AI 工具。
+
 #### `/organize` - 分类开放议题
 
 ```text

@@ -555,7 +555,7 @@ export async function executeWithIsolation(command, args, options = {}) {
       // is the one point at which `docker update` can apply CPU/RAM limits before
       // user code runs. The resolved disk limit is handed to the monitor below.
       if (containerResourceLimitsConfigured) {
-        const resourceLimitResult = await applyDockerContainerResourceLimits(sessionId, containerResourceLimits);
+        const resourceLimitResult = await applyDockerContainerResourceLimits(sessionId, containerResourceLimits, { verbose });
         resolvedContainerResourceLimits = resourceLimitResult.resolved;
         resourceLimitError = resourceLimitResult.error;
       }

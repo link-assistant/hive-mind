@@ -201,7 +201,7 @@ host-side start-command log उपलब्ध रहता है। Failed run
 
 #### Docker task resource limits
 
-Telegram से शुरू किए गए Docker tasks की memory limit default रूप से host RAM का 25% है।
+Telegram से शुरू किए गए हर Docker task की memory limit default रूप से host RAM के 90%–100% के बीच random चुनी जाती है (`90%-100%`), और OOM kill के बाद restart हुए task को 70%–80% मिलता है (`--container-memory-after-oom`, `TELEGRAM_CONTAINER_MEMORY_AFTER_OOM`; `off` सामान्य limit रखता है)। इससे साथ चल रहे tasks एक ही समय पर limit तक नहीं पहुँचते ([issue #2803](https://github.com/link-assistant/hive-mind/issues/2803))।
 CPU और disk limits वैकल्पिक हैं; आवश्यकता के अनुसार memory limit बदलें:
 
 ```bash

@@ -30,7 +30,7 @@ async function test(name, fn) {
 
 await test('omitted limits preserve the current unlimited behavior', () => {
   const normalized = normalizeContainerResourceLimits({});
-  assert.deepEqual(normalized, { cpu: null, memory: null, disk: null });
+  assert.deepEqual(normalized, { cpu: null, memory: null, disk: null, memoryAfterOom: null });
   assert.deepEqual(
     resolveContainerResourceLimits(normalized, {
       cpuCores: 8,
@@ -48,7 +48,7 @@ await test('omitted limits preserve the current unlimited behavior', () => {
 
 await test('fixed CPU, RAM, and disk values resolve without defaults', () => {
   const requested = normalizeContainerResourceLimits({ cpu: '1.5', memory: '512MiB', disk: '20GB' });
-  assert.deepEqual(requested, { cpu: '1.5', memory: '512MiB', disk: '20GB' });
+  assert.deepEqual(requested, { cpu: '1.5', memory: '512MiB', disk: '20GB', memoryAfterOom: null });
   assert.deepEqual(
     resolveContainerResourceLimits(requested, {
       cpuCores: 8,
@@ -189,11 +189,11 @@ await test('resource limits fail closed on non-Docker isolation backends', async
 });
 
 await test('Telegram startup requires Docker only when a limit is configured', () => {
-  assert.deepEqual(resolveTelegramContainerResourceLimits({}, 'screen').limits, { cpu: null, memory: null, disk: null });
+  assert.deepEqual(resolveTelegramContainerResourceLimits({}, 'screen').limits, { cpu: null, memory: null, disk: null, memoryAfterOom: null });
   assert.throws(() => resolveTelegramContainerResourceLimits({ containerCpu: '1' }, 'screen'), /require --isolation docker/i);
   const configured = resolveTelegramContainerResourceLimits({ containerCpu: '50%', containerMemory: '2GiB' }, 'docker');
-  assert.deepEqual(configured.limits, { cpu: '50%', memory: '2GiB', disk: null });
-  assert.match(configured.summary, /CPU=50%, RAM=2GiB, disk=unlimited/);
+  assert.deepEqual(configured.limits, { cpu: '50%', memory: '2GiB', disk: null, memoryAfterOom: null });
+  assert.match(configured.summary, /CPU=50%, RAM=2GiB, RAM after OOM=unchanged, disk=unlimited/);
 });
 
 await test('Telegram startup adapter logs configured limits and exits cleanly on invalid backends', () => {
@@ -203,8 +203,8 @@ await test('Telegram startup adapter logs configured limits and exits cleanly on
     logError: message => logs.push(message),
     exit: code => logs.push(`exit:${code}`),
   });
-  assert.deepEqual(limits, { cpu: '50%', memory: '25%', disk: null });
-  assert.match(logs[0], /CPU=50%, RAM=25%, disk=unlimited/);
+  assert.deepEqual(limits, { cpu: '50%', memory: '90%-100%', disk: null, memoryAfterOom: '70%-80%' });
+  assert.match(logs[0], /CPU=50%, RAM=90%-100%, RAM after OOM=70%-80%, disk=unlimited/);
 
   logs.length = 0;
   initializeTelegramContainerResourceLimits({ containerCpu: '1' }, 'screen', {

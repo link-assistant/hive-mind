@@ -75,7 +75,7 @@ export function killRecoveryHeadline(cause) {
  * @param {string|null} [options.logUrl] - URL of the uploaded intermediate log
  * @returns {string} Markdown body
  */
-export function buildKillRecoveryNotice({ diagnosis = null, exitCode = null, sessionName = null, observedAt = null, policy = null, resumed = false, survived = false, oomEventOnly = false, deliberateStop = null, recoverySessionId = null, resumeCommand = null, attempt = null, maxAttempts = null, attachLogs = false, logAttached = false, logUrl = null } = {}) {
+export function buildKillRecoveryNotice({ diagnosis = null, exitCode = null, sessionName = null, observedAt = null, policy = null, resumed = false, survived = false, oomEventOnly = false, killedTool = null, deliberateStop = null, recoverySessionId = null, resumeCommand = null, attempt = null, maxAttempts = null, attachLogs = false, logAttached = false, logUrl = null } = {}) {
   const cause = diagnosis?.cause || null;
   // Issue #2498: when solve stopped on its own (e.g. expired authentication),
   // the OOM event did not end the run — lead with the real reason instead of
@@ -84,6 +84,8 @@ export function buildKillRecoveryNotice({ diagnosis = null, exitCode = null, ses
   let title;
   if (stopLine && oomEventOnly) title = 'ℹ️ Work session stopped on its own — the earlier container OOM event did not cause it';
   else if (stopLine) title = '⚠️ Working session was killed after solve had already stopped on its own';
+  // Issue #2803: the OOM event's casualty was the AI tool itself (exit 137).
+  else if (oomEventOnly && killedTool) title = resumed ? `⚠️ ${killedTool.tool} was killed by the container OOM killer — work session restarted` : `❌ ${killedTool.tool} was killed by the container OOM killer`;
   else if (oomEventOnly) title = resumed ? '⚠️ Work session restarted after a failed run with a container OOM event' : '⚠️ Container OOM event during a failed work session';
   else if (resumed) title = '⚠️ Working session restarted after a kill — outcome pending';
   // Issue #2498 (package-registry-manager#31): a session that exited 0 was
@@ -121,6 +123,8 @@ export function buildKillRecoveryNotice({ diagnosis = null, exitCode = null, ses
     lines.push('solve had already stopped for the reason above before the process was killed. No replacement session was launched.', '');
   } else if (survived) {
     lines.push('The work session survived the container OOM event and completed. No recovery was needed and no replacement session was launched.', '');
+  } else if (oomEventOnly && killedTool) {
+    lines.push(`The AI tool (${killedTool.tool}) was killed with SIGKILL (exit code 137) during the container OOM event, so solve could not continue. No replacement session was launched.`, '');
   } else if (oomEventOnly) {
     lines.push('The work process survived the container OOM event but later exited with a failure. No replacement session was launched.', '');
   } else {

@@ -90,4 +90,47 @@ export const logProcessesSurvivingSession = async ({ tempDir, argv = {}, log = a
   return survivors;
 };
 
-export default { findProcessesInDirectory, logProcessesSurvivingSession };
+/**
+ * Stop the processes a killed AI session left running in its work directory
+ * before that session is resumed (issue #2803).
+ *
+ * In link-assistant/web-capture#178 the OOM killer killed Claude while its
+ * `cargo test -j 2` kept running in the same 2.9 GB container; resuming next to
+ * it would start the next attempt with the memory already taken. The tool that
+ * started those commands is dead, so nobody is waiting for their output.
+ * SIGTERM first, SIGKILL for whatever is still alive after `graceMs`. This
+ * process and its parent are never signalled.
+ *
+ * @returns {Promise<Array<{pid: number, cwd: string, command: string}>>} the processes signalled
+ */
+export const stopProcessesSurvivingSession = async ({ tempDir, log = async () => {}, find = findProcessesInDirectory, kill = (pid, signal) => process.kill(pid, signal), sleep = ms => new Promise(resolve => setTimeout(resolve, ms)), graceMs = 2000, excludePids = [process.pid, process.ppid] } = {}) => {
+  if (!tempDir) return [];
+  let survivors;
+  try {
+    survivors = await find({ dir: tempDir, excludePids });
+  } catch (error) {
+    await log(`   ⚠️  Could not list processes left in ${tempDir}: ${error?.message || error}`);
+    return [];
+  }
+  if (survivors.length === 0) return survivors;
+  await log(`   🧹 Stopping ${survivors.length} process(es) the killed session left running in ${tempDir}:`);
+  const signal = async (pid, name) => {
+    try {
+      kill(pid, name);
+      return true;
+    } catch {
+      return false; // already exited
+    }
+  };
+  for (const { pid, command } of survivors) {
+    await log(`      pid ${pid}: ${command || '(no command line)'}`);
+    await signal(pid, 'SIGTERM');
+  }
+  await sleep(graceMs);
+  for (const { pid } of survivors) {
+    if (await signal(pid, 0)) await signal(pid, 'SIGKILL');
+  }
+  return survivors;
+};
+
+export default { findProcessesInDirectory, logProcessesSurvivingSession, stopProcessesSurvivingSession };

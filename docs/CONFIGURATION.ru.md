@@ -286,7 +286,8 @@ pull request ещё не mergeable, очередь слияния ждёт до
 | `TELEGRAM_AUTH`                            | true          | Включить экспериментальную приватную команду /auth для владельцев разрешённых чатов            |
 | `TELEGRAM_AUTO_START_SCREEN_WATCH_MESSAGE` | false         | Автоматически запускать отдельное live terminal watch сообщение для публичных /solve сессий    |
 | `TELEGRAM_CONTAINER_CPU`                   | (нет)         | Ограничение CPU Docker-задачи: фиксированные ядра (`1.5`) или процент хоста (`50%`)            |
-| `TELEGRAM_CONTAINER_MEMORY`                | 25%           | Ограничение ОЗУ Docker-задачи: размер (`2GiB`) или процент хоста (`25%`)                       |
+| `TELEGRAM_CONTAINER_MEMORY`                | 90%-100%      | Ограничение ОЗУ Docker-задачи: размер (`2GiB`), процент хоста (`50%`) или случайный диапазон   |
+| `TELEGRAM_CONTAINER_MEMORY_AFTER_OOM`      | 70%-80%       | Ограничение ОЗУ задачи, перезапущенной после OOM-kill; `off` оставляет обычный лимит           |
 | `TELEGRAM_CONTAINER_DISK`                  | (нет)         | Ограничение writable layer Docker-задачи: размер (`20GB`) или процент доступного диска (`10%`) |
 | `TELEGRAM_BOT_VERBOSE`                     | false         | Включить подробное журналирование                                                              |
 | `TELEGRAM_CONFIGURATION`                   | (нет)         | Строка конфигурации LINO                                                                       |
@@ -655,7 +656,8 @@ hive-telegram-bot [options]
 | `--auto-start-screen-watch-message` |           | boolean | false         | Экспериментально: автоматически запускать отдельное сообщение `/terminal_watch` для публичных сессий `/solve`. Для приватных репозиториев или неизвестной видимости watch-сообщения автоматически не запускаются.                     |
 | `--isolation`                       |           | string  | `docker`      | Бэкенд изоляции (`screen`, `tmux`, `docker`). По умолчанию `docker` запускает рабочие сессии Telegram-бота в Docker-изоляции с очисткой при успехе. Для отключения передайте `--isolation ''` (или установите `TELEGRAM_ISOLATION=`). |
 | `--container-cpu`                   |           | string  |               | Ограничение CPU Docker-задачи: фиксированное число ядер (`1.5`) или процент хоста (`50%`).                                                                                                                                            |
-| `--container-memory`                |           | string  |               | Ограничение ОЗУ Docker-задачи: фиксированный размер (`2GiB`) или процент хоста (`25%`).                                                                                                                                               |
+| `--container-memory`                |           | string  |               | Ограничение ОЗУ Docker-задачи: фиксированный размер (`2GiB`), процент хоста (`50%`) или диапазон, выбираемый случайно для каждой задачи (по умолчанию `90%-100%`).                                                                    |
+| `--container-memory-after-oom`      |           | string  |               | Ограничение ОЗУ задачи, перезапущенной после OOM-kill, в том же формате (по умолчанию `70%-80%`, пока `--container-memory` не задан; `off` оставляет обычный лимит).                                                                  |
 | `--container-disk`                  |           | string  |               | Ограничение writable layer Docker-задачи: фиксированный размер (`20GB`) или процент доступного места файловой системы (`10%`).                                                                                                        |
 
 Когда `/solve` включена, Telegram-бот также принимает `/do` и `/continue`

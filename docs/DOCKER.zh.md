@@ -195,7 +195,7 @@ Telegram 完成消息会包含检查和清理命令。可通过
 
 #### Docker 任务资源限制
 
-从 Telegram 启动的 Docker 任务默认将内存限制为宿主机 RAM 的 25%。
+从 Telegram 启动的 Docker 任务默认为每个任务在宿主机 RAM 的 90%–100% 之间随机选取内存限制（`90%-100%`），因 OOM 被杀后重启的任务则随机取 70%–80%（`--container-memory-after-oom`、`TELEGRAM_CONTAINER_MEMORY_AFTER_OOM`；`off` 保持正常限制）。这样并发任务不会同时触及限制（[issue #2803](https://github.com/link-assistant/hive-mind/issues/2803)）。
 CPU 和磁盘限制可选；可按需覆盖内存限制：
 
 ```bash

@@ -270,7 +270,9 @@ export function buildResumeCommand({ sessionInfo = {}, lastSessionId = null, bin
     if (sessionInfo.tool && sessionInfo.tool !== 'claude') args.push('--tool', sessionInfo.tool);
   }
   args = [...args, '--resume', lastSessionId];
-  return { binary: bin, args, display: `${bin} ${args.map(quoteArg).join(' ')}` };
+  // Issue #2803: `display` may use the Telegram alias (`/codex ...`); `shell` is
+  // what actually runs, e.g. through `$ --resume <id> -- <shell>`.
+  return { binary: bin, command, args, display: `${bin} ${args.map(quoteArg).join(' ')}`, shell: `${command} ${args.map(quoteArg).join(' ')}` };
 }
 
 /**

@@ -33,6 +33,8 @@ import { sessionStartMs } from './session-monitor.stale-executing.lib.mjs';
 // Issue #2134: kill-cause diagnostics + the matching pull-request notice.
 import { buildKillCompletionSections, announceKillOnPullRequest, hasContainerOomEvidence, startedPullRequestUrl } from './session-monitor.kill-sections.lib.mjs';
 import { runKillRecoveryForCompletion } from './session-kill-resume.lib.mjs';
+import { KILL_CAUSE_OUT_OF_MEMORY } from './session-kill-diagnostics.lib.mjs';
+import { resolveSolveSessionInfo } from './fix-handoff.lib.mjs';
 // Issue #2189: the handled latch + the memoized last-tool-session-id read that keep a completed session from replaying its whole completion pipeline on every poll.
 import { isCompletionHandled, markCompletionHandled, resolveCachedLastToolSessionId } from './session-completion-state.lib.mjs';
 import { createSessionRegistryQueries } from './session-monitor.queries.lib.mjs';
@@ -819,9 +821,10 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
       let killResumeCommand = null;
       try {
         const outcome = classifySessionOutcome({ exitCode: finalExitCode, status: resolvedStatus });
-        const isResumableCommand = (sessionInfo?.command || 'solve') === 'solve';
-        if (outcome.killed && isResumableCommand && !sessionInfo?.containerResourceLimitExceeded && pullRequestState?.merged !== true) {
-          const logPath = statusResult?.logPath || sessionInfo?.logPath || null;
+        const logPath = statusResult?.logPath || sessionInfo?.logPath || null;
+        // Issue #2803: a `/fix` session is resumable as the solve it handed off to.
+        const resumableSessionInfo = outcome.killed ? resolveSolveSessionInfo(sessionInfo, { logPath, verbose }) : null;
+        if (outcome.killed && resumableSessionInfo && !sessionInfo?.containerResourceLimitExceeded && pullRequestState?.merged !== true) {
           // The id must be the AI TOOL's session id, not the isolation session
           //   id (sessionInfo.sessionId — wrong namespace for `solve --resume`).
           //   Scan backwards through this task's captured log for its last
@@ -829,7 +832,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
           //   logs: start-command stores unrelated tasks in the same backend
           //   directory, which caused issue #2109's invalid resume id.
           const lastSessionId = resolveLastToolSessionId(logPath);
-          const resumeCommand = buildResumeCommand({ sessionInfo, lastSessionId });
+          const resumeCommand = buildResumeCommand({ sessionInfo: resumableSessionInfo, lastSessionId });
           const resumeSection = formatResumeSection({ lastSessionId, command: resumeCommand });
           killResumeCommand = resumeCommand?.display || null;
           if (resumeSection) {
@@ -917,6 +920,8 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
           sessionInfo,
           logPath: statusResult?.logPath || sessionInfo?.logPath || null,
           killed: true,
+          // Issue #2803: an OOM kill restarts under the lower post-OOM RAM limit.
+          outOfMemory: killReport.oomEventOnly || Boolean(killReport.observedAt) || killReport.diagnosis?.cause === KILL_CAUSE_OUT_OF_MEMORY,
           env: options.env || process.env,
           runner: options.isolationRunner || null,
           trackSession: options.trackSession || trackSession,
@@ -938,7 +943,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
           // a second recovery for the same kill.
           sessionInfo.killRecoverySessionId = killRecovery.sessionId;
           persistSessionSnapshot(sessionName, sessionInfo);
-          logEvent('session_kill_recovery_launched', { sessionName, recoverySessionId: killRecovery.sessionId, attempt: killRecovery.attempt, maxAttempts: killRecovery.maxAttempts, policy: killRecovery.policy || null });
+          logEvent('session_kill_recovery_launched', { sessionName, recoverySessionId: killRecovery.sessionId, attempt: killRecovery.attempt, maxAttempts: killRecovery.maxAttempts, policy: killRecovery.policy || null, memoryLimitBytes: killRecovery.memoryLimitBytes ?? null, memoryLimitLowered: killRecovery.memoryLimitLowered === true });
         }
         if (recovered.section) killReport.sections.push(recovered.section);
       }
@@ -970,6 +975,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
           policy: killReport.policy,
           recovered: killReport.recovered,
           oomEventOnly: killReport.oomEventOnly,
+          killedTool: killReport.killedTool,
           deliberateStop: killReport.deliberateStop,
           resumed: killRecovery.resumed,
           recoverySessionId: killRecovery.resumed ? killRecovery.sessionId : null,
@@ -1074,7 +1080,8 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
  * @see https://github.com/link-assistant/hive-mind/issues/1905
  */
 async function resolvePullRequestUrlForSession(sessionInfo, { verbose = false, lookupLinkedPullRequest = null, statusResult = null, readFile = fs.readFile } = {}) {
-  const ctx = sessionInfo?.urlContext;
+  // Issue #2803: a `/fix` session's context names a repository; the issue it created is in its log.
+  const ctx = sessionInfo?.command === 'fix' ? resolveSolveSessionInfo(sessionInfo, { logPath: statusResult?.logPath || sessionInfo?.logPath || null, verbose })?.urlContext : sessionInfo?.urlContext;
   if (!ctx || ctx.type !== 'issue' || !ctx.owner || !ctx.repo || !ctx.number) {
     return null;
   }

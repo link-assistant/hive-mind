@@ -588,6 +588,7 @@ try {
   // Issue #2803: the primary session is one run of this dispatch, so a SIGKILL (exit 137, e.g. the
   // container OOM killer) can resume it in-process like the watch/auto-merge iterations (#2408) do.
   const dispatchPrimaryTool = async ({ argv, feedbackLines }) => {
+    const toolParams = { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, mergeStateStatus, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv, log, setLogFile, getLogFile, formatAligned, getResourceSnapshot, $ };
     // If --use-agent-commander is enabled, use agent-commander for all tools
     if (argv.useAgentCommander) {
       // Ensure agent-commander is available
@@ -602,29 +603,7 @@ try {
         await safeExit(1, 'agent-commander not available');
       }
       await log(`\n[agent-commander] Using agent-commander for ${argv.tool || 'claude'} execution`);
-      return await agentCommanderLib.executeWithAgentCommander({
-        issueUrl,
-        issueNumber,
-        prNumber,
-        prUrl,
-        branchName,
-        tempDir,
-        workspaceTmpDir,
-        isContinueMode,
-        mergeStateStatus,
-        forkedRepo,
-        feedbackLines,
-        forkActionsUrl,
-        owner,
-        repo,
-        argv,
-        log,
-        setLogFile,
-        getLogFile,
-        formatAligned,
-        getResourceSnapshot,
-        $,
-      });
+      return await agentCommanderLib.executeWithAgentCommander(toolParams);
     } else if (['opencode', 'codex', 'agent', 'gemini', 'qwen'].includes(argv.tool)) {
       const toolDispatch = {
         opencode: { lib: './opencode.lib.mjs', execFn: 'executeOpenCode', envVar: 'OPENCODE_PATH', defaultBin: 'opencode', pathKey: 'opencodePath' },
@@ -634,56 +613,10 @@ try {
         qwen: { lib: './qwen.lib.mjs', execFn: 'executeQwen', envVar: 'QWEN_PATH', defaultBin: 'qwen', pathKey: 'qwenPath' },
       }[argv.tool];
       const toolLib = await import(toolDispatch.lib);
-      return await toolLib[toolDispatch.execFn]({
-        issueUrl,
-        issueNumber,
-        prNumber,
-        prUrl,
-        branchName,
-        tempDir,
-        workspaceTmpDir,
-        isContinueMode,
-        mergeStateStatus,
-        forkedRepo,
-        feedbackLines,
-        forkActionsUrl,
-        owner,
-        repo,
-        argv,
-        log,
-        setLogFile,
-        getLogFile,
-        formatAligned,
-        getResourceSnapshot,
-        [toolDispatch.pathKey]: process.env[toolDispatch.envVar] || toolDispatch.defaultBin,
-        $,
-      });
+      return await toolLib[toolDispatch.execFn]({ ...toolParams, [toolDispatch.pathKey]: process.env[toolDispatch.envVar] || toolDispatch.defaultBin });
     } else {
       // Default to Claude
-      return await executeClaude({
-        issueUrl,
-        issueNumber,
-        prNumber,
-        prUrl,
-        branchName,
-        tempDir,
-        workspaceTmpDir,
-        isContinueMode,
-        mergeStateStatus,
-        forkedRepo,
-        feedbackLines,
-        forkActionsUrl,
-        owner,
-        repo,
-        argv,
-        log,
-        setLogFile,
-        getLogFile,
-        formatAligned,
-        getResourceSnapshot,
-        claudePath,
-        $,
-      });
+      return await executeClaude({ ...toolParams, claudePath });
     }
   };
   const runPrimaryTool = async ({ argv, feedbackLines }) => {

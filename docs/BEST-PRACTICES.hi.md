@@ -269,5 +269,6 @@ Never mark a task done until it is verified working.
 
 - [Code Architecture Principles](https://github.com/link-foundation/code-architecture-principles)
 - [CI/CD Best Practices](./CI-CD-BEST-PRACTICES.md)
+- [Agentic FDD जाँच](./case-studies/issue-1754/README.md) — स्रोत की उपलब्धता, Hive Mind की मौजूदा प्रथाएँ और अस्थायी सुधार सुझाव; संदर्भित परियोजना पढ़े जाने तक upstream तुलना अवरुद्ध है
 - [Contributing Guidelines](./CONTRIBUTING.hi.md)
 - [Configuration Options](./CONFIGURATION.md)

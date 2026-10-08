@@ -267,6 +267,7 @@ Never mark a task done until it is verified working.
 
 ## References
 
+- [Agentic FDD investigation](./case-studies/issue-1754/README.md) — source availability, Hive Mind's existing practices, and provisional improvement candidates; the upstream comparison remains blocked until the referenced project can be read
 - [Code Architecture Principles](https://github.com/link-foundation/code-architecture-principles)
 - [CI/CD Best Practices](./CI-CD-BEST-PRACTICES.md)
 - [Contributing Guidelines](./CONTRIBUTING.md)

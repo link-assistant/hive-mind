@@ -269,5 +269,6 @@ Never mark a task done until it is verified working.
 
 - [代码架构原则](https://github.com/link-foundation/code-architecture-principles)
 - [CI/CD 最佳实践](./CI-CD-BEST-PRACTICES.md)
+- [Agentic FDD 调查](./case-studies/issue-1754/README.md) — 源码可用性、Hive Mind 已有实践和暂定改进建议；在能够阅读所引用项目之前，上游对比仍然受阻
 - [贡献指南](./CONTRIBUTING.zh.md)
 - [配置选项](./CONFIGURATION.md)

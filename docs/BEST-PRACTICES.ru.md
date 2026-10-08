@@ -269,5 +269,6 @@ Never mark a task done until it is verified working.
 
 - [Принципы архитектуры кода](https://github.com/link-foundation/code-architecture-principles)
 - [Лучшие практики CI/CD](./CI-CD-BEST-PRACTICES.md)
+- [Исследование Agentic FDD](./case-studies/issue-1754/README.md) — доступность исходников, существующие практики Hive Mind и предварительные предложения по улучшению; сравнение с исходным проектом остаётся заблокированным, пока его содержимое недоступно
 - [Руководство по участию в разработке](./CONTRIBUTING.ru.md)
 - [Параметры конфигурации](./CONFIGURATION.md)

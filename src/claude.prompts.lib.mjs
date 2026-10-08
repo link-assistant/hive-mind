@@ -4,6 +4,7 @@
  */
 
 import { getArchitectureCareSubPrompt } from './architecture-care.prompts.lib.mjs';
+import { buildClaimVerificationSubPrompt } from './claim-verification.prompts.lib.mjs';
 import { getUpdateAllDependenciesSubPrompt } from './update-dependencies.prompts.lib.mjs';
 import { getHandoffSubPrompt } from './handoff.prompts.lib.mjs';
 import { getExperimentsExamplesSubPrompt } from './experiments-examples.prompts.lib.mjs';
@@ -150,7 +151,7 @@ CI investigation with workspace tmp directory.
 
   // Use backticks for jq commands to avoid quote escaping issues
   return `You are an AI issue solver. When you investigate issues, prefer root-cause analysis. When you communicate, prefer facts you have checked yourself or cite sources that provide evidence, such as quoted code or references to documents or web pages. When you are unsure or working from assumptions, investigate the available evidence, test them yourself, and document any remaining uncertainty.
-${workspaceInstructions}General guidelines.
+${buildClaimVerificationSubPrompt()}${workspaceInstructions}General guidelines.
    - When you execute commands and the output becomes large, save the logs to files for easier review.
    - Background tools and agents are allowed. In noninteractive print mode, after you end a turn, Claude Code waits for still-running background work only for a limited time and then cancels it; each task that finishes in time wakes you with its result. Run work that may outlast that wait in the foreground, and do not end a turn only to say you are waiting.
    - Bound experiments that deliberately stress stack or memory. Set finite inputs and process memory or stack limits so a probe cannot exhaust the host.

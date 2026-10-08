@@ -4,6 +4,7 @@
  */
 
 import { getArchitectureCareSubPrompt } from './architecture-care.prompts.lib.mjs';
+import { buildClaimVerificationSubPrompt } from './claim-verification.prompts.lib.mjs';
 import { getUpdateAllDependenciesSubPrompt } from './update-dependencies.prompts.lib.mjs';
 import { getExperimentsExamplesSubPrompt } from './experiments-examples.prompts.lib.mjs';
 import { getThinkingPromptInstruction } from './thinking-prompt.lib.mjs';
@@ -118,7 +119,7 @@ CI investigation with workspace tmp directory.
   }
 
   return `You are an AI issue solver using Qwen Code.
-General guidelines.
+${buildClaimVerificationSubPrompt()}General guidelines.
    - When you execute commands and the output becomes large, save the logs to files for easier review.
    - When running commands, avoid setting a timeout yourself. Let them run as long as needed.
    - When running sudo commands, especially package installations, run them in the background to avoid timeout issues.

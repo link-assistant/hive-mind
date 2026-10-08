@@ -25,3 +25,14 @@ The exact PR Changeset validator initially counted the previous release's Change
 The initial prepared head was `3b89fdd80cb211b17a8731ce27f16d8ac7ad6bd4`. The newest Checks and release, Security and Broken Link Checker runs for that head passed. An older Security event at the same SHA was `action_required`, followed by a successful Security event; requesting its log returned `log not found`. This is historical event approval, not an observed implementation test failure.
 
 The default branch is merged into the issue branch with forward merge commits, including the automatic 2.34.2 release. Final-head CI is checked against the published commit SHA and run timestamps; outcomes and run links are recorded in [PR #2746](https://github.com/link-assistant/hive-mind/pull/2746). Local archives distinguish the pre-fix regression, intermediate failures and final passing runs rather than replacing the failure evidence.
+
+All four workflows passed on implementation commit `ed3cd5091af3e28a26344ceca518dbcaca1f63db`, committed at 09:05:54 UTC on 2026-10-08. Each run below started afterward and reports that exact head SHA. Workflows was dispatched in its existing checks-only mode to also verify actionlint and zizmor.
+
+| Workflow            | Run                                                                                 | Created (UTC) | Result  |
+| ------------------- | ----------------------------------------------------------------------------------- | ------------- | ------- |
+| Checks and release  | [37754387105](https://github.com/link-assistant/hive-mind/actions/runs/37754387105) | 09:06:49      | Success |
+| Security            | [37754386831](https://github.com/link-assistant/hive-mind/actions/runs/37754386831) | 09:06:49      | Success |
+| Broken Link Checker | [37754386800](https://github.com/link-assistant/hive-mind/actions/runs/37754386800) | 09:06:49      | Success |
+| Workflows           | [37754600406](https://github.com/link-assistant/hive-mind/actions/runs/37754600406) | 09:08:39      | Success |
+
+The complete workflow logs are archived under `data/validation/`, with run metadata in `data/implementation-ci-runs.json` and individual check outcomes in `data/implementation-ci-checks.json`. Checks and release confirms all 580 default test files and both GitHub integration files pass on Node.js 24; its final status reports no failed or cancelled jobs. These archives cover the implementation; the final documentation commit's checks are verified separately and recorded in the PR.

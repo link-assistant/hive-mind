@@ -62,6 +62,8 @@ These measurements establish repeated cgroup OOM activity and a nearly saturated
 
 The shared formatter is used for terminal output, draft conversion and failure publication, so supplying the cause at the adapter fixes those reporting paths together. Agent work summaries and arbitrary command output are not used as process error text. A signal exit also bypasses provider-limit classification of the last stdout chunk, which can contain a quoted historical limit from a tool.
 
+The cross-adapter audit covered `agent.lib.mjs`, `claude.lib.mjs` and `opencode.lib.mjs`. Their nonzero-exit results already include an error message and `errorInfo.exitCode`, which the common formatter and kill-recovery gate consume. The missing-status/empty-cause defect was specific to Codex; those adapters require no corresponding change.
+
 ## Primary-source research and related work
 
 - [Codex non-interactive execution](https://developers.openai.com/codex/noninteractive) documents stdout JSONL events (`turn.started`, `turn.completed`, `turn.failed`, `error`) and stderr diagnostics. Hive Mind already separates these streams; a killed process can end without a terminal protocol record. The fix supplements protocol errors with process status rather than inventing a missing JSON event.

@@ -68,7 +68,7 @@ test('repair handoff preserves worker options but discards the previous session'
 
 test('handoff supports flags before the issue URL and keeps option values', () => {
   const args = buildRepairSolveArgs('https://github.com/o/r/issues/2', ['--tool', 'codex', 'https://github.com/o/r/issues/1', '--think=high', '--no-auto-merge', '--resume', 'old', '-b', 'old-target']);
-  assert.ok(!args.includes('https://github.com/o/r/issues/1'));
+  assert.equal(args.filter(arg => arg === 'https://github.com/o/r/issues/1').length, 0);
   assert.ok(args.includes('codex'));
   assert.ok(args.includes('--think=high'));
   assert.ok(args.includes('--auto-merge'));

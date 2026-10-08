@@ -677,6 +677,8 @@ zh
         starting "🔄 正在启动..."
         executing "⏳ 正在执行..."
         finished "工作会话已成功完成"
+        hive_no_work "未处理任何问题；请查看日志中的跳过原因或阻塞问题。要继续处理已有 PR 的问题，请使用 `--no-skip-issues-with-prs --auto-continue`"
+        hive_incomplete "Hive 会话结束时仍有问题等待处理；请查看日志中的阻塞问题"
         failed "工作会话失败（退出代码：{{exitCode}}）"
         merged_but_failed "拉取请求已合并，但工作会话退出，代码为：{{exitCode}}"
         merged_success "请求的拉取请求已成功合并。"

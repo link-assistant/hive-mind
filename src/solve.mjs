@@ -71,6 +71,8 @@ const { autoAcceptInviteForRepo } = await import('./solve.accept-invite.lib.mjs'
 const { handleAutoForkOption, handleMaintainerForkAccess } = await import('./solve.fork-detection.lib.mjs');
 const { resolveUncommittedChangesTool } = await import('./solve.tool-uncommitted.lib.mjs');
 const { classifySessionResult } = await import('./session-result.lib.mjs'); // Issue #2316
+const { isToolProcessKilled, resumeAfterToolKill } = await import('./solve.tool-kill-resume.lib.mjs'); // Issue #2803
+const { stopProcessesSurvivingSession } = await import('./session-survivors.lib.mjs'); // Issue #2803
 await initializeLogFile(null);
 await (await import('./solve.log-dir.lib.mjs')).moveLogFileToLogDir(resolveStartupLogDirectory(earlyArgs), { getLogFile, setLogFile, log });
 const versionInfo = await getVersionInfo();
@@ -583,105 +585,115 @@ try {
   let toolResult;
   // Issue #1823: Mark the start of the AI working session. While this is active and the --do-not-shutdown-in-the-middle-of-working-session flag is set, an interrupt (CTRL+C/SIGTERM) is deferred until the AI tool finishes its turn (see exit-handler.lib.mjs + working-session.lib.mjs).
   beginWorkingSession();
-  // If --use-agent-commander is enabled, use agent-commander for all tools
-  if (argv.useAgentCommander) {
-    // Ensure agent-commander is available
-    if (!agentCommanderLib) {
-      agentCommanderLib = await import('./agent-commander.lib.mjs');
+  // Issue #2803: the primary session is one run of this dispatch, so a SIGKILL (exit 137, e.g. the
+  // container OOM killer) can resume it in-process like the watch/auto-merge iterations (#2408) do.
+  const dispatchPrimaryTool = async ({ argv, feedbackLines }) => {
+    // If --use-agent-commander is enabled, use agent-commander for all tools
+    if (argv.useAgentCommander) {
+      // Ensure agent-commander is available
+      if (!agentCommanderLib) {
+        agentCommanderLib = await import('./agent-commander.lib.mjs');
+      }
+      const isAvailable = await agentCommanderLib.isAgentCommanderAvailable();
+      if (!isAvailable) {
+        await log('\n[agent-commander] agent-commander is not installed.', { level: 'error' });
+        await log('   Install it with: npm install agent-commander', { level: 'error' });
+        await log('   Or remove the --use-agent-commander flag to use embedded tool logic.', { level: 'error' });
+        await safeExit(1, 'agent-commander not available');
+      }
+      await log(`\n[agent-commander] Using agent-commander for ${argv.tool || 'claude'} execution`);
+      return await agentCommanderLib.executeWithAgentCommander({
+        issueUrl,
+        issueNumber,
+        prNumber,
+        prUrl,
+        branchName,
+        tempDir,
+        workspaceTmpDir,
+        isContinueMode,
+        mergeStateStatus,
+        forkedRepo,
+        feedbackLines,
+        forkActionsUrl,
+        owner,
+        repo,
+        argv,
+        log,
+        setLogFile,
+        getLogFile,
+        formatAligned,
+        getResourceSnapshot,
+        $,
+      });
+    } else if (['opencode', 'codex', 'agent', 'gemini', 'qwen'].includes(argv.tool)) {
+      const toolDispatch = {
+        opencode: { lib: './opencode.lib.mjs', execFn: 'executeOpenCode', envVar: 'OPENCODE_PATH', defaultBin: 'opencode', pathKey: 'opencodePath' },
+        codex: { lib: './codex.lib.mjs', execFn: 'executeCodex', envVar: 'CODEX_PATH', defaultBin: 'codex', pathKey: 'codexPath' },
+        agent: { lib: './agent.lib.mjs', execFn: 'executeAgent', envVar: 'AGENT_PATH', defaultBin: 'agent', pathKey: 'agentPath' },
+        gemini: { lib: './gemini.lib.mjs', execFn: 'executeGemini', envVar: 'GEMINI_PATH', defaultBin: 'gemini', pathKey: 'geminiPath' },
+        qwen: { lib: './qwen.lib.mjs', execFn: 'executeQwen', envVar: 'QWEN_PATH', defaultBin: 'qwen', pathKey: 'qwenPath' },
+      }[argv.tool];
+      const toolLib = await import(toolDispatch.lib);
+      return await toolLib[toolDispatch.execFn]({
+        issueUrl,
+        issueNumber,
+        prNumber,
+        prUrl,
+        branchName,
+        tempDir,
+        workspaceTmpDir,
+        isContinueMode,
+        mergeStateStatus,
+        forkedRepo,
+        feedbackLines,
+        forkActionsUrl,
+        owner,
+        repo,
+        argv,
+        log,
+        setLogFile,
+        getLogFile,
+        formatAligned,
+        getResourceSnapshot,
+        [toolDispatch.pathKey]: process.env[toolDispatch.envVar] || toolDispatch.defaultBin,
+        $,
+      });
+    } else {
+      // Default to Claude
+      return await executeClaude({
+        issueUrl,
+        issueNumber,
+        prNumber,
+        prUrl,
+        branchName,
+        tempDir,
+        workspaceTmpDir,
+        isContinueMode,
+        mergeStateStatus,
+        forkedRepo,
+        feedbackLines,
+        forkActionsUrl,
+        owner,
+        repo,
+        argv,
+        log,
+        setLogFile,
+        getLogFile,
+        formatAligned,
+        getResourceSnapshot,
+        claudePath,
+        $,
+      });
     }
-    const isAvailable = await agentCommanderLib.isAgentCommanderAvailable();
-    if (!isAvailable) {
-      await log('\n[agent-commander] agent-commander is not installed.', { level: 'error' });
-      await log('   Install it with: npm install agent-commander', { level: 'error' });
-      await log('   Or remove the --use-agent-commander flag to use embedded tool logic.', { level: 'error' });
-      await safeExit(1, 'agent-commander not available');
-    }
-    await log(`\n[agent-commander] Using agent-commander for ${argv.tool || 'claude'} execution`);
-    toolResult = await agentCommanderLib.executeWithAgentCommander({
-      issueUrl,
-      issueNumber,
-      prNumber,
-      prUrl,
-      branchName,
-      tempDir,
-      workspaceTmpDir,
-      isContinueMode,
-      mergeStateStatus,
-      forkedRepo,
-      feedbackLines,
-      forkActionsUrl,
-      owner,
-      repo,
-      argv,
-      log,
-      setLogFile,
-      getLogFile,
-      formatAligned,
-      getResourceSnapshot,
-      $,
-    });
-  } else if (['opencode', 'codex', 'agent', 'gemini', 'qwen'].includes(argv.tool)) {
-    const toolDispatch = {
-      opencode: { lib: './opencode.lib.mjs', execFn: 'executeOpenCode', envVar: 'OPENCODE_PATH', defaultBin: 'opencode', pathKey: 'opencodePath' },
-      codex: { lib: './codex.lib.mjs', execFn: 'executeCodex', envVar: 'CODEX_PATH', defaultBin: 'codex', pathKey: 'codexPath' },
-      agent: { lib: './agent.lib.mjs', execFn: 'executeAgent', envVar: 'AGENT_PATH', defaultBin: 'agent', pathKey: 'agentPath' },
-      gemini: { lib: './gemini.lib.mjs', execFn: 'executeGemini', envVar: 'GEMINI_PATH', defaultBin: 'gemini', pathKey: 'geminiPath' },
-      qwen: { lib: './qwen.lib.mjs', execFn: 'executeQwen', envVar: 'QWEN_PATH', defaultBin: 'qwen', pathKey: 'qwenPath' },
-    }[argv.tool];
-    const toolLib = await import(toolDispatch.lib);
-    toolResult = await toolLib[toolDispatch.execFn]({
-      issueUrl,
-      issueNumber,
-      prNumber,
-      prUrl,
-      branchName,
-      tempDir,
-      workspaceTmpDir,
-      isContinueMode,
-      mergeStateStatus,
-      forkedRepo,
-      feedbackLines,
-      forkActionsUrl,
-      owner,
-      repo,
-      argv,
-      log,
-      setLogFile,
-      getLogFile,
-      formatAligned,
-      getResourceSnapshot,
-      [toolDispatch.pathKey]: process.env[toolDispatch.envVar] || toolDispatch.defaultBin,
-      $,
-    });
-  } else {
-    // Default to Claude
-    const claudeResult = await executeClaude({
-      issueUrl,
-      issueNumber,
-      prNumber,
-      prUrl,
-      branchName,
-      tempDir,
-      workspaceTmpDir,
-      isContinueMode,
-      mergeStateStatus,
-      forkedRepo,
-      feedbackLines,
-      forkActionsUrl,
-      owner,
-      repo,
-      argv,
-      log,
-      setLogFile,
-      getLogFile,
-      formatAligned,
-      getResourceSnapshot,
-      claudePath,
-      $,
-    });
-    toolResult = claudeResult;
+  };
+  const runPrimaryTool = async ({ argv, feedbackLines }) => {
+    const toolResult = await dispatchPrimaryTool({ argv, feedbackLines });
+    return await classifySessionResult({ toolResult, argv, owner, repo, prNumber, $, log, tempDir });
+  };
+  toolResult = await runPrimaryTool({ argv, feedbackLines });
+  if (isToolProcessKilled(toolResult)) {
+    ({ toolResult } = await resumeAfterToolKill({ toolResult, argv, runIteration: runPrimaryTool, $, owner, repo, prNumber, log, beforeAttempt: () => stopProcessesSurvivingSession({ tempDir, log }) }));
   }
-  toolResult = await classifySessionResult({ toolResult, argv, owner, repo, prNumber, $, log, tempDir });
   // Issue #2190: the router auth guard killed the CLI (the task used a credential other than its router token).
   // Not a tool failure to retry — a security stop, with its own exit code so the supervisor can tell it apart.
   if (toolResult?.routerAuthViolation) {

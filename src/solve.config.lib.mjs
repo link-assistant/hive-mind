@@ -15,6 +15,7 @@ import { getLinoYargsFactory, hideBin, normalizeCliArgs, parseCliArgumentsWithLi
 import { normalizeThinkLevel, ADAPTIVE_THINK_LEVEL } from './think-level.lib.mjs';
 import { supportsAdaptiveThinking } from './config.lib.mjs';
 import { resolvePromptModelForTool } from './thinking-prompt.lib.mjs';
+import { normalizeSpeed } from './pricing-tier.lib.mjs';
 
 // Re-export for use by telegram-bot.mjs (avoids extra import lines there)
 export { detectMalformedFlags };
@@ -27,7 +28,8 @@ export const initializeConfig = async () => ({ yargs: getLinoYargsFactory(), hid
 // Exported so hive.config.lib.mjs can automatically register solve options
 // without manual duplication (see issue #1209).
 // NOTE: Options with function defaults (like 'model') are defined inline in createYargsConfig
-// and excluded from this map since functions cannot be cleanly shared as data.
+// and excluded from this map since functions cannot be cleanly shared as data
+// (a `coerce` normalizer such as --speed's is fine: it is only read by yargs).
 export const SOLVE_OPTION_DEFINITIONS = {
   resume: {
     type: 'string',
@@ -405,8 +407,9 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   speed: {
     type: 'string',
-    description: 'Service/speed tier: standard (default, cheapest normal tier), flex (Codex/OpenAI only, ~0.5x price, slower and may be queued), fast (priority, ~2x price), ultrafast (Codex only, up to 8x). Claude: standard/flex set CLAUDE_CODE_DISABLE_FAST_MODE=1, fast/ultrafast leave Claude Code fast mode to your Claude settings. Codex: -c service_tier=default|flex|fast|ultrafast.',
-    choices: ['standard', 'flex', 'fast', 'ultrafast'],
+    description: 'Service/speed tier: standard (default, cheapest normal tier), flex (Codex/OpenAI only, ~0.5x price = Batch API rates, slower and may be queued; aliases: batch, slow, economy), fast (priority, ~2x price), ultrafast (Codex only, up to 8x). Claude: standard/flex set CLAUDE_CODE_DISABLE_FAST_MODE=1, fast/ultrafast leave Claude Code fast mode to your Claude settings. Codex: -c service_tier=default|flex|fast|ultrafast.',
+    // coerce (not yargs `choices`) so the documented aliases are accepted and normalized.
+    coerce: normalizeSpeed,
     default: 'standard',
   },
   'fallback-model': {

@@ -48,6 +48,10 @@ const SPEED_ALIASES = Object.freeze({
   flex: 'flex',
   slow: 'flex',
   economy: 'flex',
+  // OpenAI has no synchronous `batch` service tier (the Batch API is a 24h
+  // async job API, and Codex silently sends standard for service_tier=batch);
+  // Flex is the synchronous tier "priced at Batch API rates".
+  batch: 'flex',
   fast: 'fast',
   priority: 'fast',
   ultrafast: 'ultrafast',

@@ -13,7 +13,7 @@ import { test } from 'node:test';
 
 import { applyClaudePricingTierToEnv, applyGeminiFamilyPricingTier, buildCodexPricingTierConfigArgs, buildCodexServiceTierConfigArgs, buildGeminiFamilyCompactionSettings, capSubSessionSizeToShortContext, describePricingTier, getShortContextTokens, normalizeSpeed, resolveClaudeModelForContext, resolveLongContext, resolvePricingTier } from '../src/pricing-tier.lib.mjs';
 import { parseSubSessionSize } from '../src/sub-session-size.lib.mjs';
-import { SOLVE_OPTION_DEFINITIONS } from '../src/solve.config.lib.mjs';
+import { parseArguments, SOLVE_OPTION_DEFINITIONS } from '../src/solve.config.lib.mjs';
 import { getClaudeEnv } from '../src/config.lib.mjs';
 import { mapModelToId } from '../src/claude.model-utils.lib.mjs';
 import { claudeModels, MODELS_SUPPORTING_1M_CONTEXT } from '../src/models/catalog.mjs';
@@ -24,7 +24,20 @@ const tier = overrides => resolvePricingTier({ tool: 'claude', model: 'opus', mo
 test('solve options default to auto long context and standard speed', () => {
   assert.equal(SOLVE_OPTION_DEFINITIONS['disable-1m-context'].default, undefined);
   assert.equal(SOLVE_OPTION_DEFINITIONS.speed.default, 'standard');
-  assert.deepEqual(SOLVE_OPTION_DEFINITIONS.speed.choices, ['standard', 'flex', 'fast', 'ultrafast']);
+  assert.equal(SOLVE_OPTION_DEFINITIONS.speed.coerce('Batch'), 'flex');
+  assert.throws(() => SOLVE_OPTION_DEFINITIONS.speed.coerce('turbo'), /--speed: invalid value "turbo"/);
+});
+
+test('every documented --speed spelling parses on the solve command line (PR #2772 review)', async () => {
+  const parse = async value => (await parseArguments(undefined, () => ['https://github.com/o/r/issues/1', '--speed', value])).speed;
+  assert.equal(await parse('standard'), 'standard');
+  assert.equal(await parse('default'), 'standard');
+  assert.equal(await parse('slow'), 'flex');
+  assert.equal(await parse('economy'), 'flex');
+  assert.equal(await parse('batch'), 'flex');
+  assert.equal(await parse('priority'), 'fast');
+  assert.equal(await parse('ultrafast'), 'ultrafast');
+  await assert.rejects(() => parse('turbo'), /--speed: invalid value "turbo"/);
 });
 
 test('speed aliases normalise and unknown speeds are rejected', () => {
@@ -32,6 +45,10 @@ test('speed aliases normalise and unknown speeds are rejected', () => {
   assert.equal(normalizeSpeed('default'), 'standard');
   assert.equal(normalizeSpeed('priority'), 'fast');
   assert.equal(normalizeSpeed('slow'), 'flex');
+  // OpenAI has no `batch` service tier (Codex silently sends standard for it);
+  // Flex is the synchronous tier "priced at Batch API rates".
+  assert.equal(normalizeSpeed('batch'), 'flex');
+  assert.deepEqual(buildCodexServiceTierConfigArgs('batch'), ['-c', 'service_tier=flex']);
   assert.throws(() => normalizeSpeed('turbo'), /speed/);
 });
 

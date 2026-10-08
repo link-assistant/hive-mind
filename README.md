@@ -373,6 +373,8 @@ solve <issue-url> [options]
 | `--think`       |       | Thinking level (low, medium, high, max) | -         |
 | `--base-branch` | `-b`  | Target branch for PR                    | (default) |
 
+Use `--base-branch release/next --auto-base-branch-creation` to create a missing target branch from the repository default branch before solving. The flag is disabled by default and requires write access to the target repository, including when working from a fork. Existing branches are preserved; without an explicit `--base-branch`, the flag has no effect.
+
 **Other useful options:**
 
 | Option                   | Alias | Description                                            | Default |

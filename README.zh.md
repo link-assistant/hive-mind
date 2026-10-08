@@ -367,6 +367,8 @@ solve <issue-url> [options]
 | `--think`       |      | 思考级别（off、low、medium、high、xhigh、ultra、max） | off      |
 | `--base-branch` | `-b` | PR 的目标分支                                         | （默认） |
 
+使用 `--base-branch release/next --auto-base-branch-creation` 可在开始解决问题前，从仓库默认分支创建缺失的目标分支。该选项默认关闭，需要目标仓库的写入权限，使用 fork 时也一样。现有分支保持不变；未明确指定 `--base-branch` 时，该选项不执行任何操作。
+
 **其他常用选项：**
 
 | 选项                     | 简写 | 描述                                                    | 默认值 |

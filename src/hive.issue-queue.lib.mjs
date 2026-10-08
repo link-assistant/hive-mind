@@ -7,6 +7,7 @@ export class IssueQueue {
     this.processing = new Set();
     this.completed = new Set();
     this.failed = new Set();
+    this.skipped = new Map(); // Rechecks that did not start a solver, with their reasons.
     this.deferrals = new Map(); // Issue #2160: issueUrl -> environment deferral count
     this.waiting = new Set(); // Issue #2615: dequeued, then found blocked by an issue relation
     this.workers = [];
@@ -20,6 +21,7 @@ export class IssueQueue {
     }
     if (skipFailed && this.failed.has(issueUrl)) return false;
     this.waiting.delete(issueUrl);
+    this.skipped.delete(issueUrl);
     this.queue.push(issueUrl);
     return true;
   }
@@ -35,7 +37,12 @@ export class IssueQueue {
   // Mark issue as completed
   markCompleted(issueUrl) {
     this.processing.delete(issueUrl);
+    this.skipped.delete(issueUrl);
     this.completed.add(issueUrl);
+  }
+  markSkipped(issueUrl, reason, pullRequests = []) {
+    this.processing.delete(issueUrl);
+    this.skipped.set(issueUrl, { reason, pullRequests });
   }
   // Mark issue as failed
   markFailed(issueUrl) {
@@ -68,6 +75,7 @@ export class IssueQueue {
       completed: this.completed.size,
       failed: this.failed.size,
       waiting: this.waiting.size,
+      skipped: this.skipped.size,
       processingIssues: Array.from(this.processing),
     };
   }

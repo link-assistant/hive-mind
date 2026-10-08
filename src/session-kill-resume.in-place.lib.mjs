@@ -49,6 +49,7 @@ import semver from 'semver';
 import { isFormalAiTask } from './formal-ai-sidecar.lib.mjs';
 import { hasUseRouterFlag } from './router-isolation.lib.mjs';
 import { RESUME_MODES } from './isolation-runner.resume.lib.mjs';
+import { buildShellCommand } from './shell-command.lib.mjs';
 
 /** Why a killed session cannot be re-entered in place. Reported, never thrown. */
 export const IN_PLACE_SKIP_REASONS = Object.freeze({
@@ -62,6 +63,7 @@ export const IN_PLACE_SKIP_REASONS = Object.freeze({
   CONTAINER_GONE: 'container-gone',
   UNSUPPORTED: 'resume-unsupported',
   REFUSED: 'resume-refused',
+  STARTUP_FAILED: 'resume-startup-failed',
   ERROR: 'resume-error',
 });
 
@@ -162,7 +164,7 @@ export function planSameContainerResume({ sessionName = null, sessionInfo = {}, 
  * @param {Object} options
  * @param {string} options.sessionName - The killed session's name
  * @param {Object} options.sessionInfo - Persisted session info
- * @param {Object} options.plan - Result of planKillRecovery() (needs `command.display`)
+ * @param {Object} options.plan - Result of planKillRecovery() (needs `command.binary` and `command.args`)
  * @param {Object} options.runner - Isolation runner module
  * @param {boolean} [options.verbose]
  * @returns {Promise<{resumed: boolean, reason: string, sessionId: string|null, executionUuid: string|null, mode: string|null, snapshotImage: string|null, containerFilesystemInheritedBytes: number|null, resourceLimitReapplyError: string|null}>}
@@ -194,7 +196,10 @@ export async function resumeKilledSessionInPlace({ sessionName, sessionInfo, pla
   const exists = await runner.checkDockerContainerExists(decision.containerName, verbose);
   if (!exists) return miss(IN_PLACE_SKIP_REASONS.CONTAINER_GONE);
 
-  const result = await runner.resumeIsolatedSession(decision.identifier, { command: plan?.command?.display || null, verbose });
+  // Match the launch path's exec form and quote each argv element. A display
+  // string may contain Telegram syntax or shell substitutions (#2630).
+  const command = plan?.command ? `exec ${buildShellCommand(plan.command.binary || sessionInfo?.command || 'solve', plan.command.args)}` : null;
+  const result = await runner.resumeIsolatedSession(decision.identifier, { command, verbose });
   if (!result?.success) {
     const reason = result?.unsupported ? IN_PLACE_SKIP_REASONS.UNSUPPORTED : IN_PLACE_SKIP_REASONS.REFUSED;
     if (verbose) console.log(`[VERBOSE] In-place resume of ${sessionName} was not possible (${reason}): ${result?.error || 'no reason given'}`);
@@ -224,6 +229,24 @@ export async function resumeKilledSessionInPlace({ sessionName, sessionInfo, pla
     resourceLimitReapplyError = reapplied?.success ? null : reapplied?.error || 'unknown error';
     if (resourceLimitReapplyError) console.warn(`[session-kill-resume] Could not re-assert CPU/RAM limits on resumed container ${resumedContainer}: ${resourceLimitReapplyError}`);
     else if (verbose) console.log(`[VERBOSE] In-place resume of ${sessionName}: CPU/RAM limits re-asserted on ${resumedContainer}`);
+  }
+  // A successful `$ --resume` means launch accepted; the shell can still die
+  // immediately. Inspect the replacement, never the killed original's state.
+  if (resumedContainer && typeof runner?.checkResumedDockerStartup === 'function') {
+    const startup = await runner.checkResumedDockerStartup(resumedContainer, { verbose });
+    if (startup?.failed) {
+      let cleanup = { success: false, error: `Retained resume container ${resumedContainer} and snapshot image ${result.snapshotImage || '(none reported)'}.` };
+      if (result.mode === RESUME_MODES.DOCKER_SNAPSHOT && typeof runner?.cleanupFailedResumeSnapshot === 'function') {
+        try {
+          cleanup = await runner.cleanupFailedResumeSnapshot(result, { verbose });
+        } catch (error) {
+          cleanup.error += ` Cleanup failed: ${error?.message || error}`;
+        }
+      }
+      const error = `${startup.error || `Automatic recovery could not start: exit ${startup.exitCode}.`}${cleanup?.success ? '' : ` ${cleanup?.error || 'Resume artifact cleanup failed.'}`}`;
+      console.warn(`[session-kill-resume] ${error}`);
+      return { ...miss(IN_PLACE_SKIP_REASONS.STARTUP_FAILED), error, exitCode: startup.exitCode, snapshotImage: result.snapshotImage || null };
+    }
   }
   // Disk: a snapshot keeps what was written as image layers under a new, empty
   // writable layer, so that usage is carried; `docker-start` keeps the same

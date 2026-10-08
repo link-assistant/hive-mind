@@ -15,7 +15,7 @@ mkdir -p /root/.hive-mind/claude /root/.hive-mind/codex /root/.hive-mind/agents/
 touch -a /root/.hive-mind/claude.json
 
 # Run the container in detached mode with the same mounts we use locally
-docker run -dit --user box --name hive-mind --restart unless-stopped \
+docker run -dit --name hive-mind --restart unless-stopped \
   -v /root/.hive-mind/claude:/home/box/.claude \
   -v /root/.hive-mind/codex:/home/box/.codex \
   -v /root/.hive-mind/agents:/home/box/.agents \
@@ -27,7 +27,7 @@ docker run -dit --user box --name hive-mind --restart unless-stopped \
 docker exec -it hive-mind bash
 
 # Inside the container, authenticate with GitHub
-gh auth login -h github.com -s repo,workflow,user,read:org,gist
+gh-setup-git-identity
 
 # Authenticate with Claude
 claude
@@ -39,7 +39,8 @@ bun install -g @openai/codex@latest
 codex login --device-auth
 
 # Verify Codex after login succeeds with "Successfully logged in"
-codex exec --model gpt-5.4-mini "hi"
+codex_reply="$(codex exec --skip-git-repo-check --model gpt-5.4-mini "reply with only OK")" &&
+  test "$codex_reply" = OK
 
 # Verify Playwright MCP registration in both CLIs
 claude mcp list | grep playwright
@@ -75,6 +76,64 @@ docker run --rm --privileged -it konard/hive-mind-dind:latest bash
 docker info
 docker run hello-world
 ```
+
+Let the image select its configured `box` user; omit `--user` overrides. The entrypoint starts dockerd through its configured sudoers rules. Standard dind requires `--privileged` (or the Sysbox runtime below). Without it, the shell may open while `docker info` fails with `Cannot connect to the Docker daemon at unix:///var/run/docker.sock` or daemon startup times out. Inspect `docker logs hive-mind` and `/var/log/dockerd.log` (`DIND_LOG_FILE` can override this path) before increasing wait times. See the upstream [dind usage guide](https://github.com/link-foundation/box/blob/main/docs/dind/USAGE.md) for runtime requirements.
+
+#### Production setup for dind
+
+For a persistent bot deployment, use the same credential mounts as the plain image. Run these commands on the host; choose a different container name if `hive-mind` already exists. The image uses `fuse-overlayfs` to keep nested image storage efficient. The readiness check waits up to 180 attempts and prints diagnostics on failure.
+
+```bash
+mkdir -p /root/.hive-mind/claude /root/.hive-mind/codex /root/.hive-mind/agents/skills /root/.hive-mind/gh
+touch -a /root/.hive-mind/claude.json
+
+docker run -dit --privileged --name hive-mind --restart unless-stopped \
+  -e DIND_STORAGE_DRIVER=fuse-overlayfs \
+  -e DIND_WAIT_SECONDS=180 \
+  -v /root/.hive-mind/claude:/home/box/.claude \
+  -v /root/.hive-mind/codex:/home/box/.codex \
+  -v /root/.hive-mind/agents:/home/box/.agents \
+  -v /root/.hive-mind/claude.json:/home/box/.claude.json \
+  -v /root/.hive-mind/gh:/home/box/.config/gh \
+  konard/hive-mind-dind:latest bash -l -c 'bash /home/box/start-bot.sh'
+
+ready=0
+for attempt in $(seq 1 180); do
+  if docker exec hive-mind docker info >/dev/null 2>&1; then
+    ready=1
+    break
+  fi
+  sleep 1
+done
+if [ "$ready" -ne 1 ]; then
+  docker logs hive-mind
+  docker exec hive-mind sh -c 'cat "${DIND_LOG_FILE:-/var/log/dockerd.log}"'
+  exit 1
+fi
+docker exec hive-mind docker ps
+
+docker exec -it hive-mind bash
+```
+
+In the shell, follow the Authentication section below: `gh-setup-git-identity`, `claude`, and `codex login --device-auth` work the same way for both images. Configure the Telegram bot as described in the README.
+
+#### Committing dind containers
+
+`docker commit` preserves container environment variables. A setup container started with `DIND_SKIP_DAEMON=1` produces an image that skips dockerd unless you reset it when committing:
+
+```bash
+docker run -d --name hive-mind-setup -e DIND_SKIP_DAEMON=1 \
+  konard/hive-mind-dind:latest sleep infinity
+docker exec -it hive-mind-setup bash
+
+docker commit --change 'ENV DIND_SKIP_DAEMON=0' \
+  hive-mind-setup hive-mind-dind:configured
+docker run -d --privileged --name hive-mind-configured \
+  hive-mind-dind:configured sleep infinity
+docker exec hive-mind-configured docker ps
+```
+
+Perform any setup in the shell, then exit before committing on the host. Prefer persistent credential mounts for authentication: `docker commit` does not include bind-mounted files, and credentials written into the container layer become part of the image. Keep any credential-bearing image private. See the upstream [Commit Cycles](https://github.com/link-foundation/box/blob/main/docs/dind/USAGE.md#commit-cycles) guide.
 
 The image defaults the inner Docker daemon to
 `DIND_STORAGE_DRIVER=fuse-overlayfs`. This is a **copy-on-write** driver, so the
@@ -354,8 +413,10 @@ The production Docker image (`Dockerfile`) extends the pinned full `ghcr.io/link
 
 ```bash
 # Inside the container, AFTER it's running
-gh auth login -h github.com -s repo,workflow,user,read:org,gist
+gh-setup-git-identity
 ```
+
+`gh-setup-git-identity` is installed in both images. It handles GitHub authentication and configures the Git name and email needed for commits.
 
 **Note:** The installation script intentionally does NOT call `gh auth login` during the build process. This is by design to support Docker builds without timeouts.
 
@@ -364,6 +425,13 @@ gh auth login -h github.com -s repo,workflow,user,read:org,gist
 ```bash
 # Inside the container, AFTER it's running
 claude
+```
+
+After authentication, verify an actual model reply:
+
+```bash
+claude_reply="$(claude -p "reply with only OK" --model haiku)" &&
+  test "$claude_reply" = OK
 ```
 
 ### Codex Authentication
@@ -389,8 +457,11 @@ Successfully logged in
 Then run the current smoke test:
 
 ```bash
-codex exec --model gpt-5.4-mini "hi"
+codex_reply="$(codex exec --skip-git-repo-check --model gpt-5.4-mini "reply with only OK")" &&
+  test "$codex_reply" = OK
 ```
+
+Both checks require a successful command and a final reply of exactly `OK`. Login success, CLI availability, and exit code 0 alone do not prove that inference worked: a trust refusal or quota message such as `You've hit your weekly limit` is a failed smoke test. Codex needs `--skip-git-repo-check` here because `/home/box` is not a Git repository. See the [official non-interactive Codex guide](https://learn.chatgpt.com/docs/non-interactive-mode).
 
 This approach allows:
 
@@ -479,7 +550,7 @@ mkdir -p /root/.hive-mind/claude /root/.hive-mind/codex /root/.hive-mind/agents/
 touch -a /root/.hive-mind/claude.json
 
 # Run with persistent mounts
-docker run -dit --user box --name hive-mind --restart unless-stopped \
+docker run -dit --name hive-mind --restart unless-stopped \
   -v /root/.hive-mind/claude:/home/box/.claude \
   -v /root/.hive-mind/codex:/home/box/.codex \
   -v /root/.hive-mind/agents:/home/box/.agents \
@@ -548,7 +619,7 @@ customized; those states need direct MCP startup debugging.
 
 ```bash
 # Start a detached container with persistent auth mounts
-docker run -dit --user box --name hive-worker --restart unless-stopped \
+docker run -dit --name hive-worker --restart unless-stopped \
   -v /root/.hive-mind/claude:/home/box/.claude \
   -v /root/.hive-mind/codex:/home/box/.codex \
   -v /root/.hive-mind/claude.json:/home/box/.claude.json \
@@ -559,7 +630,8 @@ docker run -dit --user box --name hive-worker --restart unless-stopped \
 docker exec -it hive-worker bash
 
 # Inside the container, run your commands
-codex exec --model gpt-5.4-mini "hi"
+codex_reply="$(codex exec --skip-git-repo-check --model gpt-5.4-mini "reply with only OK")" &&
+  test "$codex_reply" = OK
 solve https://github.com/owner/repo/issues/123
 ```
 
@@ -596,7 +668,7 @@ docker-compose run --rm hive-mind
 gh auth status
 
 # Re-authenticate if needed
-gh auth login -h github.com -s repo,workflow,user,read:org,gist
+gh-setup-git-identity
 ```
 
 ### Claude Authentication Issues

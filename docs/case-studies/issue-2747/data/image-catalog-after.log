@@ -1,0 +1,105 @@
+PASS: issue #2247 (H9) task image language pool
+✔ tests/task-image-languages-2247.test.mjs (175.327874ms)
+PASS: issue #2247 (H1) task image refresh, session runtime provenance, and the Hive Mind version floor
+✔ tests/task-runtime-provenance-2247.test.mjs (307.497468ms)
+✔ /fix --ci-cd waits for Codex admission and preserves its CLI when dequeued (105.185859ms)
+✔ /fix --update-all-dependencies waits for Codex admission and preserves its CLI when dequeued (66.521511ms)
+✔ /split joins the tool queue before starting task (60.060057ms)
+[solve_queue] Item solve-1791453851789-n90h04t was not launched (session unknown): launch denied
+[solve_queue] Item failed: solve-1791453851790-84lh8n7 Error: launch denied
+    at executeCallback (file:///tmp/gh-issue-solver-1791450272284/tests/telegram-work-queue-2747.test.mjs:215:27)
+    at SolveQueue.executeItem (file:///tmp/gh-issue-solver-1791450272284/src/telegram-solve-queue.lib.mjs:883:30)
+    at startHead (file:///tmp/gh-issue-solver-1791450272284/tests/telegram-work-queue-2747.test.mjs:69:15)
+    at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791450272284/tests/telegram-work-queue-2747.test.mjs:219:5)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+✔ /organize defers its in-process classifier and keeps its final summary (689.791568ms)
+✔ /fix uses the claude queue after operator overrides (61.675159ms)
+✔ /fix uses the codex queue after operator overrides (26.071312ms)
+✔ /fix uses the agent queue after operator overrides (22.251324ms)
+✔ /fix uses the gemini queue after operator overrides (16.895293ms)
+✔ /fix uses the qwen queue after operator overrides (24.268759ms)
+✔ pending work keeps FIFO precedence even after resources clear (28.087264ms)
+✔ reject strategy refuses /fix without enqueueing or executing (21.571367ms)
+✔ overlapping direct starts reserve one global slot across tools (1.724508ms)
+✔ work queued during an asynchronous admission check takes precedence (0.331818ms)
+✔ queued launch failure settles completion (refusal) (0.775116ms)
+✔ queued launch failure settles completion (exception) (0.880463ms)
+✔ queued organization cancellation releases its repository lock (1.319242ms)
+[telegram-send] s1 safeEditMessageText → chat=100 message=301 thread=400 parse_mode=Markdown chars=120 bytes=124 text="❌ Solve command rejected.\n\nRepository: https://github.com/link-assistant/web-capture\n\n🚫 Reason: Disk threshold exceeded"
+[telegram-send] s1 safeEditMessageText ✓ delivered
+✔ consumer rejection releases a queued organization lock (49.119304ms)
+✔ merge auto-resolve awaits queue admission and uses solve overrides (7.33193ms)
+✔ merge cancellation removes an auto-resolve task still awaiting admission (3.075748ms)
+✔ queue callbacks preserve fix/task commands for screen, tmux and docker (1.520327ms)
+Docker Box migration checks passed
+✔ tests/test-docker-box-migration.mjs (130.941362ms)
+Docker DinD variant checks passed
+✔ tests/test-docker-dind-variant.mjs (199.410457ms)
+Issue #2187 current dependency pin checks passed
+✔ tests/test-issue-2187-current-dependency-pins.mjs (128.719145ms)
+  ✅ PASS: package.json declares an engines.node floor (>=24.0.0)
+  ✅ PASS: Dockerfile: pins current Box 2.10.3 (2.10.3)
+  ✅ PASS: Dockerfile: Node.js pin is current (26.11.1)
+  ✅ PASS: Dockerfile: Bun pin matches Box 2.10.3 (1.4.2)
+  ✅ PASS: Dockerfile: pins an exact Node.js version (26.11.1)
+  ✅ PASS: Dockerfile: pins an exact Bun version (1.4.2)
+  ✅ PASS: Dockerfile: pinned Node.js 26.11.1 satisfies engines.node >= 24
+  ✅ PASS: Dockerfile: repoints the nvm default alias at the pinned version
+  ✅ PASS: Dockerfile: installs the pinned Bun version
+  ✅ PASS: Dockerfile.dind: pins current Box 2.10.3 (2.10.3)
+  ✅ PASS: Dockerfile.dind: Node.js pin is current (26.11.1)
+  ✅ PASS: Dockerfile.dind: Bun pin matches Box 2.10.3 (1.4.2)
+  ✅ PASS: Dockerfile.dind: pins an exact Node.js version (26.11.1)
+  ✅ PASS: Dockerfile.dind: pins an exact Bun version (1.4.2)
+  ✅ PASS: Dockerfile.dind: pinned Node.js 26.11.1 satisfies engines.node >= 24
+  ✅ PASS: Dockerfile.dind: repoints the nvm default alias at the pinned version
+  ✅ PASS: Dockerfile.dind: installs the pinned Bun version
+  ✅ PASS: coolify/Dockerfile: pins current Box 2.10.3 (2.10.3)
+  ✅ PASS: coolify/Dockerfile: Node.js pin is current (26.11.1)
+  ✅ PASS: coolify/Dockerfile: Bun pin matches Box 2.10.3 (1.4.2)
+  ✅ PASS: coolify/Dockerfile: pins an exact Node.js version (26.11.1)
+  ✅ PASS: coolify/Dockerfile: pins an exact Bun version (1.4.2)
+  ✅ PASS: coolify/Dockerfile: pinned Node.js 26.11.1 satisfies engines.node >= 24
+  ✅ PASS: coolify/Dockerfile: repoints the nvm default alias at the pinned version
+  ✅ PASS: coolify/Dockerfile: installs the pinned Bun version
+  ✅ PASS: Dockerfile.dind: pins the same Node.js version as Dockerfile
+  ✅ PASS: Dockerfile.dind: pins the same Bun version as Dockerfile
+  ✅ PASS: coolify/Dockerfile: pins the same Node.js version as Dockerfile
+  ✅ PASS: coolify/Dockerfile: pins the same Bun version as Dockerfile
+  ✅ PASS: Dockerfile: has a superseded-node prune loop
+  ✅ PASS: Dockerfile: prune loop keeps only v26.11.1 (kept: v26.11.1)
+  ✅ PASS: Dockerfile: prune loop is a no-op when only the pinned version is installed
+  ✅ PASS: Dockerfile.dind: has a superseded-node prune loop
+  ✅ PASS: Dockerfile.dind: prune loop keeps only v26.11.1 (kept: v26.11.1)
+  ✅ PASS: Dockerfile.dind: prune loop is a no-op when only the pinned version is installed
+  ✅ PASS: coolify/Dockerfile: has a superseded-node prune loop
+  ✅ PASS: coolify/Dockerfile: prune loop keeps only v26.11.1 (kept: v26.11.1)
+  ✅ PASS: coolify/Dockerfile: prune loop is a no-op when only the pinned version is installed
+  ✅ PASS: Dockerfile: has a global-npm-package scan
+  ✅ PASS: Dockerfile: re-installs inherited globals at their exact versions (got: @playwright/test@1.58.2 @puppeteer/browsers@2.10.10 playwright@1.58.2)
+  ✅ PASS: Dockerfile: does not re-install node's bundled npm/corepack
+  ✅ PASS: Dockerfile: collects nothing when the base has no global packages
+  ✅ PASS: Dockerfile.dind: has a global-npm-package scan
+  ✅ PASS: Dockerfile.dind: re-installs inherited globals at their exact versions (got: @playwright/test@1.58.2 @puppeteer/browsers@2.10.10 playwright@1.58.2)
+  ✅ PASS: Dockerfile.dind: does not re-install node's bundled npm/corepack
+  ✅ PASS: Dockerfile.dind: collects nothing when the base has no global packages
+  ✅ PASS: coolify/Dockerfile: has a global-npm-package scan
+  ✅ PASS: coolify/Dockerfile: re-installs inherited globals at their exact versions (got: @playwright/test@1.58.2 @puppeteer/browsers@2.10.10 playwright@1.58.2)
+  ✅ PASS: coolify/Dockerfile: does not re-install node's bundled npm/corepack
+  ✅ PASS: coolify/Dockerfile: collects nothing when the base has no global packages
+  ✅ PASS: scripts/verify-docker-image.sh MIN_NODE_MAJOR (24) matches engines.node floor (24)
+  ✅ PASS: scripts/verify-docker-image.sh counts installed Node.js versions
+
+============================================================
+Results: 52 passed, 0 failed, 52 total
+============================================================
+✔ tests/test-issue-2187-runtime-versions.mjs (1848.838673ms)
+ℹ tests 26
+ℹ suites 0
+ℹ pass 26
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2675.146673

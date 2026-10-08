@@ -7,7 +7,7 @@
 #
 #   experiments/verify-task-image-hello-world.sh [image]
 set -uo pipefail
-IMAGE="${1:-ghcr.io/link-foundation/box:2.10.2}"
+IMAGE="${1:-ghcr.io/link-foundation/box:2.10.3}"
 echo "Image: $IMAGE"
 echo
 

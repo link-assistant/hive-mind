@@ -11,7 +11,7 @@
 # Defaults to the base image pinned in Dockerfile.
 set -uo pipefail
 
-IMAGE="${1:-ghcr.io/link-foundation/box:2.10.2}"
+IMAGE="${1:-ghcr.io/link-foundation/box:2.10.3}"
 echo "Image: $IMAGE"
 echo
 

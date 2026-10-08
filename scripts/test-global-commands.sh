@@ -44,6 +44,12 @@ timeout 10s solve --help
 echo "'solve' global command works"
 
 echo ""
+echo "Testing 'hive-test' global command..."
+hive-test --version
+hive-test --help
+echo "'hive-test' global command works"
+
+echo ""
 echo "Testing 'configure-claude' global command..."
 timeout 10s configure-claude --help
 CONFIGURE_CLAUDE_TEST_DIR="$(mktemp -d)"

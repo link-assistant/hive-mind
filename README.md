@@ -616,6 +616,29 @@ issue-generation step. They return the created issue URL; reply with
 `--update-all-dependencies` for the dependency issue) to continue through the
 normal solve workflow.
 
+#### `/test` - Manual Testing
+
+```text
+/test https://github.com/owner/repository
+/test owner/repository --tool codex --model gpt-5.5
+/test owner/repository --dry-run
+/test owner/repository --no-solve
+```
+
+`/test` creates a GitHub testing task and launches an agent in the role of
+**tester/user**. It reads all READMEs and documentation, follows every documented
+workflow, and commits `docs/testing/report.md` in a pull request with steps,
+expected and actual results, evidence, and PASS/FAIL/BLOCKED/NOT RUN coverage.
+Failures remain findings for separate fixes. Missing credentials or services are
+reported as blocked, and untested workflows are listed explicitly.
+
+Use `--dry-run` to preview the task without creating an issue or starting an
+agent, or `--no-solve` to create only the task. Agent options are forwarded to
+`solve`; Telegram operator solve overrides and isolation apply. Disable the bot
+command with `--no-test` or `TELEGRAM_TEST=false`. The CLI equivalent is
+`hive-test <github-repository-url> [options]` (GitHub authentication and an
+installed, authenticated AI tool are required to launch the tester).
+
 #### `/organize` - Classify Open Issues
 
 ```text

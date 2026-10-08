@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// start-screen.mjs - Launch solve or hive commands in GNU screen sessions
+// start-screen.mjs - Launch Hive Mind commands in GNU screen sessions
 
 import { exec } from 'child_process';
 import { promisify } from 'util';
@@ -14,7 +14,7 @@ const execAsync = promisify(exec);
 // This ensures consistent URL validation across all commands (hive, solve, start-screen)
 const { parseGitHubUrl } = await import('./github.lib.mjs');
 
-const START_SCREEN_USAGE = ['Usage: start-screen [--auto-terminate] <solve|hive> <github-url> [additional-args...]', '', 'Options:', '  --auto-terminate    Session terminates after command completes', '                      By default, session stays alive for review and reattachment', '', 'Examples:', '  start-screen solve https://github.com/user/repo/issues/123 --dry-run', '  start-screen --auto-terminate solve https://github.com/user/repo/issues/456', '  start-screen hive https://github.com/user/repo --flag value'];
+const START_SCREEN_USAGE = ['Usage: start-screen [--auto-terminate] <solve|hive|hive-test> <github-url> [additional-args...]', '', 'Options:', '  --auto-terminate    Session terminates after command completes', '                      By default, session stays alive for review and reattachment', '', 'Examples:', '  start-screen solve https://github.com/user/repo/issues/123 --dry-run', '  start-screen --auto-terminate solve https://github.com/user/repo/issues/456', '  start-screen hive https://github.com/user/repo --flag value'];
 
 const printUsage = (log = console.error) => {
   for (const line of START_SCREEN_USAGE) {
@@ -43,7 +43,7 @@ const printDeprecationBanner = () => {
 const createStartScreenYargsConfig = yargsInstance =>
   yargsInstance
     .usage(START_SCREEN_USAGE[0])
-    .command('$0 <command> <github-url> [additional-args..]', 'Launch solve or hive in a GNU screen session', yargs =>
+    .command('$0 <command> <github-url> [additional-args..]', 'Launch a Hive Mind command in a GNU screen session', yargs =>
       yargs
         .positional('command', {
           type: 'string',
@@ -100,7 +100,7 @@ const parseStartScreenArgs = args => {
 
 /**
  * Generate a screen session name based on the command and GitHub URL
- * @param {string} command - Either 'solve' or 'hive'
+ * @param {string} command - 'solve', 'hive', or 'hive-test'
  * @param {string} githubUrl - GitHub repository or issue URL
  * @returns {string} The generated screen session name
  */
@@ -205,7 +205,7 @@ async function waitForSessionReady(sessionName, maxWaitSeconds = 5) {
 /**
  * Create or enter a screen session with the given command
  * @param {string} sessionName - The name of the screen session
- * @param {string} command - The command to run ('solve' or 'hive')
+ * @param {string} command - The command to run ('solve', 'hive', or 'hive-test')
  * @param {string[]} args - Arguments to pass to the command
  * @param {boolean} autoTerminate - If true, session terminates after command completes
  */
@@ -328,7 +328,7 @@ async function main() {
   // Check for various dash characters in first argument (em-dash \u2014, en-dash \u2013, etc.)
   if (args[0] && /^[\u2010\u2011\u2012\u2013\u2014]/.test(args[0])) {
     console.error(`Unknown option: ${args[0]}`);
-    console.error('Usage: start-screen [--auto-terminate] <solve|hive> <github-url> [additional-args...]');
+    console.error('Usage: start-screen [--auto-terminate] <solve|hive|hive-test> <github-url> [additional-args...]');
     console.error('Note: Use regular hyphens (--) not em-dashes or en-dashes.');
     process.exit(1);
   }
@@ -338,13 +338,13 @@ async function main() {
 
     if (args.length < 3) {
       console.error('Error: --auto-terminate requires a command and GitHub URL');
-      console.error('Usage: start-screen [--auto-terminate] <solve|hive> <github-url> [additional-args...]');
+      console.error('Usage: start-screen [--auto-terminate] <solve|hive|hive-test> <github-url> [additional-args...]');
       process.exit(1);
     }
   } else if (args[0] && args[0].startsWith('-') && args[0] !== '--help' && args[0] !== '-h') {
     // First arg is an unrecognized option
     console.error(`Unknown option: ${args[0]}`);
-    console.error('Usage: start-screen [--auto-terminate] <solve|hive> <github-url> [additional-args...]');
+    console.error('Usage: start-screen [--auto-terminate] <solve|hive|hive-test> <github-url> [additional-args...]');
     process.exit(1);
   }
 
@@ -355,8 +355,8 @@ async function main() {
     const hasInvalidDash = /^[\u2010\u2011\u2012\u2013\u2014]/.test(firstArg);
     if (hasInvalidDash || (firstArg.startsWith('-') && firstArg !== '--help' && firstArg !== '-h')) {
       console.error(`Unknown option: ${firstArg}`);
-      console.error('Usage: start-screen [--auto-terminate] <solve|hive> <github-url> [additional-args...]');
-      console.error('Expected command to be "solve" or "hive", not an option.');
+      console.error('Usage: start-screen [--auto-terminate] <solve|hive|hive-test> <github-url> [additional-args...]');
+      console.error('Expected command to be "solve", "hive", or "hive-test".');
       process.exit(1);
     }
   }
@@ -364,8 +364,8 @@ async function main() {
   const { autoTerminate, command, githubUrl, commandArgs } = parseStartScreenArgs(args);
 
   // Validate command
-  if (command !== 'solve' && command !== 'hive') {
-    console.error(`Error: Invalid command '${command}'. Must be 'solve' or 'hive'.`);
+  if (!['solve', 'hive', 'hive-test'].includes(command)) {
+    console.error(`Error: Invalid command '${command}'. Must be 'solve', 'hive', or 'hive-test'.`);
     process.exit(1);
   }
 

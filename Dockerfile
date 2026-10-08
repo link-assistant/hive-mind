@@ -155,7 +155,7 @@ SHELL ["/bin/bash", "-c"]
 # pointing at browsers the image does not have), then every other version
 # directory is removed. `.node-bin`, `nvm use default` and a bare `node` then
 # all resolve to the same, newest runtime (issue #2187, item A).
-ARG HIVE_MIND_NODE_VERSION=26.11.0
+ARG HIVE_MIND_NODE_VERSION=26.11.1
 ARG HIVE_MIND_BUN_VERSION=1.4.2
 RUN set -e && \
     . "$NVM_DIR/nvm.sh" && \

@@ -70,6 +70,7 @@ const solveEnabled = config.solve;
 const hiveEnabled = config.hive;
 const taskEnabled = config.task;
 const fixEnabled = config.fix;
+const testEnabled = config.test;
 const organizeEnabled = config.organize;
 const authEnabled = config.auth;
 // Isolation mode (experimental): uses `$` from start-command with specified backend
@@ -149,7 +150,7 @@ if (config.dryRun) {
   if (allowedTopics && allowedTopics.length > 0) {
     console.log('  Allowed topics:', lino.formatLinks(allowedTopics));
   }
-  console.log('  Commands enabled:', { solve: solveEnabled, hive: hiveEnabled, task: taskEnabled, fix: fixEnabled, organize: organizeEnabled, auth: authEnabled });
+  console.log('  Commands enabled:', { solve: solveEnabled, hive: hiveEnabled, task: taskEnabled, fix: fixEnabled, test: testEnabled, organize: organizeEnabled, auth: authEnabled });
   if (solveOverrides.length > 0) {
     console.log('  Solve overrides:', lino.format(solveOverrides));
   }
@@ -314,6 +315,7 @@ bot.command('help', async ctx => {
     solveEnabled,
     taskEnabled,
     fixEnabled,
+    testEnabled,
     organizeEnabled,
     hiveEnabled,
     solveOverrides,
@@ -418,6 +420,8 @@ const { registerTaskCommands } = await import('./telegram-task-command.lib.mjs')
 const { handleTaskCommand, TASK_COMMAND_NAMES } = registerTaskCommands(bot, { ...sharedCommandOpts, taskEnabled, safeReply, executeAndUpdateMessage, resolveLocale: resolveLocaleFromTelegramCtx });
 const { registerFixCommand } = await import('./telegram-fix-command.lib.mjs');
 const { handleFixCommand, FIX_COMMAND_NAMES } = registerFixCommand(bot, { ...sharedCommandOpts, fixEnabled, safeReply, executeAndUpdateMessage, resolveLocale: resolveLocaleFromTelegramCtx, solveOverrides });
+const { registerTestCommand } = await import('./telegram-test-command.lib.mjs');
+const { handleTestCommand } = registerTestCommand(bot, { ...sharedCommandOpts, testEnabled, safeReply, executeAndUpdateMessage, resolveLocale: resolveLocaleFromTelegramCtx, solveOverrides });
 const { registerOrganizeCommand } = await import('./telegram-organize-command.lib.mjs');
 const { handleOrganizeCommand, ORGANIZE_COMMAND_NAMES } = registerOrganizeCommand(bot, {
   ...sharedCommandOpts,
@@ -987,7 +991,7 @@ bot.on('message', async (ctx, next) => {
   const taskHandlers = Object.fromEntries(TASK_COMMAND_NAMES.map(command => [command, handleTaskCommand]));
   const fixHandlers = Object.fromEntries(FIX_COMMAND_NAMES.map(command => [command, handleFixCommand]));
   const organizeHandlers = Object.fromEntries(ORGANIZE_COMMAND_NAMES.map(command => [command, handleOrganizeCommand]));
-  const handlers = { ...solveHandlers, ...taskHandlers, ...fixHandlers, ...organizeHandlers, auth: handleAuthCommand, hive: handleHiveCommand, merge: handleMergeCommand, queue: handleSolveQueueCommand, models: handleModelsCommand, stop: handleStopCommand };
+  const handlers = { ...solveHandlers, ...taskHandlers, ...fixHandlers, ...organizeHandlers, test: handleTestCommand, auth: handleAuthCommand, hive: handleHiveCommand, merge: handleMergeCommand, queue: handleSolveQueueCommand, models: handleModelsCommand, stop: handleStopCommand };
 
   const handler = handlers[extracted.command];
   if (!handler) return next();
@@ -1099,7 +1103,7 @@ if (allowedChats && allowedChats.length > 0) {
 if (allowedTopics && allowedTopics.length > 0) {
   console.log('Allowed topics (lino):', lino.formatLinks(allowedTopics));
 }
-console.log('Commands enabled:', { solve: solveEnabled, hive: hiveEnabled, task: taskEnabled, fix: fixEnabled, organize: organizeEnabled, auth: authEnabled });
+console.log('Commands enabled:', { solve: solveEnabled, hive: hiveEnabled, task: taskEnabled, fix: fixEnabled, test: testEnabled, organize: organizeEnabled, auth: authEnabled });
 if (solveOverrides.length > 0) console.log('Solve overrides (lino):', lino.format(solveOverrides));
 if (hiveOverrides.length > 0) console.log('Hive overrides (lino):', lino.format(hiveOverrides));
 if (VERBOSE) {

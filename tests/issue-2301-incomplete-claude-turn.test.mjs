@@ -102,7 +102,8 @@ test('a recovery session surviving a later OOM does not claim another replacemen
 });
 
 test('Docker task memory is capped by default and remains configurable', () => {
-  assert.equal(resolveTelegramContainerResourceLimits({}, 'docker').limits.memory, '25%');
+  // Issue #2803 replaced the fixed 25% cap with a per-task random 90%-100%.
+  assert.equal(resolveTelegramContainerResourceLimits({}, 'docker').limits.memory, '90%-100%');
   assert.equal(resolveTelegramContainerResourceLimits({ containerMemory: '4GiB' }, 'docker').limits.memory, '4GiB');
   assert.equal(resolveTelegramContainerResourceLimits({}, 'screen').limits.memory, null);
 });

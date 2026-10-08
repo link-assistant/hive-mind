@@ -278,22 +278,33 @@ with `HIVE_MIND_KEEP_TASK_CONTAINER=always|on-failure|never` (default:
 
 #### Docker task resource limits
 
-Telegram-launched Docker tasks have a default memory cap of 25% of host RAM.
-CPU and disk limits are optional; override the memory cap as needed:
+Telegram-launched Docker tasks have a default memory cap picked at random
+between 90% and 100% of host RAM for each task, and a task restarted after an
+out-of-memory kill gets a random cap between 70% and 80%. The spread means tasks
+started together do not all reach their limit at the same moment, and the
+restarted task is the first to give way if memory runs short again
+([issue #2803](https://github.com/link-assistant/hive-mind/issues/2803)).
+CPU and disk limits are optional; override the memory caps as needed:
 
 ```bash
 hive-telegram-bot --isolation docker \
   --container-cpu 50% \
   --container-memory 2GiB \
+  --container-memory-after-oom 1GiB \
   --container-disk 20GB
 ```
 
 The equivalent environment variables are `TELEGRAM_CONTAINER_CPU`,
-`TELEGRAM_CONTAINER_MEMORY`, and `TELEGRAM_CONTAINER_DISK`. A CPU value is a
+`TELEGRAM_CONTAINER_MEMORY`, `TELEGRAM_CONTAINER_MEMORY_AFTER_OOM`, and
+`TELEGRAM_CONTAINER_DISK`. A CPU value is a
 fixed core count such as `1.5`, or a percentage of the host's logical CPUs.
 Memory and disk accept decimal units (`MB`, `GB`, `TB`), binary units (`MiB`,
 `GiB`, `TiB`), or percentages. Memory percentages use total host RAM; disk
-percentages use the space available on the filesystem at task launch.
+percentages use the space available on the filesystem at task launch. A
+percentage may also be a range such as `90%-100%`; each launch picks its own
+value inside it. The post-OOM memory cap defaults to `70%-80%` only while
+`--container-memory` is unset (an explicit memory cap is never raised by it);
+set it to `off` to restart OOM-killed tasks with their normal cap.
 
 No limit is inferred: omitting a setting preserves the existing unlimited
 behavior. Docker applies CPU and RAM limits while the task is held behind its

@@ -33,6 +33,7 @@ import { sessionStartMs } from './session-monitor.stale-executing.lib.mjs';
 // Issue #2134: kill-cause diagnostics + the matching pull-request notice.
 import { buildKillCompletionSections, announceKillOnPullRequest, hasContainerOomEvidence, startedPullRequestUrl } from './session-monitor.kill-sections.lib.mjs';
 import { runKillRecoveryForCompletion } from './session-kill-resume.lib.mjs';
+import { KILL_CAUSE_OUT_OF_MEMORY } from './session-kill-diagnostics.lib.mjs';
 import { resolveSolveSessionInfo } from './fix-handoff.lib.mjs';
 // Issue #2189: the handled latch + the memoized last-tool-session-id read that keep a completed session from replaying its whole completion pipeline on every poll.
 import { isCompletionHandled, markCompletionHandled, resolveCachedLastToolSessionId } from './session-completion-state.lib.mjs';
@@ -919,6 +920,8 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
           sessionInfo,
           logPath: statusResult?.logPath || sessionInfo?.logPath || null,
           killed: true,
+          // Issue #2803: an OOM kill restarts under the lower post-OOM RAM limit.
+          outOfMemory: killReport.oomEventOnly || Boolean(killReport.observedAt) || killReport.diagnosis?.cause === KILL_CAUSE_OUT_OF_MEMORY,
           env: options.env || process.env,
           runner: options.isolationRunner || null,
           trackSession: options.trackSession || trackSession,
@@ -940,7 +943,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
           // a second recovery for the same kill.
           sessionInfo.killRecoverySessionId = killRecovery.sessionId;
           persistSessionSnapshot(sessionName, sessionInfo);
-          logEvent('session_kill_recovery_launched', { sessionName, recoverySessionId: killRecovery.sessionId, attempt: killRecovery.attempt, maxAttempts: killRecovery.maxAttempts, policy: killRecovery.policy || null });
+          logEvent('session_kill_recovery_launched', { sessionName, recoverySessionId: killRecovery.sessionId, attempt: killRecovery.attempt, maxAttempts: killRecovery.maxAttempts, policy: killRecovery.policy || null, memoryLimitBytes: killRecovery.memoryLimitBytes ?? null, memoryLimitLowered: killRecovery.memoryLimitLowered === true });
         }
         if (recovered.section) killReport.sections.push(recovered.section);
       }

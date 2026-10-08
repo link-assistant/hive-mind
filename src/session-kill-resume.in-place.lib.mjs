@@ -164,10 +164,12 @@ export function planSameContainerResume({ sessionName = null, sessionInfo = {}, 
  * @param {Object} options.sessionInfo - Persisted session info
  * @param {Object} options.plan - Result of planKillRecovery() (needs `command.shell`)
  * @param {Object} options.runner - Isolation runner module
+ * @param {Object|null} [options.resourceLimits] - Requested limits for the resumed container; defaults to the session's own
+ * @param {boolean} [options.resourceLimitsChanged] - True when `resourceLimits` differ from what the container has (issue #2803)
  * @param {boolean} [options.verbose]
- * @returns {Promise<{resumed: boolean, reason: string, sessionId: string|null, executionUuid: string|null, mode: string|null, snapshotImage: string|null, containerFilesystemInheritedBytes: number|null, resourceLimitReapplyError: string|null}>}
+ * @returns {Promise<{resumed: boolean, reason: string, sessionId: string|null, executionUuid: string|null, mode: string|null, snapshotImage: string|null, containerFilesystemInheritedBytes: number|null, resourceLimitReapplyError: string|null, containerResourceLimits: Object|null}>}
  */
-export async function resumeKilledSessionInPlace({ sessionName, sessionInfo, plan, runner, verbose = false } = {}) {
+export async function resumeKilledSessionInPlace({ sessionName, sessionInfo, plan, runner, resourceLimits = null, resourceLimitsChanged = false, verbose = false } = {}) {
   const limited = hasSessionContainerResourceLimits(sessionInfo);
   let startCommandVersion = null;
   if (limited && typeof runner?.getStartCommandVersion === 'function') {
@@ -179,7 +181,7 @@ export async function resumeKilledSessionInPlace({ sessionName, sessionInfo, pla
   }
   const resumeKeepsResourceLimits = limited && startCommandResumeKeepsResourceLimits(startCommandVersion);
   const decision = planSameContainerResume({ sessionName, sessionInfo, resumeKeepsResourceLimits });
-  const miss = reason => ({ resumed: false, reason, sessionId: null, executionUuid: decision.identifier, mode: null, snapshotImage: null, containerFilesystemInheritedBytes: null, resourceLimitReapplyError: null });
+  const miss = reason => ({ resumed: false, reason, sessionId: null, executionUuid: decision.identifier, mode: null, snapshotImage: null, containerFilesystemInheritedBytes: null, resourceLimitReapplyError: null, containerResourceLimits: null });
   if (verbose && limited) {
     console.log(`[VERBOSE] In-place resume of ${sessionName}: resource-limited session, $ version ${startCommandVersion || '(unknown)'} → ${decision.eligible ? 'eligible' : `skipped (${decision.reason})`}`);
   }
@@ -216,15 +218,18 @@ export async function resumeKilledSessionInPlace({ sessionName, sessionInfo, pla
   // after the existence check — has no HostConfig to copy at all). Re-assert
   // CPU/RAM so a silent miss upstream can never leave the recovery running
   // unbounded. A `docker-start` resume restarts the same container, whose
-  // HostConfig (with the `docker update` limits) Docker keeps.
+  // HostConfig (with the `docker update` limits) Docker keeps — unless the
+  // limits themselves change, as the RAM limit does after an OOM kill (#2803).
   let resourceLimitReapplyError = null;
+  let containerResourceLimits = null;
   const resumedContainer = result.sessionName || decision.containerName;
-  if (limited && result.mode !== RESUME_MODES.DOCKER_START && resumedContainer && typeof runner?.applyDockerContainerResourceLimits === 'function') {
-    const requested = sessionInfo?.containerResourceLimits?.requested || {};
-    const reapplied = await runner.applyDockerContainerResourceLimits(resumedContainer, requested);
+  if (limited && (result.mode !== RESUME_MODES.DOCKER_START || resourceLimitsChanged) && resumedContainer && typeof runner?.applyDockerContainerResourceLimits === 'function') {
+    const requested = resourceLimits || sessionInfo?.containerResourceLimits?.requested || {};
+    const reapplied = await runner.applyDockerContainerResourceLimits(resumedContainer, requested, { verbose });
     resourceLimitReapplyError = reapplied?.success ? null : reapplied?.error || 'unknown error';
-    if (resourceLimitReapplyError) console.warn(`[session-kill-resume] Could not re-assert CPU/RAM limits on resumed container ${resumedContainer}: ${resourceLimitReapplyError}`);
-    else if (verbose) console.log(`[VERBOSE] In-place resume of ${sessionName}: CPU/RAM limits re-asserted on ${resumedContainer}`);
+    if (reapplied?.success) containerResourceLimits = reapplied.resolved || null;
+    if (resourceLimitReapplyError) console.warn(`[session-kill-resume] Could not ${resourceLimitsChanged ? 'apply the post-OOM' : 're-assert'} CPU/RAM limits on resumed container ${resumedContainer}: ${resourceLimitReapplyError}`);
+    else if (verbose) console.log(`[VERBOSE] In-place resume of ${sessionName}: CPU/RAM limits ${resourceLimitsChanged ? 'changed' : 're-asserted'} on ${resumedContainer} (memoryBytes=${reapplied?.resolved?.memoryBytes ?? 'unlimited'})`);
   }
   // Disk: a snapshot keeps what was written as image layers under a new, empty
   // writable layer, so that usage is carried; `docker-start` keeps the same
@@ -243,5 +248,6 @@ export async function resumeKilledSessionInPlace({ sessionName, sessionInfo, pla
     snapshotImage: result.snapshotImage || null,
     containerFilesystemInheritedBytes,
     resourceLimitReapplyError,
+    containerResourceLimits,
   };
 }

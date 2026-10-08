@@ -27,6 +27,7 @@ import { argvFromSessionArgs } from './session-monitor.kill-sections.lib.mjs';
 import { formatKillResumeSection } from './session-kill-diagnostics.lib.mjs';
 import { resumeKilledSessionInPlace } from './session-kill-resume.in-place.lib.mjs';
 import { readFixHandoffFromLog, resolveSolveSessionInfo } from './fix-handoff.lib.mjs';
+import { selectRecoveryContainerResourceLimits } from './container-resource-limits.lib.mjs';
 
 /** Field recording how many automatic recovery sessions this session produced. */
 export const KILL_RESUME_ATTEMPTS_FIELD = 'killRecoveryAttempts';
@@ -112,10 +113,11 @@ export function collectPreviousExecutionUuids(sessionInfo, nextExecutionUuid) {
  * @param {Object} [options.env] - Source of `HIVE_MIND_SESSION_KILL_RESUME_DELAY`
  * @param {Function} [options.sleep] - Waits the random pre-launch delay (issue #2498)
  * @param {Function} [options.random] - Test seam for the delay
+ * @param {boolean} [options.outOfMemory] - The session was killed by (or during) an out-of-memory event (issue #2803)
  * @param {boolean} [options.verbose]
  * @returns {Promise<{resumed: boolean, reason: string, sessionId: string|null, display: string|null, inPlace: boolean, delayMs: number}>}
  */
-export async function startKillRecoverySession({ sessionName, sessionInfo, plan, runner, trackSession, persistSnapshot = null, env = process.env, sleep = sleepBeforeRecovery, random, onLifecycle = async () => {}, verbose = false } = {}) {
+export async function startKillRecoverySession({ sessionName, sessionInfo, plan, runner, trackSession, persistSnapshot = null, env = process.env, sleep = sleepBeforeRecovery, random, onLifecycle = async () => {}, outOfMemory = false, verbose = false } = {}) {
   let delayMs = 0;
   const notify = async event => {
     try {
@@ -154,17 +156,22 @@ export async function startKillRecoverySession({ sessionName, sessionInfo, plan,
           .then(stat => stat.size)
           .catch(() => null)
       : null;
-    const inPlace = await resumeKilledSessionInPlace({ sessionName, sessionInfo, plan, runner, verbose });
+    // Issue #2803: after an out-of-memory kill the recovery runs under the
+    // lower `memoryAfterOom` RAM limit, so it is the first to give way if
+    // memory runs short again.
+    const recoveryLimits = selectRecoveryContainerResourceLimits(sessionInfo?.containerResourceLimits?.requested || null, { outOfMemory });
+    if (verbose) console.log(`[VERBOSE] Session ${sessionName}: recovery RAM limit ${recoveryLimits.limits?.memory || 'unlimited'} (${recoveryLimits.changed ? 'post-OOM limit' : outOfMemory ? 'no post-OOM limit configured' : 'not an OOM kill'})`);
+    const inPlace = await resumeKilledSessionInPlace({ sessionName, sessionInfo, plan, runner, resourceLimits: recoveryLimits.limits, resourceLimitsChanged: recoveryLimits.changed, verbose });
     let newSessionId = inPlace.sessionId;
     let executionUuid = inPlace.executionUuid;
     let logPath = inPlace.resumed ? sessionInfo?.logPath || null : null;
     let containerFilesystemStartBytes = null;
-    let containerResourceLimits = sessionInfo?.containerResourceLimits || null;
+    let containerResourceLimits = inPlace.containerResourceLimits || sessionInfo?.containerResourceLimits || null;
 
     if (!inPlace.resumed) {
       newSessionId = runner.generateSessionId();
       const tool = sessionInfo?.tool || 'claude';
-      const result = await runner.executeWithIsolation(plan.command.command || sessionInfo?.command || 'solve', plan.command.args, { backend, sessionId: newSessionId, tool, verbose, containerResourceLimits: sessionInfo?.containerResourceLimits?.requested || null });
+      const result = await runner.executeWithIsolation(plan.command.command || sessionInfo?.command || 'solve', plan.command.args, { backend, sessionId: newSessionId, tool, verbose, containerResourceLimits: recoveryLimits.limits });
       if (!result?.success) return fail('start-failed');
       executionUuid = result.executionUuid || null;
       logPath = result.logPath || null;
@@ -242,7 +249,7 @@ export async function startKillRecoverySession({ sessionName, sessionInfo, plan,
       console.log(`[VERBOSE] Session ${sessionName} was killed; recovery session ${newSessionId} ${how} (attempt ${plan.attempt}/${plan.maxAttempts}): ${plan.command.display}`);
     }
     await notify({ phase: 'launching', stage: 'accepted', attempt: plan.attempt, nextSession: newSessionId, executionUuid });
-    return { resumed: true, reason: inPlace.resumed ? inPlace.reason : 'started', sessionId: newSessionId, display: plan.command.display, inPlace: inPlace.resumed, delayMs };
+    return { resumed: true, reason: inPlace.resumed ? inPlace.reason : 'started', sessionId: newSessionId, display: plan.command.display, inPlace: inPlace.resumed, delayMs, memoryLimitBytes: Number.isFinite(containerResourceLimits?.memoryBytes) ? containerResourceLimits.memoryBytes : null, memoryLimitLowered: recoveryLimits.changed };
   } catch (error) {
     if (verbose) {
       console.log(`[VERBOSE] Could not start recovery session for ${sessionName}: ${error?.message || error}`);
@@ -258,7 +265,7 @@ export async function startKillRecoverySession({ sessionName, sessionInfo, plan,
  * @param {Object} options - See planKillRecovery() and startKillRecoverySession()
  * @returns {Promise<{resumed: boolean, reason: string, policy: string, sessionId: string|null, display: string|null, attempt: number, maxAttempts: number, inPlace: boolean}>}
  */
-export async function recoverKilledSession({ sessionName, sessionInfo, logPath = null, killed = false, env = process.env, runner = null, trackSession = null, persistSnapshot = null, sleep = sleepBeforeRecovery, random, onLifecycle, verbose = false, readLastSessionId = readLastSessionIdFromLog, readHandoff = readFixHandoffFromLog } = {}) {
+export async function recoverKilledSession({ sessionName, sessionInfo, logPath = null, killed = false, outOfMemory = false, env = process.env, runner = null, trackSession = null, persistSnapshot = null, sleep = sleepBeforeRecovery, random, onLifecycle, verbose = false, readLastSessionId = readLastSessionIdFromLog, readHandoff = readFixHandoffFromLog } = {}) {
   // Issue #2408: one kill gets one recovery. A completion that runs again for
   // the same session (an overlapping monitor tick, a bot restart between the
   // launch and the completion latch) must report the session already started,
@@ -283,8 +290,8 @@ export async function recoverKilledSession({ sessionName, sessionInfo, logPath =
     return { resumed: false, reason: plan.reason, policy: plan.policy, sessionId: null, display: plan.command?.display || null, attempt: plan.attempt, maxAttempts: plan.maxAttempts, inPlace: false };
   }
 
-  const started = await startKillRecoverySession({ sessionName, sessionInfo, plan, runner, trackSession, persistSnapshot, env, sleep, random, onLifecycle, verbose });
-  return { resumed: started.resumed, reason: started.reason, policy: plan.policy, sessionId: started.sessionId, display: started.display, attempt: plan.attempt, maxAttempts: plan.maxAttempts, inPlace: started.inPlace === true };
+  const started = await startKillRecoverySession({ sessionName, sessionInfo, plan, runner, trackSession, persistSnapshot, env, sleep, random, onLifecycle, outOfMemory, verbose });
+  return { resumed: started.resumed, reason: started.reason, policy: plan.policy, sessionId: started.sessionId, display: started.display, attempt: plan.attempt, maxAttempts: plan.maxAttempts, inPlace: started.inPlace === true, memoryLimitBytes: started.memoryLimitBytes ?? null, memoryLimitLowered: started.memoryLimitLowered === true };
 }
 
 /**

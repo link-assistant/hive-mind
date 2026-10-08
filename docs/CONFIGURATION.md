@@ -287,7 +287,8 @@ pull request target is not mergeable yet, the merge queue waits up to
 | `TELEGRAM_AUTH`                            | true       | Enable experimental private /auth command for allowlisted chat owners                    |
 | `TELEGRAM_AUTO_START_SCREEN_WATCH_MESSAGE` | false      | Auto-start a separate live terminal watch message for public /solve sessions             |
 | `TELEGRAM_CONTAINER_CPU`                   | (none)     | Docker task CPU limit as fixed cores (`1.5`) or host percentage (`50%`)                  |
-| `TELEGRAM_CONTAINER_MEMORY`                | 25%        | Docker task RAM limit as a size (`2GiB`) or host percentage (`25%`)                      |
+| `TELEGRAM_CONTAINER_MEMORY`                | 90%-100%   | Docker task RAM limit as a size (`2GiB`), host percentage (`50%`) or random range        |
+| `TELEGRAM_CONTAINER_MEMORY_AFTER_OOM`      | 70%-80%    | Docker task RAM limit after an OOM kill; `off` keeps the normal limit                    |
 | `TELEGRAM_CONTAINER_DISK`                  | (none)     | Docker task writable-layer limit as a size (`20GB`) or available-disk percentage (`10%`) |
 | `TELEGRAM_BOT_VERBOSE`                     | false      | Enable verbose logging                                                                   |
 | `TELEGRAM_CONFIGURATION`                   | (none)     | LINO configuration string                                                                |
@@ -684,7 +685,8 @@ hive-telegram-bot [options]
 | `--auto-start-screen-watch-message` |       | boolean | false      | Experimental: auto-start a separate `/terminal_watch` message for public `/solve` sessions. Private or unknown-visibility repositories never auto-start watch messages.                                     |
 | `--isolation`                       |       | string  | `docker`   | Isolation backend (`screen`, `tmux`, `docker`). Default `docker` runs Telegram-bot work sessions in Docker isolation with success cleanup. Pass `--isolation ''` (or set `TELEGRAM_ISOLATION=`) to opt out. |
 | `--container-cpu`                   |       | string  |            | Docker task CPU limit as fixed cores (`1.5`) or a host percentage (`50%`).                                                                                                                                  |
-| `--container-memory`                |       | string  |            | Docker task RAM limit as a fixed size (`2GiB`) or a host percentage (`25%`).                                                                                                                                |
+| `--container-memory`                |       | string  |            | Docker task RAM limit as a fixed size (`2GiB`), a host percentage (`50%`), or a range picked at random per task (default `90%-100%`).                                                                       |
+| `--container-memory-after-oom`      |       | string  |            | RAM limit for a task restarted after an OOM kill, same format (default `70%-80%` while `--container-memory` is unset; `off` keeps the normal limit).                                                        |
 | `--container-disk`                  |       | string  |            | Docker task writable-layer limit as a fixed size (`20GB`) or an available-filesystem percentage (`10%`).                                                                                                    |
 
 When `/solve` is enabled, the Telegram bot also accepts `/do` and `/continue`

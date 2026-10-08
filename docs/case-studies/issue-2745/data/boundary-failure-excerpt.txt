@@ -1,0 +1,13 @@
+Captured excerpt from the first full default-suite run, before extracting the final-message reader:
+
+[39/579] tests/extracted-modules-2198.test.mjs
+AssertionError [ERR_ASSERTION]: no file exceeds the 1350-line warning threshold (see scripts/check-file-line-limits.sh)
++ actual - expected
++ [ [ 'src/codex.lib.mjs', 1362 ] ]
+- []
+    at tests/extracted-modules-2198.test.mjs:48:10
+Node.js v26.11.0
+Failed test files:
+  - tests/extracted-modules-2198.test.mjs (exit 1)
+
+The final production file has 1350 lines. The focused boundary regression and subsequent complete suite verify the extraction.

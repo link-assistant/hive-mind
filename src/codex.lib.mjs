@@ -33,6 +33,9 @@ import { createToolCallLoopGuard, resolveRepeatedToolCallLimit } from './tool-ca
 import { mapModelToId, resolveCodexReasoningEffort } from './codex.options.lib.mjs';
 import { resolveRuntimeCodexReasoningEffort } from './codex.reasoning.lib.mjs';
 import { buildCodexRunDiagnostics, codexRunAlreadyFailed, describeCodexLastMessageOutcome } from './codex.run-diagnostics.lib.mjs'; // Issue #2130
+import { buildCodexMemoryBudgetPrompt, buildCodexProcessFailure, findCodexStderrError, normalizeCodexExit } from './codex.process-exit.lib.mjs';
+import { readCgroupMemory } from './solve.resource-diagnostics.lib.mjs';
+import { readCodexLastMessage } from './codex.last-message.lib.mjs';
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
 import { initProgressMonitoring } from './solve.progress-monitoring.lib.mjs';
 import { ensureCodexPlaywrightMcpServer, getCodexPlaywrightMcpDisableConfigArgs } from './playwright-mcp.lib.mjs';
@@ -55,15 +58,10 @@ import Decimal from 'decimal.js-light';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
 import { CODEX_CACHE_READ_USAGE_PATHS, CODEX_CACHE_WRITE_USAGE_PATHS, CODEX_MODEL_DIAGNOSTIC_PATHS, CODEX_REASONING_USAGE_PATHS, CODEX_USAGE_FIELD_NAMES, createCodexTokenFieldAvailability, getFirstObservedNumber, hasAnyObservedPath, hasOwnPath } from './codex.usage-fields.lib.mjs';
 const CODEX_LONG_CONTEXT_PRICE_THRESHOLD = 272000;
-// Issue #2189: ceiling for reading Codex's `--output-last-message` artifact. A
-// final assistant message is a few hundred kilobytes at most; anything larger is
-// a malfunction and must not be turned into an unbounded string.
-const CODEX_LAST_MESSAGE_MAX_BYTES = 1024 * 1024;
 const getCodexExecEnv = (verbose = false) => (verbose ? { ...process.env, RUST_LOG: 'debug' } : { ...process.env });
 // Issue #2175: diagnostic-line parsing lives in its own module to keep this file
 // under the 1350-line warning threshold.
 import { parseCodexDiagnosticLine, rebuildCodexSubSessionsFromCompactifications } from './codex.diagnostics.lib.mjs';
-import { readLogHeadText } from './log-bounded-read.lib.mjs'; // Issue #2189
 export const createCodexTokenUsage = requestedModelId => ({
   inputTokens: 0,
   outputTokens: 0,
@@ -619,6 +617,7 @@ export const executeCodex = async params => {
 };
 
 export const executeCodexCommand = async params => {
+  const getCgroupMemory = params.readCgroupMemory || readCgroupMemory;
   const { tempDir, branchName, prompt, systemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, codexPath, $, owner, repo, prNumber, capabilityPreflight, calculatePricing = calculateCodexPricing, waitForRetryDelay = waitWithCountdown, verifyCapabilityExecutionCatalog = verifyCodexCapabilityExecutionCatalog } = params;
   const shellQuote = value => `"${String(value).replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
   const expectedBaseBranch = String(argv?.baseBranch || '').trim();
@@ -693,7 +692,9 @@ export const executeCodexCommand = async params => {
     // For Codex, we combine system and user prompts into a single message
     // Codex doesn't have separate system prompt support in CLI mode
     const promptForAttempt = baseBranchInterventionPrompt ? `${prompt}\n\n${baseBranchInterventionPrompt}\n` : prompt;
-    const combinedPrompt = systemPrompt ? `${systemPrompt}\n\n${promptForAttempt}` : promptForAttempt;
+    const cgroupBefore = getCgroupMemory();
+    await log(`📈 Codex cgroup memory before execution: ${JSON.stringify(cgroupBefore)}`, { verbose: true });
+    const combinedPrompt = [systemPrompt, promptForAttempt, buildCodexMemoryBudgetPrompt(cgroupBefore)].filter(Boolean).join('\n\n');
     // Write the combined prompt to a file for stdin redirection
     // Use OS temporary directory instead of repository workspace to avoid polluting the repo
     const promptFile = path.join(os.tmpdir(), `codex_prompt_${Date.now()}_${process.pid}.txt`);
@@ -834,6 +835,8 @@ export const executeCodexCommand = async params => {
       }
       await log(`\n${formatAligned('▶️', 'Streaming output:', '')}\n`);
       let exitCode = 0;
+      let signal = null;
+      let stderrError = null;
       let sessionId = null;
       let limitReached = false;
       let limitResetTime = null;
@@ -930,19 +933,23 @@ export const executeCodexCommand = async params => {
             await log(rawError, { stream: 'stderr' });
           }
           const errorOutput = codexStderrLines.write(rawError);
+          stderrError = findCodexStderrError(errorOutput, stderrError);
           // Issue #2136: stderr is telemetry/tracing text, not the codex protocol.
           codexJsonState = parseCodexExecJsonOutput(errorOutput, codexJsonState, mappedModel, { source: 'stderr' });
           await baseBranchCommandIntervention.handleCommandExecutions(codexJsonState.commandExecutions);
         } else if (chunk.type === 'exit') {
-          exitCode = chunk.code;
+          ({ exitCode, signal } = normalizeCodexExit(chunk));
         }
       }
+      const cgroupAfter = getCgroupMemory();
+      await log(`📈 Codex cgroup memory after execution: ${JSON.stringify(cgroupAfter)}`, { verbose: true });
       // Release any line that was still being assembled when the stream ended.
       for (const [source, remaining] of [
         ['stdout', codexStdoutLines.flush()],
         ['stderr', codexStderrLines.flush()],
       ]) {
         if (!remaining.trim()) continue;
+        if (source === 'stderr') stderrError = findCodexStderrError(remaining, stderrError);
         codexJsonState = parseCodexExecJsonOutput(remaining, codexJsonState, mappedModel, { source });
         await baseBranchCommandIntervention.handleCommandExecutions(codexJsonState.commandExecutions);
       }
@@ -973,18 +980,7 @@ export const executeCodexCommand = async params => {
       // Issue #2130: a failed run legitimately has no final message and no
       // turn.completed usage, so those outcomes must not be logged as warnings.
       const runFailed = codexRunAlreadyFailed({ state: codexJsonState, exitCode });
-      let lastMessageFromFile = null;
-      let lastMessageReadError = null;
-      try {
-        // Issue #2189: this file holds Codex's final assistant message, but its
-        // size is decided by the tool, not by us. Size it first so a runaway or
-        // corrupted artifact cannot become an unbounded string in a process that
-        // has just finished a long run.
-        const { size } = await fs.stat(lastMessageFile);
-        lastMessageFromFile = size > CODEX_LAST_MESSAGE_MAX_BYTES ? `${(await readLogHeadText(lastMessageFile, { maxBytes: CODEX_LAST_MESSAGE_MAX_BYTES })).trim()}\n…[last message truncated: ${size} bytes on disk, see ${lastMessageFile}]` : (await fs.readFile(lastMessageFile, 'utf8')).trim();
-      } catch (readError) {
-        lastMessageReadError = readError;
-      }
+      const { lastMessage: lastMessageFromFile, readError: lastMessageReadError } = await readCodexLastMessage(lastMessageFile);
       const lastMessageOutcome = describeCodexLastMessageOutcome({ lastMessageFile, lastMessage: lastMessageFromFile, readError: lastMessageReadError, runFailed });
       await log(lastMessageOutcome.message, lastMessageOutcome.options);
       if (lastMessageFromFile) {
@@ -1034,6 +1030,8 @@ export const executeCodexCommand = async params => {
       // captured from the JSON output stream (issue #1263).
       const buildRunResult = outcome => ({
         sessionId,
+        exitCode,
+        signal,
         limitReached,
         limitResetTime,
         pricingInfo,
@@ -1122,7 +1120,10 @@ export const executeCodexCommand = async params => {
         return buildRunResult({ success: false, errorInfo: codexErrorSummary, result: codexErrorSummary.message });
       }
       if (exitCode !== 0) {
-        const retryableError = classifyRetryableError(lastMessage);
+        // A killed process cannot report a provider limit; its last stdout may
+        // contain a build log replaying an earlier network/usage error.
+        const failureSource = signal ? '' : stderrError || lastMessage;
+        const retryableError = classifyRetryableError(failureSource);
         if (retryableError.isRetryable) {
           const isRequestTimeoutRetry = retryableError.label === 'Request timeout';
           const maxRetries = isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutRetries : retryLimits.maxTransientErrorRetries;
@@ -1152,10 +1153,10 @@ export const executeCodexCommand = async params => {
           await log(`\n\n❌ ${retryableError.label} persisted: ${transientRetryBudget.describeExhaustion(retryDecision)}`, { level: 'error' });
         }
         // Check for usage limit errors first (more specific)
-        const limitInfo = detectUsageLimit(lastMessage);
+        const limitInfo = detectUsageLimit(failureSource);
         if (limitInfo.isUsageLimit) {
           // Issue #1869: Trace raw limit text + parsed reset for diagnosability.
-          await log(`🔍 Codex usage limit detected (exit ${exitCode}). Raw message: ${JSON.stringify(lastMessage)}`, { verbose: true });
+          await log(`🔍 Codex usage limit detected (exit ${exitCode}). Raw message: ${JSON.stringify(failureSource)}`, { verbose: true });
           await log(`🔍 Parsed reset time: ${JSON.stringify(limitInfo.resetTime)}, timezone: ${JSON.stringify(limitInfo.timezone)}`, { verbose: true });
           limitReached = true;
           limitResetTime = limitInfo.resetTime;
@@ -1178,7 +1179,9 @@ export const executeCodexCommand = async params => {
           await log(`\n\n❌ Codex command failed with exit code ${exitCode}`, { level: 'error' });
         }
         await logCodexResourceSnapshot({ getResourceSnapshot, log });
-        return buildRunResult({ success: false, errorInfo: getCodexErrorEventSummary(codexJsonState) });
+        const errorInfo = buildCodexProcessFailure({ exitCode, signal, stderrError, before: cgroupBefore, after: cgroupAfter });
+        await log(`❌ ${errorInfo.message}`, { level: 'error' });
+        return buildRunResult({ success: false, errorInfo, result: errorInfo.message });
       }
       // Issue #2102: a rejected `request_plugin_install` means codex asked for a
       // capability the preflight did not provision, and under `codex exec` that

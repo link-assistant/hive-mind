@@ -2,7 +2,7 @@
 /**
  * Telegram Solve Queue Library
  *
- * Producer/consumer queue for /solve commands in the Telegram bot. Implements
+ * Producer/consumer queue for AI work in the Telegram bot. Implements
  * resource-aware throttling (RAM, CPU, disk), API limit checking (Claude,
  * GitHub), a minimum interval between command starts, running-process
  * detection, and status tracking (Queued -> Waiting -> Starting -> Started).
@@ -53,7 +53,7 @@ function buildQueueItemTelegramOptions(item, verbose) {
   return options;
 }
 /**
- * Queue item representing a /solve command request
+ * Queue item representing a Telegram AI work request
  */
 class SolveQueueItem {
   constructor(options) {
@@ -63,7 +63,13 @@ class SolveQueueItem {
     this.ctx = options.ctx;
     this.requester = options.requester;
     this.infoBlock = options.infoBlock;
+    this.command = options.command || 'solve';
     this.commandAlias = options.commandAlias || null; // #2109: retain Telegram spelling for resume guidance
+    this.executeCallback = options.executeCallback || null;
+    this.managesMessages = options.managesMessages === true;
+    this.completion = new Promise(resolve => {
+      this.resolveCompletion = resolve;
+    });
     this.tool = options.tool || 'claude';
     // Issue #1983: preserve per-command isolation through queued execution.
     this.perCommandIsolation = options.perCommandIsolation || null;
@@ -130,6 +136,9 @@ class SolveQueueItem {
    */
   setCancelled() {
     this.status = QueueItemStatus.CANCELLED;
+  }
+  settle() {
+    this.resolveCompletion(this.status === QueueItemStatus.STARTED ? this.result || { success: true } : { ...this.result, success: false, error: this.error || this.status });
   }
   /**
    * Get wait time in queue (ms)
@@ -303,6 +312,7 @@ export class SolveQueue {
       if (queueIndex !== -1) {
         const item = toolQueue.splice(queueIndex, 1)[0];
         item.setCancelled();
+        item.settle();
         this.stats.totalCancelled++;
         this.log(`Cancelled queued item: ${item.toString()} from ${tool} queue`);
         return true;
@@ -430,6 +440,7 @@ export class SolveQueue {
       this.stats.totalFailed++;
       this.log(`Rejected queued item: ${item.toString()} from ${tool} queue - ${reason}`);
       await this.updateItemMessage(item, t('telegram.solve_rejected', { infoBlock: item.infoBlock, reason }, { locale: item.locale }));
+      item.settle();
     }
     while (this.failed.length > 100) this.failed.shift();
   }
@@ -867,10 +878,12 @@ export class SolveQueue {
    */
   async executeItem(item) {
     try {
-      if (this.executeCallback) {
-        const result = await this.executeCallback(item);
+      const execute = item.executeCallback || this.executeCallback;
+      if (execute) {
+        const result = await execute(item);
+        item.result = result;
         // Extract session name from result
-        let sessionName = result?.sessionId || 'unknown';
+        let sessionName = result?.sessionName || result?.sessionId || 'unknown';
         if (result && result.output) {
           const sessionMatch = result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -R\s+(\S+)/);
           if (sessionMatch) sessionName = sessionMatch[1];
@@ -898,7 +911,7 @@ export class SolveQueue {
           this.stats.totalCompleted++;
         }
         // Final message update using saved messageInfo
-        if (item.ctx && result && savedMessageInfo) {
+        if (!item.managesMessages && item.ctx && result && savedMessageInfo) {
           const { chatId, messageId } = savedMessageInfo;
           if (chatId && messageId) {
             try {
@@ -917,7 +930,7 @@ export class SolveQueue {
                 // same way as a direct one — with its session UUID and a note
                 // that nothing was started, instead of a bare error dump.
                 const response = formatFailedLaunchMessage({
-                  commandName: 'solve',
+                  commandName: item.command,
                   sessionName: sessionName === 'unknown' ? null : sessionName,
                   isolationBackend: result.isolationBackend || null,
                   infoBlock: item.infoBlock,
@@ -964,6 +977,7 @@ export class SolveQueue {
       // Limit history size
       while (this.completed.length > 100) this.completed.shift();
       while (this.failed.length > 100) this.failed.shift();
+      item.settle();
     }
   }
   /**
@@ -1109,7 +1123,7 @@ export function resetSolveQueue() {
  */
 export function createQueueExecuteCallback(executeStartScreen, trackSessionFn) {
   return async item => {
-    const result = await executeStartScreen('solve', item.args);
+    const result = await executeStartScreen(item.command || 'solve', item.args);
     if (trackSessionFn && result.success) {
       const match = result.output && (result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -R\s+(\S+)/));
       const session = match ? match[1] : null;
@@ -1120,7 +1134,7 @@ export function createQueueExecuteCallback(executeStartScreen, trackSessionFn) {
           messageThreadId: item.messageInfo?.messageThreadId ?? item.ctx?.message?.message_thread_id ?? null,
           startTime: new Date(),
           url: item.url,
-          command: 'solve',
+          command: item.command || 'solve',
           commandAlias: item.commandAlias || null,
           tool: item.tool || 'claude',
           infoBlock: item.infoBlock,

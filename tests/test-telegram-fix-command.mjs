@@ -7,6 +7,7 @@
  */
 
 import assert from 'assert/strict';
+import { createTestWorkQueue } from './helpers/telegram-work-queue.mjs';
 import { applyFixCommandDefaults, buildFixCommandArgs, findFixRepositoryArg, FIX_COMMAND_NAMES, getFixCommandNameFromText, getFixToolFromArgs, registerFixCommand } from '../src/telegram-fix-command.lib.mjs';
 
 let passed = 0;
@@ -80,6 +81,7 @@ function buildFixHarness(overrides = {}) {
   const { handleFixCommand } = registerFixCommand(bot, {
     VERBOSE: false,
     fixEnabled: true,
+    getSolveQueue: createTestWorkQueue,
     addBreadcrumb: async () => {},
     isOldMessage: () => false,
     isForwardedOrReply: () => false,

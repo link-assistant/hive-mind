@@ -29,7 +29,7 @@ export async function reserveStartSlotForQueue(queue, options = {}) {
 
   try {
     const check = await queue.canStartCommand(options);
-    if (!check.canStart) {
+    if (!check.canStart || queue.getStats?.().queued > 0) {
       return { ...check, startReserved: false };
     }
 

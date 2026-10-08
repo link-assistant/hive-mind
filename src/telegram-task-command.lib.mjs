@@ -13,7 +13,10 @@ import { formatInputLocationMarkdown } from './input-diagnostics.lib.mjs';
 import { parseTelegramCommandPrefix } from './telegram-command-text.lib.mjs';
 import { extractIsolationFromArgs, isValidPerCommandIsolation } from './telegram-isolation.lib.mjs';
 import { moveArgumentToFront, parseArgsWithYargs, parseCommandArgs } from './telegram-solve-command.lib.mjs';
-import { formatStartingWorkSessionMessage } from './work-session-formatting.lib.mjs';
+import { submitTelegramWork } from './telegram-work-queue.lib.mjs';
+import { getSolveQueue as defaultGetSolveQueue } from './telegram-solve-queue.lib.mjs';
+import { getToolFromArgs as getTaskToolFromArgs } from './telegram-command-args.lib.mjs';
+export { getTaskToolFromArgs };
 
 /** Issue #2326: show the offending URL part under a caret in a monospace block. */
 export function formatTaskUrlError(parsedIssue, url) {
@@ -85,14 +88,6 @@ export function findTaskIssueUrl(args) {
   return args.find(arg => !arg.startsWith('-') && parseTaskIssueUrl(arg).valid) || null;
 }
 
-export function getTaskToolFromArgs(args) {
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--tool' && i + 1 < args.length) return args[i + 1];
-    if (args[i].startsWith('--tool=')) return args[i].substring('--tool='.length);
-  }
-  return 'claude';
-}
-
 async function validateTaskModel(args) {
   const model = getModelFromArgs(args);
   if (!model) return null;
@@ -159,7 +154,7 @@ function injectLanguageIfMissing(args, locale) {
 }
 
 export function registerTaskCommands(bot, options) {
-  const { VERBOSE, taskEnabled, addBreadcrumb, isOldMessage, isForwarded, isGroupChat, isTopicAuthorized, buildAuthErrorMessage, isChatStopped, getStoppedChatRejectMessage, safeReply, executeAndUpdateMessage, createTaskIssue: createTaskIssueFn = createTaskIssue, createCiCdIssue: createCiCdIssueFn = createCiCdIssue, createUpdateDependenciesIssue: createUpdateDependenciesIssueFn = createUpdateDependenciesIssue, resolveLocale = null } = options;
+  const { VERBOSE, taskEnabled, addBreadcrumb, isOldMessage, isForwarded, isGroupChat, isTopicAuthorized, buildAuthErrorMessage, isChatStopped, getStoppedChatRejectMessage, safeReply, executeAndUpdateMessage, createTaskIssue: createTaskIssueFn = createTaskIssue, createCiCdIssue: createCiCdIssueFn = createCiCdIssue, createUpdateDependenciesIssue: createUpdateDependenciesIssueFn = createUpdateDependenciesIssue, resolveLocale = null, getSolveQueue = defaultGetSolveQueue } = options;
 
   async function handleTaskCommand(ctx) {
     const commandName = getTaskCommandNameFromText(ctx.message?.text) || 'task';
@@ -301,10 +296,10 @@ export function registerTaskCommands(bot, options) {
     if (userOptionsRaw) infoBlock += `\n\n🛠 Options: ${escapeMarkdown(userOptionsRaw)}`;
 
     const taskUrlContext = { owner: parsedIssue.owner, repo: parsedIssue.repo, number: parsedIssue.number, type: parsedIssue.type, normalized: parsedIssue.normalized || built.issueUrl };
-    const startingMessage = await safeReply(ctx, formatStartingWorkSessionMessage({ infoBlock }), { reply_to_message_id: ctx.message.message_id });
     const taskLocale = resolveLocale ? resolveLocale(ctx) : null;
     const argsForExec = injectLanguageIfMissing(filteredArgs, taskLocale);
-    await executeAndUpdateMessage(ctx, startingMessage, 'task', argsForExec, infoBlock, perCommandIsolation || null, getTaskToolFromArgs(argsForExec), taskUrlContext);
+    const tool = getTaskToolFromArgs(argsForExec);
+    await submitTelegramWork({ ctx, command: 'task', commandAlias: commandName, args: argsForExec, tool, requester, infoBlock, perCommandIsolation, urlContext: taskUrlContext, locale: taskLocale, verbose: VERBOSE, queue: getSolveQueue({ verbose: VERBOSE }), safeReply, execute: message => executeAndUpdateMessage(ctx, message, 'task', argsForExec, infoBlock, perCommandIsolation || null, tool, taskUrlContext, { locale: taskLocale, commandAlias: commandName }) });
   }
 
   bot.command(

@@ -177,6 +177,7 @@ export class MergeQueueProcessor {
     this.currentIndex = 0;
     this.status = MergeStatus.IDLE;
     this.isCancelled = false;
+    this.autoResolveAbortController = new AbortController();
     this.startedAt = null;
     this.completedAt = null;
     this.error = null;
@@ -298,6 +299,7 @@ export class MergeQueueProcessor {
     this.status = MergeStatus.RUNNING;
     this.startedAt = new Date();
     this.isCancelled = false;
+    this.autoResolveAbortController = new AbortController();
     try {
       // Process each PR sequentially
       for (this.currentIndex = 0; this.currentIndex < this.items.length; this.currentIndex++) {
@@ -597,6 +599,7 @@ export class MergeQueueProcessor {
    */
   cancel() {
     this.isCancelled = true;
+    this.autoResolveAbortController.abort();
     this.log('Cancellation requested');
   }
   /**
@@ -679,6 +682,7 @@ export class MergeQueueProcessor {
             repo: this.repo,
             prNumber: item.pr.number,
             title: item.pr.title,
+            signal: this.autoResolveAbortController.signal,
           });
           if (result && result.success) {
             item.autoResolveSession = result.sessionName || result.session || null;

@@ -3,6 +3,7 @@
 /** @hive-mind-test-suite default */
 
 import assert from 'node:assert/strict';
+import { createTestWorkQueue } from './helpers/telegram-work-queue.mjs';
 import { parseOrganizeRequest, registerOrganizeCommand } from '../src/telegram-organize-command.lib.mjs';
 
 let passed = 0;
@@ -46,6 +47,7 @@ function harness(overrides = {}) {
   const { handleOrganizeCommand } = registerOrganizeCommand(bot, {
     VERBOSE: false,
     organizeEnabled: true,
+    getSolveQueue: createTestWorkQueue,
     addBreadcrumb: async () => {},
     isOldMessage: () => false,
     isForwarded: () => false,
@@ -97,9 +99,9 @@ await test('authorized command runs in-process and publishes a concise summary',
   assert.equal(calls.runs[0].operatorInstructions, 'Prefer bug labels.');
   assert.equal(calls.replies.length, 1);
   assert.match(calls.replies[0], /Planning organization/i);
-  assert.match(calls.edits[0].text, /Dry run/i);
-  assert.match(calls.edits[0].text, /issues\/1/);
-  assert.doesNotMatch(calls.edits[0].text, /audit\.json/);
+  assert.match(calls.edits.at(-1).text, /Dry run/i);
+  assert.match(calls.edits.at(-1).text, /issues\/1/);
+  assert.doesNotMatch(calls.edits.at(-1).text, /audit\.json/);
 });
 
 await test('overlapping runs for the same repository are rejected atomically', async () => {

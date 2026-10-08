@@ -23,8 +23,12 @@ import { safeReply, safeEditMessageText } from './telegram-safe-reply.lib.mjs';
 import { TELEGRAM_PRIORITY_LOW, withTelegramRequestPriority } from './telegram-rate-limit.lib.mjs';
 import { extractMergeTargetUrlFromText, parseMergeTargetUrl } from './github-merge-targets.lib.mjs';
 import { createMergeQueueProcessor, MergeStatus, MERGE_QUEUE_CONFIG } from './telegram-merge-queue.lib.mjs';
-import { executeStartScreen } from './telegram-command-execution.lib.mjs';
 import { parseCommandArgs } from './telegram-solve-command.lib.mjs';
+import { submitTelegramWork } from './telegram-work-queue.lib.mjs';
+import { getSolveQueue as defaultGetSolveQueue } from './telegram-solve-queue.lib.mjs';
+import { getToolFromArgs, injectLanguageIfMissing } from './telegram-command-args.lib.mjs';
+import { extractIsolationFromArgs } from './telegram-isolation.lib.mjs';
+import { mergeArgsWithOverrides } from './args-overrides.lib.mjs';
 
 /**
  * Active merge operations map (repoKey -> { processor, chatId, messageId })
@@ -166,32 +170,28 @@ export function resolveMergeCommandTarget(positionals, message) {
 
 /**
  * Issue #1805: Spawner used by the merge queue's auto-resolve pass. For each
- * skipped PR we dispatch a `solve <pr-url> --auto-merge` session through
- * the same `start-screen` runtime the bot uses everywhere else. Keeping this
- * in one place means the per-PR sessions behave exactly like any other
- * `/solve` invocation (same logs, same /watch, same isolation backend).
+ * skipped PR we admit a `solve <pr-url> --auto-merge` session through the
+ * shared work queue and command executor. Operator options, isolation and
+ * session tracking apply after the resource gate permits the launch.
  *
  * @param {Object} target - Info for the conflicted PR.
  * @param {string} target.url - PR HTML URL passed to `solve`.
- * @param {boolean} verbose - Forwarded to the underlying spawn.
+ * @param {Object} options - Bot context, queue, executor and operator options.
  * @returns {Promise<{ success: boolean, sessionName: string|null, error: string|null, warning: string|null }>}
  */
-async function spawnAutoResolveSolve(target, verbose) {
+export async function spawnAutoResolveSolve(target, { ctx, verbose = false, queue = defaultGetSolveQueue({ verbose }), executeAndUpdateMessage, solveOverrides = [], locale = null, reply = safeReply }) {
   if (!target || !target.url) {
     return { success: false, sessionName: null, error: 'missing PR URL', warning: null };
   }
-  const args = [target.url, '--auto-merge'];
+  const { backend, filteredArgs } = extractIsolationFromArgs(solveOverrides);
+  const args = injectLanguageIfMissing(mergeArgsWithOverrides([target.url, '--auto-merge'], filteredArgs), locale);
+  const tool = getToolFromArgs(args);
+  const infoBlock = `Pull request: ${target.url}`;
+  const urlContext = { owner: target.owner, repo: target.repo, number: target.prNumber, type: 'pull', normalized: target.url };
   try {
-    const result = await executeStartScreen('solve', args, { verbose });
-    if (result.warning) {
-      return { success: false, sessionName: null, error: null, warning: result.warning };
-    }
-    if (!result.success) {
-      return { success: false, sessionName: null, error: result.error || 'spawn failed', warning: null };
-    }
-    const match = result.output && (result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -R\s+(\S+)/));
-    const sessionName = match ? match[1] : null;
-    return { success: true, sessionName, error: null, warning: null };
+    const submitted = await submitTelegramWork({ ctx, command: 'solve', args, tool, infoBlock, perCommandIsolation: backend, urlContext, locale, verbose, queue, safeReply: reply, signal: target.signal, execute: message => executeAndUpdateMessage(ctx, message, 'solve', args, infoBlock, backend, tool, urlContext, { locale, commandAlias: 'solve' }) });
+    // The merge processor must wait for admission before polling for resolution.
+    return submitted.status === 'queued' ? await submitted.item.completion : submitted.result;
   } catch (error) {
     return { success: false, sessionName: null, error: error.message || String(error), warning: null };
   }
@@ -244,7 +244,7 @@ function formatUserError(error, verbose) {
  * @param {Function} [options.getStoppedChatRejectMessage] - Function to get stopped chat rejection message
  */
 export function registerMergeCommand(bot, options) {
-  const { VERBOSE = false, isOldMessage, isForwarded, isForwardedOrReply, isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, addBreadcrumb, isChatStopped, getStoppedChatRejectMessage } = options;
+  const { VERBOSE = false, isOldMessage, isForwarded, isForwardedOrReply, isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, addBreadcrumb, isChatStopped, getStoppedChatRejectMessage, getSolveQueue = defaultGetSolveQueue, executeAndUpdateMessage, solveOverrides = [], resolveLocale = null } = options;
 
   const handleMergeCommand = async ctx => {
     VERBOSE && console.log('[VERBOSE] /merge command received');
@@ -352,7 +352,7 @@ export function registerMergeCommand(bot, options) {
         // The processor only sees the callback, so unit tests can stub it
         // without spawning real screen sessions.
         autoResolve,
-        spawnSolveSession: autoResolve ? target => spawnAutoResolveSolve(target, VERBOSE) : null,
+        spawnSolveSession: autoResolve ? target => spawnAutoResolveSolve(target, { ctx, verbose: VERBOSE, queue: getSolveQueue({ verbose: VERBOSE }), executeAndUpdateMessage, solveOverrides, locale: resolveLocale ? resolveLocale(ctx) : null }) : null,
         onProgress: async () => {
           // Update message with progress and cancel button
           try {

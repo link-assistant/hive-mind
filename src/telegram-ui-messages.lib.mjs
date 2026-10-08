@@ -16,8 +16,8 @@ export function buildTelegramInfoBlock({ locale = null, requester = '', urlKind 
   return infoBlock;
 }
 
-export function buildSolveQueuedMessage({ locale = null, tool = 'claude', position = 1, infoBlock = '', reason = '' } = {}) {
-  let message = tr('telegram.solve_queued', { tool, position }, locale);
+export function buildSolveQueuedMessage({ locale = null, tool = 'claude', position = 1, infoBlock = '', reason = '', command = 'solve' } = {}) {
+  let message = tr(command === 'solve' ? 'telegram.solve_queued' : 'telegram.solve_waiting', { tool, position }, locale);
   if (infoBlock) message += `\n\n${infoBlock}`;
   if (reason) message += `\n\n${tr('telegram.waiting_label', {}, locale)}: ${reason}`;
   return message;

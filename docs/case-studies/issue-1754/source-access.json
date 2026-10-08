@@ -1,0 +1,69 @@
+{
+  "researchDate": "2026-10-08",
+  "issue": "https://github.com/link-assistant/hive-mind/issues/1754",
+  "hiveMindRevision": "1675c0a575383089a7c4ba8d53b0a0def750c112",
+  "upstreamRevision": null,
+  "comparisonStatus": "blocked-source-unavailable",
+  "observations": [
+    {
+      "method": "curl -L",
+      "url": "https://sourcecraft.dev/hyperonym/agentic-fdd",
+      "observedAt": "2026-10-08T01:00:00Z",
+      "httpStatus": 404,
+      "contentType": "text/html; charset=utf-8"
+    },
+    {
+      "method": "Playwright navigation and accessibility snapshot",
+      "url": "https://sourcecraft.dev/hyperonym/agentic-fdd",
+      "observedAt": "2026-10-08T00:59:27Z",
+      "httpStatus": 404,
+      "visibleText": "Repository not found",
+      "explanation": "The repository does not exist, has been deleted, or its address has changed"
+    },
+    {
+      "method": "GIT_TERMINAL_PROMPT=0 git ls-remote",
+      "url": "https://sourcecraft.dev/hyperonym/agentic-fdd.git",
+      "exitCode": 128,
+      "output": "fatal: repository 'https://sourcecraft.dev/hyperonym/agentic-fdd.git/' not found"
+    },
+    {
+      "method": "Playwright public repository listing",
+      "url": "https://sourcecraft.dev/hyperonym/repos",
+      "visibleRepositories": ["ruspeech2text"],
+      "verifiedReplacement": null
+    },
+    {
+      "method": "GitHub REST repository lookup",
+      "url": "https://api.github.com/repos/hyperonym/agentic-fdd",
+      "httpStatus": 404
+    },
+    {
+      "method": "GitHub repository name search including forks",
+      "query": "agentic-fdd fork:true in:name",
+      "exactNameMatches": 0,
+      "verifiedMirror": null
+    },
+    {
+      "method": "Wayback CDX lookup",
+      "url": "https://web.archive.org/cdx/search/cdx?url=sourcecraft.dev/hyperonym/agentic-fdd*&output=json&filter=statuscode:200&collapse=urlkey",
+      "httpStatus": 429,
+      "archiveAvailability": "unknown"
+    },
+    {
+      "method": "Wayback availability lookup",
+      "url": "https://archive.org/wayback/available?url=https%3A%2F%2Fsourcecraft.dev%2Fhyperonym%2Fagentic-fdd",
+      "httpStatus": 429,
+      "retryHttpStatus": 200,
+      "retryArchivedSnapshots": {},
+      "archiveAvailability": "no snapshot returned for exact URL on retry"
+    },
+    {
+      "method": "GitHub fork metadata, README, changelog, exact-name code and commit searches",
+      "repository": "nivedano/grace-marketplace",
+      "parent": "osovv/grace-marketplace",
+      "createdAt": "2026-08-19T14:18:10Z",
+      "verifiedRelationshipToRequestedSource": false,
+      "usedAsComparisonSource": false
+    }
+  ]
+}

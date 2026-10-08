@@ -729,9 +729,7 @@ export const executeCodexCommand = async params => {
     // Issue #2027: pair GPT-5.6 Sol's multi-agent `ultra` effort with a rollout token budget cap so it stays predictable and does not run away on cost.
     if (rolloutTokenBudget) codexArgs += ` -c ${shellQuote(`rollout_token_budget=${rolloutTokenBudget}`)}`;
     codexArgs += ' --dangerously-bypass-approvals-and-sandbox';
-    // Issue #1706: Append --disable-1m-context and --sub-session-size as Codex -c overrides.
-    // Issue #2771: plus the standard service tier, so a catalog `default_service_tier: "priority"`
-    // (Fast, 2x+) never applies silently, and the 272K short-context window.
+    // Issue #1706/#2771: -c overrides for --sub-session-size, the 272K short window and the standard service tier (so a catalog `default_service_tier: "priority"` never applies silently).
     const codexPricingTier = resolvePricingTier({ tool: 'codex', model: argv.model, modelId: mappedModel, disable1mContext: argv.disable1mContext, subSessionSize: argv.subSessionSize, speed: argv.speed });
     let parsedSubSessionSize;
     try {
@@ -772,7 +770,6 @@ export const executeCodexCommand = async params => {
       codexArgs += ` ${shellQuote(arg)}`;
     }
     if (argv.verbose) {
-      await log(`📊 Codex --speed: ${serviceTierArgs.join(' ')}`, { verbose: true });
       if (disable1mArgs.length) await log(`📊 Codex --disable-1m-context: ${disable1mArgs.join(' ')}`, { verbose: true });
       if (subSessionSizeArgs.length) await log(`📊 Codex --sub-session-size: ${subSessionSizeArgs.join(' ')}`, { verbose: true });
       if (memoryDisableArgs.length) await log(`🧠 Codex cross-task memory disabled: ${memoryDisableArgs.join(' ')} (issue #2178)`, { verbose: true });

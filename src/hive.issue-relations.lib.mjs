@@ -411,10 +411,12 @@ export function describeWaitReasons(url, reasons) {
  */
 export function createIssueRelationsGate({ enabled, fetchIssueRelations, log, cleanErrorMessage = error => error?.message || String(error) }) {
   let waitingCount = 0;
+  let waitingIssues = [];
   let completedAtLastRound = null;
 
   async function filterReadyIssues(issues) {
     waitingCount = 0;
+    waitingIssues = [];
     if (!enabled || !Array.isArray(issues) || issues.length === 0) return issues;
     await log('   🔗 Checking sub-issue and dependency (blocked by) relations...');
     let relations;
@@ -429,6 +431,7 @@ export function createIssueRelationsGate({ enabled, fetchIssueRelations, log, cl
       relations
     );
     waitingCount = plan.waiting.length;
+    waitingIssues = plan.waiting.map(entry => entry.url);
     for (const cycle of plan.cycles) {
       await log(`   ⚠️  Dependency cycle, these issues can never become ready until it is broken: ${cycle.join(' → ')}`, { level: 'warning' });
     }
@@ -468,5 +471,5 @@ export function createIssueRelationsGate({ enabled, fetchIssueRelations, log, cl
     return enabled && waitingCount + deferredCount > 0 && completedCount > previous;
   }
 
-  return { filterReadyIssues, checkIssueReady, shouldStartAnotherOnceRound, getWaitingCount: () => waitingCount };
+  return { filterReadyIssues, checkIssueReady, shouldStartAnotherOnceRound, getWaitingCount: () => waitingCount, getWaitingIssues: () => [...waitingIssues] };
 }

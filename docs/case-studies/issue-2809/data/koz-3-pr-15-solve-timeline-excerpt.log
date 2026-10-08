@@ -1,0 +1,9 @@
+[2026-10-08T11:04:18.889Z] [INFO]    Container memory (cgroup v2): 246 MB used of 2.9 GB limit, peak 549 MB; processes killed by the OOM killer so far: 0
+[2026-10-08T11:04:41.814Z] [INFO]    Container memory (cgroup v2): 350 MB used of 2.9 GB limit, peak 549 MB; processes killed by the OOM killer so far: 0
+[2026-10-08T11:04:56.586Z] [INFO] ✅ PR created:               #15
+[2026-10-08T15:07:54.903Z] [INFO]    Container memory (cgroup v2): 2.1 GB used of 2.9 GB limit, peak 2.9 GB; processes killed by the OOM killer so far: 9
+[2026-10-08T15:07:54.903Z] [INFO]    ⚠️  The kernel OOM killer has killed 9 process(es) in this container's cgroup; memory.events oom=20
+[2026-10-08T15:08:09.298Z] [INFO]    Container memory (cgroup v2): 2.2 GB used of 2.9 GB limit, peak 2.9 GB; processes killed by the OOM killer so far: 9
+[2026-10-08T15:08:09.298Z] [INFO]    ⚠️  The kernel OOM killer has killed 9 process(es) in this container's cgroup; memory.events oom=20
+[2026-10-08T15:08:10.112Z] [INFO]   📎 Uploading log using gh-upload-log...
+[2026-10-08T15:08:10.802Z] [INFO]   🔍 Repository visibility: private, log upload will be private

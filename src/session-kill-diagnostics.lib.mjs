@@ -469,7 +469,10 @@ export function describeKillCause({ logText = null, resourceMarkers = null, oomK
     summary = 'unknown — no resource marker, cgroup counter or kernel OOM report was available';
   }
 
-  return { cause, summary, evidence, memory, heap: heapMemory, heapUsedPercent, disk, victims, fatalMemoryMarker, reportedMemoryExhaustion, reportedExitReason: reportedExitReasonText };
+  // Issue #2809: how many processes the OOM killer took in this task's container
+  // (cumulative counters, so the highest attributed reading is the total).
+  const oomKillCount = Math.max(0, ...[cgroupMarker?.cgroupMemory?.oomKills, reportedCgroupMemory?.oomKills, cgroupOomKills].map(finite).filter(value => value !== null));
+  return { cause, summary, evidence, memory, heap: heapMemory, heapUsedPercent, disk, victims, fatalMemoryMarker, reportedMemoryExhaustion, reportedExitReason: reportedExitReasonText, oomKillCount };
 }
 
 /**
@@ -493,6 +496,19 @@ export function formatKillDiagnosticsSection(diagnosis, { locale = null, notTheC
 }
 
 /**
+ * Issue #2809: Telegram reports an OOM event after the fact, so it says how
+ * many processes the OOM killer took — but only when there was more than one.
+ *
+ * @param {number} count - OOM-killed processes in the task's container
+ * @param {string|null} [locale]
+ * @returns {string} ` (OOM kills: N)`, or '' for 0 or 1
+ */
+export function formatOomKillCount(count, locale = null) {
+  if (!(Number(count) > 1)) return '';
+  return ` (${text(locale, 'telegram.session_recovered_count', `OOM kills: ${count}`, { count })})`;
+}
+
+/**
  * The warning the issue asks for: a session that hit an out-of-memory event (or
  * any other kill) and nevertheless completed must say so, instead of reading as
  * an ordinary success.
@@ -502,12 +518,13 @@ export function formatKillDiagnosticsSection(diagnosis, { locale = null, notTheC
  * @param {string|null} [options.observedAt] - When the event was observed
  * @param {string|null} [options.locale]
  * @param {boolean} [options.resumed] - A new working session was started
+ * @param {number} [options.count] - OOM-killed processes (issue #2809; shown when > 1)
  * @returns {string} Markdown block, or '' when nothing was recovered from
  */
-export function formatKillRecoverySection({ cause = KILL_CAUSE_OUT_OF_MEMORY, observedAt = null, locale = null, resumed = false } = {}) {
+export function formatKillRecoverySection({ cause = KILL_CAUSE_OUT_OF_MEMORY, observedAt = null, locale = null, resumed = false, count = 0 } = {}) {
   const key = cause === KILL_CAUSE_OUT_OF_MEMORY ? 'telegram.session_recovered_oom' : 'telegram.session_recovered_kill';
   const fallback = cause === KILL_CAUSE_OUT_OF_MEMORY ? 'recovered from out of memory' : 'recovered from forced kill';
-  const lines = [`⚠️ *${text(locale, key, fallback)}*`];
+  const lines = [`⚠️ *${text(locale, key, fallback)}*${cause === KILL_CAUSE_OUT_OF_MEMORY ? formatOomKillCount(count, locale) : ''}`];
   if (observedAt) {
     lines.push(text(locale, 'telegram.session_recovered_at', `The event was observed at ${observedAt}; the work session kept running and completed.`, { observedAt }));
   }

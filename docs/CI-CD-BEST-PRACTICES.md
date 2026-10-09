@@ -260,6 +260,8 @@ Automated release workflows ensure:
 - **Dual trigger modes** - Both automatic (on merge) and manual (workflow dispatch)
 - **Commit the version bump directly to the default branch** - The release job pushes its generated version commit (package metadata, lockfile, changelog, consumed changesets) straight to `main` as `github-actions[bot]`, and fails closed if that commit changes anything other than release metadata. Do not route it through an auto-merged release pull request: every release then adds one more pull request and one more branch (a no-deletion ruleset keeps it forever), and a failed run leaves an open release pull request behind for someone to close
 - **A rule-blocked push is fixed in the rule, not in the workflow** - When a repository rule rejects the version push, fail the release with the rule's output and fix the rule (remove it, or add `github-actions` as a bypass actor). The rebase-and-retry path for a lost race is a different recovery for a rejection that prints the same word (see principle 10)
+- **Wait for the registry as long as it really takes, and never republish to find out** - `npm publish` can succeed minutes before `npm view` sees the version. Hive Mind's lag went from 2–9 s to 99–377 s in September 2026, and 2.35.1 took 874 s (issue #2923). A 330 s window turned a good release into a red run with no GitHub release, Docker image or Helm chart. Size the window from measured data with a wide margin (`experiments/npm-publish-lag-2923.mjs` measures it from the Sigstore attestations), log how long each wait took, and treat `E409 Cannot publish over previously staged version` as "already landed", not as a failure
+- **Decide "is there anything to release?" from every artifact, not just the registry** - If the job dies after the publish, the next push sees the version on npm and skips the release for good. Check the GitHub release too and re-run the release without a bump when it is missing; a lookup that fails is "unknown", which never releases
 
 **Prohibit manual version changes** in PRs — all version bumps should be managed by the CI release workflow:
 
@@ -474,6 +476,8 @@ on:
 - **Every input a workflow is dispatched with by API needs a default.** `gh workflow run` cannot fill a form: a `required: true` input without `default:` makes GitHub answer `HTTP 422: Required input '<name>' not provided`, and the run never exists. Test that each dispatched workflow accepts exactly the inputs its caller passes.
 - **Create what you depend on, or tolerate its absence.** `gh pr edit --add-label` fails with `'<label>' not found` in a repository that never had the label. Create it on first use (`gh label create`) instead of failing a run that already did its work.
 - **Write logs where the upload step looks.** An artifact step that finds nothing warns `No files were found with the provided path` and passes; the run that failed early, the one the artifact exists for, leaves no evidence. Make a missing log fail loudly in the test suite, not silently in production.
+- **Say why a job skipped.** A downstream workflow that skips because its upstream failed is correct, but a green run that silently did nothing reads as "tested". Print the reason as a `::notice::` annotation so it shows on the run summary (issue #2923).
+- **One outcome, one message.** A log that says "recovered and completed successfully" and then "❌ Agent reported error" for the same error sends readers down the wrong path. Compute the verdict first, then log only what is true.
 
 ## Quality Enforcement Strategy
 

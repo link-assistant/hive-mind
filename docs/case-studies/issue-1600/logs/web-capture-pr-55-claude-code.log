@@ -795,7 +795,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:07:03.530Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:07:03.530Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:07:03.530Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:07:03.530Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:07:03.530Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:07:03.530Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:07:03.530Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:07:03.530Z] [INFO] 
@@ -858,7 +858,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:07:03.534Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZEYE5LB6eoc3RzNXR1',
 [2026-04-14T11:07:03.534Z] [INFO] 
 [2026-04-14T11:07:03.534Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-04-14T11:07:03.534Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:07:03.534Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:07:03.534Z] [INFO] 
 [2026-04-14T11:07:03.534Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:07:03.534Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '3035',
@@ -1124,7 +1124,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:07:14.612Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:07:14.612Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:07:14.612Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:07:14.612Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:07:14.612Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:07:14.612Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:07:14.612Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:07:14.612Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.01',
@@ -1200,7 +1200,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:07:14.616Z] [INFO] 
 [2026-04-14T11:07:14.616Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZF8WqQ2f4MHCeUeCuQ',
 [2026-04-14T11:07:14.616Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-04-14T11:07:14.616Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:07:14.616Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:07:14.616Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:07:14.616Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '6131',
 [2026-04-14T11:07:14.616Z] [INFO] 
@@ -1519,7 +1519,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:07:22.283Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:07:22.283Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:07:22.283Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:07:22.283Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:07:22.283Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:07:22.283Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:07:22.283Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:07:22.283Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.01',
@@ -1577,7 +1577,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:07:22.284Z] [INFO] [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [2026-04-14T11:07:22.284Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZFzbrpN3dzmXvr4VCx',
 [2026-04-14T11:07:22.284Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-04-14T11:07:22.284Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:07:22.284Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:07:22.284Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:07:22.284Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '2065',
 [2026-04-14T11:07:22.284Z] [INFO] [stdout-guard]   'content-encoding': 'gzip',
@@ -1834,7 +1834,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:07:34.558Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:07:34.558Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:07:34.558Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:07:34.558Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:07:34.558Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:07:34.558Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:07:34.558Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:07:34.558Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.01',
@@ -1904,7 +1904,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:07:34.561Z] [INFO] [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [2026-04-14T11:07:34.561Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZGrcfvKN2Auqf2rpdC',
 [2026-04-14T11:07:34.561Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-04-14T11:07:34.561Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:07:34.561Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:07:34.561Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:07:34.561Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '2634',
 [2026-04-14T11:07:34.561Z] [INFO] [stdout-guard]   'content-encoding': 'gzip',
@@ -2061,7 +2061,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:07:37.779Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:07:37.779Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:07:37.779Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:07:37.779Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:07:37.779Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:07:37.779Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:07:37.779Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:07:37.779Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.01',
@@ -2126,7 +2126,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:07:37.781Z] [INFO] [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [2026-04-14T11:07:37.781Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZH6SNbAgTKUjhaHcmh',
 [2026-04-14T11:07:37.781Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-04-14T11:07:37.781Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:07:37.781Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:07:37.781Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:07:37.781Z] [INFO] 
 [2026-04-14T11:07:37.782Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '2639',
@@ -2379,7 +2379,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:07:48.903Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:07:48.903Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:07:48.903Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:07:48.903Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:07:48.903Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:07:48.903Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:07:48.903Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:07:48.903Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.01',
@@ -2442,7 +2442,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:07:48.906Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZHwEG57qZi4AU3t3Zc',
 [2026-04-14T11:07:48.906Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 [2026-04-14T11:07:48.906Z] [INFO] 
-[2026-04-14T11:07:48.906Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:07:48.906Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:07:48.906Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:07:48.906Z] [INFO] 
 [2026-04-14T11:07:48.907Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '2333',
@@ -2545,7 +2545,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:07:50.660Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages/count_tokens?beta=true',
 [2026-04-14T11:07:50.660Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:07:50.660Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:07:50.660Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:07:50.660Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:07:50.660Z] [INFO] [stdout-guard]     'cf-cache-status': 'DYNAMIC',
 [2026-04-14T11:07:50.660Z] [INFO] [stdout-guard]     'cf-ray': '9ec23fc84f09c4ec-FRA',
 [2026-04-14T11:07:50.660Z] [INFO] [stdout-guard]     connection: 'keep-alive',
@@ -2680,7 +2680,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:07:51.520Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages/count_tokens?beta=true',
 [2026-04-14T11:07:51.520Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:07:51.520Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:07:51.520Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:07:51.520Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:07:51.520Z] [INFO] [stdout-guard]     'cf-cache-status': 'DYNAMIC',
 [2026-04-14T11:07:51.520Z] [INFO] [stdout-guard]     'cf-ray': '9ec23fcdbf84c4ec-FRA',
 [2026-04-14T11:07:51.520Z] [INFO] [stdout-guard]     connection: 'keep-alive',
@@ -2783,7 +2783,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:07:53.522Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:07:53.522Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:07:53.522Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:07:53.522Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:07:53.522Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:07:53.522Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:07:53.522Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:07:53.522Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.01',
@@ -2844,7 +2844,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:07:53.524Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZJK8PZ6F5Yz2GZvUNm',
 [2026-04-14T11:07:53.524Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 [2026-04-14T11:07:53.524Z] [INFO] 
-[2026-04-14T11:07:53.524Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:07:53.524Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:07:53.524Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:07:53.524Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '1818',
 [2026-04-14T11:07:53.524Z] [INFO] 
@@ -3101,7 +3101,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:08:00.575Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:08:00.575Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:08:00.575Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:08:00.575Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:08:00.575Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:08:00.575Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:08:00.575Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:08:00.575Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.01',
@@ -3160,7 +3160,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:08:00.576Z] [INFO] [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [2026-04-14T11:08:00.576Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZJqCeSdgK7ViXYQYbf',
 [2026-04-14T11:08:00.576Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-04-14T11:08:00.576Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:08:00.576Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:08:00.576Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:08:00.576Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '1850',
 [2026-04-14T11:08:00.576Z] [INFO] [stdout-guard]   'content-encoding': 'gzip',
@@ -3293,7 +3293,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:08:04.206Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages/count_tokens?beta=true',
 [2026-04-14T11:08:04.206Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:08:04.206Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:08:04.206Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:08:04.206Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:08:04.206Z] [INFO] [stdout-guard]     'cf-cache-status': 'DYNAMIC',
 [2026-04-14T11:08:04.206Z] [INFO] [stdout-guard]     'cf-ray': '9ec2401cfe38dbf7-FRA',
 [2026-04-14T11:08:04.206Z] [INFO] [stdout-guard]     connection: 'keep-alive',
@@ -3418,7 +3418,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:08:04.739Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages/count_tokens?beta=true',
 [2026-04-14T11:08:04.739Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:08:04.739Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:08:04.739Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:08:04.739Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:08:04.739Z] [INFO] [stdout-guard]     'cf-cache-status': 'DYNAMIC',
 [2026-04-14T11:08:04.739Z] [INFO] [stdout-guard]     'cf-ray': '9ec240202f2bdbf7-FRA',
 [2026-04-14T11:08:04.739Z] [INFO] [stdout-guard]     connection: 'keep-alive',
@@ -3592,7 +3592,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:08:08.353Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:08:08.353Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:08:08.353Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:08:08.353Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:08:08.353Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:08:08.353Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:08:08.353Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:08:08.353Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.01',
@@ -3655,7 +3655,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:08:08.355Z] [INFO] [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [2026-04-14T11:08:08.355Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZKJKYsKujshCaRvoA4',
 [2026-04-14T11:08:08.355Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-04-14T11:08:08.355Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:08:08.355Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:08:08.355Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:08:08.355Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '3283',
 [2026-04-14T11:08:08.355Z] [INFO] [stdout-guard]   'content-encoding': 'gzip',
@@ -3900,7 +3900,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:08:14.415Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:08:14.415Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:08:14.415Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:08:14.415Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:08:14.415Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:08:14.415Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:08:14.415Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:08:14.415Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.01',
@@ -3958,7 +3958,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:08:14.416Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZKq8TbMTJzcMRoyimh',
 [2026-04-14T11:08:14.416Z] [INFO] 
 [2026-04-14T11:08:14.416Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-04-14T11:08:14.416Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:08:14.416Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:08:14.416Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:08:14.416Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '2242',
 [2026-04-14T11:08:14.416Z] [INFO] [stdout-guard]   'content-encoding': 'gzip',
@@ -4093,7 +4093,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:08:17.738Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages/count_tokens?beta=true',
 [2026-04-14T11:08:17.738Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:08:17.738Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:08:17.738Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:08:17.738Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:08:17.738Z] [INFO] [stdout-guard]     'cf-cache-status': 'DYNAMIC',
 [2026-04-14T11:08:17.738Z] [INFO] [stdout-guard]     'cf-ray': '9ec2407169ad8c4f-FRA',
 [2026-04-14T11:08:17.738Z] [INFO] [stdout-guard]     connection: 'keep-alive',
@@ -4190,7 +4190,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:08:20.777Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:08:20.777Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:08:20.777Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:08:20.777Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:08:20.777Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:08:20.777Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:08:20.777Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:08:20.777Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.01',
@@ -4249,7 +4249,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:08:20.778Z] [INFO] [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [2026-04-14T11:08:20.778Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZLFK1PcocjvDaDN2i2',
 [2026-04-14T11:08:20.778Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-04-14T11:08:20.778Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:08:20.778Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:08:20.778Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:08:20.778Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '2890',
 [2026-04-14T11:08:20.778Z] [INFO] [stdout-guard]   'content-encoding': 'gzip',
@@ -4352,7 +4352,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:08:21.336Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages/count_tokens?beta=true',
 [2026-04-14T11:08:21.336Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:08:21.336Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:08:21.336Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:08:21.336Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:08:21.336Z] [INFO] [stdout-guard]     'cf-cache-status': 'DYNAMIC',
 [2026-04-14T11:08:21.336Z] [INFO] [stdout-guard]     'cf-ray': '9ec24087eaf78c4f-FRA',
 [2026-04-14T11:08:21.336Z] [INFO] [stdout-guard]     connection: 'keep-alive',
@@ -4457,7 +4457,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:08:23.996Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:08:23.996Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:08:23.996Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:08:23.996Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:08:23.996Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:08:23.996Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:08:23.996Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:08:23.996Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.01',
@@ -4521,7 +4521,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:08:23.997Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZLWZ2zFoawxtAdHci3',
 [2026-04-14T11:08:23.997Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 [2026-04-14T11:08:23.997Z] [INFO] 
-[2026-04-14T11:08:23.998Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:08:23.998Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:08:23.998Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:08:23.998Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '2504',
 [2026-04-14T11:08:23.998Z] [INFO] [stdout-guard]   'content-encoding': 'gzip',
@@ -4621,7 +4621,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:08:25.808Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages/count_tokens?beta=true',
 [2026-04-14T11:08:25.808Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:08:25.808Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:08:25.808Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:08:25.808Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:08:25.808Z] [INFO] [stdout-guard]     'cf-cache-status': 'DYNAMIC',
 [2026-04-14T11:08:25.808Z] [INFO] [stdout-guard]     'cf-ray': '9ec240a41891d34c-FRA',
 [2026-04-14T11:08:25.808Z] [INFO] [stdout-guard]     connection: 'keep-alive',
@@ -4726,7 +4726,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:08:27.906Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:08:27.906Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:08:27.906Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:08:27.906Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:08:27.906Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:08:27.906Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:08:27.906Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:08:27.906Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.01',
@@ -4787,7 +4787,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:08:27.908Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZLqqtxe49uDHgc16iG',
 [2026-04-14T11:08:27.908Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 [2026-04-14T11:08:27.908Z] [INFO] 
-[2026-04-14T11:08:27.908Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:08:27.908Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:08:27.908Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:08:27.908Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '1942',
 [2026-04-14T11:08:27.908Z] [INFO] [stdout-guard]   'content-encoding': 'gzip',
@@ -5071,7 +5071,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:08:35.351Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:08:35.351Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:08:35.351Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:08:35.351Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:08:35.351Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:08:35.351Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:08:35.351Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:08:35.351Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.01',
@@ -5129,7 +5129,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:08:35.353Z] [INFO] [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [2026-04-14T11:08:35.353Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZMPd6VWxeVsEKiSF9J',
 [2026-04-14T11:08:35.353Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-04-14T11:08:35.353Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:08:35.353Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:08:35.353Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:08:35.353Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '1913',
 [2026-04-14T11:08:35.353Z] [INFO] [stdout-guard]   'content-encoding': 'gzip',
@@ -5376,7 +5376,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:08:48.771Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:08:48.771Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:08:48.771Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:08:48.771Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:08:48.771Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:08:48.771Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:08:48.771Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:08:48.771Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.01',
@@ -5461,7 +5461,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:08:48.777Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZNHajeZdxjeKCBoHA5',
 [2026-04-14T11:08:48.777Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 [2026-04-14T11:08:48.777Z] [INFO] 
-[2026-04-14T11:08:48.777Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:08:48.777Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:08:48.777Z] [INFO] 
 [2026-04-14T11:08:48.777Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:08:48.777Z] [INFO] 
@@ -5727,7 +5727,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:08:52.230Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages/count_tokens?beta=true',
 [2026-04-14T11:08:52.230Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:08:52.230Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:08:52.230Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:08:52.230Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:08:52.230Z] [INFO] [stdout-guard]     'cf-cache-status': 'DYNAMIC',
 [2026-04-14T11:08:52.230Z] [INFO] [stdout-guard]     'cf-ray': '9ec241493e3b6774-CDG',
 [2026-04-14T11:08:52.230Z] [INFO] [stdout-guard]     connection: 'keep-alive',
@@ -5827,7 +5827,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:08:54.529Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:08:54.529Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:08:54.529Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:08:54.529Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:08:54.529Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:08:54.529Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:08:54.529Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:08:54.529Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.01',
@@ -5901,7 +5901,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:08:54.531Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZNnYmUxMPiTRDUBurm',
 [2026-04-14T11:08:54.531Z] [INFO] 
 [2026-04-14T11:08:54.531Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-04-14T11:08:54.531Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:08:54.531Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:08:54.531Z] [INFO] 
 [2026-04-14T11:08:54.532Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:08:54.532Z] [INFO] 
@@ -6209,7 +6209,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:09:01.827Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:09:01.827Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:09:01.827Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:09:01.827Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:09:01.827Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:09:01.827Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:09:01.827Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:09:01.827Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.01',
@@ -6286,7 +6286,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:09:01.852Z] [INFO] [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [2026-04-14T11:09:01.852Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZPFw3ahSrRfF5y5rmm',
 [2026-04-14T11:09:01.852Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-04-14T11:09:01.852Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:09:01.852Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:09:01.852Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:09:01.852Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '3056',
 [2026-04-14T11:09:01.852Z] [INFO] [stdout-guard]   'content-encoding': 'gzip',
@@ -6438,7 +6438,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:09:05.153Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:09:05.153Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:09:05.153Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:09:05.153Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:09:05.153Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:09:05.153Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:09:05.153Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:09:05.153Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.01',
@@ -6501,7 +6501,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:09:05.154Z] [INFO] [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [2026-04-14T11:09:05.154Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZPdb39iEjoyXej7Cz1',
 [2026-04-14T11:09:05.154Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-04-14T11:09:05.154Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:09:05.154Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:09:05.154Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:09:05.154Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '1317',
 [2026-04-14T11:09:05.154Z] [INFO] [stdout-guard]   'content-encoding': 'gzip',
@@ -6679,7 +6679,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:09:28.401Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:09:28.401Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:09:28.401Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:09:28.401Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:09:28.401Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:09:28.401Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:09:28.401Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:09:28.401Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.01',
@@ -6757,7 +6757,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:09:28.405Z] [INFO] [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [2026-04-14T11:09:28.405Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZR1b9T6uBPewdUVxtu',
 [2026-04-14T11:09:28.405Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-04-14T11:09:28.405Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:09:28.405Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:09:28.405Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:09:28.405Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '5783',
 [2026-04-14T11:09:28.405Z] [INFO] [stdout-guard]   'content-encoding': 'gzip',
@@ -7006,7 +7006,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:09:43.986Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:09:43.986Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:09:43.986Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:09:43.986Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:09:43.986Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:09:43.986Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:09:43.986Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:09:43.986Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.02',
@@ -7065,7 +7065,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:09:43.988Z] [INFO] [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [2026-04-14T11:09:43.988Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZSMguM3Tcjxx5tPM1S',
 [2026-04-14T11:09:43.988Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-04-14T11:09:43.988Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:09:43.988Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:09:43.988Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:09:43.988Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '3177',
 [2026-04-14T11:09:43.988Z] [INFO] [stdout-guard]   'server-timing': 'x-originResponse;dur=3180',
@@ -7246,7 +7246,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:09:54.416Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:09:54.416Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:09:54.416Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:09:54.416Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:09:54.416Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:09:54.416Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:09:54.416Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:09:54.416Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.02',
@@ -7309,7 +7309,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:09:54.418Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZSv25xFQXCotyqvSWU',
 [2026-04-14T11:09:54.418Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 [2026-04-14T11:09:54.418Z] [INFO] 
-[2026-04-14T11:09:54.418Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:09:54.418Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:09:54.418Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:09:54.418Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '5955',
 [2026-04-14T11:09:54.418Z] [INFO] [stdout-guard]   'server-timing': 'x-originResponse;dur=6051',
@@ -7487,7 +7487,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:10:05.968Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:10:05.968Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:10:05.968Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:10:05.968Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:10:05.968Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:10:05.968Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:10:05.968Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:10:05.968Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.02',
@@ -7547,7 +7547,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:10:05.970Z] [INFO] [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [2026-04-14T11:10:05.970Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZTerYsP9GZLTvr9AkT',
 [2026-04-14T11:10:05.970Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-04-14T11:10:05.970Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:10:05.970Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:10:05.970Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:10:05.970Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '7499',
 [2026-04-14T11:10:05.970Z] [INFO] [stdout-guard]   'content-encoding': 'gzip',
@@ -7841,7 +7841,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:10:21.075Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:10:21.075Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:10:21.075Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:10:21.075Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:10:21.075Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:10:21.075Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:10:21.075Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:10:21.075Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.02',
@@ -7903,7 +7903,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:10:21.077Z] [INFO] [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [2026-04-14T11:10:21.077Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZV8ZwumT8abboDahgx',
 [2026-04-14T11:10:21.077Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-04-14T11:10:21.077Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:10:21.077Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:10:21.077Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:10:21.077Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '2561',
 [2026-04-14T11:10:21.077Z] [INFO] [stdout-guard]   'content-encoding': 'gzip',
@@ -8043,7 +8043,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:10:25.244Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:10:25.244Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:10:25.244Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:10:25.244Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:10:25.244Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:10:25.244Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:10:25.244Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:10:25.244Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.02',
@@ -8097,7 +8097,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:10:25.245Z] [INFO] [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [2026-04-14T11:10:25.245Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZVTbSA1QjsSKxz3eQa',
 [2026-04-14T11:10:25.245Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-04-14T11:10:25.245Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:10:25.245Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:10:25.245Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:10:25.245Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '2283',
 [2026-04-14T11:10:25.245Z] [INFO] [stdout-guard]   'server-timing': 'x-originResponse;dur=2361',
@@ -8240,7 +8240,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:10:28.830Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:10:28.830Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:10:28.830Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:10:28.830Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:10:28.830Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:10:28.830Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:10:28.830Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:10:28.830Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.02',
@@ -8306,7 +8306,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:10:28.832Z] [INFO] [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [2026-04-14T11:10:28.832Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZVm5uEV3hCToDtuWqK',
 [2026-04-14T11:10:28.832Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-04-14T11:10:28.832Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:10:28.832Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:10:28.832Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:10:28.832Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '1784',
 [2026-04-14T11:10:28.832Z] [INFO] [stdout-guard]   'content-encoding': 'gzip',
@@ -8681,7 +8681,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:11:10.618Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:11:10.618Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:11:10.618Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:11:10.618Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:11:10.618Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:11:10.618Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:11:10.618Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:11:10.618Z] [INFO] 
@@ -8755,7 +8755,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:11:10.624Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZYmDvVbFC9qbPSyKXG',
 [2026-04-14T11:11:10.624Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 [2026-04-14T11:11:10.624Z] [INFO] 
-[2026-04-14T11:11:10.624Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:11:10.624Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:11:10.624Z] [INFO] 
 [2026-04-14T11:11:10.625Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:11:10.625Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '2822',
@@ -9054,7 +9054,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:11:20.954Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:11:20.954Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:11:20.954Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:11:20.954Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:11:20.954Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:11:20.954Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:11:20.954Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:11:20.954Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.02',
@@ -9116,7 +9116,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:11:20.956Z] [INFO] [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [2026-04-14T11:11:20.956Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZZXq3LiLTegqQGmExh',
 [2026-04-14T11:11:20.956Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-04-14T11:11:20.956Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:11:20.956Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:11:20.956Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:11:20.956Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '2614',
 [2026-04-14T11:11:20.956Z] [INFO] 
@@ -9345,7 +9345,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:11:44.772Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:11:44.772Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:11:44.772Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:11:44.772Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:11:44.772Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:11:44.772Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:11:44.772Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:11:44.772Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.02',
@@ -9417,7 +9417,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:11:44.776Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZbLhsX6bkRf2p3taY3',
 [2026-04-14T11:11:44.776Z] [INFO] 
 [2026-04-14T11:11:44.776Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-04-14T11:11:44.776Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:11:44.776Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:11:44.776Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:11:44.776Z] [INFO] 
 [2026-04-14T11:11:44.776Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '2013',
@@ -9717,7 +9717,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:11:53.930Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:11:53.930Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:11:53.930Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:11:53.930Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:11:53.930Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:11:53.930Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:11:53.930Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:11:53.930Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.02',
@@ -9785,7 +9785,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:11:53.932Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZbztHNZcZx5QYvQx9E',
 [2026-04-14T11:11:53.932Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 [2026-04-14T11:11:53.932Z] [INFO] 
-[2026-04-14T11:11:53.932Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:11:53.932Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:11:53.932Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:11:53.932Z] [INFO] 
 [2026-04-14T11:11:53.932Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '2246',
@@ -9952,7 +9952,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:11:57.177Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:11:57.177Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:11:57.177Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:11:57.177Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:11:57.177Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:11:57.177Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:11:57.177Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:11:57.177Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.02',
@@ -10021,7 +10021,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:11:57.179Z] [INFO] [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [2026-04-14T11:11:57.179Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZcH2tF1LjjsPcp43Yp',
 [2026-04-14T11:11:57.179Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-04-14T11:11:57.179Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:11:57.179Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:11:57.179Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:11:57.179Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '1716',
 [2026-04-14T11:11:57.179Z] [INFO] [stdout-guard]   'content-encoding': 'gzip',
@@ -10201,7 +10201,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:12:09.931Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:12:09.931Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:12:09.931Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:12:09.931Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:12:09.931Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:12:09.931Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:12:09.931Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:12:09.931Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.02',
@@ -10267,7 +10267,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:12:09.935Z] [INFO] 
 [2026-04-14T11:12:09.935Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZdBtrKoT9sPj3thqpc',
 [2026-04-14T11:12:09.935Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-04-14T11:12:09.935Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:12:09.935Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:12:09.935Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:12:09.935Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '2102',
 [2026-04-14T11:12:09.935Z] [INFO] [stdout-guard]   'content-encoding': 'gzip',
@@ -10412,7 +10412,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:12:20.822Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:12:20.822Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:12:20.822Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:12:20.822Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:12:20.822Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:12:20.822Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:12:20.822Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:12:20.822Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.02',
@@ -10475,7 +10475,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:12:20.823Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3Ze1mAt6gRmW7tvM7yx',
 [2026-04-14T11:12:20.823Z] [INFO] 
 [2026-04-14T11:12:20.823Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-04-14T11:12:20.823Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:12:20.823Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:12:20.823Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:12:20.823Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '1666',
 [2026-04-14T11:12:20.823Z] [INFO] 
@@ -10782,7 +10782,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:12:31.291Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:12:31.291Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:12:31.291Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:12:31.291Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:12:31.291Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:12:31.291Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:12:31.291Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:12:31.291Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.02',
@@ -10854,7 +10854,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:12:31.295Z] [INFO] [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [2026-04-14T11:12:31.295Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZeavDvcqEvzQgLKyRb',
 [2026-04-14T11:12:31.295Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-04-14T11:12:31.295Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:12:31.295Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:12:31.295Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:12:31.295Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '4521',
 [2026-04-14T11:12:31.295Z] [INFO] [stdout-guard]   'server-timing': 'x-originResponse;dur=4603',
@@ -11000,7 +11000,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:12:35.428Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:12:35.428Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:12:35.428Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:12:35.428Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:12:35.428Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:12:35.428Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:12:35.428Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:12:35.428Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.02',
@@ -11071,7 +11071,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:12:35.431Z] [INFO] 
 [2026-04-14T11:12:35.432Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3Zf3VPM5CPAVKYGdqB1',
 [2026-04-14T11:12:35.432Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-04-14T11:12:35.432Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:12:35.432Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:12:35.432Z] [INFO] 
 [2026-04-14T11:12:35.432Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:12:35.432Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '2443',
@@ -11221,7 +11221,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:12:38.841Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:12:38.841Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:12:38.841Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:12:38.841Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:12:38.841Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:12:38.841Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:12:38.841Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:12:38.841Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.02',
@@ -11281,7 +11281,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:12:38.842Z] [INFO] [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [2026-04-14T11:12:38.842Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZfKSq7vQqxNisFM8hk',
 [2026-04-14T11:12:38.842Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-04-14T11:12:38.842Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:12:38.842Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:12:38.842Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:12:38.842Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '2111',
 [2026-04-14T11:12:38.842Z] [INFO] [stdout-guard]   'content-encoding': 'gzip',
@@ -11427,7 +11427,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:12:41.834Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:12:41.834Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:12:41.834Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:12:41.834Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:12:41.834Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:12:41.834Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:12:41.834Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:12:41.834Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.02',
@@ -11483,7 +11483,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:12:41.835Z] [INFO] [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [2026-04-14T11:12:41.835Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZfXMBjzWVqSBMhpPzb',
 [2026-04-14T11:12:41.835Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-04-14T11:12:41.835Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:12:41.835Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:12:41.835Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:12:41.835Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '2333',
 [2026-04-14T11:12:41.835Z] [INFO] [stdout-guard]   'server-timing': 'x-originResponse;dur=2415',
@@ -11658,7 +11658,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:12:47.711Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:12:47.711Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:12:47.711Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:12:47.711Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:12:47.711Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:12:47.711Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:12:47.711Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:12:47.711Z] [INFO] 
@@ -11722,7 +11722,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:12:47.714Z] [INFO] [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [2026-04-14T11:12:47.714Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZfxVXXmSj7JkLY2SgX',
 [2026-04-14T11:12:47.714Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-04-14T11:12:47.714Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:12:47.714Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:12:47.714Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:12:47.714Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '2323',
 [2026-04-14T11:12:47.714Z] [INFO] [stdout-guard]   'content-encoding': 'gzip',
@@ -11866,7 +11866,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:12:52.479Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:12:52.479Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:12:52.479Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:12:52.479Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:12:52.479Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:12:52.479Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:12:52.479Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:12:52.479Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.02',
@@ -11927,7 +11927,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:12:52.482Z] [INFO] [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [2026-04-14T11:12:52.482Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZgJiSyKcP7pQf3FK1i',
 [2026-04-14T11:12:52.482Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-04-14T11:12:52.482Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:12:52.482Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:12:52.482Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:12:52.482Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '2391',
 [2026-04-14T11:12:52.482Z] [INFO] [stdout-guard]   'content-encoding': 'gzip',
@@ -12077,7 +12077,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:13:46.503Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:13:46.503Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:13:46.503Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:13:46.503Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:13:46.503Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:13:46.503Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:13:46.503Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:13:46.503Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.02',
@@ -12154,7 +12154,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:13:46.508Z] [INFO] 
 [2026-04-14T11:13:46.508Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 [2026-04-14T11:13:46.508Z] [INFO] 
-[2026-04-14T11:13:46.508Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:13:46.508Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:13:46.508Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:13:46.508Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '5421',
 [2026-04-14T11:13:46.508Z] [INFO] [stdout-guard]   'server-timing': 'x-originResponse;dur=5759',
@@ -12300,7 +12300,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:13:52.667Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:13:52.667Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:13:52.667Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:13:52.667Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:13:52.667Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:13:52.667Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:13:52.667Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:13:52.667Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.02',
@@ -12376,7 +12376,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:13:52.670Z] [INFO] [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [2026-04-14T11:13:52.670Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZkmMh1gSCEzQvxFX8o',
 [2026-04-14T11:13:52.670Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-04-14T11:13:52.670Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:13:52.670Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:13:52.670Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:13:52.670Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '2001',
 [2026-04-14T11:13:52.670Z] [INFO] [stdout-guard]   'content-encoding': 'gzip',
@@ -12558,7 +12558,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:13:56.874Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:13:56.874Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:13:56.874Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:13:56.874Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:13:56.874Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:13:56.874Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:13:56.874Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:13:56.874Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.02',
@@ -12629,7 +12629,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:13:56.876Z] [INFO] 
 [2026-04-14T11:13:56.876Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3Zm46kyJHnYGwhZoXys',
 [2026-04-14T11:13:56.876Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-04-14T11:13:56.876Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:13:56.876Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:13:56.876Z] [INFO] 
 [2026-04-14T11:13:56.876Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:13:56.876Z] [INFO] 
@@ -12784,7 +12784,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:14:00.821Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:14:00.821Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:14:00.821Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:14:00.821Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:14:00.821Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:14:00.821Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:14:00.821Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:14:00.821Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.02',
@@ -12841,7 +12841,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:14:00.824Z] [INFO] [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [2026-04-14T11:14:00.824Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZmJN1TqQH2f1GAzB3p',
 [2026-04-14T11:14:00.824Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-04-14T11:14:00.824Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:14:00.824Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:14:00.824Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:14:00.824Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '2955',
 [2026-04-14T11:14:00.824Z] [INFO] [stdout-guard]   'content-encoding': 'gzip',
@@ -13083,7 +13083,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:14:06.768Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:14:06.768Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:14:06.768Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:14:06.768Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:14:06.768Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:14:06.768Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:14:06.768Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:14:06.768Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.03',
@@ -13151,7 +13151,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:14:06.770Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZmnE4MhSVSszGi7kTR',
 [2026-04-14T11:14:06.770Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 [2026-04-14T11:14:06.770Z] [INFO] 
-[2026-04-14T11:14:06.770Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:14:06.770Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:14:06.770Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:14:06.770Z] [INFO] 
 [2026-04-14T11:14:06.771Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '2399',
@@ -13306,7 +13306,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:14:09.864Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:14:09.864Z] [INFO] [stdout-guard]   headers: {
 [2026-04-14T11:14:09.864Z] [INFO] 
-[2026-04-14T11:14:09.864Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:14:09.864Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:14:09.864Z] [INFO] 
 [2026-04-14T11:14:09.865Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:14:09.865Z] [INFO] 
@@ -13377,7 +13377,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:14:09.867Z] [INFO] [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [2026-04-14T11:14:09.867Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3Zn4KSHDM9G1utRbBmJ',
 [2026-04-14T11:14:09.867Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-04-14T11:14:09.867Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:14:09.867Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:14:09.867Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:14:09.867Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '1728',
 [2026-04-14T11:14:09.867Z] [INFO] [stdout-guard]   'server-timing': 'x-originResponse;dur=1807',
@@ -13562,7 +13562,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:14:15.571Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:14:15.571Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:14:15.571Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:14:15.571Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:14:15.571Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:14:15.571Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:14:15.571Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:14:15.571Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.03',
@@ -13625,7 +13625,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:14:15.573Z] [INFO] [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [2026-04-14T11:14:15.573Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZnUT1PxPNgKYdTqbCT',
 [2026-04-14T11:14:15.573Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-04-14T11:14:15.573Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:14:15.573Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:14:15.573Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:14:15.573Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '1778',
 [2026-04-14T11:14:15.573Z] [INFO] [stdout-guard]   'content-encoding': 'gzip',
@@ -13923,7 +13923,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:14:23.923Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:14:23.923Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:14:23.923Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:14:23.923Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:14:23.923Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:14:23.923Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:14:23.923Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:14:23.923Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.03',
@@ -13978,7 +13978,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:14:23.923Z] [INFO] [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [2026-04-14T11:14:23.923Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZnwqnWfHsfmUZCWfP2',
 [2026-04-14T11:14:23.923Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-04-14T11:14:23.923Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:14:23.923Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:14:23.923Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:14:23.923Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '3605',
 [2026-04-14T11:14:23.923Z] [INFO] [stdout-guard]   'server-timing': 'x-originResponse;dur=3811',
@@ -14122,7 +14122,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:14:29.826Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:14:29.826Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:14:29.826Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:14:29.826Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:14:29.826Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:14:29.826Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:14:29.826Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:14:29.826Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.03',
@@ -14199,7 +14199,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:14:29.830Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZoQLUsUep5ZsMtUNkV',
 [2026-04-14T11:14:29.830Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 [2026-04-14T11:14:29.830Z] [INFO] 
-[2026-04-14T11:14:29.831Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:14:29.831Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:14:29.831Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:14:29.831Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '3303',
 [2026-04-14T11:14:29.831Z] [INFO] 
@@ -14384,7 +14384,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:14:40.879Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:14:40.879Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:14:40.879Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:14:40.879Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:14:40.879Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:14:40.879Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:14:40.879Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:14:40.879Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.03',
@@ -14446,7 +14446,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:14:40.884Z] [INFO] [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [2026-04-14T11:14:40.884Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZoreGrMGscCJUCz3DV',
 [2026-04-14T11:14:40.884Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-04-14T11:14:40.884Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:14:40.884Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:14:40.884Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:14:40.884Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '8340',
 [2026-04-14T11:14:40.884Z] [INFO] [stdout-guard]   'server-timing': 'x-originResponse;dur=8419',
@@ -14587,7 +14587,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:14:59.886Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:14:59.886Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:14:59.886Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:14:59.886Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:14:59.886Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:14:59.886Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:14:59.886Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:14:59.886Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.03',
@@ -14655,7 +14655,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:14:59.888Z] [INFO] [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [2026-04-14T11:14:59.888Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZqiaQFGK5amuhHTDfc',
 [2026-04-14T11:14:59.888Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-04-14T11:14:59.888Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:14:59.888Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:14:59.888Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:14:59.888Z] [INFO] 
 [2026-04-14T11:14:59.888Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '2104',
@@ -14836,7 +14836,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:15:07.098Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:15:07.098Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:15:07.098Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:15:07.098Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:15:07.098Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:15:07.098Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:15:07.098Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:15:07.098Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.03',
@@ -14910,7 +14910,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:15:07.102Z] [INFO] [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [2026-04-14T11:15:07.102Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZrKmEgBcZ6SgVx146e',
 [2026-04-14T11:15:07.102Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-04-14T11:15:07.102Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:15:07.102Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:15:07.102Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:15:07.102Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '1147',
 [2026-04-14T11:15:07.102Z] [INFO] [stdout-guard]   'content-encoding': 'gzip',
@@ -15137,7 +15137,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:15:12.466Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:15:12.466Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:15:12.466Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:15:12.466Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:15:12.466Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:15:12.466Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:15:12.466Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:15:12.466Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.03',
@@ -15204,7 +15204,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:15:12.472Z] [INFO] [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [2026-04-14T11:15:12.472Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3Zrj5wMLXyq9aiFkKif',
 [2026-04-14T11:15:12.472Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-04-14T11:15:12.472Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:15:12.472Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:15:12.472Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:15:12.472Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '1069',
 [2026-04-14T11:15:12.472Z] [INFO] [stdout-guard]   'server-timing': 'x-originResponse;dur=1071',
@@ -15391,7 +15391,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:15:17.175Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:15:17.175Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:15:17.175Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:15:17.175Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:15:17.175Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:15:17.175Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:15:17.175Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:15:17.175Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.03',
@@ -15468,7 +15468,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:15:17.179Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZruGN1FrzsfWhAxwBE',
 [2026-04-14T11:15:17.179Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 [2026-04-14T11:15:17.179Z] [INFO] 
-[2026-04-14T11:15:17.179Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:15:17.179Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:15:17.179Z] [INFO] 
 [2026-04-14T11:15:17.179Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:15:17.179Z] [INFO] 
@@ -15647,7 +15647,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:15:38.326Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:15:38.326Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:15:38.326Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:15:38.326Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:15:38.326Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:15:38.326Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:15:38.326Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:15:38.326Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.03',
@@ -15724,7 +15724,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:15:38.330Z] [INFO] 
 [2026-04-14T11:15:38.330Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZtL49no3Ux6YXsAayk',
 [2026-04-14T11:15:38.330Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-04-14T11:15:38.330Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:15:38.330Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:15:38.330Z] [INFO] 
 [2026-04-14T11:15:38.330Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:15:38.330Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '5087',
@@ -15869,7 +15869,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:15:49.571Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:15:49.571Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:15:49.571Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:15:49.571Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:15:49.571Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:15:49.571Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:15:49.571Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:15:49.571Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.03',
@@ -15930,7 +15930,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:15:49.573Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZuPCgrfCVfcHSmDMPY',
 [2026-04-14T11:15:49.573Z] [INFO] 
 [2026-04-14T11:15:49.573Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-04-14T11:15:49.573Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:15:49.573Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:15:49.573Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:15:49.573Z] [INFO] 
 [2026-04-14T11:15:49.574Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '2060',
@@ -16108,7 +16108,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:15:56.568Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:15:56.568Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:15:56.568Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:15:56.568Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:15:56.568Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:15:56.568Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:15:56.568Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:15:56.568Z] [INFO] 
@@ -16191,7 +16191,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:15:56.572Z] [INFO] 
 [2026-04-14T11:15:56.572Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 [2026-04-14T11:15:56.572Z] [INFO] 
-[2026-04-14T11:15:56.572Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:15:56.572Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:15:56.572Z] [INFO] 
 [2026-04-14T11:15:56.572Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:15:56.572Z] [INFO] 
@@ -16379,7 +16379,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:16:02.870Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:16:02.870Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:16:02.870Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:16:02.870Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:16:02.870Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:16:02.870Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:16:02.870Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:16:02.870Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.03',
@@ -16454,7 +16454,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:16:02.878Z] [INFO] [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [2026-04-14T11:16:02.878Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZvJmKa7SxACRx7nD5Z',
 [2026-04-14T11:16:02.878Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-04-14T11:16:02.878Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:16:02.878Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:16:02.878Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:16:02.878Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '2802',
 [2026-04-14T11:16:02.878Z] [INFO] [stdout-guard]   'content-encoding': 'gzip',
@@ -16643,7 +16643,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:16:10.426Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:16:10.426Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:16:10.426Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:16:10.426Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:16:10.426Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:16:10.426Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:16:10.426Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:16:10.426Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.03',
@@ -16703,7 +16703,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:16:10.427Z] [INFO] [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [2026-04-14T11:16:10.427Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZvsK9T8P6JQAL78AWW',
 [2026-04-14T11:16:10.427Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-04-14T11:16:10.427Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:16:10.427Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:16:10.427Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:16:10.427Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '2744',
 [2026-04-14T11:16:10.427Z] [INFO] [stdout-guard]   'content-encoding': 'gzip',
@@ -16882,7 +16882,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:16:16.268Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:16:16.268Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:16:16.268Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:16:16.268Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:16:16.268Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:16:16.268Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:16:16.268Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:16:16.268Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.03',
@@ -16942,7 +16942,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:16:16.270Z] [INFO] [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [2026-04-14T11:16:16.270Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZwMkBWo6QqdoP4adbY',
 [2026-04-14T11:16:16.270Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-04-14T11:16:16.270Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:16:16.270Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:16:16.270Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:16:16.270Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '1946',
 [2026-04-14T11:16:16.270Z] [INFO] [stdout-guard]   'server-timing': 'x-originResponse;dur=2037',
@@ -17239,7 +17239,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:16:25.617Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:16:25.617Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:16:25.617Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:16:25.617Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:16:25.617Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:16:25.617Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:16:25.617Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:16:25.617Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.03',
@@ -17300,7 +17300,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:16:25.619Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3Zx29zVorMxNVxdurzh',
 [2026-04-14T11:16:25.619Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 [2026-04-14T11:16:25.619Z] [INFO] 
-[2026-04-14T11:16:25.619Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:16:25.619Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:16:25.619Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:16:25.619Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '2313',
 [2026-04-14T11:16:25.619Z] [INFO] [stdout-guard]   'server-timing': 'x-originResponse;dur=2401',
@@ -17450,7 +17450,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:16:30.794Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:16:30.794Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:16:30.794Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:16:30.794Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:16:30.794Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:16:30.794Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:16:30.794Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:16:30.794Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.03',
@@ -17526,7 +17526,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:16:30.797Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZxMHvod8JTyc4x9wv5',
 [2026-04-14T11:16:30.797Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 [2026-04-14T11:16:30.797Z] [INFO] 
-[2026-04-14T11:16:30.797Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:16:30.797Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:16:30.797Z] [INFO] 
 [2026-04-14T11:16:30.797Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:16:30.797Z] [INFO] 
@@ -17710,7 +17710,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:16:35.729Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:16:35.729Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:16:35.729Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:16:35.729Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:16:35.729Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:16:35.729Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:16:35.729Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:16:35.729Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.04',
@@ -17767,7 +17767,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:16:35.730Z] [INFO] [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [2026-04-14T11:16:35.730Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3ZxoX11upL9Pi19DY2J',
 [2026-04-14T11:16:35.730Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-04-14T11:16:35.730Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:16:35.730Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:16:35.730Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:16:35.730Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '1813',
 [2026-04-14T11:16:35.730Z] [INFO] [stdout-guard]   'server-timing': 'x-originResponse;dur=1904',
@@ -17943,7 +17943,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:17:05.021Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-14T11:17:05.021Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:17:05.021Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:17:05.021Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:17:05.021Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:17:05.021Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:17:05.021Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:17:05.021Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.04',
@@ -18017,7 +18017,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:17:05.025Z] [INFO] [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [2026-04-14T11:17:05.025Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3Zy8AAzypPGsyEJUm3P',
 [2026-04-14T11:17:05.025Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-04-14T11:17:05.025Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:17:05.025Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:17:05.025Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:17:05.025Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '26660',
 [2026-04-14T11:17:05.025Z] [INFO] [stdout-guard]   'content-encoding': 'gzip',
@@ -18287,7 +18287,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:17:10.917Z] [INFO] [stdout-guard]   status: 200,
 [2026-04-14T11:17:10.917Z] [INFO] 
 [2026-04-14T11:17:10.918Z] [INFO] [stdout-guard]   headers: {
-[2026-04-14T11:17:10.918Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:17:10.918Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:17:10.918Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776182400',
 [2026-04-14T11:17:10.918Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-14T11:17:10.918Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.04',
@@ -18347,7 +18347,7 @@ claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 [2026-04-14T11:17:10.920Z] [INFO] [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [2026-04-14T11:17:10.920Z] [INFO] [stdout-guard]   'request-id': 'req_011Ca3a1Q1yD4EqjkBDdg36y',
 [2026-04-14T11:17:10.920Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-04-14T11:17:10.920Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-14T11:17:10.920Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [2026-04-14T11:17:10.920Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [2026-04-14T11:17:10.920Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '1796',
 [2026-04-14T11:17:10.920Z] [INFO] [stdout-guard]   'content-encoding': 'gzip',

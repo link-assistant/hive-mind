@@ -13,7 +13,7 @@
  *   - applyDisable1mContextToClaudeEnv: env var set when disabled
  *   - buildCodexSubSessionSizeConfigArgs: -c model_auto_compact_token_limit=...
  *   - buildCodexDisable1mContextConfigArgs: -c model_context_window=...
- *   - SOLVE_OPTION_DEFINITIONS: defaults are 150k and true (disable-1m-context)
+ *   - SOLVE_OPTION_DEFINITIONS: defaults are 150k and auto/undefined (disable-1m-context, issue #2771)
  *   - getClaudeEnv: integration via config.lib.mjs
  */
 
@@ -180,7 +180,7 @@ console.log('\n=== SOLVE_OPTION_DEFINITIONS ===\n');
 
 assertEqual('sub-session-size default = "150k"', SOLVE_OPTION_DEFINITIONS['sub-session-size']?.default, '150k');
 assertEqual('sub-session-size type = "string"', SOLVE_OPTION_DEFINITIONS['sub-session-size']?.type, 'string');
-assertEqual('disable-1m-context default = true', SOLVE_OPTION_DEFINITIONS['disable-1m-context']?.default, true);
+assertEqual('disable-1m-context default = undefined (auto, issue #2771)', SOLVE_OPTION_DEFINITIONS['disable-1m-context']?.default, undefined);
 assertEqual('disable-1m-context type = "boolean"', SOLVE_OPTION_DEFINITIONS['disable-1m-context']?.type, 'boolean');
 
 console.log('\n=== getClaudeEnv integration ===\n');

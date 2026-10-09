@@ -31,6 +31,7 @@ const getenv = typeof getenvModule === 'function' ? getenvModule : getenvModule.
 import semver from 'semver';
 import { buildClaudeQuietEnv } from './claude-quiet-config.lib.mjs';
 import { clampEnvValue, parseIntegerEnv, parseNumberEnv } from './env-config.lib.mjs';
+import { applyClaudePricingTierToEnv } from './pricing-tier.lib.mjs'; // Issue #2771
 
 // Import lino for parsing Links Notation format
 const { lino } = await import('./lino.lib.mjs');
@@ -651,6 +652,8 @@ export const supportsThinkingBudget = (version, minVersion = '2.1.12') => {
 //   ANTHROPIC_DEFAULT_SONNET_MODEL → model used in execution mode (and for 'sonnet' alias)
 //   CLAUDE_CODE_SUBAGENT_MODEL     → model used by all subagents and agent teams
 //   CLAUDE_CODE_DISABLE_1M_CONTEXT, CLAUDE_CODE_AUTO_COMPACT_WINDOW, CLAUDE_AUTOCOMPACT_PCT_OVERRIDE
+// Issue #2771: pricingTier (from resolvePricingTier) adds CLAUDE_CODE_DISABLE_FAST_MODE and
+// holds short-context runs to the model's cheapest pricing tier.
 export const getClaudeEnv = (options = {}) => {
   // Get max output tokens based on model (Issue #1221)
   const maxOutputTokens = options.model ? getMaxOutputTokensForModel(options.model) : claudeCode.maxOutputTokens;
@@ -773,6 +776,14 @@ export const getClaudeEnv = (options = {}) => {
         env.CLAUDE_CODE_AUTO_COMPACT_WINDOW = String(window);
       }
     }
+  }
+
+  // Issue #2771: the resolved pricing tier owns the speed and 1M switches, so values
+  // inherited from the parent shell cannot override what this run asked for.
+  if (options.pricingTier) {
+    delete env.CLAUDE_CODE_DISABLE_FAST_MODE;
+    if (options.pricingTier.longContext) delete env.CLAUDE_CODE_DISABLE_1M_CONTEXT;
+    applyClaudePricingTierToEnv(env, options.pricingTier);
   }
 
   return env;

@@ -11,6 +11,7 @@ Evidence for [issue #2923](https://github.com/link-assistant/hive-mind/issues/29
 | `ci-logs/related/run-37723257263-failed.log` | The earlier release of 2.34.1 that failed the same way as 2.35.1 |
 | `ci-logs/related/run-36914477944-failed.log` | A Docker build that got a 404 on the 2.33.4 tarball after the version metadata was already visible (issue #2404, already fixed) |
 | `ci-logs/related/run-37603921340-failed.log` | The dependency-freshness failure on push, fixed in #2625 |
+| `codeql/open-alerts-main.tsv`, `codeql/open-alerts-shipped.tsv` | Open code-scanning alerts on `main` on 2026-10-09: all 120 (path, rule), and the 31 in shipped code (alert, location, rule, created) |
 | `npm-publish-lag.txt` | Output of `experiments/npm-publish-lag-2923.mjs` for the last 80 versions: npm's publish lag per version |
 
 Presigned S3 parameters (`X-Amz-*`) in the logs are redacted. The only token-like strings left are the names of the token-masking self-test cases in run 37983302098.
@@ -80,7 +81,14 @@ Presigned S3 parameters (`X-Amz-*`) in the logs are redacted. The only token-lik
 - **Fix (`1d30bff1`).** `src/formal-ai-runtime.lib.mjs` marks the server it starts with `keepProcessAcrossSessions` and releases the mark when it stops the server. `src/session-survivors.lib.mjs` logs marked processes as a verbose `kept on purpose` line and still warns about everything else.
 - **Test.** `tests/session-survivors-kept-2923.test.mjs`. `tests/session-survivors-2395.test.mjs` and the Formal AI runtime suites still pass.
 
-### F. Best practices (requirement 5)
+### F. Security: CodeQL alerts in code that is never shipped (requirement 3, 7)
+
+- **Root cause.** The Security run is green, but 120 code-scanning alerts were open on `main` (`codeql/open-alerts-main.tsv`). 55 of them were in code this project never ships or runs: 48 in `experiments/` and 7 in `docs/`. The `docs/` ones are third-party copies such as `docs/case-studies/issue-1724/data/use-m-source.js` and a saved GitHub page, `docs/case-studies/issue-1752/external/git-push.html`. `.github/codeql/codeql-config.yml` excluded only `dev/log`. This PR's own experiment added two more alerts (286 and 287, `pkg.replace('/', '%2f')` replaces only the first `/`). JS template #211 reported the same scope problem.
+- **Fix.** `paths-ignore` now also lists `experiments`, `examples` and `docs`. Nothing in them is shipped (`package.json` `files` is `src` and `*.md`) or executed by a workflow, and `scripts/detect-code-changes.mjs` already treats `docs/` and `experiments/` as non-code. `experiments/npm-publish-lag-2923.mjs` now encodes the whole package name.
+- **Test.** `tests/codeql-config-scope-2923.test.mjs` fails on the old config. It also checks that `src`, `scripts`, `tests`, `.github` and `eslint-rules` stay scanned and that every CodeQL init step uses the config.
+- **Not changed here.** The 31 alerts in shipped code (`codeql/open-alerts-shipped.tsv`) are a backlog from when CodeQL was enabled on 2026-08-11. Only one of them is newer (2026-09-14). They don't fail CI, and none was raised by the runs in this issue. Most of them are hand-written escaping in `src/claude.lib.mjs`, `src/review.mjs` and the Telegram Markdown helpers that doesn't escape backslashes. Some of that escaping builds command-stream command lines, and command-stream quotes interpolated values itself. A fix there changes how every prompt reaches the agent, so it needs its own issue with end-to-end tests.
+
+### G. Best practices (requirement 5)
 
 - **Change (`1ace5886`).** Four lessons are added to `docs/CI-CD-BEST-PRACTICES.md` and to its `.ru`, `.zh` and `.hi` versions:
   - Principle 9, "Wait for the registry as long as it really takes, and never republish to find out".
@@ -89,11 +97,11 @@ Presigned S3 parameters (`X-Amz-*`) in the logs are redacted. The only token-lik
   - Principle 17, "One outcome, one message".
 - **Test.** `tests/cicd-best-practices-registry-lag-2923.test.mjs`.
 
-### G. Release notes
+### H. Release notes
 
 `.changeset/npm-lag-release-false-negative.md` (patch).
 
-### H. Other findings that need no code change
+### I. Other findings that need no code change
 
 | Finding | Run | Classification |
 | --- | --- | --- |
@@ -109,6 +117,7 @@ Presigned S3 parameters (`X-Amz-*`) in the logs are redacted. The only token-lik
 | Verification shorter than npm's lag | 330 s | 930 s verify, 920 s `wait-for-npm`; 56 s (6 %) margin over the 874 s lag | 600 s PyPI wait | Hive Mind: 1500 s. Reported to the JS template: [#221](https://github.com/link-foundation/js-ai-driven-development-pipeline-template/issues/221) |
 | Verification before npm's cache horizon | Covered by the longer window | Fixed (#197) | Not applicable | None |
 | Release gate checks only the registry | Yes | Fixed (#211) | Checks the GitHub release too | Ported (B) |
+| CodeQL scans `experiments/` | Yes, plus third-party copies in `docs/` | Fixed (#211): `experiments`, `examples` ignored | Fixed: `experiments` ignored | Ported and extended (F) |
 
 [Template #221](https://github.com/link-foundation/js-ai-driven-development-pipeline-template/issues/221) includes a repro: a `curl` script that prints `lag: 874 s` from npm's attestation API, plus a simulation that prints `false 930000` for the template's own loop. It also gives the workaround (raise `NPM_VERIFY_ATTEMPTS` or the delay cap) and a suggested fix (a window of at least 1.5 times the measured maximum, and job timeouts sized to match).
 
@@ -125,6 +134,7 @@ node experiments/npm-publish-lag-2923.mjs @link-assistant/hive-mind 80   # lag p
 node --test tests/publish-verification-window-2923.test.mjs               # 330 s window vs 874 s lag
 node --test tests/release-self-heal-github-release-2923.test.mjs
 node --test tests/agent-recovery-message-2923.test.mjs
+node --test tests/codeql-config-scope-2923.test.mjs
 ```
 
 ## Remaining limits

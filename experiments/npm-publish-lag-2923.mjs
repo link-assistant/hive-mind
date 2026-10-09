@@ -7,11 +7,13 @@
 // Usage: node experiments/npm-publish-lag-2923.mjs [package] [count]
 const pkg = process.argv[2] || '@link-assistant/hive-mind';
 const count = Number(process.argv[3] || 40);
-const packument = await (await fetch(`https://registry.npmjs.org/${pkg.replace('/', '%2f')}`)).json();
+// The registry wants the scope separator encoded: @scope%2fname.
+const encoded = pkg.startsWith('@') ? `@${encodeURIComponent(pkg.slice(1))}` : encodeURIComponent(pkg);
+const packument = await (await fetch(`https://registry.npmjs.org/${encoded}`)).json();
 const versions = Object.keys(packument.versions).slice(-count);
 const rows = [];
 for (const v of versions) {
-  const res = await fetch(`https://registry.npmjs.org/-/npm/v1/attestations/${pkg.replace('/', '%2f')}@${v}`);
+  const res = await fetch(`https://registry.npmjs.org/-/npm/v1/attestations/${encoded}@${v}`);
   if (!res.ok) continue;
   const { attestations = [] } = await res.json();
   const t = {};

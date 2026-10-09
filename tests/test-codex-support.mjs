@@ -179,9 +179,9 @@ test('Codex default fallback chain walks gpt-5.6-sol -> terra -> gpt-5.5 -> gpt-
   assert.deepEqual(chain, ['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.5', 'gpt-5.4', 'gpt-5.2']);
 });
 
-test('Claude default fallback model resolves from opus to opus-4-8', () => {
-  // Updated for Issue #2096: opus is now claude-opus-5 with fallback to opus-4-8
-  assert.equal(resolveDefaultFallbackModel('claude', 'opus'), 'opus-4-8');
+test('Claude default fallback model resolves from opus to opus-5', () => {
+  // Updated for Issue #2771: opus is now claude-opus-5-5 with fallback to opus-5
+  assert.equal(resolveDefaultFallbackModel('claude', 'opus'), 'opus-5');
 });
 
 test('Models without configured defaults keep fallback unset', () => {

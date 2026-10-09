@@ -94,13 +94,13 @@ test('claude-opus-4-5-20251101 (full ID) still works', () => {
 test('sonnet alias still works (now maps to Sonnet 5, Issue #2003)', () => {
   const result = validateModelName('sonnet', 'claude');
   assert(result.valid, `sonnet should be valid, got: ${result.message}`);
-  assert.strictEqual(result.mappedModel, 'claude-sonnet-5', 'sonnet should map to claude-sonnet-5');
+  assert.strictEqual(result.mappedModel, 'claude-sonnet-5-5', 'sonnet should map to claude-sonnet-5-5');
 });
 
 test('haiku alias still works (regression test)', () => {
   const result = validateModelName('haiku', 'claude');
   assert(result.valid, `haiku should be valid, got: ${result.message}`);
-  assert.strictEqual(result.mappedModel, 'claude-haiku-4-5-20251001', 'haiku should map correctly');
+  assert.strictEqual(result.mappedModel, 'claude-haiku-5-5', 'haiku should map correctly (Haiku 5.5, Issue #2771)');
 });
 
 // ============================================================
@@ -149,8 +149,12 @@ test('supports1mContext returns true for sonnet', () => {
   assert.strictEqual(supports1mContext('sonnet', 'claude'), true, 'sonnet should support 1M context');
 });
 
-test('supports1mContext returns false for haiku', () => {
-  assert.strictEqual(supports1mContext('haiku', 'claude'), false, 'haiku should not support 1M context');
+test('supports1mContext returns false for haiku-4-5', () => {
+  assert.strictEqual(supports1mContext('haiku-4-5', 'claude'), false, 'haiku-4-5 should not support 1M context');
+});
+
+test('supports1mContext returns true for haiku (Haiku 5.5 has a native 1M window, Issue #2771)', () => {
+  assert.strictEqual(supports1mContext('haiku', 'claude'), true, 'haiku (Haiku 5.5) should support 1M context');
 });
 
 test('supports1mContext returns false for non-claude tools', () => {
@@ -165,7 +169,7 @@ console.log('\n=== 6. [1m] Suffix with validateModelName Tests ===');
 test('validateModelName accepts opus[1m] (now maps to Opus 5, Issue #2096)', () => {
   const result = validateModelName('opus[1m]', 'claude');
   assert(result.valid, `opus[1m] should be valid, got: ${result.message}`);
-  assert.strictEqual(result.mappedModel, 'claude-opus-5[1m]', 'Should map to claude-opus-5[1m]');
+  assert.strictEqual(result.mappedModel, 'claude-opus-5-5[1m]', 'Should map to claude-opus-5-5[1m]');
   assert.strictEqual(result.has1mSuffix, true, 'Should indicate 1m suffix');
 });
 
@@ -179,13 +183,13 @@ test('validateModelName accepts claude-opus-4-6[1m]', () => {
 test('validateModelName accepts sonnet[1m] (now maps to Sonnet 5, Issue #2003)', () => {
   const result = validateModelName('sonnet[1m]', 'claude');
   assert(result.valid, `sonnet[1m] should be valid, got: ${result.message}`);
-  assert.strictEqual(result.mappedModel, 'claude-sonnet-5[1m]', 'Should map to claude-sonnet-5[1m]');
+  assert.strictEqual(result.mappedModel, 'claude-sonnet-5-5[1m]', 'Should map to claude-sonnet-5-5[1m]');
   assert.strictEqual(result.has1mSuffix, true, 'Should indicate 1m suffix');
 });
 
-test('validateModelName rejects haiku[1m] (unsupported)', () => {
-  const result = validateModelName('haiku[1m]', 'claude');
-  assert.strictEqual(result.valid, false, 'haiku[1m] should be invalid');
+test('validateModelName rejects haiku-4-5[1m] (unsupported)', () => {
+  const result = validateModelName('haiku-4-5[1m]', 'claude');
+  assert.strictEqual(result.valid, false, 'haiku-4-5[1m] should be invalid');
   assert(result.message.includes('does not support [1m]'), `Error should mention 1m not supported: ${result.message}`);
 });
 
@@ -196,7 +200,7 @@ console.log('\n=== 7. mapModelToId with [1m] Suffix Tests ===');
 
 test('mapModelToId handles opus[1m] (now maps to Opus 5, Issue #2096)', () => {
   const result = mapModelToId('opus[1m]');
-  assert.strictEqual(result, 'claude-opus-5[1m]', 'mapModelToId should handle opus[1m]');
+  assert.strictEqual(result, 'claude-opus-5-5[1m]', 'mapModelToId should handle opus[1m]');
 });
 
 test('mapModelToId handles claude-opus-4-6[1m]', () => {
@@ -206,7 +210,7 @@ test('mapModelToId handles claude-opus-4-6[1m]', () => {
 
 test('mapModelToId handles sonnet[1m] (now maps to Sonnet 5, Issue #2003)', () => {
   const result = mapModelToId('sonnet[1m]');
-  assert.strictEqual(result, 'claude-sonnet-5[1m]', 'mapModelToId should handle sonnet[1m]');
+  assert.strictEqual(result, 'claude-sonnet-5-5[1m]', 'mapModelToId should handle sonnet[1m]');
 });
 
 // ============================================================
@@ -355,16 +359,16 @@ test('getMaxOutputTokensForModel returns opus46 max for opus-4-6', () => {
 // ============================================================
 console.log('\n=== 11. Case Insensitivity Tests (Issue #1238) ===');
 
-test('validateModelName handles OPUS (uppercase, now maps to Opus 5, Issue #2096)', () => {
+test('validateModelName handles OPUS (uppercase, now maps to Opus 5.5, Issue #2096, #2771)', () => {
   const result = validateModelName('OPUS', 'claude');
   assert(result.valid, `OPUS should be valid, got: ${result.message}`);
-  assert.strictEqual(result.mappedModel, 'claude-opus-5', 'OPUS should map to claude-opus-5');
+  assert.strictEqual(result.mappedModel, 'claude-opus-5-5', 'OPUS should map to claude-opus-5-5');
 });
 
-test('validateModelName handles OPUS[1M] (uppercase, now maps to Opus 5, Issue #2096)', () => {
+test('validateModelName handles OPUS[1M] (uppercase, now maps to Opus 5.5, Issue #2096, #2771)', () => {
   const result = validateModelName('OPUS[1M]', 'claude');
   assert(result.valid, `OPUS[1M] should be valid, got: ${result.message}`);
-  assert.strictEqual(result.mappedModel, 'claude-opus-5[1m]', 'OPUS[1M] should map to claude-opus-5[1m]');
+  assert.strictEqual(result.mappedModel, 'claude-opus-5-5[1m]', 'OPUS[1M] should map to claude-opus-5-5[1m]');
 });
 
 // ============================================================

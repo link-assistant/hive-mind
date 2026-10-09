@@ -534,6 +534,9 @@ jobs:
         # Also detects the self-healing case: no changesets, but package.json's
         # version is not on npm yet (a previous run bumped and failed to
         # publish). See scripts/check-release-needed.lib.mjs, issue #2175.
+        # And the version on npm whose GitHub release is missing (issue #2923).
+        env:
+          GH_TOKEN: ${{ steps.gh.outputs.token }}
         run: node scripts/check-release-needed.mjs
       - name: Harmonize changeset bump types
         if: steps.check_changesets.outputs.has_changesets == 'true' && steps.check_changesets.outputs.changeset_count > 1

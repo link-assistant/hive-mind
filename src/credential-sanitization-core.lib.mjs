@@ -164,13 +164,18 @@ const QUERY_CREDENTIAL = new RegExp(`([?&]${SENSITIVE_KEY}=)([^&#\\s]+)`, 'gi');
 // its owner.
 const ACCOUNT_IDENTITY_KEY = String.raw`(?:user\.email|user\.account_id|anthropic-organization-id|anthropic-workspace-id|chatgpt-account-id|openai-organization|openai-project)`;
 const QUOTED_ACCOUNT_IDENTITY = new RegExp(`((?:${QUOTE})?\\b${ACCOUNT_IDENTITY_KEY}(?:${QUOTE})?\\s*[:=]\\s*)(${QUOTE})([^"'\\r\\n]*?)(${QUOTE})`, 'gi');
-const UNQUOTED_ACCOUNT_IDENTITY = new RegExp(`((?:${QUOTE})?\\b${ACCOUNT_IDENTITY_KEY}(?:${QUOTE})?\\s*[:=][ \\t]*)(?!${QUOTE}|[{[])([^\\s,;}\\]&'"\\r\\n]+)`, 'gi');
+const UNQUOTED_ACCOUNT_IDENTITY = new RegExp(`((?:${QUOTE})?\\b${ACCOUNT_IDENTITY_KEY}(?:${QUOTE})?\\s*[:=][ \\t]*)(?!${QUOTE}|[{[(<$])([^\\s,;}\\]&'"\\r\\n]+)`, 'gi');
 const IDENTITY_MASK = '[REDACTED]';
+// Placeholders, not identifiers: `(not set)`, `<redacted>`, `${email}` (skipped
+// by the lookahead above), `…` / `***`, and env var names such as Codex's
+// `env_http_headers: {"OpenAI-Project": "OPENAI_PROJECT"}`.
+const IDENTITY_PLACEHOLDER = /^(?:[A-Z][A-Z0-9_]*|[.…*xX]+)$/;
+const maskIdentityValue = (match, prefix, value, openQuote = '', closeQuote = '') => (!value || IDENTITY_PLACEHOLDER.test(value) ? match : `${prefix}${openQuote}${IDENTITY_MASK}${closeQuote}`);
 
 export const sanitizeAccountIdentityFields = input =>
   String(input ?? '')
-    .replace(QUOTED_ACCOUNT_IDENTITY, (match, prefix, openQuote, value, closeQuote) => (value ? `${prefix}${openQuote}${IDENTITY_MASK}${closeQuote}` : match))
-    .replace(UNQUOTED_ACCOUNT_IDENTITY, (_match, prefix) => `${prefix}${IDENTITY_MASK}`);
+    .replace(QUOTED_ACCOUNT_IDENTITY, (match, prefix, openQuote, value, closeQuote) => maskIdentityValue(match, prefix, value, openQuote, closeQuote))
+    .replace(UNQUOTED_ACCOUNT_IDENTITY, (match, prefix, value) => maskIdentityValue(match, prefix, value));
 
 const replaceVendorSecrets = text => {
   let output = text;

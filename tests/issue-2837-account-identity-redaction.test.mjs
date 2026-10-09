@@ -92,7 +92,7 @@ await test('codex compaction detection still works on a redacted line', () => {
 });
 
 await test('git configuration lines and unrelated e-mail fields are left alone', () => {
-  for (const text of ['git config user.email "someone@example.com"', 'Author: Someone <someone@example.com>', 'user.email', '{"email_verified": true}']) {
+  for (const text of ['git config user.email "someone@example.com"', 'Author: Someone <someone@example.com>', 'user.email', '{"email_verified": true}', '    user.email: (not set)', 'user.email=<redacted>', '`user.account_id="…"`, `user.email="…"`', 'git -c user.email=${gitIdentity.email} commit', 'env_http_headers: Some({"OpenAI-Organization": "OPENAI_ORGANIZATION", "OpenAI-Project": "OPENAI_PROJECT"})']) {
     assert.equal(sanitizeAccountIdentityFields(text), text);
   }
 });

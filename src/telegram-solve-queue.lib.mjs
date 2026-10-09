@@ -11,11 +11,11 @@
  */
 import { getLimitCache } from './limits.lib.mjs';
 export { formatDuration, getRunningAgentProcesses, getRunningClaudeProcesses, getRunningCodexProcesses, getRunningGeminiProcesses, getRunningProcesses, getRunningQwenProcesses } from './telegram-solve-queue.helpers.lib.mjs';
-import { collectExecutingItems, formatDuration, formatQueueToolSection, formatWaitingReason, getRunningAgentProcesses, getRunningClaudeProcesses, getRunningCodexProcesses, getRunningGeminiProcesses, getRunningProcesses, getRunningQwenProcesses, getRunningSessionItems, groupQueueItemsByTool, reportDequeueDecision } from './telegram-solve-queue.helpers.lib.mjs';
+import { collectExecutingItems, formatDuration, formatQueueToolSection, formatWaitingReason, getRunningAgentProcesses, getRunningClaudeProcesses, getRunningCodexProcesses, getRunningGeminiProcesses, getRunningProcesses, getRunningQwenProcesses, getRunningSessionItems, groupQueueItemsByTool, normalizeQueueUrl, partitionQueueHistory, reportDequeueDecision } from './telegram-solve-queue.helpers.lib.mjs';
 export { QUEUE_CONFIG, THRESHOLD_STRATEGIES } from './queue-config.lib.mjs';
 import { QUEUE_CONFIG } from './queue-config.lib.mjs';
 import { reserveStartSlotForQueue } from './queue-start-reservation.lib.mjs';
-import { formatExecutingWorkSessionMessage, formatFailedLaunchMessage, formatStartingWorkSessionMessage } from './work-session-formatting.lib.mjs';
+import { classifySessionOutcome, formatExecutingWorkSessionMessage, formatFailedLaunchMessage, formatStartingWorkSessionMessage } from './work-session-formatting.lib.mjs';
 import { canonicalizeGitHubUrl as canonicalizeQueueUrl } from './github-url-parser.lib.mjs';
 import { t } from './i18n.lib.mjs';
 import { isTelegramMessageNotModifiedError, safeEditMessageText } from './telegram-safe-reply.lib.mjs';
@@ -82,6 +82,8 @@ class SolveQueueItem {
     this.error = null;
     this.result = null;
     this.sessionName = null;
+    // Issue #2823: how the detached session ended (set by recordSessionCompletion). STARTED only means the launch succeeded.
+    this.sessionOutcome = null;
     // Message tracking - forget after STARTED
     this.messageInfo = null; // { chatId, messageId, messageThreadId }
     // Track when we last updated the Telegram message See: https://github.com/link-assistant/hive-mind/issues/1078
@@ -862,6 +864,57 @@ export class SolveQueue {
     }
   }
   /**
+   * Record how a launched item's detached session ended (issue #2823).
+   *
+   * A STARTED item only means the launch succeeded; the session keeps running
+   * long after the queue forgets it. Without this, `/queue` listed running
+   * tasks under Completed and never listed a session that failed after launch
+   * under Failed. The session monitor calls this (via
+   * `addSessionCompletionListener`) when a tracked session ends.
+   *
+   * Matched by session name, then by the root session of a kill-recovery chain,
+   * then by the most recent launched item for the same URL without an outcome.
+   * A completion superseded by a kill-recovery session is ignored: the recovery
+   * session carries `rootSessionName` and reports the real outcome later.
+   *
+   * @param {object} event
+   * @param {string} event.sessionName
+   * @param {string|null} [event.rootSessionName]
+   * @param {string|null} [event.url]
+   * @param {string|null} [event.tool]
+   * @param {number|null} [event.exitCode]
+   * @param {string|null} [event.status]
+   * @param {string|null} [event.supersededBy] - Recovery session that continues this work.
+   * @returns {SolveQueueItem|null} The updated item, or null when none matched.
+   */
+  recordSessionCompletion({ sessionName = null, rootSessionName = null, url = null, tool = null, exitCode = null, status = null, supersededBy = null } = {}) {
+    const describe = `session ${sessionName}${rootSessionName && rootSessionName !== sessionName ? ` (root ${rootSessionName})` : ''} exit=${exitCode ?? 'null'} status=${status || 'null'}`;
+    if (supersededBy) {
+      this.log(`Session completion ignored for ${describe}: continued by recovery session ${supersededBy}`);
+      return null;
+    }
+    const names = new Set([sessionName, rootSessionName].filter(Boolean));
+    const urlKey = normalizeQueueUrl(url);
+    let item = null;
+    for (let i = this.completed.length - 1; i >= 0 && !item; i--) {
+      if (names.has(this.completed[i].sessionName)) item = this.completed[i];
+    }
+    for (let i = this.completed.length - 1; i >= 0 && !item && urlKey; i--) {
+      const candidate = this.completed[i];
+      if (!candidate.sessionOutcome && normalizeQueueUrl(candidate.url) === urlKey && (!tool || (candidate.tool || 'claude') === tool)) item = candidate;
+    }
+    if (!item) {
+      this.log(`Session completion for ${describe} matches no launched queue item`);
+      return null;
+    }
+    const { failed, killed, signal } = classifySessionOutcome({ exitCode, status });
+    item.sessionOutcome = { failed, killed, signal: signal?.signal || null, exitCode: Number.isInteger(exitCode) ? exitCode : null, status: status || null, sessionName, finishedAt: new Date() };
+    if (failed) this.stats.totalSessionFailed = (this.stats.totalSessionFailed || 0) + 1;
+    else this.stats.totalSessionSucceeded = (this.stats.totalSessionSucceeded || 0) + 1;
+    this.log(`Session outcome recorded for ${item.toString()}: ${failed ? 'failed' : 'succeeded'} (${describe})`);
+    return item;
+  }
+  /**
    * Execute a queue item
    * @param {SolveQueueItem} item
    */
@@ -1034,7 +1087,6 @@ export class SolveQueue {
    */
   async formatDetailedStatus(options = {}) {
     const locale = getLocale(options);
-    const stats = this.getStats();
     // Currently-executing detached sessions (with issue/PR URLs). These are the
     // real running tasks; the queue's own `processing` Map is emptied once a task
     // is dispatched, so without this the executing items are never listed (#1837).
@@ -1053,6 +1105,7 @@ export class SolveQueue {
     const failedByTool = groupQueueItemsByTool(this.failed);
     let message = `📋 *${lt('solve_queue_status', {}, { locale })}*\n\n`;
     const max = QUEUE_CONFIG.MAX_DISPLAY_ITEMS_PER_QUEUE;
+    const totals = { pending: 0, processing: 0, completed: 0, failed: 0 };
     // Every tool with *any* activity (queued, processing, or in history) so
     // per-tool history shows even after a tool's live queue has drained.
     const tools = [...new Set([...Object.keys(this.queues), ...Object.keys(completedByTool), ...Object.keys(failedByTool)])];
@@ -1063,15 +1116,26 @@ export class SolveQueue {
       // detached sessions, deduped by URL, so they list even after dispatch
       // (issue #1837).
       const executing = collectExecutingItems({ processingItems: this.processing.values(), sessionItems: runningSessionItems, tool });
-      const completed = completedByTool[tool] || [];
-      const failed = failedByTool[tool] || [];
+      // Issue #2823: a launch is not a completion. A task that is still
+      // executing is listed only under Processing, and a session that failed
+      // after launch is listed under Failed.
+      const { completed, failed, executingHidden } = partitionQueueHistory({ completed: completedByTool[tool] || [], failed: failedByTool[tool] || [], executing, locale });
+      if (executingHidden.length > 0 || failed.length !== (failedByTool[tool] || []).length) {
+        this.log(`Detailed status ${tool}: ${executing.length} executing, ${executingHidden.length} launched item(s) still executing hidden from Completed, ${completed.length} completed, ${failed.length} failed (${failed.length - (failedByTool[tool] || []).length} after launch)`);
+      }
+      totals.pending += pending;
+      totals.processing += executing.length;
+      totals.completed += completed.length;
+      totals.failed += failed.length;
       // Skip tools with nothing to show in any list.
       if (pending === 0 && executing.length === 0 && completed.length === 0 && failed.length === 0) continue;
       const pendingItems = toolQueue.map(item => ({ url: item.url, waitMs: item.getWaitTime(), waitingReason: item.waitingReason }));
       message += formatQueueToolSection({ tool, executing, pendingItems, completed, failed, labels, max, locale });
     }
-    // Summary stats
-    message += `${lt('queue_completed', {}, { locale })}: ${stats.completed}, ${lt('queue_failed', {}, { locale })}: ${stats.failed}\n`;
+    // Issue #2823: the summary counts what the lists above show. It used to
+    // print the number of successful *launches* as "Completed" and never
+    // counted sessions that failed after launch.
+    message += `${labels.pending}: ${totals.pending}, ${labels.processing}: ${totals.processing}, ${labels.completed}: ${totals.completed}, ${labels.failed}: ${totals.failed}\n`;
     return message;
   }
 }

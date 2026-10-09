@@ -69,6 +69,10 @@ export function isNonRetryableFailure(output) {
   return NON_RETRYABLE_PATTERNS.some(pattern => lowerOutput.includes(pattern));
 }
 
+// npm's two wordings for "this exact version is already on the registry".
+// Each captures the version so a conflict on another version never matches.
+export const VERSION_CONFLICT_PATTERNS = [/cannot publish over the previously published versions?:\s*(\S+)/gi, /cannot publish over (?:the )?previously staged versions?:?\s*(\S+)/gi];
+
 /**
  * Whether publish output says the version we are releasing already exists on the
  * registry (npm's EPUBLISHCONFLICT).
@@ -81,6 +85,13 @@ export function isNonRetryableFailure(output) {
  * The version is matched explicitly so a conflict reported for some *other*
  * package version is never mistaken for ours.
  *
+ * npm also answers `E409 ... Cannot publish over previously staged version
+ * "2.35.1"` while an accepted version is not yet visible on the public read
+ * path (issue #2923; link-foundation/js-ai-driven-development-pipeline-template#158).
+ * That is the same "already landed" situation, so it must verify, not retry: a
+ * re-run during npm's propagation window would otherwise fail three times on a
+ * permanent conflict for a release that succeeded.
+ *
  * @param {string} output - Combined stdout and stderr (and/or error message).
  * @param {string} version - The version this run is publishing.
  * @returns {boolean}
@@ -89,11 +100,13 @@ export function isVersionConflict(output, version) {
   if (!version) {
     return false;
   }
-  const matches = String(output || '').matchAll(/cannot publish over the previously published versions?:\s*(\S+)/gi);
-  for (const match of matches) {
-    // The message ends in a full stop: "...versions: 2.8.3."
-    if (match[1].replace(/[.,]+$/, '') === version) {
-      return true;
+  const text = String(output || '');
+  for (const pattern of VERSION_CONFLICT_PATTERNS) {
+    for (const match of text.matchAll(pattern)) {
+      // The messages end in punctuation: "...versions: 2.8.3." or "...version "0.20.1"."
+      if (match[1].replace(/^"|[".,]+$/g, '') === version) {
+        return true;
+      }
     }
   }
   return false;

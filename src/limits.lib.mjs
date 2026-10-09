@@ -839,7 +839,8 @@ export async function getCodexUsageLimits(verbose = false, authPath = DEFAULT_CO
       console.log('[VERBOSE] /limits fetching Codex usage from API...');
       console.log(`[VERBOSE] /limits Codex API request: GET ${usageEndpoint}`);
       console.log('[VERBOSE] /limits Codex auth mode:', auth.auth_mode || 'unknown');
-      console.log('[VERBOSE] /limits Codex account id:', auth?.tokens?.account_id || tokenPayload?.['https://api.openai.com/auth']?.chatgpt_account_id || 'unknown');
+      // Issue #2837: whether an account id is present is the diagnostic; the id itself identifies the operator.
+      console.log('[VERBOSE] /limits Codex account id:', auth?.tokens?.account_id || tokenPayload?.['https://api.openai.com/auth']?.chatgpt_account_id ? 'present' : 'unknown');
       console.log('[VERBOSE] /limits Codex plan type:', tokenPayload?.['https://api.openai.com/auth']?.chatgpt_plan_type || 'unknown');
       console.log(
         '[VERBOSE] /limits Codex API request headers:',

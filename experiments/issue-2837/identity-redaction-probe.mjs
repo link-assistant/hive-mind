@@ -2,13 +2,13 @@
 /* global console */
 import { sanitizeCredentialText, findCredentialResiduals } from '../../src/credential-sanitization-core.lib.mjs';
 const samples = [
-  'INFO app_server.request{otel.name="x"}: codex_otel.log_only: event.name="codex.conversation_starts" auth_mode="Chatgpt" originator=codex_exec user.account_id="e9c72023-174b-4cfd-8374-963550c2ef98" user.email="someone@example.com" terminal.type=unknown',
-  'user.account_id=e9c72023-174b-4cfd-8374-963550c2ef98 user.email=someone@example.com model=gpt',
-  "  'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',\n  'anthropic-workspace-id': 'wrkspc_0117gBnPr68DBsCrmom3Bxq6',",
-  '{"anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789", "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6", "request-id": "req_1"}',
-  '{\\"anthropic-organization-id\\": \\"ebc2ac93-f86f-4d15-aff3-de8830d8d789\\", \\"x\\": 1}',
-  'anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6"',
-  'anthropic-organization-id: ebc2ac93-f86f-4d15-aff3-de8830d8d789\r\nanthropic-ratelimit-unified-5h-utilization: 0.42',
+  'INFO app_server.request{otel.name="x"}: codex_otel.log_only: event.name="codex.conversation_starts" auth_mode="Chatgpt" originator=codex_exec user.account_id="0a1b2c3d-0000-4000-8000-00000000a001" user.email="someone@example.com" terminal.type=unknown',
+  'user.account_id=0a1b2c3d-0000-4000-8000-00000000a001 user.email=someone@example.com model=gpt',
+  "  'anthropic-organization-id': '0a1b2c3d-0000-4000-8000-00000000c003',\n  'anthropic-workspace-id': 'wrkspc_01TestFixtureWorkspace00',",
+  '{"anthropic-organization-id": "0a1b2c3d-0000-4000-8000-00000000b002", "anthropic-workspace-id": "wrkspc_01TestFixtureWorkspace00", "request-id": "req_1"}',
+  '{\\"anthropic-organization-id\\": \\"0a1b2c3d-0000-4000-8000-00000000b002\\", \\"x\\": 1}',
+  'anthropic-workspace-id: "wrkspc_01TestFixtureWorkspace00"',
+  'anthropic-organization-id: 0a1b2c3d-0000-4000-8000-00000000b002\r\nanthropic-ratelimit-unified-5h-utilization: 0.42',
   'git config user.email "someone@example.com"',
   'user.email="[REDACTED]" user.account_id="[REDACTED]"',
 ];

@@ -49,9 +49,9 @@ async function test(name, fn) {
 }
 
 const EMAIL = 'operator.person@example.com';
-const ACCOUNT_ID = 'e9c72023-174b-4cfd-8374-963550c2ef98';
-const ORG_ID = 'ebc2ac93-f86f-4d15-aff3-de8830d8d789';
-const WORKSPACE_ID = 'wrkspc_0117gBnPr68DBsCrmom3Bxq6';
+const ACCOUNT_ID = '0a1b2c3d-0000-4000-8000-00000000a001';
+const ORG_ID = '0a1b2c3d-0000-4000-8000-00000000b002';
+const WORKSPACE_ID = 'wrkspc_01TestFixtureWorkspace00';
 
 const sanitize = text => sanitizeCredentialText(text, { includeEnvironmentCredentials: false });
 const assertNoIdentity = text => {
@@ -185,6 +185,13 @@ await test('tool runners wire the debug env to the new options, not to --verbose
   assert.doesNotMatch(codex, /getCodexExecEnv\((?:argv\.)?verbose\)/);
   assert.match(codex, /getCodexExecEnv\(argv\.codexDebug\)/);
   assert.doesNotMatch(codex, /RUST_LOG: 'debug'/);
+});
+
+await test('/limits verbose logging reports whether a Codex account id exists, not the id', async () => {
+  const limits = await fs.readFile(path.join(repoRoot, 'src/limits.lib.mjs'), 'utf8');
+  const line = limits.split('\n').find(text => text.includes('/limits Codex account id:'));
+  assert.ok(line, 'the diagnostic line is still there');
+  assert.match(line, /\? 'present' : 'unknown'\)/);
 });
 
 await test('solve defines --codex-debug and --anthropic-debug, both off by default', async () => {

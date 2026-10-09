@@ -133,6 +133,9 @@ console.log('\n📋 3. Kill recovery and URL fallback matching\n');
   assert(item.sessionOutcome?.failed === false, 'the recovery outcome is attributed through rootSessionName');
 
   const byUrl = await launch(queue, ROUTER(11), 'unknown');
+  // `/hive` sessions are monitored too, but never come from the solve queue.
+  assert(queue.recordSessionCompletion({ sessionName: 'hive-uuid', url: ROUTER(11), tool: 'codex', command: 'hive', exitCode: 1, status: 'failed' }) === null, 'a /hive session is not attributed to a queued /solve by URL');
+  assert(byUrl.sessionOutcome === null, 'the queued item keeps no outcome after an unrelated /hive completion');
   queue.recordSessionCompletion({ sessionName: 'real-uuid', url: `${ROUTER(11)}/`, tool: 'codex', exitCode: 1, status: 'failed' });
   assert(byUrl.sessionOutcome?.failed === true, 'falls back to the URL when the session name is unknown');
   assert(queue.recordSessionCompletion({ sessionName: 'nobody', url: ROUTER(999), exitCode: 0 }) === null, 'unmatched completions are ignored');

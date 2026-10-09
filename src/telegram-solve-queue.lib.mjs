@@ -873,7 +873,9 @@ export class SolveQueue {
    * `addSessionCompletionListener`) when a tracked session ends.
    *
    * Matched by session name, then by the root session of a kill-recovery chain,
-   * then by the most recent launched item for the same URL without an outcome.
+   * then by the most recent launched item for the same URL without an outcome
+   * (only for `solve` sessions: `/hive` sessions share repository URLs with
+   * queued `/solve` items but never come from this queue).
    * A completion superseded by a kill-recovery session is ignored: the recovery
    * session carries `rootSessionName` and reports the real outcome later.
    *
@@ -882,19 +884,20 @@ export class SolveQueue {
    * @param {string|null} [event.rootSessionName]
    * @param {string|null} [event.url]
    * @param {string|null} [event.tool]
+   * @param {string|null} [event.command] - Monitored command (`solve`, `hive`, ...).
    * @param {number|null} [event.exitCode]
    * @param {string|null} [event.status]
    * @param {string|null} [event.supersededBy] - Recovery session that continues this work.
    * @returns {SolveQueueItem|null} The updated item, or null when none matched.
    */
-  recordSessionCompletion({ sessionName = null, rootSessionName = null, url = null, tool = null, exitCode = null, status = null, supersededBy = null } = {}) {
+  recordSessionCompletion({ sessionName = null, rootSessionName = null, url = null, tool = null, command = null, exitCode = null, status = null, supersededBy = null } = {}) {
     const describe = `session ${sessionName}${rootSessionName && rootSessionName !== sessionName ? ` (root ${rootSessionName})` : ''} exit=${exitCode ?? 'null'} status=${status || 'null'}`;
     if (supersededBy) {
       this.log(`Session completion ignored for ${describe}: continued by recovery session ${supersededBy}`);
       return null;
     }
     const names = new Set([sessionName, rootSessionName].filter(Boolean));
-    const urlKey = normalizeQueueUrl(url);
+    const urlKey = !command || command === 'solve' ? normalizeQueueUrl(url) : null;
     let item = null;
     for (let i = this.completed.length - 1; i >= 0 && !item; i--) {
       if (names.has(this.completed[i].sessionName)) item = this.completed[i];

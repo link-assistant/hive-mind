@@ -12,7 +12,7 @@ import { UPDATE_DEPENDENCIES_ISSUE_LABELS, UPDATE_DEPENDENCIES_ISSUE_TYPE, build
 import { detectLanguages, getDefaultBranch, getLatestCommit, getRepositoryFiles, runCommand } from './fix.github.lib.mjs';
 import { createTaskIssue } from './task.issue-creation.lib.mjs';
 
-export async function prepareUpdateDependenciesIssue({ repository, run = runCommand, warn = message => console.warn(message), log = null }) {
+export async function prepareUpdateDependenciesIssue({ repository, run = runCommand, warn = message => console.warn(message), log = null, reportDependenciesIssues = true }) {
   const [languages, defaultBranch] = await Promise.all([detectLanguages(repository, run, warn), getDefaultBranch(repository, run, warn)]);
   const commit = await getLatestCommit(repository, defaultBranch, run, warn);
   const { files, truncated } = await getRepositoryFiles(repository, defaultBranch, run, warn);
@@ -31,12 +31,12 @@ export async function prepareUpdateDependenciesIssue({ repository, run = runComm
     filesTruncated: truncated,
     ecosystems: detected,
     title: buildUpdateDependenciesIssueTitle(),
-    body: buildUpdateDependenciesIssueBody({ repository, defaultBranch, commit, languages, files, filesTruncated: truncated }),
+    body: buildUpdateDependenciesIssueBody({ repository, defaultBranch, commit, languages, files, filesTruncated: truncated, reportDependenciesIssues }),
   };
 }
 
-export async function createUpdateDependenciesIssue({ repository, prepared = null, run = runCommand, log = null, warn = message => console.warn(message) }) {
-  const issueDraft = prepared || (await prepareUpdateDependenciesIssue({ repository, run, warn, log }));
+export async function createUpdateDependenciesIssue({ repository, prepared = null, run = runCommand, log = null, warn = message => console.warn(message), reportDependenciesIssues = true }) {
+  const issueDraft = prepared || (await prepareUpdateDependenciesIssue({ repository, run, warn, log, reportDependenciesIssues }));
   const issue = await createTaskIssue({
     repository,
     title: issueDraft.title,

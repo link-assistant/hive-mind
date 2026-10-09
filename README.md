@@ -620,6 +620,8 @@ issue-generation step. They return the created issue URL; reply with
 `--update-all-dependencies` for the dependency issue) to continue through the
 normal solve workflow.
 
+`--update-all-dependencies` enables `--report-dependencies-issues`: report shared logic, duplicated code, missing features and bugs requiring workarounds to dependency upstreams. Local workarounds may stay so the pull request can proceed. Add `--no-report-dependencies-issues` to disable reporting, or use `--report-dependencies-issues` on `/solve` or `/hive` without updating dependencies.
+
 #### `/organize` - Classify Open Issues
 
 ```text

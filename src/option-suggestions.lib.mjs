@@ -214,6 +214,7 @@ const KNOWN_OPTION_NAMES = [
   'prompt-case-studies',
   'development-log',
   'update-all-dependencies',
+  'report-dependencies-issues',
   'use-handoff',
   'prompt-playwright-mcp',
   'prompt-check-sibling-pull-requests',

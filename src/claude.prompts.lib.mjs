@@ -5,6 +5,7 @@
 
 import { getArchitectureCareSubPrompt } from './architecture-care.prompts.lib.mjs';
 import { getUpdateAllDependenciesSubPrompt } from './update-dependencies.prompts.lib.mjs';
+import { getReportDependenciesIssuesSubPrompt } from './report-dependencies-issues.prompts.lib.mjs';
 import { getHandoffSubPrompt } from './handoff.prompts.lib.mjs';
 import { getExperimentsExamplesSubPrompt } from './experiments-examples.prompts.lib.mjs';
 import { primaryModelNames } from './models/index.mjs';
@@ -353,7 +354,7 @@ Visual UI work and screenshots.
    - When the fix is visual, include side-by-side or sequential comparison of before/after states in the PR description.
    - When possible, create automated visual regression tests to prevent the UI bug from recurring.`
        : ''
-   }${ciExamples}${getArchitectureCareSubPrompt(argv)}${getUpdateAllDependenciesSubPrompt(argv)}${getHandoffSubPrompt(argv)}${buildWorkLanguageDirective()}`;
+   }${ciExamples}${getArchitectureCareSubPrompt(argv)}${getUpdateAllDependenciesSubPrompt(argv)}${getReportDependenciesIssuesSubPrompt(argv)}${getHandoffSubPrompt(argv)}${buildWorkLanguageDirective()}`;
 };
 
 // Export all functions as default object too

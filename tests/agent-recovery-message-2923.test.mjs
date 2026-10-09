@@ -15,7 +15,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { detectAgentErrorsInOutput, resolveStreamingErrorRecovery } from '../src/agent.lib.mjs';
+import { resolveStreamingErrorRecovery } from '../src/agent-command.lib.mjs';
+import { detectAgentErrorsInOutput } from '../src/agent.lib.mjs';
 
 // The error record from run 37959364207 (trimmed), followed by the agent's own reply.
 const RUN_37959364207_OUTPUT = [JSON.stringify({ type: 'error', sessionID: 'ses_ede7a269affeB7JZl5VhKcJrEu', error: 'Error: File not found: /tmp/gh-issue-solver-1791563735645/e.g' }), JSON.stringify({ type: 'text', part: { text: 'The command failed: Error: File not found: /tmp/gh-issue-solver-1791563735645/e.g' } }), JSON.stringify({ type: 'step_finish', part: { reason: 'stop' } })].join('\n');

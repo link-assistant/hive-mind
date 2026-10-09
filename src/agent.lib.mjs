@@ -38,7 +38,7 @@ import { firstErrorText, stringifyErrorValue } from './error-text.lib.mjs';
 import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { attachStreamingInput, finalizeBidirectionalHandler, setupBidirectionalHandler } from './bidirectional-interactive.lib.mjs';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
-import { buildAgentArgs, detectFormalAiAgentRoutingMismatch, formatAgentArgsForDisplay, isAgentIdleEvent, isAgentStrongCompletionEvent } from './agent-command.lib.mjs';
+import { buildAgentArgs, detectFormalAiAgentRoutingMismatch, formatAgentArgsForDisplay, isAgentIdleEvent, isAgentStrongCompletionEvent, resolveStreamingErrorRecovery } from './agent-command.lib.mjs';
 import { isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236 / #2247 (H5)
 
 export { createAgentTokenUsage, accumulateAgentStepFinishUsage, parseAgentTokenUsage };
@@ -126,27 +126,6 @@ export const detectAgentErrorsInOutput = stdoutOutput => {
   }
 
   return { detected: false };
-};
-
-/**
- * Decide whether a streaming error was recovered from (issue #1276) and what to log.
- *
- * Exit code 0 with a completion event clears the streaming error, but an error
- * record found in the output still fails the run (issue #1201). The log used to
- * say "recovered ... completed successfully" right before "❌ Agent reported
- * error" for the same error (issue #2923, Formal AI run 37959364207), so the
- * recovery message is only printed when the run really is treated as a success.
- *
- * @param {{exitCode: number|null, agentCompletedSuccessfully: boolean, streamingErrorDetected: boolean, outputErrorDetected: boolean}} state
- * @returns {{clearStreamingError: boolean, message: string|null}}
- */
-export const resolveStreamingErrorRecovery = ({ exitCode, agentCompletedSuccessfully, streamingErrorDetected, outputErrorDetected }) => {
-  const clearStreamingError = exitCode === 0 && (agentCompletedSuccessfully || !streamingErrorDetected);
-  if (!clearStreamingError || !streamingErrorDetected || !agentCompletedSuccessfully) return { clearStreamingError, message: null };
-  return {
-    clearStreamingError,
-    message: outputErrorDetected ? 'ℹ️  Agent exited 0 after an error event; the error event in its output still fails the run' : 'ℹ️  Agent recovered from earlier error and completed successfully',
-  };
 };
 
 // Import pricing functions from claude.lib.mjs

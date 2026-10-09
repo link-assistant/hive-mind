@@ -155,6 +155,23 @@ const CLI_CREDENTIAL_QUOTED = new RegExp(`(--${SENSITIVE_KEY}(?:\\s+|=))(["'])([
 const CLI_CREDENTIAL = new RegExp(`(--${SENSITIVE_KEY}(?:\\s+|=))(?!["'])([^\\s"'\\r\\n]+)`, 'gi');
 const QUERY_CREDENTIAL = new RegExp(`([?&]${SENSITIVE_KEY}=)([^&#\\s]+)`, 'gi');
 
+// Issue #2837: account identifiers are not credentials, but publishing them
+// ties every public log to the operator's account. Codex OTEL events
+// (`RUST_LOG`) carry `user.email` and `user.account_id` on every line, and the
+// Anthropic SDK (`ANTHROPIC_LOG=debug`) dumps `anthropic-organization-id` and
+// `anthropic-workspace-id` response headers on every request. The value is
+// always replaced whole — a partially masked e-mail address still identifies
+// its owner.
+const ACCOUNT_IDENTITY_KEY = String.raw`(?:user\.email|user\.account_id|anthropic-organization-id|anthropic-workspace-id|chatgpt-account-id|openai-organization|openai-project)`;
+const QUOTED_ACCOUNT_IDENTITY = new RegExp(`((?:${QUOTE})?\\b${ACCOUNT_IDENTITY_KEY}(?:${QUOTE})?\\s*[:=]\\s*)(${QUOTE})([^"'\\r\\n]*?)(${QUOTE})`, 'gi');
+const UNQUOTED_ACCOUNT_IDENTITY = new RegExp(`((?:${QUOTE})?\\b${ACCOUNT_IDENTITY_KEY}(?:${QUOTE})?\\s*[:=][ \\t]*)(?!${QUOTE}|[{[])([^\\s,;}\\]&'"\\r\\n]+)`, 'gi');
+const IDENTITY_MASK = '[REDACTED]';
+
+export const sanitizeAccountIdentityFields = input =>
+  String(input ?? '')
+    .replace(QUOTED_ACCOUNT_IDENTITY, (match, prefix, openQuote, value, closeQuote) => (value ? `${prefix}${openQuote}${IDENTITY_MASK}${closeQuote}` : match))
+    .replace(UNQUOTED_ACCOUNT_IDENTITY, (_match, prefix) => `${prefix}${IDENTITY_MASK}`);
+
 const replaceVendorSecrets = text => {
   let output = text;
   for (const pattern of VENDOR_PATTERNS) {
@@ -203,6 +220,7 @@ const sanitizePlaintextCredentials = (input, options = {}) => {
   output = output.replace(/(-----BEGIN ([A-Z0-9 ]*PRIVATE KEY)-----)(?![\s\S]*?-----END \2-----)[\s\S]*/g, '$1\n[REDACTED]');
 
   output = replaceVendorSecrets(output);
+  output = sanitizeAccountIdentityFields(output);
 
   // Authentication headers and URL credentials.
   output = output.replace(/((?:Proxy-)?Authorization\s*:\s*(?:Bearer|Basic)\s+)([^\s"',;]+)/gi, (_match, prefix, value) => `${prefix}${maskValue(value)}`);

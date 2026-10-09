@@ -5,7 +5,7 @@
 // Root cause (reconstructed from the captured run log, see
 // docs/case-studies/issue-2136):
 //   `codex exec --json` writes its NDJSON protocol to STDOUT. Its STDERR carries
-//   tracing/OTEL text (RUST_LOG=debug, enabled by `solve --verbose`), and every
+//   tracing/OTEL text (RUST_LOG=debug, enabled by `solve --codex-debug` since #2837), and every
 //   `codex.tool_result` record dumps the raw stdout of the command codex just
 //   ran. The task under solve drove ANOTHER agent CLI, whose NDJSON was replayed
 //   verbatim inside such a record:

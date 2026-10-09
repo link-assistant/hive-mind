@@ -37,6 +37,7 @@ import { runKillRecoveryForCompletion } from './session-kill-resume.lib.mjs';
 import { isCompletionHandled, markCompletionHandled, resolveCachedLastToolSessionId } from './session-completion-state.lib.mjs';
 import { createSessionRegistryQueries } from './session-monitor.queries.lib.mjs';
 import { enforceContainerDiskLimitForSession as enforceContainerDiskLimit, formatContainerResourceLimitExceededSection } from './container-resource-monitor.lib.mjs';
+import { runDockerCpuPenaltyPass, formatDockerCpuPenaltySection } from './docker-cpu-penalty.lib.mjs';
 export { formatSessionCompletionMessage, getSessionCompletionExitCode } from './work-session-formatting.lib.mjs';
 export { DOCKER_TERMINAL_FOOTER_GRACE_MS } from './session-monitor.docker-terminal.lib.mjs';
 export { STALE_EXECUTING_MIN_AGE_MS, DOCKER_BACKEND_GONE_GRACE_MS } from './session-monitor.stale-executing.lib.mjs';
@@ -53,6 +54,8 @@ async function getIsolationRunner() {
 const activeSessions = new Map();
 // Issue #2408: sessions whose monitor pass is running right now (see monitorSessions).
 const sessionsInFlight = new Set();
+// Issue #2801: the CPU penalty pass of the previous tick, while it still runs.
+let cpuPenaltyPassInFlight = null;
 // Issue #1927: optional durable mirror of the in-memory registry. When set (by the bot at startup via setSessionStore), every track/complete is persisted so a restart can reload and keep monitoring detached sessions. Left null in unit tests and one-off CLI paths, where in-memory tracking is sufficient.
 let sessionStore = null;
 let sessionLogger = null;
@@ -80,6 +83,7 @@ function logEvent(type, data) {
 export function resetSessionMonitorForTests() {
   activeSessions.clear();
   sessionsInFlight.clear();
+  cpuPenaltyPassInFlight = null;
   sessionStore = null;
   sessionLogger = null;
 }
@@ -607,6 +611,9 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
   if (verbose) {
     console.log(`[VERBOSE] Checking ${sessions.length} active session(s)...`);
   }
+  // Issue #2801: sample CPU usage alongside the completion checks, which can
+  // take minutes; a pass that is still running is not started again.
+  const cpuPenaltyPass = options.cpuPenalty?.enabled && !cpuPenaltyPassInFlight ? runCpuPenaltyPass(sessions, verbose, options) : null;
   for (const entry of sessions) {
     // Issue #2408: the monitor ticks every 30 s whether or not the previous
     // tick has finished, and a completion (pull request lookup, log upload,
@@ -625,6 +632,19 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
       sessionsInFlight.delete(entry.sessionName);
     }
   }
+  await cpuPenaltyPass;
+}
+function runCpuPenaltyPass(sessions, verbose, options) {
+  // A session completed while the pass ran must not be written back to the durable snapshot.
+  const persist = (sessionName, sessionInfo) => {
+    if (activeSessions.get(sessionName) === sessionInfo && !sessionInfo.completionNotifiedAt) persistSessionSnapshot(sessionName, sessionInfo);
+  };
+  cpuPenaltyPassInFlight = runDockerCpuPenaltyPass(sessions, { ...options.cpuPenaltyDeps, config: options.cpuPenalty, verbose, persist, logEvent })
+    .catch(error => console.error(`[docker-cpu-penalty] CPU penalty pass failed: ${error?.message || error}`))
+    .finally(() => {
+      cpuPenaltyPassInFlight = null;
+    });
+  return cpuPenaltyPassInFlight;
 }
 /** One session of {@link monitorSessions}; never runs twice at once for a session. */
 async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose = false, options = {}) {
@@ -864,7 +884,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
         }
       }
       const dockerTaskContainerExtraSections = dockerTaskContainerAction?.extraSection ? [dockerTaskContainerAction.extraSection] : [];
-      const resourceLimitExtraSections = [formatContainerResourceLimitExceededSection(sessionInfo)].filter(Boolean);
+      const resourceLimitExtraSections = [formatContainerResourceLimitExceededSection(sessionInfo), formatDockerCpuPenaltySection(sessionInfo)].filter(Boolean);
       // Issue #2161: a blocked subscription/account explains every other
       // symptom of the run, so it goes first in the completion message.
       const subscriptionBlockedExtraSections = [];

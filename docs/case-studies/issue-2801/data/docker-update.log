@@ -1,0 +1,18 @@
+Unable to find image 'alpine:3' locally
+3: Pulling from library/alpine
+e2de96513ba9: Pulling fs layer
+e2de96513ba9: Verifying Checksum
+e2de96513ba9: Download complete
+e2de96513ba9: Pull complete
+Digest: sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
+Status: Downloaded newer image for alpine:3
+initial                      NanoCpus=0 CpuQuota=0 CpuPeriod=0 cpu.max=max 100000
+after --cpus 2               NanoCpus=2000000000 CpuQuota=0 CpuPeriod=0 cpu.max=200000 100000
+after --cpus 3.5             NanoCpus=3500000000 CpuQuota=0 CpuPeriod=0 cpu.max=350000 100000
+update --cpus 0 exit=0
+after --cpus 0               NanoCpus=3500000000 CpuQuota=0 CpuPeriod=0 cpu.max=350000 100000
+update --cpu-quota -1 exit=0
+after --cpu-quota -1         NanoCpus=2000000000 CpuQuota=-1 CpuPeriod=0 cpu.max=max 100000
+--- docker stats one-shot formats
+issue-2801-cpu-probe-8773	0.00%
+{"BlockIO":"0B / 0B","CPUPerc":"0.00%","Container":"issue-2801-cpu-probe-8773","ID":"02c33879eeb3","MemPerc":"0.00%","MemUsage":"0B / 0B","Name":"issue-2801-cpu-probe-8773","NetIO":"1.04kB / 126B","PIDs":"1"}

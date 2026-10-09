@@ -307,6 +307,41 @@ apply a requested kernel limit, Hive Mind keeps the start gate closed, removes
 or stops the container where possible, and reports the launch failure instead
 of silently running the task unlimited.
 
+**CPU penalty (issue #2801).** A Docker task that keeps all of its CPUs busy
+for a long time is capped, then released once it calms down. This is on by
+default for `--isolation docker`. The "CPUs it may use" are the Docker host's
+CPUs (`docker info` NCPU, re-read every 5 minutes so a resized VM is picked up),
+or its `--container-cpu` limit when that is lower.
+
+1. If the task averages at least 95% of those CPUs for 15 minutes, the session
+   monitor runs `docker update --cpus 2` on its container.
+2. Once the task has averaged below 65% of the cap for 15 minutes (1.3 cores
+   for a 2-CPU cap: each CPU at 65%, the issue's 32.5% + 32.5% of the total), the cap is lifted. It is
+   restored to the `--container-cpu` limit, or to the host CPU count when
+   there is no limit.
+3. Observation then starts again from scratch. Another 15 minutes on all CPUs
+   caps the task again.
+
+```bash
+hive-telegram-bot --isolation docker \
+  --container-cpu-penalty-cpus 2 \
+  --container-cpu-penalty-trigger 95% \
+  --container-cpu-penalty-trigger-window 15m \
+  --container-cpu-penalty-release 65% \
+  --container-cpu-penalty-release-window 15m
+```
+
+`--no-container-cpu-penalty` (`TELEGRAM_CONTAINER_CPU_PENALTY=false`) turns it
+off. The other options map to `TELEGRAM_CONTAINER_CPU_PENALTY_CPUS`, `_TRIGGER`,
+`_TRIGGER_WINDOW`, `_RELEASE` and `_RELEASE_WINDOW`. Windows accept `ms`, `s`,
+`m` or `h`; a bare number means minutes. Usage is sampled with one
+`docker stats --no-stream` call per monitor tick. A window only counts once its
+samples cover all of it, so a bot restart cannot penalize a task on a few fresh
+samples. The penalty state survives bot restarts. A container resumed with a
+penalty cap still in place is watched as penalized, so the cap is lifted later.
+A task that was capped shows a `🐢 CPU penalty` section in its completion
+message.
+
 **Manual fallback.** To seed an already-running container immediately (or when
 you cannot change the deployment), copy the host image into the inner daemon:
 

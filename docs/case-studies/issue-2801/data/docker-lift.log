@@ -1,0 +1,15 @@
+initial (3 busy loops)             NanoCpus=0 CpuQuota=0 cpu.max=max 100000
+stats unlimited: 306.57%
+after --cpus 2                     NanoCpus=2000000000 CpuQuota=0 cpu.max=200000 100000
+stats capped at 2: 205.85%
+usage_usec 22269062
+nr_throttled 45
+throttled_usec 4557402
+update --cpus 6 (host cores) exit=0
+after --cpus host                  NanoCpus=6000000000 CpuQuota=0 cpu.max=600000 100000
+Error response from daemon: range of CPUs is from 0.01 to 6.00, as there are only 6 CPUs available
+update --cpus host+1 exit=0
+after --cpu-quota -1               NanoCpus=2000000000 CpuQuota=-1 cpu.max=max 100000
+issue-2801-cpu-lift-9595
+re-cap --cpus 2 after quota -1 exit=0
+after re-cap                       NanoCpus=2000000000 CpuQuota=-1 cpu.max=200000 100000

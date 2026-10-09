@@ -226,6 +226,14 @@ storage quotas सभी storage drivers पर portable नहीं हैं,
 kernel limit लागू नहीं कर सकता, तो Hive Mind start gate बंद रखता है, जहाँ संभव हो container हटाता या रोकता
 है, और task को बिना limit के चुपचाप चलाने के बजाय launch failure report करता है।
 
+**CPU penalty (issue #2801).** जो Docker task लंबे समय तक अपने सभी CPUs व्यस्त रखता है, उसे limit किया जाता है, और load कम होने पर limit हटा दी जाती है। `--isolation docker` के लिए यह default रूप से चालू है। "सभी CPUs" का अर्थ है Docker host के CPUs (`docker info` NCPU, हर 5 मिनट पर दोबारा पढ़ा जाता है), या `--container-cpu` limit, अगर वह कम हो।
+
+1. अगर task 15 मिनट तक औसतन इन CPUs का कम से कम 95% उपयोग करता है, तो session monitor `docker update --cpus 2` चलाता है।
+2. जब task 15 मिनट तक औसतन cap के 65% से नीचे रहता है (2-CPU cap के लिए 1.3 cores, यानी कुल क्षमता का 32.5% + 32.5%), तो cap हटा दिया जाता है। इसकी जगह `--container-cpu` या host CPU count वापस लागू होता है।
+3. इसके बाद निगरानी फिर से शुरू होती है। सभी CPUs पर फिर 15 मिनट चलने पर task फिर limit हो जाता है।
+
+Options: `--container-cpu-penalty-cpus` (2), `--container-cpu-penalty-trigger` (95%), `--container-cpu-penalty-trigger-window` (15m), `--container-cpu-penalty-release` (65%), `--container-cpu-penalty-release-window` (15m)। Environment variables: `TELEGRAM_CONTAINER_CPU_PENALTY_*`। बंद करने के लिए: `--no-container-cpu-penalty`। Penalty state bot restart के बाद भी बनी रहती है। जिस task पर limit लगी थी, उसके completion message में `🐢 CPU penalty` section दिखता है।
+
 **Manual fallback.** पहले से चल रहे container को तुरंत seed करने के लिए (या जब आप deployment नहीं बदल
 सकते), host image को inner daemon में copy करें:
 

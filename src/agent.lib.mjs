@@ -128,6 +128,27 @@ export const detectAgentErrorsInOutput = stdoutOutput => {
   return { detected: false };
 };
 
+/**
+ * Decide whether a streaming error was recovered from (issue #1276) and what to log.
+ *
+ * Exit code 0 with a completion event clears the streaming error, but an error
+ * record found in the output still fails the run (issue #1201). The log used to
+ * say "recovered ... completed successfully" right before "❌ Agent reported
+ * error" for the same error (issue #2923, Formal AI run 37959364207), so the
+ * recovery message is only printed when the run really is treated as a success.
+ *
+ * @param {{exitCode: number|null, agentCompletedSuccessfully: boolean, streamingErrorDetected: boolean, outputErrorDetected: boolean}} state
+ * @returns {{clearStreamingError: boolean, message: string|null}}
+ */
+export const resolveStreamingErrorRecovery = ({ exitCode, agentCompletedSuccessfully, streamingErrorDetected, outputErrorDetected }) => {
+  const clearStreamingError = exitCode === 0 && (agentCompletedSuccessfully || !streamingErrorDetected);
+  if (!clearStreamingError || !streamingErrorDetected || !agentCompletedSuccessfully) return { clearStreamingError, message: null };
+  return {
+    clearStreamingError,
+    message: outputErrorDetected ? 'ℹ️  Agent exited 0 after an error event; the error event in its output still fails the run' : 'ℹ️  Agent recovered from earlier error and completed successfully',
+  };
+};
+
 // Import pricing functions from claude.lib.mjs
 // We reuse fetchModelInfo and checkModelVisionCapability to get data from models.dev API
 const claudeLib = await import('./claude.lib.mjs');
@@ -939,11 +960,10 @@ export const executeAgentCommand = async params => {
       // When an error occurs during execution (e.g., timeout) but the agent recovers and completes,
       // we should NOT treat it as a failure. The exit code is the authoritative success indicator.
       // Check for: exit code 0 AND (completion event detected OR no streaming error)
-      if (exitCode === 0 && (agentCompletedSuccessfully || !streamingErrorDetected)) {
+      const recovery = resolveStreamingErrorRecovery({ exitCode, agentCompletedSuccessfully, streamingErrorDetected, outputErrorDetected: outputError.detected });
+      if (recovery.clearStreamingError) {
         // Agent exited successfully - clear any streaming errors that were recovered from
-        if (streamingErrorDetected && agentCompletedSuccessfully) {
-          await log(`ℹ️  Agent recovered from earlier error and completed successfully`, { verbose: true });
-        }
+        if (recovery.message) await log(recovery.message, { verbose: true });
         streamingErrorDetected = false;
         streamingErrorMessage = null;
       }

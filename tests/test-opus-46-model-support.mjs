@@ -286,9 +286,11 @@ test('getAvailableModelNames includes sonnet for claude tool', () => {
   assert(names.includes('sonnet'), `sonnet should be in available model names: ${names.join(', ')}`);
 });
 
-test('getAvailableModelNames includes claude-opus-4-5 alias', () => {
+test('getAvailableModelNames lists opus-4-5 and still accepts claude-opus-4-5', () => {
+  // Issue #2591: the listing shows short aliases only; full IDs stay valid.
   const names = getAvailableModelNames('claude');
-  assert(names.includes('claude-opus-4-5'), `claude-opus-4-5 should be in available model names: ${names.join(', ')}`);
+  assert(names.includes('opus-4-5'), `opus-4-5 should be in available model names: ${names.join(', ')}`);
+  assert(validateModelName('claude-opus-4-5', 'claude').valid, 'claude-opus-4-5 should still validate');
 });
 
 // ============================================================

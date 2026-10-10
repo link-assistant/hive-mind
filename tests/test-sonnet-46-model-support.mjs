@@ -229,9 +229,9 @@ test('getAvailableModelNames includes sonnet-4-5 alias for backward compatibilit
   assert(names.includes('sonnet-4-5'), `sonnet-4-5 should be in available model names: ${names.join(', ')}`);
 });
 
-test('getAvailableModelNames includes claude-sonnet-4-5 alias for backward compatibility', () => {
-  const names = getAvailableModelNames('claude');
-  assert(names.includes('claude-sonnet-4-5'), `claude-sonnet-4-5 should be in available model names: ${names.join(', ')}`);
+test('claude-sonnet-4-5 stays accepted for backward compatibility', () => {
+  // Issue #2591: the listing shows short aliases only; full IDs stay valid.
+  assert(validateModelName('claude-sonnet-4-5', 'claude').valid, 'claude-sonnet-4-5 should still validate');
 });
 
 // ============================================================

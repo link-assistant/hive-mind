@@ -1,5 +1,8 @@
 /** Exact effort capabilities and nearest-level selection. No model calls or I/O. */
 import { CODEX_MODEL_VARIANTS } from './models/catalog.mjs';
+import { getRuntimeModelAlias } from './models/aliases.mjs';
+
+const resolveCodexModelId = model => getRuntimeModelAlias('codex', model) ?? CODEX_MODEL_VARIANTS[model] ?? model;
 
 // Ultra is a separate, more expensive delegation mode above single-agent max.
 export const REASONING_EFFORT_ORDER = Object.freeze(['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra']);
@@ -20,6 +23,9 @@ const bundledEfforts = {
   'gpt-5.6-terra': ['none', ...delegated],
   'gpt-5.6-luna': ['none', ...maximum],
   'gpt-5.5': ['none', ...standard],
+  // Daybreak-program models, verified against codex-cli 0.161.0 (issue #2591).
+  'gpt-daybreak-blue-latest': delegated,
+  'gpt-daybreak-red-latest': delegated,
   'codex-auto-review': maximum,
 };
 
@@ -45,13 +51,13 @@ export const normalizeReasoningCapabilities = (model = {}) => {
 };
 
 export const getBundledReasoningCapabilities = model => {
-  const id = String(CODEX_MODEL_VARIANTS[model] ?? model ?? '').replace(/^openai[/.]/, '');
+  const id = String(resolveCodexModelId(model) ?? '').replace(/^openai[/.]/, '');
   return bundledEfforts[id] ? { supportedReasoningEfforts: [...bundledEfforts[id]], defaultReasoningEffort: null } : null;
 };
 
 /** Fresh first-party data wins; stale data is used only without a bundled answer. */
 export const getModelReasoningCapabilities = (model, catalogue = null) => {
-  const id = CODEX_MODEL_VARIANTS[model] ?? model;
+  const id = resolveCodexModelId(model);
   const matches = candidate => candidate?.id === id || candidate?.id === String(id).replace(/^openai[/.]/, '');
   const sources = catalogue?.sources ?? [];
   for (const source of sources) {

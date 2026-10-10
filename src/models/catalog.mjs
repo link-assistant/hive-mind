@@ -20,6 +20,7 @@
  */
 
 import { FORMAL_AI_MODEL_ALIAS, FORMAL_AI_PROVIDER_MODEL_ID } from '../formal-ai-model.lib.mjs';
+import { deriveClaudeFamilyAliases, deriveCodexFamilyAliases, listClaudeFamilies } from './aliases.mjs';
 
 const formalAiNativeModelAliases = {
   [FORMAL_AI_MODEL_ALIAS]: FORMAL_AI_MODEL_ALIAS,
@@ -86,7 +87,27 @@ export const claudeModels = {
   'claude-sonnet-4-5': 'claude-sonnet-4-5-20250929', // Sonnet 4.5 (backward compatibility)
   'claude-haiku-5-5': 'claude-haiku-5-5', // Haiku 5.5 (Issue #2771)
   'claude-haiku-4-5': 'claude-haiku-4-5-20251001', // Haiku 4.5
+  // Claude Code's `best` alias names the most capable generally available model (Issue #2591)
+  best: 'claude-fable-5-1',
 };
+
+// Every Claude family gets its "latest" alias (mythos → Mythos 5.1) and the
+// dotted spellings people type (opus-5.5, claude-opus-5.5, sonnet-4.5) without
+// listing them by hand. Explicit entries above win (Issue #2591).
+const addDerivedClaudeAliases = models => {
+  for (const [alias, modelId] of Object.entries(deriveClaudeFamilyAliases(Object.values(models)))) {
+    if (!Object.hasOwn(models, alias)) models[alias] = modelId;
+  }
+  for (const [alias, modelId] of Object.entries(models)) {
+    const versioned = alias.match(/^((?:claude-)?[a-z]+)-(\d+)-(\d+)$/);
+    const dotted = versioned && `${versioned[1]}-${versioned[2]}.${versioned[3]}`;
+    if (dotted && !Object.hasOwn(models, dotted)) models[dotted] = modelId;
+  }
+};
+addDerivedClaudeAliases(claudeModels);
+
+// opus, sonnet, haiku, fable, mythos — the families `opus-6` shorthands may name.
+export const CLAUDE_FAMILIES = listClaudeFamilies(Object.values(claudeModels));
 
 // Agent models (OpenCode API and Kilo Gateway via agent CLI)
 // Issue #1300: Updated free models to match agent PR #191
@@ -192,37 +213,35 @@ export const codexModels = {
   'gpt-4o': 'gpt-4o',
 };
 
-const CODEX_GENERATION_ALIAS_PATTERN = /^gpt-(\d+(?:\.\d+)?)-(sol|terra|luna)$/;
-const OPENAI_MODEL_PREFIX_PATTERN = /^openai([/.])/;
+// What the Codex CLI offers today: `codex debug models` of codex-cli 0.161.0
+// (docs/case-studies/issue-2591/data/codex/). Everything else in codexModels is
+// still accepted for pinned configurations but no longer advertised (Issue #2591).
+export const CODEX_CURRENT_MODELS = ['gpt-6-astra', 'gpt-6.1-sol', 'gpt-6-sol', 'gpt-6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-daybreak-blue-latest', 'gpt-daybreak-red-latest', 'gpt-5.5', 'codex-auto-review'];
+// Reported with "visibility": "hide" — gated programs and Codex's own reviewer.
+export const CODEX_HIDDEN_MODELS = ['gpt-daybreak-blue-latest', 'gpt-daybreak-red-latest', 'codex-auto-review'];
+
+// astra → gpt-6-astra, sol → gpt-6.1-sol, luna → gpt-6-luna, terra → gpt-5.6-terra,
+// daybreak-blue → gpt-daybreak-blue-latest, ... Each family follows its own newest
+// member; see ./aliases.mjs (Issue #2591).
+export const CODEX_FAMILY_ALIASES = deriveCodexFamilyAliases(CODEX_CURRENT_MODELS);
 
 /**
- * Resolve sol/terra/luna to the newest generation that contains the complete
- * alias family. A complete family prevents a partially rolled-out catalog from
- * moving only some aliases to a newer generation.
+ * sol/terra/luna aliases (Issue #2043). Kept for callers of that API; each alias
+ * now names its own family's newest generation instead of waiting for one
+ * generation to ship all three (Issue #2591).
  */
-export const getLatestCodexGenerationAliases = (models = codexModels) => {
-  const generations = new Map();
-
-  for (const modelId of Object.values(models)) {
-    const bareModelId = modelId.replace(OPENAI_MODEL_PREFIX_PATTERN, '');
-    const match = bareModelId.match(CODEX_GENERATION_ALIAS_PATTERN);
-    if (!match) continue;
-
-    const [, generation, alias] = match;
-    if (!generations.has(generation)) generations.set(generation, {});
-    generations.get(generation)[alias] = bareModelId;
-  }
-
-  const latestCompleteGeneration = [...generations.entries()].filter(([, aliases]) => ['sol', 'terra', 'luna'].every(alias => aliases[alias])).sort(([left], [right]) => right.localeCompare(left, undefined, { numeric: true }))[0];
-
-  return latestCompleteGeneration?.[1] || {};
+export const getLatestCodexGenerationAliases = (models = CODEX_CURRENT_MODELS) => {
+  const aliases = deriveCodexFamilyAliases(models);
+  return Object.fromEntries(['sol', 'terra', 'luna'].filter(alias => aliases[alias]).map(alias => [alias, aliases[alias]]));
 };
+
+const OPENAI_MODEL_PREFIX_PATTERN = /^openai([/.])/;
+
 const getCodexModelVariants = () => {
   const bareModels = [...new Set(Object.values(codexModels).map(modelId => modelId.replace(OPENAI_MODEL_PREFIX_PATTERN, '')))];
-  const aliases = getLatestCodexGenerationAliases();
-  const variants = { ...codexModels, ...aliases };
+  const variants = { ...codexModels, ...CODEX_FAMILY_ALIASES };
 
-  for (const [name, modelId] of Object.entries({ ...Object.fromEntries(bareModels.map(modelId => [modelId, modelId])), ...aliases })) {
+  for (const [name, modelId] of Object.entries({ ...Object.fromEntries(bareModels.map(modelId => [modelId, modelId])), ...CODEX_FAMILY_ALIASES })) {
     variants[`openai/${name}`] = `openai/${modelId}`;
     variants[`openai.${name}`] = `openai.${modelId}`;
   }

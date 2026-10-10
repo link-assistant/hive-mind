@@ -192,7 +192,7 @@ export function parseTaskContainers(inspected) {
 export async function listRunningTaskContainers({ execFileImpl = execFileAsync, timeoutMs = DOCKER_TASK_CONTAINER_LIST_TIMEOUT_MS, verbose = false } = {}) {
   try {
     const ps = await execFileImpl('docker', ['ps', '--quiet', '--no-trunc', '--filter', 'status=running'], { timeout: timeoutMs, maxBuffer: 4 * 1024 * 1024 });
-    const ids = String(ps?.stdout || '')
+    const ids = (ps?.stdout?.toString() || '')
       .split('\n')
       .map(id => id.trim())
       .filter(Boolean);
@@ -201,7 +201,7 @@ export async function listRunningTaskContainers({ execFileImpl = execFileAsync, 
       return { available: true, containers: [] };
     }
     const inspect = await execFileImpl('docker', ['inspect', ...ids], { timeout: timeoutMs, maxBuffer: 64 * 1024 * 1024 });
-    const containers = parseTaskContainers(JSON.parse(String(inspect?.stdout || '[]')));
+    const containers = parseTaskContainers(JSON.parse(inspect?.stdout?.toString() || '[]'));
     if (verbose) {
       const summary = containers.map(c => `${c.name}:${c.tool || 'unknown'}(${c.toolSource || 'none'})`).join(', ');
       console.log(`[VERBOSE] docker-task-containers: ${containers.length}/${ids.length} running container(s) are tasks${summary ? `: ${summary}` : ''}`);

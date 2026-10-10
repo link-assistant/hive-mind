@@ -14,3 +14,7 @@ snapshot-derived container starts, the stopped original is removed, and the
 `start-command-resume/*` images are removed when the task finishes. The
 Telegram recovery message shows these steps (docker start, waiting for disk,
 queued, snapshotting N GiB).
+
+Also pin Bun 1.4.3 (released 2026-10-10) in the Docker images so the
+dependency freshness gate passes; the pin tests now require the current Bun
+release, as they already do for Node.js.

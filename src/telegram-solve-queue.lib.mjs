@@ -57,7 +57,8 @@ function buildQueueItemTelegramOptions(item, verbose) {
  */
 class SolveQueueItem {
   constructor(options) {
-    this.id = `solve-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    // Issue #2890: a restored item keeps its id, creation time and restore count.
+    this.id = options.id || `solve-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
     this.url = options.url;
     this.args = options.args;
     this.ctx = options.ctx;
@@ -70,12 +71,15 @@ class SolveQueueItem {
     // Issue #1688: keep parsed URL context (owner/repo/number/type) so completion   notifications can look up linked PRs for issue URLs.
     this.urlContext = options.urlContext || null;
     // Issue #1688: requester user ID for /subscribe duplicate-suppression.
-    this.requesterUserId = options.ctx?.from?.id ?? null;
+    this.requesterUserId = options.ctx?.from?.id ?? options.requesterUserId ?? null;
     // Issue #594: --show-limits virtual option (hive-telegram-bot only).
     this.showLimits = options.showLimits === true;
     this.limitsAtStart = options.limitsAtStart || null;
     this.locale = options.locale || null;
-    this.createdAt = new Date();
+    this.createdAt = options.createdAt ? new Date(options.createdAt) : new Date();
+    this.restoreCount = Number.isSafeInteger(options.restoreCount) ? options.restoreCount : 0;
+    // Isolation session id, known before the launch so a restart can find the task (#2890).
+    this.sessionId = options.sessionId || null;
     this.startedAt = null;
     this.status = QueueItemStatus.QUEUED;
     this.waitingReason = null;
@@ -83,13 +87,21 @@ class SolveQueueItem {
     this.result = null;
     this.sessionName = null;
     // Message tracking - forget after STARTED
-    this.messageInfo = null; // { chatId, messageId, messageThreadId }
+    this.messageInfo = options.messageInfo || null; // { chatId, messageId, messageThreadId }
     // Track when we last updated the Telegram message See: https://github.com/link-assistant/hive-mind/issues/1078
     this.lastMessageUpdateTime = null;
     // Issue #2571: what the Telegram message shows now, to skip edits that would not change it.
     this.lastRenderedText = null;
     this.lastRenderedPosition = null;
     this.lastRenderedReason = null;
+  }
+  /**
+   * Record the isolation session id before the launch and persist it (#2890).
+   * @param {string} sessionId
+   */
+  assignSessionId(sessionId) {
+    this.sessionId = sessionId;
+    this.onSessionAssigned?.(this);
   }
   /**
    * Update status to waiting with reason
@@ -255,9 +267,40 @@ export class SolveQueue {
     toolQueue.push(item);
     this.stats.totalEnqueued++;
     this.log(`Enqueued: ${item.toString()} to ${item.tool} queue, queue length: ${toolQueue.length}`);
+    this.notifyStateChange('enqueued', item);
     // Start consumer if not already running
     if (this.autoStart) this.ensureConsumerRunning();
     return item;
+  }
+  /**
+   * Put a stored item back into its tool queue at its original position
+   * (ordered by creation time) after a restart. See issue #2890.
+   * @param {Object} options - Stored item fields plus a restored Telegram ctx
+   * @returns {SolveQueueItem}
+   */
+  restoreItem(options) {
+    const item = new SolveQueueItem(options);
+    const toolQueue = this.getToolQueue(item.tool);
+    const index = toolQueue.findIndex(other => other.createdAt > item.createdAt);
+    toolQueue.splice(index === -1 ? toolQueue.length : index, 0, item);
+    this.log(`Restored: ${item.toString()} to ${item.tool} queue at position ${toolQueue.indexOf(item) + 1}, restore #${item.restoreCount}`);
+    this.notifyStateChange('restored', item);
+    if (this.autoStart) this.ensureConsumerRunning();
+    return item;
+  }
+  /**
+   * Tell the persistence layer (issue #2890) that queue state changed.
+   * @param {string} event - enqueued, restored, starting, session_assigned, message, finished, cancelled, rejected, start_recorded
+   * @param {SolveQueueItem|null} item
+   */
+  notifyStateChange(event, item = null) {
+    if (item && !item.onSessionAssigned) Object.defineProperty(item, 'onSessionAssigned', { value: changed => this.notifyStateChange('session_assigned', changed), writable: true, configurable: true });
+    if (typeof this.onStateChange !== 'function') return;
+    try {
+      this.onStateChange(event, item);
+    } catch (error) {
+      console.error(`[solve_queue] State change listener failed for ${event}: ${error.message}`);
+    }
   }
   /**
    * Find an item by URL in any queue or processing items
@@ -305,6 +348,7 @@ export class SolveQueue {
         item.setCancelled();
         this.stats.totalCancelled++;
         this.log(`Cancelled queued item: ${item.toString()} from ${tool} queue`);
+        this.notifyStateChange('cancelled', item);
         return true;
       }
     }
@@ -358,6 +402,7 @@ export class SolveQueue {
   recordStart(tool = 'claude', startTime = Date.now()) {
     this.lastStartTimeByTool[tool] = startTime;
     this.lastStartTime = startTime;
+    this.notifyStateChange('start_recorded');
     return startTime;
   }
   reserveStartSlot(options = {}) {
@@ -429,6 +474,7 @@ export class SolveQueue {
       this.failed.push(item);
       this.stats.totalFailed++;
       this.log(`Rejected queued item: ${item.toString()} from ${tool} queue - ${reason}`);
+      this.notifyStateChange('rejected', item);
       await this.updateItemMessage(item, t('telegram.solve_rejected', { infoBlock: item.infoBlock, reason }, { locale: item.locale }));
     }
     while (this.failed.length > 100) this.failed.shift();
@@ -806,6 +852,7 @@ export class SolveQueue {
         this.stats.totalStarted++;
         await this.updateItemMessage(item, formatStartingWorkSessionMessage({ infoBlock: item.infoBlock, locale: item.locale }));
         this.log(`Starting: ${item.toString()} from ${tool} queue`);
+        this.notifyStateChange('starting', item);
         // Execute in background
         this.executeItem(item).catch(error => {
           console.error(`[solve_queue] Execution error for ${item.id}:`, error);
@@ -961,6 +1008,7 @@ export class SolveQueue {
         this.failed.push(item);
       }
       this.log(`Finished: ${item.toString()}`);
+      this.notifyStateChange('finished', item);
       // Limit history size
       while (this.completed.length > 100) this.completed.shift();
       while (this.failed.length > 100) this.failed.shift();

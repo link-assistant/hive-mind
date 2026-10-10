@@ -1,0 +1,6 @@
+[
+  { "createdAt": "2026-10-08T23:55:31Z", "headRefName": "issue-724-878028a21e67", "mergedAt": "2026-10-10T03:25:23Z", "number": 749, "state": "MERGED", "url": "https://github.com/link-assistant/router/pull/749" },
+  { "createdAt": "2026-10-09T00:25:09Z", "headRefName": "issue-725-052105988e50", "mergedAt": "2026-10-09T19:10:40Z", "number": 750, "state": "MERGED", "url": "https://github.com/link-assistant/router/pull/750" },
+  { "createdAt": "2026-10-09T03:18:52Z", "headRefName": "issue-727-61ea612f008e", "mergedAt": "2026-10-09T22:34:15Z", "number": 752, "state": "MERGED", "url": "https://github.com/link-assistant/router/pull/752" },
+  { "createdAt": "2026-10-09T09:41:16Z", "headRefName": "issue-728-9679a13cda3c", "mergedAt": "2026-10-09T16:49:10Z", "number": 753, "state": "MERGED", "url": "https://github.com/link-assistant/router/pull/753" }
+]

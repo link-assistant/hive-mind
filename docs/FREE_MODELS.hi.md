@@ -2,10 +2,11 @@
 
 यह दस्तावेज़ `--tool agent` विकल्प का उपयोग करते समय hive-mind द्वारा समर्थित free models के बारे में व्यापक जानकारी प्रदान करता है।
 
-> **अंतिम अपडेट:** 10 अप्रैल, 2026
+> **अंतिम अपडेट:** 10 अक्टूबर, 2026
 > **संबंधित:**
 >
 > - [Agent CLI FREE_MODELS.md](https://github.com/link-assistant/agent/blob/main/FREE_MODELS.md) - Upstream free models सूची (canonical source)
+> - [Issue #2591](https://github.com/link-assistant/hive-mind/issues/2591) - Free models को live OpenCode Zen catalogue (`https://opencode.ai/zen/v1/models`, 2026-10-10) से जाँचा गया: नए free models जोड़े गए, `minimax-m2.5-free` और `grok-code` listings से छिपाए गए (फिर भी स्वीकार किए जाते हैं)
 > - [Issue #2625](https://github.com/link-assistant/hive-mind/issues/2625) - OpenCode Zen ने nemotron-3-super-free हटा दिया और उसका free tier अब OpenCode के अलावा अन्य clients को `FreeTierError` (HTTP 403) देता है; default अब वही model Kilo Gateway पर `nvidia/nemotron-3-super-120b-a12b:free` के रूप में चलाता है, और Hive Mind वह provider entry देता है जो Agent में नहीं है ([agent#327](https://github.com/link-assistant/agent/issues/327))
 > - [Agent PR #243](https://github.com/link-assistant/agent/pull/243) - Upstream: deprecated qwen3.6-plus-free को nemotron-3-super-free से default के रूप में replace करें
 > - [Agent PR #234](https://github.com/link-assistant/agent/pull/234) - Upstream: qwen3.6-plus-free default के रूप में, nemotron-3-super-free जोड़ें
@@ -16,7 +17,7 @@
 
 Hive-mind दो providers के free models का समर्थन करता है:
 
-1. **OpenCode Zen** - `opencode/` prefix के साथ 4 free models
+1. **OpenCode Zen** - `opencode/` prefix के साथ 9 free models (list हर सप्ताह बदलती है; `opencode models` वर्तमान list दिखाता है)
 2. **Kilo Gateway** - `kilo/` prefix के साथ 6 free models (Issue #1282)
 
 ---
@@ -41,7 +42,7 @@ Hive-mind दो providers के free models का समर्थन कर�
 
 - **Short Alias**: `minimax-m2.5-free`
 - **Provider**: OpenCode Zen
-- **Status**: पूरी तरह समर्थित (पूर्व default, Issues #1391, #1543)
+- **Status**: Deprecated — models.dev इसे `deprecated` चिह्नित करता है और live OpenCode Zen catalogue अब इसे list नहीं करता (Issue #2591)। फिर भी स्वीकार किया जाता है, पर list नहीं होता। पूर्व default (Issues #1391, #1543)
 - **Features**: Reasoning, tool calling, temperature control
 - **Context Window**: 204,800 tokens
 - **Output Limit**: 131,072 tokens
@@ -71,6 +72,20 @@ Hive-mind दो providers के free models का समर्थन कर�
 - **Output Limit**: 128,000 tokens
 - **Cost**: Free (कोई input/output charges नहीं)
 - **Knowledge Cutoff**: जनवरी 2025
+- **नोट्स**: Issue #2591 से `--tool opencode` के लिए Default — कोई provider key configure न होने पर यह OpenCode का अपना default भी है
+
+### 5. अन्य free OpenCode Zen models (Issue #2591)
+
+2026-10-10 को live OpenCode Zen catalogue द्वारा free में उपलब्ध। हर short alias `--tool agent` और `--tool opencode` दोनों के लिए `opencode/<alias>` पर map होता है:
+
+| Short Alias                   | Model ID                               |
+| ----------------------------- | -------------------------------------- |
+| `nemotron-3-ultra-free`       | `opencode/nemotron-3-ultra-free`       |
+| `nemotron-3.5-lightning-free` | `opencode/nemotron-3.5-lightning-free` |
+| `ling-3.1-flash-free`         | `opencode/ling-3.1-flash-free`         |
+| `mimo-v2.6-flash-free`        | `opencode/mimo-v2.6-flash-free`        |
+| `step-5-preview-free`         | `opencode/step-5-preview-free`         |
+| `exo-free`                    | `opencode/exo-free`                    |
 
 ---
 
@@ -82,6 +97,7 @@ Hive-mind दो providers के free models का समर्थन कर�
 | ------------------ | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Qwen 3.6 Plus Free | `opencode/qwen3.6-plus-free` | Free promotion समाप्त (अप्रैल 2026) — अब OpenCode Go subscription आवश्यक है। [agent#242](https://github.com/link-assistant/agent/issues/242) देखें |
 | Kimi K2.5 Free     | `opencode/kimi-k2.5-free`    | OpenCode Zen से हटाया गया (मार्च 2026) — [agent#208](https://github.com/link-assistant/agent/issues/208) देखें                                     |
+| MiniMax M2.5 Free  | `opencode/minimax-m2.5-free` | models.dev पर deprecated और live OpenCode Zen catalogue में अनुपस्थित (अक्टूबर 2026, Issue #2591)                                                  |
 | Grok Code Fast 1   | `opencode/grok-code`         | जनवरी 2026 में बंद                                                                                                                                 |
 | MiniMax M2.1 Free  | `opencode/minimax-m2.1-free` | `opencode/minimax-m2.5-free` से replace किया गया                                                                                                   |
 | GLM 4.7 Free       | `opencode/glm-4.7-free`      | OpenCode Zen पर अब free नहीं                                                                                                                       |

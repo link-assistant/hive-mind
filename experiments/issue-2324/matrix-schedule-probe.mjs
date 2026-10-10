@@ -43,7 +43,14 @@ const exportsFor = {
     },
   },
 };
-const context = vm.createContext({ process: { env: { GITHUB_REPOSITORY: 'owner/repo', GITHUB_EVENT_NAME: 'schedule', GITHUB_OUTPUT: '/tmp/output', E2E_METADATA_DIR: '/tmp/result' } }, console: { log() {} } });
+// Issue #2923: `workflow_run-<conclusion>` replays the release completion that triggers the matrix.
+const logs = [];
+const env = { GITHUB_REPOSITORY: 'owner/repo', GITHUB_EVENT_NAME: 'schedule', GITHUB_OUTPUT: '/tmp/output', E2E_METADATA_DIR: '/tmp/result' };
+if (scenario.startsWith('workflow_run-')) {
+  Object.assign(env, { GITHUB_EVENT_NAME: 'workflow_run', GITHUB_EVENT_PATH: '/tmp/event.json' });
+  files.set('/tmp/event.json', JSON.stringify({ workflow_run: { id: 37983302098, name: 'Checks and release', conclusion: scenario.slice('workflow_run-'.length), head_branch: 'main' } }));
+}
+const context = vm.createContext({ process: { env }, console: { log: line => logs.push(line) } });
 const script = new vm.SourceTextModule(readFileSync(new URL('../../scripts/e2e-matrix-schedule.mjs', import.meta.url), 'utf8'), { context });
 await script.link(
   specifier =>
@@ -56,4 +63,4 @@ await script.link(
     )
 );
 await script.evaluate();
-console.log(JSON.stringify({ scenario, output, lastDownload, requests, metadata: JSON.parse(files.get('/tmp/result/matrix.json')) }));
+console.log(JSON.stringify({ scenario, output, logs, lastDownload, requests, metadata: JSON.parse(files.get('/tmp/result/matrix.json')) }));

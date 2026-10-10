@@ -54,6 +54,7 @@ import { dirname, join } from 'node:path';
 import { promisify } from 'node:util';
 
 import { assertSupportedFormalAiVersion, assertSupportedHiveMindVersion, FORMAL_AI_MINIMUM_VERSION, isFormalAiVersionAtLeast, readFormalAiBinaryVersion, readRequiredHiveMindVersion } from './formal-ai-version.lib.mjs';
+import { keepProcessAcrossSessions, releaseKeptProcess } from './session-survivors.lib.mjs';
 import { prepareToolGhAuth } from './tool-env-gh-auth.lib.mjs';
 import { getVersion } from './version.lib.mjs';
 
@@ -773,12 +774,15 @@ export const prepareFormalAiRuntime = async ({ tool, workdir, log = async () => 
         runtimeCache.delete(cacheKey);
         try {
           await server?.stop?.();
+          releaseKeptProcess(server?.pid);
         } finally {
           await rm(home, { recursive: true, force: true }).catch(() => {});
         }
       },
     };
     runtimeCache.set(cacheKey, { runtime, server });
+    // The cached server outlives this session on purpose (issue #2923).
+    if (server?.pid) keepProcessAcrossSessions(server.pid, 'task-owned Formal AI server, stopped when Hive Mind exits');
     return runtime;
   } catch (error) {
     await server?.stop?.();

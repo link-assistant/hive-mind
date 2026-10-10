@@ -9,10 +9,10 @@ const tools = ['claude', 'codex', 'gemini', 'qwen', 'agent', 'opencode'];
 const probes = {
   claude: ['opus', 'sonnet', 'haiku', 'fable', 'mythos', 'best', 'opus-5.5', 'claude-opus-5.5', 'sonnet-5.5'],
   codex: ['astra', 'sol', 'terra', 'luna', 'daybreak-blue', 'daybreak-red', 'gpt-6-astra', 'gpt-6.1-sol'],
-  gemini: ['flash', 'pro', 'flash-lite', 'auto'],
-  qwen: ['qwen', 'coder-model'],
-  agent: ['nemotron-3-super-free'],
-  opencode: ['grok'],
+  gemini: ['flash', 'pro', 'flash-lite', 'auto', 'gemini', '3.8-flash'],
+  qwen: ['qwen', 'coder-model', 'max', 'plus', 'flash'],
+  agent: ['nemotron-3-super-free', 'opus', 'sonnet', 'gemini-3-pro'],
+  opencode: ['grok', 'sonnet', 'opus', 'gemini'],
 };
 
 for (const tool of tools) {

@@ -923,7 +923,11 @@ hive-cleanup --no-keep-active-tasks-folders --dry-run
 ```
 
 Run `hive-cleanup --help` for the full list of options. The command is dry-run
-friendly and writes a timestamped `cleanup-*.log` for every run. Process
+friendly and writes a timestamped `cleanup-*.log` for every run into
+`$HIVE_MIND_LOG_DIR` (default `~/.hive-mind/logs`, override with `--log-dir`).
+Docker-isolation containers are mapped to their sessions even when the session
+only named a repository (`fix <repo> --ci-cd`, `hive <repo>`); the issue/PR such
+a session created is recovered from its console log. Process
 diagnostic output redacts common token shapes before printing command lines.
 
 ## 🔍 Monitoring & Logging

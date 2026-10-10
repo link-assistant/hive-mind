@@ -24,14 +24,14 @@ const expected = {
   bun: '1.4.2',
   eslint: '10.12.0',
   formalAi: '0.352.1',
-  jscpd: '5.4.0',
+  jscpd: '5.4.1',
   jscpdThreshold: 12,
   lintStaged: '17.6.0',
   node: '26.11.1',
   prettier: '3.9.9',
   sentry: '11.6.0',
   sentryProfiler: '2.4.4',
-  startCommand: '0.35.4',
+  startCommand: '0.36.0',
   useM: '8.16.4',
 };
 

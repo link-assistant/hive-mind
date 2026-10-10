@@ -15,6 +15,7 @@ import { getLinoYargsFactory, hideBin, normalizeCliArgs, parseCliArgumentsWithLi
 import { normalizeThinkLevel, ADAPTIVE_THINK_LEVEL } from './think-level.lib.mjs';
 import { supportsAdaptiveThinking } from './config.lib.mjs';
 import { resolvePromptModelForTool } from './thinking-prompt.lib.mjs';
+import { normalizeSpeed } from './pricing-tier.lib.mjs';
 
 // Re-export for use by telegram-bot.mjs (avoids extra import lines there)
 export { detectMalformedFlags };
@@ -27,7 +28,8 @@ export const initializeConfig = async () => ({ yargs: getLinoYargsFactory(), hid
 // Exported so hive.config.lib.mjs can automatically register solve options
 // without manual duplication (see issue #1209).
 // NOTE: Options with function defaults (like 'model') are defined inline in createYargsConfig
-// and excluded from this map since functions cannot be cleanly shared as data.
+// and excluded from this map since functions cannot be cleanly shared as data
+// (a `coerce` normalizer such as --speed's is fine: it is only read by yargs).
 export const SOLVE_OPTION_DEFINITIONS = {
   resume: {
     type: 'string',
@@ -400,8 +402,15 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'disable-1m-context': {
     type: 'boolean',
-    description: 'Disable 1M extended context window so the model uses its standard 200K-400K window. Helps preserve reasoning quality and reduces cost. Default: true. For Claude this sets CLAUDE_CODE_DISABLE_1M_CONTEXT=1 (also forbids the [1m] model-name suffix). For Codex this sets -c model_context_window=200000. Use --no-disable-1m-context to allow the 1M window.',
-    default: true,
+    description: 'Hold the model to its short-context (cheapest) pricing tier instead of the 1M extended window. Default: auto — short context unless --sub-session-size asks for more than the short tier (e.g. --sub-session-size 500k) or the model has a [1m] suffix. Pass --disable-1m-context to force short context, or --no-disable-1m-context to allow the 1M window. Short tiers: Claude 200K (Haiku 5.5: 100K), Codex/OpenAI 272K, Gemini Pro 200K, Qwen3 Coder Plus/Flash 256K. For Claude this sets CLAUDE_CODE_DISABLE_1M_CONTEXT=1 and passes plain model names; for Codex -c model_context_window=272000; for Gemini/Qwen the compaction threshold.',
+    default: undefined,
+  },
+  speed: {
+    type: 'string',
+    description: 'Service/speed tier: standard (default, cheapest normal tier), flex (Codex/OpenAI only, ~0.5x price = Batch API rates, slower and may be queued; aliases: batch, slow, economy), fast (priority, ~2x price), ultrafast (Codex only, up to 8x). Claude: standard/flex set CLAUDE_CODE_DISABLE_FAST_MODE=1, fast/ultrafast leave Claude Code fast mode to your Claude settings. Codex: -c service_tier=default|flex|fast|ultrafast.',
+    // coerce (not yargs `choices`) so the documented aliases are accepted and normalized.
+    coerce: normalizeSpeed,
+    default: 'standard',
   },
   'fallback-model': {
     type: 'string',

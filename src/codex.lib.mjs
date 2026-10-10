@@ -45,7 +45,7 @@ import { buildAuthRemedyLines, buildFormalAiEnvExports, isPrepareOnly, logPrepar
 import { buildFormalAiPricingInfo } from './formal-ai-pricing.lib.mjs'; // Issue #2119
 import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { parseSubSessionSize } from './sub-session-size.lib.mjs'; // Issue #1706
-import { buildCodexPricingTierConfigArgs, describePricingTier, resolvePricingTier } from './pricing-tier.lib.mjs'; // Issue #2771
+import { buildCodexPricingTierConfigArgs, describePricingTier, getCodexContextWindowFromConfigArgs, resolvePricingTier } from './pricing-tier.lib.mjs'; // Issues #2771 and #2842
 import { buildCodexMemoryDisableConfigArgs, isAgentMemoryDisabled } from './agent-memory-policy.lib.mjs'; // Issue #2178
 import { buildCodexAuxiliaryDisableConfigArgs, isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236
 import { CODEX_REMOTE_PLUGIN_DISABLE_ARGS } from './agent-config-audit.lib.mjs'; // Issue #2190
@@ -57,31 +57,13 @@ import { applyCodexCapabilityEnv, runCodexCapabilityPreflight, setTomlTableBoole
 import { createPullRequestBaseBranchCommandIntervention } from './solve.pr-base-command-intervention.lib.mjs';
 import Decimal from 'decimal.js-light';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
-import { CODEX_CACHE_READ_USAGE_PATHS, CODEX_CACHE_WRITE_USAGE_PATHS, CODEX_MODEL_DIAGNOSTIC_PATHS, CODEX_REASONING_USAGE_PATHS, CODEX_USAGE_FIELD_NAMES, createCodexTokenFieldAvailability, getFirstObservedNumber, hasAnyObservedPath, hasOwnPath } from './codex.usage-fields.lib.mjs';
+import { CODEX_CACHE_READ_USAGE_PATHS, CODEX_CACHE_WRITE_USAGE_PATHS, CODEX_MODEL_DIAGNOSTIC_PATHS, CODEX_REASONING_USAGE_PATHS, CODEX_USAGE_FIELD_NAMES, createCodexTokenFieldAvailability, createCodexTokenUsage, getFirstObservedNumber, hasAnyObservedPath, hasOwnPath } from './codex.usage-fields.lib.mjs';
+export { createCodexTokenUsage }; // Issue #2842: moved to codex.usage-fields.lib.mjs to keep this file under the line budget
 const CODEX_LONG_CONTEXT_PRICE_THRESHOLD = 272000;
 const getCodexExecEnv = (verbose = false) => (verbose ? { ...process.env, RUST_LOG: 'debug' } : { ...process.env });
 // Issue #2175: diagnostic-line parsing lives in its own module to keep this file
 // under the 1350-line warning threshold.
-import { parseCodexDiagnosticLine, rebuildCodexSubSessionsFromCompactifications } from './codex.diagnostics.lib.mjs';
-export const createCodexTokenUsage = requestedModelId => ({
-  inputTokens: 0,
-  outputTokens: 0,
-  reasoningTokens: 0,
-  cacheReadTokens: 0,
-  cacheWriteTokens: 0,
-  totalTokens: 0,
-  stepCount: 0,
-  requestedModelId: requestedModelId || null,
-  respondedModelId: requestedModelId || null,
-  contextLimit: null,
-  outputLimit: null,
-  autoCompactTokenLimit: null,
-  contextFillInputTokens: 0,
-  peakContextUsage: 0,
-  subSessions: [],
-  compactifications: [],
-  tokenFieldAvailability: createCodexTokenFieldAvailability(),
-});
+import { parseCodexDiagnosticLine, rebuildCodexSubSessionsFromCompactifications, resolveCodexPeakContextUsage } from './codex.diagnostics.lib.mjs';
 const createEmptyCodexItemUsage = () => ({
   inputTokens: 0,
   cacheCreationTokens: 0,
@@ -308,10 +290,8 @@ export const parseCodexExecJsonOutput = (output, state = {}, requestedModelId = 
       nextState.tokenUsage.reasoningTokens += reasoningTokens;
       nextState.tokenUsage.totalTokens = nextState.tokenUsage.inputTokens + nextState.tokenUsage.cacheReadTokens + nextState.tokenUsage.outputTokens + nextState.tokenUsage.cacheWriteTokens;
       nextState.tokenUsage.stepCount += 1;
-      const turnContextUsage = inputTokens + cacheWriteTokens;
-      if (turnContextUsage > (nextState.tokenUsage.peakContextUsage || 0)) {
-        nextState.tokenUsage.peakContextUsage = turnContextUsage;
-      }
+      // Issue #2842: a turn sums many requests, so its total is only an upper-bound fallback for the per-request peak.
+      nextState.tokenUsage.turnPeakContextUsage = Math.max(nextState.tokenUsage.turnPeakContextUsage || 0, inputTokens + cacheWriteTokens);
       const turnContextFill = getCumulativeContextInputTokens({
         inputTokens: nonCachedInputTokens,
         cacheWriteTokens,
@@ -357,6 +337,7 @@ export const parseCodexExecJsonOutput = (output, state = {}, requestedModelId = 
     }
   }
   rebuildCodexSubSessionsFromCompactifications(nextState.tokenUsage);
+  nextState.tokenUsage.peakContextUsage = resolveCodexPeakContextUsage(nextState.tokenUsage);
   nextState.observedModelDiagnosticPaths = [...observedModelPaths];
   return nextState;
 };
@@ -395,7 +376,8 @@ export const calculateCodexPricingFromModelInfo = (modelId, tokenUsage, modelInf
   if (!tokenUsage) return buildCodexPricingFallback(modelId, null);
   if (!modelInfo?.cost) return buildCodexPricingFallback(modelId, tokenUsage, 'Model pricing not found in models.dev API');
   const standardCost = modelInfo.cost;
-  const usesLongContextPricing = !!standardCost.context_over_200k && (tokenUsage.peakContextUsage || 0) > CODEX_LONG_CONTEXT_PRICE_THRESHOLD;
+  const peakPromptTokens = resolveCodexPeakContextUsage(tokenUsage, { contextWindow: modelInfo.limit?.context }); // Issue #2842
+  const usesLongContextPricing = !!standardCost.context_over_200k && peakPromptTokens > CODEX_LONG_CONTEXT_PRICE_THRESHOLD;
   const cost = usesLongContextPricing ? { ...standardCost, ...standardCost.context_over_200k } : standardCost;
   const pricing = {
     inputPerMillion: cost.input || 0,
@@ -425,6 +407,7 @@ export const calculateCodexPricingFromModelInfo = (modelId, tokenUsage, modelInf
     breakdown,
     totalCostUSD,
     usesLongContextPricing,
+    peakPromptTokens,
     longContextThreshold: usesLongContextPricing ? CODEX_LONG_CONTEXT_PRICE_THRESHOLD : null,
   };
 };
@@ -858,7 +841,7 @@ export const executeCodexCommand = async params => {
         sessionId: null,
         authError: false,
         resultSummary: '',
-        tokenUsage: createCodexTokenUsage(mappedModel),
+        tokenUsage: createCodexTokenUsage(mappedModel, { contextLimit: getCodexContextWindowFromConfigArgs(disable1mArgs) }),
         eventCounts: {},
         itemTypeCounts: {},
         subAgentCalls: [],
@@ -1018,7 +1001,7 @@ export const executeCodexCommand = async params => {
       if (pricingInfo?.totalCostUSD !== null && pricingInfo?.totalCostUSD !== undefined) {
         await log(`💰 Codex public pricing estimate: $${new Decimal(pricingInfo.totalCostUSD).toFixed(6)}`, { verbose: true });
         if (pricingInfo.usesLongContextPricing) {
-          await log(`   Long-context pricing applied because peak prompt exceeded ${pricingInfo.longContextThreshold.toLocaleString()} input tokens`, { verbose: true });
+          await log(`   Long-context pricing applied because peak single-request prompt (${pricingInfo.peakPromptTokens.toLocaleString()}) exceeded ${pricingInfo.longContextThreshold.toLocaleString()} input tokens`, { verbose: true });
         }
       } else if (pricingInfo?.error) {
         await log(`⚠️ Codex public pricing estimate unavailable: ${pricingInfo.error}`, { level: 'warning', verbose: true });

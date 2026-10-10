@@ -1,0 +1,5 @@
+== dockerd --live-restore + daemon.json {"live-restore": true} ==
+exit=1
+unable to configure the Docker daemon with file /etc/docker/daemon.json: the following directives are specified both as a flag and in the configuration file: live-restore: (from flag: true, from file: true)
+== dockerd --live-restore, no daemon.json key ==
+LiveRestoreEnabled=true

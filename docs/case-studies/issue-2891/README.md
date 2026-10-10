@@ -113,6 +113,15 @@ carries the issue link.
 - A PR on a non-conventional branch whose first closing reference names
   another issue is not treated as the issue's own. That is the intended
   behavior for a multi-issue PR.
+- The scan takes the first announcement line in the log. Solve prints its own
+  before the agent starts, so agent output can only win if it prints
+  `PR URL: <another PR>` in a session that was killed before solve announced
+  anything.
+- The session log is now read before the linked-PR lookup, not only after it
+  fails. The scan is chunked (issue #2189) and stops at the first match, and
+  the answer is cached; a session with no announcement is scanned on each
+  report until a PR is found, as before the fix for sessions without a
+  linked PR.
 
 ## Existing components and online research
 

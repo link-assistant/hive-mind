@@ -10,3 +10,5 @@ was published as the error ("CLAUDE execution failed with I fixed the four…"),
 turning a ready PR back into a draft. Both exit paths now share one rule. A tool's
 work summary is never published as a failure reason for any tool, and the
 SIGKILL follow-up is sent while the CLI's process group is still alive.
+
+Docker images install Bun 1.4.3 and start-command 0.37.0; prettier is 3.9.10.

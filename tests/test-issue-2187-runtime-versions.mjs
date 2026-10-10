@@ -42,6 +42,12 @@ const DOCKERFILES = ['Dockerfile', 'Dockerfile.dind', 'coolify/Dockerfile'];
 const BOX_RELEASE = '2.10.3';
 const TASK_NODE_VERSION = '26.11.1';
 const BOX_BUN_VERSION = '1.4.2';
+const TASK_BUN_VERSION = '1.4.3';
+const compareVersions = (a, b) => {
+  const [x, y] = [a, b].map(v => String(v).split('.').map(Number));
+  for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return (x[i] || 0) - (y[i] || 0);
+  return 0;
+};
 
 const read = relativePath => fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
 
@@ -61,7 +67,8 @@ for (const dockerfile of DOCKERFILES) {
 
   check(baseVersion === BOX_RELEASE, `${dockerfile}: pins current Box ${BOX_RELEASE} (${baseVersion})`);
   check(nodeVersion === TASK_NODE_VERSION, `${dockerfile}: Node.js pin is current (${nodeVersion})`);
-  check(bunVersion === BOX_BUN_VERSION, `${dockerfile}: Bun pin matches Box ${BOX_RELEASE} (${bunVersion})`);
+  check(bunVersion === TASK_BUN_VERSION, `${dockerfile}: Bun pin is current (${bunVersion})`);
+  check(compareVersions(bunVersion, BOX_BUN_VERSION) >= 0, `${dockerfile}: Bun pin is not older than Box ${BOX_RELEASE}'s Bun ${BOX_BUN_VERSION} (${bunVersion})`);
   check(/^\d+\.\d+\.\d+$/.test(nodeVersion || ''), `${dockerfile}: pins an exact Node.js version (${nodeVersion})`);
   check(/^\d+\.\d+\.\d+$/.test(bunVersion || ''), `${dockerfile}: pins an exact Bun version (${bunVersion})`);
   check(Number(String(nodeVersion).split('.')[0]) >= enginesNodeFloor, `${dockerfile}: pinned Node.js ${nodeVersion} satisfies engines.node >= ${enginesNodeFloor}`);

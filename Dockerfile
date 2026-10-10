@@ -161,7 +161,7 @@ RUN command -v file >/dev/null || HOMEBREW_NO_AUTO_UPDATE=1 brew install file
 # directory is removed. `.node-bin`, `nvm use default` and a bare `node` then
 # all resolve to the same, newest runtime (issue #2187, item A).
 ARG HIVE_MIND_NODE_VERSION=26.11.1
-ARG HIVE_MIND_BUN_VERSION=1.4.2
+ARG HIVE_MIND_BUN_VERSION=1.4.3
 RUN set -e && \
     . "$NVM_DIR/nvm.sh" && \
     PREVIOUS_GLOBAL_LIB="$(dirname "$(dirname "$(command -v node)")")/lib/node_modules" && \
@@ -245,7 +245,7 @@ RUN bun install -g @openai/codex && \
 # Note: start-command provides `$` CLI for isolation modes (--isolation screen/tmux/docker)
 # The Box base image includes screen. For tmux/docker isolation, ensure they are
 # available in the base image or install them separately.
-# start-command is pinned to 0.36.0: 0.29.1 fixed detached docker
+# start-command is pinned to 0.37.0: 0.29.1 fixed detached docker
 # `--status`/`--list` reporting a terminal status (`executed`) with the `-1`
 # sentinel while the container is still running (link-foundation/start#136,
 # link-assistant/hive-mind#1939); 0.29.2 (start#138 / start PR #139) records the
@@ -301,7 +301,9 @@ RUN bun install -g @openai/codex && \
 # start#187 (filed from issue #2498): an explicit `--resume` moves the previous
 # attempt's memory evidence into `attemptHistory` and records the new attempt's
 # start time, log byte offset and lifecycle boundary. 0.36.0 adds opt-in Docker
-# resource limits and requires exit-time evidence before an OOM verdict.
+# resource limits and requires exit-time evidence before an OOM verdict. 0.37.0
+# preserves shell argument boundaries and exit codes, and resumes Docker commands
+# without copying the container.
 # `@link-assistant/agent` is pinned to current 0.26.11. Version 0.26.1 stopped the
 # unbounded snapshot leak of issue #2186. Up to 0.26.0 `Snapshot.track()` built a
 # standalone git object store per project — keyed on the worktree's root commit,
@@ -320,7 +322,7 @@ RUN echo "Installing @link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
     fi && \
     bun install -g @link-assistant/claude-profiles && \
     bun install -g @link-assistant/agent@0.26.11 && \
-    bun install -g start-command@0.36.0 && \
+    bun install -g start-command@0.37.0 && \
     bun install -g gh-setup-git-identity && \
     bun install -g gh-pull-all && \
     bun install -g gh-load-issue && \

@@ -33,6 +33,8 @@ async function test(name, fn) {
   }
 }
 
+// Exact URLs in a text (CodeQL flags substring checks of URLs).
+const urlsIn = text => new Set(String(text).match(/https:\/\/[^\s)<>`'"\]]+/g) || []);
 const topicsOf = text => findGitHubDocsForError(text, { locale: 'en' }).map(match => match.topic);
 
 const GITHUB_MESSAGES = {
@@ -82,7 +84,7 @@ await test('merge failure resolutions link the setting that blocks the merge', (
     const blocked = classifyMergeError('GraphQL: At least 1 approving review is required by reviewers with write access. (mergePullRequest)');
     assert.equal(blocked.category, 'blocked');
     assert.ok(blocked.resolution.startsWith('Satisfy the branch protection requirements'), blocked.resolution);
-    assert.ok(blocked.resolution.includes('https://docs.github.com/de/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches'), blocked.resolution);
+    assert.ok(urlsIn(blocked.resolution).has('https://docs.github.com/de/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches'), blocked.resolution);
     const permission = classifyMergeError(GITHUB_MESSAGES.notAccessible);
     assert.ok(permission.resolution.includes('#resource-not-accessible'), permission.resolution);
     assert.equal(classifyMergeError('Pull request is closed').resolution, 'The pull request is no longer open — nothing left to merge.', 'no link when no setting is involved');

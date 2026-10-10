@@ -33,15 +33,18 @@ async function test(name, fn) {
   }
 }
 
+// Exact URLs in a text (CodeQL flags substring checks of URLs).
+const urlsIn = text => new Set(String(text).match(/https:\/\/[^\s)<>`'"\]]+/g) || []);
+
 const INVITE_DOCS_PATH = '/repositories/managing-your-repositorys-settings-and-features/repository-access-and-collaboration/inviting-collaborators-to-a-personal-repository#inviting-a-collaborator-to-a-personal-repository';
 const ORG_DOCS_PATH = '/repositories/managing-your-repositorys-settings-and-features/managing-repository-settings/managing-teams-and-people-with-access-to-your-repository';
 
 await test('the reported case (personal repository, Russian reader) gets the Russian invitation docs and the account to invite', async () => {
   const message = await buildRepositoryNotAccessibleMessage({ owner: 'konard', repo: 'private-repo', autoAcceptInvite: true, botLogin: 'hive-bot', ownerType: 'User', locale: 'ru' });
   assert.ok(message.includes(`https://docs.github.com/ru${INVITE_DOCS_PATH}`), message);
-  assert.ok(message.includes('https://github.com/konard/private-repo/settings/access'), message);
+  assert.ok(urlsIn(message).has('https://github.com/konard/private-repo/settings/access'), message);
   assert.ok(message.includes('`hive-bot`'), message);
-  assert.ok(message.includes('https://github.com/link-assistant/hive-mind/blob/main/docs/GITHUB-ACCESS.ru.md'), message);
+  assert.ok(urlsIn(message).has('https://github.com/link-assistant/hive-mind/blob/main/docs/GITHUB-ACCESS.ru.md'), message);
   assert.ok(!message.includes(ORG_DOCS_PATH), 'personal owners do not get organization docs');
   assert.ok(!message.includes('--auto-accept-invite'), 'no flag hint when invitations are accepted automatically');
 });
@@ -56,7 +59,7 @@ await test('English message keeps the existing checklist and asks for write acce
   assert.ok(message.includes('choose the Write role'), message);
   assert.ok(message.includes(`https://docs.github.com/en${ORG_DOCS_PATH}#inviting-a-team-or-person`), message);
   assert.ok(message.includes('#permissions-for-each-role'), message);
-  assert.ok(message.includes('https://github.com/acme/app/invitations'), 'manual acceptance links the invitation page');
+  assert.ok(urlsIn(message).has('https://github.com/acme/app/invitations'), 'manual acceptance links the invitation page');
 });
 
 await test('unknown owner type and login still give both docs pages and generic wording', async () => {

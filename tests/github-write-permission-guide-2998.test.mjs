@@ -35,6 +35,9 @@ async function test(name, fn) {
   }
 }
 
+// Exact URLs in a text (CodeQL flags substring checks of URLs).
+const urlsIn = text => new Set(String(text).match(/https:\/\/[^\s)<>`'"\]]+/g) || []);
+
 const FAKE_GH = `#!/bin/sh
 case "$*" in
   "api repos/acme/private-app --jq .permissions") echo '{"message":"Not Found","status":"404"}'; echo 'gh: Not Found (HTTP 404)' >&2; exit 1 ;;
@@ -66,8 +69,8 @@ try {
     assert.match(output, /RESULT=false/);
     assert.match(output, /Repository not found or no access/);
     assert.ok(output.includes('`hive-bot`'), output);
-    assert.ok(output.includes('https://github.com/acme/private-app/settings/access'), output);
-    assert.ok(output.includes('https://github.com/acme/private-app/invitations'), output);
+    assert.ok(urlsIn(output).has('https://github.com/acme/private-app/settings/access'), output);
+    assert.ok(urlsIn(output).has('https://github.com/acme/private-app/invitations'), output);
     assert.ok(output.includes('managing-teams-and-people-with-access-to-your-repository#inviting-a-team-or-person'), output);
     assert.match(output, /https:\/\/docs\.github\.com\/ru\//, 'docs follow the POSIX locale');
     assert.ok(output.includes('--auto-accept-invite'), 'flag hint when invitations are not accepted automatically');

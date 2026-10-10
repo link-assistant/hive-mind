@@ -51,7 +51,7 @@ export { getClaudeVersion, resolveThinkingSettings, setClaudeVersion, validateCl
 export { handleClaudeRuntimeSwitch };
 export const checkPlaywrightMcpAvailability = ensureClaudePlaywrightMcpServer;
 export const executeClaude = async params => {
-  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, mergeStateStatus, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv, log, setLogFile, getLogFile, formatAligned, getResourceSnapshot, claudePath, $ } = params;
+  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, mergeStateStatus, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv, log, setLogFile, getLogFile, formatAligned, getResourceSnapshot, claudePath, $, showResumeInstructions } = params;
   // Issue #2056: reset fresh sessions while retaining issue #1886's true-resume accumulation.
   beginAnthropicCostScope({ resume: argv.resume, previousAnthropicCost: argv.previousAnthropicCost });
   if (argv.promptSubagentsViaAgentCommander) {
@@ -152,6 +152,7 @@ export const executeClaude = async params => {
       // Issue #1708: forwarded so the bidirectional handler can poll
       // issue title/body changes and uncommitted changes during the session.
       issueNumber,
+      showResumeInstructions, // Issue #2845
     })
   );
 };
@@ -192,6 +193,9 @@ export const executeClaudeCommand = async params => {
     // Issue #1708: enables status streaming (CI/uncommitted/PR-metadata)
     // and issue body/title polling in setupBidirectionalHandler.
     issueNumber,
+    // Issue #2845: false when the caller prints its own "💡 To continue this session"
+    // block (solve prints one per session at the end), so it is not printed twice.
+    showResumeInstructions = true,
   } = params;
   const expectedBaseBranch = String(argv?.baseBranch || '').trim();
   const escapePromptForShell = promptText => String(promptText).replace(/"/g, '\\"').replace(/\$/g, '\\$');
@@ -1166,10 +1170,8 @@ export const executeClaudeCommand = async params => {
           await log('\n\n❌ Context length exceeded. Try with a smaller issue or split the work.', { level: 'error' });
         } else {
           await log(exitCode === 0 ? `\n\n❌ Claude session failed (the CLI itself exited with code 0): ${String(lastMessage).slice(0, 300)}` : `\n\n❌ Claude command failed with exit code ${exitCode}`, { level: 'error' });
-          if (sessionId && !argv.resume && tempDir) {
-            await log(`📌 Session ID: ${sessionId}`);
-            await showResumeCommand(sessionId, tempDir, claudePath, argv.model, log, argv);
-          }
+          // Issue #2845: the resume block is printed once, after the resource snapshot below.
+          if (sessionId && !argv.resume && tempDir) await log(`📌 Session ID: ${sessionId}`);
         }
       }
       // Issue #1354: Detect silent failures (no messages + stderr errors, skip if result confirmed success)
@@ -1187,7 +1189,8 @@ export const executeClaudeCommand = async params => {
         await log('\n📈 System resources after execution:', { verbose: true });
         await log(`   Memory: ${resourcesAfter.memory.split('\n')[1]}`, { verbose: true });
         await log(`   Load: ${resourcesAfter.load}`, { verbose: true });
-        await showResumeCommand(sessionId, tempDir, claudePath, argv.model, log, argv);
+        // Issue #2845: a usage-limit message above already lists all resume commands.
+        if (showResumeInstructions && !limitReached) await showResumeCommand(sessionId, tempDir, claudePath, argv.model, log, argv);
         // Issue #1886: on failure (usually a usage-limit hit → auto-resume) fold
         // the captured cost into the cumulative total so autoContinueWhenLimitResets
         // carries it forward. A limit hit ends as is_error → fall back to the
@@ -1236,7 +1239,7 @@ export const executeClaudeCommand = async params => {
       const cumulativeAnthropicCostUSD = addAnthropicRunCost(anthropicTotalCostUSD);
       const previousAnthropicCostUSD = cumulativeAnthropicCostUSD - (anthropicTotalCostUSD || 0);
       await displaySessionTokenUsage({ sessionId, tempDir, resultModelUsage, anthropicTotalCostUSD: cumulativeAnthropicCostUSD, previousAnthropicCostUSD, argv, log });
-      await showResumeCommand(sessionId, tempDir, claudePath, argv.model, log, argv);
+      if (showResumeInstructions) await showResumeCommand(sessionId, tempDir, claudePath, argv.model, log, argv);
       return {
         success: true,
         sessionId,

@@ -304,3 +304,10 @@ test('solve resumes a caller-supplied Codex thread only when its rollout is unde
   await writeFile(path.join(home, '.codex', 'sessions', '2026', '10', '09', ROLLOUT));
   assert.equal(await createCodexResumeRolloutCheck({ homeDir: home })({ threadId: THREAD, log }), true, 'falls back to ~/.codex when CODEX_HOME is unset');
 });
+
+test('a fresh solve whose in-run retry resumes the thread it just started is not checked for a rollout', async () => {
+  const home = await tempHome();
+  const check = createCodexResumeRolloutCheck({ homeDir: home });
+  assert.equal(await check({ threadId: null, codexHome: path.join(home, 'scoped') }), false, 'the first attempt starts a new thread');
+  assert.equal(await check({ threadId: THREAD, codexHome: path.join(home, 'scoped') }), true, 'the stream-disconnect retry resumes it without looking');
+});

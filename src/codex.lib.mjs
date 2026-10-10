@@ -689,7 +689,7 @@ export const executeCodexCommand = async params => {
       const verified = await verifyCapabilityExecutionCatalog({ capabilityPreflight, projectDir: tempDir, codexPath, env: codexEnv, log });
       Object.assign(capabilityPreflight, verified);
     }
-    if (isResumeMode) isResumeMode = await resumeRolloutExists({ threadId: argv.resume, codexHome: codexEnv.CODEX_HOME, log }); // Issue #2888
+    isResumeMode = await resumeRolloutExists({ threadId: isResumeMode ? argv.resume : null, codexHome: codexEnv.CODEX_HOME, log }); // Issue #2888: every attempt, so in-run retries skip it
     // For Codex, we combine system and user prompts into a single message
     // Codex doesn't have separate system prompt support in CLI mode
     const promptForAttempt = baseBranchInterventionPrompt ? `${prompt}\n\n${baseBranchInterventionPrompt}\n` : prompt;

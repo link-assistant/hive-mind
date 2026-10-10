@@ -114,7 +114,7 @@ solve exits with 75 (`EXIT_CODE_INSUFFICIENT_DISK_SPACE`) when the host has less
 
 ### S2 — restore a rollout from the stopped container (RC1, R1)
 
-[`restoreCodexRolloutFromContainer`](../../../src/session-kill-resume.fresh-session.lib.mjs) runs `docker cp <killed container>:<scoped CODEX_HOME>/sessions/. <staging>` (`copyFromDockerContainer` in `isolation-runner.lib.mjs`). docker cp works on stopped containers. It then copies the thread's rollout into the host's `~/.codex/sessions`, which the new container mounts. This covers tasks that were started before S1.
+[`restoreCodexRolloutFromContainer`](../../../src/session-kill-resume.fresh-session.lib.mjs) runs `docker cp <killed container>:<scoped CODEX_HOME>/sessions/. <staging>` (`copyFromDockerContainer` in `isolation-runner.docker-cp.lib.mjs`, re-exported by `isolation-runner.lib.mjs`). docker cp works on stopped containers. It then copies the thread's rollout into the host's `~/.codex/sessions`, which the new container mounts. This covers tasks that were started before S1.
 
 ### S3 — the fresh run resumes only what it can reach (RC2, RC3, R2, R4)
 
@@ -131,7 +131,7 @@ solve exits with 75 (`EXIT_CODE_INSUFFICIENT_DISK_SPACE`) when the host has less
 
 Without `--resume`, `--auto-continue` picks up the existing pull request. The decision and its reason are returned as `freshResume` and logged as a `[session-recovery]` line whenever `--resume` is dropped.
 
-The same guard exists inside solve: when `codex exec resume` is asked for a thread whose rollout is not under `CODEX_HOME/sessions` (an externally supplied `--resume`), `codex.lib.mjs` starts a new thread instead of failing (checked once per run).
+The same guard exists inside solve: when `codex exec resume` is asked for a thread whose rollout is not under `CODEX_HOME/sessions` (an externally supplied `--resume`), `codex.lib.mjs` starts a new thread instead of failing (`createCodexResumeRolloutCheck`). Only the first attempt of a run is checked: in-run retries resume threads the run itself just wrote.
 
 ### S4 — a disk-refused recovery does not spend an attempt (RC4, R3)
 

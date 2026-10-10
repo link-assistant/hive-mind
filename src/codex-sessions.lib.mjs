@@ -76,16 +76,20 @@ export async function findCodexRolloutFile({ sessionsDir, threadId, fsImpl = fs 
  * resume` reads only `$CODEX_HOME/sessions`; a run in a new container (kill
  * recovery) may not have the thread, and resuming it would fail with "no
  * rollout found", so the check answers false and solve starts a new exec on the
- * same branch instead. In-run retries resume threads the first attempt just
- * wrote, so later calls answer true without looking.
+ * same branch instead. Call it on every attempt, with no `threadId` when the
+ * attempt does not resume: only the first attempt carries the caller's thread.
+ * In-run retries resume threads an earlier attempt just wrote, so later calls
+ * answer true without looking.
  *
- * @returns {(options: {threadId: string, codexHome?: string, log?: Function}) => Promise<boolean>}
+ * @returns {(options: {threadId?: string|null, codexHome?: string, log?: Function}) => Promise<boolean>}
  */
 export function createCodexResumeRolloutCheck({ homeDir = os.homedir(), fsImpl = fs } = {}) {
   let checked = false;
-  return async ({ threadId, codexHome, log = async () => {} } = {}) => {
-    if (checked) return true;
+  return async ({ threadId = null, codexHome, log = async () => {} } = {}) => {
+    const first = !checked;
     checked = true;
+    if (!threadId) return false;
+    if (!first) return true;
     const sessionsDir = path.join(codexHome || path.join(homeDir, '.codex'), CODEX_SESSIONS_DIRNAME);
     const rollout = await findCodexRolloutFile({ sessionsDir, threadId, fsImpl });
     await log(`   Codex rollout for ${threadId}: ${rollout || `not found under ${sessionsDir}`}`, { verbose: true });

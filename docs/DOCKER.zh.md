@@ -230,6 +230,34 @@ node scripts/preload-dind-isolation-image.mjs \
 如果内部 daemon 已有该镜像，则为空操作。镜像就位后，start-command 的原生 Docker 后端会自动复用它
 （Docker 默认的 "missing" 拉取策略——仅在镜像缺失时拉取，因此不会重复下载）。
 
+#### 在 Docker daemon 重启时保持任务运行（`live-restore`）
+
+默认情况下，`dockerd` 停止或重启时会杀死所有正在运行的容器，包括 `hive-mind`
+容器和所有 Docker 任务容器，这些容器以退出码 137 结束。原因可能是守护进程本身被
+OOM 杀死、软件包升级或 `systemctl restart docker`，任何一种都会让主机上的所有
+工作会话同时停止。Hive Mind 会将这类会话报告为**被 Docker daemon 重启杀死**，
+而不是内存不足（issue #2892）。
+
+请在 Hive Mind 主机上启用
+[live-restore](https://docs.docker.com/engine/daemon/live-restore/)，使容器在
+守护进程不可用期间继续运行：
+
+```bash
+# /etc/docker/daemon.json — 与已有设置合并
+sudo tee /etc/docker/daemon.json >/dev/null <<'JSON'
+{
+  "live-restore": true
+}
+JSON
+# 无需重启容器即可生效：
+sudo systemctl reload docker
+docker info --format '{{.LiveRestoreEnabled}}'   # → true
+```
+
+Live-restore 只适用于补丁版本（`YY.MM.x`）的守护进程升级，不适用于 `YY.MM` 升级；它只作用于独立容器，不作用于 Swarm 服务。守护进程不可用
+期间，大量写日志的容器可能在日志管道缓冲区写满后阻塞。促成这条建议的事故见
+[docs/case-studies/issue-2892](./case-studies/issue-2892/README.md)。
+
 ### 选项 4：开发模式（Gitpod 风格）
 
 出于开发目的，旧版 `Dockerfile` 提供了一个 Gitpod 兼容的环境：

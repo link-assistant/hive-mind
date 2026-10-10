@@ -116,12 +116,12 @@ export function parseStartCommandExecutionUuid(output) {
  * log-marker classification as defense in depth (issue #2189).
  *
  * @param {string} output - Raw stdout from `$ --status`
- * @returns {{exists: boolean, uuid: string|null, status: string|null, exitCode: number|null, startTime: string|null, endTime: string|null, currentTime: string|null, logPath: string|null, command: string|null, isolation: string|null, workingDirectory: string|null, sessionName: string|null, processIds: Object, oomKilled: boolean|null, exitReason: string|null, memoryExhausted: boolean|null, memoryExhaustedReason: string|null, raw: string}}
+ * @returns {{exists: boolean, uuid: string|null, status: string|null, exitCode: number|null, startTime: string|null, endTime: string|null, currentTime: string|null, logPath: string|null, command: string|null, isolation: string|null, workingDirectory: string|null, sessionName: string|null, processIds: Object, oomKilled: boolean|null, exitReason: string|null, memoryExhausted: boolean|null, memoryExhaustedReason: string|null, cgroupMemory: Object|null, exitEvidence: {daemonRestart: boolean, mainOom: boolean}|null, raw: string}}
  */
 export function parseSessionStatusOutput(output) {
   const raw = (output || '').trim();
   if (!raw) {
-    return { exists: false, uuid: null, status: null, exitCode: null, startTime: null, endTime: null, currentTime: null, logPath: null, command: null, isolation: null, workingDirectory: null, sessionName: null, processIds: {}, oomKilled: null, exitReason: null, memoryExhausted: null, memoryExhaustedReason: null, cgroupMemory: null, raw: '' };
+    return { exists: false, uuid: null, status: null, exitCode: null, startTime: null, endTime: null, currentTime: null, logPath: null, command: null, isolation: null, workingDirectory: null, sessionName: null, processIds: {}, oomKilled: null, exitReason: null, memoryExhausted: null, memoryExhaustedReason: null, cgroupMemory: null, exitEvidence: null, raw: '' };
   }
   const normalizeBooleanField = value => {
     if (typeof value === 'boolean') return value;
@@ -130,6 +130,14 @@ export function parseSessionStatusOutput(output) {
     if (['true', '1', 'yes'].includes(normalized)) return true;
     if (['false', '0', 'no'].includes(normalized)) return false;
     return null;
+  };
+  // Issue #2892: start-command 0.36.0 records whether the exit was attributed to a
+  // Docker daemon restart or an exit-time OOM of the main process. Absent (null)
+  // on older `$`, which is "unknown" — never "no main OOM".
+  const normalizeExitEvidence = (daemonRestart, mainOom) => {
+    const evidence = { daemonRestart: normalizeBooleanField(daemonRestart), mainOom: normalizeBooleanField(mainOom) };
+    if (evidence.daemonRestart === null && evidence.mainOom === null) return null;
+    return { daemonRestart: evidence.daemonRestart === true, mainOom: evidence.mainOom === true };
   };
   try {
     const parsed = JSON.parse(raw);
@@ -158,6 +166,10 @@ export function parseSessionStatusOutput(output) {
       memoryExhausted: normalizeBooleanField(data?.memoryExhausted),
       memoryExhaustedReason: typeof data?.memoryExhaustedReason === 'string' && data.memoryExhaustedReason.trim() ? data.memoryExhaustedReason.trim() : null,
       cgroupMemory: normalizeCgroupMemory(data?.cgroupMemory),
+      exitEvidence: (() => {
+        const source = data?.options?.exitEvidence ?? data?.exitEvidence;
+        return source && typeof source === 'object' ? normalizeExitEvidence(source.daemonRestart, source.mainOom) : null;
+      })(),
       raw,
     };
   } catch {
@@ -211,6 +223,7 @@ export function parseSessionStatusOutput(output) {
     memoryExhausted: readBooleanField('memoryExhausted') ?? readBooleanField('Memory Exhausted'),
     memoryExhaustedReason: readField('memoryExhaustedReason') || readField('Memory Evidence'),
     cgroupMemory: readCgroupMemoryBlock(raw),
+    exitEvidence: normalizeExitEvidence(readField('daemonRestart'), readField('mainOom')),
     raw,
   };
 }
@@ -350,6 +363,8 @@ export function parseSessionListOutput(output) {
         memoryExhausted: typeof data.memoryExhausted === 'boolean' ? data.memoryExhausted : null,
         memoryExhaustedReason: typeof data.memoryExhaustedReason === 'string' && data.memoryExhaustedReason.trim() ? data.memoryExhaustedReason.trim() : null,
         cgroupMemory: normalizeCgroupMemory(data.cgroupMemory),
+        // Issue #2892 (start-command 0.36.0): attributed exit evidence; null on older `$`.
+        exitEvidence: data.options?.exitEvidence && typeof data.options.exitEvidence === 'object' ? { daemonRestart: data.options.exitEvidence.daemonRestart === true, mainOom: data.options.exitEvidence.mainOom === true } : null,
       };
     })
     .filter(Boolean);

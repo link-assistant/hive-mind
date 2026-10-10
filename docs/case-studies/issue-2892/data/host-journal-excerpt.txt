@@ -1,0 +1,15 @@
+# Host journal excerpt quoted in issue #2892 (times CEST = UTC+2).
+# Source: https://github.com/link-assistant/hive-mind/issues/2892 (issue body).
+# The full journal was not attached to the issue; start#194/#196 case study refers to the same lines.
+14:11:39 kernel: Out of memory: Killed process 823 (dockerd) total-vm:13940936kB, anon-rss:7302520kB …   ← global OOM, not a container cgroup
+14:11:41 systemd: docker.service: Main process exited, code=killed, status=9/KILL
+14:11:45 dockerd: Loading containers: start.
+14:11:55 dockerd: Container failed to exit within 10s of signal 15 - using the force container=8bde925c…
+
+# `$ --list` record for a killed task container (start-command 0.35.4):
+"exitCode": 137, "oomKilled": true,
+"exitReason": "memory-exhaustion (cgroup-oom-killer)",
+"memoryExhaustedReason": "Docker reported State.OOMKilled=true"
+
+# Hive Mind 2.34.0 bot event:
+EVENT session_completed {"sessionName":"…","exitCode":137,"status":"oom-killed"}

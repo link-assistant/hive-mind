@@ -1,0 +1,7 @@
+---
+'@link-assistant/hive-mind': patch
+---
+
+Fix issue #2892: a session that a Docker daemon restart force-killed (exit 137) is no longer reported as out of memory just because its container had an earlier child-process OOM kill, which leaves `State.OOMKilled` set. Before reporting `oom-killed`, the session monitor reads start-command 0.36.0's exit attribution (`exitReason`, `options.exitEvidence`, and the `Exit evidence:` log line). For older records, or when `$` cannot read the host journal, it asks Docker whether the daemon restarted around `FinishedAt`. Two signals count: other containers force-killed in the same second, at least one of them with no OOM, or the start time of a local `docker.service`. The status becomes `killed`, and Telegram and the pull-request notice say "killed by a Docker daemon restart". The notice also recommends `"live-restore": true`, which `docs/DOCKER.md` now documents. A SIGKILL that start-command attributes to no OOM of the main process is reported as a forced kill with an unknown cause. A real exit-time OOM still reads `oom-killed`. The probe logs with `--verbose`.
+
+Also bumps the pinned Bun in the Docker images to 1.4.3, released 2026-10-10, so the dependency-freshness gate passes.

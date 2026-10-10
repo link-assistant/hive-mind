@@ -143,6 +143,10 @@ export async function buildKillCompletionSections({ sessionName, sessionInfo, st
       reportedMemoryExhaustedReason: statusResult?.memoryExhaustedReason ?? null,
       reportedExitReason: statusResult?.exitReason ?? null,
       reportedCgroupMemory: statusResult?.cgroupMemory ?? null,
+      // Issue #2892: who sent the SIGKILL (start-command 0.36.0 / the docker probe).
+      reportedExitEvidence: statusResult?.exitEvidence ?? null,
+      dockerDaemonRestart: statusResult?.dockerDaemonRestart ?? null,
+      killAttribution: statusResult?.killAttribution ?? null,
     });
 
     const argv = argvFromSessionArgs(sessionInfo?.args);
@@ -166,7 +170,7 @@ export async function buildKillCompletionSections({ sessionName, sessionInfo, st
     if (section) sections.push(deliberateStop && oomEventOnly ? formatKillDiagnosticsSection(diagnosis, { locale, notTheCause: true }) : section);
 
     if (verbose) {
-      console.log(`[VERBOSE] Session ${sessionName} kill reporting: killed=${killed} recovered=${recovered} oomEventOnly=${oomEventOnly} deliberateStop=${deliberateStop?.reason || 'none'} cause=${diagnosis?.cause || 'n/a'} policy=${policy}`);
+      console.log(`[VERBOSE] Session ${sessionName} kill reporting: killed=${killed} recovered=${recovered} oomEventOnly=${oomEventOnly} deliberateStop=${deliberateStop?.reason || 'none'} cause=${diagnosis?.cause || 'n/a'} attribution=${diagnosis?.killAttribution || 'none'} policy=${policy}`);
     }
     return { sections: sections.filter(Boolean), diagnosis, killed, recovered, oomEventOnly, deliberateStop, policy, observedAt };
   } catch (error) {

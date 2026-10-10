@@ -28,13 +28,17 @@
  *   2. LIVENESS beats the status record. No footer + the backing container is
  *      still alive → the session is still running; keep polling and remember the
  *      OOM event so the eventual completion can report the recovery.
- *   3. Otherwise report `oom-killed`, exactly as issue #2015 requires.
+ *   3. Issue #2892: a SIGKILL is attributed before it is called an OOM kill — a
+ *      Docker daemon restart, or start-command's verdict that no OOM hit the main
+ *      process at exit, makes it a plain `killed` (see session-exit-attribution).
+ *   4. Otherwise report `oom-killed`, exactly as issue #2015 requires.
  *
  * @see https://github.com/link-assistant/hive-mind/issues/2015
  * @see https://github.com/link-assistant/hive-mind/issues/2134
  */
 
 import { classifyExitStatus, normalizeExitCode, RUNNING_SESSION_STATUSES } from './session-status.lib.mjs';
+import { EXIT_ATTRIBUTION_DAEMON_RESTART, EXIT_ATTRIBUTION_MAIN_OOM, EXIT_ATTRIBUTION_NOT_MAIN_OOM, resolveExitAttribution } from './session-exit-attribution.lib.mjs';
 
 /**
  * Field written on the persisted session snapshot the first time an OOM event is
@@ -83,6 +87,27 @@ async function probeBackendAlive(sessionName, sessionInfo, { verbose, runner, ba
 }
 
 /**
+ * Issue #2892: who sent the SIGKILL? start-command >= 0.36.0 says so in the
+ * status record; otherwise (no journal access inside the DinD root container,
+ * or an older `$`) ask Docker whether the daemon restarted around `FinishedAt`.
+ */
+async function attributeSigkill(sessionName, sessionInfo, statusResult, statusExitCode, { verbose, runner, daemonRestartProbe }) {
+  const reported = resolveExitAttribution({ exitReason: statusResult?.exitReason, exitEvidence: statusResult?.exitEvidence });
+  if (reported.kind === EXIT_ATTRIBUTION_DAEMON_RESTART || reported.kind === EXIT_ATTRIBUTION_MAIN_OOM) return { ...reported, probe: null };
+  const docker = sessionInfo?.isolationBackend === 'docker' || statusResult?.isolation === 'docker';
+  const probe = daemonRestartProbe || runner?.detectDockerDaemonRestart;
+  if (!docker || typeof probe !== 'function' || (statusExitCode !== null && statusExitCode !== 137)) return { ...reported, probe: null };
+  let result = null;
+  try {
+    result = await probe(sessionInfo?.sessionId || sessionName, { verbose });
+  } catch (error) {
+    if (verbose) console.log(`[VERBOSE] Session ${sessionName} daemon-restart probe failed: ${error?.message || error}`);
+  }
+  if (result?.detected === true) return { kind: EXIT_ATTRIBUTION_DAEMON_RESTART, source: 'Hive Mind docker probe', probe: result };
+  return { ...reported, probe: result };
+}
+
+/**
  * Resolve the real state of a session whose status record carries
  * `oomKilled: true`.
  *
@@ -95,9 +120,10 @@ async function probeBackendAlive(sessionName, sessionInfo, { verbose, runner, ba
  * @param {Function} [deps.exitFromLog] - Injectable footer reader
  * @param {Function} [deps.backendAlive] - Injectable liveness probe
  * @param {Function} [deps.persistSnapshot] - Persist the session snapshot
+ * @param {Function} [deps.daemonRestartProbe] - Injectable detectDockerDaemonRestart (issue #2892)
  * @returns {Promise<Object>} Monitor state object
  */
-export async function resolveOomKilledState(sessionName, sessionInfo, statusResult, { verbose, runner, exitFromLog, backendAlive, persistSnapshot } = {}) {
+export async function resolveOomKilledState(sessionName, sessionInfo, statusResult, { verbose, runner, exitFromLog, backendAlive, persistSnapshot, daemonRestartProbe } = {}) {
   const logPath = statusResult?.logPath || sessionInfo?.logPath || null;
   let footer = null;
   if (logPath) {
@@ -164,17 +190,33 @@ export async function resolveOomKilledState(sessionName, sessionInfo, statusResu
     return { running: false, exitCode: statusExitCode, status: correctedStatus, statusResult: { ...statusResult, status: correctedStatus, exitCode: statusExitCode, endTime }, oomEventObserved: true };
   }
 
-  // 4. Nothing contradicts the status record: this really is an OOM kill (#2015).
   let exitCode = 137;
   if (statusExitCode !== null && statusExitCode > 0) {
     exitCode = statusExitCode;
   }
   const endTime = statusResult?.endTime || footer?.endTime || statusResult?.currentTime || null;
+
+  // 4. Issue #2892: the sticky flag next to a SIGKILL is not proof of an OOM
+  //    kill. A daemon restart force-kills every container (exit 137) and the
+  //    flag may date from a child OOM hours earlier; start-command 0.36.0 can
+  //    also tell us that no OOM hit the main process at exit.
+  const attribution = await attributeSigkill(sessionName, sessionInfo, statusResult, statusExitCode, { verbose, runner, daemonRestartProbe });
+  if (attribution.kind === EXIT_ATTRIBUTION_DAEMON_RESTART || attribution.kind === EXIT_ATTRIBUTION_NOT_MAIN_OOM) {
+    markOomEventObserved(sessionInfo, persistSnapshot);
+    const killed = { ...statusResult, status: 'killed', exitCode, endTime, killAttribution: attribution.kind };
+    if (attribution.probe) killed.dockerDaemonRestart = attribution.probe;
+    if (verbose) {
+      console.log(`[VERBOSE] Session ${sessionName} status includes oomKilled=true with exit ${exitCode}, but ${attribution.source} attributes the kill as ${attribution.kind}; the OOM flag is an earlier event, treating it as killed (issue #2892)`);
+    }
+    return { running: false, exitCode, status: 'killed', statusResult: killed, stale: true, oomEventObserved: true };
+  }
+
+  // 5. Nothing contradicts the status record: this really is an OOM kill (#2015).
   const corrected = { ...statusResult, status: 'oom-killed', exitCode, endTime };
   markOomEventObserved(sessionInfo, persistSnapshot);
 
   if (verbose) {
-    console.log(`[VERBOSE] Session ${sessionName} status includes oomKilled=true (backend alive: ${alive === null ? 'unknown' : alive}); treating it as terminal oom-killed (exit ${exitCode})`);
+    console.log(`[VERBOSE] Session ${sessionName} status includes oomKilled=true (backend alive: ${alive === null ? 'unknown' : alive}); treating it as terminal oom-killed (exit ${exitCode}; attribution: ${attribution.kind || 'none'}${attribution.probe ? `, daemon-restart probe: ${attribution.probe.detected ? 'detected' : 'not detected'}` : ''})`);
   }
 
   return { running: false, exitCode, status: 'oom-killed', statusResult: corrected, stale: true, oomEventObserved: true };

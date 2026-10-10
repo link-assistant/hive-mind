@@ -25,7 +25,7 @@
 import { spawn } from 'child_process';
 import { describeChildExit } from './child-exit.lib.mjs';
 import { sanitizeForPublication } from './token-sanitization.lib.mjs'; // issue #2156: this body is published to a pull request
-import { KILL_CAUSE_DISK_FULL, KILL_CAUSE_FORCED_KILL, KILL_CAUSE_OUT_OF_MEMORY } from './session-kill-diagnostics.lib.mjs';
+import { KILL_CAUSE_DAEMON_RESTART, KILL_CAUSE_DISK_FULL, KILL_CAUSE_FORCED_KILL, KILL_CAUSE_OUT_OF_MEMORY } from './session-kill-diagnostics.lib.mjs';
 import { ON_SESSION_KILL_RESUME } from './session-kill-policy.lib.mjs';
 
 /** Marker used to recognise (and avoid duplicating) our own notices. */
@@ -35,13 +35,18 @@ const CAUSE_HEADLINES = {
   [KILL_CAUSE_OUT_OF_MEMORY]: 'recovered from out of memory',
   [KILL_CAUSE_FORCED_KILL]: 'recovered from forced kill',
   [KILL_CAUSE_DISK_FULL]: 'recovered from disk exhaustion',
+  [KILL_CAUSE_DAEMON_RESTART]: 'recovered from a Docker daemon restart',
 };
 
 const CAUSE_TITLES = {
   [KILL_CAUSE_OUT_OF_MEMORY]: 'Working session was killed: out of memory',
   [KILL_CAUSE_DISK_FULL]: 'Working session was killed: disk full',
   [KILL_CAUSE_FORCED_KILL]: 'Working session was force-killed',
+  [KILL_CAUSE_DAEMON_RESTART]: 'Working session was killed by a Docker daemon restart',
 };
+
+/** Issue #2892: with live-restore, a dockerd restart leaves running containers alone. */
+export const DOCKER_LIVE_RESTORE_HINT = 'Docker kills every running container when its daemon restarts unless [live-restore](https://docs.docker.com/engine/daemon/live-restore/) is enabled. Set `"live-restore": true` in `/etc/docker/daemon.json` on the Hive Mind host so that containers keep running across a daemon restart.';
 
 /**
  * Human-readable headline for a recovered session, matching the wording the
@@ -96,6 +101,7 @@ export function buildKillRecoveryNotice({ diagnosis = null, exitCode = null, ses
 
   if (stopLine) lines.push('**Why the work session stopped** (from its log):', '', `> ${stopLine}`, '');
   if (diagnosis?.summary) lines.push(stopLine && oomEventOnly ? `Earlier event (not the cause of this stop): ${diagnosis.summary}` : diagnosis.summary, '');
+  if (cause === KILL_CAUSE_DAEMON_RESTART) lines.push(`> [!TIP]\n> ${DOCKER_LIVE_RESTORE_HINT}`, '');
 
   const facts = [];
   if (exitCode !== null && exitCode !== undefined) facts.push(`- **Exit code:** ${exitCode}`);

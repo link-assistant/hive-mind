@@ -29,12 +29,15 @@ import { t } from './i18n.lib.mjs';
 import { formatBytes, formatHeapUsage, parseResourceMarkers } from './solve.resource-diagnostics.lib.mjs';
 import { findFatalMemoryMarker } from './child-exit.lib.mjs';
 import { readLogTextBounded } from './log-bounded-read.lib.mjs';
+import { EXIT_ATTRIBUTION_DAEMON_RESTART, EXIT_ATTRIBUTION_NOT_MAIN_OOM, resolveExitAttribution } from './session-exit-attribution.lib.mjs';
 
 const exec = promisify(execCallback);
 
 export const KILL_CAUSE_OUT_OF_MEMORY = 'out-of-memory';
 export const KILL_CAUSE_DISK_FULL = 'disk-full';
 export const KILL_CAUSE_FORCED_KILL = 'forced-kill';
+/** Issue #2892: dockerd restarted and force-killed every container it owned. */
+export const KILL_CAUSE_DAEMON_RESTART = 'docker-daemon-restart';
 export const KILL_CAUSE_UNKNOWN = 'unknown';
 
 /** Memory is considered exhausted below this share of total RAM still available. */
@@ -326,9 +329,12 @@ function describeDisk(disk, timestamp) {
  * @param {string|null} [params.reportedMemoryExhaustedReason] - `$ --status` `memoryExhaustedReason` (the evidence line)
  * @param {string|null} [params.reportedExitReason] - `$ --status` `exitReason` hint, e.g. `memory-exhaustion (v8-heap-limit)`
  * @param {Object|null} [params.reportedCgroupMemory] - Task cgroup counters saved by start-command >= 0.35.2
+ * @param {Object|null} [params.reportedExitEvidence] - `$ --status` `exitEvidence` `{daemonRestart, mainOom}` (start-command >= 0.36.0)
+ * @param {Object|null} [params.dockerDaemonRestart] - detectDockerDaemonRestart() result (issue #2892)
+ * @param {string|null} [params.killAttribution] - EXIT_ATTRIBUTION_* already settled by the session monitor
  * @returns {{cause: string, summary: string, evidence: string[], memory: Object|null, disk: Object|null, victims: Array}}
  */
-export function describeKillCause({ logText = null, resourceMarkers = null, oomKilled = false, exitCode = null, system = null, stopRequestedByUser = false, reportedMemoryExhausted = null, reportedMemoryExhaustedReason = null, reportedExitReason = null, reportedCgroupMemory = null } = {}) {
+export function describeKillCause({ logText = null, resourceMarkers = null, oomKilled = false, exitCode = null, system = null, stopRequestedByUser = false, reportedMemoryExhausted = null, reportedMemoryExhaustedReason = null, reportedExitReason = null, reportedCgroupMemory = null, reportedExitEvidence = null, dockerDaemonRestart = null, killAttribution = null } = {}) {
   const parsed = resourceMarkers || (logText ? parseResourceMarkers(logText) : { markers: [], byPhase: {} });
   const memoryMarker = selectLastMemoryResourceMarker(parsed);
   const heapMarker = selectLastHeapResourceMarker(parsed);
@@ -427,12 +433,29 @@ export function describeKillCause({ logText = null, resourceMarkers = null, oomK
   // earlier event. It cannot explain another signal: the OOM killer sends
   // SIGKILL, not SIGTERM/SIGABRT/SIGSEGV (start-command #180, issue #2498).
   const containerOomExplainsExit = containerOomObserved && (exitCode === null || exitCode < 128 || exitCode === 137);
-  const containerOomAtExit = containerOomObserved && (exitCode === null || exitCode === 137);
+  // Issue #2892: OOMKilled and the oom_kill counter are sticky and cumulative —
+  // they say an OOM event happened in the container, not that it sent this
+  // SIGKILL. A daemon restart, or start-command finding no OOM kill of the main
+  // process at exit, settles who did; the container OOM is then an earlier event.
+  const sigkill = exitCode === null || exitCode === 137;
+  const attribution = sigkill ? resolveExitAttribution({ exitReason: reportedExitReasonText, exitEvidence: reportedExitEvidence, logText, dockerDaemonRestart }) : { kind: null, source: null };
+  const attributedKind = sigkill && (killAttribution === EXIT_ATTRIBUTION_DAEMON_RESTART || killAttribution === EXIT_ATTRIBUTION_NOT_MAIN_OOM) && attribution.kind !== EXIT_ATTRIBUTION_DAEMON_RESTART ? killAttribution : attribution.kind;
+  const daemonRestart = attributedKind === EXIT_ATTRIBUTION_DAEMON_RESTART;
+  const containerOomEarlier = daemonRestart || attributedKind === EXIT_ATTRIBUTION_NOT_MAIN_OOM;
+  // The exitReason line and the probe's own findings are reported on their own.
+  const quotedSource = attribution.source && !attribution.source.includes('exitReason') && attribution.source !== 'Hive Mind docker probe';
+  if (daemonRestart && quotedSource) evidence.push(`${attribution.source} attributes the SIGKILL to a Docker daemon restart`);
+  for (const line of dockerDaemonRestart?.detected === true ? dockerDaemonRestart.evidence || [] : []) evidence.push(`Docker: ${line}`);
+  const containerOomAtExit = containerOomObserved && sigkill && !containerOomEarlier;
+  const containerOomCause = !containerOomEarlier && (victims.length > 0 || (cgroupOomKills !== null && cgroupOomKills > 0) || containerOomExplainsExit);
+  const earlierOomNote = containerOomObserved ? '; the container OOM event(s) observed earlier hit a child process and did not end the session' : '';
 
   let cause = KILL_CAUSE_UNKNOWN;
   if (stopRequestedByUser) {
     cause = KILL_CAUSE_FORCED_KILL;
-  } else if (victims.length > 0 || (cgroupOomKills !== null && cgroupOomKills > 0) || containerOomExplainsExit || memoryExhausted || fatalMemoryMarker || heapExhausted || reportedMemoryExhaustion) {
+  } else if (daemonRestart) {
+    cause = KILL_CAUSE_DAEMON_RESTART;
+  } else if (containerOomCause || memoryExhausted || fatalMemoryMarker || heapExhausted || reportedMemoryExhaustion) {
     cause = KILL_CAUSE_OUT_OF_MEMORY;
   } else if (diskFull) {
     cause = KILL_CAUSE_DISK_FULL;
@@ -460,6 +483,10 @@ export function describeKillCause({ logText = null, resourceMarkers = null, oomK
   } else if (cause === KILL_CAUSE_OUT_OF_MEMORY) {
     const victim = victims.length > 0 ? `, kernel OOM killer terminated \`${victims[victims.length - 1].comm || 'unknown'}\` (pid ${victims[victims.length - 1].pid ?? '?'})` : '';
     summary = `out of memory${memoryLine ? ` — ${memoryLine}` : ''}${victim}`;
+  } else if (cause === KILL_CAUSE_DAEMON_RESTART) {
+    summary = `killed by a Docker daemon restart — dockerd force-killed the container (SIGKILL, exit 137)${earlierOomNote}`;
+  } else if (cause === KILL_CAUSE_FORCED_KILL && containerOomEarlier && !stopRequestedByUser) {
+    summary = `forced kill (SIGKILL; cause unknown) — no OOM kill of the main process was recorded at exit${containerOomObserved ? '; the earlier container OOM event(s) hit a child process' : ''}`;
   } else if (cause === KILL_CAUSE_DISK_FULL) {
     summary = `disk full${diskLine ? ` — ${diskLine}` : ''}`;
   } else if (cause === KILL_CAUSE_FORCED_KILL) {
@@ -469,7 +496,7 @@ export function describeKillCause({ logText = null, resourceMarkers = null, oomK
     summary = 'unknown — no resource marker, cgroup counter or kernel OOM report was available';
   }
 
-  return { cause, summary, evidence, memory, heap: heapMemory, heapUsedPercent, disk, victims, fatalMemoryMarker, reportedMemoryExhaustion, reportedExitReason: reportedExitReasonText };
+  return { cause, summary, evidence, memory, heap: heapMemory, heapUsedPercent, disk, victims, fatalMemoryMarker, reportedMemoryExhaustion, reportedExitReason: reportedExitReasonText, killAttribution: attributedKind };
 }
 
 /**
@@ -547,7 +574,7 @@ export function formatKillResumeSection({ sessionId = null, attempt = null, maxA
  * @param {Object} [options]
  * @returns {Promise<{section: string, diagnosis: Object|null}>}
  */
-export async function buildKillDiagnosticsSection(logPath, { verbose = false, readFile = fsPromises.readFile, maxLogBytes = KILL_DIAGNOSTICS_LOG_BYTES, minByteOffset = 0, oomKilled = false, exitCode = null, stopRequestedByUser = false, locale = null, collectSystem = collectSystemKillDiagnostics, reportedMemoryExhausted = null, reportedMemoryExhaustedReason = null, reportedExitReason = null, reportedCgroupMemory = null } = {}) {
+export async function buildKillDiagnosticsSection(logPath, { verbose = false, readFile = fsPromises.readFile, maxLogBytes = KILL_DIAGNOSTICS_LOG_BYTES, minByteOffset = 0, oomKilled = false, exitCode = null, stopRequestedByUser = false, locale = null, collectSystem = collectSystemKillDiagnostics, reportedMemoryExhausted = null, reportedMemoryExhaustedReason = null, reportedExitReason = null, reportedCgroupMemory = null, reportedExitEvidence = null, dockerDaemonRestart = null, killAttribution = null } = {}) {
   try {
     let logText = '';
     if (logPath) {
@@ -559,7 +586,7 @@ export async function buildKillDiagnosticsSection(logPath, { verbose = false, re
       logText = await readLogTextBounded(logPath, { readFile, maxBytes: maxLogBytes, minByteOffset, verbose });
     }
     const system = await collectSystem({ verbose });
-    const diagnosis = describeKillCause({ logText, oomKilled, exitCode, system, stopRequestedByUser, reportedMemoryExhausted, reportedMemoryExhaustedReason, reportedExitReason, reportedCgroupMemory });
+    const diagnosis = describeKillCause({ logText, oomKilled, exitCode, system, stopRequestedByUser, reportedMemoryExhausted, reportedMemoryExhaustedReason, reportedExitReason, reportedCgroupMemory, reportedExitEvidence, dockerDaemonRestart, killAttribution });
     if (verbose) console.log(`[VERBOSE] kill-diagnostics: cause=${diagnosis.cause} — ${diagnosis.summary}`);
     return { section: formatKillDiagnosticsSection(diagnosis, { locale }), diagnosis };
   } catch (error) {

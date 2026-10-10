@@ -54,7 +54,7 @@ import { deployHandoffSkill } from './handoff-skill.lib.mjs'; // Issue #1877
 import { deployPlaywrightSkill } from './playwright-skill.lib.mjs'; // Issue #2190
 import { formatRouterAuthViolation, startRouterAuthGuard } from './router-auth-guard.lib.mjs'; // Issue #2190
 import { applyCodexCapabilityEnv, runCodexCapabilityPreflight, setTomlTableBoolean, verifyCodexCapabilityExecutionCatalog } from './codex-capability-preflight.lib.mjs'; // Issues #2074 and #2254
-import { CODEX_SESSIONS_DIRNAME, findCodexRolloutFile } from './codex-sessions.lib.mjs'; // Issue #2888
+import { createCodexResumeRolloutCheck } from './codex-sessions.lib.mjs'; // Issue #2888
 import { createPullRequestBaseBranchCommandIntervention } from './solve.pr-base-command-intervention.lib.mjs';
 import Decimal from 'decimal.js-light';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
@@ -630,9 +630,7 @@ export const executeCodexCommand = async params => {
   const transientRetryBudget = createTransientRetryBudget();
   let baseBranchInterventionPrompt = null;
   let baseBranchInterventionResumeCount = 0;
-  // Issue #2888: only the caller's --resume can name a thread this container never ran;
-  // in-run retries resume threads that the first attempt just wrote.
-  let externalResumeChecked = false;
+  const resumeRolloutExists = createCodexResumeRolloutCheck(); // Issue #2888: the caller's --resume may name a thread this container never ran
   const executeWithRetry = async () => {
     // Execute codex command from the cloned repository directory
     if (retryCount === 0) {
@@ -662,10 +660,7 @@ export const executeCodexCommand = async params => {
     const mappedModel = mapModelToId(argv.model);
     const { reasoningEffort, source: reasoningEffortSource, rolloutTokenBudget } = await resolveRuntimeCodexReasoningEffort({ ...argv, model: mappedModel, codexPath }, { log });
     let isResumeMode = !!argv.resume;
-    const codexEnv = applyCodexCapabilityEnv(capabilityPreflight?.codexBaseEnv || getCodexExecEnv(argv.verbose), {
-      codexHome: capabilityPreflight?.codexHome,
-      baseCodexHome: capabilityPreflight?.baseCodexHome,
-    });
+    const codexEnv = applyCodexCapabilityEnv(capabilityPreflight?.codexBaseEnv || getCodexExecEnv(argv.verbose), { codexHome: capabilityPreflight?.codexHome, baseCodexHome: capabilityPreflight?.baseCodexHome });
     // Issue #2130: run the native CLI against a local Formal AI server (no argv wrapper); `codexEnv` seeds the isolated CODEX_HOME.
     const toolInvocation = await resolveFormalAiToolExecution({ tool: 'codex', model: argv.model, toolPath: codexPath, workdir: tempDir, log, verbose: argv.verbose, prepareOnly: isPrepareOnly(argv), env: codexEnv });
     // Issue #2130: "run codex login" is wrong advice for a Formal-AI-served model.
@@ -694,20 +689,7 @@ export const executeCodexCommand = async params => {
       const verified = await verifyCapabilityExecutionCatalog({ capabilityPreflight, projectDir: tempDir, codexPath, env: codexEnv, log });
       Object.assign(capabilityPreflight, verified);
     }
-    // Issue #2888: `codex exec resume` reads only `$CODEX_HOME/sessions`. A run in a
-    // new container (kill recovery) may not have the thread, and resuming it then
-    // fails with "no rollout found"; start a new exec on the same branch instead.
-    const checkResumeRollout = isResumeMode && !externalResumeChecked;
-    externalResumeChecked = true;
-    if (checkResumeRollout) {
-      const sessionsDir = path.join(codexEnv.CODEX_HOME || path.join(os.homedir(), '.codex'), CODEX_SESSIONS_DIRNAME);
-      const rollout = await findCodexRolloutFile({ sessionsDir, threadId: argv.resume });
-      await log(`   Codex rollout for ${argv.resume}: ${rollout || `not found under ${sessionsDir}`}`, { verbose: true });
-      if (!rollout) {
-        await log(`⚠️  Codex thread ${argv.resume} has no rollout under ${sessionsDir}; starting a new Codex session instead of resuming it (issue #2888)`, { level: 'warning' });
-        isResumeMode = false;
-      }
-    }
+    if (isResumeMode) isResumeMode = await resumeRolloutExists({ threadId: argv.resume, codexHome: codexEnv.CODEX_HOME, log }); // Issue #2888
     // For Codex, we combine system and user prompts into a single message
     // Codex doesn't have separate system prompt support in CLI mode
     const promptForAttempt = baseBranchInterventionPrompt ? `${prompt}\n\n${baseBranchInterventionPrompt}\n` : prompt;

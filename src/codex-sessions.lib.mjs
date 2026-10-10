@@ -22,6 +22,7 @@
  */
 
 import fs from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 
 /** Directory under `CODEX_HOME` that holds the rollouts. */
@@ -68,6 +69,29 @@ export async function findCodexRolloutFile({ sessionsDir, threadId, fsImpl = fs 
     return null;
   };
   return walk(sessionsDir, 0);
+}
+
+/**
+ * A check for the caller's `--resume <thread>`, run once per solve. `codex exec
+ * resume` reads only `$CODEX_HOME/sessions`; a run in a new container (kill
+ * recovery) may not have the thread, and resuming it would fail with "no
+ * rollout found", so the check answers false and solve starts a new exec on the
+ * same branch instead. In-run retries resume threads the first attempt just
+ * wrote, so later calls answer true without looking.
+ *
+ * @returns {(options: {threadId: string, codexHome?: string, log?: Function}) => Promise<boolean>}
+ */
+export function createCodexResumeRolloutCheck({ homeDir = os.homedir(), fsImpl = fs } = {}) {
+  let checked = false;
+  return async ({ threadId, codexHome, log = async () => {} } = {}) => {
+    if (checked) return true;
+    checked = true;
+    const sessionsDir = path.join(codexHome || path.join(homeDir, '.codex'), CODEX_SESSIONS_DIRNAME);
+    const rollout = await findCodexRolloutFile({ sessionsDir, threadId, fsImpl });
+    await log(`   Codex rollout for ${threadId}: ${rollout || `not found under ${sessionsDir}`}`, { verbose: true });
+    if (!rollout) await log(`⚠️  Codex thread ${threadId} has no rollout under ${sessionsDir}; starting a new Codex session instead of resuming it (issue #2888)`, { level: 'warning' });
+    return Boolean(rollout);
+  };
 }
 
 /** Move every file of `sourceDir` into `targetDir` without overwriting anything there. */

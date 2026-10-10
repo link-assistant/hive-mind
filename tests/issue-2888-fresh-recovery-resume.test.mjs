@@ -11,7 +11,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { describeScopedCodexSessions, findCodexRolloutFile, isCodexRolloutFileName, shareScopedCodexSessions } from '../src/codex-sessions.lib.mjs';
+import { createCodexResumeRolloutCheck, describeScopedCodexSessions, findCodexRolloutFile, isCodexRolloutFileName, shareScopedCodexSessions } from '../src/codex-sessions.lib.mjs';
 import { FRESH_RESUME_REASONS, findClaudeTranscriptFile, readResumeId, resolveFreshRecoveryCommand, restoreCodexRolloutFromContainer } from '../src/session-kill-resume.fresh-session.lib.mjs';
 import { getDockerIsolationAuthMounts } from '../src/isolation-runner.lib.mjs';
 import { startKillRecoverySession } from '../src/session-kill-resume.lib.mjs';
@@ -289,4 +289,18 @@ test('host fresh runs drop --resume for tools whose sessions are bound to the ol
     assert.equal(result.reason, FRESH_RESUME_REASONS.HOST_BACKEND, tool);
     assert.equal(result.keptResume, true, tool);
   }
+});
+
+test('solve resumes a caller-supplied Codex thread only when its rollout is under CODEX_HOME/sessions', async () => {
+  const home = await tempHome();
+  const codexHome = path.join(home, 'scoped');
+  const logs = [];
+  const log = async message => logs.push(message);
+  const missing = createCodexResumeRolloutCheck({ homeDir: home });
+  assert.equal(await missing({ threadId: THREAD, codexHome, log }), false);
+  assert.ok(logs.some(line => line.includes(`Codex thread ${THREAD} has no rollout under ${path.join(codexHome, 'sessions')}`)));
+  // In-run retries resume threads the first attempt wrote: not checked again.
+  assert.equal(await missing({ threadId: THREAD, codexHome, log }), true);
+  await writeFile(path.join(home, '.codex', 'sessions', '2026', '10', '09', ROLLOUT));
+  assert.equal(await createCodexResumeRolloutCheck({ homeDir: home })({ threadId: THREAD, log }), true, 'falls back to ~/.codex when CODEX_HOME is unset');
 });

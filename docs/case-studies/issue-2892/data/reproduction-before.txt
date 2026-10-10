@@ -1,0 +1,18 @@
+
+== start-command 0.35.4 (incident record)
+status:    oom-killed
+cause:     out-of-memory
+summary:   out of memory
+PR title:  ## ❌ Working session was killed: out of memory
+
+== start-command 0.36.0, journal readable
+status:    oom-killed
+cause:     out-of-memory
+summary:   out of memory
+PR title:  ## ❌ Working session was killed: out of memory
+
+== start-command 0.36.0, no journal (DinD)
+status:    oom-killed
+cause:     out-of-memory
+summary:   out of memory
+PR title:  ## ❌ Working session was killed: out of memory

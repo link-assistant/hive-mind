@@ -1,0 +1,18 @@
+
+== start-command 0.35.4 (incident record)
+status:    killed
+cause:     docker-daemon-restart
+summary:   killed by a Docker daemon restart — dockerd force-killed the container (SIGKILL, exit 137); the container OOM event(s) observed earlier hit a child process and did not end the session
+PR title:  ## ❌ Working session was killed by a Docker daemon restart
+
+== start-command 0.36.0, journal readable
+status:    killed
+cause:     docker-daemon-restart
+summary:   killed by a Docker daemon restart — dockerd force-killed the container (SIGKILL, exit 137); the container OOM event(s) observed earlier hit a child process and did not end the session
+PR title:  ## ❌ Working session was killed by a Docker daemon restart
+
+== start-command 0.36.0, no journal (DinD)
+status:    killed
+cause:     docker-daemon-restart
+summary:   killed by a Docker daemon restart — dockerd force-killed the container (SIGKILL, exit 137); the container OOM event(s) observed earlier hit a child process and did not end the session
+PR title:  ## ❌ Working session was killed by a Docker daemon restart

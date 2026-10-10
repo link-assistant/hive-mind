@@ -19,6 +19,7 @@ import { getAllReadyPRs, checkPRCIStatus, checkPRMergeable, mergePullRequest, wa
 import { resolveMergeTargetItems } from './github-merge-targets.lib.mjs';
 import { waitForPRReady as waitForPRReadyHelper } from './telegram-merge-wait.lib.mjs';
 import { ensureTargetBranchReady as ensureTargetBranchReadyHelper } from './telegram-merge-branch-gate.lib.mjs';
+import { MergeQueueUserError, dispatchAutoFixCiCd, formatBlockedBranchReport, getPostMergeCISkipReason, skipRemainingItems, stopQueueOnBlockedBranch } from './telegram-merge-blocked-branch.lib.mjs';
 import { mergeQueue as mergeQueueConfig } from './config.lib.mjs';
 import { getProgressBar } from './limits.lib.mjs';
 import { cancellableSleep as cancellableSleepUntil } from './interruptible-sleep.lib.mjs';
@@ -170,6 +171,11 @@ export class MergeQueueProcessor {
     // tests can run without touching the screen runtime.
     this.autoResolve = options.autoResolve === true;
     this.spawnSolveSession = typeof options.spawnSolveSession === 'function' ? options.spawnSolveSession : null;
+    // Issue #2925: `--auto-fix-ci-cd` dispatches `/fix --ci-cd` when the default branch CI is red.
+    this.autoFixCiCd = options.autoFixCiCd === true;
+    this.spawnFixCiCdSession = typeof options.spawnFixCiCdSession === 'function' ? options.spawnFixCiCdSession : null;
+    this.autoFixCiCdResult = null;
+    this.branchCIPendingRuns = [];
     this.target = options.target || { mode: 'repository', owner: this.owner, repo: this.repo, url: `https://github.com/${this.owner}/${this.repo}` };
     this.waitForUnfinished = options.waitForUnfinished !== false;
     // State
@@ -314,10 +320,8 @@ export class MergeQueueProcessor {
           break;
         }
         if (!branchGate.ok) {
-          const prefix = this.currentIndex === 0 ? 'Cannot start merge queue' : `Merge queue stopped before PR #${this.items[this.currentIndex].pr.number}`;
-          const advice = branchGate.status === 'pending' ? 'Please run /merge again once CI finishes.' : 'Please fix the CI failures first.';
-          const error = `${prefix}: ${branchGate.error}. ${advice}`;
-          return this.failQueue(error, { branchCIFailedRuns: branchGate.failedRuns });
+          // Issue #2925: skip every planned PR and say that CI/CD on the default branch must be fixed first.
+          return stopQueueOnBlockedBranch(this, branchGate, { pendingStatus: MergeItemStatus.PENDING, skippedStatus: MergeItemStatus.SKIPPED, timeoutMs: MERGE_QUEUE_CONFIG.TARGET_BRANCH_CI_TIMEOUT_MS });
         }
         const item = this.items[this.currentIndex];
         await this.processItem(item);
@@ -332,7 +336,10 @@ export class MergeQueueProcessor {
             const postMergeCIResult = await this.waitForPostMergeCI(item);
             // Issue #1341: Stop the queue if post-merge CI failed
             if (!postMergeCIResult.success && MERGE_QUEUE_CONFIG.STOP_ON_POST_MERGE_CI_FAILURE) {
-              return this.failQueue(postMergeCIResult.error, { postMergeCIFailedRuns: postMergeCIResult.failedRuns });
+              // Issue #2925: the PRs that will not be merged are skipped, not left pending.
+              const skipped = skipRemainingItems(this, this.currentIndex + 1, getPostMergeCISkipReason(item.pr.number), { pendingStatus: MergeItemStatus.PENDING, skippedStatus: MergeItemStatus.SKIPPED });
+              const error = `Merge queue stopped after PR #${item.pr.number}: post-merge CI failed (${postMergeCIResult.error}). CI/CD on the default branch must be fixed first for /merge to work.${skipped > 0 ? ` ${skipped} remaining PR(s) were skipped.` : ''}`;
+              return this.failQueue(error, { postMergeCIFailedRuns: postMergeCIResult.failedRuns });
             }
           } else {
             // Fallback: short wait before processing next PR
@@ -386,7 +393,7 @@ export class MergeQueueProcessor {
     if (postMergeCIFailedRuns) this.postMergeCIFailedRuns = postMergeCIFailedRuns;
     console.warn(`[WARN] /merge-queue: ${error}`);
     if (this.onError) {
-      await this.onError(new Error(error));
+      await this.onError(new MergeQueueUserError(error));
     }
     return { success: false, stats: this.stats, error };
   }
@@ -650,8 +657,10 @@ export class MergeQueueProcessor {
     if (!branchGate.ok) {
       if (branchGate.status !== 'cancelled') {
         this.branchCIFailedRuns = branchGate.failedRuns;
+        this.branchCIPendingRuns = branchGate.pendingRuns || [];
         this.error = `Auto-resolve skipped: ${branchGate.error}`;
         this.log(this.error);
+        if (branchGate.status === 'failed') await dispatchAutoFixCiCd(this, branchGate.branch); // Issue #2925
       }
       return;
     }
@@ -1230,6 +1239,7 @@ export class MergeQueueProcessor {
       }
       message += '\n';
     }
+    message += formatBlockedBranchReport(this, text => this.escapeMarkdown(text)); // Issue #2925
     // Details (Issue #1805: render PR and issue references as clickable
     // MarkdownV2 links so the user can jump directly to the PR or issue).
     if (report.items.length > 0) {

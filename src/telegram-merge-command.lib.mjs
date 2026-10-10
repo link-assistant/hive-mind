@@ -119,7 +119,7 @@ function getMergeReplyText(message) {
 }
 
 function getMergeUsageMessage() {
-  return "Missing merge target\\.\n\nUsage: `/merge <repository-url|issue-url|pull-request-url> [--auto-resolve]`\n\nYou can also reply with `/merge` to a message containing one GitHub repository, issue, or pull request link\\.\n\nExamples:\n`/merge https://github.com/owner/repo`\n`/merge https://github.com/owner/repo/issues/123`\n`/merge https://github.com/owner/repo/pull/456`\n\nRepository targets merge all PRs with the 'ready' label\\. Issue and pull request targets wait until the target PR is mergeable, then merge it\\.\n\nWith `--auto-resolve` the bot also dispatches `/solve <pr> --auto-merge` for every PR that was skipped because of merge conflicts\\.";
+  return "Missing merge target\\.\n\nUsage: `/merge <repository-url|issue-url|pull-request-url> [--auto-resolve] [--auto-fix-ci-cd]`\n\nYou can also reply with `/merge` to a message containing one GitHub repository, issue, or pull request link\\.\n\nExamples:\n`/merge https://github.com/owner/repo`\n`/merge https://github.com/owner/repo/issues/123`\n`/merge https://github.com/owner/repo/pull/456`\n\nRepository targets merge all PRs with the 'ready' label\\. Issue and pull request targets wait until the target PR is mergeable, then merge it\\.\n\nWith `--auto-resolve` the bot also dispatches `/solve <pr> --auto-merge` for every PR that was skipped because of merge conflicts\\.\n\n/merge only merges on top of a green default branch\\. With `--auto-fix-ci-cd` the bot starts `/fix --ci-cd <repository-url>` when CI/CD on the default branch is failing\\.";
 }
 
 function getTargetFoundText(target, count) {
@@ -198,15 +198,42 @@ async function spawnAutoResolveSolve(target, verbose) {
 }
 
 /**
+ * Issue #2925: spawner for `/merge --auto-fix-ci-cd`. A red default branch is
+ * handed to `fix <repository-url> --ci-cd`, the same session `/fix --ci-cd`
+ * starts, so the CI/CD repair is tracked like any other work session.
+ *
+ * @param {Object} target - `{ url }` of the repository whose default branch is red.
+ * @param {boolean} verbose - Forwarded to the underlying spawn.
+ * @returns {Promise<{ success: boolean, sessionName: string|null, error: string|null, warning: string|null }>}
+ */
+export async function spawnFixCiCdSession(target, verbose, { executeStartScreen: execute = executeStartScreen } = {}) {
+  if (!target || !target.url) {
+    return { success: false, sessionName: null, error: 'missing repository URL', warning: null };
+  }
+  try {
+    const result = await execute('fix', [target.url, '--ci-cd'], { verbose });
+    if (result.warning) return { success: false, sessionName: null, error: null, warning: result.warning };
+    if (!result.success) return { success: false, sessionName: null, error: result.error || 'spawn failed', warning: null };
+    const match = result.output && (result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -R\s+(\S+)/));
+    return { success: true, sessionName: match ? match[1] : null, error: null, warning: null };
+  } catch (error) {
+    return { success: false, sessionName: null, error: error.message || String(error), warning: null };
+  }
+}
+
+/**
  * Format user-friendly error message
  * Hides debug info unless verbose mode is enabled
  * @param {Error} error - The error object
  * @param {boolean} verbose - Whether verbose logging is enabled
  * @returns {string} User-friendly error message
  */
-function formatUserError(error, verbose) {
+export function formatUserError(error, verbose) {
   // Map common errors to user-friendly messages
   const errorMessage = error.message || String(error);
+  // Issue #2925: queue errors written for the chat (e.g. "CI/CD on main must be
+  // fixed first") are shown as-is — never hidden behind the generic message.
+  if (error?.userFacing) return errorMessage;
 
   if (errorMessage.includes('rate limit')) {
     return 'GitHub API rate limit exceeded. Please try again later.';
@@ -222,8 +249,10 @@ function formatUserError(error, verbose) {
   }
 
   // For unknown errors, show generic message (detailed logs are in verbose mode)
+  // Issue #2925: no "Error: " prefix — every caller already labels the text
+  // ("⚠️ Error: …"), which rendered as "Error: Error: …".
   if (verbose) {
-    return `Error: ${errorMessage}`;
+    return errorMessage;
   }
   return 'An error occurred. Please try again or contact support.';
 }
@@ -244,7 +273,7 @@ function formatUserError(error, verbose) {
  * @param {Function} [options.getStoppedChatRejectMessage] - Function to get stopped chat rejection message
  */
 export function registerMergeCommand(bot, options) {
-  const { VERBOSE = false, isOldMessage, isForwarded, isForwardedOrReply, isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, addBreadcrumb, isChatStopped, getStoppedChatRejectMessage } = options;
+  const { VERBOSE = false, isOldMessage, isForwarded, isForwardedOrReply, isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, addBreadcrumb, isChatStopped, getStoppedChatRejectMessage, fixEnabled = true } = options;
 
   const handleMergeCommand = async ctx => {
     VERBOSE && console.log('[VERBOSE] /merge command received');
@@ -286,6 +315,12 @@ export function registerMergeCommand(bot, options) {
     // the repository URL parsing still sees only the URL token.
     const { positionals, flags } = parseMergeArgs(args);
     const autoResolve = flags['auto-resolve'] === true;
+    // Issue #2925: start `/fix --ci-cd` when the default branch CI blocks the queue.
+    const autoFixCiCd = flags['auto-fix-ci-cd'] === true;
+
+    if (autoFixCiCd && !fixEnabled) {
+      return await safeReply(ctx, '❌ `--auto-fix-ci-cd` starts `/fix --ci-cd`, and the fix command is disabled on this bot instance\\.', { parse_mode: 'MarkdownV2', reply_to_message_id: ctx.message.message_id });
+    }
 
     const targetResult = resolveMergeCommandTarget(positionals, ctx.message);
 
@@ -353,6 +388,8 @@ export function registerMergeCommand(bot, options) {
         // without spawning real screen sessions.
         autoResolve,
         spawnSolveSession: autoResolve ? target => spawnAutoResolveSolve(target, VERBOSE) : null,
+        autoFixCiCd,
+        spawnFixCiCdSession: autoFixCiCd ? target => spawnFixCiCdSession(target, VERBOSE) : null,
         onProgress: async () => {
           // Update message with progress and cancel button
           try {

@@ -115,6 +115,12 @@ export const CLAUDE_FAMILIES = listClaudeFamilies(Object.values(claudeModels));
 const anthropicLatestAliases = Object.fromEntries(['opus', 'sonnet', 'haiku', 'fable'].map(family => [family, `anthropic/${claudeModels[family]}`]));
 const GOOGLE_LATEST_PRO_MODEL = 'google/gemini-3.1-pro-preview';
 
+// Issue #2591: free models the live OpenCode Zen catalogue serves
+// (https://opencode.ai/zen/v1/models, 2026-10-10). big-pickle is also
+// OpenCode's own default when no provider key is configured.
+const OPENCODE_ZEN_FREE_MODELS = ['big-pickle', 'nemotron-3-ultra-free', 'nemotron-3.5-lightning-free', 'ling-3.1-flash-free', 'mimo-v2.6-flash-free', 'step-5-preview-free', 'exo-free'];
+const opencodeZenFreeAliases = Object.fromEntries(OPENCODE_ZEN_FREE_MODELS.map(model => [model, `opencode/${model}`]));
+
 // Agent models (OpenCode API and Kilo Gateway via agent CLI)
 // Issue #1300: Updated free models to match agent PR #191
 // Issue #1543: Added qwen3.6-plus-free (former default) and nemotron-3-super-free per agent PR #234
@@ -131,13 +137,7 @@ export const agentModels = {
   'gpt-5-nano': 'opencode/gpt-5-nano',
   'minimax-m2.5-free': 'opencode/minimax-m2.5-free', // Upgraded from M2.1 (Issue #1391)
   'nemotron-3-super-free': 'kilo/nemotron-3-super-free', // Default: NVIDIA hybrid Mamba-Transformer (Issue #1563), via Kilo since Issue #2625
-  // Issue #2591: free models the live OpenCode Zen catalogue serves (2026-10-10)
-  'nemotron-3-ultra-free': 'opencode/nemotron-3-ultra-free',
-  'nemotron-3.5-lightning-free': 'opencode/nemotron-3.5-lightning-free',
-  'ling-3.1-flash-free': 'opencode/ling-3.1-flash-free',
-  'mimo-v2.6-flash-free': 'opencode/mimo-v2.6-flash-free',
-  'step-5-preview-free': 'opencode/step-5-preview-free',
-  'exo-free': 'opencode/exo-free',
+  ...opencodeZenFreeAliases,
   // Kilo Gateway free models (Issue #1282, updated in #1300)
   // Short names for Kilo-exclusive models (Issue #1300)
   'glm-5-free': 'kilo/glm-5-free', // Kilo-exclusive
@@ -176,6 +176,7 @@ export const opencodeModels = {
   ...formalAiProviderModelAliases,
   gpt4: 'openai/gpt-4',
   gpt4o: 'openai/gpt-4o',
+  ...opencodeZenFreeAliases,
   ...anthropicLatestAliases,
   claude: anthropicLatestAliases.sonnet,
   gemini: GOOGLE_LATEST_PRO_MODEL,
@@ -183,6 +184,10 @@ export const opencodeModels = {
   'grok-code': 'opencode/grok-code',
   'grok-code-fast-1': 'opencode/grok-code',
 };
+
+// Accepted for pinned configurations, but OpenCode deletes deprecated models
+// (gpt-4, grok-code) from its catalogue, so the listing hides them (issue #2591).
+export const OPENCODE_LEGACY_MODELS = ['gpt4', 'grok', 'grok-code', 'grok-code-fast-1'];
 
 // Codex models (OpenAI API)
 export const codexModels = {
@@ -325,7 +330,7 @@ export const geminiModels = {
 export const defaultModels = {
   claude: 'opus', // Rolling Claude Code alias; direct execution intentionally does not pin it to this catalogue snapshot (Issue #2290)
   agent: 'nemotron-3-super-free', // Issue #1563: changed from qwen3.6-plus-free (free promotion ended) per agent PR #243
-  opencode: 'grok-code-fast-1',
+  opencode: 'big-pickle', // Issue #2591: grok-code is deprecated and deleted by OpenCode; big-pickle is OpenCode's own keyless default
   codex: 'gpt-6-sol', // Issue #2290: GPT-6 Sol is the Codex default; runtime discovers newer Sol generations and falls back against the installed catalogue
   qwen: 'qwen3-coder-plus',
   gemini: 'flash',

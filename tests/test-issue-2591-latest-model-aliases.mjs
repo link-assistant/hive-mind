@@ -12,7 +12,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { claudeModels, clearRuntimeModelAliases, CODEX_FAMILY_ALIASES, deriveClaudeFamilyAliases, deriveCodexFamilyAliases, deriveQwenFamilyAliases, getAvailableModelNames, mapModelForTool, resolveDefaultFallbackModel, resolveModelId, supports1mContext, validateModelName, validateRuntimeModelName } from '../src/models/index.mjs';
+import { claudeModels, clearRuntimeModelAliases, CODEX_FAMILY_ALIASES, defaultModels, deriveClaudeFamilyAliases, deriveCodexFamilyAliases, deriveQwenFamilyAliases, getAvailableModelNames, mapModelForTool, resolveDefaultFallbackModel, resolveModelId, supports1mContext, validateModelName, validateRuntimeModelName } from '../src/models/index.mjs';
 import { mapModelToId as mapCodexModelToId } from '../src/codex.options.lib.mjs';
 import { mapModelToId as mapClaudeModelToId } from '../src/claude.model-utils.lib.mjs';
 import { validateRuntimeModelInArgs } from '../src/telegram-command-args.lib.mjs';
@@ -195,6 +195,18 @@ await test('agent and opencode premium aliases follow the newest Claude and Gemi
   const names = getAvailableModelNames('agent');
   for (const obsolete of ['grok-code', 'minimax-m2.5-free', 'kimi-k2.5-free']) assert.ok(!names.includes(obsolete), obsolete);
   assert.equal(validateModelName('grok-code', 'agent').valid, true);
+});
+
+await test('opencode defaults to a model OpenCode still serves and hides deprecated ones', async () => {
+  // grok-code is deprecated on models.dev, and OpenCode deletes deprecated models,
+  // so the old `grok-code-fast-1` default named a model OpenCode no longer offers.
+  assert.equal(defaultModels.opencode, 'big-pickle');
+  assert.equal(mapModelForTool('opencode', defaultModels.opencode), 'opencode/big-pickle');
+  assert.equal(validateModelName(defaultModels.opencode, 'opencode').valid, true);
+  const names = getAvailableModelNames('opencode');
+  for (const current of ['big-pickle', 'nemotron-3-ultra-free', 'sonnet', 'opus', 'haiku', 'gemini']) assert.ok(names.includes(current), current);
+  for (const obsolete of ['gpt4', 'grok', 'grok-code', 'grok-code-fast-1']) assert.ok(!names.includes(obsolete), obsolete);
+  assert.equal(validateModelName('grok-code-fast-1', 'opencode').mappedModel, 'opencode/grok-code');
 });
 
 clearRuntimeModelAliases();

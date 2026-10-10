@@ -121,7 +121,7 @@ Hive Mind 具备高度创造力，与大多数（普通）程序员难以区分�
 **解决方案**：Hive Mind 支持多种 AI 后端：
 
 - **Claude**（Sonnet、Opus、Haiku）— 默认且推荐
-- **OpenCode**（Grok）— 包含免费 Grok Code Fast 模型
+- **OpenCode**（OpenCode Zen）— 包含免费 Big Pickle 模型
 - **Codex**（OpenAI）— 适用于 OpenAI API 用户
 - **Agent** — 自定义 AI agent 框架
 

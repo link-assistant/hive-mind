@@ -39,7 +39,7 @@ export { FORMAL_AI_MODEL_ALIAS, FORMAL_AI_PROVIDER_MODEL_ID, isFormalAiModel } f
 // import site for callers. The named import is what the functions below read —
 // `export *` re-exports without binding the names locally.
 export * from './catalog.mjs';
-import { AGENT_LEGACY_MODELS, AGENT_MODELS, agentModels, CLAUDE_FAMILIES, CLAUDE_MODELS, claudeModels, CODEX_CURRENT_MODELS, CODEX_HIDDEN_MODELS, CODEX_MODEL_VARIANTS, CODEX_MODELS, defaultModels, GEMINI_LEGACY_MODELS, GEMINI_MODELS, geminiModels, MODELS_SUPPORTING_1M_CONTEXT, OPENCODE_MODELS, opencodeModels, QWEN_LEGACY_MODELS, QWEN_MODELS, qwenModels } from './catalog.mjs';
+import { AGENT_LEGACY_MODELS, AGENT_MODELS, agentModels, CLAUDE_FAMILIES, CLAUDE_MODELS, claudeModels, CODEX_CURRENT_MODELS, CODEX_HIDDEN_MODELS, CODEX_MODEL_VARIANTS, CODEX_MODELS, defaultModels, GEMINI_LEGACY_MODELS, GEMINI_MODELS, geminiModels, MODELS_SUPPORTING_1M_CONTEXT, OPENCODE_LEGACY_MODELS, OPENCODE_MODELS, opencodeModels, QWEN_LEGACY_MODELS, QWEN_MODELS, qwenModels } from './catalog.mjs';
 // "Latest version" aliases derived from model IDs (issue #2591).
 export { clearRuntimeModelAliases, deriveClaudeFamilyAliases, deriveCodexFamilyAliases, deriveFamilyAliasesForTool, deriveQwenFamilyAliases, expandClaudeVersionShorthand, getRuntimeModelAlias, listClaudeFamilies, registerRuntimeModelAlias, traceModelResolution } from './aliases.mjs';
 import { compareNumericVersions, deriveFamilyAliasesForTool, expandClaudeVersionShorthand, getRuntimeModelAlias, registerRuntimeModelAlias, traceModelResolution } from './aliases.mjs';
@@ -240,9 +240,9 @@ export const listCodexModelNames = (models = CODEX_CURRENT_MODELS, hiddenModels 
 // These are the recommended model names users should see in --model help text
 export const primaryModelNames = {
   claude: ['opus', 'sonnet', 'haiku', 'opusplan', 'fable', 'mythos', 'best', FORMAL_AI_MODEL_ALIAS],
-  opencode: ['grok', 'gpt4o', FORMAL_AI_MODEL_ALIAS],
+  opencode: ['big-pickle', 'sonnet', 'opus', 'haiku', 'gemini', 'gpt4o', FORMAL_AI_MODEL_ALIAS],
   codex: [...listCodexModelNames(), FORMAL_AI_MODEL_ALIAS],
-  agent: ['nemotron-3-super-free', 'minimax-m2.5-free', 'big-pickle', 'gpt-5-nano', 'glm-5-free', 'deepseek-r1-free', FORMAL_AI_MODEL_ALIAS],
+  agent: ['nemotron-3-super-free', 'big-pickle', 'gpt-5-nano', 'nemotron-3-ultra-free', 'nemotron-3.5-lightning-free', 'ling-3.1-flash-free', 'glm-5-free', 'deepseek-r1-free', FORMAL_AI_MODEL_ALIAS],
   qwen: ['qwen3-coder-plus', 'coder-model', 'max', 'plus', 'flash', FORMAL_AI_MODEL_ALIAS],
   gemini: ['flash', 'pro', 'flash-lite', 'auto', FORMAL_AI_MODEL_ALIAS],
 };
@@ -336,6 +336,7 @@ export const getAvailableModelNames = (tool, { availableModels = null } = {}) =>
     if (tool === 'gemini' && (GEMINI_LEGACY_MODELS.includes(key) || /^\d/.test(key))) return false;
     if (tool === 'qwen' && QWEN_LEGACY_MODELS.includes(key)) return false;
     if (tool === 'agent' && AGENT_LEGACY_MODELS.includes(key)) return false;
+    if (tool === 'opencode' && OPENCODE_LEGACY_MODELS.includes(key)) return false;
     return true;
   });
   return [...new Set(aliases)];

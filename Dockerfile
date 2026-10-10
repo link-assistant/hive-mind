@@ -161,7 +161,7 @@ RUN command -v file >/dev/null || HOMEBREW_NO_AUTO_UPDATE=1 brew install file
 # directory is removed. `.node-bin`, `nvm use default` and a bare `node` then
 # all resolve to the same, newest runtime (issue #2187, item A).
 ARG HIVE_MIND_NODE_VERSION=26.11.1
-ARG HIVE_MIND_BUN_VERSION=1.4.2
+ARG HIVE_MIND_BUN_VERSION=1.4.3
 RUN set -e && \
     . "$NVM_DIR/nvm.sh" && \
     PREVIOUS_GLOBAL_LIB="$(dirname "$(dirname "$(command -v node)")")/lib/node_modules" && \
@@ -285,6 +285,12 @@ RUN bun install -g @openai/codex && \
 # (see docs/case-studies/issue-2189, issue #2189).
 # 0.34.0 persists the terminal state and post-mortem of detached Docker
 # executions, so status queries stop inventing a new finish time on each read.
+# 0.34.1 fixes start#174 (filed from issue #2303): the detached watcher waits
+# for the real exit instead of removing a still-running container when
+# `docker logs -f` fails (ENOSPC on a full disk), and records a container exit
+# docker never saw as -1 / `watcher-lost-container`, never as exit 0. Hive Mind
+# reports both that and the old exit-0 shape as a kill
+# (src/session-monitor.unobserved-exit.lib.mjs).
 # 0.35.0 (start#176, filed from issue #2408) re-applies the stopped container's
 # resource limits — including ones set later with `docker update` — when
 # `--resume <id> -- <cmd>` commits it and starts the `-resume-N` container, so a

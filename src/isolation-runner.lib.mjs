@@ -48,6 +48,8 @@ export { getStartCommandVersion } from './start-command-cli.lib.mjs';
 export { applyDockerContainerResourceLimits };
 import { killDockerContainer } from './docker-container-control.lib.mjs';
 export { killDockerContainer };
+import { assessDockerLiveRestore, checkDockerLiveRestore } from './docker-live-restore.lib.mjs'; // issue #2900
+export { checkDockerLiveRestore };
 // Issue #2189: `$ --resume` / `$ --resume-all`, added in start-command 0.33.0
 // (link-foundation/start#162). Re-exported so callers keep reaching every
 // isolation verb through this module.
@@ -1124,6 +1126,9 @@ export async function checkDockerDiskSpace(verbose = false) {
  * as loud, actionable warnings so the disk overflow is self-diagnosing at
  * startup instead of surfacing mid-task.
  *
+ * Finally it warns when the daemon running the bot or its tasks has Docker
+ * `live-restore` off, so one dockerd restart would kill them all (issue #2900).
+ *
  * @param {Object} [options]
  * @param {Object} [options.env] - Environment (defaults to process.env)
  * @param {Function} [options.existsSync] - fs.existsSync (injectable for tests)
@@ -1132,10 +1137,11 @@ export async function checkDockerDiskSpace(verbose = false) {
  * @param {Function} [options.checkImagePresent] - Image-presence probe (injectable for tests)
  * @param {Function} [options.checkStorageDriver] - Storage-driver probe (injectable for tests)
  * @param {Function} [options.checkDiskSpace] - Disk-space probe (injectable for tests)
- * @returns {Promise<{image: string, sock: string, socketMounted: boolean, imagePresent: boolean, isDind: boolean, storageDriver: (string|null), storageDriverOk: boolean, diskAvailableGiB: (number|null), ok: boolean, warnings: string[]}>}
+ * @param {Function} [options.checkLiveRestore] - Live-restore probe (injectable for tests)
+ * @returns {Promise<{image: string, sock: string, socketMounted: boolean, imagePresent: boolean, isDind: boolean, storageDriver: (string|null), storageDriverOk: boolean, diskAvailableGiB: (number|null), liveRestore: Object, liveRestoreOk: boolean, ok: boolean, warnings: string[]}>}
  */
 export async function preflightDockerIsolation(options = {}) {
-  const { env = process.env, existsSync = fs.existsSync, verbose = false, logger = console, checkImagePresent = checkDockerImagePresent, checkStorageDriver = checkDockerStorageDriver, checkDiskSpace = checkDockerDiskSpace } = options;
+  const { env = process.env, existsSync = fs.existsSync, verbose = false, logger = console, checkImagePresent = checkDockerImagePresent, checkStorageDriver = checkDockerStorageDriver, checkDiskSpace = checkDockerDiskSpace, checkLiveRestore = checkDockerLiveRestore } = options;
   const image = getDockerIsolationImage({ env });
   const sock = resolveHostDockerSock({ env });
   const isDind = shouldRunPrivilegedDockerIsolation(image, env);
@@ -1183,6 +1189,10 @@ export async function preflightDockerIsolation(options = {}) {
   if (imagePresent) {
     info(`✅ Docker isolation image '${image}' is already present locally — isolated tasks reuse it (no multi-GB pull). See issue #1914.`);
   }
+  const liveRestore = await assessDockerLiveRestore({ sock, socketMounted, isDind, env, checkLiveRestore, verbose });
+  Object.assign(result, { liveRestore: liveRestore.liveRestore, liveRestoreOk: liveRestore.liveRestoreOk });
+  result.warnings.push(...liveRestore.warnings);
+  for (const note of liveRestore.notes) info(note);
   for (const w of result.warnings) warn(`⚠️ ${w}`);
   return result;
 }

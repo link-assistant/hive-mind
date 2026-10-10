@@ -209,5 +209,29 @@ await test('opencode defaults to a model OpenCode still serves and hides depreca
   assert.equal(validateModelName('grok-code-fast-1', 'opencode').mappedModel, 'opencode/grok-code');
 });
 
+await test('HIVE_MIND_MODEL_DEBUG traces which catalogue resolved an alias', async () => {
+  const lines = [];
+  const originalError = console.error;
+  const originalDebug = process.env.HIVE_MIND_MODEL_DEBUG;
+  console.error = line => lines.push(String(line));
+  try {
+    delete process.env.HIVE_MIND_MODEL_DEBUG;
+    if (!process.argv.includes('--verbose')) {
+      await validateRuntimeModelName('astra', 'codex', { availableModels: CODEX_0_161_MODELS });
+      assert.deepEqual(lines, [], 'tracing is off by default');
+    }
+    process.env.HIVE_MIND_MODEL_DEBUG = '1';
+    await validateRuntimeModelName('nova', 'codex', { availableModels: [...CODEX_0_161_MODELS, 'gpt-7-nova'] });
+  } finally {
+    console.error = originalError;
+    if (originalDebug === undefined) delete process.env.HIVE_MIND_MODEL_DEBUG;
+    else process.env.HIVE_MIND_MODEL_DEBUG = originalDebug;
+  }
+  assert.ok(
+    lines.some(line => line.startsWith('[model-resolution] live alias') && line.includes('"mappedModel":"gpt-7-nova"')),
+    lines.join('\n')
+  );
+});
+
 clearRuntimeModelAliases();
 console.log(`Issue #2591 tests passed (${passed})`);

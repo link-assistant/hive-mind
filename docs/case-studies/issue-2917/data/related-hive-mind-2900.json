@@ -1,0 +1,1 @@
+{ "closedAt": null, "createdAt": "2026-10-09T15:18:53Z", "number": 2900, "state": "OPEN", "title": "Recommend and preflight-check Docker \"live-restore\": true so a dockerd restart no longer kills the bot and every task", "url": "https://github.com/link-assistant/hive-mind/issues/2900" }

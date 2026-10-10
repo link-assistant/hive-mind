@@ -144,6 +144,30 @@ export const shouldFailClaudeStreamWithoutResult = ({ commandFailed, streamingIn
   return !commandFailed && !streamingInput && !resultEventReceived;
 };
 
+// 128 + SIGTERM / 128 + SIGKILL: the codes our own stream-close kill produces.
+const STREAM_CLOSE_SIGNAL_EXIT_CODES = new Set([143, 137]);
+
+/**
+ * Whether a non-zero exit is only the signal we sent to close the stream after
+ * Claude already reported success (Issue #1280 stream close timeout).
+ *
+ * The CLI can stay alive after its final `result` event (background tasks,
+ * open handles); the solver then SIGTERMs (and later SIGKILLs) its process
+ * tree. command-stream 1.x/2.x yields that kill as an `exit` chunk with code
+ * 143/137, which used to mark a finished, successful session as failed: the
+ * PR #2824 session ended with `subtype: success`, was SIGTERMed 30s later, and
+ * was reported as "CLAUDE execution failed" with its summary as the error.
+ *
+ * @param {object} state
+ * @param {number|null} state.exitCode - Exit code seen for the CLI process.
+ * @param {boolean} state.streamCloseForced - The stream close timeout (not another stop reason) killed the process.
+ * @param {boolean} state.resultSuccessReceived - The last result event was a success.
+ * @returns {boolean}
+ */
+export const isStreamCloseSignalAfterSuccess = ({ exitCode, streamCloseForced, resultSuccessReceived }) => {
+  return Boolean(streamCloseForced && resultSuccessReceived) && STREAM_CLOSE_SIGNAL_EXIT_CODES.has(exitCode);
+};
+
 /**
  * Describe a stream that ended without a terminal result event (issue #2023).
  *

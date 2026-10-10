@@ -136,6 +136,28 @@ raw `https://github.com/owner/repo` lines, unlike every other row.
   does not own their lifetime, so adopting BullMQ (and Redis) would be disproportionate. Instead, the fix applies the
   same model by feeding the session monitor's terminal state back into the queue items.
 
+## Follow-up: the PR #2824 session itself was misreported as failed
+
+The automated session that produced this PR finished with `"subtype": "success"` at 00:37:06 UTC on 2026-10-10. The
+Claude CLI stayed alive after its result, so the 30s stream close timeout (issue #1280) sent SIGTERM to its process
+tree at 00:37:36. The solver then logged `❌ Claude command failed with exit code 143`, posted "CLAUDE execution failed
+with <the session's own summary>" and moved the PR back to draft
+([log](https://gist.githubusercontent.com/konard/63de244f19f96d70c6bcb7c22026b84f/raw/7ab53753185d137f3d37b3a59255be442159533e/tmp-hive-mind-log-upload-BklTWB-sanitized.log.txt),
+lines 55761–55818).
+
+- **Root cause.** `src/claude.lib.mjs` marked every non-zero `exit` chunk as a failure. Its comment said command-stream
+  does not yield exit chunks, which was true for v0.9.4. The solver loads the latest command-stream at runtime (2.0.0
+  today), and that version yields `{ type: 'exit', code: 143 }` after the solver's own process-group SIGTERM.
+  [`experiments/issue-2823/command-stream-exit-after-sigterm.mjs`](../../../experiments/issue-2823/command-stream-exit-after-sigterm.mjs)
+  shows this: `chunk exit 143`, `result code 143`.
+- **Fix.** Only the stream close timeout sets `streamCloseForced`. `isStreamCloseSignalAfterSuccess`
+  (`src/claude.stream-events.lib.mjs`) treats 143/137 as success only when that timeout killed a CLI whose last result
+  was a success. Any other stop reason, an error result, or a real CLI exit code (for example 1) still fails the
+  session. The other tool adapters do not kill the CLI after a result, so they are not affected.
+- **Test.** `tests/test-claude-stream-close-after-success.mjs` runs `executeClaudeCommand` against a fake CLI that
+  prints a success result and then hangs until it is killed. Without the fix it logs `Claude command failed with exit
+code 143`, as in the real log. An error-result control stays a failure.
+
 ## Remaining limits
 
 - Queue history lives in memory (as before). After a bot restart, the `Completed` and `Failed` lists start empty.

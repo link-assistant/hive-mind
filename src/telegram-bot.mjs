@@ -177,6 +177,7 @@ const { revealHiddenCharacters } = await import('./github-url-recovery.lib.mjs')
 
 const { getSolveQueue, createQueueExecuteCallback } = await import('./telegram-solve-queue.lib.mjs');
 const { applySolveToolAlias, getFirstParsedPositionalArg, getSolveCommandNameFromText, getSolveToolAliasFromText, moveArgumentToFront, parseArgsWithYargs, parseCommandArgs, SOLVE_COMMAND_NAMES } = await import('./telegram-solve-command.lib.mjs');
+const { extractFixCiCdFlag } = await import('./telegram-fix-command.lib.mjs'); // #2925: /solve --fix-ci-cd
 const { replyIfRepositoryHasNoWork } = await import('./telegram-solve-repository-preflight.lib.mjs');
 const { validateTelegramGitHubUrl } = await import('./telegram-url-validation.lib.mjs');
 const { executeStartScreen: executeStartScreenCommand, buildExecuteAndUpdateMessage } = await import('./telegram-command-execution.lib.mjs');
@@ -406,7 +407,7 @@ const { registerAcceptInvitesCommand } = await import('./telegram-accept-invitat
 const sharedCommandOpts = { VERBOSE, isOldMessage, isForwarded, isForwardedOrReply, isGroupChat: _isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, addBreadcrumb, isChatStopped, getStoppedChatRejectMessage, safeReply, safeEditMessageText };
 registerAcceptInvitesCommand(bot, sharedCommandOpts);
 const { registerMergeCommand } = await import('./telegram-merge-command.lib.mjs');
-const { handleMergeCommand } = registerMergeCommand(bot, sharedCommandOpts);
+const { handleMergeCommand } = registerMergeCommand(bot, { ...sharedCommandOpts, fixEnabled }); // #2925: --auto-fix-ci-cd needs /fix
 const { registerSolveQueueCommand } = await import('./telegram-solve-queue-command.lib.mjs');
 const { handleSolveQueueCommand } = registerSolveQueueCommand(bot, { ...sharedCommandOpts, getSolveQueue, safeReply, resolveLocale: resolveLocaleFromTelegramCtx });
 // Issue #2202 (R5): /models lists the merged model catalogue per tool.
@@ -417,7 +418,7 @@ registerSubscribeCommands(bot, sharedCommandOpts);
 const { registerTaskCommands } = await import('./telegram-task-command.lib.mjs');
 const { handleTaskCommand, TASK_COMMAND_NAMES } = registerTaskCommands(bot, { ...sharedCommandOpts, taskEnabled, safeReply, executeAndUpdateMessage, resolveLocale: resolveLocaleFromTelegramCtx });
 const { registerFixCommand } = await import('./telegram-fix-command.lib.mjs');
-const { handleFixCommand, FIX_COMMAND_NAMES } = registerFixCommand(bot, { ...sharedCommandOpts, fixEnabled, safeReply, executeAndUpdateMessage, resolveLocale: resolveLocaleFromTelegramCtx, solveOverrides });
+const { handleFixCommand, handleFixCiCdFromSolve, FIX_COMMAND_NAMES } = registerFixCommand(bot, { ...sharedCommandOpts, fixEnabled, safeReply, executeAndUpdateMessage, resolveLocale: resolveLocaleFromTelegramCtx, solveOverrides });
 const { registerOrganizeCommand } = await import('./telegram-organize-command.lib.mjs');
 const { handleOrganizeCommand, ORGANIZE_COMMAND_NAMES } = registerOrganizeCommand(bot, {
   ...sharedCommandOpts,
@@ -507,6 +508,9 @@ async function handleSolveCommand(ctx) {
   if (solveSL.handled) return;
   const solveShowLimits = solveSL.showLimits;
   userArgs = solveSL.args;
+  // Issue #2925: `--fix-ci-cd` turns /solve and every alias into `/fix --ci-cd`.
+  const solveFixCiCd = extractFixCiCdFlag(userArgs);
+  userArgs = solveFixCiCd.args;
   // Check if this is a reply to a message and user didn't provide URL as first argument
   // In that case, try to extract GitHub URL from the replied message
   // Issue #1325: Support all options via /solve command when replying (e.g., "/solve --model opus")
@@ -551,6 +555,7 @@ async function handleSolveCommand(ctx) {
   }
 
   userArgs = applySolveToolAlias(userArgs, solveToolAlias);
+  if (solveFixCiCd.requested) return handleFixCiCdFromSolve(ctx, userArgs, { commandDisplay: solveCommandDisplay });
   const { malformed, errors: malformedErrors } = detectMalformedFlags(userArgs);
   if (malformed.length > 0) {
     await safeReply(ctx, `❌ ${escapeMarkdown(malformedErrors.join('\n'))}\n\n${t('telegram.option_syntax_check', {}, { locale: solveLocale })}`, { reply_to_message_id: ctx.message.message_id });

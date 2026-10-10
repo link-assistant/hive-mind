@@ -641,6 +641,7 @@ async function handleSolveCommand(ctx) {
   const entityCheck = await validateGitHubEntityExistence({ owner: validation.parsed.owner, repo: validation.parsed.repo, number: validation.parsed.number, type: validation.parsed.type, baseBranch: parsedSolveArgs?.baseBranch, verbose: VERBOSE, autoAcceptInvite: !!parsedSolveArgs?.autoAcceptInvite, locale: solveLocale, docsLocale: resolveDocsLocaleFromTelegramCtx(ctx) });
   if (!entityCheck.valid) {
     await safeReply(ctx, `❌ ${escapeMarkdown(entityCheck.error)}`, { reply_to_message_id: ctx.message.message_id });
+    if (entityCheck.botLogin) void (await import('./github-access-animation.lib.mjs')).replyWithAccessAnimation({ ctx, login: entityCheck.botLogin, ownerType: entityCheck.ownerType, locale: solveLocale, replyToMessageId: ctx.message.message_id, verbose: VERBOSE });
     return;
   }
   // Issue #2266: answer an empty repository directly. The CLI repeats the

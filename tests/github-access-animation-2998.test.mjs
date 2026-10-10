@@ -14,7 +14,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm, writeFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { buildAccessAnimationCaptions, buildAccessAnimationFrames, ensureAccessAnimation, getAccessAnimationPath, getGuidesDir, renderAccessAnimation, setGifFrameDelays } from '../src/github-access-animation.lib.mjs';
+import { ACCESS_ANIMATION_RETRY_MS, buildAccessAnimationCaptions, buildAccessAnimationFrames, ensureAccessAnimation, getAccessAnimationPath, getGuidesDir, renderAccessAnimation, replyWithAccessAnimation, setGifFrameDelays } from '../src/github-access-animation.lib.mjs';
 
 let passed = 0;
 let failed = 0;
@@ -160,6 +160,52 @@ await test('ensureAccessAnimation renders once, reuses the file, and never throw
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+await test('a failed render is not retried for an hour', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'hive-guides-'));
+  try {
+    let calls = 0;
+    const generate = async () => {
+      calls++;
+      if (calls === 1) throw new Error('no chromium');
+      return { gif: Buffer.from('GIF89a'), locale: 'en' };
+    };
+    const options = { login: 'retry-check', ownerType: 'User', locale: 'en', dir, generate };
+    assert.equal(await ensureAccessAnimation({ ...options, now: 1000 }), null);
+    assert.equal(await ensureAccessAnimation({ ...options, now: 1000 + ACCESS_ANIMATION_RETRY_MS - 1 }), null);
+    assert.equal(calls, 1);
+    assert.ok(await ensureAccessAnimation({ ...options, now: 1000 + ACCESS_ANIMATION_RETRY_MS }));
+    assert.equal(calls, 2);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+await test('Telegram reply sends the cached GIF with a translated caption, and stays quiet on failure', async () => {
+  const sent = [];
+  const ctx = { chat: { id: 1 }, replyWithAnimation: async (animation, options) => sent.push({ animation, options }) };
+  const ok = await replyWithAccessAnimation({ ctx, login: 'konard', ownerType: 'User', locale: 'ru', replyToMessageId: 42, ensure: async () => '/g/personal-konard-ru.gif' });
+  assert.equal(ok, true);
+  assert.deepEqual(sent[0].animation, { source: '/g/personal-konard-ru.gif' });
+  assert.equal(sent[0].options.reply_to_message_id, 42);
+  assert.match(sent[0].options.caption, /^🎞 .*konard/);
+  assert.match(sent[0].options.caption, /[а-я]/);
+
+  assert.equal(await replyWithAccessAnimation({ ctx, login: 'konard', ensure: async () => null }), false);
+  const failing = {
+    chat: { id: 1 },
+    replyWithAnimation: async () => {
+      throw new Error('network');
+    },
+  };
+  assert.equal(await replyWithAccessAnimation({ ctx: failing, login: 'konard', ensure: async () => '/g/x.gif' }), false);
+  assert.equal(sent.length, 1);
+});
+
+await test('telegram-bot sends the animation after the not-accessible reply, without awaiting it', async () => {
+  const source = await readFile(new URL('../src/telegram-bot.mjs', import.meta.url), 'utf8');
+  assert.match(source, /if \(entityCheck\.botLogin\) void \(await import\('\.\/github-access-animation\.lib\.mjs'\)\)\.replyWithAccessAnimation\(\{ ctx, login: entityCheck\.botLogin, ownerType: entityCheck\.ownerType, locale: solveLocale/);
 });
 
 await test('committed konard examples are GIFs with one frame per step', async () => {

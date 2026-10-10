@@ -287,6 +287,10 @@ export async function generateAccessAnimation({ login, ownerType, locale, loader
 }
 
 const inFlight = new Map();
+// Failed renders (no Chromium, no fonts, ...) are not retried for a while, so a
+// host without a browser does not launch one for every failing command.
+const failedAt = new Map();
+export const ACCESS_ANIMATION_RETRY_MS = 60 * 60 * 1000;
 
 /**
  * Path of the cached GIF for this account, generating it on first use.
@@ -299,9 +303,10 @@ const inFlight = new Map();
  * @param {string} [options.dir] - guides folder (getGuidesDir())
  * @param {Function} [options.generate] - replaces generateAccessAnimation (tests)
  * @param {Function} [options.onError] - receives rendering errors (logging)
+ * @param {number} [options.now] - current time in ms (tests)
  * @returns {Promise<string|null>}
  */
-export async function ensureAccessAnimation({ login, ownerType, locale, dir = getGuidesDir(), generate = generateAccessAnimation, onError } = {}) {
+export async function ensureAccessAnimation({ login, ownerType, locale, dir = getGuidesDir(), generate = generateAccessAnimation, onError, now = Date.now() } = {}) {
   const path = getAccessAnimationPath({ login, ownerType, locale, dir });
   if (!path) return null;
   try {
@@ -309,6 +314,7 @@ export async function ensureAccessAnimation({ login, ownerType, locale, dir = ge
   } catch {
     // not generated yet
   }
+  if (now - (failedAt.get(path) ?? -Infinity) < ACCESS_ANIMATION_RETRY_MS) return null;
   if (!inFlight.has(path)) {
     const job = (async () => {
       try {
@@ -317,8 +323,10 @@ export async function ensureAccessAnimation({ login, ownerType, locale, dir = ge
         const temporary = `${path}.${process.pid}.tmp`;
         await writeFile(temporary, gif);
         await rename(temporary, path);
+        failedAt.delete(path);
         return path;
       } catch (error) {
+        failedAt.set(path, now);
         onError?.(error);
         return null;
       } finally {
@@ -328,6 +336,36 @@ export async function ensureAccessAnimation({ login, ownerType, locale, dir = ge
     inFlight.set(path, job);
   }
   return inFlight.get(path);
+}
+
+/**
+ * Telegram: send the access animation as a reply. The first request for an
+ * account renders it (a few seconds), so callers need not await this.
+ * Never throws; resolves to whether an animation was sent.
+ *
+ * @param {Object} options
+ * @param {Object} options.ctx - Telegraf context
+ * @param {string|null} options.login - account Hive Mind runs as
+ * @param {string|null} [options.ownerType]
+ * @param {string} [options.locale]
+ * @param {number} [options.replyToMessageId]
+ * @param {boolean} [options.verbose=false]
+ * @param {Function} [options.ensure] - replaces ensureAccessAnimation (tests)
+ * @returns {Promise<boolean>}
+ */
+export async function replyWithAccessAnimation({ ctx, login, ownerType, locale, replyToMessageId, verbose = false, ensure = ensureAccessAnimation }) {
+  const log = message => verbose && console.log(`[VERBOSE] GitHub access animation: ${message}`);
+  try {
+    const path = await ensure({ login, ownerType, locale, onError: error => log(`not rendered: ${error?.message || error}`) });
+    if (!path) return false;
+    const { title } = await buildAccessAnimationCaptions({ login, ownerType, locale });
+    const { safeReplyWithAnimation } = await import('./telegram-safe-reply.lib.mjs');
+    await safeReplyWithAnimation(ctx, { source: path }, { caption: `🎞 ${title}`, reply_to_message_id: replyToMessageId, verbose });
+    return true;
+  } catch (error) {
+    log(`not sent: ${error?.message || error}`);
+    return false;
+  }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

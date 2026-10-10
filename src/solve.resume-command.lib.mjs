@@ -39,10 +39,13 @@ export const buildSolveResumeCommand = ({ issueUrl, sessionId, tool = null, mode
  * `argv.url` is never set. Reading it left resume hints empty and resume
  * commands null on every failure path. See issue #2843.
  *
+ * `argv._` is deliberately not consulted: other commands (review) pass their own
+ * argv to the same tool adapters, and their positional is not a solve target.
+ *
  * @param {Object|null|undefined} argv - Parsed solve.mjs arguments
  * @returns {string|null}
  */
-export const resolveSolveIssueUrl = argv => argv?.['issue-url'] || argv?.issueUrl || argv?._?.[0] || null;
+export const resolveSolveIssueUrl = argv => argv?.['issue-url'] || argv?.issueUrl || null;
 
 /**
  * Build the solve.mjs resume command straight from parsed arguments, or null

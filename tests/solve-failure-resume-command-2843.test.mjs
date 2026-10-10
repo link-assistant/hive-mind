@@ -105,6 +105,12 @@ await test('claude adapter prints the solve resume command from parsed arguments
   );
 });
 
+await test('arguments of other commands do not produce a solve resume command', async () => {
+  const reviewArgv = { _: ['https://github.com/link-assistant/router/pull/719'], 'pr-url': 'https://github.com/link-assistant/router/pull/719', tool: 'claude' };
+  assert.equal(resolveSolveIssueUrl(reviewArgv), null);
+  assert.equal(buildSolveResumeCommandFromArgv({ argv: reviewArgv, sessionId: SESSION_ID, tempDir: TEMP_DIR }), null);
+});
+
 await test('no source file reads the non-existent argv.url', async () => {
   const offenders = [];
   for (const entry of await readdir(srcDir, { recursive: true })) {

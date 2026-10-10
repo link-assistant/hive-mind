@@ -27,11 +27,13 @@
  *   --apt --journal --docker --npm   Ubuntu/system cleanup (opt-in)
  *   --system                      shorthand for --apt --journal --npm
  *   --sudo                        prefix package-manager commands with sudo
+ *   --log-dir <dir>               where cleanup-*.log goes (~/.hive-mind/logs)
  *   --verbose / -v
  *
  * @see https://github.com/link-assistant/hive-mind/issues/1848
  */
 
+import os from 'node:os';
 import path from 'node:path';
 import { promises as fsp } from 'node:fs';
 
@@ -42,6 +44,7 @@ import { formatProcessDebugReport } from './process-debug.lib.mjs';
 import { classifyAgentSnapshotStores, describeAgentSnapshotReason, getAgentDataHome } from './agent-snapshot-store.lib.mjs';
 import { setupStdioLogInterceptor } from './lib.mjs';
 import { sanitizeCredentialText } from './credential-sanitization-core.lib.mjs';
+import { resolveBotLogDir } from './bot-logger.lib.mjs';
 
 setupStdioLogInterceptor();
 
@@ -150,6 +153,8 @@ Docker isolation cleanup:
                               modes: succeeded, all, none
   --no-docker-isolation       Disable Docker-isolation task container cleanup
 
+  --log-dir <dir>             Directory for the cleanup-*.log file
+                              [default: $HIVE_MIND_LOG_DIR or ~/.hive-mind/logs]
   --verbose, -v               Verbose logging
   --version                   Show version number
   --help, -h                  Show this help
@@ -187,7 +192,16 @@ if (options.targetPids.length > 0) options.debugProcesses = true;
 
 const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
 const scriptDir = path.dirname(process.argv[1]);
-const logFile = path.join(scriptDir, `cleanup-${timestamp}.log`);
+// Issue #2844: the log used to be written next to the script, i.e. into
+// ~/.bun/bin (a directory on PATH) for a global install. Use the shared
+// hive-mind log directory instead (HIVE_MIND_LOG_DIR or ~/.hive-mind/logs).
+let logDir = path.resolve(getFlagValue('--log-dir') || resolveBotLogDir());
+try {
+  await fsp.mkdir(logDir, { recursive: true, mode: 0o700 });
+} catch {
+  logDir = os.tmpdir();
+}
+const logFile = path.join(logDir, `cleanup-${timestamp}.log`);
 
 async function log(message, { level = 'info' } = {}) {
   const sanitizedMessage = sanitizeCredentialText(message);
@@ -360,7 +374,9 @@ async function main() {
       mode: options.dockerIsolationMode,
     });
 
-    await log(`\n🐳 Docker isolation containers (${dockerIsolationPlan.mode}):`);
+    // Issue #2844: label the policy explicitly — a bare "(succeeded)" read as if
+    // the failed containers listed below it had succeeded.
+    await log(`\n🐳 Docker isolation containers (mode: ${dockerIsolationPlan.mode}):`);
     if (dockerIsolationPlan.keep.length === 0 && dockerIsolationPlan.remove.length === 0) {
       await log('   (none detected)');
     } else {

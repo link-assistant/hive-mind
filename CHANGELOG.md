@@ -1,5 +1,19 @@
 # @link-assistant/hive-mind
 
+## 2.35.3
+
+### Patch Changes
+
+- 3675177: Name the model that actually ran in failure comments and choose the fallback
+  from it. Claude's `system/init` and assistant `message.model` IDs are recorded
+  as the stream arrives, so a session that crashed, was killed or ended with an
+  error before its `result` event still reports `claude-opus-5-5` instead of the
+  bundled alias mapping. When no actual model is known the comment says
+  "Requested (actual model unknown — session ended before result)" instead of
+  presenting the alias mapping as the model. Retries pick the default fallback
+  from the reported model, so `claude-opus-5-5` steps down to `opus-5` instead of
+  skipping to `opus-4-8`.
+
 ## 2.35.2
 
 ### Patch Changes

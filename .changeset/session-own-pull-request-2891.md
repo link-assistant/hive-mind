@@ -9,3 +9,6 @@ says "Fixes #724" no longer receives the notices of the #724 session: the bot
 first takes the PR solve announced in the session log (`📍 PR URL:`, `PR URL:`,
 `📍 URL:`), then only a linked PR whose branch (or first closing reference)
 belongs to the issue. `/merge` prefers the issue's own PR the same way.
+
+Refresh the Bun pin to 1.4.3 in the Docker images, which the dependency
+freshness gate flagged while this change was open.

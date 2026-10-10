@@ -49,6 +49,7 @@ import semver from 'semver';
 import { isFormalAiTask } from './formal-ai-sidecar.lib.mjs';
 import { hasUseRouterFlag } from './router-isolation.lib.mjs';
 import { RESUME_MODES } from './isolation-runner.resume.lib.mjs';
+import { isRunnableShellCommand } from './session-resume.lib.mjs';
 
 /** Why a killed session cannot be re-entered in place. Reported, never thrown. */
 export const IN_PLACE_SKIP_REASONS = Object.freeze({
@@ -63,6 +64,9 @@ export const IN_PLACE_SKIP_REASONS = Object.freeze({
   UNSUPPORTED: 'resume-unsupported',
   REFUSED: 'resume-refused',
   ERROR: 'resume-error',
+  // The plan carried no executable shell command (issue #2887): never hand `$`
+  // the Telegram display form (`/codex …`), which `sh -c` cannot run.
+  NO_RUNNABLE_COMMAND: 'no-runnable-command',
 });
 
 /** First start-command release whose `$ --resume` keeps HostConfig limits (start#176). */
@@ -162,7 +166,7 @@ export function planSameContainerResume({ sessionName = null, sessionInfo = {}, 
  * @param {Object} options
  * @param {string} options.sessionName - The killed session's name
  * @param {Object} options.sessionInfo - Persisted session info
- * @param {Object} options.plan - Result of planKillRecovery() (needs `command.display`)
+ * @param {Object} options.plan - Result of planKillRecovery() (needs `command.shell`)
  * @param {Object} options.runner - Isolation runner module
  * @param {boolean} [options.verbose]
  * @returns {Promise<{resumed: boolean, reason: string, sessionId: string|null, executionUuid: string|null, mode: string|null, snapshotImage: string|null, containerFilesystemInheritedBytes: number|null, resourceLimitReapplyError: string|null}>}
@@ -194,7 +198,20 @@ export async function resumeKilledSessionInPlace({ sessionName, sessionInfo, pla
   const exists = await runner.checkDockerContainerExists(decision.containerName, verbose);
   if (!exists) return miss(IN_PLACE_SKIP_REASONS.CONTAINER_GONE);
 
-  const result = await runner.resumeIsolatedSession(decision.identifier, { command: plan?.command?.display || null, verbose });
+  // `$ --resume <id> -- <command>` runs <command> through `sh -c` inside the
+  // snapshot, so it must be the executable shell form (`solve '<url>' …`), not
+  // `command.display`: that is the Telegram alias (`/codex <url> …`, issue
+  // #2109), which fails with `sh: 1: /codex: not found` (exit 127) after a
+  // 10–35 minute `docker commit` (issue #2887). Refuse before snapshotting if
+  // the plan has no runnable form; the fresh launch runs `binary` + `args`.
+  const resumeShellCommand = plan?.command?.shell || null;
+  if (!isRunnableShellCommand(resumeShellCommand)) {
+    console.warn(`[session-kill-resume] In-place resume of ${sessionName} skipped: no runnable shell command in the recovery plan (got ${JSON.stringify(resumeShellCommand)})`);
+    return miss(IN_PLACE_SKIP_REASONS.NO_RUNNABLE_COMMAND);
+  }
+  if (verbose) console.log(`[VERBOSE] In-place resume of ${sessionName}: $ --resume ${decision.identifier} -- ${resumeShellCommand}`);
+
+  const result = await runner.resumeIsolatedSession(decision.identifier, { command: resumeShellCommand, verbose });
   if (!result?.success) {
     const reason = result?.unsupported ? IN_PLACE_SKIP_REASONS.UNSUPPORTED : IN_PLACE_SKIP_REASONS.REFUSED;
     if (verbose) console.log(`[VERBOSE] In-place resume of ${sessionName} was not possible (${reason}): ${result?.error || 'no reason given'}`);

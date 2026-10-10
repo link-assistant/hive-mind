@@ -441,6 +441,13 @@ chat history नहीं पढ़ सकता, इसलिए Telegram म�
 containers), वे उसी के साथ समाप्त हो जाते हैं; उन्हें kill recovery संभालता है,
 जो अपने attempt counters उसी state directory से पढ़ता है।
 
+Host पर [live restore](https://docs.docker.com/engine/daemon/live-restore/)
+भी चालू करने पर विचार करें: `/etc/docker/daemon.json` में
+`"live-restore": true` के साथ (`sudo systemctl reload docker` से लागू),
+`dockerd` के restart होने या kill होने के दौरान containers चलते रहते हैं, इसलिए
+daemon crash होने पर root container और उसके tasks रुकते ही नहीं। यह
+`docker rm`, redeploy या host reboot में मदद नहीं करता — उसके लिए state mount है।
+
 ### Detached Mode में चलाना
 
 ```bash

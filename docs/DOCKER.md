@@ -558,6 +558,14 @@ that were running inside the container itself (screen/tmux isolation, or
 handled by kill recovery, which reads its attempt counters from the same state
 directory.
 
+On the host, consider also enabling
+[live restore](https://docs.docker.com/engine/daemon/live-restore/): with
+`"live-restore": true` in `/etc/docker/daemon.json` (applied with
+`sudo systemctl reload docker`), containers keep running while `dockerd` is
+restarted or killed, so a daemon crash no longer takes the root container and
+its tasks down at all. It does not help on `docker rm`, a redeploy or a host
+reboot, which is what the state mount is for.
+
 ### What a `--isolation docker` task receives (issue #2190)
 
 Since [issue #2190](https://github.com/link-assistant/hive-mind/issues/2190) a task container no longer inherits the whole `~/.claude`, `~/.claude.json`, `~/.codex` or `~/.agents` tree of the host. Only the credential file and the session directories are shared:

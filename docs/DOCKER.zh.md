@@ -397,6 +397,8 @@ Telegram 机器人把工作状态保存在 `~/.hive-mind/state`（`HIVE_MIND_STA
 
 限制：机器人以 `dropPendingUpdates` 启动，因此停机期间发送的命令不会被接收，需要重新发送；Bot API 无法读取聊天历史，因此 Telegram 只能保存机器人自己置顶的副本。在容器内部运行的任务（screen/tmux 隔离，或内部 DinD daemon 的 `--isolation docker` 容器）会随容器一起终止；它们由 kill 恢复机制处理，该机制同样从这个状态目录读取尝试计数器。
 
+在宿主机上，还建议启用 [live restore](https://docs.docker.com/engine/daemon/live-restore/)：在 `/etc/docker/daemon.json` 中设置 `"live-restore": true`（通过 `sudo systemctl reload docker` 生效）后，`dockerd` 重启或被杀死期间容器会继续运行，因此守护进程崩溃不会再让根容器及其任务停止。它对 `docker rm`、重新部署或宿主机重启无效，这正是挂载状态目录的用途。
+
 ### 以守护进程模式运行
 
 ```bash

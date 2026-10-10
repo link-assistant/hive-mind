@@ -122,8 +122,13 @@ export const STOP_REASONS = {
   },
   no_progress_between_sessions: {
     title: 'two consecutive AI sessions produced identical results',
-    detail: 'The AI session ended with the same final message, the same working tree and the same commit as the session before it. Restarting again would repeat the same session at the same cost, so the remaining restart budget was left unused.',
+    detail: 'The AI session ended with the same working tree and the same commit as the session before it (its final message is not compared: a reworded report of the same blocker is not progress). Restarting again would repeat the same session at the same cost, so the remaining restart budget was left unused.',
     nextSteps: ['Read the two working session logs named below to see what the AI kept doing.', 'Fix the blocker it kept hitting (a missing toolchain, an unreachable service, an impossible instruction), then re-run the command.', 'Or re-run with different instructions so the next session has something new to work with.'],
+  },
+  ci_fails_on_base_branch: {
+    title: 'needs human: CI fails on the base branch too',
+    detail: 'The failing CI checks fail the same way on commits that do not contain this pull request (the head of the base branch, or the placeholder commit that only adds the task file), so no change to this pull request can make them pass. Restarting the AI again would spend the budget without changing the result.',
+    nextSteps: ['Fix the failing check on the base branch (for example a missing secret, an inaccessible submodule or a broken workflow), then re-run the command.', 'Or merge this pull request manually if the failure is known and accepted.'],
   },
   watch_stopped: {
     title: 'watch mode stopped',

@@ -30,6 +30,7 @@ import { execGhWithRetry } from './github-rate-limit.lib.mjs';
 import { QUIET_PROBE } from './quiet-probe.lib.mjs'; // issues #2130, #2135: keep read-only probe payloads out of the attached log
 import { repositoryWriteAccess } from './github-write-access.lib.mjs';
 import { buildRepositoryNotAccessibleMessage, buildWriteAccessRequiredMessage, getAuthenticatedGitHubLogin, getGitHubOwnerType } from './github-access-guide.lib.mjs'; // Issue #2998
+import { buildGitHubDocsUrl, formatGitHubDocsLine } from './github-docs-links.lib.mjs';
 import { buildGitHubPullRequestUrl, buildGitHubPullRequestUrlOrNull, isGitHubUrlType, normalizeGitHubUrl, parseGitHubUrl } from './github-url-parser.lib.mjs';
 export { buildGitHubPullRequestUrl, buildGitHubPullRequestUrlOrNull, isGitHubUrlType, normalizeGitHubUrl, parseGitHubUrl };
 // Issue #1625: Named marker constants (single source of truth) + in-memory tracking for tool-posted comments. See tool-comments.lib.mjs for design.
@@ -109,6 +110,7 @@ export const checkGitHubPermissions = async () => {
         scope: 'workflow',
         issue: 'Cannot push changes to .github/workflows/ directory',
         solution: 'Run: gh auth refresh -h github.com -s workflow',
+        docs: 'tokenScopes',
       });
     }
     if (!scopes.includes('repo')) {
@@ -116,6 +118,7 @@ export const checkGitHubPermissions = async () => {
         scope: 'repo',
         issue: 'Limited repository access (may not be able to create PRs or push to private repos)',
         solution: 'Run: gh auth refresh -h github.com -s repo',
+        docs: 'tokenScopes',
       });
     }
     // Display warnings
@@ -125,6 +128,7 @@ export const checkGitHubPermissions = async () => {
         await log(`\n   Missing scope: '${warning.scope}'`, { level: 'warning' });
         await log(`   Impact: ${warning.issue}`, { level: 'warning' });
         await log(`   Solution: ${warning.solution}`, { level: 'warning' });
+        if (warning.docs) await log(`   ${formatGitHubDocsLine(warning.docs)}`, { level: 'warning' });
       }
       await log('\n   💡 You can continue, but some operations may fail due to insufficient permissions.', {
         level: 'warning',
@@ -166,8 +170,13 @@ export const checkRepositoryWritePermission = async (owner, repo, options = {}) 
         await log('❌ Repository not found or no access', { level: 'error' });
         await log(`   Repository: ${owner}/${repo}`, { level: 'error' });
         // Private repositories answer 404 too: name the account to invite and link GitHub Docs.
-        const guide = await buildRepositoryNotAccessibleMessage({ owner, repo, autoAcceptInvite, botLogin: await getAuthenticatedGitHubLogin(), ownerType: await getGitHubOwnerType(owner) });
-        for (const line of guide.split('\n').slice(1)) await log(line && `   ${line}`, { level: 'error' });
+        // The guide is advice: if building it fails, the missing access must still stop the run.
+        try {
+          const guide = await buildRepositoryNotAccessibleMessage({ owner, repo, autoAcceptInvite, botLogin: await getAuthenticatedGitHubLogin(), ownerType: await getGitHubOwnerType(owner) });
+          for (const line of guide.split('\n').slice(1)) await log(line && `   ${line}`, { level: 'error' });
+        } catch {
+          // Keep the short error above
+        }
         return false;
       }
       // For other errors, warn but continue (repo might still be accessible)
@@ -221,8 +230,12 @@ export const checkRepositoryWritePermission = async (owner, repo, options = {}) 
     }
     await log('');
     await log('   Alternative: get write access to the repository itself', { level: 'error' });
-    const guide = await buildWriteAccessRequiredMessage({ owner, repo, autoAcceptInvite, botLogin: await getAuthenticatedGitHubLogin(), ownerType: await getGitHubOwnerType(owner) });
-    for (const line of guide.split('\n')) await log(`      ${line}`, { level: 'error' });
+    try {
+      const guide = await buildWriteAccessRequiredMessage({ owner, repo, autoAcceptInvite, botLogin: await getAuthenticatedGitHubLogin(), ownerType: await getGitHubOwnerType(owner) });
+      for (const line of guide.split('\n')) await log(`      ${line}`, { level: 'error' });
+    } catch {
+      // Same as above: never let the guide turn "no access" into "continue"
+    }
     await log('');
     return false;
   } catch (error) {
@@ -304,7 +317,7 @@ Could you please enable the **"Allow edits by maintainers"** checkbox? This will
 1. Go to the bottom of this PR page
 2. Find the "Allow edits by maintainers" checkbox in the sidebar (on the right side)
 3. Check the box ✅
-Alternatively, you can enable it when creating/editing the PR. See: https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/allowing-changes-to-a-pull-request-branch-created-from-a-fork
+Alternatively, you can enable it when creating/editing the PR. See: ${buildGitHubDocsUrl('allowMaintainerEdits')}
 Thank you! 🙏`;
     // Issue #1625: track this comment so it's not counted as AI-authored by --auto-attach-solution-summary. The "Allow edits by maintainers" phrase embedded above matches MAINTAINER_ACCESS_REQUEST_MARKER as a fallback if the ID capture fails.
     const posted = await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: commentBody });

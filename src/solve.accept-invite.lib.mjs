@@ -17,6 +17,7 @@
 import { promisify } from 'util';
 import { exec as execCallback } from 'child_process';
 import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
+import { buildOrganizationInvitationUrl, buildRepositoryInvitationUrl, formatGitHubDocsLine } from './github-docs-links.lib.mjs'; // Issue #2998
 
 const execRaw = promisify(execCallback);
 // Issue #1726: rate-limit safe gh wrapper.
@@ -62,6 +63,7 @@ export async function autoAcceptInviteForRepo(owner, repo, log, verbose) {
         result.acceptedRepo = true;
       } catch (e) {
         await log(`⚠️  --auto-accept-invite: Failed to accept repository invitation for ${fullName}: ${e.message}`, { level: 'warning' });
+        await log(`   Accept it manually: ${buildRepositoryInvitationUrl(owner, repo)}`, { level: 'warning' }); // Issue #2998
       }
     } else {
       verbose && (await log(`   No pending repository invitation found for ${fullName}`, { verbose: true }));
@@ -87,6 +89,7 @@ export async function autoAcceptInviteForRepo(owner, repo, log, verbose) {
         result.acceptedOrg = true;
       } catch (e) {
         await log(`⚠️  --auto-accept-invite: Failed to accept organization invitation for ${orgName}: ${e.message}`, { level: 'warning' });
+        await log(`   Accept it manually: ${buildOrganizationInvitationUrl(orgName)} — ${formatGitHubDocsLine('acceptOrganizationInvitation')}`, { level: 'warning' });
       }
     } else {
       verbose && (await log(`   No pending organization invitation found for ${owner}`, { verbose: true }));

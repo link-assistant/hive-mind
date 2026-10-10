@@ -1,0 +1,13 @@
+executionResume
+  identifier snap-demo
+  uuid 7a2477c3-ee53-4b03-8078-746e45d3c5d4
+  mode docker-snapshot
+  backend docker
+  sessionName snap-demo-resume-1
+  previousSessionName snap-demo
+  snapshotImage "start-command-resume/snap-demo:1"
+  command "sh -c 'sleep 600'"
+  message "Resumed session in new container snap-demo-resume-1 from snapshot of snap-demo"
+Error: Failed to resume docker session "snap-demo": docker: Error response from daemon: Conflict. The container name "/snap-demo-resume-1" is already in use by container "19f61d7356865351a07e1ae2b5e57d8222b8dc009de307fa81cac7d21e401c6a". You have to remove (or rename) that container to be able to reuse that name.
+
+Run 'docker run --help' for more information

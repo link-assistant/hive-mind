@@ -15,6 +15,7 @@
  */
 
 import { classifyExitStatus } from './session-status.lib.mjs';
+import { getDockerTaskContainerName } from './docker-resume-handoff.lib.mjs';
 
 /**
  * Issue #1927: minimum age before a session that `$ --status` still reports as
@@ -88,7 +89,7 @@ export async function resolveStaleExecutingState(sessionName, sessionInfo, statu
   const ageMs = startMs != null ? Date.now() - startMs : Infinity;
   if (ageMs >= STALE_EXECUTING_MIN_AGE_MS && sessionInfo?.isolationBackend) {
     const probe = backendAlive || runner.checkBackendSessionAlive;
-    const alive = probe ? await probe(sessionInfo.sessionId || sessionName, sessionInfo.isolationBackend, verbose) : null;
+    const alive = probe ? await probe(getDockerTaskContainerName(sessionInfo, sessionName), sessionInfo.isolationBackend, verbose) : null;
     // Only `false` (definitively gone) counts as killed; `null` (unknown backend)
     // is treated as "no signal" so we don't kill on an indeterminate probe.
     if (alive === false) {

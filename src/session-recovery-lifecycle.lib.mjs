@@ -27,7 +27,7 @@ export function parseRecoveryLogEvent(text) {
   return null;
 }
 
-export function formatRecoveryLifecycle({ phase, attempt = null, sessionName = null, previousSession = null, executionUuid = null, at, startedAt = null, lastOutputAt = null, logAvailable = false, delayMs = null, exitCode = null, reason = null, nextSession = null, kind = 'container', outerTerminal = false } = {}) {
+export function formatRecoveryLifecycle({ phase, attempt = null, sessionName = null, previousSession = null, executionUuid = null, at, startedAt = null, lastOutputAt = null, logAvailable = false, delayMs = null, exitCode = null, reason = null, nextSession = null, kind = 'container', outerTerminal = false, detail = null } = {}) {
   const titles = { waiting: '⏳ Recovery scheduled', launching: '🔄 Recovery attempt launching — outcome pending', running: '🔄 Recovery attempt under monitoring — outcome pending', completed: '✅ Recovery attempt completed successfully', failed: '❌ Recovery attempt failed', stopped: '🛑 Recovery stopped by user', cancelled: '✅ Recovery cancelled — work already complete', unknown: '⚠️ Recovery session stopped — outcome unknown' };
   const lines = [`${titles[phase] || titles.running}${attempt ? ` (attempt ${attempt})` : ''}`, `Updated: ${at}`];
   if (startedAt) lines.push(`Attempt started: ${startedAt}`);
@@ -35,6 +35,8 @@ export function formatRecoveryLifecycle({ phase, attempt = null, sessionName = n
   if (previousSession) lines.push(`Previous session: ${previousSession}`);
   if (executionUuid) lines.push(`Execution / log: ${executionUuid}`);
   if (delayMs !== null) lines.push(`Waiting ${Math.round(delayMs / 1000)} seconds before launch.`);
+  // Issue #2889: what an in-place resume is doing (waiting for disk, snapshotting).
+  if (detail) lines.push(String(detail).slice(0, 500));
   if (phase === 'running') {
     lines.push(lastOutputAt ? `Execution log output observed at ${lastOutputAt}. Output alone does not establish commits or task progress.` : logAvailable ? 'No new execution output has been observed since monitoring this attempt began.' : 'The execution log is unavailable; activity cannot be confirmed.');
     lines.push('No terminal outcome is confirmed. A quiet run may still be working or stalled.');
@@ -49,7 +51,7 @@ export function formatRecoveryLifecycle({ phase, attempt = null, sessionName = n
 }
 
 /** Best-effort reporting never changes a task's execution or outcome. */
-export async function reportRecoveryLifecycle({ bot, sessionName, sessionInfo, statusResult = null, running = true, exitCode = null, nextSession = null, phase = null, attempt = null, delayMs = null, reason = null, pullRequestUrl = null, lookupPullRequest = null, options = {}, verbose = false, persist = () => {}, logEvent = () => {} } = {}) {
+export async function reportRecoveryLifecycle({ bot, sessionName, sessionInfo, statusResult = null, running = true, exitCode = null, nextSession = null, phase = null, attempt = null, delayMs = null, reason = null, detail = null, pullRequestUrl = null, lookupPullRequest = null, options = {}, verbose = false, persist = () => {}, logEvent = () => {} } = {}) {
   try {
     const now = options.recoveryNow ? options.recoveryNow() : Date.now();
     const at = new Date(now).toISOString();
@@ -72,7 +74,7 @@ export async function reportRecoveryLifecycle({ bot, sessionName, sessionInfo, s
     if (stat) state.lastBytes = stat.size;
     const eventPhase = toolEvent?.phase === 'launching' ? 'running' : toolEvent?.phase;
     const nextPhase = phase || (nextSession ? 'launching' : !running ? (sessionInfo.stopRequestedByUser ? 'stopped' : toolEvent?.phase === 'cancelled' ? 'cancelled' : exitCode === null ? 'unknown' : exitCode === 0 ? 'completed' : 'failed') : eventPhase || 'running');
-    const changed = state.phase !== nextPhase || state.outerTerminal !== !running;
+    const changed = state.phase !== nextPhase || state.outerTerminal !== !running || Boolean(detail && state.detail !== detail);
     const due = !state.lastReportedMs || now - state.lastReportedMs >= RECOVERY_HEARTBEAT_MS;
     const terminal = ['completed', 'failed', 'stopped', 'unknown', 'cancelled'].includes(nextPhase);
     sessionInfo.recoveryLifecycle = state;
@@ -80,7 +82,7 @@ export async function reportRecoveryLifecycle({ bot, sessionName, sessionInfo, s
       persist();
       return null;
     }
-    const report = { ...state, phase: nextPhase, outerTerminal: !running, at, sessionName, previousSession: sessionInfo.killRecoveryOfSession || null, executionUuid: sessionInfo.executionUuid || statusResult?.uuid || null, logAvailable: Boolean(stat), delayMs, exitCode: !running ? exitCode : (toolEvent?.exitCode ?? null), reason: reason || toolEvent?.reason || statusResult?.exitReason || null, nextSession };
+    const report = { ...state, phase: nextPhase, outerTerminal: !running, at, sessionName, previousSession: sessionInfo.killRecoveryOfSession || null, executionUuid: sessionInfo.executionUuid || statusResult?.uuid || null, logAvailable: Boolean(stat), delayMs, exitCode: !running ? exitCode : (toolEvent?.exitCode ?? null), reason: reason || toolEvent?.reason || statusResult?.exitReason || null, nextSession, detail: detail || null };
     const text = formatRecoveryLifecycle(report);
     logEvent('session_recovery_lifecycle', report);
     if (logPath) await fs.appendFile(logPath, `\n${recoveryLogLine({ ...report, kind: 'container' })}\n`).catch(error => console.warn(`[session-recovery] Could not append lifecycle report: ${error?.message || error}`));
@@ -119,6 +121,7 @@ export async function reportRecoveryLifecycle({ bot, sessionName, sessionInfo, s
       state.lastReportedMs = now;
       state.phase = nextPhase;
       state.outerTerminal = !running;
+      state.detail = detail || null;
     }
     persist();
     return text;

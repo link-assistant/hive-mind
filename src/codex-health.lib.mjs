@@ -317,7 +317,7 @@ export const getCodexCompletionHealth = (codexJsonState, { lastMessage = '' } = 
 export const logCodexResourceSnapshot = async ({ getResourceSnapshot, log }) => {
   const resourcesAfter = await getResourceSnapshot();
   await log('\n📈 System resources after execution:', { verbose: true });
-  await log(`   Memory: ${resourcesAfter.memory.split('\n')[1]}`, { verbose: true });
+  await log(`   Memory: ${resourcesAfter.memorySummary ?? resourcesAfter.memory.split('\n')[1]}`, { verbose: true });
   await log(`   Load: ${resourcesAfter.load}`, { verbose: true });
 };
 

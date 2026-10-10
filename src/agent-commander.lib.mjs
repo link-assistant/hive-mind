@@ -19,6 +19,7 @@ import { getCacheReadTokenCount, getCumulativeContextInputTokens, getOutputToken
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
 import { CLAUDE_MEMORY_DISABLE_ENV, buildCodexMemoryDisableConfigArgs, isAgentMemoryDisabled } from './agent-memory-policy.lib.mjs'; // Issue #2178
 import { buildCodexAuxiliaryDisableConfigArgs, isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236
+import { appendMemoryBudgetPrompt } from './memory-budget.lib.mjs'; // Issue #2838
 
 export const AGENT_COMMANDER_TOOLS = new Set(['claude', 'codex', 'opencode', 'agent', 'qwen', 'gemini']);
 
@@ -370,7 +371,8 @@ export const executeWithAgentCommander = async params => {
 
   const prompts = promptModule || (await getPromptModule(tool));
   const promptBuilderParams = { ...promptParams, tempDir, workspaceTmpDir, argv };
-  const prompt = prompts.buildUserPrompt(promptBuilderParams);
+  // Issue #2838: every tool gets the container memory budget, not only native Codex.
+  const prompt = appendMemoryBudgetPrompt(prompts.buildUserPrompt(promptBuilderParams));
   const systemPrompt = prompts.buildSystemPrompt(promptBuilderParams);
   const resolvedArgv = tool === 'codex' ? { ...argv, codexReasoningSettings: await resolveRuntimeCodexReasoningEffort(argv, { log }) } : argv;
   const controllerOptions = buildAgentCommanderControllerOptions({ tool, tempDir, prompt, systemPrompt, argv: resolvedArgv });

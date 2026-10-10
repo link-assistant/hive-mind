@@ -33,6 +33,7 @@ import { calculateAgentPricing } from './agent.lib.mjs';
 import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
 import { buildOpencodeAuxiliaryAgentConfig, isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236
+import { appendMemoryBudgetPrompt } from './memory-budget.lib.mjs'; // Issue #2838
 
 export { parseOpenCodeTokenUsage };
 
@@ -124,23 +125,26 @@ export const executeOpenCode = async params => {
   const { buildUserPrompt, buildSystemPrompt } = await import('./opencode.prompts.lib.mjs');
 
   // Build the user prompt
-  const prompt = buildUserPrompt({
-    issueUrl,
-    issueNumber,
-    prNumber,
-    prUrl,
-    branchName,
-    tempDir,
-    workspaceTmpDir,
-    isContinueMode,
-    mergeStateStatus,
-    forkedRepo,
-    feedbackLines,
-    forkActionsUrl,
-    owner,
-    repo,
-    argv,
-  });
+  // Issue #2838: tell the tool the container memory budget (empty outside a limited cgroup).
+  const prompt = appendMemoryBudgetPrompt(
+    buildUserPrompt({
+      issueUrl,
+      issueNumber,
+      prNumber,
+      prUrl,
+      branchName,
+      tempDir,
+      workspaceTmpDir,
+      isContinueMode,
+      mergeStateStatus,
+      forkedRepo,
+      feedbackLines,
+      forkActionsUrl,
+      owner,
+      repo,
+      argv,
+    })
+  );
 
   // Build the system prompt
   const systemPrompt = buildSystemPrompt({
@@ -227,7 +231,7 @@ export const executeOpenCodeCommand = async params => {
     // Take resource snapshot before execution
     const resourcesBefore = await getResourceSnapshot();
     await log('📈 System resources before execution:', { verbose: true });
-    await log(`   Memory: ${resourcesBefore.memory.split('\n')[1]}`, { verbose: true });
+    await log(`   Memory: ${resourcesBefore.memorySummary ?? resourcesBefore.memory.split('\n')[1]}`, { verbose: true });
     await log(`   Load: ${resourcesBefore.load}`, { verbose: true });
 
     const opencodeEnv = { ...process.env };
@@ -483,7 +487,7 @@ export const executeOpenCodeCommand = async params => {
 
         const resourcesAfter = await getResourceSnapshot();
         await log('\n📈 System resources after execution:', { verbose: true });
-        await log(`   Memory: ${resourcesAfter.memory.split('\n')[1]}`, { verbose: true });
+        await log(`   Memory: ${resourcesAfter.memorySummary ?? resourcesAfter.memory.split('\n')[1]}`, { verbose: true });
         await log(`   Load: ${resourcesAfter.load}`, { verbose: true });
 
         const pricingResult = await buildPricingInfo();
@@ -566,7 +570,7 @@ export const executeOpenCodeCommand = async params => {
 
         const resourcesAfter = await getResourceSnapshot();
         await log('\n📈 System resources after execution:', { verbose: true });
-        await log(`   Memory: ${resourcesAfter.memory.split('\n')[1]}`, { verbose: true });
+        await log(`   Memory: ${resourcesAfter.memorySummary ?? resourcesAfter.memory.split('\n')[1]}`, { verbose: true });
         await log(`   Load: ${resourcesAfter.load}`, { verbose: true });
 
         const pricingResult = await buildPricingInfo();

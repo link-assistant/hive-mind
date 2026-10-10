@@ -40,6 +40,7 @@ import { attachStreamingInput, finalizeBidirectionalHandler, setupBidirectionalH
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
 import { buildAgentArgs, detectFormalAiAgentRoutingMismatch, formatAgentArgsForDisplay, isAgentIdleEvent, isAgentStrongCompletionEvent } from './agent-command.lib.mjs';
 import { isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236 / #2247 (H5)
+import { appendMemoryBudgetPrompt } from './memory-budget.lib.mjs'; // Issue #2838
 
 export { createAgentTokenUsage, accumulateAgentStepFinishUsage, parseAgentTokenUsage };
 
@@ -500,23 +501,9 @@ export const executeAgent = async params => {
     await log(`👁️  Model vision capability: ${modelSupportsVision ? 'supported' : 'not supported'}`, { verbose: true });
   }
   // Build the user prompt
-  const prompt = buildUserPrompt({
-    issueUrl,
-    issueNumber,
-    prNumber,
-    prUrl,
-    branchName,
-    tempDir,
-    workspaceTmpDir,
-    isContinueMode,
-    mergeStateStatus,
-    forkedRepo,
-    feedbackLines,
-    forkActionsUrl,
-    owner,
-    repo,
-    argv,
-  });
+  const userPromptParams = { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, mergeStateStatus, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv };
+  // Issue #2838: tell the tool the container memory budget (empty outside a limited cgroup).
+  const prompt = appendMemoryBudgetPrompt(buildUserPrompt(userPromptParams));
 
   // Build the system prompt
   const systemPrompt = buildSystemPrompt({
@@ -617,7 +604,7 @@ export const executeAgentCommand = async params => {
     // Take resource snapshot before execution
     const resourcesBefore = await getResourceSnapshot();
     await log('📈 System resources before execution:', { verbose: true });
-    await log(`   Memory: ${resourcesBefore.memory.split('\n')[1]}`, { verbose: true });
+    await log(`   Memory: ${resourcesBefore.memorySummary ?? resourcesBefore.memory.split('\n')[1]}`, { verbose: true });
     await log(`   Load: ${resourcesBefore.load}`, { verbose: true });
 
     // Issue #1521: Build environment for agent process.
@@ -1128,7 +1115,7 @@ export const executeAgentCommand = async params => {
 
         const resourcesAfter = await getResourceSnapshot();
         await log('\n📈 System resources after execution:', { verbose: true });
-        await log(`   Memory: ${resourcesAfter.memory.split('\n')[1]}`, { verbose: true });
+        await log(`   Memory: ${resourcesAfter.memorySummary ?? resourcesAfter.memory.split('\n')[1]}`, { verbose: true });
         await log(`   Load: ${resourcesAfter.load}`, { verbose: true });
 
         // Issue #1250: Use streaming-accumulated token usage instead of re-parsing fullOutput

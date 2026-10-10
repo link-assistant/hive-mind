@@ -343,11 +343,13 @@ try {
   assert.ok(stagedBytes.includes('API_TOKEN=SYN…456'));
   assert.equal(await readFile(sourceLog, 'utf8'), `API_TOKEN=${alpha}\n`, 'staging must not modify the local audit source');
 
-  // A future raw file accidentally added beneath the broad artifact directory
+  // A future raw file accidentally written into this run's session directory
   // must block the entire staging attempt.
-  const roguePath = join(repositoryPath, committed.relativeDirectory, 'raw-retry.log');
-  await writeFile(roguePath, `API_TOKEN=${alpha}\n`, { mode: 0o600 });
+  const blockedSessionDirectory = join(repositoryPath, committed.relativeDirectory, 'sessions', 'blocked-session');
+  await mkdir(blockedSessionDirectory, { recursive: true });
+  await writeFile(join(blockedSessionDirectory, 'raw-retry.log'), `API_TOKEN=${alpha}\n`, { mode: 0o600 });
   let stagingAttempted = false;
+  const blockedMessages = [];
   const blocked = await collectAndCommitDevelopmentLogArtifacts({
     enabled: true,
     repositoryPath,
@@ -362,10 +364,37 @@ try {
       stagingAttempted = true;
       return async () => ({ code: 0, stdout: '', stderr: '' });
     },
-    log: async () => {},
+    log: async message => blockedMessages.push(String(message)),
   });
   assert.equal(blocked.skipped, 'error');
   assert.equal(stagingAttempted, false, 'residual scan must run before git add');
+  // Issue #2841: the failure names the file, line and rule, never the value.
+  assert.match(blocked.error.message, /sessions\/blocked-session\/raw-retry\.log:1 \(rule: [^)]*unquoted-assignment/);
+  assertSanitized(blockedMessages.join('\n'), [alpha]);
+
+  // Issue #2841: a file outside this run's session directory is not hive-mind's
+  // artifact. It is neither scanned nor staged, so it can no longer discard the
+  // session log - and its raw bytes still never reach the index.
+  const roguePath = join(repositoryPath, committed.relativeDirectory, 'raw-retry.log');
+  await writeFile(roguePath, `API_TOKEN=${alpha}\n`, { mode: 0o600 });
+  const scoped = await collectAndCommitDevelopmentLogArtifacts({
+    enabled: true,
+    repositoryPath,
+    logFile: sourceLog,
+    issueNumber: 2111,
+    prNumber: 2112,
+    tool: 'codex',
+    sessionId: 'scoped-session',
+    branchName: 'issue-2111-test',
+    rawCommand: 'solve --development-log',
+    $: gitRunner,
+    log: async () => {},
+  });
+  assert.equal(scoped.committed, true, 'a residual outside the session directory must not discard the session log');
+  assertSanitized(stagedBytes, [alpha, beta, databasePassword]);
+  const committedFiles = (await runProcess('git', ['ls-files'], { cwd: repositoryPath })).stdout;
+  assert.ok(committedFiles.includes('sessions/scoped-session/solve.log'));
+  assert.ok(!committedFiles.includes(`${committed.relativeDirectory}/raw-retry.log`), 'the rogue file must not be committed');
 } finally {
   await rm(tempRoot, { recursive: true, force: true });
 }

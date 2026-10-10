@@ -228,9 +228,10 @@ try {
 
   assert.equal(commitResult.committed, true);
   assert.equal(commitResult.pushed, true);
-  assert.equal(calls[0].command, 'git add -f -- dev/log/issues/1596/pulls/1996');
-  assert.equal(calls[1].command, 'git diff --cached --quiet -- dev/log/issues/1596/pulls/1996');
-  assert.equal(calls[2].command, 'git commit -m Add development log for issue #1596 PR #1996 -- dev/log/issues/1596/pulls/1996');
+  // Issue #2841: only this session's directory is staged and committed.
+  assert.equal(calls[0].command, 'git add -f -- dev/log/issues/1596/pulls/1996/sessions/codex-session-123');
+  assert.equal(calls[1].command, 'git diff --cached --quiet -- dev/log/issues/1596/pulls/1996/sessions/codex-session-123');
+  assert.equal(calls[2].command, 'git commit -m Add development log for issue #1596 PR #1996 -- dev/log/issues/1596/pulls/1996/sessions/codex-session-123');
 } finally {
   await rm(tempRoot, { recursive: true, force: true });
 }

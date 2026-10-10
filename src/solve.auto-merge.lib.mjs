@@ -106,8 +106,8 @@ const { handleBillingLimitBlocker } = await import('./billing-limit-stop.lib.mjs
 // Issue #2247 (H3): a restart is only worth its cost when the previous session
 // changed something. Five byte-identical sessions is a stall, not progress.
 const { stopWhenSessionRepeated } = await import('./session-progress.lib.mjs');
-// Issue #2839: a CI failure that also fails without this pull request is reported once, then stops the loop.
-const { buildPreExistingCiFeedback, detectPreExistingCiFailures, stopWhenCiFailsOnBaseBranch } = await import('./ci-pre-existing-failure.lib.mjs');
+// Issue #2839: every failing check must be fixed, pre-existing ones too; evidence spares the AI the diagnosis.
+const { buildCiFailureGuidance, buildPreExistingCiFeedback, detectPreExistingCiFailures } = await import('./ci-pre-existing-failure.lib.mjs');
 // Issue #2119: an empty pull request must not be reported as ready to merge.
 const { buildEmptyPullRequestBlocker, getPullRequestChangeStats } = await import('./pull-request-changes.lib.mjs');
 // Issue #2263: a terminal session failure is a run-wide readiness veto. The
@@ -140,7 +140,6 @@ export const watchUntilMergeable = async params => {
   let latestSessionId = null;
   const attachLogWithNotice = prNumber && (argv.attachLogs || argv['attach-logs']) ? leadingSection => attachLogToGitHub({ logFile: getLogFile(), targetType: 'pr', targetNumber: prNumber, owner, repo, $, log, sanitizeLogContent, verbose: argv.verbose, sessionId: latestSessionId, tempDir, argv, requestedModel: argv.originalModel || argv.model, tool: argv.tool || 'claude', leadingSection }) : null; // Issue #2563: a held-back merge publishes unattached AI work with its reason, in one comment
   let latestAnthropicCost = null;
-  const preExistingCiReported = new Set(); // Issue #2839: pre-existing CI failures a restart was already told about
   // Issue #1323: Track actual AI restarts separately from check cycle iterations
   // Issue #2119: the count now lives in the shared budget module, so restarts
   // already spent by the watch loop earlier in this run are counted here too.
@@ -720,7 +719,6 @@ export const watchUntilMergeable = async params => {
         }
         return { success: false, reason: 'external_review_limit', latestSessionId, latestAnthropicCost };
       }
-      const restartRequestedBeforeCi = shouldRestart; // Issue #2839: whether anything but CI asks for a restart
       const preExistingCi = ciBlocker && !billingBlocker ? await detectPreExistingCiFailures({ owner, repo, prNumber, failingChecks: ciBlocker.details, $, log }) : null;
       if (ciBlocker && !billingBlocker) {
         shouldRestart = true;
@@ -732,7 +730,7 @@ export const watchUntilMergeable = async params => {
         }
         for (const check of ciBlocker.details) feedbackLines.push(`  - ${check}`);
         feedbackLines.push('', 'Please fix the failing CI checks.');
-        feedbackLines.push(...buildPreExistingCiFeedback(preExistingCi)); // Issue #2839: the same checks fail without this pull request
+        feedbackLines.push(...buildCiFailureGuidance(), ...buildPreExistingCiFeedback(preExistingCi)); // Issue #2839: pre-existing failures block the merge too
       }
       // Reason 3: Merge conflicts or other merge issues
       const mergeBlocker = blockers.find(b => b.type === 'not_mergeable');
@@ -754,9 +752,6 @@ export const watchUntilMergeable = async params => {
         feedbackLines.push(...buildUncommittedChangesFeedback(changes));
       }
       if (shouldRestart) {
-        // Issue #2839: the previous session was already told these checks fail on the base branch too.
-        const ciStop = await stopWhenCiFailsOnBaseBranch({ detection: preExistingCi, ciIsOnlyReason: !restartRequestedBeforeCi && !mergeBlocker?.message.includes('conflicts') && !hasUncommittedChanges, alreadyReported: preExistingCiReported, $, owner, repo, prNumber, verbose: argv.verbose, log, formatAligned });
-        if (ciStop) return { success: false, reason: ciStop.reason, latestSessionId, latestAnthropicCost };
         // Issue #2119: the run-wide budget is exhausted (maybe by the watch loop): fail and
         // auto-commit through the shared exhaustion path, so every loop reports it the same way.
         if (hasExhaustedAutoRestartBudget()) {

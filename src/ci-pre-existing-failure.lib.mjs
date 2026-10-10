@@ -1,45 +1,41 @@
 #!/usr/bin/env node
 
 /**
- * Issue #2839: do not keep restarting the AI for a CI failure the pull request
- * did not cause.
+ * Issue #2839: tell the AI when a failing CI check also fails without the pull
+ * request - and that it still has to make it pass.
  *
  * In the 2026-10-09 stylist-svelte run (`solve --tool codex --think xhigh`,
  * fork mode) the only CI job, `pipeline-check`, failed in "Initialize public
  * sandbox submodules" while cloning a private repository (404). It had failed
  * on every push to `main` since 2026-10-07 and on the solver's own placeholder
- * commit `73b6c7d`, which adds nothing but `.gitkeep`. No change to the pull
- * request could make it pass, yet `--auto-restart-until-mergeable` restarted
- * the AI for "CI failures detected" until all 5/5 iterations were spent - about
- * $2.2 and 33 minutes for nothing.
+ * commit `73b6c7d`, which adds nothing but `.gitkeep`. Each restarted session
+ * only reported "CI remains blocked: ... returns 404" and changed nothing.
+ *
+ * A pre-existing failure is not a reason to give up on the pull request: it
+ * cannot be merged or released while its CI fails. So the restart prompt says
+ * that every failing check must be fixed, including pre-existing ones, and how
+ * to handle a failure that needs a human (a missing secret, access to a private
+ * repository): make the pull request's CI pass without that action, and make CI
+ * on the default branch fail with an explicit message saying what a human has
+ * to do, so the job can be re-run once it is done. The run-away loop itself is
+ * stopped by the no-progress breaker (`session-progress.lib.mjs`), not here.
  *
  * A failing check is "pre-existing" when the same check (matched by name) also
  * failed on a commit that does not contain the pull request's work:
  *
  *   1. the current head of the base branch - checked first, because when the
- *      base branch is green again the pull request only needs to merge it, which
- *      the AI can do, so the failure is not reported as pre-existing; then
+ *      base branch is green again the pull request only needs to merge it, so
+ *      the failure is not reported as pre-existing; then
  *   2. the solver's placeholder commit (`Initial commit with task details`,
  *      only `.gitkeep` / `CLAUDE.md`), whose CI result is the base branch's.
  *
  * The first of those commits on which the check reached a conclusion decides.
- * A check that never completed on either commit is treated as new, so this can
- * only make the loop stop earlier when there is evidence, never on a guess.
- *
- * Policy (see `decidePreExistingCiAction`): when every failing check is
- * pre-existing and CI is the only reason to restart, the next session is told
- * so once - an issue may well ask to fix exactly that CI - and when the same
- * pre-existing failures are still the only blocker afterwards, the loop stops
- * and posts one "needs human: CI fails on the base branch too" comment instead
- * of buying another session.
+ * A check that never completed on either commit is treated as new. The result
+ * only adds evidence to the prompt, so the AI does not spend a session finding
+ * out that the failure is not its own.
  *
  * @see https://github.com/link-assistant/hive-mind/issues/2839
  */
-
-import { reportAutomationStop } from './automation-stop-reporting.lib.mjs';
-
-/** Stop reason published through the #2144 automation-stop registry. */
-export const CI_FAILS_ON_BASE_BRANCH_STOP_REASON = 'ci_fails_on_base_branch';
 
 /** Message prefix of the commit `solve.auto-pr.lib.mjs` creates to open the pull request. */
 export const PLACEHOLDER_COMMIT_PATTERN = /^Initial commit with task details/i;
@@ -137,7 +133,7 @@ export const findPlaceholderCommitSha = commits => {
 /**
  * Look up the base branch head and the placeholder commit and classify the
  * failing checks against them. Never throws: without evidence the result says
- * nothing is pre-existing, and the loop behaves exactly as before #2839.
+ * nothing is pre-existing, and the prompt simply carries no evidence.
  *
  * @param {Object} params
  * @param {string} params.owner
@@ -179,83 +175,21 @@ export const detectPreExistingCiFailures = async ({ owner, repo, prNumber, faili
 const describeEvidence = (entry, owner, repo) => `\`${entry.name}\` also fails (\`${entry.conclusion}\`) on ${entry.reference.label}: https://github.com/${owner}/${repo}/commit/${entry.reference.sha}`;
 
 /**
- * Lines appended to the CI section of the next session's feedback.
+ * What the next session is asked to do about failing CI, whatever its cause.
+ *
+ * @returns {string[]}
+ */
+export const buildCiFailureGuidance = () => ['Fix every failing check, including failures that also happen on the default branch: this pull request cannot be merged or released while its CI fails, whatever the cause.', 'If a check can only pass after a human action you cannot do yourself (for example adding a secret, or granting access to a private repository or submodule), change the CI/CD configuration so that:', '  - CI on this pull request passes without that action (for example, skip only the step that needs the missing secret or access, and print why it was skipped);', '  - CI on the default branch fails with an explicit message that says exactly what a human has to do, so the job can be re-run and pass once that is done.', 'Describe that manual action in the pull request description.'];
+
+/**
+ * Evidence lines appended to the CI section of the next session's feedback.
  *
  * @param {Object|null} detection - from `detectPreExistingCiFailures`
  * @returns {string[]}
  */
 export const buildPreExistingCiFeedback = detection => {
   if (!detection?.allPreExisting) return [];
-  return ['', '⚠️ These CI failures are NOT caused by this pull request - they fail the same way without its changes:', ...detection.preExisting.map(entry => `  - ${describeEvidence(entry, detection.owner, detection.repo)}`), 'Fix them only if that is within the scope of the issue (for example, the issue asks to fix this CI). Otherwise do not try to work around them: say in the pull request that the failure exists on the base branch too and needs a maintainer. If they are still the only failure after this session, the automation will stop and ask a human.'];
+  return ['', "⚠️ These CI failures are pre-existing - they also fail without this pull request's changes:", ...detection.preExisting.map(entry => `  - ${describeEvidence(entry, detection.owner, detection.repo)}`), 'That does not make them optional: they still block this pull request, so fix them here as described above.'];
 };
 
-/**
- * Decide what the auto-restart-until-mergeable loop does with a CI failure.
- *
- * @param {Object} params
- * @param {Object|null} params.detection - from `detectPreExistingCiFailures`
- * @param {boolean} params.ciIsOnlyReason - no comment, conflict, uncommitted change, ... also asks for a restart
- * @param {Set<string>|string[]} [params.alreadyReported] - pre-existing checks a previous session was already told about
- * @returns {'stop'|'restart_with_note'|'none'}
- */
-export const decidePreExistingCiAction = ({ detection = null, ciIsOnlyReason = false, alreadyReported = [] } = {}) => {
-  if (!detection?.allPreExisting) return 'none';
-  const reported = new Set(alreadyReported || []);
-  if (ciIsOnlyReason && detection.preExisting.every(entry => reported.has(entry.name))) return 'stop';
-  return 'restart_with_note';
-};
-
-/**
- * Publish the stop through the shared #2144 reporter (one comment per run).
- *
- * @param {Object} params
- * @param {Function} params.$
- * @param {string} params.owner
- * @param {string} params.repo
- * @param {number|string} params.prNumber
- * @param {Object} params.detection - from `detectPreExistingCiFailures`
- * @param {boolean} [params.verbose]
- * @param {Function} [params.log]
- * @returns {Promise<Object>} the reporter's result
- */
-export const reportPreExistingCiStop = async ({ $: command, owner, repo, prNumber, detection, verbose = false, log = noopLog }) =>
-  reportAutomationStop({
-    $: command,
-    owner,
-    repo,
-    targetNumber: prNumber,
-    reason: CI_FAILS_ON_BASE_BRANCH_STOP_REASON,
-    mode: 'auto-restart-until-mergeable',
-    message: `Every failing CI check also fails without this pull request's changes${detection?.baseBranch ? ` (base branch \`${detection.baseBranch}\`)` : ''}, and the previous AI session was already told so. Another restart cannot make it pass.`,
-    details: (detection?.preExisting || []).map(entry => describeEvidence(entry, owner, repo)),
-    verbose,
-    log,
-  });
-
-/**
- * The auto-restart-until-mergeable step: decide, remember what the next session
- * is told, and publish the stop when another restart cannot help.
- *
- * @param {Object} params
- * @param {Object|null} params.detection - from `detectPreExistingCiFailures`
- * @param {boolean} params.ciIsOnlyReason
- * @param {Set<string>} params.alreadyReported - mutated: names the next session is told about
- * @param {Function} params.$
- * @param {string} params.owner
- * @param {string} params.repo
- * @param {number|string} params.prNumber
- * @param {boolean} [params.verbose]
- * @param {Function} [params.log]
- * @param {Function} [params.formatAligned]
- * @returns {Promise<{reason: string}|null>} the stop, or null to restart as usual
- */
-export const stopWhenCiFailsOnBaseBranch = async ({ detection, ciIsOnlyReason, alreadyReported, $: command, owner, repo, prNumber, verbose = false, log = noopLog, formatAligned = (icon, label, value) => `${icon} ${label}: ${value}` }) => {
-  const action = decidePreExistingCiAction({ detection, ciIsOnlyReason, alreadyReported });
-  if (action === 'restart_with_note') for (const entry of detection.preExisting) alreadyReported.add(entry.name);
-  if (action !== 'stop') return null;
-  await log(formatAligned('🛑', 'CI FAILS ON BASE BRANCH TOO', 'Needs a human; not restarting the AI'));
-  await reportPreExistingCiStop({ $: command, owner, repo, prNumber, detection, verbose, log });
-  return { reason: CI_FAILS_ON_BASE_BRANCH_STOP_REASON };
-};
-
-export default { CI_FAILS_ON_BASE_BRANCH_STOP_REASON, PLACEHOLDER_COMMIT_PATTERN, buildPreExistingCiFeedback, classifyPreExistingCiFailures, decidePreExistingCiAction, detectPreExistingCiFailures, findPlaceholderCommitSha, reportPreExistingCiStop, stopWhenCiFailsOnBaseBranch, summarizeCommitChecks };
+export default { PLACEHOLDER_COMMIT_PATTERN, buildCiFailureGuidance, buildPreExistingCiFeedback, classifyPreExistingCiFailures, detectPreExistingCiFailures, findPlaceholderCommitSha, summarizeCommitChecks };

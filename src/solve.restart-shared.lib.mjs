@@ -587,7 +587,8 @@ export const executeToolIteration = async params => {
  * @returns {string[]} Array of instruction lines
  */
 export const buildAutoRestartInstructions = () => {
-  return ['', '='.repeat(60), '🎯 AUTO-RESTART MODE INSTRUCTIONS:', '='.repeat(60), '', 'Ensure to get latest version of default branch to make all conflicts resolved if present.', 'Ensure you comply with all CI/CD check requirements, and they pass.', 'Ensure all changes are correct, consistent and fully meet all discussed requirements', '(check issue description and all comments in issue and in pull request).', ''];
+  // Issue #2839: pre-existing CI failures are not exempt - the pull request cannot be released while CI fails.
+  return ['', '='.repeat(60), '🎯 AUTO-RESTART MODE INSTRUCTIONS:', '='.repeat(60), '', 'Ensure to get latest version of default branch to make all conflicts resolved if present.', 'Ensure you comply with all CI/CD check requirements, and they pass - including checks that already fail on the default branch.', 'Ensure all changes are correct, consistent and fully meet all discussed requirements', '(check issue description and all comments in issue and in pull request).', ''];
 };
 
 // Issue #2313: shared with the pre-session check in solve.preparation.lib.mjs.

@@ -16,8 +16,12 @@
  * Two fixes are covered here:
  *   1. the session fingerprint is the working tree and the commit only;
  *   2. a CI check that also fails on the base branch head or on the placeholder
- *      commit is reported to the next session once, and then the loop stops with
- *      a "needs human: CI fails on the base branch too" comment.
+ *      commit is reported to the next session with evidence, and the session is
+ *      still asked to fix it: a pull request with failing CI cannot be released.
+ *      A failure that needs a human (the private submodule here) must be made to
+ *      pass on the pull request, while CI on the default branch says what the
+ *      human has to do. The loop never stops just because CI fails on the base
+ *      branch too (PR #2851 review); the no-progress breaker stops a stall.
  *
  * @hive-mind-test-suite default
  *
@@ -29,8 +33,10 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { buildAutomationStopComment, describeStopReason } from '../src/automation-stop-reporting.lib.mjs';
-import { CI_FAILS_ON_BASE_BRANCH_STOP_REASON, buildPreExistingCiFeedback, classifyPreExistingCiFailures, decidePreExistingCiAction, detectPreExistingCiFailures, findPlaceholderCommitSha, stopWhenCiFailsOnBaseBranch, summarizeCommitChecks } from '../src/ci-pre-existing-failure.lib.mjs';
+import { STOP_REASONS } from '../src/automation-stop-reporting.lib.mjs';
+import * as preExistingCiModule from '../src/ci-pre-existing-failure.lib.mjs';
+import { buildCiFailureGuidance, buildPreExistingCiFeedback, classifyPreExistingCiFailures, detectPreExistingCiFailures, findPlaceholderCommitSha, summarizeCommitChecks } from '../src/ci-pre-existing-failure.lib.mjs';
+import { buildAutoRestartInstructions } from '../src/solve.restart-shared.lib.mjs';
 import { buildSessionFingerprint, noteSessionInput, recordSessionOutcome, resetNoProgressFailure, resetSessionProgress, stopWhenSessionRepeated, takeRepeatedSessionFeedback } from '../src/session-progress.lib.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -187,53 +193,40 @@ await test('detectPreExistingCiFailures without evidence returns null (old behav
   assert.equal(await detectPreExistingCiFailures({ owner: 'Godmy', repo: 'stylist-svelte', prNumber: 4, failingChecks: [], $: fakeCommand(stylistResponses) }), null);
 });
 
-await test('the next session is told the failure is not caused by the pull request', async () => {
+await test('every CI failure must be fixed, and one that needs a human is made to pass on the pull request', () => {
+  const text = buildCiFailureGuidance().join('\n');
+  assert.match(text, /Fix every failing check, including failures that also happen on the default branch/);
+  assert.match(text, /cannot be merged or released while its CI fails/);
+  assert.match(text, /CI on this pull request passes without that action/);
+  assert.match(text, /CI on the default branch fails with an explicit message that says exactly what a human has to do/);
+  assert.match(buildAutoRestartInstructions().join('\n'), /including checks that already fail on the default branch/);
+});
+
+await test('the next session gets the evidence that the failure is pre-existing, and is still asked to fix it', async () => {
   const detection = await detectPreExistingCiFailures({ owner: 'Godmy', repo: 'stylist-svelte', prNumber: 4, failingChecks: ['pipeline-check'], $: fakeCommand(stylistResponses) });
   const text = buildPreExistingCiFeedback(detection).join('\n');
-  assert.match(text, /NOT caused by this pull request/);
+  assert.match(text, /pre-existing - they also fail without this pull request's changes/);
   assert.ok(text.includes(`https://github.com/Godmy/stylist-svelte/commit/${MAIN_HEAD}`));
-  assert.match(text, /automation will stop and ask a human/);
+  assert.match(text, /does not make them optional/);
+  assert.doesNotMatch(text, /stop|ask a human|needs a maintainer/i, 'a pre-existing failure is not a way out');
   assert.deepEqual(buildPreExistingCiFeedback({ ...detection, allPreExisting: false }), []);
   assert.deepEqual(buildPreExistingCiFeedback(null), []);
 });
 
-await test('one informed restart, then stop - unless something else also asks for a restart', async () => {
-  const detection = await detectPreExistingCiFailures({ owner: 'Godmy', repo: 'stylist-svelte', prNumber: 4, failingChecks: ['pipeline-check'], $: fakeCommand(stylistResponses) });
-  const reported = new Set();
-  const logged = [];
-  const step = ciIsOnlyReason => stopWhenCiFailsOnBaseBranch({ detection, ciIsOnlyReason, alreadyReported: reported, ...stopParams, log: async line => logged.push(line) });
-  assert.equal(decidePreExistingCiAction({ detection, ciIsOnlyReason: true, alreadyReported: reported }), 'restart_with_note');
-  assert.equal(await step(true), null, 'the first restart carries the note - the issue may ask to fix exactly this CI');
-  assert.deepEqual([...reported], ['pipeline-check']);
-  assert.equal(await step(false), null, 'a new comment, a conflict or uncommitted changes is still work for the AI');
-  const stop = await step(true);
-  assert.equal(stop?.reason, CI_FAILS_ON_BASE_BRANCH_STOP_REASON);
-  assert.match(logged.join('\n'), /CI FAILS ON BASE BRANCH TOO/);
-  assert.equal(decidePreExistingCiAction({ detection: { ...detection, allPreExisting: false }, ciIsOnlyReason: true, alreadyReported: reported }), 'none');
-});
-
-await test('the stop comment says "needs human: CI fails on the base branch too" with the evidence', () => {
-  assert.equal(describeStopReason(CI_FAILS_ON_BASE_BRANCH_STOP_REASON).title, 'needs human: CI fails on the base branch too');
-  const body = buildAutomationStopComment({ reason: CI_FAILS_ON_BASE_BRANCH_STOP_REASON, mode: 'auto-restart-until-mergeable', details: [`\`pipeline-check\` also fails (\`failure\`) on the head of the base branch \`main\`: https://github.com/Godmy/stylist-svelte/commit/${MAIN_HEAD}`] });
-  assert.match(body, /needs human: CI fails on the base branch too/);
-  assert.match(body, /`ci_fails_on_base_branch`/);
-  assert.ok(body.includes(MAIN_HEAD));
+await test('a CI failure on the base branch is not a reason to stop the loop', () => {
+  assert.equal(STOP_REASONS.ci_fails_on_base_branch, undefined);
+  for (const name of Object.keys(preExistingCiModule)) assert.doesNotMatch(name, /stop/i, `${name} must not stop the loop`);
 });
 
 console.log('\nIssue #2839: wiring in solve.auto-merge.lib.mjs\n');
 
 const autoMergeSource = readFileSync(join(root, 'src', 'solve.auto-merge.lib.mjs'), 'utf8');
 
-await test('the CI feedback carries the pre-existing note and the stop comes before another iteration is claimed', () => {
+await test('the CI feedback carries the guidance and the evidence, and nothing stops the restart', () => {
   const detect = autoMergeSource.indexOf('await detectPreExistingCiFailures(');
-  const note = autoMergeSource.indexOf('buildPreExistingCiFeedback(preExistingCi)');
-  const stop = autoMergeSource.indexOf('await stopWhenCiFailsOnBaseBranch(');
-  const exhausted = autoMergeSource.indexOf('hasExhaustedAutoRestartBudget()', stop);
-  const consume = autoMergeSource.indexOf('consumeAutoRestartIteration();', stop);
-  assert.ok(detect !== -1 && note > detect && stop > note, 'detect -> note -> decide');
-  assert.ok(exhausted > stop && consume > stop, 'stopping must not spend an iteration');
-  assert.match(autoMergeSource, /if \(ciStop\) return \{ success: false, reason: ciStop\.reason/);
-  assert.match(autoMergeSource, /ciIsOnlyReason: !restartRequestedBeforeCi && !mergeBlocker\?\.message\.includes\('conflicts'\) && !hasUncommittedChanges/);
+  const note = autoMergeSource.indexOf('feedbackLines.push(...buildCiFailureGuidance(), ...buildPreExistingCiFeedback(preExistingCi));');
+  assert.ok(detect !== -1 && note > detect, 'detect -> guidance and evidence');
+  assert.doesNotMatch(autoMergeSource, /stopWhenCiFailsOnBaseBranch|ci_fails_on_base_branch/);
 });
 
 await test('a human comment or an issue edit skips the no-progress check (the message no longer tells sessions apart)', () => {

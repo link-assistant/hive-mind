@@ -118,12 +118,27 @@ function getMergeReplyText(message) {
   return reply.text || reply.caption || '';
 }
 
-function getMergeUsageMessage() {
-  return "Missing merge target\\.\n\nUsage: `/merge <repository-url|issue-url|pull-request-url> [--auto-resolve]`\n\nYou can also reply with `/merge` to a message containing one GitHub repository, issue, or pull request link\\.\n\nExamples:\n`/merge https://github.com/owner/repo`\n`/merge https://github.com/owner/repo/issues/123`\n`/merge https://github.com/owner/repo/pull/456`\n\nRepository targets merge all PRs with the 'ready' label\\. Issue and pull request targets wait until the target PR is mergeable, then merge it\\.\n\nWith `--auto-resolve` the bot also dispatches `/solve <pr> --auto-merge` for every PR that was skipped because of merge conflicts\\.";
+export function getMergeUsageMessage() {
+  return "Missing merge target\\.\n\nUsage: `/merge <repository-url|issue-url|pull-request-url> [--auto-resolve] [--dependabot]`\n\nYou can also reply with `/merge` to a message containing one GitHub repository, issue, or pull request link\\.\n\nExamples:\n`/merge https://github.com/owner/repo`\n`/merge https://github.com/owner/repo/issues/123`\n`/merge https://github.com/owner/repo/pull/456`\n\nRepository targets merge all PRs with the 'ready' label\\. Issue and pull request targets wait until the target PR is mergeable, then merge it\\.\n\nWith `--auto-resolve` the bot also dispatches `/solve <pr> --auto-merge` for every PR that was skipped because of merge conflicts\\.\n\nWith `--dependabot` \\(repository targets only\\) open Dependabot version bump PRs are merged too, without needing the 'ready' label\\. Combined with `--auto-resolve`, Dependabot PRs whose CI fails are also handed to `/solve <pr> --auto-merge`\\.";
 }
 
-function getTargetFoundText(target, count) {
+/**
+ * Issue #2885: `--dependabot` only makes sense for a repository-wide queue.
+ *
+ * @param {Object} target - Parsed merge target
+ * @param {boolean} dependabot - Whether `--dependabot` was passed
+ * @returns {string|null} MarkdownV2 error, or null when the combination is valid
+ */
+export function validateMergeDependabotTarget(target, dependabot) {
+  if (!dependabot || !target || target.mode === 'repository') return null;
+  return '`\\-\\-dependabot` works only with repository targets, e\\.g\\. `/merge https://github\\.com/owner/repo \\-\\-dependabot`\\.';
+}
+
+export function getTargetFoundText(target, count, { dependabot = false, dependabotCount = 0 } = {}) {
   if (target.mode === 'repository') {
+    if (dependabot) {
+      return `Found ${count} PRs to merge \\(${count - dependabotCount} with 'ready' label, ${dependabotCount} from Dependabot\\)\\.`;
+    }
     return `Found ${count} PRs with 'ready' label\\.`;
   }
   const plural = count === 1 ? '' : 's';
@@ -286,6 +301,8 @@ export function registerMergeCommand(bot, options) {
     // the repository URL parsing still sees only the URL token.
     const { positionals, flags } = parseMergeArgs(args);
     const autoResolve = flags['auto-resolve'] === true;
+    // Issue #2885: also merge open Dependabot version bump PRs.
+    const dependabot = flags.dependabot === true;
 
     const targetResult = resolveMergeCommandTarget(positionals, ctx.message);
 
@@ -303,6 +320,10 @@ export function registerMergeCommand(bot, options) {
 
     const target = targetResult.target;
     const targetUrl = targetResult.targetUrl || target.url;
+    const dependabotError = validateMergeDependabotTarget(target, dependabot);
+    if (dependabotError) {
+      return await safeReply(ctx, dependabotError, { parse_mode: 'MarkdownV2', reply_to_message_id: ctx.message.message_id });
+    }
     const { owner, repo } = target;
     const repoKey = getRepoKey(owner, repo);
     VERBOSE && console.log(`[VERBOSE] /merge: Processing ${target.mode} target ${targetUrl} in ${owner}/${repo}`);
@@ -352,6 +373,7 @@ export function registerMergeCommand(bot, options) {
         // The processor only sees the callback, so unit tests can stub it
         // without spawning real screen sessions.
         autoResolve,
+        dependabot,
         spawnSolveSession: autoResolve ? target => spawnAutoResolveSolve(target, VERBOSE) : null,
         onProgress: async () => {
           // Update message with progress and cancel button
@@ -429,14 +451,14 @@ export function registerMergeCommand(bot, options) {
 
       if (initResult.message) {
         // No PRs to merge
-        await safeEditMessageText(ctx.telegram, statusMessage.chat.id, statusMessage.message_id, undefined, `*Merge Queue \\- ${escapeMarkdownV2(owner)}/${escapeMarkdownV2(repo)}*${labelMsg}\n\n${escapeMarkdownV2(initResult.message)}\n\nTo use the merge queue:\n1\\. Add the \`ready\` label to repository PRs, or ensure the issue has a linked open PR\n2\\. Run \`/merge ${escapeMarkdownV2(targetUrl)}\` again`, { parse_mode: 'MarkdownV2' });
+        await safeEditMessageText(ctx.telegram, statusMessage.chat.id, statusMessage.message_id, undefined, `*Merge Queue \\- ${escapeMarkdownV2(owner)}/${escapeMarkdownV2(repo)}*${labelMsg}\n\n${escapeMarkdownV2(initResult.message)}\n\nTo use the merge queue:\n1\\. Add the \`ready\` label to repository PRs, or ensure the issue has a linked open PR\n2\\. Run \`/merge ${escapeMarkdownV2(targetUrl)}${dependabot ? ' \\-\\-dependabot' : ''}\` again`, { parse_mode: 'MarkdownV2' });
         return;
       }
 
       // Update message with PR list and cancel button, start processing
       const truncatedMsg = initResult.truncated ? `\n\n_Note: Only processing first ${MERGE_QUEUE_CONFIG.MAX_PRS_PER_SESSION} PRs_` : '';
 
-      await safeEditMessageText(ctx.telegram, statusMessage.chat.id, statusMessage.message_id, undefined, `*Merge Queue \\- ${escapeMarkdownV2(owner)}/${escapeMarkdownV2(repo)}*${labelMsg}\n\n${getTargetFoundText(target, initResult.count)}${escapeMarkdownV2(truncatedMsg)}\n\nStarting merge process\\.\\.\\.`, {
+      await safeEditMessageText(ctx.telegram, statusMessage.chat.id, statusMessage.message_id, undefined, `*Merge Queue \\- ${escapeMarkdownV2(owner)}/${escapeMarkdownV2(repo)}*${labelMsg}\n\n${getTargetFoundText(target, initResult.count, { dependabot, dependabotCount: initResult.dependabotCount })}${escapeMarkdownV2(truncatedMsg)}\n\nStarting merge process\\.\\.\\.`, {
         parse_mode: 'MarkdownV2',
         reply_markup: {
           inline_keyboard: [[{ text: '🛑 Cancel', callback_data: `merge_cancel_${repoKey}` }]],

@@ -1,0 +1,6 @@
+# docker info --format '{{.LiveRestoreEnabled}} {{.ID}}' against an unreachable socket (issue #2900)
+Docker version 24.0.9: exit=0 stdout=[false ]
+Docker version 26.1.4: exit=0 stdout=[false ]
+Docker version 27.5.1: exit=0 stdout=[false ]
+Docker version 28.5.1: exit=1 stdout=[false ]
+Docker version 29.8.0: exit=1 stdout=[false ]

@@ -88,12 +88,15 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
-# Prints true/false, or nothing when the daemon is unreachable (docker then
-# still renders the template as "false" but exits non-zero).
+# Prints true/false, or nothing when the daemon is unreachable. docker then
+# still renders the template with zero values ("false" and an empty ID); CLI
+# 28+ exits non-zero, older CLIs exit 0, so an empty daemon ID means unknown.
 daemon_live_restore() {
-  local out
-  out="$("$DOCKER" info --format '{{.LiveRestoreEnabled}}' 2>/dev/null)" || return 0
-  printf '%s' "$out" | tr -d '[:space:]'
+  local out flag id
+  out="$("$DOCKER" info --format '{{.LiveRestoreEnabled}} {{.ID}}' 2>/dev/null)" || return 0
+  read -r flag id _ <<<"$out" || true
+  [ -n "${id:-}" ] || return 0
+  printf '%s' "$flag"
 }
 
 # Prints "changed" or "unchanged" and writes the merged JSON to $2; exits 3 when

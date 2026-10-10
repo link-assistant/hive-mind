@@ -21,6 +21,8 @@
 >   throwaway DinD daemon (see [Experiments](#experiments)).
 > - `live-restore-flag-config-conflict.log`: proof that setting `live-restore`
 >   both as a flag and in `daemon.json` stops dockerd from starting.
+> - `docker-cli-unreachable-daemon.log`: what Docker CLIs 24 to 29 print and
+>   return for an unreachable daemon.
 
 ## Timeline (2026-10-09)
 
@@ -99,9 +101,12 @@ module keeps `isolation-runner.lib.mjs` under its line limit.
   means the CLI talks to the nested daemon. The preflight cannot see the host
   then, so it prints a note with the host-side check and the fix.
 - An unreachable daemon is **unknown**, not disabled. `docker info --format`
-  against a dead socket still prints the zero-value template (`false `) but exits
-  1 (`experiments/issue-2900-unreachable-daemon.mjs`), so the probe only trusts
-  exit code 0.
+  against a dead socket still prints the zero-value template (`false ` with an
+  empty ID). Docker CLI 28 and 29 then exit 1, but CLI 24, 26 and 27 exit **0**
+  (`data/docker-cli-unreachable-daemon.log`). The first CI run of this PR hit
+  exactly that on the GitHub runner. So the probe and the host script trust a
+  report only when the command succeeded **and** returned a daemon ID; every
+  reachable daemon reports one.
 - `--verbose` logs, per daemon, the exit code, the raw output, the parsed setting
   and the daemon ID (`[VERBOSE] docker-live-restore: …`).
 
@@ -154,12 +159,13 @@ restarts the nested daemon automatically.
 
 ## Experiments
 
-| Script                                              | Result                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `experiments/issue-2900-live-restore-dind-repro.sh` | In a throwaway `docker:29-dind` daemon (Docker 29.9.0): **A.** with the default, a dockerd restart leaves the container `exited exit=137`, the incident in miniature. **B.** writing `daemon.json` and sending SIGHUP flips `LiveRestoreEnabled` to `true` while the container keeps running with the same PID. **C.** With live-restore on, the container survives a dockerd restart with the same PID. Log: `data/live-restore-dind-repro.log`. |
-| `experiments/issue-2900-flag-config-conflict.sh`    | `dockerd --live-restore` plus `"live-restore": true` in `daemon.json` exits 1: `the following directives are specified both as a flag and in the configuration file: live-restore`. Log: `data/live-restore-flag-config-conflict.log`.                                                                                                                                                                                                            |
-| `experiments/issue-2900-unreachable-daemon.mjs`     | An unreachable socket: command-stream does not throw, `docker info --format` prints `false ` and exits 1. This is why the probe requires exit code 0.                                                                                                                                                                                                                                                                                             |
-| `experiments/issue-2900-live-restore-probe.mjs`     | Runs the real probe and the preflight against the local daemon(s); pass `--verbose` for the raw output.                                                                                                                                                                                                                                                                                                                                           |
+| Script                                               | Result                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `experiments/issue-2900-live-restore-dind-repro.sh`  | In a throwaway `docker:29-dind` daemon (Docker 29.9.0): **A.** with the default, a dockerd restart leaves the container `exited exit=137`, the incident in miniature. **B.** writing `daemon.json` and sending SIGHUP flips `LiveRestoreEnabled` to `true` while the container keeps running with the same PID. **C.** With live-restore on, the container survives a dockerd restart with the same PID. Log: `data/live-restore-dind-repro.log`. |
+| `experiments/issue-2900-flag-config-conflict.sh`     | `dockerd --live-restore` plus `"live-restore": true` in `daemon.json` exits 1: `the following directives are specified both as a flag and in the configuration file: live-restore`. Log: `data/live-restore-flag-config-conflict.log`.                                                                                                                                                                                                            |
+| `experiments/issue-2900-unreachable-daemon.mjs`      | An unreachable socket: command-stream does not throw, `docker info --format` prints `false ` and exits 1 (Docker CLI 29). Older CLIs exit 0 (`data/docker-cli-unreachable-daemon.log`), so the probe also requires a daemon ID.                                                                                                                                                                                                                   |
+| `experiments/issue-2900-command-stream-versions.mjs` | command-stream 1.6.2 and 2.0.0 (the latest, which `use-m` loads in CI) both report exit code 1 for the same failing call, ruling out the library as the cause of the CI difference.                                                                                                                                                                                                                                                               |
+| `experiments/issue-2900-live-restore-probe.mjs`      | Runs the real probe and the preflight against the local daemon(s); pass `--verbose` for the raw output.                                                                                                                                                                                                                                                                                                                                           |
 
 ## Online research
 

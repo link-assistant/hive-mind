@@ -114,6 +114,25 @@ else fail('default daemon probe resolves to {enabled,daemonId}|null', '{enabled,
 const missing = await checkDockerLiveRestore(false, { socket: path.join(os.tmpdir(), 'hive-mind-2900-no-such.sock') });
 assertEqual(missing, null, 'probe of a missing socket resolves to null');
 
+{
+  // Docker CLI 27 and older print the zero-value template ("false ") and exit
+  // 0 for an unreachable daemon (data/docker-cli-unreachable-daemon.log); CI
+  // runners ship such a CLI. Only a report carrying a daemon ID is trusted.
+  const binDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hive-mind-2900-bin-'));
+  const savedPath = process.env.PATH;
+  try {
+    process.env.PATH = `${binDir}${path.delimiter}${savedPath}`;
+    const fakeDocker = path.join(binDir, 'docker');
+    fs.writeFileSync(fakeDocker, '#!/bin/sh\nprintf "false \\n"\n', { mode: 0o755 });
+    assertEqual(await checkDockerLiveRestore(false), null, 'old CLI, unreachable daemon ("false ", exit 0) resolves to null');
+    fs.writeFileSync(fakeDocker, '#!/bin/sh\nprintf "false daemon-xyz\\n"\n', { mode: 0o755 });
+    assertEqual(await checkDockerLiveRestore(false), { enabled: false, daemonId: 'daemon-xyz' }, 'reachable daemon with live-restore off resolves to enabled=false');
+  } finally {
+    process.env.PATH = savedPath;
+    fs.rmSync(binDir, { recursive: true, force: true });
+  }
+}
+
 console.log('\n--- Incident: bot on the host daemon, live-restore off → loud warning ---');
 
 {
@@ -296,7 +315,7 @@ if (!hasJsonTool) {
     // exit before touching daemon.json (covers a dockerd started with the
     // --live-restore flag, where adding the key too breaks the next start).
     const fakeDocker = path.join(dir, 'fake-docker');
-    fs.writeFileSync(fakeDocker, '#!/bin/sh\necho true\n', { mode: 0o755 });
+    fs.writeFileSync(fakeDocker, '#!/bin/sh\necho true daemon-1\n', { mode: 0o755 });
     const untouched = path.join(dir, 'untouched.json');
     const already = run(['--config', untouched], { DOCKER: fakeDocker });
     assertEqual(already.status, 0, 'already enabled on the daemon: exit 0');
@@ -311,6 +330,15 @@ if (!hasJsonTool) {
     assertEqual(unreachable.status, 1, 'unreachable daemon: exit 1');
     assertIncludes(unreachable.stderr, 'cannot reach the Docker daemon', 'unreachable daemon: says so');
     assertEqual(fs.existsSync(untouched), false, 'unreachable daemon: daemon.json not written');
+
+    // Docker CLI 27 and older exit 0 for an unreachable daemon; the empty
+    // daemon ID still marks the report as unknown.
+    const oldDeadDocker = path.join(dir, 'old-dead-docker');
+    fs.writeFileSync(oldDeadDocker, '#!/bin/sh\necho "false "\n', { mode: 0o755 });
+    const oldUnreachable = run(['--config', untouched], { DOCKER: oldDeadDocker });
+    assertEqual(oldUnreachable.status, 1, 'unreachable daemon, old CLI (exit 0): exit 1');
+    assertIncludes(oldUnreachable.stderr, 'cannot reach the Docker daemon', 'unreachable daemon, old CLI: says so');
+    assertEqual(fs.existsSync(untouched), false, 'unreachable daemon, old CLI: daemon.json not written');
 
     assertEqual(run(['--bogus']).status, 2, 'unknown option: exit 2');
   } finally {

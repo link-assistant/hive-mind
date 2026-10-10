@@ -61,8 +61,11 @@ export async function checkDockerLiveRestore(verbose = false, { socket = null } 
     const stdout = result.stdout?.toString() || '';
     const code = Number.isFinite(result.code) ? result.code : 0;
     // An unreachable daemon still renders the template with zero values
-    // ("false ") and exits 1 — that is "unknown", not "disabled".
-    const parsed = code === 0 ? parseLiveRestoreInfoOutput(stdout) : null;
+    // ("false ") — that is "unknown", not "disabled". Docker CLI 28+ exits 1,
+    // but CLI 27 and older exit 0, so the empty daemon ID is the reliable sign:
+    // every reachable daemon reports one.
+    const report = code === 0 ? parseLiveRestoreInfoOutput(stdout) : null;
+    const parsed = report?.daemonId ? report : null;
     if (verbose) console.log(`[VERBOSE] docker-live-restore: ${label}: exit=${code} raw=${JSON.stringify(stdout.trim())} liveRestore=${parsed ? parsed.enabled : '(unknown)'} id=${parsed?.daemonId || '(unknown)'}`);
     return parsed;
   } catch (error) {

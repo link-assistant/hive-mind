@@ -82,7 +82,7 @@ export function buildFixCommandArgs(text) {
  * Options `/fix` consumes itself; everything else is forwarded to `/solve` and
  * must therefore be a valid `solve` option.
  */
-export const FIX_OWN_OPTIONS = Object.freeze([...FIX_MODES.map(mode => mode.flag), '--isolation', '--dry-run', '--no-solve', '--no-auto-solve', '--solve', '--help', '-h', '--version']);
+export const FIX_OWN_OPTIONS = Object.freeze([...FIX_MODES.map(mode => mode.flag), '--isolation', '--dry-run', '--no-solve', '--no-auto-solve', '--solve', '--auto-merge-dependabot', '--no-auto-merge-dependabot', '--help', '-h', '--version']);
 
 /**
  * Reject a `/fix` request that contains any option `fix` or `solve` cannot act on.

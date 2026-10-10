@@ -27,6 +27,7 @@ import { createCiCdIssue, prepareCiCdIssue } from './fix.ci-cd-issue.lib.mjs';
 import { createUpdateDependenciesIssue, prepareUpdateDependenciesIssue } from './fix.update-dependencies-issue.lib.mjs';
 import { setupStdioLogInterceptor } from './lib.mjs';
 import { resolveFixDependencyReporting } from './fix.report-dependencies.lib.mjs';
+import { runDependabotAutoMerge, shouldAutoMergeDependabot } from './fix.dependabot-merge.lib.mjs';
 
 setupStdioLogInterceptor();
 
@@ -47,6 +48,10 @@ Options:
   --no-solve         Create the issue but do not start /solve on it
   --no-report-dependencies-issues
                      Disable upstream reporting during dependency updates
+  --no-auto-merge-dependabot
+                     Do not merge open Dependabot PRs before creating the
+                     --update-all-dependencies issue (merging them, one by
+                     one after CI passes, is on by default in that mode)
   --version          Show version number
   --help, -h         Show help
 
@@ -57,6 +62,7 @@ Examples:
   fix.mjs https://github.com/owner/repo --ci-cd --tool codex --model gpt-5.5
   fix.mjs https://github.com/owner/repo --update-all-dependencies
   fix.mjs owner/repo --update-all-dependencies --dry-run
+  fix.mjs owner/repo --update-all-dependencies --no-auto-merge-dependabot
   fix.mjs owner/repo --ci-cd --think max --no-solve`);
 }
 
@@ -136,7 +142,10 @@ async function main() {
   console.log(`🔧 /fix ${handler.label} for ${repository.fullName}`);
 
   const reportingOptions = parsed.mode === FIX_MODE_UPDATE_ALL_DEPENDENCIES ? { reportDependenciesIssues: resolveFixDependencyReporting(parsed.passthrough) } : {};
-  const prepared = await handler.prepare({ repository, ...reportingOptions, log: message => console.log(`   ${message}`) });
+  // Issue #2885: merge what Dependabot already proposed (and CI accepted) before
+  // the issue snapshots the default branch, so the issue covers only the rest.
+  const dependabotMerge = shouldAutoMergeDependabot(parsed) ? await runDependabotAutoMerge({ repository, dryRun: parsed.dryRun, log: message => console.log(message) }) : null;
+  const prepared = await handler.prepare({ repository, ...reportingOptions, dependabotMerge, log: message => console.log(`   ${message}`) });
   for (const line of handler.summarize(prepared)) console.log(`   ${line}`);
 
   if (parsed.dryRun) {

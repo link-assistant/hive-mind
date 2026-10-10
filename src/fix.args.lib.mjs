@@ -75,7 +75,20 @@ export function parseFixRepository(value) {
  * the `/solve` argv itself (see `buildSolveArgs`), so the option still reaches
  * `/solve` exactly once.
  */
-export const FIX_OWNED_BOOLEAN_FLAGS = Object.freeze(['--ci-cd', '--update-all-dependencies', '--dry-run', '--no-solve', '--solve', '--no-auto-solve', '--help', '-h', '--version']);
+export const FIX_OWNED_BOOLEAN_FLAGS = Object.freeze(['--ci-cd', '--update-all-dependencies', '--dry-run', '--no-solve', '--solve', '--no-auto-solve', '--auto-merge-dependabot', '--no-auto-merge-dependabot', '--help', '-h', '--version']);
+
+/**
+ * Issue #2885: `--update-all-dependencies` merges open Dependabot PRs first.
+ * Returns true/false for `--[no-]auto-merge-dependabot[=bool]`, or null when
+ * `arg` is not that flag.
+ */
+export function parseAutoMergeDependabotFlag(arg) {
+  if (arg === '--auto-merge-dependabot') return true;
+  if (arg === '--no-auto-merge-dependabot') return false;
+  const match = /^--auto-merge-dependabot=(.*)$/.exec(arg);
+  if (!match) return null;
+  return !['false', '0', 'no', 'off'].includes(match[1].toLowerCase());
+}
 
 /**
  * Partition raw CLI args into the options `/fix` consumes and the passthrough
@@ -97,6 +110,8 @@ export function partitionFixArgs(rawArgs) {
     mode: null,
     dryRun: false,
     runSolve: true,
+    // null = mode default (on for --update-all-dependencies), see shouldAutoMergeDependabot
+    autoMergeDependabot: null,
     help: false,
     version: false,
     passthrough: [],
@@ -123,6 +138,11 @@ export function partitionFixArgs(rawArgs) {
     }
     if (arg === '--solve') {
       result.runSolve = true;
+      continue;
+    }
+    const autoMergeDependabot = parseAutoMergeDependabotFlag(arg);
+    if (autoMergeDependabot !== null) {
+      result.autoMergeDependabot = autoMergeDependabot;
       continue;
     }
     if (arg === '--help' || arg === '-h') {

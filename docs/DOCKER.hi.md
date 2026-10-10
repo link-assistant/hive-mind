@@ -27,6 +27,8 @@ claude
 solve https://github.com/owner/repo/issues/123
 ```
 
+> **Bot पर भरोसा करने से पहले होस्ट पर Docker `live-restore` चालू करें।** इसके बिना कोई भी `dockerd` restart (crash, OOM kill, upgrade) bot, हर चल रहे task और queue को खत्म कर देता है। देखें [होस्ट Docker डेमन सेटिंग्स](#होस्ट-docker-डेमन-सेटिंग्स)।
+
 ### विकल्प 2: स्थानीय रूप से Build करना
 
 ```bash
@@ -67,6 +69,8 @@ docker run --rm --runtime=sysbox-runc -it konard/hive-mind-dind:latest bash
 ```
 
 DinD image `konard/hive-mind:latest` से अलग publish होती है, इसलिए जिन्हें nested Docker नहीं चाहिए वे existing lower-privilege image इस्तेमाल कर सकते हैं।
+
+DinD bot container **होस्ट** daemon पर चलता है, इसलिए होस्ट `dockerd` का restart उसे और उसके अंदर nested हर task को समाप्त कर देता है। पहले होस्ट पर `live-restore` चालू करें; देखें [होस्ट Docker डेमन सेटिंग्स](#होस्ट-docker-डेमन-सेटिंग्स)।
 
 ### विकल्प 4: Persistent Formal AI Service
 
@@ -190,6 +194,7 @@ probe करके result log करता है, ताकि misconfiguration
 - ⚠️ socket mounted है पर image अब भी absent → यह आपको passthrough mode/allowlist/digest जाँचने को कहता है;
 - ⚠️ inner daemon `vfs` storage driver पर है → यह आपको `fuse-overlayfs` पर switch करने को कहता है (issue #1914 की disk-amplification root cause);
 - ⚠️ Docker data root पर कम free space और image अब भी absent → यह चेतावनी देता है कि आने वाला pull डिस्क खत्म कर सकता है।
+- ⚠️ होस्ट daemon (mounted socket के ज़रिए) या task daemon `LiveRestoreEnabled=false` बताता है → यह बताता है कि `live-restore` को `systemctl reload docker` से कैसे चालू करें, `restart` से कभी नहीं ([होस्ट Docker डेमन सेटिंग्स](#होस्ट-docker-डेमन-सेटिंग्स), issue #2900)।
 
 underlying `docker image inspect` traces के लिए bot को `--verbose` (या `TELEGRAM_BOT_VERBOSE=true`) के साथ चलाएं।
 
@@ -256,6 +261,58 @@ docker run --rm -it \
     -v "$(pwd)/output:/home/box/output" \
     hive-mind-dev
 ```
+
+## होस्ट Docker डेमन सेटिंग्स
+
+### `live-restore` चालू करें (दृढ़ता से अनुशंसित)
+
+Default (`"live-restore": false`) में **होस्ट `dockerd` का कोई भी restart उस पर चल रहे हर container को रोक देता है**: crash, OOM kill, `apt upgrade docker-ce` या `systemctl restart docker`। Hive Mind के लिए इसका मतलब है कि bot container, हर चल रहा task और in-memory solve queue एक साथ खत्म हो जाते हैं। `--restart unless-stopped` bot को वापस ले आता है, लेकिन चल रहे tasks और queue खो जाते हैं। [issue #2900](https://github.com/link-assistant/hive-mind/issues/2900) में यही हुआ: होस्ट `dockerd` OOM-kill हुआ, systemd ने उसे restart किया, और उसने bot तथा चारों चल रहे tasks को exit 137 के साथ समाप्त कर दिया।
+
+Container processes `containerd-shim` के child processes हैं, `dockerd` के नहीं। `"live-restore": true` के साथ restart हुआ `dockerd` चल रहे containers को मारने की बजाय उनसे फिर से जुड़ जाता है ([Docker docs](https://docs.docker.com/engine/daemon/live-restore/))।
+
+`live-restore` एक **reload हो सकने वाला** option है, इसलिए इसे एक भी container रोके बिना चालू किया जा सकता है। इसे **होस्ट** पर चलाएँ (bot container के अंदर नहीं):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/link-assistant/hive-mind/main/scripts/enable-docker-live-restore.sh | sudo bash
+```
+
+यह script ([`scripts/enable-docker-live-restore.sh`](../scripts/enable-docker-live-restore.sh)):
+
+- `/etc/docker/daemon.json` में `"live-restore": true` merge करता है और बाकी सभी keys बनाए रखता है (पहले backup लेता है; invalid JSON को नहीं छूता);
+- नतीजे को validate करता है;
+- dockerd को **reload** करता है;
+- नई setting verify करता है।
+
+`--dry-run` केवल बदलाव दिखाता है, और `--no-reload` केवल file edit करता है।
+
+हाथ से करने के लिए:
+
+```bash
+# 1. मौजूदा settings रखते हुए key जोड़ें, जैसे /etc/docker/daemon.json:
+#    { "log-driver": "json-file", "live-restore": true }
+sudoedit /etc/docker/daemon.json
+
+# 2. containers रोके बिना लागू करें: reload करें, restart कभी नहीं
+sudo systemctl reload docker        # या: sudo kill -HUP "$(pidof dockerd)"
+
+# 3. जाँच करें
+docker info -f '{{.LiveRestoreEnabled}}'   # -> true
+```
+
+> ⚠️ **जब containers चल रहे हों तब `systemctl reload docker` का उपयोग करें, `systemctl restart docker` का कभी नहीं।** जब तक live-restore चालू नहीं होता, restart स्वयं हर container को समाप्त कर देता है, और यही वह outage है जिसे आप रोकना चाहते हैं।
+
+`--isolation docker` चालू होने पर Hive Mind startup पर इस setting की जाँच करता है। अगर bot या उसके tasks चलाने वाले daemon पर live-restore बंद है, तो bot इन्हीं steps के साथ warning log करता है। DinD image के अंदर bot mounted host socket के ज़रिए होस्ट daemon की जाँच करता है (ऊपर host-image passthrough वाला section देखें)। यह जाँच केवल diagnostic है और startup को कभी नहीं रोकती।
+
+**live-restore किन चीज़ों को cover नहीं करता:**
+
+- **होस्ट reboot।** Containers मशीन के साथ रुक जाते हैं। Bot container पर `--restart unless-stopped` अब भी ज़रूरी है, और solve queue को अब भी persist करना ज़रूरी है ([#2890](https://github.com/link-assistant/hive-mind/issues/2890))।
+- **Feature-release Docker upgrades।** Docker live restore केवल patch upgrades (जैसे `29.6.0` → `29.6.1`) में support करता है। बड़े upgrade के बाद, या storage driver या bridge IP जैसे daemon options बदलने के बाद, containers restore न हों ऐसा हो सकता है। इन्हें शांत समय में करें।
+- **Daemon का लंबा outage।** जब dockerd बंद होता है, container output एक FIFO buffer (default 64 KiB) में जाता है। Buffer भर जाने पर उसमें writes block हो जाते हैं, और Docker docs के अनुसार उसे flush करने के लिए dockerd को restart करना पड़ता है।
+- **Swarm।** Live restore केवल standalone containers पर लागू होता है। पुराने Docker releases live-restore चालू होने पर swarm mode चलाने से मना करते हैं, इसलिए swarm node पर script रुक जाता है, जब तक आप `--allow-swarm` न दें।
+- **Flag और file का टकराव।** अगर dockerd पहले से `--live-restore` flag के साथ चल रहा है, तो `daemon.json` में भी key न जोड़ें: एक ही directive दोनों जगह होने पर dockerd start होने से मना कर देता है। Script इस स्थिति को पहचानता है (daemon पहले से `true` बताता है) और कुछ नहीं बदलता।
+- **Docker Desktop।** इसे _Settings → Docker Engine_ में सेट करें। वहाँ apply करने पर engine restart होता है, इसलिए यह तब करें जब कोई task न चल रहा हो।
+
+**Nested DinD daemon।** `konard/hive-mind-dind` image अपना inner `dockerd` `--live-restore` के बिना start करती है। उस inner daemon को अपने-आप कोई restart नहीं करता, इसलिए जोखिम कम है, और bot केवल इसे log करता है। Upstream में अनुरोध किया गया: [link-foundation/box#131](https://github.com/link-foundation/box/issues/131)। इसे अभी चालू करने के लिए `{"live-restore": true}` वाली `daemon.json` को container में `/etc/docker/daemon.json` पर bind-mount करें।
 
 ## Authentication
 
@@ -342,6 +399,7 @@ docker run --rm -it \
 ## पूर्वापेक्षाएं
 
 1. **Docker:** Docker Desktop या Docker Engine (version 20.10 या उच्चतर) install करें
+   और [`live-restore` चालू करें](#होस्ट-docker-डेमन-सेटिंग्स)
 2. **Internet Connection:** Images pull करने और authentication के लिए आवश्यक
 
 ## डायरेक्टरी संरचना
@@ -445,6 +503,9 @@ claude
 ```bash
 # Host पर Docker स्थिति जांचें
 docker info
+
+# जाँचें कि dockerd restart चल रहे containers को नहीं मारेगा (true अपेक्षित)
+docker info -f '{{.LiveRestoreEnabled}}'
 
 # नवीनतम image pull करें
 docker pull konard/hive-mind:latest

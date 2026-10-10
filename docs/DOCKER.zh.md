@@ -27,6 +27,8 @@ claude
 solve https://github.com/owner/repo/issues/123
 ```
 
+> **在依赖 bot 之前，请先在宿主机上启用 Docker `live-restore`。** 否则任何 `dockerd` 重启（崩溃、OOM kill、升级）都会杀死 bot、所有正在运行的任务以及队列。参见[宿主机 Docker 守护进程设置](#宿主机-docker-守护进程设置)。
+
 ### 选项 2：本地构建
 
 ```bash
@@ -67,6 +69,8 @@ docker run --rm --runtime=sysbox-runc -it konard/hive-mind-dind:latest bash
 ```
 
 DinD 镜像与 `konard/hive-mind:latest` 分开发布，因此不需要嵌套 Docker 的用户可以继续使用现有的低权限镜像。
+
+DinD bot 容器运行在**宿主机**守护进程上，因此宿主机 `dockerd` 重启会杀死它以及其中嵌套的所有任务。请先在宿主机上启用 `live-restore`，参见[宿主机 Docker 守护进程设置](#宿主机-docker-守护进程设置)。
 
 ### 选项 4：持久 Formal AI 服务
 
@@ -184,6 +188,7 @@ docker pull "konard/hive-mind-dind:${TAG:-latest}"
 - ⚠️ 套接字已挂载但镜像仍缺失 → 提示你检查透传模式/允许列表/digest；
 - ⚠️ 内部 daemon 使用 `vfs` 存储驱动 → 提示你切换到 `fuse-overlayfs`（issue #1914 的磁盘膨胀根因）；
 - ⚠️ Docker data root 可用空间不足且镜像仍缺失 → 警告即将进行的拉取可能耗尽磁盘。
+- ⚠️ 宿主机守护进程（通过挂载的 socket）或任务守护进程报告 `LiveRestoreEnabled=false` → 提示你通过 `systemctl reload docker`（切勿使用 `restart`）启用 `live-restore`（[宿主机 Docker 守护进程设置](#宿主机-docker-守护进程设置)，issue #2900）。
 
 以 `--verbose`（或 `TELEGRAM_BOT_VERBOSE=true`）运行机器人可查看底层
 `docker image inspect` 跟踪。
@@ -246,6 +251,58 @@ docker run --rm -it \
     -v "$(pwd)/output:/home/box/output" \
     hive-mind-dev
 ```
+
+## 宿主机 Docker 守护进程设置
+
+### 启用 `live-restore`（强烈推荐）
+
+默认情况下（`"live-restore": false`），**宿主机 `dockerd` 的任何一次重启都会停止其上的所有容器**，例如崩溃、OOM kill、`apt upgrade docker-ce` 或 `systemctl restart docker`。对 Hive Mind 来说，这意味着 bot 容器、所有正在运行的任务以及内存中的 solve 队列会一起丢失。`--restart unless-stopped` 能让 bot 重新启动，但正在运行的任务和队列已经没有了。[issue #2900](https://github.com/link-assistant/hive-mind/issues/2900) 中正是如此：宿主机 `dockerd` 被 OOM 杀死，systemd 将其重启，随后它以退出码 137 杀死了 bot 和全部四个正在运行的任务。
+
+容器进程是 `containerd-shim` 的子进程，而不是 `dockerd` 的子进程。启用 `"live-restore": true` 后，重启后的 `dockerd` 会重新接管仍在运行的容器，而不是杀死它们（[Docker 文档](https://docs.docker.com/engine/daemon/live-restore/)）。
+
+`live-restore` 是一个**可热加载（reload）**的选项，因此无需停止任何容器即可启用。在**宿主机**上（不是在 bot 容器内）执行：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/link-assistant/hive-mind/main/scripts/enable-docker-live-restore.sh | sudo bash
+```
+
+该脚本（[`scripts/enable-docker-live-restore.sh`](../scripts/enable-docker-live-restore.sh)）会：
+
+- 将 `"live-restore": true` 合并到 `/etc/docker/daemon.json` 中，并保留其他所有键（会先备份，无效的 JSON 不会被改动）；
+- 校验结果；
+- **重新加载（reload）** dockerd；
+- 验证新设置。
+
+`--dry-run` 只预览修改，`--no-reload` 只编辑文件。
+
+手动操作：
+
+```bash
+# 1. 添加该键并保留已有设置，例如 /etc/docker/daemon.json：
+#    { "log-driver": "json-file", "live-restore": true }
+sudoedit /etc/docker/daemon.json
+
+# 2. 在不停止容器的情况下生效：使用 reload，切勿使用 restart
+sudo systemctl reload docker        # 或：sudo kill -HUP "$(pidof dockerd)"
+
+# 3. 验证
+docker info -f '{{.LiveRestoreEnabled}}'   # -> true
+```
+
+> ⚠️ **容器运行期间请使用 `systemctl reload docker`，切勿使用 `systemctl restart docker`。** 在 live-restore 启用之前，重启本身就会杀死所有容器，而这正是你想要避免的故障。
+
+启用 `--isolation docker` 时，Hive Mind 会在启动时检查此设置。如果运行 bot 或其任务的守护进程未启用 live-restore，bot 会记录一条包含上述步骤的警告。在 DinD 镜像中，bot 会通过挂载的宿主机 socket 检查宿主机守护进程（参见上文的宿主镜像透传一节）。该检查仅用于诊断，从不阻止启动。
+
+**live-restore 无法覆盖的情况：**
+
+- **宿主机重启。** 容器会随机器一起停止。bot 容器仍然需要 `--restart unless-stopped`，solve 队列仍然需要持久化（[#2890](https://github.com/link-assistant/hive-mind/issues/2890)）。
+- **跨功能版本升级 Docker。** Docker 只在补丁版本升级（例如 `29.6.0` → `29.6.1`）时支持 live restore。更大的升级，或修改存储驱动、bridge IP 等守护进程选项之后，容器可能无法恢复。请在空闲时进行。
+- **守护进程长时间停止。** dockerd 停止期间，容器输出会写入 FIFO 缓冲区（默认 64 KiB）。缓冲区写满后写入会阻塞；根据 Docker 文档，此时需要重启 dockerd 才能清空它。
+- **Swarm。** Live restore 只适用于独立容器。较旧的 Docker 版本拒绝在启用 live-restore 时运行 swarm 模式，因此在 swarm 节点上，除非传入 `--allow-swarm`，脚本会停止执行。
+- **参数与配置文件冲突。** 如果 dockerd 已经通过 `--live-restore` 参数启动，就不要再在 `daemon.json` 中添加该键：同一指令同时来自两处时，dockerd 会拒绝启动。脚本能识别这种情况（守护进程已报告 `true`）并且不做任何修改。
+- **Docker Desktop。** 在 _Settings → Docker Engine_ 中设置。应用时会重启引擎，请在没有任务运行时操作。
+
+**嵌套的 DinD 守护进程。** `konard/hive-mind-dind` 镜像启动其内部 `dockerd` 时没有使用 `--live-restore`。没有任何机制会自动重启这个内部守护进程，因此风险较低，bot 只会记录日志。已向上游提出：[link-foundation/box#131](https://github.com/link-foundation/box/issues/131)。如需现在就启用，请将包含 `{"live-restore": true}` 的 `daemon.json` 绑定挂载到容器内的 `/etc/docker/daemon.json`。
 
 ## 身份验证
 
@@ -322,6 +379,7 @@ docker run --rm -it \
 ## 前提条件
 
 1. **Docker**：安装 Docker Desktop 或 Docker Engine（版本 20.10 或更高）
+   并[启用 `live-restore`](#宿主机-docker-守护进程设置)
 2. **网络连接**：拉取镜像和身份验证需要
 
 ## 目录结构
@@ -425,6 +483,9 @@ claude
 ```bash
 # 检查宿主机上的 Docker 状态
 docker info
+
+# 检查 dockerd 重启不会杀死正在运行的容器（应为 true）
+docker info -f '{{.LiveRestoreEnabled}}'
 
 # 拉取最新镜像
 docker pull konard/hive-mind:latest

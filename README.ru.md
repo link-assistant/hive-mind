@@ -144,7 +144,17 @@ sudo apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin dock
 
 # Verify installation
 sudo docker run hello-world
+
+# Enable live-restore, so a dockerd restart (crash, OOM kill, upgrade) does not
+# kill the bot and every task. It is applied with a reload, never a restart.
+curl -fsSL https://raw.githubusercontent.com/link-assistant/hive-mind/main/scripts/enable-docker-live-restore.sh | sudo bash
 ```
+
+**Docker уже установлен?** Выполните только последнюю команду. Она включает
+[`live-restore`](docs/DOCKER.ru.md#настройки-демона-docker-на-хосте) через
+`systemctl reload docker`. Никогда не используйте `systemctl restart docker`, пока
+работают контейнеры: сам перезапуск их убивает
+([issue #2900](https://github.com/link-assistant/hive-mind/issues/2900)).
 
 **Для других операционных систем** или подробных инструкций см. [официальную документацию Docker](https://docs.docker.com/engine/install/).
 

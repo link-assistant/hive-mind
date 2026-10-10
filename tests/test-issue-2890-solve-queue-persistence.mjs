@@ -166,6 +166,19 @@ console.log('\n=== Restore: starting items are reconciled with running sessions 
   assert(summary.requeued.length === 1 && after.queues.codex[0].id === lost.id && after.queues.codex[0].status === 'queued', 'a start that never reached a container is queued again');
 }
 
+console.log('\n=== Restore: an interrupted start goes back to the head, even with equal timestamps ===');
+{
+  const queue = newQueue();
+  const createdAt = new Date('2026-10-09T12:00:00.000Z');
+  const [head, second, third] = [50, 51, 52].map(n => enqueue(queue, n, 'codex', { createdAt }));
+  queue.getToolQueue('codex').splice(0, 1);
+  head.setStarting();
+  queue.processing.set(head.id, head);
+  const after = newQueue();
+  await restoreSolveQueue(after, parseSolveQueueDocument(buildSolveQueueDocument(snapshotSolveQueue(queue), { revision: 1 })), { telegram });
+  assert(after.queues.codex.map(item => item.id).join() === [head.id, second.id, third.id].join(), 'items enqueued in the same millisecond keep their order, the interrupted start first');
+}
+
 console.log('\n=== Restore limit protects against restart loops ===');
 {
   const queue = newQueue();

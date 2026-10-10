@@ -43,15 +43,16 @@ const start = (item, sessionId) => {
 };
 
 if (mode === 'snapshot') {
-  enqueue(724);
-  const waiting = enqueue(725);
-  waiting.setWaiting('Waiting for the start interval');
-  queue.notifyStateChange('message', waiting);
+  // The consumer always starts the head of a tool queue.
   const alive = enqueue(727);
   const lost = enqueue(728);
+  enqueue(724);
+  const waiting = enqueue(725);
   enqueue(1, 'claude');
   start(alive, 'uuid-alive');
   start(lost, 'uuid-lost');
+  waiting.setWaiting('Waiting for the start interval');
+  queue.notifyStateChange('message', waiting);
   const sessions = createSessionStore({ dir: stateDir });
   sessions.persist('uuid-alive', { chatId: -100777, messageId: 927, url: alive.url, command: 'solve', isolationBackend: 'docker', sessionId: 'uuid-alive', tool: 'codex', startTime: new Date() });
   sessions.persist('uuid-recovering', { chatId: -100777, messageId: 999, url: 'https://github.com/link-assistant/router/issues/700', command: 'solve', isolationBackend: 'docker', sessionId: 'uuid-recovering', tool: 'codex', startTime: new Date(), killRecoveryAttempts: 2, killRecoveryResumed: true, killRecoveryOfSession: 'uuid-killed' });

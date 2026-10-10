@@ -150,15 +150,16 @@ console.log('\n=== Bot launch: restore from the state volume, notify the chat ==
   const before = newQueue();
   const persistence = createSolveQueuePersistence({ dir: stateDir, clinkPath: false });
   persistence.attach(before);
-  const items = [enqueue(before, 10, telegram), enqueue(before, 11, telegram), enqueue(before, 12, telegram)];
-  // #11 was starting in a container that is still alive, #12 never reached `$`.
-  for (const item of items.slice(1)) {
-    before.getToolQueue('codex').splice(before.getToolQueue('codex').indexOf(item), 1);
+  const [alive, lost, queued] = [enqueue(before, 11, telegram), enqueue(before, 12, telegram), enqueue(before, 10, telegram)];
+  // The consumer starts the head of the queue: #11 is starting in a container
+  // that is still alive, #12 never reached `$`, #10 is still queued.
+  for (const item of [alive, lost]) {
+    before.getToolQueue('codex').shift();
     item.setStarting();
     before.processing.set(item.id, item);
   }
-  items[1].assignSessionId('uuid-alive', 'docker');
-  items[2].assignSessionId('uuid-lost', 'docker');
+  alive.assignSessionId('uuid-alive', 'docker');
+  lost.assignSessionId('uuid-lost', 'docker');
   await persistence.flush();
 
   const after = newQueue();
@@ -178,7 +179,7 @@ console.log('\n=== Bot launch: restore from the state volume, notify the chat ==
   const summary = await durability.start();
   assert(executorSet, 'the executor is set before restored items can run');
   assert(summary.source === 'archive' && summary.requeued.length === 2 && summary.running.length === 1, 'two items are queued again and one is still running');
-  assert(after.queues.codex.map(i => i.id).join() === [items[0].id, items[2].id].join(), 'restored items keep their order');
+  assert(after.queues.codex.map(i => i.id).join() === [lost.id, queued.id].join(), 'restored items keep their order, the interrupted start first');
   assert(tracked.length === 1 && tracked[0][0] === 'uuid-alive' && tracked[0][1].chatId === -100777 && tracked[0][1].messageId === 31 && tracked[0][1].isolationBackend === 'docker', 'the running task is handed to the session monitor with its chat and card');
   assert(telegram.sent.length === 1 && telegram.sent[0].chatId === -100777, 'the chat is told once');
   const notice = telegram.sent[0].text;

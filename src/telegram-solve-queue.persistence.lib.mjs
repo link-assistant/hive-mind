@@ -358,7 +358,9 @@ export async function restoreSolveQueue(queue, loaded, options = {}) {
   const summary = { requeued: [], running: [], skipped: [], dropped: [], source: loaded?.source || null, revision: loaded?.revision ?? null };
   const header = loaded?.header;
   if (header) mergeQueueTiming(queue, header);
-  const records = [...(loaded?.items || [])].sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')));
+  // Oldest first. On equal timestamps an item that was starting left the head
+  // of its queue, so it goes first; the rest keep their stored order (stable sort).
+  const records = [...(loaded?.items || [])].sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')) || (b.status === 'starting') - (a.status === 'starting'));
   const seen = new Set();
   for (const record of records) {
     const key = canonicalizeGitHubUrl(record.url || '') || record.id;

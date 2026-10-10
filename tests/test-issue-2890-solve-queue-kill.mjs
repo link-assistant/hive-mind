@@ -107,7 +107,7 @@ console.log('\n=== kill -9 with queued, waiting, starting and recovering work ==
   const order = summary.requeued.map(entry => entry.record.url.split('/').at(-1));
   assert(summary.source === 'archive', 'the queue comes back from the state directory');
   assert(order.sort().join() === '1,724,725,728', 'queued, waiting and lost-start items are all queued again');
-  assert(queue.queues.codex.map(item => item.url.split('/').at(-1)).join() === '724,725,728' && queue.queues.claude.length === 1, 'each tool queue holds its items in their original order');
+  assert(queue.queues.codex.map(item => item.url.split('/').at(-1)).join() === '728,724,725' && queue.queues.claude.length === 1, 'each tool queue holds its items in their original order');
   assert(summary.running.length === 1 && summary.running[0].record.sessionId === 'uuid-alive', 'the start whose session survived is not run twice');
   const lost = queue.queues.codex.find(item => item.url.endsWith('/728'));
   assert(lost.interruptedStarts === 1 && lost.args.join(' ').includes('--think high') && lost.messageInfo.messageId === 928 && lost.ctx.chat.id === -100777 && lost.ctx.message.message_thread_id === 7, 'the lost start keeps its args, card and topic, and counts the interruption');
@@ -128,7 +128,7 @@ console.log('\n=== kill -9 with queued, waiting, starting and recovering work ==
     executed
       .filter(item => item.tool === 'codex')
       .map(item => item.url.split('/').at(-1))
-      .join() === '724,725,728',
+      .join() === '728,724,725',
     'codex items run in queue order'
   );
   await durability.close();

@@ -19,7 +19,9 @@ import path from 'node:path';
 import os from 'node:os';
 import { execFileSync } from 'node:child_process';
 
-import { extractTaskRefsFromCommand, isDockerIsolationSessionName, parseDockerContainerExitCode, parseRemoteUrl } from './cleanup.lib.mjs';
+import { buildSessionTaskRecords, extractTaskRefsFromCommand, isDockerIsolationSessionName, parseDockerContainerExitCode, parseRemoteUrl } from './cleanup.lib.mjs';
+import { readLogMarkerLines } from './log-bounded-read.lib.mjs';
+import { isTerminalSessionStatus } from './session-status.lib.mjs';
 import { correlateProcesses, parseStartCommandLogMetadata, redactProcessText } from './process-debug.lib.mjs';
 import { buildSystemCleanupPlan, estimateSystemCleanupPlan, formatSystemCleanupEstimateLine, formatSystemCleanupTotalLine } from './system-cleanup-estimates.lib.mjs';
 
@@ -682,9 +684,8 @@ export function listLiveSessionIds() {
 export async function listActiveTaskRefsFromSessions(sessionIds) {
   if (!sessionIds || sessionIds.length === 0) return [];
   let querySessionStatus;
-  let isTerminalSessionStatus;
   try {
-    ({ querySessionStatus, isTerminalSessionStatus } = await import('./isolation-runner.lib.mjs'));
+    ({ querySessionStatus } = await import('./isolation-runner.lib.mjs'));
   } catch {
     return [];
   }
@@ -729,14 +730,41 @@ export function resolvePrHeadBranch(ref) {
   return out || null;
 }
 
+/** Where `$` (start-command) keeps session console logs (mirrors telegram-log-command.lib.mjs resolveLogPath). */
+const START_COMMAND_LOG_ROOT = '/tmp/start-command/logs';
+const ISOLATION_LOG_BACKENDS = new Set(['screen', 'tmux', 'docker']);
+
+/** Lines in a session log that name an issue/PR created at runtime (see extractCreatedTaskRefsFromLog). */
+const CREATED_TASK_LOG_LINE_RE = /Created issue:|Starting \/solve:|PR created:|PR URL:/;
+
 /**
- * Enumerate ALL tasks known to start-command from the single `$ --list` source
- * (issue #1927 review): one record per GitHub issue/PR reference found in each
- * session's command line, carrying that session's id/name/status/workspace and a
- * `terminal` flag (whether the session has finished). Unlike
- * {@link listActiveTaskRefsFromSessions}, this includes *completed* sessions so a
- * stale `gh-issue-solver-*` folder can be annotated with the PR and session it
- * once belonged to — even after the task is no longer running.
+ * Resolve the console log of a start-command session: the `logPath` reported
+ * by `$` when present, otherwise start-command's documented layout.
+ *
+ * @param {{uuid?: string|null, isolation?: string|null, logPath?: string|null}} session
+ * @param {string} [logRoot]
+ * @returns {string|null}
+ */
+export function resolveSessionLogPath(session, logRoot = START_COMMAND_LOG_ROOT) {
+  if (session?.logPath) return session.logPath;
+  if (!session?.uuid) return null;
+  if (session.isolation && ISOLATION_LOG_BACKENDS.has(session.isolation)) return path.join(logRoot, 'isolation', session.isolation, `${session.uuid}.log`);
+  return path.join(logRoot, 'direct', `${session.uuid}.log`);
+}
+
+/**
+ * Enumerate ALL sessions known to start-command from the single `$ --list`
+ * source (issue #1927 review) as cleanup task records, carrying each session's
+ * id/name/status/exit code/workspace and a `terminal` flag (whether the session
+ * has finished). Unlike {@link listActiveTaskRefsFromSessions}, this includes
+ * *completed* sessions so a stale `gh-issue-solver-*` folder can be annotated
+ * with the PR and session it once belonged to — even after the task is no
+ * longer running.
+ *
+ * Every session yields at least one record (issue #2844): one per issue/PR URL
+ * on its command line; for repo-only commands (`fix <repo> --ci-cd`,
+ * `hive <repo>`) the issues/PRs it created are recovered from its console log,
+ * falling back to a repository-only record. See buildSessionTaskRecords.
  *
  * This consolidates session enumeration onto start-command's own `$ --list`
  * (which knows every session, not just the ones still alive in screen/tmux) so
@@ -745,16 +773,20 @@ export function resolvePrHeadBranch(ref) {
  * @param {Object} [options]
  * @param {boolean} [options.verbose=false]
  * @param {boolean} [options.resolveBranches=false] - resolve PR head branches via gh
- * @returns {Promise<Array<{owner, repo, type, number, branch: string|null, sessionId: string|null, sessionName: string|null, status: string|null, exitCode: number|null, isolation: string|null, workspace: string|null, terminal: boolean, startTime: string|null}>>}
+ * @param {boolean} [options.readSessionLogs=true] - recover created issues/PRs from logs of repo-only sessions
+ * @param {Function} [options.listSessions] - injectable `$ --list` reader (tests)
+ * @param {string} [options.logRoot] - start-command log root (tests)
+ * @returns {Promise<Array<{owner: string|null, repo: string|null, type: 'issue'|'pull'|null, number: number|null, branch: string|null, sessionId: string|null, sessionName: string|null, status: string|null, exitCode: number|null, isolation: string|null, workspace: string|null, terminal: boolean, startTime: string|null}>>}
  */
 export async function listSessionTasks(options = {}) {
-  const { verbose = false, resolveBranches = false } = options;
-  let listIsolationSessions;
-  let isTerminalSessionStatus;
-  try {
-    ({ listIsolationSessions, isTerminalSessionStatus } = await import('./isolation-runner.lib.mjs'));
-  } catch {
-    return [];
+  const { verbose = false, resolveBranches = false, readSessionLogs = true, logRoot = START_COMMAND_LOG_ROOT } = options;
+  let listIsolationSessions = options.listSessions || null;
+  if (!listIsolationSessions) {
+    try {
+      ({ listIsolationSessions } = await import('./isolation-runner.lib.mjs'));
+    } catch {
+      return [];
+    }
   }
 
   let sessions;
@@ -766,26 +798,19 @@ export async function listSessionTasks(options = {}) {
 
   // Newest session first, so when several sessions worked the same issue/PR the
   // most recent one is the match a folder gets annotated with.
-  const sorted = [...sessions].sort((a, b) => new Date(b.startTime || 0).getTime() - new Date(a.startTime || 0).getTime());
+  const sorted = [...(sessions || [])].sort((a, b) => new Date(b.startTime || 0).getTime() - new Date(a.startTime || 0).getTime());
 
   const tasks = [];
   for (const session of sorted) {
-    if (!session || !session.command) continue;
+    if (!session || (!session.uuid && !session.sessionName && !session.command)) continue;
     const terminal = !!(session.status && isTerminalSessionStatus(session.status));
-    for (const ref of extractTaskRefsFromCommand(session.command)) {
-      tasks.push({
-        ...ref,
-        branch: null,
-        sessionId: session.uuid || null,
-        sessionName: session.sessionName || null,
-        status: session.status || null,
-        exitCode: session.exitCode ?? null,
-        isolation: session.isolation || null,
-        workspace: session.workingDirectory || null,
-        terminal,
-        startTime: session.startTime || null,
-      });
+    let logText = null;
+    if (readSessionLogs && extractTaskRefsFromCommand(session.command).length === 0) {
+      const logPath = resolveSessionLogPath(session, logRoot);
+      logText = logPath ? await readLogMarkerLines(logPath, CREATED_TASK_LOG_LINE_RE) : null;
+      if (verbose && logText) console.log(`[VERBOSE] cleanup: recovering created issues/PRs of session ${session.uuid} from ${logPath}`);
     }
+    tasks.push(...buildSessionTaskRecords(session, { terminal, logText }));
   }
 
   if (resolveBranches) {
@@ -822,7 +847,10 @@ export async function getActiveTasks(options = {}) {
     const allSessionTasks = sessionTasks || (await listSessionTasks({ verbose: false, resolveBranches: false }));
     for (const task of allSessionTasks) {
       if (task.terminal) continue;
-      const key = `${task.owner}/${task.repo}#${task.number}:${task.type}`;
+      // A session that names no GitHub repository at all is not a task.
+      if (!task.owner) continue;
+      // Repo-only sessions (issue #2844) have no number; key them per session.
+      const key = task.number == null ? `session:${task.sessionId || task.sessionName}` : `${task.owner}/${task.repo}#${task.number}:${task.type}`;
       if (!seen.has(key)) {
         seen.add(key);
         refs.push(task);

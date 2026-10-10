@@ -269,6 +269,22 @@ export const buildCodexContextWindowConfigArgs = ({ longContext, shortContextTok
 };
 
 /**
+ * Issue #2842: read the `model_context_window=<tokens>` override back out of
+ * Codex `-c` args, so usage accounting knows the window every request of the
+ * run was capped at.
+ *
+ * @param {string[]} args - Codex `-c` args, e.g. ['-c', 'model_context_window=272000'].
+ * @returns {number|null} The configured window in tokens, or null when absent.
+ */
+export const getCodexContextWindowFromConfigArgs = args => {
+  for (const arg of Array.isArray(args) ? args : []) {
+    const match = String(arg).match(/^model_context_window=(\d+)$/);
+    if (match) return Number.parseInt(match[1], 10) || null;
+  }
+  return null;
+};
+
+/**
  * Gemini CLI / Qwen Code compaction setting for this run, as a settings
  * fragment for ensureGeminiFamilySettings, or null to leave the tool alone.
  *

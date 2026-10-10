@@ -35,6 +35,7 @@ import { createToolCallLoopGuard, resolveRepeatedToolCallLimit } from './tool-ca
 import { stringifyErrorValue } from './error-text.lib.mjs'; // Issue #2141
 import { ensureGeminiFamilyMemoryDisabled, isAgentMemoryDisabled } from './agent-memory-policy.lib.mjs'; // Issue #2178
 import { ensureGeminiFamilyAuxiliaryDisabled, isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236
+import { appendMemoryBudgetPrompt } from './memory-budget.lib.mjs'; // Issue #2838
 import { applyGeminiFamilyPricingTier } from './pricing-tier.lib.mjs'; // Issue #2771
 
 export const mapModelToId = model => qwenModels[model] || model;
@@ -424,23 +425,26 @@ export const executeQwen = async params => {
 
   const { buildUserPrompt, buildSystemPrompt } = await import('./qwen.prompts.lib.mjs');
 
-  const prompt = buildUserPrompt({
-    issueUrl,
-    issueNumber,
-    prNumber,
-    prUrl,
-    branchName,
-    tempDir,
-    workspaceTmpDir,
-    isContinueMode,
-    mergeStateStatus,
-    forkedRepo,
-    feedbackLines,
-    forkActionsUrl,
-    owner,
-    repo,
-    argv,
-  });
+  // Issue #2838: tell the tool the container memory budget (empty outside a limited cgroup).
+  const prompt = appendMemoryBudgetPrompt(
+    buildUserPrompt({
+      issueUrl,
+      issueNumber,
+      prNumber,
+      prUrl,
+      branchName,
+      tempDir,
+      workspaceTmpDir,
+      isContinueMode,
+      mergeStateStatus,
+      forkedRepo,
+      feedbackLines,
+      forkActionsUrl,
+      owner,
+      repo,
+      argv,
+    })
+  );
 
   const systemPrompt = buildSystemPrompt({
     owner,
@@ -524,7 +528,7 @@ export const executeQwenCommand = async params => {
 
     const resourcesBefore = await getResourceSnapshot();
     await log('📈 System resources before execution:', { verbose: true });
-    await log(`   Memory: ${resourcesBefore.memory.split('\n')[1] || resourcesBefore.memory}`, { verbose: true });
+    await log(`   Memory: ${resourcesBefore.memorySummary ?? (resourcesBefore.memory.split('\n')[1] || resourcesBefore.memory)}`, { verbose: true });
     await log(`   Load: ${resourcesBefore.load}`, { verbose: true });
 
     const mappedModel = mapModelToId(argv.model || defaultModels.qwen);
@@ -692,7 +696,7 @@ export const executeQwenCommand = async params => {
 
         const resourcesAfter = await getResourceSnapshot();
         await log('\n📈 System resources after execution:', { verbose: true });
-        await log(`   Memory: ${resourcesAfter.memory.split('\n')[1] || resourcesAfter.memory}`, { verbose: true });
+        await log(`   Memory: ${resourcesAfter.memorySummary ?? (resourcesAfter.memory.split('\n')[1] || resourcesAfter.memory)}`, { verbose: true });
         await log(`   Load: ${resourcesAfter.load}`, { verbose: true });
 
         return {

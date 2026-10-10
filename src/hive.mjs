@@ -455,6 +455,8 @@ if (isRunningDirectly) {
     } else {
       scope = 'repository';
     }
+    // Issue #2838: all workers share one cgroup; cap --concurrency to its memory limit.
+    await (await import('./memory-budget.lib.mjs')).applyHiveWorkerMemoryCap({ argv, log });
     await log('🎯 Monitoring Configuration:');
     if (argv.youtrackMode) {
       await log(`   📍 Source: YouTrack - ${youTrackConfig.url}`);

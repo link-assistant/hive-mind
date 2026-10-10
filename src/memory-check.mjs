@@ -24,6 +24,8 @@ const fs = (await use('fs')).promises;
 // Import log function from lib.mjs
 const lib = await import('./lib.mjs');
 const { log: libLog, setLogFile } = lib;
+const { readCgroupMemory } = await import('./solve.resource-diagnostics.lib.mjs');
+const { computeMemoryBudget, describeMemoryBudgetSource, formatCgroupMemorySummary } = await import('./memory-budget.lib.mjs');
 
 // Function to check available disk space
 export const checkDiskSpace = async (minSpaceMB = 10240, options = {}) => {
@@ -183,7 +185,7 @@ export const checkRAM = async (minMemoryMB = 256, options = {}) => {
   } else {
     // Linux memory check using /proc/meminfo
     try {
-      const meminfoContent = await fs.readFile('/proc/meminfo', 'utf8');
+      const meminfoContent = options.readMeminfo ? await options.readMeminfo() : await fs.readFile('/proc/meminfo', 'utf8');
       const lines = meminfoContent.split('\n');
 
       const getValue = key => {
@@ -201,21 +203,29 @@ export const checkRAM = async (minMemoryMB = 256, options = {}) => {
       const swapTotal = getValue('SwapTotal:');
       const swapFree = getValue('SwapFree:');
 
-      // Calculate available memory (similar to 'free' command)
-      const availableKB = memFree + buffers + cached + sReclaimable;
-      const availableMB = Math.floor(availableKB / 1024);
+      // Issue #2838: /proc/meminfo is the host's even inside a container, so
+      // bound it by the cgroup the OOM killer acts on (memory.max - memory.current,
+      // and the swap the cgroup may use).
+      const cgroup = (options.readCgroupMemory || readCgroupMemory)();
+      const budget = computeMemoryBudget({
+        // Calculate available memory (similar to 'free' command)
+        hostAvailableBytes: (memFree + buffers + cached + sReclaimable) * 1024,
+        hostSwapTotalBytes: swapTotal * 1024,
+        hostSwapFreeBytes: swapFree * 1024,
+        cgroup,
+      });
+      const availableMB = Math.floor(budget.availableBytes / (1024 * 1024));
 
       // Calculate swap info
-      const swapUsedKB = swapTotal - swapFree;
-      const swapMB = Math.floor(swapTotal / 1024);
-      const swapUsedMB = Math.floor(swapUsedKB / 1024);
-      const swapAvailableMB = Math.floor(swapFree / 1024);
+      const swapMB = Math.floor(budget.swapTotalBytes / (1024 * 1024));
+      const swapAvailableMB = Math.floor(budget.swapFreeBytes / (1024 * 1024));
+      const swapUsedMB = Math.max(0, swapMB - swapAvailableMB);
 
       let swapInfo;
-      if (swapTotal > 0) {
+      if (swapMB > 0) {
         swapInfo = `${swapMB}MB (${swapUsedMB}MB used)`;
       } else {
-        swapInfo = 'none';
+        swapInfo = budget.source === 'cgroup' && swapTotal > 0 ? 'none (container may not swap)' : 'none';
       }
 
       // Calculate total available memory (RAM + swap)
@@ -223,11 +233,16 @@ export const checkRAM = async (minMemoryMB = 256, options = {}) => {
 
       // Check only total memory against the requirement
       const success = totalAvailable >= minMemoryMB;
+      const limitSourceLine = describeMemoryBudgetSource(budget);
+      const result = { success, availableMB, required: minMemoryMB, swap: swapInfo, totalAvailable, limitSource: budget.source, ...(budget.source === 'cgroup' ? { cgroupLimitMB: Math.floor(budget.limitBytes / (1024 * 1024)) } : {}) };
 
       if (!success) {
         await log(`❌ Insufficient memory: ${availableMB}MB available, swap: ${swapInfo}, total: ${totalAvailable}MB (${minMemoryMB}MB required)`);
+        if (limitSourceLine) await log(limitSourceLine);
 
-        if (swapTotal === 0) {
+        if (budget.source === 'cgroup') {
+          await log('   The container memory limit is exhausted. Stop other work in this container or raise its memory limit.');
+        } else if (swapTotal === 0) {
           await log('   No swap configured. Consider adding swap:');
           await log('   sudo fallocate -l 2G /swapfile');
           await log('   sudo chmod 600 /swapfile');
@@ -236,11 +251,12 @@ export const checkRAM = async (minMemoryMB = 256, options = {}) => {
           await log('   echo "/swapfile none swap sw 0 0" | sudo tee -a /etc/fstab');
         }
 
-        return { success: false, availableMB, required: minMemoryMB, swap: swapInfo, totalAvailable };
+        return result;
       }
 
       await log(`🧠 Memory check: ${availableMB}MB available, swap: ${swapInfo}, total: ${totalAvailable}MB (${minMemoryMB}MB required) ✅`);
-      return { success: true, availableMB, required: minMemoryMB, swap: swapInfo, totalAvailable };
+      if (limitSourceLine) await log(limitSourceLine);
+      return result;
     } catch (error) {
       await log(`❌ Linux memory check failed: ${error.message}`);
       return { success: false, availableMB: 0, error: error.message };
@@ -272,9 +288,15 @@ export const getResourceSnapshot = async () => {
       const loadAvg = await $silent`cat /proc/loadavg`;
       const uptime = await $silent`uptime`;
 
+      const memory = memInfo.stdout.toString().trim();
+      // Issue #2838: inside a cgroup with a limit, the host MemFree line callers
+      // used to print says nothing about the memory this run can actually use.
+      const cgroupMemory = readCgroupMemory();
       return {
         timestamp: new Date().toISOString(),
-        memory: memInfo.stdout.toString().trim(),
+        memory,
+        memorySummary: formatCgroupMemorySummary(cgroupMemory) || memory.split('\n')[1] || memory,
+        cgroupMemory,
         load: loadAvg.stdout.toString().trim(),
         uptime: uptime.stdout.toString().trim(),
       };

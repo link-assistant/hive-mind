@@ -652,7 +652,7 @@ export const executeCodexCommand = async params => {
     // Take resource snapshot before execution
     const resourcesBefore = await getResourceSnapshot();
     await log('📈 System resources before execution:', { verbose: true });
-    await log(`   Memory: ${resourcesBefore.memory.split('\n')[1]}`, { verbose: true });
+    await log(`   Memory: ${resourcesBefore.memorySummary ?? resourcesBefore.memory.split('\n')[1]}`, { verbose: true });
     await log(`   Load: ${resourcesBefore.load}`, { verbose: true });
     let execCommand;
     const mappedModel = mapModelToId(argv.model);

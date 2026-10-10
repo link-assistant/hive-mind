@@ -43,6 +43,8 @@ import { formatNumber, mapModelToId, checkModelVisionCapability, resolveClaudeMo
 import { renameLogToSessionId } from './session-log-rename.lib.mjs'; // Issue #2160
 import { showResumeCommand } from './claude.resume-output.lib.mjs';
 import { stringifyErrorValue } from './error-text.lib.mjs'; // Issue #2141
+import { appendMemoryBudgetPrompt } from './memory-budget.lib.mjs'; // Issue #2838
+import { readCgroupMemory } from './solve.resource-diagnostics.lib.mjs';
 import { createPullRequestBaseBranchCommandIntervention } from './solve.pr-base-command-intervention.lib.mjs';
 import { getClaudeVersion, resolveThinkingSettings, setClaudeVersion, validateClaudeConnection } from './claude.connection.lib.mjs';
 export { availableModels, fetchModelInfo }; // Re-export for backward compatibility
@@ -209,7 +211,8 @@ export const executeClaudeCommand = async params => {
   // once so its resume/restart caps persist across recursive retry calls.
   const tryThinkingBlockRecovery = createThinkingBlockRecovery({ argv, tempDir, branchName, $, log });
   const executeWithRetry = async () => {
-    const promptForAttempt = [prompt, baseBranchInterventionPrompt, incompleteTurnPrompt].filter(Boolean).join('\n\n');
+    // Issue #2838: the container memory budget (and OOM kills so far) is re-read on every attempt.
+    const promptForAttempt = appendMemoryBudgetPrompt([prompt, baseBranchInterventionPrompt, incompleteTurnPrompt].filter(Boolean).join('\n\n'), (params.readCgroupMemory || readCgroupMemory)());
     const escapedPromptForAttempt = escapePromptForShell(promptForAttempt);
     if (retryCount === 0) {
       await log(`\n${formatAligned('🤖', 'Executing Claude:', argv.model.toUpperCase())}`);
@@ -225,7 +228,7 @@ export const executeClaudeCommand = async params => {
     }
     const resourcesBefore = await getResourceSnapshot();
     await log('📈 System resources before execution:', { verbose: true });
-    await log(`   Memory: ${resourcesBefore.memory.split('\n')[1]}`, { verbose: true });
+    await log(`   Memory: ${resourcesBefore.memorySummary ?? resourcesBefore.memory.split('\n')[1]}`, { verbose: true });
     await log(`   Load: ${resourcesBefore.load}`, { verbose: true });
     let commandFailed = false;
     let sessionId = null;
@@ -1185,7 +1188,7 @@ export const executeClaudeCommand = async params => {
         // Take resource snapshot after failure
         const resourcesAfter = await getResourceSnapshot();
         await log('\n📈 System resources after execution:', { verbose: true });
-        await log(`   Memory: ${resourcesAfter.memory.split('\n')[1]}`, { verbose: true });
+        await log(`   Memory: ${resourcesAfter.memorySummary ?? resourcesAfter.memory.split('\n')[1]}`, { verbose: true });
         await log(`   Load: ${resourcesAfter.load}`, { verbose: true });
         await showResumeCommand(sessionId, tempDir, claudePath, argv.model, log, argv);
         // Issue #1886: on failure (usually a usage-limit hit → auto-resume) fold

@@ -165,6 +165,7 @@ if (config.dryRun) {
 const { buildUserMention } = await import('./buildUserMention.lib.mjs');
 const { reportError, initializeSentry, addBreadcrumb } = await import('./sentry.lib.mjs');
 const { parseGitHubUrl, validateGitHubEntityExistence } = await import('./github.lib.mjs');
+const { resolveDocsLocaleFromTelegramCtx } = await import('./github-access-guide.lib.mjs');
 const { buildModelOptionDescription } = await import('./models/index.mjs');
 const { injectLanguageIfMissing, validateRuntimeModelInArgs } = await import('./telegram-command-args.lib.mjs');
 const { resolveIsolation, createIsolationAwareQueueCallback } = await import('./telegram-isolation.lib.mjs');
@@ -637,7 +638,7 @@ async function handleSolveCommand(ctx) {
   }
   // Issue #1714: read the parsed argv (default-on per #1694) instead of the raw args list,
   // so the invite hint is suppressed on the default-on path where the literal flag is absent.
-  const entityCheck = await validateGitHubEntityExistence({ owner: validation.parsed.owner, repo: validation.parsed.repo, number: validation.parsed.number, type: validation.parsed.type, baseBranch: parsedSolveArgs?.baseBranch, verbose: VERBOSE, autoAcceptInvite: !!parsedSolveArgs?.autoAcceptInvite });
+  const entityCheck = await validateGitHubEntityExistence({ owner: validation.parsed.owner, repo: validation.parsed.repo, number: validation.parsed.number, type: validation.parsed.type, baseBranch: parsedSolveArgs?.baseBranch, verbose: VERBOSE, autoAcceptInvite: !!parsedSolveArgs?.autoAcceptInvite, locale: solveLocale, docsLocale: resolveDocsLocaleFromTelegramCtx(ctx) });
   if (!entityCheck.valid) {
     await safeReply(ctx, `❌ ${escapeMarkdown(entityCheck.error)}`, { reply_to_message_id: ctx.message.message_id });
     return;

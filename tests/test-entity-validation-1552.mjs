@@ -15,6 +15,8 @@
  * @see https://github.com/link-assistant/hive-mind/issues/1552
  */
 
+import { buildRepositoryNotAccessibleMessage } from '../src/github-access-guide.lib.mjs';
+
 console.log('🧪 Running GitHub entity validation unit tests (Issue #1552)...\n');
 console.log('='.repeat(80));
 console.log('Test Suite: validateGitHubEntityExistence logic');
@@ -46,13 +48,10 @@ async function validateGitHubEntityExistenceWithMocks({ owner, repo, number, typ
   const repoResponse = mocks.repoCheck?.(owner, repo);
   if (repoResponse?.code !== 0) {
     if (repoResponse?.error?.includes('404') || repoResponse?.error?.includes('Not Found')) {
-      const bullets = ['• Repository may be private — ensure the bot has been granted access', '• The repository name is spelled correctly', '• The repository has not been deleted, transferred, or never existed'];
-      if (!autoAcceptInvite) {
-        bullets.push('• If Hive Mind bot was recently invited, try using --auto-accept-invite to accept pending invitations');
-      }
+      // The message is the production one (issue #2998); only the gh calls are mocked.
       return {
         valid: false,
-        error: `Repository '${owner}/${repo}' is not accessible.\n\n💡 Please check:\n${bullets.join('\n')}`,
+        error: await buildRepositoryNotAccessibleMessage({ owner, repo, autoAcceptInvite, botLogin: 'konard', ownerType: 'User', locale: 'en' }),
         level: 'repo',
       };
     }

@@ -1,0 +1,10 @@
+dockerd Docker version 29.9.0, build a5b58c9
+== A. live-restore=false (Docker default) ==
+before dockerd restart: running exit=0 pid=344
+after  dockerd restart: exited exit=137 pid=0
+== B. enable live-restore with SIGHUP (reload), no restart ==
+before reload: running exit=0 pid=743 live-restore=false
+after  reload: running exit=0 pid=743 live-restore=true
+time="2026-10-10T06:32:03.374823504Z" level=info msg="Reloaded configuration" config="{\"storage-driver\":\"vfs\",\"pidfile\":\"/var/run/docker.pid\",\"data-root\":\"/var/lib/docker\",\"exec-root\":\"/var/run/docker\",\"group\":\"docker\",\"proxies\":{},\"live-restore\":true,\"max-concurrent-downloads\":3,\"max-concurrent-uploads\":5,\"max-download-attempts\":5,\"shutdown-timeout\":15,\"hosts\":[\"unix:///var/run/docker.sock\"],\"swarm-default-advertise-addr\":\"\",\"swarm-raft-heartbeat-tick\":0,\"swarm-raft-election-tick\":0,\"metrics-addr\":\"\",\"log-level\":\"info\",\"log-format\":\"text\",\"host-gateway-ips\":[\"172.17.0.1\"],\"default-stop-timeout\":10,\"log-driver\":\"json-file\",\"mtu\":1500,\"ip\":\"0.0.0.0\",\"icc\":true,\"iptables\":true,\"ip6tables\":true,\"ip-forward\":true,\"ip-masq\":true,\"userland-proxy\":true,\"userland-proxy-path\":\"/usr/local/bin/docker-proxy\",\"default-address-pools\":{\"Values\":null},\"network-control-plane-mtu\":1500,\"experimental\":false,\"containerd\":\"/var/run/docker/containerd/containerd.sock\",\"builder\":{\"GC\":{},\"Entitlements\":{}},\"containerd-namespace\":\"moby\",\"containerd-plugin-namespace\":\"plugins.moby\",\"default-runtime\":\"runc\",\"cdi-spec-dirs\":[\"/etc/cdi\",\"/var/run/cdi\"],\"nri-opts\":{},\"min-api-version\":\"1.40\",\"seccomp-profile\":\"builtin\",\"default-shm-size\":67108864,\"default-ipc-mode\":\"private\",\"default-cgroupns-mode\":\"private\",\"resolv-conf\":\"/etc/resolv.conf\"}"
+== C. live-restore on: restart dockerd again ==
+after  dockerd restart: running exit=0 pid=743 (pid before restart: 743)

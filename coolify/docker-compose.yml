@@ -77,6 +77,9 @@ services:
           memory: 1G
 
     # Restart policy
+    # Brings the bot back after a host reboot. A host dockerd restart (crash,
+    # OOM kill, upgrade) still kills it and every task unless the host daemon has
+    # "live-restore": true (issue #2900): docs/DOCKER.md#host-docker-daemon-settings
     restart: unless-stopped
 
     # Logging configuration

@@ -11,6 +11,14 @@ This guide explains how to deploy the Hive-Mind application to Coolify, a self-h
    - Minimum 2GB RAM (4GB+ recommended)
    - 2+ CPU cores
    - 10GB+ disk space
+5. **Docker `live-restore` on the server** (strongly recommended): without it, any
+   restart of the server's `dockerd` (crash, OOM kill, upgrade) kills the bot and
+   every running task at once. Enable it on the server with a reload, never a
+   restart:
+   `curl -fsSL https://raw.githubusercontent.com/link-assistant/hive-mind/main/scripts/enable-docker-live-restore.sh | sudo bash`
+   (it merges into the existing `/etc/docker/daemon.json`). See
+   [Host Docker daemon settings](../docs/DOCKER.md#host-docker-daemon-settings)
+   and [issue #2900](https://github.com/link-assistant/hive-mind/issues/2900).
 
 ## Deployment Methods
 

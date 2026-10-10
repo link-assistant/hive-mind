@@ -49,6 +49,11 @@ codex mcp list | grep playwright
 exit
 ```
 
+> **Before relying on the bot, enable Docker `live-restore` on the host.** Without
+> it, any `dockerd` restart (crash, OOM kill, upgrade) kills the bot, every
+> running task and the queue. See
+> [Host Docker daemon settings](#host-docker-daemon-settings).
+
 ### Option 2: Building Locally
 
 ```bash
@@ -105,6 +110,11 @@ docker run --rm --runtime=sysbox-runc -it konard/hive-mind-dind:latest bash
 
 The DinD image is published separately from `konard/hive-mind:latest` so users
 who do not need nested Docker keep the existing lower-privilege image.
+
+The DinD bot container runs on the **host** daemon, so a host `dockerd`
+restart kills it, together with every task nested inside it. Enable
+`live-restore` on the host first; see
+[Host Docker daemon settings](#host-docker-daemon-settings).
 
 ### Option 4: Persistent Formal AI Service
 
@@ -264,6 +274,10 @@ immediately instead of as a surprise pull mid-task:
   `fuse-overlayfs` (the disk-amplification root cause of issue #1914);
 - ⚠️ low free space on the Docker data root with the image still absent → it
   warns that the impending pull may run out of disk.
+- ⚠️ the host daemon (through the mounted socket) or the task daemon reports
+  `LiveRestoreEnabled=false` → it tells you how to enable `live-restore` with
+  `systemctl reload docker`, never `restart`
+  ([Host Docker daemon settings](#host-docker-daemon-settings), issue #2900).
 
 Run the bot with `--verbose` (or `TELEGRAM_BOT_VERBOSE=true`) for the underlying
 `docker image inspect` traces.
@@ -338,6 +352,99 @@ docker run --rm -it \
     -v "$(pwd)/output:/home/box/output" \
     hive-mind-dev
 ```
+
+## Host Docker daemon settings
+
+### Enable `live-restore` (strongly recommended)
+
+By default (`"live-restore": false`), **any restart of the host `dockerd` stops
+every container on it**. That includes a crash, an OOM kill, an
+`apt upgrade docker-ce` or a `systemctl restart docker`. For Hive Mind that
+means the bot container, every running task and the in-memory solve queue all
+die together. `--restart unless-stopped` brings the bot back, but the running
+tasks and the queue are gone. This is what happened in
+[issue #2900](https://github.com/link-assistant/hive-mind/issues/2900): the
+host `dockerd` was OOM-killed, systemd restarted it, and it killed the bot and
+all four running tasks with exit 137.
+
+Container processes are children of `containerd-shim`, not of `dockerd`. With
+`"live-restore": true`, a restarted `dockerd` re-attaches to the still-running
+containers instead of killing them
+([Docker docs](https://docs.docker.com/engine/daemon/live-restore/)).
+
+`live-restore` is a **reloadable** option, so you can turn it on without
+stopping a single container. Run this on the **host** (not inside the bot
+container):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/link-assistant/hive-mind/main/scripts/enable-docker-live-restore.sh | sudo bash
+```
+
+The script ([`scripts/enable-docker-live-restore.sh`](../scripts/enable-docker-live-restore.sh))
+does the following:
+
+- merges `"live-restore": true` into `/etc/docker/daemon.json`, keeping every
+  other key (it makes a backup first, and leaves invalid JSON untouched);
+- validates the result;
+- **reloads** dockerd;
+- verifies the new setting.
+
+Use `--dry-run` to preview the change, or `--no-reload` to only edit the file.
+
+To do the same by hand:
+
+```bash
+# 1. Add the key, keeping any existing settings, e.g. /etc/docker/daemon.json:
+#    { "log-driver": "json-file", "live-restore": true }
+sudoedit /etc/docker/daemon.json
+
+# 2. Apply it WITHOUT stopping containers: reload, NEVER restart
+sudo systemctl reload docker        # or: sudo kill -HUP "$(pidof dockerd)"
+
+# 3. Verify
+docker info -f '{{.LiveRestoreEnabled}}'   # -> true
+```
+
+> ⚠️ **Use `systemctl reload docker`, never `systemctl restart docker`,** while
+> containers are running. Until live-restore is on, the restart itself kills
+> every container, which is exactly the outage you are trying to prevent.
+
+Hive Mind checks this setting at startup when `--isolation docker` is enabled.
+If the daemon that runs the bot or its tasks has live-restore off, the bot logs
+a warning with these exact steps. Inside the DinD image, the bot probes the
+host daemon through the mounted host socket (see
+[Host-image passthrough](#host-image-passthrough-avoid-re-downloading-multi-gb-images)).
+The check is diagnostic only and never blocks startup.
+
+**What live-restore does not cover:**
+
+- **A host reboot.** Containers stop with the machine. You still need
+  `--restart unless-stopped` on the bot container, and the solve queue still
+  needs to be persisted
+  ([#2890](https://github.com/link-assistant/hive-mind/issues/2890)).
+- **Feature-release Docker upgrades.** Docker supports live restore only
+  across patch upgrades (e.g. `29.6.0` → `29.6.1`). After a larger upgrade, or
+  after a change to daemon options such as the storage driver or bridge IP,
+  the containers may not be restored. Plan those for a quiet moment.
+- **Long daemon outages.** While dockerd is down, container output goes into a
+  FIFO buffer (64 KiB by default). Once it is full, writes to it block, and
+  Docker documents that dockerd must then be restarted to flush it.
+- **Swarm.** Live restore applies to standalone containers only. Older Docker
+  releases refuse to run swarm mode with live-restore on, so the script stops
+  on a swarm node unless you pass `--allow-swarm`.
+- **Flag plus file conflicts.** If dockerd is already started with the
+  `--live-restore` flag, do not also add the key to `daemon.json`: dockerd
+  refuses to start when a directive comes from both. The script detects this
+  case (the daemon already reports `true`) and changes nothing.
+- **Docker Desktop.** Set it in _Settings → Docker Engine_. Applying it there
+  restarts the engine, so do it while no task is running.
+
+**The nested DinD daemon.** The `konard/hive-mind-dind` image starts its own
+inner `dockerd` without `--live-restore`. Nothing restarts that inner daemon on
+its own, so the risk is low, and the bot only logs it. Requested upstream in
+[link-foundation/box#131](https://github.com/link-foundation/box/issues/131).
+To enable it today, bind-mount a `daemon.json` with `{"live-restore": true}` at
+`/etc/docker/daemon.json` into the container.
 
 ## Authentication
 
@@ -451,6 +558,7 @@ If the first command shows `playwright` and the second does not, the host-mounte
 ## Prerequisites
 
 1. **Docker:** Install Docker Desktop or Docker Engine (version 20.10 or higher)
+   with [`live-restore` enabled](#host-docker-daemon-settings)
 2. **Internet Connection:** Required for pulling images and authentication
 
 ## Directory Structure
@@ -611,6 +719,9 @@ claude
 ```bash
 # Check Docker status on host
 docker info
+
+# Check that a dockerd restart will not kill running containers (expect true)
+docker info -f '{{.LiveRestoreEnabled}}'
 
 # Pull the latest image
 docker pull konard/hive-mind:latest

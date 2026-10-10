@@ -74,10 +74,13 @@ const REGULAR = { HIVE_MIND_IMAGE_VARIANT: 'regular' };
 // Neutral storage/disk probes so these passthrough scenarios stay deterministic
 // on any host: overlay2 is copy-on-write and 500 GiB is plenty, so the
 // storage-driver and low-disk diagnostics never fire here. Those have their own
-// dedicated coverage in test-issue-1914-storage-driver-diagnostics.mjs.
+// dedicated coverage in test-issue-1914-storage-driver-diagnostics.mjs. The
+// live-restore probe reports enabled so issue #2900's warning (covered in
+// test-issue-2900-docker-live-restore.mjs) never fires either.
 const NEUTRAL_PROBES = {
   checkStorageDriver: async () => 'overlay2',
   checkDiskSpace: async () => ({ availableGiB: 500, dataRoot: '/var/lib/docker' }),
+  checkLiveRestore: async () => ({ enabled: true, daemonId: 'daemon-1' }),
 };
 
 console.log('\n--- resolveHostDockerSock: single source of truth for the socket path ---');

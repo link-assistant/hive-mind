@@ -69,6 +69,9 @@ const DIND = { HIVE_MIND_IMAGE_VARIANT: 'dind' };
 // under test in each scenario can produce a warning.
 const okDisk = async () => ({ availableGiB: 500, dataRoot: '/var/lib/docker' });
 const okDriver = async () => 'overlay2';
+// Live-restore enabled, so issue #2900's warning never adds to the counts here
+// (it has its own coverage in test-issue-2900-docker-live-restore.mjs).
+const okLiveRestore = async () => ({ enabled: true, daemonId: 'daemon-1' });
 
 console.log('\n--- Probes are exported and never throw (return null without docker) ---');
 
@@ -95,6 +98,7 @@ const vfs = await preflightDockerIsolation({
   checkImagePresent: async () => true,
   checkStorageDriver: async () => 'vfs',
   checkDiskSpace: okDisk,
+  checkLiveRestore: okLiveRestore,
   logger: vfsLogger,
 });
 assertEqual(vfs.storageDriver, 'vfs', 'vfs: storageDriver surfaced');
@@ -116,6 +120,7 @@ const cow = await preflightDockerIsolation({
   checkImagePresent: async () => true,
   checkStorageDriver: async () => 'fuse-overlayfs',
   checkDiskSpace: okDisk,
+  checkLiveRestore: okLiveRestore,
   logger: captureLogger(),
 });
 assertEqual(cow.storageDriverOk, true, 'fuse-overlayfs: storageDriverOk=true');
@@ -130,6 +135,7 @@ const low = await preflightDockerIsolation({
   checkImagePresent: async () => false,
   checkStorageDriver: okDriver,
   checkDiskSpace: async () => ({ availableGiB: 10, dataRoot: '/var/lib/docker' }),
+  checkLiveRestore: okLiveRestore,
   logger: lowLogger,
 });
 assertEqual(low.diskAvailableGiB, 10, 'low-disk: diskAvailableGiB surfaced');
@@ -149,6 +155,7 @@ const lowButPresent = await preflightDockerIsolation({
   checkImagePresent: async () => true,
   checkStorageDriver: okDriver,
   checkDiskSpace: async () => ({ availableGiB: 10, dataRoot: '/var/lib/docker' }),
+  checkLiveRestore: okLiveRestore,
   logger: captureLogger(),
 });
 assertEqual(lowButPresent.warnings.length, 0, 'low-disk + image present → no low-disk warning (nothing to pull)');
@@ -161,6 +168,7 @@ const atThreshold = await preflightDockerIsolation({
   checkImagePresent: async () => false,
   checkStorageDriver: okDriver,
   checkDiskSpace: async () => ({ availableGiB: 40, dataRoot: '/var/lib/docker' }),
+  checkLiveRestore: okLiveRestore,
   logger: captureLogger(),
 });
 assertEqual(
@@ -175,6 +183,7 @@ const justUnder = await preflightDockerIsolation({
   checkImagePresent: async () => false,
   checkStorageDriver: okDriver,
   checkDiskSpace: async () => ({ availableGiB: 39, dataRoot: '/var/lib/docker' }),
+  checkLiveRestore: okLiveRestore,
   logger: captureLogger(),
 });
 assertEqual(
@@ -191,6 +200,7 @@ const nullProbes = await preflightDockerIsolation({
   checkImagePresent: async () => true,
   checkStorageDriver: async () => null,
   checkDiskSpace: async () => null,
+  checkLiveRestore: okLiveRestore,
   logger: captureLogger(),
 });
 assertEqual(nullProbes.storageDriver, null, 'null driver surfaced as null');
@@ -206,6 +216,7 @@ const allBad = await preflightDockerIsolation({
   checkImagePresent: async () => false,
   checkStorageDriver: async () => 'vfs',
   checkDiskSpace: async () => ({ availableGiB: 5, dataRoot: '/var/lib/docker' }),
+  checkLiveRestore: okLiveRestore,
   logger: captureLogger(),
 });
 assertEqual(allBad.warnings.length, 3, 'vfs + socket-missing + low-disk → three stacked warnings');

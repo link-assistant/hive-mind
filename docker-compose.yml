@@ -78,6 +78,9 @@ services:
       timeout: 5s
       retries: 12
       start_period: 30s
+    # Restarts after a host reboot. A host dockerd restart (crash, OOM kill,
+    # upgrade) still kills every container in this file unless the host daemon has
+    # "live-restore": true (issue #2900): docs/DOCKER.md#host-docker-daemon-settings
     restart: unless-stopped
 
 volumes:

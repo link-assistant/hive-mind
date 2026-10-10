@@ -38,7 +38,7 @@ import { firstErrorText, stringifyErrorValue } from './error-text.lib.mjs';
 import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { attachStreamingInput, finalizeBidirectionalHandler, setupBidirectionalHandler } from './bidirectional-interactive.lib.mjs';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
-import { buildAgentArgs, detectFormalAiAgentRoutingMismatch, formatAgentArgsForDisplay, isAgentIdleEvent, isAgentStrongCompletionEvent } from './agent-command.lib.mjs';
+import { buildAgentArgs, detectFormalAiAgentRoutingMismatch, formatAgentArgsForDisplay, isAgentIdleEvent, isAgentStrongCompletionEvent, resolveStreamingErrorRecovery } from './agent-command.lib.mjs';
 import { isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236 / #2247 (H5)
 
 export { createAgentTokenUsage, accumulateAgentStepFinishUsage, parseAgentTokenUsage };
@@ -939,11 +939,10 @@ export const executeAgentCommand = async params => {
       // When an error occurs during execution (e.g., timeout) but the agent recovers and completes,
       // we should NOT treat it as a failure. The exit code is the authoritative success indicator.
       // Check for: exit code 0 AND (completion event detected OR no streaming error)
-      if (exitCode === 0 && (agentCompletedSuccessfully || !streamingErrorDetected)) {
+      const recovery = resolveStreamingErrorRecovery({ exitCode, agentCompletedSuccessfully, streamingErrorDetected, outputErrorDetected: outputError.detected });
+      if (recovery.clearStreamingError) {
         // Agent exited successfully - clear any streaming errors that were recovered from
-        if (streamingErrorDetected && agentCompletedSuccessfully) {
-          await log(`ℹ️  Agent recovered from earlier error and completed successfully`, { verbose: true });
-        }
+        if (recovery.message) await log(recovery.message, { verbose: true });
         streamingErrorDetected = false;
         streamingErrorMessage = null;
       }

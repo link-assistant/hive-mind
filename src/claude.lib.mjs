@@ -30,6 +30,7 @@ import { ensureClaudeQuietConfig } from './claude-quiet-config.lib.mjs';
 import { fetchModelInfo } from './model-info.lib.mjs';
 import { classifyRetryableError, createTransientRetryBudget, describeClassificationEvidence, logExecutionContext, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { resolveSubSessionSize } from './sub-session-size.lib.mjs'; // Issue #1706
+import { capSubSessionSizeToShortContext, describePricingTier, resolveClaudeModelForContext, resolvePricingTier } from './pricing-tier.lib.mjs'; // Issue #2771
 import { withAgentsMdAsClaudeMd } from './agents-md-claude-support.lib.mjs';
 import { deployHandoffSkill } from './handoff-skill.lib.mjs'; // Issue #1877
 import { deployPlaywrightSkill } from './playwright-skill.lib.mjs'; // Issue #2190
@@ -308,7 +309,11 @@ export const executeClaudeCommand = async params => {
     const progressMonitor = await initProgressMonitoring(argv, { owner, repo, prNumber, $, log }); // works with or without --interactive-mode
     let execCommand;
     const useRouter = argv.useRouter === true || /^(1|true|yes|on)$/i.test(String(process.env.HIVE_MIND_USE_ROUTER || ''));
-    const mappedModel = await resolveClaudeModelForExecution(argv.model, { useRouter });
+    // Issue #2771: cheapest pricing tier by default — standard speed, short context and a plain
+    // model name; `[1m]` is only passed where Claude Code needs it for a long-context run.
+    const claudePricingTier = resolvePricingTier({ tool: 'claude', model: argv.model, modelId: mapModelToId(argv.model), disable1mContext: argv.disable1mContext, subSessionSize: argv.subSessionSize, speed: argv.speed });
+    const claudeContextModel = resolveClaudeModelForContext(argv.model, { longContext: claudePricingTier.longContext, mapModelToId });
+    const mappedModel = await resolveClaudeModelForExecution(claudeContextModel.model, { useRouter });
     // Issue #2130: Formal AI runs the native CLI against a local Formal AI server (no argv wrapper).
     const toolInvocation = await resolveFormalAiToolExecution({ tool: 'claude', model: argv.model, toolPath: claudePath, workdir: tempDir, log, verbose: argv.verbose, prepareOnly: isPrepareOnly(argv) });
     const resolvedPlanModel = argv.planModel ? await resolveClaudeModelForExecution(argv.planModel, { useRouter }) : undefined; // Issue #1223
@@ -350,10 +355,14 @@ export const executeClaudeCommand = async params => {
     }
     try {
       const { thinkingBudget: resolvedThinkingBudget, thinkLevel, isNewVersion, maxBudget } = await resolveThinkingSettings(argv, log);
-      const { parsed: parsedSubSessionSize, contextWindowTokens } = await resolveSubSessionSize({ rawValue: argv.subSessionSize, tool: 'claude', modelId: effectiveModel, fetchModelInfo, log });
+      const { parsed: requestedSubSessionSize, contextWindowTokens: fetchedContextWindowTokens } = await resolveSubSessionSize({ rawValue: argv.subSessionSize, tool: 'claude', modelId: effectiveModel, fetchModelInfo, log });
+      // Issue #2771: a short-context run never compacts above its pricing tier, and percentages are of the window it really has.
+      const { parsed: parsedSubSessionSize, capped: subSessionSizeCapped } = capSubSessionSizeToShortContext(requestedSubSessionSize, { longContext: claudePricingTier.longContext, shortContextTokens: claudePricingTier.shortContextTokens });
+      const contextWindowTokens = !claudePricingTier.longContext && requestedSubSessionSize.kind === 'percent' ? claudePricingTier.shortContextTokens : fetchedContextWindowTokens;
+      await log(`💰 Pricing tier: ${describePricingTier(claudePricingTier)}${claudeContextModel.changed ? ` — model ${argv.model} runs as ${claudeContextModel.model}` : ''}${subSessionSizeCapped ? ` — --sub-session-size capped to ${parsedSubSessionSize.tokens} tokens` : ''}`, { verbose: !claudeContextModel.changed && !subSessionSizeCapped });
       // Issue #817: streaming mode sets exitAfterStopDelayMs=60000 so the headless Claude process stays alive between NDJSON turns.
       // Issue #2130: `toolInvocation.env` points the native CLI at the local Formal AI server (base URL + API key).
-      const claudeEnv = { ...getClaudeEnv({ thinkingBudget: resolvedThinkingBudget, model: effectiveModel, thinkLevel, maxBudget, planModel: resolvedPlanModel, executionModel: resolvedExecutionModel, subAgentModel: resolvedSubAgentModel, showThinkingContent: argv.showThinkingContent, exitAfterStopDelayMs: streamingInput ? 60_000 : undefined, disable1mContext: !!argv.disable1mContext, subSessionSize: parsedSubSessionSize, contextWindowTokens }), ...toolInvocation.env };
+      const claudeEnv = { ...getClaudeEnv({ thinkingBudget: resolvedThinkingBudget, model: effectiveModel, thinkLevel, maxBudget, planModel: resolvedPlanModel, executionModel: resolvedExecutionModel, subAgentModel: resolvedSubAgentModel, showThinkingContent: argv.showThinkingContent, exitAfterStopDelayMs: streamingInput ? 60_000 : undefined, subSessionSize: parsedSubSessionSize, contextWindowTokens, pricingTier: claudePricingTier }), ...toolInvocation.env };
       if (argv.verbose) claudeEnv.ANTHROPIC_LOG = 'debug';
       const modelMaxOutputTokens = getMaxOutputTokensForModel(effectiveModel);
       if (argv.verbose) {
@@ -363,8 +372,8 @@ export const executeClaudeCommand = async params => {
         if (resolvedThinkingBudget !== undefined) await log(`📊 MAX_THINKING_TOKENS: ${resolvedThinkingBudget}`, { verbose: true });
         if (claudeEnv.CLAUDE_CODE_EFFORT_LEVEL) await log(`📊 CLAUDE_CODE_EFFORT_LEVEL: ${claudeEnv.CLAUDE_CODE_EFFORT_LEVEL}`, { verbose: true });
         if (claudeEnv.CLAUDE_CODE_SHOW_THINKING) await log(`📊 CLAUDE_CODE_SHOW_THINKING: ${claudeEnv.CLAUDE_CODE_SHOW_THINKING}`, { verbose: true });
-        // Issue #1706: log applied env vars (--disable-1m-context, --sub-session-size).
-        const sub1706 = ['CLAUDE_CODE_DISABLE_1M_CONTEXT', 'CLAUDE_CODE_AUTO_COMPACT_WINDOW', 'CLAUDE_AUTOCOMPACT_PCT_OVERRIDE'].filter(k => claudeEnv[k]).map(k => `${k}=${claudeEnv[k]}`);
+        // Issue #1706 / #2771: log applied env vars (--disable-1m-context, --sub-session-size, --speed).
+        const sub1706 = ['CLAUDE_CODE_DISABLE_FAST_MODE', 'CLAUDE_CODE_DISABLE_1M_CONTEXT', 'CLAUDE_CODE_AUTO_COMPACT_WINDOW', 'CLAUDE_AUTOCOMPACT_PCT_OVERRIDE'].filter(k => claudeEnv[k]).map(k => `${k}=${claudeEnv[k]}`);
         if (sub1706.length) await log(`📊 ${sub1706.join(', ')}`, { verbose: true });
         if (!isNewVersion && thinkLevel) await log(`📊 Thinking level (via keywords): ${thinkLevel}`, { verbose: true });
       }

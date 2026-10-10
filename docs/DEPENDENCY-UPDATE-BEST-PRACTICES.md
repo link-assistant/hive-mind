@@ -208,6 +208,13 @@ fix owner/repo --update-all-dependencies --dry-run
 fix owner/repo --update-all-dependencies --no-solve
 ```
 
+Before step 4, `fix` also **merges the open Dependabot version bump pull requests** that already exist, sequentially and only after CI passes, using the same queue as `/merge <repository> --dependabot`. Bumps that Dependabot already proposed and CI accepted land first. The generated issue records which Dependabot pull requests were merged and which stayed open (with the reason, for example failing CI), and asks the solver to cover the open ones in its own pull request. This step is on by default for `--update-all-dependencies` and never blocks the issue: if it fails, the issue is still created. Turn it off with `--no-auto-merge-dependabot`. With `--dry-run` it only lists the pull requests it would merge. Use `/merge <repository> --dependabot` to merge Dependabot pull requests on their own. Adding `--auto-resolve` there also hands Dependabot pull requests with failing CI to `/solve <pr> --auto-merge`.
+
+```bash
+fix owner/repo --update-all-dependencies --no-auto-merge-dependabot
+merge https://github.com/owner/repo --dependabot --auto-resolve
+```
+
 ### Why the Issue Is a Task, and What It Leaves Out
 
 `/solve --deep-analysis` emits its root-cause and debug-output guidance **only for bug-typed issues**, and a dependency bump has no root cause to find. Creating the issue as a `Task` selects the non-bug variant of that prompt — research, requirement coverage, solution planning — which is the useful one here. Issue types are configured per organization and labels per repository, so if the target repository accepts neither, the issue is still created without them.

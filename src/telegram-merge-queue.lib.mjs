@@ -17,6 +17,8 @@
  */
 import { getAllReadyPRs, checkPRCIStatus, checkPRMergeable, mergePullRequest, waitForCI, ensureReadyLabel, waitForBranchCI, getDefaultBranch, waitForCommitCI, checkBranchCIHealth, getMergeCommitSha, getPRStatus, syncReadyTags, closeLinkedIssueIfNotAutoClosed } from './github-merge.lib.mjs';
 import { resolveMergeTargetItems } from './github-merge-targets.lib.mjs';
+import { fetchDependabotPullRequests } from './github-merge-dependabot.lib.mjs';
+import { collectMergeQueuePRs } from './telegram-merge-queue-collect.lib.mjs';
 import { waitForPRReady as waitForPRReadyHelper } from './telegram-merge-wait.lib.mjs';
 import { ensureTargetBranchReady as ensureTargetBranchReadyHelper } from './telegram-merge-branch-gate.lib.mjs';
 import { mergeQueue as mergeQueueConfig } from './config.lib.mjs';
@@ -59,6 +61,8 @@ export const MergeItemStatus = {
  * @see https://github.com/link-assistant/hive-mind/issues/1805
  */
 export const MERGE_CONFLICT_SKIP_REASON = 'PR has merge conflicts';
+// Issue #2885: Dependabot PRs failing CI (e.g. a missing changelog fragment) are handed to auto-resolve.
+export const CI_FAILED_REASON = 'CI checks failed';
 /**
  * Configuration for merge queue operations
  * Values are loaded from config.lib.mjs which supports environment variable overrides.
@@ -111,6 +115,8 @@ class MergeQueueItem {
     this.completedAt = null;
     // Issue #1341: Track merge commit SHA for post-merge CI waiting
     this.mergeCommitSha = null;
+    // Issue #2885: Dependabot version bump PR (discovered by author, not by the `ready` label)
+    this.isDependabot = prData.dependabot === true;
   }
   /**
    * Get a display-friendly description
@@ -172,6 +178,11 @@ export class MergeQueueProcessor {
     this.spawnSolveSession = typeof options.spawnSolveSession === 'function' ? options.spawnSolveSession : null;
     this.target = options.target || { mode: 'repository', owner: this.owner, repo: this.repo, url: `https://github.com/${this.owner}/${this.repo}` };
     this.waitForUnfinished = options.waitForUnfinished !== false;
+    // Issue #2885: `dependabot` adds open Dependabot PRs to a repository queue;
+    // `includeReadyPRs: false` merges only Dependabot PRs (used by `/fix`) and
+    // leaves the `ready` label untouched.
+    this.dependabot = options.dependabot === true;
+    this.includeReadyPRs = options.includeReadyPRs !== false;
     // State
     this.items = [];
     this.currentIndex = 0;
@@ -203,6 +214,7 @@ export class MergeQueueProcessor {
     this.ensureReadyLabel = typeof options.ensureReadyLabel === 'function' ? options.ensureReadyLabel : ensureReadyLabel;
     this.syncReadyTags = typeof options.syncReadyTags === 'function' ? options.syncReadyTags : syncReadyTags;
     this.getAllReadyPRs = typeof options.getAllReadyPRs === 'function' ? options.getAllReadyPRs : getAllReadyPRs;
+    this.fetchDependabotPullRequests = typeof options.fetchDependabotPullRequests === 'function' ? options.fetchDependabotPullRequests : fetchDependabotPullRequests;
     // Issue #2404: target-branch CI helpers are injectable so tests can replay a red main branch.
     this.getDefaultBranch = typeof options.getDefaultBranch === 'function' ? options.getDefaultBranch : getDefaultBranch;
     this.checkBranchCIHealth = typeof options.checkBranchCIHealth === 'function' ? options.checkBranchCIHealth : checkBranchCIHealth;
@@ -238,33 +250,13 @@ export class MergeQueueProcessor {
   async initialize() {
     try {
       this.log(`Initializing merge queue for ${this.owner}/${this.repo}`);
-      // Ensure ready label exists
-      const labelResult = await this.ensureReadyLabel(this.owner, this.repo, this.verbose);
-      if (!labelResult.success) {
-        return { success: false, error: labelResult.error };
+      const collected = await collectMergeQueuePRs(this);
+      if (collected.error) {
+        return { success: false, error: collected.error };
       }
-      if (labelResult.created) {
-        this.log("Created 'ready' label in repository");
-      }
-      let readyPRs;
-      if (this.target?.mode && this.target.mode !== 'repository') {
-        readyPRs = await this.resolveMergeTargetItemsWithWait();
-      } else {
-        // Issue #1367: Sync 'ready' tags between linked PRs and issues before collecting the queue
-        // This ensures the final list reflects all ready work regardless of where the tag was applied
-        const syncResult = await this.syncReadyTags(this.owner, this.repo, this.verbose);
-        if (syncResult.synced > 0) {
-          this.log(`Synced 'ready' tag: ${syncResult.synced} item(s) updated`);
-        }
-        if (syncResult.errors > 0) {
-          this.log(`Tag sync had ${syncResult.errors} error(s) (non-fatal, proceeding)`);
-        }
-        // Fetch all ready PRs
-        readyPRs = await this.getAllReadyPRs(this.owner, this.repo, this.verbose);
-      }
+      const readyPRs = collected.prs;
       if (readyPRs.length === 0) {
-        const message = this.target?.mode === 'issue' ? `No open PRs linked to issue #${this.target.issueNumber} found` : this.target?.mode === 'pull' ? `Pull request #${this.target.prNumber} was not found` : "No PRs with 'ready' label found";
-        return { success: true, error: null, message };
+        return { success: true, error: null, message: collected.emptyMessage };
       }
       // Limit to max PRs per session
       const limitedPRs = readyPRs.slice(0, MERGE_QUEUE_CONFIG.MAX_PRS_PER_SESSION);
@@ -276,6 +268,7 @@ export class MergeQueueProcessor {
         success: true,
         error: null,
         count: this.items.length,
+        dependabotCount: this.items.filter(item => item.isDependabot).length,
         targetMode: this.target?.mode || 'repository',
         truncated: readyPRs.length > MERGE_QUEUE_CONFIG.MAX_PRS_PER_SESSION,
       };
@@ -493,7 +486,7 @@ export class MergeQueueProcessor {
       item.ciStatus = ciStatus;
       if (ciStatus.status === 'failure') {
         item.status = MergeItemStatus.FAILED;
-        item.error = 'CI checks failed';
+        item.error = CI_FAILED_REASON;
         this.stats.failed++;
         this.log(`Failed PR #${item.pr.number}: CI checks failed`);
         return;
@@ -610,6 +603,16 @@ export class MergeQueueProcessor {
     return this.items.filter(item => item.status === MergeItemStatus.SKIPPED && item.error === MERGE_CONFLICT_SKIP_REASON);
   }
   /**
+   * Issue #2885: everything the auto-resolve pass hands to `/solve`: conflict
+   * skips plus Dependabot PRs whose CI failed (e.g. a required changelog
+   * fragment Dependabot cannot write), kept in queue order.
+   *
+   * @returns {MergeQueueItem[]}
+   */
+  getAutoResolveItems() {
+    return this.items.filter(item => (item.status === MergeItemStatus.SKIPPED && item.error === MERGE_CONFLICT_SKIP_REASON) || (item.isDependabot && item.status === MergeItemStatus.FAILED && item.error === CI_FAILED_REASON));
+  }
+  /**
    * Issue #1805 / #1807: Iterate every conflict-skipped item and hand it off
    * to a `/solve <pr-url> --auto-merge` session via the injected
    * `spawnSolveSession` callback. Sessions are processed STRICTLY
@@ -625,16 +628,16 @@ export class MergeQueueProcessor {
    * @returns {Promise<void>}
    */
   async runAutoResolve() {
-    const conflicted = this.getConflictedItems();
+    const conflicted = this.getAutoResolveItems();
     if (conflicted.length === 0) {
-      this.log('Auto-resolve: no merge-conflict skips to process');
+      this.log('Auto-resolve: no merge-conflict skips or failed Dependabot PRs to process');
       return;
     }
     if (!this.spawnSolveSession) {
       // Guard against misconfiguration — the queue can't resolve without a
       // spawner. Surface this to the user via the same channel as other
       // queue feedback rather than throwing.
-      this.log(`Auto-resolve: ${conflicted.length} conflict PR(s) but no spawnSolveSession callback provided`);
+      this.log(`Auto-resolve: ${conflicted.length} PR(s) to resolve but no spawnSolveSession callback provided`);
       for (const item of conflicted) {
         item.status = MergeItemStatus.RESOLVE_FAILED;
         item.autoResolveError = 'auto-resolve is not configured';
@@ -656,13 +659,15 @@ export class MergeQueueProcessor {
       return;
     }
     this.autoResolveActive = true;
-    this.log(`Auto-resolve: dispatching ${conflicted.length} conflict PR(s) sequentially to /solve --auto-merge`);
+    this.log(`Auto-resolve: dispatching ${conflicted.length} PR(s) sequentially to /solve --auto-merge`);
     try {
       for (const item of conflicted) {
         if (this.isCancelled) {
           this.log('Auto-resolve: cancelled mid-pass');
           break;
         }
+        // Issue #2885: remember which counter the item came from so a merge moves it out of the right bucket.
+        item.preResolveStatus = item.status;
         item.status = MergeItemStatus.RESOLVING;
         this.autoResolveCurrent = item.pr.number;
         this.autoResolvePhase = 'spawning';
@@ -725,7 +730,10 @@ export class MergeQueueProcessor {
           // The PR previously sat in `skipped` because of the merge conflict;
           // now that it's merged via auto-resolve, decrement that counter so
           // we don't double-count it.
-          if (this.stats.skipped > 0) this.stats.skipped--;
+          // Issue #2885: a failed-CI Dependabot PR was counted in `failed` instead.
+          if (item.preResolveStatus === MergeItemStatus.FAILED) {
+            if (this.stats.failed > 0) this.stats.failed--;
+          } else if (this.stats.skipped > 0) this.stats.skipped--;
           this.log(`Auto-resolve: PR #${item.pr.number} merged by solve session`);
           // Best-effort: capture the merge commit SHA so post-merge CI wait
           // has something to poll on.
@@ -1030,6 +1038,7 @@ export class MergeQueueProcessor {
         // clickable links instead of plain `\#NNN` text.
         prUrl: item.pr.url || null,
         title: item.pr.title,
+        dependabot: item.isDependabot,
         issueNumber: item.issue ? item.issue.number : null,
         issueUrl: item.issue ? item.issue.url || null : null,
         status: item.status,
@@ -1326,6 +1335,7 @@ export default {
   MergeStatus,
   MergeItemStatus,
   MERGE_QUEUE_CONFIG,
+  CI_FAILED_REASON,
   MergeQueueProcessor,
   createMergeQueueProcessor,
 };

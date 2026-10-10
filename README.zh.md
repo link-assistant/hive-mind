@@ -537,10 +537,11 @@ Examples:
 #### `/merge` - 合并就绪的 Pull Request
 
 ```
-/merge <repository-url|issue-url|pull-request-url> [--auto-resolve]
+/merge <repository-url|issue-url|pull-request-url> [--auto-resolve] [--dependabot]
 
 Examples:
 /merge https://github.com/owner/repo
+/merge https://github.com/owner/repo --dependabot
 /merge https://github.com/owner/repo/issues/123
 /merge https://github.com/owner/repo/pull/456
 ```
@@ -552,6 +553,11 @@ Examples:
 
 如果目标 PR 尚未完成，`/merge` 会等待它变为可合并后再合并。合并冲突跳过仍可配合
 `--auto-resolve` 使用。
+
+`--dependabot`（仅限仓库目标）还会把所有打开的、非草稿的 Dependabot 版本升级 PR
+加入队列，尽管 Dependabot PR 从不带 `ready` 标签。它们会按同样的 CI 检查逐个合并。配合
+`--auto-resolve` 时，CI 失败的 Dependabot PR（例如缺少 changelog 片段）也会交给
+`/solve <pr> --auto-merge`，修复后合并，而不是一直保持打开。
 
 #### `/fix` - 自动修复 CI/CD 与依赖
 
@@ -566,6 +572,7 @@ Examples:
 /fix owner/repo --ci-cd --no-solve
 /fix https://github.com/owner/repo --update-all-dependencies
 /fix owner/repo --update-all-dependencies --dry-run
+/fix owner/repo --update-all-dependencies --no-auto-merge-dependabot
 ```
 
 `/fix --ci-cd` 会检测目标仓库使用的语言，检查默认分支的最新提交及其 CI/CD 运行情况，并自动创建一个 CI/CD
@@ -578,7 +585,11 @@ issue 的情况下预览，使用 `--no-solve` 可只创建 issue 而不启动 `
 
 `/fix --update-all-dependencies` 对依赖执行同样的流程。它会检测仓库使用的语言*以及*默认分支上提交的每个依赖清单文件，把两者映射到包生态系统，并创建一个 `Task`
 类型的 issue（带 `dependencies` 标签），其中列出每个生态系统、找到的清单文件、需要重新生成的锁文件，以及在该生态系统中真正能跨越大版本的命令。随后它会把该 issue 交给
-`/solve --development-log --deep-analysis --auto-merge --update-all-dependencies`。详见
+`/solve --development-log --deep-analysis --auto-merge --update-all-dependencies`。
+在创建 issue 之前，它会在 CI 通过后逐个合并仓库中打开的 Dependabot 版本升级 PR（与
+`/merge <repository> --dependabot` 使用同一个队列）。issue 中会列出哪些 Dependabot PR
+已合并、哪些仍然打开，以便解决代理覆盖剩余的更新。该步骤在 `--update-all-dependencies`
+下默认开启；使用 `--no-auto-merge-dependabot` 可关闭。`--dry-run` 只列出将要合并的 PR。详见
 [自动化的依赖更新](docs/DEPENDENCY-UPDATE-BEST-PRACTICES.zh.md#自动化的依赖更新)。每次运行必须且只能指定一种模式：不带模式或同时带两种模式的 `/fix` 都会被拒绝。
 
 如果完整的 `/fix` 流程不可用，`/task --ci-cd <repository>` 和

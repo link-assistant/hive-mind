@@ -541,10 +541,11 @@ Examples:
 #### `/merge` — Слияние готовых Pull Request
 
 ```
-/merge <repository-url|issue-url|pull-request-url> [--auto-resolve]
+/merge <repository-url|issue-url|pull-request-url> [--auto-resolve] [--dependabot]
 
 Examples:
 /merge https://github.com/owner/repo
+/merge https://github.com/owner/repo --dependabot
 /merge https://github.com/owner/repo/issues/123
 /merge https://github.com/owner/repo/pull/456
 ```
@@ -557,6 +558,13 @@ pull request, например на предыдущую команду `/codex 
 Если целевой PR ещё не завершён, `/merge` ждёт, пока он станет mergeable, и затем
 выполняет слияние. Пропуск конфликтов слияния по-прежнему работает с
 `--auto-resolve`.
+
+`--dependabot` (только для цели-репозитория) дополнительно ставит в очередь все
+открытые (не черновые) PR Dependabot с обновлением версий, хотя у них никогда нет
+метки `ready`. Они сливаются по одному с той же проверкой CI. С `--auto-resolve`
+PR Dependabot с упавшим CI (например, из-за отсутствующего changelog-фрагмента)
+тоже передаются в `/solve <pr> --auto-merge`, чтобы их исправили и слили, а не
+оставили открытыми.
 
 #### `/fix` — Автоматическое исправление CI/CD и зависимостей
 
@@ -571,6 +579,7 @@ Examples:
 /fix owner/repo --ci-cd --no-solve
 /fix https://github.com/owner/repo --update-all-dependencies
 /fix owner/repo --update-all-dependencies --dry-run
+/fix owner/repo --update-all-dependencies --no-auto-merge-dependabot
 ```
 
 `/fix --ci-cd` определяет языки целевого репозитория, анализирует последний коммит ветки по умолчанию и его
@@ -587,7 +596,13 @@ Examples:
 с пакетными экосистемами и создаёт issue типа `Task` (с меткой `dependencies`), где перечислены каждая
 экосистема, найденные манифесты, lock-файлы для перегенерации и команда, которая действительно пересекает
 там мажорные версии. Затем он передаёт issue в
-`/solve --development-log --deep-analysis --auto-merge --update-all-dependencies`. Подробнее см.
+`/solve --development-log --deep-analysis --auto-merge --update-all-dependencies`.
+Перед созданием issue он сливает открытые PR Dependabot с обновлением версий по
+одному после успешного CI (та же очередь, что и у `/merge <repository> --dependabot`).
+В issue указывается, какие PR Dependabot слиты, а какие остались открытыми, чтобы
+агент покрыл оставшиеся обновления. Этот шаг включён по умолчанию для
+`--update-all-dependencies`; отключить его можно флагом `--no-auto-merge-dependabot`.
+`--dry-run` только перечисляет PR, которые были бы слиты. Подробнее см.
 [Автоматическое обновление зависимостей](docs/DEPENDENCY-UPDATE-BEST-PRACTICES.ru.md#автоматическое-обновление-зависимостей).
 За один запуск требуется ровно один режим: `/fix` без режима или сразу с двумя отклоняется.
 

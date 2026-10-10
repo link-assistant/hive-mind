@@ -31,6 +31,7 @@ import { REPORT_DEPENDENCIES_ISSUES_PARAGRAPH } from './report-dependencies-issu
 // payload for both `/fix` modes; they keep their original home so the existing
 // tests stay pointed at one implementation.
 import { buildLanguagesSection, normalizeLanguages } from './fix.ci-cd.lib.mjs';
+import { buildDependabotMergeContextLines } from './fix.dependabot-merge.lib.mjs';
 
 /**
  * Canonical package-ecosystem catalog.
@@ -572,7 +573,7 @@ function shortSha(sha) {
  */
 export { buildLanguagesSection };
 
-export function buildUpdateDependenciesIssueBody({ repository, defaultBranch, commit, languages, files = [], filesTruncated = false, omittedOptions = UPDATE_DEPENDENCIES_FORWARDED_SOLVE_OPTIONS, reportDependenciesIssues = true }) {
+export function buildUpdateDependenciesIssueBody({ repository, defaultBranch, commit, languages, files = [], filesTruncated = false, omittedOptions = UPDATE_DEPENDENCIES_FORWARDED_SOLVE_OPTIONS, reportDependenciesIssues = true, dependabotMerge = null }) {
   const { detected } = mapRepositoryToEcosystems({ languages, files });
   const commitLine = commit?.sha ? `\`${shortSha(commit.sha)}\`${commit.url ? ` ([commit](${commit.url}))` : ''}${commit.message ? ` — ${String(commit.message).split('\n')[0]}` : ''}` : 'unknown';
 
@@ -581,6 +582,8 @@ export function buildUpdateDependenciesIssueBody({ repository, defaultBranch, co
   if (filesTruncated) {
     sections.push('- ⚠️ **The file listing returned by GitHub was truncated**, so the manifest inventory above may be incomplete. Re-check the repository tree by hand.');
   }
+
+  sections.push(...buildDependabotMergeContextLines(dependabotMerge));
 
   sections.push('', '**Detected languages**', '', buildLanguagesSection(languages), '', '</details>');
 

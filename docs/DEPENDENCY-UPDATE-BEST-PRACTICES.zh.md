@@ -208,6 +208,13 @@ fix owner/repo --update-all-dependencies --dry-run
 fix owner/repo --update-all-dependencies --no-solve
 ```
 
+在第 4 步之前，`fix` 还会**合并已经打开的 Dependabot 版本升级 PR**：按顺序、且只在 CI 通过后合并，使用与 `/merge <repository> --dependabot` 相同的队列。Dependabot 已经提出且 CI 已接受的升级会先合入。生成的 issue 会记录哪些 Dependabot PR 已合并、哪些仍然打开（以及原因，例如 CI 失败），并要求解决代理在自己的 PR 中覆盖仍打开的升级。该步骤在 `--update-all-dependencies` 下默认开启，且不会阻塞 issue：即使失败，issue 仍会创建。使用 `--no-auto-merge-dependabot` 可关闭。配合 `--dry-run` 时只列出将要合并的 PR。如需单独合并 Dependabot PR，请使用 `/merge <repository> --dependabot`；再加上 `--auto-resolve`，CI 失败的 Dependabot PR 也会交给 `/solve <pr> --auto-merge`。
+
+```bash
+fix owner/repo --update-all-dependencies --no-auto-merge-dependabot
+merge https://github.com/owner/repo --dependabot --auto-resolve
+```
+
 ### 为什么 issue 是 Task 类型，以及省略了什么
 
 `/solve --deep-analysis` **只对 Bug 类型的 issue** 输出根因分析和调试输出方面的指导，而依赖升级并没有需要查找的根因。把 issue 创建为 `Task` 会选中该提示词的非 bug 变体——调研、需求覆盖、方案规划——这才是这里真正有用的部分。issue 类型按组织配置，标签按仓库配置，因此如果目标仓库两者都不接受，issue 仍会被创建，只是不带这些属性。

@@ -39,7 +39,9 @@ export const claudeModels = {
   // Compatibility mapping for metadata and validation. Execution preserves the
   // vendor-managed rolling alias so the default advances beyond this snapshot.
   // Opus 5.5 ($4/$20) is both the latest and the cheapest Opus (Issue #2771).
-  opus: 'claude-opus-5-5', // Rolling default at execution time (Issue #2096, #2290, #2771)
+  // Keep this in step with Claude Code's `opus` alias: it also seeds the default
+  // fallback chain and the "Requested" line of the PR comment (Issue #2840).
+  opus: 'claude-opus-5-5', // Rolling default at execution time (Issue #2096, #2290, #2771, #2840)
   haiku: 'claude-haiku-5-5', // Haiku 5.5 — Claude Code's `haiku` alias; long-prompt pricing above 100K input (Issue #2771)
   'haiku-3-5': 'claude-3-5-haiku-20241022', // Haiku 3.5
   'haiku-3': 'claude-3-haiku-20240307', // Haiku 3

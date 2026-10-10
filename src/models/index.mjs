@@ -869,7 +869,7 @@ const computeOutputTokenSharePercent = (modelUsage, modelId) => {
   return Math.round((matched / total) * 100);
 };
 
-export const buildModelInfoString = ({ requestedModel = null, tool = null, pricingInfo = null, modelInfo = null, modelsUsed = null, thinkingInfo = null, fallbackModel = null, modelUsage = null } = {}) => {
+export const buildModelInfoString = ({ requestedModel = null, tool = null, pricingInfo = null, modelInfo = null, modelsUsed = null, thinkingInfo = null, fallbackModel = null, modelUsage = null, actualModelUnknownReason = null } = {}) => {
   const hasRequested = requestedModel !== null && requestedModel !== undefined;
   const hasModelsUsed = Array.isArray(modelsUsed) && modelsUsed.length > 0;
   const hasModelInfo = modelInfo !== null;
@@ -887,11 +887,16 @@ export const buildModelInfoString = ({ requestedModel = null, tool = null, prici
     // ID it resolves to so reviewers know exactly which model ran, e.g.
     // "Requested: `opus` (`claude-opus-4-8`)". When the alias already equals its
     // resolved ID (or cannot be resolved) we just print the alias once.
+    // Issue #2840: that resolution is the bundled catalogue's view of the alias, not
+    // a report from the tool. When nothing reported the model that ran, say so on
+    // this line instead of presenting the guess as the bold "Model:" below.
+    const actualUnknown = !hasModelsUsed && !hasModelInfo && !hasPricingModel && actualModelUnknownReason;
+    const requestedLabel = actualUnknown ? `Requested (actual model unknown \u2014 ${actualModelUnknownReason})` : 'Requested';
     const resolvedRequested = resolveModelId(requestedModel, tool);
     if (resolvedRequested && String(resolvedRequested).toLowerCase() !== String(requestedModel).toLowerCase()) {
-      info += `\n- Requested: \`${requestedModel}\` (\`${resolvedRequested}\`)`;
+      info += `\n- ${requestedLabel}: \`${requestedModel}\` (\`${resolvedRequested}\`)`;
     } else {
-      info += `\n- Requested: \`${requestedModel}\``;
+      info += `\n- ${requestedLabel}: \`${requestedModel}\``;
     }
   }
 
@@ -1059,23 +1064,25 @@ export const resolveDefaultFallbackModel = (tool, model) => {
  * Fetch model info and build the complete model information string for PR comments.
  * Uses actual models from CLI JSON output when available.
  *
+ * Issue #2840: only models the tool itself reported are rendered as the bold
+ * "Model:". When there is none, the requested alias is shown with the reason the
+ * actual model is unknown, never its bundled resolution dressed up as the model that ran.
+ *
  * @param {Object} options
  * @param {string|null} options.requestedModel - The --model flag value
  * @param {string|null} options.tool - The tool used (claude, agent, opencode, codex, qwen, gemini)
  * @param {Object|null} options.pricingInfo - Pricing info from tool result
  * @param {Array<string>|null} options.actualModelIds - Actual model IDs from CLI JSON output
+ * @param {string|null} options.actualModelUnknownReason - Why no actual model is known, shown next to the requested alias (Issue #2840)
  * @returns {Promise<string>} Formatted markdown model info section
  */
-export const getModelInfoForComment = async ({ requestedModel = null, tool = null, pricingInfo = null, actualModelIds = null, thinkingInfo = null, fallbackModel = null, modelUsage = null } = {}) => {
+export const getModelInfoForComment = async ({ requestedModel = null, tool = null, pricingInfo = null, actualModelIds = null, thinkingInfo = null, fallbackModel = null, modelUsage = null, actualModelUnknownReason = 'not reported by the tool' } = {}) => {
   let modelIds = [];
 
   if (Array.isArray(actualModelIds) && actualModelIds.length > 0) {
     modelIds = actualModelIds;
   } else if (pricingInfo?.modelId) {
     modelIds = [pricingInfo.modelId];
-  } else if (requestedModel) {
-    const resolved = resolveModelId(requestedModel, tool);
-    if (resolved) modelIds = [resolved];
   }
 
   const modelsUsed = [];
@@ -1099,5 +1106,6 @@ export const getModelInfoForComment = async ({ requestedModel = null, tool = nul
     thinkingInfo,
     fallbackModel,
     modelUsage,
+    actualModelUnknownReason,
   });
 };

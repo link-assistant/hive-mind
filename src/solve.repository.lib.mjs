@@ -34,6 +34,7 @@ import { buildForkReplacementBlockedReason, buildForkReplacementSafetyCheckDescr
 // Issue #2192: GitHub throttles *anonymous* git downloads; a token must be sent
 // preemptively (a credential helper is never consulted for a public repository).
 import { GIT_AUTH_TRANSPORT_DISABLE, ensureAuthenticatedGitTransport } from './git-auth-transport.lib.mjs';
+import { formatGitHubDocsLine } from './github-docs-links.lib.mjs'; // Issue #2998: link the GitHub setting behind an access failure.
 
 // Import GitHub utilities for permission checks
 const githubLib = await import('./github.lib.mjs');
@@ -689,6 +690,7 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
             await log('     Step 4: Request access');
             await log('            • If repository is private, ask owner for access');
             await log('            • Check if you need to be added as a collaborator');
+            for (const topic of ['inviteCollaborator', 'organizationRepositoryAccess', 'notFoundForExistingResource']) await log(`            ${formatGitHubDocsLine(topic)}`); // Issue #2998
             await log('');
             await safeExit(1, 'Repository setup failed - repository not accessible (HTTP 404)');
           }
@@ -1043,7 +1045,7 @@ export const cloneRepository = async (repoToClone, tempDir, argv, owner, repo) =
         await log(`     3. Verify access: gh repo view ${owner}/${repo}`);
         if (argv.fork) await log(`     4. Check fork: gh repo view ${repoToClone}`);
         if (errorClassification.type === 'TRANSIENT') await log('     5. Wait and retry / check: https://www.githubstatus.com');
-        if (errorClassification.type === 'RATE_LIMIT') await log('     5. Wait for rate limit to reset or use --token with different token');
+        if (errorClassification.type === 'RATE_LIMIT') await log(`     5. Wait for rate limit to reset or use --token with different token\n        ${formatGitHubDocsLine('rateLimits')}`);
         if (errorClassification.type === 'ANONYMOUS_RATE_LIMIT') {
           await log('     5. Make sure a token is available to git: gh auth token (or set GH_TOKEN)');
           await log('     6. Repair the git/gh state non-interactively: gh-setup-git-identity --repair');

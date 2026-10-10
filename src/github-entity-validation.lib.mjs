@@ -9,6 +9,7 @@ const { $ } = await use('command-stream');
 import { ghCmdRetry } from './lib.mjs';
 import { ghPrView, ghIssueView } from './github.lib.mjs';
 import { QUIET_PROBE } from './quiet-probe.lib.mjs';
+import { buildRepositoryNotAccessibleMessage, getAuthenticatedGitHubLogin } from './github-access-guide.lib.mjs';
 
 /**
  * Compute the Levenshtein edit distance between two strings.
@@ -158,16 +159,22 @@ export async function buildMissingBaseBranchErrorMessage({ owner, repo, baseBran
  * @param {boolean} [options.autoAcceptInvite=false] - Whether the caller already passed
  *   `--auto-accept-invite`. When true, the repo-404 message omits the suggestion to
  *   use that flag, since it would not be actionable (issue #1692).
- * @returns {Promise<{valid: boolean, error?: string, level?: string, details?: string}>}
+ * @param {string} [options.locale] - Reader's language for the repo-404 access guide and
+ *   its GitHub Docs links (issue #2998). Defaults to the UI locale.
+ * @param {string} [options.docsLocale] - GitHub Docs language when it differs from `locale`.
+ * @returns {Promise<{valid: boolean, error?: string, level?: string, details?: string, botLogin?: string|null, ownerType?: string|null}>}
  *   - valid: true if all entities exist and are accessible
  *   - error: user-facing error message (when valid=false)
  *   - level: which entity level failed ('user', 'repo', 'branch', 'issue', 'pull')
  *   - details: additional context for verbose logging
  */
-export async function validateGitHubEntityExistence({ owner, repo, number, type, baseBranch, verbose = false, autoAcceptInvite = false }) {
-  // Step 1: Check user/organization existence
+export async function validateGitHubEntityExistence({ owner, repo, number, type, baseBranch, verbose = false, autoAcceptInvite = false, locale, docsLocale }) {
+  // Step 1: Check user/organization existence. The account type picks the
+  // personal or organization access guide if the repository is not visible.
+  let ownerType = null;
   try {
-    const userResult = await ghCmdRetry(() => $`gh api users/${owner} --jq .login`, { label: `check user ${owner}` });
+    const userResult = await ghCmdRetry(() => $`gh api users/${owner} --jq .type`, { label: `check user ${owner}` });
+    if (userResult.code === 0) ownerType = userResult.stdout?.toString().trim() || null;
     if (userResult.code !== 0) {
       const errorOutput = (userResult.stderr?.toString() ? userResult.stderr.toString() : '') + (userResult.stdout?.toString() ? userResult.stdout.toString() : '');
       if (errorOutput.includes('404') || errorOutput.includes('Not Found')) {
@@ -190,14 +197,15 @@ export async function validateGitHubEntityExistence({ owner, repo, number, type,
     if (repoResult.code !== 0) {
       const errorOutput = (repoResult.stderr?.toString() ? repoResult.stderr.toString() : '') + (repoResult.stdout?.toString() ? repoResult.stdout.toString() : '');
       if (errorOutput.includes('404') || errorOutput.includes('Not Found')) {
-        const bullets = ['• Repository may be private — ensure the bot has been granted access', '• The repository name is spelled correctly', '• The repository has not been deleted, transferred, or never existed'];
-        if (!autoAcceptInvite) {
-          bullets.push('• If Hive Mind bot was recently invited, try using --auto-accept-invite to accept pending invitations');
-        }
+        // Issue #2998: name the account to invite, link the invite page and the
+        // GitHub Docs sections in the reader's language.
+        const botLogin = await getAuthenticatedGitHubLogin();
         return {
           valid: false,
-          error: `Repository '${owner}/${repo}' is not accessible.\n\n💡 Please check:\n${bullets.join('\n')}`,
+          error: await buildRepositoryNotAccessibleMessage({ owner, repo, autoAcceptInvite, botLogin, ownerType, locale, docsLocale }),
           level: 'repo',
+          botLogin,
+          ownerType,
         };
       }
       verbose && console.log(`[VERBOSE] Entity check: Could not verify repo '${owner}/${repo}': ${errorOutput.trim()}`);

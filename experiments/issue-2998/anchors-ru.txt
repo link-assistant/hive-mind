@@ -1,0 +1,15 @@
+
+## 200 https://docs.github.com/ru/repositories/managing-your-repositorys-settings-and-features/repository-access-and-collaboration/inviting-collaborators-to-a-personal-repository
+allproducts-menu  |  Repositories
+in-this-article  |  В этой статье
+inviting-a-collaborator-to-a-personal-repository  |  Приглашение участника совместной работы в личный репозиторий
+next-steps  |  Дальнейшие шаги
+survey-title  |  Была ли эта документация полезной?
+
+## 200 https://docs.github.com/ru/organizations/managing-user-access-to-your-organizations-repositories/managing-repository-roles/managing-an-individuals-access-to-an-organization-repository
+allproducts-menu  |  Organizations
+in-this-article  |  В этой статье
+about-access-to-organization-repositories  |  Сведения о доступе к репозиториям организации
+managing-an-individuals-access-to-an-organization-repository  |  Управление доступом пользователя к репозиторию организации
+further-reading  |  Дополнительные материалы
+survey-title  |  Была ли эта документация полезной?

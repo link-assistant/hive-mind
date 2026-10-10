@@ -25,6 +25,7 @@ import { extractMergeTargetUrlFromText, parseMergeTargetUrl } from './github-mer
 import { createMergeQueueProcessor, MergeStatus, MERGE_QUEUE_CONFIG } from './telegram-merge-queue.lib.mjs';
 import { executeStartScreen } from './telegram-command-execution.lib.mjs';
 import { parseCommandArgs } from './telegram-solve-command.lib.mjs';
+import { buildGitHubDocsUrl, GITHUB_DOCS_TOPICS } from './github-docs-links.lib.mjs'; // Issue #2998
 
 /**
  * Active merge operations map (repoKey -> { processor, chatId, messageId })
@@ -328,7 +329,7 @@ export function registerMergeCommand(bot, options) {
       // Check permissions
       const permCheck = await checkLabelPermissions(owner, repo, VERBOSE);
       if (!permCheck.canManageLabels) {
-        await safeEditMessageText(ctx.telegram, statusMessage.chat.id, statusMessage.message_id, undefined, `No permission to manage repository ${escapeMarkdownV2(owner)}/${escapeMarkdownV2(repo)}\\.\n\nPlease ensure you have write access to this repository\\.`, { parse_mode: 'MarkdownV2' });
+        await safeEditMessageText(ctx.telegram, statusMessage.chat.id, statusMessage.message_id, undefined, `No permission to manage repository ${escapeMarkdownV2(owner)}/${escapeMarkdownV2(repo)}\\.\n\nPlease ensure you have write access to this repository\\.\n\n📖 [${escapeMarkdownV2(GITHUB_DOCS_TOPICS.changeRepositoryRole.title)}](${buildGitHubDocsUrl('changeRepositoryRole', { locale: ctx.from?.language_code })})`, { parse_mode: 'MarkdownV2' });
         return;
       }
 

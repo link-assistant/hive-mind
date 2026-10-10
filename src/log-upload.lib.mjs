@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { describeCredentialSanitizationFailure, sanitizeForPublication } from './token-sanitization.lib.mjs';
 import { sanitizeLogFileToFileBounded } from './log-sanitize-worker.lib.mjs';
+import { formatGitHubDocsLinesForError } from './github-error-docs.lib.mjs'; // Issue #2998
 
 // Log upload module for hive-mind
 // Uses gh-upload-log for uploading log files to GitHub
@@ -371,6 +372,7 @@ const runUploadWithRetries = async ({ commandArgs, runUpload, sleep, delaysMs, l
     }
     if (uploadResult.code !== 0 && isPermanentUploadFailure(output)) {
       await log(`  ⚠️  The GitHub token may not publish logs (e.g. a workflow GITHUB_TOKEN cannot create gists); not retrying the ${label} upload`);
+      for (const line of formatGitHubDocsLinesForError(output)) await log(`     ${line}`); // Issue #2998
       return { ok: false, parsed: null, output, attempts: attempt, permanent: true };
     }
     // 127: gh-upload-log is not installed; waiting will not change that.

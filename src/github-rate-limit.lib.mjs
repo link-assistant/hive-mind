@@ -22,6 +22,7 @@ import { exec as execCb } from 'node:child_process';
 
 import { limitReset, retryLimits } from './config.lib.mjs';
 import { matchGitNetworkCommand } from './git-retry.lib.mjs';
+import { formatGitHubDocsLine } from './github-docs-links.lib.mjs';
 import { collectErrorText, describeTransientError, formatTransientDiagnostics, isTransientNetworkError, GITHUB_SERVER_TRANSIENT_PATTERNS } from './transient-errors.lib.mjs';
 
 const exec = promisify(execCb);
@@ -375,7 +376,7 @@ export const ghWithRateLimitRetry = async (fn, options = {}) => {
       if (isRateLimitError(error)) {
         rateLimitAttempts++;
         if (rateLimitAttempts >= maxAttempts) {
-          await Promise.resolve(log(`❌ ${label}: rate limit still active after ${rateLimitAttempts} attempts; giving up.`));
+          await Promise.resolve(log(`❌ ${label}: rate limit still active after ${rateLimitAttempts} attempts; giving up. ${formatGitHubDocsLine('rateLimits')}`));
           throw error;
         }
         const reset = parseRateLimitReset(error) || (await fetchNextRateLimitReset());

@@ -106,6 +106,8 @@ const { handleBillingLimitBlocker } = await import('./billing-limit-stop.lib.mjs
 // Issue #2247 (H3): a restart is only worth its cost when the previous session
 // changed something. Five byte-identical sessions is a stall, not progress.
 const { stopWhenSessionRepeated } = await import('./session-progress.lib.mjs');
+// Issue #2839: every failing check must be fixed, pre-existing ones too; evidence spares the AI the diagnosis.
+const { buildCiFailureGuidance, buildPreExistingCiFeedback, detectPreExistingCiFailures } = await import('./ci-pre-existing-failure.lib.mjs');
 // Issue #2119: an empty pull request must not be reported as ready to merge.
 const { buildEmptyPullRequestBlocker, getPullRequestChangeStats } = await import('./pull-request-changes.lib.mjs');
 // Issue #2263: a terminal session failure is a run-wide readiness veto. The
@@ -717,21 +719,18 @@ export const watchUntilMergeable = async params => {
         }
         return { success: false, reason: 'external_review_limit', latestSessionId, latestAnthropicCost };
       }
+      const preExistingCi = ciBlocker && !billingBlocker ? await detectPreExistingCiFailures({ owner, repo, prNumber, failingChecks: ciBlocker.details, $, log }) : null;
       if (ciBlocker && !billingBlocker) {
         shouldRestart = true;
         restartReason = restartReason ? `${restartReason}; CI failures` : 'CI failures detected';
         feedbackLines.push('❌ CI/CD checks are failing:');
-        // Issue #1690: Surface the blocker message so AI sees structured failure context
-        // (e.g. "CI/CD workflow file is invalid — no jobs were instantiated") even when
-        // the failure didn't produce traditional check-runs.
+        // Issue #1690: surface the blocker message (e.g. "CI/CD workflow file is invalid — no jobs were instantiated") even without check-runs.
         if (ciBlocker.message && ciBlocker.message !== 'CI/CD checks are failing') {
           feedbackLines.push(`  ${ciBlocker.message}`);
         }
-        for (const check of ciBlocker.details) {
-          feedbackLines.push(`  - ${check}`);
-        }
-        feedbackLines.push('');
-        feedbackLines.push('Please fix the failing CI checks.');
+        for (const check of ciBlocker.details) feedbackLines.push(`  - ${check}`);
+        feedbackLines.push('', 'Please fix the failing CI checks.');
+        feedbackLines.push(...buildCiFailureGuidance(), ...buildPreExistingCiFeedback(preExistingCi)); // Issue #2839: pre-existing failures block the merge too
       }
       // Reason 3: Merge conflicts or other merge issues
       const mergeBlocker = blockers.find(b => b.type === 'not_mergeable');
@@ -753,10 +752,8 @@ export const watchUntilMergeable = async params => {
         feedbackLines.push(...buildUncommittedChangesFeedback(changes));
       }
       if (shouldRestart) {
-        // Issue #2119: the run-wide budget is exhausted (it may already have been
-        // spent by the watch loop). Fail and auto-commit through the same shared
-        // exhaustion path the uncommitted-changes loop uses, so the outcome and
-        // the published comment are identical no matter which loop hit the limit.
+        // Issue #2119: the run-wide budget is exhausted (maybe by the watch loop): fail and
+        // auto-commit through the shared exhaustion path, so every loop reports it the same way.
         if (hasExhaustedAutoRestartBudget()) {
           const exhaustion = await failOnAutoRestartBudgetExhausted({
             owner,
@@ -773,12 +770,10 @@ export const watchUntilMergeable = async params => {
           return { success: false, reason: exhaustion.reason, latestSessionId, latestAnthropicCost };
         }
 
-        // Issue #2247 (H3): the previous session ended exactly like the one
-        // before it - same final message, same working tree, same commit. The
-        // Rust reproduction run spent five iterations that way. Stop here and
-        // leave the rest of the budget unspent rather than buy the same session
-        // again.
-        const stall = await stopWhenSessionRepeated({ owner, repo, prNumber, tempDir, branchName: prBranch || branchName, $, log, formatAligned, mode: 'auto-restart-until-mergeable', verbose: argv.verbose });
+        // Issue #2247 (H3): the previous session ended like the one before it - same working tree,
+        // same commit (#2839: not the message, which models paraphrase). Stop rather than buy it again.
+        // Issue #2839: a human comment or issue edit is new work even when the last session changed nothing.
+        const stall = hasNewComments || hasIssueMetadataChanges ? null : await stopWhenSessionRepeated({ owner, repo, prNumber, tempDir, branchName: prBranch || branchName, $, log, formatAligned, mode: 'auto-restart-until-mergeable', verbose: argv.verbose });
         if (stall) return { success: false, reason: stall.reason, latestSessionId, latestAnthropicCost };
 
         // Add standard instructions for auto-restart-until-mergeable mode using shared utility

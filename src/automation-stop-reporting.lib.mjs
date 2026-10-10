@@ -122,7 +122,7 @@ export const STOP_REASONS = {
   },
   no_progress_between_sessions: {
     title: 'two consecutive AI sessions produced identical results',
-    detail: 'The AI session ended with the same final message, the same working tree and the same commit as the session before it. Restarting again would repeat the same session at the same cost, so the remaining restart budget was left unused.',
+    detail: 'The AI session ended with the same working tree and the same commit as the session before it (its final message is not compared: a reworded report of the same blocker is not progress). Restarting again would repeat the same session at the same cost, so the remaining restart budget was left unused.',
     nextSteps: ['Read the two working session logs named below to see what the AI kept doing.', 'Fix the blocker it kept hitting (a missing toolchain, an unreachable service, an impossible instruction), then re-run the command.', 'Or re-run with different instructions so the next session has something new to work with.'],
   },
   watch_stopped: {

@@ -43,6 +43,13 @@ const test = async (name, fn) => {
 };
 
 const parseSolveArgs = args => parseArguments(undefined, () => args);
+// "<node>" "<solve>" "<url>" --resume "<session>" [flags] → exact url/session/flags, not substrings.
+const parseResumeCommand = command => {
+  const match = /^"[^"]*" "[^"]*" "([^"]*)" --resume "([^"]*)"(.*)$/.exec(command.trim());
+  assert.ok(match, `not a solve resume command: ${command}`);
+  return { url: match[1], sessionId: match[2], flags: match[3].trim() };
+};
+const SOLVE_RESUME_PREFIX = '   Solve resume mode:   ';
 
 await test('parsed solve arguments expose the URL as issue-url, not url', async () => {
   const argv = await parseSolveArgs([ISSUE_URL, '--tool', 'codex']);
@@ -56,11 +63,13 @@ await test('codex failure prints a solve resume command', async () => {
   const lines = buildFailureResumeHintLines({ argv, sessionId: SESSION_ID, tempDir: TEMP_DIR });
   const text = lines.join('\n');
   assert.ok(text.includes('💡 To continue this session:'), text);
-  const resumeLine = lines.find(line => line.startsWith('   Solve resume mode:'));
+  const resumeLine = lines.find(line => line.startsWith(SOLVE_RESUME_PREFIX));
   assert.ok(resumeLine, `missing "Solve resume mode" line in:\n${text}`);
-  for (const part of [`"${ISSUE_URL}"`, `--resume "${SESSION_ID}"`, '--tool "codex"', '--model "gpt-5.5"', `--working-directory "${TEMP_DIR}"`]) {
-    assert.ok(resumeLine.includes(part), `expected ${part} in ${resumeLine}`);
-  }
+  const resume = parseResumeCommand(resumeLine.slice(SOLVE_RESUME_PREFIX.length));
+  assert.equal(resume.url, ISSUE_URL);
+  assert.equal(resume.sessionId, SESSION_ID);
+  const fallbackFlag = argv.fallbackModel ? ` --fallback-model "${argv.fallbackModel}"` : '';
+  assert.equal(resume.flags, `--tool "codex" --model "gpt-5.5"${fallbackFlag} --working-directory "${TEMP_DIR}"`);
   assert.ok(!text.includes('Interactive mode:'), 'claude-only commands must not be shown for codex');
 });
 
@@ -68,7 +77,10 @@ await test('codex failure records a non-null resume command', async () => {
   const argv = await parseSolveArgs([ISSUE_URL, '--tool', 'codex']);
   const resumeCommand = buildSolveResumeCommandFromArgv({ argv, sessionId: SESSION_ID, tempDir: TEMP_DIR });
   assert.ok(resumeCommand, 'resume command must not be null');
-  assert.ok(resumeCommand.includes(`"${ISSUE_URL}" --resume "${SESSION_ID}" --tool "codex"`), resumeCommand);
+  const resume = parseResumeCommand(resumeCommand);
+  assert.equal(resume.url, ISSUE_URL);
+  assert.equal(resume.sessionId, SESSION_ID);
+  assert.ok(resume.flags.startsWith('--tool "codex"'), resumeCommand);
 });
 
 await test('claude failure keeps interactive, autonomous and solve resume commands', async () => {
@@ -76,7 +88,9 @@ await test('claude failure keeps interactive, autonomous and solve resume comman
   const text = buildFailureResumeHintLines({ argv, sessionId: SESSION_ID, tempDir: TEMP_DIR }).join('\n');
   assert.ok(text.includes('Interactive mode:'), text);
   assert.ok(text.includes('Autonomous mode:'), text);
-  assert.ok(text.includes(`Solve resume mode:`) && text.includes(`"${ISSUE_URL}" --resume "${SESSION_ID}"`), text);
+  const resumeLine = text.split('\n').find(line => line.startsWith(SOLVE_RESUME_PREFIX));
+  assert.ok(resumeLine, text);
+  assert.equal(parseResumeCommand(resumeLine.slice(SOLVE_RESUME_PREFIX.length)).url, ISSUE_URL);
   assert.ok(!text.includes('--tool'), 'claude is the default tool and is not repeated');
 });
 
@@ -90,7 +104,10 @@ await test('agent, opencode, qwen and gemini resume commands keep the tool and U
   for (const tool of ['agent', 'opencode', 'qwen', 'gemini']) {
     const argv = await parseSolveArgs([ISSUE_URL, '--tool', tool]);
     const command = buildSolveResumeCommandFromArgv({ argv, sessionId: SESSION_ID, tempDir: TEMP_DIR, tool });
-    assert.ok(command.includes(`"${ISSUE_URL}" --resume "${SESSION_ID}" --tool "${tool}"`), command);
+    const resume = parseResumeCommand(command);
+    assert.equal(resume.url, ISSUE_URL);
+    assert.equal(resume.sessionId, SESSION_ID);
+    assert.ok(resume.flags.startsWith(`--tool "${tool}"`), command);
     assert.ok(!command.includes('undefined'), command);
   }
 });
@@ -99,10 +116,9 @@ await test('claude adapter prints the solve resume command from parsed arguments
   const argv = await parseSolveArgs([ISSUE_URL]);
   const logged = [];
   await showResumeCommand(SESSION_ID, TEMP_DIR, 'claude', null, async line => logged.push(line), argv);
-  assert.ok(
-    logged.some(line => line.includes('Solve resume mode:') && line.includes(ISSUE_URL)),
-    logged.join('')
-  );
+  const resumeLine = logged.find(line => line.startsWith(SOLVE_RESUME_PREFIX));
+  assert.ok(resumeLine, logged.join(''));
+  assert.equal(parseResumeCommand(resumeLine.slice(SOLVE_RESUME_PREFIX.length)).url, ISSUE_URL);
 });
 
 await test('arguments of other commands do not produce a solve resume command', async () => {

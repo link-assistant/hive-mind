@@ -27,6 +27,7 @@ import { acquireFormalAiSidecarForTask, attachFormalAiTaskContainer, buildFormal
 import { getDockerIsolationImage } from './hive-mind-image.lib.mjs';
 // Issue #2247 (H1): refresh a mutable task image before launch and record which one ran.
 import { buildTaskImageProvenanceEnv, refreshTaskImage } from './task-image-refresh.lib.mjs';
+import { buildTaskContainerMarkerEnv } from './docker-task-containers.lib.mjs';
 import { buildRouterGitConfigEntries, buildRouterTaskEnv, getRouterSuppressedCredentialPaths, hasUseRouterFlag, isRouterEnabled, resolveRouterBaseUrl, resolveRouterGitHubRouting } from './router-isolation.lib.mjs';
 import { acquireRouterForTask, attachRouterTaskContainer, registerFormalAiWithRouter, releaseRouterForTask, watchRouterTaskContainer } from './router-task-isolation.lib.mjs';
 import { buildGitConfigEnv, GIT_PUSH_GUARD_CONTAINER_DIR, GIT_PUSH_GUARD_ESCAPE_ENV, hasForcePushOptIn, installGitPushGuard } from './git-push-guard.lib.mjs';
@@ -287,6 +288,14 @@ export function buildDockerIsolationStartArgs(command, args = [], options = {}) 
   startArgs.push('--shell', DOCKER_ISOLATION_SHELL);
   // The image already sets HOME=/home/box and WORKDIR /home/box; pass HOME explicitly anyway so the credential mounts under /home/box resolve even if a future image forgets to. start-command has no --workdir flag, so the working directory comes from the image's WORKDIR.
   startArgs.push('-e', `HOME=${DOCKER_CONTAINER_HOME}`, '-e', `HIVE_MIND_PARENT_SESSION_ID=${sessionId || ''}`, '-e', `HIVE_MIND_IMAGE_VARIANT=${resolveImageVariant(image, env)}`);
+  // Issue #2917: the bot counted docker-isolated tasks from its own memory, so
+  // tasks resumed outside it were invisible to /limits and to throttling. These
+  // markers live in the container's config, survive `$ --resume` (re-applied
+  // and baked into the snapshot image), and let `docker ps` attribute a running
+  // container to its tool and URL without the bot having launched it.
+  for (const [name, value] of Object.entries(buildTaskContainerMarkerEnv({ tool, url: args[0] }))) {
+    startArgs.push('-e', `${name}=${value}`);
+  }
   // Issue #2247 (H1): the three 2026-09-13 tasks ran a week-old `solve` and no
   // comment said so. The image the container was created from - and the digest
   // it resolved to - travel with the task so its session comment can state them.

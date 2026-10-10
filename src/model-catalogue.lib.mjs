@@ -64,7 +64,7 @@ export const getBundledModelMap = tool => {
 /**
  * The distinct model ids a tool ships with.
  *
- * The alias maps are many-to-one — `opus`, `opus-5` and `claude-opus-5` all
+ * The alias maps are many-to-one — `opus`, `opus-5-5` and `claude-opus-5-5` all
  * resolve to one model — so the resolved values are what a live catalogue can be
  * compared against; the aliases are a presentation detail.
  */

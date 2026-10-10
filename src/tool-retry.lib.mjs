@@ -348,7 +348,12 @@ export const waitWithCountdown = async (delayMs, log) => {
 // hop from the default chain of the *current* model. An explicitly user-pinned
 // fallback (`explicit: true`) is never walked past — the user chose that model on
 // purpose, so it stays put.
-export const resolveConfiguredFallbackModel = ({ tool, currentModel, configuredFallbackModel = undefined, explicit = false } = {}) => {
+//
+// Issue #2840: `actualModel` is the model the tool itself reported running for
+// `currentModel` (e.g. Claude's `system/init` says `claude-opus-5-5` for the rolling
+// `opus` alias). When known, the chain steps down from what actually ran rather than
+// from the bundled guess of what the alias means, so no generation is skipped.
+export const resolveConfiguredFallbackModel = ({ tool, currentModel, configuredFallbackModel = undefined, explicit = false, actualModel = null } = {}) => {
   // A user-pinned fallback (--fallback-model) is honoured as-is and never walked
   // past: the user chose that exact model on purpose. Return it while it still
   // differs from the current model; once the run is already on it, stop switching.
@@ -363,7 +368,7 @@ export const resolveConfiguredFallbackModel = ({ tool, currentModel, configuredF
   // (e.g. gpt-5.6-sol -> gpt-5.6-terra -> gpt-5.6-luna -> gpt-5.5 -> gpt-5.4).
   // The auto-set argv.fallbackModel is intentionally ignored here — it only ever
   // holds the first default hop and would otherwise pin the chain to one step.
-  return resolveDefaultFallbackModel(tool, currentModel);
+  return (actualModel && resolveDefaultFallbackModel(tool, actualModel)) || resolveDefaultFallbackModel(tool, currentModel);
 };
 
 // Issue #1949: Render a model alias together with the full ID it resolves to, e.g.
@@ -394,12 +399,13 @@ export const logExecutionContext = async ({ log, model, tool, tempDir, branchNam
   await log(feedbackCount > 0 ? `   Feedback info included: Yes (${feedbackCount} lines)` : '   Feedback info included: No', { verbose: true });
 };
 
-export const maybeSwitchToFallbackModel = async ({ tool, argv, log, errorMessage } = {}) => {
+export const maybeSwitchToFallbackModel = async ({ tool, argv, log, errorMessage, actualModel = null } = {}) => {
   const fallbackModel = resolveConfiguredFallbackModel({
     tool,
     currentModel: argv?.model,
     configuredFallbackModel: argv?.fallbackModel,
     explicit: argv?._fallbackModelExplicit === true,
+    actualModel,
   });
 
   const classification = classifyRetryableError(errorMessage);
@@ -435,7 +441,9 @@ export const maybeSwitchToFallbackModel = async ({ tool, argv, log, errorMessage
   if (typeof log === 'function') {
     // Issue #1949: show the resolved full model IDs so the switch is unambiguous,
     // e.g. "opus (claude-opus-4-8) -> opus-4-7 (claude-opus-4-7)".
-    await log(`🔀 Switching to fallback model: ${formatModelWithResolvedId(previousModel, tool)} -> ${formatModelWithResolvedId(fallbackModel, tool)}`, { level: 'warning' });
+    // Issue #2840: name the model that actually ran when the tool reported a different one.
+    const actualSuffix = actualModel && normalizeModelKey(actualModel) !== currentResolvedModel ? ` [actually ran ${actualModel}]` : '';
+    await log(`🔀 Switching to fallback model: ${formatModelWithResolvedId(previousModel, tool)}${actualSuffix} -> ${formatModelWithResolvedId(fallbackModel, tool)}`, { level: 'warning' });
   }
 
   return {
@@ -459,7 +467,7 @@ export const maybeSwitchToFallbackModel = async ({ tool, argv, log, errorMessage
 // survives the recursive executeWithRetry calls without each tool tracking extra
 // state. It resets to 0 whenever we actually switch models, so every model in the
 // fallback chain gets its own batch of same-model retries before stepping down.
-export const prepareRetryAfterError = async ({ tool, argv, log, errorMessage, retryCount, initialDelayMs, maxDelayMs, minDelayMs = 0 } = {}) => {
+export const prepareRetryAfterError = async ({ tool, argv, log, errorMessage, retryCount, initialDelayMs, maxDelayMs, minDelayMs = 0, actualModel = null } = {}) => {
   const classification = classifyRetryableError(errorMessage);
   const isCapacity = classification.isCapacity === true && !!argv?.model;
   const capacityRetryCount = argv?._capacityRetryCount || 0;
@@ -477,7 +485,7 @@ export const prepareRetryAfterError = async ({ tool, argv, log, errorMessage, re
     return { delay, switched: false };
   }
 
-  const switchResult = await maybeSwitchToFallbackModel({ tool, argv, log, errorMessage });
+  const switchResult = await maybeSwitchToFallbackModel({ tool, argv, log, errorMessage, actualModel });
   // A model switch starts a fresh batch of same-model retries for the new model.
   if (switchResult?.switched && argv) argv._capacityRetryCount = 0;
   const delay = switchResult?.switched ? retryLimits.modelSwitchRetryDelayMs : getRetryDelayMs({ retryCount, initialDelayMs, maxDelayMs, minDelayMs });

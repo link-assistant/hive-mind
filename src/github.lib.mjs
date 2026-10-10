@@ -20,6 +20,7 @@ import { recordResourceSnapshot, RESOURCE_PHASE_LOG_UPLOAD_START, RESOURCE_PHASE
 import { formatResetTimeWithRelative } from './usage-limit.lib.mjs'; // See: https://github.com/link-assistant/hive-mind/issues/1236
 // Import model info helpers (Issue #1225)
 import { getToolDisplayName, getModelInfoForComment } from './models/index.mjs';
+import { getObservedModelIds } from './observed-models.lib.mjs'; // Issue #2840
 export { getToolDisplayName }; // Re-export for use by other modules
 import { buildBudgetStatsString } from './claude.budget-stats.lib.mjs';
 import { buildCostInfoString, isFreeModelPricing } from './github-cost-info.lib.mjs';
@@ -593,6 +594,14 @@ async function attachLogToGitHubOnce(options) {
         if (verbose) await log(`  🤖 Using result JSON modelUsage (${ids.length} models): ${ids.join(', ')}`, { verbose: true });
       }
     }
+    // Issue #2840: a session that ended before its result (crash, OOM kill, error) still named its model in the stream.
+    if (!actualModelIds) {
+      const observedModelIds = getObservedModelIds();
+      if (observedModelIds.length > 0) {
+        actualModelIds = observedModelIds;
+        if (verbose) await log(`  🤖 Using models reported in the session stream: ${observedModelIds.join(', ')}`, { verbose: true });
+      }
+    }
     // For agent tool, extract actual model ID from pricingInfo (Issue #1225)
     if (!actualModelIds && pricingInfo?.modelId) {
       actualModelIds = [pricingInfo.modelId];
@@ -608,7 +617,7 @@ async function attachLogToGitHubOnce(options) {
       try {
         // Issue #1949: prefer an explicit thinkingInfo, otherwise derive it from argv (e.g. "high (~24000 tokens)"). null when the run used the tool's default.
         const resolvedThinkingInfo = thinkingInfo ?? describeRequestedThinking(argv);
-        modelInfoString = await getModelInfoForComment({ requestedModel, tool, pricingInfo, actualModelIds, thinkingInfo: resolvedThinkingInfo, fallbackModel: argv?.fallbackModel ?? null, modelUsage: modelUsageForComment });
+        modelInfoString = await getModelInfoForComment({ requestedModel, tool, pricingInfo, actualModelIds, thinkingInfo: resolvedThinkingInfo, fallbackModel: argv?.fallbackModel ?? null, modelUsage: modelUsageForComment, actualModelUnknownReason: errorMessage || isUsageLimit ? 'session ended before result' : 'not reported by the tool' });
         if (verbose && modelInfoString) {
           await log('  🤖 Model info fetched for comment', { verbose: true });
         }

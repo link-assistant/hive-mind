@@ -136,22 +136,26 @@ const isVersionRangeAssignment = value => VERSION_RANGE_VALUE.test(String(value 
 // the exact keyword (not a value that merely starts with one) is exempt.
 const KEYWORD_VALUE = /^(?:true|false|null|undefined|none|nil|await|async|new|typeof|function|this|void|yield)$/i;
 // Issue #2841: an unquoted value written as Markdown inline code — `` `id-token: write` ``
-// — reaches the rule with its closing backtick attached (`write\``), so the
-// exact-value exemptions below compare the value without its code delimiters.
+// — reaches the rule with its closing backtick attached (`write\``, or
+// `write\`.` at the end of a sentence), so the exact-value exemptions below
+// compare the value without its code delimiters and trailing punctuation.
 const stripInlineCode = value =>
   String(value ?? '')
     .trim()
-    .replace(/^`+|`+$/g, '');
+    .replace(/^`+/, '')
+    .replace(/`+[\p{Po}\p{Pe}]*$/u, '');
 const isKeywordAssignment = value => KEYWORD_VALUE.test(stripInlineCode(value));
 // Issue #2841: GitHub Actions workflows grant job permissions per scope, and the
-// OIDC scope name contains a sensitive word — `id-token: write`. A scope value
-// is always `read`, `write` or `none`, which
-// can never be a credential (and `maskToken` would hide it whole anyway), but
-// masking it rewrote every published workflow excerpt into `id-token: [REDACTED]`,
-// and the development-log rescan then discarded the entire session log.
-// `none` is already exempt as a keyword.
-const WORKFLOW_PERMISSION_VALUE = /^(?:read|write)$/i;
-const isWorkflowPermissionAssignment = value => WORKFLOW_PERMISSION_VALUE.test(stripInlineCode(value));
+// OIDC scope is the one scope whose name contains a sensitive word —
+// `id-token: write`. Its value is always `read`, `write` or `none`, which can
+// never be a credential, but masking it rewrote every published workflow excerpt
+// into `id-token: [REDACTED]`, and the development-log rescan then discarded the
+// entire session log. Only the `id-token` key is exempt, so `password: write`
+// is still masked; `none` is already exempt as a keyword. A scope at the end of
+// a sentence (`id-token: write.`) keeps its full stop.
+const WORKFLOW_PERMISSION_KEY = /(?:^|[^A-Za-z0-9_.-])id-token\W*$/i;
+const WORKFLOW_PERMISSION_VALUE = /^(?:read|write)[.,!?]?$/i;
+const isWorkflowPermissionAssignment = (prefix, value) => WORKFLOW_PERMISSION_KEY.test(prefix) && WORKFLOW_PERMISSION_VALUE.test(stripInlineCode(value));
 // Issue #2841: `token: ${{ secrets.NPM_TOKEN }}` *references* a repository
 // secret by name; the runner substitutes the value at run time, so the text
 // itself holds no credential. The unquoted rule stopped at the first space and
@@ -161,6 +165,9 @@ const isWorkflowPermissionAssignment = value => WORKFLOW_PERMISSION_VALUE.test(s
 // anywhere in the expression is still caught by the vendor patterns.
 const WORKFLOW_EXPRESSION = String.raw`\$\{\{[^{}'"\r\n]*\}\}`;
 const WORKFLOW_EXPRESSION_VALUE = new RegExp(`^${WORKFLOW_EXPRESSION}$`);
+// The expression may sit in Markdown inline code: `` token: `${{ secrets.X }}` ``.
+const INLINE_CODE_OPEN = '`+';
+const INLINE_CODE_WORKFLOW_EXPRESSION = `\`*${WORKFLOW_EXPRESSION}`;
 const isWorkflowExpression = value => WORKFLOW_EXPRESSION_VALUE.test(stripInlineCode(value));
 // Issue #2841: prose that names a key in inline code — "no `password:`)" —
 // leaves only the closing backtick and trailing punctuation as the "value".
@@ -196,11 +203,16 @@ const QUOTED_ASSIGNMENT = new RegExp(`((?:${QUOTE})?${SENSITIVE_KEY}(?:${QUOTE})
 // credential that merely contains a brace (`password=ab{cd`) is still masked whole.
 // Issue #2841: the same holds for a `${{ … }}` workflow expression, which spans
 // spaces and would otherwise be cut at the first one.
-const UNQUOTED_ASSIGNMENT = new RegExp(`((?:${QUOTE})?${SENSITIVE_KEY}(?:${QUOTE})?\\s*${ASSIGNMENT_SEPARATOR}\\s*)(?!${QUOTE}|[{[]|${WORKFLOW_EXPRESSION}|(?:Bearer|Basic|SharedAccessSignature)\\s)([^\\s,;}&'"\\r\\n]+)`, 'gi');
+const UNQUOTED_ASSIGNMENT = new RegExp(`((?:${QUOTE})?${SENSITIVE_KEY}(?:${QUOTE})?\\s*${ASSIGNMENT_SEPARATOR}\\s*)(?!${QUOTE}|[{[]|${INLINE_CODE_WORKFLOW_EXPRESSION}|(?:Bearer|Basic|SharedAccessSignature)\\s)([^\\s,;}&'"\\r\\n]+)`, 'gi');
+// Issue #2841: an expression that is not exempt — `token: ${{ 'literal' }}` —
+// is masked as a whole, in every position a sensitive key can take (assignment,
+// quoted assignment, CLI argument, query parameter). The other rules stop at the
+// first space or quote, so masking only `${{` would publish the literal after it.
+const WORKFLOW_EXPRESSION_ASSIGNMENT = new RegExp(`((?:(?:${QUOTE})?${SENSITIVE_KEY}(?:${QUOTE})?\\s*${ASSIGNMENT_SEPARATOR}\\s*|--${SENSITIVE_KEY}\\s+|[?&]${SENSITIVE_KEY}=)(?:${QUOTE}|${INLINE_CODE_OPEN})?)(\\$\\{\\{[^\\r\\n]*?\\}\\})`, 'gi');
 const XML_CREDENTIAL = new RegExp(`(<(${SENSITIVE_KEY})\\b[^>]*>)([\\s\\S]*?)(<\\/\\2\\s*>)`, 'gi');
 const CLI_CREDENTIAL_QUOTED = new RegExp(`(--${SENSITIVE_KEY}(?:\\s+|=))(["'])([^"'\\r\\n]*)(\\2)`, 'gi');
-const CLI_CREDENTIAL = new RegExp(`(--${SENSITIVE_KEY}(?:\\s+|=))(?!["']|${WORKFLOW_EXPRESSION})([^\\s"'\\r\\n]+)`, 'gi');
-const QUERY_CREDENTIAL = new RegExp(`([?&]${SENSITIVE_KEY}=)(?!${WORKFLOW_EXPRESSION})([^&#\\s]+)`, 'gi');
+const CLI_CREDENTIAL = new RegExp(`(--${SENSITIVE_KEY}(?:\\s+|=))(?!["']|${INLINE_CODE_WORKFLOW_EXPRESSION})([^\\s"'\\r\\n]+)`, 'gi');
+const QUERY_CREDENTIAL = new RegExp(`([?&]${SENSITIVE_KEY}=)(?!${INLINE_CODE_WORKFLOW_EXPRESSION})([^&#\\s]+)`, 'gi');
 
 const replaceVendorSecrets = text => {
   let output = text;
@@ -220,7 +232,7 @@ const replaceCookieHeader = (_match, prefix, cookieText) => {
 
 // Value shapes that are never a credential in either quoted or unquoted form.
 // Keywords stay unquoted-only: a quoted `"true"` is a string like any other.
-const isExemptAssignmentValue = (prefix, value) => isTokenCounterAssignment(prefix, value) || isVersionRangeAssignment(value) || isWorkflowPermissionAssignment(value) || isWorkflowExpression(value);
+const isExemptAssignmentValue = (prefix, value) => isTokenCounterAssignment(prefix, value) || isVersionRangeAssignment(value) || isWorkflowPermissionAssignment(prefix, value) || isWorkflowExpression(value);
 
 /**
  * The plaintext rules, in application order. Each rule has a stable,
@@ -248,6 +260,7 @@ const PLAINTEXT_RULES = Object.freeze([
   { id: 'cookie-header', apply: text => text.replace(/((?:Set-)?Cookie\s*:\s*)([^\r\n]*)/gi, replaceCookieHeader) },
 
   // XML and JSON/YAML/TOML/INI/shell-style assignments.
+  { id: 'workflow-expression', apply: text => text.replace(WORKFLOW_EXPRESSION_ASSIGNMENT, (match, prefix, value) => (isWorkflowExpression(value) ? match : `${prefix}${maskValue(value)}`)) },
   { id: 'xml-assignment', apply: text => text.replace(XML_CREDENTIAL, (_match, start, _key, value, end) => `${start}${maskValue(value.trim())}${end}`) },
   // The opening and closing delimiters are captured independently because an
   // escaped payload may not balance them symmetrically; each is preserved as

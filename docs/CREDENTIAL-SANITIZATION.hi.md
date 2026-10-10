@@ -18,6 +18,7 @@ Hive Mind generated terminal output, logs, error reports, development-log artifa
 - Publication fail-closed है। Maintained scanner, Secretlint या residual scan विफल होने पर external mutation `ERR_CREDENTIAL_SANITIZATION` के साथ block होती है।
 - Temporary publication files और local audit sources केवल owner-readable (`0600`) होते हैं; temporary upload directories `0700` होते हैं।
 - `--development-log` raw local audit sources को unchanged रखता है और केवल sanitized copies stage करता है।
+- `--development-log` केवल इस run की `sessions/<id>/` directory को rescan, stage और commit करता है। वहाँ बचा हुआ credential commit को रोकता है और `path:line (rule: …)` के रूप में report होता है, matched text के बिना; AI द्वारा `dev/log/` के अंदर कहीं और लिखी गई files AI के अपने commits के लिए छोड़ दी जाती हैं ([#2841](https://github.com/link-assistant/hive-mind/issues/2841))।
 
 Dependency-free synchronous core terminal और local log paths की सुरक्षा करता है। Publication boundaries इसके बाद core, known-active-token matching, Secretlint और residual rescan चलाते हैं। Dangerous local-output compatibility switches publication boundaries को bypass नहीं करते।
 
@@ -31,6 +32,8 @@ Maintained patterns ये cover करते हैं:
 - active credential environment variables और local GitHub authentication से मिले exact values।
 
 External boundaries पर detection जानबूझकर conservative है। False positive credential-जैसे value को mask कर सकता है; scanner failure original bytes भेजने के बजाय publication block करता है।
+
+References credentials नहीं हैं। GitHub Actions की OIDC permission `id-token` (`read`, `write` या `none`), string literals के बिना `${{ … }}` workflow expressions (`token: ${{ secrets.NPM_TOKEN }}`), `ACTIONS_ID_TOKEN_REQUEST_URL` जैसे runner variable names, और `` `password:` `` जैसी खाली inline-code key जैसी लिखी हैं वैसी ही रहती हैं। Literal वाला expression पूरा mask होता है ([#2841](https://github.com/link-assistant/hive-mind/issues/2841))।
 
 Implementation review ने Gitleaks और detect-secrets जैसे external scanners की तुलना project के existing Secretlint integration से की। Secretlint publication scanner बना रहता है क्योंकि उसका maintained rule set Node.js process में बिना Go या Python runtime dependency जोड़े चलता है। Synchronous maintained rules उन terminal paths को cover करते हैं जहाँ asynchronous scanner नहीं चल सकता, जबकि Secretlint और residual rescan independent publication check देते हैं।
 

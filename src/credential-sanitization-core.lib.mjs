@@ -66,10 +66,20 @@ const VENDOR_PATTERNS = Object.freeze([
   /\bsq0(?:atp|csp)-[0-9A-Za-z_-]{20,}\b/g,
   // JWT/JWS access, ID, and CI job tokens.
   /\beyJ[0-9A-Za-z_-]{8,}\.eyJ[0-9A-Za-z_-]{8,}\.[0-9A-Za-z_-]{8,}\b/g,
-  // Opaque CI/test credentials sometimes carry only an all-caps semantic
-  // marker and appear without a useful assignment name.
-  /\b(?:[A-Z0-9]+[_-])+(?:TOKEN|SECRET|PASSWORD|CREDENTIAL|API[_-]?KEY)(?:[_-][A-Z0-9]+)+\b/g,
 ]);
+
+// Opaque CI/test credentials sometimes carry only an all-caps semantic
+// marker and appear without a useful assignment name.
+const OPAQUE_MARKER_PATTERN = /\b(?:[A-Z0-9]+[_-])+(?:TOKEN|SECRET|PASSWORD|CREDENTIAL|API[_-]?KEY)(?:[_-][A-Z0-9]+)+\b/g;
+// Issue #2841: the same shape is how environment variables are *named*. A name
+// whose last segment says what the variable holds — `ACTIONS_ID_TOKEN_REQUEST_URL`,
+// `DOCKER_TOKEN_URL`, `NPM_TOKEN_FILE` — is a pointer to a value, never the
+// value itself, and masking it rewrote workflow documentation into
+// `ACT…URL`. `ACTIONS_ID_TOKEN_REQUEST_TOKEN` is the one GitHub runner variable
+// of this shape without such a suffix.
+const VARIABLE_NAME_SUFFIX = /[_-](?:URL|URI|ENDPOINT|HOST|FILE|PATH|DIR|NAME|ENV|VAR|HEADER|TYPE|SCOPE)$/;
+const KNOWN_VARIABLE_NAMES = new Set(['ACTIONS_ID_TOKEN_REQUEST_TOKEN']);
+const isVariableName = value => VARIABLE_NAME_SUFFIX.test(value) || KNOWN_VARIABLE_NAMES.has(value);
 
 // The affixes around the sensitive word are bounded rather than `*`. Unbounded
 // they made every assignment rule quadratic: at each of the N starting offsets
@@ -125,7 +135,42 @@ const isVersionRangeAssignment = value => VERSION_RANGE_VALUE.test(String(value 
 // that short would be reduced to `[REDACTED]` by `maskToken` anyway, so only
 // the exact keyword (not a value that merely starts with one) is exempt.
 const KEYWORD_VALUE = /^(?:true|false|null|undefined|none|nil|await|async|new|typeof|function|this|void|yield)$/i;
-const isKeywordAssignment = value => KEYWORD_VALUE.test(String(value ?? '').trim());
+// Issue #2841: an unquoted value written as Markdown inline code — `` `id-token: write` ``
+// — reaches the rule with its closing backtick attached (`write\``), so the
+// exact-value exemptions below compare the value without its code delimiters.
+const stripInlineCode = value =>
+  String(value ?? '')
+    .trim()
+    .replace(/^`+|`+$/g, '');
+const isKeywordAssignment = value => KEYWORD_VALUE.test(stripInlineCode(value));
+// Issue #2841: GitHub Actions workflows grant job permissions per scope, and the
+// OIDC scope name contains a sensitive word — `id-token: write`. A scope value
+// is always `read`, `write` or `none`, which
+// can never be a credential (and `maskToken` would hide it whole anyway), but
+// masking it rewrote every published workflow excerpt into `id-token: [REDACTED]`,
+// and the development-log rescan then discarded the entire session log.
+// `none` is already exempt as a keyword.
+const WORKFLOW_PERMISSION_VALUE = /^(?:read|write)$/i;
+const isWorkflowPermissionAssignment = value => WORKFLOW_PERMISSION_VALUE.test(stripInlineCode(value));
+// Issue #2841: `token: ${{ secrets.NPM_TOKEN }}` *references* a repository
+// secret by name; the runner substitutes the value at run time, so the text
+// itself holds no credential. The unquoted rule stopped at the first space and
+// produced `token: [REDACTED] secrets.NPM_TOKEN }}`. Only a complete
+// single-line expression without string literals is exempt, so a credential
+// pasted inline as `${{ 'literal' }}` is still masked, and a vendor-shaped token
+// anywhere in the expression is still caught by the vendor patterns.
+const WORKFLOW_EXPRESSION = String.raw`\$\{\{[^{}'"\r\n]*\}\}`;
+const WORKFLOW_EXPRESSION_VALUE = new RegExp(`^${WORKFLOW_EXPRESSION}$`);
+const isWorkflowExpression = value => WORKFLOW_EXPRESSION_VALUE.test(stripInlineCode(value));
+// Issue #2841: prose that names a key in inline code — "no `password:`)" —
+// leaves only the closing backtick and trailing punctuation as the "value".
+// There is no value at all, yet masking it ate the backtick and broke the
+// Markdown. A closing backtick at the end of the value or directly followed by
+// punctuation (`)`, the full-width `）`, …) is exempt; `` password: `hunter2` ``
+// and shell substitution such as `` password=`cat file` `` still carry a value
+// and are still masked.
+const EMPTY_INLINE_CODE_VALUE = /^`+(?:\p{P}|$)/u;
+const isEmptyInlineCodeValue = value => EMPTY_INLINE_CODE_VALUE.test(String(value ?? '').trim());
 const SENSITIVE_ENV_NAME = /(?:API_?KEY|ACCOUNT_?KEY|CLIENT_?SECRET|CONSUMER_?SECRET|WEBHOOK_?SECRET|ACCESS_?TOKEN|REFRESH_?TOKEN|AUTH_?TOKEN|PASSWORD|PASSWD|PRIVATE_?KEY|SECRET|TOKEN|COOKIE|AUTH)$/i;
 // Issue #2156: structured output is routinely nested inside another JSON
 // document — an agent tool result embeds the command's stdout as a JSON
@@ -149,11 +194,13 @@ const QUOTED_ASSIGNMENT = new RegExp(`((?:${QUOTE})?${SENSITIVE_KEY}(?:${QUOTE})
 // which silently truncated the object and made the whole record unparseable.
 // The guard only rejects a structural character in first position, so a
 // credential that merely contains a brace (`password=ab{cd`) is still masked whole.
-const UNQUOTED_ASSIGNMENT = new RegExp(`((?:${QUOTE})?${SENSITIVE_KEY}(?:${QUOTE})?\\s*${ASSIGNMENT_SEPARATOR}\\s*)(?!${QUOTE}|[{[]|(?:Bearer|Basic|SharedAccessSignature)\\s)([^\\s,;}&'"\\r\\n]+)`, 'gi');
+// Issue #2841: the same holds for a `${{ … }}` workflow expression, which spans
+// spaces and would otherwise be cut at the first one.
+const UNQUOTED_ASSIGNMENT = new RegExp(`((?:${QUOTE})?${SENSITIVE_KEY}(?:${QUOTE})?\\s*${ASSIGNMENT_SEPARATOR}\\s*)(?!${QUOTE}|[{[]|${WORKFLOW_EXPRESSION}|(?:Bearer|Basic|SharedAccessSignature)\\s)([^\\s,;}&'"\\r\\n]+)`, 'gi');
 const XML_CREDENTIAL = new RegExp(`(<(${SENSITIVE_KEY})\\b[^>]*>)([\\s\\S]*?)(<\\/\\2\\s*>)`, 'gi');
 const CLI_CREDENTIAL_QUOTED = new RegExp(`(--${SENSITIVE_KEY}(?:\\s+|=))(["'])([^"'\\r\\n]*)(\\2)`, 'gi');
-const CLI_CREDENTIAL = new RegExp(`(--${SENSITIVE_KEY}(?:\\s+|=))(?!["'])([^\\s"'\\r\\n]+)`, 'gi');
-const QUERY_CREDENTIAL = new RegExp(`([?&]${SENSITIVE_KEY}=)([^&#\\s]+)`, 'gi');
+const CLI_CREDENTIAL = new RegExp(`(--${SENSITIVE_KEY}(?:\\s+|=))(?!["']|${WORKFLOW_EXPRESSION})([^\\s"'\\r\\n]+)`, 'gi');
+const QUERY_CREDENTIAL = new RegExp(`([?&]${SENSITIVE_KEY}=)(?!${WORKFLOW_EXPRESSION})([^&#\\s]+)`, 'gi');
 
 const replaceVendorSecrets = text => {
   let output = text;
@@ -161,7 +208,7 @@ const replaceVendorSecrets = text => {
     pattern.lastIndex = 0;
     output = output.replace(pattern, match => maskValue(match));
   }
-  return output;
+  return output.replace(OPAQUE_MARKER_PATTERN, match => (isVariableName(match) ? match : maskValue(match)));
 };
 
 const replaceCookieHeader = (_match, prefix, cookieText) => {
@@ -170,6 +217,55 @@ const replaceCookieHeader = (_match, prefix, cookieText) => {
   });
   return `${prefix}${sanitized}`;
 };
+
+// Value shapes that are never a credential in either quoted or unquoted form.
+// Keywords stay unquoted-only: a quoted `"true"` is a string like any other.
+const isExemptAssignmentValue = (prefix, value) => isTokenCounterAssignment(prefix, value) || isVersionRangeAssignment(value) || isWorkflowPermissionAssignment(value) || isWorkflowExpression(value);
+
+/**
+ * The plaintext rules, in application order. Each rule has a stable,
+ * non-sensitive identifier so a blocked publication can say *which* rule still
+ * fired (issue #2841) without echoing the matched text.
+ */
+const PLAINTEXT_RULES = Object.freeze([
+  // Keep PEM markers for diagnostic context, but never preserve key material.
+  { id: 'private-key-block', apply: text => text.replace(/(-----BEGIN ([A-Z0-9 ]*PRIVATE KEY)-----)[\s\S]*?(-----END \2-----)/g, (_match, begin, _label, end) => `${begin}\n[REDACTED]\n${end}`) },
+  // An interrupted process may never print the closing PEM marker. Treat the
+  // remainder as key material instead of releasing it during stream flush.
+  { id: 'private-key-unterminated', apply: text => text.replace(/(-----BEGIN ([A-Z0-9 ]*PRIVATE KEY)-----)(?![\s\S]*?-----END \2-----)[\s\S]*/g, '$1\n[REDACTED]') },
+  { id: 'vendor-token', apply: replaceVendorSecrets },
+
+  // Authentication headers and URL credentials.
+  { id: 'authorization-header', apply: text => text.replace(/((?:Proxy-)?Authorization\s*:\s*(?:Bearer|Basic)\s+)([^\s"',;]+)/gi, (_match, prefix, value) => `${prefix}${maskValue(value)}`) },
+  { id: 'url-credentials', apply: text => text.replace(/(\b[a-z][a-z0-9+.-]*:\/\/[^:\s/@]+:)([^@\s/]+)(@)/gi, (_match, prefix, value, suffix) => `${prefix}${maskValue(value)}${suffix}`) },
+  {
+    id: 'shared-access-signature',
+    apply: text => text.replace(/(\bSharedAccessSignature\s+)(sr=[^\s,;]+(?:&[^\s,;]+)+)/gi, (_match, prefix, value) => `${prefix}${maskValue(value)}`).replace(/(\bSharedAccessSignature\s*=\s*)([^\s"',;]+)/gi, (_match, prefix, value) => `${prefix}${maskValue(value)}`),
+  },
+
+  // Cookie values are credentials at output boundaries even when their names
+  // are vendor-specific and therefore unknown to us.
+  { id: 'cookie-header', apply: text => text.replace(/((?:Set-)?Cookie\s*:\s*)([^\r\n]*)/gi, replaceCookieHeader) },
+
+  // XML and JSON/YAML/TOML/INI/shell-style assignments.
+  { id: 'xml-assignment', apply: text => text.replace(XML_CREDENTIAL, (_match, start, _key, value, end) => `${start}${maskValue(value.trim())}${end}`) },
+  // The opening and closing delimiters are captured independently because an
+  // escaped payload may not balance them symmetrically; each is preserved as
+  // written so the surrounding document stays byte-for-byte parseable.
+  { id: 'quoted-assignment', apply: text => text.replace(QUOTED_ASSIGNMENT, (match, prefix, openQuote, value, closeQuote) => (isExemptAssignmentValue(prefix, value) ? match : `${prefix}${openQuote}${maskValue(value)}${closeQuote}`)) },
+  { id: 'unquoted-assignment', apply: text => text.replace(UNQUOTED_ASSIGNMENT, (match, prefix, value) => (isExemptAssignmentValue(prefix, value) || isKeywordAssignment(value) || isEmptyInlineCodeValue(value) ? match : `${prefix}${maskValue(value)}`)) },
+
+  // CLI arguments and sensitive query parameters.
+  { id: 'cli-argument', apply: text => text.replace(CLI_CREDENTIAL_QUOTED, (match, prefix, quote, value) => (isWorkflowExpression(value) ? match : `${prefix}${quote}${maskValue(value)}${quote}`)).replace(CLI_CREDENTIAL, (_match, prefix, value) => `${prefix}${maskValue(value)}`) },
+  { id: 'query-parameter', apply: text => text.replace(QUERY_CREDENTIAL, (_match, prefix, value) => `${prefix}${maskValue(value)}`) },
+
+  // Vendor webhook URLs encode credentials in their path rather than a named
+  // field. Preserve the service endpoint and sanitize only the credential.
+  {
+    id: 'webhook-url',
+    apply: text => text.replace(/(https:\/\/hooks\.slack\.com\/services\/)([0-9A-Za-z/_-]+)/gi, (_match, prefix, value) => `${prefix}${maskValue(value)}`).replace(/(https:\/\/(?:canary\.)?discord(?:app)?\.com\/api\/webhooks\/)([0-9A-Za-z/_-]+)/gi, (_match, prefix, value) => `${prefix}${maskValue(value)}`),
+  },
+]);
 
 /**
  * Synchronously sanitize known vendor credentials and credential-like
@@ -196,43 +292,30 @@ const sanitizePlaintextCredentials = (input, options = {}) => {
     output = output.replace(new RegExp(escapeRegExp(value), 'g'), maskValue(value));
   }
 
-  // Keep PEM markers for diagnostic context, but never preserve key material.
-  output = output.replace(/(-----BEGIN ([A-Z0-9 ]*PRIVATE KEY)-----)[\s\S]*?(-----END \2-----)/g, (_match, begin, _label, end) => `${begin}\n[REDACTED]\n${end}`);
-  // An interrupted process may never print the closing PEM marker. Treat the
-  // remainder as key material instead of releasing it during stream flush.
-  output = output.replace(/(-----BEGIN ([A-Z0-9 ]*PRIVATE KEY)-----)(?![\s\S]*?-----END \2-----)[\s\S]*/g, '$1\n[REDACTED]');
-
-  output = replaceVendorSecrets(output);
-
-  // Authentication headers and URL credentials.
-  output = output.replace(/((?:Proxy-)?Authorization\s*:\s*(?:Bearer|Basic)\s+)([^\s"',;]+)/gi, (_match, prefix, value) => `${prefix}${maskValue(value)}`);
-  output = output.replace(/(\b[a-z][a-z0-9+.-]*:\/\/[^:\s/@]+:)([^@\s/]+)(@)/gi, (_match, prefix, value, suffix) => `${prefix}${maskValue(value)}${suffix}`);
-  output = output.replace(/(\bSharedAccessSignature\s+)(sr=[^\s,;]+(?:&[^\s,;]+)+)/gi, (_match, prefix, value) => `${prefix}${maskValue(value)}`);
-  output = output.replace(/(\bSharedAccessSignature\s*=\s*)([^\s"',;]+)/gi, (_match, prefix, value) => `${prefix}${maskValue(value)}`);
-
-  // Cookie values are credentials at output boundaries even when their names
-  // are vendor-specific and therefore unknown to us.
-  output = output.replace(/((?:Set-)?Cookie\s*:\s*)([^\r\n]*)/gi, replaceCookieHeader);
-
-  // XML and JSON/YAML/TOML/INI/shell-style assignments.
-  output = output.replace(XML_CREDENTIAL, (_match, start, _key, value, end) => `${start}${maskValue(value.trim())}${end}`);
-  // The opening and closing delimiters are captured independently because an
-  // escaped payload may not balance them symmetrically; each is preserved as
-  // written so the surrounding document stays byte-for-byte parseable.
-  output = output.replace(QUOTED_ASSIGNMENT, (match, prefix, openQuote, value, closeQuote) => (isTokenCounterAssignment(prefix, value) || isVersionRangeAssignment(value) ? match : `${prefix}${openQuote}${maskValue(value)}${closeQuote}`));
-  output = output.replace(UNQUOTED_ASSIGNMENT, (match, prefix, value) => (isTokenCounterAssignment(prefix, value) || isVersionRangeAssignment(value) || isKeywordAssignment(value) ? match : `${prefix}${maskValue(value)}`));
-
-  // CLI arguments and sensitive query parameters.
-  output = output.replace(CLI_CREDENTIAL_QUOTED, (_match, prefix, quote, value) => `${prefix}${quote}${maskValue(value)}${quote}`);
-  output = output.replace(CLI_CREDENTIAL, (_match, prefix, value) => `${prefix}${maskValue(value)}`);
-  output = output.replace(QUERY_CREDENTIAL, (_match, prefix, value) => `${prefix}${maskValue(value)}`);
-
-  // Vendor webhook URLs encode credentials in their path rather than a named
-  // field. Preserve the service endpoint and sanitize only the credential.
-  output = output.replace(/(https:\/\/hooks\.slack\.com\/services\/)([0-9A-Za-z/_-]+)/gi, (_match, prefix, value) => `${prefix}${maskValue(value)}`);
-  output = output.replace(/(https:\/\/(?:canary\.)?discord(?:app)?\.com\/api\/webhooks\/)([0-9A-Za-z/_-]+)/gi, (_match, prefix, value) => `${prefix}${maskValue(value)}`);
-
+  for (const rule of PLAINTEXT_RULES) output = rule.apply(output);
   return output;
+};
+
+/**
+ * Issue #2841: name the plaintext rules that would still change `input`.
+ *
+ * Diagnostic only — used after a publication rescan has already decided to
+ * block, so the operator learns `unquoted-assignment` instead of just
+ * "residual credential material". Returns rule identifiers, never matched
+ * text. Known-token and encoded-payload hits are reported as `known-token` and
+ * `encoded-payload`.
+ *
+ * @param {string} input
+ * @param {object} [options] - Same options as {@link sanitizeCredentialText}
+ * @returns {string[]}
+ */
+export const findCredentialRuleIds = (input, options = {}) => {
+  const text = String(input ?? '');
+  const ruleIds = PLAINTEXT_RULES.filter(rule => rule.apply(text) !== text).map(rule => rule.id);
+  const knownTokens = collectKnownTokenValues(options);
+  if (knownTokens.some(token => text.includes(token))) ruleIds.unshift('known-token');
+  if (ruleIds.length === 0 && sanitizeCredentialText(text, options) !== text) ruleIds.push('encoded-payload');
+  return ruleIds;
 };
 
 /**

@@ -38,6 +38,7 @@ import { formatRouterAuthViolation, startRouterAuthGuard } from './router-auth-g
 import { createThinkingBlockRecovery } from './claude.thinking-block-recovery.lib.mjs'; // Issue #1834 (PR #1835 feedback)
 import { buildMissingClaudeResultMessage, collectClaudeStreamEventFacts, getClaudeMessageContent, shouldFailClaudeStreamWithoutResult, updateTerminalToolResult } from './claude.stream-events.lib.mjs';
 import { assessClaudeTurnCompletion, buildIncompleteTurnContinuationPrompt, createClaudePrintTurnTracker } from './claude.print-turn.lib.mjs'; // Issue #2301
+import { interpretClaudeExitCode, isProcessGroupAlive, selectClaudeFailureMessage } from './claude.process-exit.lib.mjs'; // Issue #3015
 import { createRepeatedToolCallBreaker, explainFailureWithToolHistory, publishRepeatedToolCallVerdict, resolveRepeatedToolCallLimit } from './repeated-tool-call-breaker.lib.mjs'; // Issue #2247 (H4/H10), #2316, #2395
 import { formatNumber, mapModelToId, checkModelVisionCapability, resolveClaudeModelForExecution } from './claude.model-utils.lib.mjs';
 import { renameLogToSessionId } from './session-log-rename.lib.mjs'; // Issue #2160
@@ -412,6 +413,7 @@ export const executeClaudeCommand = async params => {
       let subagentToolResultErrorCount = 0;
       let resultTimeoutId = null;
       let forceExitTriggered = false;
+      let resultCloseTimeoutFired = false; // Issue #3015: the kill came from the post-result close timeout
       const streamCloseTimeoutMs = timeouts.resultStreamCloseMs;
       let firstChunkReceived = false;
       let startupTimeoutId = null;
@@ -451,7 +453,9 @@ export const executeClaudeCommand = async params => {
             // Issue #1346/#1510: Follow up with SIGKILL after 5s if still alive
             const t = setTimeout(() => {
               try {
-                if (!execCommand.result?.code) {
+                // Issue #3015: result.code is set once the shell exits, while the CLI in its group can still run.
+                const pid = execCommand.pid || execCommand._pid;
+                if (pid ? isProcessGroupAlive(pid) : !execCommand.result?.code) {
                   log(`⚠️ Process tree did not exit after SIGTERM, sending SIGKILL (Issue #1516)`, { verbose: true });
                   killProcessTree('SIGKILL');
                 }
@@ -509,7 +513,10 @@ export const executeClaudeCommand = async params => {
         if (!resultEventReceived) {
           resultEventReceived = true;
           await log(`📌 Result event received, starting ${streamCloseTimeoutMs / 1000}s stream close timeout (Issue #1280)`, { verbose: true });
-          resultTimeoutId = setTimeout(forceExitOnTimeout, streamCloseTimeoutMs);
+          resultTimeoutId = setTimeout(() => {
+            if (!forceExitTriggered) resultCloseTimeoutFired = true;
+            return forceExitOnTimeout();
+          }, streamCloseTimeoutMs);
         }
         // Issue #1708: result event = AI is idle and waiting for next
         // user input. Flush any frames queued by --queue-comments-to-input.
@@ -841,11 +848,12 @@ export const executeClaudeCommand = async params => {
             }
           }
         } else if (chunk.type === 'exit') {
-          // Note: command-stream v0.9.4 stream() does NOT yield exit chunks (Issue #1280) — kept for forward-compat.
-          exitCode = chunk.code;
-          if (chunk.code !== 0) {
-            commandFailed = true;
-          }
+          // command-stream v0.9.4 stream() did not yield exit chunks (Issue #1280); newer releases do.
+          // Issue #3015: our own SIGTERM after a successful result (exit 143) is not a failure.
+          const exitVerdict = interpretClaudeExitCode({ code: chunk.code, forceExitTriggered, resultCloseTimeoutFired, resultSuccessReceived });
+          exitCode = exitVerdict.exitCode;
+          if (exitVerdict.failed) commandFailed = true;
+          if (exitVerdict.ignored) await log(`ℹ️ ${exitVerdict.reason} (Issue #3015)`, { verbose: true });
         }
       }
 
@@ -918,11 +926,12 @@ export const executeClaudeCommand = async params => {
           await log(`\n❌ Command not found (exit code 127) - "${claudePath}" is not installed or not in PATH\n   Please ensure Claude CLI is installed: npm install -g @anthropic-ai/claude-code`, { level: 'error' });
         }
         if (exitCode === 0 && resultExitCode !== 0) {
-          exitCode = resultExitCode;
           // A real CLI failure takes precedence over an earlier in-session tool failure.
-          // A forced close after a result is handled by the timeout/recovery logic.
-          if (!forceExitTriggered) commandFailed = true;
-          await log(`⚠️ Updated exit code from command result: ${resultExitCode}`, { verbose: true });
+          // A forced close is judged by the timeout/recovery logic (Issue #3015: same helper as the exit chunk).
+          const exitVerdict = interpretClaudeExitCode({ code: resultExitCode, forceExitTriggered, resultCloseTimeoutFired, resultSuccessReceived });
+          exitCode = exitVerdict.exitCode;
+          if (exitVerdict.failed) commandFailed = true;
+          await log(exitVerdict.ignored ? `ℹ️ ${exitVerdict.reason} (Issue #3015)` : `⚠️ Updated exit code from command result: ${resultExitCode}`, { verbose: true });
         }
       }
       // Issue #1472: Flush remaining queued comments, log diagnostic summary, warn on zero events
@@ -1028,6 +1037,9 @@ export const executeClaudeCommand = async params => {
       if (dominantToolCallFailure) {
         await log(`🔁 Repeated failing tool call in this session: ${dominantToolCallFailure.tool} x${dominantToolCallFailure.count}`, { verbose: true });
       }
+      // Issue #3015: after a successful result `lastMessage` is the work summary, not an error;
+      // classifying or publishing it as one produced "CLAUDE execution failed with I fixed…".
+      if (commandFailed) lastMessage = selectClaudeFailureMessage({ lastMessage, exitCode, resultSuccessReceived, resultSummary });
       const retryableLastError = classifyRetryableError(lastMessage);
       // Issue #1834: Corrupted extended-thinking blocks → try to resume the session first, then fall
       // back to a fresh restart (PR #1835 feedback). When both caps are reached, tryThinkingBlockRecovery

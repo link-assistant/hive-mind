@@ -291,6 +291,18 @@ failed माना जाता है।
 | `TELEGRAM_BOT_VERBOSE`                     | false      | verbose logging सक्षम करें                                                           |
 | `TELEGRAM_CONFIGURATION`                   | (कोई नहीं) | LINO configuration string                                                            |
 
+#### Solve queue का स्थायी भंडारण
+
+बॉट हर बदलाव पर अपनी solve queue save करता है और launch पर उसे restore करता है; देखें [Restarts के बीच solve queue बनाए रखना](./DOCKER.hi.md#restarts-के-बीच-solve-queue-बनाए-रखना-issue-2890)।
+
+| Environment Variable             | डिफ़ॉल्ट             | विवरण                                                                                                             |
+| -------------------------------- | -------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `HIVE_MIND_STATE_DIR`            | `~/.hive-mind/state` | Queue, session और sidecar state। Container restarts के बाद भी बनाए रखने के लिए इसे host से mount करें             |
+| `HIVE_MIND_LOG_DIR`              | `~/.hive-mind/logs`  | बॉट logs; queue का अंतिम उपाय वाला source (`EVENT queue_item_*` lines)                                            |
+| `HIVE_MIND_QUEUE_BACKUP_CHAT_ID` | (कोई नहीं)           | वह chat जहाँ बॉट `solve-queue.lino` की pinned copy रखता है; state directory में queue न होने पर वापस पढ़ी जाती है |
+| `HIVE_MIND_QUEUE_RECOVERY_LOG`   | (कोई नहीं)           | अतिरिक्त log files (`:` से अलग, जैसे saved `docker logs`) जिनसे queue फिर से बनाई जाती है जब वह और कहीं न हो      |
+| `HIVE_MIND_CLINK_PATH`           | `PATH` पर `clink`    | queryable `solve-queue-db/` copy के लिए link-cli executable; इसके बिना भी बाक़ी दो stores बने रहते हैं            |
+
 ### 14. YouTrack एकीकरण
 
 | Environment Variable    | डिफ़ॉल्ट   | विवरण                                                              |

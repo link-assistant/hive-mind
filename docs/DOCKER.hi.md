@@ -150,7 +150,7 @@ inner daemon खाली रहता है। इसे mount करें �
 
 ```bash
 docker run -dit --privileged --name hive-mind --restart unless-stopped \
-  # ... आपके सामान्य credential mounts ...
+  # ... आपके सामान्य credential और state mounts ...
   -v /var/run/docker.sock:/var/run/host-docker.sock:ro \
   -e DIND_HOST_PASSTHROUGH_IMAGES="konard/hive-mind konard/hive-mind-dind" \
   konard/hive-mind-dind:latest bash -l -c 'bash /home/box/start-bot.sh'
@@ -383,6 +383,63 @@ codex mcp add playwright -- npx -y @playwright/mcp@latest --isolated --headless 
 ```
 
 जब `codex mcp list` में Playwright row नहीं होती और `@playwright/mcp` installed होता है, तब Hive Mind runtime पर भी यह default registration repair try करता है। यह existing pending, disabled, या customized Playwright row को overwrite नहीं करता; उन states के लिए MCP startup path को सीधे debug करना होगा।
+
+### Restarts के बीच solve queue बनाए रखना (issue #2890)
+
+Telegram बॉट अपनी working state `~/.hive-mind/state`
+(`HIVE_MIND_STATE_DIR`) में और अपने logs `~/.hive-mind/logs`
+(`HIVE_MIND_LOG_DIR`) में रखता है। यदि ये directories host से mount नहीं हैं
+(`-v /root/.hive-mind/state:/home/box/.hive-mind/state` और
+`-v /root/.hive-mind/logs:/home/box/.hive-mind/logs`) और ऊपर के उदाहरण वाले
+`box-home` volume में भी नहीं हैं, तो दोनों container की writable layer में
+रहती हैं: host के `dockerd` का OOM kill, `docker rm` + `docker run` से
+redeploy या खोया हुआ container अपने साथ queue भी ले जाता है। Mounts के साथ,
+restart के बाद शुरू हुआ बॉट अपने आप काम जारी रखता है।
+
+State directory में क्या रहता है:
+
+| File                                     | यह क्या है                                                                                                                                  |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `solve-queue.links-archive`              | link-cli store archive के रूप में queue (binary doublets, `clink --import-binary` से पढ़ी जा सकती है)। हर बदलाव पर atomically लिखी जाती है। |
+| `solve-queue.lino`                       | Links Notation में वही queue: मनुष्य द्वारा पढ़ने योग्य और diff करने योग्य। हर बदलाव पर atomically लिखी जाती है।                            |
+| `solve-queue-db/solve-queue.links`       | `clink` queries के लिए queue का link-cli database। `clink` installed होने पर (`HIVE_MIND_CLINK_PATH`) background में फिर से बनाया जाता है।  |
+| `sessions.json`, `sessions-events.jsonl` | बॉट द्वारा monitor की जाने वाली running sessions, kill-recovery attempts सहित।                                                              |
+| `router-sidecar.json`                    | राउटर sidecar state। **इसमें राउटर का signing secret है।**                                                                                  |
+
+तीनों queue stores में एक revision number होता है; startup पर बॉट सभी को
+पढ़ता है, सबसे नया valid store रखता है और बाक़ी को फिर से लिखता है, इसलिए
+queue फिर से बनाने के लिए इनमें से कोई एक भी काफ़ी है। Queue files mode `0600`
+के साथ बनाई जाती हैं।
+
+Launch पर बॉट:
+
+1. queued और waiting items को उनके मूल क्रम में वापस रखता है — उनके
+   arguments, requester, chat, topic और उस message के साथ जिसे वह edit करता
+   रहता है;
+2. हर उस item की जाँच करता है जो बॉट के रुकने के समय start हो रहा था: यदि
+   उसकी isolated session अब भी मौजूद है (`$ --status`), तो session monitor उसे
+   संभाल लेता है; अन्यथा item फिर से queue में डाला जाता है। जिस item का start
+   तीन से अधिक बार बाधित हुआ हो, उसे हटा दिया जाता है और इसकी सूचना दी जाती है;
+3. प्रति-tool start interval बहाल करता है, ताकि restart पूरी queue को एक साथ
+   launch न कर दे;
+4. हर chat (और topic) में एक message post करता है, जिसमें बताया जाता है कि
+   क्या फिर से queue हुआ, क्या अब भी चल रहा है और क्या हटाया गया।
+
+जब state directory खाली हो या पढ़ी न जा सके, तब fallbacks, क्रम से:
+
+| Variable                         | Default             | उद्देश्य                                                                                                                                                                                                                                                             |
+| -------------------------------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `HIVE_MIND_QUEUE_BACKUP_CHAT_ID` | _(सेट नहीं)_        | वह chat (कोई private channel या group जहाँ बॉट pin कर सकता हो) जिसमें `solve-queue.lino` की pinned copy रहती है, जो मिनट में अधिकतम एक बार update होती है। यह केवल तभी वापस पढ़ी जाती है जब state directory में कोई queue न हो। Telegram ही host के बाहर की copy है। |
+| `HIVE_MIND_QUEUE_RECOVERY_LOG`   | _(सेट नहीं)_        | Queue फिर से बनाने के लिए अतिरिक्त log files (`:` से अलग), जैसे किसी ऐसे container का saved `docker logs hive-mind > old.log` जिसमें state mount नहीं था।                                                                                                            |
+| `HIVE_MIND_LOG_DIR`              | `~/.hive-mind/logs` | बॉट log। हर queue बदलाव वहाँ पूरे item के साथ `EVENT queue_item_<event>` line के रूप में लिखा जाता है, इसलिए queue केवल log से भी फिर से बनाई जा सकती है।                                                                                                            |
+
+सीमाएँ: बॉट `dropPendingUpdates` के साथ शुरू होता है, इसलिए उसके बंद रहने के
+दौरान भेजे गए commands प्राप्त नहीं होते और उन्हें फिर से भेजना होगा; Bot API
+chat history नहीं पढ़ सकता, इसलिए Telegram में केवल वही copy रह सकती है जिसे
+बॉट ने स्वयं pin किया हो। जो tasks स्वयं container के अंदर चल रहे थे
+(screen/tmux isolation, या inner DinD daemon के `--isolation docker`
+containers), वे उसी के साथ समाप्त हो जाते हैं; उन्हें kill recovery संभालता है,
+जो अपने attempt counters उसी state directory से पढ़ता है।
 
 ### Detached Mode में चलाना
 

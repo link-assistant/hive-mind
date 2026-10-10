@@ -214,7 +214,7 @@ docker attach hive-mind
 # --- Persisting auth data across restarts ---
 
 # Extract auth data from a running (or stopped) container to the host:
-mkdir -p ~/.hive-mind ~/.hive-mind/agents/skills
+mkdir -p ~/.hive-mind ~/.hive-mind/agents/skills ~/.hive-mind/state ~/.hive-mind/logs
 docker cp hive-mind:/home/box/.claude ~/.hive-mind/claude
 docker cp hive-mind:/home/box/.codex ~/.hive-mind/codex
 docker cp hive-mind:/home/box/.claude.json ~/.hive-mind/claude.json
@@ -222,10 +222,11 @@ docker cp hive-mind:/home/box/.config/gh ~/.hive-mind/gh
 
 # Fix ownership to match the box user inside the container:
 BOX_UID=$(docker exec hive-mind id -u box)
-chown -R $BOX_UID:$BOX_UID ~/.hive-mind/claude ~/.hive-mind/codex ~/.hive-mind/agents ~/.hive-mind/gh
+chown -R $BOX_UID:$BOX_UID ~/.hive-mind/claude ~/.hive-mind/codex ~/.hive-mind/agents ~/.hive-mind/gh ~/.hive-mind/state ~/.hive-mind/logs
 chown $BOX_UID:$BOX_UID ~/.hive-mind/claude.json
 
 # On subsequent runs, mount the auth data to keep it between restarts:
+# state 和 logs 挂载可在重启之间保留机器人的 solve 队列和会话（参见 docs/DOCKER.zh.md）。
 docker run -dit \
   --name hive-mind \
   --restart unless-stopped \
@@ -234,6 +235,8 @@ docker run -dit \
   -v /root/.hive-mind/agents:/home/box/.agents \
   -v /root/.hive-mind/claude.json:/home/box/.claude.json \
   -v /root/.hive-mind/gh:/home/box/.config/gh \
+  -v /root/.hive-mind/state:/home/box/.hive-mind/state \
+  -v /root/.hive-mind/logs:/home/box/.hive-mind/logs \
   konard/hive-mind:latest
 ```
 

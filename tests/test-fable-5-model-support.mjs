@@ -448,8 +448,8 @@ test('validateModelName handles MYTHOS-5 (uppercase)', () => {
 // ============================================================
 console.log('\n=== 11. Backward Compatibility ===');
 
-test('opus alias now maps to claude-opus-5 (Issue #2096)', () => {
-  assert.strictEqual(validateModelName('opus', 'claude').mappedModel, 'claude-opus-5', 'opus should map to claude-opus-5');
+test('opus alias now maps to claude-opus-5-5 (Issue #2840)', () => {
+  assert.strictEqual(validateModelName('opus', 'claude').mappedModel, 'claude-opus-5-5', 'opus should map to claude-opus-5-5 (Issue #2840)');
 });
 
 test('sonnet alias now maps to claude-sonnet-5 (Issue #2003)', () => {

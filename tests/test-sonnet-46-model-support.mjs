@@ -265,7 +265,7 @@ console.log('\n=== 9. Regression Tests for Other Models ===');
 test('opus alias still works (regression test, now maps to Opus 5 per Issue #2096)', () => {
   const result = validateModelName('opus', 'claude');
   assert(result.valid, `opus should be valid, got: ${result.message}`);
-  assert.strictEqual(result.mappedModel, 'claude-opus-5', 'opus should map to claude-opus-5');
+  assert.strictEqual(result.mappedModel, 'claude-opus-5-5', 'opus should map to claude-opus-5-5 (Issue #2840)');
 });
 
 test('haiku alias still works (regression test)', () => {

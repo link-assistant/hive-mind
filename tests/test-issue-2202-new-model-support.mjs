@@ -302,7 +302,7 @@ test('the codex default advances to gpt-6-sol while GPT-6 Astra stays preview-on
 console.log('\n=== 9. Backward Compatibility ===');
 
 const preservedClaudeAliases = {
-  opus: 'claude-opus-5',
+  opus: 'claude-opus-5-5', // Issue #2840
   sonnet: 'claude-sonnet-5',
   haiku: 'claude-haiku-4-5-20251001',
   'fable-5': 'claude-fable-5',

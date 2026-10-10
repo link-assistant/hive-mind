@@ -79,6 +79,63 @@ export function buildFixCommandArgs(text) {
 }
 
 /**
+ * Issue #2925: `/solve --fix-ci-cd` and every solve alias (`/claude`, `/codex`,
+ * `/opencode`, `/agent`, `/qwen`, `/gemini`, `/do`, `/continue`) start the same
+ * work session as `/fix --ci-cd` when the target is a repository (or one of its
+ * listing pages such as `/issues`) rather than a specific issue.
+ */
+export const FIX_CI_CD_FLAG = '--fix-ci-cd';
+
+/**
+ * Remove `--fix-ci-cd` (and `--no-fix-ci-cd`) from solve arguments, so solve's
+ * strict option parser never sees an option it does not know.
+ *
+ * @param {string[]} args
+ * @returns {{ requested: boolean, args: string[] }}
+ */
+export function extractFixCiCdFlag(args) {
+  let requested = false;
+  const rest = [];
+  for (const arg of Array.isArray(args) ? args : []) {
+    if (arg === FIX_CI_CD_FLAG || arg === `${FIX_CI_CD_FLAG}=true`) requested = true;
+    else if (arg === '--no-fix-ci-cd' || arg === `${FIX_CI_CD_FLAG}=false`) requested = false;
+    else rest.push(arg);
+  }
+  return { requested, args: rest };
+}
+
+const GITHUB_URL_PATTERN = /^(?:https?:\/\/)?(?:www\.)?github\.com\//i;
+const SPECIFIC_ITEM_PATTERN = /^(?:https?:\/\/)?(?:www\.)?github\.com\/[^/]+\/[^/]+\/(?:issues|pull|pulls)\/\d+/i;
+// Repository listing pages that still name the whole repository, e.g. `…/issues`.
+const REPOSITORY_LISTING_PATTERN = /^((?:https?:\/\/)?(?:www\.)?github\.com\/[^/?#]+\/[^/?#]+)\/(?:issues|pulls|actions)\/?(?:[?#].*)?$/i;
+
+/**
+ * Turn `/solve <repository-or-issues-url> --fix-ci-cd [options]` into the
+ * arguments `/fix --ci-cd` would run with.
+ *
+ * @param {string[]} args - Solve arguments without `--fix-ci-cd` (see extractFixCiCdFlag)
+ * @returns {{ args: string[], repositoryRaw: string, repository: Object } | { error: string }}
+ */
+export function buildFixCiCdArgsFromSolve(args) {
+  const list = Array.isArray(args) ? args : [];
+  const specific = list.find(arg => SPECIFIC_ITEM_PATTERN.test(arg));
+  if (specific) {
+    return { error: `${FIX_CI_CD_FLAG} works on a whole repository, but ${specific} is a specific issue or pull request. Use a repository link (e.g. https://github.com/owner/repo or https://github.com/owner/repo/issues), or drop ${FIX_CI_CD_FLAG} to solve that issue.` };
+  }
+  const toRepository = arg => parseFixRepository(arg.replace(REPOSITORY_LISTING_PATTERN, '$1'));
+  // A full GitHub link may appear anywhere; the `owner/repo` shorthand only as the
+  // first argument, so an option value such as `--base-branch feature/x` is never taken for it.
+  let index = list.findIndex(arg => GITHUB_URL_PATTERN.test(arg) && toRepository(arg));
+  if (index === -1 && list[0] && !list[0].startsWith('-') && toRepository(list[0])) index = 0;
+  if (index === -1) {
+    return { error: `${FIX_CI_CD_FLAG} needs a GitHub repository link, e.g. https://github.com/owner/repo or https://github.com/owner/repo/issues` };
+  }
+  const repository = toRepository(list[index]);
+  const options = list.filter((_, i) => i !== index);
+  return { args: applyFixCommandDefaults([repository.url, ...options]), repositoryRaw: list[index], repository };
+}
+
+/**
  * Options `/fix` consumes itself; everything else is forwarded to `/solve` and
  * must therefore be a valid `solve` option.
  */
@@ -182,7 +239,33 @@ export function registerFixCommand(bot, options) {
       await safeReply(ctx, `❌ Missing GitHub repository URL. Usage: \`${commandDisplay} <github-repository-url> [options]\`\n\nExample: \`${commandDisplay} https://github.com/owner/repo\``, { reply_to_message_id: ctx.message.message_id });
       return;
     }
+    await startFixSession(ctx, built);
+  }
 
+  /**
+   * Issue #2925: entry point for `/solve --fix-ci-cd` and its aliases. The solve
+   * handler has already run the chat checks (group, authorization, stopped chat)
+   * and stripped `--fix-ci-cd`; this only maps the request onto `/fix --ci-cd`.
+   *
+   * @param {Object} ctx - Telegraf context
+   * @param {string[]} solveArgs - Solve arguments without `--fix-ci-cd`, `--tool` alias already applied
+   * @param {{ commandDisplay?: string }} [options]
+   */
+  async function handleFixCiCdFromSolve(ctx, solveArgs, { commandDisplay = '/solve' } = {}) {
+    VERBOSE && console.log(`[VERBOSE] ${commandDisplay} ${FIX_CI_CD_FLAG}: routing to /fix --ci-cd with args ${JSON.stringify(solveArgs)}`);
+    if (!fixEnabled) {
+      await safeReply(ctx, `❌ ${FIX_CI_CD_FLAG} starts /fix --ci-cd, and the fix command is disabled on this bot instance.`, { reply_to_message_id: ctx.message.message_id });
+      return;
+    }
+    const built = buildFixCiCdArgsFromSolve(solveArgs);
+    if (built.error) {
+      await safeReply(ctx, `❌ ${escapeMarkdown(built.error)}`, { reply_to_message_id: ctx.message.message_id });
+      return;
+    }
+    await startFixSession(ctx, built);
+  }
+
+  async function startFixSession(ctx, built) {
     const { backend: perCommandIsolation, filteredArgs } = extractIsolationFromArgs(built.args);
     if (perCommandIsolation && !isValidPerCommandIsolation(perCommandIsolation)) {
       await safeReply(ctx, `❌ Invalid --isolation value '${escapeMarkdown(perCommandIsolation)}'. Must be: screen, tmux, or docker`, { reply_to_message_id: ctx.message.message_id });
@@ -238,5 +321,5 @@ export function registerFixCommand(bot, options) {
     handleFixCommand
   );
 
-  return { handleFixCommand, FIX_COMMAND_NAMES };
+  return { handleFixCommand, handleFixCiCdFromSolve, FIX_COMMAND_NAMES };
 }

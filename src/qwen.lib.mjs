@@ -36,6 +36,7 @@ import { stringifyErrorValue } from './error-text.lib.mjs'; // Issue #2141
 import { ensureGeminiFamilyMemoryDisabled, isAgentMemoryDisabled } from './agent-memory-policy.lib.mjs'; // Issue #2178
 import { ensureGeminiFamilyAuxiliaryDisabled, isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236
 import { appendMemoryBudgetPrompt } from './memory-budget.lib.mjs'; // Issue #2838
+import { applyGeminiFamilyPricingTier } from './pricing-tier.lib.mjs'; // Issue #2771
 
 export const mapModelToId = model => qwenModels[model] || model;
 
@@ -536,8 +537,11 @@ export const executeQwenCommand = async params => {
     if (isAgentMemoryDisabled(argv)) await ensureGeminiFamilyMemoryDisabled({ tool: 'qwen', log });
     // Issue #2236: Qwen's next-speaker probe, per-tool-batch LLM labels and follow-up prompt
     // suggestions are all for an interactive reader; auto-compaction
-    // (context.autoCompactThreshold) is deliberately left alone.
+    // (context.autoCompactThreshold) is set separately below (issue #2771).
     if (isAuxiliaryModelCallsDisabled(argv)) await ensureGeminiFamilyAuxiliaryDisabled({ tool: 'qwen', log });
+    // Issue #2771: keep compaction (context.autoCompactThreshold) below the long-context price
+    // cliff, honouring --sub-session-size.
+    await applyGeminiFamilyPricingTier({ tool: 'qwen', argv, modelId: mappedModel, log });
     // Issue #2130: Formal AI runs the native CLI against a local Formal AI server (no argv wrapper).
     const toolInvocation = await resolveFormalAiToolExecution({ tool: 'qwen', model: argv.model || defaultModels.qwen, toolPath: qwenPath, workdir: tempDir, log, verbose: argv.verbose, prepareOnly: isPrepareOnly(argv) });
     const qwenEnv = { ...process.env, ...toolInvocation.env };

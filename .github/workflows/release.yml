@@ -494,7 +494,9 @@ jobs:
     needs: [detect-changes, version-check, changeset-check, test-compilation, lint, check-file-line-limits, test-suites, test-execution, memory-check-linux, validate-docs, docker-pr-check, helm-pr-check, release-preflight]
     if: ${{ !cancelled() && github.ref == 'refs/heads/main' && github.event_name == 'push' && !contains(needs.*.result, 'failure') && needs.release-preflight.result == 'success' && (needs.lint.result == 'success' || needs.lint.result == 'skipped') && (needs.test-suites.result == 'success' || needs.test-suites.result == 'skipped') && (needs.test-execution.result == 'success' || needs.test-execution.result == 'skipped') && (needs.memory-check-linux.result == 'success' || needs.memory-check-linux.result == 'skipped') && (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.docker-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true') }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    # Post-publish verification may wait up to 25 minutes for npm to expose the
+    # version (issue #2923: 2.35.1 took 874s), so 30 minutes is not enough.
+    timeout-minutes: 45
     outputs:
       published: ${{ steps.publish.outputs.published }}
       published_version: ${{ steps.publish.outputs.published_version }}
@@ -532,6 +534,9 @@ jobs:
         # Also detects the self-healing case: no changesets, but package.json's
         # version is not on npm yet (a previous run bumped and failed to
         # publish). See scripts/check-release-needed.lib.mjs, issue #2175.
+        # And the version on npm whose GitHub release is missing (issue #2923).
+        env:
+          GH_TOKEN: ${{ steps.gh.outputs.token }}
         run: node scripts/check-release-needed.mjs
       - name: Harmonize changeset bump types
         if: steps.check_changesets.outputs.has_changesets == 'true' && steps.check_changesets.outputs.changeset_count > 1
@@ -877,7 +882,8 @@ jobs:
     # Issue #2221: a manual release publishes too, so it waits on the same proof.
     if: ${{ !cancelled() && !contains(needs.*.result, 'failure') && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.mode == 'release' && github.event.inputs.release_mode == 'instant' && needs.release-preflight.result == 'success' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    # Same 25-minute post-publish verification window as the release job (issue #2923).
+    timeout-minutes: 45
     outputs:
       published: ${{ steps.publish.outputs.published }}
       published_version: ${{ steps.publish.outputs.published_version }}

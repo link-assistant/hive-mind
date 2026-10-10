@@ -35,6 +35,7 @@ import { createToolCallLoopGuard, resolveRepeatedToolCallLimit } from './tool-ca
 import { ensureGeminiFamilyMemoryDisabled, isAgentMemoryDisabled } from './agent-memory-policy.lib.mjs'; // Issue #2178
 import { ensureGeminiFamilyAuxiliaryDisabled, isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236
 import { appendMemoryBudgetPrompt } from './memory-budget.lib.mjs'; // Issue #2838
+import { applyGeminiFamilyPricingTier } from './pricing-tier.lib.mjs'; // Issue #2771
 
 const shellQuote = value => `"${String(value).replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
 
@@ -434,8 +435,11 @@ export const executeGeminiCommand = async params => {
     if (isAgentMemoryDisabled(argv)) await ensureGeminiFamilyMemoryDisabled({ tool: 'gemini', log });
     // Issue #2236: Gemini's next-speaker probe and LLM tool-call correction are both extra
     // calls in a run nobody is watching; compaction (model.compressionThreshold)
-    // is deliberately left alone.
+    // is set separately below (issue #2771).
     if (isAuxiliaryModelCallsDisabled(argv)) await ensureGeminiFamilyAuxiliaryDisabled({ tool: 'gemini', log });
+    // Issue #2771: keep compaction (model.compressionThreshold) below the long-context price
+    // cliff, honouring --sub-session-size.
+    await applyGeminiFamilyPricingTier({ tool: 'gemini', argv, modelId: mappedModel, log });
     // Issue #2130: Formal AI runs the native CLI against a local Formal AI server (no argv wrapper).
     const toolInvocation = await resolveFormalAiToolExecution({ tool: 'gemini', model: argv.model || defaultModels.gemini, toolPath: geminiPath, workdir: tempDir, log, verbose: argv.verbose, prepareOnly: isPrepareOnly(argv) });
     const geminiEnv = { ...process.env, ...toolInvocation.env };

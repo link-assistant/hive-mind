@@ -166,6 +166,7 @@ export { calculateSessionTokens };
 // Extracted to claude.stderr.lib.mjs (Issue #477, #1337)
 import { isStderrError } from './claude.stderr.lib.mjs';
 import { checkForUncommittedChanges } from './claude.uncommitted-changes.lib.mjs';
+import { applyAnthropicDebugEnv } from './tool-debug-env.lib.mjs'; // Issue #2837
 export { checkForUncommittedChanges };
 export { isStderrError };
 export const executeClaudeCommand = async params => {
@@ -359,10 +360,10 @@ export const executeClaudeCommand = async params => {
       // Issue #817: streaming mode sets exitAfterStopDelayMs=60000 so the headless Claude process stays alive between NDJSON turns.
       // Issue #2130: `toolInvocation.env` points the native CLI at the local Formal AI server (base URL + API key).
       const claudeEnv = { ...getClaudeEnv({ thinkingBudget: resolvedThinkingBudget, model: effectiveModel, thinkLevel, maxBudget, planModel: resolvedPlanModel, executionModel: resolvedExecutionModel, subAgentModel: resolvedSubAgentModel, showThinkingContent: argv.showThinkingContent, exitAfterStopDelayMs: streamingInput ? 60_000 : undefined, subSessionSize: parsedSubSessionSize, contextWindowTokens, pricingTier: claudePricingTier }), ...toolInvocation.env };
-      if (argv.verbose) claudeEnv.ANTHROPIC_LOG = 'debug';
+      applyAnthropicDebugEnv(claudeEnv, argv); // Issue #2837: --anthropic-debug, no longer implied by --verbose
       const modelMaxOutputTokens = getMaxOutputTokensForModel(effectiveModel);
       if (argv.verbose) {
-        await log(`📊 CLAUDE_CODE_MAX_OUTPUT_TOKENS: ${modelMaxOutputTokens}, MCP_TIMEOUT: ${claudeCode.mcpTimeout}ms, MCP_TOOL_TIMEOUT: ${claudeCode.mcpToolTimeout}ms, ANTHROPIC_LOG: debug`, { verbose: true });
+        await log(`📊 CLAUDE_CODE_MAX_OUTPUT_TOKENS: ${modelMaxOutputTokens}, MCP_TIMEOUT: ${claudeCode.mcpTimeout}ms, MCP_TOOL_TIMEOUT: ${claudeCode.mcpToolTimeout}ms${claudeEnv.ANTHROPIC_LOG ? `, ANTHROPIC_LOG: ${claudeEnv.ANTHROPIC_LOG}` : ''}`, { verbose: true });
         if (resolvedPlanModel) await log(`📊 opusplan: plan=${resolvedPlanModel}, exec=${resolvedExecutionModel}`, { verbose: true });
         if (claudeEnv.CLAUDE_CODE_SUBAGENT_MODEL) await log(`📊 CLAUDE_CODE_SUBAGENT_MODEL: ${claudeEnv.CLAUDE_CODE_SUBAGENT_MODEL}`, { verbose: true });
         if (resolvedThinkingBudget !== undefined) await log(`📊 MAX_THINKING_TOKENS: ${resolvedThinkingBudget}`, { verbose: true });

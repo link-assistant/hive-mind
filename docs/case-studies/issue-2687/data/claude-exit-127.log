@@ -856,12 +856,12 @@ origin	https://github.com/link-assistant/hive-mind.git (push)
 [2026-10-07T21:23:16.210Z] [STDOUT]     "x-stainless-timeout": "600",
 [2026-10-07T21:23:16.213Z] [STDOUT]   },
 [2026-10-07T21:23:16.217Z] [STDOUT] }
-[2026-10-07T21:23:16.686Z] [STDOUT] [log_612fc4, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfoabLZLERGbQu4FGWSB8"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 632ms
+[2026-10-07T21:23:16.686Z] [STDOUT] [log_612fc4, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfoabLZLERGbQu4FGWSB8"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 632ms
 [2026-10-07T21:23:16.689Z] [STDOUT] [log_612fc4] response start {
 [2026-10-07T21:23:16.693Z] [STDOUT]   url: "https://api.anthropic.com/v1/messages?beta=true",
 [2026-10-07T21:23:16.697Z] [STDOUT]   status: 200,
 [2026-10-07T21:23:16.700Z] [STDOUT]   headers: {
-[2026-10-07T21:23:16.703Z] [STDOUT]     "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+[2026-10-07T21:23:16.703Z] [STDOUT]     "anthropic-organization-id": "[REDACTED]",
 [2026-10-07T21:23:16.706Z] [STDOUT]     "anthropic-ratelimit-unified-5h-reset": "1791411600",
 [2026-10-07T21:23:16.708Z] [STDOUT]     "anthropic-ratelimit-unified-5h-status": "allowed_warning",
 [2026-10-07T21:23:16.711Z] [STDOUT]     "anthropic-ratelimit-unified-5h-surpassed-threshold": "0.9",
@@ -877,7 +877,7 @@ origin	https://github.com/link-assistant/hive-mind.git (push)
 [2026-10-07T21:23:16.743Z] [STDOUT]     "anthropic-ratelimit-unified-representative-claim": "five_hour",
 [2026-10-07T21:23:16.748Z] [STDOUT]     "anthropic-ratelimit-unified-reset": "1791411600",
 [2026-10-07T21:23:16.751Z] [STDOUT]     "anthropic-ratelimit-unified-status": "allowed_warning",
-[2026-10-07T21:23:16.755Z] [STDOUT]     "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+[2026-10-07T21:23:16.755Z] [STDOUT]     "anthropic-workspace-id": "[REDACTED]",
 [2026-10-07T21:23:16.757Z] [STDOUT]     "cache-control": "no-cache",
 [2026-10-07T21:23:16.760Z] [STDOUT]     "cf-cache-status": "DYNAMIC",
 [2026-10-07T21:23:16.762Z] [STDOUT]     "cf-ray": "a46ff74969ae06db-FRA",
@@ -923,8 +923,8 @@ origin	https://github.com/link-assistant/hive-mind.git (push)
 [2026-10-07T21:23:16.862Z] [STDOUT]   "anthropic-ratelimit-unified-fallback-percentage": "0.5",
 [2026-10-07T21:23:16.864Z] [STDOUT]   "request-id": "req_011CfoabLZLERGbQu4FGWSB8",
 [2026-10-07T21:23:16.866Z] [STDOUT]   "traceresponse": "00-f4d92df5cad599903d903f848c68a026-f318ae3f8feb2bba-01",
-[2026-10-07T21:23:16.868Z] [STDOUT]   "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-[2026-10-07T21:23:16.870Z] [STDOUT]   "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+[2026-10-07T21:23:16.868Z] [STDOUT]   "anthropic-organization-id": "[REDACTED]",
+[2026-10-07T21:23:16.870Z] [STDOUT]   "anthropic-workspace-id": "[REDACTED]",
 [2026-10-07T21:23:16.872Z] [STDOUT]   "server": "cloudflare",
 [2026-10-07T21:23:16.874Z] [STDOUT]   "cf-cache-status": "DYNAMIC",
 [2026-10-07T21:23:16.876Z] [STDOUT]   "x-robots-tag": "none",
@@ -1183,12 +1183,12 @@ origin	https://github.com/link-assistant/hive-mind.git (push)
 [2026-10-07T21:23:26.222Z] [STDOUT]     "x-stainless-timeout": "600",
 [2026-10-07T21:23:26.225Z] [STDOUT]   },
 [2026-10-07T21:23:26.226Z] [STDOUT] }
-[2026-10-07T21:23:26.774Z] [STDOUT] [log_3414fc, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011Cfoac5KKiFW35zLavVJYS"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 713ms
+[2026-10-07T21:23:26.774Z] [STDOUT] [log_3414fc, anthropic-workspace-id: "[REDACTED]", request-id: "req_011Cfoac5KKiFW35zLavVJYS"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 713ms
 [2026-10-07T21:23:26.776Z] [STDOUT] [log_3414fc] response start {
 [2026-10-07T21:23:26.779Z] [STDOUT]   url: "https://api.anthropic.com/v1/messages?beta=true",
 [2026-10-07T21:23:26.781Z] [STDOUT]   status: 200,
 [2026-10-07T21:23:26.785Z] [STDOUT]   headers: {
-[2026-10-07T21:23:26.788Z] [STDOUT]     "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+[2026-10-07T21:23:26.788Z] [STDOUT]     "anthropic-organization-id": "[REDACTED]",
 [2026-10-07T21:23:26.790Z] [STDOUT]     "anthropic-ratelimit-unified-5h-reset": "1791411600",
 [2026-10-07T21:23:26.792Z] [STDOUT]     "anthropic-ratelimit-unified-5h-status": "allowed_warning",
 [2026-10-07T21:23:26.794Z] [STDOUT]     "anthropic-ratelimit-unified-5h-surpassed-threshold": "0.9",
@@ -1204,7 +1204,7 @@ origin	https://github.com/link-assistant/hive-mind.git (push)
 [2026-10-07T21:23:26.819Z] [STDOUT]     "anthropic-ratelimit-unified-representative-claim": "five_hour",
 [2026-10-07T21:23:26.821Z] [STDOUT]     "anthropic-ratelimit-unified-reset": "1791411600",
 [2026-10-07T21:23:26.824Z] [STDOUT]     "anthropic-ratelimit-unified-status": "allowed_warning",
-[2026-10-07T21:23:26.827Z] [STDOUT]     "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+[2026-10-07T21:23:26.827Z] [STDOUT]     "anthropic-workspace-id": "[REDACTED]",
 [2026-10-07T21:23:26.830Z] [STDOUT]     "cache-control": "no-cache",
 [2026-10-07T21:23:26.834Z] [STDOUT]     "cf-cache-status": "DYNAMIC",
 [2026-10-07T21:23:26.838Z] [STDOUT]     "cf-ray": "a46ff787ee8806db-FRA",
@@ -1250,8 +1250,8 @@ origin	https://github.com/link-assistant/hive-mind.git (push)
 [2026-10-07T21:23:26.949Z] [STDOUT]   "anthropic-ratelimit-unified-fallback-percentage": "0.5",
 [2026-10-07T21:23:26.953Z] [STDOUT]   "request-id": "req_011Cfoac5KKiFW35zLavVJYS",
 [2026-10-07T21:23:26.958Z] [STDOUT]   "traceresponse": "00-c63d8dafbf4f22ba23ab398b8e6a510a-c12e37c7aaa3715e-01",
-[2026-10-07T21:23:26.960Z] [STDOUT]   "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-[2026-10-07T21:23:26.962Z] [STDOUT]   "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+[2026-10-07T21:23:26.960Z] [STDOUT]   "anthropic-organization-id": "[REDACTED]",
+[2026-10-07T21:23:26.962Z] [STDOUT]   "anthropic-workspace-id": "[REDACTED]",
 [2026-10-07T21:23:26.965Z] [STDOUT]   "server": "cloudflare",
 [2026-10-07T21:23:26.967Z] [STDOUT]   "cf-cache-status": "DYNAMIC",
 [2026-10-07T21:23:26.970Z] [STDOUT]   "x-robots-tag": "none",
@@ -1477,12 +1477,12 @@ origin	https://github.com/link-assistant/hive-mind.git (push)
 [2026-10-07T21:23:32.736Z] [STDOUT]     "x-stainless-timeout": "600",
 [2026-10-07T21:23:32.738Z] [STDOUT]   },
 [2026-10-07T21:23:32.740Z] [STDOUT] }
-[2026-10-07T21:23:32.896Z] [STDOUT] [log_b9cb57, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfoacZ9eQ4g6GMhMgaKDn"] post https://api.anthropic.com/v1/messages?beta=true failed with status 429 in 314ms - error; no more retries left
+[2026-10-07T21:23:32.896Z] [STDOUT] [log_b9cb57, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfoacZ9eQ4g6GMhMgaKDn"] post https://api.anthropic.com/v1/messages?beta=true failed with status 429 in 314ms - error; no more retries left
 [2026-10-07T21:23:32.901Z] [STDOUT] [log_b9cb57] response error (error; no more retries left) {
 [2026-10-07T21:23:32.903Z] [STDOUT]   url: "https://api.anthropic.com/v1/messages?beta=true",
 [2026-10-07T21:23:32.907Z] [STDOUT]   status: 429,
 [2026-10-07T21:23:32.909Z] [STDOUT]   headers: {
-[2026-10-07T21:23:32.911Z] [STDOUT]     "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+[2026-10-07T21:23:32.911Z] [STDOUT]     "anthropic-organization-id": "[REDACTED]",
 [2026-10-07T21:23:32.912Z] [STDOUT]     "anthropic-ratelimit-unified-5h-reset": "1791411600",
 [2026-10-07T21:23:32.915Z] [STDOUT]     "anthropic-ratelimit-unified-5h-status": "rejected",
 [2026-10-07T21:23:32.919Z] [STDOUT]     "anthropic-ratelimit-unified-5h-surpassed-threshold": "1.0",
@@ -1497,7 +1497,7 @@ origin	https://github.com/link-assistant/hive-mind.git (push)
 [2026-10-07T21:23:32.963Z] [STDOUT]     "anthropic-ratelimit-unified-representative-claim": "five_hour",
 [2026-10-07T21:23:32.970Z] [STDOUT]     "anthropic-ratelimit-unified-reset": "1791411600",
 [2026-10-07T21:23:32.972Z] [STDOUT]     "anthropic-ratelimit-unified-status": "rejected",
-[2026-10-07T21:23:32.979Z] [STDOUT]     "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+[2026-10-07T21:23:32.979Z] [STDOUT]     "anthropic-workspace-id": "[REDACTED]",
 [2026-10-07T21:23:32.982Z] [STDOUT]     "cf-cache-status": "DYNAMIC",
 [2026-10-07T21:23:32.984Z] [STDOUT]     "cf-ray": "a46ff7b0acbb06db-FRA",
 [2026-10-07T21:23:32.987Z] [STDOUT]     connection: "keep-alive",

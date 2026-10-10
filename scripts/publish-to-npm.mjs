@@ -41,16 +41,19 @@ const DEFAULT_RETRY_DELAY_MS = 10000; // 10 seconds
 // through a CDN, so a version can be absent from `npm view` for seconds after
 // `npm publish` returns success (npm/cli#3424, #9043, #593). Issue #2082,
 // finding F5: verifying once, 0.3s after publishing, produced a false negative.
-// npm's public metadata is cacheable for five minutes. Runs 34882269478,
-// 34956086702, 35013947631, 35024921159 and 35644890960 all received a
-// successful publish response 157-309 seconds before npm recorded the version
-// in its public metadata. Seven checks (~90s) therefore produced repeatable
-// false negatives. Fifteen checks span the full cache horizon with enough
-// margin for the observed 309-second case:
-// ~2+4+8+16+(10*30) = 330s before the final check.
-const DEFAULT_VERIFY_ATTEMPTS = 15;
-const DEFAULT_VERIFY_DELAY_MS = 2000;
-const DEFAULT_VERIFY_MAX_DELAY_MS = 30000;
+// Runs 34882269478, 34956086702, 35013947631, 35024921159 and 35644890960
+// received a successful publish response 157-309 seconds before npm recorded
+// the version in its public metadata, so issue #2316 widened the window to 330s.
+// Issue #2923: since 2026-09-14 npm takes 99-377s (p90 314s) to expose a new
+// version, and 2.35.1 (run 37983302098) took 874s. The 330s window failed
+// 2.34.1 (run 37723257263) and 2.35.1 although both were published, so the
+// Docker images, Helm chart and GitHub release were skipped. Fifty-four checks
+// wait ~2+4+8+16+(49*30) = 1500s (25 minutes), 1.7x the slowest observed lag.
+// The publish attestation lag of any version can be measured with
+// experiments/npm-publish-lag-2923.mjs.
+export const DEFAULT_VERIFY_ATTEMPTS = 54;
+export const DEFAULT_VERIFY_DELAY_MS = 2000;
+export const DEFAULT_VERIFY_MAX_DELAY_MS = 30000;
 
 /**
  * Sleep for the specified milliseconds.
@@ -68,21 +71,22 @@ export function sleep(ms) {
  *
  * @param {string} command
  * @param {string[]} args
- * @param {{spawner?: typeof spawn}} [opts]
+ * @param {{spawner?: typeof spawn, quiet?: boolean}} [opts] - `quiet` buffers
+ *   output without echoing it, for probes whose misses are expected.
  * @returns {Promise<{code:number, stdout:string, stderr:string, message:string}>}
  */
-export const runCommand = (command, args, { spawner = spawn } = {}) =>
+export const runCommand = (command, args, { spawner = spawn, quiet = false } = {}) =>
   new Promise(resolve => {
     const child = spawner(command, args, { stdio: ['inherit', 'pipe', 'pipe'] });
     let stdout = '';
     let stderr = '';
     child.stdout?.on('data', chunk => {
       stdout += chunk.toString();
-      process.stdout.write(chunk);
+      if (!quiet) process.stdout.write(chunk);
     });
     child.stderr?.on('data', chunk => {
       stderr += chunk.toString();
-      process.stderr.write(chunk);
+      if (!quiet) process.stderr.write(chunk);
     });
     child.on('error', error => resolve({ code: 1, stdout, stderr, message: error.message }));
     child.on('close', code => resolve({ code: code ?? 1, stdout, stderr, message: '' }));
@@ -135,12 +139,19 @@ export function analyzePublishResult(result) {
 
 /**
  * Check whether a specific version is live on the npm registry.
- * @param {(command:string, args:string[]) => Promise<{code:number}>} runner
+ *
+ * The probe runs quietly: a miss is the expected answer while npm propagates a
+ * new version, and echoing npm's nine-line "npm error 404" block for every
+ * check buried the real failure under 135 error lines in run 37983302098
+ * (issue #2923). Set HIVE_MIND_PUBLISH_VERBOSE=true to see the raw output.
+ *
+ * @param {(command:string, args:string[], opts?:{quiet?:boolean}) => Promise<{code:number}>} runner
  * @param {string} version
+ * @param {{env?: NodeJS.ProcessEnv}} [opts]
  * @returns {Promise<boolean>}
  */
-export async function isVersionPublished(runner, version) {
-  const result = await runner('npm', ['view', `${PACKAGE_NAME}@${version}`, 'version']);
+export async function isVersionPublished(runner, version, { env = process.env } = {}) {
+  const result = await runner('npm', ['view', `${PACKAGE_NAME}@${version}`, 'version'], { quiet: env.HIVE_MIND_PUBLISH_VERBOSE !== 'true' });
   return result.code === 0;
 }
 
@@ -163,17 +174,21 @@ export async function isVersionPublished(runner, version) {
  */
 export async function waitForVersionOnRegistry({ runner, version, attempts = DEFAULT_VERIFY_ATTEMPTS, delayMs = DEFAULT_VERIFY_DELAY_MS, maxDelayMs = DEFAULT_VERIFY_MAX_DELAY_MS, sleeper = sleep, logger = console }) {
   let delay = delayMs;
+  // Waited time, so the log records how long npm took to expose the version.
+  let waitedMs = 0;
   for (let attempt = 1; attempt <= attempts; attempt++) {
     if (await isVersionPublished(runner, version)) {
-      logger.log(`Verified ${PACKAGE_NAME}@${version} is live on npm (check ${attempt} of ${attempts})`);
+      logger.log(`Verified ${PACKAGE_NAME}@${version} is live on npm (check ${attempt} of ${attempts}, after ~${waitedMs / 1000}s)`);
       return true;
     }
     if (attempt < attempts) {
-      logger.log(`${PACKAGE_NAME}@${version} not visible yet (check ${attempt} of ${attempts}); waiting ${delay / 1000}s for registry propagation...`);
+      logger.log(`${PACKAGE_NAME}@${version} not visible yet (check ${attempt} of ${attempts}, ~${waitedMs / 1000}s waited); waiting ${delay / 1000}s for registry propagation...`);
       await sleeper(delay);
+      waitedMs += delay;
       delay = Math.min(delay * 2, maxDelayMs);
     }
   }
+  logger.error(`${PACKAGE_NAME}@${version} was still not visible after ${attempts} checks (~${waitedMs / 1000}s)`);
   return false;
 }
 

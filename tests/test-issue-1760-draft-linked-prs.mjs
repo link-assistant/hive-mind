@@ -56,6 +56,8 @@ await test('counts open draft PRs that close the issue', async () => {
     state: 'OPEN',
     isDraft: true,
     url: 'https://github.example.test/example/repo/pull/111',
+    headRefName: null,
+    primaryIssueUrl: null,
   });
 });
 

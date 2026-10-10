@@ -11,7 +11,7 @@ if (typeof globalThis.use === 'undefined') {
 // Import dependencies
 import { log, cleanErrorMessage } from './lib.mjs';
 import { githubLimits, timeouts } from './config.lib.mjs';
-import { prClosesIssue, pullRequestClosesIssue, isAncestorPullRequest } from './github-linking.lib.mjs';
+import { prClosesIssue, pullRequestClosesIssue, isAncestorPullRequest, getPullRequestPrimaryIssueUrl } from './github-linking.lib.mjs';
 import { ISSUE_ANCESTOR_FIELDS, getIssueAncestorUrls, createRestIssueOwnershipFetcher } from './github-issue-pr-ownership.lib.mjs';
 
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry, execGhWithRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller. execGhWithRetry adds transient-network retry (#1756).
@@ -55,6 +55,9 @@ export async function extractLinkedPullRequestsForIssue(issueData, issueNum, log
           state: item.source.state,
           isDraft: Boolean(item.source.isDraft),
           url: item.source.url,
+          // Issue #2891: a parent plan PR also closes this issue; callers that need the issue's own PR filter on these.
+          headRefName: item.source.headRefName || null,
+          primaryIssueUrl: getPullRequestPrimaryIssueUrl(item.source, owner, repo),
         });
       } else {
         // Log that we're skipping a PR that only mentions the issue
@@ -218,7 +221,7 @@ export async function batchCheckPullRequestsForIssues(owner, repo, issueNumbers,
                 continue;
               }
               const { number, title, state, isDraft, url } = pr;
-              linkedPRs.push({ number, title, state, isDraft: Boolean(isDraft), url });
+              linkedPRs.push({ number, title, state, isDraft: Boolean(isDraft), url, headRefName: pr.headRefName || null, primaryIssueUrl: getPullRequestPrimaryIssueUrl(pr, owner, repo) });
             }
 
             results[issueNum] = {

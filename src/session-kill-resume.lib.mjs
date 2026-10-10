@@ -26,6 +26,7 @@ import { resolveOnSessionKillPolicy, resolveSessionKillResumeAttempts, pickSessi
 import { argvFromSessionArgs } from './session-monitor.kill-sections.lib.mjs';
 import { formatKillResumeSection } from './session-kill-diagnostics.lib.mjs';
 import { resumeKilledSessionInPlace } from './session-kill-resume.in-place.lib.mjs';
+import { resolveFreshRecoveryCommand } from './session-kill-resume.fresh-session.lib.mjs';
 
 /** Field recording how many automatic recovery sessions this session produced. */
 export const KILL_RESUME_ATTEMPTS_FIELD = 'killRecoveryAttempts';
@@ -108,10 +109,11 @@ export function collectPreviousExecutionUuids(sessionInfo, nextExecutionUuid) {
  * @param {Object} [options.env] - Source of `HIVE_MIND_SESSION_KILL_RESUME_DELAY`
  * @param {Function} [options.sleep] - Waits the random pre-launch delay (issue #2498)
  * @param {Function} [options.random] - Test seam for the delay
+ * @param {Function} [options.resolveFreshCommand] - Decides what a fresh run may resume (issue #2888)
  * @param {boolean} [options.verbose]
- * @returns {Promise<{resumed: boolean, reason: string, sessionId: string|null, display: string|null, inPlace: boolean, delayMs: number}>}
+ * @returns {Promise<{resumed: boolean, reason: string, sessionId: string|null, display: string|null, inPlace: boolean, delayMs: number, freshResume: Object|null}>}
  */
-export async function startKillRecoverySession({ sessionName, sessionInfo, plan, runner, trackSession, persistSnapshot = null, env = process.env, sleep = sleepBeforeRecovery, random, onLifecycle = async () => {}, verbose = false } = {}) {
+export async function startKillRecoverySession({ sessionName, sessionInfo, plan, runner, trackSession, persistSnapshot = null, env = process.env, sleep = sleepBeforeRecovery, random, onLifecycle = async () => {}, resolveFreshCommand = resolveFreshRecoveryCommand, verbose = false } = {}) {
   let delayMs = 0;
   const notify = async event => {
     try {
@@ -156,11 +158,18 @@ export async function startKillRecoverySession({ sessionName, sessionInfo, plan,
     let logPath = inPlace.resumed ? sessionInfo?.logPath || null : null;
     let containerFilesystemStartBytes = null;
     let containerResourceLimits = sessionInfo?.containerResourceLimits || null;
+    let launchCommand = plan.command;
+    let freshResume = null;
 
     if (!inPlace.resumed) {
+      // Issue #2888: a new container only sees mounted session stores; resume
+      // what it can reach (restoring a Codex rollout first) or run without it.
+      freshResume = await resolveFreshCommand({ sessionName, sessionInfo, command: plan.command, runner, env, verbose });
+      launchCommand = freshResume.command;
+      if (verbose || (freshResume.resumeId && !freshResume.keptResume)) console.log(`[session-recovery] Session ${sessionName}: fresh recovery ${freshResume.keptResume ? 'resumes' : freshResume.resumeId ? 'does not resume' : 'has no'} tool session ${freshResume.resumeId || ''} (${freshResume.reason}${freshResume.detail ? `: ${freshResume.detail}` : ''}) → ${launchCommand.display}`);
       newSessionId = runner.generateSessionId();
       const tool = sessionInfo?.tool || 'claude';
-      const result = await runner.executeWithIsolation(sessionInfo?.command || 'solve', plan.command.args, { backend, sessionId: newSessionId, tool, verbose, containerResourceLimits: sessionInfo?.containerResourceLimits?.requested || null });
+      const result = await runner.executeWithIsolation(sessionInfo?.command || 'solve', launchCommand.args, { backend, sessionId: newSessionId, tool, verbose, containerResourceLimits: sessionInfo?.containerResourceLimits?.requested || null });
       if (!result?.success) return fail('start-failed');
       executionUuid = result.executionUuid || null;
       logPath = result.logPath || null;
@@ -183,7 +192,7 @@ export async function startKillRecoverySession({ sessionName, sessionInfo, plan,
         lastToolSessionId: undefined,
         recoveryLifecycle: sessionInfo.recoveryLifecycle ? { ...sessionInfo.recoveryLifecycle, kind: 'container', attempt: plan.attempt, startedAt: recoveryStartedAt, lastBytes: inPlace.resumed ? previousLogBytes : 0, lastOutputAt: null } : undefined,
         sessionId: newSessionId,
-        args: [...plan.command.args],
+        args: [...launchCommand.args],
         // Carry the counter forward so attempt N+1 is bounded by the same cap,
         // and remember what this session is recovering from for its own report.
         [KILL_RESUME_ATTEMPTS_FIELD]: plan.attempt,
@@ -233,10 +242,10 @@ export async function startKillRecoverySession({ sessionName, sessionInfo, plan,
 
     if (verbose) {
       const how = inPlace.resumed ? `resumed in place (${inPlace.mode || 'unknown mode'})` : `started fresh (in-place resume skipped: ${inPlace.reason})`;
-      console.log(`[VERBOSE] Session ${sessionName} was killed; recovery session ${newSessionId} ${how} (attempt ${plan.attempt}/${plan.maxAttempts}): ${plan.command.display}`);
+      console.log(`[VERBOSE] Session ${sessionName} was killed; recovery session ${newSessionId} ${how} (attempt ${plan.attempt}/${plan.maxAttempts}): ${launchCommand.display}`);
     }
     await notify({ phase: 'launching', stage: 'accepted', attempt: plan.attempt, nextSession: newSessionId, executionUuid });
-    return { resumed: true, reason: inPlace.resumed ? inPlace.reason : 'started', sessionId: newSessionId, display: plan.command.display, inPlace: inPlace.resumed, delayMs };
+    return { resumed: true, reason: inPlace.resumed ? inPlace.reason : 'started', sessionId: newSessionId, display: launchCommand.display, inPlace: inPlace.resumed, delayMs, freshResume: freshResume ? { keptResume: freshResume.keptResume, reason: freshResume.reason, resumeId: freshResume.resumeId, restoredFrom: freshResume.restoredFrom } : null };
   } catch (error) {
     if (verbose) {
       console.log(`[VERBOSE] Could not start recovery session for ${sessionName}: ${error?.message || error}`);

@@ -56,7 +56,7 @@ export { resumeAllIsolationSessions, resumeIsolatedSession };
 export { parseExecutionResumeAllOutput, parseExecutionResumeOutput, RESUME_ALL_ACTIONS, RESUME_MODES } from './isolation-runner.resume.lib.mjs';
 // Valid isolation backends
 const VALID_ISOLATION_BACKENDS = ['screen', 'tmux', 'docker'];
-const DOCKER_CONTAINER_HOME = '/home/box';
+export const DOCKER_CONTAINER_HOME = '/home/box';
 const FORMAL_AI_COMPOSE_HOSTNAME = 'link-assistant-formal-ai';
 // Default path where the host Docker socket is bind-mounted inside a DinD container so box's host-image passthrough can copy host images into the nested daemon. Matches box's own DIND_HOST_DOCKER_SOCK default. The deploy must mount it (`-v /var/run/docker.sock:/var/run/host-docker.sock:ro`) or the nested daemon starts empty and the first isolated task pulls the full, multi-gigabyte image. See issue #1914.
 const DEFAULT_HOST_DOCKER_SOCK = '/var/run/host-docker.sock';
@@ -835,6 +835,26 @@ export async function checkDockerContainerExists(containerName, verbose = false)
   } catch {
     // `docker inspect` exits non-zero when no such container exists.
     return false;
+  }
+}
+/**
+ * Copy a path out of a (possibly stopped) task container with `docker cp`.
+ * Issue #2888: a killed Codex task's rollout lives in the container's own
+ * repository-scoped CODEX_HOME; a fresh recovery run needs it on the host.
+ *
+ * @returns {Promise<{success: boolean, error: string|null}>}
+ */
+export async function copyFromDockerContainer(containerName, sourcePath, destinationPath, verbose = false) {
+  if (!containerName || !sourcePath || !destinationPath) return { success: false, error: 'containerName, sourcePath and destinationPath are required' };
+  try {
+    const $ = await getCommandStreamDollar();
+    const result = await $({ mirror: false })`docker cp ${`${containerName}:${sourcePath}`} ${destinationPath}`;
+    const code = Number.isFinite(result.code) ? result.code : 0;
+    const error = code === 0 ? null : (result.stderr?.toString() || '').trim() || `docker cp exited with ${code}`;
+    if (verbose) console.log(`[VERBOSE] isolation-runner: docker cp ${containerName}:${sourcePath} → ${destinationPath}: ${error || 'ok'}`);
+    return { success: code === 0, error };
+  } catch (error) {
+    return { success: false, error: error?.message || String(error) };
   }
 }
 export function parseDockerContainerWritableLayerSizeOutput(output) {

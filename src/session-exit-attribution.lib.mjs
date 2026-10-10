@@ -166,7 +166,7 @@ export async function detectDockerDaemonRestart(containerName, { verbose = false
     }
 
     const listed = await run('docker', ['ps', '-a', '-q', '--no-trunc', '--last', String(DAEMON_RESTART_MAX_CONTAINERS)]);
-    const ids = String(listed.stdout || '')
+    const ids = (listed.stdout?.toString() ?? '')
       .split('\n')
       .map(id => id.trim())
       .filter(id => id && id !== own.id);

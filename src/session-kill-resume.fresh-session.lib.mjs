@@ -12,15 +12,20 @@
  * Per tool, the store a fresh container can see (see
  * `DOCKER_ISOLATION_TOOL_MOUNTS` in `isolation-runner.lib.mjs`):
  *
- * | tool                          | store read by `--resume`                      | mounted? |
- * |-------------------------------|-----------------------------------------------|----------|
- * | claude                        | `~/.claude/projects/<cwd slug>/<id>.jsonl`    | yes      |
- * | codex                         | `$CODEX_HOME/sessions/…/rollout-…-<id>.jsonl` | yes (#2888 links the scoped home there) |
- * | agent, opencode, gemini, qwen | the tool's own data directory                 | no       |
+ * | tool     | store read by `--resume`                                          | found from another directory? | mounted? |
+ * |----------|-------------------------------------------------------------------|-------------------------------|----------|
+ * | claude   | `~/.claude/projects/<cwd slug>/<id>.jsonl`                        | yes                           | yes      |
+ * | codex    | `$CODEX_HOME/sessions/…/rollout-…-<id>.jsonl`                     | yes                           | yes (#2888 links the scoped home there) |
+ * | agent    | `~/.local/share/link-assistant-agent/storage/session/<root sha>/` | same repository only          | no       |
+ * | gemini   | `~/.gemini/tmp/<project slug of the cwd>/chats/`                  | no                            | no       |
+ * | qwen     | `~/.qwen/projects/<sanitized cwd>/chats/<id>.jsonl`               | no (the recorded cwd is checked) | no    |
+ * | opencode | `~/.local/share/opencode/opencode.db` (row keeps its directory)   | runs in the *old* directory   | no       |
  *
- * Claude finds a transcript by id from any working directory
- * (experiments/issue-2888/claude-resume-cross-cwd.sh), so a mounted transcript
- * is enough. For Codex a rollout that never reached the mounted volume (a task
+ * (experiments/issue-2888/*-session-storage.sh, *-resume-*.sh.) Claude finds a
+ * transcript by id from any working directory, so a mounted transcript is
+ * enough. A fresh run always gets a new temporary directory, so even on a
+ * screen/tmux host gemini, qwen and opencode cannot resume there unless the
+ * command pins `--working-directory`; their `--resume` is dropped as well. For Codex a rollout that never reached the mounted volume (a task
  * started before #2888) is copied out of the killed container with `docker cp`,
  * which works on stopped containers. When the session still cannot be found
  * the run is launched without `--resume`: `--auto-continue` (on by default)
@@ -46,6 +51,7 @@ const DEFAULT_CONTAINER_HOME = '/home/box';
 export const FRESH_RESUME_REASONS = Object.freeze({
   NO_RESUME: 'no-resume-flag',
   HOST_BACKEND: 'host-backend',
+  CWD_BOUND: 'tool-session-cwd-bound',
   AVAILABLE: 'tool-session-available',
   RESTORED: 'tool-session-restored',
   NOT_PERSISTED: 'tool-session-not-persisted',
@@ -85,6 +91,12 @@ export const TOOL_SESSION_STORES = Object.freeze({
   claude: Object.freeze({ relativePath: path.join('.claude', 'projects'), find: ({ dir, id, fsImpl }) => findClaudeTranscriptFile({ projectsDir: dir, sessionId: id, fsImpl }) }),
   codex: Object.freeze({ relativePath: path.join('.codex', 'sessions'), find: ({ dir, id, fsImpl }) => findCodexRolloutFile({ sessionsDir: dir, threadId: id, fsImpl }) }),
 });
+
+/** Tools that only resume a session from the directory it was started in. */
+export const CWD_BOUND_SESSION_TOOLS = Object.freeze(['gemini', 'qwen', 'opencode']);
+
+/** True when `args` pin the working directory (`--working-directory`/`-d`). */
+export const pinsWorkingDirectory = args => (Array.isArray(args) ? args : []).some(arg => ['--working-directory', '-d'].includes(String(arg)) || /^(--working-directory|-d)=./u.test(String(arg)));
 
 /** The value of the last `--resume`/`-r` in `args`, or null. */
 export function readResumeId(args) {
@@ -156,10 +168,14 @@ export async function resolveFreshRecoveryCommand({ sessionName = null, sessionI
     return { command: { ...command, args, display: `${binary} ${args.map(quoteArg).join(' ')}` }, keptResume: false, reason, resumeId, restoredFrom: null, detail };
   };
   if (!command || !resumeId) return keep(FRESH_RESUME_REASONS.NO_RESUME);
-  // screen/tmux run on the host, which keeps every tool's own session store.
-  if (sessionInfo?.isolationBackend !== 'docker') return keep(FRESH_RESUME_REASONS.HOST_BACKEND);
-
   const tool = String(sessionInfo?.tool || 'claude').toLowerCase();
+  // screen/tmux run on the host, which keeps every tool's own session store,
+  // but the fresh run works in a new temporary directory.
+  if (sessionInfo?.isolationBackend !== 'docker') {
+    if (CWD_BOUND_SESSION_TOOLS.includes(tool) && !pinsWorkingDirectory(command.args)) return drop(FRESH_RESUME_REASONS.CWD_BOUND, `${tool} resumes ${resumeId} only from the directory it was started in; the fresh run gets a new one`);
+    return keep(FRESH_RESUME_REASONS.HOST_BACKEND);
+  }
+
   const store = TOOL_SESSION_STORES[tool];
   if (!store) return drop(FRESH_RESUME_REASONS.NOT_PERSISTED, `${tool} keeps its sessions inside the task container`);
   try {

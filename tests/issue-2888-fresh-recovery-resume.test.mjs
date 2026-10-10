@@ -266,3 +266,27 @@ test('the fresh kill-recovery run is launched and tracked with the resolved comm
   assert.equal(result.display, `solve ${ISSUE_URL} --tool codex`);
   assert.deepEqual(result.freshResume, { keptResume: false, reason: FRESH_RESUME_REASONS.MISSING, resumeId: THREAD, restoredFrom: null });
 });
+
+test('host fresh runs drop --resume for tools whose sessions are bound to the old working directory', async () => {
+  const home = await tempHome();
+  const id = 'ses_edbd2ddecffe1QvOqwTwQEIPdq';
+  for (const tool of ['gemini', 'qwen', 'opencode']) {
+    const args = [ISSUE_URL, '--tool', tool, '--resume', id];
+    const result = await resolveFreshRecoveryCommand({ sessionInfo: { tool, isolationBackend: 'screen' }, command: command(args), runner: runnerFor(home), homeDir: home });
+    assert.equal(result.reason, FRESH_RESUME_REASONS.CWD_BOUND, tool);
+    assert.equal(result.keptResume, false, tool);
+    assert.deepEqual(result.command.args, [ISSUE_URL, '--tool', tool], tool);
+    // The same directory again: the tool finds its session.
+    for (const pinned of [['--working-directory', '/tmp/w'], ['-d', '/tmp/w'], ['--working-directory=/tmp/w']]) {
+      const kept = await resolveFreshRecoveryCommand({ sessionInfo: { tool, isolationBackend: 'tmux' }, command: command([...args, ...pinned]), runner: runnerFor(home), homeDir: home });
+      assert.equal(kept.reason, FRESH_RESUME_REASONS.HOST_BACKEND, `${tool} ${pinned.join(' ')}`);
+      assert.equal(kept.keptResume, true);
+    }
+  }
+  // claude, codex and agent find the session by id from any directory on the same host.
+  for (const tool of ['claude', 'codex', 'agent']) {
+    const result = await resolveFreshRecoveryCommand({ sessionInfo: { tool, isolationBackend: 'screen' }, command: command([ISSUE_URL, '--tool', tool, '--resume', id]), runner: runnerFor(home), homeDir: home });
+    assert.equal(result.reason, FRESH_RESUME_REASONS.HOST_BACKEND, tool);
+    assert.equal(result.keptResume, true, tool);
+  }
+});

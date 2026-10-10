@@ -1,0 +1,70 @@
+== opencode --version: 1.18.35
+== opencode debug paths
+home       /tmp/s-oc-exp/home
+data       /tmp/s-oc-exp/home/.local/share/opencode
+bin        /tmp/s-oc-exp/home/.cache/opencode/bin
+log        /tmp/s-oc-exp/home/.local/share/opencode/log
+repos      /tmp/s-oc-exp/home/.local/share/opencode/repos
+cache      /tmp/s-oc-exp/home/.cache/opencode
+config     /tmp/s-oc-exp/home/.config/opencode
+state      /tmp/s-oc-exp/home/.local/state/opencode
+tmp        /tmp/opencode
+== opencode db path
+/tmp/s-oc-exp/home/.local/share/opencode/opencode.db
+== root commit of a: daf56cbcaf9e9ec2955640ebe2d9444e0d08e8e7
+== 1. new session in original cwd /tmp/s-oc-exp/a
+"output":"/tmp/s-oc-exp/a\n"
+"sessionID":"ses_edbd2ddecffe1QvOqwTwQEIPdq"
+"text":"</think>/tmp/s-oc-exp/a"
+== session rows
+id	project_id	directory
+ses_edbd2ddecffe1QvOqwTwQEIPdq	daf56cbcaf9e9ec2955640ebe2d9444e0d08e8e7	/tmp/s-oc-exp/a
+== files
+/tmp/s-oc-exp/home/.local/share/opencode
+/tmp/s-oc-exp/home/.local/share/opencode/log
+/tmp/s-oc-exp/home/.local/share/opencode/opencode.db
+/tmp/s-oc-exp/home/.local/share/opencode/opencode.db-shm
+/tmp/s-oc-exp/home/.local/share/opencode/opencode.db-wal
+/tmp/s-oc-exp/home/.local/share/opencode/repos
+/tmp/s-oc-exp/home/.local/share/opencode/snapshot
+== 2. resume ses_edbd2ddecffe1QvOqwTwQEIPdq from clone /tmp/s-oc-exp/b (original /tmp/s-oc-exp/a still exists) -> where does bash run?
+opencode-session-storage.sh: line 16: 92973 Killed                  timeout -s KILL 90 opencode "$@" 2>&1
+-- bash tool outputs recorded in the DB for this session (1st = step 1 from a, 2nd = step 2 from b):
+json_extract(p.data,'$.state.output')
+/tmp/s-oc-exp/a
+
+/tmp/s-oc-exp/a
+
+== 3. resume unknown id from /tmp/s-oc-exp/b
+Error: [0mSession not found
+== 4. resume ses_edbd2ddecffe1QvOqwTwQEIPdq with a fresh HOME (= fresh container without ~/.local/share/opencode)
+Error: [0mSession not found
+== 5. resume ses_edbd2ddecffe1QvOqwTwQEIPdq from /tmp/s-oc-exp/b after removing the original directory /tmp/s-oc-exp/a
+"error","timestamp":1791608430027,"sessionID":"ses_edbd2ddecffe1QvOqwTwQEIPdq","error":{"name":"UnknownError","data":{"message":"Unexpected server error. Check server logs for details.","ref":"err_44046564"}}}
+-- instances opencode created during the runs (log):
+message="creating instance" directory=/tmp/s-oc-exp/a
+message="creating instance" directory=/tmp/s-oc-exp/b
+message="creating instance" directory=/tmp/s-oc-exp/a
+message="creating instance" directory=/tmp/s-oc-exp/b
+message="creating instance" directory=/tmp/s-oc-exp/b
+message="creating instance" directory=/tmp/s-oc-exp/a
+== 6. --dir /tmp/s-oc-exp/b does not override the stored session directory
+"error","timestamp":1791608439280,"sessionID":"ses_edbd2ddecffe1QvOqwTwQEIPdq","error":{"name":"UnknownError","data":{"message":"Unexpected server error. Check server logs for details.","ref":"err_461b01ad"}}}
+message="creating instance" directory=/tmp/s-oc-exp/b
+message="creating instance" directory=/tmp/s-oc-exp/a
+== 7. rewrite session.directory to /tmp/s-oc-exp/b, then resume from /tmp/s-oc-exp/b
+"output":"/tmp/s-oc-exp/b\n"
+"sessionID":"ses_edbd2ddecffe1QvOqwTwQEIPdq"
+"text":"The output changed because the working directory is now /tmp/s-oc-exp/b (the current working directory per env). I should reply with only its output. Three requests, three outputs.\n\nNote: the first two times the output was /tmp/s-oc-exp/a, now it's /tmp/s-oc-exp/b. Interesting - the environment's working directory apparently changed. Anyway, reply with output.</think>/tmp/s-oc-exp/b\n/tmp/s-oc-exp/b\n/tmp/s-oc-exp/b"
+"text":"The user wants me to run pwd three times (three separate requests). Let me run it. Actually they sent three identical requests. I should run pwd. The output each time. But \"
+== 8. export -> import into a fresh HOME from another cwd: import re-homes the session to the importing cwd/project
+-- exported directory/projectID:
+"directory": "/tmp/s-oc-exp/b"
+"projectID": "daf56cbcaf9e9ec2955640ebe2d9444e0d08e8e7"
+-- root commit of unrelated repo c: dac70581abfd4ecac4328d29146d9b9995764b92
+Imported session: ses_edbd2ddecffe1QvOqwTwQEIPdq
+id	project_id	directory
+ses_edbd2ddecffe1QvOqwTwQEIPdq	dac70581abfd4ecac4328d29146d9b9995764b92	/tmp/s-oc-exp/c
+== 9. OPENCODE_DB / XDG_DATA_HOME relocation
+/tmp/custom-oc.db
+/tmp/s-oc-exp/xdg/opencode/opencode.db

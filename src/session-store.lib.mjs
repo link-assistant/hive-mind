@@ -49,10 +49,12 @@ import path from 'node:path';
 //   - `killRecoveryAttempts`/`killRecoverySessionId`/`killRecoveryOfSession`
 //     bound and record automatic recovery across restarts — without them a
 //     reliably-crashing job could restart once per bot launch forever.
+//     Issue #2888 adds `killRecoveryDiskDeferrals`, the separate bound on
+//     relaunches of a recovery session that the disk preflight refused.
 //   - `stopRequestedByUser`/`stopRequestedBy` must survive a restart too: with
 //     `--on-session-kill=resume` now the default, forgetting that an operator
 //     asked for the stop would relaunch the very work they cancelled.
-const PERSISTABLE_FIELDS = ['chatId', 'messageId', 'startTime', 'url', 'command', 'commandAlias', 'isolationBackend', 'sessionId', 'executionUuid', 'containerFilesystemStartBytes', 'containerFilesystemLastBytes', 'containerFilesystemLastObservedAt', 'containerFilesystemInheritedBytes', 'containerResourceLimits', 'containerResourceLimitExceeded', 'tool', 'infoBlock', 'urlContext', 'requesterUserId', 'showLimits', 'locale', 'logPath', 'args', 'completionNotifiedAt', 'completionExitCode', 'completionStatus', 'lastToolSessionId', 'oomEventObservedAt', 'killRecoveryAttempts', 'killRecoverySessionId', 'killRecoveryOfSession', 'rootSessionName', 'rootStartTime', 'previousExecutionUuids', 'killRecoveryResumed', 'killRecoveryInPlace', 'killRecoveryResumeMode', 'killRecoveryStartedAt', 'killRecoveryLogStartBytes', 'recoveryLifecycle', 'stopRequestedByUser', 'stopRequestedBy', 'onSessionKill', 'resolvedPullRequestUrl'];
+const PERSISTABLE_FIELDS = ['chatId', 'messageId', 'startTime', 'url', 'command', 'commandAlias', 'isolationBackend', 'sessionId', 'executionUuid', 'containerFilesystemStartBytes', 'containerFilesystemLastBytes', 'containerFilesystemLastObservedAt', 'containerFilesystemInheritedBytes', 'containerResourceLimits', 'containerResourceLimitExceeded', 'tool', 'infoBlock', 'urlContext', 'requesterUserId', 'showLimits', 'locale', 'logPath', 'args', 'completionNotifiedAt', 'completionExitCode', 'completionStatus', 'lastToolSessionId', 'oomEventObservedAt', 'killRecoveryAttempts', 'killRecoveryDiskDeferrals', 'killRecoverySessionId', 'killRecoveryOfSession', 'rootSessionName', 'rootStartTime', 'previousExecutionUuids', 'killRecoveryResumed', 'killRecoveryInPlace', 'killRecoveryResumeMode', 'killRecoveryStartedAt', 'killRecoveryLogStartBytes', 'recoveryLifecycle', 'stopRequestedByUser', 'stopRequestedBy', 'onSessionKill', 'resolvedPullRequestUrl'];
 
 /**
  * Resolve the directory durable bot state is written to. Honors

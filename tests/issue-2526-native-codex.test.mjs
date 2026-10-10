@@ -9,8 +9,13 @@ const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'hive-native-effort-2526
 const previousHotLoad = process.env.HIVE_MIND_MODELS_HOT_LOAD;
 const previousStateDir = process.env.HIVE_MIND_STATE_DIR;
 const previousPath = process.env.PATH;
+const previousCodexHome = process.env.CODEX_HOME;
 process.env.HIVE_MIND_MODELS_HOT_LOAD = '0';
 process.env.HIVE_MIND_STATE_DIR = path.join(workspace, 'state');
+// Issue #2888: `exec resume` is used only when the thread's rollout is under CODEX_HOME/sessions.
+process.env.CODEX_HOME = path.join(workspace, 'codex-home');
+fs.mkdirSync(path.join(process.env.CODEX_HOME, 'sessions', '2026', '01', '01'), { recursive: true });
+fs.writeFileSync(path.join(process.env.CODEX_HOME, 'sessions', '2026', '01', '01', 'rollout-2026-01-01T00-00-00-existing-session.jsonl'), '');
 const events = [{ type: 'thread.started', thread_id: 'effort-regression' }, { type: 'turn.started' }, { type: 'item.completed', item: { type: 'agent_message', text: 'Done.' } }, { type: 'turn.completed', usage: { input_tokens: 1, output_tokens: 1 } }].map(event => JSON.stringify(event)).join('\n');
 
 try {
@@ -65,6 +70,8 @@ try {
 } finally {
   if (previousPath === undefined) delete process.env.PATH;
   else process.env.PATH = previousPath;
+  if (previousCodexHome === undefined) delete process.env.CODEX_HOME;
+  else process.env.CODEX_HOME = previousCodexHome;
   if (previousHotLoad === undefined) delete process.env.HIVE_MIND_MODELS_HOT_LOAD;
   else process.env.HIVE_MIND_MODELS_HOT_LOAD = previousHotLoad;
   if (previousStateDir === undefined) delete process.env.HIVE_MIND_STATE_DIR;

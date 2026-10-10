@@ -1,0 +1,34 @@
+== qwen --version: 0.25.0
+== 1. new session in original cwd /tmp/s-qw-exp/a
+"cwd":"/tmp/s-qw-exp/a"
+"session_id":"07cada31-98de-484d-8c95-1b0079f0a76e"
+"subtype":"error_during_execution"
+"subtype":"init"
+== files under ~/.qwen/projects
+/tmp/s-qw-exp/home/.qwen/projects
+/tmp/s-qw-exp/home/.qwen/projects/-tmp-s-qw-exp-a
+/tmp/s-qw-exp/home/.qwen/projects/-tmp-s-qw-exp-a/chats
+/tmp/s-qw-exp/home/.qwen/projects/-tmp-s-qw-exp-a/chats/07cada31-98de-484d-8c95-1b0079f0a76e.jsonl
+== 2. --resume 07cada31-98de-484d-8c95-1b0079f0a76e from original cwd /tmp/s-qw-exp/a
+"cwd":"/tmp/s-qw-exp/a"
+"session_id":"07cada31-98de-484d-8c95-1b0079f0a76e"
+"subtype":"error_during_execution"
+"subtype":"init"
+== 3. --resume 07cada31-98de-484d-8c95-1b0079f0a76e from clone /tmp/s-qw-exp/b (same repo, same root commit)
+No saved session found with ID 07cada31-98de-484d-8c95-1b0079f0a76e. Run `qwen --resume` without an ID to choose from existing sessions.
+== 4. --resume unknown id from /tmp/s-qw-exp/a
+No saved session found with ID 99999999-0000-4000-8000-000000000000. Run `qwen --resume` without an ID to choose from existing sessions.
+== 5. --resume 07cada31-98de-484d-8c95-1b0079f0a76e with a fresh HOME (= fresh container without ~/.qwen)
+No saved session found with ID 07cada31-98de-484d-8c95-1b0079f0a76e. Run `qwen --resume` without an ID to choose from existing sessions.
+== 6. QWEN_HOME / QWEN_RUNTIME_DIR relocate the projects dir
+$S/qwen-home/projects/-tmp-s-qw-exp-a/chats/6cdd3bb1-7df3-41d6-89ab-d69eac79d18e.jsonl
+$S/qwen-runtime/projects/-tmp-s-qw-exp-a/chats/58f42721-df5a-4989-ab2b-9c6ebb3c17bf.jsonl
+== 7. copying the session file alone into b's sanitized-cwd dir (does it suffice?)
+No saved session found with ID 07cada31-98de-484d-8c95-1b0079f0a76e. Run `qwen --resume` without an ID to choose from existing sessions.
+== 8. cwd recorded inside the session file
+"cwd":"/tmp/s-qw-exp/a"
+== 9. copy + rewrite the recorded "cwd" to /tmp/s-qw-exp/b (first record is checked by sessionBelongsToCurrentProject) -> resume from b
+"cwd":"/tmp/s-qw-exp/b"
+"session_id":"07cada31-98de-484d-8c95-1b0079f0a76e"
+"subtype":"error_during_execution"
+"subtype":"init"

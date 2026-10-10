@@ -1,0 +1,63 @@
+== gemini --version: 0.63.0
+== 1. run once in /tmp/s-gm-exp/a (fake key -> API error, but storage gets initialised)
+{"type":"init","timestamp":"2026-10-10T04:44:05.543Z","session_id":"f6706f29-865d-4f60-9cae-13f96eb352d5","model":"gemini-2.5-flash"}
+{"type":"message","timestamp":"2026-10-10T04:44:05.546Z","role":"user","content":"hello"}
+Error when talking to Gemini API Full report available at: /tmp/gemini-client-error-Turn.run-sendMessageStream-2026-10-10T04-44-05-672Z.json _ApiError: {"error":{"message":"{\n  \"error\": {\n    \"code\": 400,\n    \"message\": \"API key not valid. Please pas
+    at throwErrorIfNotOK (file:///home/box/.bun/install/global/node_modules/@google/gemini-cli/bundle/chunk-RWBXO4OP.js:267903:24)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async file:///home/box/.bun/install/global/node_modules/@google/gemini-cli/bundle/chunk-RWBXO4OP.js:267666:7
+== files under HOME after run
+/tmp/s-gm-exp/home/.gemini/history/a/.project_root
+/tmp/s-gm-exp/home/.gemini/installation_id
+/tmp/s-gm-exp/home/.gemini/projects.json
+/tmp/s-gm-exp/home/.gemini/tmp/a/.project_root
+/tmp/s-gm-exp/home/.gemini/tmp/a/chats/session-2026-10-10T04-44-f6706f29.jsonl
+== projects.json
+{
+  "projects": {
+    "/tmp/s-gm-exp/a": "a"
+  }
+}
+== 2. --list-sessions from original cwd /tmp/s-gm-exp/a
+
+Available sessions for this project (1):
+  1. hello (4 hours ago) [11111111-2222-4333-8444-555555555555]
+== 3. --list-sessions from clone /tmp/s-gm-exp/b (same repo, same root commit)
+No previous sessions found for this project.
+== 4. --resume 11111111-2222-4333-8444-555555555555 from original cwd /tmp/s-gm-exp/a
+{"type":"init","timestamp":"2026-10-10T04:44:18.819Z","session_id":"11111111-2222-4333-8444-555555555555","model":"gemini-2.5-flash"}
+{"type":"message","timestamp":"2026-10-10T04:44:18.822Z","role":"user","content":"again"}
+Error when talking to Gemini API Full report available at: /tmp/gemini-client-error-Turn.run-sendMessageStream-2026-10-10T04-44-19-091Z.json _ApiError: {"error":{"message":"{\n  \"error\": {\n    \"code\": 400,\n    \"message\": \"API key not valid. Please pas
+    at throwErrorIfNotOK (file:///home/box/.bun/install/global/node_modules/@google/gemini-cli/bundle/chunk-RWBXO4OP.js:267903:24)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async file:///home/box/.bun/install/global/node_modules/@google/gemini-cli/bundle/chunk-RWBXO4OP.js:267666:7
+== 5. --resume 11111111-2222-4333-8444-555555555555 from clone /tmp/s-gm-exp/b
+Error resuming session: No previous sessions found for this project.
+== 6. --resume unknown id from /tmp/s-gm-exp/a
+Error resuming session: Invalid session identifier "99999999-0000-4000-8000-000000000000".
+  Searched for sessions in /tmp/s-gm-exp/home/.gemini/tmp/a/chats.
+  Use --list-sessions to see available sessions, then use --resume {number}, --resume {uuid}, or --resume latest.
+== 7. projects.json after visiting b
+{
+  "projects": {
+    "/tmp/s-gm-exp/a": "a",
+    "/tmp/s-gm-exp/b": "b"
+  }
+}
+== 8. GEMINI_CLI_HOME relocates storage (fresh dir, run --list-sessions from a)
+No previous sessions found for this project.
+/tmp/s-gm-exp/alt
+/tmp/s-gm-exp/alt/.gemini
+/tmp/s-gm-exp/alt/.gemini/history
+/tmp/s-gm-exp/alt/.gemini/history/a
+/tmp/s-gm-exp/alt/.gemini/installation_id
+/tmp/s-gm-exp/alt/.gemini/projects.json
+/tmp/s-gm-exp/alt/.gemini/tmp
+/tmp/s-gm-exp/alt/.gemini/tmp/a
+== 9. copying the original session dir into b's slug makes resume from b work
+{"type":"init","timestamp":"2026-10-10T04:44:37.298Z","session_id":"11111111-2222-4333-8444-555555555555","model":"gemini-2.5-flash"}
+{"type":"message","timestamp":"2026-10-10T04:44:37.300Z","role":"user","content":"again"}
+Error when talking to Gemini API Full report available at: /tmp/gemini-client-error-Turn.run-sendMessageStream-2026-10-10T04-44-37-452Z.json _ApiError: {"error":{"message":"{\n  \"error\": {\n    \"code\": 400,\n    \"message\": \"API key not valid. Please pas
+    at throwErrorIfNotOK (file:///home/box/.bun/install/global/node_modules/@google/gemini-cli/bundle/chunk-RWBXO4OP.js:267903:24)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async file:///home/box/.bun/install/global/node_modules/@google/gemini-cli/bundle/chunk-RWBXO4OP.js:267666:7

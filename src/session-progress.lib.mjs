@@ -16,12 +16,12 @@
  * Ten AI sessions were paid for, and the tenth had exactly the same information
  * the first one had. A restart is only worth its cost when something changed
  * between the two sessions, so this module fingerprints what a session ended
- * with - its final message plus the state of the working tree - and reports a
- * repeat so the caller can stop with the remaining budget unspent.
+ * with - the state of the working tree - and reports a repeat so the caller
+ * can stop with the remaining budget unspent.
  *
  * `HEAD` is part of the fingerprint as well: a session that commits has made
- * progress even when its final message and its (now clean) `git status` look
- * the same as the previous one's.
+ * progress even when its (now clean) `git status` looks the same as the
+ * previous one's.
  *
  * Scratch directories are filtered out for the reason spelled out in
  * `src/ai-tool-scratch.lib.mjs`: `.formal-ai/` is rewritten by every session,
@@ -43,8 +43,21 @@
  * tells the next session that the previous two ended identically - instead of
  * stopping; only a repeat after a changed input stops the run.
  *
+ * Issue #2839: the final message is NOT part of the fingerprint. In the
+ * 2026-10-09 stylist-svelte run (`--tool codex`) restarts 2/5-5/5 all started
+ * and ended on `edee6d7` with a clean tree, yet the breaker never fired: the
+ * model paraphrased the same blocker every time ("CI remains blocked:
+ * `modules/business` is inaccessible..." / "...still returns 404..."), and a
+ * word-for-word hash of free text treats every paraphrase as progress. What a
+ * session can actually change is the branch (`HEAD`) and the working tree, so
+ * only those are compared. The failing checks the next session would be asked
+ * to fix are a function of `HEAD` (CI runs on that commit) and are part of the
+ * session's input fingerprint through its feedback lines. The message is still
+ * recorded, for the stop comment and the escalation prompt.
+ *
  * @see https://github.com/link-assistant/hive-mind/issues/2247
  * @see https://github.com/link-assistant/hive-mind/issues/2313
+ * @see https://github.com/link-assistant/hive-mind/issues/2839
  */
 
 import { createHash } from 'node:crypto';
@@ -71,17 +84,19 @@ export const normalizeSessionMessage = text =>
     .trim();
 
 /**
- * Hash what a session ended with.
+ * Hash what a session ended with: the working tree and the commit.
+ *
+ * Issue #2839: `finalMessage` is accepted (callers pass the whole outcome) but
+ * deliberately ignored - a paraphrase of the same blocker is not progress.
  *
  * @param {Object} [params]
- * @param {string} [params.finalMessage] - the session's final assistant message
  * @param {string} [params.gitStatus] - `git status --porcelain`, scratch already filtered
  * @param {string} [params.head] - the commit the branch points at afterwards
  * @returns {string} short hex digest
  */
-export const buildSessionFingerprint = ({ finalMessage = '', gitStatus = '', head = '' } = {}) =>
+export const buildSessionFingerprint = ({ gitStatus = '', head = '' } = {}) =>
   createHash('sha256')
-    .update([normalizeSessionMessage(finalMessage), normalizeSessionMessage(gitStatus), String(head ?? '').trim()].join(FINGERPRINT_SEPARATOR))
+    .update([normalizeSessionMessage(gitStatus), String(head ?? '').trim()].join(FINGERPRINT_SEPARATOR))
     .digest('hex')
     .slice(0, 16);
 
@@ -126,7 +141,7 @@ export const noteSessionInput = feedbackLines => {
  * @returns {{fingerprint: string, repeated: boolean, inputChanged: boolean, previous: Object|null, current: Object, occurrences: number}}
  */
 export const recordSessionOutcome = ({ finalMessage = '', gitStatus = '', head = '', sessionId = null, logFile = null, label = null, input = pendingInput } = {}) => {
-  const fingerprint = buildSessionFingerprint({ finalMessage, gitStatus, head });
+  const fingerprint = buildSessionFingerprint({ gitStatus, head });
   const previous = sessions.length > 0 ? sessions[sessions.length - 1] : null;
   const current = { fingerprint, input, sessionId, logFile, label, finalMessage: normalizeSessionMessage(finalMessage), gitStatus: String(gitStatus ?? '').trim(), head: String(head ?? '').trim() };
   pendingInput = '';
@@ -160,8 +175,8 @@ export const resetSessionProgress = () => {
  * @returns {string[]}
  */
 export const buildRepeatedSessionFeedback = verdict => {
-  const lines = ['', '🔁 THE LAST TWO WORKING SESSIONS ENDED IDENTICALLY:', 'They received the same instructions, ended with the same final message, the same working tree and the same commit. Repeating the same steps will not change the result.'];
-  if (verdict?.current?.finalMessage) lines.push(`Their final message was: ${verdict.current.finalMessage.slice(0, 500)}`);
+  const lines = ['', '🔁 THE LAST TWO WORKING SESSIONS ENDED IDENTICALLY:', 'They received the same instructions and ended with the same working tree and the same commit. Repeating the same steps will not change the result.'];
+  if (verdict?.current?.finalMessage) lines.push(`The last final message was: ${verdict.current.finalMessage.slice(0, 500)}`);
   const status = String(verdict?.current?.gitStatus || '').trim();
   if (status) lines.push('Both left this `git status --porcelain` output:', '```', ...status.split('\n').slice(0, STATUS_PREVIEW_LINES), '```');
   lines.push('Find out why the previous approach did not work and resolve the blocker with a different approach before you finish.');
@@ -272,7 +287,7 @@ export const reportNoProgressStop = async ({ $: command, owner, repo, targetNumb
     targetNumber,
     reason: NO_PROGRESS_STOP_REASON,
     mode,
-    message: 'Two consecutive AI sessions ended with the same final message, the same working tree and the same commit although the second one was given different instructions, so another restart cannot produce a different result.',
+    message: 'Two consecutive AI sessions ended with the same working tree and the same commit although the second one was given different instructions, so another restart cannot produce a different result.',
     // Issue #2315: say where the uncommitted work went (never the PR branch).
     details: [...buildNoProgressDetails({ previous: verdict?.previous, current: verdict?.current, remainingIterations }), ...(preserved ? [describePreservedWork(preserved)] : [])],
     verbose,

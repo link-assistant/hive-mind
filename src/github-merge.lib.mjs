@@ -25,6 +25,7 @@ import { cancellableSleep } from './interruptible-sleep.lib.mjs';
 // pure module shared by every merge call site.
 import { classifyMergeError, evaluatePullRequestMergeability } from './merge-error-classification.lib.mjs';
 import { checkIssueLinksBeforeMerge, closeLinkedIssuesAfterMerge } from './issue-link-verification.lib.mjs';
+import { isIssueOwnPullRequest } from './github-linking.lib.mjs';
 
 // Issue #1722: gh api `--paginate --slurp` responses for repos with many
 // historical workflow runs can easily exceed Node's default 1 MB exec buffer
@@ -245,13 +246,13 @@ export async function fetchReadyIssuesWithPRs(owner, repo, verbose = false) {
     for (const issue of issues) {
       try {
         // Search for PRs that reference this issue with closing keywords
-        const { stdout: searchJson } = await exec(`gh pr list --repo ${owner}/${repo} --search "in:body closes #${issue.number} OR fixes #${issue.number} OR resolves #${issue.number}" --state open --json number,title,url,createdAt,headRefName,author,mergeable,mergeStateStatus --limit 5`);
+        const { stdout: searchJson } = await exec(`gh pr list --repo ${owner}/${repo} --search "in:body closes #${issue.number} OR fixes #${issue.number} OR resolves #${issue.number}" --state open --json number,title,url,createdAt,headRefName,body,author,mergeable,mergeStateStatus --limit 5`);
 
         const linkedPRs = JSON.parse(searchJson.trim() || '[]');
 
         if (linkedPRs.length > 0) {
-          // Take the first linked PR (oldest if multiple)
-          linkedPRs.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+          // Take the issue's own PR (issue #2891: not a parent plan PR that also says "Fixes #N"), oldest first
+          linkedPRs.sort((a, b) => isIssueOwnPullRequest(b, issue.number, owner, repo) - isIssueOwnPullRequest(a, issue.number, owner, repo) || new Date(a.createdAt) - new Date(b.createdAt));
           result.push({
             issue,
             pr: linkedPRs[0],

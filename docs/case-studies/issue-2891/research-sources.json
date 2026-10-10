@@ -1,0 +1,6 @@
+[
+  { "title": "Linking a pull request to an issue", "url": "https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue", "finding": "One PR may close several issues with keywords; each closed issue lists the PR as linked." },
+  { "title": "Closing issues using keywords (GitHub Enterprise docs)", "url": "https://help.github.com/articles/closing-issues-using-keywords", "finding": "Use a separate keyword per issue: `Resolves #10, resolves #123`." },
+  { "title": "github/github-mcp-server#3006", "url": "https://github.com/github/github-mcp-server/pull/3006", "finding": "closedByPullRequestsReferences is a plain list (with includeClosedPrs, totalCount); it does not mark a primary PR." },
+  { "title": "GitHub Community discussion #24367: Get referenced pull request from issue", "url": "https://github.com/orgs/community/discussions/24367", "finding": "Linked PRs of an issue are available through GraphQL, not through a REST field." }
+]

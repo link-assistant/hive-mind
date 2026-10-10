@@ -1,0 +1,83 @@
+{
+  "data": {
+    "repository": {
+      "i724": {
+        "number": 724,
+        "title": "Model-level cooldowns preserving sibling models, retry budgets, runtime strategy switch, cooldown reset endpoint",
+        "closedByPullRequestsReferences": {
+          "nodes": [
+            {
+              "number": 721,
+              "headRefName": "issue-720-99e7abc4e6c1",
+              "state": "OPEN",
+              "url": "https://github.com/link-assistant/router/pull/721"
+            },
+            {
+              "number": 749,
+              "headRefName": "issue-724-878028a21e67",
+              "state": "MERGED",
+              "url": "https://github.com/link-assistant/router/pull/749"
+            }
+          ]
+        }
+      },
+      "i725": {
+        "number": 725,
+        "closedByPullRequestsReferences": {
+          "nodes": [
+            {
+              "number": 721,
+              "headRefName": "issue-720-99e7abc4e6c1",
+              "state": "OPEN",
+              "url": "https://github.com/link-assistant/router/pull/721"
+            },
+            {
+              "number": 750,
+              "headRefName": "issue-725-052105988e50",
+              "state": "MERGED",
+              "url": "https://github.com/link-assistant/router/pull/750"
+            }
+          ]
+        }
+      },
+      "i727": {
+        "number": 727,
+        "closedByPullRequestsReferences": {
+          "nodes": [
+            {
+              "number": 721,
+              "headRefName": "issue-720-99e7abc4e6c1",
+              "state": "OPEN",
+              "url": "https://github.com/link-assistant/router/pull/721"
+            },
+            {
+              "number": 752,
+              "headRefName": "issue-727-61ea612f008e",
+              "state": "MERGED",
+              "url": "https://github.com/link-assistant/router/pull/752"
+            }
+          ]
+        }
+      },
+      "i728": {
+        "number": 728,
+        "closedByPullRequestsReferences": {
+          "nodes": [
+            {
+              "number": 721,
+              "headRefName": "issue-720-99e7abc4e6c1",
+              "state": "OPEN",
+              "url": "https://github.com/link-assistant/router/pull/721"
+            },
+            {
+              "number": 753,
+              "headRefName": "issue-728-9679a13cda3c",
+              "state": "MERGED",
+              "url": "https://github.com/link-assistant/router/pull/753"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

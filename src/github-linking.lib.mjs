@@ -145,16 +145,33 @@ export function resolvePrimaryIssueNumber({ body, branch, owner, repo, branchIss
   return branchNumber;
 }
 
-/** An ancestor's PR belongs to that ancestor even if its description closes descendants. */
-export function isAncestorPullRequest(pr, ancestorUrls, owner, repo) {
-  const source = (pr.url || pr.html_url)?.match(/^https:\/\/github\.com\/([\w.-]+)\/([\w.-]+)\/pull\/[1-9]\d*(?:$|[/?#])/i);
+/** Lower-cased URL of the issue a pull request solves (resolved in the PR's own repository), or null. */
+export function getPullRequestPrimaryIssueUrl(pr, owner = null, repo = null) {
+  const source = (pr?.url || pr?.html_url)?.match(/^https:\/\/github\.com\/([\w.-]+)\/([\w.-]+)\/pull\/[1-9]\d*(?:$|[/?#])/i);
   const sourceOwner = source?.[1] || owner;
   const sourceRepo = source?.[2] || repo;
-  if (!sourceOwner || !sourceRepo) return false;
+  if (!pr || !sourceOwner || !sourceRepo) return null;
   const number = resolvePrimaryIssueNumber({ body: pr.body, branch: pr.headRefName || pr.head?.ref, owner: sourceOwner, repo: sourceRepo });
-  if (!number) return false;
-  const primaryUrl = `https://github.com/${sourceOwner}/${sourceRepo}/issues/${number}`.toLowerCase();
-  return ancestorUrls.some(url => url.toLowerCase() === primaryUrl);
+  return number ? `https://github.com/${sourceOwner}/${sourceRepo}/issues/${number}`.toLowerCase() : null;
+}
+
+/** An ancestor's PR belongs to that ancestor even if its description closes descendants. */
+export function isAncestorPullRequest(pr, ancestorUrls, owner, repo) {
+  const primaryUrl = getPullRequestPrimaryIssueUrl(pr, owner, repo);
+  return Boolean(primaryUrl) && ancestorUrls.some(url => url.toLowerCase() === primaryUrl);
+}
+
+/**
+ * Whether a pull request is the issue's own solution draft (issue #2891).
+ *
+ * A plan PR on `issue-720-…` that says "Fixes #724" is linked to #724 by
+ * GitHub, but it belongs to #720; so does a sibling PR that closes several
+ * issues. Uses `pr.primaryIssueUrl` when the batch lookup already resolved it.
+ */
+export function isIssueOwnPullRequest(pr, issueNumber, owner, repo) {
+  if (!pr || !issueNumber || !owner || !repo) return false;
+  const primaryUrl = pr.primaryIssueUrl || getPullRequestPrimaryIssueUrl(pr, owner, repo);
+  return Boolean(primaryUrl) && primaryUrl.toLowerCase() === `https://github.com/${owner}/${repo}/issues/${issueNumber}`.toLowerCase();
 }
 
 /**

@@ -234,6 +234,7 @@ const result = await executeWithAgentCommander({
     verbose: false,
   },
   log,
+  readCgroupMemory: () => null, // Issue #2838: no container memory budget outside a limited cgroup
 });
 
 assert.equal(executionCapture.options.tool, 'codex');

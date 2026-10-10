@@ -1,0 +1,26 @@
+# Claude Code 2.1.296 baked model catalogue (extracted from the binary by experiments/issue-2591-extract-claude-code-aliases.mjs)
+claude-3-5-haiku | family: haiku | name: Haiku 3.5 | ,
+claude-haiku-4-5 | family: haiku | name: Haiku 4.5 | ,knowledge_cutoff:"February 2025",
+claude-haiku-5-5 | family: haiku | name: Haiku 5.5 | ,knowledge_cutoff:"June 2026",
+claude-3-5-sonnet | family: sonnet | name: Sonnet 3.5 | ,
+claude-3-7-sonnet | family: sonnet | name: Sonnet 3.7 | ,
+claude-sonnet-4-0 | family: sonnet | name: Sonnet 4 | ,knowledge_cutoff:"January 2025",
+claude-sonnet-4-5 | family: sonnet | name: Sonnet 4.5 | ,knowledge_cutoff:"January 2025",
+claude-sonnet-4-6 | family: sonnet | name: Sonnet 4.6 | ,knowledge_cutoff:"August 2025",
+claude-sonnet-5 | family: sonnet | name: Sonnet 5 | ,knowledge_cutoff:"January 2026",
+claude-sonnet-5-5 | family: sonnet | name: Sonnet 5.5 | ,knowledge_cutoff:"June 2026",
+claude-opus-4-0 | family: opus | name: Opus 4 | ,knowledge_cutoff:"January 2025",
+claude-opus-4-1 | family: opus | name: Opus 4.1 | ,knowledge_cutoff:"January 2025",
+claude-opus-4-5 | family: opus | name: Opus 4.5 | ,knowledge_cutoff:"May 2025",
+claude-opus-4-6 | family: opus | name: Opus 4.6 | ,knowledge_cutoff:"May 2025",
+claude-opus-4-7 | family: opus | name: Opus 4.7 | ,knowledge_cutoff:"January 2026",
+claude-opus-4-8 | family: opus | name: Opus 4.8 | ,knowledge_cutoff:"January 2026",
+claude-opus-5 | family: opus | name: Opus 5 | ,knowledge_cutoff:"May 2026",
+claude-opus-5-5 | family: opus | name: Opus 5.5 | ,knowledge_cutoff:"June 2026",
+claude-fable-5 | family: fable | name: Fable 5 | ,knowledge_cutoff:"January 2026",
+claude-fable-5-1 | family: fable | name: Fable 5.1 | ,knowledge_cutoff:"June 2026",
+claude-mythos-5 | family: mythos | name: Mythos 5 | ,knowledge_cutoff:"January 2026",
+claude-mythos-5-1 | family: mythos | name: Mythos 5.1 | ,knowledge_cutoff:"June 2026",
+
+aliases/best/latest_per_family:
+aliases:{opus:{default:"claude-opus-5-5",per_provider:{bedrock:"claude-opus-5-5",vertex:"claude-opus-5-5",foundry:"claude-opus-4-6",mantle:"claude-opus-5-5",anthropic_aws:"claude-opus-5-5",gateway:"claude-opus-4-7"}},sonnet:{default:"claude-sonnet-5-5",per_provider:{bedrock:"claude-sonnet-4-5",vertex:"claude-sonnet-4-5",foundry:"claude-sonnet-4-5",mantle:"claude-sonnet-4-5",anthropic_aws:"claude-sonnet-4-6",gateway:"claude-sonnet-4-6"}},haiku:{default:"claude-haiku-5-5",per_provider:{bedrock:"claude-haiku-4-5",vertex:"claude-haiku-4-5",foundry:"claude-haiku-4-5",mantle:"claude-haiku-4-5",anthropic_aws:"claude-haiku-4-5",anthropic_google_cloud:"claude-haiku-4-5",gateway:"claude-haiku-4-5"}},fable:{default:"claude-fable-5-1",per_provider:{gateway:"claude-fable-5"}}},defaults:{},best:"fable",latest_per_family:{fable:"claude-fable-5-1",opus:"claude-opus-5-5",sonnet:"claude-sonnet-5-5",haiku:"claude-haiku-5-5"},alias_migration:{}};function O(){return{bakedCatalog:void 0,canonicalNameMemo:new Map,mainLoopCanonical:void 0,servedCapabilityLookup:void 0,featureGateLookup:void 0,modelKnowledge

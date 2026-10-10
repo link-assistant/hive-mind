@@ -190,6 +190,15 @@ console.log('\n--- Docker-outside-of-Docker: same daemon on both paths → one w
   assertEqual(result.warnings.length, 1, 'DooD without the extra socket still warns');
 }
 
+{
+  // Incident-style wiring: DinD image, but the CLI is pointed at the host
+  // daemon through DOCKER_HOST, so tasks die with a host dockerd restart.
+  const probe = fakeDaemons({ task: { enabled: false, daemonId: 'host' } });
+  const { result } = await preflight({ env: { ...DIND, DOCKER_HOST: 'unix:///var/run/docker-host.sock' }, socketMounted: false, probe });
+  assertEqual(result.liveRestore.taskDaemonNested, false, 'DOCKER_HOST pointing elsewhere means the task daemon is not the nested one');
+  assertEqual(result.warnings.length, 1, 'DinD with DOCKER_HOST at the host daemon still warns');
+}
+
 console.log('\n--- DinD without host socket: host unknown → note, no warning ---');
 
 {

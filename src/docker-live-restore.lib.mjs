@@ -111,8 +111,11 @@ export async function assessDockerLiveRestore({ sock, socketMounted, isDind, env
   const sameDaemon = Boolean(task?.daemonId && host?.daemonId && task.daemonId === host.daemonId);
   // With the host socket mounted, a different daemon ID proves the default
   // daemon is the nested one. Without it, fall back to the deployment mode:
-  // DinD starts a nested daemon unless DIND_SKIP_DAEMON=1 (box DooD mode).
-  const taskDaemonNested = host?.daemonId && task?.daemonId ? !sameDaemon : Boolean(isDind && String(env.DIND_SKIP_DAEMON || '') !== '1');
+  // DinD starts a nested daemon unless DIND_SKIP_DAEMON=1 (box DooD mode), and
+  // the CLI only reaches it when DOCKER_HOST does not point somewhere else.
+  const dockerHost = String(env.DOCKER_HOST || '').trim();
+  const cliOnLocalSocket = !dockerHost || dockerHost === 'unix:///var/run/docker.sock';
+  const taskDaemonNested = host?.daemonId && task?.daemonId ? !sameDaemon : Boolean(isDind && String(env.DIND_SKIP_DAEMON || '') !== '1' && cliOnLocalSocket);
   const liveRestore = { task: task ? task.enabled : null, host: host ? host.enabled : null, sameDaemon, taskDaemonNested };
   const warnings = [];
   const notes = [];

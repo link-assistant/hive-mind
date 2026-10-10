@@ -540,10 +540,11 @@ Examples:
 #### `/merge` - तैयार Pull Requests merge करें
 
 ```
-/merge <repository-url|issue-url|pull-request-url> [--auto-resolve]
+/merge <repository-url|issue-url|pull-request-url> [--auto-resolve] [--dependabot]
 
 Examples:
 /merge https://github.com/owner/repo
+/merge https://github.com/owner/repo --dependabot
 /merge https://github.com/owner/repo/issues/123
 /merge https://github.com/owner/repo/pull/456
 ```
@@ -556,6 +557,13 @@ message पर `/merge` से reply भी कर सकते हैं जि
 अगर target PR अभी finished नहीं है, तो `/merge` merge करने से पहले उसके
 mergeable होने तक wait करता है। Merge-conflict skips अभी भी `--auto-resolve` के
 साथ काम करते हैं।
+
+`--dependabot` (केवल repository targets के लिए) सभी open, non-draft Dependabot
+version bump PRs को भी queue में जोड़ता है, भले ही Dependabot PRs पर कभी `ready`
+label नहीं होता। इन्हें उसी CI gate के साथ एक-एक करके merge किया जाता है।
+`--auto-resolve` के साथ, जिन Dependabot PRs का CI fail होता है (जैसे changelog
+fragment न होने पर), उन्हें भी `/solve <pr> --auto-merge` को सौंपा जाता है ताकि
+वे open न रहें बल्कि fix होकर merge हों।
 
 #### `/fix` - CI/CD और dependencies स्वतः ठीक करें
 
@@ -570,6 +578,7 @@ Examples:
 /fix owner/repo --ci-cd --no-solve
 /fix https://github.com/owner/repo --update-all-dependencies
 /fix owner/repo --update-all-dependencies --dry-run
+/fix owner/repo --update-all-dependencies --no-auto-merge-dependabot
 ```
 
 `/fix --ci-cd` लक्ष्य रिपॉज़िटरी की भाषाओं का पता लगाता है, डिफ़ॉल्ट ब्रांच के नवीनतम कमिट और उसके CI/CD रनों
@@ -588,6 +597,12 @@ Examples:
 manifests, फिर से generate किए जाने वाले lockfiles, और वहाँ वास्तव में major संस्करण पार करने वाला कमांड
 सूचीबद्ध होते हैं। इसके बाद यह issue को
 `/solve --development-log --deep-analysis --auto-merge --update-all-dependencies` को सौंप देता है।
+Issue बनाने से पहले यह repository के open Dependabot version bump PRs को CI pass
+होने के बाद एक-एक करके merge करता है (वही queue जो `/merge <repository> --dependabot`
+उपयोग करता है)। Issue में लिखा जाता है कि कौन से Dependabot PRs merge हुए और कौन से
+open रहे, ताकि agent बाकी updates को cover करे। यह step `--update-all-dependencies`
+के लिए default रूप से चालू है; इसे `--no-auto-merge-dependabot` से बंद करें।
+`--dry-run` केवल उन PRs की सूची दिखाता है जिन्हें merge किया जाता।
 विवरण के लिए
 [स्वचालित Dependency Remediation](docs/DEPENDENCY-UPDATE-BEST-PRACTICES.hi.md#स्वचालित-dependency-remediation)
 देखें। हर बार ठीक एक मोड आवश्यक है: बिना मोड वाला या दोनों मोड वाला `/fix` अस्वीकार कर दिया जाता है।

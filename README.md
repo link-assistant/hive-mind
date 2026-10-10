@@ -558,10 +558,11 @@ Examples:
 #### `/merge` - Merge Ready Pull Requests
 
 ```
-/merge <repository-url|issue-url|pull-request-url> [--auto-resolve]
+/merge <repository-url|issue-url|pull-request-url> [--auto-resolve] [--dependabot]
 
 Examples:
 /merge https://github.com/owner/repo
+/merge https://github.com/owner/repo --dependabot
 /merge https://github.com/owner/repo/issues/123
 /merge https://github.com/owner/repo/pull/456
 ```
@@ -573,6 +574,13 @@ request link, such as a previous `/codex ...issues/123` command.
 
 If a target PR is not finished yet, `/merge` waits for it to become mergeable
 before merging. Merge-conflict skips still work with `--auto-resolve`.
+
+`--dependabot` (repository targets only) also queues every open, non-draft
+Dependabot version bump PR, even though Dependabot PRs never carry the `ready`
+label. They are merged one by one with the same CI gate. With `--auto-resolve`,
+Dependabot PRs whose CI fails (for example a missing changelog fragment) are
+handed to `/solve <pr> --auto-merge` too, so they get fixed and merged instead
+of left open.
 
 #### `/fix` - Auto-Remediate CI/CD and Dependencies
 
@@ -587,6 +595,7 @@ Examples:
 /fix owner/repo --ci-cd --no-solve
 /fix https://github.com/owner/repo --update-all-dependencies
 /fix owner/repo --update-all-dependencies --dry-run
+/fix owner/repo --update-all-dependencies --no-auto-merge-dependabot
 ```
 
 `/fix --ci-cd` detects the target repository's languages, inspects the latest
@@ -608,6 +617,12 @@ default branch, maps both onto package ecosystems, and creates a `Task` issue
 lockfiles to regenerate, and the command that actually crosses major versions
 there. It then hands the issue off to
 `/solve --development-log --deep-analysis --auto-merge --update-all-dependencies`.
+Before it creates the issue, it merges the repository's open Dependabot version
+bump PRs, one at a time, after CI passes (the same queue as
+`/merge <repository> --dependabot`). The issue then lists which Dependabot PRs
+landed and which stayed open, so the solving agent covers the rest. This step is
+on by default for `--update-all-dependencies`; use `--no-auto-merge-dependabot`
+to turn it off. `--dry-run` only lists the PRs it would merge.
 See
 [Automatic Dependency Remediation](docs/DEPENDENCY-UPDATE-BEST-PRACTICES.md#automatic-dependency-remediation)
 for details. Exactly one mode is required per run: `/fix` with no mode, or with

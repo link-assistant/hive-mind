@@ -208,6 +208,13 @@ fix owner/repo --update-all-dependencies --dry-run
 fix owner/repo --update-all-dependencies --no-solve
 ```
 
+Step 4 से पहले `fix` पहले से open **Dependabot version bump pull requests को भी merge करता है**। यह उन्हें क्रम से और केवल CI pass होने के बाद merge करता है, उसी queue से जो `/merge <repository> --dependabot` उपयोग करता है। जो bumps Dependabot पहले ही propose कर चुका है और CI ने accept किए हैं, वे पहले land होते हैं। बनाए गए issue में लिखा जाता है कि कौन से Dependabot pull requests merge हुए और कौन से open रहे (कारण सहित, जैसे failing CI)। Solver से कहा जाता है कि open वाले updates को अपने pull request में cover करे। यह step `--update-all-dependencies` के लिए default रूप से चालू है और issue को कभी नहीं रोकता: fail होने पर भी issue बनता है। इसे `--no-auto-merge-dependabot` से बंद करें। `--dry-run` के साथ यह केवल उन pull requests की सूची दिखाता है जिन्हें merge किया जाता। Dependabot pull requests को अलग से merge करने के लिए `/merge <repository> --dependabot` उपयोग करें। वहाँ `--auto-resolve` जोड़ने पर failing CI वाले Dependabot pull requests भी `/solve <pr> --auto-merge` को सौंपे जाते हैं।
+
+```bash
+fix owner/repo --update-all-dependencies --no-auto-merge-dependabot
+merge https://github.com/owner/repo --dependabot --auto-resolve
+```
+
 ### issue Task क्यों है, और वह क्या छोड़ता है
 
 `/solve --deep-analysis` मूल-कारण और debug-output संबंधी मार्गदर्शन **केवल bug-प्रकार के issues के लिए** देता है, और dependency bump में खोजने के लिए कोई मूल कारण नहीं होता। issue को `Task` के रूप में बनाना उस prompt का non-bug रूप चुनता है — शोध, आवश्यकताओं की कवरेज, समाधान की योजना — जो यहाँ उपयोगी है। issue types संगठन-स्तर पर और labels repository-स्तर पर कॉन्फ़िगर होते हैं, इसलिए यदि लक्ष्य repository इनमें से कोई भी स्वीकार नहीं करती, तब भी issue उनके बिना बना दिया जाता है।

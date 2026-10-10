@@ -1,12 +1,25 @@
 # CodeQL configuration for hive-mind.
 #
-# `dev/log/` holds evidence collected while investigating issues: downloaded CI
-# logs, GitHub API payloads and verbatim copies of upstream template scripts.
-# Those copies are not part of this project's source, are never executed here,
-# and cannot be fixed in this repository, so scanning them only produces
-# unactionable alerts. The same directory is already excluded from the
-# formatting and duplication checks (see .github and package.json scripts).
+# Only code this project ships or runs in CI is scanned: src/ (the npm
+# package), scripts/ and .github/ (the pipeline) and tests/. Everything below
+# is excluded because alerts there are unactionable noise that buries the
+# real ones:
+#
+# - `dev/log/` holds evidence collected while investigating issues: downloaded
+#   CI logs, GitHub API payloads and verbatim copies of upstream template
+#   scripts. Those copies are not part of this project's source, are never
+#   executed here, and cannot be fixed in this repository. The same directory
+#   is already excluded from the formatting and duplication checks.
+# - `experiments/` and `examples/` hold throwaway reproduction scripts and demos
+#   that are never shipped or run in CI (issue #2923: 48 of the 120 open alerts
+#   on main; link-foundation/js-ai-driven-development-pipeline-template#211).
+# - `docs/` holds documentation and case-study snapshots, including verbatim
+#   third-party sources such as use-m and a saved GitHub HTML page (issue
+#   #2923: 7 open alerts, none in code this project runs).
 name: hive-mind CodeQL config
 
 paths-ignore:
   - dev/log
+  - experiments
+  - examples
+  - docs

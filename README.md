@@ -509,6 +509,11 @@ Tool alias examples:
 /qwen https://github.com/owner/repo/issues/123 --model qwen3-coder-plus
 /gemini https://github.com/owner/repo/issues/123 --model gemini-2.5-flash
 
+Fix CI/CD of a repository (equivalent to /fix <repository-url> --ci-cd):
+/solve https://github.com/owner/repo --fix-ci-cd
+/codex https://github.com/owner/repo/issues --fix-ci-cd
+/claude owner/repo --fix-ci-cd --model opus
+
 Free Models (with --tool agent):
 /solve https://github.com/owner/repo/issues/123 --tool agent --model nemotron-3-super-free
 /solve https://github.com/owner/repo/issues/123 --tool agent --model kilo/nemotron-3-super-free
@@ -558,10 +563,11 @@ Examples:
 #### `/merge` - Merge Ready Pull Requests
 
 ```
-/merge <repository-url|issue-url|pull-request-url> [--auto-resolve]
+/merge <repository-url|issue-url|pull-request-url> [--auto-resolve] [--auto-fix-ci-cd]
 
 Examples:
 /merge https://github.com/owner/repo
+/merge https://github.com/owner/repo --auto-fix-ci-cd
 /merge https://github.com/owner/repo/issues/123
 /merge https://github.com/owner/repo/pull/456
 ```
@@ -573,6 +579,13 @@ request link, such as a previous `/codex ...issues/123` command.
 
 If a target PR is not finished yet, `/merge` waits for it to become mergeable
 before merging. Merge-conflict skips still work with `--auto-resolve`.
+
+`/merge` only merges on top of a green default branch. If CI/CD on the default
+branch is failing, or cannot be confirmed green within the wait timeout, the
+queue stops before merging anything else, marks every remaining planned merge
+as skipped, and says that CI/CD on the default branch must be fixed first. Fix
+it with `/fix <repository-url> --ci-cd`, or add `--auto-fix-ci-cd` so `/merge`
+starts that session itself when it finds the default branch red.
 
 #### `/fix` - Auto-Remediate CI/CD and Dependencies
 

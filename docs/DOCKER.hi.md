@@ -240,6 +240,37 @@ node scripts/preload-dind-isolation-image.mjs \
 start-command का native Docker backend उसे अपने आप reuse करता है (Docker की default "missing" pull
 policy — यह केवल तभी pull करता है जब image absent हो, इसलिए कोई re-download नहीं होता)।
 
+#### Docker daemon restart के दौरान tasks चालू रखें (`live-restore`)
+
+Default रूप से, जब `dockerd` रुकता या restart होता है, तो वह हर चालू container को
+kill कर देता है, जिसमें `hive-mind` container और सभी Docker task containers शामिल
+हैं। ये containers exit code 137 के साथ बंद होते हैं। कारण daemon का खुद OOM-kill
+होना, package upgrade या `systemctl restart docker` हो सकता है; इनमें से कोई भी host
+की सभी work sessions को एक साथ रोक देता है। Hive Mind ऐसी sessions को out of memory
+नहीं, बल्कि **Docker daemon restart से killed** के रूप में report करता है
+(issue #2892)।
+
+Hive Mind hosts पर
+[live-restore](https://docs.docker.com/engine/daemon/live-restore/) enable करें,
+ताकि daemon बंद रहने के दौरान containers चलते रहें:
+
+```bash
+# /etc/docker/daemon.json — पहले से मौजूद settings के साथ merge करें
+sudo tee /etc/docker/daemon.json >/dev/null <<'JSON'
+{
+  "live-restore": true
+}
+JSON
+# Containers restart किए बिना लागू होता है:
+sudo systemctl reload docker
+docker info --format '{{.LiveRestoreEnabled}}'   # → true
+```
+
+Live-restore केवल patch-release (`YY.MM.x`) daemon upgrades में काम करता है, `YY.MM`
+upgrades में नहीं, और केवल standalone containers पर लागू होता है, Swarm services पर नहीं। Daemon बंद रहने के दौरान, log में बहुत लिखने वाला
+container log pipe का buffer भरने पर block हो सकता है। इस सलाह के पीछे की घटना
+[docs/case-studies/issue-2892](./case-studies/issue-2892/README.md) में है।
+
 ### विकल्प 4: Development Mode (Gitpod-style)
 
 Development उद्देश्यों के लिए, legacy `Dockerfile` एक Gitpod-compatible वातावरण प्रदान करता है:

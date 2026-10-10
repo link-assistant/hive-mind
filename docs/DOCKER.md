@@ -322,6 +322,37 @@ image. Once the image is present, start-command's native Docker backend reuses
 it automatically (Docker's default "missing" pull policy — it pulls only when
 the image is absent, so there is no re-download).
 
+#### Keep tasks alive across a Docker daemon restart (`live-restore`)
+
+By default, when `dockerd` stops or restarts, it kills every running container,
+including the `hive-mind` container and all Docker task containers. Those
+containers exit with code 137. The cause can be the daemon being OOM-killed, a
+package upgrade, or `systemctl restart docker`. Any one of them stops every
+work session on the host at once. Hive Mind reports these sessions as
+**killed by a Docker daemon restart**, not as out of memory (issue #2892).
+
+On Hive Mind hosts, enable
+[live-restore](https://docs.docker.com/engine/daemon/live-restore/) so that
+containers keep running while the daemon is down:
+
+```bash
+# /etc/docker/daemon.json — merge with any settings already there
+sudo tee /etc/docker/daemon.json >/dev/null <<'JSON'
+{
+  "live-restore": true
+}
+JSON
+# Applies without restarting containers:
+sudo systemctl reload docker
+docker info --format '{{.LiveRestoreEnabled}}'   # → true
+```
+
+Live-restore survives only patch-release (`YY.MM.x`) daemon upgrades, not
+`YY.MM` upgrades, and applies to standalone containers, not Swarm services. A container that writes heavily to its
+log may block once the log pipe's buffer fills while the daemon is down. See
+[docs/case-studies/issue-2892](./case-studies/issue-2892/README.md) for the
+incident that motivated this recommendation.
+
 ### Option 4: Development Mode (Gitpod-style)
 
 For development purposes, the legacy `Dockerfile` provides a Gitpod-compatible environment:

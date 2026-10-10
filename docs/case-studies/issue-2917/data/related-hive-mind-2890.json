@@ -1,0 +1,1 @@
+{ "closedAt": null, "createdAt": "2026-10-09T14:50:21Z", "number": 2890, "state": "OPEN", "title": "Persist the solve queue and recovery state (link-cli + Links Notation triple storage on a host volume, Telegram as fallback) so a root container restart continues the queue", "url": "https://github.com/link-assistant/hive-mind/issues/2890" }

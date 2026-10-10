@@ -14,6 +14,8 @@
  * @see https://github.com/link-assistant/hive-mind/issues/2175
  */
 
+import { collectTrackedSessionIdentities } from './docker-task-containers.lib.mjs';
+
 /**
  * Bind the registry queries to a session-monitor instance.
  *
@@ -180,15 +182,21 @@ export function createSessionRegistryQueries({ activeSessions, normalizeSessionU
    * @param {boolean} verbose - Whether to log verbose output
    * @param {Object} [options] - Test/support options
    * @param {Function} [options.statusProvider] - Optional `$ --status` provider
-   * @returns {Promise<{count: number, sessions: string[], byTool: Object}>}
+   * @returns {Promise<{count: number, sessions: string[], byTool: Object, dockerByTool: Object, identities: string[]}>}
    */
   async function getRunningTrackedIsolationSessions(verbose = false, options = {}) {
     const sessions = [];
     const byTool = {};
+    // Issue #2917: docker-backed sessions are reported separately (and every
+    // tracked session's names are exposed) so the queue can reconcile them with
+    // the running task containers instead of double-counting or missing them.
+    const dockerByTool = {};
+    const isolationEntries = [];
     for (const [sessionName, sessionInfo] of activeSessions.entries()) {
       if (!sessionInfo.isolationBackend) {
         continue;
       }
+      isolationEntries.push([sessionName, sessionInfo]);
       const state = await getIsolationSessionState(sessionName, sessionInfo, {
         verbose,
         statusProvider: options.statusProvider,
@@ -201,8 +209,9 @@ export function createSessionRegistryQueries({ activeSessions, normalizeSessionU
       const tool = sessionInfo.tool || 'claude';
       sessions.push(sessionName);
       byTool[tool] = (byTool[tool] || 0) + 1;
+      if (sessionInfo.isolationBackend === 'docker') dockerByTool[tool] = (dockerByTool[tool] || 0) + 1;
     }
-    return { count: sessions.length, sessions, byTool };
+    return { count: sessions.length, sessions, byTool, dockerByTool, identities: collectTrackedSessionIdentities(isolationEntries) };
   }
   /**
    * Return the currently-executing tracked sessions with the details needed to

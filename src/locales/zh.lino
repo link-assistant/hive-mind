@@ -300,6 +300,7 @@ zh
       pending "等待"
       processing "处理中"
       processes "{{count}} 个进程"
+      untracked "{{count}} 个未跟踪"
       status
         cancelled "已取消"
         failed "失败"

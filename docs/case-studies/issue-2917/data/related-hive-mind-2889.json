@@ -1,0 +1,1 @@
+{ "closedAt": null, "createdAt": "2026-10-09T14:50:19Z", "number": 2889, "state": "OPEN", "title": "In-place kill recovery commits whole task writable layers concurrently, filling the disk (ENOSPC) and loading CPU for 30+ minutes", "url": "https://github.com/link-assistant/hive-mind/issues/2889" }

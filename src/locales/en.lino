@@ -300,6 +300,7 @@ en
       pending "pending"
       processing "processing"
       processes "{{count}} processes"
+      untracked "{{count}} untracked"
       status
         cancelled "cancelled"
         failed "failed"

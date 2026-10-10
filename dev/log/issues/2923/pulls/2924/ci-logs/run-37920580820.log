@@ -1,0 +1,328 @@
+cleanup	UNKNOWN STEP	﻿2026-10-09T11:26:36.1278250Z Current runner version: '2.337.0'
+cleanup	UNKNOWN STEP	2026-10-09T11:26:36.1305456Z ##[group]Runner Image Provisioner
+cleanup	UNKNOWN STEP	2026-10-09T11:26:36.1306378Z Hosted Compute Agent
+cleanup	UNKNOWN STEP	2026-10-09T11:26:36.1306987Z Version: 20261002.596
+cleanup	UNKNOWN STEP	2026-10-09T11:26:36.1307622Z Commit: c3d12f3313a95f25162a1503be624f3b0617f8c0
+cleanup	UNKNOWN STEP	2026-10-09T11:26:36.1308407Z Build Date: 2026-10-02T22:28:27Z
+cleanup	UNKNOWN STEP	2026-10-09T11:26:36.1309192Z Worker ID: {1e728ef1-73ba-4465-adc6-17f0e2b4a257}
+cleanup	UNKNOWN STEP	2026-10-09T11:26:36.1310355Z Region: northcentralus
+cleanup	UNKNOWN STEP	2026-10-09T11:26:36.1310952Z Cloud: Azure
+cleanup	UNKNOWN STEP	2026-10-09T11:26:36.1311482Z ##[endgroup]
+cleanup	UNKNOWN STEP	2026-10-09T11:26:36.1313104Z ##[group]Operating System
+cleanup	UNKNOWN STEP	2026-10-09T11:26:36.1313758Z Ubuntu
+cleanup	UNKNOWN STEP	2026-10-09T11:26:36.1314260Z 24.04.5
+cleanup	UNKNOWN STEP	2026-10-09T11:26:36.1314835Z LTS
+cleanup	UNKNOWN STEP	2026-10-09T11:26:36.1315357Z ##[endgroup]
+cleanup	UNKNOWN STEP	2026-10-09T11:26:36.1315943Z ##[group]Runner Image
+cleanup	UNKNOWN STEP	2026-10-09T11:26:36.1316672Z Image: ubuntu-24.04
+cleanup	UNKNOWN STEP	2026-10-09T11:26:36.1317280Z Version: 20261004.327.1
+cleanup	UNKNOWN STEP	2026-10-09T11:26:36.1318591Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261004.327/images/ubuntu/Ubuntu2404-Readme.md
+cleanup	UNKNOWN STEP	2026-10-09T11:26:36.1320482Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261004.327
+cleanup	UNKNOWN STEP	2026-10-09T11:26:36.1321549Z ##[endgroup]
+cleanup	UNKNOWN STEP	2026-10-09T11:26:36.1323346Z ##[group]GITHUB_TOKEN Permissions
+cleanup	UNKNOWN STEP	2026-10-09T11:26:36.1325646Z Actions: read
+cleanup	UNKNOWN STEP	2026-10-09T11:26:36.1326496Z Contents: write
+cleanup	UNKNOWN STEP	2026-10-09T11:26:36.1327170Z Issues: write
+cleanup	UNKNOWN STEP	2026-10-09T11:26:36.1327768Z Metadata: read
+cleanup	UNKNOWN STEP	2026-10-09T11:26:36.1328394Z PullRequests: write
+cleanup	UNKNOWN STEP	2026-10-09T11:26:36.1328972Z ##[endgroup]
+cleanup	UNKNOWN STEP	2026-10-09T11:26:36.1331582Z Secret source: Actions
+cleanup	UNKNOWN STEP	2026-10-09T11:26:36.1332514Z Cache mode: write
+cleanup	UNKNOWN STEP	2026-10-09T11:26:36.1333622Z Prepare workflow directory
+cleanup	UNKNOWN STEP	2026-10-09T11:26:36.1868735Z Prepare all required actions
+cleanup	UNKNOWN STEP	2026-10-09T11:26:36.1940002Z Getting action download info
+cleanup	UNKNOWN STEP	2026-10-09T11:26:36.4458980Z Download action repository 'actions/checkout@v7' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:36.5515059Z Download action repository 'actions/setup-node@v7' (SHA:949feb2413d6458794dcd2491c4babbbce0c15c1)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.0546885Z Complete job name: cleanup
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.1342302Z ##[group]Run actions/checkout@v7
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.1343182Z with:
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.1343628Z   persist-credentials: false
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.1344180Z   repository: link-assistant/hive-mind
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.1348208Z   token: ***
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.1348698Z   ssh-strict: true
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.1349192Z   ssh-user: git
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.1349900Z   clean: true
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.1350345Z   sparse-checkout-cone-mode: true
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.1350927Z   fetch-depth: 1
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.1351415Z   fetch-tags: false
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.1351915Z   show-progress: true
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.1352417Z   lfs: false
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.1352884Z   submodules: false
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.1353386Z   set-safe-directory: true
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.1353927Z   allow-unsafe-pr-checkout: false
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.1354720Z env:
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.1355134Z   GIT_CONFIG_COUNT: 1
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.1355635Z   GIT_CONFIG_KEY_0: init.defaultBranch
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.1356294Z   GIT_CONFIG_VALUE_0: main
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.1356827Z ##[endgroup]
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.2416643Z Syncing repository: link-assistant/hive-mind
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.2420061Z ##[group]Getting Git version info
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.2421216Z Working directory is '/home/runner/work/hive-mind/hive-mind'
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.2423771Z [command]/usr/bin/git version
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.2451691Z git version 2.55.0
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.2475323Z ##[endgroup]
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.2487316Z Temporarily overriding HOME='/home/runner/work/_temp/2dde6cdf-dd06-4837-b5ea-9a5a715a9462' before making global git config changes
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.2489945Z Adding repository directory to the temporary git global config as a safe directory
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.2494153Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/hive-mind/hive-mind
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.2545641Z Deleting the contents of '/home/runner/work/hive-mind/hive-mind'
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.2549778Z ##[group]Determining repository object format
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.2551415Z ##[endgroup]
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.2554932Z ##[group]Initializing the repository
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.2557461Z [command]/usr/bin/git init /home/runner/work/hive-mind/hive-mind
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.2674788Z Initialized empty Git repository in /home/runner/work/hive-mind/hive-mind/.git/
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.2688005Z [command]/usr/bin/git remote add origin https://github.com/link-assistant/hive-mind
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.2738148Z ##[endgroup]
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.2739906Z ##[group]Disabling automatic garbage collection
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.2742390Z [command]/usr/bin/git config --local gc.auto 0
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.2782981Z ##[endgroup]
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.2784221Z ##[group]Setting up auth
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.2785402Z Removing SSH command configuration
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.2791197Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.2839998Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.3184471Z Removing HTTP extra header
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.3190757Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.3229017Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.3469740Z Removing includeIf entries pointing to credentials config files
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.3475894Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.3514338Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.3754561Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-23fe402e-ba3a-45cc-815b-7b753794f400.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.3796650Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path /home/runner/work/_temp/git-credentials-23fe402e-ba3a-45cc-815b-7b753794f400.config
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.3830887Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-23fe402e-ba3a-45cc-815b-7b753794f400.config
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.3958104Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-23fe402e-ba3a-45cc-815b-7b753794f400.config
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.3962264Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-23fe402e-ba3a-45cc-815b-7b753794f400.config
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.3965531Z ##[endgroup]
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.3966349Z ##[group]Fetching the repository
+cleanup	UNKNOWN STEP	2026-10-09T11:26:37.3967842Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +790c18dec9ec0dd2281de05a48f2047690a60415:refs/remotes/origin/main
+cleanup	UNKNOWN STEP	2026-10-09T11:26:47.8700405Z From https://github.com/link-assistant/hive-mind
+cleanup	UNKNOWN STEP	2026-10-09T11:26:47.8701151Z  * [new ref]         790c18dec9ec0dd2281de05a48f2047690a60415 -> origin/main
+cleanup	UNKNOWN STEP	2026-10-09T11:26:47.8708784Z [command]/usr/bin/git branch --list --remote origin/main
+cleanup	UNKNOWN STEP	2026-10-09T11:26:47.8741669Z   origin/main
+cleanup	UNKNOWN STEP	2026-10-09T11:26:47.8749758Z [command]/usr/bin/git rev-parse refs/remotes/origin/main
+cleanup	UNKNOWN STEP	2026-10-09T11:26:47.8777146Z 790c18dec9ec0dd2281de05a48f2047690a60415
+cleanup	UNKNOWN STEP	2026-10-09T11:26:47.8781532Z ##[endgroup]
+cleanup	UNKNOWN STEP	2026-10-09T11:26:47.8782449Z ##[group]Determining the checkout info
+cleanup	UNKNOWN STEP	2026-10-09T11:26:47.8783352Z ##[endgroup]
+cleanup	UNKNOWN STEP	2026-10-09T11:26:47.8787142Z [command]/usr/bin/git sparse-checkout disable
+cleanup	UNKNOWN STEP	2026-10-09T11:26:47.8841438Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+cleanup	UNKNOWN STEP	2026-10-09T11:26:47.8876680Z ##[group]Checking out the ref
+cleanup	UNKNOWN STEP	2026-10-09T11:26:47.8882061Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+cleanup	UNKNOWN STEP	2026-10-09T11:26:49.0002059Z Updating files:  24% (2110/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:49.0555638Z Updating files:  25% (2143/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:49.0925770Z Updating files:  26% (2228/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:49.1158654Z Updating files:  27% (2314/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:49.1407121Z Updating files:  28% (2400/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:49.2163127Z Updating files:  29% (2486/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:49.2645290Z Updating files:  30% (2571/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:49.2775306Z Updating files:  31% (2657/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:49.2954447Z Updating files:  32% (2743/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:49.3931525Z Updating files:  33% (2828/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:49.4731596Z Updating files:  34% (2914/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:49.5427762Z Updating files:  35% (3000/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:49.7171331Z Updating files:  36% (3085/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:49.7470968Z Updating files:  37% (3171/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:49.8409746Z Updating files:  38% (3257/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:49.8987140Z Updating files:  39% (3342/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:49.8989510Z Updating files:  39% (3426/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:49.9390041Z Updating files:  40% (3428/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:50.0165310Z Updating files:  41% (3514/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:50.0526285Z Updating files:  42% (3599/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:50.1004580Z Updating files:  43% (3685/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:50.1222691Z Updating files:  44% (3771/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:50.1465440Z Updating files:  45% (3857/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:50.1967220Z Updating files:  46% (3942/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:50.2043343Z Updating files:  47% (4028/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:50.3040808Z Updating files:  48% (4114/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:50.3354576Z Updating files:  49% (4199/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:50.4101659Z Updating files:  50% (4285/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:50.4162991Z Updating files:  51% (4371/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:50.4283163Z Updating files:  52% (4456/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:50.4731710Z Updating files:  53% (4542/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:50.5049020Z Updating files:  54% (4628/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:50.5151100Z Updating files:  55% (4713/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:50.5235992Z Updating files:  56% (4799/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:50.6302411Z Updating files:  57% (4885/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:50.6618484Z Updating files:  58% (4971/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:50.7899507Z Updating files:  59% (5056/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:50.8092475Z Updating files:  60% (5142/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:50.8364408Z Updating files:  61% (5228/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:50.8737550Z Updating files:  62% (5313/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:50.8881370Z Updating files:  63% (5399/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:50.9000176Z Updating files:  64% (5485/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:50.9044748Z Updating files:  64% (5532/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:50.9632314Z Updating files:  65% (5570/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:50.9745089Z Updating files:  66% (5656/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:50.9816083Z Updating files:  67% (5742/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:50.9870607Z Updating files:  68% (5827/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.0038151Z Updating files:  69% (5913/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.0926654Z Updating files:  70% (5999/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.1112609Z Updating files:  71% (6084/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.3077720Z Updating files:  72% (6170/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.3530864Z Updating files:  73% (6256/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.3855222Z Updating files:  74% (6342/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.3947039Z Updating files:  75% (6427/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.3992529Z Updating files:  76% (6513/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.4035675Z Updating files:  77% (6599/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.4082939Z Updating files:  78% (6684/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.4135756Z Updating files:  79% (6770/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.4600485Z Updating files:  80% (6856/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.4671793Z Updating files:  81% (6941/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.4716463Z Updating files:  82% (7027/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.4764255Z Updating files:  83% (7113/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.4807850Z Updating files:  84% (7198/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.4852499Z Updating files:  85% (7284/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.4899214Z Updating files:  86% (7370/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.4955232Z Updating files:  87% (7456/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.5050026Z Updating files:  88% (7541/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.5132263Z Updating files:  89% (7627/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.5214812Z Updating files:  90% (7713/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.5300087Z Updating files:  91% (7798/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.5370318Z Updating files:  92% (7884/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.5433163Z Updating files:  93% (7970/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.5514754Z Updating files:  94% (8055/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.5586235Z Updating files:  95% (8141/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.5645969Z Updating files:  96% (8227/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.5711416Z Updating files:  97% (8312/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.5780689Z Updating files:  98% (8398/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.5859156Z Updating files:  99% (8484/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.5860034Z Updating files: 100% (8569/8569)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.5860506Z Updating files: 100% (8569/8569), done.
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.8027876Z Reset branch 'main'
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.8032979Z branch 'main' set up to track 'origin/main'.
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.8122686Z ##[endgroup]
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.8176790Z [command]/usr/bin/git log -1 --format=%H
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.8208558Z 790c18dec9ec0dd2281de05a48f2047690a60415
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.8219176Z ##[group]Removing auth
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.8220285Z Removing SSH command configuration
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.8224867Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.8268238Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.8512352Z Removing HTTP extra header
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.8516408Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.8554432Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.8792570Z Removing includeIf entries pointing to credentials config files
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.8796363Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.8829856Z includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.8830395Z includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.8831017Z includeif.gitdir:/github/workspace/.git.path
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.8831694Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.8841213Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.8870121Z /home/runner/work/_temp/git-credentials-23fe402e-ba3a-45cc-815b-7b753794f400.config
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.8879898Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-23fe402e\-ba3a\-45cc\-815b\-7b753794f400\.config
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.8917208Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.8946452Z /home/runner/work/_temp/git-credentials-23fe402e-ba3a-45cc-815b-7b753794f400.config
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.8954808Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-23fe402e\-ba3a\-45cc\-815b\-7b753794f400\.config
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.8992230Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.9018809Z /github/runner_temp/git-credentials-23fe402e-ba3a-45cc-815b-7b753794f400.config
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.9026512Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-23fe402e\-ba3a\-45cc\-815b\-7b753794f400\.config
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.9061850Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.9087033Z /github/runner_temp/git-credentials-23fe402e-ba3a-45cc-815b-7b753794f400.config
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.9094745Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-23fe402e\-ba3a\-45cc\-815b\-7b753794f400\.config
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.9130816Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.9362861Z Removing credentials config '/home/runner/work/_temp/git-credentials-23fe402e-ba3a-45cc-815b-7b753794f400.config'
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.9373453Z ##[endgroup]
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.9692918Z ##[group]Run actions/setup-node@v7
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.9693219Z with:
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.9693431Z   node-version: 24.x
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.9693652Z   check-latest: false
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.9696295Z   token: ***
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.9696518Z   package-manager-cache: true
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.9696765Z env:
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.9696949Z   GIT_CONFIG_COUNT: 1
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.9697196Z   GIT_CONFIG_KEY_0: init.defaultBranch
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.9697472Z   GIT_CONFIG_VALUE_0: main
+cleanup	UNKNOWN STEP	2026-10-09T11:26:51.9697699Z ##[endgroup]
+cleanup	UNKNOWN STEP	2026-10-09T11:26:52.1182212Z Found in cache @ /opt/hostedtoolcache/node/24.21.0/x64
+cleanup	UNKNOWN STEP	2026-10-09T11:26:52.4977255Z ##[group]Environment details
+cleanup	UNKNOWN STEP	2026-10-09T11:26:53.8305413Z node: v24.21.0
+cleanup	UNKNOWN STEP	2026-10-09T11:26:53.8305832Z npm: 11.19.0
+cleanup	UNKNOWN STEP	2026-10-09T11:26:53.8306174Z yarn: 1.22.22
+cleanup	UNKNOWN STEP	2026-10-09T11:26:53.8306713Z ##[endgroup]
+cleanup	UNKNOWN STEP	2026-10-09T11:26:53.8311886Z Detected npm as the package manager from package.json's packageManager field. Auto caching has been enabled for npm. If you want to disable it, set package-manager-cache input to false
+cleanup	UNKNOWN STEP	2026-10-09T11:26:53.8329458Z [command]/opt/hostedtoolcache/node/24.21.0/x64/bin/npm config get cache
+cleanup	UNKNOWN STEP	2026-10-09T11:26:53.9558589Z /home/runner/.npm
+cleanup	UNKNOWN STEP	2026-10-09T11:26:54.1066129Z Cache hit for: node-cache-Linux-x64-npm-bd9b3d5de65dde151674872c23a639c5835028104d32fade694f8a37912f49cf
+cleanup	UNKNOWN STEP	2026-10-09T11:26:54.8595255Z Received 31963741 of 31963741 (100.0%), 48.2 MBs/sec
+cleanup	UNKNOWN STEP	2026-10-09T11:26:54.8595886Z Cache Size: ~30 MB (31963741 B)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:54.8655445Z [command]/usr/bin/tar -xf /home/runner/work/_temp/db782377-0a24-4d9e-9517-99466e38971f/cache.tzst -P -C /home/runner/work/hive-mind/hive-mind --use-compress-program unzstd
+cleanup	UNKNOWN STEP	2026-10-09T11:26:54.9423313Z Cache restored successfully
+cleanup	UNKNOWN STEP	2026-10-09T11:26:54.9446196Z Cache restored from key: node-cache-Linux-x64-npm-bd9b3d5de65dde151674872c23a639c5835028104d32fade694f8a37912f49cf
+cleanup	UNKNOWN STEP	2026-10-09T11:26:54.9591605Z ##[group]Run npm ci --omit=dev --ignore-scripts
+cleanup	UNKNOWN STEP	2026-10-09T11:26:54.9592063Z ^[[36;1mnpm ci --omit=dev --ignore-scripts^[[0m
+cleanup	UNKNOWN STEP	2026-10-09T11:26:54.9831355Z shell: /usr/bin/bash -e {0}
+cleanup	UNKNOWN STEP	2026-10-09T11:26:54.9831660Z env:
+cleanup	UNKNOWN STEP	2026-10-09T11:26:54.9831875Z   GIT_CONFIG_COUNT: 1
+cleanup	UNKNOWN STEP	2026-10-09T11:26:54.9832124Z   GIT_CONFIG_KEY_0: init.defaultBranch
+cleanup	UNKNOWN STEP	2026-10-09T11:26:54.9832412Z   GIT_CONFIG_VALUE_0: main
+cleanup	UNKNOWN STEP	2026-10-09T11:26:54.9832653Z ##[endgroup]
+cleanup	UNKNOWN STEP	2026-10-09T11:26:58.7722115Z 
+cleanup	UNKNOWN STEP	2026-10-09T11:26:58.7730507Z added 144 packages, and audited 145 packages in 4s
+cleanup	UNKNOWN STEP	2026-10-09T11:26:58.7730818Z 
+cleanup	UNKNOWN STEP	2026-10-09T11:26:58.7731023Z 36 packages are looking for funding
+cleanup	UNKNOWN STEP	2026-10-09T11:26:58.7731377Z   run `npm fund` for details
+cleanup	UNKNOWN STEP	2026-10-09T11:26:58.7733592Z 
+cleanup	UNKNOWN STEP	2026-10-09T11:26:58.7734015Z found 0 vulnerabilities
+cleanup	UNKNOWN STEP	2026-10-09T11:26:58.8517823Z Prepare all required actions
+cleanup	UNKNOWN STEP	2026-10-09T11:26:58.8518390Z Getting action download info
+cleanup	UNKNOWN STEP	2026-10-09T11:26:58.9422187Z Download action repository 'actions/create-github-app-token@v3' (SHA:bcd2ba49218906704ab6c1aa796996da409d3eb1)
+cleanup	UNKNOWN STEP	2026-10-09T11:26:59.2676235Z ##[group]Run ./.github/actions/resolve-github-token
+cleanup	UNKNOWN STEP	2026-10-09T11:26:59.2676570Z with:
+cleanup	UNKNOWN STEP	2026-10-09T11:26:59.2679512Z   default-token: ***
+cleanup	UNKNOWN STEP	2026-10-09T11:26:59.2679988Z   repository-operations: true
+cleanup	UNKNOWN STEP	2026-10-09T11:26:59.2680254Z   owner: link-assistant
+cleanup	UNKNOWN STEP	2026-10-09T11:26:59.2680473Z env:
+cleanup	UNKNOWN STEP	2026-10-09T11:26:59.2680662Z   GIT_CONFIG_COUNT: 1
+cleanup	UNKNOWN STEP	2026-10-09T11:26:59.2680900Z   GIT_CONFIG_KEY_0: init.defaultBranch
+cleanup	UNKNOWN STEP	2026-10-09T11:26:59.2681174Z   GIT_CONFIG_VALUE_0: main
+cleanup	UNKNOWN STEP	2026-10-09T11:26:59.2681404Z ##[endgroup]
+cleanup	UNKNOWN STEP	2026-10-09T11:26:59.2743008Z ##[start-action display=Mint installation token;id=gh.app]
+cleanup	UNKNOWN STEP	2026-10-09T11:26:59.2755975Z ##[end-action id=gh.app;outcome=skipped;conclusion=skipped;duration_ms=0]
+cleanup	UNKNOWN STEP	2026-10-09T11:26:59.2758127Z ##[start-action display=Mint repository administration token;id=gh.admin]
+cleanup	UNKNOWN STEP	2026-10-09T11:26:59.2763784Z ##[end-action id=gh.admin;outcome=skipped;conclusion=skipped;duration_ms=0]
+cleanup	UNKNOWN STEP	2026-10-09T11:26:59.2773146Z ##[start-action display=Resolve and report credentials;id=gh.resolve]
+cleanup	UNKNOWN STEP	2026-10-09T11:26:59.2797739Z ##[group]Run node "$ACTION_PATH/../../../scripts/resolve-automation-token.mjs"
+cleanup	UNKNOWN STEP	2026-10-09T11:26:59.2798291Z ^[[36;1mnode "$ACTION_PATH/../../../scripts/resolve-automation-token.mjs"^[[0m
+cleanup	UNKNOWN STEP	2026-10-09T11:26:59.2864681Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+cleanup	UNKNOWN STEP	2026-10-09T11:26:59.2865033Z env:
+cleanup	UNKNOWN STEP	2026-10-09T11:26:59.2865228Z   GIT_CONFIG_COUNT: 1
+cleanup	UNKNOWN STEP	2026-10-09T11:26:59.2865474Z   GIT_CONFIG_KEY_0: init.defaultBranch
+cleanup	UNKNOWN STEP	2026-10-09T11:26:59.2865753Z   GIT_CONFIG_VALUE_0: main
+cleanup	UNKNOWN STEP	2026-10-09T11:26:59.2865991Z   RESOLVED_APP_TOKEN: 
+cleanup	UNKNOWN STEP	2026-10-09T11:26:59.2866234Z   APP_ADMINISTRATION_GRANTED: false
+cleanup	UNKNOWN STEP	2026-10-09T11:26:59.2866496Z   AUTOMATION_TOKEN: 
+cleanup	UNKNOWN STEP	2026-10-09T11:26:59.2869176Z   DEFAULT_TOKEN: ***
+cleanup	UNKNOWN STEP	2026-10-09T11:26:59.2869594Z   AUTOMATION_OWNER: link-assistant
+cleanup	UNKNOWN STEP	2026-10-09T11:26:59.2870045Z   ACTION_PATH: /home/runner/work/hive-mind/hive-mind/./.github/actions/resolve-github-token
+cleanup	UNKNOWN STEP	2026-10-09T11:26:59.2870493Z ##[endgroup]
+cleanup	UNKNOWN STEP	2026-10-09T11:26:59.3246412Z GitHub credentials: layer default (built-in github.token; optional credentials unavailable); pull request checks through dispatch-checks.
+cleanup	UNKNOWN STEP	2026-10-09T11:26:59.3323239Z ##[end-action id=gh.resolve;outcome=success;conclusion=success;duration_ms=54]
+cleanup	UNKNOWN STEP	2026-10-09T11:26:59.3378745Z ##[group]Run node scripts/cleanup-task-fixtures.mjs
+cleanup	UNKNOWN STEP	2026-10-09T11:26:59.3379157Z ^[[36;1mnode scripts/cleanup-task-fixtures.mjs^[[0m
+cleanup	UNKNOWN STEP	2026-10-09T11:26:59.3444854Z shell: /usr/bin/bash -e {0}
+cleanup	UNKNOWN STEP	2026-10-09T11:26:59.3445117Z env:
+cleanup	UNKNOWN STEP	2026-10-09T11:26:59.3445314Z   GIT_CONFIG_COUNT: 1
+cleanup	UNKNOWN STEP	2026-10-09T11:26:59.3445559Z   GIT_CONFIG_KEY_0: init.defaultBranch
+cleanup	UNKNOWN STEP	2026-10-09T11:26:59.3445852Z   GIT_CONFIG_VALUE_0: main
+cleanup	UNKNOWN STEP	2026-10-09T11:26:59.3448578Z   GH_TOKEN: ***
+cleanup	UNKNOWN STEP	2026-10-09T11:26:59.3448802Z   CLEANUP_DRY_RUN: 
+cleanup	UNKNOWN STEP	2026-10-09T11:26:59.3449019Z ##[endgroup]
+cleanup	UNKNOWN STEP	2026-10-09T11:29:47.9797051Z Will PATCH repos/link-assistant/hive-mind/pulls/2644
+cleanup	UNKNOWN STEP	2026-10-09T11:33:26.9731986Z Stale fixture branches: 364
+cleanup	UNKNOWN STEP	2026-10-09T11:33:26.9760963Z ##[warning]364 fixture branch(es) retained by a repository rule that prohibits deletion (issue-2349-c76f90a460ad, issue-2350-a8b3e81de55f, issue-2351-59039330a112, issue-2352-1b1739a320e4, issue-2363-f5a8b1c6b7a4 and 359 more). Removing them requires a ruleset exclusion, or a bypass for the cleanup token, that covers these disposable branches; this cleanup deletes them once the rule allows it.
+cleanup	UNKNOWN STEP	2026-10-09T11:33:27.0004620Z Post job cleanup.
+cleanup	UNKNOWN STEP	2026-10-09T11:33:27.0058164Z Post job cleanup.
+cleanup	UNKNOWN STEP	2026-10-09T11:33:27.1150579Z Cache hit occurred on the primary key node-cache-Linux-x64-npm-bd9b3d5de65dde151674872c23a639c5835028104d32fade694f8a37912f49cf, not saving cache.
+cleanup	UNKNOWN STEP	2026-10-09T11:33:27.1294869Z Post job cleanup.
+cleanup	UNKNOWN STEP	2026-10-09T11:33:27.2127491Z [command]/usr/bin/git version
+cleanup	UNKNOWN STEP	2026-10-09T11:33:27.2180173Z git version 2.55.0
+cleanup	UNKNOWN STEP	2026-10-09T11:33:27.2225151Z Temporarily overriding HOME='/home/runner/work/_temp/e4780f96-2b8c-4db9-a483-059fc74af208' before making global git config changes
+cleanup	UNKNOWN STEP	2026-10-09T11:33:27.2226942Z Adding repository directory to the temporary git global config as a safe directory
+cleanup	UNKNOWN STEP	2026-10-09T11:33:27.2231161Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/hive-mind/hive-mind
+cleanup	UNKNOWN STEP	2026-10-09T11:33:27.2278301Z Removing SSH command configuration
+cleanup	UNKNOWN STEP	2026-10-09T11:33:27.2286485Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+cleanup	UNKNOWN STEP	2026-10-09T11:33:27.2330290Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+cleanup	UNKNOWN STEP	2026-10-09T11:33:27.2668574Z Removing HTTP extra header
+cleanup	UNKNOWN STEP	2026-10-09T11:33:27.2676280Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+cleanup	UNKNOWN STEP	2026-10-09T11:33:27.2726431Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+cleanup	UNKNOWN STEP	2026-10-09T11:33:27.3084194Z Removing includeIf entries pointing to credentials config files
+cleanup	UNKNOWN STEP	2026-10-09T11:33:27.3085304Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+cleanup	UNKNOWN STEP	2026-10-09T11:33:27.3136539Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+cleanup	UNKNOWN STEP	2026-10-09T11:33:27.3575364Z Cleaning up orphan processes

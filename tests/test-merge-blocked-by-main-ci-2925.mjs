@@ -109,6 +109,13 @@ await asyncTest('Final report shows ⏭️ for the skipped PR, the Skipped count
   assert.ok(message.includes(`[View](${RUN_URL})`), 'pending run should link to its GitHub Actions page');
 });
 
+await asyncTest('Run links in the report escape both ")" and "\\" for MarkdownV2 (CodeQL js/incomplete-sanitization)', async () => {
+  const oddRun = { ...QUEUED_RUN, html_url: 'https://example.test/run\\1)' };
+  const { processor } = await buildProcessor({ healthSequence: [() => ({ ...pending(), pendingRuns: [oddRun] })], branchWaitSequence: [TIMEOUT] });
+  await processor.run();
+  assert.ok(processor.formatFinalMessage().includes('[View](https://example.test/run\\\\1\\))'));
+});
+
 await asyncTest('Red main → all planned merges skipped with "CI/CD on main must be fixed first"', async () => {
   const { processor, calls } = await buildProcessor({ healthSequence: [red], prNumbers: [2802, 2803, 2804] });
   const result = await processor.run();

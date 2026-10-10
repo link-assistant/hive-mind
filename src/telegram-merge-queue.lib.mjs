@@ -1217,7 +1217,7 @@ export class MergeQueueProcessor {
       for (const run of this.branchCIFailedRuns.slice(0, 3)) {
         const runName = this.escapeMarkdown(run.name);
         // Format the URL for MarkdownV2 - need to escape special characters
-        const runUrl = run.html_url ? `[View](${run.html_url.replace(/[)]/g, '\\)')})` : '';
+        const runUrl = run.html_url ? `[View](${this.escapeMarkdownLinkUrl(run.html_url)})` : '';
         message += `  ❌ ${runName} ${runUrl}\n`;
       }
       if (this.branchCIFailedRuns.length > 3) {
@@ -1231,7 +1231,7 @@ export class MergeQueueProcessor {
       for (const run of this.postMergeCIFailedRuns.slice(0, 3)) {
         const runName = this.escapeMarkdown(run.name);
         // Format the URL for MarkdownV2 - need to escape special characters
-        const runUrl = run.html_url ? `[View](${run.html_url.replace(/[)]/g, '\\)')})` : '';
+        const runUrl = run.html_url ? `[View](${this.escapeMarkdownLinkUrl(run.html_url)})` : '';
         message += `  ❌ ${runName} ${runUrl}\n`;
       }
       if (this.postMergeCIFailedRuns.length > 3) {

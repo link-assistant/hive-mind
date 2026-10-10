@@ -132,7 +132,7 @@ export function formatBlockedBranchReport(processor, escape) {
   if (pendingRuns.length > 0) {
     message += `⏳ *Branch CI not finished \\(blocked queue\\):*\n`;
     for (const run of pendingRuns.slice(0, 3)) {
-      const runUrl = run.html_url ? ` [View](${run.html_url.replace(/[)]/g, '\\)')})` : '';
+      const runUrl = run.html_url ? ` [View](${processor.escapeMarkdownLinkUrl(run.html_url)})` : '';
       message += `  ⏳ ${escape(run.name)} \\(${escape(run.status || 'pending')}\\)${runUrl}\n`;
     }
     if (pendingRuns.length > 3) message += `  _\\.\\.\\.and ${pendingRuns.length - 3} more_\n`;

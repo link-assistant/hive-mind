@@ -66,3 +66,8 @@ short-context rates (see `tests/codex-peak-context-pricing-2842.test.mjs`).
   but a long-context run without diagnostics still falls back to an upper bound.
 - Sub-agent (`spawn_agent`) requests share the stderr stream and are counted
   toward the peak, which is correct for billing since each is its own request.
+- Like the existing `context_window` parsing, a nested Codex's OTEL text replayed
+  verbatim on our stderr (the #2136 echo path) would also be counted. Echoes on
+  stdout cannot match, because they arrive JSON-escaped (`event.name=\"…\"`).
+  Filtering by `conversation.id` was not done, because that would also drop
+  legitimate sub-agent requests.

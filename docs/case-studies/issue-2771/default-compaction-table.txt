@@ -1,0 +1,24 @@
+
+--sub-session-size 150k
+  claude opus                     long=no  CLAUDE_CODE_AUTO_COMPACT_WINDOW=150000 CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=95 CLAUDE_CODE_DISABLE_FAST_MODE=1 CLAUDE_CODE_DISABLE_1M_CONTEXT=1
+  claude haiku                    long=no  CLAUDE_CODE_AUTO_COMPACT_WINDOW=100000 CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=90 CLAUDE_CODE_DISABLE_FAST_MODE=1 CLAUDE_CODE_DISABLE_1M_CONTEXT=1
+  codex  gpt-6.1-sol              long=no  service_tier=default model_context_window=272000 model_auto_compact_token_limit=150000
+  gemini gemini-3.1-pro-preview   long=no  {"model":{"compressionThreshold":0.1431}}
+  gemini gemini-3-flash-preview   long=no  {"model":{"compressionThreshold":0.1431}}
+  qwen   qwen3-coder-plus         long=no  {"context":{"autoCompactThreshold":0.15}}
+
+--sub-session-size default
+  claude opus                     long=no  CLAUDE_CODE_DISABLE_FAST_MODE=1 CLAUDE_CODE_DISABLE_1M_CONTEXT=1
+  claude haiku                    long=no  CLAUDE_CODE_DISABLE_FAST_MODE=1 CLAUDE_CODE_DISABLE_1M_CONTEXT=1 CLAUDE_CODE_AUTO_COMPACT_WINDOW=100000 CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=90
+  codex  gpt-6.1-sol              long=no  service_tier=default model_context_window=272000
+  gemini gemini-3.1-pro-preview   long=no  {"model":{"compressionThreshold":0.1717}}
+  gemini gemini-3-flash-preview   long=no  {"model":{"compressionThreshold":0.5}}
+  qwen   qwen3-coder-plus         long=no  {"context":{"autoCompactThreshold":0.2304}}
+
+--sub-session-size 500k
+  claude opus                     long=yes CLAUDE_CODE_AUTO_COMPACT_WINDOW=500000 CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=95 CLAUDE_CODE_DISABLE_FAST_MODE=1
+  claude haiku                    long=yes CLAUDE_CODE_AUTO_COMPACT_WINDOW=500000 CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=95 CLAUDE_CODE_DISABLE_FAST_MODE=1
+  codex  gpt-6.1-sol              long=yes service_tier=default model_auto_compact_token_limit=500000
+  gemini gemini-3.1-pro-preview   long=yes {"model":{"compressionThreshold":0.4768}}
+  gemini gemini-3-flash-preview   long=no  {"model":{"compressionThreshold":0.4768}}
+  qwen   qwen3-coder-plus         long=yes {"context":{"autoCompactThreshold":0.5}}

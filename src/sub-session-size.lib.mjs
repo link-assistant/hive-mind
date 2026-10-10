@@ -11,8 +11,10 @@
  *   - A token count       → "150k", "150K", "150000", "1.5m", "1M"
  *   - A percentage        → "50%", "75%" (relative to model context window)
  *
- * --disable-1m-context (boolean, default true) opts out of the 1M extended
- * context window so models fall back to their standard 200K-400K window.
+ * --disable-1m-context (boolean, default auto since issue #2771) opts out of
+ * the 1M extended context window so models stay on their short-context
+ * (cheapest) pricing tier. Auto means short context unless --sub-session-size
+ * asks for more than the short tier; see pricing-tier.lib.mjs.
  *
  * Claude Code controls (env vars only — no CLI flags exist):
  *   - CLAUDE_CODE_DISABLE_1M_CONTEXT=1
@@ -20,7 +22,7 @@
  *   - CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=<1..100>     (only lowers; clamped to <= 95)
  *
  * Codex controls (via -c key=value, same mechanism as model_reasoning_effort):
- *   - -c model_context_window=<tokens>             (forces 200K window)
+ *   - -c model_context_window=<tokens>             (forces the short window; 272K via pricing-tier.lib.mjs)
  *   - -c model_auto_compact_token_limit=<tokens>   (compaction threshold)
  */
 

@@ -168,7 +168,7 @@ async function runQuietGh(strings, ...values) {
 export async function getGitHubOwnerType(owner, { run } = {}) {
   try {
     const result = await (run ? run(owner) : runQuietGh`gh api users/${owner} --jq .type`);
-    const type = result?.code === 0 ? String(result.stdout || '').trim() : '';
+    const type = result?.code === 0 ? (result.stdout?.toString() || '').trim() : '';
     return ['User', 'Organization'].includes(type) ? type : null;
   } catch {
     return null;
@@ -191,7 +191,7 @@ export async function getAuthenticatedGitHubLogin({ run, refresh = false } = {})
   if (cachedLogin !== undefined && !refresh) return cachedLogin;
   try {
     const result = await (run ? run() : runQuietGh`gh api user --jq .login`);
-    const login = result?.code === 0 ? String(result.stdout || '').trim() : '';
+    const login = result?.code === 0 ? (result.stdout?.toString() || '').trim() : '';
     if (!/^[A-Za-z0-9-]+(\[bot\])?$/.test(login)) return null;
     cachedLogin = login;
     return login;

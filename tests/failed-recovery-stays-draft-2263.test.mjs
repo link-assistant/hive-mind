@@ -8,8 +8,8 @@
  * and a later no-CI path treated the clean tree as successful and marked the PR
  * ready before reporting the terminal failure.
  *
- * Recovery commits remain intentional: repositories decide which generated
- * files to ignore through `.gitignore`. The correctness boundary is that a
+ * Recovery commits remain intentional, but since #2315 they go to
+ * `recovery/<branch>` and never include untracked binaries. The correctness boundary is that a
  * failed verification remains failure, keeps the PR draft, and vetoes every
  * later ready/merge path even after recovery makes the worktree clean.
  *
@@ -166,8 +166,8 @@ try {
   await rm(streamFixture, { recursive: true, force: true });
 }
 
-// Recovery continues to commit and push dirty work, but Git—not Hive Mind—owns
-// the artifact policy. A repository-provided .gitignore excludes Main.class.
+// Recovery preserves dirty work - since #2315 on recovery/<branch>, never in the
+// PR branch - and a repository-provided .gitignore still excludes Main.class.
 const fixture = await mkdtemp(path.join(os.tmpdir(), 'hive-mind-2263-worktree-'));
 const remoteFixture = await mkdtemp(path.join(os.tmpdir(), 'hive-mind-2263-remote-'));
 try {
@@ -204,30 +204,33 @@ try {
     reason: 'javac verification failed',
   });
 
-  assert.deepEqual(preserved, { committed: true, pushed: true }, 'recovery auto-commits and pushes the failed partial work');
-  const recoveryHead = await run(fixture, 'git rev-parse HEAD');
-  assert.notEqual(recoveryHead, originalHead, 'the recovery commit advances the local branch');
-  assert.equal(await run(fixture, `git --git-dir=${quote(remoteFixture)} rev-parse refs/heads/issue-2263`), recoveryHead, 'the recovery commit reaches the remote PR branch');
-  assert.match(await run(fixture, 'git log -1 --format=%s'), /Auto-commit before critical-error recovery/, 'branch history labels the commit as recovery evidence');
-  assert.match(await run(fixture, 'git show HEAD:Main.java'), /this is invalid/, 'the failed source is retained for the next session to repair');
-  assert.doesNotMatch(await run(fixture, 'git ls-tree -r --name-only HEAD'), /Main\.class/, 'the repository .gitignore keeps compiler output out of the commit');
-  assert.equal(await run(fixture, 'git status --porcelain --untracked-files=all'), '', 'recovery leaves a clean worktree even though the session failed');
+  assert.equal(preserved.committed, true, 'recovery preserves the failed partial work');
+  assert.equal(preserved.pushed, true);
+  assert.equal(preserved.recoveryBranch, 'recovery/issue-2263');
+  assert.equal(await run(fixture, 'git rev-parse HEAD'), originalHead, 'the PR branch is not advanced (#2315)');
+  assert.equal(await run(fixture, `git --git-dir=${quote(remoteFixture)} rev-parse refs/heads/issue-2263`), originalHead, 'the remote PR branch is not changed (#2315)');
+  assert.equal(await run(fixture, `git --git-dir=${quote(remoteFixture)} rev-parse refs/heads/recovery/issue-2263`), preserved.commit, 'the preserved work reaches the remote recovery branch');
+  assert.match(await run(fixture, `git log -1 --format=%s ${preserved.commit}`), /Work preserved before critical-error recovery/, 'the commit is labelled as recovery evidence');
+  assert.match(await run(fixture, `git show ${preserved.commit}:Main.java`), /this is invalid/, 'the failed source is retained for inspection');
+  assert.doesNotMatch(await run(fixture, `git ls-tree -r --name-only ${preserved.commit}`), /Main\.class/, 'the repository .gitignore keeps compiler output out of the commit');
+  assert.equal(await run(fixture, 'git status --porcelain'), 'M Main.java', 'the working tree is untouched, so the next session sees what is uncommitted');
 } finally {
   await rm(fixture, { recursive: true, force: true });
   await rm(remoteFixture, { recursive: true, force: true });
 }
 
-// Without a repository ignore rule, untracked files remain ordinary recovery
-// input. Hive Mind must not guess that a file extension is disposable.
+// Issue #2315: without a repository ignore rule, an untracked binary is still
+// build output - kotlinc's Main.jar ended up in the PR - and is not preserved.
 const unignoredFixture = await mkdtemp(path.join(os.tmpdir(), 'hive-mind-2263-unignored-'));
 try {
   await configureRepository(unignoredFixture);
   await writeFile(path.join(unignoredFixture, 'README.md'), 'fixture\n');
   await run(unignoredFixture, 'git add README.md && git commit -qm "baseline"');
-  await writeFile(path.join(unignoredFixture, 'Main.class'), Buffer.from([0xca, 0xfe, 0xba, 0xbe]));
+  await writeFile(path.join(unignoredFixture, 'Main.class'), Buffer.from([0xca, 0xfe, 0xba, 0xbe, 0x00, 0x00, 0x00, 0x41]));
   const preserved = await commitUncommittedChangesOnCriticalError({ tempDir: unignoredFixture, $: command, log: silentLog, reason: 'unignored artifact fixture', push: false });
-  assert.deepEqual(preserved, { committed: true, pushed: false });
-  assert.match(await run(unignoredFixture, 'git ls-tree -r --name-only HEAD'), /^Main\.class$/m, 'without .gitignore the untracked artifact is preserved in the recovery commit');
+  assert.equal(preserved.committed, false, 'nothing but a binary was uncommitted');
+  assert.deepEqual(preserved.skipped, ['Main.class']);
+  assert.equal(await run(unignoredFixture, 'git ls-tree -r --name-only HEAD'), 'README.md', 'the PR branch never receives the binary');
 } finally {
   await rm(unignoredFixture, { recursive: true, force: true });
 }

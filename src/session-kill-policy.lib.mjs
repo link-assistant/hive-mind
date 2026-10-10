@@ -10,8 +10,8 @@
  *     request gets the same notice.
  *   - `resume` (default since issue #2189): the kill is treated as recoverable.
  *     A new working session is started from the last tool session id, and BOTH
- *     surfaces say so ("recovered from out of memory" / "a new working session
- *     was started").
+ *     surfaces report the accepted launch, then monitor activity and the
+ *     eventual outcome of that new attempt.
  *
  * Selected by `--on-session-kill=<policy>` or `HIVE_MIND_ON_SESSION_KILL`, with
  * the CLI flag winning over the environment. Nothing is removed by choosing one
@@ -23,13 +23,15 @@
  * captured incident the offer reached the operator six hours after the crash,
  * and the work sat abandoned in between. "The bot should initiate the resume
  * itself with context preserved" — so it does, bounded by
- * `--session-kill-resume-attempts` (default 1) so a job that reliably dies still
- * cannot storm. `--on-session-kill=report` restores the announce-only
+ * `--session-kill-resume-attempts` (default 3, issue #2408) so a job that reliably
+ * dies still cannot storm. `--on-session-kill=report` restores the announce-only
  * behaviour verbatim for anyone who wants it.
  *
  * @see https://github.com/link-assistant/hive-mind/issues/2134
  * @see https://github.com/link-assistant/hive-mind/issues/2189
  */
+
+import { randomInt } from 'node:crypto';
 
 export const ON_SESSION_KILL_REPORT = 'report';
 export const ON_SESSION_KILL_RESUME = 'resume';
@@ -38,9 +40,24 @@ export const DEFAULT_ON_SESSION_KILL_POLICY = ON_SESSION_KILL_RESUME;
 
 export const ON_SESSION_KILL_ENV_VAR = 'HIVE_MIND_ON_SESSION_KILL';
 
-/** Hard cap on automatic resumes per session, so a reliably OOM-ing job cannot storm. */
-export const DEFAULT_SESSION_KILL_RESUME_ATTEMPTS = 1;
+/**
+ * Hard cap on automatic resumes per session, so a reliably OOM-ing job cannot
+ * storm. Issue #2408: a single attempt left a long session that met two
+ * independent OOM events failed, with its first recovery spent long before the
+ * second kill — three keeps the storm bounded while a second OOM is recovered.
+ */
+export const DEFAULT_SESSION_KILL_RESUME_ATTEMPTS = 3;
 export const SESSION_KILL_RESUME_ATTEMPTS_ENV_VAR = 'HIVE_MIND_SESSION_KILL_RESUME_ATTEMPTS';
+
+/**
+ * Issue #2498: one OOM event can kill several work sessions (or several tool
+ * processes) at once. Restarting all of them in the same second sends every
+ * recovery at the same memory, the same CPUs and the same API at once — the
+ * very rush that caused the event. Each recovery therefore waits a random
+ * delay, in seconds, drawn uniformly from this range before it starts.
+ */
+export const DEFAULT_SESSION_KILL_RESUME_DELAY_RANGE = Object.freeze({ minSeconds: 30, maxSeconds: 90 });
+export const SESSION_KILL_RESUME_DELAY_ENV_VAR = 'HIVE_MIND_SESSION_KILL_RESUME_DELAY';
 
 function normalize(value) {
   return String(value ?? '')
@@ -92,6 +109,42 @@ export function resolveSessionKillResumeAttempts({ argv = null, env = process.en
   const parsed = Number(text);
   if (!Number.isFinite(parsed) || parsed < 0) return DEFAULT_SESSION_KILL_RESUME_ATTEMPTS;
   return Math.floor(parsed);
+}
+
+/**
+ * Random delay range before an automatic recovery starts (issue #2498).
+ *
+ * Accepts `"<min>-<max>"` or a single `"<seconds>"` (a fixed delay); `0`
+ * disables the wait. Anything unparsable falls back to the default range.
+ *
+ * @param {Object} [options]
+ * @param {Object} [options.argv] - yargs argv (`sessionKillResumeDelay` / `session-kill-resume-delay`)
+ * @param {Object} [options.env=process.env]
+ * @returns {{minSeconds: number, maxSeconds: number}}
+ */
+export function resolveSessionKillResumeDelayRange({ argv = null, env = process.env } = {}) {
+  const raw = argv?.sessionKillResumeDelay ?? argv?.['session-kill-resume-delay'] ?? env?.[SESSION_KILL_RESUME_DELAY_ENV_VAR];
+  const match = String(raw ?? '')
+    .trim()
+    .match(/^(\d+(?:\.\d+)?)\s*(?:-\s*(\d+(?:\.\d+)?))?$/);
+  if (!match) return { ...DEFAULT_SESSION_KILL_RESUME_DELAY_RANGE };
+  const first = Number(match[1]);
+  const second = match[2] === undefined ? first : Number(match[2]);
+  // Node turns an overflowing setTimeout into a 1ms wait, defeating the jitter.
+  if (!Number.isFinite(first) || !Number.isFinite(second) || Math.max(first, second) * 1000 > 2_147_483_647) return { ...DEFAULT_SESSION_KILL_RESUME_DELAY_RANGE };
+  return { minSeconds: Math.min(first, second), maxSeconds: Math.max(first, second) };
+}
+
+/**
+ * Pick the delay, in milliseconds, before one automatic recovery starts.
+ *
+ * @param {Object} [options] - See resolveSessionKillResumeDelayRange(); plus `random`
+ * @param {Function} [options.random] - Optional deterministic test seam
+ * @returns {number}
+ */
+export function pickSessionKillResumeDelayMs({ argv = null, env = process.env, random = () => randomInt(0, 2 ** 32) / 2 ** 32 } = {}) {
+  const { minSeconds, maxSeconds } = resolveSessionKillResumeDelayRange({ argv, env });
+  return Math.round((minSeconds + (maxSeconds - minSeconds) * random()) * 1000);
 }
 
 /**

@@ -50,6 +50,7 @@ export const { buildClaudeResumeCommand, buildClaudeAutonomousResumeCommand, bui
 // Issue #942: buildSolveResumeCommand lives in its own module so it can be safely
 // imported from tool libraries (claude/codex/gemini) without circular imports.
 import { buildSolveResumeCommand } from './solve.resume-command.lib.mjs';
+import { isCommentByCurrentIdentity, isIntegrationForbidden } from './github-identity.lib.mjs';
 export { buildSolveResumeCommand };
 // Import error handling functions
 // const errorHandlers = await import('./solve.error-handlers.lib.mjs'); // Not currently used
@@ -58,10 +59,10 @@ const sentryLib = await import('./sentry.lib.mjs');
 const { reportError } = sentryLib;
 // Import pull request issue-link preservation helpers
 const prIssueLinking = await import('./pr-issue-linking.lib.mjs');
-const { buildIssueReference, ensureIssueLinkInPullRequestBody } = prIssueLinking;
+const { buildIssueReference } = prIssueLinking;
 
 // Issue #2119: the one place that decides whether a pull request changed anything.
-const { formatChangeSummary, getPullRequestChangeStats } = await import('./pull-request-changes.lib.mjs');
+const { formatChangesSection, getPullRequestChangeStats } = await import('./pull-request-changes.lib.mjs');
 const { buildNoChangesNotice, capWorkingSessionSummary, formatWorkingSessionSummaryMarkdown, redactWorkspacePaths } = await import('./working-session-summary.lib.mjs');
 /**
  * Placeholder patterns used to detect auto-generated PR content that was not updated by the agent.
@@ -119,49 +120,14 @@ export const buildPRNotUpdatedHint = (titleNotUpdated, descriptionNotUpdated) =>
  * @returns {Promise<{checked: boolean, updated: boolean, body: string, issueRef: string, error?: string}>}
  */
 export const ensurePullRequestIssueLink = async ({ prNumber, issueNumber, owner, repo, argv = {}, command = $, logger = log }) => {
-  if (!prNumber || !issueNumber || !owner || !repo) {
-    return { checked: false, updated: false, body: '', issueRef: buildIssueReference({ issueNumber, owner, repo, fork: argv.fork }), error: 'missing required pull request or issue data' };
-  }
-
-  let prBody = '';
-  const prBodyResult = await command`gh pr view ${prNumber} --repo ${owner}/${repo} --json body --jq .body`;
-  if (prBodyResult.code !== 0) {
-    const error = prBodyResult.stderr ? prBodyResult.stderr.toString().trim() : 'Unknown error';
-    await logger(`  ⚠️  Could not read PR body for issue link check: ${error}`);
-    return { checked: false, updated: false, body: prBody, issueRef: buildIssueReference({ issueNumber, owner, repo, fork: argv.fork }), error };
-  }
-  prBody = prBodyResult.stdout.toString();
-  const linkResult = ensureIssueLinkInPullRequestBody(prBody, {
-    issueNumber,
-    owner,
-    repo,
-    fork: argv.fork,
-  });
-
-  if (!linkResult.updated) {
-    await logger('  ✅ PR body already contains issue reference');
-    return { checked: true, updated: false, body: linkResult.body, issueRef: linkResult.issueRef };
-  }
-  await logger(`  📝 Updating PR body to link issue #${issueNumber}...`);
-  const fs = (await use('fs')).promises;
-  const tempBodyFile = `/tmp/pr-body-update-${prNumber}-${Date.now()}.md`;
-  await writeSanitizedPublicationFile(tempBodyFile, linkResult.body);
-
-  try {
-    const updateResult = await command`gh pr edit ${prNumber} --repo ${owner}/${repo} --body-file ${tempBodyFile}`;
-    await fs.unlink(tempBodyFile).catch(() => {});
-    if (updateResult.code === 0) {
-      await logger(`  ✅ Updated PR body to include "Fixes ${linkResult.issueRef}"`);
-      return { checked: true, updated: true, body: linkResult.body, issueRef: linkResult.issueRef };
-    }
-
-    const error = updateResult.stderr ? updateResult.stderr.toString().trim() : 'Unknown error';
-    await logger(`  ⚠️  Could not update PR body: ${error}`);
-    return { checked: true, updated: false, body: prBody, issueRef: linkResult.issueRef, error };
-  } catch (updateError) {
-    await fs.unlink(tempBodyFile).catch(() => {});
-    throw updateError;
-  }
+  const { repairRequiredIssueLinks } = await import('./pr-issue-link-repair.lib.mjs');
+  // Preserve the existing command-stream injection contract with separate argv.
+  const run = args => {
+    const strings = ['gh ', ...args.slice(1).map(() => ' '), ''];
+    strings.raw = [...strings];
+    return command(strings, ...args);
+  };
+  return repairRequiredIssueLinks({ prNumber, issueNumber, owner, repo, argv, run, logger });
 };
 export const verifyPullRequestIssueLinkAfterAutoRestart = async ({ prNumber, issueNumber, owner, repo, argv = {}, cleanErrorMessage = error => error.message }) => {
   if (!prNumber) {
@@ -196,8 +162,8 @@ const detectClaudeMdCommitFromBranch = async (tempDir, branchName) => {
     // First check if CLAUDE.md or .gitkeep exists in current branch
     const claudeMdExistsResult = await $({ cwd: tempDir })`git ls-files CLAUDE.md 2>&1`;
     const gitkeepExistsResult = await $({ cwd: tempDir })`git ls-files .gitkeep 2>&1`;
-    const claudeMdExists = claudeMdExistsResult.code === 0 && claudeMdExistsResult.stdout && claudeMdExistsResult.stdout.trim();
-    const gitkeepExists = gitkeepExistsResult.code === 0 && gitkeepExistsResult.stdout && gitkeepExistsResult.stdout.trim();
+    const claudeMdExists = claudeMdExistsResult.code === 0 && claudeMdExistsResult.stdout?.toString() && claudeMdExistsResult.stdout.trim();
+    const gitkeepExists = gitkeepExistsResult.code === 0 && gitkeepExistsResult.stdout?.toString() && gitkeepExistsResult.stdout.trim();
 
     if (!claudeMdExists && !gitkeepExists) {
       await log('   Neither CLAUDE.md nor .gitkeep exists in current branch', { verbose: true });
@@ -206,7 +172,7 @@ const detectClaudeMdCommitFromBranch = async (tempDir, branchName) => {
     // Get the default branch to find the fork point
     const defaultBranchResult = await $({ cwd: tempDir })`git symbolic-ref refs/remotes/origin/HEAD 2>&1`;
     let defaultBranch = 'main';
-    if (defaultBranchResult.code === 0 && defaultBranchResult.stdout) {
+    if (defaultBranchResult.code === 0 && defaultBranchResult.stdout?.toString()) {
       const match = defaultBranchResult.stdout.toString().match(/refs\/remotes\/origin\/(.+)/);
       if (match) {
         defaultBranch = match[1].trim();
@@ -216,7 +182,7 @@ const detectClaudeMdCommitFromBranch = async (tempDir, branchName) => {
 
     // Find the merge base (fork point) between current branch and default branch
     const mergeBaseResult = await $({ cwd: tempDir })`git merge-base origin/${defaultBranch} HEAD 2>&1`;
-    if (mergeBaseResult.code !== 0 || !mergeBaseResult.stdout) {
+    if (mergeBaseResult.code !== 0 || !mergeBaseResult.stdout?.toString()) {
       await log('   Could not find merge base, cannot safely detect initial commit', { verbose: true });
       return null;
     }
@@ -225,7 +191,7 @@ const detectClaudeMdCommitFromBranch = async (tempDir, branchName) => {
     // Get all commits on the PR branch (commits after the merge base)
     // Format: hash|message|files_changed
     const branchCommitsResult = await $({ cwd: tempDir })`git log ${mergeBase}..HEAD --reverse --format="%H|%s" 2>&1`;
-    if (branchCommitsResult.code !== 0 || !branchCommitsResult.stdout) {
+    if (branchCommitsResult.code !== 0 || !branchCommitsResult.stdout?.toString()) {
       await log('   No commits found on PR branch', { verbose: true });
       return null;
     }
@@ -264,7 +230,7 @@ const detectClaudeMdCommitFromBranch = async (tempDir, branchName) => {
     const filesChangedResult = await $({
       cwd: tempDir,
     })`git diff-tree --no-commit-id --name-only -r ${firstCommitHash} 2>&1`;
-    if (filesChangedResult.code !== 0 || !filesChangedResult.stdout) {
+    if (filesChangedResult.code !== 0 || !filesChangedResult.stdout?.toString()) {
       await log('   Could not get files changed in first commit', { verbose: true });
       return null;
     }
@@ -315,7 +281,7 @@ const wasFileTouchedAfterCommit = async (tempDir, commitHash, fileName) => {
 
   if (changedCommitsResult.code !== 0) {
     await log(`   Could not inspect ${fileName} changes after initial commit`, { verbose: true });
-    await log(`   git log output: ${changedCommitsResult.stderr || changedCommitsResult.stdout || 'no output'}`, { verbose: true });
+    await log(`   git log output: ${changedCommitsResult.stderr?.toString() || changedCommitsResult.stdout?.toString() || 'no output'}`, { verbose: true });
   }
   return true;
 };
@@ -357,7 +323,7 @@ export const cleanupClaudeFile = async (tempDir, branchName, claudeCommitHash = 
     if (pullResult.code === 0) {
       await log(`   Synced local branch before cleanup`, { verbose: true });
     } else {
-      throw new Error(`git pull failed (code ${pullResult.code}): ${pullResult.stdout || pullResult.stderr || 'no output'}`);
+      throw new Error(`git pull failed (code ${pullResult.code}): ${pullResult.stdout?.toString() || pullResult.stderr?.toString() || 'no output'}`);
     }
     const commitToRevert = claudeCommitHash;
     // Issue #1791: .gitkeep is a normal repository file in some projects, and
@@ -376,7 +342,7 @@ export const cleanupClaudeFile = async (tempDir, branchName, claudeCommitHash = 
     // Issue #2135: `mirror: false`. Only "is it non-empty" is asked here, and
     // the answer is a file's whole diff.
     const diffResult = await $({ cwd: tempDir, ...QUIET_PROBE })`git diff ${commitToRevert} HEAD -- ${fileName} 2>&1`;
-    if (diffResult.stdout && diffResult.stdout.trim()) {
+    if (diffResult.stdout?.toString() && diffResult.stdout.trim()) {
       // File was modified after initial commit - use manual approach to avoid conflicts
       await log(`   ${fileName} was modified after initial commit, using manual cleanup...`, { verbose: true });
 
@@ -406,7 +372,7 @@ export const cleanupClaudeFile = async (tempDir, branchName, claudeCommitHash = 
         }
       } else {
         await log('   Warning: Could not create manual revert commit', { verbose: true });
-        await log(`   Commit output: ${commitResult.stderr || commitResult.stdout}`, { verbose: true });
+        await log(`   Commit output: ${commitResult.stderr?.toString() || commitResult.stdout?.toString()}`, { verbose: true });
       }
     } else {
       // No modifications detected - safe to use git revert (standard approach)
@@ -425,14 +391,14 @@ export const cleanupClaudeFile = async (tempDir, branchName, claudeCommitHash = 
         }
       } else {
         // FALLBACK 2: Handle unexpected conflicts (three-way merge with automatic resolution)
-        const revertOutput = revertResult.stderr || revertResult.stdout || '';
+        const revertOutput = revertResult.stderr?.toString() || revertResult.stdout?.toString() || '';
         const hasConflict = revertOutput.includes('CONFLICT') || revertOutput.includes('conflict');
 
         if (hasConflict) {
           await log('   Unexpected conflict detected, attempting automatic resolution...', { verbose: true });
           // Check git status to see what files are in conflict
           const statusResult = await $({ cwd: tempDir })`git status --short 2>&1`;
-          const statusOutput = statusResult.stdout || '';
+          const statusOutput = statusResult.stdout?.toString() || '';
           // Check if the file is in the conflict
           if (statusOutput.includes(fileName)) {
             await log(`   Resolving ${fileName} conflict by restoring pre-session state...`, { verbose: true });
@@ -467,7 +433,7 @@ export const cleanupClaudeFile = async (tempDir, branchName, claudeCommitHash = 
               }
             } else {
               await log('   Warning: Could not complete revert after conflict resolution', { verbose: true });
-              await log(`   Continue output: ${continueResult.stderr || continueResult.stdout}`, { verbose: true });
+              await log(`   Continue output: ${continueResult.stderr?.toString() || continueResult.stdout?.toString()}`, { verbose: true });
             }
           } else {
             // Conflict in some other file, not expected file - this is unexpected
@@ -484,7 +450,7 @@ export const cleanupClaudeFile = async (tempDir, branchName, claudeCommitHash = 
     // Post-cleanup verification: check if the file was actually removed (Issue #1436)
     // This catches cases where revert/push succeeded in logs but file still exists
     const verifyResult = await $({ cwd: tempDir })`git ls-files ${fileName} 2>&1`;
-    const fileStillExists = verifyResult.code === 0 && verifyResult.stdout && verifyResult.stdout.trim();
+    const fileStillExists = verifyResult.code === 0 && verifyResult.stdout?.toString() && verifyResult.stdout.trim();
     if (fileStillExists) {
       // Issue #2160: the pre-existence check must come FIRST. A file that legitimately predates
       // the session is not a cleanup failure, and warning about it produced a false positive
@@ -496,7 +462,7 @@ export const cleanupClaudeFile = async (tempDir, branchName, claudeCommitHash = 
         // File didn't exist before the session — this is a real leftover, force remove it
         await log(`   ⚠️  WARNING: ${fileName} still exists after cleanup — attempting direct removal...`);
         await $({ cwd: tempDir })`git rm -f ${fileName} 2>&1`;
-        const fallbackCommit = await $({ cwd: tempDir })`git commit -m "Remove leftover ${fileName} (post-cleanup fallback, Issue #1436)" 2>&1`;
+        const fallbackCommit = await $({ cwd: tempDir })`git commit -m "Remove leftover ${fileName} (post-cleanup fallback)" 2>&1`;
         if (fallbackCommit.code === 0) {
           const fallbackPush = await $({ cwd: tempDir })`git push origin ${branchName} 2>&1`;
           if (fallbackPush.code === 0) {
@@ -691,12 +657,20 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
     // Get the current user's GitHub username
     const userResult = await $(QUIET_PROBE)`gh api user --jq .login`;
 
+    let currentUser = null;
     if (userResult.code !== 0) {
-      throw new Error(`Failed to get current user: ${userResult.stderr ? userResult.stderr.toString() : 'Unknown error'}`);
-    }
-    const currentUser = userResult.stdout.toString().trim();
-    if (!currentUser) {
-      throw new Error('Unable to determine current GitHub user');
+      const userError = userResult.stderr?.toString() || '';
+      // Issue #2625: installation tokens (GITHUB_TOKEN) cannot read GET /user;
+      // the PR search does not need a login and comments are matched by app.
+      if (!isIntegrationForbidden(userError)) {
+        throw new Error(`Failed to get current user: ${userError || 'Unknown error'}`);
+      }
+      await log('  ℹ️  Integration token cannot read the authenticated user; matching comments written by the app', { verbose: true });
+    } else {
+      currentUser = userResult.stdout.toString().trim();
+      if (!currentUser) {
+        throw new Error('Unable to determine current GitHub user');
+      }
     }
 
     // Search for pull requests created from our branch
@@ -758,7 +732,7 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
             if (titleResult.code === 0) {
               await log(`  ✅ Updated PR title to: "${updatedTitle}"`);
             } else {
-              await log(`  ⚠️  Could not update PR title: ${titleResult.stderr ? titleResult.stderr.toString().trim() : 'Unknown error'}`);
+              await log(`  ⚠️  Could not update PR title: ${titleResult.stderr?.toString() ? titleResult.stderr.toString().trim() : 'Unknown error'}`);
             }
           }
 
@@ -782,12 +756,13 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
             // Build new description
             const fs = (await use('fs')).promises;
             const issueRef = buildIssueReference({ issueNumber, owner, repo, fork: argv.fork });
+            // Issue #2492: an empty diff implements nothing, so do not say it does.
+            const summaryLine = changeStats.hasChanges ? `This pull request implements a solution for ${issueRef}: ${issueTitle}` : `This pull request is for ${issueRef}: ${issueTitle}. It has no changes yet.`;
             const newDescription = `## Summary
 
-This pull request implements a solution for ${issueRef}: ${issueTitle}
+${summaryLine}
 
-### Changes
-${formatChangeSummary(changeStats)}
+${formatChangesSection(changeStats)}
 
 ### Issue Reference
 Fixes ${issueRef}
@@ -802,14 +777,18 @@ Fixes ${issueRef}
 
               if (descResult.code === 0) {
                 await log(`  ✅ Updated PR description with solution summary`);
+                await ensurePullRequestIssueLink({ owner, repo, issueNumber, prNumber: pr.number, argv });
               } else {
-                await log(`  ⚠️  Could not update PR description: ${descResult.stderr ? descResult.stderr.toString().trim() : 'Unknown error'}`);
+                await log(`  ⚠️  Could not update PR description: ${descResult.stderr?.toString() ? descResult.stderr.toString().trim() : 'Unknown error'}`);
               }
             } catch (descError) {
               await fs.unlink(tempBodyFile).catch(() => {});
               await log(`  ⚠️  Error updating PR description: ${descError.message}`);
             }
           }
+          // Issue #2549: a description the agent wrote is left as it is.
+          // Only the placeholder above is replaced; issue links are repaired
+          // separately. No generated "Changes" section is appended to it.
           // Check if PR is ready for review (convert from draft if necessary).
           // Issue #2182: this used to be an inline `gh pr ready` that bypassed
           // pr-draft-state.lib.mjs, so it neither skipped merged/closed PRs nor cleared the
@@ -906,15 +885,17 @@ Fixes ${issueRef}
 
     const allComments = JSON.parse(allCommentsResult.stdout.toString().trim() || '[]');
     // Filter for new comments by current user
-    const newCommentsByUser = allComments.filter(comment => comment.user.login === currentUser && new Date(comment.created_at) > referenceTime);
+    const newCommentsByUser = allComments.filter(comment => isCommentByCurrentIdentity(comment, currentUser) && new Date(comment.created_at) > referenceTime);
 
     if (newCommentsByUser.length > 0) {
       const lastComment = newCommentsByUser[newCommentsByUser.length - 1];
-      await log(`  ✅ Found new comment by ${currentUser}`);
+      await log(`  ✅ Found new comment by ${currentUser || lastComment.user?.login}`);
       // Upload log file to issue if requested
+      // Issue #2492: report and return the real upload result instead of assuming success.
+      let issueLogUploaded = false;
       if (shouldAttachLogs) {
         await log('\n📎 Uploading solution draft log to issue...');
-        await attachLogToGitHub({
+        issueLogUploaded = await attachLogToGitHub({
           logFile: getLogFile(),
           targetType: 'issue',
           targetNumber: issueNumber,
@@ -947,7 +928,7 @@ Fixes ${issueRef}
       await log('\n💬 SUCCESS: Comment posted on issue');
       await log(`📍 URL: ${lastComment.html_url}`);
       if (shouldAttachLogs) {
-        await log('📎 Solution draft log has been attached to the issue');
+        await log(issueLogUploaded ? '📎 Solution draft log has been attached to the issue' : '⚠️  Solution draft log could not be attached to the issue');
       }
       await log('\n✨ A clarifying comment has been added to the issue.');
       // Don't exit if watch mode is enabled OR if auto-restart is needed for uncommitted changes
@@ -957,7 +938,7 @@ Fixes ${issueRef}
         await safeExit(0, 'Process completed successfully');
       }
       // Issue #1154: Return logUploadSuccess to prevent duplicate log uploads
-      return { logUploadSuccess: true }; // Return for watch mode or auto-restart
+      return { logUploadSuccess: !shouldAttachLogs || Boolean(issueLogUploaded) }; // Return for watch mode or auto-restart
     } else if (allComments.length > 0) {
       await log(`  ℹ️  Issue has ${allComments.length} existing comment(s)`);
     } else {
@@ -985,7 +966,7 @@ Fixes ${issueRef}
       issueNumber,
       operation: 'search_for_pr',
     });
-    await log('\n⚠️  Could not verify results:', searchError.message);
+    await log(`\n⚠️  Could not verify results: ${searchError.message}`);
     await log('\n💡 Check the log file for details:');
     // Always use absolute path for log file display
     const checkLogPath = path.resolve(getLogFile());
@@ -1042,11 +1023,13 @@ export const handleExecutionError = async (error, shouldAttachLogs, owner, repo,
     }
   }
 
-  // If --auto-close-pull-request-on-fail is enabled, close the PR
+  // If --auto-close-pull-request-on-fail is enabled, close the PR.
+  // Issue #2492: the close comment no longer says "Logs have been attached" -
+  // that was posted even without --attach-logs or after a failed upload.
   if (argv.autoClosePullRequestOnFail && global.createdPR && global.createdPR.number) {
     await log('\n🔒 Auto-closing pull request due to failure...');
     try {
-      const result = await $`gh pr close ${global.createdPR.number} --repo ${owner}/${repo} --comment "Auto-closed due to execution failure. Logs have been attached for debugging."`;
+      const result = await $`gh pr close ${global.createdPR.number} --repo ${owner}/${repo} --comment "Auto-closed due to execution failure."`;
       if (result.exitCode === 0) {
         await log('✅ Pull request closed successfully');
       } else {
@@ -1131,13 +1114,11 @@ export const attachSolutionSummary = async ({ resultSummary, prNumber, issueNumb
     // summary said "The `pwd` command completed" and printed the solver's own
     // /tmp workspace, on a pull request that was still empty.
     const noChangesNotice = buildNoChangesNotice(changeStats);
-    // Issue #2247 (H8): an oversized summary is folded into a `<details>` block
-    // and the overflow is left to the session log. The Scala run published a
-    // ~13 KB plan record - with the whole request prompt inside it - once per
-    // session, six times on one pull request.
+    // Issue #2492: the summary is always shown in full (no `<details>` fold).
+    // It is cut only past GitHub's comment size limit, pointing to the log.
     const capped = capWorkingSessionSummary(formatWorkingSessionSummaryMarkdown(redactWorkspacePaths(resultSummary)), { logUrl });
-    if (capped.folded) {
-      await log(`📏 Working session summary folded into a <details> block${capped.omittedCharacters > 0 ? ` (${capped.omittedCharacters} characters left to the session log)` : ''}`, { verbose: true });
+    if (capped.truncated) {
+      await log(`📏 Working session summary cut to fit GitHub's comment limit (${capped.omittedCharacters} characters left to the session log)`, { verbose: true });
     }
     const summaryBody = capped.body;
 

@@ -42,6 +42,10 @@ export { isUnknownDockerExitCode, parseSessionExitFooter, parseSessionListOutput
 // resume/attach wrappers can use them without importing this runner (a cycle).
 import { findStartCommandBinary, getCommandStreamDollar } from './start-command-cli.lib.mjs';
 export { findStartCommandBinary };
+// Issue #2408: version gate for resume behaviour that changed in start 0.35.0,
+// and the `docker update` limits helper a snapshot resume re-asserts.
+export { getStartCommandVersion } from './start-command-cli.lib.mjs';
+export { applyDockerContainerResourceLimits };
 import { killDockerContainer } from './docker-container-control.lib.mjs';
 export { killDockerContainer };
 // Issue #2189: `$ --resume` / `$ --resume-all`, added in start-command 0.33.0

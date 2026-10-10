@@ -31,8 +31,10 @@ import { getCumulativeContextInputTokens, toTokenCount } from './context-fill.li
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
 import { getTerminalEventCompletionHealth } from './tool-run-health.lib.mjs'; // Issue #1990
 import { takeJsonRecords } from './json-stream.lib.mjs'; // Issue #2119
+import { createToolCallLoopGuard, resolveRepeatedToolCallLimit } from './tool-call-loop-guard.lib.mjs'; // Issue #2316, #2395
 import { ensureGeminiFamilyMemoryDisabled, isAgentMemoryDisabled } from './agent-memory-policy.lib.mjs'; // Issue #2178
 import { ensureGeminiFamilyAuxiliaryDisabled, isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236
+import { applyGeminiFamilyPricingTier } from './pricing-tier.lib.mjs'; // Issue #2771
 
 const shellQuote = value => `"${String(value).replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
 
@@ -429,8 +431,11 @@ export const executeGeminiCommand = async params => {
     if (isAgentMemoryDisabled(argv)) await ensureGeminiFamilyMemoryDisabled({ tool: 'gemini', log });
     // Issue #2236: Gemini's next-speaker probe and LLM tool-call correction are both extra
     // calls in a run nobody is watching; compaction (model.compressionThreshold)
-    // is deliberately left alone.
+    // is set separately below (issue #2771).
     if (isAuxiliaryModelCallsDisabled(argv)) await ensureGeminiFamilyAuxiliaryDisabled({ tool: 'gemini', log });
+    // Issue #2771: keep compaction (model.compressionThreshold) below the long-context price
+    // cliff, honouring --sub-session-size.
+    await applyGeminiFamilyPricingTier({ tool: 'gemini', argv, modelId: mappedModel, log });
     // Issue #2130: Formal AI runs the native CLI against a local Formal AI server (no argv wrapper).
     const toolInvocation = await resolveFormalAiToolExecution({ tool: 'gemini', model: argv.model || defaultModels.gemini, toolPath: geminiPath, workdir: tempDir, log, verbose: argv.verbose, prepareOnly: isPrepareOnly(argv) });
     const geminiEnv = { ...process.env, ...toolInvocation.env };
@@ -478,12 +483,14 @@ export const executeGeminiCommand = async params => {
 
       await log(`\n${formatAligned('▶️', 'Streaming output:', '')}\n`);
 
+      const toolCallLoopGuard = createToolCallLoopGuard({ log, limit: resolveRepeatedToolCallLimit({ argv }), stopSession: async () => execCommand?.kill?.('SIGTERM') }); // Issue #2316; opt-in since #2395
       for await (const chunk of execCommand.stream()) {
         if (chunk.type === 'stdout') {
           const output = chunk.data.toString();
           await log(output, { stream: 'stdout' });
           allOutput += output;
           geminiJsonState = parseGeminiJsonOutput(output, geminiJsonState, mappedModel);
+          await toolCallLoopGuard.observeOutput(output);
           if (geminiJsonState.sessionId) {
             sessionId = geminiJsonState.sessionId;
           }

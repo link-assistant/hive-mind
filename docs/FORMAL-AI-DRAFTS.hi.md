@@ -51,18 +51,15 @@ Formal-AI-Pull-Request: https://github.com/link-assistant/hive-mind/pull/<n>
 3. **खराब ड्राफ़्ट बंद कर दिया जाता है, और दोष मेटा-एल्गोरिदम पर दर्ज होता है।** ब्रांच पर पैच नहीं लगाया जाता। नए issue में जिस प्रश्न का उत्तर देना है वह है "एल्गोरिदम ने यह क्यों बनाया", न कि "मैं इस diff को सही कैसे करूँ"। नए issue से बंद किए गए ड्राफ़्ट और उसके सत्र लॉग को लिंक करें।
 4. **ड्राफ़्ट ब्रांच पर कभी कोई मानव कमिट नहीं आता।** मानव कमिट उस ब्रांच को साक्ष्य के रूप में बेकार कर देता है: फिर यह नहीं कहा जा सकता कि मॉडल ने क्या बनाया। यदि किसी ब्रांच को मानव कमिट चाहिए, तो उसे एक अलग ब्रांच होना चाहिए।
 
-ड्राफ़्ट को `formal-ai-draft` लेबल और उसकी ब्रांच के नाम `issue-<number>-<suffix>` से पहचाना जा सकता है।
+ड्राफ़्ट को `formal-ai-draft` लेबल (न होने पर workflow इसे पहली बार में बना देता है) और उसकी ब्रांच के नाम `issue-<number>-<suffix>` से पहचाना जा सकता है।
 
 ## सेटअप
 
-| नाम                     | प्रकार             | आवश्यक | उद्देश्य                                                                                                       |
-| ----------------------- | ------------------ | ------ | -------------------------------------------------------------------------------------------------------------- |
-| `FORMAL_AI_DRAFT_TOKEN` | Secret             | हाँ    | ब्रांच और pull request खोलता है, और issue पढ़ता है।                                                            |
-| `FORMAL_AI_DRAFT_IMAGE` | रिपॉज़िटरी वेरिएबल | नहीं   | इमेज बदल देता है। डिफ़ॉल्ट `konard/hive-mind:latest`; ड्राफ़्ट को पुनरुत्पाद्य बनाने हेतु रिलीज़ टैग पिन करें। |
+किसी credential setup की आवश्यकता नहीं है। सभी write workflows एक resolver का उपयोग करते हैं: GitHub App (`AUTOMATION_APP_ID` variable और `AUTOMATION_APP_PRIVATE_KEY` secret) → एक `AUTOMATION_TOKEN` secret → built-in `github.token`। पहला उपलब्ध layer चुना जाता है। व्यक्तिगत token को contents, issues, pull requests और Actions write permissions चाहिए। `FORMAL_AI_DRAFT_IMAGE` वैकल्पिक variable है।
 
-`FORMAL_AI_DRAFT_TOKEN` एक personal access token होना चाहिए, `GITHUB_TOKEN` नहीं। `GITHUB_TOKEN` से खोला गया pull request `pull_request` वर्कफ़्लो को ट्रिगर नहीं करता, इसलिए उसकी जाँचें कभी चलेंगी ही नहीं — और जो ड्राफ़्ट लाल हो ही नहीं सकता, वह "किसी बाद के सफल रन तक खुला और लाल" नहीं रह सकता। इसे `repo` स्कोप चाहिए (fine-grained टोकन पर `contents`, `pull_requests` और `issues` की लेखन अनुमति)।
+Default token से बने pull request की जाँच approval की प्रतीक्षा कर सकती है। Draft workflow तुरंत `dispatch-checks` से draft branch पर `mode=checks` के साथ `release.yml`, `security.yml`, `links.yml` और `workflows.yml` चलाता है। Release के लिए स्पष्ट release mode और `main` branch चाहिए। वैकल्पिक credentials न होने पर प्रयास नहीं छोड़ा जाता; summary में layer दिखता है। दैनिक health check पिछले सात दिनों के वास्तविक प्रयास गिनता है।
 
-secret के बिना वर्कफ़्लो विफल होने के बजाय **छोड़ देता है**, और कारण job लॉग में छाप देता है। इससे fork और बिना कॉन्फ़िगर किए गए क्लोन हरे बने रहते हैं।
+Shared actions अभी प्रकाशित नहीं हैं: [link-foundation/.github#1](https://github.com/link-foundation/.github/issues/1)। फिलहाल `.github/actions/` में compatible local actions हैं।
 
 ## बाहर निकलना, और दोबारा चलाना
 

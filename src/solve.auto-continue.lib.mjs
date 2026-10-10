@@ -24,6 +24,7 @@ const { log, cleanErrorMessage } = lib;
 
 // Import exit handler
 import { safeExit } from './exit-handler.lib.mjs';
+import { exitCodeFromChildClose } from './session-status.lib.mjs';
 
 // Import branch name validation functions
 const branchLib = await import('./solve.branch.lib.mjs');
@@ -44,10 +45,6 @@ const { formatResetTimeWithRelative } = usageLimitLib;
 // Import Sentry integration
 const sentryLib = await import('./sentry.lib.mjs');
 const { reportError } = sentryLib;
-
-// Import GitHub linking detection library
-const githubLinking = await import('./github-linking.lib.mjs');
-const { extractLinkedIssueNumber } = githubLinking;
 
 // Import configuration
 import { autoContinue, limitReset } from './config.lib.mjs';
@@ -238,8 +235,12 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
     // return from this function and continue executing verifyResults() and
     // startAutoRestartUntilMergeable(), causing confusing comment ordering.
     await new Promise(resolve => {
-      child.on('close', code => {
-        process.exit(code);
+      child.on('close', (code, signal) => {
+        // Issue #2408: a signal death has code null, and process.exit(null)
+        // exits 0 — the bot would then never see the OOM kill of the child.
+        const exitCode = exitCodeFromChildClose(code, signal);
+        if (signal) console.error(`❌ Resumed solve process was killed by ${signal}; exiting with ${exitCode}`);
+        process.exit(exitCode);
         resolve(); // Won't be reached due to process.exit, but included for completeness
       });
     });
@@ -463,7 +464,7 @@ export const processPRMode = async (isPrUrl, urlNumber, owner, repo, argv) => {
             shouldAttachLogs: argv.attachLogs || argv['attach-logs'],
           });
         } else {
-          await log(`Error: ${prResult.stderr || 'Unknown error'}`, { level: 'error' });
+          await log(`Error: ${prResult.stderr?.toString() || 'Unknown error'}`, { level: 'error' });
         }
 
         await safeExit(1, 'Auto-continue failed');
@@ -481,7 +482,9 @@ export const processPRMode = async (isPrUrl, urlNumber, owner, repo, argv) => {
       // Extract issue number from PR body using GitHub linking detection library
       // This ensures we only detect actual GitHub-recognized linking keywords
       const prBody = prData.body || '';
-      const extractedIssueNumber = extractLinkedIssueNumber(prBody);
+      // Issue #2563: the branch name is a hint, the description's same-repository closing reference wins over a foreign or missing branch issue.
+      const { resolvePullRequestPrimaryIssue } = await import('./issue-link-verification.lib.mjs');
+      const extractedIssueNumber = await resolvePullRequestPrimaryIssue({ owner, repo, body: prBody, branch: prBranch, log });
 
       if (extractedIssueNumber) {
         issueNumber = extractedIssueNumber;
@@ -490,8 +493,8 @@ export const processPRMode = async (isPrUrl, urlNumber, owner, repo, argv) => {
         // If no linked issue found, we can still continue but warn
         await log('⚠️  Warning: No linked issue found in PR body', { level: 'warning' });
         await log('   The PR should contain "Fixes #123" or similar to link an issue', { level: 'warning' });
-        // Set issueNumber to PR number as fallback
-        issueNumber = prNumber;
+        // A PR number is not an issue identity. Preserve PR-only workflows.
+        issueNumber = null;
       }
     } catch (error) {
       reportError(error, {

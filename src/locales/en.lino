@@ -350,6 +350,7 @@ en
       last
         rate
           limit "Last 429: {{method}}"
+        refusal "Last 429: {{method}}, {{ago}} ago"
       observed
         limit "observed limit"
       peak "peak {{peak}}"
@@ -357,7 +358,9 @@ en
         limit
           responses "429 responses since startup: {{count}}"
       requests "{{used}}/{{limit}} requests"
+      restraint "Held back by the bot: {{delayed}} delayed, {{held}} skipped, {{retried}} retried"
       retry
+        after "retry_after {{duration}}"
         in "retry in {{duration}}"
       scope
         broadcast "messages to all chats, 1s"
@@ -605,7 +608,7 @@ en
         label "*/merge* - Merge queue (experimental)"
         usage "Usage: `/merge <github-repo-url>`"
         description "Merges all PRs with 'ready' label sequentially."
-      subscribe "*/subscribe* / */unsubscribe* - 🔔 Get private DM forward of /solve completion (experimental, #1688)"
+      subscribe "*/subscribe* / */unsubscribe* - 🔔 Get private DM forward of /solve completion (experimental)"
       help "*/help* - Show this help message"
       stop
         start "*/stop* / */start* - Stop or resume accepting new tasks (owner only)"
@@ -631,7 +634,7 @@ en
         option "• `--verbose` or `-v` - Verbose output | `--attach-logs` - Attach logs to PR"
       show
         limits
-          option "• `--show-limits` - Experimental: embed Claude/Codex usage at start, end and delta (#594)"
+          option "• `--show-limits` - Experimental: embed Claude/Codex usage at start, end and delta"
       tip "💡 *Tip:* Many more options available. See full documentation for complete list."
       restricted
         mode "🔒 *Restricted Mode:* Authorized: {{authorized}}"
@@ -655,7 +658,7 @@ en
       label "Reason"
     did
       you
-        mean "💡 Did you mean: `{{suggestion}}`"
+        mean "💡 Did you mean `{{suggestion}}`?"
     missing
       github
         url "Missing GitHub URL. Usage: /{{commandName}} <github-url> [options]"
@@ -674,6 +677,8 @@ en
         starting "🔄 Starting..."
         executing "⏳ Executing..."
         finished "Work session finished successfully"
+        hive_no_work "No issues processed; check the log for skipped issues or blockers. To continue issues with existing PRs, use `--no-skip-issues-with-prs --auto-continue`"
+        hive_incomplete "Hive session ended with issues still waiting; check the log for blockers"
         failed "Work session failed (exit code: {{exitCode}})"
         merged_but_failed "Pull request merged, but the work session exited with code: {{exitCode}}"
         merged_success "The requested pull request was merged successfully."
@@ -681,10 +686,15 @@ en
         killed "Work session {{reason}}{{exitSuffix}}"
         stopped "Work session stopped by user{{requestedBy}}{{exitSuffix}}"
         not_launched "The work session was not launched, so it has no log and is not listed by `--list`."
+        recovering "Work session still in progress: recovering from exit code {{exitCode}}"
+        recovered "Work session finished successfully after automatic recovery"
+        recoveries "automatic recoveries: {{count}}"
     duration
       label "Duration"
     session
       label "Session"
+      recovery
+        label "Recovery session"
       recovered
         oom "recovered from out of memory"
         kill "recovered from forced kill"
@@ -692,6 +702,8 @@ en
         resumed "A new working session was started to recover from the kill."
       kill
         cause "Cause"
+        event "Event"
+        event_diagnostics "Container OOM event diagnostics (not the cause of this stop)"
         diagnostics "Kill diagnostics"
         resumed "🔄 A new working session was started to recover from this kill: {{sessionId}}"
         resumed_attempt "🔄 A new working session was started to recover from this kill (attempt {{attempt}}): {{sessionId}}"
@@ -699,6 +711,7 @@ en
       label "Isolation"
     execution
       label "Execution"
+      earlier "earlier logs"
     error
       executing
         command "❌ Error executing {{commandName}} command"

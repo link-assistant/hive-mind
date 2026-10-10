@@ -19,7 +19,7 @@
  */
 
 const { classifyMergeError, MAX_CONSECUTIVE_MERGE_FAILURES } = await import('./merge-error-classification.lib.mjs');
-const { ensurePullRequestIsReady } = await import('./pr-draft-state.lib.mjs');
+const { ensurePullRequestIsReady, getPullRequestLeftInDraft } = await import('./pr-draft-state.lib.mjs');
 
 export { MAX_CONSECUTIVE_MERGE_FAILURES };
 
@@ -71,6 +71,30 @@ export const evaluateWatchTimeout = ({ watchTimeoutHours, watchStartedAt, now, c
 };
 
 /**
+ * Issue #2312: the feedback a deliberate draft hands to the next AI session.
+ *
+ * A deliberate draft is the verdict of the previous working session ("no changes",
+ * "the session failed"), so the next session must hear that verdict, not the
+ * generic "the PR is a draft".
+ *
+ * @param {{kind: string, reason: (string|null)}} deliberate
+ * @returns {{restartReason: string, feedbackLines: string[]}}
+ */
+export const buildDeliberateDraftFeedback = deliberate => {
+  if (deliberate?.kind === 'no_changes') {
+    return {
+      restartReason: 'The previous working session produced no changes',
+      feedbackLines: ['📭 The previous working session produced no changes: the pull request diff against the base branch is empty.', '', 'Implement the requested change and commit it to the pull request branch. Do not report the work as done while the diff is empty.'],
+    };
+  }
+  const reason = deliberate?.reason || 'the solution session failed or verification did not succeed';
+  return {
+    restartReason: `The previous working session failed: ${reason}`,
+    feedbackLines: ['🛑 The previous working session failed:', `  ${reason}`, '', 'Find the cause of this failure, fix it, and commit the fix to the pull request branch. Do not repeat the same steps unchanged.'],
+  };
+};
+
+/**
  * React to a pull request that is still a draft while no AI session is running.
  *
  * GitHub answers mergeable=MERGEABLE / mergeStateStatus=CLEAN for such a pull
@@ -78,11 +102,24 @@ export const evaluateWatchTimeout = ({ watchTimeoutHours, watchStartedAt, now, c
  * "Pull Request is still a draft" on every single check, which is exactly the
  * 2692-iteration loop reported in #2182.
  *
+ * Issue #2312: a draft this process left on purpose (empty diff, failed session)
+ * is not a leftover to heal. `ensurePullRequestIsReady` answers it with
+ * `left_in_draft_on_purpose`, which the guard used to count as "Draft restored";
+ * three such fake restores stopped the run with `draft_pull_request` and no AI
+ * session was ever restarted. Such a draft now asks the loop to `restart` the AI
+ * with the verdict as feedback, and only a real conversion counts as a restore.
+ *
  * @param {Object} options
  * @param {{draftSelfHealCount: number}} options.state - mutable loop state
- * @returns {Promise<{action: 'stop'|'retry'|'continue', reason?: string}>}
+ * @returns {Promise<{action: 'stop'|'retry'|'continue'|'restart', reason?: string, deliberate?: Object}>}
  */
-export const resolveDraftBlocker = async ({ owner, repo, prNumber, $, log, formatAligned, reportError, reportAutomationStop, verbose, state }) => {
+export const resolveDraftBlocker = async ({ owner, repo, prNumber, $, log, formatAligned, reportError, reportAutomationStop, verbose, state, ensureReady = ensurePullRequestIsReady }) => {
+  const deliberate = getPullRequestLeftInDraft({ owner, repo, prNumber });
+  if (deliberate) {
+    await log(formatAligned('📝', 'PR is a draft:', `left in draft by the last working session (${deliberate.reason || deliberate.kind}) - restarting the AI session`, 2), { level: 'warning' });
+    return { action: 'restart', reason: deliberate.kind, deliberate };
+  }
+
   await log(formatAligned('📝', 'PR is a draft:', 'no AI session is running - restoring "ready for review"', 2), { level: 'warning' });
 
   if (state.draftSelfHealCount >= MAX_DRAFT_SELF_HEALS) {
@@ -92,14 +129,19 @@ export const resolveDraftBlocker = async ({ owner, repo, prNumber, $, log, forma
     return { action: 'stop', reason: 'draft_pull_request' };
   }
 
-  state.draftSelfHealCount++;
-  const readyResult = await ensurePullRequestIsReady({ owner, repo, prNumber, $, log, formatAligned, reason: 'auto-restart-until-mergeable: draft blocks the merge', reportError });
-  if (readyResult?.ok) {
+  const readyResult = await ensureReady({ owner, repo, prNumber, $, log, formatAligned, reason: 'auto-restart-until-mergeable: draft blocks the merge', reportError });
+  // Only a real conversion (or GitHub already reporting "ready") is a restore.
+  if (readyResult?.ok && (readyResult.changed || readyResult.reason === 'already_in_target_state')) {
+    state.draftSelfHealCount++;
     await log(formatAligned('✅', 'Draft restored:', `PR #${prNumber} is ready for review again (attempt ${state.draftSelfHealCount}/${MAX_DRAFT_SELF_HEALS})`, 2));
     return { action: 'retry' };
   }
+  const leftOnPurpose = getPullRequestLeftInDraft({ owner, repo, prNumber });
+  if (leftOnPurpose) {
+    return { action: 'restart', reason: leftOnPurpose.kind, deliberate: leftOnPurpose };
+  }
 
-  await log(formatAligned('⚠️', 'Draft restore failed:', readyResult?.error || 'unknown error', 2), { level: 'warning' });
+  await log(formatAligned('⚠️', 'Draft restore failed:', readyResult?.error || readyResult?.reason || 'unknown error', 2), { level: 'warning' });
   return { action: 'continue' };
 };
 

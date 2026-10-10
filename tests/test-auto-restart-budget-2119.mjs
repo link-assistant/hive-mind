@@ -37,10 +37,24 @@ const makeFake$ = (statusOutput = '') => {
     calls.push(cmd);
     if (cmd.includes('git status')) return { code: 0, stdout: statusOutput, stderr: '' };
     if (cmd.includes('gh api')) return { code: 0, stdout: '{"id":1}', stderr: '' };
+    // Issue #2315: the work is snapshotted into a private index and committed to recovery/<branch>.
+    if (cmd.includes('write-tree')) return { code: 0, stdout: 'a1b2c3', stderr: '' };
+    if (cmd.includes('HEAD^{tree}')) return { code: 0, stdout: 'f0e0d0', stderr: '' };
+    if (cmd.includes('commit-tree')) return { code: 0, stdout: 'c0ffee00c0ffee00', stderr: '' };
     return { code: 0, stdout: '', stderr: '' };
   };
   fake.calls = calls;
   return fake;
+};
+
+// Posting the recovery comment also asks the publication sanitizer for active
+// credentials. Mock that command source as well as the injected recovery `$`;
+// otherwise this unit test silently runs a live `gh auth status` network probe.
+const originalUse = globalThis.use;
+const credentialProbe$ = makeFake$();
+globalThis.use = async name => {
+  if (name.replace(/@\d[^/]*$/, '') === 'command-stream') return { $: credentialProbe$ };
+  return originalUse ? originalUse(name) : import(name);
 };
 
 // --- the budget is shared, not per-subsystem --------------------------------
@@ -103,6 +117,10 @@ assert.equal(failure.reason, AUTO_RESTART_LIMIT_REACHED_REASON, 'the run reports
 assert.equal(failure.iterationsUsed, 5, 'the failure reports the run-wide iteration count');
 assert.equal(failure.committed, true, 'fail recovery auto-commits the uncommitted work');
 assert.equal(failure.pushed, true, 'fail recovery pushes it so the result is visible');
+assert.ok(
+  credentialProbe$.calls.some(command => command.includes('gh auth status')),
+  'credential discovery uses the mock instead of a live network probe'
+);
 assert.ok(
   dirty$.calls.some(c => c.includes('git commit')),
   'a real commit was made'

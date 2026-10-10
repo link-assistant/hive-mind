@@ -56,7 +56,7 @@ try {
 
     if (defaultBranchResult.code !== 0) {
       console.error('Error: Failed to get repository information');
-      console.error(defaultBranchResult.stderr ? defaultBranchResult.stderr.toString() : 'Unknown error');
+      console.error(defaultBranchResult.stderr?.toString() ? defaultBranchResult.stderr.toString() : 'Unknown error');
       process.exit(1);
     }
 
@@ -108,11 +108,11 @@ EOF`;
 
   if (protectResult.code !== 0) {
     // Check if it's already protected
-    if (protectResult.stderr && protectResult.stderr.toString().includes('Branch protection is disabled')) {
+    if (protectResult.stderr?.toString() && protectResult.stderr.toString().includes('Branch protection is disabled')) {
       console.warn('⚠️  Branch protection might require admin permissions or a paid plan');
     } else {
       console.error('Error: Failed to enable branch protection');
-      console.error(protectResult.stderr ? protectResult.stderr.toString() : 'Unknown error');
+      console.error(protectResult.stderr?.toString() ? protectResult.stderr.toString() : 'Unknown error');
     }
 
     // Try a simpler approach for public repos

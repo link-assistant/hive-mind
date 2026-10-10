@@ -5,13 +5,12 @@
 
 import { getArchitectureCareSubPrompt } from './architecture-care.prompts.lib.mjs';
 import { getUpdateAllDependenciesSubPrompt } from './update-dependencies.prompts.lib.mjs';
+import { getReportDependenciesIssuesSubPrompt } from './report-dependencies-issues.prompts.lib.mjs';
 import { getExperimentsExamplesSubPrompt } from './experiments-examples.prompts.lib.mjs';
 import { getThinkingPromptInstruction } from './thinking-prompt.lib.mjs';
 import { buildWorkLanguageDirective } from './work-language.prompts.lib.mjs';
 import { buildRequestedBaseBranchDirective } from './solve-option-contract.prompts.lib.mjs';
 import { buildIssueResearchPrompt } from './deep-analysis.lib.mjs';
-import { buildFormalAiRepositoryPrompt } from './formal-ai-prompt.lib.mjs';
-import { isFormalAiModel } from './formal-ai-model.lib.mjs';
 
 /**
  * Build the user prompt for OpenCode
@@ -19,9 +18,6 @@ import { isFormalAiModel } from './formal-ai-model.lib.mjs';
  * @returns {string} The formatted user prompt
  */
 export const buildUserPrompt = params => {
-  const formalAiPrompt = buildFormalAiRepositoryPrompt(params);
-  if (formalAiPrompt !== null) return formalAiPrompt;
-
   const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv } = params;
 
   const promptLines = [];
@@ -97,10 +93,6 @@ export const buildUserPrompt = params => {
  */
 export const buildSystemPrompt = params => {
   const { owner, repo, issueNumber, prNumber, branchName, workspaceTmpDir, argv, modelSupportsVision, forkedRepo } = params;
-
-  // Issue #2158: keep caller workflow instructions out of Formal AI's task
-  // classifier. Formal AI provides its own execution policy.
-  if (isFormalAiModel(argv?.model)) return '';
 
   // When in fork mode, screenshots are pushed to the fork, not the original repo
   const screenshotRepoPath = argv?.fork && forkedRepo ? forkedRepo : `${owner}/${repo}`;
@@ -280,7 +272,7 @@ Visual UI work and screenshots.
    - When the fix is visual, include side-by-side or sequential comparison of before/after states in the PR description.
    - When possible, create automated visual regression tests to prevent the UI bug from recurring.`
        : ''
-   }${ciExamples}${getArchitectureCareSubPrompt(argv)}${getUpdateAllDependenciesSubPrompt(argv)}${buildWorkLanguageDirective()}`;
+   }${ciExamples}${getArchitectureCareSubPrompt(argv)}${getUpdateAllDependenciesSubPrompt(argv)}${getReportDependenciesIssuesSubPrompt(argv)}${buildWorkLanguageDirective()}`;
 };
 
 // Export all functions as default object too

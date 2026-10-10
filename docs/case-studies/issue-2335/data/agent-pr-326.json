@@ -1,0 +1,47 @@
+{
+  "baseRefName": "main",
+  "body": "Agent's bash tool could not initialize its parser with `web-tree-sitter@0.27.0` because it imported the WASM filename removed in 0.26. It now resolves the current WASM export and falls back to the 0.25 export, with real parser and permission enforcement tests for both versions.\n\nRelated to #322. **The OpenTUI blocker remains, so this PR does not close #322 or lift the `0.25.10` pin.**\n\n## Changes\n\n- Load the renamed WASM asset while retaining the runtime currently supported by OpenTUI. Verify that an allowed command executes and denied commands in chains and command substitutions are rejected before executing.\n- Add a packed-package regression script to the Ubuntu CI job. It installs temporary Agent packages with `0.25.10` and `0.27.0`, checks their peers, and runs the actual bash tool tests without AI API calls.\n- Upgrade both OpenTUI packages to `0.5.13`, refresh newly released direct patches required by the freshness check, and refresh both lockfiles. Resolve the initial audit failure with patched `brace-expansion` and `ip-address` versions.\n- Extend the existing patch changeset and document the upstream evidence and remaining acceptance criteria in [the investigation](https://github.com/link-assistant/agent/blob/issue-322-a819429ebc4d/experiments/issue-322/README.md).\n\n## Reproduction\n\nRun `bun experiments/issue-322/verify-bash-parser.mjs` from the repository root. Before the change, the three functional tests passed with `0.25.10` and failed with `0.27.0`: `Cannot find module 'web-tree-sitter/tree-sitter.wasm'`. After the change, all four tests pass with both versions.\n\nThe production package installs without incorrect-peer warnings and `npm ls web-tree-sitter --all` succeeds. The experimental `0.27.0` package still reports an incorrect OpenTUI peer and `ELSPROBLEMS`; the script explicitly verifies this remaining incompatibility.\n\n## Remaining upstream blocker\n\nThe current `@opentui/core@0.5.13` still requires the exact `web-tree-sitter@0.25.10` peer and its worker still loads the old WASM filename. The [maintainer confirmed that 0.26+ is unsupported](https://github.com/anomalyco/opentui/issues/1201#issuecomment-4806912949), and [the upstream fallback proposal](https://github.com/anomalyco/opentui/pull/1203) was closed without merging. Agent's filename adaptation cannot establish OpenTUI compatibility. Keep the direct pin and its open #322 freshness exception until an upstream release supports the current runtime and the complete packed package passes installation and worker tests.\n\n## Validation\n\n- `npm test`: 812 pass, 4 existing todo, 0 fail.\n- Packed bash parser matrix: 4 pass with each of `0.25.10` and `0.27.0`.\n- Dry-run integration suite: 20 pass, 0 fail.\n- `cargo test --all-features`: 433 pass, 0 fail.\n- `npm run check`, changeset validation, `bun install --frozen-lockfile`, and the dependency freshness check: pass.\n- `npm audit --package-lock-only --audit-level=high`: pass; two existing low-severity Babel findings remain through OpenTUI.\n\nAll five workflows pass on the latest commit, `07f599b`: [JS CI](https://github.com/link-assistant/agent/actions/runs/36702901811) (Linux, macOS, Windows, packed parser matrix, clean installation, and verbose integration), [Security](https://github.com/link-assistant/agent/actions/runs/36702901747), [Dependency Freshness](https://github.com/link-assistant/agent/actions/runs/36702901842), [Workflows](https://github.com/link-assistant/agent/actions/runs/36702901786), and [Broken Link Checker](https://github.com/link-assistant/agent/actions/runs/36702901827).\n\nThe initial [Security run](https://github.com/link-assistant/agent/actions/runs/36700558729) failed on high-severity `brace-expansion` advisories (downloaded audit-job log lines 186–196, exit failure at line 212). Both refreshed lockfiles select `brace-expansion@2.1.7`/`5.0.12` and `ip-address@10.7.2`.\n\n<!-- hive-mind:changes:start -->\n### Changes\n- 9 file(s) modified\n- 1154 line(s) added\n- 939 line(s) removed\n- Files:\n  - `.github/workflows/js.yml`\n  - `experiments/issue-322/README.md`\n  - `experiments/issue-322/verify-bash-parser.mjs`\n  - `js/.changeset/dependency-refresh.md`\n  - `js/bun.lock`\n  - `js/package-lock.json`\n  - `js/package.json`\n  - `js/src/tool/bash.ts`\n  - `js/tests/tool_bash.js`\n<!-- hive-mind:changes:end -->\n",
+  "closingIssuesReferences": [],
+  "comments": [
+    {
+      "id": "IC_kwDOQYTy3M8AAAABYDxjVg",
+      "author": { "login": "konard" },
+      "authorAssociation": "MEMBER",
+      "body": "<!-- hive-mind:working-session-summary -->\n## Working session summary\n\nUpdated and marked [PR #326](https://github.com/link-assistant/agent/pull/326) ready for review. Added support for both WASM asset paths, regression tests, and dependency security fixes.\n\nAll CI checks pass. Local validation passed 812 JavaScript, 433 Rust, and 20 integration tests. Working tree is clean.\n\nIssue #322 remains open: [OpenTUI still blocks the runtime upgrade](https://github.com/anomalyco/opentui/issues/1201#issuecomment-4806912949), so the `web-tree-sitter@0.25.10` pin remains.\n\n---\n*This summary was automatically extracted from the AI working session output.*",
+      "createdAt": "2026-09-30T10:39:21Z",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": "",
+      "reactionGroups": [],
+      "url": "https://github.com/link-assistant/agent/pull/326#issuecomment-5909537622",
+      "viewerDidAuthor": true
+    },
+    {
+      "id": "IC_kwDOQYTy3M8AAAABYDxz0g",
+      "author": { "login": "konard" },
+      "authorAssociation": "MEMBER",
+      "body": "## 🤖 Solution Draft Log\nThis log file contains the complete execution trace of the AI solution draft process.\n\n### 💰 **Cost estimation:**\n- Model: GPT-6.1 Sol\n- Provider: OpenAI\n- Public pricing estimate: $2.116932\n\n### 📊 **Context and tokens usage:**\n- 168.2K / 200K (84%) input tokens, 28.0K / 128K (22%) output tokens\n\nTotal: (168.2K + 5.1M cached) input tokens, 28.0K output tokens, $2.116932 cost\n\n### 🤖 **Models used:**\n- Tool: OpenAI Codex\n- Requested: `gpt-6.1-sol`\n- Thinking level: xhigh (~31999 tokens)\n- **Model: GPT-6.1 Sol** (`gpt-6.1-sol`)\n\n### 📎 **Log file uploaded as Gist** (2956KB)\n- [View complete solution draft log](https://gist.githubusercontent.com/konard/c32afcb20538b5962ffe096899a17ceb/raw/4769c58f7130a7c352008c82362137496ee02416/tmp-hive-mind-log-upload-eFnnUg-sanitized.log.txt)\n\n---\n*Now working session is ended, feel free to review and add any feedback on the solution draft.*",
+      "createdAt": "2026-09-30T10:39:39Z",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": "",
+      "reactionGroups": [],
+      "url": "https://github.com/link-assistant/agent/pull/326#issuecomment-5909541842",
+      "viewerDidAuthor": true
+    },
+    { "id": "IC_kwDOQYTy3M8AAAABYDz-2w", "author": { "login": "konard" }, "authorAssociation": "MEMBER", "body": "## 🎉 Auto-merged\n\nThis pull request has been automatically merged by hive-mind.\n- All CI checks have passed\n\n---\n*Auto-merged by hive-mind with --auto-merge flag*", "createdAt": "2026-09-30T10:42:15Z", "includesCreatedEdit": false, "isMinimized": false, "minimizedReason": "", "reactionGroups": [], "url": "https://github.com/link-assistant/agent/pull/326#issuecomment-5909577435", "viewerDidAuthor": true }
+  ],
+  "commits": [
+    { "authoredDate": "2026-09-30T10:08:07Z", "authors": [{ "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }], "committedDate": "2026-09-30T10:08:07Z", "messageBody": "Adding .gitkeep for PR creation (default mode).\nThis file will be removed when the task is complete.\n\nIssue: https://github.com/link-assistant/agent/issues/322", "messageHeadline": "Initial commit with task details", "oid": "62960237db3a623af69a7fcc36ac2d213e0c019b" },
+    { "authoredDate": "2026-09-30T10:21:34Z", "authors": [{ "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }], "committedDate": "2026-09-30T10:21:34Z", "messageBody": "", "messageHeadline": "fix(bash): support the renamed tree-sitter WASM export", "oid": "bc99dedcea76a9ae0943626d6c691f55d1f10bcc" },
+    { "authoredDate": "2026-09-30T10:25:59Z", "authors": [{ "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }], "committedDate": "2026-09-30T10:25:59Z", "messageBody": "", "messageHeadline": "chore(deps): refresh OpenTUI and patched dependency resolutions", "oid": "20bee4f66c58aaf9f2412cc96327c5df5265fc1e" },
+    { "authoredDate": "2026-09-30T10:30:51Z", "authors": [{ "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }], "committedDate": "2026-09-30T10:30:51Z", "messageBody": "", "messageHeadline": "test(bash): compare peer warnings without dynamic regular expressions", "oid": "07f599bc0a4013bcf7e717516dce3b14232684d6" }
+  ],
+  "createdAt": "2026-09-30T10:08:18Z",
+  "headRefName": "issue-322-a819429ebc4d",
+  "mergedAt": "2026-09-30T10:42:12Z",
+  "state": "MERGED",
+  "title": "fix(bash): prepare web-tree-sitter upgrade while OpenTUI is blocked",
+  "updatedAt": "2026-09-30T10:42:15Z",
+  "url": "https://github.com/link-assistant/agent/pull/326"
+}

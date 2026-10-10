@@ -1,6 +1,22 @@
 #!/usr/bin/env node
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 
+// Resolve the log destination before startup diagnostics and strict parsing.
+// Leave validation to yargs; never consume the next option as a directory.
+export function resolveStartupLogDirectory(args) {
+  let directory = null;
+  for (let index = 0; index < args.length; index++) {
+    const arg = args[index];
+    if (arg === '--') break;
+    if (arg.startsWith('--log-dir=') || arg.startsWith('-l=')) directory = arg.slice(arg.indexOf('=') + 1) || null;
+    else if (arg === '--log-dir' || arg === '-l') {
+      const next = args[index + 1];
+      if (next && !next.startsWith('-')) directory = args[++index];
+    }
+  }
+  return directory;
+}
+
 /**
  * Handle lightweight early-exit paths before solve loads its full dependency graph.
  *

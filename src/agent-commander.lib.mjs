@@ -8,9 +8,12 @@
  */
 
 import { resolveCodexReasoningEffort } from './codex.options.lib.mjs';
+import { resolveRuntimeCodexReasoningEffort } from './codex.reasoning.lib.mjs';
+import { getClaudeEnv, getThinkingLevelToTokens } from './config.lib.mjs';
 import { mapModelToId as mapClaudeModelToId } from './claude.model-utils.lib.mjs';
 import { mapClaudeSubAgentModelToEnvValue, mapModelForTool } from './models/index.mjs';
-import { buildCodexDisable1mContextConfigArgs, buildCodexSubSessionSizeConfigArgs, parseSubSessionSize } from './sub-session-size.lib.mjs';
+import { parseSubSessionSize } from './sub-session-size.lib.mjs';
+import { applyClaudePricingTierToEnv, buildCodexPricingTierConfigArgs, resolveClaudeModelForContext, resolvePricingTier } from './pricing-tier.lib.mjs'; // Issue #2771
 import { detectUsageLimit } from './usage-limit.lib.mjs';
 import { applyFormalAiPricingOverride } from './formal-ai-pricing.lib.mjs'; // Issue #2119
 import { getCacheReadTokenCount, getCumulativeContextInputTokens, getOutputTokenCount } from './context-fill.lib.mjs';
@@ -49,14 +52,30 @@ const appendExtraEnv = (options, env) => {
   };
 };
 
+// Issue #2771: the cheapest pricing tier (standard speed, short context) for this run.
+const resolveAgentCommanderPricingTier = (tool, argv = {}) =>
+  resolvePricingTier({
+    tool,
+    model: argv.model,
+    modelId: argv.model ? (tool === 'claude' ? mapClaudeModelToId(argv.model) : mapModelForTool(tool, argv.model)) : undefined,
+    disable1mContext: argv.disable1mContext,
+    subSessionSize: argv.subSessionSize,
+    speed: argv.speed,
+  });
+
 const buildClaudeToolOptions = (argv = {}) => {
   const options = {};
   options.verbose = !!argv.verbose;
   if (argv.fallbackModel) options.fallbackModel = argv.fallbackModel;
 
   const extraEnv = {};
-  if (argv.thinkingBudget !== undefined) extraEnv.MAX_THINKING_TOKENS = argv.thinkingBudget;
-  if (argv.disable1mContext) extraEnv.CLAUDE_CODE_DISABLE_1M_CONTEXT = '1';
+  if (argv.think !== undefined || argv.thinkingBudget !== undefined) {
+    const thinkingBudget = argv.thinkingBudget ?? getThinkingLevelToTokens(argv.maxThinkingBudget)[argv.think];
+    const thinkingEnv = getClaudeEnv({ model: argv.model || 'opus', thinkLevel: argv.think, thinkingBudget, maxBudget: argv.maxThinkingBudget });
+    if (thinkingEnv.MAX_THINKING_TOKENS !== undefined) extraEnv.MAX_THINKING_TOKENS = thinkingEnv.MAX_THINKING_TOKENS;
+    if (thinkingEnv.CLAUDE_CODE_EFFORT_LEVEL) extraEnv.CLAUDE_CODE_EFFORT_LEVEL = thinkingEnv.CLAUDE_CODE_EFFORT_LEVEL;
+  }
+  applyClaudePricingTierToEnv(extraEnv, resolveAgentCommanderPricingTier('claude', argv)); // Issue #2771
   if (argv.showThinkingContent) extraEnv.CLAUDE_CODE_SHOW_THINKING = '1';
   if (argv.planModel) extraEnv.ANTHROPIC_DEFAULT_OPUS_MODEL = argv.planModel;
   if (argv.subAgentModel) extraEnv.CLAUDE_CODE_SUBAGENT_MODEL = mapClaudeSubAgentModelToEnvValue(argv.subAgentModel);
@@ -73,23 +92,30 @@ const buildClaudeToolOptions = (argv = {}) => {
 
 const buildCodexToolOptions = (argv = {}) => {
   const options = {};
-  const { reasoningEffort, rolloutTokenBudget } = resolveCodexReasoningEffort(argv);
-  const reasoningArgs = ['-c', `model_reasoning_effort=${reasoningEffort}`, '-c', 'model_reasoning_summary=auto'];
+  const { reasoningEffort, rolloutTokenBudget } = argv.codexReasoningSettings ?? resolveCodexReasoningEffort(argv);
+  const reasoningArgs = [];
+  if (reasoningEffort) reasoningArgs.push('-c', `model_reasoning_effort=${reasoningEffort}`);
+  reasoningArgs.push('-c', 'model_reasoning_summary=auto');
   // Issue #2027: pair GPT-5.6 Sol's multi-agent `ultra` effort with a rollout token budget cap.
   if (rolloutTokenBudget) {
     reasoningArgs.push('-c', `rollout_token_budget=${rolloutTokenBudget}`);
   }
   appendExtraArgs(options, reasoningArgs);
 
-  appendExtraArgs(options, buildCodexDisable1mContextConfigArgs(!!argv.disable1mContext));
-  appendExtraArgs(options, buildCodexMemoryDisableConfigArgs(isAgentMemoryDisabled(argv))); // Issue #2178
-  appendExtraArgs(options, buildCodexAuxiliaryDisableConfigArgs(isAuxiliaryModelCallsDisabled(argv))); // Issue #2236
+  // Issue #2771: standard service tier and the 272K short-context window by default.
+  const tier = resolveAgentCommanderPricingTier('codex', argv);
+  let parsedSubSessionSize = { kind: 'default', tokens: null, percent: null, raw: '' };
   try {
-    appendExtraArgs(options, buildCodexSubSessionSizeConfigArgs(parseSubSessionSize(argv.subSessionSize)));
+    parsedSubSessionSize = parseSubSessionSize(argv.subSessionSize);
   } catch {
     // The embedded Codex path logs parse warnings later. Keep agent-commander
     // command construction permissive so validation can still run.
   }
+  const { serviceTierArgs, contextWindowArgs, subSessionSizeArgs } = buildCodexPricingTierConfigArgs({ tier, parsedSubSessionSize });
+  appendExtraArgs(options, [...serviceTierArgs, ...contextWindowArgs]);
+  appendExtraArgs(options, buildCodexMemoryDisableConfigArgs(isAgentMemoryDisabled(argv))); // Issue #2178
+  appendExtraArgs(options, buildCodexAuxiliaryDisableConfigArgs(isAuxiliaryModelCallsDisabled(argv))); // Issue #2236
+  appendExtraArgs(options, subSessionSizeArgs);
 
   return options;
 };
@@ -124,9 +150,14 @@ export const isAgentCommanderAvailable = async () => {
 
 export const getAgentCommanderToolName = (argv = {}) => argv.tool || 'claude';
 
-const resolveAgentCommanderModel = (tool, model) => {
+const resolveAgentCommanderModel = (tool, model, argv = { model }) => {
   if (!model) return model;
-  if (tool === 'claude') return mapClaudeModelToId(model, { preserveRollingAlias: true });
+  if (tool === 'claude') {
+    // Issue #2771: plain model names by default; `[1m]` only for long-context runs.
+    const { longContext } = resolveAgentCommanderPricingTier('claude', { ...argv, model });
+    const contextModel = resolveClaudeModelForContext(model, { longContext, mapModelToId: mapClaudeModelToId }).model;
+    return mapClaudeModelToId(contextModel, { preserveRollingAlias: true });
+  }
   return mapModelForTool(tool, model);
 };
 
@@ -148,7 +179,7 @@ export const buildAgentCommanderControllerOptions = ({ tool, tempDir, prompt, sy
   workingDirectory: tempDir,
   prompt,
   systemPrompt,
-  model: resolveAgentCommanderModel(tool, argv.model),
+  model: resolveAgentCommanderModel(tool, argv.model, argv),
   json: tool !== 'agent',
   resume: argv.resume,
   toolOptions: buildAgentCommanderToolOptions(argv, tool),
@@ -363,7 +394,8 @@ export const executeWithAgentCommander = async params => {
   const promptBuilderParams = { ...promptParams, tempDir, workspaceTmpDir, argv };
   const prompt = prompts.buildUserPrompt(promptBuilderParams);
   const systemPrompt = prompts.buildSystemPrompt(promptBuilderParams);
-  const controllerOptions = buildAgentCommanderControllerOptions({ tool, tempDir, prompt, systemPrompt, argv });
+  const resolvedArgv = tool === 'codex' ? { ...argv, codexReasoningSettings: await resolveRuntimeCodexReasoningEffort(argv, { log }) } : argv;
+  const controllerOptions = buildAgentCommanderControllerOptions({ tool, tempDir, prompt, systemPrompt, argv: resolvedArgv });
 
   if (argv.verbose) {
     await log('\n[agent-commander] Final prompt structure:', { verbose: true });

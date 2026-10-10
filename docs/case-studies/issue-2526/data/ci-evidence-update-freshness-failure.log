@@ -1,0 +1,4 @@
+2494: detect-changes	Verify dependency freshness and detect changes	2026-10-05T22:06:55.5547250Z Dependency freshness: 167/168 declarations current
+2495: detect-changes	Verify dependency freshness and detect changes	2026-10-05T22:06:55.5548149Z STALE src/use-with-retry.lib.mjs#USE_M_PACKAGE_VERSIONS: command-stream 1.4.0 -> 1.5.0 (exact)
+2496: detect-changes	Verify dependency freshness and detect changes	2026-10-05T22:06:55.5548881Z Dependency freshness failed: 1 stale, 0 unresolved.
+2497: detect-changes	Verify dependency freshness and detect changes	2026-10-05T22:06:55.5703755Z ##[error]Process completed with exit code 1.

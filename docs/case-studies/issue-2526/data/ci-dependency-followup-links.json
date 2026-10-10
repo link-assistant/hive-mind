@@ -1,0 +1,85 @@
+{
+  "attempt": 1,
+  "conclusion": "success",
+  "createdAt": "2026-10-05T22:13:39Z",
+  "databaseId": 37381079578,
+  "headSha": "dec195ea544b588bd9384dc793149f63057d0a69",
+  "jobs": [
+    {
+      "completedAt": "2026-10-05T22:14:23Z",
+      "conclusion": "success",
+      "databaseId": 112002934714,
+      "name": "Check Links",
+      "startedAt": "2026-10-05T22:13:42Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-05T22:13:44Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-05T22:13:43Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-05T22:14:10Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@v7",
+          "number": 2,
+          "startedAt": "2026-10-05T22:13:44Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-05T22:14:20Z",
+          "conclusion": "success",
+          "name": "Check links with lychee",
+          "number": 3,
+          "startedAt": "2026-10-05T22:14:10Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-05T22:14:20Z",
+          "conclusion": "skipped",
+          "name": "Re-check links that failed transiently",
+          "number": 4,
+          "startedAt": "2026-10-05T22:14:20Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-05T22:14:20Z",
+          "conclusion": "skipped",
+          "name": "Check broken links against Web Archive",
+          "number": 5,
+          "startedAt": "2026-10-05T22:14:20Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-05T22:14:20Z",
+          "conclusion": "skipped",
+          "name": "Fail if broken links were found",
+          "number": 6,
+          "startedAt": "2026-10-05T22:14:20Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-05T22:14:21Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v7",
+          "number": 12,
+          "startedAt": "2026-10-05T22:14:20Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-05T22:14:21Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 13,
+          "startedAt": "2026-10-05T22:14:21Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/link-assistant/hive-mind/actions/runs/37381079578/job/112002934714"
+    }
+  ],
+  "status": "completed"
+}

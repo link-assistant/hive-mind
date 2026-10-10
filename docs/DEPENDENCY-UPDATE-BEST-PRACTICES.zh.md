@@ -212,7 +212,12 @@ fix owner/repo --update-all-dependencies --no-solve
 
 `/solve --deep-analysis` **只对 Bug 类型的 issue** 输出根因分析和调试输出方面的指导，而依赖升级并没有需要查找的根因。把 issue 创建为 `Task` 会选中该提示词的非 bug 变体——调研、需求覆盖、方案规划——这才是这里真正有用的部分。issue 类型按组织配置，标签按仓库配置，因此如果目标仓库两者都不接受，issue 仍会被创建，只是不带这些属性。
 
-`--deep-analysis` 同时也提供了[原则 10](#10-把阻塞问题反馈给上游) 中向上游反馈的指导，因此 `fix` 会从 issue 正文中省略该段落，避免重复下发。其余段落均无条件包含。
+`--update-all-dependencies` 会启用 `--report-dependencies-issues`，与 `--deep-analysis` 独立。即使转发了 deep analysis，生成的依赖更新 issue 仍包含向上游报告的段落。向相关依赖的上游报告通用逻辑、重复代码、缺失功能及导致本地变通方案的缺陷。先搜索已有报告，提供最小复现、受影响版本、本地变通方案和修复或功能建议，并在 pull request 中链接这些报告。保留必要的变通方案，让上游修复不会阻塞 pull request。使用 `--no-report-dependencies-issues`（或 `--report-dependencies-issues=false`）可从生成的 issue 和求解器提示词中移除此指令。也可通过 `--report-dependencies-issues` 单独启用报告。
+
+```bash
+fix owner/repo --update-all-dependencies --no-report-dependencies-issues
+solve https://github.com/owner/repo/issues/123 --report-dependencies-issues
+```
 
 ## `--update-all-dependencies` 选项
 

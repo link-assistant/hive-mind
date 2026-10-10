@@ -28,7 +28,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 import { buildToolCallSignature, createRepeatedToolCallBreaker, describeRepeatedToolCall, DOMINANT_FAILURE_MIN_COUNT, explainFailureWithToolHistory, getRepeatedToolCallLimit, REPEATED_TOOL_CALL_LIMIT_DEFAULT } from '../src/repeated-tool-call-breaker.lib.mjs';
-import { cascadePlaywrightMcpDisable, shouldSkipPlaywrightMcpForFormalAi, wasPlaywrightMcpRequestedExplicitly } from '../src/playwright-mcp.lib.mjs';
+import { cascadePlaywrightMcpDisable } from '../src/playwright-mcp.lib.mjs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -56,10 +56,13 @@ const replayClicks = (breaker, times, input = CLICK_INPUT) => {
   return verdicts.filter(Boolean);
 };
 
-assert.equal(REPEATED_TOOL_CALL_LIMIT_DEFAULT, 3, 'the issue prescribes breaking after 3 identical failing calls');
+// Issue #2395: the breaker is opt-in and its default limit was raised from 3 to
+// 10. The Kotlin scenario below runs it explicitly at the original limit of 3.
+assert.equal(REPEATED_TOOL_CALL_LIMIT_DEFAULT, 10, 'issue #2395 raised the default limit from 3 to 10');
+const KOTLIN_LIMIT = 3;
 
 {
-  const breaker = createRepeatedToolCallBreaker();
+  const breaker = createRepeatedToolCallBreaker({ limit: KOTLIN_LIMIT });
   const first = replayClicks(breaker, 2);
   assert.deepEqual(first, [], 'two identical failures are not yet a loop');
   assert.equal(breaker.tripped, false);
@@ -78,21 +81,24 @@ assert.equal(REPEATED_TOOL_CALL_LIMIT_DEFAULT, 3, 'the issue prescribes breaking
 }
 
 {
-  // Succeeding calls never count, no matter how many of them there are: the 547
-  // repeats mattered because every single one came back as an error.
-  const breaker = createRepeatedToolCallBreaker();
-  for (let i = 0; i < 10; i++) {
+  // Succeeding calls are not failures: five identical successes stay below the
+  // loop threshold, and a success in between resets nothing on the failure side.
+  // (Issue #2316 made a *run* of identical successful calls trip too - see
+  // tests/repeated-tool-call-all-tools-2316.test.mjs.)
+  const breaker = createRepeatedToolCallBreaker({ limit: KOTLIN_LIMIT });
+  for (let i = 0; i < 5; i++) {
     const { id, event } = toolUseEvent();
     breaker.observe(event);
     breaker.observe(toolResultEvent(id, { isError: false, content: 'clicked' }));
   }
-  assert.equal(breaker.tripped, false, 'successful calls are not a loop');
+  assert.equal(breaker.tripped, false, 'five identical successful calls are not yet a loop');
+  assert.equal(breaker.counts().size, 0, 'successes are not counted as failures');
 }
 
 {
   // A different input is a different call: retrying with a real selector after
   // two empty ones is progress, not a loop.
-  const breaker = createRepeatedToolCallBreaker();
+  const breaker = createRepeatedToolCallBreaker({ limit: KOTLIN_LIMIT });
   replayClicks(breaker, 2);
   const verdicts = replayClicks(breaker, 2, { target: '#submit' });
   assert.deepEqual(verdicts, [], 'the counter is per (tool, input) pair');
@@ -108,18 +114,22 @@ assert.equal(REPEATED_TOOL_CALL_LIMIT_DEFAULT, 3, 'the issue prescribes breaking
 {
   // A `tool_result` whose `tool_use` was never seen (a resumed session replaying
   // history) cannot be attributed to a call and must not be counted.
-  const breaker = createRepeatedToolCallBreaker();
+  const breaker = createRepeatedToolCallBreaker({ limit: KOTLIN_LIMIT });
   for (let i = 0; i < 5; i++) breaker.observe(toolResultEvent('toolu_unknown'));
   assert.equal(breaker.tripped, false);
 }
 
 {
-  // The limit is configurable, and 0 switches the breaker off entirely.
-  assert.equal(getRepeatedToolCallLimit({ HIVE_MIND_REPEATED_TOOL_CALL_LIMIT: '10' }), 10);
-  assert.equal(getRepeatedToolCallLimit({ HIVE_MIND_REPEATED_TOOL_CALL_LIMIT: '' }), REPEATED_TOOL_CALL_LIMIT_DEFAULT);
-  assert.equal(getRepeatedToolCallLimit({ HIVE_MIND_REPEATED_TOOL_CALL_LIMIT: 'nonsense' }), REPEATED_TOOL_CALL_LIMIT_DEFAULT);
-  assert.equal(getRepeatedToolCallLimit({}), REPEATED_TOOL_CALL_LIMIT_DEFAULT);
-  const disabled = createRepeatedToolCallBreaker({ limit: getRepeatedToolCallLimit({ HIVE_MIND_REPEATED_TOOL_CALL_LIMIT: '0' }) });
+  // The limit is configurable, and 0 switches the breaker off entirely. Since
+  // issue #2395 the environment only sets a limit once detection is enabled.
+  const enabled = { HIVE_MIND_DETECT_REPEATED_TOOL_CALLS: 'true' };
+  assert.equal(getRepeatedToolCallLimit({ ...enabled, HIVE_MIND_REPEATED_TOOL_CALL_LIMIT: '5' }), 5);
+  assert.equal(getRepeatedToolCallLimit({ ...enabled, HIVE_MIND_REPEATED_TOOL_CALL_LIMIT: '' }), REPEATED_TOOL_CALL_LIMIT_DEFAULT);
+  assert.equal(getRepeatedToolCallLimit({ ...enabled, HIVE_MIND_REPEATED_TOOL_CALL_LIMIT: 'nonsense' }), REPEATED_TOOL_CALL_LIMIT_DEFAULT);
+  assert.equal(getRepeatedToolCallLimit(enabled), REPEATED_TOOL_CALL_LIMIT_DEFAULT);
+  assert.equal(getRepeatedToolCallLimit({}), 0, 'issue #2395: off unless enabled');
+  assert.equal(getRepeatedToolCallLimit({ HIVE_MIND_REPEATED_TOOL_CALL_LIMIT: '5' }), 0, 'issue #2395: a limit alone does not enable it');
+  const disabled = createRepeatedToolCallBreaker({ limit: getRepeatedToolCallLimit({ ...enabled, HIVE_MIND_REPEATED_TOOL_CALL_LIMIT: '0' }) });
   replayClicks(disabled, 547);
   assert.equal(disabled.tripped, false, 'HIVE_MIND_REPEATED_TOOL_CALL_LIMIT=0 disables the breaker');
 }
@@ -204,33 +214,24 @@ assert.ok(claudeSource.includes('repeatedToolCall: repeatedToolCallFailure || do
 assert.ok(!/lastMessage = explainFailureWithToolHistory/.test(claudeSource), 'the retry classification input is left alone');
 
 // ---------------------------------------------------------------------------
-// 3. Playwright MCP is not attached to a `--model formal-ai` run.
+// 3. Issue #2319: Playwright MCP follows the same default for every model. The
+//    Kotlin loop is stopped by the repeated-tool-call breaker (section 1), not
+//    by a Formal AI-specific skip.
 // ---------------------------------------------------------------------------
 
-assert.equal(shouldSkipPlaywrightMcpForFormalAi({ argv: { model: 'formal-ai' }, rawArgs: [] }), true);
-assert.equal(shouldSkipPlaywrightMcpForFormalAi({ argv: { model: 'formalai/formal-ai' }, rawArgs: [] }), true, 'both spellings of the model are covered');
-assert.equal(shouldSkipPlaywrightMcpForFormalAi({ argv: { model: 'sonnet' }, rawArgs: [] }), false, 'other models keep the default');
-assert.equal(shouldSkipPlaywrightMcpForFormalAi({ argv: { model: 'formal-ai' }, rawArgs: ['--playwright-mcp'] }), false, 'an explicit request wins');
-assert.equal(shouldSkipPlaywrightMcpForFormalAi({ argv: { model: 'formal-ai' }, rawArgs: ['--playwright-mcp=true'] }), false);
-assert.equal(wasPlaywrightMcpRequestedExplicitly(['--no-playwright-mcp']), false, '--no-playwright-mcp is not a request for it');
+for (const model of ['formal-ai', 'formalai/formal-ai', 'sonnet']) {
+  const argv = { model, tool: 'claude' };
+  await cascadePlaywrightMcpDisable(argv, null);
+  assert.equal(argv.playwrightMcp, undefined, `${model}: the Playwright MCP default is untouched`);
+}
 
 {
-  const argv = { model: 'formal-ai', tool: 'claude' };
-  const logs = [];
-  await cascadePlaywrightMcpDisable(argv, async message => logs.push(message), { rawArgs: [] });
-  assert.equal(argv.playwrightMcp, false, 'the formal-ai run does not get a browser');
-  assert.equal(argv.promptPlaywrightMcp, false, 'and the prompt does not advertise one');
+  const argv = { model: 'formal-ai', tool: 'claude', playwrightMcp: false };
+  await cascadePlaywrightMcpDisable(argv, null);
+  assert.equal(argv.promptPlaywrightMcp, false, '--no-playwright-mcp still cascades');
   assert.equal(argv.playwrightMcpAutoCleanup, false);
-  assert.ok(
-    logs.some(message => message.includes('formal-ai')),
-    'the reason is logged'
-  );
 }
 
-{
-  const argv = { model: 'sonnet', tool: 'claude' };
-  await cascadePlaywrightMcpDisable(argv, null, { rawArgs: [] });
-  assert.equal(argv.playwrightMcp, undefined, 'a normal run is untouched');
-}
+assert.ok(!(await readFile(join(repoRoot, 'src/playwright-mcp.lib.mjs'), 'utf8')).includes('isFormalAiModel'), 'no model-specific Playwright policy');
 
-console.log('PASS: issue #2247 (H4/H10) repeated-failing-tool-call breaker, failure classification and formal-ai Playwright policy');
+console.log('PASS: issue #2247 (H4/H10) repeated-failing-tool-call breaker, failure classification and one Playwright policy for every model');

@@ -262,7 +262,7 @@ async function ensureBaseBranchInFork({ baseBranch, tempDir, log, formatAligned,
   await log(`${formatAligned('🔄', 'Pushing to fork:', `${baseBranch} branch`)}`);
   const pushBaseResult = await $({ cwd: tempDir })`git push origin ${baseBranch} 2>&1`;
   if (pushBaseResult.code !== 0) {
-    const pushError = (pushBaseResult.stderr || pushBaseResult.stdout || 'Unknown error').toString().trim();
+    const pushError = (pushBaseResult.stderr?.toString() || pushBaseResult.stdout?.toString() || 'Unknown error').toString().trim();
     await log(`${formatAligned('⚠️', 'Warning:', `Failed to push ${baseBranch} to fork`)}`, { level: 'warning' });
     if (pushError) await log(`${formatAligned('', 'Push error:', pushError)}`, { level: 'warning' });
     return false;
@@ -290,7 +290,7 @@ async function proactivelySyncBaseBranchToFork({ baseBranch, defaultBranch, temp
 }
 
 async function retryBranchCreationFromUpstreamBase({ checkoutResult, branchName, baseBranch, tempDir, log, formatAligned, $ }) {
-  const errorOutput = `${checkoutResult.stderr || ''}${checkoutResult.stdout || ''}`;
+  const errorOutput = `${checkoutResult.stderr?.toString() || ''}${checkoutResult.stdout?.toString() || ''}`;
   if (!isMissingOriginBaseRefError(errorOutput, baseBranch)) {
     return checkoutResult;
   }
@@ -369,7 +369,7 @@ export async function createOrCheckoutBranch({ isContinueMode, prBranch, issueNu
   }
 
   if (checkoutResult.code !== 0) {
-    const errorOutput = (checkoutResult.stderr || checkoutResult.stdout || 'Unknown error').toString().trim();
+    const errorOutput = (checkoutResult.stderr?.toString() || checkoutResult.stdout?.toString() || 'Unknown error').toString().trim();
     await log('');
 
     if (isContinueMode) {
@@ -413,7 +413,7 @@ export async function createOrCheckoutBranch({ isContinueMode, prBranch, issueNu
   await log(`${formatAligned('🔍', 'Verifying:', isContinueMode ? 'Branch checkout...' : 'Branch creation...')}`);
   const verifyResult = await $({ cwd: tempDir })`git branch --show-current`;
 
-  if (verifyResult.code !== 0 || !verifyResult.stdout) {
+  if (verifyResult.code !== 0 || !verifyResult.stdout?.toString()) {
     await log('');
     await log(`${formatAligned('❌', 'BRANCH VERIFICATION FAILED', '')}`, { level: 'error' });
     await log('');

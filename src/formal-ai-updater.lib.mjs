@@ -25,7 +25,25 @@
  * formal-ai tasks are running" still applies — the boot is a verification step,
  * not a deployment.
  *
+ * Issue #2305 made the whole thing conditional on Formal AI actually being
+ * used. An update now only runs when:
+ *
+ *   - a Formal AI task held a lease within the unload window
+ *     (`HIVE_MIND_FORMAL_AI_UNLOAD_AFTER`, default 5h) **and** the image is
+ *     still on the host — or the operator opted into the old eager behaviour
+ *     with `HIVE_MIND_FORMAL_AI_PREFETCH=true`;
+ *   - the last check is older than `HIVE_MIND_FORMAL_AI_UPDATE_CHECK_INTERVAL`
+ *     (default 1h);
+ *   - the registry's manifest digest differs from the local one. The registry
+ *     is asked first (`docker buildx imagetools inspect`, then `docker
+ *     manifest inspect`); only when neither can answer does the updater fall
+ *     back to a pull to find out.
+ *
+ * After a verified update the superseded image is removed, so a host never
+ * accumulates one 24 GB build per release.
+ *
  * @see https://github.com/link-assistant/hive-mind/issues/2146
+ * @see https://github.com/link-assistant/hive-mind/issues/2305
  * @see https://github.com/link-assistant/formal-ai/issues/982
  */
 
@@ -33,8 +51,10 @@ import { execFile } from 'node:child_process';
 import fs from 'node:fs';
 import { promisify } from 'node:util';
 
-import { classifyDockerRegistryError } from './formal-ai-image.lib.mjs';
+import { classifyDockerRegistryError, readAcceptedFormalAiImage } from './formal-ai-image.lib.mjs';
+import { formatDockerSize, readFormalAiRepoDigest, readLocalImageRepoDigests, removeFormalAiImages, resolveRemoteImageDigests } from './formal-ai-image-store.lib.mjs';
 import { FORMAL_AI_IMAGE_REPOSITORY, FORMAL_AI_MEMORY_MOUNT, FORMAL_AI_MEMORY_PATH, FORMAL_AI_MEMORY_VOLUME_NAME, FORMAL_AI_SIDECAR_CONTAINER_NAME, buildFormalAiSidecarRunArgs, ensureFormalAiMemoryVolume, ensureFormalAiNetwork, inspectDockerContainer, readDockerImageDigest, readFormalAiSidecarState, reconcileFormalAiSidecar, stopFormalAiSidecar, waitForFormalAiSidecarHealth, withFormalAiSidecarLock, writeFormalAiSidecarState } from './formal-ai-sidecar.lib.mjs';
+import { describeFormalAiUsage, formatFormalAiDuration, isFormalAiPrefetchEnabled, resolveFormalAiUpdateCheckIntervalMs } from './formal-ai-usage.lib.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -181,10 +201,27 @@ const verifyImageServesMemory = async ({ image, env, fsImpl, run, timeoutMs, log
 };
 
 /**
+ * Remove the build an update superseded, plus dangling Formal AI builds.
+ *
+ * Best-effort: a failure is logged and leaves the image for the idle unload.
+ */
+const removeSupersededFormalAiImages = async ({ env, run, timeoutMs, keepDigest, previousDigest, log, verbose }) => {
+  try {
+    const result = await removeFormalAiImages({ env, run, timeoutMs, log, verbose, select: candidate => candidate.id !== keepDigest && (candidate.id === previousDigest || candidate.repoTags.length === 0) });
+    if (log && result.removed.length > 0) await log(`🧹 Removed ${result.removed.length} superseded Formal AI image(s), freeing ${formatDockerSize(result.bytesFreed)}`);
+    if (log && result.failed.length > 0) await log(`⚠️ Could not remove superseded Formal AI image(s): ${result.failed.map(image => `${image.id}: ${image.error}`).join('; ')}`);
+    return { removed: result.removed.map(image => image.id), failed: result.failed.map(image => image.id), bytesFreed: result.bytesFreed };
+  } catch (error) {
+    if (log) await log(`⚠️ Could not clean up superseded Formal AI images: ${error?.message || String(error)}`);
+    return { removed: [], failed: [], bytesFreed: 0, error: error?.message || String(error) };
+  }
+};
+
+/**
  * Update the Formal AI sidecar image, but only while no Formal AI task holds a
  * lease.
  *
- * @returns {Promise<{status: 'disabled'|'busy'|'up-to-date'|'updated'|'rolled-back'|'failed', ...}>}
+ * @returns {Promise<{status: 'disabled'|'busy'|'unused'|'not-present'|'throttled'|'up-to-date'|'updated'|'rolled-back'|'failed', ...}>}
  */
 export const updateFormalAiSidecarWhenIdle = async ({ env = process.env, fsImpl = fs, run = execFileAsync, timeoutMs, pullTimeoutMs = DEFAULT_PULL_TIMEOUT_MS, log = null, verbose = false, sleepImpl, healthAttempts, healthDelayMs, now = () => new Date(), lockOptions = {} } = {}) => {
   if (!isFormalAiAutoUpdateEnabled(env)) {
@@ -201,7 +238,47 @@ export const updateFormalAiSidecarWhenIdle = async ({ env = process.env, fsImpl 
       }
 
       const image = resolveFormalAiUpdateImage(env);
+      const prefetch = isFormalAiPrefetchEnabled(env);
+      const checkState = readFormalAiSidecarState({ env, fsImpl });
+
+      // Issue #2305: a host that does not use Formal AI must not download or
+      // boot it. The first `--model formal-ai` task pulls the image on demand.
+      const usage = describeFormalAiUsage({ state: checkState, env, now });
+      if (!prefetch && !usage.recent) {
+        if (verbose && log) await log(`[VERBOSE] formal-ai-updater: ${usage.used ? `Formal AI last used ${formatFormalAiDuration(usage.idleMs)} ago (unload window ${formatFormalAiDuration(usage.unloadAfterMs)})` : 'Formal AI has never been used on this host'}; not checking for updates`);
+        return { status: 'unused', lastUsedAt: usage.used ? new Date(usage.lastUsedMs).toISOString() : null };
+      }
+
+      const intervalMs = resolveFormalAiUpdateCheckIntervalMs(env);
+      const lastCheckMs = Date.parse(checkState.lastUpdateCheckAt ?? '');
+      if (intervalMs > 0 && Number.isFinite(lastCheckMs) && now().getTime() - lastCheckMs < intervalMs) {
+        if (verbose && log) await log(`[VERBOSE] formal-ai-updater: last checked ${formatFormalAiDuration(now().getTime() - lastCheckMs)} ago; next check in ${formatFormalAiDuration(intervalMs - (now().getTime() - lastCheckMs))}`);
+        return { status: 'throttled', lastCheckAt: checkState.lastUpdateCheckAt, intervalMs };
+      }
+
       const previousDigest = await readDockerImageDigest(image, { run, timeoutMs });
+      const accepted = readAcceptedFormalAiImage(checkState);
+      const acceptedDigest = accepted?.digest ? await readDockerImageDigest(accepted.digest, { run, timeoutMs }) : null;
+      const servingDigest = checkState.imageDigest ? await readDockerImageDigest(checkState.imageDigest, { run, timeoutMs }) : null;
+      if (!prefetch && !previousDigest && !acceptedDigest && !servingDigest) {
+        if (verbose && log) await log(`[VERBOSE] formal-ai-updater: no Formal AI image on this host; the next Formal AI task will pull one`);
+        return { status: 'not-present', image };
+      }
+
+      // Every outcome below counts as a check, so neither a failing registry
+      // nor a refused migration is retried more often than the interval.
+      writeFormalAiSidecarState({ ...checkState, lastUpdateCheckAt: now().toISOString() }, { env, fsImpl });
+
+      const runningDigest = checkState.imageDigest || acceptedDigest || previousDigest;
+      const remote = await resolveRemoteImageDigests(image, { run, timeoutMs, log, verbose });
+      if (remote && runningDigest) {
+        const localDigests = await readLocalImageRepoDigests(runningDigest, { run, timeoutMs });
+        if (remote.digests.some(digest => localDigests.includes(digest))) {
+          if (verbose && log) await log(`[VERBOSE] formal-ai-updater: ${image} is still ${remote.digests[0]} in the registry (${remote.via}); nothing to pull`);
+          return { status: 'up-to-date', image, digest: runningDigest };
+        }
+        if (verbose && log) await log(`[VERBOSE] formal-ai-updater: registry has ${remote.digests.join(', ')} for ${image}; local image is known as ${localDigests.join(', ') || 'no registry digest'}`);
+      }
 
       if (log) await log(`⬇️ Checking for a newer Formal AI image (${image})`);
       try {
@@ -224,8 +301,6 @@ export const updateFormalAiSidecarWhenIdle = async ({ env = process.env, fsImpl 
       }
 
       const pulledDigest = await readDockerImageDigest(image, { run, timeoutMs });
-      const state = readFormalAiSidecarState({ env, fsImpl });
-      const runningDigest = state.imageDigest || previousDigest;
       if (pulledDigest && pulledDigest === runningDigest) {
         if (verbose && log) await log(`[VERBOSE] formal-ai-updater: ${image} already at ${pulledDigest}`);
         return { status: 'up-to-date', image, digest: pulledDigest };
@@ -283,10 +358,17 @@ export const updateFormalAiSidecarWhenIdle = async ({ env = process.env, fsImpl 
       }
 
       const updatedAt = now().toISOString();
-      writeFormalAiSidecarState({ ...readFormalAiSidecarState({ env, fsImpl }), image, imageDigest: pulledDigest, lastUpdate: { image, digest: pulledDigest, previousDigest: runningDigest, version: verification.health?.version ?? null, migrationId: receipt?.migration_id ?? null, memorySchemaVersion: verification.health?.memory?.schema_version ?? null, updatedAt } }, { env, fsImpl });
+      // The registry digest pins exactly this build, so it can be pulled back
+      // after an idle unload even once `:latest` has moved on (issue #2305).
+      const repoDigest = await readFormalAiRepoDigest(image, { run, timeoutMs });
+      writeFormalAiSidecarState({ ...readFormalAiSidecarState({ env, fsImpl }), image, imageDigest: pulledDigest, lastUpdate: { image, digest: pulledDigest, repoDigest, previousDigest: runningDigest, version: verification.health?.version ?? null, migrationId: receipt?.migration_id ?? null, memorySchemaVersion: verification.health?.memory?.schema_version ?? null, updatedAt } }, { env, fsImpl });
 
       if (log) await log(`✅ Formal AI updated to ${verification.health?.version ?? pulledDigest}${receipt ? ` (memory migrated ${receipt.from_schema_version}→${receipt.to_schema_version}, backup ${receipt.backup_path})` : ''}; the sidecar stays stopped until a Formal AI task needs it`);
-      return { status: 'updated', image, digest: pulledDigest, previousDigest: runningDigest, preflight, receipt, health: verification.health, updatedAt };
+
+      // The new build is verified, so the one it replaced — and any older
+      // dangling build — is dead weight (issue #2305 requirement 3).
+      const cleanup = await removeSupersededFormalAiImages({ env, run, timeoutMs, keepDigest: pulledDigest, previousDigest: runningDigest, log, verbose });
+      return { status: 'updated', image, digest: pulledDigest, previousDigest: runningDigest, preflight, receipt, health: verification.health, updatedAt, cleanup };
     },
     { env, fsImpl, sleepImpl, log, ...lockOptions }
   );

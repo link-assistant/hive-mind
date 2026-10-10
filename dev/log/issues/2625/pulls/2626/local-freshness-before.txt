@@ -1,0 +1,7 @@
+Dependency freshness: 165/170 declarations current
+STALE package-lock.json#@sentry/node: @sentry/node 11.4.0 -> 11.5.0 (exact)
+STALE package-lock.json#@sentry/profiling-node: @sentry/profiling-node 11.4.0 -> 11.5.0 (exact)
+STALE package.json#dependencies: @sentry/node ^11.4.0 -> 11.5.0 (exact)
+STALE package.json#dependencies: @sentry/profiling-node ^11.4.0 -> 11.5.0 (exact)
+STALE src/use-with-retry.lib.mjs#USE_M_PACKAGE_VERSIONS: command-stream 1.6.2 -> 2.0.0 (exact)
+Dependency freshness failed: 5 stale, 0 unresolved.

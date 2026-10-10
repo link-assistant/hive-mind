@@ -31,6 +31,7 @@ const getenv = typeof getenvModule === 'function' ? getenvModule : getenvModule.
 import semver from 'semver';
 import { buildClaudeQuietEnv } from './claude-quiet-config.lib.mjs';
 import { clampEnvValue, parseIntegerEnv, parseNumberEnv } from './env-config.lib.mjs';
+import { applyClaudePricingTierToEnv } from './pricing-tier.lib.mjs'; // Issue #2771
 
 // Import lino for parsing Links Notation format
 const { lino } = await import('./lino.lib.mjs');
@@ -213,6 +214,15 @@ export const claudeCode = {
   // Set via MCP_TIMEOUT/MCP_TOOL_TIMEOUT or HIVE_MIND_MCP_TIMEOUT/HIVE_MIND_MCP_TOOL_TIMEOUT
   mcpTimeout: parseIntWithDefault('MCP_TIMEOUT', parseIntWithDefault('HIVE_MIND_MCP_TIMEOUT', 900000)),
   mcpToolTimeout: parseIntWithDefault('MCP_TOOL_TIMEOUT', parseIntWithDefault('HIVE_MIND_MCP_TOOL_TIMEOUT', 900000)),
+  // Issue #2301: after the main thread goes idle, `claude -p` waits for background Agent/Bash/
+  // Workflow tasks only up to CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS (Claude Code default 600000 ms),
+  // then kills them. Background work stays enabled; the ceiling is 4x the default (40 minutes) and
+  // still finite, so a stuck task cannot hang solve forever. A sweep that happens anyway is resumed
+  // in the same session up to incompleteTurnMaxResumes times.
+  // Set via CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS or HIVE_MIND_CLAUDE_PRINT_BG_WAIT_CEILING_MS
+  // (0 waits indefinitely, as in Claude Code) and HIVE_MIND_CLAUDE_INCOMPLETE_TURN_MAX_RESUMES.
+  printBgWaitCeilingMs: parseIntWithDefault('CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS', parseIntWithDefault('HIVE_MIND_CLAUDE_PRINT_BG_WAIT_CEILING_MS', 2400000)),
+  incompleteTurnMaxResumes: parseIntWithDefault('HIVE_MIND_CLAUDE_INCOMPLETE_TURN_MAX_RESUMES', 5),
 };
 
 // Default max thinking budget for Claude Code (see issue #1146)
@@ -642,6 +652,8 @@ export const supportsThinkingBudget = (version, minVersion = '2.1.12') => {
 //   ANTHROPIC_DEFAULT_SONNET_MODEL → model used in execution mode (and for 'sonnet' alias)
 //   CLAUDE_CODE_SUBAGENT_MODEL     → model used by all subagents and agent teams
 //   CLAUDE_CODE_DISABLE_1M_CONTEXT, CLAUDE_CODE_AUTO_COMPACT_WINDOW, CLAUDE_AUTOCOMPACT_PCT_OVERRIDE
+// Issue #2771: pricingTier (from resolvePricingTier) adds CLAUDE_CODE_DISABLE_FAST_MODE and
+// holds short-context runs to the model's cheapest pricing tier.
 export const getClaudeEnv = (options = {}) => {
   // Get max output tokens based on model (Issue #1221)
   const maxOutputTokens = options.model ? getMaxOutputTokensForModel(options.model) : claudeCode.maxOutputTokens;
@@ -653,6 +665,8 @@ export const getClaudeEnv = (options = {}) => {
     // See: https://github.com/link-assistant/hive-mind/issues/1066
     MCP_TIMEOUT: String(claudeCode.mcpTimeout),
     MCP_TOOL_TIMEOUT: String(claudeCode.mcpToolTimeout),
+    // Issue #2301: raise print mode's background-task wait ceiling instead of disabling background work.
+    CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS: String(claudeCode.printBgWaitCeilingMs),
   });
 
   // Opus 4.7+ always uses adaptive thinking — MAX_THINKING_TOKENS has no effect (Issue #1620, Issue #1832)
@@ -764,6 +778,14 @@ export const getClaudeEnv = (options = {}) => {
     }
   }
 
+  // Issue #2771: the resolved pricing tier owns the speed and 1M switches, so values
+  // inherited from the parent shell cannot override what this run asked for.
+  if (options.pricingTier) {
+    delete env.CLAUDE_CODE_DISABLE_FAST_MODE;
+    if (options.pricingTier.longContext) delete env.CLAUDE_CODE_DISABLE_1M_CONTEXT;
+    applyClaudePricingTierToEnv(env, options.pricingTier);
+  }
+
   return env;
 };
 
@@ -870,11 +892,13 @@ export const mergeQueue = {
   mergeMethod: getenv('HIVE_MIND_MERGE_QUEUE_MERGE_METHOD', 'merge'),
   // Issue #1307: Wait for main branch CI to complete before processing merge queue
   // When enabled, the merge queue will wait for any active CI runs on the target branch
-  // (usually main) to complete before merging the first PR.
+  // (usually main) to complete before merging each PR.
+  // Issue #2404: after the wait, the runs' conclusions are re-checked (see checkBranchCIHealthBeforeStart).
   // Default: true - ensures all post-merge CI workflows complete before next merge
   waitForTargetBranchCI: getenv('HIVE_MIND_MERGE_QUEUE_WAIT_FOR_TARGET_CI', 'true').toLowerCase() === 'true',
   // Issue #1307: Timeout for waiting on target branch CI (in milliseconds)
-  // If active runs don't complete within this time, proceed with merge anyway
+  // Issue #2404: if the branch CI is still running after this time, the queue stops (it no longer
+  // merges blindly); runs unrelated to the branch CI being still active do not block it.
   // Default: 45 minutes (2700000ms)
   targetBranchCITimeoutMs: parseIntWithDefault('HIVE_MIND_MERGE_QUEUE_TARGET_CI_TIMEOUT_MS', 45 * 60 * 1000),
   // Issue #1307: Polling interval for checking target branch CI status (in milliseconds)
@@ -895,6 +919,9 @@ export const mergeQueue = {
   // When enabled, the merge queue will check if there are any failed CI runs on
   // the default branch before starting to process PRs. If failures exist, it will
   // report them and stop.
+  // Issue #2404: the check now runs before every merge (and before the auto-resolve pass),
+  // re-checks conclusions after waiting for active runs, and judges a HEAD without CI of its
+  // own (e.g. a release version bump) by the newest ancestor that has push CI.
   // Default: true - ensure a healthy branch before merging
   checkBranchCIHealthBeforeStart: getenv('HIVE_MIND_MERGE_QUEUE_CHECK_BRANCH_HEALTH', 'true').toLowerCase() === 'true',
   // Issue #1341: Timeout for waiting on post-merge CI (in milliseconds)

@@ -235,6 +235,7 @@ console.log('─'.repeat(60));
 import { writeFileSync } from 'node:fs';
 const marker = process.argv[2];
 process.on('SIGINT', () => { try { writeFileSync(marker, 'INTERRUPTED'); } catch {} process.exit(1); });
+process.stdout.write('CHILD_READY\\n');
 setTimeout(() => { try { writeFileSync(marker, 'COMPLETED'); } catch {} process.exit(0); }, 1500);
 `;
   await writeFile(childPath, childScript, 'utf-8');
@@ -249,9 +250,11 @@ const child = spawn(process.execPath, [${JSON.stringify(childPath)}, marker], {
   detached: DETACHED,
 });
 child.on('close', code => { process.stdout.write('CHILD_CLOSED:' + code + '\\n'); process.exit(0); });
+// The parent may be under CPU load. Announce readiness only after the child
+// has installed its SIGINT handler, so the group signal tests that handler.
+child.stdout.once('data', () => process.stdout.write('READY\\n'));
 // Graceful: on SIGINT we do NOT exit; we keep waiting for the child to finish naturally.
 process.on('SIGINT', () => { process.stdout.write('HARNESS_SIGINT\\n'); });
-process.stdout.write('READY\\n');
 setInterval(() => {}, 1000);
 `;
   await writeFile(harnessPath, harnessScript, 'utf-8');

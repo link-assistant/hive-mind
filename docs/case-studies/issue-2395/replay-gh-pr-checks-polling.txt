@@ -1,0 +1,11 @@
+# Before the fix (v2.33.2: breaker always on, limit 3, input-only counting)
+issue-2395-p-vs-np-gh-pr-checks.jsonl limit=default: TRIPPED on poll 3: Identical tool call repeated 3 times, failing every time: shell({"command":"/bin/bash -lc 'gh pr checks 623 --repo konar
+issue-2395-p-vs-np-gh-pr-checks.jsonl limit=3: TRIPPED on poll 3: Identical tool call repeated 3 times, failing every time: shell({"command":"/bin/bash -lc 'gh pr checks 623 --repo konar
+issue-2395-agent-gh-pr-checks.jsonl limit=default: TRIPPED on poll 3: Identical tool call repeated 3 times, failing every time: shell({"command":"/bin/bash -lc 'gh pr checks 323 --repo link-
+issue-2395-agent-gh-pr-checks.jsonl limit=3: TRIPPED on poll 3: Identical tool call repeated 3 times, failing every time: shell({"command":"/bin/bash -lc 'gh pr checks 323 --repo link-
+
+# After the fix (this pull request)
+issue-2395-p-vs-np-gh-pr-checks.jsonl limit=default: not tripped
+issue-2395-p-vs-np-gh-pr-checks.jsonl limit=3: not tripped
+issue-2395-agent-gh-pr-checks.jsonl limit=default: not tripped
+issue-2395-agent-gh-pr-checks.jsonl limit=3: not tripped

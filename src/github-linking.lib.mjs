@@ -26,25 +26,30 @@ export function getGitHubLinkingKeywords() {
   return ['close', 'closes', 'closed', 'fix', 'fixes', 'fixed', 'resolve', 'resolves', 'resolved'];
 }
 
-function escapeRegExp(value) {
-  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+/** Ignore examples and hidden metadata when interpreting a closing declaration. */
+export function getClosingReferenceText(text) {
+  return String(text || '')
+    .replace(/<!--[^]*?-->/g, ' ')
+    .replace(/(^|\n)[ \t]*(`{3,}|~{3,})[^\n]*\n[^]*?(?:\n[ \t]*\2[^\n]*(?=\n|$)|$)/g, '\n')
+    .replace(/(`+)[^]*?\1/g, ' ');
 }
 
-function buildClosingReferencePatterns(keyword, issueNumber, owner = null, repo = null) {
-  const issueNumStr = escapeRegExp(issueNumber);
-  const separator = String.raw`(?:\s+|\s*:\s*)`;
-  const prefix = String.raw`\b${keyword}${separator}`;
-  const references = [String.raw`#${issueNumStr}\b`];
-
-  if (owner && repo) {
-    references.push(`${escapeRegExp(owner)}/${escapeRegExp(repo)}#${issueNumStr}\\b`);
-    references.push(`https://github\\.com/${escapeRegExp(owner)}/${escapeRegExp(repo)}/issues/${issueNumStr}\\b`);
+/** Shared parser: repair, discovery, and merge checks must agree. */
+export function extractClosingIssueReferences(text) {
+  const visible = getClosingReferenceText(text);
+  const pattern = /\b(close[sd]?|fix(?:es|ed)?|resolve[sd]?)(?:\s+|\s*:\s*)(?:https:\/\/github\.com\/([\w.-]+)\/([\w.-]+)\/issues\/|([\w.-]+)\/([\w.-]+)#|#)([1-9]\d*)\b/gi;
+  const references = [];
+  for (const match of visible.matchAll(pattern)) {
+    // The old regex accepted "does not close #322" (PR agent#326).
+    // Inspect the current clause, keeping a later "but fixes #N" independent.
+    const clause = visible
+      .slice(0, match.index)
+      .split(/[\n.!?;,]|\bbut\b/i)
+      .at(-1);
+    if (/\b(?:not|never|cannot|can['’]t|won['’]t|don['’]t|doesn['’]t|didn['’]t|without|unable to)\b/i.test(clause)) continue;
+    references.push({ owner: match[2] || match[4] || null, repo: match[3] || match[5] || null, number: match[6] });
   }
-
-  references.push(String.raw`[\w.-]+/[\w.-]+#${issueNumStr}\b`);
-  references.push(`https://github\\.com/[^/\\s]+/[^/\\s]+/issues/${issueNumStr}\\b`);
-
-  return references.map(reference => new RegExp(`${prefix}${reference}`, 'i'));
+  return references;
 }
 
 /**
@@ -59,23 +64,22 @@ function buildClosingReferencePatterns(keyword, issueNumber, owner = null, repo 
  * @param {string} [repo] - Repository name for exact owner/repo references
  * @returns {boolean} True if a valid closing reference is found
  */
-export function prClosesIssue(text, issueNumber, owner = null, repo = null) {
-  if (!text || typeof text !== 'string' || issueNumber === null || issueNumber === undefined || String(issueNumber).trim() === '') {
-    return false;
-  }
+export function prClosesIssue(text, issueNumber, owner = null, repo = null, { allowShortReference = true } = {}) {
+  if (!issueNumber) return false;
+  return extractClosingIssueReferences(text).some(reference => {
+    if (reference.number !== String(issueNumber).trim()) return false;
+    if (!reference.owner) return allowShortReference;
+    if (!owner || !repo) return true;
+    return reference.owner.toLowerCase() === owner.toLowerCase() && reference.repo.toLowerCase() === repo.toLowerCase();
+  });
+}
 
-  const issueNumStr = String(issueNumber).trim();
-
-  for (const keyword of getGitHubLinkingKeywords()) {
-    const patterns = buildClosingReferencePatterns(keyword, issueNumStr, owner, repo);
-    for (const pattern of patterns) {
-      if (pattern.test(text)) {
-        return true;
-      }
-    }
-  }
-
-  return false;
+/** Bare issue numbers are relative to the source PR's repository. */
+export function pullRequestClosesIssue(pr, issueNumber, owner = null, repo = null) {
+  const url = pr.url || pr.html_url;
+  const source = url?.match(/^https:\/\/github\.com\/([\w.-]+)\/([\w.-]+)\/pull\/[1-9]\d*(?:$|[/?#])/i);
+  const allowShortReference = !owner || !repo || !url || Boolean(source && source[1].toLowerCase() === owner.toLowerCase() && source[2].toLowerCase() === repo.toLowerCase());
+  return prClosesIssue(pr.body || '', issueNumber, owner, repo, { allowShortReference });
 }
 
 /**
@@ -98,35 +102,69 @@ export function hasGitHubLinkingKeyword(prBody, issueNumber, owner = null, repo 
  * @param {string} prBody - The pull request body text
  * @returns {string|null} The issue number if found, null otherwise
  */
-export function extractLinkedIssueNumber(prBody) {
-  if (!prBody) {
-    return null;
+export function extractLinkedIssueNumber(prBody, owner = null, repo = null) {
+  return extractClosingIssueReferences(prBody).find(reference => !reference.owner || !owner || !repo || (reference.owner.toLowerCase() === owner.toLowerCase() && reference.repo.toLowerCase() === repo.toLowerCase()))?.number || null;
+}
+
+/** Issue number encoded in our `issue-<N>-<hash>` branch convention, or null. */
+export function extractBranchIssueNumber(branch) {
+  return branch?.match(/^issue-([1-9]\d*)-/)?.[1] || null;
+}
+
+/** Issue/PR numbers the text mentions in a repository other than owner/repo ("Unblocks other/project#320"). */
+export function extractForeignIssueNumbers(text, owner, repo) {
+  const pattern = /(?:https:\/\/github\.com\/([\w.-]+)\/([\w.-]+)\/(?:issues|pull)\/|\b([\w.-]+)\/([\w.-]+)#)([1-9]\d*)\b/gi;
+  const numbers = new Set();
+  for (const match of getClosingReferenceText(text).matchAll(pattern)) {
+    const slug = `${match[1] || match[3]}/${match[2] || match[4]}`.toLowerCase();
+    if (!owner || !repo || slug !== `${owner}/${repo}`.toLowerCase()) numbers.add(match[5]);
   }
+  return numbers;
+}
 
-  const keywords = getGitHubLinkingKeywords();
+/**
+ * The issue a pull request solves.
+ *
+ * The branch convention recovers a primary issue whose closing reference was
+ * deleted from the description (issue #2335). A branch name is only a hint,
+ * though: command-stream#206 lived on `issue-320-…` because it was created
+ * while solving link-assistant/agent#320, and its description said
+ * "Fixes #205. Unblocks link-assistant/agent#320". Trusting the branch made
+ * auto-merge demand the non-existent command-stream#320 (issue #2563).
+ *
+ * The branch number therefore loses to the description's same-repository
+ * closing reference when the description names that number in another
+ * repository, or when `branchIssueExists` is `false` (404/410 or a pull request).
+ */
+export function resolvePrimaryIssueNumber({ body, branch, owner, repo, branchIssueExists = null }) {
+  const branchNumber = extractBranchIssueNumber(branch);
+  const bodyNumber = extractLinkedIssueNumber(body, owner, repo);
+  if (!branchNumber || !bodyNumber || branchNumber === bodyNumber) return branchNumber || bodyNumber;
+  if (prClosesIssue(body, branchNumber, owner, repo)) return branchNumber;
+  if (branchIssueExists === false || extractForeignIssueNumbers(body, owner, repo).has(branchNumber)) return bodyNumber;
+  return branchNumber;
+}
 
-  for (const keyword of keywords) {
-    // Try to match: KEYWORD #123
-    const pattern1 = new RegExp(`\\b${keyword}\\s+#(\\d+)\\b`, 'i');
-    const match1 = prBody.match(pattern1);
-    if (match1) {
-      return match1[1];
-    }
+/** An ancestor's PR belongs to that ancestor even if its description closes descendants. */
+export function isAncestorPullRequest(pr, ancestorUrls, owner, repo) {
+  const source = (pr.url || pr.html_url)?.match(/^https:\/\/github\.com\/([\w.-]+)\/([\w.-]+)\/pull\/[1-9]\d*(?:$|[/?#])/i);
+  const sourceOwner = source?.[1] || owner;
+  const sourceRepo = source?.[2] || repo;
+  if (!sourceOwner || !sourceRepo) return false;
+  const number = resolvePrimaryIssueNumber({ body: pr.body, branch: pr.headRefName || pr.head?.ref, owner: sourceOwner, repo: sourceRepo });
+  if (!number) return false;
+  const primaryUrl = `https://github.com/${sourceOwner}/${sourceRepo}/issues/${number}`.toLowerCase();
+  return ancestorUrls.some(url => url.toLowerCase() === primaryUrl);
+}
 
-    // Try to match: KEYWORD owner/repo#123
-    const pattern2 = new RegExp(`\\b${keyword}\\s+[^/\\s]+/[^/\\s]+#(\\d+)\\b`, 'i');
-    const match2 = prBody.match(pattern2);
-    if (match2) {
-      return match2[1];
-    }
-
-    // Try to match: KEYWORD https://github.com/owner/repo/issues/123
-    const pattern3 = new RegExp(`\\b${keyword}\\s+https://github\\.com/[^/]+/[^/]+/issues/(\\d+)\\b`, 'i');
-    const match3 = prBody.match(pattern3);
-    if (match3) {
-      return match3[1];
-    }
-  }
-
-  return null;
+/**
+ * {@link resolvePrimaryIssueNumber}, probing the branch issue only when the
+ * branch and the description disagree. `checkIssueExists(number)` resolves to
+ * true, false, or null when unknown (an unknown answer keeps the branch issue).
+ */
+export async function resolvePullRequestIssueNumber({ body, branch, owner, repo, checkIssueExists = null }) {
+  const resolved = resolvePrimaryIssueNumber({ body, branch, owner, repo });
+  const bodyNumber = extractLinkedIssueNumber(body, owner, repo);
+  if (!checkIssueExists || !bodyNumber || resolved === bodyNumber || prClosesIssue(body, resolved, owner, repo)) return resolved;
+  return resolvePrimaryIssueNumber({ body, branch, owner, repo, branchIssueExists: await checkIssueExists(resolved) });
 }

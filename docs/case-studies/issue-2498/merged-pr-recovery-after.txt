@@ -1,0 +1,19 @@
+✔ package-registry-manager#31: an auto-merged session that exited 0 reports no recovery and uploads no "killed session" log (1272.215209ms)
+✔ a session killed after its pull request merged is neither recovered nor offered a resume (24.714539ms)
+✔ with the pull request still open, a survived OOM event is described without claiming a recovery (112.902623ms)
+✔ a killed session with an open pull request is still recovered (behaviour preserved) (178.470394ms)
+✔ buildKillCompletionSections returns nothing to report once the pull request is merged (0.722808ms)
+✔ the merge state is looked up for a kill or an OOM event, not for a plain success (0.549815ms)
+✔ the survived notice keeps the forced-kill wording and drops the --attach-logs hint (0.351295ms)
+✔ solve does not retry a killed AI tool once the pull request is merged, and posts nothing (1.413777ms)
+✔ a scheduled retry is cancelled when the pull request merges during the delay (1.162969ms)
+✔ a failing merge check never blocks the retry (behaviour preserved) (0.930906ms)
+✔ a cancelled tool retry is reported as cancelled when the enclosing run ends (0.342548ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2493.172277

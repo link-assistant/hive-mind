@@ -1,0 +1,317 @@
+[
+  {
+    "run_id": 37369373277,
+    "attempt": 2,
+    "job": {
+      "id": 111968417109,
+      "run_id": 37369373277,
+      "workflow_name": "Checks and release",
+      "head_branch": "issue-2526-977f266926a4",
+      "run_url": "https://api.github.com/repos/link-assistant/hive-mind/actions/runs/37369373277",
+      "run_attempt": 2,
+      "node_id": "CR_kwDOPUU0qc8AAAAaEdZ1VQ",
+      "head_sha": "220b0009b17d8bd3386a13917e90184f2cb8cbcb",
+      "url": "https://api.github.com/repos/link-assistant/hive-mind/actions/jobs/111968417109",
+      "html_url": "https://github.com/link-assistant/hive-mind/actions/runs/37369373277/job/111968417109",
+      "status": "completed",
+      "conclusion": "cancelled",
+      "created_at": "2026-10-05T20:40:18Z",
+      "started_at": "2026-10-05T20:40:18Z",
+      "completed_at": "2026-10-05T20:55:20Z",
+      "name": "detect-changes",
+      "steps": [],
+      "check_run_url": "https://api.github.com/repos/link-assistant/hive-mind/check-runs/111968417109",
+      "labels": [
+        "ubuntu-24.04"
+      ],
+      "runner_id": 0,
+      "runner_name": "",
+      "runner_group_id": 0,
+      "runner_group_name": ""
+    },
+    "annotations": [
+      {
+        "path": ".github",
+        "blob_href": "https://github.com/link-assistant/hive-mind/blob/220b0009b17d8bd3386a13917e90184f2cb8cbcb/.github",
+        "start_line": 1,
+        "start_column": null,
+        "end_line": 1,
+        "end_column": null,
+        "annotation_level": "failure",
+        "title": "",
+        "message": "The job was not acquired by Runner of type hosted even after multiple attempts",
+        "raw_details": ""
+      }
+    ]
+  },
+  {
+    "run_id": 37369373277,
+    "attempt": 2,
+    "job": {
+      "id": 111968417587,
+      "run_id": 37369373277,
+      "workflow_name": "Checks and release",
+      "head_branch": "issue-2526-977f266926a4",
+      "run_url": "https://api.github.com/repos/link-assistant/hive-mind/actions/runs/37369373277",
+      "run_attempt": 2,
+      "node_id": "CR_kwDOPUU0qc8AAAAaEdZ3Mw",
+      "head_sha": "220b0009b17d8bd3386a13917e90184f2cb8cbcb",
+      "url": "https://api.github.com/repos/link-assistant/hive-mind/actions/jobs/111968417587",
+      "html_url": "https://github.com/link-assistant/hive-mind/actions/runs/37369373277/job/111968417587",
+      "status": "completed",
+      "conclusion": "cancelled",
+      "created_at": "2026-10-05T20:40:18Z",
+      "started_at": "2026-10-05T20:40:18Z",
+      "completed_at": "2026-10-05T20:55:20Z",
+      "name": "Release Preflight / Probe publishing credentials",
+      "steps": [],
+      "check_run_url": "https://api.github.com/repos/link-assistant/hive-mind/check-runs/111968417587",
+      "labels": [
+        "ubuntu-24.04"
+      ],
+      "runner_id": 0,
+      "runner_name": "",
+      "runner_group_id": 0,
+      "runner_group_name": ""
+    },
+    "annotations": [
+      {
+        "path": ".github",
+        "blob_href": "https://github.com/link-assistant/hive-mind/blob/220b0009b17d8bd3386a13917e90184f2cb8cbcb/.github",
+        "start_line": 1,
+        "start_column": null,
+        "end_line": 1,
+        "end_column": null,
+        "annotation_level": "failure",
+        "title": "",
+        "message": "The job was not acquired by Runner of type hosted even after multiple attempts",
+        "raw_details": ""
+      }
+    ]
+  },
+  {
+    "run_id": 37369373033,
+    "attempt": 2,
+    "job": {
+      "id": 111968423907,
+      "run_id": 37369373033,
+      "workflow_name": "Security",
+      "head_branch": "issue-2526-977f266926a4",
+      "run_url": "https://api.github.com/repos/link-assistant/hive-mind/actions/runs/37369373033",
+      "run_attempt": 2,
+      "node_id": "CR_kwDOPUU0qc8AAAAaEdaP4w",
+      "head_sha": "220b0009b17d8bd3386a13917e90184f2cb8cbcb",
+      "url": "https://api.github.com/repos/link-assistant/hive-mind/actions/jobs/111968423907",
+      "html_url": "https://github.com/link-assistant/hive-mind/actions/runs/37369373033/job/111968423907",
+      "status": "completed",
+      "conclusion": "cancelled",
+      "created_at": "2026-10-05T20:40:19Z",
+      "started_at": "2026-10-05T20:40:19Z",
+      "completed_at": "2026-10-05T20:55:22Z",
+      "name": "Audit npm lock",
+      "steps": [],
+      "check_run_url": "https://api.github.com/repos/link-assistant/hive-mind/check-runs/111968423907",
+      "labels": [
+        "ubuntu-24.04"
+      ],
+      "runner_id": 0,
+      "runner_name": "",
+      "runner_group_id": 0,
+      "runner_group_name": ""
+    },
+    "annotations": [
+      {
+        "path": ".github",
+        "blob_href": "https://github.com/link-assistant/hive-mind/blob/220b0009b17d8bd3386a13917e90184f2cb8cbcb/.github",
+        "start_line": 1,
+        "start_column": null,
+        "end_line": 1,
+        "end_column": null,
+        "annotation_level": "failure",
+        "title": "",
+        "message": "The job was not acquired by Runner of type hosted even after multiple attempts",
+        "raw_details": ""
+      }
+    ]
+  },
+  {
+    "run_id": 37369373033,
+    "attempt": 2,
+    "job": {
+      "id": 111968424366,
+      "run_id": 37369373033,
+      "workflow_name": "Security",
+      "head_branch": "issue-2526-977f266926a4",
+      "run_url": "https://api.github.com/repos/link-assistant/hive-mind/actions/runs/37369373033",
+      "run_attempt": 2,
+      "node_id": "CR_kwDOPUU0qc8AAAAaEdaRrg",
+      "head_sha": "220b0009b17d8bd3386a13917e90184f2cb8cbcb",
+      "url": "https://api.github.com/repos/link-assistant/hive-mind/actions/jobs/111968424366",
+      "html_url": "https://github.com/link-assistant/hive-mind/actions/runs/37369373033/job/111968424366",
+      "status": "completed",
+      "conclusion": "cancelled",
+      "created_at": "2026-10-05T20:40:19Z",
+      "started_at": "2026-10-05T20:40:19Z",
+      "completed_at": "2026-10-05T20:55:22Z",
+      "name": "CodeQL (javascript-typescript)",
+      "steps": [],
+      "check_run_url": "https://api.github.com/repos/link-assistant/hive-mind/check-runs/111968424366",
+      "labels": [
+        "ubuntu-24.04"
+      ],
+      "runner_id": 0,
+      "runner_name": "",
+      "runner_group_id": 0,
+      "runner_group_name": ""
+    },
+    "annotations": [
+      {
+        "path": ".github",
+        "blob_href": "https://github.com/link-assistant/hive-mind/blob/220b0009b17d8bd3386a13917e90184f2cb8cbcb/.github",
+        "start_line": 1,
+        "start_column": null,
+        "end_line": 1,
+        "end_column": null,
+        "annotation_level": "failure",
+        "title": "",
+        "message": "The job was not acquired by Runner of type hosted even after multiple attempts",
+        "raw_details": ""
+      }
+    ]
+  },
+  {
+    "run_id": 37369373033,
+    "attempt": 2,
+    "job": {
+      "id": 111968424565,
+      "run_id": 37369373033,
+      "workflow_name": "Security",
+      "head_branch": "issue-2526-977f266926a4",
+      "run_url": "https://api.github.com/repos/link-assistant/hive-mind/actions/runs/37369373033",
+      "run_attempt": 2,
+      "node_id": "CR_kwDOPUU0qc8AAAAaEdaSdQ",
+      "head_sha": "220b0009b17d8bd3386a13917e90184f2cb8cbcb",
+      "url": "https://api.github.com/repos/link-assistant/hive-mind/actions/jobs/111968424565",
+      "html_url": "https://github.com/link-assistant/hive-mind/actions/runs/37369373033/job/111968424565",
+      "status": "completed",
+      "conclusion": "cancelled",
+      "created_at": "2026-10-05T20:40:19Z",
+      "started_at": "2026-10-05T20:40:19Z",
+      "completed_at": "2026-10-05T20:55:22Z",
+      "name": "CodeQL (actions)",
+      "steps": [],
+      "check_run_url": "https://api.github.com/repos/link-assistant/hive-mind/check-runs/111968424565",
+      "labels": [
+        "ubuntu-24.04"
+      ],
+      "runner_id": 0,
+      "runner_name": "",
+      "runner_group_id": 0,
+      "runner_group_name": ""
+    },
+    "annotations": [
+      {
+        "path": ".github",
+        "blob_href": "https://github.com/link-assistant/hive-mind/blob/220b0009b17d8bd3386a13917e90184f2cb8cbcb/.github",
+        "start_line": 1,
+        "start_column": null,
+        "end_line": 1,
+        "end_column": null,
+        "annotation_level": "failure",
+        "title": "",
+        "message": "The job was not acquired by Runner of type hosted even after multiple attempts",
+        "raw_details": ""
+      }
+    ]
+  },
+  {
+    "run_id": 37369373006,
+    "attempt": 2,
+    "job": {
+      "id": 111968434279,
+      "run_id": 37369373006,
+      "workflow_name": "Broken Link Checker",
+      "head_branch": "issue-2526-977f266926a4",
+      "run_url": "https://api.github.com/repos/link-assistant/hive-mind/actions/runs/37369373006",
+      "run_attempt": 2,
+      "node_id": "CR_kwDOPUU0qc8AAAAaEda4Zw",
+      "head_sha": "220b0009b17d8bd3386a13917e90184f2cb8cbcb",
+      "url": "https://api.github.com/repos/link-assistant/hive-mind/actions/jobs/111968434279",
+      "html_url": "https://github.com/link-assistant/hive-mind/actions/runs/37369373006/job/111968434279",
+      "status": "completed",
+      "conclusion": "cancelled",
+      "created_at": "2026-10-05T20:40:21Z",
+      "started_at": "2026-10-05T20:40:21Z",
+      "completed_at": "2026-10-05T20:55:23Z",
+      "name": "Check Links",
+      "steps": [],
+      "check_run_url": "https://api.github.com/repos/link-assistant/hive-mind/check-runs/111968434279",
+      "labels": [
+        "ubuntu-24.04"
+      ],
+      "runner_id": 0,
+      "runner_name": "",
+      "runner_group_id": 0,
+      "runner_group_name": ""
+    },
+    "annotations": [
+      {
+        "path": ".github",
+        "blob_href": "https://github.com/link-assistant/hive-mind/blob/220b0009b17d8bd3386a13917e90184f2cb8cbcb/.github",
+        "start_line": 1,
+        "start_column": null,
+        "end_line": 1,
+        "end_column": null,
+        "annotation_level": "failure",
+        "title": "",
+        "message": "The job was not acquired by Runner of type hosted even after multiple attempts",
+        "raw_details": ""
+      }
+    ]
+  },
+  {
+    "run_id": 37369373277,
+    "attempt": 2,
+    "job": {
+      "id": 111973570019,
+      "run_id": 37369373277,
+      "workflow_name": "Checks and release",
+      "head_branch": "issue-2526-977f266926a4",
+      "run_url": "https://api.github.com/repos/link-assistant/hive-mind/actions/runs/37369373277",
+      "run_attempt": 2,
+      "node_id": "CR_kwDOPUU0qc8AAAAaEiUV4w",
+      "head_sha": "220b0009b17d8bd3386a13917e90184f2cb8cbcb",
+      "url": "https://api.github.com/repos/link-assistant/hive-mind/actions/jobs/111973570019",
+      "html_url": "https://github.com/link-assistant/hive-mind/actions/runs/37369373277/job/111973570019",
+      "status": "completed",
+      "conclusion": "cancelled",
+      "created_at": "2026-10-05T20:55:22Z",
+      "started_at": "2026-10-05T20:55:22Z",
+      "completed_at": "2026-10-05T21:10:24Z",
+      "name": "Pipeline Status",
+      "steps": [],
+      "check_run_url": "https://api.github.com/repos/link-assistant/hive-mind/check-runs/111973570019",
+      "labels": [
+        "ubuntu-24.04"
+      ],
+      "runner_id": 0,
+      "runner_name": "",
+      "runner_group_id": 0,
+      "runner_group_name": ""
+    },
+    "annotations": [
+      {
+        "path": ".github",
+        "blob_href": "https://github.com/link-assistant/hive-mind/blob/220b0009b17d8bd3386a13917e90184f2cb8cbcb/.github",
+        "start_line": 1,
+        "start_column": null,
+        "end_line": 1,
+        "end_column": null,
+        "annotation_level": "failure",
+        "title": "",
+        "message": "The job was not acquired by Runner of type hosted even after multiple attempts",
+        "raw_details": ""
+      }
+    ]
+  }
+]

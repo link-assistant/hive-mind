@@ -132,7 +132,7 @@ export const resolveFormalAiFallbackImage = (env = process.env) => String(env.HI
  * check have all succeeded, and it is left untouched by a rollback.
  *
  * @param {object|null} state - A `formal-ai-sidecar.json` record.
- * @returns {{image: string|null, digest: string|null, version: string|null, memorySchemaVersion: (number|string|null), updatedAt: string|null}|null}
+ * @returns {{image: string|null, digest: string|null, repoDigest: string|null, version: string|null, memorySchemaVersion: (number|string|null), updatedAt: string|null}|null}
  */
 export const readAcceptedFormalAiImage = state => {
   const update = state?.lastUpdate;
@@ -140,7 +140,8 @@ export const readAcceptedFormalAiImage = state => {
   const image = String(update.image || '').trim() || null;
   const digest = String(update.digest || '').trim() || null;
   if (!image && !digest) return null;
-  return { image, digest, version: update.version ?? null, memorySchemaVersion: update.memorySchemaVersion ?? null, updatedAt: update.updatedAt ?? null };
+  const repoDigest = String(update.repoDigest || '').trim() || null;
+  return { image, digest, repoDigest, version: update.version ?? null, memorySchemaVersion: update.memorySchemaVersion ?? null, updatedAt: update.updatedAt ?? null };
 };
 
 /**
@@ -157,6 +158,11 @@ export const readAcceptedFormalAiImage = state => {
  *    pruned, the recorded reference may be pulled again, but the result is
  *    accepted only when its digest still matches; otherwise the candidate is
  *    refused rather than booted.
+ *  - **Immutable references are tried before the moving tag.** Since issue
+ *    #2305 the image is deliberately removed after hours of disuse, so the
+ *    recovery path is the normal path for the next task. `:latest` will often
+ *    have moved on by then; the registry digest (`repo@sha256:…`) and the
+ *    release's own version tag still name exactly the accepted build.
  *
  * @param {object|null} accepted - Output of {@link readAcceptedFormalAiImage}.
  * @returns {Array<object>}
@@ -165,6 +171,11 @@ export const resolveAcceptedFormalAiImageCandidates = (accepted = null) => {
   if (!accepted) return [];
   const candidates = [];
   if (accepted.digest) candidates.push({ image: accepted.digest, reference: accepted.image || accepted.digest, source: FORMAL_AI_IMAGE_SOURCES.ACCEPTED, pullable: false, accepted: true });
+  if (accepted.digest) {
+    const reference = accepted.image || accepted.digest;
+    const immutable = [accepted.repoDigest, accepted.version && (!accepted.image || accepted.image.startsWith(`${FORMAL_AI_IMAGE_REPOSITORY}:`)) ? `${FORMAL_AI_IMAGE_REPOSITORY}:${accepted.version}` : null];
+    for (const image of immutable) if (image && image !== accepted.image) candidates.push({ image, reference, source: FORMAL_AI_IMAGE_SOURCES.ACCEPTED, pullable: true, accepted: true, expectDigest: accepted.digest });
+  }
   if (accepted.image && accepted.digest) candidates.push({ image: accepted.image, reference: accepted.image, source: FORMAL_AI_IMAGE_SOURCES.ACCEPTED, pullable: true, accepted: true, expectDigest: accepted.digest });
   // An acceptance recorded before digests were captured: the reference is all
   // there is, so it may be used but never re-pulled behind a moving tag.

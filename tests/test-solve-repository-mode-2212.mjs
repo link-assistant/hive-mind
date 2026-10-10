@@ -198,8 +198,8 @@ test('combined issue body says how many issues were left out over the limit', ()
 
 test('summary lines mention the skipped issues only when there are any', () => {
   const repository = { owner: 'o', repo: 'r' };
-  assert.equal(buildRepositoryModeSummaryLines({ repository, totalOpen: 2, selectedCount: 2, skipped: 0 }).length, 2);
-  assert.equal(buildRepositoryModeSummaryLines({ repository, totalOpen: 120, selectedCount: 100, skipped: 20 }).length, 3);
+  assert.equal(buildRepositoryModeSummaryLines({ repository, totalOpen: 2, selectedCount: 2, skipped: 0 }).length, 3);
+  assert.equal(buildRepositoryModeSummaryLines({ repository, totalOpen: 120, selectedCount: 100, skipped: 20 }).length, 4);
 });
 
 // ---------------------------------------------------------------------------
@@ -348,8 +348,10 @@ test('attachSubIssues retries a rate-limited attachment and gives up on other er
   assert.deepEqual(waits, [...SUB_ISSUE_ATTACH_BACKOFF_MS]);
 
   let otherAttempts = 0;
-  const failingRun = async () => {
-    otherAttempts++;
+  const failingRun = async (command, args) => {
+    // Issue #2306: a one-parent error also reads the current parent (a GET);
+    // only the attachment POSTs count as attempts.
+    if (args.includes('-X')) otherAttempts++;
     return { code: 1, stdout: '', stderr: 'Issue already has a parent' };
   };
   const other = await attachSubIssues({ parentIssue: { owner: 'o', repo: 'r', number: 1 }, issues: [{ number: 8, id: 108 }], run: failingRun, delayMs: 0, sleep: async () => {} });

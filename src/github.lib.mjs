@@ -7,9 +7,12 @@ import { log, maskToken, cleanErrorMessage, isENOSPC, ghCmdRetry } from './lib.m
 import { reportError } from './sentry.lib.mjs';
 import { describeRequestedThinking, githubLimits, timeouts } from './config.lib.mjs';
 import { batchCheckPullRequestsForIssues as batchCheckPRs, batchCheckArchivedRepositories as batchCheckArchived } from './github.batch.lib.mjs';
-import { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeOutput, sanitizeLogContent, sanitizeForPublication, writeSanitizedPublicationFile } from './token-sanitization.lib.mjs';
+import { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeOutput, sanitizeLogContent, sanitizeForPublication, writeSanitizedPublicationFile, describeCredentialSanitizationFailure } from './token-sanitization.lib.mjs';
 export { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeOutput, sanitizeLogContent, sanitizeForPublication, writeSanitizedPublicationFile }; // Re-export for backward compatibility
 import { uploadLogWithGhUploadLog } from './log-upload.lib.mjs';
+import { publishLogToPullRequestBranch } from './log-upload-branch.lib.mjs';
+import { forgetLogUploadFailureReports, formatLogLinkLines, formatLogLocationConsoleLines, postLogUploadFailureComment } from './log-upload-failure.lib.mjs'; // Issue #2301, #2400
+import { recordLogAttached, rememberLogUsage, withLatestLogUsage } from './log-attach-state.lib.mjs'; // Issue #2563
 // Issue #2189: bracket the log-upload phase with resource samples. The incident
 // log's last sample was `after_agent`, ten minutes before the heap OOM, so the
 // phase that actually died left no telemetry at all.
@@ -19,11 +22,12 @@ import { formatResetTimeWithRelative } from './usage-limit.lib.mjs'; // See: htt
 import { getToolDisplayName, getModelInfoForComment } from './models/index.mjs';
 export { getToolDisplayName }; // Re-export for use by other modules
 import { buildBudgetStatsString } from './claude.budget-stats.lib.mjs';
-import { buildCostInfoString } from './github-cost-info.lib.mjs';
+import { buildCostInfoString, isFreeModelPricing } from './github-cost-info.lib.mjs';
 export { buildCostInfoString };
 // #1756: route gh exec calls through transient + rate-limit retry wrapper
 import { execGhWithRetry } from './github-rate-limit.lib.mjs';
 import { QUIET_PROBE } from './quiet-probe.lib.mjs'; // issues #2130, #2135: keep read-only probe payloads out of the attached log
+import { repositoryWriteAccess } from './github-write-access.lib.mjs';
 import { buildGitHubPullRequestUrl, buildGitHubPullRequestUrlOrNull, isGitHubUrlType, normalizeGitHubUrl, parseGitHubUrl } from './github-url-parser.lib.mjs';
 export { buildGitHubPullRequestUrl, buildGitHubPullRequestUrlOrNull, isGitHubUrlType, normalizeGitHubUrl, parseGitHubUrl };
 // Issue #1625: Named marker constants (single source of truth) + in-memory tracking for tool-posted comments. See tool-comments.lib.mjs for design.
@@ -154,7 +158,7 @@ export const checkRepositoryWritePermission = async (owner, repo, options = {}) 
     const permResult = await ghCmdRetry(() => $`gh api repos/${owner}/${repo} --jq .permissions`, { label: `write perms ${owner}/${repo}` });
     if (permResult.code !== 0) {
       // API call failed - might be a private repo or network issue
-      const errorOutput = (permResult.stderr ? permResult.stderr.toString() : '') + (permResult.stdout ? permResult.stdout.toString() : '');
+      const errorOutput = (permResult.stderr?.toString() ? permResult.stderr.toString() : '') + (permResult.stdout?.toString() ? permResult.stdout.toString() : '');
       // If it's a 404, the repo doesn't exist or we don't have read access
       if (errorOutput.includes('404') || errorOutput.includes('Not Found')) {
         await log('❌ Repository not found or no access', { level: 'error' });
@@ -170,7 +174,12 @@ export const checkRepositoryWritePermission = async (owner, repo, options = {}) 
     // Parse permissions
     const permissions = JSON.parse(permResult.stdout.toString().trim());
     // Check if user has push (write) access
-    if (permissions.push === true || permissions.admin === true || permissions.maintain === true) {
+    const hasWriteAccess = repositoryWriteAccess(permissions);
+    if (hasWriteAccess === null) {
+      await log('ℹ️ User roles do not establish token write access; GitHub will enforce token permissions on write');
+      return true;
+    }
+    if (hasWriteAccess) {
       await log('✅ Repository write access: Confirmed');
       return true;
     }
@@ -239,7 +248,7 @@ export const checkMaintainerCanModifyPR = async (owner, repo, prNumber) => {
     // Use GitHub API to check PR details including maintainer_can_modify
     const prResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber} --jq '{maintainer_can_modify: .maintainer_can_modify, head: .head}'`;
     if (prResult.code !== 0) {
-      const errorOutput = (prResult.stderr ? prResult.stderr.toString() : '') + (prResult.stdout ? prResult.stdout.toString() : '');
+      const errorOutput = (prResult.stderr?.toString() ? prResult.stderr.toString() : '') + (prResult.stdout?.toString() ? prResult.stdout.toString() : '');
       await log(`⚠️  Warning: Could not check maintainer_can_modify: ${cleanErrorMessage(errorOutput)}`, {
         level: 'warning',
       });
@@ -298,7 +307,7 @@ Thank you! 🙏`;
       await log(`✅ Comment posted successfully${posted.commentId ? ` (id=${posted.commentId})` : ''}`, { verbose: true });
       return true;
     } else {
-      await log(`⚠️  Warning: Failed to post comment: ${cleanErrorMessage(posted.stderr || 'unknown error')}`, { level: 'warning' });
+      await log(`⚠️  Warning: Failed to post comment: ${cleanErrorMessage(posted.stderr?.toString() || 'unknown error')}`, { level: 'warning' });
       return false;
     }
   } catch (error) {
@@ -329,6 +338,30 @@ const getLogUploadTerminalStatus = ({ errorMessage, errorDuringExecution, isUsag
   return { emoji: '✅', label: 'Solution draft log' };
 };
 /**
+ * The usage-limit part shared by the inline and uploaded log comments.
+ *
+ * Issue #2492: says once how the session continues. The italic footer repeated
+ * the "How to Continue" line and "Limit Type: Usage limit exceeded" repeated the
+ * heading.
+ */
+export const buildUsageLimitSummary = ({ toolName, limitResetTime, sessionId, resumeCommand, isAutoResumeEnabled, autoResumeMode }) => {
+  let summary = `## ⏳ ${USAGE_LIMIT_REACHED_MARKER}\n\nThe ${toolName} usage limit was reached, so this session stopped.`;
+  const details = [];
+  // Shows "in 14m (Feb 6, 3:00 PM UTC)" instead of just "4:00 PM" (issue #1236)
+  if (limitResetTime) details.push(`- **Reset Time**: ${formatResetTimeWithRelative(limitResetTime, global.limitTimezone || null) || limitResetTime}`);
+  if (sessionId) details.push(`- **Session ID**: ${sessionId}`);
+  if (details.length) summary += `\n\n${details.join('\n')}`;
+  summary += '\n\n### 🔄 How to Continue\n';
+  // Auto-resume/auto-restart shows the automatic continuation instead of CLI commands (issue #1152)
+  if (isAutoResumeEnabled) {
+    return summary + (autoResumeMode === 'restart' ? '**Auto-restart is enabled.** The session will restart (fresh context) when the limit resets.' : '**Auto-resume is enabled.** The session will resume (previous context kept) when the limit resets.');
+  }
+  summary += limitResetTime ? `Once the limit resets at **${limitResetTime}**, ` : 'Once the limit resets, ';
+  if (resumeCommand) return summary + `you can resume this session by running:\n\`\`\`bash\n${resumeCommand}\n\`\`\``;
+  if (sessionId) return summary + `you can resume this session using session ID: \`${sessionId}\``;
+  return summary + 'you can retry the operation.';
+};
+/**
  * Build the inline `--attach-logs` comment body — the variant that embeds the
  * whole transcript inside a `<details>` block.
  *
@@ -349,46 +382,7 @@ function buildInlineLogComment({ logContent, logSizeBytes, targetType, customTit
   // Usage limit comments should be shown whenever isUsageLimit is true, regardless of whether a generic errorMessage is provided.
   if (isUsageLimit) {
     // Usage limit error format - separate from general failures
-    logComment = `## ⏳ ${USAGE_LIMIT_REACHED_MARKER}
-
-The automated solution draft was interrupted because the ${toolName} usage limit was reached.
-
-### 📊 Limit Information
-- **Tool**: ${toolName}
-- **Limit Type**: Usage limit exceeded`;
-    if (limitResetTime) {
-      // Format reset time with relative time and UTC for better user understanding Shows "in 14m (Feb 6, 3:00 PM UTC)" instead of just "4:00 PM" See: https://github.com/link-assistant/hive-mind/issues/1236
-      const formattedResetTime = formatResetTimeWithRelative(limitResetTime, global.limitTimezone || null) || limitResetTime;
-      logComment += `\n- **Reset Time**: ${formattedResetTime}`;
-    }
-    if (sessionId) {
-      logComment += `\n- **Session ID**: ${sessionId}`;
-    }
-    logComment += '\n\n### 🔄 How to Continue\n';
-    // If auto-resume/auto-restart is enabled, show automatic continuation message instead of CLI commands See: https://github.com/link-assistant/hive-mind/issues/1152
-    if (isAutoResumeEnabled) {
-      const modeName = autoResumeMode === 'restart' ? 'restart' : 'resume';
-      const modeDescription = autoResumeMode === 'restart' ? 'The session will automatically restart (fresh start) when the limit resets.' : 'The session will automatically resume (with context preserved) when the limit resets.';
-      logComment += `**Auto-${modeName} is enabled.** ${modeDescription}`;
-    } else {
-      // Manual resume mode - show CLI commands
-      if (limitResetTime) {
-        logComment += `Once the limit resets at **${limitResetTime}**, `;
-      } else {
-        logComment += 'Once the limit resets, ';
-      }
-      if (resumeCommand) {
-        logComment += `you can resume this session by running:
-\`\`\`bash
-${resumeCommand}
-\`\`\``;
-      } else if (sessionId) {
-        logComment += `you can resume this session using session ID: \`${sessionId}\``;
-      } else {
-        logComment += 'you can retry the operation.';
-      }
-    }
-    const footerNote = isAutoResumeEnabled ? (autoResumeMode === 'restart' ? '*This session was interrupted due to usage limits. The session will automatically restart when the limit resets.*' : '*This session was interrupted due to usage limits. The session will automatically resume when the limit resets.*') : '*This session was interrupted due to usage limits. You can resume once the limit resets.*';
+    logComment = buildUsageLimitSummary({ toolName, limitResetTime, sessionId, resumeCommand, isAutoResumeEnabled, autoResumeMode });
     logComment += `${modelInfoString}
 
 <details>
@@ -398,10 +392,7 @@ ${resumeCommand}
 ${logContent}
 \`\`\`
 
-</details>
-
----
-${footerNote}`;
+</details>`;
   } else if (errorMessage) {
     // Failure log format (non-usage-limit errors)
     logComment = `## 🚨 ${SOLUTION_DRAFT_FAILED_MARKER}
@@ -473,7 +464,27 @@ ${logContent}
   return logComment;
 }
 /** Attaches a log file to a GitHub PR or issue as a comment. Returns true if upload succeeded. */
+/**
+ * Attach the session log to a pull request or issue.
+ *
+ * Issue #2301: also records whether the most recent attempt failed. In
+ * link-foundation/meta-language#196 an early iteration's log was attached and
+ * the failing iteration's log was not, yet the session ended with "logs already
+ * attached", because only "some log was attached at some point" was tracked.
+ * @returns {Promise<boolean>} Whether the log was attached.
+ */
 export async function attachLogToGitHub(options) {
+  // Issue #2563: every upload renders cost estimation, context and tokens usage and models used, also when its caller has no usage data.
+  rememberLogUsage(options);
+  const attached = await attachLogToGitHubOnce(withLatestLogUsage(options));
+  global.latestLogAttachFailed = attached !== true;
+  // Issue #2400: once the log is attached, a later failure is news again.
+  if (attached === true) forgetLogUploadFailureReports(options);
+  if (attached === true) recordLogAttached();
+  return attached;
+}
+
+async function attachLogToGitHubOnce(options) {
   const fs = (await use('fs')).promises;
   const {
     logFile,
@@ -506,11 +517,17 @@ export async function attachLogToGitHub(options) {
     resultModelUsage = null, // Issue #1454
     budgetStatsData = null, // Issue #1491: budget stats for comment
     failureActionSection = null,
+    leadingSection = null, // Issue #2563: e.g. the auto-merge held-back notice, published in the same comment as the log
     recordResources = recordResourceSnapshot, // Issue #2189: injectable for tests
+    uploadRetryDelaysMs = null, // Issue #2301: override the upload retry backoff (tests)
   } = options;
-  const budgetStats = budgetStatsData ? buildBudgetStatsString(budgetStatsData.tokenUsage, budgetStatsData.subAgentCalls) : '';
+  // Issue #2318: a free model's comment carries one cost figure, the $0.00 of the cost estimation section.
+  const budgetStats = budgetStatsData ? buildBudgetStatsString(budgetStatsData.tokenUsage, budgetStatsData.subAgentCalls, { freeModel: isFreeModelPricing(pricingInfo) }) : '';
   const targetName = targetType === 'pr' ? 'Pull Request' : 'Issue';
   let uploadPhaseEntered = false;
+  // Issue #2301: every path that leaves the pull request without the log says so there, instead of posting nothing.
+  const failureReport = { logSizeBytes: 0, isPublic: false, attempts: null, failureAction: '' };
+  const reportUploadFailure = failureReason => postLogUploadFailureComment({ $, owner, repo, targetNumber, targetType, log, errorMessage, failureReason, logFile, ...failureReport });
   try {
     // Issue #1212: Check disk space before attempting log upload (100MB minimum)
     try {
@@ -518,6 +535,8 @@ export async function attachLogToGitHub(options) {
       const diskCheck = await checkDiskSpace(100, { log: async () => {} });
       if (!diskCheck.success) {
         await log(`  ❌ Insufficient disk space for log upload (${diskCheck.availableMB}MB available, 100MB required). Free disk space and retry.`);
+        failureReport.logSizeBytes = (await fs.stat(logFile).catch(() => null))?.size || 0;
+        if (failureReport.logSizeBytes > 0) await reportUploadFailure(`Insufficient disk space for the log upload: ${diskCheck.availableMB}MB available, 100MB required.`);
         return false;
       }
     } catch {
@@ -529,6 +548,7 @@ export async function attachLogToGitHub(options) {
       await log('  ⚠️  Log file is empty, skipping upload');
       return false;
     }
+    failureReport.logSizeBytes = logStats.size;
     // Issue #2189: sample resources on the way in and on the way out of the
     // upload, tagged with the log size, so a future post-mortem can see the V8
     // heap climbing against its own limit instead of guessing from a machine
@@ -600,6 +620,7 @@ export async function attachLogToGitHub(options) {
       }
     }
     const failureAction = normalizeFailureActionSection(failureActionSection ?? buildIssueFailureActionSection(targetType));
+    if (errorMessage) failureReport.failureAction = failureAction;
     // Issue #2189: choose the publication route from the file size BEFORE touching
     // the bytes. The old order read the log, sanitized it and escaped it — three
     // full-size strings — and only then discovered the comment was far over
@@ -623,6 +644,7 @@ export async function attachLogToGitHub(options) {
       }
       logContent = escapeCodeBlocksInLog(logContent);
       logComment = buildInlineLogComment({ logContent, logSizeBytes: logStats.size, targetType, customTitle, sessionType, sessionId, errorMessage, errorDuringExecution, isUsageLimit, limitResetTime, toolName, resumeCommand, isAutoResumeEnabled, autoResumeMode, modelInfoString, budgetStats, totalCostUSD, anthropicTotalCostUSD, pricingInfo, failureAction });
+      if (leadingSection) logComment = `${leadingSection}\n\n${logComment}`;
     } else if (verbose) {
       await log(`  ⏭️  Log is ${formatLogSizeForHumans(logStats.size)} — skipping inline comment construction, the log goes straight to gh-upload-log`, { verbose: true });
     }
@@ -667,75 +689,40 @@ export async function attachLogToGitHub(options) {
         // There is now exactly one sanitize pass, and it never buffers the file.
         // Use gh-upload-log default auto mode and shared repository fallback.
         const uploadDescription = `Solution draft log for https://github.com/${owner}/${repo}/${targetType === 'pr' ? 'pull' : 'issues'}/${targetNumber}`;
+        failureReport.isPublic = isPublicRepo;
         const uploadResult = await uploadLogWithGhUploadLog({
           logFile,
           isPublic: isPublicRepo,
           description: uploadDescription,
           verbose,
+          ...(targetType === 'pr' && tempDir ? { publishToBranch: sanitizedFile => publishLogToPullRequestBranch({ logFile: sanitizedFile, repositoryPath: tempDir, owner, repo, prNumber: targetNumber, sessionId, $, log }) } : {}),
+          ...(uploadRetryDelaysMs ? { retryDelaysMs: uploadRetryDelaysMs, partRetryDelaysMs: uploadRetryDelaysMs } : {}),
         });
+        failureReport.attempts = uploadResult.attempts;
         if (uploadResult.success) {
           // Use rawUrl for direct file access (single chunk) or url for repository (multiple chunks) Requirements: 1 chunk = direct raw link, >1 chunks = repo link Private repository raw URLs can contain short-lived tokens, so keep private uploads on the stable repository/tree page URL.
           const logUrl = selectLogUploadUrl({ uploadResult, isPublicRepo });
           if (!isUsableLogUrl(logUrl)) {
             await log('  ❌ gh-upload-log completed but no usable log URL was resolved');
             await log('  ⚠️  Full log upload failed; not posting a broken log link');
-            await log(`  📁 Full log remains available locally at: ${logFile}`);
+            for (const line of formatLogLocationConsoleLines(logFile)) await log(line); // Issue #2400
+            await reportUploadFailure('gh-upload-log completed but printed no usable log URL');
             return false;
           }
           const uploadTypeLabel = uploadResult.type === 'gist' ? 'Gist' : 'Repository';
-          const chunkInfo = uploadResult.chunks > 1 ? ` (${uploadResult.chunks} chunks)` : '';
+          const chunkInfo = uploadResult.chunks > 1 ? ` (${uploadResult.chunks} ${uploadResult.parts?.length > 1 ? 'parts' : 'chunks'})` : '';
+          // Issue #2301: a log published as several parts links every part.
+          const logLinks = label => formatLogLinkLines({ uploadResult, logUrl, label, selectUrl: part => selectLogUploadUrl({ uploadResult: { ...part, success: true }, isPublicRepo }) });
           // Create comment with log link
           let logUploadComment;
           // For usage limit cases, always use the dedicated format regardless of errorMessage
           if (isUsageLimit) {
             // Usage limit error format
-            logUploadComment = `## ⏳ ${USAGE_LIMIT_REACHED_MARKER}
-
-The automated solution draft was interrupted because the ${toolName} usage limit was reached.
-
-### 📊 Limit Information
-- **Tool**: ${toolName}
-- **Limit Type**: Usage limit exceeded`;
-            if (limitResetTime) {
-              // Format reset time with relative time and UTC for better user understanding Shows "in 14m (Feb 6, 3:00 PM UTC)" instead of just "4:00 PM" See: https://github.com/link-assistant/hive-mind/issues/1236
-              const formattedUploadResetTime = formatResetTimeWithRelative(limitResetTime, global.limitTimezone || null) || limitResetTime;
-              logUploadComment += `\n- **Reset Time**: ${formattedUploadResetTime}`;
-            }
-            if (sessionId) {
-              logUploadComment += `\n- **Session ID**: ${sessionId}`;
-            }
-            logUploadComment += '\n\n### 🔄 How to Continue\n';
-            // If auto-resume/auto-restart is enabled, show automatic continuation message instead of CLI commands See: https://github.com/link-assistant/hive-mind/issues/1152
-            if (isAutoResumeEnabled) {
-              const modeName = autoResumeMode === 'restart' ? 'restart' : 'resume';
-              const modeDescription = autoResumeMode === 'restart' ? 'The session will automatically restart (fresh start) when the limit resets.' : 'The session will automatically resume (with context preserved) when the limit resets.';
-              logUploadComment += `**Auto-${modeName} is enabled.** ${modeDescription}`;
-            } else {
-              // Manual resume mode - show CLI commands
-              if (limitResetTime) {
-                logUploadComment += `Once the limit resets at **${limitResetTime}**, `;
-              } else {
-                logUploadComment += 'Once the limit resets, ';
-              }
-              if (resumeCommand) {
-                logUploadComment += `you can resume this session by running:
-\`\`\`bash
-${resumeCommand}
-\`\`\``;
-              } else if (sessionId) {
-                logUploadComment += `you can resume this session using session ID: \`${sessionId}\``;
-              } else {
-                logUploadComment += 'you can retry the operation.';
-              }
-            }
-            const uploadFooterNote = isAutoResumeEnabled ? (autoResumeMode === 'restart' ? '*This session was interrupted due to usage limits. The session will automatically restart when the limit resets.*' : '*This session was interrupted due to usage limits. The session will automatically resume when the limit resets.*') : '*This session was interrupted due to usage limits. You can resume once the limit resets.*';
+            logUploadComment = buildUsageLimitSummary({ toolName, limitResetTime, sessionId, resumeCommand, isAutoResumeEnabled, autoResumeMode });
             logUploadComment += `${modelInfoString}
 
 ### 📎 **Execution log uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
-- [View complete execution log](${logUrl})
-
----
-${uploadFooterNote}`;
+${logLinks('View complete execution log')}`;
           } else if (errorMessage) {
             // Failure log format (non-usage-limit errors)
             logUploadComment = `## 🚨 ${SOLUTION_DRAFT_FAILED_MARKER}
@@ -745,7 +732,7 @@ ${errorMessage}
 \`\`\`${failureAction}${modelInfoString}
 
 ### 📎 **Failure log uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
-- [View complete failure log](${logUrl})
+${logLinks('View complete failure log')}
 
 ---
 *${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`;
@@ -758,7 +745,7 @@ This log file contains the complete execution trace of the AI ${targetType === '
 > **Note**: The session encountered errors during execution, but some work may have been completed. Please review the changes carefully.
 
 ### 📎 **Log file uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
-- [View complete solution draft log](${logUrl})
+${logLinks('View complete solution draft log')}
 
 ---
 *${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`;
@@ -782,11 +769,12 @@ This log file contains the complete execution trace of the AI ${targetType === '
 This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}${budgetStats}${modelInfoString}
 ${sessionNote}
 ### 📎 **Log file uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
-- [View complete solution draft log](${logUrl})
+${logLinks('View complete solution draft log')}
 
 ---
 *${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`;
           }
+          if (leadingSection) logUploadComment = `${leadingSection}\n\n${logUploadComment}`;
           const tempCommentFile = `/tmp/log-upload-comment-${targetType}-${Date.now()}.md`;
           await writeSanitizedPublicationFile(tempCommentFile, logUploadComment);
           // Issue #1625: post via postTrackedCommentFromFile so the returned comment ID is registered in-memory and excluded from the "did the AI post anything?" check.
@@ -805,13 +793,14 @@ ${sessionNote}
             global.logAttachedToGitHub = true;
             return true;
           } else {
-            await log(`  ❌ Failed to post comment with log link: ${posted.stderr || 'unknown error'}`);
+            await log(`  ❌ Failed to post comment with log link: ${posted.stderr?.toString() || 'unknown error'}`);
             return false;
           }
         } else {
           await log('  ❌ gh-upload-log failed');
           await log('  ⚠️  Full log upload failed; not posting a truncated log because --attach-logs must preserve complete logs');
-          await log(`  📁 Full log remains available locally at: ${logFile}`);
+          for (const line of formatLogLocationConsoleLines(logFile)) await log(line); // Issue #2400
+          await reportUploadFailure(uploadResult.failureReason);
           return false;
         }
       } catch (uploadError) {
@@ -819,9 +808,10 @@ ${sessionNote}
           context: 'upload_log_gh_upload_log',
           level: 'error',
         });
-        await log(`  ❌ Error uploading log: ${uploadError.message}`);
+        await log(`  ❌ Error uploading log: ${describeCredentialSanitizationFailure(uploadError)}`);
         await log('  ⚠️  Full log upload failed; not posting a truncated log because --attach-logs must preserve complete logs');
-        await log(`  📁 Full log remains available locally at: ${logFile}`);
+        for (const line of formatLogLocationConsoleLines(logFile)) await log(line); // Issue #2400
+        await reportUploadFailure(describeCredentialSanitizationFailure(uploadError));
         return false;
       }
     } else {
@@ -835,8 +825,9 @@ ${sessionNote}
     }
   } catch (uploadError) {
     // Issue #1212: ENOSPC-specific actionable guidance
-    const msg = isENOSPC(uploadError) ? 'ENOSPC: No space left on device during log upload. Free disk space and retry.' : `Error uploading log file: ${uploadError.message}`;
+    const msg = isENOSPC(uploadError) ? 'ENOSPC: No space left on device during log upload. Free disk space and retry.' : `Error uploading log file: ${describeCredentialSanitizationFailure(uploadError)}`;
     await log(`  ❌ ${msg}`);
+    if (failureReport.logSizeBytes > 0) await reportUploadFailure(msg);
     return false;
   } finally {
     // Issue #2189: the closing sample must run on every exit path, including the
@@ -876,7 +867,7 @@ async function attachRegularComment(options, logComment) {
     await log(`  📊 Log size: ${Math.round(logStats.size / 1024)}KB`);
     return true;
   } else {
-    await log(`  ❌ Failed to upload log to ${targetName}: ${posted.stderr || 'unknown error'}`);
+    await log(`  ❌ Failed to upload log to ${targetName}: ${posted.stderr?.toString() || 'unknown error'}`);
     return false;
   }
 }
@@ -1000,7 +991,7 @@ export async function fetchProjectIssues(projectNumber, owner, statusFilter) {
     });
     const result = await $`gh project item-list ${projectNumber} --owner ${owner} --format json --limit 100`;
     const endTime = Date.now();
-    const projectData = JSON.parse(result.stdout || '{"items": []}');
+    const projectData = JSON.parse(result.stdout?.toString() || '{"items": []}');
     const allItems = projectData.items || [];
     await log(`   📊 Found ${allItems.length} total project items in ${Math.round((endTime - startTime) / 1000)}s`);
     // Filter by status and item type (only Issues)
@@ -1067,7 +1058,7 @@ export async function ghPrView({ prNumber, owner, repo, jsonFields = 'headRefNam
   try {
     const prResult = await $(QUIET_PROBE)`gh pr view ${prNumber} --repo ${owner}/${repo} --json ${jsonFields}`;
     const stdout = prResult.stdout.toString();
-    const stderr = prResult.stderr ? prResult.stderr.toString() : '';
+    const stderr = prResult.stderr?.toString() ? prResult.stderr.toString() : '';
     const code = prResult.code || 0;
     let data = null;
     if (code === 0 && stdout && !(stderr && stderr.includes('Could not resolve'))) {
@@ -1107,7 +1098,7 @@ export async function ghIssueView({ issueNumber, owner, repo, jsonFields = 'numb
   try {
     const issueResult = await $(QUIET_PROBE)`gh issue view ${issueNumber} --repo ${owner}/${repo} --json ${jsonFields}`;
     const stdout = issueResult.stdout.toString();
-    const stderr = issueResult.stderr ? issueResult.stderr.toString() : '';
+    const stderr = issueResult.stderr?.toString() ? issueResult.stderr.toString() : '';
     const code = issueResult.code || 0;
     let data = null;
     if (code === 0 && stdout && !(stderr && stderr.includes('Could not resolve'))) {

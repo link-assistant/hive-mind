@@ -30,10 +30,17 @@
  * the next working session clears the previous verdict and may try again. An
  * unmeasured diff (`measured: false` — gh failed) is never treated as empty.
  *
+ * Issue #2312: a deliberate draft is a working-session verdict, not a run outcome.
+ * The auto-restart loop answers it with another AI session, and at the end of the
+ * run {@link restoreDeliberateDraftsAtRunEnd} puts every pull request back into the
+ * state it had before the run (or ready for review when this run created it). Only
+ * a draft a human made before the run stays a draft.
+ *
  * @see https://github.com/link-assistant/hive-mind/issues/2123
  * @see https://github.com/link-assistant/hive-mind/issues/2182
  * @see https://github.com/link-assistant/hive-mind/issues/2247
  * @see https://github.com/link-assistant/hive-mind/issues/2263
+ * @see https://github.com/link-assistant/hive-mind/issues/2312
  * @see docs/case-studies/issue-2182/README.md for the full timeline and evidence
  */
 
@@ -67,7 +74,44 @@ const outstandingWorkingSessionDrafts = new Map();
  */
 const deliberateDrafts = new Map();
 
+/**
+ * Issue #2312: the draft state each pull request had the first time this process
+ * looked at it, plus the pull requests this process created (always as a draft).
+ * Used at the end of the run to decide who owns a remaining draft.
+ *
+ * @type {Map<string, {isDraft: boolean, createdByThisRun: boolean}>}
+ */
+const initialDraftStates = new Map();
+
 const draftKey = (owner, repo, prNumber) => `${owner}/${repo}#${prNumber}`;
+
+/** Remember the first observed draft state of a pull request; later reads never overwrite it. */
+const rememberInitialDraftState = ({ owner, repo, prNumber, isDraft }) => {
+  const key = draftKey(owner, repo, prNumber);
+  if (!initialDraftStates.has(key)) initialDraftStates.set(key, { isDraft: isDraft === true, createdByThisRun: false });
+};
+
+/**
+ * Issue #2312: record that this run created `prNumber`. `gh pr create --draft` makes
+ * it a draft, but that draft is a working-session marker of this process, not a
+ * human decision, so the end of the run must not leave it behind.
+ */
+export const markPullRequestCreatedByThisRun = ({ owner, repo, prNumber }) => {
+  if (!owner || !repo || !prNumber) return;
+  initialDraftStates.set(draftKey(owner, repo, prNumber), { isDraft: true, createdByThisRun: true });
+};
+
+/** The draft state a pull request had before this run touched it, or null when unknown. */
+export const getInitialDraftState = ({ owner, repo, prNumber }) => initialDraftStates.get(draftKey(owner, repo, prNumber)) || null;
+
+/**
+ * Issue #2312: true when the pull request was already a draft before this run and
+ * this run did not create it - i.e. a human (or another process) drafted it.
+ */
+export const isHumanDraft = ({ owner, repo, prNumber }) => {
+  const initial = getInitialDraftState({ owner, repo, prNumber });
+  return Boolean(initial && initial.isDraft && !initial.createdByThisRun);
+};
 
 /**
  * Record that a working session of this process is holding `prNumber` in draft.
@@ -93,6 +137,7 @@ export const getOutstandingWorkingSessionDrafts = () => Array.from(outstandingWo
 export const resetWorkingSessionDrafts = () => {
   outstandingWorkingSessionDrafts.clear();
   deliberateDrafts.clear();
+  initialDraftStates.clear();
 };
 
 /**
@@ -149,6 +194,33 @@ export const restorePullRequestsLeftInDraft = async ({ $, log = noopLog, formatA
 };
 
 /**
+ * Issue #2312: the run is over - no working session will follow. A deliberate draft
+ * ("no changes", "session failed") was the verdict of a session, and the failure
+ * comment already names the real cause, so the pull request goes back to the state
+ * it had before the run: ready for review, unless a human had drafted it before.
+ *
+ * Safe to call on every exit path: a no-op when nothing was left in draft.
+ *
+ * @returns {Promise<Array<Object>>} one entry per deliberate draft
+ */
+export const restoreDeliberateDraftsAtRunEnd = async ({ $, log = noopLog, formatAligned = null, reason = 'run ended', reportError = null } = {}) => {
+  const results = [];
+  for (const entry of getPullRequestsLeftInDraft()) {
+    const { owner, repo, prNumber } = entry;
+    if (isHumanDraft({ owner, repo, prNumber })) {
+      await log(`  ℹ️  PR #${prNumber} stays a draft: it was already a draft before this run`);
+      results.push({ owner, repo, prNumber, ok: true, changed: false, skipped: true, reason: 'human_draft' });
+      continue;
+    }
+    await log(`🩹 PR #${prNumber} was left in draft by a working session (${entry.reason || entry.kind}); restoring its pre-run state at ${reason}`);
+    const result = await ensurePullRequestIsReady({ owner, repo, prNumber, $, log, formatAligned, reason, reportError, force: true });
+    if (result?.ok) clearPullRequestLeftInDraft({ owner, repo, prNumber });
+    results.push({ owner, repo, prNumber, ...result });
+  }
+  return results;
+};
+
+/**
  * Fetch the draft/open state of a pull request.
  *
  * @param {Object} options
@@ -163,7 +235,7 @@ export const getPullRequestDraftState = async ({ owner, repo, prNumber, $, log =
   try {
     const result = await $`gh pr view ${prNumber} --repo ${owner}/${repo} --json isDraft,state`;
     if (result.code !== 0) {
-      const stderr = result.stderr ? result.stderr.toString().trim() : '';
+      const stderr = result.stderr?.toString() ? result.stderr.toString().trim() : '';
       return { ok: false, isDraft: null, state: null, merged: false, error: stderr || `gh exited with code ${result.code}` };
     }
 
@@ -176,6 +248,7 @@ export const getPullRequestDraftState = async ({ owner, repo, prNumber, $, log =
     }
 
     const state = typeof parsed.state === 'string' ? parsed.state.toUpperCase() : null;
+    rememberInitialDraftState({ owner, repo, prNumber, isDraft: parsed.isDraft });
     await log(`   🔍 PR #${prNumber} draft state: isDraft=${parsed.isDraft}, state=${state}`, { verbose: true });
 
     return { ok: true, isDraft: parsed.isDraft === true, state, merged: state === 'MERGED', error: null };
@@ -243,7 +316,7 @@ const setPullRequestDraftState = async ({ target, owner, repo, prNumber, $, log 
       return { ok: true, changed: true, skipped: false, reason: null, error: null };
     }
 
-    const stderr = convertResult.stderr ? convertResult.stderr.toString().trim() : '';
+    const stderr = convertResult.stderr?.toString() ? convertResult.stderr.toString().trim() : '';
     await log(`Warning: Could not convert PR #${prNumber} to ${label}${stderr ? `: ${stderr}` : ''}`, { level: 'warning' });
     return { ok: false, changed: false, skipped: false, reason: 'conversion_failed', error: stderr || `gh exited with code ${convertResult.code}` };
   } catch (error) {
@@ -343,6 +416,7 @@ export const ensurePullRequestIsReady = async ({ requireChanges = false, changeS
 
 export default {
   clearPullRequestLeftInDraft,
+  getInitialDraftState,
   getPullRequestDraftState,
   getPullRequestLeftInDraft,
   getPullRequestsLeftInDraft,
@@ -350,7 +424,10 @@ export default {
   ensurePullRequestIsReady,
   ensurePullRequestStaysDraftAfterFailure,
   getOutstandingWorkingSessionDrafts,
+  isHumanDraft,
+  markPullRequestCreatedByThisRun,
   markPullRequestLeftInDraft,
+  restoreDeliberateDraftsAtRunEnd,
   restorePullRequestsLeftInDraft,
   resetWorkingSessionDrafts,
 };

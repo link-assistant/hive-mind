@@ -73,6 +73,7 @@ const prepareAgainst = async ({ baseUrl, wrapperVersion = WRAPPER_VERSION, env =
         loadRegistryImpl: async () => [{ id: 'agent', global_configs: [] }],
         seedImpl: async () => [],
         configureImpl: async () => {},
+        ghAuthImpl: async () => ({}),
       },
     });
   } finally {

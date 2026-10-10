@@ -24,7 +24,7 @@ export const HIVE_SCREENS_HELP = `Usage: hive-screens (--list | --enter | --clos
 Scan detached GNU screen sessions for completed solve runs and either list,
 enter, or close them. A session matches when its scrollback contains both
 "process completed" and either "pr is mergeable!" or "pr merged!" (case
-insensitive) — the exact predicate from the legacy hive-screens.sh script.
+insensitive).
 
 Actions (one required):
       --list           Print matching sessions without touching them
@@ -45,10 +45,6 @@ Examples:
   hive-screens --list --oldest          # preview only the oldest match
   hive-screens --close                  # close the oldest finished run
   hive-screens --enter --newest         # attach to the newest finished run
-
-References:
-  https://github.com/link-assistant/hive-mind/issues/1649
-  https://github.com/link-assistant/hive-mind/issues/1654
 `;
 
 const ACTION_FLAGS = new Set(['--enter', '--close', '--list']);

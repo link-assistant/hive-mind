@@ -35,11 +35,12 @@ const formalAiProviderModelAliases = {
 // (Issue #1221, Issue #1238, Issue #1329, Issue #1433, Issue #1620, Issue #1832, Issue #1875, Issue #2003, Issue #2096, Issue #2202, Issue #2290)
 export const claudeModels = {
   ...formalAiNativeModelAliases,
-  sonnet: 'claude-sonnet-5', // Sonnet 5 (Issue #2003)
+  sonnet: 'claude-sonnet-5-5', // Sonnet 5.5 — Claude Code's `sonnet` alias on the Anthropic API (Issue #2771)
   // Compatibility mapping for metadata and validation. Execution preserves the
   // vendor-managed rolling alias so the default advances beyond this snapshot.
-  opus: 'claude-opus-5', // Rolling default at execution time (Issue #2096, #2290)
-  haiku: 'claude-haiku-4-5-20251001', // Haiku 4.5
+  // Opus 5.5 ($4/$20) is both the latest and the cheapest Opus (Issue #2771).
+  opus: 'claude-opus-5-5', // Rolling default at execution time (Issue #2096, #2290, #2771)
+  haiku: 'claude-haiku-5-5', // Haiku 5.5 — Claude Code's `haiku` alias; long-prompt pricing above 100K input (Issue #2771)
   'haiku-3-5': 'claude-3-5-haiku-20241022', // Haiku 3.5
   'haiku-3': 'claude-3-haiku-20240307', // Haiku 3
   opusplan: 'opusplan', // Special mode: Opus for planning, Sonnet for execution (Issue #1223)
@@ -60,6 +61,7 @@ export const claudeModels = {
   'mythos-5': 'claude-mythos-5', // Mythos 5 short alias
   'claude-mythos-5': 'claude-mythos-5', // Mythos 5 full ID
   // Shorter version aliases (Issue #1221, Issue #1329 - PR comment feedback)
+  'sonnet-5-5': 'claude-sonnet-5-5', // Sonnet 5.5 short alias (Issue #2771)
   'sonnet-5': 'claude-sonnet-5', // Sonnet 5 short alias (Issue #2003)
   'sonnet-4-6': 'claude-sonnet-4-6', // Sonnet 4.6 short alias (Issue #1329)
   'opus-5-5': 'claude-opus-5-5', // Opus 5.5 pinned alias (Issue #2290)
@@ -69,17 +71,20 @@ export const claudeModels = {
   'opus-4-6': 'claude-opus-4-6', // Opus 4.6 short alias (backward compatibility)
   'opus-4-5': 'claude-opus-4-5-20251101', // Opus 4.5 short alias
   'sonnet-4-5': 'claude-sonnet-4-5-20250929', // Sonnet 4.5 short alias (backward compatibility)
+  'haiku-5-5': 'claude-haiku-5-5', // Haiku 5.5 short alias (Issue #2771)
   'haiku-4-5': 'claude-haiku-4-5-20251001', // Haiku 4.5 short alias
   // Version aliases for backward compatibility (Issue #1221, Issue #1329, Issue #1620, Issue #1832, Issue #2096)
   'claude-opus-5-5': 'claude-opus-5-5', // Opus 5.5 (Issue #2290)
   'claude-opus-5': 'claude-opus-5', // Opus 5 (Issue #2096)
   'claude-opus-4-8': 'claude-opus-4-8', // Opus 4.8 (Issue #1832)
   'claude-opus-4-7': 'claude-opus-4-7', // Opus 4.7 (backward compatibility)
+  'claude-sonnet-5-5': 'claude-sonnet-5-5', // Sonnet 5.5 (Issue #2771)
   'claude-sonnet-5': 'claude-sonnet-5', // Sonnet 5 (Issue #2003)
   'claude-sonnet-4-6': 'claude-sonnet-4-6', // Sonnet 4.6 (Issue #1329)
   'claude-opus-4-6': 'claude-opus-4-6', // Opus 4.6 (backward compatibility)
   'claude-opus-4-5': 'claude-opus-4-5-20251101', // Opus 4.5
   'claude-sonnet-4-5': 'claude-sonnet-4-5-20250929', // Sonnet 4.5 (backward compatibility)
+  'claude-haiku-5-5': 'claude-haiku-5-5', // Haiku 5.5 (Issue #2771)
   'claude-haiku-4-5': 'claude-haiku-4-5-20251001', // Haiku 4.5
 };
 
@@ -87,6 +92,8 @@ export const claudeModels = {
 // Issue #1300: Updated free models to match agent PR #191
 // Issue #1543: Added qwen3.6-plus-free (former default) and nemotron-3-super-free per agent PR #234
 // Issue #1563: qwen3.6-plus-free free promotion ended (April 2026), nemotron-3-super-free is now default per agent PR #243
+// Issue #2625: OpenCode Zen withdrew nemotron-3-super-free (agent#327) and reserves its free tier for OpenCode itself;
+// the same model is free on the Kilo gateway, described to Agent by src/agent-model-overlay.lib.mjs
 export const agentModels = {
   ...formalAiProviderModelAliases,
   // OpenCode Zen free models (current)
@@ -96,7 +103,7 @@ export const agentModels = {
   'big-pickle': 'opencode/big-pickle',
   'gpt-5-nano': 'opencode/gpt-5-nano',
   'minimax-m2.5-free': 'opencode/minimax-m2.5-free', // Upgraded from M2.1 (Issue #1391)
-  'nemotron-3-super-free': 'opencode/nemotron-3-super-free', // Default: NVIDIA hybrid Mamba-Transformer (Issue #1563)
+  'nemotron-3-super-free': 'kilo/nemotron-3-super-free', // Default: NVIDIA hybrid Mamba-Transformer (Issue #1563), via Kilo since Issue #2625
   // Kilo Gateway free models (Issue #1282, updated in #1300)
   // Short names for Kilo-exclusive models (Issue #1300)
   'glm-5-free': 'kilo/glm-5-free', // Kilo-exclusive
@@ -111,6 +118,7 @@ export const agentModels = {
   'kilo/deepseek-r1-free': 'kilo/deepseek-r1-free',
   'kilo/giga-potato-free': 'kilo/giga-potato-free',
   'kilo/trinity-large-preview': 'kilo/trinity-large-preview',
+  'kilo/nemotron-3-super-free': 'kilo/nemotron-3-super-free', // Issue #2625: provider entry from src/agent-model-overlay.lib.mjs
   // Deprecated free models (kept for backward compatibility)
   'qwen3.6-plus-free': 'opencode/qwen3.6-plus-free', // Deprecated: free promotion ended April 2026 (Issue #1563)
   'kimi-k2.5-free': 'opencode/kimi-k2.5-free', // Deprecated: not supported (Issue #1391)
@@ -145,6 +153,7 @@ export const codexModels = {
   ...formalAiNativeModelAliases,
   // GPT-6 Sol is the current default, Luna is the smaller tier, and Reserve is
   // exposed by the Codex CLI catalogue (Issue #2290).
+  'gpt-6.1-sol': 'gpt-6.1-sol',
   'gpt-6-sol': 'gpt-6-sol',
   'gpt-6-luna': 'gpt-6-luna',
   'gpt-reserve': 'gpt-reserve',
@@ -287,16 +296,20 @@ export const MODELS_SUPPORTING_1M_CONTEXT = [
   'claude-opus-4-7', // Opus 4.7 (Issue #1620)
   'claude-opus-4-6',
   'claude-opus-4-5-20251101',
+  'claude-sonnet-5-5', // Sonnet 5.5 — native 1M context (Issue #2771)
+  'claude-haiku-5-5', // Haiku 5.5 — native 1M context, long-prompt pricing above 100K (Issue #2771)
   'claude-sonnet-5', // Sonnet 5 — 1M context (Issue #2003)
   'claude-sonnet-4-6', // Sonnet 4.6 (Issue #1329)
   'claude-sonnet-4-5-20250929',
   'claude-sonnet-4-5',
   'claude-opus-5', // Opus 5 — 1M context (Issue #2096)
   'claude-opus-5-5', // Opus 5.5 — 1M context (Issue #2290)
-  'sonnet', // Now maps to Sonnet 5 (Issue #2003)
+  'sonnet', // Now maps to Sonnet 5.5 (Issue #2003, #2771)
+  'sonnet-5-5', // Short alias (Issue #2771)
+  'haiku-5-5', // Short alias (Issue #2771)
   'sonnet-5', // Short alias (Issue #2003)
   'sonnet-4-6', // Short alias (Issue #1329)
-  'opus', // Now maps to Opus 5 (Issue #2096)
+  'opus', // Now maps to Opus 5.5 (Issue #2096, #2771)
   'opus-5', // Short alias (Issue #2096)
   'opus-5-5', // Pinned Opus 5.5 alias (Issue #2290)
   'opus-4-8', // Short alias (Issue #1832)
@@ -411,7 +424,7 @@ export const AGENT_MODELS = {
   'opencode/big-pickle': 'opencode/big-pickle',
   'opencode/gpt-5-nano': 'opencode/gpt-5-nano',
   'opencode/minimax-m2.5-free': 'opencode/minimax-m2.5-free',
-  'opencode/nemotron-3-super-free': 'opencode/nemotron-3-super-free', // Issue #1563: now default
+  'opencode/nemotron-3-super-free': 'opencode/nemotron-3-super-free', // Deprecated: withdrawn from OpenCode Zen (Issue #2625, agent#327)
   'opencode/qwen3.6-plus-free': 'opencode/qwen3.6-plus-free', // Deprecated: free promotion ended (Issue #1563)
   'opencode/kimi-k2.5-free': 'opencode/kimi-k2.5-free', // Deprecated
   'opencode/glm-4.7-free': 'opencode/glm-4.7-free', // Deprecated

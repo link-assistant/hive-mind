@@ -54,6 +54,8 @@ import { dirname, join } from 'node:path';
 import { promisify } from 'node:util';
 
 import { assertSupportedFormalAiVersion, assertSupportedHiveMindVersion, FORMAL_AI_MINIMUM_VERSION, isFormalAiVersionAtLeast, readFormalAiBinaryVersion, readRequiredHiveMindVersion } from './formal-ai-version.lib.mjs';
+import { keepProcessAcrossSessions, releaseKeptProcess } from './session-survivors.lib.mjs';
+import { prepareToolGhAuth } from './tool-env-gh-auth.lib.mjs';
 import { getVersion } from './version.lib.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -304,6 +306,9 @@ export const loadFormalAiClientRegistry = async ({ formalAiPath = 'formal-ai', r
 
 export const findFormalAiClient = (clients, tool) => (clients || []).find(client => client?.id === tool || (client?.aliases || []).includes(tool)) || null;
 
+/** The config-directory variable each JSON-configured client reads (issue #2314). */
+export const JSON_CONFIG_DIR_ENV = Object.freeze({ agent: 'LINK_ASSISTANT_AGENT_CONFIG_DIR', opencode: 'OPENCODE_CONFIG_DIR' });
+
 /**
  * Turn one Formal AI `global_configs` entry, materialised inside `home`, into
  * the environment a natively-invoked CLI needs.
@@ -330,10 +335,13 @@ export const buildFormalAiClientEnv = async ({ client, home, apiKey = FORMAL_AI_
       notes.push(`CODEX_HOME=${env.CODEX_HOME}`);
       continue;
     }
-    if (config.format === 'json') {
-      // agent/opencode read `<XDG_CONFIG_HOME>/<app>/opencode.json`.
-      env.XDG_CONFIG_HOME = join(home, '.config');
-      notes.push(`XDG_CONFIG_HOME=${env.XDG_CONFIG_HOME}`);
+    if (config.format === 'json' && JSON_CONFIG_DIR_ENV[client.id]) {
+      // Issue #2314: point agent/opencode at the generated config directory with
+      // their own variable. Relocating XDG_CONFIG_HOME also moved `gh`'s config,
+      // so `gh` was unauthenticated inside the session.
+      const name = JSON_CONFIG_DIR_ENV[client.id];
+      env[name] = dirname(absolutePath);
+      notes.push(`${name}=${env[name]}`);
       continue;
     }
     notes.push(`unsupported:${config.format}:${config.path}`);
@@ -720,6 +728,10 @@ export const prepareFormalAiRuntime = async ({ tool, workdir, log = async () => 
     const { env: clientEnv, notes } = await buildFormalAiClientEnv({ client, home, apiKey });
     for (const entry of seeded) notes.push(`seeded ${entry}`);
 
+    // Issue #2314: `gh` keeps the operator's identity in the tool environment,
+    // and a tool environment where it does not is rejected before the session.
+    Object.assign(clientEnv, await (deps.ghAuthImpl || prepareToolGhAuth)({ env, toolEnv: clientEnv, tool }));
+
     if (tool === 'gemini') {
       // Upstream gap: headless Gemini needs an explicit auth type in settings.
       // Injected through the system-settings scope so HOME stays untouched.
@@ -760,17 +772,30 @@ export const prepareFormalAiRuntime = async ({ tool, workdir, log = async () => 
       backend,
       stop: async () => {
         runtimeCache.delete(cacheKey);
-        await server?.stop?.();
-        await rm(home, { recursive: true, force: true }).catch(() => {});
+        try {
+          await server?.stop?.();
+          releaseKeptProcess(server?.pid);
+        } finally {
+          await rm(home, { recursive: true, force: true }).catch(() => {});
+        }
       },
     };
     runtimeCache.set(cacheKey, { runtime, server });
+    // The cached server outlives this session on purpose (issue #2923).
+    if (server?.pid) keepProcessAcrossSessions(server.pid, 'task-owned Formal AI server, stopped when Hive Mind exits');
     return runtime;
   } catch (error) {
     await server?.stop?.();
     await rm(home, { recursive: true, force: true }).catch(() => {});
     throw error;
   }
+};
+
+/** Finish task-owned servers before process-exit diagnostics; external sidecars stay running. */
+export const stopFormalAiRuntimes = async () => {
+  const results = await Promise.allSettled([...runtimeCache.values()].map(({ runtime }) => runtime.stop()));
+  const errors = results.filter(result => result.status === 'rejected').map(result => result.reason);
+  if (errors.length) throw new AggregateError(errors, 'Could not stop every task-owned Formal AI runtime');
 };
 
 /** Test seam: forget cached runtimes without stopping their servers. */

@@ -9,16 +9,25 @@ on:
       - '**.html'
       - '.lycheeignore'
       - 'scripts/check-web-archive.mjs'
+      - 'scripts/recheck-broken-links.mjs'
       - '.github/workflows/links.yml'
   pull_request:
+    branches-ignore: ['e2e/**']
     types: [opened, synchronize, reopened]
     paths:
       - '**.md'
       - '**.html'
       - '.lycheeignore'
       - 'scripts/check-web-archive.mjs'
+      - 'scripts/recheck-broken-links.mjs'
       - '.github/workflows/links.yml'
   workflow_dispatch:
+    inputs:
+      mode:
+        description: Checks-only dispatch
+        type: choice
+        default: checks
+        options: [checks]
 
 # Least-privilege default; jobs escalate individually when needed.
 permissions:
@@ -86,15 +95,35 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Check broken links against Web Archive
+      - name: Re-check links that failed transiently
+        # A 429, a 5xx or a connection failure is "not now", not "broken":
+        # github.com throttles blob-page bursts from runner IPs with 503
+        # (issue #2423). Ask those URLs again with backoff; 4xx stays final.
         if: steps.lychee.outputs.exit_code != 0
+        id: recheck
+        run: node scripts/recheck-broken-links.mjs
+        env:
+          LYCHEE_OUTPUT: lychee/out.md
+          RECOVERED_OUTPUT: lychee/recovered.txt
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check broken links against Web Archive
+        # `!= 'true'`, never `== 'false'`: a skipped re-check leaves the
+        # output empty, and only the != form fails safe.
+        if: >-
+          steps.lychee.outputs.exit_code != 0 &&
+          steps.recheck.outputs.all_recovered != 'true'
         id: webarchive
         run: node scripts/check-web-archive.mjs
         env:
           LYCHEE_OUTPUT: lychee/out.md
+          RECOVERED_URLS: lychee/recovered.txt
 
       - name: Fail if broken links were found
-        if: always() && steps.lychee.outputs.exit_code != 0
+        if: >-
+          !cancelled() &&
+          steps.lychee.outputs.exit_code != 0 &&
+          steps.recheck.outputs.all_recovered != 'true'
         run: |
           echo "::error::Broken live links were detected."
           echo ""

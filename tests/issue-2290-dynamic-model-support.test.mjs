@@ -63,10 +63,10 @@ assert.equal(
   'a future Sol release becomes the default from the installed CLI catalogue alone'
 );
 
-const futureCodex = await validateRuntimeModelName('gpt-6.1-sol', 'codex', {
-  availableModels: ['gpt-6-sol', 'gpt-6.1-sol'],
+const futureCodex = await validateRuntimeModelName('gpt-6.2-sol', 'codex', {
+  availableModels: ['gpt-6-sol', 'gpt-6.2-sol'],
 });
-assert.deepEqual({ valid: futureCodex.valid, mappedModel: futureCodex.mappedModel, source: futureCodex.source }, { valid: true, mappedModel: 'gpt-6.1-sol', source: 'live' }, 'an installed model is accepted without adding it to the bundled map');
+assert.deepEqual({ valid: futureCodex.valid, mappedModel: futureCodex.mappedModel, source: futureCodex.source }, { valid: true, mappedModel: 'gpt-6.2-sol', source: 'live' }, 'an installed model is accepted without adding it to the bundled map');
 
 const futureRoutedModel = await validateRuntimeModelName('router-vendor/new-coder-1', 'codex', {
   availableModels: ['router-vendor/new-coder-1'],
@@ -88,6 +88,6 @@ const typo = await validateRuntimeModelName('gpt-6-slo', 'codex', {
   availableModels: ['gpt-6-sol', 'gpt-6-luna'],
 });
 assert.equal(typo.valid, false, 'unknown aliases and typos still fail closed');
-assert.match(typo.message, /Did you mean: "gpt-6-sol"/);
+assert.match(typo.message, /Did you mean "gpt-6-sol"\?/);
 
 console.log('Issue #2290 dynamic model regression tests passed.');

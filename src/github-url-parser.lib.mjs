@@ -1,4 +1,5 @@
 import { reportError } from './sentry.lib.mjs';
+import { addGitHubUrlInputLocation } from './github-url-diagnostics.lib.mjs';
 import { describeHiddenCharacters, repairGitHubPathParts, repairGitHubUrlText, revealHiddenCharacters, traceUrlRecovery } from './github-url-recovery.lib.mjs';
 
 /**
@@ -22,7 +23,7 @@ function withRecoveryDiagnostics(result, original, repairs, hidden) {
     result.hidden = hidden;
     result.revealed = revealHiddenCharacters(original);
   }
-  return result;
+  return addGitHubUrlInputLocation(result, original);
 }
 
 /**
@@ -42,6 +43,8 @@ function withRecoveryDiagnostics(result, original, repairs, hidden) {
  *   - number: issue/PR number (if applicable)
  *   - path: additional path components
  *   - error: error message if invalid
+ *   - inputLocation/inputHint: offending URL part, character offsets and a readable hint
+ *   - suggestion: likely syntax correction, without changing the parsed target
  *   - original: the URL exactly as it was passed in
  *   - repairs: the list of repairs recovery had to apply (issue #2194)
  *   - recovered: true when at least one repair was applied
@@ -294,7 +297,7 @@ export function parseGitHubUrl(url, options = {}) {
       result.type = 'other';
       result.subpath = pathParts.slice(2).join('/');
   }
-  return result;
+  return addGitHubUrlInputLocation(result, url);
 }
 /**
  * Normalize a GitHub URL to standard https://github.com format

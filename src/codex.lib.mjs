@@ -29,8 +29,13 @@ const __codexBuildSolveResumeCmd = (argv, sessionId, tempDir) => (sessionId && a
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import { firstErrorText } from './error-text.lib.mjs'; // Issue #2141
 import { createLineBuffer } from './json-stream.lib.mjs'; // Issue #2119
+import { createToolCallLoopGuard, resolveRepeatedToolCallLimit } from './tool-call-loop-guard.lib.mjs'; // Issue #2316, #2395
 import { mapModelToId, resolveCodexReasoningEffort } from './codex.options.lib.mjs';
+import { resolveRuntimeCodexReasoningEffort } from './codex.reasoning.lib.mjs';
 import { buildCodexRunDiagnostics, codexRunAlreadyFailed, describeCodexLastMessageOutcome } from './codex.run-diagnostics.lib.mjs'; // Issue #2130
+import { buildCodexMemoryBudgetPrompt, buildCodexProcessFailure, findCodexStderrError, normalizeCodexExit } from './codex.process-exit.lib.mjs';
+import { readCgroupMemory } from './solve.resource-diagnostics.lib.mjs';
+import { readCodexLastMessage } from './codex.last-message.lib.mjs';
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
 import { initProgressMonitoring } from './solve.progress-monitoring.lib.mjs';
 import { ensureCodexPlaywrightMcpServer, getCodexPlaywrightMcpDisableConfigArgs } from './playwright-mcp.lib.mjs';
@@ -39,7 +44,8 @@ import { defaultModels, isFormalAiModel } from './models/index.mjs';
 import { buildAuthRemedyLines, buildFormalAiEnvExports, isPrepareOnly, logPreparedToolCommand, resolveFormalAiToolExecution } from './formal-ai.lib.mjs';
 import { buildFormalAiPricingInfo } from './formal-ai-pricing.lib.mjs'; // Issue #2119
 import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
-import { parseSubSessionSize, buildCodexSubSessionSizeConfigArgs, buildCodexDisable1mContextConfigArgs } from './sub-session-size.lib.mjs'; // Issue #1706
+import { parseSubSessionSize } from './sub-session-size.lib.mjs'; // Issue #1706
+import { buildCodexPricingTierConfigArgs, describePricingTier, resolvePricingTier } from './pricing-tier.lib.mjs'; // Issue #2771
 import { buildCodexMemoryDisableConfigArgs, isAgentMemoryDisabled } from './agent-memory-policy.lib.mjs'; // Issue #2178
 import { buildCodexAuxiliaryDisableConfigArgs, isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236
 import { CODEX_REMOTE_PLUGIN_DISABLE_ARGS } from './agent-config-audit.lib.mjs'; // Issue #2190
@@ -53,15 +59,10 @@ import Decimal from 'decimal.js-light';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
 import { CODEX_CACHE_READ_USAGE_PATHS, CODEX_CACHE_WRITE_USAGE_PATHS, CODEX_MODEL_DIAGNOSTIC_PATHS, CODEX_REASONING_USAGE_PATHS, CODEX_USAGE_FIELD_NAMES, createCodexTokenFieldAvailability, getFirstObservedNumber, hasAnyObservedPath, hasOwnPath } from './codex.usage-fields.lib.mjs';
 const CODEX_LONG_CONTEXT_PRICE_THRESHOLD = 272000;
-// Issue #2189: ceiling for reading Codex's `--output-last-message` artifact. A
-// final assistant message is a few hundred kilobytes at most; anything larger is
-// a malfunction and must not be turned into an unbounded string.
-const CODEX_LAST_MESSAGE_MAX_BYTES = 1024 * 1024;
 const getCodexExecEnv = (verbose = false) => (verbose ? { ...process.env, RUST_LOG: 'debug' } : { ...process.env });
 // Issue #2175: diagnostic-line parsing lives in its own module to keep this file
 // under the 1350-line warning threshold.
 import { parseCodexDiagnosticLine, rebuildCodexSubSessionsFromCompactifications } from './codex.diagnostics.lib.mjs';
-import { readLogHeadText } from './log-bounded-read.lib.mjs'; // Issue #2189
 export const createCodexTokenUsage = requestedModelId => ({
   inputTokens: 0,
   outputTokens: 0,
@@ -443,6 +444,9 @@ export const calculateCodexPricing = async (modelId, tokenUsage) => {
 export const validateCodexConnection = async (model = defaultModels.codex, verbose = false) => {
   // Map model alias to full ID
   const mappedModel = mapModelToId(model);
+  const { reasoningEffort, rolloutTokenBudget } = await resolveRuntimeCodexReasoningEffort({ model: mappedModel, codexPath: 'codex' }, { log });
+  const reasoningArgs = reasoningEffort ? ['-c', `model_reasoning_effort=${reasoningEffort}`] : [];
+  if (rolloutTokenBudget) reasoningArgs.push('-c', `rollout_token_budget=${rolloutTokenBudget}`);
   // Retry configuration
   const maxRetries = 3;
   let retryCount = 0;
@@ -470,7 +474,7 @@ export const validateCodexConnection = async (model = defaultModels.codex, verbo
       }
       // Test basic Codex functionality with a simple "echo hi" command
       // Using exec mode with JSON output for validation
-      const testResult = await $({ env: getCodexExecEnv(verbose) })`printf "echo hi" | timeout ${Math.floor(timeouts.codexCli / 1000)} codex exec --model ${mappedModel} --json --skip-git-repo-check -c model_reasoning_effort="none" --dangerously-bypass-approvals-and-sandbox`;
+      const testResult = await $({ env: getCodexExecEnv(verbose) })`printf "echo hi" | timeout ${Math.floor(timeouts.codexCli / 1000)} codex exec --model ${mappedModel} --json --skip-git-repo-check ${reasoningArgs} --dangerously-bypass-approvals-and-sandbox`;
       if (testResult.code !== 0) {
         const stderr = testResult.stderr?.toString() || '';
         const stdout = testResult.stdout?.toString() || '';
@@ -614,6 +618,7 @@ export const executeCodex = async params => {
 };
 
 export const executeCodexCommand = async params => {
+  const getCgroupMemory = params.readCgroupMemory || readCgroupMemory;
   const { tempDir, branchName, prompt, systemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, codexPath, $, owner, repo, prNumber, capabilityPreflight, calculatePricing = calculateCodexPricing, waitForRetryDelay = waitWithCountdown, verifyCapabilityExecutionCatalog = verifyCodexCapabilityExecutionCatalog } = params;
   const shellQuote = value => `"${String(value).replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
   const expectedBaseBranch = String(argv?.baseBranch || '').trim();
@@ -651,7 +656,7 @@ export const executeCodexCommand = async params => {
     await log(`   Load: ${resourcesBefore.load}`, { verbose: true });
     let execCommand;
     const mappedModel = mapModelToId(argv.model);
-    const { reasoningEffort, source: reasoningEffortSource, rolloutTokenBudget } = resolveCodexReasoningEffort(argv);
+    const { reasoningEffort, source: reasoningEffortSource, rolloutTokenBudget } = await resolveRuntimeCodexReasoningEffort({ ...argv, model: mappedModel, codexPath }, { log });
     const isResumeMode = !!argv.resume;
     const codexEnv = applyCodexCapabilityEnv(capabilityPreflight?.codexBaseEnv || getCodexExecEnv(argv.verbose), {
       codexHome: capabilityPreflight?.codexHome,
@@ -688,8 +693,10 @@ export const executeCodexCommand = async params => {
     // For Codex, we combine system and user prompts into a single message
     // Codex doesn't have separate system prompt support in CLI mode
     const promptForAttempt = baseBranchInterventionPrompt ? `${prompt}\n\n${baseBranchInterventionPrompt}\n` : prompt;
-    const combinedPrompt = systemPrompt ? `${systemPrompt}\n\n${promptForAttempt}` : promptForAttempt;
-    // Write the combined prompt to a file for piping
+    const cgroupBefore = getCgroupMemory();
+    await log(`📈 Codex cgroup memory before execution: ${JSON.stringify(cgroupBefore)}`, { verbose: true });
+    const combinedPrompt = [systemPrompt, promptForAttempt, buildCodexMemoryBudgetPrompt(cgroupBefore)].filter(Boolean).join('\n\n');
+    // Write the combined prompt to a file for stdin redirection
     // Use OS temporary directory instead of repository workspace to avoid polluting the repo
     const promptFile = path.join(os.tmpdir(), `codex_prompt_${Date.now()}_${process.pid}.txt`);
     const lastMessageFile = path.join(os.tmpdir(), `codex_last_message_${Date.now()}_${process.pid}.txt`);
@@ -717,11 +724,13 @@ export const executeCodexCommand = async params => {
     for (const arg of codexPlaywrightMcpDisableConfigArgs) {
       codexArgs += ` ${shellQuote(arg)}`;
     }
-    codexArgs += ` --json --skip-git-repo-check -o ${shellQuote(lastMessageFile)} -c ${shellQuote(`model_reasoning_effort=${reasoningEffort}`)} -c ${shellQuote('model_reasoning_summary=auto')}`;
+    codexArgs += ` --json --skip-git-repo-check -o ${shellQuote(lastMessageFile)} -c ${shellQuote('model_reasoning_summary=auto')}`;
+    if (reasoningEffort) codexArgs += ` -c ${shellQuote(`model_reasoning_effort=${reasoningEffort}`)}`;
     // Issue #2027: pair GPT-5.6 Sol's multi-agent `ultra` effort with a rollout token budget cap so it stays predictable and does not run away on cost.
     if (rolloutTokenBudget) codexArgs += ` -c ${shellQuote(`rollout_token_budget=${rolloutTokenBudget}`)}`;
     codexArgs += ' --dangerously-bypass-approvals-and-sandbox';
-    // Issue #1706: Append --disable-1m-context and --sub-session-size as Codex -c overrides.
+    // Issue #1706/#2771: -c overrides for --sub-session-size, the 272K short window and the standard service tier (so a catalog `default_service_tier: "priority"` never applies silently).
+    const codexPricingTier = resolvePricingTier({ tool: 'codex', model: argv.model, modelId: mappedModel, disable1mContext: argv.disable1mContext, subSessionSize: argv.subSessionSize, speed: argv.speed });
     let parsedSubSessionSize;
     try {
       parsedSubSessionSize = parseSubSessionSize(argv.subSessionSize);
@@ -730,7 +739,7 @@ export const executeCodexCommand = async params => {
       parsedSubSessionSize = { kind: 'default', tokens: null, percent: null, raw: '' };
     }
     let codexContextWindowTokens = null;
-    if (parsedSubSessionSize.kind === 'percent') {
+    if (parsedSubSessionSize.kind === 'percent' && codexPricingTier.longContext) {
       try {
         const codexModelMeta = await fetchModelInfo(mappedModel, { preferredProviderIds: ['openai'] });
         codexContextWindowTokens = codexModelMeta?.limit?.context || null;
@@ -738,14 +747,11 @@ export const executeCodexCommand = async params => {
         codexContextWindowTokens = null;
       }
     }
-    const disable1mArgs = buildCodexDisable1mContextConfigArgs(!!argv.disable1mContext);
-    for (const arg of disable1mArgs) {
+    const { serviceTierArgs, contextWindowArgs: disable1mArgs, subSessionSizeArgs, capped: subSessionSizeCapped } = buildCodexPricingTierConfigArgs({ tier: codexPricingTier, parsedSubSessionSize, contextWindow: codexContextWindowTokens });
+    for (const arg of [...serviceTierArgs, ...disable1mArgs, ...subSessionSizeArgs]) {
       codexArgs += ` ${shellQuote(arg)}`;
     }
-    const subSessionSizeArgs = buildCodexSubSessionSizeConfigArgs(parsedSubSessionSize, { contextWindow: codexContextWindowTokens });
-    for (const arg of subSessionSizeArgs) {
-      codexArgs += ` ${shellQuote(arg)}`;
-    }
+    await log(`💰 Pricing tier: ${describePricingTier(codexPricingTier)}${subSessionSizeCapped ? ' — --sub-session-size capped to stay below the long-context price' : ''}`, { verbose: !subSessionSizeCapped });
     // Issue #2178: a hive-mind task must not remember anything a reviewer cannot see.
     const memoryDisableArgs = buildCodexMemoryDisableConfigArgs(isAgentMemoryDisabled(argv));
     for (const arg of memoryDisableArgs) {
@@ -771,7 +777,10 @@ export const executeCodexCommand = async params => {
     }
     // Issue #2130: re-export the Formal AI environment inside the `sh -lc` script so a
     // stale `formal-ai with --global` block in the operator profile cannot override it.
-    const fullCommand = `(${buildFormalAiEnvExports(toolInvocation.env)}cd ${shellQuote(tempDir)} && cat ${shellQuote(promptFile)} | ${toolInvocation.displayCommand} ${codexArgs})`;
+    // Issue #2324: a pipe inside the quoted script makes command-stream take its
+    // unowned Node pipeline path, so kill() cannot stop the actual shell. Redirect
+    // the same prompt file instead, keeping the shell and its process group owned.
+    const fullCommand = `(${buildFormalAiEnvExports(toolInvocation.env)}cd ${shellQuote(tempDir)} && ${toolInvocation.displayCommand} ${codexArgs} < ${shellQuote(promptFile)})`;
     const preparedResult = await logPreparedToolCommand({ argv, fullCommand, log, formatAligned });
     if (preparedResult) return preparedResult;
     try {
@@ -819,12 +828,14 @@ export const executeCodexCommand = async params => {
       await log(formatAligned('📂', 'Working directory:', tempDir, 2));
       await log(formatAligned('🌿', 'Branch:', branchName, 2));
       await log(formatAligned('🤖', 'Model:', `Codex ${argv.model.toUpperCase()}`, 2));
-      await log(formatAligned('🧠', 'Reasoning effort:', `${reasoningEffort} (${reasoningEffortSource})`, 2));
+      await log(formatAligned('🧠', 'Reasoning effort:', `${reasoningEffort ?? 'model default'} (${reasoningEffortSource})`, 2));
       if (argv.fork && forkedRepo) {
         await log(formatAligned('🍴', 'Fork:', forkedRepo, 2));
       }
       await log(`\n${formatAligned('▶️', 'Streaming output:', '')}\n`);
       let exitCode = 0;
+      let signal = null;
+      let stderrError = null;
       let sessionId = null;
       let limitReached = false;
       let limitResetTime = null;
@@ -842,6 +853,7 @@ export const executeCodexCommand = async params => {
           return true;
         },
       });
+      const toolCallLoopGuard = createToolCallLoopGuard({ log, limit: resolveRepeatedToolCallLimit({ argv }), stopSession: async () => execCommand?.kill?.('SIGTERM') }); // Issue #2316; opt-in since #2395
       let codexJsonState = {
         sessionId: null,
         authError: false,
@@ -880,6 +892,7 @@ export const executeCodexCommand = async params => {
           }
           lastMessage = raw;
           const output = codexStdoutLines.write(raw);
+          await toolCallLoopGuard.observeOutput(output);
           codexJsonState = parseCodexExecJsonOutput(output, codexJsonState, mappedModel, { source: 'stdout' });
           await baseBranchCommandIntervention.handleCommandExecutions(codexJsonState.commandExecutions);
           if (interactiveHandler || progressMonitor) {
@@ -919,19 +932,23 @@ export const executeCodexCommand = async params => {
             await log(rawError, { stream: 'stderr' });
           }
           const errorOutput = codexStderrLines.write(rawError);
+          stderrError = findCodexStderrError(errorOutput, stderrError);
           // Issue #2136: stderr is telemetry/tracing text, not the codex protocol.
           codexJsonState = parseCodexExecJsonOutput(errorOutput, codexJsonState, mappedModel, { source: 'stderr' });
           await baseBranchCommandIntervention.handleCommandExecutions(codexJsonState.commandExecutions);
         } else if (chunk.type === 'exit') {
-          exitCode = chunk.code;
+          ({ exitCode, signal } = normalizeCodexExit(chunk));
         }
       }
+      const cgroupAfter = getCgroupMemory();
+      await log(`📈 Codex cgroup memory after execution: ${JSON.stringify(cgroupAfter)}`, { verbose: true });
       // Release any line that was still being assembled when the stream ended.
       for (const [source, remaining] of [
         ['stdout', codexStdoutLines.flush()],
         ['stderr', codexStderrLines.flush()],
       ]) {
         if (!remaining.trim()) continue;
+        if (source === 'stderr') stderrError = findCodexStderrError(remaining, stderrError);
         codexJsonState = parseCodexExecJsonOutput(remaining, codexJsonState, mappedModel, { source });
         await baseBranchCommandIntervention.handleCommandExecutions(codexJsonState.commandExecutions);
       }
@@ -962,18 +979,7 @@ export const executeCodexCommand = async params => {
       // Issue #2130: a failed run legitimately has no final message and no
       // turn.completed usage, so those outcomes must not be logged as warnings.
       const runFailed = codexRunAlreadyFailed({ state: codexJsonState, exitCode });
-      let lastMessageFromFile = null;
-      let lastMessageReadError = null;
-      try {
-        // Issue #2189: this file holds Codex's final assistant message, but its
-        // size is decided by the tool, not by us. Size it first so a runaway or
-        // corrupted artifact cannot become an unbounded string in a process that
-        // has just finished a long run.
-        const { size } = await fs.stat(lastMessageFile);
-        lastMessageFromFile = size > CODEX_LAST_MESSAGE_MAX_BYTES ? `${(await readLogHeadText(lastMessageFile, { maxBytes: CODEX_LAST_MESSAGE_MAX_BYTES })).trim()}\n…[last message truncated: ${size} bytes on disk, see ${lastMessageFile}]` : (await fs.readFile(lastMessageFile, 'utf8')).trim();
-      } catch (readError) {
-        lastMessageReadError = readError;
-      }
+      const { lastMessage: lastMessageFromFile, readError: lastMessageReadError } = await readCodexLastMessage(lastMessageFile);
       const lastMessageOutcome = describeCodexLastMessageOutcome({ lastMessageFile, lastMessage: lastMessageFromFile, readError: lastMessageReadError, runFailed });
       await log(lastMessageOutcome.message, lastMessageOutcome.options);
       if (lastMessageFromFile) {
@@ -1023,6 +1029,8 @@ export const executeCodexCommand = async params => {
       // captured from the JSON output stream (issue #1263).
       const buildRunResult = outcome => ({
         sessionId,
+        exitCode,
+        signal,
         limitReached,
         limitResetTime,
         pricingInfo,
@@ -1111,7 +1119,10 @@ export const executeCodexCommand = async params => {
         return buildRunResult({ success: false, errorInfo: codexErrorSummary, result: codexErrorSummary.message });
       }
       if (exitCode !== 0) {
-        const retryableError = classifyRetryableError(lastMessage);
+        // A killed process cannot report a provider limit; its last stdout may
+        // contain a build log replaying an earlier network/usage error.
+        const failureSource = signal ? '' : stderrError || lastMessage;
+        const retryableError = classifyRetryableError(failureSource);
         if (retryableError.isRetryable) {
           const isRequestTimeoutRetry = retryableError.label === 'Request timeout';
           const maxRetries = isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutRetries : retryLimits.maxTransientErrorRetries;
@@ -1141,10 +1152,10 @@ export const executeCodexCommand = async params => {
           await log(`\n\n❌ ${retryableError.label} persisted: ${transientRetryBudget.describeExhaustion(retryDecision)}`, { level: 'error' });
         }
         // Check for usage limit errors first (more specific)
-        const limitInfo = detectUsageLimit(lastMessage);
+        const limitInfo = detectUsageLimit(failureSource);
         if (limitInfo.isUsageLimit) {
           // Issue #1869: Trace raw limit text + parsed reset for diagnosability.
-          await log(`🔍 Codex usage limit detected (exit ${exitCode}). Raw message: ${JSON.stringify(lastMessage)}`, { verbose: true });
+          await log(`🔍 Codex usage limit detected (exit ${exitCode}). Raw message: ${JSON.stringify(failureSource)}`, { verbose: true });
           await log(`🔍 Parsed reset time: ${JSON.stringify(limitInfo.resetTime)}, timezone: ${JSON.stringify(limitInfo.timezone)}`, { verbose: true });
           limitReached = true;
           limitResetTime = limitInfo.resetTime;
@@ -1167,7 +1178,9 @@ export const executeCodexCommand = async params => {
           await log(`\n\n❌ Codex command failed with exit code ${exitCode}`, { level: 'error' });
         }
         await logCodexResourceSnapshot({ getResourceSnapshot, log });
-        return buildRunResult({ success: false, errorInfo: getCodexErrorEventSummary(codexJsonState) });
+        const errorInfo = buildCodexProcessFailure({ exitCode, signal, stderrError, before: cgroupBefore, after: cgroupAfter });
+        await log(`❌ ${errorInfo.message}`, { level: 'error' });
+        return buildRunResult({ success: false, errorInfo, result: errorInfo.message });
       }
       // Issue #2102: a rejected `request_plugin_install` means codex asked for a
       // capability the preflight did not provision, and under `codex exec` that

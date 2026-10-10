@@ -6,6 +6,7 @@
 > **Связанные материалы:**
 >
 > - [Agent CLI FREE_MODELS.md](https://github.com/link-assistant/agent/blob/main/FREE_MODELS.md) — Список бесплатных моделей upstream (канонический источник)
+> - [Issue #2625](https://github.com/link-assistant/hive-mind/issues/2625) — OpenCode Zen убрал nemotron-3-super-free, а его бесплатный уровень теперь отвечает `FreeTierError` (HTTP 403) всем клиентам, кроме OpenCode; модель по умолчанию работает через Kilo Gateway как `nvidia/nemotron-3-super-120b-a12b:free`, а недостающую в Agent запись провайдера передаёт Hive Mind ([agent#327](https://github.com/link-assistant/agent/issues/327))
 > - [Agent PR #243](https://github.com/link-assistant/agent/pull/243) — Upstream: замена устаревшей qwen3.6-plus-free на nemotron-3-super-free в качестве модели по умолчанию
 > - [Agent PR #234](https://github.com/link-assistant/agent/pull/234) — Upstream: qwen3.6-plus-free как модель по умолчанию, добавлена nemotron-3-super-free
 > - [Agent PR #209](https://github.com/link-assistant/agent/pull/209) — Upstream: обновления бесплатных моделей (minimax-m2.5-free как модель по умолчанию)
@@ -22,10 +23,10 @@ Hive-mind поддерживает бесплатные модели от дву
 
 ## Бесплатные модели OpenCode Zen
 
-### 1. opencode/nemotron-3-super-free **Модель по умолчанию**
+### 1. kilo/nemotron-3-super-free **Модель по умолчанию**
 
 - **Краткий псевдоним**: `nemotron-3-super-free`
-- **Провайдер**: OpenCode Zen
+- **Провайдер**: Kilo Gateway (`nvidia/nemotron-3-super-120b-a12b:free`, Issue #2625)
 - **Статус**: Полностью поддерживается (По умолчанию для `--tool agent` начиная с Issue #1563)
 - **Возможности**: Рассуждение, вызов инструментов, гибридная архитектура Mamba-Transformer
 - **Контекстное окно**: ~262 144 токенов
@@ -190,7 +191,7 @@ solve https://github.com/owner/repo/issues/123 --tool agent --model nemotron-3-s
 hive https://github.com/owner/repo --tool agent --model minimax-m2.5-free
 
 # Модели OpenCode Zen (полные идентификаторы)
-solve https://github.com/owner/repo/issues/123 --tool agent --model opencode/nemotron-3-super-free
+solve https://github.com/owner/repo/issues/123 --tool agent --model kilo/nemotron-3-super-free
 hive https://github.com/owner/repo --tool agent --model opencode/big-pickle
 
 # Модели Kilo Gateway (полные идентификаторы)
@@ -218,7 +219,7 @@ hive https://github.com/owner/repo --tool agent --model deepseek-r1-free
 /solve https://github.com/owner/repo/issues/123 --tool agent --model glm-5-free
 /hive https://github.com/owner/repo --tool agent --model glm-4.5-air-free
 
-# Модель по умолчанию (nemotron-3-super-free через OpenCode Zen):
+# Модель по умолчанию (nemotron-3-super-free через Kilo Gateway):
 /solve https://github.com/owner/repo/issues/123 --tool agent
 /agent https://github.com/owner/repo/issues/123
 ```
@@ -226,8 +227,12 @@ hive https://github.com/owner/repo --tool agent --model deepseek-r1-free
 ### Прямое использование Agent CLI
 
 ```bash
+# Модель по умолчанию на Kilo Gateway (Issue #2625): Hive Mind передаёт эту запись провайдера сам;
+# при прямом вызове Agent 0.26.11 она нужна
+LINK_ASSISTANT_AGENT_CONFIG_CONTENT='{"provider":{"kilo":{"models":{"nemotron-3-super-free":{"id":"nvidia/nemotron-3-super-120b-a12b:free"}}}}}' \
+  agent --model kilo/nemotron-3-super-free <<< "Your prompt here"
+
 # Модели OpenCode Zen
-echo "Your prompt here" | agent --model opencode/nemotron-3-super-free
 echo "Your prompt here" | agent --model opencode/minimax-m2.5-free
 
 # Модели Kilo Gateway
@@ -243,7 +248,7 @@ echo "Your prompt here" | agent --model kilo/deepseek-r1-free
 
 **Флагманские бесплатные модели**:
 
-- `opencode/nemotron-3-super-free` — гибридная NVIDIA Mamba-Transformer, сильное рассуждение (OpenCode, по умолчанию)
+- `kilo/nemotron-3-super-free` — гибридная NVIDIA Mamba-Transformer, сильное рассуждение (Kilo, по умолчанию)
 - `kilo/glm-5-free` — флагман Z.AI, соответствует Opus 4.5 во многих задачах (Kilo)
 
 **Общего назначения и рассуждение**:
@@ -256,7 +261,7 @@ echo "Your prompt here" | agent --model kilo/deepseek-r1-free
 **Для задач с большим контекстом**:
 
 - `opencode/gpt-5-nano` — очень большой контекст (~400 000 токенов)
-- `opencode/nemotron-3-super-free` — большой контекст (~262 144 токенов)
+- `kilo/nemotron-3-super-free` — большой контекст (~262 144 токенов)
 - `kilo/giga-potato-free` — большой контекст (256 000 токенов)
 - `opencode/minimax-m2.5-free` — большой контекст (204 800 токенов)
 

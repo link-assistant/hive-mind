@@ -171,7 +171,8 @@ await test('captures Telegram 429 retry_after responses without swallowing error
     },
   };
   const tracker = new TelegramRateLimitTracker({ now: () => now });
-  installTelegramRateLimitTracker(telegram, { tracker });
+  // Retries are covered by the governor tests below; this one checks the error passes through.
+  installTelegramRateLimitTracker(telegram, { tracker, maxRetries: 0 });
 
   await assert.rejects(
     () => telegram.callApi('sendMessage', { chat_id: -42 }),
@@ -261,8 +262,12 @@ await test('shows a full bar while flood control is still counting down', () => 
   assert.ok(message.includes('100% ⚠️ (flood control, retry in 7s)'), message);
   assert.ok(message.includes('9/9 requests (observed limit), peak 9'));
   assert.ok(message.includes('429 responses since startup: 1'));
-  assert.ok(message.includes('Last 429: sendMessage'));
+  assert.ok(message.includes('Last 429: sendMessage, 1s ago, retry_after 8s'), 'Issue #2571: when, and how long Telegram asked for');
+  assert.ok(renderTelegramSection(snapshot, 'ru').includes('Последний ответ 429: sendMessage, 1 с назад, retry_after 8 с'));
+  assert.ok(!message.includes('Held back'), 'Nothing was held back yet');
   assert.ok(!message.includes('% used'), 'A throttled bar is not a usage estimate');
+  const restrained = renderTelegramSection({ ...snapshot, delayedRequests: 2, heldRequests: 50, retriedRequests: 1 });
+  assert.ok(restrained.includes('Held back by the bot: 2 delayed, 50 skipped, 1 retried'), restrained);
   assert.ok(renderTelegramSection(snapshot, 'ru').includes('(контроль флуда, повтор через 7 с)'));
 
   // Telegram returns retry_after values spanning three orders of magnitude.

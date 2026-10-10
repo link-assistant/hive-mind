@@ -34,12 +34,22 @@
  * `solve.mjs`, they never see each other's state, and one `solve` process
  * handles exactly one logical run.
  *
+ * Issue #2313: an identical outcome only proves "no progress" when the second
+ * session was given a different input. In the 2026-09-27 Kotlin run Formal AI
+ * got a byte-identical prompt on every restart, so the stop described solve's
+ * own input, not the model. Each session's input (the feedback lines it was
+ * started with, minus the restart counter) is fingerprinted too. When the
+ * outcome repeats after an unchanged input, the loop changes the input - it
+ * tells the next session that the previous two ended identically - instead of
+ * stopping; only a repeat after a changed input stops the run.
+ *
  * @see https://github.com/link-assistant/hive-mind/issues/2247
+ * @see https://github.com/link-assistant/hive-mind/issues/2313
  */
 
 import { createHash } from 'node:crypto';
 
-import { commitUncommittedChangesOnCriticalError } from './critical-error-commit.lib.mjs';
+import { commitUncommittedChangesOnCriticalError, describePreservedWork } from './critical-error-commit.lib.mjs';
 import { filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
 import { ensurePullRequestStaysDraftAfterFailure } from './pr-draft-state.lib.mjs';
 import { reportAutomationStop } from './automation-stop-reporting.lib.mjs';
@@ -75,8 +85,32 @@ export const buildSessionFingerprint = ({ finalMessage = '', gitStatus = '', hea
     .digest('hex')
     .slice(0, 16);
 
+/**
+ * Fingerprint the input a session was started with. The restart counter
+ * (`Auto-restart 2/5`) is not a change a model can act on, so it is ignored.
+ *
+ * @param {string[]|null} [feedbackLines]
+ * @returns {string} short hex digest ('' for no feedback at all)
+ */
+export const buildSessionInputFingerprint = (feedbackLines = []) => {
+  const text = normalizeSessionMessage((feedbackLines || []).join('\n').replace(/\(?(Auto-)?restart \d+(\/\d+)?\)?/giu, ''));
+  return text ? createHash('sha256').update(text).digest('hex').slice(0, 16) : '';
+};
+
 let sessions = [];
 let lastVerdict = null;
+let pendingInput = '';
+let pendingEscalation = null;
+
+/**
+ * Remember the input of the session that is about to start; the next
+ * `recordSessionOutcome` attaches it to that session's outcome.
+ *
+ * @param {string[]|null} [feedbackLines]
+ */
+export const noteSessionInput = feedbackLines => {
+  pendingInput = buildSessionInputFingerprint(feedbackLines);
+};
 
 /**
  * Record what one AI session ended with.
@@ -88,18 +122,20 @@ let lastVerdict = null;
  * @param {string|null} [params.sessionId]
  * @param {string|null} [params.logFile] - this session's log, named in the stop comment
  * @param {string|null} [params.label] - e.g. `Auto-restart 2/5`
- * @returns {{fingerprint: string, repeated: boolean, previous: Object|null, current: Object, occurrences: number}}
+ * @param {string} [params.input] - input fingerprint, defaults to the last `noteSessionInput`
+ * @returns {{fingerprint: string, repeated: boolean, inputChanged: boolean, previous: Object|null, current: Object, occurrences: number}}
  */
-export const recordSessionOutcome = ({ finalMessage = '', gitStatus = '', head = '', sessionId = null, logFile = null, label = null } = {}) => {
+export const recordSessionOutcome = ({ finalMessage = '', gitStatus = '', head = '', sessionId = null, logFile = null, label = null, input = pendingInput } = {}) => {
   const fingerprint = buildSessionFingerprint({ finalMessage, gitStatus, head });
   const previous = sessions.length > 0 ? sessions[sessions.length - 1] : null;
-  const current = { fingerprint, sessionId, logFile, label, finalMessage: normalizeSessionMessage(finalMessage), gitStatus: String(gitStatus ?? '').trim(), head: String(head ?? '').trim() };
+  const current = { fingerprint, input, sessionId, logFile, label, finalMessage: normalizeSessionMessage(finalMessage), gitStatus: String(gitStatus ?? '').trim(), head: String(head ?? '').trim() };
+  pendingInput = '';
   sessions.push(current);
   const occurrences = sessions.filter(entry => entry.fingerprint === fingerprint).length;
   // Only a session identical to the one immediately before it is a stall. A
   // fingerprint that comes back after real work happened in between is a
   // revert, not a loop, and the next session may well do something else.
-  lastVerdict = { fingerprint, repeated: previous !== null && previous.fingerprint === fingerprint, previous, current, occurrences };
+  lastVerdict = { fingerprint, repeated: previous !== null && previous.fingerprint === fingerprint, inputChanged: previous !== null && previous.input !== input, previous, current, occurrences };
   return lastVerdict;
 };
 
@@ -112,6 +148,36 @@ export const getRecordedSessions = () => sessions.map(entry => ({ ...entry }));
 export const resetSessionProgress = () => {
   sessions = [];
   lastVerdict = null;
+  pendingInput = '';
+  pendingEscalation = null;
+};
+
+/**
+ * The lines that change the next session's input after two identical sessions
+ * that were given the same input (#2313).
+ *
+ * @param {Object|null} verdict - from `recordSessionOutcome`
+ * @returns {string[]}
+ */
+export const buildRepeatedSessionFeedback = verdict => {
+  const lines = ['', '🔁 THE LAST TWO WORKING SESSIONS ENDED IDENTICALLY:', 'They received the same instructions, ended with the same final message, the same working tree and the same commit. Repeating the same steps will not change the result.'];
+  if (verdict?.current?.finalMessage) lines.push(`Their final message was: ${verdict.current.finalMessage.slice(0, 500)}`);
+  const status = String(verdict?.current?.gitStatus || '').trim();
+  if (status) lines.push('Both left this `git status --porcelain` output:', '```', ...status.split('\n').slice(0, STATUS_PREVIEW_LINES), '```');
+  lines.push('Find out why the previous approach did not work and resolve the blocker with a different approach before you finish.');
+  return lines;
+};
+
+/**
+ * Take (once) the feedback queued by `stopWhenSessionRepeated` for the next
+ * session. Every restart funnels through `executeToolIteration`, which appends it.
+ *
+ * @returns {string[]}
+ */
+export const takeRepeatedSessionFeedback = () => {
+  const verdict = pendingEscalation;
+  pendingEscalation = null;
+  return verdict ? buildRepeatedSessionFeedback(verdict) : [];
 };
 
 /**
@@ -193,11 +259,12 @@ export const buildNoProgressDetails = ({ previous = null, current = null, remain
  * @param {string} [params.mode] - which loop stopped
  * @param {Object|null} [params.verdict] - from `recordSessionOutcome`
  * @param {number|null} [params.remainingIterations]
+ * @param {Object|null} [params.preserved] - from `commitUncommittedChangesOnCriticalError`
  * @param {boolean} [params.verbose]
  * @param {Function} [params.log]
  * @returns {Promise<Object>} the reporter's result
  */
-export const reportNoProgressStop = async ({ $: command, owner, repo, targetNumber, mode = null, verdict = null, remainingIterations = null, verbose = false, log = noopLog }) =>
+export const reportNoProgressStop = async ({ $: command, owner, repo, targetNumber, mode = null, verdict = null, remainingIterations = null, preserved = null, verbose = false, log = noopLog }) =>
   reportAutomationStop({
     $: command,
     owner,
@@ -205,8 +272,9 @@ export const reportNoProgressStop = async ({ $: command, owner, repo, targetNumb
     targetNumber,
     reason: NO_PROGRESS_STOP_REASON,
     mode,
-    message: 'Two consecutive AI sessions ended with the same final message, the same working tree and the same commit, so another restart cannot produce a different result.',
-    details: buildNoProgressDetails({ previous: verdict?.previous, current: verdict?.current, remainingIterations }),
+    message: 'Two consecutive AI sessions ended with the same final message, the same working tree and the same commit although the second one was given different instructions, so another restart cannot produce a different result.',
+    // Issue #2315: say where the uncommitted work went (never the PR branch).
+    details: [...buildNoProgressDetails({ previous: verdict?.previous, current: verdict?.current, remainingIterations }), ...(preserved ? [describePreservedWork(preserved)] : [])],
     verbose,
     log,
   });
@@ -272,10 +340,10 @@ export const failOnNoProgressBetweenSessions = async ({ owner, repo, prNumber, t
   const preserved = await commitUncommittedChangesOnCriticalError({ tempDir, branchName, $: command, log, reason: 'stopped after two identical AI sessions', push: true });
 
   if (prNumber) {
-    await reportNoProgressStop({ $: command, owner, repo, targetNumber: prNumber, mode, verdict, remainingIterations, verbose, log });
+    await reportNoProgressStop({ $: command, owner, repo, targetNumber: prNumber, mode, verdict, remainingIterations, preserved, verbose, log });
   }
 
-  noProgressFailure = { reason: NO_PROGRESS_STOP_REASON, committed: preserved.committed, pushed: preserved.pushed, occurrences: verdict?.occurrences || 2 };
+  noProgressFailure = { reason: NO_PROGRESS_STOP_REASON, committed: preserved.committed, pushed: preserved.pushed, recoveryBranch: preserved.recoveryBranch || null, occurrences: verdict?.occurrences || 2 };
   return noProgressFailure;
 };
 
@@ -290,12 +358,20 @@ export const failOnNoProgressBetweenSessions = async ({ owner, repo, prNumber, t
  *   the verdict and the remaining budget, which are read from this module and
  *   from the shared restart budget.
  * @returns {Promise<Object|null>} the stop, or null when the last session
- *   differed from the one before it and the loop should continue
+ *   differed from the one before it, or was given the same input as the one
+ *   before it (the next input then changes), and the loop should continue
  */
-export const stopWhenSessionRepeated = async ({ owner, repo, prNumber, tempDir, branchName, $: command, log = noopLog, formatAligned, mode = null, verbose = false }) => {
+export const stopWhenSessionRepeated = async ({ owner, repo, prNumber, tempDir, branchName, $: command, log = noopLog, formatAligned = (icon, label, value) => `${icon} ${label} ${value}`, mode = null, verbose = false }) => {
   const verdict = getLastSessionProgress();
   if (!verdict?.repeated) return null;
+  // Issue #2313: the same input produced the same outcome - that says nothing
+  // about the model. Change the input before concluding there is no progress.
+  if (!verdict.inputChanged) {
+    pendingEscalation = verdict;
+    await log(formatAligned('🔁', 'Same input, same outcome:', 'the next session is told that the last two sessions ended identically', 2));
+    return null;
+  }
   return await failOnNoProgressBetweenSessions({ owner, repo, prNumber, tempDir, branchName, $: command, log, formatAligned, verdict, mode, remainingIterations: getRemainingAutoRestartIterations(), verbose });
 };
 
-export default { NO_PROGRESS_STOP_REASON, buildNoProgressDetails, buildSessionFingerprint, captureSessionOutcome, failOnNoProgressBetweenSessions, getLastSessionProgress, getNoProgressFailure, getRecordedSessions, hasNoProgressFailure, normalizeSessionMessage, recordSessionOutcome, reportNoProgressStop, resetNoProgressFailure, resetSessionProgress, stopWhenSessionRepeated };
+export default { NO_PROGRESS_STOP_REASON, buildNoProgressDetails, buildRepeatedSessionFeedback, buildSessionFingerprint, buildSessionInputFingerprint, captureSessionOutcome, failOnNoProgressBetweenSessions, getLastSessionProgress, getNoProgressFailure, getRecordedSessions, hasNoProgressFailure, normalizeSessionMessage, noteSessionInput, recordSessionOutcome, reportNoProgressStop, resetNoProgressFailure, resetSessionProgress, stopWhenSessionRepeated, takeRepeatedSessionFeedback };

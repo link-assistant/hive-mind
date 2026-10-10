@@ -19,6 +19,8 @@ name: Formal AI Draft
 on:
   issues:
     types: [opened]
+  schedule:
+    - cron: '17 8 * * *'
   workflow_dispatch:
     inputs:
       issue_number:
@@ -26,16 +28,39 @@ on:
         required: true
         type: string
 
-# Least privilege: everything this workflow writes (the branch, the pull
-# request, the label) goes through FORMAL_AI_DRAFT_TOKEN, never GITHUB_TOKEN.
-# A pull request opened with GITHUB_TOKEN does not trigger `pull_request`
-# workflows, so its checks would never run and the draft could not be red.
+# All credential layers can open a draft; default-token checks use dispatch.
 permissions:
   contents: read
-  issues: read
 
 jobs:
+  health:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+      - name: Install automation dependencies
+        run: npm ci --omit=dev --ignore-scripts
+      - name: Report actual draft attempts over seven days
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/formal-ai-draft-health.mjs
   draft:
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      actions: write
+    if: github.event_name != 'schedule'
     name: Formal AI draft
     runs-on: ubuntu-24.04
     # One attempt is a full working session. 90 minutes is the ceiling at which
@@ -60,6 +85,17 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: 24.x
+      - name: Install automation dependencies
+        run: npm ci --omit=dev --ignore-scripts
+
+      - name: Resolve GitHub credentials
+        id: gh
+        uses: ./.github/actions/resolve-github-token # https://github.com/link-foundation/.github/issues/1
+        with:
+          app-id: ${{ vars.AUTOMATION_APP_ID }}
+          app-private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
+          token: ${{ secrets.AUTOMATION_TOKEN }}
+          default-token: ${{ github.token }}
 
       # The issue title and body are never interpolated into a `run:` block;
       # the script reads the payload from GITHUB_EVENT_PATH itself.
@@ -67,8 +103,8 @@ jobs:
         id: decide
         env:
           FORMAL_AI_DRAFT_ISSUE: ${{ github.event.inputs.issue_number }}
-          FORMAL_AI_DRAFT_TOKEN: ${{ secrets.FORMAL_AI_DRAFT_TOKEN }}
-          GH_TOKEN: ${{ secrets.FORMAL_AI_DRAFT_TOKEN || secrets.GITHUB_TOKEN }}
+          AUTOMATION_LAYER: ${{ steps.gh.outputs.layer }}
+          GH_TOKEN: ${{ steps.gh.outputs.token }}
         run: node scripts/formal-ai-draft.mjs --decide
 
       - name: Free disk space for the hive-mind image
@@ -76,14 +112,24 @@ jobs:
         run: node scripts/free-disk-space.mjs
 
       - name: Open the Formal AI draft
+        id: attempt
         if: steps.decide.outputs.should_run == 'true'
         env:
           FORMAL_AI_DRAFT_ISSUE: ${{ github.event.inputs.issue_number }}
           FORMAL_AI_DRAFT_IMAGE: ${{ vars.FORMAL_AI_DRAFT_IMAGE || 'konard/hive-mind:latest' }}
+          FORMAL_AI_INSTALL_GRANT: workspace
           FORMAL_AI_DRAFT_LOG_DIR: ${{ runner.temp }}/formal-ai-draft-logs
-          FORMAL_AI_DRAFT_TOKEN: ${{ secrets.FORMAL_AI_DRAFT_TOKEN }}
-          GH_TOKEN: ${{ secrets.FORMAL_AI_DRAFT_TOKEN }}
+          AUTOMATION_LAYER: ${{ steps.gh.outputs.layer }}
+          GH_TOKEN: ${{ steps.gh.outputs.token }}
         run: node scripts/formal-ai-draft.mjs
+
+      - name: Dispatch checks on the draft head
+        if: ${{ !cancelled() && steps.attempt.outputs.head_branch != '' }}
+        uses: ./.github/actions/dispatch-checks # https://github.com/link-foundation/.github/issues/1
+        with:
+          ref: ${{ steps.attempt.outputs.head_branch }}
+          token: ${{ steps.gh.outputs.token }}
+          triggers-workflows: ${{ steps.gh.outputs.triggers-workflows }}
 
       # `--attach-logs` already puts the session log on the pull request. This
       # is the copy for the case where no pull request was opened at all, which

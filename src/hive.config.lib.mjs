@@ -8,7 +8,7 @@ import { buildModelOptionDescription, defaultModels } from './models/index.mjs';
 
 // Hive-only options that are NOT solve options (hive-specific functionality).
 // These are excluded when auto-registering solve-passthrough options.
-const HIVE_ONLY_OPTION_NAMES = new Set(['monitor-tag', 'all-issues', 'skip-issues-with-prs', 'concurrency', 'pull-requests-per-issue', 'interval', 'max-issues', 'once', 'project-number', 'project-owner', 'project-status', 'project-mode', 'youtrack-mode', 'youtrack-stage', 'youtrack-project', 'target-branch', 'issue-order']);
+const HIVE_ONLY_OPTION_NAMES = new Set(['monitor-tag', 'all-issues', 'skip-issues-with-prs', 'concurrency', 'pull-requests-per-issue', 'interval', 'max-issues', 'once', 'project-number', 'project-owner', 'project-status', 'project-mode', 'youtrack-mode', 'youtrack-stage', 'youtrack-project', 'target-branch', 'issue-order', 'respect-issue-relations']);
 
 // Solve-only options that should NOT be registered in hive
 // (they are internal to solve and not meaningful when passed from hive)
@@ -120,7 +120,7 @@ export const createYargsConfig = yargsInstance => {
     })
     .option('skip-issues-with-prs', {
       type: 'boolean',
-      description: 'Skip issues that already have open pull requests',
+      description: 'Skip issues with open pull requests of their own; ancestor pull requests do not cover sub-issues',
       default: false,
       alias: 's',
     })
@@ -198,6 +198,11 @@ export const createYargsConfig = yargsInstance => {
       alias: 'o',
       default: 'asc',
       choices: ['asc', 'desc'],
+    })
+    .option('respect-issue-relations', {
+      type: 'boolean',
+      description: 'Respect GitHub sub-issues and dependencies: only queue issues with no open "blocked by" issues (including ones inherited from a parent) and no open sub-issues, ordered critical path first. Use --no-respect-issue-relations to queue every matching issue at once',
+      default: true,
     });
 
   // Register options with hive-specific customizations (different defaults/descriptions than solve)

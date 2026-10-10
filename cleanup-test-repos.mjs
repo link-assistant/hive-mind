@@ -20,6 +20,7 @@
  * Note: Archived repositories are preserved by default. Use --include-archived to delete them.
  */
 
+import { ghList } from './scripts/github-actions.lib.mjs';
 import { isConfirmationYes, readConfirmationLine } from './src/confirmation.lib.mjs';
 import { ensureUseM } from './src/use-m-bootstrap.lib.mjs';
 
@@ -63,7 +64,7 @@ try {
   // environment and fine-grained PATs do not expose classic OAuth scope text.
   console.log('🔐 Checking GitHub authentication...');
   try {
-    execSync('gh auth status', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+    if (process.env.AUTOMATION_LAYER !== 'app') execSync('gh auth status', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
   } catch (authError) {
     // gh auth status returns non-zero if not authenticated
     console.log('❌ Not authenticated with GitHub');
@@ -78,7 +79,7 @@ try {
   }
 
   // Get current GitHub user
-  const githubUser = execSync('gh api user --jq .login', { encoding: 'utf8' }).trim();
+  const githubUser = process.env.AUTOMATION_LAYER === 'app' ? process.env.GITHUB_REPOSITORY_OWNER : execSync('gh api user --jq .login', { encoding: 'utf8' }).trim();
   console.log(`👤 User: ${githubUser}`);
 
   // List all repositories for the user — paginate via GraphQL to fetch everything
@@ -89,6 +90,16 @@ try {
   let hasNextPage = true;
   const query = `query($login: String!, $after: String) { repositoryOwner(login: $login) { repositories(first: 100, after: $after, ownerAffiliations: OWNER) { pageInfo { hasNextPage endCursor } nodes { name url createdAt isPrivate isArchived } } } }`;
 
+  if (process.env.AUTOMATION_LAYER === 'app') {
+    const pages = await ghList('installation/repositories?per_page=100');
+    repos.push(
+      ...pages
+        .flatMap(page => page.repositories)
+        .filter(repo => repo.owner.login === githubUser)
+        .map(repo => ({ name: repo.name, url: repo.html_url, createdAt: repo.created_at, isPrivate: repo.private, isArchived: repo.archived }))
+    );
+    hasNextPage = false;
+  }
   while (hasNextPage) {
     const afterArgs = endCursor ? ['-f', `after=${endCursor}`] : [];
     const ghArgs = ['api', 'graphql', '-f', `login=${githubUser}`, ...afterArgs, '-f', `query=${query}`];
@@ -97,7 +108,7 @@ try {
       maxBuffer: 50 * 1024 * 1024,
     });
     if (result.status !== 0) {
-      throw new Error(`gh api graphql failed: ${result.stderr || result.stdout}`);
+      throw new Error(`gh api graphql failed: ${result.stderr?.toString() || result.stdout?.toString()}`);
     }
     const data = JSON.parse(result.stdout);
     const page = data.data.repositoryOwner.repositories;
@@ -108,7 +119,7 @@ try {
 
   // Filter for test repositories matching the pattern with valid UUIDv7
   const allTestRepos = repos.filter(repo => {
-    const matchFeedbackLines = repo.name.match(/^test-feedback-lines-([0-9a-z]+)$/);
+    const matchFeedbackLines = repo.name.match(/^test-feedback-lines-(?:[0-9a-z]+|[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/);
 
     if (matchFeedbackLines) {
       return true;

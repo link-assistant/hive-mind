@@ -96,7 +96,7 @@ assert.equal(resolveFormalAiSidecarImageCandidates({}, { accepted: null })[0].im
   const env = makeEnv();
   const docker = makeDocker();
   const options = { env, run: docker.run, ...fast };
-  writeFormalAiSidecarState({ image: BOOTSTRAP_IMAGE, imageDigest: BOOTSTRAP_DIGEST, leases: [] }, { env });
+  writeFormalAiSidecarState({ image: BOOTSTRAP_IMAGE, imageDigest: BOOTSTRAP_DIGEST, leases: [], lastUsedAt: new Date().toISOString() }, { env });
 
   const update = await updateFormalAiSidecarWhenIdle(options);
   assert.equal(update.status, 'updated');
@@ -139,7 +139,7 @@ assert.equal(resolveFormalAiSidecarImageCandidates({}, { accepted: null })[0].im
   const env = makeEnv();
   const docker = makeDocker();
   const options = { env, run: docker.run, ...fast };
-  writeFormalAiSidecarState({ image: BOOTSTRAP_IMAGE, imageDigest: BOOTSTRAP_DIGEST, leases: [] }, { env });
+  writeFormalAiSidecarState({ image: BOOTSTRAP_IMAGE, imageDigest: BOOTSTRAP_DIGEST, leases: [], lastUsedAt: new Date().toISOString() }, { env });
   const update = await updateFormalAiSidecarWhenIdle(options);
 
   // Upstream publishes a newer build under the same tag; it has *not* been
@@ -161,7 +161,7 @@ assert.equal(resolveFormalAiSidecarImageCandidates({}, { accepted: null })[0].im
   // verification fails and the updater rolls back.
   const docker = makeDocker({ health: (reference, digest) => (digest === ACCEPTED_DIGEST ? null : { version: FORMAL_AI_BOOTSTRAP_VERSION, memory: MEMORY }) });
   const options = { env, run: docker.run, ...fast };
-  writeFormalAiSidecarState({ image: BOOTSTRAP_IMAGE, imageDigest: BOOTSTRAP_DIGEST, leases: [] }, { env });
+  writeFormalAiSidecarState({ image: BOOTSTRAP_IMAGE, imageDigest: BOOTSTRAP_DIGEST, leases: [], lastUsedAt: new Date().toISOString() }, { env });
 
   const update = await updateFormalAiSidecarWhenIdle(options);
   assert.equal(update.status, 'rolled-back');
@@ -180,7 +180,7 @@ assert.equal(resolveFormalAiSidecarImageCandidates({}, { accepted: null })[0].im
   const env = makeEnv();
   const docker = makeDocker();
   const options = { env, run: docker.run, ...fast };
-  writeFormalAiSidecarState({ image: BOOTSTRAP_IMAGE, imageDigest: BOOTSTRAP_DIGEST, leases: [] }, { env });
+  writeFormalAiSidecarState({ image: BOOTSTRAP_IMAGE, imageDigest: BOOTSTRAP_DIGEST, leases: [], lastUsedAt: new Date().toISOString() }, { env });
   await updateFormalAiSidecarWhenIdle(options);
 
   // `docker image prune` removed the accepted image and the tag now resolves to
@@ -217,7 +217,7 @@ assert.equal(resolveFormalAiSidecarImageCandidates({}, { accepted: null })[0].im
     health: () => ({ version: ACCEPTED_VERSION, memory: MEMORY }),
   });
   const options = { env, run: docker.run, ...fast };
-  writeFormalAiSidecarState({ image: BOOTSTRAP_IMAGE, imageDigest: BOOTSTRAP_DIGEST, leases: [], lastUpdate: { image: UPDATE_IMAGE, digest: ACCEPTED_DIGEST, version: ACCEPTED_VERSION, updatedAt: new Date().toISOString() } }, { env });
+  writeFormalAiSidecarState({ image: BOOTSTRAP_IMAGE, imageDigest: BOOTSTRAP_DIGEST, leases: [], lastUsedAt: new Date().toISOString(), lastUpdate: { image: UPDATE_IMAGE, digest: ACCEPTED_DIGEST, version: ACCEPTED_VERSION, updatedAt: new Date().toISOString() } }, { env });
 
   const pinned = await acquireFormalAiSidecar({ sessionId: 'pinned-task', ...options });
   assert.equal(pinned.imageDigest, 'sha256:pinned', 'the operator pin overrides the accepted update');

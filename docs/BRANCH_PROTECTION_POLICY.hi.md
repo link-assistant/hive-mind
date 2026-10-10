@@ -25,7 +25,7 @@
 1. **Changesets की जाँच** (`changeset-check`)
    - सुनिश्चित करता है कि प्रत्येक PR में संस्करण प्रबंधन के लिए एक changeset शामिल हो
    - केवल PRs पर चलता है, main शाखा के pushes पर नहीं
-   - स्वचालित release PRs के लिए छोड़ दिया जाता है
+   - हर PR पर लागू होता है: release, version bump को सीधे main में commit करता है, इसलिए कोई release PR नहीं होता
 
 2. **test-compilation**
    - सभी `.mjs` फ़ाइलों के लिए JavaScript सिंटैक्स मान्य करता है

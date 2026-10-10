@@ -22,7 +22,7 @@
  * remaining blocker and what was preserved.
  */
 
-import { commitUncommittedChangesOnCriticalError } from './critical-error-commit.lib.mjs';
+import { commitUncommittedChangesOnCriticalError, describePreservedWork } from './critical-error-commit.lib.mjs';
 import { formatAutoRestartLabel, formatAutoRestartLimit, getAutoRestartIterationsUsed } from './auto-restart-budget.lib.mjs';
 import { ensurePullRequestStaysDraftAfterFailure } from './pr-draft-state.lib.mjs';
 import { AUTO_RESTART_MARKER, postTrackedComment } from './tool-comments.lib.mjs';
@@ -50,6 +50,32 @@ export const getAutoRestartLimitFailure = () => limitFailure;
 export const resetAutoRestartLimitFailure = () => {
   limitFailure = null;
 };
+
+/**
+ * Issue #2492: auto-restart comments state each fact once. The `N/M` heading
+ * already carries the limit, so the footers that repeated it are gone.
+ */
+
+/** Posted by the auto-restart-until-mergeable loop before it starts the next session. */
+export const buildAutoRestartComment = ({ label, reason }) => `## 🔄 ${AUTO_RESTART_MARKER} ${label}
+
+**Reason:** ${reason}
+
+Starting a new session to address it.`;
+
+/** Posted by the watch loop when the previous session left uncommitted changes. */
+export const buildUncommittedChangesRestartComment = ({ label, uncommittedFilesList = '' }) => `## 🔄 ${AUTO_RESTART_MARKER} ${label}
+
+The previous session left uncommitted changes. Starting a new session to commit or discard them.${uncommittedFilesList}`;
+
+/** Posted once when the shared budget is exhausted; the run then fails. */
+export const buildAutoRestartLimitComment = ({ label, blocker, preservedText }) => `## ❌ ${AUTO_RESTART_MARKER} ${label} - limit reached
+
+**Remaining blocker:** ${blocker}
+
+${preservedText}
+
+No more sessions will start automatically. Resolve the blocker, or rerun with a higher \`--auto-restart-max-iterations\`.`;
 
 /**
  * Fail the run because the shared auto-restart budget is exhausted, preserving
@@ -87,9 +113,8 @@ export const failOnAutoRestartBudgetExhausted = async ({ owner, repo, prNumber, 
   }
 
   // Fail recovery: the work that kept triggering restarts lives in a temporary
-  // clone that is about to be discarded. Commit and push it so the result is
-  // visible in the PR instead of vanishing with the clone. The failure veto
-  // above ensures this evidence commit cannot be mistaken for success (#2263).
+  // clone that is about to be discarded. Preserve it on `recovery/<branch>` -
+  // never in the PR branch, where build output became part of the diff (#2315).
   const preserved = await commitUncommittedChangesOnCriticalError({
     tempDir,
     branchName,
@@ -100,20 +125,7 @@ export const failOnAutoRestartBudgetExhausted = async ({ owner, repo, prNumber, 
   });
 
   if (prNumber) {
-    const preservedText = preserved.committed ? `The uncommitted changes were auto-committed${preserved.pushed ? ' and pushed' : ' locally (push failed - see the log)'} so the partial result stays visible in this pull request.` : 'There were no uncommitted changes left to preserve.';
-    const body = `## ❌ ${AUTO_RESTART_MARKER} ${label} - limit reached
-
-Hive Mind stopped after ${label} automatic restart iterations without resolving the blocker.
-
-**Configured limit:** ${formatAutoRestartLimit()}
-**Remaining blocker:** ${blocker}
-
-${preservedText}
-
-No further AI sessions will be started automatically for this run. Review the remaining blocker manually, or rerun with a higher \`--auto-restart-max-iterations\` value.
-
----
-*This run is reported as failed because the auto-restart limit was reached.*`;
+    const body = buildAutoRestartLimitComment({ label, blocker, preservedText: describePreservedWork(preserved) });
     try {
       await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body });
       await log(formatAligned('', '💬 Posted auto-restart limit notification to PR', '', 2));
@@ -123,8 +135,8 @@ No further AI sessions will be started automatically for this run. Review the re
     }
   }
 
-  limitFailure = { reason: AUTO_RESTART_LIMIT_REACHED_REASON, iterationsUsed, committed: preserved.committed, pushed: preserved.pushed };
+  limitFailure = { reason: AUTO_RESTART_LIMIT_REACHED_REASON, iterationsUsed, committed: preserved.committed, pushed: preserved.pushed, recoveryBranch: preserved.recoveryBranch || null };
   return limitFailure;
 };
 
-export default { AUTO_RESTART_LIMIT_REACHED_REASON, failOnAutoRestartBudgetExhausted, hasAutoRestartLimitFailure, getAutoRestartLimitFailure, resetAutoRestartLimitFailure };
+export default { AUTO_RESTART_LIMIT_REACHED_REASON, buildAutoRestartComment, buildAutoRestartLimitComment, buildUncommittedChangesRestartComment, failOnAutoRestartBudgetExhausted, hasAutoRestartLimitFailure, getAutoRestartLimitFailure, resetAutoRestartLimitFailure };

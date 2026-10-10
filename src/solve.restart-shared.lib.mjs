@@ -37,11 +37,13 @@ const { log, formatAligned, extractToolErrorCore, getLogFile, setLogFile } = lib
 const { ensurePullRequestBaseBranch } = await import('./solve.pr-base-guard.lib.mjs');
 const { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } = await import('./ai-tool-scratch.lib.mjs');
 const { RESOURCE_PHASE_RESTART_AFTER, RESOURCE_PHASE_RESTART_BEFORE, recordResourceSnapshot } = await import('./solve.resource-diagnostics.lib.mjs');
-const { classifyFormalAiToolResult } = await import('./formal-ai.lib.mjs');
+const { classifySessionResult } = await import('./session-result.lib.mjs'); // Issue #2316
+const { takeRepeatedToolCallFeedback } = await import('./tool-call-loop-guard.lib.mjs');
+const { buildUncommittedChangesFeedback } = await import('./uncommitted-changes-feedback.lib.mjs');
 // Issue #2123: shared draft/ready transitions for working sessions.
 const { ensurePullRequestIsDraft, ensurePullRequestIsReady, ensurePullRequestStaysDraftAfterFailure } = await import('./pr-draft-state.lib.mjs');
 // Issue #2247 (H3): fingerprint each restart session so an identical repeat can be detected.
-const { captureSessionOutcome } = await import('./session-progress.lib.mjs');
+const { captureSessionOutcome, noteSessionInput, takeRepeatedSessionFeedback } = await import('./session-progress.lib.mjs');
 
 // Import Sentry integration
 const sentryLib = await import('./sentry.lib.mjs');
@@ -188,7 +190,12 @@ export const getUncommittedChangesDetails = async tempDir => {
  * @returns {Promise<Object>} - Tool execution result
  */
 export const executeToolIteration = async params => {
-  const { issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, workspaceTmpDir, mergeStateStatus, feedbackLines, argv } = params;
+  const { issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, workspaceTmpDir, mergeStateStatus, argv } = params;
+  // Issue #2313: after two identical sessions with the same input, the next input
+  // must differ; and the input is recorded so "no progress" is only concluded
+  // when a changed input still produced the same outcome.
+  const feedbackLines = [...(params.feedbackLines || []), ...takeRepeatedSessionFeedback(), ...takeRepeatedToolCallFeedback()]; // Issue #2316: the breaker's reason
+  noteSessionInput(feedbackLines);
 
   await recordResourceSnapshot({
     phase: RESOURCE_PHASE_RESTART_BEFORE,
@@ -509,10 +516,7 @@ export const executeToolIteration = async params => {
       });
     }
 
-    toolResult = classifyFormalAiToolResult({ model: argv.model, toolResult });
-    if (toolResult?.formalAiNonExecution) {
-      await log(`❌ ${toolResult.errorInfo.message}`, { level: 'error' });
-    }
+    toolResult = await classifySessionResult({ toolResult, argv, owner, repo, prNumber, $, log, tempDir });
 
     await ensurePullRequestBaseBranch({ owner, repo, prNumber, argv, log, formatAligned, $ });
     await recordResourceSnapshot({
@@ -546,6 +550,9 @@ export const executeToolIteration = async params => {
     return toolResult;
   } finally {
     if (prNumber) {
+      // Repair links even when the last iteration fails or removes them.
+      const { repairRequiredIssueLinks } = await import('./pr-issue-link-repair.lib.mjs');
+      if (issueNumber) await repairRequiredIssueLinks({ owner, repo, issueNumber, prNumber, argv, logger: log });
       if (toolResult?.success === true && toolResult?.errorDuringExecution !== true) {
         await ensurePullRequestIsReady({
           owner,
@@ -583,35 +590,8 @@ export const buildAutoRestartInstructions = () => {
   return ['', '='.repeat(60), '🎯 AUTO-RESTART MODE INSTRUCTIONS:', '='.repeat(60), '', 'Ensure to get latest version of default branch to make all conflicts resolved if present.', 'Ensure you comply with all CI/CD check requirements, and they pass.', 'Ensure all changes are correct, consistent and fully meet all discussed requirements', '(check issue description and all comments in issue and in pull request).', ''];
 };
 
-/**
- * Build feedback lines for uncommitted changes
- * @param {string[]} changes - Array of uncommitted change lines from git status
- * @param {number} restartCount - Current restart iteration number
- * @param {number} maxIterations - Maximum restart iterations
- * @returns {string[]} Array of feedback lines
- */
-export const buildUncommittedChangesFeedback = (changes, restartCount = 0, maxIterations = 0) => {
-  const feedbackLines = [];
-  const iterationInfo = maxIterations > 0 ? ` (Auto-restart ${restartCount}/${maxIterations})` : '';
-
-  feedbackLines.push('');
-  feedbackLines.push(`⚠️ UNCOMMITTED CHANGES DETECTED${iterationInfo}:`);
-  feedbackLines.push('The following uncommitted changes were found in the repository:');
-  feedbackLines.push('');
-
-  for (const line of changes) {
-    feedbackLines.push(`  ${line}`);
-  }
-
-  feedbackLines.push('');
-  feedbackLines.push('IMPORTANT: You MUST handle these uncommitted changes by either:');
-  feedbackLines.push('1. COMMITTING them if they are part of the solution (git add + git commit + git push)');
-  feedbackLines.push('2. REVERTING them if they are not needed (git checkout -- <file> or git clean -fd)');
-  feedbackLines.push('');
-  feedbackLines.push('DO NOT leave uncommitted changes behind. The session will auto-restart until all changes are resolved.');
-
-  return feedbackLines;
-};
+// Issue #2313: shared with the pre-session check in solve.preparation.lib.mjs.
+export { buildUncommittedChangesFeedback };
 
 /**
  * Check if a tool result indicates an API error

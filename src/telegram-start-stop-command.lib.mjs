@@ -31,7 +31,7 @@
 import { extractSessionIdFromText } from './telegram-log-command.lib.mjs';
 import { parseGitHubUrl } from './github.lib.mjs';
 import { getTelegramCommandArgumentsText } from './telegram-command-text.lib.mjs';
-import { cleanNonPrintableChars } from './telegram-markdown.lib.mjs';
+import { cleanNonPrintableChars, escapeMarkdown } from './telegram-markdown.lib.mjs';
 // Issue #2166: every reply/edit in this module goes through the one send funnel
 // (validated, logged, plain-text fallback) even when a caller does not inject it.
 import { safeReply as defaultSafeReply, safeEditMessageText as defaultSafeEditMessageText } from './telegram-safe-reply.lib.mjs';
@@ -212,8 +212,11 @@ export function extractStopTarget(text, repliedTo) {
 export async function updateQueueCardForCancellation(item, url, tool, stopperName, { safeEditMessageText = defaultSafeEditMessageText, verbose = false } = {}) {
   if (!item || !item.messageInfo || !item.ctx) return false;
   const toolSuffix = tool ? ` from \`${tool}\` queue` : '';
-  const stopperSuffix = stopperName ? ` by ${stopperName}` : '';
-  const text = `🗑 *Cancelled*\n\n${url}\n\nRemoved${toolSuffix}${stopperSuffix} via /stop.`;
+  // Issue #2571: `@anton_poroshin` opened an italic entity that never closed, so
+  // Telegram refused the card ("Can't find end of the entity") and it was only
+  // updated by the plain-text fallback — one more request in an already busy chat.
+  const stopperSuffix = stopperName ? ` by ${escapeMarkdown(stopperName)}` : '';
+  const text = `🗑 *Cancelled*\n\n${escapeMarkdown(url)}\n\nRemoved${toolSuffix}${stopperSuffix} via /stop.`;
   try {
     const { chatId, messageId } = item.messageInfo;
     // Issue #2166: go through the shared safe funnel when the caller provides

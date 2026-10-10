@@ -240,6 +240,8 @@ try {
     logFile: rawUploadLog,
     isPublic: false,
     description: `credential ${beta}`,
+    // Issue #2301: failed uploads are retried; keep this test from waiting on the backoff.
+    sleep: async () => {},
     runUpload: async args => {
       [preparedPath] = args;
       preparedBytes = await readFile(preparedPath, 'utf8');

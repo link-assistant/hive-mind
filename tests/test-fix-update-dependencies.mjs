@@ -319,12 +319,11 @@ await test('the standard prompt names the detected ecosystems when they are know
   assert.match(buildStandardPrompt({ ecosystems: [], omittedOptions: [] }), /every language and package manager present in the repository/);
 });
 
-await test('paragraphs already provided by a forwarded /solve option are dropped', () => {
-  // Same contract as /fix --ci-cd: /fix forwards --deep-analysis, which already
-  // tells the AI to report upstream bugs, so the issue must not repeat it.
+await test('upstream reporting remains in the generated issue with forwarded deep analysis', () => {
+  // Issue #2751 requires the generated issue itself to include this paragraph.
   const withOption = buildStandardPrompt({ ecosystems: [] });
   const withoutOption = buildStandardPrompt({ ecosystems: [], omittedOptions: [] });
-  assert.ok(!withOption.includes(REPORT_UPSTREAM_PARAGRAPH));
+  assert.ok(withOption.includes(REPORT_UPSTREAM_PARAGRAPH));
   assert.ok(withoutOption.includes(REPORT_UPSTREAM_PARAGRAPH));
   assert.ok(UPDATE_DEPENDENCIES_FORWARDED_SOLVE_OPTIONS.includes('--deep-analysis'));
 });
@@ -496,10 +495,10 @@ await test('the sub-prompt does not repeat what /solve already says', () => {
   assert.ok(!prompt.includes(KEEP_WORKING_PROMPT), '/solve emits the keep-working reinforcement itself');
 });
 
-await test('the sub-prompt drops paragraphs the enabled /solve options already provide', () => {
+await test('the dependency sub-prompt leaves reporting to its independently controlled section', () => {
   const withDeepAnalysis = getUpdateAllDependenciesSubPrompt({ updateAllDependencies: true, deepAnalysis: true });
   assert.ok(!withDeepAnalysis.includes(REPORT_UPSTREAM_PARAGRAPH));
-  assert.ok(getUpdateAllDependenciesSubPrompt({ updateAllDependencies: true }).includes(REPORT_UPSTREAM_PARAGRAPH));
+  assert.ok(!getUpdateAllDependenciesSubPrompt({ updateAllDependencies: true }).includes(REPORT_UPSTREAM_PARAGRAPH));
 });
 
 await test('every tool system prompt includes the sub-prompt when the option is on', async () => {

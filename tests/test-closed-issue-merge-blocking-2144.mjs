@@ -322,7 +322,10 @@ await test('The one-shot auto-merge attempt gates the merge on issue blockers', 
   const src = readSrc('solve.auto-merge-attempt.lib.mjs');
   assert(src.includes('const issueMergeBlockers = terminalState.mergeBlockers'), 'blockers must be captured from the terminal state check');
 
-  const gateIndex = src.indexOf('if (issueMergeBlockers.length > 0)');
+  // Issue #2306: the issue blockers are joined with the closing-references gate.
+  const gateIndex = src.indexOf('if (mergeBlockers.length > 0)');
+  // Issue #2395: the issue-link gate may sit between them.
+  assert(/\[\.\.\.issueMergeBlockers, (await ensureIssueLinkBeforeMerge\([^)]*\), )?await checkClosingReferencesBeforeMerge\(/.test(src), 'the issue blockers must still feed the merge gate');
   const mergeIndex = src.indexOf('await mergePullRequest(');
   assert(gateIndex > 0 && mergeIndex > gateIndex, 'the blocker gate must run before the merge call');
   assert(src.includes("reason: 'merge_failed'"), 'a rejected merge must be reported');

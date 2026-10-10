@@ -25,6 +25,7 @@ Hive Mind 的 AI issue 求解器被指示关注每个 pull request 中的 CI/CD 
 | Go                    | [go-ai-driven-development-pipeline-template](https://github.com/link-foundation/go-ai-driven-development-pipeline-template)         |
 | C#                    | [csharp-ai-driven-development-pipeline-template](https://github.com/link-foundation/csharp-ai-driven-development-pipeline-template) |
 | Java                  | [java-ai-driven-development-pipeline-template](https://github.com/link-foundation/java-ai-driven-development-pipeline-template)     |
+| C/C++                 | [cpp-ai-driven-development-pipeline-template](https://github.com/link-foundation/cpp-ai-driven-development-pipeline-template)       |
 | PHP                   | [php-ai-driven-development-pipeline-template](https://github.com/link-foundation/php-ai-driven-development-pipeline-template)       |
 
 > **提示：** 您不必手动挑选模板。运行 `fix <repository-url> --ci-cd`（参见[自动 CI/CD 修复](#自动-cicd-修复)），Hive Mind 会检测仓库使用的语言并为您选择匹配的模板。
@@ -138,6 +139,7 @@ done
 | Go                    | gofmt                         |
 | C#                    | dotnet format                 |
 | Java                  | Spotless (Google Java Format) |
+| C/C++                 | clang-format                  |
 | PHP                   | PHP CS Fixer                  |
 
 所有模板都包含在每次提交前自动运行格式化工具的 pre-commit 钩子。
@@ -146,15 +148,16 @@ done
 
 在代码到达审查之前捕获 bug 并强制执行模式：
 
-| 语言                  | 工具                         |
-| --------------------- | ---------------------------- |
-| JavaScript/TypeScript | ESLint（严格规则）           |
-| Rust                  | Clippy（pedantic + nursery） |
-| Python                | Ruff + mypy                  |
-| Go                    | go vet + staticcheck         |
-| C#                    | .NET 分析器（警告视为错误）  |
-| Java                  | SpotBugs（最大力度）         |
-| PHP                   | PHPStan（最高级别）          |
+| 语言                  | 工具                                  |
+| --------------------- | ------------------------------------- |
+| JavaScript/TypeScript | ESLint（严格规则）                    |
+| Rust                  | Clippy（pedantic + nursery）          |
+| Python                | Ruff + mypy                           |
+| Go                    | go vet + staticcheck                  |
+| C#                    | .NET 分析器（警告视为错误）           |
+| Java                  | SpotBugs（最大力度）                  |
+| C/C++                 | clang-tidy + cppcheck（警告视为错误） |
+| PHP                   | PHPStan（最高级别）                   |
 
 ### 5. 快速失败任务排序
 
@@ -197,6 +200,7 @@ test-suites:
 | Rust                  | changelog.d + 自定义脚本 |
 | Python                | Scriv                    |
 | PHP                   | changelog.d + 自定义脚本 |
+| C/C++                 | changelog.d + 自定义脚本 |
 | Go、C#、Java          | 自定义 changeset 工作流  |
 
 **免除仅文档 PR 的 changeset 要求：**
@@ -253,8 +257,10 @@ changeset-check:
 - **OIDC 受信发布** - CI 中无需 API token（npm、PyPI、crates.io）
 - **仅验证通过的发布** - 所有检查必须在发布前通过
 - **双触发模式** - 自动（合并时）和手动（工作流调度）
-- **被规则拒绝不等于发布失败** - 当仓库规则集要求变更必须经由拉取请求时，发布任务应为其版本升级开一个 PR，而不是死在这次拒绝上。该路径与竞争失败时的 rebase 重试路径，是对两种打印同一个词的拒绝的两种不同恢复方式（参见原则 10）
-- **无需长期令牌也要保持发布回退可审计** - 由 `GITHUB_TOKEN` 打开的拉取请求未经人工批准无法运行子工作流，而 `workflow_dispatch` 检查不能满足拉取请求的必需检查。让发布任务依赖所有发布前验证任务；若生成的提交修改了发布元数据以外的内容则立即失败，从而保证其源代码树就是已验证的父源代码树。仅向该任务授予 `checks: write`，并使用 GitHub Actions App 令牌在精确的版本提交上发布成功验证结果。合并前等待该必需检查。Ruleset 保持不变，机器人仍不能直接推送，普通 PR 仍运行完整矩阵。
+- **将版本升级直接提交到默认分支** - 发布任务以 `github-actions[bot]` 身份把生成的版本提交（包元数据、锁文件、changelog、已消费的 changesets）直接推送到 `main`；若该提交修改了发布元数据以外的任何内容则立即失败。不要让它经由自动合并的发布拉取请求：那样每次发布都会多出一个拉取请求和一个分支（禁止删除的规则集会永久保留它），而失败的运行会留下一个需要有人关闭的未关闭发布拉取请求
+- **被规则拒绝的推送应修改规则，而不是修改工作流** - 当仓库规则拒绝版本推送时，让发布带着规则的输出失败，并修复规则（删除它，或将 `github-actions` 添加为绕过者）。竞争失败时的 rebase 重试路径，是针对打印同一个词的另一种拒绝的不同恢复方式（参见原则 10）
+- **等待注册表实际需要的时间，绝不通过重新发布来确认** - `npm publish` 可能在 `npm view` 看到该版本之前几分钟就已成功。2026 年 9 月，Hive Mind 的延迟从 2–9 秒增加到 99–377 秒，2.35.1 用了 874 秒（issue #2923）。330 秒的窗口让一次成功的发布变成了红色运行，且没有 GitHub release、Docker 镜像和 Helm chart。根据实测数据并留出充足余量来设定窗口（`experiments/npm-publish-lag-2923.mjs` 通过 Sigstore 证明测量延迟），在日志中记录每次等待的时长，并把 `E409 Cannot publish over previously staged version` 视为“已经发布”，而不是失败
+- **根据所有产物而不仅是注册表来判断“是否有内容需要发布”** - 如果任务在发布之后中断，下一次推送会看到 npm 上已有该版本，从而永久跳过发布。同时检查 GitHub release，缺失时在不升级版本的情况下重新执行发布；查询失败意味着“未知”，永远不会触发发布
 
 **禁止在 PR 中手动更改版本** — 所有版本升级应由 CI 发布工作流管理：
 
@@ -310,14 +316,14 @@ jobs:
 
 **不要用 checkout 的 `ref: main` 来“修复”它。** 那样只是让拒绝消声，转而去构建、测试并发布一棵 CI 从未验证过的代码树，而日志里对此只字不提。拒绝才是诚实的结果；缺少的是恢复手段。
 
-**为每个写入任务提供一个先分类拒绝、再 rebase 重试的推送。** 仓库规则集的拒绝（GH006、GH013——“Changes must be made through a pull request”）同样会打印 `[rejected]`，而再多次 rebase 也无法满足规则；它需要的是拉取请求路径（参见原则 9）。重试只会浪费队列名额，并报告错误的原因。
+**为每个写入任务提供一个先分类拒绝、再 rebase 重试的推送。** 仓库规则集的拒绝（GH006、GH013——“Changes must be made through a pull request”）同样会打印 `[rejected]`，而再多次 rebase 也无法满足规则；应改为带着规则的输出失败，以便修复规则（参见原则 9）。重试只会浪费队列名额，并报告错误的原因。
 
 ```js
 for (let attempt = 1; attempt <= maxAttempts; attempt++) {
   const result = await run('git', ['push', remote, branch]);
   if (result.code === 0) return { pushed: true, attempt };
-  // 规则无法通过 rebase 满足：让同一个提交经由 PR 落地。
-  if (isBlockedByRepositoryRule(result)) return landViaPullRequest({ branch, ...ctx });
+  // 规则无法通过 rebase 满足：带着规则的输出失败。
+  if (isBlockedByRepositoryRule(result)) throw repositoryRuleError({ branch, version, cause: result });
   // 认证、网络、缺失的 remote：rebase 会掩盖真正的错误。
   if (!isNonFastForward(result) || attempt === maxAttempts) throw new CommandFailedError('git', ['push', remote, branch], result);
   await run('git', ['pull', '--rebase', remote, branch]);
@@ -451,6 +457,27 @@ release:
 - **匿名地、单独地验证发布结果。** 永远不要让发布依赖于推送的成败（一个失败的镜像不该抹掉一个好的发布），但事后一定要在不带任何凭据的情况下检查：你发布的东西能不能被拉取。带认证的检查测量的是发布者的视角；读者既拿不到那次登录，也得不到善意的假设。
 - **报告 `unknown`，而不是猜测。** 超时或返回 HTTP 429 的 registry 并没有说凭据坏了，而一次什么都没能验证的运行也不是通过。要说清楚发生的是哪一种："0 项已验证，3 项未知"是可以行动的，"没有失败"不是。
 
+### 17. 区分坏掉的 pipeline 和变化了的世界
+
+**一个因为任何提交都无法修复的原因而失败的 job 就是假阴性，它会让所有人习惯于忽略红色。** Issue #2625 在 `main` 上一次发现了四个这样的 job：一个 dependency gate 因为上游发布了新的 major 版本而在每次 push 时失败；一个 cleanup 因为 ruleset 禁止删除分支而每天失败；一个 dispatch 在启动之前就被 GitHub 拒绝；还有一个日志上传把一次拒绝重试了三次。每一个都掩盖了旁边真正的失败。
+
+```yaml
+on:
+  workflow_dispatch:
+    inputs:
+      bump_type:
+        required: true
+        default: patch # 没有它，dispatch API 会返回 HTTP 422
+```
+
+- **在 pull request 上按外部状态阻断；在 push 上只发出警告。** “发布了更新的版本”是关于世界的事实，而不是关于提交的事实。让 push 失败会为一个没有破坏任何东西的变更跳过 lint、测试和发布；能够对此采取行动的地方是 pull request。
+- **策略拒绝是一个决定，而不是暂时性错误。** `Resource not accessible by integration`（workflow 的 `GITHUB_TOKEN` 不能创建 gist）和 ruleset 的 `Repository rule violations found` 每次尝试都会得到相同的回答。重试 `HTTP 429` 和 `5xx`；对拒绝只报告一次，说明什么能允许它，然后继续。
+- **每个通过 API 触发的 workflow 的 input 都需要 default。** `gh workflow run` 无法填写表单：没有 `default:` 的 `required: true` input 会让 GitHub 返回 `HTTP 422: Required input '<name>' not provided`，运行根本不会被创建。用测试确认每个被触发的 workflow 恰好接受调用方传入的 inputs。
+- **创建你所依赖的东西，或者容忍它不存在。** 在从未有过该标签的仓库里，`gh pr edit --add-label` 会以 `'<label>' not found` 失败。在第一次使用时创建它（`gh label create`），而不是让一个已经完成工作的运行失败。
+- **把日志写到上传步骤查找的位置。** 找不到任何文件的 artifact 步骤会警告 `No files were found with the provided path` 并通过；而那个过早失败的运行——正是 artifact 存在的意义所在——不会留下任何证据。让缺失的日志在测试中大声失败，而不是在生产中悄无声息。
+- **说明任务为什么被跳过。** 因上游失败而跳过的下游 workflow 是正确的，但一个静默地什么也没做的绿色运行会被理解为“已测试”。用 `::notice::` 注解输出原因，让它显示在运行摘要中（issue #2923）。
+- **一个结果，一条消息。** 日志先说 “recovered and completed successfully”，随后又针对同一个错误说 “❌ Agent reported error”，会把读者引向错误的方向。先计算最终结论，然后只记录真实的内容。
+
 ## 质量强制策略
 
 这些模板实现了纵深防御方法：
@@ -506,7 +533,7 @@ fix https://github.com/owner/repo --ci-cd
 
 ### 语言 → 模板映射
 
-该命令将检测到的语言映射到模板，规则如下（JavaScript 和 TypeScript 共用一个模板）：
+该命令将检测到的语言映射到模板，规则如下（JavaScript 和 TypeScript 共用一个模板，C、C++ 和 CMake 也共用一个模板）：
 
 | 检测到的语言          | 模板                                                             |
 | --------------------- | ---------------------------------------------------------------- |
@@ -516,6 +543,7 @@ fix https://github.com/owner/repo --ci-cd
 | Go                    | `link-foundation/go-ai-driven-development-pipeline-template`     |
 | C#                    | `link-foundation/csharp-ai-driven-development-pipeline-template` |
 | Java                  | `link-foundation/java-ai-driven-development-pipeline-template`   |
+| C/C++, CMake          | `link-foundation/cpp-ai-driven-development-pipeline-template`    |
 | PHP                   | `link-foundation/php-ai-driven-development-pipeline-template`    |
 
 没有专用模板的语言（例如 Shell 或 Dockerfile）会在 issue 中列出以供知悉，并推荐最接近的匹配模板。

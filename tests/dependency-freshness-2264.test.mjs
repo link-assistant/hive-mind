@@ -14,7 +14,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { AGENTIC_CLI_TARGETS, parseBunGlobalPackageVersion, updateAgenticClisWhenIdle } from '../src/agentic-cli-updater.lib.mjs';
-import { assessVersionPin, checkDependencyRecords, collectDependencyRecords, parseGitHubActionPins, parseNpmPackagePins, resolveGitHubLatest } from '../scripts/dependency-freshness.lib.mjs';
+import { assessVersionPin, checkDependencyRecords, collectDependencyRecords, parseGitHubActionPins, parseNpmPackagePins, resolveDockerHubLatest, resolveGitHubLatest } from '../scripts/dependency-freshness.lib.mjs';
 
 const repositoryRoot = path.resolve(import.meta.dirname, '..');
 
@@ -41,6 +41,28 @@ assert.equal(
   'pre-release tags do not make stable dependency declarations stale'
 );
 
+// Issue #2395: rust-lang/rust tagged 1.99.0 before Docker Hub published any
+// `rust:1.99*` image, and the gate demanded a FROM line that cannot pull. Base
+// images are judged by the newest stable tag the registry actually serves.
+{
+  const requestedUrls = [];
+  const latest = await resolveDockerHubLatest(
+    'library/rust',
+    {},
+    {
+      fetchImpl: async url => {
+        requestedUrls.push(url);
+        return { ok: true, json: async () => ({ results: [{ name: 'slim-trixie' }, { name: '1.98-slim-bookworm' }, { name: '1.98.1' }, { name: '1-slim' }, { name: '1.98.0' }, { name: '1.97.1' }] }) };
+      },
+    }
+  );
+  assert.equal(latest, '1.98.1', 'only stable X.Y.Z tags count, so variant and floating tags cannot win');
+  assert.match(requestedUrls[0], /^https:\/\/hub\.docker\.com\/v2\/repositories\/library\/rust\/tags\?/);
+  assert.equal(assessVersionPin({ current: '1.98', latest, policy: 'minor' }).current, true, 'a GitHub-only 1.99.0 tag no longer makes rust:1.98 stale');
+}
+
+await assert.rejects(resolveDockerHubLatest('library/empty', {}, { fetchImpl: async () => ({ ok: true, json: async () => ({ results: [{ name: 'latest' }] }) }) }), /no semantic tags/, 'a registry answer without versions is an error, never a pass');
+
 assert.deepEqual(
   parseGitHubActionPins('steps:\n  - uses: actions/checkout@v7\n  - uses: zizmorcore/zizmor-action@v0.6.2\n  - uses: ./local-action\n', 'fixture.yml').map(record => [record.name, record.current, record.policy]),
   [
@@ -63,10 +85,12 @@ assert.deepEqual(
       { kind: 'npm', name: 'current-package', current: '^2.1.0', policy: 'exact', location: 'package.json' },
       { kind: 'npm', name: 'stale-package', current: '1.0.0', policy: 'exact', location: 'Dockerfile' },
       { kind: 'github', name: 'owner/action', current: 'v3', policy: 'major', location: 'workflow.yml' },
+      { kind: 'docker', name: 'library/rust', current: '1.98', policy: 'minor', location: 'Dockerfile' },
     ],
     {
       resolveNpmLatest: async name => ({ 'current-package': '2.1.0', 'stale-package': '1.2.0' })[name],
       resolveGitHubLatest: async () => 'v3.4.5',
+      resolveDockerHubLatest: async () => '1.98.1',
     }
   );
 
@@ -74,7 +98,7 @@ assert.deepEqual(
     result.stale.map(record => record.name),
     ['stale-package']
   );
-  assert.equal(result.current.length, 2);
+  assert.equal(result.current.length, 3);
   assert.deepEqual(result.errors, []);
 }
 
@@ -105,6 +129,16 @@ assert.equal(
   'container base releases are checked'
 );
 assert.equal(
+  repositoryRecords.some(record => record.kind === 'docker' && record.name === 'library/rust' && record.policy === 'minor'),
+  true,
+  'the Rust builder image is checked against Docker Hub, the registry it is pulled from'
+);
+assert.equal(
+  repositoryRecords.some(record => record.name === 'rust-lang/rust'),
+  false,
+  'GitHub toolchain tags never gate the builder image'
+);
+assert.equal(
   repositoryRecords.some(record => record.kind === 'github' && record.name === 'link-assistant/formal-ai'),
   true,
   'embedded Formal AI builds are checked'
@@ -115,9 +149,9 @@ assert.equal(
   'embedded Bun builds are checked'
 );
 assert.equal(
-  repositoryRecords.some(record => record.kind === 'github' && record.name === 'nodejs/node' && record.versionMajor === 24),
+  repositoryRecords.some(record => record.kind === 'github' && record.name === 'nodejs/node'),
   true,
-  'the selected Node LTS line is checked'
+  'the latest stable Node release is checked'
 );
 assert.equal(
   repositoryRecords.some(record => record.kind === 'npm' && record.name === 'use-m'),

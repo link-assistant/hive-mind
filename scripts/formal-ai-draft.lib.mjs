@@ -83,7 +83,7 @@ export const DRAFT_GIT_IDENTITY = Object.freeze({
  * "it stays open and red until a later run succeeds": the later run is the next
  * scheduled attempt, not this one looping.
  */
-export const DRAFT_SOLVE_FLAGS = Object.freeze(['--tool', 'agent', '--model', 'formal-ai', '--attach-logs', '--verbose', '--attribution', 'formal-ai', '--no-auto-restart-until-mergeable']);
+export const DRAFT_SOLVE_FLAGS = Object.freeze(['--tool', 'agent', '--model', 'formal-ai', '--attach-logs', '--development-log', '--verbose', '--attribution', 'formal-ai', '--no-auto-restart-until-mergeable']);
 
 /**
  * Flags that must never appear in a draft run.
@@ -104,7 +104,6 @@ export const DRAFT_DECISION_CODES = Object.freeze({
   optOut: 'opt-out-label',
   alreadyDrafted: 'already-drafted',
   missingIssue: 'no-issue-in-event',
-  missingToken: 'no-draft-token',
 });
 
 const labelNames = issue =>
@@ -131,20 +130,18 @@ export function readIssueEvent(event) {
 /**
  * Decide whether this event should produce a Formal AI draft.
  *
- * The order of the checks is the order of the answers a maintainer wants: what
- * the event *is* first, then policy, then configuration. A missing token is
- * reported last on purpose — otherwise every bot-filed issue in a repository
- * without the secret would report "no token" and hide the real reason.
+ * Policy is independent of credential configuration. The default workflow
+ * token always provides a draft attempt, with checks started through dispatch.
  *
  * @param {object} params
  * @param {string} [params.eventName] `github.event_name`
  * @param {string} [params.action] webhook action (`opened`, `labeled`, …)
  * @param {object} [params.issue] the issue object from the payload
- * @param {boolean} [params.hasToken] whether the draft token secret is configured
+ * @param {string} [params.layer] resolved credential layer
  * @param {string} [params.optOutLabel]
  * @returns {{run: boolean, code: string, reason: string}}
  */
-export function decideDraft({ eventName = 'issues', action = null, issue = null, hasToken = false, optOutLabel = FORMAL_AI_DRAFT_OPT_OUT_LABEL } = {}) {
+export function decideDraft({ eventName = 'issues', action = null, issue = null, layer = 'default', optOutLabel = FORMAL_AI_DRAFT_OPT_OUT_LABEL } = {}) {
   const deny = (code, reason) => ({ run: false, code, reason });
 
   if (eventName === 'issues' && action !== 'opened') return deny(DRAFT_DECISION_CODES.notOpened, `the \`issues\` event action was "${action ?? 'missing'}", not "opened"`);
@@ -156,9 +153,7 @@ export function decideDraft({ eventName = 'issues', action = null, issue = null,
   if (labels.includes(optOutLabel.toLowerCase())) return deny(DRAFT_DECISION_CODES.optOut, `#${issue.number} carries the \`${optOutLabel}\` label`);
   if (labels.includes(FORMAL_AI_DRAFT_LABEL)) return deny(DRAFT_DECISION_CODES.alreadyDrafted, `#${issue.number} already carries the \`${FORMAL_AI_DRAFT_LABEL}\` label`);
 
-  if (!hasToken) return deny(DRAFT_DECISION_CODES.missingToken, 'no draft token is configured. A pull request opened with GITHUB_TOKEN does not trigger `pull_request` workflows, so its checks would never run and the draft could not be "red until a later run succeeds" — see docs/FORMAL-AI-DRAFTS.md');
-
-  return { run: true, code: DRAFT_DECISION_CODES.run, reason: `#${issue.number} was just opened by ${issue.user?.login ?? 'a human'}` };
+  return { run: true, code: DRAFT_DECISION_CODES.run, reason: `#${issue.number} was just opened by ${issue.user?.login ?? 'a human'}`, checkStrategy: layer === 'default' ? 'dispatch' : 'pull_request' };
 }
 
 /**
@@ -211,6 +206,7 @@ export function buildGitIdentityEnv(identity = DRAFT_GIT_IDENTITY) {
  *
  * @param {object} params
  * @param {string[]} params.solveArgv from `buildSolveArgv()`
+ * @param {string} [params.solveCommand] explicit candidate path when PATH also contains a published solve
  * @param {string} [params.image]
  * @param {string} [params.hostLogDir] host directory bind-mounted for the session log
  * @param {string} [params.containerLogDir] where that directory appears in the container
@@ -218,14 +214,14 @@ export function buildGitIdentityEnv(identity = DRAFT_GIT_IDENTITY) {
  * @param {Record<string,string>} [params.setEnv] literal, non-secret variables to set
  * @returns {string[]}
  */
-export function buildDockerArgv({ solveArgv, image = DEFAULT_HIVE_MIND_IMAGE, hostLogDir = null, containerLogDir = '/home/box/logs', forwardEnv = ['GH_TOKEN'], setEnv = buildGitIdentityEnv() } = {}) {
+export function buildDockerArgv({ solveArgv, solveCommand = 'solve', image = DEFAULT_HIVE_MIND_IMAGE, hostLogDir = null, containerLogDir = '/home/box/logs', forwardEnv = ['GH_TOKEN'], setEnv = buildGitIdentityEnv() } = {}) {
   if (!Array.isArray(solveArgv) || solveArgv.length === 0) throw new Error('buildDockerArgv needs the solve argv from buildSolveArgv()');
 
   const argv = ['run', '--rm', '--user', 'box'];
   for (const name of forwardEnv) argv.push('-e', name);
   for (const [name, value] of Object.entries(setEnv)) argv.push('-e', `${name}=${value}`);
   if (hostLogDir) argv.push('-v', `${hostLogDir}:${containerLogDir}`);
-  argv.push(image, 'solve', ...solveArgv);
+  argv.push(image, solveCommand, ...solveArgv);
   return argv;
 }
 
@@ -272,6 +268,40 @@ export function keepPullRequestAsDraftArgs({ repository, number }) {
  */
 export function labelPullRequestArgs({ repository, number, label = FORMAL_AI_DRAFT_LABEL }) {
   return ['pr', 'edit', String(number), '--add-label', label, '--repo', repository];
+}
+
+/**
+ * `gh` arguments that create the draft label. No `--force`, so a label a
+ * maintainer has already customised is never overwritten.
+ *
+ * @param {{repository: string, label?: string}} params
+ * @returns {string[]}
+ */
+export function createDraftLabelArgs({ repository, label = FORMAL_AI_DRAFT_LABEL }) {
+  return ['label', 'create', label, '--color', 'C5DEF5', '--description', 'Pull request drafted by the Formal AI draft workflow', '--repo', repository];
+}
+
+/**
+ * Label a draft, creating the label the first time it is missing (#2625:
+ * the repository never had it, so `gh pr edit --add-label` failed with
+ * "'formal-ai-draft' not found" and no draft was ever labelled).
+ *
+ * @param {{gh: (args: string[]) => Promise<string>, repository: string, number: number|string}} params
+ */
+export async function labelDraftPullRequest({ gh, repository, number }) {
+  const args = labelPullRequestArgs({ repository, number });
+  try {
+    await gh(args);
+  } catch (error) {
+    if (!/label.*not found|not found.*label|formal-ai-draft.*not found/i.test(`${error.message}\n${error.stderr || ''}`)) throw error;
+    try {
+      await gh(createDraftLabelArgs({ repository }));
+    } catch (creationError) {
+      // Another issue's simultaneous run may have created it first.
+      if (!/already[ _]exists/i.test(`${creationError.message}\n${creationError.stderr || ''}`)) throw creationError;
+    }
+    await gh(args);
+  }
 }
 
 /**

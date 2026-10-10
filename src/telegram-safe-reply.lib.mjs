@@ -30,6 +30,25 @@ export function isTelegramFormattingError(error) {
   return /can't parse entities/i.test(message) || /can't find end of/i.test(message) || /entity.*parse/i.test(message) || /parse.*entity/i.test(message) || /character .* is reserved/i.test(message) || /unsupported start tag/i.test(message);
 }
 
+// An edit whose text and markup equal the current message is refused with a 400
+// that says nothing about formatting. Callers already treat it as "the message
+// is up to date", so it must reach them unchanged instead of being "fixed" by a
+// plain-text fallback that replaces a correct message with a false formatting
+// warning (issue #2301: 1462 of the 1474 fallbacks in one production bot log).
+export function isTelegramMessageNotModifiedError(error) {
+  return /message is not modified/i.test(getTelegramErrorMessage(error));
+}
+
+// 400s that describe the target (a deleted message, an unknown chat or topic),
+// not the text. A plain-text retry hits the same wall, so reporting them as a
+// "Formatting error" is a false positive; they are rethrown unchanged instead.
+const TELEGRAM_TARGET_BAD_REQUEST_PATTERNS = [/message is not modified/i, /message to edit not found/i, /message can't be edited/i, /message_id_invalid/i, /chat not found/i, /message thread not found/i, /topic_closed/i, /topic_deleted/i];
+
+export function isTelegramTargetBadRequestError(error) {
+  const message = getTelegramErrorMessage(error);
+  return TELEGRAM_TARGET_BAD_REQUEST_PATTERNS.some(pattern => pattern.test(message));
+}
+
 export function isTelegramMessageTooLongError(error) {
   const message = getTelegramErrorMessage(error);
   return /message is too long/i.test(message) || /message text is too long/i.test(message) || /text is too long/i.test(message) || /message_too_long/i.test(message) || (/bad request/i.test(message) && /too long/i.test(message) && /(message|text|caption)/i.test(message));
@@ -387,6 +406,7 @@ async function sendTelegramTextChunks({ text, telegramOptions, fallbackLocale, v
       if (firstResult === undefined) firstResult = result;
     } catch (error) {
       logSendRejected({ id, scope, error });
+      if (isTelegramTargetBadRequestError(error)) throw error;
       let fallbackText;
       if (isTelegramFormattingError(error)) {
         fallbackText = buildTelegramFormattingFallbackText(chunk, { fallbackLocale });
@@ -476,7 +496,12 @@ async function editTelegramTextChunks({ text, telegramOptions, followUpTelegramO
       });
       return result;
     } catch (error) {
+      if (isTelegramMessageNotModifiedError(error)) {
+        console.log(`[telegram-send] ${id} ${scope} = unchanged (the message already shows this text)`);
+        throw error;
+      }
       logSendRejected({ id, scope, error });
+      if (isTelegramTargetBadRequestError(error)) throw error;
       editError = error;
     }
   }

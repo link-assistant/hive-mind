@@ -25,6 +25,7 @@ AI-решатель задач Hive Mind инструктирован обращ
 | Go                    | [go-ai-driven-development-pipeline-template](https://github.com/link-foundation/go-ai-driven-development-pipeline-template)         |
 | C#                    | [csharp-ai-driven-development-pipeline-template](https://github.com/link-foundation/csharp-ai-driven-development-pipeline-template) |
 | Java                  | [java-ai-driven-development-pipeline-template](https://github.com/link-foundation/java-ai-driven-development-pipeline-template)     |
+| C/C++                 | [cpp-ai-driven-development-pipeline-template](https://github.com/link-foundation/cpp-ai-driven-development-pipeline-template)       |
 | PHP                   | [php-ai-driven-development-pipeline-template](https://github.com/link-foundation/php-ai-driven-development-pipeline-template)       |
 
 > **Совет:** вам не нужно выбирать шаблон вручную. Запустите `fix <repository-url> --ci-cd` (см. раздел [Автоматическое исправление CI/CD](#автоматическое-исправление-cicd)), и Hive Mind определит языки репозитория и подберёт для вас подходящие шаблоны.
@@ -140,6 +141,7 @@ done
 | Go                    | gofmt                         |
 | C#                    | dotnet format                 |
 | Java                  | Spotless (Google Java Format) |
+| C/C++                 | clang-format                  |
 | PHP                   | PHP CS Fixer                  |
 
 Все шаблоны включают pre-commit хуки, автоматически запускающие форматтеры перед каждым коммитом.
@@ -148,15 +150,16 @@ done
 
 Выявляйте ошибки и применяйте паттерны до прохождения кода через ревью:
 
-| Язык                  | Инструменты                                |
-| --------------------- | ------------------------------------------ |
-| JavaScript/TypeScript | ESLint со строгими правилами               |
-| Rust                  | Clippy (pedantic + nursery)                |
-| Python                | Ruff + mypy                                |
-| Go                    | go vet + staticcheck                       |
-| C#                    | .NET analyzers (предупреждения как ошибки) |
-| Java                  | SpotBugs (максимальные усилия)             |
-| PHP                   | PHPStan (max level)                        |
+| Язык                  | Инструменты                                       |
+| --------------------- | ------------------------------------------------- |
+| JavaScript/TypeScript | ESLint со строгими правилами                      |
+| Rust                  | Clippy (pedantic + nursery)                       |
+| Python                | Ruff + mypy                                       |
+| Go                    | go vet + staticcheck                              |
+| C#                    | .NET analyzers (предупреждения как ошибки)        |
+| Java                  | SpotBugs (максимальные усилия)                    |
+| C/C++                 | clang-tidy + cppcheck (предупреждения как ошибки) |
+| PHP                   | PHPStan (max level)                               |
 
 ### 5. Порядок быстрого обнаружения ошибок
 
@@ -199,6 +202,7 @@ test-suites:
 | Rust                  | changelog.d + кастомные скрипты      |
 | Python                | Scriv                                |
 | PHP                   | changelog.d + кастомные скрипты      |
+| C/C++                 | changelog.d + кастомные скрипты      |
 | Go, C#, Java          | Кастомные рабочие процессы changeset |
 
 **Освобождайте PR только с документацией от требования changeset:**
@@ -255,8 +259,10 @@ changeset-check:
 - **Доверенная публикация OIDC** — не требуются API-токены в CI (npm, PyPI, crates.io)
 - **Только проверенные релизы** — все проверки должны пройти перед публикацией
 - **Два режима запуска** — автоматический (при слиянии) и ручной (workflow dispatch)
-- **Отклонение по правилу — это не провалившийся релиз** — когда repository ruleset требует, чтобы изменения приходили через pull request, релизный job открывает его для своего bump-а версии, а не умирает на отклонении. Этот путь и путь rebase-and-retry для проигранной гонки — два разных восстановления для двух отклонений, которые печатают одно и то же слово (см. принцип 10)
-- **Сохраняйте проверяемость fallback PR без долгоживущего токена** — pull request, открытый через `GITHUB_TOKEN`, не может запустить дочерние workflows без подтверждения человеком, а проверки `workflow_dispatch` не удовлетворяют обязательной проверке pull request. Сделайте release job зависимым от всех pre-release validation jobs и аварийно завершайте его, если сгенерированный commit меняет что-либо кроме release metadata (так его source tree останется проверенным parent source tree). Выдайте `checks: write` только этому job и опубликуйте успешный результат проверки на точном version commit с помощью токена GitHub Actions App. Перед merge дождитесь этой обязательной проверки. Ruleset остаётся неизменным, бот не может выполнить прямой push, а обычные PR запускают полный набор проверок.
+- **Коммитьте bump версии напрямую в ветку по умолчанию** — релизный job отправляет сгенерированный version commit (метаданные пакета, lockfile, changelog, использованные changesets) прямо в `main` от имени `github-actions[bot]` и аварийно завершается, если этот commit меняет что-либо кроме release metadata. Не проводите его через автоматически сливаемый release pull request: тогда каждый релиз добавляет ещё один pull request и ещё одну ветку (ruleset, запрещающий удаление, сохраняет её навсегда), а упавший run оставляет открытый release pull request, который кому-то придётся закрывать
+- **Push, отклонённый правилом, исправляется в правиле, а не в workflow** — если repository rule отклоняет push версии, завершайте релиз ошибкой с выводом правила и исправьте правило (удалите его или добавьте `github-actions` как bypass actor). Путь rebase-and-retry для проигранной гонки — это другое восстановление для отклонения, которое печатает то же слово (см. принцип 10)
+- **Ждите registry столько, сколько это реально занимает, и никогда не публикуйте повторно, чтобы проверить** — `npm publish` может завершиться успешно за несколько минут до того, как `npm view` увидит версию. В сентябре 2026 задержка Hive Mind выросла с 2–9 с до 99–377 с, а 2.35.1 появилась через 874 с (issue #2923). Окно в 330 с превратило хороший релиз в красный запуск без GitHub release, Docker-образа и Helm chart. Выбирайте окно по измеренным данным с большим запасом (`experiments/npm-publish-lag-2923.mjs` измеряет задержку по аттестациям Sigstore), пишите в лог, сколько длилось ожидание, и считайте `E409 Cannot publish over previously staged version` признаком «уже опубликовано», а не ошибкой
+- **Решайте «есть ли что выпускать?» по всем артефактам, а не только по registry** — если job падает после публикации, следующий push видит версию в npm и навсегда пропускает релиз. Проверяйте и GitHub release, и при его отсутствии повторяйте релиз без bump версии; неудачная проверка означает «неизвестно» и никогда не запускает релиз
 
 **Запрещайте ручные изменения версий** в PR — все обновления версий должны управляться рабочим процессом релиза CI:
 
@@ -312,14 +318,14 @@ jobs:
 
 **Не «чините» это через `ref: main` в checkout.** Так вы заглушаете отклонение, собирая, тестируя и публикуя дерево, которое CI не проверял, и в логе об этом не будет ни слова. Отклонение — честный исход; не хватает именно восстановления.
 
-**Дайте каждому write job push, который сначала классифицирует отклонение, а затем делает rebase и повтор.** Отклонение по repository ruleset (GH006, GH013 — «Changes must be made through a pull request») тоже печатает `[rejected]`, и никакое количество rebase не удовлетворит правило; здесь нужен путь через pull request (см. принцип 9). Повтор лишь тратит слот в очереди и сообщает неверную причину.
+**Дайте каждому write job push, который сначала классифицирует отклонение, а затем делает rebase и повтор.** Отклонение по repository ruleset (GH006, GH013 — «Changes must be made through a pull request») тоже печатает `[rejected]`, и никакое количество rebase не удовлетворит правило; вместо этого завершайтесь ошибкой с выводом правила, чтобы правило было исправлено (см. принцип 9). Повтор лишь тратит слот в очереди и сообщает неверную причину.
 
 ```js
 for (let attempt = 1; attempt <= maxAttempts; attempt++) {
   const result = await run('git', ['push', remote, branch]);
   if (result.code === 0) return { pushed: true, attempt };
-  // Правило нельзя удовлетворить через rebase: проводим тот же коммит через PR.
-  if (isBlockedByRepositoryRule(result)) return landViaPullRequest({ branch, ...ctx });
+  // Правило нельзя удовлетворить через rebase: завершаемся с выводом правила.
+  if (isBlockedByRepositoryRule(result)) throw repositoryRuleError({ branch, version, cause: result });
   // Auth, сеть, отсутствующий remote: rebase скрыл бы настоящую ошибку.
   if (!isNonFastForward(result) || attempt === maxAttempts) throw new CommandFailedError('git', ['push', remote, branch], result);
   await run('git', ['pull', '--rebase', remote, branch]);
@@ -453,6 +459,27 @@ release:
 - **Проверяйте опубликованный результат анонимно и отдельно.** Никогда не ставьте релиз в зависимость от push (упавшее зеркало не должно уничтожать хороший релиз), но потом обязательно проверьте, без всяких credentials, что опубликованное можно скачать. Проверка с аутентификацией измеряет взгляд публикующего; читателю не достаётся ни этот логин, ни презумпция доверия.
 - **Сообщайте `unknown`, а не догадку.** Registry, которая отвалилась по таймауту или ответила HTTP 429, не сказала, что credential сломан, а запуск, в котором ничего не удалось проверить, — не успех. Говорите, что именно произошло: «0 проверено, 3 неизвестно» — повод действовать, «сбоев нет» — нет.
 
+### 17. Отличайте сломанный pipeline от изменившегося мира
+
+**Job, который падает по причине, которую не исправит ни один коммит, — это ложноотрицательный результат, и он приучает всех игнорировать красный цвет.** В issue #2625 на `main` нашлось сразу четыре таких: dependency gate, который падал на каждом push, потому что вышла новая major-версия upstream; cleanup, который падал каждый день, потому что ruleset запрещает удалять ветки; dispatch, который GitHub отклонял до старта; и загрузка логов, которая трижды повторяла отказ. Каждый из них прятал настоящие падения рядом.
+
+```yaml
+on:
+  workflow_dispatch:
+    inputs:
+      bump_type:
+        required: true
+        default: patch # без него dispatch API отвечает HTTP 422
+```
+
+- **Блокируйте по внешнему состоянию в pull request; на push — предупреждайте.** «Вышла более новая версия» — это факт о мире, а не о коммите. Падение push пропускает lint, тесты и релиз для изменения, которое ничего не сломало; действовать по этому факту можно в pull request.
+- **Отказ политики — это решение, а не временная ошибка.** `Resource not accessible by integration` (workflow `GITHUB_TOKEN` не может создавать gists) и `Repository rule violations found` от ruleset отвечают одинаково при каждой попытке. Повторяйте `HTTP 429` и `5xx`; об отказе сообщите один раз, назовите, что его разрешило бы, и идите дальше.
+- **Каждому input workflow, который запускается через API, нужен default.** `gh workflow run` не умеет заполнять форму: input с `required: true` без `default:` заставляет GitHub ответить `HTTP 422: Required input '<name>' not provided`, и запуск даже не создаётся. Проверяйте тестом, что каждый запускаемый workflow принимает ровно те inputs, которые передаёт вызывающая сторона.
+- **Создавайте то, от чего зависите, или переживайте его отсутствие.** `gh pr edit --add-label` падает с `'<label>' not found` в репозитории, где такой метки никогда не было. Создайте её при первом использовании (`gh label create`), а не проваливайте запуск, который уже сделал свою работу.
+- **Пишите логи туда, где их ищет шаг загрузки.** Шаг artifact, который ничего не нашёл, предупреждает `No files were found with the provided path` и проходит; запуск, упавший рано, — ровно тот, ради которого artifact существует, — не оставляет следов. Пусть отсутствующий лог громко падает в тестах, а не тихо в production.
+- **Объясняйте, почему job пропущен.** Downstream workflow, пропущенный из-за упавшего upstream, ведёт себя правильно, но зелёный запуск, который молча ничего не сделал, читается как «протестировано». Выводите причину аннотацией `::notice::`, чтобы она была видна в сводке запуска (issue #2923).
+- **Один итог — одно сообщение.** Лог, который пишет «recovered and completed successfully», а затем «❌ Agent reported error» об одной и той же ошибке, уводит читателя по ложному следу. Сначала вычислите итог, затем пишите только то, что верно.
+
 ## Стратегия обеспечения качества
 
 Шаблоны реализуют многоуровневый подход к защите:
@@ -508,7 +535,7 @@ fix https://github.com/owner/repo --ci-cd
 
 ### Сопоставление язык → шаблон
 
-Команда сопоставляет обнаруженные языки с шаблонами следующим образом (JavaScript и TypeScript используют один общий шаблон):
+Команда сопоставляет обнаруженные языки с шаблонами следующим образом (JavaScript и TypeScript используют один общий шаблон, как и C, C++ и CMake):
 
 | Обнаруженный язык(и)  | Шаблон                                                           |
 | --------------------- | ---------------------------------------------------------------- |
@@ -518,6 +545,7 @@ fix https://github.com/owner/repo --ci-cd
 | Go                    | `link-foundation/go-ai-driven-development-pipeline-template`     |
 | C#                    | `link-foundation/csharp-ai-driven-development-pipeline-template` |
 | Java                  | `link-foundation/java-ai-driven-development-pipeline-template`   |
+| C/C++, CMake          | `link-foundation/cpp-ai-driven-development-pipeline-template`    |
 | PHP                   | `link-foundation/php-ai-driven-development-pipeline-template`    |
 
 Языки без выделенного шаблона (например, Shell или Dockerfile) перечисляются в задаче для сведения, и для них рекомендуется наиболее близкий по соответствию шаблон.

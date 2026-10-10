@@ -41,7 +41,7 @@ const isOptionEnabled = (argv, option) => {
  */
 export const buildUpdateAllDependenciesSubPrompt = ({ omittedOptions = [] } = {}) => {
   const omitted = new Set(omittedOptions);
-  const bullets = buildStandardPromptParagraphs()
+  const bullets = buildStandardPromptParagraphs({ reportDependenciesIssues: false })
     // /solve always emits KEEP_WORKING_PROMPT itself; repeating it here would
     // only spend context.
     .filter(paragraph => paragraph.text !== KEEP_WORKING_PROMPT)

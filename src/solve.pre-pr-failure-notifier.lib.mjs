@@ -1,4 +1,4 @@
-import { getTrackedToolCommentIds, postTrackedComment, SOLUTION_DRAFT_FAILED_MARKER } from './tool-comments.lib.mjs';
+import { getTrackedToolCommentIds, isFailureAlreadyReportedOnTarget, postTrackedComment, SOLUTION_DRAFT_FAILED_MARKER } from './tool-comments.lib.mjs';
 import { extractForkReplacementBlockedDetails, isForkReplacementBlockedReason, GITHUB_FORK_SUPPORT_URL } from './solve.repository-recovery-message.lib.mjs';
 import { FORK_DIVERGENCE_RESOLUTION_OPTION, buildForkDivergenceFailureActionSection } from './solve.branch-divergence.lib.mjs';
 
@@ -80,9 +80,10 @@ export function buildPrePullRequestFailureActionSection(reason = '') {
 - Repository deletion can require a separate GitHub account or token with repository deletion permission; Hive Mind does not rely on that permission by default.`;
   }
 
+  // Issue #2492: the reason was not classified, so do not guess a cause (an
+  // "Auto-restart limit reached" run was told to fix its account or permissions).
   return `### What you can do
-- Resolve the repository, account, permissions, or environment problem described above, then rerun the solver.
-- Repository owner or Hive Mind administrator path: handle manual recreation or fix of the repository when the required action is outside the requester access.`;
+- Check the reason above and the log, then rerun the solver.`;
 }
 
 export function shouldNotifyIssueAboutPrePullRequestFailure({ code, globalState }) {
@@ -105,6 +106,10 @@ export function resolvePreExitFailureNotificationTarget({ code, globalState }) {
 
   if (prNumber) {
     if (globalState.pullRequestFailureNotificationPosted || globalState.pullRequestFailureNotificationInProgress) return null;
+    // Issue #2397: the failure path may already have posted a failure report
+    // (e.g. attachLogToGitHub's "Log Upload Failed" comment, which returns
+    // false and therefore never set the flags above). One report is enough.
+    if (isFailureAlreadyReportedOnTarget({ owner, repo, targetNumber: prNumber })) return null;
     return {
       targetType: 'pr',
       targetNumber: prNumber,
@@ -196,6 +201,10 @@ export async function notifyIssueAboutPrePullRequestFailure(options) {
 
   const target = resolvePreExitFailureNotificationTarget({ code, globalState });
   if (!target) {
+    const prNumber = globalState?.createdPR?.number || globalState?.prNumber || null;
+    if (code !== 0 && prNumber && isFailureAlreadyReportedOnTarget({ owner: globalState.owner, repo: globalState.repo, targetNumber: prNumber })) {
+      await log(`  ℹ️  Failure already reported on pull request #${prNumber} by an earlier tool comment; not posting another.`);
+    }
     return { notified: false, skipped: true };
   }
 
@@ -238,6 +247,14 @@ export async function notifyIssueAboutPrePullRequestFailure(options) {
         const message = error && error.message ? error.message : String(error);
         await log(`  ⚠️  Could not upload solver failure log: ${message}`, { level: 'warning' });
       }
+      // Issue #2397: a failed upload still posts a "Log Upload Failed"
+      // failure report carrying the reason. Posting the fallback below on
+      // top of it produced a second comment saying the same thing.
+      if (isFailureAlreadyReportedOnTarget({ owner, repo, targetNumber })) {
+        markNotificationPosted({ globalState, targetType });
+        await log(`  ℹ️  Failure already reported on ${targetLabel} by the log upload failure comment; not posting another.`);
+        return { notified: true, method: 'log-upload-failure-report' };
+      }
     }
 
     await log(`\n💬 Notifying ${targetLabel} about solver failure...`);
@@ -270,8 +287,8 @@ export async function notifyIssueAboutPrePullRequestFailure(options) {
       await log(`  ✅ Solver failure comment posted to ${targetLabel}${posted.commentId ? ` (id=${posted.commentId})` : ''}`);
       return { notified: true, method: 'comment', commentId: posted.commentId || null };
     }
-    await log(`  ⚠️  Could not post solver failure comment: ${posted.stderr || 'unknown error'}`, { level: 'warning' });
-    return { notified: false, error: posted.stderr || 'unknown error' };
+    await log(`  ⚠️  Could not post solver failure comment: ${posted.stderr?.toString() || 'unknown error'}`, { level: 'warning' });
+    return { notified: false, error: posted.stderr?.toString() || 'unknown error' };
   } finally {
     globalState.preExitFailureNotificationInProgress = false;
     if (targetType === 'pr') {

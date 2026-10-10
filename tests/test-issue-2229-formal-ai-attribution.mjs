@@ -94,7 +94,11 @@ assertEqual(detectHostedModel('opencode/grok-code'), 'opencode', 'an OpenCode mo
 assertEqual(detectHostedModel('formalai/formal-ai'), null, 'and formal-ai itself is not');
 assertEqual(detectHostedModel(`${SESSION}`), null, 'an ordinary session id names no hosted model');
 
-assertEqual(collectModelIdentities({ type: 'log', message: { providerID: 'anthropic', modelID: 'claude-sonnet-4-5' } }).join(','), 'anthropic,claude-sonnet-4-5', 'provider and model identifiers are read out of a stream record');
+assertEqual(collectModelIdentities({ type: 'message.updated', properties: { info: { id: 'msg_1', role: 'assistant', providerID: 'anthropic', modelID: 'claude-sonnet-4-5' } } }).join(','), 'anthropic,claude-sonnet-4-5', 'provider and model identifiers are read out of an assistant message');
+assertEqual(collectModelIdentities({ type: 'step_finish', part: { type: 'step-finish', messageID: 'msg_1', model: { providerID: 'anthropic', requestedModelID: 'formal-ai', respondedModelID: 'claude-sonnet-4-5' } } }).join(','), 'anthropic,claude-sonnet-4-5', 'and out of the responded model of a step_finish part');
+// Issue #2317: log records are not generations.
+assertEqual(collectModelIdentities({ type: 'log', service: 'provider', providerID: 'opencode', message: 'found' }).length, 0, 'a provider-registry log names no model that answered');
+assertEqual(collectModelIdentities({ type: 'log', message: { providerID: 'anthropic', modelID: 'claude-sonnet-4-5' } }).length, 0, 'nor does a record without a message id');
 assertEqual(collectModelIdentities({ type: 'text', text: 'I asked Claude about it' }).length, 0, 'free text is not treated as an identity claim');
 
 console.log('\n=== issue #2229: the hooks reach the agent and nothing else ===');
@@ -302,8 +306,10 @@ git(hosted, ['add', 'e.txt'], hostedSession.gitEnv);
 git(hosted, ['commit', '--quiet', '-m', 'feat: before the fallback'], hostedSession.gitEnv);
 assertEqual(trailerCount(hosted, 'HEAD', FORMAL_AI_TRAILER_KEYS.session), 1, 'work done as formal-ai is attributed');
 
-await hostedSession.recordStreamEvent({ type: 'log', message: 'using explicit provider/model', providerID: 'anthropic', modelID: 'claude-sonnet-4-5' });
-assertEqual(hostedSession.enabled, false, 'a stream record naming a hosted model disables attribution');
+await hostedSession.recordStreamEvent({ type: 'log', service: 'provider', providerID: 'opencode', message: 'found' });
+assertEqual(hostedSession.enabled, true, 'a provider-registry log does not disable attribution (#2317)');
+await hostedSession.recordStreamEvent({ type: 'step_finish', part: { type: 'step-finish', messageID: 'msg_2', model: { providerID: 'anthropic', respondedModelID: 'claude-sonnet-4-5' } } });
+assertEqual(hostedSession.enabled, false, 'a generation naming a hosted model disables attribution');
 assertEqual(hostedSession.rejection.includes('anthropic'), true, 'the reason names the identity the stream reported');
 assertEqual(
   hostedReasons.some(message => message.includes('Formal AI attribution disabled') && message.includes('anthropic')),

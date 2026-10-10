@@ -122,12 +122,12 @@ export const setupRepository = async (argv, owner, repo) => {
       // Check if fork creation failed or if fork already exists
       if (forkResult.code !== 0) {
         await log(`${formatAligned('❌', 'Error:', 'Failed to create fork')}`);
-        await log(forkResult.stderr ? forkResult.stderr.toString() : 'Unknown error');
+        await log(forkResult.stderr?.toString() ? forkResult.stderr.toString() : 'Unknown error');
         process.exit(1);
       }
 
       // Check if the output indicates the fork already exists (from parallel worker)
-      const forkOutput = forkResult.stderr ? forkResult.stderr.toString() : '';
+      const forkOutput = forkResult.stderr?.toString() ? forkResult.stderr.toString() : '';
       if (forkOutput.includes('already exists')) {
         // Fork was created by another worker - treat as if fork already existed
         await log(`${formatAligned('ℹ️', 'Fork exists:', 'Already created by another worker')}`);
@@ -217,11 +217,13 @@ export const handleExecutionError = async (error, shouldAttachLogs, owner, repo,
     }
   }
 
-  // If --auto-close-pull-request-on-fail is enabled, close the PR
+  // If --auto-close-pull-request-on-fail is enabled, close the PR.
+  // Issue #2492: the close comment no longer says "Logs have been attached" -
+  // that was posted even without --attach-logs or after a failed upload.
   if (argv.autoClosePullRequestOnFail && global.createdPR && global.createdPR.number) {
     await log('\n🔒 Auto-closing pull request due to failure...');
     try {
-      const result = await $`gh pr close ${global.createdPR.number} --repo ${owner}/${repo} --comment "Auto-closed due to execution failure. Logs have been attached for debugging."`;
+      const result = await $`gh pr close ${global.createdPR.number} --repo ${owner}/${repo} --comment "Auto-closed due to execution failure."`;
       if (result.exitCode === 0) {
         await log('✅ Pull request closed successfully');
       } else {

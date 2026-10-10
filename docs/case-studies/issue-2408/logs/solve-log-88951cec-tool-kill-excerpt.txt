@@ -1,0 +1,31 @@
+# Issue #2408: solve log of recovery execution 88951cec (session 2b185a46) — Claude SIGKILLed (exit 137) and two failure reports
+# Source: public failure log https://github.com/konard/public-logs/tree/main/tmp-hive-mind-log-upload-40tBCv/29bfe0baa91bd0d3 (part-01, last 3 MB). Line numbers are relative to that 3 MB tail; long lines truncated.
+
+# --- two subagents in separate worktrees each compile and test the Rust crate (each worktree has its own target/ dir)
+8494: [2026-10-02T13:30:03.577Z] [INFO]           "command": "cd <workdir>/.claude/worktrees/agent-a0fa14472b2a7a2bf/rust && timeout 3000 cargo test -j 2 --test unit -- translation issue_195_first_class issue_195_faithful foundati
+15229: [2026-10-02T13:31:53.892Z] [INFO]           "command": "cd <workdir>/.claude/worktrees/agent-a0e6ed6169cea7afd/rust && timeout 1200 cargo test -j 2 --test unit -- issue_195_interchange_faithful_lowering grammar_emit_antlr_l
+18689: [2026-10-02T13:34:13.698Z] [INFO]           "command": "cd <workdir>/.claude/worktrees/agent-a0fa14472b2a7a2bf/rust && timeout 3000 cargo test -j 2 --test unit -- translation issue_195_first_class issue_195_faithful foundat
+25322: [2026-10-02T13:36:21.351Z] [INFO]           "command": "cd <workdir>/.claude/worktrees/agent-a0e6ed6169cea7afd/rust && timeout 1200 cargo test -j 1 --test unit -- issue_195_interchange_faithful_lowering grammar_emit_antlr_l
+27486: [2026-10-02T13:37:20.585Z] [INFO]           "command": "cd <workdir>/.claude/worktrees/agent-a0fa14472b2a7a2bf/rust && cargo test -j 1 --test unit -- translation issue_195_first_class issue_195_faithful foundation_models > 
+
+# --- the kernel kills the Claude process
+28679: [2026-10-02T13:37:35.061Z] [STDERR] Killed
+28684: [2026-10-02T13:37:35.892Z] [ERROR] ❌ Claude command failed with exit code 137
+
+# --- solve treats it as a tool failure and posts two failure reports (13:41:15 and, from the exit notifier, 13:44:24)
+28684:[2026-10-02T13:37:35.892Z] [ERROR] ❌ Claude command failed with exit code 137
+28722:[2026-10-02T13:37:37.419Z] [INFO] ❌ CLAUDE EXECUTION FAILED   
+28723:[2026-10-02T13:37:37.423Z] [INFO]    Error details:          Claude command failed with exit code 137
+28724:[2026-10-02T13:37:37.428Z] [INFO]    Action:                 Stopping auto-restart — tool execution failed
+28736:[2026-10-02T13:37:37.633Z] [INFO]   📎 Uploading log using gh-upload-log...
+28744:[2026-10-02T13:41:15.088Z] [INFO]   📎 Failure log uploaded to Pull Request as public Repository (2 chunks) (comment id=5953703216)
+28754:[2026-10-02T13:41:16.422Z] [STDOUT] ["\u003c!-- hive-mind:working-session-summary --\u003e\n## Working session summary\n\nThe Rust and JavaScript workflows now pass, but the Full Requirements Aggregate still fails as required. CI veri
+28756:[2026-10-02T13:41:16.433Z] [INFO]    ℹ️  Stop reason already reported on #196 (tool_failure)
+28760:[2026-10-02T13:41:16.449Z] [INFO]   ℹ️  PR #196 stays a draft: Claude command failed with exit code 137
+28771:[2026-10-02T13:41:16.482Z] [ERROR] ❌ The AI session failed and `--auto-restart-until-mergeable` stopped (tool_failure).
+28772:[2026-10-02T13:41:16.485Z] [ERROR]    Claude command failed with exit code 137
+28779:[2026-10-02T13:41:16.498Z] [INFO] 🩹 PR #196 was left in draft by a working session (Claude command failed with exit code 137); restoring its pre-run state at run end (AI session failed (tool_failure))
+28782:[2026-10-02T13:41:17.116Z] [INFO]   📝 Converting PR:          To ready for review (run end (AI session failed (tool_failure)))...
+28787:[2026-10-02T13:41:18.934Z] [ERROR] ❌ AI session failed (tool_failure)
+28790:[2026-10-02T13:41:18.955Z] [INFO] 📄 Notifying pull request #196 about solver failure with logs...
+28802:[2026-10-02T13:41:19.094Z] [INFO]   📎 Uploading log using gh-upload-log...

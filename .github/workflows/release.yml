@@ -1,28 +1,35 @@
 name: Checks and release
-
 on:
   push:
     branches:
       - main
   pull_request:
+    branches-ignore: ['e2e/**']
     types: [opened, synchronize, reopened]
     # Do not use workflow-level path filters here. The detect-changes job must
     # run for every PR update so non-code-only changes still produce completed
     # checks while expensive jobs are skipped by job-level conditions.
-  # Manual release support - consolidated here to work with npm trusted publishing
-  # npm only allows ONE workflow file as trusted publisher, so all publishing
-  # must go through this workflow (release.yml)
   workflow_dispatch:
     inputs:
+      mode:
+        description: Run checks or explicitly publish a release from main
+        type: choice
+        default: checks
+        options: [checks, release]
       release_mode:
         description: 'Manual release mode'
         required: true
         type: choice
-        default: 'instant'
-        options: [instant, changeset-pr]
+        default: 'checks'
+        options: [checks, instant, changeset-pr]
+      # Issue #2625: a required input without a default makes GitHub refuse
+      # every API dispatch that omits it (HTTP 422 "Required input 'bump_type'
+      # not provided"), including the `mode=checks` dispatch of
+      # scripts/dispatch-checks.mjs. `patch` is what the web form preselects.
       bump_type:
         description: 'Manual release type'
         required: true
+        default: patch
         type: choice
         options:
           - patch
@@ -59,7 +66,6 @@ env: # Force Node.js 24 for actions without native support. See issue #1417.
   GIT_CONFIG_KEY_0: init.defaultBranch
   GIT_CONFIG_VALUE_0: main
 jobs:
-  # === DETECT CHANGES ===
   detect-changes:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -79,11 +85,13 @@ jobs:
       docker-changed: ${{ steps.changes.outputs.docker }}
       any-code-changed: ${{ steps.changes.outputs.code }}
       helm-changed: ${{ steps.changes.outputs.helm }}
-
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      # Issue #2625: freshness blocks pull requests only (#2264). On a push to
+      # main it warns, so a release published after a merge cannot skip the
+      # tests and the release of code that already passed the gate.
       - name: Verify dependency freshness and detect changes
         id: changes
         env:
@@ -102,9 +110,6 @@ jobs:
         run: |
           node scripts/check-dependency-freshness.mjs
           node scripts/detect-code-changes.mjs
-  # === VERSION CHANGE CHECK ===
-  # Prohibit manual version changes in package.json - versions should only be changed by CI/CD
-  # Only runs when code or package.json changed (Issue #1436: skip for unrelated file changes)
   version-check:
     name: Check for Manual Version Changes
     runs-on: ubuntu-24.04
@@ -120,8 +125,6 @@ jobs:
           GITHUB_HEAD_REF: ${{ github.head_ref }}
           GITHUB_BASE_REF: ${{ github.base_ref }}
         run: node scripts/check-version.mjs
-  # === CHANGESET CHECK - only runs on PRs with code changes ===
-  # Docs-only PRs (./docs folder, markdown files) don't require changesets
   changeset-check:
     name: Check for Changesets
     runs-on: ubuntu-24.04
@@ -136,7 +139,6 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: '24.x'
-
       - name: Install dependencies
         run: node scripts/npm-install-with-retry.mjs install
       - name: Check for changesets
@@ -145,22 +147,12 @@ jobs:
           GITHUB_BASE_REF: ${{ github.base_ref }}
           GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          # Read through the environment, never interpolated into the script:
-          # a branch name is attacker-controlled on a fork PR.
-          GITHUB_HEAD_REF: ${{ github.head_ref }}
         run: |
-          # Skip changeset check for automated version PRs
-          if [[ "$GITHUB_HEAD_REF" == "changeset-release/"* ]]; then
-            echo "Skipping changeset check for automated release PR"
-            exit 0
-          fi
-          # Run changeset validation script
+          # Version bumps are committed directly to main (issue #2402), so no
+          # automated pull request is exempt from this check.
           # This validates that exactly ONE changeset was ADDED by this PR
           # Pre-existing changesets from other merged PRs are ignored
           node scripts/validate-changeset.mjs
-  # === FAST CHECKS (FAIL FAST) ===
-  # These checks run quickly (~7-21 seconds each) and should pass before long-running tests
-  # === COMPILATION & SYNTAX CHECKS ===
   test-compilation:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -170,7 +162,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
-
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
@@ -187,11 +178,6 @@ jobs:
           echo "hive.mjs compiles successfully"
       - name: Check Node.js syntax for all .mjs files
         run: bash scripts/check-mjs-syntax.sh
-  # === ESLINT CODE QUALITY CHECK ===
-  # Lint runs independently of changeset-check - it's a fast check that should always run
-  # See: docs/case-studies/issue-1023 for why this dependency was removed
-  # IMPORTANT: ESLint now includes max-lines rule (1500 lines) to synchronize with check-file-line-limits
-  # See docs/case-studies/issue-1141 for why fresh merge simulation is critical
   lint:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -203,7 +189,6 @@ jobs:
         with:
           # For PRs, fetch enough history to merge with base branch
           fetch-depth: 0
-
       - name: Simulate fresh merge with base branch (PR only)
         if: github.event_name == 'pull_request'
         env:
@@ -230,13 +215,11 @@ jobs:
           echo "Running ESLint code quality checks..."
           npm run lint
           echo "ESLint checks passed"
-
       - name: Run code duplication check
         run: |
           echo "Running jscpd code duplication detection..."
           npm run check:duplication
           echo "Code duplication check passed"
-
       # Issue #2198: secretlint shipped as a devDependency for the log
       # sanitizer but no job ever ran it, so a committed credential would
       # have passed CI unnoticed. Fail-closed; .secretlintignore lists the
@@ -246,9 +229,6 @@ jobs:
           echo "Running secretlint credential scan..."
           npm run check:secrets
           echo "Secret scan passed"
-  # === FILE LINE LIMIT CHECK ===
-  # IMPORTANT: This check must validate the ACTUAL merge result, not a stale merge preview.
-  # See docs/case-studies/issue-1141 for why this is critical.
   check-file-line-limits:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -268,11 +248,13 @@ jobs:
         run: bash scripts/simulate-fresh-merge.sh
       - name: Check file line limits (.mjs files and release.yml)
         run: bash scripts/check-file-line-limits.sh
-  # === LONG-RUNNING CHECKS ===
   # These checks take significant time (30s to 4+ minutes) and only run after all fast checks pass
-
-  # === UNIT TESTS ===
   test-suites:
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      actions: read
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     needs: [detect-changes, changeset-check, test-compilation, lint, check-file-line-limits]
@@ -296,14 +278,28 @@ jobs:
         run: node scripts/preinstall-use-m-packages.mjs
       - name: Run default test suite
         run: npm test
-
+      - name: Resolve GitHub credentials
+        id: gh
+        uses: ./.github/actions/resolve-github-token # https://github.com/link-foundation/.github/issues/1
+        with:
+          app-id: ${{ vars.AUTOMATION_APP_ID }}
+          app-private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
+          token: ${{ secrets.AUTOMATION_TOKEN }}
+          default-token: ${{ github.token }}
       - name: Run GitHub integration test suite
         env:
-          GITHUB_TOKEN: ${{ secrets.TEST_GITHUB_USER_TOKEN || secrets.GITHUB_TOKEN }}
-          TEST_GITHUB_USERNAME: ${{ secrets.TEST_GITHUB_USERNAME }}
-          TEST_GITHUB_USER_TOKEN: ${{ secrets.TEST_GITHUB_USER_TOKEN }}
+          GH_TOKEN: ${{ steps.gh.outputs.token }}
+          AUTOMATION_CAN_CREATE_REPOSITORIES: ${{ steps.gh.outputs.can-create-repositories }}
+          AUTOMATION_CAN_DELETE_REPOSITORIES: ${{ steps.gh.outputs.can-delete-repositories }}
         run: node scripts/run-tests.mjs --suite github-integration
-  # === EXECUTION TESTS ===
+      - name: Upload integration evidence
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: feedback-lines-integration
+          path: |
+            ${{ runner.temp }}/feedback-lines-integration.log
+            ${{ runner.temp }}/feedback-lines-cleanup.json
   test-execution:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -326,7 +322,6 @@ jobs:
         run: node scripts/npm-install-with-retry.mjs install
       - name: Pre-install use-m packages (issue #1724)
         run: node scripts/preinstall-use-m-packages.mjs
-
       - name: Test solve.mjs execution
         run: |
           echo "Testing solve.mjs basic execution..."
@@ -343,7 +338,6 @@ jobs:
           timeout 10s ./src/hive.mjs --version
       - name: Test telegram-bot.mjs execution
         run: bash scripts/test-telegram-bot-execution.sh
-
       - name: Test memory-check.mjs execution
         run: |
           ./src/memory-check.mjs --help
@@ -354,8 +348,6 @@ jobs:
         run: bash scripts/test-hive-dry-run-integration.sh
       - name: Test --auto-fork option
         run: bash scripts/test-auto-fork-option.sh
-
-  # === MEMORY CHECKS - LINUX ===
   memory-check-linux:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -383,14 +375,12 @@ jobs:
       # warning threshold. Same commands, same order.
       - name: Smoke-test memory-check on this runner
         run: bash scripts/memory-check-smoke-test.sh
-  # === DOCUMENTATION VALIDATION (FAST) ===
   validate-docs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     needs: [detect-changes, changeset-check]
     # Run if: push event, OR changeset-check succeeded, OR changeset-check was skipped (docs-only PR)
     if: ${{ !cancelled() && (github.event_name == 'push' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') && needs.detect-changes.outputs.docs-changed == 'true' }}
-
     steps:
       - uses: actions/checkout@v7
         with:
@@ -408,7 +398,6 @@ jobs:
         run: |
           node tests/docs-validation.mjs
           node tests/test-docs-language-sync.mjs
-  # === DOCKER PR CHECK ===
   docker-pr-check:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -427,7 +416,6 @@ jobs:
       REGISTRY: docker.io
       IMAGE_NAME: konard/hive-mind
       DIND_IMAGE_NAME: konard/hive-mind-dind
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -454,10 +442,8 @@ jobs:
           echo "This pinned version ensures stable, reproducible builds."
       - name: Build Docker images and check build logs
         run: bash scripts/docker-pr-build.sh
-
       - name: Verify system & development tools in running containers
         run: bash scripts/docker-pr-verify-containers.sh
-  # === HELM PR CHECK (FAST) ===
   helm-pr-check:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -484,14 +470,12 @@ jobs:
           echo "Linting Helm chart..."
           helm lint helm/hive-mind
           echo "Helm chart validation passed"
-
       - name: Verify Chart.yaml structure
         run: bash scripts/verify-chart-yaml.sh
-  # === RELEASE PREFLIGHT - prove the release can be published before building it ===
   # Issue #2221. A push to main exists to produce a release, so the credentials
   # that release needs are proven before anything is built or published. The
   # steps live in .github/workflows/release-preflight.yml; pull requests get a
-  # report, main and workflow_dispatch fail fast.
+  # report; main publishing events fail fast.
   release-preflight:
     name: Release Preflight
     # !cancelled() so concurrency cancellation still works.
@@ -500,29 +484,38 @@ jobs:
       contents: read
       id-token: write
     uses: ./.github/workflows/release-preflight.yml
+    with:
+      mode: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.mode == 'release')) && 'release' || 'report' }}
     secrets:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-  # === RELEASE - only runs on main after tests pass ===
   release:
     name: Release
     needs: [detect-changes, version-check, changeset-check, test-compilation, lint, check-file-line-limits, test-suites, test-execution, memory-check-linux, validate-docs, docker-pr-check, helm-pr-check, release-preflight]
     if: ${{ !cancelled() && github.ref == 'refs/heads/main' && github.event_name == 'push' && !contains(needs.*.result, 'failure') && needs.release-preflight.result == 'success' && (needs.lint.result == 'success' || needs.lint.result == 'skipped') && (needs.test-suites.result == 'success' || needs.test-suites.result == 'skipped') && (needs.test-execution.result == 'success' || needs.test-execution.result == 'skipped') && (needs.memory-check-linux.result == 'success' || needs.memory-check-linux.result == 'skipped') && (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.docker-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true') }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    # Post-publish verification may wait up to 25 minutes for npm to expose the
+    # version (issue #2923: 2.35.1 took 874s), so 30 minutes is not enough.
+    timeout-minutes: 45
     outputs:
       published: ${{ steps.publish.outputs.published }}
       published_version: ${{ steps.publish.outputs.published_version }}
     # Permissions required for npm OIDC trusted publishing
     permissions:
       contents: write
-      pull-requests: write
-      checks: write
       id-token: write
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      - name: Resolve GitHub credentials
+        id: gh
+        uses: ./.github/actions/resolve-github-token # https://github.com/link-foundation/.github/issues/1
+        with:
+          app-id: ${{ vars.AUTOMATION_APP_ID }}
+          app-private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
+          token: ${{ secrets.AUTOMATION_TOKEN }}
+          default-token: ${{ github.token }}
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
@@ -536,12 +529,14 @@ jobs:
         # Remove the deprecated always-auth entry setup-node writes, which npm 11
         # warns about on every command (issue #2028).
         run: node scripts/sanitize-npm-userconfig.mjs
-
       - name: Check whether a release is needed
         id: check_changesets
         # Also detects the self-healing case: no changesets, but package.json's
         # version is not on npm yet (a previous run bumped and failed to
         # publish). See scripts/check-release-needed.lib.mjs, issue #2175.
+        # And the version on npm whose GitHub release is missing (issue #2923).
+        env:
+          GH_TOKEN: ${{ steps.gh.outputs.token }}
         run: node scripts/check-release-needed.mjs
       - name: Harmonize changeset bump types
         if: steps.check_changesets.outputs.has_changesets == 'true' && steps.check_changesets.outputs.changeset_count > 1
@@ -551,11 +546,8 @@ jobs:
       - name: Version packages and commit to main
         if: steps.check_changesets.outputs.has_changesets == 'true'
         id: version
-        # The parent workflow has passed every pre-release validation job. Its
-        # built-in token attests that result on the deterministic version PR
-        # through the Checks API; no long-lived PAT is needed (#2281).
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # Commits the bump directly to main with the checkout's built-in token;
+        # no release pull request is opened (issue #2402).
         run: node scripts/version-and-commit.mjs --mode changeset
       - name: Publish to npm
         # Run if version was committed, OR a previous attempt already committed
@@ -572,16 +564,15 @@ jobs:
           echo "published=true" >> "$GITHUB_OUTPUT"
           echo "published_version=${{ steps.publish_npm.outputs.published_version }}" >> "$GITHUB_OUTPUT"
           echo "Docker publish will be triggered with version: ${{ steps.publish_npm.outputs.published_version }}"
-
       - name: Create GitHub Release
         if: steps.publish.outputs.published == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.gh.outputs.token }}
         run: node scripts/create-github-release.mjs --release-version "${{ steps.publish.outputs.published_version }}" --repository "${{ github.repository }}"
       - name: Format GitHub release notes
         if: steps.publish.outputs.published == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.gh.outputs.token }}
         run: node scripts/format-github-release.mjs --release-version "${{ steps.publish.outputs.published_version }}" --repository "${{ github.repository }}" --commit-sha "${{ github.sha }}"
       - name: Post-publish - Upload Source Maps to Sentry
         if: steps.publish.outputs.published == 'true'
@@ -591,7 +582,6 @@ jobs:
           echo "Uploading source maps to Sentry for published packages..."
           chmod +x scripts/upload-sourcemaps.mjs
           node scripts/upload-sourcemaps.mjs
-  # === DOCKER PUBLISH ===
   # Multi-platform builds using native runners (no QEMU). See: docs/case-studies/issue-982/
   # ARM64 may be slow: actions/runner-images#11790, actions/partner-runner-images#101
   # See also: docs/case-studies/issue-998/README.md
@@ -622,7 +612,6 @@ jobs:
     outputs:
       digest-amd64: ${{ steps.build.outputs.digest }}
       digest-arm64: ${{ steps.build.outputs.digest }}
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -645,7 +634,6 @@ jobs:
           # Set version label to actual release version, not Git ref "main" (issue #1419)
           labels: |
             org.opencontainers.image.version=${{ needs.release.outputs.published_version }}
-
       - name: Build and push by digest
         id: build
         uses: docker/build-push-action@v7
@@ -699,7 +687,6 @@ jobs:
           path: /tmp/digests
           pattern: hive-mind-digests-*
           merge-multiple: true
-
       - name: Set up Docker Buildx (resilient)
         uses: ./.github/actions/setup-buildx-resilient
       - name: Log in to Docker Hub
@@ -726,7 +713,6 @@ jobs:
         run: |
           echo "Inspecting multi-platform image..."
           docker buildx imagetools inspect ${{ env.IMAGE_NAME }}:${{ needs.release.outputs.published_version }}
-
       - name: Verify published image
         run: |
           echo "Docker image published successfully"
@@ -761,7 +747,6 @@ jobs:
         run: node scripts/free-disk-space.mjs
       - name: Wait for NPM package availability
         run: node scripts/wait-for-npm.mjs --release-version "${{ needs.release.outputs.published_version }}"
-
       - name: Set up Docker Buildx (resilient)
         uses: ./.github/actions/setup-buildx-resilient
       - name: Log in to Docker Hub
@@ -802,7 +787,6 @@ jobs:
           path: /tmp/digests/*
           if-no-files-found: error
           retention-days: 1
-
   docker-publish-dind-merge:
     name: Docker Publish DinD (Merge)
     needs: [release, docker-publish-dind]
@@ -843,7 +827,6 @@ jobs:
             type=raw,value=latest
           labels: |
             org.opencontainers.image.version=${{ needs.release.outputs.published_version }}
-
       - name: Create manifest list and push
         env:
           DIGESTS_DIR: /tmp/digests
@@ -855,7 +838,6 @@ jobs:
           echo "Docker DinD image published successfully"
           echo "Image: ${{ env.IMAGE_NAME }}"
           echo "Tags: ${{ steps.meta.outputs.tags }}"
-  # === HELM CHART RELEASE ===
   helm-release:
     name: Helm Release
     needs: [release, docker-publish-merge, docker-publish-dind-merge]
@@ -874,7 +856,14 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
-
+      - name: Resolve GitHub credentials
+        id: gh
+        uses: ./.github/actions/resolve-github-token # https://github.com/link-foundation/.github/issues/1
+        with:
+          app-id: ${{ vars.AUTOMATION_APP_ID }}
+          app-private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
+          token: ${{ secrets.AUTOMATION_TOKEN }}
+          default-token: ${{ github.token }}
       - name: Install Helm
         uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
         with:
@@ -885,28 +874,34 @@ jobs:
         # Uses the gh CLI rather than softprops/action-gh-release@v2, which is a
         # Node 20 action and makes every run emit a deprecation warning (#2175).
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.gh.outputs.token }}
         run: bash scripts/upload-release-assets.sh "v${{ needs.release.outputs.published_version }}" .helm-packages/*.tgz
-  # === MANUAL INSTANT RELEASE ===
   instant-release:
     name: Instant Release
     needs: [detect-changes, version-check, changeset-check, test-compilation, lint, check-file-line-limits, test-suites, test-execution, memory-check-linux, validate-docs, docker-pr-check, helm-pr-check, release-preflight]
     # Issue #2221: a manual release publishes too, so it waits on the same proof.
-    if: ${{ !cancelled() && !contains(needs.*.result, 'failure') && github.event_name == 'workflow_dispatch' && github.event.inputs.release_mode == 'instant' && needs.release-preflight.result == 'success' }}
+    if: ${{ !cancelled() && !contains(needs.*.result, 'failure') && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.mode == 'release' && github.event.inputs.release_mode == 'instant' && needs.release-preflight.result == 'success' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    # Same 25-minute post-publish verification window as the release job (issue #2923).
+    timeout-minutes: 45
     outputs:
       published: ${{ steps.publish.outputs.published }}
       published_version: ${{ steps.publish.outputs.published_version }}
     permissions:
       contents: write
-      pull-requests: write
-      checks: write
       id-token: write
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      - name: Resolve GitHub credentials
+        id: gh
+        uses: ./.github/actions/resolve-github-token # https://github.com/link-foundation/.github/issues/1
+        with:
+          app-id: ${{ vars.AUTOMATION_APP_ID }}
+          app-private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
+          token: ${{ secrets.AUTOMATION_TOKEN }}
+          default-token: ${{ github.token }}
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
@@ -922,10 +917,8 @@ jobs:
         run: node scripts/sanitize-npm-userconfig.mjs
       - name: Version packages and commit to main
         id: version
-        # The built-in GitHub Actions App token publishes the required check on
-        # the deterministic version PR after parent validation passes (#2281).
+        # Commits the bump directly to main, like the release job (issue #2402).
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Read through the environment, never interpolated into the script:
           # `description` is free-form text from whoever dispatched the run
           # (zizmor template-injection).
@@ -947,15 +940,13 @@ jobs:
       - name: Create GitHub Release
         if: steps.publish.outputs.published == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.gh.outputs.token }}
         run: node scripts/create-github-release.mjs --release-version "${{ steps.publish.outputs.published_version }}" --repository "${{ github.repository }}"
-
       - name: Format GitHub release notes
         if: steps.publish.outputs.published == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.gh.outputs.token }}
         run: node scripts/format-github-release.mjs --release-version "${{ steps.publish.outputs.published_version }}" --repository "${{ github.repository }}" --commit-sha "${{ github.sha }}"
-  # === DOCKER PUBLISH FOR INSTANT RELEASE ===
   # Same multi-platform setup as docker-publish above (native runners, no QEMU).
   # See: docs/case-studies/issue-982/README.md and docs/case-studies/issue-998/README.md
   docker-publish-instant:
@@ -990,7 +981,6 @@ jobs:
         run: node scripts/free-disk-space.mjs
       - name: Wait for NPM package availability
         run: node scripts/wait-for-npm.mjs --release-version "${{ needs.instant-release.outputs.published_version }}"
-
       - name: Set up Docker Buildx (resilient)
         uses: ./.github/actions/setup-buildx-resilient
       - name: Log in to Docker Hub
@@ -1026,7 +1016,6 @@ jobs:
           digest="${{ steps.build.outputs.digest }}"
           touch "/tmp/digests/${digest#sha256:}"
           echo "Digest for ${{ matrix.platform }}: $digest"
-
       - name: Upload digest
         uses: actions/upload-artifact@v7
         with:
@@ -1067,7 +1056,6 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v6
@@ -1114,7 +1102,6 @@ jobs:
     env:
       REGISTRY: docker.io
       IMAGE_NAME: konard/hive-mind-dind
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -1136,7 +1123,6 @@ jobs:
           images: ${{ env.IMAGE_NAME }}
           labels: |
             org.opencontainers.image.version=${{ needs.instant-release.outputs.published_version }}
-
       - name: Build and push by digest
         id: build
         uses: docker/build-push-action@v7
@@ -1174,7 +1160,6 @@ jobs:
       packages: write
     env:
       IMAGE_NAME: konard/hive-mind-dind
-
     steps:
       # First step: this job builds nothing, but it needs the working tree for
       # scripts/create-manifest-list.sh and for ./.github/actions/setup-buildx-resilient
@@ -1210,13 +1195,11 @@ jobs:
         run: bash scripts/create-manifest-list.sh
       - name: Inspect image
         run: docker buildx imagetools inspect ${{ env.IMAGE_NAME }}:${{ needs.instant-release.outputs.published_version }}
-
       - name: Verify published image
         run: |
           echo "Docker DinD image published successfully"
           echo "Image: ${{ env.IMAGE_NAME }}"
           echo "Tags: ${{ steps.meta.outputs.tags }}"
-  # === HELM CHART RELEASE FOR INSTANT RELEASE ===
   helm-release-instant:
     name: Helm Release (Instant)
     needs: [instant-release, docker-publish-instant-merge, docker-publish-dind-instant-merge]
@@ -1235,6 +1218,14 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      - name: Resolve GitHub credentials
+        id: gh
+        uses: ./.github/actions/resolve-github-token # https://github.com/link-foundation/.github/issues/1
+        with:
+          app-id: ${{ vars.AUTOMATION_APP_ID }}
+          app-private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
+          token: ${{ secrets.AUTOMATION_TOKEN }}
+          default-token: ${{ github.token }}
       - name: Install Helm
         uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
         with:
@@ -1245,13 +1236,11 @@ jobs:
         # Uses the gh CLI rather than softprops/action-gh-release@v2, which is a
         # Node 20 action and makes every run emit a deprecation warning (#2175).
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.gh.outputs.token }}
         run: bash scripts/upload-release-assets.sh "v${{ needs.instant-release.outputs.published_version }}" .helm-packages/*.tgz
-
-  # === MANUAL CHANGESET PR ===
   changeset-pr:
     name: Create Changeset PR
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.release_mode == 'changeset-pr'
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.mode == 'release' && github.event.inputs.release_mode == 'changeset-pr'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -1261,6 +1250,14 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      - name: Resolve GitHub credentials
+        id: gh
+        uses: ./.github/actions/resolve-github-token # https://github.com/link-foundation/.github/issues/1
+        with:
+          app-id: ${{ vars.AUTOMATION_APP_ID }}
+          app-private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
+          token: ${{ secrets.AUTOMATION_TOKEN }}
+          default-token: ${{ github.token }}
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
@@ -1281,14 +1278,13 @@ jobs:
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ steps.gh.outputs.token }}
           commit-message: 'chore: add changeset for manual ${{ github.event.inputs.bump_type }} release'
           branch: changeset-manual-release-${{ github.run_id }}
           delete-branch: true
           title: 'chore: manual ${{ github.event.inputs.bump_type }} release'
           body: |
             ## Manual Release Request
-
             This PR was created by a manual workflow trigger to prepare a **${{ github.event.inputs.bump_type }}** release.
             ### Release Details
             - **Type:** ${{ github.event.inputs.bump_type }}
@@ -1297,8 +1293,7 @@ jobs:
             ### Next Steps
             1. Review the changeset in this PR
             2. Merge this PR to main
-            3. The automated release workflow will create a version PR
-            4. Merge the version PR to publish to npm and create a GitHub release
+            3. The automated release workflow commits the version bump to main, publishes to npm and creates a GitHub release
   # GitHub classifies timeout-minutes as cancellation. Observe every job so a
   # timed-out main run cannot finish without a failing status.
   pipeline-status:

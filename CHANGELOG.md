@@ -1,5 +1,215 @@
 # @link-assistant/hive-mind
 
+## 2.35.2
+
+### Patch Changes
+
+- a033296: Fix CI/CD false negatives found in issue #2923: post-publish verification now waits up to 25 minutes for npm to expose a version (2.35.1 took 874s, more than the old 330s window), treats `E409 Cannot publish over previously staged version` as already published, and keeps its registry probes quiet unless `HIVE_MIND_PUBLISH_VERBOSE=true`. The release gate now also releases a version that reached npm without a GitHub release, so its Docker images and Helm chart are produced. The E2E matrix explains why it skipped, and the agent no longer logs "recovered" for an error that still fails the run. The `--verbose` leftover-process check no longer warns about the task-owned `formal-ai serve`, which Hive Mind keeps for later sessions and stops at exit.
+
+  Dependencies refreshed for the freshness gate: start-command 0.36.0 (Docker images), lino-i18n 0.4.0, jscpd 5.4.1, and the use-m pins @dotenvx/dotenvx 2.34.2 and links-notation 0.25.1.
+
+## 2.35.1
+
+### Patch Changes
+
+- 4a562ed: Use the cheapest pricing tier by default for every tool (issue #2771): short context (Claude 200K / Haiku 5.5 100K, Codex 272K, Gemini Pro 200K, Qwen 256K) unless `--sub-session-size` explicitly asks for more, standard speed (no Fast/priority/Ultrafast) via the new `--speed` option (`--speed flex`, alias `batch`, opts into OpenAI's half-price Flex tier), plain model names instead of `[1m]`, and `opus`/`sonnet`/`haiku` aliases now map to the latest and cheapest Claude 5.5 models while all pinned versions stay supported.
+
+## 2.35.0
+
+### Minor Changes
+
+- 183d6aa: Enable dependency issue reporting by default with --update-all-dependencies, and
+  add --report-dependencies-issues for independent control. Generated dependency
+  issues and all solver tools ask for upstream reports of shared logic, duplicated
+  code, missing features and bugs requiring workarounds, while allowing local
+  workarounds to keep the pull request moving. Preserve explicit opt-outs through
+  /fix and Telegram /task issue generation and solve handoffs.
+
+  Refresh the paired Sentry SDK packages to 11.6.0 to satisfy the dependency
+  freshness gate after the new upstream release.
+
+## 2.34.3
+
+### Patch Changes
+
+- 96394c9: Report Codex process exit codes, signals, plain CLI errors, and fresh cgroup OOM evidence in failure messages. Preserve termination metadata for existing SIGKILL recovery and provide the container memory budget to Codex before execution.
+
+  Refresh the regular, DinD and Coolify Box base images to 2.10.3 to satisfy dependency freshness after its release during validation.
+
+## 2.34.2
+
+### Patch Changes
+
+- c21ccd1: Report hive runs that process no issues or leave blocked work as warnings with distinct nonzero exit codes. Keep skipped issues separate from completed work, surface discovery failures and existing PR links, and honor deprecated tool-check switches.
+
+  Keep sub-issues eligible when a parent's PR also references them, in both batch discovery and worker rechecks, including the REST fallback. Preserve parent-last dependency scheduling when including existing PRs and suggest --no-skip-issues-with-prs --auto-continue when no eligible issues remain, including translated Telegram warnings.
+
+## 2.34.1
+
+### Patch Changes
+
+- feca4bc: Preserve Claude provider errors and usage-limit reset information when an earlier tool command failed, including streams without a final newline. Prevent background-task continuation of error results and include the file utility in all task images for attachment validation.
+
+## 2.34.0
+
+### Minor Changes
+
+- 0307dcd: `hive` now respects GitHub sub-issues and issue dependencies (#2615). It only queues issues that have no open "blocked by" issues (their own or inherited from a parent issue) and no open sub-issues, and starts the issue that unblocks the longest chain of work first, so `--concurrency` runs exactly the issues that can be worked on in parallel. Waiting issues are listed with the reason, dependency cycles are reported, and a worker rechecks relations right before it starts an issue. With `--once`, hive checks again for newly unblocked issues while work keeps completing (for example with `--auto-merge`). `hive https://github.com/owner/repo/issues` is now accepted as the repository URL. Use `--no-respect-issue-relations` to queue every matching issue at once as before.
+
+## 2.33.17
+
+### Patch Changes
+
+- 33e3a76: Bound version probes and clean up their descendants even when diagnostic callbacks fail. Preserve complete sanitized failed-session logs on verified pull request branches when Gist permissions are unavailable, honor log directories before argument parsing, retain Formal AI development logs, and tolerate simultaneous creation of the draft label.
+
+## 2.33.16
+
+### Patch Changes
+
+- 3ad8eb4: Identify the offending URL segment or argument in input validation errors (with a compiler-style caret under URL typos, bold and in a code block on Telegram), suggest likely URL path and host corrections as natural questions, and stop solve on invalid options.
+
+## 2.33.15
+
+### Patch Changes
+
+- fe9650e: Fix the CI/CD false negatives found on `main` (issue #2625). The dependency-freshness gate now blocks pull requests only and warns on pushes. The fixture cleanup reports ruleset-retained branches as retained, not as errors. `release.yml` can be dispatched with `mode=checks` alone. The Formal AI draft creates its label when it is missing. Log uploads no longer retry a token that cannot create gists. `solve --log-dir` now actually writes the session log into that directory. The default Agent model moves from the withdrawn `opencode/nemotron-3-super-free` to `kilo/nemotron-3-super-free`. Result verification works with integration tokens and prints the real failure reason. Command-stream is bumped to 2.0.0, Sentry to 11.5.0, agent-commander to 0.11.0 and the image Node.js to 26.11.0.
+- 3031ced: A pull request URL whose branch names an issue from another repository (such as `issue-320-…` created while solving `link-assistant/agent#320`) now uses the issue its description closes. Before, every pre-merge gate looked for the missing issue and held back `--auto-merge`. A held-back auto-merge no longer attaches a log that is already attached. AI work that is not attached yet is posted together with the held-back notice in one comment. Every solution draft log comment, for all tools, now shows cost estimation, context and tokens usage and models used (#2563).
+- 957e1ea: Stop appending a generated "Changes" section (file and line counts, file list) to a pull request description after the agent has written it, on both normal completion and restarts. Missing issue-closing links are still appended, now after a separator. The initial placeholder description and its replacement when the agent never updated it are unchanged.
+
+## 2.33.14
+
+### Patch Changes
+
+- e8ce7bb: `fix --ci-cd` now recommends the C/C++ pipeline template (`link-foundation/cpp-ai-driven-development-pipeline-template`) for C, C++ and CMake repositories, and `docs/CI-CD-BEST-PRACTICES.md` and its translations list it. A GitHub integration test fails when a new link-foundation pipeline template is published but not yet listed. Also refresh `lino-i18n` to 0.3.0 and `lino-objects-codec` to 0.9.0 for the dependency freshness gate.
+- 65df4c1: Stop presenting an earlier container OOM event as the cause of a failure (#2498). In the reported run, a child process (`rustc`) was OOM-killed and the session kept working. It later stopped for an unrelated reason, an expired Claude login. The pull-request notice is now titled "ℹ️ Work session stopped on its own — the earlier container OOM event did not cause it" and leads with the real stop line from the log; the old title was "⚠️ Container OOM event during a failed work session". The Telegram and PR diagnostics now label the OOM event "Event … (not the cause of this stop)" instead of "Cause". start-command's `memoryExhausted` / `exitReason: memory-exhaustion (cgroup-oom-killer)` derived only from Docker's sticky `State.OOMKilled` flag is no longer shown as separate evidence of memory exhaustion (reported upstream as link-foundation/start#180).
+
+  Also spread out automatic recoveries after an out-of-memory kill, and record the container's own memory limit (#2498). Every automatic recovery now waits its own random delay before it starts, whether it is a killed session resumed by the monitor or a tool resumed by solve after the tool was OOM-killed. The delay is 30–90 s by default, set with `--session-kill-resume-delay <min-max>` or `HIVE_MIND_SESSION_KILL_RESUME_DELAY`; `0` turns it off. Sessions hit by the same event therefore no longer compete for memory, CPU and the API in the same second. Resource snapshots now also read the task's cgroup: its memory limit, current and peak usage, and the `memory.events` `oom`/`oom_kill` counters. These are logged and stored in the `📈 [RESOURCES]` marker, and the kill diagnosis quotes them. Until now the logs only showed host RAM (for example "10.4 GB of 11.7 GB available") for a container capped at 2.9 GB, and nothing showed how many processes the OOM killer took.
+
+  Update all Docker images to start-command 0.35.4 (attempt-scoped resume evidence, start#187) and retain its per-task cgroup counters in status/list and diagnostics. An earlier container OOM cannot override a later SIGTERM or runtime heap abort; unrelated bot-cgroup counters and host victims are labelled as context. Report raw process and allocation-event counts without inferring OOM scope from their ratio. A user stop during the recovery delay cancels the pending launch, the environment delay works with parsed CLI defaults, and invalid timer ranges fall back to 30–90 seconds.
+
+  Keep resumed tasks under monitoring by reading terminal and stop evidence only from the current attempt, and reset inherited completion caches. Recovery notices now distinguish scheduling, launch acceptance, observed execution output, quiet pending runs and terminal outcomes. Update one durable GitHub lifecycle comment and the Telegram task reply at phase changes and five-minute intervals; in-process retries log and publish their actual result, clear their heartbeat timer, and do not infer OOM solely from SIGKILL. Preserve known tool outcomes after later output evicts them from the log tail. Report a missing recovery exit code as an unknown outcome in notifications and durable completion history, including restored completion latches. Refresh command-stream and dotenvx dynamic pins; all 168 dependency declarations are current.
+
+  Finish immediately once the pull request is merged (#2498, package-registry-manager#31). A session with kill or container-OOM evidence now has its pull request's merge state checked, including a session started on a pull request URL. After a merge, no recovery is launched and no kill, recovery or OOM notice or "killed session" log is published; Telegram says "Pull request merged, but the work session exited with code …" for a later kill. solve's in-process retry of a killed AI tool stops when the pull request has merged and cancels a retry that is already scheduled. With the pull request still open, an OOM event that did not stop the session is titled "Work session completed — an earlier container OOM event did not stop it", and solve's final log is not uploaded a second time. Update the runtime pins for `command-stream` to 1.6.2 and `links-notation` to 0.23.0.
+
+- fcd5a3a: Telegram Bot API calls are now governed instead of only counted (#2571): chats refused with `retry_after` are held, requests are paced to the documented per-chat, per-group and broadcast windows, and low-priority refreshes (queue cards, `/top`, `/merge`) yield to replies and are skipped rather than retried. Waiting cards are edited only for news, so a big queue no longer triggers 429s. `/limits` shows the last 429 with its age and `retry_after`, and how much the bot held back. Also fixes, from the production log: usage-API 429/401 responses are cached (honouring `Retry-After`) and shared between concurrent callers, `bot.catch` no longer replies into a throttled chat, the `/stop` "Cancelled" card escapes user names, a truncated `gh` comment response no longer loses or duplicates the log-link comment, and the agentic CLI updater logs why an update failed.
+
+## 2.33.13
+
+### Patch Changes
+
+- 1f44fdc: Select the nearest supported Codex reasoning effort using cached live model capabilities, support GPT-6.1 Sol out of the box, and use model defaults when effort capabilities are unavailable. Reuse model-aware Claude thinking settings in commander and organization planning.
+
+## 2.33.12
+
+### Patch Changes
+
+- d864d71: Make pull request comments short and true (#2492). Session comments use the past tense ("Started at …") and no longer claim "The PR has been converted to draft mode", which was false when the PR already was a draft and otherwise repeated GitHub's timeline. The runtime line goes into the comment only with `--verbose` and is still logged. `--auto-merge` without merge rights now posts "Auto-merge blocked" instead of an unchecked "Ready to merge" that also hid the real one. Auto-restart, usage-limit, merge and force-kill comments drop footers that repeated the heading. The force-kill notice promises a resume only when there is a session to resume. Auto-close no longer says logs were attached, and an empty pull request is no longer described as implementing a solution. With only `--auto-restart-on-limit-reset`, the run no longer exits as failed right after announcing the restart. The working session summary is always shown in full instead of being folded into a "Rest of the working session summary" block after 16 lines.
+
+## 2.33.11
+
+### Patch Changes
+
+- a48280b: Validate every tracked file when checks are dispatched on a draft head, so a trailing documentation commit cannot hide earlier untested code commits. Docker images install start-command 0.35.1, which fixes the sticky `OOMKilled` misclassification in `--on-kill-resume` (start#178).
+
+## 2.33.10
+
+### Patch Changes
+
+- 48cc6c6: Report out-of-memory recovery truthfully (#2408). Each session exit is now completed only once: overlapping monitor ticks no longer post the same log and kill notice three or six times, or overwrite "recovering" with "❌ failed". An exit 1 under Docker's sticky container-wide `OOMKilled` flag is no longer called a kill. A deliberate solve stop (auto-restart, auto-resume or usage limit) no longer uses up the recovery budget. The default `--session-kill-resume-attempts` is now 3. When the AI tool itself is SIGKILLed (exit 137), solve posts a ⚠️ warning and resumes the same session in the same container instead of stopping. A recovered task is shown as ⚠️ "finished successfully after automatic recovery (automatic recoveries: N)". The Telegram message and `/queue` count the total active time and show `🔁 N`, and a fresh recovery launch names the earlier execution logs. Kill notices no longer print `[object Object]` as the resume command, and the "backend is still alive" verbose line is printed once instead of on every poll.
+
+  A rerun on 2026-10-03 showed the old behaviour once more: "Auto-restart 5/5 - limit reached" was recovered as an OOM kill and kept working in the background while Telegram said ❌. That log tail is now a regression test. On start-command 0.35.0 or later, a resource-limited session that is killed resumes in place, under the same execution id and log. Its CPU/RAM limits are re-asserted on the resumed container, and the disk usage so far is carried into its disk allowance. Every kill or OOM decision is logged as a `session_kill_recovery_decision` event, and an exit that is not recovered as a `session_kill_not_recovered` event. start-command is now 0.35.0, eslint 10.12.0 and secretlint 13.0.7. start-command's new `--on-kill-resume` stays unused until link-foundation/start#178 is fixed.
+
+  An audit of every restart path closed the remaining gaps. A session killed after solve had already stopped on its own is reported, not recovered. An exit 0 under the sticky OOM flag stays a success. "No progress between sessions" and "SUBSCRIPTION/ACCESS UNAVAILABLE" also count as deliberate stops, and stop markers count only at the start of a log line, never inside quoted tool output. `/stop` with the root session id now reaches the recovery session that replaced it, so a user stop is not followed by another recovery. A resumed solve child killed by a signal no longer makes its parent exit 0.
+
+## 2.33.9
+
+### Patch Changes
+
+- cd9c763: Use optional layered GitHub credentials, isolated Hello World and integration fixtures, workflow approval with act fallback, release-aware matrix scheduling, complete dependency freshness checks, and workspace prerequisite grants for task sidecars. Stop owned Formal AI servers before exit and terminate the Codex shell when its repeated-call breaker fires. Require every Hello World matrix row to pass before recording a Formal AI release as tested, and enable the opt-in repeated-tool-call breaker for matrix rows. Report fixture branches retained by repository deletion rules separately from integration failures and preserve cleanup evidence in CI artifacts.
+
+## 2.33.8
+
+### Patch Changes
+
+- b607054: Broken Link Checker: re-check links lychee reported with a transient failure (429, 5xx, connection error) with backoff and, for github.com blob/tree pages, via the authenticated GitHub contents API, so GitHub's 503 throttling no longer turns `main` red (#2423).
+
+## 2.33.7
+
+### Patch Changes
+
+- 03f4550: Keep pull requests linked to every issue they solve: reject negated, quoted and foreign issue references, repair every required closing link after working sessions and restarts, keep all open issues in repository-mode scope beyond the native sub-issue limit, and block automated merges while a required issue link is missing or not confirmed by GitHub.
+- c7c9001: fix(merge): `/merge` now stops when the target branch CI fails (#2404). The queue re-checks the default branch's CI conclusions before every merge and after every wait, instead of only waiting for the runs to finish. A HEAD commit without CI of its own, such as a release version bump pushed with `GITHUB_TOKEN`, is judged by the newest ancestor that has push CI. The queue also stops, rather than merging blindly, when main CI is still running after the wait times out.
+
+  `scripts/wait-for-npm.mjs` now also waits until the version's tarball can be downloaded, not only until `npm view` returns the version. The arm64 Docker build that turned main red failed with a tarball 404 three minutes after the metadata became visible.
+
+## 2.33.6
+
+### Patch Changes
+
+- 3f1e89e: Post one "Log Upload Failed" comment per failed log (#2400): the `--attach-logs` safety net no longer repeats the report already on the pull request when another comment landed in between. In Docker isolation, the comment and console now say the log path is inside the session's container, that the container is removed on success, and how to reach the log (`docker cp`, `/log <session>`, `$ --status <session>`), instead of claiming it is on the host. Language keywords and literals assigned to sensitive-named variables (`fileTokens = await …`, `…Tokens: false`) are no longer masked as credentials. The Secretlint profiler is disabled, so each credential scan no longer retains memory for the life of the process.
+
+  Includes #2398 (not yet merged on its own): Post a single failure comment per failure (#2397). The exit handler no longer repeats a failure already reported by the "Log Upload Failed", "Automation stopped" or "Auto-restart limit reached" comment. Codex's "model is not supported when using Codex with a ChatGPT account" is reported as a plan problem with renewal and daemon-update guidance. Logs containing `token => …` or a short known env value are no longer blocked from publication, env tokens are masked in logs, and a blocked publication now names the failed check, rule ids and log block.
+
+## 2.33.5
+
+### Patch Changes
+
+- e06a31f: Post a single failure comment per failure (#2397). The exit handler no longer repeats a failure already reported by the "Log Upload Failed", "Automation stopped" or "Auto-restart limit reached" comment. Codex's "model is not supported when using Codex with a ChatGPT account" is reported as a plan problem with renewal and daemon-update guidance. Logs containing `token => …` or a short known env value are no longer blocked from publication, env tokens are masked in logs, and a blocked publication now names the failed check, rule ids and log block.
+
+## 2.33.4
+
+### Patch Changes
+
+- a4006da: Commit release version bumps directly to `main` again instead of opening and auto-merging a `release/*` pull request; a push rejected by a repository rule now fails the release with an actionable error. Help text, option descriptions, Telegram replies and text posted to GitHub describe current behaviour only, without change narration or issue provenance tags, and the contributing guide states that the code is not a changelog.
+
+## 2.33.3
+
+### Patch Changes
+
+- c45c429: Make the repeated-tool-call breaker opt-in (`--detect-repeated-tool-calls` / `HIVE_MIND_DETECT_REPEATED_TOOL_CALLS=true`) with a default limit of 10 (was 3, always on). CI polling commands (`gh pr checks`, `gh run view`, …) are never counted, and failing calls only count as repeated when their output repeats too. The auto-merge loop continues with feedback after a breaker stop instead of reporting a tool failure.
+
+  `--auto-merge` now ensures the pull request still links its issue ("Fixes #N") right before merging, restores the link when a later session removed it, and holds the merge back when the link cannot be ensured, so a pull request is never auto-merged unattached to its issue.
+
+  When the auto-merge is held back, the full session log is attached again so the reason is always published, even if an earlier failed session already attached a log.
+
+  With `--verbose`, every finished AI session now logs any process still running in its work directory, so a process that outlives a stopped session is visible in the attached log.
+
+## 2.33.2
+
+### Patch Changes
+
+- af3871f: Use links-notation's serializer for configuration values and topic pairs so quoted references round-trip safely, and refresh dependency pins.
+- b608228: Keep Claude background work enabled and raise print mode's background-task wait ceiling to 4x Claude Code's default (`CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=2400000`). When the ceiling still cancels work, recognise the sweep exactly, including local Bash tasks killed at exit, and silently resume the same session up to 5 times (`HIVE_MIND_CLAUDE_INCOMPLETE_TURN_MAX_RESUMES`) with a prompt that names the timeout and the cancelled tasks. Stop subagent cancellations and errors from becoming false "user rejected tool use" failures. Resume failed sessions affected by child OOM events, and report actual recovery outcomes.
+
+  Never lose a failure log silently, and report recovered work truthfully:
+
+  - Failed log uploads (for example `RPC failed; HTTP 408` on a large log) are retried and then re-uploaded as complete line-aligned parts. If they still fail, the pull request gets a `Log Upload Failed` comment with the reason and the log's location.
+  - The stop comment says whether the log was attached.
+  - A failed AI session inside `--auto-restart-until-mergeable` or `--watch` makes `solve` exit 1 instead of 0.
+  - A session that is resumed after a container OOM event now reads "🔄 Work session still in progress" until the recovery session ends. It keeps its original `📊 Session` id and total duration.
+  - The kill notice is posted on the pull request the session was started on.
+  - `⚠️ Formatting error detected` no longer appears for `message is not modified`, other non-formatting Telegram errors, or `/queue` links with `_`.
+
+## 2.33.1
+
+### Patch Changes
+
+- c5d1ea2: Run every model through one code path (#2320). A deliberate draft restarts the AI instead of stopping after fake restores (#2312). Restart feedback names the uncommitted files, and Formal AI no longer has a private prompt dialect (#2313). `--tool agent` keeps gh auth (#2314). Critical-error recovery pushes to `recovery/<branch>`, never to the PR branch (#2315). The repeated-tool-call breaker covers every adapter (#2316). Attribution identity is read only from generation records (#2317). The PR Changes section is regenerated from the diff after every session (#2318). A manual Hello World end-to-end matrix is added (#2319).
+
+## 2.33.0
+
+### Minor Changes
+
+- 0e0e824: Formal AI no longer costs disk, bandwidth or CPU on hosts that do not use it (#2305). The ~24 GB sidecar image is pulled by the first `--model formal-ai` task instead of in advance. Updates are checked hourly, and only while the image is present and was used within the unload window. The registry manifest digest is compared before any pull, so an unchanged release downloads nothing. A verified update removes the image it replaced. After `HIVE_MIND_FORMAL_AI_UNLOAD_AFTER` (default `5h`) without a Formal AI task, the sidecar container, its network and every Formal AI image are removed under the sidecar lock, and the log reports the bytes freed. The `hive-mind-formal-ai-memory` volume is always kept. The sidecar mounts tmpfs over its image `VOLUME`s and is removed with `--volumes`, so it no longer leaks anonymous volumes. `HIVE_MIND_FORMAL_AI_PREFETCH=true` restores eager pulling and updating.
+
+## 2.32.1
+
+### Patch Changes
+
+- 6ee39cf: Repository mode no longer merges a pull request that leaves the listed issues open (#2306): issues still attached to a stale combined issue are moved with `replace_parent`, the closing references required by the combined issue body are checked together with native sub-issues, `--auto-merge` is held back while any of them is missing, and the log is uploaded again after post-solve restart iterations.
+
+  Also refreshes the CI-enforced dependency pins (use-m 8.16.4, command-stream 1.1.0, links-notation 0.21.3, secretlint 13.0.6, lint-staged 17.6.0, Formal AI 0.352.1) and adapts command result handling to command-stream 1.x, whose `stdout`/`stderr` are always-truthy stream objects.
+
 ## 2.32.0
 
 ### Minor Changes

@@ -24,13 +24,11 @@
  * @see docs/FORMAL-AI-DRAFTS.md
  */
 
-import { execFile, spawn } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { appendFileSync, chmodSync, mkdirSync, readFileSync } from 'node:fs';
-import { promisify } from 'node:util';
 
-import { buildDockerArgv, buildSolveArgv, DEFAULT_HIVE_MIND_IMAGE, decideDraft, formatDecisionOutputs, keepPullRequestAsDraftArgs, labelPullRequestArgs, readIssueEvent, selectDraftPullRequest } from './formal-ai-draft.lib.mjs';
-
-const execFileAsync = promisify(execFile);
+import { buildDockerArgv, buildSolveArgv, DEFAULT_HIVE_MIND_IMAGE, decideDraft, formatDecisionOutputs, keepPullRequestAsDraftArgs, labelDraftPullRequest, readIssueEvent, selectDraftPullRequest } from './formal-ai-draft.lib.mjs';
+import { gh } from './github-actions.lib.mjs';
 
 const flags = new Set(process.argv.slice(2));
 const decideOnly = flags.has('--decide');
@@ -39,12 +37,6 @@ const dryRun = flags.has('--dry-run');
 const env = process.env;
 const repository = env.GITHUB_REPOSITORY || '';
 const serverUrl = env.GITHUB_SERVER_URL || 'https://github.com';
-
-/** `gh` with an argv array — no shell, so a webhook string can never become a command. */
-const gh = async args => {
-  const { stdout } = await execFileAsync('gh', args, { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
-  return stdout;
-};
 
 const setOutput = text => {
   if (env.GITHUB_OUTPUT) appendFileSync(env.GITHUB_OUTPUT, text);
@@ -80,7 +72,7 @@ const resolveIssue = async () => {
 const issueUrlFor = issue => issue?.html_url || issue?.url || `${serverUrl}/${repository}/issues/${issue?.number}`;
 
 const { eventName, action, issue } = await resolveIssue();
-const decision = decideDraft({ eventName, action, issue, hasToken: Boolean((env.FORMAL_AI_DRAFT_TOKEN || '').trim()) });
+const decision = decideDraft({ eventName, action, issue, layer: env.AUTOMATION_LAYER || 'default' });
 
 console.log(`Formal AI draft: ${decision.run ? 'attempting' : 'skipping'} — ${decision.reason}`);
 setOutput(formatDecisionOutputs(decision));
@@ -101,6 +93,7 @@ chmodSync(hostLogDir, 0o777);
 
 const dockerArgv = buildDockerArgv({
   solveArgv: buildSolveArgv({ issueUrl: issueUrlFor(issue), logDir: containerLogDir }),
+  forwardEnv: ['GH_TOKEN', 'FORMAL_AI_INSTALL_GRANT'],
   image: env.FORMAL_AI_DRAFT_IMAGE || DEFAULT_HIVE_MIND_IMAGE,
   hostLogDir,
   containerLogDir,
@@ -129,8 +122,9 @@ try {
     console.log(`No pull request was opened for issue #${issue.number}; the session log is the record of why.`);
   } else {
     console.log(`Draft pull request: ${serverUrl}/${repository}/pull/${pullRequest.number}`);
+    setOutput(`head_branch=${pullRequest.headRefName}\npull_request_number=${pullRequest.number}\n`);
     if (!pullRequest.isDraft) await gh(keepPullRequestAsDraftArgs({ repository, number: pullRequest.number }));
-    await gh(labelPullRequestArgs({ repository, number: pullRequest.number }));
+    await labelDraftPullRequest({ gh, repository, number: pullRequest.number });
   }
 } catch (error) {
   console.log(`Could not finalize the draft's state (${error.message}); the pull request itself is unaffected.`);

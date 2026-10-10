@@ -55,22 +55,25 @@ const { quietProbe } = await import('./quiet-probe.lib.mjs');
 // condition here at all.
 const stopReportingLib = await import('./automation-stop-reporting.lib.mjs');
 const { reportAutomationStop } = stopReportingLib;
+// Issue #2301: a failed AI session in this loop fails the run (see automation-failure.lib.mjs).
+const { recordLoopToolFailure } = await import('./automation-failure.lib.mjs');
 
 // Issue #1574: Interruptible sleep so CTRL+C is never blocked by a lingering timer
 const { interruptibleSleep } = await import('./interruptible-sleep.lib.mjs');
+const { resumeAfterToolKill } = await import('./solve.tool-kill-resume.lib.mjs'); // Issue #2408
 // Issue #2119: one auto-restart budget shared with solve.auto-merge.lib.mjs, so
 // a limit of 5 means 5 AI sessions in total rather than 5 per subsystem, and
 // every label renders in the same `N/M` form.
 const autoRestartBudget = await import('./auto-restart-budget.lib.mjs');
-const { beginAutoRestartBudget, consumeAutoRestartIteration, formatAutoRestartLabel, formatAutoRestartLimit, getAutoRestartIterationsUsed, getRemainingAutoRestartIterations, hasExhaustedAutoRestartBudget } = autoRestartBudget;
-const { failOnAutoRestartBudgetExhausted } = await import('./auto-restart-exhaustion.lib.mjs');
+const { beginAutoRestartBudget, consumeAutoRestartIteration, formatAutoRestartLabel, formatAutoRestartLimit, getAutoRestartIterationsUsed, hasExhaustedAutoRestartBudget } = autoRestartBudget;
+const { buildUncommittedChangesRestartComment, failOnAutoRestartBudgetExhausted } = await import('./auto-restart-exhaustion.lib.mjs');
 // Issue #2247 (H3): the Scala reproduction run restarted five times, each
 // session byte-identical to the last, and committed nothing in any of them.
 const { stopWhenSessionRepeated } = await import('./session-progress.lib.mjs');
 
 // Issue #1625: Central marker constants + tracked comment posting
 const toolComments = await import('./tool-comments.lib.mjs');
-const { AUTO_RESTART_MARKER, postTrackedComment } = toolComments;
+const { postTrackedComment } = toolComments;
 
 // Issue #1827: After each AI session, register the authenticated account's own
 // comments (free-form status updates the agent posts itself) so the next
@@ -118,6 +121,7 @@ export const watchForFeedback = async params => {
   // Track consecutive API errors for retry limit
   const MAX_API_ERROR_RETRIES = 3;
   let consecutiveApiErrors = 0;
+  let toolKillResumeCount = 0; // Issue #2408: in-process resumes after a SIGKILL (OOM)
   let currentBackoffSeconds = watchInterval;
 
   await log('');
@@ -342,17 +346,14 @@ export const watchForFeedback = async params => {
           // Post a comment to PR about auto-restart
           if (prNumber) {
             try {
-              const remainingIterations = getRemainingAutoRestartIterations();
-
               // Get uncommitted files list for the comment
               let uncommittedFilesList = '';
               if (changes.length > 0) {
                 uncommittedFilesList = '\n\n**Uncommitted files:**\n```\n' + changes.join('\n') + '\n```';
               }
 
-              const iterationLabel = formatAutoRestartLabel(autoRestartCount);
-              const stopText = remainingIterations === null ? 'Auto-restart is configured with no iteration limit.' : `Auto-restart will stop after changes are committed or discarded, or after ${remainingIterations} more iteration${remainingIterations !== 1 ? 's' : ''}.`;
-              const commentBody = `## 🔄 ${AUTO_RESTART_MARKER} ${iterationLabel}\n\nDetected uncommitted changes from previous run. Starting new session to review and commit or discard them.${uncommittedFilesList}\n\n---\n*${stopText} Please wait until working session will end and give your feedback.*`;
+              // Issue #2492: the `N/M` heading already states the limit.
+              const commentBody = buildUncommittedChangesRestartComment({ label: formatAutoRestartLabel(autoRestartCount), uncommittedFilesList });
               // Issue #1625: Track so this doesn't falsely count as AI-authored.
               await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: commentBody });
               await log(formatAligned('', '💬 Posted auto-restart notification to PR', '', 2));
@@ -451,18 +452,13 @@ export const watchForFeedback = async params => {
         }
 
         // Execute tool using shared utility
-        const toolResult = await executeToolIteration({
-          issueUrl,
-          owner,
-          repo,
-          issueNumber,
-          prNumber,
-          branchName: prBranch || branchName,
-          tempDir,
-          mergeStateStatus,
-          feedbackLines: restartFeedbackLines,
-          argv: restartArgv,
-        });
+        const runIteration = ({ argv: iterationArgv, feedbackLines }) => executeToolIteration({ issueUrl, owner, repo, issueNumber, prNumber, branchName: prBranch || branchName, tempDir, mergeStateStatus, feedbackLines, argv: iterationArgv });
+        let toolResult = await runIteration({ argv: restartArgv, feedbackLines: restartFeedbackLines });
+        // Issue #2408: a tool killed by SIGKILL (exit 137, OOM) resumes its own session in-process.
+        // Issue #2498: once the pull request is merged nothing is recovered; the next pass sees the merge and finishes.
+        let toolKillWorkDone = false;
+        if (!toolResult.success) ({ toolResult, attemptsUsed: toolKillResumeCount, workDone: toolKillWorkDone } = await resumeAfterToolKill({ toolResult, attemptsUsed: toolKillResumeCount, argv, runIteration, $, owner, repo, prNumber, log, isWorkDone: () => checkPRMerged(owner, repo, prNumber) }));
+        if (toolKillWorkDone) continue;
 
         if (toolResult.sessionId && (argv.resumeOnAutoRestart || argv['resume-on-auto-restart'])) {
           global.previousSessionId = toolResult.sessionId;
@@ -487,54 +483,13 @@ export const watchForFeedback = async params => {
         }
 
         if (!toolResult.success) {
-          // Check if this is an API error using shared utility
-          if (isApiError(toolResult)) {
-            consecutiveApiErrors++;
-            await log(formatAligned('⚠️', `${argv.tool.toUpperCase()} execution failed`, `API error detected (${consecutiveApiErrors}/${MAX_API_ERROR_RETRIES})`, 2));
-
-            if (consecutiveApiErrors >= MAX_API_ERROR_RETRIES) {
-              await log('');
-              await log(formatAligned('❌', 'MAXIMUM API ERROR RETRIES REACHED', ''));
-              // Issue #1845: surface the core error (e.g. "API Error: Output blocked by content
-              // filtering policy"); toolResult.result is often unset on failure, so prefer errorInfo.
-              await log(formatAligned('', 'Error details:', extractToolErrorCore({ toolResult }) || 'Unknown API error', 2));
-              await log(formatAligned('', 'Consecutive failures:', `${consecutiveApiErrors}`, 2));
-              await log(formatAligned('', 'Action:', 'Exiting watch mode to prevent infinite loop', 2));
-              await log('');
-              await log('Please check:');
-              await log('  1. The model name is valid for the selected tool');
-              await log('  2. You have proper authentication configured');
-              await log('  3. The API endpoint is accessible');
-              await log('');
-              // Issue #2144: say on GitHub why the loop stopped.
-              await reportAutomationStop({
-                $,
-                owner,
-                repo,
-                targetNumber: prNumber,
-                reason: 'tool_failure',
-                mode: 'watch',
-                message: `${argv.tool.toUpperCase()} failed ${consecutiveApiErrors} times in a row: ${extractToolErrorCore({ toolResult }) || 'unknown API error'}`,
-                verbose: argv.verbose,
-                log,
-              });
-              break; // Exit the watch loop
-            }
-
-            // Apply exponential backoff for API errors
-            currentBackoffSeconds = Math.min(currentBackoffSeconds * 2, 300); // Cap at 5 minutes
-            await log(formatAligned('', 'Backing off:', `Will retry after ${currentBackoffSeconds} seconds`, 2));
-          } else {
-            // Non-API error, reset consecutive counter
-            consecutiveApiErrors = 0;
-            currentBackoffSeconds = watchInterval;
-            await log(formatAligned('⚠️', `${argv.tool.toUpperCase()} execution failed`, 'Will retry in next check', 2));
-          }
-
           // Issue #1290: Upload failure logs for auto-restart iterations when --attach-logs is enabled
           // This ensures that failed auto-restart sessions still report their logs
-          const shouldAttachLogs = argv.attachLogs || argv['attach-logs'];
-          if (isTemporaryWatch && prNumber && shouldAttachLogs) {
+          // Issue #2301: returns whether the log was attached (null: not attempted), so a stop
+          // comment posted after it never points to a log that is not there.
+          const attachFailureLog = async () => {
+            if (!(isTemporaryWatch && prNumber && (argv.attachLogs || argv['attach-logs']))) return null;
+            let attached = false;
             await log('');
             await log(formatAligned('📎', 'Uploading auto-restart failure log...', ''));
             try {
@@ -574,6 +529,7 @@ export const watchForFeedback = async params => {
                 if (logUploadSuccess) {
                   await log(formatAligned('', '✅ Auto-restart failure log uploaded to PR', '', 2));
                   lastIterationLogUploaded = true; // Issue #1290: Mark that logs were uploaded
+                  attached = true;
                 } else {
                   await log(formatAligned('', '⚠️  Could not upload auto-restart failure log', '', 2));
                 }
@@ -589,7 +545,58 @@ export const watchForFeedback = async params => {
               });
               await log(formatAligned('', `⚠️  Log upload error: ${cleanErrorMessage(logUploadError)}`, '', 2));
             }
+            return attached;
+          };
+
+          // Check if this is an API error using shared utility
+          if (isApiError(toolResult)) {
+            consecutiveApiErrors++;
+            await log(formatAligned('⚠️', `${argv.tool.toUpperCase()} execution failed`, `API error detected (${consecutiveApiErrors}/${MAX_API_ERROR_RETRIES})`, 2));
+
+            if (consecutiveApiErrors >= MAX_API_ERROR_RETRIES) {
+              await log('');
+              await log(formatAligned('❌', 'MAXIMUM API ERROR RETRIES REACHED', ''));
+              // Issue #1845: surface the core error (e.g. "API Error: Output blocked by content
+              // filtering policy"); toolResult.result is often unset on failure, so prefer errorInfo.
+              await log(formatAligned('', 'Error details:', extractToolErrorCore({ toolResult }) || 'Unknown API error', 2));
+              await log(formatAligned('', 'Consecutive failures:', `${consecutiveApiErrors}`, 2));
+              await log(formatAligned('', 'Action:', 'Exiting watch mode to prevent infinite loop', 2));
+              await log('');
+              await log('Please check:');
+              await log('  1. The model name is valid for the selected tool');
+              await log('  2. You have proper authentication configured');
+              await log('  3. The API endpoint is accessible');
+              await log('');
+              // Issue #2301: attach this session's failure log before saying why the loop stopped.
+              const logAttached = await attachFailureLog();
+              // Issue #2144: say on GitHub why the loop stopped.
+              await reportAutomationStop({
+                $,
+                owner,
+                repo,
+                targetNumber: prNumber,
+                reason: 'tool_failure',
+                mode: 'watch',
+                message: `${argv.tool.toUpperCase()} failed ${consecutiveApiErrors} times in a row: ${extractToolErrorCore({ toolResult }) || 'unknown API error'}`,
+                verbose: argv.verbose,
+                log,
+                logAttached,
+              });
+              recordLoopToolFailure({ reason: 'tool_failure', mode: 'watch', message: extractToolErrorCore({ toolResult }) || 'unknown API error' });
+              break; // Exit the watch loop
+            }
+
+            // Apply exponential backoff for API errors
+            currentBackoffSeconds = Math.min(currentBackoffSeconds * 2, 300); // Cap at 5 minutes
+            await log(formatAligned('', 'Backing off:', `Will retry after ${currentBackoffSeconds} seconds`, 2));
+          } else {
+            // Non-API error, reset consecutive counter
+            consecutiveApiErrors = 0;
+            currentBackoffSeconds = watchInterval;
+            await log(formatAligned('⚠️', `${argv.tool.toUpperCase()} execution failed`, 'Will retry in next check', 2));
           }
+
+          await attachFailureLog();
         } else {
           // Success - reset error counters
           consecutiveApiErrors = 0;

@@ -85,6 +85,7 @@ const provenanceOfTask = async ({ sidecar, baseUrl, hostEnv, workdir }) => {
       loadRegistryImpl: async () => [{ id: 'agent', global_configs: [] }],
       seedImpl: async () => [],
       configureImpl: async () => {},
+      ghAuthImpl: async () => ({}),
     },
   });
   try {
@@ -102,7 +103,7 @@ test('an accepted update is the backend that serves, and is named by, every late
   try {
     const docker = makeDocker();
     const options = { env, run: docker.run, ...fast };
-    writeFormalAiSidecarState({ image: BOOTSTRAP_IMAGE, imageDigest: BOOTSTRAP_DIGEST, leases: [] }, { env });
+    writeFormalAiSidecarState({ image: BOOTSTRAP_IMAGE, imageDigest: BOOTSTRAP_DIGEST, leases: [], lastUsedAt: new Date().toISOString() }, { env });
 
     // 1. The idle updater accepts a new release: pulled, preflighted, migrated,
     //    booted, verified — and then stopped again.

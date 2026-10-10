@@ -30,13 +30,15 @@ import { isPrepareOnly, logPreparedToolCommand, resolveFormalAiToolExecution } f
 import { buildFormalAiPricingInfo } from './formal-ai-pricing.lib.mjs'; // Issue #2119
 import { createDisabledAttributionSession, resolveFormalAiAttributionSession } from './formal-ai-attribution.lib.mjs'; // Issue #2229
 import { checkPlaywrightMcpPackageAvailability, getAgentPlaywrightMcpDisableEnv } from './playwright-mcp.lib.mjs';
+import { getAgentModelOverlayEnv } from './agent-model-overlay.lib.mjs';
 import { createAgentTokenUsage, accumulateAgentStepFinishUsage, parseAgentTokenUsage } from './agent-token-usage.lib.mjs';
 import { createJsonStreamScanner, parseJsonRecords } from './json-stream.lib.mjs';
+import { createToolCallLoopGuard, resolveRepeatedToolCallLimit } from './tool-call-loop-guard.lib.mjs'; // Issue #2316, #2395
 import { firstErrorText, stringifyErrorValue } from './error-text.lib.mjs';
 import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { attachStreamingInput, finalizeBidirectionalHandler, setupBidirectionalHandler } from './bidirectional-interactive.lib.mjs';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
-import { buildAgentArgs, detectFormalAiAgentRoutingMismatch, formatAgentArgsForDisplay, isAgentIdleEvent, isAgentStrongCompletionEvent } from './agent-command.lib.mjs';
+import { buildAgentArgs, detectFormalAiAgentRoutingMismatch, formatAgentArgsForDisplay, isAgentIdleEvent, isAgentStrongCompletionEvent, resolveStreamingErrorRecovery } from './agent-command.lib.mjs';
 import { isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236 / #2247 (H5)
 
 export { createAgentTokenUsage, accumulateAgentStepFinishUsage, parseAgentTokenUsage };
@@ -397,9 +399,9 @@ export const validateAgentConnection = async (model = defaultModels.agent, optio
 
       if (!agentVersion || !semver.gte(agentVersion, MIN_AGENT_SNAPSHOT_HYGIENE_VERSION)) {
         await log(`❌ Hive Mind requires @link-assistant/agent >= ${MIN_AGENT_SNAPSHOT_HYGIENE_VERSION}`, { level: 'error' });
-        await log('   Older releases write a full, standalone copy of the repository into', { level: 'error' });
+        await log(`   Versions below ${MIN_AGENT_SNAPSHOT_HYGIENE_VERSION} write a full, standalone copy of the repository into`, { level: 'error' });
         await log('   ~/.local/share/link-assistant-agent/snapshot/ per project and never reclaim it', { level: 'error' });
-        await log('   (link-assistant/agent#298): issue #2186 lost 31 GB to 115 orphaned stores in one task.', { level: 'error' });
+        await log('   (link-assistant/agent#298), which can fill the disk within a single task.', { level: 'error' });
         if (agentVersion) {
           await log(`   Installed Agent CLI version: ${agentVersion}`, { level: 'error' });
         } else {
@@ -426,8 +428,8 @@ export const validateAgentConnection = async (model = defaultModels.agent, optio
 
       if (isFormalAiModel(model) && !(agentVersion && semver.gte(agentVersion, MIN_AGENT_FORMAL_AI_VERSION))) {
         await log(`❌ Formal AI tasks require @link-assistant/agent >= ${MIN_AGENT_FORMAL_AI_VERSION}`, { level: 'error' });
-        await log('   Older releases answer with their default model when they cannot parse the requested one', { level: 'error' });
-        await log('   (link-assistant/agent#293), and issue #2146 forbids any model other than Formal AI.', { level: 'error' });
+        await log(`   Versions below ${MIN_AGENT_FORMAL_AI_VERSION} answer with their default model when they cannot parse the requested one`, { level: 'error' });
+        await log('   (link-assistant/agent#293), and a Formal AI task must never run any other model.', { level: 'error' });
         if (agentVersion) {
           await log(`   Installed Agent CLI version: ${agentVersion}`, { level: 'error' });
         } else {
@@ -439,7 +441,8 @@ export const validateAgentConnection = async (model = defaultModels.agent, optio
 
       // Test basic Agent functionality with a simple "hi" message
       // Agent uses the same JSON interface as OpenCode
-      const testResult = await $`printf "hi" | timeout ${Math.floor(timeouts.opencodeCli / 1000)} agent --model ${mappedModel}`;
+      const validationEnv = { ...process.env, ...getAgentModelOverlayEnv({ mappedModel }) }; // Issue #2625: models Agent's provider table lacks
+      const testResult = await $({ env: validationEnv })`printf "hi" | timeout ${Math.floor(timeouts.opencodeCli / 1000)} agent --model ${mappedModel}`;
 
       if (testResult.code !== 0) {
         const stderr = testResult.stderr?.toString() || '';
@@ -652,6 +655,10 @@ export const executeAgentCommand = async params => {
     // Issue #2130: Formal AI runs the native CLI against a local Formal AI server (no argv wrapper).
     const toolInvocation = await resolveFormalAiToolExecution({ tool: 'agent', model: argv.model, toolPath: agentPath, workdir: tempDir, log, verbose: argv.verbose, prepareOnly: isPrepareOnly(argv), env: agentEnv });
     Object.assign(agentEnv, toolInvocation.env);
+    // Issue #2625: the default free model is on Kilo, reachable only with the provider entry Hive Mind supplies.
+    const modelOverlayEnv = getAgentModelOverlayEnv({ env: agentEnv, mappedModel });
+    if (modelOverlayEnv.LINK_ASSISTANT_AGENT_CONFIG_CONTENT) await log(`   Agent provider entry supplied for ${mappedModel} (LINK_ASSISTANT_AGENT_CONFIG_CONTENT)`, { verbose: true });
+    Object.assign(agentEnv, modelOverlayEnv);
 
     if (argv.resume) {
       await log(`🔄 Resuming from session: ${argv.resume}`);
@@ -782,6 +789,7 @@ export const executeAgentCommand = async params => {
       // newlines, and surfaces anything that is not JSON as plain text.
       const stdoutScanner = createJsonStreamScanner();
       const stderrScanner = createJsonStreamScanner();
+      const toolCallLoopGuard = createToolCallLoopGuard({ log, limit: resolveRepeatedToolCallLimit({ argv }), stopSession: async () => execCommand?.kill?.('SIGTERM') }); // Issue #2316; opt-in since #2395
 
       const handleAgentJsonEvent = async (raw, value) => {
         const data = sanitizeObjectStrings(value);
@@ -884,6 +892,7 @@ export const executeAgentCommand = async params => {
         if (chunk.type === 'stdout') {
           const output = chunk.data.toString();
           await handleAgentStreamEvents(stdoutScanner.write(output));
+          await toolCallLoopGuard.observeOutput(output);
           lastMessage = output;
           fullOutput += output; // Collect for both pricing calculation and error detection
         }
@@ -894,6 +903,7 @@ export const executeAgentCommand = async params => {
             // Agent sends all output (including verbose logs and structured events) to stderr
             // Process it exactly like stdout so telemetry is never stream-specific
             await handleAgentStreamEvents(stderrScanner.write(errorOutput));
+            await toolCallLoopGuard.observeOutput(errorOutput, 'stderr');
             // Also collect stderr for error detection
             fullOutput += errorOutput;
           }
@@ -929,11 +939,10 @@ export const executeAgentCommand = async params => {
       // When an error occurs during execution (e.g., timeout) but the agent recovers and completes,
       // we should NOT treat it as a failure. The exit code is the authoritative success indicator.
       // Check for: exit code 0 AND (completion event detected OR no streaming error)
-      if (exitCode === 0 && (agentCompletedSuccessfully || !streamingErrorDetected)) {
+      const recovery = resolveStreamingErrorRecovery({ exitCode, agentCompletedSuccessfully, streamingErrorDetected, outputErrorDetected: outputError.detected });
+      if (recovery.clearStreamingError) {
         // Agent exited successfully - clear any streaming errors that were recovered from
-        if (streamingErrorDetected && agentCompletedSuccessfully) {
-          await log(`ℹ️  Agent recovered from earlier error and completed successfully`, { verbose: true });
-        }
+        if (recovery.message) await log(recovery.message, { verbose: true });
         streamingErrorDetected = false;
         streamingErrorMessage = null;
       }

@@ -101,7 +101,12 @@ const initSecretlint = async () => {
   }
 
   try {
-    const [core, preset] = await Promise.all([import('@secretlint/core'), import('@secretlint/secretlint-rule-preset-recommend')]);
+    const [core, preset, profiler] = await Promise.all([import('@secretlint/core'), import('@secretlint/secretlint-rule-preset-recommend'), import('@secretlint/profiler').catch(() => null)]);
+    // Issue #2400: the profiler is enabled by default for library users. Every
+    // lintSource call adds performance marks that its observer keeps forever
+    // (~11 KB per call), so a long-running bot or solver grows without bound.
+    // Upstream documents setEnabled(false) for library use (secretlint#1673).
+    profiler?.secretLintProfiler?.setEnabled(false);
 
     secretlintCore = core;
     secretlintConfig = {
@@ -547,13 +552,24 @@ const maskKnownTokenValues = (text, values) => {
 };
 
 /**
+ * Shortest known-local token value that is masked, and therefore verified.
+ *
+ * Issue #2397: the maskers skipped shorter values while the publication
+ * verifier ({@link containsKnownToken}) did not, so a short non-secret value
+ * such as `TELEGRAM_OWNER_CHAT_ID=123456789` blocked every log mentioning it.
+ */
+export const MIN_KNOWN_TOKEN_LENGTH = 12;
+
+const isMaskableTokenValue = value => typeof value === 'string' && value.length >= MIN_KNOWN_TOKEN_LENGTH;
+
+/**
  * Narrow a raw token list to the values worth searching for.
  *
  * @param {Array<string|{value: string}>} tokens
  * @param {Set<string>} [excludedSet] issue #1745 user-content carve-out
  * @returns {Array<string>}
  */
-const usableTokenValues = (tokens, excludedSet) => [...new Set((tokens || []).map(t => (typeof t === 'string' ? t : t?.value)).filter(value => typeof value === 'string' && value.length >= 12))].filter(value => !excludedSet?.has(value));
+const usableTokenValues = (tokens, excludedSet) => [...new Set((tokens || []).map(t => (typeof t === 'string' ? t : t?.value)).filter(isMaskableTokenValue))].filter(value => !excludedSet?.has(value));
 
 /**
  * Mask encoded occurrences of known-local tokens.
@@ -680,11 +696,14 @@ export const sanitizeOutput = async (output, options = {}) => {
       // Step 1: Get known tokens from files and commands
       const fileTokens = await getGitHubTokensFromFiles();
       const commandTokens = await getGitHubTokensFromCommand();
-      const allKnownTokens = [...new Set([...fileTokens, ...commandTokens])];
+      // Issue #2397: also the env tokens, which sanitizeForPublication verifies;
+      // a GITHUB_PAT that matched no vendor pattern blocked the log instead.
+      const envTokens = getEnvironmentTokens().map(({ value }) => value);
+      const allKnownTokens = [...new Set([...fileTokens, ...commandTokens, ...envTokens])];
 
       // Mask known tokens first
       for (const token of allKnownTokens) {
-        if (token && token.length >= 12) {
+        if (isMaskableTokenValue(token)) {
           if (isExcluded(token)) {
             sanitizationStats.excluded++;
             continue;
@@ -892,8 +911,48 @@ export class CredentialSanitizationError extends Error {
     super(CREDENTIAL_SANITIZATION_FAILURE_MESSAGE, options);
     this.name = 'CredentialSanitizationError';
     this.code = CREDENTIAL_SANITIZATION_ERROR_CODE;
+    // Issue #2397: which check blocked publication. Only stage names and rule
+    // identifiers are kept here — never the matched text — so they are safe to
+    // print in logs and in the "Log Upload Failed" comment.
+    this.stage = options.stage || null;
+    this.findings = Array.isArray(options.findings) ? options.findings : [];
   }
 }
+
+/**
+ * Summarize residual findings as `[{ruleId, count}]` without any matched text.
+ * @param {Array<Object>} residuals
+ * @returns {Array<{ruleId: string, count: number}>}
+ */
+const summarizeResidualFindings = residuals => {
+  const counts = new Map();
+  for (const residual of Array.isArray(residuals) ? residuals : []) {
+    const ruleId = String(residual?.ruleId || 'unknown').slice(0, 120);
+    counts.set(ruleId, (counts.get(ruleId) || 0) + 1);
+  }
+  return [...counts].map(([ruleId, count]) => ({ ruleId, count }));
+};
+
+/**
+ * Issue #2397: "Credential sanitization failed; publication was blocked." was
+ * the whole upload failure reason on konard/vietnam-accomodation-search#76, and
+ * the error's cause was discarded, so nobody could tell which check had failed.
+ * Render the stage, rule identifiers and block position (all non-sensitive).
+ *
+ * @param {Error} error
+ * @returns {string}
+ */
+export const describeCredentialSanitizationFailure = error => {
+  const message = error?.message || String(error);
+  if (error?.code !== CREDENTIAL_SANITIZATION_ERROR_CODE) return message;
+  const details = [];
+  if (error.stage) details.push(`stage: ${error.stage}`);
+  if (Array.isArray(error.findings) && error.findings.length > 0) details.push(`findings: ${error.findings.map(f => `${f.ruleId}×${f.count}`).join(', ')}`);
+  if (Number.isFinite(error.blockIndex)) details.push(`log block ${error.blockIndex}${Number.isFinite(error.blockStartChar) ? ` starting at character ${error.blockStartChar}` : ''}${Number.isFinite(error.blockChars) ? `, ${error.blockChars} characters` : ''}`);
+  const causeMessage = error.cause?.message;
+  if (causeMessage && !details.length) details.push(causeMessage);
+  return details.length > 0 ? `${message} (${details.join('; ')})` : message;
+};
 
 /**
  * Exact publication-boundary sanitizer.
@@ -904,6 +963,9 @@ export class CredentialSanitizationError extends Error {
  * them. Any scanner failure or residual finding blocks publication.
  */
 export const sanitizeForPublication = async (input, options = {}) => {
+  // Issue #2397: remember which step failed so the error can say so.
+  let stage = 'primary';
+  let findings = [];
   try {
     const scanner =
       options.scanner ||
@@ -922,16 +984,22 @@ export const sanitizeForPublication = async (input, options = {}) => {
         return sanitized;
       });
     const sanitized = String(await scanner(String(input ?? '')));
+    stage = 'residual-scan';
     const residualScanner =
       options.residualScanner ||
       (async value => {
         const residuals = findCredentialResiduals(value);
+        stage = 'secretlint';
         const secretlintResiduals = await detectSecretsWithSecretlint(value, { required: true });
+        stage = 'known-token-scan';
         const knownTokenResiduals = await containsKnownToken(value);
-        return [...residuals, ...secretlintResiduals, ...knownTokenResiduals];
+        stage = 'residual-scan';
+        return [...residuals, ...secretlintResiduals, ...knownTokenResiduals.map(hit => ({ ...hit, ruleId: `known-token:${hit.name || 'unnamed'}${hit.encoding && hit.encoding !== 'plaintext' ? `:${hit.encoding}` : ''}` }))];
       });
     const residuals = await residualScanner(sanitized);
     if (!Array.isArray(residuals) || residuals.length > 0) {
+      stage = 'residual';
+      findings = summarizeResidualFindings(residuals);
       throw new Error('Residual credential material detected.');
     }
     return sanitized;
@@ -939,8 +1007,10 @@ export const sanitizeForPublication = async (input, options = {}) => {
     reportError(new Error('Credential publication boundary blocked unsafe output.'), {
       context: 'credential_publication_boundary',
       level: 'warning',
+      stage,
+      findings: findings.map(f => f.ruleId).join(','),
     });
-    throw new CredentialSanitizationError({ cause });
+    throw new CredentialSanitizationError({ cause, stage, findings });
   }
 };
 
@@ -1100,7 +1170,8 @@ export const containsKnownToken = async (text, tokens) => {
   const list = tokens || (await getAllKnownLocalTokens());
   const hits = [];
   for (const t of list) {
-    if (!t.value) continue;
+    // Issue #2397: verify only what the maskers mask, or a short value blocks forever.
+    if (!isMaskableTokenValue(t.value)) continue;
     if (text.includes(t.value)) {
       hits.push({ name: t.name, source: t.source, encoding: 'plaintext' });
       continue;
@@ -1138,7 +1209,7 @@ export const sanitizeCommentBody = async (body, options = {}) => {
   if (!options.skipActiveTokensOutputSanitization) {
     const knownTokens = options.knownTokens || (await getAllKnownLocalTokens());
     for (const { value } of knownTokens) {
-      if (value && value.length >= 12 && sanitized.includes(value)) {
+      if (isMaskableTokenValue(value) && sanitized.includes(value)) {
         if (excludedSet.has(value)) {
           sanitizationStats.excluded++;
           continue;

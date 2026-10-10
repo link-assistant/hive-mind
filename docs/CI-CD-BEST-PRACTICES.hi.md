@@ -25,6 +25,7 @@ Hive Mind का AI issue solver प्रत्येक pull request में
 | Go                    | [go-ai-driven-development-pipeline-template](https://github.com/link-foundation/go-ai-driven-development-pipeline-template)         |
 | C#                    | [csharp-ai-driven-development-pipeline-template](https://github.com/link-foundation/csharp-ai-driven-development-pipeline-template) |
 | Java                  | [java-ai-driven-development-pipeline-template](https://github.com/link-foundation/java-ai-driven-development-pipeline-template)     |
+| C/C++                 | [cpp-ai-driven-development-pipeline-template](https://github.com/link-foundation/cpp-ai-driven-development-pipeline-template)       |
 | PHP                   | [php-ai-driven-development-pipeline-template](https://github.com/link-foundation/php-ai-driven-development-pipeline-template)       |
 
 > **सुझाव:** आपको template हाथ से चुनने की आवश्यकता नहीं है। `fix <repository-url> --ci-cd` चलाएं ([Automatic CI/CD Remediation](#automatic-cicd-remediation) देखें) और Hive Mind repository की भाषाओं का पता लगाकर आपके लिए मेल खाते templates का चयन कर लेता है।
@@ -140,6 +141,7 @@ Consistent formatting style debates को समाप्त करती ह�
 | Go                    | gofmt                         |
 | C#                    | dotnet format                 |
 | Java                  | Spotless (Google Java Format) |
+| C/C++                 | clang-format                  |
 | PHP                   | PHP CS Fixer                  |
 
 सभी templates में pre-commit hooks शामिल हैं जो प्रत्येक commit से पहले automatically formatters चलाते हैं।
@@ -148,15 +150,16 @@ Consistent formatting style debates को समाप्त करती ह�
 
 Code review तक पहुँचने से पहले bugs पकड़ें और patterns लागू करें:
 
-| भाषा                  | Tools                               |
-| --------------------- | ----------------------------------- |
-| JavaScript/TypeScript | ESLint with strict rules            |
-| Rust                  | Clippy (pedantic + nursery)         |
-| Python                | Ruff + mypy                         |
-| Go                    | go vet + staticcheck                |
-| C#                    | .NET analyzers (warnings as errors) |
-| Java                  | SpotBugs (maximum effort)           |
-| PHP                   | PHPStan (max level)                 |
+| भाषा                  | Tools                                      |
+| --------------------- | ------------------------------------------ |
+| JavaScript/TypeScript | ESLint with strict rules                   |
+| Rust                  | Clippy (pedantic + nursery)                |
+| Python                | Ruff + mypy                                |
+| Go                    | go vet + staticcheck                       |
+| C#                    | .NET analyzers (warnings as errors)        |
+| Java                  | SpotBugs (maximum effort)                  |
+| C/C++                 | clang-tidy + cppcheck (warnings as errors) |
+| PHP                   | PHPStan (max level)                        |
 
 ### 5. Fast-Fail Job Ordering
 
@@ -199,6 +202,7 @@ test-suites:
 | Rust                  | changelog.d + custom scripts |
 | Python                | Scriv                        |
 | PHP                   | changelog.d + custom scripts |
+| C/C++                 | changelog.d + custom scripts |
 | Go, C#, Java          | Custom changeset workflows   |
 
 **Docs-only PRs को changeset requirements से exempt करें:**
@@ -255,8 +259,10 @@ Automated release workflows सुनिश्चित करते हैं:
 - **OIDC trusted publishing** - CI में कोई API tokens आवश्यक नहीं (npm, PyPI, crates.io)
 - **केवल validated releases** - Publishing से पहले सभी checks pass होने चाहिए
 - **Dual trigger modes** - Automatic (on merge) और manual (workflow dispatch) दोनों
-- **Rule से रुका हुआ push विफल release नहीं है** - जब repository ruleset यह माँगता है कि बदलाव pull request से आएँ, तब release job अस्वीकृति पर मरने के बजाय अपने version bump के लिए एक PR खोलता है। यह रास्ता और हारी हुई दौड़ का rebase-and-retry रास्ता, एक ही शब्द छापने वाली दो अस्वीकृतियों के दो अलग recovery हैं (देखें सिद्धांत 10)
-- **लंबे समय तक रहने वाले token के बिना release fallback को auditable रखें** - `GITHUB_TOKEN` से खोला गया pull request human approval के बिना child workflows नहीं चला सकता, और `workflow_dispatch` checks pull-request required check को पूरा नहीं करते। Release job को सभी pre-release validation jobs पर निर्भर बनाएँ, और generated commit केवल release metadata बदलता हो यह जाँचकर fail closed करें (जिससे उसका source tree validated parent source tree ही रहे)। केवल उस job को `checks: write` दें, और GitHub Actions App token से exact version commit पर सफल validation result publish करें। Merge से पहले उस required check की प्रतीक्षा करें। Ruleset अपरिवर्तित रहता है, bot सीधे push नहीं कर सकता और सामान्य PRs पूरा matrix चलाते हैं।
+- **Version bump को सीधे default branch पर commit करें** - Release job अपना generated version commit (package metadata, lockfile, changelog, consumed changesets) `github-actions[bot]` के रूप में सीधे `main` पर push करता है, और यदि वह commit release metadata के अलावा कुछ भी बदलता है तो fail closed करता है। इसे auto-merged release pull request के रास्ते न भेजें: तब हर release एक और pull request और एक और branch जोड़ता है (no-deletion ruleset उसे हमेशा के लिए रखता है), और विफल run एक खुला release pull request छोड़ जाता है जिसे किसी को बंद करना पड़ता है
+- **Rule से रुका हुआ push rule में ठीक होता है, workflow में नहीं** - जब कोई repository rule version push को अस्वीकार करे, तो release को rule के output के साथ विफल करें और rule को ठीक करें (उसे हटाएँ, या `github-actions` को bypass actor के रूप में जोड़ें)। हारी हुई दौड़ का rebase-and-retry रास्ता उसी शब्द को छापने वाली अस्वीकृति का एक अलग recovery है (देखें सिद्धांत 10)
+- **Registry का उतना इंतज़ार करें जितना वास्तव में लगता है, और जांचने के लिए कभी दोबारा publish न करें** - `npm publish` उस समय से कई मिनट पहले सफल हो सकता है जब `npm view` version को देख पाता है। सितंबर 2026 में Hive Mind की देरी 2–9 s से बढ़कर 99–377 s हो गई, और 2.35.1 में 874 s लगे (issue #2923)। 330 s की window ने एक सफल release को लाल run बना दिया, जिसमें न GitHub release बनी, न Docker image, न Helm chart। Window को मापे गए data से बड़े margin के साथ तय करें (`experiments/npm-publish-lag-2923.mjs` Sigstore attestations से देरी मापता है), log करें कि हर इंतज़ार कितना चला, और `E409 Cannot publish over previously staged version` को failure नहीं बल्कि "पहले से publish हो चुका" मानें
+- **"क्या release करने को कुछ है?" का फ़ैसला हर artifact से करें, केवल registry से नहीं** - अगर job publish के बाद रुक जाता है, तो अगला push npm पर version देखता है और release को हमेशा के लिए छोड़ देता है। GitHub release भी जांचें, और उसके न होने पर बिना version bump के release दोबारा चलाएं; विफल lookup का अर्थ "अज्ञात" है, जो कभी release नहीं करता
 
 **PRs में manual version changes prohibit करें** — सभी version bumps CI release workflow द्वारा प्रबंधित होने चाहिए:
 
@@ -312,14 +318,14 @@ Job conditions में `always()` के बजाय `!cancelled()` उपय
 
 **इसे checkout में `ref: main` से मत "ठीक" करें।** इससे अस्वीकृति तो चुप हो जाती है, पर आप उस tree को build, test और publish करते हैं जिसे CI ने validate नहीं किया, और log में इसका कोई निशान नहीं होता। अस्वीकृति ईमानदार परिणाम है; जो कमी है वह recovery की है।
 
-**हर write job को ऐसा push दें जो पहले अस्वीकृति को वर्गीकृत करे, फिर rebase करके दोबारा कोशिश करे।** Repository ruleset की अस्वीकृति (GH006, GH013 — "Changes must be made through a pull request") भी `[rejected]` छापती है, और कितने भी rebase किसी rule को संतुष्ट नहीं कर सकते; वहाँ pull request वाला रास्ता चाहिए (देखें सिद्धांत 9)। दोबारा कोशिश करना केवल queue slot खर्च करता है और गलत कारण बताता है।
+**हर write job को ऐसा push दें जो पहले अस्वीकृति को वर्गीकृत करे, फिर rebase करके दोबारा कोशिश करे।** Repository ruleset की अस्वीकृति (GH006, GH013 — "Changes must be made through a pull request") भी `[rejected]` छापती है, और कितने भी rebase किसी rule को संतुष्ट नहीं कर सकते; इसके बजाय rule के output के साथ विफल हों, ताकि rule ठीक किया जाए (देखें सिद्धांत 9)। दोबारा कोशिश करना केवल queue slot खर्च करता है और गलत कारण बताता है।
 
 ```js
 for (let attempt = 1; attempt <= maxAttempts; attempt++) {
   const result = await run('git', ['push', remote, branch]);
   if (result.code === 0) return { pushed: true, attempt };
-  // Rule को rebase से संतुष्ट नहीं किया जा सकता: वही commit PR के रास्ते land करें।
-  if (isBlockedByRepositoryRule(result)) return landViaPullRequest({ branch, ...ctx });
+  // Rule को rebase से संतुष्ट नहीं किया जा सकता: rule के output के साथ विफल हों।
+  if (isBlockedByRepositoryRule(result)) throw repositoryRuleError({ branch, version, cause: result });
   // Auth, network, गायब remote: rebase असली error को छिपा देता।
   if (!isNonFastForward(result) || attempt === maxAttempts) throw new CommandFailedError('git', ['push', remote, branch], result);
   await run('git', ['pull', '--rebase', remote, branch]);
@@ -453,6 +459,27 @@ release:
 - **प्रकाशित परिणाम को अनाम रूप से, और अलग से सत्यापित करें।** Release को कभी push पर मत टिकाइए (एक विफल mirror एक अच्छे release को मिटाए नहीं), लेकिन बाद में बिना किसी credential के अवश्य जाँचिए कि जो आपने प्रकाशित किया वह pull हो सकता है या नहीं। Authenticate करने वाली जाँच publisher का दृष्टिकोण मापती है; पाठक को न वह login मिलता है और न ही संदेह का लाभ।
 - **अनुमान नहीं, `unknown` रिपोर्ट करें।** Timeout देने वाली या HTTP 429 लौटाने वाली registry ने यह नहीं कहा कि credential टूटा हुआ है, और जिस run में कुछ भी सत्यापित न हो सका वह pass नहीं है। बताइए कि इनमें से क्या हुआ: "0 सत्यापित, 3 unknown" पर कार्रवाई हो सकती है, "कोई विफलता नहीं" पर नहीं।
 
+### 17. टूटे हुए Pipeline और बदली हुई दुनिया में फ़र्क करें
+
+**जो job ऐसे कारण से fail होता है जिसे कोई commit ठीक नहीं कर सकता, वह false negative है, और वह सभी को लाल रंग को अनदेखा करना सिखा देता है।** Issue #2625 में `main` पर एक साथ चार ऐसे job मिले: एक dependency gate जो हर push पर fail होता था क्योंकि upstream का नया major version आ गया था; एक cleanup जो हर दिन fail होता था क्योंकि ruleset branches को delete करने से रोकता है; एक dispatch जिसे GitHub ने शुरू होने से पहले ही अस्वीकार कर दिया; और एक log upload जिसने एक इनकार को तीन बार retry किया। हर एक ने अपने पास की असली failures को छिपा दिया।
+
+```yaml
+on:
+  workflow_dispatch:
+    inputs:
+      bump_type:
+        required: true
+        default: patch # इसके बिना dispatch API HTTP 422 लौटाता है
+```
+
+- **बाहरी state पर pull request में रोकें; push पर केवल warning दें।** "एक नया version publish हुआ है" दुनिया के बारे में तथ्य है, commit के बारे में नहीं। Push को fail करना ऐसे बदलाव के लिए lint, tests और release को छोड़ देता है जिसने कुछ नहीं तोड़ा; इस पर कार्रवाई pull request में की जा सकती है।
+- **Policy का इनकार एक निर्णय है, अस्थायी error नहीं।** `Resource not accessible by integration` (workflow का `GITHUB_TOKEN` gists नहीं बना सकता) और ruleset का `Repository rule violations found` हर प्रयास पर एक जैसा जवाब देते हैं। `HTTP 429` और `5xx` को retry करें; इनकार को एक बार report करें, बताएं कि क्या उसे अनुमति देगा, और आगे बढ़ें।
+- **API से dispatch होने वाले workflow के हर input को default चाहिए।** `gh workflow run` form नहीं भर सकता: `default:` के बिना `required: true` input पर GitHub `HTTP 422: Required input '<name>' not provided` लौटाता है, और run बनता ही नहीं। Test से पुष्टि करें कि हर dispatch होने वाला workflow ठीक वही inputs स्वीकार करता है जो caller भेजता है।
+- **जिस पर आप निर्भर हैं उसे बनाएं, या उसकी अनुपस्थिति सहें।** जिस repository में label कभी था ही नहीं, वहां `gh pr edit --add-label` `'<label>' not found` के साथ fail होता है। पहली बार उपयोग पर उसे बनाएं (`gh label create`), बजाय उस run को fail करने के जो अपना काम कर चुका है।
+- **Logs वहां लिखें जहां upload step उन्हें खोजता है।** जो artifact step कुछ नहीं पाता वह `No files were found with the provided path` की warning देकर pass हो जाता है; जल्दी fail हुआ run — ठीक वही जिसके लिए artifact है — कोई सबूत नहीं छोड़ता। गायब log को tests में ज़ोर से fail होने दें, production में चुपचाप नहीं।
+- **बताएं कि job क्यों skip हुआ।** Upstream के विफल होने पर skip होने वाला downstream workflow सही है, लेकिन चुपचाप कुछ न करने वाला हरा run "tested" जैसा पढ़ा जाता है। कारण को `::notice::` annotation के रूप में print करें ताकि वह run summary में दिखे (issue #2923)।
+- **एक परिणाम, एक संदेश।** जो log एक ही error के लिए पहले "recovered and completed successfully" और फिर "❌ Agent reported error" कहता है, वह पढ़ने वाले को गलत दिशा में भेजता है। पहले अंतिम निर्णय निकालें, फिर केवल वही log करें जो सच है।
+
 ## Quality Enforcement रणनीति
 
 Templates एक defense-in-depth दृष्टिकोण implement करते हैं:
@@ -508,7 +535,7 @@ fix https://github.com/owner/repo --ci-cd
 
 ### Language → Template Mapping
 
-command पता लगाई गई भाषाओं को templates से इस प्रकार map करता है (JavaScript और TypeScript एक ही template साझा करते हैं):
+command पता लगाई गई भाषाओं को templates से इस प्रकार map करता है (JavaScript और TypeScript एक ही template साझा करते हैं, और C, C++ तथा CMake भी एक ही template साझा करते हैं):
 
 | Detected Language(s)  | Template                                                         |
 | --------------------- | ---------------------------------------------------------------- |
@@ -518,6 +545,7 @@ command पता लगाई गई भाषाओं को templates से
 | Go                    | `link-foundation/go-ai-driven-development-pipeline-template`     |
 | C#                    | `link-foundation/csharp-ai-driven-development-pipeline-template` |
 | Java                  | `link-foundation/java-ai-driven-development-pipeline-template`   |
+| C/C++, CMake          | `link-foundation/cpp-ai-driven-development-pipeline-template`    |
 | PHP                   | `link-foundation/php-ai-driven-development-pipeline-template`    |
 
 जिन भाषाओं के लिए कोई समर्पित template नहीं है (उदाहरण के लिए Shell या Dockerfile) उन्हें जानकारी के लिए issue में सूचीबद्ध किया जाता है, और निकटतम मेल खाते template की अनुशंसा की जाती है।

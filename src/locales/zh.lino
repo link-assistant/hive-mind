@@ -350,6 +350,7 @@ zh
       last
         rate
           limit "最近一次 429：{{method}}"
+        refusal "最近一次 429：{{method}}，{{ago}} 前"
       observed
         limit "实测上限"
       peak "峰值 {{peak}}"
@@ -357,7 +358,9 @@ zh
         limit
           responses "启动后的 429 响应：{{count}}"
       requests "{{used}}/{{limit}} 个请求"
+      restraint "机器人主动限流：延后 {{delayed}}，跳过 {{held}}，重试 {{retried}}"
       retry
+        after "retry_after {{duration}}"
         in "{{duration}} 后重试"
       scope
         broadcast "发送到所有聊天，1 秒"
@@ -605,7 +608,7 @@ zh
         label "*/merge* - 合并队列（实验性）"
         usage "用法：`/merge <github-repo-url>`"
         description "按顺序合并所有带有 'ready' 标签的 PR。"
-      subscribe "*/subscribe* / */unsubscribe* - 🔔 私聊转发 /solve 完成通知（实验性，#1688）"
+      subscribe "*/subscribe* / */unsubscribe* - 🔔 私聊转发 /solve 完成通知（实验性）"
       help "*/help* - 显示此帮助消息"
       stop
         start "*/stop* / */start* - 停止或恢复接收新任务（仅所有者）"
@@ -631,7 +634,7 @@ zh
         option "• `--verbose` 或 `-v` - 详细输出 | `--attach-logs` - 将日志附加到 PR"
       show
         limits
-          option "• `--show-limits` - 实验性：在开始、结束和变化量中嵌入 Claude/Codex 使用情况（#594）"
+          option "• `--show-limits` - 实验性：在开始、结束和变化量中嵌入 Claude/Codex 使用情况"
       tip "💡 *提示：* 还有更多选项。完整列表见文档。"
       restricted
         mode "🔒 *受限模式：* 已授权：{{authorized}}"
@@ -655,7 +658,7 @@ zh
       label "原因"
     did
       you
-        mean "💡 你是指：`{{suggestion}}`"
+        mean "💡 你是指 `{{suggestion}}`？"
     missing
       github
         url "缺少 GitHub URL。用法：/{{commandName}} <github-url> [options]"
@@ -674,6 +677,8 @@ zh
         starting "🔄 正在启动..."
         executing "⏳ 正在执行..."
         finished "工作会话已成功完成"
+        hive_no_work "未处理任何问题；请查看日志中的跳过原因或阻塞问题。要继续处理已有 PR 的问题，请使用 `--no-skip-issues-with-prs --auto-continue`"
+        hive_incomplete "Hive 会话结束时仍有问题等待处理；请查看日志中的阻塞问题"
         failed "工作会话失败（退出代码：{{exitCode}}）"
         merged_but_failed "拉取请求已合并，但工作会话退出，代码为：{{exitCode}}"
         merged_success "请求的拉取请求已成功合并。"
@@ -681,10 +686,15 @@ zh
         killed "工作会话已终止：{{reason}}{{exitSuffix}}"
         stopped "工作会话已由用户停止{{requestedBy}}{{exitSuffix}}"
         not_launched "工作会话未启动，因此没有日志，也不会出现在 `--list` 中。"
+        recovering "工作会话仍在进行：正在从退出代码 {{exitCode}} 恢复"
+        recovered "工作会话在自动恢复后成功完成"
+        recoveries "自动恢复次数：{{count}}"
     duration
       label "耗时"
     session
       label "会话"
+      recovery
+        label "恢复会话"
       recovered
         oom "已从内存不足中恢复"
         kill "已从强制终止中恢复"
@@ -692,6 +702,8 @@ zh
         resumed "已启动新的工作会话以从终止中恢复。"
       kill
         cause "原因"
+        event "事件"
+        event_diagnostics "容器 OOM 事件诊断（不是此次停止的原因）"
         diagnostics "终止诊断"
         resumed "🔄 已启动新的工作会话以从此次终止中恢复：{{sessionId}}"
         resumed_attempt "🔄 已启动新的工作会话以从此次终止中恢复（第 {{attempt}} 次尝试）：{{sessionId}}"
@@ -699,6 +711,7 @@ zh
       label "隔离"
     execution
       label "执行"
+      earlier "更早的日志"
     error
       executing
         command "❌ 执行 {{commandName}} 命令时出错"

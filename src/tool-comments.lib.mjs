@@ -107,6 +107,9 @@ export const LIVE_PROGRESS_SECTION_END_MARKER = '<!-- LIVE-PROGRESS-END -->';
 // claude.lib.mjs — "session force-killed due to stream timeout" notifications
 export const SESSION_FORCE_KILLED_MARKER = 'Session Force-Killed';
 
+// Recovery status is bookkeeping, including after a bot restart.
+export const RECOVERY_LIFECYCLE_MARKER = '<!-- hive-mind:recovery-lifecycle -->';
+
 // solve.repo-setup.lib.mjs / solve.repository.lib.mjs — issue comments posted
 // when the target repository is empty / uninitialized so solving can't start.
 export const REPOSITORY_INITIALIZATION_REQUIRED_MARKER = 'Repository Initialization Required';
@@ -122,13 +125,16 @@ export const NOW_WORKING_SESSION_IS_ENDED_MARKER = 'Now working session is ended
 export const SOLUTION_DRAFT_FAILED_MARKER = 'Solution Draft Failed';
 export const SOLUTION_DRAFT_FINISHED_WITH_ERRORS_MARKER = 'Solution Draft Finished with Errors';
 export const USAGE_LIMIT_REACHED_MARKER = 'Usage Limit Reached';
+// github.lib.mjs — Issue #2301: every attempt to upload the complete log failed.
+// The comment says so (and why) instead of the pull request getting no comment at all.
+export const LOG_UPLOAD_FAILED_MARKER = 'Log Upload Failed';
 
 /**
  * Every marker that identifies a tool-posted comment. Derived from the
  * named constants above so that adding a new marker only requires adding
  * the constant and appending it here.
  */
-export const TOOL_GENERATED_COMMENT_MARKERS = [AI_WORK_SESSION_STARTED_MARKER, AI_WORK_SESSION_COMPLETED_MARKER, AI_WORK_SESSION_RESUMED_MARKER, AUTO_RESUME_ON_LIMIT_RESET_MARKER, AUTO_RESTART_ON_LIMIT_RESET_MARKER, SOLUTION_DRAFT_LOG_MARKER, AUTO_RESTART_MARKER, AUTO_RESTART_UNTIL_MERGEABLE_LOG_MARKER, READY_TO_MERGE_MARKER, READY_FOR_REVIEW_MARKER, AUTO_MERGED_MARKER, BILLING_LIMIT_MARKER, CANCELLED_CI_REVIEW_MARKER, AUTOMATION_STOPPED_MARKER, AUTO_MERGE_BLOCKED_MARKER, MAINTAINER_ACCESS_REQUEST_MARKER, LIVE_PROGRESS_SECTION_START_MARKER, SESSION_FORCE_KILLED_MARKER, REPOSITORY_INITIALIZATION_REQUIRED_MARKER, INTERACTIVE_SESSION_STARTED_MARKER, INTERACTIVE_SESSION_ENDED_MARKER, NOW_WORKING_SESSION_IS_ENDED_MARKER, SOLUTION_DRAFT_FAILED_MARKER, SOLUTION_DRAFT_FINISHED_WITH_ERRORS_MARKER, USAGE_LIMIT_REACHED_MARKER, WORKING_SESSION_SUMMARY_AUTOMATION_MARKER, NO_CHANGES_PRODUCED_MARKER];
+export const TOOL_GENERATED_COMMENT_MARKERS = [RECOVERY_LIFECYCLE_MARKER, AI_WORK_SESSION_STARTED_MARKER, AI_WORK_SESSION_COMPLETED_MARKER, AI_WORK_SESSION_RESUMED_MARKER, AUTO_RESUME_ON_LIMIT_RESET_MARKER, AUTO_RESTART_ON_LIMIT_RESET_MARKER, SOLUTION_DRAFT_LOG_MARKER, AUTO_RESTART_MARKER, AUTO_RESTART_UNTIL_MERGEABLE_LOG_MARKER, READY_TO_MERGE_MARKER, READY_FOR_REVIEW_MARKER, AUTO_MERGED_MARKER, BILLING_LIMIT_MARKER, CANCELLED_CI_REVIEW_MARKER, AUTOMATION_STOPPED_MARKER, AUTO_MERGE_BLOCKED_MARKER, MAINTAINER_ACCESS_REQUEST_MARKER, LIVE_PROGRESS_SECTION_START_MARKER, SESSION_FORCE_KILLED_MARKER, REPOSITORY_INITIALIZATION_REQUIRED_MARKER, INTERACTIVE_SESSION_STARTED_MARKER, INTERACTIVE_SESSION_ENDED_MARKER, NOW_WORKING_SESSION_IS_ENDED_MARKER, SOLUTION_DRAFT_FAILED_MARKER, SOLUTION_DRAFT_FINISHED_WITH_ERRORS_MARKER, USAGE_LIMIT_REACHED_MARKER, LOG_UPLOAD_FAILED_MARKER, WORKING_SESSION_SUMMARY_AUTOMATION_MARKER, NO_CHANGES_PRODUCED_MARKER];
 
 /**
  * Markers that indicate the end of a working session. Used by
@@ -207,6 +213,100 @@ export const getTrackedToolCommentIds = () => new Set(trackedToolCommentIds);
  */
 export const resetTrackedToolCommentIds = () => {
   trackedToolCommentIds.clear();
+  latestToolCommentByTarget.clear();
+};
+
+/**
+ * Issue #2397: the latest tool-posted comment on each pull request or issue.
+ *
+ * On konard/vietnam-accomodation-search#76 one Codex failure produced three
+ * "Solution Draft Failed" comments within five seconds: the failure path posted
+ * one, then the exit-handler notifier, unaware of it, posted a second through
+ * attachLogToGitHub and a third as its own fallback. Every comment goes through
+ * postTrackedComment, so recording here lets any later safety net ask whether
+ * the target already says the run failed.
+ */
+const latestToolCommentByTarget = new Map();
+
+const toolCommentTargetKey = ({ owner, repo, targetNumber }) => `${String(owner || '').toLowerCase()}/${String(repo || '').toLowerCase()}#${targetNumber}`;
+
+/**
+ * Whether a comment body already tells the reader why the run failed:
+ * "🚨 Solution Draft Failed", "🛑 Automation stopped: ..." or
+ * "❌ Auto-restart N/N - limit reached". Each of these was followed by a
+ * redundant "Solution Draft Failed ... Reason: <same reason>" comment from the
+ * exit-handler notifier on konard/test-hello-world-019fb330-fa49-…#2.
+ * @param {string} body
+ * @returns {boolean}
+ */
+export const isFailureReportCommentBody = body => {
+  const text = String(body || '');
+  return text.includes(`🚨 ${SOLUTION_DRAFT_FAILED_MARKER}`) || isAutomationStopCommentBody(text);
+};
+
+/**
+ * Whether a comment body ends the automation: "🛑 Automation stopped: ..." or
+ * "❌ Auto-restart N/N - limit reached". Nothing restarts after it, so it
+ * stays the run's failure report even when e.g. "✅ Ready to merge" follows
+ * (konard/test-hello-world-019fb330-fa49-…#2, 2026-09-16).
+ * @param {string} body
+ * @returns {boolean}
+ */
+const isAutomationStopCommentBody = body => {
+  const text = String(body || '');
+  return text.includes(`## 🛑 ${AUTOMATION_STOPPED_MARKER}`) || /## ❌ Auto-restart \S+ - limit reached/.test(text);
+};
+
+/**
+ * Record a comment posted on a target. Called by postTrackedComment.
+ * @param {Object} params
+ * @param {string} params.owner
+ * @param {string} params.repo
+ * @param {number|string} params.targetNumber
+ * @param {string} params.body
+ * @param {string|null} [params.commentId]
+ */
+export const recordToolCommentPosted = ({ owner, repo, targetNumber, body, commentId = null }) => {
+  if (!owner || !repo || targetNumber === null || targetNumber === undefined) return;
+  const key = toolCommentTargetKey({ owner, repo, targetNumber });
+  const automationStopped = latestToolCommentByTarget.get(key)?.automationStopped === true || isAutomationStopCommentBody(body);
+  latestToolCommentByTarget.set(key, { commentId, isFailureReport: isFailureReportCommentBody(body), automationStopped });
+};
+
+/**
+ * Whether the failure was already reported on the target: the latest tool
+ * comment is a failure report, or the automation-stop comment was posted.
+ * @param {Object} params
+ * @param {string} params.owner
+ * @param {string} params.repo
+ * @param {number|string} params.targetNumber
+ * @returns {boolean}
+ */
+export const isFailureAlreadyReportedOnTarget = ({ owner, repo, targetNumber }) => {
+  const latest = latestToolCommentByTarget.get(toolCommentTargetKey({ owner, repo, targetNumber }));
+  return latest?.isFailureReport === true || latest?.automationStopped === true;
+};
+
+/** gh's message when GitHub's response body was cut off mid-JSON. */
+const isTruncatedGhResponse = text => /unexpected end of JSON input/i.test(String(text || ''));
+
+/**
+ * Find a comment with exactly `body` created since `since` (ms).
+ * @returns {Promise<string|null|undefined>} its id, null when absent, undefined when unknown
+ */
+const findPostedComment = async ({ $, apiPath, body, since }) => {
+  // One minute of slack for clock skew between this host and GitHub.
+  const sinceIso = new Date(since - 60_000).toISOString();
+  try {
+    const listed = await $({ mirror: false })`gh api ${`${apiPath}?since=${sinceIso}&per_page=100`}`;
+    if (listed.code !== 0) return undefined;
+    const comments = JSON.parse(listed.stdout?.toString() || '');
+    if (!Array.isArray(comments)) return undefined;
+    const match = comments.find(comment => String(comment?.body ?? '').trim() === body.trim());
+    return match ? String(match.id) : null;
+  } catch {
+    return undefined;
+  }
 };
 
 /**
@@ -232,7 +332,7 @@ export const resetTrackedToolCommentIds = () => {
  * @param {string} options.body
  * @returns {Promise<{ok: boolean, commentId: string|null, stderr?: string}>}
  */
-export const postTrackedComment = async ({ $, owner, repo, targetNumber, body, sanitizationOptions: _sanitizationOptions }) => {
+export const postTrackedComment = async ({ $, owner, repo, targetNumber, body, commentId: existingCommentId = null, sanitizationOptions: _sanitizationOptions }) => {
   if (!$) {
     throw new Error('postTrackedComment requires a command-stream $ helper');
   }
@@ -241,7 +341,9 @@ export const postTrackedComment = async ({ $, owner, repo, targetNumber, body, s
   // bodies and to get JSON back so we can extract the comment ID.
   // We use the /issues/<n>/comments endpoint because it works identically
   // for both PRs and issues (a PR is an issue at this endpoint).
-  const apiPath = `repos/${owner}/${repo}/issues/${targetNumber}/comments`;
+  const updating = /^\d+$/.test(String(existingCommentId || ''));
+  const apiPath = updating ? `repos/${owner}/${repo}/issues/comments/${existingCommentId}` : `repos/${owner}/${repo}/issues/${targetNumber}/comments`;
+  const method = updating ? 'PATCH' : 'POST';
   const { sanitizeForPublication } = await import('./token-sanitization.lib.mjs');
   // This is the exact outbound mutation boundary. Dangerous local-output
   // bypasses and user-content carve-outs must not weaken GitHub publication.
@@ -253,19 +355,35 @@ export const postTrackedComment = async ({ $, owner, repo, targetNumber, body, s
   // and caused `gh api --input -` to POST an empty body. GitHub's edge
   // replied with HTTP 400 "Whoa there!" *before* the API layer ran. See
   // issue #1631.
+  const startedAt = Date.now();
   let result;
   try {
-    result = await $({ stdin: payload })`gh api ${apiPath} -X POST --input -`;
+    result = await $({ stdin: payload })`gh api ${apiPath} -X ${method} --input -`;
   } catch (err) {
     return { ok: false, commentId: null, stderr: err && err.message ? err.message : String(err) };
   }
 
   if (result.code !== 0) {
-    const stderr = result.stderr ? result.stderr.toString() : '';
-    return { ok: false, commentId: null, stderr };
+    const stderr = result.stderr?.toString() ? result.stderr.toString() : '';
+    if (!isTruncatedGhResponse(`${stderr}\n${result.stdout?.toString() || ''}`)) return { ok: false, commentId: null, stderr };
+    // Issue #2571: gh printed "unexpected end of JSON input" — GitHub's reply was
+    // cut off, so the comment may or may not exist. Look before posting again,
+    // so a lost reply neither drops the log link nor duplicates it.
+    const existing = await findPostedComment({ $, apiPath, body: sanitizedBody, since: startedAt });
+    if (existing === undefined) return { ok: false, commentId: null, stderr };
+    if (existing === null) {
+      try {
+        result = await $({ stdin: payload })`gh api ${apiPath} -X POST --input -`;
+      } catch (err) {
+        return { ok: false, commentId: null, stderr: err && err.message ? err.message : String(err) };
+      }
+      if (result.code !== 0) return { ok: false, commentId: null, stderr: result.stderr?.toString() || stderr };
+    } else {
+      result = { code: 0, stdout: JSON.stringify({ id: existing }) };
+    }
   }
 
-  const stdout = result.stdout ? result.stdout.toString() : '';
+  const stdout = result.stdout?.toString() ? result.stdout.toString() : '';
   let commentId = null;
   try {
     const parsed = JSON.parse(stdout);
@@ -280,6 +398,7 @@ export const postTrackedComment = async ({ $, owner, repo, targetNumber, body, s
   }
 
   trackToolCommentId(commentId);
+  recordToolCommentPosted({ owner, repo, targetNumber, body: sanitizedBody, commentId });
 
   return { ok: true, commentId };
 };

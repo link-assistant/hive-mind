@@ -102,7 +102,10 @@ export const HOSTED_MODEL_MARKERS = Object.freeze([
 ]);
 
 /** Fields agentic CLIs use to name the model that actually answered. */
-const MODEL_IDENTITY_FIELDS = ['providerID', 'provider_id', 'providerId', 'provider', 'modelID', 'model_id', 'modelId', 'model'];
+const MODEL_IDENTITY_FIELDS = ['providerID', 'provider_id', 'providerId', 'provider', 'modelID', 'model_id', 'modelId', 'model', 'respondedModelID'];
+
+/** Parts that describe one generation step of an assistant message. */
+const GENERATION_PART_TYPES = new Set(['step-start', 'step-finish', 'step_start', 'step_finish']);
 
 /** @returns {string|null} the hosted model named by `value`, if any. */
 export const detectHostedModel = value => {
@@ -113,15 +116,40 @@ export const detectHostedModel = value => {
   return marker ? marker.id : null;
 };
 
-/** Model/provider identifiers carried by one Agent CLI stream record. */
+/**
+ * The parts of one stream record that describe a generation: a `step_start` /
+ * `step_finish` part, or an assistant `message` / `info` record, each carrying
+ * a message id.
+ *
+ * Issue #2317: identities used to be read from any record, so the Agent CLI's
+ * provider registry (`{"service":"provider","providerID":"opencode","message":
+ * "found"}`, logged while it resolves its compaction cascade) disabled the
+ * attribution of a session that was 100% `formalai/formal-ai`. A catalog lookup
+ * or a log line names no model that answered; only a generation does.
+ */
+const generationContainers = record => {
+  if (record.service === 'provider') return [];
+  const containers = [];
+  const part = record.part && typeof record.part === 'object' ? record.part : null;
+  if (part && (GENERATION_PART_TYPES.has(part.type) || GENERATION_PART_TYPES.has(record.type)) && part.messageID) containers.push(part);
+  for (const candidate of [record.message, record.info, record.properties?.info]) {
+    if (candidate && typeof candidate === 'object' && candidate.role === 'assistant' && candidate.id) containers.push(candidate);
+  }
+  return containers;
+};
+
+/** Model/provider identifiers of the generation one Agent CLI stream record describes. */
 export const collectModelIdentities = record => {
   if (!record || typeof record !== 'object') return [];
-  const containers = [record, record.part, record.message, record.info, record.data].filter(value => value && typeof value === 'object');
   const identities = [];
-  for (const container of containers) {
-    for (const field of MODEL_IDENTITY_FIELDS) {
-      const value = container[field];
-      if (typeof value === 'string' && value) identities.push(value);
+  for (const container of generationContainers(record)) {
+    // step_finish nests the identity: `model: {providerID, respondedModelID}`.
+    for (const source of [container, container.model]) {
+      if (!source || typeof source !== 'object') continue;
+      for (const field of MODEL_IDENTITY_FIELDS) {
+        const value = source[field];
+        if (typeof value === 'string' && value) identities.push(value);
+      }
     }
   }
   return identities;
@@ -657,7 +685,7 @@ export const createFormalAiAttributionSession = ({ repositoryPath, issueNumber =
       for (const identity of collectModelIdentities(record)) {
         const hosted = detectHostedModel(identity);
         if (hosted) {
-          await reject(`the Agent CLI stream reports ${identity}, a hosted ${hosted} model`);
+          await reject(`an Agent CLI generation was answered by ${identity}, a hosted ${hosted} model`);
           return;
         }
       }

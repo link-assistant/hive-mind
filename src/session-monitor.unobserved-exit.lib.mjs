@@ -24,6 +24,13 @@
  * The footer does not help here: it is written by the same watcher from the same
  * inspect result, so it is not independent evidence.
  *
+ * start-command 0.34.1 fixed the watcher (link-foundation/start#174): it now
+ * waits for the real exit and never removes a running container. A container
+ * whose exit docker still never observed (e.g. removed from under the watcher)
+ * is recorded as `exitCode -1` with `exitReason: 'watcher-lost-container'`.
+ * That is still a kill, not an ordinary failure, so it is reclassified the same
+ * way — both shapes are handled so older hosts keep working.
+ *
  * @see https://github.com/link-assistant/hive-mind/issues/2303
  */
 
@@ -32,6 +39,9 @@ import { isDockerIsolation } from './session-monitor.stale-executing.lib.mjs';
 
 /** start-command's `endTimeSource` for "we noticed it ended", not "it ended". */
 export const END_TIME_SOURCE_OBSERVED_AT = 'observed-at';
+
+/** start-command >= 0.34.1 `exitReason` for a container exit docker never observed. */
+export const EXIT_REASON_WATCHER_LOST_CONTAINER = 'watcher-lost-container';
 
 /** Status the reclassified session is reported with. */
 export const UNOBSERVED_EXIT_STATUS = 'killed';
@@ -53,14 +63,17 @@ const SUCCESS_STATUSES = new Set(['executed', 'completed']);
 export function detectUnobservedDockerExit({ sessionInfo = null, statusResult = null, exitCode = null, status = null, running = false } = {}) {
   if (running) return null;
   if (!isDockerIsolation(sessionInfo, statusResult)) return null;
-  if (statusResult?.endTimeSource !== END_TIME_SOURCE_OBSERVED_AT) return null;
   const code = normalizeExitCode(exitCode);
+  const observedAt = statusResult?.observedAt || statusResult?.endTime || null;
+  if (statusResult?.exitReason === EXIT_REASON_WATCHER_LOST_CONTAINER) {
+    return `start-command lost the container: docker never reported a finish time for it (exitReason=${EXIT_REASON_WATCHER_LOST_CONTAINER}, exit ${code ?? 'unknown'}${observedAt ? `, noticed at ${observedAt}` : ''}) — it was removed or stopped from under the session`;
+  }
+  if (statusResult?.endTimeSource !== END_TIME_SOURCE_OBSERVED_AT) return null;
   const normalizedStatus = String(status || '')
     .trim()
     .toLowerCase();
   const reportedSuccess = code === 0 || (code === null && SUCCESS_STATUSES.has(normalizedStatus));
   if (!reportedSuccess) return null;
-  const observedAt = statusResult?.observedAt || statusResult?.endTime || null;
   return `start-command reported exit ${code ?? 0}, but docker never reported a finish time for the container (endTimeSource=observed-at${observedAt ? ` at ${observedAt}` : ''}): its completion watcher stopped following a container that was still running — e.g. \`docker logs -f\` failed writing the log on a full disk — and removed it`;
 }
 

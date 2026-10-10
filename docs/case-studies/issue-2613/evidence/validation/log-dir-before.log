@@ -1,0 +1,30 @@
+✖ solve --log-dir writes startup and parsing diagnostics in the requested directory (3555.415862ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5206.990528
+
+✖ failing tests:
+
+test at tests/issue-2613-regressions.test.mjs:82:1
+✖ solve --log-dir writes startup and parsing diagnostics in the requested directory (3555.415862ms)
+  AssertionError [ERR_ASSERTION]: the directory bind-mounted by Formal AI Draft must contain its log
+  
+  0 !== 1
+  
+      at file:///tmp/gh-issue-solver-1791384270780/tests/issue-2613-regressions.test.mjs:91:12
+      at async withDirectory (file:///tmp/gh-issue-solver-1791384270780/tests/issue-2613-regressions.test.mjs:22:5)
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791384270780/tests/issue-2613-regressions.test.mjs:83:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

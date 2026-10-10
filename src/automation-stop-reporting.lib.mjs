@@ -35,6 +35,23 @@ export { AUTOMATION_STOPPED_MARKER, AUTO_MERGE_BLOCKED_MARKER };
  * (deleted repository / pull request), so posting is skipped instead of
  * producing a guaranteed API failure.
  */
+const REVIEW_ATTACHED_LOG_STEP = 'Review the attached working session log for the failure, fix the cause, and re-run the command.';
+
+/**
+ * Issue #2301: the failure log is attached right before the stop comment, but
+ * that upload can fail (link-foundation/meta-language#196: HTTP 408 on a 165 MB
+ * log). The comment must not point the reader to a log that is not there.
+ *
+ * @param {string[]} nextSteps
+ * @param {boolean|null} logAttached true: attached; false: the upload failed; null: not attempted
+ * @returns {string[]}
+ */
+const describeLogStep = (nextSteps, logAttached) => {
+  if (logAttached === true) return nextSteps;
+  const replacement = logAttached === false ? 'The working session log could not be attached: the "Log Upload Failed" comment says why and where the complete log is kept. Review that log for the failure, fix the cause, and re-run the command.' : 'Review the working session log for the failure, fix the cause, and re-run the command.';
+  return nextSteps.map(step => (step === REVIEW_ATTACHED_LOG_STEP ? replacement : step));
+};
+
 export const STOP_REASONS = {
   pull_request_closed: {
     title: 'the pull request was closed without merging',
@@ -76,12 +93,12 @@ export const STOP_REASONS = {
   tool_failure: {
     title: 'the AI session failed',
     detail: 'The AI tool exited with an error that is not a usage limit, so restarting it automatically would most likely fail the same way.',
-    nextSteps: ['Review the attached working session log for the failure, fix the cause, and re-run the command.'],
+    nextSteps: [REVIEW_ATTACHED_LOG_STEP],
   },
   tool_failure_after_resume: {
     title: 'the AI session failed after resuming from a usage limit',
     detail: 'The session was resumed once the usage limit reset, but the resumed run exited with an error.',
-    nextSteps: ['Review the attached working session log for the failure, fix the cause, and re-run the command.'],
+    nextSteps: [REVIEW_ATTACHED_LOG_STEP],
   },
   merge_failed: {
     title: 'GitHub refused the merge',
@@ -98,9 +115,14 @@ export const STOP_REASONS = {
     detail: 'The pull request is ready to merge. A missing issue never stops work on the pull request — it only blocks the automatic merge.',
     nextSteps: ['Restore or re-create the linked issue and re-run the command so auto-merge can complete.', 'Or merge this pull request manually — it is ready.'],
   },
+  missing_closing_references: {
+    title: 'the pull request does not close every required issue, so auto-merge was held back',
+    detail: 'Merging would close only some of the issues this pull request was asked to close. A missing closing reference never stops work on the pull request — it only blocks the automatic merge.',
+    nextSteps: ['Add the missing `Fixes #N` lines to the pull request description (one keyword per issue) and re-run the command so auto-merge can complete.', 'Or merge this pull request manually if leaving those issues open is intended.'],
+  },
   no_progress_between_sessions: {
     title: 'two consecutive AI sessions produced identical results',
-    detail: 'Issue #2247: the AI session ended with the same final message, the same working tree and the same commit as the session before it. Restarting again would repeat the same session at the same cost, so the remaining restart budget was left unused.',
+    detail: 'The AI session ended with the same final message, the same working tree and the same commit as the session before it. Restarting again would repeat the same session at the same cost, so the remaining restart budget was left unused.',
     nextSteps: ['Read the two working session logs named below to see what the AI kept doing.', 'Fix the blocker it kept hitting (a missing toolchain, an unreachable service, an impossible instruction), then re-run the command.', 'Or re-run with different instructions so the next session has something new to work with.'],
   },
   watch_stopped: {
@@ -151,9 +173,10 @@ const bulletList = lines =>
  * @param {string} [options.mode] which loop stopped
  * @param {string} [options.message] concrete message from the detector
  * @param {string[]} [options.details] extra evidence lines
+ * @param {boolean|null} [options.logAttached] whether the failure log was attached (null: not attempted)
  * @returns {string} markdown comment body
  */
-export const buildAutomationStopComment = ({ reason, mode = null, message = null, details = [] }) => {
+export const buildAutomationStopComment = ({ reason, mode = null, message = null, details = [], logAttached = null }) => {
   const description = describeStopReason(reason);
   const modeLabel = MODE_LABELS[mode] || (mode ? `\`${mode}\`` : 'This automation');
   const sections = [`## 🛑 ${AUTOMATION_STOPPED_MARKER}: ${description.title}`, '', `${modeLabel} stopped working on this pull request.`, '', `**Reason code:** \`${description.reason}\``];
@@ -168,7 +191,7 @@ export const buildAutomationStopComment = ({ reason, mode = null, message = null
     sections.push('', '**Details:**', bulletList(evidence));
   }
 
-  sections.push('', '**What to do next:**', bulletList(description.nextSteps));
+  sections.push('', '**What to do next:**', bulletList(describeLogStep(description.nextSteps, logAttached)));
   sections.push('', '---', `*Reported automatically by hive-mind (${mode || 'automation'}).*`);
 
   return sections.join('\n');
@@ -176,7 +199,8 @@ export const buildAutomationStopComment = ({ reason, mode = null, message = null
 
 /**
  * Build the comment posted when the pull request is ready but `--auto-merge`
- * is blocked by the state of the linked issue.
+ * is blocked by the state of the linked issue, or (issue #2306) because its
+ * description does not close every required issue.
  *
  * Issue #2144: a closed issue must never stop the loop from making the pull
  * request mergeable — it only blocks the *automatic* merge, and then the user
@@ -201,8 +225,22 @@ export const buildAutoMergeBlockedComment = ({ blockers = [], issueNumber = null
     }
   }
 
+  // Issue #2306: the next steps depend on what holds the merge back.
+  // Issue #2395: an unverified issue link is fixed in the description too.
+  // Issue #2335: so are links GitHub does not recognize or could not confirm.
+  const descriptionReasons = ['missing_closing_references', 'issue_link_unverified', 'unverified_issue_links', 'issue_link_verification_failed'];
+  const nextSteps = [];
+  if (reasons.some(blocker => !descriptionReasons.includes(blocker.reason))) {
+    nextSteps.push(issueNumber ? `Reopen issue #${issueNumber} and re-run the command so auto-merge can complete.` : 'Reopen the linked issue and re-run the command so auto-merge can complete.');
+  }
+  if (reasons.some(blocker => descriptionReasons.includes(blocker.reason))) {
+    nextSteps.push('Add the missing closing references listed above to the pull request description and re-run the command so auto-merge can complete.');
+    nextSteps.push('Or merge this pull request manually — the issues listed above will then stay open.');
+  } else {
+    nextSteps.push('Or merge this pull request manually — it is ready.');
+  }
   sections.push('', '**What to do next:**');
-  sections.push(bulletList([issueNumber ? `Reopen issue #${issueNumber} and re-run the command so auto-merge can complete.` : 'Reopen the linked issue and re-run the command so auto-merge can complete.', 'Or merge this pull request manually — it is ready.']));
+  sections.push(bulletList(nextSteps));
   sections.push('', '---', '*Reported automatically by hive-mind with the --auto-merge flag.*');
 
   return sections.join('\n');
@@ -226,9 +264,10 @@ export const buildAutoMergeBlockedComment = ({ blockers = [], issueNumber = null
  * @param {Function} [options.log]
  * @param {string} [options.body] pre-built body (skips buildAutomationStopComment)
  * @param {string} [options.signature] pre-built dedup signature
+ * @param {boolean|null} [options.logAttached] whether the failure log was attached (null: not attempted)
  * @returns {Promise<{posted: boolean, reason: string, skipped?: string, error?: string}>}
  */
-export const reportAutomationStop = async ({ $, owner, repo, targetNumber, reason, mode = null, message = null, details = [], verbose = false, log = null, body = null, signature = null }) => {
+export const reportAutomationStop = async ({ $, owner, repo, targetNumber, reason, mode = null, message = null, details = [], verbose = false, log = null, body = null, signature = null, logAttached = null }) => {
   const description = describeStopReason(reason);
   const write = async text => {
     if (typeof log === 'function') await log(text);
@@ -243,7 +282,7 @@ export const reportAutomationStop = async ({ $, owner, repo, targetNumber, reaso
     return { posted: false, reason: description.reason, skipped: 'target_unavailable' };
   }
 
-  const commentBody = body || buildAutomationStopComment({ reason, mode, message, details });
+  const commentBody = body || buildAutomationStopComment({ reason, mode, message, details, logAttached });
   const dedupSignature = signature || `${AUTOMATION_STOPPED_MARKER}: ${description.title}`;
 
   try {
@@ -256,8 +295,8 @@ export const reportAutomationStop = async ({ $, owner, repo, targetNumber, reaso
 
     const result = await postTrackedComment({ $, owner, repo, targetNumber, body: commentBody });
     if (!result.ok) {
-      await write(`   ⚠️  Could not post stop reason comment: ${result.stderr || 'unknown error'}`);
-      return { posted: false, reason: description.reason, error: result.stderr || 'post_failed' };
+      await write(`   ⚠️  Could not post stop reason comment: ${result.stderr?.toString() || 'unknown error'}`);
+      return { posted: false, reason: description.reason, error: result.stderr?.toString() || 'post_failed' };
     }
 
     await write(`   💬 Posted stop reason to #${targetNumber}: ${description.title}`);

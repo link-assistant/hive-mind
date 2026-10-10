@@ -14,7 +14,7 @@ const execAsync = promisify(exec);
 // This ensures consistent URL validation across all commands (hive, solve, start-screen)
 const { parseGitHubUrl } = await import('./github.lib.mjs');
 
-const START_SCREEN_USAGE = ['Usage: start-screen [--auto-terminate] <solve|hive> <github-url> [additional-args...]', '', 'Options:', '  --auto-terminate    Session terminates after command completes (old behavior)', '                      By default, session stays alive for review and reattachment', '', 'Examples:', '  start-screen solve https://github.com/user/repo/issues/123 --dry-run', '  start-screen --auto-terminate solve https://github.com/user/repo/issues/456', '  start-screen hive https://github.com/user/repo --flag value'];
+const START_SCREEN_USAGE = ['Usage: start-screen [--auto-terminate] <solve|hive> <github-url> [additional-args...]', '', 'Options:', '  --auto-terminate    Session terminates after command completes', '                      By default, session stays alive for review and reattachment', '', 'Examples:', '  start-screen solve https://github.com/user/repo/issues/123 --dry-run', '  start-screen --auto-terminate solve https://github.com/user/repo/issues/456', '  start-screen hive https://github.com/user/repo --flag value'];
 
 const printUsage = (log = console.error) => {
   for (const line of START_SCREEN_USAGE) {
@@ -37,7 +37,7 @@ const printDeprecationBanner = () => {
   if (deprecationWarned) return;
   if (process.env.HIVE_MIND_SUPPRESS_DEPRECATIONS === '1') return;
   deprecationWarned = true;
-  console.error('⚠️  start-screen is deprecated; prefer `--isolated screen` (the default in newer hive/solve CLIs). Set HIVE_MIND_SUPPRESS_DEPRECATIONS=1 to silence this warning.');
+  console.error('⚠️  start-screen is deprecated; prefer `--isolated screen`. Set HIVE_MIND_SUPPRESS_DEPRECATIONS=1 to silence this warning.');
 };
 
 const createStartScreenYargsConfig = yargsInstance =>

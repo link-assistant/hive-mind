@@ -11,29 +11,34 @@ const execAsync = promisify(exec);
  * /queue detailed status (issue #1837).
  *
  * For GitHub issue/PR URLs we render a compact `[owner/repo#number](url)`
- * Markdown link so the list is scannable and clickable. When the label would
- * contain Markdown-special characters (e.g. `_` or `*` in an owner/repo name)
- * that could break Telegram's legacy Markdown parser, we fall back to the bare
- * URL — which Telegram still auto-links and renders as clickable.
- *
- * Non-GitHub or unparseable URLs also fall back to the bare URL.
+ * Markdown link so the list is scannable and clickable. Telegram's legacy
+ * Markdown copies a link label verbatim up to `]` and its URL up to `)`, so
+ * `_` or `*` in an owner/repo name is safe there. A bare URL is not: at top
+ * level `save_visiogetbb` opens an italic entity that never closes and the
+ * whole message is rejected (issue #2301). Labels therefore always become a
+ * link, and any other URL is escaped for top level.
  *
  * @param {string} url - The issue/PR URL.
- * @returns {string} A Markdown link or bare URL safe for `parse_mode: 'Markdown'`.
+ * @returns {string} A Markdown link or escaped bare URL safe for `parse_mode: 'Markdown'`.
  */
 export function formatQueueItemLink(url) {
   if (!url || typeof url !== 'string') return String(url ?? '');
   const match = url.match(/github\.com\/([^/\s]+)\/([^/\s]+)\/(?:issues|pull)\/(\d+)/i);
-  if (!match) return url;
-  const [, owner, repo, number] = match;
-  const label = `${owner}/${repo}#${number}`;
-  // Only build a Markdown link when the label has no Markdown-special chars
-  // that would break the legacy parser inside link text. Otherwise the bare
-  // URL is still clickable in Telegram.
-  if (/^[A-Za-z0-9/#.-]+$/.test(label)) {
-    return `[${label}](${url})`;
+  if (match && !/[\])]/.test(url)) {
+    const [, owner, repo, number] = match;
+    return `[${owner}/${repo}#${number}](${url})`;
   }
-  return url;
+  return escapeTopLevelMarkdown(url);
+}
+
+// Escape the four characters legacy Markdown treats as entity openers at top level.
+// `\` itself is deliberately not escaped: legacy Markdown only treats it as an
+// escape before `_`, `*`, `` ` `` or `[`, so any other `\` is shown as is and a
+// `\\` would be shown doubled (experiments/issue-2301-codeql/backslash-escaping.mjs).
+// CodeQL's js/incomplete-sanitization assumes `\` always escapes, which holds for
+// MarkdownV2 but not for this legacy dialect, so the prefix is added per match.
+function escapeTopLevelMarkdown(text) {
+  return String(text).replace(/[_*`[]/g, entityOpener => `\\${entityOpener}`);
 }
 
 /**
@@ -55,7 +60,7 @@ export function formatQueueHistorySection({ items, emoji, label, max, locale, wi
   let section = `${indent}*${label}* (${items.length}):\n`;
   for (const item of [...items].reverse().slice(0, max)) {
     section += `${indent}  ${emoji} ${formatQueueItemLink(item.url)}`;
-    if (withError && item.error) section += ` — ${item.error}`;
+    if (withError && item.error) section += ` — ${escapeTopLevelMarkdown(item.error)}`;
     section += '\n';
   }
   if (items.length > max) {
@@ -91,10 +96,10 @@ function normalizeQueueUrl(url) {
  *
  * @param {object} opts
  * @param {Iterable} [opts.processingItems] - `this.processing.values()` (each with `tool`, `url`, `status`, `getWaitTime()`).
- * @param {Array} [opts.sessionItems] - Tracked running sessions (`{url, tool, startTime, status}`).
+ * @param {Array} [opts.sessionItems] - Tracked running sessions (`{url, tool, startTime, rootStartTime, recoveries, status}`).
  * @param {string} opts.tool - Tool key to filter by.
  * @param {number} [opts.now] - Current epoch ms (injectable for tests).
- * @returns {Array<{url: string, queueStatus: (string|null), waitMs: number}>}
+ * @returns {Array<{url: string, queueStatus: (string|null), waitMs: number, recoveries?: number}>}
  */
 export function collectExecutingItems({ processingItems = [], sessionItems = [], tool, now = Date.now() }) {
   const byKey = new Map();
@@ -114,13 +119,16 @@ export function collectExecutingItems({ processingItems = [], sessionItems = [],
     if (!session.url) continue; // can't render a clickable link without a URL
     const key = normalizeQueueUrl(session.url);
     if (key && byKey.has(key)) continue; // already represented by an in-memory item
-    const startMs = session.startTime ? new Date(session.startTime).getTime() : null;
+    // Issue #2408: a recovery session counts from when the work started.
+    const since = session.rootStartTime || session.startTime;
+    const startMs = since ? new Date(since).getTime() : null;
     byKey.set(key || session.sessionName, {
       url: session.url,
       // Tracked sessions report a backend status (e.g. 'executing'); fall back to
       // the generic "processing" label rendered by formatQueueProcessingItems.
       queueStatus: null,
       waitMs: startMs && !Number.isNaN(startMs) ? Math.max(0, now - startMs) : 0,
+      recoveries: Number.isFinite(session.recoveries) ? session.recoveries : 0,
     });
   }
 
@@ -153,7 +161,9 @@ export function formatQueueExecutingItems({ items, max = Infinity, locale, label
   const itemIndent = label ? '    ' : '  ';
   let out = label ? `  *${label}* (${items.length}):\n` : '';
   for (const item of items.slice(0, max)) {
-    out += `${itemIndent}• ${formatQueueItemLink(item.url)} (▶️ ${formatDuration(item.waitMs, { locale })})\n`;
+    // Issue #2408: `🔁 N` marks work that was automatically recovered N times.
+    const recovered = item.recoveries > 0 ? `, 🔁 ${item.recoveries}` : '';
+    out += `${itemIndent}• ${formatQueueItemLink(item.url)} (▶️ ${formatDuration(item.waitMs, { locale })}${recovered})\n`;
   }
   if (items.length > max) {
     out += `${itemIndent}  ... ${lt('queue_and_more', { count: items.length - max }, { locale })}\n`;

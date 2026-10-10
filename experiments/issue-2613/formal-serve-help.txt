@@ -1,0 +1,14 @@
+Serve the API; `--agent-mode` is equivalent to `FORMAL_AI_AGENT_MODE=1`
+
+Usage: formal-ai serve [OPTIONS]
+
+Options:
+      --host <HOST>      [env: FORMAL_AI_HOST=] [default: 127.0.0.1]
+      --verbose          Print and persist complete diagnostics (enabled by default)
+      --port <PORT>      [env: FORMAL_AI_PORT=] [default: 8080]
+      --silent           Disable verbose output and automatic complete dialog logging [env: FORMAL_AI_SILENT=]
+      --agent-mode       Allow OpenAI-compatible agent clients to receive tool calls. Equivalent to `FORMAL_AI_AGENT_MODE=1` on every transport
+      --ws               Serve the transport-neutral API envelope over WebSocket
+      --webrtc           Serve local-first WebRTC data channels with loopback offer/answer signaling
+      --transport-trace  Print local transport connection, signaling, and lifecycle diagnostics
+  -h, --help             Print help

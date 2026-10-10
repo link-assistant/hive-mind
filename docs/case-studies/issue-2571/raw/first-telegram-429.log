@@ -1,0 +1,41 @@
+[VERBOSE] /queue found 0 running agent processes
+[VERBOSE] /queue found 0 running claude processes
+[VERBOSE] /queue found 2 running codex processes
+[VERBOSE] /queue processes: [{"pid":"1309227","name":"codex"},{"pid":"2263966","name":"codex"}]
+[VERBOSE] /queue found 0 running gemini processes
+[VERBOSE] /limits-cache: Using cached memory info
+[VERBOSE] /limits-cache: Using cached CPU info
+[VERBOSE] /queue: CPU 5m load avg: 6.54, cpus: 6, usage: 100%
+[VERBOSE] /limits-cache: Using cached disk info
+[VERBOSE] /limits-cache: Using cached Codex limits (TTL: 13 minutes)
+[VERBOSE] /limits-cache: Using cached GitHub limits
+[VERBOSE] /queue: Cannot start: CPU usage is 100% (threshold: 65%), Claude process is already running (3 processes), Codex process is already running (2 processes)
+[VERBOSE] /queue: Enqueued: [solve-1791319206069-p9mhesk] https://github.com/link-foundation/gh-upload-log/issues/45 (queued) to codex queue, queue length: 14
+[telegram-send] s14010 safeReply → chat=-1002975819706 parse_mode=Markdown reply_to=118573 chars=464 bytes=472 text="📋 Solve command queued (codex queue position #14)\n\nRequested by: [@drakonard](https://t.me/drakonard)\nIssue: https://github.com/link-foundation/gh-upload-log/issues/45\n\n🛠 Options: --think xhigh --auto-merge --tool codex\n🔒 Locked options: --attach-logs --verbose --no-tool-check --disable-report-is"… (+164 chars)
+[telegram-send] s14011 sendMessage → chat=-1002975819706 thread=857 parse_mode=Markdown reply_to=118573 thread=857 chars=464 bytes=472 text="📋 Solve command queued (codex queue position #14)\n\nRequested by: [@drakonard](https://t.me/drakonard)\nIssue: https://github.com/link-foundation/gh-upload-log/issues/45\n\n🛠 Options: --think xhigh --auto-merge --tool codex\n🔒 Locked options: --attach-logs --verbose --no-tool-check --disable-report-issue --isolation docker\n\n⏳ Waiting: CPU usage is 100% (threshold: 65%)\nClaude process is already running (3 processes)\nCodex process is already running (2 processes)"
+[VERBOSE] isolation-runner: Status query result: {
+  "uuid": "8be8d43e-ca90-4e8c-866e-b84abe7a450b",
+  "pid": 459997,
+  "processIds": {
+    "wrapperPid": 459997,
+    "containerId": "43a33bf8ae409ad9423e09a3596324516e560796d62b52d35129ad072a16c72d",
+    "containerPid": 3379007
+  },
+  "status": "executing",
+  "exitCode": null,
+  "command": "gate='/t
+[telegram-bot] Telegram Bot API rate limit: method=sendMessage chat=-1002975819706 retry_after=34s window=group
+[VERBOSE] Telegram Bot API 429 response: {
+  "ok": false,
+  "error_code": 429,
+  "description": "Too Many Requests: retry after 34",
+  "parameters": {
+    "retry_after": 34
+  }
+}
+[telegram-send] s14011 sendMessage ✗ rejected: Too Many Requests: retry after 34
+[telegram-send] s14010 safeReply ✗ rejected: Too Many Requests: retry after 34
+Unhandled error while processing update 957729480
+Error: TelegramError: 429: Too Many Requests: retry after 34
+    at Telegram.callApi (/home/box/.nvm/versions/node/v26.10.0/lib/node_modules/telegraf-v-4.16.3/lib/core/network/client.js:315:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)

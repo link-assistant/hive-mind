@@ -42,7 +42,7 @@ if (earlyArgs.length === 0 || earlyArgs.includes('--help') || earlyArgs.includes
   console.log('  --tool             AI tool for agent-commander read-only mode (claude, codex, opencode, agent, qwen, gemini) [default: claude]');
   console.log('  --model, -m        Model to use');
   console.log('  --isolation        agent-commander isolation mode [default: docker]');
-  console.log('  --use-router       [EXPERIMENTAL] Route model traffic through the hive-mind-router sidecar (issue #2164)');
+  console.log('  --use-router       [EXPERIMENTAL] Route model traffic through the hive-mind-router sidecar');
   console.log('  --no-tool-update   Skip the agentic CLI version check before starting');
   console.log('  --dry-run          Print split output without creating GitHub issues');
   console.log('  --verbose, -v      Enable verbose logging');
@@ -124,7 +124,7 @@ function runCommand(command, args, options = {}) {
 async function commandOutput(command, args, options = {}) {
   const result = await runCommand(command, args, options);
   if (result.code !== 0) {
-    const output = `${result.stderr || ''}${result.stdout || ''}`.trim();
+    const output = `${result.stderr?.toString() || ''}${result.stdout?.toString() || ''}`.trim();
     // Issue #2135: `describeChildExit` names a signal instead of "code null".
     throw new Error(output || describeChildExit({ command, code: result.code, signal: result.signal }));
   }
@@ -155,7 +155,7 @@ async function runAgentPrompt(prompt, systemPrompt, issue = null) {
 
   await log(`Running agent-commander with tool=${argv.tool}, model=${selectedModel}, isolation=${argv.isolation}, readOnly=true`, { verbose: true });
   const result = await runCommand(startAgent, args);
-  const output = `${result.stdout || ''}${result.stderr ? `\n${result.stderr}` : ''}`.trim();
+  const output = `${result.stdout?.toString() || ''}${result.stderr?.toString() ? `\n${result.stderr}` : ''}`.trim();
   if (result.code !== 0) {
     throw new Error(output || `start-agent exited with code ${result.code}`);
   }

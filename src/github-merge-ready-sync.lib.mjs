@@ -20,7 +20,7 @@ const exec = (cmd, opts) =>
     label: `gh exec (${cmd.split(/\s+/).slice(0, 3).join(' ')})`,
   });
 
-import { extractLinkedIssueNumber } from './github-linking.lib.mjs';
+import { extractLinkedIssueNumber, pullRequestClosesIssue } from './github-linking.lib.mjs';
 
 // READY_LABEL is also exported from github-merge.lib.mjs (which re-exports it from here)
 export const READY_LABEL = {
@@ -59,10 +59,8 @@ async function addLabel(type, owner, repo, number, labelName, verbose = false) {
  * match PR #843 because its body contained the string `1411→` as a source code line
  * number in a code snippet — not as an issue closing reference.
  *
- * The GitHub issue timeline API returns `cross-referenced` events for PRs that
- * explicitly close the issue using GitHub's reserved keywords (fixes/closes/resolves).
- * This is the same data GitHub uses to auto-close issues when PRs are merged, so
- * it reliably identifies genuine closing references.
+ * Timeline cross-references include ordinary mentions and foreign PRs. Require
+ * a current positive closing declaration and the queue's exact PR repository.
  *
  * @param {string} owner - Repository owner
  * @param {string} repo - Repository name
@@ -82,6 +80,8 @@ export async function getLinkedPRsFromTimeline(owner, repo, issueNumber, verbose
 
     for (const event of timeline) {
       if (event.event === 'cross-referenced' && event.source?.issue?.pull_request != null && event.source?.issue?.state === 'open') {
+        const source = event.source.issue;
+        if (!source.html_url?.toLowerCase().startsWith(`https://github.com/${owner}/${repo}/pull/`.toLowerCase()) || !pullRequestClosesIssue(source, issueNumber, owner, repo)) continue;
         const prNumber = event.source.issue.number;
         if (!linkedPRNumbers.has(prNumber)) {
           linkedPRNumbers.add(prNumber);
@@ -158,7 +158,7 @@ export async function syncReadyTags(owner, repo, verbose = false) {
     for (const pr of readyPRs) {
       try {
         const prBody = pr.body || '';
-        const linkedIssueNumber = extractLinkedIssueNumber(prBody);
+        const linkedIssueNumber = extractLinkedIssueNumber(prBody, owner, repo);
 
         if (!linkedIssueNumber) {
           if (verbose) {

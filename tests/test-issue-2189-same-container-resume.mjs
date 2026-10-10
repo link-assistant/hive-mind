@@ -12,10 +12,11 @@
  *      resumed in place — no `executeWithIsolation`, no second clone — and the
  *      recovery session is tracked under the name `$` returns, keeping the
  *      original execution UUID.
- *   2. Formal AI (#2146), `--use-router`, and resource-limited tasks are
- *      deliberately excluded: their networks or Docker HostConfig controls are
- *      applied by Hive Mind *after* container creation, so a snapshot-derived
- *      resume would lose them. They fall back to a fresh launch.
+ *   2. Formal AI (#2146), `--use-router`, and (on `$` < 0.35.0)
+ *      resource-limited tasks are deliberately excluded: their networks or
+ *      Docker HostConfig controls are applied by Hive Mind *after* container
+ *      creation, so a snapshot-derived resume would lose them. They fall back
+ *      to a fresh launch.
  *   3. Every other refusal — screen/tmux backend, missing UUID, vanished
  *      container, an older `$` that has no `--resume`, an upstream "still
  *      running" refusal — falls back to the previous behaviour instead of
@@ -75,7 +76,7 @@ assert(formalAi.eligible === false && formalAi.reason === IN_PLACE_SKIP_REASONS.
 assert(planSameContainerResume({ sessionName: SESSION, sessionInfo: killedSession({ model: 'formal-ai', args: ['url'] }) }).reason === IN_PLACE_SKIP_REASONS.FORMAL_AI_TASK, 'the Formal AI gate keys off the model, not only the args');
 assert(planSameContainerResume({ sessionName: SESSION, sessionInfo: killedSession({ args: ['url', '--use-router'] }) }).reason === IN_PLACE_SKIP_REASONS.ROUTER_TASK, 'a --use-router task is not resumed in place');
 const resourceLimited = planSameContainerResume({ sessionName: SESSION, sessionInfo: killedSession({ containerResourceLimits: RESOURCE_LIMITS }) });
-assert(resourceLimited.eligible === false && resourceLimited.reason === IN_PLACE_SKIP_REASONS.RESOURCE_LIMITS, 'a resource-limited task uses a fresh launch so Docker limits are reapplied before its command starts');
+assert(resourceLimited.eligible === false && resourceLimited.reason === IN_PLACE_SKIP_REASONS.RESOURCE_LIMITS, 'a resource-limited task uses a fresh launch unless `$` keeps limits on resume (start-command >= 0.35.0, see test-issue-2408-limited-in-place-resume.mjs)');
 
 // ---------------------------------------------------------------------------
 // 2. The attempt itself
@@ -143,7 +144,7 @@ const recovered = await recoverKilledSession({
   sessionName: SESSION,
   sessionInfo: killedSession(),
   killed: true,
-  env: {},
+  env: { HIVE_MIND_SESSION_KILL_RESUME_DELAY: '0' },
   readLastSessionId: readTool,
   runner: e2eRunner,
   trackSession: (name, info) => trackedInPlace.push({ name, info }),
@@ -161,7 +162,7 @@ const fellBack = await recoverKilledSession({
   sessionName: SESSION,
   sessionInfo: killedSession({ containerResourceLimits: RESOURCE_LIMITS }),
   killed: true,
-  env: {},
+  env: { HIVE_MIND_SESSION_KILL_RESUME_DELAY: '0' },
   readLastSessionId: readTool,
   runner: fallbackRunner,
   trackSession: (name, info) => trackedFresh.push({ name, info }),

@@ -81,7 +81,7 @@ runTest('formatLinks with empty input', () => {
 
 runTest('formatLinks with single pair', () => {
   const result = lino.formatLinks([{ source: -1002975819706, target: 857 }]);
-  assertEqual(result, '(\n  -1002975819706 857\n)');
+  assertEqual(result, '((-1002975819706 857))');
 });
 
 runTest('formatLinks with multiple pairs', () => {
@@ -89,14 +89,42 @@ runTest('formatLinks with multiple pairs', () => {
     { source: -1002975819706, target: 857 },
     { source: -1001234567890, target: 456 },
   ]);
-  assertEqual(result, '(\n  -1002975819706 857\n  -1001234567890 456\n)');
+  assertEqual(result, '((-1002975819706 857) (-1001234567890 456))');
 });
 
 runTest('parseLinks -> formatLinks roundtrip', () => {
   const input = '(\n  -1002975819706 857\n  -1001234567890 456\n)';
   const parsed = lino.parseLinks(input);
   const formatted = lino.formatLinks(parsed);
-  assertEqual(formatted, input);
+  assertEqual(lino.parseLinks(formatted), parsed);
+});
+
+runTest('formatLinks quotes special pair values', () => {
+  const pairs = [
+    { source: '#tag', target: 'two words' },
+    { source: 'has (parentheses)', target: 'line\nbreak' },
+  ];
+  const formatted = lino.formatLinks(pairs);
+  assertEqual(
+    lino.parse(formatted),
+    pairs.flatMap(pair => [pair.source, pair.target])
+  );
+  assertEqual(
+    lino.parser.parse(formatted)[0].values.map(link => ({ source: link.values[0].id, target: link.values[1].id })),
+    pairs
+  );
+});
+
+runTest('telegram configuration log formatters keep their call signatures', () => {
+  const allowedChats = [-1002975819706];
+  const allowedTopics = [{ source: -1002975819706, target: 857 }];
+  const solveOverrides = ['--model=opus', '--verbose'];
+  const hiveOverrides = ['--isolation=screen'];
+
+  assertEqual(lino.parseNumericIds(lino.format(allowedChats)), allowedChats);
+  assertEqual(lino.parseLinks(lino.formatLinks(allowedTopics)), allowedTopics);
+  assertEqual(lino.parseStringValues(lino.format(solveOverrides)), solveOverrides);
+  assertEqual(lino.parseStringValues(lino.format(hiveOverrides)), hiveOverrides);
 });
 
 // ===== Topic authorization logic tests =====

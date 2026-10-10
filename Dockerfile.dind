@@ -31,7 +31,7 @@
 
 ARG FORMAL_AI_VERSION=0.352.1
 # Bookworm's glibc 2.36 remains compatible with the Ubuntu 24.04 Box runtime.
-FROM rust:1.98-slim-bookworm AS formal-ai-builder
+FROM rust:1.99-slim-bookworm AS formal-ai-builder
 ARG FORMAL_AI_VERSION
 # Formal AI 0.333.0-0.338.0 reached OpenSSL (formal-ai -> web-search ->
 # web-capture -> reqwest with default features -> native-tls -> openssl-sys), so
@@ -50,13 +50,16 @@ RUN apt-get update && \
 ENV OPENSSL_STATIC=1
 RUN cargo install formal-ai --version "${FORMAL_AI_VERSION}" --locked
 
-# Box 2.10.2 keeps the box#112 one-toolchain invariant and refreshes the base
+# Box 2.10.3 retains the box#112 one-toolchain invariant and the base
 # runtimes: Node.js v24.21.0, Bun 1.4.2 and stable Rust 1.98.1. Box PR #120
 # repaired the Docker Hub multi-arch publishing failure reported in box#119;
 # both registries now carry amd64 and arm64 manifests. Keep GHCR, Box's registry
-# of record, as the reproducible source for this pin.
-FROM ghcr.io/link-foundation/box-dind:2.10.2
+# of record, as the reproducible source for this pin. Box #129 also adds file
+# for validating downloaded attachments.
+FROM ghcr.io/link-foundation/box-dind:2.10.3
 ARG HIVE_MIND_VERSION=latest
+# Task-container prerequisite installs stay within the workspace (formal-ai#1159).
+ENV FORMAL_AI_INSTALL_GRANT=workspace
 
 # --- Environment variables ---
 ENV HOME=/home/box
@@ -152,6 +155,10 @@ WORKDIR /home/box
 # steps run as they read (issue #2187).
 SHELL ["/bin/bash", "-c"]
 
+# The solver verifies downloaded attachments with file before opening them.
+# Box's runtime does not guarantee this utility (issue #2687).
+RUN command -v file >/dev/null || HOMEBREW_NO_AUTO_UPDATE=1 brew install file
+
 # --- Current Node.js and Bun (issue #2187) ---
 # Box bases up to 2.4.0 installed Node.js 20 (`nvm install 20` in box's
 # ubuntu/24.04/js/install.sh) plus whatever Bun was current when the base was
@@ -160,10 +167,10 @@ SHELL ["/bin/bash", "-c"]
 # need something newer used to download their own node/bun into /tmp on every
 # run and leave the copy behind — a second accumulation of versions on top of
 # the image's own. Reported upstream as link-foundation/box#112 and fixed in
-# box 2.7.0. The current 2.10.2 base already ships exactly the
-# versions pinned below, so on that base this layer adds no second version —
-# nvm reports the pin already installed and the prune loop removes nothing
-# (checked by experiments/issue-2187-runtime-block-on-new-base.sh).
+# box 2.7.0. The current 2.10.3 base keeps one version per language. When a
+# pin below differs from the base, replace the runtime and repoint the default
+# before pruning superseded Node.js versions (the prune behavior is covered
+# by tests/test-issue-2187-runtime-versions.mjs).
 #
 # The layer is kept anyway, because it is the floor rather than the source of
 # the runtime. The base's versions are box's decision and can move under us in
@@ -186,7 +193,7 @@ SHELL ["/bin/bash", "-c"]
 # pointing at browsers the image does not have), then every other version
 # directory is removed. `.node-bin`, `nvm use default` and a bare `node` then
 # all resolve to the same, newest runtime (issue #2187, item A).
-ARG HIVE_MIND_NODE_VERSION=24.21.0
+ARG HIVE_MIND_NODE_VERSION=26.11.1
 ARG HIVE_MIND_BUN_VERSION=1.4.2
 RUN set -e && \
     . "$NVM_DIR/nvm.sh" && \
@@ -253,7 +260,7 @@ RUN bun install -g @openai/codex && \
     bun install -g @github/copilot && \
     bun install -g opencode-ai
 
-# start-command is pinned to 0.34.0: 0.29.1 fixed detached docker
+# start-command is pinned to 0.36.0: 0.29.1 fixed detached docker
 # `--status`/`--list` reporting a terminal status (`executed`) with the `-1`
 # sentinel while the container is still running (link-foundation/start#136,
 # link-assistant/hive-mind#1939); 0.29.2 (start#138 / start PR #139) records the
@@ -293,7 +300,24 @@ RUN bun install -g @openai/codex && \
 # (see docs/case-studies/issue-2189, issue #2189).
 # 0.34.0 persists the terminal state and post-mortem of detached Docker
 # executions, so status queries stop inventing a new finish time on each read.
-# `@link-assistant/agent` is pinned to current 0.26.5. Version 0.26.1 stopped the
+# 0.35.0 (start#176, filed from issue #2408) re-applies the stopped container's
+# resource limits — including ones set later with `docker update` — when
+# `--resume <id> -- <cmd>` commits it and starts the `-resume-N` container, so a
+# resource-limited OOM recovery can stay in the same execution UUID and log
+# (see src/session-kill-resume.in-place.lib.mjs). Its new `--on-kill-resume`
+# is not used yet. 0.35.1 fixes start#178: it no longer treats the sticky
+# `OOMKilled` flag as a kill when the main process exits 0-127 on its own
+# (see docs/case-studies/issue-2408). 0.35.2 fixes start#180: the sticky
+# flag no longer determines the exit reason for ordinary exits. It also
+# samples the task cgroup OOM counters/peak (#182) and supports cancellable
+# recovery delays (#181). Hive Mind consumes the counters but keeps its own
+# recovery policy so deliberate solve stops and attempt budgets are honoured.
+# 0.35.3 stops inferring OOM scope from process/event ratios (#185). 0.35.4 fixes
+# start#187 (filed from issue #2498): an explicit `--resume` moves the previous
+# attempt's memory evidence into `attemptHistory` and records the new attempt's
+# start time, log byte offset and lifecycle boundary. 0.36.0 adds opt-in Docker
+# resource limits and requires exit-time evidence before an OOM verdict.
+# `@link-assistant/agent` is pinned to current 0.26.11. Version 0.26.1 stopped the
 # unbounded snapshot leak of issue #2186. Up to 0.26.0 `Snapshot.track()` built a
 # standalone git object store per project — keyed on the worktree's root commit,
 # with no `objects/info/alternates` and no garbage collection — so a harness that
@@ -310,8 +334,8 @@ RUN echo "Installing @link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
       test "$(hive --version)" = "${HIVE_MIND_VERSION}"; \
     fi && \
     bun install -g @link-assistant/claude-profiles && \
-    bun install -g @link-assistant/agent@0.26.5 && \
-    bun install -g start-command@0.34.0 && \
+    bun install -g @link-assistant/agent@0.26.11 && \
+    bun install -g start-command@0.36.0 && \
     bun install -g gh-setup-git-identity && \
     bun install -g gh-pull-all && \
     bun install -g gh-load-issue && \

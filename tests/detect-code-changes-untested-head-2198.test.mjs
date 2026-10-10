@@ -259,3 +259,17 @@ assert.match(detectJob, /actions: read/, "and the scope that lets the token read
 assert.doesNotMatch(detectJob, /GITHUB_WORKFLOW_REF:/, 'the runner-provided workflow ref is left alone rather than overridden');
 
 console.log('detect-code-changes-untested-head-2198.test.mjs: all assertions passed');
+
+// A default-token draft may contain multiple commits before checks are
+// dispatched. Its final docs commit must not hide the earlier code commit.
+{
+  const { repoDir } = fixture();
+  try {
+    const output = await run(repoDir, { GITHUB_EVENT_NAME: 'workflow_dispatch' });
+    assert.match(output, /code=true/);
+    assert.match(output, /mjs=true/);
+    assert.match(output, / {2}src\/feature\.mjs/);
+  } finally {
+    rmSync(repoDir, { recursive: true, force: true });
+  }
+}

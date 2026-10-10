@@ -357,7 +357,7 @@ review --repo owner/repo --pr 456
 solve <issue-url> [options]
 ```
 
-> **📦 仓库模式**：传入仓库 URL（而不是 issue URL），solve 会收集该仓库的所有开放 issue（最旧优先，最多 100 个 —— GitHub 每个父 issue 的子 issue 上限），创建一个把它们列为 GitHub 原生子 issue 的合并 issue，并解决该 issue —— 这样一个 pull request 就能一次性关闭它们全部。该模式还会自动启用 `--deep-analysis` 和 `--ensure-all-sub-issues-addressed`。如果没有开放的 issue，CLI 会成功退出且不会创建任何内容；Telegram 会直接报告无需执行任何操作，不会启动工作会话。参见 [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#solve-options)。
+> **📦 仓库模式**：传入仓库 URL（而不是 issue URL），solve 会收集该仓库的所有开放 issue（最旧优先），创建一个合并 issue，将其中最多 100 个附加为 GitHub 原生子 issue（GitHub 每个父 issue 的上限），并把每一个 issue（包括其余的）都列为必需的关闭引用，并解决该 issue —— 这样一个 pull request 就能一次性关闭它们全部。该模式还会自动启用 `--deep-analysis` 和 `--ensure-all-sub-issues-addressed`。仍挂在更早的已关闭合并 issue 下的 issue 会被移到新的合并 issue 中；使用 `--auto-merge` 时，只有当 pull request 描述关闭了列出的每一个 issue 时才会合并。如果没有开放的 issue，CLI 会成功退出且不会创建任何内容；Telegram 会直接报告无需执行任何操作，不会启动工作会话。参见 [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#solve-options)。
 
 **最常用选项：**
 
@@ -406,6 +406,10 @@ hive <github-url> [options]
 | `--help`                 | `-h` | 显示所有可用选项                                        | -      |
 
 > **📖 完整选项列表**：包含项目监控、YouTrack 集成及实验性功能在内的所有可用选项，请参见 [docs/CONFIGURATION.zh.md](./docs/CONFIGURATION.zh.md#hive-options)。
+
+使用 `--once` 时，最终摘要会显示发现、完成、失败、跳过和等待的 Issue 数量，以及导致跳过的 PR 链接。退出码 3 表示没有处理任何 Issue；4 表示已完成部分工作，但仍有 Issue 等待；1 表示执行器或获取 Issue 失败。显式使用 `--dry-run` 时退出码为 0。执行器成功退出并不代表 PR 已合并。
+
+`--skip-issues-with-prs` 会跳过拥有自身开放 PR 的 Issue。父 Issue 的 PR 属于父 Issue，即使它引用了子 Issue。父 Issue 会等待所有开放子 Issue 关闭；处理已有 PR 时也遵循依赖顺序。如果没有可处理的 Issue，Hive 会建议使用 `--no-skip-issues-with-prs --auto-continue` 继续现有草稿。Telegram 会将没有处理 Issue 和部分完成的 hive 运行显示为警告；`--verbose` 会在日志中添加获取 Issue 的详细信息。
 
 ## 🤖 Telegram 机器人
 
@@ -500,7 +504,7 @@ Tool alias examples:
 
 Free Models (with --tool agent):
 /solve https://github.com/owner/repo/issues/123 --tool agent --model nemotron-3-super-free
-/solve https://github.com/owner/repo/issues/123 --tool agent --model opencode/nemotron-3-super-free
+/solve https://github.com/owner/repo/issues/123 --tool agent --model kilo/nemotron-3-super-free
 /solve https://github.com/owner/repo/issues/123 --tool agent --model minimax-m2.5-free
 /solve https://github.com/owner/repo/issues/123 --tool agent --model gpt-5-nano
 
@@ -582,6 +586,8 @@ issue 的情况下预览，使用 `--no-solve` 可只创建 issue 而不启动 `
 生成步骤。它们会返回新建 issue 的 URL；回复
 `/solve --development-log --deep-analysis --auto-merge`（对依赖 issue 再加上
 `--update-all-dependencies`）即可通过常规 solve 流程继续。
+
+`--update-all-dependencies` 启用 `--report-dependencies-issues`：向依赖的上游报告通用逻辑、重复代码、缺失功能及导致本地变通方案的缺陷。可以保留必要的变通方案，让 pull request 继续推进。添加 `--no-report-dependencies-issues` 可关闭报告，也可在 `/solve` 或 `/hive` 上单独使用 `--report-dependencies-issues` 而不更新依赖。
 
 #### `/organize` - 分类开放议题
 
@@ -1026,6 +1032,31 @@ s=$(screen -ls | awk '/Detached/ {print $1; exit}'); echo "Entering $s"; screen 
 s=$(screen -ls | awk '/Detached/ {last=$1} END{print last}'); echo "Entering $s"; screen -r "$s"; echo "Left $s";
 ```
 
+### 管理 Screen 会话的脚本
+
+`hive-screens` 管理已完成的 solve 会话。它随 `@link-assistant/hive-mind` 一起发布，因此安装该包后（全局安装、通过 `npx` 或在项目中）即可在 `PATH` 中使用。
+
+它会扫描已分离的 GNU screen 会话，查找已完成且 PR 可合并的 solve 运行（回滚内容同时包含 `process completed` 以及 `PR is mergeable!` 或 `PR merged!`），然后列出、进入或关闭它们。`--list`、`--enter` 和 `--close` 使用**相同的匹配条件**，因此 `--list` 显示的内容正是 `--close` 将要处理的集合——先用 `--list` 排查，再用 `--close` 重新运行。
+
+```bash
+# 安全预览——显示所有已完成且可合并的 solve 会话。
+hive-screens --list
+
+# 关闭最旧的已完成会话。
+hive-screens --close
+
+# 进入最新的已完成会话。
+hive-screens --enter --newest
+
+# 关闭所有已完成会话。
+hive-screens --close --all
+
+# 扫描时输出诊断信息（匹配失败时很有用）。
+hive-screens --list --verbose
+```
+
+`--list` 默认使用 `--all`，因此单独的 `hive-screens --list` 会显示所有匹配项。`--enter` 和 `--close` 默认使用 `--oldest`，因为它们会改变状态。可传入 `--oldest`、`--newest` 或 `--all` 覆盖默认值。运行 `hive-screens --help` 查看完整选项列表。
+
 ### 重启服务器
 
 ```bash
@@ -1105,3 +1136,7 @@ Unlicense 许可证 - 参见 [LICENSE](./LICENSE)
 ## 🤖 贡献
 
 本项目采用 AI 驱动的开发模式。人机协作指南请参见 [CONTRIBUTING.zh.md](./docs/CONTRIBUTING.zh.md)。
+
+## GitHub 自动化凭据
+
+仓库自动化无需配置。工作流依次使用 GitHub App（`AUTOMATION_APP_ID` 变量和 `AUTOMATION_APP_PRIVATE_KEY` 密钥）、可选的统一 `AUTOMATION_TOKEN`，或内置 GitHub 令牌。使用默认令牌创建的草稿会在其源分支上触发检查。Hello World 矩阵和集成测试使用隔离的孤立分支，清理步骤会删除它们创建的资源。有关权限、检查和健康报告，请参阅 [Formal AI 草稿](docs/FORMAL-AI-DRAFTS.zh.md)。

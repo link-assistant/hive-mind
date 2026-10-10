@@ -34,7 +34,7 @@ const { mergePullRequest, getDetailedCIStatus, rerunWorkflowRun, getWorkflowRuns
 // Issue #2182: guard rails for this loop (wall-clock ceiling, draft self-heal,
 // classified merge failures). See solve.auto-merge-guards.lib.mjs.
 const autoMergeGuards = await import('./solve.auto-merge-guards.lib.mjs');
-const { DRAFT_RECHECK_DELAY_MS, evaluateWatchTimeout, resolveDraftBlocker, resolveMergeFailure, revertPlaceholderBeforeMerge } = autoMergeGuards;
+const { buildDeliberateDraftFeedback, DRAFT_RECHECK_DELAY_MS, evaluateWatchTimeout, resolveDraftBlocker, resolveMergeFailure, revertPlaceholderBeforeMerge } = autoMergeGuards;
 // Re-exported so callers and tests keep a single entry point for the watch loop.
 export const { DEFAULT_WATCH_TIMEOUT_HOURS, normalizeWatchTimeoutHours } = autoMergeGuards;
 // Import GitHub functions for log attachment
@@ -43,7 +43,7 @@ const { sanitizeLogContent, attachLogToGitHub } = githubLib;
 
 // Import shared utilities from the restart-shared module
 const restartShared = await import('./solve.restart-shared.lib.mjs');
-const { checkForUncommittedChanges, getUncommittedChangesDetails, executeToolIteration, buildAutoRestartInstructions, isUsageLimitReached } = restartShared;
+const { checkPRMerged, checkForUncommittedChanges, getUncommittedChangesDetails, executeToolIteration, buildAutoRestartInstructions, buildUncommittedChangesFeedback, isUsageLimitReached } = restartShared;
 // Issue #1931: deleted/inaccessible repositories, PRs, issues, and branches
 // are terminal states for long-running watch loops, not retryable CI states.
 const terminalStateLib = await import('./github-terminal-state.lib.mjs');
@@ -58,6 +58,14 @@ const { quietProbe } = await import('./quiet-probe.lib.mjs');
 // stating exactly why it stopped.
 const stopReportingLib = await import('./automation-stop-reporting.lib.mjs');
 const { reportAutomationStop } = stopReportingLib;
+// Issue #2301: a failed AI session in this loop fails the run (see automation-failure.lib.mjs).
+const { recordLoopToolFailure } = await import('./automation-failure.lib.mjs');
+// Issue #2306: never auto-merge a pull request that leaves required issues open.
+const { checkClosingReferencesBeforeMerge } = await import('./solve.ensure-sub-issues.lib.mjs');
+// Issue #2395: never auto-merge a pull request that is not linked to its issue; a breaker stop continues with feedback.
+const { ensureIssueLinkBeforeMerge } = await import('./pr-issue-link-merge-gate.lib.mjs');
+const { isRestartWithFeedback, reportSessionStoppedForFeedback } = await import('./solve.auto-merge-session-stop.lib.mjs');
+const { resumeAfterToolKill } = await import('./solve.tool-kill-resume.lib.mjs'); // Issue #2408
 // Import validation functions for time parsing (used for usage limit wait)
 const validation = await import('./solve.validation.lib.mjs');
 const { calculateWaitTime } = validation;
@@ -72,7 +80,7 @@ const { buildCancelledCIReviewComment, getRetriggerableWorkflowRuns, shouldStopF
 
 // Issue #1625: Shared marker constants + posting/tracking helpers
 const toolComments = await import('./tool-comments.lib.mjs');
-const { READY_TO_MERGE_MARKER, READY_FOR_REVIEW_MARKER, AUTO_RESUME_ON_LIMIT_RESET_MARKER, AUTO_RESTART_MARKER, AUTO_RESTART_UNTIL_MERGEABLE_LOG_MARKER, AUTO_MERGED_MARKER, postTrackedComment } = toolComments;
+const { READY_TO_MERGE_MARKER, READY_FOR_REVIEW_MARKER, AUTO_RESUME_ON_LIMIT_RESET_MARKER, AUTO_RESTART_UNTIL_MERGEABLE_LOG_MARKER, AUTO_MERGED_MARKER, postTrackedComment } = toolComments;
 // Issue #2148: in-process usage-limit continuations bypass startWorkSession,
 // so post their session boundary explicitly before invoking `--resume`.
 const sessionLib = await import('./solve.session.lib.mjs');
@@ -93,7 +101,7 @@ const { formatAutoIterationLimit, hasReachedAutoIterationLimit, normalizeAutoIte
 // ("Auto-restart triggered (iteration 1)" vs "Auto-restart 1/5 Log").
 const autoRestartBudget = await import('./auto-restart-budget.lib.mjs');
 const { beginAutoRestartBudget, consumeAutoRestartIteration, formatAutoRestartLabel, formatAutoRestartLimit, hasExhaustedAutoRestartBudget } = autoRestartBudget;
-const { failOnAutoRestartBudgetExhausted } = await import('./auto-restart-exhaustion.lib.mjs');
+const { buildAutoRestartComment, failOnAutoRestartBudgetExhausted } = await import('./auto-restart-exhaustion.lib.mjs');
 const { handleBillingLimitBlocker } = await import('./billing-limit-stop.lib.mjs');
 // Issue #2247 (H3): a restart is only worth its cost when the previous session
 // changed something. Five byte-identical sessions is a stall, not progress.
@@ -121,18 +129,20 @@ export const watchUntilMergeable = async params => {
   const watchInterval = Math.max(rawWatchInterval, MIN_CI_CHECK_INTERVAL_SECONDS);
   const isAutoMerge = argv.autoMerge || false;
   // Issue #2119: join the shared budget instead of starting a second counter.
-  const maxAutoRestartIterations = beginAutoRestartBudget({ maxIterations: argv.autoRestartMaxIterations });
+  beginAutoRestartBudget({ maxIterations: argv.autoRestartMaxIterations });
   const maxAutoResumeIterations = normalizeAutoIterationLimit(argv.autoResumeMaxIterations);
   // Issue #1503/#1573/#1612: repo-wide action gating is opt-in strict mode.
   // The config default may be bypassed when this module is reused directly, so normalize here.
   const waitForAllRepoActionsFlag = argv.waitForAllActionsInRepositoryBeforeMergeable ?? argv['wait-for-all-actions-in-repository-before-mergeable'] ?? argv.waitForAllActionsInRepositoryBeforeMergable ?? argv['wait-for-all-actions-in-repository-before-mergable'] ?? false;
   // Track latest session data across all iterations for accurate pricing
   let latestSessionId = null;
+  const attachLogWithNotice = prNumber && (argv.attachLogs || argv['attach-logs']) ? leadingSection => attachLogToGitHub({ logFile: getLogFile(), targetType: 'pr', targetNumber: prNumber, owner, repo, $, log, sanitizeLogContent, verbose: argv.verbose, sessionId: latestSessionId, tempDir, argv, requestedModel: argv.originalModel || argv.model, tool: argv.tool || 'claude', leadingSection }) : null; // Issue #2563: a held-back merge publishes unattached AI work with its reason, in one comment
   let latestAnthropicCost = null;
   // Issue #1323: Track actual AI restarts separately from check cycle iterations
   // Issue #2119: the count now lives in the shared budget module, so restarts
   // already spent by the watch loop earlier in this run are counted here too.
   let limitResumeCount = 0;
+  let toolKillResumeCount = 0; // Issue #2408: in-process resumes after a SIGKILL (OOM)
   // Issue #1371: In-memory dedup for "Ready to merge" comment (per-session, not all-time)
   let readyToMergeCommentPosted = false;
   let currentBackoffSeconds = watchInterval;
@@ -173,10 +183,13 @@ export const watchUntilMergeable = async params => {
   }
   await log('');
 
+  // Issue #2263: a failed session still vetoes "ready for review" - the draft
+  // stays. Issue #2312: but it no longer ends the loop before any restart; the
+  // draft blocker below restarts the AI with the failure as feedback, and only an
+  // exhausted restart budget stops the run.
   const readinessVeto = getPullRequestLeftInDraft({ owner, repo, prNumber });
   if (readinessVeto?.kind === 'failure') {
-    await log(formatAligned('❌', 'MONITORING STOPPED:', `The solution session failed: ${readinessVeto.reason || 'verification did not succeed'}`, 2), { level: 'error' });
-    return { success: false, reason: 'solution_session_failed', latestSessionId, latestAnthropicCost };
+    await log(formatAligned('⚠️', 'Previous session failed:', `${readinessVeto.reason || 'verification did not succeed'} - the next AI session will get this as feedback`, 2), { level: 'warning' });
   }
 
   await log('Press Ctrl+C to stop watching manually');
@@ -287,6 +300,7 @@ export const watchUntilMergeable = async params => {
       // so nothing else in this loop notices — the merge then fails with
       // "Pull Request is still a draft" on every single check. Restore
       // "ready for review" here instead of burning an AI restart iteration.
+      let deliberateDraft = null;
       if (blockers.find(b => b.type === 'draft')) {
         const decision = await resolveDraftBlocker({ owner, repo, prNumber, $, log, formatAligned, reportError, reportAutomationStop, verbose: argv.verbose, state: guardState });
         if (decision.action === 'stop') {
@@ -297,6 +311,8 @@ export const watchUntilMergeable = async params => {
           await interruptibleSleep(DRAFT_RECHECK_DELAY_MS);
           continue;
         }
+        // Issue #2312: a draft left on purpose is answered with an AI restart.
+        if (decision.action === 'restart') deliberateDraft = decision.deliberate;
       }
       // Issue #1503/#1918: Reset counter when CI checks exist (safety valve only for
       // consecutive "no runs"). Issue #1918: do NOT reset while getMergeBlockers is still
@@ -409,13 +425,14 @@ export const watchUntilMergeable = async params => {
           }
         }
         await log(formatAligned('✅', 'PR IS MERGEABLE!', ''));
-        // Issue #2144: the pull request is ready. A closed/unavailable linked
-        // issue blocks only the *automatic* merge — the loop already did its
-        // job of making the pull request mergeable. Ask the user to reopen the
-        // issue or merge manually instead of merging behind their back.
-        if (isAutoMerge && issueMergeBlockers.length > 0) {
-          await reportAutoMergeBlockedByIssue({ owner, repo, prNumber, issueNumber, mergeBlockers: issueMergeBlockers, verbose: argv.verbose });
-          return { success: false, reason: issueMergeBlockers[0].reason, mergeBlockers: issueMergeBlockers, latestSessionId, latestAnthropicCost };
+        // Issue #2144: a closed/unavailable linked issue blocks only the
+        // *automatic* merge; the user is asked to reopen it or merge manually.
+        // Issues #2306/#2395: the description can change, so its issue link and
+        // every required closing reference are re-checked right before merging.
+        const mergeBlockers = isAutoMerge ? [...issueMergeBlockers, await ensureIssueLinkBeforeMerge({ owner, repo, issueNumber, prNumber, argv, log }), await checkClosingReferencesBeforeMerge({ owner, repo, issueNumber, prNumber, argv })].filter(Boolean) : issueMergeBlockers;
+        if (isAutoMerge && mergeBlockers.length > 0) {
+          await reportAutoMergeBlockedByIssue({ owner, repo, prNumber, issueNumber, mergeBlockers, verbose: argv.verbose, attachLogWithNotice });
+          return { success: false, reason: mergeBlockers[0].reason, mergeBlockers, latestSessionId, latestAnthropicCost };
         }
         if (isAutoMerge) {
           // Attempt to merge the PR
@@ -424,7 +441,7 @@ export const watchUntilMergeable = async params => {
           if (deleteAfterMerge) {
             await log(formatAligned('', 'Branch cleanup:', 'will delete branch after successful merge', 2));
           }
-          const mergeResult = await mergePullRequest(owner, repo, prNumber, { squash: argv.squash || false, deleteAfter: deleteAfterMerge }, argv.verbose);
+          const mergeResult = await mergePullRequest(owner, repo, prNumber, { issueNumber, squash: argv.squash || false, deleteAfter: deleteAfterMerge }, argv.verbose);
 
           if (mergeResult.success) {
             await log(formatAligned('🎉', 'PR MERGED SUCCESSFULLY!', ''));
@@ -433,7 +450,8 @@ export const watchUntilMergeable = async params => {
             try {
               // Issue #1345: Differentiate message when no CI is configured
               const ciLine = noCiConfigured ? '- No CI/CD checks are configured for this repository' : noCiTriggered ? (workflowRunConclusions ? `- CI workflows completed without executing (${workflowRunConclusions})` : '- CI workflows exist but were not triggered for this commit') : '- All CI checks have passed';
-              const commentBody = `## 🎉 ${AUTO_MERGED_MARKER}\n\nThis pull request has been automatically merged by hive-mind.\n${ciLine}\n\n---\n*Auto-merged by hive-mind with --auto-merge flag*`;
+              // Issue #2492: no footer repeating the heading.
+              const commentBody = `## 🎉 ${AUTO_MERGED_MARKER}\n\nThis pull request has been automatically merged by hive-mind.\n${ciLine}`;
               await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: commentBody });
             } catch {
               // Don't fail if comment posting fails
@@ -455,6 +473,10 @@ export const watchUntilMergeable = async params => {
             }
             return { success: true, reason: 'auto-merged', latestSessionId, latestAnthropicCost };
           } else {
+            if (mergeResult.blocker) {
+              await reportAutoMergeBlockedByIssue({ owner, repo, prNumber, issueNumber, mergeBlockers: [mergeResult.blocker], verbose: argv.verbose, attachLogWithNotice });
+              return { success: false, reason: mergeResult.category, mergeBlockers: [mergeResult.blocker], latestSessionId, latestAnthropicCost };
+            }
             // Issue #2182: an unclassified merge failure used to be logged as
             // "Will continue monitoring..." and retried every 120 seconds
             // forever (5384 identical failures in the reported run). Classify
@@ -505,7 +527,9 @@ export const watchUntilMergeable = async params => {
                         .filter(Boolean)
                         .join(' ')}`
                     : '';
-                const commentBody = `## ✅ ${READY_TO_MERGE_MARKER}\n\nThis pull request is now ready to be merged:\n${ciLine}\n- No merge conflicts\n- No pending changes${issueLine}\n\n---\n*Monitored by hive-mind with --auto-restart-until-mergeable flag*`;
+                // Issue #2492: "uncommitted" is what was checked ("pending" read broader), and the
+                // mode footer is gone - the comment is short and states checked facts only.
+                const commentBody = `## ✅ ${READY_TO_MERGE_MARKER}\n\nThis pull request is now ready to be merged:\n${ciLine}\n- No merge conflicts\n- No uncommitted changes${issueLine}`;
                 // Issue #1625: Track this comment ID so it can't falsely count as an AI-authored comment
                 await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: commentBody });
                 readyToMergeCommentPosted = true;
@@ -542,6 +566,14 @@ export const watchUntilMergeable = async params => {
         feedbackLines.push(`📭 ${emptyPullRequestBlocker}.`);
         feedbackLines.push('');
         feedbackLines.push('Implement the requested change and commit it to the pull request branch. Do not report the work as done while the diff is empty.');
+      }
+      // Issue #2312: Reason 1c: the last working session left the draft on purpose
+      // (the empty diff is already reported above).
+      if (deliberateDraft && !(deliberateDraft.kind === 'no_changes' && isEmptyPullRequest)) {
+        const draftFeedback = buildDeliberateDraftFeedback(deliberateDraft);
+        shouldRestart = true;
+        restartReason = restartReason ? `${restartReason}; ${draftFeedback.restartReason}` : draftFeedback.restartReason;
+        feedbackLines.push(...draftFeedback.feedbackLines);
       }
       // Issue #2007: Reason 1b: Issue title/description edited by the user.
       if (hasIssueMetadataChanges) {
@@ -717,14 +749,8 @@ export const watchUntilMergeable = async params => {
         restartReason = restartReason ? `${restartReason}; Uncommitted changes` : 'Uncommitted changes detected';
         // Get uncommitted changes for display using shared utility
         const changes = await getUncommittedChangesDetails(tempDir);
-        feedbackLines.push('📝 Uncommitted changes detected:');
-        for (const line of changes) {
-          feedbackLines.push(`  ${line}`);
-        }
-        feedbackLines.push('');
-        feedbackLines.push('IMPORTANT: You MUST handle these uncommitted changes by either:');
-        feedbackLines.push('1. COMMITTING them if they are part of the solution (git add + git commit + git push)');
-        feedbackLines.push('2. REVERTING them if they are not needed (git checkout -- <file> or git clean -fd)');
+        // Issue #2313: the exact `git status --porcelain` output and the commit / ignore / delete instruction.
+        feedbackLines.push(...buildUncommittedChangesFeedback(changes));
       }
       if (shouldRestart) {
         // Issue #2119: the run-wide budget is exhausted (it may already have been
@@ -769,7 +795,7 @@ export const watchUntilMergeable = async params => {
           if (pullResult.code === 0) {
             await log(formatAligned('🔄', 'Synced:', `Local branch ${effectiveBranch} updated from remote`));
           } else {
-            const pullOutput = `${pullResult.stdout || ''}${pullResult.stderr || ''}`.trim() || 'no output';
+            const pullOutput = `${pullResult.stdout?.toString() || ''}${pullResult.stderr?.toString() || ''}`.trim() || 'no output';
             const pullLeftLocalChanges = await checkForUncommittedChanges(tempDir, argv);
             if (pullLeftLocalChanges && /CONFLICT|MERGE_HEAD|unmerged|Automatic merge failed|not concluded your merge/i.test(pullOutput)) {
               await log(formatAligned('⚠️', 'Sync produced merge state:', 'Proceeding with AI restart to resolve it', 2));
@@ -794,11 +820,12 @@ export const watchUntilMergeable = async params => {
         // Post a comment to PR about the restart after preflight succeeds, so every
         // posted restart notification corresponds to an actual tool session.
         try {
-          const limitText = maxAutoRestartIterations === 0 ? 'No automatic restart limit is configured.' : `This run will stop after ${maxAutoRestartIterations} restart iteration${maxAutoRestartIterations !== 1 ? 's' : ''} in total.`;
           // Issue #2119: the same `N/M` heading the uncommitted-changes loop posts.
           // "triggered (iteration N)" hid the limit and made one auto-restart
           // system look like two.
-          const commentBody = `## 🔄 ${AUTO_RESTART_MARKER} ${formatAutoRestartLabel(restartCount)}\n\n**Reason:** ${restartReason}\n\nStarting new session to address the issues.\n\n---\n*Auto-restart-until-mergeable mode is active. ${limitText}*`;
+          // Issue #2492: the `N/M` heading already states the limit, so the footer
+          // that repeated it is gone.
+          const commentBody = buildAutoRestartComment({ label: formatAutoRestartLabel(restartCount), reason: restartReason });
           // Issue #1625: Track so this doesn't falsely count as an AI-authored comment
           await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: commentBody });
           await log(formatAligned('', '💬 Posted auto-restart notification to PR', '', 2));
@@ -971,11 +998,14 @@ export const watchUntilMergeable = async params => {
                 await log(formatAligned('', 'Action:', 'Stopping auto-restart — tool execution failed after limit reset', 2));
                 // Issue #1439: Attach failure log before stopping, so user can see what happened
                 const shouldAttachLogsOnResumeFail = argv.attachLogs || argv['attach-logs'];
+                // Issue #2301: the stop comment must not point to a log that failed to upload.
+                let resumeFailLogAttached = null;
                 if (prNumber && shouldAttachLogsOnResumeFail) {
+                  resumeFailLogAttached = false;
                   try {
                     const logFile = getLogFile();
                     if (logFile) {
-                      await attachLogToGitHub({
+                      resumeFailLogAttached = await attachLogToGitHub({
                         logFile,
                         targetType: 'pr',
                         targetNumber: prNumber,
@@ -1003,7 +1033,8 @@ export const watchUntilMergeable = async params => {
                     await log(formatAligned('', `⚠️  Failure log upload error: ${cleanErrorMessage(logUploadError)}`, '', 2));
                   }
                 }
-                await reportAutomationStop({ $, owner, repo, targetNumber: prNumber, reason: 'tool_failure_after_resume', mode: 'auto-restart-until-mergeable', message: extractToolErrorCore({ toolResult: resumeResult }) || formatToolExecutionFailure({ tool: argv.tool, toolResult: resumeResult }), verbose: argv.verbose, log });
+                await reportAutomationStop({ $, owner, repo, targetNumber: prNumber, reason: 'tool_failure_after_resume', mode: 'auto-restart-until-mergeable', message: extractToolErrorCore({ toolResult: resumeResult }) || formatToolExecutionFailure({ tool: argv.tool, toolResult: resumeResult }), verbose: argv.verbose, log, logAttached: resumeFailLogAttached });
+                recordLoopToolFailure({ reason: 'tool_failure_after_resume', mode: 'auto-restart-until-mergeable', message: extractToolErrorCore({ toolResult: resumeResult }) || formatToolExecutionFailure({ tool: argv.tool, toolResult: resumeResult }) });
                 return { success: false, reason: 'tool_failure_after_resume', latestSessionId, latestAnthropicCost };
               }
             } else {
@@ -1015,6 +1046,21 @@ export const watchUntilMergeable = async params => {
               continue;
             }
           }
+          // Issue #2408: a tool killed by SIGKILL (exit 137, OOM) resumes its own session in-process.
+          // Issue #2498: once the pull request is merged nothing is recovered; the next pass sees the merge and finishes.
+          let toolKillWorkDone = false;
+          if (!toolResult.success) ({ toolResult, attemptsUsed: toolKillResumeCount, workDone: toolKillWorkDone } = await resumeAfterToolKill({ toolResult, attemptsUsed: toolKillResumeCount, argv, runIteration: next => executeToolIteration({ issueUrl, owner, repo, issueNumber, prNumber, branchName: prBranch || branchName, tempDir, mergeStateStatus, feedbackLines: next.feedbackLines, argv: next.argv }), $, owner, repo, prNumber, log, isWorkDone: () => checkPRMerged(owner, repo, prNumber) }));
+          if (toolKillWorkDone) {
+            lastCheckTime = new Date();
+            continue;
+          }
+          // Issue #2395: a session the repeated-tool-call breaker ended is not a tool
+          // failure — attach its log and continue with feedback (agent#323).
+          if (isRestartWithFeedback(toolResult)) {
+            await reportSessionStoppedForFeedback({ toolResult, argv, restartLabel: formatAutoRestartLabel(restartCount), prNumber, owner, repo, $, log, formatAligned, getLogFile, attachLogToGitHub, sanitizeLogContent, formatToolExecutionFailure, reportError, cleanErrorMessage, latestSessionId, tempDir });
+            lastCheckTime = new Date();
+            continue;
+          }
           // Any other failure (not usage limit): stop the auto-restart loop
           // Per reviewer feedback: non-limit failures should fail and stop attempts
           if (!toolResult.success) {
@@ -1025,26 +1071,14 @@ export const watchUntilMergeable = async params => {
             await log(formatAligned('', 'Action:', 'Stopping auto-restart — tool execution failed', 2));
             // Issue #1439: Attach failure log before stopping, so user can see what happened
             const shouldAttachLogsOnFail = argv.attachLogs || argv['attach-logs'];
+            // Issue #2301: the stop comment must not point to a log that failed to upload.
+            let failLogAttached = null;
             if (prNumber && shouldAttachLogsOnFail) {
+              failLogAttached = false;
               try {
                 const logFile = getLogFile();
                 if (logFile) {
-                  await attachLogToGitHub({
-                    logFile,
-                    targetType: 'pr',
-                    targetNumber: prNumber,
-                    owner,
-                    repo,
-                    $,
-                    log,
-                    sanitizeLogContent,
-                    verbose: argv.verbose,
-                    errorMessage: formatToolExecutionFailure({ tool: argv.tool, toolResult }),
-                    sessionId: latestSessionId,
-                    tempDir,
-                    requestedModel: argv.originalModel || argv.model,
-                    tool: argv.tool || 'claude',
-                  });
+                  failLogAttached = await attachLogToGitHub({ logFile, targetType: 'pr', targetNumber: prNumber, owner, repo, $, log, sanitizeLogContent, verbose: argv.verbose, errorMessage: formatToolExecutionFailure({ tool: argv.tool, toolResult }), sessionId: toolResult.sessionId || latestSessionId, tempDir, requestedModel: argv.originalModel || argv.model, tool: argv.tool || 'claude' });
                 }
               } catch (logUploadError) {
                 reportError(logUploadError, {
@@ -1057,7 +1091,8 @@ export const watchUntilMergeable = async params => {
                 await log(formatAligned('', `⚠️  Failure log upload error: ${cleanErrorMessage(logUploadError)}`, '', 2));
               }
             }
-            await reportAutomationStop({ $, owner, repo, targetNumber: prNumber, reason: 'tool_failure', mode: 'auto-restart-until-mergeable', message: extractToolErrorCore({ toolResult }) || formatToolExecutionFailure({ tool: argv.tool, toolResult }), verbose: argv.verbose, log });
+            await reportAutomationStop({ $, owner, repo, targetNumber: prNumber, reason: 'tool_failure', mode: 'auto-restart-until-mergeable', message: extractToolErrorCore({ toolResult }) || formatToolExecutionFailure({ tool: argv.tool, toolResult }), verbose: argv.verbose, log, logAttached: failLogAttached });
+            recordLoopToolFailure({ reason: 'tool_failure', mode: 'auto-restart-until-mergeable', message: extractToolErrorCore({ toolResult }) || formatToolExecutionFailure({ tool: argv.tool, toolResult }) });
             return { success: false, reason: 'tool_failure', latestSessionId, latestAnthropicCost };
           }
         }

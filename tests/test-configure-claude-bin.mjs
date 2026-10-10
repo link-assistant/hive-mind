@@ -58,7 +58,7 @@ assert.equal(resolveSettingsPath(), path.join(os.homedir(), '.claude', 'settings
 // --- help text ---
 assert.ok(CONFIGURE_CLAUDE_HELP.includes('configure-claude'), 'help text should mention the command name');
 assert.ok(CONFIGURE_CLAUDE_HELP.includes('--verify'), 'help text should mention --verify');
-assert.ok(CONFIGURE_CLAUDE_HELP.includes('issues/1642'), 'help text should reference issue #1642');
+assert.doesNotMatch(CONFIGURE_CLAUDE_HELP, /issues?[/ ]#?\d+/, 'help describes current behaviour only, not its history (issue #2402)');
 
 const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'configure-claude-bin-'));
 try {

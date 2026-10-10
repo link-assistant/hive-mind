@@ -1,0 +1,18 @@
+node:internal/modules/run_main:111
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: routed tasks should honor cached gateway capabilities
+
+'low' !== 'auto'
+
+    at file:///tmp/gh-issue-solver-1791224072909/tests/issue-2526-model-capabilities.test.mjs:56:10 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: 'low',
+  expected: 'auto',
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v26.10.0

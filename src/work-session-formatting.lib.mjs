@@ -1,6 +1,7 @@
 import { t } from './i18n.lib.mjs';
 import { escapeMarkdown } from './telegram-markdown.lib.mjs';
 import { FAILURE_SESSION_STATUSES, KILLED_SESSION_STATUSES, isKilledSessionStatus, describeExitSignal, normalizeExitCode } from './session-status.lib.mjs';
+import { EXIT_CODE_HIVE_NO_WORK, EXIT_CODE_HIVE_INCOMPLETE } from './hive.run-outcome.lib.mjs';
 
 function text(locale, key, fallback, params = {}) {
   if (!locale) return fallback;
@@ -176,7 +177,7 @@ export function appendPullRequestLine(infoBlock, pullRequestUrl, { locale = null
 
 const KILL_CAUSE_LABELS = { 'out-of-memory': 'out of memory', 'disk-full': 'disk full', 'forced-kill': 'forced kill' };
 
-export function formatSessionCompletionMessage({ sessionName, sessionInfo, statusResult = null, observedEndTime = new Date(), exitCode = null, infoBlock = '', pullRequestUrl = null, pullRequestState = null, extraSections = [], locale = null, killCause = null } = {}) {
+export function formatSessionCompletionMessage({ sessionName, sessionInfo, statusResult = null, observedEndTime = new Date(), exitCode = null, infoBlock = '', pullRequestUrl = null, pullRequestState = null, extraSections = [], locale = null, resumedAs = null, recoveryCount = null, killCause = null } = {}) {
   const finalExitCode = getSessionCompletionExitCode({ exitCode, statusResult });
   const outcome = classifySessionOutcome({ exitCode: finalExitCode, status: statusResult?.status || null });
   const { failed, killed, signal } = outcome;
@@ -193,12 +194,39 @@ export function formatSessionCompletionMessage({ sessionName, sessionInfo, statu
   const pullRequestMerged = pullRequestState?.merged === true || Boolean(pullRequestState?.mergedAt);
   let statusEmojiOverride = null;
   let statusText;
-  if (killed && stopRequestedByUser) {
+  // Issue #2408: how many automatic recoveries this work has needed so far — a
+  // recovery session inherits the counter of the session it replaced.
+  const recoveries = Number.isFinite(recoveryCount) ? recoveryCount : sessionInfo?.killRecoveryResumed && Number.isFinite(sessionInfo?.killRecoveryAttempts) ? sessionInfo.killRecoveryAttempts : 0;
+  if (resumedAs) {
+    // Issue #2301: a recovery session was started for this work, so the work is
+    // not finished. Neither "finished successfully" nor "failed" is true yet;
+    // the recovery session edits this message again when it actually ends.
+    // Issue #2408: that is a warning, not a failure and not a neutral state.
+    statusEmojiOverride = '⚠️';
+    statusText = text(messageLocale, 'telegram.work_session_recovering', `Work session still in progress: recovering from exit code ${finalExitCode}`, { exitCode: finalExitCode ?? '' });
+  } else if (finalExitCode === null && !killed && (sessionInfo?.killRecoveryResumed || sessionInfo?.recoveryLifecycle)) {
+    statusEmojiOverride = '⚠️';
+    statusText = 'Work session ended; final outcome could not be confirmed';
+  } else if (!failed && recoveries > 0) {
+    // Issue #2408: the work completed, but only because it was recovered.
+    statusEmojiOverride = '⚠️';
+    statusText = text(messageLocale, 'telegram.work_session_recovered', 'Work session finished successfully after automatic recovery');
+  } else if (killed && stopRequestedByUser) {
     const showCode = finalExitCode !== null && !(!signal && finalExitCode === 1);
     const exitSuffix = showCode ? ` (exit code: ${finalExitCode})` : '';
     const requestedBy = sessionInfo?.stopRequestedBy ? ` by ${sessionInfo.stopRequestedBy}` : '';
     statusEmojiOverride = '🛑';
     statusText = text(messageLocale, 'telegram.work_session_stopped', `Work session stopped by user${requestedBy}${exitSuffix}`, { requestedBy, exitCode: finalExitCode ?? '', signal: signal?.signal ?? '', exitSuffix });
+  } else if ((failed || killed) && pullRequestMerged) {
+    // Issue #2117: the runner's exit code is still authoritative and must not
+    // be hidden, but calling the entire session "failed" contradicts the
+    // externally verified result when its pull request has already merged.
+    // Describe both outcomes so operators know the requested goal completed
+    // and that a later orchestration failure still needs investigation.
+    // Issue #2498: the same holds for a kill after the merge — the work is
+    // done, so it is neither "killed" nor something to recover.
+    statusEmojiOverride = '⚠️';
+    statusText = text(messageLocale, 'telegram.work_session_merged_but_failed', `Pull request merged, but the work session exited with code: ${finalExitCode ?? 'unknown'}`, { exitCode: finalExitCode ?? 'unknown' });
   } else if (killed) {
     // A real signal exit is always >128; an exit code of exactly 1 on a
     // status-only kill (process vanished, code unknown) is a synthesized failure
@@ -211,19 +239,15 @@ export function formatSessionCompletionMessage({ sessionName, sessionInfo, statu
     const causeLabel = KILL_CAUSE_LABELS[killCause] || null;
     const reason = signal ? signal.reason : causeLabel ? `killed (${causeLabel})` : 'killed';
     statusText = text(messageLocale, 'telegram.work_session_killed', `Work session ${reason}${exitSuffix}`, { reason, exitCode: finalExitCode ?? '', signal: signal?.signal ?? '', exitSuffix });
-  } else if (failed && pullRequestMerged) {
-    // Issue #2117: the runner's exit code is still authoritative and must not
-    // be hidden, but calling the entire session "failed" contradicts the
-    // externally verified result when its pull request has already merged.
-    // Describe both outcomes so operators know the requested goal completed
-    // and that a later orchestration failure still needs investigation.
+  } else if (sessionInfo?.command === 'hive' && (finalExitCode === EXIT_CODE_HIVE_NO_WORK || finalExitCode === EXIT_CODE_HIVE_INCOMPLETE)) {
     statusEmojiOverride = '⚠️';
-    statusText = text(messageLocale, 'telegram.work_session_merged_but_failed', `Pull request merged, but the work session exited with code: ${finalExitCode}`, { exitCode: finalExitCode });
+    statusText = finalExitCode === EXIT_CODE_HIVE_NO_WORK ? text(messageLocale, 'telegram.work_session_hive_no_work', 'No issues processed; check the log for skipped issues or blockers. To continue issues with existing PRs, use `--no-skip-issues-with-prs --auto-continue`') : text(messageLocale, 'telegram.work_session_hive_incomplete', 'Hive session ended with issues still waiting; check the log for blockers');
   } else if (failed) {
     statusText = text(messageLocale, 'telegram.work_session_failed', `Work session failed (exit code: ${finalExitCode})`, { exitCode: finalExitCode });
   } else {
     statusText = text(messageLocale, 'telegram.work_session_finished', 'Work session finished successfully');
   }
+  if (recoveries > 0) statusText += ` (${text(messageLocale, 'telegram.work_session_recoveries', `automatic recoveries: ${recoveries}`, { count: recoveries })})`;
   const durationLabel = text(messageLocale, 'telegram.duration_label', 'Duration');
   const sessionLabel = text(messageLocale, 'telegram.session_label', 'Session');
   const isolationLabel = text(messageLocale, 'telegram.isolation_label', 'Isolation');
@@ -234,8 +258,12 @@ export function formatSessionCompletionMessage({ sessionName, sessionInfo, statu
   // session UUID, so the finished task can still be found in the session list.
   const executionLabel = text(messageLocale, 'telegram.execution_label', 'Execution');
   const executionUuid = sessionInfo?.executionUuid || statusResult?.uuid || null;
-  const executionInfo = executionUuid ? `\n🆔 ${executionLabel}: \`${executionUuid}\`` : '';
-  const startTime = parseDateValue(statusResult?.startTime) || parseDateValue(sessionInfo?.startTime) || observedEndTime;
+  // Issue #2408: a recovery launched fresh writes a new log, so name the earlier ones too.
+  const previousExecutions = (Array.isArray(sessionInfo?.previousExecutionUuids) ? sessionInfo.previousExecutionUuids : []).filter(uuid => uuid && uuid !== executionUuid);
+  const earlierExecutions = previousExecutions.length > 0 ? ` (${text(messageLocale, 'telegram.execution_earlier', 'earlier logs')}: ${previousExecutions.map(uuid => `\`${uuid}\``).join(', ')})` : '';
+  const executionInfo = executionUuid ? `\n🆔 ${executionLabel}: \`${executionUuid}\`${earlierExecutions}` : '';
+  // Issue #2301: after a recovery session the duration covers the whole work.
+  const startTime = parseDateValue(sessionInfo?.rootStartTime) || parseDateValue(statusResult?.startTime) || parseDateValue(sessionInfo?.startTime) || observedEndTime;
   const endTime = parseDateValue(statusResult?.endTime) || observedEndTime;
   const durationSeconds = Math.max(0, (endTime.getTime() - startTime.getTime()) / 1000);
   let resolvedInfoBlock = infoBlock || sessionInfo?.infoBlock || '';
@@ -244,10 +272,17 @@ export function formatSessionCompletionMessage({ sessionName, sessionInfo, statu
   if (pullRequestUrl) resolvedInfoBlock = appendPullRequestLine(resolvedInfoBlock, pullRequestUrl, { locale: messageLocale });
   const details = resolvedInfoBlock ? `\n\n${resolvedInfoBlock}` : '';
 
+  // Issue #2301: the work keeps the id it was started with. A recovery session
+  // (see session-kill-resume.lib.mjs) runs under its own id, which is listed on
+  // its own line so the Telegram thread still names the session it began with.
+  const rootSessionName = sessionInfo?.rootSessionName || sessionName || 'unknown';
+  const recoverySessionName = resumedAs || (sessionName && sessionName !== rootSessionName ? sessionName : null);
+  const recoveryInfo = recoverySessionName && recoverySessionName !== rootSessionName ? `\n🔁 ${text(messageLocale, 'telegram.session_recovery_label', 'Recovery session')}: \`${recoverySessionName}\`` : '';
+
   const statusEmoji = statusEmojiOverride || (failed ? '❌' : '✅');
   let message = `${statusEmoji} *${statusText}*\n\n`;
   message += `⏱️ ${durationLabel}: ${formatSessionDurationSeconds(durationSeconds)}\n`;
-  message += `📊 ${sessionLabel}: \`${sessionName || 'unknown'}\`${executionInfo}${isolationInfo}${details}`;
+  message += `📊 ${sessionLabel}: \`${rootSessionName}\`${recoveryInfo}${executionInfo}${isolationInfo}${details}`;
 
   // Issue #594: --show-limits virtual option appends snapshot/delta sections
   // (Markdown code blocks) below the standard completion details.

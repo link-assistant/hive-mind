@@ -4,10 +4,17 @@ on:
   push:
     branches: [main]
   pull_request:
+    branches-ignore: ['e2e/**']
     types: [opened, synchronize, reopened]
   schedule:
     - cron: '0 6 * * 1'
   workflow_dispatch:
+    inputs:
+      mode:
+        description: Checks-only dispatch
+        type: choice
+        default: checks
+        options: [checks]
 
 # Least-privilege default; jobs escalate individually when needed.
 permissions:

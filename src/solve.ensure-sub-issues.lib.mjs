@@ -44,10 +44,12 @@ const sentryLib = await import('./sentry.lib.mjs');
 const { reportError } = sentryLib;
 
 const detectLib = await import('./solve.ensure-sub-issues.detect.lib.mjs');
-const { DEFAULT_ENSURE_SUB_ISSUES_LIMIT, ENSURE_SUB_ISSUES_PROMPT, buildEnsureSubIssuesFeedback, buildMissingReferenceBlock, findMissingSubIssueReferences, formatEnsureSubIssuesLimit, normalizeEnsureSubIssuesLimit, normalizeSubIssueEntry } = detectLib;
+const { DEFAULT_ENSURE_SUB_ISSUES_LIMIT, ENSURE_SUB_ISSUES_PROMPT, buildEnsureSubIssuesFeedback, buildMissingReferenceBlock, evaluateClosingReferencesGate, findMissingSubIssueReferences, formatEnsureSubIssuesLimit, mergeRequiredSubIssues, normalizeEnsureSubIssuesLimit, normalizeSubIssueEntry } = detectLib;
+
+const { parseRequiredClosingReferences } = await import('./solve.repository-mode.lib.mjs');
 
 // Re-export the pure helpers so importers only need this module.
-export { DEFAULT_ENSURE_SUB_ISSUES_LIMIT, ENSURE_SUB_ISSUES_PROMPT, buildEnsureSubIssuesFeedback, buildMissingReferenceBlock, findMissingSubIssueReferences, formatEnsureSubIssuesLimit, normalizeEnsureSubIssuesLimit, normalizeSubIssueEntry };
+export { DEFAULT_ENSURE_SUB_ISSUES_LIMIT, ENSURE_SUB_ISSUES_PROMPT, buildEnsureSubIssuesFeedback, buildMissingReferenceBlock, evaluateClosingReferencesGate, findMissingSubIssueReferences, formatEnsureSubIssuesLimit, mergeRequiredSubIssues, normalizeEnsureSubIssuesLimit, normalizeSubIssueEntry };
 
 /**
  * Hard cap on consecutive AI errors, so "unlimited" cannot spin forever.
@@ -68,11 +70,66 @@ export const fetchSubIssues = async ({ owner, repo, issueNumber }) => {
   // Issue #2135: `mirror: false` — the payload is inspected here, not shown.
   const result = await $(QUIET_PROBE)`gh api repos/${owner}/${repo}/issues/${issueNumber}/sub_issues --paginate`;
   if (result.code !== 0) {
-    const output = (result.stderr || result.stdout || '').toString().trim();
+    const output = (result.stderr?.toString() || result.stdout?.toString() || '').toString().trim();
     throw new Error(output || `gh api sub_issues exited with code ${result.code}`);
   }
   const parsed = JSON.parse(result.stdout.toString() || '[]');
   return Array.isArray(parsed) ? parsed : [];
+};
+
+/**
+ * Fetch the body of the issue being solved.
+ *
+ * @param {object} params
+ * @returns {Promise<string>}
+ */
+export const fetchIssueBody = async ({ owner, repo, issueNumber }) => {
+  // Issue #2135: `mirror: false` — the body can be very large.
+  const result = await $(QUIET_PROBE)`gh api repos/${owner}/${repo}/issues/${issueNumber}`;
+  if (result.code !== 0) {
+    const output = (result.stderr?.toString() || result.stdout?.toString() || '').toString().trim();
+    throw new Error(output || `gh api issues exited with code ${result.code}`);
+  }
+  const issue = JSON.parse(result.stdout.toString() || '{}');
+  return String(issue.body || '');
+};
+
+/**
+ * List every issue the pull request must close: the native sub-issues plus the
+ * closing references listed in the body of a repository-mode issue.
+ *
+ * Issue #2306: an issue that already had a parent could not be attached as a
+ * sub-issue, so checking native sub-issues alone missed 6 of 7 issues. Either
+ * source may fail on its own; the check continues with the other one.
+ *
+ * @param {object} params
+ * @returns {Promise<{required: Array<object>, nativeCount: number, bodyOnlyCount: number}>}
+ */
+export const fetchRequiredSubIssues = async ({ owner, repo, issueNumber }) => {
+  let subIssues = [];
+  let requiredNumbers = [];
+  let subIssuesError = null;
+  let bodyError = null;
+
+  try {
+    subIssues = await fetchSubIssues({ owner, repo, issueNumber });
+  } catch (error) {
+    subIssuesError = error;
+  }
+  try {
+    requiredNumbers = parseRequiredClosingReferences(await fetchIssueBody({ owner, repo, issueNumber }));
+  } catch (error) {
+    bodyError = error;
+  }
+
+  if (subIssuesError && bodyError) throw subIssuesError;
+  if (subIssuesError) {
+    await log(`⚠️  ENSURE-SUB-ISSUES: Could not list sub-issues (${cleanErrorMessage(subIssuesError)}); using the closing references in the issue body only.`, { level: 'warning' });
+  }
+
+  const required = mergeRequiredSubIssues({ subIssues, requiredNumbers, owner, repo });
+  const bodyOnlyCount = required.filter(entry => entry.source === 'issue-body').length;
+  return { required, nativeCount: required.length - bodyOnlyCount, bodyOnlyCount };
 };
 
 /**
@@ -86,7 +143,7 @@ export const fetchPullRequestText = async ({ owner, repo, prNumber }) => {
   // Issue #2135: `mirror: false` — the body can be very large.
   const result = await $(QUIET_PROBE)`gh api repos/${owner}/${repo}/pulls/${prNumber}`;
   if (result.code !== 0) {
-    const output = (result.stderr || result.stdout || '').toString().trim();
+    const output = (result.stderr?.toString() || result.stdout?.toString() || '').toString().trim();
     throw new Error(output || `gh api pulls exited with code ${result.code}`);
   }
   const pr = JSON.parse(result.stdout.toString() || '{}');
@@ -122,7 +179,13 @@ export const runEnsureAllSubIssuesAddressed = async ({ issueUrl, owner, repo, is
 
   let subIssues;
   try {
-    subIssues = await fetchSubIssues({ owner, repo, issueNumber });
+    const fetched = await fetchRequiredSubIssues({ owner, repo, issueNumber });
+    subIssues = fetched.required;
+    if (fetched.bodyOnlyCount > 0) {
+      // Issue #2306: these are listed in the issue body but are not native
+      // sub-issues (typically because they already had another parent).
+      await log(`   Issues required by the issue body but not attached as sub-issues: ${fetched.bodyOnlyCount}`);
+    }
   } catch (error) {
     reportError(error, { context: 'ensure_sub_issues_fetch', owner, repo, issueNumber, operation: 'fetch_sub_issues' });
     await log(`⚠️  ENSURE-SUB-ISSUES: Could not list sub-issues: ${cleanErrorMessage(error)}`, { level: 'warning' });
@@ -135,6 +198,7 @@ export const runEnsureAllSubIssuesAddressed = async ({ issueUrl, owner, repo, is
   }
 
   await log(`   Sub-issues to verify: ${subIssues.length}`);
+  await log(`   Required: ${subIssues.map(subIssue => `#${subIssue.number}`).join(', ')}`, { verbose: true });
 
   // Merge state is only used to enrich the restart prompt; a failure here is
   // never a reason to skip the check.
@@ -177,12 +241,17 @@ export const runEnsureAllSubIssuesAddressed = async ({ issueUrl, owner, repo, is
     }
 
     if (iteration >= limit) {
-      await log(`🛑 ENSURE-SUB-ISSUES: Reached the restart limit (${formatEnsureSubIssuesLimit(limit)}) with ${missing.length}/${total} sub-issue(s) still missing a closing reference.`);
+      await log(`🛑 ENSURE-SUB-ISSUES: Reached the restart limit (${formatEnsureSubIssuesLimit(limit)}) with ${missing.length}/${total} sub-issue(s) still missing a closing reference.`, { level: 'warning' });
       for (const subIssue of missing.slice(0, 20)) {
-        await log(`   • #${subIssue.number}${subIssue.title ? ` — ${subIssue.title}` : ''}`);
+        await log(`   • #${subIssue.number}${subIssue.title ? ` — ${subIssue.title}` : ''}`, { level: 'warning' });
       }
-      await log('   Add these lines to the pull request description to close them on merge:');
-      await log(buildMissingReferenceBlock(missing, { owner, repo }));
+      await log('   Add these lines to the pull request description to close them on merge:', { level: 'warning' });
+      await log(buildMissingReferenceBlock(missing, { owner, repo }), { level: 'warning' });
+      // Issue #2306: --auto-merge re-checks this right before merging and holds
+      // the merge back while any of these references is still missing.
+      if (argv.autoMerge) {
+        await log('   --auto-merge will not merge this pull request until they are added.', { level: 'warning' });
+      }
       break;
     }
 
@@ -264,9 +333,36 @@ export const runEnsureAllSubIssuesAddressed = async ({ issueUrl, owner, repo, is
   return { sessionId, anthropicTotalCostUSD, publicPricingEstimate, pricingInfo };
 };
 
+/**
+ * Re-check the closing references right before `--auto-merge` merges.
+ *
+ * Issue #2306: the restart loop above can end with references still missing
+ * (restart limit, usage limit, errors), and the AI can remove references in a
+ * later session. The merge is the last point where this can be caught.
+ *
+ * Issue #2335: always checks the primary issue and all required sub-issues,
+ * and a failed GitHub read blocks the merge.
+ *
+ * @param {object} params
+ * @param {string} params.owner
+ * @param {string} params.repo
+ * @param {string|number} params.issueNumber
+ * @param {string|number} params.prNumber
+ * @param {object} params.argv
+ * @returns {Promise<{reason: string, message: string, details: string[], resolution: string}|null>} merge blocker, or null
+ */
+export const checkClosingReferencesBeforeMerge = async ({ owner, repo, issueNumber, prNumber, argv = {} }) => {
+  const { checkIssueLinksBeforeMerge } = await import('./issue-link-verification.lib.mjs');
+  const { blocker } = await checkIssueLinksBeforeMerge({ owner, repo, issueNumber, prNumber, logger: log, verbose: argv.verbose });
+  return blocker;
+};
+
 export default {
   DEFAULT_ENSURE_SUB_ISSUES_LIMIT,
   ENSURE_SUB_ISSUES_PROMPT,
+  checkClosingReferencesBeforeMerge,
+  fetchIssueBody,
+  fetchRequiredSubIssues,
   fetchSubIssues,
   fetchPullRequestText,
   findMissingSubIssueReferences,

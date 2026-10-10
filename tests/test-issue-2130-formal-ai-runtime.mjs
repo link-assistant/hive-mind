@@ -88,15 +88,23 @@ test('buildFormalAiClientEnv points codex at CODEX_HOME instead of copying its T
     assert.equal(env.CODEX_HOME, join(home, '.codex'));
   }));
 
-test('buildFormalAiClientEnv points agent/opencode at XDG_CONFIG_HOME', async () =>
+test('buildFormalAiClientEnv points agent/opencode at their own config directory, not XDG_CONFIG_HOME (#2314)', async () =>
   withTempDir(async home => {
-    const { env } = await buildFormalAiClientEnv({
+    const { env: agentEnv } = await buildFormalAiClientEnv({
       client: { id: 'agent', global_configs: [{ format: 'json', path: '.config/link-assistant-agent/opencode.json' }] },
       home,
       apiKey: 'k',
     });
+    assert.equal(agentEnv.LINK_ASSISTANT_AGENT_CONFIG_DIR, join(home, '.config', 'link-assistant-agent'));
+    assert.ok(!('XDG_CONFIG_HOME' in agentEnv), "XDG_CONFIG_HOME also moves gh's config");
 
-    assert.equal(env.XDG_CONFIG_HOME, join(home, '.config'));
+    const { env: opencodeEnv } = await buildFormalAiClientEnv({
+      client: { id: 'opencode', global_configs: [{ format: 'json', path: '.config/opencode/opencode.json' }] },
+      home,
+      apiKey: 'k',
+    });
+    assert.equal(opencodeEnv.OPENCODE_CONFIG_DIR, join(home, '.config', 'opencode'));
+    assert.ok(!('XDG_CONFIG_HOME' in opencodeEnv));
   }));
 
 test('buildFormalAiClientEnv records an unsupported config format instead of failing silently', async () =>
@@ -313,6 +321,7 @@ const prepareWithStubs = async ({ tool, env = {}, profile = null }) => {
       configureImpl: async () => {
         if (profile) await writeFile(join(home, '.profile'), profile);
       },
+      ghAuthImpl: async () => ({ GH_CONFIG_DIR: '/home/box/.config/gh' }),
     },
   });
   return { runtime, home, stopped };
@@ -506,6 +515,7 @@ test('prepareFormalAiRuntime creates the isolated HOME under the configured root
         loadRegistryImpl: async () => [registryFor('codex')],
         seedImpl: async () => [],
         configureImpl: async () => {},
+        ghAuthImpl: async () => ({}),
       },
     });
 

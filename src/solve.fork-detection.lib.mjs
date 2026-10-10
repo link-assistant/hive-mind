@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
+import { repositoryWriteAccess } from './github-write-access.lib.mjs';
 
 /**
  * Fork-detection helpers for solve.mjs
@@ -78,7 +79,11 @@ export async function handleAutoForkOption({ owner, repo, argv, safeExit }) {
 
   if (permResult.code === 0) {
     const permissions = JSON.parse(permResult.stdout.toString().trim());
-    const hasWriteAccess = permissions.push === true || permissions.admin === true || permissions.maintain === true;
+    const hasWriteAccess = repositoryWriteAccess(permissions);
+    if (hasWriteAccess === null) {
+      await log('ℹ️ Auto-fork: User roles do not establish token write access; attempting direct repository access');
+      return;
+    }
 
     if (!hasWriteAccess) {
       const { isPublic } = await detectRepositoryVisibility(owner, repo);

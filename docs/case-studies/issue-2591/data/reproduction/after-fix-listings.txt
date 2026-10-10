@@ -46,8 +46,9 @@ formal-ai, big-pickle, gpt-5-nano, nemotron-3-super-free, nemotron-3-ultra-free,
   sonnet -> anthropic/claude-sonnet-5-5
   gemini-3-pro -> google/gemini-3.1-pro-preview
 
-## opencode (12 listed)
-formal-ai, gpt4, gpt4o, opus, sonnet, haiku, fable, claude, gemini, grok, grok-code, grok-code-fast-1
+## opencode (15 listed)
+formal-ai, gpt4o, big-pickle, nemotron-3-ultra-free, nemotron-3.5-lightning-free, ling-3.1-flash-free, mimo-v2.6-flash-free, step-5-preview-free, exo-free, opus, sonnet, haiku, fable, claude, gemini
+  big-pickle -> opencode/big-pickle
   grok -> opencode/grok-code
   sonnet -> anthropic/claude-sonnet-5-5
   opus -> anthropic/claude-opus-5-5
@@ -135,8 +136,10 @@ formal-ai, big-pickle, gpt-5-nano, nemotron-3-super-free, nemotron-3-ultra-free,
 [model-resolution] bundled {"tool":"agent","model":"gemini-3-pro","mappedModel":"google/gemini-3.1-pro-preview"}
   gemini-3-pro -> google/gemini-3.1-pro-preview (bundled)
 
-## opencode (12 listed)
-formal-ai, gpt4, gpt4o, opus, sonnet, haiku, fable, claude, gemini, grok, grok-code, grok-code-fast-1
+## opencode (15 listed)
+formal-ai, gpt4o, big-pickle, nemotron-3-ultra-free, nemotron-3.5-lightning-free, ling-3.1-flash-free, mimo-v2.6-flash-free, step-5-preview-free, exo-free, opus, sonnet, haiku, fable, claude, gemini
+[model-resolution] bundled {"tool":"opencode","model":"big-pickle","mappedModel":"opencode/big-pickle"}
+  big-pickle -> opencode/big-pickle (bundled)
 [model-resolution] bundled {"tool":"opencode","model":"grok","mappedModel":"opencode/grok-code"}
   grok -> opencode/grok-code (bundled)
 [model-resolution] bundled {"tool":"opencode","model":"sonnet","mappedModel":"anthropic/claude-sonnet-5-5"}

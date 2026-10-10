@@ -12,7 +12,7 @@ const probes = {
   gemini: ['flash', 'pro', 'flash-lite', 'auto', 'gemini', '3.8-flash'],
   qwen: ['qwen', 'coder-model', 'max', 'plus', 'flash'],
   agent: ['nemotron-3-super-free', 'opus', 'sonnet', 'gemini-3-pro'],
-  opencode: ['grok', 'sonnet', 'opus', 'gemini'],
+  opencode: ['big-pickle', 'grok', 'sonnet', 'opus', 'gemini'],
 };
 
 for (const tool of tools) {

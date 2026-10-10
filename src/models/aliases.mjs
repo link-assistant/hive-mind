@@ -23,6 +23,8 @@ const CODEX_FAMILY_MODEL_PATTERN = /^gpt-(\d+(?:\.\d+)*)-([a-z]+)$/;
 const CODEX_LATEST_MODEL_PATTERN = /^gpt-([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)-latest$/;
 // claude-<family>-<major>[-<minor>] without a date suffix: claude-mythos-5-1
 const CLAUDE_FAMILY_MODEL_PATTERN = /^claude-([a-z]+)-(\d+(?:-\d+)?)$/;
+// qwen<generation>-<family>: qwen3.8-max, qwen3.7-plus, qwen3.8-flash (not qwen3-coder-plus)
+const QWEN_FAMILY_MODEL_PATTERN = /^qwen(\d+(?:\.\d+)*)-([a-z]+)$/;
 const OPENAI_MODEL_PREFIX_PATTERN = /^openai[/.]/;
 // Size or product tiers of one generation (gpt-5.5-mini, gpt-5.3-codex), not families:
 // `mini` is not "the newest mini model", so these never become aliases.
@@ -106,6 +108,32 @@ export const deriveClaudeFamilyAliases = models => {
   return aliases;
 };
 
+/**
+ * Qwen family aliases: every `qwen<version>-<family>` model (qwen3.8-max,
+ * qwen3.7-plus) makes `<family>` and `qwen-<family>` resolve to the newest
+ * version of that family. Qwen Code sends `-m` verbatim to the provider, so
+ * these are the only "latest" aliases it gets.
+ *
+ * @param {string[]|Object} models - Model IDs, or a map whose values are model IDs
+ * @returns {Object<string, string>} alias → newest model ID
+ */
+export const deriveQwenFamilyAliases = models => {
+  const newest = new Map();
+  for (const modelId of toModelIdList(models)) {
+    const match = modelId.match(QWEN_FAMILY_MODEL_PATTERN);
+    if (!match || match[2] === 'preview') continue;
+    const [, version, family] = match;
+    const current = newest.get(family);
+    if (!current || compareNumericVersions(version, current.version) > 0) newest.set(family, { version, modelId });
+  }
+  const aliases = {};
+  for (const [family, { modelId }] of newest) {
+    aliases[family] = modelId;
+    aliases[`qwen-${family}`] = modelId;
+  }
+  return aliases;
+};
+
 /** The Claude families named by a set of model IDs (opus, sonnet, haiku, fable, mythos, ...). */
 export const listClaudeFamilies = models => [
   ...new Set(
@@ -132,6 +160,8 @@ export const deriveFamilyAliasesForTool = (tool, models) => {
       return deriveCodexFamilyAliases(models);
     case 'claude':
       return deriveClaudeFamilyAliases(models);
+    case 'qwen':
+      return deriveQwenFamilyAliases(models);
     default:
       return {};
   }

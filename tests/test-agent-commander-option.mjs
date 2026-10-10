@@ -124,7 +124,7 @@ const geminiOptions = buildAgentCommanderControllerOptions({
   argv: { model: 'gemini' },
 });
 assert.equal(geminiOptions.json, true, 'Gemini stream-json output should be parsed by agent-commander');
-assert.equal(geminiOptions.model, 'gemini-2.5-flash', 'Gemini alias should be normalized before passing to agent-commander');
+assert.equal(geminiOptions.model, 'flash', 'Gemini alias should be normalized to the Gemini CLI rolling alias before passing to agent-commander');
 
 const qwenOptions = buildAgentCommanderControllerOptions({
   tool: 'qwen',

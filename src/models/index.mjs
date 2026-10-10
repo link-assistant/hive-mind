@@ -39,9 +39,9 @@ export { FORMAL_AI_MODEL_ALIAS, FORMAL_AI_PROVIDER_MODEL_ID, isFormalAiModel } f
 // import site for callers. The named import is what the functions below read —
 // `export *` re-exports without binding the names locally.
 export * from './catalog.mjs';
-import { AGENT_MODELS, agentModels, CLAUDE_FAMILIES, CLAUDE_MODELS, claudeModels, CODEX_CURRENT_MODELS, CODEX_HIDDEN_MODELS, CODEX_MODEL_VARIANTS, CODEX_MODELS, defaultModels, GEMINI_MODELS, geminiModels, MODELS_SUPPORTING_1M_CONTEXT, OPENCODE_MODELS, opencodeModels, QWEN_MODELS, qwenModels } from './catalog.mjs';
+import { AGENT_LEGACY_MODELS, AGENT_MODELS, agentModels, CLAUDE_FAMILIES, CLAUDE_MODELS, claudeModels, CODEX_CURRENT_MODELS, CODEX_HIDDEN_MODELS, CODEX_MODEL_VARIANTS, CODEX_MODELS, defaultModels, GEMINI_LEGACY_MODELS, GEMINI_MODELS, geminiModels, MODELS_SUPPORTING_1M_CONTEXT, OPENCODE_MODELS, opencodeModels, QWEN_LEGACY_MODELS, QWEN_MODELS, qwenModels } from './catalog.mjs';
 // "Latest version" aliases derived from model IDs (issue #2591).
-export { clearRuntimeModelAliases, deriveClaudeFamilyAliases, deriveCodexFamilyAliases, deriveFamilyAliasesForTool, expandClaudeVersionShorthand, getRuntimeModelAlias, listClaudeFamilies, registerRuntimeModelAlias, traceModelResolution } from './aliases.mjs';
+export { clearRuntimeModelAliases, deriveClaudeFamilyAliases, deriveCodexFamilyAliases, deriveFamilyAliasesForTool, deriveQwenFamilyAliases, expandClaudeVersionShorthand, getRuntimeModelAlias, listClaudeFamilies, registerRuntimeModelAlias, traceModelResolution } from './aliases.mjs';
 import { compareNumericVersions, deriveFamilyAliasesForTool, expandClaudeVersionShorthand, getRuntimeModelAlias, registerRuntimeModelAlias, traceModelResolution } from './aliases.mjs';
 
 // ─── MODEL MAPPING FUNCTIONS ─────────────────────────────────────────────────
@@ -243,7 +243,7 @@ export const primaryModelNames = {
   opencode: ['grok', 'gpt4o', FORMAL_AI_MODEL_ALIAS],
   codex: [...listCodexModelNames(), FORMAL_AI_MODEL_ALIAS],
   agent: ['nemotron-3-super-free', 'minimax-m2.5-free', 'big-pickle', 'gpt-5-nano', 'glm-5-free', 'deepseek-r1-free', FORMAL_AI_MODEL_ALIAS],
-  qwen: ['qwen3-coder-plus', 'qwen3-coder', 'qwen3-coder-flash', FORMAL_AI_MODEL_ALIAS],
+  qwen: ['qwen3-coder-plus', 'coder-model', 'max', 'plus', 'flash', FORMAL_AI_MODEL_ALIAS],
   gemini: ['flash', 'pro', 'flash-lite', 'auto', FORMAL_AI_MODEL_ALIAS],
 };
 
@@ -331,6 +331,11 @@ export const getAvailableModelNames = (tool, { availableModels = null } = {}) =>
     // Issue #2591: one spelling per Claude model — the short alias. Full IDs,
     // dotted spellings (opus-5.5) and the retired Claude 3.x Haiku stay accepted.
     if (tool === 'claude' && (key.startsWith('claude-') || /\d\.\d/.test(key) || /^haiku-3(?:-5)?$/.test(key))) return false;
+    // Gemini and Qwen: hide models their CLI no longer offers, and Gemini's
+    // `3.8-flash` shorthands that duplicate the listed full IDs.
+    if (tool === 'gemini' && (GEMINI_LEGACY_MODELS.includes(key) || /^\d/.test(key))) return false;
+    if (tool === 'qwen' && QWEN_LEGACY_MODELS.includes(key)) return false;
+    if (tool === 'agent' && AGENT_LEGACY_MODELS.includes(key)) return false;
     return true;
   });
   return [...new Set(aliases)];

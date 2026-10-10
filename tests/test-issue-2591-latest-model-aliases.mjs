@@ -12,7 +12,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { claudeModels, clearRuntimeModelAliases, CODEX_FAMILY_ALIASES, deriveClaudeFamilyAliases, deriveCodexFamilyAliases, getAvailableModelNames, mapModelForTool, resolveDefaultFallbackModel, resolveModelId, supports1mContext, validateModelName, validateRuntimeModelName } from '../src/models/index.mjs';
+import { claudeModels, clearRuntimeModelAliases, CODEX_FAMILY_ALIASES, deriveClaudeFamilyAliases, deriveCodexFamilyAliases, deriveQwenFamilyAliases, getAvailableModelNames, mapModelForTool, resolveDefaultFallbackModel, resolveModelId, supports1mContext, validateModelName, validateRuntimeModelName } from '../src/models/index.mjs';
 import { mapModelToId as mapCodexModelToId } from '../src/codex.options.lib.mjs';
 import { mapModelToId as mapClaudeModelToId } from '../src/claude.model-utils.lib.mjs';
 import { validateRuntimeModelInArgs } from '../src/telegram-command-args.lib.mjs';
@@ -161,6 +161,40 @@ await test('fallbacks cover the newest models', async () => {
   assert.equal(resolveDefaultFallbackModel('codex', 'sol'), 'gpt-6-sol');
   assert.equal(resolveDefaultFallbackModel('codex', 'astra'), 'gpt-6.1-sol');
   assert.equal(resolveDefaultFallbackModel('claude', 'sonnet-5-5'), 'sonnet-5');
+});
+
+await test('Gemini rolling aliases reach Gemini CLI unpinned (CLI 0.63.0 resolves them to Gemini 3.x)', async () => {
+  for (const alias of ['auto', 'pro', 'flash', 'flash-lite']) assert.equal(mapModelForTool('gemini', alias), alias);
+  assert.equal(mapModelForTool('gemini', 'gemini'), 'flash');
+  assert.equal(mapModelForTool('gemini', '3.8-flash'), 'gemini-3.8-flash');
+  const names = getAvailableModelNames('gemini');
+  for (const expected of ['auto', 'pro', 'flash', 'flash-lite', 'gemini-3.1-pro-preview', 'gemini-3.8-flash', 'gemini-3.5-flash-lite', 'gemma-4-31b-it']) assert.ok(names.includes(expected), expected);
+  for (const obsolete of ['gemini-2.5-flash', 'gemini-2.5-flash-lite', '2.5-flash']) assert.ok(!names.includes(obsolete), obsolete);
+  assert.equal(validateModelName('gemini-2.5-flash', 'gemini').valid, true);
+});
+
+await test('Qwen gets max/plus/flash latest aliases and the coder-model OAuth alias', async () => {
+  assert.equal(mapModelForTool('qwen', 'max'), 'qwen3.8-max');
+  assert.equal(mapModelForTool('qwen', 'qwen-plus'), 'qwen3.7-plus');
+  assert.equal(mapModelForTool('qwen', 'flash'), 'qwen3.8-flash');
+  assert.equal(validateModelName('coder-model', 'qwen').valid, true);
+  assert.deepEqual(deriveQwenFamilyAliases(['qwen3.8-max', 'qwen3.8-max-preview', 'qwen3.10-max', 'qwen3-coder-plus']), { max: 'qwen3.10-max', 'qwen-max': 'qwen3.10-max' });
+  const names = getAvailableModelNames('qwen');
+  for (const obsolete of ['qwen3-coder', 'qwen3-coder-flash', 'qwen3.6-coder-plus']) assert.ok(!names.includes(obsolete), obsolete);
+  assert.equal(validateModelName('qwen3-coder-flash', 'qwen').valid, true);
+});
+
+await test('agent and opencode premium aliases follow the newest Claude and Gemini models', async () => {
+  for (const tool of ['agent', 'opencode']) {
+    assert.equal(mapModelForTool(tool, 'opus'), `anthropic/${claudeModels.opus}`);
+    assert.equal(mapModelForTool(tool, 'sonnet'), `anthropic/${claudeModels.sonnet}`);
+  }
+  assert.equal(mapModelForTool('agent', 'haiku'), `anthropic/${claudeModels.haiku}`);
+  assert.equal(mapModelForTool('opencode', 'gemini'), 'google/gemini-3.1-pro-preview');
+  assert.equal(mapModelForTool('agent', 'nemotron-3-ultra-free'), 'opencode/nemotron-3-ultra-free');
+  const names = getAvailableModelNames('agent');
+  for (const obsolete of ['grok-code', 'minimax-m2.5-free', 'kimi-k2.5-free']) assert.ok(!names.includes(obsolete), obsolete);
+  assert.equal(validateModelName('grok-code', 'agent').valid, true);
 });
 
 clearRuntimeModelAliases();

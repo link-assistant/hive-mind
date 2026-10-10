@@ -19,7 +19,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { extractClaudeEventModelIds, getLatestObservedModelFor, getObservedModelIds, recordObservedModel, resetObservedModels } from '../src/observed-models.lib.mjs';
 import { getModelInfoForComment, resolveDefaultFallbackModel, resolveModelId } from '../src/models/index.mjs';
-import { resolveConfiguredFallbackModel } from '../src/tool-retry.lib.mjs';
+import { maybeSwitchToFallbackModel, resolveConfiguredFallbackModel } from '../src/tool-retry.lib.mjs';
 import { attachLogToGitHub } from '../src/github.lib.mjs';
 
 let passed = 0;
@@ -115,6 +115,16 @@ await test('the fallback follows the model that ran, not the alias mapping', () 
 
 await test('an explicit --fallback-model still wins over the observed model', () => {
   assert.equal(resolveConfiguredFallbackModel({ tool: 'claude', currentModel: 'opus', configuredFallbackModel: 'sonnet', explicit: true, actualModel: 'claude-opus-5-5' }), 'sonnet');
+});
+
+await test('a capacity switch steps down from the observed model and names it in the warning', async () => {
+  const argv = { model: 'opus' };
+  const logs = [];
+  const result = await maybeSwitchToFallbackModel({ tool: 'claude', argv, log: async message => logs.push(message), errorMessage: 'The selected model is at capacity. Please try again.', actualModel: 'claude-opus-5' });
+  assert.equal(result.switched, true);
+  assert.equal(argv.model, 'opus-4-8', 'Claude reported Opus 5, so the next hop is Opus 4.8');
+  const warning = logs.find(line => line.includes('Switching to fallback model'));
+  assert.ok(warning?.includes('[actually ran claude-opus-5]'), warning);
 });
 
 console.log('\n📋 Failure comment\n');

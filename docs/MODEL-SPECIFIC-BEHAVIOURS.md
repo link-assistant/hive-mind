@@ -29,7 +29,7 @@ What is still model-specific is limited to the table below. `git grep -c isForma
 - the diff is only the program, the workflow and a test script;
 - the program prints exactly `Hello, World!`;
 - the workflow is green;
-- the body was regenerated;
+- the body contains the agent's completed description;
 - there is no `🛑 Automation stopped` comment.
 
 The assertions live in `scripts/e2e-hello-world.lib.mjs` and are unit-tested by `tests/e2e-hello-world-matrix-2319.test.mjs`.

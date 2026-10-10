@@ -40,12 +40,13 @@ RUN apt-get update && \
 ENV OPENSSL_STATIC=1
 RUN cargo install formal-ai --version "${FORMAL_AI_VERSION}" --locked
 
-# Box 2.10.2 keeps the box#112 one-toolchain invariant and refreshes the base
+# Box 2.10.3 retains the box#112 one-toolchain invariant and the base
 # runtimes: Node.js v24.21.0, Bun 1.4.2 and stable Rust 1.98.1. Box PR #120
 # repaired the Docker Hub multi-arch publishing failure reported in box#119;
 # both registries now carry amd64 and arm64 manifests. Keep GHCR, Box's registry
-# of record, as the reproducible source for this pin.
-FROM ghcr.io/link-foundation/box:2.10.2
+# of record, as the reproducible source for this pin. Box #129 also adds file
+# for validating downloaded attachments.
+FROM ghcr.io/link-foundation/box:2.10.3
 ARG HIVE_MIND_VERSION=latest
 # Task-container prerequisite installs stay within the workspace (formal-ai#1159).
 ENV FORMAL_AI_INSTALL_GRANT=workspace
@@ -119,6 +120,10 @@ WORKDIR /home/box
 # steps run as they read (issue #2187).
 SHELL ["/bin/bash", "-c"]
 
+# The solver verifies downloaded attachments with file before opening them.
+# Box's runtime does not guarantee this utility (issue #2687).
+RUN command -v file >/dev/null || HOMEBREW_NO_AUTO_UPDATE=1 brew install file
+
 # --- Current Node.js and Bun (issue #2187) ---
 # Box bases up to 2.4.0 installed Node.js 20 (`nvm install 20` in box's
 # ubuntu/24.04/js/install.sh) plus whatever Bun was current when the base was
@@ -127,10 +132,10 @@ SHELL ["/bin/bash", "-c"]
 # need something newer used to download their own node/bun into /tmp on every
 # run and leave the copy behind — a second accumulation of versions on top of
 # the image's own. Reported upstream as link-foundation/box#112 and fixed in
-# box 2.7.0. The current 2.10.2 base already ships exactly the
-# versions pinned below, so on that base this layer adds no second version —
-# nvm reports the pin already installed and the prune loop removes nothing
-# (checked by experiments/issue-2187-runtime-block-on-new-base.sh).
+# box 2.7.0. The current 2.10.3 base keeps one version per language. When a
+# pin below differs from the base, replace the runtime and repoint the default
+# before pruning superseded Node.js versions (the prune behavior is covered
+# by tests/test-issue-2187-runtime-versions.mjs).
 #
 # The layer is kept anyway, because it is the floor rather than the source of
 # the runtime. The base's versions are box's decision and can move under us in
@@ -153,7 +158,7 @@ SHELL ["/bin/bash", "-c"]
 # pointing at browsers the image does not have), then every other version
 # directory is removed. `.node-bin`, `nvm use default` and a bare `node` then
 # all resolve to the same, newest runtime (issue #2187, item A).
-ARG HIVE_MIND_NODE_VERSION=26.10.0
+ARG HIVE_MIND_NODE_VERSION=26.11.1
 ARG HIVE_MIND_BUN_VERSION=1.4.2
 RUN set -e && \
     . "$NVM_DIR/nvm.sh" && \

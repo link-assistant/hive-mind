@@ -1,0 +1,45 @@
+✔ usage-limit result takes precedence over exit 127 ({"newline":true}) (114.174467ms)
+✔ usage-limit result takes precedence over exit 127 ({"newline":false}) (14.960758ms)
+✔ usage-limit result takes precedence over exit 127 ({"newline":false,"split":true}) (15.388906ms)
+✔ explicit provider errors keep their diagnostics (newline=true) (12.105036ms)
+✔ temporary 429 still resumes the session (newline=true) (38.333437ms)
+✔ failed terminal verification still overrides genuine success (newline=true) (6.070141ms)
+✔ provider execution and disk errors survive an earlier tool failure (newline=true) (5.498974ms)
+✔ a machine-readable usage limit needs no English wording (newline=true) (5.71092ms)
+✔ a usage limit overrides an earlier transient error (newline=true) (6.746895ms)
+✔ explicit provider errors keep their diagnostics (newline=false) (5.071867ms)
+✔ temporary 429 still resumes the session (newline=false) (6.930737ms)
+✔ failed terminal verification still overrides genuine success (newline=false) (2.879796ms)
+✔ provider execution and disk errors survive an earlier tool failure (newline=false) (3.876015ms)
+✔ a machine-readable usage limit needs no English wording (newline=false) (3.665724ms)
+✔ a usage limit overrides an earlier transient error (newline=false) (7.287913ms)
+✔ a nonzero CLI exit takes precedence over an earlier tool failure (5.80685ms)
+✖ a missing Claude executable retains its installation guidance (30.206706ms)
+✔ an error result cannot trigger background-task continuation (1.110341ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 17
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 330.928648
+
+✖ failing tests:
+
+test at tests/claude-result-error-precedence-2687.test.mjs:159:1
+✖ a missing Claude executable retains its installation guidance (30.206706ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert(logs.some(message => message.includes('not installed or not in PATH')))
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791424462533/tests/claude-result-error-precedence-2687.test.mjs:163:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

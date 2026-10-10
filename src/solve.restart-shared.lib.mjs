@@ -554,9 +554,6 @@ export const executeToolIteration = async params => {
       const { repairRequiredIssueLinks } = await import('./pr-issue-link-repair.lib.mjs');
       if (issueNumber) await repairRequiredIssueLinks({ owner, repo, issueNumber, prNumber, argv, logger: log });
       if (toolResult?.success === true && toolResult?.errorDuringExecution !== true) {
-        // Issue #2318: regenerate the description's Changes section from the diff, for every model.
-        const { refreshPullRequestChangesSection } = await import('./pull-request-changes.lib.mjs');
-        const { changeStats } = await refreshPullRequestChangesSection({ owner, repo, prNumber, $, log });
         await ensurePullRequestIsReady({
           owner,
           repo,
@@ -566,7 +563,6 @@ export const executeToolIteration = async params => {
           formatAligned,
           reason: 'restart iteration finished successfully',
           requireChanges: true,
-          changeStats: changeStats?.measured ? changeStats : null,
           reportError,
         });
       } else {

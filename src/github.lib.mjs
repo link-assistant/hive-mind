@@ -10,7 +10,9 @@ import { batchCheckPullRequestsForIssues as batchCheckPRs, batchCheckArchivedRep
 import { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeOutput, sanitizeLogContent, sanitizeForPublication, writeSanitizedPublicationFile, describeCredentialSanitizationFailure } from './token-sanitization.lib.mjs';
 export { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeOutput, sanitizeLogContent, sanitizeForPublication, writeSanitizedPublicationFile }; // Re-export for backward compatibility
 import { uploadLogWithGhUploadLog } from './log-upload.lib.mjs';
+import { publishLogToPullRequestBranch } from './log-upload-branch.lib.mjs';
 import { forgetLogUploadFailureReports, formatLogLinkLines, formatLogLocationConsoleLines, postLogUploadFailureComment } from './log-upload-failure.lib.mjs'; // Issue #2301, #2400
+import { recordLogAttached, rememberLogUsage, withLatestLogUsage } from './log-attach-state.lib.mjs'; // Issue #2563
 // Issue #2189: bracket the log-upload phase with resource samples. The incident
 // log's last sample was `after_agent`, ten minutes before the heap OOM, so the
 // phase that actually died left no telemetry at all.
@@ -472,10 +474,13 @@ ${logContent}
  * @returns {Promise<boolean>} Whether the log was attached.
  */
 export async function attachLogToGitHub(options) {
-  const attached = await attachLogToGitHubOnce(options);
+  // Issue #2563: every upload renders cost estimation, context and tokens usage and models used, also when its caller has no usage data.
+  rememberLogUsage(options);
+  const attached = await attachLogToGitHubOnce(withLatestLogUsage(options));
   global.latestLogAttachFailed = attached !== true;
   // Issue #2400: once the log is attached, a later failure is news again.
   if (attached === true) forgetLogUploadFailureReports(options);
+  if (attached === true) recordLogAttached();
   return attached;
 }
 
@@ -512,6 +517,7 @@ async function attachLogToGitHubOnce(options) {
     resultModelUsage = null, // Issue #1454
     budgetStatsData = null, // Issue #1491: budget stats for comment
     failureActionSection = null,
+    leadingSection = null, // Issue #2563: e.g. the auto-merge held-back notice, published in the same comment as the log
     recordResources = recordResourceSnapshot, // Issue #2189: injectable for tests
     uploadRetryDelaysMs = null, // Issue #2301: override the upload retry backoff (tests)
   } = options;
@@ -638,6 +644,7 @@ async function attachLogToGitHubOnce(options) {
       }
       logContent = escapeCodeBlocksInLog(logContent);
       logComment = buildInlineLogComment({ logContent, logSizeBytes: logStats.size, targetType, customTitle, sessionType, sessionId, errorMessage, errorDuringExecution, isUsageLimit, limitResetTime, toolName, resumeCommand, isAutoResumeEnabled, autoResumeMode, modelInfoString, budgetStats, totalCostUSD, anthropicTotalCostUSD, pricingInfo, failureAction });
+      if (leadingSection) logComment = `${leadingSection}\n\n${logComment}`;
     } else if (verbose) {
       await log(`  ⏭️  Log is ${formatLogSizeForHumans(logStats.size)} — skipping inline comment construction, the log goes straight to gh-upload-log`, { verbose: true });
     }
@@ -688,6 +695,7 @@ async function attachLogToGitHubOnce(options) {
           isPublic: isPublicRepo,
           description: uploadDescription,
           verbose,
+          ...(targetType === 'pr' && tempDir ? { publishToBranch: sanitizedFile => publishLogToPullRequestBranch({ logFile: sanitizedFile, repositoryPath: tempDir, owner, repo, prNumber: targetNumber, sessionId, $, log }) } : {}),
           ...(uploadRetryDelaysMs ? { retryDelaysMs: uploadRetryDelaysMs, partRetryDelaysMs: uploadRetryDelaysMs } : {}),
         });
         failureReport.attempts = uploadResult.attempts;
@@ -766,6 +774,7 @@ ${logLinks('View complete solution draft log')}
 ---
 *${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`;
           }
+          if (leadingSection) logUploadComment = `${leadingSection}\n\n${logUploadComment}`;
           const tempCommentFile = `/tmp/log-upload-comment-${targetType}-${Date.now()}.md`;
           await writeSanitizedPublicationFile(tempCommentFile, logUploadComment);
           // Issue #1625: post via postTrackedCommentFromFile so the returned comment ID is registered in-memory and excluded from the "did the AI post anything?" check.

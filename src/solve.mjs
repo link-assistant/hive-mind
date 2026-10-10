@@ -3,7 +3,7 @@
 import './instrument.mjs';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 const earlyArgs = process.argv.slice(2);
-const { handleSolveEarlyExit } = await import('./solve.bootstrap.lib.mjs');
+const { handleSolveEarlyExit, resolveStartupLogDirectory } = await import('./solve.bootstrap.lib.mjs');
 await handleSolveEarlyExit(earlyArgs);
 const use = (globalThis.use = await ensureUseM());
 const { $: __rawDollar$ } = await use('command-stream');
@@ -34,8 +34,6 @@ const results = await import('./solve.results.lib.mjs');
 const { cleanupClaudeFile, showSessionSummary, verifyResults, buildClaudeResumeCommand, buildClaudeAutonomousResumeCommand, buildSolveResumeCommand, maybeAttachWorkingSessionSummary, verifyPullRequestIssueLinkAfterAutoRestart } = results;
 const claudeLib = await import('./claude.lib.mjs');
 const { executeClaude } = claudeLib;
-const githubLinking = await import('./github-linking.lib.mjs');
-const { extractLinkedIssueNumber } = githubLinking;
 const usageLimitLib = await import('./usage-limit.lib.mjs');
 const { formatResetTimeWithRelative } = usageLimitLib;
 const errorHandlers = await import('./solve.error-handlers.lib.mjs');
@@ -73,7 +71,8 @@ const { autoAcceptInviteForRepo } = await import('./solve.accept-invite.lib.mjs'
 const { handleAutoForkOption, handleMaintainerForkAccess } = await import('./solve.fork-detection.lib.mjs');
 const { resolveUncommittedChangesTool } = await import('./solve.tool-uncommitted.lib.mjs');
 const { classifySessionResult } = await import('./session-result.lib.mjs'); // Issue #2316
-const logFile = await initializeLogFile(null);
+await initializeLogFile(null);
+await (await import('./solve.log-dir.lib.mjs')).moveLogFileToLogDir(resolveStartupLogDirectory(earlyArgs), { getLogFile, setLogFile, log });
 const versionInfo = await getVersionInfo();
 const rawCommand = await logSolveStartup(versionInfo);
 let finalResourceSnapshotRecorded = false;
@@ -95,6 +94,7 @@ try {
   await safeExit(1, 'Invalid command-line arguments');
 }
 global.verboseMode = argv.verbose;
+await (await import('./solve.log-dir.lib.mjs')).moveLogFileToLogDir(argv.logDir, { getLogFile, setLogFile, log }); // Issue #2625: --log-dir was parsed but never applied
 setupVerboseLogInterceptor(); // Issue #1466: capture [VERBOSE] output in log files
 setupStdioLogInterceptor(); // Issue #1549: capture ALL terminal output in log file
 configureGitHubRateLimitLogging({
@@ -102,11 +102,10 @@ configureGitHubRateLimitLogging({
   log,
 });
 await recordResourceSnapshot({ phase: RESOURCE_PHASE_SOLVE_START, log, diskPath: '/', label: 'solve start', logExecutionContext: true }); // #2001: detect+report container context
-// Early logs go to cwd; custom log dir takes effect after argv is parsed.
 let { checkForUncommittedChanges, agentCommanderLib } = await resolveUncommittedChangesTool({ argv, claudeLib });
 const shouldAttachLogs = argv.attachLogs || argv['attach-logs'];
 await showAttachLogsWarning(shouldAttachLogs);
-const absoluteLogPath = path.resolve(logFile);
+const absoluteLogPath = path.resolve(getLogFile());
 // Initialize Sentry integration (unless disabled)
 if (argv.sentry) {
   await initializeSentry({
@@ -342,7 +341,7 @@ const skipForkForPrivateUpstream = !isRepoPublic && !argv.fork && hasWriteAccess
 // Issue #2175: the mode/fork/linked-issue resolution lives in solve.mode.lib.mjs
 // so this file stays under the 1350-line early-warning threshold (issue #1593).
 const solveMode = await import('./solve.mode.lib.mjs');
-const resolvedMode = await solveMode.resolveSolveMode({ argv, owner, repo, urlNumber, issueUrl, isIssueUrl, isPrUrl, skipForkForPrivateUpstream, shouldAttachLogs, log, safeExit, githubLib, processAutoContinueForIssue, handleMaintainerForkAccess, extractLinkedIssueNumber, reportError, cleanErrorMessage });
+const resolvedMode = await solveMode.resolveSolveMode({ argv, owner, repo, urlNumber, issueUrl, isIssueUrl, isPrUrl, skipForkForPrivateUpstream, shouldAttachLogs, log, safeExit, githubLib, processAutoContinueForIssue, handleMaintainerForkAccess, reportError, cleanErrorMessage });
 const { issueNumber, prBranch, mergeStateStatus, prState, forkOwner, forkRepoName, isContinueMode } = resolvedMode;
 // `prNumber` is reassigned below when auto-PR creation opens the pull request.
 let prNumber = resolvedMode.prNumber;

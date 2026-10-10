@@ -350,6 +350,7 @@ ru
       last
         rate
           limit "Последний ответ 429: {{method}}"
+        refusal "Последний ответ 429: {{method}}, {{ago}} назад"
       observed
         limit "измеренный лимит"
       peak "пик {{peak}}"
@@ -357,7 +358,9 @@ ru
         limit
           responses "Ответов 429 с момента запуска: {{count}}"
       requests "{{used}}/{{limit}} запросов"
+      restraint "Сдержано ботом: отложено {{delayed}}, пропущено {{held}}, повторено {{retried}}"
       retry
+        after "retry_after {{duration}}"
         in "повтор через {{duration}}"
       scope
         broadcast "сообщения во все чаты, 1 с"
@@ -655,7 +658,7 @@ ru
       label "Причина"
     did
       you
-        mean "💡 Вы имели в виду: `{{suggestion}}`"
+        mean "💡 Вы имели в виду `{{suggestion}}`?"
     missing
       github
         url "Не указан GitHub URL. Использование: /{{commandName}} <github-url> [options]"
@@ -674,6 +677,8 @@ ru
         starting "🔄 Запуск..."
         executing "⏳ Выполняется..."
         finished "Рабочий сеанс успешно завершен"
+        hive_no_work "Ни одна задача не обработана; проверьте журнал на пропущенные задачи или блокировки. Чтобы продолжить задачи с существующими PR, используйте `--no-skip-issues-with-prs --auto-continue`"
+        hive_incomplete "Сеанс Hive завершен с ожидающими задачами; проверьте журнал на блокировки"
         failed "Рабочий сеанс завершился с ошибкой (код выхода: {{exitCode}})"
         merged_but_failed "Пул-реквест объединён, но рабочий сеанс завершился с кодом: {{exitCode}}"
         merged_success "Запрошенный пул-реквест успешно объединён."

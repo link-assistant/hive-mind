@@ -10,6 +10,7 @@
 
 import { normalizeCliArgs } from './argument-normalization.lib.mjs';
 import { enhanceUnknownArgumentError } from './option-suggestions.lib.mjs';
+import { enhanceArgumentError } from './input-diagnostics.lib.mjs';
 import { getTelegramCommandArgumentsText, isTelegramCommandArgumentSeparator, parseTelegramCommandPrefix } from './telegram-command-text.lib.mjs';
 
 export const TOOL_SOLVE_COMMAND_ALIASES = Object.freeze({
@@ -98,7 +99,7 @@ export async function parseArgsWithYargs(args, yargsFactory, createYargsConfig) 
       });
     return await parser.parse(args);
   } catch (error) {
-    throw enhanceUnknownArgumentError(error, parser);
+    throw enhanceArgumentError(enhanceUnknownArgumentError(error, parser), args);
   } finally {
     process.stderr.write = originalStderrWrite;
   }

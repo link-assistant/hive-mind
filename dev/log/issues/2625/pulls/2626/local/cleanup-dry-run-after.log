@@ -1,0 +1,2 @@
+Stale fixture branches: 190
+::warning title=Fixture branches retained::190 fixture branch(es) retained by a repository rule that prohibits deletion (issue-2349-c76f90a460ad, issue-2350-a8b3e81de55f, issue-2351-59039330a112, issue-2352-1b1739a320e4, issue-2363-f5a8b1c6b7a4 and 185 more). Removing them requires excluding disposable branches such as e2e/** from that rule; this cleanup deletes them once the rule allows it.

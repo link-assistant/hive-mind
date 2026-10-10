@@ -62,6 +62,7 @@ const changed = await getPullRequestChangeStats({ owner: 'konard', repo: 'test-h
 assert.equal(changed.hasChanges, true, 'a pull request that adds a file has changes');
 assert.equal(changed.filesChanged, 1);
 assert.equal(changed.additions, 3, 'the `+++ b/...` header is not counted as an added line');
+assert.deepEqual(changed.files, ['examples/hello.scala'], 'diff measurement retains changed paths');
 
 // --- the solver's own placeholder is not a change ----------------------------
 
@@ -99,6 +100,7 @@ const mixed = await getPullRequestChangeStats({ owner: 'konard', repo: 'test-hel
 assert.equal(mixed.hasChanges, true, 'the placeholder does not hide real work');
 assert.equal(mixed.filesChanged, 1, 'only the real file is counted');
 assert.equal(mixed.additions, 3, 'the placeholder line is excluded from the addition count');
+assert.deepEqual(mixed.files, ['examples/hello.scala'], 'listed paths exclude the generated placeholder');
 assert.equal(mixed.placeholderOnly, false, 'a pull request with real work is not placeholder-only');
 
 // An empty diff is empty, not placeholder-only - the two get different wording.

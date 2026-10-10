@@ -1,0 +1,11 @@
+[VERBOSE]
+[VERBOSE] Send a message to the bot to test message reception
+[VERBOSE] router-maintenance: leases=0 stopped=false
+[VERBOSE] formal-ai-unload: no Formal AI image on this host
+[VERBOSE] formal-ai-updater: Formal AI has never been used on this host; not checking for updates
+[VERBOSE] Retrieved 0 active session(s)
+⬆️ Updating claude-profiles 0.40.7 → 1.2.3
+⬆️ Updating gh-setup-git-identity 0.1.0 → 0.8.0
+[VERBOSE] agentic-cli-updater: 0 updated, 11 current, 2 failed
+[VERBOSE] formal-ai-maintenance: leases=0 stopped=false unload=nothing-to-unload update=unused clis=checked
+[VERBOSE] Telegram Bot API getUpdates accepted; windows: {"other":4}

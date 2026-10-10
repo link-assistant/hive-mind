@@ -5,14 +5,23 @@ import { getModelFromArgs } from './model-args.lib.mjs';
 import { createYargsConfig as createTaskYargsConfig } from './task.config.lib.mjs';
 import { createCiCdIssue } from './fix.ci-cd-issue.lib.mjs';
 import { createUpdateDependenciesIssue } from './fix.update-dependencies-issue.lib.mjs';
+import { resolveFixDependencyReporting } from './fix.report-dependencies.lib.mjs';
 import { FIX_MODE_CI_CD, FIX_MODE_UPDATE_ALL_DEPENDENCIES, parseFixRepository } from './fix.args.lib.mjs';
 import { createTaskIssue, parseTaskIssueCreationInput, resolveTaskIssueCreationInput } from './task.issue-creation.lib.mjs';
 import { parseTaskIssueUrl } from './task.split.lib.mjs';
 import { escapeMarkdown } from './telegram-markdown.lib.mjs';
+import { formatInputLocationMarkdown } from './input-diagnostics.lib.mjs';
 import { parseTelegramCommandPrefix } from './telegram-command-text.lib.mjs';
 import { extractIsolationFromArgs, isValidPerCommandIsolation } from './telegram-isolation.lib.mjs';
 import { moveArgumentToFront, parseArgsWithYargs, parseCommandArgs } from './telegram-solve-command.lib.mjs';
 import { formatStartingWorkSessionMessage } from './work-session-formatting.lib.mjs';
+
+/** Issue #2326: show the offending URL part under a caret in a monospace block. */
+export function formatTaskUrlError(parsedIssue, url) {
+  const { reason, parsed } = parsedIssue;
+  if (!reason || !parsed?.inputLocation) return `❌ ${escapeMarkdown(parsedIssue.error || 'Invalid GitHub issue URL')}`;
+  return `❌ ${escapeMarkdown(reason)}\n\n${formatInputLocationMarkdown(url, parsed.inputLocation)}${parsed.suggestion ? `\n\n💡 Did you mean \`${parsed.suggestion}\`?` : ''}`;
+}
 
 export const TASK_COMMAND_NAMES = Object.freeze(['task', 'split']);
 
@@ -213,11 +222,14 @@ export function registerTaskCommands(bot, options) {
       });
 
       try {
+        const reportingOptions = generatedIssueMode.mode === FIX_MODE_UPDATE_ALL_DEPENDENCIES ? { reportDependenciesIssues: resolveFixDependencyReporting(built.args) } : {};
         const createdIssue = await createIssueFn({
           repository: built.repository,
+          ...reportingOptions,
           log: message => VERBOSE && console.log(`[VERBOSE] ${message}`),
         });
-        await editTelegramMessage(ctx, statusMessage, `Created GitHub issue:\n${createdIssue.url}\n\nReply to this message with ${generatedIssueMode.followUp} to continue ${generatedIssueMode.followUpDescription}.`);
+        const followUp = `${generatedIssueMode.followUp}${reportingOptions.reportDependenciesIssues === false ? ' --no-report-dependencies-issues' : ''}`;
+        await editTelegramMessage(ctx, statusMessage, `Created GitHub issue:\n${createdIssue.url}\n\nReply to this message with ${followUp} to continue ${generatedIssueMode.followUpDescription}.`);
       } catch (error) {
         await editTelegramMessage(ctx, statusMessage, `Error creating ${generatedIssueMode.context} issue:\n${error.message || String(error)}`);
       }
@@ -264,7 +276,7 @@ export function registerTaskCommands(bot, options) {
 
     const parsedIssue = parseTaskIssueUrl(built.issueUrl);
     if (!parsedIssue.valid) {
-      await safeReply(ctx, `❌ ${escapeMarkdown(parsedIssue.error || 'Invalid GitHub issue URL')}`, { reply_to_message_id: ctx.message.message_id });
+      await safeReply(ctx, formatTaskUrlError(parsedIssue, built.issueUrl), { reply_to_message_id: ctx.message.message_id });
       return;
     }
 

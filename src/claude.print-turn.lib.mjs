@@ -94,7 +94,7 @@ export const assessClaudeTurnCompletion = ({ resultEvent = null, stoppedTaskCoun
   const systemKilled = Number(resultEvent?.subagent_stats?.killed?.system) || 0;
   const ceilingHit = Number.isFinite(ceilingSeconds);
   const cancelledTasks = Math.max(systemKilled, stoppedTaskCount, ceilingHit ? 1 : 0);
-  const incomplete = resultEvent?.subtype === 'success' && cancelledTasks > 0;
+  const incomplete = resultEvent?.subtype === 'success' && resultEvent.is_error !== true && cancelledTasks > 0;
   const cause = ceilingHit ? `Claude Code stopped background tasks after its ${ceilingSeconds}s print-mode wait ceiling (CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS)` : 'Claude Code stopped background tasks when print mode exited';
   return { incomplete, cancelledTasks, ceilingHit, cause, shouldResume: incomplete && recoveryAttempts < maxRecoveryAttempts && Boolean(sessionId), sessionId };
 };

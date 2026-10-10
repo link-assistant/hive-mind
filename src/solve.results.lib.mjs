@@ -50,6 +50,7 @@ export const { buildClaudeResumeCommand, buildClaudeAutonomousResumeCommand, bui
 // Issue #942: buildSolveResumeCommand lives in its own module so it can be safely
 // imported from tool libraries (claude/codex/gemini) without circular imports.
 import { buildSolveResumeCommand } from './solve.resume-command.lib.mjs';
+import { isCommentByCurrentIdentity, isIntegrationForbidden } from './github-identity.lib.mjs';
 export { buildSolveResumeCommand };
 // Import error handling functions
 // const errorHandlers = await import('./solve.error-handlers.lib.mjs'); // Not currently used
@@ -61,7 +62,7 @@ const prIssueLinking = await import('./pr-issue-linking.lib.mjs');
 const { buildIssueReference } = prIssueLinking;
 
 // Issue #2119: the one place that decides whether a pull request changed anything.
-const { formatChangesSection, getPullRequestChangeStats, refreshPullRequestChangesSection } = await import('./pull-request-changes.lib.mjs');
+const { formatChangesSection, getPullRequestChangeStats } = await import('./pull-request-changes.lib.mjs');
 const { buildNoChangesNotice, capWorkingSessionSummary, formatWorkingSessionSummaryMarkdown, redactWorkspacePaths } = await import('./working-session-summary.lib.mjs');
 /**
  * Placeholder patterns used to detect auto-generated PR content that was not updated by the agent.
@@ -656,12 +657,20 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
     // Get the current user's GitHub username
     const userResult = await $(QUIET_PROBE)`gh api user --jq .login`;
 
+    let currentUser = null;
     if (userResult.code !== 0) {
-      throw new Error(`Failed to get current user: ${userResult.stderr?.toString() ? userResult.stderr.toString() : 'Unknown error'}`);
-    }
-    const currentUser = userResult.stdout.toString().trim();
-    if (!currentUser) {
-      throw new Error('Unable to determine current GitHub user');
+      const userError = userResult.stderr?.toString() || '';
+      // Issue #2625: installation tokens (GITHUB_TOKEN) cannot read GET /user;
+      // the PR search does not need a login and comments are matched by app.
+      if (!isIntegrationForbidden(userError)) {
+        throw new Error(`Failed to get current user: ${userError || 'Unknown error'}`);
+      }
+      await log('  ℹ️  Integration token cannot read the authenticated user; matching comments written by the app', { verbose: true });
+    } else {
+      currentUser = userResult.stdout.toString().trim();
+      if (!currentUser) {
+        throw new Error('Unable to determine current GitHub user');
+      }
     }
 
     // Search for pull requests created from our branch
@@ -776,10 +785,10 @@ Fixes ${issueRef}
               await fs.unlink(tempBodyFile).catch(() => {});
               await log(`  ⚠️  Error updating PR description: ${descError.message}`);
             }
-          } else if (!hasPlaceholder) {
-            // Issue #2318: the Changes section follows the diff after every session, for every model.
-            await refreshPullRequestChangesSection({ owner, repo, prNumber: pr.number, $, log });
           }
+          // Issue #2549: a description the agent wrote is left as it is.
+          // Only the placeholder above is replaced; issue links are repaired
+          // separately. No generated "Changes" section is appended to it.
           // Check if PR is ready for review (convert from draft if necessary).
           // Issue #2182: this used to be an inline `gh pr ready` that bypassed
           // pr-draft-state.lib.mjs, so it neither skipped merged/closed PRs nor cleared the
@@ -876,11 +885,11 @@ Fixes ${issueRef}
 
     const allComments = JSON.parse(allCommentsResult.stdout.toString().trim() || '[]');
     // Filter for new comments by current user
-    const newCommentsByUser = allComments.filter(comment => comment.user.login === currentUser && new Date(comment.created_at) > referenceTime);
+    const newCommentsByUser = allComments.filter(comment => isCommentByCurrentIdentity(comment, currentUser) && new Date(comment.created_at) > referenceTime);
 
     if (newCommentsByUser.length > 0) {
       const lastComment = newCommentsByUser[newCommentsByUser.length - 1];
-      await log(`  ✅ Found new comment by ${currentUser}`);
+      await log(`  ✅ Found new comment by ${currentUser || lastComment.user?.login}`);
       // Upload log file to issue if requested
       // Issue #2492: report and return the real upload result instead of assuming success.
       let issueLogUploaded = false;
@@ -957,7 +966,7 @@ Fixes ${issueRef}
       issueNumber,
       operation: 'search_for_pr',
     });
-    await log('\n⚠️  Could not verify results:', searchError.message);
+    await log(`\n⚠️  Could not verify results: ${searchError.message}`);
     await log('\n💡 Check the log file for details:');
     // Always use absolute path for log file display
     const checkLogPath = path.resolve(getLogFile());

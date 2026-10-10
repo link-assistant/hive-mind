@@ -27,9 +27,6 @@ export const HELLO_WORLD_OUTPUT = 'Hello, World!';
 /** The comment marker solve writes when it gives up (`src/tool-comments.lib.mjs`). */
 export const AUTOMATION_STOPPED_MARKER = 'Automation stopped';
 
-/** Written by `formatChangesSection()` in `src/pull-request-changes.lib.mjs` (#2318). */
-export const CHANGES_SECTION_START = '<!-- hive-mind:changes:start -->';
-
 /**
  * One row per run. `formal-ai` goes through every tool; the LLM row is the
  * control — the same command with a model that is not special in any way. A
@@ -171,16 +168,13 @@ export function summariseChecks(rollup) {
   return { total: checks.length, pending, failed, green: checks.length > 0 && pending === 0 && failed.length === 0 };
 }
 
-/**
- * Whether the body is the one solve regenerated from the final diff (#2318):
- * the marked Changes section is present and names every changed file.
- */
-export function checkBodyRegenerated(body, files) {
+/** Whether the agent replaced the initial PR description with its result. */
+export function checkBodyFinalized(body) {
   const text = String(body ?? '');
-  if (!text.includes(CHANGES_SECTION_START)) return { ok: false, reason: 'the body has no solve-generated Changes section' };
-  const missing = (Array.isArray(files) ? files : []).filter(path => !text.includes(path));
-  if (missing.length > 0) return { ok: false, reason: `the Changes section does not list: ${missing.join(', ')}` };
-  return { ok: true, reason: 'the Changes section matches the diff' };
+  if (!text.trim()) return { ok: false, reason: 'the body is empty' };
+  const placeholders = ['_Details will be added as the solution draft is developed..._', '**Work in Progress** - The AI assistant is currently analyzing and implementing the solution draft.', '### 🚧 Status'];
+  if (placeholders.some(placeholder => text.includes(placeholder))) return { ok: false, reason: 'the body contains the initial placeholder' };
+  return { ok: true, reason: 'the body contains the agent description' };
 }
 
 /**
@@ -199,7 +193,7 @@ export function evaluateE2eRun({ pullRequest = null, files = [], checks = [], wo
 
   const diff = checkDiffShape(files);
   const checkSummary = summariseChecks(checks);
-  const body = checkBodyRegenerated(pullRequest.body, files);
+  const body = checkBodyFinalized(pullRequest.body);
   const stopped = (Array.isArray(comments) ? comments : []).filter(comment => String(comment ?? '').includes(AUTOMATION_STOPPED_MARKER));
   const title = String(pullRequest.title ?? '');
 
@@ -208,7 +202,7 @@ export function evaluateE2eRun({ pullRequest = null, files = [], checks = [], wo
     { name: 'diff is the program, the workflow and a test script', ...diff },
     { name: 'program prints exactly "Hello, World!"', ok: logPrintsHelloWorld(workflowLog), reason: workflowLog ? 'searched the workflow run log for the exact line' : 'no workflow run log was available' },
     { name: 'workflow green', ok: checkSummary.green, reason: checkSummary.total === 0 ? 'no checks reported' : `${checkSummary.total} checks, ${checkSummary.pending} pending, failed: ${checkSummary.failed.join(', ') || 'none'}` },
-    { name: 'body regenerated', ...body },
+    { name: 'body is final', ...body },
     { name: 'title is final', ok: !/^\[WIP\]/i.test(title) && !/^(['"]).*\1$/.test(title), reason: JSON.stringify(title) },
     { name: 'no "🛑 Automation stopped" comment', ok: stopped.length === 0, reason: `${stopped.length} stop comments` },
   ];

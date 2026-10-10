@@ -46,10 +46,6 @@ const { formatResetTimeWithRelative } = usageLimitLib;
 const sentryLib = await import('./sentry.lib.mjs');
 const { reportError } = sentryLib;
 
-// Import GitHub linking detection library
-const githubLinking = await import('./github-linking.lib.mjs');
-const { extractLinkedIssueNumber } = githubLinking;
-
 // Import configuration
 import { autoContinue, limitReset } from './config.lib.mjs';
 import { formatAutoIterationLimit, hasReachedAutoIterationLimit, normalizeAutoIterationCounter, normalizeAutoIterationLimit } from './auto-iteration-limits.lib.mjs';
@@ -486,7 +482,9 @@ export const processPRMode = async (isPrUrl, urlNumber, owner, repo, argv) => {
       // Extract issue number from PR body using GitHub linking detection library
       // This ensures we only detect actual GitHub-recognized linking keywords
       const prBody = prData.body || '';
-      const extractedIssueNumber = prBranch?.match(/^issue-([1-9]\d*)-/)?.[1] || extractLinkedIssueNumber(prBody, owner, repo);
+      // Issue #2563: the branch name is a hint, the description's same-repository closing reference wins over a foreign or missing branch issue.
+      const { resolvePullRequestPrimaryIssue } = await import('./issue-link-verification.lib.mjs');
+      const extractedIssueNumber = await resolvePullRequestPrimaryIssue({ owner, repo, body: prBody, branch: prBranch, log });
 
       if (extractedIssueNumber) {
         issueNumber = extractedIssueNumber;

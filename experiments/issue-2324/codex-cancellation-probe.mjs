@@ -61,6 +61,9 @@ const timer = setInterval(() => {
     $: trackedShell,
     formatAligned: (...parts) => parts.join(' '),
     log: async message => messages.push(message),
+    // Keep the cancellation/input fixture independent of the host's cgroup budget.
+    // Resource prompt composition is covered by codex-process-exit-2745.test.mjs.
+    readCgroupMemory: () => null,
     getResourceSnapshot: async () => ({ memory: 'Memory\nfixture', load: 'fixture' }),
     calculatePricing: async () => null,
   });

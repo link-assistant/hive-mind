@@ -29,7 +29,7 @@
 - diff 只包含程序、workflow 和测试脚本；
 - 程序恰好输出 `Hello, World!`；
 - workflow 为绿色；
-- 正文已重新生成；
+- 正文包含代理完成的描述；
 - 没有 `🛑 Automation stopped` 评论。
 
 这些断言位于 `scripts/e2e-hello-world.lib.mjs`，并由 `tests/e2e-hello-world-matrix-2319.test.mjs` 进行单元测试。

@@ -407,6 +407,10 @@ hive <github-url> [options]
 
 > **📖 Полный список параметров**: см. [docs/CONFIGURATION.ru.md](./docs/CONFIGURATION.ru.md#hive-options), включая мониторинг проектов, интеграцию с YouTrack и экспериментальные функции.
 
+С `--once` итоговый отчёт показывает найденные, обработанные, неудачные, пропущенные и ожидающие задачи, а также PR, из-за которых задачи пропущены. Код выхода 3 означает, что ни одна задача не обработана; 4 — часть задач обработана, но другие ещё ожидают; 1 — ошибка исполнителя или получения задач. Режим `--dry-run` возвращает 0. Успешное завершение исполнителя не означает, что PR влит.
+
+`--skip-issues-with-prs` пропускает задачи с собственными открытыми PR. PR родительской задачи относится к родителю, даже если он ссылается на подзадачи. Родитель ждёт закрытия открытых подзадач; порядок зависимостей сохраняется и при работе с существующими PR. Если подходящих задач нет, Hive предлагает `--no-skip-issues-with-prs --auto-continue` для продолжения существующих черновиков. Telegram показывает запуски без обработки задач и частичные результаты как предупреждения; `--verbose` добавляет подробности получения задач в журнал.
+
 ## 🤖 Telegram-бот
 
 Hive Mind включает интерфейс Telegram-бота (SwarmMindBot) для удалённого выполнения команд.
@@ -504,7 +508,7 @@ Tool alias examples:
 
 Free Models (with --tool agent):
 /solve https://github.com/owner/repo/issues/123 --tool agent --model nemotron-3-super-free
-/solve https://github.com/owner/repo/issues/123 --tool agent --model opencode/nemotron-3-super-free
+/solve https://github.com/owner/repo/issues/123 --tool agent --model kilo/nemotron-3-super-free
 /solve https://github.com/owner/repo/issues/123 --tool agent --model minimax-m2.5-free
 /solve https://github.com/owner/repo/issues/123 --tool agent --model gpt-5-nano
 
@@ -593,6 +597,8 @@ Examples:
 `/solve --development-log --deep-analysis --auto-merge` (добавив
 `--update-all-dependencies` для issue о зависимостях), чтобы продолжить обычным
 процессом solve.
+
+`--update-all-dependencies` включает `--report-dependencies-issues`: сообщать апстриму зависимостей об общей логике, дублировании кода, недостающих функциях и багах, требующих обходных решений. Локальные обходные решения можно сохранить, чтобы не блокировать pull request. Добавьте `--no-report-dependencies-issues` для отключения отчётов или используйте `--report-dependencies-issues` с `/solve` или `/hive` без обновления зависимостей.
 
 #### `/organize` — Классифицировать открытые задачи
 

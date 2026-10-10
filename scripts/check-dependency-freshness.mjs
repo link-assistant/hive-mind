@@ -2,9 +2,9 @@
 
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { readFile } from 'node:fs/promises';
+import { appendFile, readFile } from 'node:fs/promises';
 
-import { checkDependencyRecords, collectDependencyRecords } from './dependency-freshness.lib.mjs';
+import { checkDependencyRecords, collectDependencyRecords, formatFreshnessReport, freshnessEnforcement } from './dependency-freshness.lib.mjs';
 
 // npm outdated exits 1 for outdated packages; other failures are fatal.
 let outdated;
@@ -25,12 +25,7 @@ const result = await checkDependencyRecords(records);
 
 console.log(`Dependency freshness: ${result.current.length}/${records.length} declarations current`);
 for (const record of result.exceptions) console.log(`EXCEPTION ${record.location}: ${record.name}: ${record.exception}`);
-for (const record of result.stale) console.error(`STALE ${record.location}: ${record.name} ${record.current} -> ${record.latest} (${record.policy})`);
-for (const record of result.errors) console.error(`ERROR ${record.location}: ${record.name}: ${record.error}`);
-
-if (result.stale.length > 0 || result.errors.length > 0) {
-  console.error(`Dependency freshness failed: ${result.stale.length} stale, ${result.errors.length} unresolved.`);
-  process.exitCode = 1;
-} else {
-  console.log('All tracked dependency declarations are current.');
-}
+const report = formatFreshnessReport({ stale: result.stale, errors: result.errors, mode: freshnessEnforcement(process.env.GITHUB_EVENT_NAME) });
+for (const line of report.lines) (report.exitCode ? console.error : console.log)(line);
+if (report.summary && process.env.GITHUB_STEP_SUMMARY) await appendFile(process.env.GITHUB_STEP_SUMMARY, report.summary);
+process.exitCode = report.exitCode;

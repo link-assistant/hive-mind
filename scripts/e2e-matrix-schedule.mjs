@@ -10,7 +10,11 @@ const repository = process.env.GITHUB_REPOSITORY;
 const event = process.env.GITHUB_EVENT_PATH ? JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8')) : {};
 const tag = (await ghJson(['release', 'view', '--repo', 'link-assistant/formal-ai', '--json', 'tagName'])).tagName;
 if (!/^v?\d+\.\d+\.\d+$/.test(tag)) throw new Error(`Unexpected Formal AI release tag: ${tag}`);
-let shouldRun = process.env.GITHUB_EVENT_NAME !== 'workflow_run' || (event.workflow_run?.conclusion === 'success' && event.workflow_run?.head_branch === 'main');
+const upstream = event.workflow_run;
+let shouldRun = process.env.GITHUB_EVENT_NAME !== 'workflow_run' || (upstream?.conclusion === 'success' && upstream?.head_branch === 'main');
+// Issue #2923: run 37992515531 skipped after a failed release but only said
+// "last successful matrix not recorded", which reads like a scheduler defect.
+let reason = upstream ? `${upstream.name} run ${upstream.id} concluded ${upstream.conclusion} on ${upstream.head_branch}` : `${process.env.GITHUB_EVENT_NAME || 'manual'} event`;
 let previousTag = null;
 if (process.env.GITHUB_EVENT_NAME === 'schedule') {
   const runs = await ghJson(['run', 'list', '--repo', repository, '--workflow', 'e2e-hello-world-matrix.yml', '--status', 'success', '--branch', 'main', '--limit', '20', '--json', 'databaseId']);
@@ -31,9 +35,12 @@ if (process.env.GITHUB_EVENT_NAME === 'schedule') {
     }
   }
   shouldRun = previousTag !== tag;
+  reason = `last fully tested Formal AI ${previousTag || 'not recorded'}`;
 }
 const metadataDir = process.env.E2E_METADATA_DIR || join(process.env.RUNNER_TEMP || tmpdir(), 'e2e-metadata');
 mkdirSync(metadataDir, { recursive: true });
 writeFileSync(join(metadataDir, 'matrix.json'), JSON.stringify({ formalAiTag: tag, previousTag, runId: process.env.GITHUB_RUN_ID, event: process.env.GITHUB_EVENT_NAME }, null, 2));
 appendFileSync(process.env.GITHUB_OUTPUT, `should_run=${shouldRun}\nformal_ai_tag=${tag}\n`);
-console.log(`Matrix ${shouldRun ? 'runs' : 'skips'}: latest Formal AI ${tag}, last successful matrix ${previousTag || 'not recorded'}`);
+const decision = `Matrix ${shouldRun ? 'runs' : 'skips'}: latest Formal AI ${tag}; ${reason}`;
+// A skipped matrix leaves a green run that tested nothing, so surface why as an annotation.
+console.log(shouldRun ? decision : `::notice title=E2E matrix skipped::${decision}`);

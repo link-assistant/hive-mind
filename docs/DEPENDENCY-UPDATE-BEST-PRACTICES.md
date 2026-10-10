@@ -212,7 +212,12 @@ fix owner/repo --update-all-dependencies --no-solve
 
 `/solve --deep-analysis` emits its root-cause and debug-output guidance **only for bug-typed issues**, and a dependency bump has no root cause to find. Creating the issue as a `Task` selects the non-bug variant of that prompt — research, requirement coverage, solution planning — which is the useful one here. Issue types are configured per organization and labels per repository, so if the target repository accepts neither, the issue is still created without them.
 
-`--deep-analysis` also supplies the upstream-reporting guidance of [principle 10](#10-report-blockers-upstream), so `fix` omits that paragraph from the issue body instead of delivering it twice. Every other paragraph is unconditional.
+`--update-all-dependencies` enables `--report-dependencies-issues` independently of `--deep-analysis`. Generated dependency issues include the upstream-reporting paragraph even when deep analysis is forwarded. Report general logic, duplicated code, missing features and bugs requiring local workarounds to the relevant dependency upstreams. Search existing reports first, include a minimal reproducer, affected versions, the workaround and a proposed fix or feature, and link reports from the pull request. Keep workarounds when needed so upstream fixes do not block the pull request. Use `--no-report-dependencies-issues` (or `--report-dependencies-issues=false`) to omit this instruction from both the generated issue and solver prompt. Reporting can also be enabled alone with `--report-dependencies-issues`.
+
+```bash
+fix owner/repo --update-all-dependencies --no-report-dependencies-issues
+solve https://github.com/owner/repo/issues/123 --report-dependencies-issues
+```
 
 ## The `--update-all-dependencies` Option
 

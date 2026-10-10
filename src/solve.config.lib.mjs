@@ -7,7 +7,7 @@
 // Note: Strict options validation is now handled by yargs built-in .strict() mode (see below)
 // This approach was adopted per issue #482 feedback to minimize custom code maintenance
 
-import { enhanceErrorMessage, detectMalformedFlags } from './option-suggestions.lib.mjs';
+import { detectMalformedFlags } from './option-suggestions.lib.mjs';
 import { defaultModels, buildModelOptionDescription, resolveDefaultFallbackModel, resolveRuntimeDefaultModel } from './models/index.mjs';
 import { validateBranchName } from './solve.branch.lib.mjs';
 import { resolveEscalationConfig, isEscalateEnabled, DEFAULT_ESCALATE_RANGE } from './solve.escalate.lib.mjs';
@@ -15,6 +15,7 @@ import { getLinoYargsFactory, hideBin, normalizeCliArgs, parseCliArgumentsWithLi
 import { normalizeThinkLevel, ADAPTIVE_THINK_LEVEL } from './think-level.lib.mjs';
 import { supportsAdaptiveThinking } from './config.lib.mjs';
 import { resolvePromptModelForTool } from './thinking-prompt.lib.mjs';
+import { normalizeSpeed } from './pricing-tier.lib.mjs';
 
 // Re-export for use by telegram-bot.mjs (avoids extra import lines there)
 export { detectMalformedFlags };
@@ -27,7 +28,8 @@ export const initializeConfig = async () => ({ yargs: getLinoYargsFactory(), hid
 // Exported so hive.config.lib.mjs can automatically register solve options
 // without manual duplication (see issue #1209).
 // NOTE: Options with function defaults (like 'model') are defined inline in createYargsConfig
-// and excluded from this map since functions cannot be cleanly shared as data.
+// and excluded from this map since functions cannot be cleanly shared as data
+// (a `coerce` normalizer such as --speed's is fine: it is only read by yargs).
 export const SOLVE_OPTION_DEFINITIONS = {
   resume: {
     type: 'string',
@@ -400,8 +402,15 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'disable-1m-context': {
     type: 'boolean',
-    description: 'Disable 1M extended context window so the model uses its standard 200K-400K window. Helps preserve reasoning quality and reduces cost. Default: true. For Claude this sets CLAUDE_CODE_DISABLE_1M_CONTEXT=1 (also forbids the [1m] model-name suffix). For Codex this sets -c model_context_window=200000. Use --no-disable-1m-context to allow the 1M window.',
-    default: true,
+    description: 'Hold the model to its short-context (cheapest) pricing tier instead of the 1M extended window. Default: auto — short context unless --sub-session-size asks for more than the short tier (e.g. --sub-session-size 500k) or the model has a [1m] suffix. Pass --disable-1m-context to force short context, or --no-disable-1m-context to allow the 1M window. Short tiers: Claude 200K (Haiku 5.5: 100K), Codex/OpenAI 272K, Gemini Pro 200K, Qwen3 Coder Plus/Flash 256K. For Claude this sets CLAUDE_CODE_DISABLE_1M_CONTEXT=1 and passes plain model names; for Codex -c model_context_window=272000; for Gemini/Qwen the compaction threshold.',
+    default: undefined,
+  },
+  speed: {
+    type: 'string',
+    description: 'Service/speed tier: standard (default, cheapest normal tier), flex (Codex/OpenAI only, ~0.5x price = Batch API rates, slower and may be queued; aliases: batch, slow, economy), fast (priority, ~2x price), ultrafast (Codex only, up to 8x). Claude: standard/flex set CLAUDE_CODE_DISABLE_FAST_MODE=1, fast/ultrafast leave Claude Code fast mode to your Claude settings. Codex: -c service_tier=default|flex|fast|ultrafast.',
+    // coerce (not yargs `choices`) so the documented aliases are accepted and normalized.
+    coerce: normalizeSpeed,
+    default: 'standard',
   },
   'fallback-model': {
     type: 'string',
@@ -613,6 +622,14 @@ export const SOLVE_OPTION_DEFINITIONS = {
     type: 'boolean',
     description: 'Prompt for updating every dependency of every ecosystem in the repository to its latest version (manifests, lockfiles, base images, GitHub Actions and toolchain pins), crossing major versions deliberately and adopting the new upstream features instead of hand-rolled equivalents. Disabled by default. Supported for --tool claude, --tool codex, --tool opencode, --tool agent, --tool qwen, and --tool gemini.',
     default: false,
+  },
+  'report-dependencies-issues': {
+    type: 'boolean',
+    description: 'Prompt for reporting general logic, duplicated code, missing features and bugs that require local workarounds to dependency upstreams, while keeping workarounds so the pull request can proceed. Enabled by --update-all-dependencies; use --no-report-dependencies-issues to disable separately. Supported for --tool claude, --tool codex, --tool opencode, --tool agent, --tool qwen, and --tool gemini.',
+    // Preserve an omitted value so the dependency-update default cannot
+    // overwrite an explicit false during solve/hive/Telegram passthrough.
+    default: undefined,
+    defaultDescription: 'enabled with --update-all-dependencies',
   },
   'use-handoff': {
     type: 'boolean',
@@ -930,8 +947,8 @@ export const normalizeAndValidateThink = argv => {
   }
 };
 
-// Parse command line arguments - now needs yargs and hideBin passed in
-export const parseArguments = async (yargs = getLinoYargsFactory(), hideBinFn = hideBin) => {
+// Parse CLI arguments through the shared Lino adapter; retain the factory parameter for callers.
+export const parseArguments = async (_yargs = getLinoYargsFactory(), hideBinFn = hideBin) => {
   const rawArgs = normalizeCliArgs(hideBinFn(process.argv));
 
   // Issue #1092: Detect malformed flag patterns BEFORE yargs parsing
@@ -948,86 +965,42 @@ export const parseArguments = async (yargs = getLinoYargsFactory(), hideBinFn = 
   // See: https://github.com/yargs/yargs/issues - .strict() only works with .parse()
 
   let argv;
-  let yargsInstance;
+  // Suppress stderr output from yargs during parsing to prevent validation errors from appearing
+  // This prevents "YError: Not enough arguments" from polluting stderr (issue #583)
+  // Save the original stderr.write
+  const originalStderrWrite = process.stderr.write;
+  const stderrBuffer = [];
+
+  // Temporarily override stderr.write to capture output
+  process.stderr.write = function (chunk, encoding, callback) {
+    stderrBuffer.push(chunk.toString());
+    // Call the callback if provided (for compatibility)
+    if (typeof encoding === 'function') {
+      encoding();
+    } else if (typeof callback === 'function') {
+      callback();
+    }
+    return true;
+  };
+
   try {
-    // Suppress stderr output from yargs during parsing to prevent validation errors from appearing
-    // This prevents "YError: Not enough arguments" from polluting stderr (issue #583)
-    // Save the original stderr.write
-    const originalStderrWrite = process.stderr.write;
-    const stderrBuffer = [];
+    argv = parseCliArgumentsWithLino({
+      argv: ['node', 'solve', ...rawArgs],
+      commandName: 'solve',
+      createYargsConfig,
+      positionalAliases: ['issue-url'],
+    });
+  } finally {
+    // Always restore stderr.write
+    process.stderr.write = originalStderrWrite;
 
-    // Temporarily override stderr.write to capture output
-    process.stderr.write = function (chunk, encoding, callback) {
-      stderrBuffer.push(chunk.toString());
-      // Call the callback if provided (for compatibility)
-      if (typeof encoding === 'function') {
-        encoding();
-      } else if (typeof callback === 'function') {
-        callback();
-      }
-      return true;
-    };
-
-    try {
-      yargsInstance = createYargsConfig(yargs());
-      argv = parseCliArgumentsWithLino({
-        argv: ['node', 'solve', ...rawArgs],
-        commandName: 'solve',
-        createYargsConfig,
-        positionalAliases: ['issue-url'],
-      });
-    } finally {
-      // Always restore stderr.write
-      process.stderr.write = originalStderrWrite;
-
-      // In verbose mode, show what was captured from stderr (for debugging)
-      if (global.verboseMode && stderrBuffer.length > 0) {
-        const captured = stderrBuffer.join('');
-        if (captured.trim()) {
-          console.error('[Suppressed yargs stderr]:', captured);
-        }
+    // In verbose mode, show what was captured from stderr (for debugging)
+    if (global.verboseMode && stderrBuffer.length > 0) {
+      const captured = stderrBuffer.join('');
+      if (captured.trim()) {
+        console.error('[Suppressed yargs stderr]:', captured);
       }
     }
-  } catch (error) {
-    // Issue #2041: the yargs `.check()` for --think (added to createYargsConfig so
-    // non-CLI consumers like the Telegram bot reject invalid values) throws an
-    // already-enhanced error. Propagate it verbatim instead of swallowing it into
-    // `error.argv`, otherwise the CLI would silently drop the invalid --think and
-    // crash later during normalization.
-    if (error && error._enhanced && !(error.message && /Unknown argument/.test(error.message))) {
-      throw error;
-    }
-    // Yargs throws errors for validation issues
-    // If the error is about unknown arguments (strict mode), enhance it with suggestions
-    // Check if this error has already been enhanced to avoid re-processing
-    if (error.message && /Unknown argument/.test(error.message) && !error._enhanced) {
-      try {
-        // Enhance the error message with helpful suggestions
-        // Use the yargsInstance we already created, or create a new one if needed
-        const yargsWithConfig = yargsInstance || createYargsConfig(yargs());
-        const enhancedMessage = enhanceErrorMessage(error.message, yargsWithConfig);
-        const enhancedError = new Error(enhancedMessage);
-        enhancedError.name = error.name;
-        enhancedError._enhanced = true; // Mark as enhanced to prevent re-processing
-        throw enhancedError;
-      } catch (enhanceErr) {
-        // If enhancing fails, just throw the original error
-        if (global.verboseMode) {
-          console.error('[VERBOSE] Failed to enhance error message:', enhanceErr.message);
-        }
-        // If the enhance error itself is already enhanced, throw it
-        if (enhanceErr._enhanced) {
-          throw enhanceErr;
-        }
-        throw error;
-      }
-    }
-    // For other validation errors, show a warning in verbose mode
-    if (error.message && global.verboseMode) {
-      console.error('Yargs parsing warning:', error.message);
-    }
-    // Try to get the argv even with the error
-    argv = error.argv || {};
   }
 
   // Post-processing: Fix model default for opencode and codex tools

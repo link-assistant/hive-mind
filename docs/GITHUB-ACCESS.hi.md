@@ -6,7 +6,9 @@ Hive Mind एक सामान्य GitHub खाते से काम क�
 
 ## व्यक्तिगत रिपॉज़िटरी
 
-![konard को व्यक्तिगत रिपॉज़िटरी में सहयोगी के रूप में आमंत्रित करना](./assets/github-access/personal-konard-hi.gif)
+![konard को व्यक्तिगत रिपॉज़िटरी में सहयोगी के रूप में आमंत्रित करना](./assets/github-access/personal-konard-hi.svg)
+
+GIF के रूप में भी: [personal-konard-hi.gif](./assets/github-access/personal-konard-hi.gif)
 
 1. `https://github.com/OWNER/REPO/settings/access` खोलें (**Settings → Collaborators**)।
 2. **Add people** पर क्लिक करें, खाता खोजें और **Add … to REPO** पर क्लिक करें। व्यक्तिगत रिपॉज़िटरी के सहयोगी हमेशा पुश कर सकते हैं, इसलिए कोई भूमिका चुनने की ज़रूरत नहीं है।
@@ -16,7 +18,9 @@ GitHub Docs: [व्यक्तिगत रिपॉज़िटरी मे�
 
 ## संगठन की रिपॉज़िटरी
 
-![konard को Write भूमिका के साथ संगठन की रिपॉज़िटरी में आमंत्रित करना](./assets/github-access/organization-konard-en.gif)
+![konard को Write भूमिका के साथ संगठन की रिपॉज़िटरी में आमंत्रित करना](./assets/github-access/organization-konard-hi.svg)
+
+GIF के रूप में भी (अंग्रेज़ी कैप्शन): [organization-konard-en.gif](./assets/github-access/organization-konard-en.gif)
 
 1. `https://github.com/OWNER/REPO/settings/access` खोलें (**Settings → Collaborators and teams**)।
 2. **Add people** पर क्लिक करें, खाता खोजें, **Write** भूमिका चुनें और **Add … to REPO** पर क्लिक करें।
@@ -37,9 +41,22 @@ GitHub Docs हिंदी में प्रकाशित नहीं ह�
 ```bash
 node src/github-access-animation.lib.mjs --login my-bot --locale hi                        # guides फ़ोल्डर में सहेजा जाता है
 node src/github-access-animation.lib.mjs --login my-bot --locale hi --owner-type Organization --output org-hi.gif
+node src/github-access-animation.lib.mjs --login my-bot --locale hi --output personal-hi.svg   # GIF के बजाय एनिमेटेड SVG
 ```
 
-एनिमेशन GitHub के सेटिंग पेज का सरल मॉडल है, स्क्रीनशॉट नहीं, इसलिए इसमें कभी किसी की असली रिपॉज़िटरी नहीं दिखती। यदि होस्ट पर भाषा की लिपि के फ़ॉन्ट नहीं हैं, तो कैप्शन अंग्रेज़ी में दिखते हैं।
+एनिमेशन GitHub के डार्क सेटिंग पेज की प्रतिकृति है (वही लेआउट, Primer रंग और Octicons आइकन), जो HTML से बनाई गई है, स्क्रीनशॉट नहीं, इसलिए इसमें कभी किसी की असली रिपॉज़िटरी नहीं दिखती। SVG और GIF एक ही दृश्य से बनते हैं: SVG उसे CSS से चलाता है, और GIF वही दृश्य 10 फ़्रेम प्रति सेकंड पर कैप्चर किया गया है। यदि होस्ट पर भाषा की लिपि के फ़ॉन्ट नहीं हैं, तो कैप्शन अंग्रेज़ी में दिखते हैं।
+
+## असली GitHub पेज पर रिकॉर्डिंग
+
+`scripts/record-github-access-guide.mjs` वही कर्सर, हाइलाइट और कैप्शन असली `github.com` सेटिंग पेज के ऊपर चलाता है और नतीजा GIF के रूप में सहेजता है। इसके लिए रिपॉज़िटरी के एडमिन के रूप में साइन-इन किया हुआ ब्राउज़र सत्र चाहिए: Chromium प्रोफ़ाइल फ़ोल्डर (`--user-data-dir`) या Playwright storage state (`--storage-state`)। `--headed` के साथ आप विंडो में साइन इन कर सकते हैं या पासवर्ड की पुष्टि कर सकते हैं; **Add people** स्क्रीन पर दिखते ही रिकॉर्डिंग शुरू होती है।
+
+```bash
+node scripts/record-github-access-guide.mjs --repo OWNER/REPO --login konard --user-data-dir ~/.config/hm-recorder --headed --output personal-konard-en.gif
+node scripts/record-github-access-guide.mjs --repo ORG/REPO --login konard --owner-type Organization --locale hi --user-data-dir ~/.config/hm-recorder
+node scripts/record-github-access-guide.mjs --mock --login konard --output mock.gif        # वही नियंत्रणों वाला स्थानीय पेज, GitHub के बिना
+```
+
+स्क्रिप्ट **Add people** पर क्लिक करती है, खाता टाइप करती है, उसे चुनती है और संगठनों के लिए **Write** भूमिका चुनती है। `--send-invite` के बिना वह **Add … to REPO** पर रुक जाती है और क्लिक नहीं करती, ताकि रिकॉर्डिंग गलती से किसी को आमंत्रित न करे। `--send-invite` के लिए परीक्षण रिपॉज़िटरी और परीक्षण खाता इस्तेमाल करें। अगर GitHub कोई लेबल बदल दे, तो स्क्रिप्ट रुक जाती है और चरण तथा आज़माए गए सेलेक्टर बताती है (`scripts/record-github-access-guide.lib.mjs`, `getRecorderSteps`)।
 
 ## GitHub की अन्य सेटिंग्स जिनके बारे में Hive Mind पूछ सकता है
 

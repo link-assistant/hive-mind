@@ -3,10 +3,12 @@
  * Animated "give Hive Mind write access" guide (GIF).
  *
  * The text guide (github-access-guide.lib.mjs) says where to click; this module
- * shows it. Each frame is a small HTML mock of GitHub's Settings → Collaborators
- * page with the Hive Mind account's login filled in, rendered in headless
- * Chromium and encoded with browser-commander
- * (https://github.com/link-foundation/browser-commander).
+ * shows it. The animation is one animated scene (github-access-scene.lib.mjs:
+ * a replica of GitHub's Settings → Collaborators page with a moving cursor and
+ * captions, driven by CSS keyframes). Here it is sampled in headless Chromium,
+ * each sample screenshotted and encoded to a GIF with browser-commander
+ * (https://github.com/link-foundation/browser-commander). The same scene is
+ * also written as an animated SVG (buildAccessAnimationSvg).
  *
  * The login is part of the picture, so the GIF is made once per account,
  * owner kind (personal/organization) and caption language, then reused from
@@ -15,7 +17,7 @@
  * missing every entry point returns null and callers keep the text guide.
  *
  * Command line (writes the GIF and prints its path):
- *   node src/github-access-animation.lib.mjs --login konard --locale ru [--owner-type Organization] [--output file.gif]
+ *   node src/github-access-animation.lib.mjs --login konard --locale ru [--owner-type Organization] [--output file.gif|file.svg]
  *
  * @see https://github.com/link-assistant/hive-mind/issues/2998
  */
@@ -27,9 +29,13 @@ import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { t, loadTranslations, normalizeLocale } from './i18n.lib.mjs';
 import { isOrganizationOwner } from './github-access-guide.lib.mjs';
+import { encodeDiffGif } from './gif-frames.lib.mjs';
+import { buildAccessAnimationHtml, buildAccessAnimationSvg, buildAccessScene, SCENE_SIZE } from './github-access-scene.lib.mjs';
 
-export const ACCESS_ANIMATION_SIZE = Object.freeze({ width: 720, height: 420 });
-export const ACCESS_ANIMATION_FPS = 2;
+export { buildAccessAnimationSvg };
+export const ACCESS_ANIMATION_SIZE = SCENE_SIZE;
+/** Samples per second of the scene; identical neighbours become one GIF frame. */
+export const ACCESS_ANIMATION_FPS = 10;
 export const BROWSER_COMMANDER_SPECIFIER = 'browser-commander@0.28.0';
 
 const LOGIN_PATTERN = /^[A-Za-z0-9-]+(\[bot\])?$/;
@@ -67,71 +73,6 @@ export async function buildAccessAnimationCaptions({ login, ownerType, locale })
     confirm: tr('anim_step_confirm', { step: organization ? 6 : 5 }),
     pending: tr('anim_step_pending'),
   };
-}
-
-const escapeHtml = value => String(value).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
-
-const STYLE = `
-*{box-sizing:border-box}body{margin:0;width:720px;height:420px;font:14px -apple-system,"Segoe UI","Noto Sans","WenQuanYi Zen Hei","Noto Sans Devanagari",Helvetica,Arial,sans-serif;color:#1f2328;background:#fff;overflow:hidden}
-.title{height:34px;background:#0d1117;color:#f0f6fc;font-weight:600;display:flex;align-items:center;padding:0 14px}
-.repo{height:42px;border-bottom:1px solid #d1d9e0;display:flex;align-items:center;padding:0 14px;gap:16px;background:#f6f8fa}
-.repo b{font-weight:600}.tab{color:#59636e}.tab.on{color:#1f2328;border-bottom:2px solid #fd8c73;padding:11px 0}
-.wrap{display:flex;height:264px}.side{width:190px;padding:10px 8px;border-right:1px solid #d1d9e0}
-.side div{padding:6px 8px;border-radius:6px;color:#59636e;position:relative}.side .on{background:#eff2f5;color:#1f2328;font-weight:600}
-.main{flex:1;padding:14px 18px;position:relative}.h{font-size:18px;margin-bottom:10px}
-.box{border:1px solid #d1d9e0;border-radius:6px}.row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-top:1px solid #d1d9e0}
-.row:first-child{border-top:0}.btn{display:inline-block;padding:5px 12px;border-radius:6px;background:#1f883d;color:#fff;font-weight:600;position:relative;border:1px solid #1a7f37}
-.btn.wide{display:block;text-align:center;margin-top:12px}.av{width:26px;height:26px;border-radius:50%;background:#8250df;color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center}
-.muted{color:#59636e;font-size:12px}.badge{margin-left:auto;font-size:12px;color:#9a6700;border:1px solid #d4a72c;border-radius:12px;padding:1px 8px}
-.dim{position:fixed;top:34px;left:0;right:0;bottom:80px;background:rgba(31,35,40,.45)}.modal{position:fixed;left:236px;top:58px;width:450px;background:#fff;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.3);padding:14px 16px}
-.input{border:2px solid #0969da;border-radius:6px;padding:6px 10px;margin-top:10px;min-height:34px;position:relative}.caret{display:inline-block;width:1px;height:16px;background:#1f2328;vertical-align:middle}
-.result{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid #d1d9e0;border-radius:6px;margin-top:8px;position:relative}.result.on{background:#ddf4ff;border-color:#54aeff}
-.role{display:flex;gap:8px;align-items:flex-start;padding:5px 8px;border-radius:6px;position:relative}.role.on{background:#ddf4ff}.dot{width:14px;height:14px;border-radius:50%;border:2px solid #59636e;margin-top:2px;flex:none}.role.on .dot{border:4px solid #0969da}
-.ring{outline:3px solid #fb8500;outline-offset:2px}.cursor{position:absolute;right:-10px;bottom:-16px;width:22px;height:22px;z-index:5}
-.caption{position:absolute;left:0;right:0;bottom:0;height:80px;background:#fff8c5;border-top:1px solid #d4a72c;display:flex;align-items:center;padding:0 18px;font-size:19px;font-weight:600}`;
-
-const CURSOR = '<svg class="cursor" viewBox="0 0 24 24"><path d="M3 2l7 19 2.6-7.4L20 11z" fill="#1f2328" stroke="#fff" stroke-width="1.5"/></svg>';
-
-/** Frames of the animation as HTML documents, in display order (pure; see renderAccessAnimation). */
-export function buildAccessAnimationFrames({ login, ownerType, captions }) {
-  const organization = isOrganizationOwner(ownerType);
-  const user = escapeHtml(login);
-  const avatar = `<span class="av">${escapeHtml(String(login).charAt(0).toUpperCase())}</span>`;
-  const sideLabel = organization ? 'Collaborators and teams' : 'Collaborators';
-  const ring = on => (on ? ' ring' : '');
-  const page = ({ caption, sideCursor = false, addCursor = false, pending = false, modal = '' }) => `<!doctype html><html><head><meta charset="utf-8"><style>${STYLE}</style></head><body>
-<div class="title">${escapeHtml(captions.title)}</div>
-<div class="repo"><b>your-account / your-repository</b><span class="tab">Code</span><span class="tab">Issues</span><span class="tab">Pull requests</span><span class="tab on">Settings</span></div>
-<div class="wrap"><div class="side"><div>General</div><div class="on${ring(sideCursor)}">${sideLabel}${sideCursor ? CURSOR : ''}</div><div>Branches</div><div>Rules</div><div>Actions</div></div>
-<div class="main"><div class="h">Manage access</div><div class="box"><div class="row"><span class="muted">${organization ? 'Direct access · 3 members' : 'You have 1 collaborator'}</span><span style="margin-left:auto"><span class="btn${ring(addCursor)}">Add people${addCursor ? CURSOR : ''}</span></span></div>
-<div class="row"><span class="av" style="background:#1f883d">Y</span><span>your-account</span><span class="muted" style="margin-left:auto">${organization ? 'Admin' : 'Owner'}</span></div>
-${pending ? `<div class="row">${avatar}<b>${user}</b><span class="badge">Pending invite</span></div>` : ''}</div>${modal}</div></div>
-<div class="caption">${escapeHtml(caption)}</div></body></html>`;
-  const modal = ({ query, result = false, selected = false, role = false, confirm = false }) => {
-    const roles = ['Read', 'Triage', 'Write', 'Maintain', 'Admin'].map(name => `<div class="role${name === 'Write' ? ' on' : ''}${ring(role && name === 'Write')}"><span class="dot"></span><span><b>${name}</b>${name === 'Write' ? '<br><span class="muted">Can read, clone, and push to this repository</span>' : ''}</span>${role && name === 'Write' ? CURSOR : ''}</div>`);
-    const picked = selected ? `<div class="result on${ring(selected === 'cursor')}">${avatar}<b>${user}</b>${selected === 'cursor' ? CURSOR : ''}</div>` : '';
-    const results = !selected && result ? `<div class="result">${avatar}<b>${user}</b><span class="muted">Invite collaborator</span></div>` : '';
-    return `<div class="dim"></div><div class="modal"><b>Add people to your-repository</b>
-<div class="input">${selected ? '' : escapeHtml(query)}<span class="caret"></span></div>${results}${picked}
-${organization && role ? `<div style="margin-top:6px">${roles.filter((_, i) => i >= 1 && i <= 3).join('')}</div>` : ''}
-${organization && confirm ? '<div class="muted" style="margin-top:10px">Role: <b>Write</b></div>' : ''}
-${selected && !role ? `<span class="btn wide${ring(confirm)}">Add ${user} to this repository${confirm ? CURSOR : ''}</span>` : ''}</div>`;
-  };
-  const frames = [];
-  const hold = (html, count) => {
-    for (let i = 0; i < count; i++) frames.push(html);
-  };
-  hold(page({ caption: captions.open, sideCursor: true }), 4);
-  hold(page({ caption: captions.add, addCursor: true }), 3);
-  const typed = String(login);
-  const steps = Math.min(typed.length, 5);
-  for (let i = 1; i <= steps; i++) hold(page({ caption: captions.search, modal: modal({ query: typed.slice(0, Math.ceil((typed.length * i) / steps)) }) }), 1);
-  hold(page({ caption: captions.search, modal: modal({ query: typed, result: true }) }), 2);
-  hold(page({ caption: captions.select, modal: modal({ query: typed, selected: 'cursor' }) }), 3);
-  if (organization) hold(page({ caption: captions.role, modal: modal({ query: typed, selected: true, role: true }) }), 4);
-  hold(page({ caption: captions.confirm, modal: modal({ query: typed, selected: true, confirm: true }) }), 3);
-  hold(page({ caption: captions.pending, pending: true }), 6);
-  return frames;
 }
 
 let globalNpmRoot;
@@ -185,7 +126,7 @@ export const GLYPH_PROBE = text => {
   const context = canvas.getContext('2d');
   const draw = ch => {
     context.clearRect(0, 0, 32, 32);
-    context.font = getComputedStyle(document.body).font;
+    context.font = getComputedStyle(document.getElementById('hm-root') || document.body).font;
     context.fillText(ch, 4, 24);
     return context.getImageData(0, 0, 32, 32).data.join(',');
   };
@@ -193,48 +134,33 @@ export const GLYPH_PROBE = text => {
   return [...new Set([...text].filter(ch => ch.codePointAt(0) > 0x7f && !/\s/.test(ch)))].every(ch => draw(ch) !== tofu);
 };
 
-/**
- * Set each frame's display time in a GIF (centiseconds, in frame order) by
- * rewriting its Graphic Control Extensions. encodeAnimation() takes one fps for
- * all frames, so a held step is encoded once and stretched here instead of
- * being repeated (11 frames instead of 26, less than half the size).
- *
- * @param {Uint8Array} gif
- * @param {number[]} delays
- * @returns {Buffer}
- */
-export function setGifFrameDelays(gif, delays) {
-  const bytes = Buffer.from(gif);
-  const skipSubBlocks = offset => {
-    while (bytes[offset] !== 0) offset += bytes[offset] + 1;
-    return offset + 1;
-  };
-  const tableSize = packed => (packed & 0x80 ? 3 * 2 ** ((packed & 0x07) + 1) : 0);
-  let offset = 13 + tableSize(bytes[10]);
-  let frame = 0;
-  while (offset < bytes.length && bytes[offset] !== 0x3b) {
-    if (bytes[offset] === 0x21) {
-      if (bytes[offset + 1] === 0xf9 && frame < delays.length) bytes.writeUInt16LE(Math.max(2, Math.round(delays[frame++])), offset + 4);
-      offset = skipSubBlocks(offset + 2);
-    } else if (bytes[offset] === 0x2c) {
-      offset = skipSubBlocks(offset + 10 + tableSize(bytes[offset + 9]) + 1);
-    } else {
-      throw new Error(`Unexpected GIF block 0x${bytes[offset].toString(16)} at ${offset}`);
-    }
-  }
-  return bytes;
+/** Times (seconds) at which the scene is sampled: `fps` per second over one loop. */
+export function getAccessAnimationSampleTimes(duration, fps = ACCESS_ANIMATION_FPS) {
+  const times = [];
+  for (let i = 0; i * (1 / fps) < duration - 1e-9; i++) times.push(Number((i / fps).toFixed(3)));
+  return times;
 }
 
+// Freeze every CSS animation of the page at `ms` (runs in the page).
+const SEEK_ANIMATIONS = ms => {
+  for (const animation of globalThis.document.getAnimations()) {
+    animation.pause();
+    animation.currentTime = ms;
+  }
+};
+
 /**
- * Render frames to a GIF.
+ * Render the animated scene to a GIF: freeze its keyframes at each sample
+ * time, screenshot, and keep only what changed from one sample to the next.
  *
  * @param {Object} options
- * @param {string[]} options.frames - HTML documents (buildAccessAnimationFrames); repeats hold a step
- * @param {number} [options.fps] - rate of `frames`
+ * @param {string} options.html - the scene page (buildAccessAnimationHtml)
+ * @param {number} options.duration - one loop, seconds
+ * @param {number} [options.fps] - samples per second
  * @param {Object} [options.page] - an open Playwright page to reuse
  * @returns {Promise<Buffer>}
  */
-export async function renderAccessAnimation({ frames, fps = ACCESS_ANIMATION_FPS, page, loaders = {} }) {
+export async function renderAccessAnimation({ html, duration, fps = ACCESS_ANIMATION_FPS, page, loaders = {} }) {
   const commander = await (loaders.loadBrowserCommander || loadBrowserCommander)();
   let browser = null;
   try {
@@ -243,21 +169,13 @@ export async function renderAccessAnimation({ frames, fps = ACCESS_ANIMATION_FPS
       browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
       page = await browser.newPage({ viewport: ACCESS_ANIMATION_SIZE });
     }
-    const runs = [];
-    for (const html of frames) {
-      if (runs.at(-1)?.html === html) runs.at(-1).count++;
-      else runs.push({ html, count: 1 });
-    }
+    await page.setContent(html);
     const shots = [];
-    for (const run of runs) {
-      await page.setContent(run.html);
-      shots.push(await commander.screenshot({ page, engine: 'playwright', format: 'png' }));
+    for (const time of getAccessAnimationSampleTimes(duration, fps)) {
+      await page.evaluate(SEEK_ANIMATIONS, time * 1000);
+      shots.push({ png: await commander.screenshot({ page, engine: 'playwright', format: 'png' }), delay: 100 / fps });
     }
-    const gif = await commander.encodeAnimation(shots, { format: 'gif', fps });
-    return setGifFrameDelays(
-      gif,
-      runs.map(run => (run.count * 100) / fps)
-    );
+    return await encodeDiffGif({ shots, encodeAnimation: commander.encodeAnimation });
   } finally {
     if (browser) await browser.close().catch(() => {});
   }
@@ -275,11 +193,12 @@ export async function generateAccessAnimation({ login, ownerType, locale, loader
   try {
     const page = await browser.newPage({ viewport: ACCESS_ANIMATION_SIZE });
     let captions = await buildAccessAnimationCaptions({ login, ownerType, locale });
-    await page.setContent(buildAccessAnimationFrames({ login, ownerType, captions })[0]);
+    await page.setContent(buildAccessAnimationHtml({ login, ownerType, captions }));
     if (captions.locale !== 'en' && !(await page.evaluate(GLYPH_PROBE, Object.values(captions).join('')))) {
       captions = await buildAccessAnimationCaptions({ login, ownerType, locale: 'en' });
     }
-    const gif = await renderAccessAnimation({ frames: buildAccessAnimationFrames({ login, ownerType, captions }), page, loaders });
+    const { duration } = buildAccessScene({ login, ownerType, captions });
+    const gif = await renderAccessAnimation({ html: buildAccessAnimationHtml({ login, ownerType, captions }), duration, page, loaders });
     return { gif, locale: captions.locale };
   } finally {
     await browser.close().catch(() => {});
@@ -376,13 +295,18 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   };
   const login = option('login');
   if (!login) {
-    console.error('Usage: node src/github-access-animation.lib.mjs --login <github-login> [--locale en|ru|zh|hi] [--owner-type User|Organization] [--output file.gif]');
+    console.error('Usage: node src/github-access-animation.lib.mjs --login <github-login> [--locale en|ru|zh|hi] [--owner-type User|Organization] [--output file.gif|file.svg]');
     process.exit(2);
   }
   const ownerType = option('owner-type') || 'User';
   const locale = option('locale') || 'en';
   const output = option('output');
-  if (output) {
+  if (output?.endsWith('.svg')) {
+    const svg = buildAccessAnimationSvg({ login, ownerType, captions: await buildAccessAnimationCaptions({ login, ownerType, locale }) });
+    await mkdir(dirname(output), { recursive: true });
+    await writeFile(output, svg);
+    console.log(`${output} (${Buffer.byteLength(svg)} bytes)`);
+  } else if (output) {
     const { gif, locale: rendered } = await generateAccessAnimation({ login, ownerType, locale });
     await mkdir(dirname(output), { recursive: true });
     await writeFile(output, gif);

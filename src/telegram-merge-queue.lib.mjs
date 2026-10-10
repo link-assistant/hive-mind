@@ -17,7 +17,8 @@
  */
 import { getAllReadyPRs, checkPRCIStatus, checkPRMergeable, mergePullRequest, waitForCI, ensureReadyLabel, waitForBranchCI, getDefaultBranch, waitForCommitCI, checkBranchCIHealth, getMergeCommitSha, getPRStatus, syncReadyTags, closeLinkedIssueIfNotAutoClosed } from './github-merge.lib.mjs';
 import { resolveMergeTargetItems } from './github-merge-targets.lib.mjs';
-import { fetchDependabotPullRequests, mergeDependabotItems } from './github-merge-dependabot.lib.mjs';
+import { fetchDependabotPullRequests } from './github-merge-dependabot.lib.mjs';
+import { collectMergeQueuePRs } from './telegram-merge-queue-collect.lib.mjs';
 import { waitForPRReady as waitForPRReadyHelper } from './telegram-merge-wait.lib.mjs';
 import { ensureTargetBranchReady as ensureTargetBranchReadyHelper } from './telegram-merge-branch-gate.lib.mjs';
 import { mergeQueue as mergeQueueConfig } from './config.lib.mjs';
@@ -249,43 +250,13 @@ export class MergeQueueProcessor {
   async initialize() {
     try {
       this.log(`Initializing merge queue for ${this.owner}/${this.repo}`);
-      const isRepositoryTarget = !this.target?.mode || this.target.mode === 'repository';
-      const dependabotOnly = this.dependabot && !this.includeReadyPRs && isRepositoryTarget;
-      // Ensure ready label exists
-      const labelResult = dependabotOnly ? { success: true } : await this.ensureReadyLabel(this.owner, this.repo, this.verbose);
-      if (!labelResult.success) {
-        return { success: false, error: labelResult.error };
+      const collected = await collectMergeQueuePRs(this);
+      if (collected.error) {
+        return { success: false, error: collected.error };
       }
-      if (labelResult.created) {
-        this.log("Created 'ready' label in repository");
-      }
-      let readyPRs;
-      if (!isRepositoryTarget) {
-        readyPRs = await this.resolveMergeTargetItemsWithWait();
-      } else if (dependabotOnly) {
-        readyPRs = [];
-      } else {
-        // Issue #1367: Sync 'ready' tags between linked PRs and issues before collecting the queue
-        // This ensures the final list reflects all ready work regardless of where the tag was applied
-        const syncResult = await this.syncReadyTags(this.owner, this.repo, this.verbose);
-        if (syncResult.synced > 0) {
-          this.log(`Synced 'ready' tag: ${syncResult.synced} item(s) updated`);
-        }
-        if (syncResult.errors > 0) {
-          this.log(`Tag sync had ${syncResult.errors} error(s) (non-fatal, proceeding)`);
-        }
-        // Fetch all ready PRs
-        readyPRs = await this.getAllReadyPRs(this.owner, this.repo, this.verbose);
-      }
-      if (this.dependabot && isRepositoryTarget) {
-        const dependabotPRs = await this.fetchDependabotPullRequests(this.owner, this.repo, this.verbose);
-        this.log(`Found ${dependabotPRs.length} open Dependabot PR(s)`);
-        readyPRs = mergeDependabotItems(readyPRs, dependabotPRs);
-      }
+      const readyPRs = collected.prs;
       if (readyPRs.length === 0) {
-        const repositoryMessage = dependabotOnly ? 'No open Dependabot PRs found' : this.dependabot ? "No PRs with 'ready' label or open Dependabot PRs found" : "No PRs with 'ready' label found";
-        const message = this.target?.mode === 'issue' ? `No open PRs linked to issue #${this.target.issueNumber} found` : this.target?.mode === 'pull' ? `Pull request #${this.target.prNumber} was not found` : repositoryMessage;
-        return { success: true, error: null, message };
+        return { success: true, error: null, message: collected.emptyMessage };
       }
       // Limit to max PRs per session
       const limitedPRs = readyPRs.slice(0, MERGE_QUEUE_CONFIG.MAX_PRS_PER_SESSION);

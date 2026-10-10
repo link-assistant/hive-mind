@@ -15,6 +15,7 @@
 import assert from 'node:assert/strict';
 import { DEPENDABOT_AUTHOR, fetchDependabotPullRequests, isDependabotPullRequest, mergeDependabotItems } from '../src/github-merge-dependabot.lib.mjs';
 import { CI_FAILED_REASON, MERGE_CONFLICT_SKIP_REASON, MergeItemStatus, MergeQueueProcessor } from '../src/telegram-merge-queue.lib.mjs';
+import { getEmptyQueueMessage } from '../src/telegram-merge-queue-collect.lib.mjs';
 import { getMergeUsageMessage, getTargetFoundText, parseMergeArgs, validateMergeDependabotTarget } from '../src/telegram-merge-command.lib.mjs';
 
 let testsPassed = 0;
@@ -297,6 +298,14 @@ await test('found-text and usage mention Dependabot', () => {
   assert.equal(getTargetFoundText({ mode: 'repository' }, 3, { dependabot: true, dependabotCount: 2 }), "Found 3 PRs to merge \\(1 with 'ready' label, 2 from Dependabot\\)\\.");
   assert.equal(getTargetFoundText({ mode: 'repository' }, 3), "Found 3 PRs with 'ready' label\\.");
   assert.match(getMergeUsageMessage(), /\[--dependabot\]/);
+});
+
+await test('getEmptyQueueMessage names what was searched for', () => {
+  assert.equal(getEmptyQueueMessage({ mode: 'repository' }), "No PRs with 'ready' label found");
+  assert.equal(getEmptyQueueMessage({ mode: 'repository' }, { dependabot: true }), "No PRs with 'ready' label or open Dependabot PRs found");
+  assert.equal(getEmptyQueueMessage({ mode: 'repository' }, { dependabot: true, dependabotOnly: true }), 'No open Dependabot PRs found');
+  assert.equal(getEmptyQueueMessage({ mode: 'issue', issueNumber: 7 }, { dependabot: true }), 'No open PRs linked to issue #7 found');
+  assert.equal(getEmptyQueueMessage({ mode: 'pull', prNumber: 8 }), 'Pull request #8 was not found');
 });
 
 console.log('\n' + '='.repeat(60));

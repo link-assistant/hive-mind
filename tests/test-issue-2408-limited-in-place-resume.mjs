@@ -52,7 +52,7 @@ const limitedSession = (overrides = {}) => ({
   args: ['https://github.com/link-foundation/meta-language/pull/196', '--auto-restart-until-mergeable'],
   ...overrides,
 });
-const plan = { command: { args: ['--resume', TOOL_SESSION], display: `solve --resume ${TOOL_SESSION}` }, shouldResume: true, attempt: 1, maxAttempts: 1 };
+const plan = { command: { args: ['--resume', TOOL_SESSION], display: `solve --resume ${TOOL_SESSION}`, shell: `solve --resume ${TOOL_SESSION}` }, shouldResume: true, attempt: 1, maxAttempts: 1 };
 
 const makeRunner = ({ version = '0.35.0', resume = null, reapply = { success: true, error: null } } = {}) => {
   const calls = { resume: [], reapply: [], launches: [] };

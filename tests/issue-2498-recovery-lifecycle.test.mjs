@@ -272,7 +272,7 @@ test('fresh recovery clears completion caches, preserves limits and cannot inher
   const result = await startKillRecoverySession({
     sessionName: 'original',
     sessionInfo: { startTime: new Date(0), isolationBackend: 'screen', logPath: '/old/log', completionNotifiedAt: 'old', completionExitCode: 137, completionStatus: 'killed', lastToolSessionId: 'old-tool', args: [], containerResourceLimits: { requested: ['--memory=1g'] } },
-    plan: { shouldResume: true, attempt: 1, maxAttempts: 3, command: { args: [pr], display: 'solve pr' } },
+    plan: { shouldResume: true, attempt: 1, maxAttempts: 3, command: { args: [pr], display: 'solve pr', shell: 'solve pr' } },
     env: { HIVE_MIND_SESSION_KILL_RESUME_DELAY: '0' },
     onLifecycle: async event => phases.push(event.phase),
     runner: {

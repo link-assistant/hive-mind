@@ -1,0 +1,5 @@
+session=9789d773-6ac2-4854-937a-80b03d9d13a1 stored under /tmp/exp2888-claude/config/projects/-tmp-exp2888-claude-original-cwd
+missing-id-control: NOT FOUND (No conversation found with session ID: 11111111-2222-4333-8444-555555555555)
+same-cwd: FOUND (transcript loaded, then 'Not logged in')
+fresh-cwd: FOUND (transcript loaded, then 'Not logged in')
+fresh-cwd-relocated: FOUND (transcript loaded, then 'Not logged in')

@@ -187,7 +187,7 @@ const { isTelegramRateLimitError } = await import('./telegram-rate-limit.lib.mjs
 const { installTelegramContextSafety } = await import('./telegram-context-safety.lib.mjs');
 const { registerTerminalWatchCommand, startAutoTerminalWatchForSession } = await import('./telegram-terminal-watch-command.lib.mjs');
 const { launchBotWithRetry } = await import('./telegram-bot-launcher.lib.mjs');
-const { trackSession, untrackSession, startSessionMonitoring, hasActiveSessionForUrlAsync, findStoppableSessionByUrl, setSessionStore, setSessionLogger, resumeTrackedSessions, getActiveSessionCount } = await import('./session-monitor.lib.mjs');
+const { trackSession, untrackSession, getTrackedSessionInfo, startSessionMonitoring, hasActiveSessionForUrlAsync, findStoppableSessionByUrl, setSessionStore, setSessionLogger, resumeTrackedSessions, getActiveSessionCount } = await import('./session-monitor.lib.mjs');
 const { createBotLogger } = await import('./bot-logger.lib.mjs');
 const { createSessionStore } = await import('./session-store.lib.mjs');
 const { createHeartbeat, resumeSessionsOnLaunch, createShutdownHandler } = await import('./bot-lifecycle.lib.mjs');
@@ -195,6 +195,7 @@ const { formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage } = 
 const { buildTelegramHelpMessage, buildTelegramInfoBlock, buildSolveQueuedMessage } = await import('./telegram-ui-messages.lib.mjs');
 const { startFormalAiMaintenance } = await import('./formal-ai-maintenance.lib.mjs');
 const { startRouterMaintenance } = await import('./router-maintenance.lib.mjs');
+const { createSolveQueueDurability, createSessionReconciler } = await import('./telegram-solve-queue.durability.lib.mjs');
 // Initialize Sentry for error tracking
 await initializeSentry({
   debug: VERBOSE,
@@ -228,6 +229,22 @@ const sessionStore = createSessionStore({ verbose: VERBOSE, logger: botLogger })
 setSessionLogger(botLogger);
 setSessionStore(sessionStore);
 botLogger.event('bot_starting', { pid: process.pid, ppid: process.ppid, botStartTime: BOT_START_TIME, startTimeIso: new Date(BOT_START_TIME * 1000).toISOString(), logFile: botLogger.filePath, sessionSnapshot: sessionStore.snapshotPath });
+// Issue #2890: the queue executor is set before any item can run, including items restored after a restart.
+function ensureSolveQueueExecuteCallback() {
+  const solveQueue = getSolveQueue({ verbose: VERBOSE });
+  if (solveQueue.executeCallback) return;
+  const _t = (s, i) => trackSession(s, i, VERBOSE);
+  solveQueue.executeCallback = createIsolationAwareQueueCallback(ISOLATION_BACKEND, isolationRunner, _t, createQueueExecuteCallback(executeStartScreen, _t), VERBOSE, CONTAINER_RESOURCE_LIMITS);
+}
+// Issue #2890: the solve queue is saved to the state volume on every change and restored on launch.
+const solveQueueDurability = createSolveQueueDurability({
+  queue: getSolveQueue({ verbose: VERBOSE }),
+  telegram: bot.telegram,
+  logger: botLogger,
+  verbose: VERBOSE,
+  ensureExecuteCallback: ensureSolveQueueExecuteCallback,
+  reconciler: createSessionReconciler({ getTrackedSessionInfo, hasActiveSessionForUrlAsync, trackSession, verbose: VERBOSE, querySessionStatus: async (id, v) => (isolationRunner || (await import('./isolation-runner.lib.mjs'))).querySessionStatus(id, v) }),
+});
 
 // Wrapper functions binding filter logic to bot state (actual logic in telegram-message-filters.lib.mjs, issue #1207)
 function isChatAuthorized(chatId) {
@@ -698,10 +715,7 @@ async function handleSolveCommand(ctx) {
     const startingMessage = await safeReply(ctx, formatStartingWorkSessionMessage({ infoBlock, locale: solveLocale }), { reply_to_message_id: ctx.message.message_id });
     await executeAndUpdateMessage(ctx, startingMessage, 'solve', argsWithLocale, infoBlock, effectiveSolveIsolation, solveTool, solveUrlContext, { showLimits: solveShowLimits, limitsAtStart: solveLimitsAtStart, locale: solveLocale, commandAlias: solveCommandName });
   } else {
-    if (!solveQueue.executeCallback) {
-      const _t = (s, i) => trackSession(s, i, VERBOSE);
-      solveQueue.executeCallback = createIsolationAwareQueueCallback(ISOLATION_BACKEND, isolationRunner, _t, createQueueExecuteCallback(executeStartScreen, _t), VERBOSE, CONTAINER_RESOURCE_LIMITS);
-    }
+    ensureSolveQueueExecuteCallback();
     const queueItem = solveQueue.enqueue({ url: normalizedUrl, args: argsWithLocale, ctx, requester, infoBlock, commandAlias: solveCommandName, tool: solveTool, perCommandIsolation: effectiveSolveIsolation, urlContext: solveUrlContext, showLimits: solveShowLimits, limitsAtStart: solveLimitsAtStart, locale: solveLocale });
     const queueMessage = buildSolveQueuedMessage({ locale: solveLocale, tool: solveTool, position: toolQueuedCount + 1, infoBlock, reason: check.reason ? escapeMarkdown(check.reason) : '' }); // tool-specific position (#1551)
     const queuedMessage = await safeReply(ctx, queueMessage, { reply_to_message_id: ctx.message.message_id });
@@ -710,6 +724,7 @@ async function handleSolveCommand(ctx) {
       messageId: queuedMessage.message_id,
       messageThreadId: queuedMessage.message_thread_id ?? ctx.message?.message_thread_id ?? null,
     };
+    solveQueue.notifyStateChange('message', queueItem); // save the card id (#2890)
   }
 }
 
@@ -1177,6 +1192,9 @@ async function onBotLaunched() {
     verbose: VERBOSE,
     logger: botLogger,
   });
+  // Issue #2890: put back the solve queue of the previous process, after the
+  // sessions are resumed so interrupted starts can be matched to them.
+  await solveQueueDurability.start().catch(error => console.error(`⚠️ /queue-restore: ${error.message}`));
 
   startSessionMonitoringOnce();
   startFormalAiMaintenanceOnce();
@@ -1254,6 +1272,7 @@ launchBotWithRetry(
 const stopSolveQueue = () => {
   try {
     getSolveQueue({ verbose: VERBOSE }).stop();
+    solveQueueDurability.close().catch(() => {});
   } catch {
     /* ignore errors during shutdown */
   }

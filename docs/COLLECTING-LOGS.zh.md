@@ -12,16 +12,16 @@ node examples/collect-logs.mjs --out ./audit --session <uuid>   # 另加该会�
 
 ## 各个位置
 
-| 位置           | 路径                                                                      | 存放什么                                                                                                                     |
-| -------------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| **运行日志**   | 工作目录，或 `--log-dir` / `HIVE_MIND_LOG_DIR`                            | 每次运行一份 `solve-*.log` / `hive-*.log`；一旦 AI 工具报告了会话 id，就重命名为 `<sessionId>.log`。单次运行的完整叙述。     |
-| **机器人日志** | `~/.hive-mind/logs`（`HIVE_MIND_LOG_DIR`）                                | 轮转的 `telegram-bot.log` 以及带时间戳的备份：机器人处理过的每条命令、每次启动和每个生命周期事件。                           |
-| **机器人状态** | `~/.hive-mind/state`（`HIVE_MIND_STATE_DIR`）                             | 已跟踪的会话与 sidecar 状态，包括 `router-sidecar.json`——哪个任务在何时持有哪个令牌。**内含路由器签名密钥；权限为 `0600`。** |
-| **会话控制台** | `/tmp/start-command/logs/isolation/<backend>/<uuid>.log`                  | 隔离会话的控制台输出。Telegram 的 `/log <uuid>` 命令返回的正是它。                                                           |
-| **容器日志**   | `docker logs <sessionId>`                                                 | Docker 自己捕获的任务容器 stdout/stderr，在容器被删除前可用。                                                                |
-| **路由器请求** | `hive-mind-router-data:/data/router/requests/<token-hash>/requests.jsonl` | 每个已签发令牌——也就是每个任务——一份脱敏 JSONL 请求日志。令牌吊销后仍然保留。                                                |
-| **路由器审计** | `hive-mind-router-data:/data/router/audit.jsonl`                          | 每个获授权的请求一行：时间、令牌 id、会话标签、provider、接口、路径与模型。                                                  |
-| **任务会话**   | `hive-mind-router-data:/data/router/task-sessions/<sessionId>/`           | 在每个使用路由器的任务容器被回收前从中导出的智能体会话数据：智能体实际所作所为的记录。                                       |
+| 位置           | 路径                                                                      | 存放什么                                                                                                                                                                          |
+| -------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **运行日志**   | 工作目录，或 `--log-dir` / `HIVE_MIND_LOG_DIR`                            | 每次运行一份 `solve-*.log` / `hive-*.log`；一旦 AI 工具报告了会话 id，就重命名为 `<sessionId>.log`。单次运行的完整叙述。                                                          |
+| **机器人日志** | `~/.hive-mind/logs`（`HIVE_MIND_LOG_DIR`）                                | 轮转的 `telegram-bot.log` 以及带时间戳的备份：机器人处理过的每条命令、每次启动和每个生命周期事件。                                                                                |
+| **机器人状态** | `~/.hive-mind/state`（`HIVE_MIND_STATE_DIR`）                             | 已跟踪的会话、solve 队列（`solve-queue.lino` 及其 link-cli 副本）与 sidecar 状态，包括 `router-sidecar.json`——哪个任务在何时持有哪个令牌。**内含路由器签名密钥；权限为 `0600`。** |
+| **会话控制台** | `/tmp/start-command/logs/isolation/<backend>/<uuid>.log`                  | 隔离会话的控制台输出。Telegram 的 `/log <uuid>` 命令返回的正是它。                                                                                                                |
+| **容器日志**   | `docker logs <sessionId>`                                                 | Docker 自己捕获的任务容器 stdout/stderr，在容器被删除前可用。                                                                                                                     |
+| **路由器请求** | `hive-mind-router-data:/data/router/requests/<token-hash>/requests.jsonl` | 每个已签发令牌——也就是每个任务——一份脱敏 JSONL 请求日志。令牌吊销后仍然保留。                                                                                                     |
+| **路由器审计** | `hive-mind-router-data:/data/router/audit.jsonl`                          | 每个获授权的请求一行：时间、令牌 id、会话标签、provider、接口、路径与模型。                                                                                                       |
+| **任务会话**   | `hive-mind-router-data:/data/router/task-sessions/<sessionId>/`           | 在每个使用路由器的任务容器被回收前从中导出的智能体会话数据：智能体实际所作所为的记录。                                                                                            |
 
 最后三项仅在使用 [`--use-router`](./ROUTER.zh.md) 时才存在。
 

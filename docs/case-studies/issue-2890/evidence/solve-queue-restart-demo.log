@@ -1,0 +1,22 @@
+State directory: /tmp/solve-queue-demo-XXXXXX
+  solve-queue.links-archive
+  solve-queue.lino
+
+--- solve-queue.lino ---
+(solve-queue (version 1) (revision 2) (savedAt '2026-10-10T06:06:19.500Z') (pid 100428) (lastStartTime '2026-10-10T06:06:19.500Z') (lastStartTimeByTool (codex '2026-10-10T06:06:19.500Z')) (stats (totalEnqueued 3) (totalStarted 0) (totalCompleted 0) (totalFailed 0) (totalCancelled 0)))
+(solve-1791612379500-n3hwo3c: (tool codex) (status queued) (url 'https://github.com/link-assistant/calculator/issues/235') (commandAlias codex) (requester @requester) (infoBlock 'URL: https://github.com/link-assistant/calculator/issues/235') (locale en) (args 'https://github.com/link-assistant/calculator/issues/235' --tool codex --model gpt-5.5) (requesterUserId 42) (chatId -1001) (sourceMessageId 11) (restoreCount 0) (interruptedStarts 0) (createdAt '2026-10-10T06:06:19.500Z') (messageInfo (chatId -1001) (messageId 21)))
+(solve-1791612379500-zknytj7: (tool codex) (status queued) (url 'https://github.com/link-assistant/web-capture/issues/160') (commandAlias codex) (requester @requester) (infoBlock 'URL: https://github.com/link-assistant/web-capture/issues/160') (locale en) (args 'https://github.com/link-assistant/web-capture/issues/160' --tool codex --model gpt-5.5) (requesterUserId 42) (chatId -1001) (sourceMessageId 12) (restoreCount 0) (interruptedStarts 0) (createdAt '2026-10-10T06:06:19.500Z') (messageInfo (chatId -1001) (messageId 22)))
+(solve-1791612379500-q6av2dq: (tool codex) (status starting) (url 'https://github.com/linksplatform/doublets-rs/issues/64') (commandAlias codex) (requester @requester) (infoBlock 'URL: https://github.com/linksplatform/doublets-rs/issues/64') (locale en) (sessionId uuid-never-started) (isolationBackend docker) (args 'https://github.com/linksplatform/doublets-rs/issues/64' --tool codex --model gpt-5.5) (requesterUserId 42) (chatId -1001) (sourceMessageId 10) (restoreCount 0) (interruptedStarts 0) (createdAt '2026-10-10T06:06:19.500Z') (startedAt '2026-10-10T06:06:19.500Z') (messageInfo (chatId -1001) (messageId 20)))
+
+--- restored from archive (revision 2) ---
+  solve-1791612379500-q6av2dq https://github.com/linksplatform/doublets-rs/issues/64 interruptedStarts=1
+  solve-1791612379500-n3hwo3c https://github.com/link-assistant/calculator/issues/235 interruptedStarts=0
+  solve-1791612379500-zknytj7 https://github.com/link-assistant/web-capture/issues/160 interruptedStarts=0
+
+--- notice sent to chat -1001 ---
+♻️ Solve queue restored after a restart (from archive)
+
+📋 Back in the queue: 3
+• codex https://github.com/linksplatform/doublets-rs/issues/64
+• codex https://github.com/link-assistant/calculator/issues/235
+• codex https://github.com/link-assistant/web-capture/issues/160

@@ -289,6 +289,18 @@ Telegram 机器人部署不会让 Formal AI 常驻运行。请求 `--model forma
 | `TELEGRAM_BOT_VERBOSE`                     | false    | 启用详细日志                                                     |
 | `TELEGRAM_CONFIGURATION`                   | （无）   | LINO 配置字符串                                                  |
 
+#### solve 队列持久化
+
+机器人在每次变更时保存 solve 队列，并在启动时恢复；参见[跨重启保留 solve 队列](./DOCKER.zh.md#跨重启保留-solve-队列-issue-2890)。
+
+| 环境变量                         | 默认值               | 描述                                                                                        |
+| -------------------------------- | -------------------- | ------------------------------------------------------------------------------------------- |
+| `HIVE_MIND_STATE_DIR`            | `~/.hive-mind/state` | 队列、会话和 sidecar 状态。从宿主机挂载该目录，才能在容器重启后保留                         |
+| `HIVE_MIND_LOG_DIR`              | `~/.hive-mind/logs`  | 机器人日志；队列的最后兜底来源（`EVENT queue_item_*` 行）                                   |
+| `HIVE_MIND_QUEUE_BACKUP_CHAT_ID` | （无）               | 机器人在其中保存置顶 `solve-queue.lino` 副本的聊天；状态目录中没有队列时读回                |
+| `HIVE_MIND_QUEUE_RECOVERY_LOG`   | （无）               | 其他来源都没有队列时用于重建队列的额外日志文件（以 `:` 分隔，例如保存下来的 `docker logs`） |
+| `HIVE_MIND_CLINK_PATH`           | `PATH` 中的 `clink`  | 用于可查询的 `solve-queue-db/` 副本的 link-cli 可执行文件；没有它时仍会保留另外两种存储     |
+
 ### 14. YouTrack 集成
 
 | 环境变量                | 默认值   | 描述                                  |

@@ -147,7 +147,7 @@ docker run --rm --network link-assistant-formal-ai \
 
 ```bash
 docker run -dit --privileged --name hive-mind --restart unless-stopped \
-  # ... 你常用的凭据挂载 ...
+  # ... 你常用的凭据和状态挂载 ...
   -v /var/run/docker.sock:/var/run/host-docker.sock:ro \
   -e DIND_HOST_PASSTHROUGH_IMAGES="konard/hive-mind konard/hive-mind-dind" \
   konard/hive-mind-dind:latest bash -l -c 'bash /home/box/start-bot.sh'
@@ -363,6 +363,41 @@ codex mcp add playwright -- npx -y @playwright/mcp@latest --isolated --headless 
 ```
 
 当 `codex mcp list` 没有 Playwright 行且已安装 `@playwright/mcp` 时，Hive Mind 也会在运行时尝试这种默认注册修复。它不会覆盖已有的 pending、disabled 或自定义 Playwright 行；这些状态需要直接调试 MCP 启动路径。
+
+### 跨重启保留 solve 队列 (issue #2890)
+
+Telegram 机器人把工作状态保存在 `~/.hive-mind/state`（`HIVE_MIND_STATE_DIR`），把日志保存在 `~/.hive-mind/logs`（`HIVE_MIND_LOG_DIR`）。如果这两个目录既没有从宿主机挂载（`-v /root/.hive-mind/state:/home/box/.hive-mind/state` 和 `-v /root/.hive-mind/logs:/home/box/.hive-mind/logs`），也不在上面示例的 `box-home` 卷中，它们就都位于容器的可写层：宿主机 `dockerd` 被 OOM kill、通过 `docker rm` + `docker run` 重新部署，或者容器丢失，都会让队列随之消失。挂载之后，重启后启动的机器人会自行继续工作。
+
+状态目录中存放的内容：
+
+| 文件                                     | 内容                                                                                                           |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `solve-queue.links-archive`              | 以 link-cli 存储归档形式保存的队列（二进制 doublets，可用 `clink --import-binary` 读取）。每次变更时原子写入。 |
+| `solve-queue.lino`                       | 以 Links Notation 表示的同一队列：人类可读，便于 diff。每次变更时原子写入。                                    |
+| `solve-queue-db/solve-queue.links`       | 供 `clink` 查询的队列 link-cli 数据库。安装了 `clink`（`HIVE_MIND_CLINK_PATH`）时在后台重建。                  |
+| `sessions.json`, `sessions-events.jsonl` | 机器人监控的运行中会话，包括 kill 恢复的尝试记录。                                                             |
+| `router-sidecar.json`                    | 路由器 sidecar 状态。**内含路由器签名密钥。**                                                                  |
+
+三种队列存储都带有修订号；启动时机器人会读取全部存储，保留最新的有效版本并重写其余版本，因此其中任意一个都足以重建队列。队列文件以权限 `0600` 创建。
+
+启动时机器人会：
+
+1. 按原有顺序恢复排队中和等待中的条目，连同其参数、请求者、聊天、话题以及它持续编辑的那条消息；
+2. 检查机器人停止时正在启动的每个条目：如果其隔离会话仍然存在（`$ --status`），由会话监控接管；否则该条目重新排队。启动被中断超过三次的条目会被丢弃并报告；
+3. 恢复每个工具的启动间隔，避免重启后整条队列同时启动；
+4. 在每个聊天（及话题）中发送一条消息，列出重新排队的、仍在运行的以及被丢弃的条目。
+
+状态目录为空或无法读取时，按以下顺序回退：
+
+| 变量                             | 默认值              | 用途                                                                                                                                                                      |
+| -------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `HIVE_MIND_QUEUE_BACKUP_CHAT_ID` | _(未设置)_          | 存放已置顶 `solve-queue.lino` 副本的聊天（机器人可以置顶消息的私有频道或群组），最多每分钟更新一次。仅当状态目录中没有队列时才会读回。Telegram 就是宿主机之外的那份副本。 |
+| `HIVE_MIND_QUEUE_RECOVERY_LOG`   | _(未设置)_          | 用于重建队列的额外日志文件（以 `:` 分隔），例如为一个没有挂载状态目录的容器保存的 `docker logs hive-mind > old.log`。                                                     |
+| `HIVE_MIND_LOG_DIR`              | `~/.hive-mind/logs` | 机器人日志。每次队列变更都会以包含完整条目的 `EVENT queue_item_<event>` 行写入其中，因此仅凭日志即可重建队列。                                                            |
+
+限制：机器人以 `dropPendingUpdates` 启动，因此停机期间发送的命令不会被接收，需要重新发送；Bot API 无法读取聊天历史，因此 Telegram 只能保存机器人自己置顶的副本。在容器内部运行的任务（screen/tmux 隔离，或内部 DinD daemon 的 `--isolation docker` 容器）会随容器一起终止；它们由 kill 恢复机制处理，该机制同样从这个状态目录读取尝试计数器。
+
+在宿主机上，还建议启用 [live restore](https://docs.docker.com/engine/daemon/live-restore/)：在 `/etc/docker/daemon.json` 中设置 `"live-restore": true`（通过 `sudo systemctl reload docker` 生效）后，`dockerd` 重启或被杀死期间容器会继续运行，因此守护进程崩溃不会再让根容器及其任务停止。它对 `docker rm`、重新部署或宿主机重启无效，这正是挂载状态目录的用途。
 
 ### 以守护进程模式运行
 

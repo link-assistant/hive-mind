@@ -11,7 +11,7 @@ This document explains how to run Hive Mind in Docker containers.
 docker pull konard/hive-mind:latest
 
 # Create persistent host directories used by the current Docker workflow
-mkdir -p /root/.hive-mind/claude /root/.hive-mind/codex /root/.hive-mind/agents/skills /root/.hive-mind/gh
+mkdir -p /root/.hive-mind/claude /root/.hive-mind/codex /root/.hive-mind/agents/skills /root/.hive-mind/gh /root/.hive-mind/state /root/.hive-mind/logs
 touch -a /root/.hive-mind/claude.json
 
 # Run the container in detached mode with the same mounts we use locally
@@ -21,6 +21,8 @@ docker run -dit --user box --name hive-mind --restart unless-stopped \
   -v /root/.hive-mind/agents:/home/box/.agents \
   -v /root/.hive-mind/claude.json:/home/box/.claude.json \
   -v /root/.hive-mind/gh:/home/box/.config/gh \
+  -v /root/.hive-mind/state:/home/box/.hive-mind/state \
+  -v /root/.hive-mind/logs:/home/box/.hive-mind/logs \
   konard/hive-mind:latest bash -l -c 'bash /home/box/start-bot.sh'
 
 # Open a shell in the running container
@@ -220,7 +222,7 @@ set the allowlist:
 
 ```bash
 docker run -dit --privileged --name hive-mind --restart unless-stopped \
-  # ... your usual credential mounts ...
+  # ... your usual credential and state mounts ...
   -v /var/run/docker.sock:/var/run/host-docker.sock:ro \
   -e DIND_HOST_PASSTHROUGH_IMAGES="konard/hive-mind konard/hive-mind-dind" \
   konard/hive-mind-dind:latest bash -l -c 'bash /home/box/start-bot.sh'
@@ -475,7 +477,7 @@ To persist authentication and work between container restarts, mount the actual 
 
 ```bash
 # Host directories used by the current local Docker workflow
-mkdir -p /root/.hive-mind/claude /root/.hive-mind/codex /root/.hive-mind/agents/skills /root/.hive-mind/gh
+mkdir -p /root/.hive-mind/claude /root/.hive-mind/codex /root/.hive-mind/agents/skills /root/.hive-mind/gh /root/.hive-mind/state /root/.hive-mind/logs
 touch -a /root/.hive-mind/claude.json
 
 # Run with persistent mounts
@@ -485,11 +487,13 @@ docker run -dit --user box --name hive-mind --restart unless-stopped \
   -v /root/.hive-mind/agents:/home/box/.agents \
   -v /root/.hive-mind/claude.json:/home/box/.claude.json \
   -v /root/.hive-mind/gh:/home/box/.config/gh \
+  -v /root/.hive-mind/state:/home/box/.hive-mind/state \
+  -v /root/.hive-mind/logs:/home/box/.hive-mind/logs \
   konard/hive-mind:latest bash -l -c 'bash /home/box/start-bot.sh'
 
 # Fix ownership after the container starts
 BOX_UID=$(docker exec hive-mind id -u box)
-chown -R $BOX_UID:$BOX_UID /root/.hive-mind/claude /root/.hive-mind/codex /root/.hive-mind/agents /root/.hive-mind/gh
+chown -R $BOX_UID:$BOX_UID /root/.hive-mind/claude /root/.hive-mind/codex /root/.hive-mind/agents /root/.hive-mind/gh /root/.hive-mind/state /root/.hive-mind/logs
 chown $BOX_UID:$BOX_UID /root/.hive-mind/claude.json
 ```
 
@@ -501,6 +505,66 @@ The mounted Codex directory keeps the files we rely on:
 - `/home/box/.codex/hive-mind/repositories/<owner>/<repo>/` (repository-scoped capability working state, rebuilt before each task)
 
 The optional `/home/box/.agents/skills/` mount stores user-level Agent Skills for the long-running container itself. It is **not** propagated into `--isolation docker` task containers (see the next section). Hive Mind does not deploy or commit these capabilities to the target repository.
+
+### Keeping the solve queue across restarts (issue #2890)
+
+The Telegram bot keeps its working state in `~/.hive-mind/state`
+(`HIVE_MIND_STATE_DIR`) and its logs in `~/.hive-mind/logs`
+(`HIVE_MIND_LOG_DIR`). Without the two `-v` mounts above, both live in the
+container's writable layer: an OOM kill of the host `dockerd`, a
+`docker rm` + `docker run` redeploy or a lost container takes the queue with
+it. With the mounts, the bot started after a restart continues on its own.
+
+What the state directory holds:
+
+| File                                     | What it is                                                                                                                          |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `solve-queue.links-archive`              | The queue as a link-cli store archive (binary doublets, readable with `clink --import-binary`). Written atomically on every change. |
+| `solve-queue.lino`                       | The same queue in Links Notation: human-readable and diffable. Written atomically on every change.                                  |
+| `solve-queue-db/solve-queue.links`       | A link-cli database of the queue for `clink` queries. Rebuilt in the background when `clink` is installed (`HIVE_MIND_CLINK_PATH`). |
+| `sessions.json`, `sessions-events.jsonl` | Running sessions the bot monitors, including kill-recovery attempts.                                                                |
+| `router-sidecar.json`                    | Router sidecar state. **Contains the router signing secret.**                                                                       |
+
+Each of the three queue stores carries a revision number; on startup the bot
+reads all of them, keeps the newest valid one and rewrites the others, so any
+one of them is enough to rebuild the queue. The queue files are created with mode `0600`.
+
+On launch the bot:
+
+1. puts queued and waiting items back in their original order, with their
+   arguments, requester, chat, topic and the message it keeps editing;
+2. checks every item that was starting when the bot stopped: if its isolated
+   session still exists (`$ --status`), the session monitor takes it over;
+   otherwise the item is queued again. An item whose start was interrupted more
+   than three times is dropped and reported;
+3. restores the per-tool start interval, so a restart does not launch the whole
+   queue at once;
+4. posts one message per chat (and topic) listing what was queued again, what
+   is still running and what was dropped.
+
+Fallbacks, in order, when the state directory is empty or unreadable:
+
+| Variable                         | Default             | Purpose                                                                                                                                                                                                                  |
+| -------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `HIVE_MIND_QUEUE_BACKUP_CHAT_ID` | _(unset)_           | Chat (a private channel or group where the bot may pin) that holds a pinned `solve-queue.lino` copy, updated at most once a minute. Read back only when the state directory has no queue. Telegram is the off-host copy. |
+| `HIVE_MIND_QUEUE_RECOVERY_LOG`   | _(unset)_           | Extra log files to rebuild the queue from (`:`-separated), e.g. a saved `docker logs hive-mind > old.log` of a container that had no state mount.                                                                        |
+| `HIVE_MIND_LOG_DIR`              | `~/.hive-mind/logs` | The bot log. Every queue change is written there as an `EVENT queue_item_<event>` line with the full item, so the queue can be rebuilt from the log alone.                                                               |
+
+Limitations: the bot starts with `dropPendingUpdates`, so commands sent while
+it was down are not received and must be sent again; the Bot API cannot read
+chat history, so Telegram can only hold the copy the bot pinned itself. Tasks
+that were running inside the container itself (screen/tmux isolation, or
+`--isolation docker` containers of the inner DinD daemon) die with it; they are
+handled by kill recovery, which reads its attempt counters from the same state
+directory.
+
+On the host, consider also enabling
+[live restore](https://docs.docker.com/engine/daemon/live-restore/): with
+`"live-restore": true` in `/etc/docker/daemon.json` (applied with
+`sudo systemctl reload docker`), containers keep running while `dockerd` is
+restarted or killed, so a daemon crash no longer takes the root container and
+its tasks down at all. It does not help on `docker rm`, a redeploy or a host
+reboot, which is what the state mount is for.
 
 ### What a `--isolation docker` task receives (issue #2190)
 
@@ -553,6 +617,8 @@ docker run -dit --user box --name hive-worker --restart unless-stopped \
   -v /root/.hive-mind/codex:/home/box/.codex \
   -v /root/.hive-mind/claude.json:/home/box/.claude.json \
   -v /root/.hive-mind/gh:/home/box/.config/gh \
+  -v /root/.hive-mind/state:/home/box/.hive-mind/state \
+  -v /root/.hive-mind/logs:/home/box/.hive-mind/logs \
   konard/hive-mind:latest bash -l -c 'bash /home/box/start-bot.sh'
 
 # Execute commands in the running container

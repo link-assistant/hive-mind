@@ -1,0 +1,9 @@
+clink --version: 4.0.0+ca2b84a2e8deb29e30152df5e9eb25b05c7ce580
+--- clink --out (text) ---
+(1: 1 1)
+(1: 1 1)
+(3: 1 1)
+--- clink --export-binary, decoded ---
+{"links":[[1,1,1],[2,2,2],[3,1,2]],"names":[[2,"1"]]}
+--- text export re-imported, decoded ---
+{"links":[[1,1,1]],"names":[]}

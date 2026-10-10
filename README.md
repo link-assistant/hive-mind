@@ -217,22 +217,25 @@ docker attach hive-mind
 # --- Persisting auth data across restarts ---
 
 # On the host, create the directories used by the current Docker workflow:
-mkdir -p /root/.hive-mind/claude /root/.hive-mind/codex /root/.hive-mind/agents/skills /root/.hive-mind/gh
+mkdir -p /root/.hive-mind/claude /root/.hive-mind/codex /root/.hive-mind/agents/skills /root/.hive-mind/gh /root/.hive-mind/state /root/.hive-mind/logs
 touch -a /root/.hive-mind/claude.json
 
 # In our Docker images HOME=/home/box, so Codex stores its data in /home/box/.codex.
 # Mount the full Codex directory so auth.json, config.toml, and sessions survive restarts.
+# The state and logs mounts keep the bot's solve queue and sessions across restarts (see docs/DOCKER.md).
 docker run -dit --user box --name hive-mind --restart unless-stopped \
   -v /root/.hive-mind/claude:/home/box/.claude \
   -v /root/.hive-mind/codex:/home/box/.codex \
   -v /root/.hive-mind/agents:/home/box/.agents \
   -v /root/.hive-mind/claude.json:/home/box/.claude.json \
   -v /root/.hive-mind/gh:/home/box/.config/gh \
+  -v /root/.hive-mind/state:/home/box/.hive-mind/state \
+  -v /root/.hive-mind/logs:/home/box/.hive-mind/logs \
   konard/hive-mind:latest bash -l -c 'bash /home/box/start-bot.sh'
 
 # After the first start, fix ownership to match the box user inside the container:
 BOX_UID=$(docker exec hive-mind id -u box)
-chown -R $BOX_UID:$BOX_UID /root/.hive-mind/claude /root/.hive-mind/codex /root/.hive-mind/agents /root/.hive-mind/gh
+chown -R $BOX_UID:$BOX_UID /root/.hive-mind/claude /root/.hive-mind/codex /root/.hive-mind/agents /root/.hive-mind/gh /root/.hive-mind/state /root/.hive-mind/logs
 chown $BOX_UID:$BOX_UID /root/.hive-mind/claude.json
 
 # Important: mounted ~/.codex data overrides the image-baked Codex config.

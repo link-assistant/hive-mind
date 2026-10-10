@@ -292,6 +292,18 @@ pull request target is not mergeable yet, the merge queue waits up to
 | `TELEGRAM_BOT_VERBOSE`                     | false      | Enable verbose logging                                                                   |
 | `TELEGRAM_CONFIGURATION`                   | (none)     | LINO configuration string                                                                |
 
+#### Solve queue persistence
+
+The bot saves its solve queue on every change and restores it on launch; see [Keeping the solve queue across restarts](./DOCKER.md#keeping-the-solve-queue-across-restarts-issue-2890).
+
+| Environment Variable             | Default              | Description                                                                                                    |
+| -------------------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `HIVE_MIND_STATE_DIR`            | `~/.hive-mind/state` | Queue, session and sidecar state. Mount it from the host to survive container restarts                         |
+| `HIVE_MIND_LOG_DIR`              | `~/.hive-mind/logs`  | Bot logs; the last-resort source of the queue (`EVENT queue_item_*` lines)                                     |
+| `HIVE_MIND_QUEUE_BACKUP_CHAT_ID` | (none)               | Chat where the bot keeps a pinned `solve-queue.lino` copy, read back when the state directory has no queue     |
+| `HIVE_MIND_QUEUE_RECOVERY_LOG`   | (none)               | Extra log files (`:`-separated, e.g. a saved `docker logs`) to rebuild the queue from when nothing else has it |
+| `HIVE_MIND_CLINK_PATH`           | `clink` on `PATH`    | link-cli executable for the queryable `solve-queue-db/` copy; without it the other two stores are still kept   |
+
 ### 14. YouTrack Integration
 
 | Environment Variable    | Default    | Description                                       |

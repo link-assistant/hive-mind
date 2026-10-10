@@ -44,7 +44,8 @@ import { defaultModels, isFormalAiModel } from './models/index.mjs';
 import { buildAuthRemedyLines, buildFormalAiEnvExports, isPrepareOnly, logPreparedToolCommand, resolveFormalAiToolExecution } from './formal-ai.lib.mjs';
 import { buildFormalAiPricingInfo } from './formal-ai-pricing.lib.mjs'; // Issue #2119
 import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
-import { parseSubSessionSize, buildCodexSubSessionSizeConfigArgs, buildCodexDisable1mContextConfigArgs } from './sub-session-size.lib.mjs'; // Issue #1706
+import { parseSubSessionSize } from './sub-session-size.lib.mjs'; // Issue #1706
+import { buildCodexPricingTierConfigArgs, describePricingTier, resolvePricingTier } from './pricing-tier.lib.mjs'; // Issue #2771
 import { buildCodexMemoryDisableConfigArgs, isAgentMemoryDisabled } from './agent-memory-policy.lib.mjs'; // Issue #2178
 import { buildCodexAuxiliaryDisableConfigArgs, isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236
 import { CODEX_REMOTE_PLUGIN_DISABLE_ARGS } from './agent-config-audit.lib.mjs'; // Issue #2190
@@ -746,7 +747,8 @@ export const executeCodexCommand = async params => {
     // Issue #2027: pair GPT-5.6 Sol's multi-agent `ultra` effort with a rollout token budget cap so it stays predictable and does not run away on cost.
     if (rolloutTokenBudget) codexArgs += ` -c ${shellQuote(`rollout_token_budget=${rolloutTokenBudget}`)}`;
     codexArgs += ' --dangerously-bypass-approvals-and-sandbox';
-    // Issue #1706: Append --disable-1m-context and --sub-session-size as Codex -c overrides.
+    // Issue #1706/#2771: -c overrides for --sub-session-size, the 272K short window and the standard service tier (so a catalog `default_service_tier: "priority"` never applies silently).
+    const codexPricingTier = resolvePricingTier({ tool: 'codex', model: argv.model, modelId: mappedModel, disable1mContext: argv.disable1mContext, subSessionSize: argv.subSessionSize, speed: argv.speed });
     let parsedSubSessionSize;
     try {
       parsedSubSessionSize = parseSubSessionSize(argv.subSessionSize);
@@ -755,7 +757,7 @@ export const executeCodexCommand = async params => {
       parsedSubSessionSize = { kind: 'default', tokens: null, percent: null, raw: '' };
     }
     let codexContextWindowTokens = null;
-    if (parsedSubSessionSize.kind === 'percent') {
+    if (parsedSubSessionSize.kind === 'percent' && codexPricingTier.longContext) {
       try {
         const codexModelMeta = await fetchModelInfo(mappedModel, { preferredProviderIds: ['openai'] });
         codexContextWindowTokens = codexModelMeta?.limit?.context || null;
@@ -763,14 +765,11 @@ export const executeCodexCommand = async params => {
         codexContextWindowTokens = null;
       }
     }
-    const disable1mArgs = buildCodexDisable1mContextConfigArgs(!!argv.disable1mContext);
-    for (const arg of disable1mArgs) {
+    const { serviceTierArgs, contextWindowArgs: disable1mArgs, subSessionSizeArgs, capped: subSessionSizeCapped } = buildCodexPricingTierConfigArgs({ tier: codexPricingTier, parsedSubSessionSize, contextWindow: codexContextWindowTokens });
+    for (const arg of [...serviceTierArgs, ...disable1mArgs, ...subSessionSizeArgs]) {
       codexArgs += ` ${shellQuote(arg)}`;
     }
-    const subSessionSizeArgs = buildCodexSubSessionSizeConfigArgs(parsedSubSessionSize, { contextWindow: codexContextWindowTokens });
-    for (const arg of subSessionSizeArgs) {
-      codexArgs += ` ${shellQuote(arg)}`;
-    }
+    await log(`💰 Pricing tier: ${describePricingTier(codexPricingTier)}${subSessionSizeCapped ? ' — --sub-session-size capped to stay below the long-context price' : ''}`, { verbose: !subSessionSizeCapped });
     // Issue #2178: a hive-mind task must not remember anything a reviewer cannot see.
     const memoryDisableArgs = buildCodexMemoryDisableConfigArgs(isAgentMemoryDisabled(argv));
     for (const arg of memoryDisableArgs) {

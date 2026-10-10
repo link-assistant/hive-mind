@@ -44,6 +44,7 @@ import { showResumeCommand } from './claude.resume-output.lib.mjs';
 import { stringifyErrorValue } from './error-text.lib.mjs'; // Issue #2141
 import { createPullRequestBaseBranchCommandIntervention } from './solve.pr-base-command-intervention.lib.mjs';
 import { getClaudeVersion, resolveThinkingSettings, setClaudeVersion, validateClaudeConnection } from './claude.connection.lib.mjs';
+import { extractClaudeEventModelIds, getLatestObservedModelFor, recordObservedModel, resetObservedModels } from './observed-models.lib.mjs'; // Issue #2840
 export { availableModels, fetchModelInfo }; // Re-export for backward compatibility
 export { formatNumber, mapModelToId, checkModelVisionCapability };
 export { getClaudeVersion, resolveThinkingSettings, setClaudeVersion, validateClaudeConnection };
@@ -195,6 +196,8 @@ export const executeClaudeCommand = async params => {
   const expectedBaseBranch = String(argv?.baseBranch || '').trim();
   const escapePromptForShell = promptText => String(promptText).replace(/"/g, '\\"').replace(/\$/g, '\\$');
   await validateBidirectionalModeConfig(argv, log);
+  // Issue #2840: model IDs reported by this session's stream, kept even if it never reaches a result.
+  resetObservedModels();
   let retryCount = 0;
   // Issue #2169: total-time budget shared by every transient-error retry of this run (default
   // 12 h). Created outside executeWithRetry so the elapsed clock survives the recursive calls.
@@ -644,6 +647,10 @@ export const executeClaudeCommand = async params => {
                 }
               }
               const eventFacts = collectClaudeStreamEventFacts(data);
+              // Issue #2840: the model that actually runs, recorded as it arrives so a crash or kill keeps it.
+              for (const observed of extractClaudeEventModelIds(data)) {
+                if (recordObservedModel({ ...observed, requestedModel: argv.model })) await log(`🤖 Model reported by Claude (${observed.source}${observed.fromSubagent ? ', sub-agent' : ''}): ${observed.modelId}`);
+              }
               const afterResult = printTurn.observeEvent(data).afterResult && !streamingInput;
               terminalToolResult = updateTerminalToolResult(terminalToolResult, eventFacts, { afterResult });
               messageCount += eventFacts.messageCountDelta;
@@ -1082,7 +1089,7 @@ export const executeClaudeCommand = async params => {
           // Activity timeout preserves session (work was started), startup timeout does not (no session created)
           if (!isStartupTimeout && sessionId && !argv.resume) argv.resume = sessionId;
           // Issue #2037: retry same model on capacity errors before falling back; a switch retries fast.
-          const retryPlan = await prepareRetryAfterError({ tool: 'claude', argv, log, errorMessage: retryableLastError.message || lastMessage, retryCount, initialDelayMs: initialDelay, maxDelayMs: maxDelay, minDelayMs: minDelay });
+          const retryPlan = await prepareRetryAfterError({ tool: 'claude', argv, log, actualModel: getLatestObservedModelFor(argv.model), errorMessage: retryableLastError.message || lastMessage, retryCount, initialDelayMs: initialDelay, maxDelayMs: maxDelay, minDelayMs: minDelay });
           const delay = retryPlan.delay;
           const errorLabel = isStartupTimeout ? 'Stream startup timeout (Issue #1472/#1475)' : isActivityTimeout ? 'Stream activity timeout (Issue #1472)' : isRequestTimeout ? 'Request timeout' : retryableLastError.label || (isOverloadError || (lastMessage.includes('API Error: 500') && lastMessage.includes('Overloaded')) || (lastMessage.includes('API Error: 529') && lastMessage.includes('Overloaded')) ? `API overload (${lastMessage.includes('529') ? '529' : '500'})` : isInternalServerError || lastMessage.includes('Internal server error') ? 'Internal server error (500)' : isRateLimitError ? 'Server rate limited (429)' : '503 network error');
           const notRetryableHint = apiMarkedNotRetryable ? ' (API says not retryable — will stop early if no progress)' : '';
@@ -1277,7 +1284,7 @@ export const executeClaudeCommand = async params => {
           transientRetryBudget.grant();
           if (sessionId && !argv.resume) argv.resume = sessionId;
           // Issue #2037: retry same model on capacity errors before falling back; a switch retries fast.
-          const retryPlan = await prepareRetryAfterError({ tool: 'claude', argv, log, errorMessage: errorStr, retryCount, initialDelayMs: initialDelay, maxDelayMs: maxDelay, minDelayMs: minDelay });
+          const retryPlan = await prepareRetryAfterError({ tool: 'claude', argv, log, actualModel: getLatestObservedModelFor(argv.model), errorMessage: errorStr, retryCount, initialDelayMs: initialDelay, maxDelayMs: maxDelay, minDelayMs: minDelay });
           const delay = retryPlan.delay;
           const errorLabel = isTimeoutException ? 'Request timeout' : retryableException.label || (errorStr.includes('Overloaded') ? `API overload (${errorStr.includes('529') ? '529' : '500'})` : errorStr.includes('Internal server error') ? 'Internal server error (500)' : '503 network error');
           const delayLabel = delay >= 60000 ? `${Math.round(delay / 60000)} min` : `${Math.round(delay / 1000)}s`;

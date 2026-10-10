@@ -38,7 +38,10 @@ export const claudeModels = {
   sonnet: 'claude-sonnet-5', // Sonnet 5 (Issue #2003)
   // Compatibility mapping for metadata and validation. Execution preserves the
   // vendor-managed rolling alias so the default advances beyond this snapshot.
-  opus: 'claude-opus-5', // Rolling default at execution time (Issue #2096, #2290)
+  // Kept in step with what Claude Code's `opus` alias resolves to today, because
+  // it also seeds the default fallback chain and the "Requested" line of the PR
+  // comment; a stale entry skipped a whole Opus generation (Issue #2840).
+  opus: 'claude-opus-5-5', // Rolling default at execution time (Issue #2096, #2290, #2840)
   haiku: 'claude-haiku-4-5-20251001', // Haiku 4.5
   'haiku-3-5': 'claude-3-5-haiku-20241022', // Haiku 3.5
   'haiku-3': 'claude-3-haiku-20240307', // Haiku 3
@@ -300,7 +303,7 @@ export const MODELS_SUPPORTING_1M_CONTEXT = [
   'sonnet', // Now maps to Sonnet 5 (Issue #2003)
   'sonnet-5', // Short alias (Issue #2003)
   'sonnet-4-6', // Short alias (Issue #1329)
-  'opus', // Now maps to Opus 5 (Issue #2096)
+  'opus', // Now maps to Opus 5.5 (Issue #2096, #2840)
   'opus-5', // Short alias (Issue #2096)
   'opus-5-5', // Pinned Opus 5.5 alias (Issue #2290)
   'opus-4-8', // Short alias (Issue #1832)

@@ -1,0 +1,3 @@
+/bin/bash: line 1: jq: command not found
+/bin/bash: line 1: jq: command not found
+exit 127

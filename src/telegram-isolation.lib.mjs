@@ -82,7 +82,7 @@ export function createIsolationAwareQueueCallback(botIsolationBackend, botIsolat
     if (iso) {
       const sid = iso.runner.generateSessionId();
       // Issue #2890: persist the session id before the launch, so a restart can tell a running task from a lost one.
-      if (typeof item.assignSessionId === 'function') item.assignSessionId(sid);
+      if (typeof item.assignSessionId === 'function') item.assignSessionId(sid, iso.backend);
       const tool = item.tool || 'claude';
       const r = await iso.runner.executeWithIsolation(item.command || 'solve', item.args, { backend: iso.backend, sessionId: sid, tool, verbose, containerResourceLimits: selectContainerResourceLimitsForBackend(iso.backend, containerResourceLimits) });
       if (r.success)

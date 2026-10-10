@@ -78,8 +78,10 @@ class SolveQueueItem {
     this.locale = options.locale || null;
     this.createdAt = options.createdAt ? new Date(options.createdAt) : new Date();
     this.restoreCount = Number.isSafeInteger(options.restoreCount) ? options.restoreCount : 0;
+    this.interruptedStarts = Number.isSafeInteger(options.interruptedStarts) ? options.interruptedStarts : 0;
     // Isolation session id, known before the launch so a restart can find the task (#2890).
     this.sessionId = options.sessionId || null;
+    this.isolationBackend = options.isolationBackend || null;
     this.startedAt = null;
     this.status = QueueItemStatus.QUEUED;
     this.waitingReason = null;
@@ -98,9 +100,11 @@ class SolveQueueItem {
   /**
    * Record the isolation session id before the launch and persist it (#2890).
    * @param {string} sessionId
+   * @param {string|null} [isolationBackend]
    */
-  assignSessionId(sessionId) {
+  assignSessionId(sessionId, isolationBackend = null) {
     this.sessionId = sessionId;
+    if (isolationBackend) this.isolationBackend = isolationBackend;
     this.onSessionAssigned?.(this);
   }
   /**

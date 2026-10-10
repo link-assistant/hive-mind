@@ -78,7 +78,7 @@ export function decodeJsonValue(node) {
 // ---------------------------------------------------------------------------
 
 const STRING_FIELDS = ['tool', 'status', 'url', 'command', 'commandAlias', 'requester', 'infoBlock', 'locale', 'waitingReason', 'error', 'sessionName', 'sessionId', 'isolationBackend'];
-const NUMBER_FIELDS = ['requesterUserId', 'chatId', 'sourceMessageId', 'messageThreadId', 'restoreCount'];
+const NUMBER_FIELDS = ['requesterUserId', 'chatId', 'sourceMessageId', 'messageThreadId', 'restoreCount', 'interruptedStarts'];
 const BOOLEAN_FIELDS = ['showLimits'];
 const DATE_FIELDS = ['createdAt', 'startedAt'];
 const JSON_FIELDS = ['urlContext', 'perCommandIsolation', 'limitsAtStart'];
@@ -109,6 +109,7 @@ export function queueItemToRecord(item) {
   record.sourceMessageId = item.ctx?.message?.message_id ?? item.sourceMessageId ?? null;
   record.messageThreadId = item.ctx?.message?.message_thread_id ?? item.messageThreadId ?? null;
   record.restoreCount = Number.isSafeInteger(item.restoreCount) ? item.restoreCount : 0;
+  record.interruptedStarts = Number.isSafeInteger(item.interruptedStarts) ? item.interruptedStarts : 0;
   if (item.showLimits === true) record.showLimits = true;
   for (const field of DATE_FIELDS) record[field] = toIso(item[field]);
   for (const field of JSON_FIELDS) record[field] = item[field] ?? null;
@@ -142,7 +143,7 @@ export function linkToRecord(link) {
     const first = rest[0];
     if (key === 'args') record.args = rest.filter(value => typeof value === 'string');
     else if (STRING_FIELDS.includes(key) && typeof first === 'string') record[key] = first;
-    else if (NUMBER_FIELDS.includes(key)) record[key] = key === 'restoreCount' ? Number(first) || 0 : decodeId(first);
+    else if (NUMBER_FIELDS.includes(key)) record[key] = key === 'restoreCount' || key === 'interruptedStarts' ? Number(first) || 0 : decodeId(first);
     else if (BOOLEAN_FIELDS.includes(key)) record[key] = first === 'true';
     else if (DATE_FIELDS.includes(key)) record[key] = toIso(first);
     else if (JSON_FIELDS.includes(key)) record[key] = decodeJsonValue(first);
@@ -344,8 +345,8 @@ export function createRestoredContext(record, telegram) {
  *   is alive it is handed to the session monitor (`onRunning`), otherwise it
  *   is enqueued again.
  * - An item already in the queue (same URL) is skipped.
- * - An item restored `maxRestores` times is dropped, so a task that kills the
- *   bot cannot keep it in a restart loop.
+ * - An item whose start was interrupted more than `maxRestores` times is
+ *   dropped, so a task that kills the bot cannot keep it in a restart loop.
  *
  * @returns {Promise<{requeued: object[], running: object[], skipped: object[], dropped: object[]}>}
  */
@@ -381,12 +382,15 @@ export async function restoreSolveQueue(queue, loaded, options = {}) {
         continue;
       }
     }
-    if ((record.restoreCount || 0) >= maxRestores) {
+    // Only a restart while the item was starting counts toward the limit:
+    // waiting through ordinary restarts must not cost a queued item its place.
+    const interruptedStarts = (record.interruptedStarts || 0) + (record.status === 'starting' ? 1 : 0);
+    if (interruptedStarts > maxRestores) {
       summary.dropped.push({ record, reason: 'restore-limit' });
-      log(`⚠️ /queue-restore: dropped ${record.id} (${record.url}) after ${record.restoreCount} restores`);
+      log(`⚠️ /queue-restore: dropped ${record.id} (${record.url}): the bot stopped ${interruptedStarts} times while starting it`);
       continue;
     }
-    const item = queue.restoreItem({ ...record, restoreCount: (record.restoreCount || 0) + 1, ctx: createRestoredContext(record, telegram) });
+    const item = queue.restoreItem({ ...record, restoreCount: (record.restoreCount || 0) + 1, interruptedStarts, ctx: createRestoredContext(record, telegram) });
     summary.requeued.push({ record, item });
     trace(`re-enqueued ${record.id} ${record.tool || 'claude'} ${record.url} (was ${record.status || 'queued'})`);
   }

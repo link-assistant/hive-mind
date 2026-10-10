@@ -169,11 +169,25 @@ console.log('\n=== Restore: starting items are reconciled with running sessions 
 console.log('\n=== Restore limit protects against restart loops ===');
 {
   const queue = newQueue();
-  const item = enqueue(queue, 30);
-  item.restoreCount = 3;
+  const waiting = enqueue(queue, 30);
+  waiting.restoreCount = 10;
+  const crashing = enqueue(queue, 31);
+  queue.getToolQueue('codex').splice(queue.getToolQueue('codex').indexOf(crashing), 1);
+  crashing.setStarting();
+  crashing.interruptedStarts = 3;
+  queue.processing.set(crashing.id, crashing);
   const loaded = parseSolveQueueDocument(buildSolveQueueDocument(snapshotSolveQueue(queue), { revision: 1 }));
   const summary = await restoreSolveQueue(newQueue(), loaded, { telegram, log: () => {} });
-  assert(summary.dropped.length === 1 && summary.requeued.length === 0, 'an item restored three times is dropped');
+  assert(summary.dropped.length === 1 && summary.dropped[0].record.id === crashing.id, 'an item whose start was interrupted a fourth time is dropped');
+  assert(summary.requeued.length === 1 && summary.requeued[0].item.restoreCount === 11, 'a queued item survives any number of ordinary restarts');
+
+  const once = newQueue();
+  const lost = enqueue(once, 32);
+  once.getToolQueue('codex').splice(0, 1);
+  lost.setStarting();
+  once.processing.set(lost.id, lost);
+  const again = await restoreSolveQueue(newQueue(), parseSolveQueueDocument(buildSolveQueueDocument(snapshotSolveQueue(once), { revision: 1 })), { telegram });
+  assert(again.requeued[0].item.interruptedStarts === 1, 'an interrupted start is counted');
 }
 
 console.log('\n=== Damaged items do not cost the rest of the queue ===');

@@ -1,0 +1,34 @@
+[
+  {
+    "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/6083547814",
+    "html_url": "https://github.com/link-assistant/hive-mind/issues/2889#issuecomment-6083547814",
+    "issue_url": "https://api.github.com/repos/link-assistant/hive-mind/issues/2889",
+    "id": 6083547814,
+    "node_id": "IC_kwDOPUU0qc8AAAABapuSpg",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "created_at": "2026-10-09T15:03:42Z",
+    "updated_at": "2026-10-09T15:03:42Z",
+    "body": "Related upstream bug seen during the same recovery: when two `$ --resume` ran at once, both new containers started but the execution records were not saved (store lock timeout), so the running tasks looked dead: link-foundation/start#193.",
+    "author_association": "MEMBER",
+    "pin": null,
+    "reactions": { "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/6083547814/reactions", "total_count": 0, "+1": 0, "-1": 0, "laugh": 0, "hooray": 0, "confused": 0, "heart": 0, "rocket": 0, "eyes": 0 },
+    "performed_via_github_app": null,
+    "minimized": null
+  },
+  {
+    "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/6089357064",
+    "html_url": "https://github.com/link-assistant/hive-mind/issues/2889#issuecomment-6089357064",
+    "issue_url": "https://api.github.com/repos/link-assistant/hive-mind/issues/2889",
+    "id": 6089357064,
+    "node_id": "IC_kwDOPUU0qc8AAAABavQ3CA",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "created_at": "2026-10-09T21:13:22Z",
+    "updated_at": "2026-10-09T21:13:22Z",
+    "body": "The start-command tracking failure referenced by this incident is fixed in [start PR #196](https://github.com/link-foundation/start/pull/196), in both JavaScript and Rust. The separate writable-layer/snapshot storage policy remains a Hive Mind concern.\n\nThe directly observed blocker was an empty `executions.lock`. The old writer published the shared lock before populating its owner JSON; disk-full failure or a crash could leave a malformed lock that never became reclaimable. The resume flow also launched the replacement before saving its identity, and a JS save exception skipped completion-watcher attachment. A partial in-place database write could destroy even an earlier reservation. The supplied incident does not establish that a database lock was held throughout `docker commit`.\n\nReproduction and regression coverage in the PR checkout:\n\n```sh\nbun test ./js/test/regression-193.js\ncd rust && cargo test --test regression_193\ncargo test partial_disk_full_write_preserves_reservation_and_removes_temporary_file\n```\n\nThese bounded tests inject empty/truncated old locks, partial ENOSPC-equivalent writes, reservation failures and save failures after an accepted launch. They assert exact attempt/session persistence before Docker side effects, concurrent store writes during a Docker hook, watcher attachment, confirmed stop, and machine-readable identity if stopping fails. They do not fill the host disk.\n\nFor existing installations, pause concurrent recovery, inspect replacement containers by exact/name-family identity, and remove a malformed abandoned lock only after verifying that no writer owns it. Serialize unavoidable snapshots, preflight writable-layer size/free space, and discard regenerable build caches where appropriate. These reduce disk pressure but do not fix tracking.\n\nThe code fix reserves the launch durably, releases the database lock before Docker work, publishes populated locks atomically, atomically replaces the database, and attaches the watcher even if the final save fails. A failed final save triggers a stop attempt and `LAUNCH_PERSISTENCE_FAILED` JSON containing UUID, exact container name and `running`; a stop failure leaves the durable reservation available for reconciliation.\n\n[Complete case study, UTC timeline, full redacted archives and SHA-256 manifests](https://github.com/link-foundation/start/tree/issue-195-cd307f03a9cf/docs/case-studies/issue-193). The storage-side code solution suggested here remains an in-place command handoff before start, with serialization/headroom checks for snapshots that cannot be avoided.\n",
+    "author_association": "MEMBER",
+    "pin": null,
+    "reactions": { "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/6089357064/reactions", "total_count": 0, "+1": 0, "-1": 0, "laugh": 0, "hooray": 0, "confused": 0, "heart": 0, "rocket": 0, "eyes": 0 },
+    "performed_via_github_app": null,
+    "minimized": null
+  }
+]

@@ -6,7 +6,9 @@ Hive Mind 通过一个普通的 GitHub 账户工作。要处理私有仓库，�
 
 ## 个人仓库
 
-![邀请 konard 成为个人仓库的协作者](./assets/github-access/personal-konard-zh.gif)
+![邀请 konard 成为个人仓库的协作者](./assets/github-access/personal-konard-zh.svg)
+
+GIF 版本: [personal-konard-zh.gif](./assets/github-access/personal-konard-zh.gif)
 
 1. 打开 `https://github.com/OWNER/REPO/settings/access`（**Settings → Collaborators**）。
 2. 点击 **Add people**，搜索该账户并点击 **Add … to REPO**。个人仓库的协作者始终可以推送，因此无需选择角色。
@@ -16,7 +18,9 @@ GitHub Docs：[邀请协作者加入个人仓库](https://docs.github.com/zh/rep
 
 ## 组织仓库
 
-![以 Write 角色邀请 konard 加入组织仓库](./assets/github-access/organization-konard-en.gif)
+![以 Write 角色邀请 konard 加入组织仓库](./assets/github-access/organization-konard-zh.svg)
+
+GIF 版本（英文说明）: [organization-konard-en.gif](./assets/github-access/organization-konard-en.gif)
 
 1. 打开 `https://github.com/OWNER/REPO/settings/access`（**Settings → Collaborators and teams**）。
 2. 点击 **Add people**，搜索该账户，选择 **Write** 角色并点击 **Add … to REPO**。
@@ -35,9 +39,22 @@ GitHub Docs：[邀请团队或个人](https://docs.github.com/zh/repositories/ma
 ```bash
 node src/github-access-animation.lib.mjs --login my-bot --locale zh                        # 缓存在 guides 文件夹中
 node src/github-access-animation.lib.mjs --login my-bot --locale zh --owner-type Organization --output org-zh.gif
+node src/github-access-animation.lib.mjs --login my-bot --locale zh --output personal-zh.svg   # 输出动画 SVG 而不是 GIF
 ```
 
-动画是 GitHub 设置页面的简化模型，而不是截图，因此不会包含任何人的真实仓库。如果主机缺少该语言文字的字体，说明文字会回退为英文。
+动画是 GitHub 深色设置页面的复刻（相同的布局、Primer 配色和 Octicons 图标），由 HTML 绘制而不是截图，因此不会包含任何人的真实仓库。SVG 和 GIF 来自同一场景：SVG 用 CSS 播放它，GIF 是以每秒 10 帧捕获的同一场景。如果主机缺少该语言文字的字体，说明文字会回退为英文。
+
+## 在真实的 GitHub 页面上录制
+
+`scripts/record-github-access-guide.mjs` 在真实的 `github.com` 设置页面上播放同样的光标、高亮和说明文字，并将结果保存为 GIF。它需要一个以仓库管理员身份登录的浏览器会话：Chromium 配置目录（`--user-data-dir`）或 Playwright 存储状态（`--storage-state`）。使用 `--headed` 时可以在窗口中登录或确认密码；当屏幕上出现 **Add people** 时开始录制。
+
+```bash
+node scripts/record-github-access-guide.mjs --repo OWNER/REPO --login konard --user-data-dir ~/.config/hm-recorder --headed --output personal-konard-en.gif
+node scripts/record-github-access-guide.mjs --repo ORG/REPO --login konard --owner-type Organization --locale zh --user-data-dir ~/.config/hm-recorder
+node scripts/record-github-access-guide.mjs --mock --login konard --output mock.gif        # 具有相同控件的本地页面，不访问 GitHub
+```
+
+脚本会点击 **Add people**，输入账户并选中它，组织仓库还会选择 **Write** 角色。除非指定 `--send-invite`，它会停在 **Add … to REPO** 而不点击，因此录制不会意外邀请任何人。使用 `--send-invite` 时请用测试仓库和测试账户。如果 GitHub 更改了某个标签，脚本会停止，并给出步骤名称和尝试过的选择器（`scripts/record-github-access-guide.lib.mjs` 中的 `getRecorderSteps`）。
 
 ## Hive Mind 可能提到的其他 GitHub 设置
 

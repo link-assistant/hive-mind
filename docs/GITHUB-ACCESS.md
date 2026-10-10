@@ -6,7 +6,9 @@ The examples use the account `konard`. Replace it with the account named in the 
 
 ## Personal repository
 
-![Inviting konard as a collaborator to a personal repository](./assets/github-access/personal-konard-en.gif)
+![Inviting konard as a collaborator to a personal repository](./assets/github-access/personal-konard-en.svg)
+
+Also as a GIF: [personal-konard-en.gif](./assets/github-access/personal-konard-en.gif)
 
 1. Open `https://github.com/OWNER/REPO/settings/access` (**Settings → Collaborators**).
 2. Click **Add people**, search for the account and click **Add … to REPO**. Collaborators on a personal repository can always push, so there is no role to choose.
@@ -16,7 +18,9 @@ GitHub Docs: [Inviting a collaborator to a personal repository](https://docs.git
 
 ## Organization repository
 
-![Inviting konard with the Write role to an organization repository](./assets/github-access/organization-konard-en.gif)
+![Inviting konard with the Write role to an organization repository](./assets/github-access/organization-konard-en.svg)
+
+Also as a GIF: [organization-konard-en.gif](./assets/github-access/organization-konard-en.gif)
 
 1. Open `https://github.com/OWNER/REPO/settings/access` (**Settings → Collaborators and teams**).
 2. Click **Add people**, search for the account, choose the **Write** role and click **Add … to REPO**.
@@ -35,9 +39,22 @@ To render one by hand:
 ```bash
 node src/github-access-animation.lib.mjs --login my-bot --locale en                        # cached in the guides folder
 node src/github-access-animation.lib.mjs --login my-bot --locale ru --owner-type Organization --output org-ru.gif
+node src/github-access-animation.lib.mjs --login my-bot --locale en --output personal-en.svg   # animated SVG instead of a GIF
 ```
 
-The animation is a simplified mock of GitHub's settings page, not a screenshot, so it never contains anyone's real repositories. If a language's script cannot be rendered on the host (missing fonts), the captions fall back to English.
+The animation is a replica of GitHub's dark settings page (the same layout, Primer colours and Octicons) drawn from HTML, not a screenshot, so it never contains anyone's real repositories. The SVG and the GIF come from the same scene: the SVG plays it with CSS, and the GIF is that scene captured at 10 frames per second. If a language's script cannot be rendered on the host (missing fonts), the captions fall back to English.
+
+## Recording on the real GitHub page
+
+`scripts/record-github-access-guide.mjs` plays the same cursor, highlight and captions on top of the real `github.com` settings page and saves the result as a GIF. It needs a browser session signed in as an admin of the repository: a Chromium profile directory (`--user-data-dir`) or a Playwright storage state (`--storage-state`). With `--headed` you can sign in, or confirm your password, in the window; recording starts once **Add people** is on screen.
+
+```bash
+node scripts/record-github-access-guide.mjs --repo OWNER/REPO --login konard --user-data-dir ~/.config/hm-recorder --headed --output personal-konard-en.gif
+node scripts/record-github-access-guide.mjs --repo ORG/REPO --login konard --owner-type Organization --locale ru --user-data-dir ~/.config/hm-recorder
+node scripts/record-github-access-guide.mjs --mock --login konard --output mock.gif        # local page with the same controls, no GitHub
+```
+
+The script clicks **Add people**, types the account, picks it and, for organizations, the **Write** role. It stops at **Add … to REPO** without clicking unless `--send-invite` is given, so a recording does not invite anyone by accident. Use a test repository and a test account for `--send-invite`. If GitHub changes a label, the script stops and names the step and the selectors it tried (`scripts/record-github-access-guide.lib.mjs`, `getRecorderSteps`).
 
 ## Other GitHub settings Hive Mind may ask about
 

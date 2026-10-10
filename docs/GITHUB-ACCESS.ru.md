@@ -6,7 +6,9 @@ Hive Mind работает через обычный аккаунт GitHub. Чт
 
 ## Личный репозиторий
 
-![Приглашение konard соавтором в личный репозиторий](./assets/github-access/personal-konard-ru.gif)
+![Приглашение konard соавтором в личный репозиторий](./assets/github-access/personal-konard-ru.svg)
+
+Также в виде GIF: [personal-konard-ru.gif](./assets/github-access/personal-konard-ru.gif)
 
 1. Откройте `https://github.com/OWNER/REPO/settings/access` (**Settings → Collaborators**).
 2. Нажмите **Add people**, найдите аккаунт и нажмите **Add … to REPO**. Соавторы личного репозитория всегда могут отправлять изменения, поэтому роль выбирать не нужно.
@@ -16,7 +18,9 @@ GitHub Docs: [Приглашение соавтора в личный репоз
 
 ## Репозиторий организации
 
-![Приглашение konard с ролью Write в репозиторий организации](./assets/github-access/organization-konard-en.gif)
+![Приглашение konard с ролью Write в репозиторий организации](./assets/github-access/organization-konard-ru.svg)
+
+Также в виде GIF (подписи на английском): [organization-konard-en.gif](./assets/github-access/organization-konard-en.gif)
 
 1. Откройте `https://github.com/OWNER/REPO/settings/access` (**Settings → Collaborators and teams**).
 2. Нажмите **Add people**, найдите аккаунт, выберите роль **Write** и нажмите **Add … to REPO**.
@@ -35,9 +39,22 @@ GitHub Docs: [Приглашение команды или пользовате�
 ```bash
 node src/github-access-animation.lib.mjs --login my-bot --locale ru                        # сохраняется в папке guides
 node src/github-access-animation.lib.mjs --login my-bot --locale ru --owner-type Organization --output org-ru.gif
+node src/github-access-animation.lib.mjs --login my-bot --locale ru --output personal-ru.svg   # анимированный SVG вместо GIF
 ```
 
-Анимация — упрощённый макет страницы настроек GitHub, а не снимок экрана, поэтому в ней никогда не видны чьи-то настоящие репозитории. Если на хосте нет шрифтов для письменности языка, подписи выводятся на английском.
+Анимация — копия тёмной страницы настроек GitHub (та же раскладка, цвета Primer и значки Octicons), нарисованная из HTML, а не снимок экрана, поэтому в ней никогда не видны чьи-то настоящие репозитории. SVG и GIF получаются из одной сцены: SVG проигрывает её через CSS, а GIF — та же сцена, снятая с частотой 10 кадров в секунду. Если на хосте нет шрифтов для письменности языка, подписи выводятся на английском.
+
+## Запись на настоящей странице GitHub
+
+`scripts/record-github-access-guide.mjs` проигрывает тот же курсор, подсветку и подписи поверх настоящей страницы настроек `github.com` и сохраняет результат в GIF. Нужна сессия браузера, вошедшая под администратором репозитория: каталог профиля Chromium (`--user-data-dir`) или состояние хранилища Playwright (`--storage-state`). С `--headed` можно войти или подтвердить пароль в окне; запись начинается, когда на экране появится **Add people**.
+
+```bash
+node scripts/record-github-access-guide.mjs --repo OWNER/REPO --login konard --user-data-dir ~/.config/hm-recorder --headed --output personal-konard-en.gif
+node scripts/record-github-access-guide.mjs --repo ORG/REPO --login konard --owner-type Organization --locale ru --user-data-dir ~/.config/hm-recorder
+node scripts/record-github-access-guide.mjs --mock --login konard --output mock.gif        # локальная страница с теми же элементами, без GitHub
+```
+
+Скрипт нажимает **Add people**, вводит аккаунт, выбирает его, а для организаций — роль **Write**. На **Add … to REPO** он останавливается и не нажимает её без `--send-invite`, чтобы запись случайно никого не пригласила. Для `--send-invite` используйте тестовый репозиторий и тестовый аккаунт. Если GitHub изменит надпись, скрипт остановится и назовёт шаг и селекторы, которые пробовал (`scripts/record-github-access-guide.lib.mjs`, `getRecorderSteps`).
 
 ## Другие настройки GitHub, о которых может попросить Hive Mind
 

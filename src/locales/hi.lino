@@ -415,6 +415,12 @@ hi
       """
       queued "📋 solve command queue में जोड़ी गई ({{tool}} queue position #{{position}})"
       waiting "⏳ प्रतीक्षा में ({{tool}} queue #{{position}})"
+      restored
+        title "♻️ restart के बाद solve queue बहाल की गई (स्रोत: {{source}})"
+        requeued "📋 queue में वापस: {{count}}"
+        running "▶️ अभी भी चल रहे हैं: {{count}}"
+        dropped "⚠️ बहाल नहीं किए गए ({{max}} बार restart): {{count}}"
+        resend "यदि अभी भी आवश्यक हों तो ये commands फिर से भेजें।"
       invalid
         url
           help """

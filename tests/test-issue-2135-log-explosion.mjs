@@ -118,7 +118,7 @@ test('an ordinary diff produces no size warning', async () => {
 // regains `mirror: true` is exactly the regression this issue is about.
 const QUIETED_PROBES = [
   ['src/pull-request-changes.lib.mjs', 'gh pr diff'],
-  ['src/review.mjs', 'gh pr diff'],
+  ['src/review.run.lib.mjs', 'gh pr diff'],
   ['src/solve.keep-working.lib.mjs', '/files --paginate'],
   ['src/solve.preparation.lib.mjs', '/comments --paginate'],
   ['src/solve.results.lib.mjs', 'gh pr list'],

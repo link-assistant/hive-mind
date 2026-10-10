@@ -340,8 +340,8 @@ hive https://github.com/owner/repo --monitor-tag "help wanted" --concurrency 3
 # Monitor all issues in organization
 hive https://github.com/microsoft --all-issues --max-issues 10
 
-# Run collaborative review process
-review --repo owner/repo --pr 456
+# Review a pull request
+review https://github.com/owner/repo/pull/456 --tool codex
 
 # Multiple AI reviewers for consensus
 ./reviewers-hive.mjs --agents 3 --consensus-threshold 0.8
@@ -353,7 +353,7 @@ review --repo owner/repo --pr 456
 | ------------------------------------------- | ----------------------------- | ------------------------------------------------------------------------ |
 | `solve.mjs` (stable)                        | GitHub issue solver           | Auto fork, branch creation, PR generation, resume sessions, fork support |
 | `hive.mjs` (stable)                         | AI orchestration & monitoring | Multi-repo monitoring, concurrent workers, issue queue management        |
-| `review.mjs` (alpha)                        | Code review automation        | Collaborative AI reviews, automated feedback                             |
+| `review.mjs` (alpha)                        | Code review automation        | Inline findings and summary reviews with Claude, Codex, and other tools  |
 | `reviewers-hive.mjs` (alpha / experimental) | Review team management        | Multi-agent consensus, reviewer assignment                               |
 | `telegram-bot.mjs` (stable)                 | Telegram bot interface        | Remote command execution, group chat support, diagnostic tools           |
 
@@ -573,6 +573,43 @@ request link, such as a previous `/codex ...issues/123` command.
 
 If a target PR is not finished yet, `/merge` waits for it to become mergeable
 before merging. Merge-conflict skips still work with `--auto-resolve`.
+
+#### `/review` - Review a Pull Request
+
+```text
+/review https://github.com/owner/repo/pull/456
+/review https://github.com/owner/repo/pull/456 --tool codex --think high
+/review https://github.com/owner/repo/pull/456 --tool claude --model opus --focus security --approve
+```
+
+`/review` checks the pull request and posts inline findings together with a
+summary and verdict. It instructs the agent to review without editing code,
+committing, pushing, merging, or changing PR metadata. Blocking defects result
+in a request-changes review. A clean review recommends approval in a comment;
+add `--approve` to submit an approval. For your own PR, GitHub permits only a
+comment, so the summary states the verdict.
+
+Reply with `/review [options]` to a message containing one PR link. The command
+uses the same group/topic authorization and stopped-chat checks as `/solve`,
+and accepts `--isolation screen|tmux|docker`. Disable it with the bot's
+`--no-review` option or `TELEGRAM_REVIEW=false`.
+
+The CLI uses the same options:
+
+```bash
+review https://github.com/owner/repo/pull/456 --tool codex --model gpt-5.5 --think high
+review https://github.com/owner/repo/pull/456 --dry-run
+```
+
+Supported tools are `claude`, `codex`, `opencode`, `agent`, `gemini`, and `qwen`.
+Model defaults, reasoning levels, fallback models, context controls, and the
+optional `--use-agent-commander` adapter use the shared solve tooling.
+`--dry-run` prepares a checkout, diff, and review prompts without executing an
+AI tool or posting feedback. Session directories are preserved for resume;
+use the printed `review --resume <id> --working-directory <directory>` command
+to continue with the same tool and model. Review fails if the tool changes
+tracked code or commits, if the PR head changes during review, or if no new
+submitted review is found. See `review --help` for all review options.
 
 #### `/fix` - Auto-Remediate CI/CD and Dependencies
 

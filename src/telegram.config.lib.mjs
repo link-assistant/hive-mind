@@ -51,6 +51,11 @@ export const createYargsConfig = yargsInstance =>
       description: 'Enable /solve command (use --no-solve to disable)',
       default: getenv('TELEGRAM_SOLVE', 'true') !== 'false',
     })
+    .option('review', {
+      type: 'boolean',
+      description: 'Enable /review command (use --no-review to disable)',
+      default: getenv('TELEGRAM_REVIEW', 'true') !== 'false',
+    })
     .option('hive', {
       type: 'boolean',
       description: 'Enable /hive command (use --no-hive to disable)',

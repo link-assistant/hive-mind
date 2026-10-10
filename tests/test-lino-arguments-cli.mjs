@@ -10,7 +10,7 @@ import { readFile } from 'node:fs/promises';
 const packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
 const releaseWorkflow = await readFile(new URL('../.github/workflows/release.yml', import.meta.url), 'utf8');
 
-const CLI_ARGUMENT_SOURCES = ['src/hive.mjs', 'src/solve.config.lib.mjs', 'src/task.config.lib.mjs', 'src/review.mjs', 'src/configure-claude.lib.mjs', 'src/start-screen.mjs', 'src/hive-screens.lib.mjs', 'src/telegram-bot.mjs', 'src/memory-check.mjs', 'src/reviewers-hive.mjs', 'do.mjs'];
+const CLI_ARGUMENT_SOURCES = ['src/hive.mjs', 'src/solve.config.lib.mjs', 'src/task.config.lib.mjs', 'src/review.config.lib.mjs', 'src/configure-claude.lib.mjs', 'src/start-screen.mjs', 'src/hive-screens.lib.mjs', 'src/telegram-bot.mjs', 'src/memory-check.mjs', 'src/reviewers-hive.mjs', 'do.mjs'];
 const DISALLOWED_DIRECT_YARGS_PATTERNS = ["use('yargs", 'use("yargs', 'resolveYargsFactory'];
 
 let passed = 0;

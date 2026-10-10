@@ -87,3 +87,53 @@ test('Claude print mode resumes incomplete background work without treating shut
     await rm(fixture, { recursive: true, force: true });
   }
 });
+
+// Issue #2069: command-stream owns shell quoting for both solve and review.
+for (const reviewMode of [false, true]) {
+  test(`Claude ${reviewMode ? 'review' : 'solve'} execution passes literal system and resumed prompts to command-stream`, { timeout: 15000 }, async () => {
+    const fixture = await mkdtemp(path.join(os.tmpdir(), 'hive-mind-2069-claude-'));
+    const prompt = '`printf expanded` $(printf expanded) $USER "quoted" \\';
+    const systemPrompt = `Review JSON: {"event": "COMMENT"}. ${prompt}`;
+    const calls = [];
+    let logFile = path.join(fixture, 'current.log');
+    await writeFile(logFile, '');
+    const fakeDollar =
+      options =>
+      (strings, ...values) => {
+        calls.push({ options, values, strings });
+        return {
+          result: { code: 0 },
+          kill: () => {},
+          async *stream() {
+            yield { type: 'stdout', data: Buffer.from(`${JSON.stringify({ type: 'result', subtype: 'success', is_error: false, session_id: sessionId, result: 'Done.' })}\n`) };
+          },
+        };
+      };
+    try {
+      const result = await executeClaudeCommand({
+        tempDir: fixture,
+        branchName: 'feature',
+        prompt,
+        systemPrompt,
+        escapedSystemPrompt: 'display only',
+        argv: { reviewMode, resume: sessionId, model: 'sonnet', tool: 'claude', verbose: false, fallbackModel: null, disable1mContext: false, uselessToolsDisabled: false },
+        log: async () => {},
+        setLogFile: value => {
+          logFile = value;
+        },
+        getLogFile: () => logFile,
+        formatAligned: (_icon, label, value = '') => `${label} ${value}`.trim(),
+        getResourceSnapshot: async () => ({ memory: 'MemAvailable: 1 GB', load: '0.00' }),
+        feedbackLines: [],
+        claudePath: 'claude',
+        $: fakeDollar,
+      });
+      assert.equal(result.success, true);
+      assert.equal(calls.length, 1);
+      assert.ok(calls[0].values.includes(prompt), 'resumed prompt must retain literal metacharacters');
+      assert.ok(calls[0].values.includes(systemPrompt), 'system prompt must retain literal JSON and metacharacters');
+    } finally {
+      await rm(fixture, { recursive: true, force: true });
+    }
+  });
+}

@@ -20,7 +20,7 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 
 // Files whose string literals are user-facing help, usage or option text.
-const HELP_SOURCES = ['src/solve.config.lib.mjs', 'src/task.config.lib.mjs', 'src/hive.config.lib.mjs', 'src/telegram.config.lib.mjs', 'src/task.mjs', 'src/review.mjs', 'src/reviewers-hive.mjs', 'src/memory-check.mjs', 'src/start-screen.mjs', 'src/cleanup.mjs', 'src/hive-screens.lib.mjs', 'src/hive-models.lib.mjs', 'src/configure-claude.lib.mjs', 'src/telegram-tokens-command.lib.mjs'];
+const HELP_SOURCES = ['src/solve.config.lib.mjs', 'src/task.config.lib.mjs', 'src/hive.config.lib.mjs', 'src/telegram.config.lib.mjs', 'src/task.mjs', 'src/review.mjs', 'src/review.config.lib.mjs', 'src/reviewers-hive.mjs', 'src/memory-check.mjs', 'src/start-screen.mjs', 'src/cleanup.mjs', 'src/hive-screens.lib.mjs', 'src/hive-models.lib.mjs', 'src/configure-claude.lib.mjs', 'src/telegram-tokens-command.lib.mjs'];
 
 const LOCALE_DIR = 'src/locales';
 

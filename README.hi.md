@@ -335,7 +335,7 @@ hive https://github.com/owner/repo --monitor-tag "help wanted" --concurrency 3
 hive https://github.com/microsoft --all-issues --max-issues 10
 
 # Run collaborative review process
-review --repo owner/repo --pr 456
+review https://github.com/owner/repo/pull/456 --tool codex
 
 # Multiple AI reviewers for consensus
 ./reviewers-hive.mjs --agents 3 --consensus-threshold 0.8
@@ -347,7 +347,7 @@ review --repo owner/repo --pr 456
 | ------------------------------------------ | --------------------------- | ---------------------------------------------------------------- |
 | `solve.mjs` (स्थिर)                        | GitHub इश्यू सॉल्वर         | ऑटो फोर्क, ब्रांच निर्माण, PR जनरेशन, सत्र रिज्यूम, फोर्क सपोर्ट |
 | `hive.mjs` (स्थिर)                         | AI ऑर्केस्ट्रेशन और निगरानी | मल्टी-रेपो निगरानी, समानांतर वर्कर, इश्यू कतार प्रबंधन           |
-| `review.mjs` (अल्फा)                       | कोड समीक्षा स्वचालन         | सहयोगी AI समीक्षाएँ, स्वचालित प्रतिक्रिया                        |
+| `review.mjs` (अल्फा)                       | कोड समीक्षा स्वचालन         | Claude, Codex और अन्य tools से लाइन टिप्पणियाँ और समीक्षा सारांश |
 | `reviewers-hive.mjs` (अल्फा / प्रयोगात्मक) | समीक्षा टीम प्रबंधन         | मल्टी-एजेंट सर्वसम्मति, समीक्षक असाइनमेंट                        |
 | `telegram-bot.mjs` (स्थिर)                 | Telegram बॉट इंटरफेस        | रिमोट कमांड निष्पादन, ग्रुप चैट सपोर्ट, डायग्नोस्टिक टूल         |
 
@@ -556,6 +556,44 @@ message पर `/merge` से reply भी कर सकते हैं जि
 अगर target PR अभी finished नहीं है, तो `/merge` merge करने से पहले उसके
 mergeable होने तक wait करता है। Merge-conflict skips अभी भी `--auto-resolve` के
 साथ काम करते हैं।
+
+#### `/review` - Pull Request की समीक्षा करें
+
+```text
+/review https://github.com/owner/repo/pull/456
+/review https://github.com/owner/repo/pull/456 --tool codex --think high
+/review https://github.com/owner/repo/pull/456 --tool claude --model opus --focus security --approve
+```
+
+`/review` pull request जाँचता है और लाइन टिप्पणियों के साथ सारांश और निर्णय
+पोस्ट करता है। Agent को केवल समीक्षा करने के निर्देश मिलते हैं: code edit,
+commit, push, merge या PR metadata बदलना निषिद्ध है। Blocking defects मिलने
+पर changes request की जाती है। साफ समीक्षा में comment से approval की
+सिफारिश होती है; औपचारिक approval के लिए `--approve` जोड़ें। अपने PR पर
+GitHub केवल comment की अनुमति देता है, इसलिए निर्णय सारांश में लिखा जाता है।
+
+एक PR link वाले message पर `/review [options]` से reply करें। यह `/solve`
+जैसे group/topic authorization और stopped-chat checks का उपयोग करता है और
+`--isolation screen|tmux|docker` स्वीकार करता है। Bot के `--no-review` विकल्प
+या `TELEGRAM_REVIEW=false` से इसे बंद करें।
+
+CLI भी यही विकल्प उपयोग करता है:
+
+```bash
+review https://github.com/owner/repo/pull/456 --tool codex --model gpt-5.5 --think high
+review https://github.com/owner/repo/pull/456 --dry-run
+```
+
+समर्थित tools हैं `claude`, `codex`, `opencode`, `agent`, `gemini` और `qwen`।
+Default models, reasoning levels, fallback models, context controls और
+वैकल्पिक `--use-agent-commander` adapter साझा solve tooling का उपयोग करते हैं।
+`--dry-run` AI tool चलाए या feedback पोस्ट किए बिना checkout, diff और review
+prompts तैयार करता है। Resume के लिए session directories सुरक्षित रहती हैं;
+उसी tool और model के साथ जारी रखने के लिए दिखाई गई
+`review --resume <id> --working-directory <directory>` command उपयोग करें।
+Tool tracked code या commits बदले, समीक्षा के दौरान PR head बदले, या नई
+submitted review न मिले तो command विफल होती है। सभी विकल्पों के लिए
+`review --help` देखें।
 
 #### `/fix` - CI/CD और dependencies स्वतः ठीक करें
 

@@ -51,7 +51,7 @@ export const createThinkingBlockRecovery = ({ argv, tempDir, branchName, $, log,
   let restartCount = 0;
   return async ({ classified, source, sessionId }) => {
     const preserveWork = async () => {
-      if (criticalErrorRecovery.autoCommitUncommittedChanges) {
+      if (!argv.reviewMode && criticalErrorRecovery.autoCommitUncommittedChanges) {
         await commitUncommittedChangesOnCriticalError({ tempDir, branchName, $, log, reason: `${classified.label} (${source})` });
       }
     };

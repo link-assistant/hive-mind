@@ -67,6 +67,7 @@ const hiveOverrides = resolvedHiveOverrides
       .filter(l => l)
   : [];
 const solveEnabled = config.solve;
+const reviewEnabled = config.review;
 const hiveEnabled = config.hive;
 const taskEnabled = config.task;
 const fixEnabled = config.fix;
@@ -149,7 +150,7 @@ if (config.dryRun) {
   if (allowedTopics && allowedTopics.length > 0) {
     console.log('  Allowed topics:', lino.formatLinks(allowedTopics));
   }
-  console.log('  Commands enabled:', { solve: solveEnabled, hive: hiveEnabled, task: taskEnabled, fix: fixEnabled, organize: organizeEnabled, auth: authEnabled });
+  console.log('  Commands enabled:', { solve: solveEnabled, review: reviewEnabled, hive: hiveEnabled, task: taskEnabled, fix: fixEnabled, organize: organizeEnabled, auth: authEnabled });
   if (solveOverrides.length > 0) {
     console.log('  Solve overrides:', lino.format(solveOverrides));
   }
@@ -312,6 +313,7 @@ bot.command('help', async ctx => {
     stopInfo,
     stopReason: stopInfo?.reason || DEFAULT_STOP_REASON,
     solveEnabled,
+    reviewEnabled,
     taskEnabled,
     fixEnabled,
     organizeEnabled,
@@ -405,6 +407,8 @@ const { registerAcceptInvitesCommand } = await import('./telegram-accept-invitat
 // command can drift back to a raw, unvalidated, unlogged `ctx.reply`.
 const sharedCommandOpts = { VERBOSE, isOldMessage, isForwarded, isForwardedOrReply, isGroupChat: _isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, addBreadcrumb, isChatStopped, getStoppedChatRejectMessage, safeReply, safeEditMessageText };
 registerAcceptInvitesCommand(bot, sharedCommandOpts);
+const { registerReviewCommand } = await import('./telegram-review-command.lib.mjs');
+const { handleReviewCommand } = registerReviewCommand(bot, { ...sharedCommandOpts, reviewEnabled, executeAndUpdateMessage, resolveLocale: resolveLocaleFromTelegramCtx });
 const { registerMergeCommand } = await import('./telegram-merge-command.lib.mjs');
 const { handleMergeCommand } = registerMergeCommand(bot, sharedCommandOpts);
 const { registerSolveQueueCommand } = await import('./telegram-solve-queue-command.lib.mjs');
@@ -987,7 +991,7 @@ bot.on('message', async (ctx, next) => {
   const taskHandlers = Object.fromEntries(TASK_COMMAND_NAMES.map(command => [command, handleTaskCommand]));
   const fixHandlers = Object.fromEntries(FIX_COMMAND_NAMES.map(command => [command, handleFixCommand]));
   const organizeHandlers = Object.fromEntries(ORGANIZE_COMMAND_NAMES.map(command => [command, handleOrganizeCommand]));
-  const handlers = { ...solveHandlers, ...taskHandlers, ...fixHandlers, ...organizeHandlers, auth: handleAuthCommand, hive: handleHiveCommand, merge: handleMergeCommand, queue: handleSolveQueueCommand, models: handleModelsCommand, stop: handleStopCommand };
+  const handlers = { ...solveHandlers, ...taskHandlers, ...fixHandlers, ...organizeHandlers, auth: handleAuthCommand, review: handleReviewCommand, hive: handleHiveCommand, merge: handleMergeCommand, queue: handleSolveQueueCommand, models: handleModelsCommand, stop: handleStopCommand };
 
   const handler = handlers[extracted.command];
   if (!handler) return next();
@@ -1099,7 +1103,7 @@ if (allowedChats && allowedChats.length > 0) {
 if (allowedTopics && allowedTopics.length > 0) {
   console.log('Allowed topics (lino):', lino.formatLinks(allowedTopics));
 }
-console.log('Commands enabled:', { solve: solveEnabled, hive: hiveEnabled, task: taskEnabled, fix: fixEnabled, organize: organizeEnabled, auth: authEnabled });
+console.log('Commands enabled:', { solve: solveEnabled, review: reviewEnabled, hive: hiveEnabled, task: taskEnabled, fix: fixEnabled, organize: organizeEnabled, auth: authEnabled });
 if (solveOverrides.length > 0) console.log('Solve overrides (lino):', lino.format(solveOverrides));
 if (hiveOverrides.length > 0) console.log('Hive overrides (lino):', lino.format(hiveOverrides));
 if (VERBOSE) {

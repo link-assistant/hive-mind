@@ -36,7 +36,7 @@ import { deployHandoffSkill } from './handoff-skill.lib.mjs'; // Issue #1877
 import { deployPlaywrightSkill } from './playwright-skill.lib.mjs'; // Issue #2190
 import { formatRouterAuthViolation, startRouterAuthGuard } from './router-auth-guard.lib.mjs'; // Issue #2190
 import { createThinkingBlockRecovery } from './claude.thinking-block-recovery.lib.mjs'; // Issue #1834 (PR #1835 feedback)
-import { buildMissingClaudeResultMessage, collectClaudeStreamEventFacts, getClaudeMessageContent, shouldFailClaudeStreamWithoutResult, updateTerminalToolResult } from './claude.stream-events.lib.mjs';
+import { buildMissingClaudeResultMessage, collectClaudeStreamEventFacts, getClaudeMessageContent, isStreamCloseSignalAfterSuccess, shouldFailClaudeStreamWithoutResult, updateTerminalToolResult } from './claude.stream-events.lib.mjs';
 import { assessClaudeTurnCompletion, buildIncompleteTurnContinuationPrompt, createClaudePrintTurnTracker } from './claude.print-turn.lib.mjs'; // Issue #2301
 import { createRepeatedToolCallBreaker, explainFailureWithToolHistory, publishRepeatedToolCallVerdict, resolveRepeatedToolCallLimit } from './repeated-tool-call-breaker.lib.mjs'; // Issue #2247 (H4/H10), #2316, #2395
 import { formatNumber, mapModelToId, checkModelVisionCapability, resolveClaudeModelForExecution } from './claude.model-utils.lib.mjs';
@@ -412,6 +412,7 @@ export const executeClaudeCommand = async params => {
       let subagentToolResultErrorCount = 0;
       let resultTimeoutId = null;
       let forceExitTriggered = false;
+      let streamCloseForced = false; // the stream close timeout (not another stop reason) killed the CLI
       const streamCloseTimeoutMs = timeouts.resultStreamCloseMs;
       let firstChunkReceived = false;
       let startupTimeoutId = null;
@@ -509,7 +510,10 @@ export const executeClaudeCommand = async params => {
         if (!resultEventReceived) {
           resultEventReceived = true;
           await log(`📌 Result event received, starting ${streamCloseTimeoutMs / 1000}s stream close timeout (Issue #1280)`, { verbose: true });
-          resultTimeoutId = setTimeout(forceExitOnTimeout, streamCloseTimeoutMs);
+          resultTimeoutId = setTimeout(() => {
+            if (!forceExitTriggered) streamCloseForced = true;
+            return forceExitOnTimeout();
+          }, streamCloseTimeoutMs);
         }
         // Issue #1708: result event = AI is idle and waiting for next
         // user input. Flush any frames queued by --queue-comments-to-input.
@@ -841,9 +845,13 @@ export const executeClaudeCommand = async params => {
             }
           }
         } else if (chunk.type === 'exit') {
-          // Note: command-stream v0.9.4 stream() does NOT yield exit chunks (Issue #1280) — kept for forward-compat.
+          // command-stream 1.x+ yields exit chunks (v0.9.4 did not, Issue #1280).
           exitCode = chunk.code;
-          if (chunk.code !== 0) {
+          if (isStreamCloseSignalAfterSuccess({ exitCode, streamCloseForced, resultSuccessReceived })) {
+            // Our own stream-close kill after a successful result is not a failure.
+            await log(`ℹ️ Claude CLI exited with code ${exitCode} from the stream close timeout after a successful result; treating the session as successful`, { verbose: true });
+            exitCode = 0;
+          } else if (chunk.code !== 0) {
             commandFailed = true;
           }
         }
@@ -917,7 +925,7 @@ export const executeClaudeCommand = async params => {
           commandFailed = true;
           await log(`\n❌ Command not found (exit code 127) - "${claudePath}" is not installed or not in PATH\n   Please ensure Claude CLI is installed: npm install -g @anthropic-ai/claude-code`, { level: 'error' });
         }
-        if (exitCode === 0 && resultExitCode !== 0) {
+        if (exitCode === 0 && resultExitCode !== 0 && !isStreamCloseSignalAfterSuccess({ exitCode: resultExitCode, streamCloseForced, resultSuccessReceived })) {
           exitCode = resultExitCode;
           // A real CLI failure takes precedence over an earlier in-session tool failure.
           // A forced close after a result is handled by the timeout/recovery logic.

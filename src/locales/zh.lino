@@ -297,6 +297,9 @@ zh
       failed "失败"
       and
         more "还有 {{count}} 个"
+      continued "续"
+      exit
+        code "退出码 {{code}}"
       pending "等待"
       processing "处理中"
       processes "{{count}} 个进程"

@@ -297,6 +297,9 @@ ru
       failed "С ошибкой"
       and
         more "и ещё {{count}}"
+      continued "продолжение"
+      exit
+        code "код выхода {{code}}"
       pending "ожидает"
       processing "выполняется"
       processes "процессов: {{count}}"

@@ -187,7 +187,7 @@ const { isTelegramRateLimitError } = await import('./telegram-rate-limit.lib.mjs
 const { installTelegramContextSafety } = await import('./telegram-context-safety.lib.mjs');
 const { registerTerminalWatchCommand, startAutoTerminalWatchForSession } = await import('./telegram-terminal-watch-command.lib.mjs');
 const { launchBotWithRetry } = await import('./telegram-bot-launcher.lib.mjs');
-const { trackSession, untrackSession, startSessionMonitoring, hasActiveSessionForUrlAsync, findStoppableSessionByUrl, setSessionStore, setSessionLogger, resumeTrackedSessions, getActiveSessionCount } = await import('./session-monitor.lib.mjs');
+const { addSessionCompletionListener, trackSession, untrackSession, startSessionMonitoring, hasActiveSessionForUrlAsync, findStoppableSessionByUrl, setSessionStore, setSessionLogger, resumeTrackedSessions, getActiveSessionCount } = await import('./session-monitor.lib.mjs');
 const { createBotLogger } = await import('./bot-logger.lib.mjs');
 const { createSessionStore } = await import('./session-store.lib.mjs');
 const { createHeartbeat, resumeSessionsOnLaunch, createShutdownHandler } = await import('./bot-lifecycle.lib.mjs');
@@ -1116,6 +1116,9 @@ let formalAiMaintenance = null;
 let routerMaintenance = null;
 let launchAnnouncementShown = false;
 
+// Issue #2823: a launched /solve task is not a completed one. Tell the queue
+// how each tracked session ended so /queue lists it as Completed or Failed.
+addSessionCompletionListener(event => getSolveQueue({ verbose: VERBOSE }).recordSessionCompletion(event));
 function startSessionMonitoringOnce() {
   if (sessionMonitoringTimer) return;
   // Issue #2134: the monitor needs the isolation runner to start a recovery

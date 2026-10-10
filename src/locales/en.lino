@@ -687,6 +687,7 @@ en
         stopped "Work session stopped by user{{requestedBy}}{{exitSuffix}}"
         not_launched "The work session was not launched, so it has no log and is not listed by `--list`."
         recovering "Work session still in progress: recovering from exit code {{exitCode}}"
+        recovering_from_kill "Work session still in progress: recovering from a kill{{causeSuffix}}"
         recovered "Work session finished successfully after automatic recovery"
         recoveries "automatic recoveries: {{count}}"
     duration

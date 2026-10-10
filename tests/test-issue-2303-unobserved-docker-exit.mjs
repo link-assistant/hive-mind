@@ -26,6 +26,9 @@
  *      monitor records while the session runs, or from an ENOSPC line in the log.
  *   3. The default `--on-session-kill=resume` policy then restarts the work, and
  *      the completion message says so.
+ *   4. start-command >= 0.34.1 fixed the watcher (link-foundation/start#174) and
+ *      records an exit docker never saw as -1 / `watcher-lost-container`; that
+ *      is a kill too, not an ordinary failure.
  *
  * @hive-mind-test-suite default
  * @see https://github.com/link-assistant/hive-mind/issues/2303
@@ -84,6 +87,16 @@ assert(detectUnobservedDockerExit({ sessionInfo: { isolationBackend: 'screen', s
 assert(detectUnobservedDockerExit({ sessionInfo: dockerInfo, statusResult: { ...incidentStatus, exitCode: 1 }, exitCode: 1, status: 'failed' }) === null, 'a failure is already reported as a failure');
 assert(detectUnobservedDockerExit({ sessionInfo: dockerInfo, statusResult: incidentStatus, exitCode: 0, status: 'executed', running: true }) === null, 'a session still running is not touched');
 
+// start-command >= 0.34.1 (link-foundation/start#174) no longer removes a running
+// container; a container exit docker still never saw is recorded as -1 with
+// `exitReason: watcher-lost-container`. That is a kill, not an ordinary failure.
+const lostContainerStatus = { ...incidentStatus, exitCode: -1, exitReason: 'watcher-lost-container' };
+assert(/watcher-lost-container/.test(detectUnobservedDockerExit({ sessionInfo: dockerInfo, statusResult: lostContainerStatus, exitCode: -1, status: 'executed' }) || ''), 'start-command >= 0.34.1 watcher-lost-container (-1) is an unobserved docker exit');
+assert(detectUnobservedDockerExit({ sessionInfo: dockerInfo, statusResult: { ...lostContainerStatus, exitReason: null }, exitCode: -1, status: 'executed' }) === null, 'a -1 without the watcher-lost-container reason is left to the normal failure path');
+const lostContainerState = reclassifyUnobservedDockerExit(SESSION, dockerInfo, { running: false, exitCode: -1, status: 'executed', statusResult: lostContainerStatus });
+assert(lostContainerState.status === 'killed' && lostContainerState.exitCode === null, `a lost container is reported as killed (got ${lostContainerState.status}/${lostContainerState.exitCode})`);
+assert(lostContainerState.statusResult.reportedExitCode === -1, 'the reported -1 is preserved for the record');
+
 const untouched = { running: false, exitCode: 0, status: 'executed', statusResult: { ...incidentStatus, endTimeSource: 'docker-finished-at' } };
 assert(reclassifyUnobservedDockerExit(SESSION, dockerInfo, untouched) === untouched, 'reclassification returns the very same state when nothing is wrong');
 
@@ -120,6 +133,19 @@ assert(withoutFooter.running === false && withoutFooter.status === 'killed', 'wi
 __setIsolationRunnerForTests(stubRunner({ status: { ...incidentStatus, endTimeSource: 'docker-finished-at' }, footer: { finished: true, exitCode: 0, endTime: '2026-09-26 07:26:04.000' } }));
 const realSuccess = await getIsolationSessionStateForTests(SESSION, { ...dockerInfo });
 assert(realSuccess.running === false && realSuccess.exitCode === 0 && realSuccess.status === 'executed', 'a real docker success is still a success');
+
+__setIsolationRunnerForTests(stubRunner({ status: lostContainerStatus }));
+const lostContainer = await getIsolationSessionStateForTests(SESSION, { ...dockerInfo });
+assert(lostContainer.running === false && lostContainer.status === 'killed', `start-command >= 0.34.1 watcher-lost-container is reported as killed end to end (got running=${lostContainer.running} status=${lostContainer.status})`);
+
+// Once recovery is launched, the headline names the kill and its cause; the 1
+// a status-only kill resolves to is a sentinel, not an exit code (issue #2303).
+const recoveringHeadline = formatSessionCompletionMessage({ sessionName: SESSION, sessionInfo: { ...dockerInfo, startTime: new Date() }, statusResult: { status: 'killed', exitCode: null }, exitCode: null, resumedAs: 'recovery-2303', recoveryCount: 1, killCause: KILL_CAUSE_DISK_FULL, locale: 'en' }).split('\n')[0];
+assert(/recovering from a kill \(disk full\)/.test(recoveringHeadline) && !/exit code/.test(recoveringHeadline), `the recovering headline names the disk-full kill (got: ${recoveringHeadline})`);
+for (const locale of ['ru', 'hi', 'zh']) {
+  const localized = formatSessionCompletionMessage({ sessionName: SESSION, sessionInfo: { ...dockerInfo, startTime: new Date() }, statusResult: { status: 'killed', exitCode: null }, exitCode: null, resumedAs: 'recovery-2303', recoveryCount: 1, killCause: KILL_CAUSE_DISK_FULL, locale }).split('\n')[0];
+  assert(/\(disk full\)/.test(localized) && !/\{\{|telegram\./.test(localized), `the ${locale} recovering-from-kill headline is translated (got: ${localized})`);
+}
 
 // Issue #2303 also audited the other "null exit, null status" exits: a status
 // query that throws must not be read as a finished, successful session.
@@ -274,7 +300,8 @@ const commonOptions = {
   exitFromLog: () => ({ finished: false, exitCode: null, endTime: null }),
   dockerContainerSizeProvider: async () => 122.7 * 1e9,
   lookupLinkedPullRequest: async () => 'https://github.com/link-foundation/meta-language/pull/196',
-  env: {},
+  // Issue #2498 added a random pre-launch delay; this test does not need it.
+  env: { HIVE_MIND_SESSION_KILL_RESUME_DELAY: '0' },
   runCommand: async () => ({ code: 0, stdout: 'https://github.com/link-foundation/meta-language/pull/196#issuecomment-1\n', stderr: '' }),
   removeDockerContainer: async name => {
     removedContainers.push(name);
@@ -308,12 +335,14 @@ await monitorSessions(bot, false, {
   hostDiskProvider: async () => ({ bavail: 120 * GIB, blocks: 192 * GIB, bsize: 1 }),
 });
 
-const completion = bot.edits[0]?.text || '';
+// The recovery lifecycle (#2408) edits the reply before launch; the completion is the last edit.
+const completion = bot.edits.at(-1)?.text || '';
 if (process.env.SHOW_MESSAGE) console.log(completion);
 const firstLine = completion.split('\n')[0];
-assert(bot.edits.length === 1, 'the session is reported once');
-assert(!/successfully/i.test(firstLine), `the completion is not reported as success (got: ${firstLine})`);
-assert(/killed/i.test(firstLine) && /disk full/i.test(firstLine), `the completion headline says the session was killed by a full disk (got: ${firstLine})`);
+assert(bot.edits.filter(edit => /Work session/.test(edit.text.split('\n')[0])).length === 1, 'the session completion is reported once');
+assert(!bot.edits.some(edit => /successfully/i.test(edit.text.split('\n')[0])), `the completion is not reported as success (got: ${firstLine})`);
+assert(/recovering from a kill \(disk full\)/i.test(firstLine), `the completion headline says the work is recovering from a disk-full kill (got: ${firstLine})`);
+assert(!/exit code/i.test(firstLine), 'the headline does not invent an exit code for a kill without one');
 assert(/Kill diagnostics/.test(completion) && /Cause: disk full/.test(completion), 'the kill diagnostics name the full disk');
 assert(recoveryLaunches.length === 1, 'the default --on-session-kill=resume policy restarts the work');
 assert(recoveryLaunches[0]?.args.includes('--resume') && recoveryLaunches[0]?.args.includes(TOOL_SESSION), 'the restart resumes the last tool session');

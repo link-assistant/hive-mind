@@ -131,16 +131,25 @@ advertise the container as kept (`docker start -ai …`) — but the watcher alr
 | RC4         | A failed `$ --status` query keeps the session tracked (`running: true`, `error`) instead of reporting it as finished; after 20 consecutive failures (`STATUS_QUERY_ERROR_LIMIT`) it is reported as failed, never as a success.                                                                                                                                                                                                                                                                                                 |
 | RC5         | `buildDockerTaskContainerCompletionAction({ containerRemoved })`: for an unobserved exit neither a "kept" section nor a removal attempt.                                                                                                                                                                                                                                                                                                                                                                                       |
 | R5          | Verbose logs for every new decision: `not trusting the reported success — …`, `host disk <path>: … (session minimum …)`, `statfs failed`, `Error refreshing isolated session … keeping it tracked`, `container was already removed by start-command`.                                                                                                                                                                                                                                                                          |
-| R6          | Upstream issue filed: https://github.com/link-foundation/start/issues/174                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| R7          | All completion paths go through `getIsolationSessionState()`; the fabricated-success check and the host-disk sampling live there and in the monitor loop, so screen and docker, first poll and post-restart poll, are all covered. The upstream `code                                                                                                                                                                                                                                                                          |     | 0` instances are reported upstream (they are not in this repository). |
+| R6          | Upstream issue filed: https://github.com/link-foundation/start/issues/174. Fixed by https://github.com/link-foundation/start/pull/175 and released in start-command 0.34.1; Hive Mind's images now pin 0.36.0.                                                                                                                                                                                                                                                                                                                 |
+| R1, R7      | start-command ≥ 0.34.1 records a container exit docker never saw as `exitCode -1` with `exitReason: watcher-lost-container`. Without handling, that read as a plain "failed (exit code: -1)", so no kill diagnosis and no recovery ran. `detectUnobservedDockerExit()` reports it as a kill too, so both the old exit-0 shape and the new shape are covered.                                                                                                                                                                   |
+| R1, R3      | `main` added the recovery lifecycle (#2301/#2408): once a recovery is launched, the headline reads "still in progress: recovering from …". For a kill without a signal exit, that used to show the synthesized sentinel "exit code 1". It now reads "⚠️ Work session still in progress: recovering from a kill (disk full)" (`telegram.work_session_recovering_from_kill`, in all four locales).                                                                                                                               |
+| R7          | All completion paths go through `getIsolationSessionState()`; the fabricated-success check and the host-disk sampling live there and in the monitor loop, so screen and docker, first poll and post-restart poll, are all covered. The upstream `code \|\| 0` instances are reported upstream (they are not in this repository).                                                                                                                                                                                               |
 
-Tests: `tests/test-issue-2303-unobserved-docker-exit.mjs` (49 assertions) — detection unit cases, the monitor state
+Tests: `tests/test-issue-2303-unobserved-docker-exit.mjs` (61 assertions) — detection unit cases, the monitor state
 wrapper, host-disk sampling and persistence, ENOSPC/host-disk kill diagnosis, the headline, and a full monitor run
-reproducing the incident (executing with 0.1 GB free → `executed/0/observed-at`) that asserts: killed (disk full),
+reproducing the incident (executing with 0.1 GB free → `executed/0/observed-at`) that asserts: "recovering from a kill (disk full)",
 kill diagnostics, a `--resume <tool session>` recovery launch, no "container kept", no removal, and only the recovery
 session left tracked.
 
 ## Upstream report
+
+**Status: fixed upstream.** https://github.com/link-foundation/start/pull/175 was merged on 2026-09-28 and released
+in start-command 0.34.1. Since then the watcher waits with `docker wait` until `.State.Running` is false. It never
+`rm -f`s, footers or finalizes a running container. It records a zero `FinishedAt` as `-1` /
+`watcher-lost-container` rather than 0, and `resolveChildExitCode()` replaces the `code || 0` fallbacks. Hive Mind's
+images pin start-command 0.36.0. The Hive Mind side of this pull request stays in place as defense in depth for hosts
+on an older `$` binary, and it now also understands the new `watcher-lost-container` record.
 
 - https://github.com/link-foundation/start/issues/174 — "Detached docker watcher `docker rm -f`s a
   still-running container when `docker logs -f` fails (ENOSPC), and finalizes it as `executed / 0`". It contains the
@@ -151,7 +160,7 @@ session left tracked.
   - never `rm -f` a container whose `State.Running` is true;
   - fix the `code || 0` fallbacks so a signal-killed child is not exit 0.
 
-Workarounds until then:
+Workarounds for hosts still on start-command ≤ 0.34.0:
 
 - Put the start-command log folder on a different filesystem than Docker's data root, so the watcher's log writes do
   not fail when containers fill `/var/lib/docker`.

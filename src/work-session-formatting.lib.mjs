@@ -203,7 +203,15 @@ export function formatSessionCompletionMessage({ sessionName, sessionInfo, statu
     // the recovery session edits this message again when it actually ends.
     // Issue #2408: that is a warning, not a failure and not a neutral state.
     statusEmojiOverride = '⚠️';
-    statusText = text(messageLocale, 'telegram.work_session_recovering', `Work session still in progress: recovering from exit code ${finalExitCode}`, { exitCode: finalExitCode ?? '' });
+    if (killed && !signal) {
+      // Issue #2303: a kill with no signal exit has no real exit code (the 1 is
+      // a synthesized sentinel), so name the kill and its diagnosed cause.
+      const causeLabel = KILL_CAUSE_LABELS[killCause] || null;
+      const causeSuffix = causeLabel ? ` (${causeLabel})` : '';
+      statusText = text(messageLocale, 'telegram.work_session_recovering_from_kill', `Work session still in progress: recovering from a kill${causeSuffix}`, { causeSuffix });
+    } else {
+      statusText = text(messageLocale, 'telegram.work_session_recovering', `Work session still in progress: recovering from exit code ${finalExitCode}`, { exitCode: finalExitCode ?? '' });
+    }
   } else if (finalExitCode === null && !killed && (sessionInfo?.killRecoveryResumed || sessionInfo?.recoveryLifecycle)) {
     statusEmojiOverride = '⚠️';
     statusText = 'Work session ended; final outcome could not be confirmed';

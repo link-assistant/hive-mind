@@ -136,15 +136,43 @@ export async function buildRepositoryNotAccessibleMessage({ owner, repo, autoAcc
 /**
  * The message for "the repository is visible but Hive Mind cannot push".
  *
- * @param {Object} options - same as buildRepositoryNotAccessibleMessage, minus autoAcceptInvite
+ * @param {Object} options - same as buildRepositoryNotAccessibleMessage
  * @returns {Promise<string>}
  */
-export async function buildWriteAccessRequiredMessage({ owner, repo, botLogin = null, ownerType = null, locale, docsLocale } = {}) {
+export async function buildWriteAccessRequiredMessage({ owner, repo, botLogin = null, ownerType = null, autoAcceptInvite = true, locale, docsLocale } = {}) {
   const locales = await resolveAccessGuideLocales({ locale, docsLocale });
   // Collaborators on a personal repository always have write access, so a
   // read-only account there is not a collaborator yet and needs an invitation.
   const reason = isOrganizationOwner(ownerType) ? 'upgrade' : 'invite';
-  return buildGrantWriteAccessLines({ owner, repo, botLogin, ownerType, autoAcceptInvite: true, reason, ...locales }).join('\n');
+  return buildGrantWriteAccessLines({ owner, repo, botLogin, ownerType, autoAcceptInvite, reason, ...locales }).join('\n');
+}
+
+// Runs a read-only `gh` probe without echoing it.
+async function runQuietGh(strings, ...values) {
+  const { ensureUseM } = await import('./use-m-bootstrap.lib.mjs');
+  if (typeof globalThis.use === 'undefined') await ensureUseM();
+  const { $ } = await use('command-stream');
+  const { QUIET_PROBE } = await import('./quiet-probe.lib.mjs');
+  return await $(QUIET_PROBE)(strings, ...values);
+}
+
+/**
+ * 'User' or 'Organization' for a GitHub account (picks the personal or the
+ * organization guide), null when unknown.
+ *
+ * @param {string} owner
+ * @param {Object} [options]
+ * @param {Function} [options.run] - runs `gh api users/<owner> --jq .type`, resolves to {code, stdout}
+ * @returns {Promise<string|null>}
+ */
+export async function getGitHubOwnerType(owner, { run } = {}) {
+  try {
+    const result = await (run ? run(owner) : runQuietGh`gh api users/${owner} --jq .type`);
+    const type = result?.code === 0 ? String(result.stdout || '').trim() : '';
+    return ['User', 'Organization'].includes(type) ? type : null;
+  } catch {
+    return null;
+  }
 }
 
 let cachedLogin;
@@ -162,16 +190,7 @@ let cachedLogin;
 export async function getAuthenticatedGitHubLogin({ run, refresh = false } = {}) {
   if (cachedLogin !== undefined && !refresh) return cachedLogin;
   try {
-    const runner =
-      run ||
-      (async () => {
-        const { ensureUseM } = await import('./use-m-bootstrap.lib.mjs');
-        if (typeof globalThis.use === 'undefined') await ensureUseM();
-        const { $ } = await use('command-stream');
-        const { QUIET_PROBE } = await import('./quiet-probe.lib.mjs');
-        return await $(QUIET_PROBE)`gh api user --jq .login`;
-      });
-    const result = await runner();
+    const result = await (run ? run() : runQuietGh`gh api user --jq .login`);
     const login = result?.code === 0 ? String(result.stdout || '').trim() : '';
     if (!/^[A-Za-z0-9-]+(\[bot\])?$/.test(login)) return null;
     cachedLogin = login;

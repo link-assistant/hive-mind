@@ -29,6 +29,7 @@ export { buildCostInfoString };
 import { execGhWithRetry } from './github-rate-limit.lib.mjs';
 import { QUIET_PROBE } from './quiet-probe.lib.mjs'; // issues #2130, #2135: keep read-only probe payloads out of the attached log
 import { repositoryWriteAccess } from './github-write-access.lib.mjs';
+import { buildRepositoryNotAccessibleMessage, buildWriteAccessRequiredMessage, getAuthenticatedGitHubLogin, getGitHubOwnerType } from './github-access-guide.lib.mjs'; // Issue #2998
 import { buildGitHubPullRequestUrl, buildGitHubPullRequestUrlOrNull, isGitHubUrlType, normalizeGitHubUrl, parseGitHubUrl } from './github-url-parser.lib.mjs';
 export { buildGitHubPullRequestUrl, buildGitHubPullRequestUrlOrNull, isGitHubUrlType, normalizeGitHubUrl, parseGitHubUrl };
 // Issue #1625: Named marker constants (single source of truth) + in-memory tracking for tool-posted comments. See tool-comments.lib.mjs for design.
@@ -147,7 +148,7 @@ export const checkGitHubPermissions = async () => {
 };
 /** Check if user has write permissions to repo. Fails early if --fork not used. */
 export const checkRepositoryWritePermission = async (owner, repo, options = {}) => {
-  const { useFork = false, issueUrl = '' } = options;
+  const { useFork = false, issueUrl = '', autoAcceptInvite = true } = options;
   // Skip check if fork mode is enabled - user will work in their own fork
   if (useFork) {
     await log('✅ Repository access check: Skipped (fork mode enabled)', { verbose: true });
@@ -164,6 +165,9 @@ export const checkRepositoryWritePermission = async (owner, repo, options = {}) 
       if (errorOutput.includes('404') || errorOutput.includes('Not Found')) {
         await log('❌ Repository not found or no access', { level: 'error' });
         await log(`   Repository: ${owner}/${repo}`, { level: 'error' });
+        // Private repositories answer 404 too: name the account to invite and link GitHub Docs.
+        const guide = await buildRepositoryNotAccessibleMessage({ owner, repo, autoAcceptInvite, botLogin: await getAuthenticatedGitHubLogin(), ownerType: await getGitHubOwnerType(owner) });
+        for (const line of guide.split('\n').slice(1)) await log(line && `   ${line}`, { level: 'error' });
         return false;
       }
       // For other errors, warn but continue (repo might still be accessible)
@@ -216,9 +220,9 @@ export const checkRepositoryWritePermission = async (owner, repo, options = {}) 
       // Ignore user lookup errors
     }
     await log('');
-    await log('   Alternative: Request collaborator access', { level: 'error' });
-    await log('      Ask the repository owner to add you as a collaborator:', { level: 'error' });
-    await log(`      https://github.com/${owner}/${repo}/settings/access`, { level: 'error' });
+    await log('   Alternative: get write access to the repository itself', { level: 'error' });
+    const guide = await buildWriteAccessRequiredMessage({ owner, repo, autoAcceptInvite, botLogin: await getAuthenticatedGitHubLogin(), ownerType: await getGitHubOwnerType(owner) });
+    for (const line of guide.split('\n')) await log(`      ${line}`, { level: 'error' });
     await log('');
     return false;
   } catch (error) {

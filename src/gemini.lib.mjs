@@ -18,8 +18,8 @@ import { log, buildToolErrorMessage } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
-import { buildSolveResumeCommand } from './solve.resume-command.lib.mjs'; // Issue #942
-const __geminiBuildSolveResumeCmd = (argv, sessionId, tempDir) => (sessionId && argv?.url ? buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool: 'gemini', model: argv.model, fallbackModel: argv.fallbackModel, tempDir }) : null);
+import { buildSolveResumeCommandFromArgv } from './solve.resume-command.lib.mjs'; // Issue #942, #2843
+const __geminiBuildSolveResumeCmd = (argv, sessionId, tempDir) => buildSolveResumeCommandFromArgv({ argv, sessionId, tempDir, tool: 'gemini' });
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import { stringifyErrorValue } from './error-text.lib.mjs'; // Issue #2141
 import { defaultModels, geminiModels, isFormalAiModel } from './models/index.mjs';

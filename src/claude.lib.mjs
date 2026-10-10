@@ -17,7 +17,7 @@ import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import { createSubAgentCallEntry, accumulateSubAgentUsage, displaySessionTokenUsage } from './claude.budget-stats.lib.mjs';
 import { buildClaudeResumeCommand, buildClaudeAutonomousResumeCommand } from './claude.command-builder.lib.mjs';
 import { beginAnthropicCostScope, seedCumulativeAnthropicCost, addAnthropicRunCost, captureAnthropicResultCost } from './anthropic-cost-accumulator.lib.mjs'; // Issues #1886, #2056, #2119
-import { buildSolveResumeCommand } from './solve.resume-command.lib.mjs'; // Issue #942
+import { buildSolveResumeCommandFromArgv } from './solve.resume-command.lib.mjs'; // Issue #942, #2843
 import { postTrackedComment } from './tool-comments.lib.mjs'; // Issue #1625
 import { buildSessionForceKilledComment } from './session-force-killed-comment.lib.mjs'; // Issue #1510/#2492
 import { handleClaudeRuntimeSwitch } from './claude.runtime-switch.lib.mjs'; // see issue #1141
@@ -1159,7 +1159,7 @@ export const executeClaudeCommand = async params => {
             sessionId,
             interactiveResumeCommand: hasSession ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : null,
             autonomousResumeCommand: hasSession ? buildClaudeAutonomousResumeCommand({ tempDir, sessionId, model: argv.model }) : null,
-            solveResumeCommand: hasSession && argv?.url ? buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool: argv.tool || 'claude', model: argv.model, fallbackModel: argv.fallbackModel, tempDir }) : null,
+            solveResumeCommand: hasSession ? buildSolveResumeCommandFromArgv({ argv, sessionId, tempDir }) : null,
           });
           for (const line of messageLines) await log(line, { level: 'warning' });
         } else if (lastMessage.includes('context_length_exceeded')) {

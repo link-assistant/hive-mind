@@ -27,6 +27,7 @@ const { reportError } = sentryLib;
 const { log, formatAligned } = lib;
 // Import exit handler
 import { safeExit } from './exit-handler.lib.mjs';
+import { resolveSolveIssueUrl } from './solve.resume-command.lib.mjs';
 import { ensureAiToolScratchIgnored } from './ai-tool-scratch.lib.mjs';
 import { parseForkFullNameFromGhOutput } from './github-repository-names.lib.mjs';
 import { checkReplacementRepositoryBranchSafety } from './solve.repository-safety.lib.mjs';
@@ -580,7 +581,7 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
             }
             await log(`  💡 Manual fix required: back up work, then: gh repo delete ${existingForkName} --yes`);
             await log(`     Then run this command again to create a proper fork of ${owner}/${repo}`);
-            await log(`  🔧 Or force deletion (DANGEROUS): solve ${argv.url || argv['issue-url'] || argv._[0] || '<issue-url>'} --allow-force-non-fork-repository-deletion`);
+            await log(`  🔧 Or force deletion (DANGEROUS): solve ${resolveSolveIssueUrl(argv) || '<issue-url>'} --allow-force-non-fork-repository-deletion`);
             await safeExit(
               1,
               buildForkReplacementBlockedReason({

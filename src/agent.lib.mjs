@@ -22,6 +22,7 @@ import { log } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
+import { buildSolveResumeCommandFromArgv } from './solve.resume-command.lib.mjs'; // Issue #2843
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import Decimal from 'decimal.js-light';
 import semver from 'semver';
@@ -1103,7 +1104,7 @@ export const executeAgentCommand = async params => {
             tool: 'Agent CLI',
             resetTime: limitInfo.resetTime,
             sessionId,
-            resumeCommand: sessionId ? `${process.argv[0]} ${process.argv[1]} ${argv.url} --resume ${sessionId}` : null,
+            resumeCommand: buildSolveResumeCommandFromArgv({ argv, sessionId, tempDir, tool: 'agent' }),
           });
 
           for (const line of messageLines) {

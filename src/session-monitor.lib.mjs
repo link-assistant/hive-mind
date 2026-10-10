@@ -32,7 +32,7 @@ import { resolveFailedSessionPullRequestState } from './github-pr-state.lib.mjs'
 import { sessionStartMs } from './session-monitor.stale-executing.lib.mjs';
 // Issue #2134: kill-cause diagnostics + the matching pull-request notice.
 import { buildKillCompletionSections, announceKillOnPullRequest, hasContainerOomEvidence, startedPullRequestUrl } from './session-monitor.kill-sections.lib.mjs';
-import { runKillRecoveryForCompletion } from './session-kill-resume.lib.mjs';
+import { runKillRecoveryForCompletion, detectFailedRecoveryStart } from './session-kill-resume.lib.mjs';
 // Issue #2189: the handled latch + the memoized last-tool-session-id read that keep a completed session from replaying its whole completion pipeline on every poll.
 import { isCompletionHandled, markCompletionHandled, resolveCachedLastToolSessionId } from './session-completion-state.lib.mjs';
 import { createSessionRegistryQueries } from './session-monitor.queries.lib.mjs';
@@ -831,7 +831,10 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
           const lastSessionId = resolveLastToolSessionId(logPath);
           const resumeCommand = buildResumeCommand({ sessionInfo, lastSessionId });
           const resumeSection = formatResumeSection({ lastSessionId, command: resumeCommand });
-          killResumeCommand = resumeCommand?.display || null;
+          // Issue #2887: the pull-request notice renders this in a `bash` block
+          // ("To continue manually"), so it gets the runnable form, not the
+          // Telegram alias (`/codex …`) the section above shows.
+          killResumeCommand = resumeCommand?.shell || null;
           if (resumeSection) {
             resumeExtraSections.push(resumeSection);
             if (verbose) {
@@ -904,7 +907,11 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
       // message is built so the Telegram report and the pull-request notice
       // below name the very same recovery session.
       let killRecovery = { resumed: false, sessionId: null, attempt: 0, maxAttempts: 0 };
-      const shouldAttemptKillRecovery = (killReport.killed || killReport.oomEventOnly) && !killReport.deliberateStop && !sessionInfo?.containerResourceLimitExceeded;
+      // Issue #2887: an in-place recovery that exited 126/127 never ran its
+      // command; the kill it was recovering from still needs a recovery.
+      const recoveryStartFailure = detectFailedRecoveryStart({ sessionInfo, exitCode: finalExitCode });
+      if (recoveryStartFailure) logEvent('session_kill_recovery_start_failed', { sessionName, exitCode: recoveryStartFailure.exitCode, reason: recoveryStartFailure.reason, recoveredSession: recoveryStartFailure.recoveredSession, command: sessionInfo?.killRecoveryCommand || null, mode: sessionInfo?.killRecoveryResumeMode || null });
+      const shouldAttemptKillRecovery = ((killReport.killed || killReport.oomEventOnly) && !killReport.deliberateStop && !sessionInfo?.containerResourceLimitExceeded) || Boolean(recoveryStartFailure);
       if (killReport.killed || killReport.oomEventOnly) {
         // Issue #2408: one durable line per kill/OOM decision, so "why was this
         // (not) restarted?" can be answered from the session log afterwards.
@@ -928,6 +935,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
           // Issue #2498: the random pre-launch delay, replaceable in tests.
           sleep: options.sleepBeforeRecovery,
           locale: sessionInfo?.locale || null,
+          recoveryStartFailure,
           verbose,
         });
         killRecovery = recovered.recovery;

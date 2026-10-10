@@ -49,8 +49,8 @@ Models for claude (default: opus)
 3 bundled and live · 2 hot loaded · 14 bundled only
 
 Bundled and live (3) — shipped with this installation and confirmed reachable now
-  * claude-opus-5-5 (opus, opus-5-5) [1M ctx · 128K out · reasoning · text+image+pdf]
-    claude-sonnet-5 (sonnet, sonnet-5)
+  * claude-opus-5-5 (opus, opus-5-5) [1M ctx · 128K out · $4/$20 per Mtok · reasoning · text+image+pdf]
+    claude-sonnet-5-5 (sonnet, sonnet-5-5)
     ...
 
 Hot loaded (2) — a live source has them, this installation does not ship them

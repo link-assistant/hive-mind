@@ -1012,6 +1012,9 @@ export const defaultFallbackModels = {
     'claude-opus-4-7': 'opus-4-6',
     // Claude Sonnet 5 falls back to the prior Sonnet generation (Issue #2003).
     'claude-sonnet-5': 'sonnet-4-6',
+    // Sonnet 5.5 and Haiku 5.5 step down one generation (Issue #2771).
+    'claude-sonnet-5-5': 'sonnet-5',
+    'claude-haiku-5-5': 'haiku-4-5',
   },
   codex: {
     'gpt-6-sol': 'gpt-5.6-sol',

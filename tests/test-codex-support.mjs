@@ -180,7 +180,7 @@ test('Codex default fallback chain walks gpt-5.6-sol -> terra -> gpt-5.5 -> gpt-
 });
 
 test('Claude default fallback model resolves from opus to opus-5', () => {
-  // Updated for Issue #2840: opus is now claude-opus-5-5 with fallback to opus-5
+  // Updated for Issue #2771: opus is now claude-opus-5-5 with fallback to opus-5
   assert.equal(resolveDefaultFallbackModel('claude', 'opus'), 'opus-5');
 });
 

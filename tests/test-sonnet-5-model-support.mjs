@@ -36,16 +36,16 @@ const test = (name, fn) => {
 // ============================================================
 console.log('\n=== 1. Bare `sonnet` alias resolves to Claude Sonnet 5 ===');
 
-test('claudeModels.sonnet maps to claude-sonnet-5', () => {
-  assert.strictEqual(claudeModels['sonnet'], 'claude-sonnet-5', 'sonnet should map to claude-sonnet-5');
+test('claudeModels.sonnet maps to claude-sonnet-5-5', () => {
+  assert.strictEqual(claudeModels['sonnet'], 'claude-sonnet-5-5', 'sonnet should map to claude-sonnet-5-5');
 });
 
-test('CLAUDE_MODELS.sonnet maps to claude-sonnet-5', () => {
-  assert.strictEqual(CLAUDE_MODELS['sonnet'], 'claude-sonnet-5', 'sonnet should map to claude-sonnet-5');
+test('CLAUDE_MODELS.sonnet maps to claude-sonnet-5-5', () => {
+  assert.strictEqual(CLAUDE_MODELS['sonnet'], 'claude-sonnet-5-5', 'sonnet should map to claude-sonnet-5-5');
 });
 
 test('availableModels.sonnet (claude.lib.mjs) maps to claude-sonnet-5', () => {
-  assert.strictEqual(availableModels['sonnet'], 'claude-sonnet-5', 'sonnet should map to claude-sonnet-5');
+  assert.strictEqual(availableModels['sonnet'], 'claude-sonnet-5-5', 'sonnet should map to claude-sonnet-5-5');
 });
 
 test('defaultModels.claude is opus (Issue #2033)', () => {
@@ -58,14 +58,14 @@ test('default claude model resolves to the current Opus model (Issue #2033, #209
   assert.strictEqual(result.mappedModel, 'claude-opus-5-5', 'default opus should map to claude-opus-5-5');
 });
 
-test('validateModelName maps sonnet to claude-sonnet-5', () => {
+test('validateModelName maps sonnet to claude-sonnet-5-5', () => {
   const result = validateModelName('sonnet', 'claude');
   assert(result.valid, `sonnet should be valid, got: ${result.message}`);
-  assert.strictEqual(result.mappedModel, 'claude-sonnet-5', 'sonnet should map to claude-sonnet-5');
+  assert.strictEqual(result.mappedModel, 'claude-sonnet-5-5', 'sonnet should map to claude-sonnet-5-5');
 });
 
-test('mapModelToId maps sonnet to claude-sonnet-5', () => {
-  assert.strictEqual(mapModelToId('sonnet'), 'claude-sonnet-5', 'mapModelToId should map sonnet to claude-sonnet-5');
+test('mapModelToId maps sonnet to claude-sonnet-5-5', () => {
+  assert.strictEqual(mapModelToId('sonnet'), 'claude-sonnet-5-5', 'mapModelToId should map sonnet to claude-sonnet-5-5');
 });
 
 // ============================================================
@@ -128,10 +128,10 @@ test('supports1mContext returns true for claude-sonnet-5', () => {
   assert.strictEqual(supports1mContext('claude-sonnet-5', 'claude'), true, 'claude-sonnet-5 should support 1M context');
 });
 
-test('validateModelName accepts sonnet[1m] and maps to claude-sonnet-5[1m]', () => {
+test('validateModelName accepts sonnet[1m] and maps to claude-sonnet-5-5[1m]', () => {
   const result = validateModelName('sonnet[1m]', 'claude');
   assert(result.valid, `sonnet[1m] should be valid, got: ${result.message}`);
-  assert.strictEqual(result.mappedModel, 'claude-sonnet-5[1m]', 'sonnet[1m] should map to claude-sonnet-5[1m]');
+  assert.strictEqual(result.mappedModel, 'claude-sonnet-5-5[1m]', 'sonnet[1m] should map to claude-sonnet-5-5[1m]');
   assert.strictEqual(result.has1mSuffix, true, 'Should indicate 1m suffix');
 });
 
@@ -260,8 +260,8 @@ test('claude-sonnet-5 falls back to sonnet-4-6', () => {
   assert.strictEqual(resolveDefaultFallbackModel('claude', 'claude-sonnet-5'), 'sonnet-4-6', 'Sonnet 5 should fall back to Sonnet 4.6');
 });
 
-test('sonnet alias falls back to sonnet-4-6 (resolves to Sonnet 5 first)', () => {
-  assert.strictEqual(resolveDefaultFallbackModel('claude', 'sonnet'), 'sonnet-4-6', 'sonnet should fall back to Sonnet 4.6');
+test('sonnet alias falls back to sonnet-5 (resolves to Sonnet 5.5 first, Issue #2771)', () => {
+  assert.strictEqual(resolveDefaultFallbackModel('claude', 'sonnet'), 'sonnet-5', 'sonnet should fall back to Sonnet 5');
 });
 
 test('canonicalTier maps sonnet-5 and claude-sonnet-5 to sonnet tier', () => {

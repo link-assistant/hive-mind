@@ -64,13 +64,16 @@ fallback(opus) = opus-4-8
   model that ran (`claude-opus-5-5 → opus-5`). An explicit `--fallback-model`
   still wins, and an unknown observed model falls back to the requested model's
   chain.
-- The `opus` alias now maps to `claude-opus-5-5` (see also Issue #2591), so the
-  pre-run `--fallback-model` default is `opus-5` (`claude-opus-5`).
+- The `opus` alias maps to `claude-opus-5-5` (see also Issue #2591), so the
+  pre-run `--fallback-model` default is `opus-5` (`claude-opus-5`). The same
+  mapping landed on `main` with Issue #2771 while this fix was in progress; the
+  merge keeps it and notes in the catalog why it must track Claude Code's alias.
+  The `docs/MODELS*.md` example output is updated to match.
 
 ## Verification
 
 `tests/issue-2840-observed-model.test.mjs` covers the alias table, event
 extraction, registry ordering, fallback selection, the comment labels, and a
-replay of web-capture#178 through `attachLogToGitHub` with a fake `gh`. Existing
+replay of web-capture#178 through `attachLogToGitHub` with a fake `gh`. The
 model-support tests that encoded `opus → claude-opus-5` and the `opus → opus-4-8`
-fallback were updated to the new mapping.
+fallback were already updated on `main` by Issue #2771.

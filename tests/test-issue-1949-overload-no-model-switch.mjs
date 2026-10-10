@@ -147,7 +147,7 @@ await testAsync('socket-closed (timeout family) does NOT switch argv.model', asy
 console.log('\n=== 3. Genuine capacity errors still switch (with resolved IDs) ===');
 
 await testAsync('"selected model is at capacity" switches opus -> fallback', async () => {
-  // Issue #2840: bare `opus` now resolves to claude-opus-5-5, whose default fallback
+  // Issue #2096/#2771: bare `opus` now resolves to claude-opus-5-5, whose default fallback
   // hop is opus-5. The auto-set (non-explicit) fallback walks the default chain of
   // the current model, so opus steps down to opus-5.
   const argv = { model: 'opus', fallbackModel: 'opus-5' };

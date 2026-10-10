@@ -21,6 +21,7 @@ export async function getIsolationSessionState(sessionName, sessionInfo, options
           exitFromLog,
           backendAlive,
           persistSnapshot,
+          daemonRestartProbe: options.daemonRestartProbe || null,
         });
       }
       if (runner.isExecutingSessionStatus(statusResult.status)) {

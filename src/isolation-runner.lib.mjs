@@ -38,6 +38,8 @@ export { isExecutingSessionStatus, isTerminalSessionStatus, isKilledSessionStatu
 // under the 1350-line warning threshold. Re-exported so importers are unaffected.
 import { isUnknownDockerExitCode, parseSessionExitFooter, parseSessionListOutput, parseSessionStatusOutput, parseStartCommandExecutionUuid, readSessionExitFromLog, shouldFallbackToScreenStatus } from './isolation-runner.parsers.lib.mjs';
 export { isUnknownDockerExitCode, parseSessionExitFooter, parseSessionListOutput, parseSessionStatusOutput, parseStartCommandExecutionUuid, readSessionExitFromLog, shouldFallbackToScreenStatus };
+// Issue #2892: attribute a docker SIGKILL to a daemon restart before calling it an OOM kill.
+export { detectDockerDaemonRestart } from './session-exit-attribution.lib.mjs';
 // Issue #2189: the `$` loader and PATH lookup live in their own module so the
 // resume/attach wrappers can use them without importing this runner (a cycle).
 import { findStartCommandBinary, getCommandStreamDollar } from './start-command-cli.lib.mjs';

@@ -1,0 +1,5 @@
+🍺  /home/linuxbrew/.linuxbrew/Cellar/jq/1.8.2: 21 files, 1.5MB
+/home/linuxbrew/.linuxbrew/bin/jq
+jq-1.8.2
+{"ok":true}
+exit 0

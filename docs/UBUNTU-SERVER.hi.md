@@ -57,7 +57,7 @@
    claude
    ```
 
-   नोट: opencode और agent दोनों default रूप से मुफ्त Grok Code Fast 1 model के साथ आते हैं - इसलिए इन tools के लिए कोई authorization आवश्यक नहीं है।
+   नोट: opencode और agent दोनों default रूप से मुफ्त model के साथ आते हैं (opencode के लिए Big Pickle, agent के लिए Nemotron 3 Super) - इसलिए इन tools के लिए कोई authorization आवश्यक नहीं है।
 
 7. Hive Mind telegram bot launch करें:
 

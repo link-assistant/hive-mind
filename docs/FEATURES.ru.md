@@ -121,7 +121,7 @@ Hive Mind обладает высокой креативностью, неотл
 **Решение**: Hive Mind поддерживает несколько AI-бэкендов:
 
 - **Claude** (Sonnet, Opus, Haiku) — По умолчанию и рекомендуется
-- **OpenCode** (Grok) — Включена бесплатная модель Grok Code Fast
+- **OpenCode** (OpenCode Zen) — Включена бесплатная модель Big Pickle
 - **Codex** (OpenAI) — Для пользователей OpenAI API
 - **Agent** — Фреймворк пользовательских AI-агентов
 

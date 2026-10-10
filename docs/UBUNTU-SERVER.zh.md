@@ -57,7 +57,7 @@
    claude
    ```
 
-   注意：opencode 和 agent 默认使用免费的 Grok Code Fast 1 模型——因此这些工具无需授权。
+   注意：opencode 和 agent 默认使用免费模型（opencode 使用 Big Pickle，agent 使用 Nemotron 3 Super）——因此这些工具无需授权。
 
 7. 启动 Hive Mind Telegram 机器人：
 

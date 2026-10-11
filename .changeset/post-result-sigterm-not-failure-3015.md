@@ -11,4 +11,12 @@ turning a ready PR back into a draft. Both exit paths now share one rule. A tool
 work summary is never published as a failure reason for any tool, and the
 SIGKILL follow-up is sent while the CLI's process group is still alive.
 
+The post-result close timeout now follows Claude Code's background tasks. In
+every reported run, print mode was still waiting for a CI or test waiter task
+when the 30-second timer stopped it. While background tasks run, the solver now
+waits up to Claude Code's own print-mode wait ceiling. It pauses the timer when
+a finished task starts another turn, and logs which tasks it is waiting for. A
+CLI with nothing pending is still stopped after 30 seconds.
+
 Docker images install Bun 1.4.3 and start-command 0.37.0; prettier is 3.9.10.
+command-stream is pinned to 2.1.0 for the dependency freshness gate.

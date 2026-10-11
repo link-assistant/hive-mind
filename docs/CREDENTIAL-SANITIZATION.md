@@ -18,6 +18,7 @@ All maintained sinks use the sanitizer in `src/token-sanitization.lib.mjs`.
 - Publication is fail-closed. If the maintained scanner, Secretlint, or the residual scan fails, the external mutation is blocked with `ERR_CREDENTIAL_SANITIZATION`.
 - Temporary publication files and local audit sources are owner-readable only (`0600`); temporary upload directories are `0700`.
 - `--development-log` leaves raw local audit sources unchanged and stages only sanitized copies.
+- `--development-log` rescans, stages and commits only this run's `sessions/<id>/` directory. A residual credential there blocks the commit and is reported as `path:line (rule: …)`, never with the matched text; files the AI wrote elsewhere under `dev/log/` are left to the AI's own commits ([#2841](https://github.com/link-assistant/hive-mind/issues/2841)).
 
 The dependency-free synchronous core protects terminal and local log paths. Publication boundaries then run the core, known-active-token matching, Secretlint, and a residual rescan. Dangerous local-output compatibility switches do not bypass publication boundaries.
 
@@ -31,6 +32,8 @@ The maintained patterns cover:
 - exact values discovered from active credential environment variables and local GitHub authentication.
 
 Detection is intentionally conservative at external boundaries. A false positive may mask a credential-like value; a scanner failure blocks the publication instead of sending the original bytes.
+
+References are not credentials. The GitHub Actions OIDC permission `id-token` set to `read`, `write` or `none`, `${{ … }}` workflow expressions without string literals (`token: ${{ secrets.NPM_TOKEN }}`), runner variable names such as `ACTIONS_ID_TOKEN_REQUEST_URL`, and an empty inline-code key such as `` `password:` `` are kept as written. An expression that carries a literal is masked as a whole ([#2841](https://github.com/link-assistant/hive-mind/issues/2841)).
 
 The implementation review compared external scanners such as Gitleaks and detect-secrets with the project's existing Secretlint integration. Secretlint remains the publication scanner because it is a maintained rule set that runs inside the Node.js process without adding a Go or Python runtime dependency. The synchronous maintained rules cover terminal paths where an asynchronous scanner cannot run, while Secretlint and the residual rescan provide an independent publication check.
 

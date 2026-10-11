@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { sanitizeForPublication } from './token-sanitization.lib.mjs';
-import { findResidualCredentialBlock } from './log-sanitize-stream.lib.mjs';
+import { describeResidualCredentialBlock, findResidualCredentialBlock } from './log-sanitize-stream.lib.mjs';
 import { sanitizeLogFileToFileBounded } from './log-sanitize-worker.lib.mjs';
 
 const sanitizePathSegment = (value, fallback) => {
@@ -286,8 +286,22 @@ export const writeDevelopmentLogArtifacts = async ({ repositoryPath, logFile, is
   };
 };
 
-const verifyDevelopmentLogDirectory = async directoryPath => {
-  const entries = await fs.readdir(directoryPath, { recursive: true, withFileTypes: true });
+/**
+ * Rescan every file of this run's session directory before anything is staged.
+ *
+ * Issue #2841: the rescan used to walk the whole `dev/log/issues/<n>/pulls/<m>`
+ * tree, so a file the AI itself wrote there (a case study quoting
+ * `id-token: write`, say) failed the rescan and the whole session log was
+ * discarded. Every artifact hive-mind writes lives in
+ * `sessions/<id>/` (schema v3, issue #2090), so that is the directory that is
+ * verified, staged and committed; files elsewhere belong to the AI's own
+ * commits. A failure names the file, line and rule — never the matched text.
+ *
+ * @param {string} repositoryPath
+ * @param {string} relativeDirectory - repository-relative directory to verify
+ */
+const verifyDevelopmentLogDirectory = async (repositoryPath, relativeDirectory) => {
+  const entries = await fs.readdir(path.join(repositoryPath, relativeDirectory), { recursive: true, withFileTypes: true });
   for (const entry of entries) {
     if (!entry.isFile()) continue;
     const parentPath = entry.parentPath || entry.path;
@@ -297,7 +311,8 @@ const verifyDevelopmentLogDirectory = async directoryPath => {
     // that had just been written.
     const residual = await findResidualCredentialBlock(filePath);
     if (residual) {
-      throw new Error('Development-log publication rescan found residual credential material.');
+      const displayPath = toPosixPath(path.relative(repositoryPath, filePath));
+      throw new Error(`Development-log publication rescan found residual credential material at ${describeResidualCredentialBlock(displayPath, residual)}.`);
     }
     await fs.chmod(filePath, 0o600);
   }
@@ -385,7 +400,8 @@ export const collectAndCommitDevelopmentLogArtifacts = async ({ enabled, reposit
     discardUnpublishedDevelopmentLog({
       repositoryPath,
       sessionRelativeDirectory: artifacts?.sessionRelativeDirectory,
-      relativeDirectory: artifacts?.relativeDirectory,
+      // Issue #2841: only this session's paths were staged, so only they are unstaged.
+      relativeDirectory: artifacts?.sessionRelativeDirectory,
       $: stagingAttempted ? $ : null,
       log,
     });
@@ -412,18 +428,19 @@ export const collectAndCommitDevelopmentLogArtifacts = async ({ enabled, reposit
 
     // Scan the exact directory bytes immediately before staging. This catches
     // future artifacts added by this workflow even if their writer forgot to
-    // call the publication helper.
-    await verifyDevelopmentLogDirectory(path.join(repositoryPath, artifacts.relativeDirectory));
+    // call the publication helper. Issue #2841: the scan, `git add`, `git diff`
+    // and `git commit` all cover this session's directory only.
+    await verifyDevelopmentLogDirectory(repositoryPath, artifacts.sessionRelativeDirectory);
 
     stagingAttempted = true;
-    const addResult = await $({ cwd: repositoryPath })`git add -f -- ${artifacts.relativeDirectory}`;
+    const addResult = await $({ cwd: repositoryPath })`git add -f -- ${artifacts.sessionRelativeDirectory}`;
     if (addResult.code !== 0) {
       await log?.(`⚠️  Could not stage development log: ${getCommandOutput(addResult)}`, { level: 'warning' });
       await discardArtifacts();
       return { ...artifacts, committed: false, pushed: false, discarded: true };
     }
 
-    const diffResult = await $({ cwd: repositoryPath })`git diff --cached --quiet -- ${artifacts.relativeDirectory}`;
+    const diffResult = await $({ cwd: repositoryPath })`git diff --cached --quiet -- ${artifacts.sessionRelativeDirectory}`;
     if (diffResult.code === 0) {
       await log?.('ℹ️  Development log artifacts already committed');
       return { ...artifacts, committed: false, pushed: false };
@@ -435,7 +452,7 @@ export const collectAndCommitDevelopmentLogArtifacts = async ({ enabled, reposit
     }
 
     const commitMessage = prNumber ? `Add development log for issue #${issueNumber} PR #${prNumber}` : `Add development log for issue #${issueNumber}`;
-    const commitResult = await $({ cwd: repositoryPath })`git commit -m ${commitMessage} -- ${artifacts.relativeDirectory}`;
+    const commitResult = await $({ cwd: repositoryPath })`git commit -m ${commitMessage} -- ${artifacts.sessionRelativeDirectory}`;
     if (commitResult.code !== 0) {
       await log?.(`⚠️  Could not commit development log: ${getCommandOutput(commitResult)}`, { level: 'warning' });
       await discardArtifacts();

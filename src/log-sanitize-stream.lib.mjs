@@ -52,8 +52,9 @@
 
 import fsPromises from 'node:fs/promises';
 import { StringDecoder } from 'node:string_decoder';
+import { findCredentialRuleIds } from './credential-sanitization-core.lib.mjs';
 import { wrappedBase64HoldStart } from './encoded-credential-detection.lib.mjs';
-import { sanitizeForPublication } from './token-sanitization.lib.mjs';
+import { describeCredentialSanitizationFailure, sanitizeForPublication } from './token-sanitization.lib.mjs';
 
 /** Bytes read from the source per iteration. */
 export const DEFAULT_SANITIZE_CHUNK_BYTES = 1024 * 1024;
@@ -248,6 +249,67 @@ export async function sanitizeLogFileToFile(options = {}) {
   }
 }
 
+const countNewlines = (text, end = text.length) => {
+  let count = 0;
+  for (let index = text.indexOf('\n'); index !== -1 && index < end; index = text.indexOf('\n', index + 1)) count += 1;
+  return count;
+};
+
+const firstDifferenceIndex = (left, right) => {
+  const limit = Math.min(left.length, right.length);
+  let index = 0;
+  while (index < limit && left[index] === right[index]) index += 1;
+  return index;
+};
+
+/**
+ * Issue #2841: say *where* and *why* a rescan failed, without the matched text.
+ *
+ * The first character the sanitizer rewrote sits inside the credential it
+ * matched, so its line is the line to look at. The rule ids come from the
+ * plaintext rules re-run on that line alone; a hit from a layer without rule
+ * ids (Secretlint, custom vendor patterns) is reported as
+ * `publication-sanitizer`.
+ *
+ * @returns {{line: number, ruleIds: string[]}}
+ */
+const locateResidual = (text, differenceIndex, lineOffset) => {
+  const lineStart = text.lastIndexOf('\n', differenceIndex - 1) + 1;
+  const lineEnd = text.indexOf('\n', differenceIndex);
+  const lineText = text.slice(lineStart, lineEnd === -1 ? text.length : lineEnd);
+  const ruleIds = findCredentialRuleIds(lineText);
+  if (ruleIds.length === 0) ruleIds.push('publication-sanitizer');
+  return { line: lineOffset + countNewlines(text, lineStart) + 1, ruleIds };
+};
+
+/**
+ * When the publication sanitizer refuses a block outright, find the first line
+ * a plaintext rule still matches; otherwise point at the block's first line.
+ */
+const locateRefusedBlock = (text, lineOffset) => {
+  const lines = text.split('\n');
+  for (let index = 0; index < lines.length; index += 1) {
+    const ruleIds = findCredentialRuleIds(lines[index]);
+    if (ruleIds.length > 0) return { line: lineOffset + index + 1, ruleIds };
+  }
+  return { line: lineOffset + 1, ruleIds: ['publication-sanitizer'] };
+};
+
+/**
+ * Issue #2841: one-line, non-sensitive description of a rescan finding —
+ * `path:line (rule: …)` — for warnings and for the error that blocks
+ * publication.
+ *
+ * @param {string} displayPath
+ * @param {{line?: number, ruleIds?: string[], reason?: string}} residual
+ * @returns {string}
+ */
+export const describeResidualCredentialBlock = (displayPath, residual) => {
+  const location = Number.isFinite(residual?.line) ? `${displayPath}:${residual.line}` : displayPath;
+  const ruleIds = Array.isArray(residual?.ruleIds) && residual.ruleIds.length > 0 ? residual.ruleIds.join(', ') : 'publication-sanitizer';
+  return `${location} (rule: ${ruleIds}${residual?.reason ? `; ${residual.reason}` : ''})`;
+};
+
 /**
  * Re-scan an already-published file for residual credential material.
  *
@@ -258,22 +320,39 @@ export async function sanitizeLogFileToFile(options = {}) {
  * the fail-closed publication sanitizer, and any block the sanitizer would still
  * change is reported.
  *
+ * Issue #2841: the finding also carries the 1-based `line` and the `ruleIds`
+ * that matched, so a failed rescan can be traced to a file, line and rule
+ * instead of "residual credential material" somewhere in the session log. A
+ * block the sanitizer refuses to process (`CredentialSanitizationError`) is a
+ * finding too, with the refusal's stage and findings in `reason`.
+ *
  * @param {string} filePath
  * @param {object} [options] - Also accepts every {@link forEachLogBlock} option
  * @param {Function} [options.sanitize=sanitizeForPublication]
- * @returns {Promise<{blockIndex: number, length: number}|null>} `null` when clean
+ * @returns {Promise<{blockIndex: number, length: number, line: number, ruleIds: string[], reason?: string}|null>} `null` when clean
  */
 export async function findResidualCredentialBlock(filePath, options = {}) {
   const { sanitize = sanitizeForPublication, ...walkOptions } = options;
   let residual = null;
   let blockIndex = 0;
+  let lineOffset = 0;
   await forEachLogBlock(
     filePath,
     async text => {
       blockIndex += 1;
-      const sanitized = String(await sanitize(text));
-      if (sanitized === text) return;
-      residual = { blockIndex, length: text.length };
+      let sanitized;
+      try {
+        sanitized = String(await sanitize(text));
+      } catch (error) {
+        if (error?.name !== 'CredentialSanitizationError') throw error;
+        residual = { blockIndex, length: text.length, ...locateRefusedBlock(text, lineOffset), reason: describeCredentialSanitizationFailure(error) };
+        return false;
+      }
+      if (sanitized === text) {
+        lineOffset += countNewlines(text);
+        return;
+      }
+      residual = { blockIndex, length: text.length, ...locateResidual(text, firstDifferenceIndex(text, sanitized), lineOffset) };
       return false;
     },
     walkOptions

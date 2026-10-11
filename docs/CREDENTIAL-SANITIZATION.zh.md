@@ -18,6 +18,7 @@ Hive Mind 将生成的终端输出、日志、错误报告、开发日志制品�
 - 发布采用故障关闭策略。如果维护的扫描器、Secretlint 或残留扫描失败，外部修改将被阻止并返回 `ERR_CREDENTIAL_SANITIZATION`。
 - 临时发布文件和本地审计源仅允许所有者读取（`0600`）；临时上传目录权限为 `0700`。
 - `--development-log` 不修改原始本地审计源，只暂存经过清理的副本。
+- `--development-log` 只重新扫描、暂存并提交本次运行的 `sessions/<id>/` 目录。其中残留的凭据会阻止提交，并以 `路径:行 (rule: …)` 报告，绝不包含匹配到的文本；AI 在 `dev/log/` 下其他位置写入的文件留给 AI 自己提交（[#2841](https://github.com/link-assistant/hive-mind/issues/2841)）。
 
 无依赖的同步核心保护终端和本地日志路径。发布边界随后依次运行核心、已知活动 Token 匹配、Secretlint 和残留复扫。危险的本地输出兼容开关无法绕过发布边界。
 
@@ -31,6 +32,8 @@ Hive Mind 将生成的终端输出、日志、错误报告、开发日志制品�
 - 从活动凭证环境变量和本地 GitHub 身份验证中发现的精确值。
 
 外部边界的检测有意采取保守策略。误报可能会遮盖类似凭证的值；扫描器失败时将阻止发布，而不会发送原始字节。
+
+引用不是凭据。GitHub Actions 的 OIDC 权限 `id-token`（取值 `read`、`write` 或 `none`）、不含字符串字面量的 `${{ … }}` 工作流表达式（`token: ${{ secrets.NPM_TOKEN }}`）、`ACTIONS_ID_TOKEN_REQUEST_URL` 等 runner 变量名，以及 `` `password:` `` 这样的空内联代码键都会原样保留。带字面量的表达式会被整体遮蔽（[#2841](https://github.com/link-assistant/hive-mind/issues/2841)）。
 
 实现评审比较了 Gitleaks、detect-secrets 等外部扫描器和项目现有的 Secretlint 集成。Secretlint 仍作为发布扫描器，因为它提供维护中的规则集，可在 Node.js 进程内运行，而无需增加 Go 或 Python 运行时依赖。同步维护规则覆盖无法运行异步扫描器的终端路径，Secretlint 和残留复扫则提供独立的发布检查。
 

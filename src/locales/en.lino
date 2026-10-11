@@ -677,6 +677,8 @@ en
         starting "🔄 Starting..."
         executing "⏳ Executing..."
         finished "Work session finished successfully"
+        hive_no_work "No issues processed; check the log for skipped issues or blockers. To continue issues with existing PRs, use `--no-skip-issues-with-prs --auto-continue`"
+        hive_incomplete "Hive session ended with issues still waiting; check the log for blockers"
         failed "Work session failed (exit code: {{exitCode}})"
         merged_but_failed "Pull request merged, but the work session exited with code: {{exitCode}}"
         merged_success "The requested pull request was merged successfully."

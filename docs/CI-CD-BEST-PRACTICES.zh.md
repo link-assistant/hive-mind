@@ -259,6 +259,8 @@ changeset-check:
 - **双触发模式** - 自动（合并时）和手动（工作流调度）
 - **将版本升级直接提交到默认分支** - 发布任务以 `github-actions[bot]` 身份把生成的版本提交（包元数据、锁文件、changelog、已消费的 changesets）直接推送到 `main`；若该提交修改了发布元数据以外的任何内容则立即失败。不要让它经由自动合并的发布拉取请求：那样每次发布都会多出一个拉取请求和一个分支（禁止删除的规则集会永久保留它），而失败的运行会留下一个需要有人关闭的未关闭发布拉取请求
 - **被规则拒绝的推送应修改规则，而不是修改工作流** - 当仓库规则拒绝版本推送时，让发布带着规则的输出失败，并修复规则（删除它，或将 `github-actions` 添加为绕过者）。竞争失败时的 rebase 重试路径，是针对打印同一个词的另一种拒绝的不同恢复方式（参见原则 10）
+- **等待注册表实际需要的时间，绝不通过重新发布来确认** - `npm publish` 可能在 `npm view` 看到该版本之前几分钟就已成功。2026 年 9 月，Hive Mind 的延迟从 2–9 秒增加到 99–377 秒，2.35.1 用了 874 秒（issue #2923）。330 秒的窗口让一次成功的发布变成了红色运行，且没有 GitHub release、Docker 镜像和 Helm chart。根据实测数据并留出充足余量来设定窗口（`experiments/npm-publish-lag-2923.mjs` 通过 Sigstore 证明测量延迟），在日志中记录每次等待的时长，并把 `E409 Cannot publish over previously staged version` 视为“已经发布”，而不是失败
+- **根据所有产物而不仅是注册表来判断“是否有内容需要发布”** - 如果任务在发布之后中断，下一次推送会看到 npm 上已有该版本，从而永久跳过发布。同时检查 GitHub release，缺失时在不升级版本的情况下重新执行发布；查询失败意味着“未知”，永远不会触发发布
 
 **禁止在 PR 中手动更改版本** — 所有版本升级应由 CI 发布工作流管理：
 
@@ -473,6 +475,8 @@ on:
 - **每个通过 API 触发的 workflow 的 input 都需要 default。** `gh workflow run` 无法填写表单：没有 `default:` 的 `required: true` input 会让 GitHub 返回 `HTTP 422: Required input '<name>' not provided`，运行根本不会被创建。用测试确认每个被触发的 workflow 恰好接受调用方传入的 inputs。
 - **创建你所依赖的东西，或者容忍它不存在。** 在从未有过该标签的仓库里，`gh pr edit --add-label` 会以 `'<label>' not found` 失败。在第一次使用时创建它（`gh label create`），而不是让一个已经完成工作的运行失败。
 - **把日志写到上传步骤查找的位置。** 找不到任何文件的 artifact 步骤会警告 `No files were found with the provided path` 并通过；而那个过早失败的运行——正是 artifact 存在的意义所在——不会留下任何证据。让缺失的日志在测试中大声失败，而不是在生产中悄无声息。
+- **说明任务为什么被跳过。** 因上游失败而跳过的下游 workflow 是正确的，但一个静默地什么也没做的绿色运行会被理解为“已测试”。用 `::notice::` 注解输出原因，让它显示在运行摘要中（issue #2923）。
+- **一个结果，一条消息。** 日志先说 “recovered and completed successfully”，随后又针对同一个错误说 “❌ Agent reported error”，会把读者引向错误的方向。先计算最终结论，然后只记录真实的内容。
 
 ## 质量强制策略
 

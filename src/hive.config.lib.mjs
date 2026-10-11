@@ -120,7 +120,7 @@ export const createYargsConfig = yargsInstance => {
     })
     .option('skip-issues-with-prs', {
       type: 'boolean',
-      description: 'Skip issues that already have open pull requests',
+      description: 'Skip issues with open pull requests of their own; ancestor pull requests do not cover sub-issues',
       default: false,
       alias: 's',
     })

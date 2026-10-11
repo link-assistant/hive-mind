@@ -5,6 +5,7 @@ import { getModelFromArgs } from './model-args.lib.mjs';
 import { createYargsConfig as createTaskYargsConfig } from './task.config.lib.mjs';
 import { createCiCdIssue } from './fix.ci-cd-issue.lib.mjs';
 import { createUpdateDependenciesIssue } from './fix.update-dependencies-issue.lib.mjs';
+import { resolveFixDependencyReporting } from './fix.report-dependencies.lib.mjs';
 import { FIX_MODE_CI_CD, FIX_MODE_UPDATE_ALL_DEPENDENCIES, parseFixRepository } from './fix.args.lib.mjs';
 import { createTaskIssue, parseTaskIssueCreationInput, resolveTaskIssueCreationInput } from './task.issue-creation.lib.mjs';
 import { parseTaskIssueUrl } from './task.split.lib.mjs';
@@ -221,11 +222,14 @@ export function registerTaskCommands(bot, options) {
       });
 
       try {
+        const reportingOptions = generatedIssueMode.mode === FIX_MODE_UPDATE_ALL_DEPENDENCIES ? { reportDependenciesIssues: resolveFixDependencyReporting(built.args) } : {};
         const createdIssue = await createIssueFn({
           repository: built.repository,
+          ...reportingOptions,
           log: message => VERBOSE && console.log(`[VERBOSE] ${message}`),
         });
-        await editTelegramMessage(ctx, statusMessage, `Created GitHub issue:\n${createdIssue.url}\n\nReply to this message with ${generatedIssueMode.followUp} to continue ${generatedIssueMode.followUpDescription}.`);
+        const followUp = `${generatedIssueMode.followUp}${reportingOptions.reportDependenciesIssues === false ? ' --no-report-dependencies-issues' : ''}`;
+        await editTelegramMessage(ctx, statusMessage, `Created GitHub issue:\n${createdIssue.url}\n\nReply to this message with ${followUp} to continue ${generatedIssueMode.followUpDescription}.`);
       } catch (error) {
         await editTelegramMessage(ctx, statusMessage, `Error creating ${generatedIssueMode.context} issue:\n${error.message || String(error)}`);
       }

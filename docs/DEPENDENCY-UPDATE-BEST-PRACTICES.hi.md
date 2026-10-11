@@ -212,7 +212,12 @@ fix owner/repo --update-all-dependencies --no-solve
 
 `/solve --deep-analysis` मूल-कारण और debug-output संबंधी मार्गदर्शन **केवल bug-प्रकार के issues के लिए** देता है, और dependency bump में खोजने के लिए कोई मूल कारण नहीं होता। issue को `Task` के रूप में बनाना उस prompt का non-bug रूप चुनता है — शोध, आवश्यकताओं की कवरेज, समाधान की योजना — जो यहाँ उपयोगी है। issue types संगठन-स्तर पर और labels repository-स्तर पर कॉन्फ़िगर होते हैं, इसलिए यदि लक्ष्य repository इनमें से कोई भी स्वीकार नहीं करती, तब भी issue उनके बिना बना दिया जाता है।
 
-`--deep-analysis` [सिद्धांत 10](#10-रुकावटों-की-सूचना-upstream-दें) का upstream-रिपोर्टिंग मार्गदर्शन भी देता है, इसलिए `fix` उस अनुच्छेद को issue के मुख्य भाग से हटा देता है ताकि वह दो बार न पहुँचे। बाकी हर अनुच्छेद बिना शर्त शामिल होता है।
+`--update-all-dependencies` से `--report-dependencies-issues` चालू होता है, जो `--deep-analysis` से स्वतंत्र है। deep analysis आगे भेजे जाने पर भी बनाए गए dependency issue में upstream reporting का अनुच्छेद रहता है। संबंधित dependency के upstream को साझा logic, duplicated code, missing features और स्थानीय workarounds की वजह बनने वाले bugs की सूचना दें। पहले मौजूदा reports खोजें; न्यूनतम reproducer, प्रभावित versions, workaround और fix या feature का सुझाव जोड़ें और pull request में reports के links दें। ज़रूरी workarounds रखें ताकि upstream fixes pull request को रोकें नहीं। `--no-report-dependencies-issues` (या `--report-dependencies-issues=false`) से generated issue और solver prompt दोनों से यह निर्देश हटता है। `--report-dependencies-issues` से reporting अकेले भी चालू की जा सकती है।
+
+```bash
+fix owner/repo --update-all-dependencies --no-report-dependencies-issues
+solve https://github.com/owner/repo/issues/123 --report-dependencies-issues
+```
 
 ## `--update-all-dependencies` विकल्प
 

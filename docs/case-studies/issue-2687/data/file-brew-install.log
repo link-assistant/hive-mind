@@ -1,0 +1,18 @@
+==> Downloading Homebrew API data
+✔︎ JSON API packages.x86_64_linux.jws.json
+==> Downloading bottle manifests
+✔︎ Bottle Manifest file-formula (5.48)
+==> Would install 1 formula:
+file-formula
+==> Would install 1 dependency for file-formula:
+libmagic
+==> Fetching downloads for: file-formula
+✔︎ Bottle Manifest libmagic (5.48)
+✔︎ Bottle file-formula (5.48)
+✔︎ Bottle libmagic (5.48)
+==> Installing file-formula dependency: libmagic
+==> Pouring libmagic--5.48.x86_64_linux.bottle.tar.gz
+🍺  /home/linuxbrew/.linuxbrew/Cellar/libmagic/5.48: 374 files, 13.4MB
+==> Installing file-formula
+==> Pouring file-formula--5.48.x86_64_linux.bottle.tar.gz
+🍺  /home/linuxbrew/.linuxbrew/Cellar/file-formula/5.48: 11 files, 169.3KB

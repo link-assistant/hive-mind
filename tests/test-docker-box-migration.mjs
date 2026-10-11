@@ -21,11 +21,11 @@ const dockerfiles = ['Dockerfile', 'coolify/Dockerfile'];
 for (const filePath of dockerfiles) {
   const content = await read(filePath);
 
-  // Box 2.10.2 includes the box#112 one-toolchain fix and the box#119 release
+  // Box 2.10.3 includes the box#112 one-toolchain fix and the box#119 release
   // pipeline repair. Pin the current multi-arch release from GHCR, box's
   // registry of record, rather than leaving the image on the affected 2.7.0
   // release after the upstream blocker has closed.
-  assertIncludes(content, 'FROM ghcr.io/link-foundation/box:2.10.2', filePath);
+  assertIncludes(content, 'FROM ghcr.io/link-foundation/box:2.10.3', filePath);
   assertExcludes(content, 'FROM konard/box:', filePath);
   assertIncludes(content, 'Keep this in lockstep with the DinD base-image release.', filePath);
   assertIncludes(content, 'USER box', filePath);

@@ -1,5 +1,69 @@
 # @link-assistant/hive-mind
 
+## 2.35.3
+
+### Patch Changes
+
+- 3675177: Name the model that actually ran in failure comments and choose the fallback
+  from it. Claude's `system/init` and assistant `message.model` IDs are recorded
+  as the stream arrives, so a session that crashed, was killed or ended with an
+  error before its `result` event still reports `claude-opus-5-5` instead of the
+  bundled alias mapping. When no actual model is known the comment says
+  "Requested (actual model unknown — session ended before result)" instead of
+  presenting the alias mapping as the model. Retries pick the default fallback
+  from the reported model, so `claude-opus-5-5` steps down to `opus-5` instead of
+  skipping to `opus-4-8`.
+
+## 2.35.2
+
+### Patch Changes
+
+- a033296: Fix CI/CD false negatives found in issue #2923: post-publish verification now waits up to 25 minutes for npm to expose a version (2.35.1 took 874s, more than the old 330s window), treats `E409 Cannot publish over previously staged version` as already published, and keeps its registry probes quiet unless `HIVE_MIND_PUBLISH_VERBOSE=true`. The release gate now also releases a version that reached npm without a GitHub release, so its Docker images and Helm chart are produced. The E2E matrix explains why it skipped, and the agent no longer logs "recovered" for an error that still fails the run. The `--verbose` leftover-process check no longer warns about the task-owned `formal-ai serve`, which Hive Mind keeps for later sessions and stops at exit.
+
+  Dependencies refreshed for the freshness gate: start-command 0.36.0 (Docker images), lino-i18n 0.4.0, jscpd 5.4.1, and the use-m pins @dotenvx/dotenvx 2.34.2 and links-notation 0.25.1.
+
+## 2.35.1
+
+### Patch Changes
+
+- 4a562ed: Use the cheapest pricing tier by default for every tool (issue #2771): short context (Claude 200K / Haiku 5.5 100K, Codex 272K, Gemini Pro 200K, Qwen 256K) unless `--sub-session-size` explicitly asks for more, standard speed (no Fast/priority/Ultrafast) via the new `--speed` option (`--speed flex`, alias `batch`, opts into OpenAI's half-price Flex tier), plain model names instead of `[1m]`, and `opus`/`sonnet`/`haiku` aliases now map to the latest and cheapest Claude 5.5 models while all pinned versions stay supported.
+
+## 2.35.0
+
+### Minor Changes
+
+- 183d6aa: Enable dependency issue reporting by default with --update-all-dependencies, and
+  add --report-dependencies-issues for independent control. Generated dependency
+  issues and all solver tools ask for upstream reports of shared logic, duplicated
+  code, missing features and bugs requiring workarounds, while allowing local
+  workarounds to keep the pull request moving. Preserve explicit opt-outs through
+  /fix and Telegram /task issue generation and solve handoffs.
+
+  Refresh the paired Sentry SDK packages to 11.6.0 to satisfy the dependency
+  freshness gate after the new upstream release.
+
+## 2.34.3
+
+### Patch Changes
+
+- 96394c9: Report Codex process exit codes, signals, plain CLI errors, and fresh cgroup OOM evidence in failure messages. Preserve termination metadata for existing SIGKILL recovery and provide the container memory budget to Codex before execution.
+
+  Refresh the regular, DinD and Coolify Box base images to 2.10.3 to satisfy dependency freshness after its release during validation.
+
+## 2.34.2
+
+### Patch Changes
+
+- c21ccd1: Report hive runs that process no issues or leave blocked work as warnings with distinct nonzero exit codes. Keep skipped issues separate from completed work, surface discovery failures and existing PR links, and honor deprecated tool-check switches.
+
+  Keep sub-issues eligible when a parent's PR also references them, in both batch discovery and worker rechecks, including the REST fallback. Preserve parent-last dependency scheduling when including existing PRs and suggest --no-skip-issues-with-prs --auto-continue when no eligible issues remain, including translated Telegram warnings.
+
+## 2.34.1
+
+### Patch Changes
+
+- feca4bc: Preserve Claude provider errors and usage-limit reset information when an earlier tool command failed, including streams without a final newline. Prevent background-task continuation of error results and include the file utility in all task images for attachment validation.
+
 ## 2.34.0
 
 ### Minor Changes

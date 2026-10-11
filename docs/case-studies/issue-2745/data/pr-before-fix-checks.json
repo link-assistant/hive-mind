@@ -1,0 +1,1 @@
+{"headRefOid":"3b89fdd80cb211b17a8731ce27f16d8ac7ad6bd4","isDraft":true,"mergeStateStatus":"UNKNOWN","statusCheckRollup":[{"__typename":"CheckRun","completedAt":"2026-10-08T06:20:26Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/link-assistant/hive-mind/runs/113178879844","name":"CodeQL","startedAt":"2026-10-08T06:20:23Z","status":"COMPLETED","workflowName":""}]}

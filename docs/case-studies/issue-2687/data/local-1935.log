@@ -1,0 +1,33 @@
+Testing session-limit (429) usage-limit classification (Issue #1935)
+
+
+=== 1. Exact session-limit message from issue #1935 ===
+  ✅ session-limit message IS detected as a usage limit
+  ✅ session-limit message is NOT a transient-retryable error
+  ✅ session-limit reset time is extracted as "4:00 PM"
+  ✅ session-limit timezone is extracted as "UTC"
+  ✅ detectUsageLimit returns full info for the session-limit message
+
+=== 2. Weekly-limit variant ===
+  ✅ weekly-limit message IS detected as a usage limit
+  ✅ weekly-limit message is NOT transient-retryable
+  ✅ weekly-limit reset time is extracted with the date
+
+=== 3. "hit your <window> limit" backstop ===
+  ✅ "You've hit your session limit" alone is a usage limit
+  ✅ "You've hit your weekly limit" alone is a usage limit
+
+=== 4. Transient 429 (Issue #1924) stays a transient retry ===
+  ✅ transient 429 is NOT a usage limit
+  ✅ transient 429 IS retryable
+
+=== 5. claude.lib.mjs 429 guard simulation ===
+  ✅ session-limit 429 → NOT flagged as transient rate limit
+  ✅ weekly-limit 429 → NOT flagged as transient rate limit
+  ✅ transient 429 → flagged as transient rate limit
+
+============================================================
+Results: 15 passed, 0 failed
+============================================================
+
+✅ All session-limit (429) usage-limit tests passed (Issue #1935)

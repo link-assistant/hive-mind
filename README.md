@@ -413,6 +413,10 @@ hive <github-url> [options]
 
 > **📖 Full options list**: See [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#hive-options) for all available options including project monitoring, YouTrack integration, and experimental features.
 
+With `--once`, the final summary reports found, completed, failed, skipped and waiting issues, including PR links that caused skips. Exit 3 means no issues were processed; exit 4 means some work completed with issues still waiting; exit 1 indicates worker or discovery failures. Explicit dry runs exit 0. A successful solver exit does not establish that its PR was merged.
+
+`--skip-issues-with-prs` skips issues with their own open PRs. A parent issue's PR belongs to the parent even when it references its sub-issues. Parents wait until their open sub-issues are closed; dependency ordering also applies when including existing PRs. When no eligible issues remain, Hive suggests `--no-skip-issues-with-prs --auto-continue` to continue existing drafts. Telegram displays no-work and partial hive runs as warnings; `--verbose` adds discovery details to the log.
+
 ## 🤖 Telegram Bot
 
 The Hive Mind includes a Telegram bot interface (SwarmMindBot) for remote command execution.
@@ -500,11 +504,11 @@ Aliases:
 
 Tool alias examples:
 /codex https://github.com/owner/repo/issues/123 --model gpt-5.5
-/opencode https://github.com/owner/repo/issues/123 --model grok-code-fast-1
+/opencode https://github.com/owner/repo/issues/123 --model big-pickle
 /agent https://github.com/owner/repo/issues/123 --model nemotron-3-super-free
 /gemini https://github.com/owner/repo/issues/123 --model flash
 /qwen https://github.com/owner/repo/issues/123 --model qwen3-coder-plus
-/gemini https://github.com/owner/repo/issues/123 --model gemini-2.5-flash
+/gemini https://github.com/owner/repo/issues/123 --model flash
 
 Free Models (with --tool agent):
 /solve https://github.com/owner/repo/issues/123 --tool agent --model nemotron-3-super-free
@@ -529,11 +533,11 @@ Current tool defaults in Hive Mind:
 | ---------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | `claude`   | `opus`                                                                      | Defaults to `--think off`: zero budget when supported, otherwise the lowest effort |
 | `codex`    | newest `gpt-*-sol` in the installed catalogue (`gpt-6-sol` bundled default) | Defaults to `--think off`, mapped to `reasoning_effort=none`                       |
-| `opencode` | `grok-code-fast-1`                                                          | Defaults to `--think off`; no positive thinking prompt is added                    |
+| `opencode` | `big-pickle`                                                                | Defaults to `--think off`; no positive thinking prompt is added                    |
 | `agent`    | `nemotron-3-super-free`                                                     | Defaults to `--think off`; no positive thinking prompt is added                    |
 | `gemini`   | `flash`                                                                     | Defaults to `--think off`; no positive thinking prompt is added                    |
 | `qwen`     | `qwen3-coder-plus`                                                          | Defaults to `--think off`; no positive thinking prompt is added                    |
-| `gemini`   | `gemini-2.5-flash`                                                          | Defaults to `--think off`; no positive thinking prompt is added                    |
+| `gemini`   | `flash`                                                                     | Defaults to `--think off`; no positive thinking prompt is added                    |
 
 See [docs/CONFIGURATION.md](./docs/CONFIGURATION.md) for the full per-tool defaults and reasoning mappings.
 
@@ -616,6 +620,8 @@ issue-generation step. They return the created issue URL; reply with
 `/solve --development-log --deep-analysis --auto-merge` (adding
 `--update-all-dependencies` for the dependency issue) to continue through the
 normal solve workflow.
+
+`--update-all-dependencies` enables `--report-dependencies-issues`: report shared logic, duplicated code, missing features and bugs requiring workarounds to dependency upstreams. Local workarounds may stay so the pull request can proceed. Add `--no-report-dependencies-issues` to disable reporting, or use `--report-dependencies-issues` on `/solve` or `/hive` without updating dependencies.
 
 #### `/organize` - Classify Open Issues
 

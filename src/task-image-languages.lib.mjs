@@ -8,7 +8,7 @@
  *     /bin/sh: 1: scalac: not found        (Scala draft log, line 4367)
  *     /bin/sh: 1: scala: not found         (line 5548)
  *
- * The task image is built `FROM ghcr.io/link-foundation/box:2.10.2`
+ * The task image is built `FROM ghcr.io/link-foundation/box:2.10.3`
  * (`Dockerfile`), and box has no Scala toolchain: its language stages are
  * assembly, cpp, dotnet, go, java, js, kotlin, lean, perl, php, python, r,
  * rocq, ruby, rust and swift (one `ubuntu/24.04` Dockerfile each in
@@ -25,7 +25,7 @@
  */
 
 /** The base image the task container is built from (`Dockerfile`). */
-export const TASK_IMAGE_BASE = 'ghcr.io/link-foundation/box:2.10.2';
+export const TASK_IMAGE_BASE = 'ghcr.io/link-foundation/box:2.10.3';
 
 /**
  * Languages the task image can compile and run, each with the command that

@@ -13,7 +13,8 @@
  */
 
 import assert from 'node:assert/strict';
-import { buildTaskContainerMarkerEnv, collectTrackedSessionIdentities, countTaskContainersByTool, createCachedTaskContainerSource, detectTaskToolFromCommand, findRunningResumeDescendant, getRootSessionName, isResumeDescendantName, listRunningTaskContainers, partitionTaskContainers, parseTaskContainers } from '../src/docker-task-containers.lib.mjs';
+import { buildTaskContainerLabels, buildTaskContainerMarkerEnv, collectTrackedSessionIdentities, countTaskContainersByTool, createCachedTaskContainerSource, detectTaskToolFromCommand, findRunningResumeDescendant, getRootSessionName, isResumeDescendantName, listRunningTaskContainers, partitionTaskContainers, parseTaskContainers, startCommandSupportsLabels } from '../src/docker-task-containers.lib.mjs';
+import { buildDockerIsolationStartArgs } from '../src/isolation-runner.lib.mjs';
 import { mergeExternalProcessingSnapshot } from '../src/telegram-solve-queue.external.lib.mjs';
 import { SolveQueue } from '../src/telegram-solve-queue.lib.mjs';
 import { CACHE_TTL, getLimitCache, resetLimitCache } from '../src/limits.lib.mjs';
@@ -44,12 +45,12 @@ const UUID_4 = '9f8e7d6c-5b4a-4398-8786-a5b4c3d2e1f0';
 // Shape of `docker inspect` for the containers from the incident: resumed by
 // `$ --resume`, so named `<uuid>-resume-<n>` and carrying no hive-mind env
 // marker (they predate it) — only the solve command identifies them.
-function inspectEntry({ name, env = [], cmd = [], running = true, image = 'konard/hive-mind:latest' }) {
+function inspectEntry({ name, env = [], labels = null, cmd = [], running = true, image = 'konard/hive-mind:latest' }) {
   return {
     Id: `${name}-id`,
     Name: `/${name}`,
     State: { Running: running, StartedAt: '2026-10-09T12:00:00Z' },
-    Config: { Env: ['PATH=/usr/bin', ...env], Cmd: cmd, Image: image },
+    Config: { Env: ['PATH=/usr/bin', ...env], Labels: labels, Cmd: cmd, Image: image },
     Path: cmd[0] || '',
     Args: cmd.slice(1),
   };
@@ -61,6 +62,32 @@ await test('marker env carries tool and http(s) task URL only', () => {
   assert.deepEqual(buildTaskContainerMarkerEnv({ tool: 'Codex', url: 'https://github.com/o/r/issues/1' }), { HIVE_MIND_TOOL: 'codex', HIVE_MIND_TASK_URL: 'https://github.com/o/r/issues/1' });
   assert.deepEqual(buildTaskContainerMarkerEnv({ tool: 'claude', url: '--dry-run' }), { HIVE_MIND_TOOL: 'claude' });
   assert.deepEqual(buildTaskContainerMarkerEnv({ tool: 'bad\nvalue' }), {});
+});
+
+await test('labels mirror the markers and are only passed to a $ that has --label', () => {
+  assert.deepEqual(buildTaskContainerLabels({ tool: 'Codex', url: 'https://github.com/o/r/issues/1' }), ['hive-mind.tool=codex', 'hive-mind.url=https://github.com/o/r/issues/1']);
+  assert.deepEqual(buildTaskContainerLabels({ tool: 'claude', url: '--dry-run' }), ['hive-mind.tool=claude']);
+  assert.equal(startCommandSupportsLabels('0.37.0'), true);
+  assert.equal(startCommandSupportsLabels('0.37.1'), true);
+  assert.equal(startCommandSupportsLabels('0.36.0'), false);
+  assert.equal(startCommandSupportsLabels(null), false);
+  const baseOptions = { sessionId: UUID, tool: 'codex', env: {}, homeDir: '/home/test', existsSync: () => false };
+  const url = 'https://github.com/o/r/issues/1';
+  const withLabels = buildDockerIsolationStartArgs('solve', [url, '--tool', 'codex'], { ...baseOptions, labelsSupported: true });
+  const labelValues = withLabels.flatMap((arg, i) => (arg === '--label' ? [withLabels[i + 1]] : []));
+  assert.deepEqual(labelValues, ['hive-mind.tool=codex', `hive-mind.url=${url}`]);
+  assert.ok(withLabels.indexOf('--label') < withLabels.indexOf('--'), 'labels are start-command options, before the command');
+  assert.ok(withLabels.includes(`HIVE_MIND_TOOL=codex`), 'env markers stay for older readers');
+  const withoutLabels = buildDockerIsolationStartArgs('solve', [url, '--tool', 'codex'], baseOptions);
+  assert.equal(withoutLabels.includes('--label'), false);
+});
+
+await test('labels win over env and command, and root-session labels map resumes', () => {
+  const [container] = parseTaskContainers([inspectEntry({ name: 'custom-name-resume-1', labels: { 'hive-mind.tool': 'codex', 'hive-mind.url': 'https://github.com/o/r/issues/9', 'start-command.root-session': 'custom-name' }, env: ['HIVE_MIND_TOOL=agent'], cmd: ['/bin/bash', '-c', 'solve https://github.com/o/r/issues/1'] })]);
+  assert.equal(container.tool, 'codex');
+  assert.equal(container.toolSource, 'label');
+  assert.equal(container.url, 'https://github.com/o/r/issues/9');
+  assert.equal(container.rootSessionName, 'custom-name');
 });
 
 await test('resume names map back to their root session', () => {

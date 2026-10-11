@@ -27,7 +27,7 @@ import { acquireFormalAiSidecarForTask, attachFormalAiTaskContainer, buildFormal
 import { getDockerIsolationImage } from './hive-mind-image.lib.mjs';
 // Issue #2247 (H1): refresh a mutable task image before launch and record which one ran.
 import { buildTaskImageProvenanceEnv, refreshTaskImage } from './task-image-refresh.lib.mjs';
-import { buildTaskContainerMarkerEnv } from './docker-task-containers.lib.mjs';
+import { buildTaskContainerLabels, buildTaskContainerMarkerEnv, startCommandSupportsLabels } from './docker-task-containers.lib.mjs';
 import { buildRouterGitConfigEntries, buildRouterTaskEnv, getRouterSuppressedCredentialPaths, hasUseRouterFlag, isRouterEnabled, resolveRouterBaseUrl, resolveRouterGitHubRouting } from './router-isolation.lib.mjs';
 import { acquireRouterForTask, attachRouterTaskContainer, registerFormalAiWithRouter, releaseRouterForTask, watchRouterTaskContainer } from './router-task-isolation.lib.mjs';
 import { buildGitConfigEnv, GIT_PUSH_GUARD_CONTAINER_DIR, GIT_PUSH_GUARD_ESCAPE_ENV, hasForcePushOptIn, installGitPushGuard } from './git-push-guard.lib.mjs';
@@ -41,7 +41,7 @@ import { isUnknownDockerExitCode, parseSessionExitFooter, parseSessionListOutput
 export { isUnknownDockerExitCode, parseSessionExitFooter, parseSessionListOutput, parseSessionStatusOutput, parseStartCommandExecutionUuid, readSessionExitFromLog, shouldFallbackToScreenStatus };
 // Issue #2189: the `$` loader and PATH lookup live in their own module so the
 // resume/attach wrappers can use them without importing this runner (a cycle).
-import { findStartCommandBinary, getCommandStreamDollar } from './start-command-cli.lib.mjs';
+import { findStartCommandBinary, getCommandStreamDollar, getStartCommandVersion } from './start-command-cli.lib.mjs';
 export { findStartCommandBinary };
 // Issue #2408: version gate for resume behaviour that changed in start 0.35.0,
 // and the `docker update` limits helper a snapshot resume re-asserts.
@@ -267,7 +267,7 @@ export async function resolveFormalAiIsolationEnv(env = process.env, { lookup = 
  * reused instead of re-downloaded — no `--pull` plumbing required (issue #1879).
  */
 export function buildDockerIsolationStartArgs(command, args = [], options = {}) {
-  const { sessionId, tool = 'claude', env = process.env, homeDir = os.homedir(), existsSync = fs.existsSync, useRouter = false, routerToken = null, installGuard = installGitPushGuard, imageProvenance = null } = options;
+  const { sessionId, tool = 'claude', env = process.env, homeDir = os.homedir(), existsSync = fs.existsSync, useRouter = false, routerToken = null, installGuard = installGitPushGuard, imageProvenance = null, labelsSupported = false } = options;
   // Issue #2164 (EXPERIMENTAL): router isolation replaces the credential mounts
   // with a scoped token pointing at the `hive-mind-router` sidecar. It only
   // engages when a token was actually issued; without one the task would have
@@ -288,14 +288,12 @@ export function buildDockerIsolationStartArgs(command, args = [], options = {}) 
   startArgs.push('--shell', DOCKER_ISOLATION_SHELL);
   // The image already sets HOME=/home/box and WORKDIR /home/box; pass HOME explicitly anyway so the credential mounts under /home/box resolve even if a future image forgets to. start-command has no --workdir flag, so the working directory comes from the image's WORKDIR.
   startArgs.push('-e', `HOME=${DOCKER_CONTAINER_HOME}`, '-e', `HIVE_MIND_PARENT_SESSION_ID=${sessionId || ''}`, '-e', `HIVE_MIND_IMAGE_VARIANT=${resolveImageVariant(image, env)}`);
-  // Issue #2917: the bot counted docker-isolated tasks from its own memory, so
-  // tasks resumed outside it were invisible to /limits and to throttling. These
-  // markers live in the container's config, survive `$ --resume` (re-applied
-  // and baked into the snapshot image), and let `docker ps` attribute a running
-  // container to its tool and URL without the bot having launched it.
-  for (const [name, value] of Object.entries(buildTaskContainerMarkerEnv({ tool, url: args[0] }))) {
-    startArgs.push('-e', `${name}=${value}`);
-  }
+  // Issue #2917: let `docker ps` attribute a running container to its tool and
+  // URL without the bot's memory. The env markers survive `$ --resume` on any
+  // `$`; labels need `$ --label` (start-command 0.37.0+, start#199), because an
+  // older `$` would read the option as the command.
+  for (const [name, value] of Object.entries(buildTaskContainerMarkerEnv({ tool, url: args[0] }))) startArgs.push('-e', `${name}=${value}`);
+  for (const label of labelsSupported ? buildTaskContainerLabels({ tool, url: args[0] }) : []) startArgs.push('--label', label);
   // Issue #2247 (H1): the three 2026-09-13 tasks ran a week-old `solve` and no
   // comment said so. The image the container was created from - and the digest
   // it resolved to - travel with the task so its session comment can state them.
@@ -528,7 +526,8 @@ export async function executeWithIsolation(command, args, options = {}) {
       log: verbose ? message => console.log(`[VERBOSE] isolation-runner: ${message}`) : null,
     });
   }
-  const startCommandArgs = buildStartCommandArgs(command, args, { ...effectiveOptions, sessionId, useRouter: Boolean(router), routerToken: router?.token ?? null, imageProvenance });
+  const labelsSupported = backend === 'docker' && startCommandSupportsLabels(await getStartCommandVersion({ verbose }));
+  const startCommandArgs = buildStartCommandArgs(command, args, { ...effectiveOptions, sessionId, useRouter: Boolean(router), routerToken: router?.token ?? null, imageProvenance, labelsSupported });
   if (verbose) {
     console.log(`[VERBOSE] isolation-runner: ${[binPath, ...startCommandArgs].map(shellQuote).join(' ')}`);
     if (backend === 'docker') {

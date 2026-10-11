@@ -16,14 +16,18 @@
  * this module lists running containers and attributes each to a tool, URL and
  * session:
  *
- *   1. the `HIVE_MIND_TOOL` / `HIVE_MIND_TASK_URL` / `HIVE_MIND_PARENT_SESSION_ID`
- *      environment markers set at launch (see `buildTaskContainerMarkerEnv`).
- *      Labels were the first choice, but start-command (0.36.0) has no
- *      `--label` option. It does pass `-e` through, re-applies it on
- *      `$ --resume`, and `docker commit` bakes the env into the snapshot image,
- *      so the markers follow a task across resumes (verified by
- *      experiments/issue-2917-docker-task-containers.mjs);
- *   2. for containers started before the markers existed, the task command
+ *   1. the `hive-mind.tool` / `hive-mind.url` docker labels set at launch when
+ *      the installed `$` supports `--label` (start-command 0.37.0+, added for
+ *      link-foundation/start#199), together with the `start-command.*` labels
+ *      start-command itself adds (`start-command.root-session` names the
+ *      original session of a resumed container);
+ *   2. the `HIVE_MIND_TOOL` / `HIVE_MIND_TASK_URL` / `HIVE_MIND_PARENT_SESSION_ID`
+ *      environment markers (see `buildTaskContainerMarkerEnv`), set on every
+ *      launch whatever the `$` version. start-command passes `-e` through,
+ *      re-applies it on `$ --resume`, and `docker commit` bakes the env into
+ *      the snapshot image, so the markers follow a task across resumes
+ *      (verified by experiments/issue-2917-docker-task-containers.mjs);
+ *   3. for containers started before the markers existed, the task command
  *      itself (`solve <url> --tool codex`; no `--tool` means claude) and the
  *      session-UUID container name start-command gives docker isolation
  *      (`<uuid>`, `<uuid>-resume-<n>` after a snapshot resume).
@@ -36,12 +40,21 @@
 
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import semver from 'semver';
 
 const execFileAsync = promisify(execFile);
 
 export const HIVE_MIND_TOOL_ENV = 'HIVE_MIND_TOOL';
 export const HIVE_MIND_TASK_URL_ENV = 'HIVE_MIND_TASK_URL';
 export const HIVE_MIND_PARENT_SESSION_ENV = 'HIVE_MIND_PARENT_SESSION_ID';
+
+export const HIVE_MIND_TOOL_LABEL = 'hive-mind.tool';
+export const HIVE_MIND_TASK_URL_LABEL = 'hive-mind.url';
+// Added by start-command itself to every docker launch (start#199).
+export const START_COMMAND_ROOT_SESSION_LABEL = 'start-command.root-session';
+
+/** First start-command release with `--label KEY=VALUE` (link-foundation/start#199). */
+export const MIN_START_COMMAND_LABEL_VERSION = '0.37.0';
 
 export const DOCKER_TASK_CONTAINER_LIST_TIMEOUT_MS = 10000;
 export const DOCKER_TASK_CONTAINER_CACHE_TTL_MS = 5000;
@@ -75,6 +88,34 @@ export function buildTaskContainerMarkerEnv({ tool = null, url = null } = {}) {
   const cleanUrl = cleanMarkerValue(url);
   if (cleanUrl && /^https?:\/\//i.test(cleanUrl)) env[HIVE_MIND_TASK_URL_ENV] = cleanUrl;
   return env;
+}
+
+/**
+ * Whether the installed `$` accepts `--label`. Older releases do not know the
+ * option and would take it as the start of the command, so an unknown version
+ * is treated as "no" and the environment markers carry the attribution alone.
+ *
+ * @param {string|null} version - Output of getStartCommandVersion()
+ * @returns {boolean}
+ */
+export function startCommandSupportsLabels(version) {
+  const parsed = semver.valid(semver.coerce(version || ''));
+  return Boolean(parsed && semver.gte(parsed, MIN_START_COMMAND_LABEL_VERSION));
+}
+
+/**
+ * Docker labels with the same attribution as the environment markers, in the
+ * `KEY=VALUE` form `$ --label` takes (issue #2917).
+ *
+ * @param {{tool?: string, url?: string}} options
+ * @returns {string[]}
+ */
+export function buildTaskContainerLabels(options = {}) {
+  const env = buildTaskContainerMarkerEnv(options);
+  const labels = [];
+  if (env[HIVE_MIND_TOOL_ENV]) labels.push(`${HIVE_MIND_TOOL_LABEL}=${env[HIVE_MIND_TOOL_ENV]}`);
+  if (env[HIVE_MIND_TASK_URL_ENV]) labels.push(`${HIVE_MIND_TASK_URL_LABEL}=${env[HIVE_MIND_TASK_URL_ENV]}`);
+  return labels;
 }
 
 /**
@@ -154,9 +195,12 @@ export function parseTaskContainers(inspected) {
     const name = String(container.Name || '').replace(/^\/+/, '');
     if (!name) continue;
     const env = parseContainerEnv(container.Config?.Env);
-    const rootSessionName = getRootSessionName(name);
+    const labels = container.Config?.Labels && typeof container.Config.Labels === 'object' ? container.Config.Labels : {};
+    const rootSessionName = getRootSessionName(cleanMarkerValue(labels[START_COMMAND_ROOT_SESSION_LABEL]) || name);
     const parentSessionId = cleanMarkerValue(env[HIVE_MIND_PARENT_SESSION_ENV]);
-    const markedTool = cleanMarkerValue(env[HIVE_MIND_TOOL_ENV]);
+    const labelTool = cleanMarkerValue(labels[HIVE_MIND_TOOL_LABEL]);
+    const envTool = labelTool ? null : cleanMarkerValue(env[HIVE_MIND_TOOL_ENV]);
+    const markedTool = labelTool || envTool;
     if (!parentSessionId && !markedTool && !SESSION_UUID_RE.test(rootSessionName)) continue;
     const command = containerCommandText(container);
     const commandTool = markedTool ? null : detectTaskToolFromCommand(command);
@@ -169,8 +213,8 @@ export function parseTaskContainers(inspected) {
       rootSessionName,
       parentSessionId,
       tool: markedTool ? markedTool.toLowerCase() : commandTool,
-      toolSource: markedTool ? 'env' : commandTool ? 'command' : null,
-      url: cleanMarkerValue(env[HIVE_MIND_TASK_URL_ENV]) || command.match(GITHUB_URL_RE)?.[0]?.replace(/['"]+$/, '') || null,
+      toolSource: labelTool ? 'label' : envTool ? 'env' : commandTool ? 'command' : null,
+      url: cleanMarkerValue(labels[HIVE_MIND_TASK_URL_LABEL]) || cleanMarkerValue(env[HIVE_MIND_TASK_URL_ENV]) || command.match(GITHUB_URL_RE)?.[0]?.replace(/['"]+$/, '') || null,
       startedAt: container.State?.StartedAt || null,
       image: container.Config?.Image || null,
     });

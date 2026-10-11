@@ -14,6 +14,9 @@
  *      single-issue flow with `--deep-analysis` and
  *      `--ensure-all-sub-issues-addressed` enabled.
  *
+ * A repository with exactly one open issue skips steps 2–4: that issue is
+ * handed back to `/solve` as is, with no combined issue (issue #3108).
+ *
  * The pure helpers live in `solve.repository-mode.lib.mjs`.
  */
 
@@ -22,7 +25,7 @@ import { describeChildExit } from './child-exit.lib.mjs';
 import { parseGitHubUrl } from './github-url-parser.lib.mjs';
 import { createTaskIssue } from './task.issue-creation.lib.mjs';
 import { buildAddSubIssueApiArgs, buildParentIssueApiArgs } from './task.split.lib.mjs';
-import { MAX_SUB_ISSUES_PER_PARENT, buildCombinedIssueBody, buildCombinedIssueTitle, buildOpenIssuesApiArgs, buildRepositoryModeSummaryLines, isRepositoryModeIssueBody, selectOldestOpenIssues } from './solve.repository-mode.lib.mjs';
+import { MAX_SUB_ISSUES_PER_PARENT, buildCombinedIssueBody, buildCombinedIssueTitle, buildOpenIssuesApiArgs, buildRepositoryModeSummaryLines, isRepositoryModeIssueBody, selectOldestOpenIssues, selectSingleIssueTarget } from './solve.repository-mode.lib.mjs';
 import { isRateLimitError } from './github-rate-limit.lib.mjs';
 
 /** Labels applied best-effort to the generated combined issue. */
@@ -129,7 +132,7 @@ export async function fetchOpenIssues({ repository, run = runCommand }) {
  * @param {{owner: string, repo: string, fullName: string, url: string}} params.repository
  * @param {number} [params.limit=MAX_SUB_ISSUES_PER_PARENT]
  * @param {Function} [params.run]
- * @returns {Promise<{repository, selected, totalOpen, skipped, title, body}>}
+ * @returns {Promise<{repository, selected, allIssues, singleIssue, totalOpen, skipped, title, body}>}
  */
 export async function prepareRepositoryModeIssue({ repository, limit = MAX_SUB_ISSUES_PER_PARENT, run = runCommand }) {
   const entries = await fetchOpenIssues({ repository, run });
@@ -145,6 +148,8 @@ export async function prepareRepositoryModeIssue({ repository, limit = MAX_SUB_I
     skipped: 0,
     unattachedCount: skipped,
     limit,
+    // Issue #3108: set when the repository has exactly one open issue.
+    singleIssue: selectSingleIssueTarget({ repository, issues: allIssues }),
     title: buildCombinedIssueTitle({ owner: repository.owner, repo: repository.repo, count: allIssues.length, totalOpen }),
     body: buildCombinedIssueBody({ repository, issues: allIssues, totalOpen, limit, attachmentCount: selected.length }),
   };
@@ -319,7 +324,7 @@ export async function createRepositoryModeIssue({ repository, prepared, run = ru
  * @param {number} [params.limit]
  * @param {boolean} [params.dryRun] - prepare only; do not create anything
  * @param {object} [params.attachOptions] - forwarded to {@link attachSubIssues}
- * @returns {Promise<{handled: boolean, issueUrl?: string, issue?: object, prepared?: object, argvOverrides?: object, noWork?: boolean, message?: string, error?: string}>}
+ * @returns {Promise<{handled: boolean, issueUrl?: string, issue?: object, prepared?: object, argvOverrides?: object, noWork?: boolean, singleIssue?: boolean, message?: string, error?: string}>}
  */
 export async function resolveRepositoryModeTarget({ url, log = null, run = runCommand, limit = MAX_SUB_ISSUES_PER_PARENT, dryRun = false, attachOptions = {} }) {
   const repository = parseRepositoryModeUrl(url);
@@ -338,6 +343,16 @@ export async function resolveRepositoryModeTarget({ url, log = null, run = runCo
     prepared = await prepareRepositoryModeIssue({ repository, limit, run });
   } catch (error) {
     return { handled: true, error: `Could not list open issues of ${repository.fullName}: ${error.message}` };
+  }
+
+  // Issue #3108: a combined issue around a single issue would only duplicate
+  // it (one parent, one sub-issue). Solve that issue directly instead — the
+  // same as if its URL had been given — and create nothing.
+  if (prepared.singleIssue) {
+    await emit(`🎯 Only one open issue: #${prepared.singleIssue.number}. Solving it directly, without creating a combined issue.`);
+    await emit(`   Issue URL: ${prepared.singleIssue.url}`);
+    await emit('');
+    return { handled: true, singleIssue: true, issueUrl: prepared.singleIssue.url, prepared, argvOverrides: {} };
   }
 
   for (const line of buildRepositoryModeSummaryLines({ totalOpen: prepared.totalOpen, requestedCount: prepared.allIssues.length, selectedCount: prepared.selected.length, skipped: prepared.skipped, limit })) {

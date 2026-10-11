@@ -901,6 +901,13 @@ export const extractToolErrorCore = ({ toolResult } = {}) => {
 
   // Collapse to a single clean line and strip noise.
   const core = rawCore.replace(/\s+/g, ' ').trim();
+
+  // Issue #3015: a runner that copied the agent's last text into errorInfo published the
+  // work summary as the failure reason ("CLAUDE execution failed with I fixed the four…").
+  // The summary is never an error, whichever tool produced it.
+  const summary = typeof toolResult?.resultSummary === 'string' ? toolResult.resultSummary.replace(/\s+/g, ' ').trim() : '';
+  if (summary && core === summary) return null;
+
   return core || null;
 };
 

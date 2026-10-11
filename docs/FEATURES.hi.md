@@ -121,7 +121,7 @@ Hive Mind में अधिकांश (औसत) प्रोग्रा�
 **समाधान**: Hive Mind कई AI backends का समर्थन करता है:
 
 - **Claude** (Sonnet, Opus, Haiku) - डिफ़ॉल्ट और अनुशंसित
-- **OpenCode** (Grok) - मुफ्त Grok Code Fast model शामिल
+- **OpenCode** (OpenCode Zen) - मुफ्त Big Pickle model शामिल
 - **Codex** (OpenAI) - OpenAI API उपयोगकर्ताओं के लिए
 - **Agent** - कस्टम AI agent framework
 
@@ -136,7 +136,7 @@ Hive Mind में अधिकांश (औसत) प्रोग्रा�
 - labels द्वारा फ़िल्टर करें या सभी issues प्रोसेस करें
 - write पहुंच के बिना repos के लिए auto-fork
 - कॉन्फ़िगर करने योग्य अंतराल के साथ निरंतर निगरानी
-- Repository मोड: `solve` को repository URL पास करें और सभी open issues एक ही issue में GitHub native sub-issues के रूप में संयोजित हो जाते हैं, जिन्हें एक ही pull request से बंद किया जा सकता है (`--auto-merge` तब तक इंतज़ार करता है जब तक description सूचीबद्ध हर issue को बंद न करे); खाली repository को सफल no-op बताया जाता है और Telegram work session शुरू नहीं होता
+- Repository मोड: `solve` को repository URL पास करें और सभी open issues एक ही issue में GitHub native sub-issues के रूप में संयोजित हो जाते हैं, जिन्हें एक ही pull request से बंद किया जा सकता है (`--auto-merge` तब तक इंतज़ार करता है जब तक description सूचीबद्ध हर issue को बंद न करे); ठीक एक open issue होने पर वही issue बिना संयुक्त issue के सीधे हल किया जाता है; खाली repository को सफल no-op बताया जाता है और Telegram work session शुरू नहीं होता
 
 ### 9. जहां मायने रखती है वहां मानव निगरानी
 

@@ -132,6 +132,27 @@ export function selectOldestOpenIssues(entries, { limit = MAX_SUB_ISSUES_PER_PAR
 }
 
 /**
+ * The issue to solve directly when a repository has exactly one open issue.
+ *
+ * Issue #3108: a combined issue only adds value when it groups two or more
+ * issues. With a single open issue it is a pure duplicate (a parent with one
+ * sub-issue), so repository mode solves that issue itself — exactly as if its
+ * URL had been given instead of the repository URL.
+ *
+ * @param {object} params
+ * @param {{owner: string, repo: string, url?: string}} params.repository
+ * @param {Array<{number: number, url?: string}>} params.issues - every open issue requested in one PR
+ * @returns {{number: number, url: string}|null} the issue, or null when there is not exactly one
+ */
+export function selectSingleIssueTarget({ repository, issues }) {
+  const list = Array.isArray(issues) ? issues : [];
+  if (list.length !== 1) return null;
+  const [issue] = list;
+  const repositoryUrl = repository.url || `https://github.com/${repository.owner}/${repository.repo}`;
+  return { ...issue, url: issue.url || `${repositoryUrl}/issues/${issue.number}` };
+}
+
+/**
  * Title for the combined issue.
  *
  * @param {object} params
@@ -274,6 +295,7 @@ export default {
   isPullRequestEntry,
   normalizeOpenIssueEntry,
   selectOldestOpenIssues,
+  selectSingleIssueTarget,
   buildCombinedIssueTitle,
   buildClosingKeywordBlock,
   buildCombinedIssueBody,

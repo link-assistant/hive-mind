@@ -698,6 +698,7 @@ zh
       recovered
         oom "已从内存不足中恢复"
         kill "已从强制终止中恢复"
+        count "内存不足终止次数：{{count}}"
         at "事件发生于 {{observedAt}}；工作会话继续运行并已完成。"
         resumed "已启动新的工作会话以从终止中恢复。"
       kill

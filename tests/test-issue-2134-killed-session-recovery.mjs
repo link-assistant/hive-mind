@@ -138,17 +138,28 @@ trackSession(SESSION, sessionInfo, false);
 
 const oomStatus = { exists: true, status: 'executed', exitCode: 137, oomKilled: true, isolation: 'docker', logPath: LOG_PATH };
 const bot = makeBot();
+const inRunComments = [];
 await monitorSessions(bot, false, {
   statusProvider: async () => oomStatus,
   exitFromLog: () => ({ finished: false, exitCode: null, endTime: null }),
   backendAlive: async () => true,
   dockerContainerSizeProvider: async () => null,
   readFile: async () => '',
+  // Issue #2809: the OOM event is reported on the pull request while the session runs.
+  lookupLinkedPullRequest: async () => 'https://github.com/link-assistant/hive-mind/pull/2131',
+  runCommand: async (command, args) => {
+    inRunComments.push({ command, args });
+    return { code: 0, stdout: 'https://github.com/link-assistant/hive-mind/pull/2131#issuecomment-0\n', stderr: '' };
+  },
 });
 
 assert(bot.edits.length === 0 && bot.sends.length === 0, 'no completion is announced while the container is alive (the #2134 defect)');
 assert(getActiveSessionCount(false) === 1, 'the session stays tracked after a container-level OOM event');
 assert(Boolean(sessionInfo.oomEventObservedAt), 'the monitor records the OOM event on the tracked session');
+assert(
+  inRunComments.some(entry => entry.command === 'gh' && entry.args[0] === 'pr' && entry.args[1] === 'comment'),
+  'the OOM event is reported on the pull request when it happens (issue #2134 R2, issue #2809)'
+);
 
 const recoveredBot = makeBot();
 const postedComments = [];
@@ -171,10 +182,7 @@ assert(recoveredBot.edits.length === 1, 'the surviving session is completed once
 assert(/recovered from out of memory/i.test(recoveredText), 'the completion warns that the session recovered from out of memory');
 assert(!/Work session killed/.test(recoveredText), 'a recovered session is not reported as killed');
 assert(/Kill diagnostics/.test(recoveredText), 'the completion carries the kill diagnostics section');
-assert(
-  postedComments.some(entry => entry.command === 'gh' && entry.args[0] === 'pr' && entry.args[1] === 'comment'),
-  'the same report is posted to the pull request (issue #2134 R2)'
-);
+assert(!postedComments.some(entry => entry.command === 'gh' && entry.args[0] === 'pr' && entry.args[1] === 'comment'), 'a completed session does not report the earlier OOM event on the pull request after the fact (issue #2809)');
 
 resetSessionMonitorForTests();
 

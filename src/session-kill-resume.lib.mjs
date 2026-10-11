@@ -203,6 +203,9 @@ export async function startKillRecoverySession({ sessionName, sessionInfo, plan,
         killRecoveryInPlace: inPlace.resumed,
         killRecoveryResumeMode: inPlace.mode || null,
         oomEventObservedAt: undefined,
+        // Issue #2809: the new container reports its own OOM events, and its own pull request notice.
+        oomEventNotice: undefined,
+        oomKillCount: undefined,
         dockerBackendGoneFirstSeenAt: undefined,
         // The recovery session has not been recovered itself (yet) (#2408).
         killRecoverySessionId: undefined,

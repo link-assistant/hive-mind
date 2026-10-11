@@ -33,6 +33,7 @@ import { sessionStartMs } from './session-monitor.stale-executing.lib.mjs';
 // Issue #2134: kill-cause diagnostics + the matching pull-request notice.
 import { buildKillCompletionSections, announceKillOnPullRequest, hasContainerOomEvidence, startedPullRequestUrl } from './session-monitor.kill-sections.lib.mjs';
 import { runKillRecoveryForCompletion } from './session-kill-resume.lib.mjs';
+import { announceOomEventWhileRunning } from './session-monitor.oom-notice.lib.mjs';
 // Issue #2189: the handled latch + the memoized last-tool-session-id read that keep a completed session from replaying its whole completion pipeline on every poll.
 import { isCompletionHandled, markCompletionHandled, resolveCachedLastToolSessionId } from './session-completion-state.lib.mjs';
 import { createSessionRegistryQueries } from './session-monitor.queries.lib.mjs';
@@ -704,7 +705,12 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
       }
     }
   }
-  if (stillRunning) await reportRecoveryLifecycle({ bot, sessionName, sessionInfo, statusResult, options, verbose, lookupPullRequest: () => resolvePullRequestUrlForSession(sessionInfo, { verbose, lookupLinkedPullRequest: options.lookupLinkedPullRequest, statusResult, readFile: options.readFile }), persist: () => persistSessionSnapshot(sessionName, sessionInfo), logEvent });
+  if (stillRunning) {
+    const lookupPullRequest = () => resolvePullRequestUrlForSession(sessionInfo, { verbose, lookupLinkedPullRequest: options.lookupLinkedPullRequest, statusResult, readFile: options.readFile });
+    await reportRecoveryLifecycle({ bot, sessionName, sessionInfo, statusResult, options, verbose, lookupPullRequest, persist: () => persistSessionSnapshot(sessionName, sessionInfo), logEvent });
+    // Issue #2809: an OOM event is reported on the pull request when it happens, not after the session completed.
+    await announceOomEventWhileRunning({ sessionName, sessionInfo, statusResult, options, verbose, lookupPullRequest, persist: () => persistSessionSnapshot(sessionName, sessionInfo), logEvent });
+  }
   if (shouldRefreshDockerFilesystemSize(sessionInfo, { stillRunning })) {
     observedContainerFilesystemBytes = await refreshDockerContainerFilesystemSizeForSession(sessionName, sessionInfo, {
       verbose,
@@ -959,7 +965,13 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
         resumedAs: killRecovery.resumed ? killRecovery.sessionId : null,
         recoveryCount: killRecovery.resumed ? killRecovery.attempt : null,
       });
-      if (killReport.killed || killReport.recovered || killReport.oomEventOnly) {
+      // Issue #2809: a session that completed after an OOM event gets no pull
+      // request comment here — the event was reported when it happened, and a
+      // late notice landed after "Ready to merge". An OOM-only failure is
+      // reported only when it was not already reported live or it is restarted.
+      const prKillNotice = killReport.killed || (killReport.oomEventOnly && (killRecovery.resumed || !sessionInfo?.oomEventNotice?.postedAt));
+      if (killReport.recovered && verbose) console.log(`[VERBOSE] Session ${sessionName} completed after an OOM event; reporting it on Telegram only, not on the pull request (issue #2809)`);
+      if (prKillNotice) {
         const notice = await announceKillOnPullRequest({
           pullRequestUrl,
           sessionName,
@@ -968,7 +980,6 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
           exitCode: finalExitCode,
           observedAt: killReport.observedAt,
           policy: killReport.policy,
-          recovered: killReport.recovered,
           oomEventOnly: killReport.oomEventOnly,
           deliberateStop: killReport.deliberateStop,
           resumed: killRecovery.resumed,

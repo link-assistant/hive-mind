@@ -29,6 +29,7 @@ import { safeSendMessage, safeEditMessageText } from './telegram-safe-reply.lib.
 import { buildResumeCommand, formatResumeSection } from './session-resume.lib.mjs';
 import { readLogMarkerLines, readLogTextBounded, scanLogTextChunks } from './log-bounded-read.lib.mjs';
 import { resolveFailedSessionPullRequestState } from './github-pr-state.lib.mjs';
+import { getPullRequestPrimaryIssueUrl, isIssueOwnPullRequest } from './github-linking.lib.mjs';
 import { sessionStartMs } from './session-monitor.stale-executing.lib.mjs';
 // Issue #2134: kill-cause diagnostics + the matching pull-request notice.
 import { buildKillCompletionSections, announceKillOnPullRequest, hasContainerOomEvidence, startedPullRequestUrl } from './session-monitor.kill-sections.lib.mjs';
@@ -338,22 +339,34 @@ function normalizeSessionUrl(url) {
   return url.replace(/#.*$/, '').replace(/\/+$/, '').toLowerCase();
 }
 const GITHUB_PULL_REQUEST_URL_RE = /https:\/\/github\.com\/([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)\/pull\/([0-9]+)/g;
+// Issue #2891: the lines solve prints for the pull request it created or continues
+// (`📍 PR URL:`, continue mode's `PR URL:`) and for the one it found on its own
+// branch at the end (`📍 URL:`). Any other URL in the log may be a PR the issue,
+// the prompt or the agent merely mentioned, such as a parent plan PR.
+const SOLVE_PULL_REQUEST_ANNOUNCEMENT_RE = /(?:\bPR URL:|📍 URL:)\s+https:\/\/github\.com\/([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)\/pull\/([0-9]+)/g;
 /** Marker prefix parsed by `parseDiskMarkers` (issue #1945/#1988), used to collect just those lines. */
 const DISK_MARKER_LINE_RE = /📊 \[DISK\] /;
-export function extractPullRequestUrlFromText(text, { owner = null, repo = null } = {}) {
+function matchPullRequestUrl(pattern, text, { owner = null, repo = null } = {}) {
   if (!text) return null;
   const expectedOwner = owner ? String(owner).toLowerCase() : null;
   const expectedRepo = repo ? String(repo).toLowerCase() : null;
   const value = String(text);
-  GITHUB_PULL_REQUEST_URL_RE.lastIndex = 0;
+  pattern.lastIndex = 0;
   let match;
-  while ((match = GITHUB_PULL_REQUEST_URL_RE.exec(value)) !== null) {
+  while ((match = pattern.exec(value)) !== null) {
     const [, matchOwner, matchRepo, pullNumber] = match;
     if (expectedOwner && matchOwner.toLowerCase() !== expectedOwner) continue;
     if (expectedRepo && matchRepo.toLowerCase() !== expectedRepo) continue;
     return `https://github.com/${matchOwner}/${matchRepo}/pull/${pullNumber}`;
   }
   return null;
+}
+export function extractPullRequestUrlFromText(text, options = {}) {
+  return matchPullRequestUrl(GITHUB_PULL_REQUEST_URL_RE, text, options);
+}
+/** Issue #2891: the first pull request solve itself announced in `text` (see SOLVE_PULL_REQUEST_ANNOUNCEMENT_RE). */
+export function extractAnnouncedPullRequestUrlFromText(text, options = {}) {
+  return matchPullRequestUrl(SOLVE_PULL_REQUEST_ANNOUNCEMENT_RE, text, options);
 }
 async function resolvePullRequestUrlFromSessionLog(logPath, ctx, { verbose = false, readFile = fs.readFile } = {}) {
   if (!logPath) return null;
@@ -363,9 +376,9 @@ async function resolvePullRequestUrlFromSessionLog(logPath, ctx, { verbose = fal
     // transcript pulled into the bot's own heap over and over. The chunked scan
     // still covers the whole log, one chunk at a time, and stops at the first
     // matching URL (which is printed early, when the PR is created).
-    const pullRequestUrl = await scanLogTextChunks(logPath, text => extractPullRequestUrlFromText(text, { owner: ctx.owner, repo: ctx.repo }), { readFile, verbose });
+    const pullRequestUrl = await scanLogTextChunks(logPath, text => extractAnnouncedPullRequestUrlFromText(text, { owner: ctx.owner, repo: ctx.repo }), { readFile, verbose });
     if (pullRequestUrl && verbose) {
-      console.log(`[VERBOSE] Found PR ${pullRequestUrl} in completed session log ${logPath}`);
+      console.log(`[VERBOSE] Found PR ${pullRequestUrl} announced by solve in session log ${logPath}`);
     }
     return pullRequestUrl;
   } catch (error) {
@@ -1055,9 +1068,27 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
   }
 }
 /**
- * Look up the URL of a pull request linked to the issue this session worked on.
- * Returns null when the session was already operating on a PR, the URL context
- * is missing, or no linked PR exists.
+ * Issue #2891: the linked PR that is the issue's own solution draft. GitHub links
+ * every PR whose description closes the issue, so a parent plan PR on
+ * `issue-720-…` saying "Fixes #724" comes back for #724 too, often first.
+ * @returns {string|null}
+ */
+export function selectIssueOwnPullRequest(linkedPRs, ctx, { verbose = false } = {}) {
+  for (const pr of linkedPRs || []) {
+    if (!pr?.url) continue;
+    if (isIssueOwnPullRequest(pr, ctx.number, ctx.owner, ctx.repo)) {
+      if (verbose) console.log(`[VERBOSE] Found linked PR ${pr.url} (branch ${pr.headRefName || 'unknown'}) for issue ${ctx.owner}/${ctx.repo}#${ctx.number}`);
+      return pr.url;
+    }
+    if (verbose) console.log(`[VERBOSE] Skipping linked PR ${pr.url} (branch ${pr.headRefName || 'unknown'}) for issue ${ctx.owner}/${ctx.repo}#${ctx.number}: it belongs to ${pr.primaryIssueUrl ?? getPullRequestPrimaryIssueUrl(pr, ctx.owner, ctx.repo) ?? 'no identifiable issue'}`);
+  }
+  return null;
+}
+/**
+ * Look up the URL of the pull request this session created or continued for its issue:
+ * the one solve announced in the session log, else the linked PR that belongs to
+ * the issue (issue #2891). Returns null when the session was already operating
+ * on a PR, the URL context is missing, or no such PR exists.
  *
  * Lazy-loads the GitHub batch helper so unrelated tests/imports don't pull
  * GitHub deps. Tests can override the lookup via `options.lookupLinkedPullRequest`.
@@ -1065,15 +1096,16 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
  * @param {Object} sessionInfo
  * @param {Object} [options]
  * @param {boolean} [options.verbose]
- * @param {Function} [options.lookupLinkedPullRequest] - Optional override `(ctx) => Promise<string|null>`
+ * @param {Function} [options.lookupLinkedPullRequest] - Optional override `(ctx) => Promise<string|Array<Object>|null>` (a URL, or linked PRs to filter)
  * @param {Object} [options.statusResult] - Completed start-command status payload, including logPath
  * @param {Function} [options.readFile] - Optional test override for reading session logs
  * @returns {Promise<string|null>} PR URL or null
  *
  * @see https://github.com/link-assistant/hive-mind/issues/1688
  * @see https://github.com/link-assistant/hive-mind/issues/1905
+ * @see https://github.com/link-assistant/hive-mind/issues/2891
  */
-async function resolvePullRequestUrlForSession(sessionInfo, { verbose = false, lookupLinkedPullRequest = null, statusResult = null, readFile = fs.readFile } = {}) {
+export async function resolvePullRequestUrlForSession(sessionInfo, { verbose = false, lookupLinkedPullRequest = null, statusResult = null, readFile = fs.readFile } = {}) {
   const ctx = sessionInfo?.urlContext;
   if (!ctx || ctx.type !== 'issue' || !ctx.owner || !ctx.repo || !ctx.number) {
     return null;
@@ -1085,33 +1117,32 @@ async function resolvePullRequestUrlForSession(sessionInfo, { verbose = false, l
     if (verbose) console.log(`[VERBOSE] Reusing resolved pull request ${sessionInfo.resolvedPullRequestUrl} for this session (not looked up again)`);
     return sessionInfo.resolvedPullRequestUrl;
   }
+  const logPath = statusResult?.logPath || sessionInfo?.logPath || null;
+  // Issue #2891: the PR solve created or continued is the session's own; GitHub
+  // also links a parent plan PR that says "Fixes #<this issue>", so ask the log first.
+  const announcedPullRequestUrl = await resolvePullRequestUrlFromSessionLog(logPath, ctx, { verbose, readFile });
+  if (announcedPullRequestUrl) return announcedPullRequestUrl;
+  let linkedPRs = [];
   if (typeof lookupLinkedPullRequest === 'function') {
-    const linkedPullRequestUrl = await lookupLinkedPullRequest(ctx);
-    if (linkedPullRequestUrl) return linkedPullRequestUrl;
+    // Test override: a URL is trusted as is; an array is filtered like the GitHub answer.
+    const linked = await lookupLinkedPullRequest(ctx);
+    if (typeof linked === 'string' && linked) return linked;
+    if (Array.isArray(linked)) linkedPRs = linked;
   } else {
     try {
       const { batchCheckPullRequestsForIssues } = await import('./github.lib.mjs');
       const result = await batchCheckPullRequestsForIssues(ctx.owner, ctx.repo, [ctx.number]);
-      const linkedPRs = result?.[ctx.number]?.linkedPRs || [];
-      if (linkedPRs.length > 0 && linkedPRs[0].url) {
-        if (verbose) {
-          console.log(`[VERBOSE] Found linked PR ${linkedPRs[0].url} for issue ${ctx.owner}/${ctx.repo}#${ctx.number}`);
-        }
-        return linkedPRs[0].url;
-      }
+      linkedPRs = result?.[ctx.number]?.linkedPRs || [];
     } catch (error) {
       if (verbose) {
         console.log(`[VERBOSE] batchCheckPullRequestsForIssues failed for ${ctx.owner}/${ctx.repo}#${ctx.number}: ${error?.message || error}`);
       }
     }
   }
-  const logPath = statusResult?.logPath || sessionInfo?.logPath || null;
-  const pullRequestUrlFromLog = await resolvePullRequestUrlFromSessionLog(logPath, ctx, { verbose, readFile });
-  if (pullRequestUrlFromLog) return pullRequestUrlFromLog;
-  if (verbose && logPath) {
-    console.log(`[VERBOSE] No PR URL found for issue ${ctx.owner}/${ctx.repo}#${ctx.number} in session log ${logPath}`);
-  } else if (verbose) {
-    console.log(`[VERBOSE] No session log path available for PR URL fallback for issue ${ctx.owner}/${ctx.repo}#${ctx.number}`);
+  const ownPullRequest = selectIssueOwnPullRequest(linkedPRs, ctx, { verbose });
+  if (ownPullRequest) return ownPullRequest;
+  if (verbose) {
+    console.log(`[VERBOSE] No PR of its own found for issue ${ctx.owner}/${ctx.repo}#${ctx.number}: ${logPath ? `solve announced none in session log ${logPath}` : 'no session log path'}, and none of ${linkedPRs.length} linked PR(s) belongs to the issue`);
   }
   return null;
 }

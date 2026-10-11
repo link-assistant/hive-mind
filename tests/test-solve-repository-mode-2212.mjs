@@ -260,7 +260,8 @@ test('resolve creates one combined issue and attaches every issue as a sub-issue
 });
 
 test('resolve turns on deep analysis and the sub-issue check for the generated issue', async () => {
-  const { run } = makeFakeRun([issueEntry(1)]);
+  // Two issues: a single open issue is solved directly, without a generated issue (#3108).
+  const { run } = makeFakeRun([issueEntry(1), issueEntry(2)]);
   const result = await resolveRepositoryModeTarget({ url: 'https://github.com/o/r', run, attachOptions: NO_THROTTLE });
   assert.equal(result.argvOverrides['deep-analysis'], true);
   assert.equal(result.argvOverrides.deepAnalysis, true);
@@ -287,7 +288,7 @@ test('issue #2266: resolve treats a repository with no open issues as successful
 });
 
 test('resolve reports a failure to create the combined issue', async () => {
-  const { run } = makeFakeRun([issueEntry(1)], { createFails: true });
+  const { run } = makeFakeRun([issueEntry(1), issueEntry(2)], { createFails: true });
   const result = await resolveRepositoryModeTarget({ url: 'https://github.com/o/r', run, attachOptions: NO_THROTTLE });
   assert.equal(result.handled, true);
   assert.match(result.error, /Could not create the combined issue/);

@@ -118,6 +118,149 @@ export function extractTaskRefsFromCommand(command) {
   return refs;
 }
 
+// Repository-only reference: `github.com/<owner>[/<repo>]` with no issue/PR
+// number. Quotes are excluded because session commands are shell-quoted, e.g.
+// `fix 'https://github.com/owner/repo' --ci-cd` (issue #2844).
+const GITHUB_REPO_RE = /github\.com[/:]([A-Za-z0-9][\w.-]*)(?:\/([\w.-]+?))?(?:\.git)?(?=[/\s'"#?)]|$)/gi;
+
+/**
+ * Extract the first GitHub repository (or owner-only) reference from a command
+ * line, even when it carries no issue or PR number. `fix <repo> --ci-cd` and
+ * `hive <repo> --all-issues` sessions only name the repository, so without this
+ * they produced no cleanup record at all (issue #2844).
+ *
+ * @param {string} command
+ * @returns {{owner: string, repo: string|null}|null}
+ */
+export function extractRepoRefFromCommand(command) {
+  if (!command || typeof command !== 'string') return null;
+  GITHUB_REPO_RE.lastIndex = 0;
+  const match = GITHUB_REPO_RE.exec(command);
+  if (!match) return null;
+  return { owner: match[1], repo: match[2] || null };
+}
+
+// eslint-disable-next-line no-control-regex
+const ANSI_ESCAPE_RE = /\x1b\[[0-9;]*[A-Za-z]/g;
+
+/**
+ * Recover the issues/PRs a session created at runtime from its console log.
+ * `fix` creates its issue (and then solve its PR) after start, so the command
+ * line never holds them (issue #2844). Recognised lines:
+ *   - `✅ Created issue: <url>` (fix.mjs)
+ *   - `🚀 Starting /solve: solve <url> …` (fix.mjs handing off to solve)
+ *   - `✅ PR created: #<n>` followed by `📍 PR URL: <url>` (solve.auto-pr.lib.mjs)
+ *
+ * A PR is linked to the issue most recently created/handed off in the same
+ * repository, so `fix` sessions report both.
+ *
+ * @param {string} text - session log contents
+ * @param {Object} [options]
+ * @param {{owner: string, repo: string|null}|null} [options.repoRef] - repo from the command line, used for a bare `PR created: #<n>`
+ * @returns {Array<{owner: string, repo: string, type: 'issue'|'pull', number: number, issueNumber: number|null}>}
+ */
+export function extractCreatedTaskRefsFromLog(text, options = {}) {
+  if (!text || typeof text !== 'string') return [];
+  const { repoRef = null } = options;
+  const refs = [];
+  const byKey = new Map();
+  let currentIssue = null;
+  let pendingPrNumber = null;
+
+  const add = ref => {
+    const key = `${ref.owner}/${ref.repo}#${ref.number}:${ref.type}`.toLowerCase();
+    const existing = byKey.get(key);
+    if (existing) {
+      if (existing.issueNumber == null && ref.issueNumber != null) existing.issueNumber = ref.issueNumber;
+      return;
+    }
+    byKey.set(key, ref);
+    refs.push(ref);
+  };
+  const linkedIssue = ref => (currentIssue && sameRepo(currentIssue, ref) ? currentIssue.number : null);
+  const flushPendingPr = () => {
+    if (pendingPrNumber == null) return;
+    const repo = currentIssue || (repoRef?.repo ? repoRef : null);
+    if (repo) add({ owner: repo.owner, repo: repo.repo, type: 'pull', number: pendingPrNumber, issueNumber: linkedIssue(repo) });
+    pendingPrNumber = null;
+  };
+
+  for (const rawLine of text.split('\n')) {
+    const line = rawLine.replace(ANSI_ESCAPE_RE, '');
+    const created = line.match(/Created issue:\s*(\S+)/);
+    const handoff = line.match(/Starting \/solve:\s*solve\s+(\S+)/);
+    const issueRef = parseTaskUrl(created?.[1]) || parseTaskUrl(handoff?.[1]);
+    if (issueRef) {
+      flushPendingPr();
+      if (issueRef.type === 'issue') {
+        currentIssue = issueRef;
+        add({ ...issueRef, issueNumber: issueRef.number });
+      } else {
+        add({ ...issueRef, issueNumber: null });
+      }
+      continue;
+    }
+
+    const prCreated = line.match(/PR created:\s*#(\d+)/);
+    if (prCreated) {
+      flushPendingPr();
+      pendingPrNumber = Number(prCreated[1]);
+      continue;
+    }
+
+    const prUrl = line.match(/PR URL:\s*(\S+)/);
+    const prRef = parseTaskUrl(prUrl?.[1]);
+    if (prRef && prRef.type === 'pull') {
+      if (pendingPrNumber === prRef.number) pendingPrNumber = null;
+      add({ ...prRef, issueNumber: linkedIssue(prRef) });
+    }
+  }
+  flushPendingPr();
+  return refs;
+}
+
+/**
+ * Build the cleanup task records for one start-command session. Always returns
+ * at least one record so a session's id, status, exit code and workspace are
+ * never dropped (issue #2844):
+ *   1. one record per issue/PR URL on the command line (solve <url>);
+ *   2. otherwise, one record per issue/PR recovered from the session log
+ *      (fix/hive create them at runtime);
+ *   3. otherwise, a repository-only record (`github.com/<owner>/<repo>`);
+ *   4. otherwise, a session-only record with no repository.
+ *
+ * @param {{uuid?: string|null, sessionName?: string|null, status?: string|null, exitCode?: number|null, isolation?: string|null, workingDirectory?: string|null, startTime?: string|null, command?: string|null, logPath?: string|null}} session
+ * @param {Object} [options]
+ * @param {boolean} [options.terminal=false] - whether the session has finished
+ * @param {string|null} [options.logText] - session console log, consulted only when the command has no issue/PR URL
+ * @returns {Array<Object>}
+ */
+export function buildSessionTaskRecords(session, options = {}) {
+  if (!session) return [];
+  const { terminal = false, logText = null } = options;
+  const base = {
+    branch: null,
+    sessionId: session.uuid || null,
+    sessionName: session.sessionName || null,
+    status: session.status || null,
+    exitCode: session.exitCode ?? null,
+    isolation: session.isolation || null,
+    workspace: session.workingDirectory || null,
+    terminal,
+    startTime: session.startTime || null,
+    logPath: session.logPath || null,
+  };
+
+  const commandRefs = extractTaskRefsFromCommand(session.command);
+  if (commandRefs.length > 0) return commandRefs.map(ref => ({ ...ref, ...base }));
+
+  const repoRef = extractRepoRefFromCommand(session.command);
+  const logRefs = extractCreatedTaskRefsFromLog(logText, { repoRef });
+  if (logRefs.length > 0) return logRefs.map(ref => ({ ...ref, ...base, recoveredFromLog: true }));
+
+  return [{ owner: repoRef?.owner || null, repo: repoRef?.repo || null, type: null, number: null, ...base }];
+}
+
 /**
  * Normalise an owner/repo pair extracted from a git remote URL.
  *
@@ -388,10 +531,24 @@ function compactTaskType(type) {
  * @param {{owner?: string, repo?: string, type?: string, number?: number|null, issueNumber?: number|null, branch?: string|null, sessionId?: string|null, sessionName?: string|null, status?: string|null, workspace?: string|null}} task
  * @returns {string}
  */
+function formatTaskRef(task) {
+  const repo = task.owner ? (task.repo ? `${task.owner}/${task.repo}` : task.owner) : null;
+  // Repo-only sessions (fix <repo> --ci-cd, hive <repo>) have no number (issue #2844).
+  if (!task.type && task.number == null) return repo ? `repo ${repo}` : null;
+  const number = task.number ?? task.issueNumber ?? null;
+  const ref = `${compactTaskType(task.type)} #${number ?? '?'}`;
+  const linkedIssue = task.type === 'pull' && task.issueNumber != null && task.issueNumber !== task.number ? ` (issue #${task.issueNumber})` : '';
+  return `${repo ? `${repo} ` : ''}${ref}${linkedIssue}`;
+}
+
 export function formatTaskSummary(task) {
   if (!task) return '';
-  const number = task.number ?? task.issueNumber ?? null;
-  const parts = [`${task.owner}/${task.repo} ${compactTaskType(task.type)} #${number ?? '?'}`];
+  const parts = [];
+  const ref = formatTaskRef(task);
+  if (ref) parts.push(ref);
+  // Further issues/PRs of the same session (e.g. every PR a `hive` run created).
+  const more = (task.relatedTasks || []).filter(other => other !== task && other.number != null && !sameTaskRef(other, task) && !(other.type === 'issue' && other.number === task.issueNumber && sameRepo(other, task)));
+  if (more.length > 0) parts.push(`also ${more.map(other => `${compactTaskType(other.type)} #${other.number}`).join(' ')}`);
   if (task.branch) parts.push(`branch ${task.branch}`);
   if (task.sessionId || task.sessionName) parts.push(`session ${task.sessionId || task.sessionName}`);
   if (task.status) parts.push(`status ${task.status}`);
@@ -488,14 +645,30 @@ export function parseDockerContainerExitCode(status) {
   return match ? normalizeExitCode(match[1]) : null;
 }
 
+function sameTaskRef(a, b) {
+  return a.type === b.type && a.number === b.number && sameRepo(a, b);
+}
+
+// How precisely a session task record identifies its work: PR > issue > repo > none.
+function taskSpecificity(task) {
+  if (task?.number != null) return task.type === 'pull' ? 3 : 2;
+  return task?.owner ? 1 : 0;
+}
+
 function createSessionLookup(sessionTasks) {
   const lookup = new Map();
   const merge = (key, task) => {
     if (!key) return;
     const existing = lookup.get(key) || {};
+    // A session may yield several records (e.g. the issue and the PR a `fix`
+    // run created, issue #2844); describe it by the most specific one and keep
+    // the others as relatedTasks.
+    const identity = taskSpecificity(task) > taskSpecificity(existing) ? task : existing;
     lookup.set(key, {
-      ...existing,
       ...task,
+      ...existing,
+      ...identity,
+      relatedTasks: (existing.relatedTasks || []).includes(task) ? existing.relatedTasks : [...(existing.relatedTasks || []), task],
       status: task.status || existing.status || null,
       exitCode: task.exitCode ?? existing.exitCode ?? null,
       isolation: task.isolation || existing.isolation || null,

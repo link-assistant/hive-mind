@@ -345,6 +345,8 @@ export function parseSessionListOutput(output) {
         isolation: isolationCandidate ? isolationCandidate.toLowerCase() : null,
         workingDirectory: data.workingDirectory || null,
         sessionName: data.sessionName || data.options?.sessionName || null,
+        // Issue #2844: hive-cleanup reads repo-only sessions' logs to recover the issue/PR they created.
+        logPath: data.logPath || null,
         // Additive 0.33.0 hints (link-foundation/start#164, #165); null on older `$`.
         exitReason: typeof data.exitReason === 'string' && data.exitReason.trim() ? data.exitReason.trim() : null,
         memoryExhausted: typeof data.memoryExhausted === 'boolean' ? data.memoryExhausted : null,

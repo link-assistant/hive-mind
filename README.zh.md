@@ -878,7 +878,9 @@ hive-cleanup --no-keep-active-tasks-folders --dry-run
 ```
 
 运行 `hive-cleanup --help` 查看完整的选项列表。该命令对 dry-run 友好，并为每次运行写入
-带时间戳的 `cleanup-*.log` 日志。进程诊断输出会在打印命令行前遮蔽常见 token
+带时间戳的 `cleanup-*.log` 日志，位于 `$HIVE_MIND_LOG_DIR`（默认 `~/.hive-mind/logs`，可用
+`--log-dir` 覆盖）。即使会话只指定了仓库（`fix <repo> --ci-cd`、`hive <repo>`），Docker
+隔离容器也会映射到对应会话；此类会话创建的 issue/PR 会从其控制台日志中恢复。进程诊断输出会在打印命令行前遮蔽常见 token
 格式。
 
 ## 🔍 监控与日志

@@ -1,5 +1,113 @@
 # @link-assistant/hive-mind
 
+## 2.35.7
+
+### Patch Changes
+
+- ed0e1e7: `/solve <repository-url>` on a repository with exactly one open issue now solves that issue directly, as if its URL had been given, instead of creating a combined issue whose only sub-issue is that same issue. The Telegram bot shows and launches the issue URL in that case (#3108).
+
+  Docker images install start-command 0.37.1; lino-objects-codec is 0.9.1.
+
+## 2.35.6
+
+### Patch Changes
+
+- a785441: Stop reporting successful Claude sessions as "Solution Draft Failed" when the
+  CLI does not exit after its result. The solver stops such a CLI itself after
+  30 seconds (Issue #1280), and command-stream 0.12+ reports that as an exit chunk
+  with code 143. That code was counted as a failure, and the AI's own work summary
+  was published as the error ("CLAUDE execution failed with I fixed the four…"),
+  turning a ready PR back into a draft. Both exit paths now share one rule. A tool's
+  work summary is never published as a failure reason for any tool, and the
+  SIGKILL follow-up is sent while the CLI's process group is still alive.
+
+  The post-result close timeout now follows Claude Code's background tasks. In
+  every reported run, print mode was still waiting for a CI or test waiter task
+  when the 30-second timer stopped it. While background tasks run, the solver now
+  waits up to Claude Code's own print-mode wait ceiling. It pauses the timer when
+  a finished task starts another turn, and logs which tasks it is waiting for. A
+  CLI with nothing pending is still stopped after 30 seconds.
+
+  command-stream is pinned to 2.1.0 for the dependency freshness gate.
+
+## 2.35.5
+
+### Patch Changes
+
+- ab70b10: `--auto-restart-until-mergeable` no longer spends every restart on sessions that only reword the same report of a CI blocker (#2839). The no-progress check between AI sessions now compares only the commit and the working tree, so a reworded final message no longer counts as progress. Restarts for failing CI now ask the AI to fix every failing check, including checks that already fail on the default branch, because a pull request with failing CI cannot be released. When a check needs a human action, such as a missing secret or access to a private submodule, the AI is told to make the pull request's CI pass without it and to make CI on the default branch fail with an explicit message saying what a human has to do. When a failing check also fails on the head of the base branch or on the solver's placeholder commit, the prompt includes links to those runs as evidence. The system prompts of every tool now say the same when they ask for passing CI before finishing. A new human comment also skips the no-progress check in `--watch` mode, as it already did in `--auto-restart-until-mergeable`.
+
+  Dependencies refreshed for the freshness gate: Bun 1.4.3 and start-command 0.37.0 (Docker images), prettier 3.9.10, and the use-m pins command-stream 2.0.2 and links-notation 0.25.2.
+
+## 2.35.4
+
+### Patch Changes
+
+- 37b71de: Support the obvious "latest version" alias of every model family (issue #2591): `--model astra` now resolves to the newest GPT Astra and `sol` to GPT-6.1 Sol. The aliases (`astra`/`sol`/`luna`/`terra`/`daybreak-*` for codex, `opus`/`sonnet`/`haiku`/`fable`/`mythos` and `opus-5.5`-style spellings for claude, `max`/`plus`/`flash` for qwen) are derived from model names, including those the installed Codex CLI reports, so new families need no code change. The "Available models" listings now show what each CLI currently offers instead of obsolete and `openai.`-prefixed entries (codex: 62 → 13). Gemini uses its CLI's rolling `flash`/`pro`/`auto` aliases, Qwen accepts `coder-model`, agent and opencode map premium aliases to the newest Claude and Gemini models, and opencode defaults to `big-pickle` because `grok-code` is deprecated. Set `HIVE_MIND_MODEL_DEBUG=1` (or `--verbose`) to trace how a `--model` value was resolved.
+
+## 2.35.3
+
+### Patch Changes
+
+- 3675177: Name the model that actually ran in failure comments and choose the fallback
+  from it. Claude's `system/init` and assistant `message.model` IDs are recorded
+  as the stream arrives, so a session that crashed, was killed or ended with an
+  error before its `result` event still reports `claude-opus-5-5` instead of the
+  bundled alias mapping. When no actual model is known the comment says
+  "Requested (actual model unknown — session ended before result)" instead of
+  presenting the alias mapping as the model. Retries pick the default fallback
+  from the reported model, so `claude-opus-5-5` steps down to `opus-5` instead of
+  skipping to `opus-4-8`.
+
+## 2.35.2
+
+### Patch Changes
+
+- a033296: Fix CI/CD false negatives found in issue #2923: post-publish verification now waits up to 25 minutes for npm to expose a version (2.35.1 took 874s, more than the old 330s window), treats `E409 Cannot publish over previously staged version` as already published, and keeps its registry probes quiet unless `HIVE_MIND_PUBLISH_VERBOSE=true`. The release gate now also releases a version that reached npm without a GitHub release, so its Docker images and Helm chart are produced. The E2E matrix explains why it skipped, and the agent no longer logs "recovered" for an error that still fails the run. The `--verbose` leftover-process check no longer warns about the task-owned `formal-ai serve`, which Hive Mind keeps for later sessions and stops at exit.
+
+  Dependencies refreshed for the freshness gate: start-command 0.36.0 (Docker images), lino-i18n 0.4.0, jscpd 5.4.1, and the use-m pins @dotenvx/dotenvx 2.34.2 and links-notation 0.25.1.
+
+## 2.35.1
+
+### Patch Changes
+
+- 4a562ed: Use the cheapest pricing tier by default for every tool (issue #2771): short context (Claude 200K / Haiku 5.5 100K, Codex 272K, Gemini Pro 200K, Qwen 256K) unless `--sub-session-size` explicitly asks for more, standard speed (no Fast/priority/Ultrafast) via the new `--speed` option (`--speed flex`, alias `batch`, opts into OpenAI's half-price Flex tier), plain model names instead of `[1m]`, and `opus`/`sonnet`/`haiku` aliases now map to the latest and cheapest Claude 5.5 models while all pinned versions stay supported.
+
+## 2.35.0
+
+### Minor Changes
+
+- 183d6aa: Enable dependency issue reporting by default with --update-all-dependencies, and
+  add --report-dependencies-issues for independent control. Generated dependency
+  issues and all solver tools ask for upstream reports of shared logic, duplicated
+  code, missing features and bugs requiring workarounds, while allowing local
+  workarounds to keep the pull request moving. Preserve explicit opt-outs through
+  /fix and Telegram /task issue generation and solve handoffs.
+
+  Refresh the paired Sentry SDK packages to 11.6.0 to satisfy the dependency
+  freshness gate after the new upstream release.
+
+## 2.34.3
+
+### Patch Changes
+
+- 96394c9: Report Codex process exit codes, signals, plain CLI errors, and fresh cgroup OOM evidence in failure messages. Preserve termination metadata for existing SIGKILL recovery and provide the container memory budget to Codex before execution.
+
+  Refresh the regular, DinD and Coolify Box base images to 2.10.3 to satisfy dependency freshness after its release during validation.
+
+## 2.34.2
+
+### Patch Changes
+
+- c21ccd1: Report hive runs that process no issues or leave blocked work as warnings with distinct nonzero exit codes. Keep skipped issues separate from completed work, surface discovery failures and existing PR links, and honor deprecated tool-check switches.
+
+  Keep sub-issues eligible when a parent's PR also references them, in both batch discovery and worker rechecks, including the REST fallback. Preserve parent-last dependency scheduling when including existing PRs and suggest --no-skip-issues-with-prs --auto-continue when no eligible issues remain, including translated Telegram warnings.
+
+## 2.34.1
+
+### Patch Changes
+
+- feca4bc: Preserve Claude provider errors and usage-limit reset information when an earlier tool command failed, including streams without a final newline. Prevent background-task continuation of error results and include the file utility in all task images for attachment validation.
+
 ## 2.34.0
 
 ### Minor Changes

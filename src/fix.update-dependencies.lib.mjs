@@ -26,6 +26,7 @@
  */
 
 import { KEEP_WORKING_PROMPT } from './solve.keep-working.detect.lib.mjs';
+import { REPORT_DEPENDENCIES_ISSUES_PARAGRAPH } from './report-dependencies-issues.prompts.lib.mjs';
 // `normalizeLanguages`/`buildLanguagesSection` render the same GitHub Linguist
 // payload for both `/fix` modes; they keep their original home so the existing
 // tests stay pointed at one implementation.
@@ -488,10 +489,10 @@ export function buildAutomationSection({ languages, files } = {}) {
  * from the issue body when every `/solve` option that already injects the same
  * instruction into the AI prompt is passed to `/solve`.
  */
-export const REPORT_UPSTREAM_PARAGRAPH = 'If an update is blocked by a bug in a dependency, report it on that project’s GitHub with a reproducible example, the workaround used here, and a suggested fix in code — then link the report from the work instead of silently pinning back.';
+export { REPORT_DEPENDENCIES_ISSUES_PARAGRAPH as REPORT_UPSTREAM_PARAGRAPH };
 
 /** Build the ordered, tagged paragraphs of the standard prompt. */
-export function buildStandardPromptParagraphs({ ecosystems = [] } = {}) {
+export function buildStandardPromptParagraphs({ ecosystems = [], reportDependenciesIssues = true } = {}) {
   const labels = ecosystems.length > 0 ? ecosystems.map(entry => entry.ecosystem.label).join(', ') : 'every language and package manager present in the repository';
 
   return [
@@ -527,10 +528,9 @@ export function buildStandardPromptParagraphs({ ecosystems = [] } = {}) {
       providedBy: [],
       text: 'Check the security advisories for the tree as it stands afterwards (`npm audit`, `cargo audit`, `pip-audit`, `bundle audit`, `dotnet list package --vulnerable`, or the ecosystem equivalent) and make sure the update leaves none unresolved.',
     },
-    {
-      providedBy: ['--deep-analysis'],
-      text: REPORT_UPSTREAM_PARAGRAPH,
-    },
+    // Generated issues must carry this even when deep analysis is forwarded.
+    // It also covers feature gaps and duplicated logic, not only blocking bugs.
+    ...(reportDependenciesIssues ? [{ providedBy: [], text: REPORT_DEPENDENCIES_ISSUES_PARAGRAPH }] : []),
     {
       providedBy: [],
       text: `Follow the dependency-update practices collected in [${DEPENDENCY_BEST_PRACTICES_URL}](${DEPENDENCY_BEST_PRACTICES_URL}).`,
@@ -551,9 +551,9 @@ export const UPDATE_DEPENDENCIES_FORWARDED_SOLVE_OPTIONS = Object.freeze(['--dev
  * The standard dependency-update prompt, with the paragraphs that
  * `omittedOptions` already provide removed.
  */
-export function buildStandardPrompt({ ecosystems, omittedOptions = UPDATE_DEPENDENCIES_FORWARDED_SOLVE_OPTIONS } = {}) {
+export function buildStandardPrompt({ ecosystems, omittedOptions = UPDATE_DEPENDENCIES_FORWARDED_SOLVE_OPTIONS, reportDependenciesIssues = true } = {}) {
   const omitted = new Set(omittedOptions || []);
-  return buildStandardPromptParagraphs({ ecosystems })
+  return buildStandardPromptParagraphs({ ecosystems, reportDependenciesIssues })
     .filter(paragraph => paragraph.providedBy.length === 0 || !paragraph.providedBy.every(option => omitted.has(option)))
     .map(paragraph => paragraph.text)
     .join('\n\n');
@@ -572,11 +572,11 @@ function shortSha(sha) {
  */
 export { buildLanguagesSection };
 
-export function buildUpdateDependenciesIssueBody({ repository, defaultBranch, commit, languages, files = [], filesTruncated = false, omittedOptions = UPDATE_DEPENDENCIES_FORWARDED_SOLVE_OPTIONS }) {
+export function buildUpdateDependenciesIssueBody({ repository, defaultBranch, commit, languages, files = [], filesTruncated = false, omittedOptions = UPDATE_DEPENDENCIES_FORWARDED_SOLVE_OPTIONS, reportDependenciesIssues = true }) {
   const { detected } = mapRepositoryToEcosystems({ languages, files });
   const commitLine = commit?.sha ? `\`${shortSha(commit.sha)}\`${commit.url ? ` ([commit](${commit.url}))` : ''}${commit.message ? ` — ${String(commit.message).split('\n')[0]}` : ''}` : 'unknown';
 
-  const sections = ['### Dependency ecosystems detected in this repository', '', buildEcosystemsSection({ languages, files }), '', '### Keeping them current', '', buildAutomationSection({ languages, files }), '', buildStandardPrompt({ ecosystems: detected, omittedOptions }), '', '---', '', '<details>', '<summary>Context collected by <code>/fix --update-all-dependencies</code></summary>', '', `- **Repository:** [${repository?.fullName}](${repository?.url})`, `- **Default branch:** \`${defaultBranch || 'unknown'}\``, `- **Latest commit:** ${commitLine}`, `- **Ecosystems detected:** ${detected.length}`, `- **Manifest files found:** ${detected.reduce((sum, entry) => sum + entry.manifests.length, 0)}`];
+  const sections = ['### Dependency ecosystems detected in this repository', '', buildEcosystemsSection({ languages, files }), '', '### Keeping them current', '', buildAutomationSection({ languages, files }), '', buildStandardPrompt({ ecosystems: detected, omittedOptions, reportDependenciesIssues }), '', '---', '', '<details>', '<summary>Context collected by <code>/fix --update-all-dependencies</code></summary>', '', `- **Repository:** [${repository?.fullName}](${repository?.url})`, `- **Default branch:** \`${defaultBranch || 'unknown'}\``, `- **Latest commit:** ${commitLine}`, `- **Ecosystems detected:** ${detected.length}`, `- **Manifest files found:** ${detected.reduce((sum, entry) => sum + entry.manifests.length, 0)}`];
 
   if (filesTruncated) {
     sections.push('- ⚠️ **The file listing returned by GitHub was truncated**, so the manifest inventory above may be incomplete. Re-check the repository tree by hand.');

@@ -677,6 +677,8 @@ en
         starting "🔄 Starting..."
         executing "⏳ Executing..."
         finished "Work session finished successfully"
+        hive_no_work "No issues processed; check the log for skipped issues or blockers. To continue issues with existing PRs, use `--no-skip-issues-with-prs --auto-continue`"
+        hive_incomplete "Hive session ended with issues still waiting; check the log for blockers"
         failed "Work session failed (exit code: {{exitCode}})"
         merged_but_failed "Pull request merged, but the work session exited with code: {{exitCode}}"
         merged_success "The requested pull request was merged successfully."
@@ -894,7 +896,7 @@ en
                 follow style from merged prs for code, title, and description,
                 check that no uncommitted changes corresponding to the original requirements are left behind,
                 check that the default branch is merged into the pull request branch,
-                check that all CI checks are passing if they exist before you finish,
+                check that all CI checks are passing if they exist before you finish, including checks that already fail on the default branch (when a check needs a human action, make CI on the pull request pass without it and CI on the default branch fail with an explicit message saying what to do),
                 check for latest comments on the issue and pull request to ensure no recent feedback was missed,
                 double-check that all changes in the pull request address the original requirements of the issue,
                 check for newly introduced bugs in the pull request by carefully reading gh pr diff,

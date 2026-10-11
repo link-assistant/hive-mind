@@ -1,0 +1,56 @@
+  ✅ PASS: package.json declares an engines.node floor (>=24.0.0)
+  ✅ PASS: Dockerfile: pins current Box 2.10.2 (2.10.2)
+  ✅ PASS: Dockerfile: Node.js pin is current (26.11.1)
+  ✅ PASS: Dockerfile: Bun pin matches Box 2.10.2 (1.4.2)
+  ✅ PASS: Dockerfile: pins an exact Node.js version (26.11.1)
+  ✅ PASS: Dockerfile: pins an exact Bun version (1.4.2)
+  ✅ PASS: Dockerfile: pinned Node.js 26.11.1 satisfies engines.node >= 24
+  ✅ PASS: Dockerfile: repoints the nvm default alias at the pinned version
+  ✅ PASS: Dockerfile: installs the pinned Bun version
+  ✅ PASS: Dockerfile.dind: pins current Box 2.10.2 (2.10.2)
+  ✅ PASS: Dockerfile.dind: Node.js pin is current (26.11.1)
+  ✅ PASS: Dockerfile.dind: Bun pin matches Box 2.10.2 (1.4.2)
+  ✅ PASS: Dockerfile.dind: pins an exact Node.js version (26.11.1)
+  ✅ PASS: Dockerfile.dind: pins an exact Bun version (1.4.2)
+  ✅ PASS: Dockerfile.dind: pinned Node.js 26.11.1 satisfies engines.node >= 24
+  ✅ PASS: Dockerfile.dind: repoints the nvm default alias at the pinned version
+  ✅ PASS: Dockerfile.dind: installs the pinned Bun version
+  ✅ PASS: coolify/Dockerfile: pins current Box 2.10.2 (2.10.2)
+  ✅ PASS: coolify/Dockerfile: Node.js pin is current (26.11.1)
+  ✅ PASS: coolify/Dockerfile: Bun pin matches Box 2.10.2 (1.4.2)
+  ✅ PASS: coolify/Dockerfile: pins an exact Node.js version (26.11.1)
+  ✅ PASS: coolify/Dockerfile: pins an exact Bun version (1.4.2)
+  ✅ PASS: coolify/Dockerfile: pinned Node.js 26.11.1 satisfies engines.node >= 24
+  ✅ PASS: coolify/Dockerfile: repoints the nvm default alias at the pinned version
+  ✅ PASS: coolify/Dockerfile: installs the pinned Bun version
+  ✅ PASS: Dockerfile.dind: pins the same Node.js version as Dockerfile
+  ✅ PASS: Dockerfile.dind: pins the same Bun version as Dockerfile
+  ✅ PASS: coolify/Dockerfile: pins the same Node.js version as Dockerfile
+  ✅ PASS: coolify/Dockerfile: pins the same Bun version as Dockerfile
+  ✅ PASS: Dockerfile: has a superseded-node prune loop
+  ✅ PASS: Dockerfile: prune loop keeps only v26.11.1 (kept: v26.11.1)
+  ✅ PASS: Dockerfile: prune loop is a no-op when only the pinned version is installed
+  ✅ PASS: Dockerfile.dind: has a superseded-node prune loop
+  ✅ PASS: Dockerfile.dind: prune loop keeps only v26.11.1 (kept: v26.11.1)
+  ✅ PASS: Dockerfile.dind: prune loop is a no-op when only the pinned version is installed
+  ✅ PASS: coolify/Dockerfile: has a superseded-node prune loop
+  ✅ PASS: coolify/Dockerfile: prune loop keeps only v26.11.1 (kept: v26.11.1)
+  ✅ PASS: coolify/Dockerfile: prune loop is a no-op when only the pinned version is installed
+  ✅ PASS: Dockerfile: has a global-npm-package scan
+  ✅ PASS: Dockerfile: re-installs inherited globals at their exact versions (got: @playwright/test@1.58.2 @puppeteer/browsers@2.10.10 playwright@1.58.2)
+  ✅ PASS: Dockerfile: does not re-install node's bundled npm/corepack
+  ✅ PASS: Dockerfile: collects nothing when the base has no global packages
+  ✅ PASS: Dockerfile.dind: has a global-npm-package scan
+  ✅ PASS: Dockerfile.dind: re-installs inherited globals at their exact versions (got: @playwright/test@1.58.2 @puppeteer/browsers@2.10.10 playwright@1.58.2)
+  ✅ PASS: Dockerfile.dind: does not re-install node's bundled npm/corepack
+  ✅ PASS: Dockerfile.dind: collects nothing when the base has no global packages
+  ✅ PASS: coolify/Dockerfile: has a global-npm-package scan
+  ✅ PASS: coolify/Dockerfile: re-installs inherited globals at their exact versions (got: @playwright/test@1.58.2 @puppeteer/browsers@2.10.10 playwright@1.58.2)
+  ✅ PASS: coolify/Dockerfile: does not re-install node's bundled npm/corepack
+  ✅ PASS: coolify/Dockerfile: collects nothing when the base has no global packages
+  ✅ PASS: scripts/verify-docker-image.sh MIN_NODE_MAJOR (24) matches engines.node floor (24)
+  ✅ PASS: scripts/verify-docker-image.sh counts installed Node.js versions
+
+============================================================
+Results: 52 passed, 0 failed, 52 total
+============================================================

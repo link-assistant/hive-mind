@@ -121,7 +121,7 @@ Hive Mind 具备高度创造力，与大多数（普通）程序员难以区分�
 **解决方案**：Hive Mind 支持多种 AI 后端：
 
 - **Claude**（Sonnet、Opus、Haiku）— 默认且推荐
-- **OpenCode**（Grok）— 包含免费 Grok Code Fast 模型
+- **OpenCode**（OpenCode Zen）— 包含免费 Big Pickle 模型
 - **Codex**（OpenAI）— 适用于 OpenAI API 用户
 - **Agent** — 自定义 AI agent 框架
 
@@ -136,7 +136,7 @@ Hive Mind 具备高度创造力，与大多数（普通）程序员难以区分�
 - 按标签过滤或处理所有 Issue
 - 对无写入权限的仓库自动 fork
 - 以可配置的间隔持续监控
-- 仓库模式：将仓库 URL 传给 `solve`，即可把所有开放 Issue 合并为一个带 GitHub 原生子 Issue 的 Issue，并用单个 Pull Request 一次性关闭它们（`--auto-merge` 会等到描述关闭了列出的每一个 Issue）；空仓库会被报告为成功的无操作结果，不会启动 Telegram 工作会话
+- 仓库模式：将仓库 URL 传给 `solve`，即可把所有开放 Issue 合并为一个带 GitHub 原生子 Issue 的 Issue，并用单个 Pull Request 一次性关闭它们（`--auto-merge` 会等到描述关闭了列出的每一个 Issue）；仓库中只有一个开放 Issue 时，直接解决该 Issue，不创建合并 Issue；空仓库会被报告为成功的无操作结果，不会启动 Telegram 工作会话
 
 ### 9. 关键节点的人工监督
 

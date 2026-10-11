@@ -1,0 +1,42 @@
+[
+  {
+    "conclusion": "success",
+    "createdAt": "2026-10-08T09:08:39Z",
+    "databaseId": 37754600406,
+    "event": "workflow_dispatch",
+    "headSha": "ed3cd5091af3e28a26344ceca518dbcaca1f63db",
+    "name": "Workflows",
+    "status": "completed",
+    "url": "https://github.com/link-assistant/hive-mind/actions/runs/37754600406"
+  },
+  {
+    "conclusion": "success",
+    "createdAt": "2026-10-08T09:06:49Z",
+    "databaseId": 37754386800,
+    "event": "pull_request",
+    "headSha": "ed3cd5091af3e28a26344ceca518dbcaca1f63db",
+    "name": "Broken Link Checker",
+    "status": "completed",
+    "url": "https://github.com/link-assistant/hive-mind/actions/runs/37754386800"
+  },
+  {
+    "conclusion": "success",
+    "createdAt": "2026-10-08T09:06:49Z",
+    "databaseId": 37754386831,
+    "event": "pull_request",
+    "headSha": "ed3cd5091af3e28a26344ceca518dbcaca1f63db",
+    "name": "Security",
+    "status": "completed",
+    "url": "https://github.com/link-assistant/hive-mind/actions/runs/37754386831"
+  },
+  {
+    "conclusion": "success",
+    "createdAt": "2026-10-08T09:06:49Z",
+    "databaseId": 37754387105,
+    "event": "pull_request",
+    "headSha": "ed3cd5091af3e28a26344ceca518dbcaca1f63db",
+    "name": "Checks and release",
+    "status": "completed",
+    "url": "https://github.com/link-assistant/hive-mind/actions/runs/37754387105"
+  }
+]

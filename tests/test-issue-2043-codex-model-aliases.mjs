@@ -16,10 +16,12 @@ const assertValidCodexModel = (input, expected) => {
   assert.equal(validation.mappedModel, expected);
 };
 
+// Issue #2591: each alias follows its own family's newest generation. GPT-6 ships
+// Sol and Luna but no Terra, so only `terra` stays on GPT-5.6.
 const generationAliases = {
-  sol: 'gpt-5.6-sol',
+  sol: 'gpt-6.1-sol',
   terra: 'gpt-5.6-terra',
-  luna: 'gpt-5.6-luna',
+  luna: 'gpt-6-luna',
 };
 
 for (const [alias, modelId] of Object.entries(generationAliases)) {
@@ -53,6 +55,9 @@ assert.deepEqual(
     luna: 'gpt-5.7-luna',
   }
 );
+
+// A generation that ships only part of the family moves only those aliases (issue #2591).
+assert.deepEqual(getLatestCodexGenerationAliases({ 'gpt-5.6-sol': 'gpt-5.6-sol', 'gpt-5.6-terra': 'gpt-5.6-terra', 'gpt-6-sol': 'gpt-6-sol' }), { sol: 'gpt-6-sol', terra: 'gpt-5.6-terra' });
 
 const validModels = getValidModelsForTool('codex');
 for (const alias of Object.keys(generationAliases)) {

@@ -5,6 +5,7 @@
 
 import { getArchitectureCareSubPrompt } from './architecture-care.prompts.lib.mjs';
 import { getUpdateAllDependenciesSubPrompt } from './update-dependencies.prompts.lib.mjs';
+import { getReportDependenciesIssuesSubPrompt } from './report-dependencies-issues.prompts.lib.mjs';
 import { getExperimentsExamplesSubPrompt } from './experiments-examples.prompts.lib.mjs';
 import { getThinkingPromptInstruction } from './thinking-prompt.lib.mjs';
 import { buildWorkLanguageDirective } from './work-language.prompts.lib.mjs';
@@ -198,7 +199,7 @@ Preparing pull request.
       follow style from merged prs for code, title, and description,
       check that no uncommitted changes corresponding to the original requirements are left behind,
       check that the default branch is merged into the pull request branch,
-      check that all CI checks are passing if they exist before you finish,
+      check that all CI checks are passing if they exist before you finish, including checks that already fail on the default branch (when a check needs a human action, make CI on the pull request pass without it and CI on the default branch fail with an explicit message saying what to do),
       check for latest comments on the issue and pull request to ensure no recent feedback was missed,
       double-check that all changes in the pull request address the original requirements of the issue,
       check for newly introduced bugs in the pull request by carefully reading gh pr diff,
@@ -271,7 +272,7 @@ Visual UI work and screenshots.
    - When the fix is visual, include side-by-side or sequential comparison of before/after states in the PR description.
    - When possible, create automated visual regression tests to prevent the UI bug from recurring.`
        : ''
-   }${ciExamples}${getArchitectureCareSubPrompt(argv)}${getUpdateAllDependenciesSubPrompt(argv)}${buildWorkLanguageDirective()}`;
+   }${ciExamples}${getArchitectureCareSubPrompt(argv)}${getUpdateAllDependenciesSubPrompt(argv)}${getReportDependenciesIssuesSubPrompt(argv)}${buildWorkLanguageDirective()}`;
 };
 
 // Export all functions as default object too

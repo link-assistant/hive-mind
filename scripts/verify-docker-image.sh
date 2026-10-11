@@ -154,6 +154,7 @@ check_tool "Clang++"   clang++   --version
 check_tool "CMake"     cmake     --version
 check_tool "Deno"      deno      --version
 check_tool "Elan"      elan      --version
+check_tool "File"      file      --version
 check_tool "G++"       g++       --version
 check_tool "GCC"       gcc       --version
 check_tool "Git"       git       --version

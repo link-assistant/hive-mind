@@ -1,0 +1,61 @@
+✔ usage-limit result takes precedence over exit 127 ({"newline":true}) (121.10012ms)
+✔ usage-limit result takes precedence over exit 127 ({"newline":false}) (12.278827ms)
+✔ usage-limit result takes precedence over exit 127 ({"newline":false,"split":true}) (12.67714ms)
+✔ explicit provider errors keep their diagnostics (newline=true) (11.693264ms)
+✔ temporary 429 still resumes the session (newline=true) (21.874077ms)
+✔ failed terminal verification still overrides genuine success (newline=true) (6.674553ms)
+✔ provider execution and disk errors survive an earlier tool failure (newline=true) (5.172318ms)
+✔ a machine-readable usage limit needs no English wording (newline=true) (10.880067ms)
+✖ a usage limit overrides an earlier transient error (newline=true) (23.334712ms)
+✔ explicit provider errors keep their diagnostics (newline=false) (6.012256ms)
+✔ temporary 429 still resumes the session (newline=false) (11.936508ms)
+✔ failed terminal verification still overrides genuine success (newline=false) (4.439663ms)
+✔ provider execution and disk errors survive an earlier tool failure (newline=false) (4.129194ms)
+✔ a machine-readable usage limit needs no English wording (newline=false) (4.793402ms)
+✖ a usage limit overrides an earlier transient error (newline=false) (12.485251ms)
+✔ a nonzero CLI exit takes precedence over an earlier tool failure (5.399784ms)
+✔ an error result cannot trigger background-task continuation (0.34871ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 15
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 294.192836
+
+✖ failing tests:
+
+test at tests/claude-result-error-precedence-2687.test.mjs:143:3
+✖ a usage limit overrides an earlier transient error (newline=true) (23.334712ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791424462533/tests/claude-result-error-precedence-2687.test.mjs:146:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/claude-result-error-precedence-2687.test.mjs:143:3
+✖ a usage limit overrides an earlier transient error (newline=false) (12.485251ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791424462533/tests/claude-result-error-precedence-2687.test.mjs:146:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

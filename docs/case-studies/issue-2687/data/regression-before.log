@@ -1,0 +1,147 @@
+✖ usage-limit result takes precedence over exit 127 ({"newline":true}) (70.220662ms)
+✖ usage-limit result takes precedence over exit 127 ({"newline":false}) (8.840102ms)
+✖ usage-limit result takes precedence over exit 127 ({"newline":false,"split":true}) (5.850814ms)
+✖ explicit provider errors keep their diagnostics (newline=true) (9.154179ms)
+✔ temporary 429 still resumes the session (newline=true) (19.131672ms)
+✔ failed terminal verification still overrides genuine success (newline=true) (11.857179ms)
+✖ explicit provider errors keep their diagnostics (newline=false) (9.297736ms)
+✖ temporary 429 still resumes the session (newline=false) (11.601703ms)
+✔ failed terminal verification still overrides genuine success (newline=false) (8.229973ms)
+✖ an error result cannot trigger background-task continuation (1.160615ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 3
+ℹ fail 7
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 173.128945
+
+✖ failing tests:
+
+test at tests/claude-result-error-precedence-2687.test.mjs:89:3
+✖ usage-limit result takes precedence over exit 127 ({"newline":true}) (70.220662ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791424462533/tests/claude-result-error-precedence-2687.test.mjs:92:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/claude-result-error-precedence-2687.test.mjs:89:3
+✖ usage-limit result takes precedence over exit 127 ({"newline":false}) (8.840102ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791424462533/tests/claude-result-error-precedence-2687.test.mjs:92:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/claude-result-error-precedence-2687.test.mjs:89:3
+✖ usage-limit result takes precedence over exit 127 ({"newline":false,"split":true}) (5.850814ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791424462533/tests/claude-result-error-precedence-2687.test.mjs:92:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/claude-result-error-precedence-2687.test.mjs:103:3
+✖ explicit provider errors keep their diagnostics (newline=true) (9.154179ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'Final tool result failed: Exit code 127 59d1112a Initial commit with task details /bin/bash: line 1: file: command not found'
+  - 'API Error: 400 invalid_request_error: invalid request'
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791424462533/tests/claude-result-error-precedence-2687.test.mjs:107:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'Final tool result failed: Exit code 127 59d1112a Initial commit with task details /bin/bash: line 1: file: command not found',
+    expected: 'API Error: 400 invalid_request_error: invalid request',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/claude-result-error-precedence-2687.test.mjs:103:3
+✖ explicit provider errors keep their diagnostics (newline=false) (9.297736ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'Final tool result failed: Exit code 127 59d1112a Initial commit with task details /bin/bash: line 1: file: command not found'
+  - 'API Error: 400 invalid_request_error: invalid request'
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791424462533/tests/claude-result-error-precedence-2687.test.mjs:107:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'Final tool result failed: Exit code 127 59d1112a Initial commit with task details /bin/bash: line 1: file: command not found',
+    expected: 'API Error: 400 invalid_request_error: invalid request',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/claude-result-error-precedence-2687.test.mjs:110:3
+✖ temporary 429 still resumes the session (newline=false) (11.601703ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791424462533/tests/claude-result-error-precedence-2687.test.mjs:112:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/claude-result-error-precedence-2687.test.mjs:124:1
+✖ an error result cannot trigger background-task continuation (1.160615ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791424462533/tests/claude-result-error-precedence-2687.test.mjs:126:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

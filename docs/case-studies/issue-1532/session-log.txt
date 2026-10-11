@@ -724,7 +724,7 @@ gh: HTTP 400
 [stdout-guard]   status: 200,
 
 [2026-04-06T12:56:33.507Z] [INFO] [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1775469600',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.13',
@@ -810,7 +810,7 @@ gh: HTTP 400
 [2026-04-06T12:56:33.516Z] [INFO] [stdout-guard]   'request-id': 'req_011CZn6xP1AJ1PTsTNWQXTXP',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-04-06T12:56:33.516Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-06T12:56:33.516Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 
 [2026-04-06T12:56:33.517Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '1364',

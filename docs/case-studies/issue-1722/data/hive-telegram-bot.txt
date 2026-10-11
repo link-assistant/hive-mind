@@ -813,7 +813,7 @@ Press Ctrl+C to stop
 [VERBOSE] /limits fetching Codex usage from API...
 [VERBOSE] /limits Codex API request: GET https://chatgpt.com/backend-api/wham/usage
 [VERBOSE] /limits Codex auth mode: chatgpt
-[VERBOSE] /limits Codex account id: e9c72023-174b-4cfd-8374-963550c2ef98
+[VERBOSE] /limits Codex account id: [REDACTED]
 [VERBOSE] /limits Codex plan type: pro
 [VERBOSE] /limits Codex API request headers: {
   "Accept": "application/json",
@@ -823,7 +823,7 @@ Press Ctrl+C to stop
 [VERBOSE] /limits disk space: 63914MB free of 98122MB total (65% free)
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "684cb0ba-85b8-4b30-a841-e92fb92cc97f",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "9f3c57cffc8fdc84-FRA",
   "connection": "keep-alive",
@@ -990,7 +990,7 @@ Press Ctrl+C to stop
 [VERBOSE] /limits Codex API response body: {
   "user_id": "user-L0EEWb2lWzu0Zzy528cP54Wc",
   "account_id": "user-L0EEWb2lWzu0Zzy528cP54Wc",
-  "email": "deep.assistant.team@proton.me",
+  "email": "[REDACTED]",
   "plan_type": "pro",
   "rate_limit": {
     "allowed": true,
@@ -1544,7 +1544,7 @@ Session 462af2c6-6ccf-4223-ad93-e1a08732e248 has finished. Sending notification 
 [VERBOSE] /limits fetching Codex usage from API...
 [VERBOSE] /limits Codex API request: GET https://chatgpt.com/backend-api/wham/usage
 [VERBOSE] /limits Codex auth mode: chatgpt
-[VERBOSE] /limits Codex account id: e9c72023-174b-4cfd-8374-963550c2ef98
+[VERBOSE] /limits Codex account id: [REDACTED]
 [VERBOSE] /limits Codex plan type: pro
 [VERBOSE] /limits Codex API request headers: {
   "Accept": "application/json",
@@ -1553,7 +1553,7 @@ Session 462af2c6-6ccf-4223-ad93-e1a08732e248 has finished. Sending notification 
 }
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "684cb0ba-85b8-4b30-a841-e92fb92cc97f",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "9f3ca46e8a24dc50-FRA",
   "connection": "keep-alive",
@@ -1720,7 +1720,7 @@ Session 462af2c6-6ccf-4223-ad93-e1a08732e248 has finished. Sending notification 
 [VERBOSE] /limits Codex API response body: {
   "user_id": "user-L0EEWb2lWzu0Zzy528cP54Wc",
   "account_id": "user-L0EEWb2lWzu0Zzy528cP54Wc",
-  "email": "deep.assistant.team@proton.me",
+  "email": "[REDACTED]",
   "plan_type": "pro",
   "rate_limit": {
     "allowed": true,
@@ -1920,7 +1920,7 @@ link-foundation/box
 }
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "684cb0ba-85b8-4b30-a841-e92fb92cc97f",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "9f3cbe90febd696a-FRA",
   "connection": "keep-alive",
@@ -2531,7 +2531,7 @@ ideav/crm
 [VERBOSE] /limits fetching Codex usage from API...
 [VERBOSE] /limits Codex API request: GET https://chatgpt.com/backend-api/wham/usage
 [VERBOSE] /limits Codex auth mode: chatgpt
-[VERBOSE] /limits Codex account id: e9c72023-174b-4cfd-8374-963550c2ef98
+[VERBOSE] /limits Codex account id: [REDACTED]
 [VERBOSE] /limits Codex plan type: pro
 [VERBOSE] /limits Codex API request headers: {
   "Accept": "application/json",
@@ -2562,7 +2562,7 @@ ideav/crm
 [VERBOSE] /limits Codex API response body: {
   "user_id": "user-L0EEWb2lWzu0Zzy528cP54Wc",
   "account_id": "user-L0EEWb2lWzu0Zzy528cP54Wc",
-  "email": "deep.assistant.team@proton.me",
+  "email": "[REDACTED]",
   "plan_type": "pro",
   "rate_limit": {
     "allowed": true,
@@ -2935,7 +2935,7 @@ link-assistant/hive-mind
 }
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "684cb0ba-85b8-4b30-a841-e92fb92cc97f",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "9f3cf64a09ea361d-FRA",
   "connection": "keep-alive",
@@ -3814,7 +3814,7 @@ xlabtg/teleton-agent
 }
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "684cb0ba-85b8-4b30-a841-e92fb92cc97f",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "9f3d2ee2aedc9ee5-CDG",
   "connection": "keep-alive",
@@ -4088,7 +4088,7 @@ $ solve https://github.com/xlabtg/teleton-agent/issues/460 --model opus --tool c
 [VERBOSE] /limits fetching Codex usage from API...
 [VERBOSE] /limits Codex API request: GET https://chatgpt.com/backend-api/wham/usage
 [VERBOSE] /limits Codex auth mode: chatgpt
-[VERBOSE] /limits Codex account id: e9c72023-174b-4cfd-8374-963550c2ef98
+[VERBOSE] /limits Codex account id: [REDACTED]
 [VERBOSE] /limits Codex plan type: pro
 [VERBOSE] /limits Codex API request headers: {
   "Accept": "application/json",
@@ -4119,7 +4119,7 @@ $ solve https://github.com/xlabtg/teleton-agent/issues/460 --model opus --tool c
 [VERBOSE] /limits Codex API response body: {
   "user_id": "user-L0EEWb2lWzu0Zzy528cP54Wc",
   "account_id": "user-L0EEWb2lWzu0Zzy528cP54Wc",
-  "email": "deep.assistant.team@proton.me",
+  "email": "[REDACTED]",
   "plan_type": "pro",
   "rate_limit": {
     "allowed": true,
@@ -5011,7 +5011,7 @@ link-assistant/hive-mind
 }
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "684cb0ba-85b8-4b30-a841-e92fb92cc97f",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "9f3d40e10fe0dbbb-FRA",
   "connection": "keep-alive",
@@ -5612,7 +5612,7 @@ xlabtg/teleton-agent
 }
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "684cb0ba-85b8-4b30-a841-e92fb92cc97f",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "9f3d50a8ad1c8fd6-FRA",
   "connection": "keep-alive",
@@ -6607,7 +6607,7 @@ maksmoroz91/poly_buy
 }
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "684cb0ba-85b8-4b30-a841-e92fb92cc97f",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "9f3d63016838e7ba-FRA",
   "connection": "keep-alive",
@@ -8422,7 +8422,7 @@ xlabtg/anti-corruption
 }
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "684cb0ba-85b8-4b30-a841-e92fb92cc97f",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "9f3d7a195d23dcca-FRA",
   "connection": "keep-alive",
@@ -10996,7 +10996,7 @@ xlabtg/teleton-agent
 }
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "684cb0ba-85b8-4b30-a841-e92fb92cc97f",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "9f3d88ffef289f57-FRA",
   "connection": "keep-alive",
@@ -13312,7 +13312,7 @@ ideav/crm
 [VERBOSE] /limits fetching Codex usage from API...
 [VERBOSE] /limits Codex API request: GET https://chatgpt.com/backend-api/wham/usage
 [VERBOSE] /limits Codex auth mode: chatgpt
-[VERBOSE] /limits Codex account id: e9c72023-174b-4cfd-8374-963550c2ef98
+[VERBOSE] /limits Codex account id: [REDACTED]
 [VERBOSE] /limits Codex plan type: pro
 [VERBOSE] /limits Codex API request headers: {
   "Accept": "application/json",
@@ -13343,7 +13343,7 @@ ideav/crm
 [VERBOSE] /limits Codex API response body: {
   "user_id": "user-L0EEWb2lWzu0Zzy528cP54Wc",
   "account_id": "user-L0EEWb2lWzu0Zzy528cP54Wc",
-  "email": "deep.assistant.team@proton.me",
+  "email": "[REDACTED]",
   "plan_type": "pro",
   "rate_limit": {
     "allowed": true,
@@ -13831,7 +13831,7 @@ link-foundation/rust-web-box
 }
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "684cb0ba-85b8-4b30-a841-e92fb92cc97f",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "9f3d9befddeed217-FRA",
   "connection": "keep-alive",
@@ -16949,7 +16949,7 @@ xlabtg/anti-corruption
 }
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "684cb0ba-85b8-4b30-a841-e92fb92cc97f",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "9f3daab6af941c32-FRA",
   "connection": "keep-alive",
@@ -17623,7 +17623,7 @@ $ solve https://github.com/xlabtg/anti-corruption/issues/11 --model opus --tool 
 [VERBOSE] /limits fetching Codex usage from API...
 [VERBOSE] /limits Codex API request: GET https://chatgpt.com/backend-api/wham/usage
 [VERBOSE] /limits Codex auth mode: chatgpt
-[VERBOSE] /limits Codex account id: e9c72023-174b-4cfd-8374-963550c2ef98
+[VERBOSE] /limits Codex account id: [REDACTED]
 [VERBOSE] /limits Codex plan type: pro
 [VERBOSE] /limits Codex API request headers: {
   "Accept": "application/json",
@@ -17654,7 +17654,7 @@ $ solve https://github.com/xlabtg/anti-corruption/issues/11 --model opus --tool 
 [VERBOSE] /limits Codex API response body: {
   "user_id": "user-L0EEWb2lWzu0Zzy528cP54Wc",
   "account_id": "user-L0EEWb2lWzu0Zzy528cP54Wc",
-  "email": "deep.assistant.team@proton.me",
+  "email": "[REDACTED]",
   "plan_type": "pro",
   "rate_limit": {
     "allowed": true,
@@ -22395,7 +22395,7 @@ xlabtg/teleton-agent
 }
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "684cb0ba-85b8-4b30-a841-e92fb92cc97f",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "9f3dc4aecd3a45e1-FRA",
   "connection": "keep-alive",
@@ -23811,7 +23811,7 @@ ideav/crm
 }
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "684cb0ba-85b8-4b30-a841-e92fb92cc97f",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "9f3ddb280b43b7cb-FRA",
   "connection": "keep-alive",
@@ -24130,7 +24130,7 @@ ideav/crm
 [VERBOSE] /limits fetching Codex usage from API...
 [VERBOSE] /limits Codex API request: GET https://chatgpt.com/backend-api/wham/usage
 [VERBOSE] /limits Codex auth mode: chatgpt
-[VERBOSE] /limits Codex account id: e9c72023-174b-4cfd-8374-963550c2ef98
+[VERBOSE] /limits Codex account id: [REDACTED]
 [VERBOSE] /limits Codex plan type: pro
 [VERBOSE] /limits Codex API request headers: {
   "Accept": "application/json",
@@ -24161,7 +24161,7 @@ ideav/crm
 [VERBOSE] /limits Codex API response body: {
   "user_id": "user-L0EEWb2lWzu0Zzy528cP54Wc",
   "account_id": "user-L0EEWb2lWzu0Zzy528cP54Wc",
-  "email": "deep.assistant.team@proton.me",
+  "email": "[REDACTED]",
   "plan_type": "pro",
   "rate_limit": {
     "allowed": true,
@@ -25934,7 +25934,7 @@ ideav/crm
 }
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "684cb0ba-85b8-4b30-a841-e92fb92cc97f",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "9f3dea0d8d314d37-FRA",
   "connection": "keep-alive",
@@ -26041,7 +26041,7 @@ ideav/crm
 [VERBOSE] /limits fetching Codex usage from API...
 [VERBOSE] /limits Codex API request: GET https://chatgpt.com/backend-api/wham/usage
 [VERBOSE] /limits Codex auth mode: chatgpt
-[VERBOSE] /limits Codex account id: e9c72023-174b-4cfd-8374-963550c2ef98
+[VERBOSE] /limits Codex account id: [REDACTED]
 [VERBOSE] /limits Codex plan type: pro
 [VERBOSE] /limits Codex API request headers: {
   "Accept": "application/json",
@@ -26072,7 +26072,7 @@ ideav/crm
 [VERBOSE] /limits Codex API response body: {
   "user_id": "user-L0EEWb2lWzu0Zzy528cP54Wc",
   "account_id": "user-L0EEWb2lWzu0Zzy528cP54Wc",
-  "email": "deep.assistant.team@proton.me",
+  "email": "[REDACTED]",
   "plan_type": "pro",
   "rate_limit": {
     "allowed": true,
@@ -27395,7 +27395,7 @@ konard/test-task-1
 }
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "684cb0ba-85b8-4b30-a841-e92fb92cc97f",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "9f3df8e5f94af9c1-FRA",
   "connection": "keep-alive",
@@ -27500,7 +27500,7 @@ konard/test-task-1
 [VERBOSE] /limits fetching Codex usage from API...
 [VERBOSE] /limits Codex API request: GET https://chatgpt.com/backend-api/wham/usage
 [VERBOSE] /limits Codex auth mode: chatgpt
-[VERBOSE] /limits Codex account id: e9c72023-174b-4cfd-8374-963550c2ef98
+[VERBOSE] /limits Codex account id: [REDACTED]
 [VERBOSE] /limits Codex plan type: pro
 [VERBOSE] /limits Codex API request headers: {
   "Accept": "application/json",
@@ -27531,7 +27531,7 @@ konard/test-task-1
 [VERBOSE] /limits Codex API response body: {
   "user_id": "user-L0EEWb2lWzu0Zzy528cP54Wc",
   "account_id": "user-L0EEWb2lWzu0Zzy528cP54Wc",
-  "email": "deep.assistant.team@proton.me",
+  "email": "[REDACTED]",
   "plan_type": "pro",
   "rate_limit": {
     "allowed": true,
@@ -29114,7 +29114,7 @@ $ solve https://github.com/maksmoroz91/poly_buy/issues/11 --model opus --tool cl
 }
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "684cb0ba-85b8-4b30-a841-e92fb92cc97f",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "9f3e07e28cd14f95-FRA",
   "connection": "keep-alive",
@@ -29385,7 +29385,7 @@ $ solve https://github.com/ideav/crm/issues/2243 --attach-logs --verbose --no-to
 [VERBOSE] /limits fetching Codex usage from API...
 [VERBOSE] /limits Codex API request: GET https://chatgpt.com/backend-api/wham/usage
 [VERBOSE] /limits Codex auth mode: chatgpt
-[VERBOSE] /limits Codex account id: e9c72023-174b-4cfd-8374-963550c2ef98
+[VERBOSE] /limits Codex account id: [REDACTED]
 [VERBOSE] /limits Codex plan type: pro
 [VERBOSE] /limits Codex API request headers: {
   "Accept": "application/json",
@@ -29416,7 +29416,7 @@ $ solve https://github.com/ideav/crm/issues/2243 --attach-logs --verbose --no-to
 [VERBOSE] /limits Codex API response body: {
   "user_id": "user-L0EEWb2lWzu0Zzy528cP54Wc",
   "account_id": "user-L0EEWb2lWzu0Zzy528cP54Wc",
-  "email": "deep.assistant.team@proton.me",
+  "email": "[REDACTED]",
   "plan_type": "pro",
   "rate_limit": {
     "allowed": true,

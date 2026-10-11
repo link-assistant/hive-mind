@@ -128,7 +128,7 @@ Press Ctrl+C to stop
 [VERBOSE] /limits fetching Codex usage from API...
 [VERBOSE] /limits Codex API request: GET https://chatgpt.com/backend-api/wham/usage
 [VERBOSE] /limits Codex auth mode: chatgpt
-[VERBOSE] /limits Codex account id: cc6b62fa-3ade-4ff4-a541-66f6963a14b5
+[VERBOSE] /limits Codex account id: [REDACTED]
 [VERBOSE] /limits Codex plan type: pro
 [VERBOSE] /limits Codex API request headers: {
   "Accept": "application/json",
@@ -232,7 +232,7 @@ Press Ctrl+C to stop
 [VERBOSE] /limits GitHub API: 4964/5000 remaining (99% available)
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "a15a10aeaea7dc6e-FRA",
   "connection": "keep-alive",
@@ -351,7 +351,7 @@ Press Ctrl+C to stop
     "created_at": "2026-05-14T14:12:18.724271Z"
   },
   "organization": {
-    "uuid": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "uuid": "[REDACTED]",
     "name": "link.assistant.team@proton.me's Organization",
     "organization_type": "claude_max",
     "billing_type": "stripe_subscription",
@@ -1107,7 +1107,7 @@ $ gate='/tmp/hive-mind-disk-baseline-e139e25e-7d09-4cca-ae86-2ef774f0a903'; i=0;
 [VERBOSE] /limits fetching Codex usage from API...
 [VERBOSE] /limits Codex API request: GET https://chatgpt.com/backend-api/wham/usage
 [VERBOSE] /limits Codex auth mode: chatgpt
-[VERBOSE] /limits Codex account id: cc6b62fa-3ade-4ff4-a541-66f6963a14b5
+[VERBOSE] /limits Codex account id: [REDACTED]
 [VERBOSE] /limits Codex plan type: pro
 [VERBOSE] /limits Codex API request headers: {
   "Accept": "application/json",
@@ -1125,7 +1125,7 @@ $ gate='/tmp/hive-mind-disk-baseline-e139e25e-7d09-4cca-ae86-2ef774f0a903'; i=0;
     "created_at": "2026-05-14T14:12:18.724271Z"
   },
   "organization": {
-    "uuid": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "uuid": "[REDACTED]",
     "name": "link.assistant.team@proton.me's Organization",
     "organization_type": "claude_max",
     "billing_type": "stripe_subscription",
@@ -1244,7 +1244,7 @@ $ gate='/tmp/hive-mind-disk-baseline-e139e25e-7d09-4cca-ae86-2ef774f0a903'; i=0;
 [VERBOSE] /limits GitHub API: 4954/5000 remaining (99% available)
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "a15a28f3e8fdd22e-FRA",
   "connection": "keep-alive",
@@ -4424,7 +4424,7 @@ issue-1-17113a10fe0c
 }
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "a15aade1ef988ed3-FRA",
   "connection": "keep-alive",
@@ -4669,7 +4669,7 @@ issue-1-17113a10fe0c
 [VERBOSE] /limits fetching Codex usage from API...
 [VERBOSE] /limits Codex API request: GET https://chatgpt.com/backend-api/wham/usage
 [VERBOSE] /limits Codex auth mode: chatgpt
-[VERBOSE] /limits Codex account id: cc6b62fa-3ade-4ff4-a541-66f6963a14b5
+[VERBOSE] /limits Codex account id: [REDACTED]
 [VERBOSE] /limits Codex plan type: pro
 [VERBOSE] /limits Codex API request headers: {
   "Accept": "application/json",
@@ -10961,7 +10961,7 @@ issue-1-17113a10fe0c
 }
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "a15aeba32bd4d34c-FRA",
   "connection": "keep-alive",
@@ -12040,7 +12040,7 @@ issue-1-17113a10fe0c
 }
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "a15aff9d0c73ae5f-FRA",
   "connection": "keep-alive",
@@ -15958,7 +15958,7 @@ issue-1-17113a10fe0c
 }
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "a15b3920ba11dbfe-FRA",
   "connection": "keep-alive",
@@ -16454,7 +16454,7 @@ issue-1-17113a10fe0c
 [VERBOSE] /limits fetching Codex usage from API...
 [VERBOSE] /limits Codex API request: GET https://chatgpt.com/backend-api/wham/usage
 [VERBOSE] /limits Codex auth mode: chatgpt
-[VERBOSE] /limits Codex account id: cc6b62fa-3ade-4ff4-a541-66f6963a14b5
+[VERBOSE] /limits Codex account id: [REDACTED]
 [VERBOSE] /limits Codex plan type: pro
 [VERBOSE] /limits Codex API request headers: {
   "Accept": "application/json",
@@ -17955,7 +17955,7 @@ $ gate='/tmp/hive-mind-disk-baseline-d0f39843-6fc8-4260-8202-c57ea91efa07'; i=0;
 [VERBOSE] /limits fetching Codex usage from API...
 [VERBOSE] /limits Codex API request: GET https://chatgpt.com/backend-api/wham/usage
 [VERBOSE] /limits Codex auth mode: chatgpt
-[VERBOSE] /limits Codex account id: cc6b62fa-3ade-4ff4-a541-66f6963a14b5
+[VERBOSE] /limits Codex account id: [REDACTED]
 [VERBOSE] /limits Codex plan type: pro
 [VERBOSE] /limits Codex API request headers: {
   "Accept": "application/json",
@@ -17973,7 +17973,7 @@ $ gate='/tmp/hive-mind-disk-baseline-d0f39843-6fc8-4260-8202-c57ea91efa07'; i=0;
     "created_at": "2026-05-14T14:12:18.724271Z"
   },
   "organization": {
-    "uuid": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "uuid": "[REDACTED]",
     "name": "link.assistant.team@proton.me's Organization",
     "organization_type": "claude_max",
     "billing_type": "stripe_subscription",
@@ -17997,7 +17997,7 @@ $ gate='/tmp/hive-mind-disk-baseline-d0f39843-6fc8-4260-8202-c57ea91efa07'; i=0;
 }
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "a15b5416ddca9223-FRA",
   "connection": "keep-alive",
@@ -21932,7 +21932,7 @@ issue-1-17113a10fe0c
 }
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "a15bd4941b8fb669-FRA",
   "connection": "keep-alive",
@@ -23337,7 +23337,7 @@ issue-1-17113a10fe0c
 }
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "a15bee2f4dc4db0c-FRA",
   "connection": "keep-alive",
@@ -24020,7 +24020,7 @@ issue-1-17113a10fe0c
 [VERBOSE] /limits fetching Codex usage from API...
 [VERBOSE] /limits Codex API request: GET https://chatgpt.com/backend-api/wham/usage
 [VERBOSE] /limits Codex auth mode: chatgpt
-[VERBOSE] /limits Codex account id: cc6b62fa-3ade-4ff4-a541-66f6963a14b5
+[VERBOSE] /limits Codex account id: [REDACTED]
 [VERBOSE] /limits Codex plan type: pro
 [VERBOSE] /limits Codex API request headers: {
   "Accept": "application/json",
@@ -24457,7 +24457,7 @@ $ gate='/tmp/hive-mind-disk-baseline-bef4a6db-8782-41f7-b54f-c8023c49f8ef'; i=0;
     "created_at": "2026-05-14T14:12:18.724271Z"
   },
   "organization": {
-    "uuid": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "uuid": "[REDACTED]",
     "name": "link.assistant.team@proton.me's Organization",
     "organization_type": "claude_max",
     "billing_type": "stripe_subscription",
@@ -26113,7 +26113,7 @@ issue-1-17113a10fe0c
 }
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "a15c2899e9331f99-FRA",
   "connection": "keep-alive",
@@ -26589,7 +26589,7 @@ issue-1-17113a10fe0c
 [VERBOSE] /limits fetching Codex usage from API...
 [VERBOSE] /limits Codex API request: GET https://chatgpt.com/backend-api/wham/usage
 [VERBOSE] /limits Codex auth mode: chatgpt
-[VERBOSE] /limits Codex account id: cc6b62fa-3ade-4ff4-a541-66f6963a14b5
+[VERBOSE] /limits Codex account id: [REDACTED]
 [VERBOSE] /limits Codex plan type: pro
 [VERBOSE] /limits Codex API request headers: {
   "Accept": "application/json",
@@ -28713,7 +28713,7 @@ $ gate='/tmp/hive-mind-disk-baseline-5e75c5e2-3f5c-4e3e-a079-a1afcd491b34'; i=0;
     "created_at": "2026-05-14T14:12:18.724271Z"
   },
   "organization": {
-    "uuid": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "uuid": "[REDACTED]",
     "name": "link.assistant.team@proton.me's Organization",
     "organization_type": "claude_max",
     "billing_type": "stripe_subscription",
@@ -35221,7 +35221,7 @@ G-Ivan-A/hybrid-Intelligence-lab
 }
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "a15c4285893318c9-FRA",
   "connection": "keep-alive",
@@ -36543,7 +36543,7 @@ leaderstat/wb-part2
 [VERBOSE] /limits fetching Codex usage from API...
 [VERBOSE] /limits Codex API request: GET https://chatgpt.com/backend-api/wham/usage
 [VERBOSE] /limits Codex auth mode: chatgpt
-[VERBOSE] /limits Codex account id: cc6b62fa-3ade-4ff4-a541-66f6963a14b5
+[VERBOSE] /limits Codex account id: [REDACTED]
 [VERBOSE] /limits Codex plan type: pro
 [VERBOSE] /limits Codex API request headers: {
   "Accept": "application/json",
@@ -47756,7 +47756,7 @@ Session eb980acd-927d-411b-9cab-1bbbf6a68fd0 has finished. Sending notification 
 }
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "a15c561f1de4367a-FRA",
   "connection": "keep-alive",
@@ -49181,7 +49181,7 @@ Session eb980acd-927d-411b-9cab-1bbbf6a68fd0 has finished. Sending notification 
 [VERBOSE] /limits fetching Codex usage from API...
 [VERBOSE] /limits Codex API request: GET https://chatgpt.com/backend-api/wham/usage
 [VERBOSE] /limits Codex auth mode: chatgpt
-[VERBOSE] /limits Codex account id: cc6b62fa-3ade-4ff4-a541-66f6963a14b5
+[VERBOSE] /limits Codex account id: [REDACTED]
 [VERBOSE] /limits Codex plan type: pro
 [VERBOSE] /limits Codex API request headers: {
   "Accept": "application/json",
@@ -53567,7 +53567,7 @@ G-Ivan-A/hybrid-Intelligence-lab
 }
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "a15c70624fd18f3f-FRA",
   "connection": "keep-alive",
@@ -54273,7 +54273,7 @@ issue-1-17113a10fe0c
 [VERBOSE] /limits fetching Codex usage from API...
 [VERBOSE] /limits Codex API request: GET https://chatgpt.com/backend-api/wham/usage
 [VERBOSE] /limits Codex auth mode: chatgpt
-[VERBOSE] /limits Codex account id: cc6b62fa-3ade-4ff4-a541-66f6963a14b5
+[VERBOSE] /limits Codex account id: [REDACTED]
 [VERBOSE] /limits Codex plan type: pro
 [VERBOSE] /limits Codex API request headers: {
   "Accept": "application/json",
@@ -55601,7 +55601,7 @@ G-Ivan-A/hybrid-Intelligence-lab
 }
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "a15ca4885f3237fc-FRA",
   "connection": "keep-alive",
@@ -56434,7 +56434,7 @@ issue-1-17113a10fe0c
 }
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "a15cbc9c6d3c1d8c-FRA",
   "connection": "keep-alive",
@@ -57223,7 +57223,7 @@ G-Ivan-A/hybrid-Intelligence-lab
 [VERBOSE] /limits fetching Codex usage from API...
 [VERBOSE] /limits Codex API request: GET https://chatgpt.com/backend-api/wham/usage
 [VERBOSE] /limits Codex auth mode: chatgpt
-[VERBOSE] /limits Codex account id: cc6b62fa-3ade-4ff4-a541-66f6963a14b5
+[VERBOSE] /limits Codex account id: [REDACTED]
 [VERBOSE] /limits Codex plan type: pro
 [VERBOSE] /limits Codex API request headers: {
   "Accept": "application/json",
@@ -59610,7 +59610,7 @@ issue-1-17113a10fe0c
 }
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "a15d20ceebd4d2bb-FRA",
   "connection": "keep-alive",
@@ -61321,7 +61321,7 @@ issue-1-17113a10fe0c
 }
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "a15d7330fe24dbaf-FRA",
   "connection": "keep-alive",
@@ -61871,7 +61871,7 @@ create/new-user-profile
 [VERBOSE] /limits fetching Codex usage from API...
 [VERBOSE] /limits Codex API request: GET https://chatgpt.com/backend-api/wham/usage
 [VERBOSE] /limits Codex auth mode: chatgpt
-[VERBOSE] /limits Codex account id: cc6b62fa-3ade-4ff4-a541-66f6963a14b5
+[VERBOSE] /limits Codex account id: [REDACTED]
 [VERBOSE] /limits Codex plan type: pro
 [VERBOSE] /limits Codex API request headers: {
   "Accept": "application/json",
@@ -62856,7 +62856,7 @@ issue-1-17113a10fe0c
 }
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "a15da89c68d41da2-FRA",
   "connection": "keep-alive",
@@ -63781,7 +63781,7 @@ issue-187-8f972f8c7754
 }
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "a15dcdf8c9b271b3-FRA",
   "connection": "keep-alive",
@@ -63999,7 +63999,7 @@ $ gate='/tmp/hive-mind-disk-baseline-2600d69d-adbc-45aa-87b9-e37266e23751'; i=0;
 [VERBOSE] /limits fetching Codex usage from API...
 [VERBOSE] /limits Codex API request: GET https://chatgpt.com/backend-api/wham/usage
 [VERBOSE] /limits Codex auth mode: chatgpt
-[VERBOSE] /limits Codex account id: cc6b62fa-3ade-4ff4-a541-66f6963a14b5
+[VERBOSE] /limits Codex account id: [REDACTED]
 [VERBOSE] /limits Codex plan type: pro
 [VERBOSE] /limits Codex API request headers: {
   "Accept": "application/json",
@@ -64112,7 +64112,7 @@ $ gate='/tmp/hive-mind-disk-baseline-2600d69d-adbc-45aa-87b9-e37266e23751'; i=0;
     "created_at": "2026-05-14T14:12:18.724271Z"
   },
   "organization": {
-    "uuid": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "uuid": "[REDACTED]",
     "name": "link.assistant.team@proton.me's Organization",
     "organization_type": "claude_max",
     "billing_type": "stripe_subscription",
@@ -65838,7 +65838,7 @@ G-Ivan-A/hybrid-Intelligence-lab
 [VERBOSE] /limits fetching Codex usage from API...
 [VERBOSE] /limits Codex API request: GET https://chatgpt.com/backend-api/wham/usage
 [VERBOSE] /limits Codex auth mode: chatgpt
-[VERBOSE] /limits Codex account id: cc6b62fa-3ade-4ff4-a541-66f6963a14b5
+[VERBOSE] /limits Codex account id: [REDACTED]
 [VERBOSE] /limits Codex plan type: pro
 [VERBOSE] /limits Codex API request headers: {
   "Accept": "application/json",
@@ -67272,7 +67272,7 @@ link-assistant/formal-ai
 [VERBOSE] /limits subscription: GET https://api.anthropic.com/api/oauth/profile
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "a15def5abe2589d8-FRA",
   "connection": "keep-alive",
@@ -67391,7 +67391,7 @@ link-assistant/formal-ai
     "created_at": "2026-05-14T14:12:18.724271Z"
   },
   "organization": {
-    "uuid": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "uuid": "[REDACTED]",
     "name": "link.assistant.team@proton.me's Organization",
     "organization_type": "claude_max",
     "billing_type": "stripe_subscription",
@@ -70118,7 +70118,7 @@ link-assistant/formal-ai
 [VERBOSE] /limits fetching Codex usage from API...
 [VERBOSE] /limits Codex API request: GET https://chatgpt.com/backend-api/wham/usage
 [VERBOSE] /limits Codex auth mode: chatgpt
-[VERBOSE] /limits Codex account id: cc6b62fa-3ade-4ff4-a541-66f6963a14b5
+[VERBOSE] /limits Codex account id: [REDACTED]
 [VERBOSE] /limits Codex plan type: pro
 [VERBOSE] /limits Codex API request headers: {
   "Accept": "application/json",
@@ -74406,7 +74406,7 @@ $ gate='/tmp/hive-mind-disk-baseline-40819a91-9f87-42f2-8639-4e9b69e48ce6'; i=0;
 [VERBOSE] isolation-runner: docker writable layer size for '40819a91-9f87-42f2-8639-4e9b69e48ce6': 53248 bytes
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "a15e03d689d435ec-FRA",
   "connection": "keep-alive",
@@ -77483,7 +77483,7 @@ $ gate='/tmp/hive-mind-disk-baseline-c90701a5-144d-4911-bc80-f50afa9904d5'; i=0;
 [VERBOSE] /limits fetching Codex usage from API...
 [VERBOSE] /limits Codex API request: GET https://chatgpt.com/backend-api/wham/usage
 [VERBOSE] /limits Codex auth mode: chatgpt
-[VERBOSE] /limits Codex account id: cc6b62fa-3ade-4ff4-a541-66f6963a14b5
+[VERBOSE] /limits Codex account id: [REDACTED]
 [VERBOSE] /limits Codex plan type: pro
 [VERBOSE] /limits Codex API request headers: {
   "Accept": "application/json",
@@ -81340,7 +81340,7 @@ G-Ivan-A/hybrid-Intelligence-lab
 [VERBOSE] /limits fetching Codex usage from API...
 [VERBOSE] /limits Codex API request: GET https://chatgpt.com/backend-api/wham/usage
 [VERBOSE] /limits Codex auth mode: chatgpt
-[VERBOSE] /limits Codex account id: cc6b62fa-3ade-4ff4-a541-66f6963a14b5
+[VERBOSE] /limits Codex account id: [REDACTED]
 [VERBOSE] /limits Codex plan type: pro
 [VERBOSE] /limits Codex API request headers: {
   "Accept": "application/json",
@@ -81690,7 +81690,7 @@ G-Ivan-A/hybrid-Intelligence-lab
 [VERBOSE] Checking 5 active session(s)...
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "a15e283bf850d127-CDG",
   "connection": "keep-alive",
@@ -89133,7 +89133,7 @@ Session 55e69aaf-9a9d-428a-a229-841d2c2cc62e has finished. Sending notification 
 [VERBOSE] /limits fetching Codex usage from API...
 [VERBOSE] /limits Codex API request: GET https://chatgpt.com/backend-api/wham/usage
 [VERBOSE] /limits Codex auth mode: chatgpt
-[VERBOSE] /limits Codex account id: cc6b62fa-3ade-4ff4-a541-66f6963a14b5
+[VERBOSE] /limits Codex account id: [REDACTED]
 [VERBOSE] /limits Codex plan type: pro
 [VERBOSE] /limits Codex API request headers: {
   "Accept": "application/json",
@@ -89556,7 +89556,7 @@ Session 55e69aaf-9a9d-428a-a229-841d2c2cc62e has finished. Sending notification 
 [VERBOSE] /limits subscription: GET https://api.anthropic.com/api/oauth/profile
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "a15e3ba37caa9217-FRA",
   "connection": "keep-alive",
@@ -89675,7 +89675,7 @@ Session 55e69aaf-9a9d-428a-a229-841d2c2cc62e has finished. Sending notification 
     "created_at": "2026-05-14T14:12:18.724271Z"
   },
   "organization": {
-    "uuid": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "uuid": "[REDACTED]",
     "name": "link.assistant.team@proton.me's Organization",
     "organization_type": "claude_max",
     "billing_type": "stripe_subscription",
@@ -94967,7 +94967,7 @@ leaderstat/wb-part2
 2026-07-04T13:01:13.182Z INFO  EVENT heartbeat {"pid":994,"activeSessions":4,"uptimeSec":44965,"resources":{"phase":"bot_heartbeat","timestamp":"2026-07-04T13:01:13.181Z","cpu":{"load1":0.51,"load5":1.24,"load15":2.71,"cpuCount":6},"memory":{"totalBytes":12541485056,"availableBytes":10230448128,"usedBytes":2311036928,"processRssBytes":81100800},"disk":{"path":"/","totalBytes":102888095744,"availableBytes":49014231040,"usedBytes":53857087488,"usedPercent":52.34530496317473,"error":null}}}
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "a15e513d9813bb5f-FRA",
   "connection": "keep-alive",
@@ -97146,7 +97146,7 @@ Session 1a2eb1eb-bb6a-499e-acc1-9a48f47658f7 has finished. Sending notification 
 [VERBOSE] /limits fetching Codex usage from API...
 [VERBOSE] /limits Codex API request: GET https://chatgpt.com/backend-api/wham/usage
 [VERBOSE] /limits Codex auth mode: chatgpt
-[VERBOSE] /limits Codex account id: cc6b62fa-3ade-4ff4-a541-66f6963a14b5
+[VERBOSE] /limits Codex account id: [REDACTED]
 [VERBOSE] /limits Codex plan type: pro
 [VERBOSE] /limits Codex API request headers: {
   "Accept": "application/json",
@@ -97259,7 +97259,7 @@ Session 1a2eb1eb-bb6a-499e-acc1-9a48f47658f7 has finished. Sending notification 
     "created_at": "2026-05-14T14:12:18.724271Z"
   },
   "organization": {
-    "uuid": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "uuid": "[REDACTED]",
     "name": "link.assistant.team@proton.me's Organization",
     "organization_type": "claude_max",
     "billing_type": "stripe_subscription",
@@ -97283,7 +97283,7 @@ Session 1a2eb1eb-bb6a-499e-acc1-9a48f47658f7 has finished. Sending notification 
 }
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "a15e73639ad1a02b-FRA",
   "connection": "keep-alive",
@@ -103628,7 +103628,7 @@ G-Ivan-A/hybrid-Intelligence-lab
 }
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "a15e93cc7d5bd25e-FRA",
   "connection": "keep-alive",
@@ -104430,7 +104430,7 @@ G-Ivan-A/hybrid-Intelligence-lab
 }
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "a15ea7e7cd1f33e8-FRA",
   "connection": "keep-alive",
@@ -105885,7 +105885,7 @@ issue-1-17113a10fe0c
 [VERBOSE] /limits fetching Codex usage from API...
 [VERBOSE] /limits Codex API request: GET https://chatgpt.com/backend-api/wham/usage
 [VERBOSE] /limits Codex auth mode: chatgpt
-[VERBOSE] /limits Codex account id: cc6b62fa-3ade-4ff4-a541-66f6963a14b5
+[VERBOSE] /limits Codex account id: [REDACTED]
 [VERBOSE] /limits Codex plan type: pro
 [VERBOSE] /limits Codex API request headers: {
   "Accept": "application/json",
@@ -106569,7 +106569,7 @@ issue-1-17113a10fe0c
     "created_at": "2026-05-14T14:12:18.724271Z"
   },
   "organization": {
-    "uuid": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "uuid": "[REDACTED]",
     "name": "link.assistant.team@proton.me's Organization",
     "organization_type": "claude_max",
     "billing_type": "stripe_subscription",
@@ -106593,7 +106593,7 @@ issue-1-17113a10fe0c
 }
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "a15ecc951e14372d-FRA",
   "connection": "keep-alive",
@@ -110967,7 +110967,7 @@ leaderstat/wb-part2
 [VERBOSE] /limits fetching Codex usage from API...
 [VERBOSE] /limits Codex API request: GET https://chatgpt.com/backend-api/wham/usage
 [VERBOSE] /limits Codex auth mode: chatgpt
-[VERBOSE] /limits Codex account id: cc6b62fa-3ade-4ff4-a541-66f6963a14b5
+[VERBOSE] /limits Codex account id: [REDACTED]
 [VERBOSE] /limits Codex plan type: pro
 [VERBOSE] /limits Codex API request headers: {
   "Accept": "application/json",
@@ -110977,7 +110977,7 @@ leaderstat/wb-part2
 [VERBOSE] /limits fetching Codex usage from API...
 [VERBOSE] /limits Codex API request: GET https://chatgpt.com/backend-api/wham/usage
 [VERBOSE] /limits Codex auth mode: chatgpt
-[VERBOSE] /limits Codex account id: cc6b62fa-3ade-4ff4-a541-66f6963a14b5
+[VERBOSE] /limits Codex account id: [REDACTED]
 [VERBOSE] /limits Codex plan type: pro
 [VERBOSE] /limits Codex API request headers: {
   "Accept": "application/json",
@@ -111714,7 +111714,7 @@ leaderstat/wb-part2
   "command": "gate='/t
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "a15ee598a885d27e-FRA",
   "connection": "keep-alive",
@@ -127232,7 +127232,7 @@ Failed to send completion notification for 32e413f9-83a2-41af-95f0-7e876226d4e3:
 }
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "a15ef8c73dcae864-FRA",
   "connection": "keep-alive",
@@ -127415,7 +127415,7 @@ Failed to send completion notification for 32e413f9-83a2-41af-95f0-7e876226d4e3:
 [VERBOSE] /limits fetching Codex usage from API...
 [VERBOSE] /limits Codex API request: GET https://chatgpt.com/backend-api/wham/usage
 [VERBOSE] /limits Codex auth mode: chatgpt
-[VERBOSE] /limits Codex account id: cc6b62fa-3ade-4ff4-a541-66f6963a14b5
+[VERBOSE] /limits Codex account id: [REDACTED]
 [VERBOSE] /limits Codex plan type: pro
 [VERBOSE] /limits Codex API request headers: {
   "Accept": "application/json",
@@ -135149,7 +135149,7 @@ Failed to send completion notification for 32e413f9-83a2-41af-95f0-7e876226d4e3:
 }
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "a15f0c083bdadbd7-FRA",
   "connection": "keep-alive",
@@ -135332,7 +135332,7 @@ Failed to send completion notification for 32e413f9-83a2-41af-95f0-7e876226d4e3:
 [VERBOSE] /limits fetching Codex usage from API...
 [VERBOSE] /limits Codex API request: GET https://chatgpt.com/backend-api/wham/usage
 [VERBOSE] /limits Codex auth mode: chatgpt
-[VERBOSE] /limits Codex account id: cc6b62fa-3ade-4ff4-a541-66f6963a14b5
+[VERBOSE] /limits Codex account id: [REDACTED]
 [VERBOSE] /limits Codex plan type: pro
 [VERBOSE] /limits Codex API request headers: {
   "Accept": "application/json",
@@ -143162,7 +143162,7 @@ Session 68f2aeeb-9778-4a6a-bf87-5ebb478e48f4 has finished. Sending notification 
 }
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "a15f20078c24f8b2-FRA",
   "connection": "keep-alive",
@@ -143347,7 +143347,7 @@ Session 68f2aeeb-9778-4a6a-bf87-5ebb478e48f4 has finished. Sending notification 
 [VERBOSE] /limits fetching Codex usage from API...
 [VERBOSE] /limits Codex API request: GET https://chatgpt.com/backend-api/wham/usage
 [VERBOSE] /limits Codex auth mode: chatgpt
-[VERBOSE] /limits Codex account id: cc6b62fa-3ade-4ff4-a541-66f6963a14b5
+[VERBOSE] /limits Codex account id: [REDACTED]
 [VERBOSE] /limits Codex plan type: pro
 [VERBOSE] /limits Codex API request headers: {
   "Accept": "application/json",
@@ -150434,7 +150434,7 @@ leaderstat/wb-part2
 }
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "a15f33bf1972dc86-FRA",
   "connection": "keep-alive",
@@ -150605,7 +150605,7 @@ leaderstat/wb-part2
 [VERBOSE] /limits fetching Codex usage from API...
 [VERBOSE] /limits Codex API request: GET https://chatgpt.com/backend-api/wham/usage
 [VERBOSE] /limits Codex auth mode: chatgpt
-[VERBOSE] /limits Codex account id: cc6b62fa-3ade-4ff4-a541-66f6963a14b5
+[VERBOSE] /limits Codex account id: [REDACTED]
 [VERBOSE] /limits Codex plan type: pro
 [VERBOSE] /limits Codex API request headers: {
   "Accept": "application/json",
@@ -153557,7 +153557,7 @@ leaderstat/wb-part2
     "created_at": "2026-05-14T14:12:18.724271Z"
   },
   "organization": {
-    "uuid": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "uuid": "[REDACTED]",
     "name": "link.assistant.team@proton.me's Organization",
     "organization_type": "claude_max",
     "billing_type": "stripe_subscription",
@@ -157848,7 +157848,7 @@ leaderstat/wb-part2
 }
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "a15f4789af34be51-FRA",
   "connection": "keep-alive",
@@ -158019,7 +158019,7 @@ leaderstat/wb-part2
 [VERBOSE] /limits fetching Codex usage from API...
 [VERBOSE] /limits Codex API request: GET https://chatgpt.com/backend-api/wham/usage
 [VERBOSE] /limits Codex auth mode: chatgpt
-[VERBOSE] /limits Codex account id: cc6b62fa-3ade-4ff4-a541-66f6963a14b5
+[VERBOSE] /limits Codex account id: [REDACTED]
 [VERBOSE] /limits Codex plan type: pro
 [VERBOSE] /limits Codex API request headers: {
   "Accept": "application/json",
@@ -165869,7 +165869,7 @@ MiheevN/Test_NET_Assembly_Link
 }
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "a15f5bc5e94f92a1-FRA",
   "connection": "keep-alive",
@@ -166040,7 +166040,7 @@ MiheevN/Test_NET_Assembly_Link
 [VERBOSE] /limits fetching Codex usage from API...
 [VERBOSE] /limits Codex API request: GET https://chatgpt.com/backend-api/wham/usage
 [VERBOSE] /limits Codex auth mode: chatgpt
-[VERBOSE] /limits Codex account id: cc6b62fa-3ade-4ff4-a541-66f6963a14b5
+[VERBOSE] /limits Codex account id: [REDACTED]
 [VERBOSE] /limits Codex plan type: pro
 [VERBOSE] /limits Codex API request headers: {
   "Accept": "application/json",
@@ -173781,7 +173781,7 @@ create/adapter-node
 }
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "a15f6f009e434d68-FRA",
   "connection": "keep-alive",
@@ -173952,7 +173952,7 @@ create/adapter-node
 [VERBOSE] /limits fetching Codex usage from API...
 [VERBOSE] /limits Codex API request: GET https://chatgpt.com/backend-api/wham/usage
 [VERBOSE] /limits Codex auth mode: chatgpt
-[VERBOSE] /limits Codex account id: cc6b62fa-3ade-4ff4-a541-66f6963a14b5
+[VERBOSE] /limits Codex account id: [REDACTED]
 [VERBOSE] /limits Codex plan type: pro
 [VERBOSE] /limits Codex API request headers: {
   "Accept": "application/json",
@@ -181998,7 +181998,7 @@ create/adapter-node
 [VERBOSE] /limits fetching Codex usage from API...
 [VERBOSE] /limits Codex API request: GET https://chatgpt.com/backend-api/wham/usage
 [VERBOSE] /limits Codex auth mode: chatgpt
-[VERBOSE] /limits Codex account id: cc6b62fa-3ade-4ff4-a541-66f6963a14b5
+[VERBOSE] /limits Codex account id: [REDACTED]
 [VERBOSE] /limits Codex plan type: pro
 [VERBOSE] /limits Codex API request headers: {
   "Accept": "application/json",
@@ -190645,7 +190645,7 @@ eg0rmaffin/asahi-fedora-setup
 [VERBOSE] /limits fetching Codex usage from API...
 [VERBOSE] /limits Codex API request: GET https://chatgpt.com/backend-api/wham/usage
 [VERBOSE] /limits Codex auth mode: chatgpt
-[VERBOSE] /limits Codex account id: cc6b62fa-3ade-4ff4-a541-66f6963a14b5
+[VERBOSE] /limits Codex account id: [REDACTED]
 [VERBOSE] /limits Codex plan type: pro
 [VERBOSE] /limits Codex API request headers: {
   "Accept": "application/json",
@@ -199366,7 +199366,7 @@ eg0rmaffin/asahi-fedora-setup
 [VERBOSE] /limits fetching Codex usage from API...
 [VERBOSE] /limits Codex API request: GET https://chatgpt.com/backend-api/wham/usage
 [VERBOSE] /limits Codex auth mode: chatgpt
-[VERBOSE] /limits Codex account id: cc6b62fa-3ade-4ff4-a541-66f6963a14b5
+[VERBOSE] /limits Codex account id: [REDACTED]
 [VERBOSE] /limits Codex plan type: pro
 [VERBOSE] /limits Codex API request headers: {
   "Accept": "application/json",

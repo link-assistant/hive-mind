@@ -422,6 +422,16 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Claude Code subagent/agent-team model override. Sets CLAUDE_CODE_SUBAGENT_MODEL only when provided. Accepts Claude model aliases, full model IDs, or "inherit" to use normal Claude Code subagent model resolution. Only works with --tool claude.',
     default: undefined,
   },
+  'codex-debug': {
+    type: 'boolean',
+    description: 'Run Codex with RUST_LOG=debug (SDK/OTEL tracing). Not implied by --verbose: the tracing is very large and stamps account identifiers (redacted before publication) on every line. Only affects --tool codex.',
+    default: false,
+  },
+  'anthropic-debug': {
+    type: 'boolean',
+    description: 'Run Claude with ANTHROPIC_LOG=debug (Anthropic SDK request/response tracing). Not implied by --verbose: the tracing is very large and dumps organization/workspace headers (redacted before publication) on every request. Only affects --tool claude.',
+    default: false,
+  },
   'show-thinking-content': {
     type: 'boolean',
     description: 'Show thinking content in Claude responses. Opus 4.7+ omits thinking content by default (applies to Opus 4.8 and Opus 5 as well); this option opts in to receive summarized thinking blocks. Disabled by default. Only affects --tool claude.',

@@ -8,7 +8,7 @@ url.https://link-assistant-router/git/.insteadof=https://github.com/
 http.https://link-assistant-router/.sslcainfo=/etc/hive-mind-router-ca.pem
 http.https://link-assistant-router/.extraheader=Authorization: Bearer la_sk_REDACTED
 user.name=probe
-user.email=probe@example.com
+user.email=[REDACTED]
 
 == 3. clone through the router ==
 Cloning into '/tmp/repo'...

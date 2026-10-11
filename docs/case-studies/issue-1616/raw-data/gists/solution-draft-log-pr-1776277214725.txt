@@ -1712,7 +1712,7 @@ playwright: npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --t
 [2026-04-15T18:20:12.774Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-04-15T18:20:12.774Z] [INFO] [stdout-guard]   status: 429,
 [2026-04-15T18:20:12.774Z] [INFO] [stdout-guard]   headers: {
-[2026-04-15T18:20:12.774Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-15T18:20:12.774Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-15T18:20:12.774Z] [INFO]
 [2026-04-15T18:20:12.775Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776276000',
 [2026-04-15T18:20:12.775Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
@@ -1773,7 +1773,7 @@ playwright: npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --t
 [2026-04-15T18:20:12.825Z] [INFO]
 [2026-04-15T18:20:12.825Z] [INFO] [stdout-guard]   status: 429,
 [2026-04-15T18:20:12.825Z] [INFO] [stdout-guard]   headers: {
-[2026-04-15T18:20:12.825Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-04-15T18:20:12.825Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [2026-04-15T18:20:12.825Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1776276000',
 [2026-04-15T18:20:12.825Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-04-15T18:20:12.825Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.0',

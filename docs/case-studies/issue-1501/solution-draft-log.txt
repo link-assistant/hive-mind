@@ -645,7 +645,7 @@ Visual UI work and screenshots.
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
 
-[2026-03-30T08:05:05.949Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:05:05.949Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.19',
@@ -708,7 +708,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYvE9d7wR2CWpdaPG51m',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '1313',
 
@@ -1032,7 +1032,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.19',
@@ -1096,7 +1096,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'request-id': 'req_011CZYvEYaFQdujRR1f5N6w8',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T08:05:13.007Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:05:13.007Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 
 [2026-03-30T08:05:13.007Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '3048',
@@ -1413,7 +1413,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.19',
@@ -1477,7 +1477,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYvF16Bo68gxpaCi3zZP',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '1377',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -1654,7 +1654,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.19',
@@ -1711,7 +1711,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYvFqn87kJibqzQCgLJa',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '1135',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -1899,7 +1899,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.19',
@@ -1958,7 +1958,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'request-id': 'req_011CZYvG3ZnyQBwUur3ejhpH',
 
 [2026-03-30T08:05:31.066Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '715',
 
@@ -2406,7 +2406,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.19',
@@ -2462,7 +2462,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYvGGfLSYTuU9zHXLz3f',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '1964',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -2903,7 +2903,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.19',
@@ -2972,7 +2972,7 @@ Visual UI work and screenshots.
 
 [2026-03-30T08:05:38.171Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T08:05:38.171Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:05:38.171Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '760',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -3488,7 +3488,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.19',
@@ -3555,7 +3555,7 @@ Visual UI work and screenshots.
 [2026-03-30T08:05:41.270Z] [INFO] [stdout-guard]   'request-id': 'req_011CZYvGoLotCHhKiVDkjsPo',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T08:05:41.270Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:05:41.270Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:05:41.270Z] [INFO] [stdout-guard]   server: 'cloudflare',
 
@@ -3921,7 +3921,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.19',
@@ -3986,7 +3986,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYvGysKWuLYbAhBLhCKq',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:05:43.839Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '789',
@@ -4164,7 +4164,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages/count_tokens?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'cf-cache-status': 'DYNAMIC',
 [stdout-guard]     'cf-ray': '9e459c6bcf64bb4d-FRA',
 [stdout-guard]     connection: 'keep-alive',
@@ -4356,7 +4356,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.19',
@@ -4411,7 +4411,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYvHBkCMf7r8ggnvhbrm',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '704',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -4631,7 +4631,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.19',
@@ -4689,7 +4689,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYvHMGC6bjkSEZb5r4Er',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '691',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -4836,7 +4836,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.19',
@@ -4900,7 +4900,7 @@ Visual UI work and screenshots.
 [2026-03-30T08:05:51.025Z] [INFO] [stdout-guard]   'request-id': 'req_011CZYvHVpPAXgLCy6cEy5Lz',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T08:05:51.025Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:05:51.025Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '968',
 
@@ -5077,7 +5077,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.19',
@@ -5135,7 +5135,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'request-id': 'req_011CZYvKtnomU2nEUnizvyY4',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T08:06:25.485Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:06:25.485Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 
 [2026-03-30T08:06:25.485Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '2970',
@@ -5455,7 +5455,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.19',
@@ -5513,7 +5513,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYvLKrgwFpbADLgd5pjT',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '1476',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -5894,7 +5894,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.19',
@@ -5954,7 +5954,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYvLivGV5ivy2Nq3CdQk',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '1387',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -6268,7 +6268,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.19',
@@ -6342,7 +6342,7 @@ Visual UI work and screenshots.
 [2026-03-30T08:06:40.590Z] [INFO] [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYvM8AFjzHKYpK1DjXXc',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '1332',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -6473,7 +6473,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages/count_tokens?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'cf-cache-status': 'DYNAMIC',
 [stdout-guard]     'cf-ray': '9e459dd32fee9189-FRA',
 [stdout-guard]     connection: 'keep-alive',
@@ -6805,7 +6805,7 @@ Visual UI work and screenshots.
 [2026-03-30T08:06:52.736Z] [INFO] [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
 
-[2026-03-30T08:06:52.736Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:06:52.736Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.19',
@@ -6875,7 +6875,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYvN1o3jDFjyxHwM5QsG',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 
 [2026-03-30T08:06:52.739Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '1409',
@@ -7123,7 +7123,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.19',
@@ -7177,7 +7177,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYvNjPMMg44FdsDmgpxF',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '2500',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -7352,7 +7352,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.19',
@@ -7409,7 +7409,7 @@ Visual UI work and screenshots.
 
 [2026-03-30T08:07:10.139Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T08:07:10.140Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:07:10.140Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:07:10.140Z] [INFO] [stdout-guard]   server: 'cloudflare',
 
@@ -7778,7 +7778,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.19',
@@ -7844,7 +7844,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYvQGQBfYrqhG9ubCKH8',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '1997',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -7990,7 +7990,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.19',
@@ -8058,7 +8058,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'request-id': 'req_011CZYvQVYi8VZ9EKFy2HSfa',
 
 [2026-03-30T08:07:27.468Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:07:27.468Z] [INFO] [stdout-guard]   server: 'cloudflare',
 
@@ -8203,7 +8203,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.19',
@@ -8271,7 +8271,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYvSQ5MmuyrbYtupLjqv',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:07:53.112Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '2296',
@@ -8599,7 +8599,7 @@ Visual UI work and screenshots.
 [stdout-guard]   status: 200,
 
 [2026-03-30T08:08:04.866Z] [INFO] [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.19',
@@ -8655,7 +8655,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYvT7bShG7CfgkUmftrX',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '4348',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -8997,7 +8997,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.2',
@@ -9065,7 +9065,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'request-id': 'req_011CZYvWVo1d2B1CPgTJo5nP',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T08:08:49.756Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:08:49.756Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:08:49.756Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '3340',
@@ -9391,7 +9391,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.2',
@@ -9459,7 +9459,7 @@ Visual UI work and screenshots.
 [2026-03-30T08:08:59.017Z] [INFO] [stdout-guard]   'request-id': 'req_011CZYvXLE4u19Ur3zJhaAF4',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T08:08:59.017Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:08:59.017Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:08:59.017Z] [INFO] [stdout-guard]   server: 'cloudflare',
 
@@ -9852,7 +9852,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.2',
@@ -9918,7 +9918,7 @@ Visual UI work and screenshots.
 
 [2026-03-30T08:09:41.759Z] [INFO] [stdout-guard]   'request-id': 'req_011CZYvaTfdVSsWQa775xvx6',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '1583',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -10280,7 +10280,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.2',
@@ -10335,7 +10335,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYvbEaMcBRGkNpd58Mfy',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '1787',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -10669,7 +10669,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.2',
@@ -10740,7 +10740,7 @@ Visual UI work and screenshots.
 
 [2026-03-30T08:10:26.076Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T08:10:26.076Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:10:26.076Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:10:26.076Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '6007',
@@ -11050,7 +11050,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.2',
@@ -11109,7 +11109,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYvhoFYg7GXqkmuPGA24',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '1556',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -11388,7 +11388,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.2',
@@ -11459,7 +11459,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'request-id': 'req_011CZYviBDeD82qeTcXACxWx',
 
 [2026-03-30T08:11:27.251Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:11:27.251Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '2394',
@@ -11635,7 +11635,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 
 [2026-03-30T08:11:31.418Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
@@ -11699,7 +11699,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYviXXGobe6jeASixc3A',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '1807',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -11894,7 +11894,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.2',
@@ -11953,7 +11953,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'request-id': 'req_011CZYvirbjfs1up2mCwSbuf',
 
 [2026-03-30T08:11:36.155Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '2082',
 
@@ -12144,7 +12144,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.2',
@@ -12211,7 +12211,7 @@ Visual UI work and screenshots.
 [2026-03-30T08:11:40.430Z] [INFO] [stdout-guard]   'request-id': 'req_011CZYvjD3YzkeCHdijvGsrg',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T08:11:40.430Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:11:40.430Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:11:40.430Z] [INFO] [stdout-guard]   server: 'cloudflare',
 
@@ -12390,7 +12390,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.2',
@@ -12458,7 +12458,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYvjT5fDNZaNqPDPFXBf',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '1519',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -12914,7 +12914,7 @@ Visual UI work and screenshots.
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
 
-[2026-03-30T08:11:52.550Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:11:52.550Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.2',
@@ -12972,7 +12972,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'request-id': 'req_011CZYvk7QWF7s5R52RsngKC',
 
 [2026-03-30T08:11:52.553Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '1454',
 
@@ -13683,7 +13683,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.2',
@@ -13736,7 +13736,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYvkwxWAj6S4iFpipK4G',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '1306',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -14170,7 +14170,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.2',
@@ -14242,7 +14242,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'request-id': 'req_011CZYvmvi8RiHxP1ucf4Hm6',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T08:12:17.530Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:12:17.530Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '1795',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -14417,7 +14417,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.2',
@@ -14477,7 +14477,7 @@ Visual UI work and screenshots.
 
 [2026-03-30T08:12:22.465Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T08:12:22.465Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:12:22.465Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '2131',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -14655,7 +14655,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.21',
@@ -14711,7 +14711,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYvnf82zHPjedr16r776',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '1729',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -14894,7 +14894,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:12:31.115Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 
@@ -14962,7 +14962,7 @@ Visual UI work and screenshots.
 [2026-03-30T08:12:31.118Z] [INFO] [stdout-guard]   'request-id': 'req_011CZYvnxuMvzyr4aLqmKSgs',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T08:12:31.118Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:12:31.118Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 
 [2026-03-30T08:12:31.118Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '1305',
@@ -15141,7 +15141,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.21',
@@ -15213,7 +15213,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYvoQQHbSJx4S2k8cKfK',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '1900',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -15396,7 +15396,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.21',
@@ -15464,7 +15464,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYvoepiA7hA8k2vZ2dnL',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '2064',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -15612,7 +15612,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.21',
@@ -15680,7 +15680,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'request-id': 'req_011CZYvosLHTpsK9gjAQAoy1',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T08:12:44.265Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:12:44.265Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:12:44.266Z] [INFO] [stdout-guard]   server: 'cloudflare',
 
@@ -15826,7 +15826,7 @@ Visual UI work and screenshots.
 [2026-03-30T08:12:47.678Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.21',
@@ -15892,7 +15892,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYvp9CWtxwigr6wBb2QX',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '1885',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -16081,7 +16081,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.21',
@@ -16153,7 +16153,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYvpPDsawxE7BD9if5tP',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '1564',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -16331,7 +16331,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.21',
@@ -16386,7 +16386,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'request-id': 'req_011CZYvpbUpZkwUz54VuHSFA',
 
 [2026-03-30T08:12:53.400Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '1475',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -16571,7 +16571,7 @@ Visual UI work and screenshots.
 
 [2026-03-30T08:12:57.678Z] [INFO] [stdout-guard]   headers: {
 
-[2026-03-30T08:12:57.678Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:12:57.678Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:12:57.679Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 
@@ -16647,7 +16647,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYvpuneKrfW5Zdtn49TF',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '1470',
 
@@ -16827,7 +16827,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.21',
@@ -16885,7 +16885,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'request-id': 'req_011CZYvqAwDwAVZTvBAPFoMJ',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T08:13:01.544Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:13:01.544Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '1790',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -17026,7 +17026,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.21',
@@ -17095,7 +17095,7 @@ Visual UI work and screenshots.
 
 [2026-03-30T08:13:10.174Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T08:13:10.175Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:13:10.175Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '1861',
 
@@ -17283,7 +17283,7 @@ Visual UI work and screenshots.
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
 
-[2026-03-30T08:13:13.391Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:13:13.391Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.21',
@@ -17346,7 +17346,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYvr5Ayxxqr4FBW78cKp',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '1419',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -17524,7 +17524,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.21',
@@ -17606,7 +17606,7 @@ Visual UI work and screenshots.
 
 [2026-03-30T08:13:21.949Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T08:13:21.949Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:13:21.949Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:13:21.950Z] [INFO] [stdout-guard]   server: 'cloudflare',
 
@@ -17854,7 +17854,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages/count_tokens?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'cf-cache-status': 'DYNAMIC',
 [stdout-guard]     'cf-ray': '9e45a7c62bbd92c5-FRA',
 [stdout-guard]     connection: 'keep-alive',
@@ -17893,7 +17893,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages/count_tokens?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'cf-cache-status': 'DYNAMIC',
 [stdout-guard]     'cf-ray': '9e45a7c62e00bb50-FRA',
 [stdout-guard]     connection: 'keep-alive',
@@ -17925,7 +17925,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages/count_tokens?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'cf-cache-status': 'DYNAMIC',
 [stdout-guard]     'cf-ray': '9e45a7c62893d395-FRA',
 
@@ -18016,7 +18016,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.21',
@@ -18079,7 +18079,7 @@ Visual UI work and screenshots.
 [2026-03-30T08:13:32.642Z] [INFO] [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYvsReZF2duJZ8EyN8zu',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '2305',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -18446,7 +18446,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.21',
@@ -18500,7 +18500,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYvtGLkCktpomRYSu8bY',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '1384',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -18674,7 +18674,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.21',
@@ -18746,7 +18746,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYvtZNgPieUL7tFZozfT',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:13:47.569Z] [INFO] [stdout-guard]   server: 'cloudflare',
 
@@ -18904,7 +18904,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 
 [2026-03-30T08:13:50.542Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
@@ -18978,7 +18978,7 @@ Visual UI work and screenshots.
 [2026-03-30T08:13:50.547Z] [INFO] [stdout-guard]   'request-id': 'req_011CZYvtjin1r8wpLNC8DVEz',
 
 [2026-03-30T08:13:50.547Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:13:50.547Z] [INFO] [stdout-guard]   server: 'cloudflare',
 
@@ -19134,7 +19134,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.21',
@@ -19208,7 +19208,7 @@ Visual UI work and screenshots.
 [2026-03-30T08:13:56.118Z] [INFO] [stdout-guard]   'request-id': 'req_011CZYvuA8DfwbA2MTzTNbsq',
 
 [2026-03-30T08:13:56.118Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 
 [2026-03-30T08:13:56.118Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '2289',
@@ -19366,7 +19366,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.21',
@@ -19430,7 +19430,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYvuxE8irXUw3nPtbbsD',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '1918',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -19603,7 +19603,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.21',
@@ -19659,7 +19659,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYvvKQMJmxS6bNDrSic2',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '1719',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -19840,7 +19840,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.21',
@@ -19912,7 +19912,7 @@ Visual UI work and screenshots.
 [2026-03-30T08:14:31.404Z] [INFO] [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYvwiNkTVLgLeuCNS2E6',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '2896',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -20061,7 +20061,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.21',
@@ -20130,7 +20130,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYvx33QK5aRGtxXwyYXa',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '2585',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -20510,7 +20510,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.21',
@@ -20590,7 +20590,7 @@ Visual UI work and screenshots.
 
 [2026-03-30T08:14:46.795Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T08:14:46.795Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:14:46.795Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '5530',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -20733,7 +20733,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:14:51.783Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 
@@ -20816,7 +20816,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'request-id': 'req_011CZYvyK1cu1WZSGMvyU6Rk',
 
 [2026-03-30T08:14:51.786Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 
 [2026-03-30T08:14:51.786Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '1612',
@@ -21004,7 +21004,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.21',
@@ -21057,7 +21057,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYvysXDxS9f5VYEtar9o',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '2289',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -21236,7 +21236,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.21',
@@ -21290,7 +21290,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYwNCPeNGP3hURoch1gt',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '1385',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -21468,7 +21468,7 @@ Visual UI work and screenshots.
 [2026-03-30T08:20:06.173Z] [INFO] [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
 
-[2026-03-30T08:20:06.174Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:20:06.174Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:20:06.174Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 
@@ -21556,7 +21556,7 @@ Visual UI work and screenshots.
 [2026-03-30T08:20:06.198Z] [INFO] [stdout-guard]   'request-id': 'req_011CZYwNTmMvaKTBdRFZTmYC',
 
 [2026-03-30T08:20:06.199Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:20:06.199Z] [INFO] [stdout-guard]   server: 'cloudflare',
 
@@ -21733,7 +21733,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 
@@ -21807,7 +21807,7 @@ Visual UI work and screenshots.
 
 [2026-03-30T08:20:15.007Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T08:20:15.007Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:20:15.007Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:20:15.007Z] [INFO] [stdout-guard]   server: 'cloudflare',
 
@@ -22000,7 +22000,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.21',
@@ -22067,7 +22067,7 @@ Visual UI work and screenshots.
 
 [2026-03-30T08:20:25.400Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T08:20:25.400Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:20:25.400Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '2849',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -22211,7 +22211,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.21',
@@ -22297,7 +22297,7 @@ Visual UI work and screenshots.
 [2026-03-30T08:20:28.183Z] [INFO] [stdout-guard]   'request-id': 'req_011CZYwQ5ZgWXEBmaVM5dDF2',
 
 [2026-03-30T08:20:28.183Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:20:28.183Z] [INFO] [stdout-guard]   server: 'cloudflare',
 
@@ -22486,7 +22486,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.21',
@@ -22555,7 +22555,7 @@ Visual UI work and screenshots.
 
 [2026-03-30T08:20:34.803Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T08:20:34.803Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:20:34.803Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:20:34.803Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '2657',
@@ -22763,7 +22763,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.21',
@@ -22838,7 +22838,7 @@ Visual UI work and screenshots.
 
 [2026-03-30T08:20:42.877Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T08:20:42.877Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:20:42.877Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:20:42.877Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '4191',
@@ -23019,7 +23019,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.21',
@@ -23080,7 +23080,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYwRko8hZUyBDRRDogQC',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '2120',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -23219,7 +23219,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.21',
@@ -23274,7 +23274,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'request-id': 'req_011CZYwS3fPueJWjz7ozT7pf',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T08:20:54.813Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:20:54.813Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 
 [2026-03-30T08:20:54.813Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '1897',
@@ -23452,7 +23452,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.21',
@@ -23523,7 +23523,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYwSQfwaRpHhisH4EdVM',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '1392',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -23698,7 +23698,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.21',
@@ -23757,7 +23757,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYwSgnZAVyK4TijKcv7Y',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '1340',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -23937,7 +23937,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.21',
@@ -24009,7 +24009,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYwp33YrpmpgWSu5HEv9',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '3489',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -24186,7 +24186,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.21',
@@ -24248,7 +24248,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYwpmfcEg4yzwipz7xNu',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '2250',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -24424,7 +24424,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 
@@ -24488,7 +24488,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYwqLSq7qfdyRE8ZJFk6',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '1728',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -24667,7 +24667,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.21',
@@ -24732,7 +24732,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'request-id': 'req_011CZYwqm4B1v9dvzjdiJGGC',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T08:26:19.213Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:26:19.213Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:26:19.213Z] [INFO] [stdout-guard]   server: 'cloudflare',
 
@@ -24891,7 +24891,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.21',
@@ -24961,7 +24961,7 @@ Visual UI work and screenshots.
 [2026-03-30T08:26:24.220Z] [INFO] [stdout-guard]   'request-id': 'req_011CZYwrJnQ9qM4MWo6egUNX',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T08:26:24.220Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:26:24.220Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '2153',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -25106,7 +25106,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.21',
@@ -25185,7 +25185,7 @@ Visual UI work and screenshots.
 [2026-03-30T08:26:30.382Z] [INFO] [stdout-guard]   'request-id': 'req_011CZYwrd3FRxQHVeNjyYZXC',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T08:26:30.382Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:26:30.382Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:26:30.382Z] [INFO] [stdout-guard]   server: 'cloudflare',
 
@@ -25382,7 +25382,7 @@ Visual UI work and screenshots.
 [stdout-guard]   status: 200,
 
 [2026-03-30T08:26:40.996Z] [INFO] [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:26:40.996Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 
@@ -25462,7 +25462,7 @@ Visual UI work and screenshots.
 [2026-03-30T08:26:40.999Z] [INFO] [stdout-guard]   'request-id': 'req_011CZYwsWxuhBsAzqj6429m3',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T08:26:40.999Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:26:40.999Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '2521',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -25648,7 +25648,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:26:45.998Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
@@ -25719,7 +25719,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYwsw5EbYEA9M255FZs4',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '1907',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -25898,7 +25898,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.21',
@@ -25967,7 +25967,7 @@ Visual UI work and screenshots.
 [2026-03-30T08:26:56.546Z] [INFO] [stdout-guard]   'request-id': 'req_011CZYwthjqNvKBCA9uQUoxX',
 
 [2026-03-30T08:26:56.546Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:26:56.546Z] [INFO] [stdout-guard]   server: 'cloudflare',
 
@@ -26128,7 +26128,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.21',
@@ -26194,7 +26194,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYwu6kBZXzCvbbZjrWW1',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:27:01.890Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '1952',
@@ -26380,7 +26380,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:27:18.719Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 
@@ -26440,7 +26440,7 @@ Visual UI work and screenshots.
 
 [2026-03-30T08:27:18.720Z] [INFO] [stdout-guard]   'request-id': 'req_011CZYwvGsfccYgkbaU9Cwpd',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '2594',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -26628,7 +26628,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.21',
@@ -26701,7 +26701,7 @@ Visual UI work and screenshots.
 [2026-03-30T08:27:36.656Z] [INFO] [stdout-guard]   'request-id': 'req_011CZYww847xqPGYiNLMuUzg',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T08:27:36.656Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:27:36.656Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 
 [2026-03-30T08:27:36.656Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '9273',
@@ -26916,7 +26916,7 @@ Visual UI work and screenshots.
 
 [2026-03-30T08:27:45.352Z] [INFO] [stdout-guard]   headers: {
 
-[2026-03-30T08:27:45.353Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:27:45.353Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.21',
@@ -26988,7 +26988,7 @@ Visual UI work and screenshots.
 [2026-03-30T08:27:45.356Z] [INFO] [stdout-guard]   'request-id': 'req_011CZYwxL7SNZG4Ya5L6fdzy',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T08:27:45.357Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:27:45.357Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:27:45.357Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '1590',
@@ -27206,7 +27206,7 @@ Visual UI work and screenshots.
 [stdout-guard]   status: 200,
 
 [2026-03-30T08:27:51.853Z] [INFO] [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:27:51.853Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 
@@ -27284,7 +27284,7 @@ Visual UI work and screenshots.
 
 [2026-03-30T08:27:51.856Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T08:27:51.856Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:27:51.856Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:27:51.856Z] [INFO] [stdout-guard]   server: 'cloudflare',
 
@@ -27493,7 +27493,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.22',
@@ -27551,7 +27551,7 @@ Visual UI work and screenshots.
 
 [2026-03-30T08:28:03.449Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T08:28:03.449Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:28:03.449Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:28:03.450Z] [INFO] [stdout-guard]   server: 'cloudflare',
 
@@ -27725,7 +27725,7 @@ Visual UI work and screenshots.
 [2026-03-30T08:28:06.837Z] [INFO] [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
 
-[2026-03-30T08:28:06.837Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:28:06.837Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.22',
@@ -27794,7 +27794,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYwyqzJx2svf3gy8VZh5',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '2499',
 
@@ -28092,7 +28092,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.22',
@@ -28159,7 +28159,7 @@ Visual UI work and screenshots.
 
 [2026-03-30T08:28:12.519Z] [INFO] [stdout-guard]   'request-id': 'req_011CZYwzH1DQE621LVGpqCNh',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:28:12.519Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '2345',
@@ -28304,7 +28304,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 
@@ -28383,7 +28383,7 @@ Visual UI work and screenshots.
 
 [2026-03-30T08:28:20.154Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T08:28:20.154Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:28:20.154Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '2199',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -28534,7 +28534,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.22',
@@ -28593,7 +28593,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYx1A8Vw9UumYj3mYh7s',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '2754',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -28742,7 +28742,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:28:27.772Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
@@ -28822,7 +28822,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYx1TxJbu51QtPDPkved',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:28:27.776Z] [INFO] [stdout-guard]   server: 'cloudflare',
 
@@ -29261,7 +29261,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages/count_tokens?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'cf-cache-status': 'DYNAMIC',
 [stdout-guard]     'cf-ray': '9e45c5d82a3cdb07-FRA',
 [stdout-guard]     connection: 'keep-alive',
@@ -29426,7 +29426,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:34:05.156Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
@@ -29498,7 +29498,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYxSDhFumyaS3m9s5ygL',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '3048',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -29696,7 +29696,7 @@ Visual UI work and screenshots.
 
 [2026-03-30T08:34:09.697Z] [INFO] [stdout-guard]   headers: {
 
-[2026-03-30T08:34:09.697Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:34:09.697Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:34:09.697Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
@@ -29768,7 +29768,7 @@ Visual UI work and screenshots.
 [2026-03-30T08:34:09.699Z] [INFO] [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYxSfeiPzkDAducvrysS',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '1515',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -29959,7 +29959,7 @@ Visual UI work and screenshots.
 
 [2026-03-30T08:34:14.103Z] [INFO] [stdout-guard]   headers: {
 
-[2026-03-30T08:34:14.103Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:34:14.103Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:34:14.104Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 
@@ -30030,7 +30030,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'request-id': 'req_011CZYxSxFMXjhoTSY82q3oe',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T08:34:14.106Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:34:14.106Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 
 [2026-03-30T08:34:14.106Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '2045',
@@ -30217,7 +30217,7 @@ Visual UI work and screenshots.
 
 [2026-03-30T08:34:23.698Z] [INFO] [stdout-guard]   headers: {
 
-[2026-03-30T08:34:23.698Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:34:23.698Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 
 [2026-03-30T08:34:23.699Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
@@ -30290,7 +30290,7 @@ Visual UI work and screenshots.
 [2026-03-30T08:34:23.702Z] [INFO] [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYxThjkSBcpTxYWqvVNa',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '1544',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -30469,7 +30469,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.23',
@@ -30529,7 +30529,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYxU5D5ktgPW8ogwguJv',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '2596',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -30707,7 +30707,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.23',
@@ -30767,7 +30767,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYxUi1A1hggMNEDWev8r',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 
 [2026-03-30T08:34:38.187Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '2402',
@@ -30954,7 +30954,7 @@ Visual UI work and screenshots.
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
 
-[2026-03-30T08:34:49.322Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:34:49.322Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:34:49.322Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 
@@ -31023,7 +31023,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYxVBztznKhnUXzGuBaw',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:34:49.324Z] [INFO] [stdout-guard]   server: 'cloudflare',
 
@@ -31279,7 +31279,7 @@ Visual UI work and screenshots.
 [stdout-guard]   status: 200,
 
 [2026-03-30T08:34:56.316Z] [INFO] [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 
 [2026-03-30T08:34:56.316Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
@@ -31344,7 +31344,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'request-id': 'req_011CZYxW6UniFGGqSUhXjoLc',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T08:34:56.318Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:34:56.318Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '1713',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -31526,7 +31526,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.23',
@@ -31595,7 +31595,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYxWSsd9UTTwYUBA2xSE',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '2153',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -31738,7 +31738,7 @@ Visual UI work and screenshots.
 [stdout-guard]   status: 200,
 
 [2026-03-30T08:35:03.432Z] [INFO] [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.23',
@@ -31810,7 +31810,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYxWeCWgsFZ49WeV8oip',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '1408',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -31992,7 +31992,7 @@ Visual UI work and screenshots.
 
 [2026-03-30T08:35:11.341Z] [INFO] [stdout-guard]   headers: {
 
-[2026-03-30T08:35:11.341Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:35:11.341Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:35:11.342Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
@@ -32066,7 +32066,7 @@ Visual UI work and screenshots.
 
 [2026-03-30T08:35:11.344Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T08:35:11.345Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:35:11.345Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:35:11.345Z] [INFO] [stdout-guard]   server: 'cloudflare',
 
@@ -32251,7 +32251,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.23',
@@ -32318,7 +32318,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'request-id': 'req_011CZYxXWWS2dFGRJrpw1DWw',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T08:35:16.018Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:35:16.018Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 
 [2026-03-30T08:35:16.018Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '2254',
@@ -32503,7 +32503,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 
@@ -32580,7 +32580,7 @@ Visual UI work and screenshots.
 
 [2026-03-30T08:35:20.769Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T08:35:20.769Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:35:20.769Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 
 [2026-03-30T08:35:20.769Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '2475',
@@ -32761,7 +32761,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:35:27.105Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 
@@ -32838,7 +32838,7 @@ Visual UI work and screenshots.
 
 [2026-03-30T08:35:27.109Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T08:35:27.109Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:35:27.109Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:35:27.109Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '2187',
@@ -33274,7 +33274,7 @@ Visual UI work and screenshots.
 
 [2026-03-30T08:41:30.967Z] [INFO] [stdout-guard]   headers: {
 
-[2026-03-30T08:41:30.968Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:41:30.968Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'cf-cache-status': 'DYNAMIC',
 [stdout-guard]     'cf-ray': '9e45d0cf5b4ed2ca-FRA',
 [stdout-guard]     connection: 'keep-alive',
@@ -33441,7 +33441,7 @@ Visual UI work and screenshots.
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
 
-[2026-03-30T08:41:35.920Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:41:35.920Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.27',
@@ -33516,7 +33516,7 @@ Visual UI work and screenshots.
 [2026-03-30T08:41:35.922Z] [INFO] [stdout-guard]   'request-id': 'req_011CZYy1Krkw55NX7QoLVWfb',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T08:41:35.922Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:41:35.922Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:41:35.922Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '4699',
@@ -33723,7 +33723,7 @@ Visual UI work and screenshots.
 
 [2026-03-30T08:41:50.515Z] [INFO] [stdout-guard]   headers: {
 
-[2026-03-30T08:41:50.515Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:41:50.515Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:41:50.516Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 
@@ -33785,7 +33785,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYy1xfKbsnPTYXE4P28D',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '10659',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -33932,7 +33932,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.28',
@@ -33998,7 +33998,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYy2viHB9t11rLqopDkD',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 
 [2026-03-30T08:41:55.038Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '1833',
@@ -34179,7 +34179,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.29',
@@ -34235,7 +34235,7 @@ Visual UI work and screenshots.
 
 [2026-03-30T08:42:00.750Z] [INFO] [stdout-guard]   'request-id': 'req_011CZYy3N7VebQ2sCR8bCu7J',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:42:00.750Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '1859',
@@ -34389,7 +34389,7 @@ Visual UI work and screenshots.
 [stdout-guard]   status: 200,
 
 [2026-03-30T08:42:05.425Z] [INFO] [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:42:05.425Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 
@@ -34458,7 +34458,7 @@ Visual UI work and screenshots.
 [2026-03-30T08:42:05.429Z] [INFO] [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYy3ZKSXFe2CxM3aMw1c',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:42:05.430Z] [INFO] [stdout-guard]   server: 'cloudflare',
 
@@ -34616,7 +34616,7 @@ Visual UI work and screenshots.
 [stdout-guard]   status: 200,
 
 [2026-03-30T08:42:08.515Z] [INFO] [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:42:08.515Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 
@@ -34691,7 +34691,7 @@ Visual UI work and screenshots.
 
 [2026-03-30T08:42:08.519Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T08:42:08.519Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:42:08.519Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 
 [2026-03-30T08:42:08.519Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '1932',
@@ -34875,7 +34875,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.29',
@@ -34933,7 +34933,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYy4HYgWmL9GmKFuGmLV',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '2102',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -35112,7 +35112,7 @@ Visual UI work and screenshots.
 [2026-03-30T08:42:21.368Z] [INFO] [stdout-guard]   status: 200,
 
 [2026-03-30T08:42:21.368Z] [INFO] [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 
 [2026-03-30T08:42:21.369Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
@@ -35183,7 +35183,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYy4rCUHqtUcKXTqKKzP',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:42:21.370Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '2394',
@@ -35372,7 +35372,7 @@ Visual UI work and screenshots.
 [stdout-guard]   status: 200,
 
 [2026-03-30T08:42:28.769Z] [INFO] [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.29',
@@ -35444,7 +35444,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYy5SgtPsAzPkNXjWTUQ',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '1686',
 
@@ -35631,7 +35631,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.29',
@@ -35694,7 +35694,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYy5ondsYMDo1qVgLn4P',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '1803',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -35871,7 +35871,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 
@@ -35943,7 +35943,7 @@ Visual UI work and screenshots.
 [2026-03-30T08:42:37.464Z] [INFO] [stdout-guard]   'request-id': 'req_011CZYy654enoaJEyJUffdaZ',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T08:42:37.464Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:42:37.464Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 
 [2026-03-30T08:42:37.464Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '1854',
@@ -36219,7 +36219,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.29',
@@ -36277,7 +36277,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'request-id': 'req_011CZYy6aUE95DkSH2kSw97j',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T08:42:45.646Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:42:45.646Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:42:45.646Z] [INFO] [stdout-guard]   server: 'cloudflare',
 
@@ -36720,7 +36720,7 @@ Visual UI work and screenshots.
 [2026-03-30T08:49:49.393Z] [INFO] [stdout-guard]   status: 200,
 
 [2026-03-30T08:49:49.393Z] [INFO] [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'cf-cache-status': 'DYNAMIC',
 [stdout-guard]     'cf-ray': '9e45dcfa5d3030c6-FRA',
 [stdout-guard]     connection: 'keep-alive',
@@ -36900,7 +36900,7 @@ Visual UI work and screenshots.
 [stdout-guard]   status: 200,
 
 [2026-03-30T08:49:52.954Z] [INFO] [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:49:52.954Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
@@ -36964,7 +36964,7 @@ Visual UI work and screenshots.
 
 [2026-03-30T08:49:52.955Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T08:49:52.955Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:49:52.955Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '3368',
 
@@ -37158,7 +37158,7 @@ Visual UI work and screenshots.
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
 
-[2026-03-30T08:49:57.952Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:49:57.952Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:49:57.952Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 
@@ -37237,7 +37237,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYyeZKubQDr9cJo7ZSFJ',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '1711',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -37670,7 +37670,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages/count_tokens?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'cf-cache-status': 'DYNAMIC',
 [stdout-guard]     'cf-ray': '9e45e78a4adabb7f-FRA',
 [stdout-guard]     connection: 'keep-alive',
@@ -37849,7 +37849,7 @@ Visual UI work and screenshots.
 
 [2026-03-30T08:57:05.570Z] [INFO] [stdout-guard]   headers: {
 
-[2026-03-30T08:57:05.571Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:57:05.571Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T08:57:05.571Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
@@ -37919,7 +37919,7 @@ Visual UI work and screenshots.
 [2026-03-30T08:57:05.573Z] [INFO] [stdout-guard]   'request-id': 'req_011CZYzBxbFmzaCgYCe1dDSf',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T08:57:05.573Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:57:05.573Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '3351',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -38110,7 +38110,7 @@ Visual UI work and screenshots.
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
 
-[2026-03-30T08:57:10.775Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T08:57:10.775Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 
 [2026-03-30T08:57:10.775Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
@@ -38186,7 +38186,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYzCT32rAhhahvk3Q8j4',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '1904',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -38368,7 +38368,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 
 [2026-03-30T09:01:57.374Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
@@ -38451,7 +38451,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZYzZb6J9umLWFzjXPQhQ',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '1658',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -38633,7 +38633,7 @@ Visual UI work and screenshots.
 
 [2026-03-30T09:03:02.616Z] [INFO] [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T09:03:02.616Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 
@@ -38702,7 +38702,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'request-id': 'req_011CZYzeMi2PNJ1Ez4Lottmp',
 
 [2026-03-30T09:03:02.618Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 
 [2026-03-30T09:03:02.618Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '2200',
@@ -38878,7 +38878,7 @@ Visual UI work and screenshots.
 [2026-03-30T09:05:06.908Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 
@@ -38950,7 +38950,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'request-id': 'req_011CZYzoWQfJEZ1ivPLs3XCD',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T09:05:06.910Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T09:05:06.910Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T09:05:06.910Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '2358',
@@ -39102,7 +39102,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.4',
@@ -39166,7 +39166,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'request-id': 'req_011CZZ132DQSDn2NEfGuJcMj',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T09:08:10.212Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T09:08:10.212Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T09:08:10.212Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '2415',
@@ -39571,7 +39571,7 @@ Visual UI work and screenshots.
 
 [2026-03-30T09:15:12.992Z] [INFO] [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T09:15:12.992Z] [INFO] [stdout-guard]     'cf-cache-status': 'DYNAMIC',
 [stdout-guard]     'cf-ray': '9e46022bfa3bd2af-FRA',
@@ -39743,7 +39743,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.41',
@@ -39806,7 +39806,7 @@ Visual UI work and screenshots.
 
 [2026-03-30T09:15:17.806Z] [INFO] [stdout-guard]   'request-id': 'req_011CZZ1aNsV2krfr2gF4gf5X',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T09:15:17.806Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '4298',
@@ -39992,7 +39992,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.42',
@@ -40054,7 +40054,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZZ1avz2KC7BQ2v2tiSgB',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '2156',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -40234,7 +40234,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.42',
@@ -40296,7 +40296,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZZ1bFZiiudedcSc7j78N',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '2004',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -40724,7 +40724,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages/count_tokens?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'cf-cache-status': 'DYNAMIC',
 [stdout-guard]     'cf-ray': '9e460cde08b6bb61-FRA',
 [stdout-guard]     connection: 'keep-alive',
@@ -40897,7 +40897,7 @@ Visual UI work and screenshots.
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
 
-[2026-03-30T09:22:34.251Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T09:22:34.251Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T09:22:34.251Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 
@@ -40969,7 +40969,7 @@ Visual UI work and screenshots.
 
 [2026-03-30T09:22:34.253Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T09:22:34.253Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T09:22:34.253Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '3137',
 
@@ -41159,7 +41159,7 @@ Visual UI work and screenshots.
 [2026-03-30T09:22:39.645Z] [INFO] [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.43',
@@ -41241,7 +41241,7 @@ Visual UI work and screenshots.
 
 [2026-03-30T09:22:39.648Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T09:22:39.648Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T09:22:39.648Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T09:22:39.648Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '2404',
@@ -41431,7 +41431,7 @@ Visual UI work and screenshots.
 
 [2026-03-30T09:22:43.366Z] [INFO] [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.43',
@@ -41491,7 +41491,7 @@ Visual UI work and screenshots.
 [2026-03-30T09:22:43.368Z] [INFO] [stdout-guard]   'request-id': 'req_011CZZ29RvDBY3PrbQ9597Z2',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T09:22:43.368Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T09:22:43.368Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 
 [2026-03-30T09:22:43.368Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '1808',
@@ -41673,7 +41673,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 
@@ -41747,7 +41747,7 @@ Visual UI work and screenshots.
 [2026-03-30T09:23:17.948Z] [INFO] [stdout-guard]   'request-id': 'req_011CZZ2BxJsVmdxF3PoYs8SB',
 
 [2026-03-30T09:23:17.949Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T09:23:17.949Z] [INFO] [stdout-guard]   server: 'cloudflare',
 
@@ -42153,7 +42153,7 @@ Visual UI work and screenshots.
 
 [2026-03-30T09:23:29.921Z] [INFO] [stdout-guard]   headers: {
 
-[2026-03-30T09:23:29.921Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T09:23:29.921Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T09:23:29.921Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
@@ -42231,7 +42231,7 @@ Visual UI work and screenshots.
 [2026-03-30T09:23:29.924Z] [INFO] [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZZ2CpLv7TLe8byEqvoUo',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T09:23:29.925Z] [INFO] [stdout-guard]   server: 'cloudflare',
 
@@ -42541,7 +42541,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.43',
@@ -42611,7 +42611,7 @@ Visual UI work and screenshots.
 
 [2026-03-30T09:23:36.361Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T09:23:36.362Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T09:23:36.362Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T09:23:36.362Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '2276',
@@ -42799,7 +42799,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.43',
@@ -42865,7 +42865,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'request-id': 'req_011CZZ2DcChZrVASd5m8r9sj',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T09:23:41.336Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T09:23:41.336Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '3039',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -43005,7 +43005,7 @@ Visual UI work and screenshots.
 [2026-03-30T09:23:45.140Z] [INFO] [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
 
-[2026-03-30T09:23:45.140Z] [INFO] [stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T09:23:45.140Z] [INFO] [stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T09:23:45.140Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
@@ -43081,7 +43081,7 @@ Visual UI work and screenshots.
 
 [2026-03-30T09:23:45.146Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T09:23:45.146Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T09:23:45.146Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T09:23:45.146Z] [INFO] [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '2995',
@@ -43239,7 +43239,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.43',
@@ -43315,7 +43315,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [stdout-guard]   'request-id': 'req_011CZZ2ECMGuGZaiWomCWuA1',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 [stdout-guard]   'x-envoy-upstream-service-time': '1553',
 [stdout-guard]   'content-encoding': 'gzip',
@@ -43501,7 +43501,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.43',
@@ -43580,7 +43580,7 @@ Visual UI work and screenshots.
 
 [2026-03-30T09:23:53.615Z] [INFO] [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T09:23:53.615Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T09:23:53.615Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T09:23:53.615Z] [INFO] [stdout-guard]   server: 'cloudflare',
 
@@ -43764,7 +43764,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.43',
@@ -43834,7 +43834,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'request-id': 'req_011CZZ2EvXYYynvpF3JEQy1W',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T09:23:57.829Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T09:23:57.829Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T09:23:57.829Z] [INFO] [stdout-guard]   server: 'cloudflare',
 
@@ -44013,7 +44013,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-utilization': '0.44',
@@ -44071,7 +44071,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'request-id': 'req_011CZZ2GpvFxz8VxjGFZJBVa',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T09:24:24.169Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T09:24:24.169Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 
 [2026-03-30T09:24:24.169Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '2193',
@@ -44443,7 +44443,7 @@ Visual UI work and screenshots.
 [stdout-guard]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [stdout-guard]   status: 200,
 [stdout-guard]   headers: {
-[stdout-guard]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[stdout-guard]     'anthropic-organization-id': '[REDACTED]',
 
 [2026-03-30T09:24:35.067Z] [INFO] [stdout-guard]     'anthropic-ratelimit-unified-5h-reset': '1774864800',
 [stdout-guard]     'anthropic-ratelimit-unified-5h-status': 'allowed',
@@ -44527,7 +44527,7 @@ Visual UI work and screenshots.
 [stdout-guard]   'request-id': 'req_011CZZ2Hd8NmBsnGaWnHM3gA',
 [stdout-guard]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
 
-[2026-03-30T09:24:35.072Z] [INFO] [stdout-guard]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-30T09:24:35.072Z] [INFO] [stdout-guard]   'anthropic-organization-id': '[REDACTED]',
 [stdout-guard]   server: 'cloudflare',
 
 [2026-03-30T09:24:35.072Z] [INFO] [stdout-guard]   'x-envoy-upstream-service-time': '2278',

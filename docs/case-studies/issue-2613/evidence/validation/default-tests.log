@@ -16518,7 +16518,7 @@ Testing executeItem catches editMessageText errors (issue #1062)... [VERBOSE] /q
 [VERBOSE] /limits fetching Codex usage from API...
 [VERBOSE] /limits Codex API request: GET https://chatgpt.com/backend-api/wham/usage
 [VERBOSE] /limits Codex auth mode: chatgpt
-[VERBOSE] /limits Codex account id: cc6b62fa-3ade-4ff4-a541-66f6963a14b5
+[VERBOSE] /limits Codex account id: [REDACTED]
 [VERBOSE] /limits Codex plan type: pro
 [VERBOSE] /limits Codex API request headers: {
   "Accept": "application/json",

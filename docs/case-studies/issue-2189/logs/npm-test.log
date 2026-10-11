@@ -13850,8 +13850,8 @@ Testing executeItem catches editMessageText errors (issue #1062)... [VERBOSE] /q
 }
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "a35b04aeb95065a7-FRA",
   "connection": "keep-alive",

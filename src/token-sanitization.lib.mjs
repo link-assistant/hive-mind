@@ -21,6 +21,7 @@ import { log, isENOSPC } from './lib.mjs';
 import { CREDENTIAL_SANITIZATION_ERROR_CODE, CREDENTIAL_SANITIZATION_FAILURE_MESSAGE, createCredentialStreamSanitizer, findCredentialResiduals, maskToken, sanitizeCredentialText } from './credential-sanitization-core.lib.mjs';
 import { findDecodableRuns, findEncodedKnownTokenRuns, sanitizeEncodedCredentials } from './encoded-credential-detection.lib.mjs'; // issue #2156: credentials that only appear re-encoded
 import { reportError } from './sentry.lib.mjs';
+import { getAccountIdentityValues } from './account-identity.lib.mjs'; // issue #2837: operator e-mail / account / organization IDs
 
 export { createCredentialStreamSanitizer };
 
@@ -561,6 +562,8 @@ const maskKnownTokenValues = (text, values) => {
 export const MIN_KNOWN_TOKEN_LENGTH = 12;
 
 const isMaskableTokenValue = value => typeof value === 'string' && value.length >= MIN_KNOWN_TOKEN_LENGTH;
+// Issue #2837: an e-mail address is distinctive at any length.
+const isMaskableIdentityValue = value => isMaskableTokenValue(value) || (typeof value === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value));
 
 /**
  * Narrow a raw token list to the values worth searching for.
@@ -724,6 +727,17 @@ export const sanitizeOutput = async (output, options = {}) => {
       const beforeEncoded = sanitized;
       sanitized = maskEncodedKnownTokens(sanitized, encodableTokens);
       if (sanitized !== beforeEncoded) {
+        stats.knownTokens++;
+        sanitizationStats.knownTokenMasks++;
+        sanitizationStats.totalMasked++;
+      }
+
+      // Issue #2837: the authenticated account's own identifiers, wherever
+      // they appear. Replaced whole: a partially masked e-mail still names
+      // its owner.
+      for (const value of (await getAccountIdentityValues()).map(entry => entry.value).filter(isMaskableIdentityValue)) {
+        if (!sanitized.includes(value)) continue;
+        sanitized = sanitized.split(value).join('[REDACTED]');
         stats.knownTokens++;
         sanitizationStats.knownTokenMasks++;
         sanitizationStats.totalMasked++;
@@ -993,8 +1007,10 @@ export const sanitizeForPublication = async (input, options = {}) => {
         const secretlintResiduals = await detectSecretsWithSecretlint(value, { required: true });
         stage = 'known-token-scan';
         const knownTokenResiduals = await containsKnownToken(value);
+        stage = 'account-identity-scan';
+        const identityResiduals = (await getAccountIdentityValues()).filter(entry => isMaskableIdentityValue(entry.value) && value.includes(entry.value)).map(entry => ({ ruleId: `account-identity:${entry.name}` }));
         stage = 'residual-scan';
-        return [...residuals, ...secretlintResiduals, ...knownTokenResiduals.map(hit => ({ ...hit, ruleId: `known-token:${hit.name || 'unnamed'}${hit.encoding && hit.encoding !== 'plaintext' ? `:${hit.encoding}` : ''}` }))];
+        return [...residuals, ...secretlintResiduals, ...identityResiduals, ...knownTokenResiduals.map(hit => ({ ...hit, ruleId: `known-token:${hit.name || 'unnamed'}${hit.encoding && hit.encoding !== 'plaintext' ? `:${hit.encoding}` : ''}` }))];
       });
     const residuals = await residualScanner(sanitized);
     if (!Array.isArray(residuals) || residuals.length > 0) {

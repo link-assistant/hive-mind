@@ -60,7 +60,7 @@ nil pointer evaluating interface {}.githubToken
 
 22:33:17Z - Configure Git ✅
            user.name = github-actions
-           user.email = github-actions@users.noreply.github.com
+           user.email = [REDACTED]
 
 22:33:17Z - Install Helm ✅
            Version: v3.14.0

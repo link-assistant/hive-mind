@@ -59,7 +59,7 @@ import Decimal from 'decimal.js-light';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
 import { CODEX_CACHE_READ_USAGE_PATHS, CODEX_CACHE_WRITE_USAGE_PATHS, CODEX_MODEL_DIAGNOSTIC_PATHS, CODEX_REASONING_USAGE_PATHS, CODEX_USAGE_FIELD_NAMES, createCodexTokenFieldAvailability, getFirstObservedNumber, hasAnyObservedPath, hasOwnPath } from './codex.usage-fields.lib.mjs';
 const CODEX_LONG_CONTEXT_PRICE_THRESHOLD = 272000;
-const getCodexExecEnv = (verbose = false) => (verbose ? { ...process.env, RUST_LOG: 'debug' } : { ...process.env });
+import { getCodexExecEnv } from './tool-debug-env.lib.mjs'; // Issue #2837: RUST_LOG=debug only with --codex-debug, not --verbose
 // Issue #2175: diagnostic-line parsing lives in its own module to keep this file
 // under the 1350-line warning threshold.
 import { parseCodexDiagnosticLine, rebuildCodexSubSessionsFromCompactifications } from './codex.diagnostics.lib.mjs';
@@ -171,7 +171,7 @@ const upsertCodexItemError = (itemErrors, item) => {
   });
 };
 // Issue #2136: `codex exec --json` writes its NDJSON protocol to **stdout** only.
-// Its stderr carries OTEL tracing text (RUST_LOG=debug under --verbose), and each
+// Its stderr carries OTEL tracing text (RUST_LOG=debug under --codex-debug), and each
 // `codex.tool_result` record dumps the raw stdout of the command codex just ran —
 // so a task driving another agent CLI replays that agent's NDJSON verbatim inside
 // the trace. Feeding stderr through this parser counted the nested agent's
@@ -441,7 +441,7 @@ export const calculateCodexPricing = async (modelId, tokenUsage) => {
   }
 };
 // Function to validate Codex CLI connection
-export const validateCodexConnection = async (model = defaultModels.codex, verbose = false) => {
+export const validateCodexConnection = async (model = defaultModels.codex, _verbose = false) => {
   // Map model alias to full ID
   const mappedModel = mapModelToId(model);
   const { reasoningEffort, rolloutTokenBudget } = await resolveRuntimeCodexReasoningEffort({ model: mappedModel, codexPath: 'codex' }, { log });
@@ -474,7 +474,7 @@ export const validateCodexConnection = async (model = defaultModels.codex, verbo
       }
       // Test basic Codex functionality with a simple "echo hi" command
       // Using exec mode with JSON output for validation
-      const testResult = await $({ env: getCodexExecEnv(verbose) })`printf "echo hi" | timeout ${Math.floor(timeouts.codexCli / 1000)} codex exec --model ${mappedModel} --json --skip-git-repo-check ${reasoningArgs} --dangerously-bypass-approvals-and-sandbox`;
+      const testResult = await $({ env: getCodexExecEnv(false) })`printf "echo hi" | timeout ${Math.floor(timeouts.codexCli / 1000)} codex exec --model ${mappedModel} --json --skip-git-repo-check ${reasoningArgs} --dangerously-bypass-approvals-and-sandbox`;
       if (testResult.code !== 0) {
         const stderr = testResult.stderr?.toString() || '';
         const stdout = testResult.stdout?.toString() || '';
@@ -591,7 +591,7 @@ export const executeCodex = async params => {
   await deployHandoffSkill({ tempDir, argv, log, $ });
   // Issue #2190: optional Playwright CLI skill (default is Playwright MCP only).
   await deployPlaywrightSkill({ tempDir, argv, log, $ });
-  const codexBaseEnv = getCodexExecEnv(argv.verbose);
+  const codexBaseEnv = getCodexExecEnv(argv.codexDebug);
   // Issue #2102: the target repository's own agent instruction files are part of
   // the requirement corpus, so the preflight needs the checkout; `--require-codex-plugin`
   // is the explicit escape hatch for requirements no document states.
@@ -658,7 +658,7 @@ export const executeCodexCommand = async params => {
     const mappedModel = mapModelToId(argv.model);
     const { reasoningEffort, source: reasoningEffortSource, rolloutTokenBudget } = await resolveRuntimeCodexReasoningEffort({ ...argv, model: mappedModel, codexPath }, { log });
     const isResumeMode = !!argv.resume;
-    const codexEnv = applyCodexCapabilityEnv(capabilityPreflight?.codexBaseEnv || getCodexExecEnv(argv.verbose), {
+    const codexEnv = applyCodexCapabilityEnv(capabilityPreflight?.codexBaseEnv || getCodexExecEnv(argv.codexDebug), {
       codexHome: capabilityPreflight?.codexHome,
       baseCodexHome: capabilityPreflight?.baseCodexHome,
     });

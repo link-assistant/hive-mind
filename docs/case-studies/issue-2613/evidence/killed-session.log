@@ -889,12 +889,12 @@ Visual UI work and screenshots.
     "x-stainless-timeout": "600",
   },
 }
-[log_e3e7f4, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfncecuQBKispyjCULjjL"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1543ms
+[log_e3e7f4, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfncecuQBKispyjCULjjL"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1543ms
 [log_e3e7f4] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.12",
@@ -907,7 +907,7 @@ Visual UI work and screenshots.
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46bc4a42fa7f13c-CDG",
@@ -950,8 +950,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfncecuQBKispyjCULjjL",
   "traceresponse": "00-c5876d6b2486e075d43d8b2f480e5d3d-50ca930261378aba-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -1194,12 +1194,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_7b1f8b, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfncfZigzLmdT46aYQjtN"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1078ms
+[log_7b1f8b, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfncfZigzLmdT46aYQjtN"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1078ms
 [log_7b1f8b] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.13",
@@ -1212,7 +1212,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46bc4f45b0cf13c-CDG",
@@ -1255,8 +1255,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfncfZigzLmdT46aYQjtN",
   "traceresponse": "00-33e6feb0829715d8b47821b2f60c9832-d357cd4716edbdcf-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -6471,7 +6471,7 @@ d
       {
         "tool_use_id": "toolu_019TLJv14FeYUkZpT3NMGW3e",
         "type": "tool_result",
-        "content": " 933 docs/case-studies/issue-2591/data/codex/codex-cli-0.160.0-debug-models-summary.txt\n5084 docs/case-studies/issue-2591/data/codex/codex-cli-0.160.0-debug-models.json\n6017 total\n2026-10-07T07:06:06Z\nbest\",\"sonnet[1m]\",\"opus[1m]\",\"fable[1m]\",\"opusplan\"],b2=[\"sonnet\",\"opus\",\"haiku\",\"fable\"];var eRt=\"claude-mythos-preview\";function Oh(e){return _2.includes(e)}function sce(e){if(Oh(e))return!0;let n=It(e);return n!==e&&It(n)===n&&Oh(n)}function It(e){return e.replace(/\\[1m\\]$/i,\"\")}function zO(e,n){return It(e).toLower\ndel_context_window_exceeded\":case\"refusal\":return\"stop\";default:return ws(e),\"stop\"}}var Kx={},iB=[\"claude-mythos-preview\",\"claude-opus-4-6\"],sp=(()=>{class e extends qe{constructor(){super(...arguments);this.batches=new Su(this._client)}create(n,r){let s=Vx(n),{betas:h,user_profile_id:g,workspace_id:S,...w}=s;if(w.mode\n..h!=null?{\"anthropic-workspace-id\":h}:void 0},r?.headers])})}}return e.Batches=nc,e})(),Qx={},GB=[\"claude-mythos-preview\",\"claude-opus-4-6\"];class ga extends qe{retrieve(e,n={},r){let{betas:s,workspace_id:h}=n??{};return this._client.get(Pe`/v1/models/${e}`,{...r,headers:Re([{...s?.toString()!=null?{\"anthropic-beta\":s?",
+        "content": " 933 docs/case-studies/issue-2591/data/codex/codex-cli-0.160.0-debug-models-summary.txt\n5084 docs/case-studies/issue-2591/data/codex/codex-cli-0.160.0-debug-models.json\n6017 total\n2026-10-07T07:06:06Z\nbest\",\"sonnet[1m]\",\"opus[1m]\",\"fable[1m]\",\"opusplan\"],b2=[\"sonnet\",\"opus\",\"haiku\",\"fable\"];var eRt=\"claude-mythos-preview\";function Oh(e){return _2.includes(e)}function sce(e){if(Oh(e))return!0;let n=It(e);return n!==e&&It(n)===n&&Oh(n)}function It(e){return e.replace(/\\[1m\\]$/i,\"\")}function zO(e,n){return It(e).toLower\ndel_context_window_exceeded\":case\"refusal\":return\"stop\";default:return ws(e),\"stop\"}}var Kx={},iB=[\"claude-mythos-preview\",\"claude-opus-4-6\"],sp=(()=>{class e extends qe{constructor(){super(...arguments);this.batches=new Su(this._client)}create(n,r){let s=Vx(n),{betas:h,user_profile_id:g,workspace_id:S,...w}=s;if(w.mode\n..h!=null?{\"anthropic-workspace-id\":[REDACTED]}:void 0},r?.headers])})}}return e.Batches=nc,e})(),Qx={},GB=[\"claude-mythos-preview\",\"claude-opus-4-6\"];class ga extends qe{retrieve(e,n={},r){let{betas:s,workspace_id:h}=n??{};return this._client.get(Pe`/v1/models/${e}`,{...r,headers:Re([{...s?.toString()!=null?{\"anthropic-beta\":s?",
         "is_error": false
       }
     ]
@@ -6481,7 +6481,7 @@ d
   "uuid": "4c6119c6-c1fa-4eaf-b129-abb952e7d6b0",
   "timestamp": "2026-10-07T09:15:18.126Z",
   "tool_use_result": {
-    "stdout": " 933 docs/case-studies/issue-2591/data/codex/codex-cli-0.160.0-debug-models-summary.txt\n5084 docs/case-studies/issue-2591/data/codex/codex-cli-0.160.0-debug-models.json\n6017 total\n2026-10-07T07:06:06Z\nbest\",\"sonnet[1m]\",\"opus[1m]\",\"fable[1m]\",\"opusplan\"],b2=[\"sonnet\",\"opus\",\"haiku\",\"fable\"];var eRt=\"claude-mythos-preview\";function Oh(e){return _2.includes(e)}function sce(e){if(Oh(e))return!0;let n=It(e);return n!==e&&It(n)===n&&Oh(n)}function It(e){return e.replace(/\\[1m\\]$/i,\"\")}function zO(e,n){return It(e).toLower\ndel_context_window_exceeded\":case\"refusal\":return\"stop\";default:return ws(e),\"stop\"}}var Kx={},iB=[\"claude-mythos-preview\",\"claude-opus-4-6\"],sp=(()=>{class e extends qe{constructor(){super(...arguments);this.batches=new Su(this._client)}create(n,r){let s=Vx(n),{betas:h,user_profile_id:g,workspace_id:S,...w}=s;if(w.mode\n..h!=null?{\"anthropic-workspace-id\":h}:void 0},r?.headers])})}}return e.Batches=nc,e})(),Qx={},GB=[\"claude-mythos-preview\",\"claude-opus-4-6\"];class ga extends qe{retrieve(e,n={},r){let{betas:s,workspace_id:h}=n??{};return this._client.get(Pe`/v1/models/${e}`,{...r,headers:Re([{...s?.toString()!=null?{\"anthropic-beta\":s?",
+    "stdout": " 933 docs/case-studies/issue-2591/data/codex/codex-cli-0.160.0-debug-models-summary.txt\n5084 docs/case-studies/issue-2591/data/codex/codex-cli-0.160.0-debug-models.json\n6017 total\n2026-10-07T07:06:06Z\nbest\",\"sonnet[1m]\",\"opus[1m]\",\"fable[1m]\",\"opusplan\"],b2=[\"sonnet\",\"opus\",\"haiku\",\"fable\"];var eRt=\"claude-mythos-preview\";function Oh(e){return _2.includes(e)}function sce(e){if(Oh(e))return!0;let n=It(e);return n!==e&&It(n)===n&&Oh(n)}function It(e){return e.replace(/\\[1m\\]$/i,\"\")}function zO(e,n){return It(e).toLower\ndel_context_window_exceeded\":case\"refusal\":return\"stop\";default:return ws(e),\"stop\"}}var Kx={},iB=[\"claude-mythos-preview\",\"claude-opus-4-6\"],sp=(()=>{class e extends qe{constructor(){super(...arguments);this.batches=new Su(this._client)}create(n,r){let s=Vx(n),{betas:h,user_profile_id:g,workspace_id:S,...w}=s;if(w.mode\n..h!=null?{\"anthropic-workspace-id\":[REDACTED]}:void 0},r?.headers])})}}return e.Batches=nc,e})(),Qx={},GB=[\"claude-mythos-preview\",\"claude-opus-4-6\"];class ga extends qe{retrieve(e,n={},r){let{betas:s,workspace_id:h}=n??{};return this._client.get(Pe`/v1/models/${e}`,{...r,headers:Re([{...s?.toString()!=null?{\"anthropic-beta\":s?",
     "stderr": "",
     "interrupted": false,
     "isImage": false,
@@ -8181,12 +8181,12 @@ d
     "x-stainless-timeout": "600",
   },
 }
-[log_38c4f7, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfndBG1ekF2v7W9xUVStQ"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1444ms
+[log_38c4f7, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfndBG1ekF2v7W9xUVStQ"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1444ms
 [log_38c4f7] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.13",
@@ -8199,7 +8199,7 @@ d
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46bcec9fa7beeab-CDG",
@@ -8242,8 +8242,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfndBG1ekF2v7W9xUVStQ",
   "traceresponse": "00-6cd5cc1bc8d9450a4b6553cd7a364972-b7b104c0d44fdb8d-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "cf-cache-status": "DYNAMIC",
   "x-robots-tag": "none",
@@ -8456,12 +8456,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_95d1d9, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfndBjm1khiWroc7CZXtZ"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1085ms
+[log_95d1d9, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfndBjm1khiWroc7CZXtZ"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1085ms
 [log_95d1d9] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.13",
@@ -8474,7 +8474,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46bcef28930eeab-CDG",
@@ -8517,8 +8517,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfndBjm1khiWroc7CZXtZ",
   "traceresponse": "00-6338629e95b51ee0017944b10595277a-fd298f1d3d29fd43-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "cf-cache-status": "DYNAMIC",
   "x-robots-tag": "none",
@@ -8731,12 +8731,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_98cebb, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfndC6ce6VXD5MGcxQBTj"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1008ms
+[log_98cebb, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfndC6ce6VXD5MGcxQBTj"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1008ms
 [log_98cebb] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.13",
@@ -8749,7 +8749,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46bcf110faceeab-CDG",
@@ -8792,8 +8792,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfndC6ce6VXD5MGcxQBTj",
   "traceresponse": "00-43c7a9e073613a89f76380f4b74e413f-6197c74afba3a4a0-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "cf-cache-status": "DYNAMIC",
   "x-robots-tag": "none",
@@ -9042,12 +9042,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_c6f784, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfndD7x2jt8SNUHa1oi71"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1050ms
+[log_c6f784, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfndD7x2jt8SNUHa1oi71"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1050ms
 [log_c6f784] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.14",
@@ -9060,7 +9060,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46bcf67bbd8eeab-CDG",
@@ -9103,8 +9103,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfndD7x2jt8SNUHa1oi71",
   "traceresponse": "00-6f668fb0cd904631e8cc3b6b37dcef30-741c1ea99618e992-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "cf-cache-status": "DYNAMIC",
   "x-robots-tag": "none",
@@ -9322,12 +9322,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_d584b4, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfndDjB6wAQTVciEaLWWX"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1421ms
+[log_d584b4, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfndDjB6wAQTVciEaLWWX"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1421ms
 [log_d584b4] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.14",
@@ -9340,7 +9340,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46bcf9b3ff5eeab-CDG",
@@ -9383,8 +9383,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfndDjB6wAQTVciEaLWWX",
   "traceresponse": "00-6d9b216749148da903a5253562efb78f-b8c50be546f56bba-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "cf-cache-status": "DYNAMIC",
   "x-robots-tag": "none",
@@ -17677,12 +17677,12 @@ TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a f
     "x-stainless-timeout": "600",
   },
 }
-[log_465c57, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011Cfndqavm6q2xJd5arA366"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 939ms
+[log_465c57, anthropic-workspace-id: "[REDACTED]", request-id: "req_011Cfndqavm6q2xJd5arA366"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 939ms
 [log_465c57] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.15",
@@ -17695,7 +17695,7 @@ TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a f
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46bdb7b4b36f13c-CDG",
@@ -17738,8 +17738,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011Cfndqavm6q2xJd5arA366",
   "traceresponse": "00-138e9efe83ff317688235039e915ff11-6772a36faba03dd8-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -18126,12 +18126,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_4eb54f, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011Cfndrc3zcRrn4ntdUNavE"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 783ms
+[log_4eb54f, anthropic-workspace-id: "[REDACTED]", request-id: "req_011Cfndrc3zcRrn4ntdUNavE"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 783ms
 [log_4eb54f] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.15",
@@ -18144,7 +18144,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46bdbd1fae8f13c-CDG",
@@ -18187,8 +18187,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011Cfndrc3zcRrn4ntdUNavE",
   "traceresponse": "00-a6165942ef33459eb715c3cd618cf123-fd3467e7a9f60787-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -18529,12 +18529,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_f910e3, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfnduKbdEyuz4i4pM8moL"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 843ms
+[log_f910e3, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfnduKbdEyuz4i4pM8moL"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 843ms
 [log_f910e3] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.15",
@@ -18547,7 +18547,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46bdcb83c0ef13c-CDG",
@@ -18590,8 +18590,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfnduKbdEyuz4i4pM8moL",
   "traceresponse": "00-0a875149cb49e0bf85003362cc0c850d-001e78a4da7a0fea-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -18854,12 +18854,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_254500, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfndvjqfzBB8AmnUVgQpr"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 908ms
+[log_254500, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfndvjqfzBB8AmnUVgQpr"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 908ms
 [log_254500] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.15",
@@ -18872,7 +18872,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46bdd306951f13c-CDG",
@@ -18915,8 +18915,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfndvjqfzBB8AmnUVgQpr",
   "traceresponse": "00-c396401aa1208ed2ba00b6ffbcc5daab-d181fd043b231b8d-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -19156,12 +19156,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_29ebc4, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfndwrptK9xpTSWo5Ctum"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1100ms
+[log_29ebc4, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfndwrptK9xpTSWo5Ctum"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1100ms
 [log_29ebc4] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.15",
@@ -19174,7 +19174,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46bdd8f8e52f13c-CDG",
@@ -19217,8 +19217,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfndwrptK9xpTSWo5Ctum",
   "traceresponse": "00-24cc515ae79be892cf1feabc886d2c7f-dd955a0196db1e10-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -19601,12 +19601,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_d13331, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011Cfndzscc5Td9yBZ5Q3dqd"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1135ms
+[log_d13331, anthropic-workspace-id: "[REDACTED]", request-id: "req_011Cfndzscc5Td9yBZ5Q3dqd"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1135ms
 [log_d13331] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.15",
@@ -19619,7 +19619,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46bde8edf18f13c-CDG",
@@ -19662,8 +19662,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011Cfndzscc5Td9yBZ5Q3dqd",
   "traceresponse": "00-dffcad40ebfbefee3dd4d1c74b98bc24-4a84ca8b2fd271d2-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -19942,12 +19942,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_149466, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011Cfne1VXqhZimCJa4XmcDT"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 999ms
+[log_149466, anthropic-workspace-id: "[REDACTED]", request-id: "req_011Cfne1VXqhZimCJa4XmcDT"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 999ms
 [log_149466] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.15",
@@ -19960,7 +19960,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46bdec38e98f13c-CDG",
@@ -20003,8 +20003,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011Cfne1VXqhZimCJa4XmcDT",
   "traceresponse": "00-fd40bf134c5cc84f33c366d8e7a35a6d-7c074cad99cc6865-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -20269,12 +20269,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_89e59a, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011Cfne23EKzj7qnrWCVk8Xt"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 7411ms
+[log_89e59a, anthropic-workspace-id: "[REDACTED]", request-id: "req_011Cfne23EKzj7qnrWCVk8Xt"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 7411ms
 [log_89e59a] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.15",
@@ -20288,7 +20288,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
     "anthropic-thinking-prefix-mismatch": "kind=not_recorded; pattern=not_applicable; block=messages.2.content.0; removed=0; inserted=0; modified=0",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46bdef14909f13c-CDG",
@@ -20331,8 +20331,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011Cfne23EKzj7qnrWCVk8Xt",
   "traceresponse": "00-52787c114ad8124117bd36c3d0898013-8ed71fb18ed1fe22-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "anthropic-thinking-prefix-mismatch": "kind=not_recorded; pattern=not_applicable; block=messages.2.content.0; removed=0; inserted=0; modified=0",
   "server": "cloudflare",
   "x-robots-tag": "none",
@@ -20489,13 +20489,13 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-runtime-version": "v26.3.0",
   },
 }
-[log_92f265, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011Cfne6PtuBuMyVnhGtpyAg"] post https://api.anthropic.com/v1/messages/count_tokens?beta=true succeeded with status 200 in 229ms
+[log_92f265, anthropic-workspace-id: "[REDACTED]", request-id: "req_011Cfne6PtuBuMyVnhGtpyAg"] post https://api.anthropic.com/v1/messages/count_tokens?beta=true succeeded with status 200 in 229ms
 [log_92f265] response start {
   url: "https://api.anthropic.com/v1/messages/count_tokens?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-organization-id": "[REDACTED]",
+    "anthropic-workspace-id": "[REDACTED]",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46be0635aeef13c-CDG",
     connection: "keep-alive",
@@ -20518,17 +20518,17 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   body: {
     input_tokens: 2680,
     _request_id: "req_011Cfne6PtuBuMyVnhGtpyAg",
-    _workspace_id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    _workspace_id: "[REDACTED]",
   },
   durationMs: 231,
 }
-[log_3e4d5b, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011Cfne6Pv9MKsdBwv1zcphu"] post https://api.anthropic.com/v1/messages/count_tokens?beta=true succeeded with status 200 in 233ms
+[log_3e4d5b, anthropic-workspace-id: "[REDACTED]", request-id: "req_011Cfne6Pv9MKsdBwv1zcphu"] post https://api.anthropic.com/v1/messages/count_tokens?beta=true succeeded with status 200 in 233ms
 [log_3e4d5b] response start {
   url: "https://api.anthropic.com/v1/messages/count_tokens?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-organization-id": "[REDACTED]",
+    "anthropic-workspace-id": "[REDACTED]",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46be0636f0b0b3f-FRA",
     connection: "keep-alive",
@@ -20551,17 +20551,17 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   body: {
     input_tokens: 21852,
     _request_id: "req_011Cfne6Pv9MKsdBwv1zcphu",
-    _workspace_id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    _workspace_id: "[REDACTED]",
   },
   durationMs: 233,
 }
-[log_549acc, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011Cfne6PvtQp2pCmscibPpL"] post https://api.anthropic.com/v1/messages/count_tokens?beta=true succeeded with status 200 in 234ms
+[log_549acc, anthropic-workspace-id: "[REDACTED]", request-id: "req_011Cfne6PvtQp2pCmscibPpL"] post https://api.anthropic.com/v1/messages/count_tokens?beta=true succeeded with status 200 in 234ms
 [log_549acc] response start {
   url: "https://api.anthropic.com/v1/messages/count_tokens?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-organization-id": "[REDACTED]",
+    "anthropic-workspace-id": "[REDACTED]",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46be0636e271db3-FRA",
     connection: "keep-alive",
@@ -20584,17 +20584,17 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   body: {
     input_tokens: 10924,
     _request_id: "req_011Cfne6PvtQp2pCmscibPpL",
-    _workspace_id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    _workspace_id: "[REDACTED]",
   },
   durationMs: 235,
 }
-[log_ede0a2, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011Cfne6Q2q5maJju8z9mGtw"] post https://api.anthropic.com/v1/messages/count_tokens?beta=true succeeded with status 200 in 333ms
+[log_ede0a2, anthropic-workspace-id: "[REDACTED]", request-id: "req_011Cfne6Q2q5maJju8z9mGtw"] post https://api.anthropic.com/v1/messages/count_tokens?beta=true succeeded with status 200 in 333ms
 [log_ede0a2] response start {
   url: "https://api.anthropic.com/v1/messages/count_tokens?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-organization-id": "[REDACTED]",
+    "anthropic-workspace-id": "[REDACTED]",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46be0637d012a3b-CDG",
     connection: "keep-alive",
@@ -20617,7 +20617,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   body: {
     input_tokens: 4278,
     _request_id: "req_011Cfne6Q2q5maJju8z9mGtw",
-    _workspace_id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    _workspace_id: "[REDACTED]",
   },
   durationMs: 333,
 }
@@ -20742,12 +20742,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_8107ca, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011Cfne6SY9vCDQYCvGNiogU"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1080ms
+[log_8107ca, anthropic-workspace-id: "[REDACTED]", request-id: "req_011Cfne6SY9vCDQYCvGNiogU"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1080ms
 [log_8107ca] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.15",
@@ -20761,7 +20761,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
     "anthropic-thinking-prefix-mismatch": "kind=not_recorded; pattern=not_applicable; block=messages.2.content.0; removed=0; inserted=0; modified=0",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46be0670df9f13c-CDG",
@@ -20804,8 +20804,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011Cfne6SY9vCDQYCvGNiogU",
   "traceresponse": "00-baeb64c831aace4821836a02b8bba0af-c083fc234f3198b7-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "anthropic-thinking-prefix-mismatch": "kind=not_recorded; pattern=not_applicable; block=messages.2.content.0; removed=0; inserted=0; modified=0",
   "server": "cloudflare",
   "x-robots-tag": "none",
@@ -21408,12 +21408,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_4b355a, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011Cfne78jrreX658PzJfQyv"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1387ms
+[log_4b355a, anthropic-workspace-id: "[REDACTED]", request-id: "req_011Cfne78jrreX658PzJfQyv"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1387ms
 [log_4b355a] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.15",
@@ -21426,7 +21426,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46be0a1c952f13c-CDG",
@@ -21469,8 +21469,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011Cfne78jrreX658PzJfQyv",
   "traceresponse": "00-437815f96f9e09df9589244ce3e2bb57-aa11b90582eab27d-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -21769,12 +21769,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_4e575d, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011Cfne7kWew1YaJtWyw1QGY"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1314ms
+[log_4e575d, anthropic-workspace-id: "[REDACTED]", request-id: "req_011Cfne7kWew1YaJtWyw1QGY"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1314ms
 [log_4e575d] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.16",
@@ -21787,7 +21787,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46be0d60b73f13c-CDG",
@@ -21830,8 +21830,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011Cfne7kWew1YaJtWyw1QGY",
   "traceresponse": "00-3bdad82ff75eceef8ab6a42ab4ec1fdd-e216505cfec20712-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -22100,12 +22100,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_339758, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011Cfne87Mnku5FViA4HiQHp"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1238ms
+[log_339758, anthropic-workspace-id: "[REDACTED]", request-id: "req_011Cfne87Mnku5FViA4HiQHp"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1238ms
 [log_339758] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.16",
@@ -22118,7 +22118,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46be0f4aae6f13c-CDG",
@@ -22161,8 +22161,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011Cfne87Mnku5FViA4HiQHp",
   "traceresponse": "00-9ae334dfb5215c55309340d6b5ddefc8-66d75805b25334d8-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -22378,12 +22378,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_76ea58, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011Cfne8TdgpkqruUEM3wzRw"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1076ms
+[log_76ea58, anthropic-workspace-id: "[REDACTED]", request-id: "req_011Cfne8TdgpkqruUEM3wzRw"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1076ms
 [log_76ea58] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.16",
@@ -22396,7 +22396,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46be1123a4df13c-CDG",
@@ -22439,8 +22439,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011Cfne8TdgpkqruUEM3wzRw",
   "traceresponse": "00-28c2050a9eca9184e68c6cb6b9384e74-e0649bc9dd111e94-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -22718,12 +22718,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_eb5f99, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011Cfne99ADKbxgHLjqTwuPA"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1619ms
+[log_eb5f99, anthropic-workspace-id: "[REDACTED]", request-id: "req_011Cfne99ADKbxgHLjqTwuPA"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1619ms
 [log_eb5f99] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.16",
@@ -22736,7 +22736,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46be14c1e0ef13c-CDG",
@@ -22779,8 +22779,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011Cfne99ADKbxgHLjqTwuPA",
   "traceresponse": "00-3e661bb29ef9d05dcf5b3c49d0f7a802-aec57f55a6d90441-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -22978,12 +22978,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_bb7737, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011Cfne9Qgs5kuaucYMy8DPy"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 912ms
+[log_bb7737, anthropic-workspace-id: "[REDACTED]", request-id: "req_011Cfne9Qgs5kuaucYMy8DPy"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 912ms
 [log_bb7737] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.16",
@@ -22996,7 +22996,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46be162bfadf13c-CDG",
@@ -23039,8 +23039,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011Cfne9Qgs5kuaucYMy8DPy",
   "traceresponse": "00-7a66436ee35a4f17dc475ae5439b1d00-15acd2c1d35b5f53-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -23327,12 +23327,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_d0d8bf, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfneACqzuMcBemjQHZDRH"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 922ms
+[log_d0d8bf, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfneACqzuMcBemjQHZDRH"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 922ms
 [log_d0d8bf] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.16",
@@ -23345,7 +23345,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46be1a64883f13c-CDG",
@@ -23388,8 +23388,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfneACqzuMcBemjQHZDRH",
   "traceresponse": "00-6f844ce2f9003506e1965c4e5f02ad1b-259c20ed0fc430a3-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -23675,12 +23675,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_712f88, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfneDUKFw2C37mjjY6Loe"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 975ms
+[log_712f88, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfneDUKFw2C37mjjY6Loe"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 975ms
 [log_712f88] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.16",
@@ -23693,7 +23693,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46be2bb2ab0f13c-CDG",
@@ -23736,8 +23736,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfneDUKFw2C37mjjY6Loe",
   "traceresponse": "00-95463e026e5645b4cf53193899cdccfb-36c9105f1c281b4d-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -23953,12 +23953,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_8594b1, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfneDwiGewcNXCWprFWWw"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 870ms
+[log_8594b1, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfneDwiGewcNXCWprFWWw"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 870ms
 [log_8594b1] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.16",
@@ -23971,7 +23971,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46be2e31fbef13c-CDG",
@@ -24014,8 +24014,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfneDwiGewcNXCWprFWWw",
   "traceresponse": "00-83a00a4818fd1080101ba587737c3a9c-de50d20ae3c4da75-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -24477,12 +24477,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_9cddda, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfneMUZrb5rruQDKaQDVJ"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 55369ms
+[log_9cddda, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfneMUZrb5rruQDKaQDVJ"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 55369ms
 [log_9cddda] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.16",
@@ -24495,7 +24495,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46be561cc2ef13c-CDG",
@@ -24538,8 +24538,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfneMUZrb5rruQDKaQDVJ",
   "traceresponse": "00-4af5077923541e5aa5edb595e78b2f0b-736744c8a19aee12-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -24784,12 +24784,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_8ce0dd, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfneMr3vyKKDAccx2J8pC"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1407ms
+[log_8ce0dd, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfneMr3vyKKDAccx2J8pC"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1407ms
 [log_8ce0dd] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.17",
@@ -24802,7 +24802,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46be5814b41f13c-CDG",
@@ -24845,8 +24845,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfneMr3vyKKDAccx2J8pC",
   "traceresponse": "00-0af371216524ed09f4f7b81ddafba054-5e9c5cbe2dc8b6e1-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -25200,12 +25200,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_5be5e2, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfneQ4y7H48ZFF6HhEakD"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1168ms
+[log_5be5e2, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfneQ4y7H48ZFF6HhEakD"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1168ms
 [log_5be5e2] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.17",
@@ -25218,7 +25218,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46be63dae5af13c-CDG",
@@ -25261,8 +25261,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfneQ4y7H48ZFF6HhEakD",
   "traceresponse": "00-341658ae79971117c5a182783c1e798f-4449736fec731e02-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -25561,12 +25561,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_9f1393, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfneQTLGVVmF213ruAP2Y"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 929ms
+[log_9f1393, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfneQTLGVVmF213ruAP2Y"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 929ms
 [log_9f1393] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.17",
@@ -25579,7 +25579,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46be65e6b6df13c-CDG",
@@ -25622,8 +25622,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfneQTLGVVmF213ruAP2Y",
   "traceresponse": "00-892c92fe1dd685289078b9cc2a92f9d4-8ef4795330cc289c-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -25839,12 +25839,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_4e7313, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfneQng7G9U92duyB8ZFo"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1073ms
+[log_4e7313, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfneQng7G9U92duyB8ZFo"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1073ms
 [log_4e7313] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.17",
@@ -25857,7 +25857,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46be67aad53f13c-CDG",
@@ -25900,8 +25900,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfneQng7G9U92duyB8ZFo",
   "traceresponse": "00-0e4a5256e0d7e408e3c7a06dec3033a1-b2a5e67047daa663-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -26101,12 +26101,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_4bf7f2, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfneR4EzPgiNfCgRgamCK"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1140ms
+[log_4bf7f2, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfneR4EzPgiNfCgRgamCK"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1140ms
 [log_4bf7f2] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.17",
@@ -26119,7 +26119,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46be6917c38f13c-CDG",
@@ -26162,8 +26162,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfneR4EzPgiNfCgRgamCK",
   "traceresponse": "00-8ecd85cfc4e8c574cbb81c5c6333fc4c-136e70f548f5fdcc-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -26387,12 +26387,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_7448f6, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfneRSvz1iRWzPgYT7ocB"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 863ms
+[log_7448f6, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfneRSvz1iRWzPgYT7ocB"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 863ms
 [log_7448f6] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.17",
@@ -26405,7 +26405,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46be6b28c6ef13c-CDG",
@@ -26448,8 +26448,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfneRSvz1iRWzPgYT7ocB",
   "traceresponse": "00-711d499299c9bf25fa50afe9b8502e6b-212bccbdeba0f06a-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -26662,12 +26662,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_a2d4ec, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfneRskEmt57dQEnr4kxR"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 966ms
+[log_a2d4ec, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfneRskEmt57dQEnr4kxR"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 966ms
 [log_a2d4ec] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.17",
@@ -26680,7 +26680,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46be6d6ef5ff13c-CDG",
@@ -26723,8 +26723,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfneRskEmt57dQEnr4kxR",
   "traceresponse": "00-0a7faf247d079a2e048dd0fba5195c17-d67eca0dbc331195-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -26987,12 +26987,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_1f0d16, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfneSGpoaXwi7KfyrMRtA"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1155ms
+[log_1f0d16, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfneSGpoaXwi7KfyrMRtA"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1155ms
 [log_1f0d16] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.17",
@@ -27005,7 +27005,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46be6f8a876f13c-CDG",
@@ -27048,8 +27048,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfneSGpoaXwi7KfyrMRtA",
   "traceresponse": "00-8fd873e4a7505b45f93ae56609f891e0-36aeacf5888d5686-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -27277,12 +27277,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_948c3e, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfneSz42oMw98bco38MsG"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1267ms
+[log_948c3e, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfneSz42oMw98bco38MsG"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1267ms
 [log_948c3e] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.17",
@@ -27295,7 +27295,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46be7346becf13c-CDG",
@@ -27338,8 +27338,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfneSz42oMw98bco38MsG",
   "traceresponse": "00-04641d27368274a2d7b6464e7a81c038-6b1a298a2f089b44-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -27578,12 +27578,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_cfcbaa, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfneTHYFM9fD8TDpbSeZ6"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 860ms
+[log_cfcbaa, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfneTHYFM9fD8TDpbSeZ6"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 860ms
 [log_cfcbaa] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.17",
@@ -27596,7 +27596,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46be74e7de7f13c-CDG",
@@ -27639,8 +27639,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfneTHYFM9fD8TDpbSeZ6",
   "traceresponse": "00-259fd42a26cac027d62f48758965f753-c041653ee5199498-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -27794,12 +27794,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_ebf283, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfneTeJufdHWP8EGnxdGu"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1204ms
+[log_ebf283, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfneTeJufdHWP8EGnxdGu"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1204ms
 [log_ebf283] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.17",
@@ -27812,7 +27812,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46be76ced81f13c-CDG",
@@ -27855,8 +27855,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfneTeJufdHWP8EGnxdGu",
   "traceresponse": "00-defc1f5525cd61d8fa232b6b91b37bda-5d4f55a1a411a234-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -28067,12 +28067,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_867b33, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfneTznhY7w35LpYijYHg"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1343ms
+[log_867b33, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfneTznhY7w35LpYijYHg"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1343ms
 [log_867b33] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.17",
@@ -28085,7 +28085,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46be78acd0df13c-CDG",
@@ -28128,8 +28128,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfneTznhY7w35LpYijYHg",
   "traceresponse": "00-64a864cdf67ef670bf0b1c9782af788f-48e1df590a125604-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -28348,12 +28348,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_578e08, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfneUQtnkU7dpQbWuQDvS"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1180ms
+[log_578e08, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfneUQtnkU7dpQbWuQDvS"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1180ms
 [log_578e08] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.17",
@@ -28366,7 +28366,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46be7adf8bdf13c-CDG",
@@ -28409,8 +28409,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfneUQtnkU7dpQbWuQDvS",
   "traceresponse": "00-46016553411ad63fccbd3b5f32d12a09-95c9d84fa39196e5-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -28621,12 +28621,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_cf68a1, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfneUhNUpPLZXUe3kiXKh"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1380ms
+[log_cf68a1, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfneUhNUpPLZXUe3kiXKh"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1380ms
 [log_cf68a1] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.17",
@@ -28639,7 +28639,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46be7c62be0f13c-CDG",
@@ -28682,8 +28682,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfneUhNUpPLZXUe3kiXKh",
   "traceresponse": "00-bc22cd3bbf4c754f656974d657ca6c27-1840ad21d358bf9a-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "cf-cache-status": "DYNAMIC",
   "x-robots-tag": "none",
@@ -28899,12 +28899,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_eb3fd9, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfneV4iNXkjqfwZPwDaxo"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1303ms
+[log_eb3fd9, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfneV4iNXkjqfwZPwDaxo"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1303ms
 [log_eb3fd9] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.17",
@@ -28917,7 +28917,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46be7e54b76f13c-CDG",
@@ -28960,8 +28960,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfneV4iNXkjqfwZPwDaxo",
   "traceresponse": "00-ec97f30fb5c076b47aea74693f898ad6-6a5f051bf5f986de-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -29227,12 +29227,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_314381, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfneVeTQAVNL5hEDY2fJX"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1042ms
+[log_314381, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfneVeTQAVNL5hEDY2fJX"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1042ms
 [log_314381] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.17",
@@ -29245,7 +29245,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46be8169a88f13c-CDG",
@@ -29288,8 +29288,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfneVeTQAVNL5hEDY2fJX",
   "traceresponse": "00-8a7f830e5f176f679d2b3f3497ec73e2-c81895e9e5f3d240-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -29489,12 +29489,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_17d62e, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfneW2tGV96X6vkebZaCo"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1409ms
+[log_17d62e, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfneW2tGV96X6vkebZaCo"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1409ms
 [log_17d62e] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.17",
@@ -29507,7 +29507,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46be8376be3f13c-CDG",
@@ -29550,8 +29550,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfneW2tGV96X6vkebZaCo",
   "traceresponse": "00-17b5c1d989663c79d72fb2ac4e761007-bfd2043f548bcfd8-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -29791,12 +29791,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_c6c440, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfneWZVmiMTmAymMiZfRe"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1291ms
+[log_c6c440, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfneWZVmiMTmAymMiZfRe"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1291ms
 [log_c6c440] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.17",
@@ -29809,7 +29809,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46be8641880f13c-CDG",
@@ -29852,8 +29852,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfneWZVmiMTmAymMiZfRe",
   "traceresponse": "00-6e240ea7a8c25797c75a298455330ca9-cca8007d0783c899-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -30124,12 +30124,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_c7d309, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfneXQof7snP53TCFZuqt"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1206ms
+[log_c7d309, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfneXQof7snP53TCFZuqt"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1206ms
 [log_c7d309] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.17",
@@ -30142,7 +30142,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46be8ac49a3f13c-CDG",
@@ -30185,8 +30185,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfneXQof7snP53TCFZuqt",
   "traceresponse": "00-ef5285f08bdf2340f3510851aa30250c-08f0ca329198b3a4-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -30590,12 +30590,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_b3869d, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfneXyhprjhnbjo6XHMBE"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1131ms
+[log_b3869d, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfneXyhprjhnbjo6XHMBE"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1131ms
 [log_b3869d] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.17",
@@ -30608,7 +30608,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46be8dc4ce2f13c-CDG",
@@ -30651,8 +30651,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfneXyhprjhnbjo6XHMBE",
   "traceresponse": "00-0d229a5dad192ee9a341c7b2c628a4e7-de50d4e041853163-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -30868,12 +30868,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_1ca59e, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfneYLVjN2M1T4gn1YaHv"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1424ms
+[log_1ca59e, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfneYLVjN2M1T4gn1YaHv"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1424ms
 [log_1ca59e] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.17",
@@ -30886,7 +30886,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46be8fababef13c-CDG",
@@ -30929,8 +30929,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfneYLVjN2M1T4gn1YaHv",
   "traceresponse": "00-d0df699e77f537a0307a923481e61d5f-feb1b42e8d202e01-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -31185,12 +31185,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_a2a46d, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfneYn2dnrYQGjA4NHiiK"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 905ms
+[log_a2a46d, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfneYn2dnrYQGjA4NHiiK"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 905ms
 [log_a2a46d] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.17",
@@ -31203,7 +31203,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46be9200e0df13c-CDG",
@@ -31246,8 +31246,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfneYn2dnrYQGjA4NHiiK",
   "traceresponse": "00-f1d3d235d7d90c20669ddaf44b15605c-b2a6aa18c79deeea-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -31406,12 +31406,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_ed7fa1, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfneZ1aE5wkUD7gyZHHu6"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1308ms
+[log_ed7fa1, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfneZ1aE5wkUD7gyZHHu6"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1308ms
 [log_ed7fa1] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.17",
@@ -31424,7 +31424,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46be9334bbbf13c-CDG",
@@ -31467,8 +31467,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfneZ1aE5wkUD7gyZHHu6",
   "traceresponse": "00-9981b1777730565123b7af0b5a29038a-1e8fd6eac4b21fda-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -31823,12 +31823,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_df73da, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfneaPyPMVnQWbBJ6UDvi"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1260ms
+[log_df73da, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfneaPyPMVnQWbBJ6UDvi"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1260ms
 [log_df73da] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.17",
@@ -31841,7 +31841,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46be9a95803f13c-CDG",
@@ -31884,8 +31884,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfneaPyPMVnQWbBJ6UDvi",
   "traceresponse": "00-f9f2434be52f362088af33edb649185e-0c41b4b231ecbf34-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -32101,12 +32101,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_60631a, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfneanTjpLp8M6ZSdT9jk"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1265ms
+[log_60631a, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfneanTjpLp8M6ZSdT9jk"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1265ms
 [log_60631a] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.17",
@@ -32119,7 +32119,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46be9ca4e4cf13c-CDG",
@@ -32162,8 +32162,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfneanTjpLp8M6ZSdT9jk",
   "traceresponse": "00-1796318d934d4644ec5d8764822548a5-b7b94778509d5fb8-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -32322,12 +32322,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_c05f75, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011Cfneb8v3sDaioBzpimMCw"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 955ms
+[log_c05f75, anthropic-workspace-id: "[REDACTED]", request-id: "req_011Cfneb8v3sDaioBzpimMCw"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 955ms
 [log_c05f75] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.17",
@@ -32340,7 +32340,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46be9e82b9bf13c-CDG",
@@ -32383,8 +32383,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011Cfneb8v3sDaioBzpimMCw",
   "traceresponse": "00-587f20b3167053c41adf5b42ff258dfb-99f6214a95dd48ad-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -32600,12 +32600,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_e7521b, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfnebRaQVK3daZYShbqDR"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 2084ms
+[log_e7521b, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfnebRaQVK3daZYShbqDR"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 2084ms
 [log_e7521b] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.17",
@@ -32618,7 +32618,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46bea005c1bf13c-CDG",
@@ -32661,8 +32661,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfnebRaQVK3daZYShbqDR",
   "traceresponse": "00-e9d051b0e50c8b5e68140ccab9a0bd67-009ab33c240a7046-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -32894,12 +32894,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_112843, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011Cfneby8xYHnSiXW2UXwt8"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1303ms
+[log_112843, anthropic-workspace-id: "[REDACTED]", request-id: "req_011Cfneby8xYHnSiXW2UXwt8"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1303ms
 [log_112843] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.17",
@@ -32912,7 +32912,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46bea2eab55f13c-CDG",
@@ -32955,8 +32955,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011Cfneby8xYHnSiXW2UXwt8",
   "traceresponse": "00-d78535a9e8c3f5599e125123cf20f09c-ba6cdd8299c4f9c3-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -33115,12 +33115,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_8b26fd, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfnecGefC3PjbbY2p6JCQ"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1111ms
+[log_8b26fd, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfnecGefC3PjbbY2p6JCQ"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1111ms
 [log_8b26fd] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.17",
@@ -33133,7 +33133,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46bea481f3ef13c-CDG",
@@ -33176,8 +33176,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfnecGefC3PjbbY2p6JCQ",
   "traceresponse": "00-62108d78eb3471af291df5b50c24e36c-d596ff990491fb2a-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -33393,12 +33393,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_87868e, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfnecaKJGdU5ghkhMqJUz"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1036ms
+[log_87868e, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfnecaKJGdU5ghkhMqJUz"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1036ms
 [log_87868e] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.17",
@@ -33411,7 +33411,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46bea621a2ff13c-CDG",
@@ -33454,8 +33454,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfnecaKJGdU5ghkhMqJUz",
   "traceresponse": "00-6e7fd9aa19e231e0300e690510ed12eb-06ab395b0cdee8fb-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -33751,12 +33751,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_95c417, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfnedTnfYzo7iJtkhDDz2"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1271ms
+[log_95c417, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfnedTnfYzo7iJtkhDDz2"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1271ms
 [log_95c417] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.17",
@@ -33769,7 +33769,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46beaad583df13c-CDG",
@@ -33812,8 +33812,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfnedTnfYzo7iJtkhDDz2",
   "traceresponse": "00-24f595c6a5d70e923488f83159461cb4-cfbe159ccfa46b58-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -34053,12 +34053,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_fb9438, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfneenvdwovARruyNuvRR"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1045ms
+[log_fb9438, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfneenvdwovARruyNuvRR"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1045ms
 [log_fb9438] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.18",
@@ -34071,7 +34071,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46beb1e0b7ef13c-CDG",
@@ -34114,8 +34114,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfneenvdwovARruyNuvRR",
   "traceresponse": "00-448f4fac44238260ea43e2fa9ad2450e-8deb7d008b492c9b-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -34426,12 +34426,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_952447, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfnefJ46AURFbSqDTmLot"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 7122ms
+[log_952447, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfnefJ46AURFbSqDTmLot"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 7122ms
 [log_952447] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.18",
@@ -34445,7 +34445,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
     "anthropic-thinking-prefix-mismatch": "kind=not_recorded; pattern=not_applicable; block=messages.2.content.0; removed=0; inserted=0; modified=0",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46beb48bad1f13c-CDG",
@@ -34488,8 +34488,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfnefJ46AURFbSqDTmLot",
   "traceresponse": "00-00f327587f207758a03327bf693e05d0-afba7cd1d52cd0a2-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "anthropic-thinking-prefix-mismatch": "kind=not_recorded; pattern=not_applicable; block=messages.2.content.0; removed=0; inserted=0; modified=0",
   "server": "cloudflare",
   "x-robots-tag": "none",
@@ -34678,13 +34678,13 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-runtime-version": "v26.3.0",
   },
 }
-[log_a9329c, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfneibX8ytdAqXRLwMA7t"] post https://api.anthropic.com/v1/messages/count_tokens?beta=true succeeded with status 200 in 223ms
+[log_a9329c, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfneibX8ytdAqXRLwMA7t"] post https://api.anthropic.com/v1/messages/count_tokens?beta=true succeeded with status 200 in 223ms
 [log_a9329c] response start {
   url: "https://api.anthropic.com/v1/messages/count_tokens?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-organization-id": "[REDACTED]",
+    "anthropic-workspace-id": "[REDACTED]",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46bec60bd7cf13c-CDG",
     connection: "keep-alive",
@@ -34707,17 +34707,17 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   body: {
     input_tokens: 20765,
     _request_id: "req_011CfneibX8ytdAqXRLwMA7t",
-    _workspace_id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    _workspace_id: "[REDACTED]",
   },
   durationMs: 224,
 }
-[log_418782, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfneibdLiYaRQvxR3tZLE"] post https://api.anthropic.com/v1/messages/count_tokens?beta=true succeeded with status 200 in 228ms
+[log_418782, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfneibdLiYaRQvxR3tZLE"] post https://api.anthropic.com/v1/messages/count_tokens?beta=true succeeded with status 200 in 228ms
 [log_418782] response start {
   url: "https://api.anthropic.com/v1/messages/count_tokens?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-organization-id": "[REDACTED]",
+    "anthropic-workspace-id": "[REDACTED]",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46bec60ecf5a9b8-CDG",
     connection: "keep-alive",
@@ -34740,17 +34740,17 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   body: {
     input_tokens: 2696,
     _request_id: "req_011CfneibdLiYaRQvxR3tZLE",
-    _workspace_id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    _workspace_id: "[REDACTED]",
   },
   durationMs: 229,
 }
-[log_d6e9cd, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011Cfneibg5PhNAM2arqF159"] post https://api.anthropic.com/v1/messages/count_tokens?beta=true succeeded with status 200 in 240ms
+[log_d6e9cd, anthropic-workspace-id: "[REDACTED]", request-id: "req_011Cfneibg5PhNAM2arqF159"] post https://api.anthropic.com/v1/messages/count_tokens?beta=true succeeded with status 200 in 240ms
 [log_d6e9cd] response start {
   url: "https://api.anthropic.com/v1/messages/count_tokens?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-organization-id": "[REDACTED]",
+    "anthropic-workspace-id": "[REDACTED]",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46bec60eaa40ecf-FRA",
     connection: "keep-alive",
@@ -34773,17 +34773,17 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   body: {
     input_tokens: 21852,
     _request_id: "req_011Cfneibg5PhNAM2arqF159",
-    _workspace_id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    _workspace_id: "[REDACTED]",
   },
   durationMs: 240,
 }
-[log_39c112, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011Cfneibfpcj17QD4SKW6Zc"] post https://api.anthropic.com/v1/messages/count_tokens?beta=true succeeded with status 200 in 246ms
+[log_39c112, anthropic-workspace-id: "[REDACTED]", request-id: "req_011Cfneibfpcj17QD4SKW6Zc"] post https://api.anthropic.com/v1/messages/count_tokens?beta=true succeeded with status 200 in 246ms
 [log_39c112] response start {
   url: "https://api.anthropic.com/v1/messages/count_tokens?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-organization-id": "[REDACTED]",
+    "anthropic-workspace-id": "[REDACTED]",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46bec60dd690b43-FRA",
     connection: "keep-alive",
@@ -34806,17 +34806,17 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   body: {
     input_tokens: 4823,
     _request_id: "req_011Cfneibfpcj17QD4SKW6Zc",
-    _workspace_id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    _workspace_id: "[REDACTED]",
   },
   durationMs: 246,
 }
-[log_fa6fd0, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfneibfpeZzVxqjJR6rCg"] post https://api.anthropic.com/v1/messages/count_tokens?beta=true succeeded with status 200 in 253ms
+[log_fa6fd0, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfneibfpeZzVxqjJR6rCg"] post https://api.anthropic.com/v1/messages/count_tokens?beta=true succeeded with status 200 in 253ms
 [log_fa6fd0] response start {
   url: "https://api.anthropic.com/v1/messages/count_tokens?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-organization-id": "[REDACTED]",
+    "anthropic-workspace-id": "[REDACTED]",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46bec60e985975b-FRA",
     connection: "keep-alive",
@@ -34839,7 +34839,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   body: {
     input_tokens: 11468,
     _request_id: "req_011CfneibfpeZzVxqjJR6rCg",
-    _workspace_id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    _workspace_id: "[REDACTED]",
   },
   durationMs: 253,
 }
@@ -34964,12 +34964,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_c29c16, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfneieCden1WjP4Jbv83y"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1012ms
+[log_c29c16, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfneieCden1WjP4Jbv83y"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1012ms
 [log_c29c16] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.18",
@@ -34983,7 +34983,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
     "anthropic-thinking-prefix-mismatch": "kind=not_recorded; pattern=not_applicable; block=messages.2.content.0; removed=0; inserted=0; modified=0",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46bec648865f13c-CDG",
@@ -35026,8 +35026,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfneieCden1WjP4Jbv83y",
   "traceresponse": "00-1dad407eb08cfcad8d1aa00ee40a1a70-18abe89d570e19e9-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "anthropic-thinking-prefix-mismatch": "kind=not_recorded; pattern=not_applicable; block=messages.2.content.0; removed=0; inserted=0; modified=0",
   "server": "cloudflare",
   "x-robots-tag": "none",
@@ -35300,12 +35300,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_82eb9e, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011Cfneiwq2m974QVRsB7MYH"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 891ms
+[log_82eb9e, anthropic-workspace-id: "[REDACTED]", request-id: "req_011Cfneiwq2m974QVRsB7MYH"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 891ms
 [log_82eb9e] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.18",
@@ -35318,7 +35318,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46bec7e4b31f13c-CDG",
@@ -35361,8 +35361,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011Cfneiwq2m974QVRsB7MYH",
   "traceresponse": "00-b653fdcf18af5f2b93c8b10417132d6c-46fa39c9d6b1fc1d-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -35702,12 +35702,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_f4c236, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011Cfnet5TAmsuDHhiXFSoZ6"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1815ms
+[log_f4c236, anthropic-workspace-id: "[REDACTED]", request-id: "req_011Cfnet5TAmsuDHhiXFSoZ6"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1815ms
 [log_f4c236] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.19",
@@ -35720,7 +35720,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46bef847884f13c-CDG",
@@ -35763,8 +35763,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011Cfnet5TAmsuDHhiXFSoZ6",
   "traceresponse": "00-cae960e8773f4680509163600e634a12-cae0329be59a15c0-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -35984,12 +35984,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_2844cd, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfnetRNyzfqX9UENTs5wZ"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1334ms
+[log_2844cd, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfnetRNyzfqX9UENTs5wZ"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1334ms
 [log_2844cd] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.19",
@@ -36002,7 +36002,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46befa1a904f13c-CDG",
@@ -36045,8 +36045,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfnetRNyzfqX9UENTs5wZ",
   "traceresponse": "00-0ec633b244a9f47d32778ba8a80e9d71-b7bb4679710820d2-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -36205,12 +36205,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_62c48b, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfnetovJPgfaMPWvJiEbA"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 956ms
+[log_62c48b, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfnetovJPgfaMPWvJiEbA"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 956ms
 [log_62c48b] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.19",
@@ -36223,7 +36223,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46befc28d26f13c-CDG",
@@ -36266,8 +36266,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfnetovJPgfaMPWvJiEbA",
   "traceresponse": "00-9f02123d006e4e6b2cb8062a2768f59f-5f02e211a78401bc-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -36426,12 +36426,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_0e8ec7, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfneuKw5vWYx2irei4cw3"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 979ms
+[log_0e8ec7, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfneuKw5vWYx2irei4cw3"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 979ms
 [log_0e8ec7] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.19",
@@ -36444,7 +36444,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46befee7968f13c-CDG",
@@ -36487,8 +36487,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfneuKw5vWYx2irei4cw3",
   "traceresponse": "00-2585d97c0ab298ce718468507f8ca3c5-badf1286655970ea-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -36743,12 +36743,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_08b0bd, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfneucM4S3Fokn1ohwBrS"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1298ms
+[log_08b0bd, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfneucM4S3Fokn1ohwBrS"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1298ms
 [log_08b0bd] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.19",
@@ -36761,7 +36761,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46bf0065c67f13c-CDG",
@@ -36804,8 +36804,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfneucM4S3Fokn1ohwBrS",
   "traceresponse": "00-a200bc1059a7b9900889bb6c7451aa43-d2b47c3c21c78fc6-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -36964,12 +36964,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_3734f0, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011Cfneus84x3r7fzVMD3RsZ"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1325ms
+[log_3734f0, anthropic-workspace-id: "[REDACTED]", request-id: "req_011Cfneus84x3r7fzVMD3RsZ"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1325ms
 [log_3734f0] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.19",
@@ -36982,7 +36982,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46bf01c0f63f13c-CDG",
@@ -37025,8 +37025,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011Cfneus84x3r7fzVMD3RsZ",
   "traceresponse": "00-eed6c5431df43ed2daaa624f3adcc243-8c35e3b9241e33b3-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -37414,12 +37414,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_57fcc2, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfnevN3Mo5YBdACnwqkAa"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1560ms
+[log_57fcc2, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfnevN3Mo5YBdACnwqkAa"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1560ms
 [log_57fcc2] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.19",
@@ -37432,7 +37432,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46bf045bfddf13c-CDG",
@@ -37475,8 +37475,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfnevN3Mo5YBdACnwqkAa",
   "traceresponse": "00-454047f75becddbfc9273cde307b69b2-b229c9f65df377a8-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -37635,12 +37635,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_8803f2, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfnevdQLfjd4Ykv2Jgyhk"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1466ms
+[log_8803f2, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfnevdQLfjd4Ykv2Jgyhk"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1466ms
 [log_8803f2] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.19",
@@ -37653,7 +37653,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46bf05cbcc9f13c-CDG",
@@ -37696,8 +37696,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfnevdQLfjd4Ykv2Jgyhk",
   "traceresponse": "00-d205652a7d884577b401211edfbf274a-230679dc49f1073c-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -38605,12 +38605,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "uuid": "22e22ca6-6918-405b-af20-1cb7c5305552",
   "session_id": "41cebf9b-7516-44c0-8422-5bbafe26cee9"
 }
-[log_e35d3a, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfnewGRK6LQJVdka1chTC"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1031ms
+[log_e35d3a, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfnewGRK6LQJVdka1chTC"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1031ms
 [log_e35d3a] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.2",
@@ -38623,7 +38623,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46bf092eb69f13c-CDG",
@@ -38666,8 +38666,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfnewGRK6LQJVdka1chTC",
   "traceresponse": "00-17489bc02acaf83348781c2ce32bcc34-594ee7a226fb1dd3-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -39348,12 +39348,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_c5f2d6, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfnewZVE8LezkQMKiABcn"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1301ms
+[log_c5f2d6, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfnewZVE8LezkQMKiABcn"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1301ms
 [log_c5f2d6] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.2",
@@ -39366,7 +39366,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46bf0abbf57f13c-CDG",
@@ -39409,8 +39409,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfnewZVE8LezkQMKiABcn",
   "traceresponse": "00-52e6fe3ae2d2e1219c0ae6cf71984bd4-7dd17092060edb96-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -39603,12 +39603,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_9c92e3, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfnewracrESwMSGSFM5cE"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 995ms
+[log_9c92e3, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfnewracrESwMSGSFM5cE"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 995ms
 [log_9c92e3] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.2",
@@ -39621,7 +39621,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46bf0c4dabef13c-CDG",
@@ -39664,8 +39664,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfnewracrESwMSGSFM5cE",
   "traceresponse": "00-82eb77dd212ac952aecdf94ffa2c000a-df290e2649d3d1b7-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -39922,12 +39922,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_360029, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011Cfnex3qJ62BmeoHDzuygB"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1413ms
+[log_360029, anthropic-workspace-id: "[REDACTED]", request-id: "req_011Cfnex3qJ62BmeoHDzuygB"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1413ms
 [log_360029] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.2",
@@ -39940,7 +39940,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46bf0d53e60f13c-CDG",
@@ -39983,8 +39983,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011Cfnex3qJ62BmeoHDzuygB",
   "traceresponse": "00-6bfd3e76ea960f88cbc90248bdcc093a-4f90ecfabd031944-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -40111,12 +40111,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_f5ef4f, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfnexCXB1b8mjbfK7XBTM"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 555ms
+[log_f5ef4f, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfnexCXB1b8mjbfK7XBTM"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 555ms
 [log_f5ef4f] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.2",
@@ -40129,7 +40129,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46bf0e1eb42a9b8-CDG",
@@ -40172,8 +40172,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfnexCXB1b8mjbfK7XBTM",
   "traceresponse": "00-1ad7768264afdacd3197b8da7e4d10d1-28773c626d2468e6-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "cf-cache-status": "DYNAMIC",
   "x-robots-tag": "none",
@@ -40406,12 +40406,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_91da60, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfnexFgReneVvM6LsA1JT"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 512ms
+[log_91da60, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfnexFgReneVvM6LsA1JT"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 512ms
 [log_91da60] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.2",
@@ -40424,7 +40424,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46bf0e698b20ecf-FRA",
@@ -40467,8 +40467,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfnexFgReneVvM6LsA1JT",
   "traceresponse": "00-6db2627c314f32f8605e3d93806ecaf9-7d58763a46b4562f-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "cf-cache-status": "DYNAMIC",
   "x-robots-tag": "none",
@@ -40489,12 +40489,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   },
   durationMs: 513,
 }
-[log_7d733b, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfnexHbmkZNP4CCDjiL5G"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 489ms
+[log_7d733b, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfnexHbmkZNP4CCDjiL5G"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 489ms
 [log_7d733b] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.2",
@@ -40507,7 +40507,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46bf0e96de8f13c-CDG",
@@ -40550,8 +40550,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfnexHbmkZNP4CCDjiL5G",
   "traceresponse": "00-028628f7fef8ea33dbea7a1c41d231b7-55561a4b36013d63-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -40827,12 +40827,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_b9deda, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011Cfnexkt6xrg2iznuZxtiu"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 827ms
+[log_b9deda, anthropic-workspace-id: "[REDACTED]", request-id: "req_011Cfnexkt6xrg2iznuZxtiu"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 827ms
 [log_b9deda] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.2",
@@ -40845,7 +40845,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46bf1113f65f13c-CDG",
@@ -40888,8 +40888,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011Cfnexkt6xrg2iznuZxtiu",
   "traceresponse": "00-5f95928c7ad72935476c922b1afed0d4-101432d5ee4b6604-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -41123,12 +41123,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_ff9e65, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011Cfney7Gh2Bnixc7e6HpBt"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1051ms
+[log_ff9e65, anthropic-workspace-id: "[REDACTED]", request-id: "req_011Cfney7Gh2Bnixc7e6HpBt"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1051ms
 [log_ff9e65] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.2",
@@ -41141,7 +41141,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46bf12f0829f13c-CDG",
@@ -41184,8 +41184,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011Cfney7Gh2Bnixc7e6HpBt",
   "traceresponse": "00-02825539045d6260d5d6de5a047ec776-e058e706d10896bb-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -41368,12 +41368,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_f6b68f, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfneyXjNB6LTgcJXrmY84"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 3262ms
+[log_f6b68f, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfneyXjNB6LTgcJXrmY84"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 3262ms
 [log_f6b68f] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.2",
@@ -41386,7 +41386,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46bf152bad7f13c-CDG",
@@ -41429,8 +41429,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfneyXjNB6LTgcJXrmY84",
   "traceresponse": "00-1808201bb592a541d7be054d8e84f7c2-16bd6ea384f6240a-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",
@@ -41717,12 +41717,12 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "x-stainless-timeout": "600",
   },
 }
-[log_5a8358, anthropic-workspace-id: "wrkspc_0117gBnPr68DBsCrmom3Bxq6", request-id: "req_011CfnezPUnmtwwkgBwmBLAK"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1342ms
+[log_5a8358, anthropic-workspace-id: "[REDACTED]", request-id: "req_011CfnezPUnmtwwkgBwmBLAK"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1342ms
 [log_5a8358] response start {
   url: "https://api.anthropic.com/v1/messages?beta=true",
   status: 200,
   headers: {
-    "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
+    "anthropic-organization-id": "[REDACTED]",
     "anthropic-ratelimit-unified-5h-reset": "1791375000",
     "anthropic-ratelimit-unified-5h-status": "allowed",
     "anthropic-ratelimit-unified-5h-utilization": "0.2",
@@ -41735,7 +41735,7 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
     "anthropic-ratelimit-unified-representative-claim": "five_hour",
     "anthropic-ratelimit-unified-reset": "1791375000",
     "anthropic-ratelimit-unified-status": "allowed",
-    "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+    "anthropic-workspace-id": "[REDACTED]",
     "cache-control": "no-cache",
     "cf-cache-status": "DYNAMIC",
     "cf-ray": "a46bf19b8bc8f13c-CDG",
@@ -41778,8 +41778,8 @@ response 200 https://api.anthropic.com/v1/messages?beta=true Headers {
   "anthropic-ratelimit-unified-status": "allowed",
   "request-id": "req_011CfnezPUnmtwwkgBwmBLAK",
   "traceresponse": "00-140fe6da0826599bc4130e91c05823b3-b56d3e9c11b2490f-01",
-  "anthropic-organization-id": "ebc2ac93-f86f-4d15-aff3-de8830d8d789",
-  "anthropic-workspace-id": "wrkspc_0117gBnPr68DBsCrmom3Bxq6",
+  "anthropic-organization-id": "[REDACTED]",
+  "anthropic-workspace-id": "[REDACTED]",
   "server": "cloudflare",
   "x-robots-tag": "none",
   "cf-cache-status": "DYNAMIC",

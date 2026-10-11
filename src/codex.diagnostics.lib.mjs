@@ -7,7 +7,7 @@
  *
  * Codex emits its context window, auto-compact limit and successful
  * `/responses/compact` calls only as `codex_otel.log_only:` diagnostic lines on
- * stderr (with RUST_LOG=debug). Those lines are the only evidence that a
+ * stderr (with RUST_LOG=debug, i.e. `--codex-debug` since #2837). Those lines are the only evidence that a
  * compactification happened, which is what lets the token usage of a single
  * Codex run be split back into the sub-sessions the user actually experienced.
  */

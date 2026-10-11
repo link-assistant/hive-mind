@@ -76,7 +76,7 @@ link-assistant/hive-mind
 [VERBOSE] /limits fetching Codex usage from API...
 [VERBOSE] /limits Codex API request: GET https://chatgpt.com/backend-api/wham/usage
 [VERBOSE] /limits Codex auth mode: chatgpt
-[VERBOSE] /limits Codex account id: e9c72023-174b-4cfd-8374-963550c2ef98
+[VERBOSE] /limits Codex account id: [REDACTED]
 [VERBOSE] /limits Codex plan type: pro
 [VERBOSE] /limits Codex API request headers: {
   "Accept": "application/json",
@@ -107,7 +107,7 @@ link-assistant/hive-mind
 [VERBOSE] /limits Codex API response body: {
   "user_id": "user-L0EEWb2lWzu0Zzy528cP54Wc",
   "account_id": "user-L0EEWb2lWzu0Zzy528cP54Wc",
-  "email": "deep.assistant.team@proton.me",
+  "email": "[REDACTED]",
   "plan_type": "pro",
   "rate_limit": {
     "allowed": true,
@@ -220,7 +220,7 @@ ideav/crm
 [VERBOSE] /limits fetching Codex usage from API...
 [VERBOSE] /limits Codex API request: GET https://chatgpt.com/backend-api/wham/usage
 [VERBOSE] /limits Codex auth mode: chatgpt
-[VERBOSE] /limits Codex account id: e9c72023-174b-4cfd-8374-963550c2ef98
+[VERBOSE] /limits Codex account id: [REDACTED]
 [VERBOSE] /limits Codex plan type: pro
 [VERBOSE] /limits Codex API request headers: {
   "Accept": "application/json",
@@ -251,7 +251,7 @@ ideav/crm
 [VERBOSE] /limits Codex API response body: {
   "user_id": "user-L0EEWb2lWzu0Zzy528cP54Wc",
   "account_id": "user-L0EEWb2lWzu0Zzy528cP54Wc",
-  "email": "deep.assistant.team@proton.me",
+  "email": "[REDACTED]",
   "plan_type": "pro",
   "rate_limit": {
     "allowed": true,
@@ -619,7 +619,7 @@ $ solve https://github.com/link-assistant/hive-mind/issues/1680 --think max --to
 }
 [VERBOSE] /limits API HTTP status: 200 OK
 [VERBOSE] /limits API response headers: {
-  "anthropic-organization-id": "684cb0ba-85b8-4b30-a841-e92fb92cc97f",
+  "anthropic-organization-id": "[REDACTED]",
   "cf-cache-status": "DYNAMIC",
   "cf-ray": "9f1c51bdae731963-FRA",
   "connection": "keep-alive",

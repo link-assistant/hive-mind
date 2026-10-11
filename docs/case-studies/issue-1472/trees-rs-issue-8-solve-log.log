@@ -605,7 +605,7 @@ gh: HTTP 400
 [2026-03-24T13:57:58.679Z] [INFO]   url: 'https://api.anthropic.com/v1/messages?beta=true',
 [2026-03-24T13:57:58.680Z] [INFO]   status: 200,
 [2026-03-24T13:57:58.680Z] [INFO]   headers: {
-[2026-03-24T13:57:58.680Z] [INFO]     'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-24T13:57:58.680Z] [INFO]     'anthropic-organization-id': '[REDACTED]',
 [2026-03-24T13:57:58.680Z] [INFO]     'anthropic-ratelimit-unified-5h-reset': '1774350000',
 [2026-03-24T13:57:58.681Z] [INFO]     'anthropic-ratelimit-unified-5h-status': 'allowed',
 [2026-03-24T13:57:58.681Z] [INFO]     'anthropic-ratelimit-unified-5h-utilization': '0.28',
@@ -658,7 +658,7 @@ gh: HTTP 400
 [2026-03-24T13:57:58.692Z] [INFO]   'anthropic-ratelimit-unified-overage-status': 'rejected',
 [2026-03-24T13:57:58.692Z] [INFO]   'request-id': 'req_011CZMeeNzJDRHYSrnj47vTd',
 [2026-03-24T13:57:58.692Z] [INFO]   'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-[2026-03-24T13:57:58.693Z] [INFO]   'anthropic-organization-id': '684cb0ba-85b8-4b30-a841-e92fb92cc97f',
+[2026-03-24T13:57:58.693Z] [INFO]   'anthropic-organization-id': '[REDACTED]',
 [2026-03-24T13:57:58.693Z] [INFO]   server: 'cloudflare',
 [2026-03-24T13:57:58.694Z] [INFO] ✅ No uncommitted changes found
 [2026-03-24T13:57:58.694Z] [INFO]   'x-envoy-upstream-service-time': '2040',

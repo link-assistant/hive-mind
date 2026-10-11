@@ -92,8 +92,9 @@ test('Codex validates hidden codex-auto-review model id from CLI catalog', () =>
   assert.equal(result.mappedModel, 'codex-auto-review');
 });
 
-test('Codex primary model names prioritize GPT-6 Sol and current visible catalog entries', () => {
-  assert.deepEqual(primaryModelNames.codex, ['gpt-6-sol', 'gpt-6-luna', 'gpt-6-astra', 'gpt-5.6-sol', 'gpt-5.5', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.4', 'gpt-5.4-mini', 'formal-ai']);
+test('Codex primary model names list the family aliases and current visible catalog entries', () => {
+  // Issue #2591: derived from the Codex CLI catalogue instead of a hand-kept list.
+  assert.deepEqual(primaryModelNames.codex, ['astra', 'sol', 'luna', 'terra', 'gpt-6-astra', 'gpt-6.1-sol', 'gpt-6-sol', 'gpt-6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.5', 'formal-ai']);
   assert.equal(primaryModelNames.codex.includes('codex-auto-review'), false);
 });
 

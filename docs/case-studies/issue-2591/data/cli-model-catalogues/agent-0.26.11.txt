@@ -1,0 +1,111 @@
+link-assistant/agent model catalogue evidence (issue #2591)
+==========================================================
+Collected: 2026-10-10 ~07:40 UTC. Read-only source inspection. No model API was called.
+Binary: ~/.bun/bin/agent -> ~/.bun/install/global/node_modules/@link-assistant/agent/src/index.js
+Root:   A=~/.bun/install/global/node_modules/@link-assistant/agent/src
+Catalogue data: agent reads https://models.dev/api.json ($A/provider/models-macro.ts:9,
+$A/provider/models.ts:181) into $Global.Path.cache/models.json ($A/provider/models.ts:16).
+That agent cache did not exist yet (~/.cache/link-assistant-agent holds only "version"), so
+the same models.dev payload cached by `opencode models` at 2026-10-10 07:39 UTC
+(~/.cache/opencode/models.json, 226 providers) was used as the data source below.
+Live OpenCode Zen list: GET https://opencode.ai/zen/v1/models (unauthenticated catalogue
+endpoint that agent itself calls, $A/provider/opencode-zen.ts:6), fetched 2026-10-10.
+
+1. Version
+----------
+$ agent --version
+0.26.11
+$A/../package.json:3   "version": "0.26.11",
+$ agent --help
+  --model  Model to use in format providerID/modelID  [string] [default: "opencode/minimax-m2.5-free"]
+(agent has no `models` subcommand; `agent --help` lists only `auth` and the default command.)
+
+2. Default model
+----------------
+$A/config/defaults.ts:19  export const DEFAULT_MODEL = 'opencode/minimax-m2.5-free';
+$A/config/defaults.ts:22  DEFAULT_MODEL_ENV = 'LINK_ASSISTANT_AGENT_DEFAULT_MODEL'
+$A/config/defaults.ts:25  DEFAULT_COMPACTION_MODEL = 'opencode/gpt-5-nano';
+$A/config/defaults.ts:56-57 DEFAULT_COMPACTION_MODELS = '(big-pickle minimax-m2.5-free
+    nemotron-3-super-free hy3-preview-free ling-2.6-flash-free gpt-5-nano same)'
+$A/config/defaults.ts:51  "minimax-m2.5-free is the default model again as of issue #266."
+BUT on 2026-10-10:
+  models.dev opencode/minimax-m2.5-free  status "deprecated" (cost 0)
+  live Zen list does NOT contain minimax-m2.5-free (it has paid minimax-m2.5, -m2.7, -m3)
+  $A/provider/provider.ts:1233-1238 drops every model with status === 'deprecated',
+  and the live-list fallback ($A/provider/provider.ts:1719-1722 -> opencode-zen.ts:105-117)
+  only re-adds ids present in the live Zen list. => agent's own default is stale too.
+
+3. Alias resolution
+-------------------
+There is NO alias table (no "latest", "sonnet", "opus" etc.). The only resolution is
+provider lookup for short names:
+$A/provider/provider.ts:2200 parseModelWithResolution(model):
+  contains "/"  -> used verbatim as providerID/modelID (no fallback)
+  short name    -> resolveShortModelName() ($A/provider/provider.ts:2096):
+     a) $A/provider/provider.ts:2103-2109 kiloUniqueModels = glm-5-free, glm-4.5-air-free,
+        giga-potato-free, trinity-large-preview, deepseek-r1-free -> kilo/<name>
+     b) 'formal-ai' -> formal-ai/formal-ai
+     c) single provider that lists the id -> that provider
+     d) several providers -> 'opencode' preferred, else first match
+     e) none -> ModelNotFoundError (no silent fallback, agent issue #194)
+$A/provider/provider.ts:2254-2256 SHARED_FREE_MODELS = { 'minimax-m2.5-free': ['opencode','kilo'] }
+OpenCode provider without a key keeps only cost.input === 0 models and uses apiKey 'public':
+  $A/provider/provider.ts:193-211
+Free-ID rule for live Zen fallback: $A/provider/opencode-zen.ts:69-76 (id ends with "-free",
+  or is gpt-5-nano / big-pickle; 'trinity-large-preview-free' is deprecated at :7).
+Kilo provider is hard-coded (replaces models.dev's kilo entry): $A/provider/provider.ts:939-1103
+  glm-5-free            -> z-ai/glm-5:free                (:949)
+  glm-4.5-air-free      -> z-ai/glm-4.5-air:free          (:975)
+  minimax-m2.5-free     -> minimax/minimax-m2.5:free      (:1001)
+  giga-potato-free      -> giga-potato                    (:1027)
+  trinity-large-preview -> arcee-ai/trinity-large-preview:free (:1053)
+  deepseek-r1-free      -> deepseek/deepseek-r1-0528:free (:1079)
+  None of these six upstream ids is in models.dev's kilo provider today; models.dev kilo
+  does list nvidia/nemotron-3-super-120b-a12b:free (cost 0), which Hive Mind injects via
+  /tmp/gh-issue-solver-1791617397327/src/agent-model-overlay.lib.mjs.
+Small-model / sort priority lists (informational): $A/provider/provider.ts:1948-1987, :1994-2005.
+
+4. What the providers offer today
+---------------------------------
+Live Zen free ids (2026-10-10): big-pickle, exo-free, gpt-5-nano, jev-1.13-free,
+  ling-3.0-flash-fin-free, ling-3.1-flash-free, longcat-2.5-preview-free,
+  mimo-v2.6-flash-free, muse-spark-1.2-contributor-free, muse-spark-1.3-contributor-free,
+  nemotron-3-ultra-free, nemotron-3.5-lightning-free, space-bunny-free, step-5-preview-free
+models.dev opencode, status deprecated: minimax-m2.5-free, minimax-m2.1-free, glm-5-free,
+  glm-4.7-free, kimi-k2.5-free, qwen3.6-plus-free, nemotron-3-super-free, grok-code,
+  ling-2.6-flash-free, hy3-preview-free, trinity-large-preview-free, gemini-3-pro,
+  claude-3-5-haiku, qwen3-coder, kimi-k2, claude-opus-4-1.
+models.dev anthropic: no claude-3-5-sonnet, claude-3-opus or claude-3-5-haiku at all; current:
+  claude-opus-5-5, claude-sonnet-5-5, claude-haiku-5-5, claude-fable-5-1, claude-opus-5 ...
+models.dev google: no gemini-3-pro; current pro is gemini-3.1-pro-preview; flash: gemini-3.8-flash,
+  plus rolling ids gemini-flash-latest and gemini-flash-lite-latest.
+
+5. Hive Mind catalogue comparison
+---------------------------------
+Hive Mind: /tmp/gh-issue-solver-1791617397327/src/models/catalog.mjs
+  :97-135 agentModels ; :278 defaultModels.agent = 'nemotron-3-super-free'
+
+Hive key                  -> Hive value                 | status 2026-10-10
+grok, grok-code, grok-code-fast-1 -> opencode/grok-code | STALE (models.dev deprecated; not in live Zen)
+big-pickle                -> opencode/big-pickle        | OK (live Zen, free)
+gpt-5-nano                -> opencode/gpt-5-nano        | OK (live Zen; free per opencode-zen.ts:69-76)
+minimax-m2.5-free         -> opencode/minimax-m2.5-free | STALE (deprecated; not in live Zen)
+nemotron-3-super-free     -> kilo/nemotron-3-super-free | OK only via Hive overlay (kilo upstream id present)
+glm-5-free, glm-4.5-air-free, deepseek-r1-free, giga-potato-free, trinity-large-preview
+   and kilo/<same>        -> kilo/...                   | UNVERIFIED/LIKELY STALE: upstream ids absent from models.dev kilo
+kilo/minimax-m2.5-free    -> kilo/minimax-m2.5-free     | LIKELY STALE (minimax/minimax-m2.5:free absent)
+qwen3.6-plus-free, kimi-k2.5-free, glm-4.7-free, minimax-m2.1-free, kilo/glm-4.7-free,
+   kilo/kimi-k2.5-free, kilo/minimax-m2.1-free           | STALE (Hive already marks deprecated;
+   kilo/glm-4.7-free etc. are not even in agent's hard-coded kilo list)
+sonnet  -> anthropic/claude-3-5-sonnet                  | STALE: id absent from models.dev
+haiku   -> anthropic/claude-3-5-haiku                   | STALE: absent from models.dev anthropic
+opus    -> anthropic/claude-3-opus                      | STALE: absent
+gemini-3-pro -> google/gemini-3-pro                     | STALE: absent (google has gemini-3.1-pro-preview)
+
+MISSING (free, served today on Zen): opencode/exo-free, opencode/ling-3.1-flash-free,
+  opencode/nemotron-3-ultra-free, opencode/nemotron-3.5-lightning-free,
+  opencode/step-5-preview-free, opencode/mimo-v2.6-flash-free, opencode/longcat-2.5-preview-free,
+  opencode/space-bunny-free, opencode/ling-3.0-flash-fin-free,
+  opencode/muse-spark-1.3-contributor-free, opencode/jev-1.13-free.
+Premium targets to use instead: anthropic/claude-opus-5-5, anthropic/claude-sonnet-5-5,
+  anthropic/claude-haiku-5-5, google/gemini-3.1-pro-preview.

@@ -342,6 +342,13 @@ penalty cap still in place is watched as penalized, so the cap is lifted later.
 A task that was capped shows a `🐢 CPU penalty` section in its completion
 message.
 
+start-command 0.37.0 has its own opt-in `$ --cpu-penalty`. Hive Mind does not
+use it yet: it ignores a `--container-cpu` limit applied with `docker update`
+([start#205](https://github.com/link-foundation/start/issues/205)), and a
+crashed monitor leaves the cap in place
+([start#206](https://github.com/link-foundation/start/issues/206)). Do not
+enable both penalties for the same container.
+
 **Manual fallback.** To seed an already-running container immediately (or when
 you cannot change the deployment), copy the host image into the inner daemon:
 

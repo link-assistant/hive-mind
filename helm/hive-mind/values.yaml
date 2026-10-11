@@ -73,6 +73,8 @@ resources:
     memory: 1Gi
 
 # Persistent volume for storing box user data and configurations
+# (mounted at /home/box, so ~/.hive-mind/state — the solve queue and tracked
+# sessions — and ~/.hive-mind/logs survive pod restarts)
 persistence:
   enabled: true
   accessMode: ReadWriteOnce

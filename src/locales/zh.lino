@@ -415,6 +415,12 @@ zh
       """
       queued "📋 solve 命令已入队（{{tool}} 队列位置 #{{position}}）"
       waiting "⏳ 等待中（{{tool}} 队列 #{{position}}）"
+      restored
+        title "♻️ 重启后已恢复 solve 队列（来源：{{source}}）"
+        requeued "📋 已重新入队：{{count}}"
+        running "▶️ 仍在运行：{{count}}"
+        dropped "⚠️ 未恢复（已重启 {{max}} 次）：{{count}}"
+        resend "如仍需要，请重新发送这些命令。"
       invalid
         url
           help """

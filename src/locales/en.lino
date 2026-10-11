@@ -415,6 +415,12 @@ en
       """
       queued "📋 Solve command queued ({{tool}} queue position #{{position}})"
       waiting "⏳ Waiting ({{tool}} queue #{{position}})"
+      restored
+        title "♻️ Solve queue restored after a restart (from {{source}})"
+        requeued "📋 Back in the queue: {{count}}"
+        running "▶️ Still running: {{count}}"
+        dropped "⚠️ Not restored (restarted {{max}} times): {{count}}"
+        resend "Please resend these commands if they are still needed."
       invalid
         url
           help """

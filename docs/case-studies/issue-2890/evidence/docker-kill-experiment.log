@@ -1,0 +1,23 @@
+docker kill: exit code 137
+state left on the host (/tmp/hm-2890-docker-XXXXXX):
+  sessions-events.jsonl
+  sessions.json
+  solve-queue.links-archive
+  solve-queue.lino
+♻️ /queue-restore: restored the solve queue from archive: 4 queued again, 1 still running, 0 dropped
+restored from archive: queued again 728, 1, 724, 725; still running 727
+  claude: 1
+  codex: 728 (interrupted 1), 724, 725
+sessions.json: uuid-alive, uuid-recovering (kill recovery attempts 2)
+notice for chat -100777 topic 7:
+♻️ Solve queue restored after a restart (from archive)
+
+📋 Back in the queue: 4
+• codex https://github.com/link-assistant/router/issues/728
+• claude https://github.com/link-assistant/router/issues/1
+• codex https://github.com/link-assistant/router/issues/724
+• codex https://github.com/link-assistant/router/issues/725
+
+▶️ Still running: 1
+• codex https://github.com/link-assistant/router/issues/727
+OK: the queue survived docker kill + docker rm

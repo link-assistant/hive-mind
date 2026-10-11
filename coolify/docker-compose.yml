@@ -66,6 +66,11 @@ services:
       # GitHub CLI config persistence
       - ./gh-config:/home/box/.config/gh
 
+      # Hive Mind state (solve queue, tracked sessions) and logs, so a
+      # restart continues where it stopped
+      - ./hive-mind-state:/home/box/.hive-mind/state
+      - ./hive-mind-logs:/home/box/.hive-mind/logs
+
     # Resource limits (adjust based on your server)
     deploy:
       resources:

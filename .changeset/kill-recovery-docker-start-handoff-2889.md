@@ -14,3 +14,7 @@ snapshot-derived container starts, the stopped original is removed, and the
 `start-command-resume/*` images are removed when the task finishes. The
 Telegram recovery message shows these steps (docker start, waiting for disk,
 queued, snapshotting N GiB).
+
+Docker images build on box 2.10.4, whose nested Docker daemon keeps containers
+running across daemon restarts; lino-objects-codec is 0.9.2 and command-stream
+is 2.3.0.

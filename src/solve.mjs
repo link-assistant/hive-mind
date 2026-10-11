@@ -679,6 +679,7 @@ try {
       getResourceSnapshot,
       claudePath,
       $,
+      showResumeInstructions: false, // Issue #2845: solve prints the single resume block for this session
     });
     toolResult = claudeResult;
   }

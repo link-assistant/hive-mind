@@ -855,8 +855,11 @@ Fixes ${issueRef}
           await log('\n🔄 Placeholder detected in PR title/description - auto-restart will be triggered');
         }
         const shouldWaitForAutoMerge = argv.autoMerge || argv.autoRestartUntilMergeable;
-        if (shouldWaitForAutoMerge) {
+        // Issue #2845: only --auto-merge merges; auto-restart-until-mergeable alone never does.
+        if (argv.autoMerge) {
           await log('\n🔄 Auto-merge mode enabled - will attempt to merge after verification');
+        } else if (shouldWaitForAutoMerge) {
+          await log('\n🔄 Auto-restart-until-mergeable mode enabled - will keep working until the PR is mergeable (will NOT auto-merge)');
         }
         if (!argv.watch && !shouldRestart && !shouldAutoRestartForPlaceholder && !shouldWaitForAutoMerge) {
           await safeExit(0, 'Process completed successfully');

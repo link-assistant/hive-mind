@@ -391,7 +391,9 @@ export const ensurePullRequestIsReady = async ({ requireChanges = false, changeS
   if (!force) {
     const deliberate = getPullRequestLeftInDraft({ owner, repo, prNumber });
     if (deliberate) {
-      await log(`  ℹ️  PR #${prNumber} stays a draft: ${deliberate.reason || 'this session produced no changes'}`);
+      // Issue #2845: restoreDeliberateDraftsAtRunEnd() undoes this unless a human drafted the PR before the run.
+      const until = isHumanDraft({ owner, repo, prNumber }) ? 'stays a draft' : 'kept as draft until run end';
+      await log(`  ℹ️  PR #${prNumber} ${until}: ${deliberate.reason || 'this session produced no changes'}`);
       return { ok: true, changed: false, skipped: true, reason: 'left_in_draft_on_purpose', error: null, changeStats: deliberate.changeStats };
     }
   }

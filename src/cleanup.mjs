@@ -36,8 +36,11 @@ import path from 'node:path';
 import { promises as fsp } from 'node:fs';
 
 import { isConfirmationYes, readConfirmationLine } from './confirmation.lib.mjs';
-import { classifyEntries, summarize, formatBytes, describeReason, buildActiveMatchers, DEFAULT_PROTECTED_NAMES, formatEntryContext, formatTaskSummary, DEFAULT_DOCKER_ISOLATION_CLEANUP_MODE, describeDockerIsolationReason, formatDockerIsolationContainerSummary, normalizeDockerIsolationCleanupMode, planDockerIsolationCleanup } from './cleanup.lib.mjs';
+import { classifyEntries, summarize, formatBytes, describeReason, buildActiveMatchers, DEFAULT_PROTECTED_NAMES, formatEntryContext, formatTaskSummary, DEFAULT_DOCKER_ISOLATION_CLEANUP_MODE, describeDockerIsolationReason, formatDockerIsolationContainerSummary, normalizeDockerIsolationCleanupMode, planDockerIsolationCleanup, formatDockerCleanupBytes, planDockerResumeImageCleanup, dockerIsolationSessionId } from './cleanup.lib.mjs';
 import { getTempRoot, listTempEntries, getPathSize, readFolderGitInfo, listProcessHeldPaths, getActiveTasks, listSessionTasks, removePath, runSystemCleanup, collectProcessDebugReport, signalOrphanedAgentTrees, listDockerIsolationContainers, removeDockerContainer } from './cleanup.os.lib.mjs';
+import { collectDockerContainerMetadata, listDockerResumeImages, collectDockerResumeImageSizes, removeDockerResumeImage } from './cleanup.docker.os.lib.mjs';
+import { getCleanupLogDirectory, initializeCleanupLog } from './cleanup.logs.lib.mjs';
+import { isExecutingSessionStatus } from './session-status.lib.mjs';
 import { formatProcessDebugReport } from './process-debug.lib.mjs';
 import { classifyAgentSnapshotStores, describeAgentSnapshotReason, getAgentDataHome } from './agent-snapshot-store.lib.mjs';
 import { setupStdioLogInterceptor } from './lib.mjs';
@@ -147,7 +150,9 @@ Agent state cleanup:
 Docker isolation cleanup:
   --docker-isolation[=<mode>] Clean task containers named by session UUID
                               [default: ${DEFAULT_DOCKER_ISOLATION_CLEANUP_MODE}]
-                              modes: succeeded, all, none
+                              modes: succeeded, all, none, failed-older-than=48h
+                              Failed retention uses container finish time.
+                              Env: HIVE_MIND_CLEANUP_DOCKER_ISOLATION
   --no-docker-isolation       Disable Docker-isolation task container cleanup
 
   --verbose, -v               Verbose logging
@@ -187,7 +192,7 @@ if (options.targetPids.length > 0) options.debugProcesses = true;
 
 const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
 const scriptDir = path.dirname(process.argv[1]);
-const logFile = path.join(scriptDir, `cleanup-${timestamp}.log`);
+const logFile = path.join(getCleanupLogDirectory(), `cleanup-${timestamp}-${process.pid}.log`);
 
 async function log(message, { level = 'info' } = {}) {
   const sanitizedMessage = sanitizeCredentialText(message);
@@ -223,13 +228,13 @@ function computeSelfPaths(tempRoot) {
   };
   add(process.cwd());
   add(path.resolve(scriptDir));
+  add(path.resolve(getCleanupLogDirectory()));
   add(path.resolve(process.argv[1] || ''));
   return selfPaths;
 }
 
 async function main() {
-  await fsp.writeFile(logFile, `# Cleanup Log - ${new Date().toISOString()}\n\n`, { mode: 0o600 }).catch(() => {});
-  await fsp.chmod(logFile, 0o600).catch(() => {});
+  await initializeCleanupLog(logFile);
 
   const tempRoot = getTempRoot();
   await log('🧹 hive-mind cleanup');
@@ -283,7 +288,7 @@ async function main() {
   let sessionTasks = [];
   let sessionMatchers = [];
   if (options.useSessions) {
-    sessionTasks = await listSessionTasks({ verbose: options.verbose, resolveBranches: options.resolveBranches });
+    sessionTasks = await listSessionTasks({ verbose: options.verbose, resolveBranches: options.resolveBranches, includeUnreferenced: true });
     sessionMatchers = buildActiveMatchers(sessionTasks);
     await vlog(`Known sessions (active + finished): ${sessionTasks.length}`);
   }
@@ -350,16 +355,25 @@ async function main() {
   }
 
   let dockerIsolationPlan = { keep: [], remove: [], mode: options.dockerIsolationMode };
+  let dockerImagePlan = { keep: [], remove: [] };
   if (options.dockerIsolationMode === 'none') {
     await log('\n🐳 Docker isolation containers: disabled (--docker-isolation=none)');
   } else {
-    const dockerIsolationContainers = listDockerIsolationContainers();
+    const diagnostic = message => {
+      void vlog(message);
+    };
+    const dockerIsolationContainers = listDockerIsolationContainers({ logFn: diagnostic });
+    collectDockerContainerMetadata(dockerIsolationContainers, { logFn: diagnostic });
     dockerIsolationPlan = planDockerIsolationCleanup({
       containers: dockerIsolationContainers,
       sessionTasks,
       mode: options.dockerIsolationMode,
     });
 
+    const images = collectDockerResumeImageSizes(listDockerResumeImages(), { logFn: diagnostic });
+    dockerImagePlan = planDockerResumeImageCleanup({ images, containerPlan: dockerIsolationPlan, sessionTasks });
+    const activeDocker = dockerIsolationPlan.keep.filter(item => item.running);
+    await log(`🐳 Active Docker task containers: ${activeDocker.length}`);
     await log(`\n🐳 Docker isolation containers (${dockerIsolationPlan.mode}):`);
     if (dockerIsolationPlan.keep.length === 0 && dockerIsolationPlan.remove.length === 0) {
       await log('   (none detected)');
@@ -375,6 +389,17 @@ async function main() {
       for (const item of dockerIsolationPlan.remove) {
         await log(`      ${formatDockerIsolationContainerSummary(item)} — ${describeDockerIsolationReason(item.reason)}`);
       }
+    }
+    for (const item of dockerIsolationPlan.remove.filter(item => item.successful)) {
+      await log(`⚠️ successful container was not removed by start-command (bug): ${item.name}`, { level: 'warn' });
+    }
+    await log('\n🐳 Resume snapshot images (unique bytes):');
+    if (!images.length) await log('   (none detected)');
+    for (const [label, items] of [
+      ['KEEP', dockerImagePlan.keep],
+      [options.dryRun ? 'WOULD REMOVE' : 'REMOVE', dockerImagePlan.remove],
+    ]) {
+      for (const image of items) await log(`   ${label} ${image.name}: ${formatBytes(image.size)} — ${image.reason}`);
     }
   }
 
@@ -407,11 +432,11 @@ async function main() {
     }
   }
 
-  await log(`\n📊 Summary: keep ${totals.keepCount} (${formatBytes(totals.keepBytes)}), remove ${totals.removeCount} (${formatBytes(totals.removeBytes)}), docker keep ${dockerIsolationPlan.keep.length}, docker remove ${dockerIsolationPlan.remove.length}, agent snapshots remove ${agentSnapshotPlan.orphaned.length}`);
+  await log(`\n📊 Summary: keep ${totals.keepCount} (${formatBytes(totals.keepBytes)}), remove ${totals.removeCount} (${formatBytes(totals.removeBytes)}), docker keep ${dockerIsolationPlan.keep.length} (${formatDockerCleanupBytes(dockerIsolationPlan.keep)}), docker remove ${dockerIsolationPlan.remove.length} (${formatDockerCleanupBytes(dockerIsolationPlan.remove)}), resume images keep ${dockerImagePlan.keep.length} (${formatDockerCleanupBytes(dockerImagePlan.keep)}), resume images remove ${dockerImagePlan.remove.length} (${formatDockerCleanupBytes(dockerImagePlan.remove)}), agent snapshots remove ${agentSnapshotPlan.orphaned.length}`);
 
   // 7. Execute deletion (unless dry-run).
   const hasTempRemovals = classified.remove.length > 0;
-  const hasDockerRemovals = dockerIsolationPlan.remove.length > 0;
+  const hasDockerRemovals = dockerIsolationPlan.remove.length > 0 || dockerImagePlan.remove.length > 0;
   const hasAgentSnapshotRemovals = agentSnapshotPlan.orphaned.length > 0;
   if (options.dryRun) {
     await log('\n✅ Dry run complete. Re-run without --dry-run to delete.');
@@ -419,7 +444,7 @@ async function main() {
     await log('\n✅ Nothing to delete.');
   } else {
     if (!options.force) {
-      console.log(`\n⚠️  This will permanently delete ${classified.remove.length} entries (${formatBytes(totals.removeBytes)}), ${agentSnapshotPlan.orphaned.length} orphaned agent snapshot stores and remove ${dockerIsolationPlan.remove.length} Docker isolation containers.`);
+      console.log(`\n⚠️  This will permanently delete ${classified.remove.length} entries (${formatBytes(totals.removeBytes)}), ${agentSnapshotPlan.orphaned.length} orphaned agent snapshot stores and remove ${dockerIsolationPlan.remove.length} Docker isolation containers and ${dockerImagePlan.remove.length} unused resume images.`);
       console.log('Type "yes" to confirm, or Ctrl+C to cancel:');
       let answer;
       try {
@@ -472,8 +497,24 @@ async function main() {
       await log('\n🐳 Removing Docker isolation containers...');
       let removed = 0;
       let failed = 0;
+      // Refresh executing sessions after confirmation and potentially slow temp cleanup.
+      let currentSessions = [];
+      let querySessionStatus;
+      if (options.useSessions) {
+        currentSessions = await listSessionTasks({ includeUnreferenced: true });
+        ({ querySessionStatus } = await import('./isolation-runner.lib.mjs'));
+      }
+      const activeSession = name => currentSessions.some(session => isExecutingSessionStatus(session.status) && [session.sessionId, session.sessionName].some(id => dockerIsolationSessionId(id) === dockerIsolationSessionId(name)));
+      const diagnostic = message => {
+        void vlog(message);
+      };
       for (const item of dockerIsolationPlan.remove) {
-        const ok = removeDockerContainer(item.name);
+        const session = querySessionStatus ? await querySessionStatus(dockerIsolationSessionId(item.name)) : null;
+        if (activeSession(item.name) || isExecutingSessionStatus(session?.status)) {
+          await log(`   Kept ${item.name}: session is executing`);
+          continue;
+        }
+        const ok = removeDockerContainer(item.name, { id: item.id, mode: options.dockerIsolationMode, logFn: diagnostic });
         if (ok) {
           removed++;
           await log(`   ✓ ${item.command}`);
@@ -482,7 +523,16 @@ async function main() {
           await log(`   ⚠️  failed: ${item.command}`, { level: 'warn' });
         }
       }
-      await log(`\n✅ Removed ${removed} Docker isolation containers${failed ? `, ${failed} failed` : ''}.`);
+      await log(`\n✅ Removed ${removed} Docker isolation containers${failed ? `, ${failed} kept or failed` : ''}.`);
+      for (const image of dockerImagePlan.remove) {
+        const session = querySessionStatus ? await querySessionStatus(image.sessionId) : null;
+        if (activeSession(image.sessionId) || isExecutingSessionStatus(session?.status)) {
+          await log(`   Kept ${image.name}: session is executing`);
+          continue;
+        }
+        const ok = removeDockerResumeImage(image, { logFn: diagnostic });
+        await log(`   ${ok ? '✓ Removed' : 'Kept'} ${image.name} (unique size ${formatBytes(image.size)})`);
+      }
     }
   }
 

@@ -116,13 +116,13 @@ test('default docker-isolation cleanup removes successful exited containers and 
   const keep = byName(plan.keep);
 
   assert.deepEqual([...remove.keys()], [SUCCESS]);
-  assert.equal(remove.get(SUCCESS).command, `docker rm -f ${SUCCESS}`);
+  assert.equal(remove.get(SUCCESS).command, `docker rm ${SUCCESS}`);
 
   assert.equal(keep.get(FAILED).reason, 'failed-container-kept');
-  assert.equal(keep.get(FAILED).command, `docker rm -f ${FAILED}`);
+  assert.equal(keep.get(FAILED).command, `docker rm ${FAILED}`);
   assert.equal(keep.get(RUNNING).reason, 'active-container');
   assert.equal(keep.get(UNKNOWN).reason, 'failed-container-kept');
-  assert.equal(keep.get(UNKNOWN).command, `docker rm -f ${UNKNOWN}`);
+  assert.equal(keep.get(UNKNOWN).command, `docker rm ${UNKNOWN}`);
   assert.equal(keep.get(CREATED).reason, 'unknown-container-state');
 });
 
@@ -188,7 +188,7 @@ test('docker container summary includes session and cleanup context', () => {
   assert.ok(summary.includes(FAILED));
   assert.ok(summary.includes('exit 1'));
   assert.ok(summary.includes('link-assistant/hive-mind issue #1979'));
-  assert.ok(summary.includes(`remove when done: docker rm -f ${FAILED}`));
+  assert.ok(summary.includes(`remove when done: docker rm ${FAILED}`));
 });
 
 test('findStartCommandBinary suppresses command-stream stdout mirroring', () => {

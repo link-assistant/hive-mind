@@ -13,11 +13,14 @@ had actually succeeded. [PR #3018](https://github.com/link-assistant/hive-mind/p
 
 ## Data
 
-| File                                                                                         | Content                                                                                                                                                                                                                                                                                             |
-| -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`data/issue.json`](data/issue.json), [`data/issue-comments.json`](data/issue-comments.json) | Issue snapshot. The issue had no comments when the fix was written.                                                                                                                                                                                                                                 |
-| [`data/pr-2824-failure-comment.json`](data/pr-2824-failure-comment.json)                     | The published failure comment.                                                                                                                                                                                                                                                                      |
-| [`data/solve-pr-2824-sanitized.log.txt.gz`](data/solve-pr-2824-sanitized.log.txt.gz)         | The full sanitized solve log from the [gist](https://gist.githubusercontent.com/konard/63de244f19f96d70c6bcb7c22026b84f/raw/7ab53753185d137f3d37b3a59255be442159533e/tmp-hive-mind-log-upload-BklTWB-sanitized.log.txt), 8 MB gzipped to 2.4 MB. Line numbers below refer to the uncompressed file. |
+| File                                                                                                                                                                                     | Content                                                                                                                                                                                                                                                                                             |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`data/issue.json`](data/issue.json), [`data/issue-comments.json`](data/issue-comments.json)                                                                                             | Issue snapshot with both comments: the operator's root-cause note with the 4-run table, and the auto-fix report.                                                                                                                                                                                    |
+| [`data/pr-2824-failure-comment.json`](data/pr-2824-failure-comment.json)                                                                                                                 | The published failure comment.                                                                                                                                                                                                                                                                      |
+| [`data/solve-pr-2824-sanitized.log.txt.gz`](data/solve-pr-2824-sanitized.log.txt.gz)                                                                                                     | The full sanitized solve log from the [gist](https://gist.githubusercontent.com/konard/63de244f19f96d70c6bcb7c22026b84f/raw/7ab53753185d137f3d37b3a59255be442159533e/tmp-hive-mind-log-upload-BklTWB-sanitized.log.txt), 8 MB gzipped to 2.4 MB. Line numbers below refer to the uncompressed file. |
+| [`data/solve-pr-2802-sanitized.log.txt.gz`](data/solve-pr-2802-sanitized.log.txt.gz)                                                                                                     | The sanitized solve log from the [PR #3018 comment](https://gist.githubusercontent.com/konard/5df5aa342d42d16447a8c9fff7ae8272/raw/86c680bfd05e9264c351e1c823567a5d9293439c/tmp-hive-mind-log-upload-tiNsm9-sanitized.log.txt): the same failure on solve v2.35.3, 2026-10-11, PR #2802.            |
+| [`data/start-command-pr-2853.log.txt.gz`](data/start-command-pr-2853.log.txt.gz), [`…-2894…`](data/start-command-pr-2894.log.txt.gz), [`…-2918…`](data/start-command-pr-2918.log.txt.gz) | start-command task logs of the other three runs in the issue's table ([2853](https://gist.github.com/konard/c0acf29fb2b87158a7a49f0f199711db), [2894](https://gist.github.com/konard/6e6171917e53cd7fa3fde08701963289), [2918](https://gist.github.com/konard/1cdcffaa0e41f552e8c64376f4738c4d)).   |
+| [`data/background-tasks-at-result.txt`](data/background-tasks-at-result.txt)                                                                                                             | Output of [`experiments/issue-3015/background-tasks-at-result.mjs`](../../../experiments/issue-3015/background-tasks-at-result.mjs) on all five logs: the Claude Code background tasks still running at the `result` event and at the solver's SIGTERM.                                             |
 
 ## Timeline (solve v2.34.0, `--tool claude`, 2026-10-09/10 UTC)
 
@@ -34,6 +37,26 @@ had actually succeeded. [PR #3018](https://github.com/link-assistant/hive-mind/p
 | 00:37:38.595 | 55818    | `Converting PR: To draft mode (CLAUDE execution failed with I fixed the four …`. The PR the AI had just marked ready is turned back into a draft. |
 | 00:37:58     | —        | The "🚨 Solution Draft Failed" comment is posted with the summary as the error.                                                                   |
 
+In this run, background tasks `bsjy27k7g` ("Wait for final CI run") and
+`b4ldmzlfk` ("Wait for CI to start") were still running at line 55775 and at the
+SIGTERM (line 55780). See [root cause 4](#4-the-fixed-30-s-close-timer-killed-claude-code-while-print-mode-waited-for-background-tasks).
+
+### Same failure on solve v2.35.3 (PR #2802, 2026-10-11 UTC)
+
+| Time         | Log line | Event                                                                                                                                                                             |
+| ------------ | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 08:45:08     | 6        | `solve v2.35.3` starts on PR #2802.                                                                                                                                               |
+| 09:10:26     | 27001    | The model starts a **foreground** Bash command, task `bzyssdyux` "Wait for CI runs on latest commit" (`is_backgrounded: false`).                                                  |
+| 09:20:23     | 27215    | After about 10 minutes Claude Code moves it to the background: `background_tasks_changed` lists it and `task_updated` sets `is_backgrounded: true`. The model gets its turn back. |
+| 09:21:38     | 28521    | The model runs `gh pr ready 2802`.                                                                                                                                                |
+| 09:21:51.026 | 28947    | `result`, `subtype: success`, `is_error: false`, `num_turns: 89`. `bzyssdyux` is still running, so print mode keeps waiting for it.                                               |
+| 09:21:51.035 | 28956    | `📌 Result event received, starting 30s stream close timeout (Issue #1280)`.                                                                                                      |
+| 09:22:21.073 | 28961    | `⚠️ Stream timeout — sending SIGTERM`.                                                                                                                                            |
+| 09:22:21.160 | 28965    | `task_notification` `bzyssdyux` `stopped`: our SIGTERM cancelled the CI waiter.                                                                                                   |
+| 09:22:21.224 | 28975    | The #2301 tracker blames Claude Code: `Claude Code stopped background tasks when print mode exited`.                                                                              |
+| 09:22:21.234 | 28978    | **`❌ Claude command failed with exit code 143`**.                                                                                                                                |
+| 09:22:22.404 | 29012    | `Converting PR: To draft mode (CLAUDE execution failed with I resolved the merge conflict. …`.                                                                                    |
+
 The same comment says `**Model: Claude Opus 5** (claude-opus-5)` although the result's
 `modelUsage` says `claude-opus-5-5`. That is [Issue #2840](../issue-2840/README.md),
 already fixed in v2.35.0, so it is not part of this fix.
@@ -44,9 +67,10 @@ already fixed in v2.35.0, so it is not part of this fix.
 2. Reconstruct the timeline. Done, see Timeline.
 3. Find the root cause of each problem. Done, see [Root causes](#root-causes).
 4. Propose solutions and check existing components and libraries. Done, see [Fix](#fix) and [Research](#research-existing-components-and-upstream-reports).
-5. Add debug output if the root cause is unclear. The root cause is clear. The ignored exit code is still logged in verbose mode.
+5. Add debug output if the root cause is unclear. The ignored exit code is logged in verbose mode. The solver now logs which background tasks Claude Code is waiting for, how long it will wait, and which tasks were still running if it stops the CLI.
 6. Report issues upstream where applicable. Not needed, see [Upstream](#upstream-reports).
 7. Apply the fix across the whole codebase. Done, see [Same pattern elsewhere](#same-pattern-elsewhere).
+8. (PR comment) Check the [PR #2802 log](https://gist.githubusercontent.com/konard/5df5aa342d42d16447a8c9fff7ae8272/raw/86c680bfd05e9264c351e1c823567a5d9293439c/tmp-hive-mind-log-upload-tiNsm9-sanitized.log.txt) and make sure every root cause is fixed. Done: it showed [root cause 4](#4-the-fixed-30-s-close-timer-killed-claude-code-while-print-mode-waited-for-background-tasks), which the first version of this fix did not address.
 
 ## Root causes
 
@@ -95,15 +119,45 @@ wrapping shell exits, while the `claude` process in the same group can keep
 running. The log shows pid 2081 still running after the session. The follow-up
 SIGKILL never fired.
 
-### Why the CLI did not exit
+### 4. The fixed 30 s close timer killed Claude Code while print mode waited for background tasks
 
-Not exiting after the `result` event is a known Claude Code CLI problem. It is
-why the 30 s timeout exists (Issue #1280). In this run the last background task
-("Mark PR ready", line 55409) had completed and `subagent_stats` shows no live
-sub-agents, so the solver log does not reveal what kept the process alive.
-Upstream reports blame lingering child stdio such as MCP servers (see below).
-hive-mind does not need to know the cause: the `result` event is the verdict,
-and stopping the CLI afterwards is housekeeping.
+The first version of this case study said the log does not show what kept the
+CLI alive. That was wrong. Replaying every stream event through a background-task
+tracker ([`background-tasks-at-result.mjs`](../../../experiments/issue-3015/background-tasks-at-result.mjs),
+output in [`data/background-tasks-at-result.txt`](data/background-tasks-at-result.txt))
+shows that in **all five runs** Claude Code had a background task running at
+its `result` event and still at our SIGTERM:
+
+| Run                | `result` / SIGTERM line | Background task(s) still running                                        | After SIGTERM     |
+| ------------------ | ----------------------- | ----------------------------------------------------------------------- | ----------------- |
+| PR #2824 (v2.34.0) | 55775 / 55780           | `bsjy27k7g` "Wait for final CI run", `b4ldmzlfk` "Wait for CI to start" | stream ended      |
+| PR #2853 (v2.34.0) | 18786 / 18791           | `bq0splpj9` "Wait for full suite and show summary"                      | `stopped` (18803) |
+| PR #2894 (v2.34.0) | 79611 / 79616           | `bxoo6kjks` "Wait for npm test to finish"                               | `stopped` (79628) |
+| PR #2918 (v2.34.0) | 80381 / 80386           | `bs0yv2yzy` "Wait for CI poller output"                                 | stream ended      |
+| PR #2802 (v2.35.3) | 28955 / 28961           | `bzyssdyux` "Wait for CI runs on latest commit"                         | `stopped` (28973) |
+
+Line numbers are where each JSON event ends, as the scanner prints them.
+
+Each is a CI or test waiter. Some were started with `run_in_background`; others,
+like `bzyssdyux`, were foreground commands that Claude Code moved to the
+background after about 10 minutes.
+
+In print mode (`-p`), Claude Code does not exit while background tasks run. It
+waits until they finish or until `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS` passes.
+A finished task wakes the model again, which can start another turn and emit
+another `result`. hive-mind relies on this. Issue #2301 raised the ceiling to
+40 minutes (`claudeCode.printBgWaitCeilingMs`) so that background work is not
+cut short. The 30 s close timer from Issue #1280 ignored all of that, so it
+killed the CLI 30 s into a wait that hive-mind had configured to last up to
+40 minutes. The CLI did not hang; it was working as configured.
+
+The issue comment suspected host load (load 4–11 on 6 cores, cgroup memory
+peak at the limit). The logs do not support that: the CLI was not slow to exit,
+it was waiting for a task on purpose, and the kill cancelled that task.
+
+In the v2.35.3 run, the #2301 tracker then reported `Claude Code stopped
+background tasks when print mode exited` (line 28975). The solver had done
+that, not Claude Code.
 
 ## Fix
 
@@ -129,6 +183,44 @@ and stopping the CLI afterwards is housekeeping.
 - **`src/solve.restart-shared.lib.mjs`:** the draft-conversion reason after a
   failed restart iteration used `errorInfo.message` directly. It now uses
   `extractToolErrorCore`.
+- **`src/claude.result-close.lib.mjs` (new, root cause 4):** owns the
+  post-result close timer.
+  - **`createClaudeBackgroundTaskTracker`:** follows Claude Code's own stream
+    events. `background_tasks_changed` is the authoritative list.
+    `task_started` / `task_updated` (`is_backgrounded`, terminal `status`) and
+    `task_notification` keep it correct on CLI versions that do not send it.
+  - **`planResultCloseTimeout`:** with no background task running, the solver
+    waits `HIVE_MIND_RESULT_STREAM_CLOSE_MS` (30 s) as before, so a real hang is
+    still stopped quickly. With tasks running, it waits until Claude Code's own
+    ceiling (`claudeCode.printBgWaitCeilingMs`, 40 min), counted from the
+    result, plus the same 30 s grace. If the ceiling is disabled (0), the stream
+    activity timeout bounds the wait, or 1 h when that is disabled too.
+  - **`createClaudeResultCloseController`:** arms the timer on the result and
+    plans it again when the task set changes. A new main-thread assistant
+    message means a finished task woke the model. The timer is then paused until
+    the next `result`, and the activity timeout is re-armed. Waiting for tasks is
+    logged as a normal line that names the tasks and the wait. If the timer
+    still fires while tasks run, a warning names them.
+- **`src/claude.lib.mjs`:** uses the controller instead of the inline
+  `resultTimeoutId` timer, in both the stream loop and the remaining-buffer path.
+- **`src/claude.print-turn.lib.mjs`:** `assessClaudeTurnCompletion` takes
+  `solverStopped`. When the solver's timer stopped the CLI while tasks ran, the
+  #2301 resume prompt now says so, instead of blaming Claude Code. When Claude
+  Code reports the cancelled tasks, the session is still resumed so the model
+  can redo the cancelled waiter.
+
+### How the issue's suggested fixes map to the change
+
+| Suggested fix (issue comment)                                                                                        | Done                                                                                                                                         |
+| -------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| A success result followed by our close-timeout SIGTERM/SIGKILL (143/137) must not fail the run; log it as a warning. | `interpretClaudeExitCode` (root cause 1). The ignored code is logged.                                                                        |
+| Never use the agent's final result text as a failure reason; say why it failed.                                      | `selectClaudeFailureMessage` and the `extractToolErrorCore` guard for all tools (root cause 2).                                              |
+| Do not convert a PR to draft when the agent marked it ready during a successful session.                             | Follows from the first row: a successful session is no longer a failure, so the draft conversion and the failure comment do not run.         |
+| Make the close timeout adaptive, and log what the CLI was doing when it was killed.                                  | `claude.result-close.lib.mjs` (root cause 4). The wait follows the background tasks the CLI is actually waiting for, and the log names them. |
+| A fake Claude that prints a success result and then sleeps must end as success.                                      | `claude-post-result-kill-3015.test.mjs` and `claude-result-close-background-3015.test.mjs`.                                                  |
+
+The operator still has to mark PRs #2853, #2894 and #2918 ready by hand; they
+are drafts as of 2026-10-11. #2824 and #2802 are ready again.
 
 ### Tests
 
@@ -144,6 +236,17 @@ and stopping the CLI afterwards is housekeeping.
 - **[`tests/claude-process-exit-3015.test.mjs`](../../../tests/claude-process-exit-3015.test.mjs):**
   unit tests for the helpers, the cross-tool `extractToolErrorCore` guard, and
   `isProcessGroupAlive` against a real process group.
+- **[`tests/claude-result-close-background-3015.test.mjs`](../../../tests/claude-result-close-background-3015.test.mjs):**
+  unit tests for the tracker, the planner and the controller. It also replays
+  streams through `executeClaudeCommand`:
+  - A background CI waiter is running at the result. The CLI is not killed after
+    30 s; the task finishes, the model takes another turn, and the run ends with
+    the latest result summary.
+  - The waiter never finishes: the CLI is stopped only after the print-mode
+    ceiling, and the resume prompt names the solver as the cause.
+  - No background task: a hang is still stopped after the 30 s close timeout.
+  - With the old `claude.lib.mjs` and `claude.print-turn.lib.mjs`, 3 of these
+    tests fail.
 
 ## Same pattern elsewhere
 
@@ -161,13 +264,25 @@ and stopping the CLI afterwards is housekeeping.
   and a signal death is reported as 128 + signal. This is documented, intended
   behavior and matches shell conventions. It also exposes `pid` on the runner,
   which `isProcessGroupAlive` uses.
+- **Claude Code print-mode background wait:** `claude -p` keeps running after
+  the main thread goes idle while background tasks (Bash `run_in_background`,
+  auto-backgrounded long commands, Agent) are running. It stops them after
+  `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS`, with 0 meaning no limit. See
+  [Issue #2301](../issue-2301/README.md) for how this was found and why
+  hive-mind raised the ceiling. The stream reports the task set through
+  `system` events (`task_started`, `task_updated`, `background_tasks_changed`,
+  `task_notification`), which is what the new tracker reads. No library wraps
+  this, and the Claude Agent SDK exposes the same events, so reading the stream
+  is the direct approach.
 - **Claude Code CLI not exiting after `result`:**
   [anthropics/claude-code#25629](https://github.com/anthropics/claude-code/issues/25629)
   ("CLI hangs indefinitely after sending result event in stream-json mode"),
   [#21099](https://github.com/anthropics/claude-code/issues/21099) and
   [#50777](https://github.com/anthropics/claude-code/issues/50777) (MCP servers not
   cleaned up). The common workaround is the one hive-mind already uses: treat the
-  `result` event as final and kill the process after a grace period.
+  `result` event as final and kill the process after a grace period. That is
+  still right when nothing is pending, but not while print mode is waiting for
+  background tasks (root cause 4).
 - **POSIX:** `kill(-pgid, 0)` checks that a process group exists without sending
   a signal. `EPERM` means it exists but belongs to another user, so it counts as
   alive. Zombies still count as group members, so on hosts whose PID 1 does not
@@ -180,6 +295,9 @@ None filed:
 - The command-stream behavior is correct; the bug was hive-mind's handling of it.
 - The Claude Code hang is already reported upstream several times, listed above,
   and hive-mind has a working mitigation.
+- Claude Code waiting for background tasks after its result is documented
+  behavior that hive-mind configures on purpose (Issue #2301), not a bug. The
+  bug was hive-mind's 30 s timer, which did not take that wait into account.
 
 ## Previous attempt on this issue
 

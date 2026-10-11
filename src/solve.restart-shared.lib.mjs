@@ -573,7 +573,7 @@ export const executeToolIteration = async params => {
           $,
           log,
           formatAligned,
-          reason: toolResult?.errorInfo?.message || 'restart iteration failed or verification did not succeed',
+          reason: extractToolErrorCore({ toolResult }) || 'restart iteration failed or verification did not succeed',
           reportError,
         });
       }

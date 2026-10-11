@@ -233,5 +233,21 @@ await test('a human comment or an issue edit skips the no-progress check (the me
   assert.match(autoMergeSource, /const stall = hasNewComments \|\| hasIssueMetadataChanges \? null : await stopWhenSessionRepeated\(\{/);
 });
 
+const watchSource = readFileSync(join(root, 'src', 'solve.watch.lib.mjs'), 'utf8');
+
+await test('watch mode: a new human comment skips the no-progress check too', () => {
+  assert.match(watchSource, /noProgressStop = hasNewHumanComments \? null : await stopWhenSessionRepeated\(\{/);
+  assert.match(watchSource, /const hasNewHumanComments = newPrComments \+ newPrReviewComments \+ newIssueComments > 0;/);
+});
+
+console.log('\nIssue #2839: every system prompt says pre-existing CI failures must be fixed too\n');
+
+for (const file of ['agent.prompts.lib.mjs', 'claude.prompts.lib.mjs', 'codex.prompts.lib.mjs', 'gemini.prompts.lib.mjs', 'opencode.prompts.lib.mjs', 'qwen.prompts.lib.mjs', 'locales/en.lino']) {
+  await test(`${file} asks for passing CI including checks that already fail on the default branch`, () => {
+    const source = readFileSync(join(root, 'src', file), 'utf8');
+    assert.match(source, /check that all CI checks are passing if they exist[^\n]*including checks that already fail on the default branch \(when a check needs a human action, make CI on the pull request pass without it and CI on the default branch fail with an explicit message saying what to do\)/);
+  });
+}
+
 console.log(`\nResults: ${passed} passed, ${failed} failed`);
 process.exit(failed === 0 ? 0 : 1);

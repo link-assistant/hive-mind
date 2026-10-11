@@ -496,11 +496,11 @@ Aliases:
 
 Tool alias examples:
 /codex https://github.com/owner/repo/issues/123 --model gpt-5.5
-/opencode https://github.com/owner/repo/issues/123 --model grok-code-fast-1
+/opencode https://github.com/owner/repo/issues/123 --model big-pickle
 /agent https://github.com/owner/repo/issues/123 --model nemotron-3-super-free
 /gemini https://github.com/owner/repo/issues/123 --model flash
 /qwen https://github.com/owner/repo/issues/123 --model qwen3-coder-plus
-/gemini https://github.com/owner/repo/issues/123 --model gemini-2.5-flash
+/gemini https://github.com/owner/repo/issues/123 --model flash
 
 Free Models (with --tool agent):
 /solve https://github.com/owner/repo/issues/123 --tool agent --model nemotron-3-super-free
@@ -586,6 +586,8 @@ issue 的情况下预览，使用 `--no-solve` 可只创建 issue 而不启动 `
 生成步骤。它们会返回新建 issue 的 URL；回复
 `/solve --development-log --deep-analysis --auto-merge`（对依赖 issue 再加上
 `--update-all-dependencies`）即可通过常规 solve 流程继续。
+
+`--update-all-dependencies` 启用 `--report-dependencies-issues`：向依赖的上游报告通用逻辑、重复代码、缺失功能及导致本地变通方案的缺陷。可以保留必要的变通方案，让 pull request 继续推进。添加 `--no-report-dependencies-issues` 可关闭报告，也可在 `/solve` 或 `/hive` 上单独使用 `--report-dependencies-issues` 而不更新依赖。
 
 #### `/organize` - 分类开放议题
 

@@ -23,6 +23,19 @@ import path from 'node:path';
 
 const MAX_COMMAND_LENGTH = 200;
 
+// Processes Hive Mind keeps running across sessions on purpose and stops itself
+// at exit, keyed by pid. Issue #2923: Formal AI Draft run 37959364207 warned about
+// its own task-owned `formal-ai serve`, which hides real leftovers.
+const keptProcesses = new Map();
+
+/** Mark a process this Hive Mind started as intentionally outliving a session. */
+export const keepProcessAcrossSessions = (pid, reason) => {
+  if (pid) keptProcesses.set(pid, reason);
+};
+
+/** Forget a process marked by {@link keepProcessAcrossSessions} once it is stopped. */
+export const releaseKeptProcess = pid => keptProcesses.delete(pid);
+
 /**
  * Find the processes whose working directory is `dir` or below it.
  *
@@ -62,23 +75,28 @@ export const findProcessesInDirectory = async ({ dir, procRoot = '/proc', exclud
 
 /**
  * With `--verbose`, log every process still running in the work directory after a session ended.
+ * Processes marked with {@link keepProcessAcrossSessions} are logged as kept, not as leftovers.
  *
  * @param {object} params
  * @param {string} params.tempDir - the work directory of the session
  * @param {object} [params.argv]
  * @param {Function} [params.log]
  * @param {Function} [params.find] - {@link findProcessesInDirectory} (injectable for tests)
- * @returns {Promise<Array<{pid: number, cwd: string, command: string}>>} the processes found
+ * @returns {Promise<Array<{pid: number, cwd: string, command: string}>>} the leftover processes found
  */
 export const logProcessesSurvivingSession = async ({ tempDir, argv = {}, log = async () => {}, find = findProcessesInDirectory }) => {
   if (!argv.verbose || !tempDir) return [];
-  let survivors;
+  let found;
   try {
-    survivors = await find({ dir: tempDir });
+    found = await find({ dir: tempDir });
   } catch (error) {
     await log(`🔍 Could not list processes left in ${tempDir}: ${error?.message || error}`, { verbose: true });
     return [];
   }
+  for (const { pid, command } of found.filter(({ pid }) => keptProcesses.has(pid))) {
+    await log(`🔍 pid ${pid} kept on purpose (${keptProcesses.get(pid)}): ${command || '(no command line)'}`, { verbose: true });
+  }
+  const survivors = found.filter(({ pid }) => !keptProcesses.has(pid));
   if (survivors.length === 0) {
     await log(`🔍 No processes left running in ${tempDir} after the session`, { verbose: true });
     return survivors;
@@ -90,4 +108,4 @@ export const logProcessesSurvivingSession = async ({ tempDir, argv = {}, log = a
   return survivors;
 };
 
-export default { findProcessesInDirectory, logProcessesSurvivingSession };
+export default { findProcessesInDirectory, keepProcessAcrossSessions, logProcessesSurvivingSession, releaseKeptProcess };

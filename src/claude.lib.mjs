@@ -30,6 +30,7 @@ import { ensureClaudeQuietConfig } from './claude-quiet-config.lib.mjs';
 import { fetchModelInfo } from './model-info.lib.mjs';
 import { classifyRetryableError, createTransientRetryBudget, describeClassificationEvidence, logExecutionContext, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { resolveSubSessionSize } from './sub-session-size.lib.mjs'; // Issue #1706
+import { capSubSessionSizeToShortContext, describePricingTier, resolveClaudeModelForContext, resolvePricingTier } from './pricing-tier.lib.mjs'; // Issue #2771
 import { withAgentsMdAsClaudeMd } from './agents-md-claude-support.lib.mjs';
 import { deployHandoffSkill } from './handoff-skill.lib.mjs'; // Issue #1877
 import { deployPlaywrightSkill } from './playwright-skill.lib.mjs'; // Issue #2190
@@ -44,6 +45,7 @@ import { showResumeCommand } from './claude.resume-output.lib.mjs';
 import { stringifyErrorValue } from './error-text.lib.mjs'; // Issue #2141
 import { createPullRequestBaseBranchCommandIntervention } from './solve.pr-base-command-intervention.lib.mjs';
 import { getClaudeVersion, resolveThinkingSettings, setClaudeVersion, validateClaudeConnection } from './claude.connection.lib.mjs';
+import { extractClaudeEventModelIds, getLatestObservedModelFor, recordObservedModel, resetObservedModels } from './observed-models.lib.mjs'; // Issue #2840
 export { availableModels, fetchModelInfo }; // Re-export for backward compatibility
 export { formatNumber, mapModelToId, checkModelVisionCapability };
 export { getClaudeVersion, resolveThinkingSettings, setClaudeVersion, validateClaudeConnection };
@@ -195,6 +197,8 @@ export const executeClaudeCommand = async params => {
   const expectedBaseBranch = String(argv?.baseBranch || '').trim();
   const escapePromptForShell = promptText => String(promptText).replace(/"/g, '\\"').replace(/\$/g, '\\$');
   await validateBidirectionalModeConfig(argv, log);
+  // Issue #2840: model IDs reported by this session's stream, kept even if it never reaches a result.
+  resetObservedModels();
   let retryCount = 0;
   // Issue #2169: total-time budget shared by every transient-error retry of this run (default
   // 12 h). Created outside executeWithRetry so the elapsed clock survives the recursive calls.
@@ -304,7 +308,11 @@ export const executeClaudeCommand = async params => {
     const progressMonitor = await initProgressMonitoring(argv, { owner, repo, prNumber, $, log }); // works with or without --interactive-mode
     let execCommand;
     const useRouter = argv.useRouter === true || /^(1|true|yes|on)$/i.test(String(process.env.HIVE_MIND_USE_ROUTER || ''));
-    const mappedModel = await resolveClaudeModelForExecution(argv.model, { useRouter });
+    // Issue #2771: cheapest pricing tier by default — standard speed, short context and a plain
+    // model name; `[1m]` is only passed where Claude Code needs it for a long-context run.
+    const claudePricingTier = resolvePricingTier({ tool: 'claude', model: argv.model, modelId: mapModelToId(argv.model), disable1mContext: argv.disable1mContext, subSessionSize: argv.subSessionSize, speed: argv.speed });
+    const claudeContextModel = resolveClaudeModelForContext(argv.model, { longContext: claudePricingTier.longContext, mapModelToId });
+    const mappedModel = await resolveClaudeModelForExecution(claudeContextModel.model, { useRouter });
     // Issue #2130: Formal AI runs the native CLI against a local Formal AI server (no argv wrapper).
     const toolInvocation = await resolveFormalAiToolExecution({ tool: 'claude', model: argv.model, toolPath: claudePath, workdir: tempDir, log, verbose: argv.verbose, prepareOnly: isPrepareOnly(argv) });
     const resolvedPlanModel = argv.planModel ? await resolveClaudeModelForExecution(argv.planModel, { useRouter }) : undefined; // Issue #1223
@@ -346,10 +354,14 @@ export const executeClaudeCommand = async params => {
     }
     try {
       const { thinkingBudget: resolvedThinkingBudget, thinkLevel, isNewVersion, maxBudget } = await resolveThinkingSettings(argv, log);
-      const { parsed: parsedSubSessionSize, contextWindowTokens } = await resolveSubSessionSize({ rawValue: argv.subSessionSize, tool: 'claude', modelId: effectiveModel, fetchModelInfo, log });
+      const { parsed: requestedSubSessionSize, contextWindowTokens: fetchedContextWindowTokens } = await resolveSubSessionSize({ rawValue: argv.subSessionSize, tool: 'claude', modelId: effectiveModel, fetchModelInfo, log });
+      // Issue #2771: a short-context run never compacts above its pricing tier, and percentages are of the window it really has.
+      const { parsed: parsedSubSessionSize, capped: subSessionSizeCapped } = capSubSessionSizeToShortContext(requestedSubSessionSize, { longContext: claudePricingTier.longContext, shortContextTokens: claudePricingTier.shortContextTokens });
+      const contextWindowTokens = !claudePricingTier.longContext && requestedSubSessionSize.kind === 'percent' ? claudePricingTier.shortContextTokens : fetchedContextWindowTokens;
+      await log(`💰 Pricing tier: ${describePricingTier(claudePricingTier)}${claudeContextModel.changed ? ` — model ${argv.model} runs as ${claudeContextModel.model}` : ''}${subSessionSizeCapped ? ` — --sub-session-size capped to ${parsedSubSessionSize.tokens} tokens` : ''}`, { verbose: !claudeContextModel.changed && !subSessionSizeCapped });
       // Issue #817: streaming mode sets exitAfterStopDelayMs=60000 so the headless Claude process stays alive between NDJSON turns.
       // Issue #2130: `toolInvocation.env` points the native CLI at the local Formal AI server (base URL + API key).
-      const claudeEnv = { ...getClaudeEnv({ thinkingBudget: resolvedThinkingBudget, model: effectiveModel, thinkLevel, maxBudget, planModel: resolvedPlanModel, executionModel: resolvedExecutionModel, subAgentModel: resolvedSubAgentModel, showThinkingContent: argv.showThinkingContent, exitAfterStopDelayMs: streamingInput ? 60_000 : undefined, disable1mContext: !!argv.disable1mContext, subSessionSize: parsedSubSessionSize, contextWindowTokens }), ...toolInvocation.env };
+      const claudeEnv = { ...getClaudeEnv({ thinkingBudget: resolvedThinkingBudget, model: effectiveModel, thinkLevel, maxBudget, planModel: resolvedPlanModel, executionModel: resolvedExecutionModel, subAgentModel: resolvedSubAgentModel, showThinkingContent: argv.showThinkingContent, exitAfterStopDelayMs: streamingInput ? 60_000 : undefined, subSessionSize: parsedSubSessionSize, contextWindowTokens, pricingTier: claudePricingTier }), ...toolInvocation.env };
       if (argv.verbose) claudeEnv.ANTHROPIC_LOG = 'debug';
       const modelMaxOutputTokens = getMaxOutputTokensForModel(effectiveModel);
       if (argv.verbose) {
@@ -359,8 +371,8 @@ export const executeClaudeCommand = async params => {
         if (resolvedThinkingBudget !== undefined) await log(`📊 MAX_THINKING_TOKENS: ${resolvedThinkingBudget}`, { verbose: true });
         if (claudeEnv.CLAUDE_CODE_EFFORT_LEVEL) await log(`📊 CLAUDE_CODE_EFFORT_LEVEL: ${claudeEnv.CLAUDE_CODE_EFFORT_LEVEL}`, { verbose: true });
         if (claudeEnv.CLAUDE_CODE_SHOW_THINKING) await log(`📊 CLAUDE_CODE_SHOW_THINKING: ${claudeEnv.CLAUDE_CODE_SHOW_THINKING}`, { verbose: true });
-        // Issue #1706: log applied env vars (--disable-1m-context, --sub-session-size).
-        const sub1706 = ['CLAUDE_CODE_DISABLE_1M_CONTEXT', 'CLAUDE_CODE_AUTO_COMPACT_WINDOW', 'CLAUDE_AUTOCOMPACT_PCT_OVERRIDE'].filter(k => claudeEnv[k]).map(k => `${k}=${claudeEnv[k]}`);
+        // Issue #1706 / #2771: log applied env vars (--disable-1m-context, --sub-session-size, --speed).
+        const sub1706 = ['CLAUDE_CODE_DISABLE_FAST_MODE', 'CLAUDE_CODE_DISABLE_1M_CONTEXT', 'CLAUDE_CODE_AUTO_COMPACT_WINDOW', 'CLAUDE_AUTOCOMPACT_PCT_OVERRIDE'].filter(k => claudeEnv[k]).map(k => `${k}=${claudeEnv[k]}`);
         if (sub1706.length) await log(`📊 ${sub1706.join(', ')}`, { verbose: true });
         if (!isNewVersion && thinkLevel) await log(`📊 Thinking level (via keywords): ${thinkLevel}`, { verbose: true });
       }
@@ -644,6 +656,10 @@ export const executeClaudeCommand = async params => {
                 }
               }
               const eventFacts = collectClaudeStreamEventFacts(data);
+              // Issue #2840: the model that actually runs, recorded as it arrives so a crash or kill keeps it.
+              for (const observed of extractClaudeEventModelIds(data)) {
+                if (recordObservedModel({ ...observed, requestedModel: argv.model })) await log(`🤖 Model reported by Claude (${observed.source}${observed.fromSubagent ? ', sub-agent' : ''}): ${observed.modelId}`);
+              }
               const afterResult = printTurn.observeEvent(data).afterResult && !streamingInput;
               terminalToolResult = updateTerminalToolResult(terminalToolResult, eventFacts, { afterResult });
               messageCount += eventFacts.messageCountDelta;
@@ -1082,7 +1098,7 @@ export const executeClaudeCommand = async params => {
           // Activity timeout preserves session (work was started), startup timeout does not (no session created)
           if (!isStartupTimeout && sessionId && !argv.resume) argv.resume = sessionId;
           // Issue #2037: retry same model on capacity errors before falling back; a switch retries fast.
-          const retryPlan = await prepareRetryAfterError({ tool: 'claude', argv, log, errorMessage: retryableLastError.message || lastMessage, retryCount, initialDelayMs: initialDelay, maxDelayMs: maxDelay, minDelayMs: minDelay });
+          const retryPlan = await prepareRetryAfterError({ tool: 'claude', argv, log, actualModel: getLatestObservedModelFor(argv.model), errorMessage: retryableLastError.message || lastMessage, retryCount, initialDelayMs: initialDelay, maxDelayMs: maxDelay, minDelayMs: minDelay });
           const delay = retryPlan.delay;
           const errorLabel = isStartupTimeout ? 'Stream startup timeout (Issue #1472/#1475)' : isActivityTimeout ? 'Stream activity timeout (Issue #1472)' : isRequestTimeout ? 'Request timeout' : retryableLastError.label || (isOverloadError || (lastMessage.includes('API Error: 500') && lastMessage.includes('Overloaded')) || (lastMessage.includes('API Error: 529') && lastMessage.includes('Overloaded')) ? `API overload (${lastMessage.includes('529') ? '529' : '500'})` : isInternalServerError || lastMessage.includes('Internal server error') ? 'Internal server error (500)' : isRateLimitError ? 'Server rate limited (429)' : '503 network error');
           const notRetryableHint = apiMarkedNotRetryable ? ' (API says not retryable — will stop early if no progress)' : '';
@@ -1277,7 +1293,7 @@ export const executeClaudeCommand = async params => {
           transientRetryBudget.grant();
           if (sessionId && !argv.resume) argv.resume = sessionId;
           // Issue #2037: retry same model on capacity errors before falling back; a switch retries fast.
-          const retryPlan = await prepareRetryAfterError({ tool: 'claude', argv, log, errorMessage: errorStr, retryCount, initialDelayMs: initialDelay, maxDelayMs: maxDelay, minDelayMs: minDelay });
+          const retryPlan = await prepareRetryAfterError({ tool: 'claude', argv, log, actualModel: getLatestObservedModelFor(argv.model), errorMessage: errorStr, retryCount, initialDelayMs: initialDelay, maxDelayMs: maxDelay, minDelayMs: minDelay });
           const delay = retryPlan.delay;
           const errorLabel = isTimeoutException ? 'Request timeout' : retryableException.label || (errorStr.includes('Overloaded') ? `API overload (${errorStr.includes('529') ? '529' : '500'})` : errorStr.includes('Internal server error') ? 'Internal server error (500)' : '503 network error');
           const delayLabel = delay >= 60000 ? `${Math.round(delay / 60000)} min` : `${Math.round(delay / 1000)}s`;

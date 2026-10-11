@@ -1,0 +1,614 @@
+zizmor	UNKNOWN STEP	﻿2026-10-07T15:57:58.3273205Z Current runner version: '2.337.0'
+zizmor	UNKNOWN STEP	2026-10-07T15:57:58.3294172Z ##[group]Runner Image Provisioner
+zizmor	UNKNOWN STEP	2026-10-07T15:57:58.3294992Z Hosted Compute Agent
+zizmor	UNKNOWN STEP	2026-10-07T15:57:58.3295370Z Version: 20261002.596
+zizmor	UNKNOWN STEP	2026-10-07T15:57:58.3295779Z Commit: c3d12f3313a95f25162a1503be624f3b0617f8c0
+zizmor	UNKNOWN STEP	2026-10-07T15:57:58.3296427Z Build Date: 2026-10-02T22:28:27Z
+zizmor	UNKNOWN STEP	2026-10-07T15:57:58.3297051Z Worker ID: {c91d3252-dc2e-408c-b2e1-05dd96765ece}
+zizmor	UNKNOWN STEP	2026-10-07T15:57:58.3297708Z Region: westus3
+zizmor	UNKNOWN STEP	2026-10-07T15:57:58.3298319Z Cloud: Azure
+zizmor	UNKNOWN STEP	2026-10-07T15:57:58.3298785Z ##[endgroup]
+zizmor	UNKNOWN STEP	2026-10-07T15:57:58.3299986Z ##[group]Operating System
+zizmor	UNKNOWN STEP	2026-10-07T15:57:58.3300552Z Ubuntu
+zizmor	UNKNOWN STEP	2026-10-07T15:57:58.3300984Z 24.04.5
+zizmor	UNKNOWN STEP	2026-10-07T15:57:58.3301496Z LTS
+zizmor	UNKNOWN STEP	2026-10-07T15:57:58.3301975Z ##[endgroup]
+zizmor	UNKNOWN STEP	2026-10-07T15:57:58.3302487Z ##[group]Runner Image
+zizmor	UNKNOWN STEP	2026-10-07T15:57:58.3303033Z Image: ubuntu-24.04
+zizmor	UNKNOWN STEP	2026-10-07T15:57:58.3303510Z Version: 20261004.327.1
+zizmor	UNKNOWN STEP	2026-10-07T15:57:58.3304709Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261004.327/images/ubuntu/Ubuntu2404-Readme.md
+zizmor	UNKNOWN STEP	2026-10-07T15:57:58.3306161Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261004.327
+zizmor	UNKNOWN STEP	2026-10-07T15:57:58.3307018Z ##[endgroup]
+zizmor	UNKNOWN STEP	2026-10-07T15:57:58.3308129Z ##[group]GITHUB_TOKEN Permissions
+zizmor	UNKNOWN STEP	2026-10-07T15:57:58.3309758Z Contents: read
+zizmor	UNKNOWN STEP	2026-10-07T15:57:58.3310109Z Metadata: read
+zizmor	UNKNOWN STEP	2026-10-07T15:57:58.3310562Z ##[endgroup]
+zizmor	UNKNOWN STEP	2026-10-07T15:57:58.3312301Z Secret source: Actions
+zizmor	UNKNOWN STEP	2026-10-07T15:57:58.3312933Z Cache mode: write
+zizmor	UNKNOWN STEP	2026-10-07T15:57:58.3313384Z Prepare workflow directory
+zizmor	UNKNOWN STEP	2026-10-07T15:57:58.3615089Z Prepare all required actions
+zizmor	UNKNOWN STEP	2026-10-07T15:57:58.3647998Z Getting action download info
+zizmor	UNKNOWN STEP	2026-10-07T15:57:58.7029790Z Download action repository 'actions/checkout@v7' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+zizmor	UNKNOWN STEP	2026-10-07T15:57:58.9374053Z Download action repository 'zizmorcore/zizmor-action@v0.6.4' (SHA:cc914d7f3750a2d13d75c7f184a1060aa0e9d482)
+zizmor	UNKNOWN STEP	2026-10-07T15:57:59.3581971Z Getting action download info
+zizmor	UNKNOWN STEP	2026-10-07T15:57:59.5177534Z Download action repository 'github/codeql-action@cdf488f595d80d6e07e03d4674febd5ab45fa938' (SHA:cdf488f595d80d6e07e03d4674febd5ab45fa938)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.3325097Z Complete job name: zizmor
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.3799247Z ##[group]Run actions/checkout@v7
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.3799607Z with:
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.3799778Z   persist-credentials: false
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.3800002Z   repository: link-assistant/hive-mind
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.3801473Z   token: ***
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.3801625Z   ssh-strict: true
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.3801779Z   ssh-user: git
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.3801922Z   clean: true
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.3802081Z   sparse-checkout-cone-mode: true
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.3802268Z   fetch-depth: 1
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.3802422Z   fetch-tags: false
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.3802575Z   show-progress: true
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.3802742Z   lfs: false
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.3802897Z   submodules: false
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.3803055Z   set-safe-directory: true
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.3803237Z   allow-unsafe-pr-checkout: false
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.3803498Z env:
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.3803657Z   GIT_CONFIG_COUNT: 1
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.3803825Z   GIT_CONFIG_KEY_0: init.defaultBranch
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.3804050Z   GIT_CONFIG_VALUE_0: main
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.3804218Z ##[endgroup]
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.4555351Z Syncing repository: link-assistant/hive-mind
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.4556470Z ##[group]Getting Git version info
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.4556726Z Working directory is '/home/runner/work/hive-mind/hive-mind'
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.4557189Z [command]/usr/bin/git version
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.4622062Z git version 2.55.0
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.4636265Z ##[endgroup]
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.4645858Z Temporarily overriding HOME='/home/runner/work/_temp/80f47a93-707b-4e41-982a-a82f42b6f2ec' before making global git config changes
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.4646830Z Adding repository directory to the temporary git global config as a safe directory
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.4651248Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/hive-mind/hive-mind
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.4703432Z Deleting the contents of '/home/runner/work/hive-mind/hive-mind'
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.4721708Z ##[group]Determining repository object format
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.4722325Z ##[endgroup]
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.4722717Z ##[group]Initializing the repository
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.4723096Z [command]/usr/bin/git init /home/runner/work/hive-mind/hive-mind
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.4839869Z Initialized empty Git repository in /home/runner/work/hive-mind/hive-mind/.git/
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.4842954Z [command]/usr/bin/git remote add origin https://github.com/link-assistant/hive-mind
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.4931829Z ##[endgroup]
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.4932473Z ##[group]Disabling automatic garbage collection
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.4944556Z [command]/usr/bin/git config --local gc.auto 0
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.4982222Z ##[endgroup]
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.4982646Z ##[group]Setting up auth
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.4983019Z Removing SSH command configuration
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.4987963Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.5024529Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.5341123Z Removing HTTP extra header
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.5346942Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.5378480Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.5565613Z Removing includeIf entries pointing to credentials config files
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.5570918Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.5603998Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.5792867Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-f6cdb505-9e07-467f-b613-a43147636075.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.5827114Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path /home/runner/work/_temp/git-credentials-f6cdb505-9e07-467f-b613-a43147636075.config
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.5857518Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-f6cdb505-9e07-467f-b613-a43147636075.config
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.5889722Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-f6cdb505-9e07-467f-b613-a43147636075.config
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.5920347Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-f6cdb505-9e07-467f-b613-a43147636075.config
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.5954656Z ##[endgroup]
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.5954957Z ##[group]Fetching the repository
+zizmor	UNKNOWN STEP	2026-10-07T15:58:01.5955499Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +eb138db696f6ab74051a2a252548ef8bcff3e593:refs/remotes/origin/main
+zizmor	UNKNOWN STEP	2026-10-07T15:58:20.0818847Z From https://github.com/link-assistant/hive-mind
+zizmor	UNKNOWN STEP	2026-10-07T15:58:20.0819444Z  * [new ref]         eb138db696f6ab74051a2a252548ef8bcff3e593 -> origin/main
+zizmor	UNKNOWN STEP	2026-10-07T15:58:20.0827337Z [command]/usr/bin/git branch --list --remote origin/main
+zizmor	UNKNOWN STEP	2026-10-07T15:58:20.0875129Z   origin/main
+zizmor	UNKNOWN STEP	2026-10-07T15:58:20.0888642Z [command]/usr/bin/git rev-parse refs/remotes/origin/main
+zizmor	UNKNOWN STEP	2026-10-07T15:58:20.0907364Z eb138db696f6ab74051a2a252548ef8bcff3e593
+zizmor	UNKNOWN STEP	2026-10-07T15:58:20.0910480Z ##[endgroup]
+zizmor	UNKNOWN STEP	2026-10-07T15:58:20.0912477Z ##[group]Determining the checkout info
+zizmor	UNKNOWN STEP	2026-10-07T15:58:20.0913674Z ##[endgroup]
+zizmor	UNKNOWN STEP	2026-10-07T15:58:20.0917007Z [command]/usr/bin/git sparse-checkout disable
+zizmor	UNKNOWN STEP	2026-10-07T15:58:20.0969259Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+zizmor	UNKNOWN STEP	2026-10-07T15:58:20.1028120Z ##[group]Checking out the ref
+zizmor	UNKNOWN STEP	2026-10-07T15:58:20.1028638Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+zizmor	UNKNOWN STEP	2026-10-07T15:58:21.1628787Z Updating files:  32% (2559/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:21.1781702Z Updating files:  33% (2622/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:21.1901608Z Updating files:  34% (2701/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:21.2064345Z Updating files:  35% (2781/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:21.3164900Z Updating files:  36% (2860/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:21.3626966Z Updating files:  37% (2939/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:21.3840736Z Updating files:  38% (3019/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:21.5232066Z Updating files:  39% (3098/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:21.5392798Z Updating files:  40% (3178/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:21.6048617Z Updating files:  41% (3257/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:21.6440462Z Updating files:  42% (3337/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:21.6749531Z Updating files:  43% (3416/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:21.7441595Z Updating files:  44% (3495/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:21.7490655Z Updating files:  45% (3575/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:21.7992500Z Updating files:  46% (3654/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:21.8187381Z Updating files:  47% (3734/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:21.8336383Z Updating files:  48% (3813/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:21.8613288Z Updating files:  49% (3893/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:21.8868855Z Updating files:  50% (3972/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:21.8900645Z Updating files:  51% (4051/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:21.9700798Z Updating files:  52% (4131/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:21.9940690Z Updating files:  53% (4210/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.0514612Z Updating files:  54% (4290/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.0554218Z Updating files:  55% (4369/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.0633735Z Updating files:  56% (4449/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.0877610Z Updating files:  57% (4528/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.1040902Z Updating files:  58% (4607/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.1167296Z Updating files:  59% (4687/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.1211748Z Updating files:  59% (4717/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.1273399Z Updating files:  60% (4766/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.1874581Z Updating files:  61% (4846/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.2242132Z Updating files:  62% (4925/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.2611670Z Updating files:  63% (5005/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.3190375Z Updating files:  64% (5084/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.3269546Z Updating files:  65% (5163/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.3470044Z Updating files:  66% (5243/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.3597529Z Updating files:  67% (5322/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.3608448Z Updating files:  68% (5402/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.4336612Z Updating files:  69% (5481/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.4461636Z Updating files:  70% (5561/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.6031248Z Updating files:  71% (5640/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.6404699Z Updating files:  72% (5719/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.6631417Z Updating files:  73% (5799/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.6697746Z Updating files:  74% (5878/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.6725204Z Updating files:  75% (5958/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.6755708Z Updating files:  76% (6037/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.6787051Z Updating files:  77% (6117/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.6823601Z Updating files:  78% (6196/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.6869044Z Updating files:  79% (6275/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.6898108Z Updating files:  80% (6355/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.6928590Z Updating files:  81% (6434/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.6961494Z Updating files:  82% (6514/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.6990721Z Updating files:  83% (6593/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.7019085Z Updating files:  84% (6673/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.7048547Z Updating files:  85% (6752/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.7084383Z Updating files:  86% (6831/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.7133473Z Updating files:  87% (6911/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.7187719Z Updating files:  88% (6990/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.7248433Z Updating files:  89% (7070/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.7311627Z Updating files:  90% (7149/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.7368494Z Updating files:  91% (7229/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.7413418Z Updating files:  92% (7308/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.7456276Z Updating files:  93% (7387/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.7503261Z Updating files:  94% (7467/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.7549613Z Updating files:  95% (7546/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.7589394Z Updating files:  96% (7626/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.7637743Z Updating files:  97% (7705/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.7683101Z Updating files:  98% (7785/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.7726213Z Updating files:  99% (7864/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.7726533Z Updating files: 100% (7943/7943)
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.7726763Z Updating files: 100% (7943/7943), done.
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.9149044Z Reset branch 'main'
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.9156541Z branch 'main' set up to track 'origin/main'.
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.9237929Z ##[endgroup]
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.9282566Z [command]/usr/bin/git log -1 --format=%H
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.9307465Z eb138db696f6ab74051a2a252548ef8bcff3e593
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.9314870Z ##[group]Removing auth
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.9315083Z Removing SSH command configuration
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.9317182Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.9347228Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.9544250Z Removing HTTP extra header
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.9547384Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.9580934Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.9774188Z Removing includeIf entries pointing to credentials config files
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.9798894Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.9855324Z includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.9855690Z includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.9856232Z includeif.gitdir:/github/workspace/.git.path
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.9856429Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.9866874Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.9894465Z /home/runner/work/_temp/git-credentials-f6cdb505-9e07-467f-b613-a43147636075.config
+zizmor	UNKNOWN STEP	2026-10-07T15:58:22.9908373Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-f6cdb505\-9e07\-467f\-b613\-a43147636075\.config
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.0450272Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.0479083Z /home/runner/work/_temp/git-credentials-f6cdb505-9e07-467f-b613-a43147636075.config
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.0486628Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-f6cdb505\-9e07\-467f\-b613\-a43147636075\.config
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.1050051Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.1078472Z /github/runner_temp/git-credentials-f6cdb505-9e07-467f-b613-a43147636075.config
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.1085140Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-f6cdb505\-9e07\-467f\-b613\-a43147636075\.config
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.1344638Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.1371679Z /github/runner_temp/git-credentials-f6cdb505-9e07-467f-b613-a43147636075.config
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.1376880Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-f6cdb505\-9e07\-467f\-b613\-a43147636075\.config
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.1743126Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.1944088Z Removing credentials config '/home/runner/work/_temp/git-credentials-f6cdb505-9e07-467f-b613-a43147636075.config'
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.1953931Z ##[endgroup]
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.2645174Z ##[group]Run zizmorcore/zizmor-action@v0.6.4
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.2645351Z with:
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.2645472Z   advanced-security: false
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.2645603Z   annotations: true
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.2645725Z   config: .github/zizmor.yml
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.2645856Z   min-confidence: medium
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.2645976Z   inputs: .
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.2646090Z   collect: default
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.2646210Z   online-audits: true
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.2646327Z   persona: regular
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.2646456Z   version: latest
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.2647930Z   token: ***
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.2648034Z   color: true
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.2648144Z   fail-on-no-inputs: true
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.2648267Z env:
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.2648370Z   GIT_CONFIG_COUNT: 1
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.2648495Z   GIT_CONFIG_KEY_0: init.defaultBranch
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.2648644Z   GIT_CONFIG_VALUE_0: main
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.2648766Z ##[endgroup]
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.2690316Z ##[start-action display=Run zizmor;id=__zizmorcore_zizmor-action.run-zizmor]
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.3542314Z ##[group]Run "${GITHUB_ACTION_PATH}/action.sh"
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.3542589Z ^[[36;1m"${GITHUB_ACTION_PATH}/action.sh"^[[0m
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.4034758Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.4034988Z env:
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.4035115Z   GIT_CONFIG_COUNT: 1
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.4035249Z   GIT_CONFIG_KEY_0: init.defaultBranch
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.4035403Z   GIT_CONFIG_VALUE_0: main
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.4035534Z   GHA_ZIZMOR_INPUTS: .
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.4035683Z   GHA_ZIZMOR_COLLECT: default
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.4035821Z   GHA_ZIZMOR_ONLINE_AUDITS: true
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.4035963Z   GHA_ZIZMOR_PERSONA: regular
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.4036100Z   GHA_ZIZMOR_MIN_SEVERITY: 
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.4036243Z   GHA_ZIZMOR_MIN_CONFIDENCE: medium
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.4036388Z   GHA_ZIZMOR_VERSION: latest
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.4038134Z   GHA_ZIZMOR_TOKEN: ***
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.4038274Z   GHA_ZIZMOR_ADVANCED_SECURITY: false
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.4038434Z   GHA_ZIZMOR_COLOR: true
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.4038565Z   GHA_ZIZMOR_ANNOTATIONS: true
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.4038729Z   GHA_ZIZMOR_CONFIG: .github/zizmor.yml
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.4038884Z   GHA_ZIZMOR_FAIL_ON_NO_INPUTS: true
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.4039027Z ##[endgroup]
+zizmor	UNKNOWN STEP	2026-10-07T15:58:23.4180730Z ##[group]Pulling zizmor image
+zizmor	UNKNOWN STEP	2026-10-07T15:58:24.9456819Z ghcr.io/zizmorcore/zizmor@sha256:a2eb396d886c053073405c7a980f2139ba2248ec172243cfa3841e57196e8101: Pulling from zizmorcore/zizmor
+zizmor	UNKNOWN STEP	2026-10-07T15:58:25.5848750Z 60bbc66affbe: Pulling fs layer
+zizmor	UNKNOWN STEP	2026-10-07T15:58:25.5849278Z 38dd630df65a: Pulling fs layer
+zizmor	UNKNOWN STEP	2026-10-07T15:58:25.5849575Z 392fc32e63fc: Pulling fs layer
+zizmor	UNKNOWN STEP	2026-10-07T15:58:25.5849803Z cdb5af441f92: Pulling fs layer
+zizmor	UNKNOWN STEP	2026-10-07T15:58:25.5850003Z 0e3a84f7427f: Pulling fs layer
+zizmor	UNKNOWN STEP	2026-10-07T15:58:25.5850209Z b10d4a946640: Pulling fs layer
+zizmor	UNKNOWN STEP	2026-10-07T15:58:25.5850420Z ed4725379a22: Pulling fs layer
+zizmor	UNKNOWN STEP	2026-10-07T15:58:25.5850609Z bc0f2d8a7aba: Pulling fs layer
+zizmor	UNKNOWN STEP	2026-10-07T15:58:25.5850822Z 8900cb4f88ab: Pulling fs layer
+zizmor	UNKNOWN STEP	2026-10-07T15:58:25.5850953Z cdea145aa115: Pulling fs layer
+zizmor	UNKNOWN STEP	2026-10-07T15:58:25.5851079Z b3ca4e6573bf: Pulling fs layer
+zizmor	UNKNOWN STEP	2026-10-07T15:58:25.5851207Z 0fa1472e71e2: Pulling fs layer
+zizmor	UNKNOWN STEP	2026-10-07T15:58:25.5851414Z 4f4fb700ef54: Pulling fs layer
+zizmor	UNKNOWN STEP	2026-10-07T15:58:25.5851578Z bc0f2d8a7aba: Waiting
+zizmor	UNKNOWN STEP	2026-10-07T15:58:25.5851760Z ed4725379a22: Waiting
+zizmor	UNKNOWN STEP	2026-10-07T15:58:25.5851935Z b3ca4e6573bf: Waiting
+zizmor	UNKNOWN STEP	2026-10-07T15:58:25.5852127Z cdb5af441f92: Waiting
+zizmor	UNKNOWN STEP	2026-10-07T15:58:25.5852295Z 8900cb4f88ab: Waiting
+zizmor	UNKNOWN STEP	2026-10-07T15:58:25.5852718Z 0fa1472e71e2: Waiting
+zizmor	UNKNOWN STEP	2026-10-07T15:58:25.5852888Z 0e3a84f7427f: Waiting
+zizmor	UNKNOWN STEP	2026-10-07T15:58:25.5853048Z cdea145aa115: Waiting
+zizmor	UNKNOWN STEP	2026-10-07T15:58:25.5853207Z b10d4a946640: Waiting
+zizmor	UNKNOWN STEP	2026-10-07T15:58:25.8682068Z 392fc32e63fc: Download complete
+zizmor	UNKNOWN STEP	2026-10-07T15:58:25.8988020Z 60bbc66affbe: Download complete
+zizmor	UNKNOWN STEP	2026-10-07T15:58:25.9046297Z 38dd630df65a: Verifying Checksum
+zizmor	UNKNOWN STEP	2026-10-07T15:58:25.9046738Z 38dd630df65a: Download complete
+zizmor	UNKNOWN STEP	2026-10-07T15:58:26.0784864Z 60bbc66affbe: Pull complete
+zizmor	UNKNOWN STEP	2026-10-07T15:58:26.0999360Z cdb5af441f92: Verifying Checksum
+zizmor	UNKNOWN STEP	2026-10-07T15:58:26.0999813Z cdb5af441f92: Download complete
+zizmor	UNKNOWN STEP	2026-10-07T15:58:26.1546260Z b10d4a946640: Verifying Checksum
+zizmor	UNKNOWN STEP	2026-10-07T15:58:26.1546813Z b10d4a946640: Download complete
+zizmor	UNKNOWN STEP	2026-10-07T15:58:26.1547390Z 0e3a84f7427f: Verifying Checksum
+zizmor	UNKNOWN STEP	2026-10-07T15:58:26.1547996Z 0e3a84f7427f: Download complete
+zizmor	UNKNOWN STEP	2026-10-07T15:58:26.3337314Z ed4725379a22: Verifying Checksum
+zizmor	UNKNOWN STEP	2026-10-07T15:58:26.3337628Z ed4725379a22: Download complete
+zizmor	UNKNOWN STEP	2026-10-07T15:58:26.3581134Z 8900cb4f88ab: Verifying Checksum
+zizmor	UNKNOWN STEP	2026-10-07T15:58:26.3581519Z 8900cb4f88ab: Download complete
+zizmor	UNKNOWN STEP	2026-10-07T15:58:26.3953022Z bc0f2d8a7aba: Verifying Checksum
+zizmor	UNKNOWN STEP	2026-10-07T15:58:26.3953341Z bc0f2d8a7aba: Download complete
+zizmor	UNKNOWN STEP	2026-10-07T15:58:26.5678763Z cdea145aa115: Verifying Checksum
+zizmor	UNKNOWN STEP	2026-10-07T15:58:26.5679181Z cdea145aa115: Download complete
+zizmor	UNKNOWN STEP	2026-10-07T15:58:26.5848439Z b3ca4e6573bf: Verifying Checksum
+zizmor	UNKNOWN STEP	2026-10-07T15:58:26.5848651Z b3ca4e6573bf: Download complete
+zizmor	UNKNOWN STEP	2026-10-07T15:58:26.7107294Z 0fa1472e71e2: Verifying Checksum
+zizmor	UNKNOWN STEP	2026-10-07T15:58:26.7107505Z 0fa1472e71e2: Download complete
+zizmor	UNKNOWN STEP	2026-10-07T15:58:26.8099649Z 4f4fb700ef54: Verifying Checksum
+zizmor	UNKNOWN STEP	2026-10-07T15:58:26.8099867Z 4f4fb700ef54: Download complete
+zizmor	UNKNOWN STEP	2026-10-07T15:58:33.8140837Z 38dd630df65a: Pull complete
+zizmor	UNKNOWN STEP	2026-10-07T15:58:33.8300362Z 392fc32e63fc: Pull complete
+zizmor	UNKNOWN STEP	2026-10-07T15:58:33.8527985Z cdb5af441f92: Pull complete
+zizmor	UNKNOWN STEP	2026-10-07T15:58:33.8654128Z 0e3a84f7427f: Pull complete
+zizmor	UNKNOWN STEP	2026-10-07T15:58:33.8761299Z b10d4a946640: Pull complete
+zizmor	UNKNOWN STEP	2026-10-07T15:58:33.8909918Z ed4725379a22: Pull complete
+zizmor	UNKNOWN STEP	2026-10-07T15:58:33.9038749Z bc0f2d8a7aba: Pull complete
+zizmor	UNKNOWN STEP	2026-10-07T15:58:33.9276479Z 8900cb4f88ab: Pull complete
+zizmor	UNKNOWN STEP	2026-10-07T15:58:33.9454030Z cdea145aa115: Pull complete
+zizmor	UNKNOWN STEP	2026-10-07T15:58:34.0152198Z b3ca4e6573bf: Pull complete
+zizmor	UNKNOWN STEP	2026-10-07T15:58:34.2552836Z 0fa1472e71e2: Pull complete
+zizmor	UNKNOWN STEP	2026-10-07T15:58:34.2611625Z 4f4fb700ef54: Pull complete
+zizmor	UNKNOWN STEP	2026-10-07T15:58:34.2653026Z Digest: sha256:a2eb396d886c053073405c7a980f2139ba2248ec172243cfa3841e57196e8101
+zizmor	UNKNOWN STEP	2026-10-07T15:58:34.2659011Z Status: Downloaded newer image for ghcr.io/zizmorcore/zizmor@sha256:a2eb396d886c053073405c7a980f2139ba2248ec172243cfa3841e57196e8101
+zizmor	UNKNOWN STEP	2026-10-07T15:58:34.2664804Z ghcr.io/zizmorcore/zizmor:latest@sha256:a2eb396d886c053073405c7a980f2139ba2248ec172243cfa3841e57196e8101
+zizmor	UNKNOWN STEP	2026-10-07T15:58:34.2677473Z ##[endgroup]
+zizmor	UNKNOWN STEP	2026-10-07T15:58:34.4202477Z ^[[32m INFO^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 zizmor v1.30.1
+zizmor	UNKNOWN STEP	2026-10-07T15:58:34.5096700Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed ./.github/actions/dispatch-checks/action.yml
+zizmor	UNKNOWN STEP	2026-10-07T15:58:34.9780351Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed ./.github/actions/resolve-github-token/action.yml
+zizmor	UNKNOWN STEP	2026-10-07T15:58:35.3901311Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed ./.github/actions/setup-buildx-resilient/action.yml
+zizmor	UNKNOWN STEP	2026-10-07T15:58:35.3902771Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed ./.github/dependabot.yml
+zizmor	UNKNOWN STEP	2026-10-07T15:58:35.8236177Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed ./.github/workflows/cleanup-test-repos.yml
+zizmor	UNKNOWN STEP	2026-10-07T15:58:36.0660010Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed ./.github/workflows/e2e-hello-world-matrix.yml
+zizmor	UNKNOWN STEP	2026-10-07T15:58:36.0677176Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed ./.github/workflows/formal-ai-draft.yml
+zizmor	UNKNOWN STEP	2026-10-07T15:58:36.3368237Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed ./.github/workflows/links.yml
+zizmor	UNKNOWN STEP	2026-10-07T15:58:36.3375356Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed ./.github/workflows/release-preflight.yml
+zizmor	UNKNOWN STEP	2026-10-07T15:58:37.3446026Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed ./.github/workflows/release.yml
+zizmor	UNKNOWN STEP	2026-10-07T15:58:38.1233308Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed ./.github/workflows/security.yml
+zizmor	UNKNOWN STEP	2026-10-07T15:58:38.3615357Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed ./.github/workflows/workflows.yml
+zizmor	UNKNOWN STEP	2026-10-07T15:58:38.8888817Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed ./dev/log/issues/2286/pulls/2287/research/template/.github/workflows/release.yml
+zizmor	UNKNOWN STEP	2026-10-07T15:58:39.0030392Z ##[end-action id=__zizmorcore_zizmor-action.run-zizmor;outcome=success;conclusion=success;duration_ms=15733]
+zizmor	UNKNOWN STEP	2026-10-07T15:58:39.0034510Z ##[start-action display=Upload SARIF file to GitHub Advanced Security;id=__zizmorcore_zizmor-action.__github_codeql-action]
+zizmor	UNKNOWN STEP	2026-10-07T15:58:39.0046736Z ##[end-action id=__zizmorcore_zizmor-action.__github_codeql-action;outcome=skipped;conclusion=skipped;duration_ms=0]
+zizmor	UNKNOWN STEP	2026-10-07T15:58:39.0136651Z Post job cleanup.
+zizmor	UNKNOWN STEP	2026-10-07T15:58:39.0195194Z Post job cleanup.
+zizmor	UNKNOWN STEP	2026-10-07T15:58:39.0786527Z [command]/usr/bin/git version
+zizmor	UNKNOWN STEP	2026-10-07T15:58:39.0827379Z git version 2.55.0
+zizmor	UNKNOWN STEP	2026-10-07T15:58:39.0852552Z Temporarily overriding HOME='/home/runner/work/_temp/c89946e5-fa0b-4b6d-8864-00186775c649' before making global git config changes
+zizmor	UNKNOWN STEP	2026-10-07T15:58:39.0853247Z Adding repository directory to the temporary git global config as a safe directory
+zizmor	UNKNOWN STEP	2026-10-07T15:58:39.0856305Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/hive-mind/hive-mind
+zizmor	UNKNOWN STEP	2026-10-07T15:58:39.0886440Z Removing SSH command configuration
+zizmor	UNKNOWN STEP	2026-10-07T15:58:39.0891258Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+zizmor	UNKNOWN STEP	2026-10-07T15:58:39.0921562Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+zizmor	UNKNOWN STEP	2026-10-07T15:58:39.1124269Z Removing HTTP extra header
+zizmor	UNKNOWN STEP	2026-10-07T15:58:39.1130037Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+zizmor	UNKNOWN STEP	2026-10-07T15:58:39.1166290Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+zizmor	UNKNOWN STEP	2026-10-07T15:58:39.1372375Z Removing includeIf entries pointing to credentials config files
+zizmor	UNKNOWN STEP	2026-10-07T15:58:39.1377943Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+zizmor	UNKNOWN STEP	2026-10-07T15:58:39.1408316Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+zizmor	UNKNOWN STEP	2026-10-07T15:58:39.1715854Z Cleaning up orphan processes
+actionlint	UNKNOWN STEP	﻿2026-10-07T15:57:58.4010358Z Current runner version: '2.337.0'
+actionlint	UNKNOWN STEP	2026-10-07T15:57:58.4045089Z ##[group]Runner Image Provisioner
+actionlint	UNKNOWN STEP	2026-10-07T15:57:58.4047013Z Hosted Compute Agent
+actionlint	UNKNOWN STEP	2026-10-07T15:57:58.4048163Z Version: 20260901.588
+actionlint	UNKNOWN STEP	2026-10-07T15:57:58.4049399Z Commit: f88ec8081b781fac6c440065ac7ff9e710ce3d0b
+actionlint	UNKNOWN STEP	2026-10-07T15:57:58.4050756Z Build Date: 2026-09-01T19:56:44Z
+actionlint	UNKNOWN STEP	2026-10-07T15:57:58.4051953Z Worker ID: {787cc21f-7bad-4495-b1cb-be474a898e8e}
+actionlint	UNKNOWN STEP	2026-10-07T15:57:58.4053439Z Azure Region: northcentralus
+actionlint	UNKNOWN STEP	2026-10-07T15:57:58.4054661Z ##[endgroup]
+actionlint	UNKNOWN STEP	2026-10-07T15:57:58.4057189Z ##[group]Operating System
+actionlint	UNKNOWN STEP	2026-10-07T15:57:58.4058391Z Ubuntu
+actionlint	UNKNOWN STEP	2026-10-07T15:57:58.4059197Z 24.04.5
+actionlint	UNKNOWN STEP	2026-10-07T15:57:58.4060101Z LTS
+actionlint	UNKNOWN STEP	2026-10-07T15:57:58.4060931Z ##[endgroup]
+actionlint	UNKNOWN STEP	2026-10-07T15:57:58.4061698Z ##[group]Runner Image
+actionlint	UNKNOWN STEP	2026-10-07T15:57:58.4062402Z Image: ubuntu-24.04
+actionlint	UNKNOWN STEP	2026-10-07T15:57:58.4062987Z Version: 20260927.320.1
+actionlint	UNKNOWN STEP	2026-10-07T15:57:58.4064354Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260927.320/images/ubuntu/Ubuntu2404-Readme.md
+actionlint	UNKNOWN STEP	2026-10-07T15:57:58.4065890Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260927.320
+actionlint	UNKNOWN STEP	2026-10-07T15:57:58.4067333Z ##[endgroup]
+actionlint	UNKNOWN STEP	2026-10-07T15:57:58.4068451Z ##[group]GITHUB_TOKEN Permissions
+actionlint	UNKNOWN STEP	2026-10-07T15:57:58.4070698Z Contents: read
+actionlint	UNKNOWN STEP	2026-10-07T15:57:58.4071309Z Metadata: read
+actionlint	UNKNOWN STEP	2026-10-07T15:57:58.4071947Z ##[endgroup]
+actionlint	UNKNOWN STEP	2026-10-07T15:57:58.4074001Z Secret source: Actions
+actionlint	UNKNOWN STEP	2026-10-07T15:57:58.4075041Z Cache mode: write
+actionlint	UNKNOWN STEP	2026-10-07T15:57:58.4076142Z Prepare workflow directory
+actionlint	UNKNOWN STEP	2026-10-07T15:57:58.4567118Z Prepare all required actions
+actionlint	UNKNOWN STEP	2026-10-07T15:57:58.4640529Z Getting action download info
+actionlint	UNKNOWN STEP	2026-10-07T15:57:58.7334867Z Download action repository 'actions/checkout@v7' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+actionlint	UNKNOWN STEP	2026-10-07T15:57:58.9481645Z Complete job name: actionlint
+actionlint	UNKNOWN STEP	2026-10-07T15:57:58.9958050Z ##[group]Pull down action image 'rhysd/actionlint:1.7.12'
+actionlint	UNKNOWN STEP	2026-10-07T15:57:59.0072277Z ##[command]/usr/bin/docker pull rhysd/actionlint:1.7.12
+actionlint	UNKNOWN STEP	2026-10-07T15:57:59.5270177Z 1.7.12: Pulling from rhysd/actionlint
+actionlint	UNKNOWN STEP	2026-10-07T15:57:59.6565116Z 589002ba0eae: Pulling fs layer
+actionlint	UNKNOWN STEP	2026-10-07T15:57:59.6566884Z c09af8888d6a: Pulling fs layer
+actionlint	UNKNOWN STEP	2026-10-07T15:57:59.6568261Z 4ccd7d76ca98: Pulling fs layer
+actionlint	UNKNOWN STEP	2026-10-07T15:57:59.6569386Z b6b4b7b0e257: Pulling fs layer
+actionlint	UNKNOWN STEP	2026-10-07T15:57:59.6570472Z b6b4b7b0e257: Waiting
+actionlint	UNKNOWN STEP	2026-10-07T15:57:59.7542266Z 589002ba0eae: Verifying Checksum
+actionlint	UNKNOWN STEP	2026-10-07T15:57:59.7546925Z 589002ba0eae: Download complete
+actionlint	UNKNOWN STEP	2026-10-07T15:57:59.7549397Z c09af8888d6a: Verifying Checksum
+actionlint	UNKNOWN STEP	2026-10-07T15:57:59.7550723Z c09af8888d6a: Download complete
+actionlint	UNKNOWN STEP	2026-10-07T15:57:59.7627708Z 4ccd7d76ca98: Verifying Checksum
+actionlint	UNKNOWN STEP	2026-10-07T15:57:59.7630736Z 4ccd7d76ca98: Download complete
+actionlint	UNKNOWN STEP	2026-10-07T15:57:59.8738228Z 589002ba0eae: Pull complete
+actionlint	UNKNOWN STEP	2026-10-07T15:57:59.9018617Z b6b4b7b0e257: Verifying Checksum
+actionlint	UNKNOWN STEP	2026-10-07T15:57:59.9019531Z b6b4b7b0e257: Download complete
+actionlint	UNKNOWN STEP	2026-10-07T15:57:59.9484250Z c09af8888d6a: Pull complete
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.0227215Z 4ccd7d76ca98: Pull complete
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.6038596Z b6b4b7b0e257: Pull complete
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.6078696Z Digest: sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.6091541Z Status: Downloaded newer image for rhysd/actionlint:1.7.12
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.6099080Z docker.io/rhysd/actionlint:1.7.12
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.6120327Z ##[endgroup]
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.6443844Z ##[group]Run actions/checkout@v7
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.6444489Z with:
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.6444772Z   persist-credentials: false
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.6445112Z   repository: link-assistant/hive-mind
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.6447973Z   token: ***
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.6448240Z   ssh-strict: true
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.6448502Z   ssh-user: git
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.6448765Z   clean: true
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.6449056Z   sparse-checkout-cone-mode: true
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.6449371Z   fetch-depth: 1
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.6449644Z   fetch-tags: false
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.6449902Z   show-progress: true
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.6450159Z   lfs: false
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.6450403Z   submodules: false
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.6450928Z   set-safe-directory: true
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.6451229Z   allow-unsafe-pr-checkout: false
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.6451833Z env:
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.6452085Z   GIT_CONFIG_COUNT: 1
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.6452381Z   GIT_CONFIG_KEY_0: init.defaultBranch
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.6452751Z   GIT_CONFIG_VALUE_0: main
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.6453036Z ##[endgroup]
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.7406073Z Syncing repository: link-assistant/hive-mind
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.7408444Z ##[group]Getting Git version info
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.7409189Z Working directory is '/home/runner/work/hive-mind/hive-mind'
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.7410224Z [command]/usr/bin/git version
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.7526480Z git version 2.55.0
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.7551302Z ##[endgroup]
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.7581537Z Temporarily overriding HOME='/home/runner/work/_temp/830d0ac7-90b0-4bf5-9bd5-34a5a5f53e14' before making global git config changes
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.7582712Z Adding repository directory to the temporary git global config as a safe directory
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.7583469Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/hive-mind/hive-mind
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.7663927Z Deleting the contents of '/home/runner/work/hive-mind/hive-mind'
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.7667619Z ##[group]Determining repository object format
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.7669310Z ##[endgroup]
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.7669827Z ##[group]Initializing the repository
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.7674927Z [command]/usr/bin/git init /home/runner/work/hive-mind/hive-mind
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.7823926Z Initialized empty Git repository in /home/runner/work/hive-mind/hive-mind/.git/
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.7838459Z [command]/usr/bin/git remote add origin https://github.com/link-assistant/hive-mind
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.7895909Z ##[endgroup]
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.7897277Z ##[group]Disabling automatic garbage collection
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.7900860Z [command]/usr/bin/git config --local gc.auto 0
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.7938636Z ##[endgroup]
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.7939634Z ##[group]Setting up auth
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.7940886Z Removing SSH command configuration
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.7947401Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.7984636Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.8380993Z Removing HTTP extra header
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.8386876Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.8425243Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.8645900Z Removing includeIf entries pointing to credentials config files
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.8650874Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.8692182Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.8921751Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-1528402b-73a0-46a6-a1f4-86b0ca9fe67f.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.8961892Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path /home/runner/work/_temp/git-credentials-1528402b-73a0-46a6-a1f4-86b0ca9fe67f.config
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.8998056Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-1528402b-73a0-46a6-a1f4-86b0ca9fe67f.config
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.9037677Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-1528402b-73a0-46a6-a1f4-86b0ca9fe67f.config
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.9072747Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-1528402b-73a0-46a6-a1f4-86b0ca9fe67f.config
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.9105801Z ##[endgroup]
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.9106575Z ##[group]Fetching the repository
+actionlint	UNKNOWN STEP	2026-10-07T15:58:00.9114255Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +eb138db696f6ab74051a2a252548ef8bcff3e593:refs/remotes/origin/main
+actionlint	UNKNOWN STEP	2026-10-07T15:58:19.6658628Z From https://github.com/link-assistant/hive-mind
+actionlint	UNKNOWN STEP	2026-10-07T15:58:19.6659576Z  * [new ref]         eb138db696f6ab74051a2a252548ef8bcff3e593 -> origin/main
+actionlint	UNKNOWN STEP	2026-10-07T15:58:19.6670280Z [command]/usr/bin/git branch --list --remote origin/main
+actionlint	UNKNOWN STEP	2026-10-07T15:58:19.6711214Z   origin/main
+actionlint	UNKNOWN STEP	2026-10-07T15:58:19.6719373Z [command]/usr/bin/git rev-parse refs/remotes/origin/main
+actionlint	UNKNOWN STEP	2026-10-07T15:58:19.6745602Z eb138db696f6ab74051a2a252548ef8bcff3e593
+actionlint	UNKNOWN STEP	2026-10-07T15:58:19.6750642Z ##[endgroup]
+actionlint	UNKNOWN STEP	2026-10-07T15:58:19.6751634Z ##[group]Determining the checkout info
+actionlint	UNKNOWN STEP	2026-10-07T15:58:19.6752892Z ##[endgroup]
+actionlint	UNKNOWN STEP	2026-10-07T15:58:19.6756726Z [command]/usr/bin/git sparse-checkout disable
+actionlint	UNKNOWN STEP	2026-10-07T15:58:19.6818027Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+actionlint	UNKNOWN STEP	2026-10-07T15:58:19.6855470Z ##[group]Checking out the ref
+actionlint	UNKNOWN STEP	2026-10-07T15:58:19.6859855Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+actionlint	UNKNOWN STEP	2026-10-07T15:58:20.7767082Z Updating files:  26% (2105/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:20.8297296Z Updating files:  27% (2145/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:20.8635103Z Updating files:  28% (2225/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:20.8860826Z Updating files:  29% (2304/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:20.9041717Z Updating files:  30% (2383/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:20.9370358Z Updating files:  31% (2463/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:21.0127585Z Updating files:  32% (2542/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:21.0343666Z Updating files:  33% (2622/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:21.0513229Z Updating files:  34% (2701/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:21.0733663Z Updating files:  35% (2781/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:21.2146717Z Updating files:  36% (2860/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:21.2756769Z Updating files:  37% (2939/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:21.3029043Z Updating files:  38% (3019/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:21.4842495Z Updating files:  39% (3098/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:21.5056701Z Updating files:  40% (3178/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:21.5903836Z Updating files:  41% (3257/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:21.6405379Z Updating files:  42% (3337/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:21.6781194Z Updating files:  43% (3416/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:21.6992537Z Updating files:  44% (3495/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:21.7747576Z Updating files:  44% (3543/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:21.7814988Z Updating files:  45% (3575/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:21.8461086Z Updating files:  46% (3654/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:21.8718585Z Updating files:  47% (3734/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:21.8914909Z Updating files:  48% (3813/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:21.9279135Z Updating files:  49% (3893/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:21.9613878Z Updating files:  50% (3972/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:21.9661283Z Updating files:  51% (4051/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:22.0707479Z Updating files:  52% (4131/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:22.1037076Z Updating files:  53% (4210/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:22.1781321Z Updating files:  54% (4290/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:22.1836060Z Updating files:  55% (4369/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:22.1945529Z Updating files:  56% (4449/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:22.2265659Z Updating files:  57% (4528/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:22.2483893Z Updating files:  58% (4607/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:22.2697068Z Updating files:  59% (4687/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:22.2781091Z Updating files:  60% (4766/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:22.3571144Z Updating files:  61% (4846/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:22.4041060Z Updating files:  62% (4925/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:22.4520825Z Updating files:  63% (5005/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:22.5285799Z Updating files:  64% (5084/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:22.5384300Z Updating files:  65% (5163/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:22.5648327Z Updating files:  66% (5243/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:22.5796290Z Updating files:  67% (5322/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:22.5831009Z Updating files:  68% (5402/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:22.6747924Z Updating files:  69% (5481/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:22.6908536Z Updating files:  70% (5561/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:22.8377542Z Updating files:  71% (5640/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:22.8953722Z Updating files:  71% (5652/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:22.9347452Z Updating files:  72% (5719/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:22.9654934Z Updating files:  73% (5799/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:22.9743236Z Updating files:  74% (5878/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:22.9781257Z Updating files:  75% (5958/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:22.9823601Z Updating files:  76% (6037/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:22.9868614Z Updating files:  77% (6117/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:22.9919371Z Updating files:  78% (6196/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:22.9978657Z Updating files:  79% (6275/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.0017406Z Updating files:  80% (6355/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.0058691Z Updating files:  81% (6434/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.0101947Z Updating files:  82% (6514/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.0141890Z Updating files:  83% (6593/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.0180750Z Updating files:  84% (6673/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.0220961Z Updating files:  85% (6752/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.0269530Z Updating files:  86% (6831/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.0334627Z Updating files:  87% (6911/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.0405152Z Updating files:  88% (6990/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.0483291Z Updating files:  89% (7070/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.0563441Z Updating files:  90% (7149/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.0637481Z Updating files:  91% (7229/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.0698359Z Updating files:  92% (7308/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.0754371Z Updating files:  93% (7387/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.0816267Z Updating files:  94% (7467/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.0879297Z Updating files:  95% (7546/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.0933136Z Updating files:  96% (7626/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.0996394Z Updating files:  97% (7705/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.1057233Z Updating files:  98% (7785/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.1114868Z Updating files:  99% (7864/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.1115681Z Updating files: 100% (7943/7943)
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.1116562Z Updating files: 100% (7943/7943), done.
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.1206939Z Reset branch 'main'
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.1210431Z branch 'main' set up to track 'origin/main'.
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.1289213Z ##[endgroup]
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.1336710Z [command]/usr/bin/git log -1 --format=%H
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.1366620Z eb138db696f6ab74051a2a252548ef8bcff3e593
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.1376583Z ##[group]Removing auth
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.1377252Z Removing SSH command configuration
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.1381395Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.1417540Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.1652218Z Removing HTTP extra header
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.1656024Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.1692166Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.1922147Z Removing includeIf entries pointing to credentials config files
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.1925242Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.1981720Z includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.1982661Z includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.1983632Z includeif.gitdir:/github/workspace/.git.path
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.1984374Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.1996098Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.2021853Z /home/runner/work/_temp/git-credentials-1528402b-73a0-46a6-a1f4-86b0ca9fe67f.config
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.2031704Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-1528402b\-73a0\-46a6\-a1f4\-86b0ca9fe67f\.config
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.2069826Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.2103396Z /home/runner/work/_temp/git-credentials-1528402b-73a0-46a6-a1f4-86b0ca9fe67f.config
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.2112014Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-1528402b\-73a0\-46a6\-a1f4\-86b0ca9fe67f\.config
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.2150419Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.2179044Z /github/runner_temp/git-credentials-1528402b-73a0-46a6-a1f4-86b0ca9fe67f.config
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.2188516Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-1528402b\-73a0\-46a6\-a1f4\-86b0ca9fe67f\.config
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.2226162Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.2253146Z /github/runner_temp/git-credentials-1528402b-73a0-46a6-a1f4-86b0ca9fe67f.config
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.2260600Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-1528402b\-73a0\-46a6\-a1f4\-86b0ca9fe67f\.config
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.2299519Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.2552143Z Removing credentials config '/home/runner/work/_temp/git-credentials-1528402b-73a0-46a6-a1f4-86b0ca9fe67f.config'
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.2644491Z ##[endgroup]
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.2762816Z ##[group]Run docker://rhysd/actionlint:1.7.12
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.2763143Z with:
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.2763354Z   args: -color
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.2763546Z env:
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.2763736Z   GIT_CONFIG_COUNT: 1
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.2763967Z   GIT_CONFIG_KEY_0: init.defaultBranch
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.2764234Z   GIT_CONFIG_VALUE_0: main
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.2764450Z ##[endgroup]
+actionlint	UNKNOWN STEP	2026-10-07T15:58:23.2860233Z ##[command]/usr/bin/docker run --name rhysdactionlint1712_087649 --label cb8ccf --workdir /github/workspace --rm -e "GIT_CONFIG_COUNT" -e "GIT_CONFIG_KEY_0" -e "GIT_CONFIG_VALUE_0" -e "INPUT_ARGS" -e "HOME" -e "GITHUB_JOB" -e "GITHUB_REF" -e "GITHUB_SHA" -e "GITHUB_REPOSITORY" -e "GITHUB_REPOSITORY_OWNER" -e "GITHUB_REPOSITORY_OWNER_ID" -e "GITHUB_RUN_ID" -e "GITHUB_RUN_NUMBER" -e "GITHUB_RETENTION_DAYS" -e "GITHUB_RUN_ATTEMPT" -e "GITHUB_ACTOR_ID" -e "GITHUB_ACTOR" -e "GITHUB_WORKFLOW" -e "GITHUB_HEAD_REF" -e "GITHUB_BASE_REF" -e "GITHUB_EVENT_NAME" -e "GITHUB_SERVER_URL" -e "GITHUB_API_URL" -e "GITHUB_GRAPHQL_URL" -e "GITHUB_REF_NAME" -e "GITHUB_REF_PROTECTED" -e "GITHUB_REF_TYPE" -e "GITHUB_WORKFLOW_REF" -e "GITHUB_WORKFLOW_SHA" -e "GITHUB_REPOSITORY_ID" -e "GITHUB_TRIGGERING_ACTOR" -e "GITHUB_WORKSPACE" -e "GITHUB_ACTION" -e "GITHUB_EVENT_PATH" -e "GITHUB_ACTION_REPOSITORY" -e "GITHUB_ACTION_REF" -e "GITHUB_PATH" -e "GITHUB_ENV" -e "GITHUB_STEP_SUMMARY" -e "GITHUB_STATE" -e "GITHUB_OUTPUT" -e "GITHUB_ARTIFACTS" -e "GITHUB_ARTIFACTS_LIST" -e "RUNNER_OS" -e "RUNNER_ARCH" -e "RUNNER_NAME" -e "RUNNER_ENVIRONMENT" -e "RUNNER_TOOL_CACHE" -e "RUNNER_TEMP" -e "RUNNER_WORKSPACE" -e "ACTIONS_RUNTIME_URL" -e "ACTIONS_RUNTIME_TOKEN" -e "ACTIONS_CACHE_URL" -e "ACTIONS_RESULTS_URL" -e "ACTIONS_CACHE_MODE" -e "ACTIONS_ORCHESTRATION_ID" -e GITHUB_ACTIONS=true -e CI=true -v "/var/run/docker.sock":"/var/run/docker.sock" -v "/home/runner/work/_temp":"/github/runner_temp" -v "/home/runner/work/_temp/_github_home":"/github/home" -v "/home/runner/work/_temp/_github_workflow":"/github/workflow" -v "/home/runner/work/_temp/_runner_file_commands":"/github/file_commands" -v "/home/runner/work/hive-mind/hive-mind":"/github/workspace" rhysd/actionlint:1.7.12 -color
+actionlint	UNKNOWN STEP	2026-10-07T15:58:27.1744306Z Post job cleanup.
+actionlint	UNKNOWN STEP	2026-10-07T15:58:27.2583544Z [command]/usr/bin/git version
+actionlint	UNKNOWN STEP	2026-10-07T15:58:27.2639811Z git version 2.55.0
+actionlint	UNKNOWN STEP	2026-10-07T15:58:27.2681482Z Temporarily overriding HOME='/home/runner/work/_temp/761b865e-f132-4468-b872-985dddefd757' before making global git config changes
+actionlint	UNKNOWN STEP	2026-10-07T15:58:27.2683004Z Adding repository directory to the temporary git global config as a safe directory
+actionlint	UNKNOWN STEP	2026-10-07T15:58:27.2687819Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/hive-mind/hive-mind
+actionlint	UNKNOWN STEP	2026-10-07T15:58:27.2720196Z Removing SSH command configuration
+actionlint	UNKNOWN STEP	2026-10-07T15:58:27.2727572Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+actionlint	UNKNOWN STEP	2026-10-07T15:58:27.2763076Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+actionlint	UNKNOWN STEP	2026-10-07T15:58:27.3013700Z Removing HTTP extra header
+actionlint	UNKNOWN STEP	2026-10-07T15:58:27.3019610Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+actionlint	UNKNOWN STEP	2026-10-07T15:58:27.3058955Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+actionlint	UNKNOWN STEP	2026-10-07T15:58:27.3318974Z Removing includeIf entries pointing to credentials config files
+actionlint	UNKNOWN STEP	2026-10-07T15:58:27.3325229Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+actionlint	UNKNOWN STEP	2026-10-07T15:58:27.3377436Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+actionlint	UNKNOWN STEP	2026-10-07T15:58:27.3825389Z Cleaning up orphan processes

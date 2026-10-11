@@ -26,6 +26,7 @@ import { describeChildExit } from './child-exit.lib.mjs';
 import { createCiCdIssue, prepareCiCdIssue } from './fix.ci-cd-issue.lib.mjs';
 import { createUpdateDependenciesIssue, prepareUpdateDependenciesIssue } from './fix.update-dependencies-issue.lib.mjs';
 import { setupStdioLogInterceptor } from './lib.mjs';
+import { resolveFixDependencyReporting } from './fix.report-dependencies.lib.mjs';
 
 setupStdioLogInterceptor();
 
@@ -44,6 +45,8 @@ Modes (exactly one is required):
 Options:
   --dry-run          Print the issue that would be created without creating it
   --no-solve         Create the issue but do not start /solve on it
+  --no-report-dependencies-issues
+                     Disable upstream reporting during dependency updates
   --version          Show version number
   --help, -h         Show help
 
@@ -132,7 +135,8 @@ async function main() {
   const repository = parsed.repository;
   console.log(`🔧 /fix ${handler.label} for ${repository.fullName}`);
 
-  const prepared = await handler.prepare({ repository, log: message => console.log(`   ${message}`) });
+  const reportingOptions = parsed.mode === FIX_MODE_UPDATE_ALL_DEPENDENCIES ? { reportDependenciesIssues: resolveFixDependencyReporting(parsed.passthrough) } : {};
+  const prepared = await handler.prepare({ repository, ...reportingOptions, log: message => console.log(`   ${message}`) });
   for (const line of handler.summarize(prepared)) console.log(`   ${line}`);
 
   if (parsed.dryRun) {

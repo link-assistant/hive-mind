@@ -499,11 +499,11 @@ Aliases:
 
 Tool alias examples:
 /codex https://github.com/owner/repo/issues/123 --model gpt-5.5
-/opencode https://github.com/owner/repo/issues/123 --model grok-code-fast-1
+/opencode https://github.com/owner/repo/issues/123 --model big-pickle
 /agent https://github.com/owner/repo/issues/123 --model nemotron-3-super-free
 /gemini https://github.com/owner/repo/issues/123 --model flash
 /qwen https://github.com/owner/repo/issues/123 --model qwen3-coder-plus
-/gemini https://github.com/owner/repo/issues/123 --model gemini-2.5-flash
+/gemini https://github.com/owner/repo/issues/123 --model flash
 
 Free Models (with --tool agent):
 /solve https://github.com/owner/repo/issues/123 --tool agent --model nemotron-3-super-free
@@ -597,6 +597,8 @@ manifests, फिर से generate किए जाने वाले lockfil
 वे बनाए गए issue का URL लौटाते हैं; सामान्य solve workflow से काम जारी रखने के लिए
 `/solve --development-log --deep-analysis --auto-merge` (dependency issue के लिए
 `--update-all-dependencies` भी जोड़कर) से reply करें।
+
+`--update-all-dependencies` से `--report-dependencies-issues` चालू होता है: साझा logic, duplicated code, missing features और workarounds की वजह बनने वाले bugs की सूचना dependency के upstream को दें। pull request आगे बढ़ सके इसलिए ज़रूरी स्थानीय workarounds रख सकते हैं। reporting बंद करने के लिए `--no-report-dependencies-issues` जोड़ें, या dependencies अपडेट किए बिना `/solve` या `/hive` पर `--report-dependencies-issues` का उपयोग करें।
 
 #### `/organize` - खुले issues को वर्गीकृत करें
 

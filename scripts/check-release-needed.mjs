@@ -8,7 +8,8 @@
  *   changeset_count  - number of pending changeset files
  *   should_release   - the job should proceed (bump and/or publish)
  *   skip_bump        - publish the current package.json version as-is, because
- *                      it is not on npm yet and there is nothing to bump
+ *                      it is not on npm yet, or it is but has no GitHub release
+ *                      (issue #2923), and there is nothing to bump
  *
  * The logic lives in scripts/check-release-needed.lib.mjs so it can be
  * unit-tested (see tests/check-release-needed-2175.test.mjs). This file only
@@ -19,7 +20,7 @@
 
 import { appendFileSync } from 'node:fs';
 
-import { countChangesets, decideRelease, emitDecision, readPackageInfo } from './check-release-needed.lib.mjs';
+import { countChangesets, decideRelease, emitDecision, githubReleaseExists, readPackageInfo } from './check-release-needed.lib.mjs';
 import { isVersionPublished } from './publish-to-npm.mjs';
 import { isVerbose, runCommand } from './run-command.lib.mjs';
 
@@ -38,6 +39,7 @@ const decision = await decideRelease({
   changesetCount: countChangesets(),
   version,
   isPublished: candidate => isVersionPublished((command, args) => runCommand(command, args, { verbose }), candidate),
+  hasGithubRelease: candidate => githubReleaseExists({ runner: (command, args) => runCommand(command, args, { verbose }), repository: process.env.GITHUB_REPOSITORY, version: candidate }),
 });
 
 emitDecision(decision, setOutput);

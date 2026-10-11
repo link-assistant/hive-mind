@@ -500,11 +500,11 @@ Aliases:
 
 Tool alias examples:
 /codex https://github.com/owner/repo/issues/123 --model gpt-5.5
-/opencode https://github.com/owner/repo/issues/123 --model grok-code-fast-1
+/opencode https://github.com/owner/repo/issues/123 --model big-pickle
 /agent https://github.com/owner/repo/issues/123 --model nemotron-3-super-free
 /gemini https://github.com/owner/repo/issues/123 --model flash
 /qwen https://github.com/owner/repo/issues/123 --model qwen3-coder-plus
-/gemini https://github.com/owner/repo/issues/123 --model gemini-2.5-flash
+/gemini https://github.com/owner/repo/issues/123 --model flash
 
 Free Models (with --tool agent):
 /solve https://github.com/owner/repo/issues/123 --tool agent --model nemotron-3-super-free
@@ -597,6 +597,8 @@ Examples:
 `/solve --development-log --deep-analysis --auto-merge` (добавив
 `--update-all-dependencies` для issue о зависимостях), чтобы продолжить обычным
 процессом solve.
+
+`--update-all-dependencies` включает `--report-dependencies-issues`: сообщать апстриму зависимостей об общей логике, дублировании кода, недостающих функциях и багах, требующих обходных решений. Локальные обходные решения можно сохранить, чтобы не блокировать pull request. Добавьте `--no-report-dependencies-issues` для отключения отчётов или используйте `--report-dependencies-issues` с `/solve` или `/hive` без обновления зависимостей.
 
 #### `/organize` — Классифицировать открытые задачи
 

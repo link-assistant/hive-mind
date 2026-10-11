@@ -71,6 +71,31 @@ test('including existing PRs retains parent gating and forwards continuation to 
   assert.doesNotMatch(result.output, /FIXTURE_SOLVER_STARTED .*\/issues\/227/);
 });
 
+// Issue #2751: exercise the production argument forwarder at the child boundary.
+for (const [args, forwarded] of [
+  [[], null],
+  [['--report-dependencies-issues'], '--report-dependencies-issues'],
+  [['--no-report-dependencies-issues'], '--no-report-dependencies-issues'],
+  [['--report-dependencies-issues=false'], '--no-report-dependencies-issues'],
+  [['--report-dependencies-issues', 'false'], '--no-report-dependencies-issues'],
+  [['--no-report-dependencies-issues', '--report-dependencies-issues'], '--report-dependencies-issues'],
+  [['--report-dependencies-issues', '--no-report-dependencies-issues'], '--no-report-dependencies-issues'],
+]) {
+  test(`dependency reporting reaches the hive solver: ${args.join(' ') || 'default'}`, { timeout: 15000 }, async () => {
+    const result = await runHive('parent-prs', ['--max-issues', '1', '--update-all-dependencies', ...args]);
+    assert.equal(result.code, 4, result.output);
+    assert.match(result.output, /FIXTURE_SOLVER_STARTED/);
+    const command = result.output.match(/Command: (.*)/)?.[1];
+    assert.ok(command, result.output);
+    const solveArgs = command.split(' ');
+    assert.ok(solveArgs.includes('--update-all-dependencies'));
+    assert.deepEqual(
+      solveArgs.filter(arg => arg.includes('report-dependencies-issues')),
+      forwarded ? [forwarded] : []
+    );
+  });
+}
+
 for (const scenario of ['empty', 'blocked', 'archived', 'recheck-skip']) {
   test(`${scenario} does not claim successful work`, { timeout: 15000 }, async () => {
     const result = await runHive(scenario);

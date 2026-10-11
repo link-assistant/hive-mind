@@ -1,0 +1,150 @@
+
+## claude (24 listed)
+formal-ai, sonnet, opus, haiku, opusplan, fable, fable-5-1, fable-5, mythos-5-1, mythos-5, sonnet-5-5, sonnet-5, sonnet-4-6, opus-5-5, opus-5, opus-4-8, opus-4-7, opus-4-6, opus-4-5, sonnet-4-5, haiku-5-5, haiku-4-5, best, mythos
+  opus -> claude-opus-5-5
+  sonnet -> claude-sonnet-5-5
+  haiku -> claude-haiku-5-5
+  fable -> claude-fable-5-1
+  mythos -> claude-mythos-5-1
+  best -> claude-fable-5-1
+  opus-5.5 -> claude-opus-5-5
+  claude-opus-5.5 -> claude-opus-5-5
+  sonnet-5.5 -> claude-sonnet-5-5
+
+## codex (13 listed)
+astra, sol, luna, terra, gpt-6-astra, gpt-6.1-sol, gpt-6-sol, gpt-6-luna, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna, gpt-5.5, formal-ai
+  astra -> gpt-6-astra
+  sol -> gpt-6.1-sol
+  terra -> gpt-5.6-terra
+  luna -> gpt-6-luna
+  daybreak-blue -> gpt-daybreak-blue-latest
+  daybreak-red -> gpt-daybreak-red-latest
+  gpt-6-astra -> gpt-6-astra
+  gpt-6.1-sol -> gpt-6.1-sol
+
+## gemini (21 listed)
+formal-ai, auto, pro, flash, flash-lite, gemini, lite, gemini-pro, gemini-flash, gemini-flash-lite, gemini-3.1-pro-preview, gemini-3-pro-preview, gemini-3.8-flash, gemini-3.5-flash, gemini-3-flash-preview, gemini-3-flash, gemini-3.5-flash-lite, gemini-3.1-flash-lite, gemini-2.5-pro, gemma-4-31b-it, gemma-4-26b-a4b-it
+  flash -> flash
+  pro -> pro
+  flash-lite -> flash-lite
+  auto -> auto
+  gemini -> flash
+  3.8-flash -> gemini-3.8-flash
+
+## qwen (20 listed)
+formal-ai, qwen, qwen-coder, qwen3, max, qwen-max, plus, qwen-plus, flash, qwen-flash, coder-model, qwen3.8-max, qwen3.7-max, qwen3.7-plus, qwen3.6-plus, qwen3.5-plus, qwen3.8-flash, qwen3.6-flash, qwen3-coder-plus, qwen3-coder-next
+  qwen -> qwen3-coder-plus
+  coder-model -> coder-model
+  max -> qwen3.8-max
+  plus -> qwen3.7-plus
+  flash -> qwen3.8-flash
+
+## agent (21 listed)
+formal-ai, big-pickle, gpt-5-nano, nemotron-3-super-free, nemotron-3-ultra-free, nemotron-3.5-lightning-free, ling-3.1-flash-free, mimo-v2.6-flash-free, step-5-preview-free, exo-free, glm-5-free, glm-4.5-air-free, deepseek-r1-free, giga-potato-free, trinity-large-preview, opus, sonnet, haiku, fable, gemini-pro, gemini-3-pro
+  nemotron-3-super-free -> kilo/nemotron-3-super-free
+  opus -> anthropic/claude-opus-5-5
+  sonnet -> anthropic/claude-sonnet-5-5
+  gemini-3-pro -> google/gemini-3.1-pro-preview
+
+## opencode (15 listed)
+formal-ai, gpt4o, big-pickle, nemotron-3-ultra-free, nemotron-3.5-lightning-free, ling-3.1-flash-free, mimo-v2.6-flash-free, step-5-preview-free, exo-free, opus, sonnet, haiku, fable, claude, gemini
+  big-pickle -> opencode/big-pickle
+  grok -> opencode/grok-code
+  sonnet -> anthropic/claude-sonnet-5-5
+  opus -> anthropic/claude-opus-5-5
+  gemini -> google/gemini-3.1-pro-preview
+
+===== --live (installed CLIs) =====
+
+## claude (24 listed)
+formal-ai, sonnet, opus, haiku, opusplan, fable, fable-5-1, fable-5, mythos-5-1, mythos-5, sonnet-5-5, sonnet-5, sonnet-4-6, opus-5-5, opus-5, opus-4-8, opus-4-7, opus-4-6, opus-4-5, sonnet-4-5, haiku-5-5, haiku-4-5, best, mythos
+[model-resolution] bundled {"tool":"claude","model":"opus","mappedModel":"claude-opus-5-5"}
+  opus -> claude-opus-5-5 (bundled)
+[model-resolution] bundled {"tool":"claude","model":"sonnet","mappedModel":"claude-sonnet-5-5"}
+  sonnet -> claude-sonnet-5-5 (bundled)
+[model-resolution] bundled {"tool":"claude","model":"haiku","mappedModel":"claude-haiku-5-5"}
+  haiku -> claude-haiku-5-5 (bundled)
+[model-resolution] bundled {"tool":"claude","model":"fable","mappedModel":"claude-fable-5-1"}
+  fable -> claude-fable-5-1 (bundled)
+[model-resolution] bundled {"tool":"claude","model":"mythos","mappedModel":"claude-mythos-5-1"}
+  mythos -> claude-mythos-5-1 (bundled)
+[model-resolution] bundled {"tool":"claude","model":"best","mappedModel":"claude-fable-5-1"}
+  best -> claude-fable-5-1 (bundled)
+[model-resolution] bundled {"tool":"claude","model":"opus-5.5","mappedModel":"claude-opus-5-5"}
+  opus-5.5 -> claude-opus-5-5 (bundled)
+[model-resolution] bundled {"tool":"claude","model":"claude-opus-5.5","mappedModel":"claude-opus-5-5"}
+  claude-opus-5.5 -> claude-opus-5-5 (bundled)
+[model-resolution] bundled {"tool":"claude","model":"sonnet-5.5","mappedModel":"claude-sonnet-5-5"}
+  sonnet-5.5 -> claude-sonnet-5-5 (bundled)
+
+## codex (13 listed)
+astra, sol, luna, terra, gpt-6-astra, gpt-6.1-sol, gpt-6-sol, gpt-6-luna, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna, gpt-5.5, formal-ai
+[model-resolution] codex debug models {"models":["gpt-6-astra","gpt-6.1-sol","gpt-6-sol","gpt-6-luna","gpt-5.6-sol","gpt-5.6-terra","gpt-5.6-luna","gpt-daybreak-blue-latest","gpt-daybreak-red-latest","gpt-5.5","codex-auto-review"],"hidden":["gpt-daybreak-blue-latest","gpt-daybreak-red-latest","codex-auto-review"]}
+[model-resolution] bundled {"tool":"codex","model":"astra","mappedModel":"gpt-6-astra"}
+  astra -> gpt-6-astra (bundled)
+[model-resolution] bundled {"tool":"codex","model":"sol","mappedModel":"gpt-6.1-sol"}
+  sol -> gpt-6.1-sol (bundled)
+[model-resolution] bundled {"tool":"codex","model":"terra","mappedModel":"gpt-5.6-terra"}
+  terra -> gpt-5.6-terra (bundled)
+[model-resolution] bundled {"tool":"codex","model":"luna","mappedModel":"gpt-6-luna"}
+  luna -> gpt-6-luna (bundled)
+[model-resolution] bundled {"tool":"codex","model":"daybreak-blue","mappedModel":"gpt-daybreak-blue-latest"}
+  daybreak-blue -> gpt-daybreak-blue-latest (bundled)
+[model-resolution] bundled {"tool":"codex","model":"daybreak-red","mappedModel":"gpt-daybreak-red-latest"}
+  daybreak-red -> gpt-daybreak-red-latest (bundled)
+[model-resolution] bundled {"tool":"codex","model":"gpt-6-astra","mappedModel":"gpt-6-astra"}
+  gpt-6-astra -> gpt-6-astra (bundled)
+[model-resolution] bundled {"tool":"codex","model":"gpt-6.1-sol","mappedModel":"gpt-6.1-sol"}
+  gpt-6.1-sol -> gpt-6.1-sol (bundled)
+
+## gemini (21 listed)
+formal-ai, auto, pro, flash, flash-lite, gemini, lite, gemini-pro, gemini-flash, gemini-flash-lite, gemini-3.1-pro-preview, gemini-3-pro-preview, gemini-3.8-flash, gemini-3.5-flash, gemini-3-flash-preview, gemini-3-flash, gemini-3.5-flash-lite, gemini-3.1-flash-lite, gemini-2.5-pro, gemma-4-31b-it, gemma-4-26b-a4b-it
+[model-resolution] bundled {"tool":"gemini","model":"flash","mappedModel":"flash"}
+  flash -> flash (bundled)
+[model-resolution] bundled {"tool":"gemini","model":"pro","mappedModel":"pro"}
+  pro -> pro (bundled)
+[model-resolution] bundled {"tool":"gemini","model":"flash-lite","mappedModel":"flash-lite"}
+  flash-lite -> flash-lite (bundled)
+[model-resolution] bundled {"tool":"gemini","model":"auto","mappedModel":"auto"}
+  auto -> auto (bundled)
+[model-resolution] bundled {"tool":"gemini","model":"gemini","mappedModel":"flash"}
+  gemini -> flash (bundled)
+[model-resolution] bundled {"tool":"gemini","model":"3.8-flash","mappedModel":"gemini-3.8-flash"}
+  3.8-flash -> gemini-3.8-flash (bundled)
+
+## qwen (20 listed)
+formal-ai, qwen, qwen-coder, qwen3, max, qwen-max, plus, qwen-plus, flash, qwen-flash, coder-model, qwen3.8-max, qwen3.7-max, qwen3.7-plus, qwen3.6-plus, qwen3.5-plus, qwen3.8-flash, qwen3.6-flash, qwen3-coder-plus, qwen3-coder-next
+[model-resolution] bundled {"tool":"qwen","model":"qwen","mappedModel":"qwen3-coder-plus"}
+  qwen -> qwen3-coder-plus (bundled)
+[model-resolution] bundled {"tool":"qwen","model":"coder-model","mappedModel":"coder-model"}
+  coder-model -> coder-model (bundled)
+[model-resolution] bundled {"tool":"qwen","model":"max","mappedModel":"qwen3.8-max"}
+  max -> qwen3.8-max (bundled)
+[model-resolution] bundled {"tool":"qwen","model":"plus","mappedModel":"qwen3.7-plus"}
+  plus -> qwen3.7-plus (bundled)
+[model-resolution] bundled {"tool":"qwen","model":"flash","mappedModel":"qwen3.8-flash"}
+  flash -> qwen3.8-flash (bundled)
+
+## agent (21 listed)
+formal-ai, big-pickle, gpt-5-nano, nemotron-3-super-free, nemotron-3-ultra-free, nemotron-3.5-lightning-free, ling-3.1-flash-free, mimo-v2.6-flash-free, step-5-preview-free, exo-free, glm-5-free, glm-4.5-air-free, deepseek-r1-free, giga-potato-free, trinity-large-preview, opus, sonnet, haiku, fable, gemini-pro, gemini-3-pro
+[model-resolution] bundled {"tool":"agent","model":"nemotron-3-super-free","mappedModel":"kilo/nemotron-3-super-free"}
+  nemotron-3-super-free -> kilo/nemotron-3-super-free (bundled)
+[model-resolution] bundled {"tool":"agent","model":"opus","mappedModel":"anthropic/claude-opus-5-5"}
+  opus -> anthropic/claude-opus-5-5 (bundled)
+[model-resolution] bundled {"tool":"agent","model":"sonnet","mappedModel":"anthropic/claude-sonnet-5-5"}
+  sonnet -> anthropic/claude-sonnet-5-5 (bundled)
+[model-resolution] bundled {"tool":"agent","model":"gemini-3-pro","mappedModel":"google/gemini-3.1-pro-preview"}
+  gemini-3-pro -> google/gemini-3.1-pro-preview (bundled)
+
+## opencode (15 listed)
+formal-ai, gpt4o, big-pickle, nemotron-3-ultra-free, nemotron-3.5-lightning-free, ling-3.1-flash-free, mimo-v2.6-flash-free, step-5-preview-free, exo-free, opus, sonnet, haiku, fable, claude, gemini
+[model-resolution] bundled {"tool":"opencode","model":"big-pickle","mappedModel":"opencode/big-pickle"}
+  big-pickle -> opencode/big-pickle (bundled)
+[model-resolution] bundled {"tool":"opencode","model":"grok","mappedModel":"opencode/grok-code"}
+  grok -> opencode/grok-code (bundled)
+[model-resolution] bundled {"tool":"opencode","model":"sonnet","mappedModel":"anthropic/claude-sonnet-5-5"}
+  sonnet -> anthropic/claude-sonnet-5-5 (bundled)
+[model-resolution] bundled {"tool":"opencode","model":"opus","mappedModel":"anthropic/claude-opus-5-5"}
+  opus -> anthropic/claude-opus-5-5 (bundled)
+[model-resolution] bundled {"tool":"opencode","model":"gemini","mappedModel":"google/gemini-3.1-pro-preview"}
+  gemini -> google/gemini-3.1-pro-preview (bundled)

@@ -36,8 +36,10 @@ import { deployHandoffSkill } from './handoff-skill.lib.mjs'; // Issue #1877
 import { deployPlaywrightSkill } from './playwright-skill.lib.mjs'; // Issue #2190
 import { formatRouterAuthViolation, startRouterAuthGuard } from './router-auth-guard.lib.mjs'; // Issue #2190
 import { createThinkingBlockRecovery } from './claude.thinking-block-recovery.lib.mjs'; // Issue #1834 (PR #1835 feedback)
-import { buildMissingClaudeResultMessage, collectClaudeStreamEventFacts, getClaudeMessageContent, isStreamCloseSignalAfterSuccess, shouldFailClaudeStreamWithoutResult, updateTerminalToolResult } from './claude.stream-events.lib.mjs';
+import { buildMissingClaudeResultMessage, collectClaudeStreamEventFacts, getClaudeMessageContent, shouldFailClaudeStreamWithoutResult, updateTerminalToolResult } from './claude.stream-events.lib.mjs';
 import { assessClaudeTurnCompletion, buildIncompleteTurnContinuationPrompt, createClaudePrintTurnTracker } from './claude.print-turn.lib.mjs'; // Issue #2301
+import { interpretClaudeExitCode, isProcessGroupAlive, selectClaudeFailureMessage } from './claude.process-exit.lib.mjs'; // Issue #3015
+import { createClaudeResultCloseController } from './claude.result-close.lib.mjs'; // Issue #3015
 import { createRepeatedToolCallBreaker, explainFailureWithToolHistory, publishRepeatedToolCallVerdict, resolveRepeatedToolCallLimit } from './repeated-tool-call-breaker.lib.mjs'; // Issue #2247 (H4/H10), #2316, #2395
 import { formatNumber, mapModelToId, checkModelVisionCapability, resolveClaudeModelForExecution } from './claude.model-utils.lib.mjs';
 import { renameLogToSessionId } from './session-log-rename.lib.mjs'; // Issue #2160
@@ -410,10 +412,7 @@ export const executeClaudeCommand = async params => {
       const printTurn = createClaudePrintTurnTracker(); // Issue #2301
       let postResultCancelledToolResultCount = 0;
       let subagentToolResultErrorCount = 0;
-      let resultTimeoutId = null;
       let forceExitTriggered = false;
-      let streamCloseForced = false; // the stream close timeout (not another stop reason) killed the CLI
-      const streamCloseTimeoutMs = timeouts.resultStreamCloseMs;
       let firstChunkReceived = false;
       let startupTimeoutId = null;
       let isStartupTimeout = false;
@@ -452,7 +451,9 @@ export const executeClaudeCommand = async params => {
             // Issue #1346/#1510: Follow up with SIGKILL after 5s if still alive
             const t = setTimeout(() => {
               try {
-                if (!execCommand.result?.code) {
+                // Issue #3015: result.code is set once the shell exits, while the CLI in its group can still run.
+                const pid = execCommand.pid || execCommand._pid;
+                if (pid ? isProcessGroupAlive(pid) : !execCommand.result?.code) {
                   log(`⚠️ Process tree did not exit after SIGTERM, sending SIGKILL (Issue #1516)`, { verbose: true });
                   killProcessTree('SIGKILL');
                 }
@@ -479,10 +480,10 @@ export const executeClaudeCommand = async params => {
       }
       // Issue #1472: Helper to reset activity timeout on each stdout chunk
       const resetActivityTimeout = () => {
-        if (timeouts.streamActivityMs > 0 && !resultEventReceived) {
+        if (timeouts.streamActivityMs > 0 && !resultClose.isAwaitingExit()) {
           if (activityTimeoutId) clearTimeout(activityTimeoutId);
           activityTimeoutId = setTimeout(async () => {
-            if (!forceExitTriggered && !resultEventReceived) {
+            if (!forceExitTriggered && !resultClose.isAwaitingExit()) {
               isActivityTimeout = true;
               const idleSeconds = lastEventTime ? `${Math.round((Date.now() - lastEventTime) / 1000)}s` : 'unknown';
               await log(`\n⚠️ No stream output for ${timeouts.streamActivityMs / 1000}s after previous activity (idle: ${idleSeconds}) — force-killing (Issue #1472)`, { level: 'warning' });
@@ -505,16 +506,13 @@ export const executeClaudeCommand = async params => {
           return true;
         },
       });
+      // Issue #1280/#3015: stop a CLI that does not exit after its result, but not while print mode
+      // is still waiting for background tasks (up to its own CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS).
+      const resultClose = createClaudeResultCloseController({ streamCloseMs: timeouts.resultStreamCloseMs, printBgWaitCeilingMs: claudeCode.printBgWaitCeilingMs, fallbackWaitMs: timeouts.streamActivityMs, log, isForceExitTriggered: () => forceExitTriggered, onTimeout: forceExitOnTimeout, onTurnReopened: () => resetActivityTimeout() });
       // Apply the same result semantics to NDJSON lines and the final unterminated buffer.
       const processResultEvent = async data => {
-        if (!resultEventReceived) {
-          resultEventReceived = true;
-          await log(`📌 Result event received, starting ${streamCloseTimeoutMs / 1000}s stream close timeout (Issue #1280)`, { verbose: true });
-          resultTimeoutId = setTimeout(() => {
-            if (!forceExitTriggered) streamCloseForced = true;
-            return forceExitOnTimeout();
-          }, streamCloseTimeoutMs);
-        }
+        resultEventReceived = true;
+        await resultClose.onResult();
         // Issue #1708: result event = AI is idle and waiting for next
         // user input. Flush any frames queued by --queue-comments-to-input.
         if (bidirectionalHandler && typeof bidirectionalHandler.markAiIdle === 'function') {
@@ -665,6 +663,7 @@ export const executeClaudeCommand = async params => {
                 if (recordObservedModel({ ...observed, requestedModel: argv.model })) await log(`🤖 Model reported by Claude (${observed.source}${observed.fromSubagent ? ', sub-agent' : ''}): ${observed.modelId}`);
               }
               const afterResult = printTurn.observeEvent(data).afterResult && !streamingInput;
+              await resultClose.observeEvent(data);
               terminalToolResult = updateTerminalToolResult(terminalToolResult, eventFacts, { afterResult });
               messageCount += eventFacts.messageCountDelta;
               toolUseCount += eventFacts.toolUseCountDelta;
@@ -845,15 +844,12 @@ export const executeClaudeCommand = async params => {
             }
           }
         } else if (chunk.type === 'exit') {
-          // command-stream 1.x+ yields exit chunks (v0.9.4 did not, Issue #1280).
-          exitCode = chunk.code;
-          if (isStreamCloseSignalAfterSuccess({ exitCode, streamCloseForced, resultSuccessReceived })) {
-            // Our own stream-close kill after a successful result is not a failure.
-            await log(`ℹ️ Claude CLI exited with code ${exitCode} from the stream close timeout after a successful result; treating the session as successful`, { verbose: true });
-            exitCode = 0;
-          } else if (chunk.code !== 0) {
-            commandFailed = true;
-          }
+          // command-stream v0.9.4 stream() did not yield exit chunks (Issue #1280); newer releases do.
+          // Issue #3015: our own SIGTERM after a successful result (exit 143) is not a failure.
+          const exitVerdict = interpretClaudeExitCode({ code: chunk.code, forceExitTriggered, resultCloseTimeoutFired: resultClose.state().timeoutFired, resultSuccessReceived });
+          exitCode = exitVerdict.exitCode;
+          if (exitVerdict.failed) commandFailed = true;
+          if (exitVerdict.ignored) await log(`ℹ️ ${exitVerdict.reason} (Issue #3015)`, { verbose: true });
         }
       }
 
@@ -866,6 +862,7 @@ export const executeClaudeCommand = async params => {
           await baseBranchCommandIntervention.handleStreamEvent(data);
           const eventFacts = collectClaudeStreamEventFacts(data);
           const afterResult = printTurn.observeEvent(data).afterResult && !streamingInput;
+          await resultClose.observeEvent(data);
           terminalToolResult = updateTerminalToolResult(terminalToolResult, eventFacts, { afterResult });
           messageCount += eventFacts.messageCountDelta;
           toolUseCount += eventFacts.toolUseCountDelta;
@@ -906,8 +903,8 @@ export const executeClaudeCommand = async params => {
         clearTimeout(activityTimeoutId);
         activityTimeoutId = null;
       }
-      if (resultTimeoutId) {
-        clearTimeout(resultTimeoutId); // Issue #1280
+      resultClose.stop(); // Issue #1280
+      if (resultEventReceived) {
         await log(forceExitTriggered ? '⚠️ Stream exited via force-kill timeout' : '✅ Stream closed normally after result event', { verbose: true });
       }
       // Issue #2190: one last read after the stream closed, so a credential
@@ -925,12 +922,13 @@ export const executeClaudeCommand = async params => {
           commandFailed = true;
           await log(`\n❌ Command not found (exit code 127) - "${claudePath}" is not installed or not in PATH\n   Please ensure Claude CLI is installed: npm install -g @anthropic-ai/claude-code`, { level: 'error' });
         }
-        if (exitCode === 0 && resultExitCode !== 0 && !isStreamCloseSignalAfterSuccess({ exitCode: resultExitCode, streamCloseForced, resultSuccessReceived })) {
-          exitCode = resultExitCode;
+        if (exitCode === 0 && resultExitCode !== 0) {
           // A real CLI failure takes precedence over an earlier in-session tool failure.
-          // A forced close after a result is handled by the timeout/recovery logic.
-          if (!forceExitTriggered) commandFailed = true;
-          await log(`⚠️ Updated exit code from command result: ${resultExitCode}`, { verbose: true });
+          // A forced close is judged by the timeout/recovery logic (Issue #3015: same helper as the exit chunk).
+          const exitVerdict = interpretClaudeExitCode({ code: resultExitCode, forceExitTriggered, resultCloseTimeoutFired: resultClose.state().timeoutFired, resultSuccessReceived });
+          exitCode = exitVerdict.exitCode;
+          if (exitVerdict.failed) commandFailed = true;
+          await log(exitVerdict.ignored ? `ℹ️ ${exitVerdict.reason} (Issue #3015)` : `⚠️ Updated exit code from command result: ${resultExitCode}`, { verbose: true });
         }
       }
       // Issue #1472: Flush remaining queued comments, log diagnostic summary, warn on zero events
@@ -990,7 +988,7 @@ export const executeClaudeCommand = async params => {
       // Issue #2301: an incomplete print-mode turn is checked first. Its last tool results are the
       // cancellation artifacts of the background-task sweep, not the verdict of finished work.
       const printTurnState = printTurn.snapshot();
-      const turnCompletion = assessClaudeTurnCompletion({ resultEvent: streamingInput ? null : printTurnState.resultEvent, stoppedTaskCount: printTurnState.stoppedTaskCount, ceilingSeconds: printTurnState.ceilingSeconds, recoveryAttempts: incompleteTurnRecoveryAttempts, maxRecoveryAttempts: claudeCode.incompleteTurnMaxResumes, sessionId: sessionId || argv.resume });
+      const turnCompletion = assessClaudeTurnCompletion({ resultEvent: streamingInput ? null : printTurnState.resultEvent, stoppedTaskCount: printTurnState.stoppedTaskCount, ceilingSeconds: printTurnState.ceilingSeconds, recoveryAttempts: incompleteTurnRecoveryAttempts, maxRecoveryAttempts: claudeCode.incompleteTurnMaxResumes, sessionId: sessionId || argv.resume, solverStopped: resultClose.state().stoppedWithBackgroundTasks });
       if (subagentToolResultErrorCount > 0) await log(`ℹ️ ${subagentToolResultErrorCount} subagent tool result error(s) were handled inside subagents and do not decide this session's result`, { verbose: true });
       if (turnCompletion.cancelledTasks > 0 || postResultCancelledToolResultCount > 0) {
         await log(`⚠️ ${turnCompletion.cause}: ${turnCompletion.cancelledTasks} task(s) [${printTurnState.stoppedTaskIds.join(', ')}], ${postResultCancelledToolResultCount} synthetic tool result(s), ${printTurnState.resultCount} result event(s)`, { verbose: true });
@@ -1036,6 +1034,9 @@ export const executeClaudeCommand = async params => {
       if (dominantToolCallFailure) {
         await log(`🔁 Repeated failing tool call in this session: ${dominantToolCallFailure.tool} x${dominantToolCallFailure.count}`, { verbose: true });
       }
+      // Issue #3015: after a successful result `lastMessage` is the work summary, not an error;
+      // classifying or publishing it as one produced "CLAUDE execution failed with I fixed…".
+      if (commandFailed) lastMessage = selectClaudeFailureMessage({ lastMessage, exitCode, resultSuccessReceived, resultSummary });
       const retryableLastError = classifyRetryableError(lastMessage);
       // Issue #1834: Corrupted extended-thinking blocks → try to resume the session first, then fall
       // back to a fresh restart (PR #1835 feedback). When both caps are reached, tryThinkingBlockRecovery

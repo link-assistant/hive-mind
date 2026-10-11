@@ -1,5 +1,49 @@
 # @link-assistant/hive-mind
 
+## 2.35.7
+
+### Patch Changes
+
+- ed0e1e7: `/solve <repository-url>` on a repository with exactly one open issue now solves that issue directly, as if its URL had been given, instead of creating a combined issue whose only sub-issue is that same issue. The Telegram bot shows and launches the issue URL in that case (#3108).
+
+  Docker images install start-command 0.37.1; lino-objects-codec is 0.9.1.
+
+## 2.35.6
+
+### Patch Changes
+
+- a785441: Stop reporting successful Claude sessions as "Solution Draft Failed" when the
+  CLI does not exit after its result. The solver stops such a CLI itself after
+  30 seconds (Issue #1280), and command-stream 0.12+ reports that as an exit chunk
+  with code 143. That code was counted as a failure, and the AI's own work summary
+  was published as the error ("CLAUDE execution failed with I fixed the four…"),
+  turning a ready PR back into a draft. Both exit paths now share one rule. A tool's
+  work summary is never published as a failure reason for any tool, and the
+  SIGKILL follow-up is sent while the CLI's process group is still alive.
+
+  The post-result close timeout now follows Claude Code's background tasks. In
+  every reported run, print mode was still waiting for a CI or test waiter task
+  when the 30-second timer stopped it. While background tasks run, the solver now
+  waits up to Claude Code's own print-mode wait ceiling. It pauses the timer when
+  a finished task starts another turn, and logs which tasks it is waiting for. A
+  CLI with nothing pending is still stopped after 30 seconds.
+
+  command-stream is pinned to 2.1.0 for the dependency freshness gate.
+
+## 2.35.5
+
+### Patch Changes
+
+- ab70b10: `--auto-restart-until-mergeable` no longer spends every restart on sessions that only reword the same report of a CI blocker (#2839). The no-progress check between AI sessions now compares only the commit and the working tree, so a reworded final message no longer counts as progress. Restarts for failing CI now ask the AI to fix every failing check, including checks that already fail on the default branch, because a pull request with failing CI cannot be released. When a check needs a human action, such as a missing secret or access to a private submodule, the AI is told to make the pull request's CI pass without it and to make CI on the default branch fail with an explicit message saying what a human has to do. When a failing check also fails on the head of the base branch or on the solver's placeholder commit, the prompt includes links to those runs as evidence. The system prompts of every tool now say the same when they ask for passing CI before finishing. A new human comment also skips the no-progress check in `--watch` mode, as it already did in `--auto-restart-until-mergeable`.
+
+  Dependencies refreshed for the freshness gate: Bun 1.4.3 and start-command 0.37.0 (Docker images), prettier 3.9.10, and the use-m pins command-stream 2.0.2 and links-notation 0.25.2.
+
+## 2.35.4
+
+### Patch Changes
+
+- 37b71de: Support the obvious "latest version" alias of every model family (issue #2591): `--model astra` now resolves to the newest GPT Astra and `sol` to GPT-6.1 Sol. The aliases (`astra`/`sol`/`luna`/`terra`/`daybreak-*` for codex, `opus`/`sonnet`/`haiku`/`fable`/`mythos` and `opus-5.5`-style spellings for claude, `max`/`plus`/`flash` for qwen) are derived from model names, including those the installed Codex CLI reports, so new families need no code change. The "Available models" listings now show what each CLI currently offers instead of obsolete and `openai.`-prefixed entries (codex: 62 → 13). Gemini uses its CLI's rolling `flash`/`pro`/`auto` aliases, Qwen accepts `coder-model`, agent and opencode map premium aliases to the newest Claude and Gemini models, and opencode defaults to `big-pickle` because `grok-code` is deprecated. Set `HIVE_MIND_MODEL_DEBUG=1` (or `--verbose`) to trace how a `--model` value was resolved.
+
 ## 2.35.3
 
 ### Patch Changes

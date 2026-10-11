@@ -150,13 +150,14 @@ lines 55761–55818).
   today), and that version yields `{ type: 'exit', code: 143 }` after the solver's own process-group SIGTERM.
   [`experiments/issue-2823/command-stream-exit-after-sigterm.mjs`](../../../experiments/issue-2823/command-stream-exit-after-sigterm.mjs)
   shows this: `chunk exit 143`, `result code 143`.
-- **Fix.** Only the stream close timeout sets `streamCloseForced`. `isStreamCloseSignalAfterSuccess`
-  (`src/claude.stream-events.lib.mjs`) treats 143/137 as success only when that timeout killed a CLI whose last result
-  was a success. Any other stop reason, an error result, or a real CLI exit code (for example 1) still fails the
-  session. The other tool adapters do not kill the CLI after a result, so they are not affected.
+- **Fix.** This PR first fixed it with its own guard. Issue #3015 (PR #3018, merged to `main` first) fixed the same
+  bug with `interpretClaudeExitCode` in `src/claude.process-exit.lib.mjs`. It ignores the exit code only when the
+  post-result close timeout fired and the last result was a success. When `main` was merged in, this PR dropped its
+  own guard and kept the `main` implementation, so there is a single code path.
 - **Test.** `tests/test-claude-stream-close-after-success.mjs` runs `executeClaudeCommand` against a fake CLI that
   prints a success result and then hangs until it is killed. Without the fix it logs `Claude command failed with exit
-code 143`, as in the real log. An error-result control stays a failure.
+code 143`, as in the real log. An `error_max_turns` control stays a failure.
+  (`error_during_execution` is non-fatal by design, see issue #1088, so it is not used as the control.)
 
 ## Remaining limits
 

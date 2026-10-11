@@ -37,6 +37,7 @@ import { runKillRecoveryForCompletion } from './session-kill-resume.lib.mjs';
 import { isCompletionHandled, markCompletionHandled, resolveCachedLastToolSessionId } from './session-completion-state.lib.mjs';
 import { createSessionRegistryQueries } from './session-monitor.queries.lib.mjs';
 import { enforceContainerDiskLimitForSession as enforceContainerDiskLimit, formatContainerResourceLimitExceededSection } from './container-resource-monitor.lib.mjs';
+import { getDockerTaskContainerName, settleDockerTaskContainerActionAfterRecovery } from './docker-resume-handoff.lib.mjs';
 export { formatSessionCompletionMessage, getSessionCompletionExitCode } from './work-session-formatting.lib.mjs';
 export { DOCKER_TERMINAL_FOOTER_GRACE_MS } from './session-monitor.docker-terminal.lib.mjs';
 export { STALE_EXECUTING_MIN_AGE_MS, DOCKER_BACKEND_GONE_GRACE_MS } from './session-monitor.stale-executing.lib.mjs';
@@ -453,7 +454,7 @@ export function buildSessionNotificationOptions(sessionInfo, verbose = false) {
 }
 async function getDockerContainerFilesystemSizeForSession(sessionName, sessionInfo, { verbose = false, sizeProvider = null } = {}) {
   if (sessionInfo?.isolationBackend !== 'docker') return null;
-  const containerName = sessionInfo.sessionId || sessionName;
+  const containerName = getDockerTaskContainerName(sessionInfo, sessionName);
   if (!containerName) return null;
   try {
     if (typeof sizeProvider === 'function') {
@@ -529,30 +530,34 @@ function isSuccessfulTaskCompletion({ exitCode = null, status = null } = {}) {
     .toLowerCase();
   return exitCode === null && (normalizedStatus === 'executed' || normalizedStatus === 'completed');
 }
-function formatDockerTaskContainerKeptSection({ containerName, keepPolicy }) {
-  return ['*Docker container kept*', `Container: \`${containerName}\``, `Policy: \`HIVE_MIND_KEEP_TASK_CONTAINER=${keepPolicy}\``, `Inspect: \`docker start -ai ${containerName}\``, `Shell: \`docker exec -it ${containerName} sh\``, `Remove when done: \`docker rm -f ${containerName}\``].join('\n');
+function formatDockerTaskContainerKeptSection({ containerName, keepPolicy, snapshotImages = [] }) {
+  const images = snapshotImages.length > 0 ? [`Snapshot images: ${snapshotImages.map(image => `\`${image}\``).join(', ')}`, `Remove them after the container: \`docker rmi ${snapshotImages.join(' ')}\``] : [];
+  return ['*Docker container kept*', `Container: \`${containerName}\``, `Policy: \`HIVE_MIND_KEEP_TASK_CONTAINER=${keepPolicy}\``, `Inspect: \`docker start -ai ${containerName}\``, `Shell: \`docker exec -it ${containerName} sh\``, `Remove when done: \`docker rm -f ${containerName}\``, ...images].join('\n');
 }
 export function buildDockerTaskContainerCompletionAction({ sessionName, sessionInfo, exitCode = null, status = null, env = process.env, verbose = false } = {}) {
   if (sessionInfo?.isolationBackend !== 'docker') {
     return { applies: false, containerName: null, keepPolicy: null, shouldRemove: false, extraSection: '' };
   }
-  const containerName = sessionInfo.sessionId || sessionName || null;
+  const containerName = getDockerTaskContainerName(sessionInfo, sessionName);
   if (!containerName) {
     return { applies: false, containerName: null, keepPolicy: null, shouldRemove: false, extraSection: '' };
   }
   const keepPolicy = resolveDockerTaskContainerKeepPolicy({ env, verbose });
   const successful = isSuccessfulTaskCompletion({ exitCode, status });
   const shouldKeep = keepPolicy === 'always' || (keepPolicy === 'on-failure' && !successful);
+  // Issue #2889: images left by snapshot resumes of this execution.
+  const snapshotImages = Array.isArray(sessionInfo.containerSnapshotImages) ? sessionInfo.containerSnapshotImages.filter(Boolean) : [];
   return {
     applies: true,
     containerName,
     keepPolicy,
     successful,
     shouldRemove: !shouldKeep,
-    extraSection: shouldKeep ? formatDockerTaskContainerKeptSection({ containerName, keepPolicy }) : '',
+    snapshotImages,
+    extraSection: shouldKeep ? formatDockerTaskContainerKeptSection({ containerName, keepPolicy, snapshotImages }) : '',
   };
 }
-async function applyDockerTaskContainerCompletionAction(action, { verbose = false, removeDockerContainer = null } = {}) {
+async function applyDockerTaskContainerCompletionAction(action, { verbose = false, removeDockerContainer = null, removeDockerSnapshotImages = null } = {}) {
   if (!action?.applies || !action.shouldRemove || !action.containerName) return;
   try {
     const removeFn =
@@ -568,6 +573,11 @@ async function applyDockerTaskContainerCompletionAction(action, { verbose = fals
       } else {
         console.log(`[VERBOSE] Could not remove docker task container '${action.containerName}': ${result?.error || 'unknown error'}`);
       }
+    }
+    if (result?.success && action.snapshotImages?.length > 0) {
+      const removeImages = removeDockerSnapshotImages || (async (images, options) => (await getIsolationRunner()).removeDockerSnapshotImages(images, options));
+      const images = await removeImages(action.snapshotImages, { verbose });
+      if (images?.failed?.length > 0) console.warn(`[session-monitor] Could not remove snapshot image(s) of ${action.containerName}: ${images.failed.map(entry => `${entry.image} (${entry.error})`).join(', ')}`);
     }
   } catch (error) {
     if (verbose) {
@@ -863,7 +873,6 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
           console.log(`[VERBOSE] Could not build disk diagnostics section for ${sessionName}: ${diskError?.message || diskError}`);
         }
       }
-      const dockerTaskContainerExtraSections = dockerTaskContainerAction?.extraSection ? [dockerTaskContainerAction.extraSection] : [];
       const resourceLimitExtraSections = [formatContainerResourceLimitExceededSection(sessionInfo)].filter(Boolean);
       // Issue #2161: a blocked subscription/account explains every other
       // symptom of the run, so it goes first in the completion message.
@@ -931,6 +940,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
           verbose,
         });
         killRecovery = recovered.recovery;
+        settleDockerTaskContainerActionAfterRecovery(dockerTaskContainerAction, killRecovery);
         if (!killRecovery.resumed) logEvent('session_kill_not_recovered', { sessionName, reason: killRecovery.reason || null, policy: killRecovery.policy || null, attempt: killRecovery.attempt, maxAttempts: killRecovery.maxAttempts });
         if (killRecovery.resumed && killRecovery.sessionId) {
           // Issue #2189: remember which session took over, so the durable
@@ -955,7 +965,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
         infoBlock: sessionInfo?.infoBlock || '',
         pullRequestUrl,
         pullRequestState,
-        extraSections: [...subscriptionBlockedExtraSections, ...resourceLimitExtraSections, ...limitsExtraSections, ...killReport.sections, ...resumeExtraSections, ...diskExtraSections, ...dockerTaskContainerExtraSections],
+        extraSections: [...subscriptionBlockedExtraSections, ...resourceLimitExtraSections, ...limitsExtraSections, ...killReport.sections, ...resumeExtraSections, ...diskExtraSections, ...(dockerTaskContainerAction?.extraSection ? [dockerTaskContainerAction.extraSection] : [])],
         resumedAs: killRecovery.resumed ? killRecovery.sessionId : null,
         recoveryCount: killRecovery.resumed ? killRecovery.attempt : null,
       });
@@ -1033,6 +1043,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
       await applyDockerTaskContainerCompletionAction(dockerTaskContainerAction, {
         verbose,
         removeDockerContainer: options.removeDockerContainer,
+        removeDockerSnapshotImages: options.removeDockerSnapshotImages,
       });
       completeSession(sessionName, completionExitForAudit(sessionInfo, finalExitCode), verbose, resolvedStatus);
     } catch (error) {
@@ -1041,6 +1052,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
         await applyDockerTaskContainerCompletionAction(dockerTaskContainerAction, {
           verbose,
           removeDockerContainer: options.removeDockerContainer,
+          removeDockerSnapshotImages: options.removeDockerSnapshotImages,
         });
         completeSession(sessionName, completionExitForAudit(sessionInfo, exitCode), verbose, resolvedStatus);
       } else {

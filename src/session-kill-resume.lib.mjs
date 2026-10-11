@@ -83,6 +83,20 @@ export function collectPreviousExecutionUuids(sessionInfo, nextExecutionUuid) {
 }
 
 /**
+ * Snapshot images behind a recovery session's container (issue #2889): the
+ * killed session's chain plus the image its snapshot resume just created.
+ *
+ * @param {Object} sessionInfo - The killed session's info
+ * @param {string|null} snapshotImage - Image created by this resume, if any
+ * @returns {string[]|undefined}
+ */
+export function collectSnapshotImages(sessionInfo, snapshotImage) {
+  const chain = Array.isArray(sessionInfo?.containerSnapshotImages) ? sessionInfo.containerSnapshotImages.filter(Boolean) : [];
+  if (snapshotImage && !chain.includes(snapshotImage)) chain.push(snapshotImage);
+  return chain.length > 0 ? chain : undefined;
+}
+
+/**
  * Start the recovery working session decided by {@link planKillRecovery}.
  *
  * Two ways in, in order of preference:
@@ -109,7 +123,7 @@ export function collectPreviousExecutionUuids(sessionInfo, nextExecutionUuid) {
  * @param {Function} [options.sleep] - Waits the random pre-launch delay (issue #2498)
  * @param {Function} [options.random] - Test seam for the delay
  * @param {boolean} [options.verbose]
- * @returns {Promise<{resumed: boolean, reason: string, sessionId: string|null, display: string|null, inPlace: boolean, delayMs: number}>}
+ * @returns {Promise<{resumed: boolean, reason: string, sessionId: string|null, display: string|null, inPlace: boolean, containerReused: boolean, originalContainerRemoved: boolean, delayMs: number}>}
  */
 export async function startKillRecoverySession({ sessionName, sessionInfo, plan, runner, trackSession, persistSnapshot = null, env = process.env, sleep = sleepBeforeRecovery, random, onLifecycle = async () => {}, verbose = false } = {}) {
   let delayMs = 0;
@@ -150,11 +164,13 @@ export async function startKillRecoverySession({ sessionName, sessionInfo, plan,
           .then(stat => stat.size)
           .catch(() => null)
       : null;
-    const inPlace = await resumeKilledSessionInPlace({ sessionName, sessionInfo, plan, runner, verbose });
+    const inPlace = await resumeKilledSessionInPlace({ sessionName, sessionInfo, plan, runner, notify, env, verbose });
     let newSessionId = inPlace.sessionId;
     let executionUuid = inPlace.executionUuid;
     let logPath = inPlace.resumed ? sessionInfo?.logPath || null : null;
-    let containerFilesystemStartBytes = null;
+    // Issue #2889: a `docker start` keeps the writable layer, and with it the
+    // baseline the disk limit is measured from.
+    let containerFilesystemStartBytes = inPlace.containerReused && Number.isFinite(sessionInfo?.containerFilesystemStartBytes) ? sessionInfo.containerFilesystemStartBytes : null;
     let containerResourceLimits = sessionInfo?.containerResourceLimits || null;
 
     if (!inPlace.resumed) {
@@ -183,6 +199,12 @@ export async function startKillRecoverySession({ sessionName, sessionInfo, plan,
         lastToolSessionId: undefined,
         recoveryLifecycle: sessionInfo.recoveryLifecycle ? { ...sessionInfo.recoveryLifecycle, kind: 'container', attempt: plan.attempt, startedAt: recoveryStartedAt, lastBytes: inPlace.resumed ? previousLogBytes : 0, lastOutputAt: null } : undefined,
         sessionId: newSessionId,
+        // Issue #2889: the Docker container doing the work, when it is not named
+        // by `sessionId` (a `docker start` resume is tracked under its UUID).
+        containerName: inPlace.resumed ? inPlace.containerName || undefined : undefined,
+        // Snapshot images this execution's containers came from; removed when
+        // the work finishes.
+        containerSnapshotImages: collectSnapshotImages(sessionInfo, inPlace.snapshotImage),
         args: [...plan.command.args],
         // Carry the counter forward so attempt N+1 is bounded by the same cap,
         // and remember what this session is recovering from for its own report.
@@ -236,7 +258,7 @@ export async function startKillRecoverySession({ sessionName, sessionInfo, plan,
       console.log(`[VERBOSE] Session ${sessionName} was killed; recovery session ${newSessionId} ${how} (attempt ${plan.attempt}/${plan.maxAttempts}): ${plan.command.display}`);
     }
     await notify({ phase: 'launching', stage: 'accepted', attempt: plan.attempt, nextSession: newSessionId, executionUuid });
-    return { resumed: true, reason: inPlace.resumed ? inPlace.reason : 'started', sessionId: newSessionId, display: plan.command.display, inPlace: inPlace.resumed, delayMs };
+    return { resumed: true, reason: inPlace.resumed ? inPlace.reason : 'started', sessionId: newSessionId, display: plan.command.display, inPlace: inPlace.resumed, containerReused: inPlace.containerReused === true, originalContainerRemoved: inPlace.originalContainerRemoved === true, delayMs };
   } catch (error) {
     if (verbose) {
       console.log(`[VERBOSE] Could not start recovery session for ${sessionName}: ${error?.message || error}`);
@@ -250,7 +272,7 @@ export async function startKillRecoverySession({ sessionName, sessionInfo, plan,
  * Never throws — a failed recovery must still leave a correct kill report.
  *
  * @param {Object} options - See planKillRecovery() and startKillRecoverySession()
- * @returns {Promise<{resumed: boolean, reason: string, policy: string, sessionId: string|null, display: string|null, attempt: number, maxAttempts: number, inPlace: boolean}>}
+ * @returns {Promise<{resumed: boolean, reason: string, policy: string, sessionId: string|null, display: string|null, attempt: number, maxAttempts: number, inPlace: boolean, containerReused: boolean, originalContainerRemoved: boolean}>}
  */
 export async function recoverKilledSession({ sessionName, sessionInfo, logPath = null, killed = false, env = process.env, runner = null, trackSession = null, persistSnapshot = null, sleep = sleepBeforeRecovery, random, onLifecycle, verbose = false, readLastSessionId = readLastSessionIdFromLog } = {}) {
   // Issue #2408: one kill gets one recovery. A completion that runs again for
@@ -278,7 +300,7 @@ export async function recoverKilledSession({ sessionName, sessionInfo, logPath =
   }
 
   const started = await startKillRecoverySession({ sessionName, sessionInfo, plan, runner, trackSession, persistSnapshot, env, sleep, random, onLifecycle, verbose });
-  return { resumed: started.resumed, reason: started.reason, policy: plan.policy, sessionId: started.sessionId, display: started.display, attempt: plan.attempt, maxAttempts: plan.maxAttempts, inPlace: started.inPlace === true };
+  return { resumed: started.resumed, reason: started.reason, policy: plan.policy, sessionId: started.sessionId, display: started.display, attempt: plan.attempt, maxAttempts: plan.maxAttempts, inPlace: started.inPlace === true, containerReused: started.containerReused === true, originalContainerRemoved: started.originalContainerRemoved === true };
 }
 
 /**

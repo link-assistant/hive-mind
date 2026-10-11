@@ -35,6 +35,7 @@
  */
 
 import { classifyExitStatus, normalizeExitCode, RUNNING_SESSION_STATUSES } from './session-status.lib.mjs';
+import { getDockerTaskContainerName } from './docker-resume-handoff.lib.mjs';
 
 /**
  * Field written on the persisted session snapshot the first time an OOM event is
@@ -73,7 +74,7 @@ async function probeBackendAlive(sessionName, sessionInfo, { verbose, runner, ba
   const probe = backendAlive || runner?.checkBackendSessionAlive;
   if (!probe) return null;
   try {
-    return await probe(sessionInfo.sessionId || sessionName, sessionInfo.isolationBackend, verbose);
+    return await probe(getDockerTaskContainerName(sessionInfo, sessionName), sessionInfo.isolationBackend, verbose);
   } catch (error) {
     if (verbose) {
       console.log(`[VERBOSE] Session ${sessionName} OOM liveness probe failed: ${error?.message || error}`);

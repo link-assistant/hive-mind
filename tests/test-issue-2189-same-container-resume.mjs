@@ -34,6 +34,7 @@
 import { planSameContainerResume, resumeKilledSessionInPlace, IN_PLACE_SKIP_REASONS } from '../src/session-kill-resume.in-place.lib.mjs';
 import { recoverKilledSession, KILL_RESUME_ATTEMPTS_FIELD } from '../src/session-kill-resume.lib.mjs';
 import { RESUME_MODES } from '../src/isolation-runner.resume.lib.mjs';
+import { parseDockerResumeHandoffPath } from '../src/docker-resume-handoff.lib.mjs';
 import { assert, printSummary, getFailCount } from './test-helpers.mjs';
 
 console.log('Testing issue #2189: a killed session is resumed in its own container');
@@ -109,7 +110,9 @@ const inPlace = await resumeKilledSessionInPlace({ sessionName: SESSION, session
 assert(inPlace.resumed === true && inPlace.reason === 'resumed-in-place', 'a live-but-stopped container is resumed in place');
 assert(runner.calls.exists[0] === SESSION, 'the container is inspected before the resume is attempted');
 assert(runner.calls.resume[0].identifier === UUID, 'the execution is addressed by its UUID, so `--status` keeps working');
-assert(runner.calls.resume[0].options.command === plan.command.display, 'the recovery command is handed to `$ --resume -- <command>`');
+const resumeCommand = runner.calls.resume[0].options.command;
+assert(resumeCommand.endsWith(`exec 'solve' '--resume' '${TOOL_SESSION}'`), 'the shell-quoted recovery command is handed to `$ --resume -- <command>`');
+assert(parseDockerResumeHandoffPath(resumeCommand) !== null, 'the snapshot-derived container is created with a resume handoff too (issue #2889)');
 assert(inPlace.sessionId === `${SESSION}-resume-1`, 'the session is tracked under the name `$` reports after the snapshot');
 assert(inPlace.executionUuid === UUID, 'the execution UUID survives the resume, so one logical session keeps one log');
 assert(inPlace.snapshotImage === `start-command-resume/${SESSION}:1`, 'the snapshot image is reported for the operator');

@@ -52,6 +52,8 @@ export { killDockerContainer };
 // (link-foundation/start#162). Re-exported so callers keep reaching every
 // isolation verb through this module.
 import { resumeAllIsolationSessions, resumeIsolatedSession } from './isolation-runner.resume.lib.mjs';
+import { withDockerResumeHandoff } from './docker-resume-handoff.lib.mjs';
+export { readDockerResumeHandoffPath, removeDockerSnapshotImages, removeStoppedDockerContainer, writeDockerResumeHandoff } from './docker-resume-handoff.lib.mjs';
 export { resumeAllIsolationSessions, resumeIsolatedSession };
 export { parseExecutionResumeAllOutput, parseExecutionResumeOutput, RESUME_ALL_ACTIONS, RESUME_MODES } from './isolation-runner.resume.lib.mjs';
 // Valid isolation backends
@@ -327,7 +329,8 @@ export function buildDockerIsolationStartArgs(command, args = [], options = {}) 
   }
   const taskCommand = buildShellCommand(command, args);
   const failClosedStartGate = hasContainerResourceLimits(options.containerResourceLimits);
-  startArgs.push('--detached', '--session', sessionId, '--', buildDockerStartGatedCommand(taskCommand, sessionId, { failClosed: failClosedStartGate }));
+  // Issue #2889: the handoff check lets a kill recovery restart this very container with `docker start` instead of committing its filesystem.
+  startArgs.push('--detached', '--session', sessionId, '--', withDockerResumeHandoff(buildDockerStartGatedCommand(taskCommand, sessionId, { failClosed: failClosedStartGate }), sessionId));
   return startArgs;
 }
 export function buildStartCommandArgs(command, args = [], options = {}) {

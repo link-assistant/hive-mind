@@ -1,0 +1,21 @@
+docker 29.8.0, start-command version: 0.35.4, image alpine:3.20, session 93e2bc38-603a-4a25-be73-6daf4cd26b7e
+$ launch exit 0
+Container command: ["sh","-c","h='/tmp/hive-mind-resume-command-93e2bc38-603a-4a25-be73-6daf4cd26b7e'; if [ -f \"$h\" ]; then exec sh \"$h\"; fi; gate='/tmp/hive-mind-disk-baseline-93e2bc38-603a-4a25-be73-6daf4cd26b7e'; i=0; while [ ! -e \"$gate\" ] && [ \"$i\" -lt 300 ]; do i=$((i+1)); sleep 0.1; done; rm -f \"$gate\"; exec 'sh' '-c' 'echo TASK-STARTED; dd if=/dev/zero of=/root/build-output bs=1M count=64 2>/dev/null; echo TASK-WROTE-64MiB; sleep 600'"]
+Killed: exit 137, writable layer 67108864 bytes
+[VERBOSE] docker-resume-handoff: '93e2bc38-603a-4a25-be73-6daf4cd26b7e' accepts a resume handoff at /tmp/hive-mind-resume-command-93e2bc38-603a-4a25-be73-6daf4cd26b7e
+PASS: the task container accepts a resume handoff
+[VERBOSE] docker-resume-handoff: wrote the recovery command to 93e2bc38-603a-4a25-be73-6daf4cd26b7e:/tmp/hive-mind-resume-command-93e2bc38-603a-4a25-be73-6daf4cd26b7e
+PASS: the recovery command was copied into the stopped container
+Execution UUID: 89d72b42-ece9-4f52-b5f8-4ee112f31886
+[VERBOSE] isolation-runner: $ --resume 89d72b42-ece9-4f52-b5f8-4ee112f31886 → mode=docker-start session=93e2bc38-603a-4a25-be73-6daf4cd26b7e uuid=89d72b42-ece9-4f52-b5f8-4ee112f31886
+$ --resume (no command): {"success":true,"mode":"docker-start","sessionName":"93e2bc38-603a-4a25-be73-6daf4cd26b7e","error":null} in 643 ms
+PASS: start-command chose docker-start
+PASS: the very same container is running again
+PASS: the recovery sees the killed task's files (same writable layer)
+PASS: the gated task did not run again
+PASS: no start-command-resume/* image was committed
+PASS: no <session>-resume-* container was created
+[VERBOSE] isolation-runner: $ --resume 89d72b42-ece9-4f52-b5f8-4ee112f31886 → mode=docker-snapshot session=93e2bc38-603a-4a25-be73-6daf4cd26b7e-resume-2 uuid=89d72b42-ece9-4f52-b5f8-4ee112f31886
+$ --resume -- <command> (previous behaviour): mode=docker-snapshot in 2511 ms; images: start-command-resume/93e2bc38-603a-4a25-be73-6daf4cd26b7e:2 74.9MB
+PASS: with a command, start-command commits the writable layer (the copy #2889 avoids)
+All checks passed

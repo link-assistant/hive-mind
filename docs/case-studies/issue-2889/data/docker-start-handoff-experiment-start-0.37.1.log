@@ -1,0 +1,27 @@
+docker 29.8.2, start-command version: 0.37.1, image alpine:3.20, session 8fcffb6d-016c-4174-ae7e-af820ddb1915
+$ launch exit 0
+Killed: exit 137, writable layer 67108864 bytes
+[VERBOSE] docker-resume-handoff: '8fcffb6d-016c-4174-ae7e-af820ddb1915' accepts a resume handoff at /.start-command-resume-8fcffb6d-016c-4174-ae7e-af820ddb1915
+PASS: the task container accepts a resume handoff
+[VERBOSE] docker-resume-handoff: wrote the recovery command to 8fcffb6d-016c-4174-ae7e-af820ddb1915:/.start-command-resume-8fcffb6d-016c-4174-ae7e-af820ddb1915
+PASS: the recovery command was copied into the stopped container
+Execution UUID: 04ba3b87-0a89-41ca-b619-bab7b5ec38b4
+[VERBOSE] isolation-runner: $ --resume 04ba3b87-0a89-41ca-b619-bab7b5ec38b4 → mode=docker-start session=8fcffb6d-016c-4174-ae7e-af820ddb1915 uuid=04ba3b87-0a89-41ca-b619-bab7b5ec38b4
+$ --resume (no command): {"success":true,"mode":"docker-start","sessionName":"8fcffb6d-016c-4174-ae7e-af820ddb1915","error":null} in 858 ms
+PASS: start-command chose docker-start
+PASS: the very same container is running again
+PASS: the recovery sees the killed task's files (same writable layer)
+PASS: the gated task did not run again
+PASS: no start-command-resume/* image was committed
+PASS: no <session>-resume-* container was created
+[VERBOSE] isolation-runner: $ --resume 04ba3b87-0a89-41ca-b619-bab7b5ec38b4 → mode=docker-start session=8fcffb6d-016c-4174-ae7e-af820ddb1915 uuid=04ba3b87-0a89-41ca-b619-bab7b5ec38b4
+$ --resume -- <command> (previous behaviour): mode=docker-start in 971 ms; images: (none)
+PASS: start-command >= 0.37 also resumes a new command in place (link-foundation/start#198 fixed upstream)
+[VERBOSE] docker-resume-handoff: '8fcffb6d-016c-4174-ae7e-af820ddb1915-plain' accepts a resume handoff at /.start-command-resume-8fcffb6d-016c-4174-ae7e-af820ddb1915-plain
+PASS: a start-command 0.37 container without the prefix is resumable through start-command's marker
+[VERBOSE] docker-resume-handoff: wrote the recovery command to 8fcffb6d-016c-4174-ae7e-af820ddb1915-plain:/.start-command-resume-8fcffb6d-016c-4174-ae7e-af820ddb1915-plain
+PASS: the recovery command was copied to that marker
+[VERBOSE] isolation-runner: $ --resume 42715ba0-57ac-4894-ab15-2173401518ff → mode=docker-start session=8fcffb6d-016c-4174-ae7e-af820ddb1915-plain uuid=42715ba0-57ac-4894-ab15-2173401518ff
+PASS: start-command chose docker-start for it
+PASS: the same container ran the recovery, nothing was committed
+All checks passed

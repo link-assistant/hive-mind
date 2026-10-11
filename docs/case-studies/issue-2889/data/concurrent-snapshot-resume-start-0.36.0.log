@@ -1,0 +1,22 @@
+start-command version: 0.36.0
+writable layers: /snap-a=268435456 /snap-b=268435456 
+snap-b: $ --resume ran from +0.95s to +6.55s
+snap-a: $ --resume ran from +0.95s to +6.75s
+docker events (seconds after both resumes started):
+  +5.72s commit snap-b
+  +6.16s commit snap-a
+  +6.41s start snap-b-resume-1
+  +6.62s start snap-a-resume-1
+  mode docker-snapshot
+  mode docker-snapshot
+start-command-resume/snap-a:1 276MB
+start-command-resume/snap-b:1 276MB
+snap-a-resume-1 Up 2 seconds
+snap-b-resume-1 Up 2 seconds
+snap-b Exited (137) 13 seconds ago
+snap-a Exited (137) 13 seconds ago
+after the resumed containers are removed:
+start-command-resume/snap-a:1 276MB
+start-command-resume/snap-b:1 276MB
+snap-b Exited (137) 15 seconds ago
+snap-a Exited (137) 15 seconds ago

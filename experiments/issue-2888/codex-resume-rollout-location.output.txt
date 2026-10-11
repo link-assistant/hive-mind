@@ -1,0 +1,8 @@
+thread=01a12414-e69b-7fa2-9b6d-849e48d56e02
+rollout=/tmp/exp2888-resume/original/sessions/2026/10/10/rollout-2026-10-10T04-31-51-01a12414-e69b-7fa2-9b6d-849e48d56e02.jsonl
+fresh: NOT FOUND (no rollout found)
+symlinked: FOUND (thread.started 01a12414-e69b-7fa2-9b6d-849e48d56e02, then the API call)
+copied: FOUND (thread.started 01a12414-e69b-7fa2-9b6d-849e48d56e02, then the API call)
+redated: FOUND (thread.started 01a12414-e69b-7fa2-9b6d-849e48d56e02, then the API call)
+prestate: sqlite state present before the restore
+prestate: FOUND (thread.started 01a12414-e69b-7fa2-9b6d-849e48d56e02, then the API call)

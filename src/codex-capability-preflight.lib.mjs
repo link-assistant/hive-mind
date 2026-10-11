@@ -17,6 +17,7 @@ import { promisify } from 'node:util';
 import { CODEX_PLUGIN_CLI, buildPluginCachePath as buildAgentPluginCachePath, buildPluginPayloadRepairs, pluginIdParts, readMaterializedPluginSkills as readAgentMaterializedPluginSkills, repairPluginPayloads } from './agent-plugin-cache.lib.mjs';
 import { AGENTS_MD_FILENAMES, CLAUDE_MD_FILENAME } from './agents-md-claude-support.lib.mjs';
 import { parseModelVisibleSkillCatalog, validateModelVisibleSkillCatalog } from './codex-skill-catalog.lib.mjs';
+import { describeScopedCodexSessions, shareScopedCodexSessions } from './codex-sessions.lib.mjs';
 
 const execFileAsync = promisify(execFile);
 const REQUIREMENT_WORDS = /\b(?:depend(?:s|ency)?|install|invoke|mandatory|must|need(?:ed|s)?|preflight|required?|requires|us(?:e|es|ing))\b/i;
@@ -707,7 +708,7 @@ const syncScopedConfig = async ({ baseConfigPath, scopedConfigPath }) => {
   await fs.writeFile(scopedConfigPath, baseWithoutPlugins ? `${baseWithoutPlugins}\n` : '');
 };
 
-const prepareScopedCodexHome = async ({ baseCodexHome, codexHome, needsMarketplace }) => {
+const prepareScopedCodexHome = async ({ baseCodexHome, codexHome, needsMarketplace, log = async () => {} }) => {
   await fs.mkdir(codexHome, { recursive: true });
   // These directories can contribute instructions independently of current
   // installation metadata. Remove them before copying any runtime state.
@@ -715,6 +716,11 @@ const prepareScopedCodexHome = async ({ baseCodexHome, codexHome, needsMarketpla
   await syncScopedConfig({ baseConfigPath: path.join(baseCodexHome, 'config.toml'), scopedConfigPath: path.join(codexHome, 'config.toml') });
   await syncFileIfPresent(path.join(baseCodexHome, 'auth.json'), path.join(codexHome, 'auth.json'));
   await syncFileIfPresent(path.join(baseCodexHome, 'installation_id'), path.join(codexHome, 'installation_id'));
+  // Issue #2888: rollouts go to the operator `sessions` directory, which task
+  // containers bind-mount, so a recovery run in a new container can resume them.
+  const sessions = await shareScopedCodexSessions({ baseCodexHome, codexHome });
+  const sessionsLine = describeScopedCodexSessions(sessions);
+  if (sessionsLine) await log(sessionsLine, { verbose: sessions.status !== 'failed' });
 
   if (!needsMarketplace) return;
   const marketplaceSource = path.join(baseCodexHome, '.tmp', 'plugins');
@@ -788,7 +794,7 @@ const provisionSafeCatalogFallback = async ({ options, error }) => {
   const command = /\s/u.test(codexPath) ? 'codex' : codexPath;
   const codexHome = buildCodexCapabilityStatePath({ baseCodexHome, owner, repo });
   const runCodexCommand = invocation => runCommand({ ...invocation, cwd: projectDir });
-  await prepareScopedCodexHome({ baseCodexHome, codexHome, needsMarketplace: false });
+  await prepareScopedCodexHome({ baseCodexHome, codexHome, needsMarketplace: false, log });
   await configureScopedPluginLoader({ codexHome, plugins: [], log });
   const scopedEnv = { ...env, CODEX_HOME: codexHome, HIVE_MIND_PARENT_CODEX_HOME: baseCodexHome };
   const visibility = await checkModelVisibleSkills({ command, env: scopedEnv, runCommand: runCodexCommand, log, codexHome, projectDir, plugins: [], requiredSkills: [] });
@@ -870,7 +876,7 @@ async function provisionCodexCapabilities({ owner, repo, issueNumber, projectDir
   }
 
   const codexHome = buildCodexCapabilityStatePath({ baseCodexHome, owner, repo });
-  await prepareScopedCodexHome({ baseCodexHome, codexHome, needsMarketplace: plugins.length > 0 });
+  await prepareScopedCodexHome({ baseCodexHome, codexHome, needsMarketplace: plugins.length > 0, log });
   await configureScopedPluginLoader({ codexHome, plugins, log });
   const scopedEnv = { ...env, CODEX_HOME: codexHome, HIVE_MIND_PARENT_CODEX_HOME: baseCodexHome };
 

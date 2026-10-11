@@ -210,7 +210,7 @@ export function findLatestSessionLogId({ dir, fsImpl = fs, verbose = false } = {
   }
 }
 
-function quoteArg(value) {
+export function quoteArg(value) {
   const str = String(value);
   // Quote only when needed; keep already-safe tokens (URLs, flags) readable.
   if (/^[A-Za-z0-9_./:@=-]+$/.test(str)) return str;

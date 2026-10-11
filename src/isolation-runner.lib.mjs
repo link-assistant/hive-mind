@@ -54,9 +54,10 @@ export { killDockerContainer };
 import { resumeAllIsolationSessions, resumeIsolatedSession } from './isolation-runner.resume.lib.mjs';
 export { resumeAllIsolationSessions, resumeIsolatedSession };
 export { parseExecutionResumeAllOutput, parseExecutionResumeOutput, RESUME_ALL_ACTIONS, RESUME_MODES } from './isolation-runner.resume.lib.mjs';
+export { copyFromDockerContainer } from './isolation-runner.docker-cp.lib.mjs'; // Issue #2888
 // Valid isolation backends
 const VALID_ISOLATION_BACKENDS = ['screen', 'tmux', 'docker'];
-const DOCKER_CONTAINER_HOME = '/home/box';
+export const DOCKER_CONTAINER_HOME = '/home/box';
 const FORMAL_AI_COMPOSE_HOSTNAME = 'link-assistant-formal-ai';
 // Default path where the host Docker socket is bind-mounted inside a DinD container so box's host-image passthrough can copy host images into the nested daemon. Matches box's own DIND_HOST_DOCKER_SOCK default. The deploy must mount it (`-v /var/run/docker.sock:/var/run/host-docker.sock:ro`) or the nested daemon starts empty and the first isolated task pulls the full, multi-gigabyte image. See issue #1914.
 const DEFAULT_HOST_DOCKER_SOCK = '/var/run/host-docker.sock';

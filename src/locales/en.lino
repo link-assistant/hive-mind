@@ -707,6 +707,8 @@ en
         diagnostics "Kill diagnostics"
         resumed "🔄 A new working session was started to recover from this kill: {{sessionId}}"
         resumed_attempt "🔄 A new working session was started to recover from this kill (attempt {{attempt}}): {{sessionId}}"
+        disk_relaunched "💾 The recovery session could not start: too little free disk space (exit 75), so nothing was attempted. That does not count as a recovery attempt; it was started again once space allowed (attempt {{attempt}}, disk retry {{retry}}): {{sessionId}}"
+        disk_retries_exhausted "💾 The recovery session could not start: too little free disk space (exit 75). It was not started again: all {{max}} disk retries were used. Free disk space and restart the task."
     isolation
       label "Isolation"
     execution

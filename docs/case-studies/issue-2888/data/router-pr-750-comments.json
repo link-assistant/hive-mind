@@ -1,0 +1,62 @@
+[
+  {
+    "url": "https://api.github.com/repos/link-assistant/router/issues/comments/6084322795",
+    "html_url": "https://github.com/link-assistant/router/pull/750#issuecomment-6084322795",
+    "issue_url": "https://api.github.com/repos/link-assistant/router/issues/750",
+    "id": 6084322795,
+    "node_id": "IC_kwDORq-Bqc8AAAABaqdl6w",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "created_at": "2026-10-09T15:49:35Z",
+    "updated_at": "2026-10-09T15:49:35Z",
+    "body": "🤖 **AI Work Session Started**\n\nStarted at 2026-10-09T15:49:33.936Z. Please wait for it to finish before giving feedback.\n\n_Runtime: solve `v2.34.0` · tool `codex` · model `gpt-6.1-sol` · task image `konard/hive-mind-dind:2.34.0@sha256:aeded222cc0180cff90a8ac57a0418b6965cff259acf48371413845174445bcf`_",
+    "author_association": "MEMBER",
+    "reactions": { "url": "https://api.github.com/repos/link-assistant/router/issues/comments/6084322795/reactions", "total_count": 0, "+1": 0, "-1": 0, "laugh": 0, "hooray": 0, "confused": 0, "heart": 0, "rocket": 0, "eyes": 0 },
+    "performed_via_github_app": null,
+    "minimized": null
+  },
+  {
+    "url": "https://api.github.com/repos/link-assistant/router/issues/comments/6087469728",
+    "html_url": "https://github.com/link-assistant/router/pull/750#issuecomment-6087469728",
+    "issue_url": "https://api.github.com/repos/link-assistant/router/issues/750",
+    "id": 6087469728,
+    "node_id": "IC_kwDORq-Bqc8AAAABatdqoA",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "created_at": "2026-10-09T19:07:07Z",
+    "updated_at": "2026-10-09T19:07:07Z",
+    "body": "<!-- hive-mind:working-session-summary -->\n## Working session summary\n\n[PR #750](https://github.com/link-assistant/router/pull/750) is ready for review. Fixed the coverage-baseline failure, merged the latest `main`, and updated the description.\n\nAll seven CI workflows pass, including the package build. Local validation passed 2,181 unit tests and 922 integration cases. The working tree is clean.\n\n---\n*This summary was automatically extracted from the AI working session output.*",
+    "author_association": "MEMBER",
+    "reactions": { "url": "https://api.github.com/repos/link-assistant/router/issues/comments/6087469728/reactions", "total_count": 0, "+1": 0, "-1": 0, "laugh": 0, "hooray": 0, "confused": 0, "heart": 0, "rocket": 0, "eyes": 0 },
+    "performed_via_github_app": null,
+    "minimized": null
+  },
+  {
+    "url": "https://api.github.com/repos/link-assistant/router/issues/comments/6087478971",
+    "html_url": "https://github.com/link-assistant/router/pull/750#issuecomment-6087478971",
+    "issue_url": "https://api.github.com/repos/link-assistant/router/issues/750",
+    "id": 6087478971,
+    "node_id": "IC_kwDORq-Bqc8AAAABateOuw",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "created_at": "2026-10-09T19:07:41Z",
+    "updated_at": "2026-10-09T19:07:41Z",
+    "body": "## 🤖 Solution Draft Log\nThis log file contains the complete execution trace of the AI solution draft process.\n\n### 💰 **Cost estimation:**\n- Model: GPT-6.1 Sol\n- Provider: OpenAI\n- Public pricing estimate: $55.203942\n\n### 📊 **Context and tokens usage:**\n- 3.3M input tokens across requests (cumulative, larger than the 200K context window, so not one request's context), 806.3K / 128K (630%) output tokens\n\nTotal: (3.3M + 150.3M cached) input tokens, 806.3K output tokens, $55.203942 cost\n\n### 🤖 **Models used:**\n- Tool: OpenAI Codex\n- Requested: `gpt-6.1-sol`\n- Thinking level: xhigh (~31999 tokens)\n- **Model: GPT-6.1 Sol** (`gpt-6.1-sol`)\n\n### 📎 **Log file uploaded as Gist** (14191KB)\n- [View complete solution draft log](https://gist.githubusercontent.com/konard/b6b3c5d50fbfde6b80aedf784888b1d3/raw/f58bd2d574110bd525b3d8394abd89db251a6d68/tmp-hive-mind-log-upload-GpWNfr-sanitized.log.txt)\n\n---\n*Now working session is ended, feel free to review and add any feedback on the solution draft.*",
+    "author_association": "MEMBER",
+    "reactions": { "url": "https://api.github.com/repos/link-assistant/router/issues/comments/6087478971/reactions", "total_count": 0, "+1": 0, "-1": 0, "laugh": 0, "hooray": 0, "confused": 0, "heart": 0, "rocket": 0, "eyes": 0 },
+    "performed_via_github_app": null,
+    "minimized": null
+  },
+  {
+    "url": "https://api.github.com/repos/link-assistant/router/issues/comments/6087526490",
+    "html_url": "https://github.com/link-assistant/router/pull/750#issuecomment-6087526490",
+    "issue_url": "https://api.github.com/repos/link-assistant/router/issues/750",
+    "id": 6087526490,
+    "node_id": "IC_kwDORq-Bqc8AAAABathIWg",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "created_at": "2026-10-09T19:10:42Z",
+    "updated_at": "2026-10-09T19:10:42Z",
+    "body": "## 🎉 Auto-merged\n\nThis pull request has been automatically merged by hive-mind.\n- All CI checks have passed",
+    "author_association": "MEMBER",
+    "reactions": { "url": "https://api.github.com/repos/link-assistant/router/issues/comments/6087526490/reactions", "total_count": 0, "+1": 0, "-1": 0, "laugh": 0, "hooray": 0, "confused": 0, "heart": 0, "rocket": 0, "eyes": 0 },
+    "performed_via_github_app": null,
+    "minimized": null
+  }
+]

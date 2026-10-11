@@ -32,7 +32,7 @@ import { resolveFailedSessionPullRequestState } from './github-pr-state.lib.mjs'
 import { sessionStartMs } from './session-monitor.stale-executing.lib.mjs';
 // Issue #2134: kill-cause diagnostics + the matching pull-request notice.
 import { buildKillCompletionSections, announceKillOnPullRequest, hasContainerOomEvidence, startedPullRequestUrl } from './session-monitor.kill-sections.lib.mjs';
-import { runKillRecoveryForCompletion } from './session-kill-resume.lib.mjs';
+import { isDiskRefusedRecovery, runKillRecoveryForCompletion } from './session-kill-resume.lib.mjs';
 // Issue #2189: the handled latch + the memoized last-tool-session-id read that keep a completed session from replaying its whole completion pipeline on every poll.
 import { isCompletionHandled, markCompletionHandled, resolveCachedLastToolSessionId } from './session-completion-state.lib.mjs';
 import { createSessionRegistryQueries } from './session-monitor.queries.lib.mjs';
@@ -911,12 +911,14 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
         const decision = { exitCode: finalExitCode, status: resolvedStatus, killed: killReport.killed, oomEventOnly: killReport.oomEventOnly, deliberateStop: killReport.deliberateStop?.reason || null };
         logEvent('session_kill_recovery_decision', { sessionName, ...decision, diskLimitExceeded: Boolean(sessionInfo?.containerResourceLimitExceeded), attemptRecovery: shouldAttemptKillRecovery });
       }
-      if (shouldAttemptKillRecovery) {
+      // Issue #2888: a recovery refused by the disk preflight (exit 75) is relaunched, not spent.
+      if (shouldAttemptKillRecovery || isDiskRefusedRecovery({ sessionInfo, exitCode: finalExitCode })) {
         const recovered = await runKillRecoveryForCompletion({
           sessionName,
           sessionInfo,
           logPath: statusResult?.logPath || sessionInfo?.logPath || null,
-          killed: true,
+          killed: shouldAttemptKillRecovery,
+          exitCode: finalExitCode,
           env: options.env || process.env,
           runner: options.isolationRunner || null,
           trackSession: options.trackSession || trackSession,

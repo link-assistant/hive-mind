@@ -4,6 +4,7 @@ import path from 'node:path';
 import { sanitizeForPublication } from './token-sanitization.lib.mjs';
 import { findResidualCredentialBlock } from './log-sanitize-stream.lib.mjs';
 import { sanitizeLogFileToFileBounded } from './log-sanitize-worker.lib.mjs';
+import { CODEX_SESSIONS_DIRNAME, findCodexRolloutFile } from './codex-sessions.lib.mjs'; // Issue #2888
 
 const sanitizePathSegment = (value, fallback) => {
   const raw = value === null || value === undefined || value === '' ? fallback : String(value);
@@ -127,17 +128,11 @@ const getClaudeSessionFile = ({ repositoryPath, sessionId, homeDir }) => {
 // Codex CLI stores its transcript ("rollout") under
 // ~/.codex/sessions/YYYY/MM/DD/rollout-<timestamp>-<sessionId>.jsonl. The date
 // path and timestamp are not derivable from the sessionId, so locate the file
-// by recursively matching the sessionId suffix instead.
+// by matching the sessionId suffix instead. Issue #2888: the repository-scoped
+// CODEX_HOME links its `sessions` here, so this also finds solve's own rollouts.
 const findCodexSessionFile = async ({ sessionId, homeDir }) => {
   if (!sessionId || !homeDir) return null;
-  const sessionsRoot = path.join(homeDir, '.codex', 'sessions');
-  try {
-    const entries = await fs.readdir(sessionsRoot, { recursive: true });
-    const match = entries.find(entry => typeof entry === 'string' && entry.includes('rollout-') && entry.endsWith(`-${sessionId}.jsonl`));
-    return match ? path.join(sessionsRoot, match) : null;
-  } catch {
-    return null;
-  }
+  return findCodexRolloutFile({ sessionsDir: path.join(homeDir, '.codex', CODEX_SESSIONS_DIRNAME), threadId: sessionId });
 };
 
 // Copy a byte range of the solve log into the session directory.

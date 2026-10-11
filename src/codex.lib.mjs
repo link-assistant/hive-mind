@@ -54,6 +54,7 @@ import { deployHandoffSkill } from './handoff-skill.lib.mjs'; // Issue #1877
 import { deployPlaywrightSkill } from './playwright-skill.lib.mjs'; // Issue #2190
 import { formatRouterAuthViolation, startRouterAuthGuard } from './router-auth-guard.lib.mjs'; // Issue #2190
 import { applyCodexCapabilityEnv, runCodexCapabilityPreflight, setTomlTableBoolean, verifyCodexCapabilityExecutionCatalog } from './codex-capability-preflight.lib.mjs'; // Issues #2074 and #2254
+import { createCodexResumeRolloutCheck } from './codex-sessions.lib.mjs'; // Issue #2888
 import { createPullRequestBaseBranchCommandIntervention } from './solve.pr-base-command-intervention.lib.mjs';
 import Decimal from 'decimal.js-light';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
@@ -629,6 +630,7 @@ export const executeCodexCommand = async params => {
   const transientRetryBudget = createTransientRetryBudget();
   let baseBranchInterventionPrompt = null;
   let baseBranchInterventionResumeCount = 0;
+  const resumeRolloutExists = createCodexResumeRolloutCheck(); // Issue #2888: the caller's --resume may name a thread this container never ran
   const executeWithRetry = async () => {
     // Execute codex command from the cloned repository directory
     if (retryCount === 0) {
@@ -657,11 +659,8 @@ export const executeCodexCommand = async params => {
     let execCommand;
     const mappedModel = mapModelToId(argv.model);
     const { reasoningEffort, source: reasoningEffortSource, rolloutTokenBudget } = await resolveRuntimeCodexReasoningEffort({ ...argv, model: mappedModel, codexPath }, { log });
-    const isResumeMode = !!argv.resume;
-    const codexEnv = applyCodexCapabilityEnv(capabilityPreflight?.codexBaseEnv || getCodexExecEnv(argv.verbose), {
-      codexHome: capabilityPreflight?.codexHome,
-      baseCodexHome: capabilityPreflight?.baseCodexHome,
-    });
+    let isResumeMode = !!argv.resume;
+    const codexEnv = applyCodexCapabilityEnv(capabilityPreflight?.codexBaseEnv || getCodexExecEnv(argv.verbose), { codexHome: capabilityPreflight?.codexHome, baseCodexHome: capabilityPreflight?.baseCodexHome });
     // Issue #2130: run the native CLI against a local Formal AI server (no argv wrapper); `codexEnv` seeds the isolated CODEX_HOME.
     const toolInvocation = await resolveFormalAiToolExecution({ tool: 'codex', model: argv.model, toolPath: codexPath, workdir: tempDir, log, verbose: argv.verbose, prepareOnly: isPrepareOnly(argv), env: codexEnv });
     // Issue #2130: "run codex login" is wrong advice for a Formal-AI-served model.
@@ -690,6 +689,7 @@ export const executeCodexCommand = async params => {
       const verified = await verifyCapabilityExecutionCatalog({ capabilityPreflight, projectDir: tempDir, codexPath, env: codexEnv, log });
       Object.assign(capabilityPreflight, verified);
     }
+    isResumeMode = await resumeRolloutExists({ threadId: isResumeMode ? argv.resume : null, codexHome: codexEnv.CODEX_HOME, log }); // Issue #2888: every attempt, so in-run retries skip it
     // For Codex, we combine system and user prompts into a single message
     // Codex doesn't have separate system prompt support in CLI mode
     const promptForAttempt = baseBranchInterventionPrompt ? `${prompt}\n\n${baseBranchInterventionPrompt}\n` : prompt;

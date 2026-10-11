@@ -707,6 +707,8 @@ zh
         diagnostics "终止诊断"
         resumed "🔄 已启动新的工作会话以从此次终止中恢复：{{sessionId}}"
         resumed_attempt "🔄 已启动新的工作会话以从此次终止中恢复（第 {{attempt}} 次尝试）：{{sessionId}}"
+        disk_relaunched "💾 恢复会话无法启动：可用磁盘空间不足（退出码 75），因此未执行任何工作。这不计为一次恢复尝试；在空间允许后已重新启动（第 {{attempt}} 次尝试，磁盘重试 {{retry}}）：{{sessionId}}"
+        disk_retries_exhausted "💾 恢复会话无法启动：可用磁盘空间不足（退出码 75）。不会再次启动：{{max}} 次磁盘重试已全部用完。请释放磁盘空间并重新启动任务。"
     isolation
       label "隔离"
     execution

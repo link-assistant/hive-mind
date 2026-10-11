@@ -1,0 +1,76 @@
+== agent --version: 0.26.11
+== root commit of a: 5a85b0165355ac382cc8572eb379faaf419f93ec
+== 1. new session in original cwd /tmp/s-ag-exp/a
+"error":"OpenCode's free tier can only be used from within OpenCode
+"sessionID":"ses_edbd5c055ffe9oL28GRxJjFZcE"
+== storage tree (depth 3)
+$S/home/.local/share/link-assistant-agent/storage
+$S/home/.local/share/link-assistant-agent/storage/message
+$S/home/.local/share/link-assistant-agent/storage/message/ses_edbd5c055ffe9oL28GRxJjFZcE
+$S/home/.local/share/link-assistant-agent/storage/message/ses_edbd5c055ffe9oL28GRxJjFZcE/msg_1242a3fc5001ernCHF3ZZvLyd7.json
+$S/home/.local/share/link-assistant-agent/storage/message/ses_edbd5c055ffe9oL28GRxJjFZcE/msg_1242a4403001UneNoBjnoNEszv.json
+$S/home/.local/share/link-assistant-agent/storage/migration
+$S/home/.local/share/link-assistant-agent/storage/part
+$S/home/.local/share/link-assistant-agent/storage/part/msg_1242a3fc5001ernCHF3ZZvLyd7
+$S/home/.local/share/link-assistant-agent/storage/part/msg_1242a3fc5001ernCHF3ZZvLyd7/prt_1242a3fc6001dkRyx6dIjCc1jZ.json
+$S/home/.local/share/link-assistant-agent/storage/project
+$S/home/.local/share/link-assistant-agent/storage/project/5a85b0165355ac382cc8572eb379faaf419f93ec.json
+$S/home/.local/share/link-assistant-agent/storage/session
+$S/home/.local/share/link-assistant-agent/storage/session/5a85b0165355ac382cc8572eb379faaf419f93ec
+$S/home/.local/share/link-assistant-agent/storage/session/5a85b0165355ac382cc8572eb379faaf419f93ec/ses_edbd5c055ffe9oL28GRxJjFZcE.json
+$S/home/.local/share/link-assistant-agent/storage/session_diff
+$S/home/.local/share/link-assistant-agent/storage/session_diff/ses_edbd5c055ffe9oL28GRxJjFZcE.json
+== session record
+{
+  "id": "ses_edbd5c055ffe9oL28GRxJjFZcE",
+  "version": "0.26.11",
+  "projectID": "5a85b0165355ac382cc8572eb379faaf419f93ec",
+  "directory": "/tmp/s-ag-exp/a",
+  "title": "New session - 2026-10-10T04:55:11.018Z",
+  "time": {
+    "created": 1791608111018,
+    "updated": 1791608112604
+  },
+  "summary": {
+    "additions": 0,
+    "deletions": 0,
+    "files": 0
+  }
+}
+== project record
+{
+  "id": "5a85b0165355ac382cc8572eb379faaf419f93ec",
+  "worktree": "/tmp/s-ag-exp/a",
+  "vcs": "git",
+  "time": {
+    "created": 1791608110182
+  }
+}
+== .git/opencode cache in a: 5a85b0165355ac382cc8572eb379faaf419f93ec
+== 2. --resume ses_edbd5c055ffe9oL28GRxJjFZcE --no-fork from clone /tmp/s-ag-exp/b (same root commit; original a still exists)
+"error":"OpenCode's free tier can only be used from within OpenCode
+"message":"Continuing session without forking: ses_edbd5c055ffe9oL28GRxJjFZcE"
+"message":"Resuming session"
+"sessionID":"ses_edbd5c055ffe9oL28GRxJjFZcE"
+-- bash outputs stored for all sessions (count  output):
+-- sessions now on disk:
+$S/home/.local/share/link-assistant-agent/storage/session/5a85b0165355ac382cc8572eb379faaf419f93ec/ses_edbd5c055ffe9oL28GRxJjFZcE.json
+== 3. --resume unknown id from /tmp/s-ag-exp/b
+"errorType":"SessionNotFound"
+"message":"Session not found: ses_doesnotexist000000000000"
+== 4. --resume ses_edbd5c055ffe9oL28GRxJjFZcE with a fresh HOME (= fresh container without ~/.local/share/link-assistant-agent)
+"errorType":"SessionNotFound"
+"message":"Session not found: ses_edbd5c055ffe9oL28GRxJjFZcE"
+== 5. --resume ses_edbd5c055ffe9oL28GRxJjFZcE from an unrelated repo (different root commit)
+"errorType":"SessionNotFound"
+"message":"Session not found: ses_edbd5c055ffe9oL28GRxJjFZcE"
+== 6. XDG_DATA_HOME relocates the data dir
+$S/xdg/link-assistant-agent/storage/session_diff
+$S/xdg/link-assistant-agent/storage/session_diff/ses_edbd594f8ffeV3uPYQItanBZU0.json
+$S/xdg/link-assistant-agent/storage/session
+$S/xdg/link-assistant-agent/storage/session/5a85b0165355ac382cc8572eb379faaf419f93ec
+== 7. copying the data dir into a fresh HOME makes resume from b work
+"error":"OpenCode's free tier can only be used from within OpenCode
+"message":"Continuing session without forking: ses_edbd5c055ffe9oL28GRxJjFZcE"
+"message":"Resuming session"
+"sessionID":"ses_edbd5c055ffe9oL28GRxJjFZcE"

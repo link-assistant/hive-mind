@@ -64,6 +64,13 @@ const withCodexHomes = async body => {
 
 const executeAgainstMcpFreeFormalAiHome = async ({ resume = null } = {}) =>
   withCodexHomes(async fixture => {
+    // Issue #2888: `codex exec resume` needs the thread's rollout under the
+    // effective CODEX_HOME; without one solve starts a new session instead.
+    if (resume) {
+      const day = path.join(fixture.formalAiHome, 'sessions', '2026', '01', '01');
+      await mkdir(day, { recursive: true });
+      await writeFile(path.join(day, `rollout-2026-01-01T00-00-00-${resume}.jsonl`), '');
+    }
     const commands = [];
     let modelRequests = 0;
     const fakeDollar =

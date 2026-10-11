@@ -47,6 +47,9 @@ export const DEFAULT_CLI_UPDATE_INTERVAL_MS = 6 * 60 * 60 * 1000;
  * The CLIs Hive Mind drives and the operational utilities its tasks invoke, in
  * the same order the Dockerfile installs them.
  *
+ * `versionIssue` names the upstream bug when a CLI's `--version` is known to
+ * print something other than its installed version (issue #2699).
+ *
  * `installer: 'self'` is for Claude Code, which ships a native binary through
  * its own installer script; `claude update` is the supported refresh path and
  * `bun install -g` would fight the postinstall link (issue #1633).
@@ -59,8 +62,8 @@ export const AGENTIC_CLI_TARGETS = Object.freeze([
   { id: 'qwen', package: '@qwen-code/qwen-code', binary: 'qwen', installer: 'bun' },
   { id: 'copilot', package: '@github/copilot', binary: 'copilot', installer: 'bun' },
   { id: 'opencode', package: 'opencode-ai', binary: 'opencode', installer: 'bun' },
-  { id: 'claude-profiles', package: '@link-assistant/claude-profiles', binary: 'claude-profiles', installer: 'bun' },
-  { id: 'gh-setup-git-identity', package: 'gh-setup-git-identity', binary: 'gh-setup-git-identity', installer: 'bun' },
+  { id: 'claude-profiles', package: '@link-assistant/claude-profiles', binary: 'claude-profiles', installer: 'bun', versionIssue: 'https://github.com/link-assistant/claude-profiles/issues/57' },
+  { id: 'gh-setup-git-identity', package: 'gh-setup-git-identity', binary: 'gh-setup-git-identity', installer: 'bun', versionIssue: 'https://github.com/link-foundation/gh-setup-git-identity/issues/30' },
   { id: 'gh-pull-all', package: 'gh-pull-all', binary: 'gh-pull-all', installer: 'bun' },
   { id: 'gh-load-issue', package: 'gh-load-issue', binary: 'gh-load-issue', installer: 'bun' },
   { id: 'gh-load-pull-request', package: 'gh-load-pull-request', binary: 'gh-load-pull-request', installer: 'bun' },
@@ -143,23 +146,58 @@ export const writeAgenticCliState = (state, { env = process.env, fsImpl = fs } =
   return state;
 };
 
-/** Installed version of one CLI, or null when neither its binary nor Bun inventory can identify it. */
-export const readInstalledCliVersion = async (target, { run = execFileAsync, timeoutMs = DEFAULT_COMMAND_TIMEOUT_MS } = {}) => {
+const readBinaryVersion = async (target, { run, timeoutMs }) => {
   try {
     const result = await run(target.binary, ['--version'], { encoding: 'utf8', timeout: timeoutMs });
-    const version = parseCliVersion(`${result?.stdout ?? ''}${result?.stderr ?? ''}`);
-    if (version) return version;
+    return parseCliVersion(`${result?.stdout ?? ''}${result?.stderr ?? ''}`);
   } catch {
-    // A broken entry point is exactly why the package-manager fallback exists.
+    // A broken entry point is exactly why the package-manager inventory is consulted.
+    return null;
   }
+};
 
+const readBunGlobalVersion = async (target, { run, timeoutMs }) => {
   try {
     const result = await run('bun', ['pm', 'ls', '-g'], { encoding: 'utf8', timeout: timeoutMs });
     return parseBunGlobalPackageVersion(`${result?.stdout ?? ''}${result?.stderr ?? ''}`, target.package);
   } catch {
-    // Missing Bun or an unreadable global inventory means the CLI is absent.
+    // Missing Bun or an unreadable global inventory: the binary is all we have.
+    return null;
   }
-  return null;
+};
+
+/**
+ * Installed version of one CLI and where it came from.
+ *
+ * Issue #2699: for `installer: 'bun'` targets, Bun's install list is the
+ * authoritative version, because that is what `bun install -g` changes and what
+ * the post-install check must see move. `--version` is only a cross-check — a
+ * CLI can print a hard-coded constant (gh-setup-git-identity 0.1.0 while 0.8.0
+ * is installed) or another package's version (claude-profiles reporting nvm's
+ * 0.40.x). Trusting it made every start reinstall both and log two failures.
+ * A package Bun does not list (installed some other way) falls back to the
+ * binary, and `installer: 'self'` targets keep the binary as primary.
+ *
+ * @returns {Promise<{version: string|null, source: 'bun'|'binary'|null, binaryVersion: string|null}>}
+ */
+export const inspectInstalledCli = async (target, { run = execFileAsync, timeoutMs = DEFAULT_COMMAND_TIMEOUT_MS } = {}) => {
+  const binaryVersion = await readBinaryVersion(target, { run, timeoutMs });
+  if (target.installer === 'bun' || !binaryVersion) {
+    const bunVersion = await readBunGlobalVersion(target, { run, timeoutMs });
+    if (bunVersion) return { version: bunVersion, source: 'bun', binaryVersion };
+  }
+  if (binaryVersion) return { version: binaryVersion, source: 'binary', binaryVersion };
+  return { version: null, source: null, binaryVersion: null };
+};
+
+/** Installed version of one CLI, or null when neither its binary nor Bun inventory can identify it. */
+export const readInstalledCliVersion = async (target, options = {}) => (await inspectInstalledCli(target, options)).version;
+
+/** Why a CLI's `--version` disagrees with Bun's install list, or null when it does not. */
+export const describeBinaryVersionMismatch = (target, { version, source, binaryVersion } = {}) => {
+  if (source !== 'bun' || !binaryVersion || binaryVersion === version) return null;
+  const upstream = target.versionIssue ? ` (upstream bug: ${target.versionIssue})` : '';
+  return `${target.id}: \`${target.binary} --version\` reports ${binaryVersion}, but Bun has ${target.package}@${version} installed; trusting Bun${upstream}`;
 };
 
 /** Latest version the npm registry publishes for one CLI, or null when unreachable. */
@@ -216,13 +254,28 @@ export const updateAgenticClisWhenIdle = async ({ env = process.env, fsImpl = fs
       const failed = [];
       const tools = { ...state.tools };
 
+      // Issue #2699: a CLI whose `--version` is wrong stays wrong on every check,
+      // so say so once per distinct wrong answer (remembered in the journal)
+      // instead of on every start.
+      const noteBinaryVersion = async (target, inspection) => {
+        const mismatch = describeBinaryVersionMismatch(target, inspection);
+        const entry = { ...tools[target.id] };
+        if (!mismatch && !('binaryReports' in entry)) return;
+        if (mismatch && log && entry.binaryReports !== inspection.binaryVersion) await log(`ℹ️ ${mismatch}`);
+        if (mismatch) entry.binaryReports = inspection.binaryVersion;
+        else delete entry.binaryReports;
+        tools[target.id] = entry;
+      };
+
       for (const target of listAgenticCliUpdateTargets(env, { only })) {
-        const installed = await readInstalledCliVersion(target, { run });
+        const inspection = await inspectInstalledCli(target, { run });
+        const installed = inspection.version;
         if (!installed) {
           // Not installed on this host (image variants differ); nothing to refresh.
           if (verbose && log) await log(`[VERBOSE] agentic-cli-updater: ${target.id} is not installed here; skipping`);
           continue;
         }
+        await noteBinaryVersion(target, inspection);
 
         const latest = await readLatestPublishedVersion(target, { run });
         if (!latest) {
@@ -248,16 +301,17 @@ export const updateAgenticClisWhenIdle = async ({ env = process.env, fsImpl = fs
         }
 
         // Verify the installed package rather than trusting the installer's exit
-        // code. Prefer the executable, with Bun inventory as the fallback used
-        // for temporarily broken upstream entry points.
-        const after = await readInstalledCliVersion(target, { run });
+        // code, with the same Bun-first reading as above (issue #2699).
+        const afterInspection = await inspectInstalledCli(target, { run });
+        const after = afterInspection.version;
+        await noteBinaryVersion(target, afterInspection);
         if (after === latest) {
           updated.push({ id: target.id, from: installed, to: after });
-          tools[target.id] = { version: after, previousVersion: installed, updatedAt: now().toISOString(), checkedAt: now().toISOString() };
+          tools[target.id] = { ...tools[target.id], version: after, previousVersion: installed, updatedAt: now().toISOString(), checkedAt: now().toISOString() };
         } else {
           // Issue #2571: the production log said "2 failed" and nothing else —
           // the install exited 0, so only this check knew why.
-          const error = `after install the binary reports ${after ?? 'nothing'}`;
+          const error = `after install ${afterInspection.source === 'bun' ? "Bun's install list" : 'the binary'} reports ${after ?? 'nothing'}`;
           if (log) await log(`⚠️ Could not update ${target.id}: ${error} (expected ${latest})`);
           failed.push({ id: target.id, installed, latest, error });
         }
@@ -275,6 +329,8 @@ export const updateAgenticClisWhenIdle = async ({ env = process.env, fsImpl = fs
 export default {
   AGENTIC_CLI_TARGETS,
   DEFAULT_CLI_UPDATE_INTERVAL_MS,
+  describeBinaryVersionMismatch,
+  inspectInstalledCli,
   installAgenticCli,
   isAgenticCliAutoUpdateEnabled,
   listAgenticCliUpdateTargets,

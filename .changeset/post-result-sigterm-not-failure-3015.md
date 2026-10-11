@@ -18,5 +18,4 @@ waits up to Claude Code's own print-mode wait ceiling. It pauses the timer when
 a finished task starts another turn, and logs which tasks it is waiting for. A
 CLI with nothing pending is still stopped after 30 seconds.
 
-Docker images install Bun 1.4.3 and start-command 0.37.0; prettier is 3.9.10.
 command-stream is pinned to 2.1.0 for the dependency freshness gate.

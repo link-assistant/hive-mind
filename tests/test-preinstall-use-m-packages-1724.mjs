@@ -82,7 +82,7 @@ await test('installWithRetry disables package bin links so versioned aliases can
     sleeper: async () => {},
   });
   assert.deepEqual({ ok: result.ok, attempt: result.attempt, calls }, { ok: true, attempt: 1, calls: 1 });
-  assert.match(command, /npm install -g --no-bin-links command-stream-v-2\.0\.2@npm:command-stream@2\.0\.2/);
+  assert.match(command, /npm install -g --no-bin-links command-stream-v-2\.1\.0@npm:command-stream@2\.1\.0/);
 });
 
 await test('installWithRetry retries on ENOTEMPTY then succeeds', async () => {

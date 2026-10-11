@@ -3,6 +3,7 @@ import { scopeRecoveryFooter } from './session-recovery-footer.lib.mjs';
 import { classifyExitStatus, normalizeExitCode } from './session-status.lib.mjs';
 import { isDockerIsolation, resolveOomKilledState, resolveStaleExecutingState } from './session-monitor.stale-executing.lib.mjs';
 import { clearUnverifiedDockerTerminalMarker, shouldDeferUnverifiedDockerTerminal } from './session-monitor.docker-terminal.lib.mjs';
+import { followRunningResumeDescendant } from './session-monitor.resume-follow.lib.mjs';
 
 export async function getIsolationSessionState(sessionName, sessionInfo, options = {}) {
   const { verbose = false, statusProvider = null, exitFromLog: providedExitFromLog = null, backendAlive = null, sessionRunning = null } = options;
@@ -13,6 +14,11 @@ export async function getIsolationSessionState(sessionName, sessionInfo, options
     const exitFromLog = scopeRecoveryFooter(providedExitFromLog || runner.readSessionExitFromLog, sessionInfo);
     const statusResult = statusProvider ? await statusProvider(sessionId, sessionInfo) : await runner.querySessionStatus(sessionId, verbose);
     if (statusResult?.exists && statusResult.status) {
+      // Issue #2917: a dead docker container whose work an operator resumed (`$ --resume` → `<name>-resume-<n>`) is not a finished task — follow the running descendant and judge that instead.
+      if (!options.followedResume && isDockerIsolation(sessionInfo, statusResult) && !runner.isExecutingSessionStatus(statusResult.status)) {
+        const followed = await followRunningResumeDescendant(sessionName, sessionInfo, { taskContainers: options.taskContainers, statusProvider, runner, persistSnapshot, verbose });
+        if (followed) return { ...(await getIsolationSessionState(sessionName, sessionInfo, { ...options, followedResume: true })), followedResume: followed };
+      }
       if (statusResult.oomKilled === true || statusResult.cgroupMemory?.oomKills > 0) {
         // Issue #2134: `oomKilled` is a *container* flag — the kernel sets it when any process in the cgroup is OOM-killed — so it is verified against the log footer and container liveness before a kill is announced.
         return await resolveOomKilledState(sessionName, sessionInfo, statusResult, {
@@ -64,7 +70,8 @@ export async function getIsolationSessionState(sessionName, sessionInfo, options
           return { running: true, exitCode: null, status: statusResult.status, statusResult, deferred: true };
         }
         // Issue #2134: even after the grace window, a container that is verifiably still alive cannot have produced a terminal failure — the same liveness ladder used for `oomKilled` applies here, so no kill is announced while the working session keeps running (that is exactly what #2134 reported).
-        if (unverifiedDockerFailure) {
+        // Issue #2917: the same holds for a footer-less `executed 0` (or a missing code): start-command's `$ --status` can be stale (link-foundation/start#193), and a running container means the task is still running.
+        if (dockerSession && !ambiguousDockerTerminal) {
           const probe = backendAlive || runner.checkBackendSessionAlive;
           let alive = null;
           if (probe && sessionInfo?.isolationBackend) {
@@ -76,7 +83,7 @@ export async function getIsolationSessionState(sessionName, sessionInfo, options
           }
           if (alive === true) {
             if (verbose) {
-              console.log(`[VERBOSE] Session ${sessionName} reported terminal '${statusResult.status}' with exit ${exitCode}, but its docker backend is still alive; keeping the session tracked (issue #2134)`);
+              console.log(`[VERBOSE] Session ${sessionName} reported terminal '${statusResult.status}' with exit ${exitCode} and no log footer, but its docker backend is still alive; keeping the session tracked (issues #2134/#2917)`);
             }
             return { running: true, exitCode: null, status: statusResult.status, statusResult, deferred: true };
           }

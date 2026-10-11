@@ -300,6 +300,7 @@ ru
       pending "ожидает"
       processing "выполняется"
       processes "процессов: {{count}}"
+      untracked "неотслеживаемых: {{count}}"
       status
         cancelled "отменено"
         failed "ошибка"

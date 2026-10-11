@@ -52,7 +52,57 @@ import path from 'node:path';
 //   - `stopRequestedByUser`/`stopRequestedBy` must survive a restart too: with
 //     `--on-session-kill=resume` now the default, forgetting that an operator
 //     asked for the stop would relaunch the very work they cancelled.
-const PERSISTABLE_FIELDS = ['chatId', 'messageId', 'startTime', 'url', 'command', 'commandAlias', 'isolationBackend', 'sessionId', 'executionUuid', 'containerFilesystemStartBytes', 'containerFilesystemLastBytes', 'containerFilesystemLastObservedAt', 'containerFilesystemInheritedBytes', 'containerResourceLimits', 'containerResourceLimitExceeded', 'tool', 'infoBlock', 'urlContext', 'requesterUserId', 'showLimits', 'locale', 'logPath', 'args', 'completionNotifiedAt', 'completionExitCode', 'completionStatus', 'lastToolSessionId', 'oomEventObservedAt', 'killRecoveryAttempts', 'killRecoverySessionId', 'killRecoveryOfSession', 'rootSessionName', 'rootStartTime', 'previousExecutionUuids', 'killRecoveryResumed', 'killRecoveryInPlace', 'killRecoveryResumeMode', 'killRecoveryStartedAt', 'killRecoveryLogStartBytes', 'recoveryLifecycle', 'stopRequestedByUser', 'stopRequestedBy', 'onSessionKill', 'resolvedPullRequestUrl'];
+const PERSISTABLE_FIELDS = [
+  'chatId',
+  'messageId',
+  'startTime',
+  'url',
+  'command',
+  'commandAlias',
+  'isolationBackend',
+  'sessionId',
+  'executionUuid',
+  'containerFilesystemStartBytes',
+  'containerFilesystemLastBytes',
+  'containerFilesystemLastObservedAt',
+  'containerFilesystemInheritedBytes',
+  'containerResourceLimits',
+  'containerResourceLimitExceeded',
+  'tool',
+  'infoBlock',
+  'urlContext',
+  'requesterUserId',
+  'showLimits',
+  'locale',
+  'logPath',
+  'args',
+  'completionNotifiedAt',
+  'completionExitCode',
+  'completionStatus',
+  'lastToolSessionId',
+  'oomEventObservedAt',
+  'killRecoveryAttempts',
+  'killRecoverySessionId',
+  'killRecoveryOfSession',
+  'rootSessionName',
+  'rootStartTime',
+  'previousExecutionUuids',
+  'killRecoveryResumed',
+  'killRecoveryInPlace',
+  'killRecoveryResumeMode',
+  'killRecoveryStartedAt',
+  'killRecoveryLogStartBytes',
+  'recoveryLifecycle',
+  'stopRequestedByUser',
+  'stopRequestedBy',
+  'onSessionKill',
+  'resolvedPullRequestUrl',
+  'attemptStartedAt',
+  'followedResumeOf',
+  'adopted',
+  'adoptedAt',
+  'adoptedFrom',
+];
 
 /**
  * Resolve the directory durable bot state is written to. Honors
@@ -234,6 +284,55 @@ export function createSessionStore(options = {}) {
       // event log says why a session ended, not just that it did.
       appendEvent('complete', sessionName, { status: meta.status ?? null, exitCode: meta.exitCode ?? null, reason: meta.reason ?? null });
       log('debug', `Removed session ${sessionName} from snapshot`, meta);
+    },
+
+    /**
+     * Issue #2917: find the newest `track` event whose session matches, so a
+     * task container the bot stopped tracking (it reported the task finished)
+     * can be re-tracked with its chat, message and arguments. Only the last
+     * `maxBytes` of the append-only event log are scanned.
+     * @param {(sessionName: string, sessionInfo: object) => boolean} matches
+     * @param {object} [options]
+     * @param {number} [options.maxBytes=8 MiB]
+     * @returns {{sessionName: string, sessionInfo: object, ts: string|null}|null}
+     */
+    findLatestTrackEvent(matches, { maxBytes = 8 * 1024 * 1024 } = {}) {
+      let text;
+      try {
+        const size = fsImpl.statSync(eventsPath).size;
+        if (size > maxBytes && typeof fsImpl.openSync === 'function') {
+          const fd = fsImpl.openSync(eventsPath, 'r');
+          try {
+            const buffer = Buffer.alloc(maxBytes);
+            const read = fsImpl.readSync(fd, buffer, 0, maxBytes, size - maxBytes);
+            // Drop the (probably partial) first line.
+            text = buffer
+              .subarray(0, read)
+              .toString('utf8')
+              .replace(/^[^\n]*\n/, '');
+          } finally {
+            fsImpl.closeSync(fd);
+          }
+        } else {
+          text = fsImpl.readFileSync(eventsPath, 'utf8');
+        }
+      } catch {
+        return null;
+      }
+      const lines = String(text).split('\n');
+      for (let i = lines.length - 1; i >= 0; i--) {
+        if (!lines[i].includes('"track"')) continue;
+        let event;
+        try {
+          event = JSON.parse(lines[i]);
+        } catch {
+          continue;
+        }
+        if (event?.type !== 'track' || !event.sessionName || !event.sessionInfo) continue;
+        const sessionInfo = deserializeSessionInfo(event.sessionInfo);
+        if (matches(event.sessionName, sessionInfo)) return { sessionName: event.sessionName, sessionInfo, ts: event.ts || null };
+      }
+      return null;
     },
 
     /**

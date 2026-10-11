@@ -1,0 +1,1 @@
+{ "closedAt": null, "createdAt": "2026-10-09T14:50:15Z", "number": 2887, "state": "OPEN", "title": "Kill recovery runs the Telegram alias as the program (sh: /codex: not found, exit 127), then reports the task as oom-killed", "url": "https://github.com/link-assistant/hive-mind/issues/2887" }

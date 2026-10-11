@@ -1,0 +1,29 @@
+label hive-mind.tool on resumed container: "codex"
+[VERBOSE] docker-task-containers: 2/2 running container(s) are tasks: 8c62e0fa-1f38-4463-b24d-a773d56fceb2-resume-1:codex(env), 72a61456-8e13-438c-a850-2310135b7e39:codex(command)
+{
+  "available": true,
+  "containers": [
+    {
+      "id": "0573cfaf0240045b36f1a444f11ea261e866e2896e9c5ffbaca9cfd73358ea5c",
+      "name": "8c62e0fa-1f38-4463-b24d-a773d56fceb2-resume-1",
+      "rootSessionName": "8c62e0fa-1f38-4463-b24d-a773d56fceb2",
+      "parentSessionId": "8c62e0fa-1f38-4463-b24d-a773d56fceb2",
+      "tool": "codex",
+      "toolSource": "env",
+      "url": "https://github.com/link-assistant/router/issues/724",
+      "startedAt": "2026-10-10T06:41:56.501294867Z",
+      "image": "start-command-resume/8c62e0fa-1f38-4463-b24d-a773d56fceb2:1"
+    },
+    {
+      "id": "ee83a2dd0f113f88e1bee4dff5a403a0af53f891454990b94c05f23b41a75bea",
+      "name": "72a61456-8e13-438c-a850-2310135b7e39",
+      "rootSessionName": "72a61456-8e13-438c-a850-2310135b7e39",
+      "parentSessionId": null,
+      "tool": "codex",
+      "toolSource": "command",
+      "url": "https://github.com/link-assistant/router/issues/725",
+      "startedAt": "2026-10-10T06:41:55.030051011Z",
+      "image": "alpine:3.20"
+    }
+  ]
+}

@@ -36,6 +36,7 @@ import { runKillRecoveryForCompletion } from './session-kill-resume.lib.mjs';
 // Issue #2189: the handled latch + the memoized last-tool-session-id read that keep a completed session from replaying its whole completion pipeline on every poll.
 import { isCompletionHandled, markCompletionHandled, resolveCachedLastToolSessionId } from './session-completion-state.lib.mjs';
 import { createSessionRegistryQueries } from './session-monitor.queries.lib.mjs';
+import { createOrphanAdopter } from './session-monitor.adopt.lib.mjs';
 import { enforceContainerDiskLimitForSession as enforceContainerDiskLimit, formatContainerResourceLimitExceededSection } from './container-resource-monitor.lib.mjs';
 export { formatSessionCompletionMessage, getSessionCompletionExitCode } from './work-session-formatting.lib.mjs';
 export { DOCKER_TERMINAL_FOOTER_GRACE_MS } from './session-monitor.docker-terminal.lib.mjs';
@@ -591,6 +592,8 @@ function isNonIsolationSessionActive(sessionName, sessionInfo, verbose = false) 
   }
   return true;
 }
+const adoptOrphanTaskContainers = createOrphanAdopter({ entries: () => [...activeSessions], isTracked: sessionName => activeSessions.has(sessionName), track: (sessionName, sessionInfo) => trackSession(sessionName, sessionInfo), getStore: () => sessionStore, logEvent });
+export { adoptOrphanTaskContainers };
 function getIsolationSessionState(sessionName, sessionInfo, options = {}) {
   return getIsolationSessionStateImpl(sessionName, sessionInfo, { ...options, runnerProvider: getIsolationRunner, persistSnapshot: () => persistSessionSnapshot(sessionName, sessionInfo) });
 }
@@ -600,6 +603,14 @@ function getIsolationSessionState(sessionName, sessionInfo, options = {}) {
  * @param {boolean} verbose - Whether to log verbose output
  */
 export async function monitorSessions(bot, verbose = false, options = {}) {
+  // Issue #2917: re-track task containers resumed outside the bot before checking the registry.
+  if (options.adoptOrphans !== false) {
+    try {
+      await adoptOrphanTaskContainers({ taskContainers: options.taskContainers, verbose, minAgeMs: options.orphanAdoptionMinAgeMs });
+    } catch (error) {
+      console.error(`[session-monitor] Orphan task container adoption failed: ${error.message}`);
+    }
+  }
   const sessions = getActiveSessions(verbose);
   if (sessions.length === 0) {
     return;
@@ -657,6 +668,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
       exitFromLog: options.exitFromLog,
       backendAlive: options.backendAlive,
       sessionRunning: options.sessionRunning,
+      taskContainers: options.taskContainers,
     });
     stillRunning = state.running;
     exitCode = state.exitCode;

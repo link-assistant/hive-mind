@@ -22,6 +22,8 @@ import { isTelegramMessageNotModifiedError, safeEditMessageText } from './telegr
 import { isTelegramRateLimitError, TELEGRAM_PRIORITY_LOW, withTelegramRequestPriority } from './telegram-rate-limit.lib.mjs';
 import { lt } from './limits-i18n.lib.mjs';
 // Issue #2175: throttling decisions live in their own module to keep this file under the 1350-line warning threshold.
+import { getRunningTaskContainers } from './docker-task-containers.lib.mjs';
+import { mergeExternalProcessingSnapshot } from './telegram-solve-queue.external.lib.mjs';
 import { checkApiLimits as checkApiLimitsImpl, checkSystemResources as checkSystemResourcesImpl, getLocale } from './telegram-solve-queue.throttling.lib.mjs';
 export const QueueItemStatus = {
   QUEUED: 'queued',
@@ -165,6 +167,8 @@ export class SolveQueue {
     this.getRunningIsolatedSessionsFn = options.getRunningIsolatedSessions || getRunningIsolatedSessions;
     // Source of currently-executing detached sessions (with issue/PR URLs) used to list executing tasks in the detailed status (issue #1837).
     this.getRunningSessionItemsFn = options.getRunningSessionItems || getRunningSessionItems;
+    // Issue #2917: running docker task containers — ground truth for docker isolation, which neither pgrep nor the in-memory registry can see.
+    this.getRunningTaskContainersFn = options.getRunningTaskContainers || getRunningTaskContainers;
     this.autoStart = options.autoStart !== false;
     // Separate queues per tool type - claude tasks never block other tool tasks See: https://github.com/link-assistant/hive-mind/issues/1159
     this.queues = {
@@ -390,8 +394,8 @@ export class SolveQueue {
       }
       const item = toolQueue[0];
       if (!item) continue;
-      // Determine startability and capture the blocking reason(s) for diagnostics. For tool-specific one-at-a-time, only count that tool's processing items.
-      const toolProcessingCount = this.getProcessingCountByTool(tool);
+      // Determine startability and capture the blocking reason(s) for diagnostics. For tool-specific one-at-a-time, only count that tool's processing items — including (issue #2917) its running detached sessions and task containers, which left the in-memory `processing` map the moment they launched.
+      const toolProcessingCount = this.getProcessingCountByTool(tool) + (check.toolExternalProcessing || 0);
       let startable = false;
       const blockReasons = Array.isArray(check.reasons) ? [...check.reasons] : [];
       if (check.canStart) {
@@ -486,40 +490,32 @@ export class SolveQueue {
     };
   }
   /**
-   * Get external processing counts from both process scanning and tracked
-   * isolated sessions. The displayed/accounted value is the maximum of the two
-   * sources so screen-isolated sessions remain visible even when the AI CLI
-   * process is not directly observable, while regular non-isolated runs still
-   * use pgrep as before.
+   * Get external processing counts from process scanning, tracked isolated
+   * sessions and (issue #2917) the running docker task containers — the only
+   * source that sees a docker-isolated task the bot is not tracking. See
+   * mergeExternalProcessingSnapshot() for how the sources are reconciled.
    *
    * @param {string[]} tools - Tool queues to count
-   * @returns {Promise<{byTool: Object, processByTool: Object, isolatedByTool: Object, total: number, isolatedTotal: number, processTotal: number}>}
+   * @returns {Promise<Object>} snapshot (byTool, untrackedByTool, total, ...)
    */
   async getExternalProcessingSnapshot(tools = Object.keys(this.queues)) {
     const uniqueTools = [...new Set(tools)];
-    const isolated = await this.getRunningIsolatedSessionsFn(this.verbose);
-    const isolatedByTool = isolated.byTool || {};
+    const [isolated, containerResult] = await Promise.all([
+      this.getRunningIsolatedSessionsFn(this.verbose),
+      Promise.resolve()
+        .then(() => this.getRunningTaskContainersFn(this.verbose))
+        .catch(() => null),
+    ]);
     const processByTool = {};
-    const byTool = {};
     await Promise.all(
       uniqueTools.map(async tool => {
         const result = await this.getRunningProcessesFn(tool, this.verbose);
-        const processCount = result?.count || 0;
-        const isolatedCount = isolatedByTool[tool] || 0;
-        processByTool[tool] = processCount;
-        byTool[tool] = Math.max(processCount, isolatedCount);
+        processByTool[tool] = result?.count || 0;
       })
     );
-    const processTotal = Object.values(processByTool).reduce((sum, count) => sum + count, 0);
-    const isolatedTotal = isolated.count || Object.values(isolatedByTool).reduce((sum, count) => sum + count, 0);
-    return {
-      byTool,
-      processByTool,
-      isolatedByTool,
-      total: Math.max(processTotal, isolatedTotal),
-      isolatedTotal,
-      processTotal,
-    };
+    const snapshot = mergeExternalProcessingSnapshot({ tools: uniqueTools, processByTool, isolated: isolated || {}, containerResult });
+    if (this.verbose && snapshot.containerTotal > 0) this.log(`External processing (issue #2917): containers=${JSON.stringify(snapshot.containerByTool)} untracked=${JSON.stringify(snapshot.untrackedByTool)} tracked=${JSON.stringify(snapshot.isolatedByTool)} pgrep=${JSON.stringify(processByTool)}`);
+    return snapshot;
   }
   /**
    * Check if a new command can start.
@@ -662,6 +658,8 @@ export class SolveQueue {
       qwenProcesses: qwenProcessCount,
       geminiProcesses: geminiProcessCount,
       isolatedProcesses: externalProcessing.isolatedTotal,
+      toolExternalProcessing: externalProcessing.byTool[tool] || 0,
+      untrackedProcesses: externalProcessing.untrackedTotal || 0,
       totalProcessing,
       claudeProcessingCount,
       codexProcessingCount,
@@ -1000,6 +998,7 @@ export class SolveQueue {
    * Queues
    * claude (pending: 6, processing: 0)
    * agent (pending: 2, processing: 0)
+   * codex (pending: 0, processing: 4, 2 untracked)
    * ```
    *
    * @returns {Promise<string>}
@@ -1014,7 +1013,11 @@ export class SolveQueue {
     for (const [tool, toolQueue] of Object.entries(this.queues)) {
       const pending = toolQueue.length;
       const processing = externalProcessing.byTool[tool] || 0;
-      message += `${tool} (${lt('queue_pending', {}, { locale })}: ${pending}, ${lt('queue_processing', {}, { locale })}: ${processing})\n`;
+      // Running task containers no tracked session accounts for (issue #2917):
+      // counted in `processing`, and named so the operator can see why.
+      const untracked = externalProcessing.untrackedByTool?.[tool] || 0;
+      const untrackedSuffix = untracked > 0 ? `, ${lt('queue_untracked', { count: untracked }, { locale })}` : '';
+      message += `${tool} (${lt('queue_pending', {}, { locale })}: ${pending}, ${lt('queue_processing', {}, { locale })}: ${processing}${untrackedSuffix})\n`;
     }
     return message;
   }

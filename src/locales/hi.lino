@@ -300,6 +300,7 @@ hi
       pending "प्रतीक्षारत"
       processing "चल रहा"
       processes "{{count}} प्रक्रियाएँ"
+      untracked "{{count}} अनट्रैक्ड"
       status
         cancelled "रद्द"
         failed "विफल"

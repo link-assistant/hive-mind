@@ -121,7 +121,7 @@ Hive Mind में अधिकांश (औसत) प्रोग्रा�
 **समाधान**: Hive Mind कई AI backends का समर्थन करता है:
 
 - **Claude** (Sonnet, Opus, Haiku) - डिफ़ॉल्ट और अनुशंसित
-- **OpenCode** (Grok) - मुफ्त Grok Code Fast model शामिल
+- **OpenCode** (OpenCode Zen) - मुफ्त Big Pickle model शामिल
 - **Codex** (OpenAI) - OpenAI API उपयोगकर्ताओं के लिए
 - **Agent** - कस्टम AI agent framework
 

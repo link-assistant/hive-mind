@@ -289,7 +289,12 @@ export const watchForFeedback = async params => {
       const mergeStateStatus = prStateResult.code === 0 ? prStateResult.stdout.toString().trim() : null;
 
       // Detect feedback using existing function
-      let { feedbackLines } = await detectAndCountFeedback({
+      let {
+        feedbackLines,
+        newPrComments = 0,
+        newPrReviewComments = 0,
+        newIssueComments = 0,
+      } = await detectAndCountFeedback({
         prNumber,
         branchName: prBranch || branchName,
         owner,
@@ -332,7 +337,9 @@ export const watchForFeedback = async params => {
           // before it, so re-running it would leave these same changes
           // uncommitted a sixth time. Stop, preserve the work, and leave the
           // remaining budget unspent.
-          noProgressStop = await stopWhenSessionRepeated({ owner, repo, prNumber, tempDir, branchName: prBranch || branchName, $, log, formatAligned, mode: 'watch', verbose: argv.verbose });
+          // Issue #2839: the message is no longer compared, so a new human comment must exempt the check here too.
+          const hasNewHumanComments = newPrComments + newPrReviewComments + newIssueComments > 0;
+          noProgressStop = hasNewHumanComments ? null : await stopWhenSessionRepeated({ owner, repo, prNumber, tempDir, branchName: prBranch || branchName, $, log, formatAligned, mode: 'watch', verbose: argv.verbose });
           if (noProgressStop) break;
 
           // Issue #2119: claim one iteration from the run-wide budget shared with

@@ -302,8 +302,8 @@ RUN bun install -g @openai/codex && \
 # attempt's memory evidence into `attemptHistory` and records the new attempt's
 # start time, log byte offset and lifecycle boundary. 0.36.0 adds opt-in Docker
 # resource limits and requires exit-time evidence before an OOM verdict. 0.37.0
-# preserves shell argument boundaries and exit codes, and resumes Docker commands
-# without copying the container.
+# adds copy-free Docker command resumes, persistent task labels and faithful
+# shell argument and exit-code handling.
 # `@link-assistant/agent` is pinned to current 0.26.11. Version 0.26.1 stopped the
 # unbounded snapshot leak of issue #2186. Up to 0.26.0 `Snapshot.track()` built a
 # standalone git object store per project — keyed on the worktree's root commit,

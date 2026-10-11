@@ -363,7 +363,7 @@ review --repo owner/repo --pr 456
 solve <issue-url> [options]
 ```
 
-> **📦 Repository mode**: pass a repository URL instead of an issue URL and solve collects every open issue of that repository (oldest first), creates one combined issue that attaches up to 100 of them as GitHub native sub-issues (GitHub's limit per parent) and lists every one of them, including the rest, as a required closing reference, and solves that issue — so a single pull request can close all of them at once. It also turns on `--deep-analysis` and `--ensure-all-sub-issues-addressed`. Issues still attached to an earlier, closed combined issue are moved to the new one, and with `--auto-merge` the pull request is merged only once its description closes every listed issue. When no issues are open, the CLI exits successfully without creating anything; Telegram reports the no-work result directly without starting a work session. See [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#solve-options).
+> **📦 Repository mode**: pass a repository URL instead of an issue URL and solve collects every open issue of that repository (oldest first), creates one combined issue that attaches up to 100 of them as GitHub native sub-issues (GitHub's limit per parent) and lists every one of them, including the rest, as a required closing reference, and solves that issue — so a single pull request can close all of them at once. It also turns on `--deep-analysis` and `--ensure-all-sub-issues-addressed`. Issues still attached to an earlier, closed combined issue are moved to the new one, and with `--auto-merge` the pull request is merged only once its description closes every listed issue. When no issues are open, the CLI exits successfully without creating anything; Telegram reports the no-work result directly without starting a work session. When exactly one issue is open, no combined issue is created: that issue is solved directly, as if its URL had been passed (Telegram also shows and launches the issue URL). See [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#solve-options).
 
 **Most frequently used options:**
 
@@ -503,11 +503,11 @@ Aliases:
 
 Tool alias examples:
 /codex https://github.com/owner/repo/issues/123 --model gpt-5.5
-/opencode https://github.com/owner/repo/issues/123 --model grok-code-fast-1
+/opencode https://github.com/owner/repo/issues/123 --model big-pickle
 /agent https://github.com/owner/repo/issues/123 --model nemotron-3-super-free
 /gemini https://github.com/owner/repo/issues/123 --model flash
 /qwen https://github.com/owner/repo/issues/123 --model qwen3-coder-plus
-/gemini https://github.com/owner/repo/issues/123 --model gemini-2.5-flash
+/gemini https://github.com/owner/repo/issues/123 --model flash
 
 Free Models (with --tool agent):
 /solve https://github.com/owner/repo/issues/123 --tool agent --model nemotron-3-super-free
@@ -532,11 +532,11 @@ Current tool defaults in Hive Mind:
 | ---------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | `claude`   | `opus`                                                                      | Defaults to `--think off`: zero budget when supported, otherwise the lowest effort |
 | `codex`    | newest `gpt-*-sol` in the installed catalogue (`gpt-6-sol` bundled default) | Defaults to `--think off`, mapped to `reasoning_effort=none`                       |
-| `opencode` | `grok-code-fast-1`                                                          | Defaults to `--think off`; no positive thinking prompt is added                    |
+| `opencode` | `big-pickle`                                                                | Defaults to `--think off`; no positive thinking prompt is added                    |
 | `agent`    | `nemotron-3-super-free`                                                     | Defaults to `--think off`; no positive thinking prompt is added                    |
 | `gemini`   | `flash`                                                                     | Defaults to `--think off`; no positive thinking prompt is added                    |
 | `qwen`     | `qwen3-coder-plus`                                                          | Defaults to `--think off`; no positive thinking prompt is added                    |
-| `gemini`   | `gemini-2.5-flash`                                                          | Defaults to `--think off`; no positive thinking prompt is added                    |
+| `gemini`   | `flash`                                                                     | Defaults to `--think off`; no positive thinking prompt is added                    |
 
 See [docs/CONFIGURATION.md](./docs/CONFIGURATION.md) for the full per-tool defaults and reasoning mappings.
 

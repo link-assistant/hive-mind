@@ -93,6 +93,12 @@ assert(wrapped.endsWith('; echo original') && wrapped.startsWith(`h='${HANDOFF}'
 assert(withDockerResumeHandoff('echo original', null) === 'echo original', 'without a token the command is not wrapped');
 assert(parseDockerResumeHandoffPath(JSON.stringify(['/bin/sh', '-c', wrapped])) === HANDOFF, 'the handoff path is read back from `docker inspect` Config.Cmd JSON');
 assert(parseDockerResumeHandoffPath(JSON.stringify(['/bin/sh', '-c', 'solve https://x'])) === null, 'a container created before the prefix has no handoff');
+// start-command 0.37 wraps detached containers in its own selector, which runs before the Hive Mind prefix.
+const upstreamWrapper = marker => ['sh', '-c', 'p=$1; shift; if [ -f "$p" ]; then exec sh "$p"; fi; exec "$@"', 'start-command-handoff', marker];
+const UPSTREAM_MARKER = `/.start-command-resume-${SESSION}`;
+assert(parseDockerResumeHandoffPath(JSON.stringify([...upstreamWrapper(UPSTREAM_MARKER), 'sh', '-c', 'solve https://x'])) === UPSTREAM_MARKER, "a start-command 0.37 container without the prefix resumes through start-command's own marker");
+assert(parseDockerResumeHandoffPath(JSON.stringify([...upstreamWrapper(UPSTREAM_MARKER), 'sh', '-c', wrapped])) === UPSTREAM_MARKER, 'with both selectors the outer start-command marker is used, since it is checked first');
+assert(parseDockerResumeHandoffPath(JSON.stringify([...upstreamWrapper('/etc/passwd'), 'sh', '-c', wrapped])) === HANDOFF, 'an unexpected marker path is ignored');
 assert(buildShellCommandLine('solve', ['a b', "it's"]) === `'solve' 'a b' 'it'\\''s'`, 'recovery arguments are shell-quoted');
 assert(buildRecoveryShellCommand(killedSession(), plan) === `'solve' 'https://github.com/link-assistant/hive-mind/pull/2894' '--resume' '${TOOL_SESSION}'`, 'the container runs `solve`, never the chat display form `/solve ...`');
 assert(buildDockerResumeHandoffScript("'solve' '--resume' 'x'").includes("\nexec 'solve' '--resume' 'x'\n"), 'the handoff file execs the recovery command');

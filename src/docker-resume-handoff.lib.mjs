@@ -30,6 +30,13 @@
  * and takes the snapshot path, which is guarded separately (see
  * `./docker-resume-snapshot-guard.lib.mjs`).
  *
+ * start-command 0.37 (link-foundation/start#198) wraps every new detached
+ * container in its own selector, `sh -c 'p=$1; shift; if [ -f "$p" ]; then exec
+ * sh "$p"; fi; exec "$@"' start-command-handoff <marker> <command...>`. That
+ * marker is checked before the Hive Mind prefix, so when it is present it is the
+ * handoff path: it also covers containers created by start-command 0.37 before
+ * Hive Mind added its own prefix.
+ *
  * @see https://github.com/link-assistant/hive-mind/issues/2889
  */
 
@@ -43,6 +50,9 @@ export const DOCKER_RESUME_HANDOFF_PATH_PREFIX = '/tmp/hive-mind-resume-command-
 
 const HANDOFF_TOKEN_RE = /^[A-Za-z0-9._-]+$/;
 const HANDOFF_PREFIX_RE = /h='(\/tmp\/hive-mind-resume-command-[A-Za-z0-9._-]+)'; if \[ -f "\$h" \]; then exec sh "\$h"; fi;/;
+/** argv[3] of start-command's own handoff wrapper; argv[4] is its marker path. */
+export const START_COMMAND_HANDOFF_ARGV0 = 'start-command-handoff';
+const START_COMMAND_MARKER_RE = /^\/\.start-command-resume-[A-Za-z0-9._-]+$/;
 
 function shellQuote(value) {
   const stringValue = String(value);
@@ -94,16 +104,18 @@ export function withDockerResumeHandoff(command, token) {
  * @returns {string|null} Null for containers created without the handoff prefix
  */
 export function parseDockerResumeHandoffPath(cmd) {
-  let text = Array.isArray(cmd) ? cmd.join(' ') : String(cmd || '');
-  if (!Array.isArray(cmd)) {
+  let argv = Array.isArray(cmd) ? cmd : null;
+  if (!argv) {
     try {
-      const parsed = JSON.parse(text);
-      if (Array.isArray(parsed)) text = parsed.join(' ');
+      const parsed = JSON.parse(String(cmd || ''));
+      if (Array.isArray(parsed)) argv = parsed;
     } catch {
       // Plain text, not inspect JSON.
     }
   }
-  const match = HANDOFF_PREFIX_RE.exec(text);
+  // start-command's selector runs first, so its marker wins over the prefix below.
+  if (argv?.[3] === START_COMMAND_HANDOFF_ARGV0 && START_COMMAND_MARKER_RE.test(String(argv[4] || ''))) return argv[4];
+  const match = HANDOFF_PREFIX_RE.exec(argv ? argv.join(' ') : String(cmd || ''));
   return match ? match[1] : null;
 }
 

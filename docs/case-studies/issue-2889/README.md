@@ -6,13 +6,14 @@
 
 ## Data in this folder
 
-| File                                       | What it is                                                                                                   |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
-| `data/issue-2889.json`                     | The issue as filed (title, body, author, timestamps)                                                         |
-| `data/issue-2889-comments.json`            | Issue comments: the start#193 cross-reference and the owner's note that start PR #196 fixed the tracking bug |
-| `data/pr-2894-comments.json`               | PR conversation comments (the failed first solution draft and the session start)                             |
-| `data/pr-2894-review-comments.json`        | PR inline review comments (none)                                                                             |
-| `data/docker-start-handoff-experiment.log` | Output of `experiments/issue-2889-docker-start-handoff.mjs --compare-snapshot` on a real Docker daemon       |
+| File                                                    | What it is                                                                                                   |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `data/issue-2889.json`                                  | The issue as filed (title, body, author, timestamps)                                                         |
+| `data/issue-2889-comments.json`                         | Issue comments: the start#193 cross-reference and the owner's note that start PR #196 fixed the tracking bug |
+| `data/pr-2894-comments.json`                            | PR conversation comments (the failed first solution draft and the session start)                             |
+| `data/pr-2894-review-comments.json`                     | PR inline review comments (none)                                                                             |
+| `data/docker-start-handoff-experiment.log`              | Output of `experiments/issue-2889-docker-start-handoff.mjs --compare-snapshot` on a real Docker daemon       |
+| `data/docker-start-handoff-experiment-start-0.37.1.log` | The same experiment on start-command 0.37.1, the version `main` now pins                                     |
 
 The incident host itself (the dockerd journal, `docker system df`, the container list) was not available to this session. The timeline and numbers below come from the issue body, which quotes them. Everything about how the code behaves was checked against the source and against a real Docker daemon (see [Experiment](#experiment-real-docker)).
 
@@ -131,12 +132,20 @@ $ --resume -- <command> (previous behaviour): mode=docker-snapshot in 2511 ms; i
 
 The same 64 MiB layer becomes a 74.9 MB image with the old path and nothing with the new one. The cost of the old path grows with the layer size: 11–37 GiB in the incident.
 
+### start-command 0.37
+
+start-command 0.37.0 (start PR #204, which fixes start#198) wraps every new detached container in its own selector, `sh -c 'p=$1; shift; if [ -f "$p" ]; then exec sh "$p"; fi; exec "$@"' start-command-handoff /.start-command-resume-<name> <command…>`. `$ --resume <id> -- <command>` then writes the command to that marker with `docker cp` and runs `docker start`. Legacy containers still take a snapshot, now behind a host lock and a free-space check.
+
+Hive Mind 2.35.4–2.35.7 pin start-command 0.37.1. The containers they created have start-command's selector but not the Hive Mind prefix. Before this was handled, Hive Mind treated them as legacy and ran them through its own snapshot guard. A recovery that start-command would have done without a copy could then wait for 2 × the layer + 10 GiB of free disk, or fall back to a fresh run. `parseDockerResumeHandoffPath` now returns start-command's marker when the container command is its selector. The selector runs before the Hive Mind prefix, so its marker takes priority whenever both are present. Such containers then take the same `docker cp` + `docker start` path.
+
+The experiment on start-command 0.37.1 ([full output](./data/docker-start-handoff-experiment-start-0.37.1.log)) passes with both the prefixed container and a container launched with plain `$ --isolated docker --detached` (as in Hive Mind 2.35.4–2.35.7). Both resume as `docker-start` in the same container, and no image is committed. On 0.37.1 the old `--resume -- <command>` call is also copy-free. The experiment was run on 0.36.0 again with the same result as before. The helpers resolve `$` with `which`, so the experiment puts `START_COMMAND_BIN`'s directory first on `PATH`. An earlier run without this resumed with the global 0.36.0 and showed a misleading `docker-snapshot`.
+
 `examples/issue-2889-manual-docker-start-recovery.sh` is the same procedure for an operator recovering a container by hand.
 
 ## Tests
 
-- `tests/test-issue-2889-docker-resume-handoff.mjs` (default suite, 72 assertions). It covers:
-  - the handoff prefix (including running it in a real `sh`);
+- `tests/test-issue-2889-docker-resume-handoff.mjs` (default suite, 75 assertions). It covers:
+  - the handoff prefix (including running it in a real `sh`), and start-command 0.37's own selector taking priority;
   - the Docker helpers on non-zero exits;
   - the disk guard and the queue;
   - the docker-start path: tracking keys, a handoff write failure, the relaunch race, and limits on start-command 0.34.1;
@@ -152,11 +161,15 @@ The same 64 MiB layer becomes a 74.9 MB image with the old path and nothing with
 ## Upstream reports
 
 - link-foundation/start#193: concurrent `$ --resume` loses the execution record (lock timeout). Already filed and fixed in start PR #196.
-- link-foundation/start#198: `--resume <id> -- <command>` copies the whole writable layer with no disk preflight, no serialization and no cleanup. It suggests a copy-free command handoff for `docker start` ([copy](./upstream-start-snapshot-storage.md)).
+- link-foundation/start#198: `--resume <id> -- <command>` copies the whole writable layer with no disk preflight, no serialization and no cleanup. It suggests a copy-free command handoff for `docker start` ([copy](./upstream-start-snapshot-storage.md)). Fixed upstream in start PR #204 (start-command 0.37.0, merged 2026-10-10): a command handoff for new detached containers, a host lock and a free-space check for legacy snapshots, `--remove-original`, and snapshot image cleanup. See [start-command 0.37](#start-command-037) for how Hive Mind uses it.
 
 ## Limitations
 
-- **Containers created before this change** still need a snapshot for their first recovery. It is now bounded (one at a time, headroom, original removed), but it is still a full copy and still slow on containerd. Their derived container has the handoff, so later recoveries are copy-free.
+- **Containers created before this change by start-command 0.36 or older** still need a snapshot for their first recovery. Containers created by start-command 0.37 or newer use its selector and are copy-free. It is now bounded (one at a time, headroom, original removed), but it is still a full copy and still slow on containerd. Their derived container has the handoff, so later recoveries are copy-free.
 - **Dropping regenerable caches before a snapshot** (`target/`, `node_modules/.cache`) is not done. The container is stopped, starting it re-runs its original command, and editing the snapshotter's directories needs root on the host. The copy-free path makes it unnecessary for new containers.
 - **The headroom check measures the Docker data root** reported by `checkDockerDiskSpace` (`docker info` `DockerRootDir`, then `df` where the bot runs). If containerd's root (`/var/lib/containerd`) is on a different filesystem, it is not what gets measured. In the incident both were on `/`.
-- **The snapshot queue is per bot process.** Two bots sharing one Docker host do not serialize against each other.
+- **The snapshot queue is per bot process.** Two bots sharing one Docker host do not serialize against each other through it. start-command 0.37's host lock does serialize their commits.
+
+## Session history
+
+The second solution session (2026-10-10) finished the work: its final result event was `"subtype": "success"`, with CI green on `b49e2529`. Even so, it was reported as "Solution Draft Failed" and the PR was converted back to draft. A background `npm test` wait was still running when the solver's 30 s post-result timeout sent SIGTERM, and the exit code 143 was counted as a failure. That misclassification is issue #3015, fixed on `main` (`78b6ba63`, "do not fail a successful session the solver itself stopped", and `8f714aae`, "post-result close timeout waits for print-mode background tasks"). The third session merged `main`, which also brought the Bun 1.4.3 pin this PR had added and start-command 0.37.1. It rechecked every requirement and added the start-command 0.37 compatibility described above.

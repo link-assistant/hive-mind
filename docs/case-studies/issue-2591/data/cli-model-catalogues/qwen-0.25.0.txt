@@ -1,0 +1,101 @@
+Qwen Code model catalogue evidence (issue #2591)
+================================================
+Collected: 2026-10-10, read-only inspection of the installed package. No model API was called.
+Binary: ~/.bun/bin/qwen -> ~/.bun/install/global/node_modules/@qwen-code/qwen-code/cli-entry.js
+Root:   P=~/.bun/install/global/node_modules/@qwen-code/qwen-code ; K=$P/chunks
+The chunks are minified onto line 3 of each file; "file:3" plus a quoted substring
+identifies each claim.
+
+1. Version
+----------
+$ qwen --version
+0.25.0
+$P/package.json:3   "version": "0.25.0",
+$ qwen --help  ->  "-m, --model  Model [string]"  and  "--fallback-model ... (max 3)"
+
+2. Default model
+----------------
+$K/chunk-4ZBZL23U.js:3   var DEFAULT_QWEN_MODEL="coder-model";
+$K/chunk-HPSXLIXS.js:3   var MAINLINE_CODER_MODEL="qwen3.7-max"
+$K/chunk-HPSXLIXS.js:3   var DEFAULT_MODELS={openai:MAINLINE_CODER_MODEL,"qwen-oauth":DEFAULT_QWEN_MODEL}
+$K/chunk-HPSXLIXS.js:3   var QWEN_OAUTH_MODELS=[{id:"coder-model",name:"coder-model",
+                           description:"Qwen 3.7 Max — efficient hybrid model with leading coding performance",
+                           capabilities:{vision:true}}]
+$K/chunk-HPSXLIXS.js:3   var QWEN_OAUTH_ALLOWED_MODELS=QWEN_OAUTH_MODELS.map(model=>model.id)
+$K/chunk-QJ3UTSP5.js:1987  const defaultModel=authType?DEFAULT_MODELS[authType]:"";
+=> auth "qwen-oauth": default "coder-model" (server alias, described as Qwen 3.7 Max)
+=> auth "openai" (OPENAI_API_KEY / DashScope / Coding Plan etc.): default "qwen3.7-max"
+=> other auth types (anthropic, gemini, vertex-ai): no default, model must be set
+   (env var chosen by getDefaultModelEnvVar, $K/chunk-HPSXLIXS.js:3;
+   AUTH_ENV_MAPPINGS.openai.model = ["OPENAI_MODEL","QWEN_MODEL"]).
+
+3. Alias resolution
+-------------------
+Qwen OAuth accepts exactly one model id, "coder-model"; anything else is rewritten:
+$K/chunk-QJ3UTSP5.js:1987  function resolveQwenOAuthConfig(input,warnings){ ...
+   const allowedModels=new Set(QWEN_OAUTH_ALLOWED_MODELS);
+   const requestedModel=cli?.model||settings?.model; ...
+   if(requestedModel&&allowedModels.has(requestedModel)){resolvedModel=requestedModel ...}
+   else{ ... warnings.push(`Warning: Unsupported Qwen OAuth model '${requestedModel}',
+         falling back to '${DEFAULT_QWEN_MODEL}'.${extraMessage}`) } resolvedModel=DEFAULT_QWEN_MODEL
+   extraMessage: "vision-model has been removed since coder-model now supports vision capabilities."
+
+alias          -> resolves to
+coder-model    -> Qwen 3.7 Max on the Qwen OAuth backend (server-side alias; description above)
+<anything else> under qwen-oauth -> coder-model (with warning)
+(no client-side alias table such as "qwen"/"latest" exists for API-key auth: the id
+ given with -m is sent verbatim to the OpenAI-compatible endpoint)
+
+Qwen OAuth itself is retired:
+$K/chunk-KJJADBAS.js:3  if(authMethod==="qwen-oauth"){return t("Qwen OAuth free tier was discontinued
+                        on 2026-04-15. Run /auth to switch to Coding Plan, OpenRouter, Fireworks AI,
+                        or another provider.")}
+$P/locales/en.js:2545-2546 and $K/ca-7RIC6AOT.js:3 carry the related string ("qwen auth qwen-oauth - Authenticate
+with Qwen OAuth (discontinued)").
+
+4. Built-in provider model lists ($K/chunk-EG3H5M5K.js:3)
+---------------------------------------------------------
+Coding Plan (BAILIAN_CODING_PLAN_API_KEY, https://coding-intl.dashscope.aliyuncs.com/v1):
+  var MODELSTUDIO_MODELS = qwen3.5-plus, qwen3.6-plus, qwen3.7-plus, glm-5, kimi-k2.5,
+      MiniMax-M2.5, qwen3-coder-plus, qwen3-coder-next, qwen3-max-2026-01-23, glm-4.7
+Token Plan (BAILIAN_TOKEN_PLAN_API_KEY):
+  var TOKEN_PLAN_MODELS = qwen3.7-plus, qwen3.6-plus, qwen3.7-max, qwen3.8-max,
+      qwen3.8-max-preview, qwen3.6-flash, deepseek-v4-pro, deepseek-v4-flash-0731,
+      deepseek-v3.2, kimi-k2.7-code, kimi-k2.6, kimi-k2.5, glm-5.2, glm-5.1, glm-5,
+      MiniMax-M2.5, qwen3.8-flash, deepseek-v4-pro-0813
+Alibaba Cloud Model Studio standard ("alibabaStandard", DashScope):
+  qwen3.6-plus, qwen3.7-plus, qwen3.7-max, glm-5.1, deepseek-v4-pro, deepseek-v4-flash,
+  qwen3.8-max, qwen3.8-max-0902, qwen3.8-flash, deepseek-v4-pro-0813, deepseek-v4-flash-0731,
+  kimi-k3, kimi-k2.7-code, kimi-k2.6
+  qwen3.8-max reasoning profile: efforts ["low","medium","xhigh"], defaultEffort "xhigh".
+Token-limit / modality catalogue (not a selectable list) $K/chunk-NAIFCE7R.js:3 also knows
+  qwen3-coder-plus, qwen3-coder-flash, qwen3-coder-480b-a35b-instruct, qwen3.8-max, qwen3.8-flash.
+Settings help text $K/chunk-YTGSMYYG.js:3 mentions "qwen3-coder-flash" only as an example.
+
+Presence check (grep -l -F over $K/*.js):
+  qwen3-coder-plus   : chunk-EG3H5M5K.js (Coding Plan), chunk-NAIFCE7R.js (limits)
+  qwen3-coder-flash  : chunk-NAIFCE7R.js (limits), chunk-YTGSMYYG.js (help text) - no provider list
+  "qwen3-coder"      : chunk-YTGSMYYG.js only - no provider list
+  qwen3.6-coder-plus : NOT FOUND anywhere
+  qwen3.6-plus       : provider lists (Coding Plan, Token Plan, alibabaStandard)
+  qwen3.7-max        : Token Plan, alibabaStandard, MAINLINE_CODER_MODEL
+
+5. Hive Mind catalogue comparison
+---------------------------------
+Hive Mind: /tmp/gh-issue-solver-1791617397327/src/models/catalog.mjs
+  :236-246 qwenModels ; :281 defaultModels.qwen = 'qwen3-coder-plus'
+
+Hive key              -> Hive value          | Qwen Code 0.25.0 reality
+qwen, qwen-coder, qwen3 -> qwen3-coder-plus  | STALE: CLI default is coder-model (OAuth) / qwen3.7-max (API key)
+qwen3-coder           -> qwen3-coder         | STALE: in no provider list
+qwen3-coder-plus      -> qwen3-coder-plus    | legacy: Coding Plan only; under qwen-oauth silently replaced by coder-model
+qwen3-coder-flash     -> qwen3-coder-flash   | STALE: in no provider list
+qwen3.6-plus          -> qwen3.6-plus        | OK (Coding Plan, Token Plan, alibabaStandard)
+qwen3.6-coder-plus    -> qwen3.6-coder-plus  | STALE: string does not exist in the package
+
+MISSING from qwenModels:
+  coder-model (the CLI's own default/alias), qwen3.7-max (API-key default), qwen3.8-max,
+  qwen3.8-max-preview, qwen3.8-flash, qwen3.7-plus, qwen3.6-flash, qwen3.5-plus,
+  qwen3-coder-next, qwen3-max-2026-01-23.
+
+Default: Hive defaultModels.qwen = 'qwen3-coder-plus' disagrees with the CLI defaults above.

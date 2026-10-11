@@ -1,6 +1,6 @@
 {
   "name": "@link-assistant/hive-mind",
-  "version": "2.35.3",
+  "version": "2.35.4",
   "description": "AI-powered issue solver and hive mind for collaborative problem solving",
   "main": "src/hive.mjs",
   "type": "module",
@@ -73,7 +73,7 @@
     "husky": "^9.1.7",
     "jscpd": "^5.4.1",
     "lint-staged": "^17.6.0",
-    "prettier": "^3.9.9",
+    "prettier": "^3.9.10",
     "test-anywhere": "^0.9.1"
   },
   "dependencies": {

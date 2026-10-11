@@ -68,7 +68,7 @@ export function killRecoveryHeadline(cause) {
  * @param {boolean} [options.oomEventOnly] - A child OOM event preceded an ordinary work failure
  * @param {{reason: string, line: string}|null} [options.deliberateStop] - solve's own stop verdict (issue #2408)
  * @param {string|null} [options.recoverySessionId] - Id of that working session
- * @param {string|{display: string}|null} [options.resumeCommand] - Command to resume manually
+ * @param {string|{shell?: string, display?: string}|null} [options.resumeCommand] - Shell command to resume manually
  * @param {number|null} [options.attempt] - Resume attempt number
  * @param {number|null} [options.maxAttempts]
  * @param {boolean} [options.attachLogs] - Whether --attach-logs is enabled
@@ -135,9 +135,11 @@ export function buildKillRecoveryNotice({ diagnosis = null, exitCode = null, ses
     lines.push('_The intermediate working-session log was not uploaded because `--attach-logs` is disabled._', '');
   }
 
-  // Issue #2408: callers hold buildResumeCommand()'s `{ binary, args, display }`
-  // object, which a template rendered as "[object Object]".
-  const manualCommand = typeof resumeCommand === 'string' ? resumeCommand : resumeCommand?.display || null;
+  // Issue #2408: callers hold buildResumeCommand()'s `{ binary, args, display, shell }`
+  // object, which a template rendered as "[object Object]". Issue #2887: this
+  // is a `bash` block, so prefer the runnable `shell` form over the Telegram
+  // alias in `display` (`/codex …` is not a program).
+  const manualCommand = typeof resumeCommand === 'string' ? resumeCommand : resumeCommand?.shell || resumeCommand?.display || null;
   if (manualCommand) {
     lines.push('To continue manually:', '', '```bash', manualCommand, '```', '');
   }

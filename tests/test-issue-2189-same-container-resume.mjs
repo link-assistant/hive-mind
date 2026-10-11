@@ -56,7 +56,7 @@ const killedSession = (overrides = {}) => ({
   ...overrides,
 });
 
-const plan = { command: { args: ['--resume', TOOL_SESSION], display: `solve --resume ${TOOL_SESSION}` }, shouldResume: true, attempt: 1, maxAttempts: 1 };
+const plan = { command: { args: ['--resume', TOOL_SESSION], display: `solve --resume ${TOOL_SESSION}`, shell: `solve --resume ${TOOL_SESSION}` }, shouldResume: true, attempt: 1, maxAttempts: 1 };
 
 // ---------------------------------------------------------------------------
 // 1. The pure policy
@@ -109,7 +109,7 @@ const inPlace = await resumeKilledSessionInPlace({ sessionName: SESSION, session
 assert(inPlace.resumed === true && inPlace.reason === 'resumed-in-place', 'a live-but-stopped container is resumed in place');
 assert(runner.calls.exists[0] === SESSION, 'the container is inspected before the resume is attempted');
 assert(runner.calls.resume[0].identifier === UUID, 'the execution is addressed by its UUID, so `--status` keeps working');
-assert(runner.calls.resume[0].options.command === plan.command.display, 'the recovery command is handed to `$ --resume -- <command>`');
+assert(runner.calls.resume[0].options.command === plan.command.shell, 'the runnable shell form of the recovery command is handed to `$ --resume -- <command>` (issue #2887)');
 assert(inPlace.sessionId === `${SESSION}-resume-1`, 'the session is tracked under the name `$` reports after the snapshot');
 assert(inPlace.executionUuid === UUID, 'the execution UUID survives the resume, so one logical session keeps one log');
 assert(inPlace.snapshotImage === `start-command-resume/${SESSION}:1`, 'the snapshot image is reported for the operator');

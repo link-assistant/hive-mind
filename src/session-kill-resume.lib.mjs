@@ -26,9 +26,42 @@ import { resolveOnSessionKillPolicy, resolveSessionKillResumeAttempts, pickSessi
 import { argvFromSessionArgs } from './session-monitor.kill-sections.lib.mjs';
 import { formatKillResumeSection } from './session-kill-diagnostics.lib.mjs';
 import { resumeKilledSessionInPlace } from './session-kill-resume.in-place.lib.mjs';
+import { describeCommandStartFailure } from './session-status.lib.mjs';
 
 /** Field recording how many automatic recovery sessions this session produced. */
 export const KILL_RESUME_ATTEMPTS_FIELD = 'killRecoveryAttempts';
+
+/**
+ * Whether a finished session is an in-place recovery whose command never
+ * started (exit 126/127). Issue #2887: `$ --resume … -- /codex …` spent a
+ * 10–35 minute `docker commit` and then exited 127, and the work silently
+ * stopped — an ordinary `failed` exit is not a kill, so nothing recovered it.
+ * The kill it was recovering from still needs a recovery, so the completion
+ * handler starts one through the fresh-launch path (which runs the real argv,
+ * not a shell string) instead of dropping the session. A fresh recovery that
+ * exits 127 is not retried again, so this cannot loop.
+ *
+ * @param {Object} options
+ * @param {Object} options.sessionInfo - The finished session's info
+ * @param {number|null} options.exitCode - Its own final exit code
+ * @returns {{exitCode: number, reason: string, description: string, recoveredSession: string|null}|null}
+ */
+export function detectFailedRecoveryStart({ sessionInfo = null, exitCode = null } = {}) {
+  if (sessionInfo?.killRecoveryResumed !== true || sessionInfo?.killRecoveryInPlace !== true) return null;
+  if (sessionInfo?.stopRequestedByUser === true) return null;
+  const failure = describeCommandStartFailure(exitCode);
+  return failure ? { ...failure, recoveredSession: sessionInfo.killRecoveryOfSession || null } : null;
+}
+
+/** The `--resume <id>` value already present in persisted args, if any. */
+function resumeIdFromArgs(args) {
+  if (!Array.isArray(args)) return null;
+  for (let i = args.length - 1; i >= 0; i--) {
+    if ((args[i] === '--resume' || args[i] === '-r') && typeof args[i + 1] === 'string') return args[i + 1];
+    if (typeof args[i] === 'string' && args[i].startsWith('--resume=')) return args[i].slice('--resume='.length);
+  }
+  return null;
+}
 
 /** Default wait used before a recovery starts; replaced in tests. */
 export const sleepBeforeRecovery = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -45,13 +78,17 @@ export const sleepBeforeRecovery = ms => new Promise(resolve => setTimeout(resol
  * @param {Object} [options.env]
  * @param {boolean} [options.verbose]
  * @param {Function} [options.readLastSessionId] - Override for tests
+ * @param {Object|null} [options.recoveryStartFailure] - detectFailedRecoveryStart() result (issue #2887)
  * @returns {{shouldResume: boolean, reason: string, policy: string, command: Object|null, attempt: number, maxAttempts: number, lastSessionId: string|null}}
  */
-export function planKillRecovery({ sessionInfo = {}, logPath = null, killed = false, env = process.env, verbose = false, readLastSessionId = readLastSessionIdFromLog } = {}) {
+export function planKillRecovery({ sessionInfo = {}, logPath = null, killed = false, env = process.env, verbose = false, readLastSessionId = readLastSessionIdFromLog, recoveryStartFailure = null } = {}) {
   const argv = argvFromSessionArgs(sessionInfo?.args);
   const policy = resolveOnSessionKillPolicy({ argv, env, sessionInfo, verbose });
   const maxAttempts = resolveSessionKillResumeAttempts({ argv, env });
-  const attempts = Number.isFinite(sessionInfo?.[KILL_RESUME_ATTEMPTS_FIELD]) ? sessionInfo[KILL_RESUME_ATTEMPTS_FIELD] : 0;
+  const recorded = Number.isFinite(sessionInfo?.[KILL_RESUME_ATTEMPTS_FIELD]) ? sessionInfo[KILL_RESUME_ATTEMPTS_FIELD] : 0;
+  // Issue #2887: an attempt whose command never started did no work, so it
+  // does not use up the budget — the replacement takes its attempt number.
+  const attempts = recoveryStartFailure ? Math.max(0, recorded - 1) : recorded;
   const base = { shouldResume: false, policy, command: null, attempt: attempts, maxAttempts, lastSessionId: null };
 
   if (!shouldResumeKilledSession({ policy, killed })) {
@@ -62,7 +99,10 @@ export function planKillRecovery({ sessionInfo = {}, logPath = null, killed = fa
     return { ...base, reason: 'stopped-by-user' };
   }
 
-  const lastSessionId = readLastSessionId(logPath, { verbose });
+  // A failed in-place start shares the killed session's log; if its last
+  // `Session ID:` cannot be read, the id that attempt was started with is the
+  // same one (issue #2887).
+  const lastSessionId = readLastSessionId(logPath, { verbose }) || (recoveryStartFailure ? resumeIdFromArgs(sessionInfo?.args) : null);
   const plan = planKilledSessionResume({ sessionInfo, lastSessionId, attempts, maxAttempts });
   return { ...base, shouldResume: plan.resumable, reason: plan.reason, command: plan.command, attempt: plan.attempt, lastSessionId: lastSessionId || null };
 }
@@ -109,9 +149,10 @@ export function collectPreviousExecutionUuids(sessionInfo, nextExecutionUuid) {
  * @param {Function} [options.sleep] - Waits the random pre-launch delay (issue #2498)
  * @param {Function} [options.random] - Test seam for the delay
  * @param {boolean} [options.verbose]
+ * @param {Object|null} [options.recoveryStartFailure] - Skip the in-place path: the last in-place start could not run its command (issue #2887)
  * @returns {Promise<{resumed: boolean, reason: string, sessionId: string|null, display: string|null, inPlace: boolean, delayMs: number}>}
  */
-export async function startKillRecoverySession({ sessionName, sessionInfo, plan, runner, trackSession, persistSnapshot = null, env = process.env, sleep = sleepBeforeRecovery, random, onLifecycle = async () => {}, verbose = false } = {}) {
+export async function startKillRecoverySession({ sessionName, sessionInfo, plan, runner, trackSession, persistSnapshot = null, env = process.env, sleep = sleepBeforeRecovery, random, onLifecycle = async () => {}, verbose = false, recoveryStartFailure = null } = {}) {
   let delayMs = 0;
   const notify = async event => {
     try {
@@ -150,7 +191,7 @@ export async function startKillRecoverySession({ sessionName, sessionInfo, plan,
           .then(stat => stat.size)
           .catch(() => null)
       : null;
-    const inPlace = await resumeKilledSessionInPlace({ sessionName, sessionInfo, plan, runner, verbose });
+    const inPlace = recoveryStartFailure ? { resumed: false, reason: `previous-in-place-${recoveryStartFailure.reason}`, sessionId: null, executionUuid: null, mode: null } : await resumeKilledSessionInPlace({ sessionName, sessionInfo, plan, runner, verbose });
     let newSessionId = inPlace.sessionId;
     let executionUuid = inPlace.executionUuid;
     let logPath = inPlace.resumed ? sessionInfo?.logPath || null : null;
@@ -202,6 +243,9 @@ export async function startKillRecoverySession({ sessionName, sessionInfo, plan,
         previousExecutionUuids: collectPreviousExecutionUuids(sessionInfo, executionUuid),
         killRecoveryInPlace: inPlace.resumed,
         killRecoveryResumeMode: inPlace.mode || null,
+        // Issue #2887: what was actually executed, for `--status`/log forensics.
+        killRecoveryCommand: inPlace.resumed ? plan.command.shell : [sessionInfo?.command || 'solve', ...plan.command.args].join(' '),
+        killRecoveryStartFailure: recoveryStartFailure ? { exitCode: recoveryStartFailure.exitCode, reason: recoveryStartFailure.reason, session: sessionName } : sessionInfo?.killRecoveryStartFailure,
         oomEventObservedAt: undefined,
         dockerBackendGoneFirstSeenAt: undefined,
         // The recovery session has not been recovered itself (yet) (#2408).
@@ -233,7 +277,7 @@ export async function startKillRecoverySession({ sessionName, sessionInfo, plan,
 
     if (verbose) {
       const how = inPlace.resumed ? `resumed in place (${inPlace.mode || 'unknown mode'})` : `started fresh (in-place resume skipped: ${inPlace.reason})`;
-      console.log(`[VERBOSE] Session ${sessionName} was killed; recovery session ${newSessionId} ${how} (attempt ${plan.attempt}/${plan.maxAttempts}): ${plan.command.display}`);
+      console.log(`[VERBOSE] Session ${sessionName} was killed; recovery session ${newSessionId} ${how} (attempt ${plan.attempt}/${plan.maxAttempts}): ${inPlace.resumed ? `$ --resume ${inPlace.executionUuid} -- ${plan.command.shell}` : `${sessionInfo?.command || 'solve'} ${plan.command.args.join(' ')}`}`);
     }
     await notify({ phase: 'launching', stage: 'accepted', attempt: plan.attempt, nextSession: newSessionId, executionUuid });
     return { resumed: true, reason: inPlace.resumed ? inPlace.reason : 'started', sessionId: newSessionId, display: plan.command.display, inPlace: inPlace.resumed, delayMs };
@@ -252,7 +296,7 @@ export async function startKillRecoverySession({ sessionName, sessionInfo, plan,
  * @param {Object} options - See planKillRecovery() and startKillRecoverySession()
  * @returns {Promise<{resumed: boolean, reason: string, policy: string, sessionId: string|null, display: string|null, attempt: number, maxAttempts: number, inPlace: boolean}>}
  */
-export async function recoverKilledSession({ sessionName, sessionInfo, logPath = null, killed = false, env = process.env, runner = null, trackSession = null, persistSnapshot = null, sleep = sleepBeforeRecovery, random, onLifecycle, verbose = false, readLastSessionId = readLastSessionIdFromLog } = {}) {
+export async function recoverKilledSession({ sessionName, sessionInfo, logPath = null, killed = false, env = process.env, runner = null, trackSession = null, persistSnapshot = null, sleep = sleepBeforeRecovery, random, onLifecycle, verbose = false, readLastSessionId = readLastSessionIdFromLog, recoveryStartFailure = null } = {}) {
   // Issue #2408: one kill gets one recovery. A completion that runs again for
   // the same session (an overlapping monitor tick, a bot restart between the
   // launch and the completion latch) must report the session already started,
@@ -266,7 +310,7 @@ export async function recoverKilledSession({ sessionName, sessionInfo, logPath =
   }
   let plan;
   try {
-    plan = planKillRecovery({ sessionInfo, logPath, killed, env, verbose, readLastSessionId });
+    plan = planKillRecovery({ sessionInfo, logPath, killed, env, verbose, readLastSessionId, recoveryStartFailure });
   } catch (error) {
     if (verbose) console.log(`[VERBOSE] Could not plan kill recovery for ${sessionName}: ${error?.message || error}`);
     return { resumed: false, reason: 'plan-error', policy: ON_SESSION_KILL_RESUME, sessionId: null, display: null, attempt: 0, maxAttempts: 0, inPlace: false };
@@ -277,7 +321,8 @@ export async function recoverKilledSession({ sessionName, sessionInfo, logPath =
     return { resumed: false, reason: plan.reason, policy: plan.policy, sessionId: null, display: plan.command?.display || null, attempt: plan.attempt, maxAttempts: plan.maxAttempts, inPlace: false };
   }
 
-  const started = await startKillRecoverySession({ sessionName, sessionInfo, plan, runner, trackSession, persistSnapshot, env, sleep, random, onLifecycle, verbose });
+  if (verbose && recoveryStartFailure) console.log(`[VERBOSE] Recovery session ${sessionName} exited ${recoveryStartFailure.exitCode} (${recoveryStartFailure.description}) without running its command; starting a fresh recovery for ${recoveryStartFailure.recoveredSession || 'the killed session'} (attempt ${plan.attempt}/${plan.maxAttempts}, issue #2887)`);
+  const started = await startKillRecoverySession({ sessionName, sessionInfo, plan, runner, trackSession, persistSnapshot, env, sleep, random, onLifecycle, verbose, recoveryStartFailure });
   return { resumed: started.resumed, reason: started.reason, policy: plan.policy, sessionId: started.sessionId, display: started.display, attempt: plan.attempt, maxAttempts: plan.maxAttempts, inPlace: started.inPlace === true };
 }
 

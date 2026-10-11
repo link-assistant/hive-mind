@@ -218,6 +218,22 @@ function quoteArg(value) {
 }
 
 /**
+ * Quote one word for a POSIX shell (`sh -c`). Safe tokens stay bare so the
+ * command reads like the one an operator would type; everything else is
+ * single-quoted, which — unlike {@link quoteArg}'s double quotes — keeps `$`,
+ * backticks and backslashes literal.
+ *
+ * @param {*} value
+ * @returns {string}
+ */
+export function shellQuoteArg(value) {
+  const str = String(value);
+  if (str === '') return "''";
+  if (/^[A-Za-z0-9_./:@=,+%-]+$/.test(str)) return str;
+  return `'${str.replaceAll("'", "'\\''")}'`;
+}
+
+/**
  * Drop any pre-existing `--resume`/`-r <id>` pair from an args array so a fresh
  * resume id can be appended without conflict. Pure; returns a new array.
  *
@@ -247,11 +263,26 @@ export function stripResumeFlag(args) {
  * (minus any stale `--resume`); otherwise a minimal `<url> [--tool]` command is
  * reconstructed from the persisted session info.
  *
+ * Two spellings come back, and they are not interchangeable (issue #2887):
+ *
+ *   - `display` is for people reading Telegram: a task started with `/codex`
+ *     is offered back as `/codex <url> … --resume <id>` (issue #2109), which a
+ *     user can paste into the chat. It is NOT a program — `sh -c '/codex …'`
+ *     fails with `sh: 1: /codex: not found` (exit 127).
+ *   - `binary` + `args` and `shell` are what a machine runs: the real
+ *     executable (`solve`) with the persisted arguments. `shell` is that argv
+ *     joined for `sh -c` (`$ --resume <id> -- <shell>`, a `bash` code block in
+ *     a pull-request notice). Every path that *executes* the command must use
+ *     these, never `display`.
+ *
+ * The alias's implied options are already part of the persisted args (the bot
+ * stores `--tool codex` for `/codex`), so dropping the alias loses nothing.
+ *
  * @param {Object} options
  * @param {Object} options.sessionInfo - Persisted session info (command/url/tool/args)
  * @param {string} options.lastSessionId - The session id to resume from
  * @param {string} [options.binary] - Override the invoked binary (default: the command)
- * @returns {{ binary: string, args: string[], display: string }|null}
+ * @returns {{ binary: string, args: string[], display: string, shell: string }|null}
  */
 export function buildResumeCommand({ sessionInfo = {}, lastSessionId = null, binary = null } = {}) {
   if (!lastSessionId) return null;
@@ -261,7 +292,8 @@ export function buildResumeCommand({ sessionInfo = {}, lastSessionId = null, bin
   if (!url) return null;
 
   const commandAlias = typeof sessionInfo.commandAlias === 'string' && /^[a-z0-9_-]+$/i.test(sessionInfo.commandAlias) ? sessionInfo.commandAlias : null;
-  const bin = binary || (commandAlias ? `/${commandAlias}` : command);
+  const bin = binary || command;
+  const displayBin = binary || (commandAlias ? `/${commandAlias}` : command);
   let args;
   if (Array.isArray(sessionInfo.args) && sessionInfo.args.length > 0) {
     args = stripResumeFlag(sessionInfo.args);
@@ -270,7 +302,29 @@ export function buildResumeCommand({ sessionInfo = {}, lastSessionId = null, bin
     if (sessionInfo.tool && sessionInfo.tool !== 'claude') args.push('--tool', sessionInfo.tool);
   }
   args = [...args, '--resume', lastSessionId];
-  return { binary: bin, args, display: `${bin} ${args.map(quoteArg).join(' ')}` };
+  return {
+    binary: bin,
+    args,
+    display: `${displayBin} ${args.map(quoteArg).join(' ')}`,
+    shell: [bin, ...args].map(shellQuoteArg).join(' '),
+  };
+}
+
+/**
+ * Whether a shell command string can name a program: its first word must not be
+ * a Telegram command (`/codex`, `/solve`, …). Telegram commands are a single
+ * path segment after the leading slash; a real absolute path has more. Used to
+ * refuse — loudly — the class of bug behind issue #2887 instead of spending a
+ * 10–35 minute `docker commit` on a command that cannot exist.
+ *
+ * @param {string|null} shellCommand
+ * @returns {boolean}
+ */
+export function isRunnableShellCommand(shellCommand) {
+  const text = typeof shellCommand === 'string' ? shellCommand.trim() : '';
+  if (!text) return false;
+  const first = text.split(/\s+/, 1)[0].replace(/^'|'$/g, '');
+  return !/^\/[a-z0-9_-]+$/i.test(first);
 }
 
 /**

@@ -1,0 +1,18 @@
+
+display: sh -c "/codex https://github.com/link-assistant/router/issues/728 --tool codex --think xhigh --prompt \"it's $HOME\" --resume 01a1200a-276e-76b2-9674-c219f0f54121"
+  stderr: sh: 1: /codex: not found
+  exit 127
+
+shell: sh -c "solve https://github.com/link-assistant/router/issues/728 --tool codex --think xhigh --prompt 'it'\\''s $HOME' --resume 01a1200a-276e-76b2-9674-c219f0f54121"
+  argv: https://github.com/link-assistant/router/issues/728
+  argv: --tool
+  argv: codex
+  argv: --think
+  argv: xhigh
+  argv: --prompt
+  argv: it's $HOME
+  argv: --resume
+  argv: 01a1200a-276e-76b2-9674-c219f0f54121
+  exit 0
+
+sh: /usr/bin/dash

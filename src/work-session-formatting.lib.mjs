@@ -1,6 +1,6 @@
 import { t } from './i18n.lib.mjs';
 import { escapeMarkdown } from './telegram-markdown.lib.mjs';
-import { FAILURE_SESSION_STATUSES, KILLED_SESSION_STATUSES, isKilledSessionStatus, describeExitSignal, normalizeExitCode } from './session-status.lib.mjs';
+import { FAILURE_SESSION_STATUSES, KILLED_SESSION_STATUSES, isKilledSessionStatus, describeExitSignal, describeCommandStartFailure, normalizeExitCode } from './session-status.lib.mjs';
 import { EXIT_CODE_HIVE_NO_WORK, EXIT_CODE_HIVE_INCOMPLETE } from './hive.run-outcome.lib.mjs';
 
 function text(locale, key, fallback, params = {}) {
@@ -238,6 +238,11 @@ export function formatSessionCompletionMessage({ sessionName, sessionInfo, statu
     statusText = finalExitCode === EXIT_CODE_HIVE_NO_WORK ? text(messageLocale, 'telegram.work_session_hive_no_work', 'No issues processed; check the log for skipped issues or blockers. To continue issues with existing PRs, use `--no-skip-issues-with-prs --auto-continue`') : text(messageLocale, 'telegram.work_session_hive_incomplete', 'Hive session ended with issues still waiting; check the log for blockers');
   } else if (failed) {
     statusText = text(messageLocale, 'telegram.work_session_failed', `Work session failed (exit code: ${finalExitCode})`, { exitCode: finalExitCode });
+    // Issue #2887: 126/127 mean the command never ran — say so instead of
+    // leaving a bare exit code that reads like the tool itself failed.
+    const startFailure = describeCommandStartFailure(finalExitCode);
+    if (startFailure?.reason === 'command-not-found') statusText += `: ${text(messageLocale, 'telegram.work_session_command_not_found', 'command not found — the program the session was asked to run does not exist')}`;
+    else if (startFailure?.reason === 'command-not-executable') statusText += `: ${text(messageLocale, 'telegram.work_session_command_not_executable', 'command not executable — the program the session was asked to run cannot be executed')}`;
   } else {
     statusText = text(messageLocale, 'telegram.work_session_finished', 'Work session finished successfully');
   }

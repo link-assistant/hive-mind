@@ -7,23 +7,50 @@
 
 import { getenv } from './cli-arguments.lib.mjs';
 
+// Issue #2647: every option can also be set as an environment variable, which
+// means .lenv (recommended), .env, or a Links Notation file selected with
+// --configuration-file. Explicit CLI arguments take precedence.
+export const TELEGRAM_OPTION_ENVIRONMENT_VARIABLES = Object.freeze({
+  configuration: 'TELEGRAM_CONFIGURATION',
+  configurationFile: 'HIVE_MIND_CONFIGURATION_FILE',
+  token: 'TELEGRAM_BOT_TOKEN',
+  allowedChats: 'TELEGRAM_ALLOWED_CHATS',
+  allowedTopics: 'TELEGRAM_ALLOWED_TOPICS',
+  solveOverrides: 'TELEGRAM_SOLVE_OVERRIDES',
+  hiveOverrides: 'TELEGRAM_HIVE_OVERRIDES',
+  solve: 'TELEGRAM_SOLVE',
+  hive: 'TELEGRAM_HIVE',
+  task: 'TELEGRAM_TASK',
+  fix: 'TELEGRAM_FIX',
+  organize: 'TELEGRAM_ORGANIZE',
+  auth: 'TELEGRAM_AUTH',
+  dryRun: 'TELEGRAM_DRY_RUN',
+  verbose: 'TELEGRAM_BOT_VERBOSE',
+  autoStartScreenWatchMessage: 'TELEGRAM_AUTO_START_SCREEN_WATCH_MESSAGE',
+  showLimits: 'TELEGRAM_SHOW_LIMITS',
+  isolation: 'TELEGRAM_ISOLATION',
+  containerCpu: 'TELEGRAM_CONTAINER_CPU',
+  containerMemory: 'TELEGRAM_CONTAINER_MEMORY',
+  containerDisk: 'TELEGRAM_CONTAINER_DISK',
+});
+
 export const createYargsConfig = yargsInstance =>
   yargsInstance
     .usage('Usage: hive-telegram-bot [options]')
     .option('configuration', {
       type: 'string',
-      description: 'Inline LINO configuration (replaces process arguments at startup); prefer --configuration-file',
+      description: 'Inline LINO configuration (TELEGRAM_CONFIGURATION). Secrets here are visible in process listings; prefer .lenv or --configuration-file',
       alias: 'c',
     })
     .option('configurationFile', {
       type: 'string',
-      description: 'Path to a LINO configuration file; use mode 0600 for secrets',
+      description: 'Path to a Links Notation configuration file with any of these options as environment variables (HIVE_MIND_CONFIGURATION_FILE); use mode 0600 for secrets',
       alias: 'configuration-file',
       default: getenv('HIVE_MIND_CONFIGURATION_FILE', ''),
     })
     .option('token', {
       type: 'string',
-      description: 'Telegram bot token from @BotFather; prefer TELEGRAM_BOT_TOKEN in a file or environment variable',
+      description: 'Telegram bot token from @BotFather (TELEGRAM_BOT_TOKEN). Visible in process listings; prefer .lenv or --configuration-file',
       alias: 't',
       default: getenv('TELEGRAM_BOT_TOKEN', ''),
     })
@@ -85,7 +112,7 @@ export const createYargsConfig = yargsInstance =>
       type: 'boolean',
       description: 'Validate configuration and options without starting the bot',
       alias: 'dry-run',
-      default: false,
+      default: getenv('TELEGRAM_DRY_RUN', 'false') === 'true',
     })
     .option('verbose', {
       type: 'boolean',

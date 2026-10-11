@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
-import { extractTelegramInlineOptions, secureTelegramArgv } from '../src/telegram-startup-config.lib.mjs';
+import { containsInlineSecret, extractTelegramInlineOptions, secureTelegramArgv } from '../src/telegram-startup-config.lib.mjs';
 
 const bot = fileURLToPath(new URL('../src/telegram-bot.mjs', import.meta.url));
 const probe = fileURLToPath(new URL('../experiments/issue-2647/argv-probe.mjs', import.meta.url));
@@ -57,7 +57,8 @@ for (const args of [['-c', configuration], [`--configuration=${configuration}`],
     const { snapshot, stderr, originalPid } = await inspectStartup([...args, '--dry-run']);
     assert.equal(snapshot.pid, originalPid);
     assert.ok(!snapshot.cmdline.includes(token));
-    assert.ok(stderr.includes('process listings'));
+    assert.ok(stderr.includes('visible to every user and process'));
+    assert.ok(stderr.includes('.lenv') && stderr.includes('--configuration-file'), 'recommend .lenv or a Links Notation file');
     assert.ok(!stderr.includes(token));
     assert.equal(snapshot.transportPresent, false);
   });
@@ -75,28 +76,46 @@ test('extracts repeated options with last value winning and respects the argumen
     args: ['--verbose', '--', '--token', 'positional'],
     options: { configuration: 'last', token },
   });
-  assert.throws(() => extractTelegramInlineOptions(['-c']), /requires a value/);
-  assert.throws(() => extractTelegramInlineOptions(['--token', '--dry-run']), /requires a value/);
+  // Flags without a value are left to the CLI parser instead of failing startup.
+  assert.deepEqual(extractTelegramInlineOptions(['-c']), { args: ['-c'], options: {} });
+  assert.deepEqual(extractTelegramInlineOptions(['--token', '--dry-run']), { args: ['--token', '--dry-run'], options: {} });
 });
 
-test('unsupported runtimes refuse inline secrets and still support file/environment startup', () => {
-  const env = {};
-  assert.throws(() => secureTelegramArgv({ argv: ['node', bot, '-t', token], env, execve: null }), /Use --configuration-file/);
-  assert.deepEqual(secureTelegramArgv({ argv: ['node', bot, '--configuration-file', 'bot.lenv'], env, execve: null }), {});
+test('only credentials trigger the warning; non-secret inline configuration is used as is', () => {
+  assert.equal(containsInlineSecret({ token }), true);
+  assert.equal(containsInlineSecret({ configuration }), true);
+  assert.equal(containsInlineSecret({ configuration: "GITHUB_API_KEY: 'x'" }), true);
+  assert.equal(containsInlineSecret({ configuration: 'TELEGRAM_ALLOWED_CHATS: 123456789\nTELEGRAM_HIVE: false' }), false);
+  const warnings = [];
+  const execve = () => assert.fail('non-secret configuration must not re-launch the process');
+  const options = secureTelegramArgv({ argv: ['node', bot, '-c', 'TELEGRAM_HIVE: false'], env: {}, execve, warn: message => warnings.push(message) });
+  assert.deepEqual(options, { configuration: 'TELEGRAM_HIVE: false' });
+  assert.deepEqual(warnings, []);
 });
 
-test('replacement failure never echoes secrets from runtime errors', () => {
-  assert.throws(
-    () =>
-      secureTelegramArgv({
-        argv: ['node', bot, '-t', token],
-        env: {},
-        execve: () => {
-          throw new Error(token);
-        },
-      }),
-    error => error.message.includes('Unable to replace') && !error.message.includes(token)
-  );
+test('runtimes without process replacement warn but still accept inline secrets', () => {
+  const warnings = [];
+  const options = secureTelegramArgv({ argv: ['node', bot, '-t', token], env: {}, execve: null, warn: message => warnings.push(message) });
+  assert.deepEqual(options, { token });
+  assert.match(warnings.join('\n'), /\.lenv.*--configuration-file/s);
+  assert.match(warnings.join('\n'), /cannot re-launch/);
+  assert.ok(!warnings.join('\n').includes(token));
+  assert.deepEqual(secureTelegramArgv({ argv: ['node', bot, '--configuration-file', 'bot.lenv'], env: {}, execve: null, warn: () => assert.fail('no warning without inline secrets') }), {});
+});
+
+test('replacement failure warns, continues, and never echoes secrets from runtime errors', () => {
+  const warnings = [];
+  const options = secureTelegramArgv({
+    argv: ['node', bot, '-t', token],
+    env: {},
+    execve: () => {
+      throw new Error(token);
+    },
+    warn: message => warnings.push(message),
+  });
+  assert.deepEqual(options, { token });
+  assert.match(warnings.join('\n'), /re-launching without these arguments failed/);
+  assert.ok(!warnings.join('\n').includes(token));
 });
 
 test('protected startup transport is consumed before dependencies or child commands', () => {
@@ -111,4 +130,26 @@ test('process replacement preserves nonzero exit status and shutdown signals', {
   assert.equal(exited.snapshot.pid, exited.originalPid);
   const signaled = await inspectStartup(['--token', token], { ...process.env, HIVE_MIND_ARGV_PROBE_HOLD: 'true' }, 23, 'SIGTERM');
   assert.equal(signaled.snapshot.pid, signaled.originalPid);
+});
+
+test('the bot still starts with an inline token when process replacement is unavailable', { timeout: 90000 }, async () => {
+  const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('TELEGRAM_') && key !== 'HIVE_MIND_CONFIGURATION_FILE'));
+  const withoutExecve = 'data:text/javascript,delete process.execve';
+  const { code, output } = await new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, ['--import', withoutExecve, bot, '--token', token, '--dry-run'], { env, stdio: ['ignore', 'pipe', 'pipe'] });
+    let text = '';
+    const timer = setTimeout(() => child.kill('SIGKILL'), 60000);
+    child.stdout.on('data', data => (text += data));
+    child.stderr.on('data', data => (text += data));
+    child.on('error', reject);
+    child.on('close', exitCode => {
+      clearTimeout(timer);
+      resolve({ code: exitCode, output: text });
+    });
+  });
+  assert.equal(code, 0, output);
+  assert.ok(output.includes('visible to every user and process'), output);
+  assert.ok(output.includes('cannot re-launch'), output);
+  assert.ok(output.includes('Dry-run mode'), output);
+  assert.ok(!output.includes(token), output);
 });

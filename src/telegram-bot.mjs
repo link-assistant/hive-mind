@@ -55,7 +55,7 @@ const VERBOSE = config.verbose;
 const AUTO_WATCH_MESSAGE = config.autoStartScreenWatchMessage === true;
 const SHOW_LIMITS_ENABLED = config.showLimits === true;
 if (!BOT_TOKEN) {
-  console.error('Error: TELEGRAM_BOT_TOKEN not set. Use --configuration-file, .lenv/.env, or the TELEGRAM_BOT_TOKEN environment variable.');
+  console.error('Error: TELEGRAM_BOT_TOKEN not set. Add it to a private .lenv file (recommended), a Links Notation file passed with --configuration-file, .env, or the TELEGRAM_BOT_TOKEN environment variable.');
   process.exit(1);
 }
 

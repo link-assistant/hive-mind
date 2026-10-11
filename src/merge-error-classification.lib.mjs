@@ -26,6 +26,8 @@
  * @see docs/case-studies/issue-2182/README.md for the full timeline and evidence
  */
 
+import { findGitHubDocsForError } from './github-error-docs.lib.mjs';
+
 /**
  * Merge failure categories.
  *
@@ -64,16 +66,19 @@ const MERGE_ERROR_PATTERNS = [
  * Classify a `gh pr merge` failure message.
  *
  * @param {string|null|undefined} errorMessage raw stderr/message from `gh pr merge`
- * @returns {{category: string, terminal: boolean, recoverable: boolean, resolution: string|null}}
+ * @returns {{category: string, terminal: boolean, recoverable: boolean, resolution: string|null, docs: Array<{topic: string, url: string}>}}
  */
 export const classifyMergeError = errorMessage => {
   const text = typeof errorMessage === 'string' ? errorMessage : '';
+  // Issue #2998: the GitHub setting behind the failure is linked from every place that prints the resolution.
+  const docs = findGitHubDocsForError(text).slice(0, 2);
+  const withDocs = resolution => (docs.length ? [resolution, `See: ${docs.map(doc => doc.url).join(' , ')}`].filter(Boolean).join(' ') : resolution);
   for (const entry of MERGE_ERROR_PATTERNS) {
     if (entry.pattern.test(text)) {
-      return { category: entry.category, terminal: entry.terminal, recoverable: entry.recoverable, resolution: entry.resolution };
+      return { category: entry.category, terminal: entry.terminal, recoverable: entry.recoverable, resolution: withDocs(entry.resolution), docs };
     }
   }
-  return { category: MERGE_ERROR_CATEGORIES.UNKNOWN, terminal: false, recoverable: false, resolution: null };
+  return { category: MERGE_ERROR_CATEGORIES.UNKNOWN, terminal: false, recoverable: false, resolution: withDocs(null), docs };
 };
 
 /**

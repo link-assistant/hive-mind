@@ -18,7 +18,7 @@
  *      returns false on the default-on path — i.e. it would *incorrectly*
  *      cause the hint to be shown. We assert this to lock in the regression
  *      that the production bug must NOT use this form.
- *   3. Confirms a fake stand-in for the entity check, called with the parsed
+ *   3. Confirms the real repo-404 message builder, called with the parsed
  *      autoAcceptInvite flag, suppresses the invite hint exactly when it
  *      should: omitted on the default path, omitted on explicit
  *      --auto-accept-invite, and only present on --no-auto-accept-invite.
@@ -61,15 +61,9 @@ console.log('\n=================================================================
 console.log('Issue #1714: --auto-accept-invite hint suppression after default flip');
 console.log('================================================================================\n');
 
-// Standin for the repo-404 branch of validateGitHubEntityExistence, mirroring
-// src/github-entity-validation.lib.mjs. Only the bullet-list logic matters here.
-function buildRepoNotAccessibleMessage({ owner, repo, autoAcceptInvite }) {
-  const bullets = ['• Repository may be private — ensure the bot has been granted access', '• The repository name is spelled correctly', '• The repository has not been deleted, transferred, or never existed'];
-  if (!autoAcceptInvite) {
-    bullets.push('• If Hive Mind bot was recently invited, try using --auto-accept-invite to accept pending invitations');
-  }
-  return `Repository '${owner}/${repo}' is not accessible.\n\n💡 Please check:\n${bullets.join('\n')}`;
-}
+// The repo-404 message itself, as validateGitHubEntityExistence() builds it
+// (src/github-access-guide.lib.mjs, issue #2998).
+const { buildRepositoryNotAccessibleMessage } = await import('../src/github-access-guide.lib.mjs');
 
 const URL = 'https://github.com/xlabtg/anti-corruption/pull/4';
 
@@ -119,10 +113,13 @@ console.log('\n📋 hint suppression behaviour driven by parsed argv\n');
 
   for (const c of cases) {
     const parsed = await parseArgsWithYargs(c.args, yargs, createSolveYargsConfig);
-    const message = buildRepoNotAccessibleMessage({
+    const message = await buildRepositoryNotAccessibleMessage({
       owner: 'xlabtg',
       repo: 'anti-corruption',
       autoAcceptInvite: !!parsed?.autoAcceptInvite,
+      botLogin: 'konard',
+      ownerType: 'Organization',
+      locale: 'en',
     });
     const hasHint = message.includes('--auto-accept-invite');
     if (hasHint === c.hintMustBePresent) {

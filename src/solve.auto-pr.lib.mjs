@@ -12,6 +12,9 @@ import { waitForCompareApiReady, verifyBranchOnGitHub } from './solve.auto-pr-pu
 
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry, execGhWithRetry, isTransientCompareApiError } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller. Issue #1756: execGhWithRetry retries on transient 5xx (504) too. Issue #1829: isTransientCompareApiError lets the compare-API readiness gate degrade gracefully on transient diff-render failures.
 import { quietProbe } from './quiet-probe.lib.mjs'; // issue #2130: keep read-only probe payloads out of the attached log
+import { formatGitHubDocsLine } from './github-docs-links.lib.mjs';
+import { formatGitHubDocsLinesForError } from './github-error-docs.lib.mjs'; // Issue #2998: link the GitHub setting behind a rejected push.
+import { buildWriteAccessRequiredMessage, getGitHubOwnerType } from './github-access-guide.lib.mjs';
 import { stagePlaceholderFileOrExplain, explainNothingStagedAndThrow } from './solve.auto-pr-placeholder.lib.mjs'; // Issue #1825: handles the seed placeholder when the target repo gitignores it.
 import { sanitizeForPublication, writeSanitizedPublicationFile } from './token-sanitization.lib.mjs';
 import { markPullRequestCreatedByThisRun } from './pr-draft-state.lib.mjs'; // Issue #2312: a draft this run created is never left behind.
@@ -411,6 +414,7 @@ Proceed.
           await log('  ──────────────────────────────────────');
           await log('  Ask the owner to unarchive the repository at:');
           await log(`    https://github.com/${owner}/${repo}/settings`);
+          await log(`    ${formatGitHubDocsLine('archivedRepository')}`);
           await log('');
           await log('  Option 2: Close the issue');
           await log('  ──────────────────────────────────────');
@@ -493,10 +497,12 @@ Proceed.
           await log('');
           await log('  Alternative options:');
           await log('');
-          await log('  Option 2: Request collaborator access');
+          await log('  Option 2: Get write access to the repository itself');
           await log(`  ${'-'.repeat(40)}`);
-          await log('  Ask the repository owner to add you as a collaborator:');
-          await log(`    → Go to: https://github.com/${owner}/${repo}/settings/access`);
+          const ownerType = await getGitHubOwnerType(owner);
+          for (const line of (await buildWriteAccessRequiredMessage({ owner, repo, botLogin: currentUser, ownerType, autoAcceptInvite: !!argv.autoAcceptInvite })).split('\n')) {
+            await log(line ? `  ${line}` : '');
+          }
           await log('');
           await log('  Option 3: Manual fork and clone');
           await log(`  ${'-'.repeat(40)}`);
@@ -535,6 +541,7 @@ Proceed.
             // Other push errors
             await log(`${formatAligned('❌', 'Failed to push:', 'See error below')}`, { level: 'error' });
             await log(`   Error: ${errorOutput}`, { level: 'error' });
+            for (const line of formatGitHubDocsLinesForError(errorOutput)) await log(`   ${line}`, { level: 'error' });
             throw new Error('Failed to push branch');
           }
         }
@@ -1001,6 +1008,7 @@ ${prBody}`,
                 await log('     Ask the repository owner to add you as a collaborator:');
                 await log(`       → Go to: https://github.com/${owner}/${repo}/settings/access`);
                 await log(`       → Add user: ${currentUser}`);
+                await log(`       ${formatGitHubDocsLine('inviteCollaborator')}`);
                 await log('');
                 await log('  ℹ️  Note: This does not affect the PR itself - it was created successfully.');
                 await log('');

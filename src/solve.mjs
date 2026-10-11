@@ -305,10 +305,7 @@ if (argv.autoAcceptInvite) {
 await handleAutoForkOption({ owner, repo, argv, safeExit });
 // Permission check BEFORE entity validation (#1552): avoids false 404 on private repos without access
 const { checkRepositoryWritePermission } = githubLib;
-const hasWriteAccess = await checkRepositoryWritePermission(owner, repo, {
-  useFork: argv.fork,
-  issueUrl: issueUrl,
-});
+const hasWriteAccess = await checkRepositoryWritePermission(owner, repo, { useFork: argv.fork, issueUrl, autoAcceptInvite: !!argv.autoAcceptInvite });
 if (!hasWriteAccess) {
   await log('');
   await log('❌ Cannot proceed without repository write access or --fork option', { level: 'error' });

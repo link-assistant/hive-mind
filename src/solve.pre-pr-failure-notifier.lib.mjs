@@ -1,6 +1,20 @@
 import { getTrackedToolCommentIds, isFailureAlreadyReportedOnTarget, postTrackedComment, SOLUTION_DRAFT_FAILED_MARKER } from './tool-comments.lib.mjs';
 import { extractForkReplacementBlockedDetails, isForkReplacementBlockedReason, GITHUB_FORK_SUPPORT_URL } from './solve.repository-recovery-message.lib.mjs';
 import { FORK_DIVERGENCE_RESOLUTION_OPTION, buildForkDivergenceFailureActionSection } from './solve.branch-divergence.lib.mjs';
+import { formatGitHubDocsLinesForError } from './github-error-docs.lib.mjs';
+
+/**
+ * Issue #2998: a "### GitHub Docs" section for the GitHub setting named by the
+ * failure reason (protected branch, ruleset, archived repository, ...), or ''.
+ *
+ * @param {string} reason
+ * @param {string} [actionSection] - links it already contains are not repeated
+ * @returns {string}
+ */
+export function buildGitHubDocsSection(reason, actionSection = '') {
+  const lines = formatGitHubDocsLinesForError(reason).filter(line => !String(actionSection || '').includes(line.slice(line.lastIndexOf(' ') + 1)));
+  return lines.length > 0 ? `\n\n### GitHub Docs\n${lines.map(line => `- ${line}`).join('\n')}` : '';
+}
 
 export { FORK_DIVERGENCE_RESOLUTION_OPTION };
 
@@ -154,7 +168,7 @@ The automated solver stopped before creating a pull request, so no PR was opened
 ${fence(reason)}
 \`\`\`
 
-${actionSection}
+${actionSection}${buildGitHubDocsSection(reason, actionSection)}
 
 ${logLine}
 `;
@@ -181,7 +195,7 @@ The automated solver stopped while continuing this existing pull request, so the
 ${fence(reason)}
 \`\`\`
 
-${actionSection}
+${actionSection}${buildGitHubDocsSection(reason, actionSection)}
 
 ${logLine}
 `;

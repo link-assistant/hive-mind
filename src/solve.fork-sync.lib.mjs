@@ -23,6 +23,8 @@ const { log, formatAligned } = lib;
 
 // Import exit handler
 import { safeExit } from './exit-handler.lib.mjs';
+import { formatGitHubDocsLine } from './github-docs-links.lib.mjs';
+import { formatGitHubDocsLinesForError } from './github-error-docs.lib.mjs';
 
 // Issue #1893: helpers that decide whether the fork's default branch may be
 // pushed and that distinguish a permission-denied rejection from a genuine
@@ -302,7 +304,7 @@ export const setupUpstreamAndSync = async (tempDir, forkedRepo, upstreamRemote, 
                       await log('');
                       await log('  🔧 Manual resolution:');
                       await log(`     1. Visit your fork: https://github.com/${forkedRepo}`);
-                      await log('     2. Check branch protection settings');
+                      await log(`     2. Check branch protection settings — ${formatGitHubDocsLine('protectedBranches')}`);
                       await log('     3. Manually sync fork with upstream:');
                       await log('        git fetch upstream');
                       await log(`        git reset --hard upstream/${upstreamDefaultBranch}`);
@@ -317,6 +319,7 @@ export const setupUpstreamAndSync = async (tempDir, forkedRepo, upstreamRemote, 
                   // Some other push error (not divergence-related)
                   await log(`${formatAligned('❌', 'FATAL ERROR:', 'Failed to push updated default branch to fork')}`);
                   await log(`${formatAligned('', 'Push error:', errorMsg)}`);
+                  for (const line of formatGitHubDocsLinesForError(errorMsg)) await log(`${formatAligned('', '', line)}`); // Issue #2998
                   await log(`${formatAligned('', 'Reason:', 'Fork must be updated or process must stop')}`);
                   await log(`${formatAligned('', 'Solution draft:', 'Fork sync is required for proper workflow')}`);
                   await log(`${formatAligned('', 'Next steps:', '1. Check GitHub permissions for the fork')}`);

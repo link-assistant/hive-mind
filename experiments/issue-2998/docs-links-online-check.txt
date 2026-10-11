@@ -1,0 +1,58 @@
+✅ the invitation page from the issue is linked with its section anchor
+✅ locale resolution accepts Telegram, POSIX and plain codes
+✅ languages GitHub Docs does not publish fall through to the next candidate, then English
+✅ the process default comes from setDefaultGitHubDocsLocale, else the POSIX environment
+✅ every topic has a title, a docs path and a heading-id anchor
+✅ unknown topics fail loudly instead of producing a dead link
+✅ formatGitHubDocsLine renders a plain-text line
+✅ github.com settings and invitation pages
+✅ online: en inviteCollaborator answers 200 and keeps its anchor
+✅ online: en collaboratorPermissions answers 200 and keeps its anchor
+✅ online: en organizationRepositoryAccess answers 200 and keeps its anchor
+✅ online: en changeRepositoryRole answers 200 and keeps its anchor
+✅ online: en organizationRepositoryRoles answers 200 and keeps its anchor
+✅ online: en organizationInvitation answers 200 and keeps its anchor
+✅ online: en acceptOrganizationInvitation answers 200 and keeps its anchor
+✅ online: en allowMaintainerEdits answers 200 and keeps its anchor
+✅ online: en repositoryForkingPolicy answers 200 and keeps its anchor
+✅ online: en organizationForkingPolicy answers 200 and keeps its anchor
+✅ online: en tokenScopes answers 200 and keeps its anchor
+✅ online: en personalAccessTokens answers 200 and keeps its anchor
+✅ online: en tokenSso answers 200 and keeps its anchor
+✅ online: en resourceNotAccessible answers 200 and keeps its anchor
+✅ online: en notFoundForExistingResource answers 200 and keeps its anchor
+✅ online: en rateLimits answers 200 and keeps its anchor
+✅ online: en archivedRepository answers 200 and keeps its anchor
+✅ online: en protectedBranches answers 200 and keeps its anchor
+✅ online: en rulesets answers 200 and keeps its anchor
+✅ online: en emailPrivacyPush answers 200 and keeps its anchor
+✅ online: en largeFiles answers 200 and keeps its anchor
+✅ online: en pushProtection answers 200 and keeps its anchor
+✅ online: en disablingIssues answers 200 and keeps its anchor
+✅ online: en actionsSettings answers 200 and keeps its anchor
+✅ online: ru inviteCollaborator answers 200 and keeps its anchor
+✅ online: ru collaboratorPermissions answers 200 and keeps its anchor
+✅ online: ru organizationRepositoryAccess answers 200 and keeps its anchor
+✅ online: ru changeRepositoryRole answers 200 and keeps its anchor
+✅ online: ru organizationRepositoryRoles answers 200 and keeps its anchor
+✅ online: ru organizationInvitation answers 200 and keeps its anchor
+✅ online: ru acceptOrganizationInvitation answers 200 and keeps its anchor
+✅ online: ru allowMaintainerEdits answers 200 and keeps its anchor
+✅ online: ru repositoryForkingPolicy answers 200 and keeps its anchor
+✅ online: ru organizationForkingPolicy answers 200 and keeps its anchor
+✅ online: ru tokenScopes answers 200 and keeps its anchor
+✅ online: ru personalAccessTokens answers 200 and keeps its anchor
+✅ online: ru tokenSso answers 200 and keeps its anchor
+✅ online: ru resourceNotAccessible answers 200 and keeps its anchor
+✅ online: ru notFoundForExistingResource answers 200 and keeps its anchor
+✅ online: ru rateLimits answers 200 and keeps its anchor
+✅ online: ru archivedRepository answers 200 and keeps its anchor
+✅ online: ru protectedBranches answers 200 and keeps its anchor
+✅ online: ru rulesets answers 200 and keeps its anchor
+✅ online: ru emailPrivacyPush answers 200 and keeps its anchor
+✅ online: ru largeFiles answers 200 and keeps its anchor
+✅ online: ru pushProtection answers 200 and keeps its anchor
+✅ online: ru disablingIssues answers 200 and keeps its anchor
+✅ online: ru actionsSettings answers 200 and keeps its anchor
+
+Results: 56 passed, 0 failed

@@ -692,6 +692,20 @@ export async function safeReplyWithDocument(ctx, document, options = {}) {
 }
 
 /**
+ * `ctx.replyWithAnimation` (GIF) with caption validation, logging and plain-text fallback.
+ */
+export async function safeReplyWithAnimation(ctx, animation, options = {}) {
+  const { verbose } = splitOptions(options);
+  return await sendMediaWithCaptionFallback({
+    scope: 'safeReplyWithAnimation',
+    target: { chatId: ctx?.chat?.id },
+    options,
+    verbose,
+    send: sendOptions => ctx.replyWithAnimation(animation, sendOptions),
+  });
+}
+
+/**
  * `telegram.sendDocument` with caption validation, logging and plain-text fallback.
  */
 export async function safeSendDocument(telegram, chatId, document, options = {}) {

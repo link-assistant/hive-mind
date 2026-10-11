@@ -1,0 +1,58 @@
+
+===== konard/hive-mind-2998-does-not-exist =====
+🔍 Checking repository write permissions...
+{"message":"Not Found","documentation_url":"https://docs.github.com/rest/repos/repos#get-a-repository","status":"404"}gh: Not Found (HTTP 404)
+   [stderr] gh: Not Found (HTTP 404)
+❌ Repository not found or no access
+   Repository: konard/hive-mind-2998-does-not-exist
+
+   💡 Please check:
+   • Repository may be private — ensure the bot has been granted access
+   • The repository name is spelled correctly
+   • The repository has not been deleted, transferred, or never existed
+   • If Hive Mind bot was recently invited, try using --auto-accept-invite to accept pending invitations
+
+   🔑 To give Hive Mind access, a repository admin invites the GitHub account `konard` with write access:
+   1. Open https://github.com/konard/hive-mind-2998-does-not-exist/settings/access
+   2. Click "Add people", find `konard` and click "Add konard to hive-mind-2998-does-not-exist" (collaborators can push)
+   3. Signed in as the Hive Mind account, accept the invitation at https://github.com/konard/hive-mind-2998-does-not-exist/invitations
+   📖 GitHub Docs, inviting a collaborator to a personal repository: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/repository-access-and-collaboration/inviting-collaborators-to-a-personal-repository#inviting-a-collaborator-to-a-personal-repository
+   📖 GitHub Docs, what write access allows: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/repository-access-and-collaboration/permission-levels-for-a-personal-account-repository#collaborator-access-for-a-repository-owned-by-a-personal-account
+   🎞 Step-by-step guide with an animation: https://github.com/link-assistant/hive-mind/blob/main/docs/GITHUB-ACCESS.md
+result: false
+
+===== torvalds/linux =====
+🔍 Checking repository write permissions...
+{"admin":false,"maintain":false,"pull":true,"push":false,"triage":false}
+
+❌ NO WRITE ACCESS TO REPOSITORY
+
+   Repository: torvalds/linux
+   Your permissions: {"admin":false,"maintain":false,"pull":true,"push":false,"triage":false}
+
+   ⚠️  You cannot push changes to this repository.
+   This would waste AI tokens processing a solution that cannot be uploaded.
+
+   📋 SOLUTIONS:
+
+   ✅ RECOMMENDED: Use the --fork option
+      This will automatically:
+      • Create or use your existing fork
+      • Push changes to your fork
+      • Create a PR from your fork to the original repository
+
+      Run this command:
+      solve https://github.com/torvalds/linux/issues/1 --fork
+
+      Your fork will be: konard/linux
+
+   Alternative: get write access to the repository itself
+      🔑 To give Hive Mind access, a repository admin invites the GitHub account `konard` with write access:
+      1. Open https://github.com/torvalds/linux/settings/access
+      2. Click "Add people", find `konard` and click "Add konard to linux" (collaborators can push)
+      3. Run the command again: Hive Mind accepts the invitation automatically
+      📖 GitHub Docs, inviting a collaborator to a personal repository: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/repository-access-and-collaboration/inviting-collaborators-to-a-personal-repository#inviting-a-collaborator-to-a-personal-repository
+      📖 GitHub Docs, what write access allows: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/repository-access-and-collaboration/permission-levels-for-a-personal-account-repository#collaborator-access-for-a-repository-owned-by-a-personal-account
+      🎞 Step-by-step guide with an animation: https://github.com/link-assistant/hive-mind/blob/main/docs/GITHUB-ACCESS.md
+
+result: false

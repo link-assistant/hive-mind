@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 import { repositoryWriteAccess } from './github-write-access.lib.mjs';
+import { formatGitHubDocsLine } from './github-docs-links.lib.mjs'; // Issue #2998
 
 /**
  * Fork-detection helpers for solve.mjs
@@ -113,12 +114,16 @@ export async function handleAutoForkOption({ owner, repo, argv, safeExit }) {
           await log('      • To let Hive Mind work directly in this repository:', { level: 'error' });
           await log(`        Ask an owner/admin to open https://github.com/${owner}/${repo}/settings/access`, { level: 'error' });
           await log('        Then add this GitHub account or its team with the Write role (Maintain/Admin also works)', { level: 'error' });
+          await log(`        ${formatGitHubDocsLine('organizationRepositoryAccess')}`, { level: 'error' });
+          await log(`        ${formatGitHubDocsLine('inviteCollaborator')}`, { level: 'error' });
           await log('      • To let Hive Mind work through a fork instead:', { level: 'error' });
           await log(`        Ask an owner/admin to open https://github.com/${owner}/${repo}/settings`, { level: 'error' });
           await log('        Then enable Settings -> General -> Features -> Allow forking', { level: 'error' });
           await log('        For organization-owned private repositories, the organization must also allow private repository forks', {
             level: 'error',
           });
+          await log(`        ${formatGitHubDocsLine('repositoryForkingPolicy')}`, { level: 'error' });
+          await log(`        ${formatGitHubDocsLine('organizationForkingPolicy')}`, { level: 'error' });
           await log('');
           await safeExit(1, 'Auto-fork failed - private repository without access and forking is disabled');
           return;
@@ -159,6 +164,7 @@ export async function handleAutoForkOption({ owner, repo, argv, safeExit }) {
       await log('      • Check your GitHub CLI authentication: gh auth status', { level: 'error' });
       await log("      • Request collaborator access if you don't have it yet", { level: 'error' });
       await log(`        https://github.com/${owner}/${repo}/settings/access`, { level: 'error' });
+      await log(`        ${formatGitHubDocsLine('inviteCollaborator')}`, { level: 'error' });
       await log('');
       await safeExit(1, 'Auto-fork failed - cannot verify private repository permissions');
       return;
@@ -189,6 +195,7 @@ export async function handleMaintainerForkAccess({ owner, repo, prNumber }) {
   }
 
   await log('⚠️  Maintainer cannot push to fork: "Allow edits by maintainers" is not enabled', { level: 'warning' });
+  await log(`   ${formatGitHubDocsLine('allowMaintainerEdits')}`, { level: 'warning' });
   await log('   Posting comment to request access...', { level: 'warning' });
   await requestMaintainerAccess(owner, repo, prNumber);
   await log('   Comment posted. Proceeding with own fork instead.', { level: 'warning' });

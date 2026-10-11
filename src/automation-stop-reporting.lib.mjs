@@ -25,6 +25,8 @@
  */
 
 import { AUTOMATION_STOPPED_MARKER, AUTO_MERGE_BLOCKED_MARKER, postTrackedComment } from './tool-comments.lib.mjs';
+import { formatGitHubDocsLine } from './github-docs-links.lib.mjs';
+import { findGitHubDocsForError } from './github-error-docs.lib.mjs';
 
 export { AUTOMATION_STOPPED_MARKER, AUTO_MERGE_BLOCKED_MARKER };
 
@@ -104,6 +106,7 @@ export const STOP_REASONS = {
     title: 'GitHub refused the merge',
     detail: 'Every merge requirement was satisfied, but the merge API call itself failed (branch protection, required reviews, or a race with another push).',
     nextSteps: ['Check the branch protection rules and required reviews, then merge manually or re-run the command.'],
+    docs: ['protectedBranches', 'rulesets'],
   },
   issue_closed: {
     title: 'the linked issue is closed, so auto-merge was held back',
@@ -143,7 +146,7 @@ const MODE_LABELS = {
  * or newly added reason is still reported (never silently swallowed).
  *
  * @param {string} reason
- * @returns {{reason: string, title: string, detail: string, nextSteps: string[], canComment: boolean, known: boolean}}
+ * @returns {{reason: string, title: string, detail: string, nextSteps: string[], canComment: boolean, docs: string[], known: boolean}}
  */
 export const describeStopReason = reason => {
   const key = String(reason || 'unknown');
@@ -155,8 +158,24 @@ export const describeStopReason = reason => {
     detail: entry?.detail || 'No further automatic progress is possible in this state.',
     nextSteps: entry?.nextSteps || ['Review the working session log, resolve the reported condition, and re-run the command.'],
     canComment: entry?.canComment !== false,
+    docs: entry?.docs || [],
     known,
   };
+};
+
+/**
+ * Issue #2998: "📖 Title: URL" lines for the GitHub settings behind a stop —
+ * the reason's own pages plus the ones the concrete error text points at.
+ * Pages already linked in that text are not repeated.
+ *
+ * @param {{docs?: string[]}} description - from describeStopReason
+ * @param {string[]} texts - message and details
+ * @returns {string[]}
+ */
+export const describeStopDocs = (description, texts = []) => {
+  const text = texts.filter(Boolean).join('\n');
+  const topics = [...findGitHubDocsForError(text).map(match => match.topic), ...(description?.docs || [])];
+  return [...new Set(topics)].map(topic => formatGitHubDocsLine(topic)).filter(line => !text.includes(line.slice(line.lastIndexOf(' ') + 1)));
 };
 
 const bulletList = lines =>
@@ -192,6 +211,10 @@ export const buildAutomationStopComment = ({ reason, mode = null, message = null
   }
 
   sections.push('', '**What to do next:**', bulletList(describeLogStep(description.nextSteps, logAttached)));
+  const docs = describeStopDocs(description, [message, ...evidence]);
+  if (docs.length > 0) {
+    sections.push('', '**GitHub Docs:**', bulletList(docs));
+  }
   sections.push('', '---', `*Reported automatically by hive-mind (${mode || 'automation'}).*`);
 
   return sections.join('\n');

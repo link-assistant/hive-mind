@@ -348,7 +348,7 @@ export const watchUntilMergeable = async params => {
       if (noCiTriggered) {
         if (workflowRunConclusions) {
           // Issue #1466: Workflow runs exist but completed without executing (action_required, cancelled, etc.)
-          await log(formatAligned('ℹ️', 'CI not executed:', `Workflow runs completed with: ${workflowRunConclusions} (likely needs maintainer approval)`, 2));
+          await log(formatAligned('ℹ️', 'CI not executed:', `Workflow runs completed with: ${workflowRunConclusions} (likely needs maintainer approval). ${(await import('./github-docs-links.lib.mjs')).formatGitHubDocsLine('actionsSettings')}`, 2)); // Issue #2998: where fork workflow approval is configured
         } else {
           await log(formatAligned('ℹ️', 'CI not triggered:', 'Workflows exist but no workflow runs for this commit (fork PR, paths-ignore, workflow conditions)', 2));
         }

@@ -478,6 +478,54 @@ on:
 - **说明任务为什么被跳过。** 因上游失败而跳过的下游 workflow 是正确的，但一个静默地什么也没做的绿色运行会被理解为“已测试”。用 `::notice::` 注解输出原因，让它显示在运行摘要中（issue #2923）。
 - **一个结果，一条消息。** 日志先说 “recovered and completed successfully”，随后又针对同一个错误说 “❌ Agent reported error”，会把读者引向错误的方向。先计算最终结论，然后只记录真实的内容。
 
+### 18. JavaScript 优先、Rust 受门禁约束、每批只 push 一次
+
+**在 Rust/JavaScript 混合项目中，完整行为先在原生 JavaScript 中实现和调试；在同一个提交的 JavaScript 阶段通过之前，任何 Rust job 都不能启动。** [Router issue #759](https://github.com/link-assistant/router/issues/759) 测量了原因：Rust 代码量大的 pull request 在几十次“一次修复一次 push”的提交之后几乎没有绿色运行（`router#749`：18 次中 3 次；`meta-language#201`：44 次中 0 次，19 次被取消），而本地 `rustc` 构建在 agent 容器中一再被 OOM 杀死，每个任务留下 17–30 GiB 的 `target/` 目录。JavaScript 检查不需要编译步骤，只需要其中一小部分内存和磁盘。
+
+```yaml
+jobs:
+  javascript-first:
+    uses: ./.github/workflows/javascript-first-gate.yml
+    with:
+      source-sha: ${{ github.sha }}
+      javascript-command: npm ci && npm test # 完整的原生 JavaScript 测试套件
+      parity-command: node scripts/check-js-rust-parity.mjs --strict
+      translation-command: node scripts/regenerate-rust.mjs --check
+
+  rust-test: # 每个 Rust 构建、测试、打包、容器和发布 job 都使用同样的 `needs:` 和 `if:`
+    needs: [javascript-first]
+    if: ${{ !cancelled() && needs.javascript-first.result == 'success' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.javascript-first.outputs.tested-sha }}
+```
+
+**对等性是观察到的行为，而不是搬运过来的代码。**
+
+- **包装器不是实现。** 运行 Rust 二进制的 JavaScript 包、Rust 代码的 WASM 构建、浏览器 UI、能往返还原 Rust 文本的 source envelope、相同的文件名集合或相同的测试数量，都只能证明某些东西被*搬运*了；没有一个能证明原生 JavaScript 的*行为*相同。源码往返成功只说明源码文本被保留；执行对等性需要来自两个原生运行时的观测结果。
+- **维护功能清单，拒绝一切未完成项。** 列出每个公共 API、CLI 命令、错误、流、持久化格式和部署契约，以及它们的 JavaScript 和 Rust 实现与证据（meta-language 的 `parity/language-features.json` 和 `check-js-rust-parity.mjs` 是一个可用的范例）。严格检查对每个标记为缺失、部分完成或搬运的条目都会失败。手写的原生适配器是清单中的显式条目并拥有自己的测试，而不是悄无声息的缺口。
+- **两个运行时共享 fixtures。** 两个实现各自独立地运行相同的输入/输出 fixtures，包括拒绝和边界情况。
+- **从固定的源确定性地重新生成。** 用不可变的修订固定翻译器和翻译源，保留中间 IR、源哈希、生成的目标产物和拒绝原因，在临时目录中重新生成，并在 Rust 构建开始之前对与已跟踪 Rust 的任何差异报错。翻译器暂时无法处理的结构，要带着最小示例报告给上游，并记录在清单中。
+- **在两者都存在之前，迁移就没有完成：** 完整的原生 JavaScript 实现，以及成功通过的严格 readiness gate。移植未完成时，保持 readiness gate 为红色，把移植标记为 blocked 并报告阻塞项；由占位命令或放宽的断言产生的绿色运行会错误地报告迁移状态。
+
+**门禁必须真正阻止 Rust。**
+
+- **使用带真实命令的可复用门禁。** 流水线模板提出了一个可调用的 `javascript-first-gate.yml`（[Rust 模板 #197](https://github.com/link-foundation/rust-ai-driven-development-pipeline-template/pull/197)、[JS 模板 #231](https://github.com/link-foundation/js-ai-driven-development-pipeline-template/pull/231)）：它检出确切的 40 位 `source-sha`，校验检出结果，运行调用方提供的原生 JavaScript、严格对等性和 regenerate-and-diff 命令，并把它测试过的修订作为 `tested-sha` 输出。它有意不提供默认生成器和占位命令：每个调用方都要提供仓库里真实的命令。仅仅采用这个门禁并不会让纯 Rust 项目自动完成迁移。
+- **每条 Rust 路径都依赖它。** 每个 Rust 构建、测试、打包、容器和发布 job 都在 `needs:` 中列出门禁，并检出 `tested-sha`，因此构建的正是门禁验证过的内容。如果被依赖的 job 失败或被跳过，GitHub 会跳过依赖它的 job——除非它的 `if:` 使用了 `always()` 或 `!cancelled()`，所以这样的条件还必须要求 `needs.<gate>.result == 'success'`。**被跳过的门禁不等于成功。** 门禁失败、被跳过、翻译漂移和功能缺失，每一种都会阻止所有 Rust 路径。
+- **路径过滤不能绕过门禁。** 只改 Rust 的变更仍然要运行对等性和 regenerate-and-diff 检查。添加一个 CI 检查：只要任何 workflow job 能在不（传递地）依赖门禁的情况下运行 Rust，就失败。
+- **优先使用 `needs:` 而不是 `workflow_run`。** 同一个 workflow 内的 `needs:` 或可复用 workflow 让门禁和 Rust job 处于同一个提交、只有一个结果。如果确实需要单独的 workflow：`workflow_run` 触发器只会从默认分支上的 workflow 文件触发，无论上游运行的结论如何都会触发，链式触发不能超过三层，并且在这种运行中 `GITHUB_SHA` 和 `GITHUB_REF` 指向默认分支，而不是被测试的提交。检查 `github.event.workflow_run.conclusion == 'success'`（`cancelled` 或 `skipped` 的运行不算成功）、来源仓库和事件，显式检出 `github.event.workflow_run.head_sha`，并验证 artifact 的来源。即使上游运行是由 fork 的 pull request 启动的，`workflow_run` workflow 也能使用 secrets 和具有写权限的 token，因此不受信任的 pull request 代码必须保持只读。
+- **保留现有的写入规则。** 只读检查在 JavaScript 前置条件通过之后可以并行运行，并保持可取消。发布、部署、写 tag 和推送生成内容继续使用原则 10 中带 `cancel-in-progress: false` 的仓库级共享写入组：取消过时的检查绝不能打断一次发布。每次写入前都要与远端的当前状态对齐。
+
+**只有一个协调者拥有 `git push`。** 每次 push 都会启动整个 matrix，而在可取消的检查仍在运行时 push 会丢弃它们的结果。改为批量起草：
+
+- **起草者只起草，从不 push。** 起草者（人或 sub-agent）并行处理完整的需求列表；他们可以查看、编辑并运行有边界的 JavaScript 检查。
+- **一个协调者每批只 push 一次。** 它收集同一修订最近一次 CI 运行的所有失败（所有 job、所有日志），让所有这些失败的修复连同待处理的草稿一起完成起草，用必需的本地检查验证确切的候选修订，审查完整的 diff，然后只 push 一次。在下一次 push 之前，它会等待该修订上必需的 CI，绝不一个修复一个 push。在有工具强制执行之前，把它当作规则：两个起草者绝不能 push 同一个分支。
+- **push 权限仅限于 push。** 它不意味着可以合并、发布、部署或清理用户拥有的缓存；这些都需要各自的授权。
+- **限制本地工作量。** 默认在本地只运行 JavaScript 检查，只有在只改 Rust 的变更确实需要时才构建 Rust。此时使用一个共享且有上限的 `CARGO_TARGET_DIR`、`CARGO_INCREMENTAL=0`、精简的调试信息以及适合容器资源的 `-j` 限制，避免重复的 profile/target/feature 组合，测量耗时和磁盘，并在约定的预算用完时停止。绝不悄悄削弱生产断言、把部分运行报告为绿色，或为腾出空间删除无关的缓存。
+
+参见 [GitHub `needs` 语义](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_idneeds)、[`workflow_run` 事件](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflow_run) 和 [Cargo 构建缓存](https://doc.rust-lang.org/cargo/reference/build-cache.html)。
+
 ## 质量强制策略
 
 这些模板实现了纵深防御方法：

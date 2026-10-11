@@ -480,6 +480,54 @@ on:
 - **बताएं कि job क्यों skip हुआ।** Upstream के विफल होने पर skip होने वाला downstream workflow सही है, लेकिन चुपचाप कुछ न करने वाला हरा run "tested" जैसा पढ़ा जाता है। कारण को `::notice::` annotation के रूप में print करें ताकि वह run summary में दिखे (issue #2923)।
 - **एक परिणाम, एक संदेश।** जो log एक ही error के लिए पहले "recovered and completed successfully" और फिर "❌ Agent reported error" कहता है, वह पढ़ने वाले को गलत दिशा में भेजता है। पहले अंतिम निर्णय निकालें, फिर केवल वही log करें जो सच है।
 
+### 18. पहले JavaScript, Rust gate के पीछे, हर batch पर एक push
+
+**Rust/JavaScript वाले mixed project में पूरा behavior पहले native JavaScript में implement और debug किया जाता है, और जब तक उसी commit के लिए JavaScript stage pass न हो जाए, कोई भी Rust job शुरू नहीं हो सकता।** [Router issue #759](https://github.com/link-assistant/router/issues/759) ने इसका कारण मापा: बहुत सारे Rust वाले pull requests में दर्जनों "एक fix, एक push" commits के बाद भी लगभग कोई green run नहीं था (`router#749`: 18 में से 3; `meta-language#201`: 44 में से 0, 19 cancelled), जबकि agent containers में local `rustc` builds बार-बार OOM से kill हुए और हर task पर 17–30 GiB की `target/` directories छोड़ गए। JavaScript checks को compile step की ज़रूरत नहीं होती और उन्हें उस memory और disk का छोटा सा हिस्सा ही चाहिए।
+
+```yaml
+jobs:
+  javascript-first:
+    uses: ./.github/workflows/javascript-first-gate.yml
+    with:
+      source-sha: ${{ github.sha }}
+      javascript-command: npm ci && npm test # पूरा native JavaScript suite
+      parity-command: node scripts/check-js-rust-parity.mjs --strict
+      translation-command: node scripts/regenerate-rust.mjs --check
+
+  rust-test: # यही `needs:` और `if:` हर Rust build, test, package, container और publish job पर लगते हैं
+    needs: [javascript-first]
+    if: ${{ !cancelled() && needs.javascript-first.result == 'success' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.javascript-first.outputs.tested-sha }}
+```
+
+**Parity देखा गया behavior है, ढोकर लाया गया code नहीं।**
+
+- **Wrapper implementation नहीं है।** Rust binary चलाने वाला JavaScript package, Rust code का WASM build, browser UI, Rust text को round-trip करने वाला source envelope, filenames का मेल खाता set या बराबर test count — ये सब केवल यह साबित करते हैं कि कुछ _ढोकर लाया_ गया; इनमें से कोई यह साबित नहीं करता कि native JavaScript का _behavior_ वही है। सफल source round trip बताता है कि source text सुरक्षित रहा; execution parity के लिए दोनों native runtimes से observations चाहिए।
+- **Feature inventory रखें और जो पूरा नहीं है उसे reject करें।** हर public API, CLI command, error, stream, persistence format और deployment contract को उसके JavaScript और Rust implementation और evidence के साथ list करें (meta-language का `parity/language-features.json` और `check-js-rust-parity.mjs` एक काम करता हुआ उदाहरण है)। Strict check missing, partial या carried चिह्नित हर entry पर fail होता है। हाथ से लिखा native adapter inventory की एक explicit entry है जिसके अपने tests हैं, कोई चुपचाप छूटी हुई जगह नहीं।
+- **दोनों runtimes के बीच fixtures share करें।** दोनों implementations वही input/output fixtures स्वतंत्र रूप से चलाते हैं, refusals और boundary cases सहित।
+- **Pinned sources से deterministic regeneration करें।** Translator और translation source को immutable revision से pin करें, intermediate IR, source hashes, generated targets और refusal reasons सुरक्षित रखें, temporary directory में regenerate करें और Rust build शुरू होने से पहले tracked Rust से किसी भी अंतर पर fail करें। जो construct translator अभी नहीं संभाल सकता, उसे minimal example के साथ upstream report करें और inventory में दर्ज करें।
+- **Migration तब तक अधूरा है जब तक दोनों मौजूद न हों:** पूरा native JavaScript implementation और सफल strict readiness gate। जब तक port अधूरा है, readiness gate को red रखें, port को blocked label करें और उसके blockers report करें; placeholder command या ढीले assertion से बना green run rollout की गलत स्थिति बताता है।
+
+**Gate को सच में Rust को रोकना चाहिए।**
+
+- **असली commands के साथ reusable gate का उपयोग करें।** Pipeline templates एक callable `javascript-first-gate.yml` प्रस्तावित करते हैं ([Rust template #197](https://github.com/link-foundation/rust-ai-driven-development-pipeline-template/pull/197), [JS template #231](https://github.com/link-foundation/js-ai-driven-development-pipeline-template/pull/231)), जो ठीक चालीस-character वाले `source-sha` को checkout करता है, checkout को verify करता है, caller के native JavaScript, strict parity और regenerate-and-diff commands चलाता है, और जिस revision को उसने test किया उसे `tested-sha` के रूप में देता है। इसमें जानबूझकर कोई default generator या placeholder command नहीं है: हर caller अपनी repository के असली commands देता है। सिर्फ gate अपनाने से Rust-only project migrate नहीं हो जाता।
+- **हर Rust path इस पर निर्भर है।** हर Rust build, test, package, container और publish job gate को `needs:` में रखता है और `tested-sha` को checkout करता है, ताकि वह ठीक वही build करे जो gate ने validate किया। अगर needed job fail या skip होता है, तो GitHub dependent job को skip कर देता है — जब तक उसका `if:` `always()` या `!cancelled()` का उपयोग न करे; इसीलिए ऐसी condition को `needs.<gate>.result == 'success'` भी require करना चाहिए। **Skip हुआ gate success नहीं है।** Gate का failure, skip, translation drift और missing feature — इनमें से हर एक सभी Rust paths को रोकता है।
+- **Path filters gate को bypass न करें।** केवल Rust वाला बदलाव भी parity और regenerate-and-diff checks चलाता है। एक CI check जोड़ें जो तब fail हो जब कोई workflow job gate पर (transitively) निर्भर हुए बिना Rust चला सके।
+- **`workflow_run` की जगह `needs:` को प्राथमिकता दें।** एक ही workflow में `needs:` या reusable workflow gate और Rust jobs को एक commit और एक result पर रखता है। अगर अलग workflow ज़रूरी हो, तो याद रखें कि `workflow_run` trigger केवल default branch पर मौजूद workflow file से चलता है, upstream का conclusion कुछ भी हो तब भी चलता है, तीन levels से ज़्यादा chain नहीं हो सकता, और ऐसे run में `GITHUB_SHA` और `GITHUB_REF` default branch की ओर इशारा करते हैं, test किए गए commit की ओर नहीं। `github.event.workflow_run.conclusion == 'success'` जांचें (`cancelled` या `skipped` run success नहीं है), source repository और event जांचें, `github.event.workflow_run.head_sha` को explicitly checkout करें, और artifact provenance verify करें। Fork के pull request से upstream run शुरू होने पर भी `workflow_run` workflow secrets और write tokens का उपयोग कर सकता है, इसलिए untrusted pull request code को read-only रखें।
+- **मौजूदा writer rules बनाए रखें।** Read-only checks JavaScript prerequisite pass होने के बाद parallel चल सकते हैं और cancellable रहते हैं। Releases, deploys, tag writes और generated-content pushes principle 10 वाले `cancel-in-progress: false` के साथ shared repository writer group में ही रहते हैं: पुराने check को cancel करना कभी भी publication को बीच में नहीं रोकना चाहिए। हर write से पहले remote की मौजूदा state से मिलान करें।
+
+**`git push` का मालिक केवल एक coordinator है।** हर push पूरी matrix शुरू करता है, और cancellable checks के चलते समय किया गया push उनके results फेंक देता है। इसके बजाय bulk में draft करें:
+
+- **Workers draft करते हैं, push कभी नहीं।** Drafting workers (इंसान या sub-agents) requirements की पूरी list पर parallel काम करते हैं; वे code देख सकते हैं, edit कर सकते हैं और bounded JavaScript checks चला सकते हैं।
+- **एक coordinator हर batch पर एक बार push करता है।** वह उसी revision के latest CI run की हर failure (सभी jobs, सभी logs) इकट्ठा करता है, pending drafts के साथ उन सभी के fixes draft करवाता है, exact candidate revision को required local checks से verify करता है, पूरा diff review करता है और एक बार push करता है। अगले push से पहले वह उस revision पर required CI का इंतज़ार करता है, और कभी fix-by-fix push नहीं करता। जब तक कोई tool इसे enforce न करे, इसे नियम मानें: दो workers कभी एक ही branch पर push नहीं करते।
+- **Push permission सिर्फ push के लिए है।** इसका मतलब merge, publish, deploy या user-owned caches साफ़ करने की permission नहीं है; उनके लिए अलग authorization चाहिए।
+- **Local काम को सीमित रखें।** Default रूप से local में JavaScript checks चलाएं और Rust तभी build करें जब कोई Rust-only बदलाव इसकी मांग करे। तब एक shared, bounded `CARGO_TARGET_DIR`, `CARGO_INCREMENTAL=0`, कम debug info और container के अनुसार `-j` limit का उपयोग करें, duplicate profile/target/feature combinations से बचें, wall time और disk मापें, और तय budget खत्म होने पर रुक जाएं। Production assertions को चुपचाप कमज़ोर न करें, partial run को green न बताएं, और जगह बनाने के लिए unrelated caches delete न करें।
+
+देखें: [GitHub `needs` semantics](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_idneeds), [`workflow_run` event](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflow_run) और [Cargo build cache](https://doc.rust-lang.org/cargo/reference/build-cache.html)।
+
 ## Quality Enforcement रणनीति
 
 Templates एक defense-in-depth दृष्टिकोण implement करते हैं:

@@ -479,6 +479,54 @@ on:
 - **Say why a job skipped.** A downstream workflow that skips because its upstream failed is correct, but a green run that silently did nothing reads as "tested". Print the reason as a `::notice::` annotation so it shows on the run summary (issue #2923).
 - **One outcome, one message.** A log that says "recovered and completed successfully" and then "❌ Agent reported error" for the same error sends readers down the wrong path. Compute the verdict first, then log only what is true.
 
+### 18. JavaScript First, Rust Gated, One Push per Batch
+
+**In a mixed Rust/JavaScript project, complete behavior is implemented and debugged in native JavaScript first, and no Rust job may start until the JavaScript stage has passed for the same commit.** [Router issue #759](https://github.com/link-assistant/router/issues/759) measured why: Rust-heavy pull requests with dozens of push-per-fix commits had almost no green runs (`router#749`: 3 of 18; `meta-language#201`: 0 of 44, 19 cancelled), while local `rustc` builds were OOM-killed repeatedly in agent containers and left 17–30 GiB `target/` directories per task. JavaScript checks need no compile step and a fraction of that memory and disk.
+
+```yaml
+jobs:
+  javascript-first:
+    uses: ./.github/workflows/javascript-first-gate.yml
+    with:
+      source-sha: ${{ github.sha }}
+      javascript-command: npm ci && npm test # the complete native JavaScript suite
+      parity-command: node scripts/check-js-rust-parity.mjs --strict
+      translation-command: node scripts/regenerate-rust.mjs --check
+
+  rust-test: # the same `needs:` and `if:` go on every Rust build, test, package, container and publish job
+    needs: [javascript-first]
+    if: ${{ !cancelled() && needs.javascript-first.result == 'success' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.javascript-first.outputs.tested-sha }}
+```
+
+**Parity is observed behavior, not carried code.**
+
+- **A wrapper is not an implementation.** A JavaScript package that runs the Rust binary, a WASM build of the Rust code, a browser UI, a source envelope that round-trips the Rust text, a matching set of filenames or an equal test count each prove that something was _carried_; none proves that native JavaScript _behaves_ the same. A successful source round trip shows that source text is preserved; execution parity needs observations from both native runtimes.
+- **Keep a feature inventory and reject anything not done.** List every public API, CLI command, error, stream, persistence format and deployment contract with its JavaScript and Rust implementation and evidence (meta-language's `parity/language-features.json` and `check-js-rust-parity.mjs` are a working model). The strict check fails on every entry marked missing, partial or carried. A handwritten native adapter is an explicit inventory entry with its own tests, never a silent gap.
+- **Share fixtures between the runtimes.** Both implementations run the same input/output fixtures, including refusals and boundary cases, independently.
+- **Regenerate deterministically from pinned sources.** Pin the translator and the translation source by immutable revision, keep the intermediate IR, source hashes, generated targets and refusal reasons, regenerate into a temporary directory and fail on any difference from the tracked Rust before a Rust build starts. A construct the translator cannot handle yet is reported upstream with a minimal example and listed in the inventory.
+- **A migration is incomplete until both exist:** a complete native JavaScript implementation and a successful strict readiness gate. While the port is unfinished, keep the readiness gate red, label the port blocked and report its blockers; a green run produced by a placeholder command or a relaxed assertion misreports the rollout.
+
+**The gate must actually stop Rust.**
+
+- **Use a reusable gate with real commands.** The pipeline templates propose a callable `javascript-first-gate.yml` ([rust template #197](https://github.com/link-foundation/rust-ai-driven-development-pipeline-template/pull/197), [JS template #231](https://github.com/link-foundation/js-ai-driven-development-pipeline-template/pull/231)) that checks out an exact forty-character `source-sha`, verifies the checkout, runs the caller's native JavaScript, strict parity and regenerate-and-diff commands, and exposes the revision it tested as `tested-sha`. It deliberately has no default generator and no placeholder command: every caller supplies real repository commands. Adopting the gate does not migrate a Rust-only project by itself.
+- **Every Rust path depends on it.** Each Rust build, test, package, container and publish job lists the gate in `needs:` and checks out `tested-sha`, so it builds exactly what the gate validated. If a needed job fails or is skipped, GitHub skips the dependent job — unless its `if:` uses `always()` or `!cancelled()`, which is why such a condition must also require `needs.<gate>.result == 'success'`. **A skipped gate is not success.** Gate failure, skip, translation drift and a missing feature each stop every Rust path.
+- **Path filters must not bypass the gate.** A Rust-only change still runs the parity and regenerate-and-diff checks. Add a CI check that fails when any workflow job can run Rust without transitively needing the gate.
+- **Prefer `needs:` over `workflow_run`.** Same-workflow `needs:` or a reusable workflow keeps the gate and the Rust jobs on one commit with one result. If a separate workflow is unavoidable, remember that a `workflow_run` trigger only fires from the workflow file on the default branch, fires whatever the upstream conclusion was, cannot chain more than three levels, and in that run `GITHUB_SHA` and `GITHUB_REF` refer to the default branch, not to the commit that was tested. Check `github.event.workflow_run.conclusion == 'success'` (a `cancelled` or `skipped` run is not success), the source repository and event, check out `github.event.workflow_run.head_sha` explicitly, and verify artifact provenance. A `workflow_run` workflow can use secrets and write tokens even when a fork pull request started the upstream run, so keep untrusted pull request code read-only.
+- **Keep the existing writer rules.** Read-only checks may run in parallel once the JavaScript prerequisite has passed and stay cancellable. Releases, deploys, tag writes and generated-content pushes keep the shared repository writer group with `cancel-in-progress: false` from principle 10: cancelling a superseded check must never interrupt a publication. Reconcile the current remote state before each write.
+
+**One coordinator owns `git push`.** Each push starts the whole matrix, and a push while cancellable checks are still running throws their results away. Draft in bulk instead:
+
+- **Workers draft, never push.** Drafting workers (humans or sub-agents) work on the full list of requirements in parallel; they may inspect, edit and run bounded JavaScript checks.
+- **One coordinator pushes once per batch.** It collects every failure of the latest same-revision CI run (all jobs, all logs), has fixes drafted for all of them together with the pending drafts, verifies the exact candidate revision with the required local checks, reviews the whole diff and pushes once. It waits for the required CI on that revision before the next push, and never pushes fix by fix. Until a tool enforces this, treat it as a rule: two workers must never push the same branch.
+- **Push permission is not more than that.** It does not imply permission to merge, publish, deploy or clean user-owned caches; those need their own authorization.
+- **Bound local work.** Run JavaScript checks locally by default and build Rust only when a Rust-only change needs it. Then use one shared, bounded `CARGO_TARGET_DIR`, `CARGO_INCREMENTAL=0`, reduced debug info and a `-j` limit that fits the container, avoid duplicate profile/target/feature combinations, measure wall time and disk, and stop when the agreed budget is exhausted. Never silently weaken production assertions, report a partial run as green, or delete unrelated caches to regain space.
+
+See [GitHub `needs` semantics](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_idneeds), [the `workflow_run` event](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflow_run) and [the Cargo build cache](https://doc.rust-lang.org/cargo/reference/build-cache.html).
+
 ## Quality Enforcement Strategy
 
 The templates implement a defense-in-depth approach:

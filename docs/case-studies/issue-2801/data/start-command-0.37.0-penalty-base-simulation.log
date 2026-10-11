@@ -1,0 +1,2 @@
+base 4 passed as `$ --cpus 4`     : apply 2 CPUs after 15.5 min (avg 4.00 of capacity 4)
+base 4 applied by `docker update`: no penalty after 20 min at 4 cores (capacity 6, trigger needs 5.70)

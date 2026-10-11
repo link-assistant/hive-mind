@@ -140,7 +140,7 @@ Hive Mind 2.35.4–2.35.7 pin start-command 0.37.1. The containers they created 
 
 The experiment on start-command 0.37.1 ([full output](./data/docker-start-handoff-experiment-start-0.37.1.log)) passes with both the prefixed container and a container launched with plain `$ --isolated docker --detached` (as in Hive Mind 2.35.4–2.35.7). Both resume as `docker-start` in the same container, and no image is committed. On 0.37.1 the old `--resume -- <command>` call is also copy-free. The experiment was run on 0.36.0 again with the same result as before. The helpers resolve `$` with `which`, so the experiment puts `START_COMMAND_BIN`'s directory first on `PATH`. An earlier run without this resumed with the global 0.36.0 and showed a misleading `docker-snapshot`.
 
-`examples/issue-2889-manual-docker-start-recovery.sh` is the same procedure for an operator recovering a container by hand.
+`examples/issue-2889-manual-docker-start-recovery.sh` is the same procedure for an operator recovering a container by hand. It also picks start-command's marker; `experiments/issue-2889-manual-recovery-start-0.37.sh` checks that on a plain start-command 0.37.1 container (same container, recovery ran, no image).
 
 ## Tests
 

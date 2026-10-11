@@ -31,9 +31,15 @@ if [ "$state" = running ]; then
   exit 1
 fi
 
-handoff=$(docker inspect -f '{{json .Config.Cmd}}' "$container" | grep -o "/tmp/hive-mind-resume-command-[A-Za-z0-9._-]*" | head -n 1 || true)
+cmd=$(docker inspect -f '{{json .Config.Cmd}}' "$container")
+# start-command >= 0.37 wraps the container in its own selector, which runs
+# first; otherwise use the Hive Mind prefix.
+handoff=$(printf '%s' "$cmd" | grep -o '"start-command-handoff","/\.start-command-resume-[A-Za-z0-9._-]*"' | sed 's/.*,"\(.*\)"/\1/' | head -n 1 || true)
 if [ -z "$handoff" ]; then
-  echo "Container $container was created without a resume handoff (Hive Mind before the #2889 fix)." >&2
+  handoff=$(printf '%s' "$cmd" | grep -o "/tmp/hive-mind-resume-command-[A-Za-z0-9._-]*" | head -n 1 || true)
+fi
+if [ -z "$handoff" ]; then
+  echo "Container $container was created without a resume handoff (Hive Mind before the #2889 fix, start-command before 0.37)." >&2
   echo "The only in-place option is a snapshot; check free disk first:" >&2
   echo "  docker inspect --size -f '{{.SizeRw}}' $container; df -h \"\$(docker info -f '{{.DockerRootDir}}')\"" >&2
   echo "  \$ --resume $container -- <command>" >&2

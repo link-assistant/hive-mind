@@ -20,11 +20,8 @@ export function findCodexStderrError(output, previous = null) {
 const gib = bytes => `${(bytes / 1024 ** 3).toFixed(2)} GiB`;
 const finiteLimit = snapshot => Number.isFinite(snapshot?.limitBytes) && snapshot.limitBytes > 0;
 
-export function buildCodexMemoryBudgetPrompt(snapshot) {
-  if (!finiteLimit(snapshot)) return '';
-  const current = Number.isFinite(snapshot.currentBytes) ? ` Current use is ${gib(snapshot.currentBytes)}; available headroom is ${gib(Math.max(0, snapshot.limitBytes - snapshot.currentBytes))}.` : '';
-  return `Execution resource budget: the container memory limit is ${gib(snapshot.limitBytes)} (${snapshot.limitBytes} bytes), shared by the agent and all build/test subprocesses.${current} Host free memory does not override this limit. Run memory-heavy commands sequentially, use CARGO_BUILD_JOBS=1 / cargo -j 1 for Rust builds, and prefer focused test targets. A single compiler can still exceed the budget: measure memory, reduce compiler/debug settings where appropriate, and stop repeating a build that is killed; use an adequately provisioned CI runner for remaining validation.`;
-}
+// Issue #2838: the guidance is shared by every tool now; the Codex name stays for callers.
+export { buildMemoryBudgetPrompt as buildCodexMemoryBudgetPrompt } from './memory-budget.lib.mjs';
 
 export function buildCodexProcessFailure({ exitCode, signal = null, stderrError = null, before = null, after = null }) {
   const comparable = before?.path && after && before.version === after.version && before.path === after.path && Number.isFinite(before.oomKills) && Number.isFinite(after.oomKills);

@@ -85,7 +85,12 @@ function parseKeyedCounters(text) {
  *
  * @param {Function} [readFileSync]
  * @param {string} [platform]
- * @returns {{version: number, path: string, limitBytes: number|null, currentBytes: number|null, peakBytes: number|null, oomEvents: number|null, oomKills: number|null}|null}
+ * Issue #2838: the swap the cgroup may use is read too (`swapLimitBytes`,
+ * `swapCurrentBytes`; swap only, not memory+swap). `0` means no swap at all —
+ * what Docker sets when `MemorySwap` equals `Memory` — and `null` means no
+ * swap limit of its own (or swap accounting is off), so host swap applies.
+ *
+ * @returns {{version: number, path: string, limitBytes: number|null, currentBytes: number|null, peakBytes: number|null, swapLimitBytes: number|null, swapCurrentBytes: number|null, oomEvents: number|null, oomKills: number|null}|null}
  */
 export function readCgroupMemory(readFileSync = fs.readFileSync, platform = process.platform) {
   if (platform !== 'linux' || typeof readFileSync !== 'function') return null;
@@ -103,6 +108,8 @@ export function readCgroupMemory(readFileSync = fs.readFileSync, platform = proc
       limitBytes: parseCgroupBytes(max),
       currentBytes: parseCgroupBytes(current),
       peakBytes: parseCgroupBytes(readTextFile(readFileSync, `${dir}/memory.peak`)),
+      swapLimitBytes: parseCgroupBytes(readTextFile(readFileSync, `${dir}/memory.swap.max`)),
+      swapCurrentBytes: parseCgroupBytes(readTextFile(readFileSync, `${dir}/memory.swap.current`)),
       oomEvents: finiteNumber(events.oom),
       oomKills: finiteNumber(events.oom_kill),
     };
@@ -111,14 +118,21 @@ export function readCgroupMemory(readFileSync = fs.readFileSync, platform = proc
   const limit = readTextFile(readFileSync, `${v1}/memory.limit_in_bytes`);
   if (limit === null) return null;
   const limitBytes = parseCgroupBytes(limit);
+  const finiteV1 = bytes => (Number.isFinite(bytes) && bytes < 2 ** 60 ? bytes : null);
+  // cgroup v1 limits memory+swap together; the swap share is the difference.
+  const memswLimit = finiteV1(parseCgroupBytes(readTextFile(readFileSync, `${v1}/memory.memsw.limit_in_bytes`)));
+  const memswUsage = parseCgroupBytes(readTextFile(readFileSync, `${v1}/memory.memsw.usage_in_bytes`));
+  const currentBytes = parseCgroupBytes(readTextFile(readFileSync, `${v1}/memory.usage_in_bytes`));
   const oomControl = parseKeyedCounters(readTextFile(readFileSync, `${v1}/memory.oom_control`));
   return {
     version: 1,
     path: v1,
     // cgroup v1 reports "no limit" as a page-rounded LONG_MAX.
-    limitBytes: Number.isFinite(limitBytes) && limitBytes < 2 ** 60 ? limitBytes : null,
-    currentBytes: parseCgroupBytes(readTextFile(readFileSync, `${v1}/memory.usage_in_bytes`)),
+    limitBytes: finiteV1(limitBytes),
+    currentBytes,
     peakBytes: parseCgroupBytes(readTextFile(readFileSync, `${v1}/memory.max_usage_in_bytes`)),
+    swapLimitBytes: memswLimit !== null && finiteV1(limitBytes) !== null ? Math.max(0, memswLimit - limitBytes) : null,
+    swapCurrentBytes: Number.isFinite(memswUsage) && Number.isFinite(currentBytes) ? Math.max(0, memswUsage - currentBytes) : null,
     oomEvents: null,
     oomKills: finiteNumber(oomControl.oom_kill),
   };

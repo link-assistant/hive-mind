@@ -8,7 +8,7 @@ import { buildModelOptionDescription, defaultModels } from './models/index.mjs';
 
 // Hive-only options that are NOT solve options (hive-specific functionality).
 // These are excluded when auto-registering solve-passthrough options.
-const HIVE_ONLY_OPTION_NAMES = new Set(['monitor-tag', 'all-issues', 'skip-issues-with-prs', 'concurrency', 'pull-requests-per-issue', 'interval', 'max-issues', 'once', 'project-number', 'project-owner', 'project-status', 'project-mode', 'youtrack-mode', 'youtrack-stage', 'youtrack-project', 'target-branch', 'issue-order', 'respect-issue-relations']);
+const HIVE_ONLY_OPTION_NAMES = new Set(['monitor-tag', 'all-issues', 'skip-issues-with-prs', 'concurrency', 'min-memory-per-worker', 'pull-requests-per-issue', 'interval', 'max-issues', 'once', 'project-number', 'project-owner', 'project-status', 'project-mode', 'youtrack-mode', 'youtrack-stage', 'youtrack-project', 'target-branch', 'issue-order', 'respect-issue-relations']);
 
 // Solve-only options that should NOT be registered in hive
 // (they are internal to solve and not meaningful when passed from hive)
@@ -129,6 +129,11 @@ export const createYargsConfig = yargsInstance => {
       description: 'Number of concurrent solve instances',
       default: 2,
       alias: 'c',
+    })
+    .option('min-memory-per-worker', {
+      type: 'number',
+      description: 'Minimum container (cgroup) memory per worker in MB; --concurrency is capped when memory.max / workers is below it (0 disables the cap)',
+      default: 2048,
     })
     .option('pull-requests-per-issue', {
       type: 'number',

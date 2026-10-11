@@ -40,6 +40,8 @@ test('cgroup v2: limit, usage, peak and OOM counters are read', () => {
     peakBytes: LIMIT,
     oomEvents: 2,
     oomKills: 5,
+    swapLimitBytes: null,
+    swapCurrentBytes: null,
   });
 });
 
@@ -67,7 +69,7 @@ test('cgroup v1 fallback, and nothing at all outside Linux or without a memory c
     }),
     'linux'
   );
-  assert.deepEqual(v1, { version: 1, path: '/sys/fs/cgroup/memory', limitBytes: null, currentBytes: 500, peakBytes: 700, oomEvents: null, oomKills: 3 });
+  assert.deepEqual(v1, { version: 1, path: '/sys/fs/cgroup/memory', limitBytes: null, currentBytes: 500, peakBytes: 700, oomEvents: null, oomKills: 3, swapLimitBytes: null, swapCurrentBytes: null });
   assert.equal(readCgroupMemory(fakeReader({}), 'linux'), null);
   assert.equal(readCgroupMemory(fakeReader(V2_FILES), 'darwin'), null);
 });

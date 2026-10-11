@@ -277,6 +277,7 @@ failed माना जाता है।
 | `TELEGRAM_BOT_TOKEN`                       | (आवश्यक)   | @BotFather से Telegram bot token                                                     |
 | `HIVE_MIND_CONFIGURATION_FILE`             |            | LINO फ़ाइल का पथ (`--configuration-file` के समान)                                    |
 | `TELEGRAM_ALLOWED_CHATS`                   | (सभी)      | अनुमत chat IDs (Links Notation)                                                      |
+| `TELEGRAM_ALLOWED_TOPICS`                  | (सभी)      | अनुमत `chatId topicId` pairs (Links Notation)                                        |
 | `TELEGRAM_SOLVE_OVERRIDES`                 | (कोई नहीं) | /solve के लिए override विकल्प (Links Notation)                                       |
 | `TELEGRAM_HIVE_OVERRIDES`                  | (कोई नहीं) | /hive के लिए override विकल्प (Links Notation)                                        |
 | `TELEGRAM_SOLVE`                           | true       | /solve command सक्षम करें                                                            |
@@ -285,11 +286,14 @@ failed माना जाता है।
 | `TELEGRAM_FIX`                             | true       | /fix command सक्षम करें                                                              |
 | `TELEGRAM_ORGANIZE`                        | true       | /organize issue taxonomy command सक्षम करें                                          |
 | `TELEGRAM_AUTH`                            | true       | allowlisted chat owners के लिए experimental private /auth command सक्षम करें         |
+| `TELEGRAM_SHOW_LIMITS`                     | true       | `/solve` और `/hive` callers को `--show-limits` उपयोग करने दें                        |
+| `TELEGRAM_ISOLATION`                       | docker     | Isolation backend (`screen`, `tmux`, `docker`); खाली मान isolation बंद करता है       |
 | `TELEGRAM_AUTO_START_SCREEN_WATCH_MESSAGE` | false      | public /solve sessions के लिए अलग live terminal watch message auto-start करें        |
 | `TELEGRAM_CONTAINER_CPU`                   | (कोई नहीं) | Docker task CPU limit: fixed cores (`1.5`) या host percentage (`50%`)                |
 | `TELEGRAM_CONTAINER_MEMORY`                | 25%        | Docker task RAM limit: size (`2GiB`) या host percentage (`25%`)                      |
 | `TELEGRAM_CONTAINER_DISK`                  | (कोई नहीं) | Docker task writable-layer limit: size (`20GB`) या available-disk percentage (`10%`) |
 | `TELEGRAM_BOT_VERBOSE`                     | false      | verbose logging सक्षम करें                                                           |
+| `TELEGRAM_DRY_RUN`                         | false      | configuration validate करें और bot शुरू किए बिना exit करें                           |
 | `TELEGRAM_CONFIGURATION`                   | (कोई नहीं) | LINO configuration string                                                            |
 
 ### 14. YouTrack एकीकरण
@@ -636,25 +640,49 @@ hive <github-url> [options]
 
 ### hive-telegram-bot विकल्प
 
+हर विकल्प को command-line argument या environment variable के रूप में सेट किया
+जा सकता है ([Telegram Bot](#13-telegram-bot) देखें), इसलिए इसे `.lenv`, `.env`,
+या `--configuration-file <path>` (या `HIVE_MIND_CONFIGURATION_FILE`) से चुनी गई
+किसी custom path की Links Notation फ़ाइल में भी रखा जा सकता है। प्राथमिकता: स्पष्ट
+CLI विकल्प, inline `--configuration`, configuration फ़ाइल, `TELEGRAM_CONFIGURATION`,
+`.lenv`, फिर environment variables और `.env`। स्पष्ट रूप से दी गई पर न पढ़ी जा सकने
+वाली configuration फ़ाइल startup को रोक देती है।
+
+**अनुशंसित:** token और अन्य secrets को working directory की private `.lenv` फ़ाइल
+(`chmod 600 .lenv`) में रखें और bot को सीधे `hive-telegram-bot` से शुरू करें। फ़ाइल
+को कहीं और रखने के लिए `--configuration-file /path/to/bot.lenv` उपयोग करें।
+
+Command line पर secrets (`--token`/`-t`, या token, key, secret, password या
+credential entry वाला `--configuration`/`-c`) अब भी काम करते हैं, लेकिन host के सभी
+users और processes उन्हें `ps` और `/proc/<pid>/cmdline` से पढ़ सकते हैं। Bot
+`.lenv` या `--configuration-file` की सलाह के साथ warning दिखाता है और
+`process.execve` वाले runtimes पर इन arguments के बिना उसी जगह खुद को फिर से launch
+करता है (वही PID, runtime flags, standard streams, exit status और signals)। Re-launch
+तक secrets दिखते हैं, इसलिए इस तरह दिया गया token @BotFather (`/revoke`) से बदलें।
+
 ```bash
 hive-telegram-bot [options]
 ```
 
 | विकल्प                              | Alias | प्रकार  | डिफ़ॉल्ट   | विवरण                                                                                                                                                                                                                      |
 | ----------------------------------- | ----- | ------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--token`                           | `-t`  | string  | (आवश्यक)   | @BotFather से Telegram bot token                                                                                                                                                                                           |
+| `--token`                           | `-t`  | string  | (आवश्यक)   | @BotFather से Telegram bot token; warning दिखाता है, `.lenv` या `--configuration-file` बेहतर है                                                                                                                            |
 | `--allowed-chats`                   |       | string  | (सभी)      | अनुमत chat IDs (Links Notation)                                                                                                                                                                                            |
+| `--allowed-topics`                  |       | string  | (सभी)      | अनुमत `chatId topicId` pairs (Links Notation)                                                                                                                                                                              |
 | `--solve-overrides`                 |       | string  | (कोई नहीं) | /solve के लिए override विकल्प                                                                                                                                                                                              |
 | `--hive-overrides`                  |       | string  | (कोई नहीं) | /hive के लिए override विकल्प                                                                                                                                                                                               |
 | `--solve`                           |       | boolean | true       | /solve command सक्षम करें (अक्षम करने के लिए --no-solve)                                                                                                                                                                   |
 | `--hive`                            |       | boolean | true       | /hive command सक्षम करें (अक्षम करने के लिए --no-hive)                                                                                                                                                                     |
 | `--task`                            |       | boolean | true       | /task और /split commands सक्षम करें (अक्षम करने के लिए --no-task)                                                                                                                                                          |
+| `--fix`                             |       | boolean | true       | /fix command सक्षम करें (अक्षम करने के लिए --no-fix)                                                                                                                                                                       |
+| `--organize`                        |       | boolean | true       | /organize issue taxonomy command सक्षम करें (अक्षम करने के लिए --no-organize)                                                                                                                                              |
 | `--auth`                            |       | boolean | true       | allowlisted chat owners के लिए experimental private /auth command सक्षम करें (अक्षम करने के लिए --no-auth)                                                                                                                 |
-| `--configuration`                   | `-c`  | string  |            | इनलाइन LINO कॉन्फ़िगरेशन; गोपनीय जानकारी के लिए `--configuration-file` उपयोग करें                                                                                                                                          |
-| `--configuration-file`              |       | string  |            | LINO कॉन्फ़िगरेशन फ़ाइल का पथ (गोपनीय फ़ाइल के लिए `0600`)                                                                                                                                                                 |
+| `--configuration`                   | `-c`  | string  |            | इनलाइन LINO कॉन्फ़िगरेशन; इसमें secrets warning दिखाते हैं, `.lenv` या `--configuration-file` बेहतर है                                                                                                                     |
+| `--configuration-file`              |       | string  |            | custom path की Links Notation कॉन्फ़िगरेशन फ़ाइल (गोपनीय फ़ाइल के लिए `0600`)                                                                                                                                              |
 | `--verbose`                         | `-v`  | boolean | false      | verbose logging सक्षम करें                                                                                                                                                                                                 |
 | `--dry-run`                         |       | boolean | false      | bot शुरू किए बिना validate करें                                                                                                                                                                                            |
 | `--auto-start-screen-watch-message` |       | boolean | false      | Experimental: public `/solve` sessions के लिए अलग `/terminal_watch` message auto-start करें। Private या unknown-visibility repositories में watch messages auto-start नहीं होते।                                           |
+| `--show-limits`                     |       | boolean | true       | Experimental: `/solve` और `/hive` callers को `--show-limits` उपयोग करने दें (अक्षम करने के लिए --no-show-limits)                                                                                                           |
 | `--isolation`                       |       | string  | `docker`   | Isolation backend (`screen`, `tmux`, `docker`)। डिफ़ॉल्ट `docker` Telegram-bot work sessions को Docker isolation में success cleanup के साथ चलाता है। opt out के लिए `--isolation ''` (या `TELEGRAM_ISOLATION=`) पास करें। |
 | `--container-cpu`                   |       | string  |            | Docker task CPU limit: fixed cores (`1.5`) या host percentage (`50%`)।                                                                                                                                                     |
 | `--container-memory`                |       | string  |            | Docker task RAM limit: fixed size (`2GiB`) या host percentage (`25%`)।                                                                                                                                                     |

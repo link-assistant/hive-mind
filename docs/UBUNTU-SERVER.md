@@ -71,7 +71,8 @@ The following instructions describe the legacy bare-metal installation on Ubuntu
    screen -R bot # Enter new screen for bot
 
    umask 077
-   cat > bot.lenv <<'LINO'
+   # .lenv in the working directory is loaded automatically
+   cat > .lenv <<'LINO'
    TELEGRAM_BOT_TOKEN: '849...355:AAG...rgk_YZk...aPU'
    TELEGRAM_ALLOWED_CHATS:
      -1002975819706
@@ -89,8 +90,9 @@ The following instructions describe the legacy bare-metal installation on Ubuntu
      --no-tool-check
    TELEGRAM_BOT_VERBOSE: true
    LINO
-   chmod 600 bot.lenv
-   hive-telegram-bot --configuration-file bot.lenv
+   chmod 600 .lenv
+   hive-telegram-bot
+   # Or keep the file elsewhere: hive-telegram-bot --configuration-file /path/to/bot.lenv
 
    # Press CTRL + A + D for detach from screen
    ```
@@ -100,7 +102,8 @@ The following instructions describe the legacy bare-metal installation on Ubuntu
    ```
    screen -R bot # Enter new screen for bot
 
-   HIVE_MIND_CONFIGURATION_FILE=bot.lenv hive-telegram-bot --allowed-chats "(
+   # TELEGRAM_BOT_TOKEN stays in .lenv; avoid --token, which is visible in process listings
+   hive-telegram-bot --allowed-chats "(
      -1002975819706
      -1002861722681
    )" --hive-overrides "(

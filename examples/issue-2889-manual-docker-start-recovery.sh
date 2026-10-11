@@ -5,8 +5,9 @@
 # `$ --resume <id> -- <command>` commits the whole writable layer to an image
 # (start-command's docker-snapshot mode). For a Rust or Node build that is tens
 # of gigabytes and half an hour of CPU. Task containers created by Hive Mind
-# with the #2889 fix look for a command file first, so the same container can
-# be restarted with `docker start` and a new command instead:
+# with the #2889 fix (or by start-command 0.37+) look for a command file first,
+# so the same container can be restarted with `docker start` and a new
+# command instead:
 #
 #   1. read the handoff path from the container's own command;
 #   2. `docker cp` the new command into the stopped container;

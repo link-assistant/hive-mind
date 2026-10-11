@@ -95,9 +95,10 @@ await asyncTest('Production replay: HEAD CI pending at start, then fails → que
   assert.match(result.error, /Checks and release/, 'error should name the failed workflow');
   assert.deepEqual(processor.branchCIFailedRuns, [FAILED_RUN], 'failed runs should be kept for the final report');
   assert.equal(calls.errors.length, 1, 'onError should be called once');
+  // Issue #2925: the PRs the queue will not merge are reported as skipped, not left pending.
   assert.ok(
-    processor.items.every(item => item.status === MergeItemStatus.PENDING),
-    'all PRs should stay pending'
+    processor.items.every(item => item.status === MergeItemStatus.SKIPPED),
+    'all PRs should be skipped'
   );
 });
 
@@ -108,7 +109,7 @@ await asyncTest('Main turns red between PRs (commit pushed outside the queue) �
   assert.deepEqual(calls.merged, [2398], 'only the first PR may be merged');
   assert.equal(result.success, false);
   assert.equal(processor.status, MergeStatus.FAILED);
-  assert.equal(processor.items[1].status, MergeItemStatus.PENDING, 'second PR stays pending');
+  assert.equal(processor.items[1].status, MergeItemStatus.SKIPPED, 'second PR is skipped (issue #2925)');
 });
 
 await asyncTest('HEAD CI still running after the wait timed out → queue stops instead of merging blind', async () => {

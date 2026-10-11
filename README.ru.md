@@ -541,7 +541,7 @@ Examples:
 #### `/merge` — Слияние готовых Pull Request
 
 ```
-/merge <repository-url|issue-url|pull-request-url> [--auto-resolve]
+/merge <repository-url|issue-url|pull-request-url> [--auto-resolve] [--auto-fix-ci-cd]
 
 Examples:
 /merge https://github.com/owner/repo

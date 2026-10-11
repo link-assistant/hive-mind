@@ -537,7 +537,7 @@ Examples:
 #### `/merge` - 合并就绪的 Pull Request
 
 ```
-/merge <repository-url|issue-url|pull-request-url> [--auto-resolve]
+/merge <repository-url|issue-url|pull-request-url> [--auto-resolve] [--auto-fix-ci-cd]
 
 Examples:
 /merge https://github.com/owner/repo

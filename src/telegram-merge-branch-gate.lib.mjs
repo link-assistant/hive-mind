@@ -39,7 +39,7 @@ export const BRANCH_GATE_RECHECK_DELAY_MS = 30 * 1000;
  * @param {boolean} options.checkHealth - Verify CI conclusions on the branch HEAD (CHECK_BRANCH_CI_HEALTH_BEFORE_START)
  * @param {boolean} options.waitForActiveRuns - Wait for active runs on the branch (WAIT_FOR_TARGET_BRANCH_CI)
  * @param {string} options.context - Human-readable context for logs, e.g. "before merging PR #12"
- * @returns {Promise<{ok: boolean, status: 'ready'|'failed'|'pending'|'cancelled', failedRuns: Array, error: string|null}>}
+ * @returns {Promise<{ok: boolean, status: 'ready'|'failed'|'pending'|'cancelled', branch?: string, failedRuns: Array, pendingRuns?: Array, error: string|null}>}
  */
 export async function ensureTargetBranchReady(processor, { checkHealth, waitForActiveRuns, context }) {
   const ready = { ok: true, status: 'ready', failedRuns: [], error: null };
@@ -62,7 +62,7 @@ export async function ensureTargetBranchReady(processor, { checkHealth, waitForA
       health = await processor.checkBranchCIHealth(processor.owner, processor.repo, branch, {}, processor.verbose);
       if (!health.healthy) {
         processor.log(`Branch gate (${context}): ${branch} is red — ${health.error}`);
-        return { ok: false, status: 'failed', failedRuns: health.failedRuns || [], error: health.error };
+        return { ok: false, status: 'failed', branch, failedRuns: health.failedRuns || [], pendingRuns: [], error: health.error };
       }
       const at = health.checkedSha ? ` (judged on ${health.checkedSha.substring(0, 7)}${health.skippedCommits ? `, skipped ${health.skippedCommits} commit(s) without CI` : ''})` : '';
       processor.log(`Branch gate (${context}): ${branch} HEAD CI ${health.pending ? `has ${health.pendingRuns?.length || 0} run(s) in progress` : 'is green'}${at}`);
@@ -86,11 +86,13 @@ export async function ensureTargetBranchReady(processor, { checkHealth, waitForA
       // Timed out (or the final poll failed). Only the HEAD commit's verdict matters now.
       health = await processor.checkBranchCIHealth(processor.owner, processor.repo, branch, {}, processor.verbose);
       if (!health.healthy) {
-        return { ok: false, status: 'failed', failedRuns: health.failedRuns || [], error: health.error };
+        return { ok: false, status: 'failed', branch, failedRuns: health.failedRuns || [], pendingRuns: [], error: health.error };
       }
       if (health.pending) {
         const names = (health.pendingRuns || []).map(run => run.name).join(', ');
-        return { ok: false, status: 'pending', failedRuns: [], error: `CI on ${branch} is still running after waiting (${names || wait.error}); cannot confirm ${branch} is green` };
+        // Issue #2925: a run can stay `queued` for a long time when GitHub runners are congested.
+        for (const run of health.pendingRuns || []) processor.log(`Branch gate (${context}): still pending on ${branch}: ${run.name} status=${run.status} created=${run.created_at || '?'} (${run.html_url || 'no url'})`);
+        return { ok: false, status: 'pending', branch, failedRuns: [], pendingRuns: health.pendingRuns || [], error: `CI on ${branch} is still running after waiting (${names || wait.error}); cannot confirm ${branch} is green` };
       }
       processor.log(`Branch gate (${context}): ${branch} HEAD CI is green; other active runs did not finish (${wait.error}). Proceeding.`);
       return ready;
@@ -103,7 +105,7 @@ export async function ensureTargetBranchReady(processor, { checkHealth, waitForA
     // Runs finished while we waited — loop to re-check their conclusions (issue #2404).
   }
 
-  return { ok: false, status: 'pending', failedRuns: [], error: `CI on ${branch} kept changing after ${MAX_BRANCH_GATE_ROUNDS} checks; cannot confirm ${branch} is green` };
+  return { ok: false, status: 'pending', branch, failedRuns: [], pendingRuns: health?.pendingRuns || [], error: `CI on ${branch} kept changing after ${MAX_BRANCH_GATE_ROUNDS} checks; cannot confirm ${branch} is green` };
 }
 
 export default {

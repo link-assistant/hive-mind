@@ -61,7 +61,7 @@ The following instructions describe the legacy bare-metal installation on Ubuntu
    claude
    ```
 
-   Note: Both opencode and agent come with free Grok Code Fast 1 model by default - so no authorization is required for these tools.
+   Note: Both opencode and agent come with a free model by default (Big Pickle for opencode, Nemotron 3 Super for agent) - so no authorization is required for these tools.
 
 7. Launch the Hive Mind telegram bot:
 

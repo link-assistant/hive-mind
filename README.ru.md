@@ -357,7 +357,7 @@ review --repo owner/repo --pr 456
 solve <issue-url> [options]
 ```
 
-> **📦 Режим репозитория**: передайте URL репозитория вместо URL задачи — solve соберёт все открытые задачи этого репозитория (сначала самые старые), создаст одну сводную задачу, прикрепит к ней до 100 из них как нативные под-задачи GitHub (лимит GitHub для одной родительской задачи) и перечислит каждую, включая остальные, как обязательную ссылку закрытия, и будет решать её — так что один pull request сможет закрыть их все сразу. Режим также включает `--deep-analysis` и `--ensure-all-sub-issues-addressed`. Задачи, всё ещё прикреплённые к более ранней закрытой сводной задаче, переносятся в новую, а с `--auto-merge` pull request сливается только тогда, когда его описание закрывает каждую перечисленную задачу. Если открытых задач нет, CLI успешно завершается, ничего не создавая; Telegram сообщает об отсутствии работы напрямую, не запуская рабочий сеанс. См. [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#solve-options).
+> **📦 Режим репозитория**: передайте URL репозитория вместо URL задачи — solve соберёт все открытые задачи этого репозитория (сначала самые старые), создаст одну сводную задачу, прикрепит к ней до 100 из них как нативные под-задачи GitHub (лимит GitHub для одной родительской задачи) и перечислит каждую, включая остальные, как обязательную ссылку закрытия, и будет решать её — так что один pull request сможет закрыть их все сразу. Режим также включает `--deep-analysis` и `--ensure-all-sub-issues-addressed`. Задачи, всё ещё прикреплённые к более ранней закрытой сводной задаче, переносятся в новую, а с `--auto-merge` pull request сливается только тогда, когда его описание закрывает каждую перечисленную задачу. Если открытых задач нет, CLI успешно завершается, ничего не создавая; Telegram сообщает об отсутствии работы напрямую, не запуская рабочий сеанс. Если открыта ровно одна задача, объединённая задача не создаётся: эта задача решается напрямую, как если бы был передан её URL (Telegram тоже показывает и запускает URL задачи). См. [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#solve-options).
 
 **Наиболее часто используемые параметры:**
 
@@ -500,11 +500,11 @@ Aliases:
 
 Tool alias examples:
 /codex https://github.com/owner/repo/issues/123 --model gpt-5.5
-/opencode https://github.com/owner/repo/issues/123 --model grok-code-fast-1
+/opencode https://github.com/owner/repo/issues/123 --model big-pickle
 /agent https://github.com/owner/repo/issues/123 --model nemotron-3-super-free
 /gemini https://github.com/owner/repo/issues/123 --model flash
 /qwen https://github.com/owner/repo/issues/123 --model qwen3-coder-plus
-/gemini https://github.com/owner/repo/issues/123 --model gemini-2.5-flash
+/gemini https://github.com/owner/repo/issues/123 --model flash
 
 Free Models (with --tool agent):
 /solve https://github.com/owner/repo/issues/123 --tool agent --model nemotron-3-super-free

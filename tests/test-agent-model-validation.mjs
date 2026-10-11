@@ -142,11 +142,11 @@ test('grok models still work correctly (regression test)', () => {
 test('Premium models still work correctly (regression test)', () => {
   const sonnetResult = validateModelName('sonnet', 'agent');
   assert(sonnetResult.valid, 'sonnet should still be valid');
-  assert.strictEqual(sonnetResult.mappedModel, 'anthropic/claude-3-5-sonnet', 'sonnet should map correctly');
+  assert.strictEqual(sonnetResult.mappedModel, 'anthropic/claude-sonnet-5-5', 'sonnet should map to the newest Sonnet (issue #2591)');
 
   const haikuResult = validateModelName('haiku', 'agent');
   assert(haikuResult.valid, 'haiku should still be valid');
-  assert.strictEqual(haikuResult.mappedModel, 'anthropic/claude-3-5-haiku', 'haiku should map correctly');
+  assert.strictEqual(haikuResult.mappedModel, 'anthropic/claude-haiku-5-5', 'haiku should map to the newest Haiku (issue #2591)');
 });
 
 // Summary

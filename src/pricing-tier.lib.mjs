@@ -101,7 +101,8 @@ const SHORT_CONTEXT_RULES = Object.freeze([
   // Haiku 5.5: "a prompt of over 100,000 tokens pays higher prices" (5x input and output).
   { tool: 'claude', pattern: /^claude-haiku-5-5\b/i, tokens: 100_000 },
   // Gemini Pro models bill 2x input / 1.5x output above 200K; Flash and Flash-Lite are flat.
-  { tool: 'gemini', pattern: /pro/i, tokens: 200_000 },
+  // `auto` (Gemini CLI's router) may pick a Pro model, so it shares the Pro tier (issue #2591).
+  { tool: 'gemini', pattern: /pro|^auto$/i, tokens: 200_000 },
   // Qwen3 Coder Plus/Flash: the 256K-1M tier costs 6x input / 12x output versus the first tier.
   { tool: 'qwen', pattern: /^qwen3-coder-(plus|flash)/i, tokens: 256_000 },
 ]);

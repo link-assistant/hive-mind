@@ -124,7 +124,7 @@ for (const level of ['low', 'medium', 'high', 'xhigh', 'ultra', 'max']) {
   });
 
   test(`OpenCode default model + --think ${level}: no think prompt instruction`, () => {
-    const prompt = buildOpenCodeUserPrompt({ ...baseParams, argv: { model: 'grok-code-fast-1', think: level } });
+    const prompt = buildOpenCodeUserPrompt({ ...baseParams, argv: { model: 'big-pickle', think: level } });
     assert(!containsThinkInstruction(prompt), `OpenCode prompt should not contain think instruction for non-Claude model, got:\n${prompt}`);
   });
 
@@ -138,12 +138,13 @@ console.log('\n=== Legacy Claude models through non-Claude tools (SHOULD get thi
 
 for (const level of ['low', 'medium', 'high', 'xhigh', 'ultra', 'max']) {
   test(`Agent Claude 3 Opus + --think ${level}: includes "${expectedMessages[level]}"`, () => {
-    const prompt = buildAgentUserPrompt({ ...baseParams, argv: { model: 'opus', think: level } });
+    // Issue #2591: `opus` now follows the newest Claude Opus, so the legacy model is named explicitly
+    const prompt = buildAgentUserPrompt({ ...baseParams, argv: { model: 'anthropic/claude-3-opus', think: level } });
     assert(prompt.includes(expectedMessages[level]), `Agent prompt should contain "${expectedMessages[level]}" for legacy Claude model`);
   });
 
   test(`OpenCode Claude 3.5 Sonnet + --think ${level}: includes "${expectedMessages[level]}"`, () => {
-    const prompt = buildOpenCodeUserPrompt({ ...baseParams, argv: { model: 'claude', think: level } });
+    const prompt = buildOpenCodeUserPrompt({ ...baseParams, argv: { model: 'anthropic/claude-3-5-sonnet', think: level } });
     assert(prompt.includes(expectedMessages[level]), `OpenCode prompt should contain "${expectedMessages[level]}" for legacy Claude model`);
   });
 }

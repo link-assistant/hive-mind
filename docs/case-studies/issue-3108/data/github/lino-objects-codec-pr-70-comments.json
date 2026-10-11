@@ -1,0 +1,47 @@
+[
+  {
+    "url": "https://api.github.com/repos/link-foundation/lino-objects-codec/issues/comments/6109829969",
+    "html_url": "https://github.com/link-foundation/lino-objects-codec/pull/70#issuecomment-6109829969",
+    "issue_url": "https://api.github.com/repos/link-foundation/lino-objects-codec/issues/70",
+    "id": 6109829969,
+    "node_id": "IC_kwDOQWrSmc8AAAABbCybUQ",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "created_at": "2026-10-11T14:03:11Z",
+    "updated_at": "2026-10-11T14:03:11Z",
+    "body": "<!-- hive-mind:working-session-summary -->\n## Working session summary\n\n[PR #70](https://github.com/link-foundation/lino-objects-codec/pull/70) is implemented, pushed, and ready for review, with closing references for #69 and #68.\n\n- Fixed large-document allocations across JavaScript, Rust, Python, and C#, preserving Unicode, quotes, escapes, and malformed-input rejection.\n- Added a 149 MB synthetic regression verifying every one of 1,764 records and exact re-encoding.\n- All local suites and **46 CI checks pass**.\n- Working tree is clean; current `main` is included.\n\n[Complete requirements, alternatives, plans, and library research](<workspace>/docs/case-studies/issue-68/README.md).\n\nDependency updates require Rust 1.87; development tests require 1.88.\n\n---\n*This summary was automatically extracted from the AI working session output.*",
+    "author_association": "MEMBER",
+    "reactions": { "url": "https://api.github.com/repos/link-foundation/lino-objects-codec/issues/comments/6109829969/reactions", "total_count": 0, "+1": 0, "-1": 0, "laugh": 0, "hooray": 0, "confused": 0, "heart": 0, "rocket": 0, "eyes": 0 },
+    "performed_via_github_app": null,
+    "minimized": null
+  },
+  {
+    "url": "https://api.github.com/repos/link-foundation/lino-objects-codec/issues/comments/6109832509",
+    "html_url": "https://github.com/link-foundation/lino-objects-codec/pull/70#issuecomment-6109832509",
+    "issue_url": "https://api.github.com/repos/link-foundation/lino-objects-codec/issues/70",
+    "id": 6109832509,
+    "node_id": "IC_kwDOQWrSmc8AAAABbCylPQ",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "created_at": "2026-10-11T14:03:28Z",
+    "updated_at": "2026-10-11T14:03:28Z",
+    "body": "## 🤖 Solution Draft Log\nThis log file contains the complete execution trace of the AI solution draft process.\n\n### 💰 **Cost estimation:**\n- Model: GPT-6.1 Sol\n- Provider: OpenAI\n- Public pricing estimate: $3.009845\n\n### 📊 **Context and tokens usage:**\n- 281.4K input tokens across requests (cumulative, larger than the 272K context window, so not one request's context), 47.8K / 128K (37%) output tokens\n\nTotal: (281.4K + 5.8M cached) input tokens, 47.8K output tokens, $3.009845 cost\n\n### 🤖 **Models used:**\n- Tool: OpenAI Codex\n- Requested: `gpt-6.1-sol`\n- Thinking level: xhigh (~31999 tokens)\n- **Model: GPT-6.1 Sol** (`gpt-6.1-sol`)\n\n### 📎 **Log file uploaded as Gist** (4179KB)\n- [View complete solution draft log](https://gist.githubusercontent.com/konard/83eb9eccf22559a3cbfe840c374974d8/raw/8c67d24f2993e2b9229759933ef5ca5bd611b319/tmp-hive-mind-log-upload-uVcyQg-sanitized.log.txt)\n\n---\n*Now working session is ended, feel free to review and add any feedback on the solution draft.*",
+    "author_association": "MEMBER",
+    "reactions": { "url": "https://api.github.com/repos/link-foundation/lino-objects-codec/issues/comments/6109832509/reactions", "total_count": 0, "+1": 0, "-1": 0, "laugh": 0, "hooray": 0, "confused": 0, "heart": 0, "rocket": 0, "eyes": 0 },
+    "performed_via_github_app": null,
+    "minimized": null
+  },
+  {
+    "url": "https://api.github.com/repos/link-foundation/lino-objects-codec/issues/comments/6109857164",
+    "html_url": "https://github.com/link-foundation/lino-objects-codec/pull/70#issuecomment-6109857164",
+    "issue_url": "https://api.github.com/repos/link-foundation/lino-objects-codec/issues/70",
+    "id": 6109857164,
+    "node_id": "IC_kwDOQWrSmc8AAAABbC0FjA",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "created_at": "2026-10-11T14:06:14Z",
+    "updated_at": "2026-10-11T14:06:14Z",
+    "body": "## 🎉 Auto-merged\n\nThis pull request has been automatically merged by hive-mind.\n- All CI checks have passed",
+    "author_association": "MEMBER",
+    "reactions": { "url": "https://api.github.com/repos/link-foundation/lino-objects-codec/issues/comments/6109857164/reactions", "total_count": 0, "+1": 0, "-1": 0, "laugh": 0, "hooray": 0, "confused": 0, "heart": 0, "rocket": 0, "eyes": 0 },
+    "performed_via_github_app": null,
+    "minimized": null
+  }
+]

@@ -503,11 +503,11 @@ Aliases:
 
 Tool alias examples:
 /codex https://github.com/owner/repo/issues/123 --model gpt-5.5
-/opencode https://github.com/owner/repo/issues/123 --model grok-code-fast-1
+/opencode https://github.com/owner/repo/issues/123 --model big-pickle
 /agent https://github.com/owner/repo/issues/123 --model nemotron-3-super-free
 /gemini https://github.com/owner/repo/issues/123 --model flash
 /qwen https://github.com/owner/repo/issues/123 --model qwen3-coder-plus
-/gemini https://github.com/owner/repo/issues/123 --model gemini-2.5-flash
+/gemini https://github.com/owner/repo/issues/123 --model flash
 
 Free Models (with --tool agent):
 /solve https://github.com/owner/repo/issues/123 --tool agent --model nemotron-3-super-free
@@ -532,11 +532,11 @@ Current tool defaults in Hive Mind:
 | ---------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | `claude`   | `opus`                                                                      | Defaults to `--think off`: zero budget when supported, otherwise the lowest effort |
 | `codex`    | newest `gpt-*-sol` in the installed catalogue (`gpt-6-sol` bundled default) | Defaults to `--think off`, mapped to `reasoning_effort=none`                       |
-| `opencode` | `grok-code-fast-1`                                                          | Defaults to `--think off`; no positive thinking prompt is added                    |
+| `opencode` | `big-pickle`                                                                | Defaults to `--think off`; no positive thinking prompt is added                    |
 | `agent`    | `nemotron-3-super-free`                                                     | Defaults to `--think off`; no positive thinking prompt is added                    |
 | `gemini`   | `flash`                                                                     | Defaults to `--think off`; no positive thinking prompt is added                    |
 | `qwen`     | `qwen3-coder-plus`                                                          | Defaults to `--think off`; no positive thinking prompt is added                    |
-| `gemini`   | `gemini-2.5-flash`                                                          | Defaults to `--think off`; no positive thinking prompt is added                    |
+| `gemini`   | `flash`                                                                     | Defaults to `--think off`; no positive thinking prompt is added                    |
 
 See [docs/CONFIGURATION.md](./docs/CONFIGURATION.md) for the full per-tool defaults and reasoning mappings.
 

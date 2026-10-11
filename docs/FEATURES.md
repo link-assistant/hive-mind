@@ -121,7 +121,7 @@ All these are preinstalled, but Hive Mind can decide to install more if needed t
 **The Solution**: Hive Mind supports multiple AI backends:
 
 - **Claude** (Sonnet, Opus, Haiku) - Default and recommended
-- **OpenCode** (Grok) - Free Grok Code Fast model included
+- **OpenCode** (OpenCode Zen) - Free Big Pickle model included
 - **Codex** (OpenAI) - For OpenAI API users
 - **Agent** - Custom AI agent framework
 

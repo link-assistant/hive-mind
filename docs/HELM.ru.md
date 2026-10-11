@@ -127,29 +127,28 @@ secrets:
 
 Для запуска Hive Mind в качестве Telegram-бота в Kubernetes:
 
+Создайте `/secure/telegram-token` с правами `0600`; содержимое — только токен, без перевода строки в конце. Чарт передаёт `TELEGRAM_BOT_TOKEN` через `env.valueFrom.secretKeyRef`; не помещайте токен в аргументы команд и файлы values.
+
+```bash
+kubectl create secret generic hive-telegram-token \
+  --from-file=token=/secure/telegram-token
+```
+
 ```yaml
+secrets:
+  telegramToken: 'hive-telegram-token'
+
 command:
   - /bin/bash
   - -c
   - |
-    # Аутентификация в GitHub с использованием токена из секрета
     echo "$GITHUB_TOKEN" | gh auth login --with-token
-
-    # Запуск telegram-бота
-    hive-telegram-bot --configuration "
-      TELEGRAM_BOT_TOKEN: '$TELEGRAM_BOT_TOKEN'
-      TELEGRAM_ALLOWED_CHATS:
-        -1002975819706
-      TELEGRAM_HIVE_OVERRIDES:
-        --all-issues
-        --once
-        --attach-logs
-        --verbose
-      TELEGRAM_BOT_VERBOSE: true
-    "
+    exec hive-telegram-bot
 
 env:
-  TELEGRAM_BOT_TOKEN: 'your-telegram-bot-token'
+  TELEGRAM_ALLOWED_CHATS: '(-1002975819706)'
+  TELEGRAM_HIVE_OVERRIDES: '(--all-issues --once --attach-logs --verbose)'
+  TELEGRAM_BOT_VERBOSE: 'true'
 ```
 
 ### Автоматическое масштабирование
@@ -265,13 +264,14 @@ resources:
 secrets:
   githubToken: 'hive-github-token'
   claudeApiKey: 'hive-claude-api-key'
+  telegramToken: 'hive-telegram-token'
 
 command:
   - /bin/bash
   - -c
   - |
     echo "$GITHUB_TOKEN" | gh auth login --with-token
-    hive-telegram-bot --token "$TELEGRAM_BOT_TOKEN" --verbose
+    exec hive-telegram-bot --verbose
 
 podAntiAffinity:
   requiredDuringSchedulingIgnoredDuringExecution:

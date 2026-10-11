@@ -66,24 +66,29 @@
    ```
    screen -R bot # 进入机器人的新 screen 会话
 
-   hive-telegram-bot --configuration "
-     TELEGRAM_BOT_TOKEN: '849...355:AAG...rgk_YZk...aPU'
-     TELEGRAM_ALLOWED_CHATS:
-       -1002975819706
-       -1002861722681
-     TELEGRAM_HIVE_OVERRIDES:
-       --all-issues
-       --once
-       --skip-issues-with-prs
-       --attach-logs
-       --verbose
-       --no-tool-check
-     TELEGRAM_SOLVE_OVERRIDES:
-       --attach-logs
-       --verbose
-       --no-tool-check
-     TELEGRAM_BOT_VERBOSE: true
-   "
+   umask 077
+   # .lenv in the working directory is loaded automatically
+   cat > .lenv <<'LINO'
+   TELEGRAM_BOT_TOKEN: '849...355:AAG...rgk_YZk...aPU'
+   TELEGRAM_ALLOWED_CHATS:
+     -1002975819706
+     -1002861722681
+   TELEGRAM_HIVE_OVERRIDES:
+     --all-issues
+     --once
+     --skip-issues-with-prs
+     --attach-logs
+     --verbose
+     --no-tool-check
+   TELEGRAM_SOLVE_OVERRIDES:
+     --attach-logs
+     --verbose
+     --no-tool-check
+   TELEGRAM_BOT_VERBOSE: true
+   LINO
+   chmod 600 .lenv
+   hive-telegram-bot
+   # Or keep the file elsewhere: hive-telegram-bot --configuration-file /path/to/bot.lenv
 
    # 按 CTRL + A + D 从 screen 会话中分离
    ```
@@ -93,7 +98,8 @@
    ```
    screen -R bot # 进入机器人的新 screen 会话
 
-   hive-telegram-bot --token 849...355:AAG...rgk_YZk...aPU --allowed-chats "(
+   # TELEGRAM_BOT_TOKEN stays in .lenv; avoid --token, which is visible in process listings
+   hive-telegram-bot --allowed-chats "(
      -1002975819706
      -1002861722681
    )" --hive-overrides "(

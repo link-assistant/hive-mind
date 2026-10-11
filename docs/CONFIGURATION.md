@@ -276,7 +276,9 @@ pull request target is not mergeable yet, the merge queue waits up to
 | Environment Variable                       | Default    | Description                                                                              |
 | ------------------------------------------ | ---------- | ---------------------------------------------------------------------------------------- |
 | `TELEGRAM_BOT_TOKEN`                       | (required) | Telegram bot token from @BotFather                                                       |
+| `HIVE_MIND_CONFIGURATION_FILE`             |            | Path to a LINO file (same as `--configuration-file`)                                     |
 | `TELEGRAM_ALLOWED_CHATS`                   | (all)      | Allowed chat IDs (Links Notation)                                                        |
+| `TELEGRAM_ALLOWED_TOPICS`                  | (all)      | Allowed `chatId topicId` pairs (Links Notation)                                          |
 | `TELEGRAM_SOLVE_OVERRIDES`                 | (none)     | Override options for /solve (Links Notation)                                             |
 | `TELEGRAM_HIVE_OVERRIDES`                  | (none)     | Override options for /hive (Links Notation)                                              |
 | `TELEGRAM_SOLVE`                           | true       | Enable /solve command                                                                    |
@@ -285,11 +287,14 @@ pull request target is not mergeable yet, the merge queue waits up to
 | `TELEGRAM_FIX`                             | true       | Enable /fix command                                                                      |
 | `TELEGRAM_ORGANIZE`                        | true       | Enable /organize issue taxonomy command                                                  |
 | `TELEGRAM_AUTH`                            | true       | Enable experimental private /auth command for allowlisted chat owners                    |
+| `TELEGRAM_SHOW_LIMITS`                     | true       | Allow `/solve` and `/hive` callers to use `--show-limits`                                |
+| `TELEGRAM_ISOLATION`                       | docker     | Isolation backend (`screen`, `tmux`, `docker`); empty disables isolation                 |
 | `TELEGRAM_AUTO_START_SCREEN_WATCH_MESSAGE` | false      | Auto-start a separate live terminal watch message for public /solve sessions             |
 | `TELEGRAM_CONTAINER_CPU`                   | (none)     | Docker task CPU limit as fixed cores (`1.5`) or host percentage (`50%`)                  |
 | `TELEGRAM_CONTAINER_MEMORY`                | 25%        | Docker task RAM limit as a size (`2GiB`) or host percentage (`25%`)                      |
 | `TELEGRAM_CONTAINER_DISK`                  | (none)     | Docker task writable-layer limit as a size (`20GB`) or available-disk percentage (`10%`) |
 | `TELEGRAM_BOT_VERBOSE`                     | false      | Enable verbose logging                                                                   |
+| `TELEGRAM_DRY_RUN`                         | false      | Validate configuration and exit without starting the bot                                 |
 | `TELEGRAM_CONFIGURATION`                   | (none)     | LINO configuration string                                                                |
 
 ### 14. YouTrack Integration
@@ -666,24 +671,51 @@ hive <github-url> [options]
 
 ### hive-telegram-bot Options
 
+Every option can be set as a command-line argument or as an environment
+variable (listed in [Telegram Bot](#13-telegram-bot)), so it can also be stored
+in `.lenv`, `.env`, or a Links Notation file at a custom path selected with
+`--configuration-file <path>` (or `HIVE_MIND_CONFIGURATION_FILE`). Precedence is
+explicit CLI options, inline `--configuration`, the custom configuration file,
+`TELEGRAM_CONFIGURATION`, `.lenv`, then environment variables and `.env`. An
+explicit unreadable configuration file fails startup.
+
+**Recommended:** keep the token and other secrets in a private `.lenv` file in
+the working directory (`chmod 600 .lenv`) and start the bot with plain
+`hive-telegram-bot`. Use `--configuration-file /path/to/bot.lenv` to keep the
+file elsewhere.
+
+Secrets on the command line (`--token`/`-t`, or `--configuration`/`-c` with a
+token, key, secret, password or credential entry) still work, but every user and
+process on the host can read them through `ps` and `/proc/<pid>/cmdline`. The bot
+prints a warning recommending `.lenv` or `--configuration-file` and, on runtimes
+with `process.execve`, re-launches itself in place without those arguments
+(same PID, runtime flags, standard streams, exit status and signals). Secrets are
+exposed until that re-launch, so rotate any token passed this way through
+@BotFather (`/revoke`).
+
 ```bash
 hive-telegram-bot [options]
 ```
 
 | Option                              | Alias | Type    | Default    | Description                                                                                                                                                                                                 |
 | ----------------------------------- | ----- | ------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--token`                           | `-t`  | string  | (required) | Telegram bot token from @BotFather                                                                                                                                                                          |
+| `--token`                           | `-t`  | string  | (required) | Telegram bot token from @BotFather; prints a warning, prefer `.lenv` or `--configuration-file`                                                                                                              |
 | `--allowed-chats`                   |       | string  | (all)      | Allowed chat IDs (Links Notation)                                                                                                                                                                           |
+| `--allowed-topics`                  |       | string  | (all)      | Allowed topic IDs as `chatId topicId` pairs (Links Notation)                                                                                                                                                |
 | `--solve-overrides`                 |       | string  | (none)     | Override options for /solve                                                                                                                                                                                 |
 | `--hive-overrides`                  |       | string  | (none)     | Override options for /hive                                                                                                                                                                                  |
 | `--solve`                           |       | boolean | true       | Enable /solve command (--no-solve to disable)                                                                                                                                                               |
 | `--hive`                            |       | boolean | true       | Enable /hive command (--no-hive to disable)                                                                                                                                                                 |
 | `--task`                            |       | boolean | true       | Enable /task and /split commands (--no-task to disable)                                                                                                                                                     |
+| `--fix`                             |       | boolean | true       | Enable /fix command (--no-fix to disable)                                                                                                                                                                   |
+| `--organize`                        |       | boolean | true       | Enable /organize issue taxonomy command (--no-organize to disable)                                                                                                                                          |
 | `--auth`                            |       | boolean | true       | Enable experimental private /auth command for allowlisted chat owners (--no-auth to disable)                                                                                                                |
-| `--configuration`                   | `-c`  | string  |            | LINO configuration string                                                                                                                                                                                   |
+| `--configuration`                   | `-c`  | string  |            | Inline LINO configuration; secrets here print a warning, prefer `.lenv` or `--configuration-file`                                                                                                           |
+| `--configuration-file`              |       | string  |            | Links Notation configuration file at a custom path (mode `0600` for secrets)                                                                                                                                |
 | `--verbose`                         | `-v`  | boolean | false      | Enable verbose logging                                                                                                                                                                                      |
 | `--dry-run`                         |       | boolean | false      | Validate without starting bot                                                                                                                                                                               |
 | `--auto-start-screen-watch-message` |       | boolean | false      | Experimental: auto-start a separate `/terminal_watch` message for public `/solve` sessions. Private or unknown-visibility repositories never auto-start watch messages.                                     |
+| `--show-limits`                     |       | boolean | true       | Experimental: allow `/solve` and `/hive` callers to use `--show-limits` (--no-show-limits to disable)                                                                                                       |
 | `--isolation`                       |       | string  | `docker`   | Isolation backend (`screen`, `tmux`, `docker`). Default `docker` runs Telegram-bot work sessions in Docker isolation with success cleanup. Pass `--isolation ''` (or set `TELEGRAM_ISOLATION=`) to opt out. |
 | `--container-cpu`                   |       | string  |            | Docker task CPU limit as fixed cores (`1.5`) or a host percentage (`50%`).                                                                                                                                  |
 | `--container-memory`                |       | string  |            | Docker task RAM limit as a fixed size (`2GiB`) or a host percentage (`25%`).                                                                                                                                |

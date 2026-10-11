@@ -273,7 +273,9 @@ Telegram 机器人部署不会让 Formal AI 常驻运行。请求 `--model forma
 | 环境变量                                   | 默认值   | 描述                                                             |
 | ------------------------------------------ | -------- | ---------------------------------------------------------------- |
 | `TELEGRAM_BOT_TOKEN`                       | （必填） | 来自 @BotFather 的 Telegram bot token                            |
+| `HIVE_MIND_CONFIGURATION_FILE`             |          | LINO 文件路径（等同于 `--configuration-file`）                   |
 | `TELEGRAM_ALLOWED_CHATS`                   | （全部） | 允许的聊天 ID（Links Notation）                                  |
+| `TELEGRAM_ALLOWED_TOPICS`                  | （全部） | 允许的 `chatId topicId` 对（Links Notation）                     |
 | `TELEGRAM_SOLVE_OVERRIDES`                 | （无）   | /solve 的覆盖选项（Links Notation）                              |
 | `TELEGRAM_HIVE_OVERRIDES`                  | （无）   | /hive 的覆盖选项（Links Notation）                               |
 | `TELEGRAM_SOLVE`                           | true     | 启用 /solve 命令                                                 |
@@ -282,11 +284,14 @@ Telegram 机器人部署不会让 Formal AI 常驻运行。请求 `--model forma
 | `TELEGRAM_FIX`                             | true     | 启用 /fix 命令                                                   |
 | `TELEGRAM_ORGANIZE`                        | true     | 启用 /organize 议题分类命令                                      |
 | `TELEGRAM_AUTH`                            | true     | 为白名单聊天所有者启用实验性的私聊 /auth 命令                    |
+| `TELEGRAM_SHOW_LIMITS`                     | true     | 允许 `/solve` 和 `/hive` 调用者使用 `--show-limits`              |
+| `TELEGRAM_ISOLATION`                       | docker   | 隔离后端（`screen`、`tmux`、`docker`）；空值禁用隔离             |
 | `TELEGRAM_AUTO_START_SCREEN_WATCH_MESSAGE` | false    | 为公开仓库的 /solve 会话自动启动单独的 live terminal watch 消息  |
 | `TELEGRAM_CONTAINER_CPU`                   | （无）   | Docker 任务 CPU 限制：固定核心数（`1.5`）或宿主机百分比（`50%`） |
 | `TELEGRAM_CONTAINER_MEMORY`                | 25%      | Docker 任务内存限制：容量（`2GiB`）或宿主机百分比（`25%`）       |
 | `TELEGRAM_CONTAINER_DISK`                  | （无）   | Docker 任务可写层限制：容量（`20GB`）或可用磁盘百分比（`10%`）   |
 | `TELEGRAM_BOT_VERBOSE`                     | false    | 启用详细日志                                                     |
+| `TELEGRAM_DRY_RUN`                         | false    | 验证配置并在不启动 bot 的情况下退出                              |
 | `TELEGRAM_CONFIGURATION`                   | （无）   | LINO 配置字符串                                                  |
 
 ### 14. YouTrack 集成
@@ -629,24 +634,46 @@ hive <github-url> [options]
 
 ### hive-telegram-bot 选项
 
+每个选项都可以通过命令行参数或环境变量设置（见 [Telegram Bot](#13-telegram-bot)），
+因此也可以写入 `.lenv`、`.env`，或通过 `--configuration-file <path>`（或
+`HIVE_MIND_CONFIGURATION_FILE`）指定的自定义路径 Links Notation 文件。优先级为：显式
+CLI 选项、内联 `--configuration`、配置文件、`TELEGRAM_CONFIGURATION`、`.lenv`，然后是
+环境变量和 `.env`。显式指定但无法读取的配置文件会导致启动失败。
+
+**推荐：** 将 token 和其他机密保存在工作目录中的私有 `.lenv` 文件里（`chmod 600 .lenv`），
+并直接使用 `hive-telegram-bot` 启动。若要把文件放在其他位置，请使用
+`--configuration-file /path/to/bot.lenv`。
+
+命令行中的机密（`--token`/`-t`，或包含 token、key、secret、password、credential 条目的
+`--configuration`/`-c`）仍然可用，但主机上的所有用户和进程都可以通过 `ps` 和
+`/proc/<pid>/cmdline` 读取。bot 会打印警告，建议使用 `.lenv` 或 `--configuration-file`，
+并在支持 `process.execve` 的运行时中原地重新启动自身且不带这些参数（PID、运行时标志、
+标准流、退出码和信号保持不变）。在重新启动之前机密仍然可见，因此请通过 @BotFather
+（`/revoke`）轮换以这种方式传递过的 token。
+
 ```bash
 hive-telegram-bot [options]
 ```
 
 | 选项                                | 别名 | 类型    | 默认值   | 描述                                                                                                                                                                                 |
 | ----------------------------------- | ---- | ------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `--token`                           | `-t` | string  | （必填） | 来自 @BotFather 的 Telegram bot token                                                                                                                                                |
+| `--token`                           | `-t` | string  | （必填） | 来自 @BotFather 的 Telegram bot token；会打印警告，建议使用 `.lenv` 或 `--configuration-file`                                                                                        |
 | `--allowed-chats`                   |      | string  | （全部） | 允许的聊天 ID（Links Notation）                                                                                                                                                      |
+| `--allowed-topics`                  |      | string  | （全部） | 允许的 `chatId topicId` 对（Links Notation）                                                                                                                                         |
 | `--solve-overrides`                 |      | string  | （无）   | /solve 的覆盖选项                                                                                                                                                                    |
 | `--hive-overrides`                  |      | string  | （无）   | /hive 的覆盖选项                                                                                                                                                                     |
 | `--solve`                           |      | boolean | true     | 启用 /solve 命令（使用 --no-solve 禁用）                                                                                                                                             |
 | `--hive`                            |      | boolean | true     | 启用 /hive 命令（使用 --no-hive 禁用）                                                                                                                                               |
 | `--task`                            |      | boolean | true     | 启用 /task 和 /split 命令（使用 --no-task 禁用）                                                                                                                                     |
+| `--fix`                             |      | boolean | true     | 启用 /fix 命令（使用 --no-fix 禁用）                                                                                                                                                 |
+| `--organize`                        |      | boolean | true     | 启用 /organize 问题分类命令（使用 --no-organize 禁用）                                                                                                                               |
 | `--auth`                            |      | boolean | true     | 为白名单聊天所有者启用实验性的私聊 /auth 命令（使用 --no-auth 禁用）                                                                                                                 |
-| `--configuration`                   | `-c` | string  |          | LINO 配置字符串                                                                                                                                                                      |
+| `--configuration`                   | `-c` | string  |          | 内联 LINO 配置；其中的机密会触发警告，建议使用 `.lenv` 或 `--configuration-file`                                                                                                     |
+| `--configuration-file`              |      | string  |          | 自定义路径的 Links Notation 配置文件（机密文件权限设为 `0600`）                                                                                                                      |
 | `--verbose`                         | `-v` | boolean | false    | 启用详细日志                                                                                                                                                                         |
 | `--dry-run`                         |      | boolean | false    | 验证而不启动 bot                                                                                                                                                                     |
 | `--auto-start-screen-watch-message` |      | boolean | false    | 实验性：为公开仓库的 `/solve` 会话自动启动单独的 `/terminal_watch` 消息。私有仓库或可见性未知的仓库不会自动启动 watch 消息。                                                         |
+| `--show-limits`                     |      | boolean | true     | 实验性：允许 `/solve` 和 `/hive` 调用者使用 `--show-limits`（使用 --no-show-limits 禁用）                                                                                            |
 | `--isolation`                       |      | string  | `docker` | 隔离后端（`screen`、`tmux`、`docker`）。默认 `docker`，使 Telegram-bot 工作会话在 Docker 隔离中运行并在成功后清理。要禁用，请传递 `--isolation ''`（或设置 `TELEGRAM_ISOLATION=`）。 |
 | `--container-cpu`                   |      | string  |          | Docker 任务 CPU 限制：固定核心数（`1.5`）或宿主机百分比（`50%`）。                                                                                                                   |
 | `--container-memory`                |      | string  |          | Docker 任务内存限制：固定容量（`2GiB`）或宿主机百分比（`25%`）。                                                                                                                     |

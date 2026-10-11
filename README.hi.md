@@ -431,15 +431,20 @@ Hive Mind को क्रिया में देखना चाहते �
 2. **वातावरण कॉन्फ़िगर करें**
 
    ```bash
-   # Copy the example configuration
-   cp .env.example .env
+   # Copy the example Links Notation configuration (.lenv is recommended;
+   # .env, a custom file via --configuration-file, and CLI options also work)
+   cp .lenv.example .lenv
 
-   # Edit and add your bot token
-   echo "TELEGRAM_BOT_TOKEN=your_bot_token_here" >> .env
+   # Keep it private, then add your bot token
+   chmod 600 .lenv
+   nano .lenv
 
    # Optional: Restrict to specific chats
-   # Get chat ID using /help command, then add:
-   echo "TELEGRAM_ALLOWED_CHATS=123456789,987654321" >> .env
+   # Get chat ID using /help command, then set in .lenv:
+   # TELEGRAM_ALLOWED_CHATS: (
+   #   123456789
+   #   987654321
+   # )
    ```
 
 3. **बॉट शुरू करें**

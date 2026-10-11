@@ -23,6 +23,7 @@ const { log, formatAligned } = lib;
 
 // Import exit handler
 import { safeExit } from './exit-handler.lib.mjs';
+import { resolveSolveIssueUrl } from './solve.resume-command.lib.mjs';
 
 // Issue #1893: helpers that decide whether the fork's default branch may be
 // pushed and that distinguish a permission-denied rejection from a genuine
@@ -36,12 +37,12 @@ const firstNonEmptyLine = value =>
     .find(Boolean) || '';
 
 const resolveSolveCommand = argv => {
-  const issueUrl = argv.url || argv['issue-url'] || argv._?.[0] || '<issue-url>';
+  const issueUrl = resolveSolveIssueUrl(argv) || '<issue-url>';
   return `solve ${issueUrl}`;
 };
 
 const extractGitHubUrlNumber = argv => {
-  const url = String(argv.url || argv['issue-url'] || argv._?.[0] || '');
+  const url = String(resolveSolveIssueUrl(argv) || '');
   const match = url.match(/github\.com\/[^/]+\/[^/]+\/(issues|pull)\/(\d+)/i);
   return match ? { type: match[1] === 'pull' ? 'pulls' : 'issues', number: match[2] } : null;
 };

@@ -1,0 +1,17 @@
+[
+  {
+    "url": "https://api.github.com/repos/archcore-ai/plugin/issues/comments/5060134037",
+    "html_url": "https://github.com/archcore-ai/plugin/pull/26#issuecomment-5060134037",
+    "issue_url": "https://api.github.com/repos/archcore-ai/plugin/issues/26",
+    "id": 5060134037,
+    "node_id": "IC_kwDOR6G6f88AAAABLZuElQ",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "created_at": "2026-07-23T15:16:17Z",
+    "updated_at": "2026-07-23T15:16:17Z",
+    "body": "Replacement PR: https://github.com/archcore-ai/plugin/pull/27\\n\\nPR 26 cannot be reopened because GitHub froze its pre-dev head SHA, which has no common ancestry with the dev base. The prepared branch now contains the completed, dev-based implementation; PR 27 preserves that branch and supersedes this closed draft.",
+    "author_association": "NONE",
+    "reactions": { "url": "https://api.github.com/repos/archcore-ai/plugin/issues/comments/5060134037/reactions", "total_count": 0, "+1": 0, "-1": 0, "laugh": 0, "hooray": 0, "confused": 0, "heart": 0, "rocket": 0, "eyes": 0 },
+    "performed_via_github_app": null,
+    "minimized": null
+  }
+]

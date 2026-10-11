@@ -1,0 +1,24 @@
+{
+  "author": { "id": "MDQ6VXNlcjE0MzE5MDQ=", "is_bot": false, "login": "konard", "name": "Konstantin Diachenko" },
+  "baseRefName": "dev",
+  "body": "## Summary\n\n- add the native GitHub Copilot CLI `.plugin/plugin.json` manifest and camelCase hooks configuration\n- route all Copilot hooks through the shared Archcore scripts from the user project root\n- normalize captured native file-tool paths and `archcore-*` MCP tool names without changing the behavior pinned for existing hosts\n- add real redacted Copilot CLI 1.0.73 payload fixtures, structural/unit regressions, release documentation, and the four-manifest `0.4.23` version bump\n\n## Reproduction and root cause\n\nThe prepared adapter still encoded provisional Copilot payload assumptions. Live captures showed that native `create`/`edit` calls put the file in an absolute `path` field rather than `file_path`, and Copilot exposes the Archcore MCP update tool as `archcore-update_document` rather than the shared canonical name. In addition, hooks without an explicit project-relative `cwd` execute from the installed plugin directory.\n\nThe normalizer now maps those native payloads into the existing internal contract, and the Copilot hook file pins `cwd: \".\"`, `ARCHCORE_HOST=copilot`, native lifecycle keys, mutation-tool matchers, and bounded pre/post hook execution.\n\n## Verification\n\n- `make all` — JSON, permissions, ShellCheck, and all 385 Bats tests pass\n- `make test-codex-smoke` — all 5 Codex marketplace/install/runtime smoke tests pass\n- live Copilot CLI 1.0.73 smoke: a direct `.archcore/*.md` create is denied and no target is written\n- live Copilot CLI 1.0.73 smoke: project-root post-tool cascade context reaches the model\n- live Copilot CLI 1.0.73 smoke: top-level session `additionalContext` reaches the model in an empty project\n- live native MCP payload capture verifies the `archcore-update_document` normalization regression\n\n## Upstream dependencies found during live testing\n\nTwo end-to-end acceptance gaps are outside this plugin adapter and now have focused upstream reports:\n\n- archcore-ai/cli#27 — Archcore CLI 0.5.7 emits the Claude `hookSpecificOutput` envelope for `archcore hooks copilot session-start`; Copilot requires top-level `additionalContext`\n- github/copilot-cli#4234 — plugin MCP children start in the plugin install directory and receive neither the project path nor MCP roots, so the shared Archcore MCP process cannot select the user's project\n\nThe adapter and its independently testable protections are ready for review; initialized-project session context and project-correct MCP operation remain gated by those upstream fixes.\n\nAddresses #24\n",
+  "closedAt": "2026-07-23T14:18:24Z",
+  "commits": [
+    { "authoredDate": "2026-07-15T14:56:08Z", "authors": [{ "email": "release-bot@archcore.ai", "id": "", "login": "", "name": "Archcore Release Bot" }], "committedDate": "2026-07-15T14:56:08Z", "messageBody": "Synthesized from dev — see docs/release.md on dev for the blocklist.", "messageHeadline": "release: v0.4.21", "oid": "793bd8092c5c56e8989b9269be8257c1adb0ac95" },
+    { "authoredDate": "2026-07-23T14:15:31Z", "authors": [{ "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }], "committedDate": "2026-07-23T14:15:31Z", "messageBody": "Adding .gitkeep for PR creation (default mode).\nThis file will be removed when the task is complete.\n\nIssue: https://github.com/archcore-ai/plugin/issues/24", "messageHeadline": "Initial commit with task details", "oid": "1f29821401acdfa57a1316b02f1cedc980747d4c" }
+  ],
+  "createdAt": "2026-07-23T14:15:39Z",
+  "files": [{ "path": ".gitkeep", "additions": 1, "deletions": 0, "changeType": "ADDED" }],
+  "headRefName": "issue-24-1f2c5a6a3cbb",
+  "headRepository": { "id": "R_kgDOThVL5Q", "name": "archcore-ai-plugin", "nameWithOwner": "konard/archcore-ai-plugin" },
+  "headRepositoryOwner": { "id": "MDQ6VXNlcjE0MzE5MDQ=", "name": "Konstantin Diachenko", "login": "konard" },
+  "isDraft": true,
+  "mergeStateStatus": "UNKNOWN",
+  "mergedAt": null,
+  "number": 26,
+  "state": "CLOSED",
+  "statusCheckRollup": [],
+  "title": "feat: add GitHub Copilot CLI host adapter",
+  "updatedAt": "2026-07-23T15:16:17Z",
+  "url": "https://github.com/archcore-ai/plugin/pull/26"
+}

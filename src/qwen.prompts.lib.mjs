@@ -7,6 +7,7 @@ import { getArchitectureCareSubPrompt } from './architecture-care.prompts.lib.mj
 import { getUpdateAllDependenciesSubPrompt } from './update-dependencies.prompts.lib.mjs';
 import { getReportDependenciesIssuesSubPrompt } from './report-dependencies-issues.prompts.lib.mjs';
 import { getExperimentsExamplesSubPrompt } from './experiments-examples.prompts.lib.mjs';
+import { getMemoryBudgetSubPrompt } from './memory-budget.prompts.lib.mjs';
 import { getThinkingPromptInstruction } from './thinking-prompt.lib.mjs';
 import { buildWorkLanguageDirective } from './work-language.prompts.lib.mjs';
 import { buildRequestedBaseBranchDirective } from './solve-option-contract.prompts.lib.mjs';
@@ -126,6 +127,7 @@ General guidelines.
    - When CI is failing, download the logs locally and investigate them carefully.
    - When a code or log file has more than 1500 lines, read it in chunks of 1500 lines.
    - When facing a complex problem, do as much tracing as possible and turn on all verbose modes.
+${getMemoryBudgetSubPrompt()}
 ${getExperimentsExamplesSubPrompt(argv)}
    - When you face something extremely hard, use divide and conquer.
 ${workspaceInstructions}

@@ -1,0 +1,35 @@
+node:internal/modules/esm/resolve:241
+    throw new ERR_MODULE_NOT_FOUND(
+          ^
+
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/tmp/gh-issue-solver-1791767445123/src/oom-score-guard.lib.mjs' imported from /tmp/gh-issue-solver-1791767445123/tests/oom-score-guard-3125.test.mjs
+    at finalizeResolution (node:internal/modules/esm/resolve:241:11)
+    at moduleResolve (node:internal/modules/esm/resolve:846:10)
+    at defaultResolve (node:internal/modules/esm/resolve:973:11)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+    at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+    at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+    at #resolve (node:internal/modules/esm/loader:690:17)
+    at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+    at ModuleJob.syncLink (node:internal/modules/esm/module_job:277:33)
+    at ModuleJob.link (node:internal/modules/esm/module_job:389:17) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///tmp/gh-issue-solver-1791767445123/src/oom-score-guard.lib.mjs'
+}
+
+Node.js v26.11.1
+✖ tests/oom-score-guard-3125.test.mjs (86.01176ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 100.900655
+
+✖ failing tests:
+
+test at tests/oom-score-guard-3125.test.mjs:1:1
+✖ tests/oom-score-guard-3125.test.mjs (86.01176ms)
+  'test failed'

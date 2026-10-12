@@ -108,4 +108,154 @@ export const logProcessesSurvivingSession = async ({ tempDir, argv = {}, log = a
   return survivors;
 };
 
-export default { findProcessesInDirectory, keepProcessAcrossSessions, logProcessesSurvivingSession, releaseKeptProcess };
+/**
+ * Whether the AI tool was killed with SIGKILL (exit code 137), so it could not
+ * stop the commands it started. Adapters report the exit code at the top level
+ * (Codex) or in `errorInfo` (the others).
+ *
+ * @param {object|null} toolResult
+ * @returns {boolean}
+ */
+export const wasToolKilled = toolResult => {
+  const exitCode = toolResult?.exitCode ?? toolResult?.errorInfo?.exitCode;
+  const signal = toolResult?.signal ?? toolResult?.errorInfo?.signal;
+  return exitCode === 137 || signal === 'SIGKILL';
+};
+
+/** Parse `/proc/<pid>/stat` into the parent pid; the command name may contain spaces and parentheses. */
+const parseParentPid = stat => {
+  const fields = stat.slice(stat.lastIndexOf(')') + 2).split(' ');
+  const ppid = Number(fields[1]);
+  return Number.isInteger(ppid) ? ppid : null;
+};
+
+/**
+ * Read the parent of every process in `procRoot`.
+ *
+ * @param {string} [procRoot]
+ * @returns {Promise<Map<number, number>>} pid → parent pid
+ */
+export const readParentPids = async (procRoot = '/proc') => {
+  const parents = new Map();
+  let entries;
+  try {
+    entries = await readdir(procRoot);
+  } catch {
+    return parents;
+  }
+  for (const entry of entries) {
+    if (!/^\d+$/.test(entry)) continue;
+    const stat = await readFile(path.join(procRoot, entry, 'stat'), 'utf8').catch(() => null);
+    const ppid = stat ? parseParentPid(stat) : null;
+    if (ppid !== null) parents.set(Number(entry), ppid);
+  }
+  return parents;
+};
+
+/**
+ * The given processes and all their descendants, minus `protectedPids` and
+ * their subtrees.
+ *
+ * @param {number[]} pids
+ * @param {Map<number, number>} parents - from {@link readParentPids}
+ * @param {Set<number>} [protectedPids]
+ * @returns {number[]}
+ */
+export const collectProcessTrees = (pids, parents, protectedPids = new Set()) => {
+  const children = new Map();
+  for (const [pid, ppid] of parents) {
+    if (!children.has(ppid)) children.set(ppid, []);
+    children.get(ppid).push(pid);
+  }
+  const result = new Set();
+  const queue = pids.filter(pid => !protectedPids.has(pid));
+  while (queue.length > 0) {
+    const pid = queue.shift();
+    if (result.has(pid) || protectedPids.has(pid)) continue;
+    result.add(pid);
+    queue.push(...(children.get(pid) || []));
+  }
+  return [...result];
+};
+
+/** This process and its ancestors, which must never be stopped. */
+const ancestorsOf = (pid, parents) => {
+  const chain = new Set();
+  for (let current = pid; current > 0 && !chain.has(current); current = parents.get(current)) chain.add(current);
+  return chain;
+};
+
+const isAlive = (pid, kill) => {
+  try {
+    kill(pid, 0);
+    return true;
+  } catch (error) {
+    return error?.code === 'EPERM';
+  }
+};
+
+/**
+ * Stop the commands a killed AI tool left behind (issue #3125).
+ *
+ * When the kernel OOM killer kills the AI tool (exit code 137), the build it
+ * started keeps running and keeps using the container's memory. In
+ * link-foundation/links-notation#340 the leftover cmake build (make -j,
+ * cc1plus) caused a second OOM kill 32 s later, which killed solve itself, so
+ * the session could not report or recover. This sends SIGTERM, then SIGKILL,
+ * to every process still running in the work directory and to all their
+ * descendants (a build directory outside the work directory included). It
+ * runs with or without `--verbose`, only after a SIGKILL, and never touches
+ * this process, its ancestors, its own children, or processes kept on purpose.
+ *
+ * @param {object} params
+ * @param {string} params.tempDir - the work directory of the session
+ * @param {object|null} params.toolResult - what the adapter returned
+ * @param {Function} [params.log]
+ * @param {string} [params.procRoot]
+ * @param {Function} [params.find] - {@link findProcessesInDirectory}
+ * @param {Function} [params.kill] - `process.kill` (injectable for tests)
+ * @param {number} [params.graceMs] - how long SIGTERM gets before SIGKILL
+ * @param {Function} [params.sleep]
+ * @returns {Promise<{stopped: number[], forced: number[]}>}
+ */
+export const stopProcessesLeftByKilledTool = async ({ tempDir, toolResult, log = async () => {}, procRoot = '/proc', find = findProcessesInDirectory, kill = process.kill.bind(process), graceMs = 3000, sleep = ms => new Promise(resolve => setTimeout(resolve, ms)) }) => {
+  const none = { stopped: [], forced: [] };
+  if (!tempDir || !wasToolKilled(toolResult)) return none;
+  let targets;
+  try {
+    const parents = await readParentPids(procRoot);
+    // The killed tool's orphans are reparented to init, so this process's own
+    // subtree holds only its own helpers.
+    const protectedPids = new Set([...ancestorsOf(process.pid, parents), ...collectProcessTrees([process.pid], parents), ...keptProcesses.keys()]);
+    const survivors = await find({ dir: tempDir, procRoot, excludePids: [...protectedPids] });
+    targets = collectProcessTrees(
+      survivors.map(({ pid }) => pid),
+      parents,
+      protectedPids
+    );
+  } catch (error) {
+    await log(`⚠️  Could not list processes left by the killed AI tool: ${error?.message || error}`, { level: 'warning' });
+    return none;
+  }
+  if (targets.length === 0) return none;
+  await log(`🧹 The AI tool was killed (exit code 137); stopping ${targets.length} process(es) it left running so they cannot use the container's memory: ${targets.join(', ')}`, { level: 'warning' });
+  const signal = (pids, name) =>
+    pids.filter(pid => {
+      try {
+        kill(pid, name);
+        return true;
+      } catch {
+        return false;
+      }
+    });
+  const stopped = signal(targets, 'SIGTERM');
+  for (let waited = 0; waited < graceMs && stopped.some(pid => isAlive(pid, kill)); waited += 100) await sleep(100);
+  const forced = signal(
+    stopped.filter(pid => isAlive(pid, kill)),
+    'SIGKILL'
+  );
+  if (forced.length > 0) await log(`🧹 Sent SIGKILL to ${forced.length} process(es) that ignored SIGTERM: ${forced.join(', ')}`, { level: 'warning' });
+  return { stopped, forced };
+};
+
+export default { collectProcessTrees, findProcessesInDirectory, keepProcessAcrossSessions, logProcessesSurvivingSession, readParentPids, releaseKeptProcess, stopProcessesLeftByKilledTool, wasToolKilled };

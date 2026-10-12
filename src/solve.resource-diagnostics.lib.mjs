@@ -125,6 +125,38 @@ export function readCgroupMemory(readFileSync = fs.readFileSync, platform = proc
 }
 
 /**
+ * Cap host memory figures at what this container's cgroup allows.
+ *
+ * /proc/meminfo describes the host: in link-foundation/links-notation#340 the
+ * preflight reported 10220MB available and 4095MB of swap inside a 2.92 GiB
+ * container, which the OOM killer then enforced (issues #3125, #2838). The
+ * headroom counts reclaimable page cache (inactive_file) as free, like
+ * `docker stats`.
+ *
+ * @param {object} params
+ * @param {number} params.availableMB - host available memory
+ * @param {number} params.swapAvailableMB - host free swap
+ * @param {object|null} [params.snapshot] - {@link readCgroupMemory}
+ * @param {Function} [params.readFileSync]
+ * @returns {{availableMB: number, swapAvailableMB: number, limitMB: number}|null} null without a cgroup limit
+ */
+export function capMemoryToCgroup({ availableMB, swapAvailableMB, snapshot = readCgroupMemory(), readFileSync = fs.readFileSync }) {
+  if (!Number.isFinite(snapshot?.limitBytes) || snapshot.limitBytes <= 0) return null;
+  const MiB = 1024 * 1024;
+  let swap = swapAvailableMB;
+  let reclaimableBytes = 0;
+  if (snapshot.version === 2 && snapshot.path) {
+    reclaimableBytes = parseKeyedCounters(readTextFile(readFileSync, `${snapshot.path}/memory.stat`)).inactive_file || 0;
+    const swapMax = parseCgroupBytes(readTextFile(readFileSync, `${snapshot.path}/memory.swap.max`));
+    const swapCurrent = parseCgroupBytes(readTextFile(readFileSync, `${snapshot.path}/memory.swap.current`)) ?? 0;
+    if (swapMax !== null) swap = Math.min(swap, Math.floor(Math.max(0, swapMax - swapCurrent) / MiB));
+  }
+  const usedBytes = Math.max(0, (snapshot.currentBytes ?? 0) - reclaimableBytes);
+  const headroomMB = Math.floor(Math.max(0, snapshot.limitBytes - usedBytes) / MiB);
+  return { availableMB: Math.min(availableMB, headroomMB), swapAvailableMB: swap, limitMB: Math.floor(snapshot.limitBytes / MiB) };
+}
+
+/**
  * Detect where the current process is running so the solve command can scope
  * per-task disk usage to the correct context (issue #2001).
  *

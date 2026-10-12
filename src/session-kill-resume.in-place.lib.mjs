@@ -162,7 +162,7 @@ export function planSameContainerResume({ sessionName = null, sessionInfo = {}, 
  * @param {Object} options
  * @param {string} options.sessionName - The killed session's name
  * @param {Object} options.sessionInfo - Persisted session info
- * @param {Object} options.plan - Result of planKillRecovery() (needs `command.display`)
+ * @param {Object} options.plan - Result of planKillRecovery() (needs `command.shell`)
  * @param {Object} options.runner - Isolation runner module
  * @param {boolean} [options.verbose]
  * @returns {Promise<{resumed: boolean, reason: string, sessionId: string|null, executionUuid: string|null, mode: string|null, snapshotImage: string|null, containerFilesystemInheritedBytes: number|null, resourceLimitReapplyError: string|null}>}
@@ -194,7 +194,9 @@ export async function resumeKilledSessionInPlace({ sessionName, sessionInfo, pla
   const exists = await runner.checkDockerContainerExists(decision.containerName, verbose);
   if (!exists) return miss(IN_PLACE_SKIP_REASONS.CONTAINER_GONE);
 
-  const result = await runner.resumeIsolatedSession(decision.identifier, { command: plan?.command?.display || null, verbose });
+  // `shell` runs the real CLI; `display` keeps the Telegram alias (`/claude …`),
+  // which `sh` cannot find and exits 127 on (issues #2887, #3125).
+  const result = await runner.resumeIsolatedSession(decision.identifier, { command: plan?.command?.shell || null, verbose });
   if (!result?.success) {
     const reason = result?.unsupported ? IN_PLACE_SKIP_REASONS.UNSUPPORTED : IN_PLACE_SKIP_REASONS.REFUSED;
     if (verbose) console.log(`[VERBOSE] In-place resume of ${sessionName} was not possible (${reason}): ${result?.error || 'no reason given'}`);

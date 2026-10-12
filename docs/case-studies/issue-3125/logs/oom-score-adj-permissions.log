@@ -1,0 +1,6 @@
+uid 1001, child 53573 starts at oom_score_adj 0
+raise another process to 500: ok (500)
+lower it back to 0: ok
+lower it to -100: refused (needs CAP_SYS_RESOURCE)
+a process forked after the change inherits 500
+this shell keeps 0

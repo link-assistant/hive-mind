@@ -24,6 +24,7 @@ const fs = (await use('fs')).promises;
 // Import log function from lib.mjs
 const lib = await import('./lib.mjs');
 const { log: libLog, setLogFile } = lib;
+const { capMemoryToCgroup } = await import('./solve.resource-diagnostics.lib.mjs');
 
 // Function to check available disk space
 export const checkDiskSpace = async (minSpaceMB = 10240, options = {}) => {
@@ -203,19 +204,28 @@ export const checkRAM = async (minMemoryMB = 256, options = {}) => {
 
       // Calculate available memory (similar to 'free' command)
       const availableKB = memFree + buffers + cached + sReclaimable;
-      const availableMB = Math.floor(availableKB / 1024);
+      let availableMB = Math.floor(availableKB / 1024);
 
       // Calculate swap info
       const swapUsedKB = swapTotal - swapFree;
       const swapMB = Math.floor(swapTotal / 1024);
       const swapUsedMB = Math.floor(swapUsedKB / 1024);
-      const swapAvailableMB = Math.floor(swapFree / 1024);
+      let swapAvailableMB = Math.floor(swapFree / 1024);
 
       let swapInfo;
       if (swapTotal > 0) {
         swapInfo = `${swapMB}MB (${swapUsedMB}MB used)`;
       } else {
         swapInfo = 'none';
+      }
+
+      // Issue #3125: inside a container, /proc/meminfo shows the host; the cgroup limit is what counts.
+      const capped = (options.capMemoryToCgroup || capMemoryToCgroup)({ availableMB, swapAvailableMB });
+      if (capped) {
+        availableMB = capped.availableMB;
+        if (capped.swapAvailableMB !== swapAvailableMB) swapInfo = capped.swapAvailableMB > 0 ? `${capped.swapAvailableMB}MB available to the container` : 'none in the container';
+        swapAvailableMB = capped.swapAvailableMB;
+        swapInfo += `, container limit: ${capped.limitMB}MB`;
       }
 
       // Calculate total available memory (RAM + swap)

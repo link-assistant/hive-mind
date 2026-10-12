@@ -1,0 +1,24 @@
+Testing issue #3125: processes left by a killed AI tool are stopped
+==============================================================================
+
+1. Which results count as a killed tool
+  ❌ FAIL: wasToolKilled is exported
+
+2. Process trees from /proc/<pid>/stat
+  ❌ FAIL: a command name with ") (" is parsed
+  ❌ FAIL: only numeric entries are read (0)
+  ❌ FAIL: the leftover shell and every descendant are collected: 
+  ❌ FAIL: a protected process and its subtree are skipped: 
+
+3. Injected find/kill: when cleanup runs
+  ❌ FAIL: stopProcessesLeftByKilledTool is exported
+
+4. Real orphans after a killed tool, through classifySessionResult()
+  ✅ PASS: the leftover (44815) and its compiler (44816) are running
+  ❌ FAIL: the leftover in the work directory is stopped without --verbose (pid 44815)
+  ❌ FAIL: its child outside the work directory, which ignores SIGTERM, is stopped too (pid 44816)
+  ✅ PASS: solve itself keeps running
+
+==============================================================================
+Results: 2 passed, 8 failed, 10 total
+==============================================================================

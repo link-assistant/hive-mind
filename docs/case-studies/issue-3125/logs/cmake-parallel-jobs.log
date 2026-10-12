@@ -1,0 +1,5 @@
+--parallel (no number)                                     Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile -j
+--parallel, CMAKE_BUILD_PARALLEL_LEVEL=2                   Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile -j
+no flag, CMAKE_BUILD_PARALLEL_LEVEL=2                      Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile -j2
+--parallel 2                                               Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile -j2
+-j4                                                        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile -j4

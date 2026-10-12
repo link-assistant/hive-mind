@@ -1,0 +1,37 @@
+Testing issue #3125: processes left by a killed AI tool are stopped
+==============================================================================
+
+1. Which results count as a killed tool
+  ✅ PASS: Claude, OpenCode, Qwen, Gemini, Agent: errorInfo.exitCode 137
+  ✅ PASS: Codex: exitCode 137 with signal SIGKILL
+  ✅ PASS: a SIGKILL signal without an exit code
+  ✅ PASS: not killed: null
+  ✅ PASS: not killed: {}
+  ✅ PASS: not killed: {"success":true,"exitCode":0}
+  ✅ PASS: not killed: {"errorInfo":{"exitCode":1}}
+  ✅ PASS: not killed: {"exitCode":143,"signal":"SIGTERM"}
+  ✅ PASS: not killed: {"exitCode":130,"signal":"SIGINT"}
+
+2. Process trees from /proc/<pid>/stat
+  ✅ PASS: a command name with ") (" is parsed
+  ✅ PASS: only numeric entries are read (6)
+  ✅ PASS: the leftover shell and every descendant are collected: 10,11,12,13
+  ✅ PASS: a protected process and its subtree are skipped: 10
+
+3. Injected find/kill: when cleanup runs
+  ✅ PASS: an ordinary failure leaves processes alone
+  ✅ PASS: no work directory, nothing to do
+  ✅ PASS: SIGTERM first, SIGKILL when it is ignored: [[4242,"SIGTERM"],[4242,"SIGKILL"]]
+  ✅ PASS: the result names stopped and forced pids: {"stopped":[4242],"forced":[4242]}
+  ✅ PASS: the cleanup is logged without --verbose
+  ✅ PASS: a process kept on purpose is never stopped
+
+4. Real orphans after a killed tool, through classifySessionResult()
+  ✅ PASS: the leftover (46973) and its compiler (46974) are running
+  ✅ PASS: the leftover in the work directory is stopped without --verbose (pid 46973)
+  ✅ PASS: its child outside the work directory, which ignores SIGTERM, is stopped too (pid 46974)
+  ✅ PASS: solve itself keeps running
+
+==============================================================================
+Results: 23 passed, 0 failed, 23 total
+==============================================================================

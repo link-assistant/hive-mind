@@ -1,0 +1,5 @@
+# docker 29.8.2, storage: fuse-overlayfs
+# waiting for layers to fill
+json: avg 5232 ms over 30 runs, 0 failed
+explicit: avg 75 ms over 30 runs, 0 failed
+# daemon errors seen:

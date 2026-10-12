@@ -1,0 +1,10 @@
+# docker 29.9.0, storage: overlayfs
+# waiting for layers to fill
+ps-json:             avg    354 ms over 20 runs, 7 failed
+ps-explicit:         avg    134 ms over 20 runs, 0 failed
+ps-json-size-false:  avg    107 ms over 20 runs, 0 failed
+image-ls-json:       avg    104 ms over 20 runs, 0 failed
+system-df:           avg    430 ms over 20 runs, 4 failed
+# daemon errors seen:
+        4 Error response from daemon: failed to retrieve container list: snapshotter.Usage failed for <container>: lstat /var/lib/docker/containerd/daemon/io.containerd.snapshotter.v1.overlayfs/snapshots/21/fs/tmp/cc/ccCBKN.s: no such file or directory
+        7 Error response from daemon: snapshotter.Usage failed for <container>: lstat /var/lib/docker/containerd/daemon/io.containerd.snapshotter.v1.overlayfs/snapshots/21/fs/tmp/cc/ccCBKN.s: no such file or directory

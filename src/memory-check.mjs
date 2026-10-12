@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
+import { assertCommandSucceeded } from './command-result.lib.mjs';
 
 // Check if use is already defined (when imported from solve.mjs)
 // If not, fetch it (when running standalone)
@@ -74,7 +75,7 @@ export const checkRAM = async (minMemoryMB = 256, options = {}) => {
   if (process.platform === 'darwin') {
     // macOS RAM check using vm_stat
     try {
-      const { stdout: vmStatOutput } = await $silent`vm_stat 2>/dev/null`;
+      const { stdout: vmStatOutput } = assertCommandSucceeded(await $silent`vm_stat 2>/dev/null`, 'vm_stat');
 
       // Parse page size
       const pageSizeMatch = vmStatOutput.toString().match(/page size of (\d+) bytes/);

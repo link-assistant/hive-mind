@@ -11,6 +11,9 @@
  */
 
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
+import { assertCommandSucceeded } from './command-result.lib.mjs';
+
+export { assertCommandSucceeded };
 
 /** The message every wrapper reports when `$` is not installed. */
 export const START_COMMAND_MISSING_ERROR = '`$` (start-command) binary not found on PATH. Install link-foundation/start.';

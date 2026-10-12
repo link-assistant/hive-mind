@@ -1,0 +1,10 @@
+== docker info
+fuse-overlayfs /var/lib/docker []
+== df on DockerRootDir inside the client container
+Filesystem           1024-blocks    Used Available Capacity Mounted on
+df: /var/lib/docker: can't find mount point
+rc=1
+== via daemon
+Filesystem           1024-blocks    Used Available Capacity Mounted on
+overlay              202051056  56271388 145763284  28% /docker-root
+rc=0

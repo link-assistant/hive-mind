@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from '../github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
 import { sanitizeForPublication } from '../token-sanitization.lib.mjs';
+import { assertCommandSucceeded } from '../command-result.lib.mjs';
 
 /**
  * YouTrack to GitHub Issue Synchronization Module
@@ -116,7 +117,7 @@ ${youTrackIssue.description || 'No description provided.'}
     const hasLabel = existingIssue.labels?.some(l => l.name === 'help wanted');
     if (!hasLabel) {
       try {
-        await $`gh issue edit ${existingIssue.number} --repo ${owner}/${repo} --add-label "help wanted"`;
+        assertCommandSucceeded(await $`gh issue edit ${existingIssue.number} --repo ${owner}/${repo} --add-label "help wanted"`, 'gh issue edit');
         await log(`   🏷️ Added 'help wanted' label to #${existingIssue.number}`);
       } catch {
         // Silently skip if label doesn't exist

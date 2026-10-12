@@ -484,9 +484,25 @@ export const wrapDollarWithGhRetry = (dollar, options = {}) => {
       }
       return dollar(strings, ...values);
     }
-    return ghWithRateLimitRetry(() => dollar(strings, ...values), {
-      label: `$gh (${preview.trim().split(/\s+/).slice(0, 3).join(' ')})`,
-      ...options,
+    const label = `$gh (${preview.trim().split(/\s+/).slice(0, 3).join(' ')})`;
+    // Issue #3001: command-stream's `$` RESOLVES with `{ code, stdout, stderr }`
+    // when the command exits non-zero - it does not throw. ghWithRateLimitRetry
+    // only retries thrown errors, so a rate-limited or transiently failing `gh`
+    // call used to come back on the first attempt as an ordinary result. Turn a
+    // retryable non-zero result into a thrown error for the retry loop, and hand
+    // the last result back unchanged once the budget is spent, so callers that
+    // inspect `result.code` keep their resolve-on-failure contract.
+    const attempt = async () => {
+      const result = await dollar(strings, ...values);
+      const code = Number.isFinite(result?.code) ? result.code : 0;
+      if (code === 0) return result;
+      const error = Object.assign(new Error(`${label} exited with code ${code}`), { code, stdout: result.stdout, stderr: result.stderr, resolvedResult: result });
+      if (isRateLimitError(error) || describeTransientError(error).transient) throw error;
+      return result;
+    };
+    return ghWithRateLimitRetry(attempt, { label, ...options }).catch(error => {
+      if (error?.resolvedResult) return error.resolvedResult;
+      throw error;
     });
   };
   // Preserve a reference to the underlying $ for consumers that need it.

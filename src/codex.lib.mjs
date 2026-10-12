@@ -63,6 +63,7 @@ const getCodexExecEnv = (verbose = false) => (verbose ? { ...process.env, RUST_L
 // Issue #2175: diagnostic-line parsing lives in its own module to keep this file
 // under the 1350-line warning threshold.
 import { parseCodexDiagnosticLine, rebuildCodexSubSessionsFromCompactifications } from './codex.diagnostics.lib.mjs';
+import { assertCommandSucceeded } from './command-result.lib.mjs';
 export const createCodexTokenUsage = requestedModelId => ({
   inputTokens: 0,
   outputTokens: 0,
@@ -519,7 +520,7 @@ export const executeCodex = async params => {
   const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, mergeStateStatus, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv, log, formatAligned, getResourceSnapshot, codexPath = 'codex', $ } = params;
   if (argv.promptSubagentsViaAgentCommander) {
     try {
-      await $`which start-agent`;
+      assertCommandSucceeded(await $`which start-agent`, 'which start-agent');
       argv.agentCommanderInstalled = true;
     } catch {
       argv.agentCommanderInstalled = false;

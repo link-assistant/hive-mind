@@ -79,11 +79,13 @@ const driverProbe = await checkDockerStorageDriver(false);
 if (driverProbe === null || typeof driverProbe === 'string') pass('checkDockerStorageDriver resolves to string|null (never throws)');
 else fail('checkDockerStorageDriver resolves to string|null', 'string|null', driverProbe);
 
+// Issue #3001: an unmeasurable disk is no longer a bare null — the result
+// carries the reason in `error` so the preflight can warn about it.
 const diskProbe = await checkDockerDiskSpace(false);
-if (diskProbe === null || (typeof diskProbe === 'object' && typeof diskProbe.availableGiB === 'number')) {
-  pass('checkDockerDiskSpace resolves to {availableGiB,dataRoot}|null (never throws)');
+if (diskProbe && typeof diskProbe === 'object' && (typeof diskProbe.availableGiB === 'number' || (diskProbe.availableGiB === null && typeof diskProbe.error === 'string'))) {
+  pass('checkDockerDiskSpace resolves to {availableGiB,dataRoot} or {availableGiB:null,error} (never throws)');
 } else {
-  fail('checkDockerDiskSpace resolves to {availableGiB,dataRoot}|null', '{availableGiB,dataRoot}|null', diskProbe);
+  fail('checkDockerDiskSpace resolves to {availableGiB,dataRoot} or {availableGiB:null,error}', '{availableGiB,dataRoot}|{availableGiB:null,error}', diskProbe);
 }
 
 console.log('\n--- Root Cause A: vfs driver warns even when the image is present ---');

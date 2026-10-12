@@ -4,6 +4,7 @@ import path from 'node:path';
 import { sanitizeForPublication } from './token-sanitization.lib.mjs';
 import { findResidualCredentialBlock } from './log-sanitize-stream.lib.mjs';
 import { sanitizeLogFileToFileBounded } from './log-sanitize-worker.lib.mjs';
+import { assertCommandSucceeded } from './command-result.lib.mjs';
 
 const sanitizePathSegment = (value, fallback) => {
   const raw = value === null || value === undefined || value === '' ? fallback : String(value);
@@ -344,7 +345,7 @@ export const discardUnpublishedDevelopmentLog = async ({ repositoryPath, session
     // Unstage first: `git add -f` may already have run, and a staged-but-uncommitted
     // path is just as good at triggering the restart loop as an untracked one.
     try {
-      await $({ cwd: repositoryPath })`git reset -q -- ${relativeDirectory}`;
+      assertCommandSucceeded(await $({ cwd: repositoryPath })`git reset -q -- ${relativeDirectory}`, 'git reset');
     } catch (error) {
       await log?.(`⚠️  Could not unstage development log artifacts: ${error.message}`, { level: 'warning' });
     }

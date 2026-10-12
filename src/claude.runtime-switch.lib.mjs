@@ -12,6 +12,7 @@ const { $ } = await use('command-stream');
 const fs = (await use('fs')).promises;
 import { log, cleanErrorMessage } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
+import { assertCommandSucceeded } from './command-result.lib.mjs';
 
 // Function to handle Claude runtime switching between Node.js and Bun
 export const handleClaudeRuntimeSwitch = async argv => {
@@ -19,7 +20,7 @@ export const handleClaudeRuntimeSwitch = async argv => {
     await log('\n🔧 Switching Claude runtime to bun...');
     try {
       try {
-        await $`which bun`;
+        assertCommandSucceeded(await $`which bun`, 'which bun');
         await log('   ✅ Bun runtime found');
       } catch (bunError) {
         reportError(bunError, {
@@ -63,7 +64,7 @@ export const handleClaudeRuntimeSwitch = async argv => {
 
       // Create backup
       const backupPath = `${claudePath}.nodejs-backup`;
-      await $`cp ${claudePath} ${backupPath}`;
+      assertCommandSucceeded(await $`cp ${claudePath} ${backupPath}`, 'cp');
       await log(`   📦 Backup created: ${backupPath}`);
 
       // Read file content and replace shebang
@@ -92,7 +93,7 @@ export const handleClaudeRuntimeSwitch = async argv => {
     await log('\n🔧 Restoring Claude runtime to Node.js...');
     try {
       try {
-        await $`which node`;
+        assertCommandSucceeded(await $`which node`, 'which node');
         await log('   ✅ Node.js runtime found');
       } catch (nodeError) {
         reportError(nodeError, {
@@ -138,7 +139,7 @@ export const handleClaudeRuntimeSwitch = async argv => {
       try {
         await fs.access(backupPath);
         // Restore from backup
-        await $`cp ${backupPath} ${claudePath}`;
+        assertCommandSucceeded(await $`cp ${backupPath} ${claudePath}`, 'cp');
         await log(`   ✅ Restored Claude from backup: ${backupPath}`);
       } catch (backupError) {
         reportError(backupError, {

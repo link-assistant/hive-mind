@@ -1,0 +1,2 @@
+true: keys=code,signal,stdout,stderr,stdin,child,text,exitCode code=0 exitCode=0
+false: keys=code,signal,stdout,stderr,stdin,child,text,exitCode code=1 exitCode=1

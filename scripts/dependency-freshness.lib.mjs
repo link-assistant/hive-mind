@@ -104,7 +104,11 @@ const readIfPresent = async target => {
 const pinException = (source, index) => source.split('\n')[lineNumberAt(source, index) - 1]?.match(/https:\/\/github\.com\/([\w.-]+\/[\w.-]+)\/issues\/(\d+)/)?.[0];
 
 const ARG_SOURCES = {
-  FORMAL_AI_VERSION: { kind: 'github', name: 'link-assistant/formal-ai' },
+  // The images run `cargo install formal-ai --version`, so a release is only
+  // adoptable once crates.io has it. Its GitHub tag can exist for hours (or
+  // indefinitely, when the publish job fails) before that: v0.353.0 was tagged
+  // on 2026-10-12 and never reached crates.io (issue #2801, cf. #2395).
+  FORMAL_AI_VERSION: { kind: 'crate', name: 'formal-ai' },
   HIVE_MIND_BUN_VERSION: { kind: 'github', name: 'oven-sh/bun', tagPrefix: 'bun-v' },
   HIVE_MIND_NODE_VERSION: { kind: 'github', name: 'nodejs/node' },
   HIVE_MIND_VERSION: { kind: 'npm', name: '@link-assistant/hive-mind' },

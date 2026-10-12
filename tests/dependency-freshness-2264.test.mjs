@@ -139,9 +139,14 @@ assert.equal(
   'GitHub toolchain tags never gate the builder image'
 );
 assert.equal(
-  repositoryRecords.some(record => record.kind === 'github' && record.name === 'link-assistant/formal-ai'),
+  repositoryRecords.some(record => record.kind === 'crate' && record.name === 'formal-ai' && /^\d+\.\d+\.\d+$/.test(record.current)),
   true,
-  'embedded Formal AI builds are checked'
+  'embedded Formal AI builds are checked against crates.io, the registry cargo installs from'
+);
+assert.equal(
+  repositoryRecords.some(record => record.name === 'link-assistant/formal-ai'),
+  false,
+  'Formal AI GitHub tags never gate the cargo install pin'
 );
 assert.equal(
   repositoryRecords.some(record => record.kind === 'github' && record.name === 'oven-sh/bun'),

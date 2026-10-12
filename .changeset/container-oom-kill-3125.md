@@ -9,3 +9,5 @@ Keep tasks alive when a build fills the container's memory (#3125):
 - When the tool is killed anyway (exit code 137), the processes it left running are stopped, so a second OOM kill no longer takes solve down.
 - The memory preflight reports the container's memory and swap, not the host's.
 - In-place recovery runs the real `solve` command instead of the `/claude` Telegram alias, which failed with exit 127.
+
+Docker images are based on box 2.10.4 (live restore for the nested Docker daemon in the dind image); command-stream is 2.3.0 and lino-objects-codec is 0.9.2.

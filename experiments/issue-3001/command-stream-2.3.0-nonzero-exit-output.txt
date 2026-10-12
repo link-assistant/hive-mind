@@ -1,0 +1,3 @@
+"true" resolved code= 0 stderr= "" stdoutTruthy= true keys= code,signal,stdout,stderr,stdin,child,text,exitCode
+"false" resolved code= 1 stderr= "" stdoutTruthy= true keys= code,signal,stdout,stderr,stdin,child,text,exitCode
+"echo oops >&2; exit 3" resolved code= 3 stderr= "oops\n" stdoutTruthy= true keys= code,signal,stdout,stderr,stdin,child,text,exitCode

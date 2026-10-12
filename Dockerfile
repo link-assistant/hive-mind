@@ -40,13 +40,14 @@ RUN apt-get update && \
 ENV OPENSSL_STATIC=1
 RUN cargo install formal-ai --version "${FORMAL_AI_VERSION}" --locked
 
-# Box 2.10.3 retains the box#112 one-toolchain invariant and the base
+# Box 2.10.4 retains the box#112 one-toolchain invariant and the base
 # runtimes: Node.js v24.21.0, Bun 1.4.2 and stable Rust 1.98.1. Box PR #120
 # repaired the Docker Hub multi-arch publishing failure reported in box#119;
 # both registries now carry amd64 and arm64 manifests. Keep GHCR, Box's registry
 # of record, as the reproducible source for this pin. Box #129 also adds file
-# for validating downloaded attachments.
-FROM ghcr.io/link-foundation/box:2.10.3
+# for validating downloaded attachments. Box 2.10.4 enables Docker live
+# restore in the nested DinD daemon (box#131).
+FROM ghcr.io/link-foundation/box:2.10.4
 ARG HIVE_MIND_VERSION=latest
 # Task-container prerequisite installs stay within the workspace (formal-ai#1159).
 ENV FORMAL_AI_INSTALL_GRANT=workspace
@@ -134,7 +135,7 @@ RUN command -v file >/dev/null || HOMEBREW_NO_AUTO_UPDATE=1 brew install file
 # need something newer used to download their own node/bun into /tmp on every
 # run and leave the copy behind — a second accumulation of versions on top of
 # the image's own. Reported upstream as link-foundation/box#112 and fixed in
-# box 2.7.0. The current 2.10.3 base keeps one version per language. When a
+# box 2.7.0. The current 2.10.4 base keeps one version per language. When a
 # pin below differs from the base, replace the runtime and repoint the default
 # before pruning superseded Node.js versions (the prune behavior is covered
 # by tests/test-issue-2187-runtime-versions.mjs).
@@ -245,7 +246,7 @@ RUN bun install -g @openai/codex && \
 # Note: start-command provides `$` CLI for isolation modes (--isolation screen/tmux/docker)
 # The Box base image includes screen. For tmux/docker isolation, ensure they are
 # available in the base image or install them separately.
-# start-command is pinned to 0.37.0: 0.29.1 fixed detached docker
+# start-command is pinned to 0.37.1: 0.29.1 fixed detached docker
 # `--status`/`--list` reporting a terminal status (`executed`) with the `-1`
 # sentinel while the container is still running (link-foundation/start#136,
 # link-assistant/hive-mind#1939); 0.29.2 (start#138 / start PR #139) records the
@@ -303,7 +304,8 @@ RUN bun install -g @openai/codex && \
 # start time, log byte offset and lifecycle boundary. 0.36.0 adds opt-in Docker
 # resource limits and requires exit-time evidence before an OOM verdict. 0.37.0
 # adds copy-free Docker command resumes, persistent task labels and faithful
-# shell argument and exit-code handling.
+# shell argument and exit-code handling. 0.37.1 observes Docker CPU limits
+# applied after launch and recovers CPU penalty monitors after crashes.
 # `@link-assistant/agent` is pinned to current 0.26.11. Version 0.26.1 stopped the
 # unbounded snapshot leak of issue #2186. Up to 0.26.0 `Snapshot.track()` built a
 # standalone git object store per project — keyed on the worktree's root commit,
@@ -322,7 +324,7 @@ RUN echo "Installing @link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
     fi && \
     bun install -g @link-assistant/claude-profiles && \
     bun install -g @link-assistant/agent@0.26.11 && \
-    bun install -g start-command@0.37.0 && \
+    bun install -g start-command@0.37.1 && \
     bun install -g gh-setup-git-identity && \
     bun install -g gh-pull-all && \
     bun install -g gh-load-issue && \

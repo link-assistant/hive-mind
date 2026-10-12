@@ -297,6 +297,9 @@ en
       failed "Failed"
       and
         more "and {{count}} more"
+      continued "continued"
+      exit
+        code "exit code {{code}}"
       pending "pending"
       processing "processing"
       processes "{{count}} processes"

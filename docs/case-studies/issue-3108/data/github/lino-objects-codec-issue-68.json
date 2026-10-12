@@ -1,0 +1,25 @@
+{
+  "author": { "id": "MDQ6VXNlcjE0MzE5MDQ=", "is_bot": false, "login": "konard", "name": "Konstantin Diachenko" },
+  "body": "Actual consumer failure with lino-objects-codec0.9.0 and Node22.23.0, while verifying a full saved Lazada associative case. The codec successfully emitted valid readable Links Notation, but cannot read it back.\n\nThe discovery-publication-source document contains1,764 historical proof records,144,497,741 UTF8 bytes, content SHA25633288f6b43e93e619e92eb622383da322ba8bb6022503dc6e8faa6f9c5a088a4 (gzip24,975,140 bytes). A smaller56,510,065-byte cache notation is also present. Source JSON, compressed/uncompressed hashes and binary frames remain intact.\n\nActual stack:\n```\nRangeError: Invalid array length\n at Function.from (<anonymous>)\n at tokenize (.../lino-objects-codec/src/readable.js:582:23)\n at Module.decode (.../src/readable.js:224:18)\n at ObjectCodec.decode (.../src/codec.js:200:21)\n at decode (.../src/codec.js:784:24)\n```\n\n`tokenize` calls `Array.from(text)` before scanning, multiplying memory use and reaching V8 backing-array limits for a valid large document. A narrow consumer workaround uses direct string indexing and string slices instead of the character array and corresponding slice/join calls. ASCII delimiters and complete Unicode text/quote runs must round-trip. The separate escaped-payload decoder also materializes arrays and deserves bounded Unicode/UTF8 processing for giant single values.\n\nPlease support decoding valid large documents without whole-document character arrays, preserve exact encoded/decoded JSON and Unicode/quote/escaped-marker behavior, and add a realistic regression. The consumer will keep verifying every saved notation record against JSON and binary conversion, not skip decode or remove history. A public fixed/failed archive receipt and consumer workaround link will follow after full validation and commit. No marketplace requests are needed to reproduce.\n",
+  "closedAt": "2026-10-11T14:06:14Z",
+  "comments": [
+    {
+      "id": "IC_kwDOQWrSmc8AAAABbCJvPQ",
+      "author": { "login": "konard" },
+      "authorAssociation": "MEMBER",
+      "body": "The consumer workaround is implemented in [lazada-search commit c7149901c187](https://github.com/konard/lazada-search/commit/c7149901c1877c12cc6a08c4e65ed0a42dd58224): [exact-source-gated installer](https://github.com/konard/lazada-search/blob/c7149901c1877c12cc6a08c4e65ed0a42dd58224/scripts/patch-lino-large-documents.mjs), [focused regression tests](https://github.com/konard/lazada-search/blob/c7149901c1877c12cc6a08c4e65ed0a42dd58224/tests/lino-large-documents.test.js).\n\nDirect string-index scanning removes the whole-document character array; native slice/indexOf handling avoids retaining quoted-character ropes; bounded UTF-8 decoding preserves Unicode, escaping and malformed-input checks. The installer requires the exact official 0.9.0 source digest, retains the original locally, rejects unknown 0.9.0 source and leaves future official versions untouched. It does not use a global monkey patch.\n\nEight focused tests include a long quoted Unicode value in a 128 MiB child and a notation document over 32 MiB. Complete JSON/notation/binary/blob verification passes the actual previously failing 144,497,741-byte document and the final 34,253-record/7,030-blob case at the default Node heap, without dropping source history or skipping decoding. [Failure/success receipt](https://github.com/konard/lazada-search/blob/c7149901c1877c12cc6a08c4e65ed0a42dd58224/docs/acceptance/source-integrity/codec-large-document.json), [final verification](https://github.com/konard/lazada-search/blob/c7149901c1877c12cc6a08c4e65ed0a42dd58224/docs/acceptance/source-integrity/archive-verification.json). No product requests were made for diagnosis/rebuilding. The upstream issue remains open for an official library fix.\n",
+      "createdAt": "2026-10-11T12:45:39Z",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": "",
+      "reactionGroups": [],
+      "url": "https://github.com/link-foundation/lino-objects-codec/issues/68#issuecomment-6109163325",
+      "viewerDidAuthor": true
+    }
+  ],
+  "createdAt": "2026-10-11T11:43:19Z",
+  "number": 68,
+  "state": "CLOSED",
+  "stateReason": "COMPLETED",
+  "title": "Readable decoder fails on valid 144MB document: tokenize materializes Array.from(text)"
+}

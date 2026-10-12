@@ -178,7 +178,7 @@ const { revealHiddenCharacters } = await import('./github-url-recovery.lib.mjs')
 
 const { getSolveQueue, createQueueExecuteCallback } = await import('./telegram-solve-queue.lib.mjs');
 const { applySolveToolAlias, getFirstParsedPositionalArg, getSolveCommandNameFromText, getSolveToolAliasFromText, moveArgumentToFront, parseArgsWithYargs, parseCommandArgs, SOLVE_COMMAND_NAMES } = await import('./telegram-solve-command.lib.mjs');
-const { replyIfRepositoryHasNoWork } = await import('./telegram-solve-repository-preflight.lib.mjs');
+const { preflightRepositoryTarget, redirectRepositoryArgsToSingleIssue } = await import('./telegram-solve-repository-preflight.lib.mjs');
 const { validateTelegramGitHubUrl } = await import('./telegram-url-validation.lib.mjs');
 const { executeStartScreen: executeStartScreenCommand, buildExecuteAndUpdateMessage } = await import('./telegram-command-execution.lib.mjs');
 const { isChatStopped, getChatStopInfo, getStoppedChatRejectMessage, DEFAULT_STOP_REASON } = await import('./telegram-start-stop-command.lib.mjs');
@@ -188,7 +188,7 @@ const { isTelegramRateLimitError } = await import('./telegram-rate-limit.lib.mjs
 const { installTelegramContextSafety } = await import('./telegram-context-safety.lib.mjs');
 const { registerTerminalWatchCommand, startAutoTerminalWatchForSession } = await import('./telegram-terminal-watch-command.lib.mjs');
 const { launchBotWithRetry } = await import('./telegram-bot-launcher.lib.mjs');
-const { trackSession, untrackSession, startSessionMonitoring, hasActiveSessionForUrlAsync, findStoppableSessionByUrl, setSessionStore, setSessionLogger, resumeTrackedSessions, getActiveSessionCount } = await import('./session-monitor.lib.mjs');
+const { addSessionCompletionListener, trackSession, untrackSession, startSessionMonitoring, hasActiveSessionForUrlAsync, findStoppableSessionByUrl, setSessionStore, setSessionLogger, resumeTrackedSessions, getActiveSessionCount } = await import('./session-monitor.lib.mjs');
 const { createBotLogger } = await import('./bot-logger.lib.mjs');
 const { createSessionStore } = await import('./session-store.lib.mjs');
 const { createHeartbeat, resumeSessionsOnLaunch, createShutdownHandler } = await import('./bot-lifecycle.lib.mjs');
@@ -583,7 +583,8 @@ async function handleSolveCommand(ctx) {
     return;
   }
   const mergedSolveArgs = mergeArgsWithOverrides(userArgsWithoutIsolation, solveOverrides);
-  const { backend: solveOverrideIsolation, filteredArgs: args } = extractIsolationFromArgs(mergedSolveArgs);
+  const { backend: solveOverrideIsolation, filteredArgs: isolationFilteredArgs } = extractIsolationFromArgs(mergedSolveArgs);
+  let args = isolationFilteredArgs;
   if (solveOverrideIsolation && !isValidPerCommandIsolation(solveOverrideIsolation)) {
     await safeReply(ctx, t('telegram.invalid_locked_isolation', { value: escapeMarkdown(solveOverrideIsolation) }, { locale: solveLocale }), { reply_to_message_id: ctx.message.message_id });
     return;
@@ -645,8 +646,15 @@ async function handleSolveCommand(ctx) {
   }
   // Issue #2266: answer an empty repository directly. The CLI repeats the
   // check for direct use and races; preflight errors fall through to it.
-  const repliedNoWork = await replyIfRepositoryHasNoWork({ ctx, parsed: validation.parsed, locale: solveLocale, onError: error => VERBOSE && console.log(`[VERBOSE] Repository no-work preflight failed; continuing with /solve: ${error.message || error}`) });
-  if (repliedNoWork) return;
+  const repositoryPreflight = await preflightRepositoryTarget({ ctx, parsed: validation.parsed, locale: solveLocale, onError: error => VERBOSE && console.log(`[VERBOSE] Repository no-work preflight failed; continuing with /solve: ${error.message || error}`) });
+  if (repositoryPreflight.repliedNoWork) return;
+  // Issue #3108: a repository with a single open issue is solved as that issue.
+  const singleIssueRedirect = repositoryPreflight.singleIssue && redirectRepositoryArgsToSingleIssue({ args, parsed: validation.parsed, singleIssue: repositoryPreflight.singleIssue });
+  if (singleIssueRedirect) {
+    VERBOSE && console.log(`[VERBOSE] Repository has a single open issue; solving ${singleIssueRedirect.parsed.canonical} directly`);
+    args = singleIssueRedirect.args;
+    validation.parsed = singleIssueRedirect.parsed;
+  }
   // Use the canonical URL from validation to ensure consistent duplicate
   // detection (issue #1080) and to echo back only what the bot interpreted —
   // a `#issuecomment-…` fragment is never used to resolve the target (#2166).
@@ -1117,6 +1125,9 @@ let formalAiMaintenance = null;
 let routerMaintenance = null;
 let launchAnnouncementShown = false;
 
+// Issue #2823: a launched /solve task is not a completed one. Tell the queue
+// how each tracked session ended so /queue lists it as Completed or Failed.
+addSessionCompletionListener(event => getSolveQueue({ verbose: VERBOSE }).recordSessionCompletion(event));
 function startSessionMonitoringOnce() {
   if (sessionMonitoringTimer) return;
   // Issue #2134: the monitor needs the isolation runner to start a recovery

@@ -1,5 +1,49 @@
 # @link-assistant/hive-mind
 
+## 2.35.8
+
+### Patch Changes
+
+- 58073a1: Fix `/queue` status accuracy (issue #2823): tasks that are still running are no
+  longer listed under Completed, queued tasks that fail after launch (non-zero
+  exit or kill) now move to Failed with their exit code or signal, the summary
+  counts come from the lists shown (`Pending, Processing, Completed, Failed`),
+  long replies repeat the tool and list headers in every continuation message,
+  and bare repository URLs render as `owner/repo` links.
+
+  Docker images build on Box 2.10.4; command-stream is pinned to 2.3.0 and
+  lino-objects-codec is 0.9.2.
+
+## 2.35.7
+
+### Patch Changes
+
+- ed0e1e7: `/solve <repository-url>` on a repository with exactly one open issue now solves that issue directly, as if its URL had been given, instead of creating a combined issue whose only sub-issue is that same issue. The Telegram bot shows and launches the issue URL in that case (#3108).
+
+  Docker images install start-command 0.37.1; lino-objects-codec is 0.9.1.
+
+## 2.35.6
+
+### Patch Changes
+
+- a785441: Stop reporting successful Claude sessions as "Solution Draft Failed" when the
+  CLI does not exit after its result. The solver stops such a CLI itself after
+  30 seconds (Issue #1280), and command-stream 0.12+ reports that as an exit chunk
+  with code 143. That code was counted as a failure, and the AI's own work summary
+  was published as the error ("CLAUDE execution failed with I fixed the four…"),
+  turning a ready PR back into a draft. Both exit paths now share one rule. A tool's
+  work summary is never published as a failure reason for any tool, and the
+  SIGKILL follow-up is sent while the CLI's process group is still alive.
+
+  The post-result close timeout now follows Claude Code's background tasks. In
+  every reported run, print mode was still waiting for a CI or test waiter task
+  when the 30-second timer stopped it. While background tasks run, the solver now
+  waits up to Claude Code's own print-mode wait ceiling. It pauses the timer when
+  a finished task starts another turn, and logs which tasks it is waiting for. A
+  CLI with nothing pending is still stopped after 30 seconds.
+
+  command-stream is pinned to 2.1.0 for the dependency freshness gate.
+
 ## 2.35.5
 
 ### Patch Changes

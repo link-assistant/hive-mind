@@ -15,6 +15,7 @@
 
 import { t } from './i18n.lib.mjs';
 import { safeReply as defaultSafeReply } from './telegram-safe-reply.lib.mjs';
+import { splitQueueStatusMessage } from './telegram-solve-queue-status-split.lib.mjs';
 
 const GROUP_ONLY_MESSAGE = '❌ The /queue command only works in group chats. Please add this bot to a group and make it an admin.';
 
@@ -92,10 +93,19 @@ export function registerSolveQueueCommand(bot, options) {
     // See: https://github.com/link-assistant/hive-mind/issues/1267
     const message = await solveQueue.formatDetailedStatus({ locale });
 
-    await replyWithFallback(message, {
-      reply_to_message_id: ctx.message.message_id,
-      fallbackLocale: locale,
-    });
+    // Issue #2823: a long status is split here, where its structure is known,
+    // so every continuation message repeats its tool and list headers instead
+    // of starting with bare items.
+    const chunks = splitQueueStatusMessage(message, { locale });
+    if (chunks.length > 1) {
+      VERBOSE && console.log(`[VERBOSE] /queue status is ${message.length} chars; sending ${chunks.length} messages with repeated headers`);
+    }
+    for (const chunk of chunks) {
+      await replyWithFallback(chunk, {
+        reply_to_message_id: ctx.message.message_id,
+        fallbackLocale: locale,
+      });
+    }
   }
 
   bot.command(/^queue$/i, handleSolveQueueCommand);

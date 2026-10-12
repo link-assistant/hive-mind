@@ -28,6 +28,14 @@ export function formatQueueItemLink(url) {
     const [, owner, repo, number] = match;
     return `[${owner}/${repo}#${number}](${url})`;
   }
+  // Issue #2823: a bare repository URL (`/codex https://github.com/owner/repo`)
+  // was shown as a long raw URL next to compact issue/PR links. Render it as
+  // `[owner/repo](url)` too.
+  const repoMatch = url.match(/^https?:\/\/(?:www\.)?github\.com\/([^/\s?#]+)\/([^/\s?#]+?)(?:\.git)?\/?(?:[?#].*)?$/i);
+  if (repoMatch && !/[\])]/.test(url)) {
+    const [, owner, repo] = repoMatch;
+    return `[${owner}/${repo}](${url})`;
+  }
   return escapeTopLevelMarkdown(url);
 }
 
@@ -78,7 +86,7 @@ export function formatQueueHistorySection({ items, emoji, label, max, locale, wi
  * @param {string} url
  * @returns {string}
  */
-function normalizeQueueUrl(url) {
+export function normalizeQueueUrl(url) {
   return typeof url === 'string' ? url.replace(/\/+$/, '').replace(/#.*$/, '').toLowerCase() : '';
 }
 
@@ -191,6 +199,82 @@ export function groupQueueItemsByTool(items) {
     (byTool[tool] ||= []).push(item);
   }
   return byTool;
+}
+
+/**
+ * When a history item ended, for ordering merged history lists oldest-first
+ * (the renderers reverse them to most-recent-first). Items without any
+ * timestamp sort as 0, and the stable sort keeps their original order.
+ *
+ * @param {object} item
+ * @returns {number} Epoch ms, or 0 when unknown.
+ */
+function historyItemTime(item) {
+  const value = item?.sessionOutcome?.finishedAt || item?.startedAt || item?.createdAt || null;
+  const ms = value ? new Date(value).getTime() : 0;
+  return Number.isNaN(ms) ? 0 : ms;
+}
+
+/**
+ * Describe why a launched session failed, for the `❌ link — reason` row
+ * (issue #2823): the signal for a kill, otherwise the exit code, otherwise the
+ * backend status.
+ *
+ * @param {{exitCode?: (number|null), status?: (string|null), signal?: (string|null)}} outcome
+ * @param {string|null} [locale]
+ * @returns {string}
+ */
+export function formatQueueSessionFailure(outcome, locale = null) {
+  if (!outcome) return '';
+  const exitCode = Number.isInteger(outcome.exitCode) ? outcome.exitCode : null;
+  const exitText = exitCode !== null ? lt('queue_exit_code', { code: exitCode }, { locale }) : null;
+  if (outcome.signal) return exitText ? `${outcome.signal} (${exitText})` : outcome.signal;
+  if (exitText) return exitText;
+  return outcome.status ? String(outcome.status) : lt('queue_failed', {}, { locale });
+}
+
+/**
+ * Split one tool's queue history into what is really Completed and what really
+ * Failed (issue #2823).
+ *
+ * `SolveQueue.completed` records successful *launches*: an item lands there as
+ * soon as its detached session starts. Listing it as "Completed" while the same
+ * task is still listed under "Processing" is a false positive, and a session
+ * that later exits with a failure was never shown under "Failed" (a false
+ * negative). The rules:
+ *
+ * - a launched item whose session has not reported an outcome yet and whose
+ *   URL is still executing is shown only under Processing;
+ * - a launched item whose session finished with a failure moves to Failed,
+ *   with the failure reason as its error;
+ * - every other launched item (finished successfully, or with no known
+ *   outcome and no longer executing) stays in Completed;
+ * - launch failures (`SolveQueue.failed`) stay in Failed.
+ *
+ * @param {object} opts
+ * @param {Array} [opts.completed] - Launched items for one tool.
+ * @param {Array} [opts.failed] - Launch failures for one tool.
+ * @param {Array<{url: string}>} [opts.executing] - Output of {@link collectExecutingItems}.
+ * @param {string|null} [opts.locale] - Locale for failure reasons.
+ * @returns {{completed: Array, failed: Array, executingHidden: Array}}
+ */
+export function partitionQueueHistory({ completed = [], failed = [], executing = [], locale = null } = {}) {
+  const executingKeys = new Set(executing.map(item => normalizeQueueUrl(item.url)).filter(Boolean));
+  const done = [];
+  const failedAfterLaunch = [];
+  const executingHidden = [];
+  for (const item of completed) {
+    const outcome = item.sessionOutcome || null;
+    if (!outcome && executingKeys.has(normalizeQueueUrl(item.url))) {
+      executingHidden.push(item);
+    } else if (outcome?.failed) {
+      failedAfterLaunch.push({ url: item.url, tool: item.tool, createdAt: item.createdAt, startedAt: item.startedAt, sessionOutcome: outcome, error: formatQueueSessionFailure(outcome, locale) });
+    } else {
+      done.push(item);
+    }
+  }
+  const allFailed = failedAfterLaunch.length ? [...failed, ...failedAfterLaunch].sort((a, b) => historyItemTime(a) - historyItemTime(b)) : [...failed];
+  return { completed: done, failed: allFailed, executingHidden };
 }
 
 /**

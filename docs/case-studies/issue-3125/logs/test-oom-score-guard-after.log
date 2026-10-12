@@ -1,0 +1,15 @@
+✔ AI tool command lines are recognized, run directly or by a runtime (2.096603ms)
+✔ HIVE_MIND_TOOL_OOM_SCORE_ADJ sets or turns off the value (0.485775ms)
+✔ only processes below the AI tool under solve are selected (1.973844ms)
+✔ oom_score_adj files under a fake /proc are raised once, never lowered (85.552103ms)
+✔ the guard does nothing off Linux or when turned off, and reports once (2.308379ms)
+✔ a real command below a process named claude gets 500, the tool keeps its value (149.543428ms)
+✔ solve starts the guard (6.967997ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 403.328705

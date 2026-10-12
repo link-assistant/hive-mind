@@ -3,10 +3,12 @@
 # while a container is penalized? Kills the detached watcher and its CPU monitor
 # (what a Hive Mind bot-container restart does), runs `$ --resume-all` (what the
 # bot runs on startup), and checks the cap is still lifted afterwards.
-# Usage: START_BIN=/path/to/$ TRIGGER=20% experiments/issue-2801-start-command-penalty-restart.sh
+# SIGNAL=KILL simulates a crash (no chance to lift the cap on the way out).
+# Usage: START_BIN=/path/to/$ TRIGGER=20% [SIGNAL=TERM|KILL] experiments/issue-2801-start-command-penalty-restart.sh
 set -u
 START_BIN=${START_BIN:-$}
 TRIGGER=${TRIGGER:-20%}
+SIGNAL=${SIGNAL:-TERM}
 NCPU=$(docker info --format '{{.NCPU}}')
 NAME="issue-2801-start-restart-$$"
 log() { echo "$(date -u +%H:%M:%S) $*"; }
@@ -14,7 +16,7 @@ nano() { docker inspect -f '{{.HostConfig.NanoCpus}}' "$NAME" 2>/dev/null; }
 phase() { "$START_BIN" --status "$NAME" --output-format json 2>/dev/null | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const p=JSON.parse(s).cpuPenalty;console.log(p?`${p.phase} limit=${p.limitCpus} count=${p.penaltyCount} penalizedMs=${p.penalizedMs}`:"null")}catch{console.log("unparsable")}})'; }
 monitors() { pgrep -f "cpu-penalty-monitor.js.*$NAME" | tr '\n' ' '; }
 
-log "$("$START_BIN" --version | head -1); NCPU=$NCPU TRIGGER=$TRIGGER"
+log "$("$START_BIN" --version | head -1); NCPU=$NCPU TRIGGER=$TRIGGER SIGNAL=$SIGNAL"
 "$START_BIN" -i docker -d --image alpine:3 --session "$NAME" \
   --cpu-penalty --cpu-penalty-trigger "$TRIGGER" \
   --cpu-penalty-trigger-window 20s --cpu-penalty-release-window 20s \
@@ -24,7 +26,7 @@ for _ in $(seq 30); do
   [ "$(nano)" = 2000000000 ] && break
 done
 log "penalized: NanoCpus=$(nano) $(phase) monitor pids: $(monitors)"
-pkill -f "docker logs -f.* $NAME" ; pkill -f "cpu-penalty-monitor.js.*$NAME"
+pkill -$SIGNAL -f "docker logs -f.* $NAME" ; pkill -$SIGNAL -f "cpu-penalty-monitor.js.*$NAME"
 sleep 2
 log "watcher and monitor killed; monitor pids: '$(monitors)'"
 docker exec "$NAME" touch /tmp/stop

@@ -1,0 +1,24 @@
+Testing issue #3125: in-place resume runs the real CLI, not the Telegram alias
+==============================================================================
+
+1. Display form and shell form
+  ✅ PASS: display keeps the Telegram alias so it can be pasted into the chat
+  ❌ FAIL: shell names the real CLI that exists in the container
+  ❌ FAIL: shell resumes the last tool session
+  ❌ FAIL: shell never contains the alias
+  ❌ FAIL: without an alias, shell and display are the same for plain arguments
+  ❌ FAIL: an explicit binary override is used by the shell form too
+
+2. What `sh -c` does with each form
+  ✅ PASS: running display reproduces the incident: exit 127, sh: 1: /claude: not found
+  ❌ FAIL: running shell reaches the solve CLI (exit 127)
+  ❌ FAIL: solve receives every argument unchanged
+  ❌ FAIL: quotes, $ and backticks are not expanded by sh
+
+3. The in-place resume passes the shell form to `$ --resume`
+  ✅ PASS: the session is resumed in place
+  ❌ FAIL: the command given to $ --resume is /claude https://github.com/link-foundation/links-notation/issues/340 --think high --tool claude --attach-logs --verbose --resume 8d7d799b-d7e6-400e-9b68-6210c0e7c813
+
+==============================================================================
+Results: 3 passed, 9 failed, 12 total
+==============================================================================

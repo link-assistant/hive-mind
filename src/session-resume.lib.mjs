@@ -217,6 +217,14 @@ function quoteArg(value) {
   return `"${str.replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
 }
 
+// POSIX single-quote quoting: safe for `sh -c`, where `$`, backticks and `\`
+// inside double quotes would still be expanded.
+function shellQuoteArg(value) {
+  const str = String(value);
+  if (/^[A-Za-z0-9_./:@=-]+$/.test(str)) return str;
+  return `'${str.replaceAll("'", "'\\''")}'`;
+}
+
 /**
  * Drop any pre-existing `--resume`/`-r <id>` pair from an args array so a fresh
  * resume id can be appended without conflict. Pure; returns a new array.
@@ -251,7 +259,12 @@ export function stripResumeFlag(args) {
  * @param {Object} options.sessionInfo - Persisted session info (command/url/tool/args)
  * @param {string} options.lastSessionId - The session id to resume from
  * @param {string} [options.binary] - Override the invoked binary (default: the command)
- * @returns {{ binary: string, args: string[], display: string }|null}
+ * `display` is what a person types: it keeps the Telegram alias (`/claude …`)
+ * so it can be pasted back into the chat. `shell` is what a machine runs: the
+ * real CLI (`solve …`), quoted for `sh -c`. A shell has no `/claude` binary, so
+ * running `display` in a container fails with exit 127 (issues #2887, #3125).
+ *
+ * @returns {{ binary: string, args: string[], display: string, shell: string }|null}
  */
 export function buildResumeCommand({ sessionInfo = {}, lastSessionId = null, binary = null } = {}) {
   if (!lastSessionId) return null;
@@ -270,7 +283,7 @@ export function buildResumeCommand({ sessionInfo = {}, lastSessionId = null, bin
     if (sessionInfo.tool && sessionInfo.tool !== 'claude') args.push('--tool', sessionInfo.tool);
   }
   args = [...args, '--resume', lastSessionId];
-  return { binary: bin, args, display: `${bin} ${args.map(quoteArg).join(' ')}` };
+  return { binary: bin, args, display: `${bin} ${args.map(quoteArg).join(' ')}`, shell: [binary || command, ...args].map(shellQuoteArg).join(' ') };
 }
 
 /**

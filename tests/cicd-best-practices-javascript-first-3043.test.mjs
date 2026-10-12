@@ -53,6 +53,8 @@ for (const guidePath of guidePaths) {
   assert.match(section, /js-ai-driven-development-pipeline-template\/pull\/231/, `${guidePath} links the JavaScript template gate proposal`);
   assert.match(section, /workflow-syntax#jobsjob_idneeds/, `${guidePath} cites GitHub needs semantics`);
   assert.match(section, /events-that-trigger-workflows#workflow_run/, `${guidePath} cites GitHub workflow_run semantics`);
+  assert.match(section, /meta IR[^\n]*Links Notation/, `${guidePath} keeps the typed meta IR from PR #3044`);
+  assert.match(section, /\]\(case-studies\/issue-3043\/README\.md\)/, `${guidePath} links the single-push enforcement design`);
 }
 
 const english = readFileSync(guidePaths[0], 'utf8').match(/### 18\.([\s\S]*?)\n## /)[1];
@@ -75,6 +77,30 @@ assert.match(english, /Workers draft, never push/, 'it forbids worker pushes');
 assert.match(english, /One coordinator pushes once per batch/, 'it pushes once per validated batch');
 assert.match(english, /never pushes fix by fix/, 'it forbids push-per-fix');
 assert.match(english, /does not imply permission to merge, publish, deploy or clean user-owned caches/, 'it limits what push permission means');
+
+// PR #3044's solve scheduler proposal lives in the case study (English-only, so
+// it does not need the four language siblings a top-level docs/*.md requires).
+// It must stay a proposal, and the extension points it builds on must exist.
+const caseStudy = readFileSync('docs/case-studies/issue-3043/README.md', 'utf8');
+assert.match(caseStudy, /pull\/3044/, 'the case study records what was integrated from PR #3044');
+assert.match(caseStudy, /\*\*Status: design proposal\.\*\* Nothing below is implemented\./, 'the scheduler is labelled a proposal');
+assert.match(caseStudy, /These flags do not exist today/, 'the proposed flags are not advertised as working');
+for (const [name, file] of [
+  ['PRE_PUSH_GUARD_SCRIPT', 'src/git-push-guard.lib.mjs'],
+  ['installGitPushGuard', 'src/git-push-guard.lib.mjs'],
+  ['checkPRCIStatus', 'src/github-merge.lib.mjs'],
+  ['getActiveBranchRuns', 'src/github-merge.lib.mjs'],
+  ['waitForBranchCI', 'src/github-merge-ci-wait.lib.mjs'],
+  ['detectAndCountFeedback', 'src/solve.feedback.lib.mjs'],
+  ['waitForCompareApiReady', 'src/solve.auto-pr-push-sync.lib.mjs'],
+  ['verifyBranchOnGitHub', 'src/solve.auto-pr-push-sync.lib.mjs'],
+]) {
+  assert.match(caseStudy, new RegExp(`\\[\`${name}\`\\]`), `the case study names ${name}`);
+  assert.match(readFileSync(file, 'utf8'), new RegExp(`export (async )?(function|const) ${name}\\b`), `${file} still exports ${name}`);
+}
+for (const flag of ['ci-push-owner', 'ci-feedback-policy']) {
+  assert.doesNotMatch(readFileSync('src/solve.config.lib.mjs', 'utf8'), new RegExp(`'${flag}'`), `--${flag} is not implemented yet; update the case study when it is`);
+}
 
 // Principle 18 must not weaken principle 10: active writers stay non-cancellable.
 const principle10 = readFileSync(guidePaths[0], 'utf8').match(/### 10\.([\s\S]*?)\n### 11\./)[1];

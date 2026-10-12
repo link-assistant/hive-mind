@@ -1,0 +1,33 @@
+### run 38077619981
+2026-10-10T19:03:45.3653632Z Output: should_release=true
+2026-10-10T19:03:45.3666442Z Output: skip_bump=false
+2026-10-10T19:03:56.1400140Z remote: error: GH013: Repository rule violations found for refs/heads/main.
+2026-10-10T19:03:56.1401150Z remote: - 2 of 2 required status checks are expected.
+2026-10-10T19:03:56.1407963Z  ! [remote rejected] main -> main (push declined due to repository rule violations)
+2026-10-10T19:03:56.1408301Z error: failed to push some refs to 'https://github.com/link-foundation/start'
+2026-10-10T19:03:56.1426074Z ✅ Version bump committed and pushed to main
+2026-10-10T19:04:27.3686569Z start-command@0.24.0 is already published to crates.io
+2026-10-10T19:04:27.3689405Z publish_result=already_published
+2026-10-10T19:04:27.9034569Z GitHub release already exists: rust-v0.24.0 ([Rust] 0.24.0)
+### run 38142394108
+2026-10-11T13:27:03.8692173Z Output: should_release=true
+2026-10-11T13:27:03.8693033Z Output: skip_bump=false
+2026-10-11T13:27:16.0429678Z remote: error: GH013: Repository rule violations found for refs/heads/main.
+2026-10-11T13:27:16.0432811Z remote: - 2 of 2 required status checks are expected.
+2026-10-11T13:27:16.0442157Z  ! [remote rejected] main -> main (push declined due to repository rule violations)
+2026-10-11T13:27:16.0445675Z error: failed to push some refs to 'https://github.com/link-foundation/start'
+2026-10-11T13:27:16.0462670Z ✅ Version bump committed and pushed to main
+2026-10-11T13:27:51.0809549Z start-command@0.24.0 is already published to crates.io
+2026-10-11T13:27:51.0813006Z publish_result=already_published
+2026-10-11T13:27:51.7017062Z GitHub release already exists: rust-v0.24.0 ([Rust] 0.24.0)
+### run 38263164479
+2026-10-12T14:40:53.0745859Z Output: should_release=true
+2026-10-12T14:40:53.0746259Z Output: skip_bump=false
+2026-10-12T14:41:08.8994140Z remote: error: GH013: Repository rule violations found for refs/heads/main.
+2026-10-12T14:41:08.8997366Z remote: - 2 of 2 required status checks are expected.
+2026-10-12T14:41:08.9006380Z  ! [remote rejected] main -> main (push declined due to repository rule violations)
+2026-10-12T14:41:08.9010361Z error: failed to push some refs to 'https://github.com/link-foundation/start'
+2026-10-12T14:41:08.9025957Z ✅ Version bump committed and pushed to main
+2026-10-12T14:41:46.5515094Z start-command@0.24.0 is already published to crates.io
+2026-10-12T14:41:46.5523627Z publish_result=already_published
+2026-10-12T14:41:47.3025074Z GitHub release already exists: rust-v0.24.0 ([Rust] 0.24.0)

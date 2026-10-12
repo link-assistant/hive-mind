@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
+import { assertCommandSucceeded } from './command-result.lib.mjs';
 
 // Use use-m to dynamically import modules for cross-runtime compatibility
 const use = await ensureUseM();
@@ -188,7 +189,7 @@ repo = urlMatch[3] || null;
 if (!repo) {
   // Check if it's an organization or user
   try {
-    const typeResult = await $`gh api users/${owner} --jq .type`;
+    const typeResult = assertCommandSucceeded(await $`gh api users/${owner} --jq .type`, 'gh api users');
     const accountType = typeResult.stdout.toString().trim();
     scope = accountType === 'Organization' ? 'organization' : 'user';
   } catch {

@@ -19,6 +19,7 @@ import { open, rm } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 
 import { reportError } from './sentry.lib.mjs';
+import { assertCommandSucceeded } from './command-result.lib.mjs';
 
 /** Directories that hold build output in the ecosystems Hive Mind works on. */
 export const BUILD_OUTPUT_DIR_PATTERN = /(^|\/)(target|build|out|bin|obj|dist|node_modules|__pycache__|\.gradle|\.venv|venv|\.next|coverage)\//;
@@ -93,7 +94,7 @@ export const commitUncommittedChangesOnCriticalError = async ({ tempDir, branchN
   const git = $({ cwd: tempDir });
   let indexFile = null;
   try {
-    const statusResult = await git`git status --porcelain --untracked-files=all 2>&1`;
+    const statusResult = assertCommandSucceeded(await git`git status --porcelain --untracked-files=all 2>&1`, 'git status');
     const statusOutput = statusResult.stdout?.toString().trim() || '';
     if (!statusOutput) {
       await log('   ℹ️ No uncommitted changes to preserve before recovery.', { verbose: true });
@@ -108,7 +109,9 @@ export const commitUncommittedChangesOnCriticalError = async ({ tempDir, branchN
     const { keep, skipped } = await classifyUntrackedFiles(tempDir, untracked);
     if (skipped.length) await log(`   ⏭️ Not preserved (build output): ${skipped.join(', ')}`);
 
-    const indexPath = (await git`git rev-parse --git-path hive-mind-recovery.index`).stdout?.toString().trim();
+    const indexPath = assertCommandSucceeded(await git`git rev-parse --git-path hive-mind-recovery.index`, 'git rev-parse')
+      .stdout?.toString()
+      .trim();
     indexFile = isAbsolute(indexPath) ? indexPath : join(tempDir, indexPath);
     const steps = [() => git`GIT_INDEX_FILE=${indexFile} git read-tree HEAD`, () => git`GIT_INDEX_FILE=${indexFile} git add -u`, ...keep.map(path => () => git`GIT_INDEX_FILE=${indexFile} git add -- ${path}`)];
     for (const step of steps) {
@@ -131,7 +134,7 @@ export const commitUncommittedChangesOnCriticalError = async ({ tempDir, branchN
       await log(`⚠️ Could not commit changes before recovery: ${commitResult.stderr?.toString().trim()}`, { level: 'warning' });
       return { committed: false, pushed: false, skipped };
     }
-    await git`git update-ref ${`refs/heads/${recoveryBranch}`} ${commit}`;
+    assertCommandSucceeded(await git`git update-ref ${`refs/heads/${recoveryBranch}`} ${commit}`, 'git update-ref');
     const preserved = ((await git`git diff-tree -r --name-only HEAD ${tree}`).stdout?.toString() || '').split('\n').filter(Boolean);
     const outcome = { committed: true, pushed: false, recoveryBranch, commit, preserved, skipped };
     await log(`✅ Uncommitted changes preserved as ${commit.slice(0, 8)} on ${recoveryBranch}.`);

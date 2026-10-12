@@ -44,6 +44,7 @@ import { EXIT_CODE_INSUFFICIENT_DISK_SPACE, ensureDiskSpaceForWorker, extractSol
 import { logReclaimableSpace } from './reclaimable-space.lib.mjs';
 import { resolveDockerImageReclaimMode } from './docker-image-reclaim.lib.mjs';
 import { HiveRunReport, HIVE_EXISTING_PRS_HINT } from './hive.run-outcome.lib.mjs';
+import { assertCommandSucceeded } from './command-result.lib.mjs';
 const isRunningDirectly = isDirectExecution(process.argv[1], import.meta.url);
 if (isRunningDirectly) {
   console.log('🐝 Hive Mind - AI-powered issue solver');
@@ -439,7 +440,7 @@ if (isRunningDirectly) {
         await log('   ℹ️  Assuming user scope (dry-run mode, skipping API detection)', { verbose: true });
       } else {
         try {
-          const typeResult = await $`gh api users/${owner} --jq .type`;
+          const typeResult = assertCommandSucceeded(await $`gh api users/${owner} --jq .type`, 'gh api users');
           const accountType = typeResult.stdout.toString().trim();
           scope = accountType === 'Organization' ? 'organization' : 'user';
         } catch (e) {

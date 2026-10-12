@@ -25,6 +25,7 @@
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
 import { quietProbe } from './quiet-probe.lib.mjs'; // issue #2130: keep read-only probe payloads out of the attached log
 import { getLiveInputCapability, getLiveInputCapabilityRows, getLiveInputMode, isLiveInputSupported, LIVE_INPUT_MODE_FALLBACK, LIVE_INPUT_MODE_STREAM } from './live-input-capabilities.lib.mjs';
+import { assertCommandSucceeded } from './command-result.lib.mjs';
 // Configuration constants
 const CONFIG = {
   // Minimum time between comment checks to avoid rate limiting (in ms)
@@ -246,7 +247,7 @@ export const createBidirectionalHandler = options => {
       // Issue #2135: `mirror: false`. This is every comment body on the issue
       // or pull request, re-read on a poll interval; mirroring it copied the
       // whole conversation into the log once per poll.
-      const result = await quietProbe($)`gh api ${apiPath} --paginate --slurp`;
+      const result = assertCommandSucceeded(await quietProbe($)`gh api ${apiPath} --paginate --slurp`, 'gh api comments');
       const parsed = JSON.parse(result.stdout?.toString() || '[]');
       const comments = Array.isArray(parsed) && parsed.every(Array.isArray) ? parsed.flat() : parsed;
       return comments.map(comment => ({

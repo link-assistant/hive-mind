@@ -31,6 +31,7 @@ import { writeSanitizedPublicationFile } from './token-sanitization.lib.mjs';
 
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
 import { quietProbe } from './quiet-probe.lib.mjs'; // issue #2135: keep large read-only probe payloads out of the attached log
+import { assertCommandSucceeded } from './command-result.lib.mjs';
 /**
  * Configuration constants for progress monitoring
  */
@@ -229,7 +230,7 @@ export const createProgressMonitor = ({ owner, repo, prNumber, $, log, verbose =
         const tempFile = `/tmp/pr-progress-comment-${prNumber}-${Date.now()}.md`;
         await writeSanitizedPublicationFile(tempFile, progressSection);
         try {
-          await $`gh api repos/${owner}/${repo}/issues/comments/${state.commentId} --method PATCH --field body=@${tempFile}`;
+          assertCommandSucceeded(await $`gh api repos/${owner}/${repo}/issues/comments/${state.commentId} --method PATCH --field body=@${tempFile}`, 'gh api PATCH comment');
         } finally {
           await fs.unlink(tempFile).catch(() => {});
         }
@@ -314,7 +315,7 @@ export const createProgressMonitor = ({ owner, repo, prNumber, $, log, verbose =
       const tempBodyFile = `/tmp/pr-progress-${prNumber}-${Date.now()}.md`;
       await writeSanitizedPublicationFile(tempBodyFile, updatedBody);
       try {
-        await $`gh pr edit ${prNumber} --repo ${owner}/${repo} --body-file ${tempBodyFile}`;
+        assertCommandSucceeded(await $`gh pr edit ${prNumber} --repo ${owner}/${repo} --body-file ${tempBodyFile}`, 'gh pr edit');
       } finally {
         await fs.unlink(tempBodyFile).catch(() => {});
       }

@@ -33,6 +33,7 @@ import { buildGitHubPullRequestUrl, buildGitHubPullRequestUrlOrNull, isGitHubUrl
 export { buildGitHubPullRequestUrl, buildGitHubPullRequestUrlOrNull, isGitHubUrlType, normalizeGitHubUrl, parseGitHubUrl };
 // Issue #1625: Named marker constants (single source of truth) + in-memory tracking for tool-posted comments. See tool-comments.lib.mjs for design.
 import { SOLUTION_DRAFT_LOG_MARKER, SOLUTION_DRAFT_FAILED_MARKER, SOLUTION_DRAFT_FINISHED_WITH_ERRORS_MARKER, USAGE_LIMIT_REACHED_MARKER, NOW_WORKING_SESSION_IS_ENDED_MARKER, postTrackedComment, postTrackedCommentFromFile } from './tool-comments.lib.mjs';
+import { assertCommandSucceeded } from './command-result.lib.mjs';
 export const maskGitHubToken = maskToken; // Alias for backward compatibility
 export const escapeCodeBlocksInLog = logContent => logContent.replace(/```/g, '\\`\\`\\`'); // Escape ``` in logs
 // Issue #2189: the old "too large" message always rendered megabytes, so a 200 KB
@@ -998,7 +999,7 @@ export async function fetchProjectIssues(projectNumber, owner, statusFilter) {
     await log(`   🔎 Executing: gh project item-list ${projectNumber} --owner ${owner} --format json --limit 100`, {
       verbose: true,
     });
-    const result = await $`gh project item-list ${projectNumber} --owner ${owner} --format json --limit 100`;
+    const result = assertCommandSucceeded(await $`gh project item-list ${projectNumber} --owner ${owner} --format json --limit 100`, 'gh project item-list');
     const endTime = Date.now();
     const projectData = JSON.parse(result.stdout?.toString() || '{"items": []}');
     const allItems = projectData.items || [];

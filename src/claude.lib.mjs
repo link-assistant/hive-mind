@@ -59,7 +59,7 @@ export const executeClaude = async params => {
   beginAnthropicCostScope({ resume: argv.resume, previousAnthropicCost: argv.previousAnthropicCost });
   if (argv.promptSubagentsViaAgentCommander) {
     try {
-      await $`which start-agent`;
+      assertCommandSucceeded(await $`which start-agent`, 'which start-agent');
       argv.agentCommanderInstalled = true;
     } catch {
       argv.agentCommanderInstalled = false;
@@ -169,6 +169,7 @@ export { calculateSessionTokens };
 // Extracted to claude.stderr.lib.mjs (Issue #477, #1337)
 import { isStderrError } from './claude.stderr.lib.mjs';
 import { checkForUncommittedChanges } from './claude.uncommitted-changes.lib.mjs';
+import { assertCommandSucceeded } from './command-result.lib.mjs';
 export { checkForUncommittedChanges };
 export { isStderrError };
 export const executeClaudeCommand = async params => {

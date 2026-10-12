@@ -97,7 +97,7 @@ With these changes, the incident would most likely go like this:
 
 ## Upstream reports
 
-- link-foundation/box: stale `docker.pid`/`containerd.pid` after resuming from a `docker commit` snapshot (RC5). The report contains a reproduction, a workaround (`rm -f /var/run/docker.pid /var/run/docker/containerd/containerd.pid` before starting) and a suggested `clear_stale_pid_file` step in `start_dockerd()`. Link: UPSTREAM_BOX_ISSUE.
+- link-foundation/box: stale `docker.pid`/`containerd.pid` after resuming from a `docker commit` snapshot (RC5). The report contains a reproduction, a workaround (`rm -f /var/run/docker.pid /var/run/docker/containerd/containerd.pid` before starting) and a suggested `clear_stale_pid_file` step in `start_dockerd()`. Filed as https://github.com/link-foundation/box/issues/133.
 
 No upstream report was needed for CMake: the behavior is documented (see below). For Claude Code, the problem was what the tool was told, which Hive Mind controls.
 

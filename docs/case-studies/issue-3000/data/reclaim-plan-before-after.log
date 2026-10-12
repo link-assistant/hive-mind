@@ -1,0 +1,9 @@
+# before (main d6e47d1a)
+$ docker image ls --format {{json .}}
+$ docker ps --all --format {{json .}}
+plan: remove konard/hive-mind:2.35.2; reclaimable 12992276070 bytes
+
+# after (this branch)
+$ docker image ls --format {{json .}}
+$ docker ps --all --format {"ID":{{json .ID}},"Names":{{json .Names}},"Image":{{json .Image}},"State":{{json .State}},"Status":{{json .Status}},"Labels":{{json .Labels}}}
+plan: null (no plan — nothing counted, nothing removed)

@@ -1,0 +1,12 @@
+# docker 29.9.0, driver: overlayfs [["driver-type","io.containerd.snapshotter.v1"]]
+docker ps -a --size          failed 16/50
+docker ps -a --format '{{json .}}' failed 11/50
+docker ps -a                 failed 0/50
+docker system df             failed 13/50
+# GET /containers/json?all=1&size=1 status codes:
+     37 200
+     13 500
+# daemon errors:
+     13 Error response from daemon: failed to retrieve container list: snapshotter.Usage failed for db1ad9bfd99236e79c22cdbe9947fee9998b59e496fd04a19df2fbcfd05576ac: lstat /var/lib/docker/containerd/daemon/io.containerd.snapshotter.v1.overlayfs/snapshots/25/fs/tmp/cc/fN: no such file or directory
+     26 Error response from daemon: snapshotter.Usage failed for db1ad9bfd99236e79c22cdbe9947fee9998b59e496fd04a19df2fbcfd05576ac: lstat /var/lib/docker/containerd/daemon/io.containerd.snapshotter.v1.overlayfs/snapshots/25/fs/tmp/cc/fN: no such file or directory
+      1 Error response from daemon: snapshotter.Usage failed for db1ad9bfd99236e79c22cdbe9947fee9998b59e496fd04a19df2fbcfd05576ac: readdirent /var/lib/docker/containerd/daemon/io.containerd.snapshotter.v1.overlayfs/snapshots/25/fs/tmp/cc: no such file or directory

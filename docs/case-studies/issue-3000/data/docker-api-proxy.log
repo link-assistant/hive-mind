@@ -1,0 +1,15 @@
+[docker-api] proxy /tmp/docker-proxy.sock -> /var/run/docker.sock
+[docker-api] HEAD /_ping HTTP/1.1
+[docker-api] GET /v1.56/containers/json?all=1&size=1 HTTP/1.1
+[docker-api] HEAD /_ping HTTP/1.1
+[docker-api] GET /v1.56/containers/json?all=1 HTTP/1.1
+[docker-api] HEAD /_ping HTTP/1.1
+[docker-api] GET /v1.56/containers/json?all=1 HTTP/1.1
+[docker-api] HEAD /_ping HTTP/1.1
+[docker-api] GET /v1.56/containers/json?all=1&size=1 HTTP/1.1
+[docker-api] HEAD /_ping HTTP/1.1
+[docker-api] GET /v1.56/images/json HTTP/1.1
+[docker-api] HEAD /_ping HTTP/1.1
+[docker-api] GET /v1.56/system/df HTTP/1.1
+[docker-api] HEAD /_ping HTTP/1.1
+[docker-api] GET /v1.56/system/df HTTP/1.1

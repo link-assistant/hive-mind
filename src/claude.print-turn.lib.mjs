@@ -89,12 +89,16 @@ export const createClaudePrintTurnTracker = () => {
   };
 };
 
-/** Decide whether print mode ended while background work was still pending. */
-export const assessClaudeTurnCompletion = ({ resultEvent = null, stoppedTaskCount = 0, ceilingSeconds = null, recoveryAttempts = 0, maxRecoveryAttempts = 5, sessionId = null } = {}) => {
+/**
+ * Decide whether print mode ended while background work was still pending.
+ * `solverStopped` is set when the solver's own post-result close timeout stopped the CLI while
+ * background tasks still ran (Issue #3015), so the cause does not blame Claude Code.
+ */
+export const assessClaudeTurnCompletion = ({ resultEvent = null, stoppedTaskCount = 0, ceilingSeconds = null, recoveryAttempts = 0, maxRecoveryAttempts = 5, sessionId = null, solverStopped = false } = {}) => {
   const systemKilled = Number(resultEvent?.subagent_stats?.killed?.system) || 0;
   const ceilingHit = Number.isFinite(ceilingSeconds);
   const cancelledTasks = Math.max(systemKilled, stoppedTaskCount, ceilingHit ? 1 : 0);
   const incomplete = resultEvent?.subtype === 'success' && resultEvent.is_error !== true && cancelledTasks > 0;
-  const cause = ceilingHit ? `Claude Code stopped background tasks after its ${ceilingSeconds}s print-mode wait ceiling (CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS)` : 'Claude Code stopped background tasks when print mode exited';
+  const cause = ceilingHit ? `Claude Code stopped background tasks after its ${ceilingSeconds}s print-mode wait ceiling (CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS)` : solverStopped ? 'the solver stopped Claude Code after its result because it did not exit while background tasks were still running (HIVE_MIND_RESULT_STREAM_CLOSE_MS)' : 'Claude Code stopped background tasks when print mode exited';
   return { incomplete, cancelledTasks, ceilingHit, cause, shouldResume: incomplete && recoveryAttempts < maxRecoveryAttempts && Boolean(sessionId), sessionId };
 };

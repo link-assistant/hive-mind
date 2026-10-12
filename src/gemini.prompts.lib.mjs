@@ -208,6 +208,7 @@ Self review.
    - When you check your solution draft, run all tests locally.
    - When you check your solution draft, verify git status shows a clean working tree with no uncommitted changes.
    - When you compare with repo style, use gh pr diff [number].
+   - When you finalize, check that all CI checks are passing if they exist, including checks that already fail on the default branch (when a check needs a human action, make CI on the pull request pass without it and CI on the default branch fail with an explicit message saying what to do).
    - When you finalize, confirm code, tests, and description are consistent.${
      argv && argv.promptEnsureAllRequirementsAreMet
        ? `

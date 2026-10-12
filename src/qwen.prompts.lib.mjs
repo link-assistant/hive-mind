@@ -187,7 +187,7 @@ Preparing pull request.
       follow style from merged prs for code, title, and description,
       check that no uncommitted changes corresponding to the original requirements are left behind,
       check that the default branch is merged into the pull request branch,
-      check that all CI checks are passing if they exist before you finish,
+      check that all CI checks are passing if they exist before you finish, including checks that already fail on the default branch (when a check needs a human action, make CI on the pull request pass without it and CI on the default branch fail with an explicit message saying what to do),
       double-check that all changes in the pull request address the original requirements of the issue,
       check for newly introduced bugs in the pull request by carefully reading gh pr diff,
       check that no previously existing features were removed without an explicit request in the issue description, issue comments, or pull request comments.

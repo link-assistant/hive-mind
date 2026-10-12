@@ -1,0 +1,9 @@
+## after fix
+retry log: ⚠️ $gh (gh api graphql): transient network error (attempt 1/3), retrying in 0s... [transient=yes category=github-server pattern="http 502"]
+retry log: ⚠️ $gh (gh api graphql): transient network error (attempt 2/3), retrying in 0s... [transient=yes category=github-server pattern="http 502"]
+retry log: ❌ $gh (gh api graphql): transient network error persisted after 3 attempts; giving up. [transient=yes category=github-server pattern="http 502"]
+resolved, code: 1 stderr: HTTP 502: 502 Bad Gateway (https://api.github.com/graphql)
+gh invocations: 3
+## before fix (git stash of src/github-rate-limit.lib.mjs)
+resolved, code: 1 stderr: HTTP 502: 502 Bad Gateway (https://api.github.com/graphql)
+gh invocations: 1

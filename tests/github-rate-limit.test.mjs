@@ -408,6 +408,57 @@ await test('does not retry gh commands on non-rate-limit errors', async () => {
   assert.equal(attempts, 1);
 });
 
+// Issue #3001: the real command-stream `$` RESOLVES with { code, stderr } on a
+// non-zero exit instead of rejecting, so the fakes below resolve too.
+await test('retries a rate-limited gh result that resolved with a non-zero code (#3001)', async () => {
+  const origBuffer = limitReset.bufferMs;
+  const origJitter = limitReset.jitterMs;
+  limitReset.bufferMs = 5;
+  limitReset.jitterMs = 0;
+  try {
+    let attempts = 0;
+    const fakeDollar = () => {
+      attempts++;
+      const past = Math.floor((Date.now() - 60_000) / 1000);
+      if (attempts === 1) return Promise.resolve({ code: 1, stdout: '', stderr: `HTTP 403\nX-RateLimit-Reset: ${past}\nAPI rate limit exceeded` });
+      return Promise.resolve({ code: 0, stdout: 'recovered', stderr: '' });
+    };
+    const wrapped = wrapDollarWithGhRetry(fakeDollar, { log: () => {} });
+    const r = await wrapped`gh api rate_limit`;
+    assert.equal(r.stdout, 'recovered');
+    assert.equal(attempts, 2);
+  } finally {
+    limitReset.bufferMs = origBuffer;
+    limitReset.jitterMs = origJitter;
+  }
+});
+
+await test('resolves with the last non-zero result once the transient budget is spent (#3001)', async () => {
+  let attempts = 0;
+  const fakeDollar = () => {
+    attempts++;
+    return Promise.resolve({ code: 1, stdout: '', stderr: 'HTTP 502: 502 Bad Gateway' });
+  };
+  const wrapped = wrapDollarWithGhRetry(fakeDollar, { log: () => {}, transientMaxAttempts: 3, transientDelay: 1 });
+  const r = await wrapped`gh api graphql`;
+  assert.equal(r.code, 1);
+  assert.match(r.stderr, /502/);
+  assert.equal(attempts, 3);
+});
+
+await test('returns a non-retryable non-zero gh result unchanged after one attempt (#3001)', async () => {
+  let attempts = 0;
+  const failure = { code: 1, stdout: '', stderr: 'HTTP 404: Not Found' };
+  const fakeDollar = () => {
+    attempts++;
+    return Promise.resolve(failure);
+  };
+  const wrapped = wrapDollarWithGhRetry(fakeDollar, { log: () => {}, maxAttempts: 5 });
+  const r = await wrapped`gh api repos/owner/repo`;
+  assert.equal(r, failure);
+  assert.equal(attempts, 1);
+});
+
 // ----------------------------------------------------------------------------
 // Summary
 // ----------------------------------------------------------------------------

@@ -80,7 +80,7 @@ export function parseDfAvailableKb(stdout) {
 
 /** First non-empty line of a command's stderr (or stdout), for a one-line reason. */
 export function describeFailure(result) {
-  const text = `${result?.stderr || ''}\n${result?.stdout || ''}`
+  const text = `${result?.stderr?.toString() ?? ''}\n${result?.stdout?.toString() ?? ''}`
     .split('\n')
     .map(line => line.trim())
     .find(Boolean);

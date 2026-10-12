@@ -31,6 +31,8 @@ import { buildRouterGitConfigEntries, buildRouterTaskEnv, getRouterSuppressedCre
 import { acquireRouterForTask, attachRouterTaskContainer, registerFormalAiWithRouter, releaseRouterForTask, watchRouterTaskContainer } from './router-task-isolation.lib.mjs';
 import { buildGitConfigEnv, GIT_PUSH_GUARD_CONTAINER_DIR, GIT_PUSH_GUARD_ESCAPE_ENV, hasForcePushOptIn, installGitPushGuard } from './git-push-guard.lib.mjs';
 import { applyDockerContainerResourceLimits, hasContainerResourceLimits, normalizeContainerResourceLimits } from './container-resource-limits.lib.mjs';
+import { checkDockerDiskSpace } from './docker-disk-space.lib.mjs';
+export { checkDockerDiskSpace };
 export { getDockerIsolationImage, resolveDockerIsolationImageTag } from './hive-mind-image.lib.mjs';
 // Re-export the shared status predicates so existing callers that reach them via the isolation-runner module (e.g. session-monitor's `runner.isExecutingSessionStatus`) keep working. The canonical definitions live in session-status.lib.mjs so the killed/terminated/oom vocabulary stays consistent everywhere (issue #1927).
 export { isExecutingSessionStatus, isTerminalSessionStatus, isKilledSessionStatus } from './session-status.lib.mjs';
@@ -40,7 +42,7 @@ import { isUnknownDockerExitCode, parseSessionExitFooter, parseSessionListOutput
 export { isUnknownDockerExitCode, parseSessionExitFooter, parseSessionListOutput, parseSessionStatusOutput, parseStartCommandExecutionUuid, readSessionExitFromLog, shouldFallbackToScreenStatus };
 // Issue #2189: the `$` loader and PATH lookup live in their own module so the
 // resume/attach wrappers can use them without importing this runner (a cycle).
-import { findStartCommandBinary, getCommandStreamDollar } from './start-command-cli.lib.mjs';
+import { assertCommandSucceeded, findStartCommandBinary, getCommandStreamDollar } from './start-command-cli.lib.mjs';
 export { findStartCommandBinary };
 // Issue #2408: version gate for resume behaviour that changed in start 0.35.0,
 // and the `docker update` limits helper a snapshot resume re-asserts.
@@ -889,7 +891,7 @@ export async function releaseDockerContainerStartGate(containerName, verbose = f
   for (let attempt = 1; attempt <= 5; attempt++) {
     try {
       const $ = await getCommandStreamDollar();
-      await $({ mirror: false })`docker exec ${containerName} sh -c ${releaseCommand}`;
+      assertCommandSucceeded(await $({ mirror: false })`docker exec ${containerName} sh -c ${releaseCommand}`, 'docker exec');
       if (verbose) {
         console.log(`[VERBOSE] isolation-runner: released docker start gate for '${containerName}'`);
       }
@@ -925,7 +927,7 @@ export async function removeDockerContainer(containerName, verbose = false) {
   }
   try {
     const $ = await getCommandStreamDollar();
-    const result = await $({ mirror: false })`docker rm -f ${containerName}`;
+    const result = assertCommandSucceeded(await $({ mirror: false })`docker rm -f ${containerName}`, 'docker rm -f');
     const stdout = result.stdout?.toString() || '';
     const stderr = result.stderr?.toString() || '';
     if (verbose) {
@@ -964,8 +966,9 @@ export async function finalizeDockerContainerStartGate(containerName, { resource
 }
 /**
  * Check whether a tmux session with the given name still exists.
- * `tmux has-session -t <name>` exits 0 when it exists and non-zero otherwise,
- * so command-stream throwing is treated as "not found".
+ * `tmux has-session -t <name>` exits 0 when it exists and non-zero otherwise
+ * (127 when tmux is not installed). command-stream resolves on a non-zero
+ * exit, so assertCommandSucceeded turns it into the "not found" catch.
  *
  * @param {string} sessionName
  * @param {boolean} [verbose]
@@ -974,7 +977,7 @@ export async function finalizeDockerContainerStartGate(containerName, { resource
 export async function checkTmuxSessionRunning(sessionName, verbose = false) {
   try {
     const $ = await getCommandStreamDollar();
-    await $({ mirror: false })`tmux has-session -t ${sessionName}`;
+    assertCommandSucceeded(await $({ mirror: false })`tmux has-session -t ${sessionName}`, 'tmux has-session');
     if (verbose) console.log(`[VERBOSE] isolation-runner: tmux has-session '${sessionName}': running`);
     return true;
   } catch {
@@ -1016,7 +1019,7 @@ export async function checkBackendSessionAlive(sessionId, backend, verbose = fal
 export async function checkDockerImagePresent(image, verbose = false) {
   try {
     const $ = await getCommandStreamDollar();
-    await $({ mirror: false })`docker image inspect ${image}`;
+    assertCommandSucceeded(await $({ mirror: false })`docker image inspect ${image}`, 'docker image inspect');
     if (verbose) console.log(`[VERBOSE] isolation-runner: docker image inspect '${image}': present`);
     return true;
   } catch {
@@ -1043,58 +1046,12 @@ export async function checkDockerImagePresent(image, verbose = false) {
 export async function checkDockerStorageDriver(verbose = false) {
   try {
     const $ = await getCommandStreamDollar();
-    const result = await $({ mirror: false })`docker info --format ${'{{.Driver}}'}`;
+    const result = assertCommandSucceeded(await $({ mirror: false })`docker info --format ${'{{.Driver}}'}`, 'docker info');
     const driver = (result.stdout?.toString() || '').trim().toLowerCase() || null;
     if (verbose) console.log(`[VERBOSE] isolation-runner: docker storage driver: ${driver || '(unknown)'}`);
     return driver;
   } catch {
     if (verbose) console.log('[VERBOSE] isolation-runner: docker info unavailable; storage driver unknown');
-    return null;
-  }
-}
-/**
- * Report the free space (in GiB) on the Docker daemon's data root.
- *
- * The Hive Mind isolation images are multiple gigabytes; when the nested daemon
- * has to pull one, it needs room for the extracted layers. This lets the
- * preflight predict a `no space left on device` failure (issue #1914) instead
- * of discovering it mid-pull. Resolves the daemon's real data root via
- * `docker info` and falls back to `/var/lib/docker`, then reads `df -Pk`.
- *
- * Never throws: returns `{ availableGiB, dataRoot }`, or `null` when the
- * information cannot be determined (no docker, no df, unparseable output).
- *
- * @param {boolean} [verbose] - Enable verbose logging
- * @returns {Promise<{availableGiB: number, dataRoot: string}|null>}
- */
-export async function checkDockerDiskSpace(verbose = false) {
-  try {
-    let dataRoot = '/var/lib/docker';
-    try {
-      const $ = await getCommandStreamDollar();
-      const info = await $({ mirror: false })`docker info --format ${'{{.DockerRootDir}}'}`;
-      const root = (info.stdout?.toString() || '').trim();
-      if (root) dataRoot = root;
-    } catch {
-      // Daemon unreachable: fall back to the conventional data root. If df then
-      // fails on it (e.g. the path does not exist) we return null below.
-    }
-    const $ = await getCommandStreamDollar();
-    const df = await $({ mirror: false })`df -Pk ${dataRoot}`;
-    // `df -P` guarantees one logical line per filesystem (no wrapping). The last
-    // line is the data row: Filesystem 1024-blocks Used Available Capacity Mount
-    const lines = (df.stdout?.toString() || '').trim().split('\n');
-    const cols = (lines[lines.length - 1] || '').trim().split(/\s+/);
-    const availableKb = Number(cols[3]);
-    if (!Number.isFinite(availableKb)) {
-      if (verbose) console.log('[VERBOSE] isolation-runner: could not parse df output for Docker disk space');
-      return null;
-    }
-    const availableGiB = availableKb / (1024 * 1024);
-    if (verbose) console.log(`[VERBOSE] isolation-runner: Docker data root '${dataRoot}' has ${availableGiB.toFixed(1)} GiB free`);
-    return { availableGiB, dataRoot };
-  } catch {
-    if (verbose) console.log('[VERBOSE] isolation-runner: df unavailable; Docker disk space unknown');
     return null;
   }
 }
@@ -1132,7 +1089,7 @@ export async function checkDockerDiskSpace(verbose = false) {
  * @param {Function} [options.checkImagePresent] - Image-presence probe (injectable for tests)
  * @param {Function} [options.checkStorageDriver] - Storage-driver probe (injectable for tests)
  * @param {Function} [options.checkDiskSpace] - Disk-space probe (injectable for tests)
- * @returns {Promise<{image: string, sock: string, socketMounted: boolean, imagePresent: boolean, isDind: boolean, storageDriver: (string|null), storageDriverOk: boolean, diskAvailableGiB: (number|null), ok: boolean, warnings: string[]}>}
+ * @returns {Promise<{image: string, sock: string, socketMounted: boolean, imagePresent: boolean, isDind: boolean, storageDriver: (string|null), storageDriverOk: boolean, diskAvailableGiB: (number|null), diskError: (string|null), ok: boolean, warnings: string[]}>}
  */
 export async function preflightDockerIsolation(options = {}) {
   const { env = process.env, existsSync = fs.existsSync, verbose = false, logger = console, checkImagePresent = checkDockerImagePresent, checkStorageDriver = checkDockerStorageDriver, checkDiskSpace = checkDockerDiskSpace } = options;
@@ -1142,12 +1099,16 @@ export async function preflightDockerIsolation(options = {}) {
   const socketMounted = Boolean(existsSync(sock));
   const imagePresent = Boolean(await checkImagePresent(image, verbose));
   const storageDriver = await checkStorageDriver(verbose);
-  const disk = await checkDiskSpace(verbose);
+  // The task image is already in the daemon whenever tasks can run, so it is
+  // the first image the probe measures in when the daemon's storage is not in
+  // this container's filesystem (host Docker socket, issue #3001).
+  const disk = await checkDiskSpace(verbose, { image: imagePresent ? image : null });
   const diskAvailableGiB = disk && Number.isFinite(disk.availableGiB) ? disk.availableGiB : null;
   // Unknown driver (probe returned null) is treated as ok — we only flag the
   // one driver known to overflow the disk, never block on missing information.
   const storageDriverOk = storageDriver !== 'vfs';
-  const result = { image, sock, socketMounted, imagePresent, isDind, storageDriver, storageDriverOk, diskAvailableGiB, ok: imagePresent, warnings: [] };
+  const diskError = disk?.error || null;
+  const result = { image, sock, socketMounted, imagePresent, isDind, storageDriver, storageDriverOk, diskAvailableGiB, diskError, ok: imagePresent, warnings: [] };
   const info = typeof logger.log === 'function' ? logger.log.bind(logger) : () => {};
   const warn = typeof logger.warn === 'function' ? logger.warn.bind(logger) : info;
   const preload = `node scripts/preload-dind-isolation-image.mjs --image ${image}`;
@@ -1179,6 +1140,15 @@ export async function preflightDockerIsolation(options = {}) {
       const root = disk?.dataRoot || 'the Docker data root';
       result.warnings.push(`Only ~${diskAvailableGiB.toFixed(0)} GiB free on ${root} and the isolation image '${image}' is not present yet. ` + `The Hive Mind isolation image is well over 30 GB extracted, so the first isolated task's pull may fail with 'no space left on device' (issue #1914). ` + `Seed it via host passthrough (mount the host docker socket) or with '${preload}', and free space on the Docker data root.`);
     }
+  }
+  // Issue #3001: a disk check that cannot measure must say so loudly. Before,
+  // a bot using the host Docker socket could not see the host's data root, the
+  // check was skipped and only a misleading verbose line was logged.
+  if (diskError) {
+    const measured = diskAvailableGiB != null ? `It measured ~${diskAvailableGiB.toFixed(0)} GiB free on ${disk.dataRoot}, but could not measure everything: ` : `The low-disk check (issue #1914) is DISABLED: `;
+    result.warnings.push(`Could not measure the free space of the Docker daemon's storage. ${measured}${diskError}. ` + `Isolated tasks can then fail with 'no space left on device' without warning. ` + `If the bot runs in a container that uses the host Docker socket, keep the isolation image '${image}' present on the host (the probe runs 'df' in it with --pull never), or run 'df -h $(docker info -f {{.DockerRootDir}})' on the Docker host (and 'df -h /var/lib/containerd' with the containerd image store). See issue #3001.`);
+  } else if (diskAvailableGiB != null) {
+    info(`💾 Docker storage: ~${diskAvailableGiB.toFixed(0)} GiB free on ${disk.dataRoot}${disk.via === 'daemon' ? ' (measured through the Docker daemon)' : ''}.`);
   }
   if (imagePresent) {
     info(`✅ Docker isolation image '${image}' is already present locally — isolated tasks reuse it (no multi-GB pull). See issue #1914.`);

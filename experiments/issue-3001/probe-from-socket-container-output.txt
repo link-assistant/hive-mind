@@ -1,0 +1,25 @@
+--- old behaviour: df on DockerRootDir in this container
+Filesystem           1024-blocks    Used Available Capacity Mounted on
+df: /var/lib/docker: can't find mount point
+rc=1
+--- new probe
+[VERBOSE] docker-disk-space: daemon '4f3f33d398a6' (not this machine '276a97e7c250'), driver fuse-overlayfs, measuring /var/lib/docker
+[VERBOSE] docker-disk-space: /var/lib/docker: the daemon is not in this container's filesystem, so /var/lib/docker here is not the daemon's; measuring through the Docker daemon
+[VERBOSE] docker-disk-space: /var/lib/docker has 138.7 GiB free (measured through the Docker daemon in 'alpine:3')
+{
+  "availableGiB": 138.7285499572754,
+  "dataRoot": "/var/lib/docker",
+  "via": "daemon",
+  "daemonIsLocal": false,
+  "measurements": [
+    {
+      "path": "/var/lib/docker",
+      "availableGiB": 138.7285499572754,
+      "via": "daemon",
+      "image": "alpine:3"
+    }
+  ],
+  "errors": [],
+  "error": null
+}
+rc=0

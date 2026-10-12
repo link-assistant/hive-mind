@@ -1,0 +1,8 @@
+# Before the fix (main @ d6e47d1a, Docker 29.8.2, tmux not installed):
+checkDockerImagePresent(missing): true
+checkTmuxSessionRunning(missing): true
+checkDockerStorageDriver(): fuse-overlayfs
+# After the fix (assertCommandSucceeded):
+checkDockerImagePresent(missing): false
+checkTmuxSessionRunning(missing): false
+checkDockerStorageDriver(): fuse-overlayfs

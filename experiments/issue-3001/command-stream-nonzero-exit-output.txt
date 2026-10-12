@@ -1,0 +1,4 @@
+resolved (did NOT throw)
+code: 1
+stdout: ""
+stderr: "df: /definitely/not/here-3001: No such file or directory\n"

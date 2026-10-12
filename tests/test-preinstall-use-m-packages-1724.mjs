@@ -50,7 +50,7 @@ const test = (name, fn) => {
 await test('aliasForPackage strips @ and replaces / for scoped names', () => {
   assert.equal(aliasForPackage('command-stream'), 'command-stream-v-2.3.0');
   assert.equal(aliasForPackage('@dotenvx/dotenvx'), 'dotenvx-dotenvx-v-2.34.2');
-  assert.equal(aliasForPackage('links-notation'), 'links-notation-v-0.25.2');
+  assert.equal(aliasForPackage('links-notation'), 'links-notation-v-0.26.0');
 });
 
 await test('isRetryableNpmError detects ENOTEMPTY and friends', () => {

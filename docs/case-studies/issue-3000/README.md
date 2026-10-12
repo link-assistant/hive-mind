@@ -257,17 +257,17 @@ link-foundation/disk-space-saviour already lists containers without sizes (its t
 - **Same error elsewhere**: openzim/zimfarm#1591 (`inspect?size=True`) and ptone/scion#1864 (`docker
 system df`). Their fix was to tolerate the failure on their side.
 
-No moby/moby or containerd/continuity issue for this failure existed. A search for "snapshotter.Usage"
+Before this PR, no moby/moby or containerd/continuity issue for this failure existed. A search for "snapshotter.Usage"
 finds only reports from downstream projects.
 
 ### Upstream reports
 
-| Project               | Report                | Asks for                                                                                                                                                                                                                       |
-| --------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| moby/moby             | MOBY_ISSUE_LINK       | `containers/json?size=1` and `/system/df` should not fail the whole request when one container's size cannot be computed: log it and report `-1`, as the graphdriver path and #52090 do. ([text](upstream/moby-moby-issue.md)) |
-| containerd/continuity | CONTINUITY_ISSUE_LINK | `fs.DiskUsage` should skip entries that vanish mid-walk. A tested patch is included. ([text](upstream/containerd-continuity-issue.md))                                                                                         |
+| Project               | Report                                                                           | Asks for                                                                                                                                                                                                                       |
+| --------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| moby/moby             | [moby/moby#53920](https://github.com/moby/moby/issues/53920)                     | `containers/json?size=1` and `/system/df` should not fail the whole request when one container's size cannot be computed: log it and report `-1`, as the graphdriver path and #52090 do. ([text](upstream/moby-moby-issue.md)) |
+| containerd/continuity | [containerd/continuity#332](https://github.com/containerd/continuity/issues/332) | `fs.DiskUsage` should skip entries that vanish mid-walk. A tested patch is included. ([text](upstream/containerd-continuity-issue.md))                                                                                         |
 
-Both include the minimal repro, its output, the workarounds and the suggested code change.
+Both include the minimal repro, its output, the workarounds and the suggested code change. They link to each other. moby/moby#53641 (`docker inspect --size` hangs on fuse-overlayfs) is another report of the size walk on the inspect path.
 
 ## Follow-ups (not in this PR)
 

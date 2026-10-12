@@ -61,6 +61,6 @@ Callers can avoid the walk when they don't need sizes: `docker ps` with explicit
 
 ### Related
 
-- moby/moby#MOBY_ISSUE: the docker daemon fails the whole container list on this error (the graphdriver store logs it and reports `-1`).
+- moby/moby#53920: the docker daemon fails the whole container list on this error (the graphdriver store logs it and reports `-1`).
 - The same error in other projects: ptone/scion#1867, ptone/scion#1864, openzim/zimfarm#1591, link-assistant/hive-mind#3000.
 - containerd/nerdctl#3027: snapshotter `Usage` calls are expensive with many objects.

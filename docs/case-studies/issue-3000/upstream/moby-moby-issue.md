@@ -90,7 +90,7 @@ Cgroup Version: 2
 
 **Suggested fix (moby):** in `daemon/list.go`, treat a `GetContainerLayerSize` error like the graphdriver path does: log it at warn/debug, leave the sizes unset or `-1`, and keep the container. `daemon/disk_usage.go` then works too. Optionally, retry the walk once on ENOENT before giving up.
 
-**Suggested fix (containerd/continuity):** make `fs.DiskUsage` skip entries that vanish mid-walk (`os.IsNotExist(err)` → `return nil`; for a directory, `filepath.SkipDir`). The size is a point-in-time estimate anyway. Reported as containerd/continuity#CONTINUITY_ISSUE.
+**Suggested fix (containerd/continuity):** make `fs.DiskUsage` skip entries that vanish mid-walk (`os.IsNotExist(err)` → `return nil`; for a directory, `filepath.SkipDir`). The size is a point-in-time estimate anyway. Reported as containerd/continuity#332.
 
 **Workarounds for callers:**
 

@@ -157,6 +157,7 @@ if (!issueUrl) {
 // issue/pull request URL, collect every open issue of that repository, create a
 // single combined issue that lists them as GitHub native sub-issues, and solve
 // that issue instead — so one pull request can close all of them at once.
+// Issue #3108: with exactly one open issue, that issue is solved directly.
 {
   const { resolveRepositoryModeTarget } = await import('./solve.repository-mode.run.lib.mjs');
   const repositoryMode = await resolveRepositoryModeTarget({ url: issueUrl, log });

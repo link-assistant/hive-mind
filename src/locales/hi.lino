@@ -297,6 +297,9 @@ hi
       failed "विफल"
       and
         more "और {{count}}"
+      continued "जारी"
+      exit
+        code "निकास कोड {{code}}"
       pending "प्रतीक्षारत"
       processing "चल रहा"
       processes "{{count}} प्रक्रियाएँ"

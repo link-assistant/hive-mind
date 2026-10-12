@@ -313,6 +313,35 @@ function getActiveSessions(verbose = false) {
 function completionExitForAudit(sessionInfo, exitCode) {
   return exitCode ?? (sessionInfo?.killRecoveryResumed || sessionInfo?.recoveryLifecycle ? null : 0);
 }
+// Issue #2823: callbacks told when a tracked session ends, so the solve queue
+// can tell a finished task from one that is merely launched.
+const sessionCompletionListeners = new Set();
+/**
+ * Register a callback invoked whenever a tracked session completes.
+ *
+ * The listener receives `{ sessionName, exitCode, status, url, tool, command,
+ * rootSessionName, killRecoveryOfSession, supersededBy }`. `supersededBy` is the
+ * kill-recovery session that continues the work, when one was started; that
+ * session reports the real outcome later. Listener errors are logged and never
+ * break monitoring.
+ *
+ * @param {(event: object) => void} listener
+ * @returns {() => void} Unsubscribe function.
+ */
+export function addSessionCompletionListener(listener) {
+  if (typeof listener !== 'function') return () => {};
+  sessionCompletionListeners.add(listener);
+  return () => sessionCompletionListeners.delete(listener);
+}
+function notifySessionCompletionListeners(event) {
+  for (const listener of sessionCompletionListeners) {
+    try {
+      listener(event);
+    } catch (error) {
+      console.error(`[session-monitor] Session completion listener failed for ${event.sessionName}: ${error.message}`);
+    }
+  }
+}
 function completeSession(sessionName, exitCode = 0, verbose = false, status = null) {
   const sessionInfo = activeSessions.get(sessionName) || null;
   activeSessions.delete(sessionName);
@@ -328,6 +357,17 @@ function completeSession(sessionName, exitCode = 0, verbose = false, status = nu
     }
   }
   logEvent('session_completed', { sessionName, exitCode: exitCode ?? null, status: status || null });
+  notifySessionCompletionListeners({
+    sessionName,
+    exitCode: exitCode ?? null,
+    status: status || null,
+    url: sessionInfo?.url || null,
+    tool: sessionInfo?.tool || null,
+    command: sessionInfo?.command || null,
+    rootSessionName: sessionInfo?.rootSessionName || null,
+    killRecoveryOfSession: sessionInfo?.killRecoveryOfSession || null,
+    supersededBy: sessionInfo?.killRecoverySessionId || null,
+  });
 }
 function isMessageAlreadyUpdatedError(error) {
   const message = String(error?.message || '').toLowerCase();

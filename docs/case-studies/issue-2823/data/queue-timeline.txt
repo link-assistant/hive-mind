@@ -1,0 +1,21 @@
+# /queue replies (14)
+2026-10-08T07:55:30Z chars=2062 summary="Completed: 28, Failed: 0" processing∩completed=3
+2026-10-08T08:13:30Z chars=2085 summary="Completed: 30, Failed: 0" processing∩completed=4
+2026-10-08T08:31:43Z chars=2190 summary="Completed: 30, Failed: 0" processing∩completed=4
+2026-10-08T08:48:30Z chars=2319 summary="Completed: 31, Failed: 0" processing∩completed=2
+2026-10-08T09:33:31Z chars=2182 summary="Completed: 34, Failed: 0" processing∩completed=4
+2026-10-08T11:50:32Z chars=1731 summary="Completed: 42, Failed: 0" processing∩completed=4
+2026-10-08T13:53:33Z chars=1673 summary="Completed: 43, Failed: 0" processing∩completed=2
+2026-10-08T14:11:33Z chars=1913 summary="Completed: 43, Failed: 0" processing∩completed=2
+2026-10-08T15:46:44Z chars=2292 summary="Completed: 47, Failed: 0" processing∩completed=3
+2026-10-09T05:26:41Z chars=4074 summary="-"
+2026-10-09T06:18:06Z chars=4071 summary="-"
+2026-10-09T06:18:06Z chars=774 CONTINUATION(no headers) summary="Completed: 72, Failed: 0"
+2026-10-09T06:28:00Z chars=4045 summary="-"
+2026-10-09T06:28:00Z chars=701 CONTINUATION(no headers) summary="Completed: 72, Failed: 0"
+
+# failed session_completed events (4)
+2026-10-07T21:23:55Z 33fb97ec-e994-42c7-97d2-ed2bec7504f5 exit=1
+2026-10-08T02:30:01Z 6c330d49-84a9-448d-897b-eeeeecff1e8d exit=1
+2026-10-08T10:38:11Z 1e53e5b3-441d-4616-a156-4e8b1146424d exit=1
+2026-10-08T13:22:14Z 05b20a82-4262-46ec-b26e-26adf5accf65 exit=1

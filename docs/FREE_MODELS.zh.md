@@ -102,7 +102,7 @@ Hive-mind 支持来自两个提供商的免费模型：
 | MiniMax M2.1 Free  | `opencode/minimax-m2.1-free` | 已被 `opencode/minimax-m2.5-free` 替代                                                                                        |
 | GLM 4.7 Free       | `opencode/glm-4.7-free`      | 在 OpenCode Zen 上不再免费                                                                                                    |
 
-> **注意：** 请参阅 [OpenCode Zen 文档](https://opencode.ai/docs/zen/) 和 [Agent CLI FREE_MODELS.md](https://github.com/link-assistant/agent/blob/main/FREE_MODELS.md) 获取当前的免费模型列表。
+> **注意：** 请参阅 [OpenCode Zen 文档](https://opencode.ai/docs/providers/#opencode-zen) 和 [Agent CLI FREE_MODELS.md](https://github.com/link-assistant/agent/blob/main/FREE_MODELS.md) 获取当前的免费模型列表。
 
 ---
 
@@ -339,7 +339,7 @@ echo "Your prompt here" | agent --model kilo/deepseek-r1-free
 - [案例研究：Issue #1473](./case-studies/issue-1473/README.md) - 模型识别修复和免费模型同步
 - [案例研究：Issue #1543](./case-studies/issue-1543/README.md) - 免费模型更新（qwen3.6-plus-free 作为默认，添加 nemotron-3-super-free）
 - [案例研究：Issue #1563](./case-studies/issue-1563/README.md) - 免费模型更新（qwen3.6-plus-free 弃用，nemotron-3-super-free 作为默认）
-- [OpenCode Zen 文档](https://opencode.ai/docs/zen/) - OpenCode Zen 提供商详情
+- [OpenCode Zen 文档](https://opencode.ai/docs/providers/#opencode-zen) - OpenCode Zen 提供商详情
 - [Kilo Gateway 文档](https://kilo.ai/docs/gateway) - Kilo Gateway 提供商详情
 
 ---

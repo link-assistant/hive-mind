@@ -102,7 +102,7 @@ The following models were previously free but are no longer available:
 | MiniMax M2.1 Free  | `opencode/minimax-m2.1-free` | Replaced by `opencode/minimax-m2.5-free`                                                                                                       |
 | GLM 4.7 Free       | `opencode/glm-4.7-free`      | No longer free on OpenCode Zen                                                                                                                 |
 
-> **Note:** See [OpenCode Zen Documentation](https://opencode.ai/docs/zen/) and [Agent CLI FREE_MODELS.md](https://github.com/link-assistant/agent/blob/main/FREE_MODELS.md) for the current list of free models.
+> **Note:** See [OpenCode Zen Documentation](https://opencode.ai/docs/providers/#opencode-zen) and [Agent CLI FREE_MODELS.md](https://github.com/link-assistant/agent/blob/main/FREE_MODELS.md) for the current list of free models.
 
 ---
 
@@ -339,7 +339,7 @@ If you encounter issues with any of these models:
 - [Case Study: Issue #1473](./case-studies/issue-1473/README.md) - Model recognition fix and free models sync
 - [Case Study: Issue #1543](./case-studies/issue-1543/README.md) - Free models update (qwen3.6-plus-free as default, nemotron-3-super-free added)
 - [Case Study: Issue #1563](./case-studies/issue-1563/README.md) - Free models update (qwen3.6-plus-free deprecated, nemotron-3-super-free as default)
-- [OpenCode Zen Documentation](https://opencode.ai/docs/zen/) - OpenCode Zen provider details
+- [OpenCode Zen Documentation](https://opencode.ai/docs/providers/#opencode-zen) - OpenCode Zen provider details
 - [Kilo Gateway Documentation](https://kilo.ai/docs/gateway) - Kilo Gateway provider details
 
 ---

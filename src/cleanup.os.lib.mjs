@@ -22,6 +22,7 @@ import { execFileSync } from 'node:child_process';
 import { extractTaskRefsFromCommand, isDockerIsolationSessionName, parseDockerContainerExitCode, parseRemoteUrl } from './cleanup.lib.mjs';
 import { correlateProcesses, parseStartCommandLogMetadata, redactProcessText } from './process-debug.lib.mjs';
 import { buildSystemCleanupPlan, estimateSystemCleanupPlan, formatSystemCleanupEstimateLine, formatSystemCleanupTotalLine } from './system-cleanup-estimates.lib.mjs';
+import { dockerPsArgs } from './docker-ps-format.lib.mjs';
 
 /** Run a command, returning trimmed stdout or null on any failure. */
 function tryExec(cmd, args, options = {}) {
@@ -312,8 +313,8 @@ function splitDockerNames(value) {
 }
 
 /**
- * Parse `docker ps -a --format '{{json .}}'` output into docker-isolation task
- * containers. start-command names native Docker isolation containers after the
+ * Parse `docker ps -a` JSON-lines output (see docker-ps-format.lib.mjs) into
+ * docker-isolation task containers. start-command names native Docker isolation containers after the
  * session UUID, so unrelated host containers are ignored.
  *
  * @param {string} output
@@ -360,15 +361,52 @@ export function parseDockerPsJsonLines(output) {
   return containers;
 }
 
+function execDockerPs(cmd, args) {
+  return execFileSync(cmd, args, {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    timeout: 20000,
+    maxBuffer: 64 * 1024 * 1024,
+  });
+}
+
+/**
+ * Enumerate Docker-isolation task containers from the local Docker daemon, and
+ * say whether that worked: "no task containers" and "docker ps failed" must
+ * not look the same in the `/cleanup` report (issue #3000).
+ *
+ * The listing names its fields instead of `{{json .}}`, which would make
+ * dockerd walk every container's writable layer to compute `.Size` — slow, and
+ * it fails when a task deletes a file mid-walk.
+ *
+ * @param {Object} [options]
+ * @param {Function} [options.exec] - execFileSync-compatible runner (tests)
+ * @returns {{containers: Array, available: boolean, error: string|null}}
+ */
+export function readDockerIsolationContainers({ exec = execDockerPs } = {}) {
+  let out;
+  try {
+    out = exec('docker', dockerPsArgs());
+  } catch (error) {
+    // No docker binary: nothing to clean, and nothing worth reporting.
+    if (error?.code === 'ENOENT') return { containers: [], available: false, error: null };
+    const stderr = String(error?.stderr ?? '').trim();
+    return { containers: [], available: true, error: stderr || error?.message || String(error) };
+  }
+  return { containers: parseDockerPsJsonLines(out), available: true, error: null };
+}
+
 /**
  * Enumerate Docker-isolation task containers from the local Docker daemon.
- * Returns an empty list when docker is unavailable.
+ * Returns an empty list when docker is unavailable or the listing fails; use
+ * readDockerIsolationContainers() to tell those apart.
  *
+ * @param {Object} [options]
+ * @param {Function} [options.exec] - execFileSync-compatible runner (tests)
  * @returns {Array}
  */
-export function listDockerIsolationContainers() {
-  const out = tryExec('docker', ['ps', '-a', '--format', '{{json .}}']);
-  return out ? parseDockerPsJsonLines(out) : [];
+export function listDockerIsolationContainers(options = {}) {
+  return readDockerIsolationContainers(options).containers;
 }
 
 function listStartCommandLogFiles(logRoot, maxFiles) {

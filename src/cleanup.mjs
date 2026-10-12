@@ -37,7 +37,7 @@ import { promises as fsp } from 'node:fs';
 
 import { isConfirmationYes, readConfirmationLine } from './confirmation.lib.mjs';
 import { classifyEntries, summarize, formatBytes, describeReason, buildActiveMatchers, DEFAULT_PROTECTED_NAMES, formatEntryContext, formatTaskSummary, DEFAULT_DOCKER_ISOLATION_CLEANUP_MODE, describeDockerIsolationReason, formatDockerIsolationContainerSummary, normalizeDockerIsolationCleanupMode, planDockerIsolationCleanup } from './cleanup.lib.mjs';
-import { getTempRoot, listTempEntries, getPathSize, readFolderGitInfo, listProcessHeldPaths, getActiveTasks, listSessionTasks, removePath, runSystemCleanup, collectProcessDebugReport, signalOrphanedAgentTrees, listDockerIsolationContainers, removeDockerContainer } from './cleanup.os.lib.mjs';
+import { getTempRoot, listTempEntries, getPathSize, readFolderGitInfo, listProcessHeldPaths, getActiveTasks, listSessionTasks, removePath, runSystemCleanup, collectProcessDebugReport, signalOrphanedAgentTrees, readDockerIsolationContainers, removeDockerContainer } from './cleanup.os.lib.mjs';
 import { formatProcessDebugReport } from './process-debug.lib.mjs';
 import { classifyAgentSnapshotStores, describeAgentSnapshotReason, getAgentDataHome } from './agent-snapshot-store.lib.mjs';
 import { setupStdioLogInterceptor } from './lib.mjs';
@@ -353,15 +353,18 @@ async function main() {
   if (options.dockerIsolationMode === 'none') {
     await log('\n🐳 Docker isolation containers: disabled (--docker-isolation=none)');
   } else {
-    const dockerIsolationContainers = listDockerIsolationContainers();
+    const dockerIsolationListing = readDockerIsolationContainers();
     dockerIsolationPlan = planDockerIsolationCleanup({
-      containers: dockerIsolationContainers,
+      containers: dockerIsolationListing.containers,
       sessionTasks,
       mode: options.dockerIsolationMode,
     });
 
     await log(`\n🐳 Docker isolation containers (${dockerIsolationPlan.mode}):`);
-    if (dockerIsolationPlan.keep.length === 0 && dockerIsolationPlan.remove.length === 0) {
+    if (dockerIsolationListing.error) {
+      // Not "(none detected)": the containers may well exist (issue #3000).
+      await log(`   ⚠️  Could not list containers, so none are removed: ${dockerIsolationListing.error}`);
+    } else if (dockerIsolationPlan.keep.length === 0 && dockerIsolationPlan.remove.length === 0) {
       await log('   (none detected)');
     } else {
       await log('   KEPT:');

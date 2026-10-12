@@ -28,6 +28,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
 import { formatBytes } from './cleanup.lib.mjs';
+import { dockerPsArgs } from './docker-ps-format.lib.mjs';
 import { HIVE_MIND_DIND_IMAGE_REPO, HIVE_MIND_IMAGE_REPO, resolveDockerIsolationImageTag } from './hive-mind-image.lib.mjs';
 import { parseDockerSystemDf, parseHumanBytes } from './system-cleanup-estimates.lib.mjs';
 
@@ -331,6 +332,10 @@ const runDocker = async (exec, args) => {
 /**
  * Build the plan from the live daemon. Returns `null` when docker is
  * unavailable, so callers can stay silent instead of reporting an empty plan.
+ *
+ * Also `null` when `docker ps` fails (issue #3000): without the container list
+ * every image would look unused, so in-use images would be counted as
+ * reclaimable and handed to `docker image rm`.
  */
 export async function collectDockerImageReclaimPlan({ exec = execFileAsync, env = process.env, mode = DEFAULT_DOCKER_IMAGE_RECLAIM_MODE, protectedReferences = null } = {}) {
   if (normalizeDockerImageReclaimMode(mode) === 'none') return null;
@@ -338,14 +343,17 @@ export async function collectDockerImageReclaimPlan({ exec = execFileAsync, env 
   // ones — intermediate build layers are not ours to remove.
   const imagesOutput = await runDocker(exec, ['image', 'ls', '--format', '{{json .}}']);
   if (imagesOutput === null) return null;
-  const containersOutput = await runDocker(exec, ['ps', '--all', '--format', '{{json .}}']);
+  // Explicit fields, not `{{json .}}`: that one makes dockerd walk every
+  // container's writable layer for `.Size` (issue #3000).
+  const containersOutput = await runDocker(exec, dockerPsArgs());
+  if (containersOutput === null) return null;
 
   const isolationTag = resolveDockerIsolationImageTag({ env });
   const pinned = protectedReferences || MANAGED_IMAGE_REPOSITORIES.map(repository => `${repository}:${isolationTag}`);
 
   return planDockerImageReclaim({
     images: parseDockerImageJsonLines(imagesOutput),
-    containers: parseDockerJsonLines(containersOutput ?? ''),
+    containers: parseDockerJsonLines(containersOutput),
     mode,
     protectedReferences: pinned,
   });

@@ -623,7 +623,6 @@ if (isRunningDirectly) {
             // See: https://github.com/link-assistant/hive-mind/issues/1209
             const { getSolvePassthroughOptionNames } = await import('./hive.config.lib.mjs');
             const { SOLVE_OPTION_DEFINITIONS } = await import('./solve.config.lib.mjs');
-            const kebabToCamel = str => str.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
             const args = [issueUrl, '--model', argv.model];
             // Special handling for options with different semantics in hive vs solve
             // Validate branch name before forwarding (issue #1482: reject URLs used as branch names)
@@ -640,28 +639,9 @@ if (isRunningDirectly) {
             if (argv.dryRun) args.push('--dry-run');
             if (argv.autoCleanup) args.push('--auto-cleanup');
             const SKIP_AUTO_FORWARD = new Set(['model', 'worker-model', 'base-branch', 'skip-tool-connection-check', 'tool-connection-check', 'skip-tool-check', 'skip-claude-check', 'tool-check', 'dry-run', 'auto-cleanup']);
-            for (const optionName of getSolvePassthroughOptionNames()) {
-              if (SKIP_AUTO_FORWARD.has(optionName)) continue;
-              const camelName = kebabToCamel(optionName);
-              const value = argv[camelName];
-              const def = SOLVE_OPTION_DEFINITIONS[optionName];
-              if (!def) continue;
-              if (def.type === 'boolean') {
-                if (value === undefined) continue;
-                // For booleans with default true or undefined, forward both --flag and --no-flag
-                if (def.default === true || def.default === undefined) {
-                  args.push(value ? `--${optionName}` : `--no-${optionName}`);
-                } else if (value) {
-                  args.push(`--${optionName}`); // Default false: only forward when truthy
-                }
-              } else if (def.type === 'array' && Array.isArray(value) && value.length > 0) {
-                for (const entry of value) {
-                  args.push(`--${optionName}`, String(entry));
-                }
-              } else if ((def.type === 'string' || def.type === 'number') && value !== undefined && value !== false) {
-                args.push(`--${optionName}`, String(value)); // Issue #1718: skip false (some string options have default:false)
-              }
-            }
+            // Issue #3190: shared, definition-driven serializer (also guards issue #1718's `false` string defaults)
+            const { buildArgsFromParsedArgv } = await import('./cli-option-forwarding.lib.mjs');
+            args.push(...buildArgsFromParsedArgv({ argv, definitions: SOLVE_OPTION_DEFINITIONS, optionNames: getSolvePassthroughOptionNames(), skip: SKIP_AUTO_FORWARD }));
             // Log the actual command being executed so users can investigate/reproduce
             await log(`   📋 Command: ${solveCommand} ${args.join(' ')}`);
             let exitCode = 0;

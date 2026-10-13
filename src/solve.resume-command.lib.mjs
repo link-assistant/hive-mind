@@ -16,16 +16,20 @@
  * @param {string|null} [options.model] - Model name to preserve
  * @param {string|null} [options.fallbackModel] - Explicit fallback model to preserve
  * @param {string|null} [options.tempDir] - Working directory to preserve
+ * @param {string[]} [options.extraArgs] - Every other original solve option to replay (issue #3190)
  * @param {string} [options.nodePath] - Node binary path
  * @param {string} [options.scriptPath] - solve.mjs path
  * @returns {string}
  */
-export const buildSolveResumeCommand = ({ issueUrl, sessionId, tool = null, model = null, fallbackModel = null, tempDir = null, nodePath = process.argv[0], scriptPath = process.argv[1] }) => {
-  const shellQuote = value => `"${String(value).replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
+export const buildSolveResumeCommand = ({ issueUrl, sessionId, tool = null, model = null, fallbackModel = null, tempDir = null, extraArgs = [], nodePath = process.argv[0], scriptPath = process.argv[1] }) => {
+  const shellQuote = value => `"${String(value).replace(/[\\"$`]/g, '\\$&')}"`;
   const args = [shellQuote(scriptPath), shellQuote(issueUrl), '--resume', shellQuote(sessionId)];
   if (tool && tool !== 'claude') args.push('--tool', shellQuote(tool));
   if (model) args.push('--model', shellQuote(model));
   if (fallbackModel) args.push('--fallback-model', shellQuote(fallbackModel));
   if (tempDir) args.push('--working-directory', shellQuote(tempDir));
+  // Issue #3190: without the user's other options (--auto-merge, --think, ...) a
+  // manual resume would silently run with different settings.
+  for (const arg of Array.isArray(extraArgs) ? extraArgs : []) args.push(/^[A-Za-z0-9_@%+=:,./-]+$/.test(arg) ? arg : shellQuote(arg));
   return `${shellQuote(nodePath)} ${args.join(' ')}`;
 };

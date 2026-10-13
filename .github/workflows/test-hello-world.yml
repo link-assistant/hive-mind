@@ -1,0 +1,35 @@
+name: Test Hello World Scala
+
+on:
+  push:
+    branches: [ 'e2e/hello-world/38399853034/agent-nemotron-3-super-free' ]
+  pull_request:
+    branches: [ 'e2e/hello-world/38399853034/agent-nemotron-3-super-free' ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Java
+        uses: actions/setup-java@v3
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+      - name: Set up Scala
+        uses: scala/setup-scala@v1
+        with:
+          scala-version: '2.13.10'
+      - name: Compile Scala code
+        run: scalac HelloWorld.scala
+      - name: Run Scala code
+        run: scala HelloWorld
+      - name: Verify output
+        run: |
+          output=$(scala HelloWorld)
+          if [ "$output" = "Hello, World!" ]; then
+            echo "Output matches expected"
+          else
+            echo "Output does not match expected: $output"
+            exit 1
+          fi

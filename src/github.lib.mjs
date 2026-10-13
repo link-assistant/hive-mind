@@ -1158,12 +1158,10 @@ export async function handlePRNotFoundError({ prNumber, owner, repo, argv, shoul
       await log('   Try this corrected command:', { level: 'error' });
       await log('', { level: 'error' });
       const commandParts = [`solve https://github.com/${owner}/${repo}/issues/${prNumber}`];
-      if (argv.autoContinue) commandParts.push('--auto-continue');
+      // Issue #3190: suggest the SAME options the user ran with, not a hand-picked subset
+      const { getPreservedSolveCliArgs, SOLVE_RELAUNCH_STATE_OPTIONS } = await import('./solve.forwarded-args.lib.mjs');
+      commandParts.push(...getPreservedSolveCliArgs({ exclude: [...SOLVE_RELAUNCH_STATE_OPTIONS, 'attach-logs'] }));
       if (shouldAttachLogs || argv.attachLogs || argv['attach-logs']) commandParts.push('--attach-logs');
-      if (argv.verbose) commandParts.push('--verbose');
-      if (argv.model && argv.model !== 'sonnet') commandParts.push('--model', argv.model);
-      if (argv.think) commandParts.push('--think', argv.think);
-      if (argv.thinkingBudget !== undefined) commandParts.push('--thinking-budget', argv.thinkingBudget);
       await log(`   ${commandParts.join(' ')}`, { level: 'error' });
       await log('', { level: 'error' });
     }

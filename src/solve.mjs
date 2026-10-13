@@ -94,9 +94,7 @@ try {
   await safeExit(1, 'Invalid command-line arguments');
 }
 global.verboseMode = argv.verbose;
-// Issue #3190: the printed manual-resume command must carry every original option, not only --tool/--model
-const { getPreservedSolveCliArgs, SOLVE_MANUAL_RESUME_CONTROLLED_OPTIONS } = await import('./solve.forwarded-args.lib.mjs');
-argv._solveResumeExtraArgs = getPreservedSolveCliArgs({ exclude: SOLVE_MANUAL_RESUME_CONTROLLED_OPTIONS });
+argv._solveResumeExtraArgs = (await import('./solve.forwarded-args.lib.mjs')).getManualResumeSolveCliArgs(); // Issue #3190: printed resume commands keep every original option
 await (await import('./solve.log-dir.lib.mjs')).moveLogFileToLogDir(argv.logDir, { getLogFile, setLogFile, log }); // Issue #2625: --log-dir was parsed but never applied
 setupVerboseLogInterceptor(); // Issue #1466: capture [VERBOSE] output in log files
 setupStdioLogInterceptor(); // Issue #1549: capture ALL terminal output in log file

@@ -15,7 +15,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildOptionTokenIndex, partitionRawCliArgs, forwardRawCliArgs, buildArgsFromParsedArgv, kebabToCamel } from '../src/cli-option-forwarding.lib.mjs';
-import { getPreservedSolveCliArgs, SOLVE_CLI_OPTION_DEFINITIONS, SOLVE_AUTO_RELAUNCH_CONTROLLED_OPTIONS, SOLVE_MANUAL_RESUME_CONTROLLED_OPTIONS, SOLVE_RELAUNCH_STATE_OPTIONS } from '../src/solve.forwarded-args.lib.mjs';
+import { getManualResumeSolveCliArgs, getPreservedSolveCliArgs, SOLVE_CLI_OPTION_DEFINITIONS, SOLVE_AUTO_RELAUNCH_CONTROLLED_OPTIONS, SOLVE_MANUAL_RESUME_CONTROLLED_OPTIONS, SOLVE_RELAUNCH_STATE_OPTIONS } from '../src/solve.forwarded-args.lib.mjs';
 import { SOLVE_OPTION_DEFINITIONS, parseArguments } from '../src/solve.config.lib.mjs';
 import { getSolvePassthroughOptionNames } from '../src/hive.config.lib.mjs';
 import { buildSolveResumeCommand } from '../src/solve.resume-command.lib.mjs';
@@ -115,7 +115,7 @@ await test('state/controlled options are excluded in every spelling (aliases, ca
 
 await test('manual resume keeps --verbose/--fork/--attach-logs/--auto-continue but drops state options', () => {
   const raw = [ISSUE_URL, '--resume', 'abc', '--verbose', '--fork', '--attach-logs', '--no-auto-continue', '--model', 'opus', '--auto-merge'];
-  assertEqual(getPreservedSolveCliArgs({ rawArgs: raw, exclude: SOLVE_MANUAL_RESUME_CONTROLLED_OPTIONS }), ['--verbose', '--fork', '--attach-logs', '--no-auto-continue', '--auto-merge'], 'manual resume options');
+  assertEqual(getManualResumeSolveCliArgs(raw), ['--verbose', '--fork', '--attach-logs', '--no-auto-continue', '--auto-merge'], 'manual resume options');
 });
 
 await test('positionals are dropped, unknown options are kept verbatim, `--` ends option parsing', () => {

@@ -53,3 +53,12 @@ export const SOLVE_MANUAL_RESUME_CONTROLLED_OPTIONS = Object.freeze([...SOLVE_RE
  * @returns {string[]}
  */
 export const getPreservedSolveCliArgs = ({ rawArgs = process.argv.slice(2), exclude = SOLVE_AUTO_RELAUNCH_CONTROLLED_OPTIONS } = {}) => forwardRawCliArgs({ rawArgs: normalizeCliArgs(rawArgs), definitions: SOLVE_CLI_OPTION_DEFINITIONS, exclude });
+
+/**
+ * Options the printed manual-resume command appends after the ones
+ * `buildSolveResumeCommand` sets itself.
+ *
+ * @param {string[]} [rawArgs]
+ * @returns {string[]}
+ */
+export const getManualResumeSolveCliArgs = (rawArgs = process.argv.slice(2)) => getPreservedSolveCliArgs({ rawArgs, exclude: SOLVE_MANUAL_RESUME_CONTROLLED_OPTIONS });

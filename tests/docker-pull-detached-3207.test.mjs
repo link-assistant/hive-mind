@@ -22,12 +22,12 @@ import { pullDockerImage, startDetachedDockerPull } from '../src/docker-pull-det
 import { FORMAL_AI_IMAGE_SOURCES, classifyDockerRegistryError, ensureFormalAiSidecarImage } from '../src/formal-ai-image.lib.mjs';
 import { FORMAL_AI_BOOTSTRAP_VERSION } from '../src/formal-ai-version.lib.mjs';
 
-/** A `spawnImpl` that runs `script` with Node.js in place of `docker`. */
+/** A `spawnImpl` that runs `script` with Node.js in place of `docker`; `scriptArgs` reach it as `process.argv[1..]`. */
 const fakeDocker =
-  (script, seen = []) =>
+  (script, seen = [], scriptArgs = []) =>
   (command, args, options) => {
     seen.push({ command, args, options });
-    return spawn(process.execPath, ['-e', script], options);
+    return spawn(process.execPath, ['-e', script, ...scriptArgs], options);
   };
 
 const waitFor = async (predicate, timeoutMs = 10_000) => {
@@ -59,9 +59,9 @@ test('a pull that outlives the budget is not killed: it keeps running and finish
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hive-mind-3207-pull-'));
   const marker = path.join(dir, 'finished');
   try {
-    const script = `setTimeout(() => require('fs').writeFileSync(${JSON.stringify(marker)}, 'done'), 600)`;
+    const script = "setTimeout(() => require('fs').writeFileSync(process.argv[1], 'done'), 600)";
     const startedAt = Date.now();
-    const error = await startDetachedDockerPull(['pull', 'example/huge:1'], { timeoutMs: 100, spawnImpl: fakeDocker(script) }).catch(caught => caught);
+    const error = await startDetachedDockerPull(['pull', 'example/huge:1'], { timeoutMs: 100, spawnImpl: fakeDocker(script, [], [marker]) }).catch(caught => caught);
     assert.ok(Date.now() - startedAt < 550, 'the caller stops waiting at the budget');
     assert.equal(error.code, 'ETIMEDOUT');
     assert.equal(error.continuesInBackground, true);

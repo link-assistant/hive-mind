@@ -2,10 +2,10 @@
 
 On SIGTERM/SIGINT the **Rust** CPU penalty monitor waits out its current tick sleep before it lifts the cap. With the default 15-minute windows the tick is 30 s, so a graceful stop takes **up to ~30 s** to restore the CPUs. The JavaScript monitor wakes up at once and lifts the cap in about 1 s.
 
-| Edition | cap lifted after SIGTERM |
-| --- | --- |
-| JavaScript 0.37.6 | 1 s |
-| Rust 0.25.4 | 15 s (the rest of a 30 s tick) |
+| Edition           | cap lifted after SIGTERM       |
+| ----------------- | ------------------------------ |
+| JavaScript 0.37.6 | 1 s                            |
+| Rust 0.25.4       | 15 s (the rest of a 30 s tick) |
 
 The supervising shell (`supervise_snippet`) forwards the TERM to the monitor and then `wait`s for it, so the whole watcher also takes that long to exit. If whatever stops the watcher gives it less time than that (e.g. `docker stop`'s default 10 s grace for a supervisor that runs in a container), the monitor is SIGKILLed before the lift. The container then stays capped until `$ --resume-all` starts a new monitor and it lifts the cap one release window later (the #206 recovery path). The graceful-stop restore added for #206 is not reliable in the Rust edition.
 

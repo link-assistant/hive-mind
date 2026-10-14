@@ -2,10 +2,10 @@
 
 When the CPU penalty monitor stops gracefully (SIGTERM/SIGINT) while a container is penalized, it lifts the cap and publishes `penalizedMs`. The published value does not include the time since the last tick, so `penalizedMs` goes **backwards**, often to `0`:
 
-| Edition | `penalizedMs` 15 s after the cap (`$ --status`) | after the graceful stop |
-| --- | --- | --- |
-| JavaScript 0.37.6 | `15836` | `0` |
-| Rust 0.25.4 | `15363` | `0` |
+| Edition           | `penalizedMs` 15 s after the cap (`$ --status`) | after the graceful stop |
+| ----------------- | ----------------------------------------------- | ----------------------- |
+| JavaScript 0.37.6 | `15836`                                         | `0`                     |
+| Rust 0.25.4       | `15363`                                         | `0`                     |
 
 With the default 15-minute windows the monitor ticks every 30 s (`min(window) / 8`, clamped to 30 s), so up to ~30 s of every graceful-stop penalty is lost. A penalty that is lifted by a stop before its first post-apply tick reports `penaltyCount: 1, penalizedMs: 0`.
 

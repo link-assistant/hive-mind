@@ -57,7 +57,7 @@ export function parseOrganizeRequest({ commandText = '', replyText = '' } = {}) 
 }
 
 export function registerOrganizeCommand(bot, options) {
-  const { VERBOSE = false, organizeEnabled = true, addBreadcrumb = async () => {}, isOldMessage, isForwarded, isGroupChat, isTopicAuthorized, buildAuthErrorMessage, isChatStopped, getStoppedChatRejectMessage, safeReply = defaultSafeReply, safeEditMessageText = async (ctx, message, text) => defaultSafeEditMessageText(ctx.telegram, message.chat.id, message.message_id, undefined, text, { verbose: VERBOSE }), organizeRepository = defaultOrganizeRepository } = options;
+  const { VERBOSE = false, organizeEnabled = true, addBreadcrumb = async () => {}, isOldMessage, isForwarded, isGroupChat, isTopicAuthorized, buildAuthErrorMessage, isChatStopped, getStoppedChatRejectMessage, safeReply = defaultSafeReply, safeEditMessageText = async (ctx, message, text) => defaultSafeEditMessageText(ctx.telegram, message.chat.id, message.message_id, undefined, text, { verbose: VERBOSE }), organizeRepository = defaultOrganizeRepository, detachHandler = handler => handler } = options;
 
   async function handleOrganizeCommand(ctx) {
     await addBreadcrumb({
@@ -124,6 +124,6 @@ export function registerOrganizeCommand(bot, options) {
     }
   }
 
-  bot.command(/^organize$/i, handleOrganizeCommand);
+  bot.command(/^organize$/i, detachHandler(handleOrganizeCommand));
   return { handleOrganizeCommand, ORGANIZE_COMMAND_NAMES };
 }

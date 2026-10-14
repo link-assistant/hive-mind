@@ -8,9 +8,9 @@
  */
 
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 
 import { TelegramRateLimitTracker, LIMIT_EVIDENCE_TTL_MS, createTelegramLocalThrottleError, installTelegramRateLimitTracker, isTelegramLocalThrottleError, isTelegramRateLimitError, withTelegramRequestPriority, getTelegramRequestPriority } from '../src/telegram-rate-limit.lib.mjs';
+import { createUpdateErrorHandler } from '../src/telegram-update-error.lib.mjs';
 
 let passed = 0;
 let failed = 0;
@@ -301,13 +301,18 @@ await test('a refusal at the estimated limit is explained and does not lower it'
 });
 
 await test('bot.catch does not reply into a chat that Telegram is rate limiting', () => {
-  // telegram-bot.mjs starts the bot on import, so its handler is checked at the source level.
-  const source = readFileSync(new URL('../src/telegram-bot.mjs', import.meta.url), 'utf8');
-  const handler = source.slice(source.indexOf('bot.catch((error, ctx) => {'));
-  const guard = handler.indexOf('if (isTelegramRateLimitError(error)) {');
-  assert.ok(guard > 0, 'bot.catch must recognise rate-limit errors');
-  assert.ok(guard < handler.indexOf('safeReply(ctx, errorMessage'), 'and return before replying');
-  assert.ok(handler.slice(guard, handler.indexOf('\n  }', guard)).includes('return;'));
+  const replies = [];
+  const reported = [];
+  const quiet = { error() {}, warn() {}, log() {} };
+  const handleUpdateError = createUpdateErrorHandler({ reportError: error => reported.push(error), safeReply: async (ctx, text) => replies.push(text), logger: quiet });
+  const ctx = { update: { update_id: 7 }, chat: { id: GROUP, type: 'supergroup' }, message: { text: '/solve x' }, reply: async text => replies.push(text) };
+  const error = Object.assign(new Error('429: Too Many Requests: retry after 9'), { response: { error_code: 429, description: 'Too Many Requests: retry after 9', parameters: { retry_after: 9 } } });
+  assert.ok(isTelegramRateLimitError(error));
+  handleUpdateError(error, ctx);
+  assert.equal(reported.length, 1, 'the error is still reported');
+  assert.deepEqual(replies, [], 'but nothing is sent into the rate-limited chat');
+  handleUpdateError(new Error('boom'), ctx);
+  assert.equal(replies.length, 1, 'other errors are answered');
 });
 
 console.log(`\nTests passed: ${passed}`);

@@ -172,7 +172,7 @@ const limitsLib = await import('./limits.lib.mjs');
 const { formatUsageMessage, formatCodexLimitsSection, getAllCachedLimits } = limitsLib;
 const { handleShowLimitsFlag, captureStartSnapshotAndAppend } = await import('./telegram-show-limits.lib.mjs'); // #594
 const { getVersionInfo, formatVersionMessage } = await import('./version-info.lib.mjs');
-const { escapeMarkdown, escapeMarkdownV2, cleanNonPrintableChars, makeSpecialCharsVisible } = await import('./telegram-markdown.lib.mjs');
+const { escapeMarkdown, escapeMarkdownV2, cleanNonPrintableChars } = await import('./telegram-markdown.lib.mjs');
 const { revealHiddenCharacters } = await import('./github-url-recovery.lib.mjs'); // #2194
 
 const { getSolveQueue, createQueueExecuteCallback } = await import('./telegram-solve-queue.lib.mjs');
@@ -182,8 +182,11 @@ const { validateTelegramGitHubUrl } = await import('./telegram-url-validation.li
 const { executeStartScreen: executeStartScreenCommand, buildExecuteAndUpdateMessage } = await import('./telegram-command-execution.lib.mjs');
 const { isChatStopped, getChatStopInfo, getStoppedChatRejectMessage, DEFAULT_STOP_REASON } = await import('./telegram-start-stop-command.lib.mjs');
 const { isOldMessage: _isOldMessage, isGroupChat: _isGroupChat, isChatAuthorized: _isChatAuthorized, isForwarded: _isForwarded, isForwardedOrReply: _isForwardedOrReply, extractCommandFromText, extractGitHubUrl: _extractGitHubUrl } = await import('./telegram-message-filters.lib.mjs');
-const { isTelegramFormattingError, isTelegramMessageTooLongError, safeEditMessageText, safeReply, safeSendMessage, TELEGRAM_TEXT_LIMIT } = await import('./telegram-safe-reply.lib.mjs');
-const { isTelegramRateLimitError } = await import('./telegram-rate-limit.lib.mjs');
+const { safeEditMessageText, safeReply, safeSendMessage } = await import('./telegram-safe-reply.lib.mjs');
+const { createUpdateErrorHandler } = await import('./telegram-update-error.lib.mjs');
+const { createKeyClaims, createSerialLane, detachHandler, getBackgroundTaskStats } = await import('./telegram-background-task.lib.mjs');
+const { DEFAULT_HANDLER_WARN_THRESHOLD_MS, installHandlerWatchdog } = await import('./telegram-handler-watchdog.lib.mjs');
+const TELEGRAM_HANDLER_TIMEOUT_MS = 60_000;
 const { installTelegramContextSafety } = await import('./telegram-context-safety.lib.mjs');
 const { registerTerminalWatchCommand, startAutoTerminalWatchForSession } = await import('./telegram-terminal-watch-command.lib.mjs');
 const { launchBotWithRetry } = await import('./telegram-bot-launcher.lib.mjs');
@@ -208,9 +211,16 @@ await initI18n();
 await preloadAllLocales();
 const telegrafModule = await use('telegraf');
 const { Telegraf } = telegrafModule;
-const bot = new Telegraf(BOT_TOKEN, {
-  handlerTimeout: Infinity, // Remove default 90s timeout; command handlers like /solve spawn long-running processes
-});
+// Handlers return quickly: slow command work runs in the background (see
+// telegram-background-task.lib.mjs). The timeout only stops one stuck update
+// from holding the polling loop; the handler itself keeps running.
+const bot = new Telegraf(BOT_TOKEN, { handlerTimeout: TELEGRAM_HANDLER_TIMEOUT_MS });
+const handlerWatchdog = installHandlerWatchdog(bot, { thresholdMs: DEFAULT_HANDLER_WARN_THRESHOLD_MS });
+const handleUpdateError = createUpdateErrorHandler({ verbose: VERBOSE, reportError, resolveLocale: resolveLocaleFromTelegramCtx });
+const detach = (handler, options = {}) => detachHandler(handler, { onError: handleUpdateError, ...options });
+const mergeLane = createSerialLane(); // /merge and /accept_invites expect one invocation at a time
+const inviteLane = createSerialLane();
+const launchingUrls = createKeyClaims(); // /solve URLs between the duplicate check and the tracked launch
 // Issue #2166: Telegraf hands every update a *new* `Telegram` client, so
 // instrumenting `bot.telegram` alone leaves `ctx.reply()` unprotected. Install
 // on the bot client (for background sends) and on each per-update context.
@@ -403,10 +413,10 @@ registerLanguageCommand(bot, { VERBOSE, isOldMessage, isForwardedOrReply });
 const { registerAcceptInvitesCommand } = await import('./telegram-accept-invitations.lib.mjs');
 // Issue #2166 (R7): every command module gets the same send helpers, so no
 // command can drift back to a raw, unvalidated, unlogged `ctx.reply`.
-const sharedCommandOpts = { VERBOSE, isOldMessage, isForwarded, isForwardedOrReply, isGroupChat: _isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, addBreadcrumb, isChatStopped, getStoppedChatRejectMessage, safeReply, safeEditMessageText };
-registerAcceptInvitesCommand(bot, sharedCommandOpts);
+const sharedCommandOpts = { VERBOSE, isOldMessage, isForwarded, isForwardedOrReply, isGroupChat: _isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, addBreadcrumb, isChatStopped, getStoppedChatRejectMessage, safeReply, safeEditMessageText, detachHandler: detach };
+registerAcceptInvitesCommand(bot, { ...sharedCommandOpts, detachHandler: handler => detach(handler, { lane: inviteLane }) });
 const { registerMergeCommand } = await import('./telegram-merge-command.lib.mjs');
-const { handleMergeCommand } = registerMergeCommand(bot, sharedCommandOpts);
+const { handleMergeCommand } = registerMergeCommand(bot, { ...sharedCommandOpts, detachHandler: handler => detach(handler, { lane: mergeLane }) });
 const { registerSolveQueueCommand } = await import('./telegram-solve-queue-command.lib.mjs');
 const { handleSolveQueueCommand } = registerSolveQueueCommand(bot, { ...sharedCommandOpts, getSolveQueue, safeReply, resolveLocale: resolveLocaleFromTelegramCtx });
 // Issue #2202 (R5): /models lists the merged model catalogue per tool.
@@ -678,52 +688,64 @@ async function handleSolveCommand(ctx) {
     await safeReply(ctx, t('telegram.url_status_active', { statusText, url: escapeMarkdown(normalizedUrl), status: existingItem.status }, { locale: solveLocale }), { reply_to_message_id: ctx.message.message_id });
     return;
   }
-  // Issue #1567: Prevent concurrent sessions on the same PR/issue
-  const activeSession = await hasActiveSessionForUrlAsync(normalizedUrl, VERBOSE);
-  if (activeSession.isActive) {
-    await safeReply(ctx, t('telegram.url_session_running', { url: escapeMarkdown(normalizedUrl), session: activeSession.sessionName }, { locale: solveLocale }), { reply_to_message_id: ctx.message.message_id });
+  // The launch below runs in the background, so a second command for the same
+  // URL can arrive before the session is tracked; the claim covers that window.
+  const releaseLaunchClaim = launchingUrls.claim(normalizedUrl);
+  if (!releaseLaunchClaim) {
+    await safeReply(ctx, t('telegram.url_status_active', { statusText: 'being processed', url: escapeMarkdown(normalizedUrl), status: 'starting' }, { locale: solveLocale }), { reply_to_message_id: ctx.message.message_id });
     return;
   }
-  const queueStats = solveQueue.getStats();
-  const hasPendingQueueItems = queueStats.queued > 0;
-  const check = hasPendingQueueItems ? await solveQueue.canStartCommand({ tool: solveTool, locale: solveLocale }) : await solveQueue.reserveStartSlot({ tool: solveTool, locale: solveLocale }); // Skip Claude limits for agent (#1159)
-  // Handle rejection: threshold strategy is 'reject' — fail immediately (issue #1267)
-  if (check.rejected) {
-    await safeReply(ctx, t('telegram.solve_rejected', { infoBlock, reason: escapeMarkdown(check.rejectReason || 'Unknown') }, { locale: solveLocale }), { reply_to_message_id: ctx.message.message_id });
-    return;
-  }
-
-  // Issue #1688: parsed URL context lets the completion message look up linked PRs.
-  const solveUrlContext = validation.parsed ? { owner: validation.parsed.owner, repo: validation.parsed.repo, number: validation.parsed.number, type: validation.parsed.type, normalized: normalizedUrl } : null;
-  const toolQueuedCount = queueStats.queuedByTool[solveTool] || 0; // tool-specific queue count (#1551)
-  // Issue #378: propagate user's effective Telegram locale to the spawned solve session.
-  const argsWithLocale = injectLanguageIfMissing(args, solveLocale);
-
-  // Issue #594: append "Limits at start" to infoBlock; thread snapshot via sessionInfo.
-  let solveLimitsAtStart = null;
-  if (solveShowLimits) ({ infoBlock, limitsAtStart: solveLimitsAtStart } = await captureStartSnapshotAndAppend({ infoBlock, tool: solveTool, verbose: VERBOSE, limitsLib, commandLabel: '/solve', locale: solveLocale }));
-  if (check.canStart && check.startReserved) {
-    const startingMessage = await safeReply(ctx, formatStartingWorkSessionMessage({ infoBlock, locale: solveLocale }), { reply_to_message_id: ctx.message.message_id });
-    await executeAndUpdateMessage(ctx, startingMessage, 'solve', argsWithLocale, infoBlock, effectiveSolveIsolation, solveTool, solveUrlContext, { showLimits: solveShowLimits, limitsAtStart: solveLimitsAtStart, locale: solveLocale, commandAlias: solveCommandName });
-  } else {
-    if (!solveQueue.executeCallback) {
-      const _t = (s, i) => trackSession(s, i, VERBOSE);
-      solveQueue.executeCallback = createIsolationAwareQueueCallback(ISOLATION_BACKEND, isolationRunner, _t, createQueueExecuteCallback(executeStartScreen, _t), VERBOSE, CONTAINER_RESOURCE_LIMITS);
+  try {
+    // Issue #1567: Prevent concurrent sessions on the same PR/issue
+    const activeSession = await hasActiveSessionForUrlAsync(normalizedUrl, VERBOSE);
+    if (activeSession.isActive) {
+      await safeReply(ctx, t('telegram.url_session_running', { url: escapeMarkdown(normalizedUrl), session: activeSession.sessionName }, { locale: solveLocale }), { reply_to_message_id: ctx.message.message_id });
+      return;
     }
-    const queueItem = solveQueue.enqueue({ url: normalizedUrl, args: argsWithLocale, ctx, requester, infoBlock, commandAlias: solveCommandName, tool: solveTool, perCommandIsolation: effectiveSolveIsolation, urlContext: solveUrlContext, showLimits: solveShowLimits, limitsAtStart: solveLimitsAtStart, locale: solveLocale });
-    const queueMessage = buildSolveQueuedMessage({ locale: solveLocale, tool: solveTool, position: toolQueuedCount + 1, infoBlock, reason: check.reason ? escapeMarkdown(check.reason) : '' }); // tool-specific position (#1551)
-    const queuedMessage = await safeReply(ctx, queueMessage, { reply_to_message_id: ctx.message.message_id });
-    queueItem.messageInfo = {
-      chatId: queuedMessage.chat.id,
-      messageId: queuedMessage.message_id,
-      messageThreadId: queuedMessage.message_thread_id ?? ctx.message?.message_thread_id ?? null,
-    };
+    const queueStats = solveQueue.getStats();
+    const hasPendingQueueItems = queueStats.queued > 0;
+    const check = hasPendingQueueItems ? await solveQueue.canStartCommand({ tool: solveTool, locale: solveLocale }) : await solveQueue.reserveStartSlot({ tool: solveTool, locale: solveLocale }); // Skip Claude limits for agent (#1159)
+    // Handle rejection: threshold strategy is 'reject' — fail immediately (issue #1267)
+    if (check.rejected) {
+      await safeReply(ctx, t('telegram.solve_rejected', { infoBlock, reason: escapeMarkdown(check.rejectReason || 'Unknown') }, { locale: solveLocale }), { reply_to_message_id: ctx.message.message_id });
+      return;
+    }
+
+    // Issue #1688: parsed URL context lets the completion message look up linked PRs.
+    const solveUrlContext = validation.parsed ? { owner: validation.parsed.owner, repo: validation.parsed.repo, number: validation.parsed.number, type: validation.parsed.type, normalized: normalizedUrl } : null;
+    const toolQueuedCount = queueStats.queuedByTool[solveTool] || 0; // tool-specific queue count (#1551)
+    // Issue #378: propagate user's effective Telegram locale to the spawned solve session.
+    const argsWithLocale = injectLanguageIfMissing(args, solveLocale);
+
+    // Issue #594: append "Limits at start" to infoBlock; thread snapshot via sessionInfo.
+    let solveLimitsAtStart = null;
+    if (solveShowLimits) ({ infoBlock, limitsAtStart: solveLimitsAtStart } = await captureStartSnapshotAndAppend({ infoBlock, tool: solveTool, verbose: VERBOSE, limitsLib, commandLabel: '/solve', locale: solveLocale }));
+    if (check.canStart && check.startReserved) {
+      const startingMessage = await safeReply(ctx, formatStartingWorkSessionMessage({ infoBlock, locale: solveLocale }), { reply_to_message_id: ctx.message.message_id });
+      await executeAndUpdateMessage(ctx, startingMessage, 'solve', argsWithLocale, infoBlock, effectiveSolveIsolation, solveTool, solveUrlContext, { showLimits: solveShowLimits, limitsAtStart: solveLimitsAtStart, locale: solveLocale, commandAlias: solveCommandName });
+    } else {
+      if (!solveQueue.executeCallback) {
+        const _t = (s, i) => trackSession(s, i, VERBOSE);
+        solveQueue.executeCallback = createIsolationAwareQueueCallback(ISOLATION_BACKEND, isolationRunner, _t, createQueueExecuteCallback(executeStartScreen, _t), VERBOSE, CONTAINER_RESOURCE_LIMITS);
+      }
+      const queueItem = solveQueue.enqueue({ url: normalizedUrl, args: argsWithLocale, ctx, requester, infoBlock, commandAlias: solveCommandName, tool: solveTool, perCommandIsolation: effectiveSolveIsolation, urlContext: solveUrlContext, showLimits: solveShowLimits, limitsAtStart: solveLimitsAtStart, locale: solveLocale });
+      const queueMessage = buildSolveQueuedMessage({ locale: solveLocale, tool: solveTool, position: toolQueuedCount + 1, infoBlock, reason: check.reason ? escapeMarkdown(check.reason) : '' }); // tool-specific position (#1551)
+      const queuedMessage = await safeReply(ctx, queueMessage, { reply_to_message_id: ctx.message.message_id });
+      queueItem.messageInfo = {
+        chatId: queuedMessage.chat.id,
+        messageId: queuedMessage.message_id,
+        messageThreadId: queuedMessage.message_thread_id ?? ctx.message?.message_thread_id ?? null,
+      };
+    }
+  } finally {
+    releaseLaunchClaim();
   }
 }
 
+const detachedSolveCommand = detach(handleSolveCommand);
 bot.command(
   SOLVE_COMMAND_NAMES.map(command => new RegExp(`^${command}$`, 'i')),
-  handleSolveCommand
+  detachedSolveCommand
 );
 // Named handler for /hive command - extracted for reuse by text-based fallback (issue #1207)
 async function handleHiveCommand(ctx) {
@@ -882,7 +904,8 @@ async function handleHiveCommand(ctx) {
   const hiveArgsWithLocale = injectLanguageIfMissing(args, hiveLocale);
   await executeAndUpdateMessage(ctx, startingMessage, 'hive', hiveArgsWithLocale, infoBlock, effectiveHiveIsolation, hiveTool, null, { showLimits: hiveShowLimits, limitsAtStart: hiveLimitsAtStart, locale: hiveLocale });
 }
-bot.command(/^hive$/i, handleHiveCommand);
+const detachedHiveCommand = detach(handleHiveCommand);
+bot.command(/^hive$/i, detachedHiveCommand);
 
 const { registerTopCommand } = await import('./telegram-top-command.lib.mjs');
 const { registerStartStopCommands } = await import('./telegram-start-stop-command.lib.mjs');
@@ -974,6 +997,23 @@ if (VERBOSE) {
 // with message formatting, or entity ordering), causing bot.command() to silently skip
 // the message. This fallback uses text pattern matching to catch those missed commands.
 // It runs AFTER bot.command() handlers, so it only fires when entity-based matching fails.
+// /subscribe + /unsubscribe (#1688) are intentionally not in the text fallback — Telegraf's bot.command() is sufficient.
+// Commands with slow work use the same background wrappers as their bot.command() registrations.
+const detachedTaskCommand = detach(handleTaskCommand);
+const detachedFixCommand = detach(handleFixCommand);
+const detachedOrganizeCommand = detach(handleOrganizeCommand);
+const fallbackHandlers = {
+  ...Object.fromEntries(SOLVE_COMMAND_NAMES.map(command => [command, detachedSolveCommand])),
+  ...Object.fromEntries(TASK_COMMAND_NAMES.map(command => [command, detachedTaskCommand])),
+  ...Object.fromEntries(FIX_COMMAND_NAMES.map(command => [command, detachedFixCommand])),
+  ...Object.fromEntries(ORGANIZE_COMMAND_NAMES.map(command => [command, detachedOrganizeCommand])),
+  auth: handleAuthCommand,
+  hive: detachedHiveCommand,
+  merge: detach(handleMergeCommand, { lane: mergeLane }),
+  queue: handleSolveQueueCommand,
+  models: handleModelsCommand,
+  stop: handleStopCommand,
+};
 bot.on('message', async (ctx, next) => {
   const text = ctx.message?.text;
   if (!text) return next();
@@ -990,110 +1030,16 @@ bot.on('message', async (ctx, next) => {
       return next(); // Command is for a different bot or we can't verify
     }
   }
-  // /subscribe + /unsubscribe (#1688) are intentionally not in the text fallback — Telegraf's bot.command() is sufficient.
-  const solveHandlers = Object.fromEntries(SOLVE_COMMAND_NAMES.map(command => [command, handleSolveCommand]));
-  const taskHandlers = Object.fromEntries(TASK_COMMAND_NAMES.map(command => [command, handleTaskCommand]));
-  const fixHandlers = Object.fromEntries(FIX_COMMAND_NAMES.map(command => [command, handleFixCommand]));
-  const organizeHandlers = Object.fromEntries(ORGANIZE_COMMAND_NAMES.map(command => [command, handleOrganizeCommand]));
-  const handlers = { ...solveHandlers, ...taskHandlers, ...fixHandlers, ...organizeHandlers, auth: handleAuthCommand, hive: handleHiveCommand, merge: handleMergeCommand, queue: handleSolveQueueCommand, models: handleModelsCommand, stop: handleStopCommand };
-
-  const handler = handlers[extracted.command];
+  const handler = fallbackHandlers[extracted.command];
   if (!handler) return next();
   // Log that fallback was triggered - this indicates bot.command() entity matching failed
   console.warn(`[WARNING] Command /${extracted.command} matched by text fallback, not by entity-based bot.command(). ` + `Entities: ${JSON.stringify(ctx.message.entities || [])}. ` + `User: ${ctx.from?.username || ctx.from?.id}. ` + `This may indicate a Telegram client entity issue (issue #1207).`);
 
   await handler(ctx);
 });
-// Add global error handler for uncaught errors in middleware
-bot.catch((error, ctx) => {
-  console.error('Unhandled error while processing update', ctx.update.update_id);
-  console.error('Error:', error);
-  console.error('Error details:', {
-    name: error.name,
-    message: error.message,
-    stack: error.stack?.split('\n').slice(0, 10).join('\n'),
-  });
-  const failedCommand = extractCommandFromText(ctx.message?.text);
-  if (VERBOSE) {
-    console.log('[VERBOSE] Error context:', {
-      chatId: ctx.chat?.id,
-      chatType: ctx.chat?.type,
-      messageText: ctx.message?.text?.substring(0, 100),
-      fromUser: ctx.from?.username || ctx.from?.id,
-      updateId: ctx.update.update_id,
-    });
-  }
-
-  // Report error to Sentry with context
-  reportError(error, {
-    telegramContext: {
-      chatId: ctx.chat?.id,
-      chatType: ctx.chat?.type,
-      updateId: ctx.update.update_id,
-      command: failedCommand ? `/${failedCommand.command}` : undefined,
-      userId: ctx.from?.id,
-      username: ctx.from?.username,
-    },
-  });
-  // Issue #2571: a reply about a 429 goes to the chat Telegram just told the bot to
-  // leave alone, so it was refused too (six 3×429 cascades in the production log).
-  // The rate-limit warning above the stack already names the chat and retry_after.
-  if (isTelegramRateLimitError(error)) {
-    console.error(`[telegram-bot] Not replying about update ${ctx.update.update_id}: Telegram rate limit in chat ${ctx.chat?.id ?? 'unknown'} (${error.response?.description || error.message})`);
-    return;
-  }
-  // Try to notify the user about the error with more details
-  if (ctx?.reply) {
-    const isTelegramParsingError = isTelegramFormattingError(error);
-    const isTelegramTextLimitError = isTelegramMessageTooLongError(error);
-
-    let errorMessage;
-    if (isTelegramParsingError || isTelegramTextLimitError) {
-      // Issue #1460: Log detailed context for root cause analysis (always logged, not just in verbose mode)
-      const userInfo = ctx.from ? { id: ctx.from.id, username: ctx.from.username, first_name: ctx.from.first_name, last_name: ctx.from.last_name } : 'unknown';
-      const errorKind = isTelegramTextLimitError ? 'Message length error' : 'Parsing error';
-      console.error(`[telegram-bot] ${errorKind}: ${error.message}`);
-      console.error(`[telegram-bot] ${errorKind} context - user: ${JSON.stringify(userInfo)}, command: ${failedCommand ? `/${failedCommand.command}` : 'unknown'}`);
-      console.error(`[telegram-bot] User input text: ${ctx.message?.text || 'none'}`);
-      if (ctx.message?.text) {
-        const visibleInput = makeSpecialCharsVisible(ctx.message.text, { maxLength: 500 });
-        console.error(`[telegram-bot] User input (special chars visible): ${visibleInput}`);
-        const cleanedInput = cleanNonPrintableChars(ctx.message.text);
-        if (cleanedInput !== ctx.message.text) {
-          console.error(`[telegram-bot] ${ctx.message.text.length - cleanedInput.length} hidden character(s) detected in input`);
-        }
-      }
-
-      if (isTelegramTextLimitError) {
-        errorMessage = `❌ Telegram rejected an oversized bot message.\n\nThe bot splits messages above ${TELEGRAM_TEXT_LIMIT} characters automatically. Please try your command again.\n\nIf the issue persists, contact support with Update ID: ${ctx.update.update_id}`;
-      } else {
-        errorMessage = `❌ Telegram rejected a formatted bot message, and the fallback handler could not recover automatically.\n\nPlease try your command again.\n\nIf the issue persists, contact support with Update ID: ${ctx.update.update_id}`;
-      }
-    } else {
-      errorMessage = '❌ An error occurred while processing your request.\n\n';
-      if (error.message) {
-        // Filter out sensitive info and escape markdown
-        const sanitizedMessage = escapeMarkdown(
-          error.message
-            .replace(/token[s]?\s*[:=]\s*[\w-]+/gi, 'token: [REDACTED]')
-            .replace(/password[s]?\s*[:=]\s*[\w-]+/gi, 'password: [REDACTED]')
-            .replace(/api[_-]?key[s]?\s*[:=]\s*[\w-]+/gi, 'api_key: [REDACTED]')
-        );
-        errorMessage += `Details: ${sanitizedMessage}\n`;
-      }
-      errorMessage += '\n💡 Troubleshooting:\n• Try running the command again\n• Check if all required parameters are correct\n• Use /help to see command examples\n• If the issue persists, contact support with the error details above';
-      if (VERBOSE) errorMessage += `\n\n🔍 Debug info: Update ID: ${ctx.update.update_id}`;
-    }
-
-    safeReply(ctx, errorMessage, { fallbackLocale: resolveLocaleFromTelegramCtx(ctx), verbose: VERBOSE }).catch(replyError => {
-      console.error('Failed to send error message to user:', replyError);
-      const plainMessage = `An error occurred while processing your request. Please try again or contact support.\n\nError: ${error.message || 'Unknown error'}`;
-      ctx.reply(plainMessage).catch(fallbackError => {
-        console.error('Failed to send fallback error message:', fallbackError);
-      });
-    });
-  }
-});
+// Errors thrown while handling an update (and by background command jobs)
+// are logged, reported and answered in telegram-update-error.lib.mjs.
+bot.catch(handleUpdateError);
 // Track shutdown state to prevent startup messages after shutdown
 let isShuttingDown = false;
 
@@ -1164,7 +1110,7 @@ function startRouterMaintenanceOnce() {
 // Issue #1927 (requirements #3/#4): a periodic timestamped heartbeat so the "last
 // time the bot was alive" is always discoverable from the log. The heartbeat
 // logic lives in bot-lifecycle.lib.mjs so it can be unit tested.
-const heartbeat = createHeartbeat({ logger: botLogger, getActiveSessionCount });
+const heartbeat = createHeartbeat({ logger: botLogger, getActiveSessionCount, getHandlerStats: () => ({ ...handlerWatchdog.getStats(), background: getBackgroundTaskStats(), launchingUrls: launchingUrls.size }) });
 async function onBotLaunched() {
   if (isShuttingDown || launchAnnouncementShown) return;
   launchAnnouncementShown = true;

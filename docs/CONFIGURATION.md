@@ -68,13 +68,14 @@ All environment variables are managed through the `src/config.lib.mjs` module wh
 
 ### 3. GitHub API Limits
 
-| Environment Variable                   | Default  | Description                                      |
-| -------------------------------------- | -------- | ------------------------------------------------ |
-| `HIVE_MIND_GITHUB_COMMENT_MAX_SIZE`    | 65536    | Maximum size of GitHub comments (bytes)          |
-| `HIVE_MIND_GITHUB_FILE_MAX_SIZE`       | 26214400 | Maximum file size for GitHub operations (25MB)   |
-| `HIVE_MIND_GITHUB_ISSUE_BODY_MAX_SIZE` | 60000    | Maximum size of issue body (bytes)               |
-| `HIVE_MIND_GITHUB_ATTACHMENT_MAX_SIZE` | 10485760 | Maximum attachment size (10MB)                   |
-| `HIVE_MIND_GITHUB_BUFFER_MAX_SIZE`     | 10485760 | Maximum buffer size for GitHub operations (10MB) |
+| Environment Variable                   | Default  | Description                                                      |
+| -------------------------------------- | -------- | ---------------------------------------------------------------- |
+| `HIVE_MIND_GITHUB_COMMENT_MAX_SIZE`    | 65536    | Maximum size of GitHub comments (bytes)                          |
+| `HIVE_MIND_GITHUB_FILE_MAX_SIZE`       | 26214400 | Maximum file size for GitHub operations (25MB)                   |
+| `HIVE_MIND_GITHUB_ISSUE_BODY_MAX_SIZE` | 60000    | Maximum size of issue body (bytes)                               |
+| `HIVE_MIND_GITHUB_ATTACHMENT_MAX_SIZE` | 10485760 | Maximum attachment size (10MB)                                   |
+| `HIVE_MIND_GITHUB_BUFFER_MAX_SIZE`     | 10485760 | Maximum buffer size for GitHub operations (10MB)                 |
+| `HIVE_MIND_GITHUB_EXEC_TIMEOUT_MS`     | 600000   | Maximum time for one `gh` call before it is stopped (10 minutes) |
 
 ### 4. System Resource Limits
 

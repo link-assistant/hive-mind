@@ -14,11 +14,13 @@
 import { promisify } from 'util';
 import { exec as execCallback } from 'child_process';
 import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
+import { githubLimits } from './config.lib.mjs';
 
 const execRaw = promisify(execCallback);
 // Issue #1726: rate-limit safe gh wrapper.
+// hive-exec-timeout-ok: every call gets githubLimits.execTimeoutMs unless it passes its own timeout
 const exec = (cmd, opts) =>
-  ghWithRateLimitRetry(() => execRaw(cmd, opts), {
+  ghWithRateLimitRetry(() => execRaw(cmd, { timeout: githubLimits.execTimeoutMs, ...opts }), {
     label: `gh exec (${cmd.split(/\s+/).slice(0, 3).join(' ')})`,
   });
 

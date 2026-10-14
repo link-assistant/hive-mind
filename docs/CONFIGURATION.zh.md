@@ -68,13 +68,14 @@ Hive Mind 应用程序支持通过环境变量和命令行选项进行广泛配�
 
 ### 3. GitHub API 限制
 
-| 环境变量                               | 默认值   | 描述                                |
-| -------------------------------------- | -------- | ----------------------------------- |
-| `HIVE_MIND_GITHUB_COMMENT_MAX_SIZE`    | 65536    | GitHub 评论的最大大小（字节）       |
-| `HIVE_MIND_GITHUB_FILE_MAX_SIZE`       | 26214400 | GitHub 操作的最大文件大小（25MB）   |
-| `HIVE_MIND_GITHUB_ISSUE_BODY_MAX_SIZE` | 60000    | Issue 正文的最大大小（字节）        |
-| `HIVE_MIND_GITHUB_ATTACHMENT_MAX_SIZE` | 10485760 | 最大附件大小（10MB）                |
-| `HIVE_MIND_GITHUB_BUFFER_MAX_SIZE`     | 10485760 | GitHub 操作的最大缓冲区大小（10MB） |
+| 环境变量                               | 默认值   | 描述                                            |
+| -------------------------------------- | -------- | ----------------------------------------------- |
+| `HIVE_MIND_GITHUB_COMMENT_MAX_SIZE`    | 65536    | GitHub 评论的最大大小（字节）                   |
+| `HIVE_MIND_GITHUB_FILE_MAX_SIZE`       | 26214400 | GitHub 操作的最大文件大小（25MB）               |
+| `HIVE_MIND_GITHUB_ISSUE_BODY_MAX_SIZE` | 60000    | Issue 正文的最大大小（字节）                    |
+| `HIVE_MIND_GITHUB_ATTACHMENT_MAX_SIZE` | 10485760 | 最大附件大小（10MB）                            |
+| `HIVE_MIND_GITHUB_BUFFER_MAX_SIZE`     | 10485760 | GitHub 操作的最大缓冲区大小（10MB）             |
+| `HIVE_MIND_GITHUB_EXEC_TIMEOUT_MS`     | 600000   | 单次 `gh` 调用的最长时间，超时后停止（10 分钟） |
 
 ### 4. 系统资源限制
 

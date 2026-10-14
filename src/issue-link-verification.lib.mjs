@@ -2,12 +2,13 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
+import { githubLimits } from './config.lib.mjs';
 import { parseRequiredClosingReferences, isRepositoryModeIssueBody } from './solve.repository-mode.lib.mjs';
 import { normalizeSubIssueEntry } from './solve.ensure-sub-issues.detect.lib.mjs';
 import { extractBranchIssueNumber, extractClosingIssueReferences, prClosesIssue, resolvePullRequestIssueNumber } from './github-linking.lib.mjs';
 
 const execFileAsync = promisify(execFile);
-export const runLinkGh = args => ghWithRateLimitRetry(() => execFileAsync('gh', args, { maxBuffer: 20 * 1024 * 1024 }), { label: `issue links: gh ${args[0]}` });
+export const runLinkGh = args => ghWithRateLimitRetry(() => execFileAsync('gh', args, { maxBuffer: 20 * 1024 * 1024, timeout: githubLimits.execTimeoutMs }), { label: `issue links: gh ${args[0]}` });
 
 export const issueKey = issue => `${issue?.owner}/${issue?.repo}#${issue?.number}`.toLowerCase();
 

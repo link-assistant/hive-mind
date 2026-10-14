@@ -68,13 +68,14 @@ Hive Mind एप्लिकेशन environment variables और command-line 
 
 ### 3. GitHub API सीमाएँ
 
-| Environment Variable                   | डिफ़ॉल्ट | विवरण                                          |
-| -------------------------------------- | -------- | ---------------------------------------------- |
-| `HIVE_MIND_GITHUB_COMMENT_MAX_SIZE`    | 65536    | GitHub comments का अधिकतम आकार (bytes)         |
-| `HIVE_MIND_GITHUB_FILE_MAX_SIZE`       | 26214400 | GitHub ऑपरेशन के लिए अधिकतम फ़ाइल आकार (25MB)  |
-| `HIVE_MIND_GITHUB_ISSUE_BODY_MAX_SIZE` | 60000    | issue body का अधिकतम आकार (bytes)              |
-| `HIVE_MIND_GITHUB_ATTACHMENT_MAX_SIZE` | 10485760 | अधिकतम attachment आकार (10MB)                  |
-| `HIVE_MIND_GITHUB_BUFFER_MAX_SIZE`     | 10485760 | GitHub ऑपरेशन के लिए अधिकतम buffer आकार (10MB) |
+| Environment Variable                   | डिफ़ॉल्ट | विवरण                                                               |
+| -------------------------------------- | -------- | ------------------------------------------------------------------- |
+| `HIVE_MIND_GITHUB_COMMENT_MAX_SIZE`    | 65536    | GitHub comments का अधिकतम आकार (bytes)                              |
+| `HIVE_MIND_GITHUB_FILE_MAX_SIZE`       | 26214400 | GitHub ऑपरेशन के लिए अधिकतम फ़ाइल आकार (25MB)                       |
+| `HIVE_MIND_GITHUB_ISSUE_BODY_MAX_SIZE` | 60000    | issue body का अधिकतम आकार (bytes)                                   |
+| `HIVE_MIND_GITHUB_ATTACHMENT_MAX_SIZE` | 10485760 | अधिकतम attachment आकार (10MB)                                       |
+| `HIVE_MIND_GITHUB_BUFFER_MAX_SIZE`     | 10485760 | GitHub ऑपरेशन के लिए अधिकतम buffer आकार (10MB)                      |
+| `HIVE_MIND_GITHUB_EXEC_TIMEOUT_MS`     | 600000   | एक `gh` कॉल का अधिकतम समय, जिसके बाद उसे रोक दिया जाता है (10 मिनट) |
 
 ### 4. सिस्टम संसाधन सीमाएँ
 

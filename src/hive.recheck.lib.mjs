@@ -32,6 +32,7 @@ export async function recheckIssueConditions(issueUrl, argv) {
       const { execSync } = await import('child_process');
       const issueState = execSync(`gh api repos/${owner}/${repo}/issues/${issueNum} --jq .state`, {
         encoding: 'utf8',
+        timeout: 60_000,
       }).trim();
 
       if (issueState === 'closed') {

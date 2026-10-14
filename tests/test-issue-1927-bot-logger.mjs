@@ -78,6 +78,7 @@ assert(formatLogLine('info', 'm', { big: 10n }, D).includes('"big":"10"'), 'bigi
     logger.info('bot started', { pid: 1234 });
     logger.warn('something odd');
     logger.debug('verbose detail'); // suppressed when verbose:false
+    await logger.flush();
 
     const contents = fs.readFileSync(logger.filePath, 'utf8');
     assert(/INFO .*bot started .*"pid":1234/.test(contents), 'info line with meta is written to the file');
@@ -99,6 +100,7 @@ assert(formatLogLine('info', 'm', { big: 10n }, D).includes('"big":"10"'), 'bigi
   try {
     const logger = createBotLogger({ dir, now: advancingClock(), consoleImpl: captureConsole().impl, verbose: true, rotateOnStart: false });
     logger.debug('now you see me');
+    await logger.flush();
     assert(/DEBUG .*now you see me/.test(fs.readFileSync(logger.filePath, 'utf8')), 'debug line is written when verbose:true');
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
@@ -112,6 +114,7 @@ assert(formatLogLine('info', 'm', { big: 10n }, D).includes('"big":"10"'), 'bigi
     const logger = createBotLogger({ dir, now: advancingClock(), consoleImpl: captureConsole().impl, rotateOnStart: false });
     logger.event('session_killed', { sessionName: 'sess-1', exitCode: 137 });
     logger.heartbeat({ activeSessions: 2, uptimeSec: 99 });
+    await logger.flush();
     const contents = fs.readFileSync(logger.filePath, 'utf8');
     assert(/EVENT session_killed .*"sessionName":"sess-1".*"exitCode":137/.test(contents), 'event() writes a greppable "EVENT <type>" line with data');
     assert(/EVENT heartbeat .*"pid":\d+.*"activeSessions":2/.test(contents), 'heartbeat() writes a marker carrying the pid and active session count');
@@ -134,6 +137,7 @@ assert(formatLogLine('info', 'm', { big: 10n }, D).includes('"big":"10"'), 'bigi
     assert(/previous run line/.test(backupContent), 'the previous run log content survives in the backup (not overwritten)');
 
     logger.info('new run line');
+    await logger.flush();
     const activeContent = fs.readFileSync(activePath, 'utf8');
     assert(/new run line/.test(activeContent) && !/previous run line/.test(activeContent), 'the new active log contains only the new run, never clobbering history');
   } finally {
@@ -147,6 +151,7 @@ assert(formatLogLine('info', 'm', { big: 10n }, D).includes('"big":"10"'), 'bigi
   try {
     const logger = createBotLogger({ dir, now: advancingClock(), consoleImpl: captureConsole().impl, rotateOnStart: false, maxBytes: 160 });
     for (let i = 0; i < 12; i++) logger.info(`line number ${i} with some padding to grow the file`);
+    await logger.flush();
     const backups = listBackups(dir);
     assert(backups.length >= 1, 'an oversized active log is rotated into at least one timestamped backup mid-run');
     const activeSize = fs.statSync(logger.filePath).size;
@@ -217,6 +222,89 @@ assert(formatLogLine('info', 'm', { big: 10n }, D).includes('"big":"10"'), 'bigi
     cap.lines.some(l => /still alive via console/.test(l)),
     'console logging still works when the file is disabled'
   );
+}
+
+// --- writes leave the event loop free; flushSync covers the exit handler ------
+{
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hm-3206-log-a-'));
+  try {
+    // Asynchronous appends wait for `release()`, so "in flight" is deterministic.
+    let syncAppends = 0;
+    let gate = Promise.resolve();
+    let release = () => {};
+    const hold = () => {
+      gate = new Promise(resolve => {
+        release = resolve;
+      });
+    };
+    const gatedFs = {
+      ...fs,
+      appendFileSync: (...args) => {
+        syncAppends += 1;
+        return fs.appendFileSync(...args);
+      },
+      promises: {
+        ...fs.promises,
+        appendFile: async (...args) => {
+          await gate;
+          return fs.promises.appendFile(...args);
+        },
+      },
+    };
+    const logger = createBotLogger({ dir, fsImpl: gatedFs, now: advancingClock(), consoleImpl: captureConsole().impl, rotateOnStart: false });
+    const read = () => (fs.existsSync(logger.filePath) ? fs.readFileSync(logger.filePath, 'utf8') : '');
+
+    hold();
+    logger.info('queued line');
+    assert(syncAppends === 0 && !read().includes('queued line'), 'logging returns before the line is written (no synchronous file I/O per line)');
+    release();
+    await logger.flush();
+    assert(read().includes('queued line'), 'flush() resolves once queued lines reach the file');
+
+    hold();
+    logger.info('written at exit');
+    logger.flushSync();
+    assert(read().includes('written at exit'), 'flushSync() writes queued lines, including a batch still in flight');
+    logger.info('logged by a later exit handler');
+    assert(read().includes('logged by a later exit handler'), 'after flushSync() lines are written synchronously');
+    release();
+    await logger.flush();
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+// --- a failing asynchronous write disables the file but never throws ----------
+{
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hm-3206-log-f-'));
+  try {
+    const cap = captureConsole();
+    const failingFs = {
+      ...fs,
+      promises: {
+        ...fs.promises,
+        appendFile: async () => {
+          throw new Error('ENOSPC: no space left on device');
+        },
+      },
+    };
+    const logger = createBotLogger({ dir, fsImpl: failingFs, now: advancingClock(), consoleImpl: cap.impl, rotateOnStart: false });
+    logger.info('first line');
+    await logger.flush();
+    assert(logger.fileDisabled === true, 'a rejected append disables file logging');
+    assert(
+      cap.lines.some(l => /ENOSPC/.test(l)),
+      'the write failure is reported on the console'
+    );
+    logger.info('after failure');
+    await logger.flush();
+    assert(
+      cap.lines.some(l => /after failure/.test(l)),
+      'console logging continues after the file is disabled'
+    );
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 }
 
 printSummary();

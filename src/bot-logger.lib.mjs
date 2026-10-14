@@ -14,7 +14,9 @@
  *
  * This module mirrors every line to the console (so existing behaviour and
  * `journalctl`/screen capture are unchanged) AND appends it to a rotating log
- * file. On startup the previous active log is preserved under a timestamped
+ * file. File writes are asynchronous so logging never blocks the bot's event
+ * loop; `flush()` waits for them and `flushSync()` writes what is left when the
+ * process exits. On startup the previous active log is preserved under a timestamped
  * backup name instead of being overwritten, and oversized logs rotate the same
  * way mid-run. Backups are pruned only down to a generous configurable cap.
  *
@@ -123,92 +125,165 @@ export function formatLogLine(level, message, meta, date = new Date()) {
  */
 export function createBotLogger(options = {}) {
   const { dir = resolveBotLogDir(), baseName = 'telegram-bot', maxBytes = DEFAULT_MAX_BYTES, maxBackups = DEFAULT_MAX_BACKUPS, mirrorConsole = true, verbose = false, rotateOnStart = true, fsImpl = fs, now = () => new Date(), consoleImpl = console } = options;
+  const fsp = fsImpl.promises || fs.promises;
 
   const activePath = path.join(dir, `${baseName}.log`);
   let fileDisabled = false; // set if the filesystem is unusable; console still works
 
+  function disableFile(message) {
+    if (!fileDisabled) consoleImpl.error(message);
+    fileDisabled = true;
+    pending.length = 0;
+  }
+
+  // Startup only: runs once while the bot is being created, before it polls.
   function ensureDir() {
     try {
-      fsImpl.mkdirSync(dir, { recursive: true });
+      fsImpl.mkdirSync(dir, { recursive: true }); // hive-sync-ok: one-time startup setup before polling
       return true;
     } catch (error) {
-      if (!fileDisabled) {
-        consoleImpl.error(`[bot-logger] Could not create log dir ${dir}: ${error.message} — file logging disabled, console only`);
-      }
-      fileDisabled = true;
+      disableFile(`[bot-logger] Could not create log dir ${dir}: ${error.message} — file logging disabled, console only`);
       return false;
     }
   }
 
-  function backupName(date) {
-    return path.join(dir, `${baseName}-${fileStamp(date)}.log`);
+  function backupName(date, suffix = 0) {
+    return path.join(dir, `${baseName}-${fileStamp(date)}${suffix ? `-${suffix}` : ''}.log`);
   }
 
   // Preserve the previous run's log instead of overwriting it (requirement #4).
-  function rotateExisting(reason) {
+  function rotateOnStartup() {
+    // Runs once, before polling starts, so the synchronous calls below block nothing.
     try {
-      if (!fsImpl.existsSync(activePath)) return;
-      const stat = fsImpl.statSync(activePath);
+      if (!fsImpl.existsSync(activePath)) return; // hive-sync-ok: one-time startup rotation
+      const stat = fsImpl.statSync(activePath); // hive-sync-ok: one-time startup rotation
       if (!stat || stat.size === 0) return;
       let target = backupName(now());
       // Avoid clobbering an existing backup created within the same millisecond.
-      let suffix = 1;
-      while (fsImpl.existsSync(target)) {
-        target = path.join(dir, `${baseName}-${fileStamp(now())}-${suffix}.log`);
-        suffix += 1;
-      }
-      fsImpl.renameSync(activePath, target);
-      if (verbose) consoleImpl.log(`[bot-logger] Rotated previous log to ${target} (${reason})`);
-      pruneBackups();
-    } catch (error) {
-      consoleImpl.error(`[bot-logger] Log rotation failed (${reason}): ${error.message}`);
-    }
-  }
-
-  function pruneBackups() {
-    if (!Number.isFinite(maxBackups) || maxBackups < 0) return; // unbounded: never destroy
-    try {
-      const entries = fsImpl
-        .readdirSync(dir)
-        .filter(name => name.startsWith(`${baseName}-`) && name.endsWith('.log'))
-        .sort(); // timestamped names sort chronologically
-      const excess = entries.length - maxBackups;
-      for (let i = 0; i < excess; i++) {
+      for (let suffix = 1; fsImpl.existsSync(target); suffix += 1) target = backupName(now(), suffix); // hive-sync-ok: one-time startup rotation
+      fsImpl.renameSync(activePath, target); // hive-sync-ok: one-time startup rotation
+      if (verbose) consoleImpl.log(`[bot-logger] Rotated previous log to ${target} (startup)`);
+      const entries = fsImpl.readdirSync(dir); // hive-sync-ok: one-time startup rotation
+      for (const name of backupsToPrune(entries)) {
         try {
-          fsImpl.unlinkSync(path.join(dir, entries[i]));
+          fsImpl.unlinkSync(path.join(dir, name)); // hive-sync-ok: one-time startup rotation
         } catch {
           /* best effort */
         }
       }
-    } catch {
-      /* best effort */
+    } catch (error) {
+      consoleImpl.error(`[bot-logger] Log rotation failed (startup): ${error.message}`);
     }
   }
 
-  if (ensureDir() && rotateOnStart) {
-    rotateExisting('startup');
+  function backupsToPrune(entries) {
+    if (!Number.isFinite(maxBackups) || maxBackups < 0) return []; // unbounded: never destroy
+    const backups = entries.filter(name => name.startsWith(`${baseName}-`) && name.endsWith('.log')).sort(); // timestamped names sort chronologically
+    return backups.slice(0, Math.max(0, backups.length - maxBackups));
+  }
+
+  async function pathExists(target) {
+    try {
+      await fsp.access(target);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  // Mid-run rotation: the oversized file becomes a timestamped backup.
+  async function rotateForSize() {
+    try {
+      let target = backupName(now());
+      for (let suffix = 1; await pathExists(target); suffix += 1) target = backupName(now(), suffix);
+      await fsp.rename(activePath, target);
+      if (verbose) consoleImpl.log(`[bot-logger] Rotated previous log to ${target} (size)`);
+      for (const name of backupsToPrune(await fsp.readdir(dir))) {
+        await fsp.unlink(path.join(dir, name)).catch(() => {});
+      }
+    } catch (error) {
+      consoleImpl.error(`[bot-logger] Log rotation failed (size): ${error.message}`);
+    }
+  }
+
+  // Lines waiting for the file. Writes run one batch at a time off the event
+  // loop; the size of the active file is tracked here instead of stat'ing it
+  // for every line.
+  const pending = [];
+  let draining = null;
+  let size = 0;
+
+  if (ensureDir()) {
+    if (rotateOnStart) rotateOnStartup();
+    try {
+      size = fsImpl.statSync(activePath).size; // hive-sync-ok: one-time startup read before polling
+    } catch {
+      size = 0;
+    }
+  }
+
+  // Lines stay in `pending` until their write completes, so `flushSync()` at
+  // exit still sees a batch whose asynchronous write never finished.
+  let exiting = false;
+
+  async function drain() {
+    while (pending.length > 0 && !fileDisabled && !exiting) {
+      if (size > 0 && size + Buffer.byteLength(pending[0]) > maxBytes) {
+        await rotateForSize();
+        size = 0;
+      }
+      // Take as many lines as fit before the next rotation (at least one).
+      let count = 0;
+      let chunkBytes = 0;
+      while (count < pending.length) {
+        const bytes = Buffer.byteLength(pending[count]);
+        if (count > 0 && size + chunkBytes + bytes > maxBytes) break;
+        count += 1;
+        chunkBytes += bytes;
+      }
+      try {
+        await fsp.appendFile(activePath, pending.slice(0, count).join(''));
+        if (exiting) return;
+        pending.splice(0, count);
+        size += chunkBytes;
+      } catch (error) {
+        disableFile(`[bot-logger] Could not write log line: ${error.message} — file logging disabled`);
+      }
+    }
   }
 
   function appendLine(line) {
     if (fileDisabled) return;
+    pending.push(`${line}\n`);
+    if (exiting) {
+      flushSync(); // hive-sync-ok: only after the exit handler ran
+      return;
+    }
+    if (!draining) {
+      draining = drain().finally(() => {
+        draining = null;
+      });
+    }
+  }
+
+  /** Resolves once every line logged so far has reached the file. */
+  async function flush() {
+    while (draining) await draining;
+  }
+
+  /**
+   * Write whatever is still queued, synchronously, and keep writing
+   * synchronously from then on. Only for `process.on('exit')`, where no further
+   * event-loop turn will run the asynchronous writer. A batch whose write was
+   * in flight is written again rather than risk losing it.
+   */
+  function flushSync() {
+    exiting = true;
+    if (fileDisabled || pending.length === 0) return;
     try {
-      // Size-based rotation: keep the active file bounded mid-run while never
-      // destroying data (the oversized file becomes a timestamped backup).
-      let size = 0;
-      try {
-        size = fsImpl.statSync(activePath).size;
-      } catch {
-        size = 0;
-      }
-      if (size > 0 && size + line.length + 1 > maxBytes) {
-        rotateExisting('size');
-      }
-      fsImpl.appendFileSync(activePath, line + '\n');
-    } catch (error) {
-      if (!fileDisabled) {
-        consoleImpl.error(`[bot-logger] Could not write log line: ${error.message} — file logging disabled`);
-      }
-      fileDisabled = true;
+      fsImpl.appendFileSync(activePath, pending.splice(0, pending.length).join('')); // hive-sync-ok: exit handler, the event loop is gone
+    } catch {
+      /* the process is exiting; nothing else can be done */
     }
   }
 
@@ -247,6 +322,8 @@ export function createBotLogger(options = {}) {
     event: (type, data) => emit('info', `EVENT ${type}`, data),
     /** Record a heartbeat marker so the last-active time is always discoverable. */
     heartbeat: data => emit('info', 'EVENT heartbeat', { pid: process.pid, ...data }),
+    flush,
+    flushSync,
     /** Re-export of the formatter for callers that need raw lines. */
     formatLine: formatLogLine,
   };

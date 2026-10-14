@@ -347,8 +347,8 @@ export const setupStdioLogInterceptor = () => {
     if (logFile && sanitizedChunk.trim()) {
       try {
         const logMessage = `[${new Date().toISOString()}] [${streamName.toUpperCase()}] ${sanitizedChunk}`;
-        fsModule.appendFileSync(logFile, logMessage + (sanitizedChunk.endsWith('\n') ? '' : '\n'), { mode: 0o600 });
-        fsModule.chmodSync(logFile, 0o600);
+        fsModule.appendFileSync(logFile, logMessage + (sanitizedChunk.endsWith('\n') ? '' : '\n'), { mode: 0o600 }); // hive-sync-ok: exit handler, no later event-loop turn
+        fsModule.chmodSync(logFile, 0o600); // hive-sync-ok: exit handler, no later event-loop turn
       } catch {
         // Exit-time logging cannot safely report another error.
       }

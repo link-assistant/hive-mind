@@ -1246,3 +1246,9 @@ process.once('SIGTERM', () => {
   console.log('\n🛑 Received SIGTERM, stopping bot... (Check system logs: journalctl -u <service> or dmesg)');
   handleShutdownSignal('SIGTERM');
 });
+// Log and session-event writes are asynchronous; whatever is still queued when
+// the process exits (shutdown event, a crash report) is written synchronously.
+process.once('exit', () => {
+  sessionStore.flushSync(); // hive-sync-ok: exit handler, the event loop is gone
+  botLogger.flushSync(); // hive-sync-ok: exit handler, the event loop is gone
+});

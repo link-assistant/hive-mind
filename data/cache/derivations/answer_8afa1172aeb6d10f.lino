@@ -1,0 +1,4 @@
+derivation
+  answer_id "answer_8afa1172aeb6d10f"
+  search_query "Formal AI sidecar lease kept for 1 h after its task container exited: containerSeen is set only when the container is seen running\n\n## Problem\n\n`reconcileSidecarLeases` (`src/docker-sidecar.lib.mjs"
+  rendering "answer_id=answer_8afa1172aeb6d10f;format=text"

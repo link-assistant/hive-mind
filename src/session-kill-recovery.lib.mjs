@@ -214,12 +214,14 @@ export async function postKillRecoveryNotice({ pullRequestUrl, commentUrl = null
 
   const bodyFile = `${tempDir.replace(/\/$/, '')}/hive-mind-kill-notice-${fileSuffix}.md`;
   try {
-    const comment = /^https:\/\/github\.com\/([\w.-]+)\/([\w.-]+)\/pull\/(\d+)#issuecomment-(\d+)$/.exec(commentUrl || '');
-    const target = /^https:\/\/github\.com\/([\w.-]+)\/([\w.-]+)\/pull\/(\d+)$/.exec(pullRequestUrl);
-    const canEdit = comment && target && comment[1] === target[1] && comment[2] === target[2] && comment[3] === target[3];
+    // Issue #2630: a session started from an issue that has no pull request yet
+    // is reported on the issue itself (`gh issue comment`).
+    const comment = /^https:\/\/github\.com\/([\w.-]+)\/([\w.-]+)\/(pull|issues)\/(\d+)#issuecomment-(\d+)$/.exec(commentUrl || '');
+    const target = /^https:\/\/github\.com\/([\w.-]+)\/([\w.-]+)\/(pull|issues)\/(\d+)$/.exec(pullRequestUrl);
+    const canEdit = comment && target && comment[1] === target[1] && comment[2] === target[2] && comment[3] === target[3] && comment[4] === target[4];
     const sanitizedBody = await sanitizeForPublication(body);
     await writeFile(bodyFile, canEdit ? JSON.stringify({ body: sanitizedBody }) : sanitizedBody);
-    const result = await runCommand('gh', canEdit ? ['api', `repos/${comment[1]}/${comment[2]}/issues/comments/${comment[4]}`, '--method', 'PATCH', '--input', bodyFile, '--jq', '.html_url'] : ['pr', 'comment', pullRequestUrl, '--body-file', bodyFile]);
+    const result = await runCommand('gh', canEdit ? ['api', `repos/${comment[1]}/${comment[2]}/issues/comments/${comment[5]}`, '--method', 'PATCH', '--input', bodyFile, '--jq', '.html_url'] : [target?.[3] === 'issues' ? 'issue' : 'pr', 'comment', pullRequestUrl, '--body-file', bodyFile]);
     if (result?.code === 0) {
       const url = String(result.stdout?.toString() || '').trim() || null;
       if (verbose) console.log(`[VERBOSE] Posted killed-session notice to ${pullRequestUrl}${url ? ` (${url})` : ''}`);

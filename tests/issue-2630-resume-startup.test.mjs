@@ -138,3 +138,25 @@ test('same-phase fallback reasons reach both GitHub and Telegram', async () => {
   assert.ok(comments[1].includes(reason));
   assert.ok(edits[1].includes(reason));
 });
+
+test('without a pull request, a recovery that could not start is reported on the issue', async () => {
+  const calls = [];
+  const issueUrl = 'https://github.com/link-assistant/hive-mind/issues/2630';
+  const sessionInfo = { chatId: 1, messageId: 2, startTime: new Date(), command: 'solve', args: [], url: issueUrl, urlContext: { owner: 'link-assistant', repo: 'hive-mind', number: 2630, type: 'issue', normalized: issueUrl } };
+  const options = {
+    runCommand: async (binary, args) => {
+      calls.push([binary, ...args]);
+      return { code: 0, stdout: `${issueUrl}#issuecomment-456`, stderr: '' };
+    },
+  };
+  const context = { sessionName: 'original', sessionInfo, attempt: 1, bot: { telegram: { editMessageText: async () => {} } }, options };
+  // Routine progress stays on Telegram.
+  await reportRecoveryLifecycle({ ...context, phase: 'waiting', delayMs: 0 });
+  assert.equal(calls.length, 0);
+  await reportRecoveryLifecycle({ ...context, phase: 'failed', reason: 'Automatic recovery could not start: container original-resume-1 exited with code 127 after 1 seconds.' });
+  assert.deepEqual(calls[0].slice(0, 4), ['gh', 'issue', 'comment', issueUrl]);
+  assert.equal(sessionInfo.recoveryLifecycle.commentUrl, `${issueUrl}#issuecomment-456`);
+  // The issue comment is then kept current instead of adding another one.
+  await reportRecoveryLifecycle({ ...context, phase: 'launching', attempt: 1 });
+  assert.deepEqual(calls[1].slice(0, 3), ['gh', 'api', 'repos/link-assistant/hive-mind/issues/comments/456']);
+});

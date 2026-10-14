@@ -89,6 +89,11 @@ export async function reportRecoveryLifecycle({ bot, sessionName, sessionInfo, s
       pr = await lookupPullRequest().catch(() => null);
       if (pr) sessionInfo.resolvedPullRequestUrl = pr;
     }
+    // Issue #2630: without a pull request, a recovery that could not start (or
+    // fell back) is still said on the issue the task was started from, and
+    // that comment keeps being updated; routine progress stays on Telegram.
+    const issueUrl = sessionInfo.urlContext?.type === 'issue' ? sessionInfo.urlContext.normalized || sessionInfo.url || null : null;
+    if (!pr && issueUrl && (reason || nextPhase === 'failed' || /\/issues\/\d+#issuecomment-\d+$/.test(state.commentUrl || ''))) pr = issueUrl;
     let githubDelivered = !pr;
     if (pr) {
       const posted = await postKillRecoveryNotice({ pullRequestUrl: pr, commentUrl: state.commentUrl, body: `${RECOVERY_LIFECYCLE_MARKER}\n${text}`, fileSuffix: `lifecycle-${String(sessionName).replace(/[^A-Za-z0-9._-]/g, '-')}`, runCommand: options.runCommand, verbose });

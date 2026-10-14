@@ -27,11 +27,11 @@ const expected = {
   jscpd: '5.4.1',
   jscpdThreshold: 12,
   lintStaged: '17.6.0',
-  node: '26.11.1',
+  node: '26.12.0',
   prettier: '3.9.10',
   sentry: '11.7.0',
   sentryProfiler: '2.4.4',
-  startCommand: '0.37.7',
+  startCommand: '0.37.8',
   useM: '8.16.4',
 };
 

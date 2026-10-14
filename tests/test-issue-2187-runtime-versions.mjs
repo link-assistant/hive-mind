@@ -40,7 +40,7 @@ const repoRoot = path.join(__dirname, '..');
 
 const DOCKERFILES = ['Dockerfile', 'Dockerfile.dind', 'coolify/Dockerfile'];
 const BOX_RELEASE = '2.10.4';
-const TASK_NODE_VERSION = '26.11.1';
+const TASK_NODE_VERSION = '26.12.0';
 const TASK_BUN_VERSION = '1.4.3';
 
 const read = relativePath => fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');

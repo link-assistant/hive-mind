@@ -13,4 +13,4 @@ Make `/claude`, `/codex` and `/agent` with `--model formal-ai` reliable end to e
 - Recoverable agent tool errors no longer abort the run.
 - The DinD image clears stale `dockerd`/`containerd` pid files before starting.
 - Formal AI draft runs report their checks on the draft head, keep tool state between iterations, and can be called from other repositories.
-- Pinned versions: `@link-assistant/agent` 0.26.15, `start-command` 0.37.7, `formal-ai` 0.353.2, `@dotenvx/dotenvx` 2.35.0.
+- Pinned versions: `@link-assistant/agent` 0.26.15, `start-command` 0.37.8, `formal-ai` 0.353.2, `@dotenvx/dotenvx` 2.35.0.

@@ -9,6 +9,13 @@ import noDirectGhExec from './eslint-rules/no-direct-gh-exec.mjs';
 import noUnretriedGitNetwork from './eslint-rules/no-unretried-git-network.mjs';
 import requireSanitizedOutput from './eslint-rules/require-sanitized-output.mjs';
 import noUnsafeTelegramSend from './eslint-rules/no-unsafe-telegram-send.mjs';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath, URL } from 'node:url';
+import promisePlugin from 'eslint-plugin-promise';
+import noSyncInBotProcess from './eslint-rules/no-sync-in-bot-process.mjs';
+import requireExecTimeout from './eslint-rules/require-exec-timeout.mjs';
+import noSlowAwaitInTelegramHandler from './eslint-rules/no-slow-await-in-telegram-handler.mjs';
+import { computeImportClosure } from './eslint-rules/bot-import-closure.mjs';
 
 // Create custom plugin for gh paginate rule
 const ghPaginatePlugin = {
@@ -60,6 +67,29 @@ const outputSanitizationPlugin = {
     'require-sanitized-output': requireSanitizedOutput,
   },
 };
+
+// Issue #3206: rules that keep the long-lived Telegram bot process responsive.
+// One slow handler or one synchronous call stalls every chat, so:
+// - hive/no-sync-in-bot-process: no `*Sync` calls in any module the bot loads;
+// - hive/no-slow-await-in-telegram-handler: handlers hand slow work to
+//   detachHandler/runInBackground instead of awaiting it;
+// - hive/require-exec-timeout: docker/git/gh child processes get a timeout.
+const hivePlugin = {
+  rules: {
+    'no-sync-in-bot-process': noSyncInBotProcess,
+    'require-exec-timeout': requireExecTimeout,
+    'no-slow-await-in-telegram-handler': noSlowAwaitInTelegramHandler,
+  },
+};
+
+const readBaseline = name => JSON.parse(readFileSync(new URL(`./eslint-rules/baselines/${name}.json`, import.meta.url), 'utf8'));
+
+// Every module reachable from the bot entry point through relative imports.
+// Computed on each lint run, so a module the bot starts importing is covered
+// without editing a list.
+const botProcessFiles = computeImportClosure(fileURLToPath(new URL('./src/telegram-bot.mjs', import.meta.url)), {
+  rootDir: fileURLToPath(new URL('.', import.meta.url)),
+});
 
 export default [
   js.configs.recommended,
@@ -194,6 +224,45 @@ export default [
     },
     rules: {
       'gh-rate-limit/no-unretried-git-network': 'error',
+    },
+  },
+  {
+    // Issue #3206: modules loaded by the bot process share its one event loop.
+    // The per-file baseline lists sync calls that existed before the rule; a
+    // file may not add more, and converting one means lowering its count.
+    // One-time startup and exit-handler code is marked `// hive-sync-ok: <reason>`.
+    // An un-returned, un-caught promise chain in the bot is an unhandled
+    // rejection waiting to happen, so promise/catch-or-return applies too.
+    files: botProcessFiles,
+    plugins: {
+      hive: hivePlugin,
+      promise: promisePlugin,
+    },
+    rules: {
+      'hive/no-sync-in-bot-process': ['error', { baseline: readBaseline('no-sync-in-bot-process') }],
+      'promise/catch-or-return': ['error', { allowFinally: true }],
+    },
+  },
+  {
+    // Issue #3206: a hung docker/git/gh process never ends by itself, wherever
+    // it is started from. The baseline lists calls that predate the rule.
+    files: ['src/**/*.{js,mjs,cjs}'],
+    plugins: {
+      hive: hivePlugin,
+    },
+    rules: {
+      'hive/require-exec-timeout': ['error', { baseline: readBaseline('require-exec-timeout') }],
+      'hive/no-slow-await-in-telegram-handler': 'error',
+    },
+  },
+  {
+    // Issue #3206: sequential awaits in a loop are often a hidden N x latency.
+    // Most hits elsewhere are deliberate (ordered git operations, retries), so
+    // the warning is limited to the bot's own telegram-*/bot-* modules, where
+    // that latency is felt by users waiting for a reply.
+    files: ['src/telegram-*.{js,mjs,cjs}', 'src/bot-*.{js,mjs,cjs}'],
+    rules: {
+      'no-await-in-loop': 'warn',
     },
   },
 ];

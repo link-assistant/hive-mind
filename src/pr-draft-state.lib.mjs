@@ -212,6 +212,12 @@ export const restoreDeliberateDraftsAtRunEnd = async ({ $, log = noopLog, format
       results.push({ owner, repo, prNumber, ok: true, changed: false, skipped: true, reason: 'human_draft' });
       continue;
     }
+    // Issue #3211: the run changed nothing, so "ready for review" would announce work that does not exist.
+    if (entry.kind === 'no_session_changes') {
+      await log(`  ℹ️  PR #${prNumber} stays a draft: this run finished without changes`);
+      results.push({ owner, repo, prNumber, ok: true, changed: false, skipped: true, reason: 'no_session_changes' });
+      continue;
+    }
     await log(`🩹 PR #${prNumber} was left in draft by a working session (${entry.reason || entry.kind}); restoring its pre-run state at ${reason}`);
     const result = await ensurePullRequestIsReady({ owner, repo, prNumber, $, log, formatAligned, reason, reportError, force: true });
     if (result?.ok) clearPullRequestLeftInDraft({ owner, repo, prNumber });

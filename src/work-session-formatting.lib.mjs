@@ -2,6 +2,7 @@ import { t } from './i18n.lib.mjs';
 import { escapeMarkdown } from './telegram-markdown.lib.mjs';
 import { FAILURE_SESSION_STATUSES, KILLED_SESSION_STATUSES, isKilledSessionStatus, describeExitSignal, normalizeExitCode } from './session-status.lib.mjs';
 import { EXIT_CODE_HIVE_NO_WORK, EXIT_CODE_HIVE_INCOMPLETE } from './hive.run-outcome.lib.mjs';
+import { EXIT_CODE_SOLVE_NO_CHANGES } from './solve.exit-codes.lib.mjs';
 
 function text(locale, key, fallback, params = {}) {
   if (!locale) return fallback;
@@ -241,6 +242,10 @@ export function formatSessionCompletionMessage({ sessionName, sessionInfo, statu
   } else if (sessionInfo?.command === 'hive' && (finalExitCode === EXIT_CODE_HIVE_NO_WORK || finalExitCode === EXIT_CODE_HIVE_INCOMPLETE)) {
     statusEmojiOverride = '⚠️';
     statusText = finalExitCode === EXIT_CODE_HIVE_NO_WORK ? text(messageLocale, 'telegram.work_session_hive_no_work', 'No issues processed; check the log for skipped issues or blockers. To continue issues with existing PRs, use `--no-skip-issues-with-prs --auto-continue`') : text(messageLocale, 'telegram.work_session_hive_incomplete', 'Hive session ended with issues still waiting; check the log for blockers');
+  } else if (sessionInfo?.command === 'solve' && finalExitCode === EXIT_CODE_SOLVE_NO_CHANGES) {
+    // Issue #3211: the run finished, but changed nothing; neither a success nor a crash.
+    statusEmojiOverride = '⚠️';
+    statusText = text(messageLocale, 'telegram.work_session_no_changes', 'Work session finished without changes; see the pull request comment for the reason');
   } else if (failed) {
     statusText = text(messageLocale, 'telegram.work_session_failed', `Work session failed (exit code: ${finalExitCode})`, { exitCode: finalExitCode });
   } else {

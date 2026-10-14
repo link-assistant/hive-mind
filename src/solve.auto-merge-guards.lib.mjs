@@ -87,6 +87,13 @@ export const buildDeliberateDraftFeedback = deliberate => {
       feedbackLines: ['📭 The previous working session produced no changes: the pull request diff against the base branch is empty.', '', 'Implement the requested change and commit it to the pull request branch. Do not report the work as done while the diff is empty.'],
     };
   }
+  // Issue #3211: the run finished but changed nothing; that is not a failed session.
+  if (deliberate?.kind === 'no_session_changes') {
+    return {
+      restartReason: 'The previous working session made no change',
+      feedbackLines: ['📭 The previous working session made no change: no new commit, no file change and no comment.', `  ${deliberate.reason || 'no reason was recorded'}`, '', 'Do the requested work and commit it to the pull request branch. Do not end the session without a change.'],
+    };
+  }
   const reason = deliberate?.reason || 'the solution session failed or verification did not succeed';
   return {
     restartReason: `The previous working session failed: ${reason}`,

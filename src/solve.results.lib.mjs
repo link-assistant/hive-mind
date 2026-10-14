@@ -23,6 +23,7 @@ const { log, getLogFile, formatAligned } = lib;
 
 // Import exit handler
 import { safeExit } from './exit-handler.lib.mjs';
+import { EXIT_CODE_SOLVE_NO_CHANGES, reportSessionWithoutChanges } from './session-changes.lib.mjs';
 // Import GitHub-related functions
 const githubLib = await import('./github.lib.mjs');
 const { sanitizeLogContent, attachLogToGitHub } = githubLib;
@@ -705,6 +706,7 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
         // Declare placeholder detection variables outside block scopes for use in return value
         let prTitleHasPlaceholder = false;
         let prBodyHasPlaceholder = false;
+        let noChanges = false; // Issue #3211: this run committed, changed and posted nothing
         // Skip PR body update and ready conversion for merged PRs (they can't be edited)
         if (!isPrMerged) {
           const issueLinkResult = await ensurePullRequestIssueLink({
@@ -798,10 +800,17 @@ Fixes ${issueRef}
           // mean something. All three reproduction runs converted a pull request
           // with an empty diff — the Rust one had zero commits on the branch —
           // and the reason string was published as if the diff had been read.
-          const { ensurePullRequestIsReady } = await import('./pr-draft-state.lib.mjs');
-          const readyResult = await ensurePullRequestIsReady({ owner, repo, prNumber: pr.number, $, log, reason: 'solution draft verified', requireChanges: true });
-          if (readyResult.reason === 'no_changes') {
-            await postNoChangesProducedComment({ owner, repo, prNumber: pr.number, changeStats: readyResult.changeStats, $, log });
+          //
+          // Issue #3211: the diff against the base branch includes earlier sessions'
+          // commits, so what this run changed is measured too (session-changes.lib.mjs).
+          const sessionOutcome = await reportSessionWithoutChanges({ owner, repo, prNumber: pr.number, issueNumber, $, log });
+          noChanges = sessionOutcome.noChanges;
+          if (!sessionOutcome.keepsDraft) {
+            const { ensurePullRequestIsReady } = await import('./pr-draft-state.lib.mjs');
+            const readyResult = await ensurePullRequestIsReady({ owner, repo, prNumber: pr.number, $, log, reason: 'solution draft verified', requireChanges: true });
+            if (readyResult.reason === 'no_changes' && !noChanges) {
+              await postNoChangesProducedComment({ owner, repo, prNumber: pr.number, changeStats: readyResult.changeStats, $, log });
+            }
           }
         }
 
@@ -839,14 +848,14 @@ Fixes ${issueRef}
             budgetStatsData,
           });
         }
-        await log('\n🎉 SUCCESS: A solution draft has been prepared as a pull request');
+        if (!noChanges) await log('\n🎉 SUCCESS: A solution draft has been prepared as a pull request');
         await log(`📍 URL: ${pr.url}`);
         if (shouldAttachLogs && logUploadSuccess) {
           await log('📎 Solution draft log has been attached to the Pull Request');
         } else if (shouldAttachLogs && !logUploadSuccess) {
           await log('⚠️  Solution draft log upload was requested but failed');
         }
-        await log('\n✨ Please review the pull request for the proposed solution draft.');
+        if (!noChanges) await log('\n✨ Please review the pull request for the proposed solution draft.');
         // Don't exit if watch mode is enabled OR if auto-restart is needed for uncommitted changes
         // Also don't exit if auto-restart-on-non-updated-pull-request-description detected placeholders
         // Issue #1219: Also don't exit if auto-merge or auto-restart-until-mergeable is enabled
@@ -859,6 +868,7 @@ Fixes ${issueRef}
           await log('\n🔄 Auto-merge mode enabled - will attempt to merge after verification');
         }
         if (!argv.watch && !shouldRestart && !shouldAutoRestartForPlaceholder && !shouldWaitForAutoMerge) {
+          if (noChanges) await safeExit(EXIT_CODE_SOLVE_NO_CHANGES, 'Finished without changes', { skipPreExit: true, warning: true });
           await safeExit(0, 'Process completed successfully');
         }
         // Issue #1154: Return logUploadSuccess to prevent duplicate log uploads

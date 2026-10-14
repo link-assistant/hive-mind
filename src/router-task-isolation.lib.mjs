@@ -140,6 +140,7 @@ export const watchRouterTaskContainer = ({ router, sessionId, env = process.env,
   if (!router || router.external || !sessionId) return null;
   let child;
   try {
+    // hive-exec-timeout-ok: `docker wait` lasts as long as the task container; stop() kills it
     child = spawn('docker', ['wait', sessionId], { stdio: ['ignore', 'pipe', 'pipe'] });
   } catch (error) {
     console.error(`[router-isolation] Could not start 'docker wait ${sessionId}', the token will be revoked by the next maintenance tick instead: ${error?.message || error}`);

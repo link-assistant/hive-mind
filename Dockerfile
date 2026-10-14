@@ -19,7 +19,7 @@
 #
 # Build: docker build -t konard/hive-mind .
 
-ARG FORMAL_AI_VERSION=0.353.1
+ARG FORMAL_AI_VERSION=0.353.2
 # Bookworm's glibc 2.36 remains compatible with the Ubuntu 24.04 Box runtime.
 FROM rust:1.99-slim-bookworm AS formal-ai-builder
 ARG FORMAL_AI_VERSION
@@ -161,7 +161,7 @@ RUN command -v file >/dev/null || HOMEBREW_NO_AUTO_UPDATE=1 brew install file
 # pointing at browsers the image does not have), then every other version
 # directory is removed. `.node-bin`, `nvm use default` and a bare `node` then
 # all resolve to the same, newest runtime (issue #2187, item A).
-ARG HIVE_MIND_NODE_VERSION=26.11.1
+ARG HIVE_MIND_NODE_VERSION=26.12.0
 ARG HIVE_MIND_BUN_VERSION=1.4.3
 RUN set -e && \
     . "$NVM_DIR/nvm.sh" && \
@@ -246,7 +246,7 @@ RUN bun install -g @openai/codex && \
 # Note: start-command provides `$` CLI for isolation modes (--isolation screen/tmux/docker)
 # The Box base image includes screen. For tmux/docker isolation, ensure they are
 # available in the base image or install them separately.
-# start-command is pinned to 0.37.5: 0.29.1 fixed detached docker
+# start-command is pinned to 0.37.8: 0.29.1 fixed detached docker
 # `--status`/`--list` reporting a terminal status (`executed`) with the `-1`
 # sentinel while the container is still running (link-foundation/start#136,
 # link-assistant/hive-mind#1939); 0.29.2 (start#138 / start PR #139) records the
@@ -307,8 +307,11 @@ RUN bun install -g @openai/codex && \
 # shell argument and exit-code handling. 0.37.1 observes Docker CPU limits
 # applied after launch and recovers CPU penalty monitors after crashes. 0.37.2
 # attributes exit 137 to recent Docker OOM events when the last cgroup sample
-# misses the final kill; 0.37.3-0.37.5 only change the release pipeline.
-# `@link-assistant/agent` is pinned to current 0.26.13. Version 0.26.1 stopped the
+# misses the final kill; 0.37.3-0.37.6 only change the release pipeline.
+# 0.37.7 keeps penalizedMs and lifts the CPU cap promptly when the monitor
+# stops gracefully. 0.37.8 keeps the command running and exits with its own
+# code when stdout/stderr is a closed pipe (start#222).
+# `@link-assistant/agent` is pinned to current 0.26.15. Version 0.26.1 stopped the
 # unbounded snapshot leak of issue #2186. Up to 0.26.0 `Snapshot.track()` built a
 # standalone git object store per project — keyed on the worktree's root commit,
 # with no `objects/info/alternates` and no garbage collection — so a harness that
@@ -319,14 +322,17 @@ RUN bun install -g @openai/codex && \
 # link-assistant/agent#298 (PR #300) shares the repository's objects and prunes
 # projects whose recorded worktree is gone. `src/agent.lib.mjs` enforces the same
 # floor at runtime, so the pin and the guard cannot drift apart.
+# 0.26.14 reports a failed tool call only on its tool_use event instead of a
+# top-level error event (link-assistant/agent#332), so a missing file read no
+# longer ends the run.
 RUN echo "Installing @link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
     bun install -g "@link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
     if [ "${HIVE_MIND_VERSION}" != "latest" ]; then \
       test "$(hive --version)" = "${HIVE_MIND_VERSION}"; \
     fi && \
     bun install -g @link-assistant/claude-profiles && \
-    bun install -g @link-assistant/agent@0.26.13 && \
-    bun install -g start-command@0.37.5 && \
+    bun install -g @link-assistant/agent@0.26.15 && \
+    bun install -g start-command@0.37.8 && \
     bun install -g gh-setup-git-identity && \
     bun install -g gh-pull-all && \
     bun install -g gh-load-issue && \

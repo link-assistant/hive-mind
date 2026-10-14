@@ -43,6 +43,7 @@
  * @see https://github.com/link-assistant/hive-mind/issues/2202
  */
 
+import { isFormalAiModel } from './formal-ai-model.lib.mjs';
 import { buildRouterGitUrlPrefix, buildRouterToolServiceUrl, resolveRouterRouteDialect, ROUTER_TOOL_SERVICE } from './router-routes.lib.mjs';
 
 export const ROUTER_SIDECAR_CONTAINER_NAME = 'hive-mind-router';
@@ -567,7 +568,7 @@ export function describeRouterCoverageGaps({ model = null, tool = 'claude', gith
     gaps.push(`Routing for '${normalizeTool(tool)}' is less exercised than Claude Code: it is wired through the router's OpenAI-compatible surface and a generated provider entry, and only Claude Code has an end-to-end proof in experiments/issue-2164/.`);
   }
   const requested = String(model || '').trim();
-  if (requested === 'formal-ai') {
+  if (isFormalAiModel(requested)) {
     gaps.push("Formal AI is registered on the router as an OpenAI-compatible provider, so `--model formal-ai` is served through it and appears in the audit log. The Formal AI sidecar's own upstream calls are not routed yet: when it is run in agent mode against a vendor API, that leg still leaves the sidecar directly.");
   } else if (requested && !/\d/.test(requested)) {
     // The router ships no alias table by design (upstream router#192), and

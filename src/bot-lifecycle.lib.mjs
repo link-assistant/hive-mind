@@ -26,9 +26,13 @@ const DEFAULT_HEARTBEAT_INTERVAL_MS = 60 * 1000;
  * crash the bot, and the interval is unref'd so it never keeps the process alive
  * on its own.
  *
+ * `getHandlerStats` (optional) adds the update-handler counters — how many
+ * handlers held the update loop past the watchdog threshold, and how many
+ * background command jobs are running — to every beat.
+ *
  * @returns {{ start: () => void, stop: () => void, beat: () => void, get timer(): any }}
  */
-export function createHeartbeat({ logger, getActiveSessionCount, intervalMs = DEFAULT_HEARTBEAT_INTERVAL_MS, processImpl = process, setIntervalImpl = setInterval, clearIntervalImpl = clearInterval, captureResources = captureResourceSnapshot, resourceDiskPath = '/' } = {}) {
+export function createHeartbeat({ logger, getActiveSessionCount, intervalMs = DEFAULT_HEARTBEAT_INTERVAL_MS, processImpl = process, setIntervalImpl = setInterval, clearIntervalImpl = clearInterval, captureResources = captureResourceSnapshot, resourceDiskPath = '/', getHandlerStats = null } = {}) {
   let timer = null;
 
   const beat = () => {
@@ -46,10 +50,17 @@ export function createHeartbeat({ logger, getActiveSessionCount, intervalMs = DE
       } catch {
         resources = null;
       }
+      let handlers;
+      try {
+        handlers = typeof getHandlerStats === 'function' ? getHandlerStats() : undefined;
+      } catch {
+        handlers = undefined;
+      }
       logger.heartbeat({
         activeSessions: typeof getActiveSessionCount === 'function' ? getActiveSessionCount(false) : undefined,
         uptimeSec: Math.floor(processImpl.uptime()),
         resources,
+        ...(handlers ? { handlers } : {}),
       });
       // Issue #2189: the bot walked from 1.78 GB to 1.84 GB of RSS against its
       // own ~2 GB heap cap while re-reporting one dead session, and nothing in

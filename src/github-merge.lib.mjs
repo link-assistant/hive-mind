@@ -38,8 +38,9 @@ import { checkIssueLinksBeforeMerge, closeLinkedIssuesAfterMerge } from './issue
 // so genuine failures (404, auth, malformed JSON downstream) surface to the
 // caller — they MUST NOT be swallowed as in the original /merge bug where a
 // rate-limit error was silently treated as "no workflows".
+// hive-exec-timeout-ok: every call gets githubLimits.execTimeoutMs unless it passes its own timeout
 const exec = (cmd, opts = {}) =>
-  ghWithRateLimitRetry(() => execRaw(cmd, { maxBuffer: githubLimits.bufferMaxSize, ...opts }), {
+  ghWithRateLimitRetry(() => execRaw(cmd, { maxBuffer: githubLimits.bufferMaxSize, timeout: githubLimits.execTimeoutMs, ...opts }), {
     label: `gh exec (${cmd.split(/\s+/).slice(0, 3).join(' ')})`,
   });
 

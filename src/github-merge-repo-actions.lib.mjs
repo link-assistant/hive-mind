@@ -19,8 +19,9 @@ const execRaw = promisify(execCallback);
 // API responses (workflow runs can easily exceed that on busy repos).
 // Issue #1726: wrap with rate-limit retry so a 5,000/hr quota hit waits for
 // reset instead of bubbling up as a generic fetch failure.
+// hive-exec-timeout-ok: every call gets githubLimits.execTimeoutMs unless it passes its own timeout
 const exec = (cmd, opts = {}) =>
-  ghWithRateLimitRetry(() => execRaw(cmd, { maxBuffer: githubLimits.bufferMaxSize, ...opts }), {
+  ghWithRateLimitRetry(() => execRaw(cmd, { maxBuffer: githubLimits.bufferMaxSize, timeout: githubLimits.execTimeoutMs, ...opts }), {
     label: `gh exec (${cmd.split(/\s+/).slice(0, 3).join(' ')})`,
   });
 

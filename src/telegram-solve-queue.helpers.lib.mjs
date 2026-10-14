@@ -67,8 +67,11 @@ export function formatQueueHistorySection({ items, emoji, label, max, locale, wi
   if (!items || items.length === 0) return '';
   let section = `${indent}*${label}* (${items.length}):\n`;
   for (const item of [...items].reverse().slice(0, max)) {
-    section += `${indent}  ${emoji} ${formatQueueItemLink(item.url)}`;
+    // Issue #3215: a solve that finished without changes is listed as done, but not as a success.
+    const noChanges = item.sessionOutcome?.noChanges === true;
+    section += `${indent}  ${noChanges ? '⚠️' : emoji} ${formatQueueItemLink(item.url)}`;
     if (withError && item.error) section += ` — ${escapeTopLevelMarkdown(item.error)}`;
+    else if (noChanges) section += ` — ${escapeTopLevelMarkdown(lt('queue_no_changes', {}, { locale }))}`;
     section += '\n';
   }
   if (items.length > max) {

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable no-await-in-loop -- a poll loop: wait, then check again */
 /**
  * Wait helpers for Telegram merge queue.
  *

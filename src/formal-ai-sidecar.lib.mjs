@@ -41,18 +41,17 @@
  * @see https://github.com/link-assistant/hive-mind/pull/2147
  */
 
-import { execFile } from 'node:child_process';
 import fs from 'node:fs';
-import { promisify } from 'node:util';
 
+import { dockerExecFileAsync } from './docker-pull-detached.lib.mjs';
 import { FORMAL_AI_MINIMUM_VERSION, isFormalAiVersionAtLeast } from './formal-ai-version.lib.mjs';
-import { ensureFormalAiSidecarImage, readAcceptedFormalAiImage, resolveFormalAiSidecarImage } from './formal-ai-image.lib.mjs';
+import { ensureFormalAiSidecarImage, readAcceptedFormalAiImage, readFormalAiImageCommand, resolveFormalAiSidecarImage } from './formal-ai-image.lib.mjs';
 import { isFormalAiModel } from './formal-ai-model.lib.mjs';
 import { getModelFromArgs } from './model-args.lib.mjs';
 import { withStateLock } from './state-lock.lib.mjs';
-import { attachDockerNetwork, DEFAULT_IMAGE_TIMEOUT_MS, dockerOk, dockerText, ensureDockerVolume, ensureInternalDockerNetwork, inspectDockerContainer, readDockerContainerAddress, readDockerImageDigest, readSidecarState, reconcileSidecarLeases, resolveSidecarStatePath, sleep, writeSidecarState } from './docker-sidecar.lib.mjs';
+import { attachDockerNetwork, DEFAULT_IMAGE_TIMEOUT_MS, describeLeaseLauncher, dockerOk, dockerText, ensureDockerVolume, ensureInternalDockerNetwork, inspectDockerContainer, readDockerContainerAddress, readDockerImageDigest, readSidecarState, reconcileSidecarLeases, resolveSidecarStatePath, sleep, writeSidecarState } from './docker-sidecar.lib.mjs';
 
-const execFileAsync = promisify(execFile);
+const execFileAsync = dockerExecFileAsync;
 
 // Re-exported because callers of this module have always imported them from
 // here; the implementations now live in the shared sidecar module.
@@ -224,8 +223,14 @@ export const ensureFormalAiMemoryVolume = async ({ image, run = execFileAsync, t
   return result;
 };
 
-/** Build the `docker run` argv for the sidecar. Exported so tests can assert the contract. */
-export const buildFormalAiSidecarRunArgs = ({ image, env = process.env, containerName = FORMAL_AI_SIDECAR_CONTAINER_NAME } = {}) => {
+/**
+ * Build the `docker run` argv for the sidecar. Exported so tests can assert the contract.
+ *
+ * `command` is what starts `formal-ai` in this image (see `readFormalAiImageCommand`):
+ * `['formal-ai']` for an image whose entrypoint runs its arguments, `[]` for the
+ * slim image whose entrypoint is `formal-ai` itself.
+ */
+export const buildFormalAiSidecarRunArgs = ({ image, env = process.env, containerName = FORMAL_AI_SIDECAR_CONTAINER_NAME, command = ['formal-ai'] } = {}) => {
   const args = ['run', '--detach', '--name', containerName, '--label', `${FORMAL_AI_SIDECAR_LABEL}=sidecar`, '--network', FORMAL_AI_SIDECAR_NETWORK_NAME, '--network-alias', FORMAL_AI_SIDECAR_NETWORK_ALIAS, '--restart', 'no'];
 
   if (shouldRunPrivilegedFormalAiSidecar(env)) args.push('--privileged');
@@ -246,7 +251,7 @@ export const buildFormalAiSidecarRunArgs = ({ image, env = process.env, containe
     // anonymous volume per image `VOLUME`.
     ...FORMAL_AI_SIDECAR_SCRATCH_PATHS.flatMap(scratch => ['--tmpfs', scratch]),
     image,
-    'formal-ai',
+    ...command,
     'serve',
     '--agent-mode',
     '--host',
@@ -286,7 +291,7 @@ export const waitForFormalAiSidecarHealth = async ({ containerName = FORMAL_AI_S
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     last = await checkFormalAiSidecarHealth({ containerName, run });
     if (last.healthy) {
-      if (verbose && log) await log(`[VERBOSE] formal-ai-sidecar: '${containerName}' healthy after ${attempt} probe(s) (version=${last.health?.version ?? 'unknown'}, memory schema=${last.health?.memory?.schema_version ?? 'unknown'})`);
+      if (verbose && log) await log(`[VERBOSE] formal-ai-sidecar: '${containerName}' healthy after ${attempt} probe(s) (version=${last.health?.version ?? 'unknown'}, memory schema=${last.health?.memory?.schema_version ?? 'not reported'})`);
       return last;
     }
     if (attempt < attempts) await sleepImpl(delayMs);
@@ -397,7 +402,8 @@ export const acquireFormalAiSidecar = async ({ sessionId, tool = null, model = n
 
       if (!container.exists) {
         if (log) await log(`🧠 Starting the Formal AI sidecar (${imageReference}${imageReference === image ? '' : ` @ ${image}`}, ${resolved.source}) on the internal network '${FORMAL_AI_SIDECAR_NETWORK_NAME}'`);
-        await dockerText(run, buildFormalAiSidecarRunArgs({ image, env }), { timeoutMs });
+        const command = await readFormalAiImageCommand(image, { run, timeoutMs });
+        await dockerText(run, buildFormalAiSidecarRunArgs({ image, env, command }), { timeoutMs });
         container = await inspectDockerContainer(FORMAL_AI_SIDECAR_CONTAINER_NAME, { run, timeoutMs });
       }
 
@@ -419,7 +425,7 @@ export const acquireFormalAiSidecar = async ({ sessionId, tool = null, model = n
 
       const address = await readFormalAiSidecarAddress({ run, timeoutMs });
       const acquiredAt = now().toISOString();
-      const nextLeases = [...leases.filter(lease => lease.sessionId !== sessionId), { sessionId, tool, model, acquiredAt }];
+      const nextLeases = [...leases.filter(lease => lease.sessionId !== sessionId), { sessionId, tool, model, acquiredAt, launcher: describeLeaseLauncher() }];
       // The provenance of what is *actually serving* this lease, so a task's
       // evidence can name the release that answered its requests rather than
       // whatever binary happens to sit next to the wrapper (issue #2208).
@@ -434,7 +440,7 @@ export const acquireFormalAiSidecar = async ({ sessionId, tool = null, model = n
       };
       writeFormalAiSidecarState({ ...state, image: container.image || image, imageReference, imageDigest: container.imageDigest, startedAt: state.startedAt || acquiredAt, leases: nextLeases, serving, lastUsedAt: acquiredAt }, { env, fsImpl });
 
-      if (verbose && log) await log(`[VERBOSE] formal-ai-sidecar: lease '${sessionId}' acquired (${nextLeases.length} active), image=${imageReference} (${resolved.source}), digest=${container.imageDigest ?? 'unknown'}, address=${address ?? 'unknown'}, formal-ai=${reportedVersion ?? 'unknown'}, memory schema=${serving.memorySchemaVersion ?? 'unknown'}`);
+      if (verbose && log) await log(`[VERBOSE] formal-ai-sidecar: lease '${sessionId}' acquired (${nextLeases.length} active), image=${imageReference} (${resolved.source}), digest=${container.imageDigest ?? 'unknown'}, address=${address ?? 'unknown'}, formal-ai=${reportedVersion ?? 'unknown'}, memory schema=${serving.memorySchemaVersion ?? 'not reported'}`);
 
       return {
         address,

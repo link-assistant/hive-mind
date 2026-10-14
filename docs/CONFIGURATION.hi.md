@@ -68,13 +68,14 @@ Hive Mind एप्लिकेशन environment variables और command-line 
 
 ### 3. GitHub API सीमाएँ
 
-| Environment Variable                   | डिफ़ॉल्ट | विवरण                                          |
-| -------------------------------------- | -------- | ---------------------------------------------- |
-| `HIVE_MIND_GITHUB_COMMENT_MAX_SIZE`    | 65536    | GitHub comments का अधिकतम आकार (bytes)         |
-| `HIVE_MIND_GITHUB_FILE_MAX_SIZE`       | 26214400 | GitHub ऑपरेशन के लिए अधिकतम फ़ाइल आकार (25MB)  |
-| `HIVE_MIND_GITHUB_ISSUE_BODY_MAX_SIZE` | 60000    | issue body का अधिकतम आकार (bytes)              |
-| `HIVE_MIND_GITHUB_ATTACHMENT_MAX_SIZE` | 10485760 | अधिकतम attachment आकार (10MB)                  |
-| `HIVE_MIND_GITHUB_BUFFER_MAX_SIZE`     | 10485760 | GitHub ऑपरेशन के लिए अधिकतम buffer आकार (10MB) |
+| Environment Variable                   | डिफ़ॉल्ट | विवरण                                                               |
+| -------------------------------------- | -------- | ------------------------------------------------------------------- |
+| `HIVE_MIND_GITHUB_COMMENT_MAX_SIZE`    | 65536    | GitHub comments का अधिकतम आकार (bytes)                              |
+| `HIVE_MIND_GITHUB_FILE_MAX_SIZE`       | 26214400 | GitHub ऑपरेशन के लिए अधिकतम फ़ाइल आकार (25MB)                       |
+| `HIVE_MIND_GITHUB_ISSUE_BODY_MAX_SIZE` | 60000    | issue body का अधिकतम आकार (bytes)                                   |
+| `HIVE_MIND_GITHUB_ATTACHMENT_MAX_SIZE` | 10485760 | अधिकतम attachment आकार (10MB)                                       |
+| `HIVE_MIND_GITHUB_BUFFER_MAX_SIZE`     | 10485760 | GitHub ऑपरेशन के लिए अधिकतम buffer आकार (10MB)                      |
+| `HIVE_MIND_GITHUB_EXEC_TIMEOUT_MS`     | 600000   | एक `gh` कॉल का अधिकतम समय, जिसके बाद उसे रोक दिया जाता है (10 मिनट) |
 
 ### 4. सिस्टम संसाधन सीमाएँ
 
@@ -430,6 +431,14 @@ Issue #2192: git क्रेडेंशियल हेल्पर तभी 
 | `HIVE_MIND_DISABLE_GIT_AUTH_TRANSPORT` | false            | git डाउनलोड को अनाम रखने के लिए `1`/`true`/`yes` सेट करें (पूर्व-प्रमाणीकरण बंद)     |
 | `HIVE_MIND_GIT_AUTH_TRANSPORT`         | (solve सेट करता) | नैदानिक चिह्न: वे होस्ट जिनका git ट्रैफ़िक प्रमाणित है                               |
 | `GH_TOKEN` / `GITHUB_TOKEN`            | (अनसेट)          | सेट होने पर git ट्रांसपोर्ट के लिए उपयोग किया जाने वाला टोकन; अन्यथा `gh auth token` |
+
+### 19. solve निकास कोड
+
+Issue #3211: जब कोई रन बिना बदलाव के समाप्त होता है (इस रन ने कोई commit, फ़ाइल बदलाव या टिप्पणी नहीं की), तो `solve` 5 के साथ निकलता है। पहले ऐसा रन 0 के साथ निकलता था।
+
+| Environment Variable                   | डिफ़ॉल्ट | विवरण                                                                                                                                                                     |
+| -------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `HIVE_MIND_SOLVE_NO_CHANGES_EXIT_CODE` | 5        | बिना बदलाव वाले रन का निकास कोड (0-255)। हर nonzero निकास को त्रुटि मानने वाली स्क्रिप्ट के लिए `0` सेट करें; रन फिर भी ⚠️ बिना बदलाव के समाप्त के रूप में दिखाया जाता है |
 
 ## Command-Line विकल्प
 

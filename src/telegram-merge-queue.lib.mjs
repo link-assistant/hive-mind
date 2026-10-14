@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable no-await-in-loop -- the merge queue handles one pull request at a time and polls GitHub between steps */
 /**
  * Telegram Merge Queue Library
  *

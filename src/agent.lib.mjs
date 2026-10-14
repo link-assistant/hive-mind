@@ -32,9 +32,9 @@ import { createDisabledAttributionSession, resolveFormalAiAttributionSession } f
 import { checkPlaywrightMcpPackageAvailability, getAgentPlaywrightMcpDisableEnv } from './playwright-mcp.lib.mjs';
 import { getAgentModelOverlayEnv } from './agent-model-overlay.lib.mjs';
 import { createAgentTokenUsage, accumulateAgentStepFinishUsage, parseAgentTokenUsage } from './agent-token-usage.lib.mjs';
-import { createJsonStreamScanner, parseJsonRecords } from './json-stream.lib.mjs';
+import { createJsonStreamScanner } from './json-stream.lib.mjs';
 import { createToolCallLoopGuard, resolveRepeatedToolCallLimit } from './tool-call-loop-guard.lib.mjs'; // Issue #2316, #2395
-import { firstErrorText, stringifyErrorValue } from './error-text.lib.mjs';
+import { describeAgentToolError, detectAgentErrorsInOutput, detectFatalAgentLogRecord, extractAgentErrorText, isAgentErrorRecord, isRecoverableAgentToolError, omitRawRecords } from './agent-error-events.lib.mjs';
 import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { attachStreamingInput, finalizeBidirectionalHandler, setupBidirectionalHandler } from './bidirectional-interactive.lib.mjs';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
@@ -42,91 +42,7 @@ import { buildAgentArgs, detectFormalAiAgentRoutingMismatch, formatAgentArgsForD
 import { isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236 / #2247 (H5)
 
 export { createAgentTokenUsage, accumulateAgentStepFinishUsage, parseAgentTokenUsage };
-
-/**
- * Render one streamed agent error record as human-readable text (issue #2141).
- *
- * `@link-assistant/agent` 0.25.x publishes `NamedError.toObject()` under the
- * `error` key: `{"type":"error","error":{"name":"RetryTimeoutExceededError",
- * "data":{"message":"…"}}}`. The previous chain `data.message || data.error ||
- * raw.substring(0, 100)` returned that *object*, and interpolating it into
- * `Agent reported error: ${…}` produced the reason published to GitHub in issue
- * #2141: "AGENT execution failed with Agent reported error: [object Object]".
- *
- * @param {object} record - a sanitized JSON record from the agent stream.
- * @param {string} [raw] - the raw record text, used as a last resort.
- * @returns {string} readable error text, never `[object Object]`.
- */
-export const extractAgentErrorText = (record, raw = '') => {
-  const fallback = String(raw || '').substring(0, 200) || 'Agent emitted an error event without any details';
-  return firstErrorText([record?.message, record?.error, record?.data, record], { fallback });
-};
-
-/**
- * Model/provider initialization failures that leave the session unable to do any
- * work at all (issue #2141).
- */
-const FATAL_AGENT_LOG_PATTERNS = [/ProviderModelNotFoundError/i, /ProviderInitError/i, /NoSuchModelError/i, /ModelNotFoundError/i, /failed to initialize .*model/i];
-
-/**
- * Detect an agent `log` record that reports a fatal startup failure (issue #2141).
- *
- * Reproduced locally with agent CLI 0.25.5: `agent --model nonexistent/model`
- * prints
- *
- *   {"type":"log","level":"error","service":"session.prompt",
- *    "error":"ProviderModelNotFoundError",
- *    "hint":"Check that the model exists in the provider",
- *    "message":"Failed to initialize specified model - NOT falling back to default"}
- *
- * then `session.idle` and exits **0** without ever emitting `{"type":"error"}`.
- * Hive Mind therefore reported the run as a success with no result summary, which
- * is the same class of undiagnosable outcome as issue #2141's `[object Object]`:
- * the run failed, but nothing said so.
- *
- * @param {object} record - a sanitized JSON record from the agent stream.
- * @returns {string|null} readable failure text, or null when the record is not fatal.
- */
-export const detectFatalAgentLogRecord = record => {
-  if (!record || typeof record !== 'object') return null;
-  if (record.type !== 'log' || record.level !== 'error') return null;
-
-  const text = firstErrorText([record.error, record.message], { fallback: '' });
-  if (!text) return null;
-  const haystack = `${stringifyErrorValue(record.error)} ${stringifyErrorValue(record.message)}`;
-  if (!FATAL_AGENT_LOG_PATTERNS.some(pattern => pattern.test(haystack))) return null;
-
-  const parts = [stringifyErrorValue(record.error), stringifyErrorValue(record.message), record.hint ? `hint: ${stringifyErrorValue(record.hint)}` : ''];
-  return parts.filter(Boolean).join(' — ');
-};
-
-/**
- * Scan agent stdout for explicit JSON error records (issues #1201, #2119, #2141).
- *
- * Exported so the detection precedence can be tested directly instead of being
- * re-implemented in tests (the old duplicate in tests/test-agent-error-detection.mjs
- * kept the `[object Object]` bug invisible).
- *
- * @param {string} stdoutOutput - captured agent stdout.
- * @returns {{detected: boolean, type?: string, match?: string, record?: object}}
- */
-export const detectAgentErrorsInOutput = stdoutOutput => {
-  // Issue #2119: frame records by balanced JSON, not by newlines, so
-  // pretty-printed and concatenated records are still inspected.
-  for (const record of parseJsonRecords(stdoutOutput)) {
-    const msg = sanitizeObjectStrings(record);
-
-    // Issue #1968: ignore bare `null`/primitive records (msg.type would throw on null).
-    if (msg === null || typeof msg !== 'object') continue;
-
-    // Check for explicit error message types from agent
-    if (msg.type === 'error' || msg.type === 'step_error') {
-      return { detected: true, type: 'AgentError', match: extractAgentErrorText(msg, JSON.stringify(msg)), record: msg };
-    }
-  }
-
-  return { detected: false };
-};
+export { detectAgentErrorsInOutput, detectFatalAgentLogRecord, extractAgentErrorText };
 
 // Import pricing functions from claude.lib.mjs
 // We reuse fetchModelInfo and checkModelVisionCapability to get data from models.dev API
@@ -748,6 +664,7 @@ export const executeAgentCommand = async params => {
       // Post-hoc detection on fullOutput can miss errors if NDJSON lines get concatenated without newlines
       let streamingErrorDetected = false;
       let streamingErrorMessage = null;
+      const recoverableToolErrorRecords = []; // raw records, kept out of the raw-text fallback scan
       // Only a strong terminal success record may clear a preceding error.
       // `session.idle` is also emitted after terminal API failures (#2146).
       let agentCompletedSuccessfully = false;
@@ -824,8 +741,12 @@ export const executeAgentCommand = async params => {
             execCommand?.kill?.('SIGTERM');
           }
         }
-        // Issue #1201: Detect error events during streaming for reliable detection
-        if (data.type === 'error' || data.type === 'step_error') {
+        // A failed tool call is a tool result the model recovers from, not a run error.
+        if (isRecoverableAgentToolError(data)) {
+          recoverableToolErrorRecords.push(raw);
+          await log(`ℹ️  ${describeAgentToolError(data, raw)}`);
+        } else if (isAgentErrorRecord(data)) {
+          // Issue #1201: Detect error events during streaming for reliable detection
           streamingErrorDetected = true;
           // Issue #2141: render `{name, data:{message}}` payloads as text so the
           // published failure reason is diagnosable instead of "[object Object]".
@@ -963,6 +884,7 @@ export const executeAgentCommand = async params => {
       // The fallback can cause false positives when error events (like AI_JSONParseError)
       // appear in the output but the agent recovered and completed successfully
       if (!outputError.detected && !streamingErrorDetected && !(exitCode === 0 && agentCompletedSuccessfully)) {
+        const fallbackOutput = omitRawRecords(fullOutput, recoverableToolErrorRecords);
         // Check for error type patterns in raw output (handles pretty-printed JSON)
         const errorTypePatterns = [
           { pattern: '"type": "error"', type: 'AgentError' },
@@ -972,14 +894,14 @@ export const executeAgentCommand = async params => {
         ];
 
         for (const { pattern, type } of errorTypePatterns) {
-          if (fullOutput.includes(pattern)) {
+          if (fallbackOutput.includes(pattern)) {
             outputError.detected = true;
             outputError.type = type;
             // Issue #1276: Try to extract the error message from the output
             // First try "error" field (agent error format), then "message" field (generic format)
             // Find the error closest to the "type": "error" pattern for more accurate extraction
-            const patternIndex = fullOutput.indexOf(pattern);
-            const relevantOutput = patternIndex >= 0 ? fullOutput.substring(patternIndex) : fullOutput;
+            const patternIndex = fallbackOutput.indexOf(pattern);
+            const relevantOutput = patternIndex >= 0 ? fallbackOutput.substring(patternIndex) : fallbackOutput;
             // Look for "error" or "message" field near the error type pattern
             const errorFieldMatch = relevantOutput.match(/"error":\s*"([^"]+)"/);
             const messageFieldMatch = relevantOutput.match(/"message":\s*"([^"]+)"/);
@@ -999,10 +921,10 @@ export const executeAgentCommand = async params => {
           ];
 
           for (const { pattern, extract } of criticalErrorPatterns) {
-            if (fullOutput.includes(pattern)) {
+            if (fallbackOutput.includes(pattern)) {
               outputError.detected = true;
               outputError.type = 'CriticalError';
-              const match = fullOutput.match(extract);
+              const match = fallbackOutput.match(extract);
               outputError.match = match ? match[0] : `Critical error pattern detected: ${pattern}`;
               await log(`⚠️  Critical error pattern detected via fallback: ${outputError.match}`, { level: 'warning' });
               break;

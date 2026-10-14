@@ -109,7 +109,7 @@ export const delegateSignalHandling = (enabled = true) => {
 /**
  * Display the exit message with log path
  */
-const showExitMessage = async (reason = 'Process exiting', code = 0) => {
+const showExitMessage = async (reason = 'Process exiting', code = 0, warning = false) => {
   if (exitMessageShown || !getLogPathFunction || !logFunction) {
     return;
   }
@@ -123,6 +123,8 @@ const showExitMessage = async (reason = 'Process exiting', code = 0) => {
   await logFunction('');
   if (code === 0) {
     await logFunction(`✅ ${reason}`);
+  } else if (warning) {
+    await logFunction(`⚠️  ${reason}`, { level: 'warning' });
   } else {
     await logFunction(`❌ ${reason}`, { level: 'error' });
   }
@@ -267,14 +269,16 @@ export const logActiveHandles = async (log = null) => {
  *   (e.g. on graceful shutdown, which is NOT a failure and must not post a "solver failed" comment).
  * @param {string|null} [options.failureActionSection=null] - Optional prebuilt user-facing recovery
  *   guidance for the pre-exit notifier.
+ * @param {boolean} [options.warning=false] - Issue #3211: a non-zero code that is an outcome, not
+ *   a failure (solve's "finished without changes"), is shown with ⚠️ instead of ❌.
  */
-export const safeExit = async (code = 0, reason = 'Process completed', { skipPreExit = false, failureActionSection = null } = {}) => {
+export const safeExit = async (code = 0, reason = 'Process completed', { skipPreExit = false, failureActionSection = null, warning = false } = {}) => {
   // Issue #2117: every best-effort step below is diagnostic housekeeping. It may
   // fail, but it must never change the exit code the caller asked for — neither
   // by masking a failure nor by turning a success into an uncaught exception.
   await runRunEndHookOnce({ code, reason });
   try {
-    await showExitMessage(reason, code);
+    await showExitMessage(reason, code, warning);
   } catch (error) {
     console.warn(`⚠️  Could not show exit message: ${error?.message || error}`);
   }

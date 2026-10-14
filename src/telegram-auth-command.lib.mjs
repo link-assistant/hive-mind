@@ -157,6 +157,7 @@ export async function isAuthOperator({ telegram, userId, allowedChatIds }) {
   for (const chatId of allowedChatIds) {
     if (String(chatId) === String(userId)) return true;
     try {
+      // eslint-disable-next-line no-await-in-loop -- stops at the first chat the user owns
       const member = await telegram.getChatMember(chatId, userId);
       if (member?.status === 'creator') return true;
     } catch {
@@ -222,7 +223,7 @@ export function runAuthCommand(command, args, options = {}) {
 }
 
 export function registerAuthCommand(bot, options = {}) {
-  const { VERBOSE = false, isOldMessage, isForwardedOrReply, allowedChats, authEnabled = true } = options;
+  const { VERBOSE = false, isOldMessage, isForwardedOrReply, allowedChats, authEnabled = true, detachHandler = handler => handler } = options;
   const execute = options.runCommand || runAuthCommand;
   const reply = options.safeReply || ((ctx, text, replyOptions) => ctx.reply(text, replyOptions));
 
@@ -279,7 +280,8 @@ export function registerAuthCommand(bot, options = {}) {
     await reply(ctx, message, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
   }
 
-  bot.command('auth', handleAuthCommand);
+  // Issue #3206: the login command runs for seconds; telegram-bot.mjs runs it outside the update loop.
+  bot.command('auth', detachHandler(handleAuthCommand));
   return { handleAuthCommand };
 }
 

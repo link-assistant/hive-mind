@@ -98,6 +98,8 @@ export const githubLimits = {
   issueBodyMaxSize: parseIntWithDefault('HIVE_MIND_GITHUB_ISSUE_BODY_MAX_SIZE', 60000),
   attachmentMaxSize: parseIntWithDefault('HIVE_MIND_GITHUB_ATTACHMENT_MAX_SIZE', 10 * 1024 * 1024),
   bufferMaxSize: parseIntWithDefault('HIVE_MIND_GITHUB_BUFFER_MAX_SIZE', 10 * 1024 * 1024),
+  // Upper bound for one `gh` call; a stalled request would otherwise never end.
+  execTimeoutMs: parseIntWithDefault('HIVE_MIND_GITHUB_EXEC_TIMEOUT_MS', 10 * 60 * 1000),
 };
 
 // Memory and disk configurations

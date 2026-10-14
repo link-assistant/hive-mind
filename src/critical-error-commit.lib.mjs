@@ -18,6 +18,7 @@
 import { open, rm } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 
+import { isAiToolScratchFile } from './ai-tool-scratch.lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 
 /** Directories that hold build output in the ecosystems Hive Mind works on. */
@@ -42,7 +43,10 @@ const isBinaryFile = async path => {
 };
 
 /**
- * Split untracked paths into those worth preserving and build output.
+ * Split untracked paths into those worth preserving and build output or AI
+ * tool state (`.formal-ai/`, Formal AI's `data/cache/derivations/`), which is
+ * not the user's work: recovery branches holding only derivations were pushed
+ * on every failed Formal AI draft.
  *
  * @param {string} tempDir
  * @param {string[]} paths - `git ls-files --others --exclude-standard` output
@@ -52,10 +56,16 @@ export const classifyUntrackedFiles = async (tempDir, paths) => {
   const keep = [];
   const skipped = [];
   for (const path of paths) {
-    if (BUILD_OUTPUT_DIR_PATTERN.test(path) || (await isBinaryFile(join(tempDir, path)))) skipped.push(path);
+    if (BUILD_OUTPUT_DIR_PATTERN.test(path) || isAiToolScratchFile(path) || (await isBinaryFile(join(tempDir, path)))) skipped.push(path);
     else keep.push(path);
   }
   return { keep, skipped };
+};
+
+const describeSkipped = paths => {
+  const toolState = paths.filter(isAiToolScratchFile).length;
+  if (toolState === paths.length) return 'AI tool state';
+  return toolState ? 'build output and AI tool state' : 'build output';
 };
 
 /**
@@ -66,7 +76,7 @@ export const classifyUntrackedFiles = async (tempDir, paths) => {
  */
 export const describePreservedWork = preserved => {
   if (!preserved?.committed) {
-    return preserved?.skipped?.length ? `The uncommitted files were build output (${preserved.skipped.join(', ')}) and were not preserved.` : 'There were no uncommitted changes left to preserve.';
+    return preserved?.skipped?.length ? `The uncommitted files were ${describeSkipped(preserved.skipped)} (${preserved.skipped.join(', ')}) and were not preserved.` : 'There were no uncommitted changes left to preserve.';
   }
   const where = preserved.pushed ? `pushed to the branch \`${preserved.recoveryBranch}\` (commit ${preserved.commit.slice(0, 8)})` : `committed locally as \`${preserved.recoveryBranch}\` (push failed - see the log)`;
   const drop = preserved.pushed ? ` To drop it: \`git push origin --delete ${preserved.recoveryBranch}\`.` : '';
@@ -106,7 +116,7 @@ export const commitUncommittedChangesOnCriticalError = async ({ tempDir, branchN
     const untrackedResult = await git`git ls-files --others --exclude-standard`;
     const untracked = (untrackedResult.stdout?.toString() || '').split('\n').filter(Boolean);
     const { keep, skipped } = await classifyUntrackedFiles(tempDir, untracked);
-    if (skipped.length) await log(`   ⏭️ Not preserved (build output): ${skipped.join(', ')}`);
+    if (skipped.length) await log(`   ⏭️ Not preserved (build output or AI tool state): ${skipped.join(', ')}`);
 
     const indexPath = (await git`git rev-parse --git-path hive-mind-recovery.index`).stdout?.toString().trim();
     indexFile = isAbsolute(indexPath) ? indexPath : join(tempDir, indexPath);
@@ -121,7 +131,7 @@ export const commitUncommittedChangesOnCriticalError = async ({ tempDir, branchN
     const tree = (await git`GIT_INDEX_FILE=${indexFile} git write-tree`).stdout?.toString().trim();
     const headTree = (await git`git rev-parse HEAD^{tree}`).stdout?.toString().trim();
     if (!tree || tree === headTree) {
-      await log('   ℹ️ Nothing but build output was uncommitted; nothing to preserve.');
+      await log('   ℹ️ Nothing but build output or AI tool state was uncommitted; nothing to preserve.');
       return { committed: false, pushed: false, skipped };
     }
     const commitMessage = `🛟 Work preserved before critical-error recovery (${reason})`;

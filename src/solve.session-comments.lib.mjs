@@ -39,19 +39,29 @@ const noopLog = async () => {};
  * @param {number} options.issueNumber - Issue number
  * @param {Function} options.$ - command-stream helper
  * @param {Function} [options.log]
- * @returns {Promise<boolean>} - True if AI created comments during the session
+ * @param {(boolean|null)} [options.unknownAs=false] - returned when a GitHub read fails.
+ *   The summary attachment keeps `false`; the #3211 no-changes verdict passes
+ *   `null` so a failed read is "not measured" instead of "no comment" (#3215).
+ * @returns {Promise<(boolean|null)>} - True if AI created comments during the session
  */
-export const checkForAiCreatedComments = async ({ sessionStartTime, owner, repo, prNumber, issueNumber, $, log = noopLog }) => {
+export const checkForAiCreatedComments = async ({ sessionStartTime, owner, repo, prNumber, issueNumber, $, log = noopLog, unknownAs = false }) => {
   const probe = quietProbe($);
+  let unreadable = false;
+  const readList = async (result, what) => {
+    if (result.code === 0) return JSON.parse(result.stdout.toString().trim() || '[]');
+    unreadable = true;
+    await log(`⚠️  Could not read ${what} (exit code ${result.code})`, { verbose: true });
+    return null;
+  };
   try {
     // Get the current user's GitHub username
     const userResult = await probe`gh api user --jq .login`;
     if (userResult.code !== 0) {
-      return false; // Cannot determine, default to not attaching
+      return unknownAs; // Cannot determine, default to not attaching
     }
     const currentUser = userResult.stdout.toString().trim();
     if (!currentUser) {
-      return false;
+      return unknownAs;
     }
 
     await log(`🔎 Checking comments by '${currentUser}' after session start ${sessionStartTime.toISOString()} (PR #${prNumber ?? 'none'}, issue #${issueNumber ?? 'none'})`, { verbose: true });
@@ -103,9 +113,8 @@ export const checkForAiCreatedComments = async ({ sessionStartTime, owner, repo,
     // Check comments on the PR first (if we have a PR)
     if (prNumber) {
       // Check PR conversation comments
-      const prCommentsResult = await probe`gh api repos/${owner}/${repo}/issues/${prNumber}/comments --paginate`;
-      if (prCommentsResult.code === 0) {
-        const prComments = JSON.parse(prCommentsResult.stdout.toString().trim() || '[]');
+      const prComments = await readList(await probe`gh api repos/${owner}/${repo}/issues/${prNumber}/comments --paginate`, `PR #${prNumber} comments`);
+      if (prComments) {
         const newPrComments = filterNewAiComments(prComments, 'pr');
         await log(`   📨 PR conversation comments after session start by '${currentUser}' (excluding tool-generated): ${newPrComments.length}`, { verbose: true });
         if (newPrComments.length > 0) {
@@ -113,12 +122,24 @@ export const checkForAiCreatedComments = async ({ sessionStartTime, owner, repo,
         }
       }
       // Check PR review comments (inline code comments)
-      const reviewCommentsResult = await probe`gh api repos/${owner}/${repo}/pulls/${prNumber}/comments --paginate`;
-      if (reviewCommentsResult.code === 0) {
-        const reviewComments = JSON.parse(reviewCommentsResult.stdout.toString().trim() || '[]');
+      const reviewComments = await readList(await probe`gh api repos/${owner}/${repo}/pulls/${prNumber}/comments --paginate`, `PR #${prNumber} review comments`);
+      if (reviewComments) {
         const newReviewComments = filterNewAiComments(reviewComments, 'review');
         await log(`   📝 PR review (inline) comments after session start by '${currentUser}': ${newReviewComments.length}`, { verbose: true });
         if (newReviewComments.length > 0) {
+          return true;
+        }
+      }
+      // Issue #3215: a submitted review (with or without inline comments) is a
+      // comment too. Reviews carry `submitted_at`; pending ones have none.
+      const reviews = await readList(await probe`gh api repos/${owner}/${repo}/pulls/${prNumber}/reviews --paginate`, `PR #${prNumber} reviews`);
+      if (reviews) {
+        const newReviews = filterNewAiComments(
+          reviews.filter(review => review?.submitted_at).map(review => ({ ...review, created_at: review.submitted_at })),
+          'review'
+        );
+        await log(`   📝 PR reviews after session start by '${currentUser}': ${newReviews.length}`, { verbose: true });
+        if (newReviews.length > 0) {
           return true;
         }
       }
@@ -126,9 +147,8 @@ export const checkForAiCreatedComments = async ({ sessionStartTime, owner, repo,
 
     // Check issue comments (if different from PR number or no PR)
     if (issueNumber && issueNumber !== prNumber) {
-      const issueCommentsResult = await probe`gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate`;
-      if (issueCommentsResult.code === 0) {
-        const issueComments = JSON.parse(issueCommentsResult.stdout.toString().trim() || '[]');
+      const issueComments = await readList(await probe`gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate`, `issue #${issueNumber} comments`);
+      if (issueComments) {
         const newIssueComments = filterNewAiComments(issueComments, 'issue');
         await log(`   📨 Issue comments after session start by '${currentUser}' (excluding tool-generated): ${newIssueComments.length}`, { verbose: true });
         if (newIssueComments.length > 0) {
@@ -136,11 +156,11 @@ export const checkForAiCreatedComments = async ({ sessionStartTime, owner, repo,
         }
       }
     }
-    return false;
+    return unreadable ? unknownAs : false;
   } catch (error) {
     // On error, default to not attaching (safer choice)
     await log(`⚠️  Could not check for AI comments: ${error.message}`, { verbose: true });
-    return false;
+    return unknownAs;
   }
 };
 

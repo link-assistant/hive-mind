@@ -7,6 +7,7 @@
  */
 
 import assert from 'node:assert/strict';
+import { isFormalAiModel } from '../src/formal-ai-model.lib.mjs';
 import { codexModels, getLatestCodexGenerationAliases, getValidModelsForTool, resolveModelId, validateModelName } from '../src/models/index.mjs';
 
 const assertValidCodexModel = (input, expected) => {
@@ -30,7 +31,8 @@ for (const [alias, modelId] of Object.entries(generationAliases)) {
   assertValidCodexModel(`openai.${alias}`, `openai.${modelId}`);
 }
 
-const knownOpenAIModels = [...new Set(Object.values(codexModels).filter(model => !model.startsWith('openai.')))];
+// Formal AI is served by its own provider, so it has no OpenAI-prefixed spelling (#3215).
+const knownOpenAIModels = [...new Set(Object.values(codexModels).filter(model => !model.startsWith('openai.') && !isFormalAiModel(model)))];
 for (const modelId of knownOpenAIModels) {
   const bareModelId = modelId.replace(/^openai[/.]/, '');
   assertValidCodexModel(`openai/${bareModelId}`, `openai/${bareModelId}`);
@@ -39,6 +41,8 @@ for (const modelId of knownOpenAIModels) {
 
 assert.equal(validateModelName('openai/not-a-real-model', 'codex').valid, false);
 assert.equal(validateModelName('openai.not-a-real-model', 'codex').valid, false);
+assert.equal(validateModelName('openai/formal-ai', 'codex').valid, false);
+assert.equal(validateModelName('openai.formal-ai', 'codex').valid, false);
 
 assert.deepEqual(
   getLatestCodexGenerationAliases({

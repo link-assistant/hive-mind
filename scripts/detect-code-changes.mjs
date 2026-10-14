@@ -43,7 +43,7 @@
  *   - package: 'true' if package.json changed
  *   - docs: 'true' if any .md files changed
  *   - workflow: 'true' if any .github/workflows/ files changed
- *   - docker: 'true' if Dockerfile, Dockerfile.dind, coolify/Dockerfile, or .dockerignore changed
+ *   - docker: 'true' if Dockerfile, Dockerfile.dind, coolify/Dockerfile, .dockerignore, or scripts/dind/ (files copied into the DinD image) changed
  *   - code: 'true' if any code files changed (excludes docs, changesets, experiments, data)
  *   - helm: 'true' if any helm/ files changed
  */
@@ -434,7 +434,7 @@ async function detectChanges() {
 
   // Detect docker-related changes
   // Note: ubuntu-24-server-install.sh was removed in issue #1394 - now using pinned konard/box base image
-  const dockerPattern = /^(Dockerfile|Dockerfile\.dind|coolify\/Dockerfile|\.dockerignore)$/;
+  const dockerPattern = /^(Dockerfile|Dockerfile\.dind|coolify\/Dockerfile|\.dockerignore|scripts\/dind\/.+)$/;
   const dockerChanged = changedFiles.some(file => dockerPattern.test(file));
   setOutput('docker', dockerChanged ? 'true' : 'false');
 

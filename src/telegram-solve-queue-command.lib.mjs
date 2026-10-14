@@ -101,6 +101,7 @@ export function registerSolveQueueCommand(bot, options) {
       VERBOSE && console.log(`[VERBOSE] /queue status is ${message.length} chars; sending ${chunks.length} messages with repeated headers`);
     }
     for (const chunk of chunks) {
+      // eslint-disable-next-line no-await-in-loop -- status chunks are sent in order
       await replyWithFallback(chunk, {
         reply_to_message_id: ctx.message.message_id,
         fallbackLocale: locale,

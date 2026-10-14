@@ -72,7 +72,7 @@ export async function reportRecoveryLifecycle({ bot, sessionName, sessionInfo, s
     if (stat) state.lastBytes = stat.size;
     const eventPhase = toolEvent?.phase === 'launching' ? 'running' : toolEvent?.phase;
     const nextPhase = phase || (nextSession ? 'launching' : !running ? (sessionInfo.stopRequestedByUser ? 'stopped' : toolEvent?.phase === 'cancelled' ? 'cancelled' : exitCode === null ? 'unknown' : exitCode === 0 ? 'completed' : 'failed') : eventPhase || 'running');
-    const changed = state.phase !== nextPhase || state.outerTerminal !== !running;
+    const changed = state.phase !== nextPhase || state.outerTerminal !== !running || (reason && state.reason !== reason);
     const due = !state.lastReportedMs || now - state.lastReportedMs >= RECOVERY_HEARTBEAT_MS;
     const terminal = ['completed', 'failed', 'stopped', 'unknown', 'cancelled'].includes(nextPhase);
     sessionInfo.recoveryLifecycle = state;
@@ -89,6 +89,11 @@ export async function reportRecoveryLifecycle({ bot, sessionName, sessionInfo, s
       pr = await lookupPullRequest().catch(() => null);
       if (pr) sessionInfo.resolvedPullRequestUrl = pr;
     }
+    // Issue #2630: without a pull request, a recovery that could not start (or
+    // fell back) is still said on the issue the task was started from, and
+    // that comment keeps being updated; routine progress stays on Telegram.
+    const issueUrl = sessionInfo.urlContext?.type === 'issue' ? sessionInfo.urlContext.normalized || sessionInfo.url || null : null;
+    if (!pr && issueUrl && (reason || nextPhase === 'failed' || /\/issues\/\d+#issuecomment-\d+$/.test(state.commentUrl || ''))) pr = issueUrl;
     let githubDelivered = !pr;
     if (pr) {
       const posted = await postKillRecoveryNotice({ pullRequestUrl: pr, commentUrl: state.commentUrl, body: `${RECOVERY_LIFECYCLE_MARKER}\n${text}`, fileSuffix: `lifecycle-${String(sessionName).replace(/[^A-Za-z0-9._-]/g, '-')}`, runCommand: options.runCommand, verbose });
@@ -119,6 +124,7 @@ export async function reportRecoveryLifecycle({ bot, sessionName, sessionInfo, s
       state.lastReportedMs = now;
       state.phase = nextPhase;
       state.outerTerminal = !running;
+      state.reason = reason;
     }
     persist();
     return text;

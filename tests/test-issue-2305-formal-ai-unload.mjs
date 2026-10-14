@@ -220,7 +220,7 @@ test('five idle hours unload the current and previous images, never the memory v
   assert.equal(docker.digests.has('sha256:hive-mind'), true, 'the task image is never touched');
   assert.equal(docker.volumes.has(FORMAL_AI_MEMORY_VOLUME_NAME), true, 'the persisted memory survives the unload');
   assert.equal(docker.ran(/volume rm/), false);
-  assert.match(logs.join('\n'), /Formal AI unloaded \(unused for 5h\): removed 2 image\(s\) .* freeing 48\.00GB; memory volume 'hive-mind-formal-ai-memory' preserved/);
+  assert.match(logs.join('\n'), /Formal AI unloaded \(unused for 5h\): removed 2 image\(s\) .* freeing 48\.00GB \(measured by `docker system df`\); memory volume 'hive-mind-formal-ai-memory' preserved/);
 
   const state = readFormalAiSidecarState({ env });
   assert.equal(state.image, null);

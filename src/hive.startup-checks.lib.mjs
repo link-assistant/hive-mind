@@ -58,7 +58,7 @@ export async function runStartupChecks({ argv, log, safeExit, ensureDiskSpaceFor
   }
 
   // Validate the selected AI tool connection before starting monitoring with the same model that will be used
-  const isToolConnected = await validateToolConnection({ tool: argv.tool, model: argv.model, verbose: argv.verbose, validateClaudeConnection });
+  const isToolConnected = await validateToolConnection({ tool: argv.tool, model: argv.model, verbose: argv.verbose, validateClaudeConnection, log });
   if (!isToolConnected) {
     await log(`❌ Cannot start monitoring without ${argv.tool || 'claude'} connection`, { level: 'error' });
     await safeExit(1, 'Error occurred');

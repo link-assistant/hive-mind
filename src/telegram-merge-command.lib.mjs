@@ -244,7 +244,7 @@ function formatUserError(error, verbose) {
  * @param {Function} [options.getStoppedChatRejectMessage] - Function to get stopped chat rejection message
  */
 export function registerMergeCommand(bot, options) {
-  const { VERBOSE = false, isOldMessage, isForwarded, isForwardedOrReply, isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, addBreadcrumb, isChatStopped, getStoppedChatRejectMessage } = options;
+  const { VERBOSE = false, isOldMessage, isForwarded, isForwardedOrReply, isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, addBreadcrumb, isChatStopped, getStoppedChatRejectMessage, detachHandler = handler => handler } = options;
 
   const handleMergeCommand = async ctx => {
     VERBOSE && console.log('[VERBOSE] /merge command received');
@@ -493,7 +493,7 @@ export function registerMergeCommand(bot, options) {
     }
   };
 
-  bot.command(/^merge$/i, handleMergeCommand);
+  bot.command(/^merge$/i, detachHandler(handleMergeCommand));
 
   // Handle cancel button callback
   bot.action(/^merge_cancel_(.+)$/, async ctx => {

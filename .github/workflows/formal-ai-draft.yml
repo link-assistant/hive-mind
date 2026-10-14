@@ -27,6 +27,38 @@ on:
         description: 'Issue number to re-attempt a draft for'
         required: true
         type: string
+  # Another repository (formal-ai's CI) runs a draft with its own image or a
+  # Formal AI binary it just built. `inputs` is empty on every other event.
+  workflow_call:
+    inputs:
+      issue_number:
+        description: "Issue number in the caller's repository; omit when the caller runs on issues: opened"
+        required: false
+        type: string
+      image:
+        description: 'hive-mind image to run instead of the tag of the checked-out version'
+        required: false
+        type: string
+      formal_ai_binary_artifact:
+        description: 'Name of an artifact of this run that holds a formal-ai binary, mounted over the bundled one'
+        required: false
+        type: string
+        default: ''
+      hive_mind_repository:
+        description: 'Repository whose draft scripts are checked out'
+        required: false
+        type: string
+        default: link-assistant/hive-mind
+      hive_mind_ref:
+        description: 'Ref of hive_mind_repository to check out; its default branch when empty'
+        required: false
+        type: string
+        default: ''
+    secrets:
+      AUTOMATION_APP_PRIVATE_KEY:
+        required: false
+      AUTOMATION_TOKEN:
+        required: false
 
 # All credential layers can open a draft; default-token checks use dispatch.
 permissions:
@@ -34,7 +66,8 @@ permissions:
 
 jobs:
   health:
-    if: github.event_name == 'schedule'
+    # A caller's own schedule does not check this repository's drafts.
+    if: github.event_name == 'schedule' && !inputs.hive_mind_repository
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -60,25 +93,32 @@ jobs:
       issues: write
       pull-requests: write
       actions: write
-    if: github.event_name != 'schedule'
+    if: github.event_name != 'schedule' || inputs.issue_number
     name: Formal AI draft
     runs-on: ubuntu-24.04
     # One attempt is a full working session. 90 minutes is the ceiling at which
-    # a hung session is cheaper to kill and re-attempt than to wait out; solve's
-    # own restart loop is disabled for this run, so nothing legitimately runs
-    # longer.
+    # a hung session is cheaper to kill and re-attempt than to wait out. solve's
+    # restart loops (until mergeable, and on uncommitted changes) are both
+    # disabled by DRAFT_SOLVE_FLAGS, so nothing legitimately runs longer.
     timeout-minutes: 90
     # Per-issue, and never cancelling: two attempts on the same issue must not
     # race for the same branch, and an attempt already writing to a branch must
     # not be killed halfway through by a manual replay.
     concurrency:
-      group: formal-ai-draft-${{ github.repository }}-${{ github.event.issue.number || github.event.inputs.issue_number }}
+      group: formal-ai-draft-${{ github.repository }}-${{ github.event.issue.number || inputs.issue_number || github.event.inputs.issue_number }}
       cancel-in-progress: false
+    outputs:
+      head_branch: ${{ steps.attempt.outputs.head_branch }}
+      checks_dispatched: ${{ steps.dispatch.outcome == 'success' && steps.gh.outputs.triggers-workflows != 'true' }}
 
     steps:
+      # A caller runs Hive Mind's draft scripts, so it checks out this
+      # repository rather than its own.
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
+          repository: ${{ inputs.hive_mind_repository || github.repository }}
+          ref: ${{ inputs.hive_mind_ref }}
           persist-credentials: false
 
       - name: Setup Node.js
@@ -102,7 +142,7 @@ jobs:
       - name: Decide whether to attempt a draft
         id: decide
         env:
-          FORMAL_AI_DRAFT_ISSUE: ${{ github.event.inputs.issue_number }}
+          FORMAL_AI_DRAFT_ISSUE: ${{ inputs.issue_number || github.event.inputs.issue_number }}
           AUTOMATION_LAYER: ${{ steps.gh.outputs.layer }}
           GH_TOKEN: ${{ steps.gh.outputs.token }}
         run: node scripts/formal-ai-draft.mjs --decide
@@ -111,20 +151,32 @@ jobs:
         if: steps.decide.outputs.should_run == 'true'
         run: node scripts/free-disk-space.mjs
 
+      - name: Download the caller's Formal AI binary
+        if: ${{ inputs.formal_ai_binary_artifact != '' }}
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ inputs.formal_ai_binary_artifact }}
+          path: ${{ runner.temp }}/formal-ai-binary
+
+      # Without an image input or variable the script runs the tag of the
+      # checked-out version (konard/hive-mind:<version>), pulled with retries.
       - name: Open the Formal AI draft
         id: attempt
         if: steps.decide.outputs.should_run == 'true'
         env:
-          FORMAL_AI_DRAFT_ISSUE: ${{ github.event.inputs.issue_number }}
-          FORMAL_AI_DRAFT_IMAGE: ${{ vars.FORMAL_AI_DRAFT_IMAGE || 'konard/hive-mind:latest' }}
+          FORMAL_AI_DRAFT_ISSUE: ${{ inputs.issue_number || github.event.inputs.issue_number }}
+          FORMAL_AI_DRAFT_IMAGE: ${{ inputs.image || vars.FORMAL_AI_DRAFT_IMAGE }}
+          FORMAL_AI_DRAFT_BINARY: ${{ inputs.formal_ai_binary_artifact != '' && format('{0}/formal-ai-binary/formal-ai', runner.temp) || '' }}
           FORMAL_AI_INSTALL_GRANT: workspace
           FORMAL_AI_DRAFT_LOG_DIR: ${{ runner.temp }}/formal-ai-draft-logs
           AUTOMATION_LAYER: ${{ steps.gh.outputs.layer }}
           GH_TOKEN: ${{ steps.gh.outputs.token }}
         run: node scripts/formal-ai-draft.mjs
 
+      # The checks workflows are this repository's; a caller has none of them.
       - name: Dispatch checks on the draft head
-        if: ${{ !cancelled() && steps.attempt.outputs.head_branch != '' }}
+        id: dispatch
+        if: ${{ !cancelled() && steps.attempt.outputs.head_branch != '' && !inputs.hive_mind_repository }}
         uses: ./.github/actions/dispatch-checks # https://github.com/link-foundation/.github/issues/1
         with:
           ref: ${{ steps.attempt.outputs.head_branch }}
@@ -143,3 +195,32 @@ jobs:
           path: ${{ runner.temp }}/formal-ai-draft-logs
           if-no-files-found: warn
           retention-days: 30
+
+  # A pull request opened with the workflow token starts no pull_request runs,
+  # and the runs dispatched above are attached to no pull request, so the draft
+  # showed none of its checks. Each one is posted as a commit status on the
+  # draft head instead, and kept current until it finishes.
+  report-checks:
+    needs: draft
+    if: ${{ !cancelled() && needs.draft.outputs.checks_dispatched == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      actions: read
+      statuses: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+      - name: Install automation dependencies
+        run: npm ci --omit=dev --ignore-scripts
+      - name: Report the dispatched checks on the draft head
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CHECKS_REF: ${{ needs.draft.outputs.head_branch }}
+          CHECKS_DEADLINE_MINUTES: '80'
+        run: node scripts/formal-ai-draft-checks.mjs

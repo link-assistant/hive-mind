@@ -52,7 +52,10 @@ import path from 'node:path';
 //   - `stopRequestedByUser`/`stopRequestedBy` must survive a restart too: with
 //     `--on-session-kill=resume` now the default, forgetting that an operator
 //     asked for the stop would relaunch the very work they cancelled.
-const PERSISTABLE_FIELDS = ['chatId', 'messageId', 'startTime', 'url', 'command', 'commandAlias', 'isolationBackend', 'sessionId', 'executionUuid', 'containerFilesystemStartBytes', 'containerFilesystemLastBytes', 'containerFilesystemLastObservedAt', 'containerFilesystemInheritedBytes', 'containerResourceLimits', 'containerResourceLimitExceeded', 'tool', 'infoBlock', 'urlContext', 'requesterUserId', 'showLimits', 'locale', 'logPath', 'args', 'completionNotifiedAt', 'completionExitCode', 'completionStatus', 'lastToolSessionId', 'oomEventObservedAt', 'killRecoveryAttempts', 'killRecoverySessionId', 'killRecoveryOfSession', 'rootSessionName', 'rootStartTime', 'previousExecutionUuids', 'killRecoveryResumed', 'killRecoveryInPlace', 'killRecoveryResumeMode', 'killRecoveryStartedAt', 'killRecoveryLogStartBytes', 'recoveryLifecycle', 'stopRequestedByUser', 'stopRequestedBy', 'onSessionKill', 'resolvedPullRequestUrl'];
+// Issue #3209: `launchPending`/`launchedAt`/`containerSeenAt` record whether the
+// session's execution was ever observed, so a restart during a slow launch does
+// not mistake "not started yet" for "finished".
+const PERSISTABLE_FIELDS = ['chatId', 'messageId', 'startTime', 'url', 'command', 'commandAlias', 'isolationBackend', 'sessionId', 'executionUuid', 'containerFilesystemStartBytes', 'containerFilesystemLastBytes', 'containerFilesystemLastObservedAt', 'containerFilesystemInheritedBytes', 'containerResourceLimits', 'containerResourceLimitExceeded', 'tool', 'infoBlock', 'urlContext', 'requesterUserId', 'showLimits', 'locale', 'logPath', 'args', 'completionNotifiedAt', 'completionExitCode', 'completionStatus', 'lastToolSessionId', 'oomEventObservedAt', 'killRecoveryAttempts', 'killRecoverySessionId', 'killRecoveryOfSession', 'rootSessionName', 'rootStartTime', 'previousExecutionUuids', 'killRecoveryResumed', 'killRecoveryInPlace', 'killRecoveryResumeMode', 'killRecoveryStartedAt', 'killRecoveryLogStartBytes', 'recoveryLifecycle', 'stopRequestedByUser', 'stopRequestedBy', 'onSessionKill', 'resolvedPullRequestUrl', 'launchPending', 'launchedAt', 'containerSeenAt'];
 
 /**
  * Resolve the directory durable bot state is written to. Honors
@@ -179,13 +182,48 @@ export function createSessionStore(options = {}) {
     }
   }
 
+  // Audit events are appended off the event loop, in order. A batch stays
+  // queued until its write completes so `flushSync()` at exit still has it.
+  const fsp = fsImpl.promises || fs.promises;
+  const pendingEvents = [];
+  let writing = null;
+  let exiting = false;
+
+  async function writeEvents() {
+    while (pendingEvents.length > 0 && !exiting) {
+      const count = pendingEvents.length;
+      try {
+        await fsp.appendFile(eventsPath, pendingEvents.slice(0, count).join(''));
+      } catch (error) {
+        log('error', `Could not append session event: ${error.message}`);
+      }
+      if (exiting) return;
+      pendingEvents.splice(0, count);
+    }
+  }
+
+  function flushEventsSync() {
+    exiting = true;
+    if (pendingEvents.length === 0) return;
+    try {
+      fsImpl.appendFileSync(eventsPath, pendingEvents.splice(0, pendingEvents.length).join('')); // hive-sync-ok: exit handler, the event loop is gone
+    } catch {
+      /* the process is exiting; nothing else can be done */
+    }
+  }
+
   function appendEvent(type, sessionName, data) {
     if (!ensureDir()) return;
     const entry = { ts: toIso(now()), type, sessionName, ...data };
-    try {
-      fsImpl.appendFileSync(eventsPath, JSON.stringify(entry) + '\n');
-    } catch (error) {
-      log('error', `Could not append session event: ${error.message}`);
+    pendingEvents.push(JSON.stringify(entry) + '\n');
+    if (exiting) {
+      flushEventsSync(); // hive-sync-ok: only after the exit handler ran
+      return;
+    }
+    if (!writing) {
+      writing = writeEvents().finally(() => {
+        writing = null;
+      });
     }
   }
 
@@ -235,6 +273,17 @@ export function createSessionStore(options = {}) {
       appendEvent('complete', sessionName, { status: meta.status ?? null, exitCode: meta.exitCode ?? null, reason: meta.reason ?? null });
       log('debug', `Removed session ${sessionName} from snapshot`, meta);
     },
+
+    /** Resolves once every audit event recorded so far has reached the file. */
+    async flush() {
+      while (writing) await writing;
+    },
+
+    /**
+     * Write queued audit events synchronously, and every later one too. Only
+     * for `process.on('exit')`, where the asynchronous writer can no longer run.
+     */
+    flushSync: flushEventsSync,
 
     /**
      * Load all persisted sessions as `{ sessionName, sessionInfo }` records with

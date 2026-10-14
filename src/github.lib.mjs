@@ -11,6 +11,7 @@ import { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTok
 export { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeOutput, sanitizeLogContent, sanitizeForPublication, writeSanitizedPublicationFile }; // Re-export for backward compatibility
 import { uploadLogWithGhUploadLog } from './log-upload.lib.mjs';
 import { publishLogToPullRequestBranch } from './log-upload-branch.lib.mjs';
+import { getActiveDevelopmentLogRepositoryPath } from './development-log.finalize.lib.mjs';
 import { forgetLogUploadFailureReports, formatLogLinkLines, formatLogLocationConsoleLines, postLogUploadFailureComment } from './log-upload-failure.lib.mjs'; // Issue #2301, #2400
 import { recordLogAttached, rememberLogUsage, withLatestLogUsage } from './log-attach-state.lib.mjs'; // Issue #2563
 // Issue #2189: bracket the log-upload phase with resource samples. The incident
@@ -699,12 +700,14 @@ async function attachLogToGitHubOnce(options) {
         // Use gh-upload-log default auto mode and shared repository fallback.
         const uploadDescription = `Solution draft log for https://github.com/${owner}/${repo}/${targetType === 'pr' ? 'pull' : 'issues'}/${targetNumber}`;
         failureReport.isPublic = isPublicRepo;
+        // Failure paths often pass no tempDir; the active session's clone still lets the log reach the PR branch.
+        const branchRepositoryPath = tempDir || getActiveDevelopmentLogRepositoryPath();
         const uploadResult = await uploadLogWithGhUploadLog({
           logFile,
           isPublic: isPublicRepo,
           description: uploadDescription,
           verbose,
-          ...(targetType === 'pr' && tempDir ? { publishToBranch: sanitizedFile => publishLogToPullRequestBranch({ logFile: sanitizedFile, repositoryPath: tempDir, owner, repo, prNumber: targetNumber, sessionId, $, log }) } : {}),
+          ...(targetType === 'pr' && branchRepositoryPath ? { publishToBranch: sanitizedFile => publishLogToPullRequestBranch({ logFile: sanitizedFile, repositoryPath: branchRepositoryPath, owner, repo, prNumber: targetNumber, sessionId, $, log }) } : {}),
           ...(uploadRetryDelaysMs ? { retryDelaysMs: uploadRetryDelaysMs, partRetryDelaysMs: uploadRetryDelaysMs } : {}),
         });
         failureReport.attempts = uploadResult.attempts;

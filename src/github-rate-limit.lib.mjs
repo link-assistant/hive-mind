@@ -94,7 +94,7 @@ export const parseRateLimitReset = error => {
 export const fetchNextRateLimitReset = async () => {
   try {
     // eslint-disable-next-line gh-rate-limit/no-direct-gh-exec -- this IS the rate-limit helper; calling itself recursively would loop.
-    const { stdout } = await exec('gh api rate_limit');
+    const { stdout } = await exec('gh api rate_limit', { timeout: 60_000 });
     const data = JSON.parse(stdout);
     const resources = data?.resources || {};
     const candidates = [];
@@ -144,7 +144,7 @@ const normalizeRateLimitUsageEntry = (resource, entry) => {
 export const fetchGitHubRateLimitUsage = async () => {
   try {
     // eslint-disable-next-line gh-rate-limit/no-direct-gh-exec -- this IS the centralized rate-limit helper; routing through itself would recurse.
-    const { stdout } = await exec('gh api rate_limit');
+    const { stdout } = await exec('gh api rate_limit', { timeout: 60_000 });
     const data = JSON.parse(stdout);
     const resources = data?.resources || {};
     return GITHUB_RATE_LIMIT_USAGE_RESOURCES.map(resource => normalizeRateLimitUsageEntry(resource, resources[resource])).filter(Boolean);

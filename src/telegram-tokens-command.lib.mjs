@@ -54,6 +54,7 @@ const isOperatorOfAnyAllowedChat = async ({ telegram, userId, allowedChatIds }) 
   }
   for (const chatId of allowedChatIds) {
     try {
+      // eslint-disable-next-line no-await-in-loop -- stops at the first chat the user owns
       const member = await telegram.getChatMember(chatId, userId);
       if (member && member.status === 'creator') {
         return true;

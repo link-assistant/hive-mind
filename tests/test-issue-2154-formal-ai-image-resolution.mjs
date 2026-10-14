@@ -64,18 +64,20 @@ const fastSidecar = { healthAttempts: 2, healthDelayMs: 0, sleepImpl: async () =
   const candidates = resolveFormalAiSidecarImageCandidates({ HIVE_MIND_IMAGE_VARIANT: 'dind' });
   assert.deepEqual(
     candidates.map(candidate => candidate.image),
-    [PUBLISHED_IMAGE, HIVE_MIND_IMAGE]
+    // Issue #3207: the slim published tag is tried before the full one.
+    [`${PUBLISHED_IMAGE}-slim`, PUBLISHED_IMAGE, HIVE_MIND_IMAGE]
   );
   assert.equal(candidates[0].pullable, true);
+  assert.equal(candidates[1].pullable, true);
   // The fallback's whole value is that it is already on the host; pulling it
   // would mean pulling the *larger* of the two images.
-  assert.equal(candidates[1].pullable, false, 'the Hive Mind image is used, never pulled');
+  assert.equal(candidates[2].pullable, false, 'the Hive Mind image is used, never pulled');
 
   // An operator pin is exact: naming an image means that image, with no fallback.
   assert.deepEqual(resolveFormalAiSidecarImageCandidates({ HIVE_MIND_FORMAL_AI_IMAGE: 'local/formal-ai:dev' }), [{ image: 'local/formal-ai:dev', source: 'operator-pin', pullable: true }]);
 
   // A deployment may name its own fallback (e.g. an internal mirror).
-  assert.equal(resolveFormalAiSidecarImageCandidates({ HIVE_MIND_FORMAL_AI_FALLBACK_IMAGE: 'mirror/hive-mind:2.12.2' })[1].image, 'mirror/hive-mind:2.12.2');
+  assert.equal(resolveFormalAiSidecarImageCandidates({ HIVE_MIND_FORMAL_AI_FALLBACK_IMAGE: 'mirror/hive-mind:2.12.2' })[2].image, 'mirror/hive-mind:2.12.2');
 }
 
 // ---------------------------------------------------------------------------

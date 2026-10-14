@@ -160,7 +160,7 @@ function injectLanguageIfMissing(args, locale) {
 }
 
 export function registerTaskCommands(bot, options) {
-  const { VERBOSE, taskEnabled, addBreadcrumb, isOldMessage, isForwarded, isGroupChat, isTopicAuthorized, buildAuthErrorMessage, isChatStopped, getStoppedChatRejectMessage, safeReply, executeAndUpdateMessage, createTaskIssue: createTaskIssueFn = createTaskIssue, createCiCdIssue: createCiCdIssueFn = createCiCdIssue, createUpdateDependenciesIssue: createUpdateDependenciesIssueFn = createUpdateDependenciesIssue, resolveLocale = null } = options;
+  const { VERBOSE, taskEnabled, addBreadcrumb, isOldMessage, isForwarded, isGroupChat, isTopicAuthorized, buildAuthErrorMessage, isChatStopped, getStoppedChatRejectMessage, safeReply, executeAndUpdateMessage, createTaskIssue: createTaskIssueFn = createTaskIssue, createCiCdIssue: createCiCdIssueFn = createCiCdIssue, createUpdateDependenciesIssue: createUpdateDependenciesIssueFn = createUpdateDependenciesIssue, resolveLocale = null, detachHandler = handler => handler } = options;
 
   async function handleTaskCommand(ctx) {
     const commandName = getTaskCommandNameFromText(ctx.message?.text) || 'task';
@@ -313,7 +313,7 @@ export function registerTaskCommands(bot, options) {
 
   bot.command(
     TASK_COMMAND_NAMES.map(command => new RegExp(`^${command}$`, 'i')),
-    handleTaskCommand
+    detachHandler(handleTaskCommand)
   );
 
   return { handleTaskCommand, TASK_COMMAND_NAMES };

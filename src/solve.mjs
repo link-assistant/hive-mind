@@ -543,35 +543,12 @@ try {
     tempDir,
     $,
   });
-  // Initialize feedback lines
+  // Initialize feedback lines: auto-merge feedback, prepared feedback, then uncommitted changes
   let feedbackLines = null;
-  // Add auto-merge feedback lines if any
-  if (autoMergeFeedbackLines && autoMergeFeedbackLines.length > 0) {
-    if (!feedbackLines) {
-      feedbackLines = [];
-    }
-    feedbackLines.push(...autoMergeFeedbackLines);
-  }
-  // Merge feedback lines
-  if (preparedFeedbackLines && preparedFeedbackLines.length > 0) {
-    if (!feedbackLines) {
-      feedbackLines = [];
-    }
-    feedbackLines.push(...preparedFeedbackLines);
-  }
-  // Check for uncommitted changes and merge with feedback
-  const uncommittedFeedbackLines = await checkUncommittedChanges({
-    tempDir,
-    argv,
-    log,
-    $,
-  });
-  if (uncommittedFeedbackLines && uncommittedFeedbackLines.length > 0) {
-    if (!feedbackLines) {
-      feedbackLines = [];
-    }
-    feedbackLines.push(...uncommittedFeedbackLines);
-  }
+  if (autoMergeFeedbackLines?.length > 0) (feedbackLines ??= []).push(...autoMergeFeedbackLines);
+  if (preparedFeedbackLines?.length > 0) (feedbackLines ??= []).push(...preparedFeedbackLines);
+  const uncommittedFeedbackLines = await checkUncommittedChanges({ tempDir, argv, log, $ });
+  if (uncommittedFeedbackLines?.length > 0) (feedbackLines ??= []).push(...uncommittedFeedbackLines);
   // Check for fork actions
   const forkActionsUrl = await checkForkActions({
     argv,
@@ -584,6 +561,7 @@ try {
   // Execute tool command with all prompts and settings
   let toolResult;
   // Issue #1823: Mark the start of the AI working session. While this is active and the --do-not-shutdown-in-the-middle-of-working-session flag is set, an interrupt (CTRL+C/SIGTERM) is deferred until the AI tool finishes its turn (see exit-handler.lib.mjs + working-session.lib.mjs).
+  await (await import('./session-changes.lib.mjs')).captureSessionChangeBaseline({ tempDir, $, log, logFile: getLogFile(), owner, repo, issueNumber, prNumber, model: argv.model }); // #3211: success requires progress by this run
   beginWorkingSession();
   // If --use-agent-commander is enabled, use agent-commander for all tools
   if (argv.useAgentCommander) {

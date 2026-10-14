@@ -44,6 +44,7 @@ import { EXIT_CODE_INSUFFICIENT_DISK_SPACE, ensureDiskSpaceForWorker, extractSol
 import { logReclaimableSpace } from './reclaimable-space.lib.mjs';
 import { resolveDockerImageReclaimMode } from './docker-image-reclaim.lib.mjs';
 import { HiveRunReport, HIVE_EXISTING_PRS_HINT } from './hive.run-outcome.lib.mjs';
+import { EXIT_CODE_SOLVE_NO_CHANGES } from './solve.exit-codes.lib.mjs';
 const isRunningDirectly = isDirectExecution(process.argv[1], import.meta.url);
 if (isRunningDirectly) {
   console.log('🐝 Hive Mind - AI-powered issue solver');
@@ -730,6 +731,9 @@ if (isRunningDirectly) {
               await log(`   🛑 Worker ${workerId} stopped gracefully during shutdown on ${issueUrl} (exit ${exitCode}, ${duration}s)`);
               gracefulStop = true;
               break; // stop processing more PRs for this issue
+            } else if (exitCode === EXIT_CODE_SOLVE_NO_CHANGES) {
+              // Issue #3211: solve finished but changed nothing; the pull request says why.
+              await log(`   ⚠️  Worker ${workerId} finished ${issueUrl} without changes (exit ${exitCode}, ${duration}s)`, { level: 'warning' });
             } else if (exitCode === EXIT_CODE_INSUFFICIENT_DISK_SPACE) {
               // Issue #2160: solve refused to start because this host is out of disk space. The
               // issue was never attempted, so it must not be counted as a task failure.

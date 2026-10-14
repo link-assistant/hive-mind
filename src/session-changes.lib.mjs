@@ -210,7 +210,12 @@ export const evaluateSessionChanges = async ({ owner, repo, prNumber = null, iss
     return unmeasured;
   }
   if (!evidence) {
-    const commented = await checkForAiCreatedComments({ sessionStartTime: baseline.startedAt, owner: owner || baseline.owner, repo: repo || baseline.repo, prNumber: prNumber || baseline.prNumber, issueNumber: issueNumber || baseline.issueNumber, $: run$, log });
+    const commented = await checkForAiCreatedComments({ sessionStartTime: baseline.startedAt, owner: owner || baseline.owner, repo: repo || baseline.repo, prNumber: prNumber || baseline.prNumber, issueNumber: issueNumber || baseline.issueNumber, $: run$, log, unknownAs: null });
+    // #3215: comments that could not be read are not evidence of "no comment".
+    if (commented === null) {
+      await log("⚠️  Could not read this run's comments, so it is not judged as finished without changes", { verbose: true });
+      return unmeasured;
+    }
     if (commented) evidence = 'comment';
   }
   if (evidence) return { measured: true, progress: true, noChanges: false, evidence, reason: null, terminalState: null };

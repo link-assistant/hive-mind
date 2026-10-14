@@ -79,6 +79,8 @@ const makeFakeShell = state => {
       posted.push(JSON.parse(options.stdin).body);
       return ok(JSON.stringify({ id: 9000 + posted.length }));
     }
+    if (state.commentsBroken && command.startsWith('gh api repos/')) return { code: 1, stdout: '', stderr: 'HTTP 502' };
+    if (command.startsWith('gh api') && command.includes('/reviews')) return ok(JSON.stringify(state.reviews || []));
     if (command.startsWith('gh api') && command.includes('/comments')) return ok(JSON.stringify(command.includes('/pulls/') ? [] : state.comments));
     if (command.startsWith('gh pr view')) return ok(JSON.stringify({ isDraft: state.isDraft, state: state.prState || 'OPEN' }));
     if (command.startsWith('gh pr ready')) {
@@ -312,6 +314,27 @@ assert.equal(extractFormalAiTerminalState('"terminal_reason": "completed"'), nul
   const outcome = await evaluateSessionChanges({ $, owner: OWNER, repo: REPO, prNumber: 2, issueNumber: 1, log });
   assert.equal(outcome.progress, true, 'an AI comment is the work product of a review answer');
   assert.equal(outcome.evidence, 'comment');
+}
+
+{
+  // #3215: a submitted review is a comment; a pending one (no submitted_at) is not.
+  const state = reproductionRepo();
+  const { $ } = await freshRun(state);
+  state.reviews = [{ id: 3, user: { login: 'konard' }, state: 'PENDING', body: 'draft' }];
+  assert.equal((await evaluateSessionChanges({ $, owner: OWNER, repo: REPO, prNumber: 2, issueNumber: 1, log })).noChanges, true, 'a pending review is not published');
+  state.reviews.push({ id: 4, user: { login: 'konard' }, state: 'COMMENTED', submitted_at: new Date().toISOString(), body: 'Reviewed: the change is already in place.' });
+  const outcome = await evaluateSessionChanges({ $, owner: OWNER, repo: REPO, prNumber: 2, issueNumber: 1, log });
+  assert.equal(outcome.evidence, 'comment', 'a submitted review is the work product of a review answer');
+}
+
+{
+  // #3215: comments GitHub would not return are unmeasured, never "no comment".
+  const state = reproductionRepo();
+  const { $ } = await freshRun(state);
+  state.commentsBroken = true;
+  const outcome = await evaluateSessionChanges({ $, owner: OWNER, repo: REPO, prNumber: 2, issueNumber: 1, log });
+  assert.equal(outcome.measured, false);
+  assert.equal(outcome.noChanges, false, 'a GitHub outage does not turn a run into "finished without changes"');
 }
 
 {

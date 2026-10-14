@@ -8,6 +8,7 @@
 - The Rust edition did not release these fixes: https://github.com/link-foundation/start/issues/211 (fixed on 2026-10-13, Rust 0.25.0–0.25.4 on crates.io)
 - start-command 0.37.6 and Rust 0.25.4 re-verified (§4.11). Two small gaps found: https://github.com/link-foundation/start/issues/218 (`penalizedMs` on a graceful stop) and https://github.com/link-foundation/start/issues/219 (slow graceful stop in the Rust edition)
 - start#218 and start#219 fixed by https://github.com/link-foundation/start/pull/221 (npm 0.37.7, Rust 0.25.5+). start-command 0.37.7 (the version the Hive Mind images install) and Rust 0.25.6 re-verified (§4.12). Nothing is left open for this issue; an unrelated Rust CLI panic was reported as https://github.com/link-foundation/start/issues/222
+- start#222 fixed by https://github.com/link-foundation/start/pull/223 (npm 0.37.8, Rust 0.25.7+). The images now install start-command 0.37.8 (from main); its CPU penalty files are byte-identical to 0.37.7's (§4.13)
 
 ## 1. The issue
 
@@ -59,6 +60,7 @@ The full issue is saved in [`data/issue-2801.json`](data/issue-2801.json).
 | [`data/start-command-rust-0.25.6-penalty-base-by-docker-update.log`](data/start-command-rust-0.25.6-penalty-base-by-docker-update.log) | The same on Rust 0.25.6: `baseCpus: 4`, capped at `1.91 of 4 CPUs`, lifted back to 4 CPUs                                                                                                                 |
 | [`data/start-command-rust-0.25.6-penalty-monitor-restart-kill.log`](data/start-command-rust-0.25.6-penalty-monitor-restart-kill.log)   | `experiments/issue-2801-start-command-penalty-restart.sh` (`SIGNAL=KILL`) on Rust 0.25.6: capped while no monitor runs, lifted to 6 CPUs about 24 s after `$ --resume-all`                                |
 | [`data/start-rust-version-broken-pipe-issue.md`](data/start-rust-version-broken-pipe-issue.md)                                         | The body of the report filed as start#222 (Rust `start --version \| head -1` panics with exit 101; unrelated to the penalty)                                                                              |
+| [`data/start-command-0.37.8-and-rust-0.25.8-broken-pipe.log`](data/start-command-0.37.8-and-rust-0.25.8-broken-pipe.log)               | start#222 re-check: Rust 0.25.8 and npm 0.37.8 exit 0 on `start --version \| head -1`; the 0.37.7 → 0.37.8 tarball diff leaves the penalty files unchanged                                                |
 
 ### Timeline
 
@@ -85,6 +87,8 @@ The full issue is saved in [`data/issue-2801.json`](data/issue-2801.json).
 | 2026-10-14 10:42 | Asked on the PR to check again that start-command delivers everything this issue needs                                        |
 | 2026-10-14 11:31 | Images moved to start-command 0.37.7; 0.37.7 and Rust 0.25.6 re-verified (§4.12)                                              |
 | 2026-10-14 11:46 | Unrelated Rust CLI panic on a closed stdout pipe reported as start#222                                                        |
+| 2026-10-14 14:52 | start#222 closed by start#223; start-command 0.37.8 and Rust 0.25.7/0.25.8 released                                           |
+| 2026-10-14 17:22 | main merged with start-command 0.37.8 in the images; 0.37.8 and Rust 0.25.8 re-checked (§4.13)                                |
 
 ## 2. Requirements
 
@@ -174,6 +178,8 @@ All experiments ran on the development VM (6 CPUs, cgroup v2, Docker 29.8.0). Th
 
     So every requirement this issue puts on start-command (R1–R6 and R8) is delivered in both editions, and the start-side issues found along the way (start#189, start#205, start#206, start#211, start#218, start#219) are all closed. The Rust `--version` panic noted in §4.11 is still in 0.25.6 (exit 101 on `start --version | head -1`; the JS edition exits 0). It does not affect the penalty and was reported as [start#222](https://github.com/link-foundation/start/issues/222).
 
+13. **start-command 0.37.8 and the Rust edition 0.25.8** (2026-10-14). [start#223](https://github.com/link-foundation/start/pull/223) closed start#222, and main moved the images to 0.37.8. In the npm tarballs of 0.37.7 and 0.37.8, only `src/bin/cli.js`, `package.json` and `CHANGELOG.md` differ, and a regression test is added. `cpu-penalty.js` and `cpu-penalty-monitor.js` are byte-identical, so the §4.12 results hold for 0.37.8. `start --version | head -1` now exits 0 on Rust 0.25.8, where 0.25.6 exited 101 ([`data/start-command-0.37.8-and-rust-0.25.8-broken-pipe.log`](data/start-command-0.37.8-and-rust-0.25.8-broken-pipe.log)). No start-side issue filed from this work is still open.
+
 ## 5. Solutions per requirement
 
 | #   | Options considered                                                                                                  | Chosen                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
@@ -222,6 +228,6 @@ All experiments ran on the development VM (6 CPUs, cgroup v2, Docker 29.8.0). Th
 - Kubernetes CPU throttling and latency: https://cloudoptimo.com/blog/kubernetes-cpu-throttling-cfs-quotas-and-latency-fixes/
 - Throttling at low utilisation: https://jorijn.com/en/knowledge-base/kubernetes/monitoring/kubernetes-cpu-throttling-pods-stall-low-utilisation/
 - AWS T3 burstable instances: https://aws.amazon.com/ec2/instance-types/t3/
-- start-command: https://github.com/link-foundation/start, feature request https://github.com/link-foundation/start/issues/189, implementation https://github.com/link-foundation/start/pull/196, follow-ups https://github.com/link-foundation/start/issues/205 and https://github.com/link-foundation/start/issues/206, Rust release gap https://github.com/link-foundation/start/issues/211, graceful-stop gaps https://github.com/link-foundation/start/issues/218 and https://github.com/link-foundation/start/issues/219 (fixed by https://github.com/link-foundation/start/pull/221), Rust CLI broken-pipe panic https://github.com/link-foundation/start/issues/222
+- start-command: https://github.com/link-foundation/start, feature request https://github.com/link-foundation/start/issues/189, implementation https://github.com/link-foundation/start/pull/196, follow-ups https://github.com/link-foundation/start/issues/205 and https://github.com/link-foundation/start/issues/206, Rust release gap https://github.com/link-foundation/start/issues/211, graceful-stop gaps https://github.com/link-foundation/start/issues/218 and https://github.com/link-foundation/start/issues/219 (fixed by https://github.com/link-foundation/start/pull/221), Rust CLI broken-pipe panic https://github.com/link-foundation/start/issues/222 (fixed by https://github.com/link-foundation/start/pull/223)
 - start releases: https://github.com/link-foundation/start/releases/tag/js-v0.37.6, https://github.com/link-foundation/start/releases/tag/rust-v0.25.4, https://github.com/link-foundation/start/releases/tag/js-v0.37.7, https://github.com/link-foundation/start/releases/tag/rust-v0.25.6, https://crates.io/crates/start-command
 - start runs with the rejected Rust release push: https://github.com/link-foundation/start/actions/runs/38077619981, https://github.com/link-foundation/start/actions/runs/38142394108, https://github.com/link-foundation/start/actions/runs/38263164479

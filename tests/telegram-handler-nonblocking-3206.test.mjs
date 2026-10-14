@@ -7,7 +7,7 @@
  * The real src/telegram-bot.mjs runs in a child process. The preload in
  * tests/fixtures/issue-3206/telegraf-harness.mjs replaces Telegraf with a fake
  * that polls exactly like Telegraf 4 (one batch at a time, `Promise.all`), and
- * the PATH starts with fake `docker`, `gh` and `pgrep` binaries: `docker pull`
+ * the PATH starts with fake `docker`, `gh`, `pgrep` and `$` binaries: `docker pull`
  * hangs, everything else fails fast. No network and no real docker is used.
  *
  * The `/help` update becomes available as soon as the `docker pull` starts; its
@@ -56,6 +56,9 @@ esac`
   );
   writeExecutable(join(bin, 'gh'), `echo "gh $*" >> "${join(dir, 'calls.log')}"\nexit 1`);
   writeExecutable(join(bin, 'pgrep'), 'exit 1');
+  // start-command (`$`) must be found, or the launch stops before the pull.
+  // It is never reached: the launch waits on the pull until the test ends.
+  writeExecutable(join(bin, '$'), `echo "$ $*" >> "${join(dir, 'calls.log')}"\nexit 1`);
   return { dir, bin, home, alive, pullStarted, callsLog: join(dir, 'calls.log') };
 }
 

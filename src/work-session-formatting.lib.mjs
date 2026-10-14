@@ -206,6 +206,12 @@ export function formatSessionCompletionMessage({ sessionName, sessionInfo, statu
   } else if (finalExitCode === null && !killed && (sessionInfo?.killRecoveryResumed || sessionInfo?.recoveryLifecycle)) {
     statusEmojiOverride = '⚠️';
     statusText = 'Work session ended; final outcome could not be confirmed';
+  } else if (finalExitCode === null && !failed && !killed && Number.isFinite(sessionInfo?.trackingExpiredAfterMs)) {
+    // Issue #3215: a screen session without isolation was only tracked for a
+    // fixed time and reported no exit status; it may still be running.
+    const minutes = Math.round(sessionInfo.trackingExpiredAfterMs / 60000);
+    statusEmojiOverride = 'ℹ️';
+    statusText = text(messageLocale, 'telegram.work_session_tracking_expired', `Stopped tracking the work session after ${minutes} minutes without an exit status; it may still be running in its screen session`, { minutes });
   } else if (finalExitCode === null && !failed && !killed) {
     // Issue #3209: no exit code is not a success. A session whose execution was
     // never observed (still launching, or never started) says so explicitly.

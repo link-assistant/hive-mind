@@ -38,6 +38,7 @@ import { isCompletionHandled, markCompletionHandled, resolveCachedLastToolSessio
 import { createSessionRegistryQueries } from './session-monitor.queries.lib.mjs';
 // Issue #3209: a session is not finished before its execution was observed once.
 import { hasUnknownExitLatch, reconcileLaunchObservation, releaseCompletionLatch } from './session-monitor.launch-state.lib.mjs';
+import { getNonIsolationSessionProgress, readScreenExitMarker, removeScreenExitMarker, NON_ISOLATION_SESSION_TIMEOUT_MS, NON_ISOLATION_MARKED_SESSION_TIMEOUT_MS } from './start-screen-exit-marker.lib.mjs';
 import { enforceContainerDiskLimitForSession as enforceContainerDiskLimit, formatContainerResourceLimitExceededSection } from './container-resource-monitor.lib.mjs';
 export { formatSessionCompletionMessage, getSessionCompletionExitCode } from './work-session-formatting.lib.mjs';
 export { DOCKER_TERMINAL_FOOTER_GRACE_MS } from './session-monitor.docker-terminal.lib.mjs';
@@ -101,18 +102,9 @@ export function __setIsolationRunnerForTests(runner) {
 export function getIsolationSessionStateForTests(sessionName, sessionInfo, options = {}) {
   return getIsolationSessionState(sessionName, sessionInfo, options);
 }
-/**
- * Issue #1586: Timeout for non-isolation sessions.
- * Non-isolation (plain start-screen) sessions cannot reliably detect completion
- * because the screen stays alive via `exec bash`. To prevent false positives
- * that permanently block users, non-isolation sessions are auto-expired after
- * this timeout. This still prevents accidental duplicate commands within the
- * timeout window (5-10 minutes).
- *
- * Once --isolation is fully tested and becomes the default, this timeout
- * mechanism will no longer be needed.
- */
-export const NON_ISOLATION_SESSION_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+// Issue #1586: plain start-screen sessions expire after a timeout because `exec bash` keeps the screen alive.
+// Issue #3215: the timeouts live next to the exit status file they depend on.
+export { NON_ISOLATION_SESSION_TIMEOUT_MS, NON_ISOLATION_MARKED_SESSION_TIMEOUT_MS };
 export const DEFAULT_DOCKER_TASK_CONTAINER_KEEP_POLICY = 'on-failure';
 export const DOCKER_TASK_CONTAINER_KEEP_POLICIES = ['always', 'on-failure', 'never'];
 export function resolveDockerTaskContainerKeepPolicy({ env = process.env, verbose = false } = {}) {
@@ -359,6 +351,7 @@ function completeSession(sessionName, exitCode = 0, verbose = false, status = nu
       console.error(`[session-monitor] Could not remove persisted session ${sessionName}: ${error.message}`);
     }
   }
+  void removeScreenExitMarker(sessionInfo?.exitMarkerPath);
   logEvent('session_completed', { sessionName, exitCode: exitCode ?? null, status: status || null });
   notifySessionCompletionListeners({
     sessionName,
@@ -619,17 +612,19 @@ async function applyDockerTaskContainerCompletionAction(action, { verbose = fals
   }
 }
 function isNonIsolationSessionActive(sessionName, sessionInfo, verbose = false) {
-  const startTime = sessionInfo.startTime instanceof Date ? sessionInfo.startTime : new Date(sessionInfo.startTime);
-  const elapsed = Date.now() - startTime.getTime();
-  if (elapsed >= NON_ISOLATION_SESSION_TIMEOUT_MS) {
+  const progress = getNonIsolationSessionProgress(sessionInfo);
+  // Issue #3215: the recorded exit status means the work is done; the monitor
+  // still reports it, so the session stays tracked until then.
+  if (progress.finished) return false;
+  if (progress.expired) {
     if (verbose) {
-      console.log(`[VERBOSE] Non-isolation session ${sessionName} expired after ${Math.round(elapsed / 1000)}s (timeout: ${NON_ISOLATION_SESSION_TIMEOUT_MS / 1000}s), removing from tracking`);
+      console.log(`[VERBOSE] Non-isolation session ${sessionName} expired after ${Math.round(progress.elapsedMs / 1000)}s (timeout: ${progress.timeoutMs / 1000}s), removing from tracking`);
     }
     activeSessions.delete(sessionName);
     return false;
   }
   if (verbose) {
-    const remainingSec = Math.round((NON_ISOLATION_SESSION_TIMEOUT_MS - elapsed) / 1000);
+    const remainingSec = Math.round((progress.timeoutMs - progress.elapsedMs) / 1000);
     console.log(`[VERBOSE] Non-isolation session ${sessionName} still within timeout (${remainingSec}s remaining)`);
   }
   return true;
@@ -736,17 +731,28 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
     // Issue #1586: Non-isolation screen sessions cannot reliably detect
     // completion because start-screen keeps the screen alive via `exec bash`.
     // Auto-expire after timeout; within timeout, use screen -ls as best-effort.
-    const startTime = sessionInfo.startTime instanceof Date ? sessionInfo.startTime : new Date(sessionInfo.startTime);
-    const elapsed = Date.now() - startTime.getTime();
-    if (elapsed >= NON_ISOLATION_SESSION_TIMEOUT_MS) {
+    // Issue #3215: start-screen records the exit status in a marker file, so a
+    // session that has one is finished with a real exit code, and a session
+    // whose start-screen writes one is tracked until it appears.
+    const recordedExitCode = await readScreenExitMarker(sessionInfo.exitMarkerPath, { readFile: options.readScreenExitMarkerFile });
+    if (recordedExitCode !== null) sessionInfo.recordedExitCode = recordedExitCode;
+    const progress = getNonIsolationSessionProgress(sessionInfo);
+    const { elapsedMs: elapsed, timeoutMs } = progress;
+    if (progress.finished) {
       stillRunning = false;
+      exitCode = progress.exitCode;
+      if (verbose) console.log(`[VERBOSE] Non-isolation session ${sessionName} finished with exit code ${exitCode} (exit status file ${sessionInfo.exitMarkerPath})`);
+    } else if (progress.expired) {
+      stillRunning = false;
+      // The session is no longer tracked, but nothing says the work ended.
+      sessionInfo.trackingExpiredAfterMs = timeoutMs;
       if (verbose) {
-        console.log(`[VERBOSE] Non-isolation session ${sessionName} expired after ${Math.round(elapsed / 1000)}s (timeout: ${NON_ISOLATION_SESSION_TIMEOUT_MS / 1000}s)`);
+        console.log(`[VERBOSE] Non-isolation session ${sessionName} expired after ${Math.round(elapsed / 1000)}s (timeout: ${timeoutMs / 1000}s)`);
       }
     } else {
       stillRunning = await checkScreenSessionExists(sessionName);
       if (verbose) {
-        const remainingSec = Math.round((NON_ISOLATION_SESSION_TIMEOUT_MS - elapsed) / 1000);
+        const remainingSec = Math.round((timeoutMs - elapsed) / 1000);
         console.log(`[VERBOSE] Non-isolation session ${sessionName}: screen -ls says ${stillRunning ? 'running' : 'not found'} (timeout in ${remainingSec}s)`);
       }
     }
@@ -1279,6 +1285,5 @@ const { hasActiveSessionForUrl, findStoppableSessionByUrl, hasActiveSessionForUr
   isNonIsolationSessionActive,
   getIsolationSessionState,
   checkScreenSessionExists,
-  NON_ISOLATION_SESSION_TIMEOUT_MS,
 });
 export { hasActiveSessionForUrl, findStoppableSessionByUrl, hasActiveSessionForUrlAsync, getRunningTrackedIsolationSessions, getRunningSessionItems, getSessionStats };

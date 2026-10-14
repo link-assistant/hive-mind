@@ -6,6 +6,7 @@ import { formatFailedLaunchMessage as defaultFormatFailedLaunchMessage } from '.
 import { safeEditMessageText } from './telegram-safe-reply.lib.mjs';
 import { selectContainerResourceLimitsForBackend } from './container-resource-limits.lib.mjs';
 import { markLaunchCompleted, markLaunchPending } from './session-monitor.launch-state.lib.mjs';
+import { parseScreenExitMarkerPath } from './start-screen-exit-marker.lib.mjs';
 
 const exec = promisify(execCallback);
 
@@ -167,9 +168,10 @@ export function buildExecuteAndUpdateMessage(deps) {
       result = await executeStartScreen(commandName, args);
       const match = result.success && (result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -R\s+(\S+)/));
       session = match ? match[1] : 'unknown';
-      // Issue #1586: Non-isolation sessions auto-expire after 10 min — screen stays alive via `exec bash` so completion can't be detected reliably; this still blocks duplicate commands in the timeout window.
+      // Issue #1586: screen stays alive via `exec bash`, so `screen -ls` cannot see the end of the work. Issue #3215: start-screen records the exit status in a marker file the monitor reads; an older start-screen without it falls back to the 10 min expiry.
       if (result.success && session !== 'unknown') {
-        sessionInfo = baseSessionInfo;
+        const exitMarkerPath = parseScreenExitMarkerPath(result.output);
+        sessionInfo = exitMarkerPath ? { ...baseSessionInfo, exitMarkerPath } : baseSessionInfo;
         trackSession(session, sessionInfo, VERBOSE);
       }
     }

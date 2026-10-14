@@ -695,6 +695,7 @@ en
         recoveries "automatic recoveries: {{count}}"
         status_unknown "Work session ended, but its exit status is unknown"
         never_observed "Work session status unknown: the session was never observed running"
+        tracking_expired "Stopped tracking the work session after {{minutes}} minutes without an exit status; it may still be running in its screen session"
     duration
       label "Duration"
     session

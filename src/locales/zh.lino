@@ -695,6 +695,7 @@ zh
         recoveries "自动恢复次数：{{count}}"
         status_unknown "工作会话已结束，但其退出状态未知"
         never_observed "工作会话状态未知：从未观察到该会话运行"
+        tracking_expired "已在 {{minutes}} 分钟后停止跟踪工作会话，未获得退出状态；它可能仍在其 screen 会话中运行"
     duration
       label "耗时"
     session

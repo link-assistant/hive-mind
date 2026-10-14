@@ -13,6 +13,7 @@
  *
  * @see https://github.com/link-assistant/hive-mind/issues/2175
  */
+import { getNonIsolationSessionProgress } from './start-screen-exit-marker.lib.mjs';
 
 /**
  * Bind the registry queries to a session-monitor instance.
@@ -23,10 +24,9 @@
  * @param {(sessionName: string, sessionInfo: object, verbose?: boolean) => boolean} deps.isNonIsolationSessionActive
  * @param {(sessionName: string, sessionInfo: object, options?: object) => Promise<object>} deps.getIsolationSessionState
  * @param {(sessionName: string) => Promise<boolean>} deps.checkScreenSessionExists
- * @param {number} deps.NON_ISOLATION_SESSION_TIMEOUT_MS
  * @returns {{hasActiveSessionForUrl: Function, findStoppableSessionByUrl: Function, hasActiveSessionForUrlAsync: Function, getRunningTrackedIsolationSessions: Function, getRunningSessionItems: Function, getSessionStats: Function}}
  */
-export function createSessionRegistryQueries({ activeSessions, normalizeSessionUrl, isNonIsolationSessionActive, getIsolationSessionState, checkScreenSessionExists, NON_ISOLATION_SESSION_TIMEOUT_MS }) {
+export function createSessionRegistryQueries({ activeSessions, normalizeSessionUrl, isNonIsolationSessionActive, getIsolationSessionState, checkScreenSessionExists }) {
   /**
    * Issue #1567: Check if there's an active session for a given URL.
    * This prevents concurrent sessions on the same PR/issue, which causes
@@ -37,7 +37,9 @@ export function createSessionRegistryQueries({ activeSessions, normalizeSessionU
    * Issue #1586: Non-isolation sessions (plain start-screen) cannot reliably
    * detect completion because the screen stays alive via `exec bash`. To avoid
    * permanent false positives, non-isolation sessions are auto-expired after
-   * NON_ISOLATION_SESSION_TIMEOUT_MS (10 minutes). Within that window they
+   * NON_ISOLATION_SESSION_TIMEOUT_MS (10 minutes); issue #3215: a session whose
+   * start-screen records its exit status is done once that status exists and
+   * otherwise expires only after 24 hours. Within that window they
    * still block duplicate commands for the same URL, which prevents accidental
    * re-runs. Isolation-backed sessions have no timeout since their completion
    * is reliably detected by monitorSessions().
@@ -251,11 +253,11 @@ export function createSessionRegistryQueries({ activeSessions, normalizeSessionU
           continue;
         }
       } else {
-        const startTime = sessionInfo.startTime instanceof Date ? sessionInfo.startTime : new Date(sessionInfo.startTime);
-        const elapsed = Date.now() - startTime.getTime();
-        if (elapsed >= NON_ISOLATION_SESSION_TIMEOUT_MS) {
+        // Issue #3215: a recorded exit status means the work is done.
+        const progress = getNonIsolationSessionProgress(sessionInfo);
+        if (progress.finished || progress.expired) {
           if (verbose) {
-            console.log(`[VERBOSE] Non-isolation session ${sessionName} expired after ${Math.round(elapsed / 1000)}s; excluded from running list`);
+            console.log(`[VERBOSE] Non-isolation session ${sessionName} ${progress.finished ? `finished with exit code ${progress.exitCode}` : `expired after ${Math.round(progress.elapsedMs / 1000)}s`}; excluded from running list`);
           }
           continue;
         }

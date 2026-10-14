@@ -63,7 +63,7 @@ const { buildIssueReference } = prIssueLinking;
 
 // Issue #2119: the one place that decides whether a pull request changed anything.
 const { formatChangesSection, getPullRequestChangeStats } = await import('./pull-request-changes.lib.mjs');
-const { buildNoChangesNotice, capWorkingSessionSummary, formatWorkingSessionSummaryMarkdown, redactWorkspacePaths } = await import('./working-session-summary.lib.mjs');
+const { buildNoChangesNotice, capWorkingSessionSummary, formatWorkingSessionSummaryMarkdown, redactWorkspacePaths, replaceEchoedToolOutputSummary } = await import('./working-session-summary.lib.mjs');
 /**
  * Placeholder patterns used to detect auto-generated PR content that was not updated by the agent.
  * These patterns match the initial WIP PR created by solve.auto-pr.lib.mjs.
@@ -1114,6 +1114,8 @@ export const attachSolutionSummary = async ({ resultSummary, prNumber, issueNumb
     // summary said "The `pwd` command completed" and printed the solver's own
     // /tmp workspace, on a pull request that was still empty.
     const noChangesNotice = buildNoChangesNotice(changeStats);
+    // Issue #3211: a final message that only repeats the last tool output is not a summary.
+    resultSummary = replaceEchoedToolOutputSummary(resultSummary);
     // Issue #2492: the summary is always shown in full (no `<details>` fold).
     // It is cut only past GitHub's comment size limit, pointing to the log.
     const capped = capWorkingSessionSummary(formatWorkingSessionSummaryMarkdown(redactWorkspacePaths(resultSummary)), { logUrl });

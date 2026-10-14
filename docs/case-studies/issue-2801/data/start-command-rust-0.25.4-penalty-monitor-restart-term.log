@@ -1,0 +1,14 @@
+
+thread 'main' (34048) panicked at /rustc/b940084d7eb6a299eb4bfeb8e34901bc051e7ac4/library/std/src/io/stdio.rs:1168:9:
+failed printing to stdout: Broken pipe (os error 32)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+06:05:42 start-command version: 0.25.4 (Rust); NCPU=6 TRIGGER=20% SIGNAL=TERM
+06:06:10 penalized: NanoCpus=2000000000 penalized limit=2 count=1 penalizedMs=2152 monitor pids: 34456 34471 34472 34474 
+06:06:12 watcher and monitor killed; monitor pids: ''
+06:06:13 container made idle; waiting 30 s without a monitor
+06:06:43 still capped? NanoCpus=6000000000 observing limit=6 count=1 penalizedMs=0
+06:06:43 watcher-side processes: 
+resume-all: reattached state=running Re-attached completion watcher to running container: issue-2801-start-restart-34010
+06:06:45 after --resume-all: status=executing null null
+06:06:45 after --resume-all: processes: 36880 sh -c __start_command_cgroup_dir() { __scd_id=$(docker inspect -f '{{.Id}}' "$1" 2>/dev/null); [ -n "$__scd_id" ] || return 1; __scd_pid=$(docker inspect |36900 sh -c __start_command_cgroup_dir() { __scd_id=$(docker inspect -f '{{.Id}}' "$1" 2>/dev/null); [ -n "$__scd_id" ] || return 1; __scd_pid=$(docker inspect |36901 sh -c __start_command_cgroup_dir() { __scd_id=$(docker inspect -f '{{.Id}}' "$1" 2>/dev/null); [ -n "$__scd_id" ] || return 1; __scd_pid=$(docker inspect |36902 docker logs -f issue-2801-start-restart-34010|36905 /tmp/sc-rust/bin/start __start-cpu-monitor 0cae4932-399b-4167-a3de-b1b22af238a4 issue-2801-start-restart-34010 1|
+06:06:48 idle NanoCpus=6000000000 observing limit=6 count=1 penalizedMs=0

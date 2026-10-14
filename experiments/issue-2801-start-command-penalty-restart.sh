@@ -14,7 +14,9 @@ NAME="issue-2801-start-restart-$$"
 log() { echo "$(date -u +%H:%M:%S) $*"; }
 nano() { docker inspect -f '{{.HostConfig.NanoCpus}}' "$NAME" 2>/dev/null; }
 phase() { "$START_BIN" --status "$NAME" --output-format json 2>/dev/null | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const p=JSON.parse(s).cpuPenalty;console.log(p?`${p.phase} limit=${p.limitCpus} count=${p.penaltyCount} penalizedMs=${p.penalizedMs}`:"null")}catch{console.log("unparsable")}})'; }
-monitors() { pgrep -f "cpu-penalty-monitor.js.*$NAME" | tr '\n' ' '; }
+# JS editions run `cpu-penalty-monitor.js`, the Rust edition `$ __start-cpu-monitor`.
+MONITOR="(cpu-penalty-monitor.js|__start-cpu-monitor).*$NAME"
+monitors() { pgrep -f "$MONITOR" | tr '\n' ' '; }
 
 log "$("$START_BIN" --version | head -1); NCPU=$NCPU TRIGGER=$TRIGGER SIGNAL=$SIGNAL"
 "$START_BIN" -i docker -d --image alpine:3 --session "$NAME" \
@@ -26,7 +28,7 @@ for _ in $(seq 30); do
   [ "$(nano)" = 2000000000 ] && break
 done
 log "penalized: NanoCpus=$(nano) $(phase) monitor pids: $(monitors)"
-pkill -$SIGNAL -f "docker logs -f.* $NAME" ; pkill -$SIGNAL -f "cpu-penalty-monitor.js.*$NAME"
+pkill -$SIGNAL -f "docker logs -f.* $NAME" ; pkill -$SIGNAL -f "$MONITOR"
 sleep 2
 log "watcher and monitor killed; monitor pids: '$(monitors)'"
 docker exec "$NAME" touch /tmp/stop

@@ -36,6 +36,8 @@ import { runKillRecoveryForCompletion } from './session-kill-resume.lib.mjs';
 // Issue #2189: the handled latch + the memoized last-tool-session-id read that keep a completed session from replaying its whole completion pipeline on every poll.
 import { isCompletionHandled, markCompletionHandled, resolveCachedLastToolSessionId } from './session-completion-state.lib.mjs';
 import { createSessionRegistryQueries } from './session-monitor.queries.lib.mjs';
+// Issue #3209: a session is not finished before its execution was observed once.
+import { hasUnknownExitLatch, reconcileLaunchObservation, releaseCompletionLatch } from './session-monitor.launch-state.lib.mjs';
 import { enforceContainerDiskLimitForSession as enforceContainerDiskLimit, formatContainerResourceLimitExceededSection } from './container-resource-monitor.lib.mjs';
 export { formatSessionCompletionMessage, getSessionCompletionExitCode } from './work-session-formatting.lib.mjs';
 export { DOCKER_TERMINAL_FOOTER_GRACE_MS } from './session-monitor.docker-terminal.lib.mjs';
@@ -310,8 +312,9 @@ function getActiveSessions(verbose = false) {
  * @param {string} sessionName - Name of the session to remove
  * @param {boolean} verbose - Whether to log verbose output
  */
-function completionExitForAudit(sessionInfo, exitCode) {
-  return exitCode ?? (sessionInfo?.killRecoveryResumed || sessionInfo?.recoveryLifecycle ? null : 0);
+// Issue #3209: an unknown exit code is recorded as unknown, never as 0.
+function completionExitForAudit(exitCode) {
+  return exitCode ?? null;
 }
 // Issue #2823: callbacks told when a tracked session ends, so the solve queue
 // can tell a finished task from one that is merely launched.
@@ -631,8 +634,10 @@ function isNonIsolationSessionActive(sessionName, sessionInfo, verbose = false) 
   }
   return true;
 }
-function getIsolationSessionState(sessionName, sessionInfo, options = {}) {
-  return getIsolationSessionStateImpl(sessionName, sessionInfo, { ...options, runnerProvider: getIsolationRunner, persistSnapshot: () => persistSessionSnapshot(sessionName, sessionInfo) });
+async function getIsolationSessionState(sessionName, sessionInfo, options = {}) {
+  const persistSnapshot = () => persistSessionSnapshot(sessionName, sessionInfo);
+  const state = await getIsolationSessionStateImpl(sessionName, sessionInfo, { ...options, runnerProvider: getIsolationRunner, persistSnapshot });
+  return reconcileLaunchObservation(sessionName, sessionInfo, state, { verbose: options.verbose, persistSnapshot });
 }
 /**
  * Monitor active sessions and send notifications when they complete
@@ -675,11 +680,17 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
   // a notification the user already had — because a late failure in that
   // pipeline (or a bot restart) left the session tracked. Finalize it here,
   // before any status probe, and do none of that work again.
+  const probeOptions = { verbose, statusProvider: options.statusProvider, exitFromLog: options.exitFromLog, backendAlive: options.backendAlive, sessionRunning: options.sessionRunning };
   if (isCompletionHandled(sessionInfo)) {
+    // Issue #3209: a latch without an exit code may predate the execution itself; a session found running is un-latched so its real end gets reported.
+    if (hasUnknownExitLatch(sessionInfo) && (await getIsolationSessionState(sessionName, sessionInfo, probeOptions)).running) {
+      releaseCompletionLatch(sessionName, sessionInfo, { verbose, persistSnapshot: () => persistSessionSnapshot(sessionName, sessionInfo), logEvent });
+      return;
+    }
     if (verbose) {
       console.log(`[VERBOSE] Session ${sessionName} was already reported at ${sessionInfo.completionNotifiedAt}; finalizing without repeating the completion work (issue #2189)`);
     }
-    completeSession(sessionName, completionExitForAudit(sessionInfo, sessionInfo.completionExitCode), verbose, sessionInfo.completionStatus ?? null);
+    completeSession(sessionName, completionExitForAudit(sessionInfo.completionExitCode), verbose, sessionInfo.completionStatus ?? null);
     return;
   }
   let stillRunning;
@@ -687,18 +698,14 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
   let statusResult = null;
   let resolvedStatus = null;
   let observedContainerFilesystemBytes = null;
+  let launchUnobserved = false;
   if (sessionInfo.isolationBackend && sessionInfo.sessionId) {
     // Isolation mode: use $ --status, with screen -ls only as a fallback
     // when the status record is unavailable. Terminal $ statuses are
     // authoritative so completed screen sessions do not stay blocked.
-    const state = await getIsolationSessionState(sessionName, sessionInfo, {
-      verbose,
-      statusProvider: options.statusProvider,
-      exitFromLog: options.exitFromLog,
-      backendAlive: options.backendAlive,
-      sessionRunning: options.sessionRunning,
-    });
+    const state = await getIsolationSessionState(sessionName, sessionInfo, probeOptions);
     stillRunning = state.running;
+    launchUnobserved = state.launchUnobserved === true;
     exitCode = state.exitCode;
     statusResult = state.statusResult;
     resolvedStatus = state.status || statusResult?.status || null;
@@ -998,6 +1005,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
         extraSections: [...subscriptionBlockedExtraSections, ...resourceLimitExtraSections, ...limitsExtraSections, ...killReport.sections, ...resumeExtraSections, ...diskExtraSections, ...dockerTaskContainerExtraSections],
         resumedAs: killRecovery.resumed ? killRecovery.sessionId : null,
         recoveryCount: killRecovery.resumed ? killRecovery.attempt : null,
+        launchUnobserved,
       });
       if (killReport.killed || killReport.recovered || killReport.oomEventOnly) {
         const notice = await announceKillOnPullRequest({
@@ -1074,7 +1082,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
         verbose,
         removeDockerContainer: options.removeDockerContainer,
       });
-      completeSession(sessionName, completionExitForAudit(sessionInfo, finalExitCode), verbose, resolvedStatus);
+      completeSession(sessionName, completionExitForAudit(finalExitCode), verbose, resolvedStatus);
     } catch (error) {
       console.error(`Failed to send completion notification for ${sessionName}:`, error);
       if (isMessageAlreadyUpdatedError(error)) {
@@ -1082,7 +1090,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
           verbose,
           removeDockerContainer: options.removeDockerContainer,
         });
-        completeSession(sessionName, completionExitForAudit(sessionInfo, exitCode), verbose, resolvedStatus);
+        completeSession(sessionName, completionExitForAudit(exitCode), verbose, resolvedStatus);
       } else {
         sessionInfo.lastNotificationError = error.message;
         sessionInfo.lastKnownStatus = statusResult?.status || sessionInfo.lastKnownStatus || null;

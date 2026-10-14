@@ -175,7 +175,7 @@ export function appendPullRequestLine(infoBlock, pullRequestUrl, { locale = null
   return [...before, prLine, ...after].join('\n');
 }
 
-export function formatSessionCompletionMessage({ sessionName, sessionInfo, statusResult = null, observedEndTime = new Date(), exitCode = null, infoBlock = '', pullRequestUrl = null, pullRequestState = null, extraSections = [], locale = null, resumedAs = null, recoveryCount = null } = {}) {
+export function formatSessionCompletionMessage({ sessionName, sessionInfo, statusResult = null, observedEndTime = new Date(), exitCode = null, infoBlock = '', pullRequestUrl = null, pullRequestState = null, extraSections = [], locale = null, resumedAs = null, recoveryCount = null, launchUnobserved = false } = {}) {
   const finalExitCode = getSessionCompletionExitCode({ exitCode, statusResult });
   const outcome = classifySessionOutcome({ exitCode: finalExitCode, status: statusResult?.status || null });
   const { failed, killed, signal } = outcome;
@@ -205,6 +205,11 @@ export function formatSessionCompletionMessage({ sessionName, sessionInfo, statu
   } else if (finalExitCode === null && !killed && (sessionInfo?.killRecoveryResumed || sessionInfo?.recoveryLifecycle)) {
     statusEmojiOverride = '⚠️';
     statusText = 'Work session ended; final outcome could not be confirmed';
+  } else if (finalExitCode === null && !failed && !killed) {
+    // Issue #3209: no exit code is not a success. A session whose execution was
+    // never observed (still launching, or never started) says so explicitly.
+    statusEmojiOverride = '⚠️';
+    statusText = launchUnobserved ? text(messageLocale, 'telegram.work_session_never_observed', 'Work session status unknown: the session was never observed running') : text(messageLocale, 'telegram.work_session_status_unknown', 'Work session ended, but its exit status is unknown');
   } else if (!failed && recoveries > 0) {
     // Issue #2408: the work completed, but only because it was recovered.
     statusEmojiOverride = '⚠️';

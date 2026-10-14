@@ -692,6 +692,8 @@ zh
         recovering "工作会话仍在进行：正在从退出代码 {{exitCode}} 恢复"
         recovered "工作会话在自动恢复后成功完成"
         recoveries "自动恢复次数：{{count}}"
+        status_unknown "工作会话已结束，但其退出状态未知"
+        never_observed "工作会话状态未知：从未观察到该会话运行"
     duration
       label "耗时"
     session

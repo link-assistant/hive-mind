@@ -692,6 +692,8 @@ en
         recovering "Work session still in progress: recovering from exit code {{exitCode}}"
         recovered "Work session finished successfully after automatic recovery"
         recoveries "automatic recoveries: {{count}}"
+        status_unknown "Work session ended, but its exit status is unknown"
+        never_observed "Work session status unknown: the session was never observed running"
     duration
       label "Duration"
     session

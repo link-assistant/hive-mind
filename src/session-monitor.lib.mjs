@@ -556,8 +556,9 @@ async function refreshDockerContainerFilesystemSizeForSession(sessionName, sessi
 function getLastKnownDockerContainerFilesystemSize(sessionInfo) {
   return Number.isFinite(sessionInfo?.containerFilesystemLastBytes) ? sessionInfo.containerFilesystemLastBytes : null;
 }
-function isSuccessfulTaskCompletion({ exitCode = null, status = null } = {}) {
-  const outcome = classifySessionOutcome({ exitCode, status });
+function isSuccessfulTaskCompletion({ exitCode = null, status = null, command = null } = {}) {
+  const outcome = classifySessionOutcome({ exitCode, status, command });
+  if (outcome.noChanges) return true;
   if (outcome.failed) return false;
   if (exitCode === 0) return true;
   const normalizedStatus = String(status || '')
@@ -577,7 +578,7 @@ export function buildDockerTaskContainerCompletionAction({ sessionName, sessionI
     return { applies: false, containerName: null, keepPolicy: null, shouldRemove: false, extraSection: '' };
   }
   const keepPolicy = resolveDockerTaskContainerKeepPolicy({ env, verbose });
-  const successful = isSuccessfulTaskCompletion({ exitCode, status });
+  const successful = isSuccessfulTaskCompletion({ exitCode, status, command: sessionInfo.command });
   const shouldKeep = keepPolicy === 'always' || (keepPolicy === 'on-failure' && !successful);
   return {
     applies: true,

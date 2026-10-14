@@ -910,11 +910,15 @@ export class SolveQueue {
       this.log(`Session completion for ${describe} matches no launched queue item`);
       return null;
     }
-    const { failed, killed, signal } = classifySessionOutcome({ exitCode, status });
-    item.sessionOutcome = { failed, killed, signal: signal?.signal || null, exitCode: Number.isInteger(exitCode) ? exitCode : null, status: status || null, sessionName, finishedAt: new Date() };
+    const outcome = classifySessionOutcome({ exitCode, status, command });
+    const { killed, signal, noChanges } = outcome;
+    // Issue #3215: a solve that finished without changes (#3211) did not fail.
+    const failed = outcome.failed && !noChanges;
+    item.sessionOutcome = { failed, killed, noChanges, signal: signal?.signal || null, exitCode: Number.isInteger(exitCode) ? exitCode : null, status: status || null, sessionName, finishedAt: new Date() };
     if (failed) this.stats.totalSessionFailed = (this.stats.totalSessionFailed || 0) + 1;
+    else if (noChanges) this.stats.totalSessionNoChanges = (this.stats.totalSessionNoChanges || 0) + 1;
     else this.stats.totalSessionSucceeded = (this.stats.totalSessionSucceeded || 0) + 1;
-    this.log(`Session outcome recorded for ${item.toString()}: ${failed ? 'failed' : 'succeeded'} (${describe})`);
+    this.log(`Session outcome recorded for ${item.toString()}: ${failed ? 'failed' : noChanges ? 'finished without changes' : 'succeeded'} (${describe})`);
     return item;
   }
   /**

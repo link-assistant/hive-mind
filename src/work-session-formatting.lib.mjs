@@ -40,13 +40,17 @@ export function getSessionCompletionExitCode({ exitCode = null, statusResult = n
  * @param {string|null} [params.status] - Session status string, if known
  * @returns {{ failed: boolean, killed: boolean, signal: object|null }}
  */
-export function classifySessionOutcome({ exitCode = null, status = null } = {}) {
+export function classifySessionOutcome({ exitCode = null, status = null, command = null } = {}) {
   const code = normalizeExitCode(exitCode);
   const signal = describeExitSignal(code);
   const killedByStatus = isKilledSessionStatus(status);
   const killed = Boolean(signal) || killedByStatus;
   const failed = killed || (code !== null && code !== 0) || FAILURE_SESSION_STATUSES.has(String(status || '').toLowerCase());
-  return { failed, killed, signal };
+  // Issue #3211: `failed` stays true for the nonzero exit, but a solve that
+  // finished without changes is not a crash; callers that count or clean up
+  // failures (docker keep policy, /queue history) check `noChanges` (#3215).
+  const noChanges = failed && !killed && command === 'solve' && code === EXIT_CODE_SOLVE_NO_CHANGES;
+  return { failed, killed, signal, noChanges };
 }
 
 export { KILLED_SESSION_STATUSES };

@@ -64,6 +64,7 @@ const ENGLISH_LIMITS = {
   queue_and_more: 'and {{count}} more',
   queue_continued: 'continued',
   queue_exit_code: 'exit code {{code}}',
+  queue_no_changes: 'finished without changes',
   queue_pending: 'pending',
   queue_processing: 'processing',
   queue_processes: '{{count}} processes',

@@ -359,6 +359,8 @@ solve <issue-url> [options]
 
 > **📦 仓库模式**：传入仓库 URL（而不是 issue URL），solve 会收集该仓库的所有开放 issue（最旧优先），创建一个合并 issue，将其中最多 100 个附加为 GitHub 原生子 issue（GitHub 每个父 issue 的上限），并把每一个 issue（包括其余的）都列为必需的关闭引用，并解决该 issue —— 这样一个 pull request 就能一次性关闭它们全部。该模式还会自动启用 `--deep-analysis` 和 `--ensure-all-sub-issues-addressed`。仍挂在更早的已关闭合并 issue 下的 issue 会被移到新的合并 issue 中；使用 `--auto-merge` 时，只有当 pull request 描述关闭了列出的每一个 issue 时才会合并。如果没有开放的 issue，CLI 会成功退出且不会创建任何内容；Telegram 会直接报告无需执行任何操作，不会启动工作会话。如果只有一个开放的 issue，则不会创建合并 issue：直接解决该 issue，就像传入了它的 URL 一样（Telegram 也会显示并启动该 issue 的 URL）。参见 [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#solve-options)。
 
+> **退出码**：当本次运行取得进展（提交、文件修改或评论）或其 pull request 已合并时，`solve` 退出码为 0；运行结束但没有任何更改时退出码为 5：原因会写在 pull request 评论中，草稿 pull request 保持草稿状态，且不会报告 🎉 成功（[#3211](https://github.com/link-assistant/hive-mind/issues/3211)）。其他非零退出码表示失败。`hive` 和 Telegram 机器人将退出码 5 显示为 ⚠️ 未做更改而结束，而不是失败；直接调用 `solve` 并把所有非零退出码视为错误的脚本，在预期可能无更改时应接受 5。
+
 **最常用选项：**
 
 | 选项            | 简写 | 描述                                                  | 默认值   |

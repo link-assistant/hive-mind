@@ -51,13 +51,11 @@
  * @see https://github.com/link-assistant/hive-mind/issues/2207
  */
 
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
-
+import { dockerExecFileAsync, pullDockerImage } from './docker-pull-detached.lib.mjs';
 import { FORMAL_AI_BOOTSTRAP_VERSION, isFormalAiVersionAtLeast, parseFormalAiVersion } from './formal-ai-version.lib.mjs';
 import { getDockerIsolationImage } from './hive-mind-image.lib.mjs';
 
-const execFileAsync = promisify(execFile);
+const execFileAsync = dockerExecFileAsync;
 
 /** Image published by every Formal AI release (`:latest` plus the bare version). */
 export const FORMAL_AI_IMAGE_REPOSITORY = 'ghcr.io/link-assistant/formal-ai';
@@ -117,6 +115,13 @@ export const formatDockerTimeout = timeoutMs => {
  * @returns {{kind: string, reason: string, remediation: string[]}}
  */
 export const classifyDockerRegistryError = (message, { error = null, timeoutMs = null } = {}) => {
+  if (error?.continuesInBackground) {
+    return {
+      kind: 'timeout',
+      reason: `the pull did not finish in ${formatDockerTimeout(timeoutMs)}; it continues in the background, so a later task finds the image locally`,
+      remediation: ['retry once the background pull has finished (`docker image ls` lists the image)', "check the host's bandwidth to the registry if it never finishes"],
+    };
+  }
   if (isDockerCommandInterrupted(error)) {
     return {
       kind: 'timeout',
@@ -452,13 +457,13 @@ export const ensureFormalAiSidecarImage = async ({ env = process.env, run = exec
   for (const candidate of toPull) {
     if (log) await log(`⬇️ Pulling the Formal AI sidecar image ${candidate.image}`);
     try {
-      await run('docker', ['pull', candidate.image], { encoding: 'utf8', timeout: timeoutMs });
+      await pullDockerImage(['pull', candidate.image], { run, timeoutMs });
     } catch (error) {
       const message = errorText(error);
       const diagnosis = classifyDockerRegistryError(message, { error, timeoutMs });
       record(candidate, { kind: diagnosis.kind, reason: diagnosis.reason, error: message, remediation: diagnosis.remediation });
       if (log) await log(`⚠️ Could not pull ${candidate.image}: ${diagnosis.reason} (${diagnosis.kind}). ${message}`);
-      if (log && diagnosis.kind === 'timeout') await log(describeInterruptedPullLeftovers(candidate.image));
+      if (log && diagnosis.kind === 'timeout' && !error?.continuesInBackground) await log(describeInterruptedPullLeftovers(candidate.image));
       continue;
     }
 

@@ -41,10 +41,9 @@
  * @see https://github.com/link-assistant/hive-mind/pull/2147
  */
 
-import { execFile } from 'node:child_process';
 import fs from 'node:fs';
-import { promisify } from 'node:util';
 
+import { dockerExecFileAsync } from './docker-pull-detached.lib.mjs';
 import { FORMAL_AI_MINIMUM_VERSION, isFormalAiVersionAtLeast } from './formal-ai-version.lib.mjs';
 import { ensureFormalAiSidecarImage, readAcceptedFormalAiImage, readFormalAiImageCommand, resolveFormalAiSidecarImage } from './formal-ai-image.lib.mjs';
 import { isFormalAiModel } from './formal-ai-model.lib.mjs';
@@ -52,7 +51,7 @@ import { getModelFromArgs } from './model-args.lib.mjs';
 import { withStateLock } from './state-lock.lib.mjs';
 import { attachDockerNetwork, DEFAULT_IMAGE_TIMEOUT_MS, dockerOk, dockerText, ensureDockerVolume, ensureInternalDockerNetwork, inspectDockerContainer, readDockerContainerAddress, readDockerImageDigest, readSidecarState, reconcileSidecarLeases, resolveSidecarStatePath, sleep, writeSidecarState } from './docker-sidecar.lib.mjs';
 
-const execFileAsync = promisify(execFile);
+const execFileAsync = dockerExecFileAsync;
 
 // Re-exported because callers of this module have always imported them from
 // here; the implementations now live in the shared sidecar module.

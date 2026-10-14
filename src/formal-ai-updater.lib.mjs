@@ -53,16 +53,15 @@
  * @see https://github.com/link-assistant/formal-ai/issues/982
  */
 
-import { execFile } from 'node:child_process';
 import fs from 'node:fs';
-import { promisify } from 'node:util';
 
+import { dockerExecFileAsync, pullDockerImage } from './docker-pull-detached.lib.mjs';
 import { classifyDockerRegistryError, describeInterruptedPullLeftovers, readAcceptedFormalAiImage, resolveFormalAiFallbackImage } from './formal-ai-image.lib.mjs';
 import { describeBytesFreed, readFormalAiRepoDigest, readLocalImageRepoDigests, removeFormalAiImages, resolveRemoteImageDigests } from './formal-ai-image-store.lib.mjs';
 import { FORMAL_AI_IMAGE_REPOSITORY, FORMAL_AI_MEMORY_MOUNT, FORMAL_AI_MEMORY_PATH, FORMAL_AI_MEMORY_VOLUME_NAME, FORMAL_AI_SIDECAR_CONTAINER_NAME, buildFormalAiSidecarRunArgs, ensureFormalAiMemoryVolume, ensureFormalAiNetwork, inspectDockerContainer, readDockerImageDigest, readFormalAiSidecarState, reconcileFormalAiSidecar, stopFormalAiSidecar, waitForFormalAiSidecarHealth, withFormalAiSidecarLock, writeFormalAiSidecarState } from './formal-ai-sidecar.lib.mjs';
 import { describeFormalAiUsage, formatFormalAiDuration, isFormalAiPrefetchEnabled, resolveFormalAiUpdateCheckIntervalMs } from './formal-ai-usage.lib.mjs';
 
-const execFileAsync = promisify(execFile);
+const execFileAsync = dockerExecFileAsync;
 
 const DEFAULT_DOCKER_TIMEOUT_MS = 120_000;
 const DEFAULT_PULL_TIMEOUT_MS = 30 * 60 * 1000;
@@ -299,7 +298,7 @@ export const updateFormalAiSidecarWhenIdle = async ({ env = process.env, fsImpl 
 
       if (log) await log(`⬇️ Checking for a newer Formal AI image (${image})`);
       try {
-        await dockerText(run, ['pull', '--quiet', image], { timeoutMs: pullTimeoutMs });
+        await pullDockerImage(['pull', '--quiet', image], { run, timeoutMs: pullTimeoutMs });
       } catch (error) {
         const message = error?.stderr?.toString?.().trim() || error?.message || String(error);
         // Issue #2154: this warning fired every ~5 minutes for hours ("Could not
@@ -315,7 +314,7 @@ export const updateFormalAiSidecarWhenIdle = async ({ env = process.env, fsImpl 
         if (log) {
           const remediation = classification.remediation.length ? ` Fix it by one of: ${classification.remediation.join('; ')}.` : '';
           await log(`${permanent ? '🚨' : '⚠️'} Could not pull ${image} — ${classification.reason} (${classification.kind}); keeping the current Formal AI image: ${message}${permanent ? remediation : ''}`);
-          if (classification.kind === 'timeout') await log(describeInterruptedPullLeftovers(image));
+          if (classification.kind === 'timeout' && !error?.continuesInBackground) await log(describeInterruptedPullLeftovers(image));
         }
         return { status: 'failed', stage: 'pull', image, error: message, classification: classification.kind, permanent, remediation: classification.remediation };
       }

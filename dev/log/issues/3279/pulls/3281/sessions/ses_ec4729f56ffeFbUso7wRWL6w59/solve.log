@@ -5621,3 +5621,54 @@ remote:
 [2026-10-14T17:57:03.227Z] [INFO]    Solve resume mode:   "/home/box/.nvm/versions/node/v26.12.0/bin/node" "/home/box/.bun/bin/solve" "https://github.com/link-assistant/hive-mind/issues/3279" --resume "ses_ec4729f56ffeFbUso7wRWL6w59" --tool "agent" --model "formal-ai" --working-directory "/tmp/gh-issue-solver-1792000436862"
 [2026-10-14T17:57:03.228Z] [INFO] 
 [2026-10-14T17:57:03.230Z] [INFO] 🔍 Development log finalize: issue #3279, PR #3281, branch issue-3279-16a33cfeead3, session ses_ec4729f56ffeFbUso7wRWL6w59, log slice from byte 0
+[2026-10-14T17:57:03.627Z] [INFO] 🧾 Development log artifacts written to dev/log/issues/3279/pulls/3281/sessions/ses_ec4729f56ffeFbUso7wRWL6w59 (log bytes 0-863345)
+[2026-10-14T17:57:03.632Z] [INFO] 🧾 Development log artifacts written to ./dev/log/issues/3279/pulls/3281
+[2026-10-14T17:57:04.087Z] [STDOUT] [issue-3279-16a33cfeead3 0f02eaa1] Add development log for issue #3279 PR #3281
+ 2 files changed, 5643 insertions(+)
+ create mode 100644 dev/log/issues/3279/pulls/3281/sessions/ses_ec4729f56ffeFbUso7wRWL6w59/metadata.json
+ create mode 100644 dev/log/issues/3279/pulls/3281/sessions/ses_ec4729f56ffeFbUso7wRWL6w59/solve.log
+[2026-10-14T17:57:04.088Z] [INFO] ✅ Development log committed
+[2026-10-14T17:57:05.819Z] [STDERR] To https://github.com/link-assistant/hive-mind.git
+   b6b0f7d7..0f02eaa1  issue-3279-16a33cfeead3 -> issue-3279-16a33cfeead3
+[2026-10-14T17:57:05.824Z] [INFO] ✅ Development log pushed
+[2026-10-14T17:57:05.826Z] [INFO] 🔍 Checking if AI created any comments during session (--auto-attach-solution-summary)...
+[2026-10-14T17:57:06.127Z] [INFO] 📝 No AI comments detected, attaching working session summary...
+[2026-10-14T17:57:07.914Z] [INFO] ✅ Working session summary attached to pr #3281 (id=6174837082)
+[2026-10-14T17:57:07.920Z] [INFO] 
+[2026-10-14T17:57:07.920Z] [INFO] 🔍 Searching for created pull requests or comments...
+[2026-10-14T17:57:08.220Z] [INFO]   ℹ️  Integration token cannot read the authenticated user; matching comments written by the app
+[2026-10-14T17:57:08.222Z] [INFO] 
+[2026-10-14T17:57:08.222Z] [INFO] 🔍 Checking for pull requests from branch issue-3279-16a33cfeead3...
+[2026-10-14T17:57:08.625Z] [INFO]   ✅ Found pull request #3281: "[WIP] Formal AI parity across tools: commit attribution works only with --tool agent, cost needs a per-tool override"
+[2026-10-14T17:57:10.293Z] [INFO]   📝 Removing [WIP] prefix from PR title...
+[2026-10-14T17:57:13.044Z] [STDOUT] https://github.com/link-assistant/hive-mind/pull/3281
+[2026-10-14T17:57:13.047Z] [INFO]   ✅ Updated PR title to: "Formal AI parity across tools: commit attribution works only with --tool agent, cost needs a per-tool override"
+[2026-10-14T17:57:13.049Z] [INFO]   📝 Updating PR description to remove placeholder text...
+[2026-10-14T17:57:14.452Z] [STDOUT] Formal AI parity across tools: commit attribution works only with --tool agent, cost needs a per-tool override
+[2026-10-14T17:57:14.456Z] [STDERR] [use-m] use('fs') joined an in-flight load (alias fs-v-latest)
+[2026-10-14T17:57:16.344Z] [STDOUT] https://github.com/link-assistant/hive-mind/pull/3281
+[2026-10-14T17:57:16.347Z] [INFO]   ✅ Updated PR description with solution summary
+[2026-10-14T17:57:18.132Z] [INFO] ⚠️  Could not read this run's comments, so it is not judged as finished without changes
+[2026-10-14T17:57:19.253Z] [STDOUT] {"isDraft":true,"state":"OPEN"}
+[2026-10-14T17:57:19.256Z] [INFO]    🔍 PR #3281 draft state: isDraft=true, state=OPEN
+[2026-10-14T17:57:19.258Z] [INFO] 📝 Converting PR: To ready for review (solution draft verified)...
+[2026-10-14T17:57:20.403Z] [STDERR] ✓ Pull request link-assistant/hive-mind#3281 is marked as "ready for review"
+[2026-10-14T17:57:20.406Z] [INFO] ✅ PR converted: Now in ready for review
+[2026-10-14T17:57:20.408Z] [INFO] 
+[2026-10-14T17:57:20.408Z] [INFO] 📎 Uploading solution draft log to Pull Request...
+[2026-10-14T17:57:20.410Z] [STDERR] [use-m] use('fs') joined an in-flight load (alias fs-v-latest)
+[2026-10-14T17:57:20.435Z] [INFO] 📈 Resource usage (log upload start, 847KB log):
+[2026-10-14T17:57:20.435Z] [INFO]    CPU load: 1.03 1.45 0.91 (4 CPUs)
+[2026-10-14T17:57:20.435Z] [INFO]    Memory: 14.1 GB available / 15.6 GB total (1.5 GB used)
+[2026-10-14T17:57:20.435Z] [INFO]    Process RSS: 206 MB, V8 heap: 52 MB used of 4.1 GB limit (1.2%)
+[2026-10-14T17:57:20.435Z] [INFO]    Disk (/): 77.9 GB available / 144.3 GB total (46.0% used)
+[2026-10-14T17:57:20.435Z] [INFO]    Agent snapshot stores (/home/box/.local/share/link-assistant-agent): 1 store(s), 1 MB
+[2026-10-14T17:57:20.435Z] [INFO]    Container memory (cgroup v2): 2.7 GB used of no limit of its own, peak 2.8 GB; processes killed by the OOM killer so far: 0
+[2026-10-14T17:57:20.435Z] [INFO] 📈 [RESOURCES] phase=log_upload_start ts=2026-10-14T17%3A57%3A20.418Z load1=1.03 load5=1.45 load15=0.91 cpuCount=4 memTotalBytes=16766414848 memAvailableBytes=15163539456 memUsedBytes=1602875392 processRssBytes=216170496 processHeapUsedBytes=54790680 processHeapTotalBytes=107487232 processExternalBytes=10365678 processHeapLimitBytes=4395630592 processHeapUsedPercent=1.2464805413748472 diskPath=%2F diskTotalBytes=154894188544 diskAvailableBytes=83694338048 diskUsedBytes=71183073280 diskUsedPercent=45.955935435098255 mem=14.1%20GB%20available%20%2F%2015.6%20GB%20total heap=52%20MB%20used%20of%204.1%20GB%20limit%20(1.2%25) disk=77.9%20GB%20available%20%2F%20144.3%20GB%20total agentStatePath=%2Fhome%2Fbox%2F.local%2Fshare%2Flink-assistant-agent agentStoreCount=1 agentStoreBytes=1164273 cgroupVersion=2 cgroupMemLimitBytes=null cgroupMemCurrentBytes=2944319488 cgroupMemPeakBytes=3058225152 cgroupOomEvents=0 cgroupOomKills=0
+[2026-10-14T17:57:20.439Z] [STDERR] [use-m] use('https') loading (alias https-v-latest)
+[2026-10-14T17:57:20.440Z] [STDERR] [use-m] use('https') loaded in 1ms
+[2026-10-14T17:57:20.756Z] [INFO]   🤖 Model info fetched for comment
+[2026-10-14T17:57:20.764Z] [INFO]   ⏭️  Log is 847KB — skipping inline comment construction, the log goes straight to gh-upload-log
+[2026-10-14T17:57:20.769Z] [INFO]   📁 Log file too large for inline comment (847KB), using gh-upload-log
+[2026-10-14T17:57:20.771Z] [INFO]   📎 Uploading log using gh-upload-log...
+[2026-10-14T17:57:21.147Z] [INFO]   🔍 Repository visibility: public, log upload will be public

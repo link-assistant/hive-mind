@@ -46,7 +46,7 @@ test('a --rm container gets no path and no gh-upload-log command, and links the 
 
   const console = formatLogLocationConsoleLines(LOG_FILE, location);
   assert.ok(
-    console.some(line => line.includes(RUN_URL)),
+    console.some(line => line.endsWith(`workflow run: ${RUN_URL}`)),
     console.join('\n')
   );
 });

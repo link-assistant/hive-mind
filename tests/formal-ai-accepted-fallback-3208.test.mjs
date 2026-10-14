@@ -149,7 +149,10 @@ test('an idle unload keeps the Hive Mind image and says that it serves Formal AI
   assert.equal(docker.digests.has('sha256:hive'), true, 'the Hive Mind image is never removed');
   const text = logs.join('\n');
   assert.doesNotMatch(text, /no Formal AI image on this host/);
-  assert.match(text, new RegExp(`${HIVE_MIND.replace(/[.:/-]/g, '\\$&')}.*kept`));
+  assert.ok(
+    logs.some(line => line.includes(HIVE_MIND) && line.slice(line.indexOf(HIVE_MIND)).includes('kept')),
+    text
+  );
 });
 
 test('bytesFreed says whether it was measured or estimated', async () => {

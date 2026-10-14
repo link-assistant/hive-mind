@@ -173,7 +173,7 @@ test('dispatched check results are reported on the draft head with the permissio
   assert.match(job('draft'), /outputs:\n\s+head_branch: .*\n\s+checks_dispatched: /, 'the draft job hands the head branch to the reporter');
   const report = job('report-checks');
   assert.match(report, /needs: draft/);
-  assert.match(report, /permissions:\n(?:\s+.*\n)*?\s+statuses: write/);
+  assert.match(report, /permissions:\n(?: +\S[^\n]*\n)*? +statuses: write/);
   assert.match(report, /actions: read/);
   assert.match(report, /timeout-minutes: \d+/);
   assert.match(report, /if: \$\{\{ !cancelled\(\) && needs\.draft\.outputs\.checks_dispatched == 'true' \}\}/);

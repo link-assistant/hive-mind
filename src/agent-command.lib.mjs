@@ -103,8 +103,10 @@ export const detectFormalAiAgentRoutingMismatch = (record, expectedModel) => {
 /**
  * Decide whether a streaming error was recovered from (issue #1276) and what to log.
  *
- * Exit code 0 with a completion event clears the streaming error, but an error
- * record found in the output still fails the run (issue #1201). The log used to
+ * Exit code 0 with a completion event clears the streaming error, but a fatal
+ * error record found in the output still fails the run (issue #1201). Failed
+ * tool calls never get here: they are not fatal (see
+ * isRecoverableAgentToolError in agent-error-events.lib.mjs). The log used to
  * say "recovered ... completed successfully" right before "❌ Agent reported
  * error" for the same error (issue #2923, Formal AI run 37959364207), so the
  * recovery message is only printed when the run really is treated as a success.

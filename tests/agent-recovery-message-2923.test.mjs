@@ -18,7 +18,9 @@ import { test } from 'node:test';
 import { resolveStreamingErrorRecovery } from '../src/agent-command.lib.mjs';
 import { detectAgentErrorsInOutput } from '../src/agent.lib.mjs';
 
-// The error record from run 37959364207 (trimmed), followed by the agent's own reply.
+// The error record from run 37959364207, trimmed to its text, followed by the agent's own reply.
+// Without its tool part it reads as a session error, which still fails the run;
+// the full tool-part record is covered by agent-recoverable-tool-error-3213.test.mjs.
 const RUN_37959364207_OUTPUT = [JSON.stringify({ type: 'error', sessionID: 'ses_ede7a269affeB7JZl5VhKcJrEu', error: 'Error: File not found: /tmp/gh-issue-solver-1791563735645/e.g' }), JSON.stringify({ type: 'text', part: { text: 'The command failed: Error: File not found: /tmp/gh-issue-solver-1791563735645/e.g' } }), JSON.stringify({ type: 'step_finish', part: { reason: 'stop' } })].join('\n');
 
 test('an error that still fails the run is never logged as recovered', () => {

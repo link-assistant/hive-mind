@@ -11,7 +11,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { LEASE_START_GRACE_MS, inspectDockerContainer, reconcileSidecarLeases } from '../src/docker-sidecar.lib.mjs';
+import { LEASE_START_GRACE_MS, describeLeaseLauncher, inspectDockerContainer, isLeaseLaunchAbandoned, reconcileSidecarLeases } from '../src/docker-sidecar.lib.mjs';
 
 const NOW = Date.parse('2026-10-14T12:00:00Z');
 const lease = (sessionId, ageMs, extra = {}) => ({ sessionId, acquiredAt: new Date(NOW - ageMs).toISOString(), containerSeen: false, ...extra });
@@ -106,4 +106,34 @@ test('an older inspect answer without a status still counts an existing, stopped
   const run = async () => ({ stdout: 'false|img|sha256:abc\n' });
   const live = await reconcileSidecarLeases([lease('task-legacy', 5_000)], { run, now: () => NOW });
   assert.deepEqual(live, []);
+});
+
+test('a lease whose launcher exited before creating the container ends at once, inside the launch grace', async () => {
+  const host = 'hive-host';
+  const leases = [lease('task-launcher-gone', 30_000, { launcher: { pid: 4242, host } }), lease('task-launcher-alive', 30_000, { launcher: { pid: 4343, host } }), lease('task-other-host', 30_000, { launcher: { pid: 4242, host: 'elsewhere' } }), lease('task-old-lease', 30_000)];
+  const lines = [];
+  const dropped = [];
+  const { run } = stubDocker({});
+  const live = await reconcileSidecarLeases(leases, { run, now: () => NOW, verbose: true, log: async line => lines.push(line), onDropped: dropped.push.bind(dropped), host, processAlive: pid => pid === 4343 });
+  assert.deepEqual(
+    dropped.map(entry => entry.sessionId),
+    ['task-launcher-gone']
+  );
+  assert.deepEqual(
+    live.map(entry => entry.sessionId),
+    ['task-launcher-alive', 'task-other-host', 'task-old-lease']
+  );
+  assert.match(
+    lines.find(line => line.includes("dropping lease 'task-launcher-gone'")),
+    /the process launching it \(pid 4242\) exited before creating the task container/
+  );
+});
+
+test('a lease records the process launching its task, and a live launcher is recognised', () => {
+  const launcher = describeLeaseLauncher();
+  assert.equal(launcher.pid, process.pid);
+  assert.equal(typeof launcher.host, 'string');
+  assert.equal(isLeaseLaunchAbandoned({ launcher }), false, 'this very process is alive');
+  assert.equal(isLeaseLaunchAbandoned({ launcher: { pid: 1, host: launcher.host } }, { processAlive: () => false }), true);
+  assert.equal(isLeaseLaunchAbandoned({}), false, 'an older lease without a launcher keeps the plain grace');
 });

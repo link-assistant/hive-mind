@@ -49,7 +49,7 @@ import { ensureFormalAiSidecarImage, readAcceptedFormalAiImage, readFormalAiImag
 import { isFormalAiModel } from './formal-ai-model.lib.mjs';
 import { getModelFromArgs } from './model-args.lib.mjs';
 import { withStateLock } from './state-lock.lib.mjs';
-import { attachDockerNetwork, DEFAULT_IMAGE_TIMEOUT_MS, dockerOk, dockerText, ensureDockerVolume, ensureInternalDockerNetwork, inspectDockerContainer, readDockerContainerAddress, readDockerImageDigest, readSidecarState, reconcileSidecarLeases, resolveSidecarStatePath, sleep, writeSidecarState } from './docker-sidecar.lib.mjs';
+import { attachDockerNetwork, DEFAULT_IMAGE_TIMEOUT_MS, describeLeaseLauncher, dockerOk, dockerText, ensureDockerVolume, ensureInternalDockerNetwork, inspectDockerContainer, readDockerContainerAddress, readDockerImageDigest, readSidecarState, reconcileSidecarLeases, resolveSidecarStatePath, sleep, writeSidecarState } from './docker-sidecar.lib.mjs';
 
 const execFileAsync = dockerExecFileAsync;
 
@@ -425,7 +425,7 @@ export const acquireFormalAiSidecar = async ({ sessionId, tool = null, model = n
 
       const address = await readFormalAiSidecarAddress({ run, timeoutMs });
       const acquiredAt = now().toISOString();
-      const nextLeases = [...leases.filter(lease => lease.sessionId !== sessionId), { sessionId, tool, model, acquiredAt }];
+      const nextLeases = [...leases.filter(lease => lease.sessionId !== sessionId), { sessionId, tool, model, acquiredAt, launcher: describeLeaseLauncher() }];
       // The provenance of what is *actually serving* this lease, so a task's
       // evidence can name the release that answered its requests rather than
       // whatever binary happens to sit next to the wrapper (issue #2208).

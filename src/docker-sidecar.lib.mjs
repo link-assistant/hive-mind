@@ -19,6 +19,7 @@
 
 import { execFile } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
@@ -213,9 +214,40 @@ export const writeSidecarState = (state, { fileName, env = process.env, fsImpl =
  * built. During that window the container legitimately does not exist yet — and
  * creating it can take a long time when the isolation image still has to be
  * pulled. The grace covers only that window: once Docker reports the container
- * at all, its own state decides (issue #3210).
+ * at all, its own state decides (issue #3210). Within the window the launch
+ * state decides too: a lease whose launcher has exited ends at once, so the
+ * fixed hour only bounds a launcher that hangs or runs on another host.
  */
 export const LEASE_START_GRACE_MS = 60 * 60 * 1000;
+
+/**
+ * Who is launching the task a lease was taken for: the process that holds the
+ * lease until start-command has created the container, and releases it when
+ * the launch fails.
+ */
+export const describeLeaseLauncher = ({ pid = process.pid, host = os.hostname() } = {}) => ({ pid, host });
+
+const isProcessAlive = pid => {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    // EPERM: the process exists but belongs to someone else.
+    return error?.code === 'EPERM';
+  }
+};
+
+/**
+ * Whether the launch a lease is waiting for can no longer happen: the process
+ * that took the lease on this host has exited without creating the container
+ * (issue #3210). A lease from another host (or an older lease without a
+ * launcher) cannot be judged this way and keeps the plain launch grace.
+ */
+export const isLeaseLaunchAbandoned = (lease, { host = os.hostname(), processAlive = isProcessAlive } = {}) => {
+  const launcher = lease?.launcher;
+  if (!launcher || !Number.isInteger(launcher.pid) || launcher.pid <= 0 || launcher.host !== host) return false;
+  return !processAlive(launcher.pid);
+};
 
 // Container states in which the task is still starting or still alive. Anything
 // else Docker reports (`exited`, `dead`, `removing`) means the task is over.
@@ -223,8 +255,9 @@ const LIVE_CONTAINER_STATUSES = new Set(['created', 'running', 'restarting', 'pa
 
 const isContainerAlive = container => container.running || LIVE_CONTAINER_STATUSES.has(container.status);
 
-const describeDroppedLease = (lease, container) => {
+const describeDroppedLease = (lease, container, launchAbandoned = false) => {
   if (container.exists) return `task container stopped${container.status ? ` (${container.status})` : ''}`;
+  if (!lease.containerSeen && launchAbandoned) return `the process launching it (pid ${lease.launcher.pid}) exited before creating the task container`;
   return lease.containerSeen ? 'task container no longer exists' : 'task container never appeared within the launch grace';
 };
 
@@ -239,14 +272,16 @@ const describeDroppedLease = (lease, container) => {
  * - The container exists but has stopped: the lease ends at once, whether or
  *   not it was ever seen running — a short task can finish between two ticks.
  * - The container does not exist: the lease is kept only while it was never
- *   seen and is still inside the launch grace.
+ *   seen, the process launching it is still alive and the launch grace has not
+ *   elapsed. The launch grace is only a backstop for a launcher that hangs or
+ *   runs on another host; a launcher that exited ends the lease at once.
  *
  * @param {Array<object>} leases
  * @param {{onDropped?: (lease: object) => Promise<void>|void}} options
  *   `onDropped` lets a sidecar clean up what the lease owned — the router
  *   revokes the task's token there.
  */
-export const reconcileSidecarLeases = async (leases, { run = execFileAsync, timeoutMs, log = null, verbose = false, now = () => Date.now(), onDropped = null, logPrefix = 'docker-sidecar' } = {}) => {
+export const reconcileSidecarLeases = async (leases, { run = execFileAsync, timeoutMs, log = null, verbose = false, now = () => Date.now(), onDropped = null, logPrefix = 'docker-sidecar', host, processAlive } = {}) => {
   const live = [];
   for (const lease of leases) {
     if (!lease?.sessionId) continue;
@@ -255,7 +290,8 @@ export const reconcileSidecarLeases = async (leases, { run = execFileAsync, time
       live.push(lease.containerSeen ? lease : { ...lease, containerSeen: true });
       continue;
     }
-    if (!container.exists && !lease.containerSeen) {
+    const launchAbandoned = !container.exists && !lease.containerSeen && isLeaseLaunchAbandoned(lease, { host, processAlive });
+    if (!container.exists && !lease.containerSeen && !launchAbandoned) {
       const age = now() - (Date.parse(lease.acquiredAt ?? '') || 0);
       if (age < LEASE_START_GRACE_MS) {
         if (verbose && log) await log(`[VERBOSE] ${logPrefix}: keeping lease '${lease.sessionId}' whose task container does not exist yet (${Math.round(age / 1000)}s into the ${Math.round(LEASE_START_GRACE_MS / 1000)}s launch grace)`);
@@ -263,7 +299,7 @@ export const reconcileSidecarLeases = async (leases, { run = execFileAsync, time
         continue;
       }
     }
-    if (verbose && log) await log(`[VERBOSE] ${logPrefix}: dropping lease '${lease.sessionId}': ${describeDroppedLease(lease, container)}`);
+    if (verbose && log) await log(`[VERBOSE] ${logPrefix}: dropping lease '${lease.sessionId}': ${describeDroppedLease(lease, container, launchAbandoned)}`);
     if (onDropped) await onDropped(lease);
   }
   return live;
@@ -300,8 +336,10 @@ export default {
   dockerOk,
   dockerText,
   ensureDockerVolume,
+  describeLeaseLauncher,
   ensureInternalDockerNetwork,
   inspectDockerContainer,
+  isLeaseLaunchAbandoned,
   readDockerContainerAddress,
   readDockerImageDigest,
   readSidecarState,

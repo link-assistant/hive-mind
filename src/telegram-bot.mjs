@@ -220,6 +220,8 @@ const handleUpdateError = createUpdateErrorHandler({ verbose: VERBOSE, reportErr
 const detach = (handler, options = {}) => detachHandler(handler, { onError: handleUpdateError, ...options });
 const mergeLane = createSerialLane(); // /merge and /accept_invites expect one invocation at a time
 const inviteLane = createSerialLane();
+const modelsLane = createSerialLane(); // /models may update the agentic CLIs; two updates must not overlap
+const authLane = createSerialLane(); // /auth runs one login or status command at a time
 const launchingUrls = createKeyClaims(); // /solve URLs between the duplicate check and the tracked launch
 // Issue #2166: Telegraf hands every update a *new* `Telegram` client, so
 // instrumenting `bot.telegram` alone leaves `ctx.reply()` unprotected. Install
@@ -338,75 +340,82 @@ bot.command('help', async ctx => {
   await safeReply(ctx, message, { fallbackLocale: helpLocale });
 });
 
-bot.command('limits', async ctx => {
-  VERBOSE && console.log('[VERBOSE] /limits command received');
-  // Add breadcrumb for error tracking
-  await addBreadcrumb({ category: 'telegram.command', message: '/limits command received', level: 'info', data: { chatId: ctx.chat?.id, chatType: ctx.chat?.type, userId: ctx.from?.id, username: ctx.from?.username } });
+// Issue #3206: /limits and /version wait on usage APIs and CLI --version calls, so they run outside the update loop.
+bot.command(
+  'limits',
+  detach(async function handleLimitsCommand(ctx) {
+    VERBOSE && console.log('[VERBOSE] /limits command received');
+    // Add breadcrumb for error tracking
+    await addBreadcrumb({ category: 'telegram.command', message: '/limits command received', level: 'info', data: { chatId: ctx.chat?.id, chatType: ctx.chat?.type, userId: ctx.from?.id, username: ctx.from?.username } });
 
-  // Ignore messages sent before bot started
-  if (isOldMessage(ctx)) {
-    VERBOSE && console.log('[VERBOSE] /limits ignored: old message');
-    return;
-  }
-  // Ignore forwarded or reply messages
-  if (isForwardedOrReply(ctx)) {
-    VERBOSE && console.log('[VERBOSE] /limits ignored: forwarded or reply');
-    return;
-  }
-
-  const userLocale = resolveLocaleFromTelegramCtx(ctx);
-  if (!_isGroupChat(ctx)) {
-    if (VERBOSE) {
-      console.log('[VERBOSE] /limits ignored: not a group chat');
+    // Ignore messages sent before bot started
+    if (isOldMessage(ctx)) {
+      VERBOSE && console.log('[VERBOSE] /limits ignored: old message');
+      return;
     }
-    await ctx.reply(t('telegram.limits_only_in_groups', {}, { locale: userLocale }), { reply_to_message_id: ctx.message.message_id });
-    return;
-  }
-  if (!isTopicAuthorized(ctx)) {
-    if (VERBOSE) {
-      console.log('[VERBOSE] /limits ignored: not authorized');
+    // Ignore forwarded or reply messages
+    if (isForwardedOrReply(ctx)) {
+      VERBOSE && console.log('[VERBOSE] /limits ignored: forwarded or reply');
+      return;
     }
-    await ctx.reply(buildAuthErrorMessage(ctx), { reply_to_message_id: ctx.message.message_id });
-    return;
-  }
 
-  // Send "fetching" message to indicate work is in progress
-  const fetchingMessage = await ctx.reply(t('telegram.fetching_limits', {}, { locale: userLocale }), {
-    reply_to_message_id: ctx.message.message_id,
-  });
+    const userLocale = resolveLocaleFromTelegramCtx(ctx);
+    if (!_isGroupChat(ctx)) {
+      if (VERBOSE) {
+        console.log('[VERBOSE] /limits ignored: not a group chat');
+      }
+      await ctx.reply(t('telegram.limits_only_in_groups', {}, { locale: userLocale }), { reply_to_message_id: ctx.message.message_id });
+      return;
+    }
+    if (!isTopicAuthorized(ctx)) {
+      if (VERBOSE) {
+        console.log('[VERBOSE] /limits ignored: not authorized');
+      }
+      await ctx.reply(buildAuthErrorMessage(ctx), { reply_to_message_id: ctx.message.message_id });
+      return;
+    }
 
-  // Get all limits using shared cache (3min for API, 2min for system)
-  const limits = await getAllCachedLimits(VERBOSE);
-  // Format message with usage limits and queue status (issues #1343, #1267)
-  const claudeError = limits.claude.success ? null : limits.claude.error;
-  const codexError = limits.codex.success ? null : limits.codex.error;
-  const solveQueue = getSolveQueue({ verbose: VERBOSE });
-  const queueStatus = await solveQueue.formatStatus({ locale: userLocale });
-  const claudeSubscription = limits.claudeSubscription?.success ? limits.claudeSubscription.subscription : null;
-  const codexSubscription = limits.codexSubscription?.success ? limits.codexSubscription.subscription : null;
-  const codexSection = formatCodexLimitsSection(limits.codex.success ? limits.codex : null, codexError, { locale: userLocale, subscription: codexSubscription });
-  const message = t('telegram.usage_limits_title', {}, { locale: userLocale }) + '\n\n' + formatUsageMessage(limits.claude.success ? limits.claude.usage : null, limits.disk.success ? limits.disk.diskSpace : null, limits.github.success ? limits.github.githubRateLimit : null, limits.cpu.success ? limits.cpu.cpuLoad : null, limits.memory.success ? limits.memory.memory : null, claudeError, [codexSection, queueStatus], { locale: userLocale, subscription: claudeSubscription, telegramRateLimit: limits.telegram.telegramRateLimit });
-  await safeEditMessageText(ctx.telegram, fetchingMessage.chat.id, fetchingMessage.message_id, undefined, message, { parse_mode: 'Markdown', fallbackLocale: userLocale, verbose: VERBOSE });
-});
-bot.command('version', async ctx => {
-  VERBOSE && console.log('[VERBOSE] /version command received');
-  await addBreadcrumb({
-    category: 'telegram.command',
-    message: '/version command received',
-    level: 'info',
-    data: { chatId: ctx.chat?.id, chatType: ctx.chat?.type, userId: ctx.from?.id, username: ctx.from?.username },
-  });
-  if (isOldMessage(ctx) || isForwardedOrReply(ctx)) return;
-  const versionLocale = resolveLocaleFromTelegramCtx(ctx);
-  if (!_isGroupChat(ctx)) return await ctx.reply(t('telegram.version_only_in_groups', {}, { locale: versionLocale }), { reply_to_message_id: ctx.message.message_id });
-  if (!isTopicAuthorized(ctx)) return await ctx.reply(buildAuthErrorMessage(ctx), { reply_to_message_id: ctx.message.message_id });
-  const fetchingMessage = await ctx.reply(t('telegram.gathering_version', {}, { locale: versionLocale }), {
-    reply_to_message_id: ctx.message.message_id,
-  });
-  const result = await getVersionInfo(VERBOSE);
-  if (!result.success) return await safeEditMessageText(ctx.telegram, fetchingMessage.chat.id, fetchingMessage.message_id, undefined, `❌ ${escapeMarkdownV2(result.error, { preserveCodeBlocks: true })}`, { parse_mode: 'MarkdownV2', fallbackLocale: versionLocale, verbose: VERBOSE });
-  await safeEditMessageText(ctx.telegram, fetchingMessage.chat.id, fetchingMessage.message_id, undefined, t('telegram.version_information_title', {}, { locale: versionLocale }) + '\n\n' + formatVersionMessage(result.versions, { locale: versionLocale }), { parse_mode: 'Markdown', fallbackLocale: versionLocale, verbose: VERBOSE });
-});
+    // Send "fetching" message to indicate work is in progress
+    const fetchingMessage = await ctx.reply(t('telegram.fetching_limits', {}, { locale: userLocale }), {
+      reply_to_message_id: ctx.message.message_id,
+    });
+
+    // Get all limits using shared cache (3min for API, 2min for system)
+    const limits = await getAllCachedLimits(VERBOSE);
+    // Format message with usage limits and queue status (issues #1343, #1267)
+    const claudeError = limits.claude.success ? null : limits.claude.error;
+    const codexError = limits.codex.success ? null : limits.codex.error;
+    const solveQueue = getSolveQueue({ verbose: VERBOSE });
+    const queueStatus = await solveQueue.formatStatus({ locale: userLocale });
+    const claudeSubscription = limits.claudeSubscription?.success ? limits.claudeSubscription.subscription : null;
+    const codexSubscription = limits.codexSubscription?.success ? limits.codexSubscription.subscription : null;
+    const codexSection = formatCodexLimitsSection(limits.codex.success ? limits.codex : null, codexError, { locale: userLocale, subscription: codexSubscription });
+    const message = t('telegram.usage_limits_title', {}, { locale: userLocale }) + '\n\n' + formatUsageMessage(limits.claude.success ? limits.claude.usage : null, limits.disk.success ? limits.disk.diskSpace : null, limits.github.success ? limits.github.githubRateLimit : null, limits.cpu.success ? limits.cpu.cpuLoad : null, limits.memory.success ? limits.memory.memory : null, claudeError, [codexSection, queueStatus], { locale: userLocale, subscription: claudeSubscription, telegramRateLimit: limits.telegram.telegramRateLimit });
+    await safeEditMessageText(ctx.telegram, fetchingMessage.chat.id, fetchingMessage.message_id, undefined, message, { parse_mode: 'Markdown', fallbackLocale: userLocale, verbose: VERBOSE });
+  })
+);
+bot.command(
+  'version',
+  detach(async function handleVersionCommand(ctx) {
+    VERBOSE && console.log('[VERBOSE] /version command received');
+    await addBreadcrumb({
+      category: 'telegram.command',
+      message: '/version command received',
+      level: 'info',
+      data: { chatId: ctx.chat?.id, chatType: ctx.chat?.type, userId: ctx.from?.id, username: ctx.from?.username },
+    });
+    if (isOldMessage(ctx) || isForwardedOrReply(ctx)) return;
+    const versionLocale = resolveLocaleFromTelegramCtx(ctx);
+    if (!_isGroupChat(ctx)) return await ctx.reply(t('telegram.version_only_in_groups', {}, { locale: versionLocale }), { reply_to_message_id: ctx.message.message_id });
+    if (!isTopicAuthorized(ctx)) return await ctx.reply(buildAuthErrorMessage(ctx), { reply_to_message_id: ctx.message.message_id });
+    const fetchingMessage = await ctx.reply(t('telegram.gathering_version', {}, { locale: versionLocale }), {
+      reply_to_message_id: ctx.message.message_id,
+    });
+    const result = await getVersionInfo(VERBOSE);
+    if (!result.success) return await safeEditMessageText(ctx.telegram, fetchingMessage.chat.id, fetchingMessage.message_id, undefined, `❌ ${escapeMarkdownV2(result.error, { preserveCodeBlocks: true })}`, { parse_mode: 'MarkdownV2', fallbackLocale: versionLocale, verbose: VERBOSE });
+    await safeEditMessageText(ctx.telegram, fetchingMessage.chat.id, fetchingMessage.message_id, undefined, t('telegram.version_information_title', {}, { locale: versionLocale }) + '\n\n' + formatVersionMessage(result.versions, { locale: versionLocale }), { parse_mode: 'Markdown', fallbackLocale: versionLocale, verbose: VERBOSE });
+  })
+);
 
 const { registerLanguageCommand } = await import('./telegram-language-command.lib.mjs');
 registerLanguageCommand(bot, { VERBOSE, isOldMessage, isForwardedOrReply });
@@ -421,7 +430,7 @@ const { registerSolveQueueCommand } = await import('./telegram-solve-queue-comma
 const { handleSolveQueueCommand } = registerSolveQueueCommand(bot, { ...sharedCommandOpts, getSolveQueue, safeReply, resolveLocale: resolveLocaleFromTelegramCtx });
 // Issue #2202 (R5): /models lists the merged model catalogue per tool.
 const { registerModelsCommand } = await import('./telegram-models-command.lib.mjs');
-const { handleModelsCommand } = registerModelsCommand(bot, { ...sharedCommandOpts, safeReply });
+const { handleModelsCommand } = registerModelsCommand(bot, { ...sharedCommandOpts, safeReply, detachHandler: handler => detach(handler, { lane: modelsLane }) });
 const { registerSubscribeCommands } = await import('./telegram-subscribers.lib.mjs'); // #1688
 registerSubscribeCommands(bot, sharedCommandOpts);
 const { registerTaskCommands } = await import('./telegram-task-command.lib.mjs');
@@ -436,7 +445,7 @@ const { handleOrganizeCommand, ORGANIZE_COMMAND_NAMES } = registerOrganizeComman
   safeEditMessageText: (ctx, message, text) => safeEditMessageText(ctx.telegram, message.chat.id, message.message_id, undefined, text, { verbose: VERBOSE }),
 });
 const { registerAuthCommand } = await import('./telegram-auth-command.lib.mjs');
-const { handleAuthCommand } = registerAuthCommand(bot, { ...sharedCommandOpts, allowedChats, authEnabled, safeReply });
+const { handleAuthCommand } = registerAuthCommand(bot, { ...sharedCommandOpts, allowedChats, authEnabled, safeReply, detachHandler: handler => detach(handler, { lane: authLane }) });
 
 // Named handler for /solve command - extracted for reuse by text-based fallback (issue #1207)
 async function handleSolveCommand(ctx) {
@@ -1007,11 +1016,11 @@ const fallbackHandlers = {
   ...Object.fromEntries(TASK_COMMAND_NAMES.map(command => [command, detachedTaskCommand])),
   ...Object.fromEntries(FIX_COMMAND_NAMES.map(command => [command, detachedFixCommand])),
   ...Object.fromEntries(ORGANIZE_COMMAND_NAMES.map(command => [command, detachedOrganizeCommand])),
-  auth: handleAuthCommand,
+  auth: detach(handleAuthCommand, { lane: authLane }),
   hive: detachedHiveCommand,
   merge: detach(handleMergeCommand, { lane: mergeLane }),
   queue: handleSolveQueueCommand,
-  models: handleModelsCommand,
+  models: detach(handleModelsCommand, { lane: modelsLane }),
   stop: handleStopCommand,
 };
 bot.on('message', async (ctx, next) => {

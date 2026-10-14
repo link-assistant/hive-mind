@@ -222,7 +222,7 @@ export function runAuthCommand(command, args, options = {}) {
 }
 
 export function registerAuthCommand(bot, options = {}) {
-  const { VERBOSE = false, isOldMessage, isForwardedOrReply, allowedChats, authEnabled = true } = options;
+  const { VERBOSE = false, isOldMessage, isForwardedOrReply, allowedChats, authEnabled = true, detachHandler = handler => handler } = options;
   const execute = options.runCommand || runAuthCommand;
   const reply = options.safeReply || ((ctx, text, replyOptions) => ctx.reply(text, replyOptions));
 
@@ -279,7 +279,8 @@ export function registerAuthCommand(bot, options = {}) {
     await reply(ctx, message, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
   }
 
-  bot.command('auth', handleAuthCommand);
+  // Issue #3206: the login command runs for seconds; telegram-bot.mjs runs it outside the update loop.
+  bot.command('auth', detachHandler(handleAuthCommand));
   return { handleAuthCommand };
 }
 

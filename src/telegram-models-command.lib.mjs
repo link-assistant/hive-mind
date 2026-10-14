@@ -91,7 +91,7 @@ export const parseModelsCommandArgs = (text = '') => {
  * @returns {{ handleModelsCommand: Function }} the handler, for the text fallback
  */
 export function registerModelsCommand(bot, options = {}) {
-  const { VERBOSE = false, isOldMessage, isForwardedOrReply, isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, addBreadcrumb, safeReply, loadCatalogue = getMergedModelCatalogue, freshness = ensureAgenticCliFreshness, env = process.env } = options;
+  const { VERBOSE = false, isOldMessage, isForwardedOrReply, isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, addBreadcrumb, safeReply, loadCatalogue = getMergedModelCatalogue, freshness = ensureAgenticCliFreshness, env = process.env, detachHandler = handler => handler } = options;
 
   async function handleModelsCommand(ctx) {
     VERBOSE && console.log('[VERBOSE] /models command received');
@@ -150,7 +150,8 @@ export function registerModelsCommand(bot, options = {}) {
     }
   }
 
-  bot.command(/^models$/i, handleModelsCommand);
+  // Issue #3206: refreshing the CLIs can take minutes; telegram-bot.mjs runs it outside the update loop.
+  bot.command(/^models$/i, detachHandler(handleModelsCommand));
 
   return { handleModelsCommand };
 }

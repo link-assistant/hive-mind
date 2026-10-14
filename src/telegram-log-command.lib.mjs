@@ -184,234 +184,238 @@ async function fileSize(filePath) {
  * @param {Function} [options.parseGitHubUrl] - Override for tests
  */
 export async function registerLogCommand(bot, options) {
-  const { VERBOSE = false, isOldMessage, isForwarded, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage } = options;
+  const { VERBOSE = false, isOldMessage, isForwarded, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, detachHandler = handler => handler } = options;
   const querySessionStatus = options.querySessionStatus || (await import('./isolation-runner.lib.mjs')).querySessionStatus;
   const getTrackedSessionInfo = options.getTrackedSessionInfo || (await import('./session-monitor.lib.mjs')).getTrackedSessionInfo;
   const detectRepositoryVisibility = options.detectRepositoryVisibility || (await import('./github.lib.mjs')).detectRepositoryVisibility;
   const parseGitHubUrl = options.parseGitHubUrl || (await import('./github.lib.mjs')).parseGitHubUrl;
 
-  bot.command('log', async ctx => {
-    VERBOSE && console.log('[VERBOSE] /log command received');
+  // Issue #3206: sanitizing and uploading a large log takes seconds; telegram-bot.mjs runs it outside the update loop.
+  bot.command(
+    'log',
+    detachHandler(async function handleLogCommand(ctx) {
+      VERBOSE && console.log('[VERBOSE] /log command received');
 
-    if (isOldMessage && isOldMessage(ctx)) {
-      VERBOSE && console.log('[VERBOSE] /log ignored: old message');
-      return;
-    }
-    // Issue #1922: never re-execute a forwarded command.
-    if (isForwarded && isForwarded(ctx)) {
-      VERBOSE && console.log('[VERBOSE] /log ignored: forwarded message');
-      return;
-    }
-
-    const chat = ctx.chat;
-    const message = ctx.message;
-    if (!chat || !message) return;
-
-    const chatType = chat.type;
-    const chatId = chat.id;
-
-    // Extract the session id. Priority: explicit argument, then reply text.
-    const directSessionId = extractSessionIdFromText(message.text || '');
-    const repliedTo = message.reply_to_message;
-    const replySessionId = repliedTo ? extractSessionIdFromText(repliedTo.text || repliedTo.caption || '') : null;
-    const sessionId = directSessionId || replySessionId;
-
-    if (!sessionId) {
-      await safeReply(ctx, '❌ /log requires a session id.\n\nUsage:\n• `/log <UUID>` — fetch a specific session log\n• Reply to a session message with `/log` — fetch the session referenced in that message', {
-        reply_to_message_id: message.message_id,
-        verbose: VERBOSE,
-      });
-      return;
-    }
-
-    // Authorization. /log is only available to chat owners. In private chats
-    // there is no "creator" status — the user is implicitly the owner of their
-    // own DM, so we allow it. We still apply the optional allowlist used by
-    // other commands so a private bot deployment can lock /log to known users.
-    if (chatType === 'private') {
-      // No further auth required beyond the optional whitelist applied below.
-    } else {
-      try {
-        const member = await ctx.telegram.getChatMember(chatId, ctx.from.id);
-        if (!member || member.status !== 'creator') {
-          VERBOSE && console.log('[VERBOSE] /log rejected: not chat owner');
-          await ctx.reply('❌ /log is only available to the chat owner.', { reply_to_message_id: message.message_id });
-          return;
-        }
-      } catch (error) {
-        console.error('[ERROR] /log: getChatMember failed:', error);
-        await ctx.reply('❌ Failed to verify permissions for /log.', { reply_to_message_id: message.message_id });
+      if (isOldMessage && isOldMessage(ctx)) {
+        VERBOSE && console.log('[VERBOSE] /log ignored: old message');
         return;
       }
-    }
-
-    if (isChatAuthorized && !isChatAuthorized(chatId)) {
-      // Topic-aware fallback (used elsewhere in this repo for forum topics).
-      if (!isTopicAuthorized || !isTopicAuthorized(ctx)) {
-        VERBOSE && console.log('[VERBOSE] /log rejected: chat not authorized');
-        const errMsg = buildAuthErrorMessage ? buildAuthErrorMessage(ctx) : `❌ This chat (ID: ${chatId}) is not authorized.`;
-        await ctx.reply(errMsg, { reply_to_message_id: message.message_id });
+      // Issue #1922: never re-execute a forwarded command.
+      if (isForwarded && isForwarded(ctx)) {
+        VERBOSE && console.log('[VERBOSE] /log ignored: forwarded message');
         return;
       }
-    }
 
-    // 1. Validate the session id with $ --status.
-    let statusResult;
-    try {
-      statusResult = await querySessionStatus(sessionId, VERBOSE);
-    } catch (error) {
-      console.error('[ERROR] /log: querySessionStatus failed:', error);
-      await ctx.reply(`❌ Failed to query session status: ${error.message || String(error)}`, { reply_to_message_id: message.message_id });
-      return;
-    }
+      const chat = ctx.chat;
+      const message = ctx.message;
+      if (!chat || !message) return;
 
-    if (!statusResult || !statusResult.exists) {
-      await safeReply(ctx, `❌ Session \`${sessionId}\` is not known to start-command.\n\nUse the session id from a \`📊 Session: <uuid>\` line in one of the bot's status messages.`, {
-        reply_to_message_id: message.message_id,
-        verbose: VERBOSE,
-      });
-      return;
-    }
+      const chatType = chat.type;
+      const chatId = chat.id;
 
-    // 2. Look up tracked metadata (for repo URL and original chat).
-    const sessionInfo = getTrackedSessionInfo ? getTrackedSessionInfo(sessionId) : null;
+      // Extract the session id. Priority: explicit argument, then reply text.
+      const directSessionId = extractSessionIdFromText(message.text || '');
+      const repliedTo = message.reply_to_message;
+      const replySessionId = repliedTo ? extractSessionIdFromText(repliedTo.text || repliedTo.caption || '') : null;
+      const sessionId = directSessionId || replySessionId;
 
-    // 3. Decide repo visibility — prefer the URL we tracked at launch time.
-    let repoVisibility = null;
-    let repoUrlDescription = null;
-    const trackedUrl = sessionInfo?.url || null;
-    if (trackedUrl) {
-      const parsed = parseGitHubUrl ? parseGitHubUrl(trackedUrl) : null;
-      if (parsed && parsed.valid && parsed.owner && parsed.repo) {
-        repoUrlDescription = `${parsed.owner}/${parsed.repo}`;
-        try {
-          repoVisibility = await detectRepositoryVisibility(parsed.owner, parsed.repo);
-        } catch (error) {
-          console.error('[ERROR] /log: detectRepositoryVisibility failed:', error);
-          repoVisibility = null;
-        }
-      }
-    }
-
-    // 4. Decide the destination.
-    const decision = decideLogDestination({ statusResult, sessionInfo, repoVisibility, chatType });
-    if (decision.destination === 'reject') {
-      // Surface enough state to diagnose false-rejections like issue #1700,
-      // where the parser missed the isolation field name reported by the host.
-      VERBOSE && console.log(`[VERBOSE] /log rejected session ${sessionId}: reason="${decision.reason}" parsedIsolation=${JSON.stringify(statusResult?.isolation)} sessionInfoBackend=${JSON.stringify(sessionInfo?.isolationBackend)} rawHead=${JSON.stringify((statusResult?.raw || '').slice(0, 240))}`);
-      await ctx.reply(`❌ ${decision.reason}`, { reply_to_message_id: message.message_id });
-      return;
-    }
-
-    // 5. Resolve and validate the on-disk log file.
-    const logPath = resolveLogPath({ statusResult, isolationBackend: decision.isolationBackend });
-    if (!logPath) {
-      await ctx.reply('❌ Could not determine the log file path for this session.', { reply_to_message_id: message.message_id });
-      return;
-    }
-    if (!(await fileExists(logPath))) {
-      await safeReply(ctx, `❌ Log file does not exist on disk:\n\`${logPath}\`\n\nThe session may have been cleaned up by the host or the isolation backend.`, {
-        reply_to_message_id: message.message_id,
-        verbose: VERBOSE,
-      });
-      return;
-    }
-    const size = await fileSize(logPath);
-    if (size !== null && size > TELEGRAM_DOCUMENT_MAX_BYTES) {
-      await safeReply(ctx, `❌ Log file is ${(size / (1024 * 1024)).toFixed(1)} MB which exceeds Telegram's 50 MB document upload limit.\n\nFile path on host: \`${logPath}\``, {
-        reply_to_message_id: message.message_id,
-        verbose: VERBOSE,
-      });
-      return;
-    }
-
-    const filename = path.basename(logPath);
-    const captionLines = [`📁 Log for session \`${sessionId}\``];
-    if (decision.isolationBackend) captionLines.push(`🔒 Isolation: \`${decision.isolationBackend}\``);
-    if (statusResult.status) captionLines.push(`Status: \`${statusResult.status}\``);
-    if (repoUrlDescription) captionLines.push(`Repo: \`${repoUrlDescription}\``);
-    captionLines.push(`Privacy: ${decision.reason}`);
-    const caption = captionLines.join('\n');
-
-    if (decision.destination === 'chat') {
-      // Public repository → reply with the document directly in the chat.
-      let upload;
-      try {
-        upload = await prepareSanitizedLogUpload(logPath, caption);
-        await safeReplyWithDocument(ctx, { source: upload.path, filename }, { reply_to_message_id: message.message_id, caption: upload.caption, parse_mode: 'Markdown', verbose: VERBOSE });
-      } catch (error) {
-        console.error('[ERROR] /log: replyWithDocument failed:', error);
-        await ctx.reply('❌ Failed to sanitize or upload the log.', { reply_to_message_id: message.message_id });
-      } finally {
-        await upload?.cleanup();
-      }
-      return;
-    }
-
-    // DM flow: forward the originating message into DM (so the audit chain
-    // is preserved), then reply to that forwarded message with the log file.
-    const userId = ctx.from?.id;
-    if (!userId) {
-      await ctx.reply('❌ Cannot deliver the log via DM: missing user id.', { reply_to_message_id: message.message_id });
-      return;
-    }
-
-    let forwardedMessageId = null;
-    try {
-      // Forward the message that contains the session id (the reply target if
-      // any, otherwise the /log message itself).
-      const forwardSource = repliedTo || message;
-      const forwardedFromChatId = forwardSource === repliedTo ? chatId : chatId;
-      const forwardedSourceMessageId = forwardSource.message_id;
-      try {
-        const forwarded = await ctx.telegram.forwardMessage(userId, forwardedFromChatId, forwardedSourceMessageId);
-        forwardedMessageId = forwarded?.message_id || null;
-      } catch (forwardError) {
-        // forwardMessage can fail if the user has not opened a DM with the bot
-        // yet, or the source chat blocks forwards. Fall back to copyMessage,
-        // which works without a forward header.
-        try {
-          const copied = await ctx.telegram.copyMessage(userId, forwardedFromChatId, forwardedSourceMessageId);
-          forwardedMessageId = copied?.message_id || null;
-        } catch (copyError) {
-          console.error('[ERROR] /log: forward/copyMessage to DM failed:', forwardError, copyError);
-          // Fall through — we can still try sendDocument without a reply ref.
-        }
-      }
-    } catch (error) {
-      console.error('[ERROR] /log: DM forwarding step failed:', error);
-    }
-
-    let upload;
-    try {
-      upload = await prepareSanitizedLogUpload(logPath, caption);
-      const replyOpts = forwardedMessageId ? { reply_to_message_id: forwardedMessageId, caption, parse_mode: 'Markdown' } : { caption, parse_mode: 'Markdown' };
-      replyOpts.caption = upload.caption;
-      replyOpts.verbose = VERBOSE;
-      await safeSendDocument(ctx.telegram, userId, { source: upload.path, filename }, replyOpts);
-    } catch (error) {
-      console.error('[ERROR] /log: sendDocument to DM failed:', error);
-      // Tell the user, in their original chat, that DM delivery failed
-      // (commonly because they have not started a chat with the bot).
-      const friendly = error?.code === 403 || /chat not found|bot can't initiate conversation/i.test(error?.message || '') ? 'I could not send you a DM. Please open a private chat with me and send /start, then try again.' : 'Failed to sanitize or send the log via DM.';
-      await ctx.reply(`❌ ${friendly}`, { reply_to_message_id: message.message_id });
-      return;
-    } finally {
-      await upload?.cleanup();
-    }
-
-    // Acknowledge in the original chat (only if it wasn't already a DM).
-    if (chatType !== 'private') {
-      try {
-        await safeReply(ctx, `📬 Sent the log for \`${sessionId}\` to your direct messages (private repository).`, {
+      if (!sessionId) {
+        await safeReply(ctx, '❌ /log requires a session id.\n\nUsage:\n• `/log <UUID>` — fetch a specific session log\n• Reply to a session message with `/log` — fetch the session referenced in that message', {
           reply_to_message_id: message.message_id,
           verbose: VERBOSE,
         });
-      } catch (error) {
-        console.error('[ERROR] /log: failed to acknowledge in chat:', error);
+        return;
       }
-    }
-  });
+
+      // Authorization. /log is only available to chat owners. In private chats
+      // there is no "creator" status — the user is implicitly the owner of their
+      // own DM, so we allow it. We still apply the optional allowlist used by
+      // other commands so a private bot deployment can lock /log to known users.
+      if (chatType === 'private') {
+        // No further auth required beyond the optional whitelist applied below.
+      } else {
+        try {
+          const member = await ctx.telegram.getChatMember(chatId, ctx.from.id);
+          if (!member || member.status !== 'creator') {
+            VERBOSE && console.log('[VERBOSE] /log rejected: not chat owner');
+            await ctx.reply('❌ /log is only available to the chat owner.', { reply_to_message_id: message.message_id });
+            return;
+          }
+        } catch (error) {
+          console.error('[ERROR] /log: getChatMember failed:', error);
+          await ctx.reply('❌ Failed to verify permissions for /log.', { reply_to_message_id: message.message_id });
+          return;
+        }
+      }
+
+      if (isChatAuthorized && !isChatAuthorized(chatId)) {
+        // Topic-aware fallback (used elsewhere in this repo for forum topics).
+        if (!isTopicAuthorized || !isTopicAuthorized(ctx)) {
+          VERBOSE && console.log('[VERBOSE] /log rejected: chat not authorized');
+          const errMsg = buildAuthErrorMessage ? buildAuthErrorMessage(ctx) : `❌ This chat (ID: ${chatId}) is not authorized.`;
+          await ctx.reply(errMsg, { reply_to_message_id: message.message_id });
+          return;
+        }
+      }
+
+      // 1. Validate the session id with $ --status.
+      let statusResult;
+      try {
+        statusResult = await querySessionStatus(sessionId, VERBOSE);
+      } catch (error) {
+        console.error('[ERROR] /log: querySessionStatus failed:', error);
+        await ctx.reply(`❌ Failed to query session status: ${error.message || String(error)}`, { reply_to_message_id: message.message_id });
+        return;
+      }
+
+      if (!statusResult || !statusResult.exists) {
+        await safeReply(ctx, `❌ Session \`${sessionId}\` is not known to start-command.\n\nUse the session id from a \`📊 Session: <uuid>\` line in one of the bot's status messages.`, {
+          reply_to_message_id: message.message_id,
+          verbose: VERBOSE,
+        });
+        return;
+      }
+
+      // 2. Look up tracked metadata (for repo URL and original chat).
+      const sessionInfo = getTrackedSessionInfo ? getTrackedSessionInfo(sessionId) : null;
+
+      // 3. Decide repo visibility — prefer the URL we tracked at launch time.
+      let repoVisibility = null;
+      let repoUrlDescription = null;
+      const trackedUrl = sessionInfo?.url || null;
+      if (trackedUrl) {
+        const parsed = parseGitHubUrl ? parseGitHubUrl(trackedUrl) : null;
+        if (parsed && parsed.valid && parsed.owner && parsed.repo) {
+          repoUrlDescription = `${parsed.owner}/${parsed.repo}`;
+          try {
+            repoVisibility = await detectRepositoryVisibility(parsed.owner, parsed.repo);
+          } catch (error) {
+            console.error('[ERROR] /log: detectRepositoryVisibility failed:', error);
+            repoVisibility = null;
+          }
+        }
+      }
+
+      // 4. Decide the destination.
+      const decision = decideLogDestination({ statusResult, sessionInfo, repoVisibility, chatType });
+      if (decision.destination === 'reject') {
+        // Surface enough state to diagnose false-rejections like issue #1700,
+        // where the parser missed the isolation field name reported by the host.
+        VERBOSE && console.log(`[VERBOSE] /log rejected session ${sessionId}: reason="${decision.reason}" parsedIsolation=${JSON.stringify(statusResult?.isolation)} sessionInfoBackend=${JSON.stringify(sessionInfo?.isolationBackend)} rawHead=${JSON.stringify((statusResult?.raw || '').slice(0, 240))}`);
+        await ctx.reply(`❌ ${decision.reason}`, { reply_to_message_id: message.message_id });
+        return;
+      }
+
+      // 5. Resolve and validate the on-disk log file.
+      const logPath = resolveLogPath({ statusResult, isolationBackend: decision.isolationBackend });
+      if (!logPath) {
+        await ctx.reply('❌ Could not determine the log file path for this session.', { reply_to_message_id: message.message_id });
+        return;
+      }
+      if (!(await fileExists(logPath))) {
+        await safeReply(ctx, `❌ Log file does not exist on disk:\n\`${logPath}\`\n\nThe session may have been cleaned up by the host or the isolation backend.`, {
+          reply_to_message_id: message.message_id,
+          verbose: VERBOSE,
+        });
+        return;
+      }
+      const size = await fileSize(logPath);
+      if (size !== null && size > TELEGRAM_DOCUMENT_MAX_BYTES) {
+        await safeReply(ctx, `❌ Log file is ${(size / (1024 * 1024)).toFixed(1)} MB which exceeds Telegram's 50 MB document upload limit.\n\nFile path on host: \`${logPath}\``, {
+          reply_to_message_id: message.message_id,
+          verbose: VERBOSE,
+        });
+        return;
+      }
+
+      const filename = path.basename(logPath);
+      const captionLines = [`📁 Log for session \`${sessionId}\``];
+      if (decision.isolationBackend) captionLines.push(`🔒 Isolation: \`${decision.isolationBackend}\``);
+      if (statusResult.status) captionLines.push(`Status: \`${statusResult.status}\``);
+      if (repoUrlDescription) captionLines.push(`Repo: \`${repoUrlDescription}\``);
+      captionLines.push(`Privacy: ${decision.reason}`);
+      const caption = captionLines.join('\n');
+
+      if (decision.destination === 'chat') {
+        // Public repository → reply with the document directly in the chat.
+        let upload;
+        try {
+          upload = await prepareSanitizedLogUpload(logPath, caption);
+          await safeReplyWithDocument(ctx, { source: upload.path, filename }, { reply_to_message_id: message.message_id, caption: upload.caption, parse_mode: 'Markdown', verbose: VERBOSE });
+        } catch (error) {
+          console.error('[ERROR] /log: replyWithDocument failed:', error);
+          await ctx.reply('❌ Failed to sanitize or upload the log.', { reply_to_message_id: message.message_id });
+        } finally {
+          await upload?.cleanup();
+        }
+        return;
+      }
+
+      // DM flow: forward the originating message into DM (so the audit chain
+      // is preserved), then reply to that forwarded message with the log file.
+      const userId = ctx.from?.id;
+      if (!userId) {
+        await ctx.reply('❌ Cannot deliver the log via DM: missing user id.', { reply_to_message_id: message.message_id });
+        return;
+      }
+
+      let forwardedMessageId = null;
+      try {
+        // Forward the message that contains the session id (the reply target if
+        // any, otherwise the /log message itself).
+        const forwardSource = repliedTo || message;
+        const forwardedFromChatId = forwardSource === repliedTo ? chatId : chatId;
+        const forwardedSourceMessageId = forwardSource.message_id;
+        try {
+          const forwarded = await ctx.telegram.forwardMessage(userId, forwardedFromChatId, forwardedSourceMessageId);
+          forwardedMessageId = forwarded?.message_id || null;
+        } catch (forwardError) {
+          // forwardMessage can fail if the user has not opened a DM with the bot
+          // yet, or the source chat blocks forwards. Fall back to copyMessage,
+          // which works without a forward header.
+          try {
+            const copied = await ctx.telegram.copyMessage(userId, forwardedFromChatId, forwardedSourceMessageId);
+            forwardedMessageId = copied?.message_id || null;
+          } catch (copyError) {
+            console.error('[ERROR] /log: forward/copyMessage to DM failed:', forwardError, copyError);
+            // Fall through — we can still try sendDocument without a reply ref.
+          }
+        }
+      } catch (error) {
+        console.error('[ERROR] /log: DM forwarding step failed:', error);
+      }
+
+      let upload;
+      try {
+        upload = await prepareSanitizedLogUpload(logPath, caption);
+        const replyOpts = forwardedMessageId ? { reply_to_message_id: forwardedMessageId, caption, parse_mode: 'Markdown' } : { caption, parse_mode: 'Markdown' };
+        replyOpts.caption = upload.caption;
+        replyOpts.verbose = VERBOSE;
+        await safeSendDocument(ctx.telegram, userId, { source: upload.path, filename }, replyOpts);
+      } catch (error) {
+        console.error('[ERROR] /log: sendDocument to DM failed:', error);
+        // Tell the user, in their original chat, that DM delivery failed
+        // (commonly because they have not started a chat with the bot).
+        const friendly = error?.code === 403 || /chat not found|bot can't initiate conversation/i.test(error?.message || '') ? 'I could not send you a DM. Please open a private chat with me and send /start, then try again.' : 'Failed to sanitize or send the log via DM.';
+        await ctx.reply(`❌ ${friendly}`, { reply_to_message_id: message.message_id });
+        return;
+      } finally {
+        await upload?.cleanup();
+      }
+
+      // Acknowledge in the original chat (only if it wasn't already a DM).
+      if (chatType !== 'private') {
+        try {
+          await safeReply(ctx, `📬 Sent the log for \`${sessionId}\` to your direct messages (private repository).`, {
+            reply_to_message_id: message.message_id,
+            verbose: VERBOSE,
+          });
+        } catch (error) {
+          console.error('[ERROR] /log: failed to acknowledge in chat:', error);
+        }
+      }
+    })
+  );
 }
 
 export const __INTERNAL_FOR_TESTS__ = {

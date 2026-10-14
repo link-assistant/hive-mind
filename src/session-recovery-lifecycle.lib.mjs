@@ -72,7 +72,7 @@ export async function reportRecoveryLifecycle({ bot, sessionName, sessionInfo, s
     if (stat) state.lastBytes = stat.size;
     const eventPhase = toolEvent?.phase === 'launching' ? 'running' : toolEvent?.phase;
     const nextPhase = phase || (nextSession ? 'launching' : !running ? (sessionInfo.stopRequestedByUser ? 'stopped' : toolEvent?.phase === 'cancelled' ? 'cancelled' : exitCode === null ? 'unknown' : exitCode === 0 ? 'completed' : 'failed') : eventPhase || 'running');
-    const changed = state.phase !== nextPhase || state.outerTerminal !== !running;
+    const changed = state.phase !== nextPhase || state.outerTerminal !== !running || (reason && state.reason !== reason);
     const due = !state.lastReportedMs || now - state.lastReportedMs >= RECOVERY_HEARTBEAT_MS;
     const terminal = ['completed', 'failed', 'stopped', 'unknown', 'cancelled'].includes(nextPhase);
     sessionInfo.recoveryLifecycle = state;
@@ -119,6 +119,7 @@ export async function reportRecoveryLifecycle({ bot, sessionName, sessionInfo, s
       state.lastReportedMs = now;
       state.phase = nextPhase;
       state.outerTerminal = !running;
+      state.reason = reason;
     }
     persist();
     return text;

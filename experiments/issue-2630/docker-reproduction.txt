@@ -1,0 +1,7 @@
+[VERBOSE] Resume startup for issue-2630-8f468902-a68b-4fdb-b503-6a9b666a0e89-resume-1: exited, exit 127, 463ms
+[VERBOSE] Removed failed resume container issue-2630-8f468902-a68b-4fdb-b503-6a9b666a0e89-resume-1
+[VERBOSE] Removed failed resume image start-command-resume/issue-2630-8f468902-a68b-4fdb-b503-6a9b666a0e89:1
+Before: /claude exited 127; failed derived container and snapshot removed.
+[VERBOSE] Resume startup for issue-2630-8f468902-a68b-4fdb-b503-6a9b666a0e89-resume-2: exited, exit 0, 698ms
+After: exec solve exited 0 and received every literal argument.
+Original container retained during failed-resume cleanup.

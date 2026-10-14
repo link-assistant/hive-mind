@@ -53,6 +53,7 @@ export { killDockerContainer };
 // isolation verb through this module.
 import { resumeAllIsolationSessions, resumeIsolatedSession } from './isolation-runner.resume.lib.mjs';
 export { resumeAllIsolationSessions, resumeIsolatedSession };
+export { checkResumedDockerStartup, cleanupFailedResumeSnapshot } from './isolation-runner.resume.lib.mjs';
 export { parseExecutionResumeAllOutput, parseExecutionResumeOutput, RESUME_ALL_ACTIONS, RESUME_MODES } from './isolation-runner.resume.lib.mjs';
 // Valid isolation backends
 const VALID_ISOLATION_BACKENDS = ['screen', 'tmux', 'docker'];
@@ -66,18 +67,11 @@ const DOCKER_ISOLATION_SHELL = 'sh';
 const DOCKER_ISOLATION_LOW_DISK_GIB = 40;
 // Docker-only start gate used to capture the container writable-layer baseline before the task command begins cloning or generating files. Unlimited tasks retain a timeout fallback so a parent exit cannot strand them. Resource-limited tasks fail closed and require an explicit release: a timeout could otherwise start user code after limit enforcement and container cleanup both failed.
 const DOCKER_START_GATE_WAIT_TENTHS = 300;
+import { shellQuote, buildShellCommand } from './shell-command.lib.mjs';
 function normalizeTool(tool) {
   return String(tool || 'claude')
     .trim()
     .toLowerCase();
-}
-function shellQuote(value) {
-  const stringValue = String(value);
-  if (stringValue === '') return "''";
-  return `'${stringValue.replaceAll("'", "'\\''")}'`;
-}
-function buildShellCommand(command, args = []) {
-  return [command, ...args].map(shellQuote).join(' ');
 }
 function buildDockerStartGatePath(sessionId) {
   return sessionId ? `/tmp/hive-mind-disk-baseline-${sessionId}` : null;

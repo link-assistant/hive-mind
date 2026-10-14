@@ -18,6 +18,7 @@ import { test } from 'node:test';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus, isAiToolScratchPath } from '../src/ai-tool-scratch.lib.mjs';
 import { classifyUntrackedFiles, describePreservedWork } from '../src/critical-error-commit.lib.mjs';
 import { prepareFormalAiRuntime, resetFormalAiRuntimeCache } from '../src/formal-ai-runtime.lib.mjs';
+import { isSolverCommit } from '../src/session-changes.lib.mjs';
 
 test('Formal AI derivations are tool state for the uncommitted-changes check', () => {
   assert.equal(isAiToolScratchPath('?? data/cache/derivations/'), true);
@@ -26,6 +27,18 @@ test('Formal AI derivations are tool state for the uncommitted-changes check', (
   assert.equal(isAiToolScratchPath('?? data/cache/other.json'), false, 'only the directory Formal AI owns is excluded');
   assert.equal(isAiToolScratchPath(' M data/case-studies/x.md'), false, 'a repository that tracks data/ keeps its changes');
   assert.equal(filterAiToolScratchFromStatus('?? data/cache/derivations/\n?? e.g\n'), '?? e.g');
+});
+
+test("a tracked file under data/cache/derivations/ is the repository's own, not tool state (#3215)", () => {
+  // data/cache/derivations/ is an ordinary path a repository may track; only
+  // untracked files there come from Formal AI.
+  assert.equal(isAiToolScratchPath(' M data/cache/derivations/answer_1.lino'), false);
+  assert.equal(isAiToolScratchPath('A  data/cache/derivations/answer_1.lino'), false);
+  assert.equal(filterAiToolScratchFromStatus(' M data/cache/derivations/a.lino\n?? data/cache/derivations/b.lino\n'), ' M data/cache/derivations/a.lino');
+  // The dot directories are owned by their tool whatever their status.
+  assert.equal(isAiToolScratchPath(' M .formal-ai/plan.lino'), true);
+  assert.equal(isSolverCommit({ subject: 'Regenerate derivations', files: ['data/cache/derivations/answer_1.lino'] }), false, 'a commit of a tracked derivation is work');
+  assert.equal(isSolverCommit({ subject: 'Update plan', files: ['.formal-ai/plan.lino'] }), true);
 });
 
 test('the clone ignores derivations, so git itself stops reporting them', async () => {

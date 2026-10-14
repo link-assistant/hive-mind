@@ -39,7 +39,7 @@
 
 import { existsSync, openSync, readSync, closeSync, statSync } from 'node:fs';
 
-import { isAiToolScratchPath } from './ai-tool-scratch.lib.mjs';
+import { isAiToolScratchFile, isAiToolScratchPath } from './ai-tool-scratch.lib.mjs';
 import { isFormalAiModel } from './formal-ai-model.lib.mjs';
 import { getInitialDraftState, markPullRequestLeftInDraft } from './pr-draft-state.lib.mjs';
 import { describeObservedToolCallLoop, getObservedToolCallLoopHistory } from './repeated-tool-call-breaker.lib.mjs';
@@ -61,7 +61,9 @@ const noopLog = async () => {};
 /** Commits solve itself makes around a working session; none of them is work. */
 const SOLVER_COMMIT_SUBJECTS = [/^Initial commit with task details/, /^Revert "Initial commit with task details/, /^Revert: Remove .* from initial commit/, /^Remove leftover .*\(post-cleanup fallback\)/, /^Add development log for /, /^Remove temporary CLAUDE\.md copy from AGENTS\.md/];
 
-const isBookkeepingPath = filePath => filePath.startsWith('dev/log/') || isAiToolScratchPath(`?? ${filePath}`);
+// A committed file is tracked: a commit under a path a repository may track
+// (Formal AI's `data/cache/derivations/`) is work, not tool state.
+const isBookkeepingPath = filePath => filePath.startsWith('dev/log/') || isAiToolScratchFile(filePath, { tracked: true });
 
 /**
  * @param {{subject: string, files: string[]}} commit

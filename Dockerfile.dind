@@ -409,3 +409,21 @@ RUN mkdir -p /home/box/.claude && \
     else \
       echo "configure-claude not present in @link-assistant/hive-mind@latest yet (likely a PR build before the bin is published); skipping baseline - solve re-applies it at runtime"; \
     fi
+
+# Stale nested-dockerd pid files (issue #3214). A task container resumed in
+# place (`docker start` of the stopped container, or a container created from
+# `docker commit`) keeps /var/run from the killed run. dockerd refuses to start
+# while docker.pid names a live PID, and in the new PID namespace that PID
+# belongs to an unrelated process. A `RUN rm` cannot help: the file lives in the
+# container's own filesystem, not in the image. So the image entrypoint removes
+# pid files that do not name a running dockerd/containerd at every start, then
+# hands off to box-dind's entrypoint. box only has scoped sudo for dockerd
+# setup; the sudoers entry allows exactly this argument-less cleanup, and the
+# RUN step fails the build if that entry does not work.
+COPY --chmod=0755 scripts/dind/clear-stale-dind-pids.sh /usr/local/sbin/hive-mind-dind-clear-stale-pids
+COPY --chmod=0755 scripts/dind/hive-mind-dind-entrypoint.sh /usr/local/bin/hive-mind-dind-entrypoint.sh
+COPY --chmod=0440 scripts/dind/hive-mind-dind.sudoers /etc/sudoers.d/hive-mind-dind
+RUN sudo -n /usr/local/sbin/hive-mind-dind-clear-stale-pids
+# Setting ENTRYPOINT resets the CMD inherited from box-dind, so restate it.
+ENTRYPOINT ["/usr/local/bin/hive-mind-dind-entrypoint.sh"]
+CMD ["/bin/bash"]

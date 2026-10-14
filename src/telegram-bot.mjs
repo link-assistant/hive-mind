@@ -1021,7 +1021,7 @@ const fallbackHandlers = {
   merge: detach(handleMergeCommand, { lane: mergeLane }),
   queue: handleSolveQueueCommand,
   models: detach(handleModelsCommand, { lane: modelsLane }),
-  stop: handleStopCommand,
+  stop: detach(handleStopCommand),
 };
 bot.on('message', async (ctx, next) => {
   const text = ctx.message?.text;

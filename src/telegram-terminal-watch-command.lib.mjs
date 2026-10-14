@@ -351,7 +351,7 @@ export async function startAutoTerminalWatchForSession({ bot, ctx, sessionId, se
 }
 
 export async function registerTerminalWatchCommand(bot, options) {
-  const { VERBOSE = false, isOldMessage, isForwarded, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage } = options;
+  const { VERBOSE = false, isOldMessage, isForwarded, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, detachHandler = handler => handler } = options;
   const runner = !options.querySessionStatus || !options.isTerminalSessionStatus ? await import('./isolation-runner.lib.mjs') : null;
   const querySessionStatus = options.querySessionStatus || runner.querySessionStatus;
   const isTerminalSessionStatus = options.isTerminalSessionStatus || runner.isTerminalSessionStatus;
@@ -448,8 +448,10 @@ export async function registerTerminalWatchCommand(bot, options) {
     }
   };
 
-  bot.command('terminal_watch', handleTerminalWatchCommand);
-  bot.command('watch', handleTerminalWatchCommand);
+  // Issue #3206: the session status and repository lookups run outside the update loop.
+  const detachedTerminalWatchCommand = detachHandler(handleTerminalWatchCommand);
+  bot.command('terminal_watch', detachedTerminalWatchCommand);
+  bot.command('watch', detachedTerminalWatchCommand);
 }
 
 export const __INTERNAL_FOR_TESTS__ = {

@@ -285,7 +285,7 @@ export function registerStartStopCommands(bot, options) {
   // Issue #2166: every reply goes through the shared safe-send funnel (pre-send
   // validation, audit log, plain-text fallback). The defaults keep the module
   // usable in isolation (tests) without a bot wired up.
-  const { VERBOSE = false, isOldMessage, isForwarded, isForwardedOrReply, isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, getSolveQueue, safeReply = defaultSafeReply, safeEditMessageText = defaultSafeEditMessageText } = options;
+  const { VERBOSE = false, isOldMessage, isForwarded, isForwardedOrReply, isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, getSolveQueue, safeReply = defaultSafeReply, safeEditMessageText = defaultSafeEditMessageText, detachHandler = handler => handler } = options;
   const stopIsolatedSessionImpl = options.stopIsolatedSession || (async (...args) => (await import('./isolation-runner.lib.mjs')).stopIsolatedSession(...args));
   // Issue #1783: look the UUID up in the session monitor so /stop can let the
   // user who started the task stop it (mirrors /terminal_watch from PR #1779).
@@ -760,7 +760,8 @@ export function registerStartStopCommands(bot, options) {
     });
   };
 
-  bot.command('stop', handleStopCommand);
+  // Issue #3206: `$ --stop` waits for the session to stop; telegram-bot.mjs runs it outside the update loop.
+  bot.command('stop', detachHandler(handleStopCommand));
 
   // /start command - resume accepting new tasks in this chat
   // Only accessible by chat owner (creator)

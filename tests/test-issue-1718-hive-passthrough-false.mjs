@@ -20,9 +20,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SOLVE_OPTION_DEFINITIONS } from '../src/solve.config.lib.mjs';
 import { getSolvePassthroughOptionNames } from '../src/hive.config.lib.mjs';
+import { buildArgsFromParsedArgv, kebabToCamel } from '../src/cli-option-forwarding.lib.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const HIVE_MJS = path.resolve(__dirname, '..', 'src', 'hive.mjs');
+// Issue #3190: hive's auto-forward loop moved into the shared forwarding module.
+const FORWARDING_LIB = path.resolve(__dirname, '..', 'src', 'cli-option-forwarding.lib.mjs');
 
 let passed = 0;
 let failed = 0;
@@ -63,22 +66,29 @@ test('working-session-live-progress is on the hive auto-forward list', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2. The fix is present in hive.mjs source. We extract the auto-forward block
-//    via a regex so we don't have to reimplement spawn() to test it.
+// 2. The fix is present in the shared forwarder hive uses (issue #3190 moved
+//    hive's auto-forward loop into src/cli-option-forwarding.lib.mjs).
 // ---------------------------------------------------------------------------
 const hiveSource = fs.readFileSync(HIVE_MJS, 'utf8');
+const forwardingSource = fs.readFileSync(FORWARDING_LIB, 'utf8');
 
-test('hive.mjs guards against value === false for string/number options', () => {
-  // The fixed branch must include `value !== false` next to `value !== undefined`.
-  const re = /\(def\.type === 'string' \|\| def\.type === 'number'\)\s*&&\s*value !== undefined\s*&&\s*value !== false/;
-  if (!re.test(hiveSource)) {
-    throw new Error("src/hive.mjs auto-forward branch must read `(def.type === 'string' || def.type === 'number') && value !== undefined && value !== false`");
+test('hive.mjs forwards solve options through the shared buildArgsFromParsedArgv', () => {
+  if (!/buildArgsFromParsedArgv\(\{[^}]*optionNames: getSolvePassthroughOptionNames\(\)/.test(hiveSource)) {
+    throw new Error('src/hive.mjs must forward solve options via buildArgsFromParsedArgv({ ..., optionNames: getSolvePassthroughOptionNames(), ... })');
   }
 });
 
-test('hive.mjs cites issue #1718 next to the guard', () => {
-  if (!hiveSource.includes('Issue #1718') && !hiveSource.includes('issue #1718')) {
-    throw new Error('hive.mjs should mention issue #1718 next to the new guard');
+test('shared forwarder guards against value === false for string/number options', () => {
+  // The fixed branch must include `value !== false` next to `value !== undefined`.
+  const re = /\(def\.type === 'string' \|\| def\.type === 'number'\)\s*&&\s*value !== undefined\s*&&\s*value !== false/;
+  if (!re.test(forwardingSource)) {
+    throw new Error("src/cli-option-forwarding.lib.mjs must read `(def.type === 'string' || def.type === 'number') && value !== undefined && value !== false`");
+  }
+});
+
+test('shared forwarder cites issue #1718 next to the guard', () => {
+  if (!forwardingSource.includes('Issue #1718') && !forwardingSource.includes('issue #1718')) {
+    throw new Error('src/cli-option-forwarding.lib.mjs should mention issue #1718 next to the guard');
   }
 });
 
@@ -94,36 +104,11 @@ test('hive.mjs calls safeExit(1, …) when finalStats.failed > 0', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 4. Replay of the exact auto-forwarder logic on a synthetic argv that
-//    reproduces the #1718 scenario. This is the closest we can get to a unit
-//    test without spawning a subprocess.
+// 4. Run the real auto-forwarder on a synthetic argv that reproduces the
+//    #1718 scenario, with the same skip list hive uses.
 // ---------------------------------------------------------------------------
 const SKIP_AUTO_FORWARD = new Set(['model', 'worker-model', 'base-branch', 'skip-tool-connection-check', 'tool-connection-check', 'skip-tool-check', 'skip-claude-check', 'tool-check', 'dry-run', 'auto-cleanup']);
-const kebabToCamel = s => s.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
-
-function buildSolveArgs(argv) {
-  const args = [];
-  for (const optionName of getSolvePassthroughOptionNames()) {
-    if (SKIP_AUTO_FORWARD.has(optionName)) continue;
-    const camelName = kebabToCamel(optionName);
-    const value = argv[camelName];
-    const def = SOLVE_OPTION_DEFINITIONS[optionName];
-    if (!def) continue;
-    if (def.type === 'boolean') {
-      if (value === undefined) continue;
-      if (def.default === true || def.default === undefined) {
-        args.push(value ? `--${optionName}` : `--no-${optionName}`);
-      } else if (value) {
-        args.push(`--${optionName}`);
-      }
-    } else if (def.type === 'array' && Array.isArray(value) && value.length > 0) {
-      for (const entry of value) args.push(`--${optionName}`, String(entry));
-    } else if ((def.type === 'string' || def.type === 'number') && value !== undefined && value !== false) {
-      args.push(`--${optionName}`, String(value));
-    }
-  }
-  return args;
-}
+const buildSolveArgs = argv => buildArgsFromParsedArgv({ argv, definitions: SOLVE_OPTION_DEFINITIONS, optionNames: getSolvePassthroughOptionNames(), skip: SKIP_AUTO_FORWARD });
 
 test('replayed forwarder does NOT push --working-session-live-progress when value=false (default from yargs)', () => {
   // Build an argv that mirrors what yargs hands hive when the user did not

@@ -39,6 +39,7 @@ const solveOnlyExceptions = new Set([
   'only-prepare-command', // debug option, solve-specific
   'session-type', // internal hidden option for session tracking
   'auto-resume-iteration', // internal hidden option for limit-reset continuation tracking
+  'previous-anthropic-cost', // internal hidden option carried between resume iterations (issue #3190)
 ]);
 
 // Test 1: All solve options (except exceptions) should be passthrough

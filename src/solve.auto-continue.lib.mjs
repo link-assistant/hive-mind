@@ -56,6 +56,9 @@ const { interruptibleSleep } = await import('./interruptible-sleep.lib.mjs');
 // Issue #1886: cumulative Anthropic cost carried across cross-process resumes
 const { getCumulativeAnthropicCost } = await import('./anthropic-cost-accumulator.lib.mjs');
 
+// Issue #3190: carry every original option through the auto-resume/auto-restart relaunch
+const { getPreservedSolveCliArgs, SOLVE_AUTO_RELAUNCH_CONTROLLED_OPTIONS } = await import('./solve.forwarded-args.lib.mjs');
+
 const { calculateWaitTime } = validation;
 
 /**
@@ -201,13 +204,24 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
     const sessionType = isRestart ? 'auto-restart' : 'auto-resume';
     resumeArgs.push('--session-type', sessionType);
 
-    // Preserve other flags from original invocation
+    // Options whose live value may differ from the command line (the model can
+    // switch to a fallback mid-run, attach-logs is resolved at runtime).
     if (argv.tool && argv.tool !== 'claude') resumeArgs.push('--tool', argv.tool);
-    if (argv.model !== 'sonnet') resumeArgs.push('--model', argv.model);
-    if (argv.fallbackModel) resumeArgs.push('--fallback-model', argv.fallbackModel);
+    if (argv.model) resumeArgs.push('--model', argv.model);
+    // Issue #2037: an implicit fallback is recomputed by the child from --model;
+    // forwarding it would turn it into an explicit pin.
+    if (argv.fallbackModel && argv._fallbackModelExplicit) resumeArgs.push('--fallback-model', argv.fallbackModel);
     if (argv.verbose) resumeArgs.push('--verbose');
     if (argv.fork) resumeArgs.push('--fork');
     if (shouldAttachLogs) resumeArgs.push('--attach-logs');
+
+    // Issue #3190: replay EVERY other option from the original command line.
+    // The old allowlist above silently dropped --auto-merge, --think,
+    // --language, --disable-report-issue, --no-tool-check, ... so the resumed
+    // session ran with different settings than the user requested.
+    const preservedArgs = getPreservedSolveCliArgs({ exclude: SOLVE_AUTO_RELAUNCH_CONTROLLED_OPTIONS });
+    resumeArgs.push(...preservedArgs);
+    await log(`🧷 Preserved original options (issue #3190): ${preservedArgs.length > 0 ? preservedArgs.join(' ') : '(none)'}`, { verbose: true });
 
     // CRITICAL: Pass --working-directory to ensure Claude Code session resume works correctly
     // Claude Code stores sessions per working directory, so resume MUST use the same directory

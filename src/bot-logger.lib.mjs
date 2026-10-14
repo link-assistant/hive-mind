@@ -1,3 +1,4 @@
+/* eslint-disable no-await-in-loop -- log lines reach the file in order, one append at a time */
 /**
  * Durable, timestamped logger for the Telegram bot.
  *

@@ -1,3 +1,4 @@
+/* eslint-disable no-await-in-loop -- invitations are accepted one at a time so the progress message counts up and GitHub is not flooded */
 /**
  * Telegram /accept_invites command implementation
  *

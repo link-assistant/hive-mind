@@ -259,7 +259,9 @@ export default [
     // Issue #3206: sequential awaits in a loop are often a hidden N x latency.
     // Most hits elsewhere are deliberate (ordered git operations, retries), so
     // the warning is limited to the bot's own telegram-*/bot-* modules, where
-    // that latency is felt by users waiting for a reply.
+    // that latency is felt by users waiting for a reply. A loop that must stay
+    // sequential (polling, retries, ordered sends) says why in its
+    // `eslint-disable` comment; `npm run lint` fails on any warning.
     files: ['src/telegram-*.{js,mjs,cjs}', 'src/bot-*.{js,mjs,cjs}'],
     rules: {
       'no-await-in-loop': 'warn',

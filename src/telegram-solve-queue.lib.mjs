@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable no-await-in-loop -- the consumer polls on an interval and edits queue messages one at a time under the Telegram rate limit */
 /**
  * Telegram Solve Queue Library
  *

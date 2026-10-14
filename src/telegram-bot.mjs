@@ -123,6 +123,7 @@ for (const { enabled, label, flag, overrides, createYargsConfig, dummyUrl } of [
   if (!enabled || overrides.length === 0) continue;
 
   console.log(`Validating ${label.toLowerCase()} overrides...`);
+  // eslint-disable-next-line no-await-in-loop -- startup validation and owner DMs run one chat at a time; neither is on the update path
   const result = await validateCommandOverrides({ overrides, createYargsConfig, yargs, dummyUrl });
   if (result.ok) {
     console.log(`✅ ${label} overrides validated successfully`);
@@ -941,6 +942,7 @@ registerLeakNotifier(async ({ owner, repo, prNumber, tokenHits = [] }) => {
   const text = `🚨 *Token-leak event*\n\nA known local token was about to be published in *${where}* and was masked by the sanitizer just in time.\n\nTokens detected: ${sources}\n\nRotate the affected secret(s) now and check public surfaces (GitHub comments, gists, Slack) for any prior copies.`;
   for (const chatId of allowedChats) {
     try {
+      // eslint-disable-next-line no-await-in-loop -- startup validation and owner DMs run one chat at a time; neither is on the update path
       const member = await bot.telegram.getChatMember(chatId, chatId).catch(() => null);
       // For groups, getChatMember(chatId, chatId) returns the chat itself; we
       // really want the creator. Fall back to getChatAdministrators.
@@ -948,11 +950,13 @@ registerLeakNotifier(async ({ owner, repo, prNumber, tokenHits = [] }) => {
       if (member && member.status === 'creator' && member.user?.id) {
         ownerUserId = member.user.id;
       } else {
+        // eslint-disable-next-line no-await-in-loop -- startup validation and owner DMs run one chat at a time; neither is on the update path
         const admins = await bot.telegram.getChatAdministrators(chatId).catch(() => []);
         const creator = (admins || []).find(a => a.status === 'creator');
         if (creator && creator.user?.id) ownerUserId = creator.user.id;
       }
       if (ownerUserId) {
+        // eslint-disable-next-line no-await-in-loop -- startup validation and owner DMs run one chat at a time; neither is on the update path
         await safeSendMessage(bot.telegram, ownerUserId, text, { verbose: VERBOSE }).catch(err => {
           console.warn(`[telegram-leak-notifier] DM to user ${ownerUserId} (chat ${chatId}) failed: ${err.message}`);
         });

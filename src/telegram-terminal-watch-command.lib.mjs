@@ -173,8 +173,10 @@ export async function resolveTerminalWatchRepository({ sessionInfo = null, statu
 
 async function querySessionStatusWithRetry(querySessionStatus, sessionId, verbose, attempts = 3) {
   for (let attempt = 1; attempt <= attempts; attempt++) {
+    // eslint-disable-next-line no-await-in-loop -- a short retry while the session registers
     const statusResult = await querySessionStatus(sessionId, verbose);
     if (statusResult?.exists || attempt === attempts) return statusResult;
+    // eslint-disable-next-line no-await-in-loop -- a short retry while the session registers
     await new Promise(resolve => setTimeout(resolve, 250));
   }
   return null;

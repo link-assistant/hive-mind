@@ -142,9 +142,12 @@ export function registerModelsCommand(bot, options = {}) {
 
     for (const tool of args.tools) {
       try {
+        // eslint-disable-next-line no-await-in-loop -- one catalogue reply per tool, in the order asked
         const merged = await loadCatalogue({ tool, env, refresh: args.refresh });
+        // eslint-disable-next-line no-await-in-loop -- one catalogue reply per tool, in the order asked
         await reply(formatModelCatalogueTelegram(merged, { details: args.details }));
       } catch (error) {
+        // eslint-disable-next-line no-await-in-loop -- one catalogue reply per tool, in the order asked
         await reply(`⚠️ Could not build the ${tool} catalogue: ${error?.message ?? error}`);
       }
     }

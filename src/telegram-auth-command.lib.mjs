@@ -157,6 +157,7 @@ export async function isAuthOperator({ telegram, userId, allowedChatIds }) {
   for (const chatId of allowedChatIds) {
     if (String(chatId) === String(userId)) return true;
     try {
+      // eslint-disable-next-line no-await-in-loop -- stops at the first chat the user owns
       const member = await telegram.getChatMember(chatId, userId);
       if (member?.status === 'creator') return true;
     } catch {

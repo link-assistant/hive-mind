@@ -630,6 +630,36 @@ const resolveFormalAiBackend = async ({ baseUrl, apiKey, env, deps, startedLocal
   };
 };
 
+/**
+ * Seed the isolated HOME, let `formal-ai with --global` write the provider
+ * block into it, and build the environment that points the CLI there. The
+ * wrapper merges into the seeded config, so repeating this is safe.
+ */
+const applyFormalAiClientConfig = async ({ tool, client, home, baseUrl, apiKey, formalAiPath, env, deps }) => {
+  const seeded = await (deps.seedImpl || seedFormalAiClientHome)({ client, home, env });
+  await (deps.configureImpl || configureFormalAiClientHome)({ tool, baseUrl, home, formalAiPath, env });
+
+  const { env: clientEnv, notes } = await buildFormalAiClientEnv({ client, home, apiKey });
+  for (const entry of seeded) notes.push(`seeded ${entry}`);
+
+  // Issue #2314: `gh` keeps the operator's identity in the tool environment,
+  // and a tool environment where it does not is rejected before the session.
+  Object.assign(clientEnv, await (deps.ghAuthImpl || prepareToolGhAuth)({ env, toolEnv: clientEnv, tool }));
+  return { env: clientEnv, notes };
+};
+
+const logFormalAiClientWiring = async ({ log, verbose, client, baseUrl, notes, clientEnv }) => {
+  if (!verbose) return;
+  await log(`🧠 Formal AI: protocol ${client?.default_protocol}, endpoint ${baseUrl}${client?.endpoints?.[client?.default_protocol] || ''}`, { verbose: true });
+  await log(`🧠 Formal AI: config ${notes?.join(', ') || 'none'}`, { verbose: true });
+  await log(
+    `🧠 Formal AI: environment ${Object.keys(clientEnv || {})
+      .sort()
+      .join(', ')}`,
+    { verbose: true }
+  );
+};
+
 const runtimeCache = new Map();
 let exitHookInstalled = false;
 
@@ -673,9 +703,21 @@ export const prepareFormalAiRuntime = async ({ tool, workdir, log = async () => 
     const backend = await resolveFormalAiBackend({ baseUrl: cached.runtime.baseUrl, apiKey: resolveFormalAiApiKey(env), env, deps, startedLocally: cached.runtime.serverStarted });
     if (backend.version !== cached.runtime.backend?.version || backend.imageDigest !== cached.runtime.backend?.imageDigest) {
       await log(`🧠 Formal AI: serving backend changed to ${describeFormalAiBackend(backend)}`);
+    } else {
+      await log(`🧠 Formal AI: reusing the ${tool} runtime prepared for this workspace; serving backend ${describeFormalAiBackend(backend)}`);
     }
     cached.runtime.backend = backend;
     cached.runtime.formalAiVersion = backend.version;
+    if (tool === 'codex') {
+      // Codex reads its provider from CODEX_HOME, and the capability preflight
+      // rewrites the repository-scoped config before every iteration. Re-apply
+      // the client configuration from that scope so each iteration carries the
+      // provider block instead of the operator config.
+      const { env: clientEnv, notes } = await applyFormalAiClientConfig({ tool, client: cached.runtime.client, home: cached.runtime.home, baseUrl: cached.runtime.baseUrl, apiKey: resolveFormalAiApiKey(env), formalAiPath: resolvedFormalAiPath, env, deps });
+      cached.runtime.env = clientEnv;
+      cached.runtime.notes = notes;
+    }
+    await logFormalAiClientWiring({ log, verbose, client: cached.runtime.client, baseUrl: cached.runtime.baseUrl, notes: cached.runtime.notes, clientEnv: cached.runtime.env });
     return cached.runtime;
   }
 
@@ -722,15 +764,7 @@ export const prepareFormalAiRuntime = async ({ tool, workdir, log = async () => 
     const client = findFormalAiClient(clients, tool);
     if (!client) throw new Error(`Formal AI does not list a client configuration for "${tool}"`);
 
-    const seeded = await (deps.seedImpl || seedFormalAiClientHome)({ client, home, env });
-    await (deps.configureImpl || configureFormalAiClientHome)({ tool, baseUrl, home, formalAiPath: resolvedFormalAiPath, env });
-
-    const { env: clientEnv, notes } = await buildFormalAiClientEnv({ client, home, apiKey });
-    for (const entry of seeded) notes.push(`seeded ${entry}`);
-
-    // Issue #2314: `gh` keeps the operator's identity in the tool environment,
-    // and a tool environment where it does not is rejected before the session.
-    Object.assign(clientEnv, await (deps.ghAuthImpl || prepareToolGhAuth)({ env, toolEnv: clientEnv, tool }));
+    const { env: clientEnv, notes } = await applyFormalAiClientConfig({ tool, client, home, baseUrl, apiKey, formalAiPath: resolvedFormalAiPath, env, deps });
 
     if (tool === 'gemini') {
       // Upstream gap: headless Gemini needs an explicit auth type in settings.
@@ -750,11 +784,7 @@ export const prepareFormalAiRuntime = async ({ tool, workdir, log = async () => 
       for (const name of Object.keys(qwenAuthEnv)) notes.push(`${name}=${qwenAuthEnv[name]}`);
     }
 
-    if (verbose) {
-      await log(`🧠 Formal AI: protocol ${client.default_protocol}, endpoint ${baseUrl}${client.endpoints?.[client.default_protocol] || ''}`, { verbose: true });
-      await log(`🧠 Formal AI: config ${notes.join(', ') || 'none'}`, { verbose: true });
-      await log(`🧠 Formal AI: environment ${Object.keys(clientEnv).sort().join(', ')}`, { verbose: true });
-    }
+    await logFormalAiClientWiring({ log, verbose, client, baseUrl, notes, clientEnv });
 
     const runtime = {
       enabled: true,

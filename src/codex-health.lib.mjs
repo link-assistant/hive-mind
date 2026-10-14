@@ -40,7 +40,14 @@ const unwrapCodexErrorMessage = value => {
   return text;
 };
 
-const isNonFatalCodexItemErrorMessage = message => /^in-process app-server event stream lagged; dropped \d+ events?$/i.test(message || '');
+// Item-level warnings Codex reports as `error` items but recovers from on its own.
+const NON_FATAL_CODEX_ITEM_ERRORS = [
+  { pattern: /^in-process app-server event stream lagged; dropped \d+ events?$/i, reason: 'Codex app-server backpressure warning; the turn can still complete successfully' },
+  // Codex continues with fallback metadata; whatever really failed the turn arrives as `turn.failed`.
+  { pattern: /^Model metadata for `[^`]*` not found\. Defaulting to fallback metadata/i, reason: 'Codex model metadata warning; Codex continues with fallback metadata' },
+];
+
+const findNonFatalCodexItemError = message => NON_FATAL_CODEX_ITEM_ERRORS.find(entry => entry.pattern.test(message || '')) || null;
 
 export const getCodexErrorEventSummary = codexJsonState => {
   const events = [];
@@ -73,11 +80,9 @@ export const getCodexErrorEventSummary = codexJsonState => {
     for (const item of items) {
       const message = unwrapCodexErrorMessage(item?.message);
       const event = { type, message: message || 'Codex emitted an error event' };
-      if (type === 'item' && isNonFatalCodexItemErrorMessage(message)) {
-        ignoredEvents.push({
-          ...event,
-          reason: 'Codex app-server backpressure warning; the turn can still complete successfully',
-        });
+      const nonFatal = type === 'item' ? findNonFatalCodexItemError(message) : null;
+      if (nonFatal) {
+        ignoredEvents.push({ ...event, reason: nonFatal.reason });
         continue;
       }
       if (type !== 'turn' && sessionSucceeded) {
@@ -103,7 +108,8 @@ export const getCodexErrorEventSummary = codexJsonState => {
 
   return {
     hasError: events.length > 0,
-    message: events[0]?.message || null,
+    // `turn.failed` is the authoritative failure; an earlier item error is context.
+    message: (events.find(event => event.type === 'turn') || events[0])?.message || null,
     events,
     ignoredEvents,
     counts: countByType(events),

@@ -122,6 +122,21 @@ export const getCodexErrorEventSummary = codexJsonState => {
   };
 };
 
+/**
+ * Issue #3215: the message to check for a usage limit. `message` prefers the
+ * `turn.failed` text, which can be generic while an earlier stream `error`
+ * event carries the limit and its reset time. Codex's own (turn and stream)
+ * events are searched; item errors are tool output and are not.
+ *
+ * @param {{message: (string|null), events?: Array<{type: string, message: string}>}} errorSummary
+ * @param {(text: string) => {isUsageLimit: boolean}} detectUsageLimit
+ * @returns {(string|null)}
+ */
+export const findCodexUsageLimitMessage = (errorSummary, detectUsageLimit) => {
+  const candidates = [errorSummary?.message, ...(errorSummary?.events || []).filter(event => event.type !== 'item').map(event => event.message)];
+  return candidates.find(message => message && detectUsageLimit(message)?.isUsageLimit) || null;
+};
+
 // Issue #2102: `request_plugin_install` can never succeed under `codex exec`.
 // The tool validates its `plugin_id` against the server-driven
 // `<recommended_plugins>` list with an exact string comparison, and `codex exec`

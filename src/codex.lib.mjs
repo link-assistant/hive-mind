@@ -19,7 +19,7 @@ const os = (await use('os')).default;
 import { log } from './lib.mjs';
 // Issues #1955 / #1990: run-health analysis lives in its own module to keep this
 // file under the max-lines budget. Re-exported below for backward compatibility.
-import { getCodexErrorEventSummary, getCodexCompletionHealth, getCodexPluginProvisioningHealth, logCodexResourceSnapshot, matchCodexPluginInstallRejection, reportCodexCompletionFailure, reportCodexPluginProvisioning } from './codex-health.lib.mjs';
+import { findCodexUsageLimitMessage, getCodexErrorEventSummary, getCodexCompletionHealth, getCodexPluginProvisioningHealth, logCodexResourceSnapshot, matchCodexPluginInstallRejection, reportCodexCompletionFailure, reportCodexPluginProvisioning } from './codex-health.lib.mjs';
 export { getCodexErrorEventSummary, getCodexCompletionHealth, getCodexPluginProvisioningHealth, matchCodexPluginInstallRejection };
 import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits } from './config.lib.mjs';
@@ -1053,7 +1053,7 @@ export const executeCodexCommand = async params => {
         }
       }
       if (codexErrorSummary.hasError) {
-        const limitSource = codexErrorSummary.message || lastMessage;
+        const limitSource = findCodexUsageLimitMessage(codexErrorSummary, detectUsageLimit) || codexErrorSummary.message || lastMessage;
         const limitInfo = detectUsageLimit(limitSource);
         const retryableError = classifyRetryableError(limitSource);
         if (limitInfo.isUsageLimit) {

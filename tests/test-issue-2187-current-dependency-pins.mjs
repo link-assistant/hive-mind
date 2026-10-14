@@ -19,7 +19,7 @@ const read = relativePath => fs.readFileSync(path.join(repoRoot, relativePath), 
 const escapeRegExp = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const expected = {
-  agent: '0.26.14',
+  agent: '0.26.15',
   box: '2.10.4',
   bun: '1.4.3',
   eslint: '10.12.0',

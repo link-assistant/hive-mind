@@ -6,16 +6,18 @@
 
 ## 运行的是什么
 
-`.github/workflows/formal-ai-draft.yml` 由 `issues: opened` 触发——而不是由人工挑选的标签触发，因为要的是每天的证据数量，而不是由人来判定哪些 issue 值得一试。它在已发布的 `konard/hive-mind` 镜像中运行一条命令：
+`.github/workflows/formal-ai-draft.yml` 由 `issues: opened` 触发——而不是由人工挑选的标签触发，因为要的是每天的证据数量，而不是由人来判定哪些 issue 值得一试。它在已发布的 `konard/hive-mind:<version>` 镜像中运行一条命令，其中 `<version>` 是所检出工作流的 `package.json` 版本：
 
 ```bash
 solve <issue-url> \
   --tool agent \
   --model formal-ai \
   --attach-logs \
+  --development-log \
   --verbose \
   --attribution formal-ai \
   --no-auto-restart-until-mergeable \
+  --no-auto-restart-on-uncommitted-changes \
   --log-dir /home/box/logs
 ```
 
@@ -32,13 +34,24 @@ Formal-AI-Pull-Request: https://github.com/link-assistant/hive-mind/pull/<n>
 
 分支上的每一个提交都由 `github-actions[bot]` 署名。身份是通过 `GIT_CONFIG_COUNT` / `GIT_CONFIG_KEY_n` / `GIT_CONFIG_VALUE_n` 设置的，而不是通过配置文件，因此无论挂载的是谁的 `HOME`，它在容器内都成立（`experiments/issue-2233/probe-git-identity.sh` 测量了这一点）。
 
-有三个标志是刻意选定的，而非沿用默认：
+有四个标志是刻意选定的，而非沿用默认：
 
-| 标志                                | 原因                                                                                                                                             |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `--attribution formal-ai`           | trailer 和证据包正是这件事的意义所在，因此强制开启，而不是交给 `auto` 去决定。                                                                   |
-| `--no-auto-restart-until-mergeable` | 默认是开启的。若保持开启，一次运行会盯着 pull request 的检查并不断重启模型直到全绿，最长可达 24 小时。下面的失败策略规定：那是_下一次_运行的事。 |
-| `--log-dir`                         | 会话日志通过 bind mount 带出容器，并作为工作流产物上传，因此即使根本没有开出 pull request 也能读到它。                                           |
+| 标志                                       | 原因                                                                                                                                             |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--attribution formal-ai`                  | trailer 和证据包正是这件事的意义所在，因此强制开启，而不是交给 `auto` 去决定。                                                                   |
+| `--no-auto-restart-until-mergeable`        | 默认是开启的。若保持开启，一次运行会盯着 pull request 的检查并不断重启模型直到全绿，最长可达 24 小时。下面的失败策略规定：那是_下一次_运行的事。 |
+| `--no-auto-restart-on-uncommitted-changes` | 默认是开启的。若保持开启，模型留下的每个未提交文件都会让它重启，一次运行中最多再多五个会话。失败策略同样适用：重试是下一次运行。                 |
+| `--log-dir`                                | 会话日志通过 bind mount 带出容器，并作为工作流产物上传，因此即使根本没有开出 pull request 也能读到它。                                           |
+
+### 镜像、二进制文件与 Formal AI 自身的状态
+
+- 脚本显式拉取 `konard/hive-mind:<version>`，遇到镜像仓库超时会在 15 秒、30 秒、1 分钟和 2 分钟后重试，因此容器运行的 hive-mind 与旁边的脚本是同一版本。尚未发布的标签（版本已在 `main` 上提升但发布尚未完成）会回退到 `konard/hive-mind:latest` 并给出警告。`image` 输入或 `FORMAL_AI_DRAFT_IMAGE` 变量按原样使用。
+- 会话启动的 Formal AI 服务器会在其自己的主目录下获得 `FORMAL_AI_CACHE_DIR`。Formal AI 仍会在克隆中写入 `data/cache/derivations/`，因此该目录与 `.formal-ai/` 一样，被排除在未提交更改检查之外，也不会被保存到 `recovery/<branch>` 分支：那是工具的状态，不是用户的工作。
+- 容器以 `--rm` 启动，因此失败评论从不指向容器内的路径，而是链接到工作流运行，其产物中保存着会话日志。
+
+### pull request 上的检查
+
+用默认令牌开出的 pull request 不会启动 `pull_request` 运行，而在其分支上派发的检查不属于任何 pull request。因此 `report-checks` 作业把每个派发的运行作为提交状态（`dispatched / release.yml`，……）发布在草稿的头提交上，并在运行结束前持续更新，让草稿显示自己的检查。
 
 `--auto-merge` 和 `--auto-close-pull-request-on-fail` 永不传入。两者默认都是关闭的；`tests/formal-ai-draft-2233.test.mjs` 断言它们始终缺席，因为打开其中任何一个都会悄悄破坏失败策略。
 
@@ -55,11 +68,35 @@ Formal-AI-Pull-Request: https://github.com/link-assistant/hive-mind/pull/<n>
 
 ## 设置
 
-无需配置凭据。所有写入工作流使用同一个解析器：GitHub App（变量 `AUTOMATION_APP_ID` 和 secret `AUTOMATION_APP_PRIVATE_KEY`）→ 一个 secret `AUTOMATION_TOKEN` → 内置 `github.token`。采用首个可用层。个人令牌需要 contents、issues、pull requests 和 Actions 写入权限。`FORMAL_AI_DRAFT_IMAGE` 仍为可选变量。
+无需配置凭据。所有写入工作流使用同一个解析器：GitHub App（变量 `AUTOMATION_APP_ID` 和 secret `AUTOMATION_APP_PRIVATE_KEY`）→ 一个 secret `AUTOMATION_TOKEN` → 内置 `github.token`。采用首个可用层。个人令牌需要 contents、issues、pull requests 和 Actions 写入权限。`FORMAL_AI_DRAFT_IMAGE` 仍为可选变量（默认 `konard/hive-mind:<version>`）。
 
-默认令牌创建的 pull request 可以产生等待批准的检查。草稿工作流立即通过 `dispatch-checks`，在草稿分支以 `mode=checks` 启动 `release.yml`、`security.yml`、`links.yml` 和 `workflows.yml`。发布必须显式选择发布模式且位于 `main`。缺少可选凭据不会跳过尝试；摘要注明使用的层。每日健康检查统计过去七天实际执行的尝试。
+默认令牌创建的 pull request 可以产生等待批准的检查。草稿工作流立即通过 `dispatch-checks`，在草稿分支以 `mode=checks` 启动 `release.yml`、`security.yml`、`links.yml` 和 `workflows.yml`。发布必须显式选择发布模式且位于 `main`。缺少可选凭据不会跳过尝试；摘要注明使用的层。每日健康检查统计过去七天实际执行的尝试。当最近五次草稿运行以相同的 `decision_code` 或相同的首个错误结束时，它也会失败，并说出该错误、链接跟踪它的开放 issue（或要求新开一个）。每个草稿作业都把这两者记录为注解，因此运行摘要会说明草稿为何是红色。
 
 共享 actions 尚未发布，见 [link-foundation/.github#1](https://github.com/link-foundation/.github/issues/1)。目前 `.github/actions/` 提供兼容实现。
+
+## 从另一个仓库运行草稿
+
+该工作流可复用（`workflow_call`），因此 `link-assistant/formal-ai` 可以在发布前用真实 issue 试验一个构建：
+
+```yaml
+jobs:
+  draft:
+    uses: link-assistant/hive-mind/.github/workflows/formal-ai-draft.yml@main
+    with:
+      issue_number: '42'
+      formal_ai_binary_artifact: formal-ai-linux-x64
+    secrets: inherit
+```
+
+| 输入                        | 含义                                                                                                                |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `issue_number`              | 调用方仓库中要起草的 issue。若调用方本身在 `issues: opened` 上运行则省略。                                          |
+| `image`                     | 用来替代 `konard/hive-mind:<version>` 的 hive-mind 镜像。                                                           |
+| `formal_ai_binary_artifact` | 调用运行中某个产物的名称，其中包含名为 `formal-ai` 的文件。它以只读方式挂载到镜像的 `/usr/local/bin/formal-ai` 上。 |
+| `hive_mind_repository`      | 检出其草稿脚本的仓库（默认 `link-assistant/hive-mind`）。                                                           |
+| `hive_mind_ref`             | 该仓库要检出的 ref（默认：其默认分支）。                                                                            |
+
+该二进制文件必须能在镜像的 Ubuntu 基础（glibc）上运行。被调用时，工作流不会派发本仓库的检查，也不会运行其健康检查；本仓库的 `issues: opened` 照常工作。
 
 ## 如何退出与重跑
 
@@ -70,7 +107,7 @@ Formal-AI-Pull-Request: https://github.com/link-assistant/hive-mind/pull/<n>
 ## 如何读一个失败的草稿
 
 1. 会话日志由 `--attach-logs` 附加到 pull request 上。
-2. 如果没有开出 pull request，同一份日志是该工作流运行上的 `formal-ai-draft-session-<issue>` 产物，保留 30 天。
+2. 如果没有开出 pull request，同一份日志是该工作流运行上的 `formal-ai-draft-session-<issue>` 产物，保留 30 天。运行的注解会说出会话记录的首个错误。
 3. 分支上的 `dev/log/self-authored/issue-<n>/evidence` 保存着 `agent-stream.jsonl` 和 `session-id.txt`——那是模型自己对所做之事的记录，而不是 Hive Mind 对它的概述。
 
 ## 当 formal-ai 发布其 composite action 之后

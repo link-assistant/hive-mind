@@ -1,0 +1,4 @@
+derivation
+  answer_id "answer_ae9b967c147d5633"
+  search_query "lint rules\n\n## Problem\n\nA single `/codex … --model formal-ai` request froze the whole Telegram bot for **10 minutes** on 2026-10-13 (Hive Mind 2.35.8):\n\n- 21:52:05 UTC: the `/codex` handler started `docker pull ghcr.io/link-assistant/formal-ai:0.352.1` (via `ensureFormalAiSidecarImage"
+  rendering "answer_id=answer_ae9b967c147d5633;format=text"

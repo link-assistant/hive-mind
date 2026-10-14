@@ -1,0 +1,4 @@
+derivation
+  answer_id "answer_55c683dafc5b797f"
+  search_query "the bot then fell back to the local `konard/hive-mind-dind:2.35.8` image that was on the host all along (tracked in the pull sub-issue).\n\nRoot cause: `src/telegram-bot.mjs:212` sets `handlerTimeout: Infinity"
+  rendering "answer_id=answer_55c683dafc5b797f;format=text"

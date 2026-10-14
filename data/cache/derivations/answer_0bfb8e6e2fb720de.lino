@@ -1,0 +1,4 @@
+derivation
+  answer_id "answer_0bfb8e6e2fb720de"
+  search_query "Telegram bot freezes for all chats while a command prepares its task: /codex --model formal-ai blocked polling for 10 min (handlerTimeout: Infinity + awaited image pull)"
+  rendering "answer_id=answer_0bfb8e6e2fb720de;format=text"

@@ -10,7 +10,8 @@ import { getNoProgressFailure, hasNoProgressFailure } from './session-progress.l
 // exactly as a failed first session does.
 import { getLoopToolFailure, hasLoopToolFailure } from './automation-failure.lib.mjs';
 // Issue #3211: a run that changed nothing finishes with ⚠️ and exit 5, not ✅ and 0.
-import { EXIT_CODE_SOLVE_NO_CHANGES, reevaluateRunWithoutChanges } from './session-changes.lib.mjs';
+import { reevaluateRunWithoutChanges } from './session-changes.lib.mjs';
+import { getSolveNoChangesExitCode } from './solve.exit-codes.lib.mjs';
 
 export async function finalizeSolveProcess({ tempDir, argv, limitReached, path, getLogFile, log, closeSentry, logActiveHandles, cleanupTempDirectory, safeExit }) {
   const runFinalizationStep = async (label, step) => {
@@ -79,7 +80,7 @@ export async function finalizeSolveProcess({ tempDir, argv, limitReached, path, 
 
   if (withoutChanges) {
     await log(`\n⚠️  Finished without changes: ${withoutChanges.reason}`, { level: 'warning' });
-    await safeExit(EXIT_CODE_SOLVE_NO_CHANGES, 'Finished without changes', { skipPreExit: true, warning: true });
+    await safeExit(getSolveNoChangesExitCode(), 'Finished without changes', { skipPreExit: true, warning: true });
     return;
   }
 

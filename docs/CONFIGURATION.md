@@ -452,6 +452,14 @@ Issue #2192: a git credential helper is only consulted after the server answers 
 | `HIVE_MIND_GIT_AUTH_TRANSPORT`         | (set by solve) | Diagnostic breadcrumb listing the hosts whose git traffic is authenticated                   |
 | `GH_TOKEN` / `GITHUB_TOKEN`            | (unset)        | Token used for git transport when set; otherwise `gh auth token` is used                     |
 
+### 19. solve Exit Codes
+
+Issue #3211: `solve` exits 5 when a run finished without changes (no commit, file change or comment by this run). Before that such a run exited 0.
+
+| Environment Variable                   | Default | Description                                                                                                                                                                       |
+| -------------------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `HIVE_MIND_SOLVE_NO_CHANGES_EXIT_CODE` | 5       | Exit code (0-255) of a run that finished without changes. Set `0` for scripts that treat every nonzero exit as an error; the run is still reported as ⚠️ finished without changes |
+
 ## Command-Line Options
 
 ### solve Options

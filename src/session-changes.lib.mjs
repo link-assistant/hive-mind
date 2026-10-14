@@ -45,7 +45,7 @@ import { getInitialDraftState, markPullRequestLeftInDraft } from './pr-draft-sta
 import { describeObservedToolCallLoop, getObservedToolCallLoopHistory } from './repeated-tool-call-breaker.lib.mjs';
 import { checkForAiCreatedComments } from './solve.session-comments.lib.mjs';
 import { FINISHED_WITHOUT_CHANGES_MARKER, postTrackedComment } from './tool-comments.lib.mjs';
-import { EXIT_CODE_SOLVE_NO_CHANGES } from './solve.exit-codes.lib.mjs';
+import { EXIT_CODE_SOLVE_NO_CHANGES, getSolveNoChangesExitCode } from './solve.exit-codes.lib.mjs';
 
 export { EXIT_CODE_SOLVE_NO_CHANGES };
 
@@ -256,7 +256,7 @@ export const reportSessionWithoutChanges = async ({ owner, repo, prNumber, issue
     await log(`  ⚠️  Could not post the finished-without-changes notice: ${error.message}`, { level: 'warning' });
   }
   verdict = { noChanges: true, reason: outcome.reason, owner, repo, prNumber, issueNumber, $ };
-  return { noChanges: true, reason: outcome.reason, keepsDraft, exitCode: EXIT_CODE_SOLVE_NO_CHANGES };
+  return { noChanges: true, reason: outcome.reason, keepsDraft, exitCode: getSolveNoChangesExitCode() };
 };
 
 /**

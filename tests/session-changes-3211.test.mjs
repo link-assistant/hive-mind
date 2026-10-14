@@ -420,7 +420,7 @@ assert.ok(TOOL_GENERATED_COMMENT_MARKERS.includes(FINISHED_WITHOUT_CHANGES_MARKE
 
   const results = readSrc('solve.results.lib.mjs');
   assert.match(results, /reportSessionWithoutChanges\(/);
-  assert.match(results, /EXIT_CODE_SOLVE_NO_CHANGES/, 'verifyResults exits 5, not 0, when nothing changed');
+  assert.match(results, /safeExit\(getSolveNoChangesExitCode\(\)/, 'verifyResults exits 5, not 0, when nothing changed');
   const successIndex = results.indexOf("'\\n🎉 SUCCESS: A solution draft has been prepared as a pull request'");
   assert.ok(successIndex > 0);
   assert.match(results.slice(successIndex - 200, successIndex), /noChanges/, '🎉 SUCCESS is conditional on progress');
@@ -428,7 +428,7 @@ assert.ok(TOOL_GENERATED_COMMENT_MARKERS.includes(FINISHED_WITHOUT_CHANGES_MARKE
   const finalize = readSrc('solve.finalize.lib.mjs');
   assert.match(finalize, /reevaluateRunWithoutChanges/);
   assert.ok(finalize.indexOf('reevaluateRunWithoutChanges') < finalize.indexOf('cleanupTempDirectory(tempDir'), 're-measured before the workspace is deleted');
-  assert.match(finalize, /EXIT_CODE_SOLVE_NO_CHANGES/);
+  assert.match(finalize, /safeExit\(getSolveNoChangesExitCode\(\)/);
 
   const hive = readSrc('hive.mjs');
   assert.match(hive, /EXIT_CODE_SOLVE_NO_CHANGES/, 'hive does not throw on a worker that finished without changes');

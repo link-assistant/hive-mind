@@ -23,7 +23,8 @@ const { log, getLogFile, formatAligned } = lib;
 
 // Import exit handler
 import { safeExit } from './exit-handler.lib.mjs';
-import { EXIT_CODE_SOLVE_NO_CHANGES, reportSessionWithoutChanges } from './session-changes.lib.mjs';
+import { reportSessionWithoutChanges } from './session-changes.lib.mjs';
+import { getSolveNoChangesExitCode } from './solve.exit-codes.lib.mjs';
 // Import GitHub-related functions
 const githubLib = await import('./github.lib.mjs');
 const { sanitizeLogContent, attachLogToGitHub } = githubLib;
@@ -868,7 +869,7 @@ Fixes ${issueRef}
           await log('\n🔄 Auto-merge mode enabled - will attempt to merge after verification');
         }
         if (!argv.watch && !shouldRestart && !shouldAutoRestartForPlaceholder && !shouldWaitForAutoMerge) {
-          if (noChanges) await safeExit(EXIT_CODE_SOLVE_NO_CHANGES, 'Finished without changes', { skipPreExit: true, warning: true });
+          if (noChanges) await safeExit(getSolveNoChangesExitCode(), 'Finished without changes', { skipPreExit: true, warning: true });
           await safeExit(0, 'Process completed successfully');
         }
         // Issue #1154: Return logUploadSuccess to prevent duplicate log uploads

@@ -109,5 +109,19 @@ await test('container limits default to unlimited and accept fixed or percentage
   assert.equal(configured.containerDisk, '10%');
 });
 
+await test('container CPU penalty is on by default and configurable (issue #2801)', () => {
+  const defaults = parseArgs([], { TELEGRAM_CONTAINER_CPU_PENALTY: undefined, TELEGRAM_CONTAINER_CPU_PENALTY_CPUS: undefined });
+  assert.equal(defaults.containerCpuPenalty, true);
+  assert.equal(defaults.containerCpuPenaltyCpus, '');
+  assert.equal(parseArgs(['--no-container-cpu-penalty']).containerCpuPenalty, false);
+  assert.equal(parseArgs([], { TELEGRAM_CONTAINER_CPU_PENALTY: 'false' }).containerCpuPenalty, false);
+  const configured = parseArgs(['--container-cpu-penalty-cpus', '1.5', '--container-cpu-penalty-trigger', '90%', '--container-cpu-penalty-trigger-window', '10m', '--container-cpu-penalty-release', '50%', '--container-cpu-penalty-release-window', '20m']);
+  assert.equal(configured.containerCpuPenaltyCpus, '1.5');
+  assert.equal(configured.containerCpuPenaltyTrigger, '90%');
+  assert.equal(configured.containerCpuPenaltyTriggerWindow, '10m');
+  assert.equal(configured.containerCpuPenaltyRelease, '50%');
+  assert.equal(configured.containerCpuPenaltyReleaseWindow, '20m');
+});
+
 console.log(`\nTotal: ${passed + failed}, Passed: ${passed}, Failed: ${failed}`);
 process.exit(failed > 0 ? 1 : 0);

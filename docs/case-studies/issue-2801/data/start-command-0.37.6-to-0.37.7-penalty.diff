@@ -1,0 +1,78 @@
+--- sc-0.37.6/node_modules/start-command/src/lib/cpu-penalty.js	2026-10-14 11:30:56.619607819 +0000
++++ sc-0.37.7/node_modules/start-command/src/lib/cpu-penalty.js	2026-10-14 11:30:53.642641275 +0000
+@@ -85,13 +85,24 @@
+     capacity: null,
+   };
+ }
++// Penalized time counts until the phase leaves `penalized`; `--status` only
++// extrapolates while penalized, so every transition settles it first.
++function accrue(state, now) {
++  return {
++    ...state,
++    penalizedMs:
++      state.penalizedMs +
++      (state.phase === 'penalized' ? Math.max(0, now - state.lastAt) : 0),
++    lastAt: now,
++  };
++}
+ // A quota different from our cap is a supervisor override, not our penalty.
+ function observeBase(state, baseCpus, now) {
+   if (baseCpus === state.limitCpus) {
+     return state;
+   }
+   return {
+-    ...state,
++    ...accrue(state, now),
+     phase: 'observing',
+     baseCpus,
+     limitCpus: baseCpus,
+@@ -133,11 +144,7 @@
+   { now, cores, daemonCpus, maxGapMs },
+   config = DEFAULTS
+ ) {
+-  const s = { ...state, samples: [...state.samples] };
+-  if (s.phase === 'penalized') {
+-    s.penalizedMs += Math.max(0, now - s.lastAt);
+-  }
+-  s.lastAt = now;
++  const s = { ...accrue(state, now), samples: [...state.samples] };
+   const capacity = Number.isFinite(daemonCpus)
+     ? Math.min(s.baseCpus || Infinity, daemonCpus)
+     : NaN;
+@@ -197,6 +204,7 @@
+   validate,
+   duration,
+   initialState,
++  accrue,
+   observeBase,
+   transitionLog,
+   average,
+--- sc-0.37.6/node_modules/start-command/src/lib/cpu-penalty-monitor.js	2026-10-14 11:30:56.612607898 +0000
++++ sc-0.37.7/node_modules/start-command/src/lib/cpu-penalty-monitor.js	2026-10-14 11:30:53.631641398 +0000
+@@ -4,6 +4,7 @@
+ const { spawnSync } = require('child_process');
+ const {
+   initialState,
++  accrue,
+   evaluate,
+   observeBase,
+   transitionLog,
+@@ -289,11 +290,12 @@
+             name,
+           ]);
+           if (update.success) {
++            const now = Date.now();
+             state = {
+-              ...state,
++              ...accrue(state, now),
+               phase: 'observing',
+               limitCpus: cpus,
+-              since: Date.now(),
++              since: now,
+             };
+             log(`[start] CPU penalty lifted: ${cpus} CPUs (monitor stopped)`);
+             publish();
+# diff -rq (package.json/CHANGELOG excluded):
+Files sc-0.37.6/node_modules/start-command/src/lib/cpu-penalty-monitor.js and sc-0.37.7/node_modules/start-command/src/lib/cpu-penalty-monitor.js differ
+Files sc-0.37.6/node_modules/start-command/src/lib/cpu-penalty.js and sc-0.37.7/node_modules/start-command/src/lib/cpu-penalty.js differ
+Only in sc-0.37.7/node_modules/start-command/test: regression-218.js

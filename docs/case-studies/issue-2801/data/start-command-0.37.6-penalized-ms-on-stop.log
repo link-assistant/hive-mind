@@ -1,0 +1,5 @@
+06:18:51 start-command version: 0.37.6; NCPU=6 WINDOW=4m STOP_AFTER=15s
+06:23:16 capped: NanoCpus=2000000000 penalized limit=2 count=1 penalizedMs=484
+06:23:32 before SIGTERM (15 s after the cap): penalized limit=2 count=1 penalizedMs=15836
+06:23:33 cap lifted 1 s after SIGTERM: NanoCpus=6000000000
+06:23:35 after graceful stop: monitor pids: '' observing limit=6 count=1 penalizedMs=0

@@ -95,6 +95,13 @@ export const createYargsConfig = yargsInstance =>
     .option('containerCpu', { type: 'string', description: 'Optional Docker task CPU limit as a core count (for example 1.5) or host percentage (for example 50%)', alias: 'container-cpu', default: getenv('TELEGRAM_CONTAINER_CPU', '') })
     .option('containerMemory', { type: 'string', description: 'Docker task RAM limit as a byte size (for example 2GiB) or host percentage; defaults to 25% for Docker tasks', alias: 'container-memory', default: getenv('TELEGRAM_CONTAINER_MEMORY', '') })
     .option('containerDisk', { type: 'string', description: 'Optional Docker task writable-layer disk limit as a byte size (for example 20GB) or available-filesystem percentage (for example 10%)', alias: 'container-disk', default: getenv('TELEGRAM_CONTAINER_DISK', '') })
+    // Issue #2801: cap a Docker task that keeps every CPU busy for too long.
+    .option('containerCpuPenalty', { type: 'boolean', description: 'Cap a Docker task to --container-cpu-penalty-cpus CPUs after it uses all CPUs for the trigger window, and lift the cap after the release window below the release threshold (on by default; --no-container-cpu-penalty disables it)', alias: 'container-cpu-penalty', default: getenv('TELEGRAM_CONTAINER_CPU_PENALTY', 'true') !== 'false' })
+    .option('containerCpuPenaltyCpus', { type: 'string', description: 'CPUs a penalized Docker task is capped to (default: 2)', alias: 'container-cpu-penalty-cpus', default: getenv('TELEGRAM_CONTAINER_CPU_PENALTY_CPUS', '') })
+    .option('containerCpuPenaltyTrigger', { type: 'string', description: "Average share of the task's CPUs (host CPUs, or --container-cpu when lower) that counts as using all of them (default: 95%)", alias: 'container-cpu-penalty-trigger', default: getenv('TELEGRAM_CONTAINER_CPU_PENALTY_TRIGGER', '') })
+    .option('containerCpuPenaltyTriggerWindow', { type: 'string', description: 'How long the trigger average must hold before the cap is applied (default: 15m)', alias: 'container-cpu-penalty-trigger-window', default: getenv('TELEGRAM_CONTAINER_CPU_PENALTY_TRIGGER_WINDOW', '') })
+    .option('containerCpuPenaltyRelease', { type: 'string', description: 'Average share of the penalty cap the task must stay below to have the cap lifted (default: 65%)', alias: 'container-cpu-penalty-release', default: getenv('TELEGRAM_CONTAINER_CPU_PENALTY_RELEASE', '') })
+    .option('containerCpuPenaltyReleaseWindow', { type: 'string', description: 'How long the release average must hold before the cap is lifted (default: 15m)', alias: 'container-cpu-penalty-release-window', default: getenv('TELEGRAM_CONTAINER_CPU_PENALTY_RELEASE_WINDOW', '') })
     .help('h')
     .alias('h', 'help')
     .parserConfiguration({

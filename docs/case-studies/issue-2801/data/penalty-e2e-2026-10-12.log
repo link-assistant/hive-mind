@@ -1,0 +1,27 @@
+trigger=20% host CPUs=6; loadavg=6.0 5.9 4.5; started issue-2801-e2e-35484; NanoCpus=0
+[VERBOSE] docker-cpu-penalty: issue-2801-e2e-35484 phase=observing observed=4.429 cores average=n/a threshold=1.2 capacity=6 -> observation-window-not-reached
+2026-10-12T05:48:43.144Z busy phase=observing NanoCpus=0 observation-window-not-reached
+[VERBOSE] docker-cpu-penalty: issue-2801-e2e-35484 phase=observing observed=4.319 cores average=n/a threshold=1.2 capacity=6 -> observation-window-not-reached
+2026-10-12T05:48:47.390Z busy phase=observing NanoCpus=0 observation-window-not-reached
+[VERBOSE] docker-cpu-penalty: issue-2801-e2e-35484 phase=observing observed=3.6 cores average=n/a threshold=1.2 capacity=6 -> observation-window-not-reached
+2026-10-12T05:48:51.568Z busy phase=observing NanoCpus=0 observation-window-not-reached
+[VERBOSE] docker-cpu-penalty: issue-2801-e2e-35484 phase=observing observed=4.558 cores average=n/a threshold=1.2 capacity=6 -> observation-window-not-reached
+2026-10-12T05:48:55.753Z busy phase=observing NanoCpus=0 observation-window-not-reached
+[VERBOSE] docker-cpu-penalty: issue-2801-e2e-35484 phase=observing observed=4.357 cores average=n/a threshold=1.2 capacity=6 -> observation-window-not-reached
+2026-10-12T05:48:59.911Z busy phase=observing NanoCpus=0 observation-window-not-reached
+[VERBOSE] docker-cpu-penalty: issue-2801-e2e-35484 phase=observing observed=4.459 cores average=4.259 threshold=1.2 capacity=6 -> apply --cpus 2
+[docker-cpu-penalty] Session issue-2801-e2e-35484 averaged 4.26 of 6 CPUs for 20 s; capped to 2 CPUs
+2026-10-12T05:49:04.433Z busy phase=penalized NanoCpus=2000000000 ACTION apply 2
+--- penalized; making the container idle
+[VERBOSE] docker-cpu-penalty: issue-2801-e2e-35484 phase=penalized observed=0 cores average=n/a threshold=1.3 capacity=6 -> penalty-minimum-not-reached
+2026-10-12T05:49:08.956Z idle phase=penalized NanoCpus=2000000000 penalty-minimum-not-reached
+[VERBOSE] docker-cpu-penalty: issue-2801-e2e-35484 phase=penalized observed=0 cores average=n/a threshold=1.3 capacity=6 -> penalty-minimum-not-reached
+2026-10-12T05:49:13.155Z idle phase=penalized NanoCpus=2000000000 penalty-minimum-not-reached
+[VERBOSE] docker-cpu-penalty: issue-2801-e2e-35484 phase=penalized observed=0 cores average=n/a threshold=1.3 capacity=6 -> penalty-minimum-not-reached
+2026-10-12T05:49:17.292Z idle phase=penalized NanoCpus=2000000000 penalty-minimum-not-reached
+[VERBOSE] docker-cpu-penalty: issue-2801-e2e-35484 phase=penalized observed=0 cores average=n/a threshold=1.3 capacity=6 -> penalty-minimum-not-reached
+2026-10-12T05:49:21.425Z idle phase=penalized NanoCpus=2000000000 penalty-minimum-not-reached
+[VERBOSE] docker-cpu-penalty: issue-2801-e2e-35484 phase=penalized observed=0 cores average=0 threshold=1.3 capacity=6 -> lift --cpus 6
+[docker-cpu-penalty] Session issue-2801-e2e-35484 averaged 0 CPUs for 20 s under its 2-CPU cap; cap lifted to 6 CPUs
+2026-10-12T05:49:25.802Z idle phase=observing NanoCpus=6000000000 ACTION lift 6
+--- final phase=observing NanoCpus=6000000000 penaltyCount=1 penalizedMs=21514

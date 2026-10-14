@@ -1,0 +1,31 @@
+# Issue #2801: why `$ --resume-all` re-attached the watcher but no CPU monitor came back
+# (start-command 0.37.0, run inside konard/hive-mind-dind where PID 1 is a node process
+# that does not reap orphans). Container launched with --cpu-penalty and 20 s windows.
+
+$ pgrep -af issue-2801-manual-51291       # right after launch
+52006 sh -c __start_command_cgroup_dir() { ...                 (detached completion watcher)
+52024 sh -c __start_command_cgroup_dir() { ...
+52025 /home/box/.bun/bin/bun .../start-command/src/lib/cpu-penalty-monitor.js 74c1b61b-56c4-4b98-9cd1-2efb911f107a issue-2801-manual-51291 1
+52026 docker logs -f issue-2801-manual-51291
+
+# watcher and monitor killed (what an OOM kill or a crash of the supervisor side does), then:
+$ $ --resume-all --output-format json
+  -> reattached  "Re-attached completion watcher to running container: issue-2801-manual-51291"
+# the new watcher script does contain the monitor start:
+  '/home/box/.bun/bin/bun' '.../cpu-penalty-monitor.js' '74c1b61b-...' 'issue-2801-manual-51291' 1 '' >/dev/null 2>&1 & __start_cpu_monitor=$!
+# but no cpu-penalty-monitor.js process is running afterwards. Running it by hand:
+$ START_DEBUG=1 bun .../cpu-penalty-monitor.js 74c1b61b-... issue-2801-manual-51291 1 ''
+[DEBUG] Store lock /tmp/start-command/logs/isolation/docker/74c1b61b-....log.cpu-penalty.json.lock: acquisition timed out
+exit=0
+
+$ cat .../74c1b61b-....log.cpu-penalty.json.lock
+{"pid":52025,"timestamp":1791709148372,"hostname":"3723984ec218"}
+$ ps -o pid,stat,args -p 52025
+  52025 Z    [bun] <defunct>
+$ hostname
+3723984ec218
+
+# LockManager.isLockStale() treats the lock as live because process.kill(52025, 0)
+# succeeds for a zombie. The monitor exits silently, so a container penalized at the
+# time stays capped at 2 CPUs until it exits (see start-command-0.37.0-penalty-monitor-restart.log:
+# 60 s idle with a 20 s release window and NanoCpus is still 2000000000).

@@ -102,7 +102,7 @@ Hive-mind поддерживает бесплатные модели от дву
 | MiniMax M2.1 Free  | `opencode/minimax-m2.1-free` | Заменена на `opencode/minimax-m2.5-free`                                                                                                                |
 | GLM 4.7 Free       | `opencode/glm-4.7-free`      | Больше не бесплатна в OpenCode Zen                                                                                                                      |
 
-> **Примечание:** Актуальный список бесплатных моделей см. в [документации OpenCode Zen](https://opencode.ai/docs/zen/) и [Agent CLI FREE_MODELS.md](https://github.com/link-assistant/agent/blob/main/FREE_MODELS.md).
+> **Примечание:** Актуальный список бесплатных моделей см. в [документации OpenCode Zen](https://opencode.ai/docs/providers/#opencode-zen) и [Agent CLI FREE_MODELS.md](https://github.com/link-assistant/agent/blob/main/FREE_MODELS.md).
 
 ---
 
@@ -339,7 +339,7 @@ echo "Your prompt here" | agent --model kilo/deepseek-r1-free
 - [Case Study: Issue #1473](./case-studies/issue-1473/README.md) — Исправление распознавания моделей и синхронизация бесплатных моделей
 - [Case Study: Issue #1543](./case-studies/issue-1543/README.md) — Обновление бесплатных моделей (qwen3.6-plus-free как по умолчанию, добавлена nemotron-3-super-free)
 - [Case Study: Issue #1563](./case-studies/issue-1563/README.md) — Обновление бесплатных моделей (qwen3.6-plus-free устарела, nemotron-3-super-free как по умолчанию)
-- [OpenCode Zen Documentation](https://opencode.ai/docs/zen/) — Детали провайдера OpenCode Zen
+- [OpenCode Zen Documentation](https://opencode.ai/docs/providers/#opencode-zen) — Детали провайдера OpenCode Zen
 - [Kilo Gateway Documentation](https://kilo.ai/docs/gateway) — Детали провайдера Kilo Gateway
 
 ---

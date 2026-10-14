@@ -29,7 +29,7 @@ test('the default Agent model no longer points at the withdrawn Zen model', () =
   const mapped = mapModelForTool('agent', defaultModels.agent);
   assert.notEqual(mapped, 'opencode/nemotron-3-super-free');
   assert.equal(mapped, 'kilo/nemotron-3-super-free');
-  assert.ok(AGENT_PROVIDER_MODEL_OVERLAYS[mapped], 'Agent 0.26.11 has no entry for it, so Hive Mind must supply one');
+  assert.ok(AGENT_PROVIDER_MODEL_OVERLAYS[mapped], 'Agent before 0.26.12 has no entry for it, so Hive Mind must supply one');
   assert.equal(AGENT_PROVIDER_MODEL_OVERLAYS[mapped].id, 'nvidia/nemotron-3-super-120b-a12b:free');
   assert.deepEqual(AGENT_PROVIDER_MODEL_OVERLAYS[mapped].cost, { input: 0, output: 0, cache_read: 0, cache_write: 0 });
 });

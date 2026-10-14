@@ -1,0 +1,29 @@
+
+thread 'main' (15351) panicked at /rustc/b940084d7eb6a299eb4bfeb8e34901bc051e7ac4/library/std/src/io/stdio.rs:1168:9:
+failed printing to stdout: Broken pipe (os error 32)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+06:01:27 start-command version: 0.25.4 (Rust); NCPU=6 MODE=none BASE=4 TRIGGER=20%
+│
+│ log       /tmp/start-command/logs/isolation/docker/62a930aa-7755-4ef1-95d7-981055fb0832.log
+│ session   62a930aa-7755-4ef1-95d7-981055fb0832
+06:01:34 start NanoCpus=0
+06:01:38 busy NanoCpus=0 cpuPenalty={"attemptNumber":1,"baseCpus":null,"containerName":"issue-2801-start-none-15314","limitCpus":null,"penalizedMs":0,"penaltyCount":0,"phase":"observing","since":1791957692778,"updatedAt":1791957694230}
+06:01:41 busy NanoCpus=0 cpuPenalty={"attemptNumber":1,"baseCpus":null,"containerName":"issue-2801-start-none-15314","limitCpus":null,"penalizedMs":0,"penaltyCount":0,"phase":"observing","since":1791957692778,"updatedAt":1791957698124}
+06:01:44 busy NanoCpus=0 cpuPenalty={"attemptNumber":1,"baseCpus":null,"containerName":"issue-2801-start-none-15314","limitCpus":null,"penalizedMs":0,"penaltyCount":0,"phase":"observing","since":1791957692778,"updatedAt":1791957701975}
+06:01:48 busy NanoCpus=0 cpuPenalty={"attemptNumber":1,"baseCpus":null,"containerName":"issue-2801-start-none-15314","limitCpus":null,"penalizedMs":0,"penaltyCount":0,"phase":"observing","since":1791957692778,"updatedAt":1791957705876}
+06:01:51 busy NanoCpus=0 cpuPenalty={"attemptNumber":1,"baseCpus":null,"containerName":"issue-2801-start-none-15314","limitCpus":null,"penalizedMs":0,"penaltyCount":0,"phase":"observing","since":1791957692778,"updatedAt":1791957709749}
+06:01:54 busy NanoCpus=0 cpuPenalty={"attemptNumber":1,"baseCpus":null,"containerName":"issue-2801-start-none-15314","limitCpus":null,"penalizedMs":0,"penaltyCount":0,"phase":"observing","since":1791957692778,"updatedAt":1791957713687}
+06:01:58 busy NanoCpus=2000000000 cpuPenalty={"attemptNumber":1,"baseCpus":null,"containerName":"issue-2801-start-none-15314","limitCpus":2,"penalizedMs":328,"penaltyCount":1,"phase":"penalized","since":1791957717577,"updatedAt":1791957717992}
+06:01:58 --- container made idle
+06:02:02 idle NanoCpus=2000000000 cpuPenalty={"attemptNumber":1,"baseCpus":null,"containerName":"issue-2801-start-none-15314","limitCpus":2,"penalizedMs":4754,"penaltyCount":1,"phase":"penalized","since":1791957717577,"updatedAt":1791957722331}
+06:02:06 idle NanoCpus=2000000000 cpuPenalty={"attemptNumber":1,"baseCpus":null,"containerName":"issue-2801-start-none-15314","limitCpus":2,"penalizedMs":8431,"penaltyCount":1,"phase":"penalized","since":1791957717577,"updatedAt":1791957726008}
+06:02:09 idle NanoCpus=2000000000 cpuPenalty={"attemptNumber":1,"baseCpus":null,"containerName":"issue-2801-start-none-15314","limitCpus":2,"penalizedMs":11754,"penaltyCount":1,"phase":"penalized","since":1791957717577,"updatedAt":1791957729331}
+06:02:12 idle NanoCpus=2000000000 cpuPenalty={"attemptNumber":1,"baseCpus":null,"containerName":"issue-2801-start-none-15314","limitCpus":2,"penalizedMs":15062,"penaltyCount":1,"phase":"penalized","since":1791957717577,"updatedAt":1791957732639}
+06:02:16 idle NanoCpus=2000000000 cpuPenalty={"attemptNumber":1,"baseCpus":null,"containerName":"issue-2801-start-none-15314","limitCpus":2,"penalizedMs":18358,"penaltyCount":1,"phase":"penalized","since":1791957717577,"updatedAt":1791957735935}
+06:02:19 idle NanoCpus=2000000000 cpuPenalty={"attemptNumber":1,"baseCpus":null,"containerName":"issue-2801-start-none-15314","limitCpus":2,"penalizedMs":21638,"penaltyCount":1,"phase":"penalized","since":1791957717577,"updatedAt":1791957739215}
+06:02:22 idle NanoCpus=2000000000 cpuPenalty={"attemptNumber":1,"baseCpus":null,"containerName":"issue-2801-start-none-15314","limitCpus":2,"penalizedMs":24936,"penaltyCount":1,"phase":"penalized","since":1791957717577,"updatedAt":1791957742513}
+06:02:25 idle NanoCpus=6000000000 cpuPenalty={"attemptNumber":1,"baseCpus":null,"containerName":"issue-2801-start-none-15314","limitCpus":6,"penalizedMs":27641,"penaltyCount":1,"phase":"observing","since":1791957745218,"updatedAt":1791957745323}
+06:02:26 --- log lines from start-command:
+[start] CPU penalty applied: 2 CPUs (5.34 of 6 CPUs for 20000ms)
+[start] CPU penalty lifted: 6 CPUs (0.05 of 2 CPUs for 20000ms)
+06:02:29 final NanoCpus= cpuPenalty={"attemptNumber":1,"baseCpus":null,"containerName":"issue-2801-start-none-15314","limitCpus":6,"penalizedMs":27641,"penaltyCount":1,"phase":"observing","since":1791957745218,"updatedAt":1791957745323}

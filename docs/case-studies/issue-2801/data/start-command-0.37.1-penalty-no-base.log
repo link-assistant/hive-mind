@@ -1,0 +1,24 @@
+05:44:41 start-command version: 0.37.1; NCPU=6 MODE=none BASE=4 TRIGGER=20%
+│
+│ log       /tmp/start-command/logs/isolation/docker/6cd88e5e-51d8-4c01-b516-6407d3ce6e86.log
+│ session   6cd88e5e-51d8-4c01-b516-6407d3ce6e86
+05:44:46 start NanoCpus=0
+05:44:49 busy NanoCpus=0 cpuPenalty={"phase":"observing","since":1791783884189,"limitCpus":null,"baseCpus":null,"penaltyCount":0,"penalizedMs":0,"containerName":"issue-2801-start-none-19872","attemptNumber":1,"updatedAt":1791783885613}
+05:44:53 busy NanoCpus=0 cpuPenalty={"phase":"observing","since":1791783884189,"limitCpus":null,"baseCpus":null,"penaltyCount":0,"penalizedMs":0,"containerName":"issue-2801-start-none-19872","attemptNumber":1,"updatedAt":1791783889624}
+05:44:56 busy NanoCpus=0 cpuPenalty={"phase":"observing","since":1791783884189,"limitCpus":null,"baseCpus":null,"penaltyCount":0,"penalizedMs":0,"containerName":"issue-2801-start-none-19872","attemptNumber":1,"updatedAt":1791783893597}
+05:45:00 busy NanoCpus=0 cpuPenalty={"phase":"observing","since":1791783884189,"limitCpus":null,"baseCpus":null,"penaltyCount":0,"penalizedMs":0,"containerName":"issue-2801-start-none-19872","attemptNumber":1,"updatedAt":1791783897617}
+05:45:04 busy NanoCpus=0 cpuPenalty={"phase":"observing","since":1791783884189,"limitCpus":null,"baseCpus":null,"penaltyCount":0,"penalizedMs":0,"containerName":"issue-2801-start-none-19872","attemptNumber":1,"updatedAt":1791783901822}
+05:45:07 busy NanoCpus=2000000000 cpuPenalty={"phase":"penalized","since":1791783906301,"limitCpus":2,"baseCpus":null,"penaltyCount":1,"penalizedMs":817,"containerName":"issue-2801-start-none-19872","attemptNumber":1,"updatedAt":1791783907345}
+05:45:07 --- container made idle
+05:45:11 idle NanoCpus=2000000000 cpuPenalty={"phase":"penalized","since":1791783906301,"limitCpus":2,"baseCpus":null,"penaltyCount":1,"penalizedMs":4871,"containerName":"issue-2801-start-none-19872","attemptNumber":1,"updatedAt":1791783911172}
+05:45:14 idle NanoCpus=2000000000 cpuPenalty={"phase":"penalized","since":1791783906301,"limitCpus":2,"baseCpus":null,"penaltyCount":1,"penalizedMs":8284,"containerName":"issue-2801-start-none-19872","attemptNumber":1,"updatedAt":1791783914585}
+05:45:18 idle NanoCpus=2000000000 cpuPenalty={"phase":"penalized","since":1791783906301,"limitCpus":2,"baseCpus":null,"penaltyCount":1,"penalizedMs":11666,"containerName":"issue-2801-start-none-19872","attemptNumber":1,"updatedAt":1791783917967}
+05:45:21 idle NanoCpus=2000000000 cpuPenalty={"phase":"penalized","since":1791783906301,"limitCpus":2,"baseCpus":null,"penaltyCount":1,"penalizedMs":15190,"containerName":"issue-2801-start-none-19872","attemptNumber":1,"updatedAt":1791783921491}
+05:45:25 idle NanoCpus=2000000000 cpuPenalty={"phase":"penalized","since":1791783906301,"limitCpus":2,"baseCpus":null,"penaltyCount":1,"penalizedMs":18608,"containerName":"issue-2801-start-none-19872","attemptNumber":1,"updatedAt":1791783924909}
+05:45:28 idle NanoCpus=2000000000 cpuPenalty={"phase":"penalized","since":1791783906301,"limitCpus":2,"baseCpus":null,"penaltyCount":1,"penalizedMs":22041,"containerName":"issue-2801-start-none-19872","attemptNumber":1,"updatedAt":1791783928342}
+05:45:31 idle NanoCpus=2000000000 cpuPenalty={"phase":"penalized","since":1791783906301,"limitCpus":2,"baseCpus":null,"penaltyCount":1,"penalizedMs":25411,"containerName":"issue-2801-start-none-19872","attemptNumber":1,"updatedAt":1791783931712}
+05:45:35 idle NanoCpus=6000000000 cpuPenalty={"phase":"observing","since":1791783933829,"limitCpus":6,"baseCpus":null,"penaltyCount":1,"penalizedMs":27528,"containerName":"issue-2801-start-none-19872","attemptNumber":1,"updatedAt":1791783933944}
+05:45:35 --- log lines from start-command:
+[start] CPU penalty applied: 2 CPUs (3.96 of 6 CPUs for 20000ms)
+[start] CPU penalty lifted: 6 CPUs (0.03 of 2 CPUs for 20000ms)
+05:45:39 final NanoCpus= cpuPenalty={"phase":"observing","since":1791783933829,"limitCpus":6,"baseCpus":null,"penaltyCount":1,"penalizedMs":27528,"containerName":"issue-2801-start-none-19872","attemptNumber":1,"updatedAt":1791783933944}

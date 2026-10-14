@@ -218,6 +218,14 @@ hive-telegram-bot --isolation docker \
 cgroup controller；如果 Docker 无法应用请求的内核限制，Hive Mind 会在任务命令运行前移除
 或停止容器，并始终保持启动闸门关闭，同时报告启动失败，而不会让任务在没有限制的情况下静默运行。
 
+**CPU 惩罚（issue #2801）。** 长时间占满全部 CPU 的 Docker 任务会被限流，负载下降后再解除。`--isolation docker` 下默认开启。「全部 CPU」指 Docker 宿主机的 CPU（`docker info` NCPU，每 5 分钟重新读取）；如果 `--container-cpu` 更低，则以它为准。
+
+1. 任务在 15 分钟内平均占用不低于这些 CPU 的 95% 时，会话监控对其容器执行 `docker update --cpus 2`。
+2. 任务在 15 分钟内平均低于限额的 65%（2 个 CPU 的限额即 1.3 核，即总量的 32.5% + 32.5%）时，解除限流，恢复为 `--container-cpu` 或宿主机 CPU 数。
+3. 随后重新开始观察：再占满全部 CPU 15 分钟会再次被限流。
+
+选项：`--container-cpu-penalty-cpus`（2）、`--container-cpu-penalty-trigger`（95%）、`--container-cpu-penalty-trigger-window`（15m）、`--container-cpu-penalty-release`（65%）、`--container-cpu-penalty-release-window`（15m），对应环境变量 `TELEGRAM_CONTAINER_CPU_PENALTY_*`。关闭：`--no-container-cpu-penalty`。惩罚状态在 bot 重启后保留；被限流过的任务，其完成消息中会有 `🐢 CPU penalty` 一节。
+
 **手动回退。** 要立即为正在运行的容器播种（或当你无法更改部署时），把宿主镜像复制进内部 daemon：
 
 ```bash

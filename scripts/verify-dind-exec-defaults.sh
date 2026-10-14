@@ -49,3 +49,29 @@ docker exec "$container_name" pgrep -x dockerd
 docker exec "$container_name" claude --version
 docker exec "$container_name" bun --version
 docker exec "$container_name" bash -lc 'docker info && docker run hello-world'
+
+# Issue #3214: an in-place resume starts the killed container again with the
+# previous run's /var/run/docker.pid. Point it at PID 1, which is always alive
+# after the restart, so the check does not depend on PID reuse.
+echo ""
+echo "=== Verifying the nested dockerd starts again after a kill and restart ==="
+docker exec -u root "$container_name" sh -c 'echo 1 > /var/run/docker.pid'
+docker kill "$container_name" >/dev/null
+docker start "$container_name" >/dev/null
+
+restart_ready=0
+for attempt in $(seq 1 60); do
+  if docker exec "$container_name" docker info >/dev/null 2>&1; then
+    restart_ready=1
+    break
+  fi
+  echo "Waiting for inner dockerd after restart (attempt ${attempt}/60)..."
+  sleep 1
+done
+
+if [ "$restart_ready" != "1" ]; then
+  echo "ERROR: inner dockerd did not start after the container was killed and started again"
+  docker logs --tail 60 "$container_name" || true
+  exit 1
+fi
+docker logs "$container_name" 2>&1 | grep '\[hive-mind-dind\] removed stale /var/run/docker.pid'

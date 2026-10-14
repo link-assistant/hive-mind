@@ -158,10 +158,14 @@ export async function startKillRecoverySession({ sessionName, sessionInfo, plan,
     let containerResourceLimits = sessionInfo?.containerResourceLimits || null;
 
     if (!inPlace.resumed) {
+      if (inPlace.error) await notify({ phase: 'launching', attempt: plan.attempt, reason: `${inPlace.error} Starting a fresh isolated session.` });
       newSessionId = runner.generateSessionId();
       const tool = sessionInfo?.tool || 'claude';
-      const result = await runner.executeWithIsolation(sessionInfo?.command || 'solve', plan.command.args, { backend, sessionId: newSessionId, tool, verbose, containerResourceLimits: sessionInfo?.containerResourceLimits?.requested || null });
-      if (!result?.success) return fail('start-failed');
+      const result = await runner.executeWithIsolation(plan.command.binary || sessionInfo?.command || 'solve', plan.command.args, { backend, sessionId: newSessionId, tool, verbose, containerResourceLimits: sessionInfo?.containerResourceLimits?.requested || null });
+      if (!result?.success) {
+        await notify({ phase: 'failed', attempt: plan.attempt, reason: result?.error || 'Automatic recovery could not start a fresh isolated session.' });
+        return fail('start-failed');
+      }
       executionUuid = result.executionUuid || null;
       logPath = result.logPath || null;
       containerFilesystemStartBytes = Number.isFinite(result.containerFilesystemStartBytes) ? result.containerFilesystemStartBytes : null;

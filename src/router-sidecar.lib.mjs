@@ -35,7 +35,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
-import { attachDockerNetwork, DEFAULT_IMAGE_TIMEOUT_MS, dockerErrorMessage, dockerOk, dockerText, ensureDockerVolume, ensureInternalDockerNetwork, inspectDockerContainer, readDockerImageDigest, readSidecarState, reconcileSidecarLeases, resolveSidecarStatePath, sleep, writeSidecarState } from './docker-sidecar.lib.mjs';
+import { attachDockerNetwork, DEFAULT_IMAGE_TIMEOUT_MS, describeLeaseLauncher, dockerErrorMessage, dockerOk, dockerText, ensureDockerVolume, ensureInternalDockerNetwork, inspectDockerContainer, readDockerImageDigest, readSidecarState, reconcileSidecarLeases, resolveSidecarStatePath, sleep, writeSidecarState } from './docker-sidecar.lib.mjs';
 import { drainTaskSessionData } from './router-session-drain.lib.mjs';
 import { buildRouterTaskWiringScript, getInternalRouterBaseUrl, resolveRouterBaseUrl, resolveRouterDialect, resolveRouterSidecarImage, ROUTER_CREDENTIAL_MOUNTS, ROUTER_DATA_MOUNT, ROUTER_DATA_VOLUME_NAME, ROUTER_GH_CONFIG_MOUNT, ROUTER_SIDECAR_CONTAINER_NAME, ROUTER_SIDECAR_LABEL, ROUTER_SIDECAR_NETWORK_ALIAS, ROUTER_SIDECAR_NETWORK_NAME, ROUTER_SIDECAR_PORT, ROUTER_TLS_DNS_NAMES } from './router-isolation.lib.mjs';
 import { withStateLock } from './state-lock.lib.mjs';
@@ -483,7 +483,7 @@ export const acquireRouterSidecar = async ({ sessionId, githubRepo = null, env =
     }
 
     container = await inspectDockerContainer(ROUTER_SIDECAR_CONTAINER_NAME, { run, timeoutMs });
-    const leases = [...state.leases.filter(lease => lease.sessionId !== sessionId), { sessionId, tokenId: issued.tokenId, acquiredAt: now().toISOString(), containerSeen: false }];
+    const leases = [...state.leases.filter(lease => lease.sessionId !== sessionId), { sessionId, tokenId: issued.tokenId, acquiredAt: now().toISOString(), containerSeen: false, launcher: describeLeaseLauncher() }];
     writeRouterSidecarState({ ...state, leases, tokenSecret, startedAt, image: container.image, imageDigest: container.imageDigest, lastUpdate: now().toISOString() }, { env, fsImpl });
 
     return { baseUrl: getInternalRouterBaseUrl(), token: issued.token, tokenId: issued.tokenId, leaseCount: leases.length, external: false, error: null };

@@ -15,6 +15,7 @@ import { mapClaudeSubAgentModelToEnvValue, mapModelForTool } from './models/inde
 import { parseSubSessionSize } from './sub-session-size.lib.mjs';
 import { applyClaudePricingTierToEnv, buildCodexPricingTierConfigArgs, resolveClaudeModelForContext, resolvePricingTier } from './pricing-tier.lib.mjs'; // Issue #2771
 import { detectUsageLimit } from './usage-limit.lib.mjs';
+import { isRecoverableAgentToolError } from './agent-error-events.lib.mjs';
 import { applyFormalAiPricingOverride } from './formal-ai-pricing.lib.mjs'; // Issue #2119
 import { getCacheReadTokenCount, getCumulativeContextInputTokens, getOutputTokenCount } from './context-fill.lib.mjs';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
@@ -275,7 +276,8 @@ const extractResultSummary = (messages, plainOutput) => {
   return plainOutput?.trim() ? plainOutput.trim().slice(-4000) : null;
 };
 
-const hasErrorMessage = messages => messages.some(message => message?.is_error === true || message?.type === 'error' || message?.type === 'step_error' || message?.error);
+// A failed tool call is a tool result the model recovers from, not a run error.
+const hasErrorMessage = messages => messages.some(message => !isRecoverableAgentToolError(message) && (message?.is_error === true || message?.type === 'error' || message?.type === 'step_error' || message?.error));
 
 const normalizeAgentCommanderTokenUsage = usage => {
   if (!usage || typeof usage !== 'object') return null;

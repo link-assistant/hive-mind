@@ -1,0 +1,22 @@
+{
+  "src/agent-config-audit.lib.mjs": 9,
+  "src/agentic-cli-updater.lib.mjs": 4,
+  "src/cleanup.os.lib.mjs": 19,
+  "src/container-resource-limits.lib.mjs": 1,
+  "src/docker-sidecar.lib.mjs": 4,
+  "src/fix.report-dependencies.lib.mjs": 1,
+  "src/formal-ai-attribution.lib.mjs": 22,
+  "src/formal-ai-runtime.lib.mjs": 1,
+  "src/git-push-guard.lib.mjs": 3,
+  "src/isolation-runner.lib.mjs": 10,
+  "src/isolation-runner.parsers.lib.mjs": 4,
+  "src/model-catalogue.lib.mjs": 4,
+  "src/router-auth-guard.lib.mjs": 1,
+  "src/router-session-drain.lib.mjs": 5,
+  "src/router-sidecar.lib.mjs": 1,
+  "src/session-resume.lib.mjs": 6,
+  "src/session-store.lib.mjs": 4,
+  "src/solve.resource-diagnostics.lib.mjs": 16,
+  "src/state-lock.lib.mjs": 5,
+  "src/system-cleanup-estimates.lib.mjs": 3
+}

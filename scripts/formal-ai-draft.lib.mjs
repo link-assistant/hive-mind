@@ -43,14 +43,27 @@
  * @module formal-ai-draft
  */
 
+import { resolveCiRunUrl } from '../src/ci-run-url.lib.mjs';
+
 /** Applied to a draft this workflow opened, so the drafts can be listed and closed as a batch. */
 export const FORMAL_AI_DRAFT_LABEL = 'formal-ai-draft';
 
 /** Put this on an issue before opening it (or on the issue template) to suppress the attempt. */
 export const FORMAL_AI_DRAFT_OPT_OUT_LABEL = 'no-formal-ai-draft';
 
-/** The published image that bakes formal-ai, the Agent CLI and hive-mind together. */
+/**
+ * The published image that bakes formal-ai, the Agent CLI and hive-mind together.
+ * The draft workflow pins the tag of the checked-out version instead
+ * (`scripts/formal-ai-draft-image.lib.mjs`); this is the fallback.
+ */
 export const DEFAULT_HIVE_MIND_IMAGE = 'konard/hive-mind:latest';
+
+/** Where the image keeps the `formal-ai` binary; a caller-built binary is mounted over it. */
+export const FORMAL_AI_BINARY_CONTAINER_PATH = '/usr/local/bin/formal-ai';
+
+/** Annotation titles the draft job writes and the health check reads back. */
+export const DRAFT_DECISION_ANNOTATION_TITLE = 'Formal AI draft decision';
+export const DRAFT_FAILURE_ANNOTATION_TITLE = 'Formal AI draft failed';
 
 /**
  * The identity every commit on a draft branch carries.
@@ -76,14 +89,16 @@ export const DRAFT_GIT_IDENTITY = Object.freeze({
  * rather than letting `auto` decide, because the four trailers and the evidence
  * bundle are the done-when condition, not a nice-to-have.
  *
- * `--no-auto-restart-until-mergeable` is the one flag not named in the issue.
- * It defaults to true, and left on, a CI run watches the pull request's checks
- * and restarts the model until they are green — for up to
- * `--auto-restart-until-mergeable-timeout-hours` (24). That directly contradicts
- * "it stays open and red until a later run succeeds": the later run is the next
- * scheduled attempt, not this one looping.
+ * `--no-auto-restart-until-mergeable` and `--no-auto-restart-on-uncommitted-changes`
+ * are not named in the issue. Both default to true. Left on, the first watches
+ * the pull request's checks and restarts the model until they are green, for
+ * up to `--auto-restart-until-mergeable-timeout-hours` (24); the second
+ * restarts it whenever files are left uncommitted, which has meant five more
+ * sessions over Formal AI's own derivation files. Both contradict "it
+ * stays open and red until a later run succeeds": the later run is the next
+ * attempt, not this one looping.
  */
-export const DRAFT_SOLVE_FLAGS = Object.freeze(['--tool', 'agent', '--model', 'formal-ai', '--attach-logs', '--development-log', '--verbose', '--attribution', 'formal-ai', '--no-auto-restart-until-mergeable']);
+export const DRAFT_SOLVE_FLAGS = Object.freeze(['--tool', 'agent', '--model', 'formal-ai', '--attach-logs', '--development-log', '--verbose', '--attribution', 'formal-ai', '--no-auto-restart-until-mergeable', '--no-auto-restart-on-uncommitted-changes']);
 
 /**
  * Flags that must never appear in a draft run.
@@ -212,17 +227,70 @@ export function buildGitIdentityEnv(identity = DRAFT_GIT_IDENTITY) {
  * @param {string} [params.containerLogDir] where that directory appears in the container
  * @param {string[]} [params.forwardEnv] names of environment variables to forward
  * @param {Record<string,string>} [params.setEnv] literal, non-secret variables to set
+ * @param {string[]} [params.extraMounts] further `-v` mounts, e.g. a caller-built Formal AI binary
  * @returns {string[]}
  */
-export function buildDockerArgv({ solveArgv, solveCommand = 'solve', image = DEFAULT_HIVE_MIND_IMAGE, hostLogDir = null, containerLogDir = '/home/box/logs', forwardEnv = ['GH_TOKEN'], setEnv = buildGitIdentityEnv() } = {}) {
+export function buildDockerArgv({ solveArgv, solveCommand = 'solve', image = DEFAULT_HIVE_MIND_IMAGE, hostLogDir = null, containerLogDir = '/home/box/logs', forwardEnv = ['GH_TOKEN'], setEnv = buildGitIdentityEnv(), extraMounts = [] } = {}) {
   if (!Array.isArray(solveArgv) || solveArgv.length === 0) throw new Error('buildDockerArgv needs the solve argv from buildSolveArgv()');
 
   const argv = ['run', '--rm', '--user', 'box'];
   for (const name of forwardEnv) argv.push('-e', name);
   for (const [name, value] of Object.entries(setEnv)) argv.push('-e', `${name}=${value}`);
   if (hostLogDir) argv.push('-v', `${hostLogDir}:${containerLogDir}`);
+  for (const mount of extraMounts) argv.push('-v', mount);
   argv.push(image, solveCommand, ...solveArgv);
   return argv;
+}
+
+/**
+ * Variables that tell solve it runs in a `--rm` container and which workflow
+ * run keeps its log as an artifact. Without them a failed log upload named a
+ * path inside a container that no longer existed.
+ *
+ * @param {Record<string,string|undefined>} [env]
+ * @returns {Record<string,string>}
+ */
+export function buildRunContextEnv(env = process.env) {
+  const runUrl = resolveCiRunUrl(env);
+  return { HIVE_MIND_EPHEMERAL_CONTAINER: '1', ...(runUrl ? { HIVE_MIND_CI_RUN_URL: runUrl } : {}) };
+}
+
+const LOG_LINE_PREFIX = /^\[[^\]]*\] \[([A-Z]+)\] /;
+
+/**
+ * The first error a solve session log reports, without its timestamp, level
+ * and ❌ marker: the first `❌` line, else the first `[ERROR]` line.
+ *
+ * @param {string} text session log contents
+ * @returns {string|null}
+ */
+export function firstErrorLine(text) {
+  const lines = String(text || '').split('\n');
+  const message = line =>
+    line
+      .replace(LOG_LINE_PREFIX, '')
+      .replace(/^❌\s*/, '')
+      .trim() || null;
+  const marked = lines.find(line => line.replace(LOG_LINE_PREFIX, '').startsWith('❌'));
+  if (marked) return message(marked);
+  const errorLine = lines.find(line => LOG_LINE_PREFIX.exec(line)?.[1] === 'ERROR');
+  return errorLine ? message(errorLine) : null;
+}
+
+const escapeAnnotationData = value => String(value).replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
+const escapeAnnotationProperty = value => escapeAnnotationData(value).replace(/:/g, '%3A').replace(/,/g, '%2C');
+
+/**
+ * A `::notice`/`::error` workflow command. Escaped, so a message taken from a
+ * session log cannot end the command and start another one.
+ *
+ * @param {'notice'|'warning'|'error'} level
+ * @param {string} title
+ * @param {string} message
+ * @returns {string}
+ */
+export function formatWorkflowAnnotation(level, title, message) {
+  return `::${level} title=${escapeAnnotationProperty(title)}::${escapeAnnotationData(message)}`;
 }
 
 /**

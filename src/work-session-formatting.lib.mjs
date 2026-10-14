@@ -2,6 +2,7 @@ import { t } from './i18n.lib.mjs';
 import { escapeMarkdown } from './telegram-markdown.lib.mjs';
 import { FAILURE_SESSION_STATUSES, KILLED_SESSION_STATUSES, isKilledSessionStatus, describeExitSignal, normalizeExitCode } from './session-status.lib.mjs';
 import { EXIT_CODE_HIVE_NO_WORK, EXIT_CODE_HIVE_INCOMPLETE } from './hive.run-outcome.lib.mjs';
+import { EXIT_CODE_SOLVE_NO_CHANGES } from './solve.exit-codes.lib.mjs';
 
 function text(locale, key, fallback, params = {}) {
   if (!locale) return fallback;
@@ -39,13 +40,17 @@ export function getSessionCompletionExitCode({ exitCode = null, statusResult = n
  * @param {string|null} [params.status] - Session status string, if known
  * @returns {{ failed: boolean, killed: boolean, signal: object|null }}
  */
-export function classifySessionOutcome({ exitCode = null, status = null } = {}) {
+export function classifySessionOutcome({ exitCode = null, status = null, command = null } = {}) {
   const code = normalizeExitCode(exitCode);
   const signal = describeExitSignal(code);
   const killedByStatus = isKilledSessionStatus(status);
   const killed = Boolean(signal) || killedByStatus;
   const failed = killed || (code !== null && code !== 0) || FAILURE_SESSION_STATUSES.has(String(status || '').toLowerCase());
-  return { failed, killed, signal };
+  // Issue #3211: `failed` stays true for the nonzero exit, but a solve that
+  // finished without changes is not a crash; callers that count or clean up
+  // failures (docker keep policy, /queue history) check `noChanges` (#3215).
+  const noChanges = failed && !killed && command === 'solve' && code === EXIT_CODE_SOLVE_NO_CHANGES;
+  return { failed, killed, signal, noChanges };
 }
 
 export { KILLED_SESSION_STATUSES };
@@ -175,7 +180,7 @@ export function appendPullRequestLine(infoBlock, pullRequestUrl, { locale = null
   return [...before, prLine, ...after].join('\n');
 }
 
-export function formatSessionCompletionMessage({ sessionName, sessionInfo, statusResult = null, observedEndTime = new Date(), exitCode = null, infoBlock = '', pullRequestUrl = null, pullRequestState = null, extraSections = [], locale = null, resumedAs = null, recoveryCount = null } = {}) {
+export function formatSessionCompletionMessage({ sessionName, sessionInfo, statusResult = null, observedEndTime = new Date(), exitCode = null, infoBlock = '', pullRequestUrl = null, pullRequestState = null, extraSections = [], locale = null, resumedAs = null, recoveryCount = null, launchUnobserved = false } = {}) {
   const finalExitCode = getSessionCompletionExitCode({ exitCode, statusResult });
   const outcome = classifySessionOutcome({ exitCode: finalExitCode, status: statusResult?.status || null });
   const { failed, killed, signal } = outcome;
@@ -205,6 +210,17 @@ export function formatSessionCompletionMessage({ sessionName, sessionInfo, statu
   } else if (finalExitCode === null && !killed && (sessionInfo?.killRecoveryResumed || sessionInfo?.recoveryLifecycle)) {
     statusEmojiOverride = '⚠️';
     statusText = 'Work session ended; final outcome could not be confirmed';
+  } else if (finalExitCode === null && !failed && !killed && Number.isFinite(sessionInfo?.trackingExpiredAfterMs)) {
+    // Issue #3215: a screen session without isolation was only tracked for a
+    // fixed time and reported no exit status; it may still be running.
+    const minutes = Math.round(sessionInfo.trackingExpiredAfterMs / 60000);
+    statusEmojiOverride = 'ℹ️';
+    statusText = text(messageLocale, 'telegram.work_session_tracking_expired', `Stopped tracking the work session after ${minutes} minutes without an exit status; it may still be running in its screen session`, { minutes });
+  } else if (finalExitCode === null && !failed && !killed) {
+    // Issue #3209: no exit code is not a success. A session whose execution was
+    // never observed (still launching, or never started) says so explicitly.
+    statusEmojiOverride = '⚠️';
+    statusText = launchUnobserved ? text(messageLocale, 'telegram.work_session_never_observed', 'Work session status unknown: the session was never observed running') : text(messageLocale, 'telegram.work_session_status_unknown', 'Work session ended, but its exit status is unknown');
   } else if (!failed && recoveries > 0) {
     // Issue #2408: the work completed, but only because it was recovered.
     statusEmojiOverride = '⚠️';
@@ -236,6 +252,10 @@ export function formatSessionCompletionMessage({ sessionName, sessionInfo, statu
   } else if (sessionInfo?.command === 'hive' && (finalExitCode === EXIT_CODE_HIVE_NO_WORK || finalExitCode === EXIT_CODE_HIVE_INCOMPLETE)) {
     statusEmojiOverride = '⚠️';
     statusText = finalExitCode === EXIT_CODE_HIVE_NO_WORK ? text(messageLocale, 'telegram.work_session_hive_no_work', 'No issues processed; check the log for skipped issues or blockers. To continue issues with existing PRs, use `--no-skip-issues-with-prs --auto-continue`') : text(messageLocale, 'telegram.work_session_hive_incomplete', 'Hive session ended with issues still waiting; check the log for blockers');
+  } else if (sessionInfo?.command === 'solve' && finalExitCode === EXIT_CODE_SOLVE_NO_CHANGES) {
+    // Issue #3211: the run finished, but changed nothing; neither a success nor a crash.
+    statusEmojiOverride = '⚠️';
+    statusText = text(messageLocale, 'telegram.work_session_no_changes', 'Work session finished without changes; see the pull request comment for the reason');
   } else if (failed) {
     statusText = text(messageLocale, 'telegram.work_session_failed', `Work session failed (exit code: ${finalExitCode})`, { exitCode: finalExitCode });
   } else {

@@ -27,8 +27,9 @@ import { sanitizeForPublication } from './token-sanitization.lib.mjs';
 const execRaw = promisify(execCallback);
 
 // Issue #1726: keep every gh call rate-limit safe (mirrors github-merge.lib.mjs).
+// hive-exec-timeout-ok: every call gets githubLimits.execTimeoutMs unless it passes its own timeout
 const exec = (cmd, opts = {}) =>
-  ghWithRateLimitRetry(() => execRaw(cmd, { maxBuffer: githubLimits.bufferMaxSize, ...opts }), {
+  ghWithRateLimitRetry(() => execRaw(cmd, { maxBuffer: githubLimits.bufferMaxSize, timeout: githubLimits.execTimeoutMs, ...opts }), {
     label: `gh exec (${cmd.split(/\s+/).slice(0, 3).join(' ')})`,
   });
 

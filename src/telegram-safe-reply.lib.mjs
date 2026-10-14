@@ -1,3 +1,4 @@
+/* eslint-disable no-await-in-loop -- message chunks are sent in order */
 import { normalizeLocale, t } from './i18n.lib.mjs';
 import { sanitizeForPublication } from './token-sanitization.lib.mjs';
 import { validateTelegramText } from './telegram-markdown-validator.lib.mjs';

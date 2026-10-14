@@ -71,6 +71,7 @@ async function complete(body, restart = false, argv = {}) {
     hasPRTitlePlaceholder: title => title.startsWith('[WIP]'),
     hasPRBodyPlaceholder: text => text.includes(placeholder),
     postNoChangesProducedComment: async () => {},
+    reportSessionWithoutChanges: async () => ({ noChanges: false, keepsDraft: false }),
     sanitizeForPublication: async text => text,
     writeSanitizedPublicationFile: async (file, text) => (await import('node:fs/promises')).writeFile(file, text),
     buildIssueReference: () => '#1',

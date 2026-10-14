@@ -17,6 +17,7 @@
  * It also serves multi-part uploads: {@link formatLogLinkLines} lists every part.
  */
 
+import { isEphemeralContainer, resolveCiRunUrl } from './ci-run-url.lib.mjs';
 import { detectExecutionContext } from './solve.resource-diagnostics.lib.mjs';
 import { writeSanitizedPublicationFile } from './token-sanitization.lib.mjs';
 import { LOG_UPLOAD_FAILED_MARKER, NOW_WORKING_SESSION_IS_ENDED_MARKER, SOLUTION_DRAFT_FAILED_MARKER, SOLUTION_DRAFT_LOG_MARKER, postTrackedCommentFromFile } from './tool-comments.lib.mjs';
@@ -49,18 +50,28 @@ export const formatLogLinkLines = ({ uploadResult, logUrl, label, selectUrl }) =
  * The isolation runner exports `HIVE_MIND_PARENT_SESSION_ID` to every
  * Docker-isolated task (isolation-runner.lib.mjs), so it identifies that case.
  *
+ * A `docker run --rm` container (the Formal AI draft workflow) says so through
+ * `HIVE_MIND_EPHEMERAL_CONTAINER`: no path inside it outlives the session, so
+ * none is named. Every kind carries `runUrl` when the session belongs to a CI
+ * run ({@link resolveCiRunUrl}), whose artifacts hold the log.
+ *
  * @param {Object} [options]
  * @param {Object} [options.env=process.env]
  * @param {Function} [options.detectContext=detectExecutionContext] - injectable for tests
- * @returns {{kind: 'isolated-container', sessionId: string} | {kind: 'container', runtime: string|null} | {kind: 'host'}}
+ * @returns {{kind: 'ephemeral-container'} | {kind: 'isolated-container', sessionId: string} | {kind: 'container', runtime: string|null} | {kind: 'host'}} with an optional `runUrl`
  */
 export const describeLogFileLocation = ({ env = process.env, detectContext = detectExecutionContext } = {}) => {
+  const runUrl = resolveCiRunUrl(env);
+  const withRun = location => (runUrl ? { ...location, runUrl } : location);
+  if (isEphemeralContainer(env)) return withRun({ kind: 'ephemeral-container' });
   const sessionId = String(env?.HIVE_MIND_PARENT_SESSION_ID || '').trim();
-  if (sessionId) return { kind: 'isolated-container', sessionId };
+  if (sessionId) return withRun({ kind: 'isolated-container', sessionId });
   const context = detectContext({ env });
-  if (context?.inContainer) return { kind: 'container', runtime: context.runtime || null };
-  return { kind: 'host' };
+  if (context?.inContainer) return withRun({ kind: 'container', runtime: context.runtime || null });
+  return withRun({ kind: 'host' });
 };
+
+const runLinkLine = location => (location?.runUrl ? `\nThe log is also an artifact of the [workflow run](${location.runUrl}).` : '');
 
 /**
  * Markdown that tells the reader how to reach `logFile` given where it lives.
@@ -69,6 +80,10 @@ export const describeLogFileLocation = ({ env = process.env, detectContext = det
  * @returns {string}
  */
 const formatLogLocationSection = (logFile, location) => {
+  if (location?.kind === 'ephemeral-container') {
+    if (location.runUrl) return `The complete log was written inside the container that ran this session, which was removed when the session ended. It is kept as an artifact of the [workflow run](${location.runUrl}): open the run and download the log artifact.`;
+    return 'The complete log was written inside the container that ran this session, which was removed when the session ended, so no copy of it is left to publish.';
+  }
   if (location?.kind === 'isolated-container') {
     const id = location.sessionId;
     return `The complete log was written inside the isolated Docker container of session \`${id}\`:
@@ -79,13 +94,13 @@ That path exists only inside the container, not on the host. The container is re
 \`\`\`bash
 docker cp "${id}:${logFile}" .
 \`\`\`
-The console output of the session stays on the host either way: send \`/log ${id}\` to the Telegram bot, or run \`$ --status ${id}\` on the host to find its log file.`;
+The console output of the session stays on the host either way: send \`/log ${id}\` to the Telegram bot, or run \`$ --status ${id}\` on the host to find its log file.${runLinkLine(location)}`;
   }
   const where = location?.kind === 'container' ? `inside the ${location.runtime ? `${location.runtime} ` : ''}container that ran this session (the path exists only while that container exists)` : 'on the machine that ran this session';
   return `The complete log is kept ${where}:
 \`\`\`
 ${logFile}
-\`\`\``;
+\`\`\`${runLinkLine(location)}`;
 };
 
 /**
@@ -95,12 +110,14 @@ ${logFile}
  * @returns {Array<string>}
  */
 export const formatLogLocationConsoleLines = (logFile, location = describeLogFileLocation()) => {
+  const runLines = location?.runUrl ? [`  🔗 The log is also an artifact of the workflow run: ${location.runUrl}`] : [];
+  if (location?.kind === 'ephemeral-container') return [`  📁 Full log is at ${logFile} until this container is removed at the end of the session`, ...runLines];
   if (location?.kind === 'isolated-container') {
     const id = location.sessionId;
-    return [`  📁 Full log remains available inside isolated container ${id} at: ${logFile}`, `  ℹ️  The container is removed when the session succeeds; the host keeps the console log (/log ${id} in Telegram, or $ --status ${id}).`];
+    return [`  📁 Full log remains available inside isolated container ${id} at: ${logFile}`, `  ℹ️  The container is removed when the session succeeds; the host keeps the console log (/log ${id} in Telegram, or $ --status ${id}).`, ...runLines];
   }
-  if (location?.kind === 'container') return [`  📁 Full log remains available inside this ${location.runtime ? `${location.runtime} ` : ''}container at: ${logFile}`];
-  return [`  📁 Full log remains available locally at: ${logFile}`];
+  if (location?.kind === 'container') return [`  📁 Full log remains available inside this ${location.runtime ? `${location.runtime} ` : ''}container at: ${logFile}`, ...runLines];
+  return [`  📁 Full log remains available locally at: ${logFile}`, ...runLines];
 };
 
 /**
@@ -120,14 +137,19 @@ export const buildLogUploadFailureComment = ({ errorMessage = null, failureReaso
   const heading = errorMessage ? `## 🚨 ${SOLUTION_DRAFT_FAILED_MARKER}\nThe automated solution draft encountered an error:\n\`\`\`\n${errorMessage}\n\`\`\`${failureAction || ''}\n\n### ⚠️ ${LOG_UPLOAD_FAILED_MARKER}` : `## ⚠️ ${SOLUTION_DRAFT_LOG_MARKER}: ${LOG_UPLOAD_FAILED_MARKER}`;
   const attemptText = attempts > 1 ? ` after ${attempts} attempts` : '';
   const reason = failureReason ? `\n\nLast upload error:\n\`\`\`\n${failureReason}\n\`\`\`` : '';
-  return `${heading}
-The complete ${errorMessage ? 'failure' : 'working session'} log (${formatSize(logSizeBytes)}) could not be uploaded${attemptText}, so it is not attached here. A partial log is not posted instead, because it could be mistaken for the complete trace.${reason}
-
-${formatLogLocationSection(logFile, location)}
+  // A removed container leaves no file to run gh-upload-log on.
+  const publishHint =
+    location?.kind === 'ephemeral-container'
+      ? ''
+      : `
 To publish it from there:
 \`\`\`bash
 gh-upload-log "${logFile}" ${isPublic ? '--public' : '--private'}
-\`\`\`
+\`\`\``;
+  return `${heading}
+The complete ${errorMessage ? 'failure' : 'working session'} log (${formatSize(logSizeBytes)}) could not be uploaded${attemptText}, so it is not attached here. A partial log is not posted instead, because it could be mistaken for the complete trace.${reason}
+
+${formatLogLocationSection(logFile, location)}${publishHint}
 
 ---
 *${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`;

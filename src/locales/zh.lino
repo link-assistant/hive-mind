@@ -682,6 +682,7 @@ zh
         finished "工作会话已成功完成"
         hive_no_work "未处理任何问题；请查看日志中的跳过原因或阻塞问题。要继续处理已有 PR 的问题，请使用 `--no-skip-issues-with-prs --auto-continue`"
         hive_incomplete "Hive 会话结束时仍有问题等待处理；请查看日志中的阻塞问题"
+        no_changes "工作会话结束但没有任何更改；原因请见 pull request 评论"
         failed "工作会话失败（退出代码：{{exitCode}}）"
         merged_but_failed "拉取请求已合并，但工作会话退出，代码为：{{exitCode}}"
         merged_success "请求的拉取请求已成功合并。"
@@ -692,6 +693,9 @@ zh
         recovering "工作会话仍在进行：正在从退出代码 {{exitCode}} 恢复"
         recovered "工作会话在自动恢复后成功完成"
         recoveries "自动恢复次数：{{count}}"
+        status_unknown "工作会话已结束，但其退出状态未知"
+        never_observed "工作会话状态未知：从未观察到该会话运行"
+        tracking_expired "已在 {{minutes}} 分钟后停止跟踪工作会话，未获得退出状态；它可能仍在其 screen 会话中运行"
     duration
       label "耗时"
     session

@@ -68,13 +68,14 @@ All environment variables are managed through the `src/config.lib.mjs` module wh
 
 ### 3. GitHub API Limits
 
-| Environment Variable                   | Default  | Description                                      |
-| -------------------------------------- | -------- | ------------------------------------------------ |
-| `HIVE_MIND_GITHUB_COMMENT_MAX_SIZE`    | 65536    | Maximum size of GitHub comments (bytes)          |
-| `HIVE_MIND_GITHUB_FILE_MAX_SIZE`       | 26214400 | Maximum file size for GitHub operations (25MB)   |
-| `HIVE_MIND_GITHUB_ISSUE_BODY_MAX_SIZE` | 60000    | Maximum size of issue body (bytes)               |
-| `HIVE_MIND_GITHUB_ATTACHMENT_MAX_SIZE` | 10485760 | Maximum attachment size (10MB)                   |
-| `HIVE_MIND_GITHUB_BUFFER_MAX_SIZE`     | 10485760 | Maximum buffer size for GitHub operations (10MB) |
+| Environment Variable                   | Default  | Description                                                      |
+| -------------------------------------- | -------- | ---------------------------------------------------------------- |
+| `HIVE_MIND_GITHUB_COMMENT_MAX_SIZE`    | 65536    | Maximum size of GitHub comments (bytes)                          |
+| `HIVE_MIND_GITHUB_FILE_MAX_SIZE`       | 26214400 | Maximum file size for GitHub operations (25MB)                   |
+| `HIVE_MIND_GITHUB_ISSUE_BODY_MAX_SIZE` | 60000    | Maximum size of issue body (bytes)                               |
+| `HIVE_MIND_GITHUB_ATTACHMENT_MAX_SIZE` | 10485760 | Maximum attachment size (10MB)                                   |
+| `HIVE_MIND_GITHUB_BUFFER_MAX_SIZE`     | 10485760 | Maximum buffer size for GitHub operations (10MB)                 |
+| `HIVE_MIND_GITHUB_EXEC_TIMEOUT_MS`     | 600000   | Maximum time for one `gh` call before it is stopped (10 minutes) |
 
 ### 4. System Resource Limits
 
@@ -456,6 +457,14 @@ Issue #2192: a git credential helper is only consulted after the server answers 
 | `HIVE_MIND_DISABLE_GIT_AUTH_TRANSPORT` | false          | Set to `1`/`true`/`yes` to keep git downloads anonymous (disables preemptive authentication) |
 | `HIVE_MIND_GIT_AUTH_TRANSPORT`         | (set by solve) | Diagnostic breadcrumb listing the hosts whose git traffic is authenticated                   |
 | `GH_TOKEN` / `GITHUB_TOKEN`            | (unset)        | Token used for git transport when set; otherwise `gh auth token` is used                     |
+
+### 19. solve Exit Codes
+
+Issue #3211: `solve` exits 5 when a run finished without changes (no commit, file change or comment by this run). Before that such a run exited 0.
+
+| Environment Variable                   | Default | Description                                                                                                                                                                       |
+| -------------------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `HIVE_MIND_SOLVE_NO_CHANGES_EXIT_CODE` | 5       | Exit code (0-255) of a run that finished without changes. Set `0` for scripts that treat every nonzero exit as an error; the run is still reported as ⚠️ finished without changes |
 
 ## Command-Line Options
 

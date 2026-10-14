@@ -139,7 +139,7 @@ function injectLanguageIfMissing(args, locale) {
 }
 
 export function registerFixCommand(bot, options) {
-  const { VERBOSE, fixEnabled, addBreadcrumb, isOldMessage, isForwardedOrReply, isGroupChat, isTopicAuthorized, buildAuthErrorMessage, isChatStopped, getStoppedChatRejectMessage, safeReply = defaultSafeReply, executeAndUpdateMessage, resolveLocale = null, solveOverrides = [] } = options;
+  const { VERBOSE, fixEnabled, addBreadcrumb, isOldMessage, isForwardedOrReply, isGroupChat, isTopicAuthorized, buildAuthErrorMessage, isChatStopped, getStoppedChatRejectMessage, safeReply = defaultSafeReply, executeAndUpdateMessage, resolveLocale = null, solveOverrides = [], detachHandler = handler => handler } = options;
 
   async function handleFixCommand(ctx) {
     const commandDisplay = '/fix';
@@ -235,7 +235,7 @@ export function registerFixCommand(bot, options) {
 
   bot.command(
     FIX_COMMAND_NAMES.map(command => new RegExp(`^${command}$`, 'i')),
-    handleFixCommand
+    detachHandler(handleFixCommand)
   );
 
   return { handleFixCommand, FIX_COMMAND_NAMES };

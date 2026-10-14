@@ -96,6 +96,7 @@ try {
   assert('uuid-2' in afterRemove.sessions, 'remove leaves other sessions intact');
 
   // The append-only audit log preserves the FULL history (req #4: no data destroyed).
+  await store.flush();
   const events = fs
     .readFileSync(store.eventsPath, 'utf8')
     .trim()
@@ -111,10 +112,59 @@ try {
   // A second remove of an already-removed session still records an audit event
   // (history is append-only) but does not corrupt the snapshot.
   store.remove('uuid-1', { status: 'killed', exitCode: 137 });
+  await store.flush();
   const eventsAfter = fs.readFileSync(store.eventsPath, 'utf8').trim().split('\n');
   assert(eventsAfter.length === 4, 'a redundant remove still appends an audit event (never truncates)');
 } finally {
   fs.rmSync(tmpDir, { recursive: true, force: true });
+}
+
+// --- audit events are written off the event loop; flushSync covers exit ------
+{
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hm-3206-store-'));
+  try {
+    // Asynchronous appends wait for `release()`, so "in flight" is deterministic.
+    let syncAppends = 0;
+    let gate = Promise.resolve();
+    let release = () => {};
+    const hold = () => {
+      gate = new Promise(resolve => {
+        release = resolve;
+      });
+    };
+    const gatedFs = {
+      ...fs,
+      appendFileSync: (...args) => {
+        syncAppends += 1;
+        return fs.appendFileSync(...args);
+      },
+      promises: {
+        ...fs.promises,
+        appendFile: async (...args) => {
+          await gate;
+          return fs.promises.appendFile(...args);
+        },
+      },
+    };
+    const store = createSessionStore({ dir, fsImpl: gatedFs });
+    const readEvents = () => (fs.existsSync(store.eventsPath) ? fs.readFileSync(store.eventsPath, 'utf8') : '');
+    hold();
+    store.remove('uuid-a', { status: 'done', exitCode: 0 });
+    assert(syncAppends === 0 && !readEvents().includes('uuid-a'), 'recording an event returns before it is written (no synchronous append)');
+    release();
+    await store.flush();
+    assert(readEvents().includes('uuid-a'), 'flush() resolves once queued events reach the file');
+    hold();
+    store.remove('uuid-b', { status: 'done', exitCode: 0 });
+    store.flushSync();
+    assert(readEvents().includes('uuid-b'), 'flushSync() writes queued events synchronously');
+    store.remove('uuid-c', { status: 'done', exitCode: 0 });
+    assert(readEvents().includes('uuid-c'), 'after flushSync() events are written synchronously');
+    release();
+    await store.flush();
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 }
 
 // --- corrupt snapshot is non-fatal --------------------------------------------
@@ -126,6 +176,7 @@ try {
   // persist over the corrupt file recovers cleanly.
   store.persist('uuid-x', { startTime, isolationBackend: 'screen', sessionId: 'uuid-x', command: 'solve' });
   assert(store.load().length === 1, 'persist recovers from a corrupt snapshot');
+  await store.flush(); // the event append must land before the directory is removed
 } finally {
   fs.rmSync(tmpDir2, { recursive: true, force: true });
 }
@@ -164,6 +215,7 @@ try {
     const store = createSessionStore({ dir: tmpDir3 });
     store.persist('', { startTime, isolationBackend: 'screen', sessionId: 'x' });
     assert(store.load().length === 0, 'persist("") is a no-op (no empty session name persisted)');
+    await store.flush();
   } finally {
     fs.rmSync(tmpDir3, { recursive: true, force: true });
   }

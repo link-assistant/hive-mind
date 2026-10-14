@@ -1,3 +1,4 @@
+/* eslint-disable no-await-in-loop -- the governor waits before each retry by design */
 /**
  * Telegram Bot API rate-limit telemetry for `/limits` (issues #2060 and #2070).
  *

@@ -68,13 +68,14 @@ Hive Mind 应用程序支持通过环境变量和命令行选项进行广泛配�
 
 ### 3. GitHub API 限制
 
-| 环境变量                               | 默认值   | 描述                                |
-| -------------------------------------- | -------- | ----------------------------------- |
-| `HIVE_MIND_GITHUB_COMMENT_MAX_SIZE`    | 65536    | GitHub 评论的最大大小（字节）       |
-| `HIVE_MIND_GITHUB_FILE_MAX_SIZE`       | 26214400 | GitHub 操作的最大文件大小（25MB）   |
-| `HIVE_MIND_GITHUB_ISSUE_BODY_MAX_SIZE` | 60000    | Issue 正文的最大大小（字节）        |
-| `HIVE_MIND_GITHUB_ATTACHMENT_MAX_SIZE` | 10485760 | 最大附件大小（10MB）                |
-| `HIVE_MIND_GITHUB_BUFFER_MAX_SIZE`     | 10485760 | GitHub 操作的最大缓冲区大小（10MB） |
+| 环境变量                               | 默认值   | 描述                                            |
+| -------------------------------------- | -------- | ----------------------------------------------- |
+| `HIVE_MIND_GITHUB_COMMENT_MAX_SIZE`    | 65536    | GitHub 评论的最大大小（字节）                   |
+| `HIVE_MIND_GITHUB_FILE_MAX_SIZE`       | 26214400 | GitHub 操作的最大文件大小（25MB）               |
+| `HIVE_MIND_GITHUB_ISSUE_BODY_MAX_SIZE` | 60000    | Issue 正文的最大大小（字节）                    |
+| `HIVE_MIND_GITHUB_ATTACHMENT_MAX_SIZE` | 10485760 | 最大附件大小（10MB）                            |
+| `HIVE_MIND_GITHUB_BUFFER_MAX_SIZE`     | 10485760 | GitHub 操作的最大缓冲区大小（10MB）             |
+| `HIVE_MIND_GITHUB_EXEC_TIMEOUT_MS`     | 600000   | 单次 `gh` 调用的最长时间，超时后停止（10 分钟） |
 
 ### 4. 系统资源限制
 
@@ -430,6 +431,14 @@ Issue #2192：git 只有在服务器返回 `401` 之后才会询问凭据助手�
 | `HIVE_MIND_DISABLE_GIT_AUTH_TRANSPORT` | false           | 设为 `1`/`true`/`yes` 可保持匿名下载（关闭预先认证）  |
 | `HIVE_MIND_GIT_AUTH_TRANSPORT`         | (由 solve 设置) | 诊断标记：git 流量已认证的主机                        |
 | `GH_TOKEN` / `GITHUB_TOKEN`            | (未设置)        | 已设置时用于 git 传输的令牌；否则使用 `gh auth token` |
+
+### 19. solve 退出码
+
+Issue #3211：当一次运行没有产生任何更改（本次运行没有提交、文件修改或评论）时，`solve` 以 5 退出。此前这样的运行以 0 退出。
+
+| 环境变量                               | 默认值 | 描述                                                                                                        |
+| -------------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------- |
+| `HIVE_MIND_SOLVE_NO_CHANGES_EXIT_CODE` | 5      | 无更改运行的退出码（0-255）。对把任何非零退出视为错误的脚本可设为 `0`；该运行仍会被报告为 ⚠️ 未做更改即结束 |
 
 ## 命令行选项
 

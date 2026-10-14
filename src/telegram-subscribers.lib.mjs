@@ -94,6 +94,7 @@ export async function notifySubscribers({ bot, fromChatId, messageId, fallbackTe
     let forwarded = false;
     if (fromChatId !== null && fromChatId !== undefined && messageId !== null && messageId !== undefined) {
       try {
+        // eslint-disable-next-line no-await-in-loop -- subscribers are notified one at a time under the Telegram rate limit
         await bot.telegram.forwardMessage(userId, fromChatId, messageId);
         summary.forwarded += 1;
         forwarded = true;
@@ -115,6 +116,7 @@ export async function notifySubscribers({ bot, fromChatId, messageId, fallbackTe
     }
 
     try {
+      // eslint-disable-next-line no-await-in-loop -- subscribers are notified one at a time under the Telegram rate limit
       await bot.telegram.sendMessage(userId, fallbackText, fallbackOptions);
       summary.sent += 1;
       if (verbose) {

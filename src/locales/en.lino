@@ -682,6 +682,7 @@ en
         finished "Work session finished successfully"
         hive_no_work "No issues processed; check the log for skipped issues or blockers. To continue issues with existing PRs, use `--no-skip-issues-with-prs --auto-continue`"
         hive_incomplete "Hive session ended with issues still waiting; check the log for blockers"
+        no_changes "Work session finished without changes; see the pull request comment for the reason"
         failed "Work session failed (exit code: {{exitCode}})"
         merged_but_failed "Pull request merged, but the work session exited with code: {{exitCode}}"
         merged_success "The requested pull request was merged successfully."
@@ -692,6 +693,9 @@ en
         recovering "Work session still in progress: recovering from exit code {{exitCode}}"
         recovered "Work session finished successfully after automatic recovery"
         recoveries "automatic recoveries: {{count}}"
+        status_unknown "Work session ended, but its exit status is unknown"
+        never_observed "Work session status unknown: the session was never observed running"
+        tracking_expired "Stopped tracking the work session after {{minutes}} minutes without an exit status; it may still be running in its screen session"
     duration
       label "Duration"
     session

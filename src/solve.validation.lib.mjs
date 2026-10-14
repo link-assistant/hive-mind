@@ -322,26 +322,9 @@ export const performSystemChecks = async (minDiskSpace = 10240, skipToolConnecti
     let isToolConnected;
     const { isFormalAiModel } = await import('./models/index.mjs');
     if (isFormalAiModel(model)) {
-      const { validateFormalAiToolConnection } = await import('./formal-ai.lib.mjs');
-      const formalAiValidation = await validateFormalAiToolConnection(argv.tool || 'claude');
-      isToolConnected = formalAiValidation.valid;
-      // Record the wrapper version on both paths: the wrapper builds the tool's
-      // argv, so its version is the first thing needed to explain a failure
-      // (issue #2130's logs recorded neither, which left the round-2 claude
-      // failure unattributable).
-      const formalAiVersionLine = `📦 Formal AI wrapper version: ${formalAiValidation.formalAiVersion || 'unknown'}`;
-      if (isToolConnected) {
-        await log(`✅ Formal AI wrapper and ${argv.tool || 'claude'} CLI are available`);
-        await log(formalAiVersionLine);
-        if (formalAiValidation.version) {
-          await log(`📦 ${argv.tool || 'claude'} CLI version: ${formalAiValidation.version}`);
-        }
-      } else {
-        await log(`❌ Formal AI dispatch validation failed: ${formalAiValidation.error}`, { level: 'error' });
-        await log(`   ${formalAiVersionLine}`, { level: 'error' });
-        await log('   Install or update the wrapper with: cargo install formal-ai', { level: 'error' });
-        return false;
-      }
+      const { validateFormalAiDispatch } = await import('./tool-connection-validation.lib.mjs');
+      isToolConnected = await validateFormalAiDispatch({ tool: argv.tool || 'claude', log });
+      if (!isToolConnected) return false;
     } else if (argv.useAgentCommander) {
       const agentCommanderLib = await import('./agent-commander.lib.mjs');
       isToolConnected = await agentCommanderLib.validateAgentCommanderConnection({

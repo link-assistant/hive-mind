@@ -1,3 +1,4 @@
+/* eslint-disable no-await-in-loop -- invitations are accepted one at a time so the progress message counts up and GitHub is not flooded */
 /**
  * Telegram /accept_invites command implementation
  *
@@ -19,12 +20,14 @@
 import { promisify } from 'util';
 import { exec as execCallback } from 'child_process';
 import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
+import { githubLimits } from './config.lib.mjs';
 import { safeReply, safeEditMessageText } from './telegram-safe-reply.lib.mjs';
 
 const execRaw = promisify(execCallback);
 // Issue #1726: rate-limit safe gh wrapper.
+// hive-exec-timeout-ok: every call gets githubLimits.execTimeoutMs unless it passes its own timeout
 const exec = (cmd, opts) =>
-  ghWithRateLimitRetry(() => execRaw(cmd, opts), {
+  ghWithRateLimitRetry(() => execRaw(cmd, { timeout: githubLimits.execTimeoutMs, ...opts }), {
     label: `gh exec (${cmd.split(/\s+/).slice(0, 3).join(' ')})`,
   });
 
@@ -126,11 +129,12 @@ function buildProgressMessage(state) {
  * @param {Function} [options.isTopicAuthorized] - Function to check if topic is authorized (issue #1100)
  * @param {Function} [options.buildAuthErrorMessage] - Function to build authorization error message
  * @param {Function} options.addBreadcrumb - Function to add breadcrumbs for monitoring
+ * @param {Function} [options.detachHandler] - Wraps the handler registered with the bot; telegram-bot.mjs passes one that runs it outside the update loop.
  */
 export function registerAcceptInvitesCommand(bot, options) {
-  const { VERBOSE = false, isOldMessage, isForwardedOrReply, isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, addBreadcrumb } = options;
+  const { VERBOSE = false, isOldMessage, isForwardedOrReply, isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, addBreadcrumb, detachHandler = handler => handler } = options;
 
-  bot.command(/^accept[_-]?invites$/i, async ctx => {
+  async function handleAcceptInvitesCommand(ctx) {
     VERBOSE && console.log('[VERBOSE] /accept_invites command received');
     await addBreadcrumb({
       category: 'telegram.command',
@@ -242,5 +246,7 @@ export function registerAcceptInvitesCommand(bot, options) {
       const escapedError = escapeMarkdown(error.message);
       await safeEditMessageText(ctx.telegram, fetchingMessage.chat.id, fetchingMessage.message_id, undefined, `❌ Error fetching invitations: ${escapedError}\n\nMake sure \`gh\` CLI is installed and authenticated\\.`, { parse_mode: 'MarkdownV2', verbose: VERBOSE });
     }
-  });
+  }
+
+  bot.command(/^accept[_-]?invites$/i, detachHandler(handleAcceptInvitesCommand));
 }

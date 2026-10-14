@@ -41,6 +41,8 @@
  * @see https://github.com/link-assistant/hive-mind/issues/2395
  */
 
+import { createHash } from 'node:crypto';
+
 /** Issue #2395: raised from 3 - the limit applies only once detection is enabled. */
 export const REPEATED_TOOL_CALL_LIMIT_DEFAULT = 10;
 
@@ -209,9 +211,58 @@ export const takeRepeatedToolCallFeedback = () => {
   return feedback;
 };
 
+// ---------------------------------------------------------------------------
+// Observed loops (issue #3211): reported, never acted on
+// ---------------------------------------------------------------------------
+
+/**
+ * Issue #3211: identical non-polling calls with identical output after which a
+ * session is reported as looping. The same number the opt-in breaker defaults
+ * to, but this only *reports*: per #2395 no session is stopped for it.
+ */
+export const OBSERVED_LOOP_MIN_CALLS = 10;
+
+let pendingObservedLoop = null;
+let observedLoopHistory = [];
+
+const publishObservedToolCallLoop = loop => {
+  if (!pendingObservedLoop || loop.count >= pendingObservedLoop.count) pendingObservedLoop = loop;
+};
+
+/** The most repeated call of the session that just ended, returned once and kept in the run history. */
+export const takeObservedToolCallLoop = () => {
+  const loop = pendingObservedLoop;
+  pendingObservedLoop = null;
+  if (loop) observedLoopHistory.push(loop);
+  return loop;
+};
+
+/** Every loop observed in this run, oldest first. */
+export const getObservedToolCallLoopHistory = () => [...observedLoopHistory];
+
+/** Strip the `/bin/bash -lc "…"` wrapper codex puts around every command. */
+const unwrapShellCommand = command => {
+  const wrapped = /^(?:\/(?:usr\/)?bin\/)?(?:ba|z)?sh\s+-l?c\s+(["'])([\s\S]*)\1$/.exec(command.trim());
+  return wrapped ? wrapped[2] : command.trim();
+};
+
+/**
+ * @param {{tool: string, input: any, count: number}} loop
+ * @returns {string} e.g. "looped on `gh issue view … --json title` 73 times"
+ */
+export const describeObservedToolCallLoop = loop => {
+  if (!loop) return '';
+  const command = typeof loop.input?.command === 'string' ? unwrapShellCommand(loop.input.command) : `${loop.tool}(${stableStringify(loop.input === undefined ? null : loop.input)})`;
+  const oneLine = command.replace(/\s+/g, ' ');
+  const preview = oneLine.length > INPUT_PREVIEW_LENGTH ? `${oneLine.slice(0, INPUT_PREVIEW_LENGTH)}…` : oneLine;
+  return `looped on \`${preview}\` ${loop.count} times`;
+};
+
 export const resetRepeatedToolCallState = () => {
   pendingVerdict = null;
   pendingFeedback = null;
+  pendingObservedLoop = null;
+  observedLoopHistory = [];
 };
 
 const asArray = value => (Array.isArray(value) ? value : value ? [value] : []);
@@ -249,6 +300,18 @@ export const createRepeatedToolCallBreaker = ({ limit = getRepeatedToolCallLimit
   // Issue #2316: the current run of identical successful calls.
   let successRun = { key: null, count: 0 };
   let verdict = null;
+  // Issue #3211: identical calls with identical output, counted whether or not the breaker is on.
+  const observedRepeats = new Map();
+
+  const observeRepeat = (name, input, signature, output, isError) => {
+    // Hashed: a long session sees thousands of calls, and their outputs can be large.
+    const key = createHash('sha1')
+      .update(`${signature}${SIGNATURE_SEPARATOR}${isError}${SIGNATURE_SEPARATOR}${normalizeToolResultError(output) ?? ''}`)
+      .digest('hex');
+    const count = (observedRepeats.get(key) || 0) + 1;
+    observedRepeats.set(key, count);
+    if (count >= OBSERVED_LOOP_MIN_CALLS) publishObservedToolCallLoop({ tool: name, input, count, isError });
+  };
 
   const rememberToolUse = item => {
     if (!item || typeof item !== 'object' || item.type !== 'tool_use' || !item.id) return;
@@ -267,6 +330,7 @@ export const createRepeatedToolCallBreaker = ({ limit = getRepeatedToolCallLimit
     const name = tool || 'unknown';
     const signature = buildToolCallSignature({ name, input });
     const polling = isPollingToolInput(input);
+    if (!polling) observeRepeat(name, input, signature, output, isError === true);
     if (isError) {
       successRun = { key: null, count: 0 };
       // Failure reports (`dominantFailure`) group by call alone, whatever the breaker does.
@@ -345,4 +409,4 @@ export const createRepeatedToolCallBreaker = ({ limit = getRepeatedToolCallLimit
   };
 };
 
-export default { createRepeatedToolCallBreaker, isRepeatedToolCallDetectionEnabled, resolveRepeatedToolCallLimit, isPollingToolInput, DETECT_REPEATED_TOOL_CALLS_ENV_VAR, REPEATED_TOOL_CALL_LIMIT_ENV_VAR, publishRepeatedToolCallVerdict, takeRepeatedToolCallVerdict, takeRepeatedToolCallFeedback, resetRepeatedToolCallState, buildRepeatedToolCallFeedback, buildToolCallSignature, describeRepeatedToolCall, explainFailureWithToolHistory, getRepeatedToolCallLimit, DOMINANT_FAILURE_MIN_COUNT, REPEATED_TOOL_CALL_LIMIT_DEFAULT, SUCCESS_LIMIT_FACTOR };
+export default { createRepeatedToolCallBreaker, describeObservedToolCallLoop, getObservedToolCallLoopHistory, OBSERVED_LOOP_MIN_CALLS, takeObservedToolCallLoop, isRepeatedToolCallDetectionEnabled, resolveRepeatedToolCallLimit, isPollingToolInput, DETECT_REPEATED_TOOL_CALLS_ENV_VAR, REPEATED_TOOL_CALL_LIMIT_ENV_VAR, publishRepeatedToolCallVerdict, takeRepeatedToolCallVerdict, takeRepeatedToolCallFeedback, resetRepeatedToolCallState, buildRepeatedToolCallFeedback, buildToolCallSignature, describeRepeatedToolCall, explainFailureWithToolHistory, getRepeatedToolCallLimit, DOMINANT_FAILURE_MIN_COUNT, REPEATED_TOOL_CALL_LIMIT_DEFAULT, SUCCESS_LIMIT_FACTOR };

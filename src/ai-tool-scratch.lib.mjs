@@ -40,6 +40,14 @@ import path from 'path';
  */
 export const AI_TOOL_SCRATCH_PATHS = [
   { path: '.formal-ai/', tool: 'formal-ai' },
+  // Formal AI writes `answer_*.lino` derivations under the directory its server
+  // runs in, whatever FORMAL_AI_CACHE_DIR says (link-assistant/formal-ai#1208).
+  // They restarted the model over "uncommitted changes" five times per draft
+  // and were preserved on recovery branches as if they were the user's work.
+  // Unlike the dot directories, this is an ordinary path a repository may
+  // track, so only untracked files there are tool state: a change to a tracked
+  // file, or a commit of one, is the user's work.
+  { path: 'data/cache/derivations/', tool: 'formal-ai', untrackedOnly: true },
   { path: '.playwright-mcp/', tool: 'playwright-mcp' },
 ];
 
@@ -54,11 +62,28 @@ const EXCLUDE_HEADER = '# hive-mind: AI tool scratch directories (issue #2119)';
 export const isAiToolScratchPath = statusLine => {
   if (typeof statusLine !== 'string') return false;
   // Porcelain v1: two status characters, a space, then the path.
-  const filePath = statusLine.slice(3).trim().replace(/^"|"$/g, '');
-  if (!filePath) return false;
-  return AI_TOOL_SCRATCH_PATHS.some(({ path: scratchPath }) => {
+  const untracked = statusLine.startsWith('??') || statusLine.startsWith('!!');
+  return isAiToolScratchFile(statusLine.slice(3), { tracked: !untracked });
+};
+
+/**
+ * Is this repository-relative path (e.g. from `git ls-files --others`) inside
+ * an AI tool scratch directory?
+ *
+ * @param {string} filePath - e.g. `data/cache/derivations/answer_1.lino`
+ * @param {{tracked?: boolean}} [options] - the path is tracked (a modified
+ *   status entry or a committed file), so `untrackedOnly` paths do not match
+ * @returns {boolean}
+ */
+export const isAiToolScratchFile = (filePath, { tracked = false } = {}) => {
+  const normalized = String(filePath || '')
+    .trim()
+    .replace(/^"|"$/g, '');
+  if (!normalized) return false;
+  return AI_TOOL_SCRATCH_PATHS.some(({ path: scratchPath, untrackedOnly }) => {
+    if (tracked && untrackedOnly) return false;
     const withoutSlash = scratchPath.replace(/\/$/, '');
-    return filePath === withoutSlash || filePath.startsWith(`${withoutSlash}/`);
+    return normalized === withoutSlash || normalized.startsWith(`${withoutSlash}/`);
   });
 };
 
@@ -139,5 +164,6 @@ export default {
   AI_TOOL_SCRATCH_PATHS,
   ensureAiToolScratchIgnored,
   filterAiToolScratchFromStatus,
+  isAiToolScratchFile,
   isAiToolScratchPath,
 };

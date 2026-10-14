@@ -571,8 +571,9 @@ export const SOLVE_OPTION_DEFINITIONS = {
   //   sidecar instead of bind-mounting the operator's vendor credentials into
   //   the task container. The task then holds a token scoped to itself alone,
   //   every request lands in that token's own audit log, and the subscription
-  //   never leaves the sidecar. Experimental: GitHub traffic and `--model
-  //   formal-ai` are not routed yet (see docs/ROUTER.md).
+  //   never leaves the sidecar. Experimental: `--model formal-ai` is served
+  //   through the router, but the Formal AI sidecar's own upstream calls are
+  //   not routed yet (see docs/ROUTER.md).
   'use-router': {
     type: 'boolean',
     description: '[EXPERIMENTAL] Route model traffic through the hive-mind-router sidecar instead of mounting Claude/Codex credentials into the task container. Each task receives its own scoped, short-lived token and its own request log, and the AI subscription stays in the router. Requires --isolation docker (or the Telegram bot in docker isolation mode).',

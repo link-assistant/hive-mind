@@ -9,6 +9,9 @@ import { getNoProgressFailure, hasNoProgressFailure } from './session-progress.l
 // Issue #2301: an AI session that failed inside the auto-restart or watch loop fails the run,
 // exactly as a failed first session does.
 import { getLoopToolFailure, hasLoopToolFailure } from './automation-failure.lib.mjs';
+// Issue #3211: a run that changed nothing finishes with ⚠️ and exit 5, not ✅ and 0.
+import { reevaluateRunWithoutChanges } from './session-changes.lib.mjs';
+import { getSolveNoChangesExitCode } from './solve.exit-codes.lib.mjs';
 
 export async function finalizeSolveProcess({ tempDir, argv, limitReached, path, getLogFile, log, closeSentry, logActiveHandles, cleanupTempDirectory, safeExit }) {
   const runFinalizationStep = async (label, step) => {
@@ -24,6 +27,11 @@ export async function finalizeSolveProcess({ tempDir, argv, limitReached, path, 
     }
   };
 
+  // Measured before the work directory goes away; a later session (watch, auto-restart) may have made the change after all.
+  let withoutChanges = null;
+  await runFinalizationStep('session change check', async () => {
+    withoutChanges = await reevaluateRunWithoutChanges({ log });
+  });
   await runFinalizationStep('temporary directory cleanup', () => cleanupTempDirectory(tempDir, argv, limitReached));
 
   await runFinalizationStep('final log reference', async () => {
@@ -67,6 +75,12 @@ export async function finalizeSolveProcess({ tempDir, argv, limitReached, path, 
     await log(`\n❌ The AI session failed and ${failure.mode ? `\`--${failure.mode}\`` : 'the automation'} stopped (${failure.reason}).`, { level: 'error' });
     if (failure.message) await log(`   ${failure.message}`, { level: 'error' });
     await safeExit(1, `AI session failed (${failure.reason})`);
+    return;
+  }
+
+  if (withoutChanges) {
+    await log(`\n⚠️  Finished without changes: ${withoutChanges.reason}`, { level: 'warning' });
+    await safeExit(getSolveNoChangesExitCode(), 'Finished without changes', { skipPreExit: true, warning: true });
     return;
   }
 

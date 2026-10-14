@@ -260,7 +260,9 @@ export const getLatestCodexGenerationAliases = (models = CODEX_CURRENT_MODELS) =
 const OPENAI_MODEL_PREFIX_PATTERN = /^openai([/.])/;
 
 const getCodexModelVariants = () => {
-  const bareModels = [...new Set(Object.values(codexModels).map(modelId => modelId.replace(OPENAI_MODEL_PREFIX_PATTERN, '')))];
+  // Issue #3215: Formal AI is not an OpenAI model; an `openai/formal-ai`
+  // spelling validated and was then sent to OpenAI under that id.
+  const bareModels = [...new Set(Object.values(codexModels).map(modelId => modelId.replace(OPENAI_MODEL_PREFIX_PATTERN, '')))].filter(modelId => !Object.hasOwn(formalAiNativeModelAliases, modelId));
   const variants = { ...codexModels, ...CODEX_FAMILY_ALIASES };
 
   for (const [name, modelId] of Object.entries({ ...Object.fromEntries(bareModels.map(modelId => [modelId, modelId])), ...CODEX_FAMILY_ALIASES })) {

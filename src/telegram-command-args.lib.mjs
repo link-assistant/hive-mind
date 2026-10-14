@@ -40,10 +40,12 @@ export async function validateRuntimeModelInArgs(args, tool = 'claude') {
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--model' || args[i] === '-m') {
       if (i + 1 < args.length) {
+        // eslint-disable-next-line no-await-in-loop -- stops at the first invalid --model
         const validation = await validateRuntimeModelName(args[i + 1], tool, { useRouter });
         if (!validation.valid) return validation.message;
       }
     } else if (args[i].startsWith('--model=')) {
+      // eslint-disable-next-line no-await-in-loop -- stops at the first invalid --model
       const validation = await validateRuntimeModelName(args[i].substring('--model='.length), tool, { useRouter });
       if (!validation.valid) return validation.message;
     } else if (args[i] === '--sub-agent-model' || args[i].startsWith('--sub-agent-model=')) {

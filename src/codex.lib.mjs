@@ -19,7 +19,7 @@ const os = (await use('os')).default;
 import { log } from './lib.mjs';
 // Issues #1955 / #1990: run-health analysis lives in its own module to keep this
 // file under the max-lines budget. Re-exported below for backward compatibility.
-import { getCodexErrorEventSummary, getCodexCompletionHealth, getCodexPluginProvisioningHealth, logCodexResourceSnapshot, matchCodexPluginInstallRejection, reportCodexCompletionFailure, reportCodexPluginProvisioning } from './codex-health.lib.mjs';
+import { findCodexUsageLimitMessage, getCodexErrorEventSummary, getCodexCompletionHealth, getCodexPluginProvisioningHealth, logCodexResourceSnapshot, matchCodexPluginInstallRejection, reportCodexCompletionFailure, reportCodexPluginProvisioning } from './codex-health.lib.mjs';
 export { getCodexErrorEventSummary, getCodexCompletionHealth, getCodexPluginProvisioningHealth, matchCodexPluginInstallRejection };
 import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits } from './config.lib.mjs';
@@ -42,6 +42,7 @@ import { ensureCodexPlaywrightMcpServer, getCodexPlaywrightMcpDisableConfigArgs 
 import { fetchModelInfo } from './model-info.lib.mjs';
 import { defaultModels, isFormalAiModel } from './models/index.mjs';
 import { buildAuthRemedyLines, buildFormalAiEnvExports, isPrepareOnly, logPreparedToolCommand, resolveFormalAiToolExecution } from './formal-ai.lib.mjs';
+import { assertFormalAiCodexConfig, classifyFormalAiCodexFailure, pinFormalAiCodexHome } from './codex.formal-ai.lib.mjs';
 import { buildFormalAiPricingInfo } from './formal-ai-pricing.lib.mjs'; // Issue #2119
 import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { parseSubSessionSize } from './sub-session-size.lib.mjs'; // Issue #1706
@@ -53,7 +54,7 @@ import { getCumulativeContextInputTokens } from './context-fill.lib.mjs';
 import { deployHandoffSkill } from './handoff-skill.lib.mjs'; // Issue #1877
 import { deployPlaywrightSkill } from './playwright-skill.lib.mjs'; // Issue #2190
 import { formatRouterAuthViolation, startRouterAuthGuard } from './router-auth-guard.lib.mjs'; // Issue #2190
-import { applyCodexCapabilityEnv, runCodexCapabilityPreflight, setTomlTableBoolean, verifyCodexCapabilityExecutionCatalog } from './codex-capability-preflight.lib.mjs'; // Issues #2074 and #2254
+import { applyCodexCapabilityEnv, runCodexCapabilityPreflight, verifyCodexCapabilityExecutionCatalog } from './codex-capability-preflight.lib.mjs'; // Issues #2074 and #2254
 import { createPullRequestBaseBranchCommandIntervention } from './solve.pr-base-command-intervention.lib.mjs';
 import Decimal from 'decimal.js-light';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
@@ -666,19 +667,9 @@ export const executeCodexCommand = async params => {
     const toolInvocation = await resolveFormalAiToolExecution({ tool: 'codex', model: argv.model, toolPath: codexPath, workdir: tempDir, log, verbose: argv.verbose, prepareOnly: isPrepareOnly(argv), env: codexEnv });
     // Issue #2130: "run codex login" is wrong advice for a Formal-AI-served model.
     const codexAuthRemedyLines = buildAuthRemedyLines({ model: argv.model, vendorRemedy: 'Please run: codex login' });
-    // Formal AI writes its provider block into an isolated Codex home after the
-    // capability probe. Bring that config back into the already-sanitized
-    // repository scope, then pin Formal AI to that same home. Otherwise the
-    // execution would silently replace the exact environment issue #2254
-    // verified and would also lose its selected plugin payloads.
-    const formalCodexHome = toolInvocation.env?.CODEX_HOME;
-    if (toolInvocation.formalAi && capabilityPreflight?.codexHome && formalCodexHome && formalCodexHome !== capabilityPreflight.codexHome) {
-      const formalConfig = await fs.readFile(path.join(formalCodexHome, 'config.toml'), 'utf8');
-      const safeFormalConfig = setTomlTableBoolean({ config: formalConfig, table: 'features', key: 'remote_plugin', value: false });
-      await fs.writeFile(path.join(capabilityPreflight.codexHome, 'config.toml'), safeFormalConfig);
-      toolInvocation.env.CODEX_HOME = capabilityPreflight.codexHome;
-      await log(`   🧭 Formal AI pinned to verified Codex capability state: ${capabilityPreflight.codexHome}`, { verbose: true });
-    }
+    // Formal AI writes its provider block into an isolated Codex home; the preflight rewrites the
+    // scoped config every iteration, so copy the block in again and pin that verified home (#2254).
+    await pinFormalAiCodexHome({ toolInvocation, capabilityPreflight, log });
     // `sh -lc` sources the operator profile. Re-export the verified scope in
     // the command itself as well as the process environment so a stale profile
     // assignment cannot swap CODEX_HOME after the final probe.
@@ -784,6 +775,7 @@ export const executeCodexCommand = async params => {
     const preparedResult = await logPreparedToolCommand({ argv, fullCommand, log, formatAligned });
     if (preparedResult) return preparedResult;
     try {
+      await assertFormalAiCodexConfig({ toolInvocation, model: mappedModel, log }); // fail closed: never reach a vendor endpoint (#2146)
       let interactiveHandler = null;
       if (argv.interactiveMode && owner && repo && prNumber) {
         await log('🔌 Interactive mode: Creating handler for real-time PR comments', { verbose: true });
@@ -1049,7 +1041,7 @@ export const executeCodexCommand = async params => {
         error.isAuthError = true;
         throw error;
       }
-      const codexErrorSummary = getCodexErrorEventSummary(codexJsonState);
+      const codexErrorSummary = classifyFormalAiCodexFailure({ model: argv.model, errorSummary: getCodexErrorEventSummary(codexJsonState) });
       if (codexErrorSummary.ignoredEvents.length > 0) {
         const ignoredMessages = [...new Set(codexErrorSummary.ignoredEvents.map(event => event.message))].join('; ');
         await log(`⚠️ Ignoring non-fatal Codex error event(s): ${ignoredMessages}`, { level: 'warning', verbose: true });
@@ -1061,7 +1053,7 @@ export const executeCodexCommand = async params => {
         }
       }
       if (codexErrorSummary.hasError) {
-        const limitSource = codexErrorSummary.message || lastMessage;
+        const limitSource = findCodexUsageLimitMessage(codexErrorSummary, detectUsageLimit) || codexErrorSummary.message || lastMessage;
         const limitInfo = detectUsageLimit(limitSource);
         const retryableError = classifyRetryableError(limitSource);
         if (limitInfo.isUsageLimit) {

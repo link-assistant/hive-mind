@@ -25,9 +25,12 @@
  */
 
 import { spawn } from 'node:child_process';
-import { appendFileSync, chmodSync, mkdirSync, readFileSync } from 'node:fs';
+import { appendFileSync, chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
+import { setTimeout as sleep } from 'node:timers/promises';
 
-import { buildDockerArgv, buildSolveArgv, DEFAULT_HIVE_MIND_IMAGE, decideDraft, formatDecisionOutputs, keepPullRequestAsDraftArgs, labelDraftPullRequest, readIssueEvent, selectDraftPullRequest } from './formal-ai-draft.lib.mjs';
+import { buildDockerArgv, buildGitIdentityEnv, buildRunContextEnv, buildSolveArgv, decideDraft, DRAFT_DECISION_ANNOTATION_TITLE, DRAFT_FAILURE_ANNOTATION_TITLE, FORMAL_AI_BINARY_CONTAINER_PATH, firstErrorLine, formatDecisionOutputs, formatWorkflowAnnotation, keepPullRequestAsDraftArgs, labelDraftPullRequest, readIssueEvent, selectDraftPullRequest } from './formal-ai-draft.lib.mjs';
+import { pullDraftImage, resolveDraftImages } from './formal-ai-draft-image.lib.mjs';
 import { gh } from './github-actions.lib.mjs';
 
 const flags = new Set(process.argv.slice(2));
@@ -75,6 +78,8 @@ const { eventName, action, issue } = await resolveIssue();
 const decision = decideDraft({ eventName, action, issue, layer: env.AUTOMATION_LAYER || 'default' });
 
 console.log(`Formal AI draft: ${decision.run ? 'attempting' : 'skipping'} — ${decision.reason}`);
+// Read back by the scheduled health check, which flags a decision that repeats.
+console.log(formatWorkflowAnnotation('notice', DRAFT_DECISION_ANNOTATION_TITLE, decision.code));
 setOutput(formatDecisionOutputs(decision));
 setOutput(`issue_number=${issue?.number ?? ''}\n`);
 
@@ -91,12 +96,56 @@ mkdirSync(hostLogDir, { recursive: true });
 // failure looks like the model's rather than the mount's.
 chmodSync(hostLogDir, 0o777);
 
+const fail = message => {
+  console.log(formatWorkflowAnnotation('error', DRAFT_FAILURE_ANNOTATION_TITLE, message));
+  process.exit(1);
+};
+
+// A caller testing a Formal AI build (`workflow_call` with
+// `formal_ai_binary_artifact`) runs it in place of the image's own binary.
+const extraMounts = [];
+const binary = (env.FORMAL_AI_DRAFT_BINARY || '').trim();
+if (binary) {
+  if (!existsSync(binary)) fail(`FORMAL_AI_DRAFT_BINARY is ${binary}, which does not exist; the downloaded artifact must contain a file named formal-ai`);
+  chmodSync(binary, 0o755);
+  extraMounts.push(`${binary}:${FORMAL_AI_BINARY_CONTAINER_PATH}:ro`);
+}
+
+// The image is the tag of the checked-out version, so the container runs the
+// same hive-mind as these scripts; `docker run` alone would pull once and fail
+// the draft on the first registry timeout.
+const imageOptions = { override: env.FORMAL_AI_DRAFT_IMAGE, version: JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version };
+const pullRunner = args =>
+  new Promise(resolve => {
+    const child = spawn('docker', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    let output = '';
+    const collect = stream => chunk => {
+      output += chunk;
+      stream.write(chunk);
+    };
+    child.stdout.on('data', collect(process.stdout));
+    child.stderr.on('data', collect(process.stderr));
+    child.on('error', error => resolve({ code: 1, output: `${output}\n${error.message}` }));
+    child.on('close', code => resolve({ code: code ?? 1, output }));
+  });
+
+let image = resolveDraftImages(imageOptions).image;
+if (!dryRun) {
+  try {
+    image = await pullDraftImage({ ...imageOptions, run: pullRunner, sleep, warn: message => console.log(formatWorkflowAnnotation('warning', 'Formal AI draft image', message)) });
+  } catch (error) {
+    fail(error.message);
+  }
+}
+
 const dockerArgv = buildDockerArgv({
   solveArgv: buildSolveArgv({ issueUrl: issueUrlFor(issue), logDir: containerLogDir }),
   forwardEnv: ['GH_TOKEN', 'FORMAL_AI_INSTALL_GRANT'],
-  image: env.FORMAL_AI_DRAFT_IMAGE || DEFAULT_HIVE_MIND_IMAGE,
+  setEnv: { ...buildGitIdentityEnv(), ...buildRunContextEnv(env) },
+  image,
   hostLogDir,
   containerLogDir,
+  extraMounts,
 });
 
 console.log(`\n$ docker ${dockerArgv.join(' ')}\n`);
@@ -107,6 +156,22 @@ const status = await new Promise((resolve, reject) => {
   child.on('error', reject);
   child.on('close', code => resolve(code ?? 1));
 });
+
+/** The first error of the newest session log, so the run's summary says why it is red. */
+const reportFirstError = () => {
+  let text = '';
+  try {
+    const logs = readdirSync(hostLogDir)
+      .filter(name => name.endsWith('.log'))
+      .map(name => join(hostLogDir, name))
+      .sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs);
+    if (logs.length) text = readFileSync(logs[0], 'utf8');
+  } catch {
+    // No log is itself the finding; the fallback message says so.
+  }
+  console.log(formatWorkflowAnnotation('error', DRAFT_FAILURE_ANNOTATION_TITLE, firstErrorLine(text) || `docker run exited ${status} without a session log error`));
+};
+if (status !== 0) reportFirstError();
 
 // --- The failure policy ---------------------------------------------------
 //

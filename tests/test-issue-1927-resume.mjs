@@ -19,7 +19,7 @@
 import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
-import { createSessionStore } from '../src/session-store.lib.mjs';
+import { createSessionStore as createStore } from '../src/session-store.lib.mjs';
 import { trackSession, monitorSessions, resumeTrackedSessions, setSessionStore, setSessionLogger, getActiveSessionCount, getTrackedSessionInfo, resetSessionMonitorForTests } from '../src/session-monitor.lib.mjs';
 import { assert, printSummary, getFailCount } from './test-helpers.mjs';
 
@@ -42,6 +42,19 @@ function makeBot() {
       sendMessage: async () => ({ message_id: 1 }),
     },
   };
+}
+
+// Event appends are asynchronous; every store a test opened is flushed before
+// its directory is removed.
+const openStores = [];
+function createSessionStore(options) {
+  const store = createStore(options);
+  openStores.push(store);
+  return store;
+}
+async function removeStoreDir(dir) {
+  await Promise.all(openStores.splice(0).map(store => store.flush()));
+  fs.rmSync(dir, { recursive: true, force: true });
 }
 
 // =============================================================================
@@ -81,7 +94,7 @@ function makeBot() {
     );
   } finally {
     resetSessionMonitorForTests();
-    fs.rmSync(dir, { recursive: true, force: true });
+    await removeStoreDir(dir);
   }
 }
 
@@ -106,7 +119,7 @@ function makeBot() {
     assert(getTrackedSessionInfo('uuid-after') === null, 'the after-bot-start session is NOT registered');
   } finally {
     resetSessionMonitorForTests();
-    fs.rmSync(dir, { recursive: true, force: true });
+    await removeStoreDir(dir);
   }
 }
 
@@ -127,7 +140,7 @@ function makeBot() {
     assert(getActiveSessionCount() === 1, 'no duplicate registration occurs');
   } finally {
     resetSessionMonitorForTests();
-    fs.rmSync(dir, { recursive: true, force: true });
+    await removeStoreDir(dir);
   }
 }
 
@@ -161,7 +174,7 @@ function makeBot() {
     assert(getActiveSessionCount() === 0, 'no sessions are re-registered after completion');
   } finally {
     resetSessionMonitorForTests();
-    fs.rmSync(dir, { recursive: true, force: true });
+    await removeStoreDir(dir);
   }
 }
 

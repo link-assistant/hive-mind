@@ -90,7 +90,9 @@ export const resolveFormalAiToolExecution = async ({ tool, model, toolPath, work
     displayCommand: shellQuote(toolPath),
     formalAi: true,
     baseUrl: runtime.baseUrl,
-    env: runtime.env,
+    // A copy: callers pin CODEX_HOME and add capability variables per
+    // iteration, and those edits must not leak into the cached runtime.
+    env: { ...runtime.env },
     home: runtime.home,
     client: runtime.client,
     // Issue #2208: provenance names the backend that answered, and the local

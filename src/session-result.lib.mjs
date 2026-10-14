@@ -18,6 +18,7 @@
  */
 
 import { REPEATED_TOOL_CALL_REASON, takeRepeatedToolCallVerdict } from './tool-call-loop-guard.lib.mjs';
+import { describeObservedToolCallLoop, takeObservedToolCallLoop } from './repeated-tool-call-breaker.lib.mjs';
 import { postTrackedComment } from './tool-comments.lib.mjs';
 import { logProcessesSurvivingSession } from './session-survivors.lib.mjs';
 import { recordAiSessionFinished } from './log-attach-state.lib.mjs';
@@ -44,6 +45,12 @@ export const classifySessionResult = async ({ toolResult, argv, owner, repo, prN
   recordAiSessionFinished(toolResult);
   await logProcessesSurvivingSession({ tempDir, argv, log });
   let result = toolResult;
+  // Issue #3211: name a loop even with the breaker off (#2395); the session is not stopped for it.
+  const observedLoop = takeObservedToolCallLoop();
+  if (observedLoop) {
+    await log(`🔁 Session ${describeObservedToolCallLoop(observedLoop)} (observed only; the session was not stopped)`, { level: 'warning' });
+    if (result && typeof result === 'object') result = { ...result, observedToolCallLoop: observedLoop };
+  }
   const verdict = takeRepeatedToolCallVerdict();
   if (!verdict || !result) return result;
 

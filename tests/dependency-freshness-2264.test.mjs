@@ -14,7 +14,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { AGENTIC_CLI_TARGETS, parseBunGlobalPackageVersion, updateAgenticClisWhenIdle } from '../src/agentic-cli-updater.lib.mjs';
-import { assessVersionPin, checkDependencyRecords, collectDependencyRecords, parseGitHubActionPins, parseNpmPackagePins, resolveDockerHubLatest, resolveGitHubLatest } from '../scripts/dependency-freshness.lib.mjs';
+import { assessVersionPin, checkDependencyRecords, collectDependencyRecords, parseGitHubActionPins, parseNpmPackagePins, parseUseMLiteralPins, resolveDockerHubLatest, resolveGitHubLatest } from '../scripts/dependency-freshness.lib.mjs';
 
 const repositoryRoot = path.resolve(import.meta.dirname, '..');
 
@@ -79,6 +79,16 @@ assert.deepEqual(
   ]
 );
 
+// A version literal handed to use-m outside USE_M_PACKAGE_VERSIONS is still a
+// pin: claude-runtime.mjs loaded yargs@17.7.2 while src/ was on 18.x.
+assert.deepEqual(
+  parseUseMLiteralPins("const y = await use('yargs@17.7.2');\nconst { hideBin } = await use(\"yargs@17.7.2/helpers\");\nconst z = await use('zx');\n", 'claude-runtime.mjs').map(record => [record.name, record.current, record.location]),
+  [
+    ['yargs', '17.7.2', 'claude-runtime.mjs:1'],
+    ['yargs', '17.7.2', 'claude-runtime.mjs:2'],
+  ]
+);
+
 {
   const result = await checkDependencyRecords(
     [
@@ -112,6 +122,11 @@ assert.equal(
   repositoryRecords.some(record => record.kind === 'npm' && record.name === 'command-stream'),
   true,
   'runtime use-m pins are checked'
+);
+assert.equal(
+  repositoryRecords.some(record => record.location.startsWith('experiments/') || record.location.startsWith('tests/')),
+  false,
+  'experiments and tests pin historical versions on purpose and are not scanned'
 );
 assert.equal(
   repositoryRecords.some(record => record.kind === 'github' && record.name === 'actions/checkout'),

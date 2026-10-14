@@ -2,9 +2,10 @@
  * Inventory and verify dependency versions declared outside the lockfile.
  *
  * `npm outdated` sees package.json, but Hive Mind also pins dependencies in
- * Dockerfiles, use-m's runtime package map, GitHub Actions, base images and
- * setup-action inputs. Issue #2264 requires one fail-closed check over all of
- * those surfaces for pull requests; issue #2625 keeps it advisory elsewhere.
+ * Dockerfiles, use-m's runtime package map and literal use-m specifiers,
+ * GitHub Actions, base images and setup-action inputs. Issue #2264 requires
+ * one fail-closed check over all of those surfaces for pull requests; issue
+ * #2625 keeps it advisory elsewhere.
  */
 
 import fs from 'node:fs/promises';
@@ -79,6 +80,39 @@ export const parseNpmPackagePins = (source, file) => {
     records.push({ exception: pinException(source, match.index), kind: 'npm', name: match[1], current: match[2], policy: 'exact', location: `${file}:${lineNumberAt(source, match.index)}` });
   }
   return records;
+};
+
+/**
+ * Parse version literals passed to use-m, such as a `use()` call whose
+ * specifier is `yargs@17.7.2`. Runtime code should import through
+ * USE_M_PACKAGE_VERSIONS; a literal left in a maintained script is still
+ * checked, so it cannot silently fall behind.
+ */
+export const parseUseMLiteralPins = (source, file) => {
+  const records = [];
+  for (const match of source.matchAll(/\buse\(\s*['"`]((?:@[a-z0-9._-]+\/)?[a-z0-9._-]+)@(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)(?:\/[^'"`]*)?['"`]\s*\)/g)) {
+    records.push({ exception: pinException(source, match.index), kind: 'npm', name: match[1], current: match[2], policy: 'exact', location: `${file}:${lineNumberAt(source, match.index)}` });
+  }
+  return records;
+};
+
+const MAINTAINED_SCRIPT = /\.(?:c|m)?js$/;
+
+/** Shipped and maintained code: root scripts, src/ and scripts/. Tests and experiments pin on purpose. */
+const discoverMaintainedScripts = async root => {
+  const files = [];
+  const walk = async relative => {
+    for (const entry of await fs.readdir(path.join(root, relative), { withFileTypes: true })) {
+      const target = path.join(relative, entry.name);
+      if (entry.isDirectory()) await walk(target);
+      else if (MAINTAINED_SCRIPT.test(entry.name)) files.push(target);
+    }
+  };
+  for (const entry of await fs.readdir(root, { withFileTypes: true })) {
+    if (entry.isFile() && MAINTAINED_SCRIPT.test(entry.name)) files.push(entry.name);
+    else if (entry.isDirectory() && ['src', 'scripts'].includes(entry.name)) await walk(entry.name);
+  }
+  return files;
 };
 
 const walkYamlFiles = async directory => {
@@ -174,6 +208,10 @@ export const collectDependencyRecords = async ({ root = process.cwd() } = {}) =>
   const bootstrapSource = await fs.readFile(path.join(root, 'src', 'use-m-bootstrap.lib.mjs'), 'utf8');
   for (const match of bootstrapSource.matchAll(/(?:unpkg\.com|cdn\.jsdelivr\.net\/npm)\/use-m@(\d+\.\d+\.\d+)\/use\.js/g)) {
     records.push({ kind: 'npm', name: 'use-m', current: match[1], policy: 'exact', location: `src/use-m-bootstrap.lib.mjs:${lineNumberAt(bootstrapSource, match.index)}` });
+  }
+
+  for (const relative of await discoverMaintainedScripts(root)) {
+    records.push(...parseUseMLiteralPins(await fs.readFile(path.join(root, relative), 'utf8'), relative));
   }
 
   for (const relative of await discoverDockerfiles(root)) {

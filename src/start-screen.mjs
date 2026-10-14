@@ -13,6 +13,7 @@ const execAsync = promisify(exec);
 // Import the shared parseGitHubUrl function from github.lib.mjs
 // This ensures consistent URL validation across all commands (hive, solve, start-screen)
 const { parseGitHubUrl } = await import('./github.lib.mjs');
+const { getScreenExitMarkerPath, buildScreenExitMarkerSuffix, prepareScreenExitMarker, SCREEN_EXIT_MARKER_OUTPUT_LABEL } = await import('./start-screen-exit-marker.lib.mjs');
 
 const START_SCREEN_USAGE = ['Usage: start-screen [--auto-terminate] <solve|hive> <github-url> [additional-args...]', '', 'Options:', '  --auto-terminate    Session terminates after command completes', '                      By default, session stays alive for review and reattachment', '', 'Examples:', '  start-screen solve https://github.com/user/repo/issues/123 --dry-run', '  start-screen --auto-terminate solve https://github.com/user/repo/issues/456', '  start-screen hive https://github.com/user/repo --flag value'];
 
@@ -240,7 +241,10 @@ async function createOrEnterScreen(sessionName, command, args, autoTerminate = f
       })
       .join(' ');
 
-    const fullCommand = `${command} ${quotedArgs}`;
+    // Issue #3215: record the exit status so the session monitor can report it.
+    const markerPath = getScreenExitMarkerPath(sessionName);
+    prepareScreenExitMarker(markerPath);
+    const fullCommand = `${command} ${quotedArgs}${buildScreenExitMarkerSuffix(markerPath)}`;
 
     // Escape the command for screen's stuff command
     // We need to escape special characters for the shell
@@ -251,6 +255,7 @@ async function createOrEnterScreen(sessionName, command, args, autoTerminate = f
       // The \n at the end simulates pressing Enter
       await execAsync(`screen -S ${sessionName} -X stuff '${escapedCommand}\n'`);
       console.log(`Command sent to session '${sessionName}' successfully.`);
+      console.log(`${SCREEN_EXIT_MARKER_OUTPUT_LABEL} ${markerPath}`);
       console.log(`To attach and view the session, run: screen -R ${sessionName}`);
     } catch (error) {
       console.error('Failed to send command to existing screen session:', error.message);
@@ -276,6 +281,7 @@ async function createOrEnterScreen(sessionName, command, args, autoTerminate = f
     .join(' ');
 
   let screenCommand;
+  let markerPath = null;
   if (autoTerminate) {
     // Old behavior: session terminates after command completes
     const fullCommand = `${command} ${quotedArgs}`;
@@ -283,9 +289,13 @@ async function createOrEnterScreen(sessionName, command, args, autoTerminate = f
   } else {
     // New behavior: wrap the command in a bash shell that will stay alive after the command finishes
     // This allows the user to reattach to the screen session after the command completes
+    // Issue #3215: the idle shell hides the end of the command from `screen -ls`,
+    // so record its exit status in a marker file the session monitor reads.
+    markerPath = getScreenExitMarkerPath(sessionName);
+    prepareScreenExitMarker(markerPath);
     const fullCommand = `${command} ${quotedArgs}`;
     const escapedCommand = fullCommand.replace(/'/g, "'\\''");
-    screenCommand = `screen -dmS ${sessionName} bash -c '${escapedCommand}; exec bash'`;
+    screenCommand = `screen -dmS ${sessionName} bash -c '${escapedCommand}${buildScreenExitMarkerSuffix(markerPath)}; exec bash'`;
   }
 
   try {
@@ -296,6 +306,7 @@ async function createOrEnterScreen(sessionName, command, args, autoTerminate = f
     } else {
       console.log('Session will remain active after command completes');
     }
+    if (markerPath) console.log(`${SCREEN_EXIT_MARKER_OUTPUT_LABEL} ${markerPath}`);
     console.log(`To attach to this session, run: screen -R ${sessionName}`);
   } catch (error) {
     console.error('Failed to create screen session:', error.message);

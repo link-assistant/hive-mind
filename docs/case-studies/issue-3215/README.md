@@ -71,6 +71,7 @@ The logs are in private gists, so this directory quotes only the lines needed, w
 These issues are outside this repository. They do not block the fixes here:
 
 - link-assistant/agent#332: failed tool calls were emitted as fatal top-level `error` events. **Fixed in 0.26.14**; this PR pins 0.26.15, the current release. Hive Mind also stops treating a tool error event as fatal on older agents (#3213).
+- link-foundation/box#133: box-dind's entrypoint does not clear the stale `docker.pid`/`containerd.pid` that a resumed container keeps in `/var/run`. Hive Mind's wrapper entrypoint removes them until it does (#3214).
 - link-assistant/formal-ai#1189: Formal AI reads the literal path `e.g` from issue prose.
 - link-assistant/formal-ai#1205, #1206, #1207: the Formal AI side of these runs (looping on `gh issue view`, asking the user to "Report issue").
 - link-assistant/formal-ai#1208, #1209, #1211: from CI. Derivation records are written into the user's repository, a `planned_not_executed` regression, and garbage files are written and claimed as verified.

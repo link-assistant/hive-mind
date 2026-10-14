@@ -13,6 +13,9 @@
 # name (/proc/<pid>/comm). The image runs this as root before box-dind's
 # entrypoint starts dockerd; see scripts/dind/hive-mind-dind-entrypoint.sh.
 #
+# Workaround until box-dind's own entrypoint clears them:
+# https://github.com/link-foundation/box/issues/133
+#
 # HIVE_MIND_DIND_STATE_ROOT prefixes /var/run and /proc for tests.
 
 state_root="${HIVE_MIND_DIND_STATE_ROOT:-}"

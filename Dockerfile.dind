@@ -419,7 +419,8 @@ RUN mkdir -p /home/box/.claude && \
 # pid files that do not name a running dockerd/containerd at every start, then
 # hands off to box-dind's entrypoint. box only has scoped sudo for dockerd
 # setup; the sudoers entry allows exactly this argument-less cleanup, and the
-# RUN step fails the build if that entry does not work.
+# RUN step fails the build if that entry does not work. This is a workaround
+# until box-dind clears the files itself: https://github.com/link-foundation/box/issues/133
 COPY --chmod=0755 scripts/dind/clear-stale-dind-pids.sh /usr/local/sbin/hive-mind-dind-clear-stale-pids
 COPY --chmod=0755 scripts/dind/hive-mind-dind-entrypoint.sh /usr/local/bin/hive-mind-dind-entrypoint.sh
 COPY --chmod=0440 scripts/dind/hive-mind-dind.sudoers /etc/sudoers.d/hive-mind-dind

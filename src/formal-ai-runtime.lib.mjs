@@ -746,7 +746,11 @@ export const prepareFormalAiRuntime = async ({ tool, workdir, log = async () => 
   try {
     if (!baseUrl) {
       await log(`🧠 Formal AI: starting a local server in ${workdir}`, { verbose: true });
-      server = await (deps.startServerImpl || startFormalAiServer)({ cwd: workdir, formalAiPath: resolvedFormalAiPath, env, logFile: join(home, 'serve.log') });
+      // The server's own cache lives in the task home, not in the clone. Its cwd stays the clone:
+      // tool-call paths are resolved against it. Derivations still land under the cwd
+      // (link-assistant/formal-ai#1208), which is why `data/cache/derivations/` is AI tool scratch.
+      const serverEnv = { ...env, FORMAL_AI_CACHE_DIR: env.FORMAL_AI_CACHE_DIR || join(home, 'cache') };
+      server = await (deps.startServerImpl || startFormalAiServer)({ cwd: workdir, formalAiPath: resolvedFormalAiPath, env: serverEnv, logFile: join(home, 'serve.log') });
       baseUrl = server.baseUrl;
       await log(`🧠 Formal AI: server ready on ${baseUrl} (pid ${server.pid})`, { verbose: true });
     } else {

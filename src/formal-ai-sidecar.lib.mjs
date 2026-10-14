@@ -292,7 +292,7 @@ export const waitForFormalAiSidecarHealth = async ({ containerName = FORMAL_AI_S
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     last = await checkFormalAiSidecarHealth({ containerName, run });
     if (last.healthy) {
-      if (verbose && log) await log(`[VERBOSE] formal-ai-sidecar: '${containerName}' healthy after ${attempt} probe(s) (version=${last.health?.version ?? 'unknown'}, memory schema=${last.health?.memory?.schema_version ?? 'unknown'})`);
+      if (verbose && log) await log(`[VERBOSE] formal-ai-sidecar: '${containerName}' healthy after ${attempt} probe(s) (version=${last.health?.version ?? 'unknown'}, memory schema=${last.health?.memory?.schema_version ?? 'not reported'})`);
       return last;
     }
     if (attempt < attempts) await sleepImpl(delayMs);
@@ -441,7 +441,7 @@ export const acquireFormalAiSidecar = async ({ sessionId, tool = null, model = n
       };
       writeFormalAiSidecarState({ ...state, image: container.image || image, imageReference, imageDigest: container.imageDigest, startedAt: state.startedAt || acquiredAt, leases: nextLeases, serving, lastUsedAt: acquiredAt }, { env, fsImpl });
 
-      if (verbose && log) await log(`[VERBOSE] formal-ai-sidecar: lease '${sessionId}' acquired (${nextLeases.length} active), image=${imageReference} (${resolved.source}), digest=${container.imageDigest ?? 'unknown'}, address=${address ?? 'unknown'}, formal-ai=${reportedVersion ?? 'unknown'}, memory schema=${serving.memorySchemaVersion ?? 'unknown'}`);
+      if (verbose && log) await log(`[VERBOSE] formal-ai-sidecar: lease '${sessionId}' acquired (${nextLeases.length} active), image=${imageReference} (${resolved.source}), digest=${container.imageDigest ?? 'unknown'}, address=${address ?? 'unknown'}, formal-ai=${reportedVersion ?? 'unknown'}, memory schema=${serving.memorySchemaVersion ?? 'not reported'}`);
 
       return {
         address,

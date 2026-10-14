@@ -182,7 +182,7 @@ export const resolveFormalAiFallbackImage = (env = process.env) => String(env.HI
  * check have all succeeded, and it is left untouched by a rollback.
  *
  * @param {object|null} state - A `formal-ai-sidecar.json` record.
- * @returns {{image: string|null, digest: string|null, repoDigest: string|null, version: string|null, memorySchemaVersion: (number|string|null), updatedAt: string|null}|null}
+ * @returns {{image: string|null, digest: string|null, repoDigest: string|null, version: string|null, migrationId: string|null, memorySchemaVersion: (number|string|null), updatedAt: string|null}|null}
  */
 export const readAcceptedFormalAiImage = state => {
   const update = state?.lastUpdate;
@@ -191,7 +191,25 @@ export const readAcceptedFormalAiImage = state => {
   const digest = String(update.digest || '').trim() || null;
   if (!image && !digest) return null;
   const repoDigest = String(update.repoDigest || '').trim() || null;
-  return { image, digest, repoDigest, version: update.version ?? null, memorySchemaVersion: update.memorySchemaVersion ?? null, updatedAt: update.updatedAt ?? null };
+  return { image, digest, repoDigest, version: update.version ?? null, migrationId: update.migrationId ?? null, memorySchemaVersion: update.memorySchemaVersion ?? null, updatedAt: update.updatedAt ?? null };
+};
+
+/**
+ * Whether an accepted update left the persisted memory in a form only it (or a
+ * newer release) is known to read: it ran a migration, or its `/health`
+ * reported the memory schema it serves.
+ *
+ * An update that did neither changed nothing an older release could misread,
+ * so the bootstrap release may still serve that memory (issue #3208).
+ *
+ * @param {object|null} accepted - Output of {@link readAcceptedFormalAiImage}.
+ * @returns {boolean}
+ */
+export const isAcceptedFormalAiUpdateMigrated = accepted => {
+  if (!accepted) return false;
+  if (accepted.migrationId) return true;
+  const schema = accepted.memorySchemaVersion;
+  return schema !== null && schema !== undefined && String(schema).trim() !== '';
 };
 
 /**
@@ -219,6 +237,7 @@ export const readAcceptedFormalAiImage = state => {
  */
 export const resolveAcceptedFormalAiImageCandidates = (accepted = null) => {
   if (!accepted) return [];
+  const migrated = isAcceptedFormalAiUpdateMigrated(accepted);
   const candidates = [];
   if (accepted.digest) candidates.push({ image: accepted.digest, reference: accepted.image || accepted.digest, source: FORMAL_AI_IMAGE_SOURCES.ACCEPTED, pullable: false, accepted: true });
   if (accepted.digest) {
@@ -230,7 +249,7 @@ export const resolveAcceptedFormalAiImageCandidates = (accepted = null) => {
   // An acceptance recorded before digests were captured: the reference is all
   // there is, so it may be used but never re-pulled behind a moving tag.
   if (accepted.image && !accepted.digest) candidates.push({ image: accepted.image, reference: accepted.image, source: FORMAL_AI_IMAGE_SOURCES.ACCEPTED, pullable: false, accepted: true });
-  return candidates;
+  return candidates.map(candidate => ({ ...candidate, migrated }));
 };
 
 /**
@@ -240,10 +259,13 @@ export const resolveAcceptedFormalAiImageCandidates = (accepted = null) => {
  *
  *  1. `HIVE_MIND_FORMAL_AI_IMAGE` — an operator who names an image means that
  *     image; the pin is exact and exclusive.
- *  2. The last accepted, verified update (issue #2207). Also exclusive: once an
- *     image has been verified against the migrated persisted memory, quietly
- *     booting the older bootstrap release against that memory is exactly the
- *     silent downgrade the fail-closed rule forbids.
+ *  2. The last accepted, verified update (issue #2207). Exclusive when that
+ *     update migrated the persisted memory: quietly booting the older
+ *     bootstrap release against migrated memory is exactly the silent
+ *     downgrade the fail-closed rule forbids. An update that migrated nothing
+ *     is only preferred (issue #3208): the cold-start candidates follow it, so
+ *     a host whose accepted image was unloaded can still serve a task from an
+ *     image it already has instead of downloading the update again.
  *  3. The bootstrap release — its slim tag, then the full one — and the local
  *     Hive Mind image: the cold-start path for a host that has never completed
  *     an update. {@link ensureFormalAiSidecarImage} uses whichever of them is
@@ -260,7 +282,7 @@ export const resolveFormalAiSidecarImageCandidates = (env = process.env, { accep
   const pinned = String(env.HIVE_MIND_FORMAL_AI_IMAGE || '').trim();
   if (pinned) return [{ image: pinned, source: FORMAL_AI_IMAGE_SOURCES.PINNED, pullable: true }];
   const acceptedCandidates = resolveAcceptedFormalAiImageCandidates(accepted);
-  if (acceptedCandidates.length > 0) return acceptedCandidates;
+  if (acceptedCandidates.length > 0 && isAcceptedFormalAiUpdateMigrated(accepted)) return acceptedCandidates;
   const published = `${FORMAL_AI_IMAGE_REPOSITORY}:${FORMAL_AI_BOOTSTRAP_VERSION}`;
   const candidates = [
     // The slim image is a fraction of the full one's size, so it is the one
@@ -273,7 +295,7 @@ export const resolveFormalAiSidecarImageCandidates = (env = process.env, { accep
   // deployment that has to pull it would be pulling the *bigger* image. Its tag
   // says nothing about the `formal-ai` inside, so that is asked of the image.
   if (fallback && !candidates.some(candidate => candidate.image === fallback)) candidates.push({ image: fallback, source: FORMAL_AI_IMAGE_SOURCES.HIVE_MIND, pullable: false, requiredVersion: FORMAL_AI_BOOTSTRAP_VERSION });
-  return candidates;
+  return [...acceptedCandidates, ...candidates.filter(candidate => !acceptedCandidates.some(entry => entry.image === candidate.image))];
 };
 
 /** The preferred image, kept for callers and logs that only need the headline reference. */
@@ -293,7 +315,7 @@ const inspectLocalImage = async (image, { run, timeoutMs }) => {
  * bot log knows the cause and the fix without opening a shell.
  */
 const describeFailure = attempts => {
-  const accepted = attempts.some(attempt => attempt.source === FORMAL_AI_IMAGE_SOURCES.ACCEPTED);
+  const accepted = attempts.some(attempt => attempt.source === FORMAL_AI_IMAGE_SOURCES.ACCEPTED && attempt.migrated !== false);
   const lines = [accepted ? 'The Formal AI image accepted by the last verified update could not be resolved, so the sidecar was not started.' : 'No Formal AI image could be resolved, so the sidecar was not started.'];
   for (const attempt of attempts) {
     if (attempt.source === FORMAL_AI_IMAGE_SOURCES.HIVE_MIND && attempt.kind === 'absent') {
@@ -385,7 +407,15 @@ export const ensureFormalAiSidecarImage = async ({ env = process.env, run = exec
   const record = (candidate, attempt) => recorded.push({ order: candidates.indexOf(candidate), attempt: { ...candidate, ...attempt } });
   const attempts = () => recorded.sort((a, b) => a.order - b.order).map(entry => entry.attempt);
   const reference = candidate => candidate.reference || candidate.image;
-  const resolved = (candidate, digest, pulled) => ({ image: candidate.image, reference: reference(candidate), source: candidate.source, digest, pulled, attempts: attempts() });
+  const acceptedReference = candidates.find(candidate => candidate.source === FORMAL_AI_IMAGE_SOURCES.ACCEPTED);
+  const resolved = async (candidate, digest, pulled) => {
+    // Only reachable when the accepted update migrated nothing; a migrated one
+    // is the sole candidate (issue #3208).
+    if (log && acceptedReference && candidate.source !== FORMAL_AI_IMAGE_SOURCES.ACCEPTED) {
+      await log(`⚠️ The accepted Formal AI update ${reference(acceptedReference)} is not available on this host; using ${candidate.image} (${candidate.source}) instead. That update did not migrate the persisted memory, so this release can still serve it.`);
+    }
+    return { image: candidate.image, reference: reference(candidate), source: candidate.source, digest, pulled, attempts: attempts() };
+  };
   // A candidate that names an expected digest is a *recovery* path for an
   // accepted update whose image ID was pruned: the reference may be re-fetched,
   // but only the recorded content address is allowed to run (issue #2207).
@@ -460,6 +490,7 @@ export default {
   describeInterruptedPullLeftovers,
   ensureFormalAiSidecarImage,
   formatDockerTimeout,
+  isAcceptedFormalAiUpdateMigrated,
   isDockerCommandInterrupted,
   probeLocalFormalAiVersion,
   readAcceptedFormalAiImage,

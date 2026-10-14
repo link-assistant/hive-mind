@@ -32,6 +32,12 @@
  *     (`HIVE_MIND_FORMAL_AI_UNLOAD_AFTER`, default 5h) **and** the image is
  *     still on the host — or the operator opted into the old eager behaviour
  *     with `HIVE_MIND_FORMAL_AI_PREFETCH=true`;
+ *   - the image is a Formal AI image the updater can refresh: a host whose
+ *     Formal AI is served by the Hive Mind image holds no such image, so it
+ *     downloads nothing until a task pulls one (issue #3208);
+ *   - a task has used Formal AI since the last accepted update, so an idle
+ *     host does not keep pulling and accepting releases nobody runs
+ *     (issue #3208);
  *   - the last check is older than `HIVE_MIND_FORMAL_AI_UPDATE_CHECK_INTERVAL`
  *     (default 1h);
  *   - the registry's manifest digest differs from the local one. The registry
@@ -51,8 +57,8 @@ import { execFile } from 'node:child_process';
 import fs from 'node:fs';
 import { promisify } from 'node:util';
 
-import { classifyDockerRegistryError, describeInterruptedPullLeftovers, readAcceptedFormalAiImage } from './formal-ai-image.lib.mjs';
-import { formatDockerSize, readFormalAiRepoDigest, readLocalImageRepoDigests, removeFormalAiImages, resolveRemoteImageDigests } from './formal-ai-image-store.lib.mjs';
+import { classifyDockerRegistryError, describeInterruptedPullLeftovers, readAcceptedFormalAiImage, resolveFormalAiFallbackImage } from './formal-ai-image.lib.mjs';
+import { describeBytesFreed, readFormalAiRepoDigest, readLocalImageRepoDigests, removeFormalAiImages, resolveRemoteImageDigests } from './formal-ai-image-store.lib.mjs';
 import { FORMAL_AI_IMAGE_REPOSITORY, FORMAL_AI_MEMORY_MOUNT, FORMAL_AI_MEMORY_PATH, FORMAL_AI_MEMORY_VOLUME_NAME, FORMAL_AI_SIDECAR_CONTAINER_NAME, buildFormalAiSidecarRunArgs, ensureFormalAiMemoryVolume, ensureFormalAiNetwork, inspectDockerContainer, readDockerImageDigest, readFormalAiSidecarState, reconcileFormalAiSidecar, stopFormalAiSidecar, waitForFormalAiSidecarHealth, withFormalAiSidecarLock, writeFormalAiSidecarState } from './formal-ai-sidecar.lib.mjs';
 import { describeFormalAiUsage, formatFormalAiDuration, isFormalAiPrefetchEnabled, resolveFormalAiUpdateCheckIntervalMs } from './formal-ai-usage.lib.mjs';
 
@@ -208,9 +214,9 @@ const verifyImageServesMemory = async ({ image, env, fsImpl, run, timeoutMs, log
 const removeSupersededFormalAiImages = async ({ env, run, timeoutMs, keepDigest, previousDigest, log, verbose }) => {
   try {
     const result = await removeFormalAiImages({ env, run, timeoutMs, log, verbose, select: candidate => candidate.id !== keepDigest && (candidate.id === previousDigest || candidate.repoTags.length === 0) });
-    if (log && result.removed.length > 0) await log(`🧹 Removed ${result.removed.length} superseded Formal AI image(s), freeing ${formatDockerSize(result.bytesFreed)}`);
+    if (log && result.removed.length > 0) await log(`🧹 Removed ${result.removed.length} superseded Formal AI image(s), freeing ${describeBytesFreed(result.bytesFreed, result.bytesFreedSource)}`);
     if (log && result.failed.length > 0) await log(`⚠️ Could not remove superseded Formal AI image(s): ${result.failed.map(image => `${image.id}: ${image.error}`).join('; ')}`);
-    return { removed: result.removed.map(image => image.id), failed: result.failed.map(image => image.id), bytesFreed: result.bytesFreed };
+    return { removed: result.removed.map(image => image.id), failed: result.failed.map(image => image.id), bytesFreed: result.bytesFreed, bytesFreedSource: result.bytesFreedSource };
   } catch (error) {
     if (log) await log(`⚠️ Could not clean up superseded Formal AI images: ${error?.message || String(error)}`);
     return { removed: [], failed: [], bytesFreed: 0, error: error?.message || String(error) };
@@ -256,13 +262,24 @@ export const updateFormalAiSidecarWhenIdle = async ({ env = process.env, fsImpl 
         return { status: 'throttled', lastCheckAt: checkState.lastUpdateCheckAt, intervalMs };
       }
 
-      const previousDigest = await readDockerImageDigest(image, { run, timeoutMs });
       const accepted = readAcceptedFormalAiImage(checkState);
+      const acceptedMs = Date.parse(accepted?.updatedAt ?? '');
+      if (!prefetch && Number.isFinite(acceptedMs) && usage.lastUsedMs !== null && usage.lastUsedMs <= acceptedMs) {
+        if (verbose && log) await log(`[VERBOSE] formal-ai-updater: no Formal AI task has run since the update accepted ${formatFormalAiDuration(now().getTime() - acceptedMs)} ago; not checking for updates`);
+        return { status: 'unused', lastUsedAt: new Date(usage.lastUsedMs).toISOString() };
+      }
+
+      const previousDigest = await readDockerImageDigest(image, { run, timeoutMs });
       const acceptedDigest = accepted?.digest ? await readDockerImageDigest(accepted.digest, { run, timeoutMs }) : null;
+      // The Hive Mind image bakes Formal AI but is not what the updater
+      // replaces, so serving from it does not make this a host to pull for.
+      const fallbackImage = resolveFormalAiFallbackImage(env);
+      const fallbackDigest = fallbackImage ? await readDockerImageDigest(fallbackImage, { run, timeoutMs }) : null;
       const servingDigest = checkState.imageDigest ? await readDockerImageDigest(checkState.imageDigest, { run, timeoutMs }) : null;
-      if (!prefetch && !previousDigest && !acceptedDigest && !servingDigest) {
-        if (verbose && log) await log(`[VERBOSE] formal-ai-updater: no Formal AI image on this host; the next Formal AI task will pull one`);
-        return { status: 'not-present', image };
+      const servedByFallback = Boolean(servingDigest && servingDigest === fallbackDigest);
+      if (!prefetch && !previousDigest && !acceptedDigest && (!servingDigest || servedByFallback)) {
+        if (verbose && log) await log(servedByFallback ? `[VERBOSE] formal-ai-updater: Formal AI is served by the Hive Mind image ${fallbackImage}; not downloading ${image}` : `[VERBOSE] formal-ai-updater: no Formal AI image on this host; the next Formal AI task will pull one`);
+        return { status: 'not-present', image, ...(servedByFallback ? { servedBy: fallbackImage } : {}) };
       }
 
       // Every outcome below counts as a check, so neither a failing registry

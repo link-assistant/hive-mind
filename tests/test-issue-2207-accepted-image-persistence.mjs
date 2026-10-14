@@ -69,7 +69,9 @@ const fast = { healthAttempts: 1, healthDelayMs: 0, sleepImpl: async () => {} };
 assert.equal(readAcceptedFormalAiImage({}), null, 'a state without an accepted update has no accepted image');
 assert.equal(readAcceptedFormalAiImage({ lastUpdate: { image: '', digest: '' } }), null);
 
-const acceptedCandidates = resolveFormalAiSidecarImageCandidates({}, { accepted: { image: UPDATE_IMAGE, digest: ACCEPTED_DIGEST } });
+// The update reported the memory schema it serves, i.e. it owns that memory.
+// An update that migrated nothing is only preferred (issue #3208).
+const acceptedCandidates = resolveFormalAiSidecarImageCandidates({}, { accepted: { image: UPDATE_IMAGE, digest: ACCEPTED_DIGEST, memorySchemaVersion: 2 } });
 assert.equal(acceptedCandidates[0].image, ACCEPTED_DIGEST, 'the immutable digest is tried first, so a moved tag cannot divert the boot');
 assert.equal(acceptedCandidates[0].source, FORMAL_AI_IMAGE_SOURCES.ACCEPTED);
 assert.equal(acceptedCandidates[1].expectDigest, ACCEPTED_DIGEST, 'the tag is only a way to fetch the accepted digest, and is verified against it');

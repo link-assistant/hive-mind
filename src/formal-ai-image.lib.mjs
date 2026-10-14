@@ -54,7 +54,7 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
-import { FORMAL_AI_BOOTSTRAP_VERSION } from './formal-ai-version.lib.mjs';
+import { FORMAL_AI_BOOTSTRAP_VERSION, isFormalAiVersionAtLeast, parseFormalAiVersion } from './formal-ai-version.lib.mjs';
 import { getDockerIsolationImage } from './hive-mind-image.lib.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -72,7 +72,35 @@ export const FORMAL_AI_IMAGE_SOURCES = Object.freeze({
   HIVE_MIND: 'hive-mind-image',
 });
 
+/**
+ * Tag suffix of the published slim image: the `formal-ai` binary on a plain
+ * base, without the Docker-in-Docker toolchain the full image carries. Its
+ * entrypoint is `formal-ai` itself.
+ */
+export const FORMAL_AI_SLIM_TAG_SUFFIX = '-slim';
+
+// Budget for asking a local image which `formal-ai` it bakes. The answer comes
+// from a binary already on disk, so anything slower than this is a broken image.
+const VERSION_PROBE_TIMEOUT_MS = 60_000;
+
 const errorText = error => error?.stderr?.toString?.().trim() || error?.stdout?.toString?.().trim() || error?.message || String(error);
+
+/**
+ * Whether a failed command was cut short rather than refused.
+ *
+ * `execFile` kills the child when its `timeout` elapses and rejects with
+ * `killed: true` and the signal, but with empty stderr — so the registry
+ * patterns below never match and the failure used to be reported as
+ * "unknown" (issue #3207).
+ */
+export const isDockerCommandInterrupted = error => Boolean(error && (error.killed === true || error.signal || error.code === 'ETIMEDOUT' || /\bETIMEDOUT\b/.test(String(error.message || ''))));
+
+/** `600000` → `10 min`, `90000` → `90 s`. */
+export const formatDockerTimeout = timeoutMs => {
+  const ms = Number(timeoutMs);
+  if (!Number.isFinite(ms) || ms <= 0) return 'the allotted time';
+  return ms >= 60_000 && ms % 60_000 === 0 ? `${ms / 60_000} min` : `${Math.round(ms / 1000)} s`;
+};
 
 /**
  * Classify a `docker pull` failure into the operator action that fixes it.
@@ -83,9 +111,19 @@ const errorText = error => error?.stderr?.toString?.().trim() || error?.stdout?.
  * presented token may not see.
  *
  * @param {string} message - Raw stderr from the failed pull.
+ * @param {object} [options]
+ * @param {Error|null} [options.error] - The rejected `execFile` error, which tells a killed pull from a refused one.
+ * @param {number} [options.timeoutMs] - The budget the pull was given, for the report.
  * @returns {{kind: string, reason: string, remediation: string[]}}
  */
-export const classifyDockerRegistryError = message => {
+export const classifyDockerRegistryError = (message, { error = null, timeoutMs = null } = {}) => {
+  if (isDockerCommandInterrupted(error)) {
+    return {
+      kind: 'timeout',
+      reason: `the pull did not finish in ${formatDockerTimeout(timeoutMs)}`,
+      remediation: ["check the host's bandwidth to the registry, then retry", 'pre-pull the image on the host (`docker pull <image>`) so the next task finds it locally'],
+    };
+  }
   const text = String(message || '');
   if (/unauthorized|authentication required|requires authentication/i.test(text)) {
     return {
@@ -112,6 +150,18 @@ export const classifyDockerRegistryError = message => {
   }
   return { kind: 'unknown', reason: 'the pull failed', remediation: ['inspect the daemon error above'] };
 };
+
+/**
+ * What an interrupted pull may leave behind.
+ *
+ * With the containerd image store, the daemon holds the layers a pull has
+ * already fetched under a containerd lease. When the pull is cancelled, that
+ * content can stay pinned — invisible to `docker image ls` and untouched by
+ * `docker image prune` — until the lease expires. Hive Mind does not delete
+ * leases itself: it cannot tell the cancelled pull's lease from one an
+ * unrelated pull on the same daemon still depends on.
+ */
+export const describeInterruptedPullLeftovers = image => `⚠️ The interrupted pull of ${image} may leave already-downloaded layers held by a containerd lease until the lease expires; that disk space is not reclaimed by \`docker image prune\` before then (inspect with \`ctr -n moby leases ls\`).`;
 
 /**
  * Resolve the local Hive Mind image, which bakes `formal-ai` at the same pinned
@@ -194,8 +244,12 @@ export const resolveAcceptedFormalAiImageCandidates = (accepted = null) => {
  *     image has been verified against the migrated persisted memory, quietly
  *     booting the older bootstrap release against that memory is exactly the
  *     silent downgrade the fail-closed rule forbids.
- *  3. The bootstrap release, then the local Hive Mind image — the cold-start
- *     path for a host that has never completed an update.
+ *  3. The bootstrap release — its slim tag, then the full one — and the local
+ *     Hive Mind image: the cold-start path for a host that has never completed
+ *     an update. {@link ensureFormalAiSidecarImage} uses whichever of them is
+ *     already on the host and provides the bootstrap release before it pulls
+ *     anything (issue #3207); the Hive Mind image bakes that release, so on a
+ *     host that runs Docker-isolated tasks no pull is needed at all.
  *
  * @param {object} [env]
  * @param {object} [options]
@@ -207,11 +261,18 @@ export const resolveFormalAiSidecarImageCandidates = (env = process.env, { accep
   if (pinned) return [{ image: pinned, source: FORMAL_AI_IMAGE_SOURCES.PINNED, pullable: true }];
   const acceptedCandidates = resolveAcceptedFormalAiImageCandidates(accepted);
   if (acceptedCandidates.length > 0) return acceptedCandidates;
-  const candidates = [{ image: `${FORMAL_AI_IMAGE_REPOSITORY}:${FORMAL_AI_BOOTSTRAP_VERSION}`, source: FORMAL_AI_IMAGE_SOURCES.PUBLISHED, pullable: true }];
+  const published = `${FORMAL_AI_IMAGE_REPOSITORY}:${FORMAL_AI_BOOTSTRAP_VERSION}`;
+  const candidates = [
+    // The slim image is a fraction of the full one's size, so it is the one
+    // worth downloading; the full tag covers releases published without it.
+    { image: `${published}${FORMAL_AI_SLIM_TAG_SUFFIX}`, source: FORMAL_AI_IMAGE_SOURCES.PUBLISHED, pullable: true },
+    { image: published, source: FORMAL_AI_IMAGE_SOURCES.PUBLISHED, pullable: true },
+  ];
   const fallback = resolveFormalAiFallbackImage(env);
   // Never pulled: the fallback's value is that it is already on the host. A
-  // deployment that has to pull it would be pulling the *bigger* image.
-  if (fallback && fallback !== candidates[0].image) candidates.push({ image: fallback, source: FORMAL_AI_IMAGE_SOURCES.HIVE_MIND, pullable: false });
+  // deployment that has to pull it would be pulling the *bigger* image. Its tag
+  // says nothing about the `formal-ai` inside, so that is asked of the image.
+  if (fallback && !candidates.some(candidate => candidate.image === fallback)) candidates.push({ image: fallback, source: FORMAL_AI_IMAGE_SOURCES.HIVE_MIND, pullable: false, requiredVersion: FORMAL_AI_BOOTSTRAP_VERSION });
   return candidates;
 };
 
@@ -254,8 +315,58 @@ const describeFailure = attempts => {
 };
 
 /**
+ * Ask a local image which `formal-ai` it bakes, without starting its entrypoint.
+ *
+ * `--network none` and `--rm`: the probe only reads the binary's version, so it
+ * needs no network and leaves nothing behind. Null when the image has no
+ * `formal-ai` on its PATH or the probe fails for any other reason.
+ */
+export const probeLocalFormalAiVersion = async (image, { run = execFileAsync, timeoutMs = VERSION_PROBE_TIMEOUT_MS } = {}) => {
+  try {
+    const result = await run('docker', ['run', '--rm', '--network', 'none', '--entrypoint', 'formal-ai', image, '--version'], { encoding: 'utf8', timeout: Math.min(Number(timeoutMs) || VERSION_PROBE_TIMEOUT_MS, VERSION_PROBE_TIMEOUT_MS) });
+    return parseFormalAiVersion(result?.stdout ?? result);
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * The command words that start `formal-ai` in an image.
+ *
+ * The full image's entrypoint is a Docker-in-Docker wrapper that runs its
+ * arguments, so the sidecar passes `formal-ai serve …`. The slim image's
+ * entrypoint is `formal-ai` itself, where that argv would run
+ * `formal-ai formal-ai serve …`. Reading the entrypoint, rather than trusting
+ * the tag, also covers an operator pin of either kind.
+ *
+ * @returns {Promise<string[]>} `[]` when the entrypoint already is `formal-ai`, otherwise `['formal-ai']`.
+ */
+export const readFormalAiImageCommand = async (image, { run = execFileAsync, timeoutMs } = {}) => {
+  try {
+    const result = await run('docker', ['image', 'inspect', image, '--format', '{{json .Config.Entrypoint}}'], { encoding: 'utf8', timeout: timeoutMs });
+    const entrypoint = JSON.parse(String(result?.stdout ?? '').trim() || 'null');
+    if (Array.isArray(entrypoint) && entrypoint.length > 0 && /(?:^|\/)formal-ai$/.test(String(entrypoint[entrypoint.length - 1]))) return [];
+  } catch {
+    // Unknown entrypoint: keep the full image's argv.
+  }
+  return ['formal-ai'];
+};
+
+/**
  * Return the first candidate image that is usable on this host, pulling only the
  * pullable ones and never throwing for a candidate that simply is not there.
+ *
+ * Three passes, in candidate order within each (issue #3207):
+ *
+ *  1. **Local.** A candidate already on the host is used at once. One that
+ *     names a `requiredVersion` (the Hive Mind image) is used only after the
+ *     image itself reports a `formal-ai` at least that new.
+ *  2. **Pull.** Only when no local image qualified are the pullable candidates
+ *     downloaded. A pull that is killed by its timeout is reported as a
+ *     timeout, together with the disk space it may leave held.
+ *  3. **Last resort.** A local image whose `formal-ai` could not be confirmed
+ *     is still better than refusing the task, so it is used with a warning;
+ *     the sidecar's own version floor still applies once it answers.
  *
  * @param {object} params
  * @param {object} [params.env]
@@ -269,61 +380,90 @@ const describeFailure = attempts => {
  * @throws {Error} When no candidate resolves; the message names every attempt and its fix.
  */
 export const ensureFormalAiSidecarImage = async ({ env = process.env, run = execFileAsync, timeoutMs = DEFAULT_DOCKER_TIMEOUT_MS, log = null, verbose = false, pull = true, accepted = null, candidates = resolveFormalAiSidecarImageCandidates(env, { accepted }) } = {}) => {
-  const attempts = [];
+  // Attempts are reported in candidate order, whichever pass produced them.
+  const recorded = [];
+  const record = (candidate, attempt) => recorded.push({ order: candidates.indexOf(candidate), attempt: { ...candidate, ...attempt } });
+  const attempts = () => recorded.sort((a, b) => a.order - b.order).map(entry => entry.attempt);
   const reference = candidate => candidate.reference || candidate.image;
+  const resolved = (candidate, digest, pulled) => ({ image: candidate.image, reference: reference(candidate), source: candidate.source, digest, pulled, attempts: attempts() });
   // A candidate that names an expected digest is a *recovery* path for an
   // accepted update whose image ID was pruned: the reference may be re-fetched,
   // but only the recorded content address is allowed to run (issue #2207).
-  const mismatch = (candidate, digest) => ({ ...candidate, kind: 'digest-mismatch', reason: `resolved to ${digest ?? 'no digest'} instead of the accepted ${candidate.expectDigest}`, error: null, remediation: ['the tag moved after the update was accepted; restore the accepted image or repin with HIVE_MIND_FORMAL_AI_IMAGE'] });
+  const mismatch = (candidate, digest) => record(candidate, { kind: 'digest-mismatch', reason: `resolved to ${digest ?? 'no digest'} instead of the accepted ${candidate.expectDigest}`, error: null, remediation: ['the tag moved after the update was accepted; restore the accepted image or repin with HIVE_MIND_FORMAL_AI_IMAGE'] });
 
+  const toPull = [];
+  const unconfirmed = [];
   for (const candidate of candidates) {
     const localDigest = await inspectLocalImage(candidate.image, { run, timeoutMs });
     if (localDigest && candidate.expectDigest && localDigest !== candidate.expectDigest) {
-      attempts.push(mismatch(candidate, localDigest));
+      mismatch(candidate, localDigest);
+      continue;
+    }
+    if (localDigest && candidate.requiredVersion) {
+      const version = await probeLocalFormalAiVersion(candidate.image, { run, timeoutMs });
+      if (version && isFormalAiVersionAtLeast(version, candidate.requiredVersion)) {
+        if (verbose && log) await log(`[VERBOSE] formal-ai-image: using '${candidate.image}' (${candidate.source}) already present locally with formal-ai ${version}, digest=${localDigest}; nothing to pull`);
+        return resolved(candidate, localDigest, false);
+      }
+      unconfirmed.push({ candidate, digest: localDigest, version });
       continue;
     }
     if (localDigest) {
       if (verbose && log) await log(`[VERBOSE] formal-ai-image: using '${candidate.image}' (${candidate.source}) already present locally, digest=${localDigest}`);
-      return { image: candidate.image, reference: reference(candidate), source: candidate.source, digest: localDigest, pulled: false, attempts };
+      return resolved(candidate, localDigest, false);
     }
-
     if (!candidate.pullable || !pull) {
-      attempts.push({ ...candidate, kind: 'absent', reason: 'not present locally and not pulled', error: null, remediation: [] });
+      record(candidate, { kind: 'absent', reason: 'not present locally and not pulled', error: null, remediation: [] });
       continue;
     }
+    toPull.push(candidate);
+  }
 
+  for (const candidate of toPull) {
     if (log) await log(`⬇️ Pulling the Formal AI sidecar image ${candidate.image}`);
     try {
       await run('docker', ['pull', candidate.image], { encoding: 'utf8', timeout: timeoutMs });
     } catch (error) {
       const message = errorText(error);
-      const diagnosis = classifyDockerRegistryError(message);
-      attempts.push({ ...candidate, kind: diagnosis.kind, reason: diagnosis.reason, error: message, remediation: diagnosis.remediation });
+      const diagnosis = classifyDockerRegistryError(message, { error, timeoutMs });
+      record(candidate, { kind: diagnosis.kind, reason: diagnosis.reason, error: message, remediation: diagnosis.remediation });
       if (log) await log(`⚠️ Could not pull ${candidate.image}: ${diagnosis.reason} (${diagnosis.kind}). ${message}`);
+      if (log && diagnosis.kind === 'timeout') await log(describeInterruptedPullLeftovers(candidate.image));
       continue;
     }
 
     const digest = await inspectLocalImage(candidate.image, { run, timeoutMs });
     if (candidate.expectDigest && digest !== candidate.expectDigest) {
-      attempts.push(mismatch(candidate, digest));
+      mismatch(candidate, digest);
       if (log) await log(`⚠️ ${candidate.image} no longer resolves to the accepted digest ${candidate.expectDigest}; refusing to boot it.`);
       continue;
     }
     if (verbose && log) await log(`[VERBOSE] formal-ai-image: pulled '${candidate.image}' (${candidate.source}), digest=${digest ?? 'unknown'}`);
-    return { image: candidate.image, reference: reference(candidate), source: candidate.source, digest, pulled: true, attempts };
+    return resolved(candidate, digest, true);
   }
 
-  const error = new Error(describeFailure(attempts));
-  error.formalAiImageAttempts = attempts;
+  for (const { candidate, digest, version } of unconfirmed) {
+    if (log) await log(`⚠️ Using the local image ${candidate.image} (${candidate.source}) for Formal AI, but could not confirm it provides formal-ai >= ${candidate.requiredVersion} (it reported ${version ?? 'no version'})`);
+    return resolved(candidate, digest, false);
+  }
+
+  const error = new Error(describeFailure(attempts()));
+  error.formalAiImageAttempts = attempts();
   throw error;
 };
 
 export default {
   FORMAL_AI_IMAGE_REPOSITORY,
   FORMAL_AI_IMAGE_SOURCES,
+  FORMAL_AI_SLIM_TAG_SUFFIX,
   classifyDockerRegistryError,
+  describeInterruptedPullLeftovers,
   ensureFormalAiSidecarImage,
+  formatDockerTimeout,
+  isDockerCommandInterrupted,
+  probeLocalFormalAiVersion,
   readAcceptedFormalAiImage,
+  readFormalAiImageCommand,
   resolveAcceptedFormalAiImageCandidates,
   resolveFormalAiFallbackImage,
   resolveFormalAiSidecarImage,

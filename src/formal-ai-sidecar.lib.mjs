@@ -46,7 +46,7 @@ import fs from 'node:fs';
 import { promisify } from 'node:util';
 
 import { FORMAL_AI_MINIMUM_VERSION, isFormalAiVersionAtLeast } from './formal-ai-version.lib.mjs';
-import { ensureFormalAiSidecarImage, readAcceptedFormalAiImage, resolveFormalAiSidecarImage } from './formal-ai-image.lib.mjs';
+import { ensureFormalAiSidecarImage, readAcceptedFormalAiImage, readFormalAiImageCommand, resolveFormalAiSidecarImage } from './formal-ai-image.lib.mjs';
 import { isFormalAiModel } from './formal-ai-model.lib.mjs';
 import { getModelFromArgs } from './model-args.lib.mjs';
 import { withStateLock } from './state-lock.lib.mjs';
@@ -224,8 +224,14 @@ export const ensureFormalAiMemoryVolume = async ({ image, run = execFileAsync, t
   return result;
 };
 
-/** Build the `docker run` argv for the sidecar. Exported so tests can assert the contract. */
-export const buildFormalAiSidecarRunArgs = ({ image, env = process.env, containerName = FORMAL_AI_SIDECAR_CONTAINER_NAME } = {}) => {
+/**
+ * Build the `docker run` argv for the sidecar. Exported so tests can assert the contract.
+ *
+ * `command` is what starts `formal-ai` in this image (see `readFormalAiImageCommand`):
+ * `['formal-ai']` for an image whose entrypoint runs its arguments, `[]` for the
+ * slim image whose entrypoint is `formal-ai` itself.
+ */
+export const buildFormalAiSidecarRunArgs = ({ image, env = process.env, containerName = FORMAL_AI_SIDECAR_CONTAINER_NAME, command = ['formal-ai'] } = {}) => {
   const args = ['run', '--detach', '--name', containerName, '--label', `${FORMAL_AI_SIDECAR_LABEL}=sidecar`, '--network', FORMAL_AI_SIDECAR_NETWORK_NAME, '--network-alias', FORMAL_AI_SIDECAR_NETWORK_ALIAS, '--restart', 'no'];
 
   if (shouldRunPrivilegedFormalAiSidecar(env)) args.push('--privileged');
@@ -246,7 +252,7 @@ export const buildFormalAiSidecarRunArgs = ({ image, env = process.env, containe
     // anonymous volume per image `VOLUME`.
     ...FORMAL_AI_SIDECAR_SCRATCH_PATHS.flatMap(scratch => ['--tmpfs', scratch]),
     image,
-    'formal-ai',
+    ...command,
     'serve',
     '--agent-mode',
     '--host',
@@ -397,7 +403,8 @@ export const acquireFormalAiSidecar = async ({ sessionId, tool = null, model = n
 
       if (!container.exists) {
         if (log) await log(`🧠 Starting the Formal AI sidecar (${imageReference}${imageReference === image ? '' : ` @ ${image}`}, ${resolved.source}) on the internal network '${FORMAL_AI_SIDECAR_NETWORK_NAME}'`);
-        await dockerText(run, buildFormalAiSidecarRunArgs({ image, env }), { timeoutMs });
+        const command = await readFormalAiImageCommand(image, { run, timeoutMs });
+        await dockerText(run, buildFormalAiSidecarRunArgs({ image, env, command }), { timeoutMs });
         container = await inspectDockerContainer(FORMAL_AI_SIDECAR_CONTAINER_NAME, { run, timeoutMs });
       }
 

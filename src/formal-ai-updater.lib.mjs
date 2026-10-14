@@ -51,7 +51,7 @@ import { execFile } from 'node:child_process';
 import fs from 'node:fs';
 import { promisify } from 'node:util';
 
-import { classifyDockerRegistryError, readAcceptedFormalAiImage } from './formal-ai-image.lib.mjs';
+import { classifyDockerRegistryError, describeInterruptedPullLeftovers, readAcceptedFormalAiImage } from './formal-ai-image.lib.mjs';
 import { formatDockerSize, readFormalAiRepoDigest, readLocalImageRepoDigests, removeFormalAiImages, resolveRemoteImageDigests } from './formal-ai-image-store.lib.mjs';
 import { FORMAL_AI_IMAGE_REPOSITORY, FORMAL_AI_MEMORY_MOUNT, FORMAL_AI_MEMORY_PATH, FORMAL_AI_MEMORY_VOLUME_NAME, FORMAL_AI_SIDECAR_CONTAINER_NAME, buildFormalAiSidecarRunArgs, ensureFormalAiMemoryVolume, ensureFormalAiNetwork, inspectDockerContainer, readDockerImageDigest, readFormalAiSidecarState, reconcileFormalAiSidecar, stopFormalAiSidecar, waitForFormalAiSidecarHealth, withFormalAiSidecarLock, writeFormalAiSidecarState } from './formal-ai-sidecar.lib.mjs';
 import { describeFormalAiUsage, formatFormalAiDuration, isFormalAiPrefetchEnabled, resolveFormalAiUpdateCheckIntervalMs } from './formal-ai-usage.lib.mjs';
@@ -291,11 +291,14 @@ export const updateFormalAiSidecarWhenIdle = async ({ env = process.env, fsImpl 
         // failed to start. A permanent refusal (unauthorized/denied/not-found)
         // is a configuration fault, not a transient blip: name it, say how to
         // fix it, and report the classification to the caller.
-        const classification = classifyDockerRegistryError(message);
+        // Issue #3207: a pull killed by its timeout has an empty stderr, so the
+        // message alone used to classify it as "unknown".
+        const classification = classifyDockerRegistryError(message, { error, timeoutMs: pullTimeoutMs });
         const permanent = ['unauthorized', 'denied', 'not-found'].includes(classification.kind);
         if (log) {
           const remediation = classification.remediation.length ? ` Fix it by one of: ${classification.remediation.join('; ')}.` : '';
           await log(`${permanent ? '🚨' : '⚠️'} Could not pull ${image} — ${classification.reason} (${classification.kind}); keeping the current Formal AI image: ${message}${permanent ? remediation : ''}`);
+          if (classification.kind === 'timeout') await log(describeInterruptedPullLeftovers(image));
         }
         return { status: 'failed', stage: 'pull', image, error: message, classification: classification.kind, permanent, remediation: classification.remediation };
       }

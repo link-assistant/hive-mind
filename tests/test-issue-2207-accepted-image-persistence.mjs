@@ -86,7 +86,14 @@ assert.deepEqual(
   'an explicit operator pin stays authoritative over an accepted update'
 );
 
-assert.equal(resolveFormalAiSidecarImageCandidates({}, { accepted: null })[0].image, BOOTSTRAP_IMAGE, 'without an accepted update the bootstrap pin is still the starting point');
+// Issue #3207: the slim tag of the bootstrap pin is tried before the full one.
+assert.deepEqual(
+  resolveFormalAiSidecarImageCandidates({}, { accepted: null })
+    .slice(0, 2)
+    .map(candidate => candidate.image),
+  [`${BOOTSTRAP_IMAGE}-slim`, BOOTSTRAP_IMAGE],
+  'without an accepted update the bootstrap pin is still the starting point'
+);
 
 // ---------------------------------------------------------------------------
 // update → stopped sidecar → acquire → release → acquire

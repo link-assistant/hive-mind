@@ -118,7 +118,7 @@ const commit = (state, sha, subject, files) => state.commits.push({ sha, subject
 
 let tempDir = null;
 let logFile = null;
-const freshRun = async (state, { logText = '' } = {}) => {
+const freshRun = async (state, { logText = '', model = 'opus' } = {}) => {
   resetSessionChanges();
   resetWorkingSessionDrafts();
   resetRepeatedToolCallState();
@@ -128,7 +128,7 @@ const freshRun = async (state, { logText = '' } = {}) => {
   logFile = join(tempDir, 'solve.log');
   writeFileSync(logFile, '[2026-10-13] earlier run output: terminal_state "planned_not_executed"\n');
   const $ = makeFakeShell(state);
-  const baseline = await captureSessionChangeBaseline({ tempDir, $, log, logFile, owner: OWNER, repo: REPO, issueNumber: 1, prNumber: 2, now: new Date(Date.now() - 60_000) });
+  const baseline = await captureSessionChangeBaseline({ tempDir, $, log, logFile, owner: OWNER, repo: REPO, issueNumber: 1, prNumber: 2, model, now: new Date(Date.now() - 60_000) });
   if (logText) appendFileSync(logFile, logText);
   return { $, baseline };
 };
@@ -204,11 +204,23 @@ assert.equal(isSolverCommit({ subject: 'Auto-commit: Changes made by Claude duri
   assert.equal(atExit?.noChanges, true, 'still nothing at run end: exit 5');
 }
 
+// --- #3215: a Claude or Codex run is never blamed on a Formal AI terminal state
+
+for (const model of ['opus', 'gpt-5.5']) {
+  const state = reproductionRepo();
+  const { $ } = await freshRun(state, { model, logText: '{"type":"result","result":"grep found terminal_state \\"planned_not_executed\\" in src/"}\n' });
+  const outcome = await evaluateSessionChanges({ $, owner: OWNER, repo: REPO, prNumber: 2, issueNumber: 1, log });
+  assert.equal(outcome.noChanges, true);
+  assert.equal(outcome.terminalState, null, `${model}: no Formal AI terminal state`);
+  assert.match(outcome.reason, /^the session produced no change/, `${model}: the generic reason`);
+}
+
 // --- Formal AI draft: the reason is its terminal state, not a tool error --
 
 {
   const state = reproductionRepo();
   const { $ } = await freshRun(state, {
+    model: 'formal-ai',
     logText: ['❌ Tool error: ENOENT reading .formal-ai/cache (unrelated)', '{"type":"result","result":"Plan event:\\n\\n```text\\ngeneral_change_plan\\n  terminal_state \\"planned_not_executed\\"\\n```"}', ''].join('\n'),
   });
   commit(state, 'devlog2', 'Add development log for issue #1 PR #2', ['dev/log/issues/1/pulls/2/session.md']);

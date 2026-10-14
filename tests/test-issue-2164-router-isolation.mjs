@@ -262,6 +262,14 @@ assertEqual(
   '--model formal-ai explains how it reaches the router (R11)'
 );
 assertEqual(
+  describeRouterCoverageGaps({ model: 'formalai/formal-ai' })
+    .map(gap => (gap.includes('Formal AI sidecar') ? 'formal-ai' : gap.includes('exact model ids') ? 'alias' : null))
+    .filter(Boolean)
+    .join(','),
+  'formal-ai',
+  '#3215: the provider-qualified spelling is Formal AI too, not an unknown alias'
+);
+assertEqual(
   describeRouterCoverageGaps({ model: 'sonnet' }).some(gap => gap.includes('exact model ids')),
   true,
   'a model alias is called out, because the router resolves advertised ids only'

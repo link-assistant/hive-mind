@@ -86,6 +86,11 @@ export const isAgentIdleEvent = data => {
  * Fail closed when Agent resolves a Formal AI request to any other provider.
  * The critical parser record is handled before the provider can make a request;
  * the resolved-provider record is a second, independent guard.
+ *
+ * Only Formal AI fails closed (#3215 reviewed this): Agent legitimately serves
+ * a retired free model with its replacement (#1473), and model recognition
+ * reports the model that was actually used, so stopping those runs would break
+ * them without making them more correct.
  */
 export const detectFormalAiAgentRoutingMismatch = (record, expectedModel) => {
   if (expectedModel !== 'formalai/formal-ai' || !record || typeof record !== 'object' || record.type !== 'log') return null;

@@ -40,6 +40,7 @@
 import { existsSync, openSync, readSync, closeSync, statSync } from 'node:fs';
 
 import { isAiToolScratchPath } from './ai-tool-scratch.lib.mjs';
+import { isFormalAiModel } from './formal-ai-model.lib.mjs';
 import { getInitialDraftState, markPullRequestLeftInDraft } from './pr-draft-state.lib.mjs';
 import { describeObservedToolCallLoop, getObservedToolCallLoopHistory } from './repeated-tool-call-breaker.lib.mjs';
 import { checkForAiCreatedComments } from './solve.session-comments.lib.mjs';
@@ -158,12 +159,12 @@ const readRunLog = () => {
  *
  * @returns {Promise<Object|null>} the baseline, or null when it cannot be read
  */
-export const captureSessionChangeBaseline = async ({ tempDir, $, log = noopLog, logFile = null, owner = null, repo = null, issueNumber = null, prNumber = null, now = new Date() } = {}) => {
+export const captureSessionChangeBaseline = async ({ tempDir, $, log = noopLog, logFile = null, owner = null, repo = null, issueNumber = null, prNumber = null, model = null, now = new Date() } = {}) => {
   if (baseline) return baseline;
   if (!tempDir || typeof $ !== 'function') return null;
   try {
     const repoGit = git({ $, tempDir });
-    baseline = { tempDir, $, owner, repo, issueNumber, prNumber, logFile, logOffset: logSize(logFile), startedAt: now, head: await repoGit.head(), upstream: await repoGit.upstream(), status: await repoGit.status() };
+    baseline = { tempDir, $, owner, repo, issueNumber, prNumber, model, logFile, logOffset: logSize(logFile), startedAt: now, head: await repoGit.head(), upstream: await repoGit.upstream(), status: await repoGit.status() };
     await log(`📌 Session change baseline: HEAD ${baseline.head.slice(0, 12)}, upstream ${baseline.upstream ? baseline.upstream.slice(0, 12) : 'none'}, ${baseline.status ? baseline.status.split('\n').length : 0} changed path(s)`, { verbose: true });
     return baseline;
   } catch (error) {
@@ -213,7 +214,9 @@ export const evaluateSessionChanges = async ({ owner, repo, prNumber = null, iss
     if (commented) evidence = 'comment';
   }
   if (evidence) return { measured: true, progress: true, noChanges: false, evidence, reason: null, terminalState: null };
-  const terminalState = extractFormalAiTerminalState(readRunLog());
+  // #3215: only a Formal AI run reports a terminal state; a Claude or Codex
+  // session that merely reads or prints `terminal_state` must not be blamed on it.
+  const terminalState = isFormalAiModel(baseline.model) ? extractFormalAiTerminalState(readRunLog()) : null;
   const cause = terminalState ? `Formal AI produced no change (terminal state: ${terminalState})` : 'the session produced no change: no new commit, no file change and no comment';
   return { measured: true, progress: false, noChanges: true, evidence: null, reason: `${cause}${describeLoops()}`, terminalState };
 };

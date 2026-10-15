@@ -1259,7 +1259,7 @@ export async function resumeTrackedSessions(options = {}) {
   }
   let persisted;
   try {
-    persisted = store.load();
+    persisted = await store.load();
   } catch (error) {
     console.error(`[session-monitor] resumeTrackedSessions: could not load persisted sessions: ${error.message}`);
     return { resumed, skipped };

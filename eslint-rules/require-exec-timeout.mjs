@@ -126,8 +126,8 @@ export default {
       },
     ],
     messages: {
-      violation: "'{{fn}}' starts '{{command}}' without a `timeout` (or `signal`); a hung {{command}} process never ends. Pass `{ timeout: <ms> }`, or add `// hive-exec-timeout-ok: <reason>`.",
-      overBaseline: "'{{fn}}' starts '{{command}}' without a `timeout` (or `signal`). This file may keep {{allowed}} such call(s) until they get one; it has {{count}}. Pass `{ timeout: <ms> }`, or add `// hive-exec-timeout-ok: <reason>`.",
+      violation: "'{{fn}}' starts '{{command}}' without a `timeout` (or `signal`); a hung {{command}} process never ends. Pass `{ timeout: <ms> }` (for `$`: `$({ signal: AbortSignal.timeout(<ms>) })`, since command-stream ignores `timeout`), or add `// hive-exec-timeout-ok: <reason>`.",
+      overBaseline: "'{{fn}}' starts '{{command}}' without a `timeout` (or `signal`). This file may keep {{allowed}} such call(s) until they get one; it has {{count}}. Pass `{ timeout: <ms> }` (for `$`: `$({ signal: AbortSignal.timeout(<ms>) })`, since command-stream ignores `timeout`), or add `// hive-exec-timeout-ok: <reason>`.",
       dollarTimeoutOption: "command-stream ignores `timeout`: this '{{command}}' is still unbounded. Pass `$({ signal: AbortSignal.timeout(<ms>) })`, or add `// hive-exec-timeout-ok: <reason>`.",
     },
   },

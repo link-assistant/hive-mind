@@ -1,22 +1,30 @@
 {
-  "src/agent-config-audit.lib.mjs": 9,
-  "src/agentic-cli-updater.lib.mjs": 4,
-  "src/cleanup.os.lib.mjs": 19,
-  "src/container-resource-limits.lib.mjs": 1,
-  "src/docker-sidecar.lib.mjs": 4,
-  "src/fix.report-dependencies.lib.mjs": 1,
-  "src/formal-ai-attribution.lib.mjs": 22,
-  "src/formal-ai-runtime.lib.mjs": 1,
-  "src/git-push-guard.lib.mjs": 3,
-  "src/isolation-runner.lib.mjs": 10,
-  "src/isolation-runner.parsers.lib.mjs": 4,
-  "src/model-catalogue.lib.mjs": 4,
-  "src/router-auth-guard.lib.mjs": 1,
-  "src/router-session-drain.lib.mjs": 5,
-  "src/router-sidecar.lib.mjs": 1,
-  "src/session-resume.lib.mjs": 6,
-  "src/session-store.lib.mjs": 4,
-  "src/solve.resource-diagnostics.lib.mjs": 16,
-  "src/state-lock.lib.mjs": 5,
-  "src/system-cleanup-estimates.lib.mjs": 3
+  "src/agent-config-audit.lib.mjs": {
+    "count": 9,
+    "reason": "runAgentConfigAudit runs only from solve.mjs and hive.mjs at task start; the bot reaches this module through imports but never calls it from a handler."
+  },
+  "src/cleanup.os.lib.mjs": {
+    "count": 17,
+    "reason": "Filesystem sweeps of the hive-cleanup CLI command; the bot only uses the async getActiveTasks/listSessionTasks helpers of this module."
+  },
+  "src/container-resource-limits.lib.mjs": {
+    "count": 1,
+    "reason": "A single statfs syscall on the host disk, answered from kernel memory without blocking I/O."
+  },
+  "src/fix.report-dependencies.lib.mjs": {
+    "count": 1,
+    "reason": "yargs parseSync parses an argv array in memory and does no I/O."
+  },
+  "src/router-auth-guard.lib.mjs": {
+    "count": 1,
+    "reason": "startRouterAuthGuard runs only inside the claude/codex agent runtime of the solve process, never in the bot."
+  },
+  "src/solve.resource-diagnostics.lib.mjs": {
+    "count": 16,
+    "reason": "procfs, cgroupfs and statfs reads that the kernel serves from memory (no disk or network wait), used by the heartbeat and the solve process."
+  },
+  "src/system-cleanup-estimates.lib.mjs": {
+    "count": 3,
+    "reason": "Disk-usage estimates for the hive-cleanup CLI path of cleanup.os; never called from a bot handler."
+  }
 }

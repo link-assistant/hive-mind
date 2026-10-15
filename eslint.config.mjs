@@ -230,6 +230,7 @@ export default [
     // Issue #3206: modules loaded by the bot process share its one event loop.
     // The per-file baseline lists sync calls that existed before the rule; a
     // file may not add more, and converting one means lowering its count.
+    // Each entry gives the reason the file may keep them (issue #3278).
     // One-time startup and exit-handler code is marked `// hive-sync-ok: <reason>`.
     // An un-returned, un-caught promise chain in the bot is an unhandled
     // rejection waiting to happen, so promise/catch-or-return applies too.
@@ -245,7 +246,8 @@ export default [
   },
   {
     // Issue #3206: a hung docker/git/gh process never ends by itself, wherever
-    // it is started from. The baseline lists calls that predate the rule.
+    // it is started from. The baseline lists calls that predate the rule,
+    // each file with its reason; command-stream `$` calls count too (#3278).
     files: ['src/**/*.{js,mjs,cjs}'],
     plugins: {
       hive: hivePlugin,

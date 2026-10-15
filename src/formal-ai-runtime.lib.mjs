@@ -677,6 +677,7 @@ const installExitHook = () => {
         /* already gone */
       }
       try {
+        // hive-sync-ok: runs from the 'exit' handler, where async work never completes
         if (entry.runtime?.home) rmSync(entry.runtime.home, { recursive: true, force: true });
       } catch {
         /* best effort */

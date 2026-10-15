@@ -2,11 +2,26 @@
  * Shared pieces of the `hive/*` lint rules: reasoned inline exceptions and
  * per-file baselines for findings that existed before a rule was introduced.
  *
+ * Every baseline entry carries the reason the file may keep its findings
+ * (issue #3278): `{ 'src/file.mjs': { count: 2, reason: '…' } }`.
+ *
  * @see https://github.com/link-assistant/hive-mind/issues/3206
+ * @see https://github.com/link-assistant/hive-mind/issues/3278
  */
 
-/** JSON-schema fragment for a `baseline: { 'src/file.mjs': count }` option. */
-export const BASELINE_SCHEMA = { type: 'object', additionalProperties: { type: 'integer', minimum: 0 } };
+/** JSON-schema fragment for a `baseline: { 'src/file.mjs': { count, reason } }` option. */
+export const BASELINE_SCHEMA = {
+  type: 'object',
+  additionalProperties: {
+    type: 'object',
+    properties: {
+      count: { type: 'integer', minimum: 1 },
+      reason: { type: 'string', pattern: '\\S' },
+    },
+    required: ['count', 'reason'],
+    additionalProperties: false,
+  },
+};
 
 /**
  * True when the line of `node`, or a comment-only line right above it,
@@ -55,11 +70,11 @@ export function findVariable(sourceCode, identifier) {
  * unless the file is within its baseline count.
  *
  * @param {import('eslint').Rule.RuleContext} context
- * @param {Record<string, number>} baseline
+ * @param {Record<string, { count: number, reason: string }>} baseline
  * @returns {{ add: (finding: { node: object, data: object }) => void, flush: () => void }}
  */
 export function createBaselineReporter(context, baseline = {}) {
-  const allowed = baseline[relativeFilename(context)] ?? 0;
+  const allowed = baseline[relativeFilename(context)]?.count ?? 0;
   const findings = [];
   return {
     add(finding) {

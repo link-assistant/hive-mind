@@ -229,7 +229,7 @@ export async function getRepositoryIssueTypes({ repository, run = runCommand }) 
   const result = await run('gh', ['api', 'graphql', '-f', `query=${REPOSITORY_ISSUE_TYPES_QUERY}`, '-f', `owner=${owner}`, '-f', `name=${repo}`]);
   if (result?.code !== 0) return null;
   try {
-    const payload = JSON.parse(String(result.stdout || ''));
+    const payload = JSON.parse(result.stdout?.toString() || '');
     const repositoryData = payload?.data?.repository;
     if (!repositoryData || typeof repositoryData !== 'object') return null;
     const nodes = repositoryData.issueTypes?.nodes;
@@ -280,7 +280,7 @@ export async function findRecentlyCreatedIssue({ repository, title, body = null,
   if (result?.code !== 0) return null;
   let issues;
   try {
-    issues = JSON.parse(String(result.stdout || ''));
+    issues = JSON.parse(result.stdout?.toString() || '');
   } catch {
     return null;
   }

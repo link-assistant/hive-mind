@@ -115,7 +115,7 @@ export async function commentCiWaitResult({ issueUrl, branch, result, run = runC
     await writeSanitizedPublicationFile(bodyFile, buildCiWaitResultComment({ branch, result }));
     const commented = await run('gh', ['issue', 'comment', issueUrl, '--body-file', bodyFile]);
     if (commented?.code !== 0) {
-      warn(`⚠️  Could not comment CI/CD results on ${issueUrl}: ${`${commented?.stderr || ''}${commented?.stdout || ''}`.trim() || `exit code ${commented?.code}`}`);
+      warn(`⚠️  Could not comment CI/CD results on ${issueUrl}: ${`${commented?.stderr?.toString() || ''}${commented?.stdout?.toString() || ''}`.trim() || `exit code ${commented?.code}`}`);
       return false;
     }
     return true;

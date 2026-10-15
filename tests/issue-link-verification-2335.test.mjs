@@ -16,6 +16,8 @@ import { prepareRepositoryModeIssue } from '../src/solve.repository-mode.run.lib
 import { parseRequiredClosingReferences, REPOSITORY_MODE_MARKER, REQUIRED_CLOSING_REFERENCES_HEADING } from '../src/solve.repository-mode.lib.mjs';
 import { resolvePrimaryIssueNumber } from '../src/github-linking.lib.mjs';
 import { MergeQueueProcessor } from '../src/telegram-merge-queue.lib.mjs';
+import { fetchRequirementSources } from '../src/issue-completion.lib.mjs';
+import { createRequirementsReportTemplate, formatRequirementsReport } from '../src/issue-requirements.lib.mjs';
 
 const headSha = 'a'.repeat(40);
 const repository = { owner: 'link-assistant', repo: 'agent' };
@@ -377,7 +379,12 @@ test('the actual shared merge boundary blocks missing links and merges once they
       blocked.calls.some(args => args[0] === 'pr' && args[1] === 'merge'),
       false
     );
-    f.pr.body = 'Fixes #322';
+    // Issue #2406: once links are verified the same boundary also requires a current requirements report.
+    for (const endpoint of ['issues/322/comments', 'issues/326/comments', 'pulls/326/comments', 'pulls/326/reviews']) f.responses.set(`repos/link-assistant/agent/${endpoint}`, [[]]);
+    const { requirements } = await fetchRequirementSources({ owner: 'link-assistant', repo: 'agent', prNumber: 326, issues: [{ owner: 'link-assistant', repo: 'agent', number: 322 }], run: f.run });
+    const report = createRequirementsReportTemplate({ headSha, issues: requirements });
+    for (const requirement of report.issues.flatMap(issue => issue.requirements)) Object.assign(requirement, { status: 'done', evidence: 'covered by tests' });
+    f.pr.body = `Fixes #322\n\n${formatRequirementsReport(report)}`;
     const allowed = await invoke();
     assert.equal(allowed.result.success, true);
     assert.ok(allowed.calls.some(args => args[0] === 'pr' && args[1] === 'merge'));

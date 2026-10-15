@@ -102,7 +102,7 @@ export async function resolveOomKilledState(sessionName, sessionInfo, statusResu
   let footer = null;
   if (logPath) {
     const readFooter = exitFromLog || runner?.readSessionExitFromLog;
-    footer = readFooter ? readFooter(logPath, { verbose }) : null;
+    footer = readFooter ? await readFooter(logPath, { verbose }) : null;
   }
 
   // 1. The authoritative log footer.

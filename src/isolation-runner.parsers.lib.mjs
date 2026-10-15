@@ -279,24 +279,25 @@ export function parseSessionExitFooter(text) {
  * @param {Object} [options.fsImpl=fs] - Injectable fs (for tests)
  * @param {number} [options.tailBytes=16384] - How many trailing bytes to scan
  * @param {boolean} [options.verbose]
- * @returns {{finished: boolean, exitCode: number|null, endTime: string|null}}
+ * @returns {Promise<{finished: boolean, exitCode: number|null, endTime: string|null}>}
  */
-export function readSessionExitFromLog(logPath, options = {}) {
+export async function readSessionExitFromLog(logPath, options = {}) {
   const { fsImpl = fs, tailBytes = 16384, minByteOffset = 0, verbose = false } = options;
   if (!logPath) return { finished: false, exitCode: null, endTime: null };
   try {
-    const { size } = fsImpl.statSync(logPath);
-    if (!size) return { finished: false, exitCode: null, endTime: null };
-    // A resumed execution appends to the same log. Earlier footers describe
-    // earlier attempts, even while the replacement container is alive (#2498).
-    const start = Math.min(size, Math.max(0, size - tailBytes, Number.isSafeInteger(minByteOffset) ? minByteOffset : 0));
-    const length = size - start;
-    const buffer = Buffer.alloc(length);
-    const fd = fsImpl.openSync(logPath, 'r');
+    const handle = await fsImpl.promises.open(logPath, 'r');
+    let buffer;
     try {
-      fsImpl.readSync(fd, buffer, 0, length, start);
+      const { size } = await handle.stat();
+      if (!size) return { finished: false, exitCode: null, endTime: null };
+      // A resumed execution appends to the same log. Earlier footers describe
+      // earlier attempts, even while the replacement container is alive (#2498).
+      const start = Math.min(size, Math.max(0, size - tailBytes, Number.isSafeInteger(minByteOffset) ? minByteOffset : 0));
+      const length = size - start;
+      buffer = Buffer.alloc(length);
+      await handle.read(buffer, 0, length, start);
     } finally {
-      fsImpl.closeSync(fd);
+      await handle.close();
     }
     const result = parseSessionExitFooter(buffer.toString('utf8'));
     if (verbose && result.finished) {

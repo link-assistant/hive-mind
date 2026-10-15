@@ -317,20 +317,20 @@ const resumableInfo = () => ({
 
 const readTool = () => TOOL_SESSION;
 
-const reportPlan = planKillRecovery({ sessionInfo: { ...resumableInfo(), args: ['--on-session-kill', 'report'] }, killed: true, env: { HIVE_MIND_SESSION_KILL_RESUME_DELAY: '0' }, readLastSessionId: readTool });
+const reportPlan = await planKillRecovery({ sessionInfo: { ...resumableInfo(), args: ['--on-session-kill', 'report'] }, killed: true, env: { HIVE_MIND_SESSION_KILL_RESUME_DELAY: '0' }, readLastSessionId: readTool });
 assert(reportPlan.shouldResume === false && reportPlan.reason === 'policy-report', 'an explicit report policy never starts a recovery session');
 
-const resumePlan = planKillRecovery({ sessionInfo: resumableInfo(), killed: true, env: { HIVE_MIND_SESSION_KILL_RESUME_DELAY: '0' }, readLastSessionId: readTool });
+const resumePlan = await planKillRecovery({ sessionInfo: resumableInfo(), killed: true, env: { HIVE_MIND_SESSION_KILL_RESUME_DELAY: '0' }, readLastSessionId: readTool });
 assert(resumePlan.shouldResume === true && resumePlan.attempt === 1, '--on-session-kill=resume plans exactly one recovery session');
 assert(resumePlan.command.args.includes('--resume') && resumePlan.command.args.includes(TOOL_SESSION), 'the recovery session resumes the tool session found in the log');
 
-const exhaustedPlan = planKillRecovery({ sessionInfo: { ...resumableInfo(), [KILL_RESUME_ATTEMPTS_FIELD]: 3 }, killed: true, env: { HIVE_MIND_SESSION_KILL_RESUME_DELAY: '0' }, readLastSessionId: readTool });
+const exhaustedPlan = await planKillRecovery({ sessionInfo: { ...resumableInfo(), [KILL_RESUME_ATTEMPTS_FIELD]: 3 }, killed: true, env: { HIVE_MIND_SESSION_KILL_RESUME_DELAY: '0' }, readLastSessionId: readTool });
 assert(exhaustedPlan.shouldResume === false && exhaustedPlan.reason === 'max-attempts-reached', 'the attempt cap stops a session that keeps getting killed');
 
-const stoppedPlan = planKillRecovery({ sessionInfo: { ...resumableInfo(), stopRequestedByUser: true }, killed: true, env: { HIVE_MIND_SESSION_KILL_RESUME_DELAY: '0' }, readLastSessionId: readTool });
+const stoppedPlan = await planKillRecovery({ sessionInfo: { ...resumableInfo(), stopRequestedByUser: true }, killed: true, env: { HIVE_MIND_SESSION_KILL_RESUME_DELAY: '0' }, readLastSessionId: readTool });
 assert(stoppedPlan.shouldResume === false && stoppedPlan.reason === 'stopped-by-user', 'a session stopped by the user is never auto-resumed');
 
-const noIdPlan = planKillRecovery({ sessionInfo: resumableInfo(), killed: true, env: { HIVE_MIND_SESSION_KILL_RESUME_DELAY: '0' }, readLastSessionId: () => null });
+const noIdPlan = await planKillRecovery({ sessionInfo: resumableInfo(), killed: true, env: { HIVE_MIND_SESSION_KILL_RESUME_DELAY: '0' }, readLastSessionId: () => null });
 assert(noIdPlan.shouldResume === false && noIdPlan.reason === 'no-session-id', 'nothing is resumed without a real tool session id');
 
 const launches = [];

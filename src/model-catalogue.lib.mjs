@@ -100,9 +100,9 @@ export const isRouterCatalogueEnabled = (env = process.env) => !/^(0|false|off|n
 export const resolveModelCatalogueCachePath = (env = process.env) => path.join(resolveBotStateDir(env), CACHE_FILE_NAME);
 
 /** Read the cache. A missing or corrupt file is an empty cache, never a throw. */
-export const readModelCatalogueCache = ({ env = process.env, fsImpl = fs } = {}) => {
+export const readModelCatalogueCache = async ({ env = process.env, fsImpl = fs } = {}) => {
   try {
-    const parsed = JSON.parse(fsImpl.readFileSync(resolveModelCatalogueCachePath(env), 'utf8'));
+    const parsed = JSON.parse(await fsImpl.promises.readFile(resolveModelCatalogueCachePath(env), 'utf8'));
     if (parsed?.version !== CACHE_VERSION) return { version: CACHE_VERSION, entries: {} };
     return { version: CACHE_VERSION, entries: {}, ...parsed };
   } catch {
@@ -111,12 +111,12 @@ export const readModelCatalogueCache = ({ env = process.env, fsImpl = fs } = {})
 };
 
 /** Persist the cache atomically: write a sibling `.tmp`, then rename over it. */
-export const writeModelCatalogueCache = (cache, { env = process.env, fsImpl = fs } = {}) => {
+export const writeModelCatalogueCache = async (cache, { env = process.env, fsImpl = fs } = {}) => {
   const target = resolveModelCatalogueCachePath(env);
-  fsImpl.mkdirSync(path.dirname(target), { recursive: true });
+  await fsImpl.promises.mkdir(path.dirname(target), { recursive: true });
   const temporary = `${target}.tmp`;
-  fsImpl.writeFileSync(temporary, `${JSON.stringify(cache, null, 2)}\n`, 'utf8');
-  fsImpl.renameSync(temporary, target);
+  await fsImpl.promises.writeFile(temporary, `${JSON.stringify(cache, null, 2)}\n`, 'utf8');
+  await fsImpl.promises.rename(temporary, target);
   return cache;
 };
 
@@ -262,7 +262,7 @@ export const loadModelCatalogue = async ({ tool = 'claude', env = process.env, f
   return withStateLock(
     CACHE_LOCK_NAME,
     async () => {
-      const cache = readModelCatalogueCache({ env, fsImpl });
+      const cache = await readModelCatalogueCache({ env, fsImpl });
       cache.entries = cache.entries ?? {};
 
       let routerSession = { available: false, reason: hotLoad ? 'router was not needed' : 'hot load is disabled' };
@@ -289,7 +289,7 @@ export const loadModelCatalogue = async ({ tool = 'claude', env = process.env, f
       }
 
       try {
-        writeModelCatalogueCache(cache, { env, fsImpl });
+        await writeModelCatalogueCache(cache, { env, fsImpl });
       } catch {
         // A read-only state directory degrades to "no cache", not to no answer.
       }

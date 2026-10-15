@@ -369,7 +369,7 @@ await checkAsync('a live read is written to the cache and served from it on the 
   assert.equal(first.sources.find(source => source.id === 'router').status, 'ok');
   assert.equal(reads, 1);
 
-  const cache = readModelCatalogueCache({ env });
+  const cache = await readModelCatalogueCache({ env });
   assert.ok(cache.entries[modelCatalogueCacheKey('router', 'claude')], 'the router entry should be on disk');
 
   const second = await loadModelCatalogue({ tool: 'claude', env, fetchers, openRouter });

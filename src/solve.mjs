@@ -161,7 +161,9 @@ if (!issueUrl) {
 // Issue #3108: with exactly one open issue, that issue is solved directly.
 {
   const { resolveRepositoryModeTarget } = await import('./solve.repository-mode.run.lib.mjs');
-  const repositoryMode = await resolveRepositoryModeTarget({ url: issueUrl, log });
+  const { repositoryModeSelectionFromArgv } = await import('./solve.repository-mode.lib.mjs');
+  // Issue #3176: bot-maintained status pages and skip-labeled issues are not work.
+  const repositoryMode = await resolveRepositoryModeTarget({ url: issueUrl, log, selection: repositoryModeSelectionFromArgv(argv) });
   if (repositoryMode.handled) {
     // Issue #2266: an empty repository is a normal, successful terminal state.
     // Exit 0 so callers do not turn "nothing to do" into a task failure.

@@ -16,6 +16,10 @@
  * so only the oldest 100 are attached natively. Repository mode keeps every
  * open issue in the combined issue body and its required closing references.
  *
+ * Open issues that are not work — bot-authored status pages, issues with a skip
+ * label or the skip body marker — are left out and listed with the reason
+ * (issue #3176).
+ *
  * Everything in this module is network- and filesystem-free so it can be unit
  * tested without GitHub access. The network side lives in
  * `solve.repository-mode.run.lib.mjs`.
@@ -93,6 +97,76 @@ export function normalizeOpenIssueEntry(entry) {
 }
 
 /**
+ * Body marker a repository puts in an issue to keep it out of repository mode
+ * (issue #3176), e.g. in a status page a workflow keeps updating.
+ */
+export const REPOSITORY_MODE_SKIP_MARKER = '<!-- hive-mind:skip -->';
+const SKIP_MARKER_PATTERN = /<!--\s*hive-mind:skip\s*-->/i;
+
+/** Labels that keep an open issue out of repository mode unless `--skip-issue-labels` says otherwise. */
+export const DEFAULT_SKIP_ISSUE_LABELS = Object.freeze(['hive-mind:skip', 'dashboard', 'status']);
+
+/**
+ * Parse the `--skip-issue-labels` value: a comma separated list (or an array of
+ * them). `undefined` means {@link DEFAULT_SKIP_ISSUE_LABELS}; `""` or `none`
+ * turns label skipping off.
+ *
+ * @param {string|string[]|undefined|null} value
+ * @returns {string[]}
+ */
+export function parseSkipIssueLabels(value) {
+  if (value === undefined || value === null) return [...DEFAULT_SKIP_ISSUE_LABELS];
+  const labels = (Array.isArray(value) ? value : [value])
+    .flatMap(item => String(item).split(','))
+    .map(label => label.trim())
+    .filter(Boolean);
+  if (labels.length === 1 && labels[0].toLowerCase() === 'none') return [];
+  return labels;
+}
+
+/**
+ * The selection options for repository mode taken from parsed solve arguments.
+ *
+ * @param {object} [argv]
+ * @returns {{skipLabels: string[], includeBotIssues: boolean}}
+ */
+export function repositoryModeSelectionFromArgv(argv = {}) {
+  return {
+    skipLabels: parseSkipIssueLabels(argv?.['skip-issue-labels'] ?? argv?.skipIssueLabels),
+    includeBotIssues: Boolean(argv?.['include-bot-issues'] ?? argv?.includeBotIssues),
+  };
+}
+
+/**
+ * Why a raw open issue is not work for repository mode, or null when it is.
+ *
+ * Issue #3176: status pages that a bot or a scheduled workflow maintains
+ * (coverage reports, dependency dashboards) were selected as work and closed by
+ * the pull request, and their workflow reopened them for the next run. Such an
+ * issue is skipped when a bot opened it (unless `includeBotIssues`), when it
+ * carries one of `skipLabels`, or when its body contains
+ * {@link REPOSITORY_MODE_SKIP_MARKER}.
+ *
+ * @param {object} entry - raw REST issue entry
+ * @param {object} [options]
+ * @param {string[]} [options.skipLabels=DEFAULT_SKIP_ISSUE_LABELS]
+ * @param {boolean} [options.includeBotIssues=false]
+ * @returns {string|null}
+ */
+export function getRepositoryModeExclusionReason(entry, { skipLabels = DEFAULT_SKIP_ISSUE_LABELS, includeBotIssues = false } = {}) {
+  if (!entry || typeof entry !== 'object') return null;
+  const wanted = new Set((skipLabels || []).map(label => String(label).trim().toLowerCase()).filter(Boolean));
+  for (const label of Array.isArray(entry.labels) ? entry.labels : []) {
+    const name = String(typeof label === 'string' ? label : label?.name || '').trim();
+    if (name && wanted.has(name.toLowerCase())) return `label "${name}"`;
+  }
+  if (SKIP_MARKER_PATTERN.test(String(entry.body || ''))) return 'hive-mind:skip marker in the issue body';
+  const login = String(entry.user?.login || '');
+  if (!includeBotIssues && (entry.user?.type === 'Bot' || /\[bot\]$/i.test(login))) return `opened by bot ${login || '(unknown)'}`;
+  return null;
+}
+
+/**
  * Filter out pull requests, normalize, sort oldest-first and cap the list at
  * `limit` entries.
  *
@@ -100,26 +174,39 @@ export function normalizeOpenIssueEntry(entry) {
  * even when the caller passes an unsorted list. Ties fall back to the issue
  * number, which is monotonic per repository.
  *
+ * Issues that are not work (see {@link getRepositoryModeExclusionReason}) and
+ * the `exclude` numbers are returned in `excluded` with a reason, and are not
+ * counted in `totalOpen`.
+ *
  * @param {Array<object>} entries - raw REST issue entries
  * @param {object} [options]
  * @param {number} [options.limit=MAX_SUB_ISSUES_PER_PARENT]
  * @param {Array<number>} [options.exclude] - issue numbers to skip
- * @returns {{selected: Array<object>, totalOpen: number, skipped: number}}
+ * @param {string[]} [options.skipLabels=DEFAULT_SKIP_ISSUE_LABELS]
+ * @param {boolean} [options.includeBotIssues=false]
+ * @returns {{selected: Array<object>, totalOpen: number, skipped: number, excluded: Array<object>}}
  */
-export function selectOldestOpenIssues(entries, { limit = MAX_SUB_ISSUES_PER_PARENT, exclude = [] } = {}) {
-  const excluded = new Set((exclude || []).map(Number).filter(Number.isInteger));
-  const issues = (Array.isArray(entries) ? entries : [])
-    .filter(entry => !isPullRequestEntry(entry))
-    .map(normalizeOpenIssueEntry)
-    .filter(Boolean)
-    .filter(issue => !excluded.has(issue.number));
+export function selectOldestOpenIssues(entries, { limit = MAX_SUB_ISSUES_PER_PARENT, exclude = [], skipLabels = DEFAULT_SKIP_ISSUE_LABELS, includeBotIssues = false } = {}) {
+  const excludedNumbers = new Set((exclude || []).map(Number).filter(Number.isInteger));
+  const excluded = [];
+  const issues = [];
+  for (const entry of Array.isArray(entries) ? entries : []) {
+    if (isPullRequestEntry(entry)) continue;
+    const issue = normalizeOpenIssueEntry(entry);
+    if (!issue) continue;
+    const reason = excludedNumbers.has(issue.number) ? 'excluded by number' : getRepositoryModeExclusionReason(entry, { skipLabels, includeBotIssues });
+    if (reason) excluded.push({ ...issue, reason });
+    else issues.push(issue);
+  }
 
-  issues.sort((a, b) => {
+  const oldestFirst = (a, b) => {
     const aTime = Date.parse(a.createdAt);
     const bTime = Date.parse(b.createdAt);
     if (Number.isFinite(aTime) && Number.isFinite(bTime) && aTime !== bTime) return aTime - bTime;
     return a.number - b.number;
-  });
+  };
+  issues.sort(oldestFirst);
+  excluded.sort(oldestFirst);
 
   const cap = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : MAX_SUB_ISSUES_PER_PARENT;
   const selected = issues.slice(0, cap);
@@ -128,6 +215,7 @@ export function selectOldestOpenIssues(entries, { limit = MAX_SUB_ISSUES_PER_PAR
     selected,
     totalOpen: issues.length,
     skipped: Math.max(0, issues.length - selected.length),
+    excluded,
   };
 }
 
@@ -202,16 +290,20 @@ export function buildClosingKeywordBlock(issues, keyword = 'Fixes') {
  * @param {Array<object>} params.issues - selected sub-issues (oldest first)
  * @param {number} params.totalOpen
  * @param {number} [params.limit=MAX_SUB_ISSUES_PER_PARENT]
+ * @param {Array<object>} [params.excludedIssues] - open issues skipped as not work, each with a `reason` (issue #3176)
  * @returns {string}
  */
-export function buildCombinedIssueBody({ repository, issues, totalOpen, limit = MAX_SUB_ISSUES_PER_PARENT, attachmentCount = issues?.length || 0 }) {
+export function buildCombinedIssueBody({ repository, issues, totalOpen, limit = MAX_SUB_ISSUES_PER_PARENT, attachmentCount = issues?.length || 0, excludedIssues = [] }) {
   const list = Array.isArray(issues) ? issues : [];
+  const excluded = Array.isArray(excludedIssues) ? excludedIssues : [];
   const repositoryUrl = repository.url || `https://github.com/${repository.owner}/${repository.repo}`;
-  const skipped = Math.max(0, Number(totalOpen || 0) - list.length);
+  const skipped = Math.max(0, Number(totalOpen || 0) - list.length - excluded.length);
 
   const lines = [REPOSITORY_MODE_MARKER, '', '## Objective', '', `Address every open issue listed below in [${repository.owner}/${repository.repo}](${repositoryUrl}) with a **single pull request**.`, '', `This issue was generated automatically by \`/solve ${repositoryUrl}\` (repository mode). Native sub-issues and the complete closing-reference block below jointly define the required scope.`, '', '## Scope', '', `- Open issues found in the repository: ${totalOpen}`, `- Issues requested in this single pull request: ${list.length}`, `- Issues selected for native sub-issue attachment: ${attachmentCount}`, `- GitHub sub-issue limit per parent issue: ${limit}`];
 
   if (list.length > attachmentCount) lines.push(`- Issues required through the body beyond the native attachment limit: ${list.length - attachmentCount}`);
+
+  if (excluded.length > 0) lines.push(`- Open issues skipped as not work (bot-authored, skip label or skip marker): ${excluded.length}`);
 
   if (skipped > 0) {
     lines.push(`- Open issues intentionally left out of this run (newest ${skipped}, over the sub-issue limit): ${skipped}`);
@@ -223,6 +315,11 @@ export function buildCombinedIssueBody({ repository, issues, totalOpen, limit = 
     lines.push('_No open issues were found._');
   } else {
     lines.push(...list.map(formatIssueLine));
+  }
+
+  if (excluded.length > 0) {
+    lines.push('', '## Issues left out of this run', '', 'These open issues are not work for this pull request (status pages, reports and dashboards maintained by a bot or a workflow, or issues the repository marked to skip). Do not close them and do not add closing references for them.', '');
+    lines.push(...excluded.map(issue => `- #${issue.number}${issue.title ? ` ${issue.title}` : ''} — ${issue.reason}`));
   }
 
   lines.push('', '## Requirements', '', '1. Read every issue listed above (including its comments) and fully implement what it asks for.', '2. Do all of the work in this single pull request. Do not defer any listed issue to a follow-up pull request.', '3. The pull request description **must** close this issue and **every** issue listed above, so that merging the pull request closes all of them at once.', '4. GitHub requires the full closing syntax for each issue: one keyword per issue. `Fixes #1, #2` only closes `#1`. Use the block below verbatim (plus `Fixes #<this issue>` for this issue).', '5. If an issue turns out to be already resolved or not reproducible, say so explicitly in the pull request description — but still keep its closing reference so it is closed on merge.', '', REQUIRED_CLOSING_REFERENCES_HEADING, '', '```', buildClosingKeywordBlock(list) || '(no issues)', '```', '');
@@ -280,8 +377,10 @@ export function parseRequiredClosingReferences(body) {
  * @param {object} params
  * @returns {string[]}
  */
-export function buildRepositoryModeSummaryLines({ totalOpen, selectedCount, skipped, limit = MAX_SUB_ISSUES_PER_PARENT, requestedCount = selectedCount }) {
-  const lines = [`   Open issues found:        ${totalOpen}`, `   Requested in one PR:      ${requestedCount}`, `   Attached as sub-issues:   ${selectedCount} (limit ${limit})`];
+export function buildRepositoryModeSummaryLines({ totalOpen, selectedCount, skipped, limit = MAX_SUB_ISSUES_PER_PARENT, requestedCount = selectedCount, excludedCount = 0 }) {
+  const lines = [`   Open issues found:        ${totalOpen}`];
+  if (excludedCount > 0) lines.push(`   Skipped (not work):       ${excludedCount}`);
+  lines.push(`   Requested in one PR:      ${requestedCount}`, `   Attached as sub-issues:   ${selectedCount} (limit ${limit})`);
   if (skipped > 0) {
     lines.push(`   Left out (newest, over limit): ${skipped}`);
   }
@@ -294,6 +393,11 @@ export default {
   buildOpenIssuesApiArgs,
   isPullRequestEntry,
   normalizeOpenIssueEntry,
+  REPOSITORY_MODE_SKIP_MARKER,
+  DEFAULT_SKIP_ISSUE_LABELS,
+  parseSkipIssueLabels,
+  repositoryModeSelectionFromArgv,
+  getRepositoryModeExclusionReason,
   selectOldestOpenIssues,
   selectSingleIssueTarget,
   buildCombinedIssueTitle,

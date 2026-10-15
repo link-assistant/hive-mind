@@ -776,6 +776,16 @@ export const SOLVE_OPTION_DEFINITIONS = {
     alias: ['ensure-all-sub-issues', 'ensure-sub-issues'],
     default: undefined,
   },
+  'skip-issue-labels': {
+    type: 'string',
+    description: 'Repository mode only (solving a repository URL): comma separated issue labels that mark an open issue as not work, so it is left out of the combined issue and its closing references. Default: "hive-mind:skip,dashboard,status". Use "none" to skip no labels. Issues whose body contains <!-- hive-mind:skip --> are always left out.',
+    default: undefined,
+  },
+  'include-bot-issues': {
+    type: 'boolean',
+    description: 'Repository mode only (solving a repository URL): also select open issues opened by bots (reports, dashboards). By default they are left out of the combined issue and its closing references, and listed with the reason.',
+    default: false,
+  },
   escalate: {
     type: 'string',
     description: '[EXPERIMENTAL] Start solving with a cheaper/lower-tier model and automatically escalate to a more capable (more expensive) model while unfinished work remains. Accepts a model range "<lower>-<upper>" using short Claude tier names (ladder: haiku < sonnet < opus < fable), e.g. "sonnet-opus". A single name (e.g. "opus") means just that tier. Bare flag means "sonnet-fable". The idea: iterate cheaply first so expensive models do more reading and less writing.',

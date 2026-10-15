@@ -46,7 +46,9 @@ jobs:
           node-version: 24.x
       - name: Install automation dependencies
         run: npm ci --omit=dev --ignore-scripts
-      - name: Compare the latest Formal AI tag with the last successful matrix
+      # Issue #3332: the shipped Formal AI pin is tested; the GitHub release and
+      # crates.io are compared and a disagreement is annotated (formal-ai#1203).
+      - name: Compare the shipped Formal AI version with the last successful matrix
         id: prepare
         env:
           GH_TOKEN: ${{ github.token }}
@@ -115,7 +117,7 @@ jobs:
           (cd "$ACT_DIR" && sha256sum --check --ignore-missing checksums.txt)
           tar -xzf "$ACT_DIR/act_Linux_x86_64.tar.gz" -C "$ACT_DIR" act
           echo "$ACT_DIR" >> "$GITHUB_PATH"
-      - name: Build the task overlay for the scheduled Formal AI release
+      - name: Build the task overlay for the shipped Formal AI version
         env:
           FORMAL_AI_VERSION: ${{ needs.prepare.outputs.formal_ai_tag }}
           E2E_IMAGE_OVERRIDE: ${{ vars.E2E_IMAGE }}

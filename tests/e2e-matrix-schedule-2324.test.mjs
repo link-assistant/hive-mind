@@ -30,11 +30,11 @@ test('a successful run with every model row passing suppresses the already teste
 test('a matrix skipped after a failed release names the release run as the reason', { timeout: 10_000 }, () => {
   const result = probe('workflow_run-failure');
   assert.match(result.output, /should_run=false/);
-  assert.deepEqual(result.logs, ['::notice title=E2E matrix skipped::Matrix skips: latest Formal AI v0.352.1; Checks and release run 37983302098 concluded failure on main']);
+  assert.deepEqual(result.logs, ['::notice title=E2E matrix skipped::Matrix skips: shipped Formal AI 0.352.1; Checks and release run 37983302098 concluded failure on main']);
 });
 
 test('a matrix after a successful release runs and says why', { timeout: 10_000 }, () => {
   const result = probe('workflow_run-success');
   assert.match(result.output, /should_run=true/);
-  assert.deepEqual(result.logs, ['Matrix runs: latest Formal AI v0.352.1; Checks and release run 37983302098 concluded success on main']);
+  assert.deepEqual(result.logs, ['Matrix runs: shipped Formal AI 0.352.1; Checks and release run 37983302098 concluded success on main']);
 });

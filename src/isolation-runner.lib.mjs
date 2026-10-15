@@ -58,6 +58,10 @@ export { parseExecutionResumeAllOutput, parseExecutionResumeOutput, RESUME_ALL_A
 // Valid isolation backends
 const VALID_ISOLATION_BACKENDS = ['screen', 'tmux', 'docker'];
 const DOCKER_CONTAINER_HOME = '/home/box';
+// Issue #3278: the bot's `docker inspect/info/exec/rm` queries are bounded; a hung
+// daemon fails them (each is already handled as a failed query) instead of
+// leaving the awaiting monitor or command waiting forever.
+const DOCKER_CLI_TIMEOUT_MS = 120_000;
 const FORMAL_AI_COMPOSE_HOSTNAME = 'link-assistant-formal-ai';
 // Default path where the host Docker socket is bind-mounted inside a DinD container so box's host-image passthrough can copy host images into the nested daemon. Matches box's own DIND_HOST_DOCKER_SOCK default. The deploy must mount it (`-v /var/run/docker.sock:/var/run/host-docker.sock:ro`) or the nested daemon starts empty and the first isolated task pulls the full, multi-gigabyte image. See issue #1914.
 const DEFAULT_HOST_DOCKER_SOCK = '/var/run/host-docker.sock';
@@ -789,7 +793,7 @@ export async function checkScreenSessionRunning(sessionName, verbose = false) {
 export async function checkDockerContainerRunning(containerName, verbose = false) {
   try {
     const $ = await getCommandStreamDollar();
-    const result = await $({ mirror: false })`docker inspect -f ${'{{.State.Running}}'} ${containerName}`;
+    const result = await $({ mirror: false, signal: AbortSignal.timeout(DOCKER_CLI_TIMEOUT_MS) })`docker inspect -f ${'{{.State.Running}}'} ${containerName}`;
     const running = (result.stdout?.toString() || '').trim() === 'true';
     if (verbose) {
       console.log(`[VERBOSE] isolation-runner: docker inspect for '${containerName}': ${running ? 'running' : 'not running'}`);
@@ -818,7 +822,7 @@ export async function checkDockerContainerExists(containerName, verbose = false)
   if (!containerName) return false;
   try {
     const $ = await getCommandStreamDollar();
-    const result = await $({ mirror: false })`docker inspect -f ${'{{.State.Status}}'} ${containerName}`;
+    const result = await $({ mirror: false, signal: AbortSignal.timeout(DOCKER_CLI_TIMEOUT_MS) })`docker inspect -f ${'{{.State.Status}}'} ${containerName}`;
     const code = Number.isFinite(result.code) ? result.code : 0;
     const state = (result.stdout?.toString() || '').trim();
     const exists = code === 0 && state !== '';
@@ -852,7 +856,7 @@ export async function getDockerContainerWritableLayerSize(containerName, verbose
   if (!containerName) return null;
   try {
     const $ = await getCommandStreamDollar();
-    const result = await $({ mirror: false })`docker inspect --size -f ${'{{.SizeRw}}'} ${containerName}`;
+    const result = await $({ mirror: false, signal: AbortSignal.timeout(DOCKER_CLI_TIMEOUT_MS) })`docker inspect --size -f ${'{{.SizeRw}}'} ${containerName}`;
     const bytes = parseDockerContainerWritableLayerSizeOutput(result.stdout?.toString() || '');
     if (verbose) {
       const label = bytes === null ? 'unknown' : `${bytes} bytes`;
@@ -883,7 +887,7 @@ export async function releaseDockerContainerStartGate(containerName, verbose = f
   for (let attempt = 1; attempt <= 5; attempt++) {
     try {
       const $ = await getCommandStreamDollar();
-      await $({ mirror: false })`docker exec ${containerName} sh -c ${releaseCommand}`;
+      await $({ mirror: false, signal: AbortSignal.timeout(DOCKER_CLI_TIMEOUT_MS) })`docker exec ${containerName} sh -c ${releaseCommand}`;
       if (verbose) {
         console.log(`[VERBOSE] isolation-runner: released docker start gate for '${containerName}'`);
       }
@@ -919,7 +923,7 @@ export async function removeDockerContainer(containerName, verbose = false) {
   }
   try {
     const $ = await getCommandStreamDollar();
-    const result = await $({ mirror: false })`docker rm -f ${containerName}`;
+    const result = await $({ mirror: false, signal: AbortSignal.timeout(DOCKER_CLI_TIMEOUT_MS) })`docker rm -f ${containerName}`;
     const stdout = result.stdout?.toString() || '';
     const stderr = result.stderr?.toString() || '';
     if (verbose) {
@@ -1010,7 +1014,7 @@ export async function checkBackendSessionAlive(sessionId, backend, verbose = fal
 export async function checkDockerImagePresent(image, verbose = false) {
   try {
     const $ = await getCommandStreamDollar();
-    await $({ mirror: false })`docker image inspect ${image}`;
+    await $({ mirror: false, signal: AbortSignal.timeout(DOCKER_CLI_TIMEOUT_MS) })`docker image inspect ${image}`;
     if (verbose) console.log(`[VERBOSE] isolation-runner: docker image inspect '${image}': present`);
     return true;
   } catch {
@@ -1037,7 +1041,7 @@ export async function checkDockerImagePresent(image, verbose = false) {
 export async function checkDockerStorageDriver(verbose = false) {
   try {
     const $ = await getCommandStreamDollar();
-    const result = await $({ mirror: false })`docker info --format ${'{{.Driver}}'}`;
+    const result = await $({ mirror: false, signal: AbortSignal.timeout(DOCKER_CLI_TIMEOUT_MS) })`docker info --format ${'{{.Driver}}'}`;
     const driver = (result.stdout?.toString() || '').trim().toLowerCase() || null;
     if (verbose) console.log(`[VERBOSE] isolation-runner: docker storage driver: ${driver || '(unknown)'}`);
     return driver;
@@ -1066,7 +1070,7 @@ export async function checkDockerDiskSpace(verbose = false) {
     let dataRoot = '/var/lib/docker';
     try {
       const $ = await getCommandStreamDollar();
-      const info = await $({ mirror: false })`docker info --format ${'{{.DockerRootDir}}'}`;
+      const info = await $({ mirror: false, signal: AbortSignal.timeout(DOCKER_CLI_TIMEOUT_MS) })`docker info --format ${'{{.DockerRootDir}}'}`;
       const root = (info.stdout?.toString() || '').trim();
       if (root) dataRoot = root;
     } catch {

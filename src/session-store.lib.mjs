@@ -56,6 +56,8 @@ import path from 'node:path';
 // session's execution was ever observed, so a restart during a slow launch does
 // not mistake "not started yet" for "finished".
 const PERSISTABLE_FIELDS = ['chatId', 'messageId', 'startTime', 'url', 'command', 'commandAlias', 'isolationBackend', 'sessionId', 'executionUuid', 'containerFilesystemStartBytes', 'containerFilesystemLastBytes', 'containerFilesystemLastObservedAt', 'containerFilesystemInheritedBytes', 'containerResourceLimits', 'containerResourceLimitExceeded', 'cpuPenalty', 'tool', 'infoBlock', 'urlContext', 'requesterUserId', 'showLimits', 'locale', 'logPath', 'args', 'completionNotifiedAt', 'completionExitCode', 'completionStatus', 'lastToolSessionId', 'oomEventObservedAt', 'killRecoveryAttempts', 'killRecoverySessionId', 'killRecoveryOfSession', 'rootSessionName', 'rootStartTime', 'previousExecutionUuids', 'killRecoveryResumed', 'killRecoveryInPlace', 'killRecoveryResumeMode', 'killRecoveryStartedAt', 'killRecoveryLogStartBytes', 'recoveryLifecycle', 'stopRequestedByUser', 'stopRequestedBy', 'onSessionKill', 'resolvedPullRequestUrl', 'launchPending', 'launchedAt', 'containerSeenAt'];
+// Issue #2303: the lowest host disk reading taken while the session ran, so a disk-full kill is still diagnosable after a restart.
+PERSISTABLE_FIELDS.push('hostDiskMinAvailableBytes', 'hostDiskTotalBytes', 'hostDiskMinAvailableAt', 'hostDiskPath');
 
 /**
  * Resolve the directory durable bot state is written to. Honors

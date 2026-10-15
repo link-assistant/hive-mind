@@ -1020,11 +1020,17 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
  * @param {Object|null} previousSnapshot - Prior { title, body } snapshot, or null on first call
  * @param {boolean} [verbose=false]
  * @param {Function} [commandRunner=$] - Tagged-template command runner (injectable for tests)
+ * @param {{pullRequestNumber?: number|string|null}} [options] - the pull request being watched
  * @returns {Promise<{changed: boolean, snapshot: Object|null, changes: Array<{field: string, from: string, to: string}>}>}
  */
-export const checkForIssueMetadataChanges = async (owner, repo, issueNumber, previousSnapshot, verbose = false, commandRunner = $) => {
+export const checkForIssueMetadataChanges = async (owner, repo, issueNumber, previousSnapshot, verbose = false, commandRunner = $, { pullRequestNumber = null } = {}) => {
   const empty = { changed: false, snapshot: previousSnapshot || null, changes: [] };
   if (!issueNumber) return empty;
+  // Issue #2293: with no separate linked issue, solve falls back to issueNumber = prNumber, so the "issue" is the pull request itself, whose title and description the AI owns and rewrites every session.
+  if (pullRequestNumber && Number(issueNumber) === Number(pullRequestNumber)) {
+    if (verbose) console.log(`[VERBOSE] Issue #${issueNumber} is the pull request itself (no separate linked issue); not watching its title/description as issue feedback (issue #2293)`);
+    return empty;
+  }
 
   let snapshot;
   try {

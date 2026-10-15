@@ -116,12 +116,12 @@ export function parseStartCommandExecutionUuid(output) {
  * log-marker classification as defense in depth (issue #2189).
  *
  * @param {string} output - Raw stdout from `$ --status`
- * @returns {{exists: boolean, uuid: string|null, status: string|null, exitCode: number|null, startTime: string|null, endTime: string|null, currentTime: string|null, logPath: string|null, command: string|null, isolation: string|null, workingDirectory: string|null, sessionName: string|null, processIds: Object, oomKilled: boolean|null, exitReason: string|null, memoryExhausted: boolean|null, memoryExhaustedReason: string|null, raw: string}}
+ * @returns {{exists: boolean, uuid: string|null, status: string|null, exitCode: number|null, startTime: string|null, endTime: string|null, currentTime: string|null, logPath: string|null, command: string|null, isolation: string|null, workingDirectory: string|null, sessionName: string|null, processIds: Object, oomKilled: boolean|null, exitReason: string|null, memoryExhausted: boolean|null, memoryExhaustedReason: string|null, endTimeSource: string|null, observedAt: string|null, raw: string}}
  */
 export function parseSessionStatusOutput(output) {
   const raw = (output || '').trim();
   if (!raw) {
-    return { exists: false, uuid: null, status: null, exitCode: null, startTime: null, endTime: null, currentTime: null, logPath: null, command: null, isolation: null, workingDirectory: null, sessionName: null, processIds: {}, oomKilled: null, exitReason: null, memoryExhausted: null, memoryExhaustedReason: null, cgroupMemory: null, raw: '' };
+    return { exists: false, uuid: null, status: null, exitCode: null, startTime: null, endTime: null, currentTime: null, logPath: null, command: null, isolation: null, workingDirectory: null, sessionName: null, processIds: {}, oomKilled: null, exitReason: null, memoryExhausted: null, memoryExhaustedReason: null, cgroupMemory: null, endTimeSource: null, observedAt: null, raw: '' };
   }
   const normalizeBooleanField = value => {
     if (typeof value === 'boolean') return value;
@@ -158,6 +158,9 @@ export function parseSessionStatusOutput(output) {
       memoryExhausted: normalizeBooleanField(data?.memoryExhausted),
       memoryExhaustedReason: typeof data?.memoryExhaustedReason === 'string' && data.memoryExhaustedReason.trim() ? data.memoryExhaustedReason.trim() : null,
       cgroupMemory: normalizeCgroupMemory(data?.cgroupMemory),
+      // Issue #2303: `observed-at` means docker never reported a finish time — the exit was noticed, not observed.
+      endTimeSource: typeof data?.endTimeSource === 'string' && data.endTimeSource.trim() ? data.endTimeSource.trim() : null,
+      observedAt: data?.observedAt || null,
       raw,
     };
   } catch {
@@ -211,6 +214,8 @@ export function parseSessionStatusOutput(output) {
     memoryExhausted: readBooleanField('memoryExhausted') ?? readBooleanField('Memory Exhausted'),
     memoryExhaustedReason: readField('memoryExhaustedReason') || readField('Memory Evidence'),
     cgroupMemory: readCgroupMemoryBlock(raw),
+    endTimeSource: readField('endTimeSource') || readField('End Time Source'),
+    observedAt: readField('observedAt') || readField('Observed At'),
     raw,
   };
 }

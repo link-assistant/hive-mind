@@ -355,9 +355,10 @@ function isDiskFull(disk) {
  * @param {Object|null} [params.reportedCgroupMemory] - Task cgroup counters saved by start-command >= 0.35.2
  * @param {Object|null} [params.observedDisk] - Lowest host disk reading the monitor took while the session ran (issue #2303)
  * @param {string|null} [params.unobservedExit] - Why the reported success was not trusted (issue #2303)
+ * @param {string|null} [params.statusQueryFailure] - Why the session was judged without a status record (issue #2303)
  * @returns {{cause: string, summary: string, evidence: string[], memory: Object|null, disk: Object|null, victims: Array}}
  */
-export function describeKillCause({ logText = null, resourceMarkers = null, oomKilled = false, exitCode = null, system = null, stopRequestedByUser = false, reportedMemoryExhausted = null, reportedMemoryExhaustedReason = null, reportedExitReason = null, reportedCgroupMemory = null, observedDisk = null, unobservedExit = null } = {}) {
+export function describeKillCause({ logText = null, resourceMarkers = null, oomKilled = false, exitCode = null, system = null, stopRequestedByUser = false, reportedMemoryExhausted = null, reportedMemoryExhaustedReason = null, reportedExitReason = null, reportedCgroupMemory = null, observedDisk = null, unobservedExit = null, statusQueryFailure = null } = {}) {
   const parsed = resourceMarkers || (logText ? parseResourceMarkers(logText) : { markers: [], byPhase: {} });
   const memoryMarker = selectLastMemoryResourceMarker(parsed);
   const heapMarker = selectLastHeapResourceMarker(parsed);
@@ -388,6 +389,7 @@ export function describeKillCause({ logText = null, resourceMarkers = null, oomK
   const observedDiskLine = describeDisk(observedDisk, observedDisk?.observedAt || null);
   if (observedDiskLine) evidence.push(`lowest host ${observedDiskLine} observed by the monitor while the session ran`);
   if (unobservedExit) evidence.push(`the reported success was not trusted — ${unobservedExit}`);
+  if (statusQueryFailure) evidence.push(statusQueryFailure);
   // Issue #2498: how close the container came to its own limit, and how many
   // processes the OOM killer took there — one OOM event can take several.
   const cgroupMarker = selectLastCgroupResourceMarker(parsed);
@@ -504,6 +506,8 @@ export function describeKillCause({ logText = null, resourceMarkers = null, oomK
     summary = stopRequestedByUser ? 'forced kill — an operator requested the stop' : `forced kill${healthy ? ` — ${healthy} were within normal limits` : ' — no resource exhaustion was observed'}`;
   } else if (unobservedExit) {
     summary = 'unknown — the container was removed while still running, and no memory or disk exhaustion was observed';
+  } else if (statusQueryFailure) {
+    summary = 'unknown — the session status could not be read and its backend is gone, and no memory or disk exhaustion was observed';
   } else {
     summary = 'unknown — no resource marker, cgroup counter or kernel OOM report was available';
   }
@@ -586,7 +590,7 @@ export function formatKillResumeSection({ sessionId = null, attempt = null, maxA
  * @param {Object} [options]
  * @returns {Promise<{section: string, diagnosis: Object|null}>}
  */
-export async function buildKillDiagnosticsSection(logPath, { verbose = false, readFile = fsPromises.readFile, maxLogBytes = KILL_DIAGNOSTICS_LOG_BYTES, minByteOffset = 0, oomKilled = false, exitCode = null, stopRequestedByUser = false, locale = null, collectSystem = collectSystemKillDiagnostics, reportedMemoryExhausted = null, reportedMemoryExhaustedReason = null, reportedExitReason = null, reportedCgroupMemory = null, observedDisk = null, unobservedExit = null } = {}) {
+export async function buildKillDiagnosticsSection(logPath, { verbose = false, readFile = fsPromises.readFile, maxLogBytes = KILL_DIAGNOSTICS_LOG_BYTES, minByteOffset = 0, oomKilled = false, exitCode = null, stopRequestedByUser = false, locale = null, collectSystem = collectSystemKillDiagnostics, reportedMemoryExhausted = null, reportedMemoryExhaustedReason = null, reportedExitReason = null, reportedCgroupMemory = null, observedDisk = null, unobservedExit = null, statusQueryFailure = null } = {}) {
   try {
     let logText = '';
     if (logPath) {
@@ -598,7 +602,7 @@ export async function buildKillDiagnosticsSection(logPath, { verbose = false, re
       logText = await readLogTextBounded(logPath, { readFile, maxBytes: maxLogBytes, minByteOffset, verbose });
     }
     const system = await collectSystem({ verbose });
-    const diagnosis = describeKillCause({ logText, oomKilled, exitCode, system, stopRequestedByUser, reportedMemoryExhausted, reportedMemoryExhaustedReason, reportedExitReason, reportedCgroupMemory, observedDisk, unobservedExit });
+    const diagnosis = describeKillCause({ logText, oomKilled, exitCode, system, stopRequestedByUser, reportedMemoryExhausted, reportedMemoryExhaustedReason, reportedExitReason, reportedCgroupMemory, observedDisk, unobservedExit, statusQueryFailure });
     if (verbose) console.log(`[VERBOSE] kill-diagnostics: cause=${diagnosis.cause} — ${diagnosis.summary}`);
     return { section: formatKillDiagnosticsSection(diagnosis, { locale }), diagnosis };
   } catch (error) {

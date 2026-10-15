@@ -84,7 +84,8 @@ export function markLaunchCompleted(sessionInfo, { now = Date.now() } = {}) {
  */
 export function isExecutionObserved(state) {
   if (!state) return false;
-  if (state.running === true && !state.awaitingLaunch) return true;
+  // Issue #2303: kept tracked only because the status query failed is no observation.
+  if (state.running === true && !state.awaitingLaunch && !state.unverifiedRunning) return true;
   if (state.statusResult?.exists === true && state.statusResult?.status) return true;
   return normalizeExitCode(state.exitCode) !== null;
 }

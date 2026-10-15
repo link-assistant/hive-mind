@@ -695,6 +695,8 @@ zh
         hive_incomplete "Hive 会话结束时仍有问题等待处理；请查看日志中的阻塞问题"
         no_changes "工作会话结束但没有任何更改；原因请见 pull request 评论"
         failed "工作会话失败（退出代码：{{exitCode}}）"
+        command_not_found "command not found（会话要运行的程序不存在）"
+        command_not_executable "command not executable（会话要运行的程序无法执行）"
         merged_but_failed "拉取请求已合并，但工作会话退出，代码为：{{exitCode}}"
         merged_success "请求的拉取请求已成功合并。"
         runner_also_failed "运行器也失败了；其退出代码已保留以供调查。"

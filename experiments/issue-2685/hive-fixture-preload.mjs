@@ -20,6 +20,8 @@ globalThis.use = async name => {
   throw new Error(`Unexpected dependency: ${name}`);
 };
 stub('instrument.mjs', '');
+// Issue #3356: the real sweeper would query GitHub and write ~/.hive-mind state on start.
+stub('merged-pr-sweeper.lib.mjs', `export const startMergedPullRequestSweeper = () => ({ stop: ${noop}, runOnce: async () => null }), sweepScope = () => null;`);
 stub(
   'lib.mjs',
   `
@@ -52,7 +54,7 @@ shouldStartAnotherOnceRound: () => false, getWaitingCount: () => waiting.length,
 });`
   );
 if (parentScenario) {
-  stub('github-rate-limit.lib.mjs', `export { answerGh as execGhWithRetry } from ${JSON.stringify(new URL('parent-pr-fixture-data.mjs', import.meta.url).href)}; export const wrapDollarWithGhRetry = value => value;`);
+  stub('github-rate-limit.lib.mjs', `export { answerGh as execGhWithRetry } from ${JSON.stringify(new URL('parent-pr-fixture-data.mjs', import.meta.url).href)}; export const wrapDollarWithGhRetry = value => value, ghWithRateLimitRetry = fn => fn();`);
 }
 stub(
   'github.lib.mjs',

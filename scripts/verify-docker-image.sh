@@ -162,6 +162,7 @@ check_tool "GitHub CLI" gh       --version
 check_tool "Go"        go        version
 check_tool "Homebrew"  brew      --version
 check_tool "Java"      java      -version
+check_tool "jq"        jq        --version
 check_tool "Lake"      lake      --version
 check_tool "Lean"      lean      --version
 check_tool "LLD Linker" lld      --version

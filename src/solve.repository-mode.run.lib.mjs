@@ -132,26 +132,31 @@ export async function fetchOpenIssues({ repository, run = runCommand }) {
  * @param {{owner: string, repo: string, fullName: string, url: string}} params.repository
  * @param {number} [params.limit=MAX_SUB_ISSUES_PER_PARENT]
  * @param {Function} [params.run]
- * @returns {Promise<{repository, selected, allIssues, singleIssue, totalOpen, skipped, title, body}>}
+ * @param {{skipLabels?: string[], includeBotIssues?: boolean}} [params.selection] - which open issues are not work (issue #3176)
+ * @returns {Promise<{repository, selected, allIssues, excluded, singleIssue, totalOpen, skipped, title, body}>}
  */
-export async function prepareRepositoryModeIssue({ repository, limit = MAX_SUB_ISSUES_PER_PARENT, run = runCommand }) {
+export async function prepareRepositoryModeIssue({ repository, limit = MAX_SUB_ISSUES_PER_PARENT, run = runCommand, selection = {} }) {
   const entries = await fetchOpenIssues({ repository, run });
-  const { selected, totalOpen, skipped } = selectOldestOpenIssues(entries, { limit });
+  const { selected, totalOpen: eligibleOpen, skipped, excluded } = selectOldestOpenIssues(entries, { ...selection, limit });
   // GitHub caps native attachments, not the requested scope of the single PR.
-  const allIssues = selectOldestOpenIssues(entries, { limit: Number.MAX_SAFE_INTEGER }).selected;
+  const allIssues = selectOldestOpenIssues(entries, { ...selection, limit: Number.MAX_SAFE_INTEGER }).selected;
+  // Issue #3176: status pages and other skipped issues are still open issues of
+  // the repository, so they are counted, but they are never requested.
+  const totalOpen = eligibleOpen + excluded.length;
 
   return {
     repository,
     selected,
     allIssues,
+    excluded,
     totalOpen,
     skipped: 0,
     unattachedCount: skipped,
     limit,
-    // Issue #3108: set when the repository has exactly one open issue.
+    // Issue #3108: set when the repository has exactly one open issue to work on.
     singleIssue: selectSingleIssueTarget({ repository, issues: allIssues }),
-    title: buildCombinedIssueTitle({ owner: repository.owner, repo: repository.repo, count: allIssues.length, totalOpen }),
-    body: buildCombinedIssueBody({ repository, issues: allIssues, totalOpen, limit, attachmentCount: selected.length }),
+    title: buildCombinedIssueTitle({ owner: repository.owner, repo: repository.repo, count: allIssues.length, totalOpen: eligibleOpen }),
+    body: buildCombinedIssueBody({ repository, issues: allIssues, totalOpen, limit, attachmentCount: selected.length, excludedIssues: excluded }),
   };
 }
 
@@ -324,9 +329,10 @@ export async function createRepositoryModeIssue({ repository, prepared, run = ru
  * @param {number} [params.limit]
  * @param {boolean} [params.dryRun] - prepare only; do not create anything
  * @param {object} [params.attachOptions] - forwarded to {@link attachSubIssues}
+ * @param {{skipLabels?: string[], includeBotIssues?: boolean}} [params.selection] - forwarded to {@link prepareRepositoryModeIssue}
  * @returns {Promise<{handled: boolean, issueUrl?: string, issue?: object, prepared?: object, argvOverrides?: object, noWork?: boolean, singleIssue?: boolean, message?: string, error?: string}>}
  */
-export async function resolveRepositoryModeTarget({ url, log = null, run = runCommand, limit = MAX_SUB_ISSUES_PER_PARENT, dryRun = false, attachOptions = {} }) {
+export async function resolveRepositoryModeTarget({ url, log = null, run = runCommand, limit = MAX_SUB_ISSUES_PER_PARENT, dryRun = false, attachOptions = {}, selection = {} }) {
   const repository = parseRepositoryModeUrl(url);
   if (!repository) return { handled: false };
 
@@ -340,9 +346,16 @@ export async function resolveRepositoryModeTarget({ url, log = null, run = runCo
 
   let prepared;
   try {
-    prepared = await prepareRepositoryModeIssue({ repository, limit, run });
+    prepared = await prepareRepositoryModeIssue({ repository, limit, run, selection });
   } catch (error) {
     return { handled: true, error: `Could not list open issues of ${repository.fullName}: ${error.message}` };
+  }
+
+  // Issue #3176: say which open issues are not work and why, before anything
+  // is created, so the scope stays reviewable in the log.
+  if (prepared.excluded.length > 0) {
+    await emit(`   Skipping ${prepared.excluded.length} open issue(s) that are not work (use --include-bot-issues or --skip-issue-labels to change this):`);
+    for (const issue of prepared.excluded) await emit(`     #${issue.number} ${issue.title} — ${issue.reason}`);
   }
 
   // Issue #3108: a combined issue around a single issue would only duplicate
@@ -355,12 +368,12 @@ export async function resolveRepositoryModeTarget({ url, log = null, run = runCo
     return { handled: true, singleIssue: true, issueUrl: prepared.singleIssue.url, prepared, argvOverrides: {} };
   }
 
-  for (const line of buildRepositoryModeSummaryLines({ totalOpen: prepared.totalOpen, requestedCount: prepared.allIssues.length, selectedCount: prepared.selected.length, skipped: prepared.skipped, limit })) {
+  for (const line of buildRepositoryModeSummaryLines({ totalOpen: prepared.totalOpen, requestedCount: prepared.allIssues.length, selectedCount: prepared.selected.length, skipped: prepared.skipped, limit, excludedCount: prepared.excluded.length })) {
     await emit(line);
   }
 
   if (prepared.selected.length === 0) {
-    const message = `${repository.fullName} has no open issues. Nothing to do.`;
+    const message = prepared.excluded.length > 0 ? `${repository.fullName} has no open issues to work on (skipped as not work: ${prepared.excluded.map(issue => `#${issue.number}`).join(', ')}). Nothing to do.` : `${repository.fullName} has no open issues. Nothing to do.`;
     await emit(`ℹ️  ${message}`);
     return { handled: true, noWork: true, message, prepared };
   }

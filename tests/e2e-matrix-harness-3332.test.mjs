@@ -40,7 +40,7 @@ const probe = (scenario, env = {}) => JSON.parse(execFileSync(process.execPath, 
 test('the matrix tests the Formal AI version the images ship, not the GitHub Releases latest', { timeout: 10_000 }, () => {
   const shipped = readShippedFormalAiVersion();
   assert.equal(shipped, FORMAL_AI_BOOTSTRAP_VERSION, 'the bootstrap pin is what the images install');
-  for (const dockerfile of ['Dockerfile', 'Dockerfile.formal-ai']) assert.match(readFileSync(dockerfile, 'utf8'), new RegExp(`^ARG FORMAL_AI_VERSION=${shipped.replace(/\./g, '\\.')}$`, 'm'), `${dockerfile} installs ${shipped}`);
+  for (const dockerfile of ['Dockerfile', 'Dockerfile.formal-ai']) assert.ok(readFileSync(dockerfile, 'utf8').split('\n').includes(`ARG FORMAL_AI_VERSION=${shipped}`), `${dockerfile} installs ${shipped}`);
 
   const result = probe('workflow_run-success', { PROBE_SHIPPED: '0.353.2', PROBE_RELEASE: 'v0.352.1', PROBE_CRATES: '0.353.2' });
   assert.match(result.output, /formal_ai_tag=0\.353\.2\n/, 'the build and the image check receive the shipped version');

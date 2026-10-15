@@ -108,10 +108,11 @@ export function collectPreviousExecutionUuids(sessionInfo, nextExecutionUuid) {
  * @param {Object} [options.env] - Source of `HIVE_MIND_SESSION_KILL_RESUME_DELAY`
  * @param {Function} [options.sleep] - Waits the random pre-launch delay (issue #2498)
  * @param {Function} [options.random] - Test seam for the delay
+ * @param {Object} [options.snapshotGuard] - Test seams for the snapshot disk guard (issue #2889)
  * @param {boolean} [options.verbose]
  * @returns {Promise<{resumed: boolean, reason: string, sessionId: string|null, display: string|null, inPlace: boolean, delayMs: number}>}
  */
-export async function startKillRecoverySession({ sessionName, sessionInfo, plan, runner, trackSession, persistSnapshot = null, env = process.env, sleep = sleepBeforeRecovery, random, onLifecycle = async () => {}, verbose = false } = {}) {
+export async function startKillRecoverySession({ sessionName, sessionInfo, plan, runner, trackSession, persistSnapshot = null, env = process.env, sleep = sleepBeforeRecovery, random, onLifecycle = async () => {}, snapshotGuard = {}, verbose = false } = {}) {
   let delayMs = 0;
   const notify = async event => {
     try {
@@ -150,7 +151,7 @@ export async function startKillRecoverySession({ sessionName, sessionInfo, plan,
           .then(stat => stat.size)
           .catch(() => null)
       : null;
-    const inPlace = await resumeKilledSessionInPlace({ sessionName, sessionInfo, plan, runner, verbose });
+    const inPlace = await resumeKilledSessionInPlace({ sessionName, sessionInfo, plan, runner, notify, snapshotGuard, verbose });
     let newSessionId = inPlace.sessionId;
     let executionUuid = inPlace.executionUuid;
     let logPath = inPlace.resumed ? sessionInfo?.logPath || null : null;
@@ -256,7 +257,7 @@ export async function startKillRecoverySession({ sessionName, sessionInfo, plan,
  * @param {Object} options - See planKillRecovery() and startKillRecoverySession()
  * @returns {Promise<{resumed: boolean, reason: string, policy: string, sessionId: string|null, display: string|null, attempt: number, maxAttempts: number, inPlace: boolean}>}
  */
-export async function recoverKilledSession({ sessionName, sessionInfo, logPath = null, killed = false, env = process.env, runner = null, trackSession = null, persistSnapshot = null, sleep = sleepBeforeRecovery, random, onLifecycle, verbose = false, readLastSessionId = readLastSessionIdFromLog } = {}) {
+export async function recoverKilledSession({ sessionName, sessionInfo, logPath = null, killed = false, env = process.env, runner = null, trackSession = null, persistSnapshot = null, sleep = sleepBeforeRecovery, random, onLifecycle, snapshotGuard = {}, verbose = false, readLastSessionId = readLastSessionIdFromLog } = {}) {
   // Issue #2408: one kill gets one recovery. A completion that runs again for
   // the same session (an overlapping monitor tick, a bot restart between the
   // launch and the completion latch) must report the session already started,
@@ -281,7 +282,7 @@ export async function recoverKilledSession({ sessionName, sessionInfo, logPath =
     return { resumed: false, reason: plan.reason, policy: plan.policy, sessionId: null, display: plan.command?.display || null, attempt: plan.attempt, maxAttempts: plan.maxAttempts, inPlace: false };
   }
 
-  const started = await startKillRecoverySession({ sessionName, sessionInfo, plan, runner, trackSession, persistSnapshot, env, sleep, random, onLifecycle, verbose });
+  const started = await startKillRecoverySession({ sessionName, sessionInfo, plan, runner, trackSession, persistSnapshot, env, sleep, random, onLifecycle, snapshotGuard, verbose });
   return { resumed: started.resumed, reason: started.reason, policy: plan.policy, sessionId: started.sessionId, display: started.display, attempt: plan.attempt, maxAttempts: plan.maxAttempts, inPlace: started.inPlace === true };
 }
 

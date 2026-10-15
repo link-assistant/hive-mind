@@ -18,6 +18,10 @@
  *      the disk.
  *
  * Unknown measurements do not block (the previous behaviour), but are logged.
+ * Before measuring, an optional `prune` step deletes regenerable build caches
+ * from the stopped container (see kill-recovery-snapshot-cleanup.lib.mjs), and
+ * each stage is reported: queued, waiting for disk, caches removed, and
+ * "snapshotting <size>" (Docker reports no progress while it commits).
  *
  * @see https://github.com/link-assistant/hive-mind/issues/2889
  */
@@ -55,13 +59,27 @@ export function formatSnapshotDiskWait(evaluation) {
   return `Waiting for disk: ${formatGiB(evaluation.availableBytes)} free on the Docker data root, ${formatGiB(evaluation.requiredBytes)} needed to snapshot this ${formatGiB(evaluation.writableBytes)} container safely.`;
 }
 
+/** Recovery notice as the commit starts: the size is all Docker lets us know. */
+export function formatSnapshotStart(evaluation, containerName) {
+  const size = Number.isFinite(evaluation?.writableBytes) ? `${formatGiB(evaluation.writableBytes)} of ${containerName}` : `${containerName} (size not measured)`;
+  const disk = evaluation?.known ? ` (${formatGiB(evaluation.availableBytes)} free, ${formatGiB(evaluation.requiredBytes)} needed)` : Number.isFinite(evaluation?.writableBytes) ? ' (free space not measured)' : '';
+  return `Snapshotting ${size}${disk}. Docker reports no progress while it commits; large layers take minutes.`;
+}
+
+/** Recovery notice after regenerable caches were removed from the container. */
+export function formatSnapshotPrune(pruned, containerName) {
+  const count = pruned.paths?.length || 0;
+  return `Removed ${formatGiB(pruned.freedBytes)} of regenerable build caches (${count} director${count === 1 ? 'y' : 'ies'}) from ${containerName} before snapshotting it.`;
+}
+
 /**
  * The writable layer to snapshot and the free space for it. The monitor's
  * last measurement is used first: `docker inspect --size` walks the whole
  * layer, which takes minutes for tens of gigabytes.
  */
-export async function measureSnapshotDisk({ sessionInfo, containerName, runner, verbose = false }) {
-  let writableBytes = Number.isFinite(sessionInfo?.containerFilesystemLastBytes) ? sessionInfo.containerFilesystemLastBytes : null;
+export async function measureSnapshotDisk({ sessionInfo, containerName, runner, prunedBytes = 0, verbose = false }) {
+  // The monitor measured before the kill, so subtract what a prune removed since.
+  let writableBytes = Number.isFinite(sessionInfo?.containerFilesystemLastBytes) ? Math.max(0, sessionInfo.containerFilesystemLastBytes - (Number.isFinite(prunedBytes) ? prunedBytes : 0)) : null;
   if (writableBytes === null && typeof runner?.getDockerContainerWritableLayerSize === 'function') {
     writableBytes = await Promise.resolve(runner.getDockerContainerWritableLayerSize(containerName, verbose)).catch(() => null);
   }
@@ -117,13 +135,18 @@ export const snapshotQueue = createSnapshotQueue();
  * Run `resume` (the `$ --resume` call) under both rules.
  * @returns {Promise<{skipped: true, evaluation: Object, detail: string}|{skipped: false, result: any}>}
  */
-export async function runGuardedSnapshotResume({ sessionName, sessionInfo, containerName, runner, notify = async () => {}, attempt = null, queue = snapshotQueue, sleep, now, waitMs, pollMs, verbose = false }, resume) {
+export async function runGuardedSnapshotResume({ sessionName, sessionInfo, containerName, runner, notify = async () => {}, attempt = null, queue = snapshotQueue, prune = null, sleep, now, waitMs, pollMs, verbose = false }, resume) {
   const say = reason => Promise.resolve(notify({ phase: 'launching', attempt, reason })).catch(() => {});
   return queue.run(
     async () => {
       let told = false;
+      // Inside the queue: only one container is ever started for pruning.
+      const pruned = typeof prune === 'function' ? await Promise.resolve(prune()).catch(error => ({ pruned: false, freedBytes: 0, reason: error?.message || String(error) })) : null;
+      const prunedBytes = pruned?.pruned && Number.isFinite(pruned.freedBytes) ? pruned.freedBytes : 0;
+      if (prunedBytes > 0) await say(formatSnapshotPrune(pruned, containerName));
+      else if (pruned?.reason && verbose) console.log(`[VERBOSE] In-place resume of ${sessionName}: caches not pruned: ${pruned.reason}`);
       const headroom = await waitForSnapshotDiskHeadroom({
-        measure: () => measureSnapshotDisk({ sessionInfo, containerName, runner, verbose }),
+        measure: () => measureSnapshotDisk({ sessionInfo, containerName, runner, prunedBytes, verbose }),
         onWaiting: async evaluation => {
           const detail = formatSnapshotDiskWait(evaluation);
           if (verbose) console.log(`[VERBOSE] In-place resume of ${sessionName}: ${detail}`);
@@ -141,8 +164,13 @@ export async function runGuardedSnapshotResume({ sessionName, sessionInfo, conta
         console.warn(`[session-kill-resume] ${detail}`);
         return { skipped: true, evaluation, detail };
       }
-      if (verbose) console.log(`[VERBOSE] In-place resume of ${sessionName}: snapshotting ${evaluation.known ? `${formatGiB(evaluation.writableBytes)} (${formatGiB(evaluation.availableBytes)} free, ${formatGiB(evaluation.requiredBytes)} needed)` : 'an unmeasured writable layer'} of ${containerName}`);
-      return { skipped: false, result: await resume() };
+      const started = formatSnapshotStart(evaluation, containerName);
+      if (verbose) console.log(`[VERBOSE] In-place resume of ${sessionName}: ${started}`);
+      await say(started);
+      const startedAt = Date.now();
+      const result = await resume();
+      console.log(`[session-kill-resume] Snapshot resume of ${containerName} returned after ${Math.round((Date.now() - startedAt) / 1000)}s`);
+      return { skipped: false, result, prunedBytes };
     },
     {
       onQueued: ahead => {

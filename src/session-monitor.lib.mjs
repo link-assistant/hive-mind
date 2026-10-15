@@ -45,6 +45,7 @@ import { hasUnknownExitLatch, reconcileLaunchObservation, releaseCompletionLatch
 import { getNonIsolationSessionProgress, readScreenExitMarker, removeScreenExitMarker, NON_ISOLATION_SESSION_TIMEOUT_MS, NON_ISOLATION_MARKED_SESSION_TIMEOUT_MS } from './start-screen-exit-marker.lib.mjs';
 import { enforceContainerDiskLimitForSession as enforceContainerDiskLimit, formatContainerResourceLimitExceededSection } from './container-resource-monitor.lib.mjs';
 import { runDockerCpuPenaltyPass, formatDockerCpuPenaltySection } from './docker-cpu-penalty.lib.mjs';
+import { removeSnapshotImages, snapshotImagesForContainer } from './kill-recovery-snapshot-cleanup.lib.mjs';
 export { formatSessionCompletionMessage, getSessionCompletionExitCode } from './work-session-formatting.lib.mjs';
 export { DOCKER_TERMINAL_FOOTER_GRACE_MS } from './session-monitor.docker-terminal.lib.mjs';
 export { STALE_EXECUTING_MIN_AGE_MS, DOCKER_BACKEND_GONE_GRACE_MS } from './session-monitor.stale-executing.lib.mjs';
@@ -590,17 +591,25 @@ export function buildDockerTaskContainerCompletionAction({ sessionName, sessionI
   const keepPolicy = resolveDockerTaskContainerKeepPolicy({ env, verbose });
   const successful = isSuccessfulTaskCompletion({ exitCode, status, command: sessionInfo.command });
   const shouldKeep = keepPolicy === 'always' || (keepPolicy === 'on-failure' && !successful);
+  // Issue #2889: the snapshot images of the container's resume chain go with it.
+  const snapshotImages = [...new Set([...snapshotImagesForContainer(containerName), ...(Array.isArray(sessionInfo.killRecoverySnapshotImages) ? sessionInfo.killRecoverySnapshotImages : [])])];
   return {
     applies: true,
     containerName,
     keepPolicy,
     successful,
     shouldRemove: !shouldKeep,
+    snapshotImages,
     extraSection: shouldKeep ? formatDockerTaskContainerKeptSection({ containerName, keepPolicy }) : '',
   };
 }
-async function applyDockerTaskContainerCompletionAction(action, { verbose = false, removeDockerContainer = null } = {}) {
+export async function applyDockerTaskContainerCompletionAction(action, { verbose = false, removeDockerContainer = null, removeImages = removeSnapshotImages, sessionInfo = null } = {}) {
   if (!action?.applies || !action.shouldRemove || !action.containerName) return;
+  // Issue #2889: a `docker start` recovery now runs in this container.
+  if (sessionInfo?.killRecoveryContainerName === action.containerName) {
+    if (verbose) console.log(`[VERBOSE] Keeping docker task container '${action.containerName}': its recovery runs in it`);
+    return;
+  }
   try {
     const removeFn =
       removeDockerContainer ||
@@ -609,6 +618,7 @@ async function applyDockerTaskContainerCompletionAction(action, { verbose = fals
         return runner.removeDockerContainer(containerName, removeVerbose);
       });
     const result = await removeFn(action.containerName, verbose);
+    if (result?.success && action.snapshotImages?.length) await removeImages(action.snapshotImages, { verbose });
     if (verbose) {
       if (result?.success) {
         console.log(`[VERBOSE] Removed docker task container '${action.containerName}' after terminal session completion`);
@@ -1118,6 +1128,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
       await applyDockerTaskContainerCompletionAction(dockerTaskContainerAction, {
         verbose,
         removeDockerContainer: options.removeDockerContainer,
+        sessionInfo,
       });
       completeSession(sessionName, completionExitForAudit(finalExitCode), verbose, resolvedStatus);
     } catch (error) {
@@ -1126,6 +1137,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
         await applyDockerTaskContainerCompletionAction(dockerTaskContainerAction, {
           verbose,
           removeDockerContainer: options.removeDockerContainer,
+          sessionInfo,
         });
         completeSession(sessionName, completionExitForAudit(exitCode), verbose, resolvedStatus);
       } else {

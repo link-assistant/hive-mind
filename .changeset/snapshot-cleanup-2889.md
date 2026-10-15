@@ -1,0 +1,5 @@
+---
+'@link-assistant/hive-mind': patch
+---
+
+In-place kill recovery now copies less and cleans up after itself. Containers started by start-command 0.37.0 or later resume with `docker start` and skip the snapshot queue and disk wait entirely, and the notice says "no snapshot needed". Older containers that Hive Mind started behind its fail-closed start gate are briefly started while the gate still holds them idle, so their regenerable build caches (directories tagged with `CACHEDIR.TAG`, such as Cargo `target/`, and `node_modules/.cache`) can be deleted before the commit. Source trees are never touched. The notice then reports "Removed X GiB of regenerable build caches" and "Snapshotting X GiB (Y free, Z needed)". Once the snapshot-derived container has started, the stopped original is removed. When the task's last container is removed, its `start-command-resume/*` snapshot images are removed too. A killed session's completion no longer removes the container that a `docker start` recovery is now running in (issue #2889).

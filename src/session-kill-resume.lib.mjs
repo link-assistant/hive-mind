@@ -220,6 +220,9 @@ export async function startKillRecoverySession({ sessionName, sessionInfo, plan,
         previousExecutionUuids: collectPreviousExecutionUuids(sessionInfo, executionUuid),
         killRecoveryInPlace: inPlace.resumed,
         killRecoveryResumeMode: inPlace.mode || null,
+        // Issue #2889: the snapshot images behind this execution, removed once
+        // the task's last container is removed.
+        killRecoverySnapshotImages: inPlace.resumed && inPlace.snapshotImage ? [...(sessionInfo?.killRecoverySnapshotImages || []), inPlace.snapshotImage] : sessionInfo?.killRecoverySnapshotImages,
         oomEventObservedAt: undefined,
         dockerBackendGoneFirstSeenAt: undefined,
         // The recovery session has not been recovered itself (yet) (#2408).
@@ -240,6 +243,9 @@ export async function startKillRecoverySession({ sessionName, sessionInfo, plan,
       sessionInfo[KILL_RESUME_ATTEMPTS_FIELD] = plan.attempt;
       // Persisted with the counter, so a repeated completion finds it (#2408).
       sessionInfo.killRecoverySessionId = newSessionId;
+      // Issue #2889: a docker-start resume runs in this very container, which
+      // the killed session's completion must therefore not remove.
+      sessionInfo.killRecoveryContainerName = inPlace.resumed ? inPlace.containerName || null : null;
     }
     if (typeof persistSnapshot === 'function') {
       try {

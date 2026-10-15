@@ -146,10 +146,10 @@ for (const file of streamParsingLibs) {
 // `opencode` reaches it indirectly: it prices through agent.lib.mjs, which is
 // where the formal-ai short-circuit lives for both tools.
 const PRICING_ENTRY_POINT_BY_TOOL = {
-  claude: 'applyFormalAiPricingOverride',
-  agent: 'buildFormalAiPricingInfo',
+  claude: 'applyServedModelPricing', // Issue #3279: one served-model registry
+  agent: 'servedModelPricingInfo',
   opencode: 'calculateAgentPricing',
-  codex: 'buildFormalAiPricingInfo',
+  codex: 'servedModelPricingInfo',
   qwen: 'buildFormalAiPricingInfo',
   gemini: 'buildFormalAiPricingInfo',
 };

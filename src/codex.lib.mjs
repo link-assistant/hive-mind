@@ -40,10 +40,11 @@ import { createInteractiveHandler } from './interactive-mode.lib.mjs';
 import { initProgressMonitoring } from './solve.progress-monitoring.lib.mjs';
 import { ensureCodexPlaywrightMcpServer, getCodexPlaywrightMcpDisableConfigArgs } from './playwright-mcp.lib.mjs';
 import { fetchModelInfo } from './model-info.lib.mjs';
-import { defaultModels, isFormalAiModel } from './models/index.mjs';
+import { defaultModels } from './models/index.mjs';
 import { buildAuthRemedyLines, buildFormalAiEnvExports, isPrepareOnly, logPreparedToolCommand, resolveFormalAiToolExecution } from './formal-ai.lib.mjs';
 import { assertFormalAiCodexConfig, classifyFormalAiCodexFailure, pinFormalAiCodexHome } from './codex.formal-ai.lib.mjs';
-import { buildFormalAiPricingInfo } from './formal-ai-pricing.lib.mjs'; // Issue #2119
+import { servedModelPricingInfo } from './formal-ai-pricing.lib.mjs'; // Issue #2119, #3279
+import { createToolAttribution } from './formal-ai-attribution.lib.mjs'; // Issue #3279
 import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { parseSubSessionSize } from './sub-session-size.lib.mjs'; // Issue #1706
 import { buildCodexPricingTierConfigArgs, describePricingTier, resolvePricingTier } from './pricing-tier.lib.mjs'; // Issue #2771
@@ -433,7 +434,8 @@ export const calculateCodexPricing = async (modelId, tokenUsage) => {
   if (!modelId) return null;
   // Issue #2119: a Formal AI session is served by the local Link.Assistant
   // model server, so OpenAI pricing must not be applied to it.
-  if (isFormalAiModel(modelId)) return buildFormalAiPricingInfo(modelId, tokenUsage);
+  const servedPricing = servedModelPricingInfo(modelId, tokenUsage); // Issue #3279: one registry keyed by the served model
+  if (servedPricing) return servedPricing;
   try {
     const modelInfo = await fetchModelInfo(modelId, { preferredProviderIds: ['openai'] });
     return calculateCodexPricingFromModelInfo(modelId, tokenUsage, modelInfo);
@@ -614,15 +616,18 @@ export const executeCodex = async params => {
     owner,
     repo,
     prNumber,
+    issueNumber, // Issue #3279: attribution evidence path and trailers
+    prUrl,
     capabilityPreflight: { ...capabilityPreflight, codexBaseEnv },
   });
 };
 
 export const executeCodexCommand = async params => {
   const getCgroupMemory = params.readCgroupMemory || readCgroupMemory;
-  const { tempDir, branchName, prompt, systemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, codexPath, $, owner, repo, prNumber, capabilityPreflight, calculatePricing = calculateCodexPricing, waitForRetryDelay = waitWithCountdown, verifyCapabilityExecutionCatalog = verifyCodexCapabilityExecutionCatalog } = params;
+  const { tempDir, branchName, prompt, systemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, codexPath, $, owner, repo, prNumber, issueNumber = null, prUrl = null, createAttributionSession, capabilityPreflight, calculatePricing = calculateCodexPricing, waitForRetryDelay = waitWithCountdown, verifyCapabilityExecutionCatalog = verifyCodexCapabilityExecutionCatalog } = params;
   const shellQuote = value => `"${String(value).replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
   const expectedBaseBranch = String(argv?.baseBranch || '').trim();
+  const codexAttribution = await createToolAttribution({ tool: 'codex', argv, repositoryPath: tempDir, issueNumber, prNumber, prUrl, log, createAttributionSession }); // Issue #3279: `--tool agent`'s attribution, fed from `codex exec --json`
   // Retry configuration
   let retryCount = 0;
   // Issue #2169: retries are bounded by a wall-clock budget (12 h by default, configurable via
@@ -677,6 +682,7 @@ export const executeCodexCommand = async params => {
       Object.assign(toolInvocation.env, applyCodexCapabilityEnv({}, capabilityPreflight));
     }
     Object.assign(codexEnv, toolInvocation.env);
+    await codexAttribution.prepareEnv(codexEnv); // Issue #3279: hooks via GIT_CONFIG_*, kept by Codex's default shell_environment_policy
     if (capabilityPreflight?.codexHome) {
       const verified = await verifyCapabilityExecutionCatalog({ capabilityPreflight, projectDir: tempDir, codexPath, env: codexEnv, log });
       Object.assign(capabilityPreflight, verified);
@@ -884,6 +890,7 @@ export const executeCodexCommand = async params => {
           }
           lastMessage = raw;
           const output = codexStdoutLines.write(raw);
+          await codexAttribution.observeText(output); // Issue #3279: before any commit the turn makes
           await toolCallLoopGuard.observeOutput(output);
           codexJsonState = parseCodexExecJsonOutput(output, codexJsonState, mappedModel, { source: 'stdout' });
           await baseBranchCommandIntervention.handleCommandExecutions(codexJsonState.commandExecutions);
@@ -941,6 +948,7 @@ export const executeCodexCommand = async params => {
       ]) {
         if (!remaining.trim()) continue;
         if (source === 'stderr') stderrError = findCodexStderrError(remaining, stderrError);
+        else await codexAttribution.observeText(remaining);
         codexJsonState = parseCodexExecJsonOutput(remaining, codexJsonState, mappedModel, { source });
         await baseBranchCommandIntervention.handleCommandExecutions(codexJsonState.commandExecutions);
       }
@@ -1247,8 +1255,8 @@ export const executeCodexCommand = async params => {
     }
   };
 
-  // Start the execution with retry logic
-  return await executeWithRetry();
+  // Start the execution with retry logic; attribution is finalized on every path (issue #3279)
+  return await executeWithRetry().finally(() => codexAttribution.finalize({ branchName }));
 };
 export const checkForUncommittedChanges = async (tempDir, owner, repo, branchName, $, log, autoCommit = false, autoRestartEnabled = true) => {
   // Similar to Claude and OpenCode version, check for uncommitted changes

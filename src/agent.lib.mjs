@@ -27,7 +27,7 @@ import Decimal from 'decimal.js-light';
 import semver from 'semver';
 import { agentModels, defaultModels, freeToBaseModelMap, isFormalAiModel } from './models/index.mjs';
 import { isPrepareOnly, logPreparedToolCommand, resolveFormalAiToolExecution } from './formal-ai.lib.mjs';
-import { buildFormalAiPricingInfo } from './formal-ai-pricing.lib.mjs'; // Issue #2119
+import { servedModelPricingInfo } from './formal-ai-pricing.lib.mjs'; // Issue #2119, #3279
 import { createDisabledAttributionSession, resolveFormalAiAttributionSession } from './formal-ai-attribution.lib.mjs'; // Issue #2229
 import { checkPlaywrightMcpPackageAvailability, getAgentPlaywrightMcpDisableEnv } from './playwright-mcp.lib.mjs';
 import { getAgentModelOverlayEnv } from './agent-model-overlay.lib.mjs';
@@ -127,7 +127,8 @@ const getBaseModelForPricing = modelName => {
 export const calculateAgentPricing = async (modelId, tokenUsage) => {
   // Issue #2119: Formal AI requests never reach OpenCode Zen, so neither the
   // provider label nor a models.dev price lookup applies to them.
-  if (isFormalAiModel(modelId)) return buildFormalAiPricingInfo(modelId, tokenUsage);
+  const servedPricing = servedModelPricingInfo(modelId, tokenUsage); // Issue #3279: one registry keyed by the served model
+  if (servedPricing) return servedPricing;
 
   // Extract the model name from provider/model format
   // e.g., 'opencode/grok-code' -> 'grok-code'

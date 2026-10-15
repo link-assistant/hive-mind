@@ -72,6 +72,21 @@ export const FORMAL_AI_TRAILER_KEYS = Object.freeze({
 export const FORMAL_AI_EVIDENCE_ROOT = 'dev/log/self-authored';
 
 export const AGENT_STREAM_FILENAME = 'agent-stream.jsonl';
+
+/**
+ * Issue #3279: attribution is a property of the model that answered, not of the
+ * client CLI that asked, so every client Formal AI serves gets the same bundle.
+ * Each client's own stream is committed under its own name.
+ */
+export const ATTRIBUTION_CLIENTS = Object.freeze({
+  agent: Object.freeze({ label: 'Agent CLI', streamFilename: AGENT_STREAM_FILENAME }),
+  claude: Object.freeze({ label: 'Claude Code', streamFilename: 'claude-stream.jsonl' }),
+  codex: Object.freeze({ label: 'Codex CLI', streamFilename: 'codex-stream.jsonl' }),
+});
+
+/** @returns {{label: string, streamFilename: string}} the client description for a Hive tool name. */
+export const describeAttributionClient = tool => ATTRIBUTION_CLIENTS[tool] || ATTRIBUTION_CLIENTS.agent;
+
 export const SESSION_ID_FILENAME = 'session-id.txt';
 /** The hooks read the trailer block from here, so a late pull request URL still reaches later commits. */
 export const TRAILERS_FILENAME = 'trailers.txt';
@@ -204,13 +219,13 @@ export const buildSessionEvidence = ({ sessionId, version }) => `formal-ai sessi
  * the metric only needs it for release-loop proof, and Hive Mind learns it
  * before the agent starts in the normal flow but not in every flow.
  */
-export const buildAttributionTrailers = ({ sessionId, version, evidencePath, prUrl } = {}) => {
+export const buildAttributionTrailers = ({ sessionId, version, evidencePath, prUrl, clientLabel = ATTRIBUTION_CLIENTS.agent.label } = {}) => {
   const errors = [];
   const trailers = [];
 
   const hostedInSession = detectHostedModel(sessionId);
   if (hostedInSession) errors.push(`session ${sessionId} names the hosted model ${hostedInSession}`);
-  if (!sessionId) errors.push('no Agent CLI session id was observed');
+  if (!sessionId) errors.push(`no ${clientLabel} session id was observed`);
   if (!version) errors.push('formal-ai --version did not report a version');
 
   const pathCheck = validateEvidencePath(evidencePath);
@@ -285,7 +300,7 @@ const hookHeader = name => `#!/bin/sh
  * model would be a lie) and for commits that stage nothing else (evidence rides
  * along with a change, it does not manufacture one).
  */
-export const buildPreCommitHook = ({ stagingDir, evidencePath, previousHooksDir = null }) => `${hookHeader('pre-commit')}
+export const buildPreCommitHook = ({ stagingDir, evidencePath, previousHooksDir = null, streamFilename = AGENT_STREAM_FILENAME }) => `${hookHeader('pre-commit')}
 ${delegateSnippet({ previousHooksDir, hookName: 'pre-commit' })}staging=${shellQuote(stagingDir)}
 evidence=${shellQuote(evidencePath)}
 
@@ -295,8 +310,8 @@ evidence=${shellQuote(evidencePath)}
 
 mkdir -p "$evidence" 2>/dev/null || exit 0
 cp "$staging/${SESSION_ID_FILENAME}" "$evidence/${SESSION_ID_FILENAME}" 2>/dev/null || exit 0
-if [ -f "$staging/${AGENT_STREAM_FILENAME}" ]; then
-  cp "$staging/${AGENT_STREAM_FILENAME}" "$evidence/${AGENT_STREAM_FILENAME}" 2>/dev/null || true
+if [ -f "$staging/${streamFilename}" ]; then
+  cp "$staging/${streamFilename}" "$evidence/${streamFilename}" 2>/dev/null || true
 fi
 # -f because the bundle is listed in .git/info/exclude until it is tracked, so
 # that a commit the agent abandons leaves no untracked residue behind (#2135).
@@ -363,9 +378,9 @@ exec ${shellQuote(path.join(previousHooksDir, hookName))} "$@"
  *
  * @returns {{installed: boolean, hooksDir: string, previousHooksDir: string|null, hooks: string[], error: string|null}}
  */
-export const installAttributionHooks = ({ hooksDir, stagingDir, evidencePath, previousHooksDir = null, fsImpl = fs }) => {
+export const installAttributionHooks = ({ hooksDir, stagingDir, evidencePath, previousHooksDir = null, streamFilename = AGENT_STREAM_FILENAME, fsImpl = fs }) => {
   const hooks = {
-    'pre-commit': buildPreCommitHook({ stagingDir, evidencePath, previousHooksDir }),
+    'pre-commit': buildPreCommitHook({ stagingDir, evidencePath, previousHooksDir, streamFilename }),
     'prepare-commit-msg': buildPrepareCommitMsgHook({ stagingDir, evidencePath, previousHooksDir }),
     'post-commit': buildPostCommitHook({ evidencePath, previousHooksDir }),
   };
@@ -455,7 +470,7 @@ const defaultSanitize = async text => {
   return await sanitizeForPublication(text);
 };
 
-const REDACTED_RECORD = `${JSON.stringify({ type: 'hive-mind.redacted', reason: 'credential sanitization blocked this batch of Agent CLI records' })}\n`;
+const redactedRecord = clientLabel => `${JSON.stringify({ type: 'hive-mind.redacted', reason: `credential sanitization blocked this batch of ${clientLabel} records` })}\n`;
 
 /**
  * One `--model formal-ai` run's attribution.
@@ -485,6 +500,7 @@ export const createFormalAiAttributionSession = ({ repositoryPath, issueNumber =
     committedRecords: 0,
     streamPath: null,
   };
+  const client = describeAttributionClient(tool);
 
   if (prUrl && !state.prUrl) {
     // Not fatal: the trailer is simply omitted rather than written wrong.
@@ -514,6 +530,7 @@ export const createFormalAiAttributionSession = ({ repositoryPath, issueNumber =
       version,
       evidencePath: state.evidencePath,
       prUrl: state.prUrl,
+      clientLabel: client.label,
     });
     if (errors.length > 0) {
       await reject(errors.join('; '));
@@ -531,8 +548,8 @@ export const createFormalAiAttributionSession = ({ repositoryPath, issueNumber =
     try {
       payload = await sanitize(text);
     } catch (error) {
-      payload = REDACTED_RECORD;
-      await log(`⚠️  Formal AI evidence: ${batch.length} Agent CLI records were withheld from the bundle (${error?.message || error})`, { level: 'warning' });
+      payload = redactedRecord(client.label);
+      await log(`⚠️  Formal AI evidence: ${batch.length} ${client.label} records were withheld from the bundle (${error?.message || error})`, { level: 'warning' });
     }
     try {
       fsImpl.appendFileSync(state.streamPath, payload, 'utf8');
@@ -574,9 +591,12 @@ export const createFormalAiAttributionSession = ({ repositoryPath, issueNumber =
       if (state.prepared) return { enabled: state.enabled, reason: state.rejection, env: this.gitEnv };
       state.prepared = true;
 
-      const hostedTool = detectHostedModel(model) || detectHostedModel(tool);
-      if (hostedTool) {
-        state.rejection = `--model ${model} / --tool ${tool} names the hosted model ${hostedTool}, which must not be published as Formal AI's own work`;
+      // Issue #3279: only the model is checked here. `--tool claude` and
+      // `--tool codex` name the client CLI, not the model that answers; a
+      // hosted model that really answers is caught per generation below.
+      const hostedModel = detectHostedModel(model);
+      if (hostedModel) {
+        state.rejection = `--model ${model} names the hosted model ${hostedModel}, which must not be published as Formal AI's own work`;
         await log(`🛑 Formal AI attribution not enabled: ${state.rejection}`, { level: 'warning' });
         return { enabled: false, reason: state.rejection, env: {} };
       }
@@ -610,7 +630,7 @@ export const createFormalAiAttributionSession = ({ repositoryPath, issueNumber =
 
       state.stagingDir = path.join(gitDir, ATTRIBUTION_STAGING_DIRNAME);
       state.hooksDir = path.join(state.stagingDir, 'hooks');
-      state.streamPath = path.join(state.stagingDir, AGENT_STREAM_FILENAME);
+      state.streamPath = path.join(state.stagingDir, client.streamFilename);
 
       try {
         fsImpl.mkdirSync(state.stagingDir, { recursive: true });
@@ -631,6 +651,7 @@ export const createFormalAiAttributionSession = ({ repositoryPath, issueNumber =
         stagingDir: state.stagingDir,
         evidencePath: state.evidencePath,
         previousHooksDir: previousHooksDir && previousHooksDir !== state.hooksDir ? previousHooksDir : null,
+        streamFilename: client.streamFilename,
         fsImpl,
       });
       if (!installed.installed) {
@@ -685,7 +706,7 @@ export const createFormalAiAttributionSession = ({ repositoryPath, issueNumber =
       for (const identity of collectModelIdentities(record)) {
         const hosted = detectHostedModel(identity);
         if (hosted) {
-          await reject(`an Agent CLI generation was answered by ${identity}, a hosted ${hosted} model`);
+          await reject(`a ${client.label} generation was answered by ${identity}, a hosted ${hosted} model`);
           return;
         }
       }
@@ -861,7 +882,7 @@ export const createFormalAiAttributionSession = ({ repositoryPath, issueNumber =
       await flush();
 
       if (!state.sessionId) {
-        await log('⚠️  Formal AI attribution: the Agent CLI never reported a session id, so no commit could be attributed', { level: 'warning' });
+        await log(`⚠️  Formal AI attribution: ${client.label} never reported a session id, so no commit could be attributed`, { level: 'warning' });
         return { enabled: true, reason: 'no session id', attributed: [], malformed: [] };
       }
 
@@ -963,6 +984,89 @@ export const resolveFormalAiAttributionSession = async ({ argv = {}, repositoryP
 };
 
 /**
+ * The session id one client's stream record reports (issue #3279).
+ *
+ *   - Agent CLI: `sessionID` (or `session_id` / `sessionId`) on any record;
+ *   - Claude Code stream-json: `session_id` on every record;
+ *   - Codex `exec --json`: `thread_id` on the `thread.started` event only.
+ */
+export const extractAttributionSessionId = (tool, record) => {
+  if (!record || typeof record !== 'object') return null;
+  const id = tool === 'codex' ? (record.type === 'thread.started' ? record.thread_id : null) : (record.sessionID ?? record.session_id ?? record.sessionId);
+  return typeof id === 'string' && id ? id : null;
+};
+
+/**
+ * Attribution for one client run, in the shape `claude.lib.mjs` and
+ * `codex.lib.mjs` need (issue #3279): the same session, hooks, trailers and
+ * evidence bundle `agent.lib.mjs` drives by hand, fed from each client's own
+ * stream. Every method is fail-open: attribution may leave a commit
+ * unattributed, but it may never be the reason a run fails.
+ */
+export const createToolAttribution = async ({ tool, argv = {}, repositoryPath, issueNumber = null, prNumber = null, prUrl = null, log = async () => {}, createAttributionSession = resolveFormalAiAttributionSession } = {}) => {
+  const warn = async (what, error) => await log(`⚠️  Formal AI attribution: ${what} failed: ${error?.message || error}`, { level: 'warning' });
+  let attribution;
+  try {
+    // --dry-run / --only-prepare-command must not touch the repository, so it gets no hooks.
+    attribution = argv.dryRun || argv.onlyPrepareCommand ? createDisabledAttributionSession('command was only prepared, not executed') : await createAttributionSession({ argv: { ...argv, tool }, repositoryPath, issueNumber, prNumber, prUrl, log });
+  } catch (error) {
+    await warn('setup', error);
+    attribution = createDisabledAttributionSession(`${error?.message || error}`);
+  }
+
+  const observe = async record => {
+    if (!attribution.enabled || !record || typeof record !== 'object') return;
+    try {
+      const sessionId = extractAttributionSessionId(tool, record);
+      if (sessionId) await attribution.noteSessionId(sessionId);
+      await attribution.recordStreamEvent(record);
+    } catch (error) {
+      await warn('recording a stream record', error);
+    }
+  };
+
+  return {
+    attribution,
+    get enabled() {
+      return attribution.enabled;
+    },
+    /** Merge the hook environment into the client process environment; returns it. */
+    async prepareEnv(env) {
+      try {
+        Object.assign(env, (await attribution.prepare()).env);
+      } catch (error) {
+        await warn('prepare', error);
+      }
+      return env;
+    },
+    observe,
+    /** Complete NDJSON lines of client output; anything that is not a JSON object is skipped. */
+    async observeText(text) {
+      if (!attribution.enabled) return;
+      for (const line of String(text ?? '').split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith('{')) continue;
+        let record;
+        try {
+          record = JSON.parse(trimmed);
+        } catch {
+          continue;
+        }
+        await observe(record);
+      }
+    },
+    async finalize(options = {}) {
+      try {
+        return await attribution.finalize(options);
+      } catch (error) {
+        await warn('finalize', error);
+        return { enabled: false, reason: `${error?.message || error}`, attributed: [], malformed: [] };
+      }
+    },
+  };
+};
+
+/**
  * Keep the bundle out of `git status` until it is committed.
  *
  * A commit that is aborted (or made with `--no-verify`) leaves the copied files
@@ -1000,6 +1104,9 @@ export const ensureEvidenceExcluded = async ({ gitDir, evidencePath, fsImpl = fs
 export default {
   buildAttributionGitEnv,
   createDisabledAttributionSession,
+  createToolAttribution,
+  describeAttributionClient,
+  extractAttributionSessionId,
   resolveAttributionMode,
   resolveFormalAiAttributionSession,
   buildAttributionTrailers,

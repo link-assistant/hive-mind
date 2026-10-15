@@ -34,6 +34,7 @@ import { sessionStartMs } from './session-monitor.stale-executing.lib.mjs';
 // Issue #2134: kill-cause diagnostics + the matching pull-request notice.
 import { buildKillCompletionSections, announceKillOnPullRequest, hasContainerOomEvidence, startedPullRequestUrl } from './session-monitor.kill-sections.lib.mjs';
 import { runKillRecoveryForCompletion } from './session-kill-resume.lib.mjs';
+import { createSessionPullRequestUrlScanner, lookupSessionPullRequestUrl } from './session-own-pr.lib.mjs';
 // Issue #2189: the handled latch + the memoized last-tool-session-id read that keep a completed session from replaying its whole completion pipeline on every poll.
 import { isCompletionHandled, markCompletionHandled, resolveCachedLastToolSessionId } from './session-completion-state.lib.mjs';
 import { createSessionRegistryQueries } from './session-monitor.queries.lib.mjs';
@@ -396,15 +397,17 @@ export function extractPullRequestUrlFromText(text, { owner = null, repo = null 
   }
   return null;
 }
-async function resolvePullRequestUrlFromSessionLog(logPath, ctx, { verbose = false, readFile = fs.readFile } = {}) {
+async function resolvePullRequestUrlFromSessionLog(logPath, ctx, { verbose = false, readFile = fs.readFile, rejectedUrls = null } = {}) {
   if (!logPath) return null;
   try {
     // Issue #2189: this used to be `readFile(logPath, 'utf8')`, run once per
     // monitor tick for a session the bot never marked handled — a 134 MB
     // transcript pulled into the bot's own heap over and over. The chunked scan
-    // still covers the whole log, one chunk at a time, and stops at the first
-    // matching URL (which is printed early, when the PR is created).
-    const pullRequestUrl = await scanLogTextChunks(logPath, text => extractPullRequestUrlFromText(text, { owner: ctx.owner, repo: ctx.repo }), { readFile, verbose });
+    // still covers the whole log, one chunk at a time, and stops at the
+    // `PR URL:` line solve prints when it creates or reuses the PR. Issue #2891:
+    // that line wins over the first PR the agent merely mentioned.
+    const scanner = createSessionPullRequestUrlScanner(ctx, { rejectedUrls });
+    const pullRequestUrl = (await scanLogTextChunks(logPath, scanner.onText, { readFile, verbose })) || scanner.result();
     if (pullRequestUrl && verbose) {
       console.log(`[VERBOSE] Found PR ${pullRequestUrl} in completed session log ${logPath}`);
     }
@@ -1162,20 +1165,16 @@ async function resolvePullRequestUrlForSession(sessionInfo, { verbose = false, l
     if (verbose) console.log(`[VERBOSE] Reusing resolved pull request ${sessionInfo.resolvedPullRequestUrl} for this session (not looked up again)`);
     return sessionInfo.resolvedPullRequestUrl;
   }
+  // Issue #2891: the session's own PR (branch `issue-<n>-*`), never the first
+  // linked one, which can be a parent plan PR on another issue's branch.
+  const rejectedUrls = new Set();
   if (typeof lookupLinkedPullRequest === 'function') {
     const linkedPullRequestUrl = await lookupLinkedPullRequest(ctx);
     if (linkedPullRequestUrl) return linkedPullRequestUrl;
   } else {
     try {
-      const { batchCheckPullRequestsForIssues } = await import('./github.lib.mjs');
-      const result = await batchCheckPullRequestsForIssues(ctx.owner, ctx.repo, [ctx.number]);
-      const linkedPRs = result?.[ctx.number]?.linkedPRs || [];
-      if (linkedPRs.length > 0 && linkedPRs[0].url) {
-        if (verbose) {
-          console.log(`[VERBOSE] Found linked PR ${linkedPRs[0].url} for issue ${ctx.owner}/${ctx.repo}#${ctx.number}`);
-        }
-        return linkedPRs[0].url;
-      }
+      const linkedPullRequestUrl = await lookupSessionPullRequestUrl(ctx, { rejectedUrls, verbose });
+      if (linkedPullRequestUrl) return linkedPullRequestUrl;
     } catch (error) {
       if (verbose) {
         console.log(`[VERBOSE] batchCheckPullRequestsForIssues failed for ${ctx.owner}/${ctx.repo}#${ctx.number}: ${error?.message || error}`);
@@ -1183,7 +1182,7 @@ async function resolvePullRequestUrlForSession(sessionInfo, { verbose = false, l
     }
   }
   const logPath = statusResult?.logPath || sessionInfo?.logPath || null;
-  const pullRequestUrlFromLog = await resolvePullRequestUrlFromSessionLog(logPath, ctx, { verbose, readFile });
+  const pullRequestUrlFromLog = await resolvePullRequestUrlFromSessionLog(logPath, ctx, { verbose, readFile, rejectedUrls });
   if (pullRequestUrlFromLog) return pullRequestUrlFromLog;
   if (verbose && logPath) {
     console.log(`[VERBOSE] No PR URL found for issue ${ctx.owner}/${ctx.repo}#${ctx.number} in session log ${logPath}`);

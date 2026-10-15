@@ -55,6 +55,8 @@ export async function extractLinkedPullRequestsForIssue(issueData, issueNum, log
           state: item.source.state,
           isDraft: Boolean(item.source.isDraft),
           url: item.source.url,
+          // Issue #2891: lets a session pick its own PR, not a parent plan PR.
+          ...(item.source.headRefName ? { headRefName: item.source.headRefName } : {}),
         });
       } else {
         // Log that we're skipping a PR that only mentions the issue

@@ -353,6 +353,23 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Automatically delete the branch after the pull request is merged in --watch mode or by --auto-merge. Enables full GitHub Flow support.',
     default: false,
   },
+  // Issues #3354 to #3359: post-merge issue closing. No yargs default, so an
+  // unset option falls back to its HIVE_MIND_* environment switch (on unless "false").
+  'auto-close-linked-issues': {
+    type: 'boolean',
+    description: 'After a merge, close every issue the pull request description closes that GitHub left open (non-default base branch, or GitHub missed it), with a comment naming the PR and merge commit. Issues the description keeps open are never closed. With --no-auto-close-linked-issues they are only reported. Default: on (HIVE_MIND_AUTO_CLOSE_LINKED_ISSUES=false turns it off).',
+    default: undefined,
+  },
+  'allow-cross-repository-closing': {
+    type: 'boolean',
+    description: 'Allow a closing reference to an issue in another repository when the author wrote it in the description (not in the link-repair block, and not a sub-issue of the pull request issue tree); it is closed explicitly after the merge. The link repair never adds one. Default: on (HIVE_MIND_ALLOW_CROSS_REPOSITORY_CLOSING=false restores the hard block).',
+    default: undefined,
+  },
+  'close-completed-parents': {
+    type: 'boolean',
+    description: 'After closing issues on merge, walk up their parent issues (any repository) and close a parent whose sub-issues are all completed, whose description has no open task-list or "Done when" items, that nothing blocks and that no person reopened since; otherwise post or update one status comment. Default: on (HIVE_MIND_CLOSE_COMPLETED_PARENTS=false turns it off).',
+    default: undefined,
+  },
   'min-disk-space': {
     type: 'number',
     description: 'Minimum required disk space in MB (default: 10240)',

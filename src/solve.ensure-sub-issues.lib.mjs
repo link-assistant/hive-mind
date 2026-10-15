@@ -353,7 +353,9 @@ export const runEnsureAllSubIssuesAddressed = async ({ issueUrl, owner, repo, is
  */
 export const checkClosingReferencesBeforeMerge = async ({ owner, repo, issueNumber, prNumber, argv = {} }) => {
   const { checkIssueLinksBeforeMerge } = await import('./issue-link-verification.lib.mjs');
-  const { blocker } = await checkIssueLinksBeforeMerge({ owner, repo, issueNumber, prNumber, logger: log, verbose: argv.verbose });
+  const { issueClosingOptions } = await import('./post-merge-issue-closing.lib.mjs');
+  const { allowCrossRepositoryClosing } = issueClosingOptions(argv);
+  const { blocker } = await checkIssueLinksBeforeMerge({ owner, repo, issueNumber, prNumber, logger: log, verbose: argv.verbose, allowCrossRepositoryClosing });
   return blocker;
 };
 

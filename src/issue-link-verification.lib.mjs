@@ -146,7 +146,7 @@ export async function splitPullRequestScope({ issues, body, repository, pr, run 
 }
 
 /** Log text for each deferral reason of {@link splitDescriptionScope}. */
-const DEFERRAL_REASONS = {
+export const DEFERRAL_REASONS = {
   partial: 'only partly done here, as the description says',
   description: 'kept open by the description',
   parent: 'sub-issues of issues kept open',
@@ -229,7 +229,11 @@ export async function resolvePullRequestPrimaryIssue({ owner, repo, body, branch
   return issueNumber;
 }
 
-/** Every issue a pull request must close: the primary issue's scope plus its own positive references. */
+/**
+ * Every issue a pull request must close: the primary issue's scope plus its own
+ * positive references (marked `reference`). `subIssues` holds the scope's
+ * sub-issues in other repositories, which are never required (#3276).
+ */
 export async function fetchPullRequestIssueScope({ owner, repo, prNumber, issueNumber = null, run = runLinkGh }) {
   const pr = await ghJson(run, ['api', `repos/${owner}/${repo}/pulls/${prNumber}`]);
   if (!/^[a-f0-9]{40}$/i.test(pr?.head?.sha || '') || (typeof pr.body !== 'string' && pr.body !== null)) throw new Error('Invalid pull request response');
@@ -237,12 +241,43 @@ export async function fetchPullRequestIssueScope({ owner, repo, prNumber, issueN
   // number with an issue number. Explicit issue context always takes precedence.
   const references = extractClosingIssueReferences(pr.body);
   issueNumber ||= await resolvePullRequestPrimaryIssue({ owner, repo, body: pr.body, branch: pr.head.ref, run });
-  const issues = issueNumber ? await fetchRequiredIssueScope({ owner, repo, issueNumber, run }) : [];
+  const subIssues = [];
+  const issues = issueNumber ? await fetchRequiredIssueScope({ owner, repo, issueNumber, run, foreign: subIssues }) : [];
   for (const reference of references) {
-    const entry = { owner: reference.owner || owner, repo: reference.repo || repo, number: Number(reference.number) };
+    const entry = { owner: reference.owner || owner, repo: reference.repo || repo, number: Number(reference.number), reference: true };
     if (!issues.some(existing => issueKey(existing) === issueKey(entry))) issues.push(entry);
   }
-  return { pr, headSha: pr.head.sha, issues };
+  return { pr, prNumber: Number(prNumber), headSha: pr.head.sha, issues, repository: { owner, repo }, subIssues };
+}
+
+const PARENT_FIELDS = Array.from({ length: 8 }).reduce(inner => `parent { number repository { nameWithOwner } ${inner} }`, '');
+
+/** Whether an ancestor of the issue (sub-issues API, any repository) is one of `keys`. Read failures throw. */
+async function hasAncestorIn(issue, keys, run) {
+  const response = await ghJson(run, ['api', 'graphql', '-f', `query=query($owner:String!,$repo:String!,$number:Int!) { repository(owner:$owner,name:$repo) { issue(number:$number) { ${PARENT_FIELDS} } } }`, '-f', `owner=${issue.owner}`, '-f', `repo=${issue.repo}`, '-F', `number=${issue.number}`]);
+  const node = response?.data?.repository?.issue;
+  if (!node) throw new Error(`Cannot read the parents of ${issueKey(issue)}`);
+  for (let parent = node.parent; parent; parent = parent.parent) if (keys.has(`${parent.repository.nameWithOwner}#${parent.number}`.toLowerCase())) return true;
+  return false;
+}
+
+/**
+ * Issue #3358: closing references to other repositories. One the author wrote
+ * in the description head is allowed (it is closed explicitly after the
+ * merge). One only the repair block holds, or one for an issue below the pull
+ * request's issue tree (a sub-issue at any depth), stays blocked, as does
+ * every one when `allow` is off (#3276).
+ */
+export async function splitForeignReferences({ issues, subIssues = [], head, repository, allow = true, run = runLinkGh }) {
+  const foreign = issues.filter(issue => !isSameRepository(issue, repository));
+  if (!allow) return { allowed: [], blocked: foreign };
+  const tree = new Set([...issues.filter(issue => !issue.reference), ...subIssues].map(issueKey));
+  const split = { allowed: [], blocked: [] };
+  for (const issue of foreign) {
+    const written = prClosesIssue(head, issue.number, issue.owner, issue.repo, { allowShortReference: false });
+    split[written && !tree.has(issueKey(issue)) && !(await hasAncestorIn(issue, tree, run)) ? 'allowed' : 'blocked'].push(issue);
+  }
+  return split;
 }
 
 export function buildIssueLinkBlocker(details, reason) {
@@ -259,41 +294,48 @@ function buildUnintendedClosingBlocker(details) {
 
 const CLOSING_QUERY = 'query($owner:String!,$repo:String!,$number:Int!,$endCursor:String) { repository(owner:$owner,name:$repo) { pullRequest(number:$number) { closingIssuesReferences(first:100,after:$endCursor) { nodes { number repository { nameWithOwner } } pageInfo { hasNextPage endCursor } } } } }';
 
+/** GitHub's closing issue references of a pull request (what a default-branch merge closes), as lower-case keys. */
+export async function fetchClosingIssueReferences({ owner, repo, prNumber, run = runLinkGh }) {
+  const pages = await ghJson(run, ['api', 'graphql', '--paginate', '--slurp', '-f', `query=${CLOSING_QUERY}`, '-f', `owner=${owner}`, '-f', `repo=${repo}`, '-F', `number=${prNumber}`]);
+  return pages.flatMap(page => {
+    const nodes = page?.data?.repository?.pullRequest?.closingIssuesReferences?.nodes;
+    if (page?.errors || !Array.isArray(nodes)) throw new Error('Cannot read GitHub closing issue references');
+    return nodes.map(node => `${node.repository.nameWithOwner}#${node.number}`.toLowerCase());
+  });
+}
+
 /**
  * Verify, right before merging, that the description closes every required
  * issue and, for default-branch merges, that GitHub itself recognizes each link.
  */
-export async function checkIssueLinksBeforeMerge({ owner, repo, prNumber, issueNumber = null, run = runLinkGh, logger = async () => {}, verbose = false }) {
+export async function checkIssueLinksBeforeMerge({ owner, repo, prNumber, issueNumber = null, run = runLinkGh, logger = async () => {}, verbose = false, allowCrossRepositoryClosing = true }) {
   try {
     const snapshot = await fetchPullRequestIssueScope({ owner, repo, prNumber, issueNumber, run });
     const { pr } = snapshot;
-    // Issue #3276: never close an issue in another repository by merging here.
-    const foreign = snapshot.issues.filter(issue => !isSameRepository(issue, { owner, repo }));
-    if (foreign.length) return { blocker: buildForeignClosingBlocker(foreign.map(issueKey)), snapshot };
+    const { head } = splitRepairBlock(pr.body || '');
+    // Issue #3276: never close an issue in another repository that the repair or a sub-issue tree put in the
+    // description. Issue #3358: one the author wrote is allowed, unless --no-allow-cross-repository-closing.
+    const foreign = await splitForeignReferences({ ...snapshot, head, repository: { owner, repo }, allow: allowCrossRepositoryClosing, run });
+    if (foreign.blocked.length) return { blocker: buildForeignClosingBlocker(foreign.blocked.map(issueKey)), snapshot };
     // Issue #3174: sub-issues the description keeps open, or that are not this pull request's work, are not required,
     // and are not closed after a non-default-branch merge. "Fixes" lines an older repair appended do not override that.
     if (!snapshot.issues.length) return { blocker: null, snapshot };
-    const { head } = splitRepairBlock(pr.body || '');
-    const { required: issues, deferred } = await splitPullRequestScope({ issues: snapshot.issues, body: head, repository: { owner, repo }, pr: { ...pr, number: Number(prNumber) }, run });
-    snapshot.issues = issues;
+    const { required: issues, deferred, reasons } = await splitPullRequestScope({ issues: snapshot.issues, body: head, repository: { owner, repo }, pr: { ...pr, number: Number(prNumber) }, run });
+    Object.assign(snapshot, { issues, deferred, reasons });
     const missing = missingIssueLinks(pr.body, issues, { owner, repo });
     if (missing.length) return { blocker: { ...buildIssueLinkBlocker(missing.map(issueKey), 'missing_closing_references'), message: 'The pull request description is missing required issue-closing references.' }, snapshot };
     const repository = await ghJson(run, ['api', `repos/${owner}/${repo}`]);
     if (!repository.default_branch || !pr.base?.ref) throw new Error('Cannot determine the pull request base or repository default branch');
     snapshot.defaultBranch = repository.default_branch;
     if (pr.base.ref === repository.default_branch) {
-      const pages = await ghJson(run, ['api', 'graphql', '--paginate', '--slurp', '-f', `query=${CLOSING_QUERY}`, '-f', `owner=${owner}`, '-f', `repo=${repo}`, '-F', `number=${prNumber}`]);
-      const linked = pages.flatMap(page => {
-        const nodes = page?.data?.repository?.pullRequest?.closingIssuesReferences?.nodes;
-        if (page?.errors || !Array.isArray(nodes)) throw new Error('Cannot read GitHub closing issue references');
-        return nodes.map(node => `${node.repository.nameWithOwner}#${node.number}`.toLowerCase());
-      });
-      const unlinked = issues.filter(issue => !linked.includes(issueKey(issue)));
+      const linked = await fetchClosingIssueReferences({ owner, repo, prNumber, run });
+      // An issue in another repository is closed explicitly after the merge (#3358).
+      const unlinked = issues.filter(issue => isSameRepository(issue, { owner, repo }) && !linked.includes(issueKey(issue)));
       if (unlinked.length) return { blocker: buildIssueLinkBlocker(unlinked.map(issueKey), 'unverified_issue_links'), snapshot };
       // GitHub, not the description, decides what the merge closes: a negated
       // keyword ("does not close #7") or a sidebar link still closes the issue.
       const slug = `${owner}/${repo}`.toLowerCase();
-      const foreignLinked = linked.filter(key => !key.startsWith(`${slug}#`));
+      const foreignLinked = linked.filter(key => !key.startsWith(`${slug}#`) && !foreign.allowed.some(issue => issueKey(issue) === key));
       if (foreignLinked.length) return { blocker: buildForeignClosingBlocker(foreignLinked), snapshot };
       const open = extractOpenIssueMentions(head, owner, repo);
       const unintended = linked.filter(key => (open.has(Number(key.slice(slug.length + 1))) || deferred.some(issue => issueKey(issue) === key)) && !issues.some(issue => issueKey(issue) === key));
@@ -305,23 +347,4 @@ export async function checkIssueLinksBeforeMerge({ owner, repo, prNumber, issueN
     await logger(`Could not verify issue links before merge: ${error.message}`, { level: 'warning' });
     return { blocker: buildIssueLinkBlocker([error.message], 'issue_link_verification_failed'), snapshot: null };
   }
-}
-
-/** GitHub does not auto-close references for non-default branch merges. */
-export async function closeLinkedIssuesAfterMerge(snapshot, { run = runLinkGh, logger = async () => {} } = {}) {
-  const failed = [];
-  if (!snapshot?.issues?.length || snapshot.pr.base.ref === snapshot.defaultBranch) return failed;
-  for (const issue of snapshot.issues) {
-    try {
-      const source = await ghJson(run, ['api', `repos/${issue.owner}/${issue.repo}/issues/${issue.number}`]);
-      if (source.state === 'closed') continue;
-      if (source.state !== 'open') throw new Error('Cannot verify issue state after merge');
-      const result = await run(['issue', 'close', String(issue.number), '--repo', `${issue.owner}/${issue.repo}`, '--reason', 'completed', '--comment', `Closed by ${snapshot.pr.html_url}, merged into the non-default branch ${snapshot.pr.base.ref}, whose description links this issue.`]);
-      if ((result.code ?? 0) !== 0) throw new Error(result.stderr?.toString() || 'Issue close failed');
-    } catch (error) {
-      failed.push(issueKey(issue));
-      await logger(`Could not close linked issue ${issueKey(issue)} after merge: ${error.message}`, { level: 'warning' });
-    }
-  }
-  return failed;
 }

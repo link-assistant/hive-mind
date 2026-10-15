@@ -114,9 +114,8 @@ const { buildEmptyPullRequestBlocker, getPullRequestChangeStats } = await import
 // monitoring loop must not heal that deliberate draft or publish a later
 // "Ready to merge" comment merely because CI is absent/green.
 const { getPullRequestLeftInDraft } = await import('./pr-draft-state.lib.mjs');
-// Issue #1895: explicitly close linked issues after merging a PR into a
-// non-default branch, where GitHub does not auto-close them.
-const { ensureLinkedIssueClosedAfterMerge } = await import('./github-issue-auto-close.lib.mjs');
+// Issues #1895/#3355: mergePullRequest closes (or reports) the intended issues GitHub leaves open.
+const { appendIssueClosingSection, formatIssueClosingReport, issueClosingOptions } = await import('./post-merge-issue-closing.lib.mjs');
 const shouldDeleteBranchAfterMerge = argv => argv.autoDeleteBranchOnMerge || argv.deleteBranchAfterMerge || false;
 
 /**
@@ -443,35 +442,21 @@ export const watchUntilMergeable = async params => {
           if (deleteAfterMerge) {
             await log(formatAligned('', 'Branch cleanup:', 'will delete branch after successful merge', 2));
           }
-          const mergeResult = await mergePullRequest(owner, repo, prNumber, { issueNumber, squash: argv.squash || false, deleteAfter: deleteAfterMerge }, argv.verbose);
+          const mergeResult = await mergePullRequest(owner, repo, prNumber, { issueNumber, squash: argv.squash || false, deleteAfter: deleteAfterMerge, ...issueClosingOptions(argv) }, argv.verbose);
 
           if (mergeResult.success) {
             await log(formatAligned('🎉', 'PR MERGED SUCCESSFULLY!', ''));
             await log(formatAligned('', 'Pull request:', `#${prNumber} has been auto-merged`, 2));
+            for (const line of formatIssueClosingReport(mergeResult.issueClosing)) await log(formatAligned('', 'Linked issues:', line, 2));
             // Post success comment
             try {
               // Issue #1345: Differentiate message when no CI is configured
               const ciLine = noCiConfigured ? '- No CI/CD checks are configured for this repository' : noCiTriggered ? (workflowRunConclusions ? `- CI workflows completed without executing (${workflowRunConclusions})` : '- CI workflows exist but were not triggered for this commit') : '- All CI checks have passed';
               // Issue #2492: no footer repeating the heading.
-              const commentBody = `## 🎉 ${AUTO_MERGED_MARKER}\n\nThis pull request has been automatically merged by hive-mind.\n${ciLine}`;
+              const commentBody = appendIssueClosingSection(`## 🎉 ${AUTO_MERGED_MARKER}\n\nThis pull request has been automatically merged by hive-mind.\n${ciLine}`, mergeResult.issueClosing);
               await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: commentBody });
             } catch {
               // Don't fail if comment posting fails
-            }
-            // Issue #1895: when the PR targeted a non-default branch GitHub does
-            // not auto-close the linked issue. Close it explicitly so the issue
-            // is not left open after its PR merges.
-            if (issueNumber) {
-              try {
-                const closeResult = await ensureLinkedIssueClosedAfterMerge({ $, log, owner, repo, prNumber, issueNumber, verbose: argv.verbose });
-                if (closeResult.skipped && argv.verbose) {
-                  await log(formatAligned('', 'Issue auto-close:', `skipped (${closeResult.reason})`, 2), { verbose: true });
-                } else if (!closeResult.closed && !closeResult.skipped) {
-                  await log(formatAligned('⚠️', 'Issue auto-close:', `could not close issue #${issueNumber} (${closeResult.reason})`, 2), { level: 'warning' });
-                }
-              } catch (closeError) {
-                await log(formatAligned('⚠️', 'Issue auto-close:', `error closing issue #${issueNumber}: ${closeError.message}`, 2), { level: 'warning' });
-              }
             }
             return { success: true, reason: 'auto-merged', latestSessionId, latestAnthropicCost };
           } else {

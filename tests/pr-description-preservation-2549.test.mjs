@@ -139,6 +139,8 @@ test('multi-issue repair preserves every byte and appends only missing links onc
     else if (args[1].endsWith('/issues/1/sub_issues')) data = [[{ number: 3, body: '', title: 'Child', repository_url: 'https://api.github.com/repos/o/r' }]];
     else if (args[1].endsWith('/issues/3')) data = { number: 3, body: '', title: 'Child' };
     else if (args[1].endsWith('/issues/3/sub_issues')) data = [[]];
+    // Issue #3174: no other open pull request closes #3.
+    else if (args[1] === 'graphql') data = { data: { repository: { i3: { closedByPullRequestsReferences: { nodes: [] }, timelineItems: { nodes: [] } } } } };
     else throw new Error(`unexpected: ${args.join(' ')}`);
     return { code: 0, stdout: JSON.stringify(data) };
   };

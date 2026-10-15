@@ -150,6 +150,28 @@ export function extractOpenIssueMentions(text, owner, repo) {
 }
 
 /**
+ * Issue numbers of owner/repo that the text explicitly marks as only partly
+ * done by this pull request: "Part of #7", "Towards #7", "Progress on #7" or
+ * "#7 stays open". Unlike a bare mention, this can keep even the primary issue
+ * open, for example a tracking umbrella solved one sub-issue at a time (#3282).
+ * A positive closing keyword for the same issue still wins.
+ */
+export function extractPartialIssueMentions(text, owner, repo) {
+  const visible = getClosingReferenceText(text);
+  const slug = `${owner}/${repo}`.toLowerCase();
+  const reference = String.raw`(?:https:\/\/github\.com\/([\w.-]+)\/([\w.-]+)\/issues\/|\b([\w.-]+)\/([\w.-]+)#|(?<![\w/#&])#)([1-9]\d*)\b`;
+  const patterns = [new RegExp(String.raw`\b(?:part of|towards?|progress (?:on|towards?))\s+(?:issue\s+)?${reference}`, 'gi'), new RegExp(String.raw`${reference}[^.\n;!?]{0,80}?\b(?:stays?|remains?|(?:is|are) kept|kept)\s+open\b`, 'gi')];
+  const numbers = new Set();
+  for (const pattern of patterns) {
+    for (const match of visible.matchAll(pattern)) {
+      const mentioned = match[1] || match[3] ? `${match[1] || match[3]}/${match[2] || match[4]}`.toLowerCase() : slug;
+      if (mentioned === slug && !prClosesIssue(text, match[5], owner, repo)) numbers.add(Number(match[5]));
+    }
+  }
+  return numbers;
+}
+
+/**
  * The issue a pull request solves.
  *
  * The branch convention recovers a primary issue whose closing reference was

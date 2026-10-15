@@ -2,7 +2,7 @@
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ghJson, fetchRequiredIssueScope, isSameRepository, issueKey, missingIssueLinks, runLinkGh, splitDescriptionScope, splitRepairBlock } from './issue-link-verification.lib.mjs';
+import { describeDeferrals, ghJson, fetchRequiredIssueScope, isSameRepository, issueKey, missingIssueLinks, runLinkGh, splitPullRequestScope, splitRepairBlock } from './issue-link-verification.lib.mjs';
 import { extractClosingIssueReferences } from './github-linking.lib.mjs';
 import { buildIssueReference } from './pr-issue-linking.lib.mjs';
 import { writeSanitizedPublicationFile } from './token-sanitization.lib.mjs';
@@ -23,36 +23,39 @@ export async function repairRequiredIssueLinks({ owner, repo, issueNumber, prNum
     if (!owner || !repo || !issueNumber || !prNumber) throw new Error('missing required pull request or issue data');
     const foreign = [];
     const scope = await fetchRequiredIssueScope({ owner, repo, issueNumber, run, foreign });
-    const readBody = async () => {
+    const readPull = async () => {
       const pr = await ghJson(run, ['api', `repos/${owner}/${repo}/pulls/${prNumber}`]);
       if (typeof pr.body !== 'string' && pr.body !== null) throw new Error('Invalid pull request body');
-      return pr.body || '';
+      return { ...pr, number: Number(prNumber), body: pr.body || '' };
     };
-    body = await readBody();
+    const pr = await readPull();
+    body = pr.body;
     // Issue #3174: the agent's own text decides which sub-issues stay open, and a
     // line an earlier repair appended for such an issue (or for an issue in
     // another repository, #3276) is removed again instead of overriding the agent.
+    // Closed sub-issues, sub-issues created after the pull request was opened and
+    // sub-issues another open pull request closes are not this pull request's work.
     const { head, lines } = splitRepairBlock(body);
-    const { required, deferred } = splitDescriptionScope(scope, head, { owner, repo });
-    const primary = scope[0];
+    const split = await splitPullRequestScope({ issues: scope, body: head, repository: { owner, repo }, pr, run });
+    const { required, deferred } = split;
     const dropped = [];
     const kept = lines.filter(line => {
       const [reference] = extractClosingIssueReferences(line);
       const target = reference && { owner: reference.owner || owner, repo: reference.repo || repo, number: Number(reference.number) };
-      const drop = target && issueKey(target) !== issueKey(primary) && (!isSameRepository(target, { owner, repo }) || deferred.some(issue => issueKey(issue) === issueKey(target)));
+      const drop = target && (!isSameRepository(target, { owner, repo }) || deferred.some(issue => issueKey(issue) === issueKey(target)));
       if (drop) dropped.push(issueKey(target));
       return !drop;
     });
     const withBlock = blockLines => (blockLines.length ? `${head}${head.length > 0 ? '\n\n---\n\n' : ''}${blockLines.join('\n')}` : head);
     const missing = missingIssueLinks(withBlock(kept), required, { owner, repo });
     if (foreign.length) await logger(`ℹ️  Not adding closing references for sub-issues in other repositories, which this pull request cannot fix: ${foreign.map(issueKey).join(', ')}`);
-    if (deferred.length) await logger(`ℹ️  The description keeps these sub-issues open, so no closing reference is added: ${deferred.map(issue => `#${issue.number}`).join(', ')}`);
+    if (deferred.length) await logger(`ℹ️  No closing reference is added for issues this pull request keeps open: ${describeDeferrals(split).join('; ')}`);
     if (!missing.length && !dropped.length) return { checked: true, updated: false, body, issueRef };
     const added = missing.map(issue => `Fixes ${isSameRepository(issue, { owner, repo }) && !argv.fork ? `#${issue.number}` : `${issue.owner}/${issue.repo}#${issue.number}`}`);
     const updatedBody = withBlock([...kept, ...added]);
     const result = await publishBody({ run, owner, repo, prNumber, body: updatedBody });
     if ((result.code ?? 0) !== 0) throw new Error(result.stderr?.toString().trim() || 'Could not update pull request body');
-    body = await readBody();
+    body = (await readPull()).body;
     if (missingIssueLinks(body, required, { owner, repo }).length) throw new Error('Pull request links changed or were not saved after repair');
     if (dropped.length) await logger(`🔗 Removed ${dropped.length} closing reference(s) an earlier repair added for issues this pull request keeps open or cannot fix: ${dropped.join(', ')}`);
     if (missing.length) await logger(`🔗 Repaired ${missing.length} required issue-closing reference(s) in PR #${prNumber}.`);

@@ -338,7 +338,7 @@ export const watchUntilMergeable = async params => {
       // Issue #2007: Detect issue title/description edits (user-owned feedback
       // surfaces) so the fallback resumes the AI with them. The first iteration
       // seeds the baseline and never reports a change.
-      const metadataCheck = await checkForIssueMetadataChanges(owner, repo, issueNumber, issueMetadataSnapshot, argv.verbose, $);
+      const metadataCheck = await checkForIssueMetadataChanges(owner, repo, issueNumber, issueMetadataSnapshot, argv.verbose, $, { pullRequestNumber: prNumber });
       issueMetadataSnapshot = metadataCheck.snapshot || issueMetadataSnapshot;
       const hasIssueMetadataChanges = metadataCheck.changed === true;
       const issueMetadataChanges = metadataCheck.changes || [];

@@ -102,6 +102,7 @@ const { formatAutoIterationLimit, hasReachedAutoIterationLimit, normalizeAutoIte
 const autoRestartBudget = await import('./auto-restart-budget.lib.mjs');
 const { beginAutoRestartBudget, consumeAutoRestartIteration, formatAutoRestartLabel, formatAutoRestartLimit, hasExhaustedAutoRestartBudget } = autoRestartBudget;
 const { buildAutoRestartComment, failOnAutoRestartBudgetExhausted } = await import('./auto-restart-exhaustion.lib.mjs');
+const { collectRestartEvidence, createCiFailureRepeatTracker, formatReasonWithEvidence } = await import('./restart-evidence.lib.mjs'); // Issue #2293: evidence for every restart reason
 const { handleBillingLimitBlocker } = await import('./billing-limit-stop.lib.mjs');
 // Issue #2247 (H3): a restart is only worth its cost when the previous session
 // changed something. Five byte-identical sessions is a stall, not progress.
@@ -207,6 +208,7 @@ export const watchUntilMergeable = async params => {
   // restart/resume fallback can detect user edits to those surfaces and deliver
   // them as feedback to the next session. The first check seeds the baseline.
   let issueMetadataSnapshot = null;
+  const ciRepeatTracker = createCiFailureRepeatTracker(); // Issue #2293: same failing checks restart after restart
   while (true) {
     iteration++;
     const currentTime = new Date();
@@ -760,6 +762,9 @@ export const watchUntilMergeable = async params => {
         // Issue #2839: a human comment or issue edit is new work even when the last session changed nothing.
         const stall = hasNewComments || hasIssueMetadataChanges ? null : await stopWhenSessionRepeated({ owner, repo, prNumber, tempDir, branchName: prBranch || branchName, $, log, formatAligned, mode: 'auto-restart-until-mergeable', verbose: argv.verbose });
         if (stall) return { success: false, reason: stall.reason, latestSessionId, latestAnthropicCost };
+        // Issue #2293: which checks failed (with run URLs), who commented or edited what, and whether the same checks failed again.
+        const restartEvidence = collectRestartEvidence({ comments: hasNewComments ? comments : [], issueNumber, issueChanges: hasIssueMetadataChanges ? issueMetadataChanges : [], ciBlocker: ciBlocker && !billingBlocker ? ciBlocker : null, tracker: ciRepeatTracker });
+        feedbackLines.push(...restartEvidence.feedback);
 
         // Add standard instructions for auto-restart-until-mergeable mode using shared utility
         feedbackLines.push(...buildAutoRestartInstructions());
@@ -795,6 +800,7 @@ export const watchUntilMergeable = async params => {
         // Issue #2119: claim it from the run-wide shared budget.
         const restartCount = consumeAutoRestartIteration();
         await log(formatAligned('🔄', 'RESTART TRIGGERED:', restartReason));
+        for (const line of restartEvidence.lines) await log(formatAligned('', 'Evidence:', line, 2));
         await log(formatAligned('', 'Restart iteration:', formatAutoRestartLabel(restartCount), 2));
         await log('');
         // Post a comment to PR about the restart after preflight succeeds, so every
@@ -805,7 +811,7 @@ export const watchUntilMergeable = async params => {
           // system look like two.
           // Issue #2492: the `N/M` heading already states the limit, so the footer
           // that repeated it is gone.
-          const commentBody = buildAutoRestartComment({ label: formatAutoRestartLabel(restartCount), reason: restartReason });
+          const commentBody = buildAutoRestartComment({ label: formatAutoRestartLabel(restartCount), reason: formatReasonWithEvidence(restartReason, restartEvidence) });
           // Issue #1625: Track so this doesn't falsely count as an AI-authored comment
           await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: commentBody });
           await log(formatAligned('', '💬 Posted auto-restart notification to PR', '', 2));

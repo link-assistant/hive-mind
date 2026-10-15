@@ -22,7 +22,8 @@ import { postTrackedComment } from './tool-comments.lib.mjs'; // Issue #1625
 import { buildSessionForceKilledComment } from './session-force-killed-comment.lib.mjs'; // Issue #1510/#2492
 import { handleClaudeRuntimeSwitch } from './claude.runtime-switch.lib.mjs'; // see issue #1141
 import { CLAUDE_MODELS as availableModels, mapClaudeSubAgentModelToEnvValue } from './models/index.mjs'; // Issue #1221, #1978
-import { applyFormalAiPricingOverride } from './formal-ai-pricing.lib.mjs'; // Issue #2119
+import { applyServedModelPricing } from './formal-ai-pricing.lib.mjs'; // Issue #2119, #3279
+import { createToolAttribution } from './formal-ai-attribution.lib.mjs'; // Issue #3279
 import { isPrepareOnly, logPreparedToolCommand, resolveFormalAiToolExecution } from './formal-ai.lib.mjs';
 import { buildMcpConfigWithoutPlaywright, ensureClaudePlaywrightMcpServer } from './playwright-mcp.lib.mjs';
 import { resolveClaudeSessionToolFlags } from './useless-tools.lib.mjs';
@@ -152,6 +153,7 @@ export const executeClaude = async params => {
       owner,
       repo,
       prNumber,
+      prUrl, // Issue #3279: Formal-AI-Pull-Request trailer
       // Issue #1708: forwarded so the bidirectional handler can poll
       // issue title/body changes and uncommitted changes during the session.
       issueNumber,
@@ -196,6 +198,8 @@ export const executeClaudeCommand = async params => {
     // and issue body/title polling in setupBidirectionalHandler.
     issueNumber,
   } = params;
+  const claudeAttribution = await createToolAttribution({ tool: 'claude', argv, repositoryPath: tempDir, issueNumber, prNumber, prUrl: params.prUrl, log, createAttributionSession: params.createAttributionSession }); // Issue #3279: `--tool agent`'s attribution, fed from stream-json
+  let claudeBaseUrl = null; // Issue #3279: the endpoint Claude Code was pointed at, for pricing the served model
   const expectedBaseBranch = String(argv?.baseBranch || '').trim();
   const escapePromptForShell = promptText => String(promptText).replace(/"/g, '\\"').replace(/\$/g, '\\$');
   await validateBidirectionalModeConfig(argv, log);
@@ -365,6 +369,7 @@ export const executeClaudeCommand = async params => {
       // Issue #2130: `toolInvocation.env` points the native CLI at the local Formal AI server (base URL + API key).
       const claudeEnv = { ...getClaudeEnv({ thinkingBudget: resolvedThinkingBudget, model: effectiveModel, thinkLevel, maxBudget, planModel: resolvedPlanModel, executionModel: resolvedExecutionModel, subAgentModel: resolvedSubAgentModel, showThinkingContent: argv.showThinkingContent, exitAfterStopDelayMs: streamingInput ? 60_000 : undefined, subSessionSize: parsedSubSessionSize, contextWindowTokens, pricingTier: claudePricingTier }), ...toolInvocation.env };
       if (argv.verbose) claudeEnv.ANTHROPIC_LOG = 'debug';
+      claudeBaseUrl = (await claudeAttribution.prepareEnv(claudeEnv)).ANTHROPIC_BASE_URL || null; // Issue #3279: attribution hooks via GIT_CONFIG_*; endpoint kept for pricing
       const modelMaxOutputTokens = getMaxOutputTokensForModel(effectiveModel);
       if (argv.verbose) {
         await log(`📊 CLAUDE_CODE_MAX_OUTPUT_TOKENS: ${modelMaxOutputTokens}, MCP_TIMEOUT: ${claudeCode.mcpTimeout}ms, MCP_TOOL_TIMEOUT: ${claudeCode.mcpToolTimeout}ms, ANTHROPIC_LOG: debug`, { verbose: true });
@@ -626,6 +631,7 @@ export const executeClaudeCommand = async params => {
             try {
               const data = sanitizeObjectStrings(JSON.parse(line));
               if (data === null || typeof data !== 'object') continue; // Issue #1968: skip bare null/primitive NDJSON lines
+              await claudeAttribution.observe(data); // Issue #3279
               // Issue #1510: Track last event time for all modes (not just interactive)
               // so activity timeout can report accurate idle duration
               lastEventTime = Date.now();
@@ -1334,13 +1340,10 @@ export const executeClaudeCommand = async params => {
       };
     }
   }; // End of executeWithRetry function
-  // Start the execution with retry logic
-  const claudeResult = (await executeWithRetry()) || {};
-  // Issue #2119: `--model formal-ai` runs against the local Link.Assistant model
-  // server. Claude reports no pricing record of its own, so without this the
-  // session was published with Anthropic's cost and no provider at all.
-  const formalAiPricing = applyFormalAiPricingOverride({ model: argv.model, pricingInfo: claudeResult.pricingInfo ?? null, publicPricingEstimate: claudeResult.publicPricingEstimate ?? null, anthropicTotalCostUSD: claudeResult.anthropicTotalCostUSD ?? null, tokenUsage: claudeResult.streamTokenUsage ?? null });
-  return { ...claudeResult, ...formalAiPricing };
+  const claudeResult = (await executeWithRetry().finally(() => claudeAttribution.finalize({ branchName }))) || {}; // Start with retry logic; attribution is finalized on every path (issue #3279)
+  // Issue #2119, #3279: price by the model that answered (Formal AI: $0); a non-Anthropic model behind a non-Anthropic ANTHROPIC_BASE_URL loses Claude's Anthropic list price.
+  const servedPricing = applyServedModelPricing({ tool: 'claude', model: argv.model, servedModels: Object.keys(claudeResult.resultModelUsage || {}), baseUrl: claudeBaseUrl, pricingInfo: claudeResult.pricingInfo ?? null, publicPricingEstimate: claudeResult.publicPricingEstimate ?? null, anthropicTotalCostUSD: claudeResult.anthropicTotalCostUSD ?? null, tokenUsage: claudeResult.streamTokenUsage ?? null, resultModelUsage: claudeResult.resultModelUsage ?? null });
+  return { ...claudeResult, ...servedPricing };
 };
 // Export all functions as default object too
 // prettier-ignore

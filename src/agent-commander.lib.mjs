@@ -20,7 +20,7 @@ import { applyFormalAiPricingOverride } from './formal-ai-pricing.lib.mjs'; // I
 import { getCacheReadTokenCount, getCumulativeContextInputTokens, getOutputTokenCount } from './context-fill.lib.mjs';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
 import { CLAUDE_MEMORY_DISABLE_ENV, buildCodexMemoryDisableConfigArgs, isAgentMemoryDisabled } from './agent-memory-policy.lib.mjs'; // Issue #2178
-import { buildCodexAuxiliaryDisableConfigArgs, isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236
+import { buildCodexAuxiliaryDisableConfigArgs, buildCodexEssentialFeatureConfigArgs, isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236, #2406
 
 export const AGENT_COMMANDER_TOOLS = new Set(['claude', 'codex', 'opencode', 'agent', 'qwen', 'gemini']);
 
@@ -114,6 +114,7 @@ const buildCodexToolOptions = (argv = {}) => {
   }
   const { serviceTierArgs, contextWindowArgs, subSessionSizeArgs } = buildCodexPricingTierConfigArgs({ tier, parsedSubSessionSize });
   appendExtraArgs(options, [...serviceTierArgs, ...contextWindowArgs]);
+  appendExtraArgs(options, buildCodexEssentialFeatureConfigArgs()); // Issue #2406: native goals stay on
   appendExtraArgs(options, buildCodexMemoryDisableConfigArgs(isAgentMemoryDisabled(argv))); // Issue #2178
   appendExtraArgs(options, buildCodexAuxiliaryDisableConfigArgs(isAuxiliaryModelCallsDisabled(argv))); // Issue #2236
   appendExtraArgs(options, subSessionSizeArgs);

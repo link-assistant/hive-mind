@@ -48,7 +48,7 @@ import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterEr
 import { parseSubSessionSize } from './sub-session-size.lib.mjs'; // Issue #1706
 import { buildCodexPricingTierConfigArgs, describePricingTier, resolvePricingTier } from './pricing-tier.lib.mjs'; // Issue #2771
 import { buildCodexMemoryDisableConfigArgs, isAgentMemoryDisabled } from './agent-memory-policy.lib.mjs'; // Issue #2178
-import { buildCodexAuxiliaryDisableConfigArgs, isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236
+import { buildCodexAuxiliaryDisableConfigArgs, buildCodexEssentialFeatureConfigArgs, isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236, #2406
 import { CODEX_REMOTE_PLUGIN_DISABLE_ARGS } from './agent-config-audit.lib.mjs'; // Issue #2190
 import { getCumulativeContextInputTokens } from './context-fill.lib.mjs';
 import { deployHandoffSkill } from './handoff-skill.lib.mjs'; // Issue #1877
@@ -751,6 +751,10 @@ export const executeCodexCommand = async params => {
     // Issue #2236: no auxiliary model calls nobody in an autonomous run will read.
     // Compaction is deliberately untouched — `remote_compaction_v2` and
     // `compaction_image_budget` stay on, they are what makes long tasks survivable.
+    // Issue #2406: native goals keep the complete-delivery objective; never part of the opt-out above.
+    for (const arg of buildCodexEssentialFeatureConfigArgs()) {
+      codexArgs += ` ${shellQuote(arg)}`;
+    }
     const auxiliaryDisableArgs = buildCodexAuxiliaryDisableConfigArgs(isAuxiliaryModelCallsDisabled(argv));
     for (const arg of auxiliaryDisableArgs) {
       codexArgs += ` ${shellQuote(arg)}`;

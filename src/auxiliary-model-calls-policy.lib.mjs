@@ -87,20 +87,32 @@ export const CLAUDE_SUMMARIZATION_KEEP_ENV = Object.freeze(['DISABLE_AUTO_COMPAC
 /**
  * Codex feature flags pinned off for `codex exec`.
  *
- * - `goals` is the goal-tracking subsystem (`goal/src/{runtime,steering,tool}.rs`,
- *   `state/src/runtime/goals.rs`): it keeps a running model-maintained statement
- *   of what the thread is trying to do. A hive-mind task's goal is the issue, it
- *   is already in the prompt, and it does not change mid-run.
  * - `personality` injects a `personality.spec_instructions` block into the
  *   system prompt of every request. It is style for a human reader, paid for on
  *   each turn of a run no human reads.
+ *
+ * `goals` used to be listed here. Issue #2406 moved it to
+ * {@link CODEX_ESSENTIAL_ENABLE_FEATURES}: the goal subsystem keeps the
+ * "deliver every requirement" objective active across turns and compaction,
+ * which is the task itself, not an auxiliary call.
  *
  * Codex's own title, recap and branch-summary generators live under `tui/src/`
  * (`tui/src/app/thread_title.rs`, `tui/src/app/recap.rs`,
  * `tui/src/branch_summary.rs`) and are unreachable from `codex exec`, so there is
  * no flag to set for them — see the case study for the full path inventory.
  */
-export const CODEX_AUXILIARY_DISABLE_FEATURES = Object.freeze(['goals', 'personality']);
+export const CODEX_AUXILIARY_DISABLE_FEATURES = Object.freeze(['personality']);
+
+/**
+ * Codex feature flags pinned on for every run, whatever
+ * `--auxiliary-model-calls-disabled` says (issue #2406). `goals`
+ * (`goal/src/{runtime,steering,tool}.rs`) keeps the complete-delivery
+ * objective set through `thread/goal/set` alive for the whole run.
+ */
+export const CODEX_ESSENTIAL_ENABLE_FEATURES = Object.freeze(['goals']);
+
+/** `-c features.<name>=true` for {@link CODEX_ESSENTIAL_ENABLE_FEATURES}. */
+export const buildCodexEssentialFeatureConfigArgs = () => CODEX_ESSENTIAL_ENABLE_FEATURES.flatMap(feature => ['-c', `features.${feature}=true`]);
 
 /**
  * Codex feature flags that must stay on: these are the compaction path.
@@ -331,6 +343,7 @@ export default {
   CLAUDE_AUXILIARY_DISABLE_ENV,
   CLAUDE_SUMMARIZATION_KEEP_ENV,
   CODEX_AUXILIARY_DISABLE_FEATURES,
+  CODEX_ESSENTIAL_ENABLE_FEATURES,
   CODEX_SUMMARIZATION_KEEP_FEATURES,
   GEMINI_AUXILIARY_DISABLE_SETTINGS,
   GEMINI_FAMILY_AUXILIARY_DISABLE_SETTINGS,

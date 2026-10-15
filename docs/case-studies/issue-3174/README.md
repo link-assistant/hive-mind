@@ -42,6 +42,7 @@ closing-keyword examples (an issue number after a keyword) that the code uses in
 | 2026-10-15 13:58–14:19   | Follow-ups filed: #3354, #3357 (PR #3365, open), #3358, #3359                                                                                                                                          | timeline                 |
 | 2026-10-15 16:00         | v2.37.0 published (still without the second part)                                                                                                                                                      | npm                      |
 | 2026-10-15 17:31         | Commit `355d0f14` on PR #3390: closed, later-created, other-PR and "Part of" handling                                                                                                                  | `git log`                |
+| 2026-10-15 (later)       | On PR #3390: lists and ranges that stay open, no re-adding of lines the session removed (description history), warnings for negated keywords, and the literal calculator#227 regression test           | `git log`                |
 
 ## Requirements from the issue
 
@@ -81,24 +82,40 @@ The issue's "Suggested fix" and status note give these requirements:
 
 ## Solutions on this branch
 
-| Req. | Change                                                                                                                                                                                                                                                                                                                                                                                                                                      | Where                                                                                                                                       |
-| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1    | `splitPullRequestScope` defers a sub-issue that is closed (`closed`), was created after the PR (`created_after_pr`), or is claimed by another **open** PR (`other_pr`, via GraphQL `closedByPullRequestsReferences` and cross-referenced PR bodies, in batches of 50). Issues listed in a repository-mode block stay required. A malformed claims answer throws, so the check fails closed. The PR's own number is removed from the claims. | `src/issue-link-verification.lib.mjs:91-120` (claims), `:130-146` (split), `:135` (listed issues)                                           |
-| 2    | `splitDescriptionScope` defers issues the description mentions without a keyword (`description`), issues "Part of", "towards", "progress on" or "#N stays/remains open" (`partial`, which also applies to the primary issue), and the sub-trees of deferred issues (`parent`). Ranges such as "#236 to #246" count, capped at 500 numbers. Every deferral is logged with its reason.                                                        | `src/issue-link-verification.lib.mjs:66-88`, `:149-166`; `src/github-linking.lib.mjs:126-172`; log at `src/pr-issue-link-repair.lib.mjs:52` |
-| 3    | Lines an earlier repair appended (below the `---` block) for deferred or other-repository issues are removed again, and the removal is logged.                                                                                                                                                                                                                                                                                              | `src/issue-link-verification.lib.mjs:38-54` (`splitRepairBlock`), `src/pr-issue-link-repair.lib.mjs:38-48`, `:60`                           |
-| 4    | The merge guard reads GitHub's `closingIssuesReferences` (default-branch base only) and refuses the merge when GitHub would close an issue in another repository, or an issue the description keeps open or that is deferred, including through a negated keyword. Other-repository sub-issues block the merge before that.                                                                                                                 | `src/issue-link-verification.lib.mjs:266-308`, called from `src/issue-completion.lib.mjs:32,45`                                             |
-| 5    | Regression tests (see below), including the calculator#227 plan PR case.                                                                                                                                                                                                                                                                                                                                                                    | `tests/issue-3174-link-repair-scope.test.mjs`                                                                                               |
-| RC5  | Other-repository sub-issues are collected separately and never required or repaired (from #3295).                                                                                                                                                                                                                                                                                                                                           | `src/issue-link-verification.lib.mjs:191-194`, `src/pr-issue-link-repair.lib.mjs:51`                                                        |
+| Req. | Change                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Where                                                                                                                                                                                 |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | `splitPullRequestScope` defers a sub-issue that is closed (`closed`), was created after the PR (`created_after_pr`), or is claimed by another **open** PR (`other_pr`, via GraphQL `closedByPullRequestsReferences` and cross-referenced PR bodies, in batches of 50). Issues listed in a repository-mode block stay required. A malformed claims answer throws, so the check fails closed. The PR's own number is removed from the claims.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | `src/issue-link-verification.lib.mjs:91-120` (claims), `:130-146` (split), `:135` (listed issues)                                                                                     |
+| 2    | `splitDescriptionScope` defers issues the description mentions without a keyword (`description`), issues "Part of", "towards", "progress on" or "#N stays/remains open" (`partial`, which also applies to the primary issue), and the sub-trees of deferred issues (`parent`). Ranges such as "#236 to #246" count, capped at 500 numbers. Every deferral is logged with its reason. The "stays open" and "Part of" wording covers every issue of a list or range: "#236 to #246 stay open", "#2–#4 stay open", "#2 and #3 stay open", "#2, #3, and #4 remain open". The text between the list and "stay open" may not contain another `#`, so in "#1 is done and #2 stays open" only #2 stays open.                                                                                                                                                                                                                                                                                                               | `src/issue-link-verification.lib.mjs:66-88`, `:149-166`; `src/github-linking.lib.mjs:167-213` (`collectIssueNumbers`, `REFERENCE_LIST`); log at `src/pr-issue-link-repair.lib.mjs:84` |
+| 3    | Lines an earlier repair appended (below the `---` block) for deferred or other-repository issues are removed again, and the removal is logged. **The repair never re-adds a line the session removed.** Before it adds a sub-issue line, it reads the description's revision history (GraphQL `PullRequest.userContentEdits`, paginated). If an earlier revision had a repair-block line closing that issue and the current description does not, the session removed it. The repair then does not add the line and logs `⚠️ #N was removed from the description by the session; not re-adding its closing reference`. The result carries the issue in `conflicts`. The history is read only when a sub-issue line is missing, and an unreadable history fails closed (`checked: false`). The primary issue (#2335) and the issues of a repository-mode block (#2212) are always restored. A hidden marker in the description would not work, because the session rewrote the whole description on calculator#228. | `src/issue-link-verification.lib.mjs:38-54` (`splitRepairBlock`), `src/pr-issue-link-repair.lib.mjs:19-40` (`fetchRepairedIssueKeys`), `:73-92`                                       |
+| 4    | The merge guard reads GitHub's `closingIssuesReferences` (default-branch base only) and refuses the merge when GitHub would close an issue in another repository, or an issue the description keeps open or that is deferred, including through a negated keyword. Other-repository sub-issues block the merge before that. One scanner (`scanClosingKeywords`) now serves both the positive parser and `extractNegatedClosingReferences`, which returns the negated wording. The repair warns about each negated keyword: `⚠️ '<phrase>' still closes #N on GitHub; write '#N stays open' instead`. The repair, the guard and post-merge closing treat such an issue as kept open (reason `description`). "not closing #N" is not flagged, because GitHub has no "closing" keyword.                                                                                                                                                                                                                               | `src/issue-link-verification.lib.mjs:266-308`, called from `src/issue-completion.lib.mjs:32,45`; `src/github-linking.lib.mjs:37-85`; warning at `src/pr-issue-link-repair.lib.mjs:82` |
+| 5    | Regression tests (see below), including the calculator#227 plan PR with its literal wording.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | `tests/issue-3174-link-repair-scope.test.mjs`, `tests/issue-3174-agent-decisions.test.mjs`                                                                                            |
+| RC5  | Other-repository sub-issues are collected separately and never required or repaired (from #3295).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | `src/issue-link-verification.lib.mjs:191-194`, `src/pr-issue-link-repair.lib.mjs:51`                                                                                                  |
 
 ## Tests
 
-All three files pass on this branch (2026-10-15):
+All four files pass on this branch (2026-10-15):
 
 | Command                                                       | Result     |
 | ------------------------------------------------------------- | ---------- |
 | `node --test tests/issue-3174-link-repair-scope.test.mjs`     | 12/12 pass |
+| `node --test tests/issue-3174-agent-decisions.test.mjs`       | 6/6 pass   |
 | `node --test tests/issue-link-verification-2335.test.mjs`     | 17/17 pass |
 | `node --test tests/pr-description-preservation-2549.test.mjs` | 9/9 pass   |
+
+`tests/issue-3174-agent-decisions.test.mjs` uses a fake `gh` that records every description revision, as GitHub's
+`userContentEdits` does. It covers:
+
+- ranges and lists that stay open;
+- negated keywords: the extracted phrase, the warning, post-merge closing keeping the issue open, and the guard's
+  `unintended_closing_references`;
+- a removed repair line that is not re-added, with the guard then reporting `missing_closing_references`;
+- the primary issue and repository-mode issues still being restored;
+- a never-repaired sub-issue still being added;
+- an unreadable history failing closed;
+- the calculator#227 case. Issue body: "this issue's own result is the analysis and issue creation". PR body: "Merging
+  this PR closes only #227. The open sub-issues #236 to #246 stay open…". The sub-issues were created after the PR.
+  Nothing from #229 to #246 is added, and the guard passes. If the PR's creation time is unknown, the history keeps
+  #229 to #235 out.
 
 `tests/issue-3174-link-repair-scope.test.mjs` covers: range and negated mentions (`extractOpenIssueMentions`),
 `splitRepairBlock`, the calculator#227 plan PR (repair adds nothing and removes the earlier lines), an unmentioned
@@ -110,29 +127,34 @@ malformed claims answer that fails closed.
 
 ## What remains, and why
 
-Status: **PARTIAL.** The behaviour that closed calculator#236 to calculator#246 and the #3282 tree is covered by
-code and tests, but these parts of the issue are not done:
+Status: **PARTIAL.** Requirements 1, 2, 3 and 5 are done in code and tests, and requirement 4 is done for the
+repair, the merge guard and post-merge closing. These parts are not done:
 
-1. **Not released.** `35bdc2d2` is in v2.36.1 and later. `355d0f14` (closed / later-created / other-PR / "Part of")
-   is only on this branch; npm `latest` (2.37.0) does not contain it. Until it is released and deployed, production
-   keeps appending lines for sub-issues created after the PR.
-2. **"Never undo the agent" is only partly done.** The repair now removes its own earlier lines for deferred issues,
-   but if the agent deletes the line of a still-required sub-issue without saying why in the prose, the next repair
-   adds it back (this is the #2335 behaviour the tests keep on purpose). There is no conflict report in the session
-   summary.
-3. **Parser parity is not done for every consumer.** `extractClosingIssueReferences` still skips negated keywords
-   (`src/github-linking.lib.mjs:43-49`). Through `prClosesIssue` (`src/github-linking.lib.mjs:67-75`) it is also used
-   by `src/github.batch.lib.mjs` (the open-PR checks behind `/hive --skip-issues-with-prs`),
-   `src/github-issue-auto-close.lib.mjs:77` and `src/solve.ensure-sub-issues.detect.lib.mjs:113`, which can therefore
-   still disagree with GitHub about a negated keyword. Only the merge guard uses `closingIssuesReferences`, and only when the base is the default
-   branch (GitHub ignores keywords on other bases).
-4. **No "no commits for this issue" check before merge.** The guard refuses deferred and kept-open issues, but not
+1. **Not released.** `35bdc2d2` is in v2.36.1 and later. Everything after it (closed / later-created / other-PR /
+   "Part of", lists, history, negation warning) is only on this branch; npm `latest` (2.37.0) does not contain it.
+   Until it is released and deployed, production keeps appending lines for sub-issues created after the PR.
+2. **The conflict is in the session log, not the session summary.** A removed line is logged as a warning and
+   returned in `conflicts`. The merge guard then still refuses the merge with `missing_closing_references` for that
+   issue. Every merge path runs the guard: `src/github-merge.lib.mjs:576` through `checkIssueCompletionBeforeMerge`.
+   So a human must either write "#N stays open" or restore the line. Nothing is merged silently, but the conflict is
+   not posted as a PR comment.
+3. **Known limit of the history check.** It cannot tell "the session removed the line" from "the repair removed its
+   own line because the issue was deferred at the time". If such an issue becomes required again later, it is not
+   re-added. This fails safe: the guard keeps the merge blocked.
+4. **Parser parity for the remaining consumers.** `prClosesIssue` still ignores negated keywords. Three consumers use
+   it and can still disagree with GitHub about "does not close #N":
+   - `src/github.batch.lib.mjs` (the open-PR checks behind `/hive --skip-issues-with-prs`);
+   - `src/github-issue-auto-close.lib.mjs:77`;
+   - `src/solve.ensure-sub-issues.detect.lib.mjs:113`.
+
+   They can use `extractNegatedClosingReferences` the same way the repair does. Only the merge guard uses
+   `closingIssuesReferences`, and only when the base is the default branch (GitHub ignores keywords on other bases).
+
+5. **No "no commits for this issue" check before merge.** The guard refuses deferred and kept-open issues, but not
    an open sub-tree issue that is required and has no work in the PR. The #2406 work merged into this branch (issue
    completion evidence before merge) is the place for that; it was not checked here.
-5. **No opt-in marker or flag** for "this parent asks for implementation of all sub-issues". An explicit closing line
+6. **No opt-in marker or flag** for "this parent asks for implementation of all sub-issues". An explicit closing line
    in the description acts as the override instead. `created_after_pr` uses timestamps, not the plan wording.
-6. The regression test uses the calculator issue numbers and a plan description, not the literal sentence from
-   calculator#227.
 
 Related follow-ups: #3354 (close every intended linked issue after a merge), #3357 / PR #3365 (unify the three
 post-merge closing implementations), #3358 (cross-repository closing), #3359 (close a parent when all sub-issues are
@@ -157,7 +179,7 @@ done).
 
 ```bash
 node experiments/issue-3174-repro.mjs
-for t in tests/issue-3174-link-repair-scope.test.mjs tests/issue-link-verification-2335.test.mjs tests/pr-description-preservation-2549.test.mjs; do
+for t in tests/issue-3174-link-repair-scope.test.mjs tests/issue-3174-agent-decisions.test.mjs tests/issue-link-verification-2335.test.mjs tests/pr-description-preservation-2549.test.mjs; do
   node --test "$t"
 done
 ```

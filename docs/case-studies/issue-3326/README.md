@@ -161,7 +161,7 @@ followed by ``✅ CI/CD on `main` finished (10m 30s)`` and, once `/solve` starts
 Known limitations:
 
 - Progress is read from the isolation log (`statusResult.logPath`); sessions without an isolation log keep the old "Executing..." text (the wait itself still happens).
-- The recovery lookup reads the newest 30 issues; on a repository receiving many issues per second the created issue could be pushed out before the lookup — then the old retry runs, as before.
+- The recovery lookup reads the newest 30 issues; on a repository receiving many issues per second the created issue could be pushed out before the lookup — then the old retry runs, as before. The same fallback applies if GitHub's issue listing has not caught up with the just-created issue yet; the type preflight is what prevents the incident's failure in the first place.
 
 ## Upstream report
 

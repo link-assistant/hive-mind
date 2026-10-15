@@ -129,7 +129,7 @@ test('GitHub errors and malformed responses never become permission to merge', a
   );
 });
 
-test('the complete nested scope includes body-only and foreign issues, without cycles or duplicates', async () => {
+test('the complete nested scope includes body-only issues and leaves out foreign ones (#3276), without cycles or duplicates', async () => {
   const f = fixture();
   const body = `${REPOSITORY_MODE_MARKER}\n${REQUIRED_CLOSING_REFERENCES_HEADING}\n\`\`\`\nFixes #7\nFixes #322\n\`\`\``;
   f.responses.set('repos/link-assistant/agent/issues/322', source(322, body));
@@ -139,14 +139,16 @@ test('the complete nested scope includes body-only and foreign issues, without c
   f.add('other', 'project', 8);
   f.responses.set('repos/other/project/issues/7/sub_issues', [[{ number: 8 }]]);
   f.responses.set('repos/other/project/issues/8/sub_issues', [[{ number: 7 }]]);
-  const scope = await fetchRequiredIssueScope({ ...context, run: f.run });
-  assert.deepEqual(scope.map(issueKey), ['link-assistant/agent#322', 'link-assistant/agent#7', 'other/project#7', 'other/project#8']);
+  const foreign = [];
+  const scope = await fetchRequiredIssueScope({ ...context, run: f.run, foreign });
+  assert.deepEqual(scope.map(issueKey), ['link-assistant/agent#322', 'link-assistant/agent#7']);
+  assert.deepEqual(foreign.map(issueKey), ['other/project#7']);
   assert.equal((await f.check()).blocker.reason, 'missing_closing_references');
   const repaired = await repairRequiredIssueLinks({ ...context, run: f.run });
-  assert.match(repaired.body, /Fixes #7\nFixes other\/project#7\nFixes other\/project#8/);
+  assert.match(repaired.body, /^Fixes #322\nFixes #7$/);
   assert.equal(repaired.updated, true);
   assert.equal((await f.check()).blocker.reason, 'unverified_issue_links');
-  f.responses.set('graphql', [linkPage('link-assistant/agent#322', 'link-assistant/agent#7', 'other/project#7', 'other/project#8')]);
+  f.responses.set('graphql', [linkPage('link-assistant/agent#322', 'link-assistant/agent#7')]);
   assert.equal((await f.check()).blocker, null);
   for (const path of f.files) await assert.rejects(access(path), /ENOENT/);
 });
@@ -159,13 +161,21 @@ test('unreadable repository-mode requirements block verification', async () => {
 
 test('native links must match the exact repositories and all pages', async () => {
   const f = fixture();
-  f.add('other', 'project', 7);
-  f.pr.body += '\nFixes other/project#7';
+  f.add('link-assistant', 'agent', 7);
+  f.pr.body += '\nFixes #7';
   assert.equal((await f.check()).blocker.reason, 'unverified_issue_links');
-  f.responses.get('graphql').push(linkPage('other/project#7'));
+  f.responses.get('graphql').push(linkPage('link-assistant/agent#7'));
   assert.equal((await f.check()).blocker, null);
-  f.responses.set('graphql', [linkPage('link-assistant/agent#322', 'another/project#7')]);
-  assert.deepEqual((await f.check()).blocker.details, ['other/project#7']);
+  f.responses.set('graphql', [linkPage('link-assistant/agent#322', 'link-assistant/other#7')]);
+  assert.deepEqual((await f.check()).blocker.details, ['link-assistant/agent#7']);
+  // Issue #3276: a merge here must never close an issue in another repository.
+  f.pr.body += '\nFixes other/project#7';
+  const foreign = (await f.check()).blocker;
+  assert.equal(foreign.reason, 'cross_repository_closing_references');
+  assert.deepEqual(foreign.details, ['other/project#7']);
+  f.pr.body = 'Fixes #322';
+  f.responses.set('graphql', [linkPage('link-assistant/agent#322', 'other/project#7')]);
+  assert.equal((await f.check()).blocker.reason, 'cross_repository_closing_references');
   f.responses.set('graphql', [{ data: {} }]);
   assert.equal((await f.check()).blocker.reason, 'issue_link_verification_failed');
 });

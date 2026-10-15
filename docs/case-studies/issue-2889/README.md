@@ -72,7 +72,9 @@ All three ran on Docker 29 with `rhysd/actionlint:1.7.12` as a small image that 
 - **The live layer size is not re-measured.** The guard uses the monitor's last measurement before the kill, because `docker inspect --size` can take minutes. Anything written between that measurement and the kill is not counted.
 - **The earlier PRs** #2894 (same scope, unmerged) and the snapshot parts of #2896 overlap this branch; the maintainer should pick one.
 
-## Upstream issue text for link-foundation/start (not filed)
+## Upstream issue: link-foundation/start#224
+
+Filed as https://github.com/link-foundation/start/issues/224 on 2026-10-15. The text below is what was filed.
 
 The `docker start` resume itself needs nothing more from start-command: 0.37.0 added it (start#198, start PR #204), and hive-mind now relies on it. The following would let hive-mind delete code or close the remaining gaps. Evidence is from start-command 0.37.8, `src/lib/`.
 

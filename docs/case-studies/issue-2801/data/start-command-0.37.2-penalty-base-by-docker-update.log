@@ -1,0 +1,25 @@
+14:47:43 start-command version: 0.37.2; NCPU=6 MODE=update BASE=4 TRIGGER=20%
+│
+│ log       /tmp/start-command/logs/isolation/docker/1f7064db-177d-48ea-8304-c7ee2de36917.log
+│ session   1f7064db-177d-48ea-8304-c7ee2de36917
+14:47:49 docker update --cpus 4 applied after launch
+14:47:49 start NanoCpus=4000000000
+14:47:53 busy NanoCpus=4000000000 cpuPenalty={"phase":"observing","since":1791816467816,"limitCpus":null,"baseCpus":null,"penaltyCount":0,"penalizedMs":0,"containerName":"issue-2801-start-update-42752","attemptNumber":1,"updatedAt":1791816469421}
+14:47:56 busy NanoCpus=4000000000 cpuPenalty={"phase":"observing","since":1791816472208,"limitCpus":4,"baseCpus":4,"penaltyCount":0,"penalizedMs":0,"containerName":"issue-2801-start-update-42752","attemptNumber":1,"updatedAt":1791816473560}
+14:48:00 busy NanoCpus=4000000000 cpuPenalty={"phase":"observing","since":1791816472208,"limitCpus":4,"baseCpus":4,"penaltyCount":0,"penalizedMs":0,"containerName":"issue-2801-start-update-42752","attemptNumber":1,"updatedAt":1791816477499}
+14:48:04 busy NanoCpus=4000000000 cpuPenalty={"phase":"observing","since":1791816472208,"limitCpus":4,"baseCpus":4,"penaltyCount":0,"penalizedMs":0,"containerName":"issue-2801-start-update-42752","attemptNumber":1,"updatedAt":1791816481768}
+14:48:08 busy NanoCpus=4000000000 cpuPenalty={"phase":"observing","since":1791816472208,"limitCpus":4,"baseCpus":4,"penaltyCount":0,"penalizedMs":0,"containerName":"issue-2801-start-update-42752","attemptNumber":1,"updatedAt":1791816486027}
+14:48:11 busy NanoCpus=4000000000 cpuPenalty={"phase":"observing","since":1791816472208,"limitCpus":4,"baseCpus":4,"penaltyCount":0,"penalizedMs":0,"containerName":"issue-2801-start-update-42752","attemptNumber":1,"updatedAt":1791816489955}
+14:48:15 busy NanoCpus=2000000000 cpuPenalty={"phase":"penalized","since":1791816493851,"limitCpus":2,"baseCpus":4,"penaltyCount":1,"penalizedMs":929,"containerName":"issue-2801-start-update-42752","attemptNumber":1,"updatedAt":1791816494897}
+14:48:15 --- container made idle
+14:48:19 idle NanoCpus=2000000000 cpuPenalty={"phase":"penalized","since":1791816493851,"limitCpus":2,"baseCpus":4,"penaltyCount":1,"penalizedMs":5289,"containerName":"issue-2801-start-update-42752","attemptNumber":1,"updatedAt":1791816499141}
+14:48:22 idle NanoCpus=2000000000 cpuPenalty={"phase":"penalized","since":1791816493851,"limitCpus":2,"baseCpus":4,"penaltyCount":1,"penalizedMs":8827,"containerName":"issue-2801-start-update-42752","attemptNumber":1,"updatedAt":1791816502678}
+14:48:26 idle NanoCpus=2000000000 cpuPenalty={"phase":"penalized","since":1791816493851,"limitCpus":2,"baseCpus":4,"penaltyCount":1,"penalizedMs":12349,"containerName":"issue-2801-start-update-42752","attemptNumber":1,"updatedAt":1791816506200}
+14:48:29 idle NanoCpus=2000000000 cpuPenalty={"phase":"penalized","since":1791816493851,"limitCpus":2,"baseCpus":4,"penaltyCount":1,"penalizedMs":15938,"containerName":"issue-2801-start-update-42752","attemptNumber":1,"updatedAt":1791816509789}
+14:48:33 idle NanoCpus=2000000000 cpuPenalty={"phase":"penalized","since":1791816493851,"limitCpus":2,"baseCpus":4,"penaltyCount":1,"penalizedMs":19368,"containerName":"issue-2801-start-update-42752","attemptNumber":1,"updatedAt":1791816513219}
+14:48:36 idle NanoCpus=2000000000 cpuPenalty={"phase":"penalized","since":1791816493851,"limitCpus":2,"baseCpus":4,"penaltyCount":1,"penalizedMs":22910,"containerName":"issue-2801-start-update-42752","attemptNumber":1,"updatedAt":1791816516761}
+14:48:40 idle NanoCpus=4000000000 cpuPenalty={"phase":"observing","since":1791816518852,"limitCpus":4,"baseCpus":4,"penaltyCount":1,"penalizedMs":25001,"containerName":"issue-2801-start-update-42752","attemptNumber":1,"updatedAt":1791816518963}
+14:48:40 --- log lines from start-command:
+[start] CPU penalty applied: 2 CPUs (3.84 of 4 CPUs for 20000ms)
+[start] CPU penalty lifted: 4 CPUs (0.07 of 2 CPUs for 20000ms)
+14:48:44 final NanoCpus= cpuPenalty={"phase":"observing","since":1791816518852,"limitCpus":4,"baseCpus":4,"penaltyCount":1,"penalizedMs":25001,"containerName":"issue-2801-start-update-42752","attemptNumber":1,"updatedAt":1791816518963}

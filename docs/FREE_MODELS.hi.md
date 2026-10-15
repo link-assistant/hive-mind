@@ -102,7 +102,7 @@ Hive-mind दो providers के free models का समर्थन कर�
 | MiniMax M2.1 Free  | `opencode/minimax-m2.1-free` | `opencode/minimax-m2.5-free` से replace किया गया                                                                                                   |
 | GLM 4.7 Free       | `opencode/glm-4.7-free`      | OpenCode Zen पर अब free नहीं                                                                                                                       |
 
-> **नोट:** Free models की वर्तमान सूची के लिए [OpenCode Zen Documentation](https://opencode.ai/docs/zen/) और [Agent CLI FREE_MODELS.md](https://github.com/link-assistant/agent/blob/main/FREE_MODELS.md) देखें।
+> **नोट:** Free models की वर्तमान सूची के लिए [OpenCode Zen Documentation](https://opencode.ai/docs/providers/#opencode-zen) और [Agent CLI FREE_MODELS.md](https://github.com/link-assistant/agent/blob/main/FREE_MODELS.md) देखें।
 
 ---
 
@@ -339,7 +339,7 @@ echo "Your prompt here" | agent --model kilo/deepseek-r1-free
 - [Case Study: Issue #1473](./case-studies/issue-1473/README.md) - Model recognition fix और free models sync
 - [Case Study: Issue #1543](./case-studies/issue-1543/README.md) - Free models update (qwen3.6-plus-free default के रूप में, nemotron-3-super-free जोड़ा गया)
 - [Case Study: Issue #1563](./case-studies/issue-1563/README.md) - Free models update (qwen3.6-plus-free deprecated, nemotron-3-super-free default के रूप में)
-- [OpenCode Zen Documentation](https://opencode.ai/docs/zen/) - OpenCode Zen provider विवरण
+- [OpenCode Zen Documentation](https://opencode.ai/docs/providers/#opencode-zen) - OpenCode Zen provider विवरण
 - [Kilo Gateway Documentation](https://kilo.ai/docs/gateway) - Kilo Gateway provider विवरण
 
 ---

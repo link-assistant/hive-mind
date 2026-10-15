@@ -1,0 +1,20 @@
+
+thread 'main' (64075) panicked at /rustc/b940084d7eb6a299eb4bfeb8e34901bc051e7ac4/library/std/src/io/stdio.rs:1168:9:
+failed printing to stdout: Broken pipe (os error 32)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+11:42:23 start-command version: 0.25.6 (Rust); NCPU=6 TRIGGER=20% SIGNAL=KILL
+11:42:54 penalized: NanoCpus=2000000000 penalized limit=2 count=1 penalizedMs=2428 monitor pids: 64485 64500 64501 64505 
+11:42:56 watcher and monitor killed; monitor pids: ''
+11:42:56 container made idle; waiting 30 s without a monitor
+11:43:26 still capped? NanoCpus=2000000000 penalized limit=2 count=1 penalizedMs=35307
+11:43:26 watcher-side processes: 
+resume-all: reattached state=running Re-attached completion watcher to running container: issue-2801-start-restart-64039
+11:43:29 after --resume-all: status=executing null null
+11:43:29 after --resume-all: processes: 67221 sh -c __start_command_cgroup_dir() { __scd_id=$(docker inspect -f '{{.Id}}' "$1" 2>/dev/null); [ -n "$__scd_id" ] || return 1; __scd_pid=$(docker inspect |67242 sh -c __start_command_cgroup_dir() { __scd_id=$(docker inspect -f '{{.Id}}' "$1" 2>/dev/null); [ -n "$__scd_id" ] || return 1; __scd_pid=$(docker inspect |67243 sh -c __start_command_cgroup_dir() { __scd_id=$(docker inspect -f '{{.Id}}' "$1" 2>/dev/null); [ -n "$__scd_id" ] || return 1; __scd_pid=$(docker inspect |67244 /tmp/sc-rust-0.25.6/bin/start __start-cpu-monitor 04648b44-38aa-4179-8dfc-3a187feabc14 issue-2801-start-restart-64039 1|67245 docker logs -f issue-2801-start-restart-64039|
+11:43:32 idle NanoCpus=2000000000 penalized limit=2 count=1 penalizedMs=41348
+11:43:36 idle NanoCpus=2000000000 penalized limit=2 count=1 penalizedMs=44913
+11:43:39 idle NanoCpus=2000000000 penalized limit=2 count=1 penalizedMs=48246
+11:43:43 idle NanoCpus=2000000000 penalized limit=2 count=1 penalizedMs=51624
+11:43:46 idle NanoCpus=2000000000 penalized limit=2 count=1 penalizedMs=54962
+11:43:50 idle NanoCpus=2000000000 penalized limit=2 count=1 penalizedMs=58407
+11:43:53 idle NanoCpus=6000000000 observing limit=6 count=1 penalizedMs=61449

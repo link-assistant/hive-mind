@@ -1,5 +1,13 @@
 # @link-assistant/hive-mind
 
+## 2.36.0
+
+### Minor Changes
+
+- 20ed4dd: Cap a Docker task container to 2 CPUs once it has kept all of its CPUs busy for 15 minutes, and lift the cap after it averages below 65% of the cap for 15 minutes (issue #2801). This is on by default for `--isolation docker`. It is configurable with `--container-cpu-penalty-*` / `TELEGRAM_CONTAINER_CPU_PENALTY_*`, and `--no-container-cpu-penalty` turns it off.
+
+  The dependency freshness gate now checks the Formal AI pin against crates.io, the registry `cargo install` pulls it from, instead of GitHub tags: v0.353.0 was tagged but never published there.
+
 ## 2.35.10
 
 ### Patch Changes

@@ -122,6 +122,33 @@ export function extractForeignIssueNumbers(text, owner, repo) {
   return numbers;
 }
 
+/** Longest "#A to #B" range expanded by {@link extractOpenIssueMentions}. */
+const MAX_MENTION_RANGE = 500;
+
+/**
+ * Issue numbers of owner/repo the text names without a positive closing
+ * keyword, for example "Part of #7", "#7 stays open" or "#236 to #246 stay
+ * open" (issue #3174). These are issues the description deliberately keeps
+ * open. A negated keyword ("does not close #7") counts as such a mention,
+ * although GitHub still closes #7.
+ */
+export function extractOpenIssueMentions(text, owner, repo) {
+  const visible = getClosingReferenceText(text);
+  const slug = `${owner}/${repo}`.toLowerCase();
+  const numbers = new Set();
+  const pattern = /(?:https:\/\/github\.com\/([\w.-]+)\/([\w.-]+)\/issues\/|\b([\w.-]+)\/([\w.-]+)#|(?<![\w/#&])#)([1-9]\d*)\b(?:\s*(?:to|through|thru|–|—|-|\.\.)\s*#([1-9]\d*)\b)?/gi;
+  for (const match of visible.matchAll(pattern)) {
+    const mentioned = match[1] || match[3] ? `${match[1] || match[3]}/${match[2] || match[4]}`.toLowerCase() : slug;
+    if (mentioned !== slug) continue;
+    const first = Number(match[5]);
+    const last = match[6] && Number(match[6]) > first && Number(match[6]) - first <= MAX_MENTION_RANGE ? Number(match[6]) : first;
+    for (let number = first; number <= last; number++) numbers.add(number);
+    if (match[6]) numbers.add(Number(match[6]));
+  }
+  for (const number of numbers) if (prClosesIssue(text, number, owner, repo)) numbers.delete(number);
+  return numbers;
+}
+
 /**
  * The issue a pull request solves.
  *

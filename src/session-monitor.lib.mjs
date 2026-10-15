@@ -21,6 +21,9 @@
 import { reportRecoveryLifecycle, recoveryLifecycleCallback } from './session-recovery-lifecycle.lib.mjs';
 import { reportFixProgress } from './fix-progress.lib.mjs'; // Issue #3326: show /fix's "waiting for CI/CD" phase.
 import { getIsolationSessionState as getIsolationSessionStateImpl } from './session-monitor.isolation-state.lib.mjs';
+// Issue #2303: a docker exit docker never observed is a kill, and the host disk is sampled while the session runs.
+import { reclassifyUnobservedDockerExit } from './session-monitor.unobserved-exit.lib.mjs';
+import { observeHostDiskForSession } from './session-monitor.host-disk.lib.mjs';
 import { exec as execCallback } from 'child_process';
 import fs from 'fs/promises';
 import { promisify } from 'util';
@@ -574,7 +577,7 @@ function isSuccessfulTaskCompletion({ exitCode = null, status = null, command = 
 function formatDockerTaskContainerKeptSection({ containerName, keepPolicy }) {
   return ['*Docker container kept*', `Container: \`${containerName}\``, `Policy: \`HIVE_MIND_KEEP_TASK_CONTAINER=${keepPolicy}\``, `Inspect: \`docker start -ai ${containerName}\``, `Shell: \`docker exec -it ${containerName} sh\``, `Remove when done: \`docker rm -f ${containerName}\``].join('\n');
 }
-export function buildDockerTaskContainerCompletionAction({ sessionName, sessionInfo, exitCode = null, status = null, env = process.env, verbose = false } = {}) {
+export function buildDockerTaskContainerCompletionAction({ sessionName, sessionInfo, exitCode = null, status = null, env = process.env, verbose = false, containerRemoved = false } = {}) {
   if (sessionInfo?.isolationBackend !== 'docker') {
     return { applies: false, containerName: null, keepPolicy: null, shouldRemove: false, extraSection: '' };
   }
@@ -583,6 +586,11 @@ export function buildDockerTaskContainerCompletionAction({ sessionName, sessionI
     return { applies: false, containerName: null, keepPolicy: null, shouldRemove: false, extraSection: '' };
   }
   const keepPolicy = resolveDockerTaskContainerKeepPolicy({ env, verbose });
+  if (containerRemoved) {
+    // Issue #2303: start-command already removed it, so "Docker container kept" would point at nothing.
+    if (verbose) console.log(`[VERBOSE] Docker task container '${containerName}' was already removed by start-command; neither keeping nor removing it`);
+    return { applies: false, containerName, keepPolicy, shouldRemove: false, extraSection: '' };
+  }
   const successful = isSuccessfulTaskCompletion({ exitCode, status, command: sessionInfo.command });
   const shouldKeep = keepPolicy === 'always' || (keepPolicy === 'on-failure' && !successful);
   return {
@@ -637,7 +645,8 @@ function isNonIsolationSessionActive(sessionName, sessionInfo, verbose = false) 
 }
 async function getIsolationSessionState(sessionName, sessionInfo, options = {}) {
   const persistSnapshot = () => persistSessionSnapshot(sessionName, sessionInfo);
-  const state = await getIsolationSessionStateImpl(sessionName, sessionInfo, { ...options, runnerProvider: getIsolationRunner, persistSnapshot });
+  const rawState = await getIsolationSessionStateImpl(sessionName, sessionInfo, { ...options, runnerProvider: getIsolationRunner, persistSnapshot });
+  const state = reclassifyUnobservedDockerExit(sessionName, sessionInfo, rawState, { verbose: options.verbose === true });
   return reconcileLaunchObservation(sessionName, sessionInfo, state, { verbose: options.verbose, persistSnapshot });
 }
 /**
@@ -781,6 +790,11 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
   }
   if (stillRunning) await reportRecoveryLifecycle({ bot, sessionName, sessionInfo, statusResult, options, verbose, lookupPullRequest: () => resolvePullRequestUrlForSession(sessionInfo, { verbose, lookupLinkedPullRequest: options.lookupLinkedPullRequest, statusResult, readFile: options.readFile }), persist: () => persistSessionSnapshot(sessionName, sessionInfo), logEvent });
   if (stillRunning && sessionInfo?.command === 'fix' && !sessionInfo.recoveryLifecycle) await (options.reportFixProgress || reportFixProgress)({ bot, sessionName, sessionInfo, statusResult, verbose, persist: () => persistSessionSnapshot(sessionName, sessionInfo) });
+  if (stillRunning && sessionInfo.isolationBackend) {
+    // Issue #2303: log markers can be an hour stale when the disk fills, and the removed container frees it again — only a live sample shows it.
+    const hostDisk = await observeHostDiskForSession(sessionInfo, { statusResult, statfs: options.hostDiskProvider, verbose });
+    if (hostDisk?.significant) persistSessionSnapshot(sessionName, sessionInfo);
+  }
   if (shouldRefreshDockerFilesystemSize(sessionInfo, { stillRunning })) {
     observedContainerFilesystemBytes = await refreshDockerContainerFilesystemSizeForSession(sessionName, sessionInfo, {
       verbose,
@@ -810,6 +824,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
         status: resolvedStatus,
         env: options.env || process.env,
         verbose,
+        containerRemoved: Boolean(statusResult?.unobservedExit),
       });
       // Issue #1688/#1905: Resolve the created PR from GitHub or, when its
       // linked-issue API lags, from the completed solve log.
@@ -1035,6 +1050,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
         resumedAs: killRecovery.resumed ? killRecovery.sessionId : null,
         recoveryCount: killRecovery.resumed ? killRecovery.attempt : null,
         launchUnobserved,
+        killCause: killReport.diagnosis?.cause || null,
       });
       if (killReport.killed || killReport.recovered || killReport.oomEventOnly) {
         const notice = await announceKillOnPullRequest({

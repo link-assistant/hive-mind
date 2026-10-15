@@ -181,7 +181,10 @@ export function appendPullRequestLine(infoBlock, pullRequestUrl, { locale = null
   return [...before, prLine, ...after].join('\n');
 }
 
-export function formatSessionCompletionMessage({ sessionName, sessionInfo, statusResult = null, observedEndTime = new Date(), exitCode = null, infoBlock = '', pullRequestUrl = null, pullRequestState = null, extraSections = [], locale = null, resumedAs = null, recoveryCount = null, launchUnobserved = false } = {}) {
+// Issue #2303: the diagnosed kill cause, named in the headline.
+const KILL_CAUSE_LABELS = { 'out-of-memory': 'out of memory', 'disk-full': 'disk full', 'forced-kill': 'forced kill' };
+
+export function formatSessionCompletionMessage({ sessionName, sessionInfo, statusResult = null, observedEndTime = new Date(), exitCode = null, infoBlock = '', pullRequestUrl = null, pullRequestState = null, extraSections = [], locale = null, resumedAs = null, recoveryCount = null, launchUnobserved = false, killCause = null } = {}) {
   const finalExitCode = getSessionCompletionExitCode({ exitCode, statusResult });
   const outcome = classifySessionOutcome({ exitCode: finalExitCode, status: statusResult?.status || null });
   const { failed, killed, signal } = outcome;
@@ -207,7 +210,14 @@ export function formatSessionCompletionMessage({ sessionName, sessionInfo, statu
     // the recovery session edits this message again when it actually ends.
     // Issue #2408: that is a warning, not a failure and not a neutral state.
     statusEmojiOverride = '⚠️';
-    statusText = text(messageLocale, 'telegram.work_session_recovering', `Work session still in progress: recovering from exit code ${finalExitCode}`, { exitCode: finalExitCode ?? '' });
+    if (killed && !signal) {
+      // Issue #2303: a kill without a signal exit has no real exit code (the 1 is a sentinel), so name the kill and its cause.
+      const causeLabel = KILL_CAUSE_LABELS[killCause] || null;
+      const causeSuffix = causeLabel ? ` (${causeLabel})` : '';
+      statusText = text(messageLocale, 'telegram.work_session_recovering_from_kill', `Work session still in progress: recovering from a kill${causeSuffix}`, { causeSuffix });
+    } else {
+      statusText = text(messageLocale, 'telegram.work_session_recovering', `Work session still in progress: recovering from exit code ${finalExitCode}`, { exitCode: finalExitCode ?? '' });
+    }
   } else if (finalExitCode === null && !killed && (sessionInfo?.killRecoveryResumed || sessionInfo?.recoveryLifecycle)) {
     statusEmojiOverride = '⚠️';
     statusText = 'Work session ended; final outcome could not be confirmed';
@@ -248,7 +258,9 @@ export function formatSessionCompletionMessage({ sessionName, sessionInfo, statu
     // sentinel, so suppress the misleading "(exit code: 1)" in that case.
     const showCode = finalExitCode !== null && !(!signal && finalExitCode === 1);
     const exitSuffix = showCode ? ` (exit code: ${finalExitCode})` : '';
-    const reason = signal ? signal.reason : 'killed';
+    // Issue #2303: a kill without a signal exit (container removed from under the session) names its diagnosed cause.
+    const causeLabel = KILL_CAUSE_LABELS[killCause] || null;
+    const reason = signal ? signal.reason : causeLabel ? `killed (${causeLabel})` : 'killed';
     statusText = text(messageLocale, 'telegram.work_session_killed', `Work session ${reason}${exitSuffix}`, { reason, exitCode: finalExitCode ?? '', signal: signal?.signal ?? '', exitSuffix });
   } else if (sessionInfo?.command === 'hive' && (finalExitCode === EXIT_CODE_HIVE_NO_WORK || finalExitCode === EXIT_CODE_HIVE_INCOMPLETE)) {
     statusEmojiOverride = '⚠️';

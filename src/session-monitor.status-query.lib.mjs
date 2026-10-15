@@ -34,6 +34,8 @@ export const STATUS_QUERY_ERROR_LIMIT = 5;
 /** Session-snapshot field holding the current streak of failed status queries. */
 export const STATUS_QUERY_ERROR_COUNT_FIELD = 'statusQueryErrorCount';
 
+// docker inspect answers in milliseconds; past this the daemon is hung, so docker cannot be asked (null).
+const DOCKER_INSPECT_TIMEOUT_MS = 30 * 1000;
 /** Docker's `FinishedAt` for a container that never finished. */
 const DOCKER_ZERO_TIME = /^0001-01-01T00:00:00/;
 
@@ -68,7 +70,8 @@ export function parseDockerContainerState(output) {
 export async function inspectDockerContainerState(containerName, verbose = false) {
   try {
     const $ = await getCommandStreamDollar();
-    const result = await $({ mirror: false })`docker inspect -f ${'{{json .State}}'} ${containerName}`;
+    // Issue #3278: the session monitor runs in the bot process; a hung docker daemon must not stall it.
+    const result = await $({ mirror: false, signal: AbortSignal.timeout(DOCKER_INSPECT_TIMEOUT_MS) })`docker inspect -f ${'{{json .State}}'} ${containerName}`;
     const stderr = result.stderr?.toString() || '';
     if (result.code !== 0) return /No such (object|container)/i.test(stderr) ? { exists: false } : null;
     return parseDockerContainerState(result.stdout?.toString());
@@ -129,7 +132,7 @@ export async function resolveStatusQueryFailure(sessionName, sessionInfo, error,
 
   // 1. The log footer is authoritative; a docker `-1` footer only says the watcher lost the container.
   const readFooter = exitFromLog || runner?.readSessionExitFromLog;
-  const footer = logPath && readFooter ? readFooter(logPath, { verbose }) : null;
+  const footer = logPath && readFooter ? await readFooter(logPath, { verbose }) : null;
   const unknownDockerFooter = docker && typeof runner?.isUnknownDockerExitCode === 'function' && runner.isUnknownDockerExitCode(footer?.exitCode);
   if (footer?.finished && !unknownDockerFooter) {
     const status = classifyExitStatus(footer.exitCode) || (footer.exitCode === 0 ? 'executed' : 'failed');

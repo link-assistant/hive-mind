@@ -107,7 +107,7 @@ assert.equal(isFormalAiSidecarEnabled({ HIVE_MIND_FORMAL_AI_SIDECAR: '0' }), fal
   // "Memory for formal-ai should be preserved between tasks and between restarts."
   assert.equal(docker.volumes.has(FORMAL_AI_MEMORY_VOLUME_NAME), true);
   assert.equal(docker.ran(/^volume rm/), false, 'the memory volume is never removed');
-  assert.deepEqual(readFormalAiSidecarState({ env }).leases, []);
+  assert.deepEqual((await readFormalAiSidecarState({ env })).leases, []);
 }
 
 // ---------------------------------------------------------------------------
@@ -117,24 +117,24 @@ assert.equal(isFormalAiSidecarEnabled({ HIVE_MIND_FORMAL_AI_SIDECAR: '0' }), fal
 {
   const env = makeEnv();
   const docker = createDockerSimulator({ images: { [SIDECAR_IMAGE]: 'sha256:sidecar' } });
-  const base = readFormalAiSidecarState({ env });
+  const base = await readFormalAiSidecarState({ env });
 
   // Taken seconds ago, container not created yet: this is the launch window
   // between acquiring the lease and start-command creating the container.
-  writeFormalAiSidecarState({ ...base, leases: [{ sessionId: 'starting', acquiredAt: new Date().toISOString() }] }, { env });
+  await writeFormalAiSidecarState({ ...base, leases: [{ sessionId: 'starting', acquiredAt: new Date().toISOString() }] }, { env });
   assert.equal((await reconcileFormalAiSidecar({ env, run: docker.run })).leaseCount, 1, 'a launching task keeps its lease');
 
   // Same lease an hour later, still no container: the launch failed.
-  writeFormalAiSidecarState({ ...base, leases: [{ sessionId: 'starting', acquiredAt: new Date(Date.now() - 61 * 60 * 1000).toISOString() }] }, { env });
+  await writeFormalAiSidecarState({ ...base, leases: [{ sessionId: 'starting', acquiredAt: new Date(Date.now() - 61 * 60 * 1000).toISOString() }] }, { env });
   assert.equal((await reconcileFormalAiSidecar({ env, run: docker.run })).leaseCount, 0, 'the launch grace window is bounded');
 
   // A container that was once seen and is now gone is stale immediately.
-  writeFormalAiSidecarState({ ...base, leases: [{ sessionId: 'crashed', acquiredAt: new Date().toISOString(), containerSeen: true }] }, { env });
+  await writeFormalAiSidecarState({ ...base, leases: [{ sessionId: 'crashed', acquiredAt: new Date().toISOString(), containerSeen: true }] }, { env });
   assert.equal((await reconcileFormalAiSidecar({ env, run: docker.run })).leaseCount, 0, 'a crashed task releases the sidecar');
 
   // A running container is marked as seen, so it stops relying on the grace window.
   docker.createContainer('running-task');
-  writeFormalAiSidecarState({ ...base, leases: [{ sessionId: 'running-task', acquiredAt: new Date(Date.now() - 61 * 60 * 1000).toISOString() }] }, { env });
+  await writeFormalAiSidecarState({ ...base, leases: [{ sessionId: 'running-task', acquiredAt: new Date(Date.now() - 61 * 60 * 1000).toISOString() }] }, { env });
   const reconciled = await reconcileFormalAiSidecar({ env, run: docker.run });
   assert.equal(reconciled.leaseCount, 1);
   assert.equal(reconciled.state.leases[0].containerSeen, true);

@@ -332,7 +332,7 @@ export const finalizeEndedLease = async ({ lease, env = process.env, run = execF
 
 /** Re-derive the sidecar record from Docker, revoking the tokens of leases that died. */
 export const reconcileRouterSidecar = async ({ env = process.env, fsImpl = fs, run = execFileAsync, timeoutMs, log = null, verbose = false } = {}) => {
-  const state = readRouterSidecarState({ env, fsImpl });
+  const state = await readRouterSidecarState({ env, fsImpl });
   const leases = await reconcileSidecarLeases(state.leases, {
     run,
     timeoutMs,
@@ -349,7 +349,7 @@ export const reconcileRouterSidecar = async ({ env = process.env, fsImpl = fs, r
     imageDigest: container.exists ? container.imageDigest : state.imageDigest,
     startedAt: container.running ? state.startedAt : null,
   };
-  writeRouterSidecarState(next, { env, fsImpl });
+  await writeRouterSidecarState(next, { env, fsImpl });
   return { state: next, container, leaseCount: leases.length };
 };
 
@@ -367,8 +367,8 @@ export const stopRouterSidecar = async ({ env = process.env, fsImpl = fs, run = 
   }
   await dockerOk(run, ['network', 'rm', ROUTER_SIDECAR_NETWORK_NAME], { timeoutMs });
 
-  const state = readRouterSidecarState({ env, fsImpl });
-  writeRouterSidecarState({ ...state, startedAt: null, leases: [] }, { env, fsImpl });
+  const state = await readRouterSidecarState({ env, fsImpl });
+  await writeRouterSidecarState({ ...state, startedAt: null, leases: [] }, { env, fsImpl });
   if (log) await log(`🛑 Router sidecar stopped (${reason}); data volume '${ROUTER_DATA_VOLUME_NAME}' preserved for audit`);
   if (verbose && log) await log(`[VERBOSE] ${LOG_PREFIX}: removed container=${container.exists} network='${ROUTER_SIDECAR_NETWORK_NAME}'`);
   return { stopped: container.exists };
@@ -484,7 +484,7 @@ export const acquireRouterSidecar = async ({ sessionId, githubRepo = null, env =
 
     container = await inspectDockerContainer(ROUTER_SIDECAR_CONTAINER_NAME, { run, timeoutMs });
     const leases = [...state.leases.filter(lease => lease.sessionId !== sessionId), { sessionId, tokenId: issued.tokenId, acquiredAt: now().toISOString(), containerSeen: false, launcher: describeLeaseLauncher() }];
-    writeRouterSidecarState({ ...state, leases, tokenSecret, startedAt, image: container.image, imageDigest: container.imageDigest, lastUpdate: now().toISOString() }, { env, fsImpl });
+    await writeRouterSidecarState({ ...state, leases, tokenSecret, startedAt, image: container.image, imageDigest: container.imageDigest, lastUpdate: now().toISOString() }, { env, fsImpl });
 
     return { baseUrl: getInternalRouterBaseUrl(), token: issued.token, tokenId: issued.tokenId, leaseCount: leases.length, external: false, error: null };
   }, lockOptions);
@@ -602,7 +602,7 @@ export const releaseRouterSidecar = async ({ sessionId, env = process.env, fsImp
   if (!isRouterSidecarEnabled(env) || resolveRouterBaseUrl({ env }).external) return { leaseCount: 0, stopped: false };
 
   return withRouterSidecarLock(async () => {
-    const state = readRouterSidecarState({ env, fsImpl });
+    const state = await readRouterSidecarState({ env, fsImpl });
     const released = state.leases.find(lease => lease.sessionId === sessionId);
     if (released) await finalizeEndedLease({ lease: released, env, run, timeoutMs, log, verbose });
 
@@ -610,7 +610,7 @@ export const releaseRouterSidecar = async ({ sessionId, env = process.env, fsImp
       state.leases.filter(lease => lease.sessionId !== sessionId),
       { run, timeoutMs, log, verbose, logPrefix: LOG_PREFIX, onDropped: lease => finalizeEndedLease({ lease, env, run, timeoutMs, log, verbose }) }
     );
-    writeRouterSidecarState({ ...state, leases: remaining }, { env, fsImpl });
+    await writeRouterSidecarState({ ...state, leases: remaining }, { env, fsImpl });
 
     if (remaining.length > 0) {
       if (verbose && log) await log(`[VERBOSE] ${LOG_PREFIX}: '${sessionId}' released; ${remaining.length} lease(s) still hold the sidecar up`);

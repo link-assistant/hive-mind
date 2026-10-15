@@ -244,7 +244,7 @@ export const updateFormalAiSidecarWhenIdle = async ({ env = process.env, fsImpl 
 
       const image = resolveFormalAiUpdateImage(env);
       const prefetch = isFormalAiPrefetchEnabled(env);
-      const checkState = readFormalAiSidecarState({ env, fsImpl });
+      const checkState = await readFormalAiSidecarState({ env, fsImpl });
 
       // Issue #2305: a host that does not use Formal AI must not download or
       // boot it. The first `--model formal-ai` task pulls the image on demand.
@@ -283,7 +283,7 @@ export const updateFormalAiSidecarWhenIdle = async ({ env = process.env, fsImpl 
 
       // Every outcome below counts as a check, so neither a failing registry
       // nor a refused migration is retried more often than the interval.
-      writeFormalAiSidecarState({ ...checkState, lastUpdateCheckAt: now().toISOString() }, { env, fsImpl });
+      await writeFormalAiSidecarState({ ...checkState, lastUpdateCheckAt: now().toISOString() }, { env, fsImpl });
 
       const runningDigest = checkState.imageDigest || acceptedDigest || previousDigest;
       const remote = await resolveRemoteImageDigests(image, { run, timeoutMs, log, verbose });
@@ -380,7 +380,7 @@ export const updateFormalAiSidecarWhenIdle = async ({ env = process.env, fsImpl 
       // The registry digest pins exactly this build, so it can be pulled back
       // after an idle unload even once `:latest` has moved on (issue #2305).
       const repoDigest = await readFormalAiRepoDigest(image, { run, timeoutMs });
-      writeFormalAiSidecarState({ ...readFormalAiSidecarState({ env, fsImpl }), image, imageDigest: pulledDigest, lastUpdate: { image, digest: pulledDigest, repoDigest, previousDigest: runningDigest, version: verification.health?.version ?? null, migrationId: receipt?.migration_id ?? null, memorySchemaVersion: verification.health?.memory?.schema_version ?? null, updatedAt } }, { env, fsImpl });
+      await writeFormalAiSidecarState({ ...(await readFormalAiSidecarState({ env, fsImpl })), image, imageDigest: pulledDigest, lastUpdate: { image, digest: pulledDigest, repoDigest, previousDigest: runningDigest, version: verification.health?.version ?? null, migrationId: receipt?.migration_id ?? null, memorySchemaVersion: verification.health?.memory?.schema_version ?? null, updatedAt } }, { env, fsImpl });
 
       if (log) await log(`✅ Formal AI updated to ${verification.health?.version ?? pulledDigest}${receipt ? ` (memory migrated ${receipt.from_schema_version}→${receipt.to_schema_version}, backup ${receipt.backup_path})` : ''}; the sidecar stays stopped until a Formal AI task needs it`);
 

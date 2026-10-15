@@ -208,6 +208,14 @@ fix owner/repo --update-all-dependencies --dry-run
 fix owner/repo --update-all-dependencies --no-solve
 ```
 
+检查完仓库后会立即创建 issue，但只有当默认分支上不再有未完成的 GitHub Actions 运行时才会启动 `/solve`，因此 AI 工作不会基于仍在变化的默认分支开始，也不会依据即将改变的运行结果进行推理。等待期间每 30 秒轮询一次，超过 `--ci-wait-timeout <分钟>`（默认 60）后放弃等待，使用 `--no-wait-for-ci` 可跳过等待。等待期间，Telegram 回复会单独显示“⏳ 正在等待 CI/CD 完成”状态及仍在运行的工作流；如果运行在等待期间完成，其最新结果会以评论形式发布到 issue 中（[issue #3326](https://github.com/link-assistant/hive-mind/issues/3326)）：
+
+```bash
+fix owner/repo --update-all-dependencies
+fix owner/repo --update-all-dependencies --ci-wait-timeout 30
+fix owner/repo --update-all-dependencies --no-wait-for-ci
+```
+
 ### 为什么 issue 是 Task 类型，以及省略了什么
 
 `/solve --deep-analysis` **只对 Bug 类型的 issue** 输出根因分析和调试输出方面的指导，而依赖升级并没有需要查找的根因。把 issue 创建为 `Task` 会选中该提示词的非 bug 变体——调研、需求覆盖、方案规划——这才是这里真正有用的部分。issue 类型按组织配置，标签按仓库配置，因此如果目标仓库两者都不接受，issue 仍会被创建，只是不带这些属性。

@@ -557,6 +557,14 @@ fix owner/repo --ci-cd --dry-run
 fix owner/repo --ci-cd --no-solve
 ```
 
+Задача создаётся сразу после анализа репозитория, но `/solve` запускается только после того, как в ветке по умолчанию не останется незавершённых запусков GitHub Actions, поэтому работа ИИ не начинается с меняющейся ветки по умолчанию и не опирается на запуски, результат которых вот-вот изменится. Ожидание опрашивает GitHub каждые 30 секунд, прекращается через `--ci-wait-timeout <минуты>` (по умолчанию 60) и отключается флагом `--no-wait-for-ci`. Пока оно идёт, ответ в Telegram показывает отдельный статус «⏳ Ожидание завершения CI/CD» со списком ещё выполняющихся запусков, а если запуски завершились во время ожидания, их итоговые результаты добавляются комментарием к задаче ([issue #3326](https://github.com/link-assistant/hive-mind/issues/3326)):
+
+```bash
+fix owner/repo --ci-cd
+fix owner/repo --ci-cd --ci-wait-timeout 30
+fix owner/repo --ci-cd --no-wait-for-ci
+```
+
 ## Ссылки
 
 - [Code Architecture Principles](https://github.com/link-foundation/code-architecture-principles)

@@ -556,6 +556,14 @@ fix owner/repo --ci-cd --dry-run
 fix owner/repo --ci-cd --no-solve
 ```
 
+The issue is created as soon as the repository has been inspected, but `/solve` starts only after no GitHub Actions run is pending on the default branch, so the AI work never starts from a moving default branch or reasons about runs that are about to change. The wait polls every 30 seconds, gives up after `--ci-wait-timeout <minutes>` (default 60) and is skipped with `--no-wait-for-ci`. While it lasts, the Telegram reply shows a separate "⏳ Waiting for CI/CD" status with the runs still in progress, and when runs finished during the wait their latest results are commented on the issue ([issue #3326](https://github.com/link-assistant/hive-mind/issues/3326)):
+
+```bash
+fix owner/repo --ci-cd
+fix owner/repo --ci-cd --ci-wait-timeout 30
+fix owner/repo --ci-cd --no-wait-for-ci
+```
+
 ## References
 
 - [Code Architecture Principles](https://github.com/link-foundation/code-architecture-principles)

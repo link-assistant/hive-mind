@@ -1,7 +1,7 @@
 # Every row uses an isolated orphan branch, even with the default GitHub token.
 name: E2E Hello World Matrix
 
-on: # zizmor: ignore[dangerous-triggers] Only successful trusted main completions are admitted by prepare.
+on:
   workflow_dispatch:
     inputs:
       isolation:
@@ -17,7 +17,7 @@ on: # zizmor: ignore[dangerous-triggers] Only successful trusted main completion
         description: Optional existing task (owned resources are never cleaned up)
         type: string
         default: ''
-  workflow_run:
+  workflow_run: # zizmor: ignore[dangerous-triggers] Only successful trusted main completions are admitted by prepare.
     workflows: ['Checks and release']
     types: [completed]
     branches: [main]

@@ -52,7 +52,7 @@ function freshHarness({ home, copy = null }) {
       runner,
       killed: true,
       env: { HIVE_MIND_SESSION_KILL_RESUME_DELAY: '0' },
-      readLastSessionId: () => THREAD,
+      readLastSessionId: async () => THREAD,
       trackSession: (name, data) => tracked.push({ name, data }),
       onLifecycle: async event => events.push(event),
       resolveFreshCommand: options => resolveFreshRecoveryCommand({ ...options, homeDir: home }),
@@ -242,7 +242,7 @@ test('a recovery solve refused for disk space (exit 75) is relaunched under the 
       },
     },
     // The refused run never reached the tool, so its log names no session.
-    readLastSessionId: () => null,
+    readLastSessionId: async () => null, // async, like readLastSessionIdFromLog (#3278)
     trackSession: (name, data) => tracked.push({ name, data }),
     onLifecycle: async event => events.push(event),
     diskRetry: { measureFree: async () => free.shift(), diskSleep: async ms => waits.push(ms) },

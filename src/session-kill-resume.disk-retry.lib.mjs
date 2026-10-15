@@ -105,7 +105,8 @@ export async function relaunchDiskRefusedRecovery({ sessionName, sessionInfo, ru
   sessionInfo[KILL_RECOVERY_DISK_DEFERRALS_FIELD] = deferrals + 1;
   // A fresh run that was refused wrote no tool session id; it is in its own args.
   const ownResumeId = readResumeId(sessionInfo?.args);
-  const readId = logPath => readLastSessionId(logPath) || ownResumeId;
+  // readLastSessionIdFromLog is async (#3278): await it, or `||` sees a Promise and never falls back.
+  const readId = async (logPath, readOptions) => (await readLastSessionId(logPath, readOptions)) || ownResumeId;
   if (verbose) console.log(`[VERBOSE] Session ${sessionName} exited ${EXIT_CODE_INSUFFICIENT_DISK_SPACE} (not enough disk); relaunching recovery attempt ${attempt} (disk deferral ${deferrals + 1}/${MAX_DISK_DEFERRALS})`);
   const result = await recover({ ...options, sessionName, sessionInfo, runner, onLifecycle, killed: true, readLastSessionId: readId, verbose });
   if (!result?.resumed) {

@@ -54,7 +54,8 @@ function harness({ startup = { failed: false }, lastSessionId = THREAD } = {}) {
     runner,
     killed: true,
     env: { HIVE_MIND_SESSION_KILL_RESUME_DELAY: '0' },
-    readLastSessionId: () => lastSessionId,
+    // Async, like readLastSessionIdFromLog (#3278).
+    readLastSessionId: async () => lastSessionId,
     trackSession: (name, data) => tracked.push({ name, data }),
     onLifecycle: async event => events.push(event),
     // Keep the fresh path independent of this host's ~/.codex (issue #2888).

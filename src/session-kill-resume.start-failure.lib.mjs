@@ -50,7 +50,8 @@ export async function relaunchFailedInPlaceStart({ sessionName, sessionInfo, fai
   // The in-place session shares the killed one's log; when no `Session ID:`
   // can be read from it, the id that attempt was started with is the same one.
   const ownResumeId = readResumeId(sessionInfo?.args);
-  const readId = logPath => readLastSessionId(logPath) || ownResumeId;
+  // readLastSessionIdFromLog is async (#3278): await it, or `||` sees a Promise and never falls back.
+  const readId = async (logPath, readOptions) => (await readLastSessionId(logPath, readOptions)) || ownResumeId;
   const reason = `The recovery session ${sessionName} exited with code ${failure.exitCode} (${failure.description}) without running its command; starting a fresh isolated session (issue #2887).`;
   console.warn(`[session-kill-resume] ${reason}`);
   if (verbose) console.log(`[VERBOSE] ${reason} Attempt ${attempt} is reused; resume id from args: ${ownResumeId || 'none'}`);

@@ -40,6 +40,12 @@ import { drainTaskSessionData } from './router-session-drain.lib.mjs';
 import { buildRouterTaskWiringScript, getInternalRouterBaseUrl, resolveRouterBaseUrl, resolveRouterDialect, resolveRouterSidecarImage, ROUTER_CREDENTIAL_MOUNTS, ROUTER_DATA_MOUNT, ROUTER_DATA_VOLUME_NAME, ROUTER_GH_CONFIG_MOUNT, ROUTER_SIDECAR_CONTAINER_NAME, ROUTER_SIDECAR_LABEL, ROUTER_SIDECAR_NETWORK_ALIAS, ROUTER_SIDECAR_NETWORK_NAME, ROUTER_SIDECAR_PORT, ROUTER_TLS_DNS_NAMES } from './router-isolation.lib.mjs';
 import { withStateLock } from './state-lock.lib.mjs';
 
+/** Whether a host path exists, without blocking the bot's event loop on a stat (issue #3278). */
+const pathExists = target =>
+  fs.promises.access(target).then(
+    () => true,
+    () => false
+  );
 const execFileAsync = promisify(execFile);
 
 const LOG_PREFIX = 'router-sidecar';
@@ -119,7 +125,11 @@ export const resolveRouterTokenSecret = ({ state, env = process.env, generate = 
  * upstream so a routed task never holds one (R12), and it finds that token the
  * same way gh does, through `GH_CONFIG_DIR`.
  */
-export const getRouterCredentialMounts = ({ homeDir = os.homedir(), existsSync = fs.existsSync } = {}) => [...ROUTER_CREDENTIAL_MOUNTS, ROUTER_GH_CONFIG_MOUNT].map(mount => ({ ...mount, source: path.join(homeDir, ...mount.home.split('/')) })).filter(mount => existsSync(mount.source));
+export const getRouterCredentialMounts = async ({ homeDir = os.homedir(), existsSync: exists = pathExists } = {}) => {
+  const mounts = [...ROUTER_CREDENTIAL_MOUNTS, ROUTER_GH_CONFIG_MOUNT].map(mount => ({ ...mount, source: path.join(homeDir, ...mount.home.split('/')) }));
+  const present = await Promise.all(mounts.map(mount => exists(mount.source)));
+  return mounts.filter((_, index) => present[index]);
+};
 
 /** Does the sidecar hold a vendor credential, as opposed to only a GitHub one? */
 const hasVendorCredential = mounts => mounts.some(mount => mount.envVar !== ROUTER_GH_CONFIG_MOUNT.envVar);
@@ -383,7 +393,7 @@ export const stopRouterSidecar = async ({ env = process.env, fsImpl = fs, run = 
  *
  * @returns {Promise<{baseUrl: string|null, token: string|null, tokenId: string|null, leaseCount: number, external: boolean, error: string|null}>}
  */
-export const acquireRouterSidecar = async ({ sessionId, githubRepo = null, env = process.env, fsImpl = fs, run = execFileAsync, timeoutMs, imageTimeoutMs = DEFAULT_IMAGE_TIMEOUT_MS, homeDir = os.homedir(), existsSync = fs.existsSync, log = null, verbose = false, now = () => new Date(), healthAttempts, healthDelayMs, sleepImpl = sleep, lockOptions = {} } = {}) => {
+export const acquireRouterSidecar = async ({ sessionId, githubRepo = null, env = process.env, fsImpl = fs, run = execFileAsync, timeoutMs, imageTimeoutMs = DEFAULT_IMAGE_TIMEOUT_MS, homeDir = os.homedir(), existsSync: exists = pathExists, log = null, verbose = false, now = () => new Date(), healthAttempts, healthDelayMs, sleepImpl = sleep, lockOptions = {} } = {}) => {
   if (!sessionId) throw new Error('acquireRouterSidecar requires a sessionId');
 
   const endpoint = resolveRouterBaseUrl({ env });
@@ -440,7 +450,7 @@ export const acquireRouterSidecar = async ({ sessionId, githubRepo = null, env =
         }
       }
 
-      const credentialMounts = getRouterCredentialMounts({ homeDir, existsSync });
+      const credentialMounts = await getRouterCredentialMounts({ homeDir, existsSync: exists });
       // A GitHub credential alone would leave the router with nothing to answer
       // a model request with, so it does not count towards this check.
       if (!hasVendorCredential(credentialMounts)) {

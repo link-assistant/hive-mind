@@ -122,7 +122,7 @@ export const STOP_REASONS = {
   },
   incomplete_issue_requirements: {
     title: 'the issue requirements are not verified as complete, so auto-merge was held back',
-    detail: 'The pull request description has no current requirements report with evidence for every issue requirement (issue #2406).',
+    detail: 'The pull request description has no current requirements report with evidence for every issue requirement.',
     nextSteps: ['Complete every listed requirement, refresh the requirements report for the current commit, and re-run the command.'],
   },
   no_progress_between_sessions: {

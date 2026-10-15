@@ -1,0 +1,8 @@
+{
+  "headRefName": "issue-2890-553ce4602aa0",
+  "mergedAt": null,
+  "number": 2896,
+  "state": "OPEN",
+  "title": "feat(queue): keep the Telegram solve queue across bot and container restarts (#2890)",
+  "url": "https://github.com/link-assistant/hive-mind/pull/2896"
+}

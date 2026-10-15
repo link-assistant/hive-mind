@@ -1,0 +1,8 @@
+{
+  "headRefName": "issue-2889-b3cf2ad55a40",
+  "mergedAt": null,
+  "number": 2894,
+  "state": "OPEN",
+  "title": "fix(isolation): resume killed docker sessions with docker start and a command handoff; guard and clean up snapshots (#2889)",
+  "url": "https://github.com/link-assistant/hive-mind/pull/2894"
+}

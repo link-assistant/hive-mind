@@ -10,7 +10,7 @@ import assert from 'assert/strict';
 import { buildCiCdIssueBody, buildCiCdIssueTitle, buildRunsSection, buildSolveArgs, buildStandardPrompt, buildStandardPromptParagraphs, buildTemplatesSection, CI_CD_ISSUE_LABELS, CI_CD_ISSUE_TITLE, CI_CD_ISSUE_TYPE, CI_CD_TEMPLATE_OWNER, CI_CD_TEMPLATE_REPO_SUFFIX, CI_CD_TEMPLATES, countDuplicateRuns, DEBUG_OUTPUT_PARAGRAPH, dedupeRunsByWorkflow, diffCiCdTemplates, FIX_SOLVE_OPTIONS, mapLanguagesToTemplates, normalizeLanguages, parseFixRepository, partitionFixArgs, REPORT_UPSTREAM_PARAGRAPH, summarizeRunFailures, templateUrl } from '../src/fix.ci-cd.lib.mjs';
 import { createCiCdIssue, prepareCiCdIssue } from '../src/fix.ci-cd-issue.lib.mjs';
 import { KEEP_WORKING_PROMPT } from '../src/solve.keep-working.detect.lib.mjs';
-import { buildCreateIssueArgs, createTaskIssue } from '../src/task.issue-creation.lib.mjs';
+import { buildCreateIssueArgs, createTaskIssue, findRecentlyCreatedIssue, resolveSupportedIssueType } from '../src/task.issue-creation.lib.mjs';
 import { isBugIssueType } from '../src/development-log.lib.mjs';
 import { readFile } from 'node:fs/promises';
 
@@ -725,6 +725,9 @@ await test('createTaskIssue retries without type/labels when the repo rejects th
     labels: ['bug'],
     log: message => logged.push(message),
     run: async (command, args) => {
+      // Preflight and duplicate lookups are not answerable here, so the type
+      // is kept and gh rejects it before creating anything (label not found).
+      if (args[0] !== 'issue') return { code: 1, stdout: '', stderr: 'unavailable' };
       calls.push(args);
       if (args.includes('--type')) {
         return { code: 1, stdout: '', stderr: "could not add label: 'bug' not found" };
@@ -752,6 +755,132 @@ await test('createTaskIssue surfaces the error when no optional metadata was use
     }),
     /boom/
   );
+});
+
+/**
+ * Fake GitHub backend that reproduces `gh issue create --type` from gh v2.102:
+ * the issue (with labels) is created first and the type is resolved afterwards,
+ * so an unknown type makes gh exit non-zero *after* the issue exists and without
+ * printing its URL (issue #3326).
+ */
+function createFakeGitHub({ issueTypes = null, graphqlAvailable = true, existingIssues = [] } = {}) {
+  const issues = [...existingIssues];
+  const createCalls = [];
+  const run = async (command, args) => {
+    if (args[0] === 'api' && args[1] === 'graphql') {
+      if (!graphqlAvailable) return { code: 1, stdout: '', stderr: 'HTTP 502' };
+      const nodes = issueTypes === null ? null : { nodes: issueTypes.map(name => ({ name })) };
+      return { code: 0, stdout: JSON.stringify({ data: { repository: { issueTypes: nodes } } }), stderr: '' };
+    }
+    if (args[0] === 'api' && String(args[1]).startsWith('repos/owner/repo/issues?')) {
+      return { code: 0, stdout: JSON.stringify([...issues].reverse()), stderr: '' };
+    }
+    if (args[0] === 'issue' && args[1] === 'create') {
+      createCalls.push(args);
+      const title = args[args.indexOf('--title') + 1];
+      const body = await readFile(args[args.indexOf('--body-file') + 1], 'utf8');
+      const labels = args.flatMap((arg, index) => (arg === '--label' ? [{ name: args[index + 1] }] : []));
+      const number = issues.length + 1;
+      const htmlUrl = `https://github.com/owner/repo/issues/${number}`;
+      issues.push({ number, title, body, labels, html_url: htmlUrl, created_at: new Date().toISOString() });
+      const typeIndex = args.indexOf('--type');
+      if (typeIndex !== -1) {
+        const requested = args[typeIndex + 1];
+        const known = (issueTypes || []).find(name => name.toLowerCase() === requested.toLowerCase());
+        if (!known) {
+          return { code: 1, stdout: '', stderr: `type "${requested}" not found; available types: ${(issueTypes || []).join(', ')}\n` };
+        }
+        issues[issues.length - 1].type = known;
+      }
+      return { code: 0, stdout: `${htmlUrl}\n`, stderr: '' };
+    }
+    return { code: 1, stdout: '', stderr: `Unexpected command: ${command} ${args.join(' ')}` };
+  };
+  return { run, issues, createCalls };
+}
+
+await test('issue #3326: /fix --ci-cd on a user-owned repo creates exactly one issue (type dropped, label kept)', async () => {
+  const github = createFakeGitHub({ issueTypes: null });
+  const logged = [];
+  const issue = await createTaskIssue({
+    repository: { fullName: 'owner/repo' },
+    title: CI_CD_ISSUE_TITLE,
+    body: 'CI/CD body',
+    issueType: CI_CD_ISSUE_TYPE,
+    labels: [...CI_CD_ISSUE_LABELS],
+    run: github.run,
+    log: message => logged.push(message),
+  });
+  assert.equal(github.issues.length, 1, 'exactly one issue must exist');
+  assert.equal(github.createCalls.length, 1);
+  assert.ok(!github.createCalls[0].includes('--type'), 'unsupported type must not be passed to gh');
+  assert.ok(github.createCalls[0].includes('--label') && github.createCalls[0].includes('bug'), 'the bug label must be kept');
+  assert.deepEqual(github.issues[0].labels, [{ name: 'bug' }]);
+  assert.equal(issue.url, 'https://github.com/owner/repo/issues/1');
+  assert.ok(logged.some(message => /without type/.test(message) && /organization-owned/.test(message)));
+});
+
+await test('issue #3326: when type support cannot be checked, a post-create type failure returns the created issue instead of a duplicate', async () => {
+  const github = createFakeGitHub({ issueTypes: null, graphqlAvailable: false });
+  const logged = [];
+  const issue = await createTaskIssue({
+    repository: { fullName: 'owner/repo' },
+    title: CI_CD_ISSUE_TITLE,
+    body: 'CI/CD body',
+    issueType: CI_CD_ISSUE_TYPE,
+    labels: [...CI_CD_ISSUE_LABELS],
+    run: github.run,
+    log: message => logged.push(message),
+  });
+  assert.equal(github.createCalls.length, 1, 'must not retry gh issue create');
+  assert.equal(github.issues.length, 1, 'must not create a duplicate issue');
+  assert.equal(issue.url, 'https://github.com/owner/repo/issues/1');
+  assert.equal(issue.number, 1);
+  assert.ok(logged.some(message => /not retrying to avoid a duplicate/.test(message)));
+});
+
+await test('issue #3326: organization repos keep the type, matched case-insensitively', async () => {
+  const github = createFakeGitHub({ issueTypes: ['Task', 'Bug', 'Feature'] });
+  const issue = await createTaskIssue({ repository: { fullName: 'owner/repo' }, title: 'T', body: 'B', issueType: 'bug', labels: ['bug'], run: github.run });
+  assert.equal(github.createCalls.length, 1);
+  assert.equal(github.createCalls[0][github.createCalls[0].indexOf('--type') + 1], 'Bug');
+  assert.equal(github.issues[0].type, 'Bug');
+  assert.equal(issue.number, 1);
+});
+
+await test('issue #3326: an organization without the requested type gets an untyped issue, not two issues', async () => {
+  const github = createFakeGitHub({ issueTypes: ['Feature'] });
+  await createTaskIssue({ repository: { fullName: 'owner/repo' }, title: 'T', body: 'B', issueType: 'Task', labels: ['dependencies'], run: github.run });
+  assert.equal(github.issues.length, 1);
+  assert.ok(!github.createCalls[0].includes('--type'));
+});
+
+await test('issue #3326: resolveSupportedIssueType distinguishes unsupported from unknown', async () => {
+  const repository = { fullName: 'owner/repo' };
+  assert.deepEqual(await resolveSupportedIssueType({ repository, issueType: null, run: createFakeGitHub().run }), { issueType: null, reason: null });
+  const userOwned = await resolveSupportedIssueType({ repository, issueType: 'Bug', run: createFakeGitHub({ issueTypes: null }).run });
+  assert.equal(userOwned.issueType, null);
+  assert.match(userOwned.reason, /not available in owner\/repo/);
+  const unknown = await resolveSupportedIssueType({ repository, issueType: 'Bug', run: createFakeGitHub({ graphqlAvailable: false }).run });
+  assert.deepEqual(unknown, { issueType: 'Bug', reason: null });
+});
+
+await test('issue #3326: findRecentlyCreatedIssue ignores pull requests, older issues and other titles/bodies', async () => {
+  const now = Date.now();
+  const at = offsetMs => new Date(now + offsetMs).toISOString();
+  const github = createFakeGitHub({
+    existingIssues: [
+      { number: 1, title: 'T', body: 'B', html_url: 'https://github.com/owner/repo/issues/1', created_at: at(-60 * 60 * 1000) },
+      { number: 2, title: 'T', body: 'B', html_url: 'https://github.com/owner/repo/pull/2', pull_request: {}, created_at: at(0) },
+      { number: 3, title: 'Other', body: 'B', html_url: 'https://github.com/owner/repo/issues/3', created_at: at(0) },
+      { number: 4, title: 'T', body: 'Different', html_url: 'https://github.com/owner/repo/issues/4', created_at: at(0) },
+    ],
+  });
+  const createdAfter = new Date(now);
+  assert.equal(await findRecentlyCreatedIssue({ repository: { fullName: 'owner/repo' }, title: 'T', body: 'B', createdAfter, run: github.run }), null);
+  github.issues.push({ number: 5, title: 'T', body: 'B\r\n', html_url: 'https://github.com/owner/repo/issues/5', created_at: at(1000) });
+  const found = await findRecentlyCreatedIssue({ repository: { fullName: 'owner/repo' }, title: 'T', body: 'B', createdAfter, run: github.run });
+  assert.equal(found?.number, 5);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

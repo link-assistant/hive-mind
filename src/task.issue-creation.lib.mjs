@@ -204,36 +204,168 @@ export function buildCreateIssueArgs({ repository, title, bodyFile, issueType = 
   return args;
 }
 
+function commandOutputText(result) {
+  return `${result?.stderr?.toString() || ''}${result?.stdout?.toString() || ''}`.trim();
+}
+
+function repositoryOwnerAndName(repository) {
+  if (repository?.owner && repository?.repo) return { owner: repository.owner, repo: repository.repo };
+  const [owner, repo] = String(repository?.fullName || '').split('/');
+  return { owner, repo };
+}
+
+export const REPOSITORY_ISSUE_TYPES_QUERY = 'query($owner: String!, $name: String!) { repository(owner: $owner, name: $name) { issueTypes(first: 100) { nodes { name } } } }';
+
+/**
+ * List the issue types a repository accepts, or `null` when that cannot be
+ * determined (old `gh`, network error, unexpected payload).
+ *
+ * Issue types exist only for organization-owned repositories; for user-owned
+ * repositories GitHub returns `issueTypes: null`, which maps to `[]` here.
+ */
+export async function getRepositoryIssueTypes({ repository, run = runCommand }) {
+  const { owner, repo } = repositoryOwnerAndName(repository);
+  if (!owner || !repo) return null;
+  const result = await run('gh', ['api', 'graphql', '-f', `query=${REPOSITORY_ISSUE_TYPES_QUERY}`, '-f', `owner=${owner}`, '-f', `name=${repo}`]);
+  if (result?.code !== 0) return null;
+  try {
+    const payload = JSON.parse(String(result.stdout || ''));
+    const repositoryData = payload?.data?.repository;
+    if (!repositoryData || typeof repositoryData !== 'object') return null;
+    const nodes = repositoryData.issueTypes?.nodes;
+    if (!Array.isArray(nodes)) return [];
+    return nodes.map(node => node?.name).filter(name => typeof name === 'string' && name);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Decide whether `--type <issueType>` may be passed to `gh issue create`.
+ *
+ * `gh issue create --type` creates the issue first and only afterwards resolves
+ * and applies the type. When the type is unavailable, gh exits non-zero
+ * *after* the issue already exists and never prints its URL (issue #3326), so a
+ * missing type must be detected before creation, not by retrying.
+ *
+ * Returns `{ issueType, reason }`: the canonical type name to pass (or `null`
+ * to skip it) and a human-readable reason when it is skipped. When support
+ * cannot be determined the requested type is kept; the post-failure lookup in
+ * `createTaskIssue` still prevents duplicates in that case.
+ */
+export async function resolveSupportedIssueType({ repository, issueType, run = runCommand }) {
+  if (!issueType) return { issueType: null, reason: null };
+  const types = await getRepositoryIssueTypes({ repository, run });
+  if (types === null) return { issueType, reason: null };
+  const match = types.find(name => name.toLowerCase() === String(issueType).toLowerCase());
+  if (match) return { issueType: match, reason: null };
+  const available = types.length > 0 ? types.join(', ') : 'none (issue types are only available for organization-owned repositories)';
+  return { issueType: null, reason: `issue type "${issueType}" is not available in ${repository.fullName}; available types: ${available}` };
+}
+
+function normalizeIssueText(value) {
+  return normalizeNewlines(value).trim();
+}
+
+/**
+ * Find an issue this process just created, so a failed `gh issue create` is
+ * never blindly retried into a duplicate (issue #3326).
+ *
+ * Matches the exact title (and body when provided) among the most recently
+ * created issues, ignoring pull requests and anything created before
+ * `createdAfter` minus a small clock-skew allowance.
+ */
+export async function findRecentlyCreatedIssue({ repository, title, body = null, createdAfter, run = runCommand, clockSkewMs = 2 * 60 * 1000, perPage = 30 }) {
+  const result = await run('gh', ['api', `repos/${repository.fullName}/issues?state=all&sort=created&direction=desc&per_page=${perPage}`]);
+  if (result?.code !== 0) return null;
+  let issues;
+  try {
+    issues = JSON.parse(String(result.stdout || ''));
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(issues)) return null;
+  const threshold = createdAfter ? new Date(createdAfter).getTime() - clockSkewMs : null;
+  const expectedTitle = normalizeIssueText(title);
+  const expectedBody = body === null || body === undefined ? null : normalizeIssueText(body);
+  for (const issue of issues) {
+    if (!issue || issue.pull_request) continue;
+    if (normalizeIssueText(issue.title) !== expectedTitle) continue;
+    if (expectedBody !== null && normalizeIssueText(issue.body) !== expectedBody) continue;
+    if (threshold !== null) {
+      const createdAt = Date.parse(issue.created_at || '');
+      if (!Number.isFinite(createdAt) || createdAt < threshold) continue;
+    }
+    if (!issue.html_url) continue;
+    try {
+      return parseCreatedTaskIssueOutput(issue.html_url);
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
 /**
  * Create an issue via `gh issue create`.
  *
  * `issueType` and `labels` are optional and best-effort: issue types are
  * configured per organization and labels per repository, so a target repo may
- * not have them. Rather than failing the whole command, a rejected create is
- * retried once without them (issue #1733).
+ * not have them (issue #1733).
+ *
+ * Creating an issue is not idempotent, so a failure is never retried blindly
+ * (issue #3326):
+ * 1. The issue type is checked before creation and dropped when the repository
+ *    does not offer it, because `gh issue create --type` fails only *after* the
+ *    issue was created.
+ * 2. When `gh issue create` still fails, the most recent issues are checked for
+ *    one this call just created; if it exists it is returned instead of being
+ *    created a second time.
+ * 3. Only when no such issue exists is the create retried once without the
+ *    optional metadata (labels are resolved by gh before creation, so a missing
+ *    label never leaves an issue behind).
  */
-export async function createTaskIssue({ repository, title, body, issueType = null, labels = [], run = runCommand, log = null }) {
+export async function createTaskIssue({ repository, title, body, issueType = null, labels = [], run = runCommand, log = null, verbose = false }) {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'hive-mind-task-issue-'));
   const bodyFile = path.join(tempDir, 'body.md');
+  const debug = async message => {
+    if (verbose) await log?.(`[issue-create] ${message}`);
+  };
 
   try {
     await writeSanitizedPublicationFile(bodyFile, body);
     const sanitizedTitle = await sanitizeForPublication(title);
+    const sanitizedBody = await fs.readFile(bodyFile, 'utf8').catch(() => null);
 
-    const result = await run('gh', buildCreateIssueArgs({ repository, title: sanitizedTitle, bodyFile, issueType, labels }));
+    const typeDecision = await resolveSupportedIssueType({ repository, issueType, run });
+    if (issueType && !typeDecision.issueType) {
+      await log?.(`⚠️  Creating issue without type: ${typeDecision.reason}`);
+    }
+    const effectiveIssueType = typeDecision.issueType;
+    await debug(`repository=${repository.fullName} requestedType=${issueType || '(none)'} effectiveType=${effectiveIssueType || '(none)'} labels=${labels.join(',') || '(none)'}`);
+
+    const createdAfter = new Date();
+    const result = await run('gh', buildCreateIssueArgs({ repository, title: sanitizedTitle, bodyFile, issueType: effectiveIssueType, labels }));
+    await debug(`gh issue create exited with code ${result.code}; output: ${commandOutputText(result) || '(empty)'}`);
     if (result.code === 0) return parseCreatedTaskIssueOutput(result.stdout);
 
-    const output = `${result.stderr?.toString() || ''}${result.stdout?.toString() || ''}`.trim();
-    const usedOptionalMetadata = Boolean(issueType) || labels.length > 0;
+    const output = commandOutputText(result);
+    const existing = await findRecentlyCreatedIssue({ repository, title: sanitizedTitle, body: sanitizedBody, createdAfter, run });
+    if (existing) {
+      await log?.(`⚠️  gh issue create reported an error (${output || `exit code ${result.code}`}), but the issue was created: ${existing.url}; not retrying to avoid a duplicate`);
+      return existing;
+    }
+
+    const usedOptionalMetadata = Boolean(effectiveIssueType) || labels.length > 0;
     if (!usedOptionalMetadata) {
       throw new Error(output || `gh issue create exited with code ${result.code}`);
     }
 
     await log?.(`⚠️  Could not create issue with type/labels (${output || `exit code ${result.code}`}); retrying without them`);
     const retry = await run('gh', buildCreateIssueArgs({ repository, title: sanitizedTitle, bodyFile }));
+    await debug(`retry gh issue create exited with code ${retry.code}; output: ${commandOutputText(retry) || '(empty)'}`);
     if (retry.code !== 0) {
-      const retryOutput = `${retry.stderr?.toString() || ''}${retry.stdout?.toString() || ''}`.trim();
-      throw new Error(retryOutput || `gh issue create exited with code ${retry.code}`);
+      throw new Error(commandOutputText(retry) || `gh issue create exited with code ${retry.code}`);
     }
     return parseCreatedTaskIssueOutput(retry.stdout);
   } finally {

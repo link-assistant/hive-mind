@@ -3,8 +3,6 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ghJson, fetchRequiredIssueScope, isSameRepository, issueKey, missingIssueLinks, runLinkGh, splitDescriptionScope, splitRepairBlock } from './issue-link-verification.lib.mjs';
-
-export { splitRepairBlock };
 import { extractClosingIssueReferences } from './github-linking.lib.mjs';
 import { buildIssueReference } from './pr-issue-linking.lib.mjs';
 import { writeSanitizedPublicationFile } from './token-sanitization.lib.mjs';

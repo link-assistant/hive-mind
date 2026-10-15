@@ -9,8 +9,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFile } from 'node:fs/promises';
-import { checkIssueLinksBeforeMerge, fetchRequiredIssueScope, issueKey, splitDescriptionScope } from '../src/issue-link-verification.lib.mjs';
-import { repairRequiredIssueLinks, splitRepairBlock } from '../src/pr-issue-link-repair.lib.mjs';
+import { checkIssueLinksBeforeMerge, fetchRequiredIssueScope, issueKey, splitDescriptionScope, splitRepairBlock } from '../src/issue-link-verification.lib.mjs';
+import { repairRequiredIssueLinks } from '../src/pr-issue-link-repair.lib.mjs';
 import { extractOpenIssueMentions } from '../src/github-linking.lib.mjs';
 
 const json = value => ({ code: 0, stdout: JSON.stringify(value), stderr: '' });

@@ -761,7 +761,11 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
             const issueRef = buildIssueReference({ issueNumber, owner, repo, fork: argv.fork });
             // Issue #2492: an empty diff implements nothing, so do not say it does.
             const summaryLine = changeStats.hasChanges ? `This pull request implements a solution for ${issueRef}: ${issueTitle}` : `This pull request is for ${issueRef}: ${issueTitle}. It has no changes yet.`;
-            const newDescription = `## Summary
+            // Issue #2406: the merge guard reads the requirements report from the description, so keep it.
+            const { preserveRequirementsReport } = await import('./issue-requirements.lib.mjs');
+            const newDescription = preserveRequirementsReport(
+              prBody,
+              `## Summary
 
 ${summaryLine}
 
@@ -771,7 +775,8 @@ ${formatChangesSection(changeStats)}
 Fixes ${issueRef}
 
 ---
-*This PR was created automatically by the AI issue solver*`;
+*This PR was created automatically by the AI issue solver*`
+            );
             const tempBodyFile = `/tmp/pr-body-finalize-${pr.number}-${Date.now()}.md`;
             await writeSanitizedPublicationFile(tempBodyFile, newDescription);
             try {

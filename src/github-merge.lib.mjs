@@ -24,7 +24,8 @@ import { cancellableSleep } from './interruptible-sleep.lib.mjs';
 // Issue #2182: draft detection and merge-failure classification live in one
 // pure module shared by every merge call site.
 import { classifyMergeError, evaluatePullRequestMergeability } from './merge-error-classification.lib.mjs';
-import { checkIssueLinksBeforeMerge, closeLinkedIssuesAfterMerge } from './issue-link-verification.lib.mjs';
+import { closeLinkedIssuesAfterMerge } from './issue-link-verification.lib.mjs';
+import { checkIssueCompletionBeforeMerge } from './issue-completion.lib.mjs';
 
 // Issue #1722: gh api `--paginate --slurp` responses for repos with many
 // historical workflow runs can easily exceed Node's default 1 MB exec buffer
@@ -573,9 +574,12 @@ export async function mergePullRequest(owner, repo, prNumber, options = {}, verb
   try {
     // Issue #2335: every merge entry point, including the queue, re-reads the
     // description and refuses to merge a pull request that does not close its issues.
-    const links = await checkIssueLinksBeforeMerge({ owner, repo, prNumber, issueNumber: options.issueNumber, logger: async message => console.log(message), verbose });
+    // Issue #2406: nor one without a current, complete requirements report.
+    const links = await checkIssueCompletionBeforeMerge({ owner, repo, prNumber, issueNumber: options.issueNumber, logger: async message => console.log(message), verbose });
     if (links.blocker) return { success: false, error: links.blocker.message, category: links.blocker.reason, terminal: true, recoverable: false, resolution: links.blocker.resolution, blocker: links.blocker };
     let mergeArgs = `--repo ${owner}/${repo}`;
+    // Issue #2406: merge exactly the commit that was verified, not one pushed since.
+    if (links.headSha) mergeArgs += ` --match-head-commit ${links.headSha}`;
 
     // Issue #1269: gh pr merge requires --merge, --squash, or --rebase when running non-interactively
     // We must always specify a merge method to prevent the command from hanging or failing

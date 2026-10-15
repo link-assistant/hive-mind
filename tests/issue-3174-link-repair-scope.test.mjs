@@ -47,6 +47,8 @@ function fixture({ owner, repo, prNumber, tree, body, linked = [], issues = {}, 
       }
       return json({ data: { repository: nodes } });
     }
+    // No earlier revision of the description (tests/issue-3174-agent-decisions.test.mjs covers the history).
+    if (endpoint === 'graphql' && query.includes('userContentEdits')) return json([{ data: { repository: { pullRequest: { userContentEdits: { nodes: [], pageInfo: { hasNextPage: false } } } } } }]);
     if (endpoint === 'graphql') return json([linkPage(state.linked)]);
     if (endpoint === `repos/${owner}/${repo}`) return json({ default_branch: 'main' });
     if (endpoint === `repos/${owner}/${repo}/pulls/${prNumber}`) return json(pr);
@@ -174,7 +176,7 @@ test('extractPartialIssueMentions: only explicit "part of" or "stays open" wordi
   const partial = text => [...extractPartialIssueMentions(text, 'o', 'r')].sort((a, b) => a - b);
   assert.deepEqual(partial('Part of #3282'), [3282]);
   assert.deepEqual(partial('part of issue o/r#5, towards https://github.com/o/r/issues/6 and progress on #7.'), [5, 6, 7]);
-  assert.deepEqual(partial('#8 stays open. #9 and #10 remain open. #11 is kept open.'), [8, 9, 11]);
+  assert.deepEqual(partial('#8 stays open. #9 and #10 remain open. #11 is kept open.'), [8, 9, 10, 11]);
   assert.deepEqual(partial('Related to #1. See #2. Part of other/project#3.'), [], 'a bare or foreign mention is not partial');
   assert.deepEqual(partial('Part of #4.\n\nFixes #4'), [], 'a positive keyword wins');
   assert.deepEqual(partial('`Part of #4` <!-- Part of #5 -->'), []);

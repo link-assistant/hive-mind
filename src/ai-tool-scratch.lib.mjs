@@ -87,6 +87,27 @@ export const isAiToolScratchFile = (filePath, { tracked = false } = {}) => {
   });
 };
 
+/** Where solve commits its development log (development-log.lib.mjs). */
+export const DEVELOPMENT_LOG_PATH = 'dev/log/';
+
+/**
+ * Issue #3330: is this committed file solver bookkeeping rather than work - the
+ * development log or AI tool scratch? One predicate for both questions: "did
+ * this run change anything?" (session-changes.lib.mjs) and "does this pull
+ * request contain a change?" (pull-request-changes.lib.mjs). A committed file
+ * is tracked, so `data/cache/derivations/` (a path a repository may track) is
+ * work here.
+ *
+ * @param {string} filePath - repository-relative path
+ * @returns {boolean}
+ */
+export const isSolverBookkeepingFile = filePath => {
+  const normalized = String(filePath || '')
+    .trim()
+    .replace(/^"|"$/g, '');
+  return normalized.startsWith(DEVELOPMENT_LOG_PATH) || isAiToolScratchFile(normalized, { tracked: true });
+};
+
 /**
  * Drop AI tool scratch entries from `git status --porcelain` output.
  *
@@ -162,6 +183,8 @@ export const ensureAiToolScratchIgnored = async (tempDir, log = null) => {
 
 export default {
   AI_TOOL_SCRATCH_PATHS,
+  DEVELOPMENT_LOG_PATH,
+  isSolverBookkeepingFile,
   ensureAiToolScratchIgnored,
   filterAiToolScratchFromStatus,
   isAiToolScratchFile,

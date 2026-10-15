@@ -27,9 +27,16 @@
  * exits with {@link EXIT_CODE_SOLVE_NO_CHANGES} instead of 0, which Telegram
  * shows as ⚠️ and hive does not count as a failed worker.
  *
- * Anything that cannot be measured (a git error, no baseline) is never reported
- * as "no change": a false "nothing happened" on finished work is worse than a
- * missed report.
+ * Anything that cannot be measured (a git error, no baseline, unreadable
+ * comments) is never reported as "no change": a false "nothing happened" on
+ * finished work is worse than a missed report. It does not mark the pull
+ * request ready either (#3330): the pull request keeps its pre-run state and
+ * says that the session's effect could not be verified.
+ *
+ * A Formal AI run that ended in a non-executed terminal state
+ * (`planned_not_executed`, `blocked`) and committed nothing finished without
+ * changes on that evidence alone (#3330); its comments are not read, so a
+ * token that cannot read `/user` cannot turn it into "unmeasured".
  *
  * Exit codes of `solve` are documented in solve.exit-codes.lib.mjs.
  *
@@ -39,18 +46,21 @@
 
 import { existsSync, openSync, readSync, closeSync, statSync } from 'node:fs';
 
-import { isAiToolScratchFile, isAiToolScratchPath } from './ai-tool-scratch.lib.mjs';
+import { isAiToolScratchPath, isSolverBookkeepingFile } from './ai-tool-scratch.lib.mjs';
 import { isFormalAiModel } from './formal-ai-model.lib.mjs';
-import { getInitialDraftState, markPullRequestLeftInDraft } from './pr-draft-state.lib.mjs';
+import { ensurePullRequestIsReady, getInitialDraftState, markPullRequestLeftInDraft } from './pr-draft-state.lib.mjs';
 import { describeObservedToolCallLoop, getObservedToolCallLoopHistory } from './repeated-tool-call-breaker.lib.mjs';
 import { checkForAiCreatedComments } from './solve.session-comments.lib.mjs';
-import { FINISHED_WITHOUT_CHANGES_MARKER, postTrackedComment } from './tool-comments.lib.mjs';
+import { FINISHED_WITHOUT_CHANGES_MARKER, postTrackedComment, SESSION_EFFECT_UNVERIFIED_MARKER } from './tool-comments.lib.mjs';
 import { EXIT_CODE_SOLVE_NO_CHANGES, getSolveNoChangesExitCode } from './solve.exit-codes.lib.mjs';
 
 export { EXIT_CODE_SOLVE_NO_CHANGES };
 
 /** Deliberate-draft kind recorded in pr-draft-state.lib.mjs. */
 export const NO_SESSION_CHANGES_DRAFT_KIND = 'no_session_changes';
+
+/** Deliberate-draft kind for a run whose effect could not be measured (#3330). */
+export const SESSION_EFFECT_UNVERIFIED_DRAFT_KIND = 'session_effect_unverified';
 
 /** The tail of this run's log searched for a Formal AI terminal state. */
 const LOG_TAIL_BYTES = 8 * 1024 * 1024;
@@ -62,8 +72,9 @@ const noopLog = async () => {};
 const SOLVER_COMMIT_SUBJECTS = [/^Initial commit with task details/, /^Revert "Initial commit with task details/, /^Revert: Remove .* from initial commit/, /^Remove leftover .*\(post-cleanup fallback\)/, /^Add development log for /, /^Remove temporary CLAUDE\.md copy from AGENTS\.md/];
 
 // A committed file is tracked: a commit under a path a repository may track
-// (Formal AI's `data/cache/derivations/`) is work, not tool state.
-const isBookkeepingPath = filePath => filePath.startsWith('dev/log/') || isAiToolScratchFile(filePath, { tracked: true });
+// (Formal AI's `data/cache/derivations/`) is work, not tool state. #3330: the
+// pull request readiness gate uses the same predicate.
+const isBookkeepingPath = isSolverBookkeepingFile;
 
 /**
  * @param {{subject: string, files: string[]}} commit
@@ -81,6 +92,13 @@ export const extractFormalAiTerminalState = text => {
   for (const match of text.matchAll(/terminal_state["\\\s:=]+([a-z][a-z_]*)/g)) state = match[1];
   return state;
 };
+
+/**
+ * #3330: a Formal AI terminal state in which the plan was not carried out. Only
+ * `executed` (and its variants) means Formal AI acted; anything else it reports
+ * (`planned_not_executed`, `blocked`, ...) is a run that did nothing.
+ */
+export const isFormalAiNonExecutedState = state => typeof state === 'string' && state.length > 0 && !/^executed/.test(state);
 
 let baseline = null;
 let verdict = null;
@@ -198,7 +216,7 @@ const describeLoops = () => {
  */
 export const evaluateSessionChanges = async ({ owner, repo, prNumber = null, issueNumber = null, $, log = noopLog } = {}) => {
   const unmeasured = { measured: false, progress: false, noChanges: false, evidence: null, reason: null, terminalState: null };
-  if (!baseline) return unmeasured;
+  if (!baseline) return { ...unmeasured, reason: 'no session baseline was recorded' };
   const run$ = typeof $ === 'function' ? $ : baseline.$;
   let evidence = null;
   try {
@@ -209,24 +227,30 @@ export const evaluateSessionChanges = async ({ owner, repo, prNumber = null, iss
     else if (status !== baseline.status) evidence = 'working_tree';
   } catch (error) {
     await log(`⚠️  Could not measure what this run changed: ${error.message}`, { verbose: true });
-    return unmeasured;
+    return { ...unmeasured, reason: `git could not be read (${error.message})` };
   }
+  // #3215: only a Formal AI run reports a terminal state; a Claude or Codex
+  // session that merely reads or prints `terminal_state` must not be blamed on it.
+  const terminalState = !evidence && isFormalAiModel(baseline.model) ? extractFormalAiTerminalState(readRunLog()) : null;
+  const finishedWithoutChanges = cause => ({ measured: true, progress: false, noChanges: true, evidence: null, reason: `${cause}${describeLoops()}`, terminalState });
+  // #3330: Formal AI said it did not execute its plan, and git agrees; no comment
+  // is needed (or readable: `/user` is forbidden for an installation token).
+  if (!evidence && isFormalAiNonExecutedState(terminalState)) return finishedWithoutChanges(`Formal AI produced no change (terminal state: ${terminalState})`);
   if (!evidence) {
     const commented = await checkForAiCreatedComments({ sessionStartTime: baseline.startedAt, owner: owner || baseline.owner, repo: repo || baseline.repo, prNumber: prNumber || baseline.prNumber, issueNumber: issueNumber || baseline.issueNumber, $: run$, log, unknownAs: null });
     // #3215: comments that could not be read are not evidence of "no comment".
     if (commented === null) {
       await log("⚠️  Could not read this run's comments, so it is not judged as finished without changes", { verbose: true });
-      return unmeasured;
+      return { ...unmeasured, reason: "this run's comments could not be read" };
     }
     if (commented) evidence = 'comment';
   }
   if (evidence) return { measured: true, progress: true, noChanges: false, evidence, reason: null, terminalState: null };
-  // #3215: only a Formal AI run reports a terminal state; a Claude or Codex
-  // session that merely reads or prints `terminal_state` must not be blamed on it.
-  const terminalState = isFormalAiModel(baseline.model) ? extractFormalAiTerminalState(readRunLog()) : null;
-  const cause = terminalState ? `Formal AI produced no change (terminal state: ${terminalState})` : 'the session produced no change: no new commit, no file change and no comment';
-  return { measured: true, progress: false, noChanges: true, evidence: null, reason: `${cause}${describeLoops()}`, terminalState };
+  return finishedWithoutChanges(terminalState ? `Formal AI produced no change (terminal state: ${terminalState})` : 'the session produced no change: no new commit, no file change and no comment');
 };
+
+/** #3330: the notice for a run whose effect could not be measured. */
+export const buildSessionEffectUnverifiedComment = ({ reason, keptDraft = true }) => [`⚠️ **${SESSION_EFFECT_UNVERIFIED_MARKER}**`, '', `What this run changed could not be measured: ${reason || 'unknown reason'}.`, '', keptDraft ? 'So it was not marked ready for review: "ready" would claim a verified solution draft.' : 'The pull request was ready for review before this run, so it keeps that state.', 'Check the session log and the branch for what the session did, then mark it ready yourself or rerun the solver.'].join('\n');
 
 export const buildFinishedWithoutChangesComment = ({ reason, keepsDraft = true }) => [`⚠️ **${FINISHED_WITHOUT_CHANGES_MARKER}**`, '', `This run made no commit, changed no file and posted no comment. Reason: ${reason}.`, '', keepsDraft ? 'Nothing new is here to review, so it was not marked ready for review.' : 'The pull request was ready for review before this run, so it keeps that state.', 'Check the session log for what the session did, then rerun the solver or continue manually.'].join('\n');
 
@@ -238,13 +262,22 @@ export const buildFinishedWithoutChangesComment = ({ reason, keepsDraft = true }
  * the AI on finished work. The outcome is still reported and the exit code is
  * still {@link EXIT_CODE_SOLVE_NO_CHANGES}.
  *
- * @returns {Promise<{noChanges: boolean, reason: (string|null), keepsDraft: boolean, exitCode: number}>}
+ * #3330: an unmeasured run is not "finished without changes" (exit 0), but
+ * it is not verified either: `keepsDraft` is true so the caller skips the
+ * "solution draft verified" transition, and the pull request keeps the state it
+ * had before the run.
+ *
+ * @returns {Promise<{noChanges: boolean, unmeasured: boolean, reason: (string|null), keepsDraft: boolean, exitCode: number}>}
  */
 export const reportSessionWithoutChanges = async ({ owner, repo, prNumber, issueNumber = null, $, log = noopLog }) => {
   const outcome = await evaluateSessionChanges({ owner, repo, prNumber, issueNumber, $, log });
+  if (!outcome.measured) {
+    verdict = null;
+    return reportSessionEffectUnverified({ owner, repo, prNumber, reason: outcome.reason, $, log });
+  }
   if (!outcome.noChanges) {
     verdict = null;
-    return { noChanges: false, reason: null, keepsDraft: false, exitCode: 0 };
+    return { noChanges: false, unmeasured: false, reason: null, keepsDraft: false, exitCode: 0 };
   }
   await log(`\n⚠️  Finished without changes: ${outcome.reason}`, { level: 'warning' });
   const keepsDraft = getInitialDraftState({ owner, repo, prNumber })?.isDraft !== false;
@@ -256,7 +289,21 @@ export const reportSessionWithoutChanges = async ({ owner, repo, prNumber, issue
     await log(`  ⚠️  Could not post the finished-without-changes notice: ${error.message}`, { level: 'warning' });
   }
   verdict = { noChanges: true, reason: outcome.reason, owner, repo, prNumber, issueNumber, $ };
-  return { noChanges: true, reason: outcome.reason, keepsDraft, exitCode: getSolveNoChangesExitCode() };
+  return { noChanges: true, unmeasured: false, reason: outcome.reason, keepsDraft, exitCode: getSolveNoChangesExitCode() };
+};
+
+const reportSessionEffectUnverified = async ({ owner, repo, prNumber, reason, $, log }) => {
+  await log(`\n⚠️  Could not verify the session's effect (${reason || 'unknown reason'}); the pull request keeps its pre-run state instead of being marked ready`, { level: 'warning' });
+  const keptDraft = getInitialDraftState({ owner, repo, prNumber })?.isDraft !== false;
+  if (keptDraft) markPullRequestLeftInDraft({ owner, repo, prNumber, reason: `could not verify the session's effect: ${reason || 'unknown reason'}`, kind: SESSION_EFFECT_UNVERIFIED_DRAFT_KIND });
+  else await ensurePullRequestIsReady({ owner, repo, prNumber, $, log, reason: 'restoring its pre-run state', force: true });
+  try {
+    const { ok, stderr } = (await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: buildSessionEffectUnverifiedComment({ reason, keptDraft }) })) || {};
+    if (!ok) await log(`  ⚠️  Could not post the unverified-session notice: ${stderr || 'unknown error'}`, { level: 'warning' });
+  } catch (error) {
+    await log(`  ⚠️  Could not post the unverified-session notice: ${error.message}`, { level: 'warning' });
+  }
+  return { noChanges: false, unmeasured: true, reason: reason || null, keepsDraft: true, exitCode: 0 };
 };
 
 /**
@@ -286,4 +333,4 @@ export const reevaluateRunWithoutChanges = async ({ log = noopLog } = {}) => {
   return { noChanges: true, reason: outcome.reason };
 };
 
-export default { buildFinishedWithoutChangesComment, captureSessionChangeBaseline, evaluateSessionChanges, EXIT_CODE_SOLVE_NO_CHANGES, extractFormalAiTerminalState, isSolverCommit, NO_SESSION_CHANGES_DRAFT_KIND, reevaluateRunWithoutChanges, reportSessionWithoutChanges, resetSessionChanges };
+export default { buildFinishedWithoutChangesComment, buildSessionEffectUnverifiedComment, captureSessionChangeBaseline, evaluateSessionChanges, EXIT_CODE_SOLVE_NO_CHANGES, extractFormalAiTerminalState, isFormalAiNonExecutedState, isSolverCommit, NO_SESSION_CHANGES_DRAFT_KIND, reevaluateRunWithoutChanges, reportSessionWithoutChanges, resetSessionChanges, SESSION_EFFECT_UNVERIFIED_DRAFT_KIND };

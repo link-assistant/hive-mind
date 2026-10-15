@@ -22,6 +22,44 @@ import { isToolGeneratedComment, isToolTrackedCommentId, NO_CHANGES_PRODUCED_MAR
 
 const noopLog = async () => {};
 
+/** The login GitHub shows on comments made with an Actions `GITHUB_TOKEN`. */
+export const GITHUB_ACTIONS_BOT_LOGIN = 'github-actions[bot]';
+
+/**
+ * Issue #3330: the logins comments of this token appear under.
+ *
+ * `gh api user` answers 403 "Resource not accessible by integration" for an
+ * installation token (the workflow's `GITHUB_TOKEN`, a GitHub App token), so
+ * the token's identity is then read from GraphQL `viewer` - `<app-slug>[bot]`
+ * for an app - and, inside GitHub Actions, falls back to `github-actions[bot]`.
+ * A bot login may be reported without its `[bot]` suffix, so both are matched.
+ *
+ * @returns {Promise<string[]|null>} null when no identity could be determined
+ */
+export const resolveCommentAuthorLogins = async ({ $, log = noopLog, env = process.env }) => {
+  const probe = quietProbe($);
+  const read = async run => {
+    try {
+      const result = await run;
+      return result?.code === 0 ? (result.stdout ?? '').toString().trim() : '';
+    } catch {
+      return '';
+    }
+  };
+  const user = await read(probe`gh api user --jq .login`);
+  if (user) return [user];
+  const viewer = await read(probe`gh api graphql -f ${'query=query { viewer { login } }'} --jq .data.viewer.login`);
+  if (viewer) {
+    await log(`🔎 /user is not readable with this token; using its GraphQL identity '${viewer}'`, { verbose: true });
+    return viewer.endsWith('[bot]') ? [viewer] : [viewer, `${viewer}[bot]`];
+  }
+  if (env?.GITHUB_ACTIONS === 'true') {
+    await log(`🔎 /user is not readable with this token; assuming the Actions token identity '${GITHUB_ACTIONS_BOT_LOGIN}'`, { verbose: true });
+    return [GITHUB_ACTIONS_BOT_LOGIN];
+  }
+  return null;
+};
+
 /**
  * Check if new comments were created by the AI during the session.
  * This is used by --auto-attach-solution-summary to determine if the AI
@@ -44,7 +82,7 @@ const noopLog = async () => {};
  *   `null` so a failed read is "not measured" instead of "no comment" (#3215).
  * @returns {Promise<(boolean|null)>} - True if AI created comments during the session
  */
-export const checkForAiCreatedComments = async ({ sessionStartTime, owner, repo, prNumber, issueNumber, $, log = noopLog, unknownAs = false }) => {
+export const checkForAiCreatedComments = async ({ sessionStartTime, owner, repo, prNumber, issueNumber, $, log = noopLog, unknownAs = false, env = process.env }) => {
   const probe = quietProbe($);
   let unreadable = false;
   const readList = async (result, what) => {
@@ -54,15 +92,13 @@ export const checkForAiCreatedComments = async ({ sessionStartTime, owner, repo,
     return null;
   };
   try {
-    // Get the current user's GitHub username
-    const userResult = await probe`gh api user --jq .login`;
-    if (userResult.code !== 0) {
+    // The token's GitHub login(s); #3330: `/user` is forbidden for installation tokens.
+    const logins = await resolveCommentAuthorLogins({ $, log, env });
+    if (!logins) {
+      await log('⚠️  Could not determine which GitHub account this token comments as', { verbose: true });
       return unknownAs; // Cannot determine, default to not attaching
     }
-    const currentUser = userResult.stdout.toString().trim();
-    if (!currentUser) {
-      return unknownAs;
-    }
+    const currentUser = logins[0];
 
     await log(`🔎 Checking comments by '${currentUser}' after session start ${sessionStartTime.toISOString()} (PR #${prNumber ?? 'none'}, issue #${issueNumber ?? 'none'})`, { verbose: true });
     // Issue #1625: A comment counts as an "AI comment" only if it was posted
@@ -82,7 +118,7 @@ export const checkForAiCreatedComments = async ({ sessionStartTime, owner, repo,
       const skippedCounts = {};
       const skippedByIdCount = { n: 0 };
       for (const comment of comments) {
-        if (!comment || !comment.user || comment.user.login !== currentUser) continue;
+        if (!comment || !comment.user || !logins.includes(comment.user.login)) continue;
         if (!(new Date(comment.created_at) > sessionStartTime)) continue;
         const isReview = kind === 'review';
         if (!isReview) {
@@ -211,5 +247,7 @@ export const postNoChangesProducedComment = async ({ owner, repo, prNumber, chan
 export default {
   buildNoChangesProducedComment,
   checkForAiCreatedComments,
+  GITHUB_ACTIONS_BOT_LOGIN,
   postNoChangesProducedComment,
+  resolveCommentAuthorLogins,
 };

@@ -555,6 +555,14 @@ fix owner/repo --ci-cd --dry-run
 fix owner/repo --ci-cd --no-solve
 ```
 
+检查完仓库后会立即创建 issue，但只有当默认分支上不再有未完成的 GitHub Actions 运行时才会启动 `/solve`，因此 AI 工作不会基于仍在变化的默认分支开始，也不会依据即将改变的运行结果进行推理。等待期间每 30 秒轮询一次，超过 `--ci-wait-timeout <分钟>`（默认 60）后放弃等待，使用 `--no-wait-for-ci` 可跳过等待。等待期间，Telegram 回复会单独显示“⏳ 正在等待 CI/CD 完成”状态及仍在运行的工作流；如果运行在等待期间完成，其最新结果会以评论形式发布到 issue 中（[issue #3326](https://github.com/link-assistant/hive-mind/issues/3326)）：
+
+```bash
+fix owner/repo --ci-cd
+fix owner/repo --ci-cd --ci-wait-timeout 30
+fix owner/repo --ci-cd --no-wait-for-ci
+```
+
 ## 参考资料
 
 - [代码架构原则](https://github.com/link-foundation/code-architecture-principles)

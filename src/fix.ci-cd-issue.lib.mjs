@@ -76,7 +76,7 @@ export async function prepareCiCdIssue({ repository, run = runCommand, warn = me
   };
 }
 
-export async function createCiCdIssue({ repository, prepared = null, run = runCommand, log = null, warn = message => console.warn(message) }) {
+export async function createCiCdIssue({ repository, prepared = null, run = runCommand, log = null, warn = message => console.warn(message), verbose = false }) {
   const issueDraft = prepared || (await prepareCiCdIssue({ repository, run, warn, log }));
   const issue = await createTaskIssue({
     repository,
@@ -86,6 +86,7 @@ export async function createCiCdIssue({ repository, prepared = null, run = runCo
     labels: [...CI_CD_ISSUE_LABELS],
     run,
     log,
+    verbose,
   });
   return { ...issue, prepared: issueDraft };
 }

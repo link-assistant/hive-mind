@@ -557,6 +557,14 @@ fix owner/repo --ci-cd --dry-run
 fix owner/repo --ci-cd --no-solve
 ```
 
+repository का निरीक्षण होते ही issue बना दिया जाता है, लेकिन `/solve` तभी शुरू होता है जब default branch पर कोई GitHub Actions run pending न हो, ताकि AI का काम बदलती हुई default branch से शुरू न हो और उन runs पर निर्भर न करे जिनका परिणाम अभी बदलने वाला है। प्रतीक्षा हर 30 सेकंड में जाँच करती है, `--ci-wait-timeout <minutes>` (default 60) के बाद रुक जाती है और `--no-wait-for-ci` से छोड़ी जा सकती है। प्रतीक्षा के दौरान Telegram reply में अलग "⏳ CI/CD के पूरा होने की प्रतीक्षा" status दिखता है जिसमें अभी चल रहे runs होते हैं, और यदि runs प्रतीक्षा के दौरान पूरे हो गए तो उनके नवीनतम परिणाम issue पर comment के रूप में जोड़े जाते हैं ([issue #3326](https://github.com/link-assistant/hive-mind/issues/3326)):
+
+```bash
+fix owner/repo --ci-cd
+fix owner/repo --ci-cd --ci-wait-timeout 30
+fix owner/repo --ci-cd --no-wait-for-ci
+```
+
 ## संदर्भ
 
 - [Code Architecture Principles](https://github.com/link-foundation/code-architecture-principles)

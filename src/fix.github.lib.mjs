@@ -219,6 +219,25 @@ export async function getRecentBranchRuns(repository, branch, run, warn) {
 }
 
 /**
+ * One page of the most recent Actions runs on a branch, or `null` when the
+ * request failed (issue #3326). Used for polling, so it never paginates: runs
+ * that are still pending are always among the newest ones. The server-side
+ * `branch=` filter is eventually consistent, so the branch is re-checked here.
+ */
+export async function getBranchRunsSnapshot(repository, branch, run, warn) {
+  if (!branch) return [];
+  const response = await ghJson({
+    run,
+    warn,
+    endpoint: `repos/${repository.fullName}/actions/runs?branch=${encodeURIComponent(branch)}&per_page=100`,
+    label: `fetch the latest CI/CD runs for branch ${branch}`,
+    fallback: null,
+  });
+  if (response == null) return null;
+  return normalizeWorkflowRuns([response]).filter(item => !item.head_branch || item.head_branch === branch);
+}
+
+/**
  * Every file path in the repository at `branch` (issue #2184).
  *
  * The recursive tree endpoint answers "which package manifests exist, and

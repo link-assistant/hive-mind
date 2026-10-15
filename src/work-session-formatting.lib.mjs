@@ -86,7 +86,7 @@ export function formatStartingWorkSessionMessage({ sessionName = null, isolation
   return `${header}\n\n📊 ${sessionLabel}: \`${sessionName}\`${isolationInfo}${details}`;
 }
 
-export function formatExecutingWorkSessionMessage({ sessionName = 'unknown', executionUuid = null, isolationBackend = null, infoBlock = '', locale = null } = {}) {
+export function formatExecutingWorkSessionMessage({ sessionName = 'unknown', executionUuid = null, isolationBackend = null, infoBlock = '', locale = null, header = null } = {}) {
   const sessionLabel = text(locale, 'telegram.session_label', 'Session');
   const isolationLabel = text(locale, 'telegram.isolation_label', 'Isolation');
   const isolationInfo = isolationBackend ? `\n🔒 ${isolationLabel}: \`${isolationBackend}\`` : '';
@@ -98,7 +98,8 @@ export function formatExecutingWorkSessionMessage({ sessionName = 'unknown', exe
   // never carries an empty label.
   const executionLabel = text(locale, 'telegram.execution_label', 'Execution');
   const executionInfo = executionUuid ? `\n🆔 ${executionLabel}: \`${executionUuid}\`` : '';
-  return `${text(locale, 'telegram.work_session_executing', '⏳ Executing...')}\n\n📊 ${sessionLabel}: \`${sessionName}\`${executionInfo}${isolationInfo}${details}`;
+  // Issue #3326: `/fix` replaces the header with its live progress status.
+  return `${header || text(locale, 'telegram.work_session_executing', '⏳ Executing...')}\n\n📊 ${sessionLabel}: \`${sessionName}\`${executionInfo}${isolationInfo}${details}`;
 }
 
 /**

@@ -19,6 +19,7 @@
  * @see https://github.com/link-assistant/hive-mind/issues/1927
  */
 import { reportRecoveryLifecycle, recoveryLifecycleCallback } from './session-recovery-lifecycle.lib.mjs';
+import { reportFixProgress } from './fix-progress.lib.mjs'; // Issue #3326: show /fix's "waiting for CI/CD" phase.
 import { getIsolationSessionState as getIsolationSessionStateImpl } from './session-monitor.isolation-state.lib.mjs';
 import { exec as execCallback } from 'child_process';
 import fs from 'fs/promises';
@@ -779,6 +780,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
     }
   }
   if (stillRunning) await reportRecoveryLifecycle({ bot, sessionName, sessionInfo, statusResult, options, verbose, lookupPullRequest: () => resolvePullRequestUrlForSession(sessionInfo, { verbose, lookupLinkedPullRequest: options.lookupLinkedPullRequest, statusResult, readFile: options.readFile }), persist: () => persistSessionSnapshot(sessionName, sessionInfo), logEvent });
+  if (stillRunning && sessionInfo?.command === 'fix' && !sessionInfo.recoveryLifecycle) await (options.reportFixProgress || reportFixProgress)({ bot, sessionName, sessionInfo, statusResult, verbose, persist: () => persistSessionSnapshot(sessionName, sessionInfo) });
   if (shouldRefreshDockerFilesystemSize(sessionInfo, { stillRunning })) {
     observedContainerFilesystemBytes = await refreshDockerContainerFilesystemSizeForSession(sessionName, sessionInfo, {
       verbose,

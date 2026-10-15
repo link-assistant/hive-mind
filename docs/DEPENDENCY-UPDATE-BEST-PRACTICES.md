@@ -208,6 +208,14 @@ fix owner/repo --update-all-dependencies --dry-run
 fix owner/repo --update-all-dependencies --no-solve
 ```
 
+The issue is created as soon as the repository has been inspected, but `/solve` starts only after no GitHub Actions run is pending on the default branch, so the AI work never starts from a moving default branch or reasons about runs that are about to change. The wait polls every 30 seconds, gives up after `--ci-wait-timeout <minutes>` (default 60) and is skipped with `--no-wait-for-ci`. While it lasts, the Telegram reply shows a separate "⏳ Waiting for CI/CD" status with the runs still in progress, and when runs finished during the wait their latest results are commented on the issue ([issue #3326](https://github.com/link-assistant/hive-mind/issues/3326)):
+
+```bash
+fix owner/repo --update-all-dependencies
+fix owner/repo --update-all-dependencies --ci-wait-timeout 30
+fix owner/repo --update-all-dependencies --no-wait-for-ci
+```
+
 ### Why the Issue Is a Task, and What It Leaves Out
 
 `/solve --deep-analysis` emits its root-cause and debug-output guidance **only for bug-typed issues**, and a dependency bump has no root cause to find. Creating the issue as a `Task` selects the non-bug variant of that prompt — research, requirement coverage, solution planning — which is the useful one here. Issue types are configured per organization and labels per repository, so if the target repository accepts neither, the issue is still created without them.

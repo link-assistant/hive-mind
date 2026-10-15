@@ -208,6 +208,14 @@ fix owner/repo --update-all-dependencies --dry-run
 fix owner/repo --update-all-dependencies --no-solve
 ```
 
+repository का निरीक्षण होते ही issue बना दिया जाता है, लेकिन `/solve` तभी शुरू होता है जब default branch पर कोई GitHub Actions run pending न हो, ताकि AI का काम बदलती हुई default branch से शुरू न हो और उन runs पर निर्भर न करे जिनका परिणाम अभी बदलने वाला है। प्रतीक्षा हर 30 सेकंड में जाँच करती है, `--ci-wait-timeout <minutes>` (default 60) के बाद रुक जाती है और `--no-wait-for-ci` से छोड़ी जा सकती है। प्रतीक्षा के दौरान Telegram reply में अलग "⏳ CI/CD के पूरा होने की प्रतीक्षा" status दिखता है जिसमें अभी चल रहे runs होते हैं, और यदि runs प्रतीक्षा के दौरान पूरे हो गए तो उनके नवीनतम परिणाम issue पर comment के रूप में जोड़े जाते हैं ([issue #3326](https://github.com/link-assistant/hive-mind/issues/3326)):
+
+```bash
+fix owner/repo --update-all-dependencies
+fix owner/repo --update-all-dependencies --ci-wait-timeout 30
+fix owner/repo --update-all-dependencies --no-wait-for-ci
+```
+
 ### issue Task क्यों है, और वह क्या छोड़ता है
 
 `/solve --deep-analysis` मूल-कारण और debug-output संबंधी मार्गदर्शन **केवल bug-प्रकार के issues के लिए** देता है, और dependency bump में खोजने के लिए कोई मूल कारण नहीं होता। issue को `Task` के रूप में बनाना उस prompt का non-bug रूप चुनता है — शोध, आवश्यकताओं की कवरेज, समाधान की योजना — जो यहाँ उपयोगी है। issue types संगठन-स्तर पर और labels repository-स्तर पर कॉन्फ़िगर होते हैं, इसलिए यदि लक्ष्य repository इनमें से कोई भी स्वीकार नहीं करती, तब भी issue उनके बिना बना दिया जाता है।

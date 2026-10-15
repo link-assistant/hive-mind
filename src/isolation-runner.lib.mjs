@@ -55,6 +55,7 @@ export { copyFromDockerContainer } from './isolation-runner.docker-cp.lib.mjs'; 
 import { resumeAllIsolationSessions, resumeIsolatedSession } from './isolation-runner.resume.lib.mjs';
 export { resumeAllIsolationSessions, resumeIsolatedSession };
 export { checkResumedDockerStartup, cleanupFailedResumeSnapshot } from './isolation-runner.resume.lib.mjs';
+export { inspectDockerTaskLaunch, pruneStoppedContainerCaches, removeReplacedResumeOriginal } from './kill-recovery-snapshot-cleanup.lib.mjs'; // Issue #2889
 export { parseExecutionResumeAllOutput, parseExecutionResumeOutput, RESUME_ALL_ACTIONS, RESUME_MODES } from './isolation-runner.resume.lib.mjs';
 // Valid isolation backends
 const VALID_ISOLATION_BACKENDS = ['screen', 'tmux', 'docker'];

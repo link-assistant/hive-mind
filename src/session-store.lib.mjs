@@ -61,6 +61,8 @@ PERSISTABLE_FIELDS.push('hostDiskMinAvailableBytes', 'hostDiskTotalBytes', 'host
 // Issue #2888: how often a kill-recovery chain was relaunched after solve
 // refused to start for lack of disk space (exit 75).
 PERSISTABLE_FIELDS.push('killRecoveryDiskDeferrals');
+// Issue #2889: snapshot images to remove with the task's last container.
+PERSISTABLE_FIELDS.push('killRecoverySnapshotImages', 'killRecoveryContainerName');
 
 /**
  * Resolve the directory durable bot state is written to. Honors

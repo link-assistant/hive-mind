@@ -192,7 +192,7 @@ const preflight = async ({ fixture, codex }) =>
   // Issue #2190: Docker execution shares only auth.json and sessions/ with the
   // task; the operator home (and with it the repaired repository scope) stays
   // per container, so the scope is rebuilt from the image defaults every task.
-  const dockerMounts = getDockerIsolationAuthMounts({ tool: 'codex', homeDir: fixture.root, existsSync: candidate => candidate === fixture.baseCodexHome || candidate === path.join(fixture.baseCodexHome, 'auth.json') });
+  const dockerMounts = await getDockerIsolationAuthMounts({ tool: 'codex', homeDir: fixture.root, existsSync: candidate => candidate === fixture.baseCodexHome || candidate === path.join(fixture.baseCodexHome, 'auth.json') });
   assert.deepEqual(dockerMounts, [{ source: path.join(fixture.baseCodexHome, 'auth.json'), target: '/home/box/.codex/auth.json' }], 'Docker execution mounts the credential file, not the whole operator home (issue #2190)');
   assert.equal(path.relative(fixture.baseCodexHome, first.codexHome), path.join('hive-mind', 'repositories', 'CEHR2005', 'GCS-TS'), 'the scoped state keeps the same relative path under the (per-container) codex home');
 

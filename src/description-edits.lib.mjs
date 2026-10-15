@@ -160,6 +160,7 @@ export const parseContentEdits = node => {
 /** @returns {Promise<{ok: boolean, edits: Array, createdAt?: string|null, error?: string}>} */
 export const fetchContentEdits = async ({ owner, repo, number, $ }) => {
   try {
+    // hive-exec-timeout-ok: runs in the solve process (feedback detection), not in a bot handler; like the baselined solve-side gh calls (#3278).
     const result = await ghWithRateLimitRetry(() => $`gh api graphql -f query=${CONTENT_EDITS_QUERY} -f owner=${owner} -f repo=${repo} -F number=${number}`, { label: 'fetchContentEdits' });
     if (result.code !== 0) return { ok: false, edits: [], error: (result.stderr?.toString() || '').trim() || `exit code ${result.code}` };
     const node = JSON.parse(result.stdout?.toString() || '{}')?.data?.repository?.issueOrPullRequest;

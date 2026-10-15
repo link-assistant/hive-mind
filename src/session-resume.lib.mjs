@@ -117,24 +117,23 @@ export function selectLastSessionId(text) {
  * @param {Object} [options.fsImpl=fs] - Injectable fs (for tests)
  * @param {number} [options.tailBytes=262144] - Bytes per backwards scan chunk
  * @param {boolean} [options.verbose]
- * @returns {string|null}
+ * @returns {Promise<string|null>}
  */
-export function readLastSessionIdFromLog(logPath, options = {}) {
+export async function readLastSessionIdFromLog(logPath, options = {}) {
   const { fsImpl = fs, tailBytes = DEFAULT_LOG_SCAN_CHUNK_BYTES, verbose = false } = options;
   if (!logPath) return null;
   try {
-    const stat = fsImpl.statSync(logPath);
     const chunkBytes = Number.isFinite(tailBytes) && tailBytes > 0 ? Math.floor(tailBytes) : DEFAULT_LOG_SCAN_CHUNK_BYTES;
-    const fd = fsImpl.openSync(logPath, 'r');
+    const handle = await fsImpl.promises.open(logPath, 'r');
     try {
-      let end = stat.size;
+      let end = (await handle.stat()).size;
       let laterPrefix = Buffer.alloc(0);
       let chunksScanned = 0;
       while (end > 0) {
         const start = Math.max(0, end - chunkBytes);
         const length = end - start;
         const buffer = Buffer.alloc(length);
-        const bytesRead = fsImpl.readSync(fd, buffer, 0, length, start);
+        const { bytesRead } = await handle.read(buffer, 0, length, start);
         const current = bytesRead === length ? buffer : buffer.subarray(0, bytesRead);
         const scanBuffer = laterPrefix.length > 0 ? Buffer.concat([current, laterPrefix]) : current;
         const id = selectLastSessionId(scanBuffer.toString('utf8'));
@@ -153,7 +152,7 @@ export function readLastSessionIdFromLog(logPath, options = {}) {
       }
       return null;
     } finally {
-      fsImpl.closeSync(fd);
+      await handle.close();
     }
   } catch (error) {
     if (verbose) {
@@ -175,12 +174,12 @@ export function readLastSessionIdFromLog(logPath, options = {}) {
  * @param {string} options.dir - Directory holding `<sessionId>.log` files
  * @param {Object} [options.fsImpl=fs] - Injectable fs (for tests)
  * @param {boolean} [options.verbose]
- * @returns {string|null}
+ * @returns {Promise<string|null>}
  */
-export function findLatestSessionLogId({ dir, fsImpl = fs, verbose = false } = {}) {
+export async function findLatestSessionLogId({ dir, fsImpl = fs, verbose = false } = {}) {
   if (!dir) return null;
   try {
-    const entries = fsImpl.readdirSync(dir);
+    const entries = await fsImpl.promises.readdir(dir);
     let bestId = null;
     let bestMtime = -Infinity;
     for (const entry of entries) {
@@ -189,7 +188,7 @@ export function findLatestSessionLogId({ dir, fsImpl = fs, verbose = false } = {
       if (!SESSION_LOG_UUID_RE.test(id)) continue;
       let mtime;
       try {
-        mtime = fsImpl.statSync(path.join(dir, entry)).mtimeMs;
+        mtime = (await fsImpl.promises.stat(path.join(dir, entry))).mtimeMs;
       } catch {
         continue;
       }

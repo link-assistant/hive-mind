@@ -48,9 +48,9 @@ export const sleepBeforeRecovery = ms => new Promise(resolve => setTimeout(resol
  * @param {Object} [options.env]
  * @param {boolean} [options.verbose]
  * @param {Function} [options.readLastSessionId] - Override for tests
- * @returns {{shouldResume: boolean, reason: string, policy: string, command: Object|null, attempt: number, maxAttempts: number, lastSessionId: string|null}}
+ * @returns {Promise<{shouldResume: boolean, reason: string, policy: string, command: Object|null, attempt: number, maxAttempts: number, lastSessionId: string|null}>}
  */
-export function planKillRecovery({ sessionInfo = {}, logPath = null, killed = false, env = process.env, verbose = false, readLastSessionId = readLastSessionIdFromLog } = {}) {
+export async function planKillRecovery({ sessionInfo = {}, logPath = null, killed = false, env = process.env, verbose = false, readLastSessionId = readLastSessionIdFromLog } = {}) {
   const argv = argvFromSessionArgs(sessionInfo?.args);
   const policy = resolveOnSessionKillPolicy({ argv, env, sessionInfo, verbose });
   const maxAttempts = resolveSessionKillResumeAttempts({ argv, env });
@@ -65,7 +65,7 @@ export function planKillRecovery({ sessionInfo = {}, logPath = null, killed = fa
     return { ...base, reason: 'stopped-by-user' };
   }
 
-  const lastSessionId = readLastSessionId(logPath, { verbose });
+  const lastSessionId = await readLastSessionId(logPath, { verbose });
   const plan = planKilledSessionResume({ sessionInfo, lastSessionId, attempts, maxAttempts });
   return { ...base, shouldResume: plan.resumable, reason: plan.reason, command: plan.command, attempt: plan.attempt, lastSessionId: lastSessionId || null };
 }
@@ -284,7 +284,7 @@ export async function recoverKilledSession({ sessionName, sessionInfo, logPath =
   }
   let plan;
   try {
-    plan = planKillRecovery({ sessionInfo, logPath, killed, env, verbose, readLastSessionId });
+    plan = await planKillRecovery({ sessionInfo, logPath, killed, env, verbose, readLastSessionId });
   } catch (error) {
     if (verbose) console.log(`[VERBOSE] Could not plan kill recovery for ${sessionName}: ${error?.message || error}`);
     return { resumed: false, reason: 'plan-error', policy: ON_SESSION_KILL_RESUME, sessionId: null, display: null, attempt: 0, maxAttempts: 0, inPlace: false };

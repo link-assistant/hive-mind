@@ -181,10 +181,13 @@ export const ensureDockerVolume = async ({ name, label, role = 'data', run = exe
 /** Path of a sidecar's durable record inside the bot state directory. */
 export const resolveSidecarStatePath = (fileName, env = process.env) => path.join(resolveBotStateDir(env), fileName);
 
-/** Read a durable sidecar record. A missing or corrupt file is an empty record, never a throw. */
-export const readSidecarState = ({ fileName, emptyState, env = process.env, fsImpl = fs } = {}) => {
+/**
+ * Read a durable sidecar record. A missing or corrupt file is an empty record, never a throw.
+ * Async because the bot reads it while it serves Telegram updates (issue #3278).
+ */
+export const readSidecarState = async ({ fileName, emptyState, env = process.env, fsImpl = fs } = {}) => {
   try {
-    const parsed = JSON.parse(fsImpl.readFileSync(resolveSidecarStatePath(fileName, env), 'utf8'));
+    const parsed = JSON.parse(await fsImpl.promises.readFile(resolveSidecarStatePath(fileName, env), 'utf8'));
     return { ...emptyState, ...parsed, leases: Array.isArray(parsed?.leases) ? parsed.leases : [] };
   } catch {
     return { ...emptyState, leases: [] };
@@ -197,12 +200,12 @@ export const readSidecarState = ({ fileName, emptyState, env = process.env, fsIm
  * `mode` exists because the router's record holds its JWT signing secret, which
  * mints subscription access: that file must not be world-readable (issue #2164).
  */
-export const writeSidecarState = (state, { fileName, env = process.env, fsImpl = fs, mode = 0o600 } = {}) => {
+export const writeSidecarState = async (state, { fileName, env = process.env, fsImpl = fs, mode = 0o600 } = {}) => {
   const target = resolveSidecarStatePath(fileName, env);
-  fsImpl.mkdirSync(path.dirname(target), { recursive: true });
+  await fsImpl.promises.mkdir(path.dirname(target), { recursive: true });
   const temporary = `${target}.tmp`;
-  fsImpl.writeFileSync(temporary, `${JSON.stringify(state, null, 2)}\n`, { encoding: 'utf8', mode });
-  fsImpl.renameSync(temporary, target);
+  await fsImpl.promises.writeFile(temporary, `${JSON.stringify(state, null, 2)}\n`, { encoding: 'utf8', mode });
+  await fsImpl.promises.rename(temporary, target);
   return state;
 };
 

@@ -1,10 +1,10 @@
 /** Scope terminal evidence to the current recovery attempt (#2498). */
 export function scopeRecoveryFooter(readFooter, sessionInfo) {
   if (typeof readFooter !== 'function') return readFooter;
-  return (logPath, options = {}) => {
+  return async (logPath, options = {}) => {
     const sameLog = sessionInfo?.killRecoveryInPlace === true;
     const minByteOffset = sameLog && Number.isSafeInteger(sessionInfo?.killRecoveryLogStartBytes) ? sessionInfo.killRecoveryLogStartBytes : 0;
-    const footer = readFooter(logPath, { ...options, minByteOffset });
+    const footer = await readFooter(logPath, { ...options, minByteOffset });
     if (!footer?.finished || !sessionInfo?.killRecoveryResumed || (sameLog && minByteOffset > 0)) return footer;
     // Timestamp fallback also protects restored sessions created before the
     // byte boundary was persisted. The upstream footer uses local wall time.

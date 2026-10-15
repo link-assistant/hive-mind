@@ -18,7 +18,7 @@ RuleTester.it = it;
 
 const ruleTester = new RuleTester({ languageOptions: { ecmaVersion: 2022, sourceType: 'module' } });
 const filename = join(process.cwd(), 'src/example.lib.mjs');
-const baseline = { 'src/example.lib.mjs': 2 };
+const baseline = { 'src/example.lib.mjs': { count: 2, reason: 'solve-process only' } };
 
 ruleTester.run('no-sync-in-bot-process', noSyncInBotProcess, {
   valid: [

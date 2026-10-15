@@ -11,6 +11,9 @@
 
 import { getCommandStreamDollar } from './start-command-cli.lib.mjs';
 
+// Issue #3278: kill recovery runs in the bot process, so a hung `docker cp` must not hold it forever.
+const DOCKER_CP_TIMEOUT_MS = 10 * 60 * 1000;
+
 /**
  * `docker cp <container>:<sourcePath> <destinationPath>`. Never throws.
  *
@@ -20,7 +23,7 @@ export async function copyFromDockerContainer(containerName, sourcePath, destina
   if (!containerName || !sourcePath || !destinationPath) return { success: false, output: '', error: 'missing container name, source or destination' };
   try {
     const $ = await getCommandStreamDollar();
-    const result = await $({ mirror: false })`docker cp ${`${containerName}:${sourcePath}`} ${destinationPath}`;
+    const result = await $({ mirror: false, signal: AbortSignal.timeout(DOCKER_CP_TIMEOUT_MS) })`docker cp ${`${containerName}:${sourcePath}`} ${destinationPath}`;
     if (verbose) console.log(`[VERBOSE] isolation-runner: docker cp '${containerName}:${sourcePath}' '${destinationPath}' succeeded`);
     return { success: true, output: result.stdout?.toString() || result.stderr?.toString() || '', error: null };
   } catch (error) {

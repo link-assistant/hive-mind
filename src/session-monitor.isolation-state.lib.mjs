@@ -44,7 +44,7 @@ export async function getIsolationSessionState(sessionName, sessionInfo, options
         const logPath = statusResult.logPath || sessionInfo?.logPath || null;
         // The log FOOTER is the authoritative terminal result. It is anchored on the `=====` separator (see parseSessionExitFooter), so — unlike the exit code `$ --status` derives from an unanchored full-log scan — it cannot be forged by output the wrapped command printed (issue #2117). Prefer it whenever it exists: that both recovers a real code from a missing/sentinel status (issue #1927) and overrides a fabricated one.
         const readFooter = exitFromLog || runner.readSessionExitFromLog;
-        const footer = logPath && readFooter ? readFooter(logPath, { verbose }) : null;
+        const footer = logPath && readFooter ? await readFooter(logPath, { verbose }) : null;
         // Issue #2303: start-command writes an `Exit Code: -1` footer when its watcher lost the container (`watcher-lost-container`). That sentinel is no real exit, so it must not skip the liveness check below.
         const unknownDockerFooter = footer?.finished && isDockerIsolation(sessionInfo, statusResult) && typeof runner.isUnknownDockerExitCode === 'function' && runner.isUnknownDockerExitCode(footer.exitCode);
         if (unknownDockerFooter && verbose) {
@@ -109,7 +109,7 @@ export async function getIsolationSessionState(sessionName, sessionInfo, options
       const logPath = statusResult?.logPath || sessionInfo?.logPath || null;
       if (logPath) {
         const readFooter = exitFromLog || runner.readSessionExitFromLog;
-        const footer = readFooter ? readFooter(logPath, { verbose }) : null;
+        const footer = readFooter ? await readFooter(logPath, { verbose }) : null;
         if (footer?.finished) {
           const correctedStatus = classifyExitStatus(footer.exitCode) || (footer.exitCode === 0 ? 'executed' : 'failed');
           if (verbose) {

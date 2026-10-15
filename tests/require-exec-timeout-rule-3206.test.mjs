@@ -49,7 +49,7 @@ ruleTester.run('require-exec-timeout', requireExecTimeout, {
       filename,
     },
     // Within the baseline.
-    { code: "execSync('git status');", filename, options: [{ baseline: { 'src/example.lib.mjs': 1 } }] },
+    { code: "execSync('git status');", filename, options: [{ baseline: { 'src/example.lib.mjs': { count: 1, reason: 'solve-process only' } } }] },
   ],
   invalid: [
     { code: "execSync('git status');", filename, errors: [violation] },
@@ -74,7 +74,7 @@ ruleTester.run('require-exec-timeout', requireExecTimeout, {
     {
       code: "execSync('git status');\nexecSync('git fetch');",
       filename,
-      options: [{ baseline: { 'src/example.lib.mjs': 1 } }],
+      options: [{ baseline: { 'src/example.lib.mjs': { count: 1, reason: 'solve-process only' } } }],
       errors: [
         { messageId: 'overBaseline', line: 1 },
         { messageId: 'overBaseline', line: 2 },

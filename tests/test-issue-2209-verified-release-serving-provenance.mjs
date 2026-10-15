@@ -103,7 +103,7 @@ test('an accepted update is the backend that serves, and is named by, every late
   try {
     const docker = makeDocker();
     const options = { env, run: docker.run, ...fast };
-    writeFormalAiSidecarState({ image: BOOTSTRAP_IMAGE, imageDigest: BOOTSTRAP_DIGEST, leases: [], lastUsedAt: new Date().toISOString() }, { env });
+    await writeFormalAiSidecarState({ image: BOOTSTRAP_IMAGE, imageDigest: BOOTSTRAP_DIGEST, leases: [], lastUsedAt: new Date().toISOString() }, { env });
 
     // 1. The idle updater accepts a new release: pulled, preflighted, migrated,
     //    booted, verified — and then stopped again.
@@ -145,8 +145,8 @@ test('an accepted update is the backend that serves, and is named by, every late
     assert.equal(secondProvenance.formalAiVersion, update.health.version);
     await releaseFormalAiSidecar({ sessionId: 'task-b', env, run: restarted.run, ...fast });
 
-    assert.equal(readFormalAiSidecarState({ env }).lastUpdate.digest, update.digest, 'the acceptance record survives the whole cycle');
-    assert.equal(readFormalAiSidecarState({ env }).serving.version, update.health.version, 'and the state names the release that last served a lease');
+    assert.equal((await readFormalAiSidecarState({ env })).lastUpdate.digest, update.digest, 'the acceptance record survives the whole cycle');
+    assert.equal((await readFormalAiSidecarState({ env })).serving.version, update.health.version, 'and the state names the release that last served a lease');
   } finally {
     fs.rmSync(stateDir, { recursive: true, force: true });
     fs.rmSync(workdir, { recursive: true, force: true });

@@ -44,14 +44,14 @@ assert(selectLastSessionId('no markers here') === null, 'selectLastSessionId ret
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'resume-test-'));
 const logPath = path.join(tmpDir, 'capture.log');
 fs.writeFileSync(logPath, `start\n📌 Session ID: ${ID1}\n... limit reached, resuming ...\n📌 Session ID: ${ID2}\nKilled\nExit Code: 137\n`);
-assert(readLastSessionIdFromLog(logPath) === ID2, 'readLastSessionIdFromLog reads the LAST session id from a multi-session log');
-assert(readLastSessionIdFromLog(path.join(tmpDir, 'missing.log')) === null, 'readLastSessionIdFromLog returns null for a missing log (never throws)');
-assert(readLastSessionIdFromLog(null) === null, 'readLastSessionIdFromLog returns null for a null path');
+assert((await readLastSessionIdFromLog(logPath)) === ID2, 'readLastSessionIdFromLog reads the LAST session id from a multi-session log');
+assert((await readLastSessionIdFromLog(path.join(tmpDir, 'missing.log'))) === null, 'readLastSessionIdFromLog returns null for a missing log (never throws)');
+assert((await readLastSessionIdFromLog(null)) === null, 'readLastSessionIdFromLog returns null for a null path');
 // tail-only scan still finds an id that sits within the tail window
 const bigPrefix = 'x'.repeat(5000);
 const tailLog = path.join(tmpDir, 'tail.log');
 fs.writeFileSync(tailLog, `${bigPrefix}\n📌 Session ID: ${ID3}\n`);
-assert(readLastSessionIdFromLog(tailLog, { tailBytes: 1024 }) === ID3, 'readLastSessionIdFromLog finds the id within a small tail window');
+assert((await readLastSessionIdFromLog(tailLog, { tailBytes: 1024 })) === ID3, 'readLastSessionIdFromLog finds the id within a small tail window');
 
 // --- findLatestSessionLogId ---------------------------------------------------
 const logsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'resume-logs-'));
@@ -63,8 +63,8 @@ fs.writeFileSync(newer, 'b');
 fs.utimesSync(older, new Date('2026-06-14T19:00:00Z'), new Date('2026-06-14T19:00:00Z'));
 fs.utimesSync(newer, new Date('2026-06-14T19:10:00Z'), new Date('2026-06-14T19:10:00Z'));
 fs.writeFileSync(path.join(logsDir, 'solve-not-a-uuid.log'), 'ignore me');
-assert(findLatestSessionLogId({ dir: logsDir }) === ID2, 'findLatestSessionLogId returns the most-recent <sessionId>.log');
-assert(findLatestSessionLogId({ dir: path.join(logsDir, 'nope') }) === null, 'findLatestSessionLogId returns null for a missing dir');
+assert((await findLatestSessionLogId({ dir: logsDir })) === ID2, 'findLatestSessionLogId returns the most-recent <sessionId>.log');
+assert((await findLatestSessionLogId({ dir: path.join(logsDir, 'nope') })) === null, 'findLatestSessionLogId returns null for a missing dir');
 
 // --- stripResumeFlag ----------------------------------------------------------
 assert(JSON.stringify(stripResumeFlag(['url', '--resume', 'old', '--tool', 'codex'])) === JSON.stringify(['url', '--tool', 'codex']), 'stripResumeFlag drops --resume <id>');

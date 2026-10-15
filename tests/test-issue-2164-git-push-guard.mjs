@@ -50,7 +50,7 @@ console.log('\n=== issue #2164: the hook is installed where a task can read it b
 const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'hive-mind-push-guard-'));
 const hooksHome = path.join(workspace, 'home');
 
-const installed = installGitPushGuard({ env: {}, homeDir: hooksHome });
+const installed = await installGitPushGuard({ env: {}, homeDir: hooksHome });
 assertEqual(installed.installed, true, 'the guard installs into the operator home');
 assertEqual(installed.hookPath, path.join(hooksHome, '.hive-mind', 'git-hooks', 'pre-push'), 'as a pre-push hook');
 assertEqual(Boolean(fs.statSync(installed.hookPath).mode & 0o111), true, 'and is executable, or git would skip it without a word');
@@ -119,8 +119,8 @@ assertEqual(hasForcePushOptIn(['--verbose']), false, 'and nothing else turns the
 
 console.log('\n=== issue #2164: the guard rides along with router isolation only ===');
 
-const startArgsFor = ({ useRouter, args = [] }) =>
-  buildDockerIsolationStartArgs('solve', args, {
+const startArgsFor = async ({ useRouter, args = [] }) =>
+  await buildDockerIsolationStartArgs('solve', args, {
     sessionId: 'session-guard',
     tool: 'claude',
     env: { HIVE_MIND_ROUTER_SIDECAR: '1' },
@@ -130,7 +130,7 @@ const startArgsFor = ({ useRouter, args = [] }) =>
     routerToken: useRouter ? 'la_sk_test' : null,
   });
 
-const routed = startArgsFor({ useRouter: true });
+const routed = await startArgsFor({ useRouter: true });
 assertEqual(routed.includes('GIT_CONFIG_KEY_0=core.hooksPath'), true, 'a routed task is pointed at the mounted hook');
 assertEqual(routed.includes(`GIT_CONFIG_VALUE_0=${GIT_PUSH_GUARD_CONTAINER_DIR}`), true, 'at the mounted location');
 assertEqual(
@@ -139,9 +139,9 @@ assertEqual(
   'and the hook is mounted read-only, so the task cannot rewrite the rule it is held to'
 );
 assertEqual(routed.includes(`${GIT_PUSH_GUARD_ESCAPE_ENV}=1`), false, 'without the opt-in the escape hatch is absent');
-assertEqual(startArgsFor({ useRouter: true, args: ['--allow-fork-divergence-resolution-using-force-push-with-lease'] }).includes(`${GIT_PUSH_GUARD_ESCAPE_ENV}=1`), true, 'an explicit force-push opt-in is carried into the container');
+assertEqual((await startArgsFor({ useRouter: true, args: ['--allow-fork-divergence-resolution-using-force-push-with-lease'] })).includes(`${GIT_PUSH_GUARD_ESCAPE_ENV}=1`), true, 'an explicit force-push opt-in is carried into the container');
 
-const direct = startArgsFor({ useRouter: false });
+const direct = await startArgsFor({ useRouter: false });
 assertEqual(
   direct.some(arg => String(arg).startsWith('GIT_CONFIG_')),
   false,

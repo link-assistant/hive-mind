@@ -76,7 +76,7 @@ export async function resolveStaleExecutingState(sessionName, sessionInfo, statu
   const logPath = statusResult?.logPath || sessionInfo?.logPath || null;
   if (logPath) {
     const readFooter = exitFromLog || runner.readSessionExitFromLog;
-    const footer = readFooter ? readFooter(logPath, { verbose }) : null;
+    const footer = readFooter ? await readFooter(logPath, { verbose }) : null;
     if (footer?.finished) {
       const status = classifyExitStatus(footer.exitCode) || (footer.exitCode === 0 ? 'executed' : 'failed');
       return { exitCode: footer.exitCode, status, reason: `log-footer(exit ${footer.exitCode})` };

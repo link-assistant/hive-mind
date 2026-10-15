@@ -1,3 +1,214 @@
 {
-  "src/formal-ai-attribution.lib.mjs": 1
+  "src/agent-commander.lib.mjs": {
+    "count": 4,
+    "reason": "git/gh work of the per-task solve process; the bot reaches this module only through imports and never runs these calls from a handler."
+  },
+  "src/agent.lib.mjs": {
+    "count": 4,
+    "reason": "git/gh work of the per-task solve process; the bot reaches this module only through imports and never runs these calls from a handler."
+  },
+  "src/agents-md-claude-support.lib.mjs": {
+    "count": 5,
+    "reason": "git/gh work of the per-task solve process; the bot reaches this module only through imports and never runs these calls from a handler."
+  },
+  "src/bidirectional-interactive.lib.mjs": {
+    "count": 1,
+    "reason": "git/gh work of the per-task solve process; the bot reaches this module only through imports and never runs these calls from a handler."
+  },
+  "src/claude.uncommitted-changes.lib.mjs": {
+    "count": 4,
+    "reason": "git/gh work of the per-task solve process; the bot reaches this module only through imports and never runs these calls from a handler."
+  },
+  "src/codex.lib.mjs": {
+    "count": 4,
+    "reason": "git/gh work of the per-task solve process; the bot reaches this module only through imports and never runs these calls from a handler."
+  },
+  "src/contributing-guidelines.lib.mjs": {
+    "count": 1,
+    "reason": "git/gh work of the per-task solve process; this module is not in the Telegram bot's import closure."
+  },
+  "src/development-log.lib.mjs": {
+    "count": 6,
+    "reason": "git/gh work of the per-task solve process; the bot reaches this module only through imports and never runs these calls from a handler."
+  },
+  "src/gemini.lib.mjs": {
+    "count": 4,
+    "reason": "git/gh work of the per-task solve process; the bot reaches this module only through imports and never runs these calls from a handler."
+  },
+  "src/git.lib.mjs": {
+    "count": 6,
+    "reason": "git/gh work of the per-task solve process; the bot reaches this module only through imports and never runs these calls from a handler."
+  },
+  "src/github-error-reporter.lib.mjs": {
+    "count": 4,
+    "reason": "git/gh work of the per-task solve process; this module is not in the Telegram bot's import closure."
+  },
+  "src/github.lib.mjs": {
+    "count": 3,
+    "reason": "checkRepositoryWritePermission, checkMaintainerCanModifyPR and fetchProjectIssues run only in solve/hive; the bot imports this module for parseGitHubUrl and validateGitHubEntityExistence, which do not use these calls."
+  },
+  "src/handoff-skill.lib.mjs": {
+    "count": 2,
+    "reason": "git/gh work of the per-task solve process; the bot reaches this module only through imports and never runs these calls from a handler."
+  },
+  "src/hive.mjs": {
+    "count": 1,
+    "reason": "Runs only in the hive CLI process, never inside a Telegram bot handler."
+  },
+  "src/opencode.lib.mjs": {
+    "count": 4,
+    "reason": "git/gh work of the per-task solve process; the bot reaches this module only through imports and never runs these calls from a handler."
+  },
+  "src/playwright-skill.lib.mjs": {
+    "count": 2,
+    "reason": "git/gh work of the per-task solve process; the bot reaches this module only through imports and never runs these calls from a handler."
+  },
+  "src/post-finish-sanitization-sweep.lib.mjs": {
+    "count": 2,
+    "reason": "git/gh work of the per-task solve process; this module is not in the Telegram bot's import closure."
+  },
+  "src/pr-draft-state.lib.mjs": {
+    "count": 3,
+    "reason": "git/gh work of the per-task solve process; the bot reaches this module only through imports and never runs these calls from a handler."
+  },
+  "src/pr-image-link-repair.lib.mjs": {
+    "count": 2,
+    "reason": "git/gh work of the per-task solve process; this module is not in the Telegram bot's import closure."
+  },
+  "src/protect-branch.mjs": {
+    "count": 5,
+    "reason": "Standalone protect-branch CLI script, never loaded by the Telegram bot."
+  },
+  "src/qwen.lib.mjs": {
+    "count": 4,
+    "reason": "git/gh work of the per-task solve process; the bot reaches this module only through imports and never runs these calls from a handler."
+  },
+  "src/review.mjs": {
+    "count": 1,
+    "reason": "Runs only in the review CLI process, never inside a Telegram bot handler."
+  },
+  "src/reviewers-hive.mjs": {
+    "count": 1,
+    "reason": "Runs only in the review CLI process, never inside a Telegram bot handler."
+  },
+  "src/solve.auto-continue.lib.mjs": {
+    "count": 2,
+    "reason": "git/gh work of the per-task solve process; this module is not in the Telegram bot's import closure."
+  },
+  "src/solve.auto-ensure.lib.mjs": {
+    "count": 2,
+    "reason": "git/gh work of the per-task solve process; this module is not in the Telegram bot's import closure."
+  },
+  "src/solve.auto-merge.lib.mjs": {
+    "count": 3,
+    "reason": "git/gh work of the per-task solve process; this module is not in the Telegram bot's import closure."
+  },
+  "src/solve.auto-pr-compare-readiness.lib.mjs": {
+    "count": 1,
+    "reason": "git/gh work of the per-task solve process; this module is not in the Telegram bot's import closure."
+  },
+  "src/solve.auto-pr-fork-diagnostic.lib.mjs": {
+    "count": 1,
+    "reason": "git/gh work of the per-task solve process; this module is not in the Telegram bot's import closure."
+  },
+  "src/solve.auto-pr-placeholder.lib.mjs": {
+    "count": 7,
+    "reason": "git/gh work of the per-task solve process; this module is not in the Telegram bot's import closure."
+  },
+  "src/solve.auto-pr-push-sync.lib.mjs": {
+    "count": 4,
+    "reason": "git/gh work of the per-task solve process; this module is not in the Telegram bot's import closure."
+  },
+  "src/solve.auto-pr.lib.mjs": {
+    "count": 18,
+    "reason": "git/gh work of the per-task solve process; this module is not in the Telegram bot's import closure."
+  },
+  "src/solve.branch-divergence.lib.mjs": {
+    "count": 13,
+    "reason": "git/gh work of the per-task solve process; the bot reaches this module only through imports and never runs these calls from a handler."
+  },
+  "src/solve.branch-errors.lib.mjs": {
+    "count": 5,
+    "reason": "git/gh work of the per-task solve process; the bot reaches this module only through imports and never runs these calls from a handler."
+  },
+  "src/solve.branch.lib.mjs": {
+    "count": 9,
+    "reason": "git/gh work of the per-task solve process; the bot reaches this module only through imports and never runs these calls from a handler."
+  },
+  "src/solve.ensure-sub-issues.lib.mjs": {
+    "count": 2,
+    "reason": "git/gh work of the per-task solve process; this module is not in the Telegram bot's import closure."
+  },
+  "src/solve.error-handlers.lib.mjs": {
+    "count": 1,
+    "reason": "git/gh work of the per-task solve process; this module is not in the Telegram bot's import closure."
+  },
+  "src/solve.escalate.lib.mjs": {
+    "count": 2,
+    "reason": "git/gh work of the per-task solve process; the bot reaches this module only through imports and never runs these calls from a handler."
+  },
+  "src/solve.execution.lib.mjs": {
+    "count": 5,
+    "reason": "git/gh work of the per-task solve process; this module is not in the Telegram bot's import closure."
+  },
+  "src/solve.fork-detection.lib.mjs": {
+    "count": 2,
+    "reason": "git/gh work of the per-task solve process; this module is not in the Telegram bot's import closure."
+  },
+  "src/solve.fork-sync.lib.mjs": {
+    "count": 13,
+    "reason": "git/gh work of the per-task solve process; the bot reaches this module only through imports and never runs these calls from a handler."
+  },
+  "src/solve.keep-working.lib.mjs": {
+    "count": 2,
+    "reason": "git/gh work of the per-task solve process; the bot reaches this module only through imports and never runs these calls from a handler."
+  },
+  "src/solve.minimal-restart-prompt.lib.mjs": {
+    "count": 2,
+    "reason": "git/gh work of the per-task solve process; this module is not in the Telegram bot's import closure."
+  },
+  "src/solve.mjs": {
+    "count": 3,
+    "reason": "git/gh work of the per-task solve process; this module is not in the Telegram bot's import closure."
+  },
+  "src/solve.pr-base-guard.lib.mjs": {
+    "count": 3,
+    "reason": "git/gh work of the per-task solve process; the bot reaches this module only through imports and never runs these calls from a handler."
+  },
+  "src/solve.preparation.lib.mjs": {
+    "count": 4,
+    "reason": "git/gh work of the per-task solve process; this module is not in the Telegram bot's import closure."
+  },
+  "src/solve.progress-monitoring.lib.mjs": {
+    "count": 3,
+    "reason": "git/gh work of the per-task solve process; the bot reaches this module only through imports and never runs these calls from a handler."
+  },
+  "src/solve.repo-setup.lib.mjs": {
+    "count": 8,
+    "reason": "git/gh work of the per-task solve process; this module is not in the Telegram bot's import closure."
+  },
+  "src/solve.repository-safety.lib.mjs": {
+    "count": 6,
+    "reason": "git/gh work of the per-task solve process; the bot reaches this module only through imports and never runs these calls from a handler."
+  },
+  "src/solve.repository.lib.mjs": {
+    "count": 32,
+    "reason": "git/gh work of the per-task solve process; the bot reaches this module only through imports and never runs these calls from a handler."
+  },
+  "src/solve.restart-shared.lib.mjs": {
+    "count": 4,
+    "reason": "git/gh work of the per-task solve process; the bot reaches this module only through imports and never runs these calls from a handler."
+  },
+  "src/solve.results.lib.mjs": {
+    "count": 34,
+    "reason": "git/gh work of the per-task solve process; this module is not in the Telegram bot's import closure."
+  },
+  "src/solve.watch.lib.mjs": {
+    "count": 2,
+    "reason": "git/gh work of the per-task solve process; this module is not in the Telegram bot's import closure."
+  },
+  "src/youtrack/youtrack-sync.mjs": {
+    "count": 4,
+    "reason": "Runs only in the hive CLI process, never inside a Telegram bot handler."
+  }
 }

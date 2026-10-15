@@ -901,8 +901,8 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
       // record's cache, so the working-session log is scanned once per session
       // instead of once per poll per consumer (the resume section below and the
       // automatic recovery further down both need it, and both used to scan).
-      const resolveLastToolSessionId = logPath => {
-        const resolution = resolveCachedLastToolSessionId({ sessionInfo, logPath, verbose });
+      const resolveLastToolSessionId = async logPath => {
+        const resolution = await resolveCachedLastToolSessionId({ sessionInfo, logPath, verbose });
         if (resolution.scanned) persistSessionSnapshot(sessionName, sessionInfo);
         return resolution.id;
       };
@@ -924,7 +924,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
           //   `Session ID:` marker. Do not guess from neighboring UUID-named
           //   logs: start-command stores unrelated tasks in the same backend
           //   directory, which caused issue #2109's invalid resume id.
-          const lastSessionId = resolveLastToolSessionId(logPath);
+          const lastSessionId = await resolveLastToolSessionId(logPath);
           const resumeCommand = buildResumeCommand({ sessionInfo, lastSessionId });
           const resumeSection = formatResumeSection({ lastSessionId, command: resumeCommand });
           killResumeCommand = resumeCommand?.display || null;
@@ -1279,7 +1279,7 @@ export async function resumeTrackedSessions(options = {}) {
   }
   let persisted;
   try {
-    persisted = store.load();
+    persisted = await store.load();
   } catch (error) {
     console.error(`[session-monitor] resumeTrackedSessions: could not load persisted sessions: ${error.message}`);
     return { resumed, skipped };

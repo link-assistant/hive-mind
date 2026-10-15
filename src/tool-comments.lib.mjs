@@ -295,6 +295,10 @@ export const isFailureAlreadyReportedOnTarget = ({ owner, repo, targetNumber }) 
   return latest?.isFailureReport === true || latest?.automationStopped === true;
 };
 
+// Issue #3278: the bot's session monitor posts these comments too; a stalled
+// `gh api` fails the post (handled like any gh error) instead of hanging it.
+const GH_COMMENT_TIMEOUT_MS = 120_000;
+
 /** gh's message when GitHub's response body was cut off mid-JSON. */
 const isTruncatedGhResponse = text => /unexpected end of JSON input/i.test(String(text || ''));
 
@@ -306,7 +310,7 @@ const findPostedComment = async ({ $, apiPath, body, since }) => {
   // One minute of slack for clock skew between this host and GitHub.
   const sinceIso = new Date(since - 60_000).toISOString();
   try {
-    const listed = await $({ mirror: false })`gh api ${`${apiPath}?since=${sinceIso}&per_page=100`}`;
+    const listed = await $({ mirror: false, signal: AbortSignal.timeout(GH_COMMENT_TIMEOUT_MS) })`gh api ${`${apiPath}?since=${sinceIso}&per_page=100`}`;
     if (listed.code !== 0) return undefined;
     const comments = JSON.parse(listed.stdout?.toString() || '');
     if (!Array.isArray(comments)) return undefined;
@@ -366,7 +370,7 @@ export const postTrackedComment = async ({ $, owner, repo, targetNumber, body, c
   const startedAt = Date.now();
   let result;
   try {
-    result = await $({ stdin: payload })`gh api ${apiPath} -X ${method} --input -`;
+    result = await $({ stdin: payload, signal: AbortSignal.timeout(GH_COMMENT_TIMEOUT_MS) })`gh api ${apiPath} -X ${method} --input -`;
   } catch (err) {
     return { ok: false, commentId: null, stderr: err && err.message ? err.message : String(err) };
   }
@@ -381,7 +385,7 @@ export const postTrackedComment = async ({ $, owner, repo, targetNumber, body, c
     if (existing === undefined) return { ok: false, commentId: null, stderr };
     if (existing === null) {
       try {
-        result = await $({ stdin: payload })`gh api ${apiPath} -X POST --input -`;
+        result = await $({ stdin: payload, signal: AbortSignal.timeout(GH_COMMENT_TIMEOUT_MS) })`gh api ${apiPath} -X POST --input -`;
       } catch (err) {
         return { ok: false, commentId: null, stderr: err && err.message ? err.message : String(err) };
       }

@@ -105,7 +105,7 @@ assert.deepEqual(
   const env = makeEnv();
   const docker = makeDocker();
   const options = { env, run: docker.run, ...fast };
-  writeFormalAiSidecarState({ image: BOOTSTRAP_IMAGE, imageDigest: BOOTSTRAP_DIGEST, leases: [], lastUsedAt: new Date().toISOString() }, { env });
+  await writeFormalAiSidecarState({ image: BOOTSTRAP_IMAGE, imageDigest: BOOTSTRAP_DIGEST, leases: [], lastUsedAt: new Date().toISOString() }, { env });
 
   const update = await updateFormalAiSidecarWhenIdle(options);
   assert.equal(update.status, 'updated');
@@ -118,7 +118,7 @@ assert.deepEqual(
   assert.equal(first.acceptedDigest, update.digest);
 
   await releaseFormalAiSidecar({ sessionId: 'task-1', ...options });
-  const afterRelease = readFormalAiSidecarState({ env });
+  const afterRelease = await readFormalAiSidecarState({ env });
   assert.equal(afterRelease.lastUpdate.digest, update.digest, 'releasing a lease must not erase the acceptance record');
   assert.equal(afterRelease.imageDigest, update.digest, 'and must not restore the pre-update digest');
 
@@ -148,7 +148,7 @@ assert.deepEqual(
   const env = makeEnv();
   const docker = makeDocker();
   const options = { env, run: docker.run, ...fast };
-  writeFormalAiSidecarState({ image: BOOTSTRAP_IMAGE, imageDigest: BOOTSTRAP_DIGEST, leases: [], lastUsedAt: new Date().toISOString() }, { env });
+  await writeFormalAiSidecarState({ image: BOOTSTRAP_IMAGE, imageDigest: BOOTSTRAP_DIGEST, leases: [], lastUsedAt: new Date().toISOString() }, { env });
   const update = await updateFormalAiSidecarWhenIdle(options);
 
   // Upstream publishes a newer build under the same tag; it has *not* been
@@ -170,11 +170,11 @@ assert.deepEqual(
   // verification fails and the updater rolls back.
   const docker = makeDocker({ health: (reference, digest) => (digest === ACCEPTED_DIGEST ? null : { version: FORMAL_AI_BOOTSTRAP_VERSION, memory: MEMORY }) });
   const options = { env, run: docker.run, ...fast };
-  writeFormalAiSidecarState({ image: BOOTSTRAP_IMAGE, imageDigest: BOOTSTRAP_DIGEST, leases: [], lastUsedAt: new Date().toISOString() }, { env });
+  await writeFormalAiSidecarState({ image: BOOTSTRAP_IMAGE, imageDigest: BOOTSTRAP_DIGEST, leases: [], lastUsedAt: new Date().toISOString() }, { env });
 
   const update = await updateFormalAiSidecarWhenIdle(options);
   assert.equal(update.status, 'rolled-back');
-  assert.equal(readFormalAiSidecarState({ env }).lastUpdate, null, 'a rollback records no acceptance');
+  assert.equal((await readFormalAiSidecarState({ env })).lastUpdate, null, 'a rollback records no acceptance');
 
   const task = await acquireFormalAiSidecar({ sessionId: 'after-rollback', ...options });
   assert.equal(task.imageDigest, BOOTSTRAP_DIGEST, 'a rejected candidate must not be promoted to the next task');
@@ -189,7 +189,7 @@ assert.deepEqual(
   const env = makeEnv();
   const docker = makeDocker();
   const options = { env, run: docker.run, ...fast };
-  writeFormalAiSidecarState({ image: BOOTSTRAP_IMAGE, imageDigest: BOOTSTRAP_DIGEST, leases: [], lastUsedAt: new Date().toISOString() }, { env });
+  await writeFormalAiSidecarState({ image: BOOTSTRAP_IMAGE, imageDigest: BOOTSTRAP_DIGEST, leases: [], lastUsedAt: new Date().toISOString() }, { env });
   await updateFormalAiSidecarWhenIdle(options);
 
   // `docker image prune` removed the accepted image and the tag now resolves to
@@ -226,7 +226,7 @@ assert.deepEqual(
     health: () => ({ version: ACCEPTED_VERSION, memory: MEMORY }),
   });
   const options = { env, run: docker.run, ...fast };
-  writeFormalAiSidecarState({ image: BOOTSTRAP_IMAGE, imageDigest: BOOTSTRAP_DIGEST, leases: [], lastUsedAt: new Date().toISOString(), lastUpdate: { image: UPDATE_IMAGE, digest: ACCEPTED_DIGEST, version: ACCEPTED_VERSION, updatedAt: new Date().toISOString() } }, { env });
+  await writeFormalAiSidecarState({ image: BOOTSTRAP_IMAGE, imageDigest: BOOTSTRAP_DIGEST, leases: [], lastUsedAt: new Date().toISOString(), lastUpdate: { image: UPDATE_IMAGE, digest: ACCEPTED_DIGEST, version: ACCEPTED_VERSION, updatedAt: new Date().toISOString() } }, { env });
 
   const pinned = await acquireFormalAiSidecar({ sessionId: 'pinned-task', ...options });
   assert.equal(pinned.imageDigest, 'sha256:pinned', 'the operator pin overrides the accepted update');

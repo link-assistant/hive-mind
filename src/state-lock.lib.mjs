@@ -35,19 +35,20 @@ export const resolveStateLockPath = (name, env = process.env) => path.join(resol
  */
 export const withStateLock = async (name, fn, { env = process.env, fsImpl = fs, now = () => Date.now(), timeoutMs = DEFAULT_STATE_LOCK_TIMEOUT_MS, staleMs = DEFAULT_STATE_LOCK_STALE_MS, pollMs = DEFAULT_STATE_LOCK_POLL_MS, sleepImpl = sleep, log = null } = {}) => {
   const lockPath = resolveStateLockPath(name, env);
-  fsImpl.mkdirSync(path.dirname(lockPath), { recursive: true });
+  const fsp = fsImpl.promises;
+  await fsp.mkdir(path.dirname(lockPath), { recursive: true });
 
   const deadline = now() + timeoutMs;
   for (;;) {
     try {
-      fsImpl.mkdirSync(lockPath);
+      await fsp.mkdir(lockPath);
       break;
     } catch (error) {
       if (error?.code !== 'EEXIST') throw error;
 
       let age;
       try {
-        age = now() - fsImpl.statSync(lockPath).mtimeMs;
+        age = now() - (await fsp.stat(lockPath)).mtimeMs;
       } catch {
         // The holder released it between mkdir and stat; retry immediately.
         continue;
@@ -56,7 +57,7 @@ export const withStateLock = async (name, fn, { env = process.env, fsImpl = fs, 
       if (age > staleMs) {
         if (log) await log(`⚠️ ${name} lock held for ${Math.round(age / 1000)}s with no owner; breaking it`);
         try {
-          fsImpl.rmSync(lockPath, { recursive: true, force: true });
+          await fsp.rm(lockPath, { recursive: true, force: true });
         } catch {
           // Another waiter won the race; retry normally.
         }
@@ -72,7 +73,7 @@ export const withStateLock = async (name, fn, { env = process.env, fsImpl = fs, 
     return await fn();
   } finally {
     try {
-      fsImpl.rmSync(lockPath, { recursive: true, force: true });
+      await fsp.rm(lockPath, { recursive: true, force: true });
     } catch {
       // Losing the release is recoverable through the stale-lock path above.
     }

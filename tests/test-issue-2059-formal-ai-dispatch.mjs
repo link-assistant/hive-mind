@@ -329,8 +329,8 @@ test('Formal AI connection validation rejects an unreadable runtime version', as
   );
 });
 
-test('Docker-isolated solve jobs receive the configured persistent Formal AI endpoint', () => {
-  const args = buildDockerIsolationStartArgs('solve', ['https://example.test/issues/2059'], {
+test('Docker-isolated solve jobs receive the configured persistent Formal AI endpoint', async () => {
+  const args = await buildDockerIsolationStartArgs('solve', ['https://example.test/issues/2059'], {
     sessionId: 'issue-2059',
     tool: 'codex',
     env: {

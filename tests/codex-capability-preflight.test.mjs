@@ -36,7 +36,7 @@ assert.deepEqual(applyCodexCapabilityEnv({ PATH: '/bin' }, { codexHome: statePat
 // directory (nor `.agents`). Only `auth.json` and `sessions/` are shared; the
 // repository-scoped capability state is installed per task container from the
 // image defaults, so one task can never enable a plugin for the tasks after it.
-const mounts = getDockerIsolationAuthMounts({
+const mounts = await getDockerIsolationAuthMounts({
   tool: 'codex',
   homeDir: '/persistent',
   existsSync: candidate => candidate === `${baseHome}/auth.json` || candidate === `${baseHome}/sessions`,
@@ -45,7 +45,7 @@ assert.deepEqual(mounts, [
   { source: `${baseHome}/auth.json`, target: '/home/box/.codex/auth.json' },
   { source: `${baseHome}/sessions`, target: '/home/box/.codex/sessions' },
 ]);
-const everything = getDockerIsolationAuthMounts({ tool: 'codex', homeDir: '/persistent', existsSync: () => true });
+const everything = await getDockerIsolationAuthMounts({ tool: 'codex', homeDir: '/persistent', existsSync: () => true });
 assert(!everything.some(mount => mount.source === baseHome || mount.source === '/persistent/.agents'), 'Docker isolation no longer propagates the whole .codex directory or the user Agent Skills folder (issue #2190)');
 assert(!everything.some(mount => statePath.startsWith(`${mount.source}/`)), 'repository-scoped capability state stays inside the task container (issue #2190)');
 

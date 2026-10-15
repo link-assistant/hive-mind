@@ -376,38 +376,45 @@ exec ${shellQuote(path.join(previousHooksDir, hookName))} "$@"
 /**
  * Write the hook directory for one session.
  *
- * @returns {{installed: boolean, hooksDir: string, previousHooksDir: string|null, hooks: string[], error: string|null}}
+ * @returns {Promise<{installed: boolean, hooksDir: string, previousHooksDir: string|null, hooks: string[], error: string|null}>}
  */
-export const installAttributionHooks = ({ hooksDir, stagingDir, evidencePath, previousHooksDir = null, streamFilename = AGENT_STREAM_FILENAME, fsImpl = fs }) => {
+export const installAttributionHooks = async ({ hooksDir, stagingDir, evidencePath, previousHooksDir = null, streamFilename = AGENT_STREAM_FILENAME, fsImpl = fs }) => {
   const hooks = {
     'pre-commit': buildPreCommitHook({ stagingDir, evidencePath, previousHooksDir, streamFilename }),
     'prepare-commit-msg': buildPrepareCommitMsgHook({ stagingDir, evidencePath, previousHooksDir }),
     'post-commit': buildPostCommitHook({ evidencePath, previousHooksDir }),
   };
+  const fsp = fsImpl.promises;
 
   try {
-    fsImpl.mkdirSync(hooksDir, { recursive: true });
+    await fsp.mkdir(hooksDir, { recursive: true });
 
-    if (previousHooksDir && fsImpl.existsSync(previousHooksDir)) {
-      for (const entry of fsImpl.readdirSync(previousHooksDir)) {
-        if (entry.endsWith('.sample') || hooks[entry]) continue;
-        const source = path.join(previousHooksDir, entry);
-        let executable = false;
-        try {
-          executable = Boolean(fsImpl.statSync(source).mode & 0o111);
-        } catch {
-          executable = false;
-        }
-        if (!executable) continue;
-        hooks[entry] = buildDelegatingHook({ previousHooksDir, hookName: entry });
+    let previousEntries = [];
+    if (previousHooksDir) {
+      try {
+        previousEntries = await fsp.readdir(previousHooksDir);
+      } catch (error) {
+        if (error?.code !== 'ENOENT') throw error;
       }
+    }
+    for (const entry of previousEntries) {
+      if (entry.endsWith('.sample') || hooks[entry]) continue;
+      const source = path.join(previousHooksDir, entry);
+      let executable = false;
+      try {
+        executable = Boolean((await fsp.stat(source)).mode & 0o111);
+      } catch {
+        executable = false;
+      }
+      if (!executable) continue;
+      hooks[entry] = buildDelegatingHook({ previousHooksDir, hookName: entry });
     }
 
     for (const [name, script] of Object.entries(hooks)) {
       const hookPath = path.join(hooksDir, name);
-      fsImpl.writeFileSync(hookPath, script, { mode: 0o755 });
-      // writeFileSync only honours `mode` when it creates the file.
-      fsImpl.chmodSync(hookPath, 0o755);
+      await fsp.writeFile(hookPath, script, { mode: 0o755 });
+      // writeFile only honours `mode` when it creates the file.
+      await fsp.chmod(hookPath, 0o755);
     }
 
     return { installed: true, hooksDir, previousHooksDir, hooks: Object.keys(hooks), error: null };
@@ -448,9 +455,13 @@ export const buildAttributionGitEnv = ({ env = {}, hooksPath }) => {
   return result;
 };
 
+// Issue #3278: only local plumbing (rev-parse, rev-list, show, commit-tree,
+// update-ref); a stuck git fails the step instead of hanging the session.
+const ATTRIBUTION_GIT_TIMEOUT_MS = 5 * 60 * 1000;
+
 const defaultRunGit = async (args, { cwd, env = process.env } = {}) => {
   try {
-    const { stdout, stderr } = await execFileAsync('git', args, { cwd, env, maxBuffer: 64 * 1024 * 1024 });
+    const { stdout, stderr } = await execFileAsync('git', args, { cwd, env, maxBuffer: 64 * 1024 * 1024, timeout: ATTRIBUTION_GIT_TIMEOUT_MS });
     return { code: 0, stdout: String(stdout), stderr: String(stderr) };
   } catch (error) {
     return { code: error?.code ?? 1, stdout: String(error?.stdout ?? ''), stderr: String(error?.stderr ?? error?.message ?? '') };
@@ -515,8 +526,8 @@ export const createFormalAiAttributionSession = ({ repositoryPath, issueNumber =
     // Removing the session file is what actually stops the hooks: both of them
     // exit early without it, so no further commit can be attributed.
     try {
-      if (state.stagingDir) fsImpl.rmSync(path.join(state.stagingDir, SESSION_ID_FILENAME), { force: true });
-      if (state.stagingDir) fsImpl.rmSync(path.join(state.stagingDir, TRAILERS_FILENAME), { force: true });
+      if (state.stagingDir) await fsImpl.promises.rm(path.join(state.stagingDir, SESSION_ID_FILENAME), { force: true });
+      if (state.stagingDir) await fsImpl.promises.rm(path.join(state.stagingDir, TRAILERS_FILENAME), { force: true });
     } catch {
       // The hooks are fail-open anyway; nothing here is worth failing a run over.
     }
@@ -536,8 +547,8 @@ export const createFormalAiAttributionSession = ({ repositoryPath, issueNumber =
       await reject(errors.join('; '));
       return;
     }
-    fsImpl.writeFileSync(path.join(state.stagingDir, TRAILERS_FILENAME), `${trailers.join('\n')}\n`, 'utf8');
-    fsImpl.writeFileSync(path.join(state.stagingDir, SESSION_ID_FILENAME), buildSessionEvidence({ sessionId: state.sessionId, version }), 'utf8');
+    await fsImpl.promises.writeFile(path.join(state.stagingDir, TRAILERS_FILENAME), `${trailers.join('\n')}\n`, 'utf8');
+    await fsImpl.promises.writeFile(path.join(state.stagingDir, SESSION_ID_FILENAME), buildSessionEvidence({ sessionId: state.sessionId, version }), 'utf8');
   };
 
   const flush = async () => {
@@ -552,7 +563,7 @@ export const createFormalAiAttributionSession = ({ repositoryPath, issueNumber =
       await log(`⚠️  Formal AI evidence: ${batch.length} ${client.label} records were withheld from the bundle (${error?.message || error})`, { level: 'warning' });
     }
     try {
-      fsImpl.appendFileSync(state.streamPath, payload, 'utf8');
+      await fsImpl.promises.appendFile(state.streamPath, payload, 'utf8');
       state.written += batch.length;
     } catch (error) {
       await log(`⚠️  Formal AI evidence: could not append to ${state.streamPath}: ${error?.message || error}`, { level: 'warning' });
@@ -633,20 +644,20 @@ export const createFormalAiAttributionSession = ({ repositoryPath, issueNumber =
       state.streamPath = path.join(state.stagingDir, client.streamFilename);
 
       try {
-        fsImpl.mkdirSync(state.stagingDir, { recursive: true });
+        await fsImpl.promises.mkdir(state.stagingDir, { recursive: true });
         // A fresh bundle per run: a stale stream from an earlier iteration must
         // not be published as evidence for this session.
-        fsImpl.rmSync(state.streamPath, { force: true });
-        fsImpl.rmSync(path.join(state.stagingDir, SESSION_ID_FILENAME), { force: true });
-        fsImpl.rmSync(path.join(state.stagingDir, TRAILERS_FILENAME), { force: true });
-        fsImpl.writeFileSync(state.streamPath, '', 'utf8');
+        await fsImpl.promises.rm(state.streamPath, { force: true });
+        await fsImpl.promises.rm(path.join(state.stagingDir, SESSION_ID_FILENAME), { force: true });
+        await fsImpl.promises.rm(path.join(state.stagingDir, TRAILERS_FILENAME), { force: true });
+        await fsImpl.promises.writeFile(state.streamPath, '', 'utf8');
       } catch (error) {
         state.rejection = `could not prepare ${state.stagingDir}: ${error?.message || error}`;
         await log(`🛑 Formal AI attribution not enabled: ${state.rejection}`, { level: 'warning' });
         return { enabled: false, reason: state.rejection, env: {} };
       }
 
-      const installed = installAttributionHooks({
+      const installed = await installAttributionHooks({
         hooksDir: state.hooksDir,
         stagingDir: state.stagingDir,
         evidencePath: state.evidencePath,
@@ -845,11 +856,11 @@ export const createFormalAiAttributionSession = ({ repositoryPath, issueNumber =
           // Through a file rather than stdin, so that an injected `runGit` only
           // ever has to implement one shape: (args, {cwd, env}).
           const scratch = path.join(state.stagingDir, 'backfill-message.txt');
-          fsImpl.writeFileSync(scratch, message, 'utf8');
+          await fsImpl.promises.writeFile(scratch, message, 'utf8');
           const applied = await git(['interpret-trailers', '--in-place', '--if-exists', 'replace', '--trailer', `${FORMAL_AI_TRAILER_KEYS.pullRequest}: ${state.prUrl}`, scratch]);
           if (applied.code !== 0) return { rewritten: 0, reason: 'git interpret-trailers refused the pull request trailer' };
-          message = fsImpl.readFileSync(scratch, 'utf8');
-          fsImpl.rmSync(scratch, { force: true });
+          message = await fsImpl.promises.readFile(scratch, 'utf8');
+          await fsImpl.promises.rm(scratch, { force: true });
         }
         const tree = (await git(['rev-parse', `${commit}^{tree}`])).stdout.trim();
         const created = await runGit(['commit-tree', tree, '-p', parent, '-m', message], {
@@ -1081,7 +1092,7 @@ export const ensureEvidenceExcluded = async ({ gitDir, evidencePath, fsImpl = fs
   try {
     let existing = '';
     try {
-      existing = fsImpl.readFileSync(excludePath, 'utf8');
+      existing = await fsImpl.promises.readFile(excludePath, 'utf8');
     } catch (error) {
       if (error.code !== 'ENOENT') return { applied: false, reason: error.message };
     }
@@ -1093,8 +1104,8 @@ export const ensureEvidenceExcluded = async ({ gitDir, evidencePath, fsImpl = fs
     );
     if (lines.has(entry)) return { applied: true, reason: 'already_present' };
     const separator = existing && !existing.endsWith('\n') ? '\n' : '';
-    fsImpl.mkdirSync(path.dirname(excludePath), { recursive: true });
-    fsImpl.writeFileSync(excludePath, `${existing}${separator}${header}\n${entry}\n`, 'utf8');
+    await fsImpl.promises.mkdir(path.dirname(excludePath), { recursive: true });
+    await fsImpl.promises.writeFile(excludePath, `${existing}${separator}${header}\n${entry}\n`, 'utf8');
     return { applied: true, reason: null };
   } catch (error) {
     return { applied: false, reason: error?.message || String(error) };

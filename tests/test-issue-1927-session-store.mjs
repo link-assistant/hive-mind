@@ -72,13 +72,14 @@ try {
   clock = new Date('2026-06-14T19:01:00.000Z');
   store.persist('uuid-2', { chatId: 6, startTime, url: 'https://github.com/acme/widgets/issues/43', command: 'hive', isolationBackend: 'docker', sessionId: 'uuid-2', containerFilesystemStartBytes: 234567, containerFilesystemLastBytes: 345678, containerFilesystemLastObservedAt: '2026-06-14T19:02:00.000Z' });
 
+  await store.flush(); // snapshot writes run off the event loop (issue #3278)
   assert(fs.existsSync(store.snapshotPath), 'persist writes sessions.json');
   const snapshot = JSON.parse(fs.readFileSync(store.snapshotPath, 'utf8'));
   assert(snapshot.version === 1, 'snapshot carries a version');
   assert(Object.keys(snapshot.sessions).length === 2, 'snapshot holds both persisted sessions');
   assert(snapshot.sessions['uuid-1'].persistedAt === '2026-06-14T19:00:00.000Z', 'persist stamps persistedAt from the injected clock');
 
-  const loaded = store.load();
+  const loaded = await store.load();
   assert(loaded.length === 2, 'load returns both sessions');
   const one = loaded.find(s => s.sessionName === 'uuid-1');
   assert(one && one.sessionInfo.startTime instanceof Date, 'load rehydrates startTime to a Date');
@@ -91,6 +92,7 @@ try {
   // Remove one (completion) — it leaves the snapshot but the OTHER stays.
   clock = new Date('2026-06-14T19:10:49.822Z');
   store.remove('uuid-1', { status: 'killed', exitCode: 137 });
+  await store.flush();
   const afterRemove = JSON.parse(fs.readFileSync(store.snapshotPath, 'utf8'));
   assert(!('uuid-1' in afterRemove.sessions), 'remove deletes the session from the snapshot');
   assert('uuid-2' in afterRemove.sessions, 'remove leaves other sessions intact');
@@ -172,10 +174,10 @@ const tmpDir2 = fs.mkdtempSync(path.join(os.tmpdir(), 'hm-1927-store2-'));
 try {
   fs.writeFileSync(path.join(tmpDir2, 'sessions.json'), '{ this is not valid json ');
   const store = createSessionStore({ dir: tmpDir2 });
-  assert(Array.isArray(store.load()) && store.load().length === 0, 'load() on a corrupt snapshot returns [] (never throws)');
+  assert(Array.isArray(await store.load()) && (await store.load()).length === 0, 'load() on a corrupt snapshot returns [] (never throws)');
   // persist over the corrupt file recovers cleanly.
   store.persist('uuid-x', { startTime, isolationBackend: 'screen', sessionId: 'uuid-x', command: 'solve' });
-  assert(store.load().length === 1, 'persist recovers from a corrupt snapshot');
+  assert((await store.load()).length === 1, 'persist recovers from a corrupt snapshot');
   await store.flush(); // the event append must land before the directory is removed
 } finally {
   fs.rmSync(tmpDir2, { recursive: true, force: true });
@@ -199,13 +201,31 @@ try {
     appendFileSync: () => {
       throw new Error('EACCES');
     },
+    promises: {
+      mkdir: async () => {
+        throw new Error('EACCES: permission denied');
+      },
+      readFile: async () => {
+        throw new Error('ENOENT');
+      },
+      writeFile: async () => {
+        throw new Error('EACCES');
+      },
+      rename: async () => {
+        throw new Error('EACCES');
+      },
+      appendFile: async () => {
+        throw new Error('EACCES');
+      },
+    },
   };
   const store = createSessionStore({ dir: '/nonexistent/forbidden', fsImpl: throwingFs });
   // Must not throw even though every fs op fails.
   store.persist('uuid-z', { startTime, isolationBackend: 'screen', sessionId: 'uuid-z' });
   store.remove('uuid-z', { status: 'killed', exitCode: 137 });
+  await store.flush();
   assert(store.disabled === true, 'store disables itself when the state dir cannot be created');
-  assert(store.load().length === 0, 'a disabled store loads nothing instead of throwing');
+  assert((await store.load()).length === 0, 'a disabled store loads nothing instead of throwing');
 }
 
 // --- ignored sessionName guard ------------------------------------------------
@@ -214,7 +234,7 @@ try {
   try {
     const store = createSessionStore({ dir: tmpDir3 });
     store.persist('', { startTime, isolationBackend: 'screen', sessionId: 'x' });
-    assert(store.load().length === 0, 'persist("") is a no-op (no empty session name persisted)');
+    assert((await store.load()).length === 0, 'persist("") is a no-op (no empty session name persisted)');
     await store.flush();
   } finally {
     fs.rmSync(tmpDir3, { recursive: true, force: true });

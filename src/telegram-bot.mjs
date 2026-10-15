@@ -41,6 +41,10 @@ const BOT_TOKEN = config.token || getenv('TELEGRAM_BOT_TOKEN', '');
 const VERBOSE = config.verbose || getenv('TELEGRAM_BOT_VERBOSE', 'false') === 'true';
 const AUTO_WATCH_MESSAGE = config.autoStartScreenWatchMessage === true;
 const SHOW_LIMITS_ENABLED = config.showLimits === true;
+// Issues #3354 to #3359: the merge queue, the merged-PR sweeper and solve children follow these switches.
+const { applyIssueClosingEnvironment } = await import('./post-merge-issue-closing.lib.mjs');
+const { startMergedPullRequestSweeper, sweepScope } = await import('./merged-pr-sweeper.lib.mjs');
+applyIssueClosingEnvironment(config);
 if (!BOT_TOKEN) {
   console.error('Error: TELEGRAM_BOT_TOKEN not set. Use --token or TELEGRAM_BOT_TOKEN env var.');
   process.exit(1);
@@ -1082,6 +1086,7 @@ const launchAbortController = new AbortController();
 let sessionMonitoringTimer = null;
 let formalAiMaintenance = null;
 let routerMaintenance = null;
+let mergedPullRequestSweeper = null; // issue #3356: merges done outside Hive Mind
 let launchAnnouncementShown = false;
 
 // Issue #2823: a launched /solve task is not a completed one. Tell the queue
@@ -1153,6 +1158,7 @@ async function onBotLaunched() {
   startSessionMonitoringOnce();
   startFormalAiMaintenanceOnce();
   startRouterMaintenanceOnce();
+  if (!config.dryRun) mergedPullRequestSweeper ||= startMergedPullRequestSweeper({ scopes: [sweepScope({ author: '@me' })], logger: async message => console.log(message) });
   heartbeat.start();
   if (VERBOSE) {
     console.log('[VERBOSE] Bot launched successfully');
@@ -1248,6 +1254,7 @@ const handleShutdownSignal = createShutdownHandler({
     if (sessionMonitoringTimer) clearInterval(sessionMonitoringTimer);
     formalAiMaintenance?.stop();
     routerMaintenance?.stop();
+    mergedPullRequestSweeper?.stop();
     heartbeat.stop();
     stopSolveQueue();
   },

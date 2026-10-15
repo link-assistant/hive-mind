@@ -55,6 +55,7 @@ import { deployHandoffSkill } from './handoff-skill.lib.mjs'; // Issue #1877
 import { deployPlaywrightSkill } from './playwright-skill.lib.mjs'; // Issue #2190
 import { formatRouterAuthViolation, startRouterAuthGuard } from './router-auth-guard.lib.mjs'; // Issue #2190
 import { applyCodexCapabilityEnv, runCodexCapabilityPreflight, verifyCodexCapabilityExecutionCatalog } from './codex-capability-preflight.lib.mjs'; // Issues #2074 and #2254
+import { createCodexResumeRolloutCheck } from './codex-sessions.lib.mjs'; // Issue #2888
 import { createPullRequestBaseBranchCommandIntervention } from './solve.pr-base-command-intervention.lib.mjs';
 import Decimal from 'decimal.js-light';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
@@ -630,6 +631,8 @@ export const executeCodexCommand = async params => {
   const transientRetryBudget = createTransientRetryBudget();
   let baseBranchInterventionPrompt = null;
   let baseBranchInterventionResumeCount = 0;
+  // Issue #2888: a recovery run may resume a thread whose rollout is not here.
+  const resumeRolloutExists = createCodexResumeRolloutCheck();
   const executeWithRetry = async () => {
     // Execute codex command from the cloned repository directory
     if (retryCount === 0) {
@@ -658,7 +661,7 @@ export const executeCodexCommand = async params => {
     let execCommand;
     const mappedModel = mapModelToId(argv.model);
     const { reasoningEffort, source: reasoningEffortSource, rolloutTokenBudget } = await resolveRuntimeCodexReasoningEffort({ ...argv, model: mappedModel, codexPath }, { log });
-    const isResumeMode = !!argv.resume;
+    let isResumeMode = !!argv.resume;
     const codexEnv = applyCodexCapabilityEnv(capabilityPreflight?.codexBaseEnv || getCodexExecEnv(argv.verbose), {
       codexHome: capabilityPreflight?.codexHome,
       baseCodexHome: capabilityPreflight?.baseCodexHome,
@@ -680,6 +683,14 @@ export const executeCodexCommand = async params => {
     if (capabilityPreflight?.codexHome) {
       const verified = await verifyCapabilityExecutionCatalog({ capabilityPreflight, projectDir: tempDir, codexPath, env: codexEnv, log });
       Object.assign(capabilityPreflight, verified);
+    }
+    // Issue #2888: `codex exec resume` of a thread with no rollout in the
+    // repository-scoped CODEX_HOME fails at once (a run in a new container);
+    // start a new session on the same branch instead.
+    const scopedResumeId = isResumeMode && capabilityPreflight?.codexHome ? argv.resume : null;
+    if (!(await resumeRolloutExists({ threadId: scopedResumeId, codexHome: codexEnv.CODEX_HOME, log })) && scopedResumeId) {
+      argv.resume = null;
+      isResumeMode = false;
     }
     // For Codex, we combine system and user prompts into a single message
     // Codex doesn't have separate system prompt support in CLI mode

@@ -48,6 +48,7 @@ export { getStartCommandVersion } from './start-command-cli.lib.mjs';
 export { applyDockerContainerResourceLimits };
 import { killDockerContainer } from './docker-container-control.lib.mjs';
 export { killDockerContainer };
+export { copyFromDockerContainer } from './isolation-runner.docker-cp.lib.mjs'; // Issue #2888
 // Issue #2189: `$ --resume` / `$ --resume-all`, added in start-command 0.33.0
 // (link-foundation/start#162). Re-exported so callers keep reaching every
 // isolation verb through this module.

@@ -5,7 +5,7 @@ import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
 import { githubLimits } from './config.lib.mjs';
 import { parseRequiredClosingReferences, isRepositoryModeIssueBody } from './solve.repository-mode.lib.mjs';
 import { normalizeSubIssueEntry } from './solve.ensure-sub-issues.detect.lib.mjs';
-import { extractBranchIssueNumber, extractClosingIssueReferences, prClosesIssue, resolvePullRequestIssueNumber } from './github-linking.lib.mjs';
+import { extractBranchIssueNumber, extractClosingIssueReferences, extractOpenIssueMentions, prClosesIssue, resolvePullRequestIssueNumber } from './github-linking.lib.mjs';
 
 const execFileAsync = promisify(execFile);
 export const runLinkGh = args => ghWithRateLimitRetry(() => execFileAsync('gh', args, { maxBuffer: 20 * 1024 * 1024, timeout: githubLimits.execTimeoutMs }), { label: `issue links: gh ${args[0]}` });
@@ -32,7 +32,56 @@ export function missingIssueLinks(prBody, issues, repository) {
   return issues.filter(issue => !prClosesIssue(prBody, issue.number, issue.owner, issue.repo, { allowShortReference: issue.owner.toLowerCase() === repository.owner.toLowerCase() && issue.repo.toLowerCase() === repository.repo.toLowerCase() }));
 }
 
-export async function fetchRequiredIssueScope({ owner, repo, issueNumber, run = runLinkGh }) {
+export const isSameRepository = (issue, repository) => issue?.owner?.toLowerCase() === repository?.owner?.toLowerCase() && issue?.repo?.toLowerCase() === repository?.repo?.toLowerCase();
+
+/** The trailing "---" blocks of bare "Fixes <ref>" lines this repair appends. */
+const REPAIR_BLOCK = /(?:^|\n\n---\n\n)((?:Fixes [^\s]+[ \t]*(?:\n|$))+)$/;
+
+/** Split a description into the text before the repair blocks and their lines. */
+export function splitRepairBlock(body) {
+  let head = body;
+  const lines = [];
+  for (let match = head.match(REPAIR_BLOCK); match && match[0] !== ''; match = head.match(REPAIR_BLOCK)) {
+    lines.unshift(
+      ...match[1]
+        .split('\n')
+        .map(line => line.trim())
+        .filter(Boolean)
+    );
+    head = head.slice(0, match.index);
+  }
+  return { head, lines };
+}
+
+/**
+ * Split a required scope into the issues the description must close and the
+ * sub-issues it deliberately keeps open ("Part of #7", "#7 stays open"). The
+ * first entry, the primary issue, is always required (issue #3174).
+ */
+export function splitDescriptionScope(issues, body, repository) {
+  const open = extractOpenIssueMentions(body, repository.owner, repository.repo);
+  const closes = issue => prClosesIssue(body, issue.number, issue.owner, issue.repo, { allowShortReference: isSameRepository(issue, repository) });
+  const deferred = new Set(issues.filter((issue, index) => index > 0 && isSameRepository(issue, repository) && open.has(Number(issue.number))).map(issueKey));
+  // A sub-issue is required only through a required parent, so keeping an
+  // umbrella's child open also keeps that child's own sub-issues open.
+  for (let changed = true; changed;) {
+    changed = false;
+    for (const issue of issues.slice(1)) {
+      if (deferred.has(issueKey(issue)) || !issue.parents?.length || !issue.parents.every(parent => deferred.has(parent)) || closes(issue)) continue;
+      deferred.add(issueKey(issue));
+      changed = true;
+    }
+  }
+  return { required: issues.filter(issue => !deferred.has(issueKey(issue))), deferred: issues.filter(issue => deferred.has(issueKey(issue))) };
+}
+
+/**
+ * The issue and its sub-issue tree in the same repository. A pull request can
+ * only fix code in its own repository, so sub-issues in other repositories are
+ * collected in `foreign` and never required: merging #3225 closed eleven
+ * formal-ai issues that nothing had fixed (issue #3276).
+ */
+export async function fetchRequiredIssueScope({ owner, repo, issueNumber, run = runLinkGh, foreign = [] }) {
   const required = [{ owner, repo, number: Number(issueNumber) }];
   // Walk the complete hierarchy iteratively, deduplicating cycles and shared
   // references. Body-only issues retain their scope even if attachment failed.
@@ -48,7 +97,13 @@ export async function fetchRequiredIssueScope({ owner, repo, issueNumber, run = 
     for (const raw of [...subIssues, ...requiredNumbers.map(number => ({ number }))]) {
       const entry = normalizeSubIssueEntry(raw, { owner: parent.owner, repo: parent.repo });
       if (!entry) throw new Error('Invalid required sub-issue');
-      if (!required.some(existing => issueKey(existing) === issueKey(entry))) required.push(entry);
+      if (!isSameRepository(entry, { owner, repo })) {
+        if (!foreign.some(existing => issueKey(existing) === issueKey(entry))) foreign.push(entry);
+        continue;
+      }
+      const existing = required.find(issue => issueKey(issue) === issueKey(entry));
+      if (!existing) required.push({ ...entry, parents: [issueKey(parent)] });
+      else if (existing.parents && !existing.parents.includes(issueKey(parent))) existing.parents.push(issueKey(parent));
     }
   }
   return required;
@@ -98,6 +153,14 @@ export function buildIssueLinkBlocker(details, reason) {
   return { reason, message: 'Required issue links have not been verified for this pull request.', details, resolution: 'Add a positive closing reference (for example "Fixes #123") to the pull request description for every required issue, then re-run the command.' };
 }
 
+function buildForeignClosingBlocker(details) {
+  return { reason: 'cross_repository_closing_references', message: 'Merging would close issues in another repository, which a pull request here cannot fix.', details, resolution: 'Remove the closing keywords (and any sidebar links) for these issues from the pull request; mention them without a keyword instead, for example "Part of other/project#7".' };
+}
+
+function buildUnintendedClosingBlocker(details) {
+  return { reason: 'unintended_closing_references', message: 'GitHub would close issues that the pull request description keeps open.', details, resolution: 'Remove the closing keyword for these issues: GitHub closes "does not close #7" too. Write "#7 stays open" without a keyword, or remove the sidebar link, then re-run the command.' };
+}
+
 const CLOSING_QUERY = 'query($owner:String!,$repo:String!,$number:Int!,$endCursor:String) { repository(owner:$owner,name:$repo) { pullRequest(number:$number) { closingIssuesReferences(first:100,after:$endCursor) { nodes { number repository { nameWithOwner } } pageInfo { hasNextPage endCursor } } } } }';
 
 /**
@@ -107,7 +170,15 @@ const CLOSING_QUERY = 'query($owner:String!,$repo:String!,$number:Int!,$endCurso
 export async function checkIssueLinksBeforeMerge({ owner, repo, prNumber, issueNumber = null, run = runLinkGh, logger = async () => {}, verbose = false }) {
   try {
     const snapshot = await fetchPullRequestIssueScope({ owner, repo, prNumber, issueNumber, run });
-    const { pr, issues } = snapshot;
+    const { pr } = snapshot;
+    // Issue #3276: never close an issue in another repository by merging here.
+    const foreign = snapshot.issues.filter(issue => !isSameRepository(issue, { owner, repo }));
+    if (foreign.length) return { blocker: buildForeignClosingBlocker(foreign.map(issueKey)), snapshot };
+    // Issue #3174: sub-issues the description keeps open are not required, and are not closed after a non-default-branch merge.
+    // Only the agent's text decides that: "Fixes" lines an older repair appended do not override it.
+    const { head } = splitRepairBlock(pr.body || '');
+    const { required: issues } = splitDescriptionScope(snapshot.issues, head, { owner, repo });
+    snapshot.issues = issues;
     if (!issues.length) return { blocker: null, snapshot };
     const missing = missingIssueLinks(pr.body, issues, { owner, repo });
     if (missing.length) return { blocker: { ...buildIssueLinkBlocker(missing.map(issueKey), 'missing_closing_references'), message: 'The pull request description is missing required issue-closing references.' }, snapshot };
@@ -123,6 +194,14 @@ export async function checkIssueLinksBeforeMerge({ owner, repo, prNumber, issueN
       });
       const unlinked = issues.filter(issue => !linked.includes(issueKey(issue)));
       if (unlinked.length) return { blocker: buildIssueLinkBlocker(unlinked.map(issueKey), 'unverified_issue_links'), snapshot };
+      // GitHub, not the description, decides what the merge closes: a negated
+      // keyword ("does not close #7") or a sidebar link still closes the issue.
+      const slug = `${owner}/${repo}`.toLowerCase();
+      const foreignLinked = linked.filter(key => !key.startsWith(`${slug}#`));
+      if (foreignLinked.length) return { blocker: buildForeignClosingBlocker(foreignLinked), snapshot };
+      const open = extractOpenIssueMentions(head, owner, repo);
+      const unintended = linked.filter(key => open.has(Number(key.slice(slug.length + 1))) && !issues.some(issue => issueKey(issue) === key));
+      if (unintended.length) return { blocker: buildUnintendedClosingBlocker(unintended), snapshot };
     }
     if (verbose) await logger(`Issue links verified for ${issues.length} issue(s) on PR #${prNumber}`, { verbose: true });
     return { blocker: null, snapshot };

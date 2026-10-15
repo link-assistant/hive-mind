@@ -41,8 +41,8 @@ export async function fetchRequirementsSnapshot({ owner, repo, prNumber, issueNu
  * for the same head commit. `headSha` pins the merge with --match-head-commit;
  * `snapshot` is the link snapshot, passed on unchanged for post-merge closing.
  */
-export async function checkIssueCompletionBeforeMerge({ owner, repo, prNumber, issueNumber = null, run = runLinkGh, logger = async () => {}, verbose = false }) {
-  const links = await checkIssueLinksBeforeMerge({ owner, repo, prNumber, issueNumber, run, logger, verbose });
+export async function checkIssueCompletionBeforeMerge({ owner, repo, prNumber, issueNumber = null, run = runLinkGh, logger = async () => {}, verbose = false, allowCrossRepositoryClosing = true }) {
+  const links = await checkIssueLinksBeforeMerge({ owner, repo, prNumber, issueNumber, run, logger, verbose, allowCrossRepositoryClosing });
   const headSha = links.snapshot?.headSha ?? null;
   if (links.blocker || !links.snapshot?.issues?.length) return { ...links, headSha };
   try {

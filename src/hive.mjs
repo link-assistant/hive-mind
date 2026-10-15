@@ -456,6 +456,10 @@ if (isRunningDirectly) {
     } else {
       scope = 'repository';
     }
+    // Issue #3356: every 5 minutes, close what merges done outside Hive Mind (GitHub UI, auto-merge) left open.
+    (await import('./post-merge-issue-closing.lib.mjs')).applyIssueClosingEnvironment(argv);
+    const { startMergedPullRequestSweeper, sweepScope } = await import('./merged-pr-sweeper.lib.mjs');
+    if (!argv.dryRun && owner) startMergedPullRequestSweeper({ scopes: [sweepScope({ owner, repo })], logger: log });
     await log('🎯 Monitoring Configuration:');
     if (argv.youtrackMode) {
       await log(`   📍 Source: YouTrack - ${youTrackConfig.url}`);

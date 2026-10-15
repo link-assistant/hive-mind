@@ -451,63 +451,47 @@ export const validateCodexConnection = async (model = defaultModels.codex, verbo
   const { reasoningEffort, rolloutTokenBudget } = await resolveRuntimeCodexReasoningEffort({ model: mappedModel, codexPath: 'codex' }, { log });
   const reasoningArgs = reasoningEffort ? ['-c', `model_reasoning_effort=${reasoningEffort}`] : [];
   if (rolloutTokenBudget) reasoningArgs.push('-c', `rollout_token_budget=${rolloutTokenBudget}`);
-  // Retry configuration
-  const maxRetries = 3;
-  let retryCount = 0;
-
-  const attemptValidation = async () => {
+  try {
+    await log('🔍 Validating Codex CLI connection...');
+    // Check if Codex CLI is installed and get version
     try {
-      if (retryCount === 0) {
-        await log('🔍 Validating Codex CLI connection...');
-      } else {
-        await log(`🔄 Retry attempt ${retryCount}/${maxRetries} for Codex validation...`);
+      const versionResult = await $`timeout ${Math.floor(timeouts.codexCli / 1000)} codex --version`;
+      if (versionResult.code === 0) {
+        const version = versionResult.stdout?.toString().trim();
+        await log(`📦 Codex CLI version: ${version}`);
       }
-      // Check if Codex CLI is installed and get version
-      try {
-        const versionResult = await $`timeout ${Math.floor(timeouts.codexCli / 1000)} codex --version`;
-        if (versionResult.code === 0) {
-          const version = versionResult.stdout?.toString().trim();
-          if (retryCount === 0) {
-            await log(`📦 Codex CLI version: ${version}`);
-          }
-        }
-      } catch (versionError) {
-        if (retryCount === 0) {
-          await log(`⚠️  Codex CLI version check failed (${versionError.code}), proceeding with connection test...`);
-        }
+    } catch (versionError) {
+      await log(`⚠️  Codex CLI version check failed (${versionError.code}), proceeding with connection test...`);
+    }
+    // Test basic Codex functionality with a simple "echo hi" command
+    // Using exec mode with JSON output for validation
+    const testResult = await $({ env: getCodexExecEnv(verbose) })`printf "echo hi" | timeout ${Math.floor(timeouts.codexCli / 1000)} codex exec --model ${mappedModel} --json --skip-git-repo-check ${reasoningArgs} --dangerously-bypass-approvals-and-sandbox`;
+    if (testResult.code !== 0) {
+      const stderr = testResult.stderr?.toString() || '';
+      const stdout = testResult.stdout?.toString() || '';
+      // Check for authentication errors in both stderr and stdout
+      // Codex CLI may return auth errors in JSON format on stdout
+      if (stderr.includes('auth') || stderr.includes('login') || stdout.includes('Not logged in') || stdout.includes('401 Unauthorized')) {
+        const authError = new Error('Codex authentication failed - 401 Unauthorized');
+        authError.isAuthError = true;
+        await log('❌ Codex authentication failed', { level: 'error' });
+        for (const line of buildAuthRemedyLines({ model, vendorRemedy: 'Please run: codex login' })) await log(line, { level: 'error' });
+        throw authError;
       }
-      // Test basic Codex functionality with a simple "echo hi" command
-      // Using exec mode with JSON output for validation
-      const testResult = await $({ env: getCodexExecEnv(verbose) })`printf "echo hi" | timeout ${Math.floor(timeouts.codexCli / 1000)} codex exec --model ${mappedModel} --json --skip-git-repo-check ${reasoningArgs} --dangerously-bypass-approvals-and-sandbox`;
-      if (testResult.code !== 0) {
-        const stderr = testResult.stderr?.toString() || '';
-        const stdout = testResult.stdout?.toString() || '';
-        // Check for authentication errors in both stderr and stdout
-        // Codex CLI may return auth errors in JSON format on stdout
-        if (stderr.includes('auth') || stderr.includes('login') || stdout.includes('Not logged in') || stdout.includes('401 Unauthorized')) {
-          const authError = new Error('Codex authentication failed - 401 Unauthorized');
-          authError.isAuthError = true;
-          await log('❌ Codex authentication failed', { level: 'error' });
-          for (const line of buildAuthRemedyLines({ model, vendorRemedy: 'Please run: codex login' })) await log(line, { level: 'error' });
-          throw authError;
-        }
 
-        await log(`❌ Codex validation failed with exit code ${testResult.code}`, { level: 'error' });
-        if (stderr) await log(`   Error: ${stderr.trim()}`, { level: 'error' });
-        if (stdout && !stderr) await log(`   Output: ${stdout.trim()}`, { level: 'error' });
-        return false;
-      }
-      // Success
-      await log('✅ Codex CLI connection validated successfully');
-      return true;
-    } catch (error) {
-      await log(`❌ Failed to validate Codex CLI connection: ${error.message}`, { level: 'error' });
-      await log('   💡 Make sure Codex CLI is installed and accessible', { level: 'error' });
+      await log(`❌ Codex validation failed with exit code ${testResult.code}`, { level: 'error' });
+      if (stderr) await log(`   Error: ${stderr.trim()}`, { level: 'error' });
+      if (stdout && !stderr) await log(`   Output: ${stdout.trim()}`, { level: 'error' });
       return false;
     }
-  };
-  // Start the validation
-  return await attemptValidation();
+    // Success
+    await log('✅ Codex CLI connection validated successfully');
+    return true;
+  } catch (error) {
+    await log(`❌ Failed to validate Codex CLI connection: ${error.message}`, { level: 'error' });
+    await log('   💡 Make sure Codex CLI is installed and accessible', { level: 'error' });
+    return false;
+  }
 };
 // Function to handle Codex runtime switching (if applicable)
 export const handleCodexRuntimeSwitch = async () => {

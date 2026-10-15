@@ -10,7 +10,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { evaluateClosingReferencesGate } from '../src/solve.ensure-sub-issues.detect.lib.mjs';
-import { checkIssueLinksBeforeMerge, closeLinkedIssuesAfterMerge, fetchPullRequestIssueScope, fetchRequiredIssueScope, ghJson, issueKey } from '../src/issue-link-verification.lib.mjs';
+import { checkIssueLinksBeforeMerge, fetchPullRequestIssueScope, fetchRequiredIssueScope, ghJson, issueKey } from '../src/issue-link-verification.lib.mjs';
 import { repairRequiredIssueLinks } from '../src/pr-issue-link-repair.lib.mjs';
 import { prepareRepositoryModeIssue } from '../src/solve.repository-mode.run.lib.mjs';
 import { parseRequiredClosingReferences, REPOSITORY_MODE_MARKER, REQUIRED_CLOSING_REFERENCES_HEADING } from '../src/solve.repository-mode.lib.mjs';
@@ -18,6 +18,7 @@ import { resolvePrimaryIssueNumber } from '../src/github-linking.lib.mjs';
 import { MergeQueueProcessor } from '../src/telegram-merge-queue.lib.mjs';
 import { fetchRequirementSources } from '../src/issue-completion.lib.mjs';
 import { createRequirementsReportTemplate, formatRequirementsReport } from '../src/issue-requirements.lib.mjs';
+import { closeIntendedIssuesAfterMerge } from '../src/post-merge-issue-closing.lib.mjs';
 
 const headSha = 'a'.repeat(40);
 const repository = { owner: 'link-assistant', repo: 'agent' };
@@ -279,28 +280,34 @@ test('non-default branch merges close every linked local and foreign issue, and 
     { owner: 'other', repo: 'project', number: 7 },
     { ...repository, number: 8 },
   ];
-  const snapshot = { issues, headSha, defaultBranch: 'main', pr: { base: { ref: 'stack' }, html_url: 'https://github.com/link-assistant/agent/pull/326' } };
+  const url = 'https://github.com/link-assistant/agent/pull/326';
+  const snapshot = { issues, headSha, defaultBranch: 'main', repository, pr: { number: 326, body: 'Fixes #322\nFixes other/project#7\nFixes #8', base: { ref: 'stack' }, html_url: url } };
+  const merged = { merged: true, merge_commit_sha: 'b'.repeat(40), base: { ref: 'stack' }, html_url: url };
   const calls = [];
-  const run = async args => {
-    calls.push(args);
-    if (args[0] === 'api') return json({ state: args[1].endsWith('/8') ? 'closed' : 'open' });
-    assert.equal(args[0], 'issue');
-    assert.equal(args[1], 'close');
-    return json({});
-  };
-  assert.deepEqual(await closeLinkedIssuesAfterMerge(snapshot, { run }), []);
+  const states =
+    (closing = () => json({})) =>
+    async args => {
+      calls.push(args);
+      if (args[0] === 'api' && args[1].endsWith('/pulls/326')) return json(merged);
+      if (args[0] === 'api') return json({ state: args[1].endsWith('/8') ? 'closed' : 'open' });
+      assert.deepEqual(args.slice(0, 2), ['issue', 'close']);
+      return closing(args);
+    };
+  const options = { sleep: async () => {}, closeParents: false };
+  const result = await closeIntendedIssuesAfterMerge(snapshot, { ...options, run: states() });
+  assert.deepEqual(result.failed, []);
+  assert.deepEqual(result.alreadyClosed, ['link-assistant/agent#8']);
   assert.deepEqual(
     calls.filter(args => args[0] === 'issue').map(args => args[args.indexOf('--repo') + 1]),
     ['link-assistant/agent', 'other/project']
   );
   const errors = [];
-  assert.equal((await closeLinkedIssuesAfterMerge(snapshot, { run: async () => json({ state: 'unknown' }), logger: async message => errors.push(message) })).length, 3);
+  assert.equal((await closeIntendedIssuesAfterMerge(snapshot, { ...options, run: async args => json(args[1].endsWith('/pulls/326') ? merged : { state: 'unknown' }), logger: async message => errors.push(message) })).failed.length, 3);
   assert.equal(errors.length, 3);
-  assert.equal((await closeLinkedIssuesAfterMerge(snapshot, { run: async args => (args[0] === 'api' ? json({ state: 'open' }) : { code: 1, stderr: 'forbidden' }) })).length, 3);
-  assert.equal((await closeLinkedIssuesAfterMerge(snapshot, { run: async args => (args[0] === 'api' ? json({ state: 'open' }) : { code: 1, stderr: '' }) })).length, 3);
-  assert.deepEqual(await closeLinkedIssuesAfterMerge(snapshot, { run: async args => (args[0] === 'api' ? json({ state: 'open' }) : { stdout: '' }) }), []);
-  assert.deepEqual(await closeLinkedIssuesAfterMerge({ ...snapshot, pr: { base: { ref: 'main' } } }, { run }), []);
-  assert.deepEqual(await closeLinkedIssuesAfterMerge(null, { run }), []);
+  assert.equal((await closeIntendedIssuesAfterMerge(snapshot, { ...options, run: states(() => ({ code: 1, stderr: 'forbidden' })) })).failed.length, 2);
+  assert.equal((await closeIntendedIssuesAfterMerge(snapshot, { ...options, run: states(() => ({ code: 1, stderr: '' })) })).failed.length, 2);
+  assert.deepEqual((await closeIntendedIssuesAfterMerge(snapshot, { ...options, run: states(() => ({ stdout: '' })) })).failed, []);
+  assert.deepEqual((await closeIntendedIssuesAfterMerge(null, { run: states() })).closed, []);
 });
 
 test('deleted references recover the primary issue from the branch, never the PR number', () => {

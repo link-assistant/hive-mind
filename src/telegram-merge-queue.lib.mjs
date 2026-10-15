@@ -16,7 +16,8 @@
  *
  * @see https://github.com/link-assistant/hive-mind/issues/1143
  */
-import { getAllReadyPRs, checkPRCIStatus, checkPRMergeable, mergePullRequest, waitForCI, ensureReadyLabel, waitForBranchCI, getDefaultBranch, waitForCommitCI, checkBranchCIHealth, getMergeCommitSha, getPRStatus, syncReadyTags, closeLinkedIssueIfNotAutoClosed } from './github-merge.lib.mjs';
+import { getAllReadyPRs, checkPRCIStatus, checkPRMergeable, mergePullRequest, waitForCI, ensureReadyLabel, waitForBranchCI, getDefaultBranch, waitForCommitCI, checkBranchCIHealth, getMergeCommitSha, getPRStatus, syncReadyTags } from './github-merge.lib.mjs';
+import { formatIssueClosingReport, summarizeIssueClosing } from './post-merge-issue-closing.lib.mjs';
 import { resolveMergeTargetItems } from './github-merge-targets.lib.mjs';
 import { waitForPRReady as waitForPRReadyHelper } from './telegram-merge-wait.lib.mjs';
 import { ensureTargetBranchReady as ensureTargetBranchReadyHelper } from './telegram-merge-branch-gate.lib.mjs';
@@ -199,7 +200,6 @@ export class MergeQueueProcessor {
     this.checkPRCIStatus = typeof options.checkPRCIStatus === 'function' ? options.checkPRCIStatus : checkPRCIStatus;
     this.waitForCI = typeof options.waitForCI === 'function' ? options.waitForCI : waitForCI;
     this.mergePullRequest = typeof options.mergePullRequest === 'function' ? options.mergePullRequest : mergePullRequest;
-    this.closeLinkedIssueIfNotAutoClosed = typeof options.closeLinkedIssueIfNotAutoClosed === 'function' ? options.closeLinkedIssueIfNotAutoClosed : closeLinkedIssueIfNotAutoClosed;
     this.resolveMergeTargetItems = typeof options.resolveMergeTargetItems === 'function' ? options.resolveMergeTargetItems : resolveMergeTargetItems;
     this.ensureReadyLabel = typeof options.ensureReadyLabel === 'function' ? options.ensureReadyLabel : ensureReadyLabel;
     this.syncReadyTags = typeof options.syncReadyTags === 'function' ? options.syncReadyTags : syncReadyTags;
@@ -560,16 +560,9 @@ export class MergeQueueProcessor {
       item.completedAt = new Date();
       this.stats.merged++;
       this.log(`Successfully merged PR #${item.pr.number}`);
-      // Issue #1895: GitHub does not auto-close linked issues for PRs merged into
-      // a non-default branch. Close the linked issue explicitly in that case.
-      try {
-        const closeResult = await this.closeLinkedIssueIfNotAutoClosed(this.owner, this.repo, item.pr.number, this.verbose);
-        if (closeResult.closed) {
-          this.log(`Closed linked issue #${closeResult.issueNumber} for PR #${item.pr.number} (merged into non-default branch)`);
-        }
-      } catch (closeError) {
-        this.log(`Could not close linked issue for PR #${item.pr.number}: ${closeError.message}`);
-      }
+      // Issues #1895/#3355: mergePullRequest closed (or reported) the intended issues GitHub left open.
+      item.issueClosing = mergeResult.issueClosing || null;
+      for (const line of formatIssueClosingReport(item.issueClosing)) this.log(`PR #${item.pr.number}: ${line}`);
       // Issue #1341: Get the merge commit SHA for post-merge CI tracking
       // Need a small delay to allow GitHub to update the PR state
       await this.sleep(5000);
@@ -1038,6 +1031,7 @@ export class MergeQueueProcessor {
         emoji: item.getStatusEmoji(),
         autoResolveSession: item.autoResolveSession || null,
         autoResolveError: item.autoResolveError || null,
+        issueClosing: summarizeIssueClosing(item.issueClosing),
       })),
     };
   }
@@ -1250,6 +1244,7 @@ export class MergeQueueProcessor {
           reasonText = `: ${this.escapeMarkdown(truncatedReason)}`;
         }
         message += `${item.emoji} ${prLink}${issueRef}${reasonText}\n`;
+        if (item.issueClosing) message += `   ${this.escapeMarkdown(item.issueClosing)}\n`;
       }
     }
     return message;

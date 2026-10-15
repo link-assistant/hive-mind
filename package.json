@@ -15,7 +15,8 @@
     "start-screen": "./src/start-screen.mjs",
     "hive-screens": "./src/hive-screens.mjs",
     "hive-models": "./src/hive-models.mjs",
-    "hive-telegram-bot": "./src/telegram-bot.mjs"
+    "hive-telegram-bot": "./src/telegram-bot.mjs",
+    "close-linked-issues": "./src/close-linked-issues.mjs"
   },
   "scripts": {
     "test": "node scripts/run-tests.mjs --suite default",
@@ -31,7 +32,7 @@
     "changeset": "changeset",
     "changeset:version": "changeset version",
     "changeset:publish": "npm run build:pre && changeset publish",
-    "build:pre": "chmod +x src/hive.mjs && chmod +x src/solve.mjs && chmod +x src/task.mjs && chmod +x src/fix.mjs && chmod +x src/cleanup.mjs && chmod +x src/review.mjs && chmod +x src/configure-claude.mjs && chmod +x src/start-screen.mjs && chmod +x src/hive-screens.mjs && chmod +x src/hive-models.mjs && chmod +x src/telegram-bot.mjs",
+    "build:pre": "chmod +x src/hive.mjs && chmod +x src/solve.mjs && chmod +x src/task.mjs && chmod +x src/fix.mjs && chmod +x src/cleanup.mjs && chmod +x src/review.mjs && chmod +x src/configure-claude.mjs && chmod +x src/start-screen.mjs && chmod +x src/hive-screens.mjs && chmod +x src/hive-models.mjs && chmod +x src/telegram-bot.mjs && chmod +x src/close-linked-issues.mjs",
     "prepare": "husky"
   },
   "repository": {

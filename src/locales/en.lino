@@ -695,6 +695,8 @@ en
         hive_incomplete "Hive session ended with issues still waiting; check the log for blockers"
         no_changes "Work session finished without changes; see the pull request comment for the reason"
         failed "Work session failed (exit code: {{exitCode}})"
+        command_not_found "command not found (the program the session was asked to run does not exist)"
+        command_not_executable "command not executable (the program the session was asked to run cannot be executed)"
         merged_but_failed "Pull request merged, but the work session exited with code: {{exitCode}}"
         merged_success "The requested pull request was merged successfully."
         runner_also_failed "The runner also failed; its exit code is preserved for investigation."

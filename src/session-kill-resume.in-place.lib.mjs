@@ -50,6 +50,7 @@ import { isFormalAiTask } from './formal-ai-sidecar.lib.mjs';
 import { hasUseRouterFlag } from './router-isolation.lib.mjs';
 import { RESUME_MODES } from './isolation-runner.resume.lib.mjs';
 import { buildShellCommand } from './shell-command.lib.mjs';
+import { runGuardedSnapshotResume } from './kill-recovery-snapshot-guard.lib.mjs';
 
 /** Why a killed session cannot be re-entered in place. Reported, never thrown. */
 export const IN_PLACE_SKIP_REASONS = Object.freeze({
@@ -64,6 +65,7 @@ export const IN_PLACE_SKIP_REASONS = Object.freeze({
   UNSUPPORTED: 'resume-unsupported',
   REFUSED: 'resume-refused',
   STARTUP_FAILED: 'resume-startup-failed',
+  INSUFFICIENT_DISK: 'insufficient-disk',
   ERROR: 'resume-error',
 });
 
@@ -166,10 +168,12 @@ export function planSameContainerResume({ sessionName = null, sessionInfo = {}, 
  * @param {Object} options.sessionInfo - Persisted session info
  * @param {Object} options.plan - Result of planKillRecovery() (needs `command.binary` and `command.args`)
  * @param {Object} options.runner - Isolation runner module
+ * @param {Function} [options.notify] - Recovery lifecycle reporter (`{phase, attempt, reason}`)
+ * @param {Object} [options.snapshotGuard] - Test seams for the #2889 guard (`queue`, `sleep`, `now`, `waitMs`, `pollMs`)
  * @param {boolean} [options.verbose]
  * @returns {Promise<{resumed: boolean, reason: string, sessionId: string|null, executionUuid: string|null, mode: string|null, snapshotImage: string|null, containerFilesystemInheritedBytes: number|null, resourceLimitReapplyError: string|null}>}
  */
-export async function resumeKilledSessionInPlace({ sessionName, sessionInfo, plan, runner, verbose = false } = {}) {
+export async function resumeKilledSessionInPlace({ sessionName, sessionInfo, plan, runner, notify = async () => {}, snapshotGuard = {}, verbose = false } = {}) {
   const limited = hasSessionContainerResourceLimits(sessionInfo);
   let startCommandVersion = null;
   if (limited && typeof runner?.getStartCommandVersion === 'function') {
@@ -199,7 +203,12 @@ export async function resumeKilledSessionInPlace({ sessionName, sessionInfo, pla
   // Match the launch path's exec form and quote each argv element. A display
   // string may contain Telegram syntax or shell substitutions (#2630).
   const command = plan?.command ? `exec ${buildShellCommand(plan.command.binary || sessionInfo?.command || 'solve', plan.command.args)}` : null;
-  const result = await runner.resumeIsolatedSession(decision.identifier, { command, verbose });
+  // Issue #2889: a replacement command makes `$ --resume` commit the whole
+  // writable layer. Several commits after one host-wide kill filled the disk,
+  // so snapshots run one at a time and only with enough free disk.
+  const guarded = command ? await runGuardedSnapshotResume({ sessionName, sessionInfo, containerName: decision.containerName, runner, notify, attempt: plan?.attempt ?? null, verbose, ...snapshotGuard }, () => runner.resumeIsolatedSession(decision.identifier, { command, verbose })) : { skipped: false, result: await runner.resumeIsolatedSession(decision.identifier, { command, verbose }) };
+  if (guarded.skipped) return { ...miss(IN_PLACE_SKIP_REASONS.INSUFFICIENT_DISK), error: guarded.detail };
+  const result = guarded.result;
   if (!result?.success) {
     const reason = result?.unsupported ? IN_PLACE_SKIP_REASONS.UNSUPPORTED : IN_PLACE_SKIP_REASONS.REFUSED;
     if (verbose) console.log(`[VERBOSE] In-place resume of ${sessionName} was not possible (${reason}): ${result?.error || 'no reason given'}`);

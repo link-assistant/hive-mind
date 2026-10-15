@@ -695,6 +695,8 @@ hi
         hive_incomplete "Hive सत्र समाप्त हुआ लेकिन समस्याएँ अभी प्रतीक्षा में हैं; अवरोधों के लिए लॉग देखें"
         no_changes "कार्य सत्र बिना किसी बदलाव के समाप्त हुआ; कारण pull request टिप्पणी में देखें"
         failed "कार्य सत्र विफल हुआ (exit code: {{exitCode}})"
+        command_not_found "command not found (सत्र को जो प्रोग्राम चलाना था, वह मौजूद नहीं है)"
+        command_not_executable "command not executable (सत्र को जो प्रोग्राम चलाना था, उसे चलाया नहीं जा सकता)"
         merged_but_failed "पुल अनुरोध मर्ज हो गया, लेकिन कार्य सत्र कोड {{exitCode}} के साथ समाप्त हुआ"
         merged_success "अनुरोधित पुल अनुरोध सफलतापूर्वक मर्ज हो गया।"
         runner_also_failed "रनर भी विफल हुआ; जाँच के लिए उसका exit code सुरक्षित रखा गया है।"

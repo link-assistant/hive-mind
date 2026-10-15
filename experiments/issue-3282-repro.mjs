@@ -33,6 +33,8 @@ const run = async args => {
   }
   if (target === 'graphql') {
     const query = args.find(arg => arg.startsWith('query='));
+    // No earlier revision of the description (issue #3174 reads the history).
+    if (query.includes('userContentEdits')) return ok([{ data: { repository: { pullRequest: { userContentEdits: { nodes: [] } } } } }]);
     const repository = {};
     for (const [, number] of query.matchAll(/\bi(\d+): issue/g)) repository[`i${number}`] = { closedByPullRequestsReferences: { nodes: [] }, timelineItems: { nodes: (otherPullRequests[number] || []).map(source => ({ source })) } };
     return ok({ data: { repository } });

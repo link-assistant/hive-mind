@@ -8,6 +8,7 @@ import { test } from 'node:test';
 import * as changes from '../src/pull-request-changes.lib.mjs';
 import { ensureIssueLinkInPullRequestBody } from '../src/pr-issue-linking.lib.mjs';
 import { repairRequiredIssueLinks } from '../src/pr-issue-link-repair.lib.mjs';
+import { preserveRequirementsReport } from '../src/issue-requirements.lib.mjs';
 import { createProgressMonitor, normalizeDisplayMode } from '../src/solve.progress-monitoring.lib.mjs';
 
 const read = file => readFileSync(new URL(`../src/${file}`, import.meta.url), 'utf8');
@@ -49,6 +50,7 @@ async function complete(body, restart = false, argv = {}) {
   const block = source.slice(start, end).replace(/await import\('\.\/[^']+'\)/g, 'deps');
   const deps = {
     ...changeBindings,
+    preserveRequirementsReport,
     repairRequiredIssueLinks: f.repair,
     ensurePullRequestIsReady: async options => f.ready.push(options),
     ensurePullRequestStaysDraftAfterFailure: async () => {},

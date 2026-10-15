@@ -148,6 +148,7 @@ export async function buildKillCompletionSections({ sessionName, sessionInfo, st
       // and why its reported exit 0 was not trusted.
       observedDisk: describeObservedHostDisk(sessionInfo),
       unobservedExit: statusResult?.unobservedExit ?? null,
+      statusQueryFailure: statusResult?.statusQueryFailure ?? null,
     });
 
     const argv = argvFromSessionArgs(sessionInfo?.args);

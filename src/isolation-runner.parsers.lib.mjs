@@ -239,6 +239,24 @@ export function isUnknownDockerExitCode(exitCode) {
 export function shouldFallbackToScreenStatus(statusResult) {
   return !statusResult?.exists || !statusResult?.status;
 }
+/** What start-command prints when it simply has no record of the execution. */
+const STATUS_RECORD_MISSING_PATTERN = /No execution found/i;
+/**
+ * Issue #2303: tell a failed `$ --status` query (non-zero exit for any other
+ * reason: a locked or corrupt store, a crash) apart from a missing record, so
+ * the monitor can keep the session tracked instead of declaring it finished.
+ *
+ * @param {Object} statusResult - Parsed status record
+ * @param {{code?: number, stderr?: string}} [commandResult]
+ * @returns {Object} The record, with `queryError` when the query itself failed
+ */
+export function withStatusQueryError(statusResult, { code = 0, stderr = '' } = {}) {
+  const exitCode = Number(code);
+  if (statusResult?.exists || !Number.isFinite(exitCode) || exitCode === 0) return statusResult;
+  const message = String(stderr || '').trim();
+  if (STATUS_RECORD_MISSING_PATTERN.test(message)) return statusResult;
+  return { ...statusResult, queryError: message.split('\n')[0].slice(0, 300) || `$ --status exited with code ${exitCode}` };
+}
 /**
  * Parse the footer start-command appends to every execution log when the wrapped
  * command exits. The footer is authoritative about the terminal exit code even

@@ -943,6 +943,8 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
           type: 'ci_failure',
           message: 'CI/CD checks are failing',
           details: actionableFailedChecks.map(c => c.name),
+          // Issue #2293: run URLs, so a restart comment can link the failing job
+          checks: actionableFailedChecks.map(c => ({ name: c.name, conclusion: c.conclusion || null, html_url: c.html_url || null })),
         });
       }
     }

@@ -839,7 +839,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
         status: resolvedStatus,
         env: options.env || process.env,
         verbose,
-        containerRemoved: Boolean(statusResult?.unobservedExit),
+        containerRemoved: Boolean(statusResult?.unobservedExit || statusResult?.containerRemoved),
       });
       // Issue #1688/#1905: Resolve the created PR from GitHub or, when its
       // linked-issue API lags, from the completed solve log.

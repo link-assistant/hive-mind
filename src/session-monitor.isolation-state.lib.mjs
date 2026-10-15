@@ -3,15 +3,21 @@ import { scopeRecoveryFooter } from './session-recovery-footer.lib.mjs';
 import { classifyExitStatus, normalizeExitCode } from './session-status.lib.mjs';
 import { isDockerIsolation, resolveOomKilledState, resolveStaleExecutingState } from './session-monitor.stale-executing.lib.mjs';
 import { clearUnverifiedDockerTerminalMarker, shouldDeferUnverifiedDockerTerminal } from './session-monitor.docker-terminal.lib.mjs';
+import { clearStatusQueryErrors, getStatusQueryError, resolveStatusQueryFailure } from './session-monitor.status-query.lib.mjs';
 
 export async function getIsolationSessionState(sessionName, sessionInfo, options = {}) {
   const { verbose = false, statusProvider = null, exitFromLog: providedExitFromLog = null, backendAlive = null, sessionRunning = null } = options;
   const sessionId = sessionInfo.sessionId || sessionName;
+  const persistSnapshot = options.persistSnapshot || (() => {});
+  let runner = null;
   try {
-    const runner = options.runnerProvider ? await options.runnerProvider() : await import('./isolation-runner.lib.mjs');
-    const persistSnapshot = options.persistSnapshot || (() => {});
+    runner = options.runnerProvider ? await options.runnerProvider() : await import('./isolation-runner.lib.mjs');
     const exitFromLog = scopeRecoveryFooter(providedExitFromLog || runner.readSessionExitFromLog, sessionInfo);
     const statusResult = statusProvider ? await statusProvider(sessionId, sessionInfo) : await runner.querySessionStatus(sessionId, verbose);
+    // Issue #2303: a failed query is no outcome — keep tracking, then ask the backend itself.
+    const queryError = getStatusQueryError(statusResult);
+    if (queryError) return await resolveStatusQueryFailure(sessionName, sessionInfo, queryError, { runner, statusResult, exitFromLog, backendAlive, persistSnapshot, verbose });
+    clearStatusQueryErrors(sessionInfo, persistSnapshot);
     if (statusResult?.exists && statusResult.status) {
       if (statusResult.oomKilled === true || statusResult.cgroupMemory?.oomKills > 0) {
         // Issue #2134: `oomKilled` is a *container* flag — the kernel sets it when any process in the cgroup is OOM-killed — so it is verified against the log footer and container liveness before a kill is announced.
@@ -126,9 +132,15 @@ export async function getIsolationSessionState(sessionName, sessionInfo, options
       statusResult,
     };
   } catch (error) {
+    const message = error?.message || String(error);
     if (verbose) {
-      console.error(`[VERBOSE] Error refreshing isolated session ${sessionId}: ${error.message}`);
+      console.error(`[VERBOSE] Error refreshing isolated session ${sessionId}: ${message}`);
     }
-    return { running: false, exitCode: null, status: null, statusResult: null };
+    try {
+      const exitFromLog = scopeRecoveryFooter(providedExitFromLog || runner?.readSessionExitFromLog || null, sessionInfo);
+      return await resolveStatusQueryFailure(sessionName, sessionInfo, message, { runner, exitFromLog, backendAlive, persistSnapshot, verbose });
+    } catch {
+      return { running: false, exitCode: null, status: null, statusResult: null };
+    }
   }
 }

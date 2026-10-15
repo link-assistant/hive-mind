@@ -36,7 +36,7 @@ export { getDockerIsolationImage, resolveDockerIsolationImageTag } from './hive-
 export { isExecutingSessionStatus, isTerminalSessionStatus, isKilledSessionStatus } from './session-status.lib.mjs';
 // Issue #2175: the `$` output parsers live in their own module to keep this file
 // under the 1350-line warning threshold. Re-exported so importers are unaffected.
-import { isUnknownDockerExitCode, parseSessionExitFooter, parseSessionListOutput, parseSessionStatusOutput, parseStartCommandExecutionUuid, readSessionExitFromLog, shouldFallbackToScreenStatus } from './isolation-runner.parsers.lib.mjs';
+import { isUnknownDockerExitCode, parseSessionExitFooter, parseSessionListOutput, parseSessionStatusOutput, parseStartCommandExecutionUuid, readSessionExitFromLog, shouldFallbackToScreenStatus, withStatusQueryError } from './isolation-runner.parsers.lib.mjs';
 export { isUnknownDockerExitCode, parseSessionExitFooter, parseSessionListOutput, parseSessionStatusOutput, parseStartCommandExecutionUuid, readSessionExitFromLog, shouldFallbackToScreenStatus };
 // Issue #2189: the `$` loader and PATH lookup live in their own module so the
 // resume/attach wrappers can use them without importing this runner (a cycle).
@@ -651,7 +651,7 @@ export async function querySessionStatus(sessionId, verbose = false) {
     if (verbose) {
       console.log('[VERBOSE] isolation-runner: Cannot query status - $ binary not found');
     }
-    return { exists: false, uuid: null, status: null, exitCode: null, startTime: null, endTime: null, currentTime: null, logPath: null, command: null, isolation: null, workingDirectory: null, sessionName: null, processIds: {}, raw: '' };
+    return { exists: false, uuid: null, status: null, exitCode: null, startTime: null, endTime: null, currentTime: null, logPath: null, command: null, isolation: null, workingDirectory: null, sessionName: null, processIds: {}, raw: '', queryError: 'start-command ($) binary not found' };
   }
   try {
     const $ = await getCommandStreamDollar();
@@ -660,12 +660,12 @@ export async function querySessionStatus(sessionId, verbose = false) {
     if (verbose) {
       console.log(`[VERBOSE] isolation-runner: Status query result: ${stdout.substring(0, 300)}`);
     }
-    return parseSessionStatusOutput(stdout);
+    return withStatusQueryError(parseSessionStatusOutput(stdout), { code: result.code, stderr: result.stderr?.toString() }); // Issue #2303
   } catch (error) {
     if (verbose) {
       console.log(`[VERBOSE] isolation-runner: Status query error: ${error.message}`);
     }
-    return { exists: false, uuid: null, status: null, exitCode: null, startTime: null, endTime: null, currentTime: null, logPath: null, command: null, isolation: null, workingDirectory: null, sessionName: null, processIds: {}, raw: '' };
+    return { exists: false, uuid: null, status: null, exitCode: null, startTime: null, endTime: null, currentTime: null, logPath: null, command: null, isolation: null, workingDirectory: null, sessionName: null, processIds: {}, raw: '', queryError: error.message };
   }
 }
 /**

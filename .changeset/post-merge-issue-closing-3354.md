@@ -1,5 +1,0 @@
----
-'@link-assistant/hive-mind': patch
----
-
-After a merge, Hive Mind now checks every issue the pull request is meant to close and closes the ones GitHub left open, for example after a merge into a branch other than the default one (issues #3354, #3355 and #3357). It waits up to 5 minutes (checks after 10, 20, 40 and 60 seconds) for GitHub on a default-branch merge, then closes each remaining issue as completed with a comment that names the pull request, the merge commit and why GitHub did not close it. The result appears in the log, in the auto-merge comment and in the Telegram merge queue message. Issues the description keeps open ("does not close", "Part of"), issues only a repair block or a sidebar link names, and deferred sub-issues are never closed. This is on by default; `--no-auto-close-linked-issues` or `HIVE_MIND_AUTO_CLOSE_LINKED_ISSUES=false` only reports the open issues. `/merge`, solve's auto-merge, the merge queue, the merged-PR sweeper and `close-linked-issues` now share this one implementation, which replaces the previous per-path closing code.

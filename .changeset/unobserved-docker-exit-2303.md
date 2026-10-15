@@ -1,5 +1,0 @@
----
-'@link-assistant/hive-mind': patch
----
-
-A docker work session whose exit docker never observed is now reported as a kill instead of a success (issue #2303). When start-command's watcher lost a still-running container (for example `docker logs -f` failing on a full disk), the record said `executed` with exit 0 (or `-1` with `exitReason: watcher-lost-container` on newer start-command), and Hive Mind announced "Work session finished successfully". Such an exit (`endTimeSource: observed-at` or `watcher-lost-container`) is now reclassified as killed, so the kill diagnosis, the pull request notice and the default `--on-session-kill=resume` recovery run. A `-1` log footer no longer skips the container liveness check. The monitor also samples the host disk while a session runs, and an `ENOSPC` line in the log counts as evidence, so the diagnosis and the Telegram headline can name the real cause ("killed (disk full)"). A container that start-command already removed is no longer reported as "Docker container kept".

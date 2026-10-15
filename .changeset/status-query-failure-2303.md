@@ -1,5 +1,0 @@
----
-'@link-assistant/hive-mind': patch
----
-
-A failed `$ --status` query no longer ends the tracking of a work session (issue #2303). Every failure of start-command used to look like a missing record, so a single transient failure, or a `$` that could not write its own store on a full disk, posted "Work session ended, but its exit status is unknown" with no kill diagnosis and no automatic resume. A failed query is now told apart from a missing record. The session stays tracked for five consecutive failures (the streak is persisted and cleared by the next answer), and a written log footer still settles the outcome at once. After that, a docker session is judged by `docker inspect`: a running container stays tracked, an exited one uses docker's own exit code (`OOMKilled` counts as a kill), and a container that is gone without an exit footer is reported as killed. That kill gets the kill diagnosis and the default `--on-session-kill=resume` recovery. Other backends use the existing liveness probe.

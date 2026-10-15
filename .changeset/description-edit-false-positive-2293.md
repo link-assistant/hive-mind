@@ -1,5 +1,0 @@
----
-'@link-assistant/hive-mind': patch
----
-
-Auto-continue and auto-restart no longer report a pull request or issue description edit that never happened (issue #2293). Feedback detection used to treat a REST `updated_at` later than the last commit as "description was edited", but GitHub bumps `updated_at` for comments, labels, cross-references and pull request creation, and real edits after the last commit were usually made by the previous solver session under the same account. The check now reads the GraphQL edit history (`userContentEdits` for descriptions, `RenamedTitleEvent` for titles), ignores bot edits and edits by the solver's own account inside a solver session window (derived from the session marker comments and the pull request creation time), and reports each remaining edit with its evidence: time, editor and a diff excerpt. When there is no separate linked issue (the issue number falls back to the pull request number), the pull request is no longer checked a second time as its own issue, and the auto-restart loop no longer watches the pull request's own title and description as issue feedback.

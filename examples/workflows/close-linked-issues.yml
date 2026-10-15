@@ -1,0 +1,30 @@
+# Issue #3356: close the issues a merged pull request intends to close, without
+# a running hive-mind bot. GitHub closes linked issues only when a pull request
+# is merged into the default branch; this closes the rest (for example after a
+# merge into a feature branch) with the same rules as the bot and `hive`.
+#
+# Copy this file to `.github/workflows/close-linked-issues.yml` in a repository.
+name: Close linked issues
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions: {}
+
+jobs:
+  close-linked-issues:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: read
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Close the issues GitHub left open
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: npx --yes --package @link-assistant/hive-mind close-linked-issues --pr "$PR_URL"

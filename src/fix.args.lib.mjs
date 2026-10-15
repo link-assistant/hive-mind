@@ -75,7 +75,26 @@ export function parseFixRepository(value) {
  * the `/solve` argv itself (see `buildSolveArgs`), so the option still reaches
  * `/solve` exactly once.
  */
-export const FIX_OWNED_BOOLEAN_FLAGS = Object.freeze(['--ci-cd', '--update-all-dependencies', '--dry-run', '--no-solve', '--solve', '--no-auto-solve', '--help', '-h', '--version']);
+export const FIX_OWNED_BOOLEAN_FLAGS = Object.freeze(['--ci-cd', '--update-all-dependencies', '--dry-run', '--no-solve', '--solve', '--no-auto-solve', '--wait-for-ci', '--no-wait-for-ci', '--help', '-h', '--version']);
+
+/**
+ * Flags that `/fix` consumes itself and that take a value, either as
+ * `--flag value` or `--flag=value`.
+ *
+ * `--ci-wait-timeout <minutes>` bounds how long `/fix` waits for the default
+ * branch CI/CD to finish before starting `/solve` (issue #3326).
+ */
+export const FIX_OWNED_VALUE_FLAGS = Object.freeze(['--ci-wait-timeout']);
+
+/** Default upper bound for the default-branch CI/CD wait (issue #3326). */
+export const FIX_CI_WAIT_DEFAULT_TIMEOUT_MINUTES = 60;
+
+function parseCiWaitTimeoutMinutes(value) {
+  const text = String(value ?? '').trim();
+  if (!/^\d+(?:\.\d+)?$/.test(text)) return null;
+  const minutes = Number(text);
+  return Number.isFinite(minutes) ? minutes : null;
+}
 
 /**
  * Partition raw CLI args into the options `/fix` consumes and the passthrough
@@ -97,12 +116,18 @@ export function partitionFixArgs(rawArgs) {
     mode: null,
     dryRun: false,
     runSolve: true,
+    // Issue #3326: create the issue right away, but start /solve only after
+    // the default branch CI/CD has finished.
+    waitForCi: true,
+    ciWaitTimeoutMinutes: FIX_CI_WAIT_DEFAULT_TIMEOUT_MINUTES,
+    errors: [],
     help: false,
     version: false,
     passthrough: [],
   };
 
-  for (const arg of args) {
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
     if (arg === '--ci-cd') {
       result.ciCd = true;
       if (!result.modes.includes(FIX_MODE_CI_CD)) result.modes.push(FIX_MODE_CI_CD);
@@ -123,6 +148,26 @@ export function partitionFixArgs(rawArgs) {
     }
     if (arg === '--solve') {
       result.runSolve = true;
+      continue;
+    }
+    if (arg === '--wait-for-ci') {
+      result.waitForCi = true;
+      continue;
+    }
+    if (arg === '--no-wait-for-ci') {
+      result.waitForCi = false;
+      continue;
+    }
+    if (arg === '--ci-wait-timeout' || arg.startsWith('--ci-wait-timeout=')) {
+      const inline = arg.includes('=');
+      const value = inline ? arg.slice(arg.indexOf('=') + 1) : args[index + 1];
+      if (!inline && value !== undefined) index += 1;
+      const minutes = parseCiWaitTimeoutMinutes(value);
+      if (minutes === null) {
+        result.errors.push(`--ci-wait-timeout expects a number of minutes, got ${value === undefined ? 'nothing' : `"${value}"`}`);
+      } else {
+        result.ciWaitTimeoutMinutes = minutes;
+      }
       continue;
     }
     if (arg === '--help' || arg === '-h') {

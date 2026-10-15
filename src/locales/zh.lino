@@ -675,6 +675,17 @@ zh
       no
         open
           issues "ℹ️ *无需执行任何操作*\n\n`{{repository}}` 没有开放的议题。未启动工作会话。"
+    fix
+      waiting_for_ci "⏳ 正在等待 {{branch}} 上的 CI/CD 完成后再开始任务..."
+      ci_pending_label "运行中"
+      ci_waited_of "⏱ 已等待 {{waited}}，上限 {{timeout}}"
+      ci_finished "✅ {{branch}} 上的 CI/CD 已完成"
+      ci_idle "✅ {{branch}} 上没有正在运行的 CI/CD"
+      ci_wait_timeout "⚠️ {{timeout}} 后 {{branch}} 上的 CI/CD 仍在运行；仍然开始任务"
+      ci_wait_unknown "⚠️ 无法检查 {{branch}} 上的 CI/CD；仍然开始任务"
+      ci_wait_skipped "ℹ️ 不等待 {{branch}} 上的 CI/CD (--no-wait-for-ci)"
+      issue_created "📝 Issue 已创建，正在准备开始任务..."
+      issue_label "Issue"
     work
       session
         starting "🔄 正在启动..."

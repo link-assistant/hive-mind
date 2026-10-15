@@ -35,7 +35,7 @@ export async function prepareUpdateDependenciesIssue({ repository, run = runComm
   };
 }
 
-export async function createUpdateDependenciesIssue({ repository, prepared = null, run = runCommand, log = null, warn = message => console.warn(message), reportDependenciesIssues = true }) {
+export async function createUpdateDependenciesIssue({ repository, prepared = null, run = runCommand, log = null, warn = message => console.warn(message), reportDependenciesIssues = true, verbose = false }) {
   const issueDraft = prepared || (await prepareUpdateDependenciesIssue({ repository, run, warn, log, reportDependenciesIssues }));
   const issue = await createTaskIssue({
     repository,
@@ -45,6 +45,7 @@ export async function createUpdateDependenciesIssue({ repository, prepared = nul
     labels: [...UPDATE_DEPENDENCIES_ISSUE_LABELS],
     run,
     log,
+    verbose,
   });
   return { ...issue, prepared: issueDraft };
 }

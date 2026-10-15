@@ -675,6 +675,17 @@ hi
       no
         open
           issues "ℹ️ *कुछ करने की आवश्यकता नहीं*\n\n`{{repository}}` में कोई open issue नहीं है। कोई work session शुरू नहीं किया गया।"
+    fix
+      waiting_for_ci "⏳ कार्य शुरू करने से पहले {{branch}} पर CI/CD पूरा होने की प्रतीक्षा..."
+      ci_pending_label "चल रहे हैं"
+      ci_waited_of "⏱ {{timeout}} में से {{waited}} प्रतीक्षा की"
+      ci_finished "✅ {{branch}} पर CI/CD पूरा हुआ"
+      ci_idle "✅ {{branch}} पर कोई CI/CD नहीं चल रहा"
+      ci_wait_timeout "⚠️ {{timeout}} के बाद भी {{branch}} पर CI/CD चल रहा था; फिर भी कार्य शुरू किया जा रहा है"
+      ci_wait_unknown "⚠️ {{branch}} पर CI/CD की जाँच नहीं हो सकी; फिर भी कार्य शुरू किया जा रहा है"
+      ci_wait_skipped "ℹ️ {{branch}} पर CI/CD की प्रतीक्षा नहीं (--no-wait-for-ci)"
+      issue_created "📝 Issue बनाया गया, कार्य शुरू करने की तैयारी..."
+      issue_label "Issue"
     work
       session
         starting "🔄 शुरू हो रहा है..."

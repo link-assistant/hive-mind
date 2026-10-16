@@ -54,7 +54,7 @@ const { applyServedModelPricing, servedModelPricingInfo, FORMAL_AI_PROVIDER_NAME
 const { buildCostInfoString } = await import('../src/github-cost-info.lib.mjs');
 const { resetCumulativeAnthropicCost } = await import('../src/anthropic-cost-accumulator.lib.mjs');
 
-const VERSION = '0.353.3';
+const VERSION = '0.353.6';
 const ISSUE = 3279;
 const PR_NUMBER = 3390;
 const PR_URL = `https://github.com/link-assistant/hive-mind/pull/${PR_NUMBER}`;

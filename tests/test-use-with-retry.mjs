@@ -23,7 +23,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { useWithRetry, wrapUseWithRetry, resolveAliasDir, removeAliasWithRetry, isTransientInstallError, isCorruptInstallError, extractCorruptedFilePath, pinUseMSpecifier } from '../src/use-with-retry.lib.mjs';
+import { useWithRetry, wrapUseWithRetry, resolveAliasDir, removeAliasWithRetry, isTransientInstallError, isCorruptInstallError, extractCorruptedFilePath, pinUseMSpecifier, USE_M_PACKAGE_VERSIONS } from '../src/use-with-retry.lib.mjs';
 
 let passed = 0;
 let failed = 0;
@@ -447,8 +447,8 @@ await test('does not cache-bust for resolve-path failures', async () => {
 console.log('\n📋 wrapUseWithRetry (issue #2092)\n');
 
 await test('pins mutable runtime package specifiers (issue #2150)', () => {
-  assert.equal(pinUseMSpecifier('command-stream'), 'command-stream@2.4.0');
-  assert.equal(pinUseMSpecifier('@dotenvx/dotenvx'), '@dotenvx/dotenvx@2.36.0');
+  assert.equal(pinUseMSpecifier('command-stream'), `command-stream@${USE_M_PACKAGE_VERSIONS['command-stream']}`);
+  assert.equal(pinUseMSpecifier('@dotenvx/dotenvx'), `@dotenvx/dotenvx@${USE_M_PACKAGE_VERSIONS['@dotenvx/dotenvx']}`);
   assert.equal(pinUseMSpecifier('yargs@18.1.0'), 'yargs@18.1.0');
   assert.equal(pinUseMSpecifier('node:path'), 'node:path');
 });

@@ -32,6 +32,8 @@
  *
  * @see https://github.com/link-assistant/hive-mind/issues/3206
  * @see https://github.com/link-assistant/hive-mind/issues/3278
+ * @see https://github.com/eslint-community/eslint-plugin-n/issues/576 (the general child_process rule, proposed upstream)
+ * @see https://github.com/link-foundation/command-stream/issues/227 (`$({ timeout })` is ignored)
  */
 
 import { BASELINE_SCHEMA, createBaselineReporter, findVariable, hasReasonedMarker } from './hive-rule-support.mjs';

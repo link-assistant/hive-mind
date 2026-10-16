@@ -11,7 +11,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFile } from 'node:fs/promises';
-import { checkIssueLinksBeforeMerge, fetchRequiredIssueScope, issueKey, splitDescriptionScope, splitRepairBlock } from '../src/issue-link-verification.lib.mjs';
+import { checkIssueLinksBeforeMerge, fetchOtherPullRequestClaims, fetchRequiredIssueScope, issueKey, splitDescriptionScope, splitRepairBlock } from '../src/issue-link-verification.lib.mjs';
 import { repairRequiredIssueLinks } from '../src/pr-issue-link-repair.lib.mjs';
 import { extractOpenIssueMentions, extractPartialIssueMentions } from '../src/github-linking.lib.mjs';
 import { REPOSITORY_MODE_MARKER, REQUIRED_CLOSING_REFERENCES_HEADING } from '../src/solve.repository-mode.lib.mjs';
@@ -298,4 +298,24 @@ test('#3174: issues a repository-mode block lists stay required, and an unreadab
   assert.deepEqual([result.checked, failing.edits], [false, 0]);
   assert.match(logs.join('\n'), /Cannot read the pull requests that close o\/r#2/);
   assert.equal((await checkIssueLinksBeforeMerge({ ...context, run: broken })).blocker.reason, 'issue_link_verification_failed');
+});
+
+test('#3174: a claim among the newest cross-references of a busy issue is found past the first 100', async () => {
+  const pull = (number, state, body) => ({ source: { number, state, body, url: `https://github.com/o/r/pull/${number}`, repository: { nameWithOwner: 'o/r' } } });
+  const queries = [];
+  const run = async args => {
+    const query = String(args.find(arg => String(arg).startsWith('query=')));
+    const after = args.find(arg => String(arg).startsWith('after='));
+    queries.push(after ?? 'first');
+    const old = Array.from({ length: 100 }, (_, index) => pull(1000 + index, 'MERGED', 'Fixes #2'));
+    const timelineItems = !after ? { pageInfo: { hasNextPage: true, endCursor: 'c1' }, nodes: old } : after === 'after=c1' ? { pageInfo: { hasNextPage: true, endCursor: 'c2' }, nodes: [pull(9, 'OPEN', 'Mentions #2 only')] } : { pageInfo: { hasNextPage: false, endCursor: 'c3' }, nodes: [pull(12, 'OPEN', 'Fixes #2')] };
+    assert.equal(query.includes('after:$after'), Boolean(after));
+    const node = after ? { timelineItems } : { closedByPullRequestsReferences: { nodes: [] }, timelineItems };
+    return { code: 0, stdout: JSON.stringify({ data: { repository: after ? { issue: node } : { i2: node } } }) };
+  };
+  const claims = await fetchOtherPullRequestClaims({ owner: 'o', repo: 'r', prNumber: 5, issues: [{ owner: 'o', repo: 'r', number: 2 }], run });
+  assert.deepEqual([...claims], [['o/r#2', ['o/r#12']]]);
+  assert.deepEqual(queries, ['first', 'after=c1', 'after=c2']);
+  const empty = async args => (args.some(arg => String(arg).startsWith('after=')) ? { code: 0, stdout: JSON.stringify({ data: { repository: { issue: null } } }) } : run(args));
+  await assert.rejects(fetchOtherPullRequestClaims({ owner: 'o', repo: 'r', prNumber: 5, issues: [{ owner: 'o', repo: 'r', number: 2 }], run: empty }), /Cannot read the pull requests that close o\/r#2/);
 });

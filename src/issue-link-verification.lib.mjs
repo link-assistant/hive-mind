@@ -90,11 +90,16 @@ export function splitDescriptionScope(issues, body, repository, { keepOpen = new
 /** Issues per GraphQL request in {@link fetchOtherPullRequestClaims}. */
 const CLAIMS_BATCH_SIZE = 50;
 
+/** One page of the pull requests that cross-reference an issue, after `cursor` (a query variable). */
+const CROSS_REFERENCES = cursor => `timelineItems(first:100${cursor ? `, after:${cursor}` : ''}, itemTypes:[CROSS_REFERENCED_EVENT]) { pageInfo { hasNextPage endCursor } nodes { ... on CrossReferencedEvent { source { ... on PullRequest { number state body url repository { nameWithOwner } } } } } }`;
+
 /**
  * Open pull requests other than `prNumber` that would close each issue: the
  * ones GitHub links (closedByPullRequestsReferences, default-branch PRs and
  * sidebar links) and cross-referencing ones whose description closes the issue
  * (needed for PRs stacked on another branch, such as #2407 for #2406).
+ * Cross-references are read to the last page: a busy umbrella has more than
+ * 100, and the open pull request is usually among the newest.
  * Returns issue key → ["owner/repo#N", …]. Read failures throw.
  */
 export async function fetchOtherPullRequestClaims({ owner, repo, prNumber, issues, run = runLinkGh }) {
@@ -102,13 +107,19 @@ export async function fetchOtherPullRequestClaims({ owner, repo, prNumber, issue
   const claims = new Map();
   for (let index = 0; index < issues.length; index += CLAIMS_BATCH_SIZE) {
     const batch = issues.slice(index, index + CLAIMS_BATCH_SIZE);
-    const fields = batch.map(issue => `i${Number(issue.number)}: issue(number:${Number(issue.number)}) { closedByPullRequestsReferences(first:50) { nodes { number state repository { nameWithOwner } } } timelineItems(first:100, itemTypes:[CROSS_REFERENCED_EVENT]) { nodes { ... on CrossReferencedEvent { source { ... on PullRequest { number state body url repository { nameWithOwner } } } } } } }`);
+    const fields = batch.map(issue => `i${Number(issue.number)}: issue(number:${Number(issue.number)}) { closedByPullRequestsReferences(first:50) { nodes { number state repository { nameWithOwner } } } ${CROSS_REFERENCES()} }`);
     const response = await ghJson(run, ['api', 'graphql', '-f', `query=query($owner:String!,$repo:String!) { repository(owner:$owner,name:$repo) { ${fields.join(' ')} } }`, '-f', `owner=${owner}`, '-f', `repo=${repo}`]);
     for (const issue of batch) {
       const node = response?.data?.repository?.[`i${Number(issue.number)}`];
       const linked = node?.closedByPullRequestsReferences?.nodes;
       const referencing = node?.timelineItems?.nodes;
       if (!Array.isArray(linked) || !Array.isArray(referencing)) throw new Error(`Cannot read the pull requests that close ${issueKey(issue)}`);
+      for (let page = node.timelineItems.pageInfo; page?.hasNextPage;) {
+        const more = (await ghJson(run, ['api', 'graphql', '-f', `query=query($owner:String!,$repo:String!,$after:String!) { repository(owner:$owner,name:$repo) { issue(number:${Number(issue.number)}) { ${CROSS_REFERENCES('$after')} } } }`, '-f', `owner=${owner}`, '-f', `repo=${repo}`, '-f', `after=${page.endCursor}`]))?.data?.repository?.issue?.timelineItems;
+        if (!Array.isArray(more?.nodes) || !more.nodes.length) throw new Error(`Cannot read the pull requests that close ${issueKey(issue)}`);
+        referencing.push(...more.nodes);
+        page = more.pageInfo;
+      }
       const keys = new Set();
       for (const pr of linked) if (pr?.state === 'OPEN') keys.add(`${pr.repository.nameWithOwner}#${pr.number}`.toLowerCase());
       for (const { source: pr } of referencing) if (pr?.number && pr.state === 'OPEN' && pullRequestClosesIssue(pr, issue.number, issue.owner, issue.repo)) keys.add(`${pr.repository.nameWithOwner}#${pr.number}`.toLowerCase());

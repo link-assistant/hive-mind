@@ -54,6 +54,7 @@ export function formatDryRun(key, result) {
   const lines = [`${key}${result.pr ? ` (${result.pr})` : ''}:`];
   for (const issue of result.stillOpen) lines.push(`  would close ${issue}: the description closes it and it is still open`);
   for (const issue of result.alreadyClosed) lines.push(`  already closed ${issue}`);
+  for (const entry of result.closedNotCompleted || []) lines.push(`  already closed ${entry.key} as ${entry.reason.replace('_', ' ')}, not by this merge`);
   for (const entry of result.skippedKeptOpen) lines.push(`  skip ${entry.key}: ${describeSkipReason(entry.reason)}`);
   for (const entry of result.failed) lines.push(`  cannot check ${entry.key}: ${entry.error}`);
   for (const parent of result.parents?.wouldClose || []) lines.push(`  would close completed parent ${parent}`);
@@ -63,7 +64,7 @@ export function formatDryRun(key, result) {
 }
 
 /** Run the command; returns the exit code (1 when an issue could not be checked or closed). */
-export async function runCloseLinkedIssues(argv, { run = runLinkGh, print = console.log, now = Date.now(), env = process.env } = {}) {
+export async function runCloseLinkedIssues(argv, { run = runLinkGh, print = console.log, now = Date.now(), env = process.env, sleep } = {}) {
   let values;
   try {
     ({ values } = parseArgs({ args: argv, options: OPTIONS, allowNegative: true, strict: true }));
@@ -87,7 +88,8 @@ export async function runCloseLinkedIssues(argv, { run = runLinkGh, print = cons
     const key = `${ref.owner}/${ref.repo}#${ref.prNumber}`;
     try {
       const snapshot = await fetchMergedPullRequestSnapshot({ ...ref, run, allowCrossRepositoryClosing: options.allowCrossRepositoryClosing });
-      results.push({ key, result: await closeIntendedIssuesAfterMerge(snapshot, { mode, run, wait: false, closeParents: options.closeCompletedParents }) });
+      // Run on the merge event (the example workflow), GitHub may still be closing the issues itself: wait what is left of its time (#3356).
+      results.push({ key, result: await closeIntendedIssuesAfterMerge(snapshot, { mode, run, wait: !dryRun, waitFromMerge: true, now, sleep, closeParents: options.closeCompletedParents }) });
     } catch (error) {
       results.push({ key, result: null, error: error.message });
     }

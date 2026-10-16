@@ -15,7 +15,7 @@
  * primary issue's current scope, which the merge guard required anyway: a
  * stale repair line never closes anything.
  */
-import { DEFERRAL_REASONS, fetchClosingIssueReferences, fetchPullRequestIssueScope, ghJson, isSameRepository, issueKey, runLinkGh, splitForeignReferences, splitPullRequestScope, splitRepairBlock } from './issue-link-verification.lib.mjs';
+import { DEFERRAL_REASONS, fetchClosingIssueReferences, fetchPullRequestIssueScope, ghJson, ghPaginated, isSameRepository, issueKey, runLinkGh, splitForeignReferences, splitPullRequestScope, splitRepairBlock } from './issue-link-verification.lib.mjs';
 import { extractOpenIssueMentions, prClosesIssue } from './github-linking.lib.mjs';
 import { closeCompletedParents } from './close-completed-parents.lib.mjs';
 
@@ -56,6 +56,7 @@ const SKIP_REASONS = {
   not_closed_by_description: 'no closing keyword in the description',
   repair_only: 'only a "Fixes" line the link repair appended, for an issue outside the current scope',
   cross_repository: 'a closing reference to another repository that the author did not write, or a sub-issue there',
+  reopened_after_merge: 'reopened after the merge, so it is left open',
 };
 
 /**
@@ -112,11 +113,24 @@ export async function fetchMergedPullRequestSnapshot({ owner, repo, prNumber, is
 
 const defaultSleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-/** Read an issue's state: 'open' or 'closed'. Anything else throws. */
+/** Read an issue's state ('open' or 'closed') and its state reason. Anything else throws. */
 async function readIssueState(issue, run) {
   const source = await ghJson(run, ['api', `repos/${issue.owner}/${issue.repo}/issues/${issue.number}`]);
   if (source?.state !== 'open' && source?.state !== 'closed') throw new Error('Cannot verify the issue state after the merge');
-  return source.state;
+  return { state: source.state, reason: source.state_reason || null };
+}
+
+/**
+ * Who reopened the issue after the merge, or null. Hive Mind never reopens
+ * issues, so a reopen after the merge is a decision to keep it open (a person,
+ * or the backfill re-checking a merge from weeks ago must not overrule it).
+ */
+async function reopenedAfterMerge(issue, mergedAt, run) {
+  const merged = Date.parse(mergedAt || '');
+  if (!merged) return null;
+  const events = await ghPaginated(run, `repos/${issue.owner}/${issue.repo}/issues/${issue.number}/timeline`);
+  const reopened = events.filter(event => event?.event === 'reopened' && Date.parse(event.created_at) > merged);
+  return reopened.length ? reopened.at(-1).actor?.login || 'someone' : null;
 }
 
 /** The explicit-close comment: names the pull request, its merge commit and why GitHub did not close the issue. */
@@ -135,12 +149,18 @@ export function buildClosingComment({ issue, pr, repository, mergeSha, defaultBr
  * non-default-branch merge they are closed at once. With `closeParents`,
  * parents whose work is complete are closed too (#3359).
  *
- * Returns { mode, pr, mergeSha, intended, closed, alreadyClosed, failed,
- * skippedKeptOpen, stillOpen, parents }; issue entries are "owner/repo#N"
- * keys, `failed` entries are { key, error }. Never throws.
+ * `waitFromMerge` counts that time from the merge instead of from the call, so
+ * a later check (the command, run by a workflow on the merge event) waits only
+ * for what is left of it. An open issue reopened after the merge is kept open.
+ *
+ * Returns { mode, pr, mergeSha, intended, closed, alreadyClosed,
+ * closedNotCompleted, failed, skippedKeptOpen, stillOpen, parents }; issue
+ * entries are "owner/repo#N" keys, `closedNotCompleted` entries are { key,
+ * reason } for issues already closed as not planned or a duplicate, `failed`
+ * entries are { key, error }. Never throws.
  */
-export async function closeIntendedIssuesAfterMerge(snapshot, { mode = 'close', run = runLinkGh, logger = async () => {}, sleep = defaultSleep, timeoutMs = Number(process.env.HIVE_MIND_POST_MERGE_CLOSE_TIMEOUT_MS ?? POST_MERGE_TIMEOUT_MS), backoffMs = POST_MERGE_BACKOFF_MS, closeParents = true, wait = true } = {}) {
-  const result = { mode, pr: null, mergeSha: null, intended: [], closed: [], alreadyClosed: [], failed: [], skippedKeptOpen: [], stillOpen: [], parents: null };
+export async function closeIntendedIssuesAfterMerge(snapshot, { mode = 'close', run = runLinkGh, logger = async () => {}, sleep = defaultSleep, timeoutMs = Number(process.env.HIVE_MIND_POST_MERGE_CLOSE_TIMEOUT_MS ?? POST_MERGE_TIMEOUT_MS), backoffMs = POST_MERGE_BACKOFF_MS, closeParents = true, wait = true, waitFromMerge = false, now = Date.now() } = {}) {
+  const result = { mode, pr: null, mergeSha: null, intended: [], closed: [], alreadyClosed: [], closedNotCompleted: [], failed: [], skippedKeptOpen: [], stillOpen: [], parents: null };
   if (!snapshot?.pr) return result;
   const { intended, skippedKeptOpen } = selectIntendedIssues(snapshot);
   Object.assign(result, { intended: intended.map(issueKey), skippedKeptOpen });
@@ -166,12 +186,16 @@ export async function closeIntendedIssuesAfterMerge(snapshot, { mode = 'close', 
   // Poll while GitHub may still close the issues itself.
   let pending = intended;
   const onDefaultBranch = pr.base.ref === defaultBranch;
-  for (let elapsed = 0, attempt = 0; ; attempt++) {
+  const sinceMerge = waitFromMerge ? Math.max(0, now - (Date.parse(pr.merged_at || '') || 0)) : 0;
+  for (let elapsed = sinceMerge, attempt = 0; ; attempt++) {
     const open = [];
     for (const issue of pending) {
       try {
-        if ((await readIssueState(issue, run)) === 'closed') result.alreadyClosed.push(issueKey(issue));
-        else open.push(issue);
+        const { state, reason } = await readIssueState(issue, run);
+        if (state === 'open') open.push(issue);
+        // Closed as not planned or a duplicate by someone else: not this merge's doing, and not reported as such.
+        else if (reason && reason !== 'completed') result.closedNotCompleted.push({ key: issueKey(issue), reason });
+        else result.alreadyClosed.push(issueKey(issue));
       } catch (error) {
         await fail(issue, error);
       }
@@ -183,6 +207,16 @@ export async function closeIntendedIssuesAfterMerge(snapshot, { mode = 'close', 
     elapsed += delay;
   }
   for (const issue of pending) {
+    try {
+      const by = await reopenedAfterMerge(issue, pr.merged_at, run);
+      if (by) {
+        result.skippedKeptOpen.push({ key: issueKey(issue), reason: 'reopened_after_merge', by });
+        continue;
+      }
+    } catch (error) {
+      await fail(issue, error);
+      continue;
+    }
     if (mode !== 'close') {
       result.stillOpen.push(issueKey(issue));
       continue;
@@ -196,7 +230,7 @@ export async function closeIntendedIssuesAfterMerge(snapshot, { mode = 'close', 
       await fail(issue, error);
     }
   }
-  const done = [...result.alreadyClosed, ...result.closed];
+  const done = [...result.alreadyClosed, ...result.closedNotCompleted.map(entry => entry.key), ...result.closed];
   if (closeParents && done.length) result.parents = await closeCompletedParents(done, { mode, run, logger });
   return result;
 }
@@ -210,10 +244,14 @@ export function formatIssueClosingReport(result) {
   const lines = [];
   const list = keys => keys.join(', ');
   if (result.alreadyClosed.length) lines.push(`🔒 Closed by GitHub: ${list(result.alreadyClosed)}`);
+  if (result.closedNotCompleted?.length) lines.push(`ℹ️  Already closed as not completed, not by this merge: ${result.closedNotCompleted.map(entry => `${entry.key} (${entry.reason.replace('_', ' ')})`).join(', ')}`);
   if (result.closed.length) lines.push(`🔒 Closed explicitly after the merge (GitHub did not): ${list(result.closed)}`);
   if (result.stillOpen.length) lines.push(`⚠️ Still open after the merge, not closed because --no-auto-close-linked-issues is set: ${list(result.stillOpen)}`);
   if (result.failed.length) lines.push(`⚠️ Could not close: ${result.failed.map(entry => `${entry.key} (${entry.error})`).join(', ')}`);
-  if (result.skippedKeptOpen.length) lines.push(`ℹ️  Not closed, the description keeps them open: ${result.skippedKeptOpen.map(entry => `${entry.key} (${describeSkipReason(entry.reason)})`).join(', ')}`);
+  const reopened = result.skippedKeptOpen.filter(entry => entry.reason === 'reopened_after_merge');
+  const keptOpen = result.skippedKeptOpen.filter(entry => entry.reason !== 'reopened_after_merge');
+  if (keptOpen.length) lines.push(`ℹ️  Not closed, the description keeps them open: ${keptOpen.map(entry => `${entry.key} (${describeSkipReason(entry.reason)})`).join(', ')}`);
+  if (reopened.length) lines.push(`ℹ️  Not closed, reopened after the merge: ${reopened.map(entry => `${entry.key} (by ${entry.by})`).join(', ')}`);
   const parents = result.parents;
   if (parents?.closed?.length) lines.push(`🔒 Closed completed parent issues: ${list(parents.closed)}`);
   if (parents?.wouldClose?.length) lines.push(`ℹ️  Completed parent issues not closed (report mode): ${list(parents.wouldClose)}`);

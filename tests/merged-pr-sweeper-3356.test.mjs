@@ -145,7 +145,7 @@ test('startMergedPullRequestSweeper runs now and on each tick, persists the stat
     assert.deepEqual(fake.closeCalls(), ['link-assistant/formal-ai#1091']);
     sweeper.stop();
     const missing = await loadSweeperState(join(directory, 'none.json'), NOW);
-    assert.deepEqual(missing, { enabledAt: new Date(NOW).toISOString(), checked: {} });
+    assert.deepEqual(missing, { enabledAt: new Date(NOW).toISOString(), checked: {}, reported: {}, attempts: {} });
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

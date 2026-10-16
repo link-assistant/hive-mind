@@ -127,7 +127,7 @@ test('failures are reported, never thrown: an unmerged pull request, an unreadab
   assert.deepEqual(unclosedIssueKeys(denied), ['link-assistant/agent#331']);
   assert.match(logs[0], /Could not close linked issue link-assistant\/agent#331/);
   assert.match(summarizeIssueClosing(denied), /could not close link-assistant\/agent#331/);
-  assert.deepEqual(await closeIntendedIssuesAfterMerge(null), { mode: 'close', pr: null, mergeSha: null, intended: [], closed: [], alreadyClosed: [], failed: [], skippedKeptOpen: [], stillOpen: [], parents: null });
+  assert.deepEqual(await closeIntendedIssuesAfterMerge(null), { mode: 'close', pr: null, mergeSha: null, intended: [], closed: [], alreadyClosed: [], failed: [], closedNotCompleted: [], skippedKeptOpen: [], stillOpen: [], parents: null });
 });
 
 test('the report goes into the auto-merge comment, and the foreign-issue comment names the commit', () => {

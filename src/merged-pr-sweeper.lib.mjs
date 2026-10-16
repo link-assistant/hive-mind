@@ -13,17 +13,25 @@
  * merged before the feature was enabled is never touched unless a backfill is
  * requested with `since`. Pull requests merged in the last 5 minutes wait for
  * the next run, so the merge path's own check (and GitHub) goes first.
+ *
+ * A pull request whose check keeps failing (an issue the token may not close)
+ * is given up after {@link MAX_SWEEP_ATTEMPTS} runs instead of every 5 minutes
+ * for a day. In report mode a pull request with issues left open is not marked
+ * checked, so turning closing on later still closes them. The bot and `hive`
+ * on one host share the state file, so a sweep holds a lock next to it.
  */
 import { promises as fs } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { ghJson, runLinkGh } from './issue-link-verification.lib.mjs';
 import { closeIntendedIssuesAfterMerge, fetchMergedPullRequestSnapshot, formatIssueClosingReport, issueClosingOptions } from './post-merge-issue-closing.lib.mjs';
+import { withStateLock } from './state-lock.lib.mjs';
 
 export const SWEEP_INTERVAL_MS = 5 * 60_000;
 export const SWEEP_WINDOW_MS = 24 * 60 * 60_000;
 export const SWEEP_GRACE_MS = 5 * 60_000;
 const MAX_SEARCH_PAGES = 10;
+export const MAX_SWEEP_ATTEMPTS = 6;
 
 export const defaultSweeperStatePath = (env = process.env) => env.HIVE_MIND_MERGED_PR_SWEEPER_STATE || join(homedir(), '.hive-mind', 'merged-pr-sweeper.json');
 
@@ -51,15 +59,19 @@ export async function searchMergedPullRequests({ scope, since, run = runLinkGh }
   return found;
 }
 
-/** The sweeper state: { enabledAt, checked: { "owner/repo#N": mergedAt } }. A missing file means "enabled now". */
+/**
+ * The sweeper state: { enabledAt, checked: { "owner/repo#N": mergedAt },
+ * reported: { key: mergedAt }, attempts: { key: count } }. A missing file
+ * means "enabled now".
+ */
 export async function loadSweeperState(path, now = Date.now()) {
   try {
     const state = JSON.parse(await fs.readFile(path, 'utf8'));
-    if (state && typeof state.enabledAt === 'string' && state.checked && typeof state.checked === 'object') return state;
+    if (state && typeof state.enabledAt === 'string' && state.checked && typeof state.checked === 'object') return { ...state, reported: state.reported || {}, attempts: state.attempts || {} };
   } catch {
     // A missing or unreadable file starts a fresh state.
   }
-  return { enabledAt: new Date(now).toISOString(), checked: {} };
+  return { enabledAt: new Date(now).toISOString(), checked: {}, reported: {}, attempts: {} };
 }
 
 export async function saveSweeperState(path, state) {
@@ -78,9 +90,20 @@ export async function saveSweeperState(path, state) {
 export async function sweepMergedPullRequests({ scopes, state, since = null, now = Date.now(), windowMs = SWEEP_WINDOW_MS, graceMs = SWEEP_GRACE_MS, options = {}, run = runLinkGh, logger = async () => {} }) {
   const { autoCloseLinkedIssues, allowCrossRepositoryClosing, closeCompletedParents } = issueClosingOptions(options);
   const floor = since ? Date.parse(since) : Math.max(now - windowMs, Date.parse(state.enabledAt));
+  const mode = autoCloseLinkedIssues ? 'close' : 'report';
+  state.reported ||= {};
+  state.attempts ||= {};
   const results = [];
   const errors = [];
   const seen = new Set();
+  // One more failed check; at the limit the pull request is marked checked, so it is not retried all day.
+  const failedAttempt = async (key, mergedAt) => {
+    state.attempts[key] = (state.attempts[key] || 0) + 1;
+    if (state.attempts[key] < MAX_SWEEP_ATTEMPTS) return;
+    state.checked[key] = mergedAt;
+    delete state.attempts[key];
+    await logger(`Merged-PR sweeper: giving up on ${key} after ${MAX_SWEEP_ATTEMPTS} failed checks; run close-linked-issues --pr for it once the cause is fixed`, { level: 'warning' });
+  };
   for (const scope of scopes) {
     let merged;
     try {
@@ -93,22 +116,30 @@ export async function sweepMergedPullRequests({ scopes, state, since = null, now
     for (const pr of merged) {
       const key = `${pr.owner}/${pr.repo}#${pr.number}`.toLowerCase();
       const mergedAt = Date.parse(pr.mergedAt);
-      if (seen.has(key) || state.checked[key] || !(mergedAt >= floor) || mergedAt > now - graceMs) continue;
+      if (seen.has(key) || state.checked[key] || (mode === 'report' && state.reported[key]) || !(mergedAt >= floor) || mergedAt > now - graceMs) continue;
       seen.add(key);
       try {
         const snapshot = await fetchMergedPullRequestSnapshot({ owner: pr.owner, repo: pr.repo, prNumber: pr.number, run, allowCrossRepositoryClosing });
-        const result = await closeIntendedIssuesAfterMerge(snapshot, { mode: autoCloseLinkedIssues ? 'close' : 'report', run, logger, wait: false, closeParents: closeCompletedParents });
+        const result = await closeIntendedIssuesAfterMerge(snapshot, { mode, run, logger, wait: false, closeParents: closeCompletedParents });
         results.push({ key, result });
         for (const line of formatIssueClosingReport(result)) if (result.closed.length || result.failed.length || result.stillOpen.length || result.parents?.closed?.length) await logger(`Merged-PR sweeper, ${key}: ${line}`);
-        if (!result.failed.length && !result.parents?.failed?.length) state.checked[key] = pr.mergedAt;
+        if (result.failed.length || result.parents?.failed?.length) await failedAttempt(key, pr.mergedAt);
+        else if (result.stillOpen.length) state.reported[key] = pr.mergedAt;
+        else {
+          state.checked[key] = pr.mergedAt;
+          delete state.reported[key];
+          delete state.attempts[key];
+        }
       } catch (error) {
         errors.push({ key, error: error.message });
         await logger(`Merged-PR sweeper: cannot check ${key}: ${error.message}`, { level: 'warning' });
+        await failedAttempt(key, pr.mergedAt);
       }
     }
   }
   // Forget what left the window, so the state file stays small.
-  for (const [key, mergedAt] of Object.entries(state.checked)) if (Date.parse(mergedAt) < now - windowMs - 60 * 60_000) delete state.checked[key];
+  for (const entries of [state.checked, state.reported]) for (const [key, mergedAt] of Object.entries(entries)) if (Date.parse(mergedAt) < now - windowMs - 60 * 60_000) delete entries[key];
+  for (const key of Object.keys(state.attempts)) if (!seen.has(key)) delete state.attempts[key];
   return Object.assign(state, { results, errors });
 }
 
@@ -117,17 +148,23 @@ export async function sweepMergedPullRequests({ scopes, state, since = null, now
  * state in `statePath`. The timer never keeps the process alive and sweeps do
  * not overlap. Returns { stop, runOnce }.
  */
-export function startMergedPullRequestSweeper({ scopes, options = {}, intervalMs = SWEEP_INTERVAL_MS, statePath = defaultSweeperStatePath(), run = runLinkGh, logger = async () => {}, setTimer = setInterval, clearTimer = clearInterval } = {}) {
+export function startMergedPullRequestSweeper({ scopes, options = {}, intervalMs = SWEEP_INTERVAL_MS, statePath = defaultSweeperStatePath(), run = runLinkGh, logger = async () => {}, setTimer = setInterval, clearTimer = clearInterval, lockTimeoutMs = 2 * 60_000 } = {}) {
   let running = null;
   const runOnce = async () => {
     if (running) return running;
     running = (async () => {
       try {
-        const state = await loadSweeperState(statePath);
-        const swept = await sweepMergedPullRequests({ scopes, state, options, run, logger });
-        const { results: _results, errors: _errors, ...persisted } = swept;
-        await saveSweeperState(statePath, persisted);
-        return swept;
+        return await withStateLock(
+          'merged-pr-sweeper',
+          async () => {
+            const state = await loadSweeperState(statePath);
+            const swept = await sweepMergedPullRequests({ scopes, state, options, run, logger });
+            const { results: _results, errors: _errors, ...persisted } = swept;
+            await saveSweeperState(statePath, persisted);
+            return swept;
+          },
+          { lockPath: `${statePath}.lock`, timeoutMs: lockTimeoutMs }
+        );
       } catch (error) {
         await logger(`Merged-PR sweeper failed: ${error.message}`, { level: 'warning' });
         return null;

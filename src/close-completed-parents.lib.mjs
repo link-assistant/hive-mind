@@ -37,7 +37,10 @@ export async function fetchParentIssue(issue, run = runLinkGh) {
   return node;
 }
 
-const NOT_DONE_ALLOWED = /not[ -]planned|won'?t (?:do|fix)|wontfix|duplicate|dropped|out of scope|cancel(?:l?ed)?|superseded|obsolete/i;
+const NOT_DONE = String.raw`(?:not[ -]planned|won'?t (?:do|fix)|wontfix|duplicate|dropped|out of scope|cancel(?:l?ed)?|superseded|obsolete)`;
+// The word must be a status, not part of the item's title ("- [x] #12 fix duplicate comments"): marked in
+// brackets or emphasis, after a dash or colon, at the start of the item, after "is"/"closed as", or before ":", "of", "by".
+const NOT_DONE_ALLOWED = new RegExp([String.raw`[([]\s*${NOT_DONE}`, String.raw`(?:\*\*?|__?|~~)\s*${NOT_DONE}`, String.raw`(?:[–—:]|\s-)\s*${NOT_DONE}`, String.raw`^\s*(?:[-*+]\s+|\d+\.\s+)?(?:\[[ xX]\]\s+)?${NOT_DONE}`, String.raw`\b(?:is|was|are|were|been|marked|closed|kept)\s+(?:(?:now|as|a|an)\s+)*${NOT_DONE}`, String.raw`${NOT_DONE}\s*(?::|\bof\b|\bby\b)`].join('|'), 'i');
 const UNCHECKED = /^\s*[-*+]\s+\[ \]\s/m;
 const OPEN_MARK = /\((?:open|todo|pending)\)|\[(?:open|todo|pending)\]|\*\*(?:open|todo|pending)\*\*/i;
 

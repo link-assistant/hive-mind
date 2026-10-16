@@ -93,7 +93,7 @@ export function createFakeGitHub(state) {
       const key = `${match[1]}/${match[2]}#${match[3]}`.toLowerCase();
       if (!issue(key)) return fail('HTTP 404');
       if (match[4] === '/sub_issues') return json([(issue(key).sub || []).map(sub => ({ number: split(sub).number, repository_url: `https://api.github.com/repos/${sub.split('#')[0]}` }))]);
-      if (match[4] === '/timeline') return json([[]]);
+      if (match[4] === '/timeline') return json([(issue(key)?.reopened || []).map(event => ({ event: 'reopened', created_at: event.at, actor: { login: event.login, type: event.type || 'User' } }))]);
       return json(issueJson(key));
     }
     match = endpoint.match(/^repos\/([^/]+\/[^/]+)$/);

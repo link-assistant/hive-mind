@@ -37,6 +37,30 @@ BOX_DIND_BASE=$(sed -n 's|^FROM \(.*/box-dind:[^[:space:]]*\).*|\1|p' Dockerfile
 [ -n "${BOX_BASE}" ] || { echo "ERROR: no box base image found in Dockerfile" >&2; exit 1; }
 [ -n "${BOX_DIND_BASE}" ] || { echo "ERROR: no box-dind base image found in Dockerfile.dind" >&2; exit 1; }
 
+# Issue #3282: the hosted runner has stopped this step with SIGTERM (exit 143)
+# while exporting the DinD image's layers, leaving no hint why. Sample memory
+# and disk every DOCKER_PR_RESOURCE_SAMPLE_SECONDS (0 turns it off), and on
+# failure print them with any OOM-killer lines from the kernel log.
+log_resources() {
+  echo "[resources $(date -u +%H:%M:%S)] $(free -m | awk '/^Mem:/ {printf "mem used=%sM available=%sM", $3, $7} /^Swap:/ {printf " swap used=%sM", $3}') $(df -h / | awk 'NR == 2 {printf "disk available=%s", $4}')"
+}
+SAMPLE_SECONDS="${DOCKER_PR_RESOURCE_SAMPLE_SECONDS:-30}"
+if [ "${SAMPLE_SECONDS}" != "0" ]; then
+  # The sampler kills its sleep on exit, so no orphan keeps the step's stdout open.
+  (trap 'kill "${SLEEP_PID:-}" 2>/dev/null; exit 0' TERM; while :; do sleep "${SAMPLE_SECONDS}" & SLEEP_PID=$!; wait "${SLEEP_PID}"; log_resources; done) &
+  SAMPLER_PID=$!
+fi
+on_exit() {
+  local status=$?
+  [ -z "${SAMPLER_PID:-}" ] || kill "${SAMPLER_PID}" 2>/dev/null || true
+  if [ "${status}" -ne 0 ]; then
+    log_resources
+    sudo -n dmesg 2>/dev/null | grep -iE 'out of memory|oom-kill|killed process' | tail -n 20 || true
+  fi
+}
+trap on_exit EXIT
+trap 'echo "docker-pr-build.sh received SIGTERM"; exit 143' TERM
+
 echo "Building Docker image from ${BOX_BASE} base..."
 echo "Note: General-purpose tools are inherited from pinned ${BOX_BASE}"
 echo "This image adds AI-specific tools on top of the Box base."

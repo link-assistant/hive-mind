@@ -144,7 +144,10 @@ test('a repeat is judged on the output too: 11/189 → 150/189 is progress, the 
 test('the stop is a terminal failure: named checks on the PR, draft kept, work preserved, non-zero exit', () => {
   const comment = buildAutomationStopComment({ reason: 'repeated_ci_failure', mode: 'auto-restart-until-mergeable', message: 'The same checks failed with the same output after 3 AI sessions in a row.', details: [`Failing check: Full Requirements Aggregate — ${RUN_URL}`] });
   assert.match(comment, /the same CI failure repeated restart after restart/);
-  assert.ok(comment.includes(RUN_URL));
+  assert.ok(
+    comment.split('\n').some(line => line.endsWith(RUN_URL)),
+    'the failing check line ends with its run URL'
+  );
   assert.match(comment, /HIVE_MIND_CI_FAILURE_REPEAT_STOP/);
   const loop = readFileSync(new URL('../src/solve.auto-merge.lib.mjs', import.meta.url), 'utf8');
   assert.match(loop, /createCiFailureRepeatTracker\(\{ stopAfter: ciFailureRepeat\.stopAfter \}\)/);

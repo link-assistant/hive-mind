@@ -28,7 +28,8 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 // No single stall of the bot's event loop may exceed this while it serves commands.
 // A handler that waits synchronously for a stubbed binary blocks for at least
 // SLOW_DEPENDENCY_S; compiling a lazily imported module on first use takes a
-// few hundred ms and stays under the budget.
+// few hundred ms and stays under the budget. Time the main thread spent waiting
+// for a CPU (the loop monitor's runQueueMs) does not count against it.
 const BLOCK_BUDGET_MS = 1000;
 // How long the slow fake binaries take to answer.
 const SLOW_DEPENDENCY_S = 3;
@@ -141,8 +142,9 @@ test('no bot command blocks the event loop on a slow dependency', async () => {
       `/help must be answered while the other commands wait on slow dependencies\n${context}`
     );
     // Only stalls that end after the bot fetched the commands are theirs; module loading at startup is not.
+    // Time the main thread waited for a CPU on a loaded host is not the bot's either.
     const stalls = events.slice(fetched).filter(event => event.type === 'stall');
-    const worst = stalls.reduce((max, stall) => Math.max(max, stall.blockedMs), 0);
+    const worst = stalls.reduce((max, stall) => Math.max(max, stall.blockedMs - (stall.runQueueMs ?? 0)), 0);
     assert.ok(worst <= BLOCK_BUDGET_MS, `the event loop was blocked for ${worst} ms (budget ${BLOCK_BUDGET_MS} ms); stalls: ${JSON.stringify(stalls)}\n${context}`);
   } finally {
     rmSync(sandbox.dir, { recursive: true, force: true });

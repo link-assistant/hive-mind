@@ -285,7 +285,7 @@ export const watchForFeedback = async params => {
 
     try {
       // Get PR merge state status
-      const prStateResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber} --jq '.mergeStateStatus'`;
+      const prStateResult = await quietProbe($)`gh api repos/${owner}/${repo}/pulls/${prNumber} --jq '.mergeStateStatus'`;
       const mergeStateStatus = prStateResult.code === 0 ? prStateResult.stdout.toString().trim() : null;
 
       // Detect feedback using existing function
@@ -475,7 +475,7 @@ export const watchForFeedback = async params => {
         // during this session window so they are filtered (by ID) on the next
         // feedback check instead of re-triggering a restart.
         try {
-          const tracked = await trackAuthenticatedUserCommentsSince(owner, repo, prNumber, issueNumber, iterationStartTime, $, { verbose: argv.verbose });
+          const tracked = await trackAuthenticatedUserCommentsSince(owner, repo, prNumber, issueNumber, iterationStartTime, quietProbe($), { verbose: argv.verbose });
           if (argv.verbose && tracked.length > 0) {
             await log(formatAligned('🧷', 'Tracked own session comments:', `${tracked.length} (won't count as feedback)`, 2));
           }

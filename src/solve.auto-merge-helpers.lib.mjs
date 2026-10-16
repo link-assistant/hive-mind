@@ -25,6 +25,9 @@ const use = globalThis.use;
 const { $: __rawDollar$ } = await use('command-stream');
 const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
 const $ = wrapDollarWithGhRetry(__rawDollar$);
+// Issue #2293: these probes return whole comment threads (180 KB on link-foundation/meta-language#196, logged 7 times in a row) and the login; they are read, never shown.
+const { quietProbe } = await import('./quiet-probe.lib.mjs');
+const quiet$ = quietProbe($);
 // Import shared library functions
 const lib = await import('./lib.mjs');
 const { log, formatAligned } = lib;
@@ -113,7 +116,7 @@ const { formatExternalReviewLimitCheck, splitExternalReviewLimitChecks } = exter
  * @param {Function} commandRunner - Tagged-template command runner, injectable for tests
  * @returns {Promise<boolean>} - True if a matching comment already exists
  */
-export const checkForExistingComment = async (owner, repo, prNumber, commentSignature, verbose = false, commandRunner = $) => {
+export const checkForExistingComment = async (owner, repo, prNumber, commentSignature, verbose = false, commandRunner = quiet$) => {
   try {
     // Fetch every PR comment page so long threads don't scope deduplication to
     // a stale first-page session-ending marker.
@@ -189,7 +192,7 @@ export const checkForExistingComment = async (owner, repo, prNumber, commentSign
  * @param {boolean} options.trustAuthenticatedUserComments - True only when the caller knows the AI tool is not running
  * @returns {Promise<{hasNewComments: boolean, comments: Array}>}
  */
-export const checkForNonBotComments = async (owner, repo, prNumber, issueNumber, lastCheckTime, verbose = false, commandRunner = $, options = {}) => {
+export const checkForNonBotComments = async (owner, repo, prNumber, issueNumber, lastCheckTime, verbose = false, commandRunner = quiet$, options = {}) => {
   try {
     const { trustAuthenticatedUserComments = false } = options;
 
@@ -350,7 +353,7 @@ export const nextMonotonicCheckTime = (lastCheckTime, candidate) => {
  * @param {string} [options.currentUser] - Pre-resolved authenticated login (skips the `gh api user` call)
  * @returns {Promise<string[]>} Newly tracked comment IDs (as strings)
  */
-export const trackAuthenticatedUserCommentsSince = async (owner, repo, prNumber, issueNumber, sinceTime, commandRunner = $, options = {}) => {
+export const trackAuthenticatedUserCommentsSince = async (owner, repo, prNumber, issueNumber, sinceTime, commandRunner = quiet$, options = {}) => {
   const { verbose = false, currentUser: providedUser } = options;
   const trackedIds = [];
 
@@ -1025,7 +1028,7 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
  * @param {{pullRequestNumber?: number|string|null}} [options] - the pull request being watched
  * @returns {Promise<{changed: boolean, snapshot: Object|null, changes: Array<{field: string, from: string, to: string}>}>}
  */
-export const checkForIssueMetadataChanges = async (owner, repo, issueNumber, previousSnapshot, verbose = false, commandRunner = $, { pullRequestNumber = null } = {}) => {
+export const checkForIssueMetadataChanges = async (owner, repo, issueNumber, previousSnapshot, verbose = false, commandRunner = quiet$, { pullRequestNumber = null } = {}) => {
   const empty = { changed: false, snapshot: previousSnapshot || null, changes: [] };
   if (!issueNumber) return empty;
   // Issue #2293: with no separate linked issue, solve falls back to issueNumber = prNumber, so the "issue" is the pull request itself, whose title and description the AI owns and rewrites every session.

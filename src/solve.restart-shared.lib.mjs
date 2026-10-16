@@ -24,6 +24,7 @@ const use = globalThis.use;
 const { $: __rawDollar$ } = await use('command-stream');
 const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
 const $ = wrapDollarWithGhRetry(__rawDollar$);
+const { quietProbe } = await import('./quiet-probe.lib.mjs'); // Issue #2293: one-word answers (`false`, `OPEN`) of every watch check stay out of the log
 // Import path and fs for cleanup operations
 const path = (await use('path')).default;
 const fs = (await use('fs')).promises;
@@ -58,7 +59,7 @@ const { reportError } = sentryLib;
  */
 export const checkPRMerged = async (owner, repo, prNumber) => {
   try {
-    const prResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber} --jq '.merged'`;
+    const prResult = await quietProbe($)`gh api repos/${owner}/${repo}/pulls/${prNumber} --jq '.merged'`;
     if (prResult.code === 0) {
       return prResult.stdout.toString().trim() === 'true';
     }
@@ -85,7 +86,7 @@ export const checkPRMerged = async (owner, repo, prNumber) => {
  */
 export const checkPRClosed = async (owner, repo, prNumber) => {
   try {
-    const prResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber} --jq '.state'`;
+    const prResult = await quietProbe($)`gh api repos/${owner}/${repo}/pulls/${prNumber} --jq '.state'`;
     if (prResult.code === 0) {
       return prResult.stdout.toString().trim() === 'closed';
     }

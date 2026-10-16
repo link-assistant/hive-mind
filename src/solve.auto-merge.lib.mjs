@@ -262,7 +262,7 @@ export const watchUntilMergeable = async params => {
       // Issue #1503: Get current HEAD SHA to detect new pushes and reset no-runs counter
       let currentHeadSha = null;
       try {
-        const shaResult = await $`gh pr view ${prNumber} --repo ${owner}/${repo} --json headRefOid --jq .headRefOid`;
+        const shaResult = await quietProbe($)`gh pr view ${prNumber} --repo ${owner}/${repo} --json headRefOid --jq .headRefOid`;
         if (shaResult.code === 0) {
           currentHeadSha = shaResult.stdout.toString().trim();
         }
@@ -333,7 +333,7 @@ export const watchUntilMergeable = async params => {
       // Check for new comments from non-bot users. At this point the AI tool
       // is not executing, so same-account non-tool comments can be trusted as
       // human feedback while known tool comments remain filtered by markers/IDs.
-      const { hasNewComments, comments } = await checkForNonBotComments(owner, repo, prNumber, issueNumber, lastCheckTime, argv.verbose, $, {
+      const { hasNewComments, comments } = await checkForNonBotComments(owner, repo, prNumber, issueNumber, lastCheckTime, argv.verbose, quietProbe($), {
         trustAuthenticatedUserComments: true,
       });
       // Issue #2007: Detect issue title/description edits (user-owned feedback
@@ -773,7 +773,7 @@ export const watchUntilMergeable = async params => {
         // Add standard instructions for auto-restart-until-mergeable mode using shared utility
         feedbackLines.push(...buildAutoRestartInstructions());
         // Get PR merge state status
-        const prStateResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber} --jq '.mergeStateStatus'`;
+        const prStateResult = await quietProbe($)`gh api repos/${owner}/${repo}/pulls/${prNumber} --jq '.mergeStateStatus'`;
         const mergeStateStatus = prStateResult.code === 0 ? prStateResult.stdout.toString().trim() : null;
         // Issue #1572: Sync clean local branches with remote before restarting to avoid push failures.
         // Issue #1664: Do not run git pull over an unfinished merge or other uncommitted state.
@@ -1233,7 +1233,7 @@ export const watchUntilMergeable = async params => {
         // match no tool marker). Tracking their IDs stops the next iteration's
         // checkForNonBotComments from mistaking them for fresh human feedback.
         try {
-          const tracked = await trackAuthenticatedUserCommentsSince(owner, repo, prNumber, issueNumber, iterationStartTime, $, { verbose: argv.verbose });
+          const tracked = await trackAuthenticatedUserCommentsSince(owner, repo, prNumber, issueNumber, iterationStartTime, quietProbe($), { verbose: argv.verbose });
           if (argv.verbose && tracked.length > 0) {
             await log(formatAligned('🧷', 'Tracked own session comments:', `${tracked.length} (won't count as new feedback)`, 2));
           }

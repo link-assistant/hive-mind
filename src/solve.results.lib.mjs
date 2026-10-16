@@ -708,6 +708,7 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
         let prTitleHasPlaceholder = false;
         let prBodyHasPlaceholder = false;
         let noChanges = false; // Issue #3211: this run committed, changed and posted nothing
+        let effectUnverified = false; // Issue #3330: what this run changed could not be measured
         // Skip PR body update and ready conversion for merged PRs (they can't be edited)
         if (!isPrMerged) {
           const issueLinkResult = await ensurePullRequestIssueLink({
@@ -811,6 +812,7 @@ Fixes ${issueRef}
           // commits, so what this run changed is measured too (session-changes.lib.mjs).
           const sessionOutcome = await reportSessionWithoutChanges({ owner, repo, prNumber: pr.number, issueNumber, $, log });
           noChanges = sessionOutcome.noChanges;
+          effectUnverified = sessionOutcome.unmeasured === true;
           if (!sessionOutcome.keepsDraft) {
             const { ensurePullRequestIsReady } = await import('./pr-draft-state.lib.mjs');
             const readyResult = await ensurePullRequestIsReady({ owner, repo, prNumber: pr.number, $, log, reason: 'solution draft verified', requireChanges: true });
@@ -854,7 +856,8 @@ Fixes ${issueRef}
             budgetStatsData,
           });
         }
-        if (!noChanges) await log('\n🎉 SUCCESS: A solution draft has been prepared as a pull request');
+        if (effectUnverified) await log("\n⚠️  A pull request is open, but this run's effect could not be verified, so it was not marked ready");
+        else if (!noChanges) await log('\n🎉 SUCCESS: A solution draft has been prepared as a pull request');
         await log(`📍 URL: ${pr.url}`);
         if (shouldAttachLogs && logUploadSuccess) {
           await log('📎 Solution draft log has been attached to the Pull Request');

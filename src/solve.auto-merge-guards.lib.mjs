@@ -94,6 +94,13 @@ export const buildDeliberateDraftFeedback = deliberate => {
       feedbackLines: ['📭 The previous working session made no change: no new commit, no file change and no comment.', `  ${deliberate.reason || 'no reason was recorded'}`, '', 'Do the requested work and commit it to the pull request branch. Do not end the session without a change.'],
     };
   }
+  // Issue #3330: the session's effect could not be measured; that is not a failed session either.
+  if (deliberate?.kind === 'session_effect_unverified') {
+    return {
+      restartReason: "The previous working session's effect could not be verified",
+      feedbackLines: ["🔍 The previous working session's effect could not be verified:", `  ${deliberate.reason || 'no reason was recorded'}`, '', 'Check that the requested change is committed to the pull request branch and finish it if it is not. Do not end the session without a change.'],
+    };
+  }
   const reason = deliberate?.reason || 'the solution session failed or verification did not succeed';
   return {
     restartReason: `The previous working session failed: ${reason}`,

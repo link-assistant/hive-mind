@@ -75,6 +75,10 @@ async function complete(body, restart = false, argv = {}) {
     postNoChangesProducedComment: async () => {},
     reportSessionWithoutChanges: async () => ({ noChanges: false, keepsDraft: false }),
     sanitizeForPublication: async text => text,
+    // Issue #3332: the block reads the solve log for a refused workflow push.
+    getLogFile: () => null,
+    readFile: async () => '',
+    reportWorkflowPushRejection: async () => null,
     writeSanitizedPublicationFile: async (file, text) => (await import('node:fs/promises')).writeFile(file, text),
     buildIssueReference: () => '#1',
     use: async name => import(`node:${name}`),

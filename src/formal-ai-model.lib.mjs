@@ -19,6 +19,9 @@ export const FORMAL_AI_MODEL_ALIAS = 'formal-ai';
 /** The provider-qualified id used when a tool routes through a provider. */
 export const FORMAL_AI_PROVIDER_MODEL_ID = 'formalai/formal-ai';
 
+/** Every tool that can run Formal AI — the one list validation and the runtime share. */
+export const FORMAL_AI_SUPPORTED_TOOLS = Object.freeze(['claude', 'agent', 'opencode', 'codex', 'qwen', 'gemini']);
+
 /**
  * The canonical spelling of a Formal AI model string, or null for any other
  * model. Model validation is case-insensitive (`--model Formal-AI` passes it),
@@ -36,4 +39,4 @@ export const canonicalFormalAiModel = model => {
 /** True when a model string names Formal AI in either spelling, in any case. */
 export const isFormalAiModel = model => canonicalFormalAiModel(model) !== null;
 
-export default { FORMAL_AI_MODEL_ALIAS, FORMAL_AI_PROVIDER_MODEL_ID, canonicalFormalAiModel, isFormalAiModel };
+export default { FORMAL_AI_MODEL_ALIAS, FORMAL_AI_PROVIDER_MODEL_ID, FORMAL_AI_SUPPORTED_TOOLS, canonicalFormalAiModel, isFormalAiModel };

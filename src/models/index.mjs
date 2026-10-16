@@ -23,7 +23,7 @@ if (typeof globalThis.use === 'undefined') {
 }
 
 import { log } from '../lib.mjs';
-import { FORMAL_AI_MODEL_ALIAS, isFormalAiModel } from '../formal-ai-model.lib.mjs';
+import { FORMAL_AI_MODEL_ALIAS, FORMAL_AI_SUPPORTED_TOOLS, isFormalAiModel } from '../formal-ai-model.lib.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -173,7 +173,7 @@ export const mapModelForTool = (tool, model) => {
  */
 export const isModelCompatibleWithTool = (tool, model) => {
   if (isFormalAiModel(model)) {
-    return ['claude', 'agent', 'opencode', 'codex', 'qwen', 'gemini'].includes(tool);
+    return FORMAL_AI_SUPPORTED_TOOLS.includes(tool);
   }
 
   const mappedModel = mapModelForTool(tool, model);

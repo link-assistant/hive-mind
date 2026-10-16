@@ -168,6 +168,21 @@ test('the container is removed before its snapshot images, and never while its d
   assert.deepEqual(calls, []);
 });
 
+test('a container start-command already removed still has its snapshot images removed, unless the policy keeps it', async () => {
+  const sessionInfo = { isolationBackend: 'docker', sessionId: 'abc-resume-1', command: 'solve' };
+  const action = buildDockerTaskContainerCompletionAction({ sessionName: 'abc', sessionInfo, exitCode: null, status: 'executed', env: {}, containerRemoved: true });
+  assert.equal(action.extraSection, '', 'a removed container is not advertised as kept');
+  const calls = [];
+  const removeDockerContainer = async name => (calls.push(`rm ${name}`), { success: true });
+  const removeImages = async images => calls.push(`rmi ${images.join(' ')}`);
+  await applyDockerTaskContainerCompletionAction(action, { removeDockerContainer, removeImages });
+  assert.deepEqual(calls, ['rmi start-command-resume/abc:1'], 'nothing to remove but the images');
+  calls.length = 0;
+  const kept = buildDockerTaskContainerCompletionAction({ sessionName: 'abc', sessionInfo, exitCode: null, status: 'executed', env: { HIVE_MIND_KEEP_TASK_CONTAINER: 'always' }, containerRemoved: true });
+  await applyDockerTaskContainerCompletionAction(kept, { removeDockerContainer, removeImages });
+  assert.deepEqual([calls, kept.extraSection], [[], '']);
+});
+
 test('a snapshot resume records its image on the recovery session', async () => {
   const runner = { ...fakeRunner(), generateSessionId: () => 'fresh', executeWithIsolation: async () => assert.fail('no fresh launch') };
   const tracked = [];

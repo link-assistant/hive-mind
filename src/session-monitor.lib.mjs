@@ -592,23 +592,21 @@ export function buildDockerTaskContainerCompletionAction({ sessionName, sessionI
     return { applies: false, containerName: null, keepPolicy: null, shouldRemove: false, extraSection: '' };
   }
   const keepPolicy = resolveDockerTaskContainerKeepPolicy({ env, verbose });
-  if (containerRemoved) {
-    // Issue #2303: start-command already removed it, so "Docker container kept" would point at nothing.
-    if (verbose) console.log(`[VERBOSE] Docker task container '${containerName}' was already removed by start-command; neither keeping nor removing it`);
-    return { applies: false, containerName, keepPolicy, shouldRemove: false, extraSection: '' };
-  }
   const successful = isSuccessfulTaskCompletion({ exitCode, status, command: sessionInfo.command });
   const shouldKeep = keepPolicy === 'always' || (keepPolicy === 'on-failure' && !successful);
   // Issue #2889: the snapshot images of the container's resume chain go with it.
   const snapshotImages = [...new Set([...snapshotImagesForContainer(containerName), ...(Array.isArray(sessionInfo.killRecoverySnapshotImages) ? sessionInfo.killRecoverySnapshotImages : [])])];
+  // Issue #2303: start-command already removed it, so "Docker container kept" would point at nothing; its images still go (#2889).
+  if (containerRemoved && verbose) console.log(`[VERBOSE] Docker task container '${containerName}' was already removed by start-command; only its snapshot images are left to remove`);
   return {
     applies: true,
     containerName,
     keepPolicy,
     successful,
     shouldRemove: !shouldKeep,
+    containerRemoved,
     snapshotImages,
-    extraSection: shouldKeep ? formatDockerTaskContainerKeptSection({ containerName, keepPolicy }) : '',
+    extraSection: shouldKeep && !containerRemoved ? formatDockerTaskContainerKeptSection({ containerName, keepPolicy }) : '',
   };
 }
 export async function applyDockerTaskContainerCompletionAction(action, { verbose = false, removeDockerContainer = null, removeImages = removeSnapshotImages, sessionInfo = null } = {}) {
@@ -625,7 +623,7 @@ export async function applyDockerTaskContainerCompletionAction(action, { verbose
         const runner = await getIsolationRunner();
         return runner.removeDockerContainer(containerName, removeVerbose);
       });
-    const result = await removeFn(action.containerName, verbose);
+    const result = action.containerRemoved ? { success: true } : await removeFn(action.containerName, verbose);
     if (result?.success && action.snapshotImages?.length) await removeImages(action.snapshotImages, { verbose });
     if (verbose) {
       if (result?.success) {

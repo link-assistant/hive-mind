@@ -22,9 +22,9 @@ import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
-import { qwenModels, defaultModels, isFormalAiModel } from './models/index.mjs';
+import { qwenModels, defaultModels } from './models/index.mjs';
 import { buildFormalAiEnvExports, isPrepareOnly, logPreparedToolCommand, resolveFormalAiToolExecution } from './formal-ai.lib.mjs';
-import { buildFormalAiPricingInfo } from './formal-ai-pricing.lib.mjs'; // Issue #2119
+import { servedModelPricingInfo } from './formal-ai-pricing.lib.mjs'; // Issue #2119, #3279
 import { checkPlaywrightMcpPackageAvailability } from './playwright-mcp.lib.mjs';
 import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { getCumulativeContextInputTokens, getRestoredContextInputTokens, toTokenCount } from './context-fill.lib.mjs';
@@ -270,9 +270,11 @@ export const buildQwenPricingInfo = (state, mappedModel) => {
 
   // Issue #2119: `--model formal-ai` is served by the local Link.Assistant model
   // server, so the session belongs to Link.Assistant at $0.00 - not to Qwen Code.
-  if (isFormalAiModel(mappedModel) || isFormalAiModel(modelId)) {
+  // Issue #3279: one registry keyed by the served model prices it for every tool.
+  const servedPricing = servedModelPricingInfo(modelId, tokenUsage) ?? servedModelPricingInfo(mappedModel, tokenUsage);
+  if (servedPricing) {
     return {
-      pricingInfo: { ...buildFormalAiPricingInfo(modelId, tokenUsage), source: 'qwen-stream-json' },
+      pricingInfo: { ...servedPricing, modelId, source: 'qwen-stream-json' },
       publicPricingEstimate: 0,
       tokenUsage,
       resultModelUsage: buildQwenResultModelUsage(tokenUsage),

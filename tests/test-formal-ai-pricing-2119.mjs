@@ -20,7 +20,7 @@
 
 import assert from 'node:assert';
 
-import { FORMAL_AI_PROVIDER_NAME, applyFormalAiPricingOverride, buildFormalAiPricingInfo, withFormalAiPricing } from '../src/formal-ai-pricing.lib.mjs';
+import { FORMAL_AI_PROVIDER_NAME, applyFormalAiPricingOverride, buildFormalAiPricingInfo } from '../src/formal-ai-pricing.lib.mjs';
 import { FORMAL_AI_MODEL_ALIAS, FORMAL_AI_PROVIDER_MODEL_ID } from '../src/models/index.mjs';
 import { calculateAgentPricing } from '../src/agent.lib.mjs';
 import { calculateCodexPricing } from '../src/codex.lib.mjs';
@@ -53,17 +53,6 @@ assert.equal(buildQwenPricingInfo({ tokenUsage }, FORMAL_AI_MODEL_ALIAS).publicP
 
 // A non-formal-ai model must keep its own provider identity.
 assert.notEqual(buildGeminiPricingInfo('gemini-2.5-pro').provider, FORMAL_AI_PROVIDER_NAME, 'gemini keeps Google for its own models');
-
-// --- withFormalAiPricing wrapper -------------------------------------------
-let delegated = 0;
-const wrapped = withFormalAiPricing(async () => {
-  delegated += 1;
-  return { provider: 'OpenCode Zen', totalCostUSD: 0.252315 };
-});
-assertFormalAi(await wrapped(FORMAL_AI_MODEL_ALIAS, tokenUsage), 'withFormalAiPricing');
-assert.equal(delegated, 0, 'formal-ai short-circuits before the tool calculator runs');
-assert.equal((await wrapped('grok-code', tokenUsage)).provider, 'OpenCode Zen', 'other models still reach the tool calculator');
-assert.equal(delegated, 1, 'the tool calculator ran exactly once');
 
 // --- result override --------------------------------------------------------
 const overridden = applyFormalAiPricingOverride({

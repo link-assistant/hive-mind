@@ -80,3 +80,28 @@ test('a miscased Formal AI model is Formal AI for every tool, and no vendor mode
     }
   }
 });
+
+test('every pricing path asks the one served-model registry, whatever the spelling (#3279)', async () => {
+  const { lookupServedModelPrice, applyServedModelPricing } = await import('../src/formal-ai-pricing.lib.mjs');
+  const { buildGeminiPricingInfo } = await import('../src/gemini.lib.mjs');
+  const { buildQwenPricingInfo } = await import('../src/qwen.lib.mjs');
+  const { summarizeAgentCommanderResult } = await import('../src/agent-commander.lib.mjs');
+  const { captureAnthropicResultCost } = await import('../src/anthropic-cost-accumulator.lib.mjs');
+  const tokenUsage = { inputTokens: 10, outputTokens: 5 };
+  for (const model of ['formal-ai', 'Formal-AI', ' FormalAI/Formal-AI ']) {
+    assert.equal(lookupServedModelPrice(model)?.provider, 'Link.Assistant', model);
+    assert.equal(buildGeminiPricingInfo(model).totalCostUSD, 0, `gemini ${model}`);
+    assert.equal(buildQwenPricingInfo({ tokenUsage }, model).pricingInfo.provider, 'Link.Assistant', `qwen ${model}`);
+    assert.equal(await captureAnthropicResultCost({ data: { subtype: 'success', total_cost_usd: 0.25 }, model, log: async () => {} }), null, `claude ${model}`);
+  }
+  // Vendor models keep the cost their own client reported - nothing changes for Claude and Codex users.
+  assert.equal(lookupServedModelPrice('claude-opus-4-8'), null);
+  assert.deepEqual(await captureAnthropicResultCost({ data: { subtype: 'success', total_cost_usd: 0.25 }, model: 'opus', log: async () => {} }), { total: 0.25 });
+  const kept = applyServedModelPricing({ tool: 'claude', model: 'sonnet', pricingInfo: { totalCostUSD: 1 }, publicPricingEstimate: 1, anthropicTotalCostUSD: 0.9 });
+  assert.deepEqual([kept.pricingInfo, kept.publicPricingEstimate, kept.anthropicTotalCostUSD], [{ totalCostUSD: 1 }, 1, 0.9]);
+  const claude = summarizeAgentCommanderResult({ tool: 'claude', model: 'sonnet', result: { exitCode: 0, output: { plain: '', parsed: [{ type: 'result', subtype: 'success', total_cost_usd: 0.5 }] } } });
+  assert.equal(claude.anthropicTotalCostUSD, 0.5);
+  const formal = summarizeAgentCommanderResult({ tool: 'claude', model: 'Formal-AI', result: { exitCode: 0, output: { plain: '', parsed: [{ type: 'result', subtype: 'success', total_cost_usd: 0.5 }] } } });
+  assert.equal(formal.anthropicTotalCostUSD, null);
+  assert.equal(formal.pricingInfo.provider, 'Link.Assistant');
+});

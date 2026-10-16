@@ -60,21 +60,6 @@ export const buildFormalAiPricingInfo = (modelId = FORMAL_AI_MODEL_ALIAS, tokenU
 });
 
 /**
- * Wrap a `(modelId, tokenUsage) => pricingInfo` calculator so Formal AI model
- * ids short-circuit to the free Link.Assistant record instead of being priced
- * against models.dev.
- *
- * @param {Function} calculatePricing the tool's own pricing calculator
- * @returns {Function} wrapped calculator with the same signature
- */
-export const withFormalAiPricing =
-  calculatePricing =>
-  async (modelId, tokenUsage, ...rest) => {
-    if (isFormalAiModel(modelId)) return buildFormalAiPricingInfo(modelId, tokenUsage);
-    return calculatePricing(modelId, tokenUsage, ...rest);
-  };
-
-/**
  * Normalize a tool result's pricing fields for Formal AI sessions.
  *
  * Tools that report a provider cost of their own (claude's `total_cost_usd`)
@@ -91,7 +76,7 @@ export const withFormalAiPricing =
  * @returns {{pricingInfo: Object|null, publicPricingEstimate: number|null, anthropicTotalCostUSD: number|null}}
  */
 export const applyFormalAiPricingOverride = ({ model, pricingInfo = null, publicPricingEstimate = null, anthropicTotalCostUSD = null, tokenUsage = null }) => {
-  if (!isFormalAiModel(model)) return { pricingInfo, publicPricingEstimate, anthropicTotalCostUSD };
+  if (!lookupServedModelPrice(model)) return { pricingInfo, publicPricingEstimate, anthropicTotalCostUSD };
 
   const usage = pricingInfo?.tokenUsage || tokenUsage || null;
   // Drop provider-specific cost fields carried by the tool's own record: a
@@ -127,8 +112,16 @@ export const TOOL_VENDORS = Object.freeze({
   codex: Object.freeze({ provider: 'OpenAI', hosts: /(^|\.)(openai\.com|chatgpt\.com)$/i, models: /^(openai\/)?(gpt-|o\d|codex|chatgpt)/i }),
 });
 
-/** @returns {Object|null} the registry entry for a served model id. */
-export const lookupServedModelPrice = modelId => (modelId && Object.hasOwn(SERVED_MODEL_PRICES, modelId) ? SERVED_MODEL_PRICES[modelId] : null);
+/**
+ * @returns {Object|null} the registry entry for a served model id. Model ids
+ * are matched case-insensitively, like every other model id hive accepts
+ * (issue #3215).
+ */
+export const lookupServedModelPrice = modelId => {
+  if (typeof modelId !== 'string') return null;
+  const key = modelId.trim().toLowerCase();
+  return Object.hasOwn(SERVED_MODEL_PRICES, key) ? SERVED_MODEL_PRICES[key] : null;
+};
 
 /**
  * The pricing record of a model whose price the registry fixes, or null when

@@ -16,7 +16,7 @@ import { parseSubSessionSize } from './sub-session-size.lib.mjs';
 import { applyClaudePricingTierToEnv, buildCodexPricingTierConfigArgs, resolveClaudeModelForContext, resolvePricingTier } from './pricing-tier.lib.mjs'; // Issue #2771
 import { detectUsageLimit } from './usage-limit.lib.mjs';
 import { isRecoverableAgentToolError } from './agent-error-events.lib.mjs';
-import { applyFormalAiPricingOverride } from './formal-ai-pricing.lib.mjs'; // Issue #2119
+import { applyServedModelPricing } from './formal-ai-pricing.lib.mjs'; // Issue #2119, #3279
 import { getCacheReadTokenCount, getCumulativeContextInputTokens, getOutputTokenCount } from './context-fill.lib.mjs';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
 import { CLAUDE_MEMORY_DISABLE_ENV, buildCodexMemoryDisableConfigArgs, isAgentMemoryDisabled } from './agent-memory-policy.lib.mjs'; // Issue #2178
@@ -321,7 +321,8 @@ export const summarizeAgentCommanderResult = ({ result, tool, model = null }) =>
     });
     // Issue #2119: a Formal AI session belongs to Link.Assistant at $0.00, no
     // matter which agentic CLI agent-commander drove it.
-    const { pricingInfo, publicPricingEstimate, anthropicTotalCostUSD } = applyFormalAiPricingOverride({
+    const { pricingInfo, publicPricingEstimate, anthropicTotalCostUSD } = applyServedModelPricing({
+      tool,
       model,
       pricingInfo: enrichedPricingInfo,
       publicPricingEstimate: metadata.publicPricingEstimate ?? enrichedPricingInfo?.totalCostUSD ?? null,
@@ -358,7 +359,8 @@ export const summarizeAgentCommanderResult = ({ result, tool, model = null }) =>
     tool,
     publicPricingEstimate: rawPublicPricingEstimate,
   });
-  const { pricingInfo, publicPricingEstimate, anthropicTotalCostUSD } = applyFormalAiPricingOverride({
+  const { pricingInfo, publicPricingEstimate, anthropicTotalCostUSD } = applyServedModelPricing({
+    tool,
     model,
     pricingInfo: enrichedPricingInfo,
     publicPricingEstimate: rawPublicPricingEstimate ?? enrichedPricingInfo?.totalCostUSD ?? null,

@@ -150,8 +150,8 @@ const PRICING_ENTRY_POINT_BY_TOOL = {
   agent: 'servedModelPricingInfo',
   opencode: 'calculateAgentPricing',
   codex: 'servedModelPricingInfo',
-  qwen: 'buildFormalAiPricingInfo',
-  gemini: 'buildFormalAiPricingInfo',
+  qwen: 'servedModelPricingInfo',
+  gemini: 'servedModelPricingInfo',
 };
 
 for (const tool of FORMAL_AI_SUPPORTED_TOOLS) {

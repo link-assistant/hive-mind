@@ -13,7 +13,7 @@ import { getLoopToolFailure, hasLoopToolFailure } from './automation-failure.lib
 import { reevaluateRunWithoutChanges } from './session-changes.lib.mjs';
 import { getSolveNoChangesExitCode } from './solve.exit-codes.lib.mjs';
 
-export async function finalizeSolveProcess({ tempDir, argv, limitReached, path, getLogFile, log, closeSentry, logActiveHandles, cleanupTempDirectory, safeExit }) {
+export async function finalizeSolveProcess({ tempDir, argv, limitReached, path, getLogFile, log, closeSentry, logActiveHandles, cleanupTempDirectory, safeExit, formalAiIdleDuties = null }) {
   const runFinalizationStep = async (label, step) => {
     try {
       await step();
@@ -33,6 +33,11 @@ export async function finalizeSolveProcess({ tempDir, argv, limitReached, path, 
     withoutChanges = await reevaluateRunWithoutChanges({ log });
   });
   await runFinalizationStep('temporary directory cleanup', () => cleanupTempDirectory(tempDir, argv, limitReached));
+  // Issue #3282: offload a Formal AI image unused past its window without waiting for the bot.
+  await runFinalizationStep('Formal AI idle cleanup', async () => {
+    const idleDuties = formalAiIdleDuties ?? (await import('./formal-ai-maintenance.lib.mjs')).runFormalAiIdleDuties;
+    await idleDuties({ log, verbose: argv?.verbose === true });
+  });
 
   await runFinalizationStep('final log reference', async () => {
     // Show final log file reference so users always know where to find the complete log

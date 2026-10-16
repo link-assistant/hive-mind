@@ -1147,6 +1147,9 @@ if (isRunningDirectly) {
       for (let i = 1; i <= argv.concurrency; i++) {
         issueQueue.workers.push(worker(i));
       }
+      // Issue #3282: stop an unleased Formal AI sidecar and offload its unused image without the bot.
+      const { runFormalAiIdleDuties, startFormalAiMaintenance } = await import('./formal-ai-maintenance.lib.mjs');
+      const formalAiIdleMaintenance = startFormalAiMaintenance({ log, verbose: argv.verbose, runTick: runFormalAiIdleDuties });
       // Main monitoring loop
       let iteration = 0;
       while (true) {
@@ -1209,6 +1212,8 @@ if (isRunningDirectly) {
       // Stop workers
       issueQueue.stop();
       await Promise.all(issueQueue.workers);
+      formalAiIdleMaintenance.stop();
+      await runFormalAiIdleDuties({ log, verbose: argv.verbose }).catch(() => null);
       if (argv.once) {
         if (issueQueue.completed.size > 0) await listSolutionDrafts(issueQueue, log, batchCheckPullRequestsForIssues);
         await runReport.logSummary(issueQueue, { waitingIssues: relationsGate.getWaitingIssues(), dryRun: argv.dryRun }, log);

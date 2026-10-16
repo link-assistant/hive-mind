@@ -17,7 +17,7 @@
  * logs, GitHub comments and budget statistics.
  */
 
-import { FORMAL_AI_MODEL_ALIAS, FORMAL_AI_PROVIDER_MODEL_ID, isFormalAiModel } from './models/index.mjs';
+import { FORMAL_AI_MODEL_ALIAS, FORMAL_AI_PROVIDER_MODEL_ID, getModelMapForTool, isFormalAiModel } from './models/index.mjs';
 
 export const FORMAL_AI_PROVIDER_NAME = 'Link.Assistant';
 
@@ -108,8 +108,9 @@ export const SERVED_MODEL_PRICES = Object.freeze({
 
 /** Each client's own vendor: the hosts it talks to by default and the models that vendor serves. */
 export const TOOL_VENDORS = Object.freeze({
-  claude: Object.freeze({ provider: 'Anthropic', hosts: /(^|\.)anthropic\.com$/i, models: /^(anthropic\/)?(claude-|claude$|opus|sonnet|haiku)/i }),
-  codex: Object.freeze({ provider: 'OpenAI', hosts: /(^|\.)(openai\.com|chatgpt\.com)$/i, models: /^(openai\/)?(gpt-|o\d|codex|chatgpt)/i }),
+  // Bedrock and Vertex spellings (`us.anthropic.claude-…`, `bedrock/…`) name the same Anthropic models.
+  claude: Object.freeze({ provider: 'Anthropic', hosts: /(^|\.)anthropic\.com$/i, models: /^((anthropic|bedrock|vertex_ai)\/)?((us|eu|apac|global)\.)?(anthropic\.)?(claude|opus|sonnet|haiku|fable|mythos|best$)/i }),
+  codex: Object.freeze({ provider: 'OpenAI', hosts: /(^|\.)(openai\.com|chatgpt\.com)$/i, models: /^(openai[/.])?(gpt-|o\d|codex|chatgpt)/i }),
 });
 
 /**
@@ -144,7 +145,11 @@ export const isVendorEndpoint = ({ tool, baseUrl } = {}) => {
 /** True when the tool's own vendor serves `modelId`, so the vendor's cost applies. */
 export const isVendorModel = ({ tool, modelId } = {}) => {
   const vendor = TOOL_VENDORS[tool];
-  return Boolean(vendor && modelId && vendor.models.test(String(modelId)));
+  if (!vendor || !modelId || lookupServedModelPrice(modelId)) return false;
+  const id = String(modelId).trim();
+  // Every alias the tool's own model map resolves is the vendor's model, so a new alias needs no new pattern.
+  const modelMap = getModelMapForTool(tool) || {};
+  return vendor.models.test(id) || Object.hasOwn(modelMap, id) || Object.values(modelMap).includes(id);
 };
 
 /** Drop a vendor-computed cost from a result model usage map, keeping the token counts. */

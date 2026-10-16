@@ -106,12 +106,16 @@ const CANONICAL_PULL_REQUEST_URL = /^https:\/\/github\.com\/[^/\s]+\/[^/\s]+\/pu
  */
 export const HOSTED_MODEL_MARKERS = Object.freeze([
   { id: 'claude', pattern: /claude/i },
+  // Claude Code's bare family aliases (`opus`, `sonnet-5-5`, `opusplan`, `best`) name Anthropic models too (issue #3279).
+  { id: 'claude', pattern: /(^|[/.])(opus|sonnet|haiku|fable|mythos)(plan)?([-.\d]|$)|^best$/i },
   { id: 'codex', pattern: /codex/i },
   { id: 'gemini', pattern: /gemini/i },
   { id: 'opencode', pattern: /opencode/i },
   { id: 'anthropic', pattern: /anthropic/i },
   { id: 'openai', pattern: /openai/i },
   { id: 'gpt', pattern: /\bgpt[-\d]/i },
+  // OpenAI reasoning models (`o3`, `o4-mini`, `openai/o3`) (issue #3279).
+  { id: 'openai', pattern: /(^|[/.])o\d(-|$)/i },
   { id: 'qwen', pattern: /qwen/i },
   { id: 'grok', pattern: /grok/i },
 ]);

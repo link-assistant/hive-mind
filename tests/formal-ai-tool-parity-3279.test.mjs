@@ -311,6 +311,24 @@ describe('issue #3279: tool x {Anthropic, OpenAI, Formal AI} report cost and mod
     assert.equal(priced.anthropicTotalCostUSD, 0.252315);
   });
 
+  test('every Claude or OpenAI spelling a router can name keeps its vendor cost, and is never published as Formal AI', async () => {
+    const { isVendorModel } = await import('../src/formal-ai-pricing.lib.mjs');
+    const { detectHostedModel } = await import('../src/formal-ai-attribution.lib.mjs');
+    const vendorModels = { claude: ['opus', 'sonnet-5-5', 'opusplan', 'best', 'fable', 'mythos-5', 'claude-haiku-5-5', 'us.anthropic.claude-opus-4-8', 'bedrock/anthropic.claude-sonnet-4-5'], codex: ['gpt-5.5', 'o3', 'o4-mini', 'openai.sol', 'openai/gpt-6.1-sol', 'codex-auto-review'] };
+    for (const [tool, models] of Object.entries(vendorModels)) {
+      for (const model of models) {
+        assert.equal(isVendorModel({ tool, modelId: model }), true, `${tool} vendor serves ${model}`);
+        assert.ok(detectHostedModel(model), `${model} is a hosted model`);
+        const priced = applyServedModelPricing({ tool, model, servedModels: [model], baseUrl: 'https://router.example.com', ...TOOL_REPORTS[tool] });
+        assert.equal(priced.costSource, 'tool', `${tool} ${model} keeps the cost its client reported`);
+      }
+    }
+    for (const model of ['formal-ai', 'Formal-AI', 'formalai/formal-ai']) {
+      assert.equal(isVendorModel({ tool: 'claude', modelId: model }), false, model);
+      assert.equal(detectHostedModel(model), null, model);
+    }
+  });
+
   test('any other model behind a non-Anthropic ANTHROPIC_BASE_URL loses the Anthropic list price', () => {
     const resultModelUsage = { 'qwen3-coder': { inputTokens: 10, outputTokens: 5, costUSD: 0.252315 } };
     const priced = applyServedModelPricing({ tool: 'claude', model: 'qwen3-coder', servedModels: ['qwen3-coder'], baseUrl: 'http://127.0.0.1:8080/v1', ...TOOL_REPORTS.claude, resultModelUsage });

@@ -125,6 +125,40 @@ const recordCodexCompactification = (line, tokenUsage) => {
     conversationId: conversationId || null,
   });
 };
+// Issue #2842: `codex exec` runs one turn that contains many model requests, so
+// `turn.completed.usage.input_tokens` is the *sum* of every request's prompt.
+// OpenAI's long-context surcharge is decided per request, so the peak prompt
+// must come from the per-request `response.completed` SSE diagnostics:
+//   codex_otel.log_only: event.name="codex.sse_event" event.kind=response.completed input_token_count=149702 ...
+// `input_token_count` already includes cached tokens (it is the full prompt).
+const recordCodexRequestInputTokens = (line, tokenUsage) => {
+  if (!line.includes('codex_otel.') || !line.includes('event.name="codex.sse_event"')) return;
+  if (getCodexDiagnosticValue(line, 'event.kind') !== 'response.completed') return;
+  const inputTokenCount = getCodexDiagnosticInteger(line, 'input_token_count');
+  if (inputTokenCount === null || inputTokenCount < 0) return;
+  if (inputTokenCount > (tokenUsage.peakRequestInputTokens || 0)) tokenUsage.peakRequestInputTokens = inputTokenCount;
+};
+const toPositiveTokenCount = value => (Number.isFinite(value) && value > 0 ? value : null);
+/**
+ * Issue #2842: the largest single-request prompt of a Codex run.
+ *
+ * Prefers the per-request peak from the SSE diagnostics. Without it, the
+ * whole-turn total is only an upper bound, so it is capped at the context
+ * window (no single request can be larger than the window it was sent with).
+ *
+ * @param {Object} tokenUsage - Codex token usage (see createCodexTokenUsage).
+ * @param {Object} [options]
+ * @param {number|null} [options.contextWindow] - Fallback window when tokenUsage.contextLimit is unknown.
+ * @returns {number} Peak prompt tokens for a single request.
+ */
+export const resolveCodexPeakContextUsage = (tokenUsage, { contextWindow = null } = {}) => {
+  if (!tokenUsage) return 0;
+  const requestPeak = toPositiveTokenCount(tokenUsage.peakRequestInputTokens);
+  if (requestPeak) return requestPeak;
+  const turnPeak = toPositiveTokenCount(tokenUsage.turnPeakContextUsage ?? tokenUsage.peakContextUsage) || 0;
+  const window = toPositiveTokenCount(tokenUsage.contextLimit) ?? toPositiveTokenCount(contextWindow);
+  return window ? Math.min(turnPeak, window) : turnPeak;
+};
 export const parseCodexDiagnosticLine = (line, tokenUsage) => {
   const contextLimit = getCodexDiagnosticInteger(line, 'context_window') ?? getCodexDiagnosticInteger(line, 'model_context_window');
   if (contextLimit !== null) tokenUsage.contextLimit = contextLimit;
@@ -132,4 +166,5 @@ export const parseCodexDiagnosticLine = (line, tokenUsage) => {
   const autoCompactTokenLimit = getCodexDiagnosticInteger(line, 'auto_compact_token_limit') ?? getCodexDiagnosticInteger(line, 'model_auto_compact_token_limit');
   if (autoCompactTokenLimit !== null) tokenUsage.autoCompactTokenLimit = autoCompactTokenLimit;
   recordCodexCompactification(line, tokenUsage);
+  recordCodexRequestInputTokens(line, tokenUsage);
 };

@@ -57,3 +57,26 @@ export const getFirstObservedNumber = (object, pathNames) => {
 };
 
 export const hasAnyObservedPath = (object, pathNames) => pathNames.some(pathName => hasOwnPath(object, pathName));
+
+/** Empty token-usage accumulator for one `codex exec` run. */
+export const createCodexTokenUsage = (requestedModelId, { contextLimit = null } = {}) => ({
+  inputTokens: 0,
+  outputTokens: 0,
+  reasoningTokens: 0,
+  cacheReadTokens: 0,
+  cacheWriteTokens: 0,
+  totalTokens: 0,
+  stepCount: 0,
+  requestedModelId: requestedModelId || null,
+  respondedModelId: requestedModelId || null,
+  contextLimit,
+  outputLimit: null,
+  autoCompactTokenLimit: null,
+  contextFillInputTokens: 0,
+  peakContextUsage: 0,
+  turnPeakContextUsage: 0,
+  peakRequestInputTokens: 0,
+  subSessions: [],
+  compactifications: [],
+  tokenFieldAvailability: createCodexTokenFieldAvailability(),
+});

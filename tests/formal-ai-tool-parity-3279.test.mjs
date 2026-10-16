@@ -137,8 +137,6 @@ const runClaude = async ({ repo, argv, commit = true }) => {
   };
   const result = await executeClaudeCommand({
     ...common(repo),
-    escapedPrompt: 'Solve the issue.',
-    escapedSystemPrompt: '',
     argv: { tool: 'claude', url: `https://github.com/link-assistant/hive-mind/issues/${ISSUE}`, verbose: false, fallbackModel: null, disable1mContext: false, uselessToolsDisabled: false, ...argv },
     getLogFile: () => logFile,
     setLogFile: value => {
@@ -238,7 +236,7 @@ describe('issue #3279: Formal AI commit attribution through every client', () =>
       },
     });
     resetCumulativeAnthropicCost();
-    await executeClaudeCommand({ ...common(repo), escapedPrompt: '', escapedSystemPrompt: '', argv: { tool: 'claude', model: LOCAL_MODEL, attribution: 'formal-ai', verbose: false, fallbackModel: null, disable1mContext: false, uselessToolsDisabled: false }, getLogFile: () => logFile, setLogFile: value => (logFile = value), claudePath: 'claude', $ });
+    await executeClaudeCommand({ ...common(repo), argv: { tool: 'claude', model: LOCAL_MODEL, attribution: 'formal-ai', verbose: false, fallbackModel: null, disable1mContext: false, uselessToolsDisabled: false }, getLogFile: () => logFile, setLogFile: value => (logFile = value), claudePath: 'claude', $ });
     assert.equal(commitCode, 0, 'the commit still lands');
     assert.equal(trailersOf(repo)[FORMAL_AI_TRAILER_KEYS.session], null, 'but carries no Formal AI trailers');
   });

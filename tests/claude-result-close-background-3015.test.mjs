@@ -160,8 +160,6 @@ async function replay(scripts) {
       branchName: 'issue-3015-test',
       prompt: 'Continue.',
       systemPrompt: 'Solve the issue.',
-      escapedPrompt: 'Continue.',
-      escapedSystemPrompt: 'Solve the issue.',
       argv: { model: 'opus', tool: 'claude', url: 'https://github.com/link-assistant/hive-mind/issues/3015', verbose: true, fallbackModel: null, disable1mContext: false, uselessToolsDisabled: false },
       log: async message => logs.push(String(message)),
       getLogFile: () => logFile,

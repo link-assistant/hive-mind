@@ -372,10 +372,6 @@ Review this pull request thoroughly.`;
    - When finding issues, prioritize them by severity.
    - When suggesting improvements, explain why they're beneficial.`;
 
-  // Properly escape prompts for shell usage - escape quotes and preserve newlines
-  const escapedPrompt = prompt.replace(/"/g, '\\"').replace(/\$/g, '\\$');
-  const escapedSystemPrompt = systemPrompt.replace(/"/g, '\\"').replace(/\$/g, '\\$');
-
   // Execute claude command from the cloned repository directory
   await log(`\n🤖 Executing Claude (${argv.model.toUpperCase()}) for PR review...`);
 
@@ -397,8 +393,6 @@ Review this pull request thoroughly.`;
     branchName: prDetails.headRefName,
     prompt,
     systemPrompt,
-    escapedPrompt,
-    escapedSystemPrompt,
     argv,
     log,
     setLogFile,

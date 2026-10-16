@@ -99,8 +99,6 @@ const buildExecutionParams = ({ fakeDollar, logs }) => {
     branchName: 'issue-2023-test',
     prompt: 'Continue.',
     systemPrompt: 'Solve the issue.',
-    escapedPrompt: 'Continue.',
-    escapedSystemPrompt: 'Solve the issue.',
     argv: {
       model: 'opus',
       tool: 'claude',

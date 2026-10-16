@@ -140,8 +140,6 @@ try {
     branchName: 'issue-2263',
     prompt: 'Solve and verify.',
     systemPrompt: 'Solve the issue.',
-    escapedPrompt: 'Solve and verify.',
-    escapedSystemPrompt: 'Solve the issue.',
     argv: { model: 'sonnet', tool: 'claude', url: 'https://github.com/link-assistant/hive-mind/issues/2263', verbose: false, fallbackModel: null, disable1mContext: false, uselessToolsDisabled: false },
     log: silentLog,
     setLogFile: nextLogFile => {

@@ -88,8 +88,6 @@ const runHangingClaude = async events => {
       branchName: 'issue-2823',
       prompt: 'Continue.',
       systemPrompt: 'Solve it.',
-      escapedPrompt: 'Continue.',
-      escapedSystemPrompt: 'Solve it.',
       argv,
       log: async message => logs.push(String(message)),
       setLogFile: next => {

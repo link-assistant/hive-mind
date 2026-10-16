@@ -197,7 +197,6 @@ const preparedCommandParams = (tempDir, toolPathKey, toolPath) => ({
   branchName: 'issue-2059-test',
   prompt: 'Solve issue 2059',
   systemPrompt: '',
-  escapedSystemPrompt: '',
   argv: {
     model: 'formal-ai',
     onlyPrepareCommand: true,

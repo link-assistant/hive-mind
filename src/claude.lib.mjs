@@ -25,6 +25,7 @@ import { CLAUDE_MODELS as availableModels, mapClaudeSubAgentModelToEnvValue } fr
 import { applyServedModelPricing } from './formal-ai-pricing.lib.mjs'; // Issue #2119, #3279
 import { createToolAttribution } from './formal-ai-attribution.lib.mjs'; // Issue #3279
 import { isPrepareOnly, logPreparedToolCommand, resolveFormalAiToolExecution } from './formal-ai.lib.mjs';
+import { shellQuote } from './shell-command.lib.mjs';
 import { buildMcpConfigWithoutPlaywright, ensureClaudePlaywrightMcpServer } from './playwright-mcp.lib.mjs';
 import { resolveClaudeSessionToolFlags } from './useless-tools.lib.mjs';
 import { ensureClaudeQuietConfig } from './claude-quiet-config.lib.mjs';
@@ -124,8 +125,6 @@ export const executeClaude = async params => {
       await log('---END SYSTEM PROMPT---', { verbose: true });
     }
   }
-  const escapedPrompt = prompt.replace(/"/g, '\\"').replace(/\$/g, '\\$');
-  const escapedSystemPrompt = systemPrompt.replace(/"/g, '\\"').replace(/\$/g, '\\$');
   // Issue #1877: deploy the experimental HANDOFF.md Agent Skill so Claude loads
   // it natively from .claude/skills/handoff/SKILL.md (no-op unless --use-handoff).
   await deployHandoffSkill({ tempDir, argv, log, $ });
@@ -137,8 +136,6 @@ export const executeClaude = async params => {
       branchName,
       prompt,
       systemPrompt,
-      escapedPrompt,
-      escapedSystemPrompt,
       argv,
       log,
       setLogFile,
@@ -179,7 +176,6 @@ export const executeClaudeCommand = async params => {
     branchName,
     prompt,
     systemPrompt,
-    escapedSystemPrompt,
     argv,
     log,
     setLogFile,
@@ -201,7 +197,6 @@ export const executeClaudeCommand = async params => {
   const claudeAttribution = await createToolAttribution({ tool: 'claude', argv, repositoryPath: tempDir, issueNumber, prNumber, prUrl: params.prUrl, log, createAttributionSession: params.createAttributionSession }); // Issue #3279: `--tool agent`'s attribution, fed from stream-json
   let claudeBaseUrl = null; // Issue #3279: the endpoint Claude Code was pointed at, for pricing the served model
   const expectedBaseBranch = String(argv?.baseBranch || '').trim();
-  const escapePromptForShell = promptText => String(promptText).replace(/"/g, '\\"').replace(/\$/g, '\\$');
   await validateBidirectionalModeConfig(argv, log);
   // Issue #2840: model IDs reported by this session's stream, kept even if it never reaches a result.
   resetObservedModels();
@@ -219,7 +214,6 @@ export const executeClaudeCommand = async params => {
   const tryThinkingBlockRecovery = createThinkingBlockRecovery({ argv, tempDir, branchName, $, log });
   const executeWithRetry = async () => {
     const promptForAttempt = [prompt, baseBranchInterventionPrompt, incompleteTurnPrompt].filter(Boolean).join('\n\n');
-    const escapedPromptForAttempt = escapePromptForShell(promptForAttempt);
     if (retryCount === 0) {
       await log(`\n${formatAligned('🤖', 'Executing Claude:', argv.model.toUpperCase())}`);
     } else {
@@ -347,9 +341,9 @@ export const executeClaudeCommand = async params => {
     if (disallowedToolsList.length) claudeArgs += ` --disallowedTools ${disallowedToolsList.join(' ')}`;
     if (streamingInput) {
       // Prompt is delivered as the first NDJSON frame on stdin (not as -p).
-      claudeArgs += ` -p --input-format stream-json --append-system-prompt "${escapedSystemPrompt}"`;
+      claudeArgs += ` -p --input-format stream-json --append-system-prompt ${shellQuote(systemPrompt)}`;
     } else {
-      claudeArgs += ` -p "${escapedPromptForAttempt}" --append-system-prompt "${escapedSystemPrompt}"`;
+      claudeArgs += ` -p ${shellQuote(promptForAttempt)} --append-system-prompt ${shellQuote(systemPrompt)}`;
     }
     const fullCommand = `(cd "${tempDir}" && ${toolInvocation.displayCommand} ${claudeArgs} | jq -c .)`;
     const preparedResult = await logPreparedToolCommand({ argv, fullCommand, log, formatAligned });
@@ -383,22 +377,21 @@ export const executeClaudeCommand = async params => {
         if (sub1706.length) await log(`📊 ${sub1706.join(', ')}`, { verbose: true });
         if (!isNewVersion && thinkLevel) await log(`📊 Thinking level (via keywords): ${thinkLevel}`, { verbose: true });
       }
-      const simpleEscapedSystem = systemPrompt.replace(/"/g, '\\"');
+      // Issue #3282: command-stream quotes each value itself. Extra "..." around one reached Claude as \" (and older command-stream let /bin/sh expand it).
       const mcpDisableArgs = mcpConfigPath ? ['--strict-mcp-config', '--mcp-config', mcpConfigPath] : [];
       const disallowedToolsArgs = disallowedToolsList.length ? ['--disallowedTools', ...disallowedToolsList] : [];
       const fallbackModelArgs = useClaudeFallbackModel ? ['--fallback-model', mappedFallbackModel] : []; // Issue #1949: Claude Code's per-request overload fallback
       if (useClaudeFallbackModel && argv.verbose) await log(`📊 Claude --fallback-model: ${mappedFallbackModel} (Issue #1949 — primary --model ${effectiveModel} stays stable across overload retries)`, { verbose: true });
       if (argv.resume) {
-        const simpleEscapedPrompt = promptForAttempt.replace(/"/g, '\\"');
-        execCommand = $({ cwd: tempDir, mirror: false, env: claudeEnv })`${toolInvocation.command} --resume ${argv.resume} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${fallbackModelArgs} ${mcpDisableArgs} ${disallowedToolsArgs} -p "${simpleEscapedPrompt}" --append-system-prompt "${simpleEscapedSystem}"`;
+        execCommand = $({ cwd: tempDir, mirror: false, env: claudeEnv })`${toolInvocation.command} --resume ${argv.resume} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${fallbackModelArgs} ${mcpDisableArgs} ${disallowedToolsArgs} -p ${promptForAttempt} --append-system-prompt ${systemPrompt}`;
       } else if (streamingInput) {
         // Issue #817: Drive Claude via --input-format stream-json on a pipe
         // stdin. Initial prompt + later PR comments are written as NDJSON
         // frames by attachStreamingInput (see bidirectional-interactive.lib.mjs).
         const streamingInputArgs = ['-p', '--input-format', 'stream-json'];
-        execCommand = $({ cwd: tempDir, stdin: 'pipe', mirror: false, env: claudeEnv })`${toolInvocation.command} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${fallbackModelArgs} ${mcpDisableArgs} ${disallowedToolsArgs} ${streamingInputArgs} --append-system-prompt "${simpleEscapedSystem}"`;
+        execCommand = $({ cwd: tempDir, stdin: 'pipe', mirror: false, env: claudeEnv })`${toolInvocation.command} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${fallbackModelArgs} ${mcpDisableArgs} ${disallowedToolsArgs} ${streamingInputArgs} --append-system-prompt ${systemPrompt}`;
       } else {
-        execCommand = $({ cwd: tempDir, stdin: promptForAttempt, mirror: false, env: claudeEnv })`${toolInvocation.command} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${fallbackModelArgs} ${mcpDisableArgs} ${disallowedToolsArgs} --append-system-prompt "${simpleEscapedSystem}"`;
+        execCommand = $({ cwd: tempDir, stdin: promptForAttempt, mirror: false, env: claudeEnv })`${toolInvocation.command} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${fallbackModelArgs} ${mcpDisableArgs} ${disallowedToolsArgs} --append-system-prompt ${systemPrompt}`;
       }
       if (streamingInput) {
         await attachStreamingInput(bidirectionalHandler, execCommand, promptForAttempt, log, !!argv.verbose);

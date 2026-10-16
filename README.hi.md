@@ -572,6 +572,7 @@ Examples:
 /fix owner/repo --ci-cd --no-solve
 /fix https://github.com/owner/repo --update-all-dependencies
 /fix owner/repo --update-all-dependencies --dry-run
+/fix owner/repo --update-all-dependencies --no-merge-dependabot-prs
 ```
 
 `/fix --ci-cd` लक्ष्य रिपॉज़िटरी की भाषाओं का पता लगाता है, डिफ़ॉल्ट ब्रांच के नवीनतम कमिट और उसके CI/CD रनों
@@ -592,7 +593,8 @@ manifests, फिर से generate किए जाने वाले lockfil
 `/solve --development-log --deep-analysis --auto-merge --update-all-dependencies` को सौंप देता है।
 विवरण के लिए
 [स्वचालित Dependency Remediation](docs/DEPENDENCY-UPDATE-BEST-PRACTICES.hi.md#स्वचालित-dependency-remediation)
-देखें। हर बार ठीक एक मोड आवश्यक है: बिना मोड वाला या दोनों मोड वाला `/fix` अस्वीकार कर दिया जाता है।
+देखें। रिपॉज़िटरी की जाँच से पहले यह हर खुले Dependabot pull request को CI/CD की प्रतीक्षा किए बिना merge करता है, और issue में solver से इन merges से आई हर त्रुटि ठीक करने को कहता है; `--no-merge-dependabot-prs` यह चरण छोड़ देता है ([issue #3413](https://github.com/link-assistant/hive-mind/issues/3413))।
+हर बार ठीक एक मोड आवश्यक है: बिना मोड वाला या दोनों मोड वाला `/fix` अस्वीकार कर दिया जाता है।
 
 यदि पूरा `/fix` workflow उपलब्ध न हो, तो `/task --ci-cd <repository>` और
 `/task --update-all-dependencies <repository>` केवल वही issue-generation चरण चलाते हैं।

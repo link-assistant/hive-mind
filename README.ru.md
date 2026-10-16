@@ -573,6 +573,7 @@ Examples:
 /fix owner/repo --ci-cd --no-solve
 /fix https://github.com/owner/repo --update-all-dependencies
 /fix owner/repo --update-all-dependencies --dry-run
+/fix owner/repo --update-all-dependencies --no-merge-dependabot-prs
 ```
 
 `/fix --ci-cd` определяет языки целевого репозитория, анализирует последний коммит ветки по умолчанию и его
@@ -591,6 +592,7 @@ Examples:
 там мажорные версии. Затем он передаёт issue в
 `/solve --development-log --deep-analysis --auto-merge --update-all-dependencies`. Подробнее см.
 [Автоматическое обновление зависимостей](docs/DEPENDENCY-UPDATE-BEST-PRACTICES.ru.md#автоматическое-обновление-зависимостей).
+Перед анализом репозитория он сливает все открытые pull request от Dependabot, не дожидаясь CI/CD, а в issue просит исправить все ошибки, внесённые этими слияниями; `--no-merge-dependabot-prs` отключает этот шаг ([issue #3413](https://github.com/link-assistant/hive-mind/issues/3413)).
 За один запуск требуется ровно один режим: `/fix` без режима или сразу с двумя отклоняется.
 
 Если полный процесс `/fix` недоступен, `/task --ci-cd <repository>` и

@@ -195,17 +195,24 @@ fix https://github.com/owner/repo --update-all-dependencies
 
 यह कमांड:
 
-1. **repository की भाषाओं का पता लगाता है**, GitHub Linguist API (`GET /repos/{owner}/{repo}/languages`) से, प्रति भाषा bytes के क्रम में।
-2. **default branch की file tree सूचीबद्ध करता है** (`GET /repos/{owner}/{repo}/git/trees/{branch}?recursive=1`) और हर committed manifest और lockfile खोजता है, `node_modules/`, `vendor/`, `.venv/` और `target/` जैसी vendored directories छोड़ते हुए।
-3. **दोनों संकेतों को package ecosystems पर मैप करता है।** अकेला कोई भी संकेत गलत है: Linguist उन ecosystems को नहीं देखता जिनका अपना source code नहीं है (GitHub Actions, Docker, Terraform), और manifests उस भाषा को नहीं देखते जिसका manifest असामान्य या अनुपस्थित है।
-4. **एक maintenance issue बनाता है** जिसमें हर पहचाना गया ecosystem, मिले हुए manifests, फिर से generate किए जाने वाले lockfiles, वहाँ major पार करने वाला कमांड, ठीक उन्हीं ecosystems के लिए तैयार `.github/dependabot.yml`, और ऊपर के सिद्धांतों से बना standard prompt सूचीबद्ध होते हैं। issue **Task** प्रकार और `dependencies` label के साथ बनाया जाता है।
-5. **issue को `/solve --development-log --deep-analysis --auto-merge --update-all-dependencies` को सौंपता है**, जो अपडेट merge होने तक iterate करता है। हर वह option जिसे `fix` स्वयं उपभोग नहीं करता (उदाहरण के लिए `--tool`, `--model`, `--think`) `/solve` को अग्रेषित किया जाता है।
+1. **CI/CD की प्रतीक्षा किए बिना हर खुला Dependabot pull request merge करता है** ([issue #3413](https://github.com/link-assistant/hive-mind/issues/3413)), सबसे पुराने से शुरू करके और किसी भी अन्य जाँच से पहले — ताकि issue Dependabot के अपडेट लागू होने के बाद की repository का वर्णन करे और solver उन्हें हाथ से दोबारा न करे।
+2. **repository की भाषाओं का पता लगाता है**, GitHub Linguist API (`GET /repos/{owner}/{repo}/languages`) से, प्रति भाषा bytes के क्रम में।
+3. **default branch की file tree सूचीबद्ध करता है** (`GET /repos/{owner}/{repo}/git/trees/{branch}?recursive=1`) और हर committed manifest और lockfile खोजता है, `node_modules/`, `vendor/`, `.venv/` और `target/` जैसी vendored directories छोड़ते हुए।
+4. **दोनों संकेतों को package ecosystems पर मैप करता है।** अकेला कोई भी संकेत गलत है: Linguist उन ecosystems को नहीं देखता जिनका अपना source code नहीं है (GitHub Actions, Docker, Terraform), और manifests उस भाषा को नहीं देखते जिसका manifest असामान्य या अनुपस्थित है।
+5. **एक maintenance issue बनाता है** जिसमें हर पहचाना गया ecosystem, मिले हुए manifests, फिर से generate किए जाने वाले lockfiles, वहाँ major पार करने वाला कमांड, ठीक उन्हीं ecosystems के लिए तैयार `.github/dependabot.yml`, और ऊपर के सिद्धांतों से बना standard prompt सूचीबद्ध होते हैं। issue **Task** प्रकार और `dependencies` label के साथ बनाया जाता है।
+6. **issue को `/solve --development-log --deep-analysis --auto-merge --update-all-dependencies` को सौंपता है**, जो अपडेट merge होने तक iterate करता है। हर वह option जिसे `fix` स्वयं उपभोग नहीं करता (उदाहरण के लिए `--tool`, `--model`, `--think`) `/solve` को अग्रेषित किया जाता है।
 
 issue बनाए बिना उसका पूर्वावलोकन करने के लिए `--dry-run` का उपयोग करें, और `/solve` शुरू किए बिना issue बनाने के लिए `--no-solve` का:
 
 ```bash
 fix owner/repo --update-all-dependencies --dry-run
 fix owner/repo --update-all-dependencies --no-solve
+```
+
+issue **Dependabot pull requests merged before this issue was created** खंड से शुरू होता है: हर merge किया गया pull request, merge के समय पास न होने वाले checks के साथ, और एक bold निर्देश कि उन merges से आई हर build, test, lint, security और deprecation त्रुटि ठीक की जाए जब तक default branch का CI/CD फिर से हरा न हो जाए — अपडेट revert किए बिना। merge, repository द्वारा अनुमत पहली merge विधि (merge commit, squash, rebase) का उपयोग करता है, `--match-head-commit` को जाँचे गए commit पर pin करता है, और जब केवल branch नियम (required checks, required reviews, पुरानी branch) रोकते हैं तो एक बार `--admin` के साथ पुनः प्रयास करता है। जो pull requests फिर भी merge नहीं हो पाते — conflicts, drafts, बिना bypass वाले rulesets — वे खुले रहते हैं और issue में सूचीबद्ध होते हैं ताकि उनके अपडेट solver के pull request में लागू किए जाएँ; अपडेट लागू होने पर Dependabot उन्हें स्वयं बंद कर देता है। `--dry-run` केवल वही सूचीबद्ध करता है जो merge होगा, और `--no-merge-dependabot-prs` इस चरण को बंद करता है। `/task --update-all-dependencies` भी इन्हीं नियमों का पालन करता है:
+
+```bash
+fix owner/repo --update-all-dependencies --no-merge-dependabot-prs
 ```
 
 repository का निरीक्षण होते ही issue बना दिया जाता है, लेकिन `/solve` तभी शुरू होता है जब default branch पर कोई GitHub Actions run pending न हो, ताकि AI का काम बदलती हुई default branch से शुरू न हो और उन runs पर निर्भर न करे जिनका परिणाम अभी बदलने वाला है। प्रतीक्षा हर 30 सेकंड में जाँच करती है, `--ci-wait-timeout <minutes>` (default 60) के बाद रुक जाती है और `--no-wait-for-ci` से छोड़ी जा सकती है। प्रतीक्षा के दौरान Telegram reply में अलग "⏳ CI/CD के पूरा होने की प्रतीक्षा" status दिखता है जिसमें अभी चल रहे runs होते हैं, और यदि runs प्रतीक्षा के दौरान पूरे हो गए तो उनके नवीनतम परिणाम issue पर comment के रूप में जोड़े जाते हैं ([issue #3326](https://github.com/link-assistant/hive-mind/issues/3326)):

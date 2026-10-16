@@ -220,7 +220,7 @@ export async function mergeDependabotPullRequests({ repository, run = runCommand
     }
 
     let attempt = await run('gh', buildMergeArgs({ repository, pullRequest, method: result.method }));
-    let error = attempt.code === 0 ? null : `${attempt.stderr || ''}${attempt.stdout || ''}`.trim() || `gh exited with code ${attempt.code}`;
+    let error = attempt.code === 0 ? null : `${attempt.stderr?.toString() || ''}${attempt.stdout?.toString() || ''}`.trim() || `gh exited with code ${attempt.code}`;
     if (verbose && error) say(`   [VERBOSE] gh pr merge #${pullRequest.number} failed: ${error}`);
     if (error && shouldRetryWithAdmin(error)) {
       attempt = await run('gh', buildMergeArgs({ repository, pullRequest, method: result.method, admin: true }));
@@ -228,7 +228,7 @@ export async function mergeDependabotPullRequests({ repository, run = runCommand
         entry.admin = true;
         error = null;
       } else {
-        const adminError = `${attempt.stderr || ''}${attempt.stdout || ''}`.trim();
+        const adminError = `${attempt.stderr?.toString() || ''}${attempt.stdout?.toString() || ''}`.trim();
         if (verbose) say(`   [VERBOSE] gh pr merge #${pullRequest.number} --admin failed: ${adminError}`);
         error = firstLine(adminError) || firstLine(error);
       }

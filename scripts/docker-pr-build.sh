@@ -76,6 +76,7 @@ if [ "${ON_ACTIONS}" = "true" ] && [ "${EXTRA_SWAP_GB}" != "0" ]; then
   if sudo fallocate -l "${EXTRA_SWAP_GB}G" "${SWAP_FILE}" && sudo chmod 600 "${SWAP_FILE}" && sudo mkswap "${SWAP_FILE}" >/dev/null && sudo swapon "${SWAP_FILE}"; then
     echo "Added ${EXTRA_SWAP_GB} GB of swap at ${SWAP_FILE}"
   else
+    # shell-lint: allow-nonfatal — swap is only headroom; a build that then runs out of memory fails on its own.
     echo "Warning: could not add swap at ${SWAP_FILE}; building without it"
   fi
 fi

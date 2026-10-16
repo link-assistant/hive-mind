@@ -17,6 +17,7 @@ import { exec as execCallback } from 'child_process';
 const execRaw = promisify(execCallback);
 
 import { parseGitHubUrl } from './github.lib.mjs';
+import { selectSessionPullRequest } from './session-own-pr.lib.mjs';
 import { githubLimits } from './config.lib.mjs';
 import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
 import { getTerminalGitHubEntityErrorMessage, isTerminalGitHubEntityError } from './github-terminal-state.lib.mjs';
@@ -246,21 +247,16 @@ export async function fetchReadyIssuesWithPRs(owner, repo, verbose = false) {
 
         const linkedPRs = JSON.parse(searchJson.trim() || '[]');
 
-        if (linkedPRs.length > 0) {
-          // Take the first linked PR (oldest if multiple)
-          linkedPRs.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-          result.push({
-            issue,
-            pr: linkedPRs[0],
-            // Use minimum of issue and PR creation dates for sorting
-            sortDate: new Date(Math.min(new Date(issue.createdAt), new Date(linkedPRs[0].createdAt))),
-          });
-
-          if (verbose) {
-            console.log(`[VERBOSE] /merge: Issue #${issue.number} linked to PR #${linkedPRs[0].number}`);
-          }
+        // The issue's own PR, oldest first: a parent's plan PR that also closes
+        // this issue is on another issue's branch and is never picked (#2891).
+        linkedPRs.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+        const pr = selectSessionPullRequest(linkedPRs, issue.number, { rejected: other => verbose && console.log(`[VERBOSE] /merge: Issue #${issue.number}: skipping PR #${other.number}, its branch ${other.headRefName} belongs to another issue`) });
+        if (pr) {
+          // Use minimum of issue and PR creation dates for sorting
+          result.push({ issue, pr, sortDate: new Date(Math.min(new Date(issue.createdAt), new Date(pr.createdAt))) });
+          if (verbose) console.log(`[VERBOSE] /merge: Issue #${issue.number} linked to PR #${pr.number}`);
         } else if (verbose) {
-          console.log(`[VERBOSE] /merge: Issue #${issue.number} has no linked open PR`);
+          console.log(`[VERBOSE] /merge: Issue #${issue.number} has no linked open PR of its own`);
         }
       } catch (err) {
         if (verbose) {

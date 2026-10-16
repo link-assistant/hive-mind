@@ -66,3 +66,33 @@ test('the session log skips PRs already known to belong to another issue', () =>
   assert.equal(findSessionPullRequestUrlInText(log, ctx, { rejectedUrls: new Set([PLAN.url]) }), `${ROUTER}/pull/749`);
   assert.equal(findSessionPullRequestUrlInText(`foreign https://github.com/other/router/pull/1`, ctx), null);
 });
+
+test('/merge pairs a ready sub-issue with its own PR, not the older parent plan PR that also closes it', async () => {
+  const { mkdtemp, writeFile, chmod, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { fetchReadyIssuesWithPRs } = await import('../src/github-merge.lib.mjs');
+  const dir = await mkdtemp(join(tmpdir(), 'merge-2891-'));
+  const plan = { number: 721, title: 'Plan for #720', url: 'https://github.com/link-assistant/router/pull/721', createdAt: '2026-10-01T00:00:00Z', headRefName: 'issue-720-99e7abc4e6c1' };
+  const own = { number: 749, title: 'Fix #724', url: 'https://github.com/link-assistant/router/pull/749', createdAt: '2026-10-05T00:00:00Z', headRefName: 'issue-724-878028a21e67' };
+  const issues = [
+    { number: 724, title: 'Sub-issue', url: 'https://github.com/link-assistant/router/issues/724', createdAt: '2026-09-30T00:00:00Z' },
+    { number: 726, title: 'Sub-issue without its own PR', url: 'https://github.com/link-assistant/router/issues/726', createdAt: '2026-09-30T00:00:00Z' },
+  ];
+  const answers = { 'issue list': issues, '#724': [own, plan], '#726': [plan] };
+  await writeFile(join(dir, 'answers.json'), JSON.stringify(answers));
+  await writeFile(join(dir, 'gh'), `#!/usr/bin/env node\nconst answers = require(${JSON.stringify(join(dir, 'answers.json'))});\nconst args = process.argv.slice(2).join(' ');\nconst key = args.startsWith('issue list') ? 'issue list' : (args.match(/closes (#\\d+)/) || [])[1];\nprocess.stdout.write(JSON.stringify(answers[key] || []));\n`);
+  await chmod(join(dir, 'gh'), 0o755);
+  const path = process.env.PATH;
+  process.env.PATH = `${dir}:${path}`;
+  try {
+    const result = await fetchReadyIssuesWithPRs('link-assistant', 'router');
+    assert.deepEqual(
+      result.map(({ issue, pr }) => [issue.number, pr.number]),
+      [[724, 749]]
+    );
+  } finally {
+    process.env.PATH = path;
+    await rm(dir, { recursive: true, force: true });
+  }
+});

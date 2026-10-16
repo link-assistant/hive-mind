@@ -86,7 +86,7 @@ test('the registry resolver reads every tag page and ignores date tags', async (
   assert.equal(await resolveContainerLatest('ghcr.io/org/image', { current: '0.125.4' }, { fetchImpl }), '1.24.1');
 });
 
-test('the repository inventory covers code image pins, coolify agent pins and lockfile refresh', async () => {
+test('the repository inventory covers code image pins, coolify agent pins, example workflows and lockfile refresh', async () => {
   const records = await collectDependencyRecords({ root: repositoryRoot });
   const at = location => records.filter(record => record.location.startsWith(location));
   assert.ok(at('src/task-image-languages.lib.mjs').some(record => record.name === 'link-foundation/box'));
@@ -97,6 +97,10 @@ test('the repository inventory covers code image pins, coolify agent pins and lo
       at('coolify/Dockerfile').some(record => record.name === name),
       `coolify/Dockerfile must pin ${name} like Dockerfile`
     );
+  assert.ok(
+    at('examples/workflows/close-linked-issues.yml').some(record => record.name === 'actions/setup-node'),
+    'example workflows are copied as they are, so their action pins are checked'
+  );
   const cli = fs.readFileSync(path.join(repositoryRoot, 'scripts', 'check-dependency-freshness.mjs'), 'utf8');
   assert.match(cli, /npm', \['update', '--package-lock-only'/);
   assert.match(cli, /lockfileLagRecords\(lock, await refreshedLockfile\(\)\)/);

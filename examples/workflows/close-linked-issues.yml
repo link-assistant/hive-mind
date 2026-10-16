@@ -20,9 +20,9 @@ jobs:
       issues: write
       pull-requests: read
     steps:
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24.x
       - name: Close the issues GitHub left open
         env:
           GH_TOKEN: ${{ github.token }}

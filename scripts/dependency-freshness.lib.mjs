@@ -263,8 +263,9 @@ export const collectDependencyRecords = async ({ root = process.cwd() } = {}) =>
     records.push(...parseDockerDependencyPins(source, relative));
   }
 
-  const workflowRoot = path.join(root, '.github');
-  for (const target of await walkYamlFiles(workflowRoot)) {
+  // Example workflows are copied into other repositories as they are, so they are held to the same pins.
+  const workflowFiles = [...(await walkYamlFiles(path.join(root, '.github'))), ...(await walkYamlFiles(path.join(root, 'examples')).catch(() => []))];
+  for (const target of workflowFiles) {
     const relative = path.relative(root, target);
     const source = blankCommentLines(await fs.readFile(target, 'utf8'));
     records.push(...parseGitHubActionPins(source, relative));

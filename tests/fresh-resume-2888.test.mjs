@@ -94,7 +94,7 @@ test('the rollout is copied out of the stopped container when it is only there',
   assert.deepEqual(h.launches[0].args.slice(-2), ['--resume', THREAD]);
 });
 
-test('a mounted rollout keeps --resume, and other tools and backends are left alone', async () => {
+test('a mounted rollout keeps --resume, and claude and other backends are left alone', async () => {
   const home = await tempHome();
   await writeRollout(path.join(home, '.codex', 'sessions'));
   const command = buildResumeCommand({ sessionInfo: info(), lastSessionId: THREAD });
@@ -109,6 +109,23 @@ test('a mounted rollout keeps --resume, and other tools and backends are left al
   assert.equal(dropped.outcome, FRESH_RESUME_OUTCOMES.DROPPED);
   assert.equal(dropped.command.display, `solve ${ISSUE_URL} --tool codex --verbose`);
   assert.equal(dropped.command.chatDisplay, `/codex ${ISSUE_URL} --tool codex --verbose`);
+});
+
+test('R4: agent, gemini, qwen and opencode sessions are not mounted, so a new container drops their --resume', async () => {
+  for (const tool of ['agent', 'gemini', 'qwen', 'opencode']) {
+    const sessionInfo = info({ tool, commandAlias: 'solve', args: [ISSUE_URL, '--tool', tool] });
+    const command = buildResumeCommand({ sessionInfo, lastSessionId: 'ses_727' });
+    assert.equal(readResumeId(command.args), 'ses_727');
+    const result = await resolveFreshRecoveryCommand({ sessionName: SESSION, sessionInfo, command, runner: {}, homeDir: await tempHome() });
+    assert.equal(result.outcome, FRESH_RESUME_OUTCOMES.DROPPED, tool);
+    assert.equal(readResumeId(result.command.args), null, tool);
+    assert.equal(result.detail, `${tool} session ses_727 stayed in the killed container: task containers get no mount of ${tool}'s session store. Starting a new ${tool} session on the same branch instead.`);
+    const screen = await resolveFreshRecoveryCommand({ sessionName: SESSION, sessionInfo: { ...sessionInfo, isolationBackend: 'screen' }, command, runner: {}, homeDir: await tempHome() });
+    assert.equal(screen.outcome, FRESH_RESUME_OUTCOMES.NOT_CHECKED, `${tool} on the same host keeps its session`);
+  }
+  const routed = info({ tool: 'claude', args: [ISSUE_URL, '--tool', 'claude', '--use-router'] });
+  const result = await resolveFreshRecoveryCommand({ sessionName: SESSION, sessionInfo: routed, command: buildResumeCommand({ sessionInfo: routed, lastSessionId: 'abc' }), runner: {}, homeDir: await tempHome() });
+  assert.equal(result.outcome, FRESH_RESUME_OUTCOMES.DROPPED, 'a --use-router container gets no ~/.claude mounts');
 });
 
 test('the scoped CODEX_HOME writes rollouts into the shared (mounted) sessions directory', async () => {

@@ -16,8 +16,11 @@
  * new Codex session on the same branch, and the notice says so, instead of
  * launching a run that is certain to fail.
  *
- * Only Docker Codex recoveries are checked. Screen/tmux recoveries run on the
- * same host and keep the scoped `CODEX_HOME`; other tools keep their command.
+ * Only Docker recoveries are checked: screen/tmux recoveries run on the same
+ * host and keep the scoped `CODEX_HOME`. Claude's transcripts are on a mounted
+ * folder ({@link DOCKER_ISOLATION_TOOL_MOUNTS}). agent, gemini, qwen and
+ * opencode keep their sessions inside the killed container, which no new
+ * container can read, so their `--resume` is dropped the same way.
  *
  * @see https://github.com/link-assistant/hive-mind/issues/2888
  */
@@ -28,6 +31,7 @@ import path from 'node:path';
 import { buildCodexCapabilityStatePath } from './codex-capability-preflight.lib.mjs';
 import { CODEX_SESSIONS_DIRNAME, findCodexRolloutFile } from './codex-sessions.lib.mjs';
 import { parseGitHubUrl } from './github-url-parser.lib.mjs';
+import { DOCKER_ISOLATION_TOOL_MOUNTS } from './isolation-runner.lib.mjs';
 import { hasUseRouterFlag } from './router-isolation.lib.mjs';
 import { quoteArg, stripResumeFlag } from './session-resume.lib.mjs';
 
@@ -102,11 +106,16 @@ export async function resolveFreshRecoveryCommand({ sessionName, sessionInfo, co
   const keep = (outcome, detail = null) => ({ command, outcome, detail });
   const threadId = readResumeId(command?.args);
   const tool = String(sessionInfo?.tool || 'claude').toLowerCase();
-  if (!threadId || sessionInfo?.isolationBackend !== 'docker' || tool !== 'codex') return keep(FRESH_RESUME_OUTCOMES.NOT_CHECKED);
+  if (!threadId || sessionInfo?.isolationBackend !== 'docker') return keep(FRESH_RESUME_OUTCOMES.NOT_CHECKED);
   const drop = detail => {
     if (verbose) console.log(`[VERBOSE] Fresh recovery of ${sessionName}: ${detail}`);
     return { command: withoutResume(command), outcome: FRESH_RESUME_OUTCOMES.DROPPED, detail };
   };
+  if (tool !== 'codex') {
+    const mounted = DOCKER_ISOLATION_TOOL_MOUNTS[tool]?.some(entry => entry.role === 'sessions');
+    if (mounted && !hasUseRouterFlag(command.args)) return keep(FRESH_RESUME_OUTCOMES.NOT_CHECKED);
+    return drop(`${tool} session ${threadId} stayed in the killed container: ${mounted ? 'a --use-router container gets no' : 'task containers get no'} mount of ${tool}'s session store. Starting a new ${tool} session on the same branch instead.`);
+  }
   // --use-router tasks get no ~/.codex mounts, so no host rollout can reach them.
   if (hasUseRouterFlag(command.args)) return drop(`Codex thread ${threadId} cannot be resumed in a new --use-router container (no ~/.codex/sessions mount). Starting a new Codex session on the same branch instead.`);
   const hostSessionsDir = path.join(homeDir, '.codex', CODEX_SESSIONS_DIRNAME);

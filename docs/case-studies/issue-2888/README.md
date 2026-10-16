@@ -49,17 +49,17 @@ From the issue's "Expected" and "Suggested fix" sections:
 
 ## R4: other tools
 
-| Tool                          | Where it keeps a session                | Mounted into a Docker task container?               | This branch                                     |
-| ----------------------------- | --------------------------------------- | --------------------------------------------------- | ----------------------------------------------- |
-| codex                         | `$CODEX_HOME/sessions`                  | Yes, through the new symlink to `~/.codex/sessions` | Kept, restored or dropped as above              |
-| claude                        | `~/.claude/projects/<cwd>/<id>.jsonl`   | Yes: `.claude/projects` and `.claude/sessions`      | `--resume` kept (unchanged)                     |
-| agent, gemini, qwen, opencode | Under each tool's home in the container | No session mount                                    | `--resume` kept (unchanged): see "What remains" |
+| Tool                          | Where it keeps a session                | Mounted into a Docker task container?               | This branch                        |
+| ----------------------------- | --------------------------------------- | --------------------------------------------------- | ---------------------------------- |
+| codex                         | `$CODEX_HOME/sessions`                  | Yes, through the new symlink to `~/.codex/sessions` | Kept, restored or dropped as above |
+| claude                        | `~/.claude/projects/<cwd>/<id>.jsonl`   | Yes: `.claude/projects` and `.claude/sessions`      | `--resume` kept (unchanged)        |
+| agent, gemini, qwen, opencode | Under each tool's home in the container | No session mount                                    | `--resume` dropped with a notice   |
 
 PR #2893 measured these tools with the real CLIs. Its table also drops `--resume` for gemini, qwen and opencode under screen/tmux when the new run's working directory differs (`tool-session-cwd-bound`). That part is not in this branch.
 
 ## What remains
 
-- **agent, gemini, qwen and opencode in Docker.** A fresh recovery still passes `--resume` for them, although their session store is not mounted, so the new run cannot find the session. Two fixes are possible: mount each tool's session directory in `DOCKER_ISOLATION_TOOL_MOUNTS`, or extend `resolveFreshRecoveryCommand` to drop the resume as PR #2893 does. The first needs the paths each CLI version uses, which this branch did not re-verify.
+- **agent, gemini, qwen and opencode in Docker.** Their session store is not mounted, so `resolveFreshRecoveryCommand` drops their `--resume` in a new container, and the notice says so, as it does for an unrecoverable Codex thread. It reads `DOCKER_ISOLATION_TOOL_MOUNTS`, so a tool whose session folder is mounted later keeps its resume with no change here. Mounting those folders needs the paths each CLI version uses, which this branch did not re-verify. A claude task with `--use-router` gets no `~/.claude` mounts and drops its resume too.
 - **claude in Docker** is kept without checking that the transcript exists under the mounted `~/.claude/projects`. It normally does, because Claude Code writes there directly.
 - **`--use-router` Codex tasks** always drop the resume, because router containers mount no vendor state.
 - **The bounds are per bot process.** The deferral counter is persisted with the session (`killRecoveryDiskDeferrals`), but a wait in progress is lost when the bot restarts. Issue #2890 (PR #2896) covers queues that survive restarts.

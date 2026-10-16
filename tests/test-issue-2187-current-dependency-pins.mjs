@@ -23,7 +23,7 @@ const expected = {
   box: '2.10.5',
   bun: '1.4.3',
   eslint: '10.13.0',
-  formalAi: '0.353.7',
+  formalAi: '0.353.8',
   jscpd: '5.4.1',
   jscpdThreshold: 12,
   lintStaged: '17.6.0',

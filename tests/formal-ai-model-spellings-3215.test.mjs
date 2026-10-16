@@ -55,3 +55,28 @@ test('hive and solve validate a Formal AI model through the wrapper, not the too
   assert.equal(failed, false);
   assert.match(failures.join('\n'), /Formal AI dispatch validation failed: no client/);
 });
+
+test('a miscased Formal AI model is Formal AI for every tool, and no vendor model is', async () => {
+  const { canonicalFormalAiModel, isFormalAiModel } = await import('../src/models/index.mjs');
+  for (const [typed, canonical] of [
+    ['Formal-AI', 'formal-ai'],
+    [' FORMAL-AI ', 'formal-ai'],
+    ['FormalAI/Formal-AI', 'formalai/formal-ai'],
+  ]) {
+    assert.equal(canonicalFormalAiModel(typed), canonical, typed);
+    assert.equal(isFormalAiModel(typed), true, typed);
+    // Validation is case-insensitive, so the identity check must agree with
+    // it: before, these passed validation and then went to the vendor CLI.
+    for (const tool of FORMAL_AI_SUPPORTED_TOOLS) {
+      assert.equal(validateModelName(typed.trim(), tool).valid, true, `${tool} accepts ${typed}`);
+      assert.equal(isModelCompatibleWithTool(tool, typed), true, `${tool} is compatible with ${typed}`);
+    }
+  }
+  for (const value of [undefined, null, '', 'opus', 'gpt-5.5', 'openai/formal-ai', 'formal-ai-2']) assert.equal(canonicalFormalAiModel(value), null, String(value));
+  for (const tool of FORMAL_AI_SUPPORTED_TOOLS) {
+    for (const [name, id] of Object.entries(getModelMapForTool(tool))) {
+      if (/formal/i.test(name)) continue;
+      assert.equal(isFormalAiModel(name) || isFormalAiModel(id), false, `${tool}: ${name} -> ${id} is a vendor model`);
+    }
+  }
+});

@@ -32,7 +32,7 @@ const execFileAsync = promisify(execFile);
 // Defined in a leaf module so callers that only need the identity check (the
 // Formal AI sidecar lifecycle, issue #2146) do not have to import this catalogue
 // and its `use-m` bootstrap. Re-exported here so the public surface is unchanged.
-export { FORMAL_AI_MODEL_ALIAS, FORMAL_AI_PROVIDER_MODEL_ID, isFormalAiModel } from '../formal-ai-model.lib.mjs';
+export { FORMAL_AI_MODEL_ALIAS, FORMAL_AI_PROVIDER_MODEL_ID, canonicalFormalAiModel, isFormalAiModel } from '../formal-ai-model.lib.mjs';
 
 // The bundled catalogue itself lives in ./catalog.mjs (issue #2202); everything
 // it exports is re-exported here, so `src/models/index.mjs` remains the single

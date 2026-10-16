@@ -123,6 +123,12 @@ async function mergeDirectoryInto({ sourceDir, targetDir, fsImpl }) {
   return { moved, kept };
 }
 
+/** True when `link` is a symlink that resolves to `target`. */
+const linksTo = async (fsImpl, link, target) => {
+  const current = await fsImpl.readlink(link).catch(() => null);
+  return current !== null && path.resolve(path.dirname(link), current) === path.resolve(target);
+};
+
 /**
  * Make `<codexHome>/sessions` a relative symlink to `<baseCodexHome>/sessions`.
  * A real directory left by an older run is merged into the shared one first;
@@ -143,8 +149,7 @@ export async function shareScopedCodexSessions({ baseCodexHome, codexHome, fsImp
     await fsImpl.mkdir(target, { recursive: true });
     const stat = await fsImpl.lstat(sessionsDir).catch(() => null);
     if (stat?.isSymbolicLink()) {
-      const current = await fsImpl.readlink(sessionsDir);
-      if (path.resolve(path.dirname(sessionsDir), current) === path.resolve(target)) return { ...result, status: 'already-shared' };
+      if (await linksTo(fsImpl, sessionsDir, target)) return { ...result, status: 'already-shared' };
       await fsImpl.rm(sessionsDir, { force: true });
     } else if (stat?.isDirectory()) {
       const merged = await mergeDirectoryInto({ sourceDir: sessionsDir, targetDir: target, fsImpl });
@@ -155,7 +160,13 @@ export async function shareScopedCodexSessions({ baseCodexHome, codexHome, fsImp
       await fsImpl.rm(sessionsDir, { force: true });
     }
     await fsImpl.mkdir(path.dirname(sessionsDir), { recursive: true });
-    await fsImpl.symlink(path.relative(path.dirname(sessionsDir), target), sessionsDir, 'dir');
+    try {
+      await fsImpl.symlink(path.relative(path.dirname(sessionsDir), target), sessionsDir, 'dir');
+    } catch (error) {
+      // Another solve of the same repository linked it first.
+      if (error?.code !== 'EEXIST' || !(await linksTo(fsImpl, sessionsDir, target))) throw error;
+      return { ...result, status: 'already-shared' };
+    }
     return { ...result, status: 'shared' };
   } catch (error) {
     return { ...result, status: 'failed', error: error?.message || String(error) };

@@ -142,6 +142,21 @@ test('the scoped CODEX_HOME writes rollouts into the shared (mounted) sessions d
   assert.ok(await findCodexRolloutFile({ sessionsDir: path.join(freshScoped, 'sessions'), threadId: THREAD }));
 });
 
+test('two solves of one repository linking sessions at once both report it shared', async () => {
+  const root = await tempHome();
+  const base = path.join(root, '.codex');
+  const scoped = path.join(base, 'hive-mind', 'repositories', 'link-assistant', 'router');
+  // Both runs see no link yet; the second one's symlink() then finds the first one's.
+  const fsImpl = { ...fs, lstat: async () => null };
+  const outcomes = await Promise.all([shareScopedCodexSessions({ baseCodexHome: base, codexHome: scoped, fsImpl }), shareScopedCodexSessions({ baseCodexHome: base, codexHome: scoped, fsImpl })]);
+  assert.deepEqual(outcomes.map(outcome => outcome.status).sort(), ['already-shared', 'shared'], JSON.stringify(outcomes));
+  // A different file in its place is still a failure.
+  const other = path.join(root, 'other', '.codex');
+  await fs.mkdir(path.join(other, 'hive-mind'), { recursive: true });
+  await fs.writeFile(path.join(other, 'hive-mind', 'sessions'), 'not a link');
+  assert.equal((await shareScopedCodexSessions({ baseCodexHome: other, codexHome: path.join(other, 'hive-mind'), fsImpl })).status, 'failed');
+});
+
 test('solve resumes a Codex thread only when its rollout is in CODEX_HOME', async () => {
   const home = await tempHome();
   const logs = [];

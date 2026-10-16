@@ -70,7 +70,7 @@ const { resumeAfterToolKill } = await import('./solve.tool-kill-resume.lib.mjs')
 const validation = await import('./solve.validation.lib.mjs');
 const { calculateWaitTime } = validation;
 // Import configuration (used for limit reset buffer and jitter)
-import { limitReset } from './config.lib.mjs';
+import { ciFailureRepeat, limitReset } from './config.lib.mjs';
 // Import helper functions extracted for file size management (Issue #1593)
 const autoMergeHelpers = await import('./solve.auto-merge-helpers.lib.mjs');
 const { checkForExistingComment, checkForNonBotComments, checkForIssueMetadataChanges, getMergeBlockers, shouldResetNoRunsCounter, trackAuthenticatedUserCommentsSince, nextMonotonicCheckTime } = autoMergeHelpers;
@@ -100,12 +100,13 @@ const { formatAutoIterationLimit, hasReachedAutoIterationLimit, normalizeAutoIte
 // sessions and the two loops published incompatible progress labels
 // ("Auto-restart triggered (iteration 1)" vs "Auto-restart 1/5 Log").
 const autoRestartBudget = await import('./auto-restart-budget.lib.mjs');
-const { beginAutoRestartBudget, consumeAutoRestartIteration, formatAutoRestartLabel, formatAutoRestartLimit, hasExhaustedAutoRestartBudget } = autoRestartBudget;
+const { beginAutoRestartBudget, consumeAutoRestartIteration, formatAutoRestartLabel, formatAutoRestartLimit, getRemainingAutoRestartIterations, hasExhaustedAutoRestartBudget } = autoRestartBudget;
 const { buildAutoRestartComment, failOnAutoRestartBudgetExhausted } = await import('./auto-restart-exhaustion.lib.mjs');
+const { collectRestartEvidence, createCiFailureRepeatTracker, formatReasonWithEvidence } = await import('./restart-evidence.lib.mjs'); // Issue #2293: evidence for every restart reason
 const { handleBillingLimitBlocker } = await import('./billing-limit-stop.lib.mjs');
 // Issue #2247 (H3): a restart is only worth its cost when the previous session
 // changed something. Five byte-identical sessions is a stall, not progress.
-const { stopWhenSessionRepeated } = await import('./session-progress.lib.mjs');
+const { failOnRepeatedCiFailure, stopWhenSessionRepeated } = await import('./session-progress.lib.mjs');
 // Issue #2839: every failing check must be fixed, pre-existing ones too; evidence spares the AI the diagnosis.
 const { buildCiFailureGuidance, buildPreExistingCiFeedback, detectPreExistingCiFailures } = await import('./ci-pre-existing-failure.lib.mjs');
 // Issue #2119: an empty pull request must not be reported as ready to merge.
@@ -114,9 +115,8 @@ const { buildEmptyPullRequestBlocker, getPullRequestChangeStats } = await import
 // monitoring loop must not heal that deliberate draft or publish a later
 // "Ready to merge" comment merely because CI is absent/green.
 const { getPullRequestLeftInDraft } = await import('./pr-draft-state.lib.mjs');
-// Issue #1895: explicitly close linked issues after merging a PR into a
-// non-default branch, where GitHub does not auto-close them.
-const { ensureLinkedIssueClosedAfterMerge } = await import('./github-issue-auto-close.lib.mjs');
+// Issues #1895/#3355: mergePullRequest closes (or reports) the intended issues GitHub leaves open.
+const { appendIssueClosingSection, formatIssueClosingReport, issueClosingOptions } = await import('./post-merge-issue-closing.lib.mjs');
 const shouldDeleteBranchAfterMerge = argv => argv.autoDeleteBranchOnMerge || argv.deleteBranchAfterMerge || false;
 
 /**
@@ -208,6 +208,7 @@ export const watchUntilMergeable = async params => {
   // restart/resume fallback can detect user edits to those surfaces and deliver
   // them as feedback to the next session. The first check seeds the baseline.
   let issueMetadataSnapshot = null;
+  const ciRepeatTracker = createCiFailureRepeatTracker({ stopAfter: ciFailureRepeat.stopAfter }); // Issue #2293: same failing checks restart after restart
   while (true) {
     iteration++;
     const currentTime = new Date();
@@ -261,7 +262,7 @@ export const watchUntilMergeable = async params => {
       // Issue #1503: Get current HEAD SHA to detect new pushes and reset no-runs counter
       let currentHeadSha = null;
       try {
-        const shaResult = await $`gh pr view ${prNumber} --repo ${owner}/${repo} --json headRefOid --jq .headRefOid`;
+        const shaResult = await quietProbe($)`gh pr view ${prNumber} --repo ${owner}/${repo} --json headRefOid --jq .headRefOid`;
         if (shaResult.code === 0) {
           currentHeadSha = shaResult.stdout.toString().trim();
         }
@@ -332,13 +333,13 @@ export const watchUntilMergeable = async params => {
       // Check for new comments from non-bot users. At this point the AI tool
       // is not executing, so same-account non-tool comments can be trusted as
       // human feedback while known tool comments remain filtered by markers/IDs.
-      const { hasNewComments, comments } = await checkForNonBotComments(owner, repo, prNumber, issueNumber, lastCheckTime, argv.verbose, $, {
+      const { hasNewComments, comments } = await checkForNonBotComments(owner, repo, prNumber, issueNumber, lastCheckTime, argv.verbose, quietProbe($), {
         trustAuthenticatedUserComments: true,
       });
       // Issue #2007: Detect issue title/description edits (user-owned feedback
       // surfaces) so the fallback resumes the AI with them. The first iteration
       // seeds the baseline and never reports a change.
-      const metadataCheck = await checkForIssueMetadataChanges(owner, repo, issueNumber, issueMetadataSnapshot, argv.verbose, $);
+      const metadataCheck = await checkForIssueMetadataChanges(owner, repo, issueNumber, issueMetadataSnapshot, argv.verbose, $, { pullRequestNumber: prNumber });
       issueMetadataSnapshot = metadataCheck.snapshot || issueMetadataSnapshot;
       const hasIssueMetadataChanges = metadataCheck.changed === true;
       const issueMetadataChanges = metadataCheck.changes || [];
@@ -443,35 +444,21 @@ export const watchUntilMergeable = async params => {
           if (deleteAfterMerge) {
             await log(formatAligned('', 'Branch cleanup:', 'will delete branch after successful merge', 2));
           }
-          const mergeResult = await mergePullRequest(owner, repo, prNumber, { issueNumber, squash: argv.squash || false, deleteAfter: deleteAfterMerge }, argv.verbose);
+          const mergeResult = await mergePullRequest(owner, repo, prNumber, { issueNumber, squash: argv.squash || false, deleteAfter: deleteAfterMerge, ...issueClosingOptions(argv) }, argv.verbose);
 
           if (mergeResult.success) {
             await log(formatAligned('🎉', 'PR MERGED SUCCESSFULLY!', ''));
             await log(formatAligned('', 'Pull request:', `#${prNumber} has been auto-merged`, 2));
+            for (const line of formatIssueClosingReport(mergeResult.issueClosing)) await log(formatAligned('', 'Linked issues:', line, 2));
             // Post success comment
             try {
               // Issue #1345: Differentiate message when no CI is configured
               const ciLine = noCiConfigured ? '- No CI/CD checks are configured for this repository' : noCiTriggered ? (workflowRunConclusions ? `- CI workflows completed without executing (${workflowRunConclusions})` : '- CI workflows exist but were not triggered for this commit') : '- All CI checks have passed';
               // Issue #2492: no footer repeating the heading.
-              const commentBody = `## 🎉 ${AUTO_MERGED_MARKER}\n\nThis pull request has been automatically merged by hive-mind.\n${ciLine}`;
+              const commentBody = appendIssueClosingSection(`## 🎉 ${AUTO_MERGED_MARKER}\n\nThis pull request has been automatically merged by hive-mind.\n${ciLine}`, mergeResult.issueClosing);
               await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: commentBody });
             } catch {
               // Don't fail if comment posting fails
-            }
-            // Issue #1895: when the PR targeted a non-default branch GitHub does
-            // not auto-close the linked issue. Close it explicitly so the issue
-            // is not left open after its PR merges.
-            if (issueNumber) {
-              try {
-                const closeResult = await ensureLinkedIssueClosedAfterMerge({ $, log, owner, repo, prNumber, issueNumber, verbose: argv.verbose });
-                if (closeResult.skipped && argv.verbose) {
-                  await log(formatAligned('', 'Issue auto-close:', `skipped (${closeResult.reason})`, 2), { verbose: true });
-                } else if (!closeResult.closed && !closeResult.skipped) {
-                  await log(formatAligned('⚠️', 'Issue auto-close:', `could not close issue #${issueNumber} (${closeResult.reason})`, 2), { level: 'warning' });
-                }
-              } catch (closeError) {
-                await log(formatAligned('⚠️', 'Issue auto-close:', `error closing issue #${issueNumber}: ${closeError.message}`, 2), { level: 'warning' });
-              }
             }
             return { success: true, reason: 'auto-merged', latestSessionId, latestAnthropicCost };
           } else {
@@ -775,11 +762,18 @@ export const watchUntilMergeable = async params => {
         // Issue #2839: a human comment or issue edit is new work even when the last session changed nothing.
         const stall = hasNewComments || hasIssueMetadataChanges ? null : await stopWhenSessionRepeated({ owner, repo, prNumber, tempDir, branchName: prBranch || branchName, $, log, formatAligned, mode: 'auto-restart-until-mergeable', verbose: argv.verbose });
         if (stall) return { success: false, reason: stall.reason, latestSessionId, latestAnthropicCost };
+        // Issue #2293: which checks failed (with run URLs), who commented or edited what, and whether the same checks failed again.
+        const restartEvidence = collectRestartEvidence({ comments: hasNewComments ? comments : [], issueNumber, issueChanges: hasIssueMetadataChanges ? issueMetadataChanges : [], ciBlocker: ciBlocker && !billingBlocker ? ciBlocker : null, tracker: ciRepeatTracker });
+        feedbackLines.push(...restartEvidence.feedback);
+        if (restartEvidence.stop) {
+          const stop = await failOnRepeatedCiFailure({ owner, repo, prNumber, tempDir, branchName: prBranch || branchName, $, log, formatAligned, evidence: restartEvidence.lines, occurrences: restartEvidence.identicalCiFailures, mode: 'auto-restart-until-mergeable', remainingIterations: getRemainingAutoRestartIterations(), verbose: argv.verbose });
+          return { success: false, reason: stop.reason, latestSessionId, latestAnthropicCost };
+        }
 
         // Add standard instructions for auto-restart-until-mergeable mode using shared utility
         feedbackLines.push(...buildAutoRestartInstructions());
         // Get PR merge state status
-        const prStateResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber} --jq '.mergeStateStatus'`;
+        const prStateResult = await quietProbe($)`gh api repos/${owner}/${repo}/pulls/${prNumber} --jq '.mergeStateStatus'`;
         const mergeStateStatus = prStateResult.code === 0 ? prStateResult.stdout.toString().trim() : null;
         // Issue #1572: Sync clean local branches with remote before restarting to avoid push failures.
         // Issue #1664: Do not run git pull over an unfinished merge or other uncommitted state.
@@ -810,6 +804,7 @@ export const watchUntilMergeable = async params => {
         // Issue #2119: claim it from the run-wide shared budget.
         const restartCount = consumeAutoRestartIteration();
         await log(formatAligned('🔄', 'RESTART TRIGGERED:', restartReason));
+        for (const line of restartEvidence.lines) await log(formatAligned('', 'Evidence:', line, 2));
         await log(formatAligned('', 'Restart iteration:', formatAutoRestartLabel(restartCount), 2));
         await log('');
         // Post a comment to PR about the restart after preflight succeeds, so every
@@ -820,7 +815,7 @@ export const watchUntilMergeable = async params => {
           // system look like two.
           // Issue #2492: the `N/M` heading already states the limit, so the footer
           // that repeated it is gone.
-          const commentBody = buildAutoRestartComment({ label: formatAutoRestartLabel(restartCount), reason: restartReason });
+          const commentBody = buildAutoRestartComment({ label: formatAutoRestartLabel(restartCount), reason: formatReasonWithEvidence(restartReason, restartEvidence) });
           // Issue #1625: Track so this doesn't falsely count as an AI-authored comment
           await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: commentBody });
           await log(formatAligned('', '💬 Posted auto-restart notification to PR', '', 2));
@@ -1238,7 +1233,7 @@ export const watchUntilMergeable = async params => {
         // match no tool marker). Tracking their IDs stops the next iteration's
         // checkForNonBotComments from mistaking them for fresh human feedback.
         try {
-          const tracked = await trackAuthenticatedUserCommentsSince(owner, repo, prNumber, issueNumber, iterationStartTime, $, { verbose: argv.verbose });
+          const tracked = await trackAuthenticatedUserCommentsSince(owner, repo, prNumber, issueNumber, iterationStartTime, quietProbe($), { verbose: argv.verbose });
           if (argv.verbose && tracked.length > 0) {
             await log(formatAligned('🧷', 'Tracked own session comments:', `${tracked.length} (won't count as new feedback)`, 2));
           }

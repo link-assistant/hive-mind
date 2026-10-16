@@ -21,6 +21,9 @@
 import { reportRecoveryLifecycle, recoveryLifecycleCallback } from './session-recovery-lifecycle.lib.mjs';
 import { reportFixProgress } from './fix-progress.lib.mjs'; // Issue #3326: show /fix's "waiting for CI/CD" phase.
 import { getIsolationSessionState as getIsolationSessionStateImpl } from './session-monitor.isolation-state.lib.mjs';
+// Issue #2303: a docker exit docker never observed is a kill, and the host disk is sampled while the session runs.
+import { reclassifyUnobservedDockerExit } from './session-monitor.unobserved-exit.lib.mjs';
+import { observeHostDiskForSession } from './session-monitor.host-disk.lib.mjs';
 import { exec as execCallback } from 'child_process';
 import fs from 'fs/promises';
 import { promisify } from 'util';
@@ -34,6 +37,9 @@ import { sessionStartMs } from './session-monitor.stale-executing.lib.mjs';
 // Issue #2134: kill-cause diagnostics + the matching pull-request notice.
 import { buildKillCompletionSections, announceKillOnPullRequest, hasContainerOomEvidence, startedPullRequestUrl } from './session-monitor.kill-sections.lib.mjs';
 import { runKillRecoveryForCompletion } from './session-kill-resume.lib.mjs';
+import { isDiskRefusedRecovery } from './session-kill-resume.disk-retry.lib.mjs';
+import { detectFailedInPlaceStart } from './session-kill-resume.start-failure.lib.mjs';
+import { createSessionPullRequestUrlScanner, lookupSessionPullRequestUrl } from './session-own-pr.lib.mjs';
 // Issue #2189: the handled latch + the memoized last-tool-session-id read that keep a completed session from replaying its whole completion pipeline on every poll.
 import { isCompletionHandled, markCompletionHandled, resolveCachedLastToolSessionId } from './session-completion-state.lib.mjs';
 import { createSessionRegistryQueries } from './session-monitor.queries.lib.mjs';
@@ -42,6 +48,7 @@ import { hasUnknownExitLatch, reconcileLaunchObservation, releaseCompletionLatch
 import { getNonIsolationSessionProgress, readScreenExitMarker, removeScreenExitMarker, NON_ISOLATION_SESSION_TIMEOUT_MS, NON_ISOLATION_MARKED_SESSION_TIMEOUT_MS } from './start-screen-exit-marker.lib.mjs';
 import { enforceContainerDiskLimitForSession as enforceContainerDiskLimit, formatContainerResourceLimitExceededSection } from './container-resource-monitor.lib.mjs';
 import { runDockerCpuPenaltyPass, formatDockerCpuPenaltySection } from './docker-cpu-penalty.lib.mjs';
+import { removeSnapshotImages, snapshotImagesForContainer } from './kill-recovery-snapshot-cleanup.lib.mjs';
 export { formatSessionCompletionMessage, getSessionCompletionExitCode } from './work-session-formatting.lib.mjs';
 export { DOCKER_TERMINAL_FOOTER_GRACE_MS } from './session-monitor.docker-terminal.lib.mjs';
 export { STALE_EXECUTING_MIN_AGE_MS, DOCKER_BACKEND_GONE_GRACE_MS } from './session-monitor.stale-executing.lib.mjs';
@@ -396,15 +403,17 @@ export function extractPullRequestUrlFromText(text, { owner = null, repo = null 
   }
   return null;
 }
-async function resolvePullRequestUrlFromSessionLog(logPath, ctx, { verbose = false, readFile = fs.readFile } = {}) {
+async function resolvePullRequestUrlFromSessionLog(logPath, ctx, { verbose = false, readFile = fs.readFile, rejectedUrls = null } = {}) {
   if (!logPath) return null;
   try {
     // Issue #2189: this used to be `readFile(logPath, 'utf8')`, run once per
     // monitor tick for a session the bot never marked handled — a 134 MB
     // transcript pulled into the bot's own heap over and over. The chunked scan
-    // still covers the whole log, one chunk at a time, and stops at the first
-    // matching URL (which is printed early, when the PR is created).
-    const pullRequestUrl = await scanLogTextChunks(logPath, text => extractPullRequestUrlFromText(text, { owner: ctx.owner, repo: ctx.repo }), { readFile, verbose });
+    // still covers the whole log, one chunk at a time, and stops at the
+    // `PR URL:` line solve prints when it creates or reuses the PR. Issue #2891:
+    // that line wins over the first PR the agent merely mentioned.
+    const scanner = createSessionPullRequestUrlScanner(ctx, { rejectedUrls });
+    const pullRequestUrl = (await scanLogTextChunks(logPath, scanner.onText, { readFile, verbose })) || scanner.result();
     if (pullRequestUrl && verbose) {
       console.log(`[VERBOSE] Found PR ${pullRequestUrl} in completed session log ${logPath}`);
     }
@@ -574,7 +583,7 @@ function isSuccessfulTaskCompletion({ exitCode = null, status = null, command = 
 function formatDockerTaskContainerKeptSection({ containerName, keepPolicy }) {
   return ['*Docker container kept*', `Container: \`${containerName}\``, `Policy: \`HIVE_MIND_KEEP_TASK_CONTAINER=${keepPolicy}\``, `Inspect: \`docker start -ai ${containerName}\``, `Shell: \`docker exec -it ${containerName} sh\``, `Remove when done: \`docker rm -f ${containerName}\``].join('\n');
 }
-export function buildDockerTaskContainerCompletionAction({ sessionName, sessionInfo, exitCode = null, status = null, env = process.env, verbose = false } = {}) {
+export function buildDockerTaskContainerCompletionAction({ sessionName, sessionInfo, exitCode = null, status = null, env = process.env, verbose = false, containerRemoved = false } = {}) {
   if (sessionInfo?.isolationBackend !== 'docker') {
     return { applies: false, containerName: null, keepPolicy: null, shouldRemove: false, extraSection: '' };
   }
@@ -585,17 +594,28 @@ export function buildDockerTaskContainerCompletionAction({ sessionName, sessionI
   const keepPolicy = resolveDockerTaskContainerKeepPolicy({ env, verbose });
   const successful = isSuccessfulTaskCompletion({ exitCode, status, command: sessionInfo.command });
   const shouldKeep = keepPolicy === 'always' || (keepPolicy === 'on-failure' && !successful);
+  // Issue #2889: the snapshot images of the container's resume chain go with it.
+  const snapshotImages = [...new Set([...snapshotImagesForContainer(containerName), ...(Array.isArray(sessionInfo.killRecoverySnapshotImages) ? sessionInfo.killRecoverySnapshotImages : [])])];
+  // Issue #2303: start-command already removed it, so "Docker container kept" would point at nothing; its images still go (#2889).
+  if (containerRemoved && verbose) console.log(`[VERBOSE] Docker task container '${containerName}' was already removed by start-command; only its snapshot images are left to remove`);
   return {
     applies: true,
     containerName,
     keepPolicy,
     successful,
     shouldRemove: !shouldKeep,
-    extraSection: shouldKeep ? formatDockerTaskContainerKeptSection({ containerName, keepPolicy }) : '',
+    containerRemoved,
+    snapshotImages,
+    extraSection: shouldKeep && !containerRemoved ? formatDockerTaskContainerKeptSection({ containerName, keepPolicy }) : '',
   };
 }
-async function applyDockerTaskContainerCompletionAction(action, { verbose = false, removeDockerContainer = null } = {}) {
+export async function applyDockerTaskContainerCompletionAction(action, { verbose = false, removeDockerContainer = null, removeImages = removeSnapshotImages, sessionInfo = null } = {}) {
   if (!action?.applies || !action.shouldRemove || !action.containerName) return;
+  // Issue #2889: a `docker start` recovery now runs in this container.
+  if (sessionInfo?.killRecoveryContainerName === action.containerName) {
+    if (verbose) console.log(`[VERBOSE] Keeping docker task container '${action.containerName}': its recovery runs in it`);
+    return;
+  }
   try {
     const removeFn =
       removeDockerContainer ||
@@ -603,7 +623,8 @@ async function applyDockerTaskContainerCompletionAction(action, { verbose = fals
         const runner = await getIsolationRunner();
         return runner.removeDockerContainer(containerName, removeVerbose);
       });
-    const result = await removeFn(action.containerName, verbose);
+    const result = action.containerRemoved ? { success: true } : await removeFn(action.containerName, verbose);
+    if (result?.success && action.snapshotImages?.length) await removeImages(action.snapshotImages, { verbose });
     if (verbose) {
       if (result?.success) {
         console.log(`[VERBOSE] Removed docker task container '${action.containerName}' after terminal session completion`);
@@ -637,7 +658,8 @@ function isNonIsolationSessionActive(sessionName, sessionInfo, verbose = false) 
 }
 async function getIsolationSessionState(sessionName, sessionInfo, options = {}) {
   const persistSnapshot = () => persistSessionSnapshot(sessionName, sessionInfo);
-  const state = await getIsolationSessionStateImpl(sessionName, sessionInfo, { ...options, runnerProvider: getIsolationRunner, persistSnapshot });
+  const rawState = await getIsolationSessionStateImpl(sessionName, sessionInfo, { ...options, runnerProvider: getIsolationRunner, persistSnapshot });
+  const state = reclassifyUnobservedDockerExit(sessionName, sessionInfo, rawState, { verbose: options.verbose === true });
   return reconcileLaunchObservation(sessionName, sessionInfo, state, { verbose: options.verbose, persistSnapshot });
 }
 /**
@@ -781,6 +803,11 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
   }
   if (stillRunning) await reportRecoveryLifecycle({ bot, sessionName, sessionInfo, statusResult, options, verbose, lookupPullRequest: () => resolvePullRequestUrlForSession(sessionInfo, { verbose, lookupLinkedPullRequest: options.lookupLinkedPullRequest, statusResult, readFile: options.readFile }), persist: () => persistSessionSnapshot(sessionName, sessionInfo), logEvent });
   if (stillRunning && sessionInfo?.command === 'fix' && !sessionInfo.recoveryLifecycle) await (options.reportFixProgress || reportFixProgress)({ bot, sessionName, sessionInfo, statusResult, verbose, persist: () => persistSessionSnapshot(sessionName, sessionInfo) });
+  if (stillRunning && sessionInfo.isolationBackend) {
+    // Issue #2303: log markers can be an hour stale when the disk fills, and the removed container frees it again — only a live sample shows it.
+    const hostDisk = await observeHostDiskForSession(sessionInfo, { statusResult, statfs: options.hostDiskProvider, verbose });
+    if (hostDisk?.significant) persistSessionSnapshot(sessionName, sessionInfo);
+  }
   if (shouldRefreshDockerFilesystemSize(sessionInfo, { stillRunning })) {
     observedContainerFilesystemBytes = await refreshDockerContainerFilesystemSizeForSession(sessionName, sessionInfo, {
       verbose,
@@ -810,6 +837,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
         status: resolvedStatus,
         env: options.env || process.env,
         verbose,
+        containerRemoved: Boolean(statusResult?.unobservedExit || statusResult?.containerRemoved),
       });
       // Issue #1688/#1905: Resolve the created PR from GitHub or, when its
       // linked-issue API lags, from the completed solve log.
@@ -881,8 +909,8 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
       // record's cache, so the working-session log is scanned once per session
       // instead of once per poll per consumer (the resume section below and the
       // automatic recovery further down both need it, and both used to scan).
-      const resolveLastToolSessionId = logPath => {
-        const resolution = resolveCachedLastToolSessionId({ sessionInfo, logPath, verbose });
+      const resolveLastToolSessionId = async logPath => {
+        const resolution = await resolveCachedLastToolSessionId({ sessionInfo, logPath, verbose });
         if (resolution.scanned) persistSessionSnapshot(sessionName, sessionInfo);
         return resolution.id;
       };
@@ -904,7 +932,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
           //   `Session ID:` marker. Do not guess from neighboring UUID-named
           //   logs: start-command stores unrelated tasks in the same backend
           //   directory, which caused issue #2109's invalid resume id.
-          const lastSessionId = resolveLastToolSessionId(logPath);
+          const lastSessionId = await resolveLastToolSessionId(logPath);
           const resumeCommand = buildResumeCommand({ sessionInfo, lastSessionId });
           const resumeSection = formatResumeSection({ lastSessionId, command: resumeCommand });
           killResumeCommand = resumeCommand?.display || null;
@@ -987,8 +1015,11 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
         const decision = { exitCode: finalExitCode, status: resolvedStatus, killed: killReport.killed, oomEventOnly: killReport.oomEventOnly, deliberateStop: killReport.deliberateStop?.reason || null };
         logEvent('session_kill_recovery_decision', { sessionName, ...decision, diskLimitExceeded: Boolean(sessionInfo?.containerResourceLimitExceeded), attemptRecovery: shouldAttemptKillRecovery });
       }
-      if (shouldAttemptKillRecovery) {
+      // Issue #2888: a recovery session solve refused for disk space is relaunched;
+      // issue #2887: so is an in-place recovery whose command never started (126/127).
+      if (shouldAttemptKillRecovery || (!killReport.skippedReason && (isDiskRefusedRecovery({ sessionInfo, exitCode: finalExitCode }) || detectFailedInPlaceStart({ sessionInfo, exitCode: finalExitCode })))) {
         const recovered = await runKillRecoveryForCompletion({
+          exitCode: finalExitCode,
           sessionName,
           sessionInfo,
           logPath: statusResult?.logPath || sessionInfo?.logPath || null,
@@ -1035,6 +1066,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
         resumedAs: killRecovery.resumed ? killRecovery.sessionId : null,
         recoveryCount: killRecovery.resumed ? killRecovery.attempt : null,
         launchUnobserved,
+        killCause: killReport.diagnosis?.cause || null,
       });
       if (killReport.killed || killReport.recovered || killReport.oomEventOnly) {
         const notice = await announceKillOnPullRequest({
@@ -1110,6 +1142,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
       await applyDockerTaskContainerCompletionAction(dockerTaskContainerAction, {
         verbose,
         removeDockerContainer: options.removeDockerContainer,
+        sessionInfo,
       });
       completeSession(sessionName, completionExitForAudit(finalExitCode), verbose, resolvedStatus);
     } catch (error) {
@@ -1118,6 +1151,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
         await applyDockerTaskContainerCompletionAction(dockerTaskContainerAction, {
           verbose,
           removeDockerContainer: options.removeDockerContainer,
+          sessionInfo,
         });
         completeSession(sessionName, completionExitForAudit(exitCode), verbose, resolvedStatus);
       } else {
@@ -1162,20 +1196,16 @@ async function resolvePullRequestUrlForSession(sessionInfo, { verbose = false, l
     if (verbose) console.log(`[VERBOSE] Reusing resolved pull request ${sessionInfo.resolvedPullRequestUrl} for this session (not looked up again)`);
     return sessionInfo.resolvedPullRequestUrl;
   }
+  // Issue #2891: the session's own PR (branch `issue-<n>-*`), never the first
+  // linked one, which can be a parent plan PR on another issue's branch.
+  const rejectedUrls = new Set();
   if (typeof lookupLinkedPullRequest === 'function') {
     const linkedPullRequestUrl = await lookupLinkedPullRequest(ctx);
     if (linkedPullRequestUrl) return linkedPullRequestUrl;
   } else {
     try {
-      const { batchCheckPullRequestsForIssues } = await import('./github.lib.mjs');
-      const result = await batchCheckPullRequestsForIssues(ctx.owner, ctx.repo, [ctx.number]);
-      const linkedPRs = result?.[ctx.number]?.linkedPRs || [];
-      if (linkedPRs.length > 0 && linkedPRs[0].url) {
-        if (verbose) {
-          console.log(`[VERBOSE] Found linked PR ${linkedPRs[0].url} for issue ${ctx.owner}/${ctx.repo}#${ctx.number}`);
-        }
-        return linkedPRs[0].url;
-      }
+      const linkedPullRequestUrl = await lookupSessionPullRequestUrl(ctx, { rejectedUrls, verbose });
+      if (linkedPullRequestUrl) return linkedPullRequestUrl;
     } catch (error) {
       if (verbose) {
         console.log(`[VERBOSE] batchCheckPullRequestsForIssues failed for ${ctx.owner}/${ctx.repo}#${ctx.number}: ${error?.message || error}`);
@@ -1183,7 +1213,7 @@ async function resolvePullRequestUrlForSession(sessionInfo, { verbose = false, l
     }
   }
   const logPath = statusResult?.logPath || sessionInfo?.logPath || null;
-  const pullRequestUrlFromLog = await resolvePullRequestUrlFromSessionLog(logPath, ctx, { verbose, readFile });
+  const pullRequestUrlFromLog = await resolvePullRequestUrlFromSessionLog(logPath, ctx, { verbose, readFile, rejectedUrls });
   if (pullRequestUrlFromLog) return pullRequestUrlFromLog;
   if (verbose && logPath) {
     console.log(`[VERBOSE] No PR URL found for issue ${ctx.owner}/${ctx.repo}#${ctx.number} in session log ${logPath}`);
@@ -1259,7 +1289,7 @@ export async function resumeTrackedSessions(options = {}) {
   }
   let persisted;
   try {
-    persisted = store.load();
+    persisted = await store.load();
   } catch (error) {
     console.error(`[session-monitor] resumeTrackedSessions: could not load persisted sessions: ${error.message}`);
     return { resumed, skipped };

@@ -63,7 +63,7 @@ const receipt = {
 const healthyOn = version => ({ version, memory: { compatible: true, schema_version: 2, migration_required: false, migration_state: 'current' } });
 const fastUpdate = { healthAttempts: 2, healthDelayMs: 0, sleepImpl: async () => {} };
 // A Formal AI task ran recently: since issue #2305 only such a host is updated.
-const seedRunningSidecar = (env, digest) => writeFormalAiSidecarState({ ...readFormalAiSidecarState({ env }), image: UPDATE_IMAGE, imageDigest: digest, lastUsedAt: new Date().toISOString() }, { env });
+const seedRunningSidecar = async (env, digest) => writeFormalAiSidecarState({ ...(await readFormalAiSidecarState({ env })), image: UPDATE_IMAGE, imageDigest: digest, lastUsedAt: new Date().toISOString() }, { env });
 
 // ---------------------------------------------------------------------------
 // Which image an update pulls, and when it refuses to run at all.
@@ -89,7 +89,7 @@ assert.deepEqual(await updateFormalAiSidecarWhenIdle({ env: makeEnv({ HIVE_MIND_
   const env = makeEnv();
   const docker = createDockerSimulator({ images: { [UPDATE_IMAGE]: 'sha256:old' } });
   docker.createContainer('task-x');
-  writeFormalAiSidecarState({ ...readFormalAiSidecarState({ env }), leases: [{ sessionId: 'task-x', acquiredAt: new Date().toISOString(), containerSeen: true }] }, { env });
+  await writeFormalAiSidecarState({ ...(await readFormalAiSidecarState({ env })), leases: [{ sessionId: 'task-x', acquiredAt: new Date().toISOString(), containerSeen: true }] }, { env });
 
   assert.deepEqual(await updateFormalAiSidecarWhenIdle({ env, run: docker.run, ...fastUpdate }), { status: 'busy', leaseCount: 1 });
   assert.equal(docker.ran('pull'), false, 'a busy host does not even reach the registry');
@@ -98,7 +98,7 @@ assert.deepEqual(await updateFormalAiSidecarWhenIdle({ env: makeEnv({ HIVE_MIND_
 {
   const env = makeEnv();
   const docker = createDockerSimulator({ images: { [UPDATE_IMAGE]: 'sha256:same' }, memory: { 'upgrade-status': preflight } });
-  seedRunningSidecar(env, 'sha256:same');
+  await seedRunningSidecar(env, 'sha256:same');
 
   assert.deepEqual(await updateFormalAiSidecarWhenIdle({ env, run: docker.run, ...fastUpdate }), { status: 'up-to-date', image: UPDATE_IMAGE, digest: 'sha256:same' });
   assert.equal(docker.ran(/memory upgrade-status/), false, 'memory is not touched when nothing changed');
@@ -117,7 +117,7 @@ assert.deepEqual(await updateFormalAiSidecarWhenIdle({ env: makeEnv({ HIVE_MIND_
     health: healthyOn('0.338.0'),
   });
   docker.volumes.add(FORMAL_AI_MEMORY_VOLUME_NAME);
-  seedRunningSidecar(env, 'sha256:old');
+  await seedRunningSidecar(env, 'sha256:old');
 
   const result = await updateFormalAiSidecarWhenIdle({ env, run: docker.run, ...fastUpdate });
   assert.equal(result.status, 'updated');
@@ -135,7 +135,7 @@ assert.deepEqual(await updateFormalAiSidecarWhenIdle({ env: makeEnv({ HIVE_MIND_
   assert.equal(docker.volumes.has(FORMAL_AI_MEMORY_VOLUME_NAME), true);
   assert.equal(docker.ran(/^volume rm/), false, 'memory survives the version change');
 
-  const state = readFormalAiSidecarState({ env });
+  const state = await readFormalAiSidecarState({ env });
   assert.equal(state.imageDigest, 'sha256:new');
   assert.equal(state.lastUpdate.version, '0.338.0');
   assert.equal(state.lastUpdate.migrationId, 'events-v1-to-v2');
@@ -156,15 +156,15 @@ assert.deepEqual(await updateFormalAiSidecarWhenIdle({ env: makeEnv({ HIVE_MIND_
     health: { version: '0.339.0', memory: { compatible: false, schema_version: 3, migration_required: true, migration_state: 'unsupported' } },
     memorySha256: ORIGINAL_SHA,
   });
-  seedRunningSidecar(env, 'sha256:old');
+  await seedRunningSidecar(env, 'sha256:old');
 
   const result = await updateFormalAiSidecarWhenIdle({ env, run: docker.run, ...fastUpdate });
   assert.equal(result.status, 'rolled-back');
   assert.equal(result.stage, 'verify');
   assert.deepEqual(result.rollback, { restored: true, verified: true, sha256: ORIGINAL_SHA, error: null });
   assert.equal(docker.ran(/--entrypoint sh .*cp -- '\/home\/box\/\.formal-ai\/memory\.lino\.schema-1\.bak'/), true, 'the receipt names the file the rollback restores');
-  assert.equal(readFormalAiSidecarState({ env }).imageDigest, 'sha256:old', 'the previous image stays in service');
-  assert.equal(readFormalAiSidecarState({ env }).lastUpdate, null);
+  assert.equal((await readFormalAiSidecarState({ env })).imageDigest, 'sha256:old', 'the previous image stays in service');
+  assert.equal((await readFormalAiSidecarState({ env })).lastUpdate, null);
 }
 
 {
@@ -177,7 +177,7 @@ assert.deepEqual(await updateFormalAiSidecarWhenIdle({ env: makeEnv({ HIVE_MIND_
     health: healthyOn('0.338.0'),
     memorySha256: 'mutated-by-preflight',
   });
-  seedRunningSidecar(env, 'sha256:old');
+  await seedRunningSidecar(env, 'sha256:old');
 
   const result = await updateFormalAiSidecarWhenIdle({ env, run: docker.run, ...fastUpdate });
   assert.equal(result.status, 'rolled-back');
@@ -189,7 +189,7 @@ assert.deepEqual(await updateFormalAiSidecarWhenIdle({ env: makeEnv({ HIVE_MIND_
   // A refused preflight leaves memory and the running image untouched.
   const env = makeEnv();
   const docker = createDockerSimulator({ images: { [UPDATE_IMAGE]: 'sha256:old' }, pull: { [UPDATE_IMAGE]: 'sha256:new' }, memory: {} });
-  seedRunningSidecar(env, 'sha256:old');
+  await seedRunningSidecar(env, 'sha256:old');
 
   const result = await updateFormalAiSidecarWhenIdle({ env, run: docker.run, ...fastUpdate });
   assert.equal(result.status, 'failed');
@@ -204,7 +204,7 @@ assert.deepEqual(await updateFormalAiSidecarWhenIdle({ env: makeEnv({ HIVE_MIND_
   const env = makeEnv();
   const refusal = { ...preflight, compatible: false, migration_required: false, refusal_code: 'future_schema', refusal_reason: 'memory schema 9 is newer than this build can read' };
   const docker = createDockerSimulator({ images: { [UPDATE_IMAGE]: 'sha256:old' }, pull: { [UPDATE_IMAGE]: 'sha256:new' }, memory: { 'upgrade-status': refusal } });
-  seedRunningSidecar(env, 'sha256:old');
+  await seedRunningSidecar(env, 'sha256:old');
 
   const result = await updateFormalAiSidecarWhenIdle({ env, run: docker.run, ...fastUpdate });
   assert.equal(result.status, 'failed');
@@ -222,7 +222,7 @@ assert.deepEqual(await updateFormalAiSidecarWhenIdle({ env: makeEnv({ HIVE_MIND_
     pull: { [UPDATE_IMAGE]: 'sha256:new' },
     memory: { 'upgrade-status': preflight, migrate: { error: { code: 'writer_locked', message: 'another process holds the memory writer lock' }, status: 'refused' } },
   });
-  seedRunningSidecar(env, 'sha256:old');
+  await seedRunningSidecar(env, 'sha256:old');
 
   const result = await updateFormalAiSidecarWhenIdle({ env, run: docker.run, ...fastUpdate });
   assert.equal(result.status, 'failed');
@@ -236,7 +236,7 @@ assert.deepEqual(await updateFormalAiSidecarWhenIdle({ env: makeEnv({ HIVE_MIND_
   // An unreachable registry is not a reason to disturb a working install.
   const env = makeEnv();
   const docker = createDockerSimulator({ images: { [UPDATE_IMAGE]: 'sha256:old' }, pullError: 'Error response from daemon: unauthorized' });
-  seedRunningSidecar(env, 'sha256:old');
+  await seedRunningSidecar(env, 'sha256:old');
 
   const result = await updateFormalAiSidecarWhenIdle({ env, run: docker.run, ...fastUpdate });
   assert.equal(result.status, 'failed');
@@ -303,7 +303,7 @@ assert.equal(parseCliVersion('unknown'), null);
     false,
     'nothing is reinstalled when the registry matches'
   );
-  assert.equal(readAgenticCliState({ env }).tools.claude.version, '1.1.0');
+  assert.equal((await readAgenticCliState({ env })).tools.claude.version, '1.1.0');
 
   // The registry is polled on a schedule, not on every maintenance tick.
   assert.equal((await updateAgenticClisWhenIdle(idle)).status, 'throttled');

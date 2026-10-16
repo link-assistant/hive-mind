@@ -3,15 +3,21 @@ import { scopeRecoveryFooter } from './session-recovery-footer.lib.mjs';
 import { classifyExitStatus, normalizeExitCode } from './session-status.lib.mjs';
 import { isDockerIsolation, resolveOomKilledState, resolveStaleExecutingState } from './session-monitor.stale-executing.lib.mjs';
 import { clearUnverifiedDockerTerminalMarker, shouldDeferUnverifiedDockerTerminal } from './session-monitor.docker-terminal.lib.mjs';
+import { clearStatusQueryErrors, getStatusQueryError, resolveStatusQueryFailure } from './session-monitor.status-query.lib.mjs';
 
 export async function getIsolationSessionState(sessionName, sessionInfo, options = {}) {
   const { verbose = false, statusProvider = null, exitFromLog: providedExitFromLog = null, backendAlive = null, sessionRunning = null } = options;
   const sessionId = sessionInfo.sessionId || sessionName;
+  const persistSnapshot = options.persistSnapshot || (() => {});
+  let runner = null;
   try {
-    const runner = options.runnerProvider ? await options.runnerProvider() : await import('./isolation-runner.lib.mjs');
-    const persistSnapshot = options.persistSnapshot || (() => {});
+    runner = options.runnerProvider ? await options.runnerProvider() : await import('./isolation-runner.lib.mjs');
     const exitFromLog = scopeRecoveryFooter(providedExitFromLog || runner.readSessionExitFromLog, sessionInfo);
     const statusResult = statusProvider ? await statusProvider(sessionId, sessionInfo) : await runner.querySessionStatus(sessionId, verbose);
+    // Issue #2303: a failed query is no outcome — keep tracking, then ask the backend itself.
+    const queryError = getStatusQueryError(statusResult);
+    if (queryError) return await resolveStatusQueryFailure(sessionName, sessionInfo, queryError, { runner, statusResult, exitFromLog, backendAlive, persistSnapshot, verbose });
+    clearStatusQueryErrors(sessionInfo, persistSnapshot);
     if (statusResult?.exists && statusResult.status) {
       if (statusResult.oomKilled === true || statusResult.cgroupMemory?.oomKills > 0) {
         // Issue #2134: `oomKilled` is a *container* flag — the kernel sets it when any process in the cgroup is OOM-killed — so it is verified against the log footer and container liveness before a kill is announced.
@@ -44,8 +50,13 @@ export async function getIsolationSessionState(sessionName, sessionInfo, options
         const logPath = statusResult.logPath || sessionInfo?.logPath || null;
         // The log FOOTER is the authoritative terminal result. It is anchored on the `=====` separator (see parseSessionExitFooter), so — unlike the exit code `$ --status` derives from an unanchored full-log scan — it cannot be forged by output the wrapped command printed (issue #2117). Prefer it whenever it exists: that both recovers a real code from a missing/sentinel status (issue #1927) and overrides a fabricated one.
         const readFooter = exitFromLog || runner.readSessionExitFromLog;
-        const footer = logPath && readFooter ? readFooter(logPath, { verbose }) : null;
-        if (footer?.finished) {
+        const footer = logPath && readFooter ? await readFooter(logPath, { verbose }) : null;
+        // Issue #2303: start-command writes an `Exit Code: -1` footer when its watcher lost the container (`watcher-lost-container`). That sentinel is no real exit, so it must not skip the liveness check below.
+        const unknownDockerFooter = footer?.finished && isDockerIsolation(sessionInfo, statusResult) && typeof runner.isUnknownDockerExitCode === 'function' && runner.isUnknownDockerExitCode(footer.exitCode);
+        if (unknownDockerFooter && verbose) {
+          console.log(`[VERBOSE] Session ${sessionName}: the log footer only carries the unknown docker exit ${footer.exitCode}; checking whether the container is still alive (issue #2303)`);
+        }
+        if (footer?.finished && !unknownDockerFooter) {
           const footerExitCode = footer.exitCode;
           const correctedStatus = classifyExitStatus(footerExitCode) || statusResult.status;
           if (verbose && normalizeExitCode(footerExitCode) !== normalizeExitCode(exitCode)) {
@@ -104,7 +115,7 @@ export async function getIsolationSessionState(sessionName, sessionInfo, options
       const logPath = statusResult?.logPath || sessionInfo?.logPath || null;
       if (logPath) {
         const readFooter = exitFromLog || runner.readSessionExitFromLog;
-        const footer = readFooter ? readFooter(logPath, { verbose }) : null;
+        const footer = readFooter ? await readFooter(logPath, { verbose }) : null;
         if (footer?.finished) {
           const correctedStatus = classifyExitStatus(footer.exitCode) || (footer.exitCode === 0 ? 'executed' : 'failed');
           if (verbose) {
@@ -121,9 +132,15 @@ export async function getIsolationSessionState(sessionName, sessionInfo, options
       statusResult,
     };
   } catch (error) {
+    const message = error?.message || String(error);
     if (verbose) {
-      console.error(`[VERBOSE] Error refreshing isolated session ${sessionId}: ${error.message}`);
+      console.error(`[VERBOSE] Error refreshing isolated session ${sessionId}: ${message}`);
     }
-    return { running: false, exitCode: null, status: null, statusResult: null };
+    try {
+      const exitFromLog = scopeRecoveryFooter(providedExitFromLog || runner?.readSessionExitFromLog || null, sessionInfo);
+      return await resolveStatusQueryFailure(sessionName, sessionInfo, message, { runner, exitFromLog, backendAlive, persistSnapshot, verbose });
+    } catch {
+      return { running: false, exitCode: null, status: null, statusResult: null };
+    }
   }
 }

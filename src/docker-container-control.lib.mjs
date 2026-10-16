@@ -5,12 +5,15 @@
  */
 import { getCommandStreamDollar } from './start-command-cli.lib.mjs';
 
+// Issue #3278: a hung daemon fails the kill instead of blocking the caller forever.
+const DOCKER_KILL_TIMEOUT_MS = 120_000;
+
 /** Stop a Docker task without removing it, preserving completion diagnostics. */
 export async function killDockerContainer(containerName, verbose = false) {
   if (!containerName) return { success: false, output: '', error: 'missing container name' };
   try {
     const $ = await getCommandStreamDollar();
-    const result = await $({ mirror: false })`docker kill ${containerName}`;
+    const result = await $({ mirror: false, signal: AbortSignal.timeout(DOCKER_KILL_TIMEOUT_MS) })`docker kill ${containerName}`;
     const output = result.stdout?.toString() || result.stderr?.toString() || '';
     if (verbose) console.log(`[VERBOSE] docker-container-control: docker kill '${containerName}' succeeded`);
     return { success: true, output, error: null };

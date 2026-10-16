@@ -149,17 +149,17 @@ assertDeepEqual(getRouterSuppressedCredentialPaths({ tool: 'claude' }), ['.claud
 assertDeepEqual(getRouterSuppressedCredentialPaths({ tool: 'codex' }), ['.codex', '.agents'], 'a routed codex task loses both Codex credential paths');
 assertDeepEqual(getRouterSuppressedCredentialPaths({ tool: 'claude', ghRouted: true }), ['.claude', '.claude.json', '.config/gh'], 'the gh credential is withheld once GitHub is routed');
 
-const defaultClaudeMounts = mountPairs(getDockerIsolationAuthMounts({ tool: 'claude', homeDir: HOME, env: {}, existsSync: existsAll }));
+const defaultClaudeMounts = mountPairs(await getDockerIsolationAuthMounts({ tool: 'claude', homeDir: HOME, env: {}, existsSync: existsAll }));
 assertDeepEqual(defaultClaudeMounts, [`${HOME}/.config/gh:${HOME}/.config/gh`, `${HOME}/.gitconfig:${HOME}/.gitconfig`, `${HOME}/.config/git:${HOME}/.config/git`, `${HOME}/.claude/.credentials.json:${HOME}/.claude/.credentials.json`, `${HOME}/.claude/projects:${HOME}/.claude/projects`, `${HOME}/.claude/sessions:${HOME}/.claude/sessions`], 'default behaviour is unchanged: claude tasks still receive the real subscription (R9)');
 
-const routedClaudeMounts = mountPairs(getDockerIsolationAuthMounts({ tool: 'claude', homeDir: HOME, env: {}, existsSync: existsAll, useRouter: true }));
+const routedClaudeMounts = mountPairs(await getDockerIsolationAuthMounts({ tool: 'claude', homeDir: HOME, env: {}, existsSync: existsAll, useRouter: true }));
 assertEqual(
   routedClaudeMounts.some(pair => pair.includes('.claude')),
   false,
   'nothing named .claude survives into a routed container'
 );
 
-const routedCodexMounts = mountPairs(getDockerIsolationAuthMounts({ tool: 'codex', homeDir: HOME, env: {}, existsSync: existsAll, useRouter: true }));
+const routedCodexMounts = mountPairs(await getDockerIsolationAuthMounts({ tool: 'codex', homeDir: HOME, env: {}, existsSync: existsAll, useRouter: true }));
 assertEqual(
   routedCodexMounts.some(pair => pair.includes('.codex') || pair.includes('.agents')),
   false,
@@ -167,7 +167,7 @@ assertEqual(
 );
 assertEqual(routedCodexMounts.includes(`${HOME}/.gitconfig:${HOME}/.gitconfig`), true, 'the git identity is still mounted: it is not a subscription credential (issue #1939)');
 
-const ghRoutedMounts = mountPairs(getDockerIsolationAuthMounts({ tool: 'claude', homeDir: HOME, env: {}, existsSync: existsAll, useRouter: true, ghRouted: true }));
+const ghRoutedMounts = mountPairs(await getDockerIsolationAuthMounts({ tool: 'claude', homeDir: HOME, env: {}, existsSync: existsAll, useRouter: true, ghRouted: true }));
 assertEqual(
   ghRoutedMounts.some(pair => pair.includes('.config/gh')),
   false,
@@ -188,8 +188,8 @@ const installedGuard = () => ({ installed: true, dir: GUARD_DIR, hookPath: `${GU
 const failedGuard = () => ({ installed: false, dir: GUARD_DIR, hookPath: `${GUARD_DIR}/pre-push`, error: 'EACCES' });
 
 const launchOptions = { sessionId: 'sess-2164', tool: 'claude', env: {}, homeDir: HOME, existsSync: existsAll, installGuard: installedGuard };
-const defaultArgs = buildDockerIsolationStartArgs('solve', ['https://github.com/o/r/issues/1'], launchOptions);
-const routedArgs = buildDockerIsolationStartArgs('solve', ['https://github.com/o/r/issues/1'], { ...launchOptions, useRouter: true, routerToken: 'la_sk_task' });
+const defaultArgs = await buildDockerIsolationStartArgs('solve', ['https://github.com/o/r/issues/1'], launchOptions);
+const routedArgs = await buildDockerIsolationStartArgs('solve', ['https://github.com/o/r/issues/1'], { ...launchOptions, useRouter: true, routerToken: 'la_sk_task' });
 
 assertDeepEqual(envValues(defaultArgs, 'ANTHROPIC_BASE_URL'), [], 'a default launch injects no router endpoint');
 assertDeepEqual(envValues(routedArgs, 'ANTHROPIC_BASE_URL'), [ROUTER], 'a routed launch points Claude Code at the sidecar');
@@ -210,12 +210,12 @@ assertEqual(
   true,
   'and the github.com rewrite among them'
 );
-assertDeepEqual(buildDockerIsolationStartArgs('solve', ['https://github.com/o/r/issues/1'], { ...launchOptions, useRouter: true }), defaultArgs, 'without an issued token the launch falls back to the default mounts rather than stranding the agent with no model access');
+assertDeepEqual(await buildDockerIsolationStartArgs('solve', ['https://github.com/o/r/issues/1'], { ...launchOptions, useRouter: true }), defaultArgs, 'without an issued token the launch falls back to the default mounts rather than stranding the agent with no model access');
 
 // A guard that cannot be written to the host is not fatal — the remaining R13
 // layers still apply — but it must drop cleanly out of the git config rather
 // than leaving a hooksPath pointing at a mount that was never made.
-const unguardedArgs = buildDockerIsolationStartArgs('solve', ['https://github.com/o/r/issues/1'], { ...launchOptions, useRouter: true, routerToken: 'la_sk_task', installGuard: failedGuard });
+const unguardedArgs = await buildDockerIsolationStartArgs('solve', ['https://github.com/o/r/issues/1'], { ...launchOptions, useRouter: true, routerToken: 'la_sk_task', installGuard: failedGuard });
 assertDeepEqual(envValues(unguardedArgs, 'GIT_CONFIG_COUNT'), ['4'], 'a guard that could not be installed leaves only the router git settings');
 assertEqual(
   unguardedArgs.some(value => value.startsWith('GIT_CONFIG_VALUE_') && value.includes(GUARD_DIR)),

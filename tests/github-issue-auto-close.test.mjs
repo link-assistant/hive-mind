@@ -12,7 +12,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { gitHubAutoClosesOnMerge, classifyIssueLinkStatus, buildNonDefaultBranchExplanation, ensureLinkedIssueClosedAfterMerge } from '../src/github-issue-auto-close.lib.mjs';
+import { gitHubAutoClosesOnMerge, classifyIssueLinkStatus, buildNonDefaultBranchExplanation } from '../src/github-issue-auto-close.lib.mjs';
 
 let passed = 0;
 let failed = 0;
@@ -137,87 +137,13 @@ test('explanation names the branches and the issue', () => {
 });
 
 // ---------------------------------------------------------------------------
-// ensureLinkedIssueClosedAfterMerge (with a fake $ exec)
+// Issue #3357: the post-merge close moved to post-merge-issue-closing.lib.mjs,
+// one implementation for every merge path (tests/post-merge-issue-closing-3355
+// and tests/unified-issue-closing-3357 cover it).
 // ---------------------------------------------------------------------------
-console.log('\n📋 ensureLinkedIssueClosedAfterMerge\n');
-
-// Build a fake command-stream `$` that matches commands to canned responses.
-function makeFake$(responder) {
-  return (strings, ...values) => {
-    // Reconstruct the command for matching.
-    let cmd = '';
-    strings.forEach((s, i) => {
-      cmd += s;
-      if (i < values.length) cmd += String(values[i]);
-    });
-    return Promise.resolve(responder(cmd.trim()));
-  };
-}
-
-const ok = stdout => ({ code: 0, stdout, stderr: '' });
-
-test('closes the issue when PR targeted a non-default branch', async () => {
-  const calls = [];
-  const $ = makeFake$(cmd => {
-    calls.push(cmd);
-    if (cmd.startsWith('gh pr view')) return ok(JSON.stringify({ baseRefName: 'issue-47', body: 'Fixes #49', title: 'x' }));
-    if (cmd.startsWith('gh api repos/')) return ok('main');
-    if (cmd.startsWith('gh issue view')) return ok(JSON.stringify({ state: 'OPEN', stateReason: '' }));
-    if (cmd.startsWith('gh issue close')) return ok('');
-    return ok('');
-  });
-
-  const result = await ensureLinkedIssueClosedAfterMerge({ $, owner: 'o', repo: 'r', prNumber: 65, issueNumber: 49 });
-  assert.equal(result.closed, true);
-  assert.equal(result.reason, 'closed-explicitly');
-  assert.ok(calls.some(c => c.startsWith('gh issue close 49')));
-});
-
-test('skips when PR merged into the default branch (GitHub handles it)', async () => {
-  const $ = makeFake$(cmd => {
-    if (cmd.startsWith('gh pr view')) return ok(JSON.stringify({ baseRefName: 'main', body: 'Fixes #49', title: 'x' }));
-    if (cmd.startsWith('gh api repos/')) return ok('main');
-    return ok('');
-  });
-  const result = await ensureLinkedIssueClosedAfterMerge({ $, owner: 'o', repo: 'r', prNumber: 65, issueNumber: 49 });
-  assert.equal(result.closed, false);
-  assert.equal(result.skipped, true);
-  assert.equal(result.reason, 'github-auto-closes');
-});
-
-test('skips when the issue is already closed', async () => {
-  const $ = makeFake$(cmd => {
-    if (cmd.startsWith('gh pr view')) return ok(JSON.stringify({ baseRefName: 'feature', body: 'Fixes #49', title: 'x' }));
-    if (cmd.startsWith('gh api repos/')) return ok('main');
-    if (cmd.startsWith('gh issue view')) return ok(JSON.stringify({ state: 'CLOSED' }));
-    return ok('');
-  });
-  const result = await ensureLinkedIssueClosedAfterMerge({ $, owner: 'o', repo: 'r', prNumber: 65, issueNumber: 49 });
-  assert.equal(result.skipped, true);
-  assert.equal(result.reason, 'already-closed');
-});
-
-test('skips when PR has no closing keyword', async () => {
-  const $ = makeFake$(cmd => {
-    if (cmd.startsWith('gh pr view')) return ok(JSON.stringify({ baseRefName: 'feature', body: 'References #49 only', title: 'x' }));
-    if (cmd.startsWith('gh api repos/')) return ok('main');
-    return ok('');
-  });
-  const result = await ensureLinkedIssueClosedAfterMerge({ $, owner: 'o', repo: 'r', prNumber: 65, issueNumber: 49 });
-  assert.equal(result.skipped, true);
-  assert.equal(result.reason, 'no-closing-keyword');
-});
-
-test('derives the issue number from the PR body when not provided', async () => {
-  const $ = makeFake$(cmd => {
-    if (cmd.startsWith('gh pr view')) return ok(JSON.stringify({ baseRefName: 'feature', body: 'Closes #50', title: 'x' }));
-    if (cmd.startsWith('gh api repos/')) return ok('main');
-    if (cmd.startsWith('gh issue view')) return ok(JSON.stringify({ state: 'OPEN' }));
-    if (cmd.startsWith('gh issue close')) return ok('');
-    return ok('');
-  });
-  const result = await ensureLinkedIssueClosedAfterMerge({ $, owner: 'o', repo: 'r', prNumber: 66 });
-  assert.equal(result.closed, true);
+test('the per-path post-merge close helper is gone', async () => {
+  const autoClose = await import('../src/github-issue-auto-close.lib.mjs');
+  assert.equal(autoClose.ensureLinkedIssueClosedAfterMerge, undefined);
 });
 
 // ---------------------------------------------------------------------------

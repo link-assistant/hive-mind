@@ -51,11 +51,12 @@ for (const [key, value] of Object.entries(CLAUDE_MEMORY_DISABLE_ENV)) {
 const memoryArgs = buildCodexMemoryDisableConfigArgs(true);
 assert.deepEqual(memoryArgs, ['-c', 'features.memories=false', '-c', 'features.external_agent_memory_import=false']);
 const auxiliaryArgs = buildCodexAuxiliaryDisableConfigArgs(true);
-assert.deepEqual(auxiliaryArgs, ['-c', 'features.goals=false', '-c', 'features.personality=false']);
+assert.deepEqual(auxiliaryArgs, ['-c', 'features.personality=false']);
 const policyArgs = [...memoryArgs, ...auxiliaryArgs];
 // Issue #2771: every codex run pins the standard (cheapest) speed tier and the
 // short-context window, right after the reasoning args.
-const pricingArgs = ['-c', 'service_tier=default', '-c', 'model_context_window=272000'];
+// Issue #2406: native goals then stay on in every run, independent of both opt-outs.
+const pricingArgs = ['-c', 'service_tier=default', '-c', 'model_context_window=272000', '-c', 'features.goals=true'];
 
 const codexToolOptions = buildAgentCommanderToolOptions({ verbose: true, fallbackModel: 'opus' }, 'codex');
 assert.deepEqual(codexToolOptions.extraArgs, ['-c', 'model_reasoning_effort=none', '-c', 'model_reasoning_summary=auto', ...pricingArgs, ...policyArgs]);
@@ -81,7 +82,7 @@ const codexAuxiliaryOptOut = buildAgentCommanderToolOptions({ auxiliaryModelCall
 assert.deepEqual(codexAuxiliaryOptOut.extraArgs, ['-c', 'model_reasoning_effort=none', '-c', 'model_reasoning_summary=auto', ...pricingArgs, ...memoryArgs], '--no-auxiliary-model-calls-disabled should leave the #2178 memory args alone');
 
 const codexBothOptOut = buildAgentCommanderToolOptions({ agentMemoryDisabled: false, auxiliaryModelCallsDisabled: false }, 'codex');
-assert.deepEqual(codexBothOptOut.extraArgs, ['-c', 'model_reasoning_effort=none', '-c', 'model_reasoning_summary=auto', ...pricingArgs], 'opting out of both policies must add no policy arguments, only the #2771 pricing tier');
+assert.deepEqual(codexBothOptOut.extraArgs, ['-c', 'model_reasoning_effort=none', '-c', 'model_reasoning_summary=auto', ...pricingArgs], 'opting out of both policies must add no policy arguments, only the #2771 pricing tier and the #2406 goals');
 
 const geminiToolOptions = buildAgentCommanderToolOptions({ verbose: true }, 'gemini');
 assert.deepEqual(geminiToolOptions, { debug: true });

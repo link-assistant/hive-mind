@@ -55,3 +55,53 @@ test('hive and solve validate a Formal AI model through the wrapper, not the too
   assert.equal(failed, false);
   assert.match(failures.join('\n'), /Formal AI dispatch validation failed: no client/);
 });
+
+test('a miscased Formal AI model is Formal AI for every tool, and no vendor model is', async () => {
+  const { canonicalFormalAiModel, isFormalAiModel } = await import('../src/models/index.mjs');
+  for (const [typed, canonical] of [
+    ['Formal-AI', 'formal-ai'],
+    [' FORMAL-AI ', 'formal-ai'],
+    ['FormalAI/Formal-AI', 'formalai/formal-ai'],
+  ]) {
+    assert.equal(canonicalFormalAiModel(typed), canonical, typed);
+    assert.equal(isFormalAiModel(typed), true, typed);
+    // Validation is case-insensitive, so the identity check must agree with
+    // it: before, these passed validation and then went to the vendor CLI.
+    for (const tool of FORMAL_AI_SUPPORTED_TOOLS) {
+      assert.equal(validateModelName(typed.trim(), tool).valid, true, `${tool} accepts ${typed}`);
+      assert.equal(isModelCompatibleWithTool(tool, typed), true, `${tool} is compatible with ${typed}`);
+    }
+  }
+  for (const value of [undefined, null, '', 'opus', 'gpt-5.5', 'openai/formal-ai', 'formal-ai-2']) assert.equal(canonicalFormalAiModel(value), null, String(value));
+  for (const tool of FORMAL_AI_SUPPORTED_TOOLS) {
+    for (const [name, id] of Object.entries(getModelMapForTool(tool))) {
+      if (/formal/i.test(name)) continue;
+      assert.equal(isFormalAiModel(name) || isFormalAiModel(id), false, `${tool}: ${name} -> ${id} is a vendor model`);
+    }
+  }
+});
+
+test('every pricing path asks the one served-model registry, whatever the spelling (#3279)', async () => {
+  const { lookupServedModelPrice, applyServedModelPricing } = await import('../src/formal-ai-pricing.lib.mjs');
+  const { buildGeminiPricingInfo } = await import('../src/gemini.lib.mjs');
+  const { buildQwenPricingInfo } = await import('../src/qwen.lib.mjs');
+  const { summarizeAgentCommanderResult } = await import('../src/agent-commander.lib.mjs');
+  const { captureAnthropicResultCost } = await import('../src/anthropic-cost-accumulator.lib.mjs');
+  const tokenUsage = { inputTokens: 10, outputTokens: 5 };
+  for (const model of ['formal-ai', 'Formal-AI', ' FormalAI/Formal-AI ']) {
+    assert.equal(lookupServedModelPrice(model)?.provider, 'Link.Assistant', model);
+    assert.equal(buildGeminiPricingInfo(model).totalCostUSD, 0, `gemini ${model}`);
+    assert.equal(buildQwenPricingInfo({ tokenUsage }, model).pricingInfo.provider, 'Link.Assistant', `qwen ${model}`);
+    assert.equal(await captureAnthropicResultCost({ data: { subtype: 'success', total_cost_usd: 0.25 }, model, log: async () => {} }), null, `claude ${model}`);
+  }
+  // Vendor models keep the cost their own client reported - nothing changes for Claude and Codex users.
+  assert.equal(lookupServedModelPrice('claude-opus-4-8'), null);
+  assert.deepEqual(await captureAnthropicResultCost({ data: { subtype: 'success', total_cost_usd: 0.25 }, model: 'opus', log: async () => {} }), { total: 0.25 });
+  const kept = applyServedModelPricing({ tool: 'claude', model: 'sonnet', pricingInfo: { totalCostUSD: 1 }, publicPricingEstimate: 1, anthropicTotalCostUSD: 0.9 });
+  assert.deepEqual([kept.pricingInfo, kept.publicPricingEstimate, kept.anthropicTotalCostUSD], [{ totalCostUSD: 1 }, 1, 0.9]);
+  const claude = summarizeAgentCommanderResult({ tool: 'claude', model: 'sonnet', result: { exitCode: 0, output: { plain: '', parsed: [{ type: 'result', subtype: 'success', total_cost_usd: 0.5 }] } } });
+  assert.equal(claude.anthropicTotalCostUSD, 0.5);
+  const formal = summarizeAgentCommanderResult({ tool: 'claude', model: 'Formal-AI', result: { exitCode: 0, output: { plain: '', parsed: [{ type: 'result', subtype: 'success', total_cost_usd: 0.5 }] } } });
+  assert.equal(formal.anthropicTotalCostUSD, null);
+  assert.equal(formal.pricingInfo.provider, 'Link.Assistant');
+});

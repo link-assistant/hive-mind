@@ -25,7 +25,7 @@ try {
     record.uuid,
     { probe: () => ({ alive: false, state: 'stopped' }), runner: () => ({ success: true, stdout: 'mock-container-id' }), startWatcher: () => {}, outputFormat: 'json' }
   );
-  console.log(JSON.stringify({ version: require('./package.json').version, result, saved, latestFooter: readSessionExitFromLog(logPath), appendedLifecycleBoundary: (await fs.readFile(logPath, 'utf8')).includes('resume') }, null, 2));
+  console.log(JSON.stringify({ version: require('./package.json').version, result, saved, latestFooter: await readSessionExitFromLog(logPath), appendedLifecycleBoundary: (await fs.readFile(logPath, 'utf8')).includes('resume') }, null, 2));
 } finally {
   await fs.rm(dir, { recursive: true, force: true });
 }

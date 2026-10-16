@@ -154,7 +154,7 @@ try {
   fs.writeFileSync(longLogPath, `start\n📌 Session ID: ${ACTUAL_THREAD}\n${'x'.repeat(300 * 1024)}\nKilled\nExit Code: 137\n`);
   fs.writeFileSync(path.join(tmpDir, `${UNRELATED_THREAD}.log`), 'another task');
 
-  assert(readLastSessionIdFromLog(longLogPath) === ACTUAL_THREAD, 'finds the last real thread id even when it is more than 256 KiB from EOF');
+  assert((await readLastSessionIdFromLog(longLogPath)) === ACTUAL_THREAD, 'finds the last real thread id even when it is more than 256 KiB from EOF');
 
   // The overlap between backward chunks must preserve a marker whose label is
   // split exactly at a chunk boundary.
@@ -163,7 +163,7 @@ try {
   const markerSplit = 5;
   const trailingBytes = 64 - (Buffer.byteLength(marker) - markerSplit);
   fs.writeFileSync(boundaryLogPath, `${'p'.repeat(100)}${marker}${'z'.repeat(trailingBytes)}`);
-  assert(readLastSessionIdFromLog(boundaryLogPath, { tailBytes: 64 }) === ACTUAL_THREAD, 'finds a thread marker split across backward scan chunks');
+  assert((await readLastSessionIdFromLog(boundaryLogPath, { tailBytes: 64 })) === ACTUAL_THREAD, 'finds a thread marker split across backward scan chunks');
 
   const resumeText = await monitorKilledSession({ logPath: longLogPath });
   assert(resumeText.includes(`--resume ${ACTUAL_THREAD}`), 'resume instruction uses the thread id from this task log');

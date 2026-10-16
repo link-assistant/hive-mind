@@ -1,0 +1,7 @@
+{
+  "closedAt": "2026-10-09T21:52:12Z",
+  "number": 193,
+  "state": "CLOSED",
+  "title": "$ --resume starts the new container, then fails to save the record (lock timeout), leaving it running untracked",
+  "url": "https://github.com/link-foundation/start/issues/193"
+}

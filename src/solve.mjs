@@ -66,7 +66,7 @@ const { createDevelopmentLogFinalizer } = await import('./development-log.finali
 // Issue #1625: centralized markers + tracked comment posting for solve.mjs's own usage-limit notifications (so they're excluded from the "did the AI post anything?" check in --auto-attach-solution-summary).
 const { postTrackedComment, USAGE_LIMIT_REACHED_MARKER } = await import('./tool-comments.lib.mjs');
 const { prepareFeedbackAndTimestamps, checkUncommittedChanges, checkForkActions } = await import('./solve.preparation.lib.mjs');
-const { validateAndExitOnInvalidClaudeSubAgentModel, validateAndExitOnInvalidModel } = await import('./models/index.mjs');
+const { canonicalFormalAiModel, validateAndExitOnInvalidClaudeSubAgentModel, validateAndExitOnInvalidModel } = await import('./models/index.mjs');
 const { autoAcceptInviteForRepo } = await import('./solve.accept-invite.lib.mjs');
 const { handleAutoForkOption, handleMaintainerForkAccess } = await import('./solve.fork-detection.lib.mjs');
 const { resolveUncommittedChangesTool } = await import('./solve.tool-uncommitted.lib.mjs');
@@ -161,7 +161,9 @@ if (!issueUrl) {
 // Issue #3108: with exactly one open issue, that issue is solved directly.
 {
   const { resolveRepositoryModeTarget } = await import('./solve.repository-mode.run.lib.mjs');
-  const repositoryMode = await resolveRepositoryModeTarget({ url: issueUrl, log });
+  const { repositoryModeSelectionFromArgv } = await import('./solve.repository-mode.lib.mjs');
+  // Issue #3176: bot-maintained status pages and skip-labeled issues are not work.
+  const repositoryMode = await resolveRepositoryModeTarget({ url: issueUrl, log, selection: repositoryModeSelectionFromArgv(argv) });
   if (repositoryMode.handled) {
     // Issue #2266: an empty repository is a normal, successful terminal state.
     // Exit 0 so callers do not turn "nothing to do" into a task failure.
@@ -234,6 +236,10 @@ if (!(await validateContinueOnlyOnFeedback(argv, isPrUrl, isIssueUrl))) {
 const tool = argv.tool || 'claude';
 await validateAndExitOnInvalidModel(argv.model, tool, safeExit, { useRouter: argv.useRouter === true });
 if (argv.fallbackModel) await validateAndExitOnInvalidModel(argv.fallbackModel, tool, safeExit, { useRouter: argv.useRouter === true });
+// Validation accepts `--model Formal-AI`; every tool, the sidecar and the
+// pricing read the canonical spelling. Other models are left exactly as typed.
+argv.model = canonicalFormalAiModel(argv.model) ?? argv.model;
+if (argv.fallbackModel) argv.fallbackModel = canonicalFormalAiModel(argv.fallbackModel) ?? argv.fallbackModel;
 argv.originalModel ||= argv.model;
 // Validate --plan-model if provided (Issue #1223)
 if (argv.planModel) {
@@ -1115,6 +1121,9 @@ try {
   // Issue #2212: runs last on purpose — the earlier loops may still rewrite the pull
   // request description, so the closing references are verified against its final state.
   applyPostSolveRestart(await runEnsureAllSubIssuesAddressed({ issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, workspaceTmpDir, argv, cleanupClaudeFile }));
+  // Issue #2406: bounded completion restarts until the requirements report satisfies the merge guard; no optional flag needed.
+  const { runIssueCompletionUntilVerified } = await import('./solve.issue-completion.lib.mjs');
+  applyPostSolveRestart(await runIssueCompletionUntilVerified({ issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, workspaceTmpDir, argv, cleanupClaudeFile }, { logger: log }));
   await attachLogAfterPostSolveRestarts({ restartIterationsRan: postSolveRestarts.filter(Boolean).length, shouldAttachLogs, prNumber, owner, repo, $, log, sanitizeLogContent, getLogFile, attachLogToGitHub, argv, sessionId, tempDir, anthropicTotalCostUSD, resultModelUsage });
   // Start watch mode if enabled OR if we need to handle uncommitted changes
   if (argv.verbose) {

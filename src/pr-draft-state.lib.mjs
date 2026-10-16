@@ -218,6 +218,12 @@ export const restoreDeliberateDraftsAtRunEnd = async ({ $, log = noopLog, format
       results.push({ owner, repo, prNumber, ok: true, changed: false, skipped: true, reason: 'no_session_changes' });
       continue;
     }
+    // Issue #3330: what the run changed could not be measured; "ready" would claim a verified draft.
+    if (entry.kind === 'session_effect_unverified') {
+      await log(`  ℹ️  PR #${prNumber} stays a draft: could not verify the session's effect`);
+      results.push({ owner, repo, prNumber, ok: true, changed: false, skipped: true, reason: 'session_effect_unverified' });
+      continue;
+    }
     await log(`🩹 PR #${prNumber} was left in draft by a working session (${entry.reason || entry.kind}); restoring its pre-run state at ${reason}`);
     const result = await ensurePullRequestIsReady({ owner, repo, prNumber, $, log, formatAligned, reason, reportError, force: true });
     if (result?.ok) clearPullRequestLeftInDraft({ owner, repo, prNumber });

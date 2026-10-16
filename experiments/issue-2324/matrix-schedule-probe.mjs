@@ -1,11 +1,18 @@
 // Exercise the production scheduler with complete and skipped GitHub runs.
+/* global process, console, URL */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import vm from 'node:vm';
 import { E2E_MATRIX } from '../../scripts/e2e-hello-world.lib.mjs';
+import * as harness from '../../scripts/e2e-matrix-harness.lib.mjs';
 
 const scenario = process.argv[2] || 'skipped';
-const currentTag = 'v0.352.1';
+// Issue #3332: the matrix tests the shipped version; the GitHub release and
+// crates.io are only compared. 'error' makes a lookup fail.
+const shipped = process.env.PROBE_SHIPPED || '0.352.1';
+const releaseTag = process.env.PROBE_RELEASE || 'v0.352.1';
+const crates = process.env.PROBE_CRATES || '0.352.1';
+const currentTag = process.env.PROBE_TESTED || 'v0.352.1';
 const files = new Map();
 const requests = [];
 let output = '';
@@ -28,10 +35,21 @@ const exportsFor = {
   'node:os': { tmpdir: () => '/tmp' },
   'node:path': { join },
   './e2e-hello-world.lib.mjs': { E2E_MATRIX },
+  './e2e-matrix-harness.lib.mjs': {
+    ...harness,
+    readShippedFormalAiVersion: () => shipped,
+    fetchLatestCrateVersion: async () => {
+      if (crates === 'error') throw new Error('crates.io unreachable');
+      return crates;
+    },
+  },
   './github-actions.lib.mjs': {
     ghJson: async args => {
       requests.push(args);
-      if (args[0] === 'release') return { tagName: currentTag };
+      if (args[0] === 'release') {
+        if (releaseTag === 'error') throw new Error('release lookup failed');
+        return { tagName: releaseTag };
+      }
       if (args[1] === 'list') return [{ databaseId: 2 }, { databaseId: 1 }];
       if (args[1] === 'view') return { jobs: args[2] === '2' ? candidateRows : rows };
       throw new Error(`Unexpected request: ${args.join(' ')}`);
@@ -45,7 +63,7 @@ const exportsFor = {
 };
 // Issue #2923: `workflow_run-<conclusion>` replays the release completion that triggers the matrix.
 const logs = [];
-const env = { GITHUB_REPOSITORY: 'owner/repo', GITHUB_EVENT_NAME: 'schedule', GITHUB_OUTPUT: '/tmp/output', E2E_METADATA_DIR: '/tmp/result' };
+const env = { GITHUB_REPOSITORY: 'owner/repo', GITHUB_EVENT_NAME: 'schedule', GITHUB_OUTPUT: '/tmp/output', GITHUB_STEP_SUMMARY: '/tmp/summary', E2E_METADATA_DIR: '/tmp/result' };
 if (scenario.startsWith('workflow_run-')) {
   Object.assign(env, { GITHUB_EVENT_NAME: 'workflow_run', GITHUB_EVENT_PATH: '/tmp/event.json' });
   files.set('/tmp/event.json', JSON.stringify({ workflow_run: { id: 37983302098, name: 'Checks and release', conclusion: scenario.slice('workflow_run-'.length), head_branch: 'main' } }));

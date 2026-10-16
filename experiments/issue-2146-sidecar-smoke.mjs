@@ -50,7 +50,7 @@ const firstRelease = await releaseFormalAiSidecar({ sessionId: 'task-a', env, ru
 console.log('release #1      :', JSON.stringify(firstRelease));
 const secondRelease = await releaseFormalAiSidecar({ sessionId: 'task-b', env, run, log: async m => console.log('  log:', m) });
 console.log('release #2      :', JSON.stringify(secondRelease));
-console.log('final state     :', JSON.stringify(readFormalAiSidecarState({ env })));
+console.log('final state     :', JSON.stringify(await readFormalAiSidecarState({ env })));
 console.log('\ndocker calls:');
 for (const call of calls) console.log('  ', call);
 console.log(

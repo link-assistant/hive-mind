@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { readFile } from 'node:fs/promises';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 
 // Results processing module for solve command
@@ -24,6 +25,7 @@ const { log, getLogFile, formatAligned } = lib;
 // Import exit handler
 import { safeExit } from './exit-handler.lib.mjs';
 import { reportSessionWithoutChanges } from './session-changes.lib.mjs';
+import { reportWorkflowPushRejection } from './workflow-push-rejection.lib.mjs';
 import { getSolveNoChangesExitCode } from './solve.exit-codes.lib.mjs';
 // Import GitHub-related functions
 const githubLib = await import('./github.lib.mjs');
@@ -708,6 +710,7 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
         let prTitleHasPlaceholder = false;
         let prBodyHasPlaceholder = false;
         let noChanges = false; // Issue #3211: this run committed, changed and posted nothing
+        let effectUnverified = false; // Issue #3330: what this run changed could not be measured
         // Skip PR body update and ready conversion for merged PRs (they can't be edited)
         if (!isPrMerged) {
           const issueLinkResult = await ensurePullRequestIssueLink({
@@ -761,7 +764,11 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
             const issueRef = buildIssueReference({ issueNumber, owner, repo, fork: argv.fork });
             // Issue #2492: an empty diff implements nothing, so do not say it does.
             const summaryLine = changeStats.hasChanges ? `This pull request implements a solution for ${issueRef}: ${issueTitle}` : `This pull request is for ${issueRef}: ${issueTitle}. It has no changes yet.`;
-            const newDescription = `## Summary
+            // Issue #2406: the merge guard reads the requirements report from the description, so keep it.
+            const { preserveRequirementsReport } = await import('./issue-requirements.lib.mjs');
+            const newDescription = preserveRequirementsReport(
+              prBody,
+              `## Summary
 
 ${summaryLine}
 
@@ -771,7 +778,8 @@ ${formatChangesSection(changeStats)}
 Fixes ${issueRef}
 
 ---
-*This PR was created automatically by the AI issue solver*`;
+*This PR was created automatically by the AI issue solver*`
+            );
             const tempBodyFile = `/tmp/pr-body-finalize-${pr.number}-${Date.now()}.md`;
             await writeSanitizedPublicationFile(tempBodyFile, newDescription);
             try {
@@ -804,8 +812,12 @@ Fixes ${issueRef}
           //
           // Issue #3211: the diff against the base branch includes earlier sessions'
           // commits, so what this run changed is measured too (session-changes.lib.mjs).
+          // Issue #3332: a push GitHub refused for want of the workflows permission is a credential problem, reported on the PR.
+          const logText = getLogFile() ? await readFile(getLogFile(), 'utf8').catch(() => '') : '';
+          await reportWorkflowPushRejection({ owner, repo, prNumber: pr.number, logText, $, log });
           const sessionOutcome = await reportSessionWithoutChanges({ owner, repo, prNumber: pr.number, issueNumber, $, log });
           noChanges = sessionOutcome.noChanges;
+          effectUnverified = sessionOutcome.unmeasured === true;
           if (!sessionOutcome.keepsDraft) {
             const { ensurePullRequestIsReady } = await import('./pr-draft-state.lib.mjs');
             const readyResult = await ensurePullRequestIsReady({ owner, repo, prNumber: pr.number, $, log, reason: 'solution draft verified', requireChanges: true });
@@ -849,7 +861,8 @@ Fixes ${issueRef}
             budgetStatsData,
           });
         }
-        if (!noChanges) await log('\n🎉 SUCCESS: A solution draft has been prepared as a pull request');
+        if (effectUnverified) await log("\n⚠️  A pull request is open, but this run's effect could not be verified, so it was not marked ready");
+        else if (!noChanges) await log('\n🎉 SUCCESS: A solution draft has been prepared as a pull request');
         await log(`📍 URL: ${pr.url}`);
         if (shouldAttachLogs && logUploadSuccess) {
           await log('📎 Solution draft log has been attached to the Pull Request');

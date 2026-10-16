@@ -58,7 +58,7 @@ const existsSync = candidate => host.has(candidate);
 console.log('\n--- Reproduction: a task must not inherit the global application folder ---');
 
 for (const tool of ['claude', 'codex']) {
-  const args = buildDockerIsolationStartArgs('solve', [url, '--tool', tool], { tool, homeDir: HOME, env: {}, existsSync });
+  const args = await buildDockerIsolationStartArgs('solve', [url, '--tool', tool], { tool, homeDir: HOME, env: {}, existsSync });
   const volumes = args.filter((value, index) => args[index - 1] === '--volume');
   const sources = volumes.map(volume => volume.split(':')[0]);
   assertEqual(sources.includes(`${HOME}/.claude`), false, `${tool}: the whole ~/.claude directory is not mounted`);
@@ -78,12 +78,12 @@ for (const tool of ['claude', 'codex']) {
 
 console.log('\n--- Exact mount list ---');
 
-assertDeepEqual(mountPairs(getDockerIsolationAuthMounts({ tool: 'claude', homeDir: HOME, env: {}, existsSync })), [`${HOME}/.config/gh:${HOME}/.config/gh`, `${HOME}/.gitconfig:${HOME}/.gitconfig`, `${HOME}/.claude/.credentials.json:${HOME}/.claude/.credentials.json`, `${HOME}/.claude/projects:${HOME}/.claude/projects`, `${HOME}/.claude/sessions:${HOME}/.claude/sessions`], 'claude: gh, git identity, credential file, projects, sessions — nothing else');
-assertDeepEqual(mountPairs(getDockerIsolationAuthMounts({ tool: 'codex', homeDir: HOME, env: {}, existsSync })), [`${HOME}/.config/gh:${HOME}/.config/gh`, `${HOME}/.gitconfig:${HOME}/.gitconfig`, `${HOME}/.codex/auth.json:${HOME}/.codex/auth.json`, `${HOME}/.codex/sessions:${HOME}/.codex/sessions`], 'codex: gh, git identity, auth.json, sessions — nothing else');
+assertDeepEqual(mountPairs(await getDockerIsolationAuthMounts({ tool: 'claude', homeDir: HOME, env: {}, existsSync })), [`${HOME}/.config/gh:${HOME}/.config/gh`, `${HOME}/.gitconfig:${HOME}/.gitconfig`, `${HOME}/.claude/.credentials.json:${HOME}/.claude/.credentials.json`, `${HOME}/.claude/projects:${HOME}/.claude/projects`, `${HOME}/.claude/sessions:${HOME}/.claude/sessions`], 'claude: gh, git identity, credential file, projects, sessions — nothing else');
+assertDeepEqual(mountPairs(await getDockerIsolationAuthMounts({ tool: 'codex', homeDir: HOME, env: {}, existsSync })), [`${HOME}/.config/gh:${HOME}/.config/gh`, `${HOME}/.gitconfig:${HOME}/.gitconfig`, `${HOME}/.codex/auth.json:${HOME}/.codex/auth.json`, `${HOME}/.codex/sessions:${HOME}/.codex/sessions`], 'codex: gh, git identity, auth.json, sessions — nothing else');
 
 const noAuth = candidate => host.has(candidate) && !candidate.endsWith('.credentials.json') && !candidate.endsWith('auth.json');
 assertEqual(
-  mountPairs(getDockerIsolationAuthMounts({ tool: 'codex', homeDir: HOME, env: {}, existsSync: noAuth })).some(pair => pair.includes('auth.json')),
+  mountPairs(await getDockerIsolationAuthMounts({ tool: 'codex', homeDir: HOME, env: {}, existsSync: noAuth })).some(pair => pair.includes('auth.json')),
   false,
   'a missing credential file is skipped rather than mounted (Docker would otherwise create a directory in its place)'
 );
@@ -106,7 +106,7 @@ console.log('\n--- Router suppression still covers the split entries (issue #216
 
 for (const tool of ['claude', 'codex']) {
   const suppressed = getRouterSuppressedCredentialPaths({ tool });
-  const routed = mountPairs(getDockerIsolationAuthMounts({ tool, homeDir: HOME, env: {}, existsSync, useRouter: true }));
+  const routed = mountPairs(await getDockerIsolationAuthMounts({ tool, homeDir: HOME, env: {}, existsSync, useRouter: true }));
   assertEqual(
     routed.some(pair => suppressed.some(prefix => pair.includes(`/${prefix}`))),
     false,
@@ -119,19 +119,19 @@ console.log('\n--- Host-side preparation creates the session directories, never 
 
 const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), 'issue-2190-home-'));
 try {
-  const codexPrep = prepareDockerIsolationHostPaths({ tool: 'codex', homeDir: tmpHome });
+  const codexPrep = await prepareDockerIsolationHostPaths({ tool: 'codex', homeDir: tmpHome });
   assertDeepEqual(codexPrep.created, [path.join(tmpHome, '.codex', 'sessions')], 'codex: the sessions directory is created on a fresh host');
   assertDeepEqual(codexPrep.missingAuth, [path.join(tmpHome, '.codex', 'auth.json')], 'codex: a missing auth.json is reported, not fabricated');
   assertEqual(fs.existsSync(path.join(tmpHome, '.codex', 'auth.json')), false, 'codex: auth.json is never created (an empty file breaks codex: "EOF while parsing")');
 
   fs.mkdirSync(path.join(tmpHome, '.claude'), { recursive: true });
   fs.writeFileSync(path.join(tmpHome, '.claude', '.credentials.json'), '{}');
-  const claudePrep = prepareDockerIsolationHostPaths({ tool: 'claude', homeDir: tmpHome });
+  const claudePrep = await prepareDockerIsolationHostPaths({ tool: 'claude', homeDir: tmpHome });
   assertDeepEqual(claudePrep.created, [path.join(tmpHome, '.claude', 'projects'), path.join(tmpHome, '.claude', 'sessions')], 'claude: projects and sessions are created on a fresh host');
   assertDeepEqual(claudePrep.missingAuth, [], 'claude: an existing credential file is not reported');
-  const again = prepareDockerIsolationHostPaths({ tool: 'claude', homeDir: tmpHome });
+  const again = await prepareDockerIsolationHostPaths({ tool: 'claude', homeDir: tmpHome });
   assertDeepEqual(again.created, [], 'preparation is idempotent');
-  const routed = prepareDockerIsolationHostPaths({ tool: 'codex', homeDir: tmpHome, useRouter: true });
+  const routed = await prepareDockerIsolationHostPaths({ tool: 'codex', homeDir: tmpHome, useRouter: true });
   assertDeepEqual(routed, { created: [], missingAuth: [] }, 'a routed task prepares nothing: it mounts no vendor state at all');
 } finally {
   fs.rmSync(tmpHome, { recursive: true, force: true });

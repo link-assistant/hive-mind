@@ -58,9 +58,9 @@ assert(resolveOnSessionKillPolicy({ argv: {}, env: {} }) === ON_SESSION_KILL_RES
 assert(resolveOnSessionKillPolicy({ argv: { 'on-session-kill': 'report' }, env: {} }) === ON_SESSION_KILL_REPORT, '--on-session-kill=report still opts out of automatic recovery');
 assert(resolveOnSessionKillPolicy({ argv: {}, env: { HIVE_MIND_ON_SESSION_KILL: 'report' } }) === ON_SESSION_KILL_REPORT, 'the environment variable can opt out too');
 
-const defaultPlan = planKillRecovery({ sessionInfo: { command: 'solve', url: 'https://github.com/link-assistant/formal-ai/issues/1069', isolationBackend: 'docker' }, killed: true, env: { HIVE_MIND_SESSION_KILL_RESUME_DELAY: '0' }, readLastSessionId: () => TOOL_SESSION });
+const defaultPlan = await planKillRecovery({ sessionInfo: { command: 'solve', url: 'https://github.com/link-assistant/formal-ai/issues/1069', isolationBackend: 'docker' }, killed: true, env: { HIVE_MIND_SESSION_KILL_RESUME_DELAY: '0' }, readLastSessionId: () => TOOL_SESSION });
 assert(defaultPlan.shouldResume === true && defaultPlan.policy === ON_SESSION_KILL_RESUME, 'the default plan for a killed /solve is to start a recovery session');
-const stoppedPlan = planKillRecovery({ sessionInfo: { command: 'solve', url: 'https://github.com/x/y/issues/1', isolationBackend: 'docker', stopRequestedByUser: true }, killed: true, env: { HIVE_MIND_SESSION_KILL_RESUME_DELAY: '0' }, readLastSessionId: () => TOOL_SESSION });
+const stoppedPlan = await planKillRecovery({ sessionInfo: { command: 'solve', url: 'https://github.com/x/y/issues/1', isolationBackend: 'docker', stopRequestedByUser: true }, killed: true, env: { HIVE_MIND_SESSION_KILL_RESUME_DELAY: '0' }, readLastSessionId: () => TOOL_SESSION });
 assert(stoppedPlan.shouldResume === false && stoppedPlan.reason === 'stopped-by-user', 'a session stopped by a user is never auto-resumed, even under the new default');
 
 // ---------------------------------------------------------------------------
@@ -87,10 +87,10 @@ const scanner = () => {
   scans += 1;
   return TOOL_SESSION;
 };
-const firstScan = resolveCachedLastToolSessionId({ sessionInfo: cacheInfo, logPath: '/tmp/huge.log', readLastSessionId: scanner });
+const firstScan = await resolveCachedLastToolSessionId({ sessionInfo: cacheInfo, logPath: '/tmp/huge.log', readLastSessionId: scanner });
 assert(firstScan.id === TOOL_SESSION && firstScan.scanned === true && firstScan.cached === false, 'the first resolution scans the log');
 assert(cacheInfo.lastToolSessionId === TOOL_SESSION, 'the id is cached in the session record');
-const secondScan = resolveCachedLastToolSessionId({ sessionInfo: cacheInfo, logPath: '/tmp/huge.log', readLastSessionId: scanner });
+const secondScan = await resolveCachedLastToolSessionId({ sessionInfo: cacheInfo, logPath: '/tmp/huge.log', readLastSessionId: scanner });
 assert(secondScan.id === TOOL_SESSION && secondScan.cached === true && scans === 1, 'a second consumer reuses the cache instead of re-scanning the log');
 
 const emptyInfo = {};
@@ -99,16 +99,16 @@ const emptyScanner = () => {
   emptyScans += 1;
   return null;
 };
-assert(resolveCachedLastToolSessionId({ sessionInfo: emptyInfo, logPath: '/tmp/huge.log', readLastSessionId: emptyScanner }).id === null, 'a log without a marker resolves to no id');
+assert((await resolveCachedLastToolSessionId({ sessionInfo: emptyInfo, logPath: '/tmp/huge.log', readLastSessionId: emptyScanner })).id === null, 'a log without a marker resolves to no id');
 assert(emptyInfo.lastToolSessionId === '', 'a fruitless scan is remembered as such');
-const repeatEmpty = resolveCachedLastToolSessionId({ sessionInfo: emptyInfo, logPath: '/tmp/huge.log', readLastSessionId: emptyScanner });
+const repeatEmpty = await resolveCachedLastToolSessionId({ sessionInfo: emptyInfo, logPath: '/tmp/huge.log', readLastSessionId: emptyScanner });
 assert(repeatEmpty.id === null && repeatEmpty.cached === true && emptyScans === 1, 'a fruitless multi-gigabyte scan is never repeated');
 
 const unreadable = {};
 const throwing = () => {
   throw new Error('EACCES');
 };
-const errored = resolveCachedLastToolSessionId({ sessionInfo: unreadable, logPath: '/tmp/gone.log', readLastSessionId: throwing });
+const errored = await resolveCachedLastToolSessionId({ sessionInfo: unreadable, logPath: '/tmp/gone.log', readLastSessionId: throwing });
 assert(errored.id === null && errored.scanned === false, 'a read error is reported, not thrown');
 assert(unreadable.lastToolSessionId === undefined, 'a read error is not cached, so a later poll can still find the id');
 

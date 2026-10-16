@@ -156,7 +156,7 @@ test('an update pull that times out is classified as a timeout and warns about l
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hive-formal-ai-3207-'));
   stateDirs.push(dir);
   const env = { HIVE_MIND_STATE_DIR: dir, HIVE_MIND_IMAGE_VARIANT: 'dind' };
-  writeFormalAiSidecarState({ lastUsedAt: new Date().toISOString() }, { env });
+  await writeFormalAiSidecarState({ lastUsedAt: new Date().toISOString() }, { env });
   const simulator = createDockerSimulator({ images: { [`${REPOSITORY}:latest`]: 'sha256:old' } });
   const run = async (command, args, options) => {
     if (args[0] === 'pull') throw killedPull(args[args.length - 1]);

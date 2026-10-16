@@ -1,16 +1,17 @@
 #!/usr/bin/env node
 /** Run, verify and clean one Hello World matrix row; artifacts survive cleanup. */
 import { spawn } from 'node:child_process';
-import { appendFileSync, chmodSync, mkdirSync, writeFileSync } from 'node:fs';
+import { appendFileSync, chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { buildDockerArgv } from './formal-ai-draft.lib.mjs';
 import { buildE2eSolveArgv, evaluateE2eRun, formatE2eReport, parseIssue, parseIssueUrl, selectPullRequest } from './e2e-hello-world.lib.mjs';
 import { helloWorldReadme, helloWorldIssue } from './hello-world-task.lib.mjs';
 import { createBranchFixture, cleanupBranchFixture, fixtureBranch } from './task-fixture.lib.mjs';
 import { verifyGeneratedWorkflow } from './e2e-workflow.lib.mjs';
+import { detectWorkflowPushRejection, splitE2eVerdict, stagedWorkflowExecution, stagedWorkflowTarget, workflowDirectoryForLayer, workflowPushRejectionResult } from './e2e-matrix-harness.lib.mjs';
 import { gh, ghApi, ghJson, ghList } from './github-actions.lib.mjs';
 
 const env = process.env;
@@ -30,6 +31,13 @@ mkdirSync(hostLogDir, { recursive: true });
 chmodSync(hostLogDir, 0o777);
 const evidence = { tool, model, isolation, layer: env.AUTOMATION_LAYER || 'default', formalAiTag: env.E2E_FORMAL_AI_TAG || null, startedAt: new Date().toISOString(), resources: null, passed: false };
 const save = () => writeFileSync(join(hostLogDir, 'result.json'), JSON.stringify(evidence, null, 2));
+// Issue #3332: harness failures (rejected workflow push, wrong image, missing
+// credential) are reported apart from the model's assertions.
+const harness = [];
+// The default token cannot push .github/workflows, so a task this run creates asks for ci/.
+const workflowDir = !option('--issue') && isolation === 'branch' ? workflowDirectoryForLayer(evidence.layer) : '.github/workflows/';
+evidence.workflowDir = workflowDir;
+let issueUrl = option('--issue');
 const run = (command, argv, logName) =>
   new Promise((resolve, reject) => {
     const child = spawn(command, argv, { env: { ...env, GITHUB_TOKEN: env.GH_TOKEN || env.GITHUB_TOKEN }, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -48,7 +56,6 @@ let resource;
 let pullRequest;
 let workspace;
 try {
-  let issueUrl = option('--issue');
   let baseBranch;
   if (!issueUrl) {
     const runId = `${env.GITHUB_RUN_ID || randomUUID()}${env.GITHUB_RUN_ATTEMPT && env.GITHUB_RUN_ATTEMPT !== '1' ? `-${env.GITHUB_RUN_ATTEMPT}` : ''}`;
@@ -62,7 +69,7 @@ try {
         repository,
         baseBranch,
         readme: helloWorldReadme({ repoName: repository.split('/')[1], randomLanguage: language }),
-        ...helloWorldIssue(language),
+        ...helloWorldIssue(language, { workflowDir }),
         onResource: partial => {
           resource = partial;
           evidence.resources = partial;
@@ -83,14 +90,17 @@ try {
   evidence.issueUrl = issueUrl;
   evidence.resources = resource || null;
   const modelKeys = model === 'formal-ai' || model === 'nemotron-3-super-free' ? [] : tool === 'claude' ? ['ANTHROPIC_API_KEY', 'CLAUDE_CODE_OAUTH_TOKEN'] : ['OPENAI_API_KEY'];
-  const dockerArgv = buildDockerArgv({ solveArgv: buildE2eSolveArgv({ issueUrl, tool, model, baseBranch, logDir: '/home/box/logs' }), solveCommand: '/opt/hive-e2e/src/solve.mjs', image, hostLogDir, forwardEnv: ['GH_TOKEN', ...modelKeys, 'FORMAL_AI_INSTALL_GRANT'] });
+  const dockerArgv = buildDockerArgv({ solveArgv: buildE2eSolveArgv({ issueUrl, tool, model, baseBranch, logDir: '/home/box/logs' }), solveCommand: '/opt/hive-e2e/src/solve.mjs', image, hostLogDir, forwardEnv: ['GH_TOKEN', ...modelKeys, 'FORMAL_AI_INSTALL_GRANT', 'GITHUB_ACTIONS'] });
   console.log(`$ docker ${dockerArgv.join(' ')}`);
   if (dryRun) process.exit(0);
   const version = await run('docker', ['run', '--rm', '--entrypoint', 'formal-ai', image, '--version'], 'image-version.log');
   evidence.formalAiVersion = version.stdout.trim();
-  if (version.code !== 0 || (evidence.formalAiTag && !version.stdout.includes(evidence.formalAiTag.replace(/^v/, '')))) throw new Error('Task image does not contain the scheduled Formal AI release');
+  if (version.code !== 0 || (evidence.formalAiTag && !version.stdout.includes(evidence.formalAiTag.replace(/^v/, '')))) throw new Error(`Task image does not contain the shipped Formal AI ${evidence.formalAiTag} (found ${evidence.formalAiVersion || 'none'})`);
+  harness.push({ name: 'task image runs the shipped Formal AI', ok: true, reason: evidence.formalAiVersion || 'unknown' });
   const session = await run('docker', dockerArgv, 'solve.log');
   evidence.solveExitCode = session.code;
+  const solveLogPath = join(hostLogDir, 'solve.log');
+  const solveLog = existsSync(solveLogPath) ? readFileSync(solveLogPath, 'utf8') : '';
   pullRequest = selectPullRequest(await ghJson(['pr', 'list', '--repo', repository, '--state', 'all', '--limit', '100', '--json', 'number,headRefName,isDraft,state,title,body,url,headRefOid,baseRefName']), issueNumber);
   let files = [];
   let execution = { mode: 'none', checks: [], workflowLog: '' };
@@ -104,6 +114,24 @@ try {
     const changes = await ghList(`repos/${repository}/pulls/${pullRequest.number}/files?per_page=100`);
     files = changes.map(file => file.filename);
     const workflows = files.filter(file => /^\.github\/workflows\/[^/]+\.ya?ml$/.test(file));
+    const staged = workflowDir === '.github/workflows/' ? [] : files.filter(file => file.startsWith(workflowDir) && /^[^/]+\.ya?ml$/.test(file.slice(workflowDir.length)));
+    // act runs each workflow from a clone of the head branch; a staged workflow is copied into place first.
+    const runAct = async entries => {
+      workspace = await mkdtemp(join(tmpdir(), 'hive-e2e-act-'));
+      await gh(['repo', 'clone', repository, workspace, '--', '--branch', pullRequest.headRefName, '--single-branch', '--depth', '1']);
+      const event = { action: 'synchronize', number: pullRequest.number, pull_request: await ghApi(`repos/${repository}/pulls/${pullRequest.number}`), repository: await ghApi(`repos/${repository}`) };
+      const eventPath = join(hostLogDir, 'pull-request-event.json');
+      writeFileSync(eventPath, JSON.stringify(event));
+      const results = [];
+      for (const { source, target } of entries) {
+        if (source !== target) {
+          mkdirSync(dirname(join(workspace, target)), { recursive: true });
+          copyFileSync(join(workspace, source), join(workspace, target));
+        }
+        results.push(await run('act', ['pull_request', '-W', join(workspace, target), '--directory', workspace, '--container-architecture', 'linux/amd64', '--eventpath', eventPath, '--json', '-s', 'GITHUB_TOKEN', '-P', 'ubuntu-latest=catthehacker/ubuntu:act-24.04', '-P', 'ubuntu-24.04=catthehacker/ubuntu:act-24.04'], 'act.log'));
+      }
+      return { code: results.some(result => result.code !== 0) ? 1 : 0, stdout: results.map(result => result.stdout).join('\n') };
+    };
     if (workflows.length)
       execution = await verifyGeneratedWorkflow({
         repository,
@@ -111,32 +139,33 @@ try {
         workflows,
         layer: evidence.layer,
         timeoutMs: Number(env.E2E_CHECKS_TIMEOUT_MINUTES || 30) * 60_000,
-        runAct: async () => {
-          workspace = await mkdtemp(join(tmpdir(), 'hive-e2e-act-'));
-          await gh(['repo', 'clone', repository, workspace, '--', '--branch', pullRequest.headRefName, '--single-branch', '--depth', '1']);
-          const event = { action: 'synchronize', number: pullRequest.number, pull_request: await ghApi(`repos/${repository}/pulls/${pullRequest.number}`), repository: await ghApi(`repos/${repository}`) };
-          const eventPath = join(hostLogDir, 'pull-request-event.json');
-          writeFileSync(eventPath, JSON.stringify(event));
-          const results = [];
-          for (const workflow of workflows) results.push(await run('act', ['pull_request', '-W', join(workspace, workflow), '--directory', workspace, '--container-architecture', 'linux/amd64', '--eventpath', eventPath, '--json', '-s', 'GITHUB_TOKEN', '-P', 'ubuntu-latest=catthehacker/ubuntu:act-24.04', '-P', 'ubuntu-24.04=catthehacker/ubuntu:act-24.04'], 'act.log'));
-          return { code: results.some(result => result.code !== 0) ? 1 : 0, stdout: results.map(result => result.stdout).join('\n') };
-        },
+        runAct: () => runAct(workflows.map(workflow => ({ source: workflow, target: workflow }))),
       });
+    else if (staged.length) execution = stagedWorkflowExecution(await runAct(staged.map(source => ({ source, target: stagedWorkflowTarget(source) }))), staged);
     for (const number of [pullRequest.number, issueNumber]) comments.push(...(await ghList(`repos/${repository}/issues/${number}/comments?per_page=100`)).map(comment => comment.body));
   }
-  const evaluation = evaluateE2eRun({ pullRequest, files, checks: execution.checks, workflowLog: execution.workflowLog, comments });
+  // A workflow a later push did deliver is not missing (#3332).
+  const rejection = detectWorkflowPushRejection(solveLog, { files: pullRequest ? files : null });
+  harness.push(rejection ? workflowPushRejectionResult(rejection, { layer: evidence.layer }) : { name: 'workflow push accepted', ok: true, reason: 'no unrecovered workflow push rejection in solve.log' });
+  const evaluation = evaluateE2eRun({ pullRequest, files, checks: execution.checks, workflowLog: execution.workflowLog, comments, workflowDir });
   if (baseBranch && pullRequest?.baseRefName !== baseBranch) evaluation.results.push({ name: 'isolated base branch', ok: false, reason: `Expected ${baseBranch}, received ${pullRequest?.baseRefName}` });
   if (session.code !== 0) evaluation.results.push({ name: 'solve completed', ok: false, reason: `solve exited ${session.code}` });
   evaluation.passed = evaluation.results.every(result => result.ok);
-  Object.assign(evidence, { evaluation, passed: evaluation.passed, execution: { ...execution, workflowLog: undefined }, files });
+  const verdict = splitE2eVerdict({ harness, evaluation });
+  Object.assign(evidence, { evaluation, harness, verdict: { harness: verdict.harness.ok, model: verdict.model.judged ? verdict.model.ok : null }, passed: verdict.passed, execution: { ...execution, workflowLog: undefined }, files });
   writeFileSync(join(hostLogDir, 'workflow.log'), execution.workflowLog);
-  const report = formatE2eReport({ tool, model, issueUrl, pullRequestUrl: pullRequest?.url, evaluation });
+  const report = formatE2eReport({ tool, model, issueUrl, pullRequestUrl: pullRequest?.url, evaluation, harness });
   const strategy = `Workflow execution: **${execution.mode}**${execution.fallbackReason ? ` (${execution.fallbackReason})` : ''}.\n`;
   console.log(report + strategy);
   if (env.GITHUB_STEP_SUMMARY) appendFileSync(env.GITHUB_STEP_SUMMARY, report + strategy);
 } catch (error) {
   evidence.error = error.message;
   console.error(error.message);
+  // A run that stopped before judging the model is a harness failure; say so in the summary.
+  harness.push({ name: 'harness run', ok: false, reason: `harness: ${error.message}` });
+  Object.assign(evidence, { harness, verdict: { harness: false, model: null }, passed: false });
+  const report = formatE2eReport({ tool, model, issueUrl: issueUrl ?? 'none', pullRequestUrl: pullRequest?.url, evaluation: { passed: false, results: [] }, harness });
+  if (env.GITHUB_STEP_SUMMARY) appendFileSync(env.GITHUB_STEP_SUMMARY, report);
 } finally {
   // An error during evidence collection still closes the PR solve opened.
   if (resource && !keep) {

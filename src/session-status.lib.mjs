@@ -115,6 +115,22 @@ export function describeExitSignal(exitCode) {
 }
 
 /**
+ * Describe an exit meaning the session's command never started: the shell
+ * could not find (127) or not execute (126) the program it was handed. Both
+ * are ordinary exits, not kills. Issue #2887: a recovery container exited 127
+ * after `sh -c '/codex …'` and was reported as its predecessor's `oom-killed`.
+ *
+ * @param {*} exitCode
+ * @returns {{exitCode: number, reason: 'command-not-found'|'command-not-executable', description: string}|null}
+ */
+export function describeCommandStartFailure(exitCode) {
+  const code = normalizeExitCode(exitCode);
+  if (code === 127) return { exitCode: code, reason: 'command-not-found', description: 'command not found' };
+  if (code === 126) return { exitCode: code, reason: 'command-not-executable', description: 'command not executable' };
+  return null;
+}
+
+/**
  * The exit code a parent should pass on for a child that closed with
  * `(code, signal)`. Node reports `code === null` for a signal death, and
  * `process.exit(null)` exits **0** — an OOM-killed child would read as success

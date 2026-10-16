@@ -13,6 +13,19 @@ import path from 'node:path';
 
 import { USE_M_PACKAGE_VERSIONS } from '../src/use-with-retry.lib.mjs';
 
+/**
+ * Blank whole-line comments, keeping line numbers: a version mentioned in prose
+ * (`# 0.353.0 was tagged but never published`) is not a declaration, and a
+ * `FROM line below` sentence is not a build stage.
+ */
+const blankCommentLines = (source, marker = /^\s*#/) =>
+  source
+    .split('\n')
+    .map(line => (marker.test(line) ? '' : line))
+    .join('\n');
+
+const JS_COMMENT_LINE = /^\s*(?:\/\/|\/?\*)/;
+
 const VERSION = /\d+(?:\.\d+){0,2}(?:-[0-9A-Za-z.-]+)?/;
 
 const parseVersion = value => {
@@ -40,6 +53,9 @@ export const assessVersionPin = ({ current, latest, policy = 'exact' }) => {
 };
 
 const lineNumberAt = (source, index) => source.slice(0, index).split('\n').length;
+
+/** A declaration found at `match` in `file`: where to edit it and any exception linked on its line. */
+const pinAt = (source, file, match, record) => ({ policy: 'exact', ...record, location: `${file}:${lineNumberAt(source, match.index)}`, exception: pinException(source, match.index) });
 
 /** Parse owner/repository action refs. Action subpaths normalize to their repo. */
 export const parseGitHubActionPins = (source, file) => {
@@ -74,12 +90,8 @@ export const parseGitHubActionPins = (source, file) => {
 
 /** Parse exact npm package pins embedded in image build commands. */
 export const parseNpmPackagePins = (source, file) => {
-  const records = [];
   const expression = /(?:^|[\s"'=])((?:@[a-z0-9._-]+\/)?[a-z0-9._-]+)@(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)/gim;
-  for (const match of source.matchAll(expression)) {
-    records.push({ exception: pinException(source, match.index), kind: 'npm', name: match[1], current: match[2], policy: 'exact', location: `${file}:${lineNumberAt(source, match.index)}` });
-  }
-  return records;
+  return [...source.matchAll(expression)].map(match => pinAt(source, file, match, { kind: 'npm', name: match[1], current: match[2] }));
 };
 
 /**
@@ -88,12 +100,19 @@ export const parseNpmPackagePins = (source, file) => {
  * USE_M_PACKAGE_VERSIONS; a literal left in a maintained script is still
  * checked, so it cannot silently fall behind.
  */
-export const parseUseMLiteralPins = (source, file) => {
-  const records = [];
-  for (const match of source.matchAll(/\buse\(\s*['"`]((?:@[a-z0-9._-]+\/)?[a-z0-9._-]+)@(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)(?:\/[^'"`]*)?['"`]\s*\)/g)) {
-    records.push({ exception: pinException(source, match.index), kind: 'npm', name: match[1], current: match[2], policy: 'exact', location: `${file}:${lineNumberAt(source, match.index)}` });
-  }
-  return records;
+export const parseUseMLiteralPins = (source, file) => [...source.matchAll(/\buse\(\s*['"`]((?:@[a-z0-9._-]+\/)?[a-z0-9._-]+)@(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)(?:\/[^'"`]*)?['"`]\s*\)/g)].map(match => pinAt(source, file, match, { kind: 'npm', name: match[1], current: match[2] }));
+
+/**
+ * Parse container images pinned as string literals in code, such as the task
+ * base image or the router sidecar. They are pulled at runtime, so they fall
+ * behind as silently as a Dockerfile FROM line. Comment lines are prose.
+ */
+export const parseSourceImagePins = (rawSource, file) => {
+  const source = blankCommentLines(rawSource, JS_COMMENT_LINE);
+  return [...source.matchAll(/['"`]((?:[a-z0-9-]+\.)+[a-z]+(?::\d+)?(?:\/[a-z0-9._-]+)+:v?\d[0-9A-Za-z.-]*)['"`]/g)].flatMap(match => {
+    const record = imagePinRecord(match[1]);
+    return record ? [pinAt(source, file, match, record)] : [];
+  });
 };
 
 const MAINTAINED_SCRIPT = /\.(?:c|m)?js$/;
@@ -148,34 +167,56 @@ const ARG_SOURCES = {
   HIVE_MIND_VERSION: { kind: 'npm', name: '@link-assistant/hive-mind' },
 };
 
+/** The box base images (`box`, `box-dind`, `box-essentials-dind`, ...) share link-foundation/box releases. */
+const BOX_IMAGE = /^ghcr\.io\/link-foundation\/box(?:-[a-z]+)*$/;
+
+/** Classify an `image:tag` reference wherever it is declared. Local, floating and non-version tags are not pins. */
+export const imagePinRecord = reference => {
+  const image = String(reference ?? '').replace(/@sha256:[0-9a-f]+$/i, '');
+  const colon = image.lastIndexOf(':');
+  if (colon < 0 || image.lastIndexOf('/') > colon) return null;
+  const name = image.slice(0, colon),
+    tag = image.slice(colon + 1);
+  if (!/^v?\d+(?:\.\d+)*(?:-[0-9A-Za-z.-]+)?$/.test(tag)) return null;
+  if (BOX_IMAGE.test(name)) return { kind: 'github', name: 'link-foundation/box', current: tag };
+  // The pin names a Docker Hub image, not a rust-lang/rust tag: a toolchain
+  // release is only adoptable once the official image publishes it, which can
+  // lag the GitHub tag by hours (issue #2395: 1.99.0 was tagged before
+  // `rust:1.99-*` existed, so the gate demanded a FROM line that cannot pull).
+  if (name === 'rust') return { kind: 'docker', name: 'library/rust', current: tag.match(/^\d+\.\d+/)?.[0] ?? tag, policy: 'minor' };
+  return { kind: 'container', name, current: tag };
+};
+
 /** Unknown version arguments are errors, so adding a pin cannot evade CI. */
-export const parseDockerDependencyPins = (source, file) => {
+export const parseDockerDependencyPins = (rawSource, file) => {
+  const source = blankCommentLines(rawSource);
   const records = parseNpmPackagePins(source, file);
   const args = new Map();
-  const add = (record, match) => records.push({ policy: 'exact', ...record, location: `${file}:${lineNumberAt(source, match.index)}`, exception: pinException(source, match.index) });
-  for (const match of source.matchAll(/ARG\s+(\w+_VERSION)=([^\s#]+)/g)) {
-    args.set(match[1], match[2]);
+  const add = (record, match) => records.push(pinAt(source, file, match, record));
+  for (const match of source.matchAll(/^[ \t]*ARG\s+(\w+)=([^\s#]+)/gim)) {
+    args.set(match[1], { value: match[2], match });
+    if (!match[1].endsWith('_VERSION')) continue; // Image refs are checked where FROM uses them.
     if (['latest', 'stable'].includes(match[2])) continue; // Floating refs follow the publisher automatically.
     add({ ...(ARG_SOURCES[match[1]] ?? { kind: 'unresolved', name: match[1], error: 'Map this version argument to its publisher' }), current: match[2] }, match);
   }
   for (const match of source.matchAll(/cargo\s+install\s+([\w-]+)[^\n]*?--version\s+["']?([^"'\s]+)/g)) {
-    const current = match[2].replace(/\$\{(\w+)\}/g, (_, name) => args.get(name) ?? `unresolved:${name}`);
+    const current = match[2].replace(/\$\{(\w+)\}/g, (_, name) => args.get(name)?.value ?? `unresolved:${name}`);
     add({ kind: 'crate', name: match[1], current }, match);
   }
-  for (const match of source.matchAll(/FROM\s+(?:--platform=\S+\s+)?([^\s]+)(?:\s+AS\s+\w+)?/gi)) {
-    const image = match[1];
-    if (image.includes('${')) continue; // Declared ARG is checked above.
-    const colon = image.lastIndexOf(':');
-    if (colon < 0 || image.slice(colon + 1) === 'latest') continue;
-    const name = image.slice(0, colon),
-      tag = image.slice(colon + 1);
-    if (/^ghcr\.io\/link-foundation\/box(?:-dind)?$/.test(name)) add({ kind: 'github', name: 'link-foundation/box', current: tag }, match);
-    // The pin names a Docker Hub image, not a rust-lang/rust tag: a toolchain
-    // release is only adoptable once the official image publishes it, which can
-    // lag the GitHub tag by hours (issue #2395: 1.99.0 was tagged before
-    // `rust:1.99-*` existed, so the gate demanded a FROM line that cannot pull).
-    else if (name === 'rust') add({ kind: 'docker', name: 'library/rust', current: tag.match(/^\d+\.\d+/)?.[0] ?? tag, policy: 'minor' }, match);
-    else add({ kind: 'container', name, current: tag }, match);
+  for (const match of source.matchAll(/^[ \t]*FROM\s+(?:--platform=\S+\s+)?(\S+)/gim)) {
+    // A version ARG used in a tag is checked above; an image ARG is resolved here.
+    if (/\$\{?\w+_VERSION\b/.test(match[1])) continue;
+    // Report an image ARG where it is edited, not where FROM expands it.
+    let declaration = match;
+    const record = imagePinRecord(
+      match[1].replace(/\$\{(\w+)\}|\$(\w+)/g, (whole, braced, bare) => {
+        const arg = args.get(braced ?? bare);
+        if (!arg) return whole;
+        declaration = arg.match;
+        return arg.value;
+      })
+    );
+    if (record) add(record, declaration);
   }
   return records;
 };
@@ -183,7 +224,8 @@ export const parseDockerDependencyPins = (source, file) => {
 const discoverDockerfiles = async (root, relative = '') => {
   const files = [];
   for (const entry of await fs.readdir(path.join(root, relative), { withFileTypes: true })) {
-    if (['.git', 'node_modules', 'reports'].includes(entry.name)) continue;
+    // Experiments and tests pin historical versions on purpose.
+    if (['.git', 'node_modules', 'reports', 'experiments', 'tests'].includes(entry.name)) continue;
     const target = path.join(relative, entry.name);
     if (entry.isDirectory()) files.push(...(await discoverDockerfiles(root, target)));
     else if (entry.name.startsWith('Dockerfile')) files.push(target);
@@ -211,7 +253,8 @@ export const collectDependencyRecords = async ({ root = process.cwd() } = {}) =>
   }
 
   for (const relative of await discoverMaintainedScripts(root)) {
-    records.push(...parseUseMLiteralPins(await fs.readFile(path.join(root, relative), 'utf8'), relative));
+    const source = blankCommentLines(await fs.readFile(path.join(root, relative), 'utf8'), JS_COMMENT_LINE);
+    records.push(...parseUseMLiteralPins(source, relative), ...parseSourceImagePins(source, relative));
   }
 
   for (const relative of await discoverDockerfiles(root)) {
@@ -220,10 +263,11 @@ export const collectDependencyRecords = async ({ root = process.cwd() } = {}) =>
     records.push(...parseDockerDependencyPins(source, relative));
   }
 
-  const workflowRoot = path.join(root, '.github');
-  for (const target of await walkYamlFiles(workflowRoot)) {
+  // Example workflows are copied into other repositories as they are, so they are held to the same pins.
+  const workflowFiles = [...(await walkYamlFiles(path.join(root, '.github'))), ...(await walkYamlFiles(path.join(root, 'examples')).catch(() => []))];
+  for (const target of workflowFiles) {
     const relative = path.relative(root, target);
-    const source = await fs.readFile(target, 'utf8');
+    const source = blankCommentLines(await fs.readFile(target, 'utf8'));
     records.push(...parseGitHubActionPins(source, relative));
     for (const match of source.matchAll(/ACT_VERSION:\s*v?(\d+\.\d+\.\d+)/g)) records.push({ kind: 'github', name: 'nektos/act', current: match[1], policy: 'exact', location: `${relative}:${lineNumberAt(source, match.index)}`, exception: pinException(source, match.index) });
     for (const match of source.matchAll(/\bversion:\s*v(\d+\.\d+\.\d+)/g)) {
@@ -241,6 +285,37 @@ export const collectDependencyRecords = async ({ root = process.cwd() } = {}) =>
     seen.add(key);
     return true;
   });
+};
+
+/**
+ * Lockfile packages that `npm update --package-lock-only` would change. A
+ * transitive package cannot always be at its registry latest, because a
+ * parent's range may exclude it, but it can always be at the newest version its
+ * dependents allow: anything older is a lockfile nobody refreshed. Versions are
+ * compared per package name rather than per path, so a different hoisting by
+ * another npm release is not reported as staleness.
+ */
+export const lockfileLagRecords = (before, after) => {
+  const versionsByName = lock => {
+    const versions = new Map();
+    for (const [key, entry] of Object.entries(lock?.packages ?? {})) {
+      const name = key.split('node_modules/').at(-1);
+      if (!key.includes('node_modules/') || !entry?.version || entry.link) continue;
+      if (!versions.has(name)) versions.set(name, new Set());
+      versions.get(name).add(entry.version);
+    }
+    return versions;
+  };
+  const listed = versions => (versions?.size ? [...versions].sort().join(', ') : 'absent');
+  const previous = versionsByName(before),
+    refreshed = versionsByName(after);
+  const records = [];
+  for (const name of new Set([...previous.keys(), ...refreshed.keys()])) {
+    const current = listed(previous.get(name)),
+      latest = listed(refreshed.get(name));
+    if (current !== latest) records.push({ kind: 'lockfile', name, current, latest, policy: 'npm update', location: `package-lock.json#${name}` });
+  }
+  return records.sort((a, b) => a.name.localeCompare(b.name));
 };
 
 const fetchJson = async (url, { fetchImpl = globalThis.fetch, token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN } = {}) => {
@@ -297,31 +372,54 @@ export const resolveDockerHubLatest = async (repository, _record = {}, options =
 
 const containerTagSuffix = current => String(current ?? '').replace(/^v?\d+(?:\.\d+){0,2}/, '');
 
-/** Docker Registry v2 supports Docker Hub and registries advertising Bearer auth. */
-export const resolveContainerLatest = async (name, record = {}, { fetchImpl = globalThis.fetch } = {}) => {
+/**
+ * Docker Registry v2 supports Docker Hub and registries advertising Bearer auth.
+ * Registries page their tag lists (GHCR returns a few dozen per page), so every
+ * `Link: rel="next"` page is read: stopping at the first page made the router
+ * image resolve to 0.82.0 while 1.24.1 was published. A candidate must have as
+ * many version components as the pin, so a date tag such as `20260621` is not
+ * read as major version twenty million.
+ */
+export const resolveContainerLatest = async (name, record = {}, { fetchImpl = globalThis.fetch, maxPages = 50 } = {}) => {
   const parts = name.split('/');
   const custom = parts[0].includes('.') || parts[0].includes(':');
   const registry = custom ? parts.shift() : 'registry-1.docker.io';
   const repository = !custom && parts.length === 1 ? `library/${parts[0]}` : parts.join('/');
-  const url = `https://${registry}/v2/${repository}/tags/list`;
-  let response = await fetchImpl(url);
-  if (response.status === 401) {
-    const auth = response.headers.get('www-authenticate') ?? '';
-    const realm = auth.match(/realm="([^"]+)"/)?.[1];
-    if (!realm?.startsWith('https://')) throw new Error('Registry has no HTTPS Bearer authentication realm');
-    const tokenUrl = new URL(realm);
-    for (const key of ['service', 'scope']) {
-      const value = auth.match(new RegExp(`${key}="([^"]+)"`))?.[1];
-      if (value) tokenUrl.searchParams.set(key, value);
+  let authorization = null;
+  const fetchPage = async url => {
+    let response = await fetchImpl(url, authorization ? { headers: { authorization } } : undefined);
+    if (response.status === 401 && !authorization) {
+      const auth = response.headers.get('www-authenticate') ?? '';
+      const realm = auth.match(/realm="([^"]+)"/)?.[1];
+      if (!realm?.startsWith('https://')) throw new Error('Registry has no HTTPS Bearer authentication realm');
+      const tokenUrl = new URL(realm);
+      for (const key of ['service', 'scope']) {
+        const value = auth.match(new RegExp(`${key}="([^"]+)"`))?.[1];
+        if (value) tokenUrl.searchParams.set(key, value);
+      }
+      const credentials = await fetchJson(tokenUrl.toString(), { fetchImpl });
+      authorization = `Bearer ${credentials.token ?? credentials.access_token}`;
+      response = await fetchImpl(url, { headers: { authorization } });
     }
-    const credentials = await fetchJson(tokenUrl.toString(), { fetchImpl });
-    response = await fetchImpl(url, { headers: { authorization: `Bearer ${credentials.token ?? credentials.access_token}` } });
+    if (!response.ok) throw new Error(`Registry returned ${response.status}`);
+    return response;
+  };
+  const tags = [];
+  let url = `https://${registry}/v2/${repository}/tags/list?n=1000`;
+  for (let page = 0; url; page++) {
+    if (page === maxPages) throw new Error(`Registry tag list for ${name} exceeds ${maxPages} pages`);
+    const response = await fetchPage(url);
+    tags.push(...((await response.json()).tags ?? []));
+    const next = response.headers?.get?.('link')?.match(/<([^>]+)>\s*;\s*rel="?next"?/)?.[1];
+    url = next ? new URL(next, `https://${registry}`).toString() : null;
   }
-  if (!response.ok) throw new Error(`Registry returned ${response.status}`);
   const suffix = containerTagSuffix(record.current).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const tagPattern = new RegExp(`^v?(\\d+(?:\\.\\d+){0,2})${suffix}$`);
-  const metadata = await response.json();
-  const candidates = (metadata.tags ?? [])
+  const components =
+    String(record.current ?? '')
+      .match(/^v?(\d+(?:\.\d+){0,2})/)?.[1]
+      .split('.').length ?? 3;
+  const tagPattern = new RegExp(`^v?(\\d+${'(?:\\.\\d+)'.repeat(components - 1)})${suffix}$`);
+  const candidates = tags
     .map(tag => ({ tag, version: parseVersion(tag.match(tagPattern)?.[1]) }))
     .filter(candidate => candidate.version)
     .sort((a, b) => compareParsedVersions(b.version, a.version));

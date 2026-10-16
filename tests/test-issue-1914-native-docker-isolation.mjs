@@ -60,7 +60,7 @@ const existsSync = p => existing.has(p);
 
 console.log('\n--- Complaint 1: --isolation docker uses ACTUAL docker isolation (not screen) ---');
 
-const dockerArgs = buildStartCommandArgs('solve', [url], {
+const dockerArgs = await buildStartCommandArgs('solve', [url], {
   backend: 'docker',
   sessionId: 'uuid-docker',
   tool: 'claude',
@@ -68,8 +68,8 @@ const dockerArgs = buildStartCommandArgs('solve', [url], {
   homeDir: '/home/box',
   existsSync,
 });
-const screenArgs = buildStartCommandArgs('solve', [url], { backend: 'screen', sessionId: 'uuid-screen' });
-const tmuxArgs = buildStartCommandArgs('solve', [url], { backend: 'tmux', sessionId: 'uuid-tmux' });
+const screenArgs = await buildStartCommandArgs('solve', [url], { backend: 'screen', sessionId: 'uuid-screen' });
+const tmuxArgs = await buildStartCommandArgs('solve', [url], { backend: 'tmux', sessionId: 'uuid-tmux' });
 
 assertEqual(dockerArgs[0], '--isolated', 'docker backend uses the --isolated flag');
 assertEqual(dockerArgs[1], 'docker', 'Complaint 1: --isolation docker maps to native "--isolated docker"');
@@ -91,7 +91,7 @@ assertIncludes(dockerArgs[dockerArgs.length - 1], `exec 'solve' '${url}'`, 'the 
 
 console.log('\n--- Regular (non-dind) variant ---');
 
-const regularArgs = buildDockerIsolationStartArgs('solve', [url], {
+const regularArgs = await buildDockerIsolationStartArgs('solve', [url], {
   sessionId: 'uuid-reg',
   tool: 'claude',
   env: { HIVE_MIND_IMAGE_VARIANT: 'regular' },
@@ -106,7 +106,7 @@ assertNotIncludes(regularArgs.join(' '), '.codex', 'a claude task does not mount
 
 console.log('\n--- Explicit image override ---');
 
-const overrideArgs = buildDockerIsolationStartArgs('solve', [url], {
+const overrideArgs = await buildDockerIsolationStartArgs('solve', [url], {
   sessionId: 'uuid-ovr',
   tool: 'claude',
   env: { HIVE_MIND_DOCKER_ISOLATION_IMAGE: 'local/hive-mind:dev' },

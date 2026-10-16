@@ -120,10 +120,20 @@ export const STOP_REASONS = {
     detail: 'Merging would close only some of the issues this pull request was asked to close. A missing closing reference never stops work on the pull request — it only blocks the automatic merge.',
     nextSteps: ['Add the missing `Fixes #N` lines to the pull request description (one keyword per issue) and re-run the command so auto-merge can complete.', 'Or merge this pull request manually if leaving those issues open is intended.'],
   },
+  incomplete_issue_requirements: {
+    title: 'the issue requirements are not verified as complete, so auto-merge was held back',
+    detail: 'The pull request description has no current requirements report with evidence for every issue requirement.',
+    nextSteps: ['Complete every listed requirement, refresh the requirements report for the current commit, and re-run the command.'],
+  },
   no_progress_between_sessions: {
     title: 'two consecutive AI sessions produced identical results',
     detail: 'The AI session ended with the same working tree and the same commit as the session before it (its final message is not compared: a reworded report of the same blocker is not progress). Restarting again would repeat the same session at the same cost, so the remaining restart budget was left unused.',
     nextSteps: ['Read the two working session logs named below to see what the AI kept doing.', 'Fix the blocker it kept hitting (a missing toolchain, an unreachable service, an impossible instruction), then re-run the command.', 'Or re-run with different instructions so the next session has something new to work with.'],
+  },
+  repeated_ci_failure: {
+    title: 'the same CI failure repeated restart after restart',
+    detail: 'The same checks failed with the same output after several AI sessions in a row, although each session was free to change the code. A check that reports progress (for example more tests passing) or reports no output never stops the run this way.',
+    nextSteps: ['Open the failing check runs named below and read why they fail.', 'Fix what the AI cannot (a secret, a runner, a flaky or broken check), or give it new instructions in a comment, then re-run the command.', 'Set HIVE_MIND_CI_FAILURE_REPEAT_STOP to a higher number, or 0, to allow more identical restarts.'],
   },
   watch_stopped: {
     title: 'watch mode stopped',
@@ -229,14 +239,19 @@ export const buildAutoMergeBlockedComment = ({ blockers = [], issueNumber = null
   // Issue #2395: an unverified issue link is fixed in the description too.
   // Issue #2335: so are links GitHub does not recognize or could not confirm.
   const descriptionReasons = ['missing_closing_references', 'issue_link_unverified', 'unverified_issue_links', 'issue_link_verification_failed'];
+  // Issue #2406: unfinished or unverified issue requirements are work, not a link to repair.
+  const completionReasons = ['incomplete_issue_requirements', 'issue_completion_verification_failed'];
   const nextSteps = [];
-  if (reasons.some(blocker => !descriptionReasons.includes(blocker.reason))) {
+  if (reasons.some(blocker => completionReasons.includes(blocker.reason))) {
+    nextSteps.push('Complete every issue requirement listed above in this pull request, refresh the requirements report in its description with evidence for the current commit, and re-run the command.');
+  }
+  if (reasons.some(blocker => !descriptionReasons.includes(blocker.reason) && !completionReasons.includes(blocker.reason))) {
     nextSteps.push(issueNumber ? `Reopen issue #${issueNumber} and re-run the command so auto-merge can complete.` : 'Reopen the linked issue and re-run the command so auto-merge can complete.');
   }
   if (reasons.some(blocker => descriptionReasons.includes(blocker.reason))) {
     nextSteps.push('Add the missing closing references listed above to the pull request description and re-run the command so auto-merge can complete.');
     nextSteps.push('Or merge this pull request manually — the issues listed above will then stay open.');
-  } else {
+  } else if (!reasons.some(blocker => completionReasons.includes(blocker.reason))) {
     nextSteps.push('Or merge this pull request manually — it is ready.');
   }
   sections.push('', '**What to do next:**');

@@ -20,6 +20,7 @@
 
 import { stripVTControlCharacters } from 'node:util';
 import { selectDraftPullRequest } from './formal-ai-draft.lib.mjs';
+import { FORMAL_AI_KNOWN_ISSUES, splitE2eVerdict } from './e2e-matrix-harness.lib.mjs';
 
 /** The exact line the task asks the program to print. */
 export const HELLO_WORLD_OUTPUT = 'Hello, World!';
@@ -100,19 +101,24 @@ const ARTEFACT_FILE = /(^|\/)(target|build|bin|obj|out|node_modules|__pycache__)
  * that is a placeholder or a build artefact. A README edit is allowed — the
  * task's own definition of done recommends a CI badge.
  *
+ * #3332: a row on the default token asks for the workflow under `ci/`, which
+ * that token can push; `workflowDir` names where the task asked for it.
+ *
  * @param {string[]} files paths changed by the pull request
+ * @param {{workflowDir?: string}} [options]
  * @returns {{ok: boolean, reason: string}}
  */
-export function checkDiffShape(files) {
+export function checkDiffShape(files, { workflowDir = '.github/workflows/' } = {}) {
   const paths = (Array.isArray(files) ? files : []).map(String);
-  const workflows = paths.filter(path => WORKFLOW_FILE.test(path));
+  const isWorkflow = path => WORKFLOW_FILE.test(path) || (path.startsWith(workflowDir) && /^[^/]+\.ya?ml$/.test(path.slice(workflowDir.length)));
+  const workflows = paths.filter(isWorkflow);
   const placeholders = paths.filter(path => PLACEHOLDER_FILES.has(path.split('/').pop()));
   const artefacts = paths.filter(path => ARTEFACT_FILE.test(path));
-  const program = paths.filter(path => !WORKFLOW_FILE.test(path) && !placeholders.includes(path) && !artefacts.includes(path) && !/^readme(\.[a-z]+)?$/i.test(path));
+  const program = paths.filter(path => !isWorkflow(path) && !placeholders.includes(path) && !artefacts.includes(path) && !/^readme(\.[a-z]+)?$/i.test(path));
 
   if (placeholders.length > 0) return { ok: false, reason: `placeholder files left in the diff: ${placeholders.join(', ')}` };
   if (artefacts.length > 0) return { ok: false, reason: `build artefacts committed: ${artefacts.join(', ')}` };
-  if (workflows.length !== 1) return { ok: false, reason: `expected exactly one workflow under .github/workflows, found ${workflows.length}` };
+  if (workflows.length !== 1) return { ok: false, reason: `expected exactly one workflow under ${workflowDir.replace(/\/$/, '')}, found ${workflows.length}` };
   if (program.length === 0) return { ok: false, reason: 'no program file in the diff' };
   if (program.length > 2) return { ok: false, reason: `expected the program and at most one test script, found ${program.length} files: ${program.join(', ')}` };
   return { ok: true, reason: `${paths.length} files: ${paths.join(', ')}` };
@@ -186,12 +192,13 @@ export function checkBodyFinalized(body) {
  * @param {Array<object>} evidence.checks the status-check rollup
  * @param {string} evidence.workflowLog the head commit's workflow run log
  * @param {string[]} evidence.comments issue-comment bodies on the pull request
+ * @param {string} [evidence.workflowDir] where the task asked for the workflow (#3332)
  * @returns {{passed: boolean, results: Array<{name: string, ok: boolean, reason: string}>}}
  */
-export function evaluateE2eRun({ pullRequest = null, files = [], checks = [], workflowLog = '', comments = [] } = {}) {
+export function evaluateE2eRun({ pullRequest = null, files = [], checks = [], workflowLog = '', comments = [], workflowDir } = {}) {
   if (!pullRequest) return { passed: false, results: [{ name: 'pull request opened', ok: false, reason: 'solve opened no pull request for the issue' }] };
 
-  const diff = checkDiffShape(files);
+  const diff = checkDiffShape(files, { workflowDir });
   const checkSummary = summariseChecks(checks);
   const body = checkBodyFinalized(pullRequest.body);
   const stopped = (Array.isArray(comments) ? comments : []).filter(comment => String(comment ?? '').includes(AUTOMATION_STOPPED_MARKER));
@@ -216,9 +223,27 @@ export const escapeTableCell = value =>
     .replace(/\|/g, '\\|')
     .replace(/\r?\n/g, ' ');
 
-/** A GitHub step-summary table of one run's results. */
-export function formatE2eReport({ tool, model, issueUrl, pullRequestUrl = null, evaluation }) {
-  const lines = [`### ${evaluation.passed ? '✅' : '❌'} \`--tool ${tool} --model ${model}\``, '', `Issue: ${issueUrl}`, `Pull request: ${pullRequestUrl ?? 'none'}`, '', '| Assertion | Result | Detail |', '|---|---|---|'];
+/**
+ * A GitHub step-summary table of one run's results. #3332: the harness verdict
+ * (rejected push, missing credential, wrong image) is reported apart from the
+ * model verdict, and a red Formal AI row links its known Formal AI causes.
+ */
+export function formatE2eReport({ tool, model, issueUrl, pullRequestUrl = null, evaluation, harness = [] }) {
+  const verdict = splitE2eVerdict({ harness, evaluation });
+  const passed = verdict.harness.ok && evaluation.passed;
+  const harnessLine = verdict.harness.ok ? '✅ ok' : `❌ ${verdict.harness.failures.map(result => escapeTableCell(result.reason)).join('; ')}`;
+  const modelLine = !verdict.harness.ok ? 'not judged: the harness failed' : evaluation.passed ? '✅ passed' : `❌ failed: ${verdict.model.failures.map(result => result.name).join(', ')}`;
+  const lines = [`### ${passed ? '✅' : '❌'} \`--tool ${tool} --model ${model}\``, '', `Issue: ${issueUrl}`, `Pull request: ${pullRequestUrl ?? 'none'}`, '', `**Harness:** ${harnessLine}`, `**Model:** ${modelLine}`, ''];
+  if (harness.length) {
+    lines.push('| Harness check | Result | Detail |', '|---|---|---|');
+    for (const result of harness) lines.push(`| ${result.name} | ${result.ok ? '✅' : '❌'} | ${escapeTableCell(result.reason)} |`);
+    lines.push('');
+  }
+  lines.push('| Assertion | Result | Detail |', '|---|---|---|');
   for (const result of evaluation.results) lines.push(`| ${result.name} | ${result.ok ? '✅' : '❌'} | ${escapeTableCell(result.reason)} |`);
+  if (model === 'formal-ai' && verdict.harness.ok && !evaluation.passed) {
+    lines.push('', 'Known Formal AI causes; this row stays red until they are fixed:');
+    for (const issue of FORMAL_AI_KNOWN_ISSUES) lines.push(`- ${issue.url}: ${issue.summary}`);
+  }
   return `${lines.join('\n')}\n`;
 }

@@ -16,7 +16,8 @@
  * The parent passes the update batches in HIVE_HARNESS_BATCHES (JSON
  * `[{ atMs, updates: [...] }]`) and receives events over IPC:
  * `{ type: 'api', method, payload, atMs }`, `{ type: 'batch', index, atMs }`,
- * `{ type: 'launched' }`.
+ * `{ type: 'launched' }`. HIVE_HARNESS_MEMBER_STATUS sets the `getChatMember`
+ * status of every user (default `member`).
  */
 
 import { existsSync } from 'node:fs';
@@ -47,7 +48,7 @@ class FakeTelegram {
       return { message_id: this.nextMessageId++, chat: { id: payload.chat_id, type: 'supergroup' }, date: Math.floor(Date.now() / 1000), text: payload.text, message_thread_id: payload.message_thread_id };
     }
     if (method === 'getMe') return { id: 1, is_bot: true, username: 'hive_test_bot', first_name: 'Hive' };
-    if (method === 'getChatMember') return { status: 'member', user: { id: payload.user_id } };
+    if (method === 'getChatMember') return { status: process.env.HIVE_HARNESS_MEMBER_STATUS || 'member', user: { id: payload.user_id } };
     if (method === 'getChatAdministrators') return [];
     if (method === 'getWebhookInfo') return { url: '' };
     return true;

@@ -38,7 +38,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { buildFinishedWithoutChangesComment, captureSessionChangeBaseline, evaluateSessionChanges, EXIT_CODE_SOLVE_NO_CHANGES, extractFormalAiTerminalState, isSolverCommit, NO_SESSION_CHANGES_DRAFT_KIND, reevaluateRunWithoutChanges, reportSessionWithoutChanges, resetSessionChanges } from '../src/session-changes.lib.mjs';
+import { buildFinishedWithoutChangesComment, captureSessionChangeBaseline, evaluateSessionChanges, EXIT_CODE_SOLVE_NO_CHANGES, extractFormalAiTerminalState, isSolverCommit, NO_SESSION_CHANGES_DRAFT_KIND, reevaluateRunWithoutChanges, reportSessionWithoutChanges, resetSessionChanges, SESSION_EFFECT_UNVERIFIED_DRAFT_KIND } from '../src/session-changes.lib.mjs';
 import { ensurePullRequestIsDraft, ensurePullRequestIsReady, getPullRequestLeftInDraft, markPullRequestCreatedByThisRun, resetWorkingSessionDrafts, restoreDeliberateDraftsAtRunEnd } from '../src/pr-draft-state.lib.mjs';
 import { createRepeatedToolCallBreaker, resetRepeatedToolCallState } from '../src/repeated-tool-call-breaker.lib.mjs';
 import { buildDeliberateDraftFeedback } from '../src/solve.auto-merge-guards.lib.mjs';
@@ -397,6 +397,20 @@ assert.ok(TOOL_GENERATED_COMMENT_MARKERS.includes(FINISHED_WITHOUT_CHANGES_MARKE
   assert.match(feedback.restartReason, /made no change/);
   assert.ok(feedback.feedbackLines.join('\n').includes('planned_not_executed'));
   assert.doesNotMatch(feedback.restartReason, /failed:/, 'it is not described as a failed session');
+}
+{
+  // #3330: an unverified session is neither "no change" nor a failure.
+  const feedback = buildDeliberateDraftFeedback({ kind: SESSION_EFFECT_UNVERIFIED_DRAFT_KIND, reason: "this run's comments could not be read" });
+  assert.match(feedback.restartReason, /could not be verified/);
+  assert.ok(feedback.feedbackLines.join('\n').includes("this run's comments could not be read"));
+  assert.doesNotMatch(feedback.restartReason, /failed:/);
+}
+{
+  // #3330: solve never announces 🎉 SUCCESS for a run it could not verify.
+  const results = readFileSync(new URL('../src/solve.results.lib.mjs', import.meta.url), 'utf8');
+  assert.match(results, /if \(effectUnverified\) await log\([^)]*could not be verified[^)]*\);\s*else if \(!noChanges\) await log\('\\n🎉 SUCCESS/);
+  const e2e = readFileSync(new URL('../scripts/e2e-hello-world.mjs', import.meta.url), 'utf8');
+  assert.match(e2e, /forwardEnv: \[[^\]]*'GITHUB_ACTIONS'/);
 }
 
 // --- Telegram: exit code 5 of a solve session is ⚠️, not ✅ and not ❌ ------

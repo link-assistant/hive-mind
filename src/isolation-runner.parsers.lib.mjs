@@ -116,12 +116,12 @@ export function parseStartCommandExecutionUuid(output) {
  * log-marker classification as defense in depth (issue #2189).
  *
  * @param {string} output - Raw stdout from `$ --status`
- * @returns {{exists: boolean, uuid: string|null, status: string|null, exitCode: number|null, startTime: string|null, endTime: string|null, currentTime: string|null, logPath: string|null, command: string|null, isolation: string|null, workingDirectory: string|null, sessionName: string|null, processIds: Object, oomKilled: boolean|null, exitReason: string|null, memoryExhausted: boolean|null, memoryExhaustedReason: string|null, raw: string}}
+ * @returns {{exists: boolean, uuid: string|null, status: string|null, exitCode: number|null, startTime: string|null, endTime: string|null, currentTime: string|null, logPath: string|null, command: string|null, isolation: string|null, workingDirectory: string|null, sessionName: string|null, processIds: Object, oomKilled: boolean|null, exitReason: string|null, memoryExhausted: boolean|null, memoryExhaustedReason: string|null, endTimeSource: string|null, observedAt: string|null, raw: string}}
  */
 export function parseSessionStatusOutput(output) {
   const raw = (output || '').trim();
   if (!raw) {
-    return { exists: false, uuid: null, status: null, exitCode: null, startTime: null, endTime: null, currentTime: null, logPath: null, command: null, isolation: null, workingDirectory: null, sessionName: null, processIds: {}, oomKilled: null, exitReason: null, memoryExhausted: null, memoryExhaustedReason: null, cgroupMemory: null, raw: '' };
+    return { exists: false, uuid: null, status: null, exitCode: null, startTime: null, endTime: null, currentTime: null, logPath: null, command: null, isolation: null, workingDirectory: null, sessionName: null, processIds: {}, oomKilled: null, exitReason: null, memoryExhausted: null, memoryExhaustedReason: null, cgroupMemory: null, endTimeSource: null, observedAt: null, raw: '' };
   }
   const normalizeBooleanField = value => {
     if (typeof value === 'boolean') return value;
@@ -158,6 +158,9 @@ export function parseSessionStatusOutput(output) {
       memoryExhausted: normalizeBooleanField(data?.memoryExhausted),
       memoryExhaustedReason: typeof data?.memoryExhaustedReason === 'string' && data.memoryExhaustedReason.trim() ? data.memoryExhaustedReason.trim() : null,
       cgroupMemory: normalizeCgroupMemory(data?.cgroupMemory),
+      // Issue #2303: `observed-at` means docker never reported a finish time — the exit was noticed, not observed.
+      endTimeSource: typeof data?.endTimeSource === 'string' && data.endTimeSource.trim() ? data.endTimeSource.trim() : null,
+      observedAt: data?.observedAt || null,
       raw,
     };
   } catch {
@@ -211,6 +214,8 @@ export function parseSessionStatusOutput(output) {
     memoryExhausted: readBooleanField('memoryExhausted') ?? readBooleanField('Memory Exhausted'),
     memoryExhaustedReason: readField('memoryExhaustedReason') || readField('Memory Evidence'),
     cgroupMemory: readCgroupMemoryBlock(raw),
+    endTimeSource: readField('endTimeSource') || readField('End Time Source'),
+    observedAt: readField('observedAt') || readField('Observed At'),
     raw,
   };
 }
@@ -233,6 +238,24 @@ export function isUnknownDockerExitCode(exitCode) {
 }
 export function shouldFallbackToScreenStatus(statusResult) {
   return !statusResult?.exists || !statusResult?.status;
+}
+/** What start-command prints when it simply has no record of the execution. */
+const STATUS_RECORD_MISSING_PATTERN = /No execution found/i;
+/**
+ * Issue #2303: tell a failed `$ --status` query (non-zero exit for any other
+ * reason: a locked or corrupt store, a crash) apart from a missing record, so
+ * the monitor can keep the session tracked instead of declaring it finished.
+ *
+ * @param {Object} statusResult - Parsed status record
+ * @param {{code?: number, stderr?: string}} [commandResult]
+ * @returns {Object} The record, with `queryError` when the query itself failed
+ */
+export function withStatusQueryError(statusResult, { code = 0, stderr = '' } = {}) {
+  const exitCode = Number(code);
+  if (statusResult?.exists || !Number.isFinite(exitCode) || exitCode === 0) return statusResult;
+  const message = String(stderr || '').trim();
+  if (STATUS_RECORD_MISSING_PATTERN.test(message)) return statusResult;
+  return { ...statusResult, queryError: message.split('\n')[0].slice(0, 300) || `$ --status exited with code ${exitCode}` };
 }
 /**
  * Parse the footer start-command appends to every execution log when the wrapped
@@ -279,24 +302,25 @@ export function parseSessionExitFooter(text) {
  * @param {Object} [options.fsImpl=fs] - Injectable fs (for tests)
  * @param {number} [options.tailBytes=16384] - How many trailing bytes to scan
  * @param {boolean} [options.verbose]
- * @returns {{finished: boolean, exitCode: number|null, endTime: string|null}}
+ * @returns {Promise<{finished: boolean, exitCode: number|null, endTime: string|null}>}
  */
-export function readSessionExitFromLog(logPath, options = {}) {
+export async function readSessionExitFromLog(logPath, options = {}) {
   const { fsImpl = fs, tailBytes = 16384, minByteOffset = 0, verbose = false } = options;
   if (!logPath) return { finished: false, exitCode: null, endTime: null };
   try {
-    const { size } = fsImpl.statSync(logPath);
-    if (!size) return { finished: false, exitCode: null, endTime: null };
-    // A resumed execution appends to the same log. Earlier footers describe
-    // earlier attempts, even while the replacement container is alive (#2498).
-    const start = Math.min(size, Math.max(0, size - tailBytes, Number.isSafeInteger(minByteOffset) ? minByteOffset : 0));
-    const length = size - start;
-    const buffer = Buffer.alloc(length);
-    const fd = fsImpl.openSync(logPath, 'r');
+    const handle = await fsImpl.promises.open(logPath, 'r');
+    let buffer;
     try {
-      fsImpl.readSync(fd, buffer, 0, length, start);
+      const { size } = await handle.stat();
+      if (!size) return { finished: false, exitCode: null, endTime: null };
+      // A resumed execution appends to the same log. Earlier footers describe
+      // earlier attempts, even while the replacement container is alive (#2498).
+      const start = Math.min(size, Math.max(0, size - tailBytes, Number.isSafeInteger(minByteOffset) ? minByteOffset : 0));
+      const length = size - start;
+      buffer = Buffer.alloc(length);
+      await handle.read(buffer, 0, length, start);
     } finally {
-      fsImpl.closeSync(fd);
+      await handle.close();
     }
     const result = parseSessionExitFooter(buffer.toString('utf8'));
     if (verbose && result.finished) {

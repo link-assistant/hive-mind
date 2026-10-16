@@ -228,6 +228,6 @@ for (const [file, mode] of [
 
 const finalize = await read('src/solve.finalize.lib.mjs');
 assert.ok(finalize.includes('hasNoProgressFailure()'), 'the run exits non-zero: the task is unfinished');
-assert.ok(/safeExit\(1, 'No progress between sessions'\)/.test(finalize));
+assert.ok(/safeExit\(1, [^)]*'No progress between sessions'\)/.test(finalize)); // #2293 shares the exit with the repeated-CI stop
 
 console.log('PASS: issue #2247 (H3) no-progress-between-sessions detection');

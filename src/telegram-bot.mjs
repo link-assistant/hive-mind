@@ -41,6 +41,10 @@ const BOT_TOKEN = config.token || getenv('TELEGRAM_BOT_TOKEN', '');
 const VERBOSE = config.verbose || getenv('TELEGRAM_BOT_VERBOSE', 'false') === 'true';
 const AUTO_WATCH_MESSAGE = config.autoStartScreenWatchMessage === true;
 const SHOW_LIMITS_ENABLED = config.showLimits === true;
+// Issues #3354 to #3359: the merge queue, the merged-PR sweeper and solve children follow these switches.
+const { applyIssueClosingEnvironment } = await import('./post-merge-issue-closing.lib.mjs');
+const { startMergedPullRequestSweeper, sweepScope } = await import('./merged-pr-sweeper.lib.mjs');
+applyIssueClosingEnvironment(config);
 if (!BOT_TOKEN) {
   console.error('Error: TELEGRAM_BOT_TOKEN not set. Use --token or TELEGRAM_BOT_TOKEN env var.');
   process.exit(1);
@@ -180,10 +184,11 @@ const { revealHiddenCharacters } = await import('./github-url-recovery.lib.mjs')
 const { getSolveQueue, createQueueExecuteCallback } = await import('./telegram-solve-queue.lib.mjs');
 const { applySolveToolAlias, getFirstParsedPositionalArg, getSolveCommandNameFromText, getSolveToolAliasFromText, moveArgumentToFront, parseArgsWithYargs, parseCommandArgs, SOLVE_COMMAND_NAMES } = await import('./telegram-solve-command.lib.mjs');
 const { preflightRepositoryTarget, redirectRepositoryArgsToSingleIssue } = await import('./telegram-solve-repository-preflight.lib.mjs');
+const { repositoryModeSelectionFromArgv } = await import('./solve.repository-mode.lib.mjs');
 const { validateTelegramGitHubUrl } = await import('./telegram-url-validation.lib.mjs');
 const { executeStartScreen: executeStartScreenCommand, buildExecuteAndUpdateMessage } = await import('./telegram-command-execution.lib.mjs');
 const { isChatStopped, getChatStopInfo, getStoppedChatRejectMessage, DEFAULT_STOP_REASON } = await import('./telegram-start-stop-command.lib.mjs');
-const { isOldMessage: _isOldMessage, isGroupChat: _isGroupChat, isChatAuthorized: _isChatAuthorized, isForwarded: _isForwarded, isForwardedOrReply: _isForwardedOrReply, extractCommandFromText, extractGitHubUrl: _extractGitHubUrl } = await import('./telegram-message-filters.lib.mjs');
+const { isOldMessage: _isOldMessage, isGroupChat: _isGroupChat, isChatAuthorized: _isChatAuthorized, isForwarded: _isForwarded, isForwardedOrReply: _isForwardedOrReply, extractCommandFromText, extractGitHubUrl: _extractGitHubUrl, mentionsGitHubHost } = await import('./telegram-message-filters.lib.mjs');
 const { safeEditMessageText, safeReply, safeSendMessage } = await import('./telegram-safe-reply.lib.mjs');
 const { createUpdateErrorHandler } = await import('./telegram-update-error.lib.mjs');
 const { createKeyClaims, createSerialLane, detachHandler, getBackgroundTaskStats } = await import('./telegram-background-task.lib.mjs');
@@ -284,7 +289,7 @@ function isForwarded(ctx) {
 async function getCommandUrlArg(args, createYargsConfig, positionalNames) {
   const parsedUrl = createYargsConfig ? await getFirstParsedPositionalArg(args, yargs, createYargsConfig, positionalNames) : null;
   if (parsedUrl) return parsedUrl;
-  return args.find(arg => cleanNonPrintableChars(arg).includes('github.com')) || (args[0] && !args[0].startsWith('-') ? args[0] : null);
+  return args.find(arg => mentionsGitHubHost(cleanNonPrintableChars(arg))) || (args[0] && !args[0].startsWith('-') ? args[0] : null);
 }
 async function validateGitHubUrl(args, options = {}) {
   const { allowedTypes = ['issue', 'pull'], commandName = 'solve', createYargsConfig = null, positionalNames = [], locale = null } = options;
@@ -536,7 +541,7 @@ async function handleSolveCommand(ctx) {
   // Check if yargs sees a command URL. If not, try to extract it from the replied message.
   const commandUrlArg = await getCommandUrlArg(userArgs, createSolveYargsConfig, ['issue-url']);
   const commandUrlText = commandUrlArg ? cleanNonPrintableChars(commandUrlArg) : '';
-  const commandHasUrl = commandUrlText.includes('github.com') || /^https?:\/\//.test(commandUrlText);
+  const commandHasUrl = mentionsGitHubHost(commandUrlText) || /^https?:\/\//.test(commandUrlText);
   if (isReply && !commandHasUrl) {
     if (VERBOSE) {
       console.log('[VERBOSE] /solve is a reply without URL in args, extracting from replied message...');
@@ -666,7 +671,7 @@ async function handleSolveCommand(ctx) {
   }
   // Issue #2266: answer an empty repository directly. The CLI repeats the
   // check for direct use and races; preflight errors fall through to it.
-  const repositoryPreflight = await preflightRepositoryTarget({ ctx, parsed: validation.parsed, locale: solveLocale, onError: error => VERBOSE && console.log(`[VERBOSE] Repository no-work preflight failed; continuing with /solve: ${error.message || error}`) });
+  const repositoryPreflight = await preflightRepositoryTarget({ ctx, parsed: validation.parsed, locale: solveLocale, selection: repositoryModeSelectionFromArgv(parsedSolveArgs), onError: error => VERBOSE && console.log(`[VERBOSE] Repository no-work preflight failed; continuing with /solve: ${error.message || error}`) });
   if (repositoryPreflight.repliedNoWork) return;
   // Issue #3108: a repository with a single open issue is solved as that issue.
   const singleIssueRedirect = repositoryPreflight.singleIssue && redirectRepositoryArgsToSingleIssue({ args, parsed: validation.parsed, singleIssue: repositoryPreflight.singleIssue });
@@ -1082,6 +1087,7 @@ const launchAbortController = new AbortController();
 let sessionMonitoringTimer = null;
 let formalAiMaintenance = null;
 let routerMaintenance = null;
+let mergedPullRequestSweeper = null; // issue #3356: merges done outside Hive Mind
 let launchAnnouncementShown = false;
 
 // Issue #2823: a launched /solve task is not a completed one. Tell the queue
@@ -1153,6 +1159,7 @@ async function onBotLaunched() {
   startSessionMonitoringOnce();
   startFormalAiMaintenanceOnce();
   startRouterMaintenanceOnce();
+  if (!config.dryRun) mergedPullRequestSweeper ||= startMergedPullRequestSweeper({ scopes: [sweepScope({ author: '@me' })], logger: async message => console.log(message) });
   heartbeat.start();
   if (VERBOSE) {
     console.log('[VERBOSE] Bot launched successfully');
@@ -1248,6 +1255,7 @@ const handleShutdownSignal = createShutdownHandler({
     if (sessionMonitoringTimer) clearInterval(sessionMonitoringTimer);
     formalAiMaintenance?.stop();
     routerMaintenance?.stop();
+    mergedPullRequestSweeper?.stop();
     heartbeat.stop();
     stopSolveQueue();
   },

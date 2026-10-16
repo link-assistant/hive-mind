@@ -1,0 +1,15 @@
+$ docker rm -f kr2889-exp2 -> 0  
+$ docker create --name kr2889-exp2 --entrypoint  rhysd/actionlint:1.7.12 sh -c p=$1; shift; if [ -f "$p" ]; then exec sh "$p"; fi; exec "$@" start-command-handoff -> 0 edfe420d713aecd940f55d9943ec1a7f5c27e9cec5f1c97566745978f40de702 
+$ docker start kr2889-exp2 -> 0 kr2889-exp2 
+$ docker exec kr2889-exp2 touch /tmp/hive-mind-disk-baseline-y -> 0  
+$ docker exec kr2889-exp2 cat /tmp/marker -> 0 ORIGINAL-TASK-RAN 
+$ docker kill kr2889-exp2 -> 0 kr2889-exp2 
+$ docker cp /tmp/tmpensypesz/command kr2889-exp2:/.start-command-resume-kr2889-exp2 -> 0  
+$ docker start kr2889-exp2 -> 0 kr2889-exp2 
+$ docker exec kr2889-exp2 sh -c cat /tmp/marker2 /tmp/marker; ps -> 0 REPLACEMENT-RAN
+ORIGINAL-TASK-RAN
+PID   USER     TIME  COMMAND
+    1 guest     0:00 sleep 1000
+    8 guest     0:00 ps 
+started in 2.6 s
+$ docker rm -f kr2889-exp2 -> 0 kr2889-exp2 

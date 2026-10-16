@@ -36,6 +36,7 @@
  * watcher agree.
  */
 
+import { isSolverBookkeepingFile } from './ai-tool-scratch.lib.mjs';
 import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
 import { quietProbe } from './quiet-probe.lib.mjs';
 
@@ -206,19 +207,27 @@ const isPlaceholderSection = (path, body) => {
  * and are ignored, exactly as they were when sections were built by splitting.
  *
  * @param {string} diff - unified diff text, possibly empty.
- * @returns {{filesChanged: number, additions: number, deletions: number, placeholderSections: number}}
+ * Issue #3330: the development log (`dev/log/**`) and AI tool scratch are
+ * solver bookkeeping, not a change. They are counted in `bookkeepingSections`
+ * only, with the predicate the session verdict uses (`isSolverBookkeepingFile`),
+ * so a Formal AI draft whose only commit is its development log is not "ready
+ * for review".
+ *
+ * @returns {{filesChanged: number, additions: number, deletions: number, placeholderSections: number, bookkeepingSections: number, files: string[]}}
  */
 const measureDiff = diff => {
   let filesChanged = 0;
   let additions = 0;
   let deletions = 0;
   let placeholderSections = 0;
+  let bookkeepingSections = 0;
   let section = null;
   const files = [];
 
   const closeSection = () => {
     if (!section) return;
     if (isPlaceholderSection(section.path, section.body)) placeholderSections += 1;
+    else if (isSolverBookkeepingFile(section.path)) bookkeepingSections += 1;
     else {
       filesChanged += 1;
       files.push(section.path);
@@ -252,7 +261,7 @@ const measureDiff = diff => {
   }
   closeSection();
 
-  return { filesChanged, additions, deletions, placeholderSections, files };
+  return { filesChanged, additions, deletions, placeholderSections, bookkeepingSections, files };
 };
 
 /**
@@ -294,7 +303,7 @@ export const getPullRequestChangeStats = async ({ owner, repo, prNumber, $, log 
     // Leave measured false: an unreachable API must not read as "no changes".
   }
 
-  const { filesChanged, additions, deletions, placeholderSections, files } = measureDiff(diffOutput);
+  const { filesChanged, additions, deletions, placeholderSections, bookkeepingSections, files } = measureDiff(diffOutput);
   const diffBytes = diffOutput.length;
 
   if (measured && diffBytes >= LARGE_DIFF_WARNING_BYTES && typeof log === 'function') {
@@ -313,6 +322,8 @@ export const getPullRequestChangeStats = async ({ owner, repo, prNumber, $, log 
     // placeholder in it either. Reported separately so the merge watcher can
     // clean it up before merging instead of shipping it to the default branch.
     placeholderSections,
+    // Issue #3330: development log / AI tool scratch files, not counted above.
+    bookkeepingSections,
     measured,
     diffBytes,
     // Issue #2318: the changed paths, for the placeholder description's "Changes" section.

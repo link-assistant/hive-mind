@@ -321,7 +321,7 @@ const reconcileLeases = async (leases, options) => reconcileSidecarLeases(leases
  * an orphaned container running with nothing to serve.
  */
 export const reconcileFormalAiSidecar = async ({ env = process.env, fsImpl = fs, run = execFileAsync, timeoutMs, log = null, verbose = false, now = () => new Date() } = {}) => {
-  const state = readFormalAiSidecarState({ env, fsImpl });
+  const state = await readFormalAiSidecarState({ env, fsImpl });
   const leases = await reconcileLeases(state.leases, { run, timeoutMs, log, verbose });
   const container = await inspectDockerContainer(FORMAL_AI_SIDECAR_CONTAINER_NAME, { run, timeoutMs });
   const next = {
@@ -336,7 +336,7 @@ export const reconcileFormalAiSidecar = async ({ env = process.env, fsImpl = fs,
     imageDigest: container.exists ? container.imageDigest : state.imageDigest,
     startedAt: container.running ? state.startedAt : null,
   };
-  writeFormalAiSidecarState(next, { env, fsImpl });
+  await writeFormalAiSidecarState(next, { env, fsImpl });
   return { state: next, container, leaseCount: leases.length };
 };
 
@@ -354,8 +354,8 @@ export const stopFormalAiSidecar = async ({ env = process.env, fsImpl = fs, run 
   }
   await dockerOk(run, ['network', 'rm', FORMAL_AI_SIDECAR_NETWORK_NAME], { timeoutMs });
 
-  const state = readFormalAiSidecarState({ env, fsImpl });
-  writeFormalAiSidecarState({ ...state, startedAt: null, leases: [] }, { env, fsImpl });
+  const state = await readFormalAiSidecarState({ env, fsImpl });
+  await writeFormalAiSidecarState({ ...state, startedAt: null, leases: [] }, { env, fsImpl });
   if (log) await log(`🛑 Formal AI sidecar stopped (${reason}); memory volume '${FORMAL_AI_MEMORY_VOLUME_NAME}' preserved`);
   if (verbose && log) await log(`[VERBOSE] formal-ai-sidecar: removed container=${container.exists} network='${FORMAL_AI_SIDECAR_NETWORK_NAME}'`);
   return { stopped: container.exists };
@@ -372,7 +372,7 @@ export const acquireFormalAiSidecar = async ({ sessionId, tool = null, model = n
 
   return withFormalAiSidecarLock(
     async () => {
-      const state = readFormalAiSidecarState({ env, fsImpl });
+      const state = await readFormalAiSidecarState({ env, fsImpl });
       const leases = await reconcileLeases(state.leases, { run, timeoutMs, log, verbose });
 
       let container = await inspectDockerContainer(FORMAL_AI_SIDECAR_CONTAINER_NAME, { run, timeoutMs });
@@ -438,7 +438,7 @@ export const acquireFormalAiSidecar = async ({ sessionId, tool = null, model = n
         acceptedAt: accepted?.updatedAt ?? null,
         observedAt: acquiredAt,
       };
-      writeFormalAiSidecarState({ ...state, image: container.image || image, imageReference, imageDigest: container.imageDigest, startedAt: state.startedAt || acquiredAt, leases: nextLeases, serving, lastUsedAt: acquiredAt }, { env, fsImpl });
+      await writeFormalAiSidecarState({ ...state, image: container.image || image, imageReference, imageDigest: container.imageDigest, startedAt: state.startedAt || acquiredAt, leases: nextLeases, serving, lastUsedAt: acquiredAt }, { env, fsImpl });
 
       if (verbose && log) await log(`[VERBOSE] formal-ai-sidecar: lease '${sessionId}' acquired (${nextLeases.length} active), image=${imageReference} (${resolved.source}), digest=${container.imageDigest ?? 'unknown'}, address=${address ?? 'unknown'}, formal-ai=${reportedVersion ?? 'unknown'}, memory schema=${serving.memorySchemaVersion ?? 'not reported'}`);
 
@@ -486,13 +486,13 @@ export const attachTaskToFormalAiNetwork = async ({ sessionId, run = execFileAsy
 export const releaseFormalAiSidecar = async ({ sessionId, env = process.env, fsImpl = fs, run = execFileAsync, timeoutMs, log = null, verbose = false, now = () => new Date(), sleepImpl = sleep, lockOptions = {} } = {}) => {
   return withFormalAiSidecarLock(
     async () => {
-      const state = readFormalAiSidecarState({ env, fsImpl });
+      const state = await readFormalAiSidecarState({ env, fsImpl });
       const remaining = await reconcileLeases(
         state.leases.filter(lease => lease.sessionId !== sessionId),
         { run, timeoutMs, log, verbose }
       );
       // The unload window (issue #2305) counts from the end of the last task.
-      writeFormalAiSidecarState({ ...state, leases: remaining, lastUsedAt: now().toISOString() }, { env, fsImpl });
+      await writeFormalAiSidecarState({ ...state, leases: remaining, lastUsedAt: now().toISOString() }, { env, fsImpl });
 
       if (remaining.length > 0) {
         if (verbose && log) await log(`[VERBOSE] formal-ai-sidecar: lease '${sessionId}' released, ${remaining.length} still active; sidecar stays up`);

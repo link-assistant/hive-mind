@@ -46,7 +46,8 @@ const { AUTO_MERGED_MARKER, postTrackedComment } = toolComments;
 const stopReporting = await import('./automation-stop-reporting.lib.mjs');
 const { AUTO_MERGE_BLOCKED_MARKER, buildAutoMergeBlockedComment, reportAutomationStop } = stopReporting;
 
-const { ensureLinkedIssueClosedAfterMerge } = await import('./github-issue-auto-close.lib.mjs');
+// Issues #3354/#3355: mergePullRequest closes (or reports) the intended issues GitHub leaves open.
+const { appendIssueClosingSection, formatIssueClosingReport, issueClosingOptions } = await import('./post-merge-issue-closing.lib.mjs');
 // Issue #2306: never auto-merge a pull request that leaves required issues open.
 const { checkClosingReferencesBeforeMerge } = await import('./solve.ensure-sub-issues.lib.mjs');
 // Issue #2395: never auto-merge a pull request that is not linked to its issue.
@@ -257,7 +258,7 @@ export const attemptAutoMerge = async params => {
   if (deleteAfterMerge) {
     await log(formatAligned('', 'Branch cleanup:', 'will delete branch after successful merge', 2));
   }
-  let mergeResult = await mergePullRequest(owner, repo, prNumber, { issueNumber, squash: argv.squash || false, deleteAfter: deleteAfterMerge }, argv.verbose);
+  let mergeResult = await mergePullRequest(owner, repo, prNumber, { issueNumber, squash: argv.squash || false, deleteAfter: deleteAfterMerge, ...issueClosingOptions(argv) }, argv.verbose);
 
   // Issue #2182: GitHub can still refuse the merge because of the draft state
   // even when `gh pr view` already answered CLEAN/MERGEABLE (stale read).
@@ -265,30 +266,22 @@ export const attemptAutoMerge = async params => {
   if (!mergeResult.success && classifyMergeError(mergeResult.error).category === MERGE_ERROR_CATEGORIES.DRAFT) {
     await log(formatAligned('🔧', 'Self-healing:', 'GitHub refused the merge because the PR is a draft - marking it ready', 2), { level: 'warning' });
     if (await restoreReadyForReview({ owner, repo, prNumber, reason: 'auto-merge: GitHub rejected the merge because the PR is a draft' })) {
-      mergeResult = await mergePullRequest(owner, repo, prNumber, { issueNumber, squash: argv.squash || false, deleteAfter: deleteAfterMerge }, argv.verbose);
+      mergeResult = await mergePullRequest(owner, repo, prNumber, { issueNumber, squash: argv.squash || false, deleteAfter: deleteAfterMerge, ...issueClosingOptions(argv) }, argv.verbose);
     }
   }
 
   if (mergeResult.success) {
     await log(formatAligned('🎉', 'PR MERGED SUCCESSFULLY!', ''));
+    // Issue #3355: what the post-merge check closed, and what it could not.
+    for (const line of formatIssueClosingReport(mergeResult.issueClosing)) await log(formatAligned('', 'Linked issues:', line, 2));
 
     // Post success comment
     try {
       // Issue #2492: no footer repeating the heading.
-      const commentBody = `## 🎉 ${AUTO_MERGED_MARKER}\n\nThis pull request has been automatically merged by hive-mind after all CI checks passed and the PR became mergeable.`;
+      const commentBody = appendIssueClosingSection(`## 🎉 ${AUTO_MERGED_MARKER}\n\nThis pull request has been automatically merged by hive-mind after all CI checks passed and the PR became mergeable.`, mergeResult.issueClosing);
       await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: commentBody });
     } catch {
       // Don't fail if comment posting fails
-    }
-
-    // Issue #1895: close linked issue explicitly when GitHub will not (non-default base branch).
-    try {
-      const closeResult = await ensureLinkedIssueClosedAfterMerge({ $, log, owner, repo, prNumber, issueNumber, verbose: argv.verbose });
-      if (!closeResult.closed && !closeResult.skipped) {
-        await log(formatAligned('⚠️', 'Issue auto-close:', `could not close linked issue (${closeResult.reason})`, 2), { level: 'warning' });
-      }
-    } catch (closeError) {
-      await log(formatAligned('⚠️', 'Issue auto-close:', `error: ${closeError.message}`, 2), { level: 'warning' });
     }
 
     return { success: true, reason: 'merged' };

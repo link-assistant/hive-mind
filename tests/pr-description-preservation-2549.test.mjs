@@ -8,6 +8,7 @@ import { test } from 'node:test';
 import * as changes from '../src/pull-request-changes.lib.mjs';
 import { ensureIssueLinkInPullRequestBody } from '../src/pr-issue-linking.lib.mjs';
 import { repairRequiredIssueLinks } from '../src/pr-issue-link-repair.lib.mjs';
+import { preserveRequirementsReport } from '../src/issue-requirements.lib.mjs';
 import { createProgressMonitor, normalizeDisplayMode } from '../src/solve.progress-monitoring.lib.mjs';
 
 const read = file => readFileSync(new URL(`../src/${file}`, import.meta.url), 'utf8');
@@ -49,6 +50,7 @@ async function complete(body, restart = false, argv = {}) {
   const block = source.slice(start, end).replace(/await import\('\.\/[^']+'\)/g, 'deps');
   const deps = {
     ...changeBindings,
+    preserveRequirementsReport,
     repairRequiredIssueLinks: f.repair,
     ensurePullRequestIsReady: async options => f.ready.push(options),
     ensurePullRequestStaysDraftAfterFailure: async () => {},
@@ -73,6 +75,10 @@ async function complete(body, restart = false, argv = {}) {
     postNoChangesProducedComment: async () => {},
     reportSessionWithoutChanges: async () => ({ noChanges: false, keepsDraft: false }),
     sanitizeForPublication: async text => text,
+    // Issue #3332: the block reads the solve log for a refused workflow push.
+    getLogFile: () => null,
+    readFile: async () => '',
+    reportWorkflowPushRejection: async () => null,
     writeSanitizedPublicationFile: async (file, text) => (await import('node:fs/promises')).writeFile(file, text),
     buildIssueReference: () => '#1',
     use: async name => import(`node:${name}`),
@@ -139,6 +145,9 @@ test('multi-issue repair preserves every byte and appends only missing links onc
     else if (args[1].endsWith('/issues/1/sub_issues')) data = [[{ number: 3, body: '', title: 'Child', repository_url: 'https://api.github.com/repos/o/r' }]];
     else if (args[1].endsWith('/issues/3')) data = { number: 3, body: '', title: 'Child' };
     else if (args[1].endsWith('/issues/3/sub_issues')) data = [[]];
+    // Issue #3174: no earlier repair added #3, and no other open pull request closes #3.
+    else if (args[1] === 'graphql' && args.some(arg => String(arg).includes('userContentEdits'))) data = [{ data: { repository: { pullRequest: { userContentEdits: { nodes: [] } } } } }];
+    else if (args[1] === 'graphql') data = { data: { repository: { i3: { closedByPullRequestsReferences: { nodes: [] }, timelineItems: { nodes: [] } } } } };
     else throw new Error(`unexpected: ${args.join(' ')}`);
     return { code: 0, stdout: JSON.stringify(data) };
   };

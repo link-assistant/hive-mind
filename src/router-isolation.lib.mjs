@@ -74,10 +74,11 @@ export const ROUTER_SIDECAR_LABEL = 'com.link-assistant.hive-mind.router';
 // and bumping across 1.0 would silently delete the `gh` mediation this feature
 // shipped (upstream link-assistant/router#415; measured in
 // `docs/case-studies/issue-2202/data/measurements/
-// router-route-comparison-2026-09-04.md`). Every other route is already
-// supported on both dialects, so the day upstream lands a gh-reachable base
-// this becomes a one-line change with the tests already in place.
-export const ROUTER_SIDECAR_IMAGE = 'ghcr.io/link-assistant/router:0.125.4';
+// router-route-comparison-2026-09-04.md`). Router 1.2.1 closed #415 by serving
+// `gh` on a separate GitHub adapter unix socket, so adopting 1.x now means
+// sharing that socket with the task and pointing `gh` at it (issue #3395). The
+// dependency freshness gate accepts this pin only while that issue is open.
+export const ROUTER_SIDECAR_IMAGE = 'ghcr.io/link-assistant/router:0.125.4'; // https://github.com/link-assistant/hive-mind/issues/3395
 
 /**
  * Router image this run should use.

@@ -21,7 +21,19 @@
  * declaration of a local wrapper (`const exec = (cmd, opts) => execRaw(cmd,
  * { timeout, ...opts })`) covers every call of that wrapper.
  *
+ * command-stream `$` (issue #3278): `$\`git …\`` and `$({ … })\`gh …\`` are
+ * checked the same way. command-stream has no `timeout` option, so only
+ * `signal` (e.g. `AbortSignal.timeout(ms)`) bounds the process; a `timeout`
+ * key is reported as ignored. A marked `$` declaration (a wrapper that adds a
+ * signal) covers its calls. A `$` under another name is followed too: a local
+ * bound to `$`, `$({ … })` or `quietProbe($)` (`const probe = quietProbe($)`,
+ * `const $silent = $({ mirror: false })`), and `quietProbe($)` itself, whose
+ * options carry no signal.
+ *
  * @see https://github.com/link-assistant/hive-mind/issues/3206
+ * @see https://github.com/link-assistant/hive-mind/issues/3278
+ * @see https://github.com/eslint-community/eslint-plugin-n/issues/576 (the general child_process rule, proposed upstream)
+ * @see https://github.com/link-foundation/command-stream/issues/227 (`$({ timeout })` is ignored)
  */
 
 import { BASELINE_SCHEMA, createBaselineReporter, findVariable, hasReasonedMarker } from './hive-rule-support.mjs';
@@ -32,6 +44,8 @@ const TIMEOUT_KEYS = new Set(['timeout', 'signal']);
 const MARKER = 'hive-exec-timeout-ok';
 
 function calleeName(callee) {
+  // `promisify(execFile)(…)` / `util.promisify(exec)(…)` takes the wrapped function's arguments.
+  if (callee.type === 'CallExpression' && calleeName(callee.callee) === 'promisify' && callee.arguments[0]) return calleeName(callee.arguments[0]);
   if (callee.type === 'Identifier') return callee.name;
   if (callee.type === 'MemberExpression' && !callee.computed && callee.property.type === 'Identifier') return callee.property.name;
   return null;
@@ -78,6 +92,46 @@ function hasTimeout(fn, args) {
   return options.properties.some(property => property.type === 'SpreadElement') ? null : false;
 }
 
+// Functions that return `$` bound to options without a signal (src/quiet-probe.lib.mjs).
+const DOLLAR_BINDERS = new Set(['quietProbe']);
+const MAX_ALIAS_DEPTH = 4;
+
+/** The node a local `const name = …` binds, or null. */
+function aliasInit(sourceCode, identifier) {
+  const definition = findVariable(sourceCode, identifier)?.defs[0];
+  return definition?.type === 'Variable' && definition.node.id.type === 'Identifier' ? definition.node.init : null;
+}
+
+/**
+ * For a command-stream tag (`$`, `$({ … })`, `quietProbe($)` or a local bound
+ * to one of them): the identifier whose declaration may carry the marker and
+ * the options node (undefined when none are passed). null for any other tag.
+ */
+function dollarTag(tag, sourceCode, depth = 0) {
+  if (!tag || depth > MAX_ALIAS_DEPTH) return null;
+  if (tag.type === 'Identifier') {
+    if (tag.name === '$') return { dollar: tag, options: undefined };
+    const bound = dollarTag(aliasInit(sourceCode, tag), sourceCode, depth + 1);
+    return bound && { dollar: tag, options: bound.options };
+  }
+  if (tag.type !== 'CallExpression' || tag.callee.type !== 'Identifier') return null;
+  if (DOLLAR_BINDERS.has(tag.callee.name)) return tag.arguments[0] && dollarTag(tag.arguments[0], sourceCode, depth + 1) ? { dollar: tag.callee, options: undefined } : null;
+  const callee = dollarTag(tag.callee, sourceCode, depth + 1);
+  if (!callee) return null;
+  // `$silent({ … })`: a signal on either call bounds the process.
+  return { dollar: tag.callee, options: dollarBound(callee.options) === 'signal' ? callee.options : tag.arguments[0] };
+}
+
+/** 'signal', 'timeout' (ignored by command-stream), 'none', or null when the options cannot be read. */
+function dollarBound(options) {
+  if (!options) return 'none';
+  if (options.type !== 'ObjectExpression') return null;
+  const names = options.properties.map(propertyName);
+  if (names.includes('signal')) return 'signal';
+  if (options.properties.some(property => property.type === 'SpreadElement')) return null;
+  return names.includes('timeout') ? 'timeout' : 'none';
+}
+
 /** True when the called function is a local wrapper declared with the marker. */
 function isMarkedWrapper(sourceCode, callee) {
   if (callee.type !== 'Identifier') return false;
@@ -99,8 +153,9 @@ export default {
       },
     ],
     messages: {
-      violation: "'{{fn}}' starts '{{command}}' without a `timeout` (or `signal`); a hung {{command}} process never ends. Pass `{ timeout: <ms> }`, or add `// hive-exec-timeout-ok: <reason>`.",
-      overBaseline: "'{{fn}}' starts '{{command}}' without a `timeout` (or `signal`). This file may keep {{allowed}} such call(s) until they get one; it has {{count}}. Pass `{ timeout: <ms> }`, or add `// hive-exec-timeout-ok: <reason>`.",
+      violation: "'{{fn}}' starts '{{command}}' without a `timeout` (or `signal`); a hung {{command}} process never ends. Pass `{ timeout: <ms> }` (for `$`: `$({ signal: AbortSignal.timeout(<ms>) })`, since command-stream ignores `timeout`), or add `// hive-exec-timeout-ok: <reason>`.",
+      overBaseline: "'{{fn}}' starts '{{command}}' without a `timeout` (or `signal`). This file may keep {{allowed}} such call(s) until they get one; it has {{count}}. Pass `{ timeout: <ms> }` (for `$`: `$({ signal: AbortSignal.timeout(<ms>) })`, since command-stream ignores `timeout`), or add `// hive-exec-timeout-ok: <reason>`.",
+      dollarTimeoutOption: "command-stream ignores `timeout`: this '{{command}}' is still unbounded. Pass `$({ signal: AbortSignal.timeout(<ms>) })`, or add `// hive-exec-timeout-ok: <reason>`.",
     },
   },
 
@@ -116,6 +171,18 @@ export default {
         if (hasTimeout(fn, node.arguments) !== false) return;
         if (hasReasonedMarker(context.sourceCode, node, MARKER) || isMarkedWrapper(context.sourceCode, node.callee)) return;
         reporter.add({ node, data: { fn, command } });
+      },
+      TaggedTemplateExpression(node) {
+        const tag = dollarTag(node.tag, context.sourceCode);
+        if (!tag) return;
+        const command = commandOf(node.quasi);
+        if (!command || !SLOW_COMMANDS.has(command)) return;
+        const bound = dollarBound(tag.options);
+        if (bound === 'signal' || bound === null) return;
+        if (hasReasonedMarker(context.sourceCode, node, MARKER) || isMarkedWrapper(context.sourceCode, tag.dollar)) return;
+        // A `timeout` key is a mistake, not a pre-existing call: never baselined.
+        if (bound === 'timeout') context.report({ node, messageId: 'dollarTimeoutOption', data: { command } });
+        else reporter.add({ node, data: { fn: '$', command } });
       },
       'Program:exit'() {
         reporter.flush();

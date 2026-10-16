@@ -56,6 +56,15 @@ import path from 'node:path';
 // session's execution was ever observed, so a restart during a slow launch does
 // not mistake "not started yet" for "finished".
 const PERSISTABLE_FIELDS = ['chatId', 'messageId', 'startTime', 'url', 'command', 'commandAlias', 'isolationBackend', 'sessionId', 'executionUuid', 'containerFilesystemStartBytes', 'containerFilesystemLastBytes', 'containerFilesystemLastObservedAt', 'containerFilesystemInheritedBytes', 'containerResourceLimits', 'containerResourceLimitExceeded', 'cpuPenalty', 'tool', 'infoBlock', 'urlContext', 'requesterUserId', 'showLimits', 'locale', 'logPath', 'args', 'completionNotifiedAt', 'completionExitCode', 'completionStatus', 'lastToolSessionId', 'oomEventObservedAt', 'killRecoveryAttempts', 'killRecoverySessionId', 'killRecoveryOfSession', 'rootSessionName', 'rootStartTime', 'previousExecutionUuids', 'killRecoveryResumed', 'killRecoveryInPlace', 'killRecoveryResumeMode', 'killRecoveryStartedAt', 'killRecoveryLogStartBytes', 'recoveryLifecycle', 'stopRequestedByUser', 'stopRequestedBy', 'onSessionKill', 'resolvedPullRequestUrl', 'launchPending', 'launchedAt', 'containerSeenAt'];
+// Issue #2303: the lowest host disk reading taken while the session ran, so a disk-full kill is still diagnosable after a restart.
+PERSISTABLE_FIELDS.push('hostDiskMinAvailableBytes', 'hostDiskTotalBytes', 'hostDiskMinAvailableAt', 'hostDiskPath');
+// Issue #2303: the streak of failed `$ --status` queries survives a restart, so a bot restart does not reset the limit.
+PERSISTABLE_FIELDS.push('statusQueryErrorCount');
+// Issue #2888: how often a kill-recovery chain was relaunched after solve
+// refused to start for lack of disk space (exit 75).
+PERSISTABLE_FIELDS.push('killRecoveryDiskDeferrals');
+// Issue #2889: snapshot images to remove with the task's last container.
+PERSISTABLE_FIELDS.push('killRecoverySnapshotImages', 'killRecoveryContainerName');
 
 /**
  * Resolve the directory durable bot state is written to. Honors
@@ -142,10 +151,15 @@ export function createSessionStore(options = {}) {
     else if (verbose) console.log(`[session-store] ${message}${meta ? ` ${JSON.stringify(meta)}` : ''}`);
   }
 
-  function ensureDir() {
+  // Snapshot and audit-event I/O runs off the event loop (issues #3206, #3278):
+  // the bot persists a session while it serves Telegram updates. Pending work
+  // stays queued until it lands, so `flushSync()` at exit still has it.
+  const fsp = fsImpl.promises || fs.promises;
+
+  async function ensureDir() {
     if (disabled) return false;
     try {
-      fsImpl.mkdirSync(dir, { recursive: true });
+      await fsp.mkdir(dir, { recursive: true });
       return true;
     } catch (error) {
       disabled = true;
@@ -154,43 +168,96 @@ export function createSessionStore(options = {}) {
     }
   }
 
-  function readSnapshotMap() {
+  function parseSnapshot(raw) {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && parsed.sessions && typeof parsed.sessions === 'object') {
+      return parsed.sessions;
+    }
+    return {};
+  }
+
+  async function readSnapshotMap() {
     try {
-      const raw = fsImpl.readFileSync(snapshotPath, 'utf8');
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === 'object' && parsed.sessions && typeof parsed.sessions === 'object') {
-        return parsed.sessions;
-      }
-      return {};
+      return parseSnapshot(await fsp.readFile(snapshotPath, 'utf8'));
     } catch {
       // Missing or corrupt snapshot is non-fatal — start from empty.
       return {};
     }
   }
 
-  function writeSnapshotMap(sessions) {
-    if (!ensureDir()) return;
-    const payload = JSON.stringify({ version: 1, updatedAt: toIso(now()), sessions }, null, 2);
-    const tmpPath = `${snapshotPath}.tmp`;
+  const snapshotPayload = sessions => JSON.stringify({ version: 1, updatedAt: toIso(now()), sessions }, null, 2);
+  const tmpPath = `${snapshotPath}.tmp`;
+
+  async function writeSnapshotMap(sessions) {
+    if (!(await ensureDir())) return;
     try {
       // Atomic replace: write tmp then rename so a crash mid-write never leaves
       // a half-written snapshot.
-      fsImpl.writeFileSync(tmpPath, payload);
-      fsImpl.renameSync(tmpPath, snapshotPath);
+      await fsp.writeFile(tmpPath, snapshotPayload(sessions));
+      await fsp.rename(tmpPath, snapshotPath);
     } catch (error) {
       log('error', `Could not write session snapshot: ${error.message}`);
     }
   }
 
-  // Audit events are appended off the event loop, in order. A batch stays
-  // queued until its write completes so `flushSync()` at exit still has it.
-  const fsp = fsImpl.promises || fs.promises;
+  // Snapshot updates are read-modify-write steps applied in order. Each one
+  // returns whether it changed the map, so an unchanged snapshot is not rewritten.
+  const pendingUpdates = [];
+  let updating = null;
   const pendingEvents = [];
   let writing = null;
   let exiting = false;
 
+  const applyUpdates = (sessions, updates) => updates.reduce((changed, update) => update(sessions) || changed, false);
+
+  async function writeSnapshots() {
+    while (pendingUpdates.length > 0 && !exiting) {
+      const count = pendingUpdates.length;
+      const sessions = await readSnapshotMap();
+      if (applyUpdates(sessions, pendingUpdates.slice(0, count))) await writeSnapshotMap(sessions);
+      if (exiting) return;
+      pendingUpdates.splice(0, count);
+    }
+  }
+
+  function flushSnapshotSync() {
+    exiting = true;
+    if (pendingUpdates.length === 0 || disabled) return;
+    let sessions = {};
+    try {
+      sessions = parseSnapshot(fsImpl.readFileSync(snapshotPath, 'utf8')); // hive-sync-ok: exit handler, the event loop is gone
+    } catch {
+      /* missing or corrupt: start from empty, as the asynchronous path does */
+    }
+    if (!applyUpdates(sessions, pendingUpdates.splice(0, pendingUpdates.length))) return;
+    try {
+      fsImpl.mkdirSync(dir, { recursive: true }); // hive-sync-ok: exit handler, the event loop is gone
+      fsImpl.writeFileSync(tmpPath, snapshotPayload(sessions)); // hive-sync-ok: exit handler, the event loop is gone
+      fsImpl.renameSync(tmpPath, snapshotPath); // hive-sync-ok: exit handler, the event loop is gone
+    } catch (error) {
+      log('error', `Could not write session snapshot: ${error.message}`);
+    }
+  }
+
+  function updateSnapshot(update) {
+    pendingUpdates.push(update);
+    if (exiting) {
+      flushSnapshotSync(); // hive-sync-ok: only after the exit handler ran
+      return;
+    }
+    if (!updating) {
+      updating = writeSnapshots().finally(() => {
+        updating = null;
+      });
+    }
+  }
+
   async function writeEvents() {
     while (pendingEvents.length > 0 && !exiting) {
+      if (!(await ensureDir())) {
+        pendingEvents.length = 0;
+        return;
+      }
       const count = pendingEvents.length;
       try {
         await fsp.appendFile(eventsPath, pendingEvents.slice(0, count).join(''));
@@ -213,7 +280,7 @@ export function createSessionStore(options = {}) {
   }
 
   function appendEvent(type, sessionName, data) {
-    if (!ensureDir()) return;
+    if (disabled) return;
     const entry = { ts: toIso(now()), type, sessionName, ...data };
     pendingEvents.push(JSON.stringify(entry) + '\n');
     if (exiting) {
@@ -225,6 +292,11 @@ export function createSessionStore(options = {}) {
         writing = null;
       });
     }
+  }
+
+  /** Resolves once every snapshot update and audit event recorded so far is on disk. */
+  async function flush() {
+    while (writing || updating) await Promise.all([writing, updating]);
   }
 
   return {
@@ -245,11 +317,12 @@ export function createSessionStore(options = {}) {
      */
     persist(sessionName, sessionInfo) {
       if (!sessionName) return;
-      const sessions = readSnapshotMap();
       const serialized = serializeSessionInfo(sessionInfo);
       serialized.persistedAt = toIso(now());
-      sessions[sessionName] = serialized;
-      writeSnapshotMap(sessions);
+      updateSnapshot(sessions => {
+        sessions[sessionName] = serialized;
+        return true;
+      });
       appendEvent('track', sessionName, { sessionInfo: serialized });
       log('debug', `Persisted session ${sessionName}`, { command: serialized.command, url: serialized.url });
     },
@@ -263,35 +336,35 @@ export function createSessionStore(options = {}) {
      */
     remove(sessionName, meta = {}) {
       if (!sessionName) return;
-      const sessions = readSnapshotMap();
-      if (sessionName in sessions) {
-        delete sessions[sessionName];
-        writeSnapshotMap(sessions);
-      }
+      updateSnapshot(sessions => sessionName in sessions && delete sessions[sessionName]);
       // Issue #2154: carry the reason (when the caller knows it) so the durable
       // event log says why a session ended, not just that it did.
       appendEvent('complete', sessionName, { status: meta.status ?? null, exitCode: meta.exitCode ?? null, reason: meta.reason ?? null });
       log('debug', `Removed session ${sessionName} from snapshot`, meta);
     },
 
-    /** Resolves once every audit event recorded so far has reached the file. */
-    async flush() {
-      while (writing) await writing;
-    },
+    /** Resolves once every snapshot update and audit event recorded so far is on disk. */
+    flush,
 
     /**
-     * Write queued audit events synchronously, and every later one too. Only
-     * for `process.on('exit')`, where the asynchronous writer can no longer run.
+     * Write queued snapshot updates and audit events synchronously, and every
+     * later one too. Only for `process.on('exit')`, where the asynchronous
+     * writers can no longer run.
      */
-    flushSync: flushEventsSync,
+    flushSync() {
+      flushSnapshotSync(); // hive-sync-ok: exit handler, the event loop is gone
+      flushEventsSync(); // hive-sync-ok: exit handler, the event loop is gone
+    },
 
     /**
      * Load all persisted sessions as `{ sessionName, sessionInfo }` records with
      * startTime rehydrated to a Date.
-     * @returns {Array<{sessionName: string, sessionInfo: object}>}
+     * Waits for the snapshot updates recorded so far, so it sees them.
+     * @returns {Promise<Array<{sessionName: string, sessionInfo: object}>>}
      */
-    load() {
-      const sessions = readSnapshotMap();
+    async load() {
+      while (updating) await updating;
+      const sessions = await readSnapshotMap();
       const out = [];
       for (const [sessionName, record] of Object.entries(sessions)) {
         out.push({ sessionName, sessionInfo: deserializeSessionInfo(record) });

@@ -123,17 +123,17 @@ test('an accepted update that migrated memory still fails closed rather than dow
 test('the updater does not download a Formal AI image for a host served by the Hive Mind image', async () => {
   const env = makeEnv();
   const docker = createDockerSimulator({ images: { [HIVE_MIND]: 'sha256:hive' }, pull: { [LATEST]: UPDATE_DIGEST }, registry: { [LATEST]: UPDATE_DIGEST } });
-  writeFormalAiSidecarState({ image: HIVE_MIND, imageReference: HIVE_MIND, imageDigest: 'sha256:hive', leases: [], lastUsedAt: new Date(NOW - 10 * 60 * 1000).toISOString(), serving: { image: HIVE_MIND, imageDigest: 'sha256:hive', version: '0.352.1', memorySchemaVersion: null } }, { env });
+  await writeFormalAiSidecarState({ image: HIVE_MIND, imageReference: HIVE_MIND, imageDigest: 'sha256:hive', leases: [], lastUsedAt: new Date(NOW - 10 * 60 * 1000).toISOString(), serving: { image: HIVE_MIND, imageDigest: 'sha256:hive', version: '0.352.1', memorySchemaVersion: null } }, { env });
   const result = await updateFormalAiSidecarWhenIdle({ env, run: docker.run, now: at(NOW), ...fast });
   assert.equal(result.status, 'not-present');
   assert.equal(docker.ran(/^pull /), false, 'nothing is pulled');
-  assert.equal(readFormalAiSidecarState({ env }).lastUpdate, null, 'nothing is accepted');
+  assert.equal((await readFormalAiSidecarState({ env })).lastUpdate, null, 'nothing is accepted');
 });
 
 test('the updater does not pull again while the last accepted update has not served a task', async () => {
   const env = makeEnv();
   const docker = createDockerSimulator({ images: { [LATEST]: UPDATE_DIGEST }, pull: { [LATEST]: 'sha256:newer' }, registry: { [LATEST]: 'sha256:newer' } });
-  writeFormalAiSidecarState({ image: LATEST, imageDigest: UPDATE_DIGEST, leases: [], lastUsedAt: new Date(NOW - 2 * HOUR).toISOString(), lastUpdate: { ...UNMIGRATED, updatedAt: new Date(NOW - HOUR).toISOString() } }, { env });
+  await writeFormalAiSidecarState({ image: LATEST, imageDigest: UPDATE_DIGEST, leases: [], lastUsedAt: new Date(NOW - 2 * HOUR).toISOString(), lastUpdate: { ...UNMIGRATED, updatedAt: new Date(NOW - HOUR).toISOString() } }, { env });
   const result = await updateFormalAiSidecarWhenIdle({ env, run: docker.run, now: at(NOW), ...fast });
   assert.equal(result.status, 'unused');
   assert.equal(docker.ran(/^pull /), false);
@@ -142,7 +142,7 @@ test('the updater does not pull again while the last accepted update has not ser
 test('an idle unload keeps the Hive Mind image and says that it serves Formal AI', async () => {
   const env = makeEnv();
   const docker = createDockerSimulator({ images: { [HIVE_MIND]: 'sha256:hive' } });
-  writeFormalAiSidecarState({ image: HIVE_MIND, imageDigest: 'sha256:hive', leases: [], lastUsedAt: new Date(NOW - 10 * HOUR).toISOString() }, { env });
+  await writeFormalAiSidecarState({ image: HIVE_MIND, imageDigest: 'sha256:hive', leases: [], lastUsedAt: new Date(NOW - 10 * HOUR).toISOString() }, { env });
   const logs = [];
   const result = await unloadIdleFormalAiSidecar({ env, run: docker.run, now: at(NOW), verbose: true, log: async line => logs.push(line) });
   assert.equal(result.status, 'nothing-to-unload');
@@ -158,12 +158,12 @@ test('an idle unload keeps the Hive Mind image and says that it serves Formal AI
 test('bytesFreed says whether it was measured or estimated', async () => {
   const measuredEnv = makeEnv();
   const measured = createDockerSimulator({ images: { [LATEST]: UPDATE_DIGEST, [HIVE_MIND]: 'sha256:hive' } });
-  writeFormalAiSidecarState({ image: LATEST, imageDigest: UPDATE_DIGEST, leases: [], lastUsedAt: new Date(NOW - 10 * HOUR).toISOString() }, { env: measuredEnv });
+  await writeFormalAiSidecarState({ image: LATEST, imageDigest: UPDATE_DIGEST, leases: [], lastUsedAt: new Date(NOW - 10 * HOUR).toISOString() }, { env: measuredEnv });
   const measuredLogs = [];
   const unloaded = await unloadIdleFormalAiSidecar({ env: measuredEnv, run: measured.run, now: at(NOW), log: async line => measuredLogs.push(line) });
   assert.equal(unloaded.status, 'unloaded');
   assert.equal(unloaded.bytesFreedSource, 'measured');
-  assert.equal(readFormalAiSidecarState({ env: measuredEnv }).lastUnload.bytesFreedSource, 'measured');
+  assert.equal((await readFormalAiSidecarState({ env: measuredEnv })).lastUnload.bytesFreedSource, 'measured');
   assert.match(measuredLogs.join('\n'), /freeing 24\.00GB \(measured by `docker system df`\)/);
 
   const estimatedEnv = makeEnv();
@@ -172,7 +172,7 @@ test('bytesFreed says whether it was measured or estimated', async () => {
     if (args[0] === 'system' && args[1] === 'df') throw new Error('docker system df: unsupported');
     return simulator.run(command, args, options);
   };
-  writeFormalAiSidecarState({ image: LATEST, imageDigest: UPDATE_DIGEST, leases: [], lastUsedAt: new Date(NOW - 10 * HOUR).toISOString() }, { env: estimatedEnv });
+  await writeFormalAiSidecarState({ image: LATEST, imageDigest: UPDATE_DIGEST, leases: [], lastUsedAt: new Date(NOW - 10 * HOUR).toISOString() }, { env: estimatedEnv });
   const estimatedLogs = [];
   const estimated = await unloadIdleFormalAiSidecar({ env: estimatedEnv, run, now: at(NOW), log: async line => estimatedLogs.push(line) });
   assert.equal(estimated.bytesFreedSource, 'estimated');

@@ -108,7 +108,7 @@ try {
   const fromImage = `${FORMAL_AI_IMAGE_REPOSITORY}:${FORMAL_AI_BOOTSTRAP_VERSION}`;
   console.log(`=== starting from the bootstrap release ${fromImage} ===`);
   await docker(['pull', fromImage]);
-  writeFormalAiSidecarState({ image: fromImage, imageDigest: await docker(['image', 'inspect', fromImage, '--format', '{{.Id}}']), leases: [] }, { env });
+  await writeFormalAiSidecarState({ image: fromImage, imageDigest: await docker(['image', 'inspect', fromImage, '--format', '{{.Id}}']), leases: [] }, { env });
 
   console.log('\n=== idle update ===');
   const update = await updateFormalAiSidecarWhenIdle(options);

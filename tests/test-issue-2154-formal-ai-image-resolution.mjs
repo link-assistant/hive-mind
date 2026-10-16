@@ -232,7 +232,7 @@ const fastSidecar = { healthAttempts: 2, healthDelayMs: 0, sleepImpl: async () =
 {
   const env = makeEnv();
   // Issue #2305: only a host that ran a Formal AI task recently checks for updates.
-  writeFormalAiSidecarState({ lastUsedAt: new Date().toISOString() }, { env });
+  await writeFormalAiSidecarState({ lastUsedAt: new Date().toISOString() }, { env });
   const docker = createDockerSimulator({ images: { 'ghcr.io/link-assistant/formal-ai:latest': 'sha256:old' }, pullError: UNAUTHORIZED });
   const logs = [];
   const result = await updateFormalAiSidecarWhenIdle({ env, run: docker.run, log: async line => logs.push(line), healthAttempts: 2, healthDelayMs: 0, sleepImpl: async () => {} });
@@ -256,7 +256,7 @@ const fastSidecar = { healthAttempts: 2, healthDelayMs: 0, sleepImpl: async () =
   // next cycle will simply try again.
   const env = makeEnv();
   // Issue #2305: only a host that ran a Formal AI task recently checks for updates.
-  writeFormalAiSidecarState({ lastUsedAt: new Date().toISOString() }, { env });
+  await writeFormalAiSidecarState({ lastUsedAt: new Date().toISOString() }, { env });
   const docker = createDockerSimulator({ images: { 'ghcr.io/link-assistant/formal-ai:latest': 'sha256:old' }, pullError: 'dial tcp 140.82.121.33:443: i/o timeout' });
   const logs = [];
   const result = await updateFormalAiSidecarWhenIdle({ env, run: docker.run, log: async line => logs.push(line), healthAttempts: 2, healthDelayMs: 0, sleepImpl: async () => {} });

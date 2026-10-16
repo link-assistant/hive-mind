@@ -19,7 +19,7 @@
 #
 # Build: docker build -t konard/hive-mind .
 
-ARG FORMAL_AI_VERSION=0.353.2
+ARG FORMAL_AI_VERSION=0.353.8
 # Bookworm's glibc 2.36 remains compatible with the Ubuntu 24.04 Box runtime.
 FROM rust:1.99-slim-bookworm AS formal-ai-builder
 ARG FORMAL_AI_VERSION
@@ -126,6 +126,11 @@ SHELL ["/bin/bash", "-c"]
 # The solver verifies downloaded attachments with file before opening them.
 # Box's runtime does not guarantee this utility (issue #2687).
 RUN command -v file >/dev/null || HOMEBREW_NO_AUTO_UPDATE=1 brew install file
+
+# AI tools pipe JSON through jq, and the solver's printed "Raw command" ends in
+# `| jq -c .`. Box's runtime does not guarantee this utility either; without it
+# those commands exit 127 with `jq: command not found` (issue #2846).
+RUN command -v jq >/dev/null || HOMEBREW_NO_AUTO_UPDATE=1 brew install jq
 
 # --- Current Node.js and Bun (issue #2187) ---
 # Box bases up to 2.4.0 installed Node.js 20 (`nvm install 20` in box's

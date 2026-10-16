@@ -169,6 +169,23 @@ export const isToolGeneratedComment = body => {
   return isAutomatedWorkingSessionSummaryComment(body) || TOOL_GENERATED_COMMENT_MARKERS.some(marker => body.includes(marker));
 };
 
+const escapeRegExp = text => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+// `## ✅ Ready to merge`, `## 🔄 Auto-restart 1/5`, `## :warning: Session Force-Killed (…)`: the status
+// headings solve.mjs opens its own comments with - an icon, then a marker. Only such a heading counts, so a
+// person quoting "Ready to merge", or titling a request "## Ready to merge?", is still feedback (issue #2406).
+const headingMarkers = TOOL_GENERATED_COMMENT_MARKERS.filter(marker => !marker.startsWith('<!--'))
+  .map(escapeRegExp)
+  .join('|');
+const TOOL_STATUS_HEADING = new RegExp(`^#{1,6} (?:\\S+ (?:${headingMarkers})|${escapeRegExp(CANCELLED_CI_REVIEW_MARKER)})(?=$|[\\s:(])`);
+
+/** True when a comment opens with one of solve.mjs's own status headings or hidden automation markers. */
+export const isToolStatusComment = body => {
+  if (!body || typeof body !== 'string') return false;
+  const text = body.trimStart();
+  if (TOOL_GENERATED_COMMENT_MARKERS.some(marker => marker.startsWith('<!--') && text.startsWith(marker))) return true;
+  return TOOL_STATUS_HEADING.test(text.split('\n', 1)[0].trim());
+};
+
 // ----------------------------------------------------------------------------
 // In-memory tracking of comments posted by solve.mjs during this session.
 //

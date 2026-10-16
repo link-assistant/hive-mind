@@ -176,6 +176,35 @@ test('the report parser, extractor and digest are strict and deterministic', () 
   assert.ok(evaluateRequirementsReport({ prBody: formatRequirementsReport(template), headSha, issues: [{ ...repository, number: 322, sourceDigest: 'd', explicitRequirements: [] }] }));
 });
 
+test("hive-mind's own status comments posted after the report do not make it stale", async () => {
+  const { trackToolCommentId, resetTrackedToolCommentIds } = await import('../src/tool-comments.lib.mjs');
+  const digest = feedback => requirementSourceDigest({ body: 'issue', feedback });
+  const before = digest([{ id: 1, body: 'Please also add docs.' }]);
+  // Posted by solve.mjs once CI is green, after the agent wrote its report.
+  const status = ['## ✅ Ready to merge\n\nThis pull request is now ready to be merged:', '## 🔄 Auto-restart 1/5\n\nDetected uncommitted changes', '## ⚠️ Auto-merge blocked\n\nAuto-merge (`--auto-merge`) cannot merge', '## 🛑 Automation stopped: CI failed', '## Cancelled CI/CD Requires Review\n\nx'];
+  assert.equal(digest([{ id: 1, body: 'Please also add docs.' }, ...status.map((body, i) => ({ id: 10 + i, body }))]), before);
+  // A tracked comment of this run is bookkeeping whatever it says.
+  trackToolCommentId(99);
+  assert.equal(
+    digest([
+      { id: 1, body: 'Please also add docs.' },
+      { id: 99, body: 'anything' },
+    ]),
+    before
+  );
+  resetTrackedToolCommentIds();
+  // A person quoting or titling with a marker is still feedback.
+  for (const body of ['The bot said "Ready to merge" but the docs are missing.', '## Ready to merge?\nNo.', '## Ready to merge\nNot yet.'])
+    assert.notEqual(
+      digest([
+        { id: 1, body: 'Please also add docs.' },
+        { id: 2, body },
+      ]),
+      before,
+      body
+    );
+});
+
 test('rewriting a placeholder description keeps an existing requirements report', () => {
   const block = formatRequirementsReport({ version: 1, headSha, issues: [] });
   assert.equal(preserveRequirementsReport(`old\n${block}`, 'new body'), `new body\n\n${block}`);

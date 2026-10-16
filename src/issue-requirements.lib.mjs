@@ -6,7 +6,7 @@
 import { createHash } from 'node:crypto';
 import { getClosingReferenceText } from './github-linking.lib.mjs';
 import { issueKey } from './issue-link-verification.lib.mjs';
-import { isToolGeneratedComment } from './tool-comments.lib.mjs';
+import { isToolGeneratedComment, isToolStatusComment, isToolTrackedCommentId } from './tool-comments.lib.mjs';
 import { REQUIREMENTS_END, REQUIREMENTS_START } from './issue-completion.prompts.lib.mjs';
 
 export { REQUIREMENTS_END, REQUIREMENTS_START };
@@ -18,8 +18,9 @@ export function requirementFeedback(comments) {
   return (comments || [])
     .filter(comment => {
       if (!nonempty(comment?.body)) return false;
-      // Quoting an automation phrase in a user's request must not erase it.
-      const bookkeeping = isToolGeneratedComment(comment.body) && (/^<!-- hive-mind:working-session-summary -->/.test(comment.body) || (/^## /u.test(comment.body) && /(?:by hive-mind|Now working session is ended|AI work session|automatically extracted)/i.test(comment.body)));
+      // Quoting an automation phrase in a user's request must not erase it. Status comments solve.mjs
+      // posts after the report ("Ready to merge", "Auto-restart", "Auto-merge blocked") are not feedback.
+      const bookkeeping = isToolTrackedCommentId(comment.id) || isToolStatusComment(comment.body) || (isToolGeneratedComment(comment.body) && /^## /u.test(comment.body) && /(?:by hive-mind|Now working session is ended|AI work session|automatically extracted)/i.test(comment.body));
       return !bookkeeping;
     })
     .map(comment => ({ id: comment.id, body: comment.body }))

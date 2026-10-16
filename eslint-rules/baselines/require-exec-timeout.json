@@ -220,7 +220,7 @@
     "reason": "git/gh work of the per-task solve process; this module is not in the Telegram bot's import closure."
   },
   "src/solve.session-comments.lib.mjs": {
-    "count": 7,
+    "count": 6,
     "reason": "git/gh work of the per-task solve process; this module is not in the Telegram bot's import closure."
   },
   "src/solve.watch.lib.mjs": {

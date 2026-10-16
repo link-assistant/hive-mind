@@ -104,19 +104,10 @@ export const stagedWorkflowExecution = ({ code, stdout }, staged) => ({
 /** The summary line a rejected workflow push is reported under. */
 export const WORKFLOW_PUSH_REJECTED = 'harness: workflow push rejected (no workflows permission)';
 
-const WORKFLOW_PUSH_REJECTION = /refusing to allow an? (GitHub App|OAuth App|Personal Access Token|integration) to create or update workflow `?([^`\s)]+)`? without `?workflows?`? (?:permission|scope)/i;
+// Issue #3332: solve reports the same rejection on the pull request; one detector serves both.
+import { detectWorkflowPushRejection } from '../src/workflow-push-rejection.lib.mjs';
 
-/**
- * GitHub's rejection of a push that touches `.github/workflows/*` without the
- * `workflows` permission (or `workflow` scope). It rejects the whole push.
- *
- * @param {string} logText solve.log
- * @returns {{workflow: string, credential: string}|null}
- */
-export function detectWorkflowPushRejection(logText) {
-  const match = WORKFLOW_PUSH_REJECTION.exec(String(logText ?? ''));
-  return match ? { workflow: match[2], credential: match[1] } : null;
-}
+export { detectWorkflowPushRejection };
 
 /** The harness result for a rejected workflow push, with what a maintainer must do. */
 export function workflowPushRejectionResult(rejection, { layer = 'default' } = {}) {

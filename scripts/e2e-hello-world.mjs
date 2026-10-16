@@ -100,8 +100,7 @@ try {
   const session = await run('docker', dockerArgv, 'solve.log');
   evidence.solveExitCode = session.code;
   const solveLogPath = join(hostLogDir, 'solve.log');
-  const rejection = detectWorkflowPushRejection(existsSync(solveLogPath) ? readFileSync(solveLogPath, 'utf8') : '');
-  harness.push(rejection ? workflowPushRejectionResult(rejection, { layer: evidence.layer }) : { name: 'workflow push accepted', ok: true, reason: 'no workflow push rejection in solve.log' });
+  const solveLog = existsSync(solveLogPath) ? readFileSync(solveLogPath, 'utf8') : '';
   pullRequest = selectPullRequest(await ghJson(['pr', 'list', '--repo', repository, '--state', 'all', '--limit', '100', '--json', 'number,headRefName,isDraft,state,title,body,url,headRefOid,baseRefName']), issueNumber);
   let files = [];
   let execution = { mode: 'none', checks: [], workflowLog: '' };
@@ -145,6 +144,9 @@ try {
     else if (staged.length) execution = stagedWorkflowExecution(await runAct(staged.map(source => ({ source, target: stagedWorkflowTarget(source) }))), staged);
     for (const number of [pullRequest.number, issueNumber]) comments.push(...(await ghList(`repos/${repository}/issues/${number}/comments?per_page=100`)).map(comment => comment.body));
   }
+  // A workflow a later push did deliver is not missing (#3332).
+  const rejection = detectWorkflowPushRejection(solveLog, { files: pullRequest ? files : null });
+  harness.push(rejection ? workflowPushRejectionResult(rejection, { layer: evidence.layer }) : { name: 'workflow push accepted', ok: true, reason: 'no unrecovered workflow push rejection in solve.log' });
   const evaluation = evaluateE2eRun({ pullRequest, files, checks: execution.checks, workflowLog: execution.workflowLog, comments, workflowDir });
   if (baseBranch && pullRequest?.baseRefName !== baseBranch) evaluation.results.push({ name: 'isolated base branch', ok: false, reason: `Expected ${baseBranch}, received ${pullRequest?.baseRefName}` });
   if (session.code !== 0) evaluation.results.push({ name: 'solve completed', ok: false, reason: `solve exited ${session.code}` });

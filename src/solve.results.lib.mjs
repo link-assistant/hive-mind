@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { readFile } from 'node:fs/promises';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 
 // Results processing module for solve command
@@ -24,6 +25,7 @@ const { log, getLogFile, formatAligned } = lib;
 // Import exit handler
 import { safeExit } from './exit-handler.lib.mjs';
 import { reportSessionWithoutChanges } from './session-changes.lib.mjs';
+import { reportWorkflowPushRejection } from './workflow-push-rejection.lib.mjs';
 import { getSolveNoChangesExitCode } from './solve.exit-codes.lib.mjs';
 // Import GitHub-related functions
 const githubLib = await import('./github.lib.mjs');
@@ -810,6 +812,9 @@ Fixes ${issueRef}
           //
           // Issue #3211: the diff against the base branch includes earlier sessions'
           // commits, so what this run changed is measured too (session-changes.lib.mjs).
+          // Issue #3332: a push GitHub refused for want of the workflows permission is a credential problem, reported on the PR.
+          const logText = getLogFile() ? await readFile(getLogFile(), 'utf8').catch(() => '') : '';
+          await reportWorkflowPushRejection({ owner, repo, prNumber: pr.number, logText, $, log });
           const sessionOutcome = await reportSessionWithoutChanges({ owner, repo, prNumber: pr.number, issueNumber, $, log });
           noChanges = sessionOutcome.noChanges;
           effectUnverified = sessionOutcome.unmeasured === true;

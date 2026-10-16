@@ -28,11 +28,11 @@ jobs:
 
     - name: Run HelloWorld.scala
       run: |
-        scala HelloWorld.scala
+        scala-cli HelloWorld.scala
 
     - name: Verify output
       run: |
-        output=$(scala HelloWorld.scala)
+        output=$(scala-cli HelloWorld.scala)
         if [ "$output" = "Hello, World!" ]; then
           echo "Test passed"
         else

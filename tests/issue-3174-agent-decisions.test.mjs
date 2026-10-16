@@ -31,7 +31,7 @@ const range = (first, last) => Array.from({ length: last - first + 1 }, (_, inde
  */
 function fixture({ owner = 'o', repo = 'r', prNumber, tree, body, linked = [], issues = {}, createdAt, primaryBody = '' }) {
   const pr = { number: prNumber, body, head: { sha: 'a'.repeat(40), ref: 'feature' }, base: { ref: 'main' }, ...(createdAt && { created_at: createdAt }) };
-  const state = { pr, linked, edits: 0, history: [body], historyQueries: 0 };
+  const state = { pr, linked, edits: 0, history: [body], historyQueries: 0, comments: [] };
   state.agentEdit = text => {
     pr.body = text;
     state.history.push(text);
@@ -42,7 +42,12 @@ function fixture({ owner = 'o', repo = 'r', prNumber, tree, body, linked = [], i
       state.agentEdit(await readFile(args[args.indexOf('--body-file') + 1], 'utf8'));
       return json({});
     }
+    if (args[0] === 'pr' && args[1] === 'comment') {
+      state.comments.push(await readFile(args[args.indexOf('--body-file') + 1], 'utf8'));
+      return json({});
+    }
     const endpoint = args[1];
+    if (endpoint === `repos/${owner}/${repo}/issues/${prNumber}/comments`) return json([state.comments.map(text => ({ body: text }))]);
     const query = args.find(arg => String(arg).startsWith('query=')) || '';
     if (endpoint === 'graphql' && query.includes('userContentEdits')) {
       state.historyQueries++;
@@ -129,7 +134,13 @@ test('(b) a closing line the session removed after an earlier repair added it is
   const result = await repairRequiredIssueLinks({ ...context, run: f.run, logger: async message => logs.push(message) });
   assert.deepEqual([result.checked, result.updated, result.conflicts], [true, false, ['o/r#3']]);
   assert.equal(f.pr.body, 'Fixes #1\n\nRewritten by the session.\n\n---\n\nFixes #2', 'the agent is not undone');
-  assert.match(logs.at(-1), /⚠️ #3 was removed from the description by the session; not re-adding its closing reference/);
+  assert.match(logs.join('\n'), /⚠️ #3 was removed from the description by the session; not re-adding its closing reference/);
+  // The conflict is said on the pull request once, since the session summary is posted before the repair runs.
+  assert.equal(f.comments.length, 1);
+  assert.match(f.comments[0], /<!-- hive-mind:closing-references-left-out o\/r#3 -->/);
+  assert.match(f.comments[0], /Closing references left out[\s\S]*#3[\s\S]*will not close that issue/);
+  await repairRequiredIssueLinks({ ...context, run: f.run });
+  assert.equal(f.comments.length, 1, 'the same conflict is not reported twice');
   // The guard keeps the merge blocked, so a human sees the conflict.
   const { blocker } = await checkIssueLinksBeforeMerge({ ...context, run: f.run });
   assert.equal(blocker.reason, 'missing_closing_references');
@@ -139,11 +150,14 @@ test('(b) a closing line the session removed after an earlier repair added it is
   f.agentEdit('Rewritten again.');
   await repairRequiredIssueLinks({ ...context, run: f.run });
   assert.equal(f.pr.body, 'Rewritten again.\n\n---\n\nFixes #1');
+  assert.equal(f.comments.length, 2, 'a session that drops another sub-issue is a new conflict');
+  assert.match(f.comments[1], /closing-references-left-out o\/r#2 o\/r#3 -->/);
   // Saying in the description that the issue stays open settles it.
   f.agentEdit('Fixes #1. #2 and #3 stay open.');
   f.linked = [1];
   assert.deepEqual((await repairRequiredIssueLinks({ ...context, run: f.run })).conflicts, []);
   assert.equal((await checkIssueLinksBeforeMerge({ ...context, run: f.run })).blocker, null);
+  assert.equal(f.comments.length, 2, 'no notice without a conflict');
 });
 
 test('(b) a never-repaired sub-issue is still added, repository-mode issues are always restored, and an unreadable history fails closed', async () => {

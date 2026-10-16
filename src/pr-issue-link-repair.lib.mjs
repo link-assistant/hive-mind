@@ -6,14 +6,41 @@ import { describeDeferrals, ghJson, fetchRequiredIssueScope, isSameRepository, i
 import { extractClosingIssueReferences, extractNegatedClosingReferences } from './github-linking.lib.mjs';
 import { buildIssueReference } from './pr-issue-linking.lib.mjs';
 import { writeSanitizedPublicationFile } from './token-sanitization.lib.mjs';
+import { CLOSING_REFERENCES_LEFT_OUT_MARKER } from './tool-comments.lib.mjs';
 
 /** Publish through a sanitized temporary file that is always removed. */
-const publishBody = async ({ run, owner, repo, prNumber, body }) => {
+const publishFile = async ({ run, owner, repo, prNumber, body, command = 'edit' }) => {
   const directory = await mkdtemp(join(tmpdir(), 'hive-mind-issue-links-'));
   const bodyFile = join(directory, 'body.md');
   return writeSanitizedPublicationFile(bodyFile, body)
-    .then(() => run(['pr', 'edit', String(prNumber), '--repo', `${owner}/${repo}`, '--body-file', bodyFile]))
+    .then(() => run(['pr', command, String(prNumber), '--repo', `${owner}/${repo}`, '--body-file', bodyFile]))
     .finally(() => rm(directory, { recursive: true, force: true }));
+};
+const publishBody = options => publishFile({ ...options, command: 'edit' });
+
+/**
+ * Issue #3174: a closing reference the session removed is not added back, so
+ * merging will not close that issue. The working session summary is posted
+ * before this repair runs, so the pull request gets its own notice, once per
+ * set of issues. Best-effort: a failure is logged and never fails the repair.
+ */
+export const reportLeftOutClosingReferences = async ({ run, owner, repo, prNumber, conflicts, argv = {}, logger = async () => {} }) => {
+  if (!conflicts?.length) return false;
+  const keys = [...conflicts].sort();
+  const tag = `<!-- hive-mind:closing-references-left-out ${keys.join(' ')} -->`;
+  try {
+    const pages = await ghJson(run, ['api', `repos/${owner}/${repo}/issues/${prNumber}/comments`, '--paginate', '--slurp']);
+    if ((Array.isArray(pages) ? pages.flat() : []).some(comment => String(comment?.body || '').includes(tag))) return false;
+    const references = keys.map(key => (key.startsWith(`${owner}/${repo}#`) && !argv.fork ? `#${key.split('#').pop()}` : key));
+    const one = references.length === 1;
+    const body = [tag, `⚠️ **${CLOSING_REFERENCES_LEFT_OUT_MARKER}**`, '', `A working session removed the \`Fixes\` line${one ? '' : 's'} an earlier repair added for ${references.join(', ')}. Hive Mind does not add ${one ? 'it' : 'them'} back, so merging this pull request will not close ${one ? 'that issue' : 'those issues'}.`, '', `If ${one ? 'it' : 'they'} should close with this pull request, add the line${one ? '' : 's'} to the description again.`].join('\n');
+    const result = await publishFile({ run, owner, repo, prNumber, body, command: 'comment' });
+    if ((result?.code ?? 0) !== 0) throw new Error(result.stderr?.toString().trim() || 'gh pr comment failed');
+    return true;
+  } catch (error) {
+    await logger(`⚠️ Could not post the left-out closing references notice: ${error.message}`, { level: 'warning' });
+    return false;
+  }
 };
 
 const HISTORY_QUERY = 'query($owner:String!,$repo:String!,$number:Int!,$endCursor:String) { repository(owner:$owner,name:$repo) { pullRequest(number:$number) { userContentEdits(first:100,after:$endCursor) { nodes { diff } pageInfo { hasNextPage endCursor } } } } }';
@@ -83,6 +110,7 @@ export async function repairRequiredIssueLinks({ owner, repo, issueNumber, prNum
     if (foreign.length) await logger(`ℹ️  Not adding closing references for sub-issues in other repositories, which this pull request cannot fix: ${foreign.map(issueKey).join(', ')}`);
     if (deferred.length) await logger(`ℹ️  No closing reference is added for issues this pull request keeps open: ${describeDeferrals(split).join('; ')}`);
     for (const key of conflicts) await logger(`⚠️ #${key.split('#').pop()} was removed from the description by the session; not re-adding its closing reference`, { level: 'warning' });
+    await reportLeftOutClosingReferences({ run, owner, repo, prNumber, conflicts, argv, logger });
     if (!missing.length && !dropped.length) return { checked: true, updated: false, body, issueRef, conflicts };
     const added = missing.map(issue => `Fixes ${isSameRepository(issue, { owner, repo }) && !argv.fork ? `#${issue.number}` : `${issue.owner}/${issue.repo}#${issue.number}`}`);
     const updatedBody = withBlock([...kept, ...added]);

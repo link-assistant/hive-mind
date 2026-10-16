@@ -17,7 +17,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { execFileSync } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
+import { promisify } from 'node:util';
 
 import { extractTaskRefsFromCommand, isDockerIsolationSessionName, parseDockerContainerExitCode, parseRemoteUrl } from './cleanup.lib.mjs';
 import { correlateProcesses, parseStartCommandLogMetadata, redactProcessText } from './process-debug.lib.mjs';
@@ -33,6 +34,21 @@ function tryExec(cmd, args, options = {}) {
       maxBuffer: 64 * 1024 * 1024,
       ...options,
     }).trim();
+  } catch {
+    return null;
+  }
+}
+
+const execFileAsync = promisify(execFile);
+
+/**
+ * Async {@link tryExec}, for the paths the Telegram bot reaches through
+ * {@link getActiveTasks}: a 20 s `gh` call must not freeze its event loop (issue #3278).
+ */
+async function tryExecAsync(cmd, args, options = {}) {
+  try {
+    const { stdout } = await execFileAsync(cmd, args, { encoding: 'utf8', timeout: options.timeout ?? 20000, maxBuffer: 64 * 1024 * 1024, ...options });
+    return stdout.trim();
   } catch {
     return null;
   }
@@ -604,24 +620,27 @@ export function signalOrphanedAgentTrees(report, options = {}) {
  * Collect task references (owner/repo/number/type) from running solve/hive
  * processes by scanning /proc/<pid>/cmdline.
  *
- * @returns {Array<{owner, repo, type, number}>}
+ * @returns {Promise<Array<{owner, repo, type, number}>>}
  */
-export function listActiveTaskRefsFromProc() {
+export async function listActiveTaskRefsFromProc() {
   const refs = [];
   const seen = new Set();
   let pids;
   try {
-    pids = fs.readdirSync('/proc').filter(name => /^\d+$/.test(name));
+    pids = (await fs.promises.readdir('/proc')).filter(name => /^\d+$/.test(name));
   } catch {
     return refs;
   }
-  for (const pid of pids) {
-    let cmdline;
-    try {
-      cmdline = fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8').replace(/\0/g, ' ').trim();
-    } catch {
-      continue;
-    }
+  // Read every cmdline concurrently; the loop below keeps the /proc order.
+  const cmdlines = await Promise.all(
+    pids.map(pid =>
+      fs.promises.readFile(`/proc/${pid}/cmdline`, 'utf8').then(
+        raw => raw.replace(/\0/g, ' ').trim(),
+        () => null
+      )
+    )
+  );
+  for (const cmdline of cmdlines) {
     if (!cmdline || !/github\.com/.test(cmdline)) continue;
     for (const ref of extractTaskRefsFromCommand(cmdline)) {
       const key = `${ref.owner}/${ref.repo}#${ref.number}:${ref.type}`;
@@ -722,10 +741,10 @@ export async function listActiveTaskRefsFromSessions(sessionIds) {
  * (offline, no gh, not found) — callers fall back to issue-prefix matching.
  *
  * @param {{owner, repo, number}} ref
- * @returns {string|null}
+ * @returns {Promise<string|null>}
  */
-export function resolvePrHeadBranch(ref) {
-  const out = tryExec('gh', ['pr', 'view', String(ref.number), '--repo', `${ref.owner}/${ref.repo}`, '--json', 'headRefName', '--jq', '.headRefName']);
+export async function resolvePrHeadBranch(ref) {
+  const out = await tryExecAsync('gh', ['pr', 'view', String(ref.number), '--repo', `${ref.owner}/${ref.repo}`, '--json', 'headRefName', '--jq', '.headRefName']);
   return out || null;
 }
 
@@ -793,7 +812,7 @@ export async function listSessionTasks(options = {}) {
     for (const task of tasks) {
       if (task.type !== 'pull') continue;
       const key = `${task.owner}/${task.repo}#${task.number}`;
-      if (!branchCache.has(key)) branchCache.set(key, resolvePrHeadBranch(task));
+      if (!branchCache.has(key)) branchCache.set(key, await resolvePrHeadBranch(task));
       task.branch = branchCache.get(key);
     }
   }
@@ -812,7 +831,7 @@ export async function listSessionTasks(options = {}) {
  */
 export async function getActiveTasks(options = {}) {
   const { useSessions = true, resolveBranches = true, sessionTasks = null } = options;
-  const refs = [...listActiveTaskRefsFromProc()];
+  const refs = [...(await listActiveTaskRefsFromProc())];
   const seen = new Set(refs.map(r => `${r.owner}/${r.repo}#${r.number}:${r.type}`));
 
   if (useSessions) {
@@ -830,13 +849,15 @@ export async function getActiveTasks(options = {}) {
     }
   }
 
-  return refs.map(ref => {
+  const tasks = [];
+  for (const ref of refs) {
     let branch = ref.branch || null;
     if (!branch && ref.type === 'pull' && resolveBranches) {
-      branch = resolvePrHeadBranch(ref);
+      branch = await resolvePrHeadBranch(ref);
     }
-    return { ...ref, branch };
-  });
+    tasks.push({ ...ref, branch });
+  }
+  return tasks;
 }
 
 /**

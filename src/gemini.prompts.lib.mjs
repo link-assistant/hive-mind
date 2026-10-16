@@ -9,6 +9,7 @@ import { getReportDependenciesIssuesSubPrompt } from './report-dependencies-issu
 import { getExperimentsExamplesSubPrompt } from './experiments-examples.prompts.lib.mjs';
 import { getThinkingPromptInstruction } from './thinking-prompt.lib.mjs';
 import { buildWorkLanguageDirective } from './work-language.prompts.lib.mjs';
+import { getIssueCompletionSubPrompt, ISSUE_COMPLETION_GOAL } from './issue-completion.prompts.lib.mjs';
 import { buildRequestedBaseBranchDirective } from './solve-option-contract.prompts.lib.mjs';
 import { buildIssueResearchPrompt } from './deep-analysis.lib.mjs';
 
@@ -70,7 +71,8 @@ export const buildUserPrompt = params => {
     promptLines.push(thinkingPromptInstruction);
   }
 
-  promptLines.push(isContinueMode ? 'Continue.' : 'Proceed.');
+  // Issue #2406: every initial and continuation prompt restates the complete-delivery goal.
+  promptLines.push(ISSUE_COMPLETION_GOAL, isContinueMode ? 'Continue.' : 'Proceed.');
 
   return promptLines.join('\n') + '\n';
 };
@@ -243,7 +245,7 @@ Visual UI work and screenshots.
    - When you work on visual UI changes, include a render or screenshot of the final result in the pull request description.
    - When you save screenshots to the repository, use permanent links in the PR description such as https://github.com/${screenshotRepoPath}/blob/${branchName}/docs/screenshots/result.png?raw=true.`
        : ''
-   }${ciExamples}${getArchitectureCareSubPrompt(argv)}${getUpdateAllDependenciesSubPrompt(argv)}${getReportDependenciesIssuesSubPrompt(argv)}${buildWorkLanguageDirective()}`;
+   }${ciExamples}${getArchitectureCareSubPrompt(argv)}${getUpdateAllDependenciesSubPrompt(argv)}${getReportDependenciesIssuesSubPrompt(argv)}${getIssueCompletionSubPrompt(params)}${buildWorkLanguageDirective()}`;
 };
 
 export default {

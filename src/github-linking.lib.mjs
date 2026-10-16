@@ -34,22 +34,54 @@ export function getClosingReferenceText(text) {
     .replace(/(`+)[^]*?\1/g, ' ');
 }
 
-/** Shared parser: repair, discovery, and merge checks must agree. */
-export function extractClosingIssueReferences(text) {
+const CLOSING_KEYWORD = /\b(close[sd]?|fix(?:es|ed)?|resolve[sd]?)(?:\s+|\s*:\s*)(?:https:\/\/github\.com\/([\w.-]+)\/([\w.-]+)\/issues\/|([\w.-]+)\/([\w.-]+)#|#)([1-9]\d*)\b/gi;
+const NEGATION = /\b(?:not|never|cannot|can['’]t|won['’]t|don['’]t|doesn['’]t|didn['’]t|without|unable to)\b/gi;
+
+/**
+ * Every closing keyword in the visible text, with `negated` set when the
+ * keyword follows "does not" and similar words (PR agent#326, issue #322).
+ * Only the current clause is inspected, so a later "but fixes #N" stays
+ * independent. `phrase` is the negated wording, starting
+ * at the last negation (and an auxiliary such as "does" right before it).
+ */
+function scanClosingKeywords(text) {
   const visible = getClosingReferenceText(text);
-  const pattern = /\b(close[sd]?|fix(?:es|ed)?|resolve[sd]?)(?:\s+|\s*:\s*)(?:https:\/\/github\.com\/([\w.-]+)\/([\w.-]+)\/issues\/|([\w.-]+)\/([\w.-]+)#|#)([1-9]\d*)\b/gi;
-  const references = [];
-  for (const match of visible.matchAll(pattern)) {
-    // The old regex accepted "does not close #322" (PR agent#326).
-    // Inspect the current clause, keeping a later "but fixes #N" independent.
+  return [...visible.matchAll(CLOSING_KEYWORD)].map(match => {
     const clause = visible
       .slice(0, match.index)
       .split(/[\n.!?;,]|\bbut\b/i)
       .at(-1);
-    if (/\b(?:not|never|cannot|can['’]t|won['’]t|don['’]t|doesn['’]t|didn['’]t|without|unable to)\b/i.test(clause)) continue;
-    references.push({ owner: match[2] || match[4] || null, repo: match[3] || match[5] || null, number: match[6] });
-  }
-  return references;
+    const negation = [...clause.matchAll(NEGATION)].at(-1);
+    const reference = { owner: match[2] || match[4] || null, repo: match[3] || match[5] || null, number: match[6] };
+    if (!negation) return { ...reference, negated: false };
+    const auxiliary = clause.slice(0, negation.index).match(/\b(?:does|do|did|will|would|is|are|was|were|should|must|can|could)\s+$/i);
+    const start = match.index - clause.length + negation.index - (auxiliary?.[0].length || 0);
+    return { ...reference, negated: true, phrase: visible.slice(start, match.index + match[0].length).replace(/\s+/g, ' ') };
+  });
+}
+
+/** Shared parser: repair, discovery, and merge checks must agree. */
+export function extractClosingIssueReferences(text) {
+  return scanClosingKeywords(text)
+    .filter(reference => !reference.negated)
+    .map(({ owner, repo, number }) => ({ owner, repo, number }));
+}
+
+/**
+ * Negated closing keywords for issues of owner/repo ("does not close #N",
+ * "won't fix #N") that the text does not also close. GitHub ignores the
+ * negation and still closes that issue (link-assistant/calculator#261), so
+ * callers treat it as kept open and warn about the wording (issue #3174).
+ * Returns `{ owner, repo, number, phrase }`, once per issue.
+ */
+export function extractNegatedClosingReferences(text, owner = null, repo = null) {
+  const seen = new Set();
+  return scanClosingKeywords(text).filter(reference => {
+    if (!reference.negated || seen.has(reference.number)) return false;
+    if (reference.owner && owner && repo && `${reference.owner}/${reference.repo}`.toLowerCase() !== `${owner}/${repo}`.toLowerCase()) return false;
+    seen.add(reference.number);
+    return !prClosesIssue(text, reference.number, owner, repo);
+  });
 }
 
 /**
@@ -133,11 +165,16 @@ const MAX_MENTION_RANGE = 500;
  * although GitHub still closes #7.
  */
 export function extractOpenIssueMentions(text, owner, repo) {
-  const visible = getClosingReferenceText(text);
-  const slug = `${owner}/${repo}`.toLowerCase();
+  const numbers = collectIssueNumbers(getClosingReferenceText(text), `${owner}/${repo}`.toLowerCase());
+  for (const number of numbers) if (prClosesIssue(text, number, owner, repo)) numbers.delete(number);
+  return numbers;
+}
+
+/** Same-repository issue numbers in a span, expanding "#A to #B" ranges. */
+function collectIssueNumbers(span, slug) {
   const numbers = new Set();
   const pattern = /(?:https:\/\/github\.com\/([\w.-]+)\/([\w.-]+)\/issues\/|\b([\w.-]+)\/([\w.-]+)#|(?<![\w/#&])#)([1-9]\d*)\b(?:\s*(?:to|through|thru|–|—|-|\.\.)\s*#([1-9]\d*)\b)?/gi;
-  for (const match of visible.matchAll(pattern)) {
+  for (const match of span.matchAll(pattern)) {
     const mentioned = match[1] || match[3] ? `${match[1] || match[3]}/${match[2] || match[4]}`.toLowerCase() : slug;
     if (mentioned !== slug) continue;
     const first = Number(match[5]);
@@ -145,7 +182,33 @@ export function extractOpenIssueMentions(text, owner, repo) {
     for (let number = first; number <= last; number++) numbers.add(number);
     if (match[6]) numbers.add(Number(match[6]));
   }
-  for (const number of numbers) if (prClosesIssue(text, number, owner, repo)) numbers.delete(number);
+  return numbers;
+}
+
+/** One issue reference, then more joined by ",", "and", "or", "&" or a range ("#236 to #246"). */
+const REFERENCE = String.raw`(?:https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/issues\/|\b[\w.-]+\/[\w.-]+#|(?<![\w/#&])#)[1-9]\d*\b`;
+const REFERENCE_LIST = String.raw`${REFERENCE}(?:(?:\s*,\s*(?:(?:and|or)\s+)?|\s+(?:and|or|to|through|thru)\s+|\s*(?:&|–|—|-|\.\.)\s*)${REFERENCE})*`;
+
+/**
+ * Issue numbers of owner/repo that the text explicitly marks as only partly
+ * done by this pull request: "Part of #7", "Towards #7", "Progress on #7" or
+ * "#7 stays open", including every issue of a list or a range ("#2 and #3
+ * stay open", "#236 to #246 stay open"). Unlike a bare mention, this can keep
+ * even the primary issue open, for example a tracking umbrella solved one
+ * sub-issue at a time (#3282). A positive closing keyword for the same issue
+ * still wins.
+ */
+export function extractPartialIssueMentions(text, owner, repo) {
+  const visible = getClosingReferenceText(text);
+  const slug = `${owner}/${repo}`.toLowerCase();
+  // The gap before "stays open" has no "#": in "#1 is done and #2 stays open" only #2 stays open.
+  const patterns = [new RegExp(String.raw`\b(?:part of|towards?|progress (?:on|towards?))\s+(?:issue\s+)?(${REFERENCE_LIST})`, 'gi'), new RegExp(String.raw`(${REFERENCE_LIST})[^.\n;!?#]{0,80}?\b(?:stays?|remains?|(?:is|are) kept|kept)\s+open\b`, 'gi')];
+  const numbers = new Set();
+  for (const pattern of patterns) {
+    for (const match of visible.matchAll(pattern)) {
+      for (const number of collectIssueNumbers(match[1], slug)) if (!prClosesIssue(text, number, owner, repo)) numbers.add(number);
+    }
+  }
   return numbers;
 }
 

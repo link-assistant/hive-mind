@@ -107,7 +107,7 @@ test('a single-component repository in a custom registry has no Docker Hub libra
     { current: '1.0.0' },
     {
       fetchImpl: async url => {
-        assert.equal(url, 'https://registry.example/v2/image/tags/list');
+        assert.equal(url, 'https://registry.example/v2/image/tags/list?n=1000');
         return { ok: true, json: async () => ({ tags: ['1.0.0', '1.1.0'] }) };
       },
     }

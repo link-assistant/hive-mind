@@ -138,7 +138,7 @@ test('an unchanged registry digest costs one manifest lookup and no pull', async
   const now = Date.parse('2026-09-27T12:00:00Z');
   const env = makeEnv();
   const docker = makeDocker({ images: { [LATEST]: 'sha256:v1' }, registry: { [LATEST]: 'sha256:v1' } });
-  writeFormalAiSidecarState({ image: LATEST, imageDigest: 'sha256:v1', leases: [], lastUsedAt: new Date(now - HOUR).toISOString() }, { env });
+  await writeFormalAiSidecarState({ image: LATEST, imageDigest: 'sha256:v1', leases: [], lastUsedAt: new Date(now - HOUR).toISOString() }, { env });
 
   assert.deepEqual(await updateFormalAiSidecarWhenIdle({ env, run: docker.run, now: at(now), ...fast }), { status: 'up-to-date', image: LATEST, digest: 'sha256:v1' });
   assert.equal(count(docker, 'buildx imagetools inspect'), 1);
@@ -153,7 +153,7 @@ test('an unchanged registry digest costs one manifest lookup and no pull', async
   // A host without buildx falls back to the old pull, which is still correct.
   const noBuildx = makeDocker({ images: { [LATEST]: 'sha256:v1' } });
   const fallbackEnv = makeEnv();
-  writeFormalAiSidecarState({ image: LATEST, imageDigest: 'sha256:v1', leases: [], lastUsedAt: new Date(now - HOUR).toISOString() }, { env: fallbackEnv });
+  await writeFormalAiSidecarState({ image: LATEST, imageDigest: 'sha256:v1', leases: [], lastUsedAt: new Date(now - HOUR).toISOString() }, { env: fallbackEnv });
   assert.equal((await updateFormalAiSidecarWhenIdle({ env: fallbackEnv, run: noBuildx.run, now: at(now), ...fast })).status, 'up-to-date');
   assert.equal(count(noBuildx, 'pull'), 1);
 });
@@ -164,11 +164,11 @@ test('updates wait for a recent task, and a verified update removes the image it
   const docker = makeDocker({ images: { [LATEST]: 'sha256:v1', [`${FORMAL_AI_IMAGE_REPOSITORY}:0.345.0`]: 'sha256:v1' }, registry: { [LATEST]: 'sha256:v2' } });
 
   // Last used 6h ago: past the unload window, so no update is attempted.
-  writeFormalAiSidecarState({ image: LATEST, imageDigest: 'sha256:v1', leases: [], lastUsedAt: new Date(now - 6 * HOUR).toISOString() }, { env });
+  await writeFormalAiSidecarState({ image: LATEST, imageDigest: 'sha256:v1', leases: [], lastUsedAt: new Date(now - 6 * HOUR).toISOString() }, { env });
   assert.equal((await updateFormalAiSidecarWhenIdle({ env, run: docker.run, now: at(now), ...fast })).status, 'unused');
   assert.equal(count(docker, 'pull') + count(docker, 'buildx'), 0);
 
-  writeFormalAiSidecarState({ ...readFormalAiSidecarState({ env }), lastUsedAt: new Date(now - HOUR).toISOString() }, { env });
+  await writeFormalAiSidecarState({ ...(await readFormalAiSidecarState({ env })), lastUsedAt: new Date(now - HOUR).toISOString() }, { env });
   const logs = [];
   const result = await updateFormalAiSidecarWhenIdle({ env, run: docker.run, now: at(now), log: async line => logs.push(line), ...fast });
   assert.equal(result.status, 'updated');
@@ -181,7 +181,7 @@ test('updates wait for a recent task, and a verified update removes the image it
   assert.equal(docker.ran('rmi --force'), false);
   assert.match(logs.join('\n'), /Removed 1 superseded Formal AI image\(s\), freeing 24\.00GB/);
 
-  const state = readFormalAiSidecarState({ env });
+  const state = await readFormalAiSidecarState({ env });
   assert.equal(state.lastUpdate.repoDigest, `${FORMAL_AI_IMAGE_REPOSITORY}@${manifestDigestOf('sha256:v2')}`, 'the accepted build is recorded by an immutable, pullable reference');
   assert.equal(state.lastUpdate.previousDigest, 'sha256:v1');
   assert.equal(docker.volumes.has(FORMAL_AI_MEMORY_VOLUME_NAME), true);
@@ -198,7 +198,7 @@ test('five idle hours unload the current and previous images, never the memory v
   // A previous release left behind as a dangling image (the pre-#2305 leak).
   docker.digests.add('sha256:v1');
   docker.repoDigests.set('sha256:v1', new Set([`${FORMAL_AI_IMAGE_REPOSITORY}@${manifestDigestOf('sha256:v1')}`]));
-  writeFormalAiSidecarState({ image: LATEST, imageDigest: 'sha256:v2', leases: [], lastUpdate: { image: LATEST, digest: 'sha256:v2', repoDigest: `${FORMAL_AI_IMAGE_REPOSITORY}@${manifestDigestOf('sha256:v2')}`, version: VERSION, updatedAt: new Date(start).toISOString() } }, { env });
+  await writeFormalAiSidecarState({ image: LATEST, imageDigest: 'sha256:v2', leases: [], lastUpdate: { image: LATEST, digest: 'sha256:v2', repoDigest: `${FORMAL_AI_IMAGE_REPOSITORY}@${manifestDigestOf('sha256:v2')}`, version: VERSION, updatedAt: new Date(start).toISOString() } }, { env });
 
   // A task runs and finishes.
   await acquireFormalAiSidecar({ sessionId: 'task-1', env, run: docker.run, now: at(start), ...fast });
@@ -222,7 +222,7 @@ test('five idle hours unload the current and previous images, never the memory v
   assert.equal(docker.ran(/volume rm/), false);
   assert.match(logs.join('\n'), /Formal AI unloaded \(unused for 5h\): removed 2 image\(s\) .* freeing 48\.00GB \(measured by `docker system df`\); memory volume 'hive-mind-formal-ai-memory' preserved/);
 
-  const state = readFormalAiSidecarState({ env });
+  const state = await readFormalAiSidecarState({ env });
   assert.equal(state.image, null);
   assert.equal(state.lastUpdate.digest, 'sha256:v2', 'the accepted build is still remembered');
   assert.equal(state.lastUnload.bytesFreed, 48_000_000_000);
@@ -248,7 +248,7 @@ test('an acquire that races the unload waits for it on the sidecar lock', async 
   const start = Date.parse('2026-09-27T00:00:00Z');
   const env = makeEnv();
   const docker = makeDocker({ images: { [LATEST]: 'sha256:v2' }, registry: { [LATEST]: 'sha256:v2' } });
-  writeFormalAiSidecarState({ image: LATEST, imageDigest: 'sha256:v2', leases: [], lastUsedAt: new Date(start).toISOString(), lastUpdate: { image: LATEST, digest: 'sha256:v2', repoDigest: `${FORMAL_AI_IMAGE_REPOSITORY}@${manifestDigestOf('sha256:v2')}`, version: VERSION } }, { env });
+  await writeFormalAiSidecarState({ image: LATEST, imageDigest: 'sha256:v2', leases: [], lastUsedAt: new Date(start).toISOString(), lastUpdate: { image: LATEST, digest: 'sha256:v2', repoDigest: `${FORMAL_AI_IMAGE_REPOSITORY}@${manifestDigestOf('sha256:v2')}`, version: VERSION } }, { env });
 
   let reachedRmi;
   const rmiReached = new Promise(resolve => (reachedRmi = resolve));
@@ -281,7 +281,7 @@ test('an acquire that races the unload waits for it on the sidecar lock', async 
   const sidecar = await acquiring;
   assert.equal(unloaded.status, 'unloaded');
   assert.equal(sidecar.imageDigest, 'sha256:v2', 'the acquire pulled the image back after the unload and booted it');
-  assert.equal(readFormalAiSidecarState({ env }).leases.length, 1);
+  assert.equal((await readFormalAiSidecarState({ env })).leases.length, 1);
   await releaseFormalAiSidecar({ sessionId: 'task-racing', env, run: docker.run, now: at(start + 6 * HOUR) });
 });
 
@@ -292,11 +292,11 @@ test('a running task, prefetch or UNLOAD_AFTER=0 keeps the image', async () => {
   const busyEnv = makeEnv();
   const busy = makeDocker({ images: { [LATEST]: 'sha256:v2' } });
   busy.createContainer('task-long');
-  writeFormalAiSidecarState({ image: LATEST, imageDigest: 'sha256:v2', leases: [{ sessionId: 'task-long', acquiredAt: new Date(start).toISOString(), containerSeen: true }], lastUsedAt: new Date(start).toISOString() }, { env: busyEnv });
+  await writeFormalAiSidecarState({ image: LATEST, imageDigest: 'sha256:v2', leases: [{ sessionId: 'task-long', acquiredAt: new Date(start).toISOString(), containerSeen: true }], lastUsedAt: new Date(start).toISOString() }, { env: busyEnv });
   assert.deepEqual(await unloadIdleFormalAiSidecar({ env: busyEnv, run: busy.run, now: tenHoursLater }), { status: 'busy', leaseCount: 1 });
   assert.equal(busy.digests.has('sha256:v2'), true);
   // A task that runs for hours keeps the host "in use" for its whole duration.
-  assert.equal(Date.parse(readFormalAiSidecarState({ env: busyEnv }).lastUsedAt), start + 10 * HOUR);
+  assert.equal(Date.parse((await readFormalAiSidecarState({ env: busyEnv })).lastUsedAt), start + 10 * HOUR);
 
   for (const extra of [{ HIVE_MIND_FORMAL_AI_PREFETCH: 'true' }, { HIVE_MIND_FORMAL_AI_UNLOAD_AFTER: '0' }, { HIVE_MIND_FORMAL_AI_SIDECAR: '0' }]) {
     const env = makeEnv(extra);
@@ -324,7 +324,7 @@ test('the sidecar mounts tmpfs over the image VOLUMEs and leaks no anonymous vol
 
   const env = makeEnv();
   const docker = makeDocker({ images: { [LATEST]: 'sha256:v2' } });
-  writeFormalAiSidecarState({ lastUpdate: { image: LATEST, digest: 'sha256:v2', version: VERSION } }, { env });
+  await writeFormalAiSidecarState({ lastUpdate: { image: LATEST, digest: 'sha256:v2', version: VERSION } }, { env });
   for (let task = 0; task < 3; task += 1) {
     await acquireFormalAiSidecar({ sessionId: `task-${task}`, env, run: docker.run, ...fast });
     await releaseFormalAiSidecar({ sessionId: `task-${task}`, env, run: docker.run });

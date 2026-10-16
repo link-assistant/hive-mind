@@ -78,7 +78,7 @@ export const unloadIdleFormalAiSidecar = async ({ env = process.env, fsImpl = fs
       const { leaseCount } = await reconcileFormalAiSidecar({ env, fsImpl, run, timeoutMs, log, verbose, now });
       if (leaseCount > 0) return { status: 'busy', leaseCount };
 
-      const state = readFormalAiSidecarState({ env, fsImpl });
+      const state = await readFormalAiSidecarState({ env, fsImpl });
       const usage = describeFormalAiUsage({ state, env, now });
       if (usage.recent) {
         if (verbose && log) await log(`[VERBOSE] formal-ai-unload: Formal AI used ${formatFormalAiDuration(usage.idleMs)} ago; unloading after ${formatFormalAiDuration(usage.unloadAfterMs)} idle`);
@@ -104,7 +104,7 @@ export const unloadIdleFormalAiSidecar = async ({ env = process.env, fsImpl = fs
 
       const at = now().toISOString();
       const lastUnload = { at, idleMs: usage.idleMs, images: images.removed.map(image => image.id), failed: images.failed.map(image => image.id), containers: containers.length, bytesFreed: images.bytesFreed, bytesFreedSource: images.bytesFreedSource };
-      writeFormalAiSidecarState({ ...readFormalAiSidecarState({ env, fsImpl }), image: null, imageReference: null, imageDigest: null, startedAt: null, leases: [], lastUnload }, { env, fsImpl });
+      await writeFormalAiSidecarState({ ...(await readFormalAiSidecarState({ env, fsImpl })), image: null, imageReference: null, imageDigest: null, startedAt: null, leases: [], lastUnload }, { env, fsImpl });
 
       if (log) {
         const why = usage.used ? `unused for ${formatFormalAiDuration(usage.idleMs)}` : 'never used on this host';

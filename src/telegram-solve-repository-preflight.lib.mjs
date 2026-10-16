@@ -31,9 +31,10 @@ import { safeReply } from './telegram-safe-reply.lib.mjs';
  * @param {object} params
  * @param {object|null} params.parsed - Result from parseGitHubUrl().
  * @param {Function} [params.run] - Command runner override for tests.
+ * @param {object} [params.selection] - which open issues are not work, from the solve options (issue #3176).
  * @returns {Promise<{applicable: boolean, noWork: boolean, repository?: object, totalOpen?: number, singleIssue?: {number: number, url: string}|null}>}
  */
-export async function checkRepositoryModeWork({ parsed, run } = {}) {
+export async function checkRepositoryModeWork({ parsed, run, selection } = {}) {
   if (parsed?.type !== 'repo' || !parsed.owner || !parsed.repo) {
     return { applicable: false, noWork: false };
   }
@@ -44,7 +45,7 @@ export async function checkRepositoryModeWork({ parsed, run } = {}) {
     fullName: `${parsed.owner}/${parsed.repo}`,
     url: parsed.canonical || parsed.normalized || `https://github.com/${parsed.owner}/${parsed.repo}`,
   };
-  const prepared = await prepareRepositoryModeIssue({ repository, run });
+  const prepared = await prepareRepositoryModeIssue({ repository, run, selection });
 
   return {
     applicable: true,
@@ -65,6 +66,7 @@ export async function checkRepositoryModeWork({ parsed, run } = {}) {
  * @param {object|null} params.parsed - Result from parseGitHubUrl().
  * @param {string} params.locale - Effective Telegram locale.
  * @param {Function} [params.run] - Command runner override for tests.
+ * @param {object} [params.selection] - forwarded to {@link checkRepositoryModeWork}
  * @param {Function} [params.reply]
  * @param {Function} [params.translate]
  * @param {Function} [params.escape]
@@ -84,9 +86,9 @@ export async function replyIfRepositoryHasNoWork(params = {}) {
  * @param {object} params - same as {@link replyIfRepositoryHasNoWork}
  * @returns {Promise<{repliedNoWork: boolean, singleIssue: {number: number, url: string}|null}>}
  */
-export async function preflightRepositoryTarget({ ctx, parsed, locale, run, reply = safeReply, translate = t, escape = escapeMarkdown, onError = null } = {}) {
+export async function preflightRepositoryTarget({ ctx, parsed, locale, run, selection, reply = safeReply, translate = t, escape = escapeMarkdown, onError = null } = {}) {
   try {
-    const repositoryWork = await checkRepositoryModeWork({ parsed, run });
+    const repositoryWork = await checkRepositoryModeWork({ parsed, run, selection });
     if (!repositoryWork.noWork) return { repliedNoWork: false, singleIssue: repositoryWork.singleIssue || null };
 
     const message = translate('telegram.repository_no_open_issues', { repository: escape(repositoryWork.repository.fullName) }, { locale });

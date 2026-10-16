@@ -1,0 +1,421 @@
+commit d34879d495889ef3619a040b429d8f8ba44f59d9
+Author: konard <drakonard@gmail.com>
+Date:   Thu Oct 15 18:53:04 2026 +0000
+
+    fix(repository-mode): skip bot-maintained and opted-out issues when selecting work (#3176)
+
+diff --git a/.changeset/repository-mode-skip-status-issues-3176.md b/.changeset/repository-mode-skip-status-issues-3176.md
+new file mode 100644
+index 00000000..c7df1142
+--- /dev/null
++++ b/.changeset/repository-mode-skip-status-issues-3176.md
+@@ -0,0 +1,5 @@
++---
++'@link-assistant/hive-mind': patch
++---
++
++Repository mode (`/solve <repository-url>`) no longer selects status pages as work (issue #3176). Open issues opened by a bot (coverage reports, dependency dashboards), issues with a label from the new `--skip-issue-labels` option (default `hive-mind:skip,dashboard,status`, `none` to turn it off) and issues whose body contains `<!-- hive-mind:skip -->` are left out of the combined issue, its sub-issues and its required closing references, so the pull request no longer closes them and their workflow no longer reopens them into the next run. The combined issue and the log list each skipped issue with the reason; `--include-bot-issues` selects bot-authored issues again. A repository whose only open issues are skipped is reported as having no work, and the Telegram preflight applies the same options.
+diff --git a/src/solve.config.lib.mjs b/src/solve.config.lib.mjs
+index 58482d6d..384bc2fd 100644
+--- a/src/solve.config.lib.mjs
++++ b/src/solve.config.lib.mjs
+@@ -776,6 +776,16 @@ export const SOLVE_OPTION_DEFINITIONS = {
+     alias: ['ensure-all-sub-issues', 'ensure-sub-issues'],
+     default: undefined,
+   },
++  'skip-issue-labels': {
++    type: 'string',
++    description: 'Repository mode only (solving a repository URL): comma separated issue labels that mark an open issue as not work, so it is left out of the combined issue and its closing references. Default: "hive-mind:skip,dashboard,status". Use "none" to skip no labels. Issues whose body contains <!-- hive-mind:skip --> are always left out.',
++    default: undefined,
++  },
++  'include-bot-issues': {
++    type: 'boolean',
++    description: 'Repository mode only (solving a repository URL): also select open issues opened by bots (reports, dashboards). By default they are left out of the combined issue and its closing references, and listed with the reason.',
++    default: false,
++  },
+   escalate: {
+     type: 'string',
+     description: '[EXPERIMENTAL] Start solving with a cheaper/lower-tier model and automatically escalate to a more capable (more expensive) model while unfinished work remains. Accepts a model range "<lower>-<upper>" using short Claude tier names (ladder: haiku < sonnet < opus < fable), e.g. "sonnet-opus". A single name (e.g. "opus") means just that tier. Bare flag means "sonnet-fable". The idea: iterate cheaply first so expensive models do more reading and less writing.',
+diff --git a/src/solve.mjs b/src/solve.mjs
+index 771f46d2..f06c2680 100755
+--- a/src/solve.mjs
++++ b/src/solve.mjs
+@@ -161,7 +161,9 @@ if (!issueUrl) {
+ // Issue #3108: with exactly one open issue, that issue is solved directly.
+ {
+   const { resolveRepositoryModeTarget } = await import('./solve.repository-mode.run.lib.mjs');
+-  const repositoryMode = await resolveRepositoryModeTarget({ url: issueUrl, log });
++  const { repositoryModeSelectionFromArgv } = await import('./solve.repository-mode.lib.mjs');
++  // Issue #3176: bot-maintained status pages and skip-labeled issues are not work.
++  const repositoryMode = await resolveRepositoryModeTarget({ url: issueUrl, log, selection: repositoryModeSelectionFromArgv(argv) });
+   if (repositoryMode.handled) {
+     // Issue #2266: an empty repository is a normal, successful terminal state.
+     // Exit 0 so callers do not turn "nothing to do" into a task failure.
+diff --git a/src/solve.repository-mode.lib.mjs b/src/solve.repository-mode.lib.mjs
+index 353d43b5..897f7b5d 100644
+--- a/src/solve.repository-mode.lib.mjs
++++ b/src/solve.repository-mode.lib.mjs
+@@ -16,6 +16,10 @@
+  * so only the oldest 100 are attached natively. Repository mode keeps every
+  * open issue in the combined issue body and its required closing references.
+  *
++ * Open issues that are not work — bot-authored status pages, issues with a skip
++ * label or the skip body marker — are left out and listed with the reason
++ * (issue #3176).
++ *
+  * Everything in this module is network- and filesystem-free so it can be unit
+  * tested without GitHub access. The network side lives in
+  * `solve.repository-mode.run.lib.mjs`.
+@@ -92,6 +96,76 @@ export function normalizeOpenIssueEntry(entry) {
+   };
+ }
+ 
++/**
++ * Body marker a repository puts in an issue to keep it out of repository mode
++ * (issue #3176), e.g. in a status page a workflow keeps updating.
++ */
++export const REPOSITORY_MODE_SKIP_MARKER = '<!-- hive-mind:skip -->';
++const SKIP_MARKER_PATTERN = /<!--\s*hive-mind:skip\s*-->/i;
++
++/** Labels that keep an open issue out of repository mode unless `--skip-issue-labels` says otherwise. */
++export const DEFAULT_SKIP_ISSUE_LABELS = Object.freeze(['hive-mind:skip', 'dashboard', 'status']);
++
++/**
++ * Parse the `--skip-issue-labels` value: a comma separated list (or an array of
++ * them). `undefined` means {@link DEFAULT_SKIP_ISSUE_LABELS}; `""` or `none`
++ * turns label skipping off.
++ *
++ * @param {string|string[]|undefined|null} value
++ * @returns {string[]}
++ */
++export function parseSkipIssueLabels(value) {
++  if (value === undefined || value === null) return [...DEFAULT_SKIP_ISSUE_LABELS];
++  const labels = (Array.isArray(value) ? value : [value])
++    .flatMap(item => String(item).split(','))
++    .map(label => label.trim())
++    .filter(Boolean);
++  if (labels.length === 1 && labels[0].toLowerCase() === 'none') return [];
++  return labels;
++}
++
++/**
++ * The selection options for repository mode taken from parsed solve arguments.
++ *
++ * @param {object} [argv]
++ * @returns {{skipLabels: string[], includeBotIssues: boolean}}
++ */
++export function repositoryModeSelectionFromArgv(argv = {}) {
++  return {
++    skipLabels: parseSkipIssueLabels(argv?.['skip-issue-labels'] ?? argv?.skipIssueLabels),
++    includeBotIssues: Boolean(argv?.['include-bot-issues'] ?? argv?.includeBotIssues),
++  };
++}
++
++/**
++ * Why a raw open issue is not work for repository mode, or null when it is.
++ *
++ * Issue #3176: status pages that a bot or a scheduled workflow maintains
++ * (coverage reports, dependency dashboards) were selected as work and closed by
++ * the pull request, and their workflow reopened them for the next run. Such an
++ * issue is skipped when a bot opened it (unless `includeBotIssues`), when it
++ * carries one of `skipLabels`, or when its body contains
++ * {@link REPOSITORY_MODE_SKIP_MARKER}.
++ *
++ * @param {object} entry - raw REST issue entry
++ * @param {object} [options]
++ * @param {string[]} [options.skipLabels=DEFAULT_SKIP_ISSUE_LABELS]
++ * @param {boolean} [options.includeBotIssues=false]
++ * @returns {string|null}
++ */
++export function getRepositoryModeExclusionReason(entry, { skipLabels = DEFAULT_SKIP_ISSUE_LABELS, includeBotIssues = false } = {}) {
++  if (!entry || typeof entry !== 'object') return null;
++  const wanted = new Set((skipLabels || []).map(label => String(label).trim().toLowerCase()).filter(Boolean));
++  for (const label of Array.isArray(entry.labels) ? entry.labels : []) {
++    const name = String(typeof label === 'string' ? label : label?.name || '').trim();
++    if (name && wanted.has(name.toLowerCase())) return `label "${name}"`;
++  }
++  if (SKIP_MARKER_PATTERN.test(String(entry.body || ''))) return 'hive-mind:skip marker in the issue body';
++  const login = String(entry.user?.login || '');
++  if (!includeBotIssues && (entry.user?.type === 'Bot' || /\[bot\]$/i.test(login))) return `opened by bot ${login || '(unknown)'}`;
++  return null;
++}
++
+ /**
+  * Filter out pull requests, normalize, sort oldest-first and cap the list at
+  * `limit` entries.
+@@ -100,26 +174,39 @@ export function normalizeOpenIssueEntry(entry) {
+  * even when the caller passes an unsorted list. Ties fall back to the issue
+  * number, which is monotonic per repository.
+  *
++ * Issues that are not work (see {@link getRepositoryModeExclusionReason}) and
++ * the `exclude` numbers are returned in `excluded` with a reason, and are not
++ * counted in `totalOpen`.
++ *
+  * @param {Array<object>} entries - raw REST issue entries
+  * @param {object} [options]
+  * @param {number} [options.limit=MAX_SUB_ISSUES_PER_PARENT]
+  * @param {Array<number>} [options.exclude] - issue numbers to skip
+- * @returns {{selected: Array<object>, totalOpen: number, skipped: number}}
++ * @param {string[]} [options.skipLabels=DEFAULT_SKIP_ISSUE_LABELS]
++ * @param {boolean} [options.includeBotIssues=false]
++ * @returns {{selected: Array<object>, totalOpen: number, skipped: number, excluded: Array<object>}}
+  */
+-export function selectOldestOpenIssues(entries, { limit = MAX_SUB_ISSUES_PER_PARENT, exclude = [] } = {}) {
+-  const excluded = new Set((exclude || []).map(Number).filter(Number.isInteger));
+-  const issues = (Array.isArray(entries) ? entries : [])
+-    .filter(entry => !isPullRequestEntry(entry))
+-    .map(normalizeOpenIssueEntry)
+-    .filter(Boolean)
+-    .filter(issue => !excluded.has(issue.number));
+-
+-  issues.sort((a, b) => {
++export function selectOldestOpenIssues(entries, { limit = MAX_SUB_ISSUES_PER_PARENT, exclude = [], skipLabels = DEFAULT_SKIP_ISSUE_LABELS, includeBotIssues = false } = {}) {
++  const excludedNumbers = new Set((exclude || []).map(Number).filter(Number.isInteger));
++  const excluded = [];
++  const issues = [];
++  for (const entry of Array.isArray(entries) ? entries : []) {
++    if (isPullRequestEntry(entry)) continue;
++    const issue = normalizeOpenIssueEntry(entry);
++    if (!issue) continue;
++    const reason = excludedNumbers.has(issue.number) ? 'excluded by number' : getRepositoryModeExclusionReason(entry, { skipLabels, includeBotIssues });
++    if (reason) excluded.push({ ...issue, reason });
++    else issues.push(issue);
++  }
++
++  const oldestFirst = (a, b) => {
+     const aTime = Date.parse(a.createdAt);
+     const bTime = Date.parse(b.createdAt);
+     if (Number.isFinite(aTime) && Number.isFinite(bTime) && aTime !== bTime) return aTime - bTime;
+     return a.number - b.number;
+-  });
++  };
++  issues.sort(oldestFirst);
++  excluded.sort(oldestFirst);
+ 
+   const cap = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : MAX_SUB_ISSUES_PER_PARENT;
+   const selected = issues.slice(0, cap);
+@@ -128,6 +215,7 @@ export function selectOldestOpenIssues(entries, { limit = MAX_SUB_ISSUES_PER_PAR
+     selected,
+     totalOpen: issues.length,
+     skipped: Math.max(0, issues.length - selected.length),
++    excluded,
+   };
+ }
+ 
+@@ -202,17 +290,21 @@ export function buildClosingKeywordBlock(issues, keyword = 'Fixes') {
+  * @param {Array<object>} params.issues - selected sub-issues (oldest first)
+  * @param {number} params.totalOpen
+  * @param {number} [params.limit=MAX_SUB_ISSUES_PER_PARENT]
++ * @param {Array<object>} [params.excludedIssues] - open issues skipped as not work, each with a `reason` (issue #3176)
+  * @returns {string}
+  */
+-export function buildCombinedIssueBody({ repository, issues, totalOpen, limit = MAX_SUB_ISSUES_PER_PARENT, attachmentCount = issues?.length || 0 }) {
++export function buildCombinedIssueBody({ repository, issues, totalOpen, limit = MAX_SUB_ISSUES_PER_PARENT, attachmentCount = issues?.length || 0, excludedIssues = [] }) {
+   const list = Array.isArray(issues) ? issues : [];
++  const excluded = Array.isArray(excludedIssues) ? excludedIssues : [];
+   const repositoryUrl = repository.url || `https://github.com/${repository.owner}/${repository.repo}`;
+-  const skipped = Math.max(0, Number(totalOpen || 0) - list.length);
++  const skipped = Math.max(0, Number(totalOpen || 0) - list.length - excluded.length);
+ 
+   const lines = [REPOSITORY_MODE_MARKER, '', '## Objective', '', `Address every open issue listed below in [${repository.owner}/${repository.repo}](${repositoryUrl}) with a **single pull request**.`, '', `This issue was generated automatically by \`/solve ${repositoryUrl}\` (repository mode). Native sub-issues and the complete closing-reference block below jointly define the required scope.`, '', '## Scope', '', `- Open issues found in the repository: ${totalOpen}`, `- Issues requested in this single pull request: ${list.length}`, `- Issues selected for native sub-issue attachment: ${attachmentCount}`, `- GitHub sub-issue limit per parent issue: ${limit}`];
+ 
+   if (list.length > attachmentCount) lines.push(`- Issues required through the body beyond the native attachment limit: ${list.length - attachmentCount}`);
+ 
++  if (excluded.length > 0) lines.push(`- Open issues skipped as not work (bot-authored, skip label or skip marker): ${excluded.length}`);
++
+   if (skipped > 0) {
+     lines.push(`- Open issues intentionally left out of this run (newest ${skipped}, over the sub-issue limit): ${skipped}`);
+   }
+@@ -225,6 +317,11 @@ export function buildCombinedIssueBody({ repository, issues, totalOpen, limit =
+     lines.push(...list.map(formatIssueLine));
+   }
+ 
++  if (excluded.length > 0) {
++    lines.push('', '## Issues left out of this run', '', 'These open issues are not work for this pull request (status pages, reports and dashboards maintained by a bot or a workflow, or issues the repository marked to skip). Do not close them and do not add closing references for them.', '');
++    lines.push(...excluded.map(issue => `- #${issue.number}${issue.title ? ` ${issue.title}` : ''} — ${issue.reason}`));
++  }
++
+   lines.push('', '## Requirements', '', '1. Read every issue listed above (including its comments) and fully implement what it asks for.', '2. Do all of the work in this single pull request. Do not defer any listed issue to a follow-up pull request.', '3. The pull request description **must** close this issue and **every** issue listed above, so that merging the pull request closes all of them at once.', '4. GitHub requires the full closing syntax for each issue: one keyword per issue. `Fixes #1, #2` only closes `#1`. Use the block below verbatim (plus `Fixes #<this issue>` for this issue).', '5. If an issue turns out to be already resolved or not reproducible, say so explicitly in the pull request description — but still keep its closing reference so it is closed on merge.', '', REQUIRED_CLOSING_REFERENCES_HEADING, '', '```', buildClosingKeywordBlock(list) || '(no issues)', '```', '');
+ 
+   return lines.join('\n');
+@@ -280,8 +377,10 @@ export function parseRequiredClosingReferences(body) {
+  * @param {object} params
+  * @returns {string[]}
+  */
+-export function buildRepositoryModeSummaryLines({ totalOpen, selectedCount, skipped, limit = MAX_SUB_ISSUES_PER_PARENT, requestedCount = selectedCount }) {
+-  const lines = [`   Open issues found:        ${totalOpen}`, `   Requested in one PR:      ${requestedCount}`, `   Attached as sub-issues:   ${selectedCount} (limit ${limit})`];
++export function buildRepositoryModeSummaryLines({ totalOpen, selectedCount, skipped, limit = MAX_SUB_ISSUES_PER_PARENT, requestedCount = selectedCount, excludedCount = 0 }) {
++  const lines = [`   Open issues found:        ${totalOpen}`];
++  if (excludedCount > 0) lines.push(`   Skipped (not work):       ${excludedCount}`);
++  lines.push(`   Requested in one PR:      ${requestedCount}`, `   Attached as sub-issues:   ${selectedCount} (limit ${limit})`);
+   if (skipped > 0) {
+     lines.push(`   Left out (newest, over limit): ${skipped}`);
+   }
+@@ -294,6 +393,11 @@ export default {
+   buildOpenIssuesApiArgs,
+   isPullRequestEntry,
+   normalizeOpenIssueEntry,
++  REPOSITORY_MODE_SKIP_MARKER,
++  DEFAULT_SKIP_ISSUE_LABELS,
++  parseSkipIssueLabels,
++  repositoryModeSelectionFromArgv,
++  getRepositoryModeExclusionReason,
+   selectOldestOpenIssues,
+   selectSingleIssueTarget,
+   buildCombinedIssueTitle,
+diff --git a/src/solve.repository-mode.run.lib.mjs b/src/solve.repository-mode.run.lib.mjs
+index 97fe2e7b..e6ea242c 100644
+--- a/src/solve.repository-mode.run.lib.mjs
++++ b/src/solve.repository-mode.run.lib.mjs
+@@ -132,26 +132,31 @@ export async function fetchOpenIssues({ repository, run = runCommand }) {
+  * @param {{owner: string, repo: string, fullName: string, url: string}} params.repository
+  * @param {number} [params.limit=MAX_SUB_ISSUES_PER_PARENT]
+  * @param {Function} [params.run]
+- * @returns {Promise<{repository, selected, allIssues, singleIssue, totalOpen, skipped, title, body}>}
++ * @param {{skipLabels?: string[], includeBotIssues?: boolean}} [params.selection] - which open issues are not work (issue #3176)
++ * @returns {Promise<{repository, selected, allIssues, excluded, singleIssue, totalOpen, skipped, title, body}>}
+  */
+-export async function prepareRepositoryModeIssue({ repository, limit = MAX_SUB_ISSUES_PER_PARENT, run = runCommand }) {
++export async function prepareRepositoryModeIssue({ repository, limit = MAX_SUB_ISSUES_PER_PARENT, run = runCommand, selection = {} }) {
+   const entries = await fetchOpenIssues({ repository, run });
+-  const { selected, totalOpen, skipped } = selectOldestOpenIssues(entries, { limit });
++  const { selected, totalOpen: eligibleOpen, skipped, excluded } = selectOldestOpenIssues(entries, { ...selection, limit });
+   // GitHub caps native attachments, not the requested scope of the single PR.
+-  const allIssues = selectOldestOpenIssues(entries, { limit: Number.MAX_SAFE_INTEGER }).selected;
++  const allIssues = selectOldestOpenIssues(entries, { ...selection, limit: Number.MAX_SAFE_INTEGER }).selected;
++  // Issue #3176: status pages and other skipped issues are still open issues of
++  // the repository, so they are counted, but they are never requested.
++  const totalOpen = eligibleOpen + excluded.length;
+ 
+   return {
+     repository,
+     selected,
+     allIssues,
++    excluded,
+     totalOpen,
+     skipped: 0,
+     unattachedCount: skipped,
+     limit,
+-    // Issue #3108: set when the repository has exactly one open issue.
++    // Issue #3108: set when the repository has exactly one open issue to work on.
+     singleIssue: selectSingleIssueTarget({ repository, issues: allIssues }),
+-    title: buildCombinedIssueTitle({ owner: repository.owner, repo: repository.repo, count: allIssues.length, totalOpen }),
+-    body: buildCombinedIssueBody({ repository, issues: allIssues, totalOpen, limit, attachmentCount: selected.length }),
++    title: buildCombinedIssueTitle({ owner: repository.owner, repo: repository.repo, count: allIssues.length, totalOpen: eligibleOpen }),
++    body: buildCombinedIssueBody({ repository, issues: allIssues, totalOpen, limit, attachmentCount: selected.length, excludedIssues: excluded }),
+   };
+ }
+ 
+@@ -324,9 +329,10 @@ export async function createRepositoryModeIssue({ repository, prepared, run = ru
+  * @param {number} [params.limit]
+  * @param {boolean} [params.dryRun] - prepare only; do not create anything
+  * @param {object} [params.attachOptions] - forwarded to {@link attachSubIssues}
++ * @param {{skipLabels?: string[], includeBotIssues?: boolean}} [params.selection] - forwarded to {@link prepareRepositoryModeIssue}
+  * @returns {Promise<{handled: boolean, issueUrl?: string, issue?: object, prepared?: object, argvOverrides?: object, noWork?: boolean, singleIssue?: boolean, message?: string, error?: string}>}
+  */
+-export async function resolveRepositoryModeTarget({ url, log = null, run = runCommand, limit = MAX_SUB_ISSUES_PER_PARENT, dryRun = false, attachOptions = {} }) {
++export async function resolveRepositoryModeTarget({ url, log = null, run = runCommand, limit = MAX_SUB_ISSUES_PER_PARENT, dryRun = false, attachOptions = {}, selection = {} }) {
+   const repository = parseRepositoryModeUrl(url);
+   if (!repository) return { handled: false };
+ 
+@@ -340,11 +346,18 @@ export async function resolveRepositoryModeTarget({ url, log = null, run = runCo
+ 
+   let prepared;
+   try {
+-    prepared = await prepareRepositoryModeIssue({ repository, limit, run });
++    prepared = await prepareRepositoryModeIssue({ repository, limit, run, selection });
+   } catch (error) {
+     return { handled: true, error: `Could not list open issues of ${repository.fullName}: ${error.message}` };
+   }
+ 
++  // Issue #3176: say which open issues are not work and why, before anything
++  // is created, so the scope stays reviewable in the log.
++  if (prepared.excluded.length > 0) {
++    await emit(`   Skipping ${prepared.excluded.length} open issue(s) that are not work (use --include-bot-issues or --skip-issue-labels to change this):`);
++    for (const issue of prepared.excluded) await emit(`     #${issue.number} ${issue.title} — ${issue.reason}`);
++  }
++
+   // Issue #3108: a combined issue around a single issue would only duplicate
+   // it (one parent, one sub-issue). Solve that issue directly instead — the
+   // same as if its URL had been given — and create nothing.
+@@ -355,12 +368,12 @@ export async function resolveRepositoryModeTarget({ url, log = null, run = runCo
+     return { handled: true, singleIssue: true, issueUrl: prepared.singleIssue.url, prepared, argvOverrides: {} };
+   }
+ 
+-  for (const line of buildRepositoryModeSummaryLines({ totalOpen: prepared.totalOpen, requestedCount: prepared.allIssues.length, selectedCount: prepared.selected.length, skipped: prepared.skipped, limit })) {
++  for (const line of buildRepositoryModeSummaryLines({ totalOpen: prepared.totalOpen, requestedCount: prepared.allIssues.length, selectedCount: prepared.selected.length, skipped: prepared.skipped, limit, excludedCount: prepared.excluded.length })) {
+     await emit(line);
+   }
+ 
+   if (prepared.selected.length === 0) {
+-    const message = `${repository.fullName} has no open issues. Nothing to do.`;
++    const message = prepared.excluded.length > 0 ? `${repository.fullName} has no open issues to work on (skipped as not work: ${prepared.excluded.map(issue => `#${issue.number}`).join(', ')}). Nothing to do.` : `${repository.fullName} has no open issues. Nothing to do.`;
+     await emit(`ℹ️  ${message}`);
+     return { handled: true, noWork: true, message, prepared };
+   }
+diff --git a/src/telegram-bot.mjs b/src/telegram-bot.mjs
+index 669186ef..8c485af6 100755
+--- a/src/telegram-bot.mjs
++++ b/src/telegram-bot.mjs
+@@ -180,6 +180,7 @@ const { revealHiddenCharacters } = await import('./github-url-recovery.lib.mjs')
+ const { getSolveQueue, createQueueExecuteCallback } = await import('./telegram-solve-queue.lib.mjs');
+ const { applySolveToolAlias, getFirstParsedPositionalArg, getSolveCommandNameFromText, getSolveToolAliasFromText, moveArgumentToFront, parseArgsWithYargs, parseCommandArgs, SOLVE_COMMAND_NAMES } = await import('./telegram-solve-command.lib.mjs');
+ const { preflightRepositoryTarget, redirectRepositoryArgsToSingleIssue } = await import('./telegram-solve-repository-preflight.lib.mjs');
++const { repositoryModeSelectionFromArgv } = await import('./solve.repository-mode.lib.mjs');
+ const { validateTelegramGitHubUrl } = await import('./telegram-url-validation.lib.mjs');
+ const { executeStartScreen: executeStartScreenCommand, buildExecuteAndUpdateMessage } = await import('./telegram-command-execution.lib.mjs');
+ const { isChatStopped, getChatStopInfo, getStoppedChatRejectMessage, DEFAULT_STOP_REASON } = await import('./telegram-start-stop-command.lib.mjs');
+@@ -666,7 +667,7 @@ async function handleSolveCommand(ctx) {
+   }
+   // Issue #2266: answer an empty repository directly. The CLI repeats the
+   // check for direct use and races; preflight errors fall through to it.
+-  const repositoryPreflight = await preflightRepositoryTarget({ ctx, parsed: validation.parsed, locale: solveLocale, onError: error => VERBOSE && console.log(`[VERBOSE] Repository no-work preflight failed; continuing with /solve: ${error.message || error}`) });
++  const repositoryPreflight = await preflightRepositoryTarget({ ctx, parsed: validation.parsed, locale: solveLocale, selection: repositoryModeSelectionFromArgv(parsedSolveArgs), onError: error => VERBOSE && console.log(`[VERBOSE] Repository no-work preflight failed; continuing with /solve: ${error.message || error}`) });
+   if (repositoryPreflight.repliedNoWork) return;
+   // Issue #3108: a repository with a single open issue is solved as that issue.
+   const singleIssueRedirect = repositoryPreflight.singleIssue && redirectRepositoryArgsToSingleIssue({ args, parsed: validation.parsed, singleIssue: repositoryPreflight.singleIssue });
+diff --git a/src/telegram-solve-repository-preflight.lib.mjs b/src/telegram-solve-repository-preflight.lib.mjs
+index cd73c6a5..65d37024 100644
+--- a/src/telegram-solve-repository-preflight.lib.mjs
++++ b/src/telegram-solve-repository-preflight.lib.mjs
+@@ -31,9 +31,10 @@ import { safeReply } from './telegram-safe-reply.lib.mjs';
+  * @param {object} params
+  * @param {object|null} params.parsed - Result from parseGitHubUrl().
+  * @param {Function} [params.run] - Command runner override for tests.
++ * @param {object} [params.selection] - which open issues are not work, from the solve options (issue #3176).
+  * @returns {Promise<{applicable: boolean, noWork: boolean, repository?: object, totalOpen?: number, singleIssue?: {number: number, url: string}|null}>}
+  */
+-export async function checkRepositoryModeWork({ parsed, run } = {}) {
++export async function checkRepositoryModeWork({ parsed, run, selection } = {}) {
+   if (parsed?.type !== 'repo' || !parsed.owner || !parsed.repo) {
+     return { applicable: false, noWork: false };
+   }
+@@ -44,7 +45,7 @@ export async function checkRepositoryModeWork({ parsed, run } = {}) {
+     fullName: `${parsed.owner}/${parsed.repo}`,
+     url: parsed.canonical || parsed.normalized || `https://github.com/${parsed.owner}/${parsed.repo}`,
+   };
+-  const prepared = await prepareRepositoryModeIssue({ repository, run });
++  const prepared = await prepareRepositoryModeIssue({ repository, run, selection });
+ 
+   return {
+     applicable: true,
+@@ -65,6 +66,7 @@ export async function checkRepositoryModeWork({ parsed, run } = {}) {
+  * @param {object|null} params.parsed - Result from parseGitHubUrl().
+  * @param {string} params.locale - Effective Telegram locale.
+  * @param {Function} [params.run] - Command runner override for tests.
++ * @param {object} [params.selection] - forwarded to {@link checkRepositoryModeWork}
+  * @param {Function} [params.reply]
+  * @param {Function} [params.translate]
+  * @param {Function} [params.escape]
+@@ -84,9 +86,9 @@ export async function replyIfRepositoryHasNoWork(params = {}) {
+  * @param {object} params - same as {@link replyIfRepositoryHasNoWork}
+  * @returns {Promise<{repliedNoWork: boolean, singleIssue: {number: number, url: string}|null}>}
+  */
+-export async function preflightRepositoryTarget({ ctx, parsed, locale, run, reply = safeReply, translate = t, escape = escapeMarkdown, onError = null } = {}) {
++export async function preflightRepositoryTarget({ ctx, parsed, locale, run, selection, reply = safeReply, translate = t, escape = escapeMarkdown, onError = null } = {}) {
+   try {
+-    const repositoryWork = await checkRepositoryModeWork({ parsed, run });
++    const repositoryWork = await checkRepositoryModeWork({ parsed, run, selection });
+     if (!repositoryWork.noWork) return { repliedNoWork: false, singleIssue: repositoryWork.singleIssue || null };
+ 
+     const message = translate('telegram.repository_no_open_issues', { repository: escape(repositoryWork.repository.fullName) }, { locale });

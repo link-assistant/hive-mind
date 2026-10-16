@@ -184,6 +184,12 @@ export const retryLimits = {
   maxThinkingBlockResumes: parseIntWithDefault('HIVE_MIND_MAX_THINKING_BLOCK_RESUMES', 1),
 };
 
+// Issue #2293: auto-restart stops once the same checks failed with the same output this many
+// restarts in a row (checks without output never count). 0 keeps restarting until the budget ends.
+export const ciFailureRepeat = {
+  stopAfter: parseIntWithDefault('HIVE_MIND_CI_FAILURE_REPEAT_STOP', 3),
+};
+
 // Critical-error recovery behaviour (Issue #1834, PR #1835 feedback)
 // "On all critical errors we auto commit uncommitted changes by default." When a critical error
 // forces the tool to discard/restart a session, any uncommitted work on disk would be lost when the

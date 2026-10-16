@@ -20,6 +20,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { USE_M_PACKAGE_VERSIONS } from '../src/use-with-retry.lib.mjs';
 import { aliasForPackage, computeBackoffMs, isRetryableNpmError, installWithRetry } from '../scripts/preinstall-use-m-packages.mjs';
 
 let passed = 0;
@@ -48,9 +49,10 @@ const test = (name, fn) => {
 };
 
 await test('aliasForPackage strips @ and replaces / for scoped names', () => {
-  assert.equal(aliasForPackage('command-stream'), 'command-stream-v-2.4.0');
-  assert.equal(aliasForPackage('@dotenvx/dotenvx'), 'dotenvx-dotenvx-v-2.36.0');
-  assert.equal(aliasForPackage('links-notation'), 'links-notation-v-0.26.0');
+  // The versions come from the pin map, so a dependency refresh does not have to edit this test.
+  assert.equal(aliasForPackage('command-stream'), `command-stream-v-${USE_M_PACKAGE_VERSIONS['command-stream']}`);
+  assert.equal(aliasForPackage('@dotenvx/dotenvx'), `dotenvx-dotenvx-v-${USE_M_PACKAGE_VERSIONS['@dotenvx/dotenvx']}`);
+  assert.equal(aliasForPackage('links-notation'), `links-notation-v-${USE_M_PACKAGE_VERSIONS['links-notation']}`);
 });
 
 await test('isRetryableNpmError detects ENOTEMPTY and friends', () => {

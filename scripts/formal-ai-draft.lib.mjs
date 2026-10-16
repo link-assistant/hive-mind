@@ -243,8 +243,8 @@ export function buildDockerArgv({ solveArgv, solveCommand = 'solve', image = DEF
 }
 
 /**
- * Variables that tell solve it runs in a `--rm` container and which workflow
- * run keeps its log as an artifact. Without them a failed log upload named a
+ * Variables that tell solve it runs in a `--rm` container, inside GitHub
+ * Actions, and which workflow run keeps its log as an artifact. Without them a failed log upload named a
  * path inside a container that no longer existed.
  *
  * @param {Record<string,string|undefined>} [env]
@@ -252,7 +252,9 @@ export function buildDockerArgv({ solveArgv, solveCommand = 'solve', image = DEF
  */
 export function buildRunContextEnv(env = process.env) {
   const runUrl = resolveCiRunUrl(env);
-  return { HIVE_MIND_EPHEMERAL_CONTAINER: '1', ...(runUrl ? { HIVE_MIND_CI_RUN_URL: runUrl } : {}) };
+  // Issue #3330: solve takes the Actions token identity (`github-actions[bot]`)
+  // when `/user` is forbidden, but only if it can tell it runs in Actions.
+  return { HIVE_MIND_EPHEMERAL_CONTAINER: '1', ...(runUrl ? { HIVE_MIND_CI_RUN_URL: runUrl } : {}), ...(env.GITHUB_ACTIONS === 'true' ? { GITHUB_ACTIONS: 'true' } : {}) };
 }
 
 const LOG_LINE_PREFIX = /^\[[^\]]*\] \[([A-Z]+)\] /;

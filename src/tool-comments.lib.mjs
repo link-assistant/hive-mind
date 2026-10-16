@@ -98,6 +98,13 @@ export const NO_CHANGES_PRODUCED_MARKER = 'No changes were produced by this sess
 // Issue #3211: posted when a run finished without changing anything (session-changes.lib.mjs).
 export const FINISHED_WITHOUT_CHANGES_MARKER = 'Finished without changes';
 
+// Issue #3330: posted when what a run changed could not be measured, so its pull request keeps its state (session-changes.lib.mjs).
+export const SESSION_EFFECT_UNVERIFIED_MARKER = "Could not verify the session's effect";
+// Issue #3332: GitHub rejected a push because the token cannot write workflows.
+export const WORKFLOW_PUSH_REJECTED_MARKER = 'Workflow push rejected';
+// Issue #3174: a closing reference the session removed is not re-added (pr-issue-link-repair.lib.mjs).
+export const CLOSING_REFERENCES_LEFT_OUT_MARKER = 'Closing references left out';
+
 // github.lib.mjs — fork contributor "Allow edits by maintainers" request
 export const MAINTAINER_ACCESS_REQUEST_MARKER = 'Allow edits by maintainers';
 
@@ -138,6 +145,8 @@ export const LOG_UPLOAD_FAILED_MARKER = 'Log Upload Failed';
  * the constant and appending it here.
  */
 export const TOOL_GENERATED_COMMENT_MARKERS = [RECOVERY_LIFECYCLE_MARKER, AI_WORK_SESSION_STARTED_MARKER, AI_WORK_SESSION_COMPLETED_MARKER, AI_WORK_SESSION_RESUMED_MARKER, AUTO_RESUME_ON_LIMIT_RESET_MARKER, AUTO_RESTART_ON_LIMIT_RESET_MARKER, SOLUTION_DRAFT_LOG_MARKER, AUTO_RESTART_MARKER, AUTO_RESTART_UNTIL_MERGEABLE_LOG_MARKER, READY_TO_MERGE_MARKER, READY_FOR_REVIEW_MARKER, AUTO_MERGED_MARKER, BILLING_LIMIT_MARKER, CANCELLED_CI_REVIEW_MARKER, AUTOMATION_STOPPED_MARKER, AUTO_MERGE_BLOCKED_MARKER, MAINTAINER_ACCESS_REQUEST_MARKER, LIVE_PROGRESS_SECTION_START_MARKER, SESSION_FORCE_KILLED_MARKER, REPOSITORY_INITIALIZATION_REQUIRED_MARKER, INTERACTIVE_SESSION_STARTED_MARKER, INTERACTIVE_SESSION_ENDED_MARKER, NOW_WORKING_SESSION_IS_ENDED_MARKER, SOLUTION_DRAFT_FAILED_MARKER, SOLUTION_DRAFT_FINISHED_WITH_ERRORS_MARKER, USAGE_LIMIT_REACHED_MARKER, LOG_UPLOAD_FAILED_MARKER, WORKING_SESSION_SUMMARY_AUTOMATION_MARKER, NO_CHANGES_PRODUCED_MARKER, FINISHED_WITHOUT_CHANGES_MARKER];
+// The list above is at the print width; later markers are appended here.
+TOOL_GENERATED_COMMENT_MARKERS.push(SESSION_EFFECT_UNVERIFIED_MARKER, WORKFLOW_PUSH_REJECTED_MARKER, CLOSING_REFERENCES_LEFT_OUT_MARKER);
 
 /**
  * Markers that indicate the end of a working session. Used by
@@ -162,6 +171,23 @@ export const isAutomatedWorkingSessionSummaryComment = body => {
 export const isToolGeneratedComment = body => {
   if (!body || typeof body !== 'string') return false;
   return isAutomatedWorkingSessionSummaryComment(body) || TOOL_GENERATED_COMMENT_MARKERS.some(marker => body.includes(marker));
+};
+
+const escapeRegExp = text => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+// `## ✅ Ready to merge`, `## 🔄 Auto-restart 1/5`, `## :warning: Session Force-Killed (…)`: the status
+// headings solve.mjs opens its own comments with - an icon, then a marker. Only such a heading counts, so a
+// person quoting "Ready to merge", or titling a request "## Ready to merge?", is still feedback (issue #2406).
+const headingMarkers = TOOL_GENERATED_COMMENT_MARKERS.filter(marker => !marker.startsWith('<!--'))
+  .map(escapeRegExp)
+  .join('|');
+const TOOL_STATUS_HEADING = new RegExp(`^#{1,6} (?:\\S+ (?:${headingMarkers})|${escapeRegExp(CANCELLED_CI_REVIEW_MARKER)})(?=$|[\\s:(])`);
+
+/** True when a comment opens with one of solve.mjs's own status headings or hidden automation markers. */
+export const isToolStatusComment = body => {
+  if (!body || typeof body !== 'string') return false;
+  const text = body.trimStart();
+  if (TOOL_GENERATED_COMMENT_MARKERS.some(marker => marker.startsWith('<!--') && text.startsWith(marker))) return true;
+  return TOOL_STATUS_HEADING.test(text.split('\n', 1)[0].trim());
 };
 
 // ----------------------------------------------------------------------------
@@ -290,6 +316,10 @@ export const isFailureAlreadyReportedOnTarget = ({ owner, repo, targetNumber }) 
   return latest?.isFailureReport === true || latest?.automationStopped === true;
 };
 
+// Issue #3278: the bot's session monitor posts these comments too; a stalled
+// `gh api` fails the post (handled like any gh error) instead of hanging it.
+const GH_COMMENT_TIMEOUT_MS = 120_000;
+
 /** gh's message when GitHub's response body was cut off mid-JSON. */
 const isTruncatedGhResponse = text => /unexpected end of JSON input/i.test(String(text || ''));
 
@@ -301,7 +331,7 @@ const findPostedComment = async ({ $, apiPath, body, since }) => {
   // One minute of slack for clock skew between this host and GitHub.
   const sinceIso = new Date(since - 60_000).toISOString();
   try {
-    const listed = await $({ mirror: false })`gh api ${`${apiPath}?since=${sinceIso}&per_page=100`}`;
+    const listed = await $({ mirror: false, signal: AbortSignal.timeout(GH_COMMENT_TIMEOUT_MS) })`gh api ${`${apiPath}?since=${sinceIso}&per_page=100`}`;
     if (listed.code !== 0) return undefined;
     const comments = JSON.parse(listed.stdout?.toString() || '');
     if (!Array.isArray(comments)) return undefined;
@@ -361,7 +391,7 @@ export const postTrackedComment = async ({ $, owner, repo, targetNumber, body, c
   const startedAt = Date.now();
   let result;
   try {
-    result = await $({ stdin: payload })`gh api ${apiPath} -X ${method} --input -`;
+    result = await $({ stdin: payload, signal: AbortSignal.timeout(GH_COMMENT_TIMEOUT_MS) })`gh api ${apiPath} -X ${method} --input -`;
   } catch (err) {
     return { ok: false, commentId: null, stderr: err && err.message ? err.message : String(err) };
   }
@@ -376,7 +406,7 @@ export const postTrackedComment = async ({ $, owner, repo, targetNumber, body, c
     if (existing === undefined) return { ok: false, commentId: null, stderr };
     if (existing === null) {
       try {
-        result = await $({ stdin: payload })`gh api ${apiPath} -X POST --input -`;
+        result = await $({ stdin: payload, signal: AbortSignal.timeout(GH_COMMENT_TIMEOUT_MS) })`gh api ${apiPath} -X POST --input -`;
       } catch (err) {
         return { ok: false, commentId: null, stderr: err && err.message ? err.message : String(err) };
       }

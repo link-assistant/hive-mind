@@ -42,7 +42,7 @@
  * future model. See docs/case-studies/issue-1886/ for the full analysis.
  */
 
-import { isFormalAiModel } from './models/index.mjs'; // Issue #2119
+import { lookupServedModelPrice } from './formal-ai-pricing.lib.mjs'; // Issue #2119, #3279
 
 // Module-level singleton: the cumulative Anthropic cost for the active logical
 // session (including anything seeded by a true resume from a prior process).
@@ -144,8 +144,9 @@ export const hasCumulativeAnthropicCost = () => cumulativeAnthropicCostUSD > 0;
 export const captureAnthropicResultCost = async ({ data, model, log }) => {
   const cost = data?.total_cost_usd;
   if (cost === undefined || cost === null) return null;
-  if (isFormalAiModel(model)) {
-    await log(`💰 Ignoring Anthropic cost $${cost.toFixed(6)} reported for a Formal AI session (Link.Assistant, free)`, { verbose: true });
+  const servedPrice = lookupServedModelPrice(model); // Issue #3279: the served model's price, not the client's
+  if (servedPrice) {
+    await log(`💰 Ignoring Anthropic cost $${cost.toFixed(6)} reported for ${model} (served by ${servedPrice.provider}${servedPrice.free ? ', free' : ''})`, { verbose: true });
     return null;
   }
   if (data.subtype === 'success') {

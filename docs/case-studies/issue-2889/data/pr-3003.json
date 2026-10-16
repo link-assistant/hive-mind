@@ -1,0 +1,8 @@
+{
+  "headRefName": "issue-3001-3b515bcd5429",
+  "mergedAt": null,
+  "number": 3003,
+  "state": "OPEN",
+  "title": "Measure Docker disk space through the daemon when the bot uses the host socket; stop treating non-zero exits as success (#3001)",
+  "url": "https://github.com/link-assistant/hive-mind/pull/3003"
+}

@@ -72,7 +72,6 @@ async function buildProcessor({ healthSequence, branchWaitSequence = [{ success:
       calls.merged.push(number);
       return { success: true };
     },
-    closeLinkedIssueIfNotAutoClosed: async () => ({ closed: false }),
     getMergeCommitSha: async (owner, repo, number) => ({ sha: `${number}abcdef0`, error: null }),
   });
   processor.sleep = async () => ({ cancelled: processor.isCancelled });

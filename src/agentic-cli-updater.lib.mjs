@@ -124,22 +124,22 @@ export const parseBunGlobalPackageVersion = (text, packageName) => {
 export const resolveAgenticCliStatePath = (env = process.env) => path.join(resolveBotStateDir(env), STATE_FILE_NAME);
 
 /** Read the refresh journal. A missing or corrupt file is an empty journal, never a throw. */
-export const readAgenticCliState = ({ env = process.env, fsImpl = fs } = {}) => {
+export const readAgenticCliState = async ({ env = process.env, fsImpl = fs } = {}) => {
   try {
-    const parsed = JSON.parse(fsImpl.readFileSync(resolveAgenticCliStatePath(env), 'utf8'));
+    const parsed = JSON.parse(await fsImpl.promises.readFile(resolveAgenticCliStatePath(env), 'utf8'));
     return { version: 1, lastCheckedAt: null, tools: {}, ...parsed };
   } catch {
     return { version: 1, lastCheckedAt: null, tools: {} };
   }
 };
 
-/** Persist the refresh journal atomically. */
-export const writeAgenticCliState = (state, { env = process.env, fsImpl = fs } = {}) => {
+/** Persist the refresh journal atomically (async: the bot runs it, issue #3278). */
+export const writeAgenticCliState = async (state, { env = process.env, fsImpl = fs } = {}) => {
   const target = resolveAgenticCliStatePath(env);
-  fsImpl.mkdirSync(path.dirname(target), { recursive: true });
+  await fsImpl.promises.mkdir(path.dirname(target), { recursive: true });
   const temporary = `${target}.tmp`;
-  fsImpl.writeFileSync(temporary, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
-  fsImpl.renameSync(temporary, target);
+  await fsImpl.promises.writeFile(temporary, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
+  await fsImpl.promises.rename(temporary, target);
   return state;
 };
 
@@ -196,7 +196,7 @@ export const updateAgenticClisWhenIdle = async ({ env = process.env, fsImpl = fs
   return withStateLock(
     CLI_UPDATE_LOCK_NAME,
     async () => {
-      const state = readAgenticCliState({ env, fsImpl });
+      const state = await readAgenticCliState({ env, fsImpl });
       const nowMs = now().getTime();
       const lastCheckedMs = Date.parse(state.lastCheckedAt ?? '') || 0;
       if (!force && lastCheckedMs && nowMs - lastCheckedMs < minIntervalMs) {
@@ -263,7 +263,7 @@ export const updateAgenticClisWhenIdle = async ({ env = process.env, fsImpl = fs
         }
       }
 
-      writeAgenticCliState({ ...state, lastCheckedAt: now().toISOString(), tools }, { env, fsImpl });
+      await writeAgenticCliState({ ...state, lastCheckedAt: now().toISOString(), tools }, { env, fsImpl });
       if (log && updated.length > 0) await log(`✅ Agentic CLIs updated while idle: ${updated.map(entry => `${entry.id} ${entry.from}→${entry.to}`).join(', ')}`);
       if (verbose && log) await log(`[VERBOSE] agentic-cli-updater: ${updated.length} updated, ${upToDate.length} current, ${failed.length} failed${failed.length > 0 ? ` (${failed.map(entry => `${entry.id}: ${entry.error}`).join('; ')})` : ''}`);
       return { status: 'checked', updated, upToDate, failed };

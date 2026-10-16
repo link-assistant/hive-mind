@@ -10,6 +10,10 @@ import { ghCmdRetry } from './lib.mjs';
 import { ghPrView, ghIssueView } from './github.lib.mjs';
 import { QUIET_PROBE } from './quiet-probe.lib.mjs';
 
+// Issue #3278: the /solve pre-checks run in the bot; each `gh api` attempt is
+// bounded so a stalled request fails the attempt instead of hanging the command.
+const GH_QUERY_TIMEOUT_MS = 60_000;
+
 /**
  * Compute the Levenshtein edit distance between two strings.
  * Used to suggest the closest existing branch name when a requested base
@@ -86,7 +90,7 @@ export function findClosestBranchName(target, candidates) {
  */
 export async function checkBaseBranchExists({ owner, repo, baseBranch, verbose = false }) {
   try {
-    const result = await ghCmdRetry(() => $`gh api repos/${owner}/${repo}/branches/${baseBranch} --jq .name`, { label: `check branch ${baseBranch}` });
+    const result = await ghCmdRetry(() => $({ signal: AbortSignal.timeout(GH_QUERY_TIMEOUT_MS) })`gh api repos/${owner}/${repo}/branches/${baseBranch} --jq .name`, { label: `check branch ${baseBranch}` });
     if (result.code === 0) {
       return { exists: true };
     }
@@ -167,7 +171,7 @@ export async function buildMissingBaseBranchErrorMessage({ owner, repo, baseBran
 export async function validateGitHubEntityExistence({ owner, repo, number, type, baseBranch, verbose = false, autoAcceptInvite = false }) {
   // Step 1: Check user/organization existence
   try {
-    const userResult = await ghCmdRetry(() => $`gh api users/${owner} --jq .login`, { label: `check user ${owner}` });
+    const userResult = await ghCmdRetry(() => $({ signal: AbortSignal.timeout(GH_QUERY_TIMEOUT_MS) })`gh api users/${owner} --jq .login`, { label: `check user ${owner}` });
     if (userResult.code !== 0) {
       const errorOutput = (userResult.stderr?.toString() ? userResult.stderr.toString() : '') + (userResult.stdout?.toString() ? userResult.stdout.toString() : '');
       if (errorOutput.includes('404') || errorOutput.includes('Not Found')) {
@@ -186,7 +190,7 @@ export async function validateGitHubEntityExistence({ owner, repo, number, type,
 
   // Step 2: Check repository existence
   try {
-    const repoResult = await ghCmdRetry(() => $`gh api repos/${owner}/${repo} --jq .full_name`, { label: `check repo ${owner}/${repo}` });
+    const repoResult = await ghCmdRetry(() => $({ signal: AbortSignal.timeout(GH_QUERY_TIMEOUT_MS) })`gh api repos/${owner}/${repo} --jq .full_name`, { label: `check repo ${owner}/${repo}` });
     if (repoResult.code !== 0) {
       const errorOutput = (repoResult.stderr?.toString() ? repoResult.stderr.toString() : '') + (repoResult.stdout?.toString() ? repoResult.stdout.toString() : '');
       if (errorOutput.includes('404') || errorOutput.includes('Not Found')) {

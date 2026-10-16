@@ -22,9 +22,9 @@ import { buildSolveResumeCommand } from './solve.resume-command.lib.mjs'; // Iss
 const __geminiBuildSolveResumeCmd = (argv, sessionId, tempDir) => (sessionId && argv?.url ? buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool: 'gemini', model: argv.model, fallbackModel: argv.fallbackModel, tempDir, extraArgs: argv._solveResumeExtraArgs }) : null);
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import { stringifyErrorValue } from './error-text.lib.mjs'; // Issue #2141
-import { defaultModels, geminiModels, isFormalAiModel } from './models/index.mjs';
+import { defaultModels, geminiModels } from './models/index.mjs';
 import { isPrepareOnly, logPreparedToolCommand, resolveFormalAiToolExecution } from './formal-ai.lib.mjs';
-import { buildFormalAiPricingInfo } from './formal-ai-pricing.lib.mjs'; // Issue #2119
+import { servedModelPricingInfo } from './formal-ai-pricing.lib.mjs'; // Issue #2119, #3279
 import { checkPlaywrightMcpPackageAvailability } from './playwright-mcp.lib.mjs';
 import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { getCumulativeContextInputTokens, toTokenCount } from './context-fill.lib.mjs';
@@ -147,7 +147,8 @@ const pickTokenValue = (...values) => {
  * server, so the session must not be attributed to Google.
  */
 export const buildGeminiPricingInfo = mappedModel => {
-  if (isFormalAiModel(mappedModel)) return buildFormalAiPricingInfo(mappedModel);
+  const servedPricing = servedModelPricingInfo(mappedModel); // Issue #3279: one registry keyed by the served model
+  if (servedPricing) return servedPricing;
   return { modelId: mappedModel, modelName: mappedModel, provider: 'Google', totalCostUSD: null };
 };
 

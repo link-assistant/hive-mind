@@ -69,7 +69,7 @@ async function removeStoreDir(dir) {
     setSessionStore(store1);
     trackSession('uuid-before', { chatId: 5, messageId: 7, startTime: BEFORE, url: 'https://github.com/acme/widgets/issues/42', command: 'solve', isolationBackend: 'screen', sessionId: 'uuid-before', logPath: '/var/log/before.log' }, false);
     assert(getActiveSessionCount() === 1, 'run #1 tracks the session in memory');
-    assert(store1.load().length === 1, 'run #1 mirrors the session to the durable store');
+    assert((await store1.load()).length === 1, 'run #1 mirrors the session to the durable store');
 
     // Simulate a hard crash: wipe in-memory state (store survives on disk).
     resetSessionMonitorForTests();
@@ -155,7 +155,7 @@ async function removeStoreDir(dir) {
     resetSessionMonitorForTests();
     setSessionStore(store1);
     trackSession('uuid-done', { chatId: 5, messageId: 7, startTime: BEFORE, url: 'u1', command: 'solve', isolationBackend: 'screen', sessionId: 'uuid-done' }, false);
-    assert(store1.load().length === 1, 'session is persisted while running');
+    assert((await store1.load()).length === 1, 'session is persisted while running');
 
     // It completes successfully — drive the real monitor so completeSession runs
     // and removes it from the durable snapshot.
@@ -163,7 +163,7 @@ async function removeStoreDir(dir) {
       statusProvider: async () => ({ exists: true, status: 'executed', exitCode: 0 }),
     });
     assert(getActiveSessionCount() === 0, 'a successfully-completed session leaves the in-memory registry');
-    assert(store1.load().length === 0, 'a completed session is dropped from the durable snapshot');
+    assert((await store1.load()).length === 0, 'a completed session is dropped from the durable snapshot');
 
     // Restart: nothing to resume.
     resetSessionMonitorForTests();

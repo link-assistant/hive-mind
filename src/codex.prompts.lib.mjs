@@ -10,6 +10,7 @@ import { getHandoffSubPrompt } from './handoff.prompts.lib.mjs';
 import { getExperimentsExamplesSubPrompt } from './experiments-examples.prompts.lib.mjs';
 import { getThinkingPromptInstruction } from './thinking-prompt.lib.mjs';
 import { buildWorkLanguageDirective } from './work-language.prompts.lib.mjs';
+import { getIssueCompletionSubPrompt, ISSUE_COMPLETION_GOAL } from './issue-completion.prompts.lib.mjs';
 import { buildRequestedBaseBranchDirective } from './solve-option-contract.prompts.lib.mjs';
 import { buildIssueResearchPrompt } from './deep-analysis.lib.mjs';
 
@@ -81,7 +82,8 @@ export const buildUserPrompt = params => {
   }
 
   // Final instruction
-  promptLines.push(isContinueMode ? 'Continue.' : 'Proceed.');
+  // Issue #2406: every initial and continuation prompt restates the complete-delivery goal.
+  promptLines.push(ISSUE_COMPLETION_GOAL, isContinueMode ? 'Continue.' : 'Proceed.');
 
   // Build the final prompt with trailing newline for POSIX compliance
   return promptLines.join('\n') + '\n';
@@ -322,7 +324,7 @@ Visual UI work and screenshots.
    - When the fix is visual, include side-by-side or sequential comparison of before/after states in the PR description.
    - When possible, create automated visual regression tests to prevent the UI bug from recurring.`
        : ''
-   }${ciExamples}${getArchitectureCareSubPrompt(argv)}${getUpdateAllDependenciesSubPrompt(argv)}${getReportDependenciesIssuesSubPrompt(argv)}${getHandoffSubPrompt(argv)}${buildWorkLanguageDirective()}`;
+   }${ciExamples}${getArchitectureCareSubPrompt(argv)}${getUpdateAllDependenciesSubPrompt(argv)}${getReportDependenciesIssuesSubPrompt(argv)}${getHandoffSubPrompt(argv)}${getIssueCompletionSubPrompt(params)}${buildWorkLanguageDirective()}`;
 };
 
 // Export all functions as default object too

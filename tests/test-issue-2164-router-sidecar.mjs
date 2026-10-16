@@ -117,7 +117,7 @@ assertEqual(GITHUB_API_HOST.test(ROUTER_TLS_DNS_NAMES), true, 'which is what let
 
 console.log('\n=== issue #2164: credential discovery ===');
 
-const discovered = getRouterCredentialMounts({ homeDir: '/home/box', existsSync: target => target.endsWith('.claude') || target.endsWith('.qwen') });
+const discovered = await getRouterCredentialMounts({ homeDir: '/home/box', existsSync: target => target.endsWith('.claude') || target.endsWith('.qwen') });
 assertEqual(discovered.map(mount => mount.home).join(','), '.claude,.qwen', 'only credential directories that exist on the host are mounted');
 
 console.log('\n=== issue #2164: token identity ===');

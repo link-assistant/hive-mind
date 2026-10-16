@@ -17,7 +17,13 @@ An issue will be created asking to implement a "Hello World" program in ${random
 `;
 }
 
-export function helloWorldIssue(randomLanguage) {
+/**
+ * #3332: `workflowDir` is `ci/` when the row's token cannot push
+ * `.github/workflows` (the default `GITHUB_TOKEN`); the harness then copies the
+ * workflow into place and runs it with act.
+ */
+export function helloWorldIssue(randomLanguage, { workflowDir = '.github/workflows/' } = {}) {
+  const staged = workflowDir !== '.github/workflows/';
   const issueTitle = `Implement Hello World in ${randomLanguage}`;
   const issueBody = `## Task
 Please implement a "Hello World" program in ${randomLanguage}.
@@ -54,8 +60,8 @@ Example workflow structure:
 - The implementation should be simple and straightforward
 - Focus on clarity and correctness
 - Use the standard library only (no external dependencies unless absolutely necessary for ${randomLanguage})
-- The GitHub Actions workflow should be in \`.github/workflows/\` directory
-- The workflow should have a meaningful name like \`test-hello-world.yml\`
+- The GitHub Actions workflow should be in \`${workflowDir}\` directory
+- The workflow should have a meaningful name like \`test-hello-world.yml\`${staged ? `\n- Save the workflow as \`${workflowDir}test-hello-world.yml\`, not under \`.github/workflows/\`: this repository's token cannot push workflow files, so the test harness copies it there and runs it` : ''}
 
 ## Definition of Done
 - [ ] Program file created with correct extension

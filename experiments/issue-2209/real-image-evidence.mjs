@@ -70,7 +70,7 @@ try {
   console.log(`\n=== pulling the starting release ${fromImage} ===`);
   await docker(['pull', fromImage]);
   const fromDigest = await docker(['image', 'inspect', fromImage, '--format', '{{.Id}}']);
-  writeFormalAiSidecarState({ image: fromImage, imageDigest: fromDigest, leases: [] }, { env });
+  await writeFormalAiSidecarState({ image: fromImage, imageDigest: fromDigest, leases: [] }, { env });
   evidence.start = { image: fromImage, digest: fromDigest };
 
   console.log(`\n=== idle update to ${FORMAL_AI_IMAGE_REPOSITORY}:${toTag} ===`);
@@ -146,7 +146,7 @@ try {
     assert.equal(secondProbe.version, update.health.version);
     await releaseFormalAiSidecar({ sessionId: 'issue-2209-evidence-b', ...options });
 
-    evidence.persistedState = readFormalAiSidecarState({ env }).lastUpdate;
+    evidence.persistedState = (await readFormalAiSidecarState({ env })).lastUpdate;
     console.log(`\n=== persisted acceptance ===\n${JSON.stringify(evidence.persistedState, null, 2)}`);
     console.log(`\nPASS: ${evidence.update.version} (${update.digest}) was accepted, started and observed serving both tasks.`);
   }

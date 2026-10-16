@@ -6,11 +6,13 @@ import { promisify } from 'node:util';
 import { findFormalAiClient, loadFormalAiClientRegistry, prepareFormalAiRuntime } from './formal-ai-runtime.lib.mjs';
 import { SECRET_TOOL_ENV_NAMES } from './tool-env-gh-auth.lib.mjs';
 import { assertSupportedFormalAiVersion, parseFormalAiVersion, readFormalAiBinaryVersion } from './formal-ai-version.lib.mjs';
+import { FORMAL_AI_SUPPORTED_TOOLS } from './formal-ai-model.lib.mjs';
 import { isFormalAiModel } from './models/index.mjs';
+
+export { FORMAL_AI_SUPPORTED_TOOLS };
 
 const execFileAsync = promisify(execFile);
 
-export const FORMAL_AI_SUPPORTED_TOOLS = Object.freeze(['claude', 'agent', 'opencode', 'codex', 'qwen', 'gemini']);
 export const DEFAULT_FORMAL_AI_PATH = 'formal-ai';
 
 const SAFE_SHELL_WORD = /^[a-zA-Z0-9_\-./=,+@:]+$/;

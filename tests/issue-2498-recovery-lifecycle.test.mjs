@@ -105,9 +105,9 @@ test('a same-log resume reads only the current footer and current stop evidence'
   try {
     await fs.writeFile(log, old);
     const read = scopeRecoveryFooter(readSessionExitFromLog, { killRecoveryResumed: true, killRecoveryInPlace: true, killRecoveryLogStartBytes: boundary, startTime: new Date() });
-    assert.equal(read(log).finished, false);
+    assert.equal((await read(log)).finished, false);
     await fs.appendFile(log, 'authentication failed\n==========\nFinished: 2026-01-01 00:00:01.000\nExit Code: 1\n');
-    assert.equal(read(log).exitCode, 1, 'a byte-scoped footer is authoritative even across clock differences');
+    assert.equal((await read(log)).exitCode, 1, 'a byte-scoped footer is authoritative even across clock differences');
     const excerpt = await readLogTextBounded(log, { minByteOffset: boundary, maxBytes: 128 });
     assert.match(excerpt, /^authentication failed/);
     assert.doesNotMatch(excerpt, /137|User requested|omitted/);

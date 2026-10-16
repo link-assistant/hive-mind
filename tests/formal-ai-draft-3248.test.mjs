@@ -115,6 +115,8 @@ test('the container is told it is removed on exit and which run holds its log', 
   assert.deepEqual(buildRunContextEnv({ GITHUB_ACTIONS: 'true', GITHUB_SERVER_URL: 'https://github.com', GITHUB_REPOSITORY: 'link-assistant/hive-mind', GITHUB_RUN_ID: '38515996193' }), {
     HIVE_MIND_EPHEMERAL_CONTAINER: '1',
     HIVE_MIND_CI_RUN_URL: 'https://github.com/link-assistant/hive-mind/actions/runs/38515996193',
+    // #3330: without it solve cannot fall back to the Actions token identity when /user is 403.
+    GITHUB_ACTIONS: 'true',
   });
   assert.deepEqual(buildRunContextEnv({}), { HIVE_MIND_EPHEMERAL_CONTAINER: '1' });
 });

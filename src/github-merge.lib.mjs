@@ -17,6 +17,7 @@ import { exec as execCallback } from 'child_process';
 const execRaw = promisify(execCallback);
 
 import { parseGitHubUrl } from './github.lib.mjs';
+import { selectSessionPullRequest } from './session-own-pr.lib.mjs';
 import { githubLimits } from './config.lib.mjs';
 import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
 import { getTerminalGitHubEntityErrorMessage, isTerminalGitHubEntityError } from './github-terminal-state.lib.mjs';
@@ -24,7 +25,9 @@ import { cancellableSleep } from './interruptible-sleep.lib.mjs';
 // Issue #2182: draft detection and merge-failure classification live in one
 // pure module shared by every merge call site.
 import { classifyMergeError, evaluatePullRequestMergeability } from './merge-error-classification.lib.mjs';
-import { checkIssueLinksBeforeMerge, closeLinkedIssuesAfterMerge } from './issue-link-verification.lib.mjs';
+import { checkIssueCompletionBeforeMerge } from './issue-completion.lib.mjs';
+// Issues #3354/#3357: the one post-merge closing implementation for every merge path.
+import { closeIssuesAfterMerge, formatIssueClosingReport, issueClosingOptions, unclosedIssueKeys } from './post-merge-issue-closing.lib.mjs';
 
 // Issue #1722: gh api `--paginate --slurp` responses for repos with many
 // historical workflow runs can easily exceed Node's default 1 MB exec buffer
@@ -48,12 +51,6 @@ const exec = (cmd, opts = {}) =>
 // to keep this file under the 1500 line limit
 import { syncReadyTags, getLinkedPRsFromTimeline, READY_LABEL } from './github-merge-ready-sync.lib.mjs';
 export { syncReadyTags, getLinkedPRsFromTimeline, READY_LABEL };
-
-// Issue #1895: After merging into a non-default branch, close the linked issue
-// explicitly (GitHub only auto-closes for default-branch merges). Extracted to a
-// separate module to keep this file under the 1500-line limit.
-import { closeLinkedIssueIfNotAutoClosed } from './github-merge-issue-close.lib.mjs';
-export { closeLinkedIssueIfNotAutoClosed };
 
 // Issue #2072: the long CI polling loops live in their own module (file size limit).
 // Re-exported here so existing importers keep working.
@@ -250,21 +247,16 @@ export async function fetchReadyIssuesWithPRs(owner, repo, verbose = false) {
 
         const linkedPRs = JSON.parse(searchJson.trim() || '[]');
 
-        if (linkedPRs.length > 0) {
-          // Take the first linked PR (oldest if multiple)
-          linkedPRs.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-          result.push({
-            issue,
-            pr: linkedPRs[0],
-            // Use minimum of issue and PR creation dates for sorting
-            sortDate: new Date(Math.min(new Date(issue.createdAt), new Date(linkedPRs[0].createdAt))),
-          });
-
-          if (verbose) {
-            console.log(`[VERBOSE] /merge: Issue #${issue.number} linked to PR #${linkedPRs[0].number}`);
-          }
+        // The issue's own PR, oldest first: a parent's plan PR that also closes
+        // this issue is on another issue's branch and is never picked (#2891).
+        linkedPRs.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+        const pr = selectSessionPullRequest(linkedPRs, issue.number, { rejected: other => verbose && console.log(`[VERBOSE] /merge: Issue #${issue.number}: skipping PR #${other.number}, its branch ${other.headRefName} belongs to another issue`) });
+        if (pr) {
+          // Use minimum of issue and PR creation dates for sorting
+          result.push({ issue, pr, sortDate: new Date(Math.min(new Date(issue.createdAt), new Date(pr.createdAt))) });
+          if (verbose) console.log(`[VERBOSE] /merge: Issue #${issue.number} linked to PR #${pr.number}`);
         } else if (verbose) {
-          console.log(`[VERBOSE] /merge: Issue #${issue.number} has no linked open PR`);
+          console.log(`[VERBOSE] /merge: Issue #${issue.number} has no linked open PR of its own`);
         }
       } catch (err) {
         if (verbose) {
@@ -564,8 +556,11 @@ export async function checkMergePermissions(owner, repo, verbose = false) {
  * @param {string} options.mergeMethod - Merge method: 'merge', 'squash', or 'rebase' (default: 'merge'). Must specify one method non-interactively (Issue #1269).
  * @param {boolean} options.squash - DEPRECATED: Use mergeMethod: 'squash' instead
  * @param {boolean} options.deleteAfter - Whether to delete branch after merge (default: false)
+ * @param {boolean} [options.autoCloseLinkedIssues] - Close intended issues GitHub left open after the merge (default: on; HIVE_MIND_AUTO_CLOSE_LINKED_ISSUES=false only reports, #3354)
+ * @param {boolean} [options.allowCrossRepositoryClosing] - Allow author-written closing references to other repositories (default: on, #3358)
+ * @param {boolean} [options.closeCompletedParents] - Close parents whose work is complete (default: on, #3359)
  * @param {boolean} verbose - Whether to log verbose output
- * @returns {Promise<{success: boolean, error: string|null}>}
+ * @returns {Promise<{success: boolean, error: string|null, issueClosing?: Object, unclosedIssues?: string[]}>}
  */
 export async function mergePullRequest(owner, repo, prNumber, options = {}, verbose = false) {
   const { mergeMethod = 'merge', squash = false, deleteAfter = false } = options;
@@ -573,9 +568,12 @@ export async function mergePullRequest(owner, repo, prNumber, options = {}, verb
   try {
     // Issue #2335: every merge entry point, including the queue, re-reads the
     // description and refuses to merge a pull request that does not close its issues.
-    const links = await checkIssueLinksBeforeMerge({ owner, repo, prNumber, issueNumber: options.issueNumber, logger: async message => console.log(message), verbose });
+    // Issue #2406: nor one without a current, complete requirements report.
+    const links = await checkIssueCompletionBeforeMerge({ owner, repo, prNumber, issueNumber: options.issueNumber, logger: async message => console.log(message), verbose, allowCrossRepositoryClosing: issueClosingOptions(options).allowCrossRepositoryClosing });
     if (links.blocker) return { success: false, error: links.blocker.message, category: links.blocker.reason, terminal: true, recoverable: false, resolution: links.blocker.resolution, blocker: links.blocker };
     let mergeArgs = `--repo ${owner}/${repo}`;
+    // Issue #2406: merge exactly the commit that was verified, not one pushed since.
+    if (links.headSha) mergeArgs += ` --match-head-commit ${links.headSha}`;
 
     // Issue #1269: gh pr merge requires --merge, --squash, or --rebase when running non-interactively
     // We must always specify a merge method to prevent the command from hanging or failing
@@ -593,14 +591,16 @@ export async function mergePullRequest(owner, repo, prNumber, options = {}, verb
     }
 
     const { stdout } = await exec(`gh pr merge ${prNumber} ${mergeArgs}`);
-    const unclosedIssues = await closeLinkedIssuesAfterMerge(links.snapshot, { logger: async message => console.warn(message) });
+    // Issue #3355: verify every intended issue closed; close (or, when switched off, report) the rest.
+    const issueClosing = await closeIssuesAfterMerge(links.snapshot, options, { logger: async message => console.warn(message) });
+    for (const line of formatIssueClosingReport(issueClosing)) console.log(line);
 
     if (verbose) {
       console.log(`[VERBOSE] /merge: Successfully merged PR #${prNumber}`);
       if (stdout) console.log(`[VERBOSE] /merge: stdout: ${stdout.trim()}`);
     }
 
-    return { success: true, error: null, unclosedIssues };
+    return { success: true, error: null, issueClosing, unclosedIssues: unclosedIssueKeys(issueClosing) };
   } catch (error) {
     // Issue #2182: classify the failure so watch loops can stop (or self-heal)
     // instead of retrying an impossible merge every 120 seconds forever.
@@ -1294,7 +1294,6 @@ export default {
   getActiveBranchRuns, // Issue #1307: New exports for target branch CI waiting
   waitForBranchCI,
   getDefaultBranch,
-  closeLinkedIssueIfNotAutoClosed, // Issue #1895: close linked issue after merge into non-default branch
   // Issue #1314: Billing limit detection and enhanced CI status and re-run capabilities
   getCheckRunAnnotations,
   getRepoVisibility,

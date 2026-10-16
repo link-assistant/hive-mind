@@ -71,6 +71,9 @@ import { getRemainingAutoRestartIterations } from './auto-restart-budget.lib.mjs
 /** Stop reason published through the #2144 automation-stop registry. */
 export const NO_PROGRESS_STOP_REASON = 'no_progress_between_sessions';
 
+/** Issue #2293: the same checks failed with the same output restart after restart. */
+export const REPEATED_CI_FAILURE_STOP_REASON = 'repeated_ci_failure';
+
 /** NUL cannot occur in a commit hash, a status line, or a chat message. */
 const FINGERPRINT_SEPARATOR = String.fromCharCode(0);
 const STATUS_PREVIEW_LINES = 10;
@@ -336,11 +339,76 @@ export const resetNoProgressFailure = () => {
  * @param {boolean} [params.verbose]
  * @returns {Promise<{reason: string, committed: boolean, pushed: boolean, occurrences: number}>}
  */
-export const failOnNoProgressBetweenSessions = async ({ owner, repo, prNumber, tempDir, branchName, $: command, log = noopLog, formatAligned = (icon, label, value) => `${icon} ${label} ${value}`, verdict = null, mode = null, remainingIterations = null, verbose = false }) => {
+export const failOnNoProgressBetweenSessions = async ({ owner, repo, prNumber, tempDir, branchName, $: command, log = noopLog, formatAligned = (icon, label, value) => `${icon} ${label} ${value}`, verdict = null, mode = null, remainingIterations = null, verbose = false }) =>
+  stopWithoutProgress({
+    owner,
+    repo,
+    prNumber,
+    tempDir,
+    branchName,
+    $: command,
+    log,
+    formatAligned,
+    reason: NO_PROGRESS_STOP_REASON,
+    headline: ['NO PROGRESS BETWEEN SESSIONS', 'Stopping instead of repeating an identical session'],
+    logLines: [
+      ['Previous session:', describeSession(verdict?.previous, 'not recorded')],
+      ['Identical session:', describeSession(verdict?.current, 'not recorded')],
+    ],
+    draftReason: 'no progress between sessions',
+    preserveReason: 'stopped after two identical AI sessions',
+    report: preserved => reportNoProgressStop({ $: command, owner, repo, targetNumber: prNumber, mode, verdict, remainingIterations, preserved, verbose, log }),
+    remainingIterations,
+    occurrences: verdict?.occurrences || 2,
+  });
+
+/**
+ * Issue #2293: stop the run because the same checks failed with the same
+ * output for `occurrences` restarts in a row, although each session in
+ * between was free to change the code. Reported, preserved and recorded like
+ * {@link failOnNoProgressBetweenSessions}, so the process exits non-zero.
+ *
+ * @param {Object} params - as {@link failOnNoProgressBetweenSessions}, with
+ * @param {string[]} params.evidence - the failing checks, from `collectRestartEvidence`
+ * @param {number} params.occurrences - identical restarts in a row
+ * @returns {Promise<{reason: string, committed: boolean, pushed: boolean, occurrences: number}>}
+ */
+export const failOnRepeatedCiFailure = async ({ owner, repo, prNumber, tempDir, branchName, $: command, log = noopLog, formatAligned = (icon, label, value) => `${icon} ${label} ${value}`, evidence = [], occurrences, mode = null, remainingIterations = null, verbose = false }) =>
+  stopWithoutProgress({
+    owner,
+    repo,
+    prNumber,
+    tempDir,
+    branchName,
+    $: command,
+    log,
+    formatAligned,
+    reason: REPEATED_CI_FAILURE_STOP_REASON,
+    headline: ['SAME CI FAILURE REPEATED', `The same checks failed with the same output ${occurrences} restarts in a row`],
+    logLines: evidence.map(line => ['Evidence:', line]),
+    draftReason: 'the same CI failure repeated',
+    preserveReason: `stopped after the same CI failure ${occurrences} restarts in a row`,
+    report: preserved =>
+      reportAutomationStop({
+        $: command,
+        owner,
+        repo,
+        targetNumber: prNumber,
+        reason: REPEATED_CI_FAILURE_STOP_REASON,
+        mode,
+        message: `The same checks failed with the same output after ${occurrences} AI sessions in a row, so another restart is unlikely to fix them.`,
+        details: [...evidence, ...(typeof remainingIterations === 'number' && remainingIterations > 0 ? [`${remainingIterations} restart iteration${remainingIterations === 1 ? '' : 's'} of the configured budget left unused.`] : []), ...(preserved ? [describePreservedWork(preserved)] : [])],
+        verbose,
+        log,
+      }),
+    remainingIterations,
+    occurrences,
+  });
+
+const stopWithoutProgress = async ({ owner, repo, prNumber, tempDir, branchName, $: command, log, formatAligned, reason, headline, logLines, draftReason, preserveReason, report, remainingIterations, occurrences }) => {
   await log('');
-  await log(formatAligned('❌', 'NO PROGRESS BETWEEN SESSIONS', 'Stopping instead of repeating an identical session'), { level: 'error' });
-  await log(formatAligned('', 'Previous session:', describeSession(verdict?.previous, 'not recorded'), 2), { level: 'error' });
-  await log(formatAligned('', 'Identical session:', describeSession(verdict?.current, 'not recorded'), 2), { level: 'error' });
+  await log(formatAligned('❌', ...headline), { level: 'error' });
+  for (const [label, value] of logLines) await log(formatAligned('', label, value, 2), { level: 'error' });
   if (typeof remainingIterations === 'number' && remainingIterations > 0) {
     await log(formatAligned('', 'Budget left unused:', `${remainingIterations} restart iteration${remainingIterations === 1 ? '' : 's'}`, 2), { level: 'error' });
   }
@@ -349,16 +417,14 @@ export const failOnNoProgressBetweenSessions = async ({ owner, repo, prNumber, t
   // Issue #2263: terminal failure must dominate any earlier readiness decision,
   // including the restart iteration's own finally block.
   if (prNumber) {
-    await ensurePullRequestStaysDraftAfterFailure({ owner, repo, prNumber, $: command, log, formatAligned, reason: 'no progress between sessions' });
+    await ensurePullRequestStaysDraftAfterFailure({ owner, repo, prNumber, $: command, log, formatAligned, reason: draftReason });
   }
 
-  const preserved = await commitUncommittedChangesOnCriticalError({ tempDir, branchName, $: command, log, reason: 'stopped after two identical AI sessions', push: true });
+  const preserved = await commitUncommittedChangesOnCriticalError({ tempDir, branchName, $: command, log, reason: preserveReason, push: true });
 
-  if (prNumber) {
-    await reportNoProgressStop({ $: command, owner, repo, targetNumber: prNumber, mode, verdict, remainingIterations, preserved, verbose, log });
-  }
+  if (prNumber) await report(preserved);
 
-  noProgressFailure = { reason: NO_PROGRESS_STOP_REASON, committed: preserved.committed, pushed: preserved.pushed, recoveryBranch: preserved.recoveryBranch || null, occurrences: verdict?.occurrences || 2 };
+  noProgressFailure = { reason, committed: preserved.committed, pushed: preserved.pushed, recoveryBranch: preserved.recoveryBranch || null, occurrences };
   return noProgressFailure;
 };
 
@@ -389,4 +455,4 @@ export const stopWhenSessionRepeated = async ({ owner, repo, prNumber, tempDir, 
   return await failOnNoProgressBetweenSessions({ owner, repo, prNumber, tempDir, branchName, $: command, log, formatAligned, verdict, mode, remainingIterations: getRemainingAutoRestartIterations(), verbose });
 };
 
-export default { NO_PROGRESS_STOP_REASON, buildNoProgressDetails, buildRepeatedSessionFeedback, buildSessionFingerprint, buildSessionInputFingerprint, captureSessionOutcome, failOnNoProgressBetweenSessions, getLastSessionProgress, getNoProgressFailure, getRecordedSessions, hasNoProgressFailure, normalizeSessionMessage, noteSessionInput, recordSessionOutcome, reportNoProgressStop, resetNoProgressFailure, resetSessionProgress, stopWhenSessionRepeated, takeRepeatedSessionFeedback };
+export default { NO_PROGRESS_STOP_REASON, REPEATED_CI_FAILURE_STOP_REASON, buildNoProgressDetails, buildRepeatedSessionFeedback, buildSessionFingerprint, buildSessionInputFingerprint, captureSessionOutcome, failOnNoProgressBetweenSessions, failOnRepeatedCiFailure, getLastSessionProgress, getNoProgressFailure, getRecordedSessions, hasNoProgressFailure, normalizeSessionMessage, noteSessionInput, recordSessionOutcome, reportNoProgressStop, resetNoProgressFailure, resetSessionProgress, stopWhenSessionRepeated, takeRepeatedSessionFeedback };

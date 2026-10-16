@@ -16,7 +16,8 @@ const fs = (await use('fs')).promises;
 const path = (await use('path')).default;
 const os = (await use('os')).default;
 // Import log from general lib
-import { log } from './lib.mjs';
+import { getLogFile, log } from './lib.mjs';
+import { codexTracePathFor, createCodexStderrLog } from './codex-stderr-log.lib.mjs'; // Issue #2293
 // Issues #1955 / #1990: run-health analysis lives in its own module to keep this
 // file under the max-lines budget. Re-exported below for backward compatibility.
 import { findCodexUsageLimitMessage, getCodexErrorEventSummary, getCodexCompletionHealth, getCodexPluginProvisioningHealth, logCodexResourceSnapshot, matchCodexPluginInstallRejection, reportCodexCompletionFailure, reportCodexPluginProvisioning } from './codex-health.lib.mjs';
@@ -40,21 +41,23 @@ import { createInteractiveHandler } from './interactive-mode.lib.mjs';
 import { initProgressMonitoring } from './solve.progress-monitoring.lib.mjs';
 import { ensureCodexPlaywrightMcpServer, getCodexPlaywrightMcpDisableConfigArgs } from './playwright-mcp.lib.mjs';
 import { fetchModelInfo } from './model-info.lib.mjs';
-import { defaultModels, isFormalAiModel } from './models/index.mjs';
+import { defaultModels } from './models/index.mjs';
 import { buildAuthRemedyLines, buildFormalAiEnvExports, isPrepareOnly, logPreparedToolCommand, resolveFormalAiToolExecution } from './formal-ai.lib.mjs';
 import { assertFormalAiCodexConfig, classifyFormalAiCodexFailure, pinFormalAiCodexHome } from './codex.formal-ai.lib.mjs';
-import { buildFormalAiPricingInfo } from './formal-ai-pricing.lib.mjs'; // Issue #2119
+import { servedModelPricingInfo } from './formal-ai-pricing.lib.mjs'; // Issue #2119, #3279
+import { createToolAttribution } from './formal-ai-attribution.lib.mjs'; // Issue #3279
 import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { parseSubSessionSize } from './sub-session-size.lib.mjs'; // Issue #1706
 import { buildCodexPricingTierConfigArgs, describePricingTier, resolvePricingTier } from './pricing-tier.lib.mjs'; // Issue #2771
 import { buildCodexMemoryDisableConfigArgs, isAgentMemoryDisabled } from './agent-memory-policy.lib.mjs'; // Issue #2178
-import { buildCodexAuxiliaryDisableConfigArgs, isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236
+import { buildCodexAuxiliaryDisableConfigArgs, buildCodexEssentialFeatureConfigArgs, isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236, #2406
 import { CODEX_REMOTE_PLUGIN_DISABLE_ARGS } from './agent-config-audit.lib.mjs'; // Issue #2190
 import { getCumulativeContextInputTokens } from './context-fill.lib.mjs';
 import { deployHandoffSkill } from './handoff-skill.lib.mjs'; // Issue #1877
 import { deployPlaywrightSkill } from './playwright-skill.lib.mjs'; // Issue #2190
 import { formatRouterAuthViolation, startRouterAuthGuard } from './router-auth-guard.lib.mjs'; // Issue #2190
 import { applyCodexCapabilityEnv, runCodexCapabilityPreflight, verifyCodexCapabilityExecutionCatalog } from './codex-capability-preflight.lib.mjs'; // Issues #2074 and #2254
+import { createCodexResumeRolloutCheck } from './codex-sessions.lib.mjs'; // Issue #2888
 import { createPullRequestBaseBranchCommandIntervention } from './solve.pr-base-command-intervention.lib.mjs';
 import Decimal from 'decimal.js-light';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
@@ -433,7 +436,8 @@ export const calculateCodexPricing = async (modelId, tokenUsage) => {
   if (!modelId) return null;
   // Issue #2119: a Formal AI session is served by the local Link.Assistant
   // model server, so OpenAI pricing must not be applied to it.
-  if (isFormalAiModel(modelId)) return buildFormalAiPricingInfo(modelId, tokenUsage);
+  const servedPricing = servedModelPricingInfo(modelId, tokenUsage); // Issue #3279: one registry keyed by the served model
+  if (servedPricing) return servedPricing;
   try {
     const modelInfo = await fetchModelInfo(modelId, { preferredProviderIds: ['openai'] });
     return calculateCodexPricingFromModelInfo(modelId, tokenUsage, modelInfo);
@@ -448,63 +452,47 @@ export const validateCodexConnection = async (model = defaultModels.codex, verbo
   const { reasoningEffort, rolloutTokenBudget } = await resolveRuntimeCodexReasoningEffort({ model: mappedModel, codexPath: 'codex' }, { log });
   const reasoningArgs = reasoningEffort ? ['-c', `model_reasoning_effort=${reasoningEffort}`] : [];
   if (rolloutTokenBudget) reasoningArgs.push('-c', `rollout_token_budget=${rolloutTokenBudget}`);
-  // Retry configuration
-  const maxRetries = 3;
-  let retryCount = 0;
-
-  const attemptValidation = async () => {
+  try {
+    await log('🔍 Validating Codex CLI connection...');
+    // Check if Codex CLI is installed and get version
     try {
-      if (retryCount === 0) {
-        await log('🔍 Validating Codex CLI connection...');
-      } else {
-        await log(`🔄 Retry attempt ${retryCount}/${maxRetries} for Codex validation...`);
+      const versionResult = await $`timeout ${Math.floor(timeouts.codexCli / 1000)} codex --version`;
+      if (versionResult.code === 0) {
+        const version = versionResult.stdout?.toString().trim();
+        await log(`📦 Codex CLI version: ${version}`);
       }
-      // Check if Codex CLI is installed and get version
-      try {
-        const versionResult = await $`timeout ${Math.floor(timeouts.codexCli / 1000)} codex --version`;
-        if (versionResult.code === 0) {
-          const version = versionResult.stdout?.toString().trim();
-          if (retryCount === 0) {
-            await log(`📦 Codex CLI version: ${version}`);
-          }
-        }
-      } catch (versionError) {
-        if (retryCount === 0) {
-          await log(`⚠️  Codex CLI version check failed (${versionError.code}), proceeding with connection test...`);
-        }
+    } catch (versionError) {
+      await log(`⚠️  Codex CLI version check failed (${versionError.code}), proceeding with connection test...`);
+    }
+    // Test basic Codex functionality with a simple "echo hi" command
+    // Using exec mode with JSON output for validation
+    const testResult = await $({ env: getCodexExecEnv(verbose) })`printf "echo hi" | timeout ${Math.floor(timeouts.codexCli / 1000)} codex exec --model ${mappedModel} --json --skip-git-repo-check ${reasoningArgs} --dangerously-bypass-approvals-and-sandbox`;
+    if (testResult.code !== 0) {
+      const stderr = testResult.stderr?.toString() || '';
+      const stdout = testResult.stdout?.toString() || '';
+      // Check for authentication errors in both stderr and stdout
+      // Codex CLI may return auth errors in JSON format on stdout
+      if (stderr.includes('auth') || stderr.includes('login') || stdout.includes('Not logged in') || stdout.includes('401 Unauthorized')) {
+        const authError = new Error('Codex authentication failed - 401 Unauthorized');
+        authError.isAuthError = true;
+        await log('❌ Codex authentication failed', { level: 'error' });
+        for (const line of buildAuthRemedyLines({ model, vendorRemedy: 'Please run: codex login' })) await log(line, { level: 'error' });
+        throw authError;
       }
-      // Test basic Codex functionality with a simple "echo hi" command
-      // Using exec mode with JSON output for validation
-      const testResult = await $({ env: getCodexExecEnv(verbose) })`printf "echo hi" | timeout ${Math.floor(timeouts.codexCli / 1000)} codex exec --model ${mappedModel} --json --skip-git-repo-check ${reasoningArgs} --dangerously-bypass-approvals-and-sandbox`;
-      if (testResult.code !== 0) {
-        const stderr = testResult.stderr?.toString() || '';
-        const stdout = testResult.stdout?.toString() || '';
-        // Check for authentication errors in both stderr and stdout
-        // Codex CLI may return auth errors in JSON format on stdout
-        if (stderr.includes('auth') || stderr.includes('login') || stdout.includes('Not logged in') || stdout.includes('401 Unauthorized')) {
-          const authError = new Error('Codex authentication failed - 401 Unauthorized');
-          authError.isAuthError = true;
-          await log('❌ Codex authentication failed', { level: 'error' });
-          for (const line of buildAuthRemedyLines({ model, vendorRemedy: 'Please run: codex login' })) await log(line, { level: 'error' });
-          throw authError;
-        }
 
-        await log(`❌ Codex validation failed with exit code ${testResult.code}`, { level: 'error' });
-        if (stderr) await log(`   Error: ${stderr.trim()}`, { level: 'error' });
-        if (stdout && !stderr) await log(`   Output: ${stdout.trim()}`, { level: 'error' });
-        return false;
-      }
-      // Success
-      await log('✅ Codex CLI connection validated successfully');
-      return true;
-    } catch (error) {
-      await log(`❌ Failed to validate Codex CLI connection: ${error.message}`, { level: 'error' });
-      await log('   💡 Make sure Codex CLI is installed and accessible', { level: 'error' });
+      await log(`❌ Codex validation failed with exit code ${testResult.code}`, { level: 'error' });
+      if (stderr) await log(`   Error: ${stderr.trim()}`, { level: 'error' });
+      if (stdout && !stderr) await log(`   Output: ${stdout.trim()}`, { level: 'error' });
       return false;
     }
-  };
-  // Start the validation
-  return await attemptValidation();
+    // Success
+    await log('✅ Codex CLI connection validated successfully');
+    return true;
+  } catch (error) {
+    await log(`❌ Failed to validate Codex CLI connection: ${error.message}`, { level: 'error' });
+    await log('   💡 Make sure Codex CLI is installed and accessible', { level: 'error' });
+    return false;
+  }
 };
 // Function to handle Codex runtime switching (if applicable)
 export const handleCodexRuntimeSwitch = async () => {
@@ -614,15 +602,18 @@ export const executeCodex = async params => {
     owner,
     repo,
     prNumber,
+    issueNumber, // Issue #3279: attribution evidence path and trailers
+    prUrl,
     capabilityPreflight: { ...capabilityPreflight, codexBaseEnv },
   });
 };
 
 export const executeCodexCommand = async params => {
   const getCgroupMemory = params.readCgroupMemory || readCgroupMemory;
-  const { tempDir, branchName, prompt, systemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, codexPath, $, owner, repo, prNumber, capabilityPreflight, calculatePricing = calculateCodexPricing, waitForRetryDelay = waitWithCountdown, verifyCapabilityExecutionCatalog = verifyCodexCapabilityExecutionCatalog } = params;
+  const { tempDir, branchName, prompt, systemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, codexPath, $, owner, repo, prNumber, issueNumber = null, prUrl = null, createAttributionSession, capabilityPreflight, calculatePricing = calculateCodexPricing, waitForRetryDelay = waitWithCountdown, verifyCapabilityExecutionCatalog = verifyCodexCapabilityExecutionCatalog } = params;
   const shellQuote = value => `"${String(value).replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
   const expectedBaseBranch = String(argv?.baseBranch || '').trim();
+  const codexAttribution = await createToolAttribution({ tool: 'codex', argv, repositoryPath: tempDir, issueNumber, prNumber, prUrl, log, createAttributionSession }); // Issue #3279: `--tool agent`'s attribution, fed from `codex exec --json`
   // Retry configuration
   let retryCount = 0;
   // Issue #2169: retries are bounded by a wall-clock budget (12 h by default, configurable via
@@ -630,6 +621,8 @@ export const executeCodexCommand = async params => {
   const transientRetryBudget = createTransientRetryBudget();
   let baseBranchInterventionPrompt = null;
   let baseBranchInterventionResumeCount = 0;
+  // Issue #2888: a recovery run may resume a thread whose rollout is not here.
+  const resumeRolloutExists = createCodexResumeRolloutCheck();
   const executeWithRetry = async () => {
     // Execute codex command from the cloned repository directory
     if (retryCount === 0) {
@@ -658,7 +651,7 @@ export const executeCodexCommand = async params => {
     let execCommand;
     const mappedModel = mapModelToId(argv.model);
     const { reasoningEffort, source: reasoningEffortSource, rolloutTokenBudget } = await resolveRuntimeCodexReasoningEffort({ ...argv, model: mappedModel, codexPath }, { log });
-    const isResumeMode = !!argv.resume;
+    let isResumeMode = !!argv.resume;
     const codexEnv = applyCodexCapabilityEnv(capabilityPreflight?.codexBaseEnv || getCodexExecEnv(argv.verbose), {
       codexHome: capabilityPreflight?.codexHome,
       baseCodexHome: capabilityPreflight?.baseCodexHome,
@@ -677,9 +670,18 @@ export const executeCodexCommand = async params => {
       Object.assign(toolInvocation.env, applyCodexCapabilityEnv({}, capabilityPreflight));
     }
     Object.assign(codexEnv, toolInvocation.env);
+    await codexAttribution.prepareEnv(codexEnv); // Issue #3279: hooks via GIT_CONFIG_*, kept by Codex's default shell_environment_policy
     if (capabilityPreflight?.codexHome) {
       const verified = await verifyCapabilityExecutionCatalog({ capabilityPreflight, projectDir: tempDir, codexPath, env: codexEnv, log });
       Object.assign(capabilityPreflight, verified);
+    }
+    // Issue #2888: `codex exec resume` of a thread with no rollout in the
+    // repository-scoped CODEX_HOME fails at once (a run in a new container);
+    // start a new session on the same branch instead.
+    const scopedResumeId = isResumeMode && capabilityPreflight?.codexHome ? argv.resume : null;
+    if (!(await resumeRolloutExists({ threadId: scopedResumeId, codexHome: codexEnv.CODEX_HOME, log })) && scopedResumeId) {
+      argv.resume = null;
+      isResumeMode = false;
     }
     // For Codex, we combine system and user prompts into a single message
     // Codex doesn't have separate system prompt support in CLI mode
@@ -751,6 +753,10 @@ export const executeCodexCommand = async params => {
     // Issue #2236: no auxiliary model calls nobody in an autonomous run will read.
     // Compaction is deliberately untouched — `remote_compaction_v2` and
     // `compaction_image_budget` stay on, they are what makes long tasks survivable.
+    // Issue #2406: native goals keep the complete-delivery objective; never part of the opt-out above.
+    for (const arg of buildCodexEssentialFeatureConfigArgs()) {
+      codexArgs += ` ${shellQuote(arg)}`;
+    }
     const auxiliaryDisableArgs = buildCodexAuxiliaryDisableConfigArgs(isAuxiliaryModelCallsDisabled(argv));
     for (const arg of auxiliaryDisableArgs) {
       codexArgs += ` ${shellQuote(arg)}`;
@@ -875,6 +881,7 @@ export const executeCodexCommand = async params => {
       // the line-oriented Codex parser never sees a partial record.
       const codexStdoutLines = createLineBuffer();
       const codexStderrLines = createLineBuffer();
+      const codexStderrLog = createCodexStderrLog({ tracePath: codexTracePathFor(getLogFile()) }); // Issue #2293
 
       for await (const chunk of execCommand.stream()) {
         if (chunk.type === 'stdout') {
@@ -884,6 +891,7 @@ export const executeCodexCommand = async params => {
           }
           lastMessage = raw;
           const output = codexStdoutLines.write(raw);
+          await codexAttribution.observeText(output); // Issue #3279: before any commit the turn makes
           await toolCallLoopGuard.observeOutput(output);
           codexJsonState = parseCodexExecJsonOutput(output, codexJsonState, mappedModel, { source: 'stdout' });
           await baseBranchCommandIntervention.handleCommandExecutions(codexJsonState.commandExecutions);
@@ -920,9 +928,7 @@ export const executeCodexCommand = async params => {
         }
         if (chunk.type === 'stderr') {
           const rawError = chunk.data.toString();
-          if (rawError && argv.verbose) {
-            await log(rawError, { stream: 'stderr' });
-          }
+          if (argv.verbose) for (const line of codexStderrLog.write(rawError)) await log(line, { stream: 'stderr' });
           const errorOutput = codexStderrLines.write(rawError);
           stderrError = findCodexStderrError(errorOutput, stderrError);
           // Issue #2136: stderr is telemetry/tracing text, not the codex protocol.
@@ -932,6 +938,7 @@ export const executeCodexCommand = async params => {
           ({ exitCode, signal } = normalizeCodexExit(chunk));
         }
       }
+      if (argv.verbose) for (const line of codexStderrLog.end()) await log(line, { stream: 'stderr' });
       const cgroupAfter = getCgroupMemory();
       await log(`📈 Codex cgroup memory after execution: ${JSON.stringify(cgroupAfter)}`, { verbose: true });
       // Release any line that was still being assembled when the stream ended.
@@ -941,6 +948,7 @@ export const executeCodexCommand = async params => {
       ]) {
         if (!remaining.trim()) continue;
         if (source === 'stderr') stderrError = findCodexStderrError(remaining, stderrError);
+        else await codexAttribution.observeText(remaining);
         codexJsonState = parseCodexExecJsonOutput(remaining, codexJsonState, mappedModel, { source });
         await baseBranchCommandIntervention.handleCommandExecutions(codexJsonState.commandExecutions);
       }
@@ -1247,8 +1255,8 @@ export const executeCodexCommand = async params => {
     }
   };
 
-  // Start the execution with retry logic
-  return await executeWithRetry();
+  // Start the execution with retry logic; attribution is finalized on every path (issue #3279)
+  return await executeWithRetry().finally(() => codexAttribution.finalize({ branchName }));
 };
 export const checkForUncommittedChanges = async (tempDir, owner, repo, branchName, $, log, autoCommit = false, autoRestartEnabled = true) => {
   // Similar to Claude and OpenCode version, check for uncommitted changes

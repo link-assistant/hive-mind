@@ -212,6 +212,18 @@ export function extractCommandFromText(text, botUsername = null) {
 }
 
 /**
+ * Whether `text` names the github.com host (`https://github.com/o/r`,
+ * `github.com/o/r`, `www.github.com/...`), not merely contains the string, so
+ * `evilgithub.com` or `github.com.example` do not pass for a GitHub URL.
+ *
+ * @param {string} text - A cleaned command argument
+ * @returns {boolean}
+ */
+export function mentionsGitHubHost(text) {
+  return /(?:^|[/.@])github\.com(?:[/:?#]|$)/i.test(String(text || ''));
+}
+
+/**
  * Extract GitHub issue/PR URL from message text.
  * Validates that message contains exactly one GitHub issue/PR link.
  * Extracted from telegram-bot.mjs to reduce file size (issue #1325).

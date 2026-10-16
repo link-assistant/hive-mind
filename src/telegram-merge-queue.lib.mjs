@@ -1202,8 +1202,7 @@ export class MergeQueueProcessor {
       message += `⚠️ *Branch CI Failures \\(blocked queue\\):*\n`;
       for (const run of this.branchCIFailedRuns.slice(0, 3)) {
         const runName = this.escapeMarkdown(run.name);
-        // Format the URL for MarkdownV2 - need to escape special characters
-        const runUrl = run.html_url ? `[View](${run.html_url.replace(/[)]/g, '\\)')})` : '';
+        const runUrl = run.html_url ? `[View](${this.escapeMarkdownLinkUrl(run.html_url)})` : '';
         message += `  ❌ ${runName} ${runUrl}\n`;
       }
       if (this.branchCIFailedRuns.length > 3) {
@@ -1216,8 +1215,7 @@ export class MergeQueueProcessor {
       message += `⚠️ *Post\\-Merge CI Failures \\(stopped queue\\):*\n`;
       for (const run of this.postMergeCIFailedRuns.slice(0, 3)) {
         const runName = this.escapeMarkdown(run.name);
-        // Format the URL for MarkdownV2 - need to escape special characters
-        const runUrl = run.html_url ? `[View](${run.html_url.replace(/[)]/g, '\\)')})` : '';
+        const runUrl = run.html_url ? `[View](${this.escapeMarkdownLinkUrl(run.html_url)})` : '';
         message += `  ❌ ${runName} ${runUrl}\n`;
       }
       if (this.postMergeCIFailedRuns.length > 3) {
@@ -1253,7 +1251,7 @@ export class MergeQueueProcessor {
    * Escape special characters for Telegram Markdown
    */
   escapeMarkdown(text) {
-    return String(text).replace(/[_*[\]()~`>#+\-=|{}.!]/g, '\\$&');
+    return String(text).replace(/[\\_*[\]()~`>#+\-=|{}.!]/g, '\\$&');
   }
   /**
    * Issue #1805: Escape `)` and `\` inside a URL for a MarkdownV2 inline link.

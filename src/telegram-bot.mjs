@@ -188,7 +188,7 @@ const { repositoryModeSelectionFromArgv } = await import('./solve.repository-mod
 const { validateTelegramGitHubUrl } = await import('./telegram-url-validation.lib.mjs');
 const { executeStartScreen: executeStartScreenCommand, buildExecuteAndUpdateMessage } = await import('./telegram-command-execution.lib.mjs');
 const { isChatStopped, getChatStopInfo, getStoppedChatRejectMessage, DEFAULT_STOP_REASON } = await import('./telegram-start-stop-command.lib.mjs');
-const { isOldMessage: _isOldMessage, isGroupChat: _isGroupChat, isChatAuthorized: _isChatAuthorized, isForwarded: _isForwarded, isForwardedOrReply: _isForwardedOrReply, extractCommandFromText, extractGitHubUrl: _extractGitHubUrl } = await import('./telegram-message-filters.lib.mjs');
+const { isOldMessage: _isOldMessage, isGroupChat: _isGroupChat, isChatAuthorized: _isChatAuthorized, isForwarded: _isForwarded, isForwardedOrReply: _isForwardedOrReply, extractCommandFromText, extractGitHubUrl: _extractGitHubUrl, mentionsGitHubHost } = await import('./telegram-message-filters.lib.mjs');
 const { safeEditMessageText, safeReply, safeSendMessage } = await import('./telegram-safe-reply.lib.mjs');
 const { createUpdateErrorHandler } = await import('./telegram-update-error.lib.mjs');
 const { createKeyClaims, createSerialLane, detachHandler, getBackgroundTaskStats } = await import('./telegram-background-task.lib.mjs');
@@ -289,7 +289,7 @@ function isForwarded(ctx) {
 async function getCommandUrlArg(args, createYargsConfig, positionalNames) {
   const parsedUrl = createYargsConfig ? await getFirstParsedPositionalArg(args, yargs, createYargsConfig, positionalNames) : null;
   if (parsedUrl) return parsedUrl;
-  return args.find(arg => cleanNonPrintableChars(arg).includes('github.com')) || (args[0] && !args[0].startsWith('-') ? args[0] : null);
+  return args.find(arg => mentionsGitHubHost(cleanNonPrintableChars(arg))) || (args[0] && !args[0].startsWith('-') ? args[0] : null);
 }
 async function validateGitHubUrl(args, options = {}) {
   const { allowedTypes = ['issue', 'pull'], commandName = 'solve', createYargsConfig = null, positionalNames = [], locale = null } = options;
@@ -541,7 +541,7 @@ async function handleSolveCommand(ctx) {
   // Check if yargs sees a command URL. If not, try to extract it from the replied message.
   const commandUrlArg = await getCommandUrlArg(userArgs, createSolveYargsConfig, ['issue-url']);
   const commandUrlText = commandUrlArg ? cleanNonPrintableChars(commandUrlArg) : '';
-  const commandHasUrl = commandUrlText.includes('github.com') || /^https?:\/\//.test(commandUrlText);
+  const commandHasUrl = mentionsGitHubHost(commandUrlText) || /^https?:\/\//.test(commandUrlText);
   if (isReply && !commandHasUrl) {
     if (VERBOSE) {
       console.log('[VERBOSE] /solve is a reply without URL in args, extracting from replied message...');

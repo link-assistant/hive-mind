@@ -220,7 +220,7 @@ runTest('solve.mjs raw command logging', () => {
   }
 
   // The raw command should include the full command line
-  if (!output.includes('solve.mjs') || !output.includes('github.com')) {
+  if (!output.includes('solve.mjs') || !output.includes('https://github.com/test/test/issues/1')) {
     throw new Error('Raw command log should include full command line');
   }
 

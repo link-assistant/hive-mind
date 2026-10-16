@@ -1,7 +1,7 @@
 // Issue #2293: what failOnRepeatedCiFailure does against a fake `gh`/`git`.
 import { failOnRepeatedCiFailure, getNoProgressFailure, resetNoProgressFailure } from '../../src/session-progress.lib.mjs';
 const calls = [];
-const $ = options => {
+const $ = (options, ...rest) => {
   const run = async (strings, ...values) => {
     const text = strings.reduce((out, part, i) => out + part + (i < values.length ? values[i] : ''), '');
     calls.push(text.replace(/\s+/g, ' ').slice(0, 160));
@@ -9,7 +9,7 @@ const $ = options => {
     if (/comments/.test(text) && /api/.test(text)) return { code: 0, stdout: '[]', stderr: '' };
     return { code: 0, stdout: '', stderr: '' };
   };
-  return typeof options === 'object' && !Array.isArray(options) ? run : run(options, ...[].slice.call(arguments, 1));
+  return typeof options === 'object' && !Array.isArray(options) ? run : run(options, ...rest);
 };
 const logs = [];
 resetNoProgressFailure();

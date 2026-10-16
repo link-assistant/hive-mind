@@ -205,6 +205,21 @@ test("hive-mind's own status comments posted after the report do not make it sta
     );
 });
 
+test('a stalled git pull cannot hang the completion restart loop', async () => {
+  const { mkdtempSync, writeFileSync, chmodSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { syncCompletionBranch } = await import('../src/solve.issue-completion.lib.mjs');
+  const bin = mkdtempSync(join(tmpdir(), 'stalled-git-'));
+  writeFileSync(join(bin, 'git'), '#!/bin/sh\nsleep 30\n');
+  chmodSync(join(bin, 'git'), 0o755);
+  const warnings = [];
+  const started = Date.now();
+  await syncCompletionBranch({ tempDir: bin, branchName: 'issue-1', timeoutMs: 300, env: { ...process.env, PATH: `${bin}:${process.env.PATH}` }, logger: async line => warnings.push(line) });
+  assert.ok(Date.now() - started < 10_000, 'the pull was abandoned at its timeout');
+  assert.match(warnings.join('\n'), /git pull failed .*continuing with local state/);
+});
+
 test('rewriting a placeholder description keeps an existing requirements report', () => {
   const block = formatRequirementsReport({ version: 1, headSha, issues: [] });
   assert.equal(preserveRequirementsReport(`old\n${block}`, 'new body'), `new body\n\n${block}`);

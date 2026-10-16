@@ -39,6 +39,8 @@ const TIMEOUT_KEYS = new Set(['timeout', 'signal']);
 const MARKER = 'hive-exec-timeout-ok';
 
 function calleeName(callee) {
+  // `promisify(execFile)(…)` / `util.promisify(exec)(…)` takes the wrapped function's arguments.
+  if (callee.type === 'CallExpression' && calleeName(callee.callee) === 'promisify' && callee.arguments[0]) return calleeName(callee.arguments[0]);
   if (callee.type === 'Identifier') return callee.name;
   if (callee.type === 'MemberExpression' && !callee.computed && callee.property.type === 'Identifier') return callee.property.name;
   return null;

@@ -19,16 +19,19 @@ const defaultExecute = async iteration => {
   return result && isApiError(result) ? { ...result, apiError: true } : result;
 };
 
-/** Issue #1572 pattern: restart from the remote branch state; a failed pull keeps the local state. */
-const defaultSync = async ({ tempDir, branchName, logger }) => {
+// A stalled fetch (a hung remote, a credential prompt) must not hang the restart loop.
+export const COMPLETION_SYNC_TIMEOUT_MS = 5 * 60 * 1000;
+
+/** Issue #1572 pattern: restart from the remote branch state; a failed or timed-out pull keeps the local state. */
+export const syncCompletionBranch = async ({ tempDir, branchName, logger, timeoutMs = COMPLETION_SYNC_TIMEOUT_MS, env = process.env }) => {
   try {
-    await promisify(execFile)('git', ['pull', 'origin', branchName], { cwd: tempDir });
+    await promisify(execFile)('git', ['pull', 'origin', branchName], { cwd: tempDir, env, timeout: timeoutMs, killSignal: 'SIGKILL' });
   } catch (error) {
     await logger(`   Warning: git pull failed (${String(error.message).split('\n')[0]}); continuing with local state`, { level: 'warning' });
   }
 };
 
-export async function runIssueCompletionUntilVerified(params, { check = checkIssueCompletionBeforeMerge, execute = defaultExecute, sync = defaultSync, logger = async () => {}, limit = normalizeEnsureSubIssuesLimit(params.argv?.ensureAllSubIssuesAddressed) || DEFAULT_ISSUE_COMPLETION_RESTARTS } = {}) {
+export async function runIssueCompletionUntilVerified(params, { check = checkIssueCompletionBeforeMerge, execute = defaultExecute, sync = syncCompletionBranch, logger = async () => {}, limit = normalizeEnsureSubIssuesLimit(params.argv?.ensureAllSubIssuesAddressed) || DEFAULT_ISSUE_COMPLETION_RESTARTS } = {}) {
   if (!params.prNumber || !params.issueNumber || params.argv?.dryRun) return null;
   const { owner, repo, issueNumber, prNumber, argv = {} } = params;
   let latest = null;

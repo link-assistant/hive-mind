@@ -58,6 +58,9 @@ ruleTester.run('require-exec-timeout', requireExecTimeout, {
     { code: 'await exec(`gh api repos/${owner}/${repo}`);', filename, errors: [violation] },
     { code: "await execFileAsync('gh', ['api', 'user']);", filename, errors: [violation] },
     { code: "await execFileAsync('/usr/bin/git', ['fetch'], { cwd });", filename, errors: [violation] },
+    // A promisify wrapper does not hide the call (issue #2406: a completion-loop git pull had no timeout).
+    { code: "await promisify(execFile)('git', ['pull', 'origin', branch], { cwd });", filename, errors: [violation] },
+    { code: "await util.promisify(exec)('gh pr view 1');", filename, errors: [violation] },
     { code: "spawn('docker', ['run', image], { stdio: 'pipe' });", filename, errors: [violation] },
     { code: "child_process.spawnSync('git', ['clone', url]);", filename, errors: [violation] },
     // exec(command, callback): the callback is not options.

@@ -75,7 +75,7 @@ export function parseFixRepository(value) {
  * the `/solve` argv itself (see `buildSolveArgs`), so the option still reaches
  * `/solve` exactly once.
  */
-export const FIX_OWNED_BOOLEAN_FLAGS = Object.freeze(['--ci-cd', '--update-all-dependencies', '--dry-run', '--no-solve', '--solve', '--no-auto-solve', '--wait-for-ci', '--no-wait-for-ci', '--help', '-h', '--version']);
+export const FIX_OWNED_BOOLEAN_FLAGS = Object.freeze(['--ci-cd', '--update-all-dependencies', '--dry-run', '--no-solve', '--solve', '--no-auto-solve', '--wait-for-ci', '--no-wait-for-ci', '--merge-dependabot-prs', '--no-merge-dependabot-prs', '--help', '-h', '--version']);
 
 /**
  * Flags that `/fix` consumes itself and that take a value, either as
@@ -120,6 +120,9 @@ export function partitionFixArgs(rawArgs) {
     // the default branch CI/CD has finished.
     waitForCi: true,
     ciWaitTimeoutMinutes: FIX_CI_WAIT_DEFAULT_TIMEOUT_MINUTES,
+    // Issue #3413: `--update-all-dependencies` first merges every open
+    // Dependabot pull request, without waiting for its CI/CD.
+    mergeDependabotPrs: true,
     errors: [],
     help: false,
     version: false,
@@ -156,6 +159,14 @@ export function partitionFixArgs(rawArgs) {
     }
     if (arg === '--no-wait-for-ci') {
       result.waitForCi = false;
+      continue;
+    }
+    if (arg === '--merge-dependabot-prs') {
+      result.mergeDependabotPrs = true;
+      continue;
+    }
+    if (arg === '--no-merge-dependabot-prs') {
+      result.mergeDependabotPrs = false;
       continue;
     }
     if (arg === '--ci-wait-timeout' || arg.startsWith('--ci-wait-timeout=')) {

@@ -31,6 +31,7 @@ import { REPORT_DEPENDENCIES_ISSUES_PARAGRAPH } from './report-dependencies-issu
 // payload for both `/fix` modes; they keep their original home so the existing
 // tests stay pointed at one implementation.
 import { buildLanguagesSection, normalizeLanguages } from './fix.ci-cd.lib.mjs';
+import { buildDependabotPullRequestsSection } from './fix.dependabot-merge.lib.mjs';
 
 /**
  * Canonical package-ecosystem catalog.
@@ -568,15 +569,22 @@ function shortSha(sha) {
  *
  * The body leads with what has to change (the ecosystem inventory) and the
  * standard prompt, then keeps the data `/fix` collected in a collapsed context
- * block so it stays available without displacing the instructions.
+ * block so it stays available without displacing the instructions. When open
+ * Dependabot pull requests were merged first (issue #3413), a section listing
+ * them and asking for every error they introduced to be fixed leads the body.
  */
 export { buildLanguagesSection };
 
-export function buildUpdateDependenciesIssueBody({ repository, defaultBranch, commit, languages, files = [], filesTruncated = false, omittedOptions = UPDATE_DEPENDENCIES_FORWARDED_SOLVE_OPTIONS, reportDependenciesIssues = true }) {
+export function buildUpdateDependenciesIssueBody({ repository, defaultBranch, commit, languages, files = [], filesTruncated = false, omittedOptions = UPDATE_DEPENDENCIES_FORWARDED_SOLVE_OPTIONS, reportDependenciesIssues = true, dependabot = null }) {
   const { detected } = mapRepositoryToEcosystems({ languages, files });
   const commitLine = commit?.sha ? `\`${shortSha(commit.sha)}\`${commit.url ? ` ([commit](${commit.url}))` : ''}${commit.message ? ` — ${String(commit.message).split('\n')[0]}` : ''}` : 'unknown';
 
   const sections = ['### Dependency ecosystems detected in this repository', '', buildEcosystemsSection({ languages, files }), '', '### Keeping them current', '', buildAutomationSection({ languages, files }), '', buildStandardPrompt({ ecosystems: detected, omittedOptions, reportDependenciesIssues }), '', '---', '', '<details>', '<summary>Context collected by <code>/fix --update-all-dependencies</code></summary>', '', `- **Repository:** [${repository?.fullName}](${repository?.url})`, `- **Default branch:** \`${defaultBranch || 'unknown'}\``, `- **Latest commit:** ${commitLine}`, `- **Ecosystems detected:** ${detected.length}`, `- **Manifest files found:** ${detected.reduce((sum, entry) => sum + entry.manifests.length, 0)}`];
+
+  // Issue #3413: the Dependabot pull requests merged before this issue was
+  // created come first, because fixing what they broke is part of the task.
+  const dependabotSection = buildDependabotPullRequestsSection(dependabot);
+  if (dependabotSection) sections.unshift(dependabotSection, '');
 
   if (filesTruncated) {
     sections.push('- ⚠️ **The file listing returned by GitHub was truncated**, so the manifest inventory above may be incomplete. Re-check the repository tree by hand.');

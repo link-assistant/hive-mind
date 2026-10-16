@@ -86,7 +86,7 @@
     "@secretlint/secretlint-rule-preset-recommend": "^13.0.7",
     "@sentry/node": "^11.8.0",
     "@sentry/profiling-node": "^11.8.0",
-    "agent-commander": "^0.11.0",
+    "agent-commander": "^0.11.1",
     "dayjs": "^1.11.23",
     "decimal.js-light": "^2.5.1",
     "lino-arguments": "^0.3.0",
@@ -103,7 +103,6 @@
   },
   "allowScripts": {
     "@sentry/node-cpu-profiler@2.4.4": true,
-    "node-pty@1.1.0": false,
-    "node-pty@1.2.0-beta.15": false
+    "node-pty@1.1.0": false
   }
 }

@@ -1,6 +1,6 @@
-// Issue #3282: bisect which -p / --append-system-prompt pair command-stream 0.17.2 mis-executes.
+// Issue #3282: bisect which -p / --append-system-prompt pair command-stream 0.17.2 mis-executes (fixed upstream: agent-commander 0.11.1 moved to command-stream 2.4.0).
 // Usage: node experiments/command-stream-exec-bisect-3282.mjs [path to a command-stream src/$.mjs]
-// (default: node_modules/agent-commander/node_modules/command-stream, the 0.17.2 copy).
+// (default: node_modules/agent-commander/node_modules/command-stream, the 0.17.2 copy agent-commander 0.11.0 installed; pass a path once it is gone).
 const { $ } = await import(process.argv[2] || new URL('../node_modules/agent-commander/node_modules/command-stream/src/$.mjs', import.meta.url).href);
 const show = 'process.stdout.write(JSON.stringify(process.argv.slice(1)))';
 const sys = `Use the 'file' command; a | b & c`;

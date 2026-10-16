@@ -1,0 +1,41 @@
+name: Test Hello World Scala
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up JDK
+      uses: actions/setup-java@v3
+      with:
+        java-version: '11'
+        distribution: 'temurin'
+
+    - name: Install Scala
+      run: |
+        curl -fL https://github.com/coursier/launchers/raw/master/cs-x86_64-pc-linux.gz | gzip -d > cs
+        chmod +x cs
+        ./cs setup
+        echo "$HOME/.local/share/coursier/bin" >> $GITHUB_PATH
+
+    - name: Run HelloWorld.scala
+      run: |
+        scala HelloWorld.scala
+
+    - name: Verify output
+      run: |
+        output=$(scala HelloWorld.scala)
+        if [ "$output" = "Hello, World!" ]; then
+          echo "Test passed"
+        else
+          echo "Expected 'Hello, World!' but got '$output'"
+          exit 1
+        fi

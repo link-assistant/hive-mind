@@ -16,7 +16,8 @@ const fs = (await use('fs')).promises;
 const path = (await use('path')).default;
 const os = (await use('os')).default;
 // Import log from general lib
-import { log } from './lib.mjs';
+import { getLogFile, log } from './lib.mjs';
+import { codexTracePathFor, createCodexStderrLog } from './codex-stderr-log.lib.mjs'; // Issue #2293
 // Issues #1955 / #1990: run-health analysis lives in its own module to keep this
 // file under the max-lines budget. Re-exported below for backward compatibility.
 import { findCodexUsageLimitMessage, getCodexErrorEventSummary, getCodexCompletionHealth, getCodexPluginProvisioningHealth, logCodexResourceSnapshot, matchCodexPluginInstallRejection, reportCodexCompletionFailure, reportCodexPluginProvisioning } from './codex-health.lib.mjs';
@@ -880,6 +881,7 @@ export const executeCodexCommand = async params => {
       // the line-oriented Codex parser never sees a partial record.
       const codexStdoutLines = createLineBuffer();
       const codexStderrLines = createLineBuffer();
+      const codexStderrLog = createCodexStderrLog({ tracePath: codexTracePathFor(getLogFile()) }); // Issue #2293
 
       for await (const chunk of execCommand.stream()) {
         if (chunk.type === 'stdout') {
@@ -926,9 +928,7 @@ export const executeCodexCommand = async params => {
         }
         if (chunk.type === 'stderr') {
           const rawError = chunk.data.toString();
-          if (rawError && argv.verbose) {
-            await log(rawError, { stream: 'stderr' });
-          }
+          if (argv.verbose) for (const line of codexStderrLog.write(rawError)) await log(line, { stream: 'stderr' });
           const errorOutput = codexStderrLines.write(rawError);
           stderrError = findCodexStderrError(errorOutput, stderrError);
           // Issue #2136: stderr is telemetry/tracing text, not the codex protocol.
@@ -938,6 +938,7 @@ export const executeCodexCommand = async params => {
           ({ exitCode, signal } = normalizeCodexExit(chunk));
         }
       }
+      if (argv.verbose) for (const line of codexStderrLog.end()) await log(line, { stream: 'stderr' });
       const cgroupAfter = getCgroupMemory();
       await log(`📈 Codex cgroup memory after execution: ${JSON.stringify(cgroupAfter)}`, { verbose: true });
       // Release any line that was still being assembled when the stream ended.

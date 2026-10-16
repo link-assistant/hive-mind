@@ -70,7 +70,7 @@ const { resumeAfterToolKill } = await import('./solve.tool-kill-resume.lib.mjs')
 const validation = await import('./solve.validation.lib.mjs');
 const { calculateWaitTime } = validation;
 // Import configuration (used for limit reset buffer and jitter)
-import { limitReset } from './config.lib.mjs';
+import { ciFailureRepeat, limitReset } from './config.lib.mjs';
 // Import helper functions extracted for file size management (Issue #1593)
 const autoMergeHelpers = await import('./solve.auto-merge-helpers.lib.mjs');
 const { checkForExistingComment, checkForNonBotComments, checkForIssueMetadataChanges, getMergeBlockers, shouldResetNoRunsCounter, trackAuthenticatedUserCommentsSince, nextMonotonicCheckTime } = autoMergeHelpers;
@@ -100,13 +100,13 @@ const { formatAutoIterationLimit, hasReachedAutoIterationLimit, normalizeAutoIte
 // sessions and the two loops published incompatible progress labels
 // ("Auto-restart triggered (iteration 1)" vs "Auto-restart 1/5 Log").
 const autoRestartBudget = await import('./auto-restart-budget.lib.mjs');
-const { beginAutoRestartBudget, consumeAutoRestartIteration, formatAutoRestartLabel, formatAutoRestartLimit, hasExhaustedAutoRestartBudget } = autoRestartBudget;
+const { beginAutoRestartBudget, consumeAutoRestartIteration, formatAutoRestartLabel, formatAutoRestartLimit, getRemainingAutoRestartIterations, hasExhaustedAutoRestartBudget } = autoRestartBudget;
 const { buildAutoRestartComment, failOnAutoRestartBudgetExhausted } = await import('./auto-restart-exhaustion.lib.mjs');
 const { collectRestartEvidence, createCiFailureRepeatTracker, formatReasonWithEvidence } = await import('./restart-evidence.lib.mjs'); // Issue #2293: evidence for every restart reason
 const { handleBillingLimitBlocker } = await import('./billing-limit-stop.lib.mjs');
 // Issue #2247 (H3): a restart is only worth its cost when the previous session
 // changed something. Five byte-identical sessions is a stall, not progress.
-const { stopWhenSessionRepeated } = await import('./session-progress.lib.mjs');
+const { failOnRepeatedCiFailure, stopWhenSessionRepeated } = await import('./session-progress.lib.mjs');
 // Issue #2839: every failing check must be fixed, pre-existing ones too; evidence spares the AI the diagnosis.
 const { buildCiFailureGuidance, buildPreExistingCiFeedback, detectPreExistingCiFailures } = await import('./ci-pre-existing-failure.lib.mjs');
 // Issue #2119: an empty pull request must not be reported as ready to merge.
@@ -208,7 +208,7 @@ export const watchUntilMergeable = async params => {
   // restart/resume fallback can detect user edits to those surfaces and deliver
   // them as feedback to the next session. The first check seeds the baseline.
   let issueMetadataSnapshot = null;
-  const ciRepeatTracker = createCiFailureRepeatTracker(); // Issue #2293: same failing checks restart after restart
+  const ciRepeatTracker = createCiFailureRepeatTracker({ stopAfter: ciFailureRepeat.stopAfter }); // Issue #2293: same failing checks restart after restart
   while (true) {
     iteration++;
     const currentTime = new Date();
@@ -765,6 +765,10 @@ export const watchUntilMergeable = async params => {
         // Issue #2293: which checks failed (with run URLs), who commented or edited what, and whether the same checks failed again.
         const restartEvidence = collectRestartEvidence({ comments: hasNewComments ? comments : [], issueNumber, issueChanges: hasIssueMetadataChanges ? issueMetadataChanges : [], ciBlocker: ciBlocker && !billingBlocker ? ciBlocker : null, tracker: ciRepeatTracker });
         feedbackLines.push(...restartEvidence.feedback);
+        if (restartEvidence.stop) {
+          const stop = await failOnRepeatedCiFailure({ owner, repo, prNumber, tempDir, branchName: prBranch || branchName, $, log, formatAligned, evidence: restartEvidence.lines, occurrences: restartEvidence.identicalCiFailures, mode: 'auto-restart-until-mergeable', remainingIterations: getRemainingAutoRestartIterations(), verbose: argv.verbose });
+          return { success: false, reason: stop.reason, latestSessionId, latestAnthropicCost };
+        }
 
         // Add standard instructions for auto-restart-until-mergeable mode using shared utility
         feedbackLines.push(...buildAutoRestartInstructions());

@@ -16,15 +16,16 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-import { buildCiEvidence, buildCommentEvidence, buildIssueEditEvidence, ciFailureSignature, collectRestartEvidence, createCiFailureRepeatTracker, formatReasonWithEvidence } from '../src/restart-evidence.lib.mjs';
+import { buildCiEvidence, buildCommentEvidence, buildIssueEditEvidence, ciFailureOutputSignature, ciFailureSignature, collectRestartEvidence, createCiFailureRepeatTracker, DEFAULT_CI_FAILURE_REPEAT_STOP, formatReasonWithEvidence, normalizeCheckOutput } from '../src/restart-evidence.lib.mjs';
+import { buildAutomationStopComment } from '../src/automation-stop-reporting.lib.mjs';
 import { buildAutoRestartComment } from '../src/auto-restart-exhaustion.lib.mjs';
 
 const RUN_URL = 'https://github.com/link-foundation/meta-language/actions/runs/1795/job/1';
-const ciBlocker = (names = ['Full Requirements Aggregate']) => ({
+const ciBlocker = (names = ['Full Requirements Aggregate'], description = null) => ({
   type: 'ci_failure',
   message: 'CI/CD checks are failing',
   details: names,
-  checks: names.map((name, index) => ({ name, conclusion: 'failure', html_url: index === 0 ? RUN_URL : null })),
+  checks: names.map((name, index) => ({ name, conclusion: 'failure', html_url: index === 0 ? RUN_URL : null, description })),
 });
 
 test('CI evidence names each failing check with its run URL', () => {
@@ -94,12 +95,62 @@ test('comments, issue edits and CI failures are collected together, capped for t
 
 test('wiring: the blocker keeps run URLs and the auto-restart loop logs and posts the evidence', () => {
   const helpers = readFileSync(new URL('../src/solve.auto-merge-helpers.lib.mjs', import.meta.url), 'utf8');
-  assert.match(helpers, /checks: actionableFailedChecks\.map\(c => \(\{ name: c\.name, conclusion: c\.conclusion \|\| null, html_url: c\.html_url \|\| null \}\)\)/);
+  assert.match(helpers, /checks: actionableFailedChecks\.map\(c => \(\{ name: c\.name, conclusion: c\.conclusion \|\| null, html_url: c\.html_url \|\| null, description: c\.description \|\| null \}\)\)/);
   // `details` stays the plain check names: detectPreExistingCiFailures matches on them.
   assert.match(helpers, /details: actionableFailedChecks\.map\(c => c\.name\),/);
   const loop = readFileSync(new URL('../src/solve.auto-merge.lib.mjs', import.meta.url), 'utf8');
   assert.match(loop, /collectRestartEvidence\(\{/);
-  assert.match(loop, /createCiFailureRepeatTracker\(\)/);
+  assert.match(loop, /createCiFailureRepeatTracker\(\{/);
   assert.match(loop, /formatAligned\('', 'Evidence:', line, 2\)/);
   assert.match(loop, /buildAutoRestartComment\(\{ label: formatAutoRestartLabel\(restartCount\), reason: formatReasonWithEvidence\(restartReason, restartEvidence\) \}\)/);
+});
+
+test('a repeat is judged on the output too: 11/189 → 150/189 is progress, the same 11/189 three times is not', () => {
+  assert.equal(normalizeCheckOutput('11/189 passed in 3m 12s at 2026-09-24T18:30:11Z, run https://x/runs/1 (sha 5da98f8)'), '11/189 passed in at , run (sha )');
+  assert.equal(ciFailureOutputSignature(ciBlocker(['b', 'a'], '11/189 passed')), 'a: 11/189 passed | b: 11/189 passed');
+  assert.equal(ciFailureOutputSignature(ciBlocker(['a'])), null, 'no output: a repeat cannot be told from progress');
+  assert.equal(DEFAULT_CI_FAILURE_REPEAT_STOP, 3);
+
+  const progressing = createCiFailureRepeatTracker();
+  for (const passed of [11, 40, 90, 150, 170]) progressing.record(ciBlocker(undefined, `${passed}/189 requirements passed`));
+  assert.equal(progressing.shouldStop(), false, 'the same check, failing less every time, never stops the run');
+
+  const silent = createCiFailureRepeatTracker();
+  for (let restart = 0; restart < 5; restart++) silent.record(ciBlocker());
+  assert.equal(silent.shouldStop(), false, 'a check without output never stops the run');
+
+  const stuck = createCiFailureRepeatTracker();
+  const verdicts = [1, 2, 3].map(restart => collectRestartEvidence({ ciBlocker: ciBlocker(undefined, `11/189 requirements passed (took ${restart}m)`), tracker: stuck }));
+  assert.deepEqual(
+    verdicts.map(({ identicalCiFailures, stop }) => [identicalCiFailures, stop]),
+    [
+      [1, false],
+      [2, false],
+      [3, true],
+    ]
+  );
+
+  const reset = createCiFailureRepeatTracker();
+  reset.record(ciBlocker(undefined, 'x'));
+  reset.record(ciBlocker(undefined, 'x'));
+  reset.record(null);
+  assert.equal(reset.record(ciBlocker(undefined, 'x')) && reset.identical(), 1, 'a restart for another reason ends the streak');
+
+  const disabled = createCiFailureRepeatTracker({ stopAfter: 0 });
+  for (let restart = 0; restart < 6; restart++) disabled.record(ciBlocker(undefined, 'x'));
+  assert.equal(disabled.shouldStop(), false, 'HIVE_MIND_CI_FAILURE_REPEAT_STOP=0 keeps restarting');
+});
+
+test('the stop is a terminal failure: named checks on the PR, draft kept, work preserved, non-zero exit', () => {
+  const comment = buildAutomationStopComment({ reason: 'repeated_ci_failure', mode: 'auto-restart-until-mergeable', message: 'The same checks failed with the same output after 3 AI sessions in a row.', details: [`Failing check: Full Requirements Aggregate — ${RUN_URL}`] });
+  assert.match(comment, /the same CI failure repeated restart after restart/);
+  assert.ok(comment.includes(RUN_URL));
+  assert.match(comment, /HIVE_MIND_CI_FAILURE_REPEAT_STOP/);
+  const loop = readFileSync(new URL('../src/solve.auto-merge.lib.mjs', import.meta.url), 'utf8');
+  assert.match(loop, /createCiFailureRepeatTracker\(\{ stopAfter: ciFailureRepeat\.stopAfter \}\)/);
+  assert.match(loop, /if \(restartEvidence\.stop\) \{\n\s+const stop = await failOnRepeatedCiFailure\(/);
+  const progress = readFileSync(new URL('../src/session-progress.lib.mjs', import.meta.url), 'utf8');
+  assert.match(progress, /export const failOnRepeatedCiFailure = [^;]*stopWithoutProgress\(/);
+  const finalize = readFileSync(new URL('../src/solve.finalize.lib.mjs', import.meta.url), 'utf8');
+  assert.match(finalize, /safeExit\(1, repeatedCi \? 'Same CI failure repeated' : 'No progress between sessions'\)/);
 });

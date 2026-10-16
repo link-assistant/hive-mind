@@ -86,9 +86,10 @@ All environment variables are managed through the `src/config.lib.mjs` module wh
 
 ### 4.1. Docker Isolation Settings
 
-| Environment Variable            | Default      | Description                                                                                                                                                                |
-| ------------------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `HIVE_MIND_KEEP_TASK_CONTAINER` | `on-failure` | Docker task-container retention after terminal completion: `always`, `on-failure`, or `never`. `on-failure` removes successful containers and keeps failed ones for debug. |
+| Environment Variable               | Default      | Description                                                                                                                                                                                                                                                                                                            |
+| ---------------------------------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `HIVE_MIND_KEEP_TASK_CONTAINER`    | `on-failure` | Docker task-container retention after terminal completion: `always`, `on-failure`, or `never`. `on-failure` removes successful containers and keeps failed ones for debug.                                                                                                                                             |
+| `HIVE_MIND_CI_FAILURE_REPEAT_STOP` | `3`          | `--auto-restart-until-mergeable` stops, keeps the pull request a draft and exits non-zero once the same checks failed with the same output this many restarts in a row. A check that shows progress (`11/189` → `150/189` passed) or has no output never counts. `0` keeps restarting until the iteration budget ends. |
 
 #### Formal AI dispatch
 

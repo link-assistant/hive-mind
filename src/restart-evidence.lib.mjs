@@ -10,9 +10,12 @@
  * again. These helpers turn each reason into short, verifiable evidence lines
  * that are both logged and posted with the "Auto-restart N/M" comment.
  *
- * Repeated CI failures are flagged, not stopped: a name-only signature cannot
- * tell "still failing, but 11/189 → 150/189" from "stuck". A session that
- * changed nothing is already stopped by the #2247 guard
+ * Repeated CI failures are flagged by name. They stop the run only when the
+ * failing checks also report the very same output (title or summary, with
+ * URLs, ids, timestamps and durations removed) several restarts in a row: a
+ * name-only signature cannot tell "still failing, but 11/189 → 150/189" from
+ * "stuck", and a check without output cannot either, so those never stop it.
+ * A session that changed nothing is already stopped by the #2247 guard
  * (`stopWhenSessionRepeated`).
  *
  * @see https://github.com/link-assistant/hive-mind/issues/2293
@@ -78,22 +81,67 @@ export const ciFailureSignature = ciBlocker => {
   return source.length > 0 ? [...new Set(source)].sort().join(' | ') : null;
 };
 
+/** Restarts in a row with identical failing output before the run stops; 0 never stops. */
+export const DEFAULT_CI_FAILURE_REPEAT_STOP = 3;
+
 /**
- * Counts how many restarts in a row were caused by the same failing checks.
+ * A check's output without what changes on every run of the same failure.
+ * Counts such as "11/189 passed" are kept: they are what shows progress.
  *
- * @returns {{record: (ciBlocker: Object|null) => number}} `record` is called once per restart;
- *   pass null when the restart has no CI failure (that ends the streak)
+ * @param {string|null|undefined} text
+ * @returns {string}
  */
-export const createCiFailureRepeatTracker = () => {
+export const normalizeCheckOutput = text =>
+  String(text ?? '')
+    .replace(/https?:\/\/\S+/g, '')
+    .replace(/\b\d{4}-\d{2}-\d{2}[T ][\d:.]+Z?/g, '')
+    .replace(/\b[0-9a-f]{7,40}\b/gi, '')
+    .replace(/\b\d+(?:\.\d+)?\s?(?:ms|s|sec|seconds?|m|min|minutes?|h)\b/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+/**
+ * Signature of the failing checks together with their output, or null when
+ * any failing check reports no output: then a repeat cannot be told from
+ * progress.
+ *
+ * @param {{checks?: Array<{name: string, description?: string|null}>}|null} ciBlocker
+ * @returns {string|null}
+ */
+export const ciFailureOutputSignature = ciBlocker => {
+  const checks = (ciBlocker?.checks || []).filter(check => check?.name);
+  if (checks.length === 0) return null;
+  const entries = checks.map(check => [check.name, normalizeCheckOutput(check.description)]);
+  if (entries.some(([, output]) => !output)) return null;
+  return [...new Set(entries.map(([name, output]) => `${name}: ${output}`))].sort().join(' | ');
+};
+
+/**
+ * Counts how many restarts in a row were caused by the same failing checks,
+ * and how many of them failed with the very same output.
+ *
+ * @param {{stopAfter?: number}} [options] - identical restarts that stop the run; 0 never stops
+ * @returns {{record: (ciBlocker: Object|null) => number, identical: () => number, shouldStop: () => boolean, stopAfter: number}}
+ *   `record` is called once per restart; pass null when the restart has no CI failure (that ends both streaks)
+ */
+export const createCiFailureRepeatTracker = ({ stopAfter = DEFAULT_CI_FAILURE_REPEAT_STOP } = {}) => {
   let previous = null;
   let count = 0;
+  let previousOutput = null;
+  let identical = 0;
   return {
+    stopAfter,
     record(ciBlocker) {
       const signature = ciFailureSignature(ciBlocker);
       count = !ciBlocker ? 0 : signature && signature === previous ? count + 1 : 1;
       previous = ciBlocker ? signature : null;
+      const output = ciBlocker ? ciFailureOutputSignature(ciBlocker) : null;
+      identical = !output ? 0 : output === previousOutput ? identical + 1 : 1;
+      previousOutput = output;
       return count;
     },
+    identical: () => identical,
+    shouldStop: () => stopAfter > 0 && identical >= stopAfter,
   };
 };
 
@@ -106,13 +154,15 @@ export const createCiFailureRepeatTracker = () => {
  * @param {Array} [params.issueChanges] - Issue title/description changes that triggered the restart
  * @param {Object|null} [params.ciBlocker] - The `ci_failure` blocker, when it triggered the restart
  * @param {{record: Function}|null} [params.tracker] - From createCiFailureRepeatTracker()
- * @returns {{lines: string[], repeatedCiFailures: number, feedback: string[]}}
+ * @returns {{lines: string[], repeatedCiFailures: number, identicalCiFailures: number, stop: boolean, feedback: string[]}}
+ *   `stop` is true once the tracker saw the same failing output too many restarts in a row
  */
 export const collectRestartEvidence = ({ comments = [], issueNumber = null, issueChanges = [], ciBlocker = null, tracker = null } = {}) => {
   const lines = [...buildCommentEvidence(comments), ...buildIssueEditEvidence(issueNumber, issueChanges), ...buildCiEvidence(ciBlocker)];
   const repeatedCiFailures = tracker ? tracker.record(ciBlocker) : ciBlocker ? 1 : 0;
   const feedback = repeatedCiFailures > 1 ? [`⚠️ The same checks have failed ${repeatedCiFailures} restarts in a row - previous attempts did not fix them, so re-read the failing job logs and change approach.`] : [];
-  return { lines, repeatedCiFailures, feedback };
+  const identicalCiFailures = tracker?.identical?.() ?? 0;
+  return { lines, repeatedCiFailures, identicalCiFailures, stop: Boolean(tracker?.shouldStop?.()), feedback };
 };
 
 /**

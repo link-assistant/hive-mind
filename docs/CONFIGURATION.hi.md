@@ -86,9 +86,10 @@ Hive Mind एप्लिकेशन environment variables और command-line 
 
 ### 4.1. Docker Isolation सेटिंग्स
 
-| Environment Variable            | डिफ़ॉल्ट     | विवरण                                                                                                                                                                                  |
-| ------------------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `HIVE_MIND_KEEP_TASK_CONTAINER` | `on-failure` | terminal completion के बाद Docker task-container retention: `always`, `on-failure`, या `never`। `on-failure` successful containers हटाता है और failed containers debug के लिए रखता है। |
+| Environment Variable               | डिफ़ॉल्ट     | विवरण                                                                                                                                                                                                                                                                                                                                |
+| ---------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `HIVE_MIND_KEEP_TASK_CONTAINER`    | `on-failure` | terminal completion के बाद Docker task-container retention: `always`, `on-failure`, या `never`। `on-failure` successful containers हटाता है और failed containers debug के लिए रखता है।                                                                                                                                               |
+| `HIVE_MIND_CI_FAILURE_REPEAT_STOP` | `3`          | जब वही checks लगातार इतने restarts तक एक ही output के साथ fail हों, तो `--auto-restart-until-mergeable` रुकता है, pull request को draft रखता है और non-zero exit करता है। Progress दिखाने वाला check (`11/189` → `150/189` passed) या बिना output वाला check नहीं गिना जाता। `0` iteration budget खत्म होने तक restart करता रहता है। |
 
 #### Formal AI dispatch
 

@@ -271,8 +271,10 @@ const solveSource = await readFile(path.join(repoRoot, 'src', 'solve.mjs'), 'utf
 const failureBranch = solveSource.slice(solveSource.indexOf('if ((!success || errorDuringExecution)'), solveSource.indexOf('// Clean up .playwright-mcp/'));
 assert.ok(failureBranch.indexOf('ensurePullRequestStaysDraftAfterFailure') < failureBranch.indexOf('commitUncommittedChangesOnCriticalError'), 'failure veto is recorded before recovery auto-commit');
 const progressSource = await readFile(path.join(repoRoot, 'src', 'session-progress.lib.mjs'), 'utf8');
-const progressFailureBranch = progressSource.slice(progressSource.indexOf('export const failOnNoProgressBetweenSessions'));
-assert.ok(progressFailureBranch.indexOf('ensurePullRequestStaysDraftAfterFailure') < progressFailureBranch.indexOf('reportNoProgressStop({'), 'no-progress restores draft before posting its terminal comment');
+// Issue #2293: the no-progress and repeated-CI-failure stops share stopWithoutProgress.
+const progressFailureBranch = progressSource.slice(progressSource.indexOf('const stopWithoutProgress'));
+assert.ok(progressFailureBranch.indexOf('ensurePullRequestStaysDraftAfterFailure') < progressFailureBranch.indexOf('await report(preserved)'), 'no-progress restores draft before posting its terminal comment');
+assert.match(progressSource, /export const failOnNoProgressBetweenSessions = [^;]*stopWithoutProgress\(/, 'the no-progress stop goes through the shared path');
 const autoMergeSource = await readFile(path.join(repoRoot, 'src', 'solve.auto-merge.lib.mjs'), 'utf8');
 assert.match(autoMergeSource, /readinessVeto\?\.kind === 'failure'/, 'the monitor refuses to publish readiness after terminal failure');
 const autoMergeAttemptSource = await readFile(path.join(repoRoot, 'src', 'solve.auto-merge-attempt.lib.mjs'), 'utf8');

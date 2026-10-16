@@ -62,8 +62,9 @@ runTest('solve.mjs usage without args', () => {
 // Test 3: Check --version output
 runTest('solve.mjs --version', () => {
   const output = execCommand(`${solvePath} --version 2>&1`).trim();
-  // Version should be either x.y.z or x.y.z.commitSha format
-  if (!output.match(/^\d+\.\d+\.\d+(\.[a-f0-9]{7,8})?$/)) {
+  // Version should be either x.y.z or x.y.z.commitSha format. `git rev-parse --short`
+  // starts at 7 characters and grows with the number of objects in the repository.
+  if (!output.match(/^\d+\.\d+\.\d+(\.[a-f0-9]{7,40})?$/)) {
     throw new Error(`Version output not in expected format: ${output}`);
   }
   // Should output only the version, no extra text
@@ -237,7 +238,7 @@ runTest('solve.mjs version logging at startup', () => {
   const output = execCommand(`${solvePath} invalid-url 2>&1`);
 
   // Check if version is logged at the beginning
-  const versionLineRegex = /🚀 solve v\d+\.\d+\.\d+(\.[a-f0-9]{7,8})?/;
+  const versionLineRegex = /🚀 solve v\d+\.\d+\.\d+(\.[a-f0-9]{7,40})?/;
   if (!versionLineRegex.test(output)) {
     throw new Error('Version not logged at startup');
   }

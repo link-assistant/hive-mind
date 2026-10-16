@@ -43,6 +43,13 @@ ruleTester.run('require-exec-timeout ($)', requireExecTimeout, {
       code: ['// hive-exec-timeout-ok: the wrapper adds a default AbortSignal', 'const $ = withDefaultSignal(rawDollar);', 'await $`gh pr view 1`;'].join('\n'),
       filename,
     },
+    // A `$` under another name that carries a signal.
+    { code: 'const bounded = $({ signal: AbortSignal.timeout(1_000) });\nawait bounded`gh api user`;', filename },
+    { code: 'const $silent = $({ mirror: false });\nawait $silent({ signal: AbortSignal.timeout(1_000) })`gh api user`;', filename },
+    { code: ['// hive-exec-timeout-ok: lasts as long as the solve session', 'const probe = quietProbe($);', 'await probe`git fetch`;'].join('\n'), filename },
+    // A local that is not bound to `$` is not command-stream.
+    { code: 'const render = makeTemplate();\nrender`git ${ref}`;', filename },
+    { code: 'const probe = quietProbe(other);\nawait probe`git status`;', filename },
     // Within the baseline.
     { code: 'await $`git status`;', filename, options: [{ baseline: { 'src/example.lib.mjs': { count: 1, reason: 'solve-process only' } } }] },
   ],
@@ -57,6 +64,12 @@ ruleTester.run('require-exec-timeout ($)', requireExecTimeout, {
     { code: 'await $({ timeout: 5000 })`gh api user`;', filename, errors: [dollarTimeout] },
     // A `$` wrapper without the marker is not trusted.
     { code: ['const $ = wrapDollarWithGhRetry(rawDollar);', 'await $`gh pr view 1`;'].join('\n'), filename, errors: [violation] },
+    // A `$` under another name is followed: quietProbe($) binds no signal.
+    { code: 'const probe = quietProbe($);\nawait probe`gh api user`;', filename, errors: [violation] },
+    { code: 'await quietProbe($)`gh api user`;', filename, errors: [violation] },
+    { code: 'const git = $({ cwd: tempDir });\nawait git`git status`;', filename, errors: [violation] },
+    { code: 'const $silent = $({ mirror: false });\nawait $silent`git -C ${dir} log -1`;', filename, errors: [violation] },
+    { code: 'const a = $;\nconst b = a;\nawait b`docker pull ${image}`;', filename, errors: [violation] },
     // A marker without a reason does not count.
     { code: 'await $`git push`; // hive-exec-timeout-ok:', filename, errors: [violation] },
     // Over the baseline: every call is listed.

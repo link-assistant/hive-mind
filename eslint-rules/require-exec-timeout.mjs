@@ -25,7 +25,10 @@
  * checked the same way. command-stream has no `timeout` option, so only
  * `signal` (e.g. `AbortSignal.timeout(ms)`) bounds the process; a `timeout`
  * key is reported as ignored. A marked `$` declaration (a wrapper that adds a
- * signal) covers its calls.
+ * signal) covers its calls. A `$` under another name is followed too: a local
+ * bound to `$`, `$({ … })` or `quietProbe($)` (`const probe = quietProbe($)`,
+ * `const $silent = $({ mirror: false })`), and `quietProbe($)` itself, whose
+ * options carry no signal.
  *
  * @see https://github.com/link-assistant/hive-mind/issues/3206
  * @see https://github.com/link-assistant/hive-mind/issues/3278
@@ -87,14 +90,34 @@ function hasTimeout(fn, args) {
   return options.properties.some(property => property.type === 'SpreadElement') ? null : false;
 }
 
+// Functions that return `$` bound to options without a signal (src/quiet-probe.lib.mjs).
+const DOLLAR_BINDERS = new Set(['quietProbe']);
+const MAX_ALIAS_DEPTH = 4;
+
+/** The node a local `const name = …` binds, or null. */
+function aliasInit(sourceCode, identifier) {
+  const definition = findVariable(sourceCode, identifier)?.defs[0];
+  return definition?.type === 'Variable' && definition.node.id.type === 'Identifier' ? definition.node.init : null;
+}
+
 /**
- * For a command-stream tag (`$` or `$({ … })`): the `$` identifier and the
- * options node (undefined when none are passed). null for any other tag.
+ * For a command-stream tag (`$`, `$({ … })`, `quietProbe($)` or a local bound
+ * to one of them): the identifier whose declaration may carry the marker and
+ * the options node (undefined when none are passed). null for any other tag.
  */
-function dollarTag(tag) {
-  if (tag.type === 'Identifier' && tag.name === '$') return { dollar: tag, options: undefined };
-  if (tag.type === 'CallExpression' && tag.callee.type === 'Identifier' && tag.callee.name === '$') return { dollar: tag.callee, options: tag.arguments[0] };
-  return null;
+function dollarTag(tag, sourceCode, depth = 0) {
+  if (!tag || depth > MAX_ALIAS_DEPTH) return null;
+  if (tag.type === 'Identifier') {
+    if (tag.name === '$') return { dollar: tag, options: undefined };
+    const bound = dollarTag(aliasInit(sourceCode, tag), sourceCode, depth + 1);
+    return bound && { dollar: tag, options: bound.options };
+  }
+  if (tag.type !== 'CallExpression' || tag.callee.type !== 'Identifier') return null;
+  if (DOLLAR_BINDERS.has(tag.callee.name)) return tag.arguments[0] && dollarTag(tag.arguments[0], sourceCode, depth + 1) ? { dollar: tag.callee, options: undefined } : null;
+  const callee = dollarTag(tag.callee, sourceCode, depth + 1);
+  if (!callee) return null;
+  // `$silent({ … })`: a signal on either call bounds the process.
+  return { dollar: tag.callee, options: dollarBound(callee.options) === 'signal' ? callee.options : tag.arguments[0] };
 }
 
 /** 'signal', 'timeout' (ignored by command-stream), 'none', or null when the options cannot be read. */
@@ -148,7 +171,7 @@ export default {
         reporter.add({ node, data: { fn, command } });
       },
       TaggedTemplateExpression(node) {
-        const tag = dollarTag(node.tag);
+        const tag = dollarTag(node.tag, context.sourceCode);
         if (!tag) return;
         const command = commandOf(node.quasi);
         if (!command || !SLOW_COMMANDS.has(command)) return;

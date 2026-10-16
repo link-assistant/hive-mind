@@ -38,7 +38,7 @@ const STARTUP_DEADLINE_MS = 45_000;
 
 const SLOW_BINARIES = ['docker', 'gh', 'git', '$', 'screen', 'tmux', 'pgrep', 'ps', 'claude', 'codex', 'opencode', 'agent', 'qwen', 'gemini', 'npm', 'npx', 'bun'];
 const SESSION = '3c6c0e57-3278-4c1a-9b0d-2f9a7c3b9b5e';
-const COMMANDS = ['/help', '/start', '/top', '/tokens', '/queue', '/language', '/subscribe', '/unsubscribe', '/limits', '/version', '/models', '/merge https://github.com/o/r', '/organize', '/accept_invites', `/log ${SESSION}`, `/watch ${SESSION}`, `/stop ${SESSION}`, '/solve https://github.com/o/r/issues/1', '/hive https://github.com/o/r'];
+const COMMANDS = ['/help', '/start', '/top', '/tokens', '/queue', '/language', '/subscribe', '/unsubscribe', '/limits', '/version', '/models', '/merge https://github.com/o/r', '/organize', '/accept_invites', `/log ${SESSION}`, `/watch ${SESSION}`, `/stop ${SESSION}`, `/terminal_watch ${SESSION}`, '/solve https://github.com/o/r/issues/1', '/task https://github.com/o/r/issues/1', '/split https://github.com/o/r/issues/1', '/fix https://github.com/o/r/pull/1', '/hive https://github.com/o/r'];
 
 function prepareSandbox() {
   const dir = mkdtempSync(join(tmpdir(), 'hive-3278-'));

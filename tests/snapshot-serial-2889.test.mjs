@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { resumeKilledSessionInPlace, IN_PLACE_SKIP_REASONS } from '../src/session-kill-resume.in-place.lib.mjs';
 import { recoverKilledSession } from '../src/session-kill-resume.lib.mjs';
 import { RESUME_MODES } from '../src/isolation-runner.resume.lib.mjs';
-import { createSnapshotQueue, evaluateSnapshotDiskHeadroom } from '../src/kill-recovery-snapshot-guard.lib.mjs';
+import { createSnapshotQueue, evaluateSnapshotDiskHeadroom, formatSnapshotDiskWait, SNAPSHOT_DISK_RESERVE_BYTES } from '../src/kill-recovery-snapshot-guard.lib.mjs';
 
 const GIB = 1024 ** 3;
 const URL = 'https://github.com/link-assistant/router/issues/724';
@@ -86,11 +86,16 @@ test('a snapshot waits for disk and proceeds once space appears', async () => {
   assert.equal(runner.state.resumed.length, 1);
 });
 
-test('unknown measurements keep the previous behaviour', async () => {
+test('unmeasured free space keeps the previous behaviour; an unmeasured layer must still leave the reserve', async () => {
   const runner = fakeRunner();
   const result = await resumeKilledSessionInPlace({ sessionName: 'x', sessionInfo: info('x'), plan, runner, snapshotGuard: { queue: createSnapshotQueue() } });
   assert.equal(result.resumed, true);
-  assert.equal(evaluateSnapshotDiskHeadroom({ writableBytes: null, availableBytes: 1 }).ok, true);
+  assert.equal(evaluateSnapshotDiskHeadroom({ writableBytes: 5 * GIB, availableBytes: null }).ok, true);
+  // Issue #2889: 1 byte free used to pass because the layer size was unknown.
+  const nearlyFull = evaluateSnapshotDiskHeadroom({ writableBytes: null, availableBytes: 1 });
+  assert.deepEqual([nearlyFull.ok, nearlyFull.requiredBytes], [false, SNAPSHOT_DISK_RESERVE_BYTES]);
+  assert.match(formatSnapshotDiskWait(nearlyFull), /10\.0 GiB needed to snapshot this unmeasured container safely/);
+  assert.equal(evaluateSnapshotDiskHeadroom({ writableBytes: null, availableBytes: 20 * GIB }).ok, true);
 });
 
 test('through recoverKilledSession, a disk refusal reports why and starts fresh', async () => {

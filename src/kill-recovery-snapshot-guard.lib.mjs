@@ -17,7 +17,8 @@
  *      space never appears it falls back to a fresh launch instead of filling
  *      the disk.
  *
- * Unknown measurements do not block (the previous behaviour), but are logged.
+ * An unmeasured layer still has to leave the reserve free; only unmeasured
+ * free space does not block (the previous behaviour), and it is reported.
  * Before measuring, an optional `prune` step deletes regenerable build caches
  * from the stopped container (see kill-recovery-snapshot-cleanup.lib.mjs), and
  * each stage is reported: queued, waiting for disk, caches removed, and
@@ -49,14 +50,16 @@ export function formatGiB(bytes) {
 export function evaluateSnapshotDiskHeadroom({ writableBytes = null, availableBytes = null, factor = SNAPSHOT_DISK_HEADROOM_FACTOR, reserveBytes = SNAPSHOT_DISK_RESERVE_BYTES } = {}) {
   const writable = Number.isFinite(writableBytes) && writableBytes >= 0 ? writableBytes : null;
   const available = Number.isFinite(availableBytes) && availableBytes >= 0 ? availableBytes : null;
-  if (writable === null || available === null) return { known: false, ok: true, writableBytes: writable, availableBytes: available, requiredBytes: null };
+  if (available === null) return { known: false, ok: true, writableBytes: writable, availableBytes: null, requiredBytes: null };
+  // Issue #2889: with the layer unmeasured, the tasks that keep running still get their reserve.
+  if (writable === null) return { known: false, ok: available >= reserveBytes, writableBytes: null, availableBytes: available, requiredBytes: reserveBytes };
   const requiredBytes = Math.ceil(writable * factor + reserveBytes);
   return { known: true, ok: available >= requiredBytes, writableBytes: writable, availableBytes: available, requiredBytes };
 }
 
 /** Recovery notice while a snapshot waits for disk. */
 export function formatSnapshotDiskWait(evaluation) {
-  return `Waiting for disk: ${formatGiB(evaluation.availableBytes)} free on the Docker data root, ${formatGiB(evaluation.requiredBytes)} needed to snapshot this ${formatGiB(evaluation.writableBytes)} container safely.`;
+  return `Waiting for disk: ${formatGiB(evaluation.availableBytes)} free on the Docker data root, ${formatGiB(evaluation.requiredBytes)} needed to snapshot this ${Number.isFinite(evaluation.writableBytes) ? formatGiB(evaluation.writableBytes) : 'unmeasured'} container safely.`;
 }
 
 /** Recovery notice as the commit starts: the size is all Docker lets us know. */

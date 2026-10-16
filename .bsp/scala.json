@@ -1,0 +1,27 @@
+{
+  "name": "scala",
+  "argv": [
+    "/home/box/.cache/coursier/arc/https/github.com/scala/scala3/releases/download/3.10.0/scala3-3.10.0-x86_64-pc-linux.tar.gz/scala3-3.10.0-x86_64-pc-linux/libexec/scala-cli",
+    "--cli-default-scala-version",
+    "3.10.0",
+    "--repository",
+    "file:///home/box/.cache/coursier/arc/https/github.com/scala/scala3/releases/download/3.10.0/scala3-3.10.0-x86_64-pc-linux.tar.gz/scala3-3.10.0-x86_64-pc-linux/maven2",
+    "--prog-name",
+    "scala",
+    "--skip-cli-updates",
+    "bsp",
+    "--json-options",
+    "/tmp/gh-issue-solver-1792181387832/.scala-build/ide-options-v2.json",
+    "--json-launcher-options",
+    "/tmp/gh-issue-solver-1792181387832/.scala-build/ide-launcher-options.json",
+    "--envs-file",
+    "/tmp/gh-issue-solver-1792181387832/.scala-build/ide-envs.json",
+    "/tmp/gh-issue-solver-1792181387832/HelloWorld.scala"
+  ],
+  "version": "1.17.1",
+  "bspVersion": "2.1.1",
+  "languages": [
+    "scala",
+    "java"
+  ]
+}

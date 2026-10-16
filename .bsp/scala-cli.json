@@ -1,0 +1,20 @@
+{
+  "name": "scala-cli",
+  "argv": [
+    "/home/box/.local/share/coursier/bin/.scala-cli.aux",
+    "bsp",
+    "--json-options",
+    "/tmp/gh-issue-solver-1792181387832/.scala-build/ide-options-v2.json",
+    "--json-launcher-options",
+    "/tmp/gh-issue-solver-1792181387832/.scala-build/ide-launcher-options.json",
+    "--envs-file",
+    "/tmp/gh-issue-solver-1792181387832/.scala-build/ide-envs.json",
+    "/tmp/gh-issue-solver-1792181387832/HelloWorld.scala"
+  ],
+  "version": "1.18.0",
+  "bspVersion": "2.1.1",
+  "languages": [
+    "scala",
+    "java"
+  ]
+}

@@ -195,17 +195,24 @@ fix https://github.com/owner/repo --update-all-dependencies
 
 该命令会：
 
-1. **检测仓库使用的语言**，通过 GitHub Linguist API（`GET /repos/{owner}/{repo}/languages`），按每种语言的字节数排序。
-2. **列出默认分支的文件树**（`GET /repos/{owner}/{repo}/git/trees/{branch}?recursive=1`），找出所有已提交的清单文件和锁文件，并跳过 `node_modules/`、`vendor/`、`.venv/`、`target/` 等 vendored 目录。
-3. **把两种信号映射到包生态系统。** 任何一种信号单独使用都是错的：Linguist 会漏掉没有自身源代码的生态系统（GitHub Actions、Docker、Terraform），而清单文件会漏掉清单不常见或根本没有清单的语言。
-4. **创建一个维护 issue**，其中列出每个检测到的生态系统、找到的清单文件、需要重新生成的锁文件、该生态系统中能跨越大版本的命令、恰好覆盖这些生态系统的现成 `.github/dependabot.yml`，以及依据上述原则构建的标准提示词。该 issue 以 **Task** 类型创建，并带上 `dependencies` 标签。
-5. **把 issue 交给 `/solve --development-log --deep-analysis --auto-merge --update-all-dependencies`**，由它迭代直到更新被合并。凡是 `fix` 自己不消费的选项（例如 `--tool`、`--model`、`--think`）都会转发给 `/solve`。
+1. **不等待 CI/CD，合并所有打开的 Dependabot pull request**（[issue #3413](https://github.com/link-assistant/hive-mind/issues/3413)），从最早的开始，并且先于任何其他检查——这样 issue 描述的是 Dependabot 更新落地之后的仓库，求解器也不必手动重做这些更新。
+2. **检测仓库使用的语言**，通过 GitHub Linguist API（`GET /repos/{owner}/{repo}/languages`），按每种语言的字节数排序。
+3. **列出默认分支的文件树**（`GET /repos/{owner}/{repo}/git/trees/{branch}?recursive=1`），找出所有已提交的清单文件和锁文件，并跳过 `node_modules/`、`vendor/`、`.venv/`、`target/` 等 vendored 目录。
+4. **把两种信号映射到包生态系统。** 任何一种信号单独使用都是错的：Linguist 会漏掉没有自身源代码的生态系统（GitHub Actions、Docker、Terraform），而清单文件会漏掉清单不常见或根本没有清单的语言。
+5. **创建一个维护 issue**，其中列出每个检测到的生态系统、找到的清单文件、需要重新生成的锁文件、该生态系统中能跨越大版本的命令、恰好覆盖这些生态系统的现成 `.github/dependabot.yml`，以及依据上述原则构建的标准提示词。该 issue 以 **Task** 类型创建，并带上 `dependencies` 标签。
+6. **把 issue 交给 `/solve --development-log --deep-analysis --auto-merge --update-all-dependencies`**，由它迭代直到更新被合并。凡是 `fix` 自己不消费的选项（例如 `--tool`、`--model`、`--think`）都会转发给 `/solve`。
 
 使用 `--dry-run` 可以预览 issue 而不实际创建，使用 `--no-solve` 可以只创建 issue 而不启动 `/solve`：
 
 ```bash
 fix owner/repo --update-all-dependencies --dry-run
 fix owner/repo --update-all-dependencies --no-solve
+```
+
+issue 以 **Dependabot pull requests merged before this issue was created** 一节开头：列出每个已合并的 pull request 及其合并时未通过的检查，并以粗体要求修复这些合并引入的所有构建、测试、lint、安全和弃用错误，直到默认分支的 CI/CD 重新变绿——且不得回退这些更新。合并使用仓库允许的第一种合并方式（merge commit、squash、rebase），用 `--match-head-commit` 锁定被检查的提交；如果只是分支规则（必需检查、必需评审、分支落后）阻止合并，则用 `--admin` 重试一次。仍然无法合并的 pull request（冲突、草稿、无法绕过的 ruleset）保持打开并列在 issue 中，由求解器在其 pull request 中应用这些更新；更新落地后 Dependabot 会自行关闭它们。`--dry-run` 只列出将被合并的内容，`--no-merge-dependabot-prs` 关闭此步骤。`/task --update-all-dependencies` 遵循相同规则：
+
+```bash
+fix owner/repo --update-all-dependencies --no-merge-dependabot-prs
 ```
 
 检查完仓库后会立即创建 issue，但只有当默认分支上不再有未完成的 GitHub Actions 运行时才会启动 `/solve`，因此 AI 工作不会基于仍在变化的默认分支开始，也不会依据即将改变的运行结果进行推理。等待期间每 30 秒轮询一次，超过 `--ci-wait-timeout <分钟>`（默认 60）后放弃等待，使用 `--no-wait-for-ci` 可跳过等待。等待期间，Telegram 回复会单独显示“⏳ 正在等待 CI/CD 完成”状态及仍在运行的工作流；如果运行在等待期间完成，其最新结果会以评论形式发布到 issue 中（[issue #3326](https://github.com/link-assistant/hive-mind/issues/3326)）：

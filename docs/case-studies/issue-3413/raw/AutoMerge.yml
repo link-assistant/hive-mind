@@ -1,0 +1,45 @@
+name: auto-merge
+
+on: pull_request
+
+permissions:
+  contents: read
+
+# One auto-merge attempt per pull request; a superseded push does not need
+# the previous attempt to finish.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  auto-merge:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v3.1.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Enable auto-merge for Dependabot PRs
+        if: steps.metadata.outputs.update-type == 'version-update:semver-minor' || steps.metadata.outputs.update-type == 'version-update:semver-patch'
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          # On a `pull_request` event raised by Dependabot, GITHUB_TOKEN is
+          # read-only no matter what the `permissions:` block says, so
+          # `gh pr merge --auto` fails with a 403. A PAT (or GitHub App
+          # token) with `repo` scope in DEPENDABOT_AUTO_MERGE_TOKEN is the
+          # supported way around it; the fallback keeps the old behaviour so
+          # nothing regresses if the secret is absent.
+          GH_TOKEN: ${{ secrets.DEPENDABOT_AUTO_MERGE_TOKEN || secrets.GITHUB_TOKEN }}
+          HAS_PAT: ${{ secrets.DEPENDABOT_AUTO_MERGE_TOKEN != '' }}
+        run: |
+          set -euo pipefail
+          if [ "$HAS_PAT" != "true" ]; then
+            echo "::warning::DEPENDABOT_AUTO_MERGE_TOKEN is not configured. GITHUB_TOKEN is read-only for Dependabot pull_request events, so enabling auto-merge will most likely fail with HTTP 403."
+          fi
+          gh pr merge --auto --merge "$PR_URL"

@@ -568,6 +568,7 @@ Examples:
 /fix owner/repo --ci-cd --no-solve
 /fix https://github.com/owner/repo --update-all-dependencies
 /fix owner/repo --update-all-dependencies --dry-run
+/fix owner/repo --update-all-dependencies --no-merge-dependabot-prs
 ```
 
 `/fix --ci-cd` 会检测目标仓库使用的语言，检查默认分支的最新提交及其 CI/CD 运行情况，并自动创建一个 CI/CD
@@ -581,7 +582,7 @@ issue 的情况下预览，使用 `--no-solve` 可只创建 issue 而不启动 `
 `/fix --update-all-dependencies` 对依赖执行同样的流程。它会检测仓库使用的语言*以及*默认分支上提交的每个依赖清单文件，把两者映射到包生态系统，并创建一个 `Task`
 类型的 issue（带 `dependencies` 标签），其中列出每个生态系统、找到的清单文件、需要重新生成的锁文件，以及在该生态系统中真正能跨越大版本的命令。随后它会把该 issue 交给
 `/solve --development-log --deep-analysis --auto-merge --update-all-dependencies`。详见
-[自动化的依赖更新](docs/DEPENDENCY-UPDATE-BEST-PRACTICES.zh.md#自动化的依赖更新)。每次运行必须且只能指定一种模式：不带模式或同时带两种模式的 `/fix` 都会被拒绝。
+[自动化的依赖更新](docs/DEPENDENCY-UPDATE-BEST-PRACTICES.zh.md#自动化的依赖更新)。在检查仓库之前，它会合并所有打开的 Dependabot pull request，不等待 CI/CD，并在 issue 中要求修复这些合并引入的每一个错误；`--no-merge-dependabot-prs` 可跳过此步骤（[issue #3413](https://github.com/link-assistant/hive-mind/issues/3413)）。每次运行必须且只能指定一种模式：不带模式或同时带两种模式的 `/fix` 都会被拒绝。
 
 如果完整的 `/fix` 流程不可用，`/task --ci-cd <repository>` 和
 `/task --update-all-dependencies <repository>` 只执行相同的 issue

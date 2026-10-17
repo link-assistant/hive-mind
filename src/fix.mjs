@@ -29,6 +29,7 @@ import { setupStdioLogInterceptor } from './lib.mjs';
 import { resolveFixDependencyReporting } from './fix.report-dependencies.lib.mjs';
 import { commentCiWaitResult, waitForDefaultBranchCi } from './fix.ci-wait.lib.mjs';
 import { fixProgressLogLine, formatDurationShort } from './fix-progress.lib.mjs';
+import { summarizeDependabotPullRequests } from './fix.dependabot-merge.lib.mjs';
 
 setupStdioLogInterceptor();
 
@@ -51,6 +52,10 @@ Options:
                      default branch CI/CD to finish
   --ci-wait-timeout <minutes>
                      Longest wait for the default branch CI/CD (default: 60)
+  --no-merge-dependabot-prs
+                     --update-all-dependencies only: do not merge the open
+                     Dependabot pull requests before creating the issue (by
+                     default they are merged without waiting for CI/CD)
   --no-report-dependencies-issues
                      Disable upstream reporting during dependency updates
   --version          Show version number
@@ -63,6 +68,7 @@ Examples:
   fix.mjs https://github.com/owner/repo --ci-cd --tool codex --model gpt-5.5
   fix.mjs https://github.com/owner/repo --update-all-dependencies
   fix.mjs owner/repo --update-all-dependencies --dry-run
+  fix.mjs owner/repo --update-all-dependencies --no-merge-dependabot-prs
   fix.mjs owner/repo --ci-cd --think max --no-solve
   fix.mjs owner/repo --ci-cd --ci-wait-timeout 30`);
 }
@@ -94,7 +100,7 @@ const MODE_HANDLERS = {
     create: createUpdateDependenciesIssue,
     summarize: prepared => {
       const manifests = prepared.ecosystems.reduce((sum, entry) => sum + entry.manifests.length, 0);
-      return [`Default branch: ${prepared.defaultBranch || 'unknown'}`, `Latest commit:  ${prepared.commit?.sha ? prepared.commit.sha.slice(0, 7) : 'unknown'}`, `Ecosystems:     ${prepared.ecosystems.length} (${manifests} manifest file(s))${prepared.filesTruncated ? ' [file listing truncated by GitHub]' : ''}`, `                ${prepared.ecosystems.map(entry => entry.ecosystem.label).join(', ') || 'none detected'}`];
+      return [summarizeDependabotPullRequests(prepared.dependabot), `Default branch: ${prepared.defaultBranch || 'unknown'}`, `Latest commit:  ${prepared.commit?.sha ? prepared.commit.sha.slice(0, 7) : 'unknown'}`, `Ecosystems:     ${prepared.ecosystems.length} (${manifests} manifest file(s))${prepared.filesTruncated ? ' [file listing truncated by GitHub]' : ''}`, `                ${prepared.ecosystems.map(entry => entry.ecosystem.label).join(', ') || 'none detected'}`];
     },
   },
 };
@@ -147,8 +153,11 @@ async function main() {
   const repository = parsed.repository;
   console.log(`🔧 /fix ${handler.label} for ${repository.fullName}`);
 
-  const reportingOptions = parsed.mode === FIX_MODE_UPDATE_ALL_DEPENDENCIES ? { reportDependenciesIssues: resolveFixDependencyReporting(parsed.passthrough) } : {};
-  const prepared = await handler.prepare({ repository, ...reportingOptions, log: message => console.log(`   ${message}`) });
+  const verbose = parsed.passthrough.includes('--verbose');
+  // Issue #3413: open Dependabot pull requests are merged (listed on --dry-run)
+  // before the issue is prepared, without waiting for their CI/CD.
+  const modeOptions = parsed.mode === FIX_MODE_UPDATE_ALL_DEPENDENCIES ? { reportDependenciesIssues: resolveFixDependencyReporting(parsed.passthrough), mergeDependabotPrs: parsed.mergeDependabotPrs, dryRun: parsed.dryRun, verbose } : {};
+  const prepared = await handler.prepare({ repository, ...modeOptions, log: message => console.log(`   ${message}`) });
   for (const line of handler.summarize(prepared)) console.log(`   ${line}`);
 
   if (parsed.dryRun) {
@@ -158,7 +167,6 @@ async function main() {
     return;
   }
 
-  const verbose = parsed.passthrough.includes('--verbose');
   console.log('\n📝 Creating issue...');
   const issue = await handler.create({
     repository,

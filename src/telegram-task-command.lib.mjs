@@ -126,6 +126,12 @@ export function buildTaskRepositoryCommandArgs(text) {
   };
 }
 
+/** Whether `/task --update-all-dependencies` merges open Dependabot pull requests first (issue #3413). */
+export function resolveMergeDependabotPrs(args = []) {
+  const last = [...args].reverse().find(arg => arg === '--merge-dependabot-prs' || arg === '--no-merge-dependabot-prs');
+  return last !== '--no-merge-dependabot-prs';
+}
+
 /** @deprecated Use {@link buildTaskRepositoryCommandArgs}; kept for callers written before /task gained a second generated-issue mode. */
 export const buildTaskCiCdCommandArgs = buildTaskRepositoryCommandArgs;
 
@@ -222,7 +228,9 @@ export function registerTaskCommands(bot, options) {
       });
 
       try {
-        const reportingOptions = generatedIssueMode.mode === FIX_MODE_UPDATE_ALL_DEPENDENCIES ? { reportDependenciesIssues: resolveFixDependencyReporting(built.args) } : {};
+        // Issue #3413: like /fix, merge the open Dependabot pull requests first
+        // unless the last of --merge-dependabot-prs/--no-merge-dependabot-prs opts out.
+        const reportingOptions = generatedIssueMode.mode === FIX_MODE_UPDATE_ALL_DEPENDENCIES ? { reportDependenciesIssues: resolveFixDependencyReporting(built.args), mergeDependabotPrs: resolveMergeDependabotPrs(built.args) } : {};
         const createdIssue = await createIssueFn({
           repository: built.repository,
           ...reportingOptions,

@@ -589,6 +589,7 @@ Examples:
 /fix owner/repo --ci-cd --no-solve
 /fix https://github.com/owner/repo --update-all-dependencies
 /fix owner/repo --update-all-dependencies --dry-run
+/fix owner/repo --update-all-dependencies --no-merge-dependabot-prs
 ```
 
 `/fix --ci-cd` detects the target repository's languages, inspects the latest
@@ -612,8 +613,12 @@ there. It then hands the issue off to
 `/solve --development-log --deep-analysis --auto-merge --update-all-dependencies`.
 See
 [Automatic Dependency Remediation](docs/DEPENDENCY-UPDATE-BEST-PRACTICES.md#automatic-dependency-remediation)
-for details. Exactly one mode is required per run: `/fix` with no mode, or with
-both, is rejected.
+for details. Before inspecting the repository it merges every open Dependabot
+pull request without waiting for CI/CD, and the issue asks the solver to fix
+every error those merges introduced; `--no-merge-dependabot-prs` skips this
+step ([issue #3413](https://github.com/link-assistant/hive-mind/issues/3413)).
+Exactly one mode is required per run: `/fix` with no mode, or with both, is
+rejected.
 
 If the full `/fix` workflow is unavailable, `/task --ci-cd <repository>` and
 `/task --update-all-dependencies <repository>` run only the same

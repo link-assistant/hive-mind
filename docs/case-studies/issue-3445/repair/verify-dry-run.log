@@ -1,0 +1,10 @@
+{
+  "checked": 894,
+  "repair": 0,
+  "repaired": 0,
+  "failed": 0,
+  "skipped": {
+    "already correct": 592,
+    "no CHANGELOG.md section": 302
+  }
+}

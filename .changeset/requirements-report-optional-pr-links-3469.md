@@ -11,3 +11,4 @@ The requirements report is now experimental and off by default, Telegram status 
 - The agentic CLI updater reads a CLI's version from the package that owns its binary, so gh-setup-git-identity and claude-profiles no longer report a false "Could not update".
 - Quiet probes pass `mirror: false` (`$` has no `silent` option), so the 403 of `gh api user` under an installation token no longer appears in the log.
 - Clearer warnings when Docker disk space cannot be read and when a directly started session matches no queue item, and a mid-sentence `fix: <foreign issue URL>` is no longer treated as an intended close.
+- With `--requirements-report`, the merge guard and the report template now compute the same digest of the issue feedback. Before, the guard left out the session-start comment its own solve had posted, so every fresh report was rejected as "changed after verification".

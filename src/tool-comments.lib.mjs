@@ -181,13 +181,18 @@ const headingMarkers = TOOL_GENERATED_COMMENT_MARKERS.filter(marker => !marker.s
   .map(escapeRegExp)
   .join('|');
 const TOOL_STATUS_HEADING = new RegExp(`^#{1,6} (?:\\S+ (?:${headingMarkers})|${escapeRegExp(CANCELLED_CI_REVIEW_MARKER)})(?=$|[\\s:(])`);
+// `🤖 **AI Work Session Started**`, `⚠️ **Finished without changes**`, `⏳ **Usage Limit Reached - Waiting…**`:
+// the bold first line of the session and outcome notices (issue #3469).
+const TOOL_STATUS_BOLD_LEAD = new RegExp(`^(?:\\p{Extended_Pictographic}\\uFE0F?|:[a-z_]+:) \\*\\*(?:${headingMarkers})(?=\\*\\*|[\\s:(])`, 'u');
 
-/** True when a comment opens with one of solve.mjs's own status headings or hidden automation markers. */
+/** True when a comment opens with one of solve.mjs's own status headings, bold notices or hidden automation markers. */
 export const isToolStatusComment = body => {
   if (!body || typeof body !== 'string') return false;
   const text = body.trimStart();
-  if (TOOL_GENERATED_COMMENT_MARKERS.some(marker => marker.startsWith('<!--') && text.startsWith(marker))) return true;
-  return TOOL_STATUS_HEADING.test(text.split('\n', 1)[0].trim());
+  // `<!-- hive-mind:closing-references-left-out owner/repo#1 -->` and the other tagged notices.
+  if (text.startsWith('<!-- hive-mind:') || TOOL_GENERATED_COMMENT_MARKERS.some(marker => marker.startsWith('<!--') && text.startsWith(marker))) return true;
+  const firstLine = text.split('\n', 1)[0].trim();
+  return TOOL_STATUS_HEADING.test(firstLine) || TOOL_STATUS_BOLD_LEAD.test(firstLine);
 };
 
 // ----------------------------------------------------------------------------

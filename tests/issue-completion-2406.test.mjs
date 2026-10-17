@@ -183,9 +183,9 @@ test("hive-mind's own status comments posted after the report do not make it sta
   // Posted by solve.mjs once CI is green, after the agent wrote its report.
   const status = ['## ✅ Ready to merge\n\nThis pull request is now ready to be merged:', '## 🔄 Auto-restart 1/5\n\nDetected uncommitted changes', '## ⚠️ Auto-merge blocked\n\nAuto-merge (`--auto-merge`) cannot merge', '## 🛑 Automation stopped: CI failed', '## Cancelled CI/CD Requires Review\n\nx'];
   assert.equal(digest([{ id: 1, body: 'Please also add docs.' }, ...status.map((body, i) => ({ id: 10 + i, body }))]), before);
-  // A tracked comment of this run is bookkeeping whatever it says.
+  // Issue #3469: the comment decides, not this process's memory of posting it - the template runs elsewhere.
   trackToolCommentId(99);
-  assert.equal(
+  assert.notEqual(
     digest([
       { id: 1, body: 'Please also add docs.' },
       { id: 99, body: 'anything' },

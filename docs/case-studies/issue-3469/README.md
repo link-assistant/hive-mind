@@ -14,22 +14,24 @@ The `data/` folder holds the raw material, kept verbatim. Prettier ignores it.
 | `pr-3446.json`, `pr-3446-comments.json`    | PR #3446 and all of its conversation comments                                                 |
 | `hive-mind-pr3446-comment-6232524845.json` | The "Automation stopped: two consecutive AI sessions produced identical results" comment      |
 | `konard-github-io-pr4*.json`               | konard/konard.github.io#4, its comments, and the "Auto-merge blocked" comment 6232465001      |
+| `pr-3470-comments.json`                    | The conversation comments of this pull request when its own guard rejected the fresh report   |
 
 ## Timeline (UTC, 2026-10-17)
 
-| Time              | Event                                                                                                                                                                                                                                            | Source                                         |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------- |
-| 08:36:36          | solve creates PR #3446 for #3445 with the `.gitkeep` placeholder commit `18e953d`                                                                                                                                                                | execution log, lines 229–341                   |
-| 08:41–08:45       | A Formal AI session on #3446 ends as "planned, not executed"                                                                                                                                                                                     | `pr-3446-comments.json`                        |
-| ~09:08            | The Claude session runs the test suite on Node 26.12 and gets `ReferenceError: Cannot access 'ensurePullRequestIsReady' before initialization` in `solve.auto-merge-guards.lib.mjs:22`. It decides the error was already there before its change | execution log, line 54780                      |
-| 09:48:35          | konard.github.io#4 (a `/fix --ci-cd` run): "Auto-merge blocked … The requirements report does not describe the current pull request commit."                                                                                                     | `konard-github-io-pr4-comment-6232465001.json` |
-| 09:48:40          | The primary session on #3446 (`42e9f82e`) finishes on commit `2ba2553`                                                                                                                                                                           | execution log, line 81817                      |
-| 09:49:15          | "🎯 Completion restart 1/3: Issue requirements have not been verified": a whole AI session started only to refresh the report                                                                                                                    | execution log, line 81890                      |
-| 09:52:47          | The completion-restart session (`6be2f76a`) only edits the PR description, so it ends on `2ba2553` too                                                                                                                                           | `pr-3446-comments.json`                        |
-| 09:52:27–09:52:47 | Cleanup reverts `.gitkeep` and pushes `18cf114c0`. HEAD has moved                                                                                                                                                                                | execution log, lines 88192–88276               |
-| 09:54:50          | Watch check #1: CI on `18cf114` shows 2 failed checks, a real restart trigger. Instead: "❌ NO PROGRESS BETWEEN SESSIONS … Budget left unused: 5 restart iterations"                                                                             | execution log, lines 88303–88345               |
-| 09:55:22          | The PR is converted to draft and the "Automation stopped" comment is posted. No new session starts                                                                                                                                               | `hive-mind-pr3446-comment-6232524845.json`     |
-| 10:11:43          | Issue #3469 is opened                                                                                                                                                                                                                            | `issue-3469.json`                              |
+| Time              | Event                                                                                                                                                                                                                                                         | Source                                         |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| 08:36:36          | solve creates PR #3446 for #3445 with the `.gitkeep` placeholder commit `18e953d`                                                                                                                                                                             | execution log, lines 229–341                   |
+| 08:41–08:45       | A Formal AI session on #3446 ends as "planned, not executed"                                                                                                                                                                                                  | `pr-3446-comments.json`                        |
+| ~09:08            | The Claude session runs the test suite on Node 26.12 and gets `ReferenceError: Cannot access 'ensurePullRequestIsReady' before initialization` in `solve.auto-merge-guards.lib.mjs:22`. It decides the error was already there before its change              | execution log, line 54780                      |
+| 09:48:35          | konard.github.io#4 (a `/fix --ci-cd` run): "Auto-merge blocked … The requirements report does not describe the current pull request commit."                                                                                                                  | `konard-github-io-pr4-comment-6232465001.json` |
+| 09:48:40          | The primary session on #3446 (`42e9f82e`) finishes on commit `2ba2553`                                                                                                                                                                                        | execution log, line 81817                      |
+| 09:49:15          | "🎯 Completion restart 1/3: Issue requirements have not been verified": a whole AI session started only to refresh the report                                                                                                                                 | execution log, line 81890                      |
+| 09:52:47          | The completion-restart session (`6be2f76a`) only edits the PR description, so it ends on `2ba2553` too                                                                                                                                                        | `pr-3446-comments.json`                        |
+| 09:52:27–09:52:47 | Cleanup reverts `.gitkeep` and pushes `18cf114c0`. HEAD has moved                                                                                                                                                                                             | execution log, lines 88192–88276               |
+| 09:54:50          | Watch check #1: CI on `18cf114` shows 2 failed checks, a real restart trigger. Instead: "❌ NO PROGRESS BETWEEN SESSIONS … Budget left unused: 5 restart iterations"                                                                                          | execution log, lines 88303–88345               |
+| 09:55:22          | The PR is converted to draft and the "Automation stopped" comment is posted. No new session starts                                                                                                                                                            | `hive-mind-pr3446-comment-6232524845.json`     |
+| 10:11:43          | Issue #3469 is opened                                                                                                                                                                                                                                         | `issue-3469.json`                              |
+| 13:48–13:49       | The first Claude session on PR #3470 writes a report with the template's digest `309c3b…`. Then the guard of the same solve rejects it: "issue description or review feedback changed after verification". Nothing had changed, and the PR goes back to draft | `pr-3470-comments.json`, PR timeline           |
 
 ## Requirements
 
@@ -61,6 +63,19 @@ Once a report exists, every new commit makes it stale. So the guard and the rest
 - `solve.issue-completion.lib.mjs` never starts a completion restart for a report.
 
 The code is unchanged behind the flag. `docs/ISSUE_COMPLETION*.md` and `docs/CONFIGURATION*.md` describe it as experimental. Tests: `tests/issue-completion-2406.test.mjs` and `tests/issue-completion-prompts-2406.test.mjs`.
+
+### The guard and the template disagreed on the digest
+
+This PR's own run reproduced a false positive. At 13:49 the solve that had just finished rejected the report that the template had produced moments before. The reason was "issue description or review feedback changed after verification". The issue was last edited at 10:25, and no person had commented since.
+
+**Root cause.** `requirementFeedback()` in `src/issue-requirements.lib.mjs` dropped a comment as bookkeeping when `isToolTrackedCommentId(comment.id)` was true. Those IDs live only in the memory of the solve process that posted the comment:
+
+- The template (`issue-requirements-snapshot.mjs`) runs as a fresh process. It kept `🤖 **AI Work Session Started**` (6233039365) as feedback and gave `309c3b…`.
+- The guard ran inside the solve that had posted that comment. It dropped the comment and gave `471a76…`.
+
+`isToolStatusComment()` recognized only `## <icon> <marker>` headings, so the bold first line of the session notices did not match. `experiments/requirements-digest-process-dependence-3469.mjs` reproduces the mismatch on `data/pr-3470-comments.json`.
+
+**Solution.** The digest now depends only on what the comments say. `requirementFeedback()` no longer looks at tracked IDs. `isToolStatusComment()` also recognizes an emoji or `:shortcode:` followed by a bold marker, such as `🤖 **AI Work Session Started**`, `⚠️ **Finished without changes**` or `⏳ **Usage Limit Reached - Waiting…**`. It also recognizes the tagged `<!-- hive-mind:… -->` notices. A person who quotes a marker in a sentence is still feedback. Test: `tests/requirements-digest-process-independent-3469.test.mjs`.
 
 ## R2: pull request links in status messages
 

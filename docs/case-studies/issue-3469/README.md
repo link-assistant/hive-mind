@@ -75,7 +75,9 @@ This PR's own run reproduced a false positive. At 13:49 the solve that had just 
 
 `isToolStatusComment()` recognized only `## <icon> <marker>` headings, so the bold first line of the session notices did not match. `experiments/requirements-digest-process-dependence-3469.mjs` reproduces the mismatch on `data/pr-3470-comments.json`.
 
-**Solution.** The digest now depends only on what the comments say. `requirementFeedback()` no longer looks at tracked IDs. `isToolStatusComment()` also recognizes an emoji or `:shortcode:` followed by a bold marker, such as `🤖 **AI Work Session Started**`, `⚠️ **Finished without changes**` or `⏳ **Usage Limit Reached - Waiting…**`. It also recognizes the tagged `<!-- hive-mind:… -->` notices. A person who quotes a marker in a sentence is still feedback. Test: `tests/requirements-digest-process-independent-3469.test.mjs`.
+**Solution.** The digest now depends only on what the comments say. `requirementFeedback()` no longer looks at tracked IDs. `isToolStatusComment()` also recognizes an emoji or `:shortcode:` followed by a bold marker, such as `🤖 **AI Work Session Started**`, `⚠️ **Finished without changes**` or `⏳ **Usage Limit Reached - Waiting…**`. It also recognizes the tagged `<!-- hive-mind:… -->` notices. A person who quotes a marker in a sentence is still feedback.
+
+The same fix covers `--interactive-mode`. Its tool comments (`## 💻 Tool: …`, `## 🚀 Session Started` and the others) had no marker and were left out only by tracked ID. `postComment` and `editComment` in `src/interactive-mode.lib.mjs` now put the hidden `<!-- hive-mind:interactive-mode -->` line first, so every process sees them as bookkeeping. Test: `tests/requirements-digest-process-independent-3469.test.mjs`.
 
 ## R2: pull request links in status messages
 

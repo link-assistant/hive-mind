@@ -11,7 +11,8 @@ import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { requirementFeedback, requirementSourceDigest } from '../src/issue-requirements.lib.mjs';
-import { isToolStatusComment, resetTrackedToolCommentIds, trackToolCommentId } from '../src/tool-comments.lib.mjs';
+import { INTERACTIVE_MODE_COMMENT_MARKER, isToolStatusComment, resetTrackedToolCommentIds, trackToolCommentId } from '../src/tool-comments.lib.mjs';
+import { createInteractiveHandler } from '../src/interactive-mode.lib.mjs';
 import { getSessionCommentContent, SESSION_TYPES } from '../src/solve.session.lib.mjs';
 import { buildFinishedWithoutChangesComment, buildSessionEffectUnverifiedComment } from '../src/session-changes.lib.mjs';
 import { buildNoChangesProducedComment } from '../src/solve.session-comments.lib.mjs';
@@ -43,4 +44,24 @@ test('session and outcome notices are recognized by their content', () => {
 
 test('a person quoting a notice is still feedback', () => {
   for (const body of ['The **AI Work Session Started** comment came twice.', '**AI Work Session Started** but nothing happened', '🤖 **AI Work Session Started?** Please fix the docs first.']) assert.equal(isToolStatusComment(body), false, body);
+});
+
+test('interactive-mode comments carry a marker, so another process leaves them out too', async () => {
+  const posted = [];
+  const execFile = async (cmd, args, options) => {
+    const body = JSON.parse(options.input).body;
+    if (args.includes('PATCH')) posted[posted.length - 1] = body;
+    else posted.push(body);
+    return { stdout: JSON.stringify({ id: 7000 + posted.length, html_url: `https://github.com/a/b/pull/1#issuecomment-${7000 + posted.length}` }) };
+  };
+  const handler = createInteractiveHandler({ owner: 'a', repo: 'b', prNumber: 1, $: async () => ({ stdout: '' }), log: async () => {}, execFile });
+  await handler.processEvent({ type: 'system', subtype: 'init', session_id: 's-1', cwd: '/tmp', tools: ['Bash'] });
+  await handler.flush?.();
+  assert.ok(posted.length > 0, 'the session-start comment was posted');
+  for (const body of posted) {
+    assert.ok(body.startsWith(`${INTERACTIVE_MODE_COMMENT_MARKER}\n`), body);
+    assert.equal(body.split(INTERACTIVE_MODE_COMMENT_MARKER).length, 2, 'the marker is added once');
+  }
+  resetTrackedToolCommentIds(); // a fresh process: nothing is remembered as posted
+  assert.deepEqual(requirementFeedback(posted.map((body, i) => ({ id: i + 1, body }))), []);
 });

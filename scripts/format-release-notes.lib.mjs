@@ -34,7 +34,9 @@ export const PACKAGE_NAME = '@link-assistant/hive-mind';
 const CHANGE_SECTION_PATTERN = /^### (Major|Minor|Patch) Changes[ \t]*$/gm;
 
 // The footer `buildReleaseBody` appends: a `---` rule followed by the npm badge.
-const GENERATED_FOOTER_PATTERN = /\n?^---[ \t]*\n(?:\s*\n)*\s*(?:\[!\[npm version\]\(https:\/\/img\.shields\.io\/badge\/npm-|📦)[\s\S]*$/m;
+// A single `\s*` covers the blank lines in between; a nested `(?:\s*\n)*\s*`
+// matches the same text but can backtrack exponentially (CodeQL, #3445).
+const GENERATED_FOOTER_PATTERN = /\n?^---[ \t]*\n\s*(?:\[!\[npm version\]\(https:\/\/img\.shields\.io\/badge\/npm-|📦)[\s\S]*$/m;
 const GENERATED_PR_LINE_PATTERN = /\n?^\*\*Related Pull Requests?:\*\*[^\n]*$/m;
 const GENERATED_BADGE_PATTERN = /\[!\[npm version\]\(https:\/\/img\.shields\.io\/badge\/npm-/;
 

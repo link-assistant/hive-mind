@@ -19,7 +19,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-import { buildPrLine, buildReleaseBody, buildReleaseDescription, extractChangelogSection, extractCommitHashes, extractPrNumbers, findFormattingDefects, formatChangelogListItem, hasGeneratedFooter, normalizeMarkdown, planReleaseRepair, stripGeneratedFooter } from '../scripts/format-release-notes.lib.mjs';
+import { buildNpmBadge, buildPrLine, buildReleaseBody, buildReleaseDescription, extractChangelogSection, extractCommitHashes, extractPrNumbers, findFormattingDefects, formatChangelogListItem, hasGeneratedFooter, normalizeMarkdown, planReleaseRepair, stripGeneratedFooter } from '../scripts/format-release-notes.lib.mjs';
 
 const MULTI_PARAGRAPH = ['### Patch Changes', '', '- 68f606a: First change (issue #2293).', '', '  Second change (issue #2303).', '', '  - nested bullet', '  - another nested bullet', '', '  Third change with `HIVE_MIND_X` and a literal `\\n` in code.'].join('\n');
 
@@ -98,6 +98,10 @@ const trimEveryLine = text =>
   assert.equal(buildPrLine([7]), '**Related Pull Request:** #7');
   assert.equal(buildPrLine([]), '');
   assert.ok(!hasGeneratedFooter('![badge](https://img.shields.io/badge/x-y-z.svg) in a changeset'), "a changeset's own shields.io image is not the footer");
+  const spacedFooter = `- abc1234: Fix.\n\n---\n \n\t\n\n${buildNpmBadge('1.0.0')}`;
+  assert.equal(stripGeneratedFooter(spacedFooter), '- abc1234: Fix.\n', 'blank and whitespace-only lines before the badge are part of the footer');
+  const rule = `- abc1234: Text.\n\n---\n${'\n \n'.repeat(50000)}not a badge`;
+  assert.equal(stripGeneratedFooter(rule), rule, 'a `---` rule followed by many blank lines and no badge is kept, without backtracking');
 }
 
 // --- 6. CHANGELOG section extraction -----------------------------------------

@@ -7,6 +7,8 @@
  * in a changelog entry, not just the first one.
  */
 
+import { buildPrLine, buildReleaseDescription } from '../scripts/format-release-notes.lib.mjs';
+
 // Sample changelog entry from v1.21.4 release
 const sampleChangelogBody = `### Patch Changes
 
@@ -24,12 +26,11 @@ const sampleChangelogBody = `### Patch Changes
   - Add comprehensive case study documentation in docs/case-studies/issue-1269/
 `;
 
-// Test the NEW regex logic (Issue #1271 fix)
+// Test the logic of format-release-notes.mjs (Issue #1271 fix, shared library since #3445)
 console.log('Testing commit hash extraction (Issue #1271 fix)...\n');
 
 // Extract the patch changes section
-const patchChangesMatch = sampleChangelogBody.match(/### Patch Changes\s*\n([\s\S]+?)(?=###|$)/);
-const rawDescription = patchChangesMatch ? patchChangesMatch[1] : null;
+const { description: rawDescription, commitHashes } = buildReleaseDescription(sampleChangelogBody);
 
 if (!rawDescription) {
   console.error('FAIL: Could not extract patch changes section');
@@ -40,10 +41,6 @@ console.log('Raw description extracted:');
 console.log('---');
 console.log(rawDescription);
 console.log('---\n');
-
-// Extract ALL commit hashes
-const commitHashRegex = /-\s+([a-f0-9]{7,40}):/g;
-const commitHashes = [...rawDescription.matchAll(commitHashRegex)].map(m => m[1]);
 
 console.log(`Found ${commitHashes.length} commit hash(es):`);
 commitHashes.forEach((hash, i) => console.log(`  ${i + 1}. ${hash}`));
@@ -76,13 +73,7 @@ const testCases = [
 ];
 
 for (const testCase of testCases) {
-  const sorted = testCase.prNumbers.sort((a, b) => a - b);
-  let result = '';
-  if (sorted.length > 0) {
-    const prLabel = sorted.length === 1 ? 'Related Pull Request' : 'Related Pull Requests';
-    const prLinks = sorted.map(n => `#${n}`).join(', ');
-    result = `**${prLabel}:** ${prLinks}`;
-  }
+  const result = buildPrLine(testCase.prNumbers);
 
   if (result !== testCase.expected) {
     console.error(`  FAIL: Expected "${testCase.expected}", got "${result}"`);

@@ -11,15 +11,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
       - name: Setup Scala
-        use: scala-lang/setup-scala@v1
+        uses: scala-lang/setup-scala@v1
         with:
           scala-version: "3.3.0"
-      
       - name: Run HelloWorld.scala
         run: scala HelloWorld.scala
-      
       - name: Verify output
         run: |
           output=$(scala HelloWorld.scala)

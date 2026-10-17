@@ -27,8 +27,9 @@ This pull request:
 - fixes the formatter, the CHANGELOG extraction, the manual-release CHANGELOG
   writer and the sanitizer false positives;
 - adds regression tests;
-- adds a repair script, which rebuilt every damaged release from
-  `CHANGELOG.md`;
+- adds a repair script, which rebuilt all 367 damaged releases from
+  `CHANGELOG.md` (the 366 the audit found, plus v2.38.0, which was published
+  during this work);
 - reports the bug upstream, to the template every copy of the formatter came
   from.
 

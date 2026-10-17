@@ -155,30 +155,41 @@ export function formatFailedLaunchMessage({ commandName = 'command', sessionName
 export function appendPullRequestLine(infoBlock, pullRequestUrl, { locale = null } = {}) {
   if (!pullRequestUrl || !infoBlock) return infoBlock || '';
   if (infoBlock.includes(pullRequestUrl) || infoBlock.includes(escapeMarkdown(pullRequestUrl))) return infoBlock;
+  // Issue #1801: escape underscores/asterisks so Markdown parser doesn't open
+  //   an entity on URLs like .../save_visiogetbb/pull/8 that the Issue: line
+  //   above already had escaped at buildTelegramInfoBlock time.
+  return insertInfoBlockUrlLine(infoBlock, `${text(locale, 'telegram.info_pull_request_label', 'Pull request')}: ${escapeMarkdown(pullRequestUrl)}`, { locale });
+}
 
+/**
+ * Insert `line` right after the info block's last URL line (`Repository:`,
+ * `Issue:`, `Pull request:`, `URL:`), so links stay together above the options.
+ * Issue #3469: `/fix` starts on a `Repository:` line and later learns its issue
+ * and pull request; both used to land after the options.
+ */
+export function insertInfoBlockUrlLine(infoBlock, line, { locale = null } = {}) {
+  if (!line) return infoBlock || '';
+  if (!infoBlock) return line;
   const lines = infoBlock.split('\n');
   let lastUrlLineIdx = -1;
-  const urlLabels = ['Issue', 'Pull request', 'URL'];
+  const urlLabels = ['Repository', 'Issue', 'Pull request', 'URL'];
   if (locale) {
     urlLabels.push(t('telegram.info_issue_label', {}, { locale }));
     urlLabels.push(t('telegram.info_pull_request_label', {}, { locale }));
     urlLabels.push(t('telegram.info_url_label', {}, { locale }));
+    urlLabels.push(t('telegram.fix.issue_label', {}, { locale }));
   }
   for (let i = 0; i < lines.length; i++) {
     if (urlLabels.some(label => lines[i].startsWith(`${label}: `))) {
       lastUrlLineIdx = i;
     }
   }
-  // Issue #1801: escape underscores/asterisks so Markdown parser doesn't open
-  //   an entity on URLs like .../save_visiogetbb/pull/8 that the Issue: line
-  //   above already had escaped at buildTelegramInfoBlock time.
-  const prLine = `${text(locale, 'telegram.info_pull_request_label', 'Pull request')}: ${escapeMarkdown(pullRequestUrl)}`;
   if (lastUrlLineIdx === -1) {
-    return `${infoBlock}\n${prLine}`;
+    return `${infoBlock}\n${line}`;
   }
   const before = lines.slice(0, lastUrlLineIdx + 1);
   const after = lines.slice(lastUrlLineIdx + 1);
-  return [...before, prLine, ...after].join('\n');
+  return [...before, line, ...after].join('\n');
 }
 
 // Issue #2303: the diagnosed kill cause, named in the headline.

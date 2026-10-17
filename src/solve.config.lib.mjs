@@ -768,7 +768,7 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'requirements-report': {
     type: 'boolean',
-    description: '[EXPERIMENTAL] Ask the AI tool for a requirements report in the pull request description (a JSON inventory of every issue requirement with evidence, tied to the current commit), restart it until the report is complete, and require that report before any automated merge (issue #2406). Disabled by default (issue #3469): without it no prompt mentions the report and the merge guard checks only the issue links. HIVE_MIND_REQUIREMENTS_REPORT=true enables it for processes without this flag, such as the merge queue.',
+    description: '[EXPERIMENTAL] Ask the AI tool for a requirements report in the pull request description (a JSON inventory of every issue requirement with evidence, tied to the current commit), restart it until the report is complete, and require that report before any automated merge. Disabled by default: without it no prompt mentions the report and the merge guard checks only the issue links. HIVE_MIND_REQUIREMENTS_REPORT=true enables it for processes without this flag, such as the merge queue.',
     default: undefined,
   },
   'prompt-ensure-all-requirements-are-met': {

@@ -3,6 +3,7 @@
  * on the unchanged issue link checks (issue #2335). All reads fail closed.
  */
 import { checkIssueLinksBeforeMerge, ghJson, ghPaginated, issueKey, runLinkGh } from './issue-link-verification.lib.mjs';
+import { isRequirementsReportEnabled } from './issue-completion.prompts.lib.mjs';
 import { buildRequirementsBlocker, evaluateRequirementsReport, extractExplicitRequirements, requirementFeedback, requirementSourceDigest } from './issue-requirements.lib.mjs';
 
 /**
@@ -37,14 +38,20 @@ export async function fetchRequirementsSnapshot({ owner, repo, prNumber, issueNu
 }
 
 /**
- * Links first (issue #2335), then a current and complete requirements report
- * for the same head commit. `headSha` pins the merge with --match-head-commit;
- * `snapshot` is the link snapshot, passed on unchanged for post-merge closing.
+ * Links first (issue #2335), then, only with the experimental
+ * `requirementsReport` switch (issue #3469), a current and complete requirements
+ * report for the same head commit. `headSha` pins the merge with
+ * --match-head-commit; `snapshot` is the link snapshot, passed on unchanged for
+ * post-merge closing.
  */
-export async function checkIssueCompletionBeforeMerge({ owner, repo, prNumber, issueNumber = null, run = runLinkGh, logger = async () => {}, verbose = false, allowCrossRepositoryClosing = true }) {
+export async function checkIssueCompletionBeforeMerge({ owner, repo, prNumber, issueNumber = null, run = runLinkGh, logger = async () => {}, verbose = false, allowCrossRepositoryClosing = true, requirementsReport = isRequirementsReportEnabled() }) {
   const links = await checkIssueLinksBeforeMerge({ owner, repo, prNumber, issueNumber, run, logger, verbose, allowCrossRepositoryClosing });
   const headSha = links.snapshot?.headSha ?? null;
   if (links.blocker || !links.snapshot?.issues?.length) return { ...links, headSha };
+  if (!requirementsReport) {
+    if (verbose) await logger('Requirements report check skipped: it is experimental and off by default (--requirements-report or HIVE_MIND_REQUIREMENTS_REPORT=true enables it)', { verbose: true });
+    return { ...links, headSha };
+  }
   try {
     const { snapshot } = links;
     const { requirements } = await fetchRequirementSources({ owner, repo, prNumber, issues: snapshot.issues, run });

@@ -8,6 +8,16 @@ Issue से जुड़ा solve तभी पूरा माना जात
 
 Codex हमेशा `-c features.goals=true` के साथ चलता है, सीधे भी और agent-commander के ज़रिए भी। `--auxiliary-model-calls-disabled` अब केवल `features.personality` बंद करता है: goals स्वयं कार्य को आगे ले जाते हैं, वे सहायक कॉल नहीं हैं।
 
+## Requirements report प्रायोगिक है और डिफ़ॉल्ट रूप से बंद है
+
+नीचे requirements report के बारे में लिखी हर बात केवल स्पष्ट रूप से चालू करने पर लागू होती है (issue #3469)। `solve` को `--requirements-report` दें, या बिना command line वाली प्रक्रियाओं (जैसे Telegram merge queue) के लिए `HIVE_MIND_REQUIREMENTS_REPORT=true` सेट करें। इसके बिना:
+
+- कोई prompt report, snapshot command या merge guard का उल्लेख नहीं करता, इसलिए उन पर कोई token खर्च नहीं होता। ऊपर दिया complete-delivery goal और closing reference के नियम बने रहते हैं।
+- Solve के बाद कोई completion restart नहीं चलता।
+- Merge guard केवल हर आवश्यक issue के closing references (issue #2335) जाँचता है, और merge को अब भी `--match-head-commit` से पिन करता है।
+
+यह सुविधा तब बंद की गई जब merge guard ने एक पूरा हो चुका pull request रोक दिया: hive-mind के अपने `.gitkeep` cleanup commit ने report लिखे जाने के बाद head बदल दिया, इसलिए report मौजूदा commit का वर्णन नहीं करता था ([case study](case-studies/issue-3469/README.md))।
+
 ## Requirements report बनाना
 
 अंतिम push के बाद मौजूदा issue, सभी issue comments और pull request के सभी comments, inline comments तथा reviews से template बनाएँ:
@@ -39,7 +49,7 @@ Tool prompts installed script का absolute path देते हैं। य
 
 ## Completion restarts
 
-Solve के बाद hive-mind किसी वैकल्पिक flag के बिना tool को तब तक फिर चलाता है जब तक report पास न हो जाए। डिफ़ॉल्ट रूप से तीन restarts होते हैं; `--ensure-all-sub-issues-addressed=N` सीमा तय करता है। Usage limits, बार-बार tool या verification विफलता, या केवल `blocked` आवश्यकताएँ बचने पर restarts पहले रुक जाते हैं। तब pull request बिना merge के रहता है, और blocked-merge comment हाथ से merge की सलाह देने के बजाय बचा हुआ काम बताता है।
+`--requirements-report` के साथ, solve के बाद hive-mind tool को तब तक फिर चलाता है जब तक report पास न हो जाए। डिफ़ॉल्ट रूप से तीन restarts होते हैं; `--ensure-all-sub-issues-addressed=N` सीमा तय करता है। Usage limits, बार-बार tool या verification विफलता, या केवल `blocked` आवश्यकताएँ बचने पर restarts पहले रुक जाते हैं। तब pull request बिना merge के रहता है, और blocked-merge comment हाथ से merge की सलाह देने के बजाय बचा हुआ काम बताता है।
 
 ## सीमाएँ
 

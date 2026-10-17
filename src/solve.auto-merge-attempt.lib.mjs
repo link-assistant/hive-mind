@@ -258,7 +258,7 @@ export const attemptAutoMerge = async params => {
   if (deleteAfterMerge) {
     await log(formatAligned('', 'Branch cleanup:', 'will delete branch after successful merge', 2));
   }
-  let mergeResult = await mergePullRequest(owner, repo, prNumber, { issueNumber, squash: argv.squash || false, deleteAfter: deleteAfterMerge, ...issueClosingOptions(argv) }, argv.verbose);
+  let mergeResult = await mergePullRequest(owner, repo, prNumber, { issueNumber, squash: argv.squash || false, deleteAfter: deleteAfterMerge, requirementsReport: argv.requirementsReport, ...issueClosingOptions(argv) }, argv.verbose);
 
   // Issue #2182: GitHub can still refuse the merge because of the draft state
   // even when `gh pr view` already answered CLEAN/MERGEABLE (stale read).
@@ -266,7 +266,7 @@ export const attemptAutoMerge = async params => {
   if (!mergeResult.success && classifyMergeError(mergeResult.error).category === MERGE_ERROR_CATEGORIES.DRAFT) {
     await log(formatAligned('🔧', 'Self-healing:', 'GitHub refused the merge because the PR is a draft - marking it ready', 2), { level: 'warning' });
     if (await restoreReadyForReview({ owner, repo, prNumber, reason: 'auto-merge: GitHub rejected the merge because the PR is a draft' })) {
-      mergeResult = await mergePullRequest(owner, repo, prNumber, { issueNumber, squash: argv.squash || false, deleteAfter: deleteAfterMerge, ...issueClosingOptions(argv) }, argv.verbose);
+      mergeResult = await mergePullRequest(owner, repo, prNumber, { issueNumber, squash: argv.squash || false, deleteAfter: deleteAfterMerge, requirementsReport: argv.requirementsReport, ...issueClosingOptions(argv) }, argv.verbose);
     }
   }
 

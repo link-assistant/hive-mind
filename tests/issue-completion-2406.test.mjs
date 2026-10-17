@@ -53,10 +53,10 @@ function fixture() {
     pr.body = `Fixes #322\n\n${formatRequirementsReport(value)}`;
     return value;
   };
-  return { responses, calls, pr, run, report, check: (extra = {}) => checkIssueCompletionBeforeMerge({ ...context, run, ...extra }) };
+  return { responses, calls, pr, run, report, check: (extra = {}) => checkIssueCompletionBeforeMerge({ ...context, run, requirementsReport: true, ...extra }) };
 }
 
-test('valid closing links alone no longer authorize an automated merge', async () => {
+test('with --requirements-report, valid closing links alone do not authorize an automated merge', async () => {
   const f = fixture();
   const result = await f.check();
   assert.equal(result.blocker.reason, 'incomplete_issue_requirements');
@@ -151,7 +151,7 @@ test('pull requests without any linked issue keep merging without a report', asy
   const f = fixture();
   f.pr.head.ref = 'maintenance';
   f.pr.body = 'Maintenance with no linked issue.';
-  const result = await checkIssueCompletionBeforeMerge({ ...repository, prNumber: 326, run: f.run });
+  const result = await checkIssueCompletionBeforeMerge({ ...repository, prNumber: 326, run: f.run, requirementsReport: true });
   assert.equal(result.blocker, null);
   assert.equal(result.headSha, headSha);
 });
@@ -227,8 +227,8 @@ test('rewriting a placeholder description keeps an existing requirements report'
   assert.equal(preserveRequirementsReport(`old\n${block}`, `new\n${block}`), `new\n${block}`);
 });
 
-test('completion retries run without optional flags, stop when verified, and are bounded', async () => {
-  const params = { ...context, issueUrl: 'u', branchName: 'b', tempDir: '/tmp/x', argv: {} };
+test('with --requirements-report, completion retries stop when verified and are bounded', async () => {
+  const params = { ...context, issueUrl: 'u', branchName: 'b', tempDir: '/tmp/x', argv: { requirementsReport: true } };
   const synced = [];
   // The real loop pulls the branch before each restart; record it instead.
   const restart = (input, deps) => runIssueCompletionUntilVerified(input, { sync: async options => synced.push(options.branchName), ...deps });
@@ -261,14 +261,39 @@ test('completion retries run without optional flags, stop when verified, and are
   await restart(params, { check: async () => ({ blocker: { ...incomplete, retryable: false } }), execute: async () => assert.fail('no restart for blocked work') });
   // Unreadable evidence: three consecutive failures stop the loop.
   let failures = 0;
-  await restart({ ...params, argv: { ensureAllSubIssuesAddressed: 'unlimited' } }, { check: async () => ({ blocker: { ...incomplete, reason: 'issue_completion_verification_failed' } }), execute: async () => (failures++, {}) });
+  await restart({ ...params, argv: { requirementsReport: true, ensureAllSubIssuesAddressed: 'unlimited' } }, { check: async () => ({ blocker: { ...incomplete, reason: 'issue_completion_verification_failed' } }), execute: async () => (failures++, {}) });
   assert.equal(failures, 2);
   // Three consecutive tool or API errors stop the loop too.
   let errors = 0;
-  await restart({ ...params, argv: { ensureAllSubIssuesAddressed: 'unlimited' } }, { check: async () => ({ blocker: incomplete }), execute: async () => (errors++, { apiError: true }) });
+  await restart({ ...params, argv: { requirementsReport: true, ensureAllSubIssuesAddressed: 'unlimited' } }, { check: async () => ({ blocker: incomplete }), execute: async () => (errors++, { apiError: true }) });
   assert.equal(errors, 3);
   // Dry runs never restart.
-  assert.equal(await restart({ ...params, argv: { dryRun: true } }, { check: async () => assert.fail('no check'), execute: async () => assert.fail('no restart') }), null);
+  assert.equal(await restart({ ...params, argv: { requirementsReport: true, dryRun: true } }, { check: async () => assert.fail('no check'), execute: async () => assert.fail('no restart') }), null);
+});
+
+test('the requirements report is experimental and off by default (issue #3469)', async () => {
+  const { isRequirementsReportEnabled } = await import('../src/issue-completion.prompts.lib.mjs');
+  assert.equal(isRequirementsReportEnabled({}, {}), false);
+  assert.equal(isRequirementsReportEnabled({ requirementsReport: true }, {}), true);
+  assert.equal(isRequirementsReportEnabled({ requirementsReport: false }, { HIVE_MIND_REQUIREMENTS_REPORT: 'true' }), false, 'the flag wins over the environment');
+  for (const value of ['true', '1', 'yes', 'on']) assert.equal(isRequirementsReportEnabled({}, { HIVE_MIND_REQUIREMENTS_REPORT: value }), true, value);
+  for (const value of ['', 'false', '0', 'off']) assert.equal(isRequirementsReportEnabled({}, { HIVE_MIND_REQUIREMENTS_REPORT: value }), false, value);
+  // Links still guard the merge, but no report is read or required.
+  const f = fixture();
+  const result = await f.check({ requirementsReport: false });
+  assert.equal(result.blocker, null);
+  assert.equal(result.headSha, headSha);
+  assert.ok(!f.calls.some(args => /\/reviews$/.test(args[1])), 'no review feedback is read for a report');
+  const unlinked = fixture();
+  unlinked.pr.body = 'No closing keyword.';
+  assert.ok((await unlinked.check({ requirementsReport: false })).blocker, 'missing links still block');
+  // No completion restart runs, and no GitHub read happens for it.
+  const params = { ...context, issueUrl: 'u', branchName: 'b', tempDir: '/tmp/x', argv: {} };
+  assert.equal(await runIssueCompletionUntilVerified(params, { check: async () => assert.fail('no check'), execute: async () => assert.fail('no restart'), sync: async () => assert.fail('no sync') }), null);
+  // The solve option exists, is marked experimental and has no default, so the environment can enable it.
+  const { SOLVE_OPTION_DEFINITIONS } = await import('../src/solve.config.lib.mjs');
+  assert.match(SOLVE_OPTION_DEFINITIONS['requirements-report'].description, /^\[EXPERIMENTAL\].*Disabled by default/);
+  assert.equal(SOLVE_OPTION_DEFINITIONS['requirements-report'].default, undefined);
 });
 
 test('the blocked-merge comment does not call an incomplete pull request ready', () => {
@@ -300,12 +325,12 @@ test('the shared merge boundary refuses an unreported pull request and merges a 
     await chmod(ghFixture, 0o755);
     await symlink(fileURLToPath(ghFixture), join(directory, 'gh'));
     const f = fixture();
-    const invoke = async () => {
+    const invoke = async (switchEnv = { HIVE_MIND_REQUIREMENTS_REPORT: 'true' }) => {
       await writeFile(fixtureFile, JSON.stringify(Object.fromEntries(f.responses)));
       await writeFile(callsFile, '');
       const moduleUrl = new URL('../src/github-merge.lib.mjs', import.meta.url).href;
       const code = `import { mergePullRequest } from ${JSON.stringify(moduleUrl)}; console.log(JSON.stringify(await mergePullRequest('link-assistant', 'agent', 326, {issueNumber:322})));`;
-      const { stdout } = await promisify(execFile)(process.execPath, ['--input-type=module', '-e', code], { env: { ...process.env, PATH: `${directory}:${process.env.PATH}`, ISSUE_2335_GH_FIXTURE: fixtureFile, ISSUE_2335_GH_CALLS: callsFile }, maxBuffer: 1024 * 1024 });
+      const { stdout } = await promisify(execFile)(process.execPath, ['--input-type=module', '-e', code], { env: { ...process.env, HIVE_MIND_REQUIREMENTS_REPORT: '', ...switchEnv, PATH: `${directory}:${process.env.PATH}`, ISSUE_2335_GH_FIXTURE: fixtureFile, ISSUE_2335_GH_CALLS: callsFile }, maxBuffer: 1024 * 1024 });
       const calls = (await readFile(callsFile, 'utf8'))
         .trim()
         .split('\n')
@@ -313,6 +338,10 @@ test('the shared merge boundary refuses an unreported pull request and merges a 
         .map(line => JSON.parse(line));
       return { result: JSON.parse(stdout.trim().split('\n').at(-1)), merge: calls.find(args => args[0] === 'pr' && args[1] === 'merge') };
     };
+    // Issue #3469: off by default, a linked pull request merges without a report.
+    const unreported = await invoke({});
+    assert.equal(unreported.result.success, true);
+    assert.equal(unreported.merge[unreported.merge.indexOf('--match-head-commit') + 1], headSha);
     const blocked = await invoke();
     assert.equal(blocked.result.success, false);
     assert.equal(blocked.result.category, 'incomplete_issue_requirements');

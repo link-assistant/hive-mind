@@ -444,7 +444,7 @@ export const watchUntilMergeable = async params => {
           if (deleteAfterMerge) {
             await log(formatAligned('', 'Branch cleanup:', 'will delete branch after successful merge', 2));
           }
-          const mergeResult = await mergePullRequest(owner, repo, prNumber, { issueNumber, squash: argv.squash || false, deleteAfter: deleteAfterMerge, ...issueClosingOptions(argv) }, argv.verbose);
+          const mergeResult = await mergePullRequest(owner, repo, prNumber, { issueNumber, squash: argv.squash || false, deleteAfter: deleteAfterMerge, requirementsReport: argv.requirementsReport, ...issueClosingOptions(argv) }, argv.verbose);
 
           if (mergeResult.success) {
             await log(formatAligned('🎉', 'PR MERGED SUCCESSFULLY!', ''));

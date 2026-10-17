@@ -246,6 +246,7 @@ const KNOWN_OPTION_NAMES = [
   'session-type',
   'working-directory',
   'auto-init-repository',
+  'requirements-report',
   'prompt-ensure-all-requirements-are-met',
   'finalize',
   'finalize-model',

@@ -766,6 +766,11 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Automatically accept the pending GitHub repository or organization invitation for the specific repository/organization being solved, before checking write access. Unlike /accept_invites which accepts all pending invitations, this only accepts the invite for the target repo/org. Enabled by default; use --no-auto-accept-invite to disable.',
     default: true,
   },
+  'requirements-report': {
+    type: 'boolean',
+    description: '[EXPERIMENTAL] Ask the AI tool for a requirements report in the pull request description (a JSON inventory of every issue requirement with evidence, tied to the current commit), restart it until the report is complete, and require that report before any automated merge (issue #2406). Disabled by default (issue #3469): without it no prompt mentions the report and the merge guard checks only the issue links. HIVE_MIND_REQUIREMENTS_REPORT=true enables it for processes without this flag, such as the merge queue.',
+    default: undefined,
+  },
   'prompt-ensure-all-requirements-are-met': {
     type: 'boolean',
     description: '[EXPERIMENTAL] Add a prompt hint to the system prompt to ensure all changes are correct, consistent, validated, tested, logged and fully meet all discussed requirements. Enabled automatically by --finalize during finalize cycle iterations only.',

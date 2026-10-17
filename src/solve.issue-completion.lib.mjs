@@ -1,13 +1,15 @@
 /**
  * Bounded completion restarts (issue #2406): after the solve, re-run the tool
- * until the merge guard accepts the pull request's requirements report. Runs
- * without any optional flag; --ensure-all-sub-issues-addressed only raises the
- * bound. The merge guard itself stays mandatory whatever this loop concludes.
+ * until the merge guard accepts the pull request's requirements report. Only
+ * with the experimental --requirements-report (issue #3469): by default no
+ * report is requested, so no restart waits for one. --ensure-all-sub-issues-addressed
+ * only raises the bound. The merge guard itself stays mandatory whatever this
+ * loop concludes.
  */
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { checkIssueCompletionBeforeMerge } from './issue-completion.lib.mjs';
-import { ISSUE_COMPLETION_GOAL } from './issue-completion.prompts.lib.mjs';
+import { ISSUE_COMPLETION_GOAL, isRequirementsReportEnabled } from './issue-completion.prompts.lib.mjs';
 import { normalizeEnsureSubIssuesLimit } from './solve.ensure-sub-issues.detect.lib.mjs';
 
 export const DEFAULT_ISSUE_COMPLETION_RESTARTS = 3;
@@ -34,12 +36,16 @@ export const syncCompletionBranch = async ({ tempDir, branchName, logger, timeou
 export async function runIssueCompletionUntilVerified(params, { check = checkIssueCompletionBeforeMerge, execute = defaultExecute, sync = syncCompletionBranch, logger = async () => {}, limit = normalizeEnsureSubIssuesLimit(params.argv?.ensureAllSubIssuesAddressed) || DEFAULT_ISSUE_COMPLETION_RESTARTS } = {}) {
   if (!params.prNumber || !params.issueNumber || params.argv?.dryRun) return null;
   const { owner, repo, issueNumber, prNumber, argv = {} } = params;
+  if (!isRequirementsReportEnabled(argv)) {
+    if (argv.verbose) await logger('   Completion restarts skipped: the requirements report is experimental and off by default (--requirements-report enables it)', { verbose: true });
+    return null;
+  }
   let latest = null;
   let verificationFailures = 0;
   let toolFailures = 0;
   let verification;
   for (let iteration = 0; ; iteration++) {
-    verification = await check({ owner, repo, issueNumber, prNumber, logger, verbose: argv.verbose });
+    verification = await check({ owner, repo, issueNumber, prNumber, logger, verbose: argv.verbose, requirementsReport: true });
     const { blocker } = verification;
     if (!blocker || iteration >= limit) break;
     // Only honestly blocked work remains: a human has to unblock it.

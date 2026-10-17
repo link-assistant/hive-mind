@@ -278,7 +278,7 @@ const detectClaudeMdCommitFromBranch = async (tempDir, branchName) => {
   }
 };
 const wasFileTouchedAfterCommit = async (tempDir, commitHash, fileName) => {
-  const changedCommitsResult = await $({ cwd: tempDir, silent: true })`git log --format=%H ${commitHash}..HEAD -- ${fileName}`;
+  const changedCommitsResult = await $({ cwd: tempDir, mirror: false })`git log --format=%H ${commitHash}..HEAD -- ${fileName}`;
   if (changedCommitsResult.code === 0) {
     return Boolean(changedCommitsResult.stdout?.trim());
   }

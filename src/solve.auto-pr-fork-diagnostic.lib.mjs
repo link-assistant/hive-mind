@@ -31,7 +31,7 @@ export async function emitForkAwareDiagnostic({ errorMessage, tempDir, owner, re
   }
 
   try {
-    const remotesResult = await $({ cwd: tempDir, silent: true })`git remote -v`;
+    const remotesResult = await $({ cwd: tempDir, mirror: false })`git remote -v`;
     const remotesText = remotesResult.code === 0 ? remotesResult.stdout.toString().trim() : '';
     const originLine = remotesText.split('\n').find(line => line.startsWith('origin\t') && line.includes('(fetch)'));
     const upstreamLine = remotesText.split('\n').find(line => line.startsWith('upstream\t') && line.includes('(fetch)'));

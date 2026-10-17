@@ -57,7 +57,7 @@ export async function waitForCompareApiReady({ argv, defaultBranch, branchName, 
       headRef = branchName;
     }
     compareResult = await $({
-      silent: true,
+      mirror: false,
     })`gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${headRef} --paginate --jq '.ahead_by' 2>&1`;
 
     if (compareResult.code === 0) {
@@ -124,14 +124,14 @@ export async function verifyBranchOnGitHub({ argv, tempDir, branchName, forkedRe
   // When using fork mode, check the fork repository; otherwise check the original repository
   const repoToCheck = argv.fork && forkedRepo ? forkedRepo : `${owner}/${repo}`;
   const branchCheckResult = await $({
-    silent: true,
+    mirror: false,
   })`gh api repos/${repoToCheck}/branches/${branchName} --jq .name 2>&1`;
   if (branchCheckResult.code === 0 && branchCheckResult.stdout.toString().trim() === branchName) {
     await log(`   Branch verified on GitHub: ${branchName}`);
 
     // Get the commit SHA from GitHub
     const shaCheckResult = await $({
-      silent: true,
+      mirror: false,
     })`gh api repos/${repoToCheck}/branches/${branchName} --jq .commit.sha 2>&1`;
     if (shaCheckResult.code === 0) {
       const remoteSha = shaCheckResult.stdout.toString().trim();
@@ -146,7 +146,7 @@ export async function verifyBranchOnGitHub({ argv, tempDir, branchName, forkedRe
 
       // Show all branches on GitHub
       const allBranchesResult = await $({
-        silent: true,
+        mirror: false,
       })`gh api repos/${repoToCheck}/branches --paginate --jq '.[].name' 2>&1`;
       if (allBranchesResult.code === 0) {
         await log(`   All GitHub branches: ${allBranchesResult.stdout.toString().split('\n').slice(0, 5).join(', ')}...`);

@@ -77,13 +77,13 @@ export async function removePlaceholderFromGitignore({ $, tempDir, fileName }) {
   const stagedFiles = [];
 
   for (let i = 0; i < 50; i++) {
-    const stillIgnored = await $({ cwd: tempDir, silent: true })`git check-ignore ${fileName}`;
+    const stillIgnored = await $({ cwd: tempDir, mirror: false })`git check-ignore ${fileName}`;
     if (stillIgnored.code !== 0) {
       // No longer ignored — done.
       return { removed: true, modifiedFiles, stagedFiles };
     }
 
-    const verbose = await $({ cwd: tempDir, silent: true })`git check-ignore -v ${fileName}`;
+    const verbose = await $({ cwd: tempDir, mirror: false })`git check-ignore -v ${fileName}`;
     const parsed = parseCheckIgnoreVerbose(verbose.stdout?.toString() ? verbose.stdout.toString() : '');
     if (!parsed) {
       return { removed: false, reason: 'could-not-locate-rule', modifiedFiles, stagedFiles };
@@ -122,7 +122,7 @@ export async function removePlaceholderFromGitignore({ $, tempDir, fileName }) {
     // such as .git/info/exclude which the un-ignore already takes effect for.
     const insideGitDir = relSource.split(path.sep)[0] === '.git';
     if (!insideGitDir) {
-      const addIgnore = await $({ cwd: tempDir, silent: true })`git add ${relSource}`;
+      const addIgnore = await $({ cwd: tempDir, mirror: false })`git add ${relSource}`;
       if (addIgnore.code === 0 && !stagedFiles.includes(relSource)) {
         stagedFiles.push(relSource);
       }
@@ -299,7 +299,7 @@ export async function addPlaceholderFileToGit({ $, tempDir, fileName, log, forma
   // Run silently: `git add` is quiet on success and only emits the noisy
   // "paths are ignored ... Use -f" hint on failure, which we capture in
   // `stderr` and re-surface from the caller only when the failure is genuine.
-  const addResult = await $({ cwd: tempDir, silent: true })`git add ${fileName}`;
+  const addResult = await $({ cwd: tempDir, mirror: false })`git add ${fileName}`;
   if (addResult.code === 0) {
     return { code: 0, ignored: false, action: 'added', stderr: '' };
   }
@@ -308,7 +308,7 @@ export async function addPlaceholderFileToGit({ $, tempDir, fileName, log, forma
 
   // Determine whether the add failed because the placeholder is git-ignored.
   // `git check-ignore` exits 0 when the path matches a .gitignore rule.
-  const checkIgnore = await $({ cwd: tempDir, silent: true })`git check-ignore ${fileName}`;
+  const checkIgnore = await $({ cwd: tempDir, mirror: false })`git check-ignore ${fileName}`;
   const ignored = checkIgnore.code === 0;
 
   if (!ignored) {
@@ -331,7 +331,7 @@ export async function addPlaceholderFileToGit({ $, tempDir, fileName, log, forma
     if (verbose && log) {
       await log(`   Removed ${fileName} from: ${removal.modifiedFiles.join(', ') || '(none)'}`, { verbose: true });
     }
-    const retry = await $({ cwd: tempDir, silent: true })`git add ${fileName}`;
+    const retry = await $({ cwd: tempDir, mirror: false })`git add ${fileName}`;
     return {
       code: retry.code,
       ignored: true,
@@ -348,7 +348,7 @@ export async function addPlaceholderFileToGit({ $, tempDir, fileName, log, forma
     if (verbose && log) {
       await log(`   ${fileName} matched a .gitignore rule; --force-git-keep-commit is set, retrying with: git add -f ${fileName}`, { verbose: true });
     }
-    const forcedResult = await $({ cwd: tempDir, silent: true })`git add -f ${fileName}`;
+    const forcedResult = await $({ cwd: tempDir, mirror: false })`git add -f ${fileName}`;
     return {
       code: forcedResult.code,
       ignored: true,

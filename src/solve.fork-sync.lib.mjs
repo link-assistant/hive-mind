@@ -49,7 +49,7 @@ const extractGitHubUrlNumber = argv => {
 const resolveTaskRequester = async ({ $, owner, repo, argv }) => {
   const target = extractGitHubUrlNumber(argv);
   if (!target) return null;
-  const result = await $({ silent: true })`gh api repos/${owner}/${repo}/${target.type}/${target.number} --jq .user.login 2>&1`;
+  const result = await $({ mirror: false })`gh api repos/${owner}/${repo}/${target.type}/${target.number} --jq .user.login 2>&1`;
   return result.code === 0 ? firstNonEmptyLine(result.stdout) : null;
 };
 

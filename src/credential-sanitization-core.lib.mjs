@@ -67,8 +67,11 @@ const VENDOR_PATTERNS = Object.freeze([
   // JWT/JWS access, ID, and CI job tokens.
   /\beyJ[0-9A-Za-z_-]{8,}\.eyJ[0-9A-Za-z_-]{8,}\.[0-9A-Za-z_-]{8,}\b/g,
   // Opaque CI/test credentials sometimes carry only an all-caps semantic
-  // marker and appear without a useful assignment name.
-  /\b(?:[A-Z0-9]+[_-])+(?:TOKEN|SECRET|PASSWORD|CREDENTIAL|API[_-]?KEY)(?:[_-][A-Z0-9]+)+\b/g,
+  // marker and appear without a useful assignment name. Issue #3445: the value
+  // must contain a digit, because a run of all-caps words is a constant or
+  // environment variable name (`KNOWN_LOCAL_TOKEN_ENV_VARS`), and masking it
+  // rewrote the v1.64.3 release notes into `KNO…ARS`.
+  /\b(?=[A-Z_-]*[0-9])(?:[A-Z0-9]+[_-])+(?:TOKEN|SECRET|PASSWORD|CREDENTIAL|API[_-]?KEY)(?:[_-][A-Z0-9]+)+\b/g,
 ]);
 
 // The affixes around the sensitive word are bounded rather than `*`. Unbounded
@@ -124,8 +127,19 @@ const isVersionRangeAssignment = value => VERSION_RANGE_VALUE.test(String(value 
 // reader. A language keyword or literal is never a credential, and any value
 // that short would be reduced to `[REDACTED]` by `maskToken` anyway, so only
 // the exact keyword (not a value that merely starts with one) is exempt.
-const KEYWORD_VALUE = /^(?:true|false|null|undefined|none|nil|await|async|new|typeof|function|this|void|yield)$/i;
-const isKeywordAssignment = value => KEYWORD_VALUE.test(String(value ?? '').trim());
+//
+// Issue #3445: in Markdown the value runs into the closing code-span backtick or
+// parenthesis, so `` `…Tokens: false`) `` captured "false`)" and the v2.33.5 and
+// v2.33.6 release notes published `…Tokens: [REDACTED]`. Trailing closing
+// punctuation is ignored for this check, and a bare elision (`…` or `...`, as in
+// `` `token => …` ``) is a placeholder, not a credential. So is a documented
+// `<placeholder>` (`` `…_token_limit=<tokens>` `` in the v1.58.0 notes).
+const KEYWORD_VALUE = /^(?:true|false|null|undefined|none|nil|await|async|new|typeof|function|this|void|yield|…|\.\.\.|<[A-Za-z][\w .-]*>)$/i;
+const TRAILING_CLOSING_PUNCTUATION = /[`)\]]+[.,:!?]*$/;
+const isKeywordAssignment = value => {
+  const trimmed = String(value ?? '').trim();
+  return KEYWORD_VALUE.test(trimmed) || KEYWORD_VALUE.test(trimmed.replace(TRAILING_CLOSING_PUNCTUATION, ''));
+};
 const SENSITIVE_ENV_NAME = /(?:API_?KEY|ACCOUNT_?KEY|CLIENT_?SECRET|CONSUMER_?SECRET|WEBHOOK_?SECRET|ACCESS_?TOKEN|REFRESH_?TOKEN|AUTH_?TOKEN|PASSWORD|PASSWD|PRIVATE_?KEY|SECRET|TOKEN|COOKIE|AUTH)$/i;
 // Issue #2156: structured output is routinely nested inside another JSON
 // document — an agent tool result embeds the command's stdout as a JSON
@@ -153,6 +167,12 @@ const UNQUOTED_ASSIGNMENT = new RegExp(`((?:${QUOTE})?${SENSITIVE_KEY}(?:${QUOTE
 const XML_CREDENTIAL = new RegExp(`(<(${SENSITIVE_KEY})\\b[^>]*>)([\\s\\S]*?)(<\\/\\2\\s*>)`, 'gi');
 const CLI_CREDENTIAL_QUOTED = new RegExp(`(--${SENSITIVE_KEY}(?:\\s+|=))(["'])([^"'\\r\\n]*)(\\2)`, 'gi');
 const CLI_CREDENTIAL = new RegExp(`(--${SENSITIVE_KEY}(?:\\s+|=))(?!["'])([^\\s"'\\r\\n]+)`, 'gi');
+// Issue #3445: a flag named after token *accounting* (the plural word `tokens`,
+// as in `--tokens-budget-stats` or `--max-tokens`) takes no credential, so the
+// word after it is prose or a count. The v0.54.4 and v1.38.0 release notes read
+// `--tokens-budget-stats [REDACTED] sub-session tracking`. A plural credential
+// name (`--access-tokens`) is still masked.
+const TOKEN_ACCOUNTING_FLAG = /^--(?:[a-z0-9]+[-_.])*?(?<!access[-_]?|refresh[-_]?|auth[-_]?|session[-_]?|sas[-_]?)tokens(?:[-_.][a-z0-9]+)*(?:\s+|=)$/i;
 const QUERY_CREDENTIAL = new RegExp(`([?&]${SENSITIVE_KEY}=)([^&#\\s]+)`, 'gi');
 
 const replaceVendorSecrets = text => {
@@ -224,7 +244,7 @@ const sanitizePlaintextCredentials = (input, options = {}) => {
 
   // CLI arguments and sensitive query parameters.
   output = output.replace(CLI_CREDENTIAL_QUOTED, (_match, prefix, quote, value) => `${prefix}${quote}${maskValue(value)}${quote}`);
-  output = output.replace(CLI_CREDENTIAL, (_match, prefix, value) => `${prefix}${maskValue(value)}`);
+  output = output.replace(CLI_CREDENTIAL, (match, prefix, value) => (TOKEN_ACCOUNTING_FLAG.test(prefix) ? match : `${prefix}${maskValue(value)}`));
   output = output.replace(QUERY_CREDENTIAL, (_match, prefix, value) => `${prefix}${maskValue(value)}`);
 
   // Vendor webhook URLs encode credentials in their path rather than a named

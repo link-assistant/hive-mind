@@ -1,12 +1,12 @@
 {
   "version": 1,
-  "headSha": "730f3dd9030dacd7e6d54de808841ac41d389520",
+  "headSha": "a8784a1d0ba32f72e6765882634a8e76195e7ac7",
   "issues": [
     {
       "owner": "link-assistant",
       "repo": "hive-mind",
       "number": 3461,
-      "sourceDigest": "9cb1fa2d3a0903f6d07e49c9d07c6aedb6fb4194b7bfa8bca38ca221f22fcf0e",
+      "sourceDigest": "dff25882c9f4198adba7e48f8e9ac7790fc942f987e22dd8ecb3ba4bc82a3c6d",
       "requirements": [
         {
           "text": "Create a file with the appropriate extension for Scala",

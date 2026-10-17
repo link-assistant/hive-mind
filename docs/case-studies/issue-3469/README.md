@@ -35,16 +35,16 @@ The `data/` folder holds the raw material, kept verbatim. Prettier ignores it.
 
 ## Requirements
 
-| #   | Requirement (from the issue)                                                                                                       | Status | Where                                                                                  |
-| --- | ---------------------------------------------------------------------------------------------------------------------------------- | ------ | -------------------------------------------------------------------------------------- |
-| R1  | Make the requirements report optional and experimental, off by default, keep the code, and spend no prompt tokens on it by default | done   | d124747c8, 53d9ac67d                                                                   |
-| R2  | Show the PR link in task status messages as soon as the PR exists, in every similar case                                           | done   | 46c27fb4b                                                                              |
-| R3  | Check all other false positives, false negatives, warnings and errors in the logs, and fix them                                    | done   | 5a1927d59, 1abbdd656, c808a4945, 5ee824ae3, 0d7905692, 5fb7988a8, a2c95bee3, 53d9ac67d |
-| R4  | Fix the auto-restart/resume regression from PR #3446                                                                               | done   | dec76f614                                                                              |
-| R5  | Collect the logs and data here and write this deep case study, with online research and existing components                        | done   | this folder                                                                            |
-| R6  | Add debug output and verbose mode where the data is not enough                                                                     | done   | dec76f614 (verdict in verbose), 5ee824ae3 (df diagnostics), c808a4945                  |
-| R7  | Report issues to other projects, with reproductions, workarounds and suggested fixes                                               | done   | see [Upstream reports](#upstream-reports)                                              |
-| R8  | Apply each fix to the whole codebase                                                                                               | done   | 1abbdd656 (all 43 TDZ imports), 5fb7988a8 (all 32 `silent: true` sites)                |
+| #   | Requirement (from the issue)                                                                                                       | Status | Where                                                                                             |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------- |
+| R1  | Make the requirements report optional and experimental, off by default, keep the code, and spend no prompt tokens on it by default | done   | d124747c8, 53d9ac67d, c5dd4de54                                                                   |
+| R2  | Show the PR link in task status messages as soon as the PR exists, in every similar case                                           | done   | 46c27fb4b                                                                                         |
+| R3  | Check all other false positives, false negatives, warnings and errors in the logs, and fix them                                    | done   | 5a1927d59, 1abbdd656, c808a4945, 5ee824ae3, 0d7905692, 5fb7988a8, a2c95bee3, 53d9ac67d, c5dd4de54 |
+| R4  | Fix the auto-restart/resume regression from PR #3446                                                                               | done   | dec76f614                                                                                         |
+| R5  | Collect the logs and data here and write this deep case study, with online research and existing components                        | done   | this folder                                                                                       |
+| R6  | Add debug output and verbose mode where the data is not enough                                                                     | done   | dec76f614 (verdict in verbose), 5ee824ae3 (df diagnostics), c808a4945                             |
+| R7  | Report issues to other projects, with reproductions, workarounds and suggested fixes                                               | done   | see [Upstream reports](#upstream-reports)                                                         |
+| R8  | Apply each fix to the whole codebase                                                                                               | done   | 1abbdd656 (all 43 TDZ imports), 5fb7988a8 (all 32 `silent: true` sites)                           |
 
 ## R1: the requirements report
 

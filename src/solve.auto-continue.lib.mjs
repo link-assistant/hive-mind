@@ -35,7 +35,7 @@ const githubLib = await import('./github.lib.mjs');
 const { checkFileInBranch } = githubLib;
 
 // Import validation functions for time parsing
-const validation = await import('./solve.validation.lib.mjs');
+import * as validation from './solve.validation.lib.mjs';
 
 // Import usage limit formatting functions
 // See: https://github.com/link-assistant/hive-mind/issues/1152

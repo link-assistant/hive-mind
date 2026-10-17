@@ -40,7 +40,7 @@ const { runPostFinishSweep } = await import('./post-finish-sanitization-sweep.li
 const { reportPullRequestLinkRepair } = await import('./pr-image-link-repair.lib.mjs'); // issue #2239: repair GitHub file links the tool published against the wrong repository
 
 // Import continuation functions (session resumption, PR detection)
-const autoContinue = await import('./solve.auto-continue.lib.mjs');
+import * as autoContinue from './solve.auto-continue.lib.mjs';
 const { autoContinueWhenLimitResets } = autoContinue;
 // Import Claude-specific command builders
 // These are used to generate copy-pasteable Claude CLI resume commands for users

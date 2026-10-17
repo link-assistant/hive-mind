@@ -22,7 +22,7 @@ const use = globalThis.use;
 
 // Use command-stream for consistent $ behavior across runtimes
 const { $: __rawDollar$ } = await use('command-stream');
-const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
+import { wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs';
 const $ = wrapDollarWithGhRetry(__rawDollar$);
 const { quietProbe } = await import('./quiet-probe.lib.mjs'); // Issue #2293: one-word answers (`false`, `OPEN`) of every watch check stay out of the log
 // Import path and fs for cleanup operations
@@ -35,16 +35,16 @@ const lib = await import('./lib.mjs');
 // no-op stubs (or omitting them entirely) broke session-log renaming in restart/watch iterations
 // ("⚠️ Could not rename log file: getLogFile is not a function").
 const { log, formatAligned, extractToolErrorCore, getLogFile, setLogFile } = lib;
-const { ensurePullRequestBaseBranch } = await import('./solve.pr-base-guard.lib.mjs');
+import { ensurePullRequestBaseBranch } from './solve.pr-base-guard.lib.mjs';
 const { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } = await import('./ai-tool-scratch.lib.mjs');
 const { RESOURCE_PHASE_RESTART_AFTER, RESOURCE_PHASE_RESTART_BEFORE, recordResourceSnapshot } = await import('./solve.resource-diagnostics.lib.mjs');
 const { classifySessionResult } = await import('./session-result.lib.mjs'); // Issue #2316
 const { takeRepeatedToolCallFeedback } = await import('./tool-call-loop-guard.lib.mjs');
 const { buildUncommittedChangesFeedback } = await import('./uncommitted-changes-feedback.lib.mjs');
 // Issue #2123: shared draft/ready transitions for working sessions.
-const { ensurePullRequestIsDraft, ensurePullRequestIsReady, ensurePullRequestStaysDraftAfterFailure } = await import('./pr-draft-state.lib.mjs');
+import { ensurePullRequestIsDraft, ensurePullRequestIsReady, ensurePullRequestStaysDraftAfterFailure } from './pr-draft-state.lib.mjs';
 // Issue #2247 (H3): fingerprint each restart session so an identical repeat can be detected.
-const { captureSessionOutcome, noteSessionInput, takeRepeatedSessionFeedback } = await import('./session-progress.lib.mjs');
+import { captureSessionOutcome, noteSessionInput, takeRepeatedSessionFeedback } from './session-progress.lib.mjs';
 
 // Import Sentry integration
 const sentryLib = await import('./sentry.lib.mjs');

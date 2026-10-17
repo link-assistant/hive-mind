@@ -27,7 +27,7 @@ const {
 } = lib;
 
 // Import GitHub-related functions
-const githubLib = await import('./github.lib.mjs');
+import * as githubLib from './github.lib.mjs';
 const {
   checkGitHubPermissions,
   parseGitHubUrl,

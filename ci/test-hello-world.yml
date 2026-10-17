@@ -2,9 +2,9 @@ name: Test Hello World Scala
 
 on:
   push:
-    branches: [ e2e/hello-world/39050916672/agent-nemotron-3-super-free ]
+    branches: [ '**' ]
   pull_request:
-    branches: [ e2e/hello-world/39050916672/agent-nemotron-3-super-free ]
+    branches: [ '**' ]
 
 jobs:
   build-and-test:

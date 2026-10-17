@@ -1077,11 +1077,11 @@ export async function checkDockerStorageDriver(verbose = false) {
  * @param {boolean} [verbose] - Enable verbose logging
  * @returns {Promise<{availableGiB: number, dataRoot: string}|null>}
  */
-export async function checkDockerDiskSpace(verbose = false) {
+export async function checkDockerDiskSpace(verbose = false, { getDollar = getCommandStreamDollar } = {}) {
   try {
     let dataRoot = '/var/lib/docker';
     try {
-      const $ = await getCommandStreamDollar();
+      const $ = await getDollar();
       const info = await $({ mirror: false, signal: AbortSignal.timeout(DOCKER_CLI_TIMEOUT_MS) })`docker info --format ${'{{.DockerRootDir}}'}`;
       const root = (info.stdout?.toString() || '').trim();
       if (root) dataRoot = root;
@@ -1089,25 +1089,38 @@ export async function checkDockerDiskSpace(verbose = false) {
       // Daemon unreachable: fall back to the conventional data root. If df then
       // fails on it (e.g. the path does not exist) we return null below.
     }
-    const $ = await getCommandStreamDollar();
+    const $ = await getDollar();
     const df = await $({ mirror: false })`df -Pk ${dataRoot}`;
-    // `df -P` guarantees one logical line per filesystem (no wrapping). The last
-    // line is the data row: Filesystem 1024-blocks Used Available Capacity Mount
-    const lines = (df.stdout?.toString() || '').trim().split('\n');
-    const cols = (lines[lines.length - 1] || '').trim().split(/\s+/);
-    const availableKb = Number(cols[3]);
-    if (!Number.isFinite(availableKb)) {
-      if (verbose) console.log('[VERBOSE] isolation-runner: could not parse df output for Docker disk space');
+    const availableKb = parseDfAvailableKb(df.stdout?.toString());
+    if (availableKb === null) {
+      // Issue #3469: the bot log said only "could not parse df output", which
+      // cannot tell a missing data root (the daemon's path is not visible in
+      // this container) from an unexpected df format.
+      if (verbose) console.log(`[VERBOSE] isolation-runner: could not parse df output for Docker disk space (data root '${dataRoot}', df exit ${df.code ?? 'unknown'}, stdout ${JSON.stringify((df.stdout?.toString() || '').trim().split('\n').at(-1) || '')}, stderr ${JSON.stringify((df.stderr?.toString() || '').trim())})`);
       return null;
     }
     const availableGiB = availableKb / (1024 * 1024);
     if (verbose) console.log(`[VERBOSE] isolation-runner: Docker data root '${dataRoot}' has ${availableGiB.toFixed(1)} GiB free`);
     return { availableGiB, dataRoot };
-  } catch {
-    if (verbose) console.log('[VERBOSE] isolation-runner: df unavailable; Docker disk space unknown');
+  } catch (error) {
+    if (verbose) console.log(`[VERBOSE] isolation-runner: df unavailable; Docker disk space unknown (${String(error?.message || error).split('\n')[0]})`);
     return null;
   }
 }
+
+/**
+ * Available KiB in `df -Pk` output, or null. `df -P` guarantees one logical line
+ * per filesystem (no wrapping); the last line is the data row:
+ * Filesystem 1024-blocks Used Available Capacity Mount.
+ */
+export const parseDfAvailableKb = stdout => {
+  const lines = String(stdout ?? '')
+    .trim()
+    .split('\n');
+  const cols = (lines[lines.length - 1] || '').trim().split(/\s+/);
+  if (lines.length < 2 || !/^\d+$/.test(cols[3] ?? '')) return null;
+  return Number(cols[3]);
+};
 /**
  * Startup preflight for `--isolation docker`.
  *

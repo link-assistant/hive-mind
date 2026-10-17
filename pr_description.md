@@ -30,13 +30,13 @@ This PR addresses all requirements from issue #3461.
 ```json
 {
   "version": 1,
-  "headSha": "ddec08f588841568ac42b69e1cf0b76fd03e030c",
+  "headSha": "71a8bbf850301c67c1c983d2b115ace611ff4543",
   "issues": [
     {
       "owner": "link-assistant",
       "repo": "hive-mind",
       "number": 3461,
-      "sourceDigest": "52ac72a7847384c36451261fb261f67180b19c45e5d60208bd34d28f890b3cae",
+      "sourceDigest": "8e7b5dd25ebd20c28095564d85d0fe7e01c16a05a162fbbbbb492971050448ab",
       "requirements": [
         {
           "text": "Create a file with the appropriate extension for Scala",
@@ -154,5 +154,6 @@ This PR addresses all requirements from issue #3461.
 }
 ```
 <!-- hive-mind:requirements:end -->
+
 
 Fixes #3461

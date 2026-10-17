@@ -1,0 +1,31 @@
+name: Test Hello World Scala
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Scala
+        use: scala-lang/setup-scala@v1
+        with:
+          scala-version: "3.3.0"
+      
+      - name: Run HelloWorld.scala
+        run: scala HelloWorld.scala
+      
+      - name: Verify output
+        run: |
+          output=$(scala HelloWorld.scala)
+          if [ "$output" = "Hello, World!" ]; then
+            echo "Test passed"
+          else
+            echo "Expected 'Hello, World!' but got '$output'"
+            exit 1
+          fi

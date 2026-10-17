@@ -14,6 +14,8 @@ jobs:
         uses: scala-lang/setup-scala@v1
         with:
           scala-version: "3.3.0"
+      - name: Check Scala version
+        run: scala -version
       - name: Run HelloWorld.scala
         run: scala HelloWorld.scala
       - name: Verify output

@@ -542,7 +542,7 @@ export const executeToolIteration = async params => {
     // funnels through here, so one call covers watch mode, auto-restart-until-
     // mergeable, keep-working, escalation and auto-ensure. The loops read the
     // verdict before they claim their next iteration from the shared budget.
-    const sessionProgress = await captureSessionOutcome({ tempDir, toolResult, $, log, logFile: getLogFile(), label: params.sessionLabel || null });
+    const sessionProgress = await captureSessionOutcome({ tempDir, toolResult, $, log, logFile: getLogFile(), label: params.sessionLabel || null, stallEvidence: params.stallEvidence !== false });
     if (sessionProgress?.repeated) {
       await log(formatAligned('⚠️', 'No progress:', 'this session ended exactly like the previous one', 2));
     }

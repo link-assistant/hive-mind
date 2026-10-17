@@ -614,7 +614,7 @@ Proceed.
             // User doesn't have permission, but that's okay - we just won't assign
             await log('   User is not a collaborator (will skip assignment)', { verbose: true });
           }
-        } else if (isIntegrationForbidden(`${currentUserResult.stdout || ''}${currentUserResult.stderr || ''}`)) {
+        } else if (isIntegrationForbidden(`${currentUserResult.stdout?.toString() ?? ''}${currentUserResult.stderr?.toString() ?? ''}`)) {
           // Issue #3469: an installation token (e.g. GITHUB_TOKEN) cannot read GET /user by design.
           await log('   Current user: unknown (a GitHub App installation token cannot read GET /user); skipping assignment', { verbose: true });
         } else {

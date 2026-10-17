@@ -278,7 +278,7 @@ export const performSystemChecks = async (minDiskSpace = 10240, skipToolConnecti
         await log('   🔧 How to fix manually:');
         await log('');
         await log('   Option 1: Install gh-setup-git-identity and use --auto-gh-configuration-repair');
-        await log('     npm install -g @link-foundation/gh-setup-git-identity');
+        await log('     npm install -g gh-setup-git-identity');
         await log('');
         await log('   Option 2: Set identity manually');
         await log('     git config --global user.name "Your Name"');

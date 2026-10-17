@@ -143,8 +143,49 @@ export const writeAgenticCliState = async (state, { env = process.env, fsImpl = 
   return state;
 };
 
-/** Installed version of one CLI, or null when neither its binary nor Bun inventory can identify it. */
-export const readInstalledCliVersion = async (target, { run = execFileAsync, timeoutMs = DEFAULT_COMMAND_TIMEOUT_MS } = {}) => {
+/**
+ * Version in the package.json of the package that owns the binary on PATH.
+ *
+ * Issue #3469: a `--version` flag is only as good as the CLI that implements it.
+ * gh-setup-git-identity@0.8.0 hard-codes `.version('0.1.0')`, and
+ * @link-assistant/claude-profiles@1.2.3 lets yargs guess, which finds nvm's
+ * own package.json and prints 0.40.8. Both updates succeeded, yet every idle
+ * check logged "Could not update". The manifest next to the resolved binary is
+ * what was installed and what the registry version describes; reading it also
+ * keeps a shadowing older copy earlier on PATH from passing as updated.
+ */
+export const readBinaryPackageVersion = async (target, { env = process.env, fsImpl = fs } = {}) => {
+  for (const dir of String(env.PATH ?? '')
+    .split(path.delimiter)
+    .filter(Boolean)) {
+    let resolved;
+    try {
+      resolved = await fsImpl.promises.realpath(path.join(dir, target.binary));
+    } catch {
+      continue;
+    }
+    // The first match is the binary a shell would run; never look past it.
+    for (let current = path.dirname(resolved); ; current = path.dirname(current)) {
+      try {
+        const manifest = JSON.parse(await fsImpl.promises.readFile(path.join(current, 'package.json'), 'utf8'));
+        if (manifest?.name === target.package) return { version: parseCliVersion(manifest.version), manifestPath: path.join(current, 'package.json') };
+      } catch {
+        // No manifest at this level; keep walking up.
+      }
+      if (path.dirname(current) === current || path.basename(current) === 'node_modules') return null;
+    }
+  }
+  return null;
+};
+
+/** Installed version of one CLI, or null when neither its manifest, its binary nor Bun inventory can identify it. */
+export const readInstalledCliVersion = async (target, { run = execFileAsync, timeoutMs = DEFAULT_COMMAND_TIMEOUT_MS, env = process.env, fsImpl = fs, log = null, verbose = false } = {}) => {
+  const owner = await readBinaryPackageVersion(target, { env, fsImpl });
+  if (owner?.version) {
+    if (verbose && log) await log(`[VERBOSE] agentic-cli-updater: ${target.id} ${owner.version} (from ${owner.manifestPath})`);
+    return owner.version;
+  }
+
   try {
     const result = await run(target.binary, ['--version'], { encoding: 'utf8', timeout: timeoutMs });
     const version = parseCliVersion(`${result?.stdout ?? ''}${result?.stderr ?? ''}`);
@@ -217,7 +258,7 @@ export const updateAgenticClisWhenIdle = async ({ env = process.env, fsImpl = fs
       const tools = { ...state.tools };
 
       for (const target of listAgenticCliUpdateTargets(env, { only })) {
-        const installed = await readInstalledCliVersion(target, { run });
+        const installed = await readInstalledCliVersion(target, { run, env, fsImpl, log, verbose });
         if (!installed) {
           // Not installed on this host (image variants differ); nothing to refresh.
           if (verbose && log) await log(`[VERBOSE] agentic-cli-updater: ${target.id} is not installed here; skipping`);
@@ -248,9 +289,10 @@ export const updateAgenticClisWhenIdle = async ({ env = process.env, fsImpl = fs
         }
 
         // Verify the installed package rather than trusting the installer's exit
-        // code. Prefer the executable, with Bun inventory as the fallback used
-        // for temporarily broken upstream entry points.
-        const after = await readInstalledCliVersion(target, { run });
+        // code. Prefer the manifest that owns the executable, then the
+        // executable itself, with Bun inventory as the fallback used for
+        // temporarily broken upstream entry points.
+        const after = await readInstalledCliVersion(target, { run, env, fsImpl, log, verbose });
         if (after === latest) {
           updated.push({ id: target.id, from: installed, to: after });
           tools[target.id] = { version: after, previousVersion: installed, updatedAt: now().toISOString(), checkedAt: now().toISOString() };
@@ -281,6 +323,7 @@ export default {
   parseBunGlobalPackageVersion,
   parseCliVersion,
   readAgenticCliState,
+  readBinaryPackageVersion,
   readInstalledCliVersion,
   readLatestPublishedVersion,
   resolveAgenticCliStatePath,

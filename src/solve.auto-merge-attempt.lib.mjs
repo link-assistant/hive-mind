@@ -22,13 +22,13 @@ if (typeof globalThis.use === 'undefined') {
 const use = globalThis.use;
 
 const { $: __rawDollar$ } = await use('command-stream');
-const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
+import { wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs';
 const $ = wrapDollarWithGhRetry(__rawDollar$);
 
 const lib = await import('./lib.mjs');
 const { log, formatAligned } = lib;
 
-const githubMergeLib = await import('./github-merge.lib.mjs');
+import * as githubMergeLib from './github-merge.lib.mjs';
 const { checkPRMergeable, checkMergePermissions, mergePullRequest, waitForCI } = githubMergeLib;
 
 const terminalStateLib = await import('./github-terminal-state.lib.mjs');
@@ -47,9 +47,9 @@ const stopReporting = await import('./automation-stop-reporting.lib.mjs');
 const { AUTO_MERGE_BLOCKED_MARKER, buildAutoMergeBlockedComment, reportAutomationStop } = stopReporting;
 
 // Issues #3354/#3355: mergePullRequest closes (or reports) the intended issues GitHub leaves open.
-const { appendIssueClosingSection, formatIssueClosingReport, issueClosingOptions } = await import('./post-merge-issue-closing.lib.mjs');
+import { appendIssueClosingSection, formatIssueClosingReport, issueClosingOptions } from './post-merge-issue-closing.lib.mjs';
 // Issue #2306: never auto-merge a pull request that leaves required issues open.
-const { checkClosingReferencesBeforeMerge } = await import('./solve.ensure-sub-issues.lib.mjs');
+import { checkClosingReferencesBeforeMerge } from './solve.ensure-sub-issues.lib.mjs';
 // Issue #2395: never auto-merge a pull request that is not linked to its issue.
 const { ensureIssueLinkBeforeMerge } = await import('./pr-issue-link-merge-gate.lib.mjs');
 
@@ -58,7 +58,7 @@ const { ensureIssueLinkBeforeMerge } = await import('./pr-issue-link-merge-gate.
 // still a draft". Restore "ready for review" once and retry instead of failing
 // (or, in the watch loop, retrying forever).
 const { classifyMergeError, MERGE_ERROR_CATEGORIES } = await import('./merge-error-classification.lib.mjs');
-const { ensurePullRequestIsReady, getPullRequestLeftInDraft } = await import('./pr-draft-state.lib.mjs');
+import { ensurePullRequestIsReady, getPullRequestLeftInDraft } from './pr-draft-state.lib.mjs';
 const { isLatestAiWorkAttached } = await import('./log-attach-state.lib.mjs'); // Issue #2563
 const { reportError } = await import('./sentry.lib.mjs');
 
@@ -258,7 +258,7 @@ export const attemptAutoMerge = async params => {
   if (deleteAfterMerge) {
     await log(formatAligned('', 'Branch cleanup:', 'will delete branch after successful merge', 2));
   }
-  let mergeResult = await mergePullRequest(owner, repo, prNumber, { issueNumber, squash: argv.squash || false, deleteAfter: deleteAfterMerge, ...issueClosingOptions(argv) }, argv.verbose);
+  let mergeResult = await mergePullRequest(owner, repo, prNumber, { issueNumber, squash: argv.squash || false, deleteAfter: deleteAfterMerge, requirementsReport: argv.requirementsReport, ...issueClosingOptions(argv) }, argv.verbose);
 
   // Issue #2182: GitHub can still refuse the merge because of the draft state
   // even when `gh pr view` already answered CLEAN/MERGEABLE (stale read).
@@ -266,7 +266,7 @@ export const attemptAutoMerge = async params => {
   if (!mergeResult.success && classifyMergeError(mergeResult.error).category === MERGE_ERROR_CATEGORIES.DRAFT) {
     await log(formatAligned('🔧', 'Self-healing:', 'GitHub refused the merge because the PR is a draft - marking it ready', 2), { level: 'warning' });
     if (await restoreReadyForReview({ owner, repo, prNumber, reason: 'auto-merge: GitHub rejected the merge because the PR is a draft' })) {
-      mergeResult = await mergePullRequest(owner, repo, prNumber, { issueNumber, squash: argv.squash || false, deleteAfter: deleteAfterMerge, ...issueClosingOptions(argv) }, argv.verbose);
+      mergeResult = await mergePullRequest(owner, repo, prNumber, { issueNumber, squash: argv.squash || false, deleteAfter: deleteAfterMerge, requirementsReport: argv.requirementsReport, ...issueClosingOptions(argv) }, argv.verbose);
     }
   }
 

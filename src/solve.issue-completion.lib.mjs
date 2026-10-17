@@ -1,13 +1,15 @@
 /**
  * Bounded completion restarts (issue #2406): after the solve, re-run the tool
- * until the merge guard accepts the pull request's requirements report. Runs
- * without any optional flag; --ensure-all-sub-issues-addressed only raises the
- * bound. The merge guard itself stays mandatory whatever this loop concludes.
+ * until the merge guard accepts the pull request's requirements report. Only
+ * with the experimental --requirements-report (issue #3469): by default no
+ * report is requested, so no restart waits for one. --ensure-all-sub-issues-addressed
+ * only raises the bound. The merge guard itself stays mandatory whatever this
+ * loop concludes.
  */
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { checkIssueCompletionBeforeMerge } from './issue-completion.lib.mjs';
-import { ISSUE_COMPLETION_GOAL } from './issue-completion.prompts.lib.mjs';
+import { ISSUE_COMPLETION_GOAL, isRequirementsReportEnabled } from './issue-completion.prompts.lib.mjs';
 import { normalizeEnsureSubIssuesLimit } from './solve.ensure-sub-issues.detect.lib.mjs';
 
 export const DEFAULT_ISSUE_COMPLETION_RESTARTS = 3;
@@ -34,12 +36,16 @@ export const syncCompletionBranch = async ({ tempDir, branchName, logger, timeou
 export async function runIssueCompletionUntilVerified(params, { check = checkIssueCompletionBeforeMerge, execute = defaultExecute, sync = syncCompletionBranch, logger = async () => {}, limit = normalizeEnsureSubIssuesLimit(params.argv?.ensureAllSubIssuesAddressed) || DEFAULT_ISSUE_COMPLETION_RESTARTS } = {}) {
   if (!params.prNumber || !params.issueNumber || params.argv?.dryRun) return null;
   const { owner, repo, issueNumber, prNumber, argv = {} } = params;
+  if (!isRequirementsReportEnabled(argv)) {
+    if (argv.verbose) await logger('   Completion restarts skipped: the requirements report is experimental and off by default (--requirements-report enables it)', { verbose: true });
+    return null;
+  }
   let latest = null;
   let verificationFailures = 0;
   let toolFailures = 0;
   let verification;
   for (let iteration = 0; ; iteration++) {
-    verification = await check({ owner, repo, issueNumber, prNumber, logger, verbose: argv.verbose });
+    verification = await check({ owner, repo, issueNumber, prNumber, logger, verbose: argv.verbose, requirementsReport: true });
     const { blocker } = verification;
     if (!blocker || iteration >= limit) break;
     // Only honestly blocked work remains: a human has to unblock it.
@@ -50,7 +56,9 @@ export async function runIssueCompletionUntilVerified(params, { check = checkIss
     } else verificationFailures = 0;
     await logger(`🎯 Completion restart ${iteration + 1}/${limit}: ${blocker.message}`);
     if (params.tempDir && params.branchName) await sync({ tempDir: params.tempDir, branchName: params.branchName, logger });
-    latest = await execute({ ...params, feedbackLines: [ISSUE_COMPLETION_GOAL, blocker.message, ...(blocker.details || []), blocker.resolution, 'Read all issue and review feedback again, complete the missing work in this same pull request, then refresh its requirements report after the final push.'], argv: { ...argv, promptEnsureAllRequirementsAreMet: true } });
+    // Issue #3469: a completion restart may rightly change only the PR description, so the
+    // working tree and HEAD it ends with are no evidence that the next restart loop is stuck.
+    latest = await execute({ ...params, sessionLabel: `Completion restart ${iteration + 1}/${limit}`, stallEvidence: false, feedbackLines: [ISSUE_COMPLETION_GOAL, blocker.message, ...(blocker.details || []), blocker.resolution, 'Read all issue and review feedback again, complete the missing work in this same pull request, then refresh its requirements report after the final push.'], argv: { ...argv, promptEnsureAllRequirementsAreMet: true } });
     await params.cleanupClaudeFile?.(params.tempDir, params.branchName, null, argv);
     if (latest?.limitReached || latest?.errorInfo?.usageLimitReached) break;
     if (latest?.apiError || latest?.errorDuringExecution || latest?.success === false) {

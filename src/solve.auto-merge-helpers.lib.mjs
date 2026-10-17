@@ -23,7 +23,7 @@ const use = globalThis.use;
 
 // Use command-stream for consistent $ behavior across runtimes
 const { $: __rawDollar$ } = await use('command-stream');
-const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
+import { wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs';
 const $ = wrapDollarWithGhRetry(__rawDollar$);
 // Issue #2293: these probes return whole comment threads (180 KB on link-foundation/meta-language#196, logged 7 times in a row) and the login; they are read, never shown.
 const { quietProbe } = await import('./quiet-probe.lib.mjs');
@@ -37,7 +37,7 @@ const sentryLib = await import('./sentry.lib.mjs');
 const { reportError } = sentryLib;
 
 // Import GitHub merge functions
-const githubMergeLib = await import('./github-merge.lib.mjs');
+import * as githubMergeLib from './github-merge.lib.mjs';
 const { checkPRMergeable, checkForBillingLimitError, getDetailedCIStatus, getWorkflowRunsForSha, getWorkflowRunJobsCount, getActiveRepoWorkflows, getCommitDate, checkWorkflowsHavePRTriggers, checkPreviousPRCommitsHadCI, getActivePRWorkflowRuns } = githubMergeLib;
 
 // Issue #1952: Cross-reference cancelled check-runs against workflow-run conclusions so a

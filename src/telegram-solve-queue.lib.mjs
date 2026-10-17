@@ -908,7 +908,9 @@ export class SolveQueue {
       if (!candidate.sessionOutcome && normalizeQueueUrl(candidate.url) === urlKey && (!tool || (candidate.tool || 'claude') === tool)) item = candidate;
     }
     if (!item) {
-      this.log(`Session completion for ${describe} matches no launched queue item`);
+      // Issue #3469: a command that could start at once never became a queue item;
+      // say so, or every directly started session reads like a lost one.
+      this.log(`Session completion for ${describe} matches no launched queue item (expected for a session started directly, without queueing)`);
       return null;
     }
     const outcome = classifySessionOutcome({ exitCode, status, command });

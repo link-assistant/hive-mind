@@ -43,7 +43,7 @@ import { formatInteractiveMcpServersList, getInteractiveMcpDiagnostics } from '.
 // the "did the AI post anything?" check in checkForAiCreatedComments().
 // Use the session-started marker as the single source of truth for the
 // header string, keeping posting and filtering in lock-step.
-import { INTERACTIVE_SESSION_STARTED_MARKER, trackToolCommentId } from './tool-comments.lib.mjs';
+import { INTERACTIVE_SESSION_STARTED_MARKER, trackToolCommentId, withInteractiveModeMarker } from './tool-comments.lib.mjs';
 // Issue #1745/#2111: every comment body posted by the AI bridge MUST flow
 // through the strict publication sanitizer before leaving the process. The leak in
 // xlab2016/space_db_private#20 happened because raw bash-tool stdout
@@ -193,7 +193,7 @@ export const createInteractiveHandler = options => {
 
     // Issue #1745: sanitize BEFORE rate-limit queuing so queued bodies are
     // also safe (the queue persists across reconnects).
-    const safeBody = await sanitizeAndWarn(body);
+    const safeBody = withInteractiveModeMarker(await sanitizeAndWarn(body));
 
     const now = Date.now();
     const timeSinceLastComment = now - state.lastCommentTime;
@@ -273,7 +273,7 @@ export const createInteractiveHandler = options => {
     }
     // Issue #1745: sanitize before sending. editComment is the path that
     // leaked TELEGRAM_BOT_TOKEN in xlab2016/space_db_private#20.
-    const safeBody = await sanitizeAndWarn(body);
+    const safeBody = withInteractiveModeMarker(await sanitizeAndWarn(body));
 
     state.editsAttempted++;
     try {

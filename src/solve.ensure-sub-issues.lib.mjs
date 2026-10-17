@@ -31,13 +31,13 @@ const use = globalThis.use;
 
 // Use command-stream for consistent $ behavior across runtimes
 const { $: __rawDollar$ } = await use('command-stream');
-const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
+import { wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs';
 const $ = wrapDollarWithGhRetry(__rawDollar$);
 
 const lib = await import('./lib.mjs');
 const { log, cleanErrorMessage } = lib;
 
-const restartShared = await import('./solve.restart-shared.lib.mjs');
+import * as restartShared from './solve.restart-shared.lib.mjs';
 const { executeToolIteration, isApiError, isUsageLimitReached } = restartShared;
 
 const sentryLib = await import('./sentry.lib.mjs');
@@ -341,7 +341,8 @@ export const runEnsureAllSubIssuesAddressed = async ({ issueUrl, owner, repo, is
  * later session. The merge is the last point where this can be caught.
  *
  * Issue #2335: always checks the primary issue and all required sub-issues,
- * and a failed GitHub read blocks the merge. Issue #2406: and the requirements report.
+ * and a failed GitHub read blocks the merge. Issue #2406: and, with the
+ * experimental --requirements-report (#3469), the requirements report.
  *
  * @param {object} params
  * @param {string} params.owner
@@ -354,8 +355,9 @@ export const runEnsureAllSubIssuesAddressed = async ({ issueUrl, owner, repo, is
 export const checkClosingReferencesBeforeMerge = async ({ owner, repo, issueNumber, prNumber, argv = {} }) => {
   const { checkIssueCompletionBeforeMerge } = await import('./issue-completion.lib.mjs');
   const { issueClosingOptions } = await import('./post-merge-issue-closing.lib.mjs');
+  const { isRequirementsReportEnabled } = await import('./issue-completion.prompts.lib.mjs');
   const { allowCrossRepositoryClosing } = issueClosingOptions(argv);
-  const { blocker } = await checkIssueCompletionBeforeMerge({ owner, repo, issueNumber, prNumber, logger: log, verbose: argv.verbose, allowCrossRepositoryClosing });
+  const { blocker } = await checkIssueCompletionBeforeMerge({ owner, repo, issueNumber, prNumber, logger: log, verbose: argv.verbose, allowCrossRepositoryClosing, requirementsReport: isRequirementsReportEnabled(argv) });
   return blocker;
 };
 

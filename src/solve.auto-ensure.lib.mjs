@@ -20,20 +20,20 @@ const use = globalThis.use;
 
 // Use command-stream for consistent $ behavior across runtimes
 const { $: __rawDollar$ } = await use('command-stream');
-const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
+import { wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs';
 const $ = wrapDollarWithGhRetry(__rawDollar$);
 // Import shared library functions
 const lib = await import('./lib.mjs');
 const { log, cleanErrorMessage } = lib;
 
 // Import shared restart utilities
-const restartShared = await import('./solve.restart-shared.lib.mjs');
+import * as restartShared from './solve.restart-shared.lib.mjs';
 const { executeToolIteration } = restartShared;
 
 // Issue #1763: Re-verify PR ↔ issue link after every finalize iteration so a
 // PR body that the AI rewrote without a closing keyword does not survive past
 // the last requirements-check.
-const resultsLib = await import('./solve.results.lib.mjs');
+import * as resultsLib from './solve.results.lib.mjs';
 const { ensurePullRequestIssueLink } = resultsLib;
 
 const sentryLib = await import('./sentry.lib.mjs');

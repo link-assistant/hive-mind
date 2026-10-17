@@ -13,7 +13,7 @@ if (typeof globalThis.use === 'undefined') {
 const use = globalThis.use;
 
 // Use command-stream for consistent $ behavior; wrap with rate-limit retry (#1726)
-const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
+import { wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs';
 const { QUIET_PROBE } = await import('./quiet-probe.lib.mjs'); // issue #2130: keep read-only probe payloads out of the attached log
 const $ = wrapDollarWithGhRetry((await use('command-stream')).$);
 
@@ -49,7 +49,7 @@ const extractGitHubUrlNumber = argv => {
 const resolveTaskRequester = async ({ $, owner, repo, argv }) => {
   const target = extractGitHubUrlNumber(argv);
   if (!target) return null;
-  const result = await $({ silent: true })`gh api repos/${owner}/${repo}/${target.type}/${target.number} --jq .user.login 2>&1`;
+  const result = await $({ mirror: false })`gh api repos/${owner}/${repo}/${target.type}/${target.number} --jq .user.login 2>&1`;
   return result.code === 0 ? firstNonEmptyLine(result.stdout) : null;
 };
 

@@ -8,6 +8,16 @@ The system, initial and continuation prompts of all six tools (claude, codex, op
 
 Codex always runs with `-c features.goals=true`, both directly and through agent-commander. `--auxiliary-model-calls-disabled` now disables only `features.personality`: goals carry the task itself and are not an auxiliary call.
 
+## The requirements report is experimental and off by default
+
+Everything below about the requirements report is opt-in (issue #3469). Pass `--requirements-report` to `solve`, or set `HIVE_MIND_REQUIREMENTS_REPORT=true` for processes that have no command line, such as the Telegram merge queue. Without it:
+
+- No prompt mentions the report, the snapshot command or the merge guard, so no tokens are spent on them. The complete-delivery goal above and the closing-reference rules stay.
+- No completion restart runs after the solve.
+- The merge guard checks only the closing references of every required issue (issue #2335), and still pins the merge with `--match-head-commit`.
+
+The feature was turned off after the merge guard held back a finished pull request: hive-mind's own `.gitkeep` cleanup commit moved the head after the report was written, so the report no longer described the current commit ([case study](case-studies/issue-3469/README.md)).
+
 ## Creating a requirements report
 
 After the final push, generate a template from the current issue, all issue comments and all pull request comments, inline comments and reviews:
@@ -39,7 +49,7 @@ Every GitHub read must succeed; an unreadable or malformed response blocks the m
 
 ## Completion restarts
 
-After the solve, hive-mind restarts the tool until the report passes, without any optional flag. It runs three restarts by default; `--ensure-all-sub-issues-addressed=N` sets the bound. Restarts stop early on usage limits, repeated tool or verification failures, or when only `blocked` requirements remain. The pull request then stays unmerged, and the blocked-merge comment lists the remaining work instead of suggesting a manual merge.
+With `--requirements-report`, after the solve hive-mind restarts the tool until the report passes. It runs three restarts by default; `--ensure-all-sub-issues-addressed=N` sets the bound. Restarts stop early on usage limits, repeated tool or verification failures, or when only `blocked` requirements remain. The pull request then stays unmerged, and the blocked-merge comment lists the remaining work instead of suggesting a manual merge.
 
 ## Limits
 

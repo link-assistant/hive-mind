@@ -12,7 +12,8 @@
  */
 import { readLogTailText } from './log-bounded-read.lib.mjs';
 import { safeEditMessageText } from './telegram-safe-reply.lib.mjs';
-import { formatExecutingWorkSessionMessage } from './work-session-formatting.lib.mjs';
+import { formatExecutingWorkSessionMessage, insertInfoBlockUrlLine } from './work-session-formatting.lib.mjs';
+import { escapeMarkdown } from './telegram-markdown.lib.mjs';
 import { t } from './i18n.lib.mjs';
 
 function text(locale, key, fallback, params = {}) {
@@ -151,10 +152,14 @@ export async function reportFixProgress({ bot, sessionName, sessionInfo, statusR
     }
     if (delivered) {
       // Keep the issue link in the completion message once live updates stop.
-      if (event.phase === 'solving' && event.issueUrl && !String(sessionInfo.infoBlock || '').includes(event.issueUrl)) {
-        sessionInfo.infoBlock = `${sessionInfo.infoBlock ? `${sessionInfo.infoBlock}\n` : ''}${text(sessionInfo.locale || null, 'telegram.fix.issue_label', 'Issue')}: ${event.issueUrl}`;
+      // Issue #3469: placed after the `Repository:` line, not after the options.
+      const infoBlock = String(sessionInfo.infoBlock || '');
+      if (event.phase === 'solving' && event.issueUrl && !infoBlock.includes(event.issueUrl) && !infoBlock.includes(escapeMarkdown(event.issueUrl))) {
+        sessionInfo.infoBlock = insertInfoBlockUrlLine(infoBlock, `${text(sessionInfo.locale || null, 'telegram.fix.issue_label', 'Issue')}: ${escapeMarkdown(event.issueUrl)}`, { locale: sessionInfo.locale || null });
       }
-      sessionInfo.fixProgress = { phase: event.phase, key, issueUrl: event.issueUrl || null, done: event.phase === 'solving' };
+      // Issue #3469: the issue URL and last event let the monitor resolve the
+      // session's PR and redraw this status when the PR link is added.
+      sessionInfo.fixProgress = { phase: event.phase, key, issueUrl: event.issueUrl || null, event, done: event.phase === 'solving' };
       if (verbose) console.log(`[VERBOSE] [fix-progress] ${sessionName}: ${event.phase}${event.issueUrl ? ` ${event.issueUrl}` : ''}`);
       persist();
     }

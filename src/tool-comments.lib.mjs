@@ -105,6 +105,11 @@ export const WORKFLOW_PUSH_REJECTED_MARKER = 'Workflow push rejected';
 // Issue #3174: a closing reference the session removed is not re-added (pr-issue-link-repair.lib.mjs).
 export const CLOSING_REFERENCES_LEFT_OUT_MARKER = 'Closing references left out';
 
+// interactive-mode.lib.mjs — hidden first line of every tool-use comment it posts or edits, so a process
+// that did not post them still knows they are not feedback (issue #3469)
+export const INTERACTIVE_MODE_COMMENT_MARKER = '<!-- hive-mind:interactive-mode -->';
+export const withInteractiveModeMarker = body => (String(body).startsWith(INTERACTIVE_MODE_COMMENT_MARKER) ? body : `${INTERACTIVE_MODE_COMMENT_MARKER}\n${body}`);
+
 // github.lib.mjs — fork contributor "Allow edits by maintainers" request
 export const MAINTAINER_ACCESS_REQUEST_MARKER = 'Allow edits by maintainers';
 
@@ -146,7 +151,7 @@ export const LOG_UPLOAD_FAILED_MARKER = 'Log Upload Failed';
  */
 export const TOOL_GENERATED_COMMENT_MARKERS = [RECOVERY_LIFECYCLE_MARKER, AI_WORK_SESSION_STARTED_MARKER, AI_WORK_SESSION_COMPLETED_MARKER, AI_WORK_SESSION_RESUMED_MARKER, AUTO_RESUME_ON_LIMIT_RESET_MARKER, AUTO_RESTART_ON_LIMIT_RESET_MARKER, SOLUTION_DRAFT_LOG_MARKER, AUTO_RESTART_MARKER, AUTO_RESTART_UNTIL_MERGEABLE_LOG_MARKER, READY_TO_MERGE_MARKER, READY_FOR_REVIEW_MARKER, AUTO_MERGED_MARKER, BILLING_LIMIT_MARKER, CANCELLED_CI_REVIEW_MARKER, AUTOMATION_STOPPED_MARKER, AUTO_MERGE_BLOCKED_MARKER, MAINTAINER_ACCESS_REQUEST_MARKER, LIVE_PROGRESS_SECTION_START_MARKER, SESSION_FORCE_KILLED_MARKER, REPOSITORY_INITIALIZATION_REQUIRED_MARKER, INTERACTIVE_SESSION_STARTED_MARKER, INTERACTIVE_SESSION_ENDED_MARKER, NOW_WORKING_SESSION_IS_ENDED_MARKER, SOLUTION_DRAFT_FAILED_MARKER, SOLUTION_DRAFT_FINISHED_WITH_ERRORS_MARKER, USAGE_LIMIT_REACHED_MARKER, LOG_UPLOAD_FAILED_MARKER, WORKING_SESSION_SUMMARY_AUTOMATION_MARKER, NO_CHANGES_PRODUCED_MARKER, FINISHED_WITHOUT_CHANGES_MARKER];
 // The list above is at the print width; later markers are appended here.
-TOOL_GENERATED_COMMENT_MARKERS.push(SESSION_EFFECT_UNVERIFIED_MARKER, WORKFLOW_PUSH_REJECTED_MARKER, CLOSING_REFERENCES_LEFT_OUT_MARKER);
+TOOL_GENERATED_COMMENT_MARKERS.push(SESSION_EFFECT_UNVERIFIED_MARKER, WORKFLOW_PUSH_REJECTED_MARKER, CLOSING_REFERENCES_LEFT_OUT_MARKER, INTERACTIVE_MODE_COMMENT_MARKER);
 
 /**
  * Markers that indicate the end of a working session. Used by
@@ -181,13 +186,18 @@ const headingMarkers = TOOL_GENERATED_COMMENT_MARKERS.filter(marker => !marker.s
   .map(escapeRegExp)
   .join('|');
 const TOOL_STATUS_HEADING = new RegExp(`^#{1,6} (?:\\S+ (?:${headingMarkers})|${escapeRegExp(CANCELLED_CI_REVIEW_MARKER)})(?=$|[\\s:(])`);
+// `🤖 **AI Work Session Started**`, `⚠️ **Finished without changes**`, `⏳ **Usage Limit Reached - Waiting…**`:
+// the bold first line of the session and outcome notices (issue #3469).
+const TOOL_STATUS_BOLD_LEAD = new RegExp(`^(?:\\p{Extended_Pictographic}\\uFE0F?|:[a-z_]+:) \\*\\*(?:${headingMarkers})(?=\\*\\*|[\\s:(])`, 'u');
 
-/** True when a comment opens with one of solve.mjs's own status headings or hidden automation markers. */
+/** True when a comment opens with one of solve.mjs's own status headings, bold notices or hidden automation markers. */
 export const isToolStatusComment = body => {
   if (!body || typeof body !== 'string') return false;
   const text = body.trimStart();
-  if (TOOL_GENERATED_COMMENT_MARKERS.some(marker => marker.startsWith('<!--') && text.startsWith(marker))) return true;
-  return TOOL_STATUS_HEADING.test(text.split('\n', 1)[0].trim());
+  // `<!-- hive-mind:closing-references-left-out owner/repo#1 -->` and the other tagged notices.
+  if (text.startsWith('<!-- hive-mind:') || TOOL_GENERATED_COMMENT_MARKERS.some(marker => marker.startsWith('<!--') && text.startsWith(marker))) return true;
+  const firstLine = text.split('\n', 1)[0].trim();
+  return TOOL_STATUS_HEADING.test(firstLine) || TOOL_STATUS_BOLD_LEAD.test(firstLine);
 };
 
 // ----------------------------------------------------------------------------

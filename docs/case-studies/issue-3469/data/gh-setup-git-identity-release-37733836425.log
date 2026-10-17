@@ -1,0 +1,252 @@
+Release	UNKNOWN STEP	﻿2026-10-08T05:44:12.1820828Z Current runner version: '2.337.0'
+Release	UNKNOWN STEP	2026-10-08T05:44:12.1847993Z ##[group]Runner Image Provisioner
+Release	UNKNOWN STEP	2026-10-08T05:44:12.1848991Z Hosted Compute Agent
+Release	UNKNOWN STEP	2026-10-08T05:44:12.1849640Z Version: 20261002.596
+Release	UNKNOWN STEP	2026-10-08T05:44:12.1850317Z Commit: c3d12f3313a95f25162a1503be624f3b0617f8c0
+Release	UNKNOWN STEP	2026-10-08T05:44:12.1851111Z Build Date: 2026-10-02T22:28:27Z
+Release	UNKNOWN STEP	2026-10-08T05:44:12.1851915Z Worker ID: {77c2e0bd-bcb6-4c13-b173-2229a172d3c7}
+Release	UNKNOWN STEP	2026-10-08T05:44:12.1852658Z Region: westus
+Release	UNKNOWN STEP	2026-10-08T05:44:12.1853187Z Cloud: Azure
+Release	UNKNOWN STEP	2026-10-08T05:44:12.1853791Z ##[endgroup]
+Release	UNKNOWN STEP	2026-10-08T05:44:12.1855481Z ##[group]Operating System
+Release	UNKNOWN STEP	2026-10-08T05:44:12.1856246Z Ubuntu
+Release	UNKNOWN STEP	2026-10-08T05:44:12.1856804Z 24.04.5
+Release	UNKNOWN STEP	2026-10-08T05:44:12.1857527Z LTS
+Release	UNKNOWN STEP	2026-10-08T05:44:12.1858128Z ##[endgroup]
+Release	UNKNOWN STEP	2026-10-08T05:44:12.1858690Z ##[group]Runner Image
+Release	UNKNOWN STEP	2026-10-08T05:44:12.1859344Z Image: ubuntu-24.04
+Release	UNKNOWN STEP	2026-10-08T05:44:12.1859955Z Version: 20261004.327.1
+Release	UNKNOWN STEP	2026-10-08T05:44:12.1861264Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261004.327/images/ubuntu/Ubuntu2404-Readme.md
+Release	UNKNOWN STEP	2026-10-08T05:44:12.1862835Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261004.327
+Release	UNKNOWN STEP	2026-10-08T05:44:12.1863837Z ##[endgroup]
+Release	UNKNOWN STEP	2026-10-08T05:44:12.1865144Z ##[group]GITHUB_TOKEN Permissions
+Release	UNKNOWN STEP	2026-10-08T05:44:12.1867475Z Contents: write
+Release	UNKNOWN STEP	2026-10-08T05:44:12.1868146Z Metadata: read
+Release	UNKNOWN STEP	2026-10-08T05:44:12.1868763Z PullRequests: write
+Release	UNKNOWN STEP	2026-10-08T05:44:12.1869483Z ##[endgroup]
+Release	UNKNOWN STEP	2026-10-08T05:44:12.1871674Z Secret source: Actions
+Release	UNKNOWN STEP	2026-10-08T05:44:12.1872678Z Cache mode: write
+Release	UNKNOWN STEP	2026-10-08T05:44:12.1873427Z Prepare workflow directory
+Release	UNKNOWN STEP	2026-10-08T05:44:12.2279150Z Prepare all required actions
+Release	UNKNOWN STEP	2026-10-08T05:44:12.2338501Z Getting action download info
+Release	UNKNOWN STEP	2026-10-08T05:44:12.5923244Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+Release	UNKNOWN STEP	2026-10-08T05:44:12.7034382Z Download action repository 'oven-sh/setup-bun@v2' (SHA:0c5077e51419868618aeaa5fe8019c62421857d6)
+Release	UNKNOWN STEP	2026-10-08T05:44:13.0788469Z Download action repository 'actions/setup-node@v4' (SHA:49933ea5288caeca8642d1e84afbd3f7d6820020)
+Release	UNKNOWN STEP	2026-10-08T05:44:13.2750343Z Complete job name: Release
+Release	UNKNOWN STEP	2026-10-08T05:44:13.3563258Z ##[group]Run actions/checkout@v4
+Release	UNKNOWN STEP	2026-10-08T05:44:13.3564133Z with:
+Release	UNKNOWN STEP	2026-10-08T05:44:13.3564554Z   fetch-depth: 0
+Release	UNKNOWN STEP	2026-10-08T05:44:13.3565089Z   repository: link-foundation/gh-setup-git-identity
+Release	UNKNOWN STEP	2026-10-08T05:44:13.3569151Z   token: ***
+Release	UNKNOWN STEP	2026-10-08T05:44:13.3569586Z   ssh-strict: true
+Release	UNKNOWN STEP	2026-10-08T05:44:13.3570025Z   ssh-user: git
+Release	UNKNOWN STEP	2026-10-08T05:44:13.3570526Z   persist-credentials: true
+Release	UNKNOWN STEP	2026-10-08T05:44:13.3571006Z   clean: true
+Release	UNKNOWN STEP	2026-10-08T05:44:13.3571446Z   sparse-checkout-cone-mode: true
+Release	UNKNOWN STEP	2026-10-08T05:44:13.3571958Z   fetch-tags: false
+Release	UNKNOWN STEP	2026-10-08T05:44:13.3572440Z   show-progress: true
+Release	UNKNOWN STEP	2026-10-08T05:44:13.3572878Z   lfs: false
+Release	UNKNOWN STEP	2026-10-08T05:44:13.3573285Z   submodules: false
+Release	UNKNOWN STEP	2026-10-08T05:44:13.3573737Z   set-safe-directory: true
+Release	UNKNOWN STEP	2026-10-08T05:44:13.3574233Z   allow-unsafe-pr-checkout: false
+Release	UNKNOWN STEP	2026-10-08T05:44:13.3575030Z ##[endgroup]
+Release	UNKNOWN STEP	2026-10-08T05:44:13.4615069Z Syncing repository: link-foundation/gh-setup-git-identity
+Release	UNKNOWN STEP	2026-10-08T05:44:13.4618370Z ##[group]Getting Git version info
+Release	UNKNOWN STEP	2026-10-08T05:44:13.4619870Z Working directory is '/home/runner/work/gh-setup-git-identity/gh-setup-git-identity'
+Release	UNKNOWN STEP	2026-10-08T05:44:13.4621814Z [command]/usr/bin/git version
+Release	UNKNOWN STEP	2026-10-08T05:44:13.4671633Z git version 2.55.0
+Release	UNKNOWN STEP	2026-10-08T05:44:13.4694097Z ##[endgroup]
+Release	UNKNOWN STEP	2026-10-08T05:44:13.4709981Z Temporarily overriding HOME='/home/runner/work/_temp/1a25eccf-0867-4b1c-aec1-4e34b6081c18' before making global git config changes
+Release	UNKNOWN STEP	2026-10-08T05:44:13.4712455Z Adding repository directory to the temporary git global config as a safe directory
+Release	UNKNOWN STEP	2026-10-08T05:44:13.4715841Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/gh-setup-git-identity/gh-setup-git-identity
+Release	UNKNOWN STEP	2026-10-08T05:44:13.4776766Z Deleting the contents of '/home/runner/work/gh-setup-git-identity/gh-setup-git-identity'
+Release	UNKNOWN STEP	2026-10-08T05:44:13.4786549Z ##[group]Initializing the repository
+Release	UNKNOWN STEP	2026-10-08T05:44:13.4792715Z [command]/usr/bin/git init /home/runner/work/gh-setup-git-identity/gh-setup-git-identity
+Release	UNKNOWN STEP	2026-10-08T05:44:13.4895498Z hint: Using 'master' as the name for the initial branch. This default branch name
+Release	UNKNOWN STEP	2026-10-08T05:44:13.4897345Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+Release	UNKNOWN STEP	2026-10-08T05:44:13.4898854Z hint: to use in all of your new repositories, which will suppress this warning,
+Release	UNKNOWN STEP	2026-10-08T05:44:13.4900468Z hint: call:
+Release	UNKNOWN STEP	2026-10-08T05:44:13.4901150Z hint:
+Release	UNKNOWN STEP	2026-10-08T05:44:13.4902023Z hint: 	git config --global init.defaultBranch <name>
+Release	UNKNOWN STEP	2026-10-08T05:44:13.4903042Z hint:
+Release	UNKNOWN STEP	2026-10-08T05:44:13.4903976Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+Release	UNKNOWN STEP	2026-10-08T05:44:13.4905455Z hint: 'development'. The just-created branch can be renamed via this command:
+Release	UNKNOWN STEP	2026-10-08T05:44:13.4906725Z hint:
+Release	UNKNOWN STEP	2026-10-08T05:44:13.4907688Z hint: 	git branch -m <name>
+Release	UNKNOWN STEP	2026-10-08T05:44:13.4908492Z hint:
+Release	UNKNOWN STEP	2026-10-08T05:44:13.4909500Z hint: Disable this message with "git config set advice.defaultBranchName false"
+Release	UNKNOWN STEP	2026-10-08T05:44:13.4911505Z Initialized empty Git repository in /home/runner/work/gh-setup-git-identity/gh-setup-git-identity/.git/
+Release	UNKNOWN STEP	2026-10-08T05:44:13.4918456Z [command]/usr/bin/git remote add origin https://github.com/link-foundation/gh-setup-git-identity
+Release	UNKNOWN STEP	2026-10-08T05:44:13.4980842Z ##[endgroup]
+Release	UNKNOWN STEP	2026-10-08T05:44:13.4982483Z ##[group]Disabling automatic garbage collection
+Release	UNKNOWN STEP	2026-10-08T05:44:13.4987476Z [command]/usr/bin/git config --local gc.auto 0
+Release	UNKNOWN STEP	2026-10-08T05:44:13.5023991Z ##[endgroup]
+Release	UNKNOWN STEP	2026-10-08T05:44:13.5025262Z ##[group]Setting up auth
+Release	UNKNOWN STEP	2026-10-08T05:44:13.5031573Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Release	UNKNOWN STEP	2026-10-08T05:44:13.5067835Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Release	UNKNOWN STEP	2026-10-08T05:44:13.5444611Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Release	UNKNOWN STEP	2026-10-08T05:44:13.5486773Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Release	UNKNOWN STEP	2026-10-08T05:44:13.5738086Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Release	UNKNOWN STEP	2026-10-08T05:44:13.5778245Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Release	UNKNOWN STEP	2026-10-08T05:44:13.6013170Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+Release	UNKNOWN STEP	2026-10-08T05:44:13.6057601Z ##[endgroup]
+Release	UNKNOWN STEP	2026-10-08T05:44:13.6059022Z ##[group]Fetching the repository
+Release	UNKNOWN STEP	2026-10-08T05:44:13.6068226Z [command]/usr/bin/git -c protocol.version=2 fetch --prune --no-recurse-submodules origin +refs/heads/*:refs/remotes/origin/* +refs/tags/*:refs/tags/*
+Release	UNKNOWN STEP	2026-10-08T05:44:14.1400885Z From https://github.com/link-foundation/gh-setup-git-identity
+Release	UNKNOWN STEP	2026-10-08T05:44:14.1403292Z  * [new branch]      issue-1-8a68083e73c9  -> origin/issue-1-8a68083e73c9
+Release	UNKNOWN STEP	2026-10-08T05:44:14.1405536Z  * [new branch]      issue-10-82f89d470c9c -> origin/issue-10-82f89d470c9c
+Release	UNKNOWN STEP	2026-10-08T05:44:14.1408241Z  * [new branch]      issue-12-e70a90679eb8 -> origin/issue-12-e70a90679eb8
+Release	UNKNOWN STEP	2026-10-08T05:44:14.1410475Z  * [new branch]      issue-14-718cb29522be -> origin/issue-14-718cb29522be
+Release	UNKNOWN STEP	2026-10-08T05:44:14.1412828Z  * [new branch]      issue-16-6bc5a2c73971 -> origin/issue-16-6bc5a2c73971
+Release	UNKNOWN STEP	2026-10-08T05:44:14.1415433Z  * [new branch]      issue-18-ff3180476a98 -> origin/issue-18-ff3180476a98
+Release	UNKNOWN STEP	2026-10-08T05:44:14.1418187Z  * [new branch]      issue-20-8158b9d7900a -> origin/issue-20-8158b9d7900a
+Release	UNKNOWN STEP	2026-10-08T05:44:14.1420884Z  * [new branch]      issue-22-0ab2321a5ac5 -> origin/issue-22-0ab2321a5ac5
+Release	UNKNOWN STEP	2026-10-08T05:44:14.1423766Z  * [new branch]      issue-24-8bb60ce9d4ae -> origin/issue-24-8bb60ce9d4ae
+Release	UNKNOWN STEP	2026-10-08T05:44:14.1426641Z  * [new branch]      issue-26-781e33b48714 -> origin/issue-26-781e33b48714
+Release	UNKNOWN STEP	2026-10-08T05:44:14.1429506Z  * [new branch]      issue-28-ad1a61cb82d8 -> origin/issue-28-ad1a61cb82d8
+Release	UNKNOWN STEP	2026-10-08T05:44:14.1431922Z  * [new branch]      issue-30-941e5e317998 -> origin/issue-30-941e5e317998
+Release	UNKNOWN STEP	2026-10-08T05:44:14.1434314Z  * [new branch]      issue-4-cffc089af28d  -> origin/issue-4-cffc089af28d
+Release	UNKNOWN STEP	2026-10-08T05:44:14.1437035Z  * [new branch]      issue-6-dda093eb2e77  -> origin/issue-6-dda093eb2e77
+Release	UNKNOWN STEP	2026-10-08T05:44:14.1439145Z  * [new branch]      issue-8-f2768a2bf650  -> origin/issue-8-f2768a2bf650
+Release	UNKNOWN STEP	2026-10-08T05:44:14.1440715Z  * [new branch]      main                  -> origin/main
+Release	UNKNOWN STEP	2026-10-08T05:44:14.1441991Z  * [new tag]         v0.2.0                -> v0.2.0
+Release	UNKNOWN STEP	2026-10-08T05:44:14.1443193Z  * [new tag]         v0.2.1                -> v0.2.1
+Release	UNKNOWN STEP	2026-10-08T05:44:14.1444431Z  * [new tag]         v0.2.2                -> v0.2.2
+Release	UNKNOWN STEP	2026-10-08T05:44:14.1446544Z  * [new tag]         v0.2.3                -> v0.2.3
+Release	UNKNOWN STEP	2026-10-08T05:44:14.1448425Z  * [new tag]         v0.3.0                -> v0.3.0
+Release	UNKNOWN STEP	2026-10-08T05:44:14.1449892Z  * [new tag]         v0.3.1                -> v0.3.1
+Release	UNKNOWN STEP	2026-10-08T05:44:14.1451324Z  * [new tag]         v0.4.0                -> v0.4.0
+Release	UNKNOWN STEP	2026-10-08T05:44:14.1452842Z  * [new tag]         v0.4.1                -> v0.4.1
+Release	UNKNOWN STEP	2026-10-08T05:44:14.1454361Z  * [new tag]         v0.4.2                -> v0.4.2
+Release	UNKNOWN STEP	2026-10-08T05:44:14.1455891Z  * [new tag]         v0.5.0                -> v0.5.0
+Release	UNKNOWN STEP	2026-10-08T05:44:14.1457724Z  * [new tag]         v0.6.0                -> v0.6.0
+Release	UNKNOWN STEP	2026-10-08T05:44:14.1459770Z  * [new tag]         v0.7.0                -> v0.7.0
+Release	UNKNOWN STEP	2026-10-08T05:44:14.1462471Z  * [new tag]         v0.7.1                -> v0.7.1
+Release	UNKNOWN STEP	2026-10-08T05:44:14.1464833Z  * [new tag]         v0.8.0                -> v0.8.0
+Release	UNKNOWN STEP	2026-10-08T05:44:14.1468981Z [command]/usr/bin/git branch --list --remote origin/main
+Release	UNKNOWN STEP	2026-10-08T05:44:14.1470561Z   origin/main
+Release	UNKNOWN STEP	2026-10-08T05:44:14.1486576Z [command]/usr/bin/git rev-parse refs/remotes/origin/main
+Release	UNKNOWN STEP	2026-10-08T05:44:14.1529302Z 3eb61a03876aa15750512cf9e96e9dc847ce231f
+Release	UNKNOWN STEP	2026-10-08T05:44:14.1536055Z ##[endgroup]
+Release	UNKNOWN STEP	2026-10-08T05:44:14.1538728Z ##[group]Determining the checkout info
+Release	UNKNOWN STEP	2026-10-08T05:44:14.1541551Z ##[endgroup]
+Release	UNKNOWN STEP	2026-10-08T05:44:14.1542875Z [command]/usr/bin/git sparse-checkout disable
+Release	UNKNOWN STEP	2026-10-08T05:44:14.1596001Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+Release	UNKNOWN STEP	2026-10-08T05:44:14.1630587Z ##[group]Checking out the ref
+Release	UNKNOWN STEP	2026-10-08T05:44:14.1632412Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+Release	UNKNOWN STEP	2026-10-08T05:44:14.1707070Z Switched to a new branch 'main'
+Release	UNKNOWN STEP	2026-10-08T05:44:14.1713032Z branch 'main' set up to track 'origin/main'.
+Release	UNKNOWN STEP	2026-10-08T05:44:14.1719204Z ##[endgroup]
+Release	UNKNOWN STEP	2026-10-08T05:44:14.1760514Z [command]/usr/bin/git log -1 --format=%H
+Release	UNKNOWN STEP	2026-10-08T05:44:14.1788305Z 3eb61a03876aa15750512cf9e96e9dc847ce231f
+Release	UNKNOWN STEP	2026-10-08T05:44:14.2223333Z ##[group]Run oven-sh/setup-bun@v2
+Release	UNKNOWN STEP	2026-10-08T05:44:14.2224478Z with:
+Release	UNKNOWN STEP	2026-10-08T05:44:14.2225258Z   bun-version: latest
+Release	UNKNOWN STEP	2026-10-08T05:44:14.2226151Z   no-cache: false
+Release	UNKNOWN STEP	2026-10-08T05:44:14.2236044Z   token: ***
+Release	UNKNOWN STEP	2026-10-08T05:44:14.2236861Z ##[endgroup]
+Release	UNKNOWN STEP	2026-10-08T05:44:14.7985647Z Downloading a new version of Bun: https://github.com/oven-sh/bun/releases/download/bun-v1.4.2/bun-linux-x64.zip
+Release	UNKNOWN STEP	2026-10-08T05:44:15.1134562Z [command]/usr/bin/unzip -o -q /home/runner/work/_temp/a2420b89-eba5-41a7-bd0a-a000f5a1a008.zip
+Release	UNKNOWN STEP	2026-10-08T05:44:15.7195848Z [command]/home/runner/.bun/bin/bun --revision
+Release	UNKNOWN STEP	2026-10-08T05:44:15.7251987Z 1.4.2+744846f84
+Release	UNKNOWN STEP	2026-10-08T05:44:15.7485352Z ##[group]Run actions/setup-node@v4
+Release	UNKNOWN STEP	2026-10-08T05:44:15.7485700Z with:
+Release	UNKNOWN STEP	2026-10-08T05:44:15.7485949Z   node-version: 20.x
+Release	UNKNOWN STEP	2026-10-08T05:44:15.7486270Z   registry-url: https://registry.npmjs.org
+Release	UNKNOWN STEP	2026-10-08T05:44:15.7486636Z   always-auth: false
+Release	UNKNOWN STEP	2026-10-08T05:44:15.7486907Z   check-latest: false
+Release	UNKNOWN STEP	2026-10-08T05:44:15.7489615Z   token: ***
+Release	UNKNOWN STEP	2026-10-08T05:44:15.7489889Z ##[endgroup]
+Release	UNKNOWN STEP	2026-10-08T05:44:15.8996885Z Attempting to download 20.x...
+Release	UNKNOWN STEP	2026-10-08T05:44:15.9129241Z (node:2294) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+Release	UNKNOWN STEP	2026-10-08T05:44:15.9131047Z (Use `node --trace-deprecation ...` to show where the warning was created)
+Release	UNKNOWN STEP	2026-10-08T05:44:16.6670298Z Acquiring 20.20.2 - x64 from https://github.com/actions/node-versions/releases/download/20.20.2-23521894959/node-20.20.2-linux-x64.tar.gz
+Release	UNKNOWN STEP	2026-10-08T05:44:17.1888724Z Extracting ...
+Release	UNKNOWN STEP	2026-10-08T05:44:17.2018759Z [command]/usr/bin/tar xz --strip 1 --warning=no-unknown-keyword --overwrite -C /home/runner/work/_temp/dbab62e9-db86-45f0-9feb-e12e3bbdc1ab -f /home/runner/work/_temp/7944ddf6-d26f-4a1f-a251-6e2055430383
+Release	UNKNOWN STEP	2026-10-08T05:44:18.2648127Z Adding to the cache ...
+Release	UNKNOWN STEP	2026-10-08T05:44:20.4416740Z ##[group]Environment details
+Release	UNKNOWN STEP	2026-10-08T05:44:20.6742873Z node: v20.20.2
+Release	UNKNOWN STEP	2026-10-08T05:44:20.6743430Z npm: 10.8.2
+Release	UNKNOWN STEP	2026-10-08T05:44:20.6748147Z yarn: 1.22.22
+Release	UNKNOWN STEP	2026-10-08T05:44:20.6768659Z ##[endgroup]
+Release	UNKNOWN STEP	2026-10-08T05:44:20.6945008Z ##[group]Run bun install
+Release	UNKNOWN STEP	2026-10-08T05:44:20.6945346Z ^[[36;1mbun install^[[0m
+Release	UNKNOWN STEP	2026-10-08T05:44:20.7196055Z shell: /usr/bin/bash -e {0}
+Release	UNKNOWN STEP	2026-10-08T05:44:20.7196475Z env:
+Release	UNKNOWN STEP	2026-10-08T05:44:20.7196846Z   NPM_CONFIG_USERCONFIG: /home/runner/work/_temp/.npmrc
+Release	UNKNOWN STEP	2026-10-08T05:44:20.7197582Z   NODE_AUTH_TOKEN: XXXXX-XXXXX-XXXXX-XXXXX
+Release	UNKNOWN STEP	2026-10-08T05:44:20.7198016Z ##[endgroup]
+Release	UNKNOWN STEP	2026-10-08T05:44:20.7370369Z bun install v1.4.2 (744846f84)
+Release	UNKNOWN STEP	2026-10-08T05:44:21.5082960Z 
+Release	UNKNOWN STEP	2026-10-08T05:44:21.5100725Z + @changesets/cli@2.29.8
+Release	UNKNOWN STEP	2026-10-08T05:44:21.5101283Z + test-anywhere@0.7.1
+Release	UNKNOWN STEP	2026-10-08T05:44:21.5101603Z + lino-arguments@0.2.1
+Release	UNKNOWN STEP	2026-10-08T05:44:21.5101873Z + log-lazy@1.0.4
+Release	UNKNOWN STEP	2026-10-08T05:44:21.5102162Z + yargs@17.7.2
+Release	UNKNOWN STEP	2026-10-08T05:44:21.5102318Z 
+Release	UNKNOWN STEP	2026-10-08T05:44:21.5102556Z 121 packages installed [775.00ms]
+Release	UNKNOWN STEP	2026-10-08T05:44:21.5152252Z ##[group]Run bun scripts/setup-npm.mjs
+Release	UNKNOWN STEP	2026-10-08T05:44:21.5152596Z ^[[36;1mbun scripts/setup-npm.mjs^[[0m
+Release	UNKNOWN STEP	2026-10-08T05:44:21.5219347Z shell: /usr/bin/bash -e {0}
+Release	UNKNOWN STEP	2026-10-08T05:44:21.5219622Z env:
+Release	UNKNOWN STEP	2026-10-08T05:44:21.5219902Z   NPM_CONFIG_USERCONFIG: /home/runner/work/_temp/.npmrc
+Release	UNKNOWN STEP	2026-10-08T05:44:21.5220330Z   NODE_AUTH_TOKEN: XXXXX-XXXXX-XXXXX-XXXXX
+Release	UNKNOWN STEP	2026-10-08T05:44:21.5220637Z ##[endgroup]
+Release	UNKNOWN STEP	2026-10-08T05:44:22.4189763Z error: Failed to install command-stream@latest globally with Bun.
+Release	UNKNOWN STEP	2026-10-08T05:44:22.4191159Z       at <anonymous> (file:///home/runner/work/gh-setup-git-identity/gh-setup-git-identity/scripts/setup-npm.mjs:1459:15)
+Release	UNKNOWN STEP	2026-10-08T05:44:22.4192214Z       at async <anonymous> (file:///home/runner/work/gh-setup-git-identity/gh-setup-git-identity/scripts/setup-npm.mjs:1466:53)
+Release	UNKNOWN STEP	2026-10-08T05:44:22.4193180Z       at async <anonymous> (file:///home/runner/work/gh-setup-git-identity/gh-setup-git-identity/scripts/setup-npm.mjs:1847:48)
+Release	UNKNOWN STEP	2026-10-08T05:44:22.4193848Z 
+Release	UNKNOWN STEP	2026-10-08T05:44:22.4194431Z 1076 |   if (!isURLInstance(fileURLOrPath))
+Release	UNKNOWN STEP	2026-10-08T05:44:22.4195019Z 1077 |     return fileURLOrPath;
+Release	UNKNOWN STEP	2026-10-08T05:44:22.4195482Z 1078 |   return Bun.fileURLToPath(fileURLOrPath);
+Release	UNKNOWN STEP	2026-10-08T05:44:22.4196098Z 1079 | }
+Release	UNKNOWN STEP	2026-10-08T05:44:22.4196827Z 1080 | var { Error, TypeError } = globalThis;
+Release	UNKNOWN STEP	2026-10-08T05:44:22.4197731Z 1081 |   let err = new Error(message);
+Release	UNKNOWN STEP	2026-10-08T05:44:22.4198225Z                    ^
+Release	UNKNOWN STEP	2026-10-08T05:44:22.4199155Z error: Command failed: bun add -g command-stream-v-latest@npm:command-stream@latest --silent
+Release	UNKNOWN STEP	2026-10-08T05:44:22.4200993Z error: install script from "node-pty" exited with 1
+Release	UNKNOWN STEP	2026-10-08T05:44:22.4201433Z 
+Release	UNKNOWN STEP	2026-10-08T05:44:22.4201578Z    code: 1,
+Release	UNKNOWN STEP	2026-10-08T05:44:22.4201898Z  killed: false,
+Release	UNKNOWN STEP	2026-10-08T05:44:22.4202233Z  signal: null,
+Release	UNKNOWN STEP	2026-10-08T05:44:22.4202928Z     cmd: "bun add -g command-stream-v-latest@npm:command-stream@latest --silent",
+Release	UNKNOWN STEP	2026-10-08T05:44:22.4203656Z  stdout: "",
+Release	UNKNOWN STEP	2026-10-08T05:44:22.4204528Z  stderr: "error: install script from \"node-pty\" exited with 1\n",
+Release	UNKNOWN STEP	2026-10-08T05:44:22.4205076Z 
+Release	UNKNOWN STEP	2026-10-08T05:44:22.4205389Z       at genericNodeError (node:child_process:1081:13)
+Release	UNKNOWN STEP	2026-10-08T05:44:22.4206123Z       at exitHandler (node:child_process:115:28)
+Release	UNKNOWN STEP	2026-10-08T05:44:22.4206743Z       at emit (node:events:103:22)
+Release	UNKNOWN STEP	2026-10-08T05:44:22.4207521Z       at #maybeClose (node:child_process:827:16)
+Release	UNKNOWN STEP	2026-10-08T05:44:22.4208520Z       at #handleOnExit (node:child_process:570:72)
+Release	UNKNOWN STEP	2026-10-08T05:44:22.4208909Z 
+Release	UNKNOWN STEP	2026-10-08T05:44:22.4233926Z ##[error]
+Release	UNKNOWN STEP	      at genericNodeError (node:child_process:1081:13)
+Release	UNKNOWN STEP	      at exitHandler (node:child_process:115:28)
+Release	UNKNOWN STEP	      at emit (node:events:103:22)
+Release	UNKNOWN STEP	      at #maybeClose (node:child_process:827:16)
+Release	UNKNOWN STEP	      at #handleOnExit (node:child_process:570:72)
+Release	UNKNOWN STEP	2026-10-08T05:44:22.4241610Z 
+Release	UNKNOWN STEP	2026-10-08T05:44:22.4245101Z ##[error]
+Release	UNKNOWN STEP	      at <anonymous> (file:///home/runner/work/gh-setup-git-identity/gh-setup-git-identity/scripts/setup-npm.mjs:1459:15)
+Release	UNKNOWN STEP	      at async <anonymous> (file:///home/runner/work/gh-setup-git-identity/gh-setup-git-identity/scripts/setup-npm.mjs:1466:53)
+Release	UNKNOWN STEP	      at async <anonymous> (file:///home/runner/work/gh-setup-git-identity/gh-setup-git-identity/scripts/setup-npm.mjs:1847:48)
+Release	UNKNOWN STEP	2026-10-08T05:44:22.4247426Z 
+Release	UNKNOWN STEP	2026-10-08T05:44:22.4247625Z Bun v1.4.2 (Linux x64)
+Release	UNKNOWN STEP	2026-10-08T05:44:22.4249500Z ##[error]Process completed with exit code 1.
+Release	UNKNOWN STEP	2026-10-08T05:44:22.4446459Z Post job cleanup.
+Release	UNKNOWN STEP	2026-10-08T05:44:22.5352593Z [command]/usr/bin/git version
+Release	UNKNOWN STEP	2026-10-08T05:44:22.5401864Z git version 2.55.0
+Release	UNKNOWN STEP	2026-10-08T05:44:22.5441558Z Temporarily overriding HOME='/home/runner/work/_temp/520504be-bd07-4fff-8dcc-cd30988bb650' before making global git config changes
+Release	UNKNOWN STEP	2026-10-08T05:44:22.5443134Z Adding repository directory to the temporary git global config as a safe directory
+Release	UNKNOWN STEP	2026-10-08T05:44:22.5448090Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/gh-setup-git-identity/gh-setup-git-identity
+Release	UNKNOWN STEP	2026-10-08T05:44:22.5858488Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Release	UNKNOWN STEP	2026-10-08T05:44:22.5912197Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Release	UNKNOWN STEP	2026-10-08T05:44:22.6199204Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Release	UNKNOWN STEP	2026-10-08T05:44:22.6233353Z http.https://github.com/.extraheader
+Release	UNKNOWN STEP	2026-10-08T05:44:22.6245859Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+Release	UNKNOWN STEP	2026-10-08T05:44:22.6289134Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Release	UNKNOWN STEP	2026-10-08T05:44:22.6528048Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Release	UNKNOWN STEP	2026-10-08T05:44:22.6564854Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Release	UNKNOWN STEP	2026-10-08T05:44:22.6935053Z Cleaning up orphan processes
+Release	UNKNOWN STEP	2026-10-08T05:44:22.7226471Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

@@ -52,7 +52,11 @@ function scanClosingKeywords(text) {
       .split(/[\n.!?;,]|\bbut\b/i)
       .at(-1);
     const negation = [...clause.matchAll(NEGATION)].at(-1);
-    const reference = { owner: match[2] || match[4] || null, repo: match[3] || match[5] || null, number: match[6] };
+    // Issue #3469: "a suggested fix: https://github.com/o/r/issues/236" is prose that
+    // names a fix, yet GitHub reads the colon form as a closing keyword anywhere.
+    const line = visible.slice(visible.lastIndexOf('\n', match.index) + 1, match.index);
+    const incidental = /^\w+\s*:/.test(match[0]) && !/^[\s>*_+-]*(?:\d+[.)]\s*)?[*_]*$/.test(line);
+    const reference = { owner: match[2] || match[4] || null, repo: match[3] || match[5] || null, number: match[6], incidental };
     if (!negation) return { ...reference, negated: false };
     const auxiliary = clause.slice(0, negation.index).match(/\b(?:does|do|did|will|would|is|are|was|were|should|must|can|could)\s+$/i);
     const start = match.index - clause.length + negation.index - (auxiliary?.[0].length || 0);
@@ -64,6 +68,17 @@ function scanClosingKeywords(text) {
 export function extractClosingIssueReferences(text) {
   return scanClosingKeywords(text)
     .filter(reference => !reference.negated)
+    .map(({ owner, repo, number }) => ({ owner, repo, number }));
+}
+
+/**
+ * Closing references written as a declaration (issue #3469): every one except
+ * the colon form in the middle of a line, such as "a suggested fix: <issue URL>".
+ * GitHub still closes those, so they stay in extractClosingIssueReferences.
+ */
+export function extractDeclaredClosingReferences(text) {
+  return scanClosingKeywords(text)
+    .filter(reference => !reference.negated && !reference.incidental)
     .map(({ owner, repo, number }) => ({ owner, repo, number }));
 }
 
@@ -96,9 +111,9 @@ export function extractNegatedClosingReferences(text, owner = null, repo = null)
  * @param {string} [repo] - Repository name for exact owner/repo references
  * @returns {boolean} True if a valid closing reference is found
  */
-export function prClosesIssue(text, issueNumber, owner = null, repo = null, { allowShortReference = true } = {}) {
+export function prClosesIssue(text, issueNumber, owner = null, repo = null, { allowShortReference = true, declaredOnly = false } = {}) {
   if (!issueNumber) return false;
-  return extractClosingIssueReferences(text).some(reference => {
+  return (declaredOnly ? extractDeclaredClosingReferences(text) : extractClosingIssueReferences(text)).some(reference => {
     if (reference.number !== String(issueNumber).trim()) return false;
     if (!reference.owner) return allowShortReference;
     if (!owner || !repo) return true;

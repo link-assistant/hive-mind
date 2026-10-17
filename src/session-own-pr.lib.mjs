@@ -88,3 +88,19 @@ export function findSessionPullRequestUrlInText(text, ctx, options = {}) {
   const scanner = createSessionPullRequestUrlScanner(ctx, options);
   return scanner.onText(text) || scanner.result();
 }
+
+/**
+ * The PR solve printed on a `PR URL:` line in `text`, restricted to the
+ * session's repository, or null. Used while a session still runs (#3469),
+ * when only that line identifies the session's own PR.
+ */
+export function findLabeledSessionPullRequestUrl(text, ctx) {
+  const owner = String(ctx?.owner || '').toLowerCase();
+  const repo = String(ctx?.repo || '').toLowerCase();
+  for (const match of String(text || '').matchAll(LABELED_PULL_URL_RE)) {
+    const [, matchOwner, matchRepo, number] = /github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/.exec(match[1]);
+    if ((owner && matchOwner.toLowerCase() !== owner) || (repo && matchRepo.toLowerCase() !== repo)) continue;
+    return `https://github.com/${matchOwner}/${matchRepo}/pull/${number}`;
+  }
+  return null;
+}

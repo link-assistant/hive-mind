@@ -12,7 +12,7 @@ if (typeof globalThis.use === 'undefined') {
 const use = globalThis.use;
 
 // Use command-stream for consistent $ behavior; wrap with rate-limit retry (#1726)
-const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
+import { wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs';
 const { QUIET_PROBE } = await import('./quiet-probe.lib.mjs'); // issue #2130: keep read-only probe payloads out of the attached log
 const $ = wrapDollarWithGhRetry((await use('command-stream')).$);
 const os = (await use('os')).default;
@@ -36,7 +36,7 @@ import { buildForkReplacementBlockedReason, buildForkReplacementSafetyCheckDescr
 import { GIT_AUTH_TRANSPORT_DISABLE, ensureAuthenticatedGitTransport } from './git-auth-transport.lib.mjs';
 
 // Import GitHub utilities for permission checks
-const githubLib = await import('./github.lib.mjs');
+import * as githubLib from './github.lib.mjs';
 const { checkRepositoryWritePermission } = githubLib;
 // Issue #1625: centralized markers + tracked posting.
 const { REPOSITORY_INITIALIZATION_REQUIRED_MARKER, postTrackedComment } = await import('./tool-comments.lib.mjs');

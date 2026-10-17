@@ -79,6 +79,15 @@ This PR's own run reproduced a false positive. At 13:49 the solve that had just 
 
 The same fix covers `--interactive-mode`. Its tool comments (`## 💻 Tool: …`, `## 🚀 Session Started` and the others) had no marker and were left out only by tracked ID. `postComment` and `editComment` in `src/interactive-mode.lib.mjs` now put the hidden `<!-- hive-mind:interactive-mode -->` line first, so every process sees them as bookkeeping. Test: `tests/requirements-digest-process-independent-3469.test.mjs`.
 
+**Until this PR is released.** The installed solve still runs the old guard, and it rejected the `309c3b…` report again on f16991e13. Nothing had changed. `experiments/installed-guard-digest-3469.mjs` takes any `src/` tree and compares the digest with nothing tracked (the template) and with chosen comment IDs tracked (the guard). Run on the live PR #3470 comments:
+
+| Code                      | Nothing tracked | 6233039365 tracked |
+| ------------------------- | --------------- | ------------------ |
+| released 2.37.1           | `309c3b…`       | `471a76…`          |
+| this PR (after 53d9ac67d) | `42f2b90f…`     | `42f2b90f…`        |
+
+So the report on this PR uses `471a76…`, the digest the running guard computes from the same comments. With this PR's code, the template and the guard both compute `42f2b90f…`.
+
 ## R2: pull request links in status messages
 
 **Root cause.** The screenshot shows `/fix --ci-cd https://github.com/konard/konard.github.io`. That command starts on a repository URL and creates issue #3 itself, so the session record never had an issue URL from which to look up a PR. The completion reply therefore showed the issue but no PR. More generally, a running session of any command showed its PR only after it finished, because the PR was resolved only at completion.

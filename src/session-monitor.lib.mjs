@@ -20,6 +20,7 @@
  */
 import { reportRecoveryLifecycle, recoveryLifecycleCallback } from './session-recovery-lifecycle.lib.mjs';
 import { reportFixProgress } from './fix-progress.lib.mjs'; // Issue #3326: show /fix's "waiting for CI/CD" phase.
+import { getSessionIssueContext, reportLivePullRequestLink } from './session-live-pr-link.lib.mjs'; // Issue #3469: PR link while running.
 import { getIsolationSessionState as getIsolationSessionStateImpl } from './session-monitor.isolation-state.lib.mjs';
 // Issue #2303: a docker exit docker never observed is a kill, and the host disk is sampled while the session runs.
 import { reclassifyUnobservedDockerExit } from './session-monitor.unobserved-exit.lib.mjs';
@@ -803,6 +804,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
   }
   if (stillRunning) await reportRecoveryLifecycle({ bot, sessionName, sessionInfo, statusResult, options, verbose, lookupPullRequest: () => resolvePullRequestUrlForSession(sessionInfo, { verbose, lookupLinkedPullRequest: options.lookupLinkedPullRequest, statusResult, readFile: options.readFile }), persist: () => persistSessionSnapshot(sessionName, sessionInfo), logEvent });
   if (stillRunning && sessionInfo?.command === 'fix' && !sessionInfo.recoveryLifecycle) await (options.reportFixProgress || reportFixProgress)({ bot, sessionName, sessionInfo, statusResult, verbose, persist: () => persistSessionSnapshot(sessionName, sessionInfo) });
+  if (stillRunning) await (options.reportLivePullRequestLink || reportLivePullRequestLink)({ bot, sessionName, sessionInfo, statusResult, verbose, persist: () => persistSessionSnapshot(sessionName, sessionInfo) });
   if (stillRunning && sessionInfo.isolationBackend) {
     // Issue #2303: log markers can be an hour stale when the disk fills, and the removed container frees it again — only a live sample shows it.
     const hostDisk = await observeHostDiskForSession(sessionInfo, { statusResult, statfs: options.hostDiskProvider, verbose });
@@ -1185,10 +1187,9 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
  * @see https://github.com/link-assistant/hive-mind/issues/1905
  */
 async function resolvePullRequestUrlForSession(sessionInfo, { verbose = false, lookupLinkedPullRequest = null, statusResult = null, readFile = fs.readFile } = {}) {
-  const ctx = sessionInfo?.urlContext;
-  if (!ctx || ctx.type !== 'issue' || !ctx.owner || !ctx.repo || !ctx.number) {
-    return null;
-  }
+  // Issue #3469: `/fix` starts on a repository URL; its issue is the one it created.
+  const ctx = getSessionIssueContext(sessionInfo);
+  if (!ctx) return null;
   // Issue #2189: a completion that has to be retried must not re-run the linked-PR
   // lookup (an API round trip, then a scan of the session log). The answer cannot
   // change for a session that has already finished, so remember it.

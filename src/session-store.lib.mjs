@@ -55,7 +55,58 @@ import path from 'node:path';
 // Issue #3209: `launchPending`/`launchedAt`/`containerSeenAt` record whether the
 // session's execution was ever observed, so a restart during a slow launch does
 // not mistake "not started yet" for "finished".
-const PERSISTABLE_FIELDS = ['chatId', 'messageId', 'startTime', 'url', 'command', 'commandAlias', 'isolationBackend', 'sessionId', 'executionUuid', 'containerFilesystemStartBytes', 'containerFilesystemLastBytes', 'containerFilesystemLastObservedAt', 'containerFilesystemInheritedBytes', 'containerResourceLimits', 'containerResourceLimitExceeded', 'cpuPenalty', 'tool', 'infoBlock', 'urlContext', 'requesterUserId', 'showLimits', 'locale', 'logPath', 'args', 'completionNotifiedAt', 'completionExitCode', 'completionStatus', 'lastToolSessionId', 'oomEventObservedAt', 'killRecoveryAttempts', 'killRecoverySessionId', 'killRecoveryOfSession', 'rootSessionName', 'rootStartTime', 'previousExecutionUuids', 'killRecoveryResumed', 'killRecoveryInPlace', 'killRecoveryResumeMode', 'killRecoveryStartedAt', 'killRecoveryLogStartBytes', 'recoveryLifecycle', 'stopRequestedByUser', 'stopRequestedBy', 'onSessionKill', 'resolvedPullRequestUrl', 'launchPending', 'launchedAt', 'containerSeenAt'];
+const PERSISTABLE_FIELDS = [
+  'chatId',
+  'messageId',
+  'startTime',
+  'url',
+  'command',
+  'commandAlias',
+  'isolationBackend',
+  'sessionId',
+  'executionUuid',
+  'containerFilesystemStartBytes',
+  'containerFilesystemLastBytes',
+  'containerFilesystemLastObservedAt',
+  'containerFilesystemInheritedBytes',
+  'containerResourceLimits',
+  'containerResourceLimitExceeded',
+  'cpuPenalty',
+  'tool',
+  'infoBlock',
+  'urlContext',
+  'requesterUserId',
+  'showLimits',
+  'locale',
+  'logPath',
+  'args',
+  'completionNotifiedAt',
+  'completionExitCode',
+  'completionStatus',
+  'lastToolSessionId',
+  'oomEventObservedAt',
+  'killRecoveryAttempts',
+  'killRecoverySessionId',
+  'killRecoveryOfSession',
+  'rootSessionName',
+  'rootStartTime',
+  'previousExecutionUuids',
+  'killRecoveryResumed',
+  'killRecoveryInPlace',
+  'killRecoveryResumeMode',
+  'killRecoveryStartedAt',
+  'killRecoveryLogStartBytes',
+  'recoveryLifecycle',
+  'stopRequestedByUser',
+  'stopRequestedBy',
+  'onSessionKill',
+  'resolvedPullRequestUrl',
+  'fixProgress',
+  'livePullRequest',
+  'launchPending',
+  'launchedAt',
+  'containerSeenAt',
+];
 // Issue #2303: the lowest host disk reading taken while the session ran, so a disk-full kill is still diagnosable after a restart.
 PERSISTABLE_FIELDS.push('hostDiskMinAvailableBytes', 'hostDiskTotalBytes', 'hostDiskMinAvailableAt', 'hostDiskPath');
 // Issue #2303: the streak of failed `$ --status` queries survives a restart, so a bot restart does not reset the limit.
@@ -64,6 +115,8 @@ PERSISTABLE_FIELDS.push('statusQueryErrorCount');
 // refused to start for lack of disk space (exit 75).
 PERSISTABLE_FIELDS.push('killRecoveryDiskDeferrals');
 // Issue #2889: snapshot images to remove with the task's last container.
+// Issue #3469: `/fix`'s created issue (`fixProgress`) and the live PR-link log
+// scan (`livePullRequest`) survive a restart, so the PR link is still shown.
 PERSISTABLE_FIELDS.push('killRecoverySnapshotImages', 'killRecoveryContainerName');
 
 /**

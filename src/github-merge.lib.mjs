@@ -26,6 +26,7 @@ import { cancellableSleep } from './interruptible-sleep.lib.mjs';
 // pure module shared by every merge call site.
 import { classifyMergeError, evaluatePullRequestMergeability } from './merge-error-classification.lib.mjs';
 import { checkIssueCompletionBeforeMerge } from './issue-completion.lib.mjs';
+import { isRequirementsReportEnabled } from './issue-completion.prompts.lib.mjs';
 // Issues #3354/#3357: the one post-merge closing implementation for every merge path.
 import { closeIssuesAfterMerge, formatIssueClosingReport, issueClosingOptions, unclosedIssueKeys } from './post-merge-issue-closing.lib.mjs';
 
@@ -568,8 +569,8 @@ export async function mergePullRequest(owner, repo, prNumber, options = {}, verb
   try {
     // Issue #2335: every merge entry point, including the queue, re-reads the
     // description and refuses to merge a pull request that does not close its issues.
-    // Issue #2406: nor one without a current, complete requirements report.
-    const links = await checkIssueCompletionBeforeMerge({ owner, repo, prNumber, issueNumber: options.issueNumber, logger: async message => console.log(message), verbose, allowCrossRepositoryClosing: issueClosingOptions(options).allowCrossRepositoryClosing });
+    // Issue #2406: with the experimental --requirements-report (#3469), nor one without a current, complete requirements report.
+    const links = await checkIssueCompletionBeforeMerge({ owner, repo, prNumber, issueNumber: options.issueNumber, logger: async message => console.log(message), verbose, allowCrossRepositoryClosing: issueClosingOptions(options).allowCrossRepositoryClosing, requirementsReport: isRequirementsReportEnabled(options) });
     if (links.blocker) return { success: false, error: links.blocker.message, category: links.blocker.reason, terminal: true, recoverable: false, resolution: links.blocker.resolution, blocker: links.blocker };
     let mergeArgs = `--repo ${owner}/${repo}`;
     // Issue #2406: merge exactly the commit that was verified, not one pushed since.

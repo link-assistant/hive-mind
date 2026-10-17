@@ -141,19 +141,23 @@ export const noteSessionInput = feedbackLines => {
  * @param {string|null} [params.logFile] - this session's log, named in the stop comment
  * @param {string|null} [params.label] - e.g. `Auto-restart 2/5`
  * @param {string} [params.input] - input fingerprint, defaults to the last `noteSessionInput`
+ * @param {boolean} [params.stallEvidence] - false for a session whose task is not
+ *   reflected in git (a completion restart that only edits the pull request
+ *   description, issue #3469): it is recorded, so the next session is compared
+ *   with it, but it is never itself reported as a repeat
  * @returns {{fingerprint: string, repeated: boolean, inputChanged: boolean, previous: Object|null, current: Object, occurrences: number}}
  */
-export const recordSessionOutcome = ({ finalMessage = '', gitStatus = '', head = '', sessionId = null, logFile = null, label = null, input = pendingInput } = {}) => {
+export const recordSessionOutcome = ({ finalMessage = '', gitStatus = '', head = '', sessionId = null, logFile = null, label = null, input = pendingInput, stallEvidence = true } = {}) => {
   const fingerprint = buildSessionFingerprint({ gitStatus, head });
   const previous = sessions.length > 0 ? sessions[sessions.length - 1] : null;
-  const current = { fingerprint, input, sessionId, logFile, label, finalMessage: normalizeSessionMessage(finalMessage), gitStatus: String(gitStatus ?? '').trim(), head: String(head ?? '').trim() };
+  const current = { fingerprint, input, sessionId, logFile, label, stallEvidence, finalMessage: normalizeSessionMessage(finalMessage), gitStatus: String(gitStatus ?? '').trim(), head: String(head ?? '').trim() };
   pendingInput = '';
   sessions.push(current);
   const occurrences = sessions.filter(entry => entry.fingerprint === fingerprint).length;
   // Only a session identical to the one immediately before it is a stall. A
   // fingerprint that comes back after real work happened in between is a
   // revert, not a loop, and the next session may well do something else.
-  lastVerdict = { fingerprint, repeated: previous !== null && previous.fingerprint === fingerprint, inputChanged: previous !== null && previous.input !== input, previous, current, occurrences };
+  lastVerdict = { fingerprint, repeated: stallEvidence && previous !== null && previous.fingerprint === fingerprint, inputChanged: previous !== null && previous.input !== input, previous, current, occurrences };
   return lastVerdict;
 };
 
@@ -209,9 +213,10 @@ export const takeRepeatedSessionFeedback = () => {
  * @param {Function} [params.log]
  * @param {string|null} [params.logFile]
  * @param {string|null} [params.label]
+ * @param {boolean} [params.stallEvidence] - see `recordSessionOutcome`
  * @returns {Promise<Object|null>} the verdict from `recordSessionOutcome`
  */
-export const captureSessionOutcome = async ({ tempDir, toolResult = null, $: command, log = noopLog, logFile = null, label = null } = {}) => {
+export const captureSessionOutcome = async ({ tempDir, toolResult = null, $: command, log = noopLog, logFile = null, label = null, stallEvidence = true } = {}) => {
   if (!tempDir || typeof command !== 'function') return null;
   const finalMessage = toolResult?.resultSummary || toolResult?.errorInfo?.message || toolResult?.lastMessage || '';
   let gitStatus = '';
@@ -227,7 +232,25 @@ export const captureSessionOutcome = async ({ tempDir, toolResult = null, $: com
     await log(`⚠️  Session progress check skipped: ${error.message}`, { verbose: true });
     return null;
   }
-  return recordSessionOutcome({ finalMessage, gitStatus, head, sessionId: toolResult?.sessionId || null, logFile, label });
+  return recordSessionOutcome({ finalMessage, gitStatus, head, sessionId: toolResult?.sessionId || null, logFile, label, stallEvidence });
+};
+
+/** One line for verbose logs: what the restart loop decides from (issue #3469). */
+export const describeVerdict = verdict => {
+  if (!verdict) return 'no session recorded yet';
+  const short = value => (value ? String(value).slice(0, 7) : 'unknown');
+  return `repeated=${verdict.repeated} inputChanged=${verdict.inputChanged} occurrences=${verdict.occurrences} head=${short(verdict.current?.head)} previousHead=${short(verdict.previous?.head)} stallEvidence=${verdict.current?.stallEvidence !== false} last=${verdict.current?.label || verdict.current?.sessionId || 'unlabelled session'}`;
+};
+
+/** The workspace HEAD, or null when it cannot be read (the check then falls back to the verdict alone). */
+const readHead = async ({ tempDir, command }) => {
+  if (!tempDir || typeof command !== 'function') return null;
+  try {
+    const result = await command({ cwd: tempDir })`git rev-parse HEAD 2>&1`;
+    return result?.code === 0 ? result.stdout.toString().trim() || null : null;
+  } catch {
+    return null;
+  }
 };
 
 const describeSession = (entry, fallback) => {
@@ -444,7 +467,17 @@ const stopWithoutProgress = async ({ owner, repo, prNumber, tempDir, branchName,
  */
 export const stopWhenSessionRepeated = async ({ owner, repo, prNumber, tempDir, branchName, $: command, log = noopLog, formatAligned = (icon, label, value) => `${icon} ${label} ${value}`, mode = null, verbose = false }) => {
   const verdict = getLastSessionProgress();
+  if (verbose) await log(`   [session-progress] ${mode || 'restart loop'}: ${describeVerdict(verdict)}`, { verbose: true });
   if (!verdict?.repeated) return null;
+  // Issue #3469: the verdict describes the branch as the last session left it.
+  // When the branch moved since (solve's own .gitkeep revert, a default-branch
+  // merge, a push), the next session starts from a different commit with
+  // different CI results, so two old identical sessions predict nothing.
+  const head = await readHead({ tempDir, command });
+  if (head && verdict.current?.head && head !== verdict.current.head) {
+    await log(formatAligned('ℹ️', 'Progress check:', `the branch moved from ${verdict.current.head.slice(0, 7)} to ${head.slice(0, 7)} after the last session; restarting instead of stopping`, 2));
+    return null;
+  }
   // Issue #2313: the same input produced the same outcome - that says nothing
   // about the model. Change the input before concluding there is no progress.
   if (!verdict.inputChanged) {
@@ -455,4 +488,4 @@ export const stopWhenSessionRepeated = async ({ owner, repo, prNumber, tempDir, 
   return await failOnNoProgressBetweenSessions({ owner, repo, prNumber, tempDir, branchName, $: command, log, formatAligned, verdict, mode, remainingIterations: getRemainingAutoRestartIterations(), verbose });
 };
 
-export default { NO_PROGRESS_STOP_REASON, REPEATED_CI_FAILURE_STOP_REASON, buildNoProgressDetails, buildRepeatedSessionFeedback, buildSessionFingerprint, buildSessionInputFingerprint, captureSessionOutcome, failOnNoProgressBetweenSessions, failOnRepeatedCiFailure, getLastSessionProgress, getNoProgressFailure, getRecordedSessions, hasNoProgressFailure, normalizeSessionMessage, noteSessionInput, recordSessionOutcome, reportNoProgressStop, resetNoProgressFailure, resetSessionProgress, stopWhenSessionRepeated, takeRepeatedSessionFeedback };
+export default { NO_PROGRESS_STOP_REASON, REPEATED_CI_FAILURE_STOP_REASON, buildNoProgressDetails, buildRepeatedSessionFeedback, buildSessionFingerprint, buildSessionInputFingerprint, captureSessionOutcome, describeVerdict, failOnNoProgressBetweenSessions, failOnRepeatedCiFailure, getLastSessionProgress, getNoProgressFailure, getRecordedSessions, hasNoProgressFailure, normalizeSessionMessage, noteSessionInput, recordSessionOutcome, reportNoProgressStop, resetNoProgressFailure, resetSessionProgress, stopWhenSessionRepeated, takeRepeatedSessionFeedback };

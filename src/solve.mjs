@@ -1121,7 +1121,7 @@ try {
   // Issue #2212: runs last on purpose — the earlier loops may still rewrite the pull
   // request description, so the closing references are verified against its final state.
   applyPostSolveRestart(await runEnsureAllSubIssuesAddressed({ issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, workspaceTmpDir, argv, cleanupClaudeFile }));
-  // Issue #2406: bounded completion restarts until the requirements report satisfies the merge guard; no optional flag needed.
+  // Issue #2406: bounded completion restarts until the requirements report satisfies the merge guard; only with the experimental --requirements-report (#3469).
   const { runIssueCompletionUntilVerified } = await import('./solve.issue-completion.lib.mjs');
   applyPostSolveRestart(await runIssueCompletionUntilVerified({ issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, workspaceTmpDir, argv, cleanupClaudeFile }, { logger: log }));
   await attachLogAfterPostSolveRestarts({ restartIterationsRan: postSolveRestarts.filter(Boolean).length, shouldAttachLogs, prNumber, owner, repo, $, log, sanitizeLogContent, getLogFile, attachLogToGitHub, argv, sessionId, tempDir, anthropicTotalCostUSD, resultModelUsage });

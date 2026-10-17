@@ -100,7 +100,7 @@ export async function getForkDefaultBranchDivergenceSnapshot({ $, tempDir, branc
   const upstreamRef = `upstream/${branchName}`;
   const compareUrl = buildForkCompareUrl({ upstreamRepo, forkedRepo, branchName });
 
-  const forkFetchResult = await $({ cwd: tempDir, silent: true })`git fetch origin refs/heads/${branchName}:refs/remotes/origin/${branchName} 2>&1`;
+  const forkFetchResult = await $({ cwd: tempDir, mirror: false })`git fetch origin refs/heads/${branchName}:refs/remotes/origin/${branchName} 2>&1`;
   if (forkFetchResult.code !== 0) {
     return {
       branchName,
@@ -116,7 +116,7 @@ export async function getForkDefaultBranchDivergenceSnapshot({ $, tempDir, branc
     };
   }
 
-  const upstreamFetchResult = await $({ cwd: tempDir, silent: true })`git fetch upstream refs/heads/${branchName}:refs/remotes/upstream/${branchName} 2>&1`;
+  const upstreamFetchResult = await $({ cwd: tempDir, mirror: false })`git fetch upstream refs/heads/${branchName}:refs/remotes/upstream/${branchName} 2>&1`;
   if (upstreamFetchResult.code !== 0) {
     return {
       branchName,
@@ -132,11 +132,11 @@ export async function getForkDefaultBranchDivergenceSnapshot({ $, tempDir, branc
     };
   }
 
-  const forkUniqueResult = await $({ cwd: tempDir, silent: true })`git rev-list --count ${upstreamRef}..${forkRef} 2>&1`;
-  const upstreamUniqueResult = await $({ cwd: tempDir, silent: true })`git rev-list --count ${forkRef}..${upstreamRef} 2>&1`;
-  const forkHeadResult = await $({ cwd: tempDir, silent: true })`git rev-parse ${forkRef} 2>&1`;
-  const upstreamHeadResult = await $({ cwd: tempDir, silent: true })`git rev-parse ${upstreamRef} 2>&1`;
-  const commitsResult = await $({ cwd: tempDir, silent: true })`git log --format=%H%x09%an%x09%s --max-count=20 ${upstreamRef}..${forkRef} 2>&1`;
+  const forkUniqueResult = await $({ cwd: tempDir, mirror: false })`git rev-list --count ${upstreamRef}..${forkRef} 2>&1`;
+  const upstreamUniqueResult = await $({ cwd: tempDir, mirror: false })`git rev-list --count ${forkRef}..${upstreamRef} 2>&1`;
+  const forkHeadResult = await $({ cwd: tempDir, mirror: false })`git rev-parse ${forkRef} 2>&1`;
+  const upstreamHeadResult = await $({ cwd: tempDir, mirror: false })`git rev-parse ${upstreamRef} 2>&1`;
+  const commitsResult = await $({ cwd: tempDir, mirror: false })`git log --format=%H%x09%an%x09%s --max-count=20 ${upstreamRef}..${forkRef} 2>&1`;
 
   const uniqueCommits =
     commitsResult.code === 0
@@ -549,7 +549,7 @@ export async function handleRejectedPushForAutoPr({ errorOutput, $, tempDir, log
 }
 
 export async function getRemoteBranchDivergenceSnapshot({ $, tempDir, branchName }) {
-  const fetchResult = await $({ cwd: tempDir, silent: true })`git fetch origin refs/heads/${branchName}:refs/remotes/origin/${branchName} 2>&1`;
+  const fetchResult = await $({ cwd: tempDir, mirror: false })`git fetch origin refs/heads/${branchName}:refs/remotes/origin/${branchName} 2>&1`;
   if (fetchResult.code !== 0) {
     return {
       remoteExists: false,
@@ -559,10 +559,10 @@ export async function getRemoteBranchDivergenceSnapshot({ $, tempDir, branchName
     };
   }
 
-  const aheadResult = await $({ cwd: tempDir, silent: true })`git rev-list --count origin/${branchName}..HEAD 2>&1`;
-  const behindResult = await $({ cwd: tempDir, silent: true })`git rev-list --count HEAD..origin/${branchName} 2>&1`;
-  const localShaResult = await $({ cwd: tempDir, silent: true })`git rev-parse HEAD 2>&1`;
-  const remoteShaResult = await $({ cwd: tempDir, silent: true })`git rev-parse origin/${branchName} 2>&1`;
+  const aheadResult = await $({ cwd: tempDir, mirror: false })`git rev-list --count origin/${branchName}..HEAD 2>&1`;
+  const behindResult = await $({ cwd: tempDir, mirror: false })`git rev-list --count HEAD..origin/${branchName} 2>&1`;
+  const localShaResult = await $({ cwd: tempDir, mirror: false })`git rev-parse HEAD 2>&1`;
+  const remoteShaResult = await $({ cwd: tempDir, mirror: false })`git rev-parse origin/${branchName} 2>&1`;
 
   return {
     remoteExists: aheadResult.code === 0 && behindResult.code === 0,

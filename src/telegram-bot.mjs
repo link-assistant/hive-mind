@@ -13,7 +13,7 @@ if (process.argv.includes('--version')) {
 if (typeof use === 'undefined') {
   await ensureUseM();
 }
-const { lino } = await import('./lino.lib.mjs');
+import { lino } from './lino.lib.mjs';
 const { loadLenvConfig } = await import('./lenv-reader.lib.mjs');
 const { getLinoYargsFactory, getenv, hideBin } = await import('./cli-arguments.lib.mjs');
 

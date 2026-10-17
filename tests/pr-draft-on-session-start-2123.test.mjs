@@ -191,7 +191,8 @@ await test('startWorkSession no longer contains an inline gh pr ready call', () 
 });
 
 await test('executeToolIteration drafts the PR before every restart iteration', () => {
-  assert(restartSrc.includes("await import('./pr-draft-state.lib.mjs')"), 'solve.restart-shared.lib.mjs should import pr-draft-state.lib.mjs');
+  // Issue #3469: a static import; Node 26 resolves a top-level import() too early.
+  assert(restartSrc.includes("from './pr-draft-state.lib.mjs'"), 'solve.restart-shared.lib.mjs should import pr-draft-state.lib.mjs');
   const iterationStart = restartSrc.indexOf('export const executeToolIteration');
   const draftCall = restartSrc.indexOf('ensurePullRequestIsDraft(', iterationStart);
   assert(iterationStart !== -1 && draftCall !== -1, 'executeToolIteration should call ensurePullRequestIsDraft');

@@ -4,6 +4,7 @@ import { readLogTailText } from './log-bounded-read.lib.mjs';
 import { postKillRecoveryNotice } from './session-kill-recovery.lib.mjs';
 import { safeEditMessageText, safeSendMessage } from './telegram-safe-reply.lib.mjs';
 import { RECOVERY_LIFECYCLE_MARKER } from './tool-comments.lib.mjs';
+import { getSessionIssueContext } from './session-live-pr-link.lib.mjs';
 
 export const RECOVERY_HEARTBEAT_MS = 5 * 60 * 1000;
 export const RECOVERY_LOG_MARKER = '[HIVE-MIND RECOVERY]';
@@ -92,7 +93,8 @@ export async function reportRecoveryLifecycle({ bot, sessionName, sessionInfo, s
     // Issue #2630: without a pull request, a recovery that could not start (or
     // fell back) is still said on the issue the task was started from, and
     // that comment keeps being updated; routine progress stays on Telegram.
-    const issueUrl = sessionInfo.urlContext?.type === 'issue' ? sessionInfo.urlContext.normalized || sessionInfo.url || null : null;
+    // Issue #3469: for `/fix`, the issue it created.
+    const issueUrl = sessionInfo.urlContext?.type === 'issue' ? sessionInfo.urlContext.normalized || sessionInfo.url || null : getSessionIssueContext(sessionInfo)?.normalized || null;
     if (!pr && issueUrl && (reason || nextPhase === 'failed' || /\/issues\/\d+#issuecomment-\d+$/.test(state.commentUrl || ''))) pr = issueUrl;
     let githubDelivered = !pr;
     if (pr) {

@@ -277,7 +277,8 @@ async function hasAncestorIn(issue, keys, run) {
  * in the description head is allowed (it is closed explicitly after the
  * merge). One only the repair block holds, or one for an issue below the pull
  * request's issue tree (a sub-issue at any depth), stays blocked, as does
- * every one when `allow` is off (#3276).
+ * every one when `allow` is off (#3276). So does one that only a colon form in
+ * the middle of a line closes, such as "a suggested fix: <issue URL>" (#3469).
  */
 export async function splitForeignReferences({ issues, subIssues = [], head, repository, allow = true, run = runLinkGh }) {
   const foreign = issues.filter(issue => !isSameRepository(issue, repository));
@@ -285,7 +286,8 @@ export async function splitForeignReferences({ issues, subIssues = [], head, rep
   const tree = new Set([...issues.filter(issue => !issue.reference), ...subIssues].map(issueKey));
   const split = { allowed: [], blocked: [] };
   for (const issue of foreign) {
-    const written = prClosesIssue(head, issue.number, issue.owner, issue.repo, { allowShortReference: false });
+    // Issue #3469: "a suggested fix: <its URL>" is not a decision to close it.
+    const written = prClosesIssue(head, issue.number, issue.owner, issue.repo, { allowShortReference: false, declaredOnly: true });
     split[written && !tree.has(issueKey(issue)) && !(await hasAncestorIn(issue, tree, run)) ? 'allowed' : 'blocked'].push(issue);
   }
   return split;
@@ -296,7 +298,7 @@ export function buildIssueLinkBlocker(details, reason) {
 }
 
 function buildForeignClosingBlocker(details) {
-  return { reason: 'cross_repository_closing_references', message: 'Merging would close issues in another repository, which a pull request here cannot fix.', details, resolution: 'Remove the closing keywords (and any sidebar links) for these issues from the pull request; mention them without a keyword instead, for example "Part of other/project#7".' };
+  return { reason: 'cross_repository_closing_references', message: 'Merging would close issues in another repository, which a pull request here cannot fix.', details, resolution: 'Remove the closing keywords (and any sidebar links) for these issues from the pull request; mention them without a keyword instead, for example "Part of other/project#7". GitHub also reads "fix:", "closes:" or "resolved:" right before an issue link as a closing keyword, as in "a suggested fix: <issue URL>"; write "reported upstream: <issue URL>" instead.' };
 }
 
 function buildUnintendedClosingBlocker(details) {

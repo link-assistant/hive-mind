@@ -6,21 +6,25 @@
 import { createHash } from 'node:crypto';
 import { getClosingReferenceText } from './github-linking.lib.mjs';
 import { issueKey } from './issue-link-verification.lib.mjs';
-import { isToolGeneratedComment, isToolStatusComment, isToolTrackedCommentId } from './tool-comments.lib.mjs';
+import { isToolGeneratedComment, isToolStatusComment } from './tool-comments.lib.mjs';
 import { REQUIREMENTS_END, REQUIREMENTS_START } from './issue-completion.prompts.lib.mjs';
 
 export { REQUIREMENTS_END, REQUIREMENTS_START };
 const nonempty = value => typeof value === 'string' && value.trim().length > 0;
 const normalize = text => String(text).replace(/\s+/g, ' ').trim();
 
-/** Known automation output is not new user feedback and cannot invalidate itself. */
+/**
+ * Known automation output is not new user feedback and cannot invalidate itself. Only the comment
+ * itself decides: the template (a fresh process) and the merge guard (inside solve, which remembers
+ * the comments it posted) must compute the same digest, so in-process tracking is not used (#3469).
+ */
 export function requirementFeedback(comments) {
   return (comments || [])
     .filter(comment => {
       if (!nonempty(comment?.body)) return false;
       // Quoting an automation phrase in a user's request must not erase it. Status comments solve.mjs
       // posts after the report ("Ready to merge", "Auto-restart", "Auto-merge blocked") are not feedback.
-      const bookkeeping = isToolTrackedCommentId(comment.id) || isToolStatusComment(comment.body) || (isToolGeneratedComment(comment.body) && /^## /u.test(comment.body) && /(?:by hive-mind|Now working session is ended|AI work session|automatically extracted)/i.test(comment.body));
+      const bookkeeping = isToolStatusComment(comment.body) || (isToolGeneratedComment(comment.body) && /^## /u.test(comment.body) && /(?:by hive-mind|Now working session is ended|AI work session|automatically extracted)/i.test(comment.body));
       return !bookkeeping;
     })
     .map(comment => ({ id: comment.id, body: comment.body }))

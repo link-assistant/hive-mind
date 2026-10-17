@@ -8,6 +8,16 @@
 
 无论直接运行还是通过 agent-commander 运行，Codex 始终带有 `-c features.goals=true`。`--auxiliary-model-calls-disabled` 现在只关闭 `features.personality`：目标承载的是任务本身，不属于辅助调用。
 
+## 需求报告是实验性功能，默认关闭
+
+下文关于需求报告的所有内容都需要显式启用（issue #3469）。向 `solve` 传入 `--requirements-report`，或为没有命令行的进程（例如 Telegram 合并队列）设置 `HIVE_MIND_REQUIREMENTS_REPORT=true`。未启用时：
+
+- 提示词不会提及报告、快照命令或合并检查，因此不会为它们消耗 token。上文的完整交付目标和关闭引用规则保持不变。
+- 求解结束后不会进行完成性重启。
+- 合并检查只检查每个必需 issue 的关闭引用（issue #2335），并且仍然通过 `--match-head-commit` 固定合并的提交。
+
+此功能被关闭的原因是合并检查拦下了一个已完成的 pull request：hive-mind 自己清理 `.gitkeep` 的提交在报告写好之后移动了 head，报告因此不再对应当前提交（[案例分析](case-studies/issue-3469/README.md)）。
+
 ## 生成需求报告
 
 最终推送后，根据当前 issue、所有 issue 评论以及 pull request 的所有评论、行内评论和评审生成模板：
@@ -39,7 +49,7 @@ node /path/to/hive-mind/src/issue-requirements-snapshot.mjs OWNER/REPO ISSUE_NUM
 
 ## 完成性重启
 
-求解结束后，hive-mind 会在无需任何可选标志的情况下重启工具，直到报告通过检查。默认重启三次；`--ensure-all-sub-issues-addressed=N` 可设置上限。遇到使用额度上限、工具或验证反复失败，或只剩 `blocked` 需求时，重启会提前停止。此时 pull request 保持未合并，合并受阻评论会列出剩余工作，而不是建议手动合并。
+启用 `--requirements-report` 时，求解结束后 hive-mind 会重启工具，直到报告通过检查。默认重启三次；`--ensure-all-sub-issues-addressed=N` 可设置上限。遇到使用额度上限、工具或验证反复失败，或只剩 `blocked` 需求时，重启会提前停止。此时 pull request 保持未合并，合并受阻评论会列出剩余工作，而不是建议手动合并。
 
 ## 局限
 

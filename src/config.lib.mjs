@@ -34,7 +34,7 @@ import { clampEnvValue, parseIntegerEnv, parseNumberEnv } from './env-config.lib
 import { applyClaudePricingTierToEnv } from './pricing-tier.lib.mjs'; // Issue #2771
 
 // Import lino for parsing Links Notation format
-const { lino } = await import('./lino.lib.mjs');
+import { lino } from './lino.lib.mjs';
 
 const parseIntWithDefault = (envVar, defaultValue) => parseIntegerEnv(envVar, defaultValue);
 const parseFloatWithDefault = (envVar, defaultValue) => parseNumberEnv(envVar, defaultValue);

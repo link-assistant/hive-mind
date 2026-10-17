@@ -21,9 +21,12 @@ for (const tool of tools) {
     }
     const system = prompts.buildSystemPrompt(params);
     assert.ok(system.includes(ISSUE_COMPLETION_GOAL), `${tool} system prompt`);
-    assert.match(system, /issue-requirements-snapshot\.mjs' 'link-assistant\/hive-mind' 2406 2407/);
-    assert.match(system, /hive-mind:requirements:start/);
-    assert.match(system, /"blocked"/);
+    // Issue #3469: the requirements report is experimental, so by default no prompt token is spent on it.
+    assert.doesNotMatch(system, /issue-requirements-snapshot|hive-mind:requirements|requirements report|merge guard/i, `${tool} default system prompt`);
+    const withReport = prompts.buildSystemPrompt({ ...params, argv: { requirementsReport: true } });
+    assert.match(withReport, /issue-requirements-snapshot\.mjs' 'link-assistant\/hive-mind' 2406 2407/);
+    assert.match(withReport, /hive-mind:requirements:start/);
+    assert.match(withReport, /"blocked"/);
   });
 }
 

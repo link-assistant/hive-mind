@@ -18,8 +18,15 @@
  * @see https://github.com/link-assistant/hive-mind/issues/2182
  */
 
-const { classifyMergeError, MAX_CONSECUTIVE_MERGE_FAILURES } = await import('./merge-error-classification.lib.mjs');
-const { ensurePullRequestIsReady, getPullRequestLeftInDraft } = await import('./pr-draft-state.lib.mjs');
+// Static imports on purpose (issue #3469): on Node 26 (V8 14.6) a top-level
+// `await import()` of a module that is still evaluating-async in the same graph
+// - here when a caller statically imports this file and pr-draft-state.lib.mjs,
+// which waits on config.lib.mjs's top-level await - resolves to its namespace
+// before it ran, so destructuring it threw "Cannot access
+// 'ensurePullRequestIsReady' before initialization".
+// See experiments/node26-tla-tdz/README.md.
+import { classifyMergeError, MAX_CONSECUTIVE_MERGE_FAILURES } from './merge-error-classification.lib.mjs';
+import { ensurePullRequestIsReady, getPullRequestLeftInDraft } from './pr-draft-state.lib.mjs';
 
 export { MAX_CONSECUTIVE_MERGE_FAILURES };
 

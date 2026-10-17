@@ -14,6 +14,7 @@ import { ensureUseM } from '../src/use-m-bootstrap.lib.mjs';
  */
 
 import { readFileSync, writeFileSync } from 'fs';
+import { formatChangelogListItem } from './format-release-notes.lib.mjs';
 
 // Load use-m dynamically
 const use = await ensureUseM();
@@ -73,7 +74,7 @@ try {
 
 ### ${bumpType.charAt(0).toUpperCase() + bumpType.slice(1)} Changes
 
-- ${finalDescription}
+${formatChangelogListItem(finalDescription)}
 
 `;
 

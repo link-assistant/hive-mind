@@ -171,6 +171,18 @@ export function buildReleaseDescription(body) {
 }
 
 /**
+ * Format a description as one CHANGELOG.md list item the way Changesets does
+ * (`@changesets/changelog-git`): later lines are indented by two spaces so
+ * further paragraphs and nested lists stay inside the item.
+ * @param {string} description
+ * @returns {string}
+ */
+export function formatChangelogListItem(description) {
+  const [firstLine, ...futureLines] = normalizeMarkdown(description).split('\n');
+  return [`- ${firstLine}`, ...futureLines.map(line => (line ? `  ${line}` : ''))].join('\n');
+}
+
+/**
  * Build the npm version badge of a release.
  * @param {string} version
  * @param {string} [packageName]

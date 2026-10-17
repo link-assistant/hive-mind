@@ -19,7 +19,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-import { buildPrLine, buildReleaseBody, buildReleaseDescription, extractChangelogSection, extractCommitHashes, extractPrNumbers, findFormattingDefects, hasGeneratedFooter, normalizeMarkdown, planReleaseRepair, stripGeneratedFooter } from '../scripts/format-release-notes.lib.mjs';
+import { buildPrLine, buildReleaseBody, buildReleaseDescription, extractChangelogSection, extractCommitHashes, extractPrNumbers, findFormattingDefects, formatChangelogListItem, hasGeneratedFooter, normalizeMarkdown, planReleaseRepair, stripGeneratedFooter } from '../scripts/format-release-notes.lib.mjs';
 
 const MULTI_PARAGRAPH = ['### Patch Changes', '', '- 68f606a: First change (issue #2293).', '', '  Second change (issue #2303).', '', '  - nested bullet', '  - another nested bullet', '', '  Third change with `HIVE_MIND_X` and a literal `\\n` in code.'].join('\n');
 
@@ -138,6 +138,16 @@ const trimEveryLine = text =>
   assert.deepEqual(unformatted.defects, ['unformatted']);
   assert.deepEqual(askedFor, ['68f606a'], 'without a PR line the PRs are looked up from the commit hashes');
   assert.equal(unformatted.body, good);
+}
+
+// --- 8. Manual (instant) releases write CHANGELOG items like Changesets -------
+
+{
+  const item = formatChangelogListItem('First paragraph.  \r\n\r\nSecond paragraph.\n- nested\n');
+  assert.equal(item, '- First paragraph.\n\n  Second paragraph.\n  - nested', 'later lines are indented into the list item');
+  assert.equal(formatChangelogListItem('Manual patch release'), '- Manual patch release');
+  const { description } = buildReleaseDescription(`### Patch Changes\n\n${item}`);
+  assert.deepEqual(findFormattingDefects({ changelogSection: `### Patch Changes\n\n${item}`, releaseBody: buildReleaseBody({ description, version: '1.0.0' }) }), []);
 }
 
 console.log('issue-3445-release-notes-formatting.test.mjs: all assertions passed');

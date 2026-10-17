@@ -381,3 +381,11 @@ v2.38.0: repairing (lost-indentation)
   "failed": 0,
   "skipped": {}
 }
+v2.39.0: repairing (lost-indentation)
+{
+  "checked": 1,
+  "repair": 1,
+  "repaired": 1,
+  "failed": 0,
+  "skipped": {}
+}

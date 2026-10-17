@@ -27,9 +27,9 @@ This pull request:
 - fixes the formatter, the CHANGELOG extraction, the manual-release CHANGELOG
   writer and the sanitizer false positives;
 - adds regression tests;
-- adds a repair script, which rebuilt all 367 damaged releases from
-  `CHANGELOG.md` (the 366 the audit found, plus v2.38.0, which was published
-  during this work);
+- adds a repair script, which rebuilt all 368 damaged releases from
+  `CHANGELOG.md` (the 366 the audit found, plus v2.38.0 and v2.39.0, which were
+  published during this work);
 - reports the bug upstream, to the template every copy of the formatter came
   from.
 
@@ -47,6 +47,7 @@ This pull request:
 | `render/v2.37.1-after.html`               | GitHub's render of the repaired body                                                        |
 | `render/v2.37.1-before.png`, `-after.png` | Screenshots of those two renders                                                            |
 | `data/release-v2.38.0-before.md`          | v2.38.0 as published with the old formatter during this work, before its repair             |
+| `data/release-v2.39.0-before.md`          | v2.39.0 as published with the old formatter during this work, before its repair             |
 | `repair/dry-run.log`                      | `scripts/repair-release-notes.mjs` dry run against the backup                               |
 | `repair/apply.log`                        | The `--apply` run that repaired the releases                                                |
 | `repair/verify-dry-run.log`               | A second dry run against the live releases after the repair (nothing left to repair)        |
@@ -68,6 +69,8 @@ This pull request:
 | 2026-10-16 19:29 | v2.37.1 is published. The formatter trims every line, so GitHub renders one bullet followed by 19 paragraphs.                                                                                                                                                                                                                                          |
 | 2026-10-17 08:33 | Issue #3445 is opened.                                                                                                                                                                                                                                                                                                                                 |
 | 2026-10-17       | This pull request: fix, tests, audit, repair of the published releases, and upstream issue [link-foundation/js-ai-driven-development-pipeline-template#236](https://github.com/link-foundation/js-ai-driven-development-pipeline-template/issues/236).                                                                                                 |
+| 2026-10-17 08:51 | v2.38.0 is published with the old formatter while this pull request is open, and loses its indentation. It is repaired after merging `main`.                                                                                                                                                                                                           |
+| 2026-10-17 16:30 | v2.39.0 is published with the old formatter too. Its eight nested bullets become top-level bullets. It is repaired after merging `main`.                                                                                                                                                                                                               |
 
 ## Requirements from the issue
 
@@ -246,15 +249,17 @@ reports what it would change.
    its render was checked (screenshots below).
 3. **Bulk `--apply`** (`repair/apply.log`): 894 releases checked, 365 repaired,
    0 failed. v2.37.1 was already correct by then.
-4. **v2.38.0.** It was published with the old formatter while this work was in
-   progress, so its notes lost their indentation too. The bulk run's
-   `CHANGELOG.md` did not have its section yet. It was repaired separately after
-   merging `main` (the end of `repair/apply.log`; the body before the repair is in
-   `data/release-v2.38.0-before.md`).
+4. **v2.38.0 and v2.39.0.** They were published with the old formatter while
+   this work was in progress, so their notes lost their indentation too (in
+   v2.39.0 the eight nested bullets became top-level bullets). The bulk run's
+   `CHANGELOG.md` did not have their sections yet. Each was repaired separately
+   after merging `main` (the end of `repair/apply.log`; the bodies before the
+   repair are in `data/release-v2.38.0-before.md` and
+   `data/release-v2.39.0-before.md`).
 5. **Verification dry run against the live releases**
-   (`repair/verify-dry-run.log`): 894 checked, 0 to repair, 592 already correct,
+   (`repair/verify-dry-run.log`): 895 checked, 0 to repair, 593 already correct,
    and 302 with no `CHANGELOG.md` section.
-6. **Audit after the repair** (`data/audit-after-summary.json`): 592 `ok` and 302
+6. **Audit after the repair** (`data/audit-after-summary.json`): 593 `ok` and 302
    `no-changelog-section`. No release has a defect left.
 
 Any release published before this PR is merged still goes through the old

@@ -51,12 +51,14 @@ const test = async (description, fn) => {
 /** A `$` whose workspace HEAD is `head`; every other command fails, so nothing is committed or posted. */
 const fakeWorkspace = head => {
   const commands = [];
-  const $ = () => async (strings, ...values) => {
-    const command = strings.reduce((out, part, index) => out + part + (index < values.length ? String(values[index]) : ''), '');
-    commands.push(command);
-    if (command.startsWith('git rev-parse HEAD')) return { code: 0, stdout: `${head}\n`, stderr: '' };
-    return { code: 1, stdout: '', stderr: 'not available in this test' };
-  };
+  const $ =
+    () =>
+    async (strings, ...values) => {
+      const command = strings.reduce((out, part, index) => out + part + (index < values.length ? String(values[index]) : ''), '');
+      commands.push(command);
+      if (command.startsWith('git rev-parse HEAD')) return { code: 0, stdout: `${head}\n`, stderr: '' };
+      return { code: 1, stdout: '', stderr: 'not available in this test' };
+    };
   return { $, commands };
 };
 
@@ -75,8 +77,14 @@ await test('the PR #3446 sequence: the branch moved after the repeated session, 
   const { $ } = fakeWorkspace(GITKEEP_REVERT_HEAD);
   assert.equal(await stopWhenSessionRepeated(stopParams($)), null, 'a session for the new commit must start');
   assert.equal(hasNoProgressFailure(), false);
-  assert.ok(logs.some(line => line.includes('the branch moved from 2ba2553 to 18cf114')), 'the decision is logged');
-  assert.ok(logs.some(line => line.includes('[session-progress] auto-restart-until-mergeable: repeated=true inputChanged=true')), 'verbose mode shows the verdict it decided from');
+  assert.ok(
+    logs.some(line => line.includes('the branch moved from 2ba2553 to 18cf114')),
+    'the decision is logged'
+  );
+  assert.ok(
+    logs.some(line => line.includes('[session-progress] auto-restart-until-mergeable: repeated=true inputChanged=true')),
+    'verbose mode shows the verdict it decided from'
+  );
 });
 
 await test('a genuine stall on an unmoved branch still stops (issue #2247 stays fixed)', async () => {

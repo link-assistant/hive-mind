@@ -1,0 +1,102 @@
+--- reply (before launch) ---
+🔄 Starting...
+
+Requested by: [@drakonard](https://t.me/drakonard)
+Repository: https://github.com/konard/voice-simulator
+
+🛠 Options: --ci-cd --think high
+
+🔒 Solve overrides: --attach-logs --verbose --no-tool-check --disable-report-issue --isolation docker
+=> {"valid":true}
+
+[telegram-send] s1 safeEditMessageText → chat=1 message=2 parse_mode=Markdown chars=443 bytes=455 text="🔄 Starting...\n\n📊 Session: `02d3489a-72e4-4d94-ab68-dc1164bcf041`\n🆔 Execution: `c3e5e3bd-b103-4e3b-aa0b-d305033ae9e6`\n🔒 Isolation: `docker`\n\nRequested by: [@drakonard](https://t.me/drakonard)\nRepository: https://github.com/konard/voice-simulator\nIssue: https://github.com/konard/voice-simulator/is"… (+143 chars)
+[telegram-send] s1 safeEditMessageText ✓ delivered
+--- monitor edit for issue-created ---
+🔄 Starting...
+
+📊 Session: `02d3489a-72e4-4d94-ab68-dc1164bcf041`
+🆔 Execution: `c3e5e3bd-b103-4e3b-aa0b-d305033ae9e6`
+🔒 Isolation: `docker`
+
+Requested by: [@drakonard](https://t.me/drakonard)
+Repository: https://github.com/konard/voice-simulator
+Issue: https://github.com/konard/voice-simulator/issues/7
+
+🛠 Options: --ci-cd --think high
+
+🔒 Solve overrides: --attach-logs --verbose --no-tool-check --disable-report-issue --isolation docker
+=> {"valid":true}
+
+[telegram-send] s2 safeEditMessageText → chat=1 message=2 parse_mode=Markdown chars=478 bytes=490 text="⏳ Waiting for CI/CD on `main` branch to finish...\n\n📊 Session: `02d3489a-72e4-4d94-ab68-dc1164bcf041`\n🆔 Execution: `c3e5e3bd-b103-4e3b-aa0b-d305033ae9e6`\n🔒 Isolation: `docker`\n\nRequested by: [@drakonard](https://t.me/drakonard)\nRepository: https://github.com/konard/voice-simulator\nIssue: https://g"… (+178 chars)
+[telegram-send] s2 safeEditMessageText ✓ delivered
+--- monitor edit for waiting-for-ci ---
+⏳ Waiting for CI/CD on `main` branch to finish...
+
+📊 Session: `02d3489a-72e4-4d94-ab68-dc1164bcf041`
+🆔 Execution: `c3e5e3bd-b103-4e3b-aa0b-d305033ae9e6`
+🔒 Isolation: `docker`
+
+Requested by: [@drakonard](https://t.me/drakonard)
+Repository: https://github.com/konard/voice-simulator
+Issue: https://github.com/konard/voice-simulator/issues/7
+
+🛠 Options: --ci-cd --think high
+
+🔒 Solve overrides: --attach-logs --verbose --no-tool-check --disable-report-issue --isolation docker
+=> {"valid":true}
+
+--- waiting-for-ci (no edit: same status) ---
+
+[telegram-send] s3 safeEditMessageText → chat=1 message=2 parse_mode=Markdown chars=443 bytes=455 text="🔄 Starting...\n\n📊 Session: `02d3489a-72e4-4d94-ab68-dc1164bcf041`\n🆔 Execution: `c3e5e3bd-b103-4e3b-aa0b-d305033ae9e6`\n🔒 Isolation: `docker`\n\nRequested by: [@drakonard](https://t.me/drakonard)\nRepository: https://github.com/konard/voice-simulator\nIssue: https://github.com/konard/voice-simulator/is"… (+143 chars)
+[telegram-send] s3 safeEditMessageText ✓ delivered
+--- monitor edit for ci-finished ---
+🔄 Starting...
+
+📊 Session: `02d3489a-72e4-4d94-ab68-dc1164bcf041`
+🆔 Execution: `c3e5e3bd-b103-4e3b-aa0b-d305033ae9e6`
+🔒 Isolation: `docker`
+
+Requested by: [@drakonard](https://t.me/drakonard)
+Repository: https://github.com/konard/voice-simulator
+Issue: https://github.com/konard/voice-simulator/issues/7
+
+🛠 Options: --ci-cd --think high
+
+🔒 Solve overrides: --attach-logs --verbose --no-tool-check --disable-report-issue --isolation docker
+=> {"valid":true}
+
+[telegram-send] s4 safeEditMessageText → chat=1 message=2 parse_mode=Markdown chars=443 bytes=455 text="⏳ Executing...\n\n📊 Session: `02d3489a-72e4-4d94-ab68-dc1164bcf041`\n🆔 Execution: `c3e5e3bd-b103-4e3b-aa0b-d305033ae9e6`\n🔒 Isolation: `docker`\n\nRequested by: [@drakonard](https://t.me/drakonard)\nRepository: https://github.com/konard/voice-simulator\nIssue: https://github.com/konard/voice-simulator/is"… (+143 chars)
+[telegram-send] s4 safeEditMessageText ✓ delivered
+--- monitor edit for solving ---
+⏳ Executing...
+
+📊 Session: `02d3489a-72e4-4d94-ab68-dc1164bcf041`
+🆔 Execution: `c3e5e3bd-b103-4e3b-aa0b-d305033ae9e6`
+🔒 Isolation: `docker`
+
+Requested by: [@drakonard](https://t.me/drakonard)
+Repository: https://github.com/konard/voice-simulator
+Issue: https://github.com/konard/voice-simulator/issues/7
+
+🛠 Options: --ci-cd --think high
+
+🔒 Solve overrides: --attach-logs --verbose --no-tool-check --disable-report-issue --isolation docker
+=> {"valid":true}
+
+--- completion ---
+✅ *Work session finished successfully*
+
+⏱️ Duration: 1m
+📊 Session: `02d3489a-72e4-4d94-ab68-dc1164bcf041`
+🆔 Execution: `c3e5e3bd-b103-4e3b-aa0b-d305033ae9e6`
+🔒 Isolation: `docker`
+
+Requested by: [@drakonard](https://t.me/drakonard)
+Repository: https://github.com/konard/voice-simulator
+Issue: https://github.com/konard/voice-simulator/issues/7
+
+🛠 Options: --ci-cd --think high
+
+🔒 Solve overrides: --attach-logs --verbose --no-tool-check --disable-report-issue --isolation docker
+=> {"valid":true}
+

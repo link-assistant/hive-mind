@@ -11,7 +11,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { initI18n } from '../src/i18n.lib.mjs';
-import { validateTelegramText } from '../src/telegram-markdown-validator.lib.mjs';
+import { parseTelegramLegacyMarkdown, validateTelegramText } from '../src/telegram-markdown-validator.lib.mjs';
 import { formatRecoveryLifecycle } from '../src/session-recovery-lifecycle.lib.mjs';
 import { formatTokenList } from '../src/telegram-tokens-command.lib.mjs';
 import { formatFixProgressMessage, addFixIssueToInfoBlock } from '../src/fix-progress.lib.mjs';
@@ -110,6 +110,15 @@ describe('formatters stay valid Telegram Markdown with hostile values (#3505)', 
     assert.equal(escapeMarkdownKeepingCodeSpans('`x` and `y'), '`x` and \\`y');
     for (const text of ['a ` b', '`a\nb`', '`x` and `y', '``', '`_` *[']) {
       assertParses(escapeMarkdownKeepingCodeSpans(text), JSON.stringify(text));
+    }
+  });
+
+  it('escapeMarkdown shows every value verbatim, backslashes included', () => {
+    for (const value of [...HOSTILE, 'C:\\Users\\me', 'a\\_b', 'trailing\\', '\\\\server']) {
+      const parsed = parseTelegramLegacyMarkdown(escapeMarkdown(value));
+      assert.equal(parsed.ok, true, JSON.stringify(parsed));
+      assert.equal(parsed.text, value);
+      assert.deepEqual(parsed.entities, []);
     }
   });
 });

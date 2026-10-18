@@ -17,6 +17,12 @@
  * Use it for text placed at the top level of a message, not inside a code span
  * or a link label: entity contents are verbatim, so the backslash would show.
  *
+ * `\` itself is deliberately not escaped: legacy Markdown only treats it as an
+ * escape before those four openers, so any other `\` is shown as is and a `\\`
+ * would be shown doubled (experiments/issue-2301-codeql/backslash-escaping.mjs).
+ * CodeQL's js/incomplete-sanitization assumes `\` always escapes, which holds for
+ * MarkdownV2 but not for this legacy dialect, so the prefix is added per match.
+ *
  * @param {string} text - Text to escape
  * @returns {string} Escaped text safe for Markdown parse_mode
  */
@@ -24,7 +30,7 @@ export function escapeMarkdown(text) {
   if (!text || typeof text !== 'string') {
     return text;
   }
-  return text.replace(/[_*`[]/g, '\\$&');
+  return text.replace(/[_*`[]/g, entityOpener => `\\${entityOpener}`);
 }
 
 /**

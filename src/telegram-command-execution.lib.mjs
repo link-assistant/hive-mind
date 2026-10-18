@@ -7,6 +7,7 @@ import { safeEditMessageText } from './telegram-safe-reply.lib.mjs';
 import { selectContainerResourceLimitsForBackend } from './container-resource-limits.lib.mjs';
 import { markLaunchCompleted, markLaunchPending } from './session-monitor.launch-state.lib.mjs';
 import { parseScreenExitMarkerPath } from './start-screen-exit-marker.lib.mjs';
+import { formatLaunchedFixMessage } from './fix-progress.lib.mjs';
 
 const exec = promisify(execCallback);
 
@@ -177,7 +178,10 @@ export function buildExecuteAndUpdateMessage(deps) {
     }
     if (result.warning) return safeEdit(`⚠️  ${result.warning}`);
     if (result.success) {
-      await safeEdit(formatExecutingWorkSessionMessage({ sessionName: session, executionUuid: result.executionUuid || null, isolationBackend: iso?.backend || null, infoBlock, locale }));
+      // Issue #3505: a launched /fix first creates its issue and waits for
+      // CI/CD; the session monitor shows "Executing" once the task starts.
+      if (commandName === 'fix') await safeEdit(formatLaunchedFixMessage({ sessionName: session, sessionInfo: { ...sessionInfo, executionUuid: result.executionUuid || null, isolationBackend: iso?.backend || null, infoBlock: sessionInfo?.infoBlock || infoBlock }, locale }));
+      else await safeEdit(formatExecutingWorkSessionMessage({ sessionName: session, executionUuid: result.executionUuid || null, isolationBackend: iso?.backend || null, infoBlock, locale }));
       if (AUTO_WATCH_MESSAGE && commandName === 'solve' && sessionInfo?.isolationBackend) await startAutoTerminalWatchForSession({ bot, ctx, sessionId: session, sessionInfo, verbose: VERBOSE });
     } else {
       // Issue #2154: keep the session UUID in the failure reply. It is the only

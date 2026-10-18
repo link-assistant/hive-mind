@@ -130,7 +130,8 @@ await test('/fix: the issue line goes after Repository and the PR line follows i
   assert.equal(await reportLivePullRequestLink({ bot, sessionName: 'f1', sessionInfo, statusResult: { logPath } }), 'https://github.com/konard/konard.github.io/pull/4');
   const text = bot.edits.at(-1).text;
   assert.match(text, /Issue: https:\/\/github\.com\/konard\/konard\.github\.io\/issues\/3\nPull request: https:\/\/github\.com\/konard\/konard\.github\.io\/pull\/4/);
-  assert.match(text, /No CI\/CD running/, 'the /fix CI outcome header is kept');
+  assert.match(text, /^⏳ Executing\.\.\.\n\n/, 'the /fix status header is kept, without a CI/CD outcome line (issue #3505)');
+  assert.doesNotMatch(text, /CI\/CD/);
   assert.equal(text.split(issueUrl).length - 1, 1, 'the issue is linked once');
 });
 

@@ -71,6 +71,7 @@ export function formatSessionDurationSeconds(seconds) {
   return parts.join(' ');
 }
 
+/** @telegram-markdown Telegram legacy-Markdown text (issue #3505). */
 export function formatStartingWorkSessionMessage({ sessionName = null, isolationBackend = null, infoBlock = '', locale = null } = {}) {
   const header = text(locale, 'telegram.work_session_starting', '🔄 Starting...');
   const details = infoBlock ? `\n\n${infoBlock}` : '';
@@ -86,6 +87,7 @@ export function formatStartingWorkSessionMessage({ sessionName = null, isolation
   return `${header}\n\n📊 ${sessionLabel}: \`${sessionName}\`${isolationInfo}${details}`;
 }
 
+/** @telegram-markdown Telegram legacy-Markdown text (issue #3505). */
 export function formatExecutingWorkSessionMessage({ sessionName = 'unknown', executionUuid = null, isolationBackend = null, infoBlock = '', locale = null, header = null } = {}) {
   const sessionLabel = text(locale, 'telegram.session_label', 'Session');
   const isolationLabel = text(locale, 'telegram.isolation_label', 'Isolation');
@@ -128,6 +130,7 @@ export function formatExecutingWorkSessionMessage({ sessionName = 'unknown', exe
  * @returns {string} Markdown reply
  *
  * @see https://github.com/link-assistant/hive-mind/issues/2154
+ * @telegram-markdown
  */
 export function formatFailedLaunchMessage({ commandName = 'command', sessionName = null, isolationBackend = null, infoBlock = '', error = '', locale = null } = {}) {
   const header = text(locale, 'telegram.error_executing_command', `❌ Error executing ${commandName} command`, { commandName });
@@ -151,6 +154,7 @@ export function formatFailedLaunchMessage({ commandName = 'command', sessionName
  * @returns {string} New infoBlock
  *
  * @see https://github.com/link-assistant/hive-mind/issues/1688
+ * @telegram-markdown
  */
 export function appendPullRequestLine(infoBlock, pullRequestUrl, { locale = null } = {}) {
   if (!pullRequestUrl || !infoBlock) return infoBlock || '';
@@ -195,6 +199,7 @@ export function insertInfoBlockUrlLine(infoBlock, line, { locale = null } = {}) 
 // Issue #2303: the diagnosed kill cause, named in the headline.
 const KILL_CAUSE_LABELS = { 'out-of-memory': 'out of memory', 'disk-full': 'disk full', 'forced-kill': 'forced kill' };
 
+/** @telegram-markdown Telegram legacy-Markdown text (issue #3505). */
 export function formatSessionCompletionMessage({ sessionName, sessionInfo, statusResult = null, observedEndTime = new Date(), exitCode = null, infoBlock = '', pullRequestUrl = null, pullRequestState = null, extraSections = [], locale = null, resumedAs = null, recoveryCount = null, launchUnobserved = false, killCause = null } = {}) {
   const finalExitCode = getSessionCompletionExitCode({ exitCode, statusResult });
   const outcome = classifySessionOutcome({ exitCode: finalExitCode, status: statusResult?.status || null });
@@ -250,7 +255,11 @@ export function formatSessionCompletionMessage({ sessionName, sessionInfo, statu
   } else if (killed && stopRequestedByUser) {
     const showCode = finalExitCode !== null && !(!signal && finalExitCode === 1);
     const exitSuffix = showCode ? ` (exit code: ${finalExitCode})` : '';
-    const requestedBy = sessionInfo?.stopRequestedBy ? ` by ${sessionInfo.stopRequestedBy}` : '';
+    // Issue #3505: the template already says "by user", so the name is shown in
+    // parentheses ("stopped by user by @op" before, and an English "by" in every
+    // locale). It sits inside the bold status, where Telegram cannot escape a
+    // `*` (a first name may contain one), so that character is dropped.
+    const requestedBy = sessionInfo?.stopRequestedBy ? ` (${String(sessionInfo.stopRequestedBy).replace(/\*/g, '')})` : '';
     statusEmojiOverride = '🛑';
     statusText = text(messageLocale, 'telegram.work_session_stopped', `Work session stopped by user${requestedBy}${exitSuffix}`, { requestedBy, exitCode: finalExitCode ?? '', signal: signal?.signal ?? '', exitSuffix });
   } else if ((failed || killed) && pullRequestMerged) {

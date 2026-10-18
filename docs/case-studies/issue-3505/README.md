@@ -95,6 +95,7 @@ The existing `telegram-safety/no-unsafe-telegram-send` rule ensures that message
 - `formatLaunchedFixMessage` keeps a just-launched `/fix` on `🔄 Starting...` (with the session and execution ids). A launch that returns after the monitor already showed a later phase keeps that phase.
 - `reportFixProgress` edits only on a phase change (the key is `[phase, issueUrl]`). If the markers scrolled out of the log tail before `solving` was seen, it shows `Executing` once, so the reply cannot stay on "Waiting for CI/CD" for the whole task.
 - `escapeMarkdown` escapes all four legacy openers: `_ * ` [`.
+- `escapeMarkdownKeepingCodeSpans` is for the four "❌ Invalid options" replies (`/solve`, `/hive`, `/task`, `/fix`). Their yargs error is user input plus intentional code spans from `option-suggestions.lib.mjs` ("Did you mean `` `--model` `` option?"). Paired single-line code spans stay code; everything else is escaped, including an unpaired backtick. Every other `escapeMarkdown` caller was checked; their producers use plain quotes, so they need no code spans.
 
 Before and after, from `reproduce-before-fix.log` and `reproduce-after-fix.log`:
 
@@ -161,7 +162,7 @@ A marker without a reason does not count.
 **Tests.**
 
 - `tests/no-unescaped-telegram-markdown-rule-3505.test.mjs` is a RuleTester suite. It includes this issue's two patterns as invalid cases.
-- `tests/telegram-markdown-formatters-fuzz-3505.test.mjs` is the runtime companion. It feeds `in_progress`, `a*b`, ``x`y``, `[label`, `snake_case_name`, a URL with `_`, and a mix of all four openers into every fixed formatter. It then checks the output with `validateTelegramText`, which implements Telegram's legacy parser rules. It fails on the pre-fix formatters (`data/formatters-fuzz-before-fix.log`).
+- `tests/telegram-markdown-formatters-fuzz-3505.test.mjs` is the runtime companion. It feeds `in_progress`, `a*b`, ``x`y``, `[label`, `snake_case_name`, a URL with `_`, and a mix of all four openers into every fixed formatter. It then checks the output with `validateTelegramText`, which implements Telegram's legacy parser rules. It fails on the pre-fix formatters (`data/formatters-fuzz-before-fix.log`). It also covers `escapeMarkdownKeepingCodeSpans` with option suggestions and unpaired or multi-line backticks.
 - `tests/test-fix-status-order-3505.mjs` checks the status order, the single line per phase, the fixed issue line, the absence of a CI outcome line, the launch reply and the localized texts.
 
 ## Research

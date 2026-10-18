@@ -18,7 +18,8 @@ import { formatFixProgressMessage, addFixIssueToInfoBlock } from '../src/fix-pro
 import { formatExecutingWorkSessionMessage, formatSessionCompletionMessage, formatStartingWorkSessionMessage } from '../src/work-session-formatting.lib.mjs';
 import { validateTelegramGitHubUrl } from '../src/telegram-url-validation.lib.mjs';
 import { buildSolveQueuedMessage, buildTelegramInfoBlock } from '../src/telegram-ui-messages.lib.mjs';
-import { escapeMarkdown } from '../src/telegram-markdown.lib.mjs';
+import { escapeMarkdown, escapeMarkdownKeepingCodeSpans } from '../src/telegram-markdown.lib.mjs';
+import { formatSuggestions } from '../src/option-suggestions.lib.mjs';
 import { t } from '../src/i18n.lib.mjs';
 
 await initI18n('en');
@@ -80,6 +81,11 @@ describe('formatters stay valid Telegram Markdown with hostile values (#3505)', 
     it(`queue warning and error lines: ${value}`, () => {
       assertParses(`⚠️ ${escapeMarkdown(value)}\n\nRepository: ${escapeMarkdown(value)}`, 'warning');
     });
+
+    it(`invalid options error with suggestions: ${value}`, () => {
+      const message = `Unknown argument: ${value}${formatSuggestions(['model', 'max-turns'])}`;
+      assertParses(`❌ Invalid options: ${escapeMarkdownKeepingCodeSpans(message)}`, 'invalid options');
+    });
   }
 
   it('"Did you mean" suggestion with a backtick stays inside its code span', () => {
@@ -87,5 +93,23 @@ describe('formatters stay valid Telegram Markdown with hostile values (#3505)', 
     assert.equal(validation.valid, false);
     assert.ok(validation.suggestion.includes('%60'), validation.suggestion);
     assertParses(`❌ ${validation.error}\n\n${t('telegram.did_you_mean', { suggestion: validation.suggestion }, { locale: 'en' })}`, 'suggestion');
+  });
+
+  it('escapeMarkdownKeepingCodeSpans keeps intentional code spans and escapes the rest', () => {
+    const message = `Unknown argument: modl_name${formatSuggestions(['model', 'max-turns'])}`;
+    const escaped = escapeMarkdownKeepingCodeSpans(message);
+    assert.match(escaped, /Did you mean `--model` option\?/);
+    assert.match(escaped, / {2}• `--max-turns`/);
+    assert.match(escaped, /modl\\_name/);
+    assertParses(escaped, 'suggestions');
+  });
+
+  it('escapeMarkdownKeepingCodeSpans escapes an unpaired or multi-line backtick', () => {
+    assert.equal(escapeMarkdownKeepingCodeSpans('a ` b'), 'a \\` b');
+    assert.equal(escapeMarkdownKeepingCodeSpans('`a\nb`'), '\\`a\nb\\`');
+    assert.equal(escapeMarkdownKeepingCodeSpans('`x` and `y'), '`x` and \\`y');
+    for (const text of ['a ` b', '`a\nb`', '`x` and `y', '``', '`_` *[']) {
+      assertParses(escapeMarkdownKeepingCodeSpans(text), JSON.stringify(text));
+    }
   });
 });

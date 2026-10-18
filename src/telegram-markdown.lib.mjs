@@ -28,6 +28,25 @@ export function escapeMarkdown(text) {
 }
 
 /**
+ * Like escapeMarkdown, but keeps paired single-line code spans (`` `--model` ``)
+ * as code. For text that mixes user input with intentional code spans, such as
+ * a yargs error enhanced with "Did you mean `--model` option?". Everything
+ * outside a pair is escaped, including an unpaired backtick, so the result
+ * always parses (issue #3505).
+ * @param {string} text - Text to escape
+ * @returns {string} Escaped text safe for Markdown parse_mode
+ */
+export function escapeMarkdownKeepingCodeSpans(text) {
+  if (!text || typeof text !== 'string') {
+    return text;
+  }
+  return text
+    .split(/(`[^`\n]+`)/)
+    .map((part, index) => (index % 2 === 1 ? part : escapeMarkdown(part)))
+    .join('');
+}
+
+/**
  * Escape special characters for Telegram's MarkdownV2 parser.
  * According to Telegram Bot API, these characters must be escaped in MarkdownV2:
  * _ * [ ] ( ) ~ ` > # + - = | { } . ! \

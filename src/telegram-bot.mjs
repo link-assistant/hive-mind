@@ -178,7 +178,7 @@ const limitsLib = await import('./limits.lib.mjs');
 const { formatUsageMessage, formatCodexLimitsSection, getAllCachedLimits } = limitsLib;
 const { handleShowLimitsFlag, captureStartSnapshotAndAppend } = await import('./telegram-show-limits.lib.mjs'); // #594
 const { getVersionInfo, formatVersionMessage } = await import('./version-info.lib.mjs');
-const { escapeMarkdown, escapeMarkdownV2, cleanNonPrintableChars } = await import('./telegram-markdown.lib.mjs');
+const { escapeMarkdown, escapeMarkdownKeepingCodeSpans, escapeMarkdownV2, cleanNonPrintableChars } = await import('./telegram-markdown.lib.mjs');
 const { revealHiddenCharacters } = await import('./github-url-recovery.lib.mjs'); // #2194
 
 const { getSolveQueue, createQueueExecuteCallback } = await import('./telegram-solve-queue.lib.mjs');
@@ -647,7 +647,7 @@ async function handleSolveCommand(ctx) {
   try {
     parsedSolveArgs = await parseArgsWithYargs(args, yargs, createSolveYargsConfig);
   } catch (error) {
-    await safeReply(ctx, t('telegram.invalid_options', { message: escapeMarkdown(error.message || String(error)) }, { locale: solveLocale }), {
+    await safeReply(ctx, t('telegram.invalid_options', { message: escapeMarkdownKeepingCodeSpans(error.message || String(error)) }, { locale: solveLocale }), {
       reply_to_message_id: ctx.message.message_id,
     });
     return;
@@ -893,7 +893,7 @@ async function handleHiveCommand(ctx) {
   try {
     await parseArgsWithYargs(args, yargs, createHiveYargsConfig);
   } catch (error) {
-    await safeReply(ctx, t('telegram.invalid_options', { message: escapeMarkdown(error.message || String(error)) }, { locale: hiveLocale }), {
+    await safeReply(ctx, t('telegram.invalid_options', { message: escapeMarkdownKeepingCodeSpans(error.message || String(error)) }, { locale: hiveLocale }), {
       reply_to_message_id: ctx.message.message_id,
     });
     return;

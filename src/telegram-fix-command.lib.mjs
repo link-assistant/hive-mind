@@ -16,7 +16,7 @@ import { parseArgsWithYargs } from './telegram-solve-command.lib.mjs';
 import { validateRuntimeModelName } from './models/index.mjs';
 import { FIX_MODES, parseFixRepository } from './fix.args.lib.mjs';
 import { getModelFromArgs } from './model-args.lib.mjs';
-import { escapeMarkdown } from './telegram-markdown.lib.mjs';
+import { escapeMarkdown, escapeMarkdownKeepingCodeSpans } from './telegram-markdown.lib.mjs';
 import { parseTelegramCommandPrefix } from './telegram-command-text.lib.mjs';
 import { extractIsolationFromArgs, isValidPerCommandIsolation } from './telegram-isolation.lib.mjs';
 import { mergeArgsWithOverrides } from './args-overrides.lib.mjs';
@@ -196,7 +196,7 @@ export function registerFixCommand(bot, options) {
     // and is not part of the solve vocabulary the probe parser validates.
     const optionsError = await validateFixCommandOptions(filteredArgs);
     if (optionsError) {
-      await safeReply(ctx, `❌ Invalid options: ${escapeMarkdown(optionsError)}\n\nUse /help to see available options`, { reply_to_message_id: ctx.message.message_id });
+      await safeReply(ctx, `❌ Invalid options: ${escapeMarkdownKeepingCodeSpans(optionsError)}\n\nUse /help to see available options`, { reply_to_message_id: ctx.message.message_id });
       return;
     }
 

@@ -10,3 +10,4 @@
 - A new ESLint rule `telegram-safety/no-unescaped-telegram-markdown` reports unescaped dynamic values in legacy-Markdown Telegram messages. All its hits were fixed: recovery lifecycle, `/tokens`, `/organize`, `/stop` and `/start` reasons, queue warnings and errors, and the leak notifier.
 - A "Did you mean" suggestion containing a backtick no longer breaks its code span.
 - The "stopped by user" completion reads `Work session stopped by user (@name)` instead of `stopped by user by @name`.
+- `eslint-plugin-n` 18.5.0 (the dependency-freshness gate required it).

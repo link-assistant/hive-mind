@@ -4,6 +4,7 @@ import { formatOrganizationSummary, organizeRepository as defaultOrganizeReposit
 import { parseCommandArgs } from './telegram-solve-command.lib.mjs';
 import { safeEditMessageText as defaultSafeEditMessageText, safeReply as defaultSafeReply } from './telegram-safe-reply.lib.mjs';
 import { sanitizeForPublication } from './token-sanitization.lib.mjs';
+import { escapeMarkdown } from './telegram-markdown.lib.mjs';
 
 export const ORGANIZE_COMMAND_NAMES = Object.freeze(['organize']);
 const GITHUB_URL_PATTERN = /https?:\/\/(?:www\.)?github\.com\/[^\s<>()]+/gi;
@@ -87,20 +88,20 @@ export function registerOrganizeCommand(bot, options) {
 
     const parsed = parseOrganizeRequest({ commandText: ctx.message.text, replyText: ctx.message.reply_to_message?.text || ctx.message.reply_to_message?.caption || '' });
     if (parsed.error) {
-      await safeReply(ctx, `❌ ${parsed.error}`, { reply_to_message_id: ctx.message.message_id });
+      await safeReply(ctx, `❌ ${escapeMarkdown(parsed.error)}`, { reply_to_message_id: ctx.message.message_id });
       return;
     }
 
     const repositoryKey = parsed.repository.fullName.toLowerCase();
     if (activeOrganizationRuns.has(repositoryKey)) {
-      await safeReply(ctx, `⏳ An organization run is already active for ${parsed.repository.fullName}.`, { reply_to_message_id: ctx.message.message_id });
+      await safeReply(ctx, `⏳ An organization run is already active for ${escapeMarkdown(parsed.repository.fullName)}.`, { reply_to_message_id: ctx.message.message_id });
       return;
     }
 
     activeOrganizationRuns.add(repositoryKey);
     let status;
     try {
-      status = await safeReply(ctx, `${parsed.dryRun ? '🔎 Planning organization' : '🗂 Organizing'} ${parsed.repository.fullName}…`, { reply_to_message_id: ctx.message.message_id });
+      status = await safeReply(ctx, `${parsed.dryRun ? '🔎 Planning organization' : '🗂 Organizing'} ${escapeMarkdown(parsed.repository.fullName)}…`, { reply_to_message_id: ctx.message.message_id });
       const result = await organizeRepository({
         repositoryUrl: parsed.repository.url,
         dryRun: parsed.dryRun,

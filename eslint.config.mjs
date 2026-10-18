@@ -9,6 +9,7 @@ import noDirectGhExec from './eslint-rules/no-direct-gh-exec.mjs';
 import noUnretriedGitNetwork from './eslint-rules/no-unretried-git-network.mjs';
 import requireSanitizedOutput from './eslint-rules/require-sanitized-output.mjs';
 import noUnsafeTelegramSend from './eslint-rules/no-unsafe-telegram-send.mjs';
+import noUnescapedTelegramMarkdown from './eslint-rules/no-unescaped-telegram-markdown.mjs';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath, URL } from 'node:url';
 import promisePlugin from 'eslint-plugin-promise';
@@ -50,6 +51,8 @@ const streamsPlugin = {
 const telegramSafetyPlugin = {
   rules: {
     'no-unsafe-telegram-send': noUnsafeTelegramSend,
+    // Issue #3505: dynamic text in a legacy-Markdown message must be escaped.
+    'no-unescaped-telegram-markdown': noUnescapedTelegramMarkdown,
   },
 };
 
@@ -208,6 +211,11 @@ export default [
     },
     rules: {
       'telegram-safety/no-unsafe-telegram-send': 'error',
+      // Issue #3505: a raw `in_progress`, branch, URL or error message in a
+      // Markdown message opens an entity that never closes, and Telegram rejects
+      // the whole message. Escape it (`escapeMarkdown`), put it in a code span,
+      // or mark a known-safe line `// telegram-markdown-ok: <reason>`.
+      'telegram-safety/no-unescaped-telegram-markdown': 'error',
     },
   },
   {

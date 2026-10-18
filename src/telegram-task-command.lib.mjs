@@ -9,7 +9,7 @@ import { resolveFixDependencyReporting } from './fix.report-dependencies.lib.mjs
 import { FIX_MODE_CI_CD, FIX_MODE_UPDATE_ALL_DEPENDENCIES, parseFixRepository } from './fix.args.lib.mjs';
 import { createTaskIssue, parseTaskIssueCreationInput, resolveTaskIssueCreationInput } from './task.issue-creation.lib.mjs';
 import { parseTaskIssueUrl } from './task.split.lib.mjs';
-import { escapeMarkdown } from './telegram-markdown.lib.mjs';
+import { escapeMarkdown, escapeMarkdownKeepingCodeSpans } from './telegram-markdown.lib.mjs';
 import { formatInputLocationMarkdown } from './input-diagnostics.lib.mjs';
 import { parseTelegramCommandPrefix } from './telegram-command-text.lib.mjs';
 import { extractIsolationFromArgs, isValidPerCommandIsolation } from './telegram-isolation.lib.mjs';
@@ -297,7 +297,7 @@ export function registerTaskCommands(bot, options) {
     try {
       await parseArgsWithYargs(filteredArgs, getLinoYargsFactory(), createTaskYargsConfig);
     } catch (error) {
-      await safeReply(ctx, `❌ Invalid options: ${escapeMarkdown(error.message || String(error))}\n\nUse /help to see available options`, { reply_to_message_id: ctx.message.message_id });
+      await safeReply(ctx, `❌ Invalid options: ${escapeMarkdownKeepingCodeSpans(error.message || String(error))}\n\nUse /help to see available options`, { reply_to_message_id: ctx.message.message_id });
       return;
     }
 

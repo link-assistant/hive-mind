@@ -1,0 +1,20 @@
+{
+  "body": "### Recent CI/CD runs on `main`\n\n| Workflow | Status | Conclusion | Commit | Run |\n| --- | --- | --- | --- | --- |\n| Example app | completed | failure | `829bf09` | [run](https://github.com/konard/voice-simulator/actions/runs/39097205073) |\n| Broken Link Checker | completed | success | `829bf09` | [run](https://github.com/konard/voice-simulator/actions/runs/39097205026) |\n| Checks and release | in_progress | in_progress | `829bf09` | [run](https://github.com/konard/voice-simulator/actions/runs/39097204951) |\n| Security | completed | failure | `829bf09` | [run](https://github.com/konard/voice-simulator/actions/runs/39097204907) |\n| Workflows | completed | success | `829bf09` | [run](https://github.com/konard/voice-simulator/actions/runs/39097205023) |\n\nUse all the best practices from CI/CD templates (check full file tree to compare for all GitHub workflow and CI/CD scripts file), if the same issue is found in template report issue also in templates:\n\n- https://github.com/link-foundation/js-ai-driven-development-pipeline-template\n\nWe should compare all files, so we don't have more CI/CD errors in the future and reuse all the best practices from these templates.\n\nFollow the CI/CD best practices collected in [https://github.com/link-assistant/hive-mind/blob/main/docs/CI-CD-BEST-PRACTICES.md](https://github.com/link-assistant/hive-mind/blob/main/docs/CI-CD-BEST-PRACTICES.md).\n\nPlease plan and execute everything in this single pull request, you have unlimited time and context, as context auto-compacts and you can continue indefinitely, until it is each and every requirement fully addressed, and everything is totally done.\n\n---\n\n<details>\n<summary>Context collected by <code>/fix --ci-cd</code></summary>\n\n- **Repository:** [konard/voice-simulator](https://github.com/konard/voice-simulator)\n- **Default branch:** `main`\n- **Latest commit:** `829bf09` ([commit](https://github.com/konard/voice-simulator/commit/829bf09eeb81f1db443efcddd336658e2327f9e0)) — Merge pull request #6 from konard/issue-5-02fb85270f61\n- **CI/CD runs found:** 5 (2 not passing)\n\n**Detected languages**\n\n- **JavaScript** — 96.2%\n- **Shell** — 3.5%\n- **WebAssembly** — 0.2%\n- **Dockerfile** — 0.0%\n\n**Recommended CI/CD templates**\n\nApply the best practices from these templates, in priority order (most-used language first):\n\n1. **JavaScript / TypeScript** — [link-foundation/js-ai-driven-development-pipeline-template](https://github.com/link-foundation/js-ai-driven-development-pipeline-template) _(detected: JavaScript)_\n\nOther detected languages without a dedicated template: Shell, WebAssembly, Dockerfile.\n\n</details>",
+  "comments": [
+    {
+      "id": "IC_kwDOVMlws88AAAABdEV4Sg",
+      "author": { "login": "konard" },
+      "authorAssociation": "OWNER",
+      "body": "## CI/CD on `main` finished before work started\n\nThe runs listed in the issue description were still in progress when it was created. Their latest results:\n\n- [Broken Link Checker](https://github.com/konard/voice-simulator/actions/runs/39097205026): `success` at `829bf09`\n- [Workflows](https://github.com/konard/voice-simulator/actions/runs/39097205023): `success` at `829bf09`\n- [Example app](https://github.com/konard/voice-simulator/actions/runs/39097205073): `failure` at `829bf09`\n- [Security](https://github.com/konard/voice-simulator/actions/runs/39097204907): `failure` at `829bf09`\n- [Checks and release](https://github.com/konard/voice-simulator/actions/runs/39097204951): `failure` at `829bf09`",
+      "createdAt": "2026-10-18T04:31:52Z",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": "",
+      "reactionGroups": [],
+      "url": "https://github.com/konard/voice-simulator/issues/7#issuecomment-6245677130",
+      "viewerDidAuthor": true
+    }
+  ],
+  "createdAt": "2026-10-18T04:30:46Z",
+  "title": "Check for all false positives, false negatives, warnings and errors in CI/CD and fix them all"
+}

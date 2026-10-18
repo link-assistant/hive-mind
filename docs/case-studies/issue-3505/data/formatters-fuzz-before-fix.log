@@ -1,0 +1,322 @@
+▶ formatters stay valid Telegram Markdown with hostile values (#3505)
+  ✖ formatRecoveryLifecycle: in_progress (7.879208ms)
+  ✔ formatTokenList: in_progress (1.633677ms)
+  ✔ /fix progress: in_progress (2.486028ms)
+  ✔ work session messages: in_progress (1.701163ms)
+  ✔ queue warning and error lines: in_progress (4.303558ms)
+  ✖ formatRecoveryLifecycle: a*b (0.864782ms)
+  ✔ formatTokenList: a*b (3.478037ms)
+  ✔ /fix progress: a*b (3.298383ms)
+  ✔ work session messages: a*b (1.936954ms)
+  ✔ queue warning and error lines: a*b (0.724722ms)
+  ✖ formatRecoveryLifecycle: x`y (0.634313ms)
+  ✔ formatTokenList: x`y (0.280644ms)
+  ✔ /fix progress: x`y (2.004749ms)
+  ✔ work session messages: x`y (0.426126ms)
+  ✔ queue warning and error lines: x`y (0.205974ms)
+  ✖ formatRecoveryLifecycle: [label (0.598678ms)
+  ✖ formatTokenList: [label (0.499332ms)
+  ✔ /fix progress: [label (1.24857ms)
+  ✔ work session messages: [label (0.344363ms)
+  ✔ queue warning and error lines: [label (0.802627ms)
+  ✔ formatRecoveryLifecycle: snake_case_name (0.458336ms)
+  ✔ formatTokenList: snake_case_name (0.188622ms)
+  ✔ /fix progress: snake_case_name (0.26291ms)
+  ✔ work session messages: snake_case_name (0.267671ms)
+  ✔ queue warning and error lines: snake_case_name (0.180357ms)
+  ✖ formatRecoveryLifecycle: https://github.com/o/my_repo/issues/1 (0.411106ms)
+  ✔ formatTokenList: https://github.com/o/my_repo/issues/1 (1.208985ms)
+  ✔ /fix progress: https://github.com/o/my_repo/issues/1 (0.596973ms)
+  ✔ work session messages: https://github.com/o/my_repo/issues/1 (0.271527ms)
+  ✔ queue warning and error lines: https://github.com/o/my_repo/issues/1 (0.176479ms)
+  ✖ formatRecoveryLifecycle: one_two*three`four[five (1.529594ms)
+  ✖ formatTokenList: one_two*three`four[five (0.634163ms)
+  ✔ /fix progress: one_two*three`four[five (3.257607ms)
+  ✔ work session messages: one_two*three`four[five (0.351255ms)
+  ✔ queue warning and error lines: one_two*three`four[five (0.130363ms)
+  ✖ "Did you mean" suggestion with a backtick stays inside its code span (8.162467ms)
+✖ formatters stay valid Telegram Markdown with hostile values (#3505) (59.073744ms)
+ℹ tests 36
+ℹ suites 1
+ℹ pass 27
+ℹ fail 9
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1828.543159
+
+✖ failing tests:
+
+test at tests/telegram-markdown-formatters-fuzz-3505.test.mjs:36:5
+✖ formatRecoveryLifecycle: in_progress (7.879208ms)
+  AssertionError [ERR_ASSERTION]: recovery waiting must parse as Telegram Markdown:
+  ⏳ Recovery scheduled (attempt 1)
+  Updated: in_progress
+  Attempt started: in_progress
+  Recovery session: in_progress
+  Previous session: in_progress
+  Execution / log: in_progress
+  Waiting 1 seconds before launch.
+  This attempt exited with code 1.
+  Reason: in_progress
+  A further recovery was launched as in_progress; its outcome is pending.
+  {"valid":false,"description":"Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 297","byteOffset":297,"context":"\"ther recovery was launched as in_progress; its outcome is pendin\""}
+  
+  false !== true
+  
+      at assertParses (file:///tmp/gh-issue-solver-1792298298097/tests/telegram-markdown-formatters-fuzz-3505.test.mjs:31:10)
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792298298097/tests/telegram-markdown-formatters-fuzz-3505.test.mjs:39:9)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at node:internal/test_runner/test:1903:71
+      at node:internal/per_context/primordials:505:82
+      at new Promise (<anonymous>)
+      at new SafePromise (node:internal/per_context/primordials:479:3)
+      at node:internal/per_context/primordials:505:9 {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/telegram-markdown-formatters-fuzz-3505.test.mjs:36:5
+✖ formatRecoveryLifecycle: a*b (0.864782ms)
+  AssertionError [ERR_ASSERTION]: recovery waiting must parse as Telegram Markdown:
+  ⏳ Recovery scheduled (attempt 1)
+  Updated: a*b
+  Attempt started: a*b
+  Recovery session: a*b
+  Previous session: a*b
+  Execution / log: a*b
+  Waiting 1 seconds before launch.
+  This attempt exited with code 1.
+  Reason: a*b
+  A further recovery was launched as a*b; its outcome is pending.
+  {"valid":false,"description":"Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 248","byteOffset":248,"context":"\"rther recovery was launched as a*b; its outcome is pending.\""}
+  
+  false !== true
+  
+      at assertParses (file:///tmp/gh-issue-solver-1792298298097/tests/telegram-markdown-formatters-fuzz-3505.test.mjs:31:10)
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792298298097/tests/telegram-markdown-formatters-fuzz-3505.test.mjs:39:9)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Suite.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/telegram-markdown-formatters-fuzz-3505.test.mjs:36:5
+✖ formatRecoveryLifecycle: x`y (0.634313ms)
+  AssertionError [ERR_ASSERTION]: recovery waiting must parse as Telegram Markdown:
+  ⏳ Recovery scheduled (attempt 1)
+  Updated: x`y
+  Attempt started: x`y
+  Recovery session: x`y
+  Previous session: x`y
+  Execution / log: x`y
+  Waiting 1 seconds before launch.
+  This attempt exited with code 1.
+  Reason: x`y
+  A further recovery was launched as x`y; its outcome is pending.
+  {"valid":false,"description":"Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 248","byteOffset":248,"context":"\"rther recovery was launched as x`y; its outcome is pending.\""}
+  
+  false !== true
+  
+      at assertParses (file:///tmp/gh-issue-solver-1792298298097/tests/telegram-markdown-formatters-fuzz-3505.test.mjs:31:10)
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792298298097/tests/telegram-markdown-formatters-fuzz-3505.test.mjs:39:9)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Suite.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/telegram-markdown-formatters-fuzz-3505.test.mjs:36:5
+✖ formatRecoveryLifecycle: [label (0.598678ms)
+  AssertionError [ERR_ASSERTION]: recovery waiting must parse as Telegram Markdown:
+  ⏳ Recovery scheduled (attempt 1)
+  Updated: [label
+  Attempt started: [label
+  Recovery session: [label
+  Previous session: [label
+  Execution / log: [label
+  Waiting 1 seconds before launch.
+  This attempt exited with code 1.
+  Reason: [label
+  A further recovery was launched as [label; its outcome is pending.
+  {"valid":false,"description":"Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 44","byteOffset":44,"context":"\" scheduled (attempt 1)\\nUpdated: [label\\nAttempt started: [label\\nR\""}
+  
+  false !== true
+  
+      at assertParses (file:///tmp/gh-issue-solver-1792298298097/tests/telegram-markdown-formatters-fuzz-3505.test.mjs:31:10)
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792298298097/tests/telegram-markdown-formatters-fuzz-3505.test.mjs:39:9)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Suite.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/telegram-markdown-formatters-fuzz-3505.test.mjs:43:5
+✖ formatTokenList: [label (0.499332ms)
+  AssertionError [ERR_ASSERTION]: token list must parse as Telegram Markdown:
+  🔐 *Active local tokens (masked):*
+  
+  • [label ([label): `ghp…nop`
+  
+  _Use this list to search public places (GitHub, Slack, etc.) for accidentally leaked tokens before they become a problem. Tokens are masked with first 3 + last 3 characters._
+  {"valid":false,"description":"Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 42","byteOffset":42,"context":"\"ve local tokens (masked):*\\n\\n• [label ([label): `ghp…nop`\\n\\n_U\""}
+  
+  false !== true
+  
+      at assertParses (file:///tmp/gh-issue-solver-1792298298097/tests/telegram-markdown-formatters-fuzz-3505.test.mjs:31:10)
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792298298097/tests/telegram-markdown-formatters-fuzz-3505.test.mjs:44:7)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Suite.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/telegram-markdown-formatters-fuzz-3505.test.mjs:36:5
+✖ formatRecoveryLifecycle: https://github.com/o/my_repo/issues/1 (0.411106ms)
+  AssertionError [ERR_ASSERTION]: recovery waiting must parse as Telegram Markdown:
+  ⏳ Recovery scheduled (attempt 1)
+  Updated: https://github.com/o/my_repo/issues/1
+  Attempt started: https://github.com/o/my_repo/issues/1
+  Recovery session: https://github.com/o/my_repo/issues/1
+  Previous session: https://github.com/o/my_repo/issues/1
+  Execution / log: https://github.com/o/my_repo/issues/1
+  Waiting 1 seconds before launch.
+  This attempt exited with code 1.
+  Reason: https://github.com/o/my_repo/issues/1
+  A further recovery was launched as https://github.com/o/my_repo/issues/1; its outcome is pending.
+  {"valid":false,"description":"Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 474","byteOffset":474,"context":"\"nched as https://github.com/o/my_repo/issues/1; its outcome is p\""}
+  
+  false !== true
+  
+      at assertParses (file:///tmp/gh-issue-solver-1792298298097/tests/telegram-markdown-formatters-fuzz-3505.test.mjs:31:10)
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792298298097/tests/telegram-markdown-formatters-fuzz-3505.test.mjs:39:9)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Suite.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/telegram-markdown-formatters-fuzz-3505.test.mjs:36:5
+✖ formatRecoveryLifecycle: one_two*three`four[five (1.529594ms)
+  AssertionError [ERR_ASSERTION]: recovery waiting must parse as Telegram Markdown:
+  ⏳ Recovery scheduled (attempt 1)
+  Updated: one_two*three`four[five
+  Attempt started: one_two*three`four[five
+  Recovery session: one_two*three`four[five
+  Previous session: one_two*three`four[five
+  Execution / log: one_two*three`four[five
+  Waiting 1 seconds before launch.
+  This attempt exited with code 1.
+  Reason: one_two*three`four[five
+  A further recovery was launched as one_two*three`four[five; its outcome is pending.
+  {"valid":false,"description":"Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 187","byteOffset":187,"context":"\"ious session: one_two*three`four[five\\nExecution / log: one_two*t\""}
+  
+  false !== true
+  
+      at assertParses (file:///tmp/gh-issue-solver-1792298298097/tests/telegram-markdown-formatters-fuzz-3505.test.mjs:31:10)
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792298298097/tests/telegram-markdown-formatters-fuzz-3505.test.mjs:39:9)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Suite.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/telegram-markdown-formatters-fuzz-3505.test.mjs:43:5
+✖ formatTokenList: one_two*three`four[five (0.634163ms)
+  AssertionError [ERR_ASSERTION]: token list must parse as Telegram Markdown:
+  🔐 *Active local tokens (masked):*
+  
+  • one_two*three`four[five (one_two*three`four[five): `ghp…nop`
+  
+  _Use this list to search public places (GitHub, Slack, etc.) for accidentally leaked tokens before they become a problem. Tokens are masked with first 3 + last 3 characters._
+  {"valid":false,"description":"Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 74","byteOffset":74,"context":"\"one_two*three`four[five (one_two*three`four[five): `ghp…nop`\\n\\n\""}
+  
+  false !== true
+  
+      at assertParses (file:///tmp/gh-issue-solver-1792298298097/tests/telegram-markdown-formatters-fuzz-3505.test.mjs:31:10)
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792298298097/tests/telegram-markdown-formatters-fuzz-3505.test.mjs:44:7)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Suite.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/telegram-markdown-formatters-fuzz-3505.test.mjs:67:3
+✖ "Did you mean" suggestion with a backtick stays inside its code span (8.162467ms)
+  AssertionError [ERR_ASSERTION]: https://github.com/own`er/repo/issues/1
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792298298097/tests/telegram-markdown-formatters-fuzz-3505.test.mjs:70:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Suite.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

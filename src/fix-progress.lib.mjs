@@ -6,7 +6,9 @@
  * CI/CD to finish before starting `/solve`. That wait can take many minutes,
  * during which the Telegram reply used to say only "⏳ Executing...". `fix.mjs`
  * now prints one `[HIVE-MIND FIX] {json}` line per phase change / poll, and the
- * monitor turns the latest one into a visible status.
+ * monitor turns the latest one into a visible status: `🔄 Starting...` →
+ * `⏳ Waiting for CI/CD on ... branch to finish...` → `⏳ Executing...`
+ * (issue #3505).
  *
  * Kept free of GitHub/network imports so the Telegram bot can load it cheaply.
  */
@@ -63,55 +65,51 @@ function codeSpan(value) {
   return `\`${String(value ?? '').replace(/`/g, "'")}\``;
 }
 
-function describePending(pending = []) {
-  const list = Array.isArray(pending) ? pending : [];
-  const shown = list.slice(0, 5).map(item => `${codeSpan(item.name || 'workflow')} (${item.status || 'pending'})`);
-  if (list.length > shown.length) shown.push(`+${list.length - shown.length} more`);
-  return shown.join(', ');
-}
-
 /**
- * Status lines describing a `/fix` progress event, placed above the usual
- * session details of the Telegram reply.
+ * The one-line status a `/fix` progress event shows above the session details.
+ *
+ * Issue #3505: the reply goes `🔄 Starting...` → `⏳ Waiting for CI/CD...` →
+ * `⏳ Executing...`, one simple line per phase. The CI wait used to list every
+ * pending workflow and a "waited X of Y" timer, and its outcome stayed in the
+ * reply for the whole task; none of that is worth a permanent line (the CI/CD
+ * results are commented on the issue instead). The issue link is not part of
+ * the status either: it lives in the info block, under the repository line.
+ * @telegram-markdown
  */
 export function formatFixProgressStatus(event, { locale = null } = {}) {
   if (!event) return null;
-  const branch = codeSpan(event.branch || 'default branch');
-  const lines = [];
   if (event.phase === 'waiting-for-ci') {
-    lines.push(text(locale, 'telegram.fix.waiting_for_ci', '⏳ Waiting for CI/CD on {{branch}} to finish before starting the task...', { branch }));
-    const pending = describePending(event.pending);
-    if (pending) lines.push(`🔄 ${text(locale, 'telegram.fix.ci_pending_label', 'Running')}: ${pending}`);
-    if (Number.isFinite(event.waitedMs)) {
-      const waited = formatDurationShort(event.waitedMs);
-      lines.push(Number.isFinite(event.timeoutMs) ? text(locale, 'telegram.fix.ci_waited_of', '⏱ Waited {{waited}} of {{timeout}}', { waited, timeout: formatDurationShort(event.timeoutMs) }) : `⏱ ${waited}`);
-    }
-  } else if (event.phase === 'ci-finished') {
-    lines.push(formatCiOutcomeLine(event, { locale, branch }));
-  } else if (event.phase === 'issue-created') {
-    lines.push(text(locale, 'telegram.fix.issue_created', '📝 Issue created, preparing to start the task...'));
-  } else {
-    lines.push(text(locale, 'telegram.work_session_executing', '⏳ Executing...'));
-    if (event.ciOutcome) lines.push(formatCiOutcomeLine({ ...event, outcome: event.ciOutcome }, { locale, branch }));
+    if (!event.branch) return text(locale, 'telegram.fix.waiting_for_ci_default_branch', '⏳ Waiting for CI/CD on the default branch to finish...');
+    return text(locale, 'telegram.fix.waiting_for_ci', '⏳ Waiting for CI/CD on {{branch}} branch to finish...', { branch: codeSpan(event.branch) });
   }
-  if (event.issueUrl) lines.push(`📝 ${text(locale, 'telegram.fix.issue_label', 'Issue')}: ${event.issueUrl}`);
-  return lines.join('\n');
+  if (event.phase === 'solving') return text(locale, 'telegram.work_session_executing', '⏳ Executing...');
+  // `issue-created` and `ci-finished`: the task itself has not started yet.
+  return text(locale, 'telegram.work_session_starting', '🔄 Starting...');
 }
 
-function formatCiOutcomeLine(event, { locale, branch }) {
-  const waited = Number.isFinite(event.waitedMs) && event.waitedMs > 0 ? ` (${formatDurationShort(event.waitedMs)})` : '';
-  if (event.outcome === 'timeout') return text(locale, 'telegram.fix.ci_wait_timeout', '⚠️ CI/CD on {{branch}} was still running after {{timeout}}; starting the task anyway', { branch, timeout: formatDurationShort(event.timeoutMs) });
-  if (event.outcome === 'unknown') return text(locale, 'telegram.fix.ci_wait_unknown', '⚠️ Could not check CI/CD on {{branch}}; starting the task anyway', { branch });
-  if (event.outcome === 'skipped') return text(locale, 'telegram.fix.ci_wait_skipped', 'ℹ️ Not waiting for CI/CD on {{branch}} (--no-wait-for-ci)', { branch });
-  if (event.outcome === 'idle') return text(locale, 'telegram.fix.ci_idle', '✅ No CI/CD running on {{branch}}', { branch });
-  return `${text(locale, 'telegram.fix.ci_finished', '✅ CI/CD on {{branch}} finished', { branch })}${waited}`;
+/** `infoBlock` with the `/fix` issue line placed right under the repository line. @telegram-markdown */
+export function addFixIssueToInfoBlock(infoBlock, issueUrl, { locale = null } = {}) {
+  const block = String(infoBlock || '');
+  if (!issueUrl || block.includes(issueUrl) || block.includes(escapeMarkdown(issueUrl))) return block;
+  return insertInfoBlockUrlLine(block, `${text(locale, 'telegram.fix.issue_label', 'Issue')}: ${escapeMarkdown(issueUrl)}`, { locale });
 }
 
-/** The full Telegram reply text for a running `/fix` session. */
+/** The full Telegram reply text for a running `/fix` session. @telegram-markdown */
 export function formatFixProgressMessage({ event, sessionName, sessionInfo = {}, locale = null }) {
   const status = formatFixProgressStatus(event, { locale });
   if (!status) return null;
   return formatExecutingWorkSessionMessage({ sessionName, executionUuid: sessionInfo.executionUuid || null, isolationBackend: sessionInfo.isolationBackend || null, infoBlock: sessionInfo.infoBlock || '', locale, header: status });
+}
+
+/**
+ * The running reply of a launched `/fix` session: its latest progress status,
+ * or `🔄 Starting...` until the first marker. `/fix` creates an issue and waits
+ * for CI/CD before the task runs, so "⏳ Executing..." appears only once the
+ * `solving` marker was seen (issue #3505).
+ * @telegram-markdown
+ */
+export function formatLaunchedFixMessage({ sessionName, sessionInfo = {}, locale = null }) {
+  return formatFixProgressMessage({ event: sessionInfo.fixProgress?.event || { phase: 'issue-created' }, sessionName, sessionInfo, locale });
 }
 
 /**
@@ -128,35 +126,43 @@ export async function reportFixProgress({ bot, sessionName, sessionInfo, statusR
     if (state.done) return null;
     const logPath = statusResult?.logPath || sessionInfo.logPath || null;
     if (!logPath) return null;
-    const event = parseFixProgressEvent(await readTail(logPath, { maxBytes: FIX_PROGRESS_TAIL_BYTES }));
+    let event = parseFixProgressEvent(await readTail(logPath, { maxBytes: FIX_PROGRESS_TAIL_BYTES }));
     if (!event) {
+      if (!state.phase) return null;
       // Markers are printed before /solve starts; once its output pushed them
-      // out of the tail there is nothing left to report.
-      if (state.phase) {
+      // out of the tail, /solve is running. Issue #3505: a `solving` marker that
+      // scrolled out between two ticks must not leave the reply on "Waiting for
+      // CI/CD" for the whole task, so show "Executing" once before stopping.
+      if (state.phase === 'solving') {
         sessionInfo.fixProgress = { ...state, done: true };
         persist();
+        return null;
       }
-      return null;
+      if (verbose) console.log(`[VERBOSE] [fix-progress] ${sessionName}: markers left the log tail after '${state.phase}'; /solve is running`);
+      event = { ...(state.event || {}), phase: 'solving', issueUrl: state.issueUrl || state.event?.issueUrl || null };
     }
-    const key = JSON.stringify([event.phase, event.issueUrl || null, event.outcome || event.ciOutcome || null, (event.pending || []).map(item => `${item.name}:${item.status}`), event.phase === 'waiting-for-ci' ? Math.floor((event.waitedMs || 0) / 60000) : 0]);
+    // Issue #3505: each status is one line, so only a new phase is worth an
+    // edit; repeated CI polls of the same phase change nothing on screen.
+    const key = JSON.stringify([event.phase, event.issueUrl || null]);
     if (key === state.key) return null;
-    const message = formatFixProgressMessage({ event, sessionName, sessionInfo, locale: sessionInfo.locale || null });
+    const locale = sessionInfo.locale || null;
+    // Issue #3505: the issue link goes into the info block with the first
+    // marker that names it, under `Repository:`, and stays there unchanged
+    // through every later status and the completion message.
+    const infoBlock = addFixIssueToInfoBlock(sessionInfo.infoBlock, event.issueUrl, { locale });
+    const message = formatFixProgressMessage({ event, sessionName, sessionInfo: { ...sessionInfo, infoBlock }, locale });
     if (!message || !bot?.telegram || !sessionInfo.messageId) return null;
     let delivered = false;
     try {
-      await safeEditMessageText(bot.telegram, sessionInfo.chatId, sessionInfo.messageId, undefined, message, { locale: sessionInfo.locale, verbose });
+      await safeEditMessageText(bot.telegram, sessionInfo.chatId, sessionInfo.messageId, undefined, message, { locale, verbose });
       delivered = true;
     } catch (error) {
       if (/message is not modified/i.test(error?.message || '')) delivered = true;
       else console.warn(`[fix-progress] Telegram update failed for ${sessionName}: ${error?.message || error}`);
     }
     if (delivered) {
-      // Keep the issue link in the completion message once live updates stop.
-      // Issue #3469: placed after the `Repository:` line, not after the options.
-      const infoBlock = String(sessionInfo.infoBlock || '');
-      if (event.phase === 'solving' && event.issueUrl && !infoBlock.includes(event.issueUrl) && !infoBlock.includes(escapeMarkdown(event.issueUrl))) {
-        sessionInfo.infoBlock = insertInfoBlockUrlLine(infoBlock, `${text(sessionInfo.locale || null, 'telegram.fix.issue_label', 'Issue')}: ${escapeMarkdown(event.issueUrl)}`, { locale: sessionInfo.locale || null });
-      }
+      // Kept for the completion message once live updates stop (issue #3469).
+      sessionInfo.infoBlock = infoBlock;
       // Issue #3469: the issue URL and last event let the monitor resolve the
       // session's PR and redraw this status when the PR link is added.
       sessionInfo.fixProgress = { phase: event.phase, key, issueUrl: event.issueUrl || null, event, done: event.phase === 'solving' };

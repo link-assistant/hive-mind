@@ -178,7 +178,7 @@ const limitsLib = await import('./limits.lib.mjs');
 const { formatUsageMessage, formatCodexLimitsSection, getAllCachedLimits } = limitsLib;
 const { handleShowLimitsFlag, captureStartSnapshotAndAppend } = await import('./telegram-show-limits.lib.mjs'); // #594
 const { getVersionInfo, formatVersionMessage } = await import('./version-info.lib.mjs');
-const { escapeMarkdown, escapeMarkdownV2, cleanNonPrintableChars } = await import('./telegram-markdown.lib.mjs');
+const { escapeMarkdown, escapeMarkdownKeepingCodeSpans, escapeMarkdownV2, cleanNonPrintableChars } = await import('./telegram-markdown.lib.mjs');
 const { revealHiddenCharacters } = await import('./github-url-recovery.lib.mjs'); // #2194
 
 const { getSolveQueue, createQueueExecuteCallback } = await import('./telegram-solve-queue.lib.mjs');
@@ -588,9 +588,9 @@ async function handleSolveCommand(ctx) {
   // and solves that issue, so a single pull request can close all of them.
   const validation = await validateGitHubUrl(userArgs, { allowedTypes: ['issue', 'pull', 'repo'], createYargsConfig: createSolveYargsConfig, positionalNames: ['issue-url'], locale: solveLocale });
   if (!validation.valid) {
-    let errorMsg = `❌ ${validation.error}`;
+    let errorMsg = `❌ ${validation.error}`; // telegram-markdown-ok: validateTelegramGitHubUrl returns escaped Markdown
     if (validation.suggestion) {
-      errorMsg += `\n\n${t('telegram.did_you_mean', { suggestion: validation.suggestion }, { locale: solveLocale })}`;
+      errorMsg += `\n\n${t('telegram.did_you_mean', { suggestion: validation.suggestion }, { locale: solveLocale })}`; // telegram-markdown-ok: shown in a code span; validateTelegramGitHubUrl percent-encodes backticks
     }
     errorMsg += `\n\n${t('telegram.solve_invalid_url_help', {}, { locale: solveLocale })}`;
     await safeReply(ctx, errorMsg, { reply_to_message_id: ctx.message.message_id });
@@ -647,7 +647,7 @@ async function handleSolveCommand(ctx) {
   try {
     parsedSolveArgs = await parseArgsWithYargs(args, yargs, createSolveYargsConfig);
   } catch (error) {
-    await safeReply(ctx, t('telegram.invalid_options', { message: escapeMarkdown(error.message || String(error)) }, { locale: solveLocale }), {
+    await safeReply(ctx, t('telegram.invalid_options', { message: escapeMarkdownKeepingCodeSpans(error.message || String(error)) }, { locale: solveLocale }), {
       reply_to_message_id: ctx.message.message_id,
     });
     return;
@@ -701,7 +701,7 @@ async function handleSolveCommand(ctx) {
   const existingItem = solveQueue.findByUrl(normalizedUrl);
   if (existingItem) {
     const statusText = existingItem.status === 'starting' || existingItem.status === 'started' ? 'being processed' : 'already in the queue';
-    await safeReply(ctx, t('telegram.url_status_active', { statusText, url: escapeMarkdown(normalizedUrl), status: existingItem.status }, { locale: solveLocale }), { reply_to_message_id: ctx.message.message_id });
+    await safeReply(ctx, t('telegram.url_status_active', { statusText, url: escapeMarkdown(normalizedUrl), status: existingItem.status }, { locale: solveLocale }), { reply_to_message_id: ctx.message.message_id }); // telegram-markdown-ok: status is a QueueItemStatus value (queued, waiting, starting, ...)
     return;
   }
   // The launch below runs in the background, so a second command for the same
@@ -715,7 +715,7 @@ async function handleSolveCommand(ctx) {
     // Issue #1567: Prevent concurrent sessions on the same PR/issue
     const activeSession = await hasActiveSessionForUrlAsync(normalizedUrl, VERBOSE);
     if (activeSession.isActive) {
-      await safeReply(ctx, t('telegram.url_session_running', { url: escapeMarkdown(normalizedUrl), session: activeSession.sessionName }, { locale: solveLocale }), { reply_to_message_id: ctx.message.message_id });
+      await safeReply(ctx, t('telegram.url_session_running', { url: escapeMarkdown(normalizedUrl), session: activeSession.sessionName }, { locale: solveLocale }), { reply_to_message_id: ctx.message.message_id }); // telegram-markdown-ok: telegram.url_session_running shows the session name in a code span
       return;
     }
     const queueStats = solveQueue.getStats();
@@ -839,8 +839,8 @@ async function handleHiveCommand(ctx) {
   // Issue #1102: Allow issues_list/pulls_list URLs and normalize to repo URLs
   const validation = await validateGitHubUrl(userArgs, { allowedTypes: ['repo', 'organization', 'user', 'issues_list', 'pulls_list'], commandName: 'hive', createYargsConfig: createHiveYargsConfig, positionalNames: ['github-url'], locale: hiveLocale });
   if (!validation.valid) {
-    let errorMsg = `❌ ${validation.error}`;
-    if (validation.suggestion) errorMsg += `\n\n${t('telegram.did_you_mean', { suggestion: validation.suggestion }, { locale: hiveLocale })}`;
+    let errorMsg = `❌ ${validation.error}`; // telegram-markdown-ok: validateTelegramGitHubUrl returns escaped Markdown
+    if (validation.suggestion) errorMsg += `\n\n${t('telegram.did_you_mean', { suggestion: validation.suggestion }, { locale: hiveLocale })}`; // telegram-markdown-ok: shown in a code span; validateTelegramGitHubUrl percent-encodes backticks
     errorMsg += `\n\n${t('telegram.hive_invalid_url_help', {}, { locale: hiveLocale })}`;
     await safeReply(ctx, errorMsg, { reply_to_message_id: ctx.message.message_id });
     return;
@@ -893,7 +893,7 @@ async function handleHiveCommand(ctx) {
   try {
     await parseArgsWithYargs(args, yargs, createHiveYargsConfig);
   } catch (error) {
-    await safeReply(ctx, t('telegram.invalid_options', { message: escapeMarkdown(error.message || String(error)) }, { locale: hiveLocale }), {
+    await safeReply(ctx, t('telegram.invalid_options', { message: escapeMarkdownKeepingCodeSpans(error.message || String(error)) }, { locale: hiveLocale }), {
       reply_to_message_id: ctx.message.message_id,
     });
     return;
@@ -944,7 +944,7 @@ const { registerLeakNotifier } = await import('./telegram-leak-notifier.lib.mjs'
 registerLeakNotifier(async ({ owner, repo, prNumber, tokenHits = [] }) => {
   if (!allowedChats || allowedChats.length === 0) return;
   const where = prNumber ? `${owner}/${repo}#${prNumber}` : `${owner}/${repo}`;
-  const sources = tokenHits.length ? tokenHits.map(h => `${h.name} (${h.source})`).join(', ') : 'unknown';
+  const sources = tokenHits.length ? tokenHits.map(h => `${escapeMarkdown(h.name)} (${escapeMarkdown(h.source)})`).join(', ') : 'unknown';
   const text = `🚨 *Token-leak event*\n\nA known local token was about to be published in *${where}* and was masked by the sanitizer just in time.\n\nTokens detected: ${sources}\n\nRotate the affected secret(s) now and check public surfaces (GitHub comments, gists, Slack) for any prior copies.`;
   for (const chatId of allowedChats) {
     try {

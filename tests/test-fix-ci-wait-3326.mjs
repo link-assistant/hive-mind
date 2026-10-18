@@ -222,17 +222,14 @@ await test('formatDurationShort', () => {
   assert.equal(formatDurationShort(3_600_000), '1h 0m');
 });
 
-await test('formatFixProgressStatus shows a separate waiting-for-CI/CD status', () => {
+await test('formatFixProgressStatus shows a separate, simple waiting-for-CI/CD status (issue #3505)', () => {
   const waiting = formatFixProgressStatus({ phase: 'waiting-for-ci', branch: 'main', pending: [{ name: 'CI/CD Pipeline', status: 'in_progress' }], waitedMs: 90_000, timeoutMs: 3_600_000, issueUrl: 'https://github.com/owner/repo/issues/3' });
-  assert.match(waiting, /^⏳ Waiting for CI\/CD on `main` to finish before starting the task\.\.\./);
-  assert.match(waiting, /🔄 Running: `CI\/CD Pipeline` \(in_progress\)/);
-  assert.match(waiting, /⏱ Waited 1m 30s of 1h 0m/);
-  assert.match(waiting, /📝 Issue: https:\/\/github\.com\/owner\/repo\/issues\/3/);
-  assert.match(formatFixProgressStatus({ phase: 'ci-finished', branch: 'main', outcome: 'finished', waitedMs: 120_000 }), /✅ CI\/CD on `main` finished \(2m 0s\)/);
-  assert.match(formatFixProgressStatus({ phase: 'ci-finished', branch: 'main', outcome: 'timeout', timeoutMs: 1_800_000 }), /still running after 30m 0s; starting the task anyway/);
-  const solving = formatFixProgressStatus({ phase: 'solving', branch: 'main', ciOutcome: 'idle', issueUrl: 'https://github.com/owner/repo/issues/3' });
-  assert.match(solving, /^⏳ Executing\.\.\.\n✅ No CI\/CD running on `main`/);
-  assert.match(formatFixProgressStatus({ phase: 'solving', branch: 'main', ciOutcome: 'skipped' }), /--no-wait-for-ci/);
+  // Issue #3505: one line, no pending run list, no timer, no issue line.
+  assert.equal(waiting, '⏳ Waiting for CI/CD on `main` branch to finish...');
+  assert.equal(formatFixProgressStatus({ phase: 'waiting-for-ci', pending: [] }), '⏳ Waiting for CI/CD on the default branch to finish...');
+  assert.equal(formatFixProgressStatus({ phase: 'issue-created', branch: 'main', issueUrl: 'https://github.com/owner/repo/issues/3' }), '🔄 Starting...');
+  for (const outcome of ['finished', 'timeout', 'idle', 'unknown']) assert.equal(formatFixProgressStatus({ phase: 'ci-finished', branch: 'main', outcome, waitedMs: 120_000, timeoutMs: 1_800_000 }), '🔄 Starting...');
+  for (const ciOutcome of ['finished', 'timeout', 'idle', 'unknown', 'skipped']) assert.equal(formatFixProgressStatus({ phase: 'solving', branch: 'main', ciOutcome, waitedMs: 63_000, issueUrl: 'https://github.com/owner/repo/issues/3' }), '⏳ Executing...', `no permanent CI/CD line after ${ciOutcome}`);
   assert.equal(formatFixProgressStatus(null), null);
 });
 
@@ -250,7 +247,7 @@ await test('formatExecutingWorkSessionMessage accepts a custom status header', (
   const custom = formatExecutingWorkSessionMessage({ sessionName: 's1', infoBlock: 'Repo: x', header: '⏳ Waiting for CI/CD' });
   assert.match(custom, /^⏳ Waiting for CI\/CD/);
   assert.equal(custom.replace('⏳ Waiting for CI/CD', '⏳ Executing...'), plain);
-  assert.equal(formatFixProgressMessage({ event: { phase: 'issue-created' }, sessionName: 's1', sessionInfo: { infoBlock: 'Repo: x' } }), formatExecutingWorkSessionMessage({ sessionName: 's1', infoBlock: 'Repo: x', header: '📝 Issue created, preparing to start the task...' }));
+  assert.equal(formatFixProgressMessage({ event: { phase: 'issue-created' }, sessionName: 's1', sessionInfo: { infoBlock: 'Repo: x' } }), formatExecutingWorkSessionMessage({ sessionName: 's1', infoBlock: 'Repo: x', header: '🔄 Starting...' }));
 });
 
 function createMockBot() {
@@ -313,9 +310,22 @@ await test('reportFixProgress ignores non-/fix sessions, missing logs and never 
 
 await test('reportFixProgress marks progress done once markers scroll out of the tail', async () => {
   const bot = createMockBot();
-  const sessionInfo = { command: 'fix', chatId: 1, messageId: 2, fixProgress: { phase: 'waiting-for-ci', key: 'k' } };
+  const sessionInfo = { command: 'fix', chatId: 1, messageId: 2, fixProgress: { phase: 'solving', key: 'k' } };
   assert.equal(await reportFixProgress({ bot, sessionName: 's', sessionInfo, statusResult: { logPath: '/x' }, readTail: async () => 'solve output only' }), null);
   assert.equal(sessionInfo.fixProgress.done, true);
+  assert.equal(bot.edits.length, 0);
+});
+
+await test('reportFixProgress shows Executing when the solving marker scrolled out between ticks (issue #3505)', async () => {
+  const bot = createMockBot();
+  const issueUrl = 'https://github.com/owner/repo/issues/3';
+  const sessionInfo = { command: 'fix', chatId: 1, messageId: 2, infoBlock: `Repository: owner/repo\nIssue: ${issueUrl}`, fixProgress: { phase: 'waiting-for-ci', key: 'k', issueUrl, event: { phase: 'waiting-for-ci', branch: 'main', issueUrl } } };
+  const message = await reportFixProgress({ bot, sessionName: 's', sessionInfo, statusResult: { logPath: '/x' }, readTail: async () => 'solve output only' });
+  assert.match(message, /^⏳ Executing\.\.\./);
+  assert.equal(sessionInfo.fixProgress.done, true);
+  assert.equal(sessionInfo.infoBlock.split(issueUrl).length, 2, 'the issue line is not duplicated');
+  assert.equal(await reportFixProgress({ bot, sessionName: 's', sessionInfo, statusResult: { logPath: '/x' }, readTail: async () => 'solve output only' }), null);
+  assert.equal(bot.edits.length, 1);
 });
 
 await test('session monitor calls reportFixProgress for running sessions', async () => {

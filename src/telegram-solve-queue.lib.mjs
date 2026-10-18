@@ -15,6 +15,7 @@ export { formatDuration, getRunningAgentProcesses, getRunningClaudeProcesses, ge
 import { collectExecutingItems, formatDuration, formatQueueToolSection, formatWaitingReason, getRunningAgentProcesses, getRunningClaudeProcesses, getRunningCodexProcesses, getRunningGeminiProcesses, getRunningProcesses, getRunningQwenProcesses, getRunningSessionItems, groupQueueItemsByTool, normalizeQueueUrl, partitionQueueHistory, reportDequeueDecision } from './telegram-solve-queue.helpers.lib.mjs';
 export { QUEUE_CONFIG, THRESHOLD_STRATEGIES } from './queue-config.lib.mjs';
 import { QUEUE_CONFIG } from './queue-config.lib.mjs';
+import { escapeMarkdown } from './telegram-markdown.lib.mjs';
 import { reserveStartSlotForQueue } from './queue-start-reservation.lib.mjs';
 import { classifySessionOutcome, formatExecutingWorkSessionMessage, formatFailedLaunchMessage, formatStartingWorkSessionMessage } from './work-session-formatting.lib.mjs';
 import { canonicalizeGitHubUrl as canonicalizeQueueUrl } from './github-url-parser.lib.mjs';
@@ -966,7 +967,7 @@ export class SolveQueue {
           if (chatId && messageId) {
             try {
               if (result.warning) {
-                await safeEditMessageText(item.ctx.telegram, chatId, messageId, undefined, `⚠️ ${result.warning}\n\n${item.infoBlock}`, buildQueueItemTelegramOptions(item, this.verbose));
+                await safeEditMessageText(item.ctx.telegram, chatId, messageId, undefined, `⚠️ ${escapeMarkdown(result.warning)}\n\n${item.infoBlock}`, buildQueueItemTelegramOptions(item, this.verbose));
               } else if (result.success) {
                 const response = formatExecutingWorkSessionMessage({
                   sessionName,
@@ -1008,7 +1009,7 @@ export class SolveQueue {
       const { chatId, messageId } = item.messageInfo || {};
       if (chatId && messageId && item.ctx) {
         try {
-          const errorText = item.infoBlock ? `❌ Error: ${error.message}\n\n${item.infoBlock}` : `❌ Error: ${error.message}`;
+          const errorText = item.infoBlock ? `❌ Error: ${escapeMarkdown(error.message)}\n\n${item.infoBlock}` : `❌ Error: ${escapeMarkdown(error.message)}`;
           await safeEditMessageText(item.ctx.telegram, chatId, messageId, undefined, errorText, buildQueueItemTelegramOptions(item, this.verbose));
         } catch (editError) {
           // Log the edit failure for debugging

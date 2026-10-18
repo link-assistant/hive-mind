@@ -18,7 +18,7 @@ import fsPromises from 'fs/promises';
 import { findLabeledSessionPullRequestUrl } from './session-own-pr.lib.mjs';
 import { safeEditMessageText } from './telegram-safe-reply.lib.mjs';
 import { appendPullRequestLine, formatExecutingWorkSessionMessage } from './work-session-formatting.lib.mjs';
-import { formatFixProgressMessage } from './fix-progress.lib.mjs';
+import { formatLaunchedFixMessage } from './fix-progress.lib.mjs';
 
 /** Bytes of new log text inspected per monitor tick. */
 export const LIVE_PR_SCAN_CHUNK_BYTES = 4 * 1024 * 1024;
@@ -74,16 +74,12 @@ export async function scanLogForLivePullRequestUrl(logPath, ctx, { fsImpl = fsPr
   }
 }
 
-/** The running reply with the PR line added to its info block. */
+/** The running reply with the PR line added to its info block. @telegram-markdown */
 export function formatLivePullRequestMessage({ sessionName, sessionInfo }) {
   const locale = sessionInfo.locale || null;
-  const fixEvent = sessionInfo.command === 'fix' ? sessionInfo.fixProgress?.event : null;
-  if (fixEvent) {
-    // The info block already carries the issue line once /fix reached `solving`.
-    const event = fixEvent.issueUrl && String(sessionInfo.infoBlock || '').includes(fixEvent.issueUrl) ? { ...fixEvent, issueUrl: null } : fixEvent;
-    const message = formatFixProgressMessage({ event, sessionName, sessionInfo, locale });
-    if (message) return message;
-  }
+  // Issue #3505: /fix keeps its own status line (its issue line is already in
+  // the info block, under the repository).
+  if (sessionInfo.command === 'fix') return formatLaunchedFixMessage({ sessionName, sessionInfo, locale });
   return formatExecutingWorkSessionMessage({ sessionName, executionUuid: sessionInfo.executionUuid || null, isolationBackend: sessionInfo.isolationBackend || null, infoBlock: sessionInfo.infoBlock || '', locale });
 }
 

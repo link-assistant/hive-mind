@@ -4,8 +4,25 @@
  */
 
 /**
- * Escape special characters for Telegram's basic Markdown parser.
- * Only escapes underscore and asterisk to prevent parsing errors.
+ * Escape special characters for Telegram's basic (legacy) Markdown parser.
+ *
+ * Legacy Markdown has exactly four entity openers — `_`, `*`, `` ` `` and `[` —
+ * and each can be escaped with a backslash outside of an entity
+ * (https://core.telegram.org/bots/api#markdown-style). Any one left unescaped
+ * in dynamic text (a URL, a branch, a workflow status like `in_progress`) opens
+ * an entity that never closes, and Telegram rejects the whole message with
+ * "can't parse entities" (issues #580, #3505). Only `_` and `*` used to be
+ * escaped, so a stray backtick or bracket still broke the message.
+ *
+ * Use it for text placed at the top level of a message, not inside a code span
+ * or a link label: entity contents are verbatim, so the backslash would show.
+ *
+ * `\` itself is deliberately not escaped: legacy Markdown only treats it as an
+ * escape before those four openers, so any other `\` is shown as is and a `\\`
+ * would be shown doubled (experiments/issue-2301-codeql/backslash-escaping.mjs).
+ * CodeQL's js/incomplete-sanitization assumes `\` always escapes, which holds for
+ * MarkdownV2 but not for this legacy dialect, so the prefix is added per match.
+ *
  * @param {string} text - Text to escape
  * @returns {string} Escaped text safe for Markdown parse_mode
  */
@@ -13,9 +30,26 @@ export function escapeMarkdown(text) {
   if (!text || typeof text !== 'string') {
     return text;
   }
-  // Escape underscore and asterisk which are the most common issues in URLs
-  // These can cause "Can't find end of entity" errors when Telegram tries to parse them
-  return text.replace(/_/g, '\\_').replace(/\*/g, '\\*');
+  return text.replace(/[_*`[]/g, entityOpener => `\\${entityOpener}`);
+}
+
+/**
+ * Like escapeMarkdown, but keeps paired single-line code spans (`` `--model` ``)
+ * as code. For text that mixes user input with intentional code spans, such as
+ * a yargs error enhanced with "Did you mean `--model` option?". Everything
+ * outside a pair is escaped, including an unpaired backtick, so the result
+ * always parses (issue #3505).
+ * @param {string} text - Text to escape
+ * @returns {string} Escaped text safe for Markdown parse_mode
+ */
+export function escapeMarkdownKeepingCodeSpans(text) {
+  if (!text || typeof text !== 'string') {
+    return text;
+  }
+  return text
+    .split(/(`[^`\n]+`)/)
+    .map((part, index) => (index % 2 === 1 ? part : escapeMarkdown(part)))
+    .join('');
 }
 
 /**

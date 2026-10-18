@@ -676,15 +676,8 @@ en
         open
           issues "ℹ️ *Nothing to do*\n\n`{{repository}}` has no open issues. No work session was started."
     fix
-      waiting_for_ci "⏳ Waiting for CI/CD on {{branch}} to finish before starting the task..."
-      ci_pending_label "Running"
-      ci_waited_of "⏱ Waited {{waited}} of {{timeout}}"
-      ci_finished "✅ CI/CD on {{branch}} finished"
-      ci_idle "✅ No CI/CD running on {{branch}}"
-      ci_wait_timeout "⚠️ CI/CD on {{branch}} was still running after {{timeout}}; starting the task anyway"
-      ci_wait_unknown "⚠️ Could not check CI/CD on {{branch}}; starting the task anyway"
-      ci_wait_skipped "ℹ️ Not waiting for CI/CD on {{branch}} (--no-wait-for-ci)"
-      issue_created "📝 Issue created, preparing to start the task..."
+      waiting_for_ci "⏳ Waiting for CI/CD on {{branch}} branch to finish..."
+      waiting_for_ci_default_branch "⏳ Waiting for CI/CD on the default branch to finish..."
       issue_label "Issue"
     work
       session

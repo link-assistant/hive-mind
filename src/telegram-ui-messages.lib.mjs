@@ -8,18 +8,20 @@ function addLine(parts, key, params, locale) {
   parts.push(tr(key, params, locale));
 }
 
+// Every value is Markdown already: `requester` comes from buildUserMention and
+// callers pass `url`/`optionsRaw`/`lockedOptions` through escapeMarkdown.
 export function buildTelegramInfoBlock({ locale = null, requester = '', urlKind = 'url', url = '', optionsRaw = '', lockedOptions = '' } = {}) {
   const labelKey = urlKind === 'issue' ? 'telegram.info_issue_label' : urlKind === 'pullRequest' ? 'telegram.info_pull_request_label' : 'telegram.info_url_label';
-  let infoBlock = `${tr('telegram.info_requested_by_label', {}, locale)}: ${requester}\n${tr(labelKey, {}, locale)}: ${url}`;
-  if (optionsRaw) infoBlock += `\n\n${tr('telegram.info_options_label', {}, locale)}: ${optionsRaw}`;
-  if (lockedOptions) infoBlock += `${optionsRaw ? '\n' : '\n\n'}${tr('telegram.info_locked_options_label', {}, locale)}: ${lockedOptions}`;
+  let infoBlock = `${tr('telegram.info_requested_by_label', {}, locale)}: ${requester}\n${tr(labelKey, {}, locale)}: ${url}`; // telegram-markdown-ok: mention and escaped URL from the caller
+  if (optionsRaw) infoBlock += `\n\n${tr('telegram.info_options_label', {}, locale)}: ${optionsRaw}`; // telegram-markdown-ok: escaped by the caller
+  if (lockedOptions) infoBlock += `${optionsRaw ? '\n' : '\n\n'}${tr('telegram.info_locked_options_label', {}, locale)}: ${lockedOptions}`; // telegram-markdown-ok: escaped by the caller
   return infoBlock;
 }
 
 export function buildSolveQueuedMessage({ locale = null, tool = 'claude', position = 1, infoBlock = '', reason = '' } = {}) {
   let message = tr('telegram.solve_queued', { tool, position }, locale);
   if (infoBlock) message += `\n\n${infoBlock}`;
-  if (reason) message += `\n\n${tr('telegram.waiting_label', {}, locale)}: ${reason}`;
+  if (reason) message += `\n\n${tr('telegram.waiting_label', {}, locale)}: ${reason}`; // telegram-markdown-ok: the caller escapes the throttling reason
   return message;
 }
 

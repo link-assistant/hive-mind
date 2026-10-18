@@ -157,6 +157,7 @@ function formatCodexSnapshotCompact(snapshot, options = {}) {
 export function formatLimitsSnapshotBlock(snapshot, { title = null, locale = null } = {}) {
   if (!snapshot) return '';
   const heading = snapshot.toolKey === 'codex' ? 'Codex' : 'Claude';
+  // telegram-markdown-ok: titles are fixed emoji + locale strings from callers
   const localizedTitle = title || `📊 ${lt('limits_at_start', {}, { locale })}`;
   const body = snapshot.toolKey === 'codex' ? formatCodexSnapshotCompact(snapshot, { locale }) : formatClaudeSnapshotCompact(snapshot, { locale });
   return `${localizedTitle} (${heading})\n\`\`\`\n${body}\n\`\`\``;

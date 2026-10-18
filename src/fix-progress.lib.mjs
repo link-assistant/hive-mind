@@ -74,6 +74,7 @@ function codeSpan(value) {
  * reply for the whole task; none of that is worth a permanent line (the CI/CD
  * results are commented on the issue instead). The issue link is not part of
  * the status either: it lives in the info block, under the repository line.
+ * @telegram-markdown
  */
 export function formatFixProgressStatus(event, { locale = null } = {}) {
   if (!event) return null;
@@ -86,14 +87,14 @@ export function formatFixProgressStatus(event, { locale = null } = {}) {
   return text(locale, 'telegram.work_session_starting', '🔄 Starting...');
 }
 
-/** `infoBlock` with the `/fix` issue line placed right under the repository line. */
+/** `infoBlock` with the `/fix` issue line placed right under the repository line. @telegram-markdown */
 export function addFixIssueToInfoBlock(infoBlock, issueUrl, { locale = null } = {}) {
   const block = String(infoBlock || '');
   if (!issueUrl || block.includes(issueUrl) || block.includes(escapeMarkdown(issueUrl))) return block;
   return insertInfoBlockUrlLine(block, `${text(locale, 'telegram.fix.issue_label', 'Issue')}: ${escapeMarkdown(issueUrl)}`, { locale });
 }
 
-/** The full Telegram reply text for a running `/fix` session. */
+/** The full Telegram reply text for a running `/fix` session. @telegram-markdown */
 export function formatFixProgressMessage({ event, sessionName, sessionInfo = {}, locale = null }) {
   const status = formatFixProgressStatus(event, { locale });
   if (!status) return null;
@@ -105,6 +106,7 @@ export function formatFixProgressMessage({ event, sessionName, sessionInfo = {},
  * or `🔄 Starting...` until the first marker. `/fix` creates an issue and waits
  * for CI/CD before the task runs, so "⏳ Executing..." appears only once the
  * `solving` marker was seen (issue #3505).
+ * @telegram-markdown
  */
 export function formatLaunchedFixMessage({ sessionName, sessionInfo = {}, locale = null }) {
   return formatFixProgressMessage({ event: sessionInfo.fixProgress?.event || { phase: 'issue-created' }, sessionName, sessionInfo, locale });

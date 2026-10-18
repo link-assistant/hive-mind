@@ -12,7 +12,9 @@ export function validateTelegramGitHubUrl(rawUrl, { allowedTypes = ['issue', 'pu
   const reject = error => ({
     valid: false,
     error: `${error}\n\n${formatInputLocationMarkdown(url, parsed.inputLocation || { label: 'URL' })}`,
-    suggestion: parsed.suggestion,
+    // Shown in a code span (`telegram.did_you_mean`), where a backtick cannot be
+    // escaped and would end the span early (#3505); `%60` is the same URL.
+    suggestion: parsed.suggestion ? String(parsed.suggestion).replace(/`/g, '%60') : parsed.suggestion,
   });
   if (!namesGitHubHost(url)) return reject(t('telegram.first_arg_must_be_github_url', {}, { locale }));
   if (!parsed.valid) return reject(escapeMarkdown(parsed.error || 'Invalid GitHub URL'));

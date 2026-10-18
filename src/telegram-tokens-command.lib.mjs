@@ -25,6 +25,7 @@
 import { getAllKnownLocalTokens } from './token-sanitization.lib.mjs';
 import { maskToken } from './lib.mjs';
 import { safeReply } from './telegram-safe-reply.lib.mjs';
+import { escapeMarkdown } from './telegram-markdown.lib.mjs';
 
 /**
  * Resolve allowed chat IDs into an array of numeric IDs the user could own.
@@ -76,7 +77,7 @@ export const formatTokenList = tokens => {
   }
   const lines = tokens.map(t => {
     const masked = maskToken(t.value);
-    return `• ${t.name} (${t.source}): \`${masked}\``;
+    return `• ${escapeMarkdown(t.name)} (${escapeMarkdown(t.source)}): \`${masked}\``;
   });
   return ['🔐 *Active local tokens (masked):*', '', ...lines, '', '_Use this list to search public places (GitHub, Slack, etc.) for accidentally leaked tokens before they become a problem. Tokens are masked with first 3 + last 3 characters._'].join('\n');
 };

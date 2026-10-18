@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import { readLogTailText } from './log-bounded-read.lib.mjs';
 import { postKillRecoveryNotice } from './session-kill-recovery.lib.mjs';
 import { safeEditMessageText, safeSendMessage } from './telegram-safe-reply.lib.mjs';
+import { escapeMarkdown } from './telegram-markdown.lib.mjs';
 import { RECOVERY_LIFECYCLE_MARKER } from './tool-comments.lib.mjs';
 import { getSessionIssueContext } from './session-live-pr-link.lib.mjs';
 
@@ -28,22 +29,23 @@ export function parseRecoveryLogEvent(text) {
   return null;
 }
 
+/** @telegram-markdown Telegram legacy-Markdown text (issue #3505). */
 export function formatRecoveryLifecycle({ phase, attempt = null, sessionName = null, previousSession = null, executionUuid = null, at, startedAt = null, lastOutputAt = null, logAvailable = false, delayMs = null, exitCode = null, reason = null, nextSession = null, kind = 'container', outerTerminal = false } = {}) {
   const titles = { waiting: '⏳ Recovery scheduled', launching: '🔄 Recovery attempt launching — outcome pending', running: '🔄 Recovery attempt under monitoring — outcome pending', completed: '✅ Recovery attempt completed successfully', failed: '❌ Recovery attempt failed', stopped: '🛑 Recovery stopped by user', cancelled: '✅ Recovery cancelled — work already complete', unknown: '⚠️ Recovery session stopped — outcome unknown' };
-  const lines = [`${titles[phase] || titles.running}${attempt ? ` (attempt ${attempt})` : ''}`, `Updated: ${at}`];
-  if (startedAt) lines.push(`Attempt started: ${startedAt}`);
-  if (sessionName) lines.push(`Recovery session: ${sessionName}`);
-  if (previousSession) lines.push(`Previous session: ${previousSession}`);
-  if (executionUuid) lines.push(`Execution / log: ${executionUuid}`);
+  const lines = [`${titles[phase] || titles.running}${attempt ? ` (attempt ${attempt})` : ''}`, `Updated: ${escapeMarkdown(at)}`];
+  if (startedAt) lines.push(`Attempt started: ${escapeMarkdown(startedAt)}`);
+  if (sessionName) lines.push(`Recovery session: ${escapeMarkdown(sessionName)}`);
+  if (previousSession) lines.push(`Previous session: ${escapeMarkdown(previousSession)}`);
+  if (executionUuid) lines.push(`Execution / log: ${escapeMarkdown(executionUuid)}`);
   if (delayMs !== null) lines.push(`Waiting ${Math.round(delayMs / 1000)} seconds before launch.`);
   if (phase === 'running') {
-    lines.push(lastOutputAt ? `Execution log output observed at ${lastOutputAt}. Output alone does not establish commits or task progress.` : logAvailable ? 'No new execution output has been observed since monitoring this attempt began.' : 'The execution log is unavailable; activity cannot be confirmed.');
+    lines.push(lastOutputAt ? `Execution log output observed at ${escapeMarkdown(lastOutputAt)}. Output alone does not establish commits or task progress.` : logAvailable ? 'No new execution output has been observed since monitoring this attempt began.' : 'The execution log is unavailable; activity cannot be confirmed.');
     lines.push('No terminal outcome is confirmed. A quiet run may still be working or stalled.');
   }
   if (exitCode !== null) lines.push(`This attempt exited with code ${exitCode}.`);
-  if (reason) lines.push(`Reason: ${String(reason).slice(0, 500)}`);
+  if (reason) lines.push(`Reason: ${escapeMarkdown(String(reason).slice(0, 500))}`);
   if (phase === 'cancelled') lines.push('No recovery attempt was launched.');
-  if (nextSession) lines.push(`A further recovery was launched as ${nextSession}; its outcome is pending.`);
+  if (nextSession) lines.push(`A further recovery was launched as ${escapeMarkdown(nextSession)}; its outcome is pending.`);
   else if (['failed', 'stopped'].includes(phase) && kind === 'container') lines.push('This attempt has stopped. No replacement session was launched.');
   if (kind === 'tool' && ['completed', 'failed'].includes(phase)) lines.push(outerTerminal ? 'This is the final outcome of the enclosing solve run.' : 'This is the AI tool attempt result; the enclosing solve run is still under monitoring and reports its own final outcome.');
   return lines.join('\n');

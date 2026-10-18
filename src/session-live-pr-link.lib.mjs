@@ -74,7 +74,7 @@ export async function scanLogForLivePullRequestUrl(logPath, ctx, { fsImpl = fsPr
   }
 }
 
-/** The running reply with the PR line added to its info block. */
+/** The running reply with the PR line added to its info block. @telegram-markdown */
 export function formatLivePullRequestMessage({ sessionName, sessionInfo }) {
   const locale = sessionInfo.locale || null;
   // Issue #3505: /fix keeps its own status line (its issue line is already in

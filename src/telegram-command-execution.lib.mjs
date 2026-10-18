@@ -8,6 +8,7 @@ import { selectContainerResourceLimitsForBackend } from './container-resource-li
 import { markLaunchCompleted, markLaunchPending } from './session-monitor.launch-state.lib.mjs';
 import { parseScreenExitMarkerPath } from './start-screen-exit-marker.lib.mjs';
 import { formatLaunchedFixMessage } from './fix-progress.lib.mjs';
+import { escapeMarkdown } from './telegram-markdown.lib.mjs';
 
 const exec = promisify(execCallback);
 
@@ -176,7 +177,7 @@ export function buildExecuteAndUpdateMessage(deps) {
         trackSession(session, sessionInfo, VERBOSE);
       }
     }
-    if (result.warning) return safeEdit(`⚠️  ${result.warning}`);
+    if (result.warning) return safeEdit(`⚠️  ${escapeMarkdown(result.warning)}`);
     if (result.success) {
       // Issue #3505: a launched /fix first creates its issue and waits for
       // CI/CD; the session monitor shows "Executing" once the task starts.

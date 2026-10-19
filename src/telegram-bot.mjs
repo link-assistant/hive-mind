@@ -182,7 +182,7 @@ const { escapeMarkdown, escapeMarkdownKeepingCodeSpans, escapeMarkdownV2, cleanN
 const { revealHiddenCharacters } = await import('./github-url-recovery.lib.mjs'); // #2194
 
 const { getSolveQueue, createQueueExecuteCallback } = await import('./telegram-solve-queue.lib.mjs');
-const { createQueueRecoveryResourceGate } = await import('./session-kill-resume.resource-gate.lib.mjs');
+const { createQueueRecoveryResourceGate, findLaunchingQueueItem } = await import('./session-kill-resume.resource-gate.lib.mjs');
 const { applySolveToolAlias, getFirstParsedPositionalArg, getSolveCommandNameFromText, getSolveToolAliasFromText, moveArgumentToFront, parseArgsWithYargs, parseCommandArgs, SOLVE_COMMAND_NAMES } = await import('./telegram-solve-command.lib.mjs');
 const { preflightRepositoryTarget, redirectRepositoryArgsToSingleIssue } = await import('./telegram-solve-repository-preflight.lib.mjs');
 const { repositoryModeSelectionFromArgv } = await import('./solve.repository-mode.lib.mjs');
@@ -743,7 +743,7 @@ async function handleSolveCommand(ctx) {
     } else {
       if (!solveQueue.executeCallback) {
         const _t = (s, i) => trackSession(s, i, VERBOSE);
-        solveQueue.executeCallback = createIsolationAwareQueueCallback(ISOLATION_BACKEND, isolationRunner, _t, createQueueExecuteCallback(executeStartScreen, _t), VERBOSE, CONTAINER_RESOURCE_LIMITS);
+        solveQueue.executeCallback = createIsolationAwareQueueCallback(ISOLATION_BACKEND, isolationRunner, _t, createQueueExecuteCallback(executeStartScreen, _t), VERBOSE, CONTAINER_RESOURCE_LIMITS, url => hasActiveSessionForUrlAsync(url, VERBOSE));
       }
       const queueItem = solveQueue.enqueue({ url: normalizedUrl, args: argsWithLocale, ctx, requester, infoBlock, commandAlias: solveCommandName, tool: solveTool, perCommandIsolation: effectiveSolveIsolation, urlContext: solveUrlContext, showLimits: solveShowLimits, limitsAtStart: solveLimitsAtStart, locale: solveLocale });
       const queueMessage = buildSolveQueuedMessage({ locale: solveLocale, tool: solveTool, position: toolQueuedCount + 1, infoBlock, reason: check.reason ? escapeMarkdown(check.reason) : '' }); // tool-specific position (#1551)
@@ -1100,7 +1100,7 @@ function startSessionMonitoringOnce() {
   // working session when `--on-session-kill=resume` is in effect.
   // Issue #2801: it also applies and lifts the Docker task CPU penalty.
   // Issue #3530: a recovery waits behind the same resource gate as queued tasks.
-  sessionMonitoringTimer = startSessionMonitoring(bot, VERBOSE, 30000, { isolationRunner, cpuPenalty: CONTAINER_CPU_PENALTY, recoveryResourceGate: createQueueRecoveryResourceGate(() => getSolveQueue({ verbose: VERBOSE })) });
+  sessionMonitoringTimer = startSessionMonitoring(bot, VERBOSE, 30000, { isolationRunner, cpuPenalty: CONTAINER_CPU_PENALTY, recoveryResourceGate: createQueueRecoveryResourceGate(() => getSolveQueue({ verbose: VERBOSE })), findLaunchingSibling: url => findLaunchingQueueItem(getSolveQueue({ verbose: VERBOSE }), url) });
 }
 // Issue #2146 (PR #2147 review): stop the Formal AI sidecar once no Formal AI
 // task holds a lease, then — while the host is idle — update its image (with a

@@ -75,9 +75,19 @@ export async function resolveIsolation(perCommandIsolation, botIsolationBackend,
 /**
  * Create a queue execute callback that supports per-command isolation.
  * Falls back to the provided fallback callback when no isolation is active.
+ *
+ * Issue #3532: `/solve` refuses a URL with an active session when the command
+ * arrives, but a queued item starts later — by then a kill recovery may be
+ * working on the same pull request. `findActiveSessionForUrl` is asked again
+ * right before the launch, so two solves never run for one task.
  */
-export function createIsolationAwareQueueCallback(botIsolationBackend, botIsolationRunner, trackSession, fallbackCallback, verbose, containerResourceLimits = null) {
+export function createIsolationAwareQueueCallback(botIsolationBackend, botIsolationRunner, trackSession, fallbackCallback, verbose, containerResourceLimits = null, findActiveSessionForUrl = null) {
   return async item => {
+    const active = item.url && typeof findActiveSessionForUrl === 'function' ? await Promise.resolve(findActiveSessionForUrl(item.url)).catch(() => null) : null;
+    if (active?.isActive) {
+      if (verbose) console.log(`[VERBOSE] Queue item for ${item.url} not launched: session ${active.sessionName} is already working on it (issue #3532)`);
+      return { success: false, error: `session ${active.sessionName} is already working on ${item.url}; a second solve for the same task was not started` };
+    }
     const iso = await resolveIsolation(item.perCommandIsolation, botIsolationBackend, botIsolationRunner, verbose);
     if (iso) {
       const sid = iso.runner.generateSessionId();

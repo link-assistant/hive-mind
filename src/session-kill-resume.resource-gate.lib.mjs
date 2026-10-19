@@ -59,6 +59,23 @@ export function createQueueRecoveryResourceGate(getQueue) {
   };
 }
 
+/**
+ * Issue #3532: a queue item for the same URL that is being launched right now
+ * is not tracked yet, so the recovery's sibling check would miss it.
+ *
+ * @param {Object|null} queue - SolveQueue
+ * @param {string} url
+ * @returns {string|null} A name for the launching item, or null
+ */
+export function findLaunchingQueueItem(queue, url) {
+  try {
+    const item = queue?.findByUrl?.(url);
+    return item && queue.processing?.has?.(item.id) ? `queue item ${item.id}` : null;
+  } catch {
+    return null;
+  }
+}
+
 function describeGateResult(result) {
   if (!result) return 'the resource check returned no result';
   if (result.rejected) return result.rejectReason || 'the queue rejects new work right now';

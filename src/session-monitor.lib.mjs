@@ -1044,7 +1044,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
           sleep: options.sleepBeforeRecovery,
           // Issue #3530: wait for stable resources; #3532: never launch a second copy of running work.
           resourceGate: options.recoveryResourceGate || null,
-          findActiveSibling: (url, name) => findOtherActiveSessionForUrl(url, name, verbose),
+          findActiveSibling: async (url, name) => findOtherActiveSessionForUrl(url, name, verbose) || (await options.findLaunchingSibling?.(url)) || null,
           locale: sessionInfo?.locale || null,
           verbose,
         });

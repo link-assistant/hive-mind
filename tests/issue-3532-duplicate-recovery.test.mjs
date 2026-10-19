@@ -12,6 +12,8 @@ import assert from 'node:assert/strict';
 import { resolveSessionContainerName, resolveSessionContainerRoot, isContainerFamilyMember, parseRunningContainerFamily, probeSessionBackendAlive, findRunningSessionContainers, collectSessionContainerRoots, nextContainerNameHistory } from '../src/session-container-identity.lib.mjs';
 import { findRunningDuplicate, startKillRecoverySession } from '../src/session-kill-resume.lib.mjs';
 import { findOtherActiveSessionForUrl, resetSessionMonitorForTests, trackSession } from '../src/session-monitor.lib.mjs';
+import { createIsolationAwareQueueCallback } from '../src/telegram-isolation.lib.mjs';
+import { findLaunchingQueueItem } from '../src/session-kill-resume.resource-gate.lib.mjs';
 
 // The identifiers of the voice-simulator session from #3532.
 const CONTAINER = 'a84a2357-55f6-4a7e-9d1b-7c3c9a2c1f10';
@@ -143,4 +145,67 @@ test('a session waiting for its own recovery is not a live sibling, but its repl
   } finally {
     resetSessionMonitorForTests();
   }
+});
+
+test('a queued solve is checked again right before it launches', async () => {
+  const launched = [];
+  const fallback = async item => (launched.push(item.url), { success: true, output: 'session: s1' });
+  const busy = createIsolationAwareQueueCallback(
+    null,
+    null,
+    () => {},
+    fallback,
+    false,
+    null,
+    async () => ({ isActive: true, sessionName: 'recovery-1' })
+  );
+  const refused = await busy({ url: PR, args: [PR] });
+  assert.equal(refused.success, false);
+  assert.match(refused.error, /session recovery-1 is already working on .*pull\/7; a second solve for the same task was not started/);
+  assert.equal(launched.length, 0);
+  const idle = createIsolationAwareQueueCallback(
+    null,
+    null,
+    () => {},
+    fallback,
+    false,
+    null,
+    async () => ({ isActive: false })
+  );
+  assert.equal((await idle({ url: PR, args: [PR] })).success, true);
+  // A failing check never blocks the queue; without a checker nothing changes.
+  assert.equal(
+    (
+      await createIsolationAwareQueueCallback(
+        null,
+        null,
+        () => {},
+        fallback,
+        false,
+        null,
+        async () => Promise.reject(new Error('boom'))
+      )({ url: PR })
+    ).success,
+    true
+  );
+  assert.equal((await createIsolationAwareQueueCallback(null, null, () => {}, fallback, false)({ url: PR })).success, true);
+});
+
+test('a recovery sees a queue item for the same task that is being launched', () => {
+  const item = { id: 'q-7', url: PR };
+  const queue = { findByUrl: url => (url === PR ? item : null), processing: new Map([['q-7', item]]) };
+  assert.equal(findLaunchingQueueItem(queue, PR), 'queue item q-7');
+  assert.equal(findLaunchingQueueItem({ ...queue, processing: new Map() }, PR), null, 'a waiting item is refused at its own launch instead');
+  assert.equal(findLaunchingQueueItem(null, PR), null);
+  assert.equal(
+    findLaunchingQueueItem(
+      {
+        findByUrl: () => {
+          throw new Error('x');
+        },
+      },
+      PR
+    ),
+    null
+  );
 });

@@ -9,3 +9,5 @@ A push answered by GitHub with `remote: fatal error in commit_refs` / `[remote r
 - Push explanations no longer claim "the remote branch changed" when the remote branch does not exist.
 - The release version push retries such errors without rebasing, and the Helm `gh-pages` pushes retry them too.
 - In verbose mode, the push-rejection classification and the remote branch state are logged.
+
+Also brings the pins that the CI dependency-freshness gate reported as stale up to date: `start-command` 0.38.0 (all Dockerfiles), `links-notation` 0.27.1 (use-m pins), and the `ignore` lockfile entry 7.0.13.

@@ -22,6 +22,27 @@ import path from 'node:path';
 
 export const TASK_SESSION_ID_ENV = 'HIVE_MIND_TASK_SESSION_ID';
 
+/**
+ * Whether the launched command is one task whose AI session can take the task's
+ * id (issue #3530). `hive` runs many `solve` children, which must not share it.
+ */
+export function ownsTaskSessionId(command, sessionId) {
+  return Boolean(sessionId) && path.basename(String(command || '')) === 'solve';
+}
+
+/**
+ * One ID for every layer: `--session` names the screen/tmux session or docker
+ * container, and `--session-id` makes start-command use the same UUID for the
+ * execution record instead of generating a second one (issue #3530). With
+ * both set, `$ --status`, `$ --resume` and the container all answer to the
+ * task's UUID.
+ * @param {string} sessionId - The task's session UUID.
+ * @returns {string[]} The start-command identity flags.
+ */
+export function buildSessionIdentityArgs(sessionId) {
+  return ['--session', sessionId, '--session-id', sessionId];
+}
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**

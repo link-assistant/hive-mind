@@ -77,7 +77,8 @@ const DOCKER_ISOLATION_LOW_DISK_GIB = 40;
 // Docker-only start gate used to capture the container writable-layer baseline before the task command begins cloning or generating files. Unlimited tasks retain a timeout fallback so a parent exit cannot strand them. Resource-limited tasks fail closed and require an explicit release: a timeout could otherwise start user code after limit enforcement and container cleanup both failed.
 const DOCKER_START_GATE_WAIT_TENTHS = 300;
 import { shellQuote, buildShellCommand } from './shell-command.lib.mjs';
-import { TASK_SESSION_ID_ENV } from './task-session-id.lib.mjs';
+import { TASK_SESSION_ID_ENV, buildSessionIdentityArgs, ownsTaskSessionId } from './task-session-id.lib.mjs';
+export { buildSessionIdentityArgs, ownsTaskSessionId };
 function normalizeTool(tool) {
   return String(tool || 'claude')
     .trim()
@@ -344,26 +345,6 @@ export async function buildDockerIsolationStartArgs(command, args = [], options 
   const failClosedStartGate = hasContainerResourceLimits(options.containerResourceLimits);
   startArgs.push('--detached', ...buildSessionIdentityArgs(sessionId), '--', buildDockerStartGatedCommand(taskCommand, sessionId, { failClosed: failClosedStartGate }));
   return startArgs;
-}
-/**
- * Whether the launched command is one task whose AI session can take the task's
- * id (issue #3530). `hive` runs many `solve` children, which must not share it.
- */
-export function ownsTaskSessionId(command, sessionId) {
-  return Boolean(sessionId) && path.basename(String(command || '')) === 'solve';
-}
-
-/**
- * One ID for every layer: `--session` names the screen/tmux session or docker
- * container, and `--session-id` makes start-command use the same UUID for the
- * execution record instead of generating a second one (issue #3530). With
- * both set, `$ --status`, `$ --resume` and the container all answer to the
- * task's UUID.
- * @param {string} sessionId - The task's session UUID.
- * @returns {string[]} The start-command identity flags.
- */
-export function buildSessionIdentityArgs(sessionId) {
-  return ['--session', sessionId, '--session-id', sessionId];
 }
 export async function buildStartCommandArgs(command, args = [], options = {}) {
   const { backend, sessionId } = options;

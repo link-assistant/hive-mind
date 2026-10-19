@@ -339,11 +339,11 @@ export async function settleKillRecoveryNotice({ commentUrl, outcome = {}, runCo
     read = { code: 1, stderr: error?.message || String(error) };
   }
   if (read?.code !== 0) {
-    const error = String(read?.stderr || read?.stdout || 'gh api failed').trim();
+    const error = String(read?.stderr?.toString() || read?.stdout?.toString() || 'gh api failed').trim();
     console.warn(`[session-kill-recovery] Could not read kill notice ${commentUrl}: ${error}`);
     return { edited: false, error };
   }
-  const body = settleRecoveryPendingBlock(String(read.stdout || '').replace(/\n$/, ''), outcome);
+  const body = settleRecoveryPendingBlock(String(read.stdout?.toString() || '').replace(/\n$/, ''), outcome);
   if (body === null) {
     if (verbose) console.log(`[VERBOSE] Kill notice ${commentUrl} has no pending recovery note; nothing to edit`);
     return { edited: false, error: null };

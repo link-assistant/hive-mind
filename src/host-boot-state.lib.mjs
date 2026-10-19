@@ -82,7 +82,7 @@ export async function readHostBootIdentity({ readFile = fs.readFile, now = Date.
 export async function readPreviousBootShutdownRecord({ run = runCapture } = {}) {
   try {
     const result = await run('journalctl', ['--boot=-1', '--lines=200', '--output=cat', '--no-pager', '--quiet']);
-    if (result?.code !== 0 || !String(result.stdout || '').trim()) return null;
+    if (result?.code !== 0 || !String(result.stdout?.toString() || '').trim()) return null;
     return SHUTDOWN_JOURNAL_PATTERN.test(result.stdout);
   } catch {
     return null;

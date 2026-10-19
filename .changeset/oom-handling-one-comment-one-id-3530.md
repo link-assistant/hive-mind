@@ -13,3 +13,4 @@ Kill and OOM recovery report less, wait for resources, never run a task twice, a
 - One UUID per task: start-command's session, execution, log file and container share it, and the first fresh Claude Code session uses it via `--session-id`. A recovery in a new container is the next attempt of the same execution (`--append-attempt`), so the UUID and the log stay the same; only the container name changes. With a start-command older than 0.38.0 the recovery gets a new UUID and Telegram shows the latest one.
 - `/log` on any id of a recovered task uploads every attempt's log, oldest first, in one sanitized file.
 - The images install start-command 0.38.0, and links-notation is pinned to 0.27.1.
+- A failed `solve` run with any tool (codex, agent, opencode, qwen, gemini) prints and records a working resume command with the issue URL; it was empty for non-Claude tools (#2843).

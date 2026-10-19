@@ -1,3 +1,5 @@
+import { isGitHubServerError } from './transient-errors.lib.mjs';
+
 const toCount = value => {
   const parsed = Number.parseInt(String(value || '').trim(), 10);
   return Number.isFinite(parsed) ? parsed : null;
@@ -259,6 +261,12 @@ export function classifyPushRejection(errorOutput = '') {
     return 'non-fast-forward';
   }
 
+  // Issue #3552: `remote: fatal error in commit_refs` + `[remote rejected] ...
+  // (failure)` is GitHub failing on its own side, not a history divergence.
+  if (isGitHubServerError(normalized)) {
+    return 'github-server-error';
+  }
+
   if (normalized.includes('remote rejected') || normalized.includes('[remote rejected]')) {
     return 'remote-rejected';
   }
@@ -373,6 +381,29 @@ export function buildPushRejectionFailureActionSection({ owner, repo, branchName
 - Diverged-history path: merge or resolve \`${links.headBranchRef}\` against \`${links.baseBranchRef}\`, then rerun the solver.`;
 }
 
+const GITHUB_STATUS_URL = 'https://www.githubstatus.com';
+
+const isMissingRemoteRefError = text => /couldn't find remote ref|remote branch not found/i.test(String(text || ''));
+
+/**
+ * Issue #3552: GitHub failed while committing the ref update. The push was
+ * already retried by the git retry wrapper, so the remedy is to wait for
+ * GitHub and rerun, never to merge or force anything.
+ */
+export function buildGitHubServerPushFailureActionSection({ owner, repo, branchName, defaultBranch, forkedRepo = null, branchUrl = null }) {
+  const subject = owner && repo && branchName ? buildBranchSubjectLinks({ owner, repo, branchName, defaultBranch, forkedRepo }) : null;
+  const links = subject || (branchUrl ? { branchUrl } : null);
+
+  return `### What happened
+- GitHub returned an internal error while updating ${subject ? `\`${subject.headBranchRef}\`` : 'the remote branch'} (for example \`remote: fatal error in commit_refs\`), even after automatic retries.
+- This is a GitHub-side failure, not a branch divergence: no merge, rebase or force-push is needed.
+
+### What you can do
+- Check ${GITHUB_STATUS_URL} for an ongoing Git Operations incident.
+- Rerun the solver once GitHub has recovered; a branch that already contains the intended commit is reused automatically.${links ? `\n- Inspect the remote branch: ${links.branchUrl}` : ''}
+- If the same error keeps recurring while GitHub reports no incident, contact GitHub Support with the attached log.`;
+}
+
 export function buildPushRejectionExplanation({ branchName, isContinueMode, prNumber, divergence = null, owner = null, repo = null, defaultBranch = null, forkedRepo = null, classification = 'unknown' }) {
   const lines = [];
 
@@ -381,6 +412,12 @@ export function buildPushRejectionExplanation({ branchName, isContinueMode, prNu
     lines.push('     It is not a fresh branch created by this run, even though auto-PR creation is running now.');
   } else if (classification === 'remote-ref-already-exists') {
     lines.push('     GitHub rejected the push while creating or updating the remote ref because that ref already exists.');
+  } else if (classification === 'github-server-error') {
+    lines.push('     GitHub reported an internal error while updating the remote ref; this is a GitHub-side failure, not a branch divergence.');
+  } else if (divergence && !divergence.remoteExists) {
+    // Issue #3552: with no remote branch there is nothing the push could have
+    // diverged from, so do not claim the remote changed.
+    lines.push('     The push was rejected, but the remote branch does not exist, so this is not a history divergence.');
   } else {
     lines.push('     The remote branch changed after the local branch state used for this push.');
   }
@@ -407,6 +444,9 @@ export function buildPushRejectionExplanation({ branchName, isContinueMode, prNu
     }
   } else if (divergence?.fetchError) {
     lines.push(`     Could not inspect origin/${branchName}: ${divergence.fetchError}`);
+    if (isMissingRemoteRefError(divergence.fetchError)) {
+      lines.push(`     The remote branch ${branchName} does not exist, so no remote commit is involved.`);
+    }
   }
 
   return lines;
@@ -444,14 +484,19 @@ export async function logRecoverablePushRejection({ log, formatAligned, branchNa
 export async function logBlockingPushRejection({ log, formatAligned, branchName, isContinueMode, prNumber, divergence, owner, repo, defaultBranch, forkedRepo, classification }) {
   const links = buildBranchSubjectLinks({ owner, repo, branchName, defaultBranch, forkedRepo });
   const isRefCollision = classification === 'remote-ref-already-exists';
+  // Issue #3552: without a remote branch there are no two histories to differ.
+  const remoteMissing = !isRefCollision && Boolean(divergence) && !divergence.remoteExists;
+  const headline = isRefCollision ? 'Remote ref already exists and differs from local branch' : remoteMissing ? 'Remote did not accept the branch' : 'Local and remote branch histories differ';
 
   await log('');
-  await log(formatAligned('❌', isRefCollision ? 'REMOTE BRANCH COLLISION:' : 'PUSH REJECTED:', isRefCollision ? 'Remote ref already exists and differs from local branch' : 'Local and remote branch histories differ'), { level: 'error' });
+  await log(formatAligned('❌', isRefCollision ? 'REMOTE BRANCH COLLISION:' : 'PUSH REJECTED:', headline), { level: 'error' });
   await log('');
   await log('  🔍 What happened:');
   if (isRefCollision) {
     await log(`     GitHub rejected creation or update of ${links.headBranchRef} because that remote ref already exists.`);
     await log('     The existing remote branch does not match this local branch, so hive-mind cannot assume it is safe to continue.');
+  } else if (remoteMissing) {
+    await log(`     The remote rejected creating ${links.headBranchRef}, and that branch could not be found on the remote afterwards.`);
   } else {
     await log(`     Git rejected updating ${links.headBranchRef} from this local branch.`);
     await log('     The local and remote histories are not in a state that a normal push can update safely.');
@@ -496,6 +541,49 @@ export async function logBlockingPushRejection({ log, formatAligned, branchName,
   };
 }
 
+export async function logGitHubServerPushFailure({ log, formatAligned, branchName, isContinueMode, prNumber, divergence, owner, repo, defaultBranch, forkedRepo, errorOutput }) {
+  const links = buildBranchSubjectLinks({ owner, repo, branchName, defaultBranch, forkedRepo });
+
+  await log('');
+  await log(formatAligned('❌', 'GITHUB SERVER ERROR:', 'GitHub failed to update the remote branch'), { level: 'error' });
+  await log('');
+  await log('  🔍 What happened:');
+  await log(`     GitHub could not update ${links.headBranchRef}, and the automatic push retries did not get past it.`);
+  await log('     GitHub output:');
+  for (const line of String(errorOutput || '')
+    .split('\n')
+    .map(line => line.trimEnd())
+    .filter(Boolean)) {
+    await log(`       ${line}`);
+  }
+  for (const line of buildPushRejectionExplanation({
+    branchName,
+    isContinueMode,
+    prNumber,
+    divergence,
+    owner,
+    repo,
+    defaultBranch,
+    forkedRepo,
+    classification: 'github-server-error',
+  })) {
+    await log(line);
+  }
+  await log('');
+  await log('  🔧 How to fix:');
+  await log(`     1. Check ${GITHUB_STATUS_URL} for an ongoing Git Operations incident.`);
+  await log('     2. Rerun the solver once GitHub has recovered. No merge, rebase or force-push is needed.');
+  await log(`     3. If it keeps failing while GitHub reports no incident, contact GitHub Support with this log.`);
+  await log('');
+  await log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  await log('');
+
+  return {
+    links,
+    failureActionSection: buildGitHubServerPushFailureActionSection({ owner, repo, branchName, defaultBranch, forkedRepo }),
+  };
+}
+
 export async function handleRejectedPushForAutoPr({ errorOutput, $, tempDir, log, formatAligned, branchName, isContinueMode, prNumber, owner, repo, defaultBranch, forkedRepo }) {
   const classification = classifyPushRejection(errorOutput);
   if (classification === 'unknown') {
@@ -507,6 +595,7 @@ export async function handleRejectedPushForAutoPr({ errorOutput, $, tempDir, log
   }
 
   const divergence = await getRemoteBranchDivergenceSnapshot({ $, tempDir, branchName });
+  await log(`   Push rejection classification: ${classification}; remote branch ${divergence.remoteExists ? `exists (ahead=${divergence.ahead}, behind=${divergence.behind})` : `not inspectable (${firstLine(divergence.fetchError) || 'unknown'})`}`, { verbose: true });
 
   if (shouldTreatPushRejectionAsRemoteSynchronized(divergence)) {
     await logRecoverablePushRejection({
@@ -527,6 +616,26 @@ export async function handleRejectedPushForAutoPr({ errorOutput, $, tempDir, log
       branchReadyForPrCreation: true,
       recoveredFromPushRejection: true,
     };
+  }
+
+  if (classification === 'github-server-error') {
+    const { links, failureActionSection } = await logGitHubServerPushFailure({
+      log,
+      formatAligned,
+      branchName,
+      isContinueMode,
+      prNumber,
+      divergence,
+      owner,
+      repo,
+      defaultBranch,
+      forkedRepo,
+      errorOutput,
+    });
+    const error = new Error(`GitHub server error while pushing ${links.headBranchRef}; compare ${links.compareUrl} and inspect ${links.branchUrl}`);
+    error.hiveMindUserFacingLogged = true;
+    error.failureActionSection = failureActionSection;
+    throw error;
   }
 
   const { links, failureActionSection } = await logBlockingPushRejection({

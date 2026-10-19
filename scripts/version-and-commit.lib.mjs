@@ -27,11 +27,17 @@
  * rejected by a repository rule now fails the release with an explanation
  * instead of opening a pull request, because only a repository admin can fix it.
  *
- * Uses only Node built-ins so it has no dependency on node_modules state.
+ * Issue #3552: a push answered by a GitHub server-side fault (for example
+ * `remote: fatal error in commit_refs ... [remote rejected] (failure)`) is
+ * retried as-is, without rebasing, because the remote did not move.
+ *
+ * Uses only Node built-ins (plus the dependency-free transient-error leaf
+ * module) so it has no dependency on node_modules state.
  */
 
 import { readFileSync } from 'node:fs';
 
+import { isTransientNetworkError } from '../src/transient-errors.lib.mjs';
 import { CommandFailedError, runCommand, runStrict } from './run-command.lib.mjs';
 
 const DEFAULT_PUSH_ATTEMPTS = 5;
@@ -142,8 +148,16 @@ export async function pushWithRebaseRetry({ runner = runCommand, branch = 'main'
       return { pushed: true, attempt };
     }
 
-    // Anything other than a lost race (auth, protected branch, network) will not
-    // be fixed by rebasing, so fail immediately with the real error.
+    // A GitHub server fault or network error (issue #3552) is not a lost race:
+    // nothing to rebase onto, just push the same commit again.
+    if (attempt < maxAttempts && !isBlockedByRepositoryRule(result) && isTransientNetworkError(`${result.stdout || ''}\n${result.stderr || ''}`)) {
+      logger.log(`Push failed with a transient GitHub/network error (attempt ${attempt} of ${maxAttempts}). Retrying without rebase...`);
+      await wait(delayMs);
+      continue;
+    }
+
+    // Anything other than a lost race (auth, protected branch) will not be
+    // fixed by rebasing, so fail immediately with the real error.
     if (!isNonFastForward(result) || attempt === maxAttempts) {
       throw new CommandFailedError('git', ['push', remote, branch], result);
     }

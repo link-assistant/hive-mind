@@ -70,6 +70,7 @@ test('the tracker records boots, heartbeats and stops, and reports a reboot once
   try {
     assert.equal(await make().detect(), null, 'the first run has nothing to compare');
     const tracker = make();
+    await tracker.detect();
     await tracker.recordHeartbeat();
     const saved = JSON.parse(await fs.readFile(path.join(stateDir, HOST_BOOT_STATE_FILE), 'utf8'));
     assert.deepEqual(saved, { bootId: OLD_BOOT, bootedAt: '2026-10-18T06:00:00.000Z', lastHeartbeatAt: LAST_HEARTBEAT, stoppedAt: null });
@@ -81,7 +82,9 @@ test('the tracker records boots, heartbeats and stops, and reports a reboot once
     assert.equal(event.lastHeartbeatAt, LAST_HEARTBEAT);
     assert.equal(await make().detect(), null, 'a second bot restart in the same boot is no reboot');
     // An orderly stop is remembered.
-    await make().recordStop();
+    const stopping = make();
+    await stopping.detect();
+    await stopping.recordStop();
     bootId = 'third-boot';
     assert.equal((await make().detect()).shutdownRecorded, true);
     // A corrupt state file never throws.
@@ -90,6 +93,42 @@ test('the tracker records boots, heartbeats and stops, and reports a reboot once
   } finally {
     await fs.rm(stateDir, { recursive: true, force: true });
   }
+});
+
+test('a heartbeat or stop before detection does not overwrite the previous run', async () => {
+  const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), 'host-boot-3533-'));
+  let bootId = OLD_BOOT;
+  let nowMs = Date.parse(LAST_HEARTBEAT);
+  const make = () => createHostBootTracker({ stateDir, now: () => nowMs, readIdentity: async () => ({ bootId, bootedAt: BOOTED_AT }), readShutdownRecord: async () => null });
+  try {
+    const first = make();
+    await first.detect();
+    await first.recordHeartbeat();
+    // The host hard-resets. The new run is stopped (or beats) before it detected anything.
+    bootId = NEW_BOOT;
+    nowMs = Date.parse('2026-10-18T15:01:04.000Z');
+    const early = make();
+    assert.equal(await early.recordStop(), false);
+    assert.equal(await early.recordHeartbeat(), false);
+    const event = await early.detect();
+    assert.equal(event?.shutdownRecorded, false, 'the hard reset is still reported');
+    assert.equal(event.lastHeartbeatAt, LAST_HEARTBEAT);
+    assert.equal(await early.recordHeartbeat(), true);
+  } finally {
+    await fs.rm(stateDir, { recursive: true, force: true });
+  }
+});
+
+test('writes in flight never share a temp file', async () => {
+  const written = [];
+  const renamed = [];
+  const fsImpl = { mkdir: async () => {}, readFile: async () => '{}', writeFile: async file => written.push(file), rename: async from => renamed.push(from) };
+  const tracker = createHostBootTracker({ stateDir: '/state', fsImpl, readIdentity: async () => ({ bootId: OLD_BOOT, bootedAt: BOOTED_AT }), readShutdownRecord: async () => null });
+  await tracker.detect();
+  await Promise.all([tracker.recordHeartbeat(), tracker.recordHeartbeat(), tracker.recordStop()]);
+  assert.equal(written.length, 4);
+  assert.equal(new Set(written).size, 4);
+  assert.deepEqual(renamed, written);
 });
 
 const EVENT = detectHostReboot({ previous: { bootId: OLD_BOOT, lastHeartbeatAt: LAST_HEARTBEAT }, current: { bootId: NEW_BOOT, bootedAt: BOOTED_AT } });

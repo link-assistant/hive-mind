@@ -1100,7 +1100,7 @@ function startSessionMonitoringOnce() {
   // working session when `--on-session-kill=resume` is in effect.
   // Issue #2801: it also applies and lifts the Docker task CPU penalty.
   // Issue #3530: a recovery waits behind the same resource gate as queued tasks.
-  sessionMonitoringTimer = startSessionMonitoring(bot, VERBOSE, 30000, { isolationRunner, cpuPenalty: CONTAINER_CPU_PENALTY, recoveryResourceGate: createQueueRecoveryResourceGate(() => getSolveQueue({ verbose: VERBOSE })), findLaunchingSibling: url => findLaunchingQueueItem(getSolveQueue({ verbose: VERBOSE }), url) });
+  sessionMonitoringTimer = startSessionMonitoring(bot, VERBOSE, 30000, { isolationRunner, cpuPenalty: CONTAINER_CPU_PENALTY, recoveryResourceGate: createQueueRecoveryResourceGate(() => getSolveQueue({ verbose: VERBOSE })), findLaunchingSibling: url => findLaunchingQueueItem(getSolveQueue({ verbose: VERBOSE }), url, launchingUrls) });
 }
 // Issue #2146 (PR #2147 review): stop the Formal AI sidecar once no Formal AI
 // task holds a lease, then — while the host is idle — update its image (with a

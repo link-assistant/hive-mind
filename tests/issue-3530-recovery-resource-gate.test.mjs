@@ -128,16 +128,31 @@ test('/stop while waiting cancels the recovery', async () => {
   assert.deepEqual([result.ready, result.reason, result.checks], [false, 'stopped-by-user', 1]);
 });
 
-test('the queue adapter uses the queue the bot uses for every task', () => {
+test('the queue adapter uses the queue the bot uses for every task', async () => {
   const calls = [];
   const queue = { canStartCommand: options => (calls.push(['check', options]), PASS), reserveStartSlot: options => (calls.push(['reserve', options]), { startReserved: true }) };
   const gate = createQueueRecoveryResourceGate(() => queue);
-  gate.check({ tool: 'claude' });
+  await gate.check({ tool: 'claude' });
   gate.reserve({ tool: 'claude' });
   assert.deepEqual(calls, [
     ['check', { tool: 'claude' }],
     ['reserve', { tool: 'claude' }],
   ]);
+});
+
+test('under the one-at-a-time strategy a recovery waits while a task of its tool is processing', async () => {
+  let processing = 1;
+  const queue = { canStartCommand: async () => ({ ...PASS, oneAtATime: true }), getProcessingCountByTool: tool => (tool === 'claude' ? processing : 0), reserveStartSlot: () => ({ startReserved: true }) };
+  const gate = createQueueRecoveryResourceGate(() => queue);
+  const blocked = await gate.check({ tool: 'claude' });
+  assert.equal(blocked.canStart, false);
+  assert.deepEqual(blocked.reasons, ['one-at-a-time: 1 claude task(s) already processing']);
+  assert.equal((await gate.check({ tool: 'codex' })).canStart, true, 'another tool is not blocked');
+  processing = 0;
+  assert.equal((await gate.check({ tool: 'claude' })).canStart, true);
+  queue.canStartCommand = async () => PASS;
+  processing = 2;
+  assert.equal((await gate.check({ tool: 'claude' })).canStart, true, 'without the strategy the processing count does not block');
 });
 
 test('a recovery whose resources never settle is not launched, and Telegram shows the wait', async () => {

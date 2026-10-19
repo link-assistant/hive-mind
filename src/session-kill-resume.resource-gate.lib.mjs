@@ -26,6 +26,8 @@
  * @see https://github.com/link-assistant/hive-mind/issues/3530
  */
 
+import { canonicalizeGitHubUrl } from './github-url-parser.lib.mjs';
+
 export const RECOVERY_RESOURCE_DEFAULTS = Object.freeze({ pollSeconds: 60, stableChecks: 3, maxWaitMinutes: 360 });
 
 function positiveNumber(raw, fallback) {
@@ -54,21 +56,30 @@ export function resolveRecoveryResourceGateConfig(env = process.env) {
  */
 export function createQueueRecoveryResourceGate(getQueue) {
   return {
-    check: options => getQueue().canStartCommand(options),
+    check: async options => {
+      const queue = getQueue();
+      const result = await queue.canStartCommand(options);
+      // The queue's `one_at_a_time` strategy: under that pressure nothing starts
+      // while a task of the same tool is being processed (findStartableItems()).
+      const processing = result?.canStart && result.oneAtATime ? queue.getProcessingCountByTool?.(options?.tool || 'claude') || 0 : 0;
+      return processing > 0 ? { ...result, canStart: false, reasons: [`one-at-a-time: ${processing} ${options?.tool || 'claude'} task(s) already processing`] } : result;
+    },
     reserve: options => getQueue().reserveStartSlot(options),
   };
 }
 
 /**
- * Issue #3532: a queue item for the same URL that is being launched right now
- * is not tracked yet, so the recovery's sibling check would miss it.
+ * Issue #3532: a queue item, or a direct /solve, for the same URL that is being
+ * launched right now is not tracked yet, so the recovery's sibling check would miss it.
  *
  * @param {Object|null} queue - SolveQueue
  * @param {string} url
+ * @param {{has: Function}|null} [launchingClaims] - The bot's direct-start URL claims
  * @returns {string|null} A name for the launching item, or null
  */
-export function findLaunchingQueueItem(queue, url) {
+export function findLaunchingQueueItem(queue, url, launchingClaims = null) {
   try {
+    if (launchingClaims?.has?.(url) || launchingClaims?.has?.(canonicalizeGitHubUrl(url))) return 'a /solve being launched';
     const item = queue?.findByUrl?.(url);
     return item && queue.processing?.has?.(item.id) ? `queue item ${item.id}` : null;
   } catch {

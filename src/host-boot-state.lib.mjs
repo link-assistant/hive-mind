@@ -147,6 +147,10 @@ export function detectHostReboot({ previous = null, current = {}, journalShutdow
 export function createHostBootTracker({ stateDir = resolveBotStateDir(), fsImpl = fs, now = Date.now, readIdentity = () => readHostBootIdentity({ now }), readShutdownRecord = () => readPreviousBootShutdownRecord(), verbose = false } = {}) {
   const file = path.join(stateDir, HOST_BOOT_STATE_FILE);
   let identity = null;
+  // The previous run's state must be compared before anything overwrites it:
+  // a heartbeat or a stop that comes before detect() is not recorded.
+  let detected = false;
+  let writes = 0;
 
   const load = async () => {
     try {
@@ -158,7 +162,8 @@ export function createHostBootTracker({ stateDir = resolveBotStateDir(), fsImpl 
   const save = async state => {
     try {
       await fsImpl.mkdir(stateDir, { recursive: true });
-      const tmp = `${file}.${process.pid}.tmp`;
+      // A unique name per write: two writes in flight must not share one temp file.
+      const tmp = `${file}.${process.pid}.${++writes}.tmp`;
       await fsImpl.writeFile(tmp, JSON.stringify(state));
       await fsImpl.rename(tmp, file);
       return true;
@@ -190,15 +195,19 @@ export function createHostBootTracker({ stateDir = resolveBotStateDir(), fsImpl 
       } catch (error) {
         if (verbose) console.log(`[VERBOSE] host-boot-state: detection failed: ${error?.message || error}`);
         return null;
+      } finally {
+        detected = true;
       }
     },
     /** Called with every bot heartbeat. */
     async recordHeartbeat() {
+      if (!detected) return false;
       const current = await ensureIdentity();
       return save({ bootId: current.bootId, bootedAt: current.bootedAt, lastHeartbeatAt: toIso(now()), stoppedAt: null });
     },
     /** Called when the bot stops on a signal (an orderly host shutdown sends SIGTERM). */
     async recordStop() {
+      if (!detected) return false;
       const current = await ensureIdentity();
       const at = toIso(now());
       return save({ bootId: current.bootId, bootedAt: current.bootedAt, lastHeartbeatAt: at, stoppedAt: at });

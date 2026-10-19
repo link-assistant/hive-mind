@@ -171,6 +171,8 @@ export async function startKillRecoverySession({ sessionName, sessionInfo, plan,
       await notify({ phase: 'failed', attempt: plan.attempt, reason: `Recovery not started: ${duplicate}.` });
       return fail('already-running', duplicate);
     }
+    // Issue #3532: until the recovery is tracked, /solve treats the task as busy.
+    if (sessionInfo) sessionInfo.killRecoveryLaunchingSince = new Date(now()).toISOString();
     await notify({ phase: 'launching', attempt: plan.attempt });
     // Issue #3530: the recovery posts one uniform start comment naming the attempt.
     const tagged = { ...plan, command: tagRecoveryCommand(plan.command, plan) };
@@ -261,6 +263,7 @@ export async function startKillRecoverySession({ sessionName, sessionInfo, plan,
         // The recovery session has not been recovered itself (yet) (#2408).
         killRecoverySessionId: undefined,
         killRecoveryPendingSince: undefined,
+        killRecoveryLaunchingSince: undefined,
         containerFilesystemStartBytes,
         containerResourceLimits,
         // Issue #2408: a snapshot resume starts a new, empty writable layer;
@@ -301,7 +304,10 @@ export async function startKillRecoverySession({ sessionName, sessionInfo, plan,
     }
     return fail('start-error');
   } finally {
-    if (sessionInfo) delete sessionInfo.killRecoveryPendingSince;
+    if (sessionInfo) {
+      delete sessionInfo.killRecoveryPendingSince;
+      delete sessionInfo.killRecoveryLaunchingSince;
+    }
   }
 }
 

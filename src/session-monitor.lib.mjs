@@ -38,7 +38,7 @@ import { sessionStartMs } from './session-monitor.stale-executing.lib.mjs';
 // Issue #2134: kill-cause diagnostics + the matching pull-request notice.
 import { buildKillCompletionSections, hasContainerOomEvidence, startedPullRequestUrl } from './session-monitor.kill-sections.lib.mjs';
 import { announcePendingKillNotice, finishKillNotice } from './session-monitor.kill-notice.lib.mjs';
-import { runKillRecoveryForCompletion } from './session-kill-resume.lib.mjs';
+import { planKillRecovery, runKillRecoveryForCompletion } from './session-kill-resume.lib.mjs';
 import { isDiskRefusedRecovery } from './session-kill-resume.disk-retry.lib.mjs';
 import { detectFailedInPlaceStart } from './session-kill-resume.start-failure.lib.mjs';
 import { createSessionPullRequestUrlScanner, lookupSessionPullRequestUrl } from './session-own-pr.lib.mjs';
@@ -1024,7 +1024,8 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
       // issue #2887: so is an in-place recovery whose command never started (126/127).
       // Issue #3530: one comment per kill, posted now (with the log under --attach-logs) and edited once the recovery decision is known.
       const killNoticeContext = { pullRequestUrl, sessionName, sessionInfo, killReport, exitCode: finalExitCode, resumeCommand: killResumeCommand, options, verbose, persist: () => persistSessionSnapshot(sessionName, sessionInfo) };
-      if (shouldAttemptKillRecovery) await announcePendingKillNotice(killNoticeContext);
+      const planRecovery = async () => (await planKillRecovery({ sessionInfo, logPath: statusResult?.logPath || sessionInfo?.logPath || null, killed: true, env: options.env || process.env, verbose, readLastSessionId: resolveLastToolSessionId })).shouldResume;
+      if (shouldAttemptKillRecovery) await announcePendingKillNotice({ ...killNoticeContext, planRecovery });
       if (shouldAttemptKillRecovery || (!killReport.skippedReason && (isDiskRefusedRecovery({ sessionInfo, exitCode: finalExitCode }) || detectFailedInPlaceStart({ sessionInfo, exitCode: finalExitCode })))) {
         const recovered = await runKillRecoveryForCompletion({
           exitCode: finalExitCode,
@@ -1044,7 +1045,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
           sleep: options.sleepBeforeRecovery,
           // Issue #3530: wait for stable resources; #3532: never launch a second copy of running work.
           resourceGate: options.recoveryResourceGate || null,
-          findActiveSibling: async (url, name) => findOtherActiveSessionForUrl(url, name, verbose) || (await options.findLaunchingSibling?.(url)) || null,
+          findActiveSibling: async (url, name) => (await findOtherActiveSessionForUrl(url, name, verbose, probeOptions)) || (await options.findLaunchingSibling?.(url)) || null,
           locale: sessionInfo?.locale || null,
           verbose,
         });

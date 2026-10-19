@@ -11,7 +11,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { resolveSessionContainerName, resolveSessionContainerRoot, isContainerFamilyMember, parseRunningContainerFamily, probeSessionBackendAlive, findRunningSessionContainers, collectSessionContainerRoots, nextContainerNameHistory } from '../src/session-container-identity.lib.mjs';
 import { findRunningDuplicate, startKillRecoverySession } from '../src/session-kill-resume.lib.mjs';
-import { findOtherActiveSessionForUrl, resetSessionMonitorForTests, trackSession } from '../src/session-monitor.lib.mjs';
+import { findOtherActiveSessionForUrl, hasActiveSessionForUrl, hasActiveSessionForUrlAsync, resetSessionMonitorForTests, trackSession } from '../src/session-monitor.lib.mjs';
 import { createIsolationAwareQueueCallback } from '../src/telegram-isolation.lib.mjs';
 import { findLaunchingQueueItem } from '../src/session-kill-resume.resource-gate.lib.mjs';
 
@@ -132,19 +132,63 @@ test('a launched recovery records the container it runs in and every earlier one
   assert.deepEqual(info.containerNameHistory, [CONTAINER]);
 });
 
-test('a session waiting for its own recovery is not a live sibling, but its replacement is', () => {
+test('a session waiting for its own recovery is not a live sibling, but its replacement is', async () => {
   resetSessionMonitorForTests();
+  const running = new Set(['replacement']);
+  const probe = { statusProvider: async id => ({ exists: true, status: running.has(id) ? 'executing' : 'executed', exitCode: running.has(id) ? null : 0 }), backendAlive: async () => true, exitFromLog: async () => null };
   try {
     trackSession('killed', { url: PR, isolationBackend: 'docker', startTime: new Date(), killRecoveryPendingSince: new Date().toISOString() });
-    assert.equal(findOtherActiveSessionForUrl(PR, 'recovery'), null);
+    assert.equal(await findOtherActiveSessionForUrl(PR, 'recovery', false, probe), null);
     trackSession('replacement', { url: PR, isolationBackend: 'docker', startTime: new Date() });
-    assert.equal(findOtherActiveSessionForUrl(PR, 'killed'), 'replacement');
-    assert.equal(findOtherActiveSessionForUrl(PR, 'replacement'), null, 'a session never blocks itself');
+    assert.equal(await findOtherActiveSessionForUrl(PR, 'killed', false, probe), 'replacement');
+    assert.equal(await findOtherActiveSessionForUrl(PR, 'replacement', false, probe), null, 'a session never blocks itself');
     trackSession('finished', { url: 'https://github.com/o/r/pull/1', isolationBackend: 'docker', startTime: new Date(), completionNotifiedAt: new Date().toISOString() });
-    assert.equal(findOtherActiveSessionForUrl('https://github.com/o/r/pull/1', 'x'), null, 'a completed session does not block');
+    assert.equal(await findOtherActiveSessionForUrl('https://github.com/o/r/pull/1', 'x', false, probe), null, 'a completed session does not block');
   } finally {
     resetSessionMonitorForTests();
   }
+});
+
+test('a tracked sibling whose container already ended does not block the recovery', async () => {
+  resetSessionMonitorForTests();
+  const probe = { statusProvider: async () => ({ exists: true, status: 'executed', exitCode: 0 }), backendAlive: async () => false, exitFromLog: async () => ({ finished: true, exitCode: 0 }) };
+  try {
+    trackSession('ended', { url: PR, isolationBackend: 'docker', startTime: new Date(Date.now() - 3600000), logPath: '/tmp/none.log' });
+    assert.equal(await findOtherActiveSessionForUrl(PR, 'killed', false, probe), null);
+    // An unknown state counts as running: a missed recovery can be retried, a duplicate solve cannot be undone.
+    const failing = {
+      statusProvider: async () => {
+        throw new Error('status unavailable');
+      },
+    };
+    assert.equal(await findOtherActiveSessionForUrl(PR, 'killed', false, failing), 'ended');
+  } finally {
+    resetSessionMonitorForTests();
+  }
+});
+
+test('a recovery that is launching right now blocks a second one, a stale launch mark does not', async () => {
+  resetSessionMonitorForTests();
+  const probe = { statusProvider: async () => ({ exists: true, status: 'executed', exitCode: 0 }), exitFromLog: async () => ({ finished: true, exitCode: 0 }) };
+  try {
+    trackSession('killed', { url: PR, isolationBackend: 'docker', startTime: new Date(), killRecoveryPendingSince: new Date().toISOString(), killRecoveryLaunchingSince: new Date().toISOString() });
+    assert.equal(await findOtherActiveSessionForUrl(PR, 'other-killed', false, probe), 'killed');
+    assert.deepEqual(hasActiveSessionForUrl(PR), { isActive: true, sessionName: 'killed' });
+    assert.deepEqual(await hasActiveSessionForUrlAsync(PR, false, probe), { isActive: true, sessionName: 'killed', status: 'launching-recovery' });
+    resetSessionMonitorForTests();
+    trackSession('killed', { url: PR, isolationBackend: 'docker', startTime: new Date(), killRecoveryPendingSince: new Date().toISOString(), killRecoveryLaunchingSince: new Date(Date.now() - 11 * 60 * 1000).toISOString() });
+    assert.equal(await findOtherActiveSessionForUrl(PR, 'other-killed', false, probe), null);
+    assert.notEqual((await hasActiveSessionForUrlAsync(PR, false, probe)).status, 'launching-recovery');
+  } finally {
+    resetSessionMonitorForTests();
+  }
+});
+
+test('a direct /solve being launched for the same URL counts as a launching sibling', () => {
+  const claims = new Set([PR]);
+  assert.equal(findLaunchingQueueItem(null, PR, claims), 'a /solve being launched');
+  assert.equal(findLaunchingQueueItem(null, `${PR}/`, { has: url => url === PR }), 'a /solve being launched');
+  assert.equal(findLaunchingQueueItem(null, 'https://github.com/o/r/pull/9', claims), null);
 });
 
 test('a queued solve is checked again right before it launches', async () => {

@@ -15,6 +15,9 @@
  */
 import { getNonIsolationSessionProgress } from './start-screen-exit-marker.lib.mjs';
 
+// Issue #3532: how long a recovery's "launching" mark keeps its URL busy at most.
+const RECOVERY_LAUNCH_WINDOW_MS = 10 * 60 * 1000;
+
 /**
  * Bind the registry queries to a session-monitor instance.
  *
@@ -27,6 +30,12 @@ import { getNonIsolationSessionProgress } from './start-screen-exit-marker.lib.m
  * @returns {{hasActiveSessionForUrl: Function, findOtherActiveSessionForUrl: Function, findStoppableSessionByUrl: Function, hasActiveSessionForUrlAsync: Function, getRunningTrackedIsolationSessions: Function, getRunningSessionItems: Function, getSessionStats: Function}}
  */
 export function createSessionRegistryQueries({ activeSessions, normalizeSessionUrl, isNonIsolationSessionActive, getIsolationSessionState, checkScreenSessionExists }) {
+  // Issue #3532: a recovery between its duplicate check and its tracked launch.
+  // Bounded, so a mark persisted by a crash mid-launch cannot block the URL.
+  const isRecoveryLaunching = sessionInfo => {
+    const since = Date.parse(sessionInfo?.killRecoveryLaunchingSince || '');
+    return !sessionInfo?.killRecoverySessionId && Number.isFinite(since) && Date.now() - since < RECOVERY_LAUNCH_WINDOW_MS;
+  };
   /**
    * Issue #1567: Check if there's an active session for a given URL.
    * This prevents concurrent sessions on the same PR/issue, which causes
@@ -53,6 +62,7 @@ export function createSessionRegistryQueries({ activeSessions, normalizeSessionU
     // Normalize the URL for comparison (remove trailing slashes, fragments, etc.)
     const normalizedUrl = normalizeSessionUrl(url);
     for (const [sessionName, sessionInfo] of activeSessions.entries()) {
+      if (sessionInfo.url && normalizeSessionUrl(sessionInfo.url) === normalizedUrl && isRecoveryLaunching(sessionInfo)) return { isActive: true, sessionName };
       // Issue #1586: Auto-expire non-isolation sessions after timeout
       if (!sessionInfo.isolationBackend && !isNonIsolationSessionActive(sessionName, sessionInfo, verbose)) {
         continue;
@@ -79,15 +89,29 @@ export function createSessionRegistryQueries({ activeSessions, normalizeSessionU
    *
    * @param {string} url
    * @param {string|null} excludeSessionName
-   * @returns {string|null} The other session's name
+   * @param {boolean} [verbose]
+   * @param {Object} [options] - Probe options for getIsolationSessionState (statusProvider, backendAlive, exitFromLog)
+   * @returns {Promise<string|null>} The other session's name
    */
-  function findOtherActiveSessionForUrl(url, excludeSessionName = null, verbose = false) {
+  async function findOtherActiveSessionForUrl(url, excludeSessionName = null, verbose = false, options = {}) {
     if (!url) return null;
     const normalizedUrl = normalizeSessionUrl(url);
     for (const [sessionName, sessionInfo] of activeSessions.entries()) {
       if (sessionName === excludeSessionName || !sessionInfo?.url || normalizeSessionUrl(sessionInfo.url) !== normalizedUrl) continue;
+      if (isRecoveryLaunching(sessionInfo)) return sessionName;
       if (sessionInfo.completionNotifiedAt || sessionInfo.killRecoverySessionId || sessionInfo.killRecoveryPendingSince) continue;
       if (!sessionInfo.isolationBackend && !isNonIsolationSessionActive(sessionName, sessionInfo, verbose)) continue;
+      // A tracked isolation session counts only while it still executes: a
+      // stale record awaiting its completion must not cancel the recovery.
+      if (sessionInfo.isolationBackend) {
+        let running = true;
+        try {
+          running = (await getIsolationSessionState(sessionName, sessionInfo, { ...options, verbose })).running !== false;
+        } catch {
+          // Unknown counts as running: a missed recovery is retried, a duplicate solve is not undone.
+        }
+        if (!running) continue;
+      }
       return sessionName;
     }
     return null;
@@ -171,6 +195,7 @@ export function createSessionRegistryQueries({ activeSessions, normalizeSessionU
       if (!sessionInfo.url || normalizeSessionUrl(sessionInfo.url) !== normalizedUrl) {
         continue;
       }
+      if (isRecoveryLaunching(sessionInfo)) return { isActive: true, sessionName, status: 'launching-recovery' };
       if (!sessionInfo.isolationBackend) {
         if (isNonIsolationSessionActive(sessionName, sessionInfo, verbose)) {
           return { isActive: true, sessionName, status: null };

@@ -52,5 +52,7 @@ export function createGhCommentRecorder() {
     calls,
     /** Every comment as it reads now. */
     current: () => [...store.values()].map(entry => entry.body),
+    /** Every comment with its URL, in posting order. */
+    urls: () => [...store.values()].map(entry => ({ ...entry })),
   };
 }

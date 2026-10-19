@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { RECOVERY_PENDING_START_MARKER, RECOVERY_PENDING_END_MARKER, buildKillRecoveryNotice, buildRecoveryPendingBlock, killNoticeSessionMarker, settleRecoveryPendingBlock, settleKillRecoveryNotice } from '../src/session-kill-recovery.lib.mjs';
+import { RECOVERY_PENDING_START_MARKER, RECOVERY_PENDING_END_MARKER, buildKillRecoveryNotice, buildRecoveryPendingBlock, describeRecoveryNotStarted, findPendingKillNoticeUrl, killNoticeSessionMarker, settleRecoveryPendingBlock, settleKillRecoveryNotice } from '../src/session-kill-recovery.lib.mjs';
 import { announceKillOnPullRequest } from '../src/session-monitor.kill-sections.lib.mjs';
 import { announcePendingKillNotice, finishKillNotice } from '../src/session-monitor.kill-notice.lib.mjs';
 import { resumeAfterToolKill } from '../src/solve.tool-kill-resume.lib.mjs';
@@ -37,7 +37,7 @@ test('settling removes the note on success and replaces it with the reason other
   assert.match(started, /reason\n\nTo continue manually/);
   const failed = settleRecoveryPendingBlock(body, { resumed: false, reason: 'already-running', detail: 'session b405f409 is already working on the pull request' });
   assert.match(failed, /Automatic recovery did not start:\*\* session b405f409 is already working on the pull request\. No replacement session was launched\./);
-  assert.match(settleRecoveryPendingBlock(body, { resumed: false, reason: 'resource-wait-timeout' }), /did not start:\*\* resource-wait-timeout/);
+  assert.match(settleRecoveryPendingBlock(body, { resumed: false, reason: 'resource-wait-timeout' }), /did not start:\*\* resources did not become free and stable in time\. No replacement/);
   assert.equal(settleRecoveryPendingBlock('no markers here', { resumed: true }), null);
 });
 
@@ -123,7 +123,7 @@ test('a kill notice of an earlier attempt is not mistaken for this one', async (
 });
 
 test('reporting failures never throw into the completion notification', async () => {
-  const context = { pullRequestUrl: PR, sessionName: 's', sessionInfo: { args: [], url: PR }, killReport: { killed: true, diagnosis: OOM }, exitCode: 137, options: { runCommand: async () => Promise.reject(new Error('ENOENT gh')) } };
+  const context = { pullRequestUrl: PR, sessionName: 's', sessionInfo: { args: [], url: PR }, killReport: { killed: true, diagnosis: OOM }, exitCode: 137, options: { runCommand: async () => Promise.reject(new Error('ENOENT gh')), killNoticeSettleDelayMs: 0 } };
   const pending = await announcePendingKillNotice(context);
   assert.equal(pending.posted, false);
   const finished = await finishKillNotice({ ...context, sessionInfo: { ...context.sessionInfo, killNotice: { sessionName: 's', url: `${PR}#issuecomment-1`, pending: true } }, killRecovery: { resumed: true } });
@@ -131,6 +131,89 @@ test('reporting failures never throw into the completion notification', async ()
   const settled = await settleKillRecoveryNotice({ commentUrl: `${PR}#issuecomment-1`, outcome: { resumed: true }, runCommand: async () => Promise.reject(new Error('offline')) });
   assert.equal(settled.edited, false);
   assert.ok(settled.error);
+});
+
+/** The recorder, plus the comment listing `findPendingKillNoticeUrl` runs (its jq filter emulated). */
+function ghWithListing({ failEdits = 0 } = {}) {
+  const gh = createGhCommentRecorder();
+  const listed = [];
+  let edits = 0;
+  const runCommand = async (command, args) => {
+    if (args[0] === 'api' && /\/issues\/\d+\/comments$/.test(args[1])) {
+      listed.push(args[1]);
+      const marker = JSON.parse(/contains\(("[^)]*")\) and/.exec(args[args.indexOf('--jq') + 1])[1]);
+      const url = gh
+        .urls()
+        .filter(entry => entry.body.includes(marker) && entry.body.includes(RECOVERY_PENDING_START_MARKER))
+        .at(-1)?.url;
+      return { code: 0, stdout: url ? `${url}\n` : '', stderr: '' };
+    }
+    if (args[0] === 'api' && args.includes('--input') && edits++ < failEdits) return { code: 1, stdout: '', stderr: 'HTTP 502: Bad Gateway' };
+    return gh.runCommand(command, args);
+  };
+  return { ...gh, runCommand, listed };
+}
+
+test('no pending note is promised when no recovery can start', async () => {
+  const gh = createGhCommentRecorder();
+  const sessionInfo = { args: [], url: PR };
+  const context = { pullRequestUrl: PR, sessionName: 's', sessionInfo, killReport: { killed: true, diagnosis: OOM }, exitCode: 137, options: { runCommand: gh.runCommand } };
+  assert.deepEqual(await announcePendingKillNotice({ ...context, planRecovery: async () => false }), { posted: false, url: null, skipped: 'no-recovery-planned' });
+  assert.equal(gh.posts.length, 0);
+  assert.equal(sessionInfo.killNotice, undefined);
+  await finishKillNotice({ ...context, killRecovery: { resumed: false, reason: 'max-attempts-reached' } });
+  assert.equal(gh.posts.length, 1, 'the final notice is posted once the decision is known');
+  assert.ok(!gh.posts[0].includes(RECOVERY_PENDING_START_MARKER));
+  await announcePendingKillNotice({ ...context, sessionInfo: { args: [], url: PR }, planRecovery: async () => true });
+  assert.ok(gh.posts[1].includes(RECOVERY_PENDING_START_MARKER), 'a plannable recovery still gets the pending note');
+});
+
+test('reasons a recovery did not start are written in plain words', () => {
+  for (const reason of ['policy-report', 'stopped-by-user', 'no-session-id', 'not-resumable', 'max-attempts-reached', 'plan-error', 'start-failed', 'resource-wait-timeout', 'already-running', 'start-error', 'no-plan', 'no-isolation-runner', 'no-tracker', 'no-isolation-backend']) {
+    const text = describeRecoveryNotStarted({ reason });
+    assert.ok(text && !text.includes(reason), `${reason} -> ${text}`);
+  }
+  assert.equal(describeRecoveryNotStarted({ reason: 'already-running', detail: 'session x is working on it' }), 'session x is working on it');
+  assert.ok(describeRecoveryNotStarted({ reason: 'something-new' }));
+});
+
+test('a notice whose comment id was lost is found by its marker and settled', async () => {
+  const gh = ghWithListing();
+  gh.create(PR, `${killNoticeSessionMarker('other')}\n${buildRecoveryPendingBlock()}`);
+  gh.create(PR, `${killNoticeSessionMarker('lost-id')}\n## Killed\n\n${buildRecoveryPendingBlock()}`);
+  assert.equal(await findPendingKillNoticeUrl({ targetUrl: PR, sessionName: 'lost-id', runCommand: gh.runCommand }), `${PR}#issuecomment-2`);
+  assert.equal(await findPendingKillNoticeUrl({ targetUrl: PR, sessionName: 'missing', runCommand: gh.runCommand }), null);
+  const sessionInfo = { args: [], url: PR, killNotice: { sessionName: 'lost-id', url: null, pending: true } };
+  const result = await finishKillNotice({ pullRequestUrl: PR, sessionName: 'lost-id', sessionInfo, killReport: { killed: true, diagnosis: OOM }, exitCode: 137, options: { runCommand: gh.runCommand, killNoticeSettleDelayMs: 0 }, killRecovery: { resumed: true } });
+  assert.equal(result.edited, true);
+  assert.equal(sessionInfo.killNotice.url, `${PR}#issuecomment-2`);
+  assert.equal(gh.patches.length, 1);
+  assert.equal(gh.patches[0].id, '2');
+  assert.ok(gh.current()[0].includes(RECOVERY_PENDING_START_MARKER), "another session's notice is left alone");
+});
+
+test('a failed edit is retried, and a recovery that did not start is never left "pending"', async () => {
+  const retried = ghWithListing({ failEdits: 1 });
+  retried.create(PR, `${killNoticeSessionMarker('s')}\n${buildRecoveryPendingBlock()}`);
+  const context = { pullRequestUrl: PR, sessionName: 's', killReport: { killed: true, diagnosis: OOM }, exitCode: 137 };
+  const once = await finishKillNotice({ ...context, sessionInfo: { args: [], url: PR, killNotice: { sessionName: 's', url: `${PR}#issuecomment-1`, pending: true } }, options: { runCommand: retried.runCommand, killNoticeSettleDelayMs: 0 }, killRecovery: { resumed: false, reason: 'resource-wait-timeout' } });
+  assert.deepEqual([once.edited, once.posted, retried.posts.length], [true, false, 1], 'the second attempt edits the note');
+  assert.match(retried.current()[0], /did not start:\*\* resources did not become free/);
+
+  const broken = ghWithListing({ failEdits: 99 });
+  broken.create(PR, `${killNoticeSessionMarker('s')}\n${buildRecoveryPendingBlock()}`);
+  const sessionInfo = { args: [], url: PR, killNotice: { sessionName: 's', url: `${PR}#issuecomment-1`, pending: true } };
+  const failed = await finishKillNotice({ ...context, sessionInfo, options: { runCommand: broken.runCommand, killNoticeSettleDelayMs: 0, killNoticeSettleAttempts: 2 }, killRecovery: { resumed: false, reason: 'already-running', detail: 'session b405f409 is already working on the pull request' } });
+  assert.deepEqual([failed.edited, failed.posted], [false, true]);
+  assert.equal(broken.posts.length, 2, 'one short follow-up comment');
+  assert.ok(broken.posts[1].includes(killNoticeSessionMarker('s')));
+  assert.match(broken.posts[1], /Automatic recovery did not start\*\* for working session `s`: session b405f409 is already working on the pull request\. No replacement session was launched/);
+  assert.equal(sessionInfo.killNotice.pending, false);
+
+  const started = ghWithListing({ failEdits: 99 });
+  started.create(PR, `${killNoticeSessionMarker('s')}\n${buildRecoveryPendingBlock()}`);
+  await finishKillNotice({ ...context, sessionInfo: { args: [], url: PR, killNotice: { sessionName: 's', url: `${PR}#issuecomment-1`, pending: true } }, options: { runCommand: started.runCommand, killNoticeSettleDelayMs: 0 }, killRecovery: { resumed: true } });
+  assert.equal(started.posts.length, 1, 'a started recovery announces itself; no follow-up');
 });
 
 test('every in-process kill gets its own comment, settled when its retry starts', async () => {

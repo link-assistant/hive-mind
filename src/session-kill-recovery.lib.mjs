@@ -50,6 +50,28 @@ export function buildRecoveryPendingBlock() {
   return [RECOVERY_PENDING_START_MARKER, '⏳ **Auto recovery (resume or restart as per configuration) is pending.** Hive Mind starts it once memory and the other resources are free and stable; the progress is shown in Telegram. This note is removed when the recovery starts.', RECOVERY_PENDING_END_MARKER].join('\n');
 }
 
+// Plain words for the recovery outcome codes, so the pending note never ends as a bare code.
+const RECOVERY_NOT_STARTED_REASONS = {
+  'max-attempts-reached': 'all automatic recovery attempts are used up',
+  'policy-report': 'the on-kill policy is `report`',
+  'stopped-by-user': 'the session was stopped with /stop',
+  'no-session-id': 'no AI tool session id was found in the log to resume from',
+  'not-resumable': 'this session cannot be resumed automatically',
+  'plan-error': 'the recovery could not be planned',
+  'start-failed': 'the recovery session could not be started',
+  'start-error': 'starting the recovery session failed with an unexpected error',
+  'no-plan': 'no recovery command could be built',
+  'no-isolation-runner': 'no isolation runner is available to start the recovery',
+  'no-tracker': 'the bot could not track a recovery session',
+  'no-isolation-backend': 'the session did not run in an isolated environment',
+  'resource-wait-timeout': 'resources did not become free and stable in time',
+  'already-running': 'another session of this task is still running',
+};
+
+export function describeRecoveryNotStarted({ reason = null, detail = null } = {}) {
+  return String(detail || RECOVERY_NOT_STARTED_REASONS[reason] || reason || 'unknown reason');
+}
+
 /**
  * Replace the pending note of a kill notice with the recovery outcome.
  *
@@ -62,7 +84,7 @@ export function settleRecoveryPendingBlock(body, { resumed = false, reason = nul
   const start = text.indexOf(RECOVERY_PENDING_START_MARKER);
   const end = text.indexOf(RECOVERY_PENDING_END_MARKER, start + 1);
   if (start < 0 || end < 0) return null;
-  const why = String(detail || reason || 'unknown reason').slice(0, 500);
+  const why = describeRecoveryNotStarted({ reason, detail }).replace(/\.+$/, '').slice(0, 500);
   const replacement = resumed ? '' : `❌ **Automatic recovery did not start:** ${why}. No replacement session was launched.`;
   const before = text.slice(0, start);
   const after = text.slice(end + RECOVERY_PENDING_END_MARKER.length);
@@ -314,6 +336,32 @@ export async function postKillRecoveryNotice({ pullRequestUrl, commentUrl = null
 }
 
 const COMMENT_URL_PATTERN = /^https:\/\/github\.com\/([\w.-]+)\/([\w.-]+)\/(pull|issues)\/(\d+)#issuecomment-(\d+)$/;
+
+/**
+ * Issue #3530: find the still-pending kill notice of a session when its comment
+ * id was not captured at posting time (the log uploader did not report it).
+ * The newest comment carrying both the session marker and the pending note wins.
+ *
+ * @returns {Promise<string|null>} The comment URL, or null
+ */
+export async function findPendingKillNoticeUrl({ targetUrl, sessionName, runCommand = spawnCapture, verbose = false } = {}) {
+  const target = /^https:\/\/github\.com\/([\w.-]+)\/([\w.-]+)\/(pull|issues)\/(\d+)/.exec(targetUrl || '');
+  if (!target || !sessionName || typeof runCommand !== 'function') return null;
+  const jq = `[.[] | select((.body // "") | contains(${JSON.stringify(killNoticeSessionMarker(sessionName))}) and contains(${JSON.stringify(RECOVERY_PENDING_START_MARKER)})) | .html_url] | last // empty`;
+  try {
+    const result = await runCommand('gh', ['api', `repos/${target[1]}/${target[2]}/issues/${target[4]}/comments`, '--paginate', '--jq', jq]);
+    if (result?.code !== 0) return null;
+    const urls = String(result.stdout?.toString() || '')
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => COMMENT_URL_PATTERN.test(line));
+    if (verbose) console.log(`[VERBOSE] Pending kill notice of ${sessionName} on ${targetUrl}: ${urls.at(-1) || 'not found'}`);
+    return urls.at(-1) || null;
+  } catch (error) {
+    if (verbose) console.log(`[VERBOSE] Could not look up the kill notice of ${sessionName}: ${error?.message || error}`);
+    return null;
+  }
+}
 
 /**
  * Issue #3530: edit the kill notice once the recovery decision is known —

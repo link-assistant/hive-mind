@@ -23,7 +23,7 @@
  */
 
 import { announceKillOnPullRequest } from './session-monitor.kill-sections.lib.mjs';
-import { settleKillRecoveryNotice } from './session-kill-recovery.lib.mjs';
+import { describeRecoveryNotStarted, findPendingKillNoticeUrl, killNoticeSessionMarker, postKillRecoveryNotice, settleKillRecoveryNotice } from './session-kill-recovery.lib.mjs';
 
 function noticeArguments({ pullRequestUrl, sessionName, sessionInfo, killReport, exitCode, resumeCommand, options = {}, verbose }) {
   return {
@@ -66,17 +66,23 @@ export async function announcePendingKillNotice(context) {
 }
 
 async function announcePendingKillNoticeUnsafe(context) {
-  const { sessionName, sessionInfo, persist = () => {}, verbose = false } = context;
+  const { sessionName, sessionInfo, persist = () => {}, verbose = false, planRecovery = null } = context;
   const existing = ownNotice(sessionName, sessionInfo);
   if (existing) {
     if (verbose) console.log(`[VERBOSE] Kill notice for ${sessionName} already posted${existing.url ? ` (${existing.url})` : ''}; not posting it again (issue #3530)`);
     return { posted: false, url: existing.url || null, skipped: 'already-posted' };
   }
+  // Promise a recovery only when one can start (policy, attempts left, a
+  // resumable session); otherwise the final notice is posted after the decision.
+  if (typeof planRecovery === 'function' && !(await planRecovery())) {
+    if (verbose) console.log(`[VERBOSE] No recovery can start for ${sessionName}; the kill notice is posted without a pending note (issue #3530)`);
+    return { posted: false, url: null, skipped: 'no-recovery-planned' };
+  }
   const notice = await announceKillOnPullRequest({ ...noticeArguments(context), recoveryPending: true });
   if (notice.posted) {
     sessionInfo.killNotice = { sessionName, url: notice.url || null, pending: true, postedAt: new Date().toISOString() };
     persist();
-    if (!notice.url) console.warn(`[session-monitor] Kill notice for ${sessionName} was posted, but its comment id is unknown; the pending note cannot be removed later (issue #3530)`);
+    if (!notice.url) console.warn(`[session-monitor] Kill notice for ${sessionName} was posted, but its comment id is unknown; it will be looked up by its marker when the recovery is decided (issue #3530)`);
   } else if (verbose) {
     console.log(`[VERBOSE] Pending kill notice not posted for ${sessionName}: ${notice.skipped || 'unknown reason'}`);
   }
@@ -100,18 +106,15 @@ export async function finishKillNotice(context) {
 }
 
 async function finishKillNoticeUnsafe({ killRecovery = {}, ...context }) {
-  const { sessionName, sessionInfo, persist = () => {}, verbose = false, options = {} } = context;
+  const { sessionName, sessionInfo, persist = () => {}, verbose = false } = context;
   const existing = ownNotice(sessionName, sessionInfo);
   if (existing) {
     if (!existing.pending) return { posted: false, edited: false, skipped: 'already-settled' };
     const outcome = { resumed: Boolean(killRecovery.resumed), reason: killRecovery.reason || null, detail: killRecovery.detail || null };
-    const settled = existing.url ? await settleKillRecoveryNotice({ commentUrl: existing.url, outcome, runCommand: options.runCommand || undefined, verbose }) : { edited: false, error: 'comment id unknown' };
-    // A failed edit is not retried: the outcome is in Telegram and the next
-    // start comment, and retrying on every tick could flood the API.
-    sessionInfo.killNotice = { ...existing, pending: false, settledAt: new Date().toISOString(), settled: settled.edited, outcome: outcome.resumed ? 'recovery-started' : outcome.reason || 'not-started' };
+    const settled = await settlePendingNotice({ existing, outcome, context });
+    sessionInfo.killNotice = { ...existing, url: settled.url || existing.url || null, pending: false, settledAt: new Date().toISOString(), settled: settled.edited, outcome: outcome.resumed ? 'recovery-started' : outcome.reason || 'not-started' };
     persist();
-    if (!settled.edited && settled.error) console.warn(`[session-monitor] Could not update the kill notice of ${sessionName}: ${settled.error} (issue #3530)`);
-    return { posted: false, edited: settled.edited, skipped: settled.edited ? null : settled.error };
+    return { posted: settled.followUp === true, edited: settled.edited, skipped: settled.edited ? null : settled.error };
   }
   const notice = await announceKillOnPullRequest({
     ...noticeArguments(context),
@@ -127,4 +130,33 @@ async function finishKillNoticeUnsafe({ killRecovery = {}, ...context }) {
     console.log(`[VERBOSE] Killed-session notice not posted for ${sessionName}: ${notice.skipped || 'unknown reason'}`);
   }
   return { posted: notice.posted, edited: false, skipped: notice.skipped };
+}
+
+const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+/**
+ * Edit the pending note, retrying a few times (a lost comment id is looked up
+ * by its marker). When the note still cannot be edited and no recovery
+ * started, a short follow-up comment says why, so "pending" is never the last word.
+ */
+async function settlePendingNotice({ existing, outcome, context }) {
+  const { sessionName, sessionInfo, pullRequestUrl, options = {}, verbose = false } = context;
+  const runCommand = options.runCommand || undefined;
+  const attempts = Math.max(1, Number(options.killNoticeSettleAttempts ?? 3));
+  const delayMs = Math.max(0, Number(options.killNoticeSettleDelayMs ?? 5000));
+  const targetUrl = pullRequestUrl || sessionInfo?.url || null;
+  let url = existing.url || null;
+  let settled = { edited: false, error: 'comment id unknown' };
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    if (attempt > 1 && delayMs > 0) await wait(delayMs * (attempt - 1));
+    url = url || (await findPendingKillNoticeUrl({ targetUrl, sessionName, runCommand, verbose }));
+    settled = url ? await settleKillRecoveryNotice({ commentUrl: url, outcome, runCommand, verbose }) : { edited: false, error: 'comment id unknown' };
+    // `error: null` without an edit means the note is already gone.
+    if (settled.edited || !settled.error) return { ...settled, url };
+  }
+  console.warn(`[session-monitor] Could not update the kill notice of ${sessionName} after ${attempts} attempts: ${settled.error} (issue #3530)`);
+  if (outcome.resumed || !targetUrl) return { ...settled, url };
+  const body = [killNoticeSessionMarker(sessionName), `❌ **Automatic recovery did not start** for working session \`${sessionName}\`: ${describeRecoveryNotStarted(outcome).replace(/\.+$/, '')}. No replacement session was launched; the pending note above is out of date.`].join('\n');
+  const followUp = await postKillRecoveryNotice({ pullRequestUrl: targetUrl.replace(/#.*$/, ''), body, runCommand, fileSuffix: `settle-follow-up-${String(sessionName).replace(/[^A-Za-z0-9._-]/g, '-')}`, verbose });
+  return { ...settled, url, followUp: followUp.posted };
 }

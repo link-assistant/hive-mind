@@ -221,9 +221,16 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'session-type': {
     type: 'string',
-    description: 'Internal: Session type for comment differentiation (new, resume, auto-resume, auto-restart)',
-    choices: ['new', 'resume', 'auto-resume', 'auto-restart'],
+    description: 'Internal: Session type for comment differentiation (new, resume, auto-resume, auto-restart, kill-resume, kill-restart)',
+    choices: ['new', 'resume', 'auto-resume', 'auto-restart', 'kill-resume', 'kill-restart'],
     default: 'new',
+    hidden: true,
+  },
+  // Issue #3530: set by the monitor on an automatic recovery after a kill, so
+  // the recovery's start comment says which attempt it is ("2/3").
+  'recovery-attempt': {
+    type: 'string',
+    description: 'Internal: automatic kill-recovery attempt as n/m',
     hidden: true,
   },
   'auto-resume-on-errors': {

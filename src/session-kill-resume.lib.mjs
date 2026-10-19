@@ -21,7 +21,7 @@
  */
 
 import fs from 'node:fs/promises';
-import { readLastSessionIdFromLog, planKilledSessionResume } from './session-resume.lib.mjs';
+import { readLastSessionIdFromLog, planKilledSessionResume, tagRecoveryCommand } from './session-resume.lib.mjs';
 import { resolveOnSessionKillPolicy, resolveSessionKillResumeAttempts, pickSessionKillResumeDelayMs, shouldResumeKilledSession, ON_SESSION_KILL_RESUME } from './session-kill-policy.lib.mjs';
 import { argvFromSessionArgs } from './session-monitor.kill-sections.lib.mjs';
 import { formatKillResumeSection } from './session-kill-diagnostics.lib.mjs';
@@ -172,6 +172,8 @@ export async function startKillRecoverySession({ sessionName, sessionInfo, plan,
       return fail('already-running', duplicate);
     }
     await notify({ phase: 'launching', attempt: plan.attempt });
+    // Issue #3530: the recovery posts one uniform start comment naming the attempt.
+    const tagged = { ...plan, command: tagRecoveryCommand(plan.command, plan) };
     // Preferred path: re-enter the container the work already happened in.
     const recoveryStartedAt = new Date().toISOString();
     const previousLogBytes = sessionInfo?.logPath
@@ -180,20 +182,21 @@ export async function startKillRecoverySession({ sessionName, sessionInfo, plan,
           .then(stat => stat.size)
           .catch(() => null)
       : null;
-    const inPlace = skipInPlace ? { resumed: false, reason: 'previous-in-place-start-failed', error: skipInPlace, sessionId: null, executionUuid: null, mode: null } : await resumeKilledSessionInPlace({ sessionName, sessionInfo, plan, runner, notify, snapshotGuard, verbose });
+    const inPlace = skipInPlace ? { resumed: false, reason: 'previous-in-place-start-failed', error: skipInPlace, sessionId: null, executionUuid: null, mode: null } : await resumeKilledSessionInPlace({ sessionName, sessionInfo, plan: tagged, runner, notify, snapshotGuard, verbose });
     let newSessionId = inPlace.sessionId;
     let executionUuid = inPlace.executionUuid;
     let logPath = inPlace.resumed ? sessionInfo?.logPath || null : null;
     let containerFilesystemStartBytes = null;
     let containerResourceLimits = sessionInfo?.containerResourceLimits || null;
-    let launchCommand = plan.command;
+    let launchCommand = tagged.command;
     let freshResume = null;
 
     if (!inPlace.resumed) {
       if (inPlace.error) await notify({ phase: 'launching', attempt: plan.attempt, reason: `${inPlace.error} Starting a fresh isolated session.` });
       // Issue #2888: a new container resumes only a tool session it can reach.
-      const fresh = await resolveFreshCommand({ sessionName, sessionInfo, command: plan.command, runner, verbose });
-      launchCommand = fresh?.command || plan.command;
+      const fresh = await resolveFreshCommand({ sessionName, sessionInfo, command: tagged.command, runner, verbose });
+      // Re-tag: a dropped `--resume` turns the resume into a restart.
+      launchCommand = tagRecoveryCommand(fresh?.command || tagged.command, plan);
       freshResume = fresh?.outcome || null;
       if (fresh?.outcome === FRESH_RESUME_OUTCOMES.DROPPED) await notify({ phase: 'launching', attempt: plan.attempt, reason: fresh.detail });
       else if (fresh?.detail) console.log(`[session-kill-resume] ${sessionName}: ${fresh.detail}`);

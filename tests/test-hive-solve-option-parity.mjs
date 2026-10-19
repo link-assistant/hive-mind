@@ -38,6 +38,7 @@ const solveOnlyExceptions = new Set([
   'working-directory', // session-specific, hive manages its own directories
   'only-prepare-command', // debug option, solve-specific
   'session-type', // internal hidden option for session tracking
+  'recovery-attempt', // internal hidden option: kill-recovery attempt n/m (issue #3530)
   'auto-resume-iteration', // internal hidden option for limit-reset continuation tracking
   'previous-anthropic-cost', // internal hidden option carried between resume iterations (issue #3190)
 ]);

@@ -27,7 +27,18 @@ export const SESSION_TYPES = {
   RESUME: 'resume', // Manual resume (--resume flag)
   AUTO_RESUME: 'auto-resume', // Auto resume on limit reset (maintains context)
   AUTO_RESTART: 'auto-restart', // Auto restart on limit reset (fresh start)
+  KILL_RESUME: 'kill-resume', // Automatic recovery after a kill, resuming the tool session (issue #3530)
+  KILL_RESTART: 'kill-restart', // Automatic recovery after a kill, fresh tool session (issue #3530)
 };
+
+/** Session types started by the monitor's automatic kill recovery (issue #3530). */
+export const isKillRecoverySessionType = sessionType => sessionType === SESSION_TYPES.KILL_RESUME || sessionType === SESSION_TYPES.KILL_RESTART;
+
+/** `"2/3"` → `"attempt 2/3"`; anything malformed → `''`. */
+export function formatRecoveryAttempt(recoveryAttempt) {
+  const match = /^(\d+)(?:\/(\d+))?$/.exec(String(recoveryAttempt ?? '').trim());
+  return match ? `attempt ${match[1]}${match[2] ? `/${match[2]}` : ''}` : '';
+}
 
 /**
  * Get session comment header and description based on session type.
@@ -40,9 +51,11 @@ export const SESSION_TYPES = {
  * @param {string} sessionType - One of SESSION_TYPES values
  * @param {Date} timestamp - Session start timestamp
  * @param {string} [runtimeLine] - Optional runtime provenance line
+ * @param {Object} [options]
+ * @param {string|null} [options.recoveryAttempt] - Kill-recovery attempt as `n/m` (issue #3530)
  * @returns {Object} - { emoji, header, description }
  */
-export function getSessionCommentContent(sessionType, timestamp, runtimeLine = '') {
+export function getSessionCommentContent(sessionType, timestamp, runtimeLine = '', { recoveryAttempt = null } = {}) {
   const isoTime = timestamp.toISOString();
   const runtime = runtimeLine ? `\n\n${runtimeLine}` : '';
   const wait = 'Please wait for it to finish before giving feedback.';
@@ -54,6 +67,15 @@ export function getSessionCommentContent(sessionType, timestamp, runtimeLine = '
       return { emoji: '⏰', header: AUTO_RESUME_ON_LIMIT_RESET_MARKER, description: `Resumed at ${isoTime} after the usage limit reset (previous context kept). ${wait}${runtime}` };
     case SESSION_TYPES.AUTO_RESTART:
       return { emoji: '🔄', header: AUTO_RESTART_ON_LIMIT_RESET_MARKER, description: `Restarted at ${isoTime} after the usage limit reset (fresh context). ${wait}${runtime}` };
+    // Issue #3530: the one comment a kill recovery adds, in the same shape as
+    // every other start comment. The kill comment above it says why.
+    case SESSION_TYPES.KILL_RESUME:
+    case SESSION_TYPES.KILL_RESTART: {
+      const attempt = formatRecoveryAttempt(recoveryAttempt);
+      const context = sessionType === SESSION_TYPES.KILL_RESUME ? 'previous context kept' : 'fresh context';
+      const header = sessionType === SESSION_TYPES.KILL_RESUME ? AI_WORK_SESSION_RESUMED_MARKER : AI_WORK_SESSION_STARTED_MARKER;
+      return { emoji: '♻️', header, description: `${sessionType === SESSION_TYPES.KILL_RESUME ? 'Resumed' : 'Restarted'} at ${isoTime} after the session was killed (${attempt ? `${attempt}, ` : ''}${context}). ${wait}${runtime}` };
+    }
     case SESSION_TYPES.NEW:
     default:
       return { emoji: '🤖', header: AI_WORK_SESSION_STARTED_MARKER, description: `Started at ${isoTime}. ${wait}${runtime}` };
@@ -97,7 +119,7 @@ export async function postWorkSessionStartComment({ owner, repo, prNumber, $, lo
     } catch {
       runtimeLine = '';
     }
-    const { emoji, header, description } = getSessionCommentContent(sessionType, timestamp, runtimeLine);
+    const { emoji, header, description } = getSessionCommentContent(sessionType, timestamp, runtimeLine, { recoveryAttempt: argv?.recoveryAttempt ?? null });
     const startComment = `${emoji} **${header}**\n\n${description}`;
     const { ok, commentId, stderr } = await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: startComment });
     if (ok) {
@@ -137,7 +159,9 @@ export async function startWorkSession({ isContinueMode, prNumber, argv, log, fo
   // so plain `--resume`/continue-mode sessions left the PR marked "ready for review" while the
   // AI was still working on it. Any continue-mode session with a PR now converts it to draft.
   const workStartTime = new Date();
-  const shouldPostSessionComment = argv.watch || argv.autoContinue;
+  // Issue #3530: a kill recovery always announces itself; it is the one
+  // comment GitHub gets when the recovery actually starts.
+  const shouldPostSessionComment = argv.watch || argv.autoContinue || isKillRecoverySessionType(sessionType);
   if (isContinueMode && prNumber) {
     await log(`\n${formatAligned('🚀', 'Starting work session:', workStartTime.toISOString())}`);
 

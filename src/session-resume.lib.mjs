@@ -239,6 +239,49 @@ export function stripResumeFlag(args) {
 }
 
 /**
+ * Internal flags the monitor adds to a kill recovery's command (issue #3530).
+ * They describe one attempt, so they never carry into the next command.
+ */
+export const RECOVERY_SESSION_FLAGS = Object.freeze(['--session-type', '--recovery-attempt']);
+
+/** `args` without the flags of `RECOVERY_SESSION_FLAGS` (and their values). */
+export function stripRecoverySessionFlags(args) {
+  if (!Array.isArray(args)) return [];
+  const out = [];
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (RECOVERY_SESSION_FLAGS.includes(a)) {
+      i += 1;
+      continue;
+    }
+    if (typeof a === 'string' && RECOVERY_SESSION_FLAGS.some(flag => a.startsWith(`${flag}=`))) continue;
+    out.push(a);
+  }
+  return out;
+}
+
+/**
+ * Tag a kill recovery's command so its session posts one uniform start comment
+ * naming the attempt: `--session-type kill-resume|kill-restart` (resume when the
+ * command keeps `--resume`) and `--recovery-attempt n/m` (issue #3530).
+ *
+ * @param {{binary: string, args: string[], display?: string, chatDisplay?: string}} command
+ * @param {{attempt?: number|null, maxAttempts?: number|null}} [options]
+ */
+export function tagRecoveryCommand(command, { attempt = null, maxAttempts = null } = {}) {
+  if (!command || !Array.isArray(command.args)) return command;
+  const base = stripRecoverySessionFlags(command.args);
+  const resumes = base.some(arg => arg === '--resume' || arg === '-r' || (typeof arg === 'string' && (arg.startsWith('--resume=') || arg.startsWith('-r='))));
+  const args = [...base, '--session-type', resumes ? 'kill-resume' : 'kill-restart'];
+  if (Number.isFinite(attempt) && attempt > 0) args.push('--recovery-attempt', Number.isFinite(maxAttempts) && maxAttempts > 0 ? `${attempt}/${maxAttempts}` : String(attempt));
+  const binary = command.binary || 'solve';
+  const argDisplay = args.map(quoteArg).join(' ');
+  const oldArgDisplay = command.args.map(quoteArg).join(' ');
+  const chatPrefix = typeof command.chatDisplay === 'string' && command.chatDisplay.endsWith(` ${oldArgDisplay}`) ? command.chatDisplay.slice(0, -oldArgDisplay.length - 1) : quoteArg(binary);
+  return { ...command, args, display: `${quoteArg(binary)} ${argDisplay}`, chatDisplay: `${chatPrefix} ${argDisplay}` };
+}
+
+/**
  * Build the command that resumes a killed `/solve` session with its LAST tool
  * session id. Only `/solve` sessions are resumable this way — `/hive` and other
  * commands return `null` (the caller surfaces nothing rather than a bogus
@@ -264,7 +307,8 @@ export function buildResumeCommand({ sessionInfo = {}, lastSessionId = null, bin
   const bin = binary || command;
   let args;
   if (Array.isArray(sessionInfo.args) && sessionInfo.args.length > 0) {
-    args = stripResumeFlag(sessionInfo.args);
+    // Issue #3530: a recovery's attempt tags are no part of a manual resume.
+    args = stripResumeFlag(stripRecoverySessionFlags(sessionInfo.args));
   } else {
     args = [url];
     if (sessionInfo.tool && sessionInfo.tool !== 'claude') args.push('--tool', sessionInfo.tool);

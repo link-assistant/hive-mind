@@ -75,7 +75,7 @@ test('router#727: a fresh Codex recovery whose thread is unreachable starts a ne
   assert.equal(h.launches[0].binary, 'solve');
   assert.ok(!h.launches[0].args.includes('--resume'), `launched ${h.launches[0].args.join(' ')}`);
   assert.ok(!h.launches[0].args.includes(THREAD));
-  assert.deepEqual(h.tracked[0].data.args, [ISSUE_URL, '--tool', 'codex', '--verbose']);
+  assert.deepEqual(h.tracked[0].data.args, [ISSUE_URL, '--tool', 'codex', '--verbose', '--session-type', 'kill-restart', '--recovery-attempt', '1/3']);
   assert.ok(h.events.some(event => /Codex thread .* new Codex session on the same branch/.test(event.reason || '')));
 });
 
@@ -91,7 +91,7 @@ test('the rollout is copied out of the stopped container when it is only there',
   await h.recover();
   assert.deepEqual(calls, [{ container: SESSION, source: '/home/box/.codex/hive-mind/repositories/link-assistant/router/sessions/.' }]);
   assert.ok(await findCodexRolloutFile({ sessionsDir: path.join(home, '.codex', 'sessions'), threadId: THREAD }));
-  assert.deepEqual(h.launches[0].args.slice(-2), ['--resume', THREAD]);
+  assert.deepEqual(h.launches[0].args.slice(-6), ['--resume', THREAD, '--session-type', 'kill-resume', '--recovery-attempt', '1/3']);
 });
 
 test('a mounted rollout keeps --resume, and claude and other backends are left alone', async () => {
@@ -283,7 +283,7 @@ test('a recovery solve refused for disk space (exit 75) is relaunched under the 
   assert.equal(recovery.attempt, 2);
   assert.equal(waits.length, 1);
   assert.ok(events.some(event => event.phase === 'waiting' && /not enough disk space/.test(event.reason || '')));
-  assert.deepEqual(launches[0].args.slice(-2), ['--resume', THREAD]);
+  assert.deepEqual(launches[0].args.slice(-6), ['--resume', THREAD, '--session-type', 'kill-resume', '--recovery-attempt', '2/3']);
   assert.equal(tracked[0].data.killRecoveryAttempts, 2);
   assert.equal(tracked[0].data.killRecoveryDiskDeferrals, 1);
   assert.equal(sessionInfo.killRecoveryAttempts, 2);

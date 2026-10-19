@@ -22,6 +22,7 @@ import { buildKillRecoveryNotice } from '../src/session-kill-recovery.lib.mjs';
 import { resolveFailedSessionPullRequestState } from '../src/github-pr-state.lib.mjs';
 import { resumeAfterToolKill } from '../src/solve.tool-kill-resume.lib.mjs';
 import { formatRecoveryLifecycle, parseRecoveryLogEvent, recoveryLogLine } from '../src/session-recovery-lifecycle.lib.mjs';
+import { createGhCommentRecorder } from './helpers/gh-comment-recorder.mjs';
 
 const PR_URL = 'https://github.com/link-foundation/package-registry-manager/pull/31';
 const SESSION = 'ce5a24df-d07b-4e2a-b8d2-926bfcce3f77';
@@ -55,7 +56,8 @@ async function runCompletion({ exitCode, pullRequestState }) {
   const logPath = path.join(dir, 'session.log');
   await fs.writeFile(logPath, LOG_TAIL.replace('Exit Code: 0', `Exit Code: ${exitCode}`));
   const edits = [];
-  const comments = [];
+  const github = createGhCommentRecorder();
+  const comments = github.posts;
   const uploads = [];
   const launches = [];
   const lookups = [];
@@ -80,13 +82,14 @@ async function runCompletion({ exitCode, pullRequestState }) {
       generateSessionId: () => 'recovery-1',
       executeWithIsolation: async (...args) => (launches.push(args), { success: true }),
     },
-    attachLog: async options => (uploads.push(options), true),
-    runCommand: async (_command, args) => {
-      const editing = args.includes('--input');
-      const payload = await fs.readFile(args[args.indexOf(editing ? '--input' : '--body-file') + 1], 'utf8');
-      comments.push(editing ? JSON.parse(payload).body : payload);
-      return { code: 0, stdout: `${PR_URL}#issuecomment-1`, stderr: '' };
+    attachLog: async options => {
+      uploads.push(options);
+      // Like the real uploader: the leading section heads the posted log comment.
+      const { id } = github.create(PR_URL, `${options.leadingSection || ''}\n\n<details>log</details>`);
+      await options.onCommentPosted?.({ commentId: id });
+      return true;
     },
+    runCommand: github.runCommand,
   };
   resetSessionMonitorForTests();
   try {
@@ -96,7 +99,7 @@ async function runCompletion({ exitCode, pullRequestState }) {
     resetSessionMonitorForTests();
     await fs.rm(dir, { recursive: true, force: true });
   }
-  return { completion: edits.find(edit => edit.messageId === 77)?.message || '', edits, comments, uploads, launches, lookups };
+  return { completion: edits.find(edit => edit.messageId === 77)?.message || '', edits, comments, current: github.current(), uploads, launches, lookups };
 }
 
 test('package-registry-manager#31: an auto-merged session that exited 0 reports no recovery and uploads no "killed session" log', { timeout: 15000 }, async () => {
@@ -134,7 +137,15 @@ test('with the pull request still open, a survived OOM event is described withou
 test('a killed session with an open pull request is still recovered (behaviour preserved)', { timeout: 15000 }, async () => {
   const run = await runCompletion({ exitCode: 137, pullRequestState: OPEN });
   assert.equal(run.launches.length, 1, `the open work is resumed:\n${run.comments.join('\n---\n')}\n${run.completion}`);
-  assert.ok(run.comments.some(body => /restarted after a kill — outcome pending/.test(body)));
+  // Issue #3530: with --attach-logs the one kill comment is the log upload, headed
+  // by the notice and its pending note; no lifecycle comment reaches GitHub.
+  assert.equal(run.uploads.length, 1);
+  assert.equal(run.comments.length, 1, `one comment per kill:\n${run.comments.join('\n---\n')}`);
+  assert.match(run.comments[0], /<!-- hive-mind:session-kill-notice -->/);
+  assert.match(run.comments[0], /Auto recovery \(resume or restart as per configuration\) is pending/);
+  assert.doesNotMatch(run.comments[0], /outcome pending/, 'recovery phases stay in Telegram');
+  assert.doesNotMatch(run.current[0], /is pending|recovery-pending/, 'the note is removed once the recovery starts');
+  assert.match(run.current[0], /<details>log<\/details>/, 'the embedded log survives the edit');
 });
 
 test('buildKillCompletionSections returns nothing to report once the pull request is merged', async () => {
@@ -202,8 +213,11 @@ test('a scheduled retry is cancelled when the pull request merges during the del
   const result = await h.run();
   assert.equal(result.workDone, true);
   assert.equal(h.runs.length, 0, 'the retry never launches');
-  assert.match(h.comments.at(-1), /Recovery cancelled — work already complete/);
-  assert.match(h.comments.at(-1), /No recovery attempt was launched/);
+  // Issue #3530: the one kill comment is edited: its pending note now gives the reason.
+  assert.equal(h.comments.length, 2, 'posted once, then edited once');
+  assert.match(h.comments.at(-1), /Automatic recovery did not start:\*\* the pull request is already merged/);
+  assert.match(h.comments.at(-1), /No replacement session was launched/);
+  assert.doesNotMatch(h.comments.at(-1), /is pending/);
   assert.equal(parseRecoveryLogEvent(h.logs.join('\n'))?.phase, 'cancelled');
 });
 

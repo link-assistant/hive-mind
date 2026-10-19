@@ -520,6 +520,7 @@ async function attachLogToGitHubOnce(options) {
     budgetStatsData = null, // Issue #1491: budget stats for comment
     failureActionSection = null,
     leadingSection = null, // Issue #2563: e.g. the auto-merge held-back notice, published in the same comment as the log
+    onCommentPosted = null, // Issue #3530: receives { commentId } of the log comment, so a caller can edit it later
     recordResources = recordResourceSnapshot, // Issue #2189: injectable for tests
     uploadRetryDelaysMs = null, // Issue #2301: override the upload retry backoff (tests)
   } = options;
@@ -803,6 +804,7 @@ ${logLinks('View complete solution draft log')}
             await log(`  📊 Log size: ${Math.round(logStats.size / 1024)}KB`);
             // Issue #1952: Record that a session log was attached anywhere in this process so the top-level --attach-logs safety net can guarantee no session finishes with no logs.
             global.logAttachedToGitHub = true;
+            await notifyLogCommentPosted(onCommentPosted, posted);
             return true;
           } else {
             await log(`  ❌ Failed to post comment with log link: ${posted.stderr?.toString() || 'unknown error'}`);
@@ -854,6 +856,15 @@ ${logLinks('View complete solution draft log')}
     }
   }
 }
+/** Issue #3530: hand the posted log comment's id to the caller; never fails the upload. */
+async function notifyLogCommentPosted(onCommentPosted, posted) {
+  if (typeof onCommentPosted !== 'function') return;
+  try {
+    await onCommentPosted({ commentId: posted?.commentId || null });
+  } catch {
+    /* the log is published; a failing observer must not undo that */
+  }
+}
 /**
  * Helper to attach a regular comment when it fits within limits
  */
@@ -877,6 +888,7 @@ async function attachRegularComment(options, logComment) {
     const status = getLogUploadTerminalStatus({ errorMessage, errorDuringExecution, isUsageLimit });
     await log(`  ${status.emoji} ${status.label} uploaded to ${targetName} as comment${posted.commentId ? ` (id=${posted.commentId})` : ''}`);
     await log(`  📊 Log size: ${Math.round(logStats.size / 1024)}KB`);
+    await notifyLogCommentPosted(options.onCommentPosted, posted);
     return true;
   } else {
     await log(`  ❌ Failed to upload log to ${targetName}: ${posted.stderr?.toString() || 'unknown error'}`);

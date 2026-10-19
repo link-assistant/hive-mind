@@ -1,11 +1,8 @@
 /** Recovery lifecycle shared by the monitor and in-process retries (#2498). */
 import fs from 'node:fs/promises';
 import { readLogTailText } from './log-bounded-read.lib.mjs';
-import { postKillRecoveryNotice } from './session-kill-recovery.lib.mjs';
 import { safeEditMessageText, safeSendMessage } from './telegram-safe-reply.lib.mjs';
 import { escapeMarkdown } from './telegram-markdown.lib.mjs';
-import { RECOVERY_LIFECYCLE_MARKER } from './tool-comments.lib.mjs';
-import { getSessionIssueContext } from './session-live-pr-link.lib.mjs';
 
 export const RECOVERY_HEARTBEAT_MS = 5 * 60 * 1000;
 export const RECOVERY_LOG_MARKER = '[HIVE-MIND RECOVERY]';
@@ -30,14 +27,19 @@ export function parseRecoveryLogEvent(text) {
 }
 
 /** @telegram-markdown Telegram legacy-Markdown text (issue #3505). */
-export function formatRecoveryLifecycle({ phase, attempt = null, sessionName = null, previousSession = null, executionUuid = null, at, startedAt = null, lastOutputAt = null, logAvailable = false, delayMs = null, exitCode = null, reason = null, nextSession = null, kind = 'container', outerTerminal = false } = {}) {
-  const titles = { waiting: '⏳ Recovery scheduled', launching: '🔄 Recovery attempt launching — outcome pending', running: '🔄 Recovery attempt under monitoring — outcome pending', completed: '✅ Recovery attempt completed successfully', failed: '❌ Recovery attempt failed', stopped: '🛑 Recovery stopped by user', cancelled: '✅ Recovery cancelled — work already complete', unknown: '⚠️ Recovery session stopped — outcome unknown' };
-  const lines = [`${titles[phase] || titles.running}${attempt ? ` (attempt ${attempt})` : ''}`, `Updated: ${escapeMarkdown(at)}`];
+export function formatRecoveryLifecycle({ phase, attempt = null, maxAttempts = null, sessionName = null, previousSession = null, executionUuid = null, at, startedAt = null, lastOutputAt = null, logAvailable = false, delayMs = null, exitCode = null, reason = null, nextSession = null, kind = 'container', outerTerminal = false, resourceState = null, waitedMs = null } = {}) {
+  const titles = { waiting: '⏳ Recovery scheduled', 'waiting-resources': '⏳ Recovery pending — waiting for free and stable resources', launching: '🔄 Recovery attempt launching — outcome pending', running: '🔄 Recovery attempt under monitoring — outcome pending', completed: '✅ Recovery attempt completed successfully', failed: '❌ Recovery attempt failed', stopped: '🛑 Recovery stopped by user', cancelled: '✅ Recovery cancelled — work already complete', unknown: '⚠️ Recovery session stopped — outcome unknown' };
+  const lines = [`${titles[phase] || titles.running}${attempt ? ` (attempt ${attempt}${maxAttempts ? `/${maxAttempts}` : ''})` : ''}`, `Updated: ${escapeMarkdown(at)}`];
   if (startedAt) lines.push(`Attempt started: ${escapeMarkdown(startedAt)}`);
   if (sessionName) lines.push(`Recovery session: ${escapeMarkdown(sessionName)}`);
   if (previousSession) lines.push(`Previous session: ${escapeMarkdown(previousSession)}`);
   if (executionUuid) lines.push(`Execution / log: ${escapeMarkdown(executionUuid)}`);
   if (delayMs !== null) lines.push(`Waiting ${Math.round(delayMs / 1000)} seconds before launch.`);
+  // Issue #3530: the recovery waits behind the task queue's resource gate.
+  if (phase === 'waiting-resources') {
+    lines.push(resourceState === 'stabilizing' ? 'Resources are available; checking that they stay stable before the launch.' : 'The host does not have enough free resources yet; the recovery starts once they are free and stable.');
+    if (Number.isFinite(waitedMs) && waitedMs > 0) lines.push(`Waiting for ${Math.round(waitedMs / 60000)} min so far.`);
+  }
   if (phase === 'running') {
     lines.push(lastOutputAt ? `Execution log output observed at ${escapeMarkdown(lastOutputAt)}. Output alone does not establish commits or task progress.` : logAvailable ? 'No new execution output has been observed since monitoring this attempt began.' : 'The execution log is unavailable; activity cannot be confirmed.');
     lines.push('No terminal outcome is confirmed. A quiet run may still be working or stalled.');
@@ -52,7 +54,7 @@ export function formatRecoveryLifecycle({ phase, attempt = null, sessionName = n
 }
 
 /** Best-effort reporting never changes a task's execution or outcome. */
-export async function reportRecoveryLifecycle({ bot, sessionName, sessionInfo, statusResult = null, running = true, exitCode = null, nextSession = null, phase = null, attempt = null, delayMs = null, reason = null, pullRequestUrl = null, lookupPullRequest = null, options = {}, verbose = false, persist = () => {}, logEvent = () => {} } = {}) {
+export async function reportRecoveryLifecycle({ bot, sessionName, sessionInfo, statusResult = null, running = true, exitCode = null, nextSession = null, phase = null, attempt = null, maxAttempts = null, delayMs = null, reason = null, resourceState = null, waitedMs = null, options = {}, verbose = false, persist = () => {}, logEvent = () => {} } = {}) {
   try {
     const now = options.recoveryNow ? options.recoveryNow() : Date.now();
     const at = new Date(now).toISOString();
@@ -83,27 +85,14 @@ export async function reportRecoveryLifecycle({ bot, sessionName, sessionInfo, s
       persist();
       return null;
     }
-    const report = { ...state, phase: nextPhase, outerTerminal: !running, at, sessionName, previousSession: sessionInfo.killRecoveryOfSession || null, executionUuid: sessionInfo.executionUuid || statusResult?.uuid || null, logAvailable: Boolean(stat), delayMs, exitCode: !running ? exitCode : (toolEvent?.exitCode ?? null), reason: reason || toolEvent?.reason || statusResult?.exitReason || null, nextSession };
+    if (maxAttempts) state.maxAttempts = maxAttempts;
+    const report = { ...state, phase: nextPhase, outerTerminal: !running, at, resourceState, waitedMs, sessionName, previousSession: sessionInfo.killRecoveryOfSession || null, executionUuid: sessionInfo.executionUuid || statusResult?.uuid || null, logAvailable: Boolean(stat), delayMs, exitCode: !running ? exitCode : (toolEvent?.exitCode ?? null), reason: reason || toolEvent?.reason || statusResult?.exitReason || null, nextSession };
     const text = formatRecoveryLifecycle(report);
     logEvent('session_recovery_lifecycle', report);
     if (logPath) await fs.appendFile(logPath, `\n${recoveryLogLine({ ...report, kind: 'container' })}\n`).catch(error => console.warn(`[session-recovery] Could not append lifecycle report: ${error?.message || error}`));
-    let pr = pullRequestUrl || sessionInfo.resolvedPullRequestUrl || (sessionInfo.urlContext?.type === 'pull' ? sessionInfo.urlContext.normalized || sessionInfo.url : null);
-    if (!pr && lookupPullRequest) {
-      pr = await lookupPullRequest().catch(() => null);
-      if (pr) sessionInfo.resolvedPullRequestUrl = pr;
-    }
-    // Issue #2630: without a pull request, a recovery that could not start (or
-    // fell back) is still said on the issue the task was started from, and
-    // that comment keeps being updated; routine progress stays on Telegram.
-    // Issue #3469: for `/fix`, the issue it created.
-    const issueUrl = sessionInfo.urlContext?.type === 'issue' ? sessionInfo.urlContext.normalized || sessionInfo.url || null : getSessionIssueContext(sessionInfo)?.normalized || null;
-    if (!pr && issueUrl && (reason || nextPhase === 'failed' || /\/issues\/\d+#issuecomment-\d+$/.test(state.commentUrl || ''))) pr = issueUrl;
-    let githubDelivered = !pr;
-    if (pr) {
-      const posted = await postKillRecoveryNotice({ pullRequestUrl: pr, commentUrl: state.commentUrl, body: `${RECOVERY_LIFECYCLE_MARKER}\n${text}`, fileSuffix: `lifecycle-${String(sessionName).replace(/[^A-Za-z0-9._-]/g, '-')}`, runCommand: options.runCommand, verbose });
-      githubDelivered = posted.posted;
-      if (posted.posted && posted.url) state.commentUrl = posted.url;
-    }
+    // Issue #3530: the lifecycle is Telegram only. GitHub gets the one kill
+    // comment (edited once the recovery starts) and the recovery's own start
+    // comment; the auto-updating lifecycle comment flooded pull requests.
     let telegramDelivered = !running || !bot?.telegram;
     // Terminal reports are appended to the normal completion message by the
     // caller. Active reports keep updating the original Telegram task reply.
@@ -124,7 +113,7 @@ export async function reportRecoveryLifecycle({ bot, sessionName, sessionInfo, s
     }
     // A failed publication is retried next tick; a bot restart retains the
     // comment handle and throttle, so it does not create another heartbeat.
-    if (githubDelivered && telegramDelivered) {
+    if (telegramDelivered) {
       state.lastReportedMs = now;
       state.phase = nextPhase;
       state.outerTerminal = !running;
@@ -138,7 +127,7 @@ export async function reportRecoveryLifecycle({ bot, sessionName, sessionInfo, s
   }
 }
 
-/** Used before launch so a delayed recovery is visible on both surfaces. */
+/** Used before launch so a delayed recovery is visible in Telegram and the log. */
 export function recoveryLifecycleCallback(context) {
   return async event => {
     const logPath = context.sessionInfo?.logPath;

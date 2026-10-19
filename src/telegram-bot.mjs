@@ -182,6 +182,7 @@ const { escapeMarkdown, escapeMarkdownKeepingCodeSpans, escapeMarkdownV2, cleanN
 const { revealHiddenCharacters } = await import('./github-url-recovery.lib.mjs'); // #2194
 
 const { getSolveQueue, createQueueExecuteCallback } = await import('./telegram-solve-queue.lib.mjs');
+const { createQueueRecoveryResourceGate } = await import('./session-kill-resume.resource-gate.lib.mjs');
 const { applySolveToolAlias, getFirstParsedPositionalArg, getSolveCommandNameFromText, getSolveToolAliasFromText, moveArgumentToFront, parseArgsWithYargs, parseCommandArgs, SOLVE_COMMAND_NAMES } = await import('./telegram-solve-command.lib.mjs');
 const { preflightRepositoryTarget, redirectRepositoryArgsToSingleIssue } = await import('./telegram-solve-repository-preflight.lib.mjs');
 const { repositoryModeSelectionFromArgv } = await import('./solve.repository-mode.lib.mjs');
@@ -1098,7 +1099,8 @@ function startSessionMonitoringOnce() {
   // Issue #2134: the monitor needs the isolation runner to start a recovery
   // working session when `--on-session-kill=resume` is in effect.
   // Issue #2801: it also applies and lifts the Docker task CPU penalty.
-  sessionMonitoringTimer = startSessionMonitoring(bot, VERBOSE, 30000, { isolationRunner, cpuPenalty: CONTAINER_CPU_PENALTY });
+  // Issue #3530: a recovery waits behind the same resource gate as queued tasks.
+  sessionMonitoringTimer = startSessionMonitoring(bot, VERBOSE, 30000, { isolationRunner, cpuPenalty: CONTAINER_CPU_PENALTY, recoveryResourceGate: createQueueRecoveryResourceGate(() => getSolveQueue({ verbose: VERBOSE })) });
 }
 // Issue #2146 (PR #2147 review): stop the Formal AI sidecar once no Formal AI
 // task holds a lease, then — while the host is idle — update its image (with a

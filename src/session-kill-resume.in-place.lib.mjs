@@ -52,6 +52,7 @@ import { RESUME_MODES } from './isolation-runner.resume.lib.mjs';
 import { buildShellCommand } from './shell-command.lib.mjs';
 import { runGuardedSnapshotResume } from './kill-recovery-snapshot-guard.lib.mjs';
 import { canPruneStoppedContainer } from './kill-recovery-snapshot-cleanup.lib.mjs';
+import { resolveSessionContainerName } from './session-container-identity.lib.mjs';
 
 /** Why a killed session cannot be re-entered in place. Reported, never thrown. */
 export const IN_PLACE_SKIP_REASONS = Object.freeze({
@@ -123,7 +124,8 @@ export function getCarriedContainerDiskUsage(sessionInfo) {
  * @returns {{eligible: boolean, reason: string, identifier: string|null, containerName: string|null}}
  */
 export function planSameContainerResume({ sessionName = null, sessionInfo = {}, resumeKeepsResourceLimits = false } = {}) {
-  const containerName = sessionInfo?.sessionId || sessionName || null;
+  // Issue #3532: after a docker-start resume `sessionId` is the execution UUID.
+  const containerName = resolveSessionContainerName(sessionName, sessionInfo);
   const identifier = sessionInfo?.executionUuid || containerName || null;
   const base = { eligible: false, identifier, containerName };
 

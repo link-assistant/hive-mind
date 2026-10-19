@@ -24,7 +24,7 @@ import { getNonIsolationSessionProgress } from './start-screen-exit-marker.lib.m
  * @param {(sessionName: string, sessionInfo: object, verbose?: boolean) => boolean} deps.isNonIsolationSessionActive
  * @param {(sessionName: string, sessionInfo: object, options?: object) => Promise<object>} deps.getIsolationSessionState
  * @param {(sessionName: string) => Promise<boolean>} deps.checkScreenSessionExists
- * @returns {{hasActiveSessionForUrl: Function, findStoppableSessionByUrl: Function, hasActiveSessionForUrlAsync: Function, getRunningTrackedIsolationSessions: Function, getRunningSessionItems: Function, getSessionStats: Function}}
+ * @returns {{hasActiveSessionForUrl: Function, findOtherActiveSessionForUrl: Function, findStoppableSessionByUrl: Function, hasActiveSessionForUrlAsync: Function, getRunningTrackedIsolationSessions: Function, getRunningSessionItems: Function, getSessionStats: Function}}
  */
 export function createSessionRegistryQueries({ activeSessions, normalizeSessionUrl, isNonIsolationSessionActive, getIsolationSessionState, checkScreenSessionExists }) {
   /**
@@ -69,6 +69,28 @@ export function createSessionRegistryQueries({ activeSessions, normalizeSessionU
       console.log(`[VERBOSE] No active session found for URL ${url}`);
     }
     return { isActive: false, sessionName: null };
+  }
+  /**
+   * Issue #3532: another tracked, unfinished session working on `url`, other
+   * than `excludeSessionName` — the recovery guard's view of "is this pull
+   * request already being worked on?". Sessions whose completion was already
+   * handled, and sessions that are themselves waiting to be recovered, do not
+   * count.
+   *
+   * @param {string} url
+   * @param {string|null} excludeSessionName
+   * @returns {string|null} The other session's name
+   */
+  function findOtherActiveSessionForUrl(url, excludeSessionName = null, verbose = false) {
+    if (!url) return null;
+    const normalizedUrl = normalizeSessionUrl(url);
+    for (const [sessionName, sessionInfo] of activeSessions.entries()) {
+      if (sessionName === excludeSessionName || !sessionInfo?.url || normalizeSessionUrl(sessionInfo.url) !== normalizedUrl) continue;
+      if (sessionInfo.completionNotifiedAt || sessionInfo.killRecoverySessionId || sessionInfo.killRecoveryPendingSince) continue;
+      if (!sessionInfo.isolationBackend && !isNonIsolationSessionActive(sessionName, sessionInfo, verbose)) continue;
+      return sessionName;
+    }
+    return null;
   }
   const SESSION_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   /**
@@ -306,5 +328,5 @@ export function createSessionRegistryQueries({ activeSessions, normalizeSessionU
     };
   }
 
-  return { hasActiveSessionForUrl, findStoppableSessionByUrl, hasActiveSessionForUrlAsync, getRunningTrackedIsolationSessions, getRunningSessionItems, getSessionStats };
+  return { hasActiveSessionForUrl, findOtherActiveSessionForUrl, findStoppableSessionByUrl, hasActiveSessionForUrlAsync, getRunningTrackedIsolationSessions, getRunningSessionItems, getSessionStats };
 }

@@ -19,6 +19,7 @@ import { monitorSessions, resetSessionMonitorForTests, trackSession, STALE_EXECU
 import { formatSessionCompletionMessage } from '../src/work-session-formatting.lib.mjs';
 import { announceKillOnPullRequest } from '../src/session-monitor.kill-sections.lib.mjs';
 import { serializeSessionInfo } from '../src/session-store.lib.mjs';
+import { createGhCommentRecorder } from './helpers/gh-comment-recorder.mjs';
 
 const PR_URL = 'https://github.com/link-foundation/meta-language/pull/196';
 const pullContext = { type: 'pull', owner: 'link-foundation', repo: 'meta-language', number: 196, normalized: PR_URL };
@@ -46,7 +47,7 @@ test('the monitor keeps an OOM-recovered session in progress on its pull request
     args: [PR_URL, '--on-session-kill', 'resume'],
   };
   const edits = [];
-  const comments = [];
+  const github = createGhCommentRecorder();
   const bot = {
     telegram: {
       editMessageText: async (_chatId, messageId, _inline, message) => edits.push({ messageId, message }),
@@ -63,12 +64,7 @@ test('the monitor keeps an OOM-recovered session in progress on its pull request
     lookupPullRequestState: async () => null, // #2498: offline — the real pull request may have merged since
     env: { HIVE_MIND_SESSION_KILL_RESUME_DELAY: '0' },
     isolationRunner: { generateSessionId: () => recoverySessionId, executeWithIsolation: async () => ({ success: true }) },
-    runCommand: async (_command, args) => {
-      const inputFlag = args.includes('--input') ? '--input' : '--body-file';
-      const body = await fs.readFile(args[args.indexOf(inputFlag) + 1], 'utf8');
-      comments.push(inputFlag === '--input' ? JSON.parse(body).body : body);
-      return { code: 0, stdout: `${PR_URL}#issuecomment-1`, stderr: '' };
-    },
+    runCommand: github.runCommand,
   });
   resetSessionMonitorForTests();
   try {
@@ -79,10 +75,15 @@ test('the monitor keeps an OOM-recovered session in progress on its pull request
       monitorOptions(async () => ({ exists: true, status: 'executed', exitCode: 1, oomKilled: true, isolation: 'docker', logPath }))
     );
 
-    const killNotices = comments.filter(comment => comment.includes('<!-- hive-mind:session-kill-notice -->'));
+    const killNotices = github.posts.filter(comment => comment.includes('<!-- hive-mind:session-kill-notice -->'));
     assert.equal(killNotices.length, 1, 'the pull request the session was started on gets the notice');
     assert.match(killNotices[0], /container OOM event/i);
-    assert.match(killNotices[0], new RegExp(recoverySessionId));
+    // Issue #3530: posted before the recovery with a pending note, which is removed once it starts.
+    assert.match(killNotices[0], /Auto recovery \(resume or restart as per configuration\) is pending/);
+    assert.equal(github.posts.length, 1, 'no lifecycle comment is posted to GitHub');
+    assert.equal(github.patches.length, 1, 'the kill notice is edited exactly once');
+    assert.match(github.current()[0], /container OOM event/i);
+    assert.doesNotMatch(github.current()[0], /is pending|recovery-pending/);
 
     assert.ok(
       edits.some(edit => /Recovery attempt launching.*outcome pending/i.test(edit.message)),

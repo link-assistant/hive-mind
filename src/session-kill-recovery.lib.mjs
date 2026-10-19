@@ -31,6 +31,43 @@ import { ON_SESSION_KILL_RESUME } from './session-kill-policy.lib.mjs';
 /** Marker used to recognise (and avoid duplicating) our own notices. */
 export const KILL_RECOVERY_NOTICE_MARKER = '<!-- hive-mind:session-kill-notice -->';
 
+/**
+ * Issue #3530: the one kill comment carries a "recovery is pending" note
+ * between these markers. Once the recovery starts the note is removed; if it
+ * cannot start, the note is replaced with the reason. All intermediate states
+ * (waiting for resources, launching, heartbeats) go to Telegram only.
+ */
+export const RECOVERY_PENDING_START_MARKER = '<!-- hive-mind:recovery-pending-start -->';
+export const RECOVERY_PENDING_END_MARKER = '<!-- hive-mind:recovery-pending-end -->';
+
+/** Per-session marker, so the notice of one kill is recognisable later. */
+export function killNoticeSessionMarker(sessionName) {
+  return `<!-- hive-mind:kill-notice-session:${String(sessionName || 'session').replace(/[^A-Za-z0-9._-]/g, '-')} -->`;
+}
+
+export function buildRecoveryPendingBlock() {
+  return [RECOVERY_PENDING_START_MARKER, '⏳ **Auto recovery (resume or restart as per configuration) is pending.** Hive Mind starts it once memory and the other resources are free and stable; the progress is shown in Telegram. This note is removed when the recovery starts.', RECOVERY_PENDING_END_MARKER].join('\n');
+}
+
+/**
+ * Replace the pending note of a kill notice with the recovery outcome.
+ *
+ * @param {string} body - Current comment body
+ * @param {{resumed: boolean, reason?: string|null, detail?: string|null}} outcome
+ * @returns {string|null} New body, or null when the body has no pending note
+ */
+export function settleRecoveryPendingBlock(body, { resumed = false, reason = null, detail = null } = {}) {
+  const text = String(body || '');
+  const start = text.indexOf(RECOVERY_PENDING_START_MARKER);
+  const end = text.indexOf(RECOVERY_PENDING_END_MARKER, start + 1);
+  if (start < 0 || end < 0) return null;
+  const why = String(detail || reason || 'unknown reason').slice(0, 500);
+  const replacement = resumed ? '' : `❌ **Automatic recovery did not start:** ${why}. No replacement session was launched.`;
+  const before = text.slice(0, start);
+  const after = text.slice(end + RECOVERY_PENDING_END_MARKER.length);
+  return resumed ? `${before.replace(/\n+$/, '\n')}${after.replace(/^\n+/, '\n')}` : `${before}${replacement}${after}`;
+}
+
 const CAUSE_HEADLINES = {
   [KILL_CAUSE_OUT_OF_MEMORY]: 'recovered from out of memory',
   [KILL_CAUSE_FORCED_KILL]: 'recovered from forced kill',
@@ -75,7 +112,7 @@ export function killRecoveryHeadline(cause) {
  * @param {string|null} [options.logUrl] - URL of the uploaded intermediate log
  * @returns {string} Markdown body
  */
-export function buildKillRecoveryNotice({ diagnosis = null, exitCode = null, sessionName = null, observedAt = null, policy = null, resumed = false, survived = false, oomEventOnly = false, deliberateStop = null, recoverySessionId = null, resumeCommand = null, attempt = null, maxAttempts = null, attachLogs = false, logAttached = false, logUrl = null } = {}) {
+export function buildKillRecoveryNotice({ diagnosis = null, exitCode = null, sessionName = null, observedAt = null, policy = null, resumed = false, survived = false, oomEventOnly = false, deliberateStop = null, recoverySessionId = null, resumeCommand = null, attempt = null, maxAttempts = null, attachLogs = false, logAttached = false, logUrl = null, logInline = false, recoveryPending = false } = {}) {
   const cause = diagnosis?.cause || null;
   // Issue #2498: when solve stopped on its own (e.g. expired authentication),
   // the OOM event did not end the run — lead with the real reason instead of
@@ -92,7 +129,7 @@ export function buildKillRecoveryNotice({ diagnosis = null, exitCode = null, ses
   else if (survived && cause === KILL_CAUSE_OUT_OF_MEMORY) title = 'ℹ️ Work session completed — an earlier container OOM event did not stop it';
   else title = survived ? `⚠️ Working session ${killRecoveryHeadline(cause)}` : `❌ ${CAUSE_TITLES[cause] || 'Working session was killed'}`;
 
-  const lines = [KILL_RECOVERY_NOTICE_MARKER, `## ${title}`, ''];
+  const lines = [KILL_RECOVERY_NOTICE_MARKER, ...(sessionName ? [killNoticeSessionMarker(sessionName)] : []), `## ${title}`, ''];
 
   if (stopLine) lines.push('**Why the work session stopped** (from its log):', '', `> ${stopLine}`, '');
   if (diagnosis?.summary) lines.push(stopLine && oomEventOnly ? `Earlier event (not the cause of this stop): ${diagnosis.summary}` : diagnosis.summary, '');
@@ -111,7 +148,10 @@ export function buildKillRecoveryNotice({ diagnosis = null, exitCode = null, ses
     lines.push('', '</details>', '');
   }
 
-  if (resumed) {
+  if (recoveryPending && !resumed) {
+    // Issue #3530: posted before the recovery, so the kill is on GitHub at once.
+    lines.push(buildRecoveryPendingBlock(), '');
+  } else if (resumed) {
     const attemptSuffix = attempt && maxAttempts ? ` (attempt ${attempt}/${maxAttempts})` : '';
     const sessionSuffix = recoverySessionId ? ` Its working session is \`${recoverySessionId}\`.` : '';
     lines.push(`🔄 A **new working session was started** to recover from this event${attemptSuffix}. The launch was accepted; activity and the final outcome are not yet confirmed.${sessionSuffix}`, '');
@@ -129,6 +169,8 @@ export function buildKillRecoveryNotice({ diagnosis = null, exitCode = null, ses
 
   if (logUrl) {
     lines.push(`📎 Intermediate working-session log: ${logUrl}`, '');
+  } else if (logInline) {
+    // Issue #3530: the log follows in this very comment.
   } else if (logAttached) {
     lines.push('📎 The intermediate working-session log was uploaded as a separate comment.', '');
   } else if (!attachLogs && !survived) {
@@ -236,6 +278,46 @@ export async function postKillRecoveryNotice({ pullRequestUrl, commentUrl = null
   } finally {
     await unlink(bodyFile);
   }
+}
+
+const COMMENT_URL_PATTERN = /^https:\/\/github\.com\/([\w.-]+)\/([\w.-]+)\/(pull|issues)\/(\d+)#issuecomment-(\d+)$/;
+
+/**
+ * Issue #3530: edit the kill notice once the recovery decision is known —
+ * remove the pending note when the recovery started, or replace it with the
+ * reason it did not. The current body is read back first, so the embedded log
+ * and anything else in the comment stay exactly as published.
+ *
+ * @param {Object} options
+ * @param {string} options.commentUrl - `https://github.com/o/r/pull/N#issuecomment-ID`
+ * @param {{resumed: boolean, reason?: string|null, detail?: string|null}} options.outcome
+ * @param {Function} [options.runCommand]
+ * @param {boolean} [options.verbose]
+ * @returns {Promise<{edited: boolean, error: string|null}>}
+ */
+export async function settleKillRecoveryNotice({ commentUrl, outcome = {}, runCommand = spawnCapture, verbose = false, ...rest } = {}) {
+  const match = COMMENT_URL_PATTERN.exec(commentUrl || '');
+  if (!match) return { edited: false, error: 'no editable comment url' };
+  if (typeof runCommand !== 'function') return { edited: false, error: 'no command runner' };
+  let read;
+  try {
+    read = await runCommand('gh', ['api', `repos/${match[1]}/${match[2]}/issues/comments/${match[5]}`, '--jq', '.body']);
+  } catch (error) {
+    read = { code: 1, stderr: error?.message || String(error) };
+  }
+  if (read?.code !== 0) {
+    const error = String(read?.stderr || read?.stdout || 'gh api failed').trim();
+    console.warn(`[session-kill-recovery] Could not read kill notice ${commentUrl}: ${error}`);
+    return { edited: false, error };
+  }
+  const body = settleRecoveryPendingBlock(String(read.stdout || '').replace(/\n$/, ''), outcome);
+  if (body === null) {
+    if (verbose) console.log(`[VERBOSE] Kill notice ${commentUrl} has no pending recovery note; nothing to edit (issue #3530)`);
+    return { edited: false, error: null };
+  }
+  const posted = await postKillRecoveryNotice({ pullRequestUrl: `https://github.com/${match[1]}/${match[2]}/${match[3]}/${match[4]}`, commentUrl, body, runCommand, fileSuffix: `settle-${match[5]}`, verbose, ...rest });
+  if (verbose) console.log(`[VERBOSE] Kill notice ${commentUrl} ${posted.posted ? 'updated' : `not updated: ${posted.error}`} (recovery ${outcome.resumed ? 'started' : 'did not start'}, issue #3530)`);
+  return { edited: posted.posted, error: posted.error };
 }
 
 /**

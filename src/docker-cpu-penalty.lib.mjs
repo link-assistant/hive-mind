@@ -16,6 +16,7 @@
  */
 import { spawn } from 'node:child_process';
 import os from 'node:os';
+import { resolveSessionContainerName } from './session-container-identity.lib.mjs';
 
 const MINUTE_MS = 60 * 1000;
 
@@ -294,7 +295,7 @@ export async function runDockerCpuPenaltyPass(sessions, options = {}) {
   const hostCpus = await hostCpusProvider();
   const outcomes = [];
   for (const { sessionName, sessionInfo } of eligible) {
-    const containerName = sessionInfo.sessionId;
+    const containerName = resolveSessionContainerName(sessionName, sessionInfo);
     const cores = usage.get(containerName);
     const baseCpus = Number.isFinite(sessionInfo.containerResourceLimits?.cpuCores) ? sessionInfo.containerResourceLimits.cpuCores : null;
     const capacityCpus = baseCpus === null ? hostCpus : Math.min(baseCpus, hostCpus);

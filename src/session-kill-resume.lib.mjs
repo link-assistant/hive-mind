@@ -29,6 +29,8 @@ import { resumeKilledSessionInPlace } from './session-kill-resume.in-place.lib.m
 import { FRESH_RESUME_OUTCOMES, resolveFreshRecoveryCommand } from './session-kill-resume.fresh-session.lib.mjs';
 import { isDiskRefusedRecovery, relaunchDiskRefusedRecovery } from './session-kill-resume.disk-retry.lib.mjs';
 import { detectFailedInPlaceStart, relaunchFailedInPlaceStart } from './session-kill-resume.start-failure.lib.mjs';
+import { findRunningSessionContainers, nextContainerNameHistory, resolveSessionContainerRoot } from './session-container-identity.lib.mjs';
+import { waitForRecoveryResources } from './session-kill-resume.resource-gate.lib.mjs';
 
 /** Field recording how many automatic recovery sessions this session produced. */
 export const KILL_RESUME_ATTEMPTS_FIELD = 'killRecoveryAttempts';
@@ -114,25 +116,31 @@ export function collectPreviousExecutionUuids(sessionInfo, nextExecutionUuid) {
  * @param {Object} [options.snapshotGuard] - Test seams for the snapshot disk guard (issue #2889)
  * @param {Function} [options.resolveFreshCommand] - Picks the fresh-run command (issue #2888)
  * @param {string|null} [options.skipInPlace] - Why the in-place path is skipped: the last in-place start never ran its command (issue #2887)
+ * @param {Object|null} [options.resourceGate] - Queue resource gate the launch waits for (issue #3530)
+ * @param {Function|null} [options.findActiveSibling] - `(url, sessionName) => name|null`: another tracked session already working on the same URL (issue #3532)
  * @param {boolean} [options.verbose]
- * @returns {Promise<{resumed: boolean, reason: string, sessionId: string|null, display: string|null, inPlace: boolean, delayMs: number, freshResume: string|null}>}
+ * @returns {Promise<{resumed: boolean, reason: string, sessionId: string|null, display: string|null, inPlace: boolean, delayMs: number, freshResume: string|null, detail?: string|null}>}
  */
-export async function startKillRecoverySession({ sessionName, sessionInfo, plan, runner, trackSession, persistSnapshot = null, env = process.env, sleep = sleepBeforeRecovery, random, onLifecycle = async () => {}, snapshotGuard = {}, resolveFreshCommand = resolveFreshRecoveryCommand, skipInPlace = null, verbose = false } = {}) {
+export async function startKillRecoverySession({ sessionName, sessionInfo, plan, runner, trackSession, persistSnapshot = null, env = process.env, sleep = sleepBeforeRecovery, random, onLifecycle = async () => {}, snapshotGuard = {}, resolveFreshCommand = resolveFreshRecoveryCommand, skipInPlace = null, resourceGate = null, findActiveSibling = null, now = Date.now, verbose = false } = {}) {
   let delayMs = 0;
   const notify = async event => {
     try {
-      await onLifecycle(event);
+      // Issue #3530: Telegram shows the attempt count, "attempt n/m".
+      await onLifecycle({ maxAttempts: plan?.maxAttempts ?? null, ...event });
     } catch (error) {
       console.warn(`[session-recovery] Lifecycle publication failed: ${error?.message || error}`);
     }
   };
-  const fail = reason => ({ resumed: false, reason, sessionId: null, display: plan?.command?.display || null, inPlace: false, delayMs });
+  const fail = (reason, detail = null) => ({ resumed: false, reason, detail, sessionId: null, display: plan?.command?.display || null, inPlace: false, delayMs });
   if (!plan?.shouldResume || !plan.command) return fail(plan?.reason || 'no-plan');
   if (!runner || typeof runner.executeWithIsolation !== 'function' || typeof runner.generateSessionId !== 'function') return fail('no-isolation-runner');
   if (typeof trackSession !== 'function') return fail('no-tracker');
   const backend = sessionInfo?.isolationBackend || null;
   if (!backend) return fail('no-isolation-backend');
 
+  // Issue #3532: while this session waits, it is no live sibling of another
+  // recovery for the same URL — only the session that recovery starts is.
+  if (sessionInfo) sessionInfo.killRecoveryPendingSince = new Date(now()).toISOString();
   try {
     // Issue #2498: one OOM event may have killed several sessions at once.
     // Restarting them all in the same second rushes the same memory, CPUs and
@@ -147,6 +155,22 @@ export async function startKillRecoverySession({ sessionName, sessionInfo, plan,
     // A /stop can arrive while this session is waiting. Recheck the mutable
     // tracked record before either resume path so cancellation wins (#2498).
     if (sessionInfo?.stopRequestedByUser === true) return fail('stopped-by-user');
+    // Issue #3530: after an OOM the host needs time to free its memory. Wait
+    // until the queue's resource checks pass several times in a row, exactly
+    // like a queued task, instead of rushing the same memory again.
+    const resources = await waitForRecoveryResources({ sessionName, sessionInfo, attempt: plan.attempt, maxAttempts: plan.maxAttempts, gate: resourceGate, notify, sleep, env, now, verbose });
+    if (!resources.ready) {
+      if (resources.reason !== 'stopped-by-user') await notify({ phase: 'failed', attempt: plan.attempt, reason: resources.detail || resources.reason });
+      return fail(resources.reason, resources.detail || null);
+    }
+    // Issue #3532: never start attempt N+1 while anything of this task still
+    // runs, whatever the tracked state claims.
+    const duplicate = await findRunningDuplicate({ sessionName, sessionInfo, runner, findActiveSibling, verbose });
+    if (duplicate) {
+      console.warn(`[session-kill-resume] ${sessionName}: not starting recovery attempt ${plan.attempt}/${plan.maxAttempts}: ${duplicate} (issue #3532)`);
+      await notify({ phase: 'failed', attempt: plan.attempt, reason: `Recovery not started: ${duplicate}.` });
+      return fail('already-running', duplicate);
+    }
     await notify({ phase: 'launching', attempt: plan.attempt });
     // Preferred path: re-enter the container the work already happened in.
     const recoveryStartedAt = new Date().toISOString();
@@ -201,6 +225,12 @@ export async function startKillRecoverySession({ sessionName, sessionInfo, plan,
         lastToolSessionId: undefined,
         recoveryLifecycle: sessionInfo.recoveryLifecycle ? { ...sessionInfo.recoveryLifecycle, kind: 'container', attempt: plan.attempt, startedAt: recoveryStartedAt, lastBytes: inPlace.resumed ? previousLogBytes : 0, lastOutputAt: null } : undefined,
         sessionId: newSessionId,
+        // Issue #3532: the container this attempt runs in, recorded as such.
+        // A docker-start resume reports the execution UUID as `sessionId`,
+        // which `docker inspect` does not know.
+        containerName: inPlace.resumed ? inPlace.containerName || resolveContainerAfterResume(sessionName, sessionInfo) : newSessionId,
+        rootContainerName: resolveSessionContainerRoot(sessionName, sessionInfo),
+        containerNameHistory: nextContainerNameHistory(sessionName, sessionInfo),
         args: [...launchCommand.args],
         // Carry the counter forward so attempt N+1 is bounded by the same cap,
         // and remember what this session is recovering from for its own report.
@@ -227,6 +257,7 @@ export async function startKillRecoverySession({ sessionName, sessionInfo, plan,
         dockerBackendGoneFirstSeenAt: undefined,
         // The recovery session has not been recovered itself (yet) (#2408).
         killRecoverySessionId: undefined,
+        killRecoveryPendingSince: undefined,
         containerFilesystemStartBytes,
         containerResourceLimits,
         // Issue #2408: a snapshot resume starts a new, empty writable layer;
@@ -266,7 +297,41 @@ export async function startKillRecoverySession({ sessionName, sessionInfo, plan,
       console.log(`[VERBOSE] Could not start recovery session for ${sessionName}: ${error?.message || error}`);
     }
     return fail('start-error');
+  } finally {
+    if (sessionInfo) delete sessionInfo.killRecoveryPendingSince;
   }
+}
+
+/** The container an in-place resume re-entered when the runner did not name it. */
+function resolveContainerAfterResume(sessionName, sessionInfo) {
+  return sessionInfo?.containerName || sessionInfo?.sessionId || sessionName || null;
+}
+
+/**
+ * Why a recovery must not start because the task is still running somewhere
+ * (issue #3532), or `null`. Two independent signals:
+ *
+ *   - a running container of the task's family (the root, its `-resume-<n>`
+ *     successors, and the containers of earlier attempts);
+ *   - another tracked, unfinished session for the same URL.
+ *
+ * @returns {Promise<string|null>}
+ */
+export async function findRunningDuplicate({ sessionName, sessionInfo, runner = null, findActiveSibling = null, verbose = false } = {}) {
+  if (sessionInfo?.isolationBackend === 'docker') {
+    const running = await findRunningSessionContainers(sessionName, sessionInfo, { runner, includeHistory: true, verbose });
+    if (running.length > 0) return `container ${running.join(', ')} of the same task is still running`;
+  }
+  if (typeof findActiveSibling === 'function' && sessionInfo?.url) {
+    try {
+      const sibling = await findActiveSibling(sessionInfo.url, sessionName);
+      if (sibling) return `session ${sibling} is already working on ${sessionInfo.url}`;
+    } catch (error) {
+      if (verbose) console.log(`[VERBOSE] Could not check for another session on ${sessionInfo.url}: ${error?.message || error}`);
+    }
+  }
+  if (verbose) console.log(`[VERBOSE] Session ${sessionName}: nothing else of this task is running; the recovery may start (issue #3532)`);
+  return null;
 }
 
 /**
@@ -276,7 +341,7 @@ export async function startKillRecoverySession({ sessionName, sessionInfo, plan,
  * @param {Object} options - See planKillRecovery() and startKillRecoverySession()
  * @returns {Promise<{resumed: boolean, reason: string, policy: string, sessionId: string|null, display: string|null, attempt: number, maxAttempts: number, inPlace: boolean}>}
  */
-export async function recoverKilledSession({ sessionName, sessionInfo, logPath = null, killed = false, env = process.env, runner = null, trackSession = null, persistSnapshot = null, sleep = sleepBeforeRecovery, random, onLifecycle, snapshotGuard = {}, resolveFreshCommand, skipInPlace = null, verbose = false, readLastSessionId = readLastSessionIdFromLog } = {}) {
+export async function recoverKilledSession({ sessionName, sessionInfo, logPath = null, killed = false, env = process.env, runner = null, trackSession = null, persistSnapshot = null, sleep = sleepBeforeRecovery, random, onLifecycle, snapshotGuard = {}, resolveFreshCommand, skipInPlace = null, resourceGate = null, findActiveSibling = null, now, verbose = false, readLastSessionId = readLastSessionIdFromLog } = {}) {
   // Issue #2408: one kill gets one recovery. A completion that runs again for
   // the same session (an overlapping monitor tick, a bot restart between the
   // launch and the completion latch) must report the session already started,
@@ -301,8 +366,8 @@ export async function recoverKilledSession({ sessionName, sessionInfo, logPath =
     return { resumed: false, reason: plan.reason, policy: plan.policy, sessionId: null, display: plan.command?.display || null, attempt: plan.attempt, maxAttempts: plan.maxAttempts, inPlace: false };
   }
 
-  const started = await startKillRecoverySession({ sessionName, sessionInfo, plan, runner, trackSession, persistSnapshot, env, sleep, random, onLifecycle, snapshotGuard, resolveFreshCommand, skipInPlace, verbose });
-  return { resumed: started.resumed, reason: started.reason, policy: plan.policy, sessionId: started.sessionId, display: started.display, attempt: plan.attempt, maxAttempts: plan.maxAttempts, inPlace: started.inPlace === true };
+  const started = await startKillRecoverySession({ sessionName, sessionInfo, plan, runner, trackSession, persistSnapshot, env, sleep, random, onLifecycle, snapshotGuard, resolveFreshCommand, skipInPlace, resourceGate, findActiveSibling, now, verbose });
+  return { resumed: started.resumed, reason: started.reason, detail: started.detail || null, policy: plan.policy, sessionId: started.sessionId, display: started.display, attempt: plan.attempt, maxAttempts: plan.maxAttempts, inPlace: started.inPlace === true };
 }
 
 /**

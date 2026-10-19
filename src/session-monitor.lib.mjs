@@ -36,7 +36,8 @@ import { readLogMarkerLines, readLogTextBounded, scanLogTextChunks } from './log
 import { resolveFailedSessionPullRequestState } from './github-pr-state.lib.mjs';
 import { sessionStartMs } from './session-monitor.stale-executing.lib.mjs';
 // Issue #2134: kill-cause diagnostics + the matching pull-request notice.
-import { buildKillCompletionSections, announceKillOnPullRequest, hasContainerOomEvidence, startedPullRequestUrl } from './session-monitor.kill-sections.lib.mjs';
+import { buildKillCompletionSections, hasContainerOomEvidence, startedPullRequestUrl } from './session-monitor.kill-sections.lib.mjs';
+import { announcePendingKillNotice, finishKillNotice } from './session-monitor.kill-notice.lib.mjs';
 import { runKillRecoveryForCompletion } from './session-kill-resume.lib.mjs';
 import { isDiskRefusedRecovery } from './session-kill-resume.disk-retry.lib.mjs';
 import { detectFailedInPlaceStart } from './session-kill-resume.start-failure.lib.mjs';
@@ -50,6 +51,7 @@ import { getNonIsolationSessionProgress, readScreenExitMarker, removeScreenExitM
 import { enforceContainerDiskLimitForSession as enforceContainerDiskLimit, formatContainerResourceLimitExceededSection } from './container-resource-monitor.lib.mjs';
 import { runDockerCpuPenaltyPass, formatDockerCpuPenaltySection } from './docker-cpu-penalty.lib.mjs';
 import { removeSnapshotImages, snapshotImagesForContainer } from './kill-recovery-snapshot-cleanup.lib.mjs';
+import { resolveSessionContainerName } from './session-container-identity.lib.mjs';
 export { formatSessionCompletionMessage, getSessionCompletionExitCode } from './work-session-formatting.lib.mjs';
 export { DOCKER_TERMINAL_FOOTER_GRACE_MS } from './session-monitor.docker-terminal.lib.mjs';
 export { STALE_EXECUTING_MIN_AGE_MS, DOCKER_BACKEND_GONE_GRACE_MS } from './session-monitor.stale-executing.lib.mjs';
@@ -504,7 +506,7 @@ export function buildSessionNotificationOptions(sessionInfo, verbose = false) {
 }
 async function getDockerContainerFilesystemSizeForSession(sessionName, sessionInfo, { verbose = false, sizeProvider = null } = {}) {
   if (sessionInfo?.isolationBackend !== 'docker') return null;
-  const containerName = sessionInfo.sessionId || sessionName;
+  const containerName = resolveSessionContainerName(sessionName, sessionInfo);
   if (!containerName) return null;
   try {
     if (typeof sizeProvider === 'function') {
@@ -588,7 +590,7 @@ export function buildDockerTaskContainerCompletionAction({ sessionName, sessionI
   if (sessionInfo?.isolationBackend !== 'docker') {
     return { applies: false, containerName: null, keepPolicy: null, shouldRemove: false, extraSection: '' };
   }
-  const containerName = sessionInfo.sessionId || sessionName || null;
+  const containerName = resolveSessionContainerName(sessionName, sessionInfo);
   if (!containerName) {
     return { applies: false, containerName: null, keepPolicy: null, shouldRemove: false, extraSection: '' };
   }
@@ -1019,6 +1021,9 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
       }
       // Issue #2888: a recovery session solve refused for disk space is relaunched;
       // issue #2887: so is an in-place recovery whose command never started (126/127).
+      // Issue #3530: one comment per kill, posted now (with the log under --attach-logs) and edited once the recovery decision is known.
+      const killNoticeContext = { pullRequestUrl, sessionName, sessionInfo, killReport, exitCode: finalExitCode, resumeCommand: killResumeCommand, options, verbose, persist: () => persistSessionSnapshot(sessionName, sessionInfo) };
+      if (shouldAttemptKillRecovery) await announcePendingKillNotice(killNoticeContext);
       if (shouldAttemptKillRecovery || (!killReport.skippedReason && (isDiskRefusedRecovery({ sessionInfo, exitCode: finalExitCode }) || detectFailedInPlaceStart({ sessionInfo, exitCode: finalExitCode })))) {
         const recovered = await runKillRecoveryForCompletion({
           exitCode: finalExitCode,
@@ -1036,6 +1041,9 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
           readLastSessionId: logPath => resolveLastToolSessionId(logPath),
           // Issue #2498: the random pre-launch delay, replaceable in tests.
           sleep: options.sleepBeforeRecovery,
+          // Issue #3530: wait for stable resources; #3532: never launch a second copy of running work.
+          resourceGate: options.recoveryResourceGate || null,
+          findActiveSibling: (url, name) => findOtherActiveSessionForUrl(url, name, verbose),
           locale: sessionInfo?.locale || null,
           verbose,
         });
@@ -1070,31 +1078,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
         launchUnobserved,
         killCause: killReport.diagnosis?.cause || null,
       });
-      if (killReport.killed || killReport.recovered || killReport.oomEventOnly) {
-        const notice = await announceKillOnPullRequest({
-          pullRequestUrl,
-          sessionName,
-          sessionInfo,
-          diagnosis: killReport.diagnosis,
-          exitCode: finalExitCode,
-          observedAt: killReport.observedAt,
-          policy: killReport.policy,
-          recovered: killReport.recovered,
-          oomEventOnly: killReport.oomEventOnly,
-          deliberateStop: killReport.deliberateStop,
-          resumed: killRecovery.resumed,
-          recoverySessionId: killRecovery.resumed ? killRecovery.sessionId : null,
-          attempt: killRecovery.resumed ? killRecovery.attempt : null,
-          maxAttempts: killRecovery.resumed ? killRecovery.maxAttempts : null,
-          resumeCommand: killResumeCommand,
-          runCommand: options.runCommand || undefined,
-          attachLog: options.attachLog || undefined,
-          verbose,
-        });
-        if (verbose && !notice.posted) {
-          console.log(`[VERBOSE] Killed-session notice not posted for ${sessionName}: ${notice.skipped || 'unknown reason'}`);
-        }
-      }
+      if (killReport.killed || killReport.recovered || killReport.oomEventOnly) await finishKillNotice({ ...killNoticeContext, killRecovery });
       // Update the original reply message if messageId is available, otherwise send new message
       let notifyFromChatId = null;
       let notifyMessageId = null;
@@ -1333,11 +1317,11 @@ export async function resumeTrackedSessions(options = {}) {
 }
 // Issue #2175: the read-only registry queries live in their own module so this
 // file stays under the 1350-line early-warning threshold (see issue #1593).
-const { hasActiveSessionForUrl, findStoppableSessionByUrl, hasActiveSessionForUrlAsync, getRunningTrackedIsolationSessions, getRunningSessionItems, getSessionStats } = createSessionRegistryQueries({
+const { hasActiveSessionForUrl, findStoppableSessionByUrl, hasActiveSessionForUrlAsync, getRunningTrackedIsolationSessions, getRunningSessionItems, getSessionStats, findOtherActiveSessionForUrl } = createSessionRegistryQueries({
   activeSessions,
   normalizeSessionUrl,
   isNonIsolationSessionActive,
   getIsolationSessionState,
   checkScreenSessionExists,
 });
-export { hasActiveSessionForUrl, findStoppableSessionByUrl, hasActiveSessionForUrlAsync, getRunningTrackedIsolationSessions, getRunningSessionItems, getSessionStats };
+export { hasActiveSessionForUrl, findStoppableSessionByUrl, hasActiveSessionForUrlAsync, getRunningTrackedIsolationSessions, getRunningSessionItems, getSessionStats, findOtherActiveSessionForUrl };

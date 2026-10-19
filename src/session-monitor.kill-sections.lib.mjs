@@ -23,7 +23,8 @@ import { getOomEventObservedAt } from './session-monitor.oom.lib.mjs';
 import { resolveOnSessionKillPolicy } from './session-kill-policy.lib.mjs';
 import { describeObservedHostDisk } from './session-monitor.host-disk.lib.mjs';
 import { detectDeliberateSolveStop } from './session-kill-attribution.lib.mjs';
-import { buildKillRecoveryNotice, postKillRecoveryNotice, attachIntermediateSessionLog, spawnCapture } from './session-kill-recovery.lib.mjs';
+import { buildKillRecoveryNotice, postKillRecoveryNotice, spawnCapture } from './session-kill-recovery.lib.mjs';
+import { getSessionIssueContext } from './session-live-pr-link.lib.mjs';
 
 /**
  * `--attach-logs` as it reaches the bot: a raw CLI argument array recorded on
@@ -207,65 +208,79 @@ export async function defaultAttachLog(options) {
 }
 
 /**
+ * Issue #2630: a session started from an issue that has no pull request yet is
+ * reported on that issue (issue #3469: for `/fix`, on the issue it created).
+ *
+ * @param {Object} sessionInfo
+ * @returns {string|null}
+ */
+export function startedIssueUrl(sessionInfo) {
+  const issue = getSessionIssueContext(sessionInfo);
+  return issue ? `https://github.com/${issue.owner}/${issue.repo}/issues/${issue.number}` : null;
+}
+
+function parseCommentTarget(url) {
+  const match = /^https:\/\/github\.com\/([\w.-]+)\/([\w.-]+)\/(pull|issues)\/(\d+)$/.exec(String(url || ''));
+  return match ? { owner: match[1], repo: match[2], kind: match[3], number: Number(match[4]) } : null;
+}
+
+/**
  * Post the same kill/recovery report to the pull request, so a reader of the PR
  * is never left believing an unattended session simply carried on.
  *
- * The intermediate working-session log is uploaded only when `--attach-logs` is
- * enabled, exactly as the issue requires.
+ * Issue #3530: this is ONE comment per kill. With `--attach-logs` the notice is
+ * the leading section of the log comment (it used to be a separate "📎
+ * Intermediate working-session log (killed session)" comment plus the notice).
+ * When a recovery is about to be attempted the notice is posted first, with a
+ * "recovery is pending" note that {@link settleKillRecoveryNotice} later edits.
  *
  * @param {Object} options
  * @returns {Promise<{posted: boolean, url: string|null, skipped: string|null, logUploaded: boolean}>}
  */
-export async function announceKillOnPullRequest({ pullRequestUrl, sessionName, sessionInfo, diagnosis, exitCode = null, observedAt = null, policy = null, recovered = false, oomEventOnly = false, deliberateStop = null, resumed = false, recoverySessionId = null, attempt = null, maxAttempts = null, resumeCommand = null, runCommand = spawnCapture, attachLog = defaultAttachLog, attachOptions = {}, verbose = false } = {}) {
+export async function announceKillOnPullRequest({ pullRequestUrl, sessionName, sessionInfo, diagnosis, exitCode = null, observedAt = null, policy = null, recovered = false, oomEventOnly = false, deliberateStop = null, resumed = false, recoverySessionId = null, attempt = null, maxAttempts = null, resumeCommand = null, recoveryPending = false, runCommand = spawnCapture, attachLog = defaultAttachLog, attachOptions = {}, verbose = false } = {}) {
   const skip = reason => ({ posted: false, url: null, skipped: reason, logUploaded: false });
   // Issue #2301: a session started on a pull request URL has no *linked* pull
   // request to look up — the pull request is the one it was started on.
-  pullRequestUrl = pullRequestUrl || startedPullRequestUrl(sessionInfo);
+  pullRequestUrl = pullRequestUrl || startedPullRequestUrl(sessionInfo) || (recoveryPending ? startedIssueUrl(sessionInfo) : null);
   if (!pullRequestUrl) return skip('no-pull-request');
   if (typeof runCommand !== 'function') return skip('no-command-runner');
 
   const attachLogs = argsIncludeAttachLogs(sessionInfo?.args);
   const logPath = sessionInfo?.logPath || null;
+  const notice = fields => buildKillRecoveryNotice({ diagnosis, exitCode, sessionName, observedAt, policy, survived: recovered, oomEventOnly, deliberateStop, resumed, recoverySessionId, attempt, maxAttempts, resumeCommand, attachLogs, recoveryPending, ...fields });
 
   // Issue #2498: a session that completed (`recovered`) already published its
   // own final log under `--attach-logs`; a second copy titled "killed session"
   // duplicated it and called a finished run killed.
-  const upload = await attachIntermediateSessionLog({
-    attachLogs: attachLogs && !recovered,
-    logPath,
-    pullRequestUrl,
-    attachLog,
-    attachOptions,
-    verbose,
-  });
-
-  const body = buildKillRecoveryNotice({
-    diagnosis,
-    exitCode,
-    sessionName,
-    observedAt,
-    policy,
-    survived: recovered,
-    oomEventOnly,
-    deliberateStop,
-    resumed,
-    recoverySessionId,
-    attempt,
-    maxAttempts,
-    resumeCommand,
-    attachLogs,
-    logAttached: upload.uploaded,
-  });
+  const target = parseCommentTarget(pullRequestUrl);
+  let logUploadFailed = false;
+  if (attachLogs && !recovered && logPath && typeof attachLog === 'function' && target) {
+    let commentId = null;
+    let ok = false;
+    try {
+      ok = await attachLog({ ...attachOptions, logFile: logPath, targetType: target.kind === 'pull' ? 'pr' : 'issue', targetNumber: target.number, owner: target.owner, repo: target.repo, customTitle: '📎 Working-session log (killed session)', leadingSection: notice({ logInline: true }), onCommentPosted: posted => (commentId = posted?.commentId || null), verbose });
+    } catch (error) {
+      console.warn(`[session-monitor] Kill notice with log for ${sessionName} failed: ${error?.message || error}`);
+    }
+    if (ok !== false) {
+      const url = commentId ? `https://github.com/${target.owner}/${target.repo}/${target.kind}/${target.number}#issuecomment-${commentId}` : null;
+      if (verbose) console.log(`[VERBOSE] Kill notice for ${sessionName} posted together with its log${url ? ` (${url})` : ''} (issue #3530)`);
+      return { posted: true, url, skipped: null, logUploaded: true };
+    }
+    logUploadFailed = true;
+  } else if (verbose && attachLogs) {
+    console.log(`[VERBOSE] Kill notice for ${sessionName} is posted without a log: ${recovered ? 'the session published its own log' : !logPath ? 'no log path' : 'no uploader'}`);
+  }
 
   const result = await postKillRecoveryNotice({
     pullRequestUrl,
-    body,
+    body: notice({ logAttached: false, attachLogs: attachLogs && !logUploadFailed }),
     runCommand,
     fileSuffix: String(sessionName || 'session').replace(/[^A-Za-z0-9._-]/g, '-'),
     verbose,
   });
 
-  return { posted: result.posted, url: result.url, skipped: result.posted ? null : result.error, logUploaded: upload.uploaded };
+  return { posted: result.posted, url: result.url, skipped: result.posted ? null : result.error, logUploaded: false };
 }
 
 export { KILL_CAUSE_FORCED_KILL, KILL_CAUSE_OUT_OF_MEMORY };

@@ -47,6 +47,7 @@ export { findStartCommandBinary };
 export { getStartCommandVersion } from './start-command-cli.lib.mjs';
 export { applyDockerContainerResourceLimits };
 import { killDockerContainer } from './docker-container-control.lib.mjs';
+import { parseRunningContainerFamily } from './session-container-identity.lib.mjs';
 export { killDockerContainer };
 export { copyFromDockerContainer } from './isolation-runner.docker-cp.lib.mjs'; // Issue #2888
 import { checkDockerDiskSpace } from './docker-disk-space.lib.mjs';
@@ -819,6 +820,27 @@ export async function checkDockerContainerRunning(containerName, verbose = false
   }
 }
 /**
+ * Running containers of one task: `root` and its `-resume-<n>` successors
+ * (issue #3532). A recovery must not be declared dead — and a second one must
+ * not be launched — while any of them still runs.
+ *
+ * @param {string} root - The task's original container name
+ * @param {{verbose?: boolean}} [options]
+ * @returns {Promise<string[]>}
+ */
+export async function findRunningDockerContainerFamily(root, { verbose = false } = {}) {
+  if (!root) return [];
+  try {
+    const $ = await getCommandStreamDollar();
+    const result = await $({ mirror: false, signal: AbortSignal.timeout(DOCKER_CLI_TIMEOUT_MS) })`docker ps --filter ${`name=${root}`} --format ${'{{.Names}}'}`;
+    const names = parseRunningContainerFamily(result.stdout?.toString() || '', root);
+    if (verbose) console.log(`[VERBOSE] isolation-runner: running containers of '${root}': ${names.join(', ') || 'none'} (issue #3532)`);
+    return names;
+  } catch {
+    return [];
+  }
+}
+/**
  * Check whether the Docker container backing a session still exists at all —
  * running or stopped.
  *
@@ -1245,6 +1267,8 @@ export async function isSessionRunning(sessionId, options = {}) {
   // Support legacy call signature: isSessionRunning(sessionId, verbose)
   const opts = typeof options === 'boolean' ? { verbose: options } : options;
   const { backend, verbose = false } = opts;
+  // Issue #3532: the container may be named differently from the status id.
+  const containerName = opts.containerName || sessionId;
   const result = await querySessionStatus(sessionId, verbose);
   if (result.exists && result.status) {
     if (isExecutingSessionStatus(result.status)) {
@@ -1258,7 +1282,7 @@ export async function isSessionRunning(sessionId, options = {}) {
       // terminal status only when a real exit code was captured; otherwise
       // cross-check the live container before declaring the session finished.
       if (backend === 'docker' && isUnknownDockerExitCode(result.exitCode)) {
-        const containerRunning = await checkDockerContainerRunning(sessionId, verbose);
+        const containerRunning = await checkDockerContainerRunning(containerName, verbose);
         if (containerRunning) {
           if (verbose) {
             console.log(`[VERBOSE] isolation-runner: $ --status reports '${result.status}' (exitCode ${result.exitCode}) for docker session '${sessionId}', but docker inspect shows the container is still running — treating as active (issue #1939)`);
@@ -1286,9 +1310,9 @@ export async function isSessionRunning(sessionId, options = {}) {
       return screenRunning;
     }
     if (backend === 'docker') {
-      const containerRunning = await checkDockerContainerRunning(sessionId, verbose);
+      const containerRunning = await checkDockerContainerRunning(containerName, verbose);
       if (containerRunning && verbose) {
-        console.log(`[VERBOSE] isolation-runner: $ --status says not running, but docker inspect confirms container '${sessionId}' is still active`);
+        console.log(`[VERBOSE] isolation-runner: $ --status says not running, but docker inspect confirms container '${containerName}' is still active`);
       }
       return containerRunning;
     }

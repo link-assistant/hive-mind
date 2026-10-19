@@ -27,6 +27,7 @@
 import { getCommandStreamDollar } from './start-command-cli.lib.mjs';
 import { classifyExitStatus } from './session-status.lib.mjs';
 import { isDockerIsolation } from './session-monitor.stale-executing.lib.mjs';
+import { probeSessionBackendAlive, resolveSessionContainerName } from './session-container-identity.lib.mjs';
 
 /** Consecutive failed status queries (monitor ticks, 30 s apart) before the backend is asked directly. */
 export const STATUS_QUERY_ERROR_LIMIT = 5;
@@ -124,7 +125,6 @@ export async function resolveStatusQueryFailure(sessionName, sessionInfo, error,
   const count = (Number(sessionInfo[STATUS_QUERY_ERROR_COUNT_FIELD]) || 0) + 1;
   sessionInfo[STATUS_QUERY_ERROR_COUNT_FIELD] = count;
   persistSnapshot();
-  const sessionId = sessionInfo.sessionId || sessionName;
   const backend = sessionInfo.isolationBackend || statusResult?.isolation || null;
   const docker = isDockerIsolation(sessionInfo, statusResult);
   const logPath = statusResult?.logPath || sessionInfo.logPath || null;
@@ -150,7 +150,7 @@ export async function resolveStatusQueryFailure(sessionName, sessionInfo, error,
   const failure = `the session status could not be read ${count} times in a row (${error})`;
   if (docker) {
     const inspect = runner?.inspectDockerContainerState || inspectDockerContainerState;
-    const state = await inspect(sessionId, verbose).catch(() => null);
+    const state = await inspect(resolveSessionContainerName(sessionName, sessionInfo), verbose).catch(() => null);
     if (state?.running) {
       if (verbose) console.log(`[VERBOSE] Session ${sessionName}: ${failure}, but docker reports the container running; keeping it tracked (issue #2303)`);
       return { running: true, exitCode: null, status: null, statusResult: null, statusQueryError: error };
@@ -170,7 +170,7 @@ export async function resolveStatusQueryFailure(sessionName, sessionInfo, error,
   let alive = null;
   if (probe && backend) {
     try {
-      alive = await probe(sessionId, backend, verbose);
+      alive = await probeSessionBackendAlive(sessionName, sessionInfo, { probe, runner, backend, verbose });
     } catch {
       alive = null;
     }

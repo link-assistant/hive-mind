@@ -29,12 +29,15 @@ import { t } from './i18n.lib.mjs';
 import { formatBytes, formatHeapUsage, parseResourceMarkers } from './solve.resource-diagnostics.lib.mjs';
 import { findFatalMemoryMarker } from './child-exit.lib.mjs';
 import { readLogTextBounded } from './log-bounded-read.lib.mjs';
+import { describeHostRebootCause } from './host-boot-state.lib.mjs';
 
 const exec = promisify(execCallback);
 
 export const KILL_CAUSE_OUT_OF_MEMORY = 'out-of-memory';
 export const KILL_CAUSE_DISK_FULL = 'disk-full';
 export const KILL_CAUSE_FORCED_KILL = 'forced-kill';
+// Issue #3533: the host went down with every running task (dockerd marks them exit 255).
+export const KILL_CAUSE_HOST_REBOOT = 'host-reboot';
 export const KILL_CAUSE_UNKNOWN = 'unknown';
 
 /** Memory is considered exhausted below this share of total RAM still available. */
@@ -295,6 +298,27 @@ function describeMemory(memory, timestamp) {
   return `${formatBytes(available)} of ${formatBytes(total)} RAM available${usedPercent === null ? '' : ` (${usedPercent.toFixed(1)}% used)`}${at}`;
 }
 
+// Issue #3533: a reading this much older than the session's end is labelled.
+const STALE_READING_MS = 10 * 60 * 1000;
+
+/**
+ * Issue #3533: "8.6 GB … available at 06:28:35Z" was quoted for a session that
+ * ended 8.5 hours later, and read as the state at the kill. Say how old it is.
+ *
+ * @param {string|null} timestamp - When the reading was taken
+ * @param {string|null} endedAt - When the session ended
+ * @param {string|null} [phase] - Resource marker phase
+ * @returns {string} e.g. " (at session start, 8.5 h before the session ended)", or ''
+ */
+export function describeReadingAge(timestamp, endedAt, phase = null) {
+  const takenMs = timestamp ? Date.parse(timestamp) : NaN;
+  const endedMs = endedAt ? Date.parse(endedAt) : NaN;
+  if (!Number.isFinite(takenMs) || !Number.isFinite(endedMs) || endedMs - takenMs < STALE_READING_MS) return '';
+  const minutes = (endedMs - takenMs) / 60000;
+  const age = minutes >= 90 ? `${(minutes / 60).toFixed(1)} h` : `${Math.round(minutes)} min`;
+  return ` (${phase === 'solve_start' ? 'at session start, ' : ''}${age} before the session ended)`;
+}
+
 function describeDisk(disk, timestamp) {
   const usedPercent = finite(disk?.usedPercent);
   const available = finite(disk?.availableBytes);
@@ -358,7 +382,7 @@ function isDiskFull(disk) {
  * @param {string|null} [params.statusQueryFailure] - Why the session was judged without a status record (issue #2303)
  * @returns {{cause: string, summary: string, evidence: string[], memory: Object|null, disk: Object|null, victims: Array}}
  */
-export function describeKillCause({ logText = null, resourceMarkers = null, oomKilled = false, exitCode = null, system = null, stopRequestedByUser = false, reportedMemoryExhausted = null, reportedMemoryExhaustedReason = null, reportedExitReason = null, reportedCgroupMemory = null, observedDisk = null, unobservedExit = null, statusQueryFailure = null } = {}) {
+export function describeKillCause({ logText = null, resourceMarkers = null, oomKilled = false, exitCode = null, system = null, stopRequestedByUser = false, reportedMemoryExhausted = null, reportedMemoryExhaustedReason = null, reportedExitReason = null, reportedCgroupMemory = null, observedDisk = null, unobservedExit = null, statusQueryFailure = null, hostReboot = null, endedAt = null } = {}) {
   const parsed = resourceMarkers || (logText ? parseResourceMarkers(logText) : { markers: [], byPhase: {} });
   const memoryMarker = selectLastMemoryResourceMarker(parsed);
   const heapMarker = selectLastHeapResourceMarker(parsed);
@@ -374,7 +398,9 @@ export function describeKillCause({ logText = null, resourceMarkers = null, oomK
   const cgroupOomKills = system?.sessionScoped === true ? monitorOomKills : null;
 
   const evidence = [];
-  const memoryLine = describeMemory(memory, memoryMarker?.timestamp || null);
+  const readingsEndedAt = endedAt || hostReboot?.sessionEndedAt || null;
+  const memoryBase = describeMemory(memory, memoryMarker?.timestamp || null);
+  const memoryLine = memoryBase ? `${memoryBase}${describeReadingAge(memoryMarker?.timestamp, readingsEndedAt, memoryMarker?.phase)}` : null;
   if (memoryLine) evidence.push(`last session memory reading — ${memoryLine} (phase \`${memoryMarker.phase}\`)`);
   // Issue #2189: report the heap against its own limit, which is the number that
   // decides a "JavaScript heap out of memory" abort — host RAM does not.
@@ -382,7 +408,8 @@ export function describeKillCause({ logText = null, resourceMarkers = null, oomK
   const heapUsedPercent = finite(heapMemory?.processHeapUsedPercent);
   const heapLine = heapMemory ? `${formatHeapUsage(heapMemory)}${heapMarker?.timestamp ? ` at ${heapMarker.timestamp}` : ''}` : null;
   if (heapLine) evidence.push(`last session V8 heap reading — ${heapLine} (phase \`${heapMarker.phase}\`)`);
-  const diskLine = describeDisk(disk, diskMarker?.timestamp || null);
+  const diskBase = describeDisk(disk, diskMarker?.timestamp || null);
+  const diskLine = diskBase ? `${diskBase}${describeReadingAge(diskMarker?.timestamp, readingsEndedAt, diskMarker?.phase)}` : null;
   if (diskLine) evidence.push(`last session ${diskLine} (phase \`${diskMarker.phase}\`)`);
   // Issue #2303: the in-band markers are written at phase boundaries and can be
   // an hour stale when the disk fills; the monitor's own lowest reading is not.
@@ -477,9 +504,25 @@ export function describeKillCause({ logText = null, resourceMarkers = null, oomK
   } else if (exitCode !== null && exitCode > 128) {
     cause = KILL_CAUSE_FORCED_KILL;
   }
+  // Issue #3533: the host went down with the session. A sticky OOM flag or a
+  // signal exit is what dockerd records afterwards, not what ended the session.
+  const hostRebootEndedSession = Boolean(hostReboot) && abnormalExit && !stopRequestedByUser;
+  if (hostRebootEndedSession) {
+    cause = KILL_CAUSE_HOST_REBOOT;
+    for (let i = 0; i < evidence.length; i++) {
+      if (/State\.OOMKilled = true/.test(evidence[i])) evidence[i] = 'container reports `State.OOMKilled = true` — left by an earlier OOM event in the container that the session survived; it is not what ended the session';
+    }
+    const shortId = id => (id ? `\`${String(id).slice(0, 8)}…\`` : 'unknown');
+    evidence.push(`host boot changed (${hostReboot.detectedBy === 'uptime' ? 'host uptime is shorter than the time since the last heartbeat' : `\`boot_id\` ${shortId(hostReboot.previousBootId)} → ${shortId(hostReboot.currentBootId)}`})${hostReboot.bootedAt ? `; the host booted at ${hostReboot.bootedAt}` : ''}`);
+    if (hostReboot.shutdownRecorded === false) evidence.push(hostReboot.shutdownSource === 'host-journal' ? 'the previous boot journal has no orderly shutdown (`systemd-shutdown` / `Journal stopped`)' : 'the bot was not stopped by a signal before the host went down (an orderly shutdown stops it with SIGTERM)');
+    if (Number(hostReboot.affectedSessions) > 1) evidence.push(`all ${hostReboot.affectedSessions} tasks running on the host ended with it`);
+  }
 
   let summary;
-  if (cause === KILL_CAUSE_OUT_OF_MEMORY && fatalMemoryMarker && victims.length === 0 && !containerOomAtExit && !(cgroupOomKills > 0)) {
+  if (cause === KILL_CAUSE_HOST_REBOOT) {
+    const healthy = [memoryLine ? `memory (${memoryLine})` : null, diskLine].filter(Boolean).join(', ');
+    summary = `${describeHostRebootCause(hostReboot)}${healthy ? `; the last readings were within normal limits: ${healthy}` : ''}`;
+  } else if (cause === KILL_CAUSE_OUT_OF_MEMORY && fatalMemoryMarker && victims.length === 0 && !containerOomAtExit && !(cgroupOomKills > 0)) {
     // Issue #2189: appending "10.3 GB of 11.7 GB RAM available" to "out of
     // memory" reads as a contradiction. For a runtime self-abort the host being
     // healthy is the whole point, so say which limit was actually hit.
@@ -590,7 +633,7 @@ export function formatKillResumeSection({ sessionId = null, attempt = null, maxA
  * @param {Object} [options]
  * @returns {Promise<{section: string, diagnosis: Object|null}>}
  */
-export async function buildKillDiagnosticsSection(logPath, { verbose = false, readFile = fsPromises.readFile, maxLogBytes = KILL_DIAGNOSTICS_LOG_BYTES, minByteOffset = 0, oomKilled = false, exitCode = null, stopRequestedByUser = false, locale = null, collectSystem = collectSystemKillDiagnostics, reportedMemoryExhausted = null, reportedMemoryExhaustedReason = null, reportedExitReason = null, reportedCgroupMemory = null, observedDisk = null, unobservedExit = null, statusQueryFailure = null } = {}) {
+export async function buildKillDiagnosticsSection(logPath, { verbose = false, readFile = fsPromises.readFile, maxLogBytes = KILL_DIAGNOSTICS_LOG_BYTES, minByteOffset = 0, oomKilled = false, exitCode = null, stopRequestedByUser = false, locale = null, collectSystem = collectSystemKillDiagnostics, reportedMemoryExhausted = null, reportedMemoryExhaustedReason = null, reportedExitReason = null, reportedCgroupMemory = null, observedDisk = null, unobservedExit = null, statusQueryFailure = null, hostReboot = null, endedAt = null } = {}) {
   try {
     let logText = '';
     if (logPath) {
@@ -602,7 +645,7 @@ export async function buildKillDiagnosticsSection(logPath, { verbose = false, re
       logText = await readLogTextBounded(logPath, { readFile, maxBytes: maxLogBytes, minByteOffset, verbose });
     }
     const system = await collectSystem({ verbose });
-    const diagnosis = describeKillCause({ logText, oomKilled, exitCode, system, stopRequestedByUser, reportedMemoryExhausted, reportedMemoryExhaustedReason, reportedExitReason, reportedCgroupMemory, observedDisk, unobservedExit, statusQueryFailure });
+    const diagnosis = describeKillCause({ logText, oomKilled, exitCode, system, stopRequestedByUser, reportedMemoryExhausted, reportedMemoryExhaustedReason, reportedExitReason, reportedCgroupMemory, observedDisk, unobservedExit, statusQueryFailure, hostReboot, endedAt });
     if (verbose) console.log(`[VERBOSE] kill-diagnostics: cause=${diagnosis.cause} — ${diagnosis.summary}`);
     return { section: formatKillDiagnosticsSection(diagnosis, { locale }), diagnosis };
   } catch (error) {

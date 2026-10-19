@@ -18,13 +18,14 @@
 
 import fs from 'fs/promises';
 import { classifySessionOutcome } from './work-session-formatting.lib.mjs';
-import { buildKillDiagnosticsSection, formatKillDiagnosticsSection, formatKillRecoverySection, KILL_CAUSE_FORCED_KILL, KILL_CAUSE_OUT_OF_MEMORY } from './session-kill-diagnostics.lib.mjs';
+import { buildKillDiagnosticsSection, formatKillDiagnosticsSection, formatKillRecoverySection, KILL_CAUSE_FORCED_KILL, KILL_CAUSE_HOST_REBOOT, KILL_CAUSE_OUT_OF_MEMORY } from './session-kill-diagnostics.lib.mjs';
 import { getOomEventObservedAt } from './session-monitor.oom.lib.mjs';
 import { resolveOnSessionKillPolicy } from './session-kill-policy.lib.mjs';
 import { describeObservedHostDisk } from './session-monitor.host-disk.lib.mjs';
 import { detectDeliberateSolveStop } from './session-kill-attribution.lib.mjs';
 import { buildKillRecoveryNotice, postKillRecoveryNotice, spawnCapture } from './session-kill-recovery.lib.mjs';
 import { getSessionIssueContext } from './session-live-pr-link.lib.mjs';
+import { describeHostRebootScope } from './host-boot-state.lib.mjs';
 
 /**
  * `--attach-logs` as it reaches the bot: a raw CLI argument array recorded on
@@ -106,8 +107,8 @@ export function hasContainerOomEvidence({ sessionInfo = null, statusResult = nul
  * @param {Object} [options.env]
  * @returns {Promise<{sections: string[], diagnosis: Object|null, killed: boolean, recovered: boolean, oomEventOnly: boolean, deliberateStop: Object|null, policy: string|null, observedAt: string|null, skippedReason: string|null}>}
  */
-export async function buildKillCompletionSections({ sessionName, sessionInfo, statusResult = null, exitCode = null, status = null, pullRequestState = null, verbose = false, readFile = fs.readFile, env = process.env } = {}) {
-  const empty = { sections: [], diagnosis: null, killed: false, recovered: false, oomEventOnly: false, deliberateStop: null, policy: null, observedAt: null, skippedReason: null };
+export async function buildKillCompletionSections({ sessionName, sessionInfo, statusResult = null, exitCode = null, status = null, pullRequestState = null, verbose = false, readFile = fs.readFile, statFile = fs.stat, env = process.env } = {}) {
+  const empty = { sections: [], diagnosis: null, killed: false, recovered: false, oomEventOnly: false, deliberateStop: null, policy: null, observedAt: null, endedAt: null, skippedReason: null };
   try {
     const outcome = classifySessionOutcome({ exitCode, status });
     const observedAt = getOomEventObservedAt(sessionInfo);
@@ -128,6 +129,9 @@ export async function buildKillCompletionSections({ sessionName, sessionInfo, st
     const locale = sessionInfo?.locale || null;
     const logPath = statusResult?.logPath || sessionInfo?.logPath || null;
     const minByteOffset = sessionInfo?.killRecoveryInPlace ? sessionInfo.killRecoveryLogStartBytes || 0 : 0;
+    // Issue #3533: a host reboot ends every running task; the readings are aged against the real end.
+    const hostReboot = sessionInfo?.hostReboot || null;
+    const endedAt = killed || oomEventOnly ? await resolveSessionEndedAt({ sessionInfo, statusResult, logPath, statFile }) : null;
     const { section, diagnosis } = await buildKillDiagnosticsSection(logPath, {
       verbose,
       readFile,
@@ -150,6 +154,8 @@ export async function buildKillCompletionSections({ sessionName, sessionInfo, st
       observedDisk: describeObservedHostDisk(sessionInfo),
       unobservedExit: statusResult?.unobservedExit ?? null,
       statusQueryFailure: statusResult?.statusQueryFailure ?? null,
+      hostReboot,
+      endedAt,
     });
 
     const argv = argvFromSessionArgs(sessionInfo?.args);
@@ -166,6 +172,7 @@ export async function buildKillCompletionSections({ sessionName, sessionInfo, st
       // The session outlived the event — this is the warning the issue asks for.
       sections.push(formatKillRecoverySection({ cause: diagnosis?.cause || KILL_CAUSE_OUT_OF_MEMORY, observedAt, locale }));
     }
+    if (killed && diagnosis?.cause === KILL_CAUSE_HOST_REBOOT) sections.push(`🖥️ ${describeHostRebootScope(hostReboot)}`);
     if (oomEventOnly) sections.push(`⚠️ A container OOM event affected a child process at ${observedAt}; the work process continued and later failed with exit code ${exitCode}.`);
     if (deliberateStop && killed) sections.push(`ℹ️ solve had already stopped on its own ("${deliberateStop.line}") before the process was killed, so it is not restarted automatically.`);
     else if (deliberateStop) sections.push(`ℹ️ The work did not fail because of it: solve stopped on its own ("${deliberateStop.line}"), so it is not restarted automatically.`);
@@ -173,9 +180,9 @@ export async function buildKillCompletionSections({ sessionName, sessionInfo, st
     if (section) sections.push(deliberateStop && oomEventOnly ? formatKillDiagnosticsSection(diagnosis, { locale, notTheCause: true }) : section);
 
     if (verbose) {
-      console.log(`[VERBOSE] Session ${sessionName} kill reporting: killed=${killed} recovered=${recovered} oomEventOnly=${oomEventOnly} deliberateStop=${deliberateStop?.reason || 'none'} cause=${diagnosis?.cause || 'n/a'} policy=${policy}`);
+      console.log(`[VERBOSE] Session ${sessionName} kill reporting: killed=${killed} recovered=${recovered} oomEventOnly=${oomEventOnly} deliberateStop=${deliberateStop?.reason || 'none'} cause=${diagnosis?.cause || 'n/a'} policy=${policy} endedAt=${endedAt || 'unknown'} oomEventObservedAt=${observedAt || 'none'} hostReboot=${hostReboot ? `${hostReboot.detectedBy}/${hostReboot.affectedSessions}` : 'none'}`);
     }
-    return { sections: sections.filter(Boolean), diagnosis, killed, recovered, oomEventOnly, deliberateStop, policy, observedAt };
+    return { sections: sections.filter(Boolean), diagnosis, killed, recovered, oomEventOnly, deliberateStop, policy, observedAt, endedAt };
   } catch (error) {
     if (verbose) {
       console.log(`[VERBOSE] Could not build kill sections for ${sessionName}: ${error?.message || error}`);
@@ -225,6 +232,28 @@ function parseCommentTarget(url) {
 }
 
 /**
+ * Issue #3533: when the session actually ended — never the time of an earlier
+ * OOM event it survived. A host reboot knows it (the last log write before the
+ * outage, else the last heartbeat); otherwise `$ --status` reports the end, and
+ * the log's last write is the fallback.
+ *
+ * @param {Object} options
+ * @returns {Promise<string|null>} ISO timestamp
+ */
+export async function resolveSessionEndedAt({ sessionInfo = null, statusResult = null, logPath = null, statFile = fs.stat } = {}) {
+  if (sessionInfo?.hostReboot?.sessionEndedAt) return sessionInfo.hostReboot.sessionEndedAt;
+  const reported = statusResult?.endTime ? new Date(statusResult.endTime) : null;
+  if (reported && Number.isFinite(reported.getTime())) return reported.toISOString();
+  if (!logPath) return null;
+  try {
+    const { mtimeMs } = await statFile(logPath);
+    return Number.isFinite(mtimeMs) ? new Date(mtimeMs).toISOString() : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Post the same kill/recovery report to the pull request, so a reader of the PR
  * is never left believing an unattended session simply carried on.
  *
@@ -237,7 +266,7 @@ function parseCommentTarget(url) {
  * @param {Object} options
  * @returns {Promise<{posted: boolean, url: string|null, skipped: string|null, logUploaded: boolean}>}
  */
-export async function announceKillOnPullRequest({ pullRequestUrl, sessionName, sessionInfo, diagnosis, exitCode = null, observedAt = null, policy = null, recovered = false, oomEventOnly = false, deliberateStop = null, resumed = false, recoverySessionId = null, attempt = null, maxAttempts = null, resumeCommand = null, recoveryPending = false, runCommand = spawnCapture, attachLog = defaultAttachLog, attachOptions = {}, verbose = false } = {}) {
+export async function announceKillOnPullRequest({ pullRequestUrl, sessionName, sessionInfo, diagnosis, exitCode = null, observedAt = null, endedAt = null, policy = null, recovered = false, oomEventOnly = false, deliberateStop = null, resumed = false, recoverySessionId = null, attempt = null, maxAttempts = null, resumeCommand = null, recoveryPending = false, runCommand = spawnCapture, attachLog = defaultAttachLog, attachOptions = {}, verbose = false } = {}) {
   const skip = reason => ({ posted: false, url: null, skipped: reason, logUploaded: false });
   // Issue #2301: a session started on a pull request URL has no *linked* pull
   // request to look up — the pull request is the one it was started on.
@@ -247,7 +276,7 @@ export async function announceKillOnPullRequest({ pullRequestUrl, sessionName, s
 
   const attachLogs = argsIncludeAttachLogs(sessionInfo?.args);
   const logPath = sessionInfo?.logPath || null;
-  const notice = fields => buildKillRecoveryNotice({ diagnosis, exitCode, sessionName, observedAt, policy, survived: recovered, oomEventOnly, deliberateStop, resumed, recoverySessionId, attempt, maxAttempts, resumeCommand, attachLogs, recoveryPending, ...fields });
+  const notice = fields => buildKillRecoveryNotice({ diagnosis, exitCode, sessionName, observedAt, endedAt, hostReboot: sessionInfo?.hostReboot || null, policy, survived: recovered, oomEventOnly, deliberateStop, resumed, recoverySessionId, attempt, maxAttempts, resumeCommand, attachLogs, recoveryPending, ...fields });
 
   // Issue #2498: a session that completed (`recovered`) already published its
   // own final log under `--attach-logs`; a second copy titled "killed session"

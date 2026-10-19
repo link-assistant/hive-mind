@@ -44,6 +44,7 @@ import { detectFailedInPlaceStart } from './session-kill-resume.start-failure.li
 import { createSessionPullRequestUrlScanner, lookupSessionPullRequestUrl } from './session-own-pr.lib.mjs';
 // Issue #2189: the handled latch + the memoized last-tool-session-id read that keep a completed session from replaying its whole completion pipeline on every poll.
 import { isCompletionHandled, markCompletionHandled, resolveCachedLastToolSessionId } from './session-completion-state.lib.mjs';
+import { markSessionsEndedByHostReboot } from './host-boot-state.lib.mjs';
 import { createSessionRegistryQueries } from './session-monitor.queries.lib.mjs';
 // Issue #3209: a session is not finished before its execution was observed once.
 import { hasUnknownExitLatch, reconcileLaunchObservation, releaseCompletionLatch } from './session-monitor.launch-state.lib.mjs';
@@ -1262,10 +1263,11 @@ export function startSessionMonitoring(bot, verbose = false, intervalMs = 30000,
  * @param {object} [options.store] - Session store to load from (default: the store set via setSessionStore).
  * @param {number} [options.botStartTime] - Epoch seconds; only sessions started strictly before this are resumed. Defaults to now.
  * @param {boolean} [options.verbose]
- * @returns {Promise<{resumed: Array<{sessionName: string, sessionInfo: object}>, skipped: Array<{sessionName: string, reason: string}>}>}
+ * @param {object|null} [options.hostReboot] - Issue #3533: detectHostReboot() result; marks the sessions it ended
+ * @returns {Promise<{resumed: Array<{sessionName: string, sessionInfo: object}>, skipped: Array<{sessionName: string, reason: string}>, hostRebootSessions: string[]}>}
  */
 export async function resumeTrackedSessions(options = {}) {
-  const { store = sessionStore, verbose = false, botStartTime = Math.floor(Date.now() / 1000) } = options;
+  const { store = sessionStore, verbose = false, botStartTime = Math.floor(Date.now() / 1000), hostReboot = null } = options;
   const resumed = [];
   const skipped = [];
   if (!store) {
@@ -1313,7 +1315,10 @@ export async function resumeTrackedSessions(options = {}) {
   } else if (verbose) {
     console.log('[VERBOSE] resumeTrackedSessions: no eligible sessions to resume');
   }
-  return { resumed, skipped };
+  // Issue #3533: every session the host reboot ended is reported as that one event.
+  const hostRebootSessions = await markSessionsEndedByHostReboot({ sessions: resumed, event: hostReboot, isHandled: isCompletionHandled, persist: persistSessionSnapshot, verbose });
+  if (hostRebootSessions.length > 0) logEvent('host_reboot_sessions_marked', { sessions: hostRebootSessions, bootedAt: hostReboot.bootedAt, lastHeartbeatAt: hostReboot.lastHeartbeatAt, shutdownRecorded: hostReboot.shutdownRecorded });
+  return { resumed, skipped, hostRebootSessions };
 }
 // Issue #2175: the read-only registry queries live in their own module so this
 // file stays under the 1350-line early-warning threshold (see issue #1593).

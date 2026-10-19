@@ -1133,7 +1133,10 @@ function startRouterMaintenanceOnce() {
 // Issue #1927 (requirements #3/#4): a periodic timestamped heartbeat so the "last
 // time the bot was alive" is always discoverable from the log. The heartbeat
 // logic lives in bot-lifecycle.lib.mjs so it can be unit tested.
-const heartbeat = createHeartbeat({ logger: botLogger, getActiveSessionCount, getHandlerStats: () => ({ ...handlerWatchdog.getStats(), background: getBackgroundTaskStats(), launchingUrls: launchingUrls.size }) });
+// Issue #3533: the host's boot id, recorded with every beat, tells the next start that the host restarted.
+const { createHostBootTracker } = await import('./host-boot-state.lib.mjs');
+const hostBootTracker = createHostBootTracker({ verbose: VERBOSE });
+const heartbeat = createHeartbeat({ logger: botLogger, getActiveSessionCount, getHandlerStats: () => ({ ...handlerWatchdog.getStats(), background: getBackgroundTaskStats(), launchingUrls: launchingUrls.size }), onBeat: () => hostBootTracker.recordHeartbeat() });
 async function onBotLaunched() {
   if (isShuttingDown || launchAnnouncementShown) return;
   launchAnnouncementShown = true;
@@ -1153,6 +1156,7 @@ async function onBotLaunched() {
   await resumeSessionsOnLaunch({
     resumeTrackedSessions,
     reconcileIsolationSessions: typeof isolationRunner?.resumeAllIsolationSessions === 'function' ? ({ verbose }) => isolationRunner.resumeAllIsolationSessions({ verbose }) : null,
+    detectHostReboot: () => hostBootTracker.detect(),
     botStartTime: BOT_START_TIME,
     verbose: VERBOSE,
     logger: botLogger,
@@ -1251,6 +1255,7 @@ const handleShutdownSignal = createShutdownHandler({
   bot,
   onShutdown: () => {
     isShuttingDown = true;
+    hostBootTracker.recordStop().catch(() => {}); // issue #3533: an orderly stop, not a hard reset
   },
   cleanup: () => {
     launchAbortController.abort();

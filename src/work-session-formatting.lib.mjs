@@ -197,7 +197,7 @@ export function insertInfoBlockUrlLine(infoBlock, line, { locale = null } = {}) 
 }
 
 // Issue #2303: the diagnosed kill cause, named in the headline.
-const KILL_CAUSE_LABELS = { 'out-of-memory': 'out of memory', 'disk-full': 'disk full', 'forced-kill': 'forced kill' };
+const KILL_CAUSE_LABELS = { 'out-of-memory': 'out of memory', 'disk-full': 'disk full', 'forced-kill': 'forced kill', 'host-reboot': 'host restarted' };
 
 /** @telegram-markdown Telegram legacy-Markdown text (issue #3505). */
 export function formatSessionCompletionMessage({ sessionName, sessionInfo, statusResult = null, observedEndTime = new Date(), exitCode = null, infoBlock = '', pullRequestUrl = null, pullRequestState = null, extraSections = [], locale = null, resumedAs = null, recoveryCount = null, launchUnobserved = false, killCause = null } = {}) {

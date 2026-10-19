@@ -25,7 +25,8 @@
 import { spawn } from 'child_process';
 import { describeChildExit } from './child-exit.lib.mjs';
 import { sanitizeForPublication } from './token-sanitization.lib.mjs'; // issue #2156: this body is published to a pull request
-import { KILL_CAUSE_DISK_FULL, KILL_CAUSE_FORCED_KILL, KILL_CAUSE_OUT_OF_MEMORY } from './session-kill-diagnostics.lib.mjs';
+import { KILL_CAUSE_DISK_FULL, KILL_CAUSE_FORCED_KILL, KILL_CAUSE_HOST_REBOOT, KILL_CAUSE_OUT_OF_MEMORY } from './session-kill-diagnostics.lib.mjs';
+import { describeHostRebootScope } from './host-boot-state.lib.mjs';
 import { ON_SESSION_KILL_RESUME } from './session-kill-policy.lib.mjs';
 
 /** Marker used to recognise (and avoid duplicating) our own notices. */
@@ -78,6 +79,7 @@ const CAUSE_TITLES = {
   [KILL_CAUSE_OUT_OF_MEMORY]: 'Working session was killed: out of memory',
   [KILL_CAUSE_DISK_FULL]: 'Working session was killed: disk full',
   [KILL_CAUSE_FORCED_KILL]: 'Working session was force-killed',
+  [KILL_CAUSE_HOST_REBOOT]: 'Working session ended: the host restarted',
 };
 
 /**
@@ -91,6 +93,33 @@ export function killRecoveryHeadline(cause) {
   return CAUSE_HEADLINES[cause] || 'recovered from an unexpected kill';
 }
 
+const SURVIVED_OOM_GAP_MS = 10 * 60 * 1000;
+
+function formatGap(ms) {
+  const minutes = Math.round(ms / 60000);
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  return `${hours} h${minutes % 60 ? ` ${minutes % 60} min` : ''}`;
+}
+
+/**
+ * Issue #3533: "Detected at" is when the session ended. An OOM event it had
+ * survived well before that is listed on its own line, never as the end.
+ *
+ * @param {Object} options
+ * @returns {string[]} Markdown list items
+ */
+export function describeEventTimes({ observedAt = null, endedAt = null, eventOnly = false, victim = null, endedByOom = false } = {}) {
+  if (eventOnly || !endedAt) return observedAt ? [`- **OOM event observed at:** ${observedAt}`] : [];
+  const facts = [`- **Detected at:** ${endedAt}`];
+  const gap = observedAt ? Date.parse(endedAt) - Date.parse(observedAt) : NaN;
+  // An OOM kill that ended the session can take a while to end it; only an
+  // event well before the end, of a session not ended by OOM, was survived.
+  if (Number.isFinite(gap) && gap > SURVIVED_OOM_GAP_MS && !endedByOom) facts.push(`- **Earlier OOM event:** ${victim ? `OOM kill of \`${victim}\` ` : ''}at ${observedAt}, survived — the session kept running for ${formatGap(gap)} after it`);
+  else if (observedAt) facts.push(`- **OOM event observed at:** ${observedAt}`);
+  return facts;
+}
+
 /**
  * Render the pull-request notice for a killed (and possibly resumed) session.
  *
@@ -99,6 +128,8 @@ export function killRecoveryHeadline(cause) {
  * @param {number|null} [options.exitCode]
  * @param {string} [options.sessionName]
  * @param {string|null} [options.observedAt] - ISO timestamp of the kill/OOM event
+ * @param {string|null} [options.endedAt] - Issue #3533: when the session actually ended
+ * @param {Object|null} [options.hostReboot] - Issue #3533: the host reboot that ended it
  * @param {string} [options.policy] - Resolved --on-session-kill policy
  * @param {boolean} [options.resumed] - A new working session was actually started
  * @param {boolean} [options.survived] - The work session completed after a child OOM event
@@ -112,7 +143,7 @@ export function killRecoveryHeadline(cause) {
  * @param {string|null} [options.logUrl] - URL of the uploaded intermediate log
  * @returns {string} Markdown body
  */
-export function buildKillRecoveryNotice({ diagnosis = null, exitCode = null, sessionName = null, observedAt = null, policy = null, resumed = false, survived = false, oomEventOnly = false, deliberateStop = null, recoverySessionId = null, resumeCommand = null, attempt = null, maxAttempts = null, attachLogs = false, logAttached = false, logUrl = null, logInline = false, recoveryPending = false } = {}) {
+export function buildKillRecoveryNotice({ diagnosis = null, exitCode = null, sessionName = null, observedAt = null, endedAt = null, hostReboot = null, policy = null, resumed = false, survived = false, oomEventOnly = false, deliberateStop = null, recoverySessionId = null, resumeCommand = null, attempt = null, maxAttempts = null, attachLogs = false, logAttached = false, logUrl = null, logInline = false, recoveryPending = false } = {}) {
   const cause = diagnosis?.cause || null;
   // Issue #2498: when solve stopped on its own (e.g. expired authentication),
   // the OOM event did not end the run — lead with the real reason instead of
@@ -133,10 +164,12 @@ export function buildKillRecoveryNotice({ diagnosis = null, exitCode = null, ses
 
   if (stopLine) lines.push('**Why the work session stopped** (from its log):', '', `> ${stopLine}`, '');
   if (diagnosis?.summary) lines.push(stopLine && oomEventOnly ? `Earlier event (not the cause of this stop): ${diagnosis.summary}` : diagnosis.summary, '');
+  // Issue #3533: one host event took every running task down; say so once.
+  if (cause === KILL_CAUSE_HOST_REBOOT && hostReboot) lines.push(`🖥️ ${describeHostRebootScope(hostReboot)}`, '');
 
   const facts = [];
   if (exitCode !== null && exitCode !== undefined) facts.push(`- **Exit code:** ${exitCode}`);
-  if (observedAt) facts.push(oomEventOnly || survived ? `- **OOM event observed at:** ${observedAt}` : `- **Detected at:** ${observedAt}`);
+  facts.push(...describeEventTimes({ observedAt, endedAt, eventOnly: oomEventOnly || survived, victim: diagnosis?.victims?.at?.(-1)?.comm || null, endedByOom: diagnosis?.cause === KILL_CAUSE_OUT_OF_MEMORY }));
   if (sessionName) facts.push(`- **Working session:** \`${sessionName}\``);
   if (policy) facts.push(`- **On-kill policy:** \`${policy}\`${policy === ON_SESSION_KILL_RESUME ? ' (`--on-session-kill=resume`)' : ' (`--on-session-kill=report`)'}`);
   if (facts.length > 0) lines.push(...facts, '');

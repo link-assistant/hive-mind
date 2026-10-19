@@ -118,6 +118,11 @@ PERSISTABLE_FIELDS.push('killRecoveryDiskDeferrals');
 // Issue #3469: `/fix`'s created issue (`fixProgress`) and the live PR-link log
 // scan (`livePullRequest`) survive a restart, so the PR link is still shown.
 PERSISTABLE_FIELDS.push('killRecoverySnapshotImages', 'killRecoveryContainerName');
+// Issue #3532: the container a recovery runs in and every earlier one, so the
+// liveness probe and the duplicate guard still work after a bot restart.
+// Issue #3530: the one kill comment, so a restart edits it instead of posting
+// another. Issue #3533: the host reboot that ended the session.
+PERSISTABLE_FIELDS.push('containerName', 'rootContainerName', 'containerNameHistory', 'killNotice', 'hostReboot');
 
 /**
  * Resolve the directory durable bot state is written to. Honors

@@ -301,7 +301,7 @@ export async function buildDockerIsolationStartArgs(command, args = [], options 
   // Force the inner shell so start-command does not probe the image to detect one (see DOCKER_ISOLATION_SHELL).
   startArgs.push('--shell', DOCKER_ISOLATION_SHELL);
   // The image already sets HOME=/home/box and WORKDIR /home/box; pass HOME explicitly anyway so the credential mounts under /home/box resolve even if a future image forgets to. start-command has no --workdir flag, so the working directory comes from the image's WORKDIR.
-  if (ownsTaskSessionId(command, sessionId)) startArgs.push('-e', `${TASK_SESSION_ID_ENV}=${sessionId}`);
+  if (ownsTaskSessionId(command, sessionId)) startArgs.push('-e', `${TASK_SESSION_ID_ENV}=${options.executionId || sessionId}`);
   startArgs.push('-e', `HOME=${DOCKER_CONTAINER_HOME}`, '-e', `HIVE_MIND_PARENT_SESSION_ID=${sessionId || ''}`, '-e', `HIVE_MIND_IMAGE_VARIANT=${resolveImageVariant(image, env)}`);
   // Issue #2247 (H1): the three 2026-09-13 tasks ran a week-old `solve` and no
   // comment said so. The image the container was created from - and the digest
@@ -343,7 +343,7 @@ export async function buildDockerIsolationStartArgs(command, args = [], options 
   }
   const taskCommand = buildShellCommand(command, args);
   const failClosedStartGate = hasContainerResourceLimits(options.containerResourceLimits);
-  startArgs.push('--detached', ...buildSessionIdentityArgs(sessionId), '--', buildDockerStartGatedCommand(taskCommand, sessionId, { failClosed: failClosedStartGate }));
+  startArgs.push('--detached', ...buildSessionIdentityArgs(sessionId, options), '--', buildDockerStartGatedCommand(taskCommand, sessionId, { failClosed: failClosedStartGate }));
   return startArgs;
 }
 export async function buildStartCommandArgs(command, args = [], options = {}) {
@@ -351,9 +351,9 @@ export async function buildStartCommandArgs(command, args = [], options = {}) {
   if (backend === 'docker') {
     return await buildDockerIsolationStartArgs(command, args, { ...options, sessionId });
   }
-  // start-command does not export the session id to the command, so it is set here (issue #3530).
-  const envPrefix = ownsTaskSessionId(command, sessionId) ? `${TASK_SESSION_ID_ENV}=${shellQuote(sessionId)} ` : '';
-  return ['--isolated', backend, '--detached', ...buildSessionIdentityArgs(sessionId), '--', `${envPrefix}${buildShellCommand(command, args)}`];
+  // Only a `solve` task owns the id; `$` exports START_EXECUTION_ID to every child (issue #3530).
+  const envPrefix = ownsTaskSessionId(command, sessionId) ? `${TASK_SESSION_ID_ENV}=${shellQuote(options.executionId || sessionId)} ` : '';
+  return ['--isolated', backend, '--detached', ...buildSessionIdentityArgs(sessionId, options), '--', `${envPrefix}${buildShellCommand(command, args)}`];
 }
 async function runStartCommand(binPath, startCommandArgs) {
   return await new Promise(resolve => {
@@ -440,6 +440,8 @@ async function logDockerIsolationPostLaunchDiagnostics(sessionId, env = process.
  * @param {Object} options - Isolation options
  * @param {string} options.backend - Isolation backend: 'screen', 'tmux', or 'docker'
  * @param {string} [options.sessionId] - UUID for session tracking (auto-generated if not provided)
+ * @param {string} [options.executionId] - start-command execution id when it differs from the session name (a recovery attempt, issue #3530)
+ * @param {boolean} [options.appendAttempt] - Run as the next attempt of `executionId`, appending to its log (start#229)
  * @param {string} [options.tool] - AI tool selected for the task; used to scope Docker auth mounts
  * @param {boolean} [options.verbose] - Enable verbose logging
  * @param {{cpu?: string|null, memory?: string|null, disk?: string|null}} [options.containerResourceLimits] - Optional Docker CPU, RAM, and writable-layer limits

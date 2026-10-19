@@ -342,7 +342,7 @@ penalty cap still in place is watched as penalized, so the cap is lifted later.
 A task that was capped shows a `🐢 CPU penalty` section in its completion
 message.
 
-start-command 0.37.9 (the version in the Hive Mind images) has its own opt-in
+start-command 0.38.0 (the version in the Hive Mind images) has its own opt-in
 `$ --cpu-penalty*` with the same options and defaults. Hive Mind does not pass
 it: the bot's own monitor works with every start-command version and reports a
 penalty in the completion message. Do not enable both penalties for the same

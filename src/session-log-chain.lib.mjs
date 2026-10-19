@@ -2,10 +2,10 @@
  * The whole log of a task that was recovered after a kill (issue #3530).
  *
  * An in-place resume (`$ --resume`) keeps the execution and appends to its log,
- * but a fresh recovery launch is a new execution with a new log file. start-command
- * 0.37.8 has no aliases that would tie the two together, and a launch that reuses
- * an existing `--session-id` truncates the earlier log (see the case study), so
- * hive-mind keeps the chain itself.
+ * and with start-command >= 0.38.0 so does a recovery in a new container (it
+ * is launched with `--append-attempt`, start#229). Sessions recovered by an
+ * older `$`, or before the upgrade, are separate executions with separate log
+ * files, so hive-mind keeps the chain itself.
  *
  * The chain is rebuilt from `sessions-events.jsonl`, the session store's
  * append-only audit log: every tracked session (and every recovery of it) is

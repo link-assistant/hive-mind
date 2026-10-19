@@ -251,7 +251,7 @@ RUN bun install -g @openai/codex && \
 # Note: start-command provides `$` CLI for isolation modes (--isolation screen/tmux/docker)
 # The Box base image includes screen. For tmux/docker isolation, ensure they are
 # available in the base image or install them separately.
-# start-command is pinned to 0.37.9: 0.29.1 fixed detached docker
+# start-command is pinned to 0.38.0: 0.29.1 fixed detached docker
 # `--status`/`--list` reporting a terminal status (`executed`) with the `-1`
 # sentinel while the container is still running (link-foundation/start#136,
 # link-assistant/hive-mind#1939); 0.29.2 (start#138 / start PR #139) records the
@@ -317,6 +317,9 @@ RUN bun install -g @openai/codex && \
 # stops gracefully. 0.37.8 keeps the command running and exits with its own
 # code when stdout/stderr is a closed pipe (start#222). 0.37.9 reports a removed
 # docker container in `$ --status` and adds opt-in snapshot-resume safeguards.
+# 0.38.0 refuses a reused `--session-id` unless `--append-attempt` is given,
+# which a kill recovery in a new container uses to stay the same execution
+# with one log (start#229), and exports START_EXECUTION_ID (start#230).
 # `@link-assistant/agent` is pinned to current 0.26.15. Version 0.26.1 stopped the
 # unbounded snapshot leak of issue #2186. Up to 0.26.0 `Snapshot.track()` built a
 # standalone git object store per project — keyed on the worktree's root commit,
@@ -338,7 +341,7 @@ RUN echo "Installing @link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
     fi && \
     bun install -g @link-assistant/claude-profiles && \
     bun install -g @link-assistant/agent@0.26.15 && \
-    bun install -g start-command@0.37.9 && \
+    bun install -g start-command@0.38.0 && \
     bun install -g gh-setup-git-identity && \
     bun install -g gh-pull-all && \
     bun install -g gh-load-issue && \

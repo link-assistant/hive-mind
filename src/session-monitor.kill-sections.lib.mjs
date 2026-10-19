@@ -26,6 +26,7 @@ import { detectDeliberateSolveStop } from './session-kill-attribution.lib.mjs';
 import { buildKillRecoveryNotice, postKillRecoveryNotice, spawnCapture } from './session-kill-recovery.lib.mjs';
 import { getSessionIssueContext } from './session-live-pr-link.lib.mjs';
 import { describeHostRebootScope } from './host-boot-state.lib.mjs';
+import { recoveryLogStartOffset } from './session-recovery-footer.lib.mjs';
 
 /**
  * `--attach-logs` as it reaches the bot: a raw CLI argument array recorded on
@@ -128,7 +129,7 @@ export async function buildKillCompletionSections({ sessionName, sessionInfo, st
 
     const locale = sessionInfo?.locale || null;
     const logPath = statusResult?.logPath || sessionInfo?.logPath || null;
-    const minByteOffset = sessionInfo?.killRecoveryInPlace ? sessionInfo.killRecoveryLogStartBytes || 0 : 0;
+    const minByteOffset = recoveryLogStartOffset(sessionInfo);
     // Issue #3533: a host reboot ends every running task; the readings are aged against the real end.
     const hostReboot = sessionInfo?.hostReboot || null;
     const endedAt = killed || oomEventOnly ? await resolveSessionEndedAt({ sessionInfo, statusResult, logPath, statFile }) : null;

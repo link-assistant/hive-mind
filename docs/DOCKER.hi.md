@@ -234,7 +234,7 @@ kernel limit लागू नहीं कर सकता, तो Hive Mind sta
 
 Options: `--container-cpu-penalty-cpus` (2), `--container-cpu-penalty-trigger` (95%), `--container-cpu-penalty-trigger-window` (15m), `--container-cpu-penalty-release` (65%), `--container-cpu-penalty-release-window` (15m)। Environment variables: `TELEGRAM_CONTAINER_CPU_PENALTY_*`। बंद करने के लिए: `--no-container-cpu-penalty`। Penalty state bot restart के बाद भी बनी रहती है। जिस task पर limit लगी थी, उसके completion message में `🐢 CPU penalty` section दिखता है।
 
-start-command 0.37.9 (Hive Mind images का version) में उन्हीं options और defaults के साथ अपना opt-in `$ --cpu-penalty*` है। Hive Mind इसे pass नहीं करता: bot का अपना monitor हर start-command version के साथ काम करता है और completion message में penalty बताता है। एक ही container के लिए दोनों penalties चालू न करें, वरना वे उसकी CPU cap पर आपस में टकराएँगी। असली Docker daemon पर दोनों की जाँच के लिए [issue #2801 case study](case-studies/issue-2801/README.md) देखें।
+start-command 0.38.0 (Hive Mind images का version) में उन्हीं options और defaults के साथ अपना opt-in `$ --cpu-penalty*` है। Hive Mind इसे pass नहीं करता: bot का अपना monitor हर start-command version के साथ काम करता है और completion message में penalty बताता है। एक ही container के लिए दोनों penalties चालू न करें, वरना वे उसकी CPU cap पर आपस में टकराएँगी। असली Docker daemon पर दोनों की जाँच के लिए [issue #2801 case study](case-studies/issue-2801/README.md) देखें।
 
 **Manual fallback.** पहले से चल रहे container को तुरंत seed करने के लिए (या जब आप deployment नहीं बदल
 सकते), host image को inner daemon में copy करें:

@@ -93,6 +93,7 @@ const PERSISTABLE_FIELDS = [
   'previousExecutionUuids',
   'killRecoveryResumed',
   'killRecoveryInPlace',
+  'killRecoveryAppendedAttempt',
   'killRecoveryResumeMode',
   'killRecoveryStartedAt',
   'killRecoveryLogStartBytes',

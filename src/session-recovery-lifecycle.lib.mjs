@@ -1,6 +1,7 @@
 /** Recovery lifecycle shared by the monitor and in-process retries (#2498). */
 import fs from 'node:fs/promises';
 import { readLogTailText } from './log-bounded-read.lib.mjs';
+import { recoveryLogStartOffset } from './session-recovery-footer.lib.mjs';
 import { safeEditMessageText, safeSendMessage } from './telegram-safe-reply.lib.mjs';
 import { escapeMarkdown } from './telegram-markdown.lib.mjs';
 
@@ -63,7 +64,7 @@ export async function reportRecoveryLifecycle({ bot, sessionName, sessionInfo, s
     const logPath = statusResult?.logPath || sessionInfo?.logPath || null;
     let state = sessionInfo.recoveryLifecycle;
     if (phase && attempt && (state?.kind !== 'container' || state?.attempt !== attempt)) state = { kind: 'container', attempt, startedAt: at, commentUrl: state?.commentUrl, lastReportedMs: 0 };
-    const event = phase ? null : parseRecoveryLogEvent(await readLogTailText(logPath, { maxBytes: 32768, minByteOffset: sessionInfo?.killRecoveryInPlace ? sessionInfo.killRecoveryLogStartBytes || 0 : 0 }));
+    const event = phase ? null : parseRecoveryLogEvent(await readLogTailText(logPath, { maxBytes: 32768, minByteOffset: recoveryLogStartOffset(sessionInfo) }));
     if (event && (!state || state.kind !== 'tool' || event.attempt !== state.attempt)) state = { kind: 'tool', attempt: event.attempt, startedAt: event.startedAt || event.at, commentUrl: event.commentUrl || state?.commentUrl, lastReportedMs: 0 };
     if (!state && (sessionInfo.killRecoveryResumed || phase)) state = { kind: 'container', attempt: sessionInfo.killRecoveryAttempts || 1, startedAt: sessionInfo.killRecoveryStartedAt || new Date(sessionInfo.startTime).toISOString(), lastReportedMs: 0, lastBytes: sessionInfo.killRecoveryLogStartBytes ?? null };
     if (!state) return null;

@@ -28,3 +28,7 @@ The supervisor sets the variable itself: `-e HIVE_MIND_TASK_SESSION_ID=<uuid>` f
 ## Suggested fix
 
 Where the child environment is built for each backend, add the variables to the env passed to `spawn`. For Docker add `-e START_EXECUTION_ID=…`, and for ssh prepend `export …;` to the remote command. On `--resume`, set `START_ATTEMPT` to the new attempt number. A test: `$ --session-id X -- sh -c 'echo $START_EXECUTION_ID'` prints `X` for each backend.
+
+## Status
+
+Fixed in start-command 0.38.0 (issue closed 2026-10-19): `START_EXECUTION_ID`, `START_SESSION_NAME` and `START_ATTEMPT` are exported. hive-mind keeps passing `HIVE_MIND_TASK_SESSION_ID` to `solve` launches only, because the start-command variables reach every descendant, including the many `solve` children of a `hive` run; it reads `START_ATTEMPT` so that a recovery attempt does not hand the id to a new Claude session.

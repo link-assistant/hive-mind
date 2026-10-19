@@ -42,3 +42,7 @@ Hive-mind launches each task with `--session U --session-id U` (one id for sessi
 ## Suggested fix
 
 In the code that creates the execution record for a launch with an explicit `--session-id`: look the id up first. If a record exists, either fail with the message above, or reuse it like the resume path does: push the old attempt to `attemptHistory`, write an attempt header and set `logOffset`. Write the new header with the existing `appendLogFile` instead of `writeLogFile` (`lib/isolation-log-utils.js`, which calls `fs.writeFileSync(logPath, …)` and truncates the earlier attempts). A regression test: launch twice with the same `--session-id` and assert that the first run's output is still in the log, or that the second launch fails.
+
+## Status
+
+Fixed in start-command 0.38.0 (issue closed 2026-10-19): a reused `--session-id` is refused unless `--append-attempt` is given, which archives the previous attempt and appends to the same log. hive-mind now relaunches a recovery in a new container as `--session <new container> --session-id <task uuid> --append-attempt` (see `experiments/issue-3530-append-attempt.sh`).

@@ -35,3 +35,7 @@ Hive-mind launches with `--session U --session-id U`, passes the task id into th
 
 1. Reuse `options.sessionNameHistory` (already resolved in `lib/execution-store.js`): `$ --alias <id> <new>` appends `<new>` to it, and `$ --rename <id> <new>` moves the current name there and sets the new one. Both reject a name that already resolves to another execution. Also allow a UUID-shaped alias to resolve wherever an execution UUID is accepted (`--status`, `--upload-log`, `--resume`, `--stop`).
 2. Add `continues: <uuid>` to the record. `--status` walks the chain and prints it; `--upload-log` concatenates the logs with attempt headers (the format `$ --resume` already writes).
+
+## Status
+
+Fixed in start-command 0.38.0 (issue closed 2026-10-19): `--alias`, `--rename` and `--continues <id>`, with `aliases` and `chain` in `$ --status`. hive-mind does not need them for new recoveries, which stay one execution through `--append-attempt` (`sessionNameHistory` keeps the earlier container names); its local chain and `/log` join remain for sessions recovered by an older start-command.

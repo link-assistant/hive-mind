@@ -5,9 +5,9 @@ An execution cannot be given another name after it starts, and two executions of
 Two related requests:
 
 1. **Aliases.** Let a session or execution be renamed (or given an extra name) while it runs, and keep every earlier name as an alias, so `$ --status <any alias>` and `$ --upload-log <any alias>` resolve to it. Use case: start with a random UUID, and once the AI tool reports its own session id, add that as an alias. Then the AI session, the start-command session and the Docker container can all be found under the same UUID.
-2. **Continuation.** Let a new launch declare that it continues an earlier execution (`--continues <uuid>`), so that `$ --status` lists the chain and `--upload-log <any id of the chain>` uploads the whole log, every attempt oldest first. This is what a supervisor needs when it has to relaunch fresh rather than `$ --resume` in place (see the related report on reusing `--session-id`).
+2. **Continuation.** Let a new launch declare that it continues an earlier execution (`--continues <uuid>`), so that `$ --status` lists the chain and `--upload-log <any id of the chain>` uploads the whole log, every attempt oldest first. This is what a supervisor needs when it has to relaunch fresh rather than `$ --resume` in place (see #229 on reusing `--session-id`).
 
-Found in [link-assistant/hive-mind#3530](https://github.com/link-assistant/hive-mind/issues/3530) (start-command 0.37.8 has neither feature).
+Found in [link-assistant/hive-mind#3530](https://github.com/link-assistant/hive-mind/issues/3530). start-command 0.37.8 already has the storage for (1): `options.sessionNameHistory` (#162) is filled when `$ --resume` has to give a session a new name, and `--status` resolves through it. But no option lets a caller add a name, and an execution UUID cannot have an alias. (2) does not exist.
 
 ## Reproduction
 
@@ -33,5 +33,5 @@ Hive-mind launches with `--session U --session-id U`, passes the task id into th
 
 ## Suggested fix
 
-1. Add an `aliases: string[]` field to the execution record, and an index from alias to execution uuid. Resolve aliases wherever a uuid or session name is accepted today. `$ --alias <id> <new>` appends to the field, and rejects an alias that already names another execution.
+1. Reuse `options.sessionNameHistory` (already resolved in `lib/execution-store.js`): `$ --alias <id> <new>` appends `<new>` to it, and `$ --rename <id> <new>` moves the current name there and sets the new one. Both reject a name that already resolves to another execution. Also allow a UUID-shaped alias to resolve wherever an execution UUID is accepted (`--status`, `--upload-log`, `--resume`, `--stop`).
 2. Add `continues: <uuid>` to the record. `--status` walks the chain and prints it; `--upload-log` concatenates the logs with attempt headers (the format `$ --resume` already writes).

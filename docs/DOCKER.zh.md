@@ -226,6 +226,8 @@ cgroup controller；如果 Docker 无法应用请求的内核限制，Hive Mind 
 
 选项：`--container-cpu-penalty-cpus`（2）、`--container-cpu-penalty-trigger`（95%）、`--container-cpu-penalty-trigger-window`（15m）、`--container-cpu-penalty-release`（65%）、`--container-cpu-penalty-release-window`（15m），对应环境变量 `TELEGRAM_CONTAINER_CPU_PENALTY_*`。关闭：`--no-container-cpu-penalty`。惩罚状态在 bot 重启后保留；被限流过的任务，其完成消息中会有 `🐢 CPU penalty` 一节。
 
+start-command 0.37.9（Hive Mind 镜像中的版本）自带可选的 `$ --cpu-penalty*`，选项和默认值相同。Hive Mind 不会传递它：bot 自己的监控适用于所有 start-command 版本，并在完成消息中报告惩罚。不要对同一容器同时启用两种惩罚，否则它们会争夺该容器的 CPU 上限。两者在真实 Docker daemon 上的验证见 [issue #2801 案例研究](case-studies/issue-2801/README.md)。
+
 **手动回退。** 要立即为正在运行的容器播种（或当你无法更改部署时），把宿主镜像复制进内部 daemon：
 
 ```bash

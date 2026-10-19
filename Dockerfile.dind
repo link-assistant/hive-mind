@@ -266,7 +266,7 @@ RUN bun install -g @openai/codex && \
     bun install -g @github/copilot && \
     bun install -g opencode-ai
 
-# start-command is pinned to 0.37.8: 0.29.1 fixed detached docker
+# start-command is pinned to 0.37.9: 0.29.1 fixed detached docker
 # `--status`/`--list` reporting a terminal status (`executed`) with the `-1`
 # sentinel while the container is still running (link-foundation/start#136,
 # link-assistant/hive-mind#1939); 0.29.2 (start#138 / start PR #139) records the
@@ -330,7 +330,8 @@ RUN bun install -g @openai/codex && \
 # misses the final kill; 0.37.3-0.37.6 only change the release pipeline.
 # 0.37.7 keeps penalizedMs and lifts the CPU cap promptly when the monitor
 # stops gracefully. 0.37.8 keeps the command running and exits with its own
-# code when stdout/stderr is a closed pipe (start#222).
+# code when stdout/stderr is a closed pipe (start#222). 0.37.9 reports a removed
+# docker container in `$ --status` and adds opt-in snapshot-resume safeguards.
 # `@link-assistant/agent` is pinned to current 0.26.15. Version 0.26.1 stopped the
 # unbounded snapshot leak of issue #2186. Up to 0.26.0 `Snapshot.track()` built a
 # standalone git object store per project — keyed on the worktree's root commit,
@@ -352,7 +353,7 @@ RUN echo "Installing @link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
     fi && \
     bun install -g @link-assistant/claude-profiles && \
     bun install -g @link-assistant/agent@0.26.15 && \
-    bun install -g start-command@0.37.8 && \
+    bun install -g start-command@0.37.9 && \
     bun install -g gh-setup-git-identity && \
     bun install -g gh-pull-all && \
     bun install -g gh-load-issue && \

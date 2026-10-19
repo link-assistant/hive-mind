@@ -98,8 +98,10 @@ export function formatExecutingWorkSessionMessage({ sessionName = 'unknown', exe
   // left the operator unable to match a running task to the session list. The
   // line is omitted entirely when start-command reported no UUID, so a session
   // never carries an empty label.
+  // Issue #3530: a session launched with `--session-id` has one ID for both,
+  // so the line only appears for an execution that has an ID of its own.
   const executionLabel = text(locale, 'telegram.execution_label', 'Execution');
-  const executionInfo = executionUuid ? `\n🆔 ${executionLabel}: \`${executionUuid}\`` : '';
+  const executionInfo = executionUuid && executionUuid !== sessionName ? `\n🆔 ${executionLabel}: \`${executionUuid}\`` : '';
   // Issue #3326: `/fix` replaces the header with its live progress status.
   return `${header || text(locale, 'telegram.work_session_executing', '⏳ Executing...')}\n\n📊 ${sessionLabel}: \`${sessionName}\`${executionInfo}${isolationInfo}${details}`;
 }
@@ -310,10 +312,19 @@ export function formatSessionCompletionMessage({ sessionName, sessionInfo, statu
   // session UUID, so the finished task can still be found in the session list.
   const executionLabel = text(messageLocale, 'telegram.execution_label', 'Execution');
   const executionUuid = sessionInfo?.executionUuid || statusResult?.uuid || null;
-  // Issue #2408: a recovery launched fresh writes a new log, so name the earlier ones too.
+  // Issue #2301: the work keeps the id it was started with. A recovery session
+  // (see session-kill-resume.lib.mjs) runs under its own id.
+  // Issue #3530: only the latest id is shown. `/log` on it returns the logs of
+  // every attempt (session-log-chain.lib.mjs), so the earlier ids are counted
+  // instead of listed, and the execution line only appears when start-command
+  // gave the execution an ID of its own (sessions started before `--session-id`).
+  const rootSessionName = sessionInfo?.rootSessionName || sessionName || 'unknown';
+  const recoverySessionName = resumedAs || (sessionName && sessionName !== rootSessionName ? sessionName : null);
+  const latestSessionName = recoverySessionName || rootSessionName;
   const previousExecutions = (Array.isArray(sessionInfo?.previousExecutionUuids) ? sessionInfo.previousExecutionUuids : []).filter(uuid => uuid && uuid !== executionUuid);
-  const earlierExecutions = previousExecutions.length > 0 ? ` (${text(messageLocale, 'telegram.execution_earlier', 'earlier logs')}: ${previousExecutions.map(uuid => `\`${uuid}\``).join(', ')})` : '';
-  const executionInfo = executionUuid ? `\n🆔 ${executionLabel}: \`${executionUuid}\`${earlierExecutions}` : '';
+  const executionInfo = executionUuid && executionUuid !== latestSessionName ? `\n🆔 ${executionLabel}: \`${executionUuid}\`` : '';
+  const attempts = previousExecutions.length + 1;
+  const logInfo = previousExecutions.length > 0 ? `\n📜 ${text(messageLocale, 'telegram.execution_attempts', `${attempts} attempts; reply /log for the log of all of them`, { count: attempts })}` : '';
   // Issue #2301: after a recovery session the duration covers the whole work.
   const startTime = parseDateValue(sessionInfo?.rootStartTime) || parseDateValue(statusResult?.startTime) || parseDateValue(sessionInfo?.startTime) || observedEndTime;
   const endTime = parseDateValue(statusResult?.endTime) || observedEndTime;
@@ -324,17 +335,10 @@ export function formatSessionCompletionMessage({ sessionName, sessionInfo, statu
   if (pullRequestUrl) resolvedInfoBlock = appendPullRequestLine(resolvedInfoBlock, pullRequestUrl, { locale: messageLocale });
   const details = resolvedInfoBlock ? `\n\n${resolvedInfoBlock}` : '';
 
-  // Issue #2301: the work keeps the id it was started with. A recovery session
-  // (see session-kill-resume.lib.mjs) runs under its own id, which is listed on
-  // its own line so the Telegram thread still names the session it began with.
-  const rootSessionName = sessionInfo?.rootSessionName || sessionName || 'unknown';
-  const recoverySessionName = resumedAs || (sessionName && sessionName !== rootSessionName ? sessionName : null);
-  const recoveryInfo = recoverySessionName && recoverySessionName !== rootSessionName ? `\n🔁 ${text(messageLocale, 'telegram.session_recovery_label', 'Recovery session')}: \`${recoverySessionName}\`` : '';
-
   const statusEmoji = statusEmojiOverride || (failed ? '❌' : '✅');
   let message = `${statusEmoji} *${statusText}*\n\n`;
   message += `⏱️ ${durationLabel}: ${formatSessionDurationSeconds(durationSeconds)}\n`;
-  message += `📊 ${sessionLabel}: \`${rootSessionName}\`${recoveryInfo}${executionInfo}${isolationInfo}${details}`;
+  message += `📊 ${sessionLabel}: \`${latestSessionName}\`${executionInfo}${logInfo}${isolationInfo}${details}`;
 
   // Issue #594: --show-limits virtual option appends snapshot/delta sections
   // (Markdown code blocks) below the standard completion details.

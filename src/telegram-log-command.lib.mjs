@@ -27,6 +27,7 @@ import { constants as fsConstants } from 'fs';
 import { sanitizeForPublication } from './token-sanitization.lib.mjs';
 import { sanitizeLogFileToFileBounded } from './log-sanitize-worker.lib.mjs';
 import { safeReply, safeReplyWithDocument, safeSendDocument } from './telegram-safe-reply.lib.mjs';
+import { readSessionLogChain, writeCombinedSessionLog } from './session-log-chain.lib.mjs';
 
 const UUID_RE = /\b([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\b/i;
 const ISOLATION_BACKENDS = new Set(['screen', 'tmux', 'docker']);
@@ -38,12 +39,15 @@ const TELEGRAM_DOCUMENT_MAX_BYTES = 50 * 1024 * 1024;
  * Build a private, sanitized upload artifact without modifying the raw audit
  * log. The returned cleanup function must be called after the network request.
  */
-async function prepareSanitizedLogUpload(logPath, caption) {
+async function prepareSanitizedLogUpload(logPath, caption, { parts = null, filename = path.basename(logPath) } = {}) {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'hive-mind-telegram-log-'));
   await fs.chmod(tempDir, 0o700);
-  const sanitizedPath = path.join(tempDir, path.basename(logPath));
+  const sanitizedPath = path.join(tempDir, filename);
 
   try {
+    // Issue #3530: a recovered task's attempts are joined first, in the same
+    // private temp dir, so the cleanup below removes both files.
+    if (parts) logPath = (await writeCombinedSessionLog({ parts, destPath: path.join(tempDir, `combined-${filename}`) })).path;
     // Issue #2189: `/log` accepts files up to Telegram's 50 MB document limit,
     // and this used to hold the log twice (raw string + sanitized string) plus a
     // third copy inside the sanitizer. The streaming sanitizer writes the same
@@ -164,6 +168,33 @@ async function fileSize(filePath) {
   }
 }
 
+async function sumFileSizes(parts) {
+  const sizes = await Promise.all(parts.map(part => (part.logPath ? fileSize(part.logPath) : 0)));
+  return sizes.reduce((total, size) => total + (size || 0), 0);
+}
+
+/**
+ * The log files of every attempt of a recovered task, oldest first (issue #3530),
+ * or null when the session has a single log.
+ *
+ * @returns {Promise<Array<{uuid: string, logPath: string|null}>|null>}
+ */
+export async function resolveChainLogParts({ chain, sessionId, statusResult, logPath, isolationBackend, querySessionStatus, verbose = false }) {
+  const executions = Array.isArray(chain?.executions) ? chain.executions : [];
+  if (executions.length < 2) return null;
+  const parts = await Promise.all(
+    executions.map(async uuid => {
+      const status = uuid === statusResult?.uuid || uuid === sessionId ? statusResult : await Promise.resolve(querySessionStatus(uuid, verbose)).catch(() => null);
+      const partPath = status?.exists ? resolveLogPath({ statusResult: status, isolationBackend }) : chain.logPaths?.[uuid] || null;
+      return { uuid, logPath: partPath && (await fileExists(partPath)) ? partPath : null };
+    })
+  );
+  // The requested log is always part of the file, even if the chain missed it.
+  if (logPath && !parts.some(part => part.logPath === logPath)) parts.push({ uuid: statusResult?.uuid || sessionId, logPath });
+  if (verbose) console.log(`[VERBOSE] /log: ${sessionId} joins ${parts.length} attempt logs: ${parts.map(part => `${part.uuid}=${part.logPath || 'missing'}`).join(', ')}`);
+  return parts.filter(part => part.logPath).length > 1 ? parts : null;
+}
+
 /**
  * Registers the /log command handler with the bot.
  *
@@ -189,6 +220,7 @@ export async function registerLogCommand(bot, options) {
   const getTrackedSessionInfo = options.getTrackedSessionInfo || (await import('./session-monitor.lib.mjs')).getTrackedSessionInfo;
   const detectRepositoryVisibility = options.detectRepositoryVisibility || (await import('./github.lib.mjs')).detectRepositoryVisibility;
   const parseGitHubUrl = options.parseGitHubUrl || (await import('./github.lib.mjs')).parseGitHubUrl;
+  const resolveLogChain = options.resolveLogChain || (id => readSessionLogChain(id, { verbose: VERBOSE }));
 
   // Issue #3206: sanitizing and uploading a large log takes seconds; telegram-bot.mjs runs it outside the update loop.
   bot.command(
@@ -278,11 +310,13 @@ export async function registerLogCommand(bot, options) {
 
       // 2. Look up tracked metadata (for repo URL and original chat).
       const sessionInfo = getTrackedSessionInfo ? getTrackedSessionInfo(sessionId) : null;
+      // Issue #3530: the recovery chain this id belongs to (null when it was never recovered).
+      const chain = await Promise.resolve(resolveLogChain(sessionId)).catch(error => (VERBOSE && console.log(`[VERBOSE] /log: recovery chain lookup failed: ${error?.message || error}`), null));
 
       // 3. Decide repo visibility — prefer the URL we tracked at launch time.
       let repoVisibility = null;
       let repoUrlDescription = null;
-      const trackedUrl = sessionInfo?.url || null;
+      const trackedUrl = sessionInfo?.url || chain?.url || null;
       if (trackedUrl) {
         const parsed = parseGitHubUrl ? parseGitHubUrl(trackedUrl) : null;
         if (parsed && parsed.valid && parsed.owner && parsed.repo) {
@@ -319,6 +353,14 @@ export async function registerLogCommand(bot, options) {
         });
         return;
       }
+      let parts = await resolveChainLogParts({ chain, sessionId, statusResult, logPath, isolationBackend: decision.isolationBackend, querySessionStatus, verbose: VERBOSE });
+      let combinedTooLarge = false;
+      if (parts && (await sumFileSizes(parts)) > TELEGRAM_DOCUMENT_MAX_BYTES) {
+        // All attempts together do not fit in one upload; send this session's own log.
+        VERBOSE && console.log(`[VERBOSE] /log: all ${parts.length} attempt logs exceed the upload limit; sending ${logPath} only`);
+        parts = null;
+        combinedTooLarge = true;
+      }
       const size = await fileSize(logPath);
       if (size !== null && size > TELEGRAM_DOCUMENT_MAX_BYTES) {
         await safeReply(ctx, `❌ Log file is ${(size / (1024 * 1024)).toFixed(1)} MB which exceeds Telegram's 50 MB document upload limit.\n\nFile path on host: \`${logPath}\``, {
@@ -328,8 +370,10 @@ export async function registerLogCommand(bot, options) {
         return;
       }
 
-      const filename = path.basename(logPath);
+      const filename = parts ? `${chain.latest || sessionId}-all-attempts.log` : path.basename(logPath);
       const captionLines = [`📁 Log for session \`${sessionId}\``];
+      if (parts) captionLines.push(`📜 All ${parts.length} attempts, oldest first`);
+      if (combinedTooLarge) captionLines.push('📜 This attempt only: all attempts together exceed the 50 MB upload limit');
       if (decision.isolationBackend) captionLines.push(`🔒 Isolation: \`${decision.isolationBackend}\``);
       if (statusResult.status) captionLines.push(`Status: \`${statusResult.status}\``);
       if (repoUrlDescription) captionLines.push(`Repo: \`${repoUrlDescription}\``);
@@ -340,7 +384,7 @@ export async function registerLogCommand(bot, options) {
         // Public repository → reply with the document directly in the chat.
         let upload;
         try {
-          upload = await prepareSanitizedLogUpload(logPath, caption);
+          upload = await prepareSanitizedLogUpload(logPath, caption, { parts, filename });
           await safeReplyWithDocument(ctx, { source: upload.path, filename }, { reply_to_message_id: message.message_id, caption: upload.caption, parse_mode: 'Markdown', verbose: VERBOSE });
         } catch (error) {
           console.error('[ERROR] /log: replyWithDocument failed:', error);
@@ -387,7 +431,7 @@ export async function registerLogCommand(bot, options) {
 
       let upload;
       try {
-        upload = await prepareSanitizedLogUpload(logPath, caption);
+        upload = await prepareSanitizedLogUpload(logPath, caption, { parts, filename });
         const replyOpts = forwardedMessageId ? { reply_to_message_id: forwardedMessageId, caption, parse_mode: 'Markdown' } : { caption, parse_mode: 'Markdown' };
         replyOpts.caption = upload.caption;
         replyOpts.verbose = VERBOSE;

@@ -77,6 +77,7 @@ const DOCKER_ISOLATION_LOW_DISK_GIB = 40;
 // Docker-only start gate used to capture the container writable-layer baseline before the task command begins cloning or generating files. Unlimited tasks retain a timeout fallback so a parent exit cannot strand them. Resource-limited tasks fail closed and require an explicit release: a timeout could otherwise start user code after limit enforcement and container cleanup both failed.
 const DOCKER_START_GATE_WAIT_TENTHS = 300;
 import { shellQuote, buildShellCommand } from './shell-command.lib.mjs';
+import { TASK_SESSION_ID_ENV } from './task-session-id.lib.mjs';
 function normalizeTool(tool) {
   return String(tool || 'claude')
     .trim()
@@ -299,6 +300,7 @@ export async function buildDockerIsolationStartArgs(command, args = [], options 
   // Force the inner shell so start-command does not probe the image to detect one (see DOCKER_ISOLATION_SHELL).
   startArgs.push('--shell', DOCKER_ISOLATION_SHELL);
   // The image already sets HOME=/home/box and WORKDIR /home/box; pass HOME explicitly anyway so the credential mounts under /home/box resolve even if a future image forgets to. start-command has no --workdir flag, so the working directory comes from the image's WORKDIR.
+  if (ownsTaskSessionId(command, sessionId)) startArgs.push('-e', `${TASK_SESSION_ID_ENV}=${sessionId}`);
   startArgs.push('-e', `HOME=${DOCKER_CONTAINER_HOME}`, '-e', `HIVE_MIND_PARENT_SESSION_ID=${sessionId || ''}`, '-e', `HIVE_MIND_IMAGE_VARIANT=${resolveImageVariant(image, env)}`);
   // Issue #2247 (H1): the three 2026-09-13 tasks ran a week-old `solve` and no
   // comment said so. The image the container was created from - and the digest
@@ -340,15 +342,37 @@ export async function buildDockerIsolationStartArgs(command, args = [], options 
   }
   const taskCommand = buildShellCommand(command, args);
   const failClosedStartGate = hasContainerResourceLimits(options.containerResourceLimits);
-  startArgs.push('--detached', '--session', sessionId, '--', buildDockerStartGatedCommand(taskCommand, sessionId, { failClosed: failClosedStartGate }));
+  startArgs.push('--detached', ...buildSessionIdentityArgs(sessionId), '--', buildDockerStartGatedCommand(taskCommand, sessionId, { failClosed: failClosedStartGate }));
   return startArgs;
+}
+/**
+ * Whether the launched command is one task whose AI session can take the task's
+ * id (issue #3530). `hive` runs many `solve` children, which must not share it.
+ */
+export function ownsTaskSessionId(command, sessionId) {
+  return Boolean(sessionId) && path.basename(String(command || '')) === 'solve';
+}
+
+/**
+ * One ID for every layer: `--session` names the screen/tmux session or docker
+ * container, and `--session-id` makes start-command use the same UUID for the
+ * execution record instead of generating a second one (issue #3530). With
+ * both set, `$ --status`, `$ --resume` and the container all answer to the
+ * task's UUID.
+ * @param {string} sessionId - The task's session UUID.
+ * @returns {string[]} The start-command identity flags.
+ */
+export function buildSessionIdentityArgs(sessionId) {
+  return ['--session', sessionId, '--session-id', sessionId];
 }
 export async function buildStartCommandArgs(command, args = [], options = {}) {
   const { backend, sessionId } = options;
   if (backend === 'docker') {
     return await buildDockerIsolationStartArgs(command, args, { ...options, sessionId });
   }
-  return ['--isolated', backend, '--detached', '--session', sessionId, '--', buildShellCommand(command, args)];
+  // start-command does not export the session id to the command, so it is set here (issue #3530).
+  const envPrefix = ownsTaskSessionId(command, sessionId) ? `${TASK_SESSION_ID_ENV}=${shellQuote(sessionId)} ` : '';
+  return ['--isolated', backend, '--detached', ...buildSessionIdentityArgs(sessionId), '--', `${envPrefix}${buildShellCommand(command, args)}`];
 }
 async function runStartCommand(binPath, startCommandArgs) {
   return await new Promise(resolve => {

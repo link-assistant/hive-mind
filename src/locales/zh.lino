@@ -725,7 +725,7 @@ zh
       label "隔离"
     execution
       label "执行"
-      earlier "更早的日志"
+      attempts "共 {{count}} 次尝试；回复 /log 获取所有尝试的日志"
     error
       executing
         command "❌ 执行 {{commandName}} 命令时出错"

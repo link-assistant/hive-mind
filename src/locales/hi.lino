@@ -725,7 +725,7 @@ hi
       label "Isolation"
     execution
       label "निष्पादन"
-      earlier "पहले के लॉग"
+      attempts "{{count}} प्रयास; सभी प्रयासों का लॉग पाने के लिए /log से उत्तर दें"
     error
       executing
         command "❌ {{commandName}} command चलाने में त्रुटि"

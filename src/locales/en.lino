@@ -725,7 +725,7 @@ en
       label "Isolation"
     execution
       label "Execution"
-      earlier "earlier logs"
+      attempts "{{count}} attempts; reply /log for the log of all of them"
     error
       executing
         command "❌ Error executing {{commandName}} command"

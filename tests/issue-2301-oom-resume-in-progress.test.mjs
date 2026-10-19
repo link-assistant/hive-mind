@@ -94,8 +94,9 @@ test('the monitor keeps an OOM-recovered session in progress on its pull request
     assert.doesNotMatch(first, /Work session failed/);
     // Issue #2408: a recovery in progress is a warning, and says how many recoveries it took.
     assert.match(first, /^⚠️ \*Work session still in progress: recovering from exit code 1 \(automatic recoveries: 1\)\*/);
-    assert.match(first, new RegExp(`📊 Session: \`${sessionName}\``));
-    assert.match(first, new RegExp(`🔁 Recovery session: \`${recoverySessionId}\``));
+    // Issue #3530: only the latest id is shown.
+    assert.match(first, new RegExp(`📊 Session: \`${recoverySessionId}\``));
+    assert.doesNotMatch(first, new RegExp(`📊 Session: \`${sessionName}\`|🔁 Recovery session`));
 
     const initialEditCount = edits.length;
     // The recovery session finishes: the same message now reports the real outcome, under the same id.
@@ -109,8 +110,8 @@ test('the monitor keeps an OOM-recovered session in progress on its pull request
     assert.equal(finalEdit.messageId, 77, 'the original reply is edited');
     assert.match(finalEdit.message, /^⚠️ \*Work session finished successfully after automatic recovery \(automatic recoveries: 1\)\*/);
     assert.match(finalEdit.message, /⏱️ Duration: 2m \d+s/, 'the duration covers the whole work, not only the recovery session');
-    assert.match(finalEdit.message, new RegExp(`📊 Session: \`${sessionName}\``));
-    assert.match(finalEdit.message, new RegExp(`🔁 Recovery session: \`${recoverySessionId}\``));
+    assert.match(finalEdit.message, new RegExp(`📊 Session: \`${recoverySessionId}\``));
+    assert.doesNotMatch(finalEdit.message, /🔁 Recovery session|Previous session/);
   } finally {
     resetSessionMonitorForTests();
     await fs.rm(logPath, { force: true });

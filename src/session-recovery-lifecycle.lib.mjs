@@ -32,8 +32,10 @@ export function formatRecoveryLifecycle({ phase, attempt = null, maxAttempts = n
   const lines = [`${titles[phase] || titles.running}${attempt ? ` (attempt ${attempt}${maxAttempts ? `/${maxAttempts}` : ''})` : ''}`, `Updated: ${escapeMarkdown(at)}`];
   if (startedAt) lines.push(`Attempt started: ${escapeMarkdown(startedAt)}`);
   if (sessionName) lines.push(`Recovery session: ${escapeMarkdown(sessionName)}`);
-  if (previousSession) lines.push(`Previous session: ${escapeMarkdown(previousSession)}`);
-  if (executionUuid) lines.push(`Execution / log: ${escapeMarkdown(executionUuid)}`);
+  // Issue #3530: only the latest id. `/log` on it returns every attempt's log,
+  // and a session started with `--session-id` has no separate execution id.
+  if (previousSession && !sessionName) lines.push(`Previous session: ${escapeMarkdown(previousSession)}`);
+  if (executionUuid && executionUuid !== sessionName) lines.push(`Execution / log: ${escapeMarkdown(executionUuid)}`);
   if (delayMs !== null) lines.push(`Waiting ${Math.round(delayMs / 1000)} seconds before launch.`);
   // Issue #3530: the recovery waits behind the task queue's resource gate.
   if (phase === 'waiting-resources') {

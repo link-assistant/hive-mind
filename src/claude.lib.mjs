@@ -168,6 +168,7 @@ export { calculateSessionTokens };
 // Extracted to claude.stderr.lib.mjs (Issue #477, #1337)
 import { isStderrError } from './claude.stderr.lib.mjs';
 import { checkForUncommittedChanges } from './claude.uncommitted-changes.lib.mjs';
+import { claimClaudeTaskSessionIdArgs } from './task-session-id.lib.mjs'; // Issue #3530: AI session id = task id
 export { checkForUncommittedChanges };
 export { isStderrError };
 export const executeClaudeCommand = async params => {
@@ -334,6 +335,8 @@ export const executeClaudeCommand = async params => {
       await log(`🔄 Resuming from session: ${argv.resume}`);
       claudeArgs = `--resume ${argv.resume} ${claudeArgs}`;
     }
+    const taskSessionIdArgs = argv.resume ? [] : await claimClaudeTaskSessionIdArgs({ log, verbose: argv.verbose });
+    if (taskSessionIdArgs.length) claudeArgs += ` ${taskSessionIdArgs.join(' ')}`;
     const claudeWorkLanguage = await import('./i18n.lib.mjs').then(i18n => i18n.getWorkLocale?.() ?? null).catch(() => null);
     await ensureClaudeQuietConfig({ log, workLanguage: claudeWorkLanguage });
     const { mcpConfigPath, disallowedToolsList } = await resolveClaudeSessionToolFlags({ argv, log, fallbackBuildMcpConfigWithoutPlaywright: buildMcpConfigWithoutPlaywright });
@@ -389,9 +392,9 @@ export const executeClaudeCommand = async params => {
         // stdin. Initial prompt + later PR comments are written as NDJSON
         // frames by attachStreamingInput (see bidirectional-interactive.lib.mjs).
         const streamingInputArgs = ['-p', '--input-format', 'stream-json'];
-        execCommand = $({ cwd: tempDir, stdin: 'pipe', mirror: false, env: claudeEnv })`${toolInvocation.command} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${fallbackModelArgs} ${mcpDisableArgs} ${disallowedToolsArgs} ${streamingInputArgs} --append-system-prompt ${systemPrompt}`;
+        execCommand = $({ cwd: tempDir, stdin: 'pipe', mirror: false, env: claudeEnv })`${toolInvocation.command} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${taskSessionIdArgs} ${fallbackModelArgs} ${mcpDisableArgs} ${disallowedToolsArgs} ${streamingInputArgs} --append-system-prompt ${systemPrompt}`;
       } else {
-        execCommand = $({ cwd: tempDir, stdin: promptForAttempt, mirror: false, env: claudeEnv })`${toolInvocation.command} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${fallbackModelArgs} ${mcpDisableArgs} ${disallowedToolsArgs} --append-system-prompt ${systemPrompt}`;
+        execCommand = $({ cwd: tempDir, stdin: promptForAttempt, mirror: false, env: claudeEnv })`${toolInvocation.command} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${taskSessionIdArgs} ${fallbackModelArgs} ${mcpDisableArgs} ${disallowedToolsArgs} --append-system-prompt ${systemPrompt}`;
       }
       if (streamingInput) {
         await attachStreamingInput(bidirectionalHandler, execCommand, promptForAttempt, log, !!argv.verbose);

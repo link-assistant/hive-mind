@@ -345,11 +345,11 @@ export async function settleKillRecoveryNotice({ commentUrl, outcome = {}, runCo
   }
   const body = settleRecoveryPendingBlock(String(read.stdout || '').replace(/\n$/, ''), outcome);
   if (body === null) {
-    if (verbose) console.log(`[VERBOSE] Kill notice ${commentUrl} has no pending recovery note; nothing to edit (issue #3530)`);
+    if (verbose) console.log(`[VERBOSE] Kill notice ${commentUrl} has no pending recovery note; nothing to edit`);
     return { edited: false, error: null };
   }
   const posted = await postKillRecoveryNotice({ pullRequestUrl: `https://github.com/${match[1]}/${match[2]}/${match[3]}/${match[4]}`, commentUrl, body, runCommand, fileSuffix: `settle-${match[5]}`, verbose, ...rest });
-  if (verbose) console.log(`[VERBOSE] Kill notice ${commentUrl} ${posted.posted ? 'updated' : `not updated: ${posted.error}`} (recovery ${outcome.resumed ? 'started' : 'did not start'}, issue #3530)`);
+  if (verbose) console.log(`[VERBOSE] Kill notice ${commentUrl} ${posted.posted ? 'updated' : `not updated: ${posted.error}`} (recovery ${outcome.resumed ? 'started' : 'did not start'})`);
   return { edited: posted.posted, error: posted.error };
 }
 

@@ -36,12 +36,12 @@ const firstNonEmptyLine = value =>
     .find(Boolean) || '';
 
 const resolveSolveCommand = argv => {
-  const issueUrl = argv.url || argv['issue-url'] || argv._?.[0] || '<issue-url>';
+  const issueUrl = argv['issue-url'] || argv._?.[0] || '<issue-url>';
   return `solve ${issueUrl}`;
 };
 
 const extractGitHubUrlNumber = argv => {
-  const url = String(argv.url || argv['issue-url'] || argv._?.[0] || '');
+  const url = String(argv['issue-url'] || argv._?.[0] || '');
   const match = url.match(/github\.com\/[^/]+\/[^/]+\/(issues|pull)\/(\d+)/i);
   return match ? { type: match[1] === 'pull' ? 'pulls' : 'issues', number: match[2] } : null;
 };

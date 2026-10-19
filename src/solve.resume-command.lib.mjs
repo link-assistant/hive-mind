@@ -33,3 +33,29 @@ export const buildSolveResumeCommand = ({ issueUrl, sessionId, tool = null, mode
   for (const arg of Array.isArray(extraArgs) ? extraArgs : []) args.push(/^[A-Za-z0-9_@%+=:,./-]+$/.test(arg) ? arg : shellQuote(arg));
   return `${shellQuote(nodePath)} ${args.join(' ')}`;
 };
+
+/**
+ * Issue #2843: yargs stores solve's positional as `issue-url` (and `_[0]`); `argv.url`
+ * is never set, so reading it left non-Claude failures without a resume command.
+ *
+ * @param {Object} argv - Parsed solve arguments
+ * @returns {string|null}
+ */
+export const resolveSolveIssueUrl = argv => argv?.['issue-url'] || argv?.issueUrl || argv?._?.[0] || null;
+
+/**
+ * Solve resume command for the current run, or null without a URL or session.
+ *
+ * @param {Object} options
+ * @param {Object} options.argv - Parsed solve arguments
+ * @param {string|null} [options.issueUrl] - The run's resolved issue URL (defaults to the one in argv)
+ * @param {string|null} options.sessionId - The session ID to resume
+ * @param {string|null} [options.tool] - Tool name (defaults to argv.tool, then claude)
+ * @param {string|null} [options.tempDir] - Working directory to preserve
+ * @returns {string|null}
+ */
+export const buildSolveResumeCommandFromArgv = ({ argv, issueUrl = null, sessionId, tool = null, tempDir = null }) => {
+  const url = issueUrl || resolveSolveIssueUrl(argv);
+  if (!url || !sessionId) return null;
+  return buildSolveResumeCommand({ issueUrl: url, sessionId, tool: tool || argv?.tool || 'claude', model: argv?.model, fallbackModel: argv?.fallbackModel, tempDir, extraArgs: argv?._solveResumeExtraArgs });
+};

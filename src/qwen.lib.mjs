@@ -36,6 +36,7 @@ import { stringifyErrorValue } from './error-text.lib.mjs'; // Issue #2141
 import { ensureGeminiFamilyMemoryDisabled, isAgentMemoryDisabled } from './agent-memory-policy.lib.mjs'; // Issue #2178
 import { ensureGeminiFamilyAuxiliaryDisabled, isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236
 import { applyGeminiFamilyPricingTier } from './pricing-tier.lib.mjs'; // Issue #2771
+import { buildSolveResumeCommandFromArgv } from './solve.resume-command.lib.mjs'; // Issue #2843
 
 export const mapModelToId = model => qwenModels[model] || model;
 
@@ -625,7 +626,7 @@ export const executeQwenCommand = async params => {
           tool: 'Qwen Code',
           resetTime: limitInfo.resetTime,
           sessionId,
-          resumeCommand: sessionId ? `${process.argv[0]} ${process.argv[1]} ${argv.url} --tool qwen --resume ${sessionId}` : null,
+          resumeCommand: buildSolveResumeCommandFromArgv({ argv, sessionId, tool: 'qwen' }), // Issue #2843
         });
         for (const line of messageLines) {
           await log(line, { level: 'warning' });

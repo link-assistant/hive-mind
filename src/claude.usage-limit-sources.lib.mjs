@@ -6,7 +6,7 @@
  * resets 11am (UTC)") reached only the session transcript JSONL
  * (`isApiErrorMessage: true`). stdout had no `result` event and no synthetic
  * assistant error message, so `lastMessage` was a base64 debug line and the run
- * got neither a reset time nor auto-resume. Four independent sources carry the
+ * got neither a reset time nor auto-resume. Five independent sources carry the
  * same fact; each one is checked on failure:
  *
  *   1. `lastMessage` / the `result` event (the only source used before);
@@ -194,7 +194,7 @@ export const readClaudeTranscriptApiError = async ({ tempDir, sessionId, homeDir
   return { found: false, reason: 'transcript not found' };
 };
 
-const textVerdict = (source, text) => {
+export const usageLimitTextVerdict = (source, text) => {
   if (!text) return { source, isUsageLimit: false, reason: 'no text' };
   const info = detectUsageLimit(text);
   return { source, isUsageLimit: info.isUsageLimit, resetTime: info.resetTime, timezone: info.timezone, message: text, reason: info.isUsageLimit ? 'usage-limit text' : 'not a usage-limit text' };
@@ -207,13 +207,13 @@ const textVerdict = (source, text) => {
  *
  * @returns {{isUsageLimit: boolean, resetTime: string|null, timezone: string|null, message: string|null, sources: string[], verdicts: object[]}}
  */
-export const combineClaudeUsageLimitVerdicts = verdicts => {
+export const combineClaudeUsageLimitVerdicts = (verdicts, toolLabel = 'Claude') => {
   const positive = verdicts.filter(v => v.isUsageLimit);
   if (positive.length === 0) return { isUsageLimit: false, resetTime: null, timezone: null, message: null, sources: [], verdicts };
   const textual = positive.find(v => v.message);
   const structured = positive.find(v => v.resetsAt);
   const timed = structured || positive.find(v => v.resetTime);
-  const message = textual?.message || `Claude ${structured?.windowLabel || 'usage'} limit reached${structured?.resetTime ? ` · resets ${structured.resetTime} (UTC)` : ''}`;
+  const message = textual?.message || `${toolLabel} ${structured?.windowLabel || 'usage'} limit reached${structured?.resetTime ? ` · resets ${structured.resetTime} (UTC)` : ''}`;
   return { isUsageLimit: true, resetTime: timed?.resetTime ?? null, timezone: timed?.timezone ?? null, message, sources: positive.map(v => v.source), verdicts };
 };
 
@@ -224,7 +224,7 @@ export const combineClaudeUsageLimitVerdicts = verdicts => {
 export const resolveClaudeUsageLimit = async ({ lastMessage, evidence, tempDir, sessionId, homeDir, env, fsImpl, log = async () => {} } = {}) => {
   const facts = evidence?.snapshot ? evidence.snapshot() : evidence || {};
   const transcript = await readClaudeTranscriptApiError({ tempDir, sessionId, homeDir, env, fsImpl }).catch(error => ({ found: false, reason: error.message }));
-  const verdicts = [textVerdict('last message', lastMessage), textVerdict('stream API error message', facts.apiErrorText), transcript.found ? textVerdict('session transcript', transcript.text) : { source: 'session transcript', isUsageLimit: false, reason: transcript.reason }, { source: 'rate_limit_event', ...classifyClaudeRateLimitEvent(facts.rateLimitInfo) }, { source: 'debug 429 headers', ...classifyAnthropicDebugRateLimit(facts.debugRateLimit) }];
+  const verdicts = [usageLimitTextVerdict('last message', lastMessage), usageLimitTextVerdict('stream API error message', facts.apiErrorText), transcript.found ? usageLimitTextVerdict('session transcript', transcript.text) : { source: 'session transcript', isUsageLimit: false, reason: transcript.reason }, { source: 'rate_limit_event', ...classifyClaudeRateLimitEvent(facts.rateLimitInfo) }, { source: 'debug 429 headers', ...classifyAnthropicDebugRateLimit(facts.debugRateLimit) }];
   const combined = combineClaudeUsageLimitVerdicts(verdicts);
   await log('🔍 Usage-limit cross-check (issue #3570):', { verbose: true });
   for (const v of verdicts) {
@@ -236,4 +236,4 @@ export const resolveClaudeUsageLimit = async ({ lastMessage, evidence, tempDir, 
   return { ...combined, transcript };
 };
 
-export default { classifyAnthropicDebugRateLimit, classifyClaudeRateLimitEvent, combineClaudeUsageLimitVerdicts, createClaudeUsageLimitEvidence, formatEpochResetTimeUtc, readClaudeTranscriptApiError, resolveClaudeUsageLimit };
+export default { classifyAnthropicDebugRateLimit, classifyClaudeRateLimitEvent, combineClaudeUsageLimitVerdicts, createClaudeUsageLimitEvidence, formatEpochResetTimeUtc, readClaudeTranscriptApiError, resolveClaudeUsageLimit, usageLimitTextVerdict };

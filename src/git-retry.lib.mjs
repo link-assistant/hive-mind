@@ -56,7 +56,9 @@ export const wrapDollarWithGitRetry = (dollar, options = {}) => {
   const wrapped = (strings, ...values) => {
     // Options-call form: `$({ cwd })` returns a new tag bound to those options.
     if (strings && !Array.isArray(strings) && typeof strings === 'object') {
-      return wrapDollarWithGitRetry(dollar(strings), options);
+      // A stub `$` (tests) may return something else; it is passed through as before.
+      const bound = dollar(strings);
+      return typeof bound === 'function' ? wrapDollarWithGitRetry(bound, options) : bound;
     }
     let preview = '';
     for (let i = 0; i < strings.length; i++) {

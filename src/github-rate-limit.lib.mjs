@@ -440,7 +440,9 @@ export const wrapDollarWithGhRetry = (dollar, options = {}) => {
     // those options. Template literals always arrive as an array of quasis, so
     // a plain object here is unambiguous.
     if (strings && !Array.isArray(strings) && typeof strings === 'object') {
-      return wrapDollarWithGhRetry(dollar(strings), options);
+      // A stub `$` (tests) may return something else; it is passed through as before.
+      const bound = dollar(strings);
+      return typeof bound === 'function' ? wrapDollarWithGhRetry(bound, options) : bound;
     }
     // Reconstruct the literal command for inspection (sufficient — leading
     // `gh ` is what we care about).

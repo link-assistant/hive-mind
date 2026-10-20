@@ -192,6 +192,18 @@ test('wrapDollarWithGitRetry is the same universal wrapper: gh is retried too, a
   assert.equal(wrapDollarWithGitRetry(local)`git status`, 'process runner', 'local commands keep the synchronous ProcessRunner');
 });
 
+test('an options call on a stub $ that returns no tag is passed through, so modules wrapping $ at load time still import', () => {
+  // tests/test-ready-to-merge-pagination-1645.mjs stubs command-stream with a plain async function;
+  // log-upload.lib.mjs runs `$({ mirror: false, capture: true })` at module load.
+  const stub = async () => ({ code: 1, stdout: '', stderr: '' });
+  for (const wrap of [wrapDollarWithGhRetry, wrapDollarWithGitRetry]) {
+    const bound = wrap(stub)({ mirror: false });
+    assert.ok(bound instanceof Promise, `${wrap.name} hands back what the stub returned`);
+  }
+  const tag = () => ({ code: 0, stdout: '', stderr: '' });
+  assert.ok(wrapDollarWithGhRetry(() => tag)({ mirror: false }).raw === tag, 'a real bound tag is still wrapped');
+});
+
 test('retryGitHubOperationSync applies the same policy synchronously', () => {
   let calls = 0;
   const sleeps = [];

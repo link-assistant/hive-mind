@@ -30,7 +30,40 @@
 import { execSync } from 'node:child_process';
 
 import { describeTransientError, formatTransientDiagnostics } from './transient-errors.lib.mjs';
-import { matchGitNetworkCommand } from './git-retry.lib.mjs';
+
+/**
+ * Git subcommands that talk to the remote and are safe to re-run verbatim
+ * (issue #2168). `git clone` is excluded on purpose: a partially written
+ * destination makes a retry fail with a misleading "already exists" error
+ * (see src/git-retry.lib.mjs).
+ */
+const GIT_NETWORK_SUBCOMMANDS = Object.freeze(['push', 'fetch', 'pull', 'ls-remote']);
+
+/**
+ * Decide whether `command` is a git command that reaches the network.
+ *
+ * Handles the `git -C <dir> push ...` and `git --no-pager fetch ...` forms by
+ * skipping leading option tokens (and their argument, for the options that take
+ * one) before looking at the subcommand.
+ *
+ * @param {string} command - the reconstructed shell command line.
+ * @returns {string|null} the matched subcommand, or null when not a git network command.
+ */
+export const matchGitNetworkCommand = command => {
+  const text = String(command ?? '').trim();
+  if (!/^git(?:\s|$)/.test(text)) return null;
+  const tokens = text.split(/\s+/).slice(1);
+  const optionsWithValue = new Set(['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--exec-path']);
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i];
+    if (!token.startsWith('-')) {
+      // `git clone` is excluded on purpose - see above.
+      return GIT_NETWORK_SUBCOMMANDS.includes(token) ? token : null;
+    }
+    if (optionsWithValue.has(token)) i++;
+  }
+  return null;
+};
 
 /**
  * Marks an executor that already retries GitHub operations, so wrapping it a

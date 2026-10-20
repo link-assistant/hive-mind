@@ -19,6 +19,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { classifyGitHubCommand, execSyncWithRetry, isFailedCommandResult, retryGitHubOperation, retryGitHubOperationSync, wrapRunnerWithTransientRetry } from '../src/github-operation-retry.lib.mjs';
 import { ghWithRateLimitRetry, wrapDollarWithGhRetry, wrapRunnerWithGitHubRetry } from '../src/github-rate-limit.lib.mjs';
+import { wrapDollarWithGitRetry } from '../src/git-retry.lib.mjs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const noSleep = async () => {};
@@ -169,6 +170,26 @@ test('wrapping an already wrapped executor returns it unchanged (no nested, mult
   const wrappedDollar = wrapDollarWithGhRetry(dollar);
   assert.equal(wrapDollarWithGhRetry(wrappedDollar), wrappedDollar);
   assert.equal(wrappedDollar.raw, dollar);
+});
+
+test('wrapDollarWithGitRetry is the same universal wrapper: gh is retried too, and re-wrapping never nests', async () => {
+  // The tool modules (codex, agent, gemini, opencode, qwen) install this one;
+  // the lint rules accept it as a retry wrapper, so it must retry `gh` as well.
+  let calls = 0;
+  const dollar = () => (calls++, Promise.resolve(failed(BAD_GATEWAY)));
+  const $ = wrapDollarWithGitRetry(dollar, { transientMaxAttempts: 3, transientDelay: 1, log: quiet });
+  const result = await $`gh api repos/o/r`;
+  assert.deepEqual([calls, result.code], [3, 1]);
+
+  assert.equal(wrapDollarWithGhRetry($), $);
+  assert.equal(wrapDollarWithGitRetry($), $);
+  assert.equal(wrapDollarWithGitRetry(wrapDollarWithGhRetry(dollar)).raw, dollar);
+  calls = 0;
+  await wrapDollarWithGhRetry($, { transientMaxAttempts: 9 })`gh api repos/o/r`;
+  assert.equal(calls, 3, 'the inner budget applies once');
+
+  const local = () => 'process runner';
+  assert.equal(wrapDollarWithGitRetry(local)`git status`, 'process runner', 'local commands keep the synchronous ProcessRunner');
 });
 
 test('retryGitHubOperationSync applies the same policy synchronously', () => {

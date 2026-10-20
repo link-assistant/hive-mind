@@ -26,49 +26,33 @@
  * `gh repo clone`, which is already covered by the gh retry wrapper.
  */
 
-// Subcommands that talk to the remote and are safe to re-run verbatim.
-const GIT_NETWORK_SUBCOMMANDS = Object.freeze(['push', 'fetch', 'pull', 'ls-remote']);
+import { GITHUB_RETRY_WRAPPED, classifyGitHubCommand, isGitHubRetryWrapped, matchGitNetworkCommand } from './github-operation-retry.lib.mjs';
+
+// The matcher lives in the dependency-free retry module; re-exported for existing importers.
+export { matchGitNetworkCommand };
 
 /**
- * Decide whether `command` is a git command that reaches the network.
+ * Wrap command-stream's `$` so that GitHub operations - network git commands
+ * *and* `gh` API calls - are retried on transient failures. Local commands are
+ * passed straight through (the synchronous ProcessRunner is returned
+ * untouched), so the wrapper is safe to install globally.
  *
- * Handles the `git -C <dir> push ...` and `git --no-pager fetch ...` forms by
- * skipping leading option tokens (and their argument, for the options that take
- * one) before looking at the subcommand.
- *
- * @param {string} command - the reconstructed shell command line.
- * @returns {string|null} the matched subcommand, or null when not a git network command.
- */
-export const matchGitNetworkCommand = command => {
-  const text = String(command ?? '').trim();
-  if (!/^git(?:\s|$)/.test(text)) return null;
-  const tokens = text.split(/\s+/).slice(1);
-  const optionsWithValue = new Set(['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--exec-path']);
-  for (let i = 0; i < tokens.length; i++) {
-    const token = tokens[i];
-    if (!token.startsWith('-')) {
-      // `git clone` is excluded on purpose - see the module header.
-      return GIT_NETWORK_SUBCOMMANDS.includes(token) ? token : null;
-    }
-    if (optionsWithValue.has(token)) i++;
-  }
-  return null;
-};
-
-/**
- * Wrap command-stream's `$` so that git network commands are retried on
- * transient failures. Non-git commands (and local git plumbing) are passed
- * straight through, so the wrapper is safe to install globally.
+ * Issue #3552: this used to be a second, git-only loop. The lint rules accept
+ * it as a retry wrapper, so a `$\`gh ...\`` through it passed lint yet ran
+ * once. It is now the same wrapper as `wrapDollarWithGhRetry` (loaded lazily,
+ * keeping this module free of github-rate-limit's config.lib dependency), and
+ * shares its idempotency marker so re-wrapping never nests two loops.
  *
  * @template T
  * @param {(strings: TemplateStringsArray, ...values: unknown[]) => Promise<T>} dollar
- * @param {object} [options] - forwarded to gitCmdRetry per call.
+ * @param {object} [options] - forwarded to the retry loop per call.
  * @returns {(strings: TemplateStringsArray, ...values: unknown[]) => Promise<T>}
  */
 export const wrapDollarWithGitRetry = (dollar, options = {}) => {
   if (typeof dollar !== 'function') {
     throw new TypeError(`Expected command-stream's $ export to be a function, received ${typeof dollar}.`);
   }
+  if (isGitHubRetryWrapped(dollar)) return dollar;
   const wrapped = (strings, ...values) => {
     // Options-call form: `$({ cwd })` returns a new tag bound to those options.
     if (strings && !Array.isArray(strings) && typeof strings === 'object') {
@@ -79,18 +63,14 @@ export const wrapDollarWithGitRetry = (dollar, options = {}) => {
       preview += strings[i];
       if (i < values.length) preview += String(values[i] ?? '');
     }
-    const subcommand = matchGitNetworkCommand(preview);
-    if (!subcommand) return dollar(strings, ...values);
-    // Lazy import keeps this module free of a static cycle with lib.mjs.
+    if (!classifyGitHubCommand(preview)) return dollar(strings, ...values);
     return (async () => {
-      const { gitCmdRetry } = await import('./lib.mjs');
-      return gitCmdRetry(() => dollar(strings, ...values), {
-        label: `git ${subcommand}`,
-        ...options,
-      });
+      const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
+      return wrapDollarWithGhRetry(dollar, options)(strings, ...values);
     })();
   };
   wrapped.raw = typeof dollar.raw === 'function' ? dollar.raw : dollar;
+  wrapped[GITHUB_RETRY_WRAPPED] = true;
   return wrapped;
 };
 

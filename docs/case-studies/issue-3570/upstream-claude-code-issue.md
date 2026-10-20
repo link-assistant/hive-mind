@@ -1,6 +1,6 @@
 # Upstream report: Claude Code print mode exits 1 on a weekly limit without reporting it on stdout
 
-Filed as: (link added after filing)
+Filed as: https://github.com/anthropics/claude-code/issues/103820
 
 This is the text of the report for https://github.com/anthropics/claude-code/issues, written from the evidence in this case study. Account identifiers are left out.
 
@@ -9,7 +9,7 @@ This is the text of the report for https://github.com/anthropics/claude-code/iss
 ### Preflight Checklist
 
 - [x] I have searched existing issues and this hasn't been reported yet. Related but different: #8126 and #1920 (missing `result` in stream-json, closed), #38673 (empty result when `overageStatus` is `rejected`), #49640 (`rate_limit_event` injected mid-line), #98170 (print-mode wind-down of background tasks).
-- [x] This is a single bug report
+- [x] This is a single bug report (the `ANTHROPIC_LOG` stdout problem below is closely related; happy to split it out)
 - [x] Seen with Claude Code 2.1.303; the reproduction below uses 2.1.304
 
 ### What's Wrong?

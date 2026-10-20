@@ -271,6 +271,13 @@ dependencies, so release scripts and pre-`npm ci` workflow steps can load it.
   `run:` blocks, and is chained into `npm run lint`, so CI runs it.
 - A deliberate single shot needs `// github-retry-ok: <reason>` (JS) or
   `# github-retry-ok: <reason>` (shell). The reason stays next to the call.
+- The retry wrappers keep the unwrapped executor as
+  `const { $: rawDollar$ } = await use('command-stream')`. The neighbouring
+  `hive/require-exec-timeout` rule followed only `const x = …` aliases, so a
+  `gh` call through `rawDollar$` dropped out of its check. The exact-count
+  baseline test caught this: `src/github.lib.mjs` went from 3 findings to 2
+  although nothing had been bounded. The rule now follows a destructured `$`
+  as well. Both RuleTester cases fail before the fix.
 
 ### 8.3 Audit result
 

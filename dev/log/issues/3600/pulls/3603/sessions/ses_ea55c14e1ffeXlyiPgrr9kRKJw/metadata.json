@@ -1,8 +1,8 @@
 {
   "schemaVersion": 3,
-  "collectedAt": "2026-10-20T19:01:51.929Z",
+  "collectedAt": "2026-10-20T19:04:31.294Z",
   "issueNumber": "3600",
-  "prNumber": 3603,
+  "prNumber": "3603",
   "branchName": "issue-3600-d42b83a08873",
   "tool": null,
   "sessionId": "ses_ea55c14e1ffeXlyiPgrr9kRKJw",
@@ -13,7 +13,7 @@
     "solveLog": "./dev/log/issues/3600/pulls/3603/sessions/ses_ea55c14e1ffeXlyiPgrr9kRKJw/solve.log",
     "solveLogRange": {
       "startByte": 0,
-      "endByte": 1685697
+      "endByte": 2236580
     },
     "sessionFiles": []
   }

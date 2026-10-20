@@ -129,6 +129,8 @@ const calleeName = node => {
 
 const exportSourceCache = new Map();
 
+const escapeRegExp = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 /**
  * Is `name`, imported from `source` (relative to `filename`), exported as a
  * value built by a wrap factory (`export const runCommand = wrapRunnerWithGitHubRetry(spawnCommand)`)?
@@ -148,8 +150,8 @@ const importedBindingIsRetrying = (filename, source, name) => {
   }
   const text = exportSourceCache.get(path);
   if (!text) return false;
-  const factories = [...WRAP_FACTORY_NAMES].join('|');
-  return new RegExp(`export\\s+const\\s+${name.replace(/\$/g, '\\$')}\\s*=\\s*(?:${factories})\\(`).test(text);
+  const factories = [...WRAP_FACTORY_NAMES].map(escapeRegExp).join('|');
+  return new RegExp(`export\\s+const\\s+${escapeRegExp(name)}\\s*=\\s*(?:${factories})\\(`).test(text);
 };
 
 const isFunctionNode = node => node && (node.type === 'ArrowFunctionExpression' || node.type === 'FunctionExpression' || node.type === 'FunctionDeclaration');
@@ -378,4 +380,4 @@ export const createGitHubOperationAnalyser = context => {
   return { operationOf, unretriedOperation };
 };
 
-export const _testing = { flattenTemplateLiteral, staticText, containsRetryCall };
+export const _testing = { flattenTemplateLiteral, staticText, containsRetryCall, importedBindingIsRetrying };

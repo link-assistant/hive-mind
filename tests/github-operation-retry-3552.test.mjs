@@ -244,3 +244,14 @@ test('execSyncWithRetry retries a GitHub command whose stderr shows a transient 
   assert.throws(() => execSyncWithRetry('git status', { env, stdio: 'pipe' }, { maxAttempts: 3, sleep: () => {}, log: quiet }));
   assert.equal(count(), 6, 'a local command is not retried');
 });
+
+test('the lint helper that follows an imported wrapper matches a $-bearing export name literally (CodeQL js/incomplete-sanitization)', async () => {
+  const { _testing } = await import('../eslint-rules/github-operation-detect.mjs');
+  const dir = mkdtempSync(join(tmpdir(), 'retrying-export-3552-'));
+  writeFileSync(join(dir, 'runner.lib.mjs'), ['export const $run = wrapRunnerWithGitHubRetry(spawnCommand);', 'export const run$ = wrapDollarWithGhRetry(raw$);', 'export const plain = spawnCommand;'].join('\n'));
+  const importer = join(dir, 'user.mjs');
+  assert.equal(_testing.importedBindingIsRetrying(importer, './runner.lib.mjs', '$run'), true);
+  assert.equal(_testing.importedBindingIsRetrying(importer, './runner.lib.mjs', 'run$'), true);
+  assert.equal(_testing.importedBindingIsRetrying(importer, './runner.lib.mjs', 'plain'), false);
+  assert.equal(_testing.importedBindingIsRetrying(importer, './runner.lib.mjs', 'run'), false, 'a name is not matched as a pattern');
+});

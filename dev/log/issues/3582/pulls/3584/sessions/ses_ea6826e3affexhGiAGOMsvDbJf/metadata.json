@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 3,
+  "collectedAt": "2026-10-20T13:27:40.936Z",
+  "issueNumber": 3582,
+  "prNumber": "3584",
+  "branchName": "issue-3582-64eb0f780845",
+  "tool": "agent",
+  "sessionId": "ses_ea6826e3affexhGiAGOMsvDbJf",
+  "rawCommand": "/home/box/.nvm/versions/node/v26.12.0/bin/node /home/box/.bun/bin/solve https://github.com/link-assistant/hive-mind/issues/3582 --tool agent --model formal-ai --attach-logs --development-log --verbose --attribution formal-ai --no-auto-restart-until-mergeable --no-auto-restart-on-uncommitted-changes --log-dir /home/box/logs",
+  "developmentLogDirectory": "./dev/log/issues/3582/pulls/3584",
+  "caseStudyDirectory": "./docs/case-studies/issue-3582",
+  "artifacts": {
+    "solveLog": "./dev/log/issues/3582/pulls/3584/sessions/ses_ea6826e3affexhGiAGOMsvDbJf/solve.log",
+    "solveLogRange": {
+      "startByte": 0,
+      "endByte": 564458
+    },
+    "sessionFiles": []
+  }
+}

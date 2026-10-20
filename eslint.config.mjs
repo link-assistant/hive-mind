@@ -134,6 +134,7 @@ export default [
         // Web API globals available in Node.js 18+
         AbortController: 'readonly',
         AbortSignal: 'readonly',
+        structuredClone: 'readonly',
 
         // Custom globals
         use: 'readonly',

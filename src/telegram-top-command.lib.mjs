@@ -14,14 +14,18 @@
  * @experimental This feature is marked as experimental
  */
 
-import { promisify } from 'util';
-import { exec as execCallback } from 'child_process';
 import { safeReply, safeEditMessageText } from './telegram-safe-reply.lib.mjs';
 import { isTelegramRateLimitError, TELEGRAM_PRIORITY_LOW, withTelegramRequestPriority } from './telegram-rate-limit.lib.mjs';
 
-const exec = promisify(execCallback);
+import { runProbe } from './status-probes.lib.mjs';
+import { startSerialPoller } from './serial-poller.lib.mjs';
 
-// Store active top sessions: Map<chatId, { messageId, screenName, intervalId }>
+// Issue #3614: screen is run directly (no `/bin/sh -c` wrapper) and short, so
+// the bounded timeout keeps a wedged screen from holding the handler.
+const SCREEN_TIMEOUT_MS = 30_000;
+const screen = args => runProbe('screen', args, { timeout: SCREEN_TIMEOUT_MS });
+
+// Store active top sessions: Map<chatId, { messageId, screenName, poller }>
 const activeTopSessions = new Map();
 
 /**
@@ -147,14 +151,8 @@ export function registerTopCommand(bot, options) {
     const screenName = `top-chat-${chatId}`;
 
     // Check if screen session already exists
-    let sessionExists;
-    try {
-      const { stdout } = await exec('screen -ls');
-      sessionExists = stdout.includes(screenName);
-    } catch {
-      // screen -ls returns non-zero when no sessions exist
-      sessionExists = false;
-    }
+    // screen -ls exits non-zero when no sessions exist; the output is all that matters.
+    const sessionExists = (await screen(['-ls'])).stdout.includes(screenName);
 
     // Create screen session if it doesn't exist
     // We'll use a different approach: run top in batch mode with output redirected to a file
@@ -165,7 +163,8 @@ export function registerTopCommand(bot, options) {
       try {
         // Start top in a screen session with batch mode, outputting to a file
         // -b: batch mode, -d 2: 2 second delay between updates, -n: number of iterations (unlimited)
-        await exec(`screen -dmS ${screenName} bash -c 'while true; do top -b -n 1 > ${outputFile}; sleep 2; done'`);
+        const started = await screen(['-dmS', screenName, 'bash', '-c', `while true; do top -b -n 1 > ${outputFile}; sleep 2; done`]);
+        if (started.code !== 0) throw new Error(started.stderr.trim() || started.error || `screen exited with code ${started.code}`);
         if (VERBOSE) {
           console.log(`[VERBOSE] Created screen session: ${screenName}`);
         }
@@ -202,39 +201,44 @@ export function registerTopCommand(bot, options) {
     }
 
     // Set up periodic update (every 2 seconds)
+    // Issue #3614: a self-rescheduling poller, so a slow Telegram edit is never
+    // overlapped by the next refresh.
     // Issue #2571: 30 edits a minute exceed a group's 20 messages per minute, so the
     // refresh runs at low priority: the governor drops the edits that would not fit
     // instead of letting them take the room replies need.
     let lastOutput = firstOutput;
-    const intervalId = setInterval(async () => {
-      const output = await captureTopOutput(chatId);
-      if (output && output !== lastOutput) {
-        try {
-          await withTelegramRequestPriority(TELEGRAM_PRIORITY_LOW, () =>
-            safeEditMessageText(ctx.telegram, chatId, initialMessage.message_id, undefined, `\`\`\`\n${output}\n\`\`\``, {
-              reply_markup: {
-                inline_keyboard: [[{ text: '🛑 Stop', callback_data: `stop_top_${chatId}` }]],
-              },
-              verbose: VERBOSE,
-            })
-          );
-          lastOutput = output;
-        } catch (error) {
-          if (isTelegramRateLimitError(error)) {
-            if (VERBOSE) console.log(`[VERBOSE] /top refresh for chat ${chatId} skipped: ${error.message}`);
-          } else if (!error.message?.includes('message is not modified')) {
-            // Ignore "message is not modified" errors
-            console.error('[ERROR] Failed to update message:', error);
+    const poller = startSerialPoller(
+      async () => {
+        const output = await captureTopOutput(chatId);
+        if (output && output !== lastOutput) {
+          try {
+            await withTelegramRequestPriority(TELEGRAM_PRIORITY_LOW, () =>
+              safeEditMessageText(ctx.telegram, chatId, initialMessage.message_id, undefined, `\`\`\`\n${output}\n\`\`\``, {
+                reply_markup: {
+                  inline_keyboard: [[{ text: '🛑 Stop', callback_data: `stop_top_${chatId}` }]],
+                },
+                verbose: VERBOSE,
+              })
+            );
+            lastOutput = output;
+          } catch (error) {
+            if (isTelegramRateLimitError(error)) {
+              if (VERBOSE) console.log(`[VERBOSE] /top refresh for chat ${chatId} skipped: ${error.message}`);
+            } else if (!error.message?.includes('message is not modified')) {
+              // Ignore "message is not modified" errors
+              console.error('[ERROR] Failed to update message:', error);
+            }
           }
         }
-      }
-    }, 2000);
+      },
+      { intervalMs: 2000, runImmediately: false, name: 'top' }
+    );
 
     // Store session info
     activeTopSessions.set(chatId, {
       messageId: initialMessage.message_id,
       screenName,
-      intervalId,
+      poller,
     });
 
     if (VERBOSE) {
@@ -270,16 +274,16 @@ export function registerTopCommand(bot, options) {
     }
 
     // Stop the update interval
-    clearInterval(session.intervalId);
+    session.poller.stop();
 
     // Kill the screen session
-    try {
-      await exec(`screen -S ${session.screenName} -X quit`);
+    const quit = await screen(['-S', session.screenName, '-X', 'quit']);
+    if (quit.code === 0) {
       if (VERBOSE) {
         console.log(`[VERBOSE] Killed screen session: ${session.screenName}`);
       }
-    } catch (error) {
-      console.error('[ERROR] Failed to kill screen session:', error);
+    } else {
+      console.error('[ERROR] Failed to kill screen session:', quit.stderr.trim() || quit.error);
     }
 
     // Clean up the output file

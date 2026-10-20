@@ -6,6 +6,7 @@
 // so callers must load .env/.lenv configuration before calling it.
 
 import { getenv } from './cli-arguments.lib.mjs';
+import { DEFAULT_DOCKER_STATUS_MIN_INTERVAL_MS, resolveDockerStatusMinIntervalMs } from './status-check-cache.lib.mjs';
 
 export const createYargsConfig = yargsInstance =>
   yargsInstance
@@ -106,6 +107,8 @@ export const createYargsConfig = yargsInstance =>
     .option('containerCpuPenaltyTriggerWindow', { type: 'string', description: 'How long the trigger average must hold before the cap is applied (default: 15m)', alias: 'container-cpu-penalty-trigger-window', default: getenv('TELEGRAM_CONTAINER_CPU_PENALTY_TRIGGER_WINDOW', '') })
     .option('containerCpuPenaltyRelease', { type: 'string', description: 'Average share of the penalty cap the task must stay below to have the cap lifted (default: 65%)', alias: 'container-cpu-penalty-release', default: getenv('TELEGRAM_CONTAINER_CPU_PENALTY_RELEASE', '') })
     .option('containerCpuPenaltyReleaseWindow', { type: 'string', description: 'How long the release average must hold before the cap is lifted (default: 15m)', alias: 'container-cpu-penalty-release-window', default: getenv('TELEGRAM_CONTAINER_CPU_PENALTY_RELEASE_WINDOW', '') })
+    // Issue #3614: one status check per container/session per interval, shared by every caller.
+    .option('dockerStatusMinIntervalMs', { type: 'number', description: `Minimum milliseconds between two checks of the same container or session (\`$ --status\`, \`$ --list\`, docker, screen, tmux, pgrep); every caller shares the cached result and concurrent callers share one check. 0 disables the reuse but keeps the de-duplication (default: ${DEFAULT_DOCKER_STATUS_MIN_INTERVAL_MS}, at most 12 checks per minute)`, alias: 'docker-status-min-interval-ms', default: resolveDockerStatusMinIntervalMs() })
     .help('h')
     .alias('h', 'help')
     .parserConfiguration({

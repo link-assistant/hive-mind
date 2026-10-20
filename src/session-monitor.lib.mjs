@@ -50,6 +50,7 @@ import { getNonIsolationSessionProgress, readScreenExitMarker, removeScreenExitM
 import { enforceContainerDiskLimitForSession as enforceContainerDiskLimit, formatContainerResourceLimitExceededSection } from './container-resource-monitor.lib.mjs';
 import { runDockerCpuPenaltyPass, formatDockerCpuPenaltySection } from './docker-cpu-penalty.lib.mjs';
 import { removeSnapshotImages, snapshotImagesForContainer } from './kill-recovery-snapshot-cleanup.lib.mjs';
+import { startSerialPoller } from './serial-poller.lib.mjs';
 export { formatSessionCompletionMessage, getSessionCompletionExitCode } from './work-session-formatting.lib.mjs';
 export { DOCKER_TERMINAL_FOOTER_GRACE_MS } from './session-monitor.docker-terminal.lib.mjs';
 export { STALE_EXECUTING_MIN_AGE_MS, DOCKER_BACKEND_GONE_GRACE_MS } from './session-monitor.stale-executing.lib.mjs';
@@ -691,13 +692,40 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
       continue;
     }
     sessionsInFlight.add(entry.sessionName);
-    try {
-      await monitorTrackedSession(bot, entry, verbose, options);
-    } finally {
-      sessionsInFlight.delete(entry.sessionName);
+    const handling = monitorTrackedSession(bot, entry, verbose, options).finally(() => sessionsInFlight.delete(entry.sessionName));
+    // Issue #3614: the monitor no longer overlaps its own ticks, so a session
+    // whose completion takes minutes is left to finish in the background after
+    // `sessionBudgetMs` (the guard above keeps it from running twice) instead
+    // of holding up every other session until it is done.
+    if (!(options.sessionBudgetMs > 0)) await handling;
+    else if (!(await settlesWithin(handling, options.sessionBudgetMs))) {
+      handling.catch(error => console.error(`[session-monitor] Session ${entry.sessionName} check failed: ${error?.message || error}`));
+      if (verbose) console.log(`[VERBOSE] Session ${entry.sessionName} is still being handled after ${options.sessionBudgetMs}ms; continuing with the other sessions (issue #3614)`);
     }
   }
   await cpuPenaltyPass;
+}
+/** Whether `promise` settles within `ms`; a rejection that arrives in time is rethrown. */
+async function settlesWithin(promise, ms) {
+  let timer;
+  const timeout = new Promise(resolve => {
+    timer = setTimeout(resolve, ms);
+  });
+  try {
+    // The settled branch never rejects, so a rejection after the timeout stays
+    // with the caller's own handler instead of becoming unhandled here.
+    const outcome = await Promise.race([
+      promise.then(
+        () => ({ done: true }),
+        error => ({ done: true, error })
+      ),
+      timeout.then(() => ({ done: false })),
+    ]);
+    if (outcome.error) throw outcome.error;
+    return outcome.done;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 function runCpuPenaltyPass(sessions, verbose, options) {
   // A session completed while the pass ran must not be written back to the durable snapshot.
@@ -1224,23 +1252,26 @@ async function resolvePullRequestUrlForSession(sessionInfo, { verbose = false, l
   return null;
 }
 /**
- * Start the session monitoring interval
+ * Start session monitoring.
+ *
+ * Issue #3614: a self-rescheduling timer ({@link startSerialPoller}) replaces
+ * `setInterval`, so a slow tick is never overlapped by the next one; the next
+ * tick starts `intervalMs` after the previous one ended.
+ *
  * @param {Object} bot - Telegraf bot instance for sending messages
  * @param {boolean} verbose - Whether to log verbose output
- * @param {number} intervalMs - Monitoring interval in milliseconds (default: 30000)
- * @returns {NodeJS.Timer} The interval timer (can be cleared with clearInterval)
+ * @param {number} intervalMs - Delay between monitoring passes in milliseconds (default: 30000)
+ * @returns {{stop: () => void}} Call `stop()` to end monitoring
  */
 export function startSessionMonitoring(bot, verbose = false, intervalMs = 30000, options = {}) {
-  const runMonitor = () => {
-    monitorSessions(bot, verbose, options).catch(error => {
-      console.error(`[session-monitor] Session monitoring tick failed: ${error.message}`);
-    });
-  };
-  const timer = setInterval(runMonitor, intervalMs);
-  runMonitor();
+  const poller = startSerialPoller(() => monitorSessions(bot, verbose, { sessionBudgetMs: intervalMs, ...options }), {
+    intervalMs,
+    name: 'session-monitor',
+    onError: error => console.error(`[session-monitor] Session monitoring tick failed: ${error?.message || error}`),
+  });
   const storage = sessionStore ? `durable+in-memory (${sessionStore.snapshotPath})` : 'in-memory';
   console.log(`📊 Session monitoring started (checking every ${intervalMs / 1000} seconds, storage: ${storage})`);
-  return timer;
+  return poller;
 }
 /**
  * Issue #1927 (requirements #2 and #4): after a bot restart, reload the sessions

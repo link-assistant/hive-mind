@@ -59,6 +59,34 @@ ruleTester.run('no-unretried-git-network', noUnretriedGitNetwork, {
     {
       code: "exec('ls -la');",
     },
+    // Issue #3552: argv style through a runner wrapped with the shared loop.
+    {
+      code: "import { wrapRunnerWithTransientRetry } from './github-operation-retry.lib.mjs';\nconst run = wrapRunnerWithTransientRetry(rawRun);\nawait run('git', ['push', 'origin', 'main']);",
+    },
+    // A local helper whose body starts the process through a retrying runner.
+    {
+      code: "import { wrapRunnerWithTransientRetry } from './github-operation-retry.lib.mjs';\nconst retryingRunner = wrapRunnerWithTransientRetry(runner);\nconst soft = (command, args) => retryingRunner(command, args, {});\nawait soft('git', ['ls-remote', '--heads', 'origin']);",
+    },
+    // A retrying runner handed over as an option: runStrict(..., { runner }).
+    {
+      code: "import { wrapRunnerWithTransientRetry } from './github-operation-retry.lib.mjs';\nconst retryingRunner = wrapRunnerWithTransientRetry(runner);\nawait runStrict('git', ['fetch', 'origin'], { runner: retryingRunner });\nconst strict = (command, args) => runStrict(command, args, { runner: retryingRunner });\nawait strict('git', ['pull', '--rebase', 'origin', 'main']);",
+    },
+    // A thunk handed to the shared retry loop.
+    {
+      code: "import { retryGitHubOperation } from './github-operation-retry.lib.mjs';\nawait retryGitHubOperation(() => runner('git', ['push', 'origin', 'main']));",
+    },
+    // The synchronous helper for release scripts.
+    {
+      code: "import { execSyncWithRetry } from './github-operation-retry.lib.mjs';\nexecSyncWithRetry('git fetch origin main', { stdio: 'inherit' });",
+    },
+    // A local function declaration that calls a retrying executor.
+    {
+      code: "import { wrapRunnerWithTransientRetry } from './github-operation-retry.lib.mjs';\nconst execFileAsync = wrapRunnerWithTransientRetry(rawExecFile);\nasync function tryExec(cmd, args) { return execFileAsync(cmd, args); }\nawait tryExec('git', ['fetch', 'origin']);",
+    },
+    // The escape comment, for an operation that must not be retried.
+    {
+      code: "// github-retry-ok: probing reachability, a failure is the answer\nexecSync('git ls-remote origin');",
+    },
   ],
   invalid: [
     {
@@ -76,6 +104,21 @@ ruleTester.run('no-unretried-git-network', noUnretriedGitNetwork, {
     {
       // `git -C <dir> push` must be recognised through the leading option.
       code: "const { $ } = await use('command-stream');\nawait $`git -C ${dir} push origin main`;",
+      errors: [unretriedError],
+    },
+    {
+      // argv style through a raw runner.
+      code: "await run('git', ['push', 'origin', 'main']);",
+      errors: [unretriedError],
+    },
+    {
+      // A helper handed a raw runner as an option is not retrying.
+      code: "const strict = (command, args) => runStrict(command, args, { runner: rawRunner });\nawait strict('git', ['fetch', 'origin']);",
+      errors: [unretriedError],
+    },
+    {
+      // $.raw is the unwrapped tag.
+      code: "import { wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs';\nconst $ = wrapDollarWithGhRetry(rawDollar);\nawait $.raw`git push origin main`;",
       errors: [unretriedError],
     },
   ],

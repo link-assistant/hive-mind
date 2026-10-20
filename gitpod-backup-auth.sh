@@ -2,6 +2,7 @@
 
 # --- GitHub backup ---
 # Verify login status
+# github-retry-ok: interactive status report for the person at the terminal, who sees any failure
 gh auth status
 
 # Save GitHub auth into persisted workspace folder

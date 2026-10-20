@@ -24,6 +24,7 @@
 
 import { createHash } from 'node:crypto';
 import { execFileAsync } from './interactive-mode.shared.lib.mjs';
+import { wrapRunnerWithGitHubRetry } from './github-rate-limit.lib.mjs';
 
 /**
  * Hidden custom-ref namespace used to keep interactive-mode image commits alive
@@ -176,7 +177,8 @@ export const buildRawBlobUrl = (owner, repo, commitSha, path) => {
 export const createImageUploader = (options = {}) => {
   const { owner, repo, prNumber, mediaRef = buildMediaRef({ prNumber, namespace: options.refNamespace }), log = async () => {}, verbose = false, execFile: execFileFn, enabled = true } = options;
 
-  const runGhApi = execFileFn || execFileAsync;
+  // Issue #3552: uploads are retried on transient GitHub faults.
+  const runGhApi = wrapRunnerWithGitHubRetry(execFileFn || execFileAsync);
   const mediaRefPath = refPathForApi(mediaRef);
 
   // Memoized ref-readiness promise and a per-session content-hash -> URL cache.

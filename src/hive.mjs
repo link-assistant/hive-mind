@@ -2,7 +2,7 @@
 // Import Sentry instrumentation first (must be before other imports)
 import './instrument.mjs';
 import { ensureUseM, fetchUseMCodeFromCdn } from './use-m-bootstrap.lib.mjs';
-import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry, execGhWithRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller. execGhWithRetry adds transient-network retry (#1756).
+import { wrapDollarWithGhRetry, execGhWithRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726). execGhWithRetry adds transient-network retry (#1756).
 const earlyArgs = process.argv.slice(2);
 if (earlyArgs.includes('--version')) {
   const { getVersion } = await import('./version.lib.mjs');
@@ -65,11 +65,13 @@ if (isRunningDirectly) {
         process.exit(1);
       }
     }
-    const { $ } = await withTimeout(
+    const { $: rawDollar$ } = await withTimeout(
       use('command-stream'),
       30000, // 30 second timeout
       'loading command-stream'
     );
+    // Issue #3552: every `gh`/network `git` issued through this `$` is retried.
+    const $ = wrapDollarWithGhRetry(rawDollar$);
     const { parseCliArgumentsWithLino, hideBin, normalizeCliArgs } = await import('./cli-arguments.lib.mjs');
     const path = (await withTimeout(use('path'), 30000, 'loading path')).default;
     const fs = (await withTimeout(use('fs'), 30000, 'loading fs')).promises;

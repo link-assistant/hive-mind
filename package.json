@@ -23,7 +23,7 @@
     "test:queue": "node tests/solve-queue.test.mjs",
     "test:limits-display": "node tests/limits-display.test.mjs",
     "test:usage-limit": "node tests/test-usage-limit.mjs",
-    "lint": "eslint --max-warnings=0 'src/**/*.{js,mjs,cjs}' 'scripts/**/*.{js,mjs,cjs}' 'eslint-rules/**/*.{js,mjs,cjs}' 'tests/**/*.{js,mjs,cjs}'",
+    "lint": "eslint --max-warnings=0 'src/**/*.{js,mjs,cjs}' 'scripts/**/*.{js,mjs,cjs}' 'eslint-rules/**/*.{js,mjs,cjs}' 'tests/**/*.{js,mjs,cjs}' && node scripts/check-github-retry-shell.mjs",
     "lint:fix": "eslint 'src/**/*.{js,mjs,cjs}' 'scripts/**/*.{js,mjs,cjs}' 'eslint-rules/**/*.{js,mjs,cjs}' 'tests/**/*.{js,mjs,cjs}' --fix",
     "check:duplication": "jscpd .",
     "check:secrets": "secretlint --secretlintignore .secretlintignore \"**/*\"",

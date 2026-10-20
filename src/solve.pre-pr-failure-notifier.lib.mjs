@@ -1,6 +1,6 @@
 import { getTrackedToolCommentIds, isFailureAlreadyReportedOnTarget, postTrackedComment, SOLUTION_DRAFT_FAILED_MARKER } from './tool-comments.lib.mjs';
 import { extractForkReplacementBlockedDetails, isForkReplacementBlockedReason, GITHUB_FORK_SUPPORT_URL } from './solve.repository-recovery-message.lib.mjs';
-import { FORK_DIVERGENCE_RESOLUTION_OPTION, buildForkDivergenceFailureActionSection } from './solve.branch-divergence.lib.mjs';
+import { FORK_DIVERGENCE_RESOLUTION_OPTION, buildForkDivergenceFailureActionSection, buildGitHubServerPushFailureActionSection } from './solve.branch-divergence.lib.mjs';
 
 export { FORK_DIVERGENCE_RESOLUTION_OPTION };
 
@@ -61,6 +61,12 @@ export function buildPrePullRequestFailureActionSection(reason = '') {
         fetchError: 'No fork divergence inspection data was attached to this failure reason.',
       },
     });
+  }
+
+  // Issue #3552: GitHub failed while updating the ref; waiting and rerunning
+  // is the remedy, merging or force-pushing is not.
+  if (normalizedReason.includes('github server error while pushing')) {
+    return buildGitHubServerPushFailureActionSection({ branchUrl: extractUrlAfter(reason, 'inspect') });
   }
 
   if (isPushRejectionFailure(reason)) {

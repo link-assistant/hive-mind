@@ -29,7 +29,8 @@ git config user.name "github-actions[bot]"
 
 # Fetch the latest base branch
 echo "Fetching latest $BASE_REF..."
-git fetch origin "$BASE_REF"
+# Under the shared transient-fault retry loop (issue #3552).
+node "$(dirname "$0")/github-retry.mjs" git fetch origin "$BASE_REF"
 
 # Get current and base branch info
 CURRENT_SHA=$(git rev-parse HEAD)

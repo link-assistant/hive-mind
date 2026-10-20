@@ -8,9 +8,13 @@
  */
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { wrapRunnerWithTransientRetry } from './github-operation-retry.lib.mjs';
 import { checkIssueCompletionBeforeMerge } from './issue-completion.lib.mjs';
 import { ISSUE_COMPLETION_GOAL, isRequirementsReportEnabled } from './issue-completion.prompts.lib.mjs';
 import { normalizeEnsureSubIssuesLimit } from './solve.ensure-sub-issues.detect.lib.mjs';
+
+// Issue #3552: the branch sync pull is retried on transient GitHub faults.
+const retryingExecFile = wrapRunnerWithTransientRetry(promisify(execFile));
 
 export const DEFAULT_ISSUE_COMPLETION_RESTARTS = 3;
 const MAX_CONSECUTIVE_FAILURES = 3;
@@ -27,7 +31,7 @@ export const COMPLETION_SYNC_TIMEOUT_MS = 5 * 60 * 1000;
 /** Issue #1572 pattern: restart from the remote branch state; a failed or timed-out pull keeps the local state. */
 export const syncCompletionBranch = async ({ tempDir, branchName, logger, timeoutMs = COMPLETION_SYNC_TIMEOUT_MS, env = process.env }) => {
   try {
-    await promisify(execFile)('git', ['pull', 'origin', branchName], { cwd: tempDir, env, timeout: timeoutMs, killSignal: 'SIGKILL' });
+    await retryingExecFile('git', ['pull', 'origin', branchName], { cwd: tempDir, env, timeout: timeoutMs, killSignal: 'SIGKILL' });
   } catch (error) {
     await logger(`   Warning: git pull failed (${String(error.message).split('\n')[0]}); continuing with local state`, { level: 'warning' });
   }

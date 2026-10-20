@@ -50,6 +50,8 @@ ruleTester.run('require-exec-timeout ($)', requireExecTimeout, {
     // A local that is not bound to `$` is not command-stream.
     { code: 'const render = makeTemplate();\nrender`git ${ref}`;', filename },
     { code: 'const probe = quietProbe(other);\nawait probe`git status`;', filename },
+    { code: "const { $: raw } = await use('command-stream');\nawait raw({ signal: AbortSignal.timeout(1_000) })`gh api user`;", filename },
+    { code: 'const { tag: raw } = templates;\nawait raw`git status`;', filename },
     // Within the baseline.
     { code: 'await $`git status`;', filename, options: [{ baseline: { 'src/example.lib.mjs': { count: 1, reason: 'solve-process only' } } }] },
   ],
@@ -68,6 +70,9 @@ ruleTester.run('require-exec-timeout ($)', requireExecTimeout, {
     { code: 'const probe = quietProbe($);\nawait probe`gh api user`;', filename, errors: [violation] },
     { code: 'await quietProbe($)`gh api user`;', filename, errors: [violation] },
     { code: 'const git = $({ cwd: tempDir });\nawait git`git status`;', filename, errors: [violation] },
+    // Issue #3552: command-stream's `$` imported under another name, e.g. the unwrapped executor beside a retrying `$`.
+    { code: "const { $: rawDollar$ } = await use('command-stream');\nawait rawDollar$`gh api repos/${owner}/${repo}`;", filename, errors: [violation] },
+    { code: "const { $: raw } = await use('command-stream');\nawait raw({ mirror: false })`git fetch origin`;", filename, errors: [violation] },
     { code: 'const $silent = $({ mirror: false });\nawait $silent`git -C ${dir} log -1`;', filename, errors: [violation] },
     { code: 'const a = $;\nconst b = a;\nawait b`docker pull ${image}`;', filename, errors: [violation] },
     // A marker without a reason does not count.

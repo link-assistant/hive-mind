@@ -24,7 +24,7 @@ import { reportError } from './sentry.lib.mjs';
 
 export { createCredentialStreamSanitizer };
 
-import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
+import { wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726)
 import { QUIET_PROBE } from './quiet-probe.lib.mjs'; // issue #2130: never mirror the call that discovers which secrets must be masked
 // Dynamic imports for runtime dependencies
 const getOsModule = async () => (await import('os')).default;
@@ -258,7 +258,7 @@ export const getGitHubTokensFromCommand = async () => {
   if (typeof globalThis.use === 'undefined') {
     await ensureUseM();
   }
-  const { $ } = await globalThis.use('command-stream');
+  const $ = wrapDollarWithGhRetry((await globalThis.use('command-stream')).$);
   const tokens = [];
 
   try {

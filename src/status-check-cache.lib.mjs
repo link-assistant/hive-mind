@@ -187,6 +187,7 @@ export function invalidateSessionStatus(sessionId) {
   if (sessionId) {
     statusCheckCache.invalidate(`status:${sessionId}`);
     statusCheckCache.invalidate(`tmux:${sessionId}`);
+    statusCheckCache.invalidate(`docker-state:${sessionId}`);
   }
   statusCheckCache.invalidate('list');
   statusCheckCache.invalidate('docker-ps');

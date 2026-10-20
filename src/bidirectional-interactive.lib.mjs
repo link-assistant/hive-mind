@@ -24,6 +24,7 @@
 
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
 import { quietProbe } from './quiet-probe.lib.mjs'; // issue #2130: keep read-only probe payloads out of the attached log
+import { startSerialPoller } from './serial-poller.lib.mjs'; // issue #3614: a slow GitHub poll is never started again on top of itself
 import { getLiveInputCapability, getLiveInputCapabilityRows, getLiveInputMode, isLiveInputSupported, LIVE_INPUT_MODE_FALLBACK, LIVE_INPUT_MODE_STREAM } from './live-input-capabilities.lib.mjs';
 // Configuration constants
 const CONFIG = {
@@ -641,9 +642,12 @@ export const createBidirectionalHandler = options => {
 
     // Set up polling interval
     const interval = Math.max(pollInterval, CONFIG.MIN_POLL_INTERVAL);
-    state.pollIntervalId = setInterval(async () => {
-      await checkForNewComments();
-    }, interval);
+    state.pollIntervalId = startSerialPoller(checkForNewComments, {
+      intervalMs: interval,
+      runImmediately: false,
+      name: 'bidirectional-comments',
+      onError: error => (verbose ? log(`⚠️ Bidirectional mode: Comment poll error: ${error.message}`, { verbose: true }) : undefined),
+    });
 
     if (verbose) {
       await log(`🔌 Bidirectional mode: Started monitoring issue/PR comments for PR #${prNumber} (polling every ${interval / 1000}s)`, { verbose: true });
@@ -658,15 +662,16 @@ export const createBidirectionalHandler = options => {
       if (prNumber) state.lastPrSnapshot = await fetchMetadataSnapshot('pr', prNumber);
       if (issueNumber && issueNumber !== prNumber) state.lastIssueSnapshot = await fetchMetadataSnapshot('issue', issueNumber);
       const statusInterval = Math.max(statusPollInterval, CONFIG.MIN_POLL_INTERVAL);
-      state.statusPollIntervalId = setInterval(async () => {
-        try {
-          await checkForStatusChanges();
-        } catch (error) {
+      state.statusPollIntervalId = startSerialPoller(checkForStatusChanges, {
+        intervalMs: statusInterval,
+        runImmediately: false,
+        name: 'bidirectional-status',
+        onError: async error => {
           if (verbose) {
             await log(`⚠️ Bidirectional mode: Status poll error: ${error.message}`, { verbose: true });
           }
-        }
-      }, statusInterval);
+        },
+      });
       if (verbose) {
         await log(`🔌 Bidirectional mode: Started status poller (CI/uncommitted/PR-metadata) every ${statusInterval / 1000}s`, { verbose: true });
       }
@@ -686,11 +691,11 @@ export const createBidirectionalHandler = options => {
     state.isMonitoring = false;
 
     if (state.pollIntervalId) {
-      clearInterval(state.pollIntervalId);
+      state.pollIntervalId.stop();
       state.pollIntervalId = null;
     }
     if (state.statusPollIntervalId) {
-      clearInterval(state.statusPollIntervalId);
+      state.statusPollIntervalId.stop();
       state.statusPollIntervalId = null;
     }
 

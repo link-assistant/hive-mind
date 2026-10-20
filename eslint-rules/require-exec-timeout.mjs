@@ -58,7 +58,7 @@ function leadingWord(text) {
 }
 
 /** The command a call starts, when it can be read from the source. */
-function commandOf(node) {
+export function commandOf(node) {
   if (!node) return null;
   if (node.type === 'Literal' && typeof node.value === 'string') return leadingWord(node.value);
   if (node.type === 'TemplateLiteral') return leadingWord(node.quasis[0]?.value.cooked ?? '');
@@ -115,7 +115,7 @@ function isRenamedDollar(sourceCode, identifier) {
  * to one of them): the identifier whose declaration may carry the marker and
  * the options node (undefined when none are passed). null for any other tag.
  */
-function dollarTag(tag, sourceCode, depth = 0) {
+export function dollarTag(tag, sourceCode, depth = 0) {
   if (!tag || depth > MAX_ALIAS_DEPTH) return null;
   if (tag.type === 'Identifier') {
     if (tag.name === '$' || isRenamedDollar(sourceCode, tag)) return { dollar: tag, options: undefined };

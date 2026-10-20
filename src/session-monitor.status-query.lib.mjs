@@ -24,7 +24,8 @@
  * @see https://github.com/link-assistant/hive-mind/issues/2303
  */
 
-import { getCommandStreamDollar } from './start-command-cli.lib.mjs';
+import { statusCheckCache } from './status-check-cache.lib.mjs';
+import { runProbe } from './status-probes.lib.mjs';
 import { classifyExitStatus } from './session-status.lib.mjs';
 import { isDockerIsolation } from './session-monitor.stale-executing.lib.mjs';
 
@@ -67,18 +68,20 @@ export function parseDockerContainerState(output) {
  * @param {boolean} [verbose]
  * @returns {Promise<Object|null>} Parsed state, `{exists: false}` when there is no such container, or null when docker cannot be asked
  */
-export async function inspectDockerContainerState(containerName, verbose = false) {
-  try {
-    const $ = await getCommandStreamDollar();
-    // Issue #3278: the session monitor runs in the bot process; a hung docker daemon must not stall it.
-    const result = await $({ mirror: false, signal: AbortSignal.timeout(DOCKER_INSPECT_TIMEOUT_MS) })`docker inspect -f ${'{{json .State}}'} ${containerName}`;
-    const stderr = result.stderr?.toString() || '';
-    if (result.code !== 0) return /No such (object|container)/i.test(stderr) ? { exists: false } : null;
-    return parseDockerContainerState(result.stdout?.toString());
-  } catch (error) {
-    if (verbose) console.log(`[VERBOSE] docker inspect for '${containerName}' failed: ${error?.message || error}`);
-    return null;
-  }
+export async function inspectDockerContainerState(containerName, verbose = false, { run = runProbe } = {}) {
+  // Issue #3614: docker runs without command-stream's login shell, and the
+  // answer is shared (and rate-limited) with every other caller.
+  return structuredClone(
+    await statusCheckCache.get(`docker-state:${containerName}`, async () => {
+      // Issue #3278: the session monitor runs in the bot process; a hung docker daemon must not stall it.
+      const result = await run('docker', ['inspect', '-f', '{{json .State}}', String(containerName)], { timeout: DOCKER_INSPECT_TIMEOUT_MS });
+      if (result.code !== 0) {
+        if (verbose) console.log(`[VERBOSE] docker inspect for '${containerName}' failed: ${result.stderr.trim() || result.error}`);
+        return /No such (object|container)/i.test(result.stderr) ? { exists: false } : null;
+      }
+      return parseDockerContainerState(result.stdout);
+    })
+  );
 }
 
 /**

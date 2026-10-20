@@ -13,6 +13,8 @@
  * - launching or stopping a session invalidates the cached status;
  * - `findStartCommandBinary()` no longer starts `which $` per call;
  * - docker / screen liveness is answered from one listing for all sessions;
+ * - the monitor's `docker inspect` fallback and the container exists / size
+ *   probes run docker without a shell; the fallback is shared and cleared on stop;
  * - `getRunningProcesses()` runs one `pgrep` for every tool;
  * - `checkTmuxSessionRunning()` reads tmux's exit code (it used to report a
  *   missing session as running).
@@ -43,7 +45,17 @@ await writeStub(
   --stop) echo stopped ;;
 esac`
 );
-await writeStub('docker', `printf 'aaaaaaaa\\tsession-a\\nbbbbbbbb\\tsession-b,alias-b\\n'`);
+await writeStub(
+  'docker',
+  `if [ "$1" = inspect ]; then
+  for last; do :; done
+  [ "$last" = gone ] && { echo "Error: No such object: gone" >&2; exit 1; }
+  [ "$2" = --size ] && { echo 4096; exit 0; }
+  case "$3" in *.State.Status*) echo running ;; *) printf '{"Running":false,"ExitCode":3,"OOMKilled":false,"FinishedAt":"2026-10-20T10:00:00Z"}\\n' ;; esac
+  exit 0
+fi
+printf 'aaaaaaaa\\tsession-a\\nbbbbbbbb\\tsession-b,alias-b\\n'`
+);
 await writeStub('screen', `printf 'There are screens on:\\n\\t123.screen-a\\t(Detached)\\n'; exit 1`);
 await writeStub('tmux', `[ "$3" = "alive" ] && exit 0; exit 1`);
 await writeStub('pgrep', `printf '101 claude\\n102 codex\\n103 claude\\n'`);
@@ -53,9 +65,10 @@ process.env.HIVE_MIND_DOCKER_STATUS_MIN_INTERVAL_MS = '60000';
 
 const { resetStatusCheckCacheForTests, statusCheckCache, configureDockerStatusMinIntervalMs } = await import('../src/status-check-cache.lib.mjs');
 const { findStartCommandBinary, resetStartCommandBinaryCacheForTests, runStartCommandQuery } = await import('../src/start-command-cli.lib.mjs');
-const { checkBackendSessionAlive, checkDockerContainerRunning, checkScreenSessionRunning, checkTmuxSessionRunning, isSessionRunning, listIsolationSessions, querySessionStatus, stopIsolatedSession } = await import('../src/isolation-runner.lib.mjs');
+const { checkBackendSessionAlive, checkDockerContainerExists, checkDockerContainerRunning, getDockerContainerWritableLayerSize, checkScreenSessionRunning, checkTmuxSessionRunning, isSessionRunning, listIsolationSessions, querySessionStatus, stopIsolatedSession } = await import('../src/isolation-runner.lib.mjs');
 const { getRunningProcesses, parsePgrepOutput, PGREP_TOOL_NAMES } = await import('../src/telegram-solve-queue.helpers.lib.mjs');
 const { parseDockerPsNames, runProbe } = await import('../src/status-probes.lib.mjs');
+const { inspectDockerContainerState } = await import('../src/session-monitor.status-query.lib.mjs');
 
 async function calls(prefix) {
   const lines = (await readFile(counterFile, 'utf8')).split('\n').filter(Boolean);
@@ -171,6 +184,26 @@ try {
     assert.equal(await checkTmuxSessionRunning('missing'), false);
     assert.equal(await checkTmuxSessionRunning('missing'), false);
     assert.equal((await calls('tmux')).length, 2, 'each session is checked once per interval');
+  });
+
+  await test("the monitor's docker inspect fallback is shared and runs without a shell", async () => {
+    const states = await Promise.all([inspectDockerContainerState('task-8'), inspectDockerContainerState('task-8')]);
+    for (const state of states) assert.deepEqual(state, { exists: true, running: false, exitCode: 3, oomKilled: false, finishedAt: '2026-10-20T10:00:00Z' });
+    states[0].exitCode = 99;
+    assert.equal((await inspectDockerContainerState('task-8')).exitCode, 3, 'callers get their own copy');
+    assert.deepEqual(await calls('docker'), ['docker inspect -f {{json .State}} task-8']);
+    assert.deepEqual(await inspectDockerContainerState('gone'), { exists: false });
+    await stopIsolatedSession('task-8');
+    await inspectDockerContainerState('task-8');
+    assert.equal((await calls('docker')).filter(line => line.includes('task-8')).length, 2, 'stopping the session invalidates the cached state');
+  });
+
+  await test('docker container exists / writable-layer size probes run docker directly', async () => {
+    assert.equal(await checkDockerContainerExists('session-a'), true);
+    assert.equal(await checkDockerContainerExists('gone'), false);
+    assert.equal(await getDockerContainerWritableLayerSize('session-a'), 4096);
+    assert.equal(await getDockerContainerWritableLayerSize('gone'), null);
+    assert.deepEqual(await calls('docker'), ['docker inspect -f {{.State.Status}} session-a', 'docker inspect -f {{.State.Status}} gone', 'docker inspect --size -f {{.SizeRw}} session-a', 'docker inspect --size -f {{.SizeRw}} gone']);
   });
 
   await test('getRunningProcesses() counts every tool from one pgrep', async () => {

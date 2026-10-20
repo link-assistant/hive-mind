@@ -50,7 +50,7 @@ import { killDockerContainer } from './docker-container-control.lib.mjs';
 export { killDockerContainer };
 // Issue #3614: every status probe goes through one shared rate limit and cache.
 import { invalidateSessionStatus, statusCheckCache } from './status-check-cache.lib.mjs';
-import { getRunningDockerContainerNames, getScreenSessionListing, hasTmuxSession } from './status-probes.lib.mjs';
+import { getRunningDockerContainerNames, getScreenSessionListing, hasTmuxSession, runProbe } from './status-probes.lib.mjs';
 export { copyFromDockerContainer } from './isolation-runner.docker-cp.lib.mjs'; // Issue #2888
 import { checkDockerDiskSpace } from './docker-disk-space.lib.mjs';
 export { checkDockerDiskSpace, parseDfAvailableKb } from './docker-disk-space.lib.mjs'; // Issue #3469
@@ -834,20 +834,15 @@ export async function checkDockerContainerRunning(containerName, verbose = false
  */
 export async function checkDockerContainerExists(containerName, verbose = false) {
   if (!containerName) return false;
-  try {
-    const $ = await getCommandStreamDollar();
-    const result = await $({ mirror: false, signal: AbortSignal.timeout(DOCKER_CLI_TIMEOUT_MS) })`docker inspect -f ${'{{.State.Status}}'} ${containerName}`;
-    const code = Number.isFinite(result.code) ? result.code : 0;
-    const state = (result.stdout?.toString() || '').trim();
-    const exists = code === 0 && state !== '';
-    if (verbose) {
-      console.log(`[VERBOSE] isolation-runner: docker inspect state for '${containerName}': ${exists ? state : 'no such container'}`);
-    }
-    return exists;
-  } catch {
-    // `docker inspect` exits non-zero when no such container exists.
-    return false;
+  // Issue #3614: docker runs directly, not through command-stream's login shell.
+  // `docker inspect` exits non-zero when no such container exists.
+  const result = await runProbe('docker', ['inspect', '-f', '{{.State.Status}}', String(containerName)], { timeout: DOCKER_CLI_TIMEOUT_MS });
+  const state = result.stdout.trim();
+  const exists = result.code === 0 && state !== '';
+  if (verbose) {
+    console.log(`[VERBOSE] isolation-runner: docker inspect state for '${containerName}': ${exists ? state : 'no such container'}`);
   }
+  return exists;
 }
 export function parseDockerContainerWritableLayerSizeOutput(output) {
   const text = String(output || '').trim();
@@ -868,22 +863,21 @@ export function parseDockerContainerWritableLayerSizeOutput(output) {
  */
 export async function getDockerContainerWritableLayerSize(containerName, verbose = false) {
   if (!containerName) return null;
-  try {
-    const $ = await getCommandStreamDollar();
-    const result = await $({ mirror: false, signal: AbortSignal.timeout(DOCKER_CLI_TIMEOUT_MS) })`docker inspect --size -f ${'{{.SizeRw}}'} ${containerName}`;
-    const bytes = parseDockerContainerWritableLayerSizeOutput(result.stdout?.toString() || '');
+  // Issue #3614: the session monitor asks this on its tick, so docker runs
+  // directly, not through command-stream's login shell.
+  const result = await runProbe('docker', ['inspect', '--size', '-f', '{{.SizeRw}}', String(containerName)], { timeout: DOCKER_CLI_TIMEOUT_MS });
+  if (result.code !== 0) {
     if (verbose) {
-      const label = bytes === null ? 'unknown' : `${bytes} bytes`;
-      console.log(`[VERBOSE] isolation-runner: docker writable layer size for '${containerName}': ${label}`);
-    }
-    return bytes;
-  } catch (error) {
-    if (verbose) {
-      const stderr = error?.stderr?.toString?.().trim();
-      console.log(`[VERBOSE] isolation-runner: could not inspect writable layer size for '${containerName}': ${stderr || error?.message || error}`);
+      console.log(`[VERBOSE] isolation-runner: could not inspect writable layer size for '${containerName}': ${result.stderr.trim() || result.error || `exit ${result.code}`}`);
     }
     return null;
   }
+  const bytes = parseDockerContainerWritableLayerSizeOutput(result.stdout);
+  if (verbose) {
+    const label = bytes === null ? 'unknown' : `${bytes} bytes`;
+    console.log(`[VERBOSE] isolation-runner: docker writable layer size for '${containerName}': ${label}`);
+  }
+  return bytes;
 }
 /**
  * Release the Docker-only start gate after the writable-layer baseline has been

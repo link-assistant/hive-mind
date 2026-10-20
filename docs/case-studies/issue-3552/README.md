@@ -62,6 +62,7 @@ So this was a short, unannounced, per-request server fault. That is the kind of 
 | R7  | Report to other projects if they are related                                         | §6                                                                |
 | R8  | Apply the fix across the entire codebase                                             | §4.5: solver pushes, release version push, Helm `gh-pages` pushes |
 | R9  | Everything in one PR                                                                 | PR #3553                                                          |
+| R10 | PR review: every GitHub operation is retried, enforced by lint, with one shared loop | §8                                                                |
 
 ## 3. Root causes
 
@@ -205,3 +206,112 @@ only channel that can act on it.
 - `getRemoteBranchDivergenceSnapshot` and `shouldTreatPushRejectionAsRemoteSynchronized`
   (issue #1817): detect a ref that landed despite the error.
 - `scripts/run-command.lib.mjs` `CommandFailedError`: unchanged failure type for the release scripts.
+
+## 8. Follow-up: every GitHub operation is retried, and lint enforces it (R10)
+
+PR review asked for a check that **all** GitHub operations are retryable, for
+lint rules that reject non-retryable ones, and for all of it to go through
+shared code. The audit found two more root causes.
+
+### RC4: `$\`gh …\`` through the "retrying" wrapper ran exactly once
+
+command-stream's `$` **resolves** `{ code, stdout, stderr }` on a non-zero exit;
+it does not reject
+([`experiments/command-stream-exit-behaviour.mjs`](../../../experiments/command-stream-exit-behaviour.mjs),
+[`experiments/wrapped-dollar-gh-retry-real.mjs`](../../../experiments/wrapped-dollar-gh-retry-real.mjs)).
+`ghWithRateLimitRetry` retried only rejections, so every `gh` call made through
+`wrapDollarWithGhRetry` had a single attempt, rate limits and 5xx included.
+The helpers had grown separate loops (`ghWithRateLimitRetry`, `ghRetry`,
+`ghCmdRetry`, `gitCmdRetry`, plus hand-written loops in the release scripts),
+each with its own idea of what a failure looks like.
+
+### RC5: the lint rules had loopholes
+
+- **File-level exemption.** A file that mentioned a retry wrapper anywhere was
+  exempt as a whole, so one wrapped `$` hid a raw `execFile('gh', …)` lower down.
+- **argv style.** `spawn`/`execFile`/runner calls such as `run('gh', ['api', …])`
+  were not analysed at all.
+- **`scripts/` was out of scope for git.** That covered the release `git push`,
+  the exact command GitHub's `fatal error in commit_refs` would kill.
+- **Shell was invisible.** ESLint never sees `*.sh` or workflow `run:` blocks.
+- **A wrapper that only did half the job.** Both rules accept
+  `wrapDollarWithGitRetry` as a retry wrapper, but it retried only git. A
+  `$\`gh …\``through the`$`of`codex`, `agent`, `gemini`, `opencode`or`qwen`passed lint and still ran once. It now delegates to`wrapDollarWithGhRetry` and shares its idempotency marker.
+
+### 8.1 Design: one loop, thin adapters
+
+| Layer                                    | Component                                                                                                                                                                                                             |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| What is a GitHub operation               | `classifyGitHubCommand(command, args)`, one definition used by the runtime wrappers, both ESLint rules and the shell checker                                                                                          |
+| Which failures are transient             | `src/transient-errors.lib.mjs` and the rate-limit detection (unchanged, issue #2168)                                                                                                                                  |
+| Retry policy (attempts, backoff, budget) | `createRetryPolicy`, I/O-free                                                                                                                                                                                         |
+| Drivers                                  | `retryGitHubOperation` (async) and `retryGitHubOperationSync`; both retry a rejection **and** a resolved failed result                                                                                                |
+| Adapters                                 | `wrapDollarWithGhRetry`, `wrapDollarWithGitRetry`, `wrapRunnerWithGitHubRetry`, `wrapRunnerWithTransientRetry`, `execSyncWithRetry`; idempotent (`GITHUB_RETRY_WRAPPED`), so wrapping at the point of use never nests |
+| Legacy helper names                      | `ghWithRateLimitRetry`, `ghRetry`, `ghCmdRetry` and `gitCmdRetry` are now thin calls into the same driver                                                                                                             |
+| Shell and workflows                      | `node scripts/github-retry.mjs <command…>`: the same classifier and driver, with stdout untouched and stderr echoed and classified                                                                                    |
+
+All of this lives in `src/github-operation-retry.lib.mjs`, which has no
+dependencies, so release scripts and pre-`npm ci` workflow steps can load it.
+
+### 8.2 Enforcement
+
+- `gh-rate-limit/no-direct-gh-exec` (`gh`) and `gh-rate-limit/no-unretried-git-network`
+  (`git push`/`fetch`/`pull`/`ls-remote`) share
+  [`eslint-rules/github-operation-detect.mjs`](../../../eslint-rules/github-operation-detect.mjs).
+  They now decide **per call site**. A call passes when one of these holds:
+  - it runs inside a retry helper;
+  - its executor was built by a wrap factory (followed through aliases, imports,
+    `$({ cwd })`, local helpers and runners passed as arguments or options);
+  - its executor is handed in by the caller.
+
+  The git rule now covers `scripts/` as well.
+
+- [`scripts/check-github-retry-shell.mjs`](../../../scripts/check-github-retry-shell.mjs)
+  is the shell counterpart. It scans tracked `*.sh` files and workflow/action
+  `run:` blocks, and is chained into `npm run lint`, so CI runs it.
+- A deliberate single shot needs `// github-retry-ok: <reason>` (JS) or
+  `# github-retry-ok: <reason>` (shell). The reason stays next to the call.
+
+### 8.3 Audit result
+
+| Area                      | Call sites changed                                                                                                                                                                                                                                                                                           |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/` command-stream `$` | `github.lib`, `hive`, `log-upload`, `token-sanitization`, `session-changes`                                                                                                                                                                                                                                  |
+| `src/` runners            | `tool-env-gh-auth`, `session-kill-recovery`, `interactive-mode`, `interactive-image-upload`, `cleanup.os`, `solve.issue-completion`, `task`, `solve.repository-mode.run`                                                                                                                                     |
+| `src/` sync calls         | `hive.recheck`: async `execGhWithRetry` instead of a single-shot `execSync`                                                                                                                                                                                                                                  |
+| Non-idempotent `gh` calls | `gh issue create` checks whether the issue was created before retrying; `upload-release-assets.sh` re-checks `gh release view` after a failed `create`                                                                                                                                                       |
+| Release scripts           | `create-github-release`, `format-github-release` and `format-release-notes` now really wrap `$` (the import used to be only a lint marker); `repair-release-notes`, `validate-changeset`, `detect-code-changes`; `version-and-commit` and `helm-release` use the shared driver instead of hand-written loops |
+| Shell and workflows       | `upload-release-assets.sh`, `simulate-fresh-merge.sh`, the `act` download in `e2e-hello-world-matrix.yml`                                                                                                                                                                                                    |
+| Deliberate single shots   | interactive auth status reports in `gitpod-*-auth.sh` and `docker-restore-auth.sh`; the `coolify/start.sh` startup probe (see §8.4)                                                                                                                                                                          |
+
+After the change, ESLint reports 0 `gh-rate-limit` violations across `src`,
+`scripts`, `tests` and `eslint-rules`, and the shell checker reports 0 across
+35 shell and workflow files.
+
+### 8.4 Known limits
+
+- `coolify/start.sh` runs `gh auth status` once, inside the container. The
+  published package ships only `src/`, so the shell CLI is not there. A failed
+  probe only leaves the container up for manual setup, and a restart probes
+  again, so the call is marked as a deliberate single shot.
+- `git clone` stays excluded on purpose (issue #2168).
+- The analysis is static. It follows the patterns used in this codebase.
+  Constructs it cannot resolve are reported, so they fail closed rather than
+  passing silently: an unknown executor counts as a raw one.
+
+### 8.5 Verification
+
+- [`tests/github-operation-retry-3552.test.mjs`](../../../tests/github-operation-retry-3552.test.mjs)
+  covers:
+  - resolved-failure retry through the wrapped `$` and runners;
+  - idempotent wrapping;
+  - the sync driver;
+  - `execSyncWithRetry` with piped and inherited stdio.
+- `tests/test-no-direct-gh-exec-rule.mjs` and `tests/test-no-unretried-git-network-rule.mjs`
+  hold RuleTester cases for every loophole above.
+- [`tests/github-retry-shell-3552.test.mjs`](../../../tests/github-retry-shell-3552.test.mjs)
+  covers:
+  - the shell checker, including workflow line numbers and escapes;
+  - a repository-wide scan;
+  - the CLI against a fake `gh` that returns 502 twice: 3 attempts, clean stdout,
+    and a local command run exactly once.

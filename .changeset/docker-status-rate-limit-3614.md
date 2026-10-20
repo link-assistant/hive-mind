@@ -12,3 +12,5 @@ The Telegram bot checks each container or session at most once every 5 s, so at 
 - Concurrent `/version` requests share one result for 30 s.
 - New lint rules `no-login-shell-probe` and `no-overlapping-interval` block new `sh -l -c` status probes and new async `setInterval` callbacks on bot paths.
 - `docs/case-studies/issue-3614` lists every polling mechanism in the bot. start-command's own 1 s per-task loop is reported upstream as link-foundation/start#238.
+
+Also brings the `@dotenvx/dotenvx` use-m pin up to 2.38.2, which the CI dependency-freshness gate reported as stale.

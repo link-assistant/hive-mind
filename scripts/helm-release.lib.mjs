@@ -25,13 +25,13 @@
  * Issue #3552: GitHub can answer a push with a server-side fault such as
  * `remote: fatal error in commit_refs`; such pushes are retried as-is.
  *
- * Uses only Node built-ins (plus the dependency-free transient-error leaf
- * module) so it has no dependency on node_modules state.
+ * Uses only Node built-ins (plus the dependency-free shared retry leaf module)
+ * so it has no dependency on node_modules state.
  */
 
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 
-import { isTransientNetworkError } from '../src/transient-errors.lib.mjs';
+import { retryGitHubOperation, wrapRunnerWithTransientRetry } from '../src/github-operation-retry.lib.mjs';
 import { CommandFailedError, runCommand, runStrict } from './run-command.lib.mjs';
 
 /** Git's well-known hash of the empty tree, used to create an orphan branch without a checkout. */
@@ -44,21 +44,20 @@ export const PUBLISH_BRANCH = 'gh-pages';
 const PUSH_ATTEMPTS = 3;
 const PUSH_RETRY_DELAY_MS = 3000;
 
+/** Route the shared retry loop's messages to the injected logger, minus verbose verdicts. */
+const retryLogTo = logger => (message, meta) => meta?.level !== 'verbose' && logger.log(message);
+
 /**
  * Run `git push` and retry it only on transient GitHub/network faults
- * (issue #3552). Any other failure is thrown on the first attempt.
+ * (issue #3552), through the shared `retryGitHubOperation` loop. Any other
+ * failure is thrown on the first attempt.
  */
 export async function pushWithTransientRetry(args, { runner = runCommand, sleeper, logger = console, verbose = false, maxAttempts = PUSH_ATTEMPTS, delayMs = PUSH_RETRY_DELAY_MS } = {}) {
-  const wait = sleeper ?? (ms => new Promise(resolve => setTimeout(resolve, ms)));
-  for (let attempt = 1; ; attempt++) {
-    const result = await runner('git', args, { verbose, logger });
-    if (result.code === 0) return result;
-    if (attempt >= maxAttempts || !isTransientNetworkError(`${result.stdout || ''}\n${result.stderr || ''}`)) {
-      throw new CommandFailedError('git', args, result);
-    }
-    logger.log(`git push failed with a transient GitHub/network error (attempt ${attempt} of ${maxAttempts}). Retrying...`);
-    await wait(delayMs);
+  const result = await retryGitHubOperation(() => runner('git', args, { verbose, logger }), { label: 'git push', noun: 'git', maxAttempts, delayMs, backoff: 1, ...(sleeper && { sleep: sleeper }), log: retryLogTo(logger) });
+  if (result.code !== 0) {
+    throw new CommandFailedError('git', args, result);
   }
+  return result;
 }
 
 /**
@@ -121,8 +120,11 @@ export async function releaseHelmChart({ version, helmRepoUrl, githubActor, char
     throw new Error('Version is required');
   }
 
-  const strict = (command, args) => runStrict(command, args, { runner, verbose, logger });
-  const soft = (command, args) => runner(command, args, { verbose, logger });
+  // Network git (fetch, ls-remote) goes through the shared retry loop; local
+  // commands pass straight through (issue #3552).
+  const retryingRunner = wrapRunnerWithTransientRetry(runner, { ...(sleeper && { sleep: sleeper }), log: retryLogTo(logger) });
+  const strict = (command, args) => runStrict(command, args, { runner: retryingRunner, verbose, logger });
+  const soft = (command, args) => retryingRunner(command, args, { verbose, logger });
   const push = args => pushWithTransientRetry(args, { runner, sleeper, logger, verbose });
   const chartPath = `${chartDir}/Chart.yaml`;
 

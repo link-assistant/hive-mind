@@ -27,6 +27,8 @@
  * `npm install` (helm-release).
  */
 
+import { execSync } from 'node:child_process';
+
 import { describeTransientError, formatTransientDiagnostics } from './transient-errors.lib.mjs';
 import { matchGitNetworkCommand } from './git-retry.lib.mjs';
 
@@ -134,15 +136,10 @@ const defaultLog = (message, { level } = {}) => {
  * @returns {Promise<T>}
  */
 export const retryGitHubOperation = async (fn, options = {}) => {
-  const { label = 'GitHub operation', noun = 'network', maxAttempts = DEFAULT_GITHUB_RETRY.maxAttempts, delayMs = DEFAULT_GITHUB_RETRY.delayMs, backoff = DEFAULT_GITHUB_RETRY.backoff, sleep = defaultSleep, log = defaultLog, rateLimit = null, isFailedResult = isFailedCommandResult, sharedBudget = false, beforeRetry = null, afterAttempt = null } = options;
-  const emit = (message, meta) => Promise.resolve(log(message, meta));
-  const faultName = noun ? `transient ${noun} error` : 'transient error';
-
-  let attempt = 0;
-  let transientAttempts = 0;
-  let rateLimitAttempts = 0;
+  const policy = createRetryPolicy(options);
+  const { sleep = defaultSleep, log = defaultLog, rateLimit = null, beforeRetry = null, afterAttempt = null } = options;
   for (;;) {
-    attempt++;
+    const attempt = policy.startAttempt();
     let outcome;
     let error;
     let threw = false;
@@ -152,29 +149,113 @@ export const retryGitHubOperation = async (fn, options = {}) => {
       threw = true;
       error = caught;
     }
-    const failed = threw || isFailedResult(outcome);
-    if (afterAttempt) await afterAttempt({ outcome, error, threw, failed, attempt });
-    if (!failed) return outcome;
-
-    const failure = threw ? error : outcome;
-    // Hand the last attempt back exactly as the caller would have seen it.
-    const settle = () => {
+    if (afterAttempt) await afterAttempt({ outcome, error, threw, failed: threw || policy.isFailedResult(outcome), attempt });
+    const step = policy.decide({ outcome, error, threw, rateLimit });
+    if (step.message) await log(step.message, step.meta);
+    if (step.action === 'return') return outcome;
+    if (step.action === 'settle') {
       if (threw) throw error;
       return outcome;
-    };
-    const budgetLeft = used => (sharedBudget ? attempt < maxAttempts : used < maxAttempts);
+    }
+    if (step.action === 'rate-limit-wait') {
+      await rateLimit.wait(step.failure, step.used, step.limit);
+      continue;
+    }
+    if (beforeRetry) await beforeRetry({ description: step.description, attempt: step.position, failure: step.failure });
+    // The warning is logged after the hook, as it always was.
+    await log(step.retryMessage, step.retryMeta);
+    await sleep(step.waitMs);
+  }
+};
+
+const sleepSync = ms => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+
+/**
+ * Synchronous twin of {@link retryGitHubOperation} for `execSync` callers
+ * (release scripts that run before anything async is available). Same policy
+ * and log lines; no rate-limit wait or async hooks.
+ *
+ * @template T
+ * @param {() => T} fn - may throw or return a failed command result.
+ * @param {object} [options] - `label`, `noun`, `maxAttempts`, `delayMs`, `backoff`, `log`, `sleep` (sync).
+ * @returns {T}
+ */
+export const retryGitHubOperationSync = (fn, options = {}) => {
+  const policy = createRetryPolicy(options);
+  const { sleep = sleepSync, log = defaultLog } = options;
+  for (;;) {
+    policy.startAttempt();
+    let outcome;
+    let error;
+    let threw = false;
+    try {
+      outcome = fn();
+    } catch (caught) {
+      threw = true;
+      error = caught;
+    }
+    const step = policy.decide({ outcome, error, threw, rateLimit: null });
+    if (step.message) log(step.message, step.meta);
+    if (step.action === 'return') return outcome;
+    if (step.action === 'settle') {
+      if (threw) throw error;
+      return outcome;
+    }
+    log(step.retryMessage, step.retryMeta);
+    sleep(step.waitMs);
+  }
+};
+
+/**
+ * `execSync(command)` for a shell command line, retried when it is a GitHub
+ * operation. stderr is piped (and echoed) rather than inherited, because the
+ * classifier can only recognise a transient fault it can read.
+ *
+ * @param {string} command
+ * @param {import('node:child_process').ExecSyncOptions} [execOptions]
+ * @param {object} [retryOptions] - forwarded to {@link retryGitHubOperationSync}.
+ */
+export const execSyncWithRetry = (command, execOptions = {}, retryOptions = {}) => {
+  const run = () => {
+    const stdio = execOptions.stdio === 'inherit' ? ['inherit', 'inherit', 'pipe'] : execOptions.stdio;
+    try {
+      return execSync(command, { ...execOptions, stdio }); // hive-sync-ok: execSyncWithRetry is for release scripts, never the bot
+    } catch (error) {
+      if (execOptions.stdio === 'inherit' && error?.stderr?.length) process.stderr.write(error.stderr);
+      throw error;
+    }
+  };
+  const operation = classifyGitHubCommand(command);
+  if (!operation) return run();
+  // hive-sync-ok: execSyncWithRetry is for release scripts, never the bot
+  return retryGitHubOperationSync(run, { label: operation.label, noun: operation.tool === 'git' ? 'git' : 'network', ...retryOptions });
+};
+
+/**
+ * The retry policy both drivers share: counts attempts and decides, after
+ * each one, whether to return, hand the failure back, wait out a rate limit,
+ * or back off and retry. Kept free of I/O so the async and sync loops above
+ * cannot drift apart.
+ */
+const createRetryPolicy = options => {
+  const { label = 'GitHub operation', noun = 'network', maxAttempts = DEFAULT_GITHUB_RETRY.maxAttempts, delayMs = DEFAULT_GITHUB_RETRY.delayMs, backoff = DEFAULT_GITHUB_RETRY.backoff, isFailedResult = isFailedCommandResult, sharedBudget = false } = options;
+  const faultName = noun ? `transient ${noun} error` : 'transient error';
+  let attempt = 0;
+  let transientAttempts = 0;
+  let rateLimitAttempts = 0;
+  const budgetLeft = used => (sharedBudget ? attempt < maxAttempts : used < maxAttempts);
+
+  const decide = ({ outcome, error, threw, rateLimit }) => {
+    if (!(threw || isFailedResult(outcome))) return { action: 'return' };
+    const failure = threw ? error : outcome;
 
     if (rateLimit?.isRateLimited(failure)) {
       rateLimitAttempts++;
       const limit = sharedBudget ? maxAttempts : rateLimit.maxAttempts;
       const used = sharedBudget ? attempt : rateLimitAttempts;
-      if (used < limit) {
-        await rateLimit.wait(failure, used, limit);
-        continue;
-      }
+      if (used < limit) return { action: 'rate-limit-wait', failure, used, limit };
       if (!sharedBudget) {
-        await emit(`❌ ${label}: rate limit still active after ${rateLimitAttempts} attempts; giving up.`, { level: 'error', kind: 'rate-limit-exhausted', threw });
-        return settle();
+        return { action: 'settle', message: `❌ ${label}: rate limit still active after ${rateLimitAttempts} attempts; giving up.`, meta: { level: 'error', kind: 'rate-limit-exhausted', threw } };
       }
     }
 
@@ -186,19 +267,25 @@ export const retryGitHubOperation = async (fn, options = {}) => {
     if (description.transient) transientAttempts++;
     if (!description.transient || !budgetLeft(transientAttempts)) {
       if (description.transient && !sharedBudget) {
-        await emit(`❌ ${label}: ${faultName} persisted after ${transientAttempts} attempts; giving up. [${diagnostics}]`, { level: 'error', kind: 'transient-exhausted', threw, diagnostics });
-      } else {
-        const exit = threw ? '' : ` exit=${outcome?.code}`;
-        await emit(`   ${label}: not retrying [${diagnostics}] attempt=${position}/${maxAttempts}${exit}`, { level: 'verbose', kind: 'not-retrying', threw, diagnostics });
+        return { action: 'settle', message: `❌ ${label}: ${faultName} persisted after ${transientAttempts} attempts; giving up. [${diagnostics}]`, meta: { level: 'error', kind: 'transient-exhausted', threw, diagnostics } };
       }
-      return settle();
+      const exit = threw ? '' : ` exit=${outcome?.code}`;
+      return { action: 'settle', message: `   ${label}: not retrying [${diagnostics}] attempt=${position}/${maxAttempts}${exit}`, meta: { level: 'verbose', kind: 'not-retrying', threw, diagnostics } };
     }
-    if (beforeRetry) await beforeRetry({ description, attempt: position, failure });
     const retryIndex = sharedBudget ? attempt : transientAttempts;
     const waitMs = delayMs * Math.pow(backoff, retryIndex - 1);
-    await emit(`⚠️ ${label}: ${faultName} (attempt ${position}/${maxAttempts}), retrying in ${Math.round(waitMs / 1000)}s... [${diagnostics}]`, { level: 'warn', kind: 'retrying', threw, diagnostics, waitMs });
-    await sleep(waitMs);
-  }
+    return {
+      action: 'retry',
+      failure,
+      description,
+      position,
+      waitMs,
+      retryMessage: `⚠️ ${label}: ${faultName} (attempt ${position}/${maxAttempts}), retrying in ${Math.round(waitMs / 1000)}s... [${diagnostics}]`,
+      retryMeta: { level: 'warn', kind: 'retrying', threw, diagnostics, waitMs },
+    };
+  };
+
+  return { startAttempt: () => ++attempt, isFailedResult, decide };
 };
 
 /**
@@ -231,4 +318,4 @@ export const wrapRunnerWithTransientRetry = (run, options = {}) => {
   return wrapped;
 };
 
-export default { DEFAULT_GITHUB_RETRY, GITHUB_RETRY_WRAPPED, classifyGitHubCommand, isGitHubRetryWrapped, isFailedCommandResult, retryGitHubOperation, wrapRunnerWithTransientRetry };
+export default { DEFAULT_GITHUB_RETRY, GITHUB_RETRY_WRAPPED, classifyGitHubCommand, isGitHubRetryWrapped, isFailedCommandResult, execSyncWithRetry, retryGitHubOperation, retryGitHubOperationSync, wrapRunnerWithTransientRetry };

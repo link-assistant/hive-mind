@@ -37,7 +37,7 @@
 
 import { readFileSync } from 'node:fs';
 
-import { isTransientNetworkError } from '../src/transient-errors.lib.mjs';
+import { isFailedCommandResult, retryGitHubOperation, wrapRunnerWithTransientRetry } from '../src/github-operation-retry.lib.mjs';
 import { CommandFailedError, runCommand, runStrict } from './run-command.lib.mjs';
 
 const DEFAULT_PUSH_ATTEMPTS = 5;
@@ -141,34 +141,39 @@ export function isNonFastForward(result) {
  */
 export async function pushWithRebaseRetry({ runner = runCommand, branch = 'main', remote = 'origin', maxAttempts = DEFAULT_PUSH_ATTEMPTS, delayMs = DEFAULT_PUSH_DELAY_MS, sleeper, logger = console, verbose = false }) {
   const wait = sleeper ?? (ms => new Promise(resolve => setTimeout(resolve, ms)));
+  const log = (message, meta) => meta?.level !== 'verbose' && logger.log(message);
+  const pushArgs = ['push', remote, branch];
+  let pushes = 0;
 
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const result = await runner('git', ['push', remote, branch], { verbose, logger });
-    if (result.code === 0) {
-      return { pushed: true, attempt };
-    }
-
+  for (;;) {
     // A GitHub server fault or network error (issue #3552) is not a lost race:
-    // nothing to rebase onto, just push the same commit again.
-    if (attempt < maxAttempts && !isBlockedByRepositoryRule(result) && isTransientNetworkError(`${result.stdout || ''}\n${result.stderr || ''}`)) {
-      logger.log(`Push failed with a transient GitHub/network error (attempt ${attempt} of ${maxAttempts}). Retrying without rebase...`);
-      await wait(delayMs);
-      continue;
+    // the shared retry loop pushes the same commit again, without rebasing.
+    // Both kinds of retry draw on the one budget of `maxAttempts` pushes.
+    const result = await retryGitHubOperation(() => (pushes++, runner('git', pushArgs, { verbose, logger })), {
+      label: 'git push',
+      noun: 'git',
+      maxAttempts: maxAttempts - pushes,
+      delayMs,
+      backoff: 1,
+      sleep: wait,
+      log,
+      // A rule rejection is final, whatever else its output happens to say.
+      isFailedResult: value => isFailedCommandResult(value) && !isBlockedByRepositoryRule(value),
+    });
+    if (result.code === 0) {
+      return { pushed: true, attempt: pushes };
     }
 
     // Anything other than a lost race (auth, protected branch) will not be
     // fixed by rebasing, so fail immediately with the real error.
-    if (!isNonFastForward(result) || attempt === maxAttempts) {
-      throw new CommandFailedError('git', ['push', remote, branch], result);
+    if (!isNonFastForward(result) || pushes >= maxAttempts) {
+      throw new CommandFailedError('git', pushArgs, result);
     }
 
-    logger.log(`Push rejected: ${remote}/${branch} has advanced (attempt ${attempt} of ${maxAttempts}). Rebasing and retrying...`);
+    logger.log(`Push rejected: ${remote}/${branch} has advanced (attempt ${pushes} of ${maxAttempts}). Rebasing and retrying...`);
     await wait(delayMs);
-    await runStrict('git', ['pull', '--rebase', remote, branch], { runner, verbose, logger });
+    await runStrict('git', ['pull', '--rebase', remote, branch], { runner: wrapRunnerWithTransientRetry(runner, { sleep: wait, log }), verbose, logger });
   }
-
-  // Unreachable: the loop either returns or throws.
-  throw new Error(`Failed to push to ${remote}/${branch}`);
 }
 
 /**
@@ -189,7 +194,10 @@ export async function pushWithRebaseRetry({ runner = runCommand, branch = 'main'
  * @returns {Promise<{versionCommitted: boolean, newVersion?: string, alreadyReleased?: boolean}>}
  */
 export async function versionAndCommit({ mode, bumpType, description, runner = runCommand, output, readVersion = readPackageVersion, countChangesets, branch = 'main', remote = 'origin', sleeper, logger = console, verbose = false }) {
-  const strict = (command, args) => runStrict(command, args, { runner, verbose, logger });
+  // Network git (fetch) goes through the shared retry loop; local commands
+  // pass straight through (issue #3552).
+  const retryingRunner = wrapRunnerWithTransientRetry(runner, { ...(sleeper && { sleep: sleeper }), log: (message, meta) => meta?.level !== 'verbose' && logger.log(message) });
+  const strict = (command, args) => runStrict(command, args, { runner: retryingRunner, verbose, logger });
 
   await strict('git', ['config', 'user.name', 'github-actions[bot]']);
   // The numeric prefix is what links the commit to the github-actions[bot]

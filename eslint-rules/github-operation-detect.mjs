@@ -25,7 +25,8 @@
  *        a parameter/options object): the caller owns the wrapper - and a
  *        parameter default (`run = runCommand`) must itself be retrying;
  *      - the runner is handed to a helper as an argument
- *        (`commandOutput(run, 'gh', args)`) and that runner is retrying.
+ *        (`commandOutput(run, 'gh', args)`) or option
+ *        (`runStrict('git', args, { runner })`) and that runner is retrying.
  *   3. Otherwise it is reported, unless the line (or the one above it) carries
  *      `// github-retry-ok: <reason>` - for interactive or deliberately
  *      single-shot calls, where the reason documents why.
@@ -37,13 +38,13 @@ import { dirname, resolve } from 'node:path';
 import { classifyGitHubCommand } from '../src/github-operation-retry.lib.mjs';
 
 /** Functions whose function-valued arguments run under the shared retry loop. */
-export const RETRY_HELPER_NAMES = new Set(['ghWithRateLimitRetry', 'execGhWithRetry', 'ghRetry', 'ghCmdRetry', 'gitCmdRetry', 'retryGitHubOperation']);
+export const RETRY_HELPER_NAMES = new Set(['ghWithRateLimitRetry', 'execGhWithRetry', 'execSyncWithRetry', 'ghRetry', 'ghCmdRetry', 'gitCmdRetry', 'retryGitHubOperation', 'retryGitHubOperationSync']);
 
 /** Factories that return an executor which retries the GitHub operations it starts. */
 export const WRAP_FACTORY_NAMES = new Set(['wrapDollarWithGhRetry', 'wrapDollarWithGitRetry', 'wrapRunnerWithGitHubRetry', 'wrapRunnerWithTransientRetry']);
 
 /** Executors that are retry-safe by name (they take the command directly). */
-const SAFE_EXECUTOR_NAMES = new Set(['execGhWithRetry']);
+const SAFE_EXECUTOR_NAMES = new Set(['execGhWithRetry', 'execSyncWithRetry']);
 
 export const ESCAPE_COMMENT = 'github-retry-ok:';
 
@@ -212,7 +213,7 @@ export const createGitHubOperationAnalyser = context => {
       return expr.arguments.some(arg => arg.type === 'Identifier' && EXECUTOR_ARGUMENT_PATTERN.test(arg.name) && identifierIsRetrying(arg, seen));
     }
     if (expr.type === 'Identifier') return identifierIsRetrying(expr, seen);
-    if (isFunctionNode(expr)) return containsRetryCall(expr.body);
+    if (isFunctionNode(expr)) return containsRetryCall(expr.body) || callsRetryingExecutor(expr.body, seen);
     if (expr.type === 'ConditionalExpression') return expressionIsRetrying(expr.consequent, seen) && expressionIsRetrying(expr.alternate, seen);
     if (expr.type === 'LogicalExpression') return expressionIsRetrying(expr.left, seen) && expressionIsRetrying(expr.right, seen);
     if (expr.type === 'MemberExpression') return SAFE_EXECUTOR_NAMES.has(calleeName(expr));
@@ -265,6 +266,7 @@ export const createGitHubOperationAnalyser = context => {
     visited.add(node);
     if (Array.isArray(node)) return node.some(child => callsRetryingExecutor(child, seen, visited));
     if (node.type === 'CallExpression' && node.callee.type === 'Identifier' && EXECUTOR_ARGUMENT_PATTERN.test(node.callee.name) && identifierIsRetrying(node.callee, seen)) return true;
+    if (node.type === 'CallExpression' && handsRetryingExecutorOption(node, seen)) return true;
     for (const key of Object.keys(node)) {
       if (key === 'parent') continue;
       const child = node[key];
@@ -272,6 +274,12 @@ export const createGitHubOperationAnalyser = context => {
     }
     return false;
   };
+
+  /**
+   * `runStrict('git', args, { runner: retryingRunner })`: the process is started
+   * by the runner passed in an options object, so the call retries when it does.
+   */
+  const handsRetryingExecutorOption = (call, seen = new Set()) => call.arguments.some(arg => arg.type === 'ObjectExpression' && arg.properties.some(prop => prop.type === 'Property' && !prop.computed && EXECUTOR_ARGUMENT_PATTERN.test(prop.key.name ?? String(prop.key.value)) && expressionIsRetrying(prop.value, seen)));
 
   /** `const { $ } = params`: true when `params` is a parameter or itself destructured from the caller. */
   const isFromCaller = (identifier, seen) => {
@@ -361,6 +369,7 @@ export const createGitHubOperationAnalyser = context => {
     if (executorIsRetrying(operation.executor)) return null;
     // `commandOutput(run, 'gh', args)`: the runner that starts the process is an argument.
     if (node.type === 'CallExpression' && node.arguments.some(arg => arg.type === 'Identifier' && EXECUTOR_ARGUMENT_PATTERN.test(arg.name) && identifierIsRetrying(arg))) return null;
+    if (node.type === 'CallExpression' && handsRetryingExecutorOption(node)) return null;
     if (insideRetriedFunction(node)) return null;
     if (hasEscapeComment(node)) return null;
     return operation;

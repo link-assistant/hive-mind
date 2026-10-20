@@ -17,7 +17,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { classifyGitHubCommand, isFailedCommandResult, retryGitHubOperation, wrapRunnerWithTransientRetry } from '../src/github-operation-retry.lib.mjs';
+import { classifyGitHubCommand, execSyncWithRetry, isFailedCommandResult, retryGitHubOperation, retryGitHubOperationSync, wrapRunnerWithTransientRetry } from '../src/github-operation-retry.lib.mjs';
 import { ghWithRateLimitRetry, wrapDollarWithGhRetry, wrapRunnerWithGitHubRetry } from '../src/github-rate-limit.lib.mjs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -169,4 +169,45 @@ test('wrapping an already wrapped executor returns it unchanged (no nested, mult
   const wrappedDollar = wrapDollarWithGhRetry(dollar);
   assert.equal(wrapDollarWithGhRetry(wrappedDollar), wrappedDollar);
   assert.equal(wrappedDollar.raw, dollar);
+});
+
+test('retryGitHubOperationSync applies the same policy synchronously', () => {
+  let calls = 0;
+  const sleeps = [];
+  const result = retryGitHubOperationSync(() => (++calls < 3 ? failed(BAD_GATEWAY) : { code: 0, stdout: 'ok', stderr: '' }), { delayMs: 10, sleep: ms => sleeps.push(ms), log: quiet });
+  assert.deepEqual([calls, result.stdout, sleeps], [3, 'ok', [10, 20]]);
+
+  let notTransient = 0;
+  assert.throws(
+    () =>
+      retryGitHubOperationSync(
+        () => {
+          notTransient++;
+          throw new Error('HTTP 404: Not Found');
+        },
+        { sleep: () => {}, log: quiet }
+      ),
+    /404/
+  );
+  assert.equal(notTransient, 1, 'a permanent failure is thrown on the first attempt');
+});
+
+test('execSyncWithRetry retries a GitHub command whose stderr shows a transient fault, and runs local commands once', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'fake-git-sync-3552-'));
+  const counter = join(dir, 'count');
+  writeFileSync(join(dir, 'git'), `#!/bin/sh\necho x >> "${counter}"\nif [ "$1" = fetch ]; then echo 'remote: fatal error in commit_refs' >&2; exit 1; fi\nexit 1\n`);
+  chmodSync(join(dir, 'git'), 0o755);
+  const env = { ...process.env, PATH: `${dir}:${process.env.PATH}` };
+  const count = () => (existsSync(counter) ? readFileSync(counter, 'utf8').trim().split('\n').length : 0);
+
+  assert.throws(() => execSyncWithRetry('git fetch origin main', { env, stdio: 'pipe' }, { maxAttempts: 3, sleep: () => {}, log: quiet }), /Command failed/);
+  assert.equal(count(), 3, 'the fetch ran once per allowed attempt');
+
+  // `stdio: 'inherit'` is what the release scripts pass; stderr is piped so the
+  // classifier can still read the fault (and echoed so the log keeps it).
+  assert.throws(() => execSyncWithRetry('git fetch origin main', { env, stdio: 'inherit' }, { maxAttempts: 2, sleep: () => {}, log: quiet }));
+  assert.equal(count(), 5, 'the fault is visible to the classifier under stdio: inherit too');
+
+  assert.throws(() => execSyncWithRetry('git status', { env, stdio: 'pipe' }, { maxAttempts: 3, sleep: () => {}, log: quiet }));
+  assert.equal(count(), 6, 'a local command is not retried');
 });

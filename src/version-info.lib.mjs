@@ -11,6 +11,7 @@ import { getVersion } from './version.lib.mjs';
 import { t } from './i18n.lib.mjs';
 import { hasConnectedPlaywrightMcpServer } from './playwright-mcp.lib.mjs';
 import { execVersionCommand } from './version-command.lib.mjs';
+import { createStatusCheckCache } from './status-check-cache.lib.mjs';
 
 import { parseVersion, normalizeDate } from './version-parsers.lib.mjs';
 export { parseVersion, normalizeDate };
@@ -238,6 +239,33 @@ async function detectPlatformInfo(verbose, runCommand) {
   }
 
   return info;
+}
+
+/** How long the bot reuses one `/version` answer (issue #3614). */
+export const VERSION_INFO_CACHE_MS = 30 * 1000;
+const versionInfoCache = createStatusCheckCache({ minIntervalMs: VERSION_INFO_CACHE_MS, clone: value => structuredClone(value) });
+
+/**
+ * {@link getVersionInfo} for the bot's `/version` command. Issue #3614: one
+ * answer starts dozens of version commands, so concurrent requests share one
+ * run and the answer is reused for {@link VERSION_INFO_CACHE_MS}; a failed
+ * answer is not reused.
+ *
+ * @param {boolean} [verbose]
+ * @param {Object} [options] - Passed to {@link getVersionInfo}
+ * @param {Object} [deps]
+ * @param {Function} [deps.load] - Replaces {@link getVersionInfo} (tests)
+ * @returns {Promise<Object>}
+ */
+export async function getSharedVersionInfo(verbose = false, options = {}, { load = getVersionInfo } = {}) {
+  const result = await versionInfoCache.get('version-info', () => load(verbose, null, options));
+  if (!result?.success) versionInfoCache.invalidate('version-info');
+  return result;
+}
+
+/** Forget the shared `/version` answer (tests). */
+export function resetSharedVersionInfoForTests() {
+  versionInfoCache.clear();
 }
 
 /**
@@ -748,6 +776,7 @@ export function formatVersionMessage(versions, options = {}) {
 
 export default {
   getVersionInfo,
+  getSharedVersionInfo,
   formatVersionMessage,
   parseVersion,
   normalizeDate,

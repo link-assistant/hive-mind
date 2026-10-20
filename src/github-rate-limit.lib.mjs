@@ -21,8 +21,8 @@ import { promisify } from 'node:util';
 import { exec as execCb } from 'node:child_process';
 
 import { limitReset, retryLimits } from './config.lib.mjs';
-import { matchGitNetworkCommand } from './git-retry.lib.mjs';
-import { collectErrorText, describeTransientError, formatTransientDiagnostics, isTransientNetworkError, GITHUB_SERVER_TRANSIENT_PATTERNS } from './transient-errors.lib.mjs';
+import { classifyGitHubCommand, retryGitHubOperation, wrapRunnerWithTransientRetry } from './github-operation-retry.lib.mjs';
+import { collectErrorText, isTransientNetworkError, GITHUB_SERVER_TRANSIENT_PATTERNS } from './transient-errors.lib.mjs';
 
 const exec = promisify(execCb);
 
@@ -354,62 +354,40 @@ export const ghWithRateLimitRetry = async (fn, options = {}) => {
   const label = options.label || 'gh';
   const log = options.log || (msg => console.warn(msg));
 
-  // Two independent retry budgets — a long string of rate-limit responses
+  // Issue #3552 follow-up: the loop itself is the shared
+  // `retryGitHubOperation`, which also retries a *resolved* failed command
+  // result. command-stream's `$` resolves `{ code, stderr }` on a non-zero exit
+  // instead of rejecting, so before this every `$\`gh ...\`` routed through
+  // `wrapDollarWithGhRetry` was single-shot - rate limits and 5xx included.
+  // Two independent budgets remain: a long string of rate-limit responses
   // shouldn't burn the transient-error retries, and vice versa.
-  let rateLimitAttempts = 0;
-  let transientAttempts = 0;
-  let lastError;
-  // Hard cap so a permanently broken endpoint can't loop forever — sum of
-  // both budgets plus a safety margin.
-  const hardCap = maxAttempts + transientMaxAttempts + 1;
-
-  for (let i = 0; i < hardCap; i++) {
-    try {
-      const result = await fn();
-      await logGitHubRateLimitUsage({ label });
-      return result;
-    } catch (error) {
-      await logGitHubRateLimitUsage({ label });
-      lastError = error;
-
-      if (isRateLimitError(error)) {
-        rateLimitAttempts++;
-        if (rateLimitAttempts >= maxAttempts) {
-          await Promise.resolve(log(`❌ ${label}: rate limit still active after ${rateLimitAttempts} attempts; giving up.`));
-          throw error;
-        }
-        const reset = parseRateLimitReset(error) || (await fetchNextRateLimitReset());
+  return retryGitHubOperation(fn, {
+    label,
+    maxAttempts: transientMaxAttempts,
+    delayMs: transientDelay,
+    backoff: transientBackoff,
+    sleep: ms => sleepWithCountdown(ms, log),
+    afterAttempt: () => logGitHubRateLimitUsage({ label }),
+    rateLimit: {
+      maxAttempts,
+      isRateLimited: isRateLimitError,
+      wait: async (failure, attempt) => {
+        const reset = parseRateLimitReset(failure) || (await fetchNextRateLimitReset());
         const { waitMs, deadline, bufferMs, jitterMs } = computeRateLimitWait(reset);
         const waitMinutes = Math.round(waitMs / 60_000);
         const resetSummary = reset ? `reset at ${reset.toISOString()}` : 'reset time unknown (using buffer + jitter only)';
-        await Promise.resolve(log(`⏳ ${label}: GitHub API rate limit hit (attempt ${rateLimitAttempts}/${maxAttempts}). Waiting ${waitMinutes} min (${resetSummary}; buffer ${Math.round(bufferMs / 60_000)} min + jitter ${Math.round(jitterMs / 1000)}s) until ${deadline.toISOString()}.`));
+        await Promise.resolve(log(`⏳ ${label}: GitHub API rate limit hit (attempt ${attempt}/${maxAttempts}). Waiting ${waitMinutes} min (${resetSummary}; buffer ${Math.round(bufferMs / 60_000)} min + jitter ${Math.round(jitterMs / 1000)}s) until ${deadline.toISOString()}.`));
         await sleepWithCountdown(waitMs, log);
-        continue;
-      }
-
-      // Issue #2168: classify once, and log the classification on every path —
-      // including the "we are not retrying this" path — so the next unknown
-      // failure mode can be diagnosed from the session log without a rerun.
-      const description = describeTransientError(error);
-
-      if (description.transient) {
-        transientAttempts++;
-        if (transientAttempts >= transientMaxAttempts) {
-          await Promise.resolve(log(`❌ ${label}: transient network error persisted after ${transientAttempts} attempts; giving up. [${formatTransientDiagnostics(description)}]`));
-          throw error;
-        }
-        const waitMs = transientDelay * Math.pow(transientBackoff, transientAttempts - 1);
-        await Promise.resolve(log(`⚠️ ${label}: transient network error (attempt ${transientAttempts}/${transientMaxAttempts}), retrying in ${Math.round(waitMs / 1000)}s... [${formatTransientDiagnostics(description)}]`));
-        await sleepWithCountdown(waitMs, log);
-        continue;
-      }
-
-      await Promise.resolve(log(`ℹ️ ${label}: error is not retryable [${formatTransientDiagnostics(description)}]; propagating to caller.`));
-      throw error;
-    }
-  }
-  // Unreachable — loop either returns or throws via the budgets above.
-  throw lastError;
+      },
+    },
+    log: (message, { kind, threw, diagnostics } = {}) => {
+      if (kind !== 'not-retrying') return log(message);
+      // A thrown non-retryable error is about to abort the caller, so say why.
+      // A resolved non-zero exit is routinely an expected answer (a 404 probe),
+      // so it is not announced on every call.
+      if (threw) return log(`ℹ️ ${label}: error is not retryable [${diagnostics}]; propagating to caller.`);
+    },
+  });
 };
 
 /**
@@ -469,20 +447,17 @@ export const wrapDollarWithGhRetry = (dollar, options = {}) => {
       preview += strings[i];
       if (i < values.length) preview += String(values[i] ?? '');
     }
-    const isGh = /^\s*gh(?:\s|$)/.test(preview);
-    if (!isGh) {
-      // Issue #2168: "retry for any git/github operation". Network-facing git
-      // commands (`git push`/`fetch`/`pull`/`ls-remote`) get the same treatment
-      // here so every module already using the wrapped `$` is covered without
-      // touching its call sites. Everything else passes straight through.
-      const gitSubcommand = matchGitNetworkCommand(preview);
-      if (gitSubcommand) {
-        return (async () => {
-          const { gitCmdRetry } = await import('./lib.mjs');
-          return gitCmdRetry(() => dollar(strings, ...values), { label: `$git (${gitSubcommand})`, ...options });
-        })();
-      }
-      return dollar(strings, ...values);
+    // Issue #2168: "retry for any git/github operation". Network-facing git
+    // commands (`git push`/`fetch`/`pull`/`ls-remote`) get the same treatment
+    // here so every module already using the wrapped `$` is covered without
+    // touching its call sites. Everything else passes straight through.
+    const operation = classifyGitHubCommand(preview);
+    if (!operation) return dollar(strings, ...values);
+    if (operation.tool === 'git') {
+      return (async () => {
+        const { gitCmdRetry } = await import('./lib.mjs');
+        return gitCmdRetry(() => dollar(strings, ...values), { label: `$git (${operation.subcommand})`, ...options });
+      })();
     }
     return ghWithRateLimitRetry(() => dollar(strings, ...values), {
       label: `$gh (${preview.trim().split(/\s+/).slice(0, 3).join(' ')})`,
@@ -493,6 +468,32 @@ export const wrapDollarWithGhRetry = (dollar, options = {}) => {
   wrapped.raw = dollar;
   return wrapped;
 };
+
+/**
+ * Wrap a `(command, args, options) => result` runner - the `spawn`/`execFile`
+ * shape used by modules that pass argv arrays instead of a shell string - so
+ * the GitHub operations it starts are retried exactly like `wrapDollarWithGhRetry`
+ * retries `$` calls: `gh ...` through `ghWithRateLimitRetry` (rate limit + 5xx),
+ * network git through `gitCmdRetry` (5xx, dropped packs, anonymous-limit auth
+ * repair). Local commands pass straight through.
+ *
+ * The runner may reject (`execFile`) or resolve `{ code, stdout, stderr }`;
+ * either way the caller sees the last attempt in the shape it already handles.
+ *
+ * @template R
+ * @param {(command: string, args: string[], options?: object) => Promise<R>} run
+ * @param {object} [options] - forwarded to the retry wrapper per call.
+ * @returns {(command: string, args: string[], options?: object) => Promise<R>}
+ */
+export const wrapRunnerWithGitHubRetry = (run, options = {}) =>
+  wrapRunnerWithTransientRetry(run, {
+    ...options,
+    retryGh: (fn, retryOptions) => ghWithRateLimitRetry(fn, retryOptions),
+    retryGit: async (fn, retryOptions) => {
+      const { gitCmdRetry } = await import('./lib.mjs');
+      return gitCmdRetry(fn, retryOptions);
+    },
+  });
 
 export { isTransientNetworkError, isTransientCompareApiError };
 
@@ -510,4 +511,5 @@ export default {
   ghWithRateLimitRetry,
   execGhWithRetry,
   wrapDollarWithGhRetry,
+  wrapRunnerWithGitHubRetry,
 };

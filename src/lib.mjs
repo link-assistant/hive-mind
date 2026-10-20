@@ -3,7 +3,8 @@ import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 import { createCredentialStreamSanitizer, maskToken, sanitizeCredentialText } from './credential-sanitization-core.lib.mjs';
 import { recordLogBytes, resetLogGrowth } from './log-growth.lib.mjs'; // issue #2135: notice a session log that is running away
 import { isPlaceholderErrorText } from './error-text.lib.mjs'; // issue #2141: never publish "[object Object]" as a reason
-import { describeTransientError, formatTransientDiagnostics, isTransientNetworkError as isTransientNetworkErrorShared } from './transient-errors.lib.mjs'; // issue #2168: one shared transient-fault vocabulary for git + gh
+import { isTransientNetworkError as isTransientNetworkErrorShared } from './transient-errors.lib.mjs'; // issue #2168: one shared transient-fault vocabulary for git + gh
+import { retryGitHubOperation } from './github-operation-retry.lib.mjs'; // issue #3552: one retry loop for every GitHub operation
 
 export { maskToken };
 
@@ -577,34 +578,42 @@ export const isTransientNetworkError = error => isTransientNetworkErrorShared(er
  */
 export const ghRetry = async (fn, options = {}) => {
   const { maxAttempts = 3, delay = 1000, backoff = 2, label = 'gh command' } = options;
-  const { isRateLimitError, parseRateLimitReset, fetchNextRateLimitReset, computeRateLimitWait } = await import('./github-rate-limit.lib.mjs');
-
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      return await fn();
-    } catch (error) {
-      if (isRateLimitError(error) && attempt < maxAttempts) {
-        const reset = parseRateLimitReset(error) || (await fetchNextRateLimitReset());
-        const { waitMs, deadline, bufferMs, jitterMs } = computeRateLimitWait(reset);
-        const resetSummary = reset ? `reset at ${reset.toISOString()}` : 'reset time unknown';
-        await log(`⏳ ${label}: GitHub API rate limit hit (attempt ${attempt}/${maxAttempts}). Waiting ${Math.round(waitMs / 60000)} min (${resetSummary}; buffer ${Math.round(bufferMs / 60000)} min + jitter ${Math.round(jitterMs / 1000)}s) until ${deadline.toISOString()}.`, { level: 'warn' });
-        await sleep(waitMs);
-        continue;
-      }
-      // Issue #2168: always record the classification, so a failure that was
-      // NOT retried leaves the reason (and GitHub's request id) in the log.
-      const description = describeTransientError(error);
-      if (description.transient && attempt < maxAttempts) {
-        const waitTime = delay * Math.pow(backoff, attempt - 1);
-        await log(`⚠️ ${label}: transient error (attempt ${attempt}/${maxAttempts}), retrying in ${waitTime / 1000}s... [${formatTransientDiagnostics(description)}]`, { level: 'warn' });
-        await sleep(waitTime);
-        continue;
-      }
-      await log(`   ${label}: not retrying [${formatTransientDiagnostics(description)}] attempt=${attempt}/${maxAttempts}`, { verbose: true });
-      throw error;
-    }
-  }
+  return retryGitHubOperation(fn, { label, noun: '', maxAttempts, delayMs: delay, backoff, sharedBudget: true, sleep, log: retryLog(log), rateLimit: await sharedBudgetRateLimit(label) });
 };
+
+/**
+ * The historical `ghRetry`/`ghCmdRetry` rate-limit policy: wait for the reset
+ * window, counting the wait against the same attempt budget.
+ *
+ * @param {string} label
+ */
+const sharedBudgetRateLimit = async label => {
+  const { isRateLimitError, parseRateLimitReset, fetchNextRateLimitReset, computeRateLimitWait } = await import('./github-rate-limit.lib.mjs');
+  return {
+    isRateLimited: isRateLimitError,
+    wait: async (failure, attempt, maxAttempts) => {
+      const reset = parseRateLimitReset(failure) || (await fetchNextRateLimitReset());
+      const { waitMs, deadline, bufferMs, jitterMs } = computeRateLimitWait(reset);
+      const resetSummary = reset ? `reset at ${reset.toISOString()}` : 'reset time unknown';
+      await log(`⏳ ${label}: GitHub API rate limit hit (attempt ${attempt}/${maxAttempts}). Waiting ${Math.round(waitMs / 60000)} min (${resetSummary}; buffer ${Math.round(bufferMs / 60000)} min + jitter ${Math.round(jitterMs / 1000)}s) until ${deadline.toISOString()}.`, { level: 'warn' });
+      await sleep(waitMs);
+    },
+  };
+};
+
+/**
+ * Adapt this module's `log(message, { level, verbose })` to the
+ * `retryGitHubOperation` logger contract.
+ *
+ * @param {Function} logFn
+ */
+const retryLog =
+  logFn =>
+  (message, { level } = {}) =>
+    level === 'verbose' ? logFn(message, { verbose: true }) : logFn(message, { level: level === 'error' ? 'error' : 'warn' });
+
+/** `ghCmdRetry`/`gitCmdRetry` contract: anything but `code === 0` is a failure. */
+const isNonZeroResult = result => result?.code !== 0;
 
 /**
  * Execute a command-stream `$` call with retry on transient network errors.
@@ -621,50 +630,23 @@ export const ghRetry = async (fn, options = {}) => {
  */
 export const ghCmdRetry = async (cmdFn, options = {}) => {
   const { maxAttempts = 3, delay = 1000, backoff = 2, label = 'gh command' } = options;
-  const { isRateLimitError, parseRateLimitReset, fetchNextRateLimitReset, computeRateLimitWait } = await import('./github-rate-limit.lib.mjs');
-
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const result = await cmdFn();
-
+  return retryGitHubOperation(cmdFn, {
+    label,
+    noun: '',
+    maxAttempts,
+    delayMs: delay,
+    backoff,
+    sharedBudget: true,
+    isFailedResult: isNonZeroResult,
+    sleep,
+    log: retryLog(log),
+    rateLimit: await sharedBudgetRateLimit(label),
     // Log stderr to log file for parity (issue #1536)
-    const stderr = result.stderr?.toString().trim();
-    if (stderr && result.code !== 0) {
-      await log(`   [stderr] ${stderr}`, { level: 'warn' });
-    }
-
-    if (result.code === 0) {
-      return result;
-    }
-
-    const combinedOutput = (result.stdout?.toString() || '') + ' ' + (result.stderr?.toString() || '');
-    const errorLike = { message: combinedOutput, stdout: result.stdout, stderr: result.stderr };
-
-    // Issue #1726: rate-limit errors deserve a long, deterministic wait.
-    if (isRateLimitError(errorLike) && attempt < maxAttempts) {
-      const reset = parseRateLimitReset(errorLike) || (await fetchNextRateLimitReset());
-      const { waitMs, deadline, bufferMs, jitterMs } = computeRateLimitWait(reset);
-      const resetSummary = reset ? `reset at ${reset.toISOString()}` : 'reset time unknown';
-      await log(`⏳ ${label}: GitHub API rate limit hit (attempt ${attempt}/${maxAttempts}). Waiting ${Math.round(waitMs / 60000)} min (${resetSummary}; buffer ${Math.round(bufferMs / 60000)} min + jitter ${Math.round(jitterMs / 1000)}s) until ${deadline.toISOString()}.`, { level: 'warn' });
-      await sleep(waitMs);
-      continue;
-    }
-
-    // Check if this is a transient network / GitHub-server error worth retrying
-    // (issue #2168 — the classification is logged either way so the next
-    // failure of this kind is diagnosable from the session log alone).
-    const description = describeTransientError(errorLike);
-    if (description.transient && attempt < maxAttempts) {
-      const waitTime = delay * Math.pow(backoff, attempt - 1);
-      await log(`⚠️ ${label}: transient error (attempt ${attempt}/${maxAttempts}), retrying in ${waitTime / 1000}s... [${formatTransientDiagnostics(description)}]`, { level: 'warn' });
-      await sleep(waitTime);
-      continue;
-    }
-
-    await log(`   ${label}: not retrying [${formatTransientDiagnostics(description)}] attempt=${attempt}/${maxAttempts} exit=${result.code}`, { verbose: true });
-
-    // Non-transient error or last attempt — return the result as-is
-    return result;
-  }
+    afterAttempt: async ({ outcome, threw }) => {
+      const stderr = threw ? '' : outcome?.stderr?.toString().trim();
+      if (stderr && outcome.code !== 0) await log(`   [stderr] ${stderr}`, { level: 'warn' });
+    },
+  });
 };
 
 /**
@@ -697,19 +679,19 @@ export const ghCmdRetry = async (cmdFn, options = {}) => {
 export const gitCmdRetry = async (cmdFn, options = {}) => {
   const { retryLimits } = await import('./config.lib.mjs');
   const { maxAttempts = retryLimits.maxGitRetries, delay = 2000, backoff = retryLimits.retryBackoffMultiplier, label = 'git command', log: logFn = log } = options;
-
-  let result;
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    result = await cmdFn();
-
-    if (result?.code === 0) return result;
-
-    // `2>&1` is the prevailing idiom at these call sites, so the diagnosis
-    // text can be on either stream.
-    const combinedOutput = `${result?.stdout?.toString() || ''}\n${result?.stderr?.toString() || ''}`;
-    const description = describeTransientError({ message: combinedOutput });
-
-    if (description.transient && attempt < maxAttempts) {
+  // `2>&1` is the prevailing idiom at these call sites, so the diagnosis text
+  // can be on either stream - `describeTransientError` reads both.
+  return retryGitHubOperation(cmdFn, {
+    label,
+    noun: 'git',
+    maxAttempts,
+    delayMs: delay,
+    backoff,
+    sharedBudget: true,
+    isFailedResult: isNonZeroResult,
+    sleep,
+    log: retryLog(logFn),
+    beforeRetry: async ({ description }) => {
       // Issue #2192: GitHub rejected the request because it arrived
       // *unauthenticated*. Waiting does not change that, so authenticate the
       // transport (repairing the gh state if needed) before the next attempt.
@@ -717,16 +699,8 @@ export const gitCmdRetry = async (cmdFn, options = {}) => {
         const { ensureAuthenticatedGitTransport } = await import('./git-auth-transport.lib.mjs');
         await ensureAuthenticatedGitTransport({ log: logFn, repair: true, reason: `${label} rejected as unauthenticated` });
       }
-      const waitTime = delay * Math.pow(backoff, attempt - 1);
-      await logFn(`⚠️ ${label}: transient git error (attempt ${attempt}/${maxAttempts}), retrying in ${Math.round(waitTime / 1000)}s... [${formatTransientDiagnostics(description)}]`, { level: 'warn' });
-      await sleep(waitTime);
-      continue;
-    }
-
-    await logFn(`   ${label}: not retrying [${formatTransientDiagnostics(description)}] attempt=${attempt}/${maxAttempts} exit=${result?.code}`, { verbose: true });
-    return result;
-  }
-  return result;
+    },
+  });
 };
 
 /**

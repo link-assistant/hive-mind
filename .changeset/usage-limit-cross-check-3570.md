@@ -16,3 +16,5 @@ A Claude, Codex or OpenCode run that stops on a usage limit is now reported as a
 - **OpenCode:** a usage limit inside any `{"type":"error"}` record is found, not only one in the last stdout chunk.
 - `ANTHROPIC_LOG=debug` dumps and base64 body lines are no longer used as the failure reason.
 - In verbose mode, every source is logged with its verdict (`🔍 Usage-limit cross-check (issue #3570):`). solve warns `⚠️ Usage limit found only in: …` when the tool's own output missed the limit.
+
+Also brings the pins that the CI dependency-freshness gate reported as stale up to date: `jscpd` 5.4.2 (devDependency and its platform packages) and the `@opentelemetry/api` 1.10.0 lockfile entry.

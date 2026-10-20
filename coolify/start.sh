@@ -54,6 +54,7 @@ fi
 export PATH="/home/box/.bun/bin:/home/box/.node-bin:/home/box/.local/bin:/home/box/.cargo/bin:$PATH"
 
 # Check if we have auth and URL
+# github-retry-ok: startup probe; on failure the container stays up for manual setup and a restart re-probes
 if gh auth status >/dev/null 2>&1 && [ -n "$GITHUB_URL" ]; then
   echo "✓ GitHub authenticated"
 
@@ -113,6 +114,7 @@ if gh auth status >/dev/null 2>&1 && [ -n "$GITHUB_URL" ]; then
   fi
 else
   echo ""
+  # github-retry-ok: hint for the person configuring the container
   if ! gh auth status >/dev/null 2>&1; then
     echo "⚠ GitHub not authenticated. Run: gh auth login"
   fi

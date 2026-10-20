@@ -8,3 +8,4 @@ dev/log/issues/2082/pulls/2083/ci-logs/*.log.gz -diff
 dev/log/issues/2082/pulls/2083/analysis/*.log.txt -diff
 docs/case-studies/issue-2395/raw/*.log.txt.gz -diff
 docs/case-studies/issue-3015/data/*.log.txt.gz -diff
+docs/case-studies/issue-3570/raw/*.log.txt.gz -diff

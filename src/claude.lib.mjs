@@ -9,6 +9,7 @@ import { isENOSPC, buildToolErrorMessage } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits, claudeCode, getClaudeEnv, getMaxOutputTokensForModel } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage, isUsageLimitError } from './usage-limit.lib.mjs';
+import { createClaudeUsageLimitEvidence, resolveClaudeUsageLimit } from './claude.usage-limit-sources.lib.mjs'; // Issue #3570
 import { detectSubscriptionError, SUBSCRIPTION_BLOCKED_MARKER } from './subscription-error.lib.mjs'; // Issue #2161
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
 import { setupBidirectionalHandler, finalizeBidirectionalHandler, validateBidirectionalModeConfig, attachStreamingInput } from './bidirectional-interactive.lib.mjs';
@@ -238,6 +239,7 @@ export const executeClaudeCommand = async params => {
     let messageCount = 0;
     let toolUseCount = 0;
     let lastMessage = '';
+    const usageLimitEvidence = createClaudeUsageLimitEvidence(); // Issue #3570: transcript, rate_limit_event and debug 429 headers, cross-checked on failure
     let isOverloadError = false;
     let is503Error = false;
     let isInternalServerError = false;
@@ -657,6 +659,7 @@ export const executeClaudeCommand = async params => {
                 }
               }
               const eventFacts = collectClaudeStreamEventFacts(data);
+              usageLimitEvidence.observeEvent(data);
               // Issue #2840: the model that actually runs, recorded as it arrives so a crash or kill keeps it.
               for (const observed of extractClaudeEventModelIds(data)) {
                 if (recordObservedModel({ ...observed, requestedModel: argv.model })) await log(`🤖 Model reported by Claude (${observed.source}${observed.fromSubagent ? ', sub-agent' : ''}): ${observed.modelId}`);
@@ -816,7 +819,7 @@ export const executeClaudeCommand = async params => {
               // Not JSON or parsing failed, output as-is if it's not empty
               if (line.trim() && !line.includes('node:internal')) {
                 await log(line, { stream: 'stdout' });
-                lastMessage = line;
+                if (!usageLimitEvidence.observeRawLine(line).isDebugOutput) lastMessage = line; // Issue #3570: a base64 debug dump is not a failure reason
                 // Issue #1015: Detect terms acceptance prompt (non-JSON "[ACTION REQUIRED]..." message)
                 const termsAcceptancePattern = /\[ACTION REQUIRED\].*terms|must run.*claude.*review.*terms/i;
                 if (termsAcceptancePattern.test(line)) {
@@ -839,7 +842,7 @@ export const executeClaudeCommand = async params => {
             const ceilingSeconds = printTurn.observeStderr(errorOutput);
             if (ceilingSeconds !== null) await log(`⚠️ Claude Code print mode reached its ${ceilingSeconds}s background-task wait ceiling and is stopping background tasks (issue #2301)`, { level: 'warning' });
             for (const line of errorOutput.split('\n')) {
-              if (isStderrError(line)) stderrErrors.push(line.trim());
+              if (!usageLimitEvidence.observeRawLine(line, 'stderr').isDebugOutput && isStderrError(line)) stderrErrors.push(line.trim());
             }
           }
         } else if (chunk.type === 'exit') {
@@ -860,6 +863,7 @@ export const executeClaudeCommand = async params => {
           await log(JSON.stringify(data, null, 2));
           await baseBranchCommandIntervention.handleStreamEvent(data);
           const eventFacts = collectClaudeStreamEventFacts(data);
+          usageLimitEvidence.observeEvent(data);
           const afterResult = printTurn.observeEvent(data).afterResult && !streamingInput;
           await resultClose.observeEvent(data);
           terminalToolResult = updateTerminalToolResult(terminalToolResult, eventFacts, { afterResult });
@@ -1036,6 +1040,9 @@ export const executeClaudeCommand = async params => {
       // Issue #3015: after a successful result `lastMessage` is the work summary, not an error;
       // classifying or publishing it as one produced "CLAUDE execution failed with I fixed…".
       if (commandFailed) lastMessage = selectClaudeFailureMessage({ lastMessage, exitCode, resultSuccessReceived, resultSummary });
+      // Issue #3570: the limit may exist only in the transcript, a rate_limit_event or the debug 429 headers.
+      const crossCheckedLimit = commandFailed && !subscriptionError ? await resolveClaudeUsageLimit({ lastMessage, evidence: usageLimitEvidence, tempDir, sessionId, log }) : null;
+      if (crossCheckedLimit?.isUsageLimit) [limitReached, lastMessage] = [true, crossCheckedLimit.message];
       const retryableLastError = classifyRetryableError(lastMessage);
       // Issue #1834: Corrupted extended-thinking blocks → try to resume the session first, then fall
       // back to a fresh restart (PR #1835 feedback). When both caps are reached, tryThinkingBlockRecovery
@@ -1161,7 +1168,7 @@ export const executeClaudeCommand = async params => {
       }
       if (commandFailed) {
         // Check for usage limit errors first (more specific)
-        const limitInfo = detectUsageLimit(lastMessage);
+        const limitInfo = crossCheckedLimit?.isUsageLimit ? crossCheckedLimit : detectUsageLimit(lastMessage);
         if (limitInfo.isUsageLimit) {
           limitReached = true;
           limitResetTime = limitInfo.resetTime;

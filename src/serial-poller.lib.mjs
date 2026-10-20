@@ -64,3 +64,26 @@ export function startSerialPoller(tick, { intervalMs, runImmediately = true, unr
     whenIdle: () => running || Promise.resolve(),
   };
 }
+
+/** Whether `promise` settles within `ms`; a rejection that arrives in time is rethrown. */
+export async function settlesWithin(promise, ms) {
+  let timer;
+  const timeout = new Promise(resolve => {
+    timer = setTimeout(resolve, ms);
+  });
+  try {
+    // The settled branch never rejects, so a rejection after the timeout stays
+    // with the caller's own handler instead of becoming unhandled here.
+    const outcome = await Promise.race([
+      promise.then(
+        () => ({ done: true }),
+        error => ({ done: true, error })
+      ),
+      timeout.then(() => ({ done: false })),
+    ]);
+    if (outcome.error) throw outcome.error;
+    return outcome.done;
+  } finally {
+    clearTimeout(timer);
+  }
+}

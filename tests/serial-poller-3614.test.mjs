@@ -13,7 +13,7 @@
  */
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { startSerialPoller } from '../src/serial-poller.lib.mjs';
+import { settlesWithin, startSerialPoller } from '../src/serial-poller.lib.mjs';
 import { startSidecarMaintenance } from '../src/docker-sidecar.lib.mjs';
 import { monitorSessions, resetSessionMonitorForTests, trackSession } from '../src/session-monitor.lib.mjs';
 
@@ -126,6 +126,16 @@ test('startSerialPoller with runImmediately: false waits one interval; stop() du
   await poller.whenIdle();
   await sleep(0);
   assert.equal(timers.pending.size, 0);
+});
+
+test('settlesWithin reports whether a promise settled in time and rethrows an early rejection', async () => {
+  assert.equal(await settlesWithin(sleep(5), 1000), true);
+  const late = sleep(200).then(() => {
+    throw new Error('late');
+  });
+  assert.equal(await settlesWithin(late, 10), false);
+  await assert.rejects(late, /late/);
+  await assert.rejects(settlesWithin(Promise.reject(new Error('early')), 1000), /early/);
 });
 
 test('sidecar maintenance skips a tick while the previous one is still running', async () => {

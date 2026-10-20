@@ -50,7 +50,7 @@ import { getNonIsolationSessionProgress, readScreenExitMarker, removeScreenExitM
 import { enforceContainerDiskLimitForSession as enforceContainerDiskLimit, formatContainerResourceLimitExceededSection } from './container-resource-monitor.lib.mjs';
 import { runDockerCpuPenaltyPass, formatDockerCpuPenaltySection } from './docker-cpu-penalty.lib.mjs';
 import { removeSnapshotImages, snapshotImagesForContainer } from './kill-recovery-snapshot-cleanup.lib.mjs';
-import { startSerialPoller } from './serial-poller.lib.mjs';
+import { settlesWithin, startSerialPoller } from './serial-poller.lib.mjs';
 export { formatSessionCompletionMessage, getSessionCompletionExitCode } from './work-session-formatting.lib.mjs';
 export { DOCKER_TERMINAL_FOOTER_GRACE_MS } from './session-monitor.docker-terminal.lib.mjs';
 export { STALE_EXECUTING_MIN_AGE_MS, DOCKER_BACKEND_GONE_GRACE_MS } from './session-monitor.stale-executing.lib.mjs';
@@ -693,10 +693,7 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
     }
     sessionsInFlight.add(entry.sessionName);
     const handling = monitorTrackedSession(bot, entry, verbose, options).finally(() => sessionsInFlight.delete(entry.sessionName));
-    // Issue #3614: the monitor no longer overlaps its own ticks, so a session
-    // whose completion takes minutes is left to finish in the background after
-    // `sessionBudgetMs` (the guard above keeps it from running twice) instead
-    // of holding up every other session until it is done.
+    // Issue #3614: ticks no longer overlap, so a completion that takes minutes finishes in the background after `sessionBudgetMs` (the guard above keeps it from running twice).
     if (!(options.sessionBudgetMs > 0)) await handling;
     else if (!(await settlesWithin(handling, options.sessionBudgetMs))) {
       handling.catch(error => console.error(`[session-monitor] Session ${entry.sessionName} check failed: ${error?.message || error}`));
@@ -704,28 +701,6 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
     }
   }
   await cpuPenaltyPass;
-}
-/** Whether `promise` settles within `ms`; a rejection that arrives in time is rethrown. */
-async function settlesWithin(promise, ms) {
-  let timer;
-  const timeout = new Promise(resolve => {
-    timer = setTimeout(resolve, ms);
-  });
-  try {
-    // The settled branch never rejects, so a rejection after the timeout stays
-    // with the caller's own handler instead of becoming unhandled here.
-    const outcome = await Promise.race([
-      promise.then(
-        () => ({ done: true }),
-        error => ({ done: true, error })
-      ),
-      timeout.then(() => ({ done: false })),
-    ]);
-    if (outcome.error) throw outcome.error;
-    return outcome.done;
-  } finally {
-    clearTimeout(timer);
-  }
 }
 function runCpuPenaltyPass(sessions, verbose, options) {
   // A session completed while the pass ran must not be written back to the durable snapshot.
@@ -1252,12 +1227,7 @@ async function resolvePullRequestUrlForSession(sessionInfo, { verbose = false, l
   return null;
 }
 /**
- * Start session monitoring.
- *
- * Issue #3614: a self-rescheduling timer ({@link startSerialPoller}) replaces
- * `setInterval`, so a slow tick is never overlapped by the next one; the next
- * tick starts `intervalMs` after the previous one ended.
- *
+ * Start session monitoring. Issue #3614: {@link startSerialPoller} starts the next tick `intervalMs` after the previous one ended, so ticks never overlap.
  * @param {Object} bot - Telegraf bot instance for sending messages
  * @param {boolean} verbose - Whether to log verbose output
  * @param {number} intervalMs - Delay between monitoring passes in milliseconds (default: 30000)

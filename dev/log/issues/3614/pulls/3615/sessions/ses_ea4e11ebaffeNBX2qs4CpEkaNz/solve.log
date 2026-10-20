@@ -3494,3 +3494,64 @@ remote:
 [2026-10-20T21:03:47.686Z] [INFO]    Solve resume mode:   "/home/box/.nvm/versions/node/v26.12.0/bin/node" "/home/box/.bun/bin/solve" "https://github.com/link-assistant/hive-mind/issues/3614" --resume "ses_ea4e11ebaffeNBX2qs4CpEkaNz" --tool "agent" --model "formal-ai" --working-directory "/tmp/gh-issue-solver-1792530065408"
 [2026-10-20T21:03:47.687Z] [INFO] 
 [2026-10-20T21:03:47.689Z] [INFO] 🔍 Development log finalize: issue #3614, PR #3615, branch issue-3614-4b1b8414528b, session ses_ea4e11ebaffeNBX2qs4CpEkaNz, log slice from byte 0
+[2026-10-20T21:03:47.939Z] [INFO] 🧾 Development log artifacts written to dev/log/issues/3614/pulls/3615/sessions/ses_ea4e11ebaffeNBX2qs4CpEkaNz (log bytes 0-454783)
+[2026-10-20T21:03:47.940Z] [INFO] 🧾 Development log artifacts written to ./dev/log/issues/3614/pulls/3615
+[2026-10-20T21:03:48.228Z] [STDOUT] [issue-3614-4b1b8414528b 5542a8e69] Add development log for issue #3614 PR #3615
+ 2 files changed, 3516 insertions(+)
+ create mode 100644 dev/log/issues/3614/pulls/3615/sessions/ses_ea4e11ebaffeNBX2qs4CpEkaNz/metadata.json
+ create mode 100644 dev/log/issues/3614/pulls/3615/sessions/ses_ea4e11ebaffeNBX2qs4CpEkaNz/solve.log
+[2026-10-20T21:03:48.229Z] [INFO] ✅ Development log committed
+[2026-10-20T21:03:49.706Z] [STDERR] To https://github.com/link-assistant/hive-mind.git
+   e7ac73e63..5542a8e69  issue-3614-4b1b8414528b -> issue-3614-4b1b8414528b
+[2026-10-20T21:03:49.710Z] [INFO] ✅ Development log pushed
+[2026-10-20T21:03:49.712Z] [INFO] 🔍 Checking if AI created any comments during session (--auto-attach-solution-summary)...
+[2026-10-20T21:03:50.205Z] [INFO] 🔎 /user is not readable with this token; using its GraphQL identity 'github-actions[bot]'
+[2026-10-20T21:03:50.207Z] [INFO] 🔎 Checking comments by 'github-actions[bot]' after session start 2026-10-20T21:01:44.917Z (PR #3615, issue #3614)
+[2026-10-20T21:03:50.525Z] [INFO]    📨 PR conversation comments after session start by 'github-actions[bot]' (excluding tool-generated): 0
+[2026-10-20T21:03:50.803Z] [INFO]    📝 PR review (inline) comments after session start by 'github-actions[bot]': 0
+[2026-10-20T21:03:51.181Z] [INFO]    📝 PR reviews after session start by 'github-actions[bot]': 0
+[2026-10-20T21:03:51.477Z] [INFO]    📨 Issue comments after session start by 'github-actions[bot]' (excluding tool-generated): 0
+[2026-10-20T21:03:51.479Z] [INFO] 📝 No AI comments detected, attaching working session summary...
+[2026-10-20T21:03:53.110Z] [INFO] ✅ Working session summary attached to pr #3615 (id=6301440778)
+[2026-10-20T21:03:53.113Z] [INFO] 
+[2026-10-20T21:03:53.113Z] [INFO] 🔍 Searching for created pull requests or comments...
+[2026-10-20T21:03:53.322Z] [INFO]   ℹ️  Integration token cannot read the authenticated user; matching comments written by the app
+[2026-10-20T21:03:53.323Z] [INFO] 
+[2026-10-20T21:03:53.323Z] [INFO] 🔍 Checking for pull requests from branch issue-3614-4b1b8414528b...
+[2026-10-20T21:03:53.655Z] [INFO]   ✅ Found pull request #3615: "[WIP] Telegram bot polls Docker and session state up to ~95 times a minute with a new process each time (0.5–1 core): add a configurable min interval (5 s, ≤12 checks/min) with an in-memory cache, audit all similar polling, keep it async"
+[2026-10-20T21:03:55.013Z] [INFO]   📝 Removing [WIP] prefix from PR title...
+[2026-10-20T21:03:56.818Z] [STDOUT] https://github.com/link-assistant/hive-mind/pull/3615
+[2026-10-20T21:03:56.821Z] [INFO]   ✅ Updated PR title to: "Telegram bot polls Docker and session state up to ~95 times a minute with a new process each time (0.5–1 core): add a configurable min interval (5 s, ≤12 checks/min) with an in-memory cache, audit all similar polling, keep it async"
+[2026-10-20T21:03:56.823Z] [INFO]   📝 Updating PR description to remove placeholder text...
+[2026-10-20T21:03:57.643Z] [WARNING]   ⚠️  PR #3615 has an empty diff - the description will say so instead of claiming changes
+[2026-10-20T21:03:57.890Z] [STDOUT] Telegram bot polls Docker and session state up to ~95 times a minute with a new process each time (0.5–1 core): add a configurable min interval (5 s, ≤12 checks/min) with an in-memory cache, audit all similar polling, keep it async
+[2026-10-20T21:03:57.893Z] [STDERR] [use-m] use('fs') joined an in-flight load (alias fs-v-latest)
+[2026-10-20T21:03:59.529Z] [STDOUT] https://github.com/link-assistant/hive-mind/pull/3615
+[2026-10-20T21:03:59.533Z] [INFO]   ✅ Updated PR description with solution summary
+[2026-10-20T21:04:01.263Z] [INFO] 🔎 /user is not readable with this token; using its GraphQL identity 'github-actions[bot]'
+[2026-10-20T21:04:01.270Z] [INFO] 🔎 Checking comments by 'github-actions[bot]' after session start 2026-10-20T21:01:50.132Z (PR #3615, issue #3614)
+[2026-10-20T21:04:01.603Z] [INFO]    ⏭️  Skipped pr tool-tracked comment IDs: 1
+[2026-10-20T21:04:01.604Z] [INFO]    📨 PR conversation comments after session start by 'github-actions[bot]' (excluding tool-generated): 0
+[2026-10-20T21:04:01.914Z] [INFO]    📝 PR review (inline) comments after session start by 'github-actions[bot]': 0
+[2026-10-20T21:04:02.237Z] [INFO]    📝 PR reviews after session start by 'github-actions[bot]': 0
+[2026-10-20T21:04:02.511Z] [INFO]    📨 Issue comments after session start by 'github-actions[bot]' (excluding tool-generated): 0
+[2026-10-20T21:04:02.513Z] [WARNING] 
+[2026-10-20T21:04:02.513Z] [WARNING] ⚠️  Finished without changes: the session produced no change: no new commit, no file change and no comment
+[2026-10-20T21:04:03.294Z] [INFO] 
+[2026-10-20T21:04:03.294Z] [INFO] 📎 Uploading solution draft log to Pull Request...
+[2026-10-20T21:04:03.298Z] [STDERR] [use-m] use('fs') joined an in-flight load (alias fs-v-latest)
+[2026-10-20T21:04:03.326Z] [INFO] 📈 Resource usage (log upload start, 449KB log):
+[2026-10-20T21:04:03.326Z] [INFO]    CPU load: 0.99 1.35 0.81 (4 CPUs)
+[2026-10-20T21:04:03.326Z] [INFO]    Memory: 14.3 GB available / 15.6 GB total (1.4 GB used)
+[2026-10-20T21:04:03.326Z] [INFO]    Process RSS: 201 MB, V8 heap: 62 MB used of 4.1 GB limit (1.5%)
+[2026-10-20T21:04:03.326Z] [INFO]    Disk (/): 77.9 GB available / 144.3 GB total (46.0% used)
+[2026-10-20T21:04:03.326Z] [INFO]    Agent snapshot stores (/home/box/.local/share/link-assistant-agent): 1 store(s), 1 MB
+[2026-10-20T21:04:03.326Z] [INFO]    Container memory (cgroup v2): 2.8 GB used of no limit of its own, peak 2.8 GB; processes killed by the OOM killer so far: 0
+[2026-10-20T21:04:03.326Z] [INFO] 📈 [RESOURCES] phase=log_upload_start ts=2026-10-20T21%3A04%3A03.306Z load1=0.99 load5=1.35 load15=0.81 cpuCount=4 memTotalBytes=16764678144 memAvailableBytes=15305113600 memUsedBytes=1459564544 processRssBytes=211152896 processHeapUsedBytes=65161336 processHeapTotalBytes=110784512 processExternalBytes=9207623 processHeapLimitBytes=4395630592 processHeapUsedPercent=1.4824115593014782 diskPath=%2F diskTotalBytes=154894188544 diskAvailableBytes=83657752576 diskUsedBytes=71219658752 diskUsedPercent=45.97955508948549 mem=14.3%20GB%20available%20%2F%2015.6%20GB%20total heap=62%20MB%20used%20of%204.1%20GB%20limit%20(1.5%25) disk=77.9%20GB%20available%20%2F%20144.3%20GB%20total agentStatePath=%2Fhome%2Fbox%2F.local%2Fshare%2Flink-assistant-agent agentStoreCount=1 agentStoreBytes=1200885 cgroupVersion=2 cgroupMemLimitBytes=null cgroupMemCurrentBytes=2963918848 cgroupMemPeakBytes=3052261376 cgroupOomEvents=0 cgroupOomKills=0
+[2026-10-20T21:04:03.330Z] [STDERR] [use-m] use('https') loading (alias https-v-latest)
+[2026-10-20T21:04:03.331Z] [STDERR] [use-m] use('https') loaded in 1ms
+[2026-10-20T21:04:04.154Z] [INFO]   🤖 Model info fetched for comment
+[2026-10-20T21:04:04.163Z] [INFO]   ⏭️  Log is 449KB — skipping inline comment construction, the log goes straight to gh-upload-log
+[2026-10-20T21:04:04.167Z] [INFO]   📁 Log file too large for inline comment (449KB), using gh-upload-log
+[2026-10-20T21:04:04.168Z] [INFO]   📎 Uploading log using gh-upload-log...
+[2026-10-20T21:04:04.414Z] [INFO]   🔍 Repository visibility: public, log upload will be public

@@ -155,3 +155,18 @@ test('the real command-stream $ wrapped by wrapDollarWithGhRetry retries a faili
     process.env.PATH = originalPath;
   }
 });
+
+test('wrapping an already wrapped executor returns it unchanged (no nested, multiplied retries)', async () => {
+  let calls = 0;
+  const run = async () => (calls++, failed(BAD_GATEWAY));
+  const once = wrapRunnerWithTransientRetry(run, { maxAttempts: 3, sleep: noSleep, log: quiet });
+  assert.equal(wrapRunnerWithTransientRetry(once), once);
+  assert.equal(wrapRunnerWithGitHubRetry(once), once);
+  await wrapRunnerWithTransientRetry(once, { maxAttempts: 9 })('git', ['push']);
+  assert.equal(calls, 3, 'the inner budget applies once, not 3 x 9');
+
+  const dollar = () => ({ code: 0, stdout: '', stderr: '' });
+  const wrappedDollar = wrapDollarWithGhRetry(dollar);
+  assert.equal(wrapDollarWithGhRetry(wrappedDollar), wrappedDollar);
+  assert.equal(wrappedDollar.raw, dollar);
+});

@@ -2,7 +2,9 @@
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 // GitHub-related utility functions. Check if use is already defined (when imported from solve.mjs), if not, fetch it (when running standalone)
 if (typeof globalThis.use === 'undefined') await ensureUseM();
-const { $ } = await use('command-stream'); // Use command-stream for consistent $ behavior
+// Use command-stream for consistent $ behavior. Issue #3552: every `gh`/network
+// git call made with `$` goes through the shared GitHub retry loop.
+const { $: rawDollar$ } = await use('command-stream');
 import { log, maskToken, cleanErrorMessage, isENOSPC, ghCmdRetry } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import { describeRequestedThinking, githubLimits, timeouts } from './config.lib.mjs';
@@ -27,7 +29,8 @@ import { buildBudgetStatsString } from './claude.budget-stats.lib.mjs';
 import { buildCostInfoString, isFreeModelPricing } from './github-cost-info.lib.mjs';
 export { buildCostInfoString };
 // #1756: route gh exec calls through transient + rate-limit retry wrapper
-import { execGhWithRetry } from './github-rate-limit.lib.mjs';
+import { execGhWithRetry, wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs';
+const $ = wrapDollarWithGhRetry(rawDollar$);
 import { QUIET_PROBE } from './quiet-probe.lib.mjs'; // issues #2130, #2135: keep read-only probe payloads out of the attached log
 import { repositoryWriteAccess } from './github-write-access.lib.mjs';
 import { buildGitHubPullRequestUrl, buildGitHubPullRequestUrlOrNull, isGitHubUrlType, normalizeGitHubUrl, parseGitHubUrl } from './github-url-parser.lib.mjs';
@@ -58,7 +61,6 @@ const normalizeFailureActionSection = section => {
   return text.startsWith('\n') ? text : `\n\n${text}`;
 };
 export const checkFileInBranch = async (owner, repo, fileName, branchName) => {
-  const { $ } = await use('command-stream');
   try {
     // Issue #2130: this is an existence probe, and "absent" is the answer the caller is usually looking for. Mirroring the command would print the whole contents payload on a hit and `gh: Not Found (HTTP 404)` on a miss, which reads as a failure in the log even though nothing went wrong.
     const result = await $(QUIET_PROBE)`gh api repos/${owner}/${repo}/contents/${fileName}?ref=${branchName}`;
@@ -80,7 +82,6 @@ export const checkFileInBranch = async (owner, repo, fileName, branchName) => {
 };
 // Helper function to check GitHub permissions and warn about missing scopes
 export const checkGitHubPermissions = async () => {
-  const { $ } = await use('command-stream');
   try {
     await log('\n🔐 Checking GitHub authentication and permissions...');
     // Get auth status including token scopes. Issue #2130: capture without mirroring - the parsed summary below is what belongs in the log, not gh's raw account/token/scope block.
@@ -157,7 +158,7 @@ export const checkRepositoryWritePermission = async (owner, repo, options = {}) 
   try {
     await log('🔍 Checking repository write permissions...');
     // Use GitHub API to check repository permissions (issue #1536: retry on network errors)
-    const permResult = await ghCmdRetry(() => $`gh api repos/${owner}/${repo} --jq .permissions`, { label: `write perms ${owner}/${repo}` });
+    const permResult = await ghCmdRetry(() => rawDollar$`gh api repos/${owner}/${repo} --jq .permissions`, { label: `write perms ${owner}/${repo}` });
     if (permResult.code !== 0) {
       // API call failed - might be a private repo or network issue
       const errorOutput = (permResult.stderr?.toString() ? permResult.stderr.toString() : '') + (permResult.stdout?.toString() ? permResult.stdout.toString() : '');
@@ -1181,7 +1182,7 @@ export async function handlePRNotFoundError({ prNumber, owner, repo, argv, shoul
 export async function detectRepositoryVisibility(owner, repo) {
   try {
     // Issue #1536: retry on transient network errors
-    const visibilityResult = await ghCmdRetry(() => $(QUIET_PROBE)`gh api repos/${owner}/${repo} --jq .visibility`, { label: `visibility ${owner}/${repo}` });
+    const visibilityResult = await ghCmdRetry(() => rawDollar$(QUIET_PROBE)`gh api repos/${owner}/${repo} --jq .visibility`, { label: `visibility ${owner}/${repo}` });
     if (visibilityResult.code === 0) {
       const visibility = visibilityResult.stdout.toString().trim();
       const isPublic = visibility === 'public';

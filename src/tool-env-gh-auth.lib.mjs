@@ -23,8 +23,10 @@ import { execFile } from 'node:child_process';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
+import { wrapRunnerWithGitHubRetry } from './github-rate-limit.lib.mjs';
 
-const execFileAsync = promisify(execFile);
+// Issue #3552: `gh auth status` reaches the API, so it is retried on transient faults.
+const execFileAsync = wrapRunnerWithGitHubRetry(promisify(execFile));
 const GH_TIMEOUT_MS = 30_000;
 
 /** Names that must never be rendered into a logged command line. */

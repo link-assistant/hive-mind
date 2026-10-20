@@ -30,6 +30,17 @@
 import { describeTransientError, formatTransientDiagnostics } from './transient-errors.lib.mjs';
 import { matchGitNetworkCommand } from './git-retry.lib.mjs';
 
+/**
+ * Marks an executor that already retries GitHub operations, so wrapping it a
+ * second time returns it unchanged instead of nesting two retry loops (which
+ * would multiply the attempts). Wrapping at the point of use is therefore
+ * always safe, even when the caller may already have wrapped the executor.
+ */
+export const GITHUB_RETRY_WRAPPED = Symbol.for('hive-mind.github-retry-wrapped');
+
+/** True when `fn` was returned by one of the GitHub retry wrap factories. */
+export const isGitHubRetryWrapped = fn => typeof fn === 'function' && fn[GITHUB_RETRY_WRAPPED] === true;
+
 /** Defaults used when the caller passes nothing (scripts have no config.lib.mjs). */
 export const DEFAULT_GITHUB_RETRY = Object.freeze({ maxAttempts: 5, delayMs: 2000, backoff: 2 });
 
@@ -207,6 +218,7 @@ export const retryGitHubOperation = async (fn, options = {}) => {
  */
 export const wrapRunnerWithTransientRetry = (run, options = {}) => {
   if (typeof run !== 'function') throw new TypeError(`Expected a command runner function, received ${typeof run}.`);
+  if (isGitHubRetryWrapped(run)) return run;
   const { retryGh = retryGitHubOperation, retryGit = retryGitHubOperation, ...retryOptions } = options;
   const wrapped = (command, args = [], runOptions) => {
     const operation = classifyGitHubCommand(command, args);
@@ -215,7 +227,8 @@ export const wrapRunnerWithTransientRetry = (run, options = {}) => {
     return retry(() => run(command, args, runOptions), { label: operation.label, noun: operation.tool === 'git' ? 'git' : 'network', ...retryOptions });
   };
   wrapped.raw = run;
+  wrapped[GITHUB_RETRY_WRAPPED] = true;
   return wrapped;
 };
 
-export default { DEFAULT_GITHUB_RETRY, classifyGitHubCommand, isFailedCommandResult, retryGitHubOperation, wrapRunnerWithTransientRetry };
+export default { DEFAULT_GITHUB_RETRY, GITHUB_RETRY_WRAPPED, classifyGitHubCommand, isGitHubRetryWrapped, isFailedCommandResult, retryGitHubOperation, wrapRunnerWithTransientRetry };

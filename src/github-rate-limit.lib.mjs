@@ -21,7 +21,7 @@ import { promisify } from 'node:util';
 import { exec as execCb } from 'node:child_process';
 
 import { limitReset, retryLimits } from './config.lib.mjs';
-import { classifyGitHubCommand, retryGitHubOperation, wrapRunnerWithTransientRetry } from './github-operation-retry.lib.mjs';
+import { GITHUB_RETRY_WRAPPED, classifyGitHubCommand, isGitHubRetryWrapped, retryGitHubOperation, wrapRunnerWithTransientRetry } from './github-operation-retry.lib.mjs';
 import { collectErrorText, isTransientNetworkError, GITHUB_SERVER_TRANSIENT_PATTERNS } from './transient-errors.lib.mjs';
 
 const exec = promisify(execCb);
@@ -433,6 +433,8 @@ export const wrapDollarWithGhRetry = (dollar, options = {}) => {
   if (typeof dollar !== 'function') {
     throw new TypeError(`Expected command-stream's $ export to be a function, received ${typeof dollar}. Enable HIVE_MIND_USE_M_DEBUG=1 for loader diagnostics.`);
   }
+  // Already wrapped (e.g. a `$` handed in by a caller): never nest two loops.
+  if (isGitHubRetryWrapped(dollar)) return dollar;
   const wrapped = (strings, ...values) => {
     // Options-call form: `$({ mirror: false })` returns a new tag bound to
     // those options. Template literals always arrive as an array of quasis, so
@@ -466,6 +468,7 @@ export const wrapDollarWithGhRetry = (dollar, options = {}) => {
   };
   // Preserve a reference to the underlying $ for consumers that need it.
   wrapped.raw = dollar;
+  wrapped[GITHUB_RETRY_WRAPPED] = true;
   return wrapped;
 };
 

@@ -51,6 +51,7 @@ import { INTERACTIVE_SESSION_STARTED_MARKER, trackToolCommentId, withInteractive
 // docs/case-studies/issue-1745/analysis.md for the full timeline.
 import { containsKnownToken, getAllKnownLocalTokens, sanitizeForPublication } from './token-sanitization.lib.mjs';
 import { reportInteractiveLeak } from './telegram-leak-notifier.lib.mjs';
+import { wrapRunnerWithGitHubRetry } from './github-rate-limit.lib.mjs';
 
 /**
  * Creates an interactive mode handler for processing Claude/Codex CLI events
@@ -79,7 +80,8 @@ export const createInteractiveHandler = options => {
     imageUploader: injectedImageUploader,
   } = options;
   // Use injected execFile for testability, or the real one by default
-  const runGhApi = execFileFn || execFileAsync;
+  // Issue #3552: comment create/update calls are retried on transient GitHub faults.
+  const runGhApi = wrapRunnerWithGitHubRetry(execFileFn || execFileAsync);
 
   // State tracking for the handler
   const state = {

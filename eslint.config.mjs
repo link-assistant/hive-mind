@@ -220,13 +220,13 @@ export default [
   },
   {
     // Issue #2168: network-facing git commands (`git push`/`fetch`/`pull`/
-    // `ls-remote`) must go through a `$` carrying the retry wrapper, otherwise a
-    // single transient remote failure aborts the whole session. Helpers that
-    // receive `$` from their caller are exempt - the caller owns the wrapper.
-    // Scoped to src/ because tests drive local fixture repositories and the
-    // scripts/ helpers run against the already-checked-out working copy in CI,
-    // where a retry would only hide a genuine failure.
-    files: ['src/**/*.{js,mjs,cjs}'],
+    // `ls-remote`) must run under the shared retry loop, otherwise a single
+    // transient remote failure aborts the whole session. Helpers that receive
+    // `$` from their caller are exempt - the caller owns the wrapper.
+    // Issue #3552: scripts/ is covered too - the release script's single-shot
+    // `git push` is exactly what GitHub's `fatal error in commit_refs` killed.
+    // Tests drive local fixture repositories and stay out of scope.
+    files: ['src/**/*.{js,mjs,cjs}', 'scripts/**/*.{js,mjs,cjs}'],
     plugins: {
       'gh-rate-limit': ghRateLimitPlugin,
     },

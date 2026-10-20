@@ -22,12 +22,17 @@
  *   - Verifies the pushed index really contains the released version, so any
  *     future regression is a red build rather than a silent no-op.
  *
- * Uses only Node built-ins so it has no dependency on node_modules state.
+ * Issue #3552: GitHub can answer a push with a server-side fault such as
+ * `remote: fatal error in commit_refs`; such pushes are retried as-is.
+ *
+ * Uses only Node built-ins (plus the dependency-free shared retry leaf module)
+ * so it has no dependency on node_modules state.
  */
 
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 
-import { runCommand, runStrict } from './run-command.lib.mjs';
+import { retryGitHubOperation, wrapRunnerWithTransientRetry } from '../src/github-operation-retry.lib.mjs';
+import { CommandFailedError, runCommand, runStrict } from './run-command.lib.mjs';
 
 /** Git's well-known hash of the empty tree, used to create an orphan branch without a checkout. */
 const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
@@ -36,6 +41,24 @@ export const DEFAULT_CHART_DIR = 'helm/hive-mind';
 export const DEFAULT_PACKAGE_DIR = '.helm-packages';
 export const DEFAULT_WORKTREE_DIR = '.helm-gh-pages';
 export const PUBLISH_BRANCH = 'gh-pages';
+const PUSH_ATTEMPTS = 3;
+const PUSH_RETRY_DELAY_MS = 3000;
+
+/** Route the shared retry loop's messages to the injected logger, minus verbose verdicts. */
+const retryLogTo = logger => (message, meta) => meta?.level !== 'verbose' && logger.log(message);
+
+/**
+ * Run `git push` and retry it only on transient GitHub/network faults
+ * (issue #3552), through the shared `retryGitHubOperation` loop. Any other
+ * failure is thrown on the first attempt.
+ */
+export async function pushWithTransientRetry(args, { runner = runCommand, sleeper, logger = console, verbose = false, maxAttempts = PUSH_ATTEMPTS, delayMs = PUSH_RETRY_DELAY_MS } = {}) {
+  const result = await retryGitHubOperation(() => runner('git', args, { verbose, logger }), { label: 'git push', noun: 'git', maxAttempts, delayMs, backoff: 1, ...(sleeper && { sleep: sleeper }), log: retryLogTo(logger) });
+  if (result.code !== 0) {
+    throw new CommandFailedError('git', args, result);
+  }
+  return result;
+}
 
 /**
  * Read the chart name out of a Chart.yaml document.
@@ -87,17 +110,22 @@ export function indexContainsVersion(indexYaml, version) {
  * @param {string} [opts.worktreeDir]
  * @param {typeof runCommand} [opts.runner] Soft runner; failures become throws via runStrict.
  * @param {object} [opts.fs] Injectable filesystem (readFileSync/writeFileSync/existsSync/copyFileSync/mkdirSync/rmSync).
+ * @param {(ms: number) => Promise<void>} [opts.sleeper] Delay between transient push retries (issue #3552).
  * @param {Console} [opts.logger]
  * @param {boolean} [opts.verbose]
  * @returns {Promise<{published: boolean, version: string, chartName: string, archive: string}>}
  */
-export async function releaseHelmChart({ version, helmRepoUrl, githubActor, chartDir = DEFAULT_CHART_DIR, packageDir = DEFAULT_PACKAGE_DIR, worktreeDir = DEFAULT_WORKTREE_DIR, runner = runCommand, fs = { readFileSync, writeFileSync, existsSync, copyFileSync, mkdirSync, rmSync }, logger = console, verbose = false }) {
+export async function releaseHelmChart({ version, helmRepoUrl, githubActor, chartDir = DEFAULT_CHART_DIR, packageDir = DEFAULT_PACKAGE_DIR, worktreeDir = DEFAULT_WORKTREE_DIR, runner = runCommand, fs = { readFileSync, writeFileSync, existsSync, copyFileSync, mkdirSync, rmSync }, sleeper, logger = console, verbose = false }) {
   if (!version) {
     throw new Error('Version is required');
   }
 
-  const strict = (command, args) => runStrict(command, args, { runner, verbose, logger });
-  const soft = (command, args) => runner(command, args, { verbose, logger });
+  // Network git (fetch, ls-remote) goes through the shared retry loop; local
+  // commands pass straight through (issue #3552).
+  const retryingRunner = wrapRunnerWithTransientRetry(runner, { ...(sleeper && { sleep: sleeper }), log: retryLogTo(logger) });
+  const strict = (command, args) => runStrict(command, args, { runner: retryingRunner, verbose, logger });
+  const soft = (command, args) => retryingRunner(command, args, { verbose, logger });
+  const push = args => pushWithTransientRetry(args, { runner, sleeper, logger, verbose });
   const chartPath = `${chartDir}/Chart.yaml`;
 
   logger.log(`Releasing Helm chart version ${version}...`);
@@ -131,7 +159,7 @@ export async function releaseHelmChart({ version, helmRepoUrl, githubActor, char
   if (branchExists.code !== 0) {
     logger.log(`Creating ${PUBLISH_BRANCH} branch...`);
     const commit = await strict('git', ['commit-tree', EMPTY_TREE, '-m', `Initialize ${PUBLISH_BRANCH} branch for Helm charts`]);
-    await strict('git', ['push', 'origin', `${commit.stdout.trim()}:refs/heads/${PUBLISH_BRANCH}`]);
+    await push(['push', 'origin', `${commit.stdout.trim()}:refs/heads/${PUBLISH_BRANCH}`]);
   }
 
   await strict('git', ['fetch', 'origin', `+refs/heads/${PUBLISH_BRANCH}:refs/remotes/origin/${PUBLISH_BRANCH}`]);
@@ -159,7 +187,7 @@ export async function releaseHelmChart({ version, helmRepoUrl, githubActor, char
       logger.log('No changes to commit');
     }
 
-    await strict('git', ['-C', worktreeDir, 'push', 'origin', `HEAD:${PUBLISH_BRANCH}`]);
+    await push(['-C', worktreeDir, 'push', 'origin', `HEAD:${PUBLISH_BRANCH}`]);
   } finally {
     await soft('git', ['worktree', 'remove', '--force', worktreeDir]);
   }

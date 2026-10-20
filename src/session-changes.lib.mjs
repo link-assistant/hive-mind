@@ -53,6 +53,7 @@ import { describeObservedToolCallLoop, getObservedToolCallLoopHistory } from './
 import { checkForAiCreatedComments } from './solve.session-comments.lib.mjs';
 import { FINISHED_WITHOUT_CHANGES_MARKER, postTrackedComment, SESSION_EFFECT_UNVERIFIED_MARKER } from './tool-comments.lib.mjs';
 import { EXIT_CODE_SOLVE_NO_CHANGES, getSolveNoChangesExitCode } from './solve.exit-codes.lib.mjs';
+import { wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs';
 
 export { EXIT_CODE_SOLVE_NO_CHANGES };
 
@@ -314,7 +315,9 @@ const reportSessionEffectUnverified = async ({ owner, repo, prNumber, reason, $,
  */
 export const reevaluateRunWithoutChanges = async ({ log = noopLog } = {}) => {
   if (!verdict?.noChanges) return null;
-  const { owner, repo, prNumber, issueNumber, $ } = verdict;
+  const { owner, repo, prNumber, issueNumber } = verdict;
+  // Issue #3552: idempotent, so a caller's already wrapped `$` is not wrapped twice.
+  const $ = wrapDollarWithGhRetry(verdict.$);
   try {
     const view = await $(QUIET)`gh pr view ${prNumber} --repo ${owner}/${repo} --json state`;
     if (view?.code === 0 && JSON.parse((view.stdout ?? '').toString() || '{}').state === 'MERGED') {

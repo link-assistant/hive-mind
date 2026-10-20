@@ -22,15 +22,21 @@ fi
 tag="$1"
 shift
 
+# Every gh call runs under the shared transient-fault retry loop (issue #3552).
+retry() { node "$(dirname "$0")/github-retry.mjs" "$@"; }
+
 # The release is created earlier in the pipeline (scripts/create-github-release.mjs),
 # but a manual/instant release may reach this step first.
-if ! gh release view "$tag" >/dev/null 2>&1; then
+if ! retry gh release view "$tag" >/dev/null 2>&1; then
   echo "Release $tag does not exist yet; creating it."
-  gh release create "$tag" --title "$tag" --generate-notes
+  # Creating is not idempotent: an attempt GitHub answered with a server error
+  # may still have created the release, and the retry then fails with "already
+  # exists". Accept the release when it is there after all.
+  retry gh release create "$tag" --title "$tag" --generate-notes || retry gh release view "$tag" >/dev/null
 fi
 
 # --clobber makes re-runs idempotent: without it, re-uploading an existing asset
 # fails and turns a retried release into a red pipeline.
 echo "Uploading $# asset(s) to release $tag..."
-gh release upload "$tag" "$@" --clobber
+retry gh release upload "$tag" "$@" --clobber
 echo "Uploaded $# asset(s) to release $tag."

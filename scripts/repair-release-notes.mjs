@@ -25,6 +25,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 
+import { retryGitHubOperation } from '../src/github-operation-retry.lib.mjs';
 import { sanitizeForPublication } from '../src/token-sanitization.lib.mjs';
 import { planReleaseRepair } from './format-release-notes.lib.mjs';
 
@@ -53,14 +54,19 @@ function parseArgs(argv) {
   return options;
 }
 
-const gh = async (args, input) => {
-  const child = execFileAsync('gh', args, { timeout: GH_TIMEOUT_MS, maxBuffer: 64 * 1024 * 1024 });
-  if (input !== undefined) {
-    child.child.stdin.end(input);
-  }
-  const { stdout } = await child;
-  return stdout;
-};
+// Issue #3552: every gh call is retried on transient GitHub faults.
+const gh = (args, input) =>
+  retryGitHubOperation(
+    async () => {
+      const child = execFileAsync('gh', args, { timeout: GH_TIMEOUT_MS, maxBuffer: 64 * 1024 * 1024 });
+      if (input !== undefined) {
+        child.child.stdin.end(input);
+      }
+      const { stdout } = await child;
+      return stdout;
+    },
+    { label: `gh ${args.slice(0, 2).join(' ')}` }
+  );
 
 async function loadReleases(options) {
   if (options.releasesFile) return JSON.parse(readFileSync(options.releasesFile, 'utf8'));

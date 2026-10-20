@@ -27,8 +27,9 @@
  * key is reported as ignored. A marked `$` declaration (a wrapper that adds a
  * signal) covers its calls. A `$` under another name is followed too: a local
  * bound to `$`, `$({ … })` or `quietProbe($)` (`const probe = quietProbe($)`,
- * `const $silent = $({ mirror: false })`), and `quietProbe($)` itself, whose
- * options carry no signal.
+ * `const $silent = $({ mirror: false })`), `$` destructured under another
+ * name (`const { $: rawDollar$ } = await use('command-stream')`, #3552), and
+ * `quietProbe($)` itself, whose options carry no signal.
  *
  * @see https://github.com/link-assistant/hive-mind/issues/3206
  * @see https://github.com/link-assistant/hive-mind/issues/3278
@@ -102,6 +103,13 @@ function aliasInit(sourceCode, identifier) {
   return definition?.type === 'Variable' && definition.node.id.type === 'Identifier' ? definition.node.init : null;
 }
 
+/** True for a local renamed from command-stream's `$`: `const { $: rawDollar$ } = await use('command-stream')` (issue #3552). */
+function isRenamedDollar(sourceCode, identifier) {
+  const definition = findVariable(sourceCode, identifier)?.defs[0];
+  if (definition?.type !== 'Variable' || definition.node.id.type !== 'ObjectPattern') return false;
+  return definition.node.id.properties.some(property => property.type === 'Property' && propertyName(property) === '$' && property.value.type === 'Identifier' && property.value.name === identifier.name);
+}
+
 /**
  * For a command-stream tag (`$`, `$({ … })`, `quietProbe($)` or a local bound
  * to one of them): the identifier whose declaration may carry the marker and
@@ -110,7 +118,7 @@ function aliasInit(sourceCode, identifier) {
 function dollarTag(tag, sourceCode, depth = 0) {
   if (!tag || depth > MAX_ALIAS_DEPTH) return null;
   if (tag.type === 'Identifier') {
-    if (tag.name === '$') return { dollar: tag, options: undefined };
+    if (tag.name === '$' || isRenamedDollar(sourceCode, tag)) return { dollar: tag, options: undefined };
     const bound = dollarTag(aliasInit(sourceCode, tag), sourceCode, depth + 1);
     return bound && { dollar: tag, options: bound.options };
   }

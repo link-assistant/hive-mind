@@ -2,13 +2,14 @@
 
 import crypto from 'crypto';
 import path from 'path';
-import { spawn } from 'child_process';
-import { describeChildExit } from './child-exit.lib.mjs';
+// Issue #3552: the shared runner retries every gh call through the one GitHub retry loop.
+import { commandOutput, runCommand } from './fix.github.lib.mjs';
+import { createTaskIssue } from './task.issue-creation.lib.mjs';
 import { promises as fs } from 'fs';
 import { buildStartAgentArgs, resolveStartAgentCommand } from './task.agent-command.lib.mjs';
 import { parseTaskArguments } from './task.config.lib.mjs';
 import { resolveRuntimeDefaultModel, validateRuntimeModelName } from './models/index.mjs';
-import { appendOrReplaceParentSplitSection, buildAddSubIssueApiArgs, buildIssueRestIdApiArgs, buildTaskSplitPrompt, buildTaskSplitSystemPrompt, extractTaskSplitJson, formatChildIssueBody, normalizeSplitTasks, parseCreatedIssueUrl, parseTaskIssueUrl } from './task.split.lib.mjs';
+import { appendOrReplaceParentSplitSection, buildAddSubIssueApiArgs, buildIssueRestIdApiArgs, buildTaskSplitPrompt, buildTaskSplitSystemPrompt, extractTaskSplitJson, formatChildIssueBody, normalizeSplitTasks, parseTaskIssueUrl } from './task.split.lib.mjs';
 import { setupStdioLogInterceptor } from './lib.mjs';
 import { sanitizeCredentialText } from './credential-sanitization-core.lib.mjs';
 import { sanitizeForPublication } from './token-sanitization.lib.mjs';
@@ -97,40 +98,6 @@ function formatAligned(icon, label, value, indent = 0) {
   return `${spaces}${icon} ${label.padEnd(labelWidth)} ${value || ''}`;
 }
 
-function runCommand(command, args, options = {}) {
-  return new Promise(resolve => {
-    const child = spawn(command, args, {
-      stdio: ['ignore', 'pipe', 'pipe'],
-      env: process.env,
-      ...options,
-    });
-    let stdout = '';
-    let stderr = '';
-    child.stdout.on('data', data => {
-      stdout += data.toString();
-    });
-    child.stderr.on('data', data => {
-      stderr += data.toString();
-    });
-    child.on('error', error => {
-      resolve({ code: 1, stdout, stderr: stderr || error.message });
-    });
-    child.on('close', (code, signal) => {
-      resolve({ code, stdout, stderr, signal });
-    });
-  });
-}
-
-async function commandOutput(command, args, options = {}) {
-  const result = await runCommand(command, args, options);
-  if (result.code !== 0) {
-    const output = `${result.stderr?.toString() || ''}${result.stdout?.toString() || ''}`.trim();
-    // Issue #2135: `describeChildExit` names a signal instead of "code null".
-    throw new Error(output || describeChildExit({ command, code: result.code, signal: result.signal }));
-  }
-  return result.stdout.trim();
-}
-
 function buildScreenName(issue) {
   const base = issue ? `task-split-${issue.owner}-${issue.repo}-${issue.number}` : 'task-agent';
   return `${base}-${crypto.randomUUID().slice(0, 8)}`.replace(/[^A-Za-z0-9_.-]/g, '-');
@@ -163,7 +130,7 @@ async function runAgentPrompt(prompt, systemPrompt, issue = null) {
 }
 
 async function fetchIssue(issue) {
-  const issueJson = await commandOutput('gh', ['issue', 'view', String(issue.number), '--repo', `${issue.owner}/${issue.repo}`, '--json', 'title,body,number,url,labels']);
+  const issueJson = await commandOutput(runCommand, 'gh', ['issue', 'view', String(issue.number), '--repo', `${issue.owner}/${issue.repo}`, '--json', 'title,body,number,url,labels']);
   const data = JSON.parse(issueJson);
   return {
     owner: issue.owner,
@@ -177,7 +144,7 @@ async function fetchIssue(issue) {
 }
 
 async function fetchIssueRestId(issue) {
-  const id = Number(await commandOutput('gh', buildIssueRestIdApiArgs(issue)));
+  const id = Number(await commandOutput(runCommand, 'gh', buildIssueRestIdApiArgs(issue)));
   if (!Number.isInteger(id) || id <= 0) {
     throw new Error(`Could not resolve REST id for issue #${issue.number}`);
   }
@@ -185,36 +152,36 @@ async function fetchIssueRestId(issue) {
 }
 
 async function createChildIssue(parentIssue, task, index, splitCount) {
-  const [safeTitle, safeBody] = await Promise.all([sanitizeForPublication(task.title), sanitizeForPublication(formatChildIssueBody({ parentIssue, task, index, splitCount }))]);
-  const args = ['issue', 'create', '--repo', `${parentIssue.owner}/${parentIssue.repo}`, '--title', safeTitle, '--body', safeBody];
-  if (parentIssue.labels.length > 0) {
-    args.push('--label', parentIssue.labels.join(','));
-  }
-
-  const url = await commandOutput('gh', args);
-  const parsed = parseCreatedIssueUrl(url);
-  const restId = await fetchIssueRestId(parsed);
+  // createTaskIssue sanitizes title and body, retries transient failures and
+  // never retries into a duplicate (issues #3326, #3552).
+  const created = await createTaskIssue({
+    repository: { owner: parentIssue.owner, repo: parentIssue.repo, fullName: `${parentIssue.owner}/${parentIssue.repo}` },
+    title: task.title,
+    body: formatChildIssueBody({ parentIssue, task, index, splitCount }),
+    labels: parentIssue.labels,
+  });
+  const restId = await fetchIssueRestId(created);
   return {
-    owner: parsed.owner,
-    repo: parsed.repo,
-    number: parsed.number,
+    owner: created.owner,
+    repo: created.repo,
+    number: created.number,
     restId,
-    url,
+    url: created.url,
     title: task.title,
   };
 }
 
 async function linkChildIssue(parentIssue, childIssue) {
-  await commandOutput('gh', buildAddSubIssueApiArgs({ parentIssue, subIssueId: childIssue.restId }));
+  await commandOutput(runCommand, 'gh', buildAddSubIssueApiArgs({ parentIssue, subIssueId: childIssue.restId }));
 }
 
 async function updateParentIssue(parentIssue, childIssues) {
   const body = appendOrReplaceParentSplitSection(parentIssue.body, childIssues);
   const safeBody = await sanitizeForPublication(body);
-  await commandOutput('gh', ['issue', 'edit', String(parentIssue.number), '--repo', `${parentIssue.owner}/${parentIssue.repo}`, '--body', safeBody]);
+  await commandOutput(runCommand, 'gh', ['issue', 'edit', String(parentIssue.number), '--repo', `${parentIssue.owner}/${parentIssue.repo}`, '--body', safeBody]);
   const childList = childIssues.map(issue => `- #${issue.number} ${issue.title}`).join('\n');
   const safeComment = await sanitizeForPublication(`Split into ${childIssues.length} tasks:\n\n${childList}`);
-  await commandOutput('gh', ['issue', 'comment', String(parentIssue.number), '--repo', `${parentIssue.owner}/${parentIssue.repo}`, '--body', safeComment]);
+  await commandOutput(runCommand, 'gh', ['issue', 'comment', String(parentIssue.number), '--repo', `${parentIssue.owner}/${parentIssue.repo}`, '--body', safeComment]);
 }
 
 async function runSplitMode() {

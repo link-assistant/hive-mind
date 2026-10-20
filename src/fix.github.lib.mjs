@@ -16,9 +16,10 @@
 
 import { spawn } from 'child_process';
 import { describeChildExit } from './child-exit.lib.mjs';
+import { wrapRunnerWithGitHubRetry } from './github-rate-limit.lib.mjs';
 
 /** Run a command and resolve with its captured output (never rejects). */
-export function runCommand(command, args, options = {}) {
+function spawnCommand(command, args, options = {}) {
   return new Promise(resolve => {
     const child = spawn(command, args, {
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -41,6 +42,12 @@ export function runCommand(command, args, options = {}) {
     });
   });
 }
+
+/**
+ * The default runner: `spawnCommand` with every GitHub operation (`gh ...`,
+ * network git) retried through the shared loop (issue #3552).
+ */
+export const runCommand = wrapRunnerWithGitHubRetry(spawnCommand);
 
 /** Run a command through `run` and return trimmed stdout, throwing on failure. */
 export async function commandOutput(run, command, args) {

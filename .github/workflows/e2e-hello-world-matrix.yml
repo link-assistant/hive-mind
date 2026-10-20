@@ -113,7 +113,8 @@ jobs:
           ACT_DIR: ${{ runner.temp }}/act
         run: |
           mkdir -p "$ACT_DIR"
-          gh release download "$ACT_VERSION" --repo nektos/act --pattern act_Linux_x86_64.tar.gz --pattern checksums.txt --dir "$ACT_DIR"
+          # Shared transient-fault retry loop (issue #3552); --clobber lets a retry overwrite a partial download.
+          node scripts/github-retry.mjs gh release download "$ACT_VERSION" --repo nektos/act --pattern act_Linux_x86_64.tar.gz --pattern checksums.txt --dir "$ACT_DIR" --clobber
           (cd "$ACT_DIR" && sha256sum --check --ignore-missing checksums.txt)
           tar -xzf "$ACT_DIR/act_Linux_x86_64.tar.gz" -C "$ACT_DIR" act
           echo "$ACT_DIR" >> "$GITHUB_PATH"

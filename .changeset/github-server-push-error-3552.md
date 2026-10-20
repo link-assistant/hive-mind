@@ -18,4 +18,4 @@ Every GitHub operation now goes through one shared retry loop, and lint enforces
 - The `gh-rate-limit` ESLint rules decide per call site, not per file. They cover the `spawn`/`execFile` argv style and, for git, `scripts/`.
 - Shell scripts and workflow steps run GitHub operations through `node scripts/github-retry.mjs …`. `scripts/check-github-retry-shell.mjs`, which is part of `npm run lint`, rejects any that do not. A deliberate single shot is marked `github-retry-ok: <reason>`.
 
-Also brings the pins that the CI dependency-freshness gate reported as stale up to date: `start-command` 0.38.0 (all Dockerfiles), `links-notation` 0.27.1 (use-m pins), and the `ignore` lockfile entry 7.0.13.
+Also brings the pins that the CI dependency-freshness gate reported as stale up to date: `start-command` 0.38.0 (all Dockerfiles), `links-notation` 0.27.1 (use-m pins), the `ignore` lockfile entry 7.0.13, `formal-ai` 0.355.0 (all Dockerfiles; its new GPU stack is behind a non-default feature), `@dotenvx/dotenvx` 2.38.1 (use-m pin), and the `@formatjs/icu-messageformat-parser` 3.5.22, `fast-uri` 3.1.9 and `intl-messageformat` 12.1.4 lockfile entries.

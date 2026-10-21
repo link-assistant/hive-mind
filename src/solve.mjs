@@ -400,6 +400,7 @@ try {
     owner,
     repo,
     issueUrl,
+    reusedWorkingDirectory: !needsClone, // Issue #3572
   });
   // Create or checkout branch using the new module
   branchName = await createOrCheckoutBranch({

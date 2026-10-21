@@ -19,6 +19,7 @@ import { isRecoverableAgentToolError } from './agent-error-events.lib.mjs';
 import { applyServedModelPricing } from './formal-ai-pricing.lib.mjs'; // Issue #2119, #3279
 import { getCacheReadTokenCount, getCumulativeContextInputTokens, getOutputTokenCount } from './context-fill.lib.mjs';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
+import { unstageUnregisteredGitlinks } from './unregistered-gitlinks.lib.mjs';
 import { CLAUDE_MEMORY_DISABLE_ENV, buildCodexMemoryDisableConfigArgs, isAgentMemoryDisabled } from './agent-memory-policy.lib.mjs'; // Issue #2178
 import { buildCodexAuxiliaryDisableConfigArgs, buildCodexEssentialFeatureConfigArgs, isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236, #2406
 
@@ -461,6 +462,8 @@ export const checkForUncommittedChanges = async (tempDir, owner, repo, branchNam
     await log('💾 Auto-committing changes (--auto-commit-uncommitted-changes is enabled)...');
     const addResult = await $({ cwd: tempDir })`git add -A`;
     if (addResult.code === 0) {
+      // Issue #3572: `git add -A` stages nested repositories (Claude subagent worktrees) as gitlinks.
+      await unstageUnregisteredGitlinks(tempDir, $, log);
       const commitResult = await $({ cwd: tempDir })`git commit -m ${'Auto-commit: Changes made through agent-commander during problem-solving session'}`;
       if (commitResult.code === 0) {
         const pushResult = await $({ cwd: tempDir })`git push origin ${branchName} 2>&1`;

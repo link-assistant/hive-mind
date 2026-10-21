@@ -49,6 +49,11 @@ export const AI_TOOL_SCRATCH_PATHS = [
   // file, or a commit of one, is the user's work.
   { path: 'data/cache/derivations/', tool: 'formal-ai', untrackedOnly: true },
   { path: '.playwright-mcp/', tool: 'playwright-mcp' },
+  // Issue #3572: Claude Code subagents run with `isolation: "worktree"` create
+  // git worktrees under `.claude/worktrees/agent-<id>/`. `git add -A` staged
+  // them as gitlinks (mode 160000), the auto-commit pushed them, and the next
+  // run in the same directory saw them as ` M` and refused to start.
+  { path: '.claude/worktrees/', tool: 'claude' },
 ];
 
 const EXCLUDE_HEADER = '# hive-mind: AI tool scratch directories (issue #2119)';
@@ -63,7 +68,11 @@ export const isAiToolScratchPath = statusLine => {
   if (typeof statusLine !== 'string') return false;
   // Porcelain v1: two status characters, a space, then the path.
   const untracked = statusLine.startsWith('??') || statusLine.startsWith('!!');
-  return isAiToolScratchFile(statusLine.slice(3), { tracked: !untracked });
+  // Issue #3572: callers `.trim()` the whole output, which turns a first line of
+  // ` M .claude/worktrees/agent-x` into `M .claude/…`; slicing three characters
+  // then read the path as `claude/…` and the scratch entry stopped the resume.
+  const pathStart = statusLine[2] === ' ' ? 3 : statusLine[1] === ' ' ? 2 : 3;
+  return isAiToolScratchFile(statusLine.slice(pathStart), { tracked: !untracked });
 };
 
 /**

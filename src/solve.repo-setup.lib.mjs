@@ -12,6 +12,7 @@ import { QUIET_PROBE } from './quiet-probe.lib.mjs'; // issue #2130: keep read-o
 // container still got throttled as anonymous. The token has to be sent
 // preemptively, before the first git network call.
 import { ensureAuthenticatedGitTransport } from './git-auth-transport.lib.mjs';
+import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
 
 export async function setupRepositoryAndClone({ argv, owner, repo, forkOwner, forkRepoName, tempDir, isContinueMode, issueUrl, log, $, needsClone = true }) {
   // Issue #2192: authenticate git *before* the first clone/fetch. Doing this
@@ -29,6 +30,9 @@ export async function setupRepositoryAndClone({ argv, owner, repo, forkOwner, fo
     await setupUpstreamAndSync(tempDir, forkedRepo, upstreamRemote, owner, repo, argv);
   } else {
     await log('ℹ️  Skipping clone: Using existing repository in working directory');
+    // Issue #3572: a directory cloned by an older version (or set up by hand) has
+    // no AI tool scratch excludes yet, so add them before the clean-tree check.
+    await ensureAiToolScratchIgnored(tempDir, log);
     // Still need to ensure upstream remote is set up if using fork mode
     if (forkedRepo && upstreamRemote) {
       await setupUpstreamAndSync(tempDir, forkedRepo, upstreamRemote, owner, repo, argv);
@@ -106,7 +110,26 @@ async function setupPrForkRemote(tempDir, argv, prForkOwner, repo, isContinueMod
   return await setupPrForkFn(tempDir, argv, prForkOwner, repo, isContinueMode, owner);
 }
 
-export async function verifyDefaultBranchAndStatus({ tempDir, log, formatAligned, $, argv, owner, repo, issueUrl }) {
+/**
+ * Issue #3572: the default branch of a reused working directory.
+ *
+ * A fresh clone is on the default branch, so `git branch --show-current` names
+ * it. A directory reused with --working-directory (the limit-reset auto-resume)
+ * is on whatever branch the previous run left checked out - the pull request
+ * branch - which was then logged as "Default branch" and used as the base for
+ * `git merge <default>` (a merge of the branch into itself). The clone recorded
+ * the real default branch as `origin/HEAD`.
+ *
+ * @returns {Promise<string|null>} the branch name, or null when origin/HEAD is not set
+ */
+export async function resolveOriginDefaultBranch(tempDir, $) {
+  const result = await $({ cwd: tempDir, mirror: false, signal: AbortSignal.timeout(30000) })`git symbolic-ref --quiet --short refs/remotes/origin/HEAD`;
+  if (result.code !== 0) return null;
+  const ref = result.stdout.toString().trim();
+  return ref.startsWith('origin/') ? ref.slice('origin/'.length) : null;
+}
+
+export async function verifyDefaultBranchAndStatus({ tempDir, log, formatAligned, $, argv, owner, repo, issueUrl, reusedWorkingDirectory = false }) {
   // Verify we're on the default branch and get its name
   const defaultBranchResult = await $({ cwd: tempDir })`git branch --show-current`;
 
@@ -265,6 +288,17 @@ export async function verifyDefaultBranchAndStatus({ tempDir, log, formatAligned
     await log(`     3. Check remote: cd ${tempDir} && git branch -r`);
     await log('');
     throw new Error('Default branch detection failed');
+  } else if (reusedWorkingDirectory) {
+    const currentBranch = defaultBranch;
+    defaultBranch = (await resolveOriginDefaultBranch(tempDir, $)) || currentBranch;
+    await log(`\n${formatAligned('📌', 'Current branch:', currentBranch)}`);
+    await log(`${formatAligned('📌', 'Default branch:', defaultBranch === currentBranch ? `${defaultBranch} (origin/HEAD is not set; assuming the current branch)` : defaultBranch)}`);
+    if (defaultBranch !== currentBranch) {
+      // The local default branch is as old as the previous run; later steps merge
+      // and branch from it. Fast-forward only: a diverged local branch is kept.
+      const refresh = await $({ cwd: tempDir, mirror: false, signal: AbortSignal.timeout(120000) })`git fetch origin ${defaultBranch}:${defaultBranch} 2>&1`;
+      if (refresh.code !== 0) await log(`${formatAligned('⚠️', 'Not refreshed:', `local ${defaultBranch} (${(refresh.stdout?.toString() || '').trim().split('\n').pop()})`)}`, { level: 'warning' });
+    }
   } else {
     await log(`\n${formatAligned('📌', 'Default branch:', defaultBranch)}`);
   }
@@ -278,11 +312,21 @@ export async function verifyDefaultBranchAndStatus({ tempDir, log, formatAligned
   }
 
   // Note: Empty output means clean working directory
-  const statusOutput = statusResult.stdout.toString().trim();
+  const rawStatusOutput = statusResult.stdout.toString().trim();
+  // Issue #3572: AI tool state (Claude subagent worktrees, Playwright MCP output)
+  // left by the previous run in a reused directory is not the user's work and
+  // must not stop the resume.
+  const statusOutput = filterAiToolScratchFromStatus(rawStatusOutput);
+  if (rawStatusOutput !== statusOutput) {
+    const ignored = rawStatusOutput.split('\n').filter(line => line.trim() && !statusOutput.split('\n').includes(line));
+    await log(`${formatAligned('🧹', 'Ignoring AI tool state:', `${ignored.length} path(s) left by a previous run`)}`);
+    for (const line of ignored) await log(`   ${line}`, { verbose: true });
+  }
   if (statusOutput) {
-    await log('Error: Repository has uncommitted changes after clone');
+    const where = reusedWorkingDirectory ? 'in the reused working directory' : 'after clone';
+    await log(`Error: Repository has uncommitted changes ${where}`);
     await log(`Status output: ${statusOutput}`);
-    throw new Error('Repository has uncommitted changes after clone');
+    throw new Error(`Repository has uncommitted changes ${where}`);
   }
 
   return defaultBranch;

@@ -9,7 +9,7 @@ import { promises as fs } from 'fs';
 import { buildStartAgentArgs, resolveStartAgentCommand } from './task.agent-command.lib.mjs';
 import { parseTaskArguments } from './task.config.lib.mjs';
 import { resolveRuntimeDefaultModel, validateRuntimeModelName } from './models/index.mjs';
-import { appendOrReplaceParentSplitSection, buildAddSubIssueApiArgs, buildIssueRestIdApiArgs, buildTaskSplitPrompt, buildTaskSplitSystemPrompt, extractTaskSplitJson, formatChildIssueBody, normalizeSplitTasks, parseTaskIssueUrl } from './task.split.lib.mjs';
+import { appendOrReplaceParentSplitSection, buildAddSubIssueApiArgs, buildIssueRestIdApiArgs, buildTaskSplitPrompt, buildTaskSplitSystemPrompt, extractTaskSplitJson, formatChildIssueBody, normalizeSplitTasks, parseParentSplitSection, parseTaskIssueUrl } from './task.split.lib.mjs';
 import { setupStdioLogInterceptor } from './lib.mjs';
 import { sanitizeCredentialText } from './credential-sanitization-core.lib.mjs';
 import { sanitizeForPublication } from './token-sanitization.lib.mjs';
@@ -191,6 +191,14 @@ async function runSplitMode() {
   }
 
   const parentIssue = await fetchIssue(parsedIssue);
+  // Issue #3684: a parent with the split section was split by an earlier run;
+  // splitting it again would file and link a second set of child issues.
+  const existingSplit = parseParentSplitSection(parentIssue.body);
+  if (existingSplit) {
+    await log(`♻️  #${parentIssue.number} was already split into ${existingSplit.length} task(s) by an earlier run; nothing to do (remove its "Split Tasks" section to split it again)`);
+    const existingIssues = existingSplit.map(issue => ({ ...issue, url: `https://github.com/${parentIssue.owner}/${parentIssue.repo}/issues/${issue.number}` }));
+    return { parentIssue, tasks: [], createdIssues: [], existingIssues, alreadySplit: true, dryRun: Boolean(argv.dryRun) };
+  }
   const prompt = buildTaskSplitPrompt({ issue: parentIssue, splitCount: argv.splitCount });
   const output = await runAgentPrompt(prompt, buildTaskSplitSystemPrompt(), parentIssue);
   const tasks = normalizeSplitTasks(extractTaskSplitJson(output), argv.splitCount);
@@ -277,7 +285,10 @@ try {
   if (argv.outputFormat === 'json') {
     console.log(JSON.stringify(result, null, 2));
   } else if (argv.split) {
-    if (result.dryRun) {
+    if (result.alreadySplit) {
+      console.log('\nAlready split into:');
+      result.existingIssues.forEach(issue => console.log(`- #${issue.number} ${issue.url}`));
+    } else if (result.dryRun) {
       console.log('\nPlanned split issues:');
       result.tasks.forEach((task, index) => console.log(`${index + 1}. ${task.title}`));
     } else {

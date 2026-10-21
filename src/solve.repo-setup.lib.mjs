@@ -5,7 +5,7 @@
 
 // Issue #1625: centralized markers + tracked posting for the "empty repo"
 // issue comment so it's excluded from --auto-attach-solution-summary's check.
-import { REPOSITORY_INITIALIZATION_REQUIRED_MARKER, postTrackedComment } from './tool-comments.lib.mjs';
+import { REPOSITORY_INITIALIZATION_REQUIRED_MARKER, findCommentWithMarker, postTrackedComment } from './tool-comments.lib.mjs';
 import { QUIET_PROBE } from './quiet-probe.lib.mjs'; // issue #2130: keep read-only probe payloads out of the attached log
 // Issue #2192: a credential helper is never consulted for a *public* clone
 // (github.com answers 200, so git never asks), which is why an authenticated
@@ -301,6 +301,12 @@ async function tryCommentOnIssueAboutEmptyRepo({ issueUrl, owner, repo, log, for
     if (!issueMatch) return;
 
     const issueNumber = issueMatch[1];
+    // Issue #3684: a repeated run does not ask a second time.
+    const existingId = await findCommentWithMarker({ $, owner, repo, targetNumber: issueNumber, marker: REPOSITORY_INITIALIZATION_REQUIRED_MARKER });
+    if (existingId) {
+      await log(`${formatAligned('ℹ️', 'Comment exists:', `Issue #${issueNumber} already asks to initialize the repository (id=${existingId}); not posting again`)}`);
+      return;
+    }
     await log(`${formatAligned('💬', 'Creating comment:', 'Informing about empty repository...')}`);
 
     const commentBody = `## ⚠️ ${REPOSITORY_INITIALIZATION_REQUIRED_MARKER}

@@ -481,3 +481,22 @@ export const postTrackedCommentFromFile = async ({ $, owner, repo, targetNumber,
   }
   return postTrackedComment({ $, owner, repo, targetNumber, body });
 };
+
+/**
+ * Issue #3684: the id of the first comment on an issue or PR that contains
+ * `marker`, or null (also when the comments cannot be read), so a one-time
+ * notice is posted only if an earlier run did not post it already.
+ */
+export const findCommentWithMarker = async ({ $, owner, repo, targetNumber, marker }) => {
+  try {
+    const result = await $({ signal: AbortSignal.timeout(GH_COMMENT_TIMEOUT_MS) })`gh api repos/${owner}/${repo}/issues/${targetNumber}/comments --paginate --jq ${`.[] | select(.body | contains(${JSON.stringify(marker)})) | .id`}`;
+    if (result.code !== 0) return null;
+    return (
+      String(result.stdout || '')
+        .split(/\s+/)
+        .find(id => /^\d+$/.test(id)) || null
+    );
+  } catch {
+    return null;
+  }
+};

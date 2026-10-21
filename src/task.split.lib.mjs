@@ -262,3 +262,21 @@ export function buildParentIssueApiArgs(issue) {
 export function buildListSubIssuesApiArgs(issue) {
   return ['api', `repos/${issue.owner}/${issue.repo}/issues/${issue.number}/sub_issues?per_page=100`, '--paginate', '--slurp', '-H', 'Accept: application/vnd.github+json', '-H', `X-GitHub-Api-Version: ${GITHUB_SUB_ISSUES_API_VERSION}`];
 }
+
+/**
+ * Issue #3684: the split section an earlier `/task --split` wrote into the
+ * parent body, as `[{ number, title }]`, or null when the parent was never
+ * split. A parent that has it is not split a second time.
+ */
+export function parseParentSplitSection(body) {
+  const text = String(body || '');
+  const start = text.indexOf(TASK_SPLIT_MARKER_START);
+  const end = text.indexOf(TASK_SPLIT_MARKER_END);
+  if (start < 0 || end <= start) return null;
+  return text
+    .slice(start + TASK_SPLIT_MARKER_START.length, end)
+    .split('\n')
+    .map(line => line.match(/^\s*- \[[ xX]\] #(\d+)\s*(.*)$/))
+    .filter(Boolean)
+    .map(match => ({ number: Number(match[1]), title: match[2].trim() }));
+}

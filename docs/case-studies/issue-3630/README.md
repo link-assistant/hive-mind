@@ -165,6 +165,13 @@ The two failures are Formal AI session failures. The harness verdicts (image ver
 - **claude (Kotlin).** `kotlinc` was not installed. Formal AI's prerequisite installer then refused to install Java with `dependency_probe_missing`, and the session ended with "Final tool result failed: Exit code 1". The PR kept only the placeholder.
 - **agent (Scala).** The session wrote `Main.scala`, `ci/` and `tests/` but never committed them. Solve's auto-restart on uncommitted changes stopped after 5 of 5 iterations, so the PR had no workflow and no checks.
 
+**Reuse and retries live.** Pushing 31e235678 started [run 39580161753](https://github.com/link-assistant/hive-mind/actions/runs/39580161753). Its `prepare` planned:
+
+- `codex / formal-ai`: "reuse (passed in run 39570491388 attempt 1 for link-assistant/hive-mind@e96f162aa…)". The row created no task, skipped "Run and verify" and only recorded its ledger entry.
+- `claude / formal-ai` and `agent / formal-ai`: "run (no recorded pass)". The new commit is a new source, so these were attempt 1 of 3 for it.
+
+The retried tasks ended the same way: [#3646](https://github.com/link-assistant/hive-mind/issues/3646) with PR [#3648](https://github.com/link-assistant/hive-mind/pull/3648), and [#3647](https://github.com/link-assistant/hive-mind/issues/3647) with PR [#3649](https://github.com/link-assistant/hive-mind/pull/3649). Each failed for the same reason as before. Each was finalized once, and the issue was closed as not planned and the PR closed. Pipeline Status concluded `success`, and again no `e2e-task` issue remained open.
+
 The three rows became fixtures `39570491388-*-formal-ai.json`. Their evidence is complete: nothing is missing, and the only placeholders are solve's own `dev/log/` session files. They replay to the recorded verdicts with no oracle exceptions.
 
 ## Limitations

@@ -31,7 +31,7 @@ test('a failed --tool codex run gets a solve resume command with the URL, sessio
   const argv = await parseArguments(undefined, () => [ISSUE_URL, '--tool', 'codex', '--model', 'gpt-5.5']);
   const command = buildSolveResumeCommandFromArgv({ argv, sessionId: SESSION, tempDir: '/tmp/gh-issue-solver-1' });
   assert.ok(command, 'resume command must not be null');
-  assert.match(command, new RegExp(`"${ISSUE_URL.replace(/[.]/g, '\\.')}" --resume "${SESSION}"`));
+  assert.match(command, new RegExp(`"${ISSUE_URL.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}" --resume "${SESSION}"`));
   assert.match(command, /--tool "codex"/);
   assert.match(command, /--model "gpt-5\.5"/);
   assert.match(command, /--working-directory "\/tmp\/gh-issue-solver-1"/);

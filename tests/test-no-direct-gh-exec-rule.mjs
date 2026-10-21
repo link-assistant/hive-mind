@@ -38,6 +38,22 @@ ruleTester.run('no-direct-gh-exec', noDirectGhExec, {
     {
       code: "exec('git status');",
     },
+    // Issue #3552: a $ wrapped at the point of use.
+    {
+      code: "import { wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs';\nconst { $: rawDollar$ } = await use('command-stream');\nconst $ = wrapDollarWithGhRetry(rawDollar$);\nawait $({ capture: true })`gh release view v1`;",
+    },
+    // argv style through a rate-limit aware runner.
+    {
+      code: "import { wrapRunnerWithGitHubRetry } from './github-rate-limit.lib.mjs';\nconst runGhApi = wrapRunnerWithGitHubRetry(execFileAsync);\nawait runGhApi('gh', ['api', 'user']);",
+    },
+    // A non-executor that merely mentions a gh command line.
+    {
+      code: "assert.equal(classify('gh api user'), 'gh');",
+    },
+    // The escape comment.
+    {
+      code: "// github-retry-ok: the test drives a fake gh on PATH\nawait execAsync('gh api user');",
+    },
   ],
   invalid: [
     {
@@ -55,6 +71,16 @@ ruleTester.run('no-direct-gh-exec', noDirectGhExec, {
     {
       // Tagged template `$`gh ...` ` is also flagged.
       code: 'await $`gh api repos/o/r/pulls`;',
+      errors: [directExecError],
+    },
+    {
+      // argv style, unknown argv: every gh subcommand is assumed to hit the API.
+      code: "await execFileAsync('gh', args);",
+      errors: [directExecError],
+    },
+    {
+      // A raw $ from command-stream, even when called with options.
+      code: "const { $ } = await use('command-stream');\nawait $({ capture: true })`gh release view v1`;",
       errors: [directExecError],
     },
   ],

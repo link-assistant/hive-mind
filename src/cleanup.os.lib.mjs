@@ -19,6 +19,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { execFile, execFileSync } from 'node:child_process';
 import { promisify } from 'node:util';
+import { wrapRunnerWithTransientRetry } from './github-operation-retry.lib.mjs';
 
 import { extractTaskRefsFromCommand, isDockerIsolationSessionName, parseDockerContainerExitCode, parseRemoteUrl } from './cleanup.lib.mjs';
 import { correlateProcesses, parseStartCommandLogMetadata, redactProcessText } from './process-debug.lib.mjs';
@@ -39,7 +40,8 @@ function tryExec(cmd, args, options = {}) {
   }
 }
 
-const execFileAsync = promisify(execFile);
+// Issue #3552: the `gh` calls below are retried on transient GitHub faults.
+const execFileAsync = wrapRunnerWithTransientRetry(promisify(execFile));
 
 /**
  * Async {@link tryExec}, for the paths the Telegram bot reaches through

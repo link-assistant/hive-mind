@@ -258,6 +258,7 @@ test('quietProbe returns a plain tagged template unchanged instead of crashing',
 
   const probe = quietProbe(plain);
   assert.equal(probe, plain);
+  // github-retry-ok: `plain` is a mock tag, nothing is executed
   assert.deepEqual(await probe`gh api user --jq .login`, { code: 0, stdout: 'gh api user --jq .login' });
 });
 

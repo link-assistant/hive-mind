@@ -3,6 +3,7 @@ import path from 'path';
 import { spawn } from 'child_process';
 import { promises as fs } from 'fs';
 import { parseGitHubUrl } from './github.lib.mjs';
+import { ghWithRateLimitRetry, wrapRunnerWithGitHubRetry } from './github-rate-limit.lib.mjs';
 import { sanitizeForPublication, writeSanitizedPublicationFile } from './token-sanitization.lib.mjs';
 
 export const TASK_ISSUE_TITLE_MAX_LENGTH = 256;
@@ -154,7 +155,7 @@ export function parseTaskIssueCreationInput(input) {
   };
 }
 
-function runCommand(command, args, options = {}) {
+function spawnCommand(command, args, options = {}) {
   return new Promise(resolve => {
     const child = spawn(command, args, {
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -178,6 +179,10 @@ function runCommand(command, args, options = {}) {
     });
   });
 }
+
+// Issue #3552: every gh call of the default runner goes through the shared
+// GitHub retry loop; `gh issue create` uses its duplicate-aware variant below.
+const runCommand = wrapRunnerWithGitHubRetry(spawnCommand);
 
 export function parseCreatedTaskIssueOutput(output) {
   const tokens = String(output || '')
@@ -307,6 +312,27 @@ export async function findRecentlyCreatedIssue({ repository, title, body = null,
 }
 
 /**
+ * `gh issue create` is not idempotent: a transient failure can arrive *after*
+ * GitHub created the issue. Retry it through the shared loop anyway, but look
+ * for the issue this process may already have created before every
+ * re-attempt, so a retry never produces a duplicate (issues #3326, #3552).
+ */
+async function createIssueWithRetry({ repository, title, body, createdAfter, run, createArgs }) {
+  const create = run.raw ?? run;
+  let attempt = 0;
+  return ghWithRateLimitRetry(
+    async () => {
+      if (attempt++ > 0) {
+        const existing = await findRecentlyCreatedIssue({ repository, title, body, createdAfter, run });
+        if (existing) return { code: 0, stdout: existing.url, stderr: '', existing };
+      }
+      return create('gh', createArgs);
+    },
+    { label: 'gh issue create' }
+  );
+}
+
+/**
  * Create an issue via `gh issue create`.
  *
  * `issueType` and `labels` are optional and best-effort: issue types are
@@ -345,8 +371,10 @@ export async function createTaskIssue({ repository, title, body, issueType = nul
     await debug(`repository=${repository.fullName} requestedType=${issueType || '(none)'} effectiveType=${effectiveIssueType || '(none)'} labels=${labels.join(',') || '(none)'}`);
 
     const createdAfter = new Date();
-    const result = await run('gh', buildCreateIssueArgs({ repository, title: sanitizedTitle, bodyFile, issueType: effectiveIssueType, labels }));
+    const createOptions = { repository, title: sanitizedTitle, body: sanitizedBody, createdAfter, run };
+    const result = await createIssueWithRetry({ ...createOptions, createArgs: buildCreateIssueArgs({ repository, title: sanitizedTitle, bodyFile, issueType: effectiveIssueType, labels }) });
     await debug(`gh issue create exited with code ${result.code}; output: ${commandOutputText(result) || '(empty)'}`);
+    if (result.existing) return result.existing;
     if (result.code === 0) return parseCreatedTaskIssueOutput(result.stdout);
 
     const output = commandOutputText(result);
@@ -362,8 +390,9 @@ export async function createTaskIssue({ repository, title, body, issueType = nul
     }
 
     await log?.(`⚠️  Could not create issue with type/labels (${output || `exit code ${result.code}`}); retrying without them`);
-    const retry = await run('gh', buildCreateIssueArgs({ repository, title: sanitizedTitle, bodyFile }));
+    const retry = await createIssueWithRetry({ ...createOptions, createArgs: buildCreateIssueArgs({ repository, title: sanitizedTitle, bodyFile }) });
     await debug(`retry gh issue create exited with code ${retry.code}; output: ${commandOutputText(retry) || '(empty)'}`);
+    if (retry.existing) return retry.existing;
     if (retry.code !== 0) {
       throw new Error(commandOutputText(retry) || `gh issue create exited with code ${retry.code}`);
     }

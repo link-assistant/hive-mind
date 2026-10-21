@@ -41,8 +41,7 @@ import { createImageRenderer, extractImagePayload, isImageNode } from './interac
 import { formatInteractiveMcpServersList, getInteractiveMcpDiagnostics } from './interactive-mcp-status.lib.mjs';
 // Issue #1625: track interactive-mode comment IDs so they're excluded from
 // the "did the AI post anything?" check in checkForAiCreatedComments().
-// Use the session-started marker as the single source of truth for the
-// header string, keeping posting and filtering in lock-step.
+// The session-started marker is the single source of truth for the header string (posting and filtering in lock-step).
 import { INTERACTIVE_SESSION_STARTED_MARKER, trackToolCommentId, withInteractiveModeMarker } from './tool-comments.lib.mjs';
 // Issue #1745/#2111: every comment body posted by the AI bridge MUST flow
 // through the strict publication sanitizer before leaving the process. The leak in
@@ -51,6 +50,7 @@ import { INTERACTIVE_SESSION_STARTED_MARKER, trackToolCommentId, withInteractive
 // docs/case-studies/issue-1745/analysis.md for the full timeline.
 import { containsKnownToken, getAllKnownLocalTokens, sanitizeForPublication } from './token-sanitization.lib.mjs';
 import { reportInteractiveLeak } from './telegram-leak-notifier.lib.mjs';
+import { wrapRunnerWithGitHubRetry } from './github-rate-limit.lib.mjs';
 
 /**
  * Creates an interactive mode handler for processing Claude/Codex CLI events
@@ -78,8 +78,8 @@ export const createInteractiveHandler = options => {
     mediaRef,
     imageUploader: injectedImageUploader,
   } = options;
-  // Use injected execFile for testability, or the real one by default
-  const runGhApi = execFileFn || execFileAsync;
+  // Injected execFile for testability, else the real one; retried on transient GitHub faults (#3552).
+  const runGhApi = wrapRunnerWithGitHubRetry(execFileFn || execFileAsync);
 
   // State tracking for the handler
   const state = {

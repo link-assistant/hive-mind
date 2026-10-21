@@ -65,7 +65,6 @@ export const buildDevelopmentLogPrompt = ({ argv, issueNumber, prNumber, issueTy
 export const fetchIssueType = async ({ owner, repo, issueNumber, $, log }) => {
   if (!owner || !repo || !issueNumber || typeof $ !== 'function') return null;
   try {
-    // eslint-disable-next-line gh-rate-limit/no-direct-gh-exec -- $ is the injected, rate-limit-safe runner (wrapDollarWithGhRetry) passed in by the caller.
     const result = await $`gh issue view ${issueNumber} --repo ${owner}/${repo} --json issueType`;
     if (result?.code && result.code !== 0) return null;
     const stdout = result?.stdout?.toString?.() ?? String(result?.stdout ?? '');

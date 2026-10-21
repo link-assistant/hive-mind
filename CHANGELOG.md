@@ -1,5 +1,49 @@
 # @link-assistant/hive-mind
 
+## 2.39.4
+
+### Patch Changes
+
+- a552987: A Claude, Codex or OpenCode run that stops on a usage limit is now reported as a usage limit, with its reset time, even when the tool does not say so in its last output line (#3570). Before, such a run failed with "Claude command failed with exit code 1" and was never resumed.
+
+  - **Claude:** on a failed exit, solve checks five sources, and any one of them is enough:
+    - the `result` event or the last line;
+    - the synthetic assistant `is_api_error_message`;
+    - the session transcript tail (`isApiErrorMessage`);
+    - the last `rate_limit_event` (`rejected` with `resetsAt`);
+    - the `ANTHROPIC_LOG=debug` 429 headers (`anthropic-ratelimit-unified-status: rejected` with `anthropic-ratelimit-unified-reset`).
+
+    An epoch reset gives the full date, for example `Oct 20, 2026, 11:00 AM` (UTC). A `rejected` event without `resetsAt` stays the #1924 throttle.
+
+  - **Codex:** on a non-zero exit that a signal did not cause, solve reads the last turn of the thread's rollout. A `token_count.rate_limits` window at 100% with `resets_at`, or an `error` event with `usage_limit_exceeded`, counts as a usage limit. A limit from an earlier turn does not. The Codex runner now also returns `limitTimezone`.
+  - **OpenCode:** a usage limit inside any `{"type":"error"}` record is found, not only one in the last stdout chunk.
+  - `ANTHROPIC_LOG=debug` dumps and base64 body lines are no longer used as the failure reason.
+  - In verbose mode, every source is logged with its verdict (`🔍 Usage-limit cross-check (issue #3570):`). solve warns `⚠️ Usage limit found only in: …` when the tool's own output missed the limit.
+
+  Also brings the pins that the CI dependency-freshness gate reported as stale up to date: `jscpd` 5.4.2 (devDependency and its platform packages) and the `@opentelemetry/api` 1.10.0 lockfile entry.
+
+## 2.39.3
+
+### Patch Changes
+
+- 4d5658e: A push answered by GitHub with `remote: fatal error in commit_refs` / `[remote rejected] … (failure)` is now treated as a transient GitHub server error, not a branch divergence (#3552):
+
+  - `git push`/`fetch`/`pull` retry it with the usual backoff instead of giving up after one attempt (`transient=no`).
+  - If every retry fails, the solver reports `GitHub server error while pushing …` and tells the user to check githubstatus.com and rerun. It no longer says "Local and remote branch histories differ" or asks the user to merge a branch that does not exist on the remote.
+  - Push explanations no longer claim "the remote branch changed" when the remote branch does not exist.
+  - The release version push retries such errors without rebasing, and the Helm `gh-pages` pushes retry them too.
+  - In verbose mode, the push-rejection classification and the remote branch state are logged.
+
+  Every GitHub operation now goes through one shared retry loop, and lint enforces it (#3552 review):
+
+  - command-stream's `$` resolves a failed `gh` call instead of rejecting, so `gh` commands sent through `wrapDollarWithGhRetry` ran only once, rate limits and 5xx included. `retryGitHubOperation` (`src/github-operation-retry.lib.mjs`) retries both shapes. `ghWithRateLimitRetry`, `ghRetry`, `ghCmdRetry`, `gitCmdRetry`, the runner and sync adapters, and the release scripts all use it in place of their own loops.
+  - `wrapDollarWithGitRetry` (codex, agent, gemini, opencode, qwen) now retries `gh` too, and wrapping an executor twice no longer nests two loops.
+  - Previously unretried call sites in `src/` and `scripts/` are routed through the shared loop. A retried `gh issue create` checks for the created issue first, so it is never filed twice.
+  - The `gh-rate-limit` ESLint rules decide per call site, not per file. They cover the `spawn`/`execFile` argv style and, for git, `scripts/`.
+  - Shell scripts and workflow steps run GitHub operations through `node scripts/github-retry.mjs …`. `scripts/check-github-retry-shell.mjs`, which is part of `npm run lint`, rejects any that do not. A deliberate single shot is marked `github-retry-ok: <reason>`.
+
+  Also brings the pins that the CI dependency-freshness gate reported as stale up to date: `start-command` 0.38.0 (all Dockerfiles), `links-notation` 0.27.1 (use-m pins), the `ignore` lockfile entry 7.0.13, `formal-ai` 0.355.0 (all Dockerfiles; its new GPU stack is behind a non-default feature), `@dotenvx/dotenvx` 2.38.1 (use-m pin), and the `@formatjs/icu-messageformat-parser` 3.5.22, `fast-uri` 3.1.9 and `intl-messageformat` 12.1.4 lockfile entries.
+
 ## 2.39.2
 
 ### Patch Changes

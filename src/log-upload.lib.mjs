@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { describeCredentialSanitizationFailure, sanitizeForPublication } from './token-sanitization.lib.mjs';
 import { sanitizeLogFileToFileBounded } from './log-sanitize-worker.lib.mjs';
+import { wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs';
 
 // Log upload module for hive-mind
 // Uses gh-upload-log for uploading log files to GitHub
@@ -15,8 +16,10 @@ if (typeof globalThis.use === 'undefined') {
 }
 const use = globalThis.use;
 
-// Use command-stream for consistent $ behavior across runtimes
-const { $ } = await use('command-stream');
+// Use command-stream for consistent $ behavior across runtimes.
+// Issue #3552: wrapped so every `gh`/network `git` it runs is retried.
+const { $: rawDollar$ } = await use('command-stream');
+const $ = wrapDollarWithGhRetry(rawDollar$);
 const $silent = $({ mirror: false, capture: true });
 
 // Import shared library functions

@@ -148,6 +148,8 @@ sudo docker run hello-world
 
 **अन्य ऑपरेटिंग सिस्टम** या विस्तृत निर्देशों के लिए, [आधिकारिक Docker दस्तावेज़ीकरण](https://docs.docker.com/engine/install/) देखें।
 
+**Install के बाद अनुशंसित:** Docker live-restore चालू करें, ताकि Docker daemon का restart bot और उसके चल रहे tasks को न मारे ([issue #2900](https://github.com/link-assistant/hive-mind/issues/2900))। `"live-restore": true` को `/etc/docker/daemon.json` में merge करें, `sudo systemctl reload docker` से लागू करें (reload, restart कभी नहीं), और `docker info -f '{{.LiveRestoreEnabled}}'` से जाँचें। सुरक्षित merge command और सीमाएँ [Host Docker daemon settings](./docs/DOCKER.hi.md#host-docker-daemon-settings) में हैं।
+
 ### Docker का उपयोग करके
 
 सुरक्षित स्थानीय इंस्टॉलेशन के लिए Docker का उपयोग करके Hive Mind चलाएँ - कोई मैन्युअल सेटअप की आवश्यकता नहीं:

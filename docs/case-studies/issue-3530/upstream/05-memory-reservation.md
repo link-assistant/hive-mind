@@ -20,8 +20,12 @@ $ --isolated docker --image alpine:3.20 --memory 256m --memory-reservation 64m -
 
 ## Workaround used in hive-mind
 
-After the launch, hive-mind sets the reservation on the running container: `docker update --memory-reservation <size> <container>`. This adds a second command after every launch, and the value is lost when `$ --resume` recreates the container.
+After the launch, hive-mind sets the reservation on the running container: `docker update --memory-reservation <size> <container>`, behind its fail-closed start gate. This adds a second command after every launch. A snapshot `$ --resume` in 0.38.0 keeps the value, because it reads the stopped container's limits back with `docker inspect` (`src/lib/docker-resource-limits.js:89-91`).
 
 ## Suggested fix
 
 Handle `--memory-reservation` in the wrapper option parser where `--memory` and `--memory-swap` are handled: reuse the size / `N%` parsing, store it next to `memory` in the execution options, and add `--memory-reservation <value>` to the docker run arguments when set. A regression test: parse `--memory 256m --memory-reservation 64m` and assert that both reach the docker arguments, and that `--memory-reservation 512m --memory 256m` is refused.
+
+## Status
+
+Filed as [link-foundation/start#236](https://github.com/link-foundation/start/issues/236). It was closed on 2026-10-20 by a change in `main`, but nothing has been published since 0.38.0: the Release job is skipped on every push to `main` ([link-foundation/start#240](https://github.com/link-foundation/start/issues/240)). hive-mind keeps the `docker update` workaround until a release ships the flag.

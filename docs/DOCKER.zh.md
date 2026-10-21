@@ -27,6 +27,8 @@ claude
 solve https://github.com/owner/repo/issues/123
 ```
 
+> **首次启动前：** 在宿主机上启用 Docker live-restore，避免 `dockerd` 重启杀死 bot 及其正在运行的任务。参见[宿主机 Docker daemon 设置](#宿主机-docker-daemon-设置)。
+
 ### 选项 2：本地构建
 
 ```bash
@@ -52,6 +54,8 @@ docker run --rm --privileged -it konard/hive-mind-dind:latest bash
 docker info
 docker run hello-world
 ```
+
+内部 daemon 以 `--live-restore` 启动（`DIND_LIVE_RESTORE=1`）。运行此容器的宿主机 daemon 也需要该设置：参见[宿主机 Docker daemon 设置](#宿主机-docker-daemon-设置)。
 
 该镜像默认将内部 Docker daemon 设置为 `DIND_STORAGE_DRIVER=fuse-overlayfs`。这是一个**写时复制（copy-on-write）**驱动，因此数 GB 的 Hive Mind 镜像在磁盘上只占用约一份真实大小——而 `vfs` 会完整复制每一层，使磁盘占用膨胀到镜像大小的数倍，最终以 `failed to register layer: no space left on device` 耗尽磁盘（[issue #1914](https://github.com/link-assistant/hive-mind/issues/1914)）。`fuse-overlayfs` 同时支持 overlay-on-overlay（这正是当初选择 `vfs` 的兼容性原因），镜像已内置 `fuse-overlayfs` 二进制，且 Hive Mind 以 `--privileged` 启动 DinD 容器，因此 `/dev/fuse` 可用。覆盖选项：
 
@@ -198,28 +202,54 @@ Telegram 完成消息会包含检查和清理命令。可通过
 
 #### Docker 任务资源限制
 
-从 Telegram 启动的 Docker 任务默认将内存限制为宿主机 RAM 的 25%。
-CPU 和磁盘限制可选；可按需覆盖内存限制：
+从 Telegram 启动的 Docker 任务在未另行设置时使用以下限制：
+
+| 限制               | 默认值            | 选项                             | 环境变量                                |
+| ------------------ | ----------------- | -------------------------------- | --------------------------------------- |
+| CPU                | 宿主机 CPU 的 50% | `--container-cpu`                | `TELEGRAM_CONTAINER_CPU`                |
+| 内存硬限制         | 宿主机内存的 60%  | `--container-memory`             | `TELEGRAM_CONTAINER_MEMORY`             |
+| 内存软限制（预留） | 宿主机内存的 25%  | `--container-memory-reservation` | `TELEGRAM_CONTAINER_MEMORY_RESERVATION` |
+| 可写层磁盘         | 无                | `--container-disk`               | `TELEGRAM_CONTAINER_DISK`               |
 
 ```bash
 hive-telegram-bot --isolation docker \
   --container-cpu 50% \
-  --container-memory 2GiB \
+  --container-memory 60% \
+  --container-memory-reservation 25% \
   --container-disk 20GB
 ```
 
-对应的环境变量为 `TELEGRAM_CONTAINER_CPU`、`TELEGRAM_CONTAINER_MEMORY` 和
-`TELEGRAM_CONTAINER_DISK`。CPU 值可以是固定核心数（如 `1.5`），也可以是宿主机逻辑 CPU
-数量的百分比。内存和磁盘接受十进制单位（`MB`、`GB`、`TB`）、二进制单位（`MiB`、
-`GiB`、`TiB`）或百分比。内存百分比以宿主机总内存为基准；磁盘百分比以任务启动时文件系统
-的可用空间为基准。
+CPU 值可以是固定核心数（如 `1.5`），也可以是宿主机逻辑 CPU 数量的百分比。内存和磁盘接受
+十进制单位（`MB`、`GB`、`TB`）、二进制单位（`MiB`、`GiB`、`TiB`）或百分比。内存百分比以
+宿主机总内存为基准；磁盘百分比以任务启动时文件系统的可用空间为基准。`unlimited` 会关闭一项
+限制，包括默认限制（例如 `--container-cpu unlimited`）。
 
-系统不会推断任何限制：省略设置会保留原有的无限制行为。Docker 会在任务命令运行前、任务仍由
-启动闸门阻挡时应用 CPU 和内存限制。Docker 存储配额无法跨存储驱动可移植，因此 Hive Mind
-在每次会话监控轮询时（默认每 30 秒）针对容器可写层执行磁盘限制。用量超过限制时，容器会被
-停止，完成消息会报告实测用量和配置的限制。Docker daemon 必须已委派相应的 CPU 和内存
-cgroup controller；如果 Docker 无法应用请求的内核限制，Hive Mind 会在任务命令运行前移除
-或停止容器，并始终保持启动闸门关闭，同时报告启动失败，而不会让任务在没有限制的情况下静默运行。
+**内存（issue #3125）。** 旧的默认值是 25% 硬上限，在小型宿主机上（11.7 GiB 中的 2.9 GiB）
+会让普通构建被 OOM 杀死，而其余内存却处于空闲。现在任务最多可使用宿主机内存的 60%。25% 的
+预留是软限制（`docker update --memory-reservation`）：宿主机有空闲内存时任务可以超出它；
+宿主机内存紧张时，内核优先回收超出预留的任务。预留必须低于硬限制。设置 `--container-memory`
+会替换硬限制并取消默认预留；如需保留预留，请同时设置 `--container-memory-reservation`。不会
+额外增加 swap：`--memory-swap` 等于硬限制。
+
+在每个任务内部，AI 工具执行命令所用的 bash shell 会通过 `BASH_ENV` 钩子把自己的
+`oom_score_adj` 提高到 500，因此内存耗尽时内核会先杀死构建或测试，而不是 AI CLI。CLI 保持
+原有分值，会话得以继续，并可以用更低的并行度重试。`HIVE_MIND_TOOL_SHELL_OOM_SCORE_ADJ`
+可修改该值（1-1000）或将其关闭（`off`）。非 bash 的 shell（`sh`、`zsh`）保持默认分值。
+
+**CPU（issue #3048）。** 没有 CPU 限制时，一个多核任务会让宿主机 CPU 显示为 100%，队列的
+CPU 闸门会阻挡所有工具队列直到该任务结束。现在每个任务默认限制为宿主机 CPU 的 50%。队列还会
+把受限任务正在使用的 CPU 视为该任务的预留：其余负载与受限任务无法使用的 CPU 进行比较。因此
+跑满自身上限的任务不会阻挡其他工具，而不受限的负载仍会像以前一样阻挡。Docker 任务没有 CPU
+限制时，bot 会在启动时发出警告；队列日志中的 `Starting:` 行会显示任务启动时的限制，例如
+`[limits: CPU=50% (3 CPUs), RAM=60% (7.2 GiB), reservation=25% (3.0 GiB), disk=unlimited]`。
+
+Docker 会在任务命令运行前、任务仍由启动闸门阻挡时，通过 `docker update` 应用 CPU 和内存限制。
+start-command 0.38.0 有 `--memory` 和 `--cpus` 启动参数，但没有 `--memory-reservation`，因此
+所有限制都以同样方式应用。Docker 存储配额无法跨存储驱动可移植，因此 Hive Mind 在每次会话
+监控轮询时（默认每 30 秒）针对容器可写层执行磁盘限制。用量超过限制时，容器会被停止，完成消息
+会报告实测用量和配置的限制。Docker daemon 必须已委派相应的 CPU 和内存 cgroup controller；
+如果 Docker 无法应用请求的内核限制，Hive Mind 会保持启动闸门关闭，尽可能移除或停止容器，并
+报告启动失败，而不会让任务在没有限制的情况下静默运行。
 
 **CPU 惩罚（issue #2801）。** 长时间占满全部 CPU 的 Docker 任务会被限流，负载下降后再解除。`--isolation docker` 下默认开启。「全部 CPU」指 Docker 宿主机的 CPU（`docker info` NCPU，每 5 分钟重新读取）；如果 `--container-cpu` 更低，则以它为准。
 
@@ -337,6 +367,57 @@ docker run --rm -it \
 1. **Docker**：安装 Docker Desktop 或 Docker Engine（版本 20.10 或更高）
 2. **网络连接**：拉取镜像和身份验证需要
 
+## 宿主机 Docker daemon 设置
+
+Docker 默认 `"live-restore": false`，此时宿主机 `dockerd` 的任何重启——崩溃、内核
+OOM killer、软件包升级、`systemctl restart docker`——都会强制杀死所有容器：bot 容器、
+所有正在运行的 `--isolation docker` 任务，以及保存在 bot 内存中的 solve 队列
+（[issue #2900](https://github.com/link-assistant/hive-mind/issues/2900)）。启用 `"live-restore": true` 后，daemon 会重新接管正在运行的
+容器（[Docker 文档](https://docs.docker.com/engine/daemon/live-restore/)）。
+
+检查该设置（期望值为 `true`）：
+
+```bash
+docker info -f '{{.LiveRestoreEnabled}}'
+```
+
+`--isolation docker` 预检会在 bot 启动时执行同样的检查，若 daemon 报告 `false` 则记录
+警告。在 Docker-in-Docker 镜像中，它检查嵌套 daemon；若挂载了宿主机 socket，还会检查
+宿主机 daemon。该警告从不阻止启动。
+
+在 Docker 宿主机上（而非容器内）应用：
+
+```bash
+# 将 "live-restore": true 合并到 /etc/docker/daemon.json，保留其他所有键
+sudo python3 -c 'import json,os
+p="/etc/docker/daemon.json"
+d=json.load(open(p)) if os.path.exists(p) and os.path.getsize(p) else {}
+d["live-restore"]=True
+os.makedirs("/etc/docker",exist_ok=True)
+open(p,"w").write(json.dumps(d,indent=2)+"\n")'
+
+# 使用 reload（SIGHUP），切勿 restart：在 live-restore 仍关闭时 restart 会杀死所有容器
+sudo systemctl reload docker
+
+# 验证：输出 true
+docker info -f '{{.LiveRestoreEnabled}}'
+```
+
+限制：
+
+- live-restore 无法在宿主机重启后保留容器：所有容器都会停止。请为 bot 容器保留
+  `--restart unless-stopped`，使其自动恢复；被重启中断的任务会如实报告
+  （[issue #3533](https://github.com/link-assistant/hive-mind/issues/3533)）。
+- 仅在补丁版本之间升级 daemon 时容器才能继续运行。
+- live-restore 不支持 Swarm 模式，仅适用于独立容器。
+- daemon 停止期间，填满日志管道缓冲区（约 64 KiB）的容器会在写入时阻塞，直到 daemon
+  恢复。
+- 尚未启动的任务队列保存在 bot 内存中，bot 自身重启时仍会丢失
+  （[issue #2890](https://github.com/link-assistant/hive-mind/issues/2890)）。
+- 本仓库没有在宿主机上安装 Docker 的脚本，因此这是一次性的手动步骤。
+- `konard/hive-mind-dind` 镜像已使用 `--live-restore` 启动嵌套 `dockerd`
+  （`DIND_LIVE_RESTORE=1`，可用 `-e DIND_LIVE_RESTORE=0` 关闭）。宿主机 daemon 仍需上述设置。
+
 ## 目录结构
 
 ```
@@ -366,6 +447,10 @@ docker run -it -v box-home:/home/box konard/hive-mind:latest
 ```
 
 若不挂载整个 home，请分别持久化 `/home/box/.codex` 和可选的 `/home/box/.agents`。`--isolation docker` 任务**不会**整体继承这些目录：自 [issue #2190](https://github.com/link-assistant/hive-mind/issues/2190) 起，任务容器只挂载凭据文件（`~/.claude/.credentials.json` 或 `~/.codex/auth.json`）和会话目录（`~/.claude/projects`、`~/.claude/sessions`、`~/.codex/sessions`）；插件、marketplace、技能、MCP 和设置均来自镜像，并随容器一起消失。每次启动 `solve`/`hive` 时都会审计全局配置，并默认清理到最小配置（可用 `--no-agent-config-auto-repair` 关闭）。Hive Mind 在 `codex exec` 前读取 issue、全部评论和仓库指令文件，解析明确要求的插件和 Agent Skill，并将选定的提供者安装到 `.codex/hive-mind/repositories/<owner>/<repo>`。每个任务都从空的插件/技能状态重建此作用域，关闭远程插件同步，且不复制主机缓存或全局技能。技能文件不会部署或提交到目标仓库。
+
+**Telegram 机器人的队列在重启后保留（issue #2890）。** 机器人把 `/solve` 队列保存到 `~/.hive-mind/state/`（`queue.json`、`queue.lino` 副本，以及安装了 link-cli 工具 `clink` 时的 `queue.links` 双元组数据库）；`HIVE_MIND_STATE_DIR` 可更改该目录。重启后，机器人按原顺序恢复所有排队任务，并告知每个聊天恢复了哪些任务。停止时正在启动的任务，只有在没有任何容器或被跟踪的会话运行它时才会重新启动。要在重建机器人容器后保留队列，请在 `docker run` 命令中加入 `-v /root/.hive-mind/state:/home/box/.hive-mind/state`（并将该目录的所有者设为 `box`）。如果所有存储都丢失，机器人会从 `~/.hive-mind/logs/` 中的日志重建队列。设置 `HIVE_MIND_QUEUE_CLINK=0` 可跳过 link-cli 副本，`HIVE_MIND_CLINK_PATH` 指定 `clink` 路径（`dotnet tool install --global clink`）。
+
+**运行中的任务计入限制（issue #2917）。** 在 `--isolation docker` 下，队列会统计正在运行的任务容器（`docker ps`），因此机器人不再跟踪的任务（例如机器人重启之后）仍会计入"一次一个"的限制。`/limits` 将其显示为 `N 个未跟踪`。机器人为每个任务容器添加 `hive-mind.*` 标签（工具、URL、命令、实例）。多个机器人共用一个 Docker 守护进程时，请设置 `HIVE_MIND_INSTANCE_ID`，使每个机器人只接管自己的任务容器。
 
 若 catalog 中没有要求的提供程序，预检会在 AI harness 启动前报告确切能力。请在父容器中运行 `codex plugin list --available --json` 以检查或刷新 marketplace。预检会为每个任务通过 `codex debug prompt-input` 验证完整的模型可见目录，即使没有声明可选能力也会执行。仅允许作用域内的核心技能、明确要求的仓库技能，以及选定作用域插件的技能；意外技能、不受信任的路径，或在支持该命令的 CLI 上不可用/无法解析的探测结果都会停止执行。详细日志会显示每个已接受技能的名称、提供者、版本和规范化路径。
 

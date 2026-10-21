@@ -148,6 +148,8 @@ sudo docker run hello-world
 
 **其他操作系统**或详细安装说明，请参阅 [Docker 官方文档](https://docs.docker.com/engine/install/)。
 
+**安装后建议：** 启用 Docker live-restore，避免 Docker daemon 重启杀死 bot 及其正在运行的任务（[issue #2900](https://github.com/link-assistant/hive-mind/issues/2900)）。将 `"live-restore": true` 合并到 `/etc/docker/daemon.json`，用 `sudo systemctl reload docker` 应用（reload，切勿 restart），并用 `docker info -f '{{.LiveRestoreEnabled}}'` 检查。安全的合并命令和限制见[宿主机 Docker daemon 设置](./docs/DOCKER.zh.md#宿主机-docker-daemon-设置)。
+
 ### 使用 Docker
 
 使用 Docker 运行 Hive Mind，实现更安全的本地安装，无需手动配置：

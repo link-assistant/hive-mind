@@ -273,30 +273,32 @@ Telegram 机器人部署不会让 Formal AI 常驻运行。请求 `--model forma
 
 ### 13. Telegram Bot
 
-| 环境变量                                        | 默认值   | 描述                                                                        |
-| ----------------------------------------------- | -------- | --------------------------------------------------------------------------- |
-| `TELEGRAM_BOT_TOKEN`                            | （必填） | 来自 @BotFather 的 Telegram bot token                                       |
-| `TELEGRAM_ALLOWED_CHATS`                        | （全部） | 允许的聊天 ID（Links Notation）                                             |
-| `TELEGRAM_SOLVE_OVERRIDES`                      | （无）   | /solve 的覆盖选项（Links Notation）                                         |
-| `TELEGRAM_HIVE_OVERRIDES`                       | （无）   | /hive 的覆盖选项（Links Notation）                                          |
-| `TELEGRAM_SOLVE`                                | true     | 启用 /solve 命令                                                            |
-| `TELEGRAM_HIVE`                                 | true     | 启用 /hive 命令                                                             |
-| `TELEGRAM_TASK`                                 | true     | 启用 /task 和 /split 命令                                                   |
-| `TELEGRAM_FIX`                                  | true     | 启用 /fix 命令                                                              |
-| `TELEGRAM_ORGANIZE`                             | true     | 启用 /organize 议题分类命令                                                 |
-| `TELEGRAM_AUTH`                                 | true     | 为白名单聊天所有者启用实验性的私聊 /auth 命令                               |
-| `TELEGRAM_AUTO_START_SCREEN_WATCH_MESSAGE`      | false    | 为公开仓库的 /solve 会话自动启动单独的 live terminal watch 消息             |
-| `TELEGRAM_CONTAINER_CPU`                        | （无）   | Docker 任务 CPU 限制：固定核心数（`1.5`）或宿主机百分比（`50%`）            |
-| `TELEGRAM_CONTAINER_MEMORY`                     | 25%      | Docker 任务内存限制：容量（`2GiB`）或宿主机百分比（`25%`）                  |
-| `TELEGRAM_CONTAINER_DISK`                       | （无）   | Docker 任务可写层限制：容量（`20GB`）或可用磁盘百分比（`10%`）              |
-| `TELEGRAM_CONTAINER_CPU_PENALTY`                | `true`   | 限流长时间占满全部 CPU 的 Docker 任务（issue #2801）；`false` 关闭          |
-| `TELEGRAM_CONTAINER_CPU_PENALTY_CPUS`           | `2`      | 被惩罚的 Docker 任务的 CPU 上限                                             |
-| `TELEGRAM_CONTAINER_CPU_PENALTY_TRIGGER`        | `95%`    | 视为「全部 CPU」的平均占比（宿主机 CPU，或更低的 `TELEGRAM_CONTAINER_CPU`） |
-| `TELEGRAM_CONTAINER_CPU_PENALTY_TRIGGER_WINDOW` | `15m`    | 触发前平均值需保持的时长                                                    |
-| `TELEGRAM_CONTAINER_CPU_PENALTY_RELEASE`        | `65%`    | 解除限流需低于的限额占比                                                    |
-| `TELEGRAM_CONTAINER_CPU_PENALTY_RELEASE_WINDOW` | `15m`    | 解除前低负载需保持的时长                                                    |
-| `TELEGRAM_BOT_VERBOSE`                          | false    | 启用详细日志                                                                |
-| `TELEGRAM_CONFIGURATION`                        | （无）   | LINO 配置字符串                                                             |
+| 环境变量                                        | 默认值   | 描述                                                                                                             |
+| ----------------------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------- |
+| `TELEGRAM_BOT_TOKEN`                            | （必填） | 来自 @BotFather 的 Telegram bot token                                                                            |
+| `TELEGRAM_ALLOWED_CHATS`                        | （全部） | 允许的聊天 ID（Links Notation）                                                                                  |
+| `TELEGRAM_SOLVE_OVERRIDES`                      | （无）   | /solve 的覆盖选项（Links Notation）                                                                              |
+| `TELEGRAM_HIVE_OVERRIDES`                       | （无）   | /hive 的覆盖选项（Links Notation）                                                                               |
+| `TELEGRAM_SOLVE`                                | true     | 启用 /solve 命令                                                                                                 |
+| `TELEGRAM_HIVE`                                 | true     | 启用 /hive 命令                                                                                                  |
+| `TELEGRAM_TASK`                                 | true     | 启用 /task 和 /split 命令                                                                                        |
+| `TELEGRAM_FIX`                                  | true     | 启用 /fix 命令                                                                                                   |
+| `TELEGRAM_ORGANIZE`                             | true     | 启用 /organize 议题分类命令                                                                                      |
+| `TELEGRAM_AUTH`                                 | true     | 为白名单聊天所有者启用实验性的私聊 /auth 命令                                                                    |
+| `TELEGRAM_AUTO_START_SCREEN_WATCH_MESSAGE`      | false    | 为公开仓库的 /solve 会话自动启动单独的 live terminal watch 消息                                                  |
+| `TELEGRAM_CONTAINER_CPU`                        | 50%      | Docker 任务 CPU 限制：固定核心数（`1.5`）或宿主机百分比（`50%`）；`unlimited` 关闭（issue #3048）                |
+| `TELEGRAM_CONTAINER_MEMORY`                     | 60%      | Docker 任务内存硬限制：容量（`2GiB`）或宿主机百分比（`60%`）；`unlimited` 关闭（issue #3125）                    |
+| `TELEGRAM_CONTAINER_MEMORY_RESERVATION`         | 25%      | Docker 任务内存软限制（`--memory-reservation`）；设置 `TELEGRAM_CONTAINER_MEMORY` 时不再默认启用，必须低于硬限制 |
+| `TELEGRAM_CONTAINER_DISK`                       | （无）   | Docker 任务可写层限制：容量（`20GB`）或可用磁盘百分比（`10%`）                                                   |
+| `TELEGRAM_CONTAINER_CPU_PENALTY`                | `true`   | 限流长时间占满全部 CPU 的 Docker 任务（issue #2801）；`false` 关闭                                               |
+| `TELEGRAM_CONTAINER_CPU_PENALTY_CPUS`           | `2`      | 被惩罚的 Docker 任务的 CPU 上限                                                                                  |
+| `TELEGRAM_CONTAINER_CPU_PENALTY_TRIGGER`        | `95%`    | 视为「全部 CPU」的平均占比（宿主机 CPU，或更低的 `TELEGRAM_CONTAINER_CPU`）                                      |
+| `TELEGRAM_CONTAINER_CPU_PENALTY_TRIGGER_WINDOW` | `15m`    | 触发前平均值需保持的时长                                                                                         |
+| `TELEGRAM_CONTAINER_CPU_PENALTY_RELEASE`        | `65%`    | 解除限流需低于的限额占比                                                                                         |
+| `TELEGRAM_CONTAINER_CPU_PENALTY_RELEASE_WINDOW` | `15m`    | 解除前低负载需保持的时长                                                                                         |
+| `HIVE_MIND_TOOL_SHELL_OOM_SCORE_ADJ`            | 500      | AI 工具 bash shell 自行提升到的 `oom_score_adj`，使 OOM 先杀构建而非 AI CLI（issue #3125）；`off` 关闭           |
+| `TELEGRAM_BOT_VERBOSE`                          | false    | 启用详细日志                                                                                                     |
+| `TELEGRAM_CONFIGURATION`                        | （无）   | LINO 配置字符串                                                                                                  |
 
 ### 14. YouTrack 集成
 
@@ -602,6 +604,7 @@ hive <github-url> [options]
 | `--all-issues`                                       | `-a`  | boolean | false         | 监控所有 issue（忽略标签）                                                                                                                                                                                                    |
 | `--skip-issues-with-prs`                             | `-s`  | boolean | false         | 跳过已有 PR 的 issue                                                                                                                                                                                                          |
 | `--concurrency`                                      | `-c`  | number  | 2             | 并行工作进程数                                                                                                                                                                                                                |
+| `--min-memory-per-worker`                            |       | number  | 2048          | 每个 worker 的最小 cgroup 内存（MB）；容器内存限制不足以给每个 worker 这么多时降低 `--concurrency`（issue #2838）。`0` 关闭；环境变量 `HIVE_MIND_MIN_MEMORY_PER_WORKER`                                                       |
 | `--pull-requests-per-issue`                          | `-p`  | number  | 1             | 每个 issue 的 PR 数量                                                                                                                                                                                                         |
 | `--model`                                            | `-m`  | string  | sonnet        | 使用的模型                                                                                                                                                                                                                    |
 | `--sub-agent-model`                                  |       | string  |               | 转发给 solve workers 的 Claude Code subagent/agent team 模型覆盖。仅在提供时设置 `CLAUDE_CODE_SUBAGENT_MODEL`。接受 Claude 模型别名、完整模型 ID，或 `inherit`。仅适用于 `--tool claude`。                                    |
@@ -671,8 +674,9 @@ hive-telegram-bot [options]
 | `--dry-run`                              |      | boolean | false    | 验证而不启动 bot                                                                                                                                                                     |
 | `--auto-start-screen-watch-message`      |      | boolean | false    | 实验性：为公开仓库的 `/solve` 会话自动启动单独的 `/terminal_watch` 消息。私有仓库或可见性未知的仓库不会自动启动 watch 消息。                                                         |
 | `--isolation`                            |      | string  | `docker` | 隔离后端（`screen`、`tmux`、`docker`）。默认 `docker`，使 Telegram-bot 工作会话在 Docker 隔离中运行并在成功后清理。要禁用，请传递 `--isolation ''`（或设置 `TELEGRAM_ISOLATION=`）。 |
-| `--container-cpu`                        |      | string  |          | Docker 任务 CPU 限制：固定核心数（`1.5`）或宿主机百分比（`50%`）。                                                                                                                   |
-| `--container-memory`                     |      | string  |          | Docker 任务内存限制：固定容量（`2GiB`）或宿主机百分比（`25%`）。                                                                                                                     |
+| `--container-cpu`                        |      | string  | `50%`    | Docker 任务 CPU 限制：固定核心数（`1.5`）或宿主机百分比（`50%`）；`unlimited` 关闭（issue #3048）。                                                                                  |
+| `--container-memory`                     |      | string  | `60%`    | Docker 任务内存硬限制：固定容量（`2GiB`）或宿主机百分比（`60%`）；`unlimited` 关闭（issue #3125）。                                                                                  |
+| `--container-memory-reservation`         |      | string  | `25%`    | Docker 任务内存软限制（`docker update --memory-reservation`）；设置 `--container-memory` 时不再默认启用，必须低于硬限制。                                                            |
 | `--container-disk`                       |      | string  |          | Docker 任务可写层限制：固定容量（`20GB`）或文件系统可用空间百分比（`10%`）。                                                                                                         |
 | `--container-cpu-penalty`                |      | boolean | `true`   | 限流在触发窗口内占满全部 CPU 的 Docker 任务，并在解除窗口后解除（issue #2801）。`--no-container-cpu-penalty` 关闭。                                                                  |
 | `--container-cpu-penalty-cpus`           |      | string  | `2`      | 被惩罚的 Docker 任务的 CPU 上限。                                                                                                                                                    |

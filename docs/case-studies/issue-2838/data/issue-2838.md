@@ -1,0 +1,32 @@
+# #2838 Memory preflight reads host /proc/meminfo inside docker isolation; Claude gets no container memory budget (#2745 was Codex-only); hive starts 2 workers in a 2.92 GiB cgroup
+labels: ["bug"]
+## Summary
+Inside docker isolation, the memory preflight reads **host** memory. The AI tool is never told the container's real memory budget (the Codex-only fix in #2745 left Claude out), and `hive` starts several workers in one small cgroup. As a result, builds keep getting OOM-killed.
+
+## Evidence (hive-mind 2.34.0, containers capped at `Memory = MemorySwap = 3135373312`, i.e. 2.92 GiB with no swap)
+**1. Preflight uses host values.**
+- `checkMemory` (`src/memory-check.mjs:184-242`, unchanged in 2.35.0) adds up `/proc/meminfo` MemFree+Buffers+Cached+SReclaimable plus host SwapFree.
+- Output: `🧠 Memory check: 11117MB available, swap: 4095MB (0MB used), total: 15212MB (256MB required) ✅`
+- The same log reports `Container memory (cgroup v2): … of 2.9 GB limit`.
+- The "System resources before/after execution: MemFree: …" lines are host-wide too.
+
+**2. hive starts 2 workers in a 2.92 GiB cgroup.**
+- `hive https://github.com/link-assistant/router --tool codex --all-issues --once`: `🔄 Concurrency: 2 parallel workers` (default from `src/hive.config.lib.mjs:127-131`).
+- Both workers ran cargo/rustc builds. The OOM killer fired 36 times (`memory.events oom=251`).
+- Worker 1's codex was SIGKILLed (exit 137), so router#719 failed and hive exited 1.
+
+**3. Claude has no memory budget in its prompt.**
+- `fix https://github.com/link-assistant/web-capture --ci-cd` (PR web-capture#178, incident #2803): after a first OOM SIGKILL of `cargo test`, Claude ran `free -g`. That shows the host (11 GB total, 7 GB available).
+- It then retried `cargo test -j 2` in the background alongside a subagent, and the `claude` process itself was OOM-killed (exit 137).
+- 2.34.3 (#2745/#2746) added `buildCodexMemoryBudgetPrompt(cgroupBefore)` (`src/codex.lib.mjs:697`), but in 2.35.0 the Claude path (`claude.lib.mjs` / `claude.prompts.lib.mjs`) still gets nothing.
+
+## Expected
+- In a cgroup, the preflight and the "System resources" lines use `memory.max` / `memory.current` / `memory.swap.max`. Available memory is `min(host available, memory.max - memory.current)`, swap is 0 when `memory.swap.max` equals the limit, and the output says which limit applied. The cgroup reader from `solve.resource-diagnostics.lib.mjs` (#2498) can be reused.
+- Every tool, including Claude, gets the memory-budget guidance Codex gets: the real limit, the warning that `free`/`top` show the host, and advice to build heavy crates sequentially with low `-j` and not run builds alongside subagents. Optionally, after a mid-session `oom_kill` increase, inject a warning into the next turn.
+- `hive` caps or warns about `--concurrency` when (cgroup limit / workers) is below a configurable per-worker minimum.
+
+Related: #2803, #2631 (D), #2745, #2613.
+
+
+## comments
+

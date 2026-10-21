@@ -148,6 +148,8 @@ sudo docker run hello-world
 
 **For other operating systems** or detailed instructions, see the [official Docker documentation](https://docs.docker.com/engine/install/).
 
+**Recommended after installing:** enable Docker live-restore, so a restart of the Docker daemon does not kill the bot and its running tasks ([issue #2900](https://github.com/link-assistant/hive-mind/issues/2900)). Merge `"live-restore": true` into `/etc/docker/daemon.json`, apply it with `sudo systemctl reload docker` (reload, never restart), and check `docker info -f '{{.LiveRestoreEnabled}}'`. The safe merge command and the limits are in [Host Docker daemon settings](./docs/DOCKER.md#host-docker-daemon-settings).
+
 ### Using Docker
 
 Run the Hive Mind using Docker for safer local installation - no manual setup required:

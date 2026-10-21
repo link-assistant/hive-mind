@@ -114,8 +114,9 @@ const snapshotSubmodule = async ({ $, submodule, children, message }) => {
 
 /** The fork `gh repo fork` created or found, e.g. `✓ Created fork me/sandbox` / `! me/sandbox already exists`. */
 const parseForkName = (output, upstream) => {
+  // GitHub owner names have no dots, so `github.com/me` (from a URL) is a host, not an owner/repo.
   const names = String(output || '').match(/[A-Za-z0-9][\w.-]*\/[\w.-]+/g) || [];
-  return names.map(name => name.replace(/\.git$/, '')).find(name => name.toLowerCase() !== upstream.toLowerCase() && !name.includes('github.com')) || null;
+  return names.map(name => name.replace(/\.git$/, '')).find(name => name.toLowerCase() !== upstream.toLowerCase() && !name.split('/')[0].includes('.')) || null;
 };
 
 /**

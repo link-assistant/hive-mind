@@ -1,0 +1,1 @@
+{ "headRefName": "issue-3530-6f80c2bef5a1", "headRefOid": "06df2d0ad03183f91d5c73c983c6327c39a785be", "state": "OPEN", "title": "fix(recovery): one GitHub comment per kill, resource-gated recovery, no duplicate solve, real kill cause, one id per task (#3530, #3532, #3533, #2843)", "url": "https://github.com/link-assistant/hive-mind/pull/3531" }

@@ -1,5 +1,7 @@
 # #744 Research what we can do to reduce the probability of claude command killing itself and our telegram bot and all other running processes [OPEN]
 
+> Verbatim, except that the #733 link in the last comment is rewritten from the repository's former owner `deep-assistant` to `link-assistant` (the old URL answers 404 to link checkers).
+
 ```
     "id": "msg_0174XP6ApRZZTTBqErFgZdNF",
     "type": "message",
@@ -233,5 +235,5 @@ Please download all logs and data related about the issue to this repository, ma
 
 ## Comments
 ### konard 2025-11-15T12:25:54Z
-Also https://github.com/deep-assistant/hive-mind/issues/733 was actually caused by this issue.
+Also https://github.com/link-assistant/hive-mind/issues/733 was actually caused by this issue.
 

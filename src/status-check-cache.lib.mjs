@@ -51,6 +51,8 @@ export function normalizeMinIntervalMs(value, fallback = DEFAULT_DOCKER_STATUS_M
   return Math.max(0, Math.floor(number));
 }
 
+const SWEEP_THRESHOLD = 500;
+
 /**
  * Create a keyed cache whose loaders run at most once per `minIntervalMs` and
  * never twice at the same time.
@@ -65,6 +67,7 @@ export function createStatusCheckCache({ minIntervalMs = DEFAULT_DOCKER_STATUS_M
   const entries = new Map(); // key -> { value, at }
   const inflight = new Map(); // key -> { promise, generation }
   const generations = new Map(); // key -> number, bumped by invalidate()
+  const running = new Map(); // key -> loaders still running, including ones invalidate() detached
   let clearGeneration = 0;
   const stats = { hits: 0, misses: 0, inflightJoins: 0, invalidations: 0 };
 
@@ -88,16 +91,18 @@ export function createStatusCheckCache({ minIntervalMs = DEFAULT_DOCKER_STATUS_M
       stats.hits += 1;
       return clone(entry.value);
     }
-    const running = inflight.get(key);
-    if (running) {
+    const joined = inflight.get(key);
+    if (joined) {
       stats.inflightJoins += 1;
-      return clone(await running.promise);
+      return clone(await joined.promise);
     }
     stats.misses += 1;
+    if (entries.size + generations.size > SWEEP_THRESHOLD) sweep(interval);
     const generation = generationOf(key);
     const promise = (async () => loader())();
     const record = { promise, generation };
     inflight.set(key, record);
+    running.set(key, (running.get(key) || 0) + 1);
     try {
       const value = await promise;
       // A check that started before invalidate()/clear() may describe the old
@@ -107,7 +112,17 @@ export function createStatusCheckCache({ minIntervalMs = DEFAULT_DOCKER_STATUS_M
       return clone(value);
     } finally {
       if (inflight.get(key) === record) inflight.delete(key);
+      if (running.get(key) > 1) running.set(key, running.get(key) - 1);
+      else running.delete(key);
     }
+  }
+
+  // Sessions come and go for the bot's whole lifetime: drop expired entries,
+  // and generation counters with no check running, once there are many.
+  function sweep(interval) {
+    const cutoff = now() - interval;
+    for (const [key, entry] of entries) if (!(entry.at > cutoff)) entries.delete(key);
+    for (const key of generations.keys()) if (!running.has(key)) generations.delete(key);
   }
 
   /** Forget `key` so the next lookup runs a fresh check. */

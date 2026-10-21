@@ -279,6 +279,22 @@ await test('clear() forgets every entry, including checks still running', async 
   assert.equal(await cache.get('b', async () => 2), 2);
 });
 
+await test('expired entries of finished sessions are swept, fresh ones and detached checks are kept', async () => {
+  const clock = fakeClock();
+  const cache = createStatusCheckCache({ minIntervalMs: 5000, now: clock.now });
+  const stale = deferred();
+  const detached = cache.get('status:running', () => stale.promise);
+  cache.invalidate('status:running'); // its check keeps running without an in-flight record
+  for (let i = 0; i < 600; i++) await cache.get(`status:old-${i}`, async () => i);
+  clock.advance(6000);
+  await cache.get('status:fresh', async () => 'fresh'); // a miss over the threshold sweeps
+  assert.ok(cache.getStats().entries <= 2, `entries left: ${cache.getStats().entries}`);
+  assert.equal(await cache.get('status:fresh', async () => 'unexpected'), 'fresh');
+  stale.resolve('before');
+  assert.equal(await detached, 'before');
+  assert.equal(await cache.get('status:running', async () => 'after'), 'after', 'the sweep kept the invalidation of the detached check');
+});
+
 await test('invalidatePrefix() forgets only matching keys', async () => {
   const cache = createStatusCheckCache({ minIntervalMs: 60_000 });
   await cache.get('pgrep', async () => 'all');

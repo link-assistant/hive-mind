@@ -491,11 +491,7 @@ export const findCommentWithMarker = async ({ $, owner, repo, targetNumber, mark
   try {
     const result = await $({ signal: AbortSignal.timeout(GH_COMMENT_TIMEOUT_MS) })`gh api repos/${owner}/${repo}/issues/${targetNumber}/comments --paginate --jq ${`.[] | select(.body | contains(${JSON.stringify(marker)})) | .id`}`;
     if (result.code !== 0) return null;
-    return (
-      String(result.stdout || '')
-        .split(/\s+/)
-        .find(id => /^\d+$/.test(id)) || null
-    );
+    return (result.stdout?.toString() || '').split(/\s+/).find(id => /^\d+$/.test(id)) || null;
   } catch {
     return null;
   }

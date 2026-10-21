@@ -122,4 +122,7 @@ test('the ledger is read by exact artifact name; expired and unreadable records 
 
 test('the plan summary escapes table cells', () => {
   assert.match(formatPlanSummary({ scope: 'pull-request', scopeKey: 'pr7', plan: { 'codex/formal-ai': { action: 'run', reason: 'a | b' } } }), /\| `codex\/formal-ai` \| run \| a \\\| b \|/);
+  // A backslash before a pipe must not unescape it, and a newline must not end the row (CodeQL alert 307).
+  const summary = formatPlanSummary({ scope: 'pull-request', scopeKey: 'pr7', plan: { 'claude/formal-ai': { action: 'run', reason: 'path C:\\ | next\nline' } } });
+  assert.ok(summary.includes('| `claude/formal-ai` | run | path C:\\\\ \\| next line |'), summary);
 });

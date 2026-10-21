@@ -142,9 +142,12 @@ export async function collectLedger({ repository, scopeKey, rows = E2E_MATRIX, a
   return history;
 }
 
+/** One markdown table cell: backslashes first, so an escaped pipe stays escaped, and no line breaks. */
+const tableCell = value => String(value).replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
+
 /** A step summary of the plan. */
 export function formatPlanSummary({ scope, scopeKey, plan }) {
   const lines = [`### Real E2E plan (${scope}, ledger \`${scopeKey}\`)`, '', '| Row | Action | Reason |', '|---|---|---|'];
-  for (const [key, entry] of Object.entries(plan)) lines.push(`| \`${key}\` | ${entry.action} | ${String(entry.reason).replace(/\|/g, '\\|')} |`);
+  for (const [key, entry] of Object.entries(plan)) lines.push(`| \`${key}\` | ${entry.action} | ${tableCell(entry.reason)} |`);
   return `${lines.join('\n')}\n\n`;
 }

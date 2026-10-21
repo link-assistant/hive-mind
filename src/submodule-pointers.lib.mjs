@@ -149,7 +149,7 @@ const openSubmodulePullRequest = async ({ $, cwd, upstream, fork, branch, title,
   const { sanitizeForPublication } = await import('./token-sanitization.lib.mjs');
   const [safeTitle, safeBody] = await Promise.all([sanitizeForPublication(title), sanitizeForPublication(body)]);
   const created = await attempt(() => runIn($, cwd, SUBMODULE_NETWORK_TIMEOUT_MS)`gh pr create --repo ${upstream} --head ${head} --title ${safeTitle} --body ${safeBody} 2>&1`);
-  const url = parsePullRequestUrl(`${outputOf(created)}\n${created.stderr || ''}`);
+  const url = parsePullRequestUrl(`${outputOf(created)}\n${created.stderr?.toString() || ''}`);
   return url ? { ok: true, url } : { ok: false, error: errorOf(created) };
 };
 
@@ -264,7 +264,7 @@ export const vetoUnreachableSubmodulePointers = async ({ tempDir, owner, repo, p
     try {
       const { postTrackedComment } = await import('./tool-comments.lib.mjs');
       const posted = await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: buildUnreachableSubmoduleComment(result.unreachable) });
-      if (!posted?.ok) await log(`  ⚠️  Could not post the unreachable-submodule notice: ${posted?.stderr || 'unknown error'}`, { level: 'warning' });
+      if (!posted?.ok) await log(`  ⚠️  Could not post the unreachable-submodule notice: ${posted?.stderr?.toString() || 'unknown error'}`, { level: 'warning' });
     } catch (error) {
       await log(`  ⚠️  Could not post the unreachable-submodule notice: ${error.message}`, { level: 'warning' });
     }

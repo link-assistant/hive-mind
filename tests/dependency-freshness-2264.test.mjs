@@ -192,7 +192,7 @@ assert.equal((dependabot.match(/cooldown:\s*\n\s*exclude: \['\*'\]/g) ?? []).len
 const releaseWorkflow = fs.readFileSync(path.join(repositoryRoot, '.github', 'workflows', 'release.yml'), 'utf8');
 assert.match(releaseWorkflow, /node scripts\/check-dependency-freshness\.mjs/);
 assert.match(releaseWorkflow, /detect-changes:[\s\S]*node scripts\/check-dependency-freshness\.mjs[\s\S]*node scripts\/detect-code-changes\.mjs/, 'the required detector rejects stale declarations before it publishes outputs');
-assert.match(releaseWorkflow, /pipeline-status:[\s\S]*needs:[\s\S]*- detect-changes/, 'the terminal status gate observes freshness failures');
+assert.match(releaseWorkflow, /pipeline-status:[\s\S]*needs: \[[^\]]*\bdetect-changes\b/, 'the terminal status gate observes freshness failures');
 
 // Build-time `@latest` is not enough for a container that can live for months:
 // maintenance must refresh operational utilities with the same idle lock used

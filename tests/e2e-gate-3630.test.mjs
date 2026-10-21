@@ -40,7 +40,7 @@ test('the real E2E gate needs every other pull request check', () => {
   assert.ok(all['real-e2e'], 'release.yml has a real-e2e job');
   const checks = Object.keys(all).filter(name => !DELIVERY_JOB.test(name) && !['real-e2e', 'pipeline-status'].includes(name));
   assert.deepEqual(needsOf(all['real-e2e']).sort(), checks.sort());
-  const condition = all['real-e2e'].match(/^ {4}if: \|\n((?: {6}.*\n)+)/m)[1];
+  const condition = all['real-e2e'].match(/^ {4}if: \$\{\{ (.*) \}\}$/m)[1];
   for (const clause of ["!contains(needs.*.result, 'failure')", "!contains(needs.*.result, 'cancelled')", '!cancelled()', "github.event_name == 'pull_request'", 'github.event.pull_request.head.repo.full_name == github.repository']) assert.ok(condition.includes(clause), `real-e2e runs only when ${clause}`);
   assert.match(all['real-e2e'], /uses: \.\/\.github\/workflows\/e2e-hello-world-matrix\.yml/);
   assert.match(all['real-e2e'], /scope: pull-request\n\s+pull_request: \$\{\{ github\.event\.pull_request\.number \}\}\n\s+source_sha: \$\{\{ github\.event\.pull_request\.head\.sha \}\}/);

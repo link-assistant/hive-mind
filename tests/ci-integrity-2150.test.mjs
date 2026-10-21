@@ -27,6 +27,8 @@ const getJobBlock = (source, jobName) => {
 };
 
 const listNeededJobs = jobBlock => {
+  const inline = jobBlock.match(/^ {4}needs: \[([^\]]*)\]$/m);
+  if (inline) return inline[1].split(',').map(name => name.trim());
   const lines = jobBlock.split('\n');
   const start = lines.findIndex(line => line === '    needs:');
   const needed = [];

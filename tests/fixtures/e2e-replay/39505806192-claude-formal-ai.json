@@ -1,0 +1,154 @@
+{
+  "v": 1,
+  "name": "39505806192-claude-formal-ai",
+  "source": {
+    "runId": "39505806192",
+    "tool": "claude",
+    "model": "formal-ai",
+    "layer": "default",
+    "workflowDir": "ci/",
+    "formalAiTag": "0.355.0",
+    "formalAiVersion": "formal-ai 0.355.0",
+    "sourceSha": null,
+    "issueNumber": 3626,
+    "pullRequestNumber": 3627,
+    "startedAt": "2026-10-20T22:27:53.411Z",
+    "finishedAt": "2026-10-20T22:30:10.310Z"
+  },
+  "recorded": {
+    "passed": false,
+    "verdict": {
+      "harness": true,
+      "model": false
+    },
+    "solveExitCode": 1,
+    "error": null,
+    "evaluation": [
+      {
+        "name": "ready for review",
+        "ok": true,
+        "reason": "state OPEN, ready"
+      },
+      {
+        "name": "diff is the program, the workflow and a test script",
+        "ok": false,
+        "reason": "placeholder files left in the diff: .gitkeep"
+      },
+      {
+        "name": "program prints exactly \"Hello, World!\"",
+        "ok": false,
+        "reason": "no workflow run log was available"
+      },
+      {
+        "name": "workflow green",
+        "ok": false,
+        "reason": "no checks reported"
+      },
+      {
+        "name": "body is final",
+        "ok": false,
+        "reason": "the body contains the initial placeholder"
+      },
+      {
+        "name": "title is final",
+        "ok": false,
+        "reason": "\"[WIP] Implement Hello World in Kotlin\""
+      },
+      {
+        "name": "no \"🛑 Automation stopped\" comment",
+        "ok": true,
+        "reason": "0 stop comments"
+      },
+      {
+        "name": "solve completed",
+        "ok": false,
+        "reason": "solve exited 1"
+      }
+    ],
+    "harness": [
+      {
+        "name": "task image runs the shipped Formal AI",
+        "ok": true,
+        "reason": "formal-ai 0.355.0"
+      },
+      {
+        "name": "workflow push accepted",
+        "ok": true,
+        "reason": "no unrecovered workflow push rejection in solve.log"
+      }
+    ]
+  },
+  "session": {
+    "exitCode": 1,
+    "log": {
+      "text": "[use-m] acquired install lock for 'command-stream-v-latest' at /tmp/hive-mind-use-m-locks/command-stream-v-latest.lock\n[use-m] use('command-stream') loading (alias command-stream-v-latest)\n[use-m] use('command-stream') pinned to 'command-stream@2.4.0'\n[use-m] use('command-stream') loaded in 4237ms\n[use-m] use('links-notation') pinned to 'links-notation@0.27.1'\n[use-m] acquired install lock for 'links-notation-v-0.27.1' at /tmp/hive-mind-use-m-locks/links-notation-v-0.27.1.lock\n[use-m] use('links-notation@0.27.1') loading (alias links-notation-v-0.27.1)\n[use-m] use('links-notation@0.27.1') loaded in 78ms\n[use-m] use('getenv') pinned to 'getenv@2.0.0'\n[use-m] acquired install lock for 'getenv-v-2.0.0' at /tmp/hive-mind-use-m-locks/getenv-v-2.0.0.lock\n[use-m] use('getenv@2.0.0') loading (alias getenv-v-2.0.0)\n[use-m] use('getenv@2.0.0') loaded in 73ms\n[use-m] use('fs') loading (alias fs-v-latest)\n[use-m] use('fs') loaded in 1ms\n[use-m] use('path') loading (alias path-v-latest)\n[use-m] use('path') loaded in 0ms\n[use-m] use('fs') joined an in-flight load (alias fs-v-latest)\n[use-m] use('crypto') loading (alias crypto-v-latest)\n[use-m] use('crypto') loaded in 0ms\n[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)\n[use-m] use('fs') joined an in-flight load (alias fs-v-latest)\n[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)\n[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)\n[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)\n[use-m] use('fs') joined an in-flight load (alias fs-v-latest)\n[use-m] use('fs') joined an in-flight load (alias fs-v-latest)\n[use-m] use('fs') joined an in-flight load (alias fs-v-latest)\n[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)\n[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)\n[use-m] use('fs') joined an in-flight load (alias fs-v-latest)\n[use-m] use('fs') joined an in-flight load (alias fs-v-latest)\n[use-m] use('os') loading (alias os-v-latest)\n[use-m] use('path') joined an in-flight load (alias path-v-latest)\n[use-m] use('path') joined an in-flight load (alias path-v-latest)\n[use-m] use('os') joined an in-flight load (alias os-v-latest)\n[use-m] use('os') loaded in 0ms\n[use-m] use('path') joined an in-flight load (alias path-v-latest)\n[use-m] use('path') joined an in-flight load (alias path-v-latest)\n[use-m] use('fs') joined an in-flight load (alias fs-v-latest)\n[use-m] use('path') joined an in-flight load (alias path-v-latest)\n[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)\n[use-m] use('path') joined an in-flight load (alias path-v-latest)\n[use-m] use('fs') joined an in-flight load (alias fs-v-latest)\n[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)\n[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)\n[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)\n[use-m] use('os') joined an in-flight load (alias os-v-latest)\n[use-m] use('path') joined an in-flight load (alias path-v-latest)\n[use-m] use('fs') joined an in-flight load (alias fs-v-latest)\n[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)\n[use-m] use('path') joined an in-flight load (alias path-v-latest)\n[use-m] use('fs') joined an in-flight load (alias fs-v-latest)\n[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)\n[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)\n[use-m] use('path') joined an in-flight load (alias path-v-latest)\n[use-m] use('fs') joined an in-flight load (alias fs-v-latest)\n[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)\n[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)\n[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)\n[use-m] use('command-stream'\n[replay: 168812 bytes of the session log omitted; 0 oracle lines kept]\nost 127.0.0.1 --port 45167\n🔍 No processes left running in /tmp/gh-issue-solver-1792535300242 after the session\n\n📊 [DISK] phase=after_agent bytes=513948179 deltaBytes=-1740622200 path=/tmp/gh-issue-solver-1792535300242 size=490 MB delta=-1.6 GB\n📈 Resource usage (after AI execution):\n   CPU load: 1.43 2.56 2.03 (4 CPUs)\n   Memory: 11.2 GB available / 15.6 GB total (4.4 GB used)\n   Process RSS: 129 MB, V8 heap: 38 MB used of 4.1 GB limit (0.9%)\n   Disk (/): 76.3 GB available / 144.3 GB total (47.1% used)\n   Container memory (cgroup v2): 863 MB used of no limit of its own, peak 2.5 GB; processes killed by the OOM killer so far: 0\n📈 [RESOURCES] phase=after_agent ts=2026-10-20T22%3A29%3A58.555Z load1=1.43 load5=2.56 load15=2.03 cpuCount=4 memTotalBytes=16766414848 memAvailableBytes=12035874816 memUsedBytes=4730540032 processRssBytes=135077888 processHeapUsedBytes=39544592 processHeapTotalBytes=47312896 processExternalBytes=5518057 processHeapLimitBytes=4395630592 processHeapUsedPercent=0.8996341064686084 diskPath=%2F diskTotalBytes=154894188544 diskAvailableBytes=81966235648 diskUsedBytes=72911175680 diskUsedPercent=47.07160182403389 mem=11.2%20GB%20available%20%2F%2015.6%20GB%20total heap=38%20MB%20used%20of%204.1%20GB%20limit%20(0.9%25) disk=76.3%20GB%20available%20%2F%20144.3%20GB%20total cgroupVersion=2 cgroupMemLimitBytes=null cgroupMemCurrentBytes=905142272 cgroupMemPeakBytes=2731560960 cgroupOomEvents=0 cgroupOomKills=0\n?? Main.kt\n?? ci/\n?? tests/\n5a78f242be26b8a4c33af9e54f3e058a6f4bef80\n{\"isDraft\":true,\"state\":\"OPEN\"}\n   🔍 PR #3627 draft state: isDraft=true, state=OPEN\n  ✅ PR status:              Already in draft mode\n\n💡 To continue this session:\n   Interactive mode:    (cd \"/tmp/gh-issue-solver-1792535300242\" && claude --resume e3f47248-76f7-47d8-9bab-f7f76467068a --model formal-ai)\n   Autonomous mode:     (cd \"/tmp/gh-issue-solver-1792535300242\" && claude --resume e3f47248-76f7-47d8-9bab-f7f76467068a --output-format stream-json --dangerously-skip-permissions --model formal-ai -p \"Continue.\")\n\n?? Main.kt\n?? ci/test-hello-world.yml\n?? tests/verify-output.sh\n💾 Critical error (CLAUDE execution failed with Final tool result failed: Exit code 1 {\"phase\": \"fetch\", \"schema\": \"formal-ai-prerequisite-observation-v1\", \"sha256\": \"ecb062bf46e270ac1bdc728610786ad4e3cd7aa0123c984cd2f0eb22963f8b4d\", \"size\": 15083, \"url\": \"https://kotlinlang.org/docs/command-line.html\"} {\"phase\": \"fetch\", \"schema\": \"formal-ai-pr…) — preserving uncommitted changes on recovery/issue-3626-2175028a1524 (the PR branch is not changed)...\n   ?? Main.kt\n   ?? ci/test-hello-world.yml\n   ?? tests/verify-output.sh\nMain.kt\nci/test-hello-world.yml\ntests/verify-output.sh\n.git/hive-mind-recovery.index\ncc32fde2ccc389e0b423c86ea19b84d673beefb7\n7343e95b5f279d645f6a363972324065ac30cfd5\n63e35d0c9ff6680635c29a98f3ba93da63144899\nMain.kt\nci/test-hello-world.yml\ntests/verify-output.sh\n✅ Uncommitted changes preserved as 63e35d0c on recovery/issue-3626-2175028a1524.\nremote: \nremote: Create a pull request for 'recovery/issue-3626-2175028a1524' on GitHub by visiting:        \nremote:      https://github.com/link-assistant/hive-mind/pull/new/recovery/issue-3626-2175028a1524        \nremote: \nTo https://github.com/link-assistant/hive-mind.git\n * [new branch]          63e35d0c9ff6680635c29a98f3ba93da63144899 -> recovery/issue-3626-2175028a1524\n✅ Preserved work pushed to recovery/issue-3626-2175028a1524.\n\n📄 Attaching failure logs to Pull Request...\n[use-m] use('fs') joined an in-flight load (alias fs-v-latest)\n📈 Resource usage (log upload start, 253KB log):\n   CPU load: 1.43 2.56 2.03 (4 CPUs)\n   Memory: 11.2 GB available / 15.6 GB total (4.4 GB used)\n   Process RSS: 129 MB, V8 heap: 38 MB used of 4.1 GB limit (0.9%)\n   Disk (/): 76.3 GB available / 144.3 GB total (47.1% used)\n   Container memory (cgroup v2): 863 MB used of no limit of its own, peak 2.5 GB; processes killed by the OOM killer so far: 0\n📈 [RESOURCES] phase=log_upload_start ts=2026-10-20T22%3A30%3A00.339Z load1=1.43 load5=2.56 load15=2.03 cpuCount=4 memTotalBytes=16766414848 memAvailableBytes=12050599936 memUsedBytes=4715814912 processRssBytes=135077888 processHeapUsedBytes=39807904 processHeapTotalBytes=47837184 processExternalBytes=5650176 processHeapLimitBytes=4395630592 processHeapUsedPercent=0.905624418768264 diskPath=%2F diskTotalBytes=154894188544 diskAvailableBytes=81966149632 diskUsedBytes=72911261696 diskUsedPercent=47.07165735613668 mem=11.2%20GB%20available%20%2F%2015.6%20GB%20total heap=38%20MB%20used%20of%204.1%20GB%20limit%20(0.9%25) disk=76.3%20GB%20available%20%2F%20144.3%20GB%20total cgroupVersion=2 cgroupMemLimitBytes=null cgroupMemCurrentBytes=905170944 cgroupMemPeakBytes=2731560960 cgroupOomEvents=0 cgroupOomKills=0\n[use-m] use('https') loading (alias https-v-latest)\n[use-m] use('https') loaded in 2ms\n  📁 Log file too large for inline comment (253KB), using gh-upload-log\n  📎 Uploading log using gh-upload-log...\n  🔒 Sanitized 5 secrets using dual approach:\n      • Known tokens: 0\n      • Secretlint: [REDACTED] detections\n      • Custom patterns: 0 detections\n      • Hex tokens: 5\n[use-m] use('child_process') loading (alias child_process-v-latest)\n[use-m] use('child_process') loaded in 1ms\n  ❌ gh-upload-log failed (log, attempt 1/3): ⏳ Uploading 254.14 KB (🌐 public)...\n- Creating gist tmp-hive-mind-log-upload-agYt6B-sanitized.log.txt\nX Failed to create gist: HTTP 403: Resource not accessible by integration (https://api.github.com/gists)\n❌ Error: Failed to fetch authenticated GitHub username: gh: Resource not accessible by integration (HTTP 403)\n\n  ⚠️  The GitHub token may not publish logs (e.g. a workflow GITHUB_TOKEN cannot create gists); not retrying the log upload\n  🧾 Preserving the complete sanitized log on the pull request branch\n🔍 Development log finalize: issue #3626, PR #3627, branch issue-3626-2175028a1524, session e3f47248-76f7-47d8-9bab-f7f76467068a, log slice from byte 0\n🧾 Development log artifacts written to dev/log/issues/3626/pulls/3627/sessions/e3f47248-76f7-47d8-9bab-f7f76467068a (log bytes 0-260239)\n🧾 Development log artifacts written to ./dev/log/issues/3626/pulls/3627\n[issue-3626-2175028a1524 7ec2f3883] Add development log for issue #3626 PR #3627\n 2 files changed, 2569 insertions(+)\n create mode 100644 dev/log/issues/3626/pulls/3627/sessions/e3f47248-76f7-47d8-9bab-f7f76467068a/metadata.json\n create mode 100644 dev/log/issues/3626/pulls/3627/sessions/e3f47248-76f7-47d8-9bab-f7f76467068a/solve.log\n✅ Development log committed\nTo https://github.com/link-assistant/hive-mind.git\n   5a78f242b..7ec2f3883  issue-3626-2175028a1524 -> issue-3626-2175028a1524\n✅ Development log pushed\n[use-m] use('fs') joined an in-flight load (alias fs-v-latest)\n{\"url\":\"https://api.github.com/repos/link-assistant/hive-mind/issues/comments/6303218322\",\"html_url\":\"https://github.com/link-assistant/hive-mind/pull/3627#issuecomment-6303218322\",\"issue_url\":\"https://api.github.com/repos/link-assistant/hive-mind/issues/3627\",\"id\":6303218322,\"node_id\":\"IC_kwDOPUU0qc8AAAABd7N6kg\",\"user\":{\"login\":\"github-actions[bot]\",\"id\":41898282,\"node_id\":\"MDM6Qm90NDE4OTgyODI=\",\"avatar_url\":\"https://avatars.githubusercontent.com/in/15368?v=4\",\"gravatar_id\":\"\",\"url\":\"https://api.github.com/users/github-actions%5Bbot%5D\",\"html_url\":\"https://github.com/apps/github-actions\",\"followers_url\":\"https://api.github.com/users/github-actions%5Bbot%5D/followers\",\"following_url\":\"https://api.github.com/users/github-actions%5Bbot%5D/following{/other_user}\",\"gists_url\":\"https://api.github.com/users/github-actions%5Bbot%5D/gists{/gist_id}\",\"starred_url\":\"https://api.github.com/users/github-actions%5Bbot%5D/starred{/owner}{/repo}\",\"subscriptions_url\":\"https://api.github.com/users/github-actions%5Bbot%5D/subscriptions\",\"organizations_url\":\"https://api.github.com/users/github-actions%5Bbot%5D/orgs\",\"repos_url\":\"https://api.github.com/users/github-actions%5Bbot%5D/repos\",\"events_url\":\"https://api.github.com/users/github-actions%5Bbot%5D/events{/privacy}\",\"received_events_url\":\"https://api.github.com/users/github-actions%5Bbot%5D/received_events\",\"type\":\"Bot\",\"user_view_type\":\"public\",\"site_admin\":false},\"created_at\":\"2026-10-20T22:30:04Z\",\"updated_at\":\"2026-10-20T22:30:04Z\",\"author_association\":\"CONTRIBUTOR\",\"body\":\"## 🚨 Solution Draft Failed\\nThe automated solution draft encountered an error:\\n```\\nCLAUDE execution failed with Final tool result failed: Exit code 1 {\\\"phase\\\": \\\"fetch\\\", \\\"schema\\\": \\\"formal-ai-prerequisite-observation-v1\\\", \\\"sha256\\\": \\\"ecb062bf46e270ac1bdc728610786ad4e3cd7aa0123c984cd2f0eb22963f8b4d\\\", \\\"size\\\": 15083, \\\"url\\\": \\\"https://kotlinlang.org/docs/command-line.html\\\"} {\\\"phase\\\": \\\"fetch\\\", \\\"schema\\\": \\\"formal-ai-pr…\\n```\\n\\n### 🤖 **Models used:**\\n- Tool: Anthropic Claude Code\\n- Requested: `formal-ai`\\n- Thinking level: off (disabled)\\n- **Model: formal-ai** (`formal-ai`)\\n\\n### 📎 **Failure log uploaded as Repository** (253KB)\\n- [View complete failure log](https://github.com/link-assistant/hive-mind/blob/7ec2f388340c14070774f20537cc4278b1fa8f4c/dev/log/issues/3626/pulls/3627/sessions/e3f47248-76f7-47d8-9bab-f7f76467068a/solve.log)\\n\\n---\\n*Now working session is ended, feel free to review and add any feedback on the solution draft.*\",\"reactions\":{\"url\":\"https://api.github.com/repos/link-assistant/hive-mind/issues/comments/6303218322/reactions\",\"total_count\":0,\"+1\":0,\"-1\":0,\"laugh\":0,\"hooray\":0,\"confused\":0,\"heart\":0,\"rocket\":0,\"eyes\":0},\"performed_via_github_app\":{\"id\":15368,\"slug\":\"github-actions\",\"node_id\":\"MDM6QXBwMTUzNjg=\",\"owner\":{\"login\":\"github\",\"id\":9919,\"node_id\":\"MDEyOk9yZ2FuaXphdGlvbjk5MTk=\",\"avatar_url\":\"https://avatars.githubusercontent.com/u/9919?v=4\",\"gravatar_id\":\"\",\"url\":\"https://api.github.com/users/github\",\"html_url\":\"https://github.com/github\",\"followers_url\":\"https://api.github.com/users/github/followers\",\"following_url\":\"https://api.github.com/users/github/following{/other_user}\",\"gists_url\":\"https://api.github.com/users/github/gists{/gist_id}\",\"starred_url\":\"https://api.github.com/users/github/starred{/owner}{/repo}\",\"subscriptions_url\":\"https://api.github.com/users/github/subscriptions\",\"organizations_url\":\"https://api.github.com/users/github/orgs\",\"repos_url\":\"https://api.github.com/users/github/repos\",\"events_url\":\"https://api.github.com/users/github/events{/privacy}\",\"received_events_url\":\"https://api.github.com/users/github/received_events\",\"type\":\"Organization\",\"user_view_type\":\"public\",\"site_admin\":false},\"name\":\"GitHub Actions\",\"description\":\"Automate your workflow from idea to production\",\"external_url\":\"https://help.github.com/en/actions\",\"html_url\":\"https://github.com/apps/github-actions\",\"created_at\":\"2018-07-30T09:30:17Z\",\"updated_at\":\"2026-06-18T16:17:48Z\",\"permissions\":{\"actions\":\"write\",\"administration\":\"read\",\"artifact_metadata\":\"write\",\"attestations\":\"write\",\"checks\":\"write\",\"code_quality\":\"write\",\"contents\":\"write\",\"copilot_requests\":\"write\",\"deployments\":\"write\",\"discussions\":\"write\",\"drives\":\"write\",\"issues\":\"write\",\"merge_queues\":\"write\",\"metadata\":\"read\",\"models\":\"read\",\"packages\":\"write\",\"pages\":\"write\",\"pull_requests\":\"write\",\"repository_hooks\":\"write\",\"repository_projects\":\"write\",\"security_events\":\"write\",\"statuses\":\"write\",\"vulnerability_alerts\":\"read\"},\"events\":[\"branch_protection_rule\",\"check_run\",\"check_suite\",\"create\",\"delete\",\"deployment\",\"deployment_status\",\"discussion\",\"discussion_comment\",\"fork\",\"gollum\",\"issues\",\"issue_comment\",\"label\",\"merge_group\",\"milestone\",\"page_build\",\"public\",\"pull_request\",\"pull_request_review\",\"pull_request_review_comment\",\"push\",\"registry_package\",\"release\",\"repository\",\"repository_dispatch\",\"status\",\"watch\",\"workflow_dispatch\",\"workflow_run\"]},\"minimized\":null,\"pin\":null}  📎 Failure log uploaded to Pull Request as public Repository (comment id=6303218322)\n  🔗 Log URL: https://github.com/link-assistant/hive-mind/blob/7ec2f388340c14070774f20537cc4278b1fa8f4c/dev/log/issues/3626/pulls/3627/sessions/e3f47248-76f7-47d8-9bab-f7f76467068a/solve.log\n  📊 Log size: 253KB\n📈 Resource usage (log upload end):\n   CPU load: 1.39 2.54 2.02 (4 CPUs)\n   Memory: 11.1 GB available / 15.6 GB total (4.5 GB used)\n   Process RSS: 183 MB, V8 heap: 76 MB used of 4.1 GB limit (1.8%)\n   Disk (/): 76.3 GB available / 144.3 GB total (47.1% used)\n   Container memory (cgroup v2): 919 MB used of no limit of its own, peak 2.5 GB; processes killed by the OOM killer so far: 0\n📈 [RESOURCES] phase=log_upload_end ts=2026-10-20T22%3A30%3A04.491Z load1=1.39 load5=2.54 load15=2.02 cpuCount=4 memTotalBytes=16766414848 memAvailableBytes=11961675776 memUsedBytes=4804739072 processRssBytes=191672320 processHeapUsedBytes=80155064 processHeapTotalBytes=106717184 processExternalBytes=7078311 processHeapLimitBytes=4395630592 processHeapUsedPercent=1.8235168384231684 diskPath=%2F diskTotalBytes=154894188544 diskAvailableBytes=81965363200 diskUsedBytes=72912048128 diskUsedPercent=47.07216507821935 mem=11.1%20GB%20available%20%2F%2015.6%20GB%20total heap=76%20MB%20used%20of%204.1%20GB%20limit%20(1.8%25) disk=76.3%20GB%20available%20%2F%20144.3%20GB%20total cgroupVersion=2 cgroupMemLimitBytes=null cgroupMemCurrentBytes=963436544 cgroupMemPeakBytes=2731560960 cgroupOomEvents=0 cgroupOomKills=0\n  📎 Failure logs posted to Pull Request\n📈 Resource usage (solve exit 1):\n   CPU load: 1.39 2.54 2.02 (4 CPUs)\n   Memory: 11.1 GB available / 15.6 GB total (4.5 GB used)\n   Process RSS: 183 MB, V8 heap: 66 MB used of 4.1 GB limit (1.6%)\n   Disk (/): 76.3 GB available / 144.3 GB total (47.1% used)\n   Container memory (cgroup v2): 919 MB used of no limit of its own, peak 2.5 GB; processes killed by the OOM killer so far: 0\n📈 [RESOURCES] phase=solve_exit ts=2026-10-20T22%3A30%3A04.497Z load1=1.39 load5=2.54 load15=2.02 cpuCount=4 memTotalBytes=16766414848 memAvailableBytes=11961675776 memUsedBytes=4804739072 processRssBytes=191672320 processHeapUsedBytes=68993840 processHeapTotalBytes=105676800 processExternalBytes=7078311 processHeapLimitBytes=4395630592 processHeapUsedPercent=1.5696005056832583 diskPath=%2F diskTotalBytes=154894188544 diskAvailableBytes=81965350912 diskUsedBytes=72912060416 diskUsedPercent=47.07217301137689 mem=11.1%20GB%20available%20%2F%2015.6%20GB%20total heap=66%20MB%20used%20of%204.1%20GB%20limit%20(1.6%25) disk=76.3%20GB%20available%20%2F%20144.3%20GB%20total cgroupVersion=2 cgroupMemLimitBytes=null cgroupMemCurrentBytes=963436544 cgroupMemPeakBytes=2731560960 cgroupOomEvents=0 cgroupOomKills=0\n🩹 PR #3627 was left in draft by a working session (CLAUDE execution failed with Final tool result failed: Exit code 1 {\"phase\": \"fetch\", \"schema\": \"formal-ai-prerequisite-observation-v1\", \"sha256\": \"ecb062bf46e270ac1bdc728610786ad4e3cd7aa0123c984cd2f0eb22963f8b4d\", \"size\": 15083, \"url\": \"https://kotlinlang.org/docs/command-line.html\"} {\"phase\": \"fetch\", \"schema\": \"formal-ai-pr…); restoring its pre-run state at run end (CLAUDE execution failed with Final tool result failed: Exit code 1 {\"phase\": \"fetch\", \"schema\": \"formal-ai-prerequisite-observation-v1\", \"sha256\": \"ecb062bf46e270ac1bdc728610786ad4e3cd7aa0123c984cd2f0eb22963f8b4d\", \"size\": 15083, \"url\": \"https://kotlinlang.org/docs/command-line.html\"} {\"phase\": \"fetch\", \"schema\": \"formal-ai-pr…)\n{\"isDraft\":true,\"state\":\"OPEN\"}\n   🔍 PR #3627 draft state: isDraft=true, state=OPEN\n  📝 Converting PR:          To ready for review (run end (CLAUDE execution failed with Final tool result failed: Exit code 1 {\"phase\": \"fetch\", \"schema\": \"formal-ai-prerequisite-observation-v1\", \"sha256\": \"ecb062bf46e270ac1bdc728610786ad4e3cd7aa0123c984cd2f0eb22963f8b4d\", \"size\": 15083, \"url\": \"https://kotlinlang.org/docs/command-line.html\"} {\"phase\": \"fetch\", \"schema\": \"formal-ai-pr…))...\n✓ Pull request link-assistant/hive-mind#3627 is marked as \"ready for review\"\n  ✅ PR converted:           Now in ready for review\n[use-m] use('path') joined an in-flight load (alias path-v-latest)\n\n❌ CLAUDE execution failed with Final tool result failed: Exit code 1 {\"phase\": \"fetch\", \"schema\": \"formal-ai-prerequisite-observation-v1\", \"sha256\": \"ecb062bf46e270ac1bdc728610786ad4e3cd7aa0123c984cd2f0eb22963f8b4d\", \"size\": 15083, \"url\": \"https://kotlinlang.org/docs/command-line.html\"} {\"phase\": \"fetch\", \"schema\": \"formal-ai-pr…\n📁 Full log file: /home/box/logs/e3f47248-76f7-47d8-9bab-f7f76467068a.log\n  ℹ️  Failure already reported on pull request #3627 by an earlier tool comment; not posting another.\n",
+      "bytes": 189410,
+      "sha256": "15ed2f06e969e99d5af3a83289550aa63272ee51802a7afa944a27ad4fb86aa4",
+      "truncated": true
+    }
+  },
+  "delivery": {
+    "pullRequest": {
+      "title": "[WIP] Implement Hello World in Kotlin",
+      "body": "## 🤖 AI-Powered Solution Draft\n\nThis pull request is being automatically generated to solve issue #3626.\n\n### 📋 Issue Reference\nFixes #3626\n\n### 🚧 Status\n**Work in Progress** - The AI assistant is currently analyzing and implementing the solution draft.\n\n### 📝 Implementation Details\n_Details will be added as the solution draft is developed..._\n\n---\n*This PR was created automatically by the AI issue solver*",
+      "state": "OPEN",
+      "isDraft": false,
+      "headRefName": "issue-3626-2175028a1524",
+      "baseRefName": "e2e/hello-world/39505806192/claude-formal-ai"
+    },
+    "files": [
+      {
+        "path": ".gitkeep",
+        "content": "# .gitkeep file auto-generated at 2026-10-20T22:28:44.901Z for PR creation at branch issue-3626-2175028a1524 for issue https://github.com/link-assistant/hive-mind/issues/3626",
+        "contentSource": "patch"
+      },
+      {
+        "path": "dev/log/issues/3626/pulls/3627/sessions/e3f47248-76f7-47d8-9bab-f7f76467068a/metadata.json",
+        "content": "(content not recorded)\n",
+        "contentSource": "placeholder"
+      },
+      {
+        "path": "dev/log/issues/3626/pulls/3627/sessions/e3f47248-76f7-47d8-9bab-f7f76467068a/solve.log",
+        "content": "(content not recorded)\n",
+        "contentSource": "placeholder"
+      }
+    ],
+    "comments": [
+      "## 🚨 Solution Draft Failed\nThe automated solution draft encountered an error:\n```\nCLAUDE execution failed with Final tool result failed: Exit code 1 {\"phase\": \"fetch\", \"schema\": \"formal-ai-prerequisite-observation-v1\", \"sha256\": \"ecb062bf46e270ac1bdc728610786ad4e3cd7aa0123c984cd2f0eb22963f8b4d\", \"size\": 15083, \"url\": \"https://kotlinlang.org/docs/command-line.html\"} {\"phase\": \"fetch\", \"schema\": \"formal-ai-pr…\n```\n\n### 🤖 **Models used:**\n- Tool: Anthropic Claude Code\n- Requested: `formal-ai`\n- Thinking level: off (disabled)\n- **Model: formal-ai** (`formal-ai`)\n\n### 📎 **Failure log uploaded as Repository** (253KB)\n- [View complete failure log](https://github.com/link-assistant/hive-mind/blob/7ec2f388340c14070774f20537cc4278b1fa8f4c/dev/log/issues/3626/pulls/3627/sessions/e3f47248-76f7-47d8-9bab-f7f76467068a/solve.log)\n\n---\n*Now working session is ended, feel free to review and add any feedback on the solution draft.*"
+    ],
+    "backfilled": {
+      "from": "GitHub REST API",
+      "at": "2026-10-21T07:07:18.650Z",
+      "state": "recorded \"ready for review\" assertion",
+      "comments": "created at or before 2026-10-20T22:30:10.310Z"
+    }
+  },
+  "act": null,
+  "evidence": {
+    "present": [
+      "build.log",
+      "candidate-build.log",
+      "e3f47248-76f7-47d8-9bab-f7f76467068a.log",
+      "image-version.log",
+      "result.json",
+      "solve.log",
+      "workflow.log"
+    ],
+    "missing": [
+      "commands.json",
+      "delivery.json"
+    ],
+    "truncated": [
+      {
+        "logName": "solve.log",
+        "bytes": 189410,
+        "kept": "head, tail and oracle lines"
+      }
+    ],
+    "placeholders": [
+      "dev/log/issues/3626/pulls/3627/sessions/e3f47248-76f7-47d8-9bab-f7f76467068a/metadata.json",
+      "dev/log/issues/3626/pulls/3627/sessions/e3f47248-76f7-47d8-9bab-f7f76467068a/solve.log"
+    ],
+    "redactions": 0
+  }
+}

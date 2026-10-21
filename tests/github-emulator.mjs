@@ -12,6 +12,8 @@
  * - `exec(command, argv, options)` replaces spawning `docker` and `act`; the
  *   solve session is a scripted agent that pushes a branch and opens a pull
  *   request;
+ * - `useReplay(fixture)` makes the session deliver what a recorded attempt
+ *   delivered and act print the recorded act log (scripts/e2e-replay.lib.mjs);
  * - `fail({ method, match, message, times })` injects errors;
  * - `calls` records every request, so a test can prove what was (not) done.
  *
@@ -40,6 +42,15 @@ export const AGENTS = Object.freeze({
   hang: { hang: true },
 });
 
+/** The unified diff GitHub reports for an added text file. */
+const addedPatch = content => {
+  const lines = content.endsWith('\n') ? content.slice(0, -1).split('\n') : content.split('\n');
+  return [`@@ -0,0 +1${lines.length === 1 ? '' : `,${lines.length}`} @@`, ...lines.map(line => `+${line}`), ...(content.endsWith('\n') ? [] : ['\\ No newline at end of file'])].join('\n');
+};
+
+/** Point a recorded delivery at the task this replay created. */
+const renumber = (text, from, to) => (from ? String(text).replace(new RegExp(`(#|issue-|issues/)${from}\\b`, 'g'), `$1${to}`) : String(text));
+
 let shaCounter = 0;
 const nextSha = () => (++shaCounter).toString(16).padStart(40, '0');
 
@@ -67,6 +78,7 @@ export function createGitHubEmulator({ repository = 'link-assistant/hive-mind', 
     artifacts: [],
     deletionRules: [],
     agent,
+    replay: null,
     sessions: 0,
   };
   const calls = [];
@@ -206,7 +218,7 @@ export function createGitHubEmulator({ repository = 'link-assistant/hive-mind', 
       return page(
         Object.keys(head)
           .filter(file => head[file] !== base[file])
-          .map(filename => ({ filename, status: filename in base ? 'modified' : 'added' }))
+          .map(filename => ({ filename, status: filename in base ? 'modified' : 'added', ...(filename in base ? {} : { patch: addedPatch(head[filename]) }) }))
       );
     }
     if (path === '/actions/runs' && method === 'GET') {
@@ -277,6 +289,7 @@ export function createGitHubEmulator({ repository = 'link-assistant/hive-mind', 
     const issueUrl = argv.find(arg => /\/issues\/\d+$/.test(arg));
     const issueNumber = Number(issueUrl.split('/').pop());
     const baseBranch = argv.includes('--base-branch') ? argv[argv.indexOf('--base-branch') + 1] : 'main';
+    if (state.replay) return replaySession({ issueNumber, baseBranch, onData });
     onData(`[solve] working on ${issueUrl}\n`);
     if (script.hang)
       return new Promise((_resolve, reject) => {
@@ -295,8 +308,32 @@ export function createGitHubEmulator({ repository = 'link-assistant/hive-mind', 
     return { code: script.exitCode, signal: null };
   }
 
+  /** The recorded session: its log, the pull request it left and its exit status. */
+  function replaySession({ issueNumber, baseBranch, onData }) {
+    const { session, delivery, source } = state.replay;
+    const map = text => renumber(text, source.issueNumber, issueNumber);
+    if (session) onData(session.log.text);
+    const recorded = delivery.pullRequest;
+    if (recorded) {
+      const head = map(recorded.headRefName);
+      const files = { ...filesOf(state.refs.get(baseBranch)), ...Object.fromEntries(delivery.files.map(file => [file.path, file.content])) };
+      state.refs.set(head, commit({ message: `Replay of ${state.replay.name}`, files, parents: [state.refs.get(baseBranch)].filter(Boolean) }));
+      const pull = openPullRequest({ head, base: baseBranch, title: map(recorded.title), body: map(recorded.body), draft: recorded.isDraft });
+      if (recorded.state === 'CLOSED') pull.state = state.issues.get(pull.number).state = 'closed';
+      state.comments.set(
+        pull.number,
+        delivery.comments.map(body => ({ id: nextCommentId++, body: map(body), created_at: timestamp() }))
+      );
+    }
+    return { code: session?.exitCode ?? 1, signal: null };
+  }
+
   /** act runs the workflow in the cloned workspace: the program prints its string literal. */
   function actRun(argv, { onData }) {
+    if (state.replay?.act) {
+      onData(state.replay.act.log);
+      return { code: state.replay.act.exitCode, signal: null };
+    }
     const workspace = argv[argv.indexOf('--directory') + 1];
     const walk = dir => readdirSync(dir, { withFileTypes: true }).flatMap(entry => (entry.isDirectory() ? walk(join(dir, entry.name)) : [join(dir, entry.name)]));
     const program = walk(workspace).find(file => /\.(rs|kt|scala)$/.test(file));
@@ -337,6 +374,10 @@ export function createGitHubEmulator({ repository = 'link-assistant/hive-mind', 
     fail: ({ method = null, match, message, times = 1 }) => faults.push({ method, match, message, times }),
     useAgent: name => {
       state.agent = name;
+    },
+    /** Deliver what a recorded attempt delivered (a fixture of scripts/e2e-replay.lib.mjs). */
+    useReplay: fixture => {
+      state.replay = fixture;
     },
     forbidDeletion: pattern => state.deletionRules.push(pattern),
     /** A workflow run of this repository, as the Actions API reports it. */

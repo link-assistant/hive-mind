@@ -61,7 +61,19 @@ test('the delivery record keeps what the oracles saw', () => {
   const record = deliveryRecord({ issueUrl: 'https://github.com/o/r/issues/1', pullRequest: { number: 2, url: 'u', state: 'OPEN', isDraft: false, title: 't', body: 'b', headRefName: 'issue-1-x', headRefOid: 'f'.repeat(40), baseRefName: 'e2e/x', extra: 'dropped' }, files: ['main.rs'], checks: [{ name: 'run', conclusion: 'success' }], comments: ['c'], execution: { mode: 'act', workflowLog: 'not kept here' } });
   assert.equal(record.pullRequest.extra, undefined);
   assert.deepEqual(record.execution, { mode: 'act', fallbackReason: null });
-  assert.deepEqual(deliveryRecord({}), { v: 1, issueUrl: null, pullRequest: null, files: [], checks: [], comments: [], execution: null });
+  assert.deepEqual(deliveryRecord({}), { v: 1, issueUrl: null, pullRequest: null, files: [], changes: [], checks: [], comments: [], execution: null });
+  // The answer's patch is kept for a replay; a session log's is not, and a huge patch is marked truncated.
+  const changes = deliveryRecord({
+    changes: [
+      { filename: 'main.rs', status: 'added', patch: '@@ -0,0 +1 @@\n+fn main() {}' },
+      { filename: 'dev/log/issues/1/pulls/2/sessions/s/solve.log', status: 'added', patch: '+secret session' },
+      { filename: 'big.txt', status: 'added', patch: 'x'.repeat(70 * 1024) },
+    ],
+  }).changes;
+  assert.deepEqual(changes[0], { filename: 'main.rs', status: 'added', patch: '@@ -0,0 +1 @@\n+fn main() {}', truncated: false });
+  assert.equal(changes[1].patch, null);
+  assert.equal(changes[2].truncated, true);
+  assert.equal(changes[2].patch.length, 64 * 1024);
 });
 
 test('fixtures carry no secret, token, private key or personal data', () => {
@@ -76,4 +88,6 @@ test('fixtures carry no secret, token, private key or personal data', () => {
   assert.match(redacted, /person@example\.com/);
   assert.ok(redactions >= 8);
   assert.deepEqual(redactForFixture('nothing here', { env: {} }), { text: 'nothing here', redactions: 0 });
+  // An SSH remote is a host, not a person (run 39505806192's pull request event).
+  assert.deepEqual(redactForFixture('"ssh_url":"git@github.com:o/r.git"', { env: {} }).redactions, 0);
 });

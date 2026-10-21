@@ -84,13 +84,26 @@ export function writeEvidenceManifest(directory, options) {
   return manifest;
 }
 
-/** What the pull request delivered, as the oracles saw it. */
-export function deliveryRecord({ issueUrl, pullRequest, files, checks, comments, execution }) {
+/** How much of one file's patch the delivery keeps; session logs keep none. */
+export const PATCH_LIMIT_BYTES = 64 * 1024;
+const SESSION_FILE = /^dev\/log\//;
+
+/**
+ * What the pull request delivered, as the oracles saw it. `changes` are the
+ * pull request files API entries; the patch of each answer file is kept so a
+ * replay pushes the same content (issue #3630).
+ */
+export function deliveryRecord({ issueUrl, pullRequest, files, changes = [], checks, comments, execution }) {
   return {
     v: 1,
     issueUrl: issueUrl ?? null,
     pullRequest: pullRequest ? { number: pullRequest.number, url: pullRequest.url, state: pullRequest.state, isDraft: pullRequest.isDraft, title: pullRequest.title, body: pullRequest.body, headRefName: pullRequest.headRefName, headRefOid: pullRequest.headRefOid, baseRefName: pullRequest.baseRefName } : null,
     files: files ?? [],
+    changes: (changes ?? []).map(change => {
+      const patch = SESSION_FILE.test(change.filename) || typeof change.patch !== 'string' ? null : change.patch;
+      const truncated = patch !== null && Buffer.byteLength(patch) > PATCH_LIMIT_BYTES;
+      return { filename: change.filename, status: change.status ?? null, patch: truncated ? patch.slice(0, PATCH_LIMIT_BYTES) : patch, truncated };
+    }),
     checks: checks ?? [],
     comments: comments ?? [],
     execution: execution ? { mode: execution.mode, fallbackReason: execution.fallbackReason ?? null } : null,
@@ -99,9 +112,9 @@ export function deliveryRecord({ issueUrl, pullRequest, files, checks, comments,
 
 const TOKEN_PATTERNS = [/\bgh[pousr]_[A-Za-z0-9]{20,}\b/g, /\bgithub_pat_[A-Za-z0-9_]{20,}\b/g, /\bsk-(?:ant-|proj-)?[A-Za-z0-9_-]{20,}\b/g, /\bxox[abpr]-[A-Za-z0-9-]{10,}\b/g, /\bAKIA[0-9A-Z]{16}\b/g, /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/g, /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g, /(authorization:\s*(?:bearer|token|basic)\s+)[^\s"']+/gi, /(x-access-token:)[^@\s]+@/gi];
 const SECRET_ENV = /(TOKEN|SECRET|KEY|PASSWORD|GRANT|CREDENTIAL)/i;
-// Bot and no-reply addresses identify automation, not a person.
+// Bot, no-reply and `git@host` SSH addresses identify automation, not a person.
 const EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
-const KEPT_EMAIL = /(noreply|no-reply|\[bot\]|users\.noreply\.github\.com|@example\.(com|org)$)/i;
+const KEPT_EMAIL = /(noreply|no-reply|\[bot\]|users\.noreply\.github\.com|@example\.(com|org)$|^git@[a-z0-9.-]+$)/i;
 
 /**
  * Remove secrets and personal data before a log becomes a published fixture:

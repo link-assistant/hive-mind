@@ -162,6 +162,7 @@ export async function runE2eRow({ tool, model, isolation = 'branch', keep = fals
     const solveLog = existsSync(solveLogPath) ? readFileSync(solveLogPath, 'utf8') : '';
     pullRequest = selectPullRequest(await ghJson(['pr', 'list', '--repo', repository, '--state', 'all', '--limit', '100', '--json', PULL_REQUEST_FIELDS]), issueNumber);
     let files = [];
+    let changes = [];
     let execution = { mode: 'none', checks: [], workflowLog: '' };
     const comments = [];
     if (pullRequest) {
@@ -171,7 +172,7 @@ export async function runE2eRow({ tool, model, isolation = 'branch', keep = fals
         if (!resource.branches.includes(pullRequest.headRefName)) resource.branches.push(pullRequest.headRefName);
         if (custody) saveCustody(custody, resource);
       }
-      const changes = await list(`repos/${repository}/pulls/${pullRequest.number}/files?per_page=100`);
+      changes = await list(`repos/${repository}/pulls/${pullRequest.number}/files?per_page=100`);
       files = changes.map(file => file.filename);
       const workflows = files.filter(file => /^\.github\/workflows\/[^/]+\.ya?ml$/.test(file));
       const staged = workflowDir === '.github/workflows/' ? [] : files.filter(file => file.startsWith(workflowDir) && /^[^/]+\.ya?ml$/.test(file.slice(workflowDir.length)));
@@ -217,7 +218,7 @@ export async function runE2eRow({ tool, model, isolation = 'branch', keep = fals
     const verdict = splitE2eVerdict({ harness, evaluation });
     Object.assign(evidence, { evaluation, harness, verdict: { harness: verdict.harness.ok, model: verdict.model.judged ? verdict.model.ok : null }, passed: verdict.passed, execution: { ...execution, workflowLog: undefined }, files });
     writeFileSync(join(hostLogDir, 'workflow.log'), execution.workflowLog);
-    writeFileSync(join(hostLogDir, 'delivery.json'), JSON.stringify(deliveryRecord({ issueUrl, pullRequest, files, checks: execution.checks, comments, execution }), null, 2));
+    writeFileSync(join(hostLogDir, 'delivery.json'), JSON.stringify(deliveryRecord({ issueUrl, pullRequest, files, changes, checks: execution.checks, comments, execution }), null, 2));
     const report = formatE2eReport({ tool, model, issueUrl, pullRequestUrl: pullRequest?.url, evaluation, harness });
     const strategy = `Workflow execution: **${execution.mode}**${execution.fallbackReason ? ` (${execution.fallbackReason})` : ''}.\n`;
     stdout.write(`${report}${strategy}\n`);

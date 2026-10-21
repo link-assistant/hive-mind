@@ -108,6 +108,13 @@ export const buildDeliberateDraftFeedback = deliberate => {
       feedbackLines: ["🔍 The previous working session's effect could not be verified:", `  ${deliberate.reason || 'no reason was recorded'}`, '', 'Check that the requested change is committed to the pull request branch and finish it if it is not. Do not end the session without a change.'],
     };
   }
+  // Issue #3433: the branch records submodule commits that no remote has; a checkout of it fails.
+  if (deliberate?.kind === 'unreachable_submodule_pointer') {
+    return {
+      restartReason: 'The pull request records submodule pointers that cannot be fetched',
+      feedbackLines: ['🔗 The pull request records submodule commits that are not reachable from the URLs in `.gitmodules`:', `  ${deliberate.reason || 'no reason was recorded'}`, '', "Inside each listed submodule, push the recorded commit to a branch of the submodule's own remote (or a fork with a pull request to it), then push the pull request branch again. Do not record a submodule pointer to a commit that is on no remote."],
+    };
+  }
   const reason = deliberate?.reason || 'the solution session failed or verification did not succeed';
   return {
     restartReason: `The previous working session failed: ${reason}`,

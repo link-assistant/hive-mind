@@ -48,6 +48,7 @@ import { existsSync, openSync, readSync, closeSync, statSync } from 'node:fs';
 
 import { isAiToolScratchPath, isSolverBookkeepingFile } from './ai-tool-scratch.lib.mjs';
 import { isFormalAiModel } from './formal-ai-model.lib.mjs';
+import { submoduleStatusLines } from './git-submodules.lib.mjs';
 import { ensurePullRequestIsReady, getInitialDraftState, markPullRequestLeftInDraft } from './pr-draft-state.lib.mjs';
 import { describeObservedToolCallLoop, getObservedToolCallLoopHistory } from './repeated-tool-call-breaker.lib.mjs';
 import { checkForAiCreatedComments } from './solve.session-comments.lib.mjs';
@@ -125,14 +126,15 @@ const git = ({ $, tempDir }) => {
       const result = await run`git rev-parse --verify -q @{u}`;
       return result?.code === 0 ? (result.stdout ?? '').toString().trim() || null : null;
     },
-    status: () =>
-      readText(run`git status --porcelain`, 'git status').then(text =>
-        text
-          .split('\n')
-          .filter(line => line.trim() && !isAiToolScratchPath(line) && !isBookkeepingPath(line.slice(3).trim()))
-          .sort()
-          .join('\n')
-      ),
+    status: async () => {
+      const text = await readText(run`git status --porcelain`, 'git status');
+      const lines = text
+        .split('\n')
+        .filter(line => line.trim() && !isAiToolScratchPath(line) && !isBookkeepingPath(line.slice(3).trim()))
+        .sort();
+      // Issue #3433: work inside git submodules is a change of the session too.
+      return [...lines, ...(await submoduleStatusLines({ $, cwd: tempDir }))].join('\n');
+    },
     commits: async (from, to) => {
       const text = await readText(run`git log --format=%x1e%s --name-only ${`${from}..${to}`}`, 'git log');
       return text

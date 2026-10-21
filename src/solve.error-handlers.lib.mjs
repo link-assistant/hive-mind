@@ -46,6 +46,9 @@ export const handleFailure = async options => {
       await commitUncommittedChangesOnCriticalError({
         tempDir: cleanupContext.tempDir,
         branchName: cleanupContext.branchName,
+        // Issue #3572: before solve records branchName (e.g. the dirty-tree check after clone), the
+        // PR branch it already resolved names the recovery branch, never `recovery/detached-head`.
+        fallbackBranchName: cleanupContext.prBranch || null,
         $,
         log,
         reason: `${errorType || 'execution'} error`,

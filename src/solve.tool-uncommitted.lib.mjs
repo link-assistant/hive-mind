@@ -1,3 +1,5 @@
+import { toolCommitName, withSubmoduleWork } from './submodule-uncommitted.lib.mjs';
+
 const TOOL_MODULES = {
   agent: './agent.lib.mjs',
   codex: './codex.lib.mjs',
@@ -19,4 +21,10 @@ export async function resolveUncommittedChangesTool({ argv, claudeLib, importMod
   }
 
   return { agentCommanderLib: null, checkForUncommittedChanges: claudeLib.checkForUncommittedChanges };
+}
+
+// Issue #3433: the same check, also looking inside git submodules (unchanged without .gitmodules).
+export async function resolveUncommittedChangesToolWithSubmodules(params) {
+  const resolved = await resolveUncommittedChangesTool(params);
+  return { ...resolved, checkForUncommittedChanges: withSubmoduleWork(resolved.checkForUncommittedChanges, { tool: toolCommitName(params.argv) }) };
 }

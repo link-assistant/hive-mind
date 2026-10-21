@@ -5,6 +5,7 @@
 
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
 import { quietProbe } from './quiet-probe.lib.mjs';
+import { submoduleStatusLines } from './git-submodules.lib.mjs';
 // Import feedback detection functionality
 const feedback = await import('./solve.feedback.lib.mjs');
 const { detectAndCountFeedback } = feedback;
@@ -118,7 +119,8 @@ export async function checkUncommittedChanges({ tempDir, argv, log, $ }) {
     try {
       const gitStatusResult = await $({ cwd: tempDir })`git status --porcelain 2>&1`;
       if (gitStatusResult.code === 0) {
-        const statusOutput = gitStatusResult.stdout.toString().trim();
+        // Issue #3433: the work inside git submodules is listed after the top-level lines.
+        const statusOutput = [gitStatusResult.stdout.toString().trim(), ...(await submoduleStatusLines({ $, cwd: tempDir }))].filter(Boolean).join('\n');
         if (statusOutput) {
           await log('📝 Found uncommitted changes - adding to feedback');
 

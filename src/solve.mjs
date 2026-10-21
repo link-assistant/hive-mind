@@ -70,7 +70,7 @@ const { prepareFeedbackAndTimestamps, checkUncommittedChanges, checkForkActions 
 const { canonicalFormalAiModel, validateAndExitOnInvalidClaudeSubAgentModel, validateAndExitOnInvalidModel } = await import('./models/index.mjs');
 const { autoAcceptInviteForRepo } = await import('./solve.accept-invite.lib.mjs');
 const { handleAutoForkOption, handleMaintainerForkAccess } = await import('./solve.fork-detection.lib.mjs');
-const { resolveUncommittedChangesTool } = await import('./solve.tool-uncommitted.lib.mjs');
+const { resolveUncommittedChangesToolWithSubmodules } = await import('./solve.tool-uncommitted.lib.mjs'); // #3433: the checks also look inside git submodules
 const { classifySessionResult } = await import('./session-result.lib.mjs'); // Issue #2316
 await initializeLogFile(null);
 await (await import('./solve.log-dir.lib.mjs')).moveLogFileToLogDir(resolveStartupLogDirectory(earlyArgs), { getLogFile, setLogFile, log });
@@ -104,7 +104,7 @@ configureGitHubRateLimitLogging({
   log,
 });
 await recordResourceSnapshot({ phase: RESOURCE_PHASE_SOLVE_START, log, diskPath: '/', label: 'solve start', logExecutionContext: true }); // #2001: detect+report container context
-let { checkForUncommittedChanges, agentCommanderLib } = await resolveUncommittedChangesTool({ argv, claudeLib });
+let { checkForUncommittedChanges, agentCommanderLib } = await resolveUncommittedChangesToolWithSubmodules({ argv, claudeLib });
 const shouldAttachLogs = argv.attachLogs || argv['attach-logs'];
 await showAttachLogsWarning(shouldAttachLogs);
 const absoluteLogPath = path.resolve(getLogFile());
@@ -365,6 +365,7 @@ cleanupContext.argv = argv;
 cleanupContext.owner = owner;
 cleanupContext.repo = repo;
 if (prNumber) cleanupContext.prNumber = prNumber;
+cleanupContext.prBranch = prBranch || null; // #3572: names the recovery branch if solve fails before branchName is set
 let limitReached = false;
 let sessionId = null;
 let branchName = null;

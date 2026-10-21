@@ -23,6 +23,7 @@ const use = globalThis.use;
 // Use command-stream for consistent $ behavior across runtimes
 const { $: __rawDollar$ } = await use('command-stream');
 import { wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs';
+import { submoduleStatusLines } from './git-submodules.lib.mjs';
 const $ = wrapDollarWithGhRetry(__rawDollar$);
 const { quietProbe } = await import('./quiet-probe.lib.mjs'); // Issue #2293: one-word answers (`false`, `OPEN`) of every watch check stay out of the log
 // Import path and fs for cleanup operations
@@ -146,7 +147,8 @@ export const checkForUncommittedChanges = async (tempDir, argv = {}) => {
     const gitStatusResult = await $({ cwd: tempDir })`git status --porcelain 2>&1`;
     if (gitStatusResult.code === 0) {
       const statusOutput = filterAiToolScratchFromStatus(gitStatusResult.stdout.toString().trim());
-      return statusOutput.length > 0;
+      // Issue #3433: work inside submodules (also commits on no remote) is unsaved work too.
+      return statusOutput.length > 0 || (await submoduleStatusLines({ $, cwd: tempDir })).length > 0;
     }
   } catch (error) {
     reportError(error, {
@@ -173,6 +175,7 @@ export const getUncommittedChangesDetails = async tempDir => {
       if (statusOutput) {
         changes.push(...statusOutput.split('\n'));
       }
+      changes.push(...(await submoduleStatusLines({ $, cwd: tempDir }))); // Issue #3433
     }
   } catch (error) {
     reportError(error, {

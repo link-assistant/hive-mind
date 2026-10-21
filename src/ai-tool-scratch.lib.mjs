@@ -49,6 +49,15 @@ export const AI_TOOL_SCRATCH_PATHS = [
   // file, or a commit of one, is the user's work.
   { path: 'data/cache/derivations/', tool: 'formal-ai', untrackedOnly: true },
   { path: '.playwright-mcp/', tool: 'playwright-mcp' },
+  // Issue #3656: Claude Code's Agent tool with `isolation: "worktree"` checks
+  // every subagent out as a git worktree under `.claude/worktrees/agent-<id>/`
+  // and keeps it when the subagent changed something. Each one is a nested
+  // repository, so `git add -A` recorded them as gitlinks (mode 160000) in the
+  // pull request, and on the next run `git status` reported them as ` M`
+  // ("Repository has uncommitted changes after clone"). Only the `worktrees/`
+  // subdirectory is tool state: `.claude/settings.json`, `.claude/agents/` and
+  // `.claude/skills/` are project configuration a repository commits.
+  { path: '.claude/worktrees/', tool: 'claude-code' },
 ];
 
 const EXCLUDE_HEADER = '# hive-mind: AI tool scratch directories (issue #2119)';
@@ -63,7 +72,12 @@ export const isAiToolScratchPath = statusLine => {
   if (typeof statusLine !== 'string') return false;
   // Porcelain v1: two status characters, a space, then the path.
   const untracked = statusLine.startsWith('??') || statusLine.startsWith('!!');
-  return isAiToolScratchFile(statusLine.slice(3), { tracked: !untracked });
+  // Issue #3656: callers trim the whole status output, which strips the
+  // leading space of a first ` M <path>` line. Reading `M .claude/worktrees/x`
+  // as `XY PATH` lost the path's first character, so a moved subagent gitlink
+  // listed first was never recognised.
+  const pathStart = statusLine[2] !== ' ' && statusLine[1] === ' ' ? 2 : 3;
+  return isAiToolScratchFile(statusLine.slice(pathStart), { tracked: !untracked });
 };
 
 /**
@@ -127,6 +141,67 @@ export const filterAiToolScratchFromStatus = statusOutput => {
 };
 
 /**
+ * Scratch paths that are scratch whether or not they are tracked: once one is
+ * committed (a `.claude/worktrees/agent-*` gitlink), `.git/info/exclude` no
+ * longer hides it, so staging has to leave it out explicitly.
+ */
+export const AI_TOOL_SCRATCH_TRACKED_PATHS = AI_TOOL_SCRATCH_PATHS.filter(entry => !entry.untrackedOnly).map(entry => entry.path.replace(/\/$/, ''));
+
+// `git add -A` hashes every changed file of the workspace (10.4 GB on PR #3531);
+// the index-only calls finish in seconds.
+const GIT_ADD_TIMEOUT_MS = 10 * 60 * 1000;
+const GIT_INDEX_TIMEOUT_MS = 60 * 1000;
+
+/**
+ * `git add -A`, then put AI tool scratch back the way HEAD has it.
+ *
+ * `.git/info/exclude` keeps untracked scratch out of `git add -A`, but not a
+ * scratch path that is already tracked (issue #3656: the gitlinks of Claude
+ * Code subagent worktrees committed by an earlier auto-commit). Resetting those
+ * paths in the index means a moved worktree HEAD is never committed again.
+ *
+ * @param {string} tempDir - the workspace
+ * @param {Function} $ - command-stream tagged-template executor
+ * @returns {Promise<{code: number, stderr?: any, stdout?: any}>} the `git add` result
+ */
+export const stageAllExceptAiToolScratch = async (tempDir, $) => {
+  const addResult = await $({ cwd: tempDir, signal: AbortSignal.timeout(GIT_ADD_TIMEOUT_MS) })`git add -A`;
+  if (addResult.code !== 0) return addResult;
+  for (const scratchPath of AI_TOOL_SCRATCH_TRACKED_PATHS) {
+    // A pathspec that matches nothing is fine for `git reset`; in a repository
+    // without commits there is no HEAD to reset to, and nothing to protect.
+    await $({ cwd: tempDir, signal: AbortSignal.timeout(GIT_INDEX_TIMEOUT_MS) })`git reset -q HEAD -- ${scratchPath} 2>&1`;
+  }
+  return addResult;
+};
+
+/**
+ * Committed AI tool scratch on the checked-out branch, e.g. the
+ * `.claude/worktrees/agent-*` gitlinks an earlier auto-commit put in a pull
+ * request (issue #3656). Logs a warning with the command that removes it.
+ *
+ * @param {string} tempDir - the workspace
+ * @param {Function} $ - command-stream tagged-template executor
+ * @param {(msg: string, opts?: object) => Promise<void>} [log]
+ * @returns {Promise<string[]>} repository-relative paths, empty when there are none
+ */
+export const reportTrackedAiToolScratch = async (tempDir, $, log = null) => {
+  const tracked = [];
+  const roots = [];
+  for (const scratchPath of AI_TOOL_SCRATCH_TRACKED_PATHS) {
+    const result = await $({ cwd: tempDir, mirror: false, signal: AbortSignal.timeout(GIT_INDEX_TIMEOUT_MS) })`git ls-files -- ${scratchPath}`;
+    const paths = result.code === 0 ? (result.stdout?.toString() || '').split('\n').filter(Boolean) : [];
+    if (paths.length) roots.push(scratchPath);
+    tracked.push(...paths);
+  }
+  if (tracked.length && log) {
+    await log(`⚠️  AI tool scratch is committed on this branch and does not belong in it: ${tracked.join(', ')}`, { level: 'warning' });
+    await log(`   Remove it with: git rm -r --cached -- ${roots.join(' ')}`, { level: 'warning' });
+  }
+  return tracked;
+};
+
+/**
  * Teach a cloned workspace to ignore AI tool scratch directories.
  *
  * Writes to `.git/info/exclude` rather than `.gitignore`: the exclude file is
@@ -183,6 +258,9 @@ export const ensureAiToolScratchIgnored = async (tempDir, log = null) => {
 
 export default {
   AI_TOOL_SCRATCH_PATHS,
+  AI_TOOL_SCRATCH_TRACKED_PATHS,
+  reportTrackedAiToolScratch,
+  stageAllExceptAiToolScratch,
   DEVELOPMENT_LOG_PATH,
   isSolverBookkeepingFile,
   ensureAiToolScratchIgnored,

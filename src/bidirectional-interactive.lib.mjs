@@ -25,6 +25,7 @@
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
 import { quietProbe } from './quiet-probe.lib.mjs'; // issue #2130: keep read-only probe payloads out of the attached log
 import { getLiveInputCapability, getLiveInputCapabilityRows, getLiveInputMode, isLiveInputSupported, LIVE_INPUT_MODE_FALLBACK, LIVE_INPUT_MODE_STREAM } from './live-input-capabilities.lib.mjs';
+import { filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
 // Configuration constants
 const CONFIG = {
   // Minimum time between comment checks to avoid rate limiting (in ms)
@@ -572,7 +573,8 @@ export const createBidirectionalHandler = options => {
       try {
         const result = await $({ cwd: tempDir })`git status --porcelain 2>&1`;
         if (result && result.code === 0) {
-          const out = (result.stdout?.toString() || '').trim();
+          // Issue #3656: AI tool scratch (`.claude/worktrees/`, ...) is not a change to commit.
+          const out = filterAiToolScratchFromStatus((result.stdout?.toString() || '').trim());
           const sig = `uncommitted::${out}`;
           if (out && !state.statusSignatures.has(sig)) {
             state.statusSignatures.add(sig);

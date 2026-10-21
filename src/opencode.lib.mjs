@@ -33,7 +33,7 @@ import { combineClaudeUsageLimitVerdicts, usageLimitTextVerdict } from './claude
 import { createToolCallLoopGuard, resolveRepeatedToolCallLimit } from './tool-call-loop-guard.lib.mjs'; // Issue #2316, #2395
 import { calculateAgentPricing } from './agent.lib.mjs';
 import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
-import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
+import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus, stageAllExceptAiToolScratch } from './ai-tool-scratch.lib.mjs';
 import { buildOpencodeAuxiliaryAgentConfig, isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236
 
 export { parseOpenCodeTokenUsage };
@@ -686,7 +686,7 @@ export const checkForUncommittedChanges = async (tempDir, owner, repo, branchNam
         if (autoCommit) {
           await log('💾 Auto-committing changes (--auto-commit-uncommitted-changes is enabled)...');
 
-          const addResult = await $({ cwd: tempDir })`git add -A`;
+          const addResult = await stageAllExceptAiToolScratch(tempDir, $);
           if (addResult.code === 0) {
             const commitMessage = 'Auto-commit: Changes made by OpenCode during problem-solving session';
             const commitResult = await $({ cwd: tempDir })`git commit -m ${commitMessage}`;

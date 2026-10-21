@@ -118,7 +118,10 @@ export async function checkUncommittedChanges({ tempDir, argv, log, $ }) {
     try {
       const gitStatusResult = await $({ cwd: tempDir })`git status --porcelain 2>&1`;
       if (gitStatusResult.code === 0) {
-        const statusOutput = gitStatusResult.stdout.toString().trim();
+        // Issue #3656: AI tool scratch (committed `.claude/worktrees/agent-*`
+        // gitlinks) is not work; told it is, the agent commits it again.
+        const { filterAiToolScratchFromStatus } = await import('./ai-tool-scratch.lib.mjs');
+        const statusOutput = filterAiToolScratchFromStatus(gitStatusResult.stdout.toString().trim());
         if (statusOutput) {
           await log('📝 Found uncommitted changes - adding to feedback');
 

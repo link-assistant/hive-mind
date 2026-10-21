@@ -10,6 +10,7 @@
  */
 
 import { QUIET_PROBE } from './quiet-probe.lib.mjs';
+import { filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
 
 // Note: This module does not import $ directly
 // Functions receive $ as a parameter from the calling module
@@ -27,7 +28,8 @@ import { QUIET_PROBE } from './quiet-probe.lib.mjs';
 export const generateMinimalRestartPrompt = async (tempDir, $) => {
   // Get uncommitted changes
   const gitStatus = await $({ cwd: tempDir })`git status --porcelain`;
-  const uncommittedFiles = gitStatus.stdout.toString().trim();
+  // Issue #3656: AI tool scratch is not a change the AI should commit.
+  const uncommittedFiles = filterAiToolScratchFromStatus(gitStatus.stdout.toString().trim());
 
   // Get brief diff summaries (not full diffs to keep the prompt minimal)
   // Issue #2135: `mirror: false` - the summaries go into the prompt below, so
@@ -71,7 +73,8 @@ Follow the repository's commit message conventions from previous commits.`;
 export const generateFullRestartPrompt = async (issueUrl, issueBody, prNumber, feedbackLines, tempDir, $) => {
   // Get uncommitted changes with full diff
   const gitStatus = await $({ cwd: tempDir })`git status --porcelain`;
-  const uncommittedFiles = gitStatus.stdout.toString().trim();
+  // Issue #3656: AI tool scratch is not a change the AI should commit.
+  const uncommittedFiles = filterAiToolScratchFromStatus(gitStatus.stdout.toString().trim());
 
   // Issue #2135: `mirror: false`. This is the working tree's whole diff and it
   // is embedded in the prompt below; mirroring it wrote a second copy into the

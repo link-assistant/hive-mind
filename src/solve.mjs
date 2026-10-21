@@ -57,6 +57,7 @@ const getResourceSnapshot = memoryCheck.getResourceSnapshot;
 const { handleAutoPrCreation } = await import('./solve.auto-pr.lib.mjs');
 const { ensurePullRequestBaseBranch } = await import('./solve.pr-base-guard.lib.mjs');
 const { setupRepositoryAndClone, verifyDefaultBranchAndStatus } = await import('./solve.repo-setup.lib.mjs');
+const { reportTrackedAiToolScratch } = await import('./ai-tool-scratch.lib.mjs'); // issue #3656
 const { recordAfterCloneSize, recordAfterAgentSize } = await import('./solve.disk-diagnostics.lib.mjs');
 const { createOrCheckoutBranch } = await import('./solve.branch.lib.mjs');
 const { startWorkSession, endWorkSession, SESSION_TYPES } = await import('./solve.session.lib.mjs');
@@ -388,7 +389,7 @@ try {
     needsClone,
   });
   cleanupContext.diskDiagnostics = { beforeBytes: await recordAfterCloneSize({ tempDir, log }) };
-  await recordResourceSnapshot({ phase: RESOURCE_PHASE_AFTER_CLONE, log, diskPath: '/', label: 'after repository clone' });
+  await recordResourceSnapshot({ phase: RESOURCE_PHASE_AFTER_CLONE, log, diskPath: '/', label: needsClone ? 'after repository clone' : 'after repository setup, existing working directory' }); // issue #3656: the clone was skipped
   // Verify default branch and status using the new module Pass argv, owner, repo, issueUrl for empty repository auto-initialization (--auto-init-repository)
   const defaultBranch = await verifyDefaultBranchAndStatus({
     tempDir,
@@ -399,6 +400,7 @@ try {
     owner,
     repo,
     issueUrl,
+    existingRepository: !needsClone,
   });
   // Create or checkout branch using the new module
   branchName = await createOrCheckoutBranch({
@@ -417,6 +419,7 @@ try {
     prNumber,
   });
   cleanupContext.branchName = branchName;
+  await reportTrackedAiToolScratch(tempDir, $, log);
   // Auto-merge default branch to pull request branch if enabled
   let autoMergeFeedbackLines = [];
   if (isContinueMode && argv['auto-merge-default-branch-to-pull-request-branch']) {

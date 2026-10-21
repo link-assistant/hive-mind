@@ -7,11 +7,16 @@
 // issue comment so it's excluded from --auto-attach-solution-summary's check.
 import { REPOSITORY_INITIALIZATION_REQUIRED_MARKER, postTrackedComment } from './tool-comments.lib.mjs';
 import { QUIET_PROBE } from './quiet-probe.lib.mjs'; // issue #2130: keep read-only probe payloads out of the attached log
+
+// Issue #3656: the remote default-branch lookup and fast-forward of a reused working directory.
+const GIT_REMOTE_TIMEOUT_MS = 2 * 60 * 1000;
+
 // Issue #2192: a credential helper is never consulted for a *public* clone
 // (github.com answers 200, so git never asks), which is why an authenticated
 // container still got throttled as anonymous. The token has to be sent
 // preemptively, before the first git network call.
 import { ensureAuthenticatedGitTransport } from './git-auth-transport.lib.mjs';
+import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
 
 export async function setupRepositoryAndClone({ argv, owner, repo, forkOwner, forkRepoName, tempDir, isContinueMode, issueUrl, log, $, needsClone = true }) {
   // Issue #2192: authenticate git *before* the first clone/fetch. Doing this
@@ -106,7 +111,35 @@ async function setupPrForkRemote(tempDir, argv, prForkOwner, repo, isContinueMod
   return await setupPrForkFn(tempDir, argv, prForkOwner, repo, isContinueMode, owner);
 }
 
-export async function verifyDefaultBranchAndStatus({ tempDir, log, formatAligned, $, argv, owner, repo, issueUrl }) {
+/**
+ * The branch `origin/HEAD` points at, or null when it cannot be determined.
+ *
+ * `git branch --show-current` is the default branch only right after a clone.
+ * In an existing working directory it is whatever the last session left
+ * checked out - on --auto-resume-on-limit-reset, the pull request branch.
+ */
+export async function resolveRemoteDefaultBranch(tempDir, $) {
+  const symbolic = await $({ cwd: tempDir, ...QUIET_PROBE })`git symbolic-ref --quiet --short refs/remotes/origin/HEAD`;
+  const local =
+    symbolic.code === 0
+      ? symbolic.stdout
+          .toString()
+          .trim()
+          .replace(/^origin\//, '')
+      : '';
+  if (local) return local;
+  const remote = await $({ cwd: tempDir, ...QUIET_PROBE, signal: AbortSignal.timeout(GIT_REMOTE_TIMEOUT_MS) })`git ls-remote --symref origin HEAD`;
+  const match = remote.code === 0 ? remote.stdout.toString().match(/^ref: refs\/heads\/(\S+)\s+HEAD/m) : null;
+  return match ? match[1] : null;
+}
+
+/**
+ * @param {object} params
+ * @param {boolean} [params.existingRepository=false] - tempDir already held the
+ *   repository (--working-directory, as used by --auto-resume-on-limit-reset),
+ *   so nothing was cloned and the checked-out branch is not the default branch
+ */
+export async function verifyDefaultBranchAndStatus({ tempDir, log, formatAligned, $, argv, owner, repo, issueUrl, existingRepository = false }) {
   // Verify we're on the default branch and get its name
   const defaultBranchResult = await $({ cwd: tempDir })`git branch --show-current`;
 
@@ -266,8 +299,14 @@ export async function verifyDefaultBranchAndStatus({ tempDir, log, formatAligned
     await log('');
     throw new Error('Default branch detection failed');
   } else {
+    if (existingRepository) defaultBranch = await resolveExistingRepositoryDefaultBranch({ tempDir, currentBranch: defaultBranch, log, formatAligned, $ });
     await log(`\n${formatAligned('📌', 'Default branch:', defaultBranch)}`);
   }
+
+  // Issue #3656: AI tool scratch (Claude Code subagent worktrees under
+  // `.claude/worktrees/`, `.formal-ai/`, ...) is not uncommitted work. A fresh
+  // clone was excluded in cloneRepository; an existing working directory was not.
+  await ensureAiToolScratchIgnored(tempDir, log);
 
   // Ensure we're on a clean default branch
   const statusResult = await $({ cwd: tempDir })`git status --porcelain`;
@@ -278,14 +317,48 @@ export async function verifyDefaultBranchAndStatus({ tempDir, log, formatAligned
   }
 
   // Note: Empty output means clean working directory
-  const statusOutput = statusResult.stdout.toString().trim();
-  if (statusOutput) {
+  const rawStatusOutput = statusResult.stdout.toString().trim();
+  const statusOutput = filterAiToolScratchFromStatus(rawStatusOutput);
+  if (rawStatusOutput !== statusOutput) {
+    await log(`ℹ️  Ignoring AI tool scratch in git status:\n${rawStatusOutput}`, { verbose: true });
+  }
+  if (statusOutput && existingRepository) {
+    // Issue #3656: an existing working directory is reused to continue a
+    // session (--resume, --auto-resume-on-limit-reset). Whatever that session
+    // left uncommitted is its unfinished work - aborting here lost the resume,
+    // and checking out the pull request branch keeps the changes in place.
+    await log('⚠️  The existing working directory has uncommitted changes from the previous session; keeping them for this session:', { level: 'warning' });
+    for (const line of statusOutput.split('\n')) await log(`   ${line}`, { level: 'warning' });
+  } else if (statusOutput) {
     await log('Error: Repository has uncommitted changes after clone');
     await log(`Status output: ${statusOutput}`);
     throw new Error('Repository has uncommitted changes after clone');
   }
 
   return defaultBranch;
+}
+
+/**
+ * Issue #3656: the default branch of an existing working directory, where the
+ * checked-out branch is whatever the previous session left (the pull request
+ * branch on a resume). It used to be logged as "Default branch:
+ * issue-3530-6f80c2bef5a1", and --auto-merge-default-branch-to-pull-request-branch
+ * then merged the pull request branch into itself.
+ */
+async function resolveExistingRepositoryDefaultBranch({ tempDir, currentBranch, log, formatAligned, $ }) {
+  const remoteDefault = await resolveRemoteDefaultBranch(tempDir, $);
+  if (!remoteDefault) {
+    await log(`⚠️  Could not determine the default branch of origin; using the checked-out branch ${currentBranch}`, { level: 'warning' });
+    return currentBranch;
+  }
+  if (remoteDefault !== currentBranch) {
+    await log(`${formatAligned('🌿', 'Checked-out branch:', `${currentBranch} (existing working directory)`)}`);
+    // The local default branch is as old as the original clone. Fast-forward it
+    // so a later merge of the default branch merges what origin has now.
+    const update = await $({ cwd: tempDir, ...QUIET_PROBE, signal: AbortSignal.timeout(GIT_REMOTE_TIMEOUT_MS) })`git fetch origin ${`${remoteDefault}:${remoteDefault}`} 2>&1`;
+    if (update.code !== 0) await log(`ℹ️  Could not fast-forward the local ${remoteDefault} branch: ${(update.stdout?.toString() || '').trim().split('\n')[0]}`, { verbose: true });
+  }
+  return remoteDefault;
 }
 
 /**

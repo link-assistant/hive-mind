@@ -105,7 +105,7 @@ The debug helper [`experiments/issue-3572-debug-gitlinks.mjs`](../../../experime
 
 ## Upstream reports
 
-- anthropics/claude-code: worktree isolation creates nested git worktrees inside the repository, where `git add -A` commits them as gitlinks that break every later checkout. A search found no existing report, only #70456, which is about a lead CWD stranded under `.claude/worktrees/`, and #102588, about `claude -w` in a submodule. The report (link below) suggests creating the worktrees outside the working tree, or writing `.claude/worktrees/` to `.git/info/exclude` when one is created.
+- [anthropics/claude-code#104013](https://github.com/anthropics/claude-code/issues/104013): worktree isolation creates nested git worktrees inside the repository, where `git add -A` commits them as gitlinks that break every later checkout. A search found no existing report, only anthropics/claude-code#70456, which is about a lead CWD stranded under `.claude/worktrees/`, and anthropics/claude-code#102588, about `claude -w` in a submodule. The report includes a plain-git repro and a workaround, and suggests creating the worktrees outside the working tree, or writing `.claude/worktrees/` to `.git/info/exclude` when one is created.
 
 ## Limits
 

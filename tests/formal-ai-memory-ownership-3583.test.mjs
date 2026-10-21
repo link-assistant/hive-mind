@@ -43,7 +43,7 @@ import { buildDockerIsolationStartArgs } from '../src/isolation-runner.lib.mjs';
 import { BOX_OWNER, ROOT_OWNER, createDockerSimulator } from './formal-ai-docker-simulator.mjs';
 
 const SIDECAR_IMAGE = `${FORMAL_AI_IMAGE_REPOSITORY}:${FORMAL_AI_BOOTSTRAP_VERSION}`;
-const FIXTURE = fs.readFileSync(new URL('./fixtures/formal-ai-sidecar-logging-failure-3583.log', import.meta.url), 'utf8');
+const FIXTURE = fs.readFileSync(new URL('./fixtures/formal-ai-sidecar-logging-failure-3583.txt', import.meta.url), 'utf8');
 const fast = { healthAttempts: 1, healthDelayMs: 0, sleepImpl: async () => {} };
 
 const dirs = [];

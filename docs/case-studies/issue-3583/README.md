@@ -51,5 +51,5 @@ node tests/formal-ai-memory-ownership-3583.test.mjs
 node experiments/issue-3583-real-docker-memory-ownership.mjs
 ```
 
-The real-log fixture `tests/fixtures/formal-ai-sidecar-logging-failure-3583.log`
+The real-log fixture `tests/fixtures/formal-ai-sidecar-logging-failure-3583.txt`
 holds the first lines of the production sidecar's stdout from the issue's gist.

@@ -1,0 +1,42 @@
+# actions/checkout v7.0.1: (version resolved from the shipped baseline measured 2026-09-30)
+# actions/setup-java v6.0.1: (version resolved from the shipped baseline measured 2026-09-30)
+# fwilhe2/setup-kotlin v2.0: (version resolved from the shipped baseline measured 2026-09-30)
+# actions/setup-python v7.0.0: (version resolved from the shipped baseline measured 2026-09-30)
+# python 3.14.7: (version resolved from the shipped baseline measured 2026-09-30)
+# kotlin v2.4.20: (version resolved from the shipped baseline measured 2026-09-30)
+# java 25: (version resolved from the shipped baseline measured 2026-09-30)
+# coursier/setup-action v3.0.4: (version resolved from the shipped baseline measured 2026-10-07)
+# scala 3.10.0: (version resolved from the shipped baseline measured 2026-10-19)
+# Runs main.rs on every push and pull request with the commands the
+# change was verified with.
+name: Run main.rs
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: Set up Rust
+        run: |
+          set -eu
+          export CARGO_HOME="${CARGO_HOME:-$HOME/.cargo}"
+          export PATH="$CARGO_HOME/bin:$PATH"
+          if ! command -v rustup >/dev/null 2>&1; then
+            rustup_bootstrap=$(mktemp)
+            trap 'rm -f "$rustup_bootstrap"' EXIT
+            curl --proto '=https' --tlsv1.2 --fail --silent --show-error --output "$rustup_bootstrap" https://sh.rustup.rs
+            sh "$rustup_bootstrap" --no-modify-path --profile minimal --default-toolchain none -y
+          fi
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          printf '%s\n' "$CARGO_HOME/bin" >> "$GITHUB_PATH"
+      - run: |
+          sh tests/verify-output.sh

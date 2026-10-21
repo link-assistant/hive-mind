@@ -41,10 +41,11 @@ jobs:
           token: ${{ secrets.AUTOMATION_TOKEN }}
           default-token: ${{ github.token }}
           repository-operations: 'true'
-      - name: Clean stale branches, issues and pull requests
+      - name: Finalize proven task issues and clean stale branches
         env:
           GH_TOKEN: ${{ steps.gh.outputs.token }}
           CLEANUP_DRY_RUN: ${{ inputs.dry_run }}
+          CLEANUP_REPOSITORIES: ${{ vars.E2E_CLEANUP_REPOSITORIES }}
         run: node scripts/cleanup-task-fixtures.mjs
       - name: Delete disposable test repositories when authorized
         if: ${{ !cancelled() && steps.gh.outputs.can-delete-repositories == 'true' }}

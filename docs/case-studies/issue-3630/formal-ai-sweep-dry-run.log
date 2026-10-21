@@ -1,0 +1,112 @@
+Would PATCH repos/link-assistant/formal-ai/pulls/1327
+Would PATCH repos/link-assistant/formal-ai/pulls/1326
+Would PATCH repos/link-assistant/formal-ai/pulls/1324
+Would PATCH repos/link-assistant/formal-ai/pulls/1320
+Would PATCH repos/link-assistant/formal-ai/pulls/1319
+Would PATCH repos/link-assistant/formal-ai/pulls/1316
+Would PATCH repos/link-assistant/formal-ai/pulls/1313
+Would PATCH repos/link-assistant/formal-ai/pulls/1311
+Would PATCH repos/link-assistant/formal-ai/pulls/1310
+Would PATCH repos/link-assistant/formal-ai/pulls/1308
+Would PATCH repos/link-assistant/formal-ai/pulls/1304
+Would PATCH repos/link-assistant/formal-ai/pulls/1303
+Would PATCH repos/link-assistant/formal-ai/pulls/1300
+Would PATCH repos/link-assistant/formal-ai/pulls/1298
+Would PATCH repos/link-assistant/formal-ai/pulls/1296
+Would PATCH repos/link-assistant/formal-ai/pulls/1294
+Would PATCH repos/link-assistant/formal-ai/pulls/1292
+Would PATCH repos/link-assistant/formal-ai/pulls/1290
+Would PATCH repos/link-assistant/formal-ai/pulls/1288
+Would PATCH repos/link-assistant/formal-ai/pulls/1286
+Would PATCH repos/link-assistant/formal-ai/pulls/1284
+Would PATCH repos/link-assistant/formal-ai/pulls/1281
+Would PATCH repos/link-assistant/formal-ai/pulls/1279
+Would PATCH repos/link-assistant/formal-ai/pulls/1277
+Would PATCH repos/link-assistant/formal-ai/pulls/1275
+Would PATCH repos/link-assistant/formal-ai/pulls/1274
+Would PATCH repos/link-assistant/formal-ai/pulls/1271
+Would PATCH repos/link-assistant/formal-ai/pulls/1269
+Would PATCH repos/link-assistant/formal-ai/pulls/1268
+Would PATCH repos/link-assistant/formal-ai/pulls/1267
+Would PATCH repos/link-assistant/formal-ai/pulls/1260
+Would PATCH repos/link-assistant/formal-ai/pulls/1258
+Would PATCH repos/link-assistant/formal-ai/pulls/1257
+Would PATCH repos/link-assistant/formal-ai/pulls/1254
+Would PATCH repos/link-assistant/formal-ai/pulls/1252
+Would PATCH repos/link-assistant/formal-ai/pulls/1251
+Would PATCH repos/link-assistant/formal-ai/pulls/1248
+Would PATCH repos/link-assistant/formal-ai/pulls/1246
+Would PATCH repos/link-assistant/formal-ai/pulls/1244
+Would PATCH repos/link-assistant/formal-ai/pulls/1242
+Would PATCH repos/link-assistant/formal-ai/pulls/1240
+Would PATCH repos/link-assistant/formal-ai/pulls/1238
+Would finalize #1385 as passed: pull request #1387 from owned fixture e2e/hello-world/39534551734/codex-formal-ai
+Would finalize #1384 as cancelled: pull request #1386 from owned fixture e2e/hello-world/39534551734/agent-formal-ai
+Would finalize #1382 as passed: pull request #1383 from owned fixture e2e/hello-world/39534551734/claude-formal-ai
+Would finalize #1378 as cancelled: pull request #1380 from owned fixture e2e/hello-world/39529409769/agent-formal-ai
+Would finalize #1377 as passed: pull request #1379 from owned fixture e2e/hello-world/39529409769/codex-formal-ai
+Would finalize #1376 as passed: pull request #1381 from owned fixture e2e/hello-world/39529409769/claude-formal-ai
+Would finalize #1373 as passed: pull request #1375 from owned fixture e2e/hello-world/39516141084/claude-formal-ai
+Would finalize #1372 as cancelled: pull request #1374 from owned fixture e2e/hello-world/39516141084/codex-formal-ai
+Would finalize #1370 as cancelled: pull request #1371 from owned fixture e2e/hello-world/39516141084/agent-formal-ai
+Would finalize #1366 as cancelled: pull request #1368 from owned fixture e2e/hello-world/39503866710/codex-formal-ai
+Would finalize #1365 as cancelled: pull request #1367 from owned fixture e2e/hello-world/39503866710/claude-formal-ai
+Would finalize #1362 as cancelled: pull request #1363 from owned fixture e2e/hello-world/39503866710/agent-formal-ai
+Would finalize #1350 as passed: pull request #1352 from owned fixture e2e/hello-world/39482864340/agent-formal-ai
+Would finalize #1344 as passed: pull request #1345 from owned fixture e2e/hello-world/39476386294/agent-formal-ai
+Would finalize #1340 as cancelled: pull request #1343 from owned fixture e2e/hello-world/39462450498/agent-formal-ai
+Would finalize #1339 as passed: pull request #1342 from owned fixture e2e/hello-world/39462450498/codex-formal-ai
+Would finalize #1338 as passed: pull request #1341 from owned fixture e2e/hello-world/39462450498/claude-formal-ai
+Would finalize #1335 as failed: pull request #1337 from owned fixture e2e/hello-world/39456423351/claude-formal-ai
+Would finalize #1334 as cancelled: pull request #1336 from owned fixture e2e/hello-world/39456423351/agent-formal-ai
+Would finalize #1332 as failed: pull request #1333 from owned fixture e2e/hello-world/39456423351/codex-formal-ai
+Would finalize #1325 as passed: pull request #1327 from owned fixture e2e/hello-world/39304820313/agent-formal-ai
+Would finalize #1323 as passed: pull request #1326 from owned fixture e2e/hello-world/39304820313/claude-formal-ai
+Would finalize #1322 as passed: pull request #1324 from owned fixture e2e/hello-world/39304820313/codex-formal-ai
+Would finalize #1321 as cancelled: log of job "Actual Hive codex original delivery" in run 39301688006 names this issue
+Would finalize #1318 as passed: pull request #1320 from owned fixture e2e/hello-world/39288146705/agent-formal-ai
+Would finalize #1317 as passed: pull request #1319 from owned fixture e2e/hello-world/39288146705/claude-formal-ai
+Would finalize #1315 as passed: pull request #1316 from owned fixture e2e/hello-world/39288146705/codex-formal-ai
+Would finalize #1314 as cancelled: log of job "Actual Hive codex original delivery" in run 39285417046 names this issue
+Would finalize #1312 as cancelled: pull request #1313 from owned fixture e2e/hello-world/39285417046/agent-formal-ai
+Would finalize #1309 as passed: pull request #1311 from owned fixture e2e/hello-world/39276863028/claude-formal-ai
+Would finalize #1307 as passed: pull request #1310 from owned fixture e2e/hello-world/39276863028/agent-formal-ai
+Would finalize #1306 as passed: pull request #1308 from owned fixture e2e/hello-world/39276863028/codex-formal-ai
+Would finalize #1305 as cancelled: log of job "Actual Hive agent original delivery" in run 39273498764 names this issue
+Would finalize #1302 as cancelled: pull request #1304 from owned fixture e2e/hello-world/39273498764/codex-formal-ai
+Would finalize #1301 as passed: pull request #1303 from owned fixture e2e/hello-world/39273498764/claude-formal-ai
+Would finalize #1299 as passed: pull request #1300 from owned fixture e2e/hello-world/39256568847/agent-formal-ai
+Would finalize #1297 as passed: pull request #1298 from owned fixture e2e/hello-world/39256568847/codex-formal-ai
+Would finalize #1295 as passed: pull request #1296 from owned fixture e2e/hello-world/39256568847/claude-formal-ai
+Would finalize #1293 as passed: pull request #1294 from owned fixture e2e/hello-world/39249421505/codex-formal-ai
+Would finalize #1291 as cancelled: pull request #1292 from owned fixture e2e/hello-world/39249421505/agent-formal-ai
+Would finalize #1289 as failed: pull request #1290 from owned fixture e2e/hello-world/39249421505/claude-formal-ai
+Would finalize #1287 as passed: pull request #1288 from owned fixture e2e/hello-world/39239408455/codex-formal-ai
+Would finalize #1285 as passed: pull request #1286 from owned fixture e2e/hello-world/39239408455/claude-formal-ai
+Would finalize #1283 as passed: pull request #1284 from owned fixture e2e/hello-world/39239408455/agent-formal-ai
+Would finalize #1280 as cancelled: pull request #1281 from owned fixture e2e/hello-world/39225326577/agent-formal-ai
+Would finalize #1278 as passed: pull request #1279 from owned fixture e2e/hello-world/39225326577/claude-formal-ai
+Would finalize #1276 as passed: pull request #1277 from owned fixture e2e/hello-world/39225326577/codex-formal-ai
+Would finalize #1273 as passed: pull request #1275 from owned fixture e2e/hello-world/39213351566/codex-formal-ai
+Would finalize #1272 as failed: pull request #1274 from owned fixture e2e/hello-world/39213351566/agent-formal-ai
+Would finalize #1270 as passed: pull request #1271 from owned fixture e2e/hello-world/39213351566/claude-formal-ai
+Would finalize #1266 as failed: pull request #1269 from owned fixture e2e/hello-world/39205772521/claude-formal-ai
+Would finalize #1265 as failed: pull request #1268 from owned fixture e2e/hello-world/39205772521/codex-formal-ai
+Would finalize #1264 as cancelled: pull request #1267 from owned fixture e2e/hello-world/39205772521/agent-formal-ai
+Would finalize #1263 as failed: log of job "Actual Hive claude original delivery" in run 39203548919 names this issue
+Would finalize #1262 as failed: log of job "Actual Hive codex original delivery" in run 39203548919 names this issue
+Would finalize #1261 as failed: log of job "Actual Hive agent original delivery" in run 39203548919 names this issue
+Would finalize #1259 as failed: pull request #1260 from owned fixture e2e/hello-world/39166799142/claude-formal-ai
+Would finalize #1256 as failed: pull request #1258 from owned fixture e2e/hello-world/39166799142/codex-formal-ai
+Would finalize #1255 as cancelled: pull request #1257 from owned fixture e2e/hello-world/39166799142/agent-formal-ai
+Would finalize #1253 as failed: pull request #1254 from owned fixture e2e/hello-world/39162141881/codex-formal-ai
+Would finalize #1250 as failed: pull request #1252 from owned fixture e2e/hello-world/39162141881/claude-formal-ai
+Would finalize #1249 as cancelled: pull request #1251 from owned fixture e2e/hello-world/39162141881/agent-formal-ai
+Would finalize #1247 as failed: pull request #1248 from owned fixture e2e/hello-world/39154230470/codex-formal-ai
+Would finalize #1245 as failed: pull request #1246 from owned fixture e2e/hello-world/39154230470/claude-formal-ai
+Would finalize #1243 as cancelled: pull request #1244 from owned fixture e2e/hello-world/39154230470/agent-formal-ai
+Would finalize #1241 as cancelled: pull request #1242 from owned fixture e2e/hello-world/39142860433/agent-formal-ai
+Would finalize #1239 as failed: pull request #1240 from owned fixture e2e/hello-world/39142860433/codex-formal-ai
+Would finalize #1237 as failed: pull request #1238 from owned fixture e2e/hello-world/39142860433/claude-formal-ai
+Stale fixture branches: 90; task issues finalized: 68; preserved: 0
+::warning title=Fixture branches retained::90 fixture branch(es) retained by a repository rule that prohibits deletion (issue-1237-4bfc51ccd20b, issue-1239-c56cd176e074, issue-1241-8e28f24aaad0, issue-1243-32c014c80325, issue-1245-4604b298ec46 and 85 more). Removing them requires a ruleset exclusion, or a bypass for the cleanup token, that covers these disposable branches; this cleanup deletes them once the rule allows it.

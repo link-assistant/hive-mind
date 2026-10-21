@@ -16,6 +16,7 @@ await cleanupStaleFixtures({
   api: async (endpoint, options) => {
     if (endpoint.includes('/commits/')) return { commit: { committer: { date: '2000-01-01T00:00:00Z' } } };
     if (endpoint.includes('/rules/branches/')) return [];
+    if (endpoint.includes('/actions/runs/')) return { status: 'completed', conclusion: 'success' };
     mutations.push({ endpoint, ...options });
     return {};
   },

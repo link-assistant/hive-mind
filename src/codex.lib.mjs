@@ -58,6 +58,7 @@ import { deployPlaywrightSkill } from './playwright-skill.lib.mjs'; // Issue #21
 import { formatRouterAuthViolation, startRouterAuthGuard } from './router-auth-guard.lib.mjs'; // Issue #2190
 import { applyCodexCapabilityEnv, runCodexCapabilityPreflight, verifyCodexCapabilityExecutionCatalog } from './codex-capability-preflight.lib.mjs'; // Issues #2074 and #2254
 import { createCodexResumeRolloutCheck } from './codex-sessions.lib.mjs'; // Issue #2888
+import { resolveCodexExitUsageLimit } from './codex-rollout-usage-limit.lib.mjs'; // Issue #3570
 import { createPullRequestBaseBranchCommandIntervention } from './solve.pr-base-command-intervention.lib.mjs';
 import Decimal from 'decimal.js-light';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
@@ -837,6 +838,7 @@ export const executeCodexCommand = async params => {
       let sessionId = null;
       let limitReached = false;
       let limitResetTime = null;
+      let limitTimezone = null; // Issue #3570: an epoch-derived reset is in UTC
       let lastMessage = '';
       let lastTextContent = ''; // Issue #1263: Track last text content for result summary
       let authError = false;
@@ -1033,6 +1035,7 @@ export const executeCodexCommand = async params => {
         signal,
         limitReached,
         limitResetTime,
+        limitTimezone,
         pricingInfo,
         publicPricingEstimate: pricingInfo?.totalCostUSD ?? null,
         resultModelUsage,
@@ -1071,7 +1074,7 @@ export const executeCodexCommand = async params => {
           await log(`🔍 Codex usage limit detected. Raw message: ${JSON.stringify(limitSource)}`, { verbose: true });
           await log(`🔍 Parsed reset time: ${JSON.stringify(limitInfo.resetTime)}, timezone: ${JSON.stringify(limitInfo.timezone)}`, { verbose: true });
           limitReached = true;
-          limitResetTime = limitInfo.resetTime;
+          [limitResetTime, limitTimezone] = [limitInfo.resetTime, limitInfo.timezone];
           // Issue #942: build proper solve resume command (preserves tool/model/dir).
           const solveResumeCmd = __codexBuildSolveResumeCmd(argv, sessionId, tempDir);
           const messageLines = formatUsageLimitMessage({
@@ -1151,27 +1154,10 @@ export const executeCodexCommand = async params => {
           }
           await log(`\n\n❌ ${retryableError.label} persisted: ${transientRetryBudget.describeExhaustion(retryDecision)}`, { level: 'error' });
         }
-        // Check for usage limit errors first (more specific)
-        const limitInfo = detectUsageLimit(failureSource);
+        // Check for usage limit errors first (more specific); issue #3570: the rollout is cross-checked too.
+        const limitInfo = await resolveCodexExitUsageLimit({ failureSource, signal, exitCode, threadId: sessionId, codexHome: codexEnv.CODEX_HOME, buildResumeCommand: () => __codexBuildSolveResumeCmd(argv, sessionId, tempDir), log });
         if (limitInfo.isUsageLimit) {
-          // Issue #1869: Trace raw limit text + parsed reset for diagnosability.
-          await log(`🔍 Codex usage limit detected (exit ${exitCode}). Raw message: ${JSON.stringify(failureSource)}`, { verbose: true });
-          await log(`🔍 Parsed reset time: ${JSON.stringify(limitInfo.resetTime)}, timezone: ${JSON.stringify(limitInfo.timezone)}`, { verbose: true });
-          limitReached = true;
-          limitResetTime = limitInfo.resetTime;
-
-          // Format and display user-friendly message
-          // Issue #942: build proper solve resume command (preserves tool/model/dir).
-          const solveResumeCmd = __codexBuildSolveResumeCmd(argv, sessionId, tempDir);
-          const messageLines = formatUsageLimitMessage({
-            tool: 'OpenAI Codex',
-            resetTime: limitInfo.resetTime,
-            sessionId,
-            solveResumeCommand: solveResumeCmd,
-          });
-          for (const line of messageLines) {
-            await log(line, { level: 'warning' });
-          }
+          [limitReached, limitResetTime, limitTimezone] = [true, limitInfo.resetTime, limitInfo.timezone];
         } else if (exitCode === 130) {
           await log('\n\n⚠️ Codex command interrupted (CTRL+C)');
         } else {

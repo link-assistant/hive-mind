@@ -180,6 +180,22 @@ task container ──docker network connect──▶ hive-mind-formal-ai (intern
   ([issue #2146](https://github.com/link-assistant/hive-mind/issues/2146)).
 - Memory lives in the `hive-mind-formal-ai-memory` volume, which is never
   removed — not when the container stops, not when the image changes.
+- Before every start, a one-off container running as `box` (1001:1001) checks
+  that it can write the memory volume. Only if it cannot is the volume
+  `chown -R`-ed (as root) back to `box`, and the bot log records
+  `[formal-ai] memory volume was owned by <uid:gid>; fixed`. A healthy volume
+  is never chowned
+  ([issue #3583](https://github.com/link-assistant/hive-mind/issues/3583)).
+- Once `/health` answers, the first lines of the sidecar's stdout are read. A
+  `logging_failure` record becomes a warning in the bot log and in the solve
+  log of every task served by that sidecar: `Formal AI cannot write its logs or
+memory (…): dialogs of this session will not be kept`.
+- Before the sidecar container is removed (idle stop, replacing a stopped
+  container, `/unload`), `docker logs --timestamps` is saved to
+  `formal-ai-sidecar-<start time>.log` in the bot log directory
+  (`HIVE_MIND_LOG_DIR`, default `~/.hive-mind/logs`). The newest
+  `HIVE_MIND_FORMAL_AI_SIDECAR_LOG_KEEP` files are kept (default 50; `0` turns
+  archiving off).
 
 While no lease is held, the sidecar image is refreshed by pulling
 `HIVE_MIND_FORMAL_AI_UPDATE_TAG` and comparing digests. A new digest is adopted

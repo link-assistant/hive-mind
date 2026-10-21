@@ -139,6 +139,18 @@ task-контейнер ──docker network connect──▶ hive-mind-formal-a
   ([issue #2146](https://github.com/link-assistant/hive-mind/issues/2146)).
 - Память хранится в томе `hive-mind-formal-ai-memory`, который никогда не удаляется:
   ни при остановке контейнера, ни при смене образа.
+- Перед каждым запуском одноразовый контейнер от имени `box` (1001:1001)
+  проверяет, может ли он писать в том памяти. Только если не может, том
+  получает `chown -R` (от root) обратно на `box`, а в лог бота пишется
+  `[formal-ai] memory volume was owned by <uid:gid>; fixed`. Исправный том не
+  перезаписывается chown ([issue #3583](https://github.com/link-assistant/hive-mind/issues/3583)).
+- Когда `/health` отвечает, читаются первые строки stdout сайдкара. Запись
+  `logging_failure` превращается в предупреждение в логе бота и в solve-логе
+  каждой задачи этого сайдкара.
+- Перед удалением контейнера сайдкара `docker logs --timestamps` сохраняется в
+  `formal-ai-sidecar-<время запуска>.log` в каталоге логов бота
+  (`HIVE_MIND_LOG_DIR`, по умолчанию `~/.hive-mind/logs`). Хранятся последние
+  `HIVE_MIND_FORMAL_AI_SIDECAR_LOG_KEEP` файлов (по умолчанию 50; `0` отключает).
 
 Пока аренд нет, образ обновляется: выполняется `pull` тега
 `HIVE_MIND_FORMAL_AI_UPDATE_TAG` и сравнение digest-ов. Новый digest принимается

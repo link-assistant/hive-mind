@@ -24,6 +24,7 @@
 
 import { spawn } from 'child_process';
 import { describeChildExit } from './child-exit.lib.mjs';
+import { wrapRunnerWithTransientRetry } from './github-operation-retry.lib.mjs';
 import { sanitizeForPublication } from './token-sanitization.lib.mjs'; // issue #2156: this body is published to a pull request
 import { KILL_CAUSE_DISK_FULL, KILL_CAUSE_FORCED_KILL, KILL_CAUSE_HOST_REBOOT, KILL_CAUSE_OUT_OF_MEMORY } from './session-kill-diagnostics.lib.mjs';
 import { describeHostRebootScope } from './host-boot-state.lib.mjs';
@@ -318,7 +319,8 @@ export async function postKillRecoveryNotice({ pullRequestUrl, commentUrl = null
     const canEdit = comment && target && comment[1] === target[1] && comment[2] === target[2] && comment[3] === target[3] && comment[4] === target[4];
     const sanitizedBody = await sanitizeForPublication(body);
     await writeFile(bodyFile, canEdit ? JSON.stringify({ body: sanitizedBody }) : sanitizedBody);
-    const result = await runCommand('gh', canEdit ? ['api', `repos/${comment[1]}/${comment[2]}/issues/comments/${comment[5]}`, '--method', 'PATCH', '--input', bodyFile, '--jq', '.html_url'] : [target?.[3] === 'issues' ? 'issue' : 'pr', 'comment', pullRequestUrl, '--body-file', bodyFile]);
+    // Issue #3552: retried on transient GitHub faults (idempotent if the caller already wrapped it).
+    const result = await wrapRunnerWithTransientRetry(runCommand)('gh', canEdit ? ['api', `repos/${comment[1]}/${comment[2]}/issues/comments/${comment[5]}`, '--method', 'PATCH', '--input', bodyFile, '--jq', '.html_url'] : [target?.[3] === 'issues' ? 'issue' : 'pr', 'comment', pullRequestUrl, '--body-file', bodyFile]);
     if (result?.code === 0) {
       const url = String(result.stdout?.toString() || '').trim() || null;
       if (verbose) console.log(`[VERBOSE] Posted killed-session notice to ${pullRequestUrl}${url ? ` (${url})` : ''}`);

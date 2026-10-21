@@ -21,13 +21,15 @@ const os = (await use('os')).default;
 import { log, isMeaningfulErrorText, buildToolErrorMessage } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits } from './config.lib.mjs';
-import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
+import { formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import { opencodeModels, defaultModels } from './models/index.mjs';
 import { isPrepareOnly, logPreparedToolCommand, resolveFormalAiToolExecution } from './formal-ai.lib.mjs';
 import { checkPlaywrightMcpPackageAvailability, getOpenCodePlaywrightMcpDisableEnv } from './playwright-mcp.lib.mjs';
 import { createAgentTokenUsage, accumulateAgentStepFinishUsage, parseAgentTokenUsage as parseOpenCodeTokenUsage } from './agent-token-usage.lib.mjs';
 import { createJsonStreamScanner } from './json-stream.lib.mjs';
+import { extractAgentErrorText, isAgentErrorRecord, isRecoverableAgentToolError } from './agent-error-events.lib.mjs';
+import { combineClaudeUsageLimitVerdicts, usageLimitTextVerdict } from './claude.usage-limit-sources.lib.mjs'; // Issue #3570
 import { createToolCallLoopGuard, resolveRepeatedToolCallLimit } from './tool-call-loop-guard.lib.mjs'; // Issue #2316, #2395
 import { calculateAgentPricing } from './agent.lib.mjs';
 import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
@@ -353,9 +355,11 @@ export const executeOpenCodeCommand = async params => {
       let sessionId = null;
       let limitReached = false;
       let limitResetTime = null;
+      let limitTimezone = null;
       let lastMessage = '';
       let lastTextContent = ''; // Issue #1263: Track last text content for result summary
       let allOutput = ''; // Collect all output for error detection
+      const errorRecordTexts = []; // Issue #3570: `{"type":"error"}` records, a usage-limit source besides the last chunk
 
       // Issue #2119: frame records by balanced JSON instead of by newlines, so
       // pretty-printed, concatenated and chunk-split records are all counted.
@@ -383,6 +387,7 @@ export const executeOpenCodeCommand = async params => {
           // rest of the chunk (data.type access would throw on null).
           if (data === null || typeof data !== 'object') continue;
           accumulateAgentStepFinishUsage(streamingTokenUsage, data);
+          if (isAgentErrorRecord(data) && !isRecoverableAgentToolError(data)) errorRecordTexts.push(extractAgentErrorText(data));
           // Track text content for result summary
           // OpenCode outputs text via 'text', 'assistant', 'message', or 'result' type events
           // Issue #2130: OpenCode-derived CLIs nest assistant text under `part`
@@ -542,11 +547,14 @@ export const executeOpenCodeCommand = async params => {
           await log(`\n\n❌ ${retryableError.label} persisted: ${transientRetryBudget.describeExhaustion(retryDecision)}`, { level: 'error' });
         }
 
-        // Check for usage limit errors first (more specific)
-        const limitInfo = detectUsageLimit(lastMessage);
+        // Check for usage limit errors first (more specific). Issue #3570: a failed
+        // step is reported as a `{"type":"error"}` record, which need not be the last chunk.
+        const verdicts = [usageLimitTextVerdict('last stdout chunk', lastMessage), ...errorRecordTexts.map(text => usageLimitTextVerdict('error record', text))];
+        const limitInfo = combineClaudeUsageLimitVerdicts(verdicts, 'OpenCode');
+        for (const v of verdicts) await log(`   ${v.isUsageLimit ? '✔' : '·'} usage-limit source ${v.source}: ${v.reason}`, { verbose: true });
         if (limitInfo.isUsageLimit) {
           limitReached = true;
-          limitResetTime = limitInfo.resetTime;
+          [limitResetTime, limitTimezone] = [limitInfo.resetTime, limitInfo.timezone];
 
           // Format and display user-friendly message
           const messageLines = formatUsageLimitMessage({
@@ -576,6 +584,7 @@ export const executeOpenCodeCommand = async params => {
           sessionId,
           limitReached,
           limitResetTime,
+          limitTimezone,
           ...pricingResult,
           resultSummary: lastTextContent || null, // Issue #1263: Use last text content from JSON output stream
           // Issue #1845: surface the actual error so callers can show it to users

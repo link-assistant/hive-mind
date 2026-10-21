@@ -26,17 +26,19 @@
  * @see https://github.com/link-assistant/hive-mind/issues/2305
  */
 
-import { execFile } from 'node:child_process';
 import fs from 'node:fs';
-import { promisify } from 'node:util';
 
+import { dockerExecFileAsync } from './docker-pull-detached.lib.mjs';
 import { dockerOk, dockerText } from './docker-sidecar.lib.mjs';
 import { resolveFormalAiFallbackImage } from './formal-ai-image.lib.mjs';
 import { describeBytesFreed, inspectDockerImage, removeFormalAiImages } from './formal-ai-image-store.lib.mjs';
+import { archiveFormalAiSidecarLogs } from './formal-ai-sidecar-logs.lib.mjs';
 import { FORMAL_AI_MEMORY_VOLUME_NAME, FORMAL_AI_SIDECAR_LABEL, FORMAL_AI_SIDECAR_NETWORK_NAME, isFormalAiSidecarEnabled, readFormalAiSidecarState, reconcileFormalAiSidecar, withFormalAiSidecarLock, writeFormalAiSidecarState } from './formal-ai-sidecar.lib.mjs';
 import { describeFormalAiUsage, formatFormalAiDuration, isFormalAiPrefetchEnabled, resolveFormalAiUnloadAfterMs } from './formal-ai-usage.lib.mjs';
 
-const execFileAsync = promisify(execFile);
+// The shared runner, so archiving a sidecar's log streams it to disk instead
+// of buffering it (issue #3583).
+const execFileAsync = dockerExecFileAsync;
 
 /**
  * Why unloading is switched off for this deployment, or null when it is on.
@@ -87,9 +89,13 @@ export const unloadIdleFormalAiSidecar = async ({ env = process.env, fsImpl = fs
 
       // Containers first: an image a container still references cannot be
       // removed. `--volumes` takes the container's anonymous volumes with it;
-      // named volumes — the memory volume above all — are never touched.
+      // named volumes — the memory volume above all — are never touched. Each
+      // container's stdout is saved before it goes (issue #3583).
       const containers = await listFormalAiSidecarContainers({ run, timeoutMs });
-      for (const container of containers) await dockerOk(run, ['rm', '--force', '--volumes', container], { timeoutMs });
+      for (const container of containers) {
+        await archiveFormalAiSidecarLogs({ containerName: container, env, fsImpl, run, timeoutMs, log, verbose });
+        await dockerOk(run, ['rm', '--force', '--volumes', container], { timeoutMs });
+      }
       if (containers.length > 0) await dockerOk(run, ['network', 'rm', FORMAL_AI_SIDECAR_NETWORK_NAME], { timeoutMs });
 
       const images = await removeFormalAiImages({ env, run, timeoutMs, log, verbose });

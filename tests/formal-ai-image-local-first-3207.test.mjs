@@ -155,7 +155,7 @@ after(() => {
 test('an update pull that times out is classified as a timeout and warns about leased content', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hive-formal-ai-3207-'));
   stateDirs.push(dir);
-  const env = { HIVE_MIND_STATE_DIR: dir, HIVE_MIND_IMAGE_VARIANT: 'dind' };
+  const env = { HIVE_MIND_STATE_DIR: dir, HIVE_MIND_LOG_DIR: path.join(dir, 'logs'), HIVE_MIND_IMAGE_VARIANT: 'dind' };
   await writeFormalAiSidecarState({ lastUsedAt: new Date().toISOString() }, { env });
   const simulator = createDockerSimulator({ images: { [`${REPOSITORY}:latest`]: 'sha256:old' } });
   const run = async (command, args, options) => {

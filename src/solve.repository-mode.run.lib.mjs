@@ -20,8 +20,8 @@
  * The pure helpers live in `solve.repository-mode.lib.mjs`.
  */
 
-import { spawn } from 'child_process';
-import { describeChildExit } from './child-exit.lib.mjs';
+// Issue #3552: the shared runner retries every gh call through the one GitHub retry loop.
+import { commandOutput, runCommand } from './fix.github.lib.mjs';
 import { parseGitHubUrl } from './github-url-parser.lib.mjs';
 import { createTaskIssue } from './task.issue-creation.lib.mjs';
 import { buildAddSubIssueApiArgs, buildParentIssueApiArgs } from './task.split.lib.mjs';
@@ -57,40 +57,6 @@ export const SUB_ISSUE_ATTACH_MAX_ATTEMPTS = 3;
 export const SUB_ISSUE_ATTACH_BACKOFF_MS = Object.freeze([60000, 120000]);
 
 const defaultSleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-
-function runCommand(command, args, options = {}) {
-  return new Promise(resolve => {
-    const child = spawn(command, args, {
-      stdio: ['ignore', 'pipe', 'pipe'],
-      env: process.env,
-      ...options,
-    });
-    let stdout = '';
-    let stderr = '';
-    child.stdout.on('data', data => {
-      stdout += data.toString();
-    });
-    child.stderr.on('data', data => {
-      stderr += data.toString();
-    });
-    child.on('error', error => {
-      resolve({ code: 1, stdout, stderr: stderr || error.message });
-    });
-    child.on('close', (code, signal) => {
-      resolve({ code, stdout, stderr, signal });
-    });
-  });
-}
-
-async function commandOutput(run, command, args) {
-  const result = await run(command, args);
-  if (result.code !== 0) {
-    const output = `${result.stderr?.toString() || ''}${result.stdout?.toString() || ''}`.trim();
-    // Issue #2135: `describeChildExit` names a signal instead of "code null".
-    throw new Error(output || describeChildExit({ command, code: result.code, signal: result.signal }));
-  }
-  return result.stdout.trim();
-}
 
 /**
  * Parse a repository URL into the `{owner, repo, fullName, url}` shape the rest

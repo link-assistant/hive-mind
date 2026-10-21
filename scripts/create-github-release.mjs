@@ -17,12 +17,14 @@ import { readFileSync } from 'fs';
 import { sanitizeForPublication } from '../src/token-sanitization.lib.mjs';
 import { extractChangelogSection } from './format-release-notes.lib.mjs';
 
-import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from '../src/github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
+import { wrapDollarWithGhRetry } from '../src/github-rate-limit.lib.mjs';
 // Load use-m dynamically
 const use = await ensureUseM();
 
 // Import link-foundation libraries
-const { $ } = await use('command-stream');
+// Issue #3552: every gh call below is retried on transient GitHub faults.
+const { $: rawDollar$ } = await use('command-stream');
+const $ = wrapDollarWithGhRetry(rawDollar$);
 const { makeConfig } = await use('lino-arguments');
 
 // Parse CLI arguments using lino-arguments

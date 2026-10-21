@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { sanitizeForPublication } from '../src/token-sanitization.lib.mjs';
 import { ensureUseM } from '../src/use-m-bootstrap.lib.mjs';
-import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from '../src/github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
+import { wrapDollarWithGhRetry } from '../src/github-rate-limit.lib.mjs';
 import { PACKAGE_NAME, buildReleaseBody, buildReleaseDescription, hasGeneratedFooter } from './format-release-notes.lib.mjs';
 
 /**
@@ -32,7 +32,9 @@ import { PACKAGE_NAME, buildReleaseBody, buildReleaseDescription, hasGeneratedFo
 const use = await ensureUseM();
 
 // Import link-foundation libraries
-const { $ } = await use('command-stream');
+// Issue #3552: every gh call below is retried on transient GitHub faults.
+const { $: rawDollar$ } = await use('command-stream');
+const $ = wrapDollarWithGhRetry(rawDollar$);
 const { makeConfig } = await use('lino-arguments');
 
 // Parse CLI arguments using lino-arguments
@@ -80,9 +82,7 @@ if (!releaseId || !version || !repository) {
 
 try {
   // Get current release body
-  const result = await $`gh api repos/${repository}/releases/${releaseId}`.run({
-    capture: true,
-  });
+  const result = await $({ capture: true })`gh api repos/${repository}/releases/${releaseId}`;
   const releaseData = JSON.parse(result.stdout);
 
   const currentBody = releaseData.body || '';
@@ -129,7 +129,7 @@ try {
     const currentTag = `v${versionWithoutV}`;
 
     // Find the previous version tag by listing tags sorted by version
-    const tagsResult = await $`gh api "repos/${repository}/tags?per_page=100" --paginate --jq '.[].name'`.run({ capture: true });
+    const tagsResult = await $({ capture: true })`gh api "repos/${repository}/tags?per_page=100" --paginate --jq '.[].name'`;
     const tags = tagsResult.stdout
       .trim()
       .split('\n')
@@ -140,7 +140,7 @@ try {
 
     if (previousTag) {
       console.log(`Finding merge commits between ${previousTag} and ${currentTag}...`);
-      const mergeCommitsResult = await $`gh api "repos/${repository}/compare/${previousTag}...${currentTag}" --paginate --jq '.commits[] | select(.parents | length > 1) | .sha'`.run({ capture: true });
+      const mergeCommitsResult = await $({ capture: true })`gh api "repos/${repository}/compare/${previousTag}...${currentTag}" --paginate --jq '.commits[] | select(.parents | length > 1) | .sha'`;
       const mergeCommits = mergeCommitsResult.stdout.trim().split('\n').filter(Boolean);
 
       console.log(`Found ${mergeCommits.length} merge commit(s) between tags`);
@@ -167,7 +167,7 @@ try {
       console.log(`  Checking commit ${sha} (from ${source})...`);
 
       try {
-        const prResult = await $`gh api "repos/${repository}/commits/${sha}/pulls" --paginate`.run({ capture: true });
+        const prResult = await $({ capture: true })`gh api "repos/${repository}/commits/${sha}/pulls" --paginate`;
         const prsData = JSON.parse(prResult.stdout);
 
         // Find PRs that are not version bump PRs (not "chore: version packages")

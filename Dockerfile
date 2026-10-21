@@ -19,7 +19,7 @@
 #
 # Build: docker build -t konard/hive-mind .
 
-ARG FORMAL_AI_VERSION=0.354.1
+ARG FORMAL_AI_VERSION=0.355.0
 # Bookworm's glibc 2.36 remains compatible with the Ubuntu 24.04 Box runtime.
 FROM rust:1.99-slim-bookworm AS formal-ai-builder
 ARG FORMAL_AI_VERSION
@@ -319,7 +319,8 @@ RUN bun install -g @openai/codex && \
 # docker container in `$ --status` and adds opt-in snapshot-resume safeguards.
 # 0.38.0 refuses a reused `--session-id` unless `--append-attempt` is given,
 # which a kill recovery in a new container uses to stay the same execution
-# with one log (start#229), and exports START_EXECUTION_ID (start#230).
+# with one log (start#229), and exports START_EXECUTION_ID/START_SESSION_NAME/
+# START_ATTEMPT, aliases and continuation chains (start#230, start#231).
 # `@link-assistant/agent` is pinned to current 0.26.15. Version 0.26.1 stopped the
 # unbounded snapshot leak of issue #2186. Up to 0.26.0 `Snapshot.track()` built a
 # standalone git object store per project — keyed on the worktree's root commit,

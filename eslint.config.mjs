@@ -180,9 +180,13 @@ export default [
       // Require capturing createReadStream/createWriteStream return values so streams can be closed.
       // Unclosed streams keep the Node.js event loop alive and cause hangs (issue #1431).
       'streams/no-leaked-streams': 'error',
-      // Disallow raw exec/execAsync/$ calls to `gh` without a rate-limit-safe wrapper.
-      // Files that import ghWithRateLimitRetry / execGhWithRetry / ghRetry / ghCmdRetry are exempt.
-      // See: https://github.com/link-assistant/hive-mind/issues/1726
+      // Disallow `gh` API calls (exec/execFile/spawn/runner/$, shell-string or argv
+      // style) that do not run under the shared retry loop (issue #1726). Since
+      // issue #3552 this is decided per call site, not per file: the executor must
+      // be built by a wrap factory (wrapDollarWithGhRetry, wrapRunnerWith*Retry),
+      // handed in by the caller, or the call must sit inside a retry helper
+      // (retryGitHubOperation, ghWithRateLimitRetry, execGhWithRetry, ...).
+      // A deliberate single shot needs `// github-retry-ok: <reason>`.
       'gh-rate-limit/no-direct-gh-exec': 'error',
       'output-sanitization/require-sanitized-output': 'error',
       // Enforce max 1500 lines per file to match CI workflow check.
@@ -220,13 +224,13 @@ export default [
   },
   {
     // Issue #2168: network-facing git commands (`git push`/`fetch`/`pull`/
-    // `ls-remote`) must go through a `$` carrying the retry wrapper, otherwise a
-    // single transient remote failure aborts the whole session. Helpers that
-    // receive `$` from their caller are exempt - the caller owns the wrapper.
-    // Scoped to src/ because tests drive local fixture repositories and the
-    // scripts/ helpers run against the already-checked-out working copy in CI,
-    // where a retry would only hide a genuine failure.
-    files: ['src/**/*.{js,mjs,cjs}'],
+    // `ls-remote`) must run under the shared retry loop, otherwise a single
+    // transient remote failure aborts the whole session. Helpers that receive
+    // `$` from their caller are exempt - the caller owns the wrapper.
+    // Issue #3552: scripts/ is covered too - the release script's single-shot
+    // `git push` is exactly what GitHub's `fatal error in commit_refs` killed.
+    // Tests drive local fixture repositories and stay out of scope.
+    files: ['src/**/*.{js,mjs,cjs}', 'scripts/**/*.{js,mjs,cjs}'],
     plugins: {
       'gh-rate-limit': ghRateLimitPlugin,
     },

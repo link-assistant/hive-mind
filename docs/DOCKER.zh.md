@@ -125,6 +125,9 @@ docker run --rm --network link-assistant-formal-ai \
 - 任务容器在启动 Formal AI 容器的同一临界区内通过 `docker network connect` 接入，并以容器地址（而非 DNS 别名）作为 `HIVE_MIND_FORMAL_AI_BASE_URL`。
 - 如果容器无法启动或接入失败，任务会被停止，而不是改用其他模型继续（[issue #2146](https://github.com/link-assistant/hive-mind/issues/2146)）。
 - 内存保存在 `hive-mind-formal-ai-memory` 卷中，该卷永远不会被删除——容器停止时不会，镜像更换时也不会。
+- 每次启动前，一个以 `box`（1001:1001）运行的一次性容器会检查能否写入内存卷。只有在不能写入时，才会（以 root）把该卷 `chown -R` 回 `box`，并在 bot 日志中记录 `[formal-ai] memory volume was owned by <uid:gid>; fixed`。健康的卷不会被 chown（[issue #3583](https://github.com/link-assistant/hive-mind/issues/3583)）。
+- `/health` 响应后会读取 sidecar stdout 的前几行。`logging_failure` 记录会在 bot 日志以及该 sidecar 服务的每个任务的 solve 日志中变成警告。
+- 删除 sidecar 容器之前，`docker logs --timestamps` 会保存到 bot 日志目录（`HIVE_MIND_LOG_DIR`，默认 `~/.hive-mind/logs`）中的 `formal-ai-sidecar-<启动时间>.log`。保留最新的 `HIVE_MIND_FORMAL_AI_SIDECAR_LOG_KEEP` 个文件（默认 50；`0` 表示关闭）。
 
 在没有租约期间，镜像会通过 pull `HIVE_MIND_FORMAL_AI_UPDATE_TAG` 并比较摘要来刷新。新摘要只会经由 Formal AI 的持久化内存升级契约（[formal-ai#982](https://github.com/link-assistant/formal-ai/issues/982)）被采纳：先执行 `memory upgrade-status` 预检，再执行带逐字节备份与回执的 `memory migrate`，然后启动新镜像，其 `/health` 必须报告内存兼容。迁移之后的任何失败都会恢复回执中记录的备份并保留原镜像。已安装的 agentic CLI 和运维工具（`claude-profiles`、`gh-setup-git-identity`、`gh-pull-all`、`gh-load-issue`、`gh-load-pull-request`、`gh-upload-log`）在相同的空闲条件下刷新。两者的环境变量见 [Configuration](CONFIGURATION.zh.md)。
 

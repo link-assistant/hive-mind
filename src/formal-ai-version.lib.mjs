@@ -30,15 +30,18 @@ export const FORMAL_AI_MEMORY_CONTRACT_MINIMUM_VERSION = '0.336.0';
  * `src/formal-ai-updater.lib.mjs` replaces it with the newest published image
  * while no Formal AI task holds a lease. 0.339.0 restored `cargo install
  * formal-ai --locked` on stock Rust images (formal-ai#988) and 0.339.1 routed
- * command execution through the published command-stream component. 0.354.1 is
+ * command execution through the published command-stream component. 0.355.0 is
  * the current release and remains a safe bootstrap: its Cargo.lock carries no
- * `openssl-sys` and pins the same dependency versions as 0.353.8, its
- * rust-version matches the 1.99 builder, and its native diagnostics (such as
- * "formal-ai server listening") are now structured records on stderr, which
- * Hive Mind never parses, so the established CLI/health contract is unchanged.
+ * `openssl-sys`, its rust-version matches the 1.99 builder, and the new GPU
+ * stack (`wgpu`) sits behind the non-default `provenance-gpu` feature, so the
+ * default build's only new direct crates are `blake3` and `tracing` (no
+ * system libraries; `ring`, `rustix` and `url` were already in the tree).
+ * Native diagnostics (such as "formal-ai server listening") stay structured
+ * records on stderr, which Hive Mind never parses, so the established
+ * CLI/health contract is unchanged.
  * Verified against the published crates; see docs/case-studies/issue-2186.
  */
-export const FORMAL_AI_BOOTSTRAP_VERSION = '0.354.1';
+export const FORMAL_AI_BOOTSTRAP_VERSION = '0.355.0';
 
 export const parseFormalAiVersion = stdout => {
   const line = String(stdout || '')

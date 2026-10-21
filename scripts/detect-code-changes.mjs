@@ -50,6 +50,7 @@
 
 import { execSync } from 'child_process';
 import { appendFileSync } from 'fs';
+import { execSyncWithRetry } from '../src/github-operation-retry.lib.mjs'; // Issue #3552: fetches retry transient faults
 
 /**
  * Execute a shell command and return trimmed output
@@ -115,7 +116,7 @@ function ensureShaAvailable(sha, label) {
 
   console.log(`${label} commit ${sha} not available locally, attempting fetch...`);
   try {
-    execSync(`git fetch origin ${sha}`, { stdio: 'inherit' });
+    execSyncWithRetry(`git fetch origin ${sha}`, { stdio: 'inherit' });
   } catch (error) {
     console.log(`Could not fetch ${label} commit ${sha}: ${error.message}`);
   }

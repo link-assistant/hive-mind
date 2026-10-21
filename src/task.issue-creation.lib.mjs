@@ -402,27 +402,7 @@ export async function createTaskIssue({ repository, title, body, issueType = nul
   }
 }
 
-/**
- * Issue #3684: an issue with a fixed title (`/fix --ci-cd`,
- * `/fix --update-all-dependencies`) is one standing task per repository. The
- * newest open issue with exactly that title, or null when there is none or
- * the search fails.
- */
-export async function findOpenIssueWithTitle({ repository, title, run = runCommand }) {
-  const query = `repo:${repository.fullName} is:issue is:open in:title "${String(title).replace(/"/g, ' ')}"`;
-  let result;
-  try {
-    result = await run('gh', ['api', '-X', 'GET', 'search/issues', '-f', `q=${query}`, '-f', 'sort=created', '-f', 'order=desc', '-f', 'per_page=30']);
-  } catch {
-    return null;
-  }
-  if (result?.code !== 0) return null;
-  let items;
-  try {
-    items = JSON.parse(result.stdout?.toString() || '').items;
-  } catch {
-    return null;
-  }
+function firstOpenIssueWithTitle(items, title) {
   if (!Array.isArray(items)) return null;
   const expectedTitle = normalizeIssueText(title);
   for (const issue of items) {
@@ -434,6 +414,34 @@ export async function findOpenIssueWithTitle({ repository, title, run = runComma
     }
   }
   return null;
+}
+
+async function readJson(request) {
+  try {
+    const result = await request();
+    return result?.code === 0 ? JSON.parse(result.stdout?.toString() || '') : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Issue #3684: an issue with a fixed title (`/fix --ci-cd`,
+ * `/fix --update-all-dependencies`) is one standing task per repository. The
+ * newest open issue with exactly that title, or null when there is none or
+ * GitHub cannot be read.
+ *
+ * The newest open issues are listed first: the search index is updated
+ * asynchronously and can miss an issue created seconds ago (a run repeated
+ * right after a kill). The search then finds an older one.
+ */
+export async function findOpenIssueWithTitle({ repository, title, run = runCommand, perPage = 100 }) {
+  const recent = await readJson(() => run('gh', ['api', `repos/${repository.fullName}/issues?state=open&sort=created&direction=desc&per_page=${perPage}`]));
+  const listed = firstOpenIssueWithTitle(recent, title);
+  if (listed) return listed;
+  const query = `repo:${repository.fullName} is:issue is:open in:title "${String(title).replace(/"/g, ' ')}"`;
+  const found = await readJson(() => run('gh', ['api', '-X', 'GET', 'search/issues', '-f', `q=${query}`, '-f', 'sort=created', '-f', 'order=desc', '-f', 'per_page=30']));
+  return firstOpenIssueWithTitle(found?.items, title);
 }
 
 /**

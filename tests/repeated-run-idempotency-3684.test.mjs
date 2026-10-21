@@ -22,8 +22,12 @@ import { REPOSITORY_INITIALIZATION_REQUIRED_MARKER, findCommentWithMarker } from
 const repository = { owner: 'acme', repo: 'widgets', fullName: 'acme/widgets', url: 'https://github.com/acme/widgets' };
 const ok = value => ({ code: 0, stdout: typeof value === 'string' ? value : JSON.stringify(value), stderr: '' });
 
-/** A fake `gh` with open issues, `issue create`, `issue edit` and issue search. */
-function fakeGitHub(openIssues = []) {
+/**
+ * A fake `gh` with open issues, `issue create`, `issue edit`, the issue
+ * listing and issue search. `indexed: false` hides the issues from the search
+ * index, like GitHub does for seconds after an issue was created.
+ */
+function fakeGitHub(openIssues = [], { listed = true, indexed = true } = {}) {
   const issues = [...openIssues];
   const calls = [];
   let next = 50;
@@ -31,8 +35,9 @@ function fakeGitHub(openIssues = []) {
     calls.push([command, ...args]);
     if (args[0] === 'api' && args.includes('search/issues')) {
       const query = args[args.indexOf('-f') + 1];
-      return ok({ items: issues.filter(issue => issue.state === 'open' && query.includes(`"${issue.title}"`)) });
+      return ok({ items: indexed ? issues.filter(issue => issue.state === 'open' && query.includes(`"${issue.title}"`)) : [] });
     }
+    if (args[0] === 'api' && String(args[1]).includes('/issues?state=open')) return ok(listed ? issues.filter(issue => issue.state === 'open').reverse() : []);
     if (args[0] === 'issue' && args[1] === 'create') {
       const number = next++;
       issues.push({ number, title: args[args.indexOf('--title') + 1], body: await readFile(args[args.indexOf('--body-file') + 1], 'utf8'), state: 'open', html_url: `https://github.com/acme/widgets/issues/${number}` });
@@ -77,9 +82,22 @@ test('only an open issue with exactly the same title is reused', async () => {
   assert.equal(await findOpenIssueWithTitle({ repository, title: CI_CD_ISSUE_TITLE, run: gh.run }), null);
 });
 
+test('an issue the search index does not show yet is still found in the listing', async () => {
+  const gh = fakeGitHub([], { indexed: false });
+  const first = await createOrReuseTaskIssue({ repository, title: CI_CD_ISSUE_TITLE, body: 'run 1', run: gh.run });
+  const second = await createOrReuseTaskIssue({ repository, title: CI_CD_ISSUE_TITLE, body: 'run 2', run: gh.run });
+  assert.equal(gh.creates(), 1);
+  assert.equal(second.url, first.url);
+});
+
+test('an older issue beyond the listed page is found by the search', async () => {
+  const gh = fakeGitHub([{ number: 7, title: CI_CD_ISSUE_TITLE, state: 'open', html_url: 'https://github.com/acme/widgets/issues/7' }], { listed: false });
+  assert.equal((await findOpenIssueWithTitle({ repository, title: CI_CD_ISSUE_TITLE, run: gh.run })).number, 7);
+});
+
 test('a failing issue search falls back to creating the issue', async () => {
   const gh = fakeGitHub();
-  const failingSearch = async (command, args) => (args.includes('search/issues') ? { code: 1, stdout: '', stderr: 'HTTP 403: rate limit' } : gh.run(command, args));
+  const failingSearch = async (command, args) => (args.includes('search/issues') || String(args[1]).includes('/issues?state=open') ? { code: 1, stdout: '', stderr: 'HTTP 403: rate limit' } : gh.run(command, args));
   const issue = await createOrReuseTaskIssue({ repository, title: CI_CD_ISSUE_TITLE, body: 'body', run: failingSearch });
   assert.equal(issue.number, 50);
   assert.equal(gh.creates(), 1);

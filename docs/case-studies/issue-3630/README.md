@@ -85,6 +85,7 @@ It also requires that the owning run has finished. The owning job's conclusion g
 - **Pull requests** reuse a recorded pass of the same Formal AI version from any earlier commit of the PR. The reused record keeps the original run, attempt and source SHA, even when a reuse is itself reused.
 - **Retries** apply only to failed rows, with at most `E2E_MAX_ATTEMPTS = 3` per source. The ledger looks back `LEDGER_RUN_ATTEMPTS = 6` attempts.
 - **Main** runs once per merged source through `workflow_run` of "Checks and release". A repeated event for the same SHA is a no-op.
+  - `branches: [main]` also matches a fork pull request whose branch is named main. So `prepare` admits a completion only when it was a push from this repository to main, and it checks that in a job-level `if:` before anything is checked out. Its planning scripts come from the default branch, and only the rows check out the merged source. This fixes CodeQL alert 306.
 - **Schedules and dispatches** always run every row.
 
 **Concurrency.** The group is `e2e-hello-world-<scope>-<PR or SHA or run>` with `cancel-in-progress: false`. Repeated events for one source queue up instead of racing or cancelling a running task.

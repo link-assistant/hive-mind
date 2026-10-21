@@ -1,6 +1,6 @@
 {
   "schemaVersion": 3,
-  "collectedAt": "2026-10-21T10:41:29.692Z",
+  "collectedAt": "2026-10-21T10:44:19.204Z",
   "issueNumber": "3647",
   "prNumber": "3649",
   "branchName": "issue-3647-a36d48dabd35",
@@ -13,7 +13,7 @@
     "solveLog": "./dev/log/issues/3647/pulls/3649/sessions/ses_ea2048f6cffeVTid0x8gn95EsJ/solve.log",
     "solveLogRange": {
       "startByte": 0,
-      "endByte": 2915091
+      "endByte": 3796589
     },
     "sessionFiles": []
   }

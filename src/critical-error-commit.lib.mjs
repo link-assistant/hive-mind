@@ -24,6 +24,8 @@ import { reportError } from './sentry.lib.mjs';
 /** Directories that hold build output in the ecosystems Hive Mind works on. */
 export const BUILD_OUTPUT_DIR_PATTERN = /(^|\/)(target|build|out|bin|obj|dist|node_modules|__pycache__|\.gradle|\.venv|venv|\.next|coverage)\//;
 
+const GIT_QUERY_TIMEOUT_MS = 30 * 1000;
+
 /** The branch that receives the preserved work of `branchName`. */
 export const recoveryBranchFor = branchName => `recovery/${branchName || 'detached-head'}`;
 
@@ -117,7 +119,12 @@ export const commitUncommittedChangesOnCriticalError = async ({ tempDir, branchN
       for (const line of statusOutput.split('\n')) await log(`   ${line}`, { verbose: true });
       return { committed: false, pushed: false };
     }
-    const recoveryBranch = recoveryBranchFor(branchName);
+    // Issue #3656: an error raised before solve.mjs records the branch (the
+    // resume status check) was announced as `recovery/detached-head` while HEAD
+    // sat on the PR branch. Name it after the checked-out branch; still only
+    // push when the caller named the branch.
+    const checkedOutBranch = branchName ? '' : (await $({ cwd: tempDir, signal: AbortSignal.timeout(GIT_QUERY_TIMEOUT_MS) })`git branch --show-current`).stdout?.toString().trim();
+    const recoveryBranch = recoveryBranchFor(branchName || checkedOutBranch);
     await log(`💾 Critical error (${reason}) — preserving uncommitted changes on ${recoveryBranch} (the PR branch is not changed)...`);
     for (const line of statusOutput.split('\n')) await log(`   ${line}`, { verbose: true });
 

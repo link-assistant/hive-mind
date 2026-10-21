@@ -147,7 +147,13 @@ try {
   const mixed = await commitUncommittedChangesOnCriticalError({ tempDir: workspace, branchName: 'issue-3530-6f80c2bef5a1', $, log, push: false });
   assert.equal(mixed.committed, true);
   assert.deepEqual(mixed.preserved, ['README.md'], 'the moved gitlink is not re-recorded on the recovery branch');
-  await run(workspace, `git checkout -q -- README.md && git branch -q -D ${mixed.recoveryBranch}`);
+  await run(workspace, `git branch -q -D ${mixed.recoveryBranch}`);
+  // The failing run raised before solve.mjs recorded the branch, and the log
+  // said `recovery/detached-head` while HEAD was on the PR branch.
+  const unnamed = await commitUncommittedChangesOnCriticalError({ tempDir: workspace, $, log, push: true });
+  assert.equal(unnamed.recoveryBranch, 'recovery/issue-3530-6f80c2bef5a1', 'the recovery branch is named after the checked-out branch');
+  assert.equal(unnamed.pushed, false, 'without a branch from the caller nothing is pushed');
+  await run(workspace, `git checkout -q -- README.md && git branch -q -D ${unnamed.recoveryBranch}`);
 
   // 7. The committed gitlinks are reported with a command that removes them.
   logs.length = 0;

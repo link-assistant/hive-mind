@@ -19,6 +19,7 @@ import { verifyGeneratedWorkflow } from './e2e-workflow.lib.mjs';
 import { detectWorkflowPushRejection, splitE2eVerdict, stagedWorkflowExecution, stagedWorkflowTarget, workflowDirectoryForLayer, workflowPushRejectionResult } from './e2e-matrix-harness.lib.mjs';
 import { buildCustody, deriveOutcome, finalizeE2eTask } from './e2e-task-lifecycle.lib.mjs';
 import { deliveryRecord, keepTail, startCommandRecord, writeEvidenceManifest } from './e2e-evidence.lib.mjs';
+import { ledgerRecord } from './e2e-plan.lib.mjs';
 import { gh as realGh, ghApi, ghJson as realGhJson, ghList } from './github-actions.lib.mjs';
 
 export const E2E_TOOLS = Object.freeze(['claude', 'agent', 'codex']);
@@ -50,7 +51,13 @@ export async function runE2eRow({ tool, model, isolation = 'branch', keep = fals
   chmodSync(hostLogDir, 0o777);
   const commands = [];
   const evidence = { tool, model, isolation, layer: env.AUTOMATION_LAYER || 'default', formalAiTag: env.E2E_FORMAL_AI_TAG || null, scope: env.E2E_SCOPE || null, startedAt: new Date().toISOString(), resources: null, passed: false, commands };
-  const save = () => writeFileSync(join(hostLogDir, 'result.json'), JSON.stringify(evidence, null, 2));
+  // Every save keeps the command records and the manifest current, so a
+  // runner killed mid-session still uploads evidence marked interrupted.
+  const save = () => {
+    writeFileSync(join(hostLogDir, 'result.json'), JSON.stringify(evidence, null, 2));
+    writeFileSync(join(hostLogDir, 'commands.json'), JSON.stringify(commands, null, 2));
+    writeEvidenceManifest(hostLogDir, { commands });
+  };
   const saveCustody = (custody, resource) => writeFileSync(join(hostLogDir, 'custody.json'), JSON.stringify({ custody, resource }, null, 2));
   // Issue #3332: harness failures (rejected workflow push, wrong image, missing
   // credential) are reported apart from the model's assertions.
@@ -229,8 +236,6 @@ export async function runE2eRow({ tool, model, isolation = 'branch', keep = fals
     if (signal?.aborted) evidence.cancelled = true;
     else evidence.finishedAt = new Date().toISOString();
     save();
-    writeFileSync(join(hostLogDir, 'commands.json'), JSON.stringify(commands, null, 2));
-    writeEvidenceManifest(hostLogDir, { commands });
   }
   // Finalization runs in its own `if: always()` step in CI, after the evidence
   // is uploaded; a local run finalizes here unless the task is kept.
@@ -291,4 +296,33 @@ export function rowExitCode(evidence, { scope = null } = {}) {
   if (evidence?.passed) return 0;
   if (scope === 'pull-request' && evidence?.verdict?.harness === true && !evidence.cancelled) return 0;
   return 1;
+}
+
+/**
+ * The finalize step of a row job: finalize the task unless it is kept, then
+ * write the row's ledger record to `ledgerDir` when the run has a ledger
+ * scope. A finalization that throws is reported as failed, never skipped.
+ *
+ * @returns {Promise<{outcome: string, finalization: object, record: object|null, lines: string[]}>}
+ */
+export async function finalizeAndRecord({ hostLogDir, ledgerDir, env = process.env, deps = {}, now = new Date() }) {
+  const evidence = readJson(join(hostLogDir, 'result.json'));
+  const owned = readJson(join(hostLogDir, 'custody.json'));
+  const jobStatus = env.E2E_JOB_STATUS || null;
+  let finalization;
+  try {
+    finalization = env.E2E_KEEP === 'true' ? { outcome: null, failed: false, errors: [], retainedBranches: [], actions: ['kept for inspection (E2E_KEEP)'] } : await finalizeRow({ hostLogDir, jobStatus, env, deps });
+  } catch (error) {
+    finalization = { outcome: null, failed: true, errors: [error.message], retainedBranches: [], actions: [] };
+  }
+  const outcome = finalization.outcome || deriveOutcome({ evidence, jobStatus });
+  const [tool, model] = [env.E2E_TOOL || evidence?.tool, env.E2E_MODEL || evidence?.model];
+  let record = null;
+  if (env.E2E_SCOPE_KEY && tool && model) {
+    mkdirSync(ledgerDir, { recursive: true });
+    record = ledgerRecord({ tool, model, scope: env.E2E_SCOPE, scopeKey: env.E2E_SCOPE_KEY, outcome, formalAiTag: env.E2E_FORMAL_AI_TAG, pullRequest: env.E2E_PULL_REQUEST ? Number(env.E2E_PULL_REQUEST) : null, custody: owned?.custody || { runId: env.GITHUB_RUN_ID, runAttempt: String(env.GITHUB_RUN_ATTEMPT || '1'), sourceRepository: env.GITHUB_REPOSITORY, sourceSha: env.E2E_SOURCE_SHA || env.GITHUB_SHA }, issueUrl: evidence?.issueUrl || null, pullRequestUrl: evidence?.pullRequestUrl || null, attempt: Number(env.E2E_ATTEMPT || 1), now });
+    writeFileSync(join(ledgerDir, 'ledger.json'), JSON.stringify(record, null, 2));
+  }
+  const lines = [`### Finalized ${tool}/${model}: \`${outcome}\``, '', ...finalization.actions.map(action => `- ${action}`), ...finalization.errors.map(error => `- ❌ ${error}`), ...finalization.retainedBranches.map(branch => `- ⚠️ retained \`${branch}\``), ''];
+  return { outcome, finalization, record, lines, tool, model };
 }

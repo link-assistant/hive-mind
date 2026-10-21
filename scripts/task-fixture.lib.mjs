@@ -26,6 +26,12 @@ export async function createBranchFixture({ repository, baseBranch, readme, titl
   const resource = { repository, baseBranch, branches: [] };
   const root = `repos/${repository}`;
   const key = custody ? custodyKey(custody) : null;
+  // Finalization removes the base ref, so the ref is no lock after it: the
+  // closed task itself proves the attempt already ran.
+  if (key && list) {
+    const prior = await findOwnedTask({ root, key, list });
+    if (prior?.finalized) throw new Error(`Task ${key} was already finalized in #${prior.issue.number}; a repeated event does not run it again.`);
+  }
   const blob = await api(`${root}/git/blobs`, { method: 'POST', body: { content: readme, encoding: 'utf-8' } });
   const tree = await api(`${root}/git/trees`, { method: 'POST', body: { tree: [{ path: 'README.md', mode: '100644', type: 'blob', sha: blob.sha }] } });
   const message = key ? `Initialize isolated task\n\nE2E-Custody: ${key}` : 'Initialize isolated task';
@@ -64,13 +70,10 @@ async function adoptBranchFixture({ repository, baseBranch, key, api, list, onRe
   if (!list) throw new Error(`Fixture branch ${baseBranch} already exists for ${key}, and no issue lister was given to find its task.`);
   const deadline = Date.now() + lockWaitMs;
   for (;;) {
-    const issues = await list(`${root}/issues?labels=e2e-task&state=all&sort=created&direction=desc&per_page=100`);
-    const owned = issues.filter(issue => !issue.pull_request && parseCustody(issue.body) && custodyKey(parseCustody(issue.body)) === key);
-    if (owned.length) {
-      const issue = owned.reduce((oldest, candidate) => (candidate.number < oldest.number ? candidate : oldest));
-      if (issue.state === 'closed') throw new Error(`Task ${key} was already finalized in #${issue.number}; a repeated event does not run it again.`);
-      const comments = await list(`${root}/issues/${issue.number}/comments?per_page=100`);
-      if (comments.some(comment => parseMarker(comment?.body, FINALIZED_MARKER)?.key === key)) throw new Error(`Task ${key} was already finalized in #${issue.number}; a repeated event does not run it again.`);
+    const owned = await findOwnedTask({ root, key, list });
+    if (owned) {
+      const { issue } = owned;
+      if (owned.finalized) throw new Error(`Task ${key} was already finalized in #${issue.number}; a repeated event does not run it again.`);
       const resource = { repository, baseBranch, branches: [baseBranch], issueNumber: issue.number, issueUrl: issue.html_url, custodyKey: key, reused: true };
       onResource(resource);
       return resource;
@@ -78,6 +81,17 @@ async function adoptBranchFixture({ repository, baseBranch, key, api, list, onRe
     if (Date.now() >= deadline) return recreate();
     await wait(pollMs);
   }
+}
+
+/** The oldest task issue of a custody, and whether it is already finalized. */
+async function findOwnedTask({ root, key, list }) {
+  const issues = await list(`${root}/issues?labels=e2e-task&state=all&sort=created&direction=desc&per_page=100`);
+  const owned = issues.filter(issue => !issue.pull_request && parseCustody(issue.body) && custodyKey(parseCustody(issue.body)) === key);
+  if (!owned.length) return null;
+  const issue = owned.reduce((oldest, candidate) => (candidate.number < oldest.number ? candidate : oldest));
+  if (issue.state === 'closed') return { issue, finalized: true };
+  const comments = await list(`${root}/issues/${issue.number}/comments?per_page=100`);
+  return { issue, finalized: comments.some(comment => parseMarker(comment?.body, FINALIZED_MARKER)?.key === key) };
 }
 
 /** Every operation is attempted; deletion-rule retention is reported separately. */

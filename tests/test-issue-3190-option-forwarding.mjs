@@ -18,7 +18,7 @@ import { buildOptionTokenIndex, partitionRawCliArgs, forwardRawCliArgs, buildArg
 import { getManualResumeSolveCliArgs, getPreservedSolveCliArgs, SOLVE_CLI_OPTION_DEFINITIONS, SOLVE_AUTO_RELAUNCH_CONTROLLED_OPTIONS, SOLVE_MANUAL_RESUME_CONTROLLED_OPTIONS, SOLVE_RELAUNCH_STATE_OPTIONS } from '../src/solve.forwarded-args.lib.mjs';
 import { SOLVE_OPTION_DEFINITIONS, parseArguments } from '../src/solve.config.lib.mjs';
 import { getSolvePassthroughOptionNames } from '../src/hive.config.lib.mjs';
-import { buildSolveResumeCommand } from '../src/solve.resume-command.lib.mjs';
+import { buildSolveResumeCommand, buildSolveResumeCommandFromArgv } from '../src/solve.resume-command.lib.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SRC = path.resolve(__dirname, '..', 'src');
@@ -191,12 +191,20 @@ await test('auto-resume relaunch replays preserved options and no longer drops -
 });
 
 await test('every buildSolveResumeCommand call passes the preserved options', () => {
+  // Issue #2843: solve.mjs and gemini.lib.mjs build resume commands through
+  // buildSolveResumeCommandFromArgv, which forwards argv._solveResumeExtraArgs.
+  const helper = fs.readFileSync(path.join(SRC, 'solve.resume-command.lib.mjs'), 'utf8');
+  assert(helper.includes('extraArgs: argv?._solveResumeExtraArgs'), 'buildSolveResumeCommandFromArgv forwards the preserved options');
   for (const file of ['solve.mjs', 'gemini.lib.mjs']) {
     const source = fs.readFileSync(path.join(SRC, file), 'utf8');
-    const calls = source.match(/buildSolveResumeCommand\(\{[^}]*\}\)/g) || [];
-    assert(calls.length > 0, `${file}: no buildSolveResumeCommand calls found`);
-    for (const call of calls) assert(call.includes('extraArgs: argv._solveResumeExtraArgs'), `${file}: ${call}`);
+    const direct = source.match(/buildSolveResumeCommand\(\{[^}]*\}\)/g) || [];
+    for (const call of direct) assert(call.includes('extraArgs: argv._solveResumeExtraArgs'), `${file}: ${call}`);
+    const viaArgv = source.match(/buildSolveResumeCommandFromArgv\(\{[^}]*\}\)/g) || [];
+    assert(direct.length + viaArgv.length > 0, `${file}: no solve resume command calls found`);
+    for (const call of viaArgv) assert(/\{ argv\b/.test(call), `${file}: ${call}`);
   }
+  const command = buildSolveResumeCommandFromArgv({ argv: { 'issue-url': 'https://github.com/o/r/issues/1', tool: 'codex', _solveResumeExtraArgs: ['--auto-merge'] }, sessionId: 'session-1' });
+  assert(command.includes('--auto-merge'), command);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

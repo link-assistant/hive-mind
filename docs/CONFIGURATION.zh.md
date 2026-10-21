@@ -129,6 +129,7 @@ Telegram 机器人部署不会让 Formal AI 常驻运行。请求 `--model forma
 | `HIVE_MIND_FORMAL_AI_PREFETCH`              | `false`  | 设为 `true` 时，无论主机是否使用 Formal AI 都拉取并更新镜像，且不删除。                                                          |
 | `HIVE_MIND_FORMAL_AI_UPDATE_CHECK_INTERVAL` | `1h`     | 两次向镜像仓库检查新镜像之间的最短间隔。                                                                                         |
 | `HIVE_MIND_FORMAL_AI_PRIVILEGED`            | `0`      | 以 `--privileged` 运行容器。默认无需开启：容器只提供 HTTP，并通过 `DIND_SKIP_DAEMON=1` 跳过内部 Docker 守护进程。                |
+| `HIVE_MIND_FORMAL_AI_SIDECAR_LOG_KEEP`      | `50`     | bot 日志目录中保留多少个 `formal-ai-sidecar-<start>.log` 文件（每次 `docker rm` 前保存的 sidecar stdout）。`0` 关闭归档。        |
 
 更新绝不会盲目替换镜像。它会执行 pull、比较摘要，并遵循 Formal AI 持久化内存升级契约（[formal-ai#982](https://github.com/link-assistant/formal-ai/issues/982)）：先运行无副作用的 `memory upgrade-status` 预检，再执行带逐字节备份与回执的 `memory migrate`，然后启动新镜像并要求 `/health` 报告内存兼容。迁移之后的任何失败都会按回执恢复备份并保留原镜像。详见 [issue #2146 案例研究](case-studies/issue-2146/README.md)。
 

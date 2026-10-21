@@ -99,7 +99,7 @@ const provenanceOfTask = async ({ sidecar, baseUrl, hostEnv, workdir }) => {
 test('an accepted update is the backend that serves, and is named by, every later task', async () => {
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hive-formal-ai-2209-'));
   const workdir = fs.mkdtempSync(path.join(os.tmpdir(), 'hive-formal-ai-2209-task-'));
-  const env = { HIVE_MIND_STATE_DIR: stateDir };
+  const env = { HIVE_MIND_STATE_DIR: stateDir, HIVE_MIND_LOG_DIR: path.join(stateDir, 'logs') };
   try {
     const docker = makeDocker();
     const options = { env, run: docker.run, ...fast };

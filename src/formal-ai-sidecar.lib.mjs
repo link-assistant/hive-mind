@@ -47,9 +47,10 @@ import { dockerExecFileAsync } from './docker-pull-detached.lib.mjs';
 import { FORMAL_AI_MINIMUM_VERSION, isFormalAiVersionAtLeast } from './formal-ai-version.lib.mjs';
 import { ensureFormalAiSidecarImage, readAcceptedFormalAiImage, readFormalAiImageCommand, resolveFormalAiSidecarImage } from './formal-ai-image.lib.mjs';
 import { isFormalAiModel } from './formal-ai-model.lib.mjs';
+import { archiveFormalAiSidecarLogs, checkFormalAiSidecarLogging } from './formal-ai-sidecar-logs.lib.mjs';
 import { getModelFromArgs } from './model-args.lib.mjs';
 import { withStateLock } from './state-lock.lib.mjs';
-import { attachDockerNetwork, DEFAULT_IMAGE_TIMEOUT_MS, describeLeaseLauncher, dockerOk, dockerText, ensureDockerVolume, ensureInternalDockerNetwork, inspectDockerContainer, readDockerContainerAddress, readDockerImageDigest, readSidecarState, reconcileSidecarLeases, resolveSidecarStatePath, sleep, writeSidecarState } from './docker-sidecar.lib.mjs';
+import { attachDockerNetwork, DEFAULT_IMAGE_TIMEOUT_MS, describeLeaseLauncher, dockerErrorMessage, dockerOk, dockerText, ensureDockerVolume, ensureInternalDockerNetwork, inspectDockerContainer, readDockerContainerAddress, readDockerImageDigest, readSidecarState, reconcileSidecarLeases, resolveSidecarStatePath, sleep, writeSidecarState } from './docker-sidecar.lib.mjs';
 
 const execFileAsync = dockerExecFileAsync;
 
@@ -118,9 +119,11 @@ const DEFAULT_HEALTH_DELAY_MS = 1000;
  * provenance of the container that last answered a lease (issue #2208). Neither
  * is derivable from `image`/`imageDigest`, which are only a cache of whatever is
  * running right now. `lastUsedAt` is when a Formal AI task last held a lease;
- * it gates idle updates and the image unload (issue #2305).
+ * it gates idle updates and the image unload (issue #2305). `loggingWarning` is
+ * what the running sidecar reported about its own logs at startup (issue #3583),
+ * kept so every later lease on the same sidecar hears it too.
  */
-const EMPTY_STATE = Object.freeze({ version: 1, image: null, imageReference: null, imageDigest: null, startedAt: null, leases: [], lastUpdate: null, serving: null, lastUsedAt: null });
+const EMPTY_STATE = Object.freeze({ version: 1, image: null, imageReference: null, imageDigest: null, startedAt: null, leases: [], lastUpdate: null, serving: null, lastUsedAt: null, loggingWarning: null });
 
 /**
  * True when a task will be driven by Formal AI.
@@ -207,20 +210,96 @@ export const readFormalAiSidecarAddress = async ({ containerName = FORMAL_AI_SID
  */
 export const ensureFormalAiNetwork = async ({ run = execFileAsync, timeoutMs, log = null, verbose = false } = {}) => ensureInternalDockerNetwork({ name: FORMAL_AI_SIDECAR_NETWORK_NAME, label: FORMAL_AI_SIDECAR_LABEL, run, timeoutMs, log, verbose, logPrefix: LOG_PREFIX });
 
+/** The user the image runs `formal-ai` as, and therefore the owner the memory volume needs. */
+export const FORMAL_AI_MEMORY_OWNER = 'box';
+
 /**
- * Create the persisted-memory volume if it is missing and hand it to the
- * container's `box` user.
+ * Shell run as `box` inside a throwaway container: report the mount's owner,
+ * whether `box` can write it, and the first entry `box` does not own. POSIX
+ * `find -user` and `stat -c` only, so it works on the slim and the DinD image.
+ */
+const MEMORY_PROBE_SCRIPT = ['dir="$1"', 'echo "owner=$(stat -c %u:%g "$dir" 2>/dev/null || echo unknown)"', 'if [ -w "$dir" ]; then echo writable=yes; else echo writable=no; fi', 'foreign=$(find "$dir" ! -user "$(id -u)" 2>/dev/null | head -n 1)', 'if [ -n "$foreign" ]; then echo "foreign=$(stat -c %u:%g "$foreign" 2>/dev/null || echo unknown) $foreign"; fi', 'exit 0'].join('\n');
+
+/** `docker run` argv of the ownership probe. Exported so tests can assert the contract. */
+export const buildFormalAiMemoryProbeArgs = ({ image }) => ['run', '--rm', '--network', 'none', '--user', FORMAL_AI_MEMORY_OWNER, '--volume', `${FORMAL_AI_MEMORY_VOLUME_NAME}:${FORMAL_AI_MEMORY_MOUNT}`, '--entrypoint', 'sh', image, '-c', MEMORY_PROBE_SCRIPT, 'sh', FORMAL_AI_MEMORY_MOUNT];
+
+/**
+ * `docker run` argv that hands the whole volume to `box`, as upstream's own
+ * upgrade fixture does. Explicitly root: an image whose `USER` is `box` would
+ * otherwise run the chown as the very user that cannot take the volume back.
+ */
+export const buildFormalAiMemoryChownArgs = ({ image }) => ['run', '--rm', '--network', 'none', '--user', '0:0', '--volume', `${FORMAL_AI_MEMORY_VOLUME_NAME}:${FORMAL_AI_MEMORY_MOUNT}`, '--entrypoint', 'chown', image, '-R', `${FORMAL_AI_MEMORY_OWNER}:${FORMAL_AI_MEMORY_OWNER}`, FORMAL_AI_MEMORY_MOUNT];
+
+/** Parse the probe's `key=value` lines. `ok` is true only when `box` can write the mount and owns everything in it. */
+export const parseFormalAiMemoryProbe = text => {
+  const lines = String(text ?? '').split('\n');
+  const value = key => {
+    const line = lines.find(entry => entry.startsWith(`${key}=`));
+    return line === undefined ? null : line.slice(key.length + 1).trim();
+  };
+  const owner = value('owner');
+  const writable = value('writable');
+  const foreignRaw = value('foreign');
+  const foreignSplit = foreignRaw ? foreignRaw.indexOf(' ') : -1;
+  const foreign = foreignRaw ? { owner: foreignSplit < 0 ? foreignRaw : foreignRaw.slice(0, foreignSplit), path: foreignSplit < 0 ? null : foreignRaw.slice(foreignSplit + 1) } : null;
+  if (!owner || !writable) return { ok: false, known: false, owner: null, writable: null, foreign: null };
+  return { ok: writable === 'yes' && !foreign, known: true, owner, writable: writable === 'yes', foreign };
+};
+
+/** Run the ownership probe; a probe that cannot run is reported as unknown, never thrown. */
+export const probeFormalAiMemoryVolume = async ({ image, run = execFileAsync, timeoutMs } = {}) => {
+  try {
+    return { ...parseFormalAiMemoryProbe(await dockerText(run, buildFormalAiMemoryProbeArgs({ image }), { timeoutMs })), error: null };
+  } catch (error) {
+    return { ok: false, known: false, owner: null, writable: null, foreign: null, error: dockerErrorMessage(error) };
+  }
+};
+
+/** What was wrong with the volume, in the words of the issue #3583 log line. */
+const describeMemoryProbe = probe => {
+  if (!probe.known) return `of unknown ownership (${probe.error || 'the probe printed nothing'})`;
+  if (!probe.writable) return `owned by ${probe.owner}`;
+  return `owned by ${probe.owner} but held ${probe.foreign?.path ?? 'an entry'} owned by ${probe.foreign?.owner ?? 'another user'}`;
+};
+
+/**
+ * Create the persisted-memory volume if it is missing and make sure the
+ * container's `box` user can write it.
+ *
+ * Issue #3583: the ownership used to be seeded only when this function created
+ * the volume, so a volume left root-owned by an older Hive Mind (or by a chown
+ * that failed) stayed unwritable forever, and Formal AI silently kept neither
+ * logs nor memory for two months. Ownership is therefore checked on every call
+ * — one throwaway container running as `box` — and repaired with the same
+ * `chown -R` only when the check fails, so a large healthy volume is never
+ * walked by `chown`.
  *
  * Never removed anywhere in this module: it is the memory that must survive
  * task boundaries, sidecar stops, image replacement and rollback.
+ *
+ * @returns {Promise<{created: boolean, checked: boolean, fixed: boolean, writable: boolean|null, owner: string|null}>}
  */
 export const ensureFormalAiMemoryVolume = async ({ image, run = execFileAsync, timeoutMs, log = null, verbose = false } = {}) => {
   const result = await ensureDockerVolume({ name: FORMAL_AI_MEMORY_VOLUME_NAME, label: FORMAL_AI_SIDECAR_LABEL, role: 'memory', run, timeoutMs, log, verbose, logPrefix: LOG_PREFIX });
-  if (!result.created) return result;
-  // A fresh named volume is root-owned; the image runs application commands as
-  // `box`, so seed the ownership exactly as upstream's own upgrade fixture does.
-  await dockerOk(run, ['run', '--rm', '--volume', `${FORMAL_AI_MEMORY_VOLUME_NAME}:${FORMAL_AI_MEMORY_MOUNT}`, '--entrypoint', 'chown', image, '-R', 'box:box', FORMAL_AI_MEMORY_MOUNT], { timeoutMs });
-  return result;
+  if (!image) return { ...result, checked: false, fixed: false, writable: null, owner: null };
+
+  const before = await probeFormalAiMemoryVolume({ image, run, timeoutMs });
+  if (before.ok) {
+    if (verbose && log) await log(`[VERBOSE] ${LOG_PREFIX}: memory volume '${FORMAL_AI_MEMORY_VOLUME_NAME}' is owned by ${before.owner} and writable by ${FORMAL_AI_MEMORY_OWNER}`);
+    return { ...result, checked: true, fixed: false, writable: true, owner: before.owner };
+  }
+
+  // A fresh named volume is root-owned, so this branch is also the normal path
+  // right after creation.
+  const chowned = await dockerOk(run, buildFormalAiMemoryChownArgs({ image }), { timeoutMs });
+  const after = await probeFormalAiMemoryVolume({ image, run, timeoutMs });
+  if (after.ok) {
+    if (log && !result.created) await log(`[formal-ai] memory volume was ${describeMemoryProbe(before)}; fixed`);
+    else if (verbose && log) await log(`[VERBOSE] ${LOG_PREFIX}: handed the new memory volume '${FORMAL_AI_MEMORY_VOLUME_NAME}' to ${FORMAL_AI_MEMORY_OWNER} (${after.owner})`);
+    return { ...result, checked: true, fixed: true, writable: true, owner: after.owner };
+  }
+  if (log) await log(`⚠️ [formal-ai] memory volume '${FORMAL_AI_MEMORY_VOLUME_NAME}' is ${describeMemoryProbe(after)} and ${FORMAL_AI_MEMORY_OWNER} cannot write it (chown ${chowned ? 'ran' : 'failed'}); Formal AI will keep no logs or memory`);
+  return { ...result, checked: true, fixed: false, writable: after.known ? after.writable : null, owner: after.owner };
 };
 
 /**
@@ -348,6 +427,9 @@ export const stopFormalAiSidecar = async ({ env = process.env, fsImpl = fs, run 
   const container = await inspectDockerContainer(FORMAL_AI_SIDECAR_CONTAINER_NAME, { run, timeoutMs });
   if (container.exists) {
     await dockerOk(run, ['stop', FORMAL_AI_SIDECAR_CONTAINER_NAME], { timeoutMs });
+    // Issue #3583: `docker rm` is the end of the sidecar's stdout, so it is
+    // copied out first — after `stop`, so the copy holds the shutdown too.
+    await archiveFormalAiSidecarLogs({ containerName: FORMAL_AI_SIDECAR_CONTAINER_NAME, env, fsImpl, run, timeoutMs, log, verbose });
     // `--volumes` removes anonymous volumes only; the named memory volume is
     // never touched by it (issue #2305).
     await dockerOk(run, ['rm', '--force', '--volumes', FORMAL_AI_SIDECAR_CONTAINER_NAME], { timeoutMs });
@@ -355,7 +437,7 @@ export const stopFormalAiSidecar = async ({ env = process.env, fsImpl = fs, run 
   await dockerOk(run, ['network', 'rm', FORMAL_AI_SIDECAR_NETWORK_NAME], { timeoutMs });
 
   const state = await readFormalAiSidecarState({ env, fsImpl });
-  await writeFormalAiSidecarState({ ...state, startedAt: null, leases: [] }, { env, fsImpl });
+  await writeFormalAiSidecarState({ ...state, startedAt: null, leases: [], loggingWarning: null }, { env, fsImpl });
   if (log) await log(`🛑 Formal AI sidecar stopped (${reason}); memory volume '${FORMAL_AI_MEMORY_VOLUME_NAME}' preserved`);
   if (verbose && log) await log(`[VERBOSE] formal-ai-sidecar: removed container=${container.exists} network='${FORMAL_AI_SIDECAR_NETWORK_NAME}'`);
   return { stopped: container.exists };
@@ -378,7 +460,9 @@ export const acquireFormalAiSidecar = async ({ sessionId, tool = null, model = n
       let container = await inspectDockerContainer(FORMAL_AI_SIDECAR_CONTAINER_NAME, { run, timeoutMs });
       if (container.exists && !container.running) {
         // A stopped container may predate an image change; recreate instead of
-        // resurrecting an unknown revision.
+        // resurrecting an unknown revision. It may also be the one that crashed,
+        // so its stdout is kept first (issue #3583).
+        await archiveFormalAiSidecarLogs({ containerName: FORMAL_AI_SIDECAR_CONTAINER_NAME, env, fsImpl, run, timeoutMs, log, verbose });
         await dockerOk(run, ['rm', '--force', '--volumes', FORMAL_AI_SIDECAR_CONTAINER_NAME], { timeoutMs });
         container = { exists: false, running: false, image: null, imageDigest: null };
       }
@@ -398,9 +482,13 @@ export const acquireFormalAiSidecar = async ({ sessionId, tool = null, model = n
       const imageReference = resolved.reference || image;
 
       await ensureFormalAiNetwork({ run, timeoutMs, log, verbose });
-      await ensureFormalAiMemoryVolume({ image, run, timeoutMs, log, verbose });
+      // Ownership is checked on every *start* (issue #3583), not on every lease:
+      // a running sidecar already has the volume mounted, and a throwaway
+      // container per task would buy nothing.
+      const startingSidecar = !container.exists;
+      await ensureFormalAiMemoryVolume({ image: startingSidecar ? image : null, run, timeoutMs, log, verbose });
 
-      if (!container.exists) {
+      if (startingSidecar) {
         if (log) await log(`🧠 Starting the Formal AI sidecar (${imageReference}${imageReference === image ? '' : ` @ ${image}`}, ${resolved.source}) on the internal network '${FORMAL_AI_SIDECAR_NETWORK_NAME}'`);
         const command = await readFormalAiImageCommand(image, { run, timeoutMs });
         await dockerText(run, buildFormalAiSidecarRunArgs({ image, env, command }), { timeoutMs });
@@ -423,6 +511,19 @@ export const acquireFormalAiSidecar = async ({ sessionId, tool = null, model = n
         throw new Error(`Formal AI sidecar image ${imageReference} (${resolved.source}) runs formal-ai ${reportedVersion}, but Hive Mind requires >= ${FORMAL_AI_MINIMUM_VERSION}. Rebuild or repin the image (HIVE_MIND_FORMAL_AI_IMAGE) before running Formal AI tasks.`);
       }
 
+      // Issue #3583: Formal AI reports a log or memory file it cannot write on
+      // its own stdout and keeps serving, so a healthy /health says nothing
+      // about it. Read the first lines of a sidecar this call started; a
+      // sidecar that was already running keeps the verdict of its own start.
+      let loggingWarning = startingSidecar ? null : (state.loggingWarning ?? null);
+      if (startingSidecar) {
+        const logging = await checkFormalAiSidecarLogging({ containerName: FORMAL_AI_SIDECAR_CONTAINER_NAME, memoryVolume: FORMAL_AI_MEMORY_VOLUME_NAME, memoryMount: FORMAL_AI_MEMORY_MOUNT, run, timeoutMs });
+        loggingWarning = logging.warning;
+        if (verbose && log && logging.error) await log(`[VERBOSE] ${LOG_PREFIX}: could not read the sidecar's startup log: ${logging.error}`);
+        if (verbose && log && logging.failures?.firstLine) await log(`[VERBOSE] ${LOG_PREFIX}: first logging failure: ${logging.failures.firstLine}`);
+      }
+      if (loggingWarning && log) await log(`⚠️ ${loggingWarning}`);
+
       const address = await readFormalAiSidecarAddress({ run, timeoutMs });
       const acquiredAt = now().toISOString();
       const nextLeases = [...leases.filter(lease => lease.sessionId !== sessionId), { sessionId, tool, model, acquiredAt, launcher: describeLeaseLauncher() }];
@@ -438,7 +539,7 @@ export const acquireFormalAiSidecar = async ({ sessionId, tool = null, model = n
         acceptedAt: accepted?.updatedAt ?? null,
         observedAt: acquiredAt,
       };
-      await writeFormalAiSidecarState({ ...state, image: container.image || image, imageReference, imageDigest: container.imageDigest, startedAt: state.startedAt || acquiredAt, leases: nextLeases, serving, lastUsedAt: acquiredAt }, { env, fsImpl });
+      await writeFormalAiSidecarState({ ...state, image: container.image || image, imageReference, imageDigest: container.imageDigest, startedAt: state.startedAt || acquiredAt, leases: nextLeases, serving, lastUsedAt: acquiredAt, loggingWarning }, { env, fsImpl });
 
       if (verbose && log) await log(`[VERBOSE] formal-ai-sidecar: lease '${sessionId}' acquired (${nextLeases.length} active), image=${imageReference} (${resolved.source}), digest=${container.imageDigest ?? 'unknown'}, address=${address ?? 'unknown'}, formal-ai=${reportedVersion ?? 'unknown'}, memory schema=${serving.memorySchemaVersion ?? 'not reported'}`);
 
@@ -460,6 +561,7 @@ export const acquireFormalAiSidecar = async ({ sessionId, tool = null, model = n
         servingVersion: reportedVersion,
         memorySchemaVersion: serving.memorySchemaVersion,
         health: health.health,
+        loggingWarning,
         leaseCount: nextLeases.length,
       };
     },
@@ -517,6 +619,7 @@ export default {
   inspectDockerContainer,
   isFormalAiSidecarEnabled,
   isFormalAiTask,
+  probeFormalAiMemoryVolume,
   readAcceptedFormalAiImage,
   readDockerImageDigest,
   readFormalAiSidecarAddress,

@@ -5,6 +5,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 
 const release = readFileSync(new URL('../.github/workflows/release.yml', import.meta.url), 'utf8');
@@ -61,4 +62,21 @@ test('the matrix is callable with an explicit scope and runs once per merged sou
   assert.match(matrix.slice(finalize, finalize + 200), /if: always\(\) && steps\.plan\.outputs\.action == 'run'/);
   assert.match(matrix, /E2E_JOB_STATUS: \$\{\{ job\.status \}\}/);
   assert.match(matrix, /E2E_DEFER_FINALIZE: 'true'/);
+});
+
+// CodeQL alert 306: `branches: [main]` also matches a fork's branch named main,
+// and prepare ran the scripts of the completion's head before admitting it.
+test('a completion is admitted before anything runs, and only for a push to this repository', () => {
+  const prepare = jobs(matrix).prepare;
+  const condition = prepare.match(/^ {4}if: (.*)$/m)[1];
+  for (const clause of ["github.event.workflow_run.event == 'push'", 'github.event.workflow_run.head_repository.full_name == github.repository', "github.event.workflow_run.head_branch == 'main'"]) assert.ok(condition.includes(clause), `prepare requires ${clause}`);
+  assert.doesNotMatch(prepare, /workflow_run\.head_sha/, 'prepare runs the default branch scripts, never the completion head');
+});
+
+test('a fork pull request from a branch named main does not run the matrix', { timeout: 10_000 }, () => {
+  const probe = upstream => JSON.parse(execFileSync(process.execPath, ['--experimental-vm-modules', 'experiments/issue-2324/matrix-schedule-probe.mjs', 'workflow_run-success'], { encoding: 'utf8', env: { ...process.env, PROBE_UPSTREAM: JSON.stringify(upstream) }, stdio: ['ignore', 'pipe', 'pipe'] }));
+  const fork = probe({ event: 'pull_request', head_repository: { full_name: 'attacker/repo' } });
+  assert.match(fork.output, /should_run=false/);
+  assert.deepEqual(fork.logs, ['::notice title=E2E matrix skipped::Matrix skips: shipped Formal AI 0.352.1; Checks and release run 37983302098 concluded success on main (pull_request from attacker/repo, not a push to owner/repo)']);
+  assert.match(probe({}).output, /should_run=true/, 'a push to main of this repository runs');
 });

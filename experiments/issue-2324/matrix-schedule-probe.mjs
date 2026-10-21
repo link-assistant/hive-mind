@@ -66,7 +66,9 @@ const logs = [];
 const env = { GITHUB_REPOSITORY: 'owner/repo', GITHUB_EVENT_NAME: 'schedule', GITHUB_OUTPUT: '/tmp/output', GITHUB_STEP_SUMMARY: '/tmp/summary', E2E_METADATA_DIR: '/tmp/result' };
 if (scenario.startsWith('workflow_run-')) {
   Object.assign(env, { GITHUB_EVENT_NAME: 'workflow_run', GITHUB_EVENT_PATH: '/tmp/event.json' });
-  files.set('/tmp/event.json', JSON.stringify({ workflow_run: { id: 37983302098, name: 'Checks and release', conclusion: scenario.slice('workflow_run-'.length), head_branch: 'main' } }));
+  // PROBE_UPSTREAM overrides fields of the triggering run, e.g. a fork's pull request (issue #3630).
+  const upstream = { id: 37983302098, name: 'Checks and release', conclusion: scenario.slice('workflow_run-'.length), event: 'push', head_branch: 'main', head_repository: { full_name: 'owner/repo' }, ...JSON.parse(process.env.PROBE_UPSTREAM || '{}') };
+  files.set('/tmp/event.json', JSON.stringify({ workflow_run: upstream }));
 }
 const context = vm.createContext({ process: { env }, console: { log: line => logs.push(line) } });
 const script = new vm.SourceTextModule(readFileSync(new URL('../../scripts/e2e-matrix-schedule.mjs', import.meta.url), 'utf8'), { context });

@@ -84,6 +84,14 @@ test('the recorded fixtures exist and keep what is missing or truncated', () => 
     assert.ok(Array.isArray(fixture.evidence.missing), `${fixture.name} lists missing evidence`);
     // Run 39505806192 predates delivery.json and commands.json; that is stated, not hidden.
     if (fixture.source.runId === '39505806192') assert.deepEqual(fixture.evidence.missing, ['commands.json', 'delivery.json']);
+    // Later runs record everything; only solve's own session files are placeholders.
+    else {
+      assert.deepEqual(fixture.evidence.missing, [], `${fixture.name} has complete evidence`);
+      assert.ok(
+        fixture.evidence.placeholders.every(path => path.startsWith('dev/log/')),
+        `${fixture.name} rebuilds every answer file`
+      );
+    }
     if (fixture.session.log.truncated) assert.match(fixture.session.log.text, /\[replay: \d+ bytes of the session log omitted; \d+ oracle lines kept\]/);
   }
 });

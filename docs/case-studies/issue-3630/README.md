@@ -8,10 +8,10 @@
 
 ## Collected data
 
-| File                                                               | What it is                                                                                                                             |
-| ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
-| [`formal-ai-sweep-dry-run.log`](./formal-ai-sweep-dry-run.log)     | A read-only dry run of the new sweep against formal-ai: every issue it would finalize, and the proof it found                          |
-| [`tests/fixtures/e2e-replay/`](../../../tests/fixtures/e2e-replay) | Redacted replays derived from the four rows of run [39505806192](https://github.com/link-assistant/hive-mind/actions/runs/39505806192) |
+| File                                                               | What it is                                                                                                                                                                                                                                                                   |
+| ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`formal-ai-sweep-dry-run.log`](./formal-ai-sweep-dry-run.log)     | A read-only dry run of the new sweep against formal-ai: every issue it would finalize, and the proof it found                                                                                                                                                                |
+| [`tests/fixtures/e2e-replay/`](../../../tests/fixtures/e2e-replay) | Redacted replays derived from the four rows of run [39505806192](https://github.com/link-assistant/hive-mind/actions/runs/39505806192) and the three Formal AI rows of the live gate run [39570491388](https://github.com/link-assistant/hive-mind/actions/runs/39570491388) |
 
 ## Timeline
 
@@ -146,7 +146,26 @@ node scripts/e2e-derive-replay.mjs --run /tmp/e2e-art --delivery-dir /tmp/e2e-ba
 | Real E2E runs only after the other checks; PR passes are reused; retries are bounded; main runs once | `tests/e2e-gate-3630.test.mjs` and `tests/e2e-plan-3630.test.mjs`                                  |
 | Evidence is complete, with missing and truncated markers, and is redacted                            | `tests/e2e-evidence-3630.test.mjs`                                                                 |
 | Replays are deterministic and use the same oracles                                                   | `tests/e2e-replay-3630.test.mjs` and `tests/e2e-oracles-3630.test.mjs`                             |
-| One live three-client run after all other checks, with its issues closed                             | The `real-e2e` job on PR 3631. The run links and closed issues are listed in the PR description.   |
+| One live three-client run after all other checks, with its issues closed                             | Run 39570491388 on PR 3631; see [Live run](#live-run) below.                                       |
+
+## Live run
+
+The `real-e2e` job of [run 39570491388](https://github.com/link-assistant/hive-mind/actions/runs/39570491388), at source `e96f162aa`, started only after every other job of "Checks and release" had succeeded. `prepare` planned all three Formal AI rows as "run (no recorded pass)" against the shipped Formal AI 0.355.0, and skipped `agent / nemotron-3-super-free` as outside the PR gate. Pipeline Status concluded `success`.
+
+| Row                  | Task issue                                                       | Pull request                                                   | Outcome  | Closed                 |
+| -------------------- | ---------------------------------------------------------------- | -------------------------------------------------------------- | -------- | ---------------------- |
+| `codex / formal-ai`  | [#3638](https://github.com/link-assistant/hive-mind/issues/3638) | [#3640](https://github.com/link-assistant/hive-mind/pull/3640) | `passed` | completed, 09:22:51Z   |
+| `claude / formal-ai` | [#3641](https://github.com/link-assistant/hive-mind/issues/3641) | [#3643](https://github.com/link-assistant/hive-mind/pull/3643) | `failed` | not planned, 09:17:41Z |
+| `agent / formal-ai`  | [#3639](https://github.com/link-assistant/hive-mind/issues/3639) | [#3642](https://github.com/link-assistant/hive-mind/pull/3642) | `failed` | not planned, 09:43:27Z |
+
+Each issue got exactly one `hive-mind:e2e-finalized` comment from job `hello-world` of the owning run, and afterwards no `e2e-task` issue was open in hive-mind.
+
+The two failures are Formal AI session failures. The harness verdicts (image version, workflow push, ready for review) passed in both rows:
+
+- **claude (Kotlin).** `kotlinc` was not installed. Formal AI's prerequisite installer then refused to install Java with `dependency_probe_missing`, and the session ended with "Final tool result failed: Exit code 1". The PR kept only the placeholder.
+- **agent (Scala).** The session wrote `Main.scala`, `ci/` and `tests/` but never committed them. Solve's auto-restart on uncommitted changes stopped after 5 of 5 iterations, so the PR had no workflow and no checks.
+
+The three rows became fixtures `39570491388-*-formal-ai.json`. Their evidence is complete: nothing is missing, and the only placeholders are solve's own `dev/log/` session files. They replay to the recorded verdicts with no oracle exceptions.
 
 ## Limitations
 

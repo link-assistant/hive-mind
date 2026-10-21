@@ -409,7 +409,7 @@ assert.ok(TOOL_GENERATED_COMMENT_MARKERS.includes(FINISHED_WITHOUT_CHANGES_MARKE
   // #3330: solve never announces 🎉 SUCCESS for a run it could not verify.
   const results = readFileSync(new URL('../src/solve.results.lib.mjs', import.meta.url), 'utf8');
   assert.match(results, /if \(effectUnverified\) await log\([^)]*could not be verified[^)]*\);\s*else if \(!noChanges\) await log\('\\n🎉 SUCCESS/);
-  const e2e = readFileSync(new URL('../scripts/e2e-hello-world.mjs', import.meta.url), 'utf8');
+  const e2e = readFileSync(new URL('../scripts/e2e-row.lib.mjs', import.meta.url), 'utf8');
   assert.match(e2e, /forwardEnv: \[[^\]]*'GITHUB_ACTIONS'/);
 }
 

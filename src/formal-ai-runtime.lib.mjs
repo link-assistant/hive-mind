@@ -88,6 +88,16 @@ export const FORMAL_AI_SIDECAR_PROVENANCE_ENV = Object.freeze({
   imageSource: 'HIVE_MIND_FORMAL_AI_SIDECAR_SOURCE',
 });
 
+/**
+ * Carries the sidecar's startup logging warning into the task container
+ * (issue #3583): the sidecar's stdout is only visible to the bot, so without
+ * this the solve log never learns that the dialogs of the session are lost.
+ */
+export const FORMAL_AI_SIDECAR_WARNING_ENV = 'HIVE_MIND_FORMAL_AI_SIDECAR_WARNING';
+
+/** The leased sidecar's logging warning, or null (issue #3583). */
+export const readFormalAiSidecarWarning = (env = process.env) => String(env[FORMAL_AI_SIDECAR_WARNING_ENV] || '').trim() || null;
+
 export const resolveFormalAiApiKey = (env = process.env) => env.FORMAL_AI_API_KEY?.trim() || FORMAL_AI_DEFAULT_API_KEY;
 
 /**
@@ -761,6 +771,8 @@ export const prepareFormalAiRuntime = async ({ tool, workdir, log = async () => 
     // Before any client configuration is written, ask the endpoint who it is.
     const backend = await resolveFormalAiBackend({ baseUrl, apiKey, env, deps, startedLocally: !!server });
     await log(`🧠 Formal AI: serving backend ${describeFormalAiBackend(backend)}`);
+    const sidecarWarning = readFormalAiSidecarWarning(env);
+    if (sidecarWarning) await log(`⚠️ ${sidecarWarning}`, { level: 'warn' });
     if (backend.version !== formalAiWrapperVersion) {
       await log(`🧠 Formal AI: local wrapper ${formalAiWrapperVersion} differs from the serving backend ${backend.version}; provenance records the backend`, { verbose: true });
     }

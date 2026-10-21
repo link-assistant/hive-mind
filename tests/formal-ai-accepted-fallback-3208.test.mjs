@@ -47,7 +47,7 @@ after(() => {
 const makeEnv = (extra = {}) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hive-formal-ai-3208-'));
   stateDirs.push(dir);
-  return { HIVE_MIND_STATE_DIR: dir, HIVE_MIND_IMAGE_VARIANT: 'dind', ...extra };
+  return { HIVE_MIND_STATE_DIR: dir, HIVE_MIND_LOG_DIR: path.join(dir, 'logs'), HIVE_MIND_IMAGE_VARIANT: 'dind', ...extra };
 };
 
 /** A daemon stub that also answers `formal-ai --version` inside a local image. */

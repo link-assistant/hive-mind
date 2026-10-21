@@ -15,8 +15,16 @@
  * registry-only `docker buildx imagetools inspect`, and the anonymous volumes
  * an image `VOLUME` leaks when nothing is mounted over it.
  *
+ * Issue #3583 added volume ownership and stdout: a named volume is created
+ * root-owned, as by the real daemon; the `--user box` probe and the `chown`
+ * container read and change it; a sidecar started on a volume `box` cannot
+ * write prints Formal AI's real `logging_failure` records, while one on a
+ * writable volume writes `memory.lino` and `logs/` into it; and `docker logs`
+ * returns what the container printed until it is removed.
+ *
  * @see https://github.com/link-assistant/hive-mind/issues/2146
  * @see https://github.com/link-assistant/hive-mind/issues/2305
+ * @see https://github.com/link-assistant/hive-mind/issues/3583
  * @hive-mind-test-skip
  */
 
@@ -38,6 +46,19 @@ const flagValue = (args, flag) => {
 const VALUE_FLAGS = new Set(['--name', '--label', '-l', '--network', '--network-alias', '--restart', '--env', '-e', '--volume', '-v', '--entrypoint', '--user', '-u', '--workdir', '-w', '--publish', '-p', '--tmpfs', '--mount']);
 
 const FORMAL_AI_REPOSITORY = 'ghcr.io/link-assistant/formal-ai';
+
+/** uid:gid of `box` in the published images. */
+export const BOX_OWNER = '1001:1001';
+/** What a fresh named volume is owned by. */
+export const ROOT_OWNER = '0:0';
+
+/** Formal AI 0.354.1's own records (issue #3583 gist), as printed on stdout. */
+export const FORMAL_AI_LOGGING_FAILURE_LINES = Object.freeze([
+  '[dind-entrypoint] DIND_SKIP_DAEMON=1: not starting a nested dockerd',
+  '(formal-ai-log-v1 (object (field component (string structured_log)) (field dialog_id (null)) (field kind (string logging_failure)) (field level (string error)) (field message (string logging_failed_check_log_directory_permissions_and_space)) (field pid (number 1)) (field reason (string file_write_failed)) (field schema (string formal-ai-diagnostic-v1)) (field sequence (number 2)) (field timestamp_precision (string nanoseconds))))',
+  '(formal-ai-log-v1 (object (field component (string formal_ai%3A%3Aserver%3A%3Atransport)) (field dialog_id (null)) (field kind (string native_diagnostic)) (field level (string debug)) (field message (string formal-ai%20server%20listening%20on%20http%3A//0.0.0.0%3A8080)) (field metadata (object)) (field pid (number 1)) (field schema (string formal-ai-diagnostic-v1)) (field sequence (number 3)) (field timestamp_precision (string nanoseconds))))',
+]);
+export const FORMAL_AI_HEALTHY_LINES = Object.freeze(['[dind-entrypoint] DIND_SKIP_DAEMON=1: not starting a nested dockerd', '(formal-ai-log-v1 (object (field component (string formal_ai%3A%3Aserver%3A%3Atransport)) (field dialog_id (null)) (field kind (string native_diagnostic)) (field level (string debug)) (field message (string formal-ai%20server%20listening%20on%20http%3A//0.0.0.0%3A8080)) (field metadata (object)) (field pid (number 1)) (field schema (string formal-ai-diagnostic-v1)) (field sequence (number 1)) (field timestamp_precision (string nanoseconds))))']);
 
 /** `repo:tag` → `repo` (a registry port is not a tag). */
 const repositoryOf = reference => {
@@ -79,9 +100,10 @@ const imageOf = args => {
  * @param {object|null} [options.registry] - Reference → image ID the registry serves. When set, `docker buildx imagetools inspect` answers from it and `docker pull` installs it; when null the command is unsupported, as on a host without buildx.
  * @param {object} [options.sizes] - Image ID → bytes (default 24 GB each).
  * @param {string[]} [options.imageVolumes] - `VOLUME` paths of every image; each one not mounted over becomes an anonymous volume.
+ * @param {boolean} [options.probeFails] - Make the `--user box` ownership probe exit nonzero, as on an image without `sh`.
  * @returns {object} `{ run, calls, containers, networks, volumes, images, createContainer, ... }`
  */
-export const createDockerSimulator = ({ images = {}, pull = {}, health = DEFAULT_HEALTH, memory = {}, memorySha256 = null, pullError = null, registry = null, sizes = {}, imageVolumes = [] } = {}) => {
+export const createDockerSimulator = ({ images = {}, pull = {}, health = DEFAULT_HEALTH, memory = {}, memorySha256 = null, pullError = null, registry = null, sizes = {}, imageVolumes = [], probeFails = false } = {}) => {
   const simulator = {
     calls: [],
     containers: new Map(),
@@ -100,6 +122,10 @@ export const createDockerSimulator = ({ images = {}, pull = {}, health = DEFAULT
     repoDigests: new Map(),
     sizes: new Map(Object.entries(sizes)),
     nextAnonymousVolume: 1,
+    // Volume name → { owner, foreign: [{path, owner}], files: Set }.
+    volumeData: new Map(),
+    probeFails,
+    nextStartSecond: 0,
   };
   for (const [reference, digest] of Object.entries(images)) if (repositoryOf(reference) === FORMAL_AI_REPOSITORY) simulator.repoDigests.set(digest, new Set([`${FORMAL_AI_REPOSITORY}@${manifestDigestOf(digest)}`]));
 
@@ -107,9 +133,24 @@ export const createDockerSimulator = ({ images = {}, pull = {}, health = DEFAULT
   simulator.sizeOf = id => simulator.sizes.get(id) ?? 24_000_000_000;
   simulator.anonymousVolumes = () => [...simulator.volumes].filter(name => name.startsWith('anonymous-'));
 
+  /** Ownership and content of a named volume, created on first use. */
+  simulator.volumeOf = name => {
+    if (!simulator.volumeData.has(name)) simulator.volumeData.set(name, { owner: ROOT_OWNER, foreign: [], files: new Set() });
+    return simulator.volumeData.get(name);
+  };
+  /** Pretend a volume already exists, e.g. one an older Hive Mind left root-owned. */
+  simulator.seedVolume = (name, { owner = BOX_OWNER, foreign = [], files = [] } = {}) => {
+    simulator.volumes.add(name);
+    simulator.volumeData.set(name, { owner, foreign: [...foreign], files: new Set(files) });
+    return simulator.volumeData.get(name);
+  };
+  const isWritableByBox = volume => volume.owner === BOX_OWNER && volume.foreign.length === 0;
+  /** Append to a container's stdout. */
+  simulator.appendLog = (name, ...lines) => simulator.containers.get(name)?.logs.push(...lines);
+
   /** Pretend a task container was created by start-command. */
   simulator.createContainer = (name, { image = 'ghcr.io/link-assistant/isolation:latest', running = true } = {}) => {
-    simulator.containers.set(name, { image, imageDigest: simulator.images.get(image) ?? 'sha256:task', running, networks: new Map() });
+    simulator.containers.set(name, { image, imageDigest: simulator.images.get(image) ?? 'sha256:task', running, networks: new Map(), logs: [], startedAt: null });
     return simulator.containers.get(name);
   };
 
@@ -161,6 +202,7 @@ export const createDockerSimulator = ({ images = {}, pull = {}, health = DEFAULT
     const container = simulator.containers.get(args[1]);
     if (!container) fail(`Error: No such object: ${args[1]}`);
     const format = args[3] ?? '';
+    if (format.includes('State.StartedAt')) return container.startedAt ?? '0001-01-01T00:00:00Z';
     if (format.includes('NetworkSettings.Networks')) return container.networks.get(format.match(/"([^"]+)"/)?.[1] ?? '') ?? '';
     return `${container.running}|${container.image}|${container.imageDigest}`;
   };
@@ -199,19 +241,45 @@ export const createDockerSimulator = ({ images = {}, pull = {}, health = DEFAULT
     }
     if (subcommand === 'create') {
       simulator.volumes.add(name);
+      simulator.volumeOf(name);
       return name;
     }
     if (subcommand === 'rm') {
       simulator.volumes.delete(name);
+      simulator.volumeData.delete(name);
       return name;
     }
     return fail(`unsupported: docker ${args.join(' ')}`);
   };
 
+  /** The named volume mounted by a `docker run` argv, if any. */
+  const namedVolumeOf = args => {
+    const spec = flagValue(args, '--volume') ?? flagValue(args, '-v');
+    const name = spec?.split(':')[0];
+    return name && simulator.volumes.has(name) ? simulator.volumeOf(name) : null;
+  };
+
   /** `docker run --rm …`: the throwaway containers the updater uses on the memory volume. */
   const handleEphemeralRun = args => {
     const entrypoint = flagValue(args, '--entrypoint');
-    if (entrypoint === 'chown' || entrypoint === 'sh') return '';
+    const volume = namedVolumeOf(args);
+    if (entrypoint === 'chown') {
+      if (volume) {
+        volume.owner = BOX_OWNER;
+        volume.foreign = [];
+      }
+      return '';
+    }
+    if (entrypoint === 'sh' && flagValue(args, '--user') === 'box') {
+      // The ownership probe of issue #3583.
+      if (simulator.probeFails) fail('docker: Error response from daemon: unable to find user box: no matching entries in passwd file');
+      if (!volume) return 'owner=0:0\nwritable=no';
+      const lines = [`owner=${volume.owner}`, `writable=${volume.owner === BOX_OWNER ? 'yes' : 'no'}`];
+      const foreign = volume.owner === BOX_OWNER ? volume.foreign[0] : null;
+      if (foreign) lines.push(`foreign=${foreign.owner} ${foreign.path}`);
+      return lines.join('\n');
+    }
+    if (entrypoint === 'sh') return '';
     if (entrypoint === 'sha256sum') {
       if (!simulator.memorySha256) fail('sha256sum: no such file or directory');
       return `${simulator.memorySha256}  ${args[args.length - 1]}`;
@@ -247,7 +315,12 @@ export const createDockerSimulator = ({ images = {}, pull = {}, health = DEFAULT
     for (const volume of anonymousVolumes) simulator.volumes.add(volume);
     // `{{.Config.Image}}` echoes the reference the container was created from,
     // so a container booted by digest reports the digest.
-    simulator.containers.set(name, { image, imageDigest: digest, running: true, networks: new Map(), labels: args.flatMap((arg, index) => (arg === '--label' ? [args[index + 1]] : [])), anonymousVolumes });
+    // Formal AI writes its memory and logs as box, or reports that it cannot.
+    const volume = namedVolumeOf(args);
+    const writable = !volume || isWritableByBox(volume);
+    if (volume && writable) for (const file of ['memory.lino', 'logs/']) volume.files.add(file);
+    const startedAt = new Date(Date.UTC(2026, 9, 20, 8, 0, simulator.nextStartSecond++)).toISOString().replace('Z', '123456Z');
+    simulator.containers.set(name, { image, imageDigest: digest, running: true, networks: new Map(), labels: args.flatMap((arg, index) => (arg === '--label' ? [args[index + 1]] : [])), anonymousVolumes, logs: [...(writable ? FORMAL_AI_HEALTHY_LINES : FORMAL_AI_LOGGING_FAILURE_LINES)], startedAt });
     const network = flagValue(args, '--network');
     if (network) attach(network, name);
     return `${name}-id`;
@@ -346,6 +419,14 @@ export const createDockerSimulator = ({ images = {}, pull = {}, health = DEFAULT
       const payload = typeof simulator.health === 'function' ? simulator.health(referenceOf(container.image), container.imageDigest) : simulator.health;
       if (!payload) fail('curl: (7) Failed to connect');
       return { stdout: JSON.stringify(payload) };
+    }
+    if (args[0] === 'logs') {
+      const name = args[args.length - 1];
+      const container = simulator.containers.get(name);
+      if (!container) fail(`Error response from daemon: No such container: ${name}`);
+      const tail = flagValue(args, '--tail');
+      const lines = tail === null ? container.logs : container.logs.slice(-Number(tail));
+      return { stdout: lines.map(line => (args.includes('--timestamps') ? `${container.startedAt ?? '2026-10-20T08:00:00.000000Z'} ${line}` : line)).join('\n') + (lines.length ? '\n' : '') };
     }
     if (args[0] === 'stop') {
       const container = simulator.containers.get(args[1]);

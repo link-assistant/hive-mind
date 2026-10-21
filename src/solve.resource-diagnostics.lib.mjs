@@ -85,7 +85,11 @@ function parseKeyedCounters(text) {
  *
  * @param {Function} [readFileSync]
  * @param {string} [platform]
- * @returns {{version: number, path: string, limitBytes: number|null, currentBytes: number|null, peakBytes: number|null, oomEvents: number|null, oomKills: number|null}|null}
+ * Issue #2838: also reports the swap the cgroup may use. `swapLimitBytes` is
+ * `memory.swap.max` (v2) or `memsw.limit - limit` (v1); 0 means no swap even
+ * when the host has a swap file, and `null` means no swap limit of its own.
+ *
+ * @returns {{version: number, path: string, limitBytes: number|null, currentBytes: number|null, peakBytes: number|null, swapLimitBytes: number|null, swapCurrentBytes: number|null, oomEvents: number|null, oomKills: number|null}|null}
  */
 export function readCgroupMemory(readFileSync = fs.readFileSync, platform = process.platform) {
   if (platform !== 'linux' || typeof readFileSync !== 'function') return null;
@@ -103,6 +107,8 @@ export function readCgroupMemory(readFileSync = fs.readFileSync, platform = proc
       limitBytes: parseCgroupBytes(max),
       currentBytes: parseCgroupBytes(current),
       peakBytes: parseCgroupBytes(readTextFile(readFileSync, `${dir}/memory.peak`)),
+      swapLimitBytes: parseCgroupBytes(readTextFile(readFileSync, `${dir}/memory.swap.max`)), // hive-sync-ok: cgroupfs read served from memory, no disk wait
+      swapCurrentBytes: parseCgroupBytes(readTextFile(readFileSync, `${dir}/memory.swap.current`)), // hive-sync-ok: cgroupfs read served from memory, no disk wait
       oomEvents: finiteNumber(events.oom),
       oomKills: finiteNumber(events.oom_kill),
     };
@@ -112,13 +118,21 @@ export function readCgroupMemory(readFileSync = fs.readFileSync, platform = proc
   if (limit === null) return null;
   const limitBytes = parseCgroupBytes(limit);
   const oomControl = parseKeyedCounters(readTextFile(readFileSync, `${v1}/memory.oom_control`));
+  // cgroup v1 reports "no limit" as a page-rounded LONG_MAX.
+  const finiteLimit = value => (Number.isFinite(value) && value < 2 ** 60 ? value : null);
+  const memLimit = finiteLimit(limitBytes);
+  const currentBytes = parseCgroupBytes(readTextFile(readFileSync, `${v1}/memory.usage_in_bytes`));
+  // memsw counts memory + swap together; swap alone is the difference.
+  const memswLimit = finiteLimit(parseCgroupBytes(readTextFile(readFileSync, `${v1}/memory.memsw.limit_in_bytes`))); // hive-sync-ok: cgroupfs read served from memory, no disk wait
+  const memswUsage = parseCgroupBytes(readTextFile(readFileSync, `${v1}/memory.memsw.usage_in_bytes`)); // hive-sync-ok: cgroupfs read served from memory, no disk wait
   return {
     version: 1,
     path: v1,
-    // cgroup v1 reports "no limit" as a page-rounded LONG_MAX.
-    limitBytes: Number.isFinite(limitBytes) && limitBytes < 2 ** 60 ? limitBytes : null,
-    currentBytes: parseCgroupBytes(readTextFile(readFileSync, `${v1}/memory.usage_in_bytes`)),
+    limitBytes: memLimit,
+    currentBytes,
     peakBytes: parseCgroupBytes(readTextFile(readFileSync, `${v1}/memory.max_usage_in_bytes`)),
+    swapLimitBytes: memswLimit !== null && memLimit !== null ? Math.max(0, memswLimit - memLimit) : null,
+    swapCurrentBytes: Number.isFinite(memswUsage) && Number.isFinite(currentBytes) ? Math.max(0, memswUsage - currentBytes) : null,
     oomEvents: null,
     oomKills: finiteNumber(oomControl.oom_kill),
   };

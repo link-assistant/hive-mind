@@ -20,6 +20,7 @@ import { getCachedClaudeLimits, getCachedCodexLimits, getCachedGitHubLimits, get
 import { formatWaitingReason } from './telegram-solve-queue.helpers.lib.mjs';
 import { QUEUE_CONFIG } from './queue-config.lib.mjs';
 import { lt } from './limits-i18n.lib.mjs';
+import { computeFairCpuUsage, formatFairCpuUsage, getCappedTaskCpu } from './queue-fair-cpu-gate.lib.mjs';
 
 /**
  * Normalize the locale argument, which callers pass either as a bare string or
@@ -103,10 +104,14 @@ export async function checkSystemResources(queue, totalProcessing = 0, options =
     const cpuCount = cpuResult.cpuLoad.cpuCount;
     // Calculate usage ratio: loadAvg5 / cpuCount
     // Load average of 1.0 per CPU = 100% utilization
-    const usageRatio = loadAvg5 / cpuCount;
+    // Issue #3048: the CPU a capped Docker task already uses is reserved for
+    // it, so one task busy at its own --cpus cap does not close the gate.
+    const cappedTasks = await (queue.getCappedTaskCpuFn || getCappedTaskCpu)(queue.verbose, { hostCpus: cpuCount });
+    const fairCpu = computeFairCpuUsage({ loadAvg5, cpuCount, tasks: cappedTasks?.tasks || [] });
+    const usageRatio = fairCpu.effectiveRatio;
     const usagePercent = Math.min(100, Math.round(usageRatio * 100));
     if (queue.verbose) {
-      queue.log(`CPU 5m load avg: ${loadAvg5.toFixed(2)}, cpus: ${cpuCount}, usage: ${usagePercent}%`);
+      queue.log(`CPU 5m load avg: ${loadAvg5.toFixed(2)}, cpus: ${cpuCount}, usage: ${usagePercent}%${formatFairCpuUsage(fairCpu)}`);
     }
     if (usageRatio >= QUEUE_CONFIG.thresholds.cpu.value) {
       const reason = formatWaitingReason('cpu', usagePercent, QUEUE_CONFIG.thresholds.cpu.value, { locale });

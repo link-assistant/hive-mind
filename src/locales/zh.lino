@@ -310,6 +310,7 @@ zh
         started "已启动"
         starting "正在启动"
         waiting "等待中"
+      untracked "{{count}} 个未跟踪"
       waiting
         current
           command "等待当前命令"
@@ -712,6 +713,7 @@ zh
       recovered
         oom "已从内存不足中恢复"
         kill "已从强制终止中恢复"
+        count "OOM 终止 {{count}} 次"
         at "事件发生于 {{observedAt}}；工作会话继续运行并已完成。"
         resumed "已启动新的工作会话以从终止中恢复。"
       kill
@@ -729,6 +731,11 @@ zh
     error
       executing
         command "❌ 执行 {{commandName}} 命令时出错"
+    queue
+      restored
+        title "♻️ 机器人已重启；已从 {{source}} 恢复 {{count}} 个排队任务，将按顺序启动："
+        running "▶️ {{count}} 个任务已在运行，保持不变："
+        more "… 还有 {{count}} 个"
   language
     en "英语"
     ru "俄语"

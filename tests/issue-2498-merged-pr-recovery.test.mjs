@@ -121,17 +121,14 @@ test('a session killed after its pull request merged is neither recovered nor of
   assert.doesNotMatch(run.completion, /out of memory|To resume|solve --resume|recovering/i);
 });
 
-test('with the pull request still open, a survived OOM event is described without claiming a recovery', { timeout: 15000 }, async () => {
+// Issue #2809: a survived OOM event is reported on GitHub when it happens (while
+// the session runs), never after the session finished well; Telegram keeps it.
+test('with the pull request still open, a survived OOM event is not reported on GitHub after a clean finish', { timeout: 15000 }, async () => {
   const run = await runCompletion({ exitCode: 0, pullRequestState: OPEN });
   assert.equal(run.launches.length, 0);
-  assert.equal(run.comments.length, 1, 'the open pull request still learns about the OOM event (issue #2134)');
-  const [notice] = run.comments;
-  assert.doesNotMatch(notice, /recovered from out of memory/);
-  assert.match(notice, /Work session completed — an earlier container OOM event did not stop it/);
-  assert.match(notice, /No recovery was needed/);
-  assert.match(notice, /OOM event observed at:\*\* 2026-10-06T06:23:56.266Z/);
+  assert.equal(run.comments.length, 0, `no OOM comment after the work finished well (issue #2809):\n${run.comments.join('\n---\n')}`);
   assert.equal(run.uploads.length, 0, 'solve already published its own final log; no duplicate "killed session" log');
-  assert.doesNotMatch(notice, /intermediate working-session log/i);
+  assert.match(run.completion, /recovered from out of memory/i, 'Telegram still reports the OOM event post-factum');
 });
 
 test('a killed session with an open pull request is still recovered (behaviour preserved)', { timeout: 15000 }, async () => {

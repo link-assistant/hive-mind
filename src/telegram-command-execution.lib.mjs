@@ -140,7 +140,7 @@ export function buildExecuteAndUpdateMessage(deps) {
       sessionInfo = markLaunchPending({ ...baseSessionInfo, isolationBackend: iso.backend, sessionId: session });
       trackSession(session, sessionInfo, VERBOSE);
       await safeEdit(formatStartingWorkSessionMessage({ sessionName: session, isolationBackend: iso.backend, infoBlock, locale }));
-      result = await iso.runner.executeWithIsolation(commandName, args, { backend: iso.backend, sessionId: session, tool, verbose: VERBOSE, containerResourceLimits: selectContainerResourceLimitsForBackend(iso.backend, CONTAINER_RESOURCE_LIMITS) });
+      result = await iso.runner.executeWithIsolation(commandName, args, { backend: iso.backend, sessionId: session, tool, taskUrl: baseSessionInfo.url || null, verbose: VERBOSE, containerResourceLimits: selectContainerResourceLimitsForBackend(iso.backend, CONTAINER_RESOURCE_LIMITS) });
       if (result.success && sessionInfo) {
         markLaunchCompleted(sessionInfo);
         if (Number.isFinite(result.containerFilesystemStartBytes)) sessionInfo.containerFilesystemStartBytes = result.containerFilesystemStartBytes;

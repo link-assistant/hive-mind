@@ -229,7 +229,7 @@ export async function startKillRecoverySession({ sessionName, sessionInfo, plan,
       newSessionId = runner.generateSessionId();
       const tool = sessionInfo?.tool || 'claude';
       const binary = launchCommand.binary || sessionInfo?.command || 'solve';
-      const launchOptions = { backend, sessionId: newSessionId, tool, verbose, containerResourceLimits: sessionInfo?.containerResourceLimits?.requested || null };
+      const launchOptions = { backend, sessionId: newSessionId, tool, taskUrl: sessionInfo?.url || null, verbose, containerResourceLimits: sessionInfo?.containerResourceLimits?.requested || null };
       const appendTo = await resolveAppendAttemptExecution({ sessionInfo, runner, verbose });
       let result = await runner.executeWithIsolation(binary, launchCommand.args, appendTo ? { ...launchOptions, executionId: appendTo, appendAttempt: true } : launchOptions);
       appendedAttempt = Boolean(appendTo && result?.success);
@@ -294,6 +294,10 @@ export async function startKillRecoverySession({ sessionName, sessionInfo, plan,
         // the task's last container is removed.
         killRecoverySnapshotImages: inPlace.resumed && inPlace.snapshotImage ? [...(sessionInfo?.killRecoverySnapshotImages || []), inPlace.snapshotImage] : sessionInfo?.killRecoverySnapshotImages,
         oomEventObservedAt: undefined,
+        // Issue #2809/#3435: once-only reports belong to one session; the OOM
+        // kill count (and its cgroup baseline) carries on with the work.
+        oomEventReportedAt: undefined,
+        killRecoveryOutcomeReportedAt: undefined,
         dockerBackendGoneFirstSeenAt: undefined,
         // The recovery session has not been recovered itself (yet) (#2408).
         killRecoverySessionId: undefined,

@@ -5,6 +5,7 @@ import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 const earlyArgs = process.argv.slice(2);
 const { handleSolveEarlyExit, resolveStartupLogDirectory } = await import('./solve.bootstrap.lib.mjs');
 await handleSolveEarlyExit(earlyArgs);
+(await import('./tool-shell-oom-score.lib.mjs')).armToolShellOomScoreAdj(); // Issue #3125: AI tool shells, not the CLI, are OOM-killed first
 const use = (globalThis.use = await ensureUseM());
 const { $: __rawDollar$ } = await use('command-stream');
 const { configureGitHubRateLimitLogging, wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');

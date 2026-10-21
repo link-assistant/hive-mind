@@ -27,7 +27,7 @@ const RECOVERY_LAUNCH_WINDOW_MS = 10 * 60 * 1000;
  * @param {(sessionName: string, sessionInfo: object, verbose?: boolean) => boolean} deps.isNonIsolationSessionActive
  * @param {(sessionName: string, sessionInfo: object, options?: object) => Promise<object>} deps.getIsolationSessionState
  * @param {(sessionName: string) => Promise<boolean>} deps.checkScreenSessionExists
- * @returns {{hasActiveSessionForUrl: Function, findOtherActiveSessionForUrl: Function, findStoppableSessionByUrl: Function, hasActiveSessionForUrlAsync: Function, getRunningTrackedIsolationSessions: Function, getRunningSessionItems: Function, getSessionStats: Function}}
+ * @returns {{hasActiveSessionForUrl: Function, findOtherActiveSessionForUrl: Function, findStoppableSessionByUrl: Function, hasActiveSessionForUrlAsync: Function, getRunningTrackedIsolationSessions: Function, getRunningSessionItems: Function, getSessionStats: Function, listTrackedSessionEntries: Function}}
  */
 export function createSessionRegistryQueries({ activeSessions, normalizeSessionUrl, isNonIsolationSessionActive, getIsolationSessionState, checkScreenSessionExists }) {
   // Issue #3532: a recovery between its duplicate check and its tracked launch.
@@ -353,5 +353,14 @@ export function createSessionRegistryQueries({ activeSessions, normalizeSessionU
     };
   }
 
-  return { hasActiveSessionForUrl, findOtherActiveSessionForUrl, findStoppableSessionByUrl, hasActiveSessionForUrlAsync, getRunningTrackedIsolationSessions, getRunningSessionItems, getSessionStats };
+  /**
+   * Issue #3048: a snapshot of every tracked session, for the queue's fair CPU
+   * gate, which reads each Docker task's `--cpus` cap and CPU samples.
+   * @returns {Array<{sessionName: string, sessionInfo: object}>}
+   */
+  function listTrackedSessionEntries() {
+    return Array.from(activeSessions, ([sessionName, sessionInfo]) => ({ sessionName, sessionInfo }));
+  }
+
+  return { hasActiveSessionForUrl, findOtherActiveSessionForUrl, findStoppableSessionByUrl, hasActiveSessionForUrlAsync, getRunningTrackedIsolationSessions, getRunningSessionItems, getSessionStats, listTrackedSessionEntries };
 }

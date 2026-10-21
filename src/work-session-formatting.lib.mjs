@@ -199,7 +199,7 @@ export function insertInfoBlockUrlLine(infoBlock, line, { locale = null } = {}) 
 }
 
 // Issue #2303: the diagnosed kill cause, named in the headline.
-const KILL_CAUSE_LABELS = { 'out-of-memory': 'out of memory', 'disk-full': 'disk full', 'forced-kill': 'forced kill', 'host-reboot': 'host restarted' };
+const KILL_CAUSE_LABELS = { 'out-of-memory': 'out of memory', 'disk-full': 'disk full', 'forced-kill': 'forced kill', 'host-reboot': 'host restarted', 'docker-daemon-restart': 'Docker daemon restart' };
 
 /** @telegram-markdown Telegram legacy-Markdown text (issue #3505). */
 export function formatSessionCompletionMessage({ sessionName, sessionInfo, statusResult = null, observedEndTime = new Date(), exitCode = null, infoBlock = '', pullRequestUrl = null, pullRequestState = null, extraSections = [], locale = null, resumedAs = null, recoveryCount = null, launchUnobserved = false, killCause = null } = {}) {
@@ -228,7 +228,7 @@ export function formatSessionCompletionMessage({ sessionName, sessionInfo, statu
     // the recovery session edits this message again when it actually ends.
     // Issue #2408: that is a warning, not a failure and not a neutral state.
     statusEmojiOverride = '⚠️';
-    if (killed && !signal) {
+    if (killed && (!signal || killCause === 'docker-daemon-restart')) {
       // Issue #2303: a kill without a signal exit has no real exit code (the 1 is a sentinel), so name the kill and its cause.
       const causeLabel = KILL_CAUSE_LABELS[killCause] || null;
       const causeSuffix = causeLabel ? ` (${causeLabel})` : '';
@@ -282,7 +282,8 @@ export function formatSessionCompletionMessage({ sessionName, sessionInfo, statu
     const exitSuffix = showCode ? ` (exit code: ${finalExitCode})` : '';
     // Issue #2303: a kill without a signal exit (container removed from under the session) names its diagnosed cause.
     const causeLabel = KILL_CAUSE_LABELS[killCause] || null;
-    const reason = signal ? signal.reason : causeLabel ? `killed (${causeLabel})` : 'killed';
+    // Issue #2892: a Docker daemon restart SIGKILLs the container; say so instead of "out of memory or forced kill".
+    const reason = signal && killCause === 'docker-daemon-restart' ? `killed by Docker daemon restart (${signal.signal})` : signal ? signal.reason : causeLabel ? `killed (${causeLabel})` : 'killed';
     statusText = text(messageLocale, 'telegram.work_session_killed', `Work session ${reason}${exitSuffix}`, { reason, exitCode: finalExitCode ?? '', signal: signal?.signal ?? '', exitSuffix });
   } else if (sessionInfo?.command === 'hive' && (finalExitCode === EXIT_CODE_HIVE_NO_WORK || finalExitCode === EXIT_CODE_HIVE_INCOMPLETE)) {
     statusEmojiOverride = '⚠️';

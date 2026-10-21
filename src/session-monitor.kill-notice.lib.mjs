@@ -38,11 +38,24 @@ function noticeArguments({ pullRequestUrl, sessionName, sessionInfo, killReport,
     recovered: killReport.recovered,
     oomEventOnly: killReport.oomEventOnly,
     deliberateStop: killReport.deliberateStop,
+    // Issue #3435: the exit line names the process behind each code.
+    toolExit: killReport.toolExit || null,
+    oomEvidence: killReport.oomEvidence === true,
     resumeCommand,
     runCommand: options.runCommand || undefined,
     attachLog: options.attachLog || undefined,
     verbose,
   };
+}
+
+/**
+ * Issue #2809: no GitHub notice once the work is finished ("Ready to merge");
+ * issue #3435: none when solve already posted its own kill comment in-process.
+ */
+function noticeSkipReason({ killReport = {}, sessionName, verbose = false }) {
+  const reason = killReport.skippedReason || killReport.noticeSkippedReason || null;
+  if (reason && verbose) console.log(`[VERBOSE] Kill notice for ${sessionName} not posted: ${reason}`);
+  return reason;
 }
 
 function ownNotice(sessionName, sessionInfo) {
@@ -67,6 +80,8 @@ export async function announcePendingKillNotice(context) {
 
 async function announcePendingKillNoticeUnsafe(context) {
   const { sessionName, sessionInfo, persist = () => {}, verbose = false, planRecovery = null } = context;
+  const skipped = noticeSkipReason(context);
+  if (skipped) return { posted: false, url: null, skipped };
   const existing = ownNotice(sessionName, sessionInfo);
   if (existing) {
     if (verbose) console.log(`[VERBOSE] Kill notice for ${sessionName} already posted${existing.url ? ` (${existing.url})` : ''}; not posting it again (issue #3530)`);
@@ -116,12 +131,16 @@ async function finishKillNoticeUnsafe({ killRecovery = {}, ...context }) {
     persist();
     return { posted: settled.followUp === true, edited: settled.edited, skipped: settled.edited ? null : settled.error };
   }
+  const skipped = noticeSkipReason(context);
+  if (skipped) return { posted: false, edited: false, skipped };
   const notice = await announceKillOnPullRequest({
     ...noticeArguments(context),
     resumed: Boolean(killRecovery.resumed),
     recoverySessionId: killRecovery.resumed ? killRecovery.sessionId : null,
     attempt: killRecovery.resumed ? killRecovery.attempt : null,
     maxAttempts: killRecovery.resumed ? killRecovery.maxAttempts : null,
+    // Issue #3435: render the decision, never a bare "did not continue".
+    recoveryOutcome: killRecovery.resumed ? null : { resumed: false, reason: killRecovery.reason || null, detail: killRecovery.detail || null },
   });
   if (notice.posted) {
     sessionInfo.killNotice = { sessionName, url: notice.url || null, pending: false, postedAt: new Date().toISOString() };

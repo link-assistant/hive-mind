@@ -30,6 +30,7 @@ import { formatBytes, formatHeapUsage, parseResourceMarkers } from './solve.reso
 import { findFatalMemoryMarker } from './child-exit.lib.mjs';
 import { readLogTextBounded } from './log-bounded-read.lib.mjs';
 import { describeHostRebootCause } from './host-boot-state.lib.mjs';
+import { describeDaemonRestartCause, describeDaemonRestartEvidence, isDaemonRestartExitReason, readExitEvidenceFromLog } from './docker-daemon-restart.lib.mjs';
 
 const exec = promisify(execCallback);
 
@@ -38,6 +39,8 @@ export const KILL_CAUSE_DISK_FULL = 'disk-full';
 export const KILL_CAUSE_FORCED_KILL = 'forced-kill';
 // Issue #3533: the host went down with every running task (dockerd marks them exit 255).
 export const KILL_CAUSE_HOST_REBOOT = 'host-reboot';
+// Issue #2892: dockerd restarted and force-killed the running container (exit 137).
+export const KILL_CAUSE_DAEMON_RESTART = 'docker-daemon-restart';
 export const KILL_CAUSE_UNKNOWN = 'unknown';
 
 /** Memory is considered exhausted below this share of total RAM still available. */
@@ -380,9 +383,10 @@ function isDiskFull(disk) {
  * @param {Object|null} [params.observedDisk] - Lowest host disk reading the monitor took while the session ran (issue #2303)
  * @param {string|null} [params.unobservedExit] - Why the reported success was not trusted (issue #2303)
  * @param {string|null} [params.statusQueryFailure] - Why the session was judged without a status record (issue #2303)
+ * @param {Object|null} [params.daemonRestart] - Issue #2892: detectDockerDaemonRestart() result
  * @returns {{cause: string, summary: string, evidence: string[], memory: Object|null, disk: Object|null, victims: Array}}
  */
-export function describeKillCause({ logText = null, resourceMarkers = null, oomKilled = false, exitCode = null, system = null, stopRequestedByUser = false, reportedMemoryExhausted = null, reportedMemoryExhaustedReason = null, reportedExitReason = null, reportedCgroupMemory = null, observedDisk = null, unobservedExit = null, statusQueryFailure = null, hostReboot = null, endedAt = null } = {}) {
+export function describeKillCause({ logText = null, resourceMarkers = null, oomKilled = false, exitCode = null, system = null, stopRequestedByUser = false, reportedMemoryExhausted = null, reportedMemoryExhaustedReason = null, reportedExitReason = null, reportedCgroupMemory = null, observedDisk = null, unobservedExit = null, statusQueryFailure = null, hostReboot = null, endedAt = null, daemonRestart = null } = {}) {
   const parsed = resourceMarkers || (logText ? parseResourceMarkers(logText) : { markers: [], byPhase: {} });
   const memoryMarker = selectLastMemoryResourceMarker(parsed);
   const heapMarker = selectLastHeapResourceMarker(parsed);
@@ -517,9 +521,25 @@ export function describeKillCause({ logText = null, resourceMarkers = null, oomK
     if (hostReboot.shutdownRecorded === false) evidence.push(hostReboot.shutdownSource === 'host-journal' ? 'the previous boot journal has no orderly shutdown (`systemd-shutdown` / `Journal stopped`)' : 'the bot was not stopped by a signal before the host went down (an orderly shutdown stops it with SIGTERM)');
     if (Number(hostReboot.affectedSessions) > 1) evidence.push(`all ${hostReboot.affectedSessions} tasks running on the host ended with it`);
   }
+  // Issue #2892: dockerd restarted and force-killed the container. The sticky
+  // OOMKilled flag (moby#43564) and the old OOM counters are what earlier child
+  // kills left behind, not what ended the session. A host reboot outranks it.
+  const logEvidence = readExitEvidenceFromLog(logText);
+  const daemonRestartEvent = daemonRestart || (isDaemonRestartExitReason(reportedExitReasonText) ? { detectedBy: 'exit-reason' } : logEvidence.daemonRestart ? { detectedBy: 'log-evidence', evidenceLine: logEvidence.line } : null);
+  if (daemonRestartEvent && !hostRebootEndedSession && !stopRequestedByUser && (exitCode === null || exitCode >= 128)) {
+    cause = KILL_CAUSE_DAEMON_RESTART;
+    for (let i = 0; i < evidence.length; i++) {
+      if (/State\.OOMKilled = true/.test(evidence[i])) evidence[i] = 'container reports `State.OOMKilled = true` — left by an earlier OOM event in the container that the session survived; it is not what ended the session';
+      else if (/reports memory exhaustion/.test(evidence[i])) evidence[i] = `${evidence[i]} — derived from the container's earlier OOM history; it is not what ended the session`;
+    }
+    const alreadyQuoted = daemonRestartEvent.detectedBy === 'exit-reason' && isDaemonRestartExitReason(reportedExitReasonText);
+    for (const line of alreadyQuoted ? [] : describeDaemonRestartEvidence(daemonRestartEvent)) evidence.push(line);
+  }
 
   let summary;
-  if (cause === KILL_CAUSE_HOST_REBOOT) {
+  if (cause === KILL_CAUSE_DAEMON_RESTART) {
+    summary = describeDaemonRestartCause(daemonRestartEvent);
+  } else if (cause === KILL_CAUSE_HOST_REBOOT) {
     const healthy = [memoryLine ? `memory (${memoryLine})` : null, diskLine].filter(Boolean).join(', ');
     summary = `${describeHostRebootCause(hostReboot)}${healthy ? `; the last readings were within normal limits: ${healthy}` : ''}`;
   } else if (cause === KILL_CAUSE_OUT_OF_MEMORY && fatalMemoryMarker && victims.length === 0 && !containerOomAtExit && !(cgroupOomKills > 0)) {
@@ -588,12 +608,14 @@ export function formatKillDiagnosticsSection(diagnosis, { locale = null, notTheC
  * @param {string|null} [options.observedAt] - When the event was observed
  * @param {string|null} [options.locale]
  * @param {boolean} [options.resumed] - A new working session was started
+ * @param {number|null} [options.count] - Issue #2809: OOM events seen; shown when more than one
  * @returns {string} Markdown block, or '' when nothing was recovered from
  */
-export function formatKillRecoverySection({ cause = KILL_CAUSE_OUT_OF_MEMORY, observedAt = null, locale = null, resumed = false } = {}) {
+export function formatKillRecoverySection({ cause = KILL_CAUSE_OUT_OF_MEMORY, observedAt = null, locale = null, resumed = false, count = null } = {}) {
   const key = cause === KILL_CAUSE_OUT_OF_MEMORY ? 'telegram.session_recovered_oom' : 'telegram.session_recovered_kill';
   const fallback = cause === KILL_CAUSE_OUT_OF_MEMORY ? 'recovered from out of memory' : 'recovered from forced kill';
-  const lines = [`⚠️ *${text(locale, key, fallback)}*`];
+  const countSuffix = Number.isInteger(count) && count > 1 ? ` (${text(locale, 'telegram.session_recovered_count', `${count} OOM kills`, { count })})` : '';
+  const lines = [`⚠️ *${text(locale, key, fallback)}*${countSuffix}`];
   if (observedAt) {
     lines.push(text(locale, 'telegram.session_recovered_at', `The event was observed at ${observedAt}; the work session kept running and completed.`, { observedAt }));
   }
@@ -633,7 +655,7 @@ export function formatKillResumeSection({ sessionId = null, attempt = null, maxA
  * @param {Object} [options]
  * @returns {Promise<{section: string, diagnosis: Object|null}>}
  */
-export async function buildKillDiagnosticsSection(logPath, { verbose = false, readFile = fsPromises.readFile, maxLogBytes = KILL_DIAGNOSTICS_LOG_BYTES, minByteOffset = 0, oomKilled = false, exitCode = null, stopRequestedByUser = false, locale = null, collectSystem = collectSystemKillDiagnostics, reportedMemoryExhausted = null, reportedMemoryExhaustedReason = null, reportedExitReason = null, reportedCgroupMemory = null, observedDisk = null, unobservedExit = null, statusQueryFailure = null, hostReboot = null, endedAt = null } = {}) {
+export async function buildKillDiagnosticsSection(logPath, { verbose = false, readFile = fsPromises.readFile, maxLogBytes = KILL_DIAGNOSTICS_LOG_BYTES, minByteOffset = 0, oomKilled = false, exitCode = null, stopRequestedByUser = false, locale = null, collectSystem = collectSystemKillDiagnostics, reportedMemoryExhausted = null, reportedMemoryExhaustedReason = null, reportedExitReason = null, reportedCgroupMemory = null, observedDisk = null, unobservedExit = null, statusQueryFailure = null, hostReboot = null, endedAt = null, daemonRestart = null } = {}) {
   try {
     let logText = '';
     if (logPath) {
@@ -645,7 +667,7 @@ export async function buildKillDiagnosticsSection(logPath, { verbose = false, re
       logText = await readLogTextBounded(logPath, { readFile, maxBytes: maxLogBytes, minByteOffset, verbose });
     }
     const system = await collectSystem({ verbose });
-    const diagnosis = describeKillCause({ logText, oomKilled, exitCode, system, stopRequestedByUser, reportedMemoryExhausted, reportedMemoryExhaustedReason, reportedExitReason, reportedCgroupMemory, observedDisk, unobservedExit, statusQueryFailure, hostReboot, endedAt });
+    const diagnosis = describeKillCause({ logText, oomKilled, exitCode, system, stopRequestedByUser, reportedMemoryExhausted, reportedMemoryExhaustedReason, reportedExitReason, reportedCgroupMemory, observedDisk, unobservedExit, statusQueryFailure, hostReboot, endedAt, daemonRestart });
     if (verbose) console.log(`[VERBOSE] kill-diagnostics: cause=${diagnosis.cause} — ${diagnosis.summary}`);
     return { section: formatKillDiagnosticsSection(diagnosis, { locale }), diagnosis };
   } catch (error) {

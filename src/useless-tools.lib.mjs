@@ -55,6 +55,15 @@ export const USELESS_MCP_TOOL_NAME_PREFIXES = Object.freeze(['mcp__claude_ai_Gma
 export const buildDisallowedToolsList = () => [...USELESS_CLAUDE_BUILTIN_TOOLS, ...USELESS_MCP_TOOL_NAME_PREFIXES.map(prefix => `${prefix}__*`)];
 
 /**
+ * Issue #744 (#733): Bash permission rules that deny broad process-kill
+ * commands. An AI session without Docker isolation ran `pkill -9 node` to free
+ * a port and killed the Telegram bot running as the same user. These rules are
+ * a safety guard, not a "useless tool", so they are passed to every Claude
+ * session, also with `--no-useless-tools-disabled`. `kill <pid>` stays allowed.
+ */
+export const PROCESS_KILL_DENY_RULES = Object.freeze(['Bash(pkill:*)', 'Bash(killall:*)']);
+
+/**
  * Returns true if `name` matches one of the useless MCP server prefixes.
  */
 export const isUselessMcpServerName = name => {
@@ -119,7 +128,8 @@ export const buildFilteredMcpConfig = async ({ excludePlaywright = false, log } 
  * Resolve the per-session Claude CLI args for the useless-tools flag and the
  * playwright-mcp flag in a single step. Returns an object with:
  *   - mcpConfigPath (string|null): temp file path for `--strict-mcp-config --mcp-config`
- *   - disallowedToolsList (string[]): values for `--disallowedTools`
+ *   - disallowedToolsList (string[]): values for `--disallowedTools` (the
+ *     useless tools, plus PROCESS_KILL_DENY_RULES always)
  *
  * Callers are expected to append the returned values to the Claude command.
  * Extracted from claude.lib.mjs to keep that file under the 1500-line cap.
@@ -138,8 +148,10 @@ export const resolveClaudeSessionToolFlags = async ({ argv, log, fallbackBuildMc
       if (uselessToolsDisabled) await log('🧰 Useless MCP servers (claude.ai Gmail/Drive/Calendar) disabled for this session via --strict-mcp-config (issue #1627)', { verbose: true });
     }
   }
-  const disallowedToolsList = uselessToolsDisabled ? buildDisallowedToolsList() : [];
-  if (uselessToolsDisabled && log) await log(`🧰 Disallowed ${disallowedToolsList.length} useless Claude Code tool(s) for this session (issue #1627)`, { verbose: true });
+  const uselessTools = uselessToolsDisabled ? buildDisallowedToolsList() : [];
+  if (uselessToolsDisabled && log) await log(`🧰 Disallowed ${uselessTools.length} useless Claude Code tool(s) for this session (issue #1627)`, { verbose: true });
+  const disallowedToolsList = [...uselessTools, ...PROCESS_KILL_DENY_RULES]; // Issue #744
+  if (log) await log(`🛡️ Denied broad process-kill commands for this session: ${PROCESS_KILL_DENY_RULES.join(', ')} (issue #744)`, { verbose: true });
   return { mcpConfigPath, disallowedToolsList };
 };
 

@@ -12,8 +12,10 @@ import { primaryModelNames } from './models/index.mjs';
 import { getThinkingPromptInstruction } from './thinking-prompt.lib.mjs';
 import { buildWorkLanguageDirective } from './work-language.prompts.lib.mjs';
 import { getIssueCompletionSubPrompt, ISSUE_COMPLETION_GOAL } from './issue-completion.prompts.lib.mjs';
+import { getProcessSafetySubPrompt } from './process-safety.prompts.lib.mjs'; // Issue #744
 import { buildRequestedBaseBranchDirective } from './solve-option-contract.prompts.lib.mjs';
 import { buildIssueResearchPrompt } from './deep-analysis.lib.mjs';
+import { getMemoryBudgetSubPrompt } from './memory-budget-prompt.lib.mjs'; // Issue #2838
 
 /**
  * Build the user prompt for Claude
@@ -356,7 +358,7 @@ Visual UI work and screenshots.
    - When the fix is visual, include side-by-side or sequential comparison of before/after states in the PR description.
    - When possible, create automated visual regression tests to prevent the UI bug from recurring.`
        : ''
-   }${ciExamples}${getArchitectureCareSubPrompt(argv)}${getUpdateAllDependenciesSubPrompt(argv)}${getReportDependenciesIssuesSubPrompt(argv)}${getHandoffSubPrompt(argv)}${getIssueCompletionSubPrompt(params)}${buildWorkLanguageDirective()}`;
+   }${ciExamples}${getArchitectureCareSubPrompt(argv)}${getUpdateAllDependenciesSubPrompt(argv)}${getReportDependenciesIssuesSubPrompt(argv)}${getHandoffSubPrompt(argv)}${getIssueCompletionSubPrompt(params)}${getMemoryBudgetSubPrompt(params)}${getProcessSafetySubPrompt()}${buildWorkLanguageDirective()}`;
 };
 
 // Export all functions as default object too

@@ -171,10 +171,7 @@ assert(recoveredBot.edits.length === 1, 'the surviving session is completed once
 assert(/recovered from out of memory/i.test(recoveredText), 'the completion warns that the session recovered from out of memory');
 assert(!/Work session killed/.test(recoveredText), 'a recovered session is not reported as killed');
 assert(/Kill diagnostics/.test(recoveredText), 'the completion carries the kill diagnostics section');
-assert(
-  postedComments.some(entry => entry.command === 'gh' && entry.args[0] === 'pr' && entry.args[1] === 'comment'),
-  'the same report is posted to the pull request (issue #2134 R2)'
-);
+assert(!postedComments.some(entry => entry.command === 'gh' && entry.args[0] === 'pr' && entry.args[1] === 'comment'), 'a session that finished well posts no OOM comment afterwards; it is reported when it happens (issue #2809)');
 
 resetSessionMonitorForTests();
 
@@ -212,8 +209,8 @@ assert(/claude/.test(victimDiagnosis.summary), 'the summary names the process th
 console.log('\n-- pull request notice --');
 
 const notice = buildKillRecoveryNotice({ diagnosis: oomDiagnosis, exitCode: 137, sessionName: SESSION, observedAt: '2026-08-02T17:42:06.000Z', policy: ON_SESSION_KILL_RESUME, resumed: true, resumeCommand: 'solve --resume abc', attachLogs: false });
-assert(/restarted after a kill.*outcome pending/.test(notice), 'launch acceptance does not establish successful recovery');
-assert(/new working session was started/.test(notice), 'the PR notice states that a new working session was started');
+assert(/restarted after a kill/.test(notice) && !/recovered from/.test(notice), 'launch acceptance does not establish successful recovery');
+assert(/Automatic recovery started/.test(notice) && /outcome is added to this comment/.test(notice), 'the PR notice states the recovery started and that a failure is added later (issue #3435)');
 assert(/`--attach-logs` is disabled/.test(notice), 'the PR notice explains why no log was uploaded');
 assert(/solve --resume abc/.test(notice), 'the PR notice offers the resume command');
 

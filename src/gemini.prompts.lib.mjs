@@ -10,8 +10,10 @@ import { getExperimentsExamplesSubPrompt } from './experiments-examples.prompts.
 import { getThinkingPromptInstruction } from './thinking-prompt.lib.mjs';
 import { buildWorkLanguageDirective } from './work-language.prompts.lib.mjs';
 import { getIssueCompletionSubPrompt, ISSUE_COMPLETION_GOAL } from './issue-completion.prompts.lib.mjs';
+import { getProcessSafetySubPrompt } from './process-safety.prompts.lib.mjs'; // Issue #744
 import { buildRequestedBaseBranchDirective } from './solve-option-contract.prompts.lib.mjs';
 import { buildIssueResearchPrompt } from './deep-analysis.lib.mjs';
+import { getMemoryBudgetSubPrompt } from './memory-budget-prompt.lib.mjs'; // Issue #2838
 
 /**
  * Build the user prompt for Gemini
@@ -245,7 +247,7 @@ Visual UI work and screenshots.
    - When you work on visual UI changes, include a render or screenshot of the final result in the pull request description.
    - When you save screenshots to the repository, use permanent links in the PR description such as https://github.com/${screenshotRepoPath}/blob/${branchName}/docs/screenshots/result.png?raw=true.`
        : ''
-   }${ciExamples}${getArchitectureCareSubPrompt(argv)}${getUpdateAllDependenciesSubPrompt(argv)}${getReportDependenciesIssuesSubPrompt(argv)}${getIssueCompletionSubPrompt(params)}${buildWorkLanguageDirective()}`;
+   }${ciExamples}${getArchitectureCareSubPrompt(argv)}${getUpdateAllDependenciesSubPrompt(argv)}${getReportDependenciesIssuesSubPrompt(argv)}${getIssueCompletionSubPrompt(params)}${getMemoryBudgetSubPrompt(params)}${getProcessSafetySubPrompt()}${buildWorkLanguageDirective()}`;
 };
 
 export default {

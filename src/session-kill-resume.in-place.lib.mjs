@@ -89,7 +89,7 @@ export function startCommandResumeKeepsResourceLimits(version) {
 /** True when the session was launched with any Hive Mind container limit. */
 export function hasSessionContainerResourceLimits(sessionInfo) {
   const limits = sessionInfo?.containerResourceLimits;
-  return Boolean(limits && (Number.isFinite(limits.cpuCores) || Number.isFinite(limits.memoryBytes) || Number.isFinite(limits.diskBytes) || Object.values(limits.requested || {}).some(Boolean)));
+  return Boolean(limits && (Number.isFinite(limits.cpuCores) || Number.isFinite(limits.memoryBytes) || Number.isFinite(limits.memoryReservationBytes) || Number.isFinite(limits.diskBytes) || Object.values(limits.requested || {}).some(Boolean)));
 }
 
 /**

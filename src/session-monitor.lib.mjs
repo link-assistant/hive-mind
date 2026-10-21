@@ -38,6 +38,8 @@ import { sessionStartMs } from './session-monitor.stale-executing.lib.mjs';
 // Issue #2134: kill-cause diagnostics + the matching pull-request notice.
 import { buildKillCompletionSections, hasContainerOomEvidence, startedPullRequestUrl } from './session-monitor.kill-sections.lib.mjs';
 import { announcePendingKillNotice, finishKillNotice } from './session-monitor.kill-notice.lib.mjs';
+import { reportRecoveryAttemptOutcome } from './session-kill-recovery-outcome.lib.mjs'; // Issue #3435
+import { reportSurvivedOomEvent } from './session-oom-event-report.lib.mjs'; // Issue #2809
 import { planKillRecovery, runKillRecoveryForCompletion } from './session-kill-resume.lib.mjs';
 import { isDiskRefusedRecovery } from './session-kill-resume.disk-retry.lib.mjs';
 import { detectFailedInPlaceStart } from './session-kill-resume.start-failure.lib.mjs';
@@ -807,6 +809,8 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
   }
   if (stillRunning) await reportRecoveryLifecycle({ bot, sessionName, sessionInfo, statusResult, options, verbose, lookupPullRequest: () => resolvePullRequestUrlForSession(sessionInfo, { verbose, lookupLinkedPullRequest: options.lookupLinkedPullRequest, statusResult, readFile: options.readFile }), persist: () => persistSessionSnapshot(sessionName, sessionInfo), logEvent });
   if (stillRunning && sessionInfo?.command === 'fix' && !sessionInfo.recoveryLifecycle) await (options.reportFixProgress || reportFixProgress)({ bot, sessionName, sessionInfo, statusResult, verbose, persist: () => persistSessionSnapshot(sessionName, sessionInfo) });
+  // Issue #2809: a survived container OOM event is reported once, when it is first seen.
+  if (stillRunning && sessionInfo.oomEventObservedAt && !sessionInfo.oomEventReportedAt) await reportSurvivedOomEvent({ bot, sessionName, sessionInfo, options, verbose, lookupPullRequest: () => resolvePullRequestUrlForSession(sessionInfo, { verbose, lookupLinkedPullRequest: options.lookupLinkedPullRequest, statusResult, readFile: options.readFile }), persist: () => persistSessionSnapshot(sessionName, sessionInfo) });
   if (stillRunning) await (options.reportLivePullRequestLink || reportLivePullRequestLink)({ bot, sessionName, sessionInfo, statusResult, verbose, persist: () => persistSessionSnapshot(sessionName, sessionInfo) });
   if (stillRunning && sessionInfo.isolationBackend) {
     // Issue #2303: log markers can be an hour stale when the disk fills, and the removed container frees it again — only a live sample shows it.
@@ -872,6 +876,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
           outcome: completionOutcome,
           killEvidence: hasContainerOomEvidence({ sessionInfo, statusResult }),
           lookupPullRequestState: options.lookupPullRequestState,
+          lookupCommentBodies: options.lookupPullRequestCommentBodies, // Issue #2809: "Ready to merge"
           verbose,
           sessionName,
           exitCode: finalExitCode,
@@ -1004,6 +1009,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
         verbose,
         readFile: options.readFile,
         env: options.env || process.env,
+        detectDaemonRestart: options.detectDaemonRestart || _isolationRunner?.detectDockerDaemonRestart || null, // Issue #2892
       });
       // Issue #2498: a merged pull request means the work is fully done — no
       // recovery is started and no recovery or kill notice is published.
@@ -1013,7 +1019,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
       // message is built so the Telegram report and the pull-request notice
       // below name the very same recovery session.
       let killRecovery = { resumed: false, sessionId: null, attempt: 0, maxAttempts: 0 };
-      const shouldAttemptKillRecovery = (killReport.killed || killReport.oomEventOnly) && !killReport.deliberateStop && !sessionInfo?.containerResourceLimitExceeded;
+      const shouldAttemptKillRecovery = (killReport.killed || killReport.oomEventOnly) && !killReport.deliberateStop && !killReport.skippedReason && !sessionInfo?.containerResourceLimitExceeded;
       if (killReport.killed || killReport.oomEventOnly) {
         // Issue #2408: one durable line per kill/OOM decision, so "why was this
         // (not) restarted?" can be answered from the session log afterwards.
@@ -1080,12 +1086,16 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
         launchUnobserved,
         killCause: killReport.diagnosis?.cause || null,
       });
-      if (killReport.killed || killReport.recovered || killReport.oomEventOnly) await finishKillNotice({ ...killNoticeContext, killRecovery });
+      // Issue #2809: a session that finished well reports a survived OOM event in Telegram only.
+      if (killReport.killed || killReport.oomEventOnly) await finishKillNotice({ ...killNoticeContext, killRecovery });
+      if (sessionInfo.killRecoveryOfSession) await reportRecoveryAttemptOutcome({ ...killNoticeContext, status: resolvedStatus, killRecovery, pullRequestState }); // Issue #3435
       // Update the original reply message if messageId is available, otherwise send new message
       let notifyFromChatId = null;
       let notifyMessageId = null;
       const notificationOptions = buildSessionNotificationOptions(sessionInfo, verbose);
-      if (sessionInfo.messageId) {
+      if (sessionInfo.chatId === null || sessionInfo.chatId === undefined) {
+        console.log(`Session ${sessionName} has no chat to notify (adopted task container, issue #2917); completion is logged only`);
+      } else if (sessionInfo.messageId) {
         await safeEditMessageText(bot.telegram, sessionInfo.chatId, sessionInfo.messageId, undefined, message, notificationOptions);
         notifyFromChatId = sessionInfo.chatId;
         notifyMessageId = sessionInfo.messageId;
@@ -1323,11 +1333,11 @@ export async function resumeTrackedSessions(options = {}) {
 }
 // Issue #2175: the read-only registry queries live in their own module so this
 // file stays under the 1350-line early-warning threshold (see issue #1593).
-const { hasActiveSessionForUrl, findStoppableSessionByUrl, hasActiveSessionForUrlAsync, getRunningTrackedIsolationSessions, getRunningSessionItems, getSessionStats, findOtherActiveSessionForUrl } = createSessionRegistryQueries({
+const { hasActiveSessionForUrl, findStoppableSessionByUrl, hasActiveSessionForUrlAsync, getRunningTrackedIsolationSessions, getRunningSessionItems, getSessionStats, findOtherActiveSessionForUrl, listTrackedSessionEntries } = createSessionRegistryQueries({
   activeSessions,
   normalizeSessionUrl,
   isNonIsolationSessionActive,
   getIsolationSessionState,
   checkScreenSessionExists,
 });
-export { hasActiveSessionForUrl, findStoppableSessionByUrl, hasActiveSessionForUrlAsync, getRunningTrackedIsolationSessions, getRunningSessionItems, getSessionStats, findOtherActiveSessionForUrl };
+export { hasActiveSessionForUrl, findStoppableSessionByUrl, hasActiveSessionForUrlAsync, getRunningTrackedIsolationSessions, getRunningSessionItems, getSessionStats, findOtherActiveSessionForUrl, listTrackedSessionEntries };

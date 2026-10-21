@@ -68,6 +68,7 @@ const ENGLISH_LIMITS = {
   queue_pending: 'pending',
   queue_processing: 'processing',
   queue_processes: '{{count}} processes',
+  queue_untracked: '{{count}} untracked', // Issue #2917
   queue_status_cancelled: 'cancelled',
   queue_status_failed: 'failed',
   queue_status_queued: 'queued',

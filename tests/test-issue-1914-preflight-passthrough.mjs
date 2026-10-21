@@ -78,6 +78,8 @@ const REGULAR = { HIVE_MIND_IMAGE_VARIANT: 'regular' };
 const NEUTRAL_PROBES = {
   checkStorageDriver: async () => 'overlay2',
   checkDiskSpace: async () => ({ availableGiB: 500, dataRoot: '/var/lib/docker' }),
+  // Issue #2900: live-restore on, so its warning never fires here either.
+  checkLiveRestore: async () => true,
 };
 
 console.log('\n--- resolveHostDockerSock: single source of truth for the socket path ---');

@@ -27,6 +27,9 @@ import { buildKillRecoveryNotice, postKillRecoveryNotice, spawnCapture } from '.
 import { getSessionIssueContext } from './session-live-pr-link.lib.mjs';
 import { describeHostRebootScope } from './host-boot-state.lib.mjs';
 import { recoveryLogStartOffset } from './session-recovery-footer.lib.mjs';
+import { resolveDaemonRestartKill } from './docker-daemon-restart.lib.mjs';
+import { resolveSessionContainerName } from './session-container-identity.lib.mjs';
+import { describeSessionExitCodes, detectToolExitEvidence } from './session-tool-exit.lib.mjs';
 
 /**
  * `--attach-logs` as it reaches the bot: a raw CLI argument array recorded on
@@ -92,6 +95,26 @@ export function hasContainerOomEvidence({ sessionInfo = null, statusResult = nul
 }
 
 /**
+ * Issue #2809: why a pull request gets no kill/OOM report: it is merged, closed,
+ * or its latest session already posted "Ready to merge" — the work is finished.
+ *
+ * @param {{merged?: boolean, mergedAt?: string|null, state?: string|null, readyToMerge?: boolean|null}|null} pullRequestState
+ * @returns {'pull-request-merged'|'pull-request-closed'|'pull-request-ready-to-merge'|null}
+ */
+export function pullRequestReportSkipReason(pullRequestState) {
+  if (pullRequestState?.merged === true || Boolean(pullRequestState?.mergedAt)) return 'pull-request-merged';
+  if (String(pullRequestState?.state || '').toLowerCase() === 'closed') return 'pull-request-closed';
+  if (pullRequestState?.readyToMerge === true) return 'pull-request-ready-to-merge';
+  return null;
+}
+
+/** Issue #2809: the per-session OOM event count, when known. */
+export function getOomEventCount(sessionInfo) {
+  const count = Number(sessionInfo?.oomEventCount);
+  return Number.isInteger(count) && count > 0 ? count : null;
+}
+
+/**
  * Build the kill/recovery sections for a completed session.
  *
  * Never throws: a failed diagnosis must never block a completion notification.
@@ -106,10 +129,13 @@ export function hasContainerOomEvidence({ sessionInfo = null, statusResult = nul
  * @param {boolean} [options.verbose]
  * @param {Function} [options.readFile]
  * @param {Object} [options.env]
- * @returns {Promise<{sections: string[], diagnosis: Object|null, killed: boolean, recovered: boolean, oomEventOnly: boolean, deliberateStop: Object|null, policy: string|null, observedAt: string|null, skippedReason: string|null}>}
+ * @param {Function|null} [options.detectDaemonRestart] - Issue #2892: detectDockerDaemonRestart for a docker SIGKILL (none: only the remembered/reported restart counts)
+ * @returns {Promise<{sections: string[], diagnosis: Object|null, killed: boolean, recovered: boolean, oomEventOnly: boolean, deliberateStop: Object|null, policy: string|null, observedAt: string|null, skippedReason: string|null, noticeSkippedReason: string|null, toolExit: Object|null, oomEvidence: boolean}>}
+ *   `skippedReason` stops the GitHub notice and the recovery; `noticeSkippedReason`
+ *   only the GitHub notice (issue #3435: solve already reported the kill itself).
  */
-export async function buildKillCompletionSections({ sessionName, sessionInfo, statusResult = null, exitCode = null, status = null, pullRequestState = null, verbose = false, readFile = fs.readFile, statFile = fs.stat, env = process.env } = {}) {
-  const empty = { sections: [], diagnosis: null, killed: false, recovered: false, oomEventOnly: false, deliberateStop: null, policy: null, observedAt: null, endedAt: null, skippedReason: null };
+export async function buildKillCompletionSections({ sessionName, sessionInfo, statusResult = null, exitCode = null, status = null, pullRequestState = null, verbose = false, readFile = fs.readFile, statFile = fs.stat, env = process.env, detectDaemonRestart = null } = {}) {
+  const empty = { sections: [], diagnosis: null, killed: false, recovered: false, oomEventOnly: false, deliberateStop: null, policy: null, observedAt: null, endedAt: null, skippedReason: null, noticeSkippedReason: null, toolExit: null, oomEvidence: false };
   try {
     const outcome = classifySessionOutcome({ exitCode, status });
     const observedAt = getOomEventObservedAt(sessionInfo);
@@ -122,7 +148,7 @@ export async function buildKillCompletionSections({ sessionName, sessionInfo, st
     // session recovered from out of memory" after the merge. A merged pull
     // request means the work is fully done: nothing is recovered and no kill,
     // recovery or OOM notice is shown on either surface.
-    if (pullRequestState?.merged === true || Boolean(pullRequestState?.mergedAt)) {
+    if (pullRequestReportSkipReason(pullRequestState) === 'pull-request-merged') {
       if (verbose) console.log(`[VERBOSE] Session ${sessionName}: pull request merged at ${pullRequestState.mergedAt || 'unknown time'}; skipping kill/OOM reporting and recovery (exit=${exitCode}, killed=${killed}, oomEventObservedAt=${observedAt || 'none'})`);
       return { ...empty, observedAt, skippedReason: 'pull-request-merged' };
     }
@@ -132,6 +158,8 @@ export async function buildKillCompletionSections({ sessionName, sessionInfo, st
     const minByteOffset = recoveryLogStartOffset(sessionInfo);
     // Issue #3533: a host reboot ends every running task; the readings are aged against the real end.
     const hostReboot = sessionInfo?.hostReboot || null;
+    // Issue #2892: a Docker daemon restart SIGKILLs every container; remembered by the OOM path or detected here.
+    const daemonRestart = killed && !hostReboot && exitCode === 137 ? (await resolveDaemonRestartKill(sessionName, sessionInfo, statusResult, { exitCode, endTime: statusResult?.endTime || null, containerName: resolveSessionContainerName(sessionName, sessionInfo), detect: detectDaemonRestart, verbose }))?.event || null : sessionInfo?.dockerDaemonRestart || null;
     const endedAt = killed || oomEventOnly ? await resolveSessionEndedAt({ sessionInfo, statusResult, logPath, statFile }) : null;
     const { section, diagnosis } = await buildKillDiagnosticsSection(logPath, {
       verbose,
@@ -156,6 +184,7 @@ export async function buildKillCompletionSections({ sessionName, sessionInfo, st
       unobservedExit: statusResult?.unobservedExit ?? null,
       statusQueryFailure: statusResult?.statusQueryFailure ?? null,
       hostReboot,
+      daemonRestart,
       endedAt,
     });
 
@@ -167,23 +196,35 @@ export async function buildKillCompletionSections({ sessionName, sessionInfo, st
     // after that verdict (e.g. while the final log upload runs) ends a run that
     // was already over, so a kill is checked too.
     const deliberateStop = oomEventOnly || killed ? await detectDeliberateSolveStop(logPath, { readFile: readFile === fs.readFile ? null : readFile, verbose, minByteOffset }) : null;
+    // Issue #3435: which process exited with which code, and whether solve's
+    // in-process recovery already posted its own kill comment.
+    const { toolExit, inProcessKillReport } = oomEventOnly || killed ? await detectToolExitEvidence(logPath, { readFile: readFile === fs.readFile ? null : readFile, minByteOffset, verbose }) : { toolExit: null, inProcessKillReport: null };
+    const oomEvidence = hasContainerOomEvidence({ sessionInfo, statusResult });
+    const exitLine = describeSessionExitCodes({ exitCode, processLabel: sessionInfo?.command || 'solve', toolExit, oomEvidence, cause: diagnosis?.cause || null });
+    // Issue #2809: "Ready to merge" is finished work: Telegram still reports, GitHub and the recovery do not.
+    const skippedReason = pullRequestReportSkipReason(pullRequestState);
+    const noticeSkippedReason = oomEventOnly && inProcessKillReport ? 'reported-in-process' : null;
+    const oomCount = getOomEventCount(sessionInfo);
+    const oomCountText = oomCount > 1 ? ` (${oomCount} OOM kills)` : '';
 
     const sections = [];
     if (recovered) {
       // The session outlived the event — this is the warning the issue asks for.
-      sections.push(formatKillRecoverySection({ cause: diagnosis?.cause || KILL_CAUSE_OUT_OF_MEMORY, observedAt, locale }));
+      sections.push(formatKillRecoverySection({ cause: diagnosis?.cause || KILL_CAUSE_OUT_OF_MEMORY, observedAt, locale, count: oomCount }));
     }
     if (killed && diagnosis?.cause === KILL_CAUSE_HOST_REBOOT) sections.push(`🖥️ ${describeHostRebootScope(hostReboot)}`);
-    if (oomEventOnly) sections.push(`⚠️ A container OOM event affected a child process at ${observedAt}; the work process continued and later failed with exit code ${exitCode}.`);
+    if (oomEventOnly) sections.push(`⚠️ A container OOM event${oomCountText} affected a child process at ${observedAt}; the work process continued and later failed with exit code ${toolExit ? exitLine : exitCode}.`);
+    else if (killed && toolExit) sections.push(`Exit code: ${exitLine}`);
+    if (skippedReason && (killed || oomEventOnly)) sections.push(`ℹ️ ${skippedReason === 'pull-request-closed' ? 'The pull request is closed' : 'The pull request already says "Ready to merge"'}, so this is not reported there and no recovery is started.`);
     if (deliberateStop && killed) sections.push(`ℹ️ solve had already stopped on its own ("${deliberateStop.line}") before the process was killed, so it is not restarted automatically.`);
     else if (deliberateStop) sections.push(`ℹ️ The work did not fail because of it: solve stopped on its own ("${deliberateStop.line}"), so it is not restarted automatically.`);
     // Issue #2498: the diagnostics must not then call the OOM event the "Cause".
     if (section) sections.push(deliberateStop && oomEventOnly ? formatKillDiagnosticsSection(diagnosis, { locale, notTheCause: true }) : section);
 
     if (verbose) {
-      console.log(`[VERBOSE] Session ${sessionName} kill reporting: killed=${killed} recovered=${recovered} oomEventOnly=${oomEventOnly} deliberateStop=${deliberateStop?.reason || 'none'} cause=${diagnosis?.cause || 'n/a'} policy=${policy} endedAt=${endedAt || 'unknown'} oomEventObservedAt=${observedAt || 'none'} hostReboot=${hostReboot ? `${hostReboot.detectedBy}/${hostReboot.affectedSessions}` : 'none'}`);
+      console.log(`[VERBOSE] Session ${sessionName} kill reporting: killed=${killed} recovered=${recovered} oomEventOnly=${oomEventOnly} skipped=${skippedReason || noticeSkippedReason || 'none'} toolExit=${toolExit ? `${toolExit.tool}:${toolExit.exitCode}` : 'none'} oomCount=${oomCount ?? 'n/a'} deliberateStop=${deliberateStop?.reason || 'none'} cause=${diagnosis?.cause || 'n/a'} policy=${policy} endedAt=${endedAt || 'unknown'} oomEventObservedAt=${observedAt || 'none'} hostReboot=${hostReboot ? `${hostReboot.detectedBy}/${hostReboot.affectedSessions}` : 'none'}`);
     }
-    return { sections: sections.filter(Boolean), diagnosis, killed, recovered, oomEventOnly, deliberateStop, policy, observedAt, endedAt };
+    return { sections: sections.filter(Boolean), diagnosis, killed, recovered, oomEventOnly, deliberateStop, policy, observedAt, endedAt, skippedReason, noticeSkippedReason, toolExit, oomEvidence };
   } catch (error) {
     if (verbose) {
       console.log(`[VERBOSE] Could not build kill sections for ${sessionName}: ${error?.message || error}`);
@@ -267,7 +308,7 @@ export async function resolveSessionEndedAt({ sessionInfo = null, statusResult =
  * @param {Object} options
  * @returns {Promise<{posted: boolean, url: string|null, skipped: string|null, logUploaded: boolean}>}
  */
-export async function announceKillOnPullRequest({ pullRequestUrl, sessionName, sessionInfo, diagnosis, exitCode = null, observedAt = null, endedAt = null, policy = null, recovered = false, oomEventOnly = false, deliberateStop = null, resumed = false, recoverySessionId = null, attempt = null, maxAttempts = null, resumeCommand = null, recoveryPending = false, runCommand = spawnCapture, attachLog = defaultAttachLog, attachOptions = {}, verbose = false } = {}) {
+export async function announceKillOnPullRequest({ pullRequestUrl, sessionName, sessionInfo, diagnosis, exitCode = null, observedAt = null, endedAt = null, policy = null, recovered = false, oomEventOnly = false, deliberateStop = null, resumed = false, recoverySessionId = null, attempt = null, maxAttempts = null, resumeCommand = null, recoveryPending = false, toolExit = null, oomEvidence = false, recoveryOutcome = null, runCommand = spawnCapture, attachLog = defaultAttachLog, attachOptions = {}, verbose = false } = {}) {
   const skip = reason => ({ posted: false, url: null, skipped: reason, logUploaded: false });
   // Issue #2301: a session started on a pull request URL has no *linked* pull
   // request to look up — the pull request is the one it was started on.
@@ -277,7 +318,7 @@ export async function announceKillOnPullRequest({ pullRequestUrl, sessionName, s
 
   const attachLogs = argsIncludeAttachLogs(sessionInfo?.args);
   const logPath = sessionInfo?.logPath || null;
-  const notice = fields => buildKillRecoveryNotice({ diagnosis, exitCode, sessionName, observedAt, endedAt, hostReboot: sessionInfo?.hostReboot || null, policy, survived: recovered, oomEventOnly, deliberateStop, resumed, recoverySessionId, attempt, maxAttempts, resumeCommand, attachLogs, recoveryPending, ...fields });
+  const notice = fields => buildKillRecoveryNotice({ diagnosis, exitCode, sessionName, observedAt, endedAt, hostReboot: sessionInfo?.hostReboot || null, policy, survived: recovered, oomEventOnly, deliberateStop, resumed, recoverySessionId, attempt, maxAttempts, resumeCommand, attachLogs, recoveryPending, toolExit, oomEvidence, processLabel: sessionInfo?.command || 'solve', recoveryOutcome, ...fields });
 
   // Issue #2498: a session that completed (`recovered`) already published its
   // own final log under `--attach-logs`; a second copy titled "killed session"

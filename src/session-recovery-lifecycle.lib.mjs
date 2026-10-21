@@ -96,10 +96,11 @@ export async function reportRecoveryLifecycle({ bot, sessionName, sessionInfo, s
     // Issue #3530: the lifecycle is Telegram only. GitHub gets the one kill
     // comment (edited once the recovery starts) and the recovery's own start
     // comment; the auto-updating lifecycle comment flooded pull requests.
-    let telegramDelivered = !running || !bot?.telegram;
+    // Issue #2917: an adopted task container has no chat; nothing to deliver.
+    let telegramDelivered = !running || !bot?.telegram || sessionInfo.chatId === null || sessionInfo.chatId === undefined;
     // Terminal reports are appended to the normal completion message by the
     // caller. Active reports keep updating the original Telegram task reply.
-    if (running && bot?.telegram) {
+    if (!telegramDelivered) {
       try {
         const message = `${text}\n\n${sessionInfo.infoBlock || ''}`;
         const notificationOptions = { parse_mode: 'Markdown', locale: sessionInfo.locale, verbose };

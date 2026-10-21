@@ -310,6 +310,7 @@ en
         started "started"
         starting "starting"
         waiting "waiting"
+      untracked "{{count}} untracked"
       waiting
         current
           command "waiting for current command"
@@ -712,6 +713,7 @@ en
       recovered
         oom "recovered from out of memory"
         kill "recovered from forced kill"
+        count "{{count}} OOM kills"
         at "The event was observed at {{observedAt}}; the work session kept running and completed."
         resumed "A new working session was started to recover from the kill."
       kill
@@ -729,6 +731,11 @@ en
     error
       executing
         command "❌ Error executing {{commandName}} command"
+    queue
+      restored
+        title "♻️ The bot restarted; {{count}} queued task(s) were restored from {{source}} and will start in their turn:"
+        running "▶️ {{count}} task(s) were already running and were left as they are:"
+        more "… and {{count}} more"
   language
     en "English"
     ru "Russian"

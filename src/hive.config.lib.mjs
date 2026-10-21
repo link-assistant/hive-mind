@@ -130,6 +130,10 @@ export const createYargsConfig = yargsInstance => {
       default: 2,
       alias: 'c',
     })
+    .option('min-memory-per-worker', {
+      type: 'number',
+      description: 'Minimum cgroup memory (MB) per worker; --concurrency is lowered when the container memory limit cannot give every worker this much (0 disables; env HIVE_MIND_MIN_MEMORY_PER_WORKER, default 2048)',
+    })
     .option('pull-requests-per-issue', {
       type: 'number',
       description: 'Number of pull requests to generate per issue',

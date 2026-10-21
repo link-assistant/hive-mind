@@ -98,6 +98,14 @@ ENV HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG="${HIVE_MIND_VERSION}"
 # is a last-resort compatibility fallback but uses many times the disk and is
 # the configuration that caused issue #1914.
 ENV DIND_STORAGE_DRIVER="fuse-overlayfs"
+# Issue #2900: the nested dockerd runs with --live-restore, so a restart of the
+# inner daemon re-attaches to the running task containers instead of killing
+# them. box-dind's entrypoint passes the flag when DIND_LIVE_RESTORE=1 (its
+# default, unless /etc/docker/daemon.json already sets "live-restore"); the pin
+# keeps it explicit here. This covers only the NESTED daemon: the host daemon
+# needs "live-restore": true in its own /etc/docker/daemon.json (see
+# docs/DOCKER.md, "Host Docker daemon settings").
+ENV DIND_LIVE_RESTORE="1"
 ENV NVM_DIR="/home/box/.nvm"
 ENV PYENV_ROOT="/home/box/.pyenv"
 ENV BUN_INSTALL="/home/box/.bun"

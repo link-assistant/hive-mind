@@ -61,7 +61,12 @@ export function createQueueRecoveryResourceGate(getQueue) {
       const result = await queue.canStartCommand(options);
       // The queue's `one_at_a_time` strategy: under that pressure nothing starts
       // while a task of the same tool is being processed (findStartableItems()).
-      const processing = result?.canStart && result.oneAtATime ? queue.getProcessingCountByTool?.(options?.tool || 'claude') || 0 : 0;
+      // Issue #2917: count what is observably running (task containers, tracked
+      // sessions), not only the queue's own launches — canStartCommand() just
+      // refreshed the snapshot the effective count reads.
+      const tool = options?.tool || 'claude';
+      const countFn = queue.getEffectiveProcessingCountByTool || queue.getProcessingCountByTool;
+      const processing = result?.canStart && result.oneAtATime ? countFn?.call(queue, tool) || 0 : 0;
       return processing > 0 ? { ...result, canStart: false, reasons: [`one-at-a-time: ${processing} ${options?.tool || 'claude'} task(s) already processing`] } : result;
     },
     reserve: options => getQueue().reserveStartSlot(options),

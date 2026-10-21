@@ -10,6 +10,7 @@
 
 import { formatReclaimableSpaceLines } from './reclaimable-space.lib.mjs';
 import { resolveDockerImageReclaimMode } from './docker-image-reclaim.lib.mjs';
+import { capConcurrencyForMemory } from './hive-concurrency-memory.lib.mjs';
 
 /**
  * Run the startup checks, exiting through `safeExit` when one fails.
@@ -24,9 +25,13 @@ import { resolveDockerImageReclaimMode } from './docker-image-reclaim.lib.mjs';
  * @param {Function} deps.validateClaudeConnection
  * @param {number} deps.EXIT_CODE_INSUFFICIENT_DISK_SPACE
  * @param {Function} [deps.formatReclaimable] renders the guard's reclaimable-space summary (#2187)
+ * @param {Function} [deps.readEffectiveMemory] cgroup-aware memory reader (#2838; injectable for tests)
  * @returns {Promise<{skipped: boolean}>}
  */
-export async function runStartupChecks({ argv, log, safeExit, ensureDiskSpaceForWorker, checkSystem, validateToolConnection, validateClaudeConnection, EXIT_CODE_INSUFFICIENT_DISK_SPACE, formatReclaimable = formatReclaimableSpaceLines }) {
+export async function runStartupChecks({ argv, log, safeExit, ensureDiskSpaceForWorker, checkSystem, validateToolConnection, validateClaudeConnection, EXIT_CODE_INSUFFICIENT_DISK_SPACE, formatReclaimable = formatReclaimableSpaceLines, readEffectiveMemory }) {
+  // Issue #2838: workers share one cgroup memory limit; cap --concurrency so
+  // each gets the per-worker minimum. Runs even in dry-run so the plan is honest.
+  await capConcurrencyForMemory({ argv, log, ...(readEffectiveMemory ? { readEffectiveMemory } : {}) });
   if (argv.dryRun || argv.skipToolConnectionCheck || argv.toolConnectionCheck === false) {
     await log('⏩ Skipping system resource check (dry-run mode or skip-tool-connection-check enabled)', { verbose: true });
     await log('⏩ Skipping AI tool connection check (dry-run mode or skip-tool-connection-check enabled)', { verbose: true });

@@ -158,20 +158,17 @@ export const executeClaude = async params => {
     })
   );
 };
-// Issue #1710: calculateModelCost extracted to ./claude.cost.lib.mjs to keep
-// this file under the 1500-line repo cap (see check-file-line-limits CI job).
+// Issue #1710: calculateModelCost lives in ./claude.cost.lib.mjs (1500-line repo cap, check-file-line-limits CI job).
 import { calculateModelCost } from './claude.cost.lib.mjs';
 export { calculateModelCost };
 // Issue #2175: session token accounting lives in claude.session-tokens.lib.mjs
 // so this file stays under the 1350-line early-warning threshold (issue #1593).
 import { calculateSessionTokens } from './claude.session-tokens.lib.mjs';
 export { calculateSessionTokens };
-// Extracted to claude.stderr.lib.mjs (Issue #477, #1337)
-import { isStderrError } from './claude.stderr.lib.mjs';
+import { isStderrError } from './claude.stderr.lib.mjs'; // Extracted (Issue #477, #1337)
 import { checkForUncommittedChanges } from './claude.uncommitted-changes.lib.mjs';
 import { claimClaudeTaskSessionIdArgs } from './task-session-id.lib.mjs'; // Issue #3530: AI session id = task id
-export { checkForUncommittedChanges };
-export { isStderrError };
+export { checkForUncommittedChanges, isStderrError };
 export const executeClaudeCommand = async params => {
   const {
     tempDir,
@@ -343,7 +340,7 @@ export const executeClaudeCommand = async params => {
     await ensureClaudeQuietConfig({ log, workLanguage: claudeWorkLanguage });
     const { mcpConfigPath, disallowedToolsList } = await resolveClaudeSessionToolFlags({ argv, log, fallbackBuildMcpConfigWithoutPlaywright: buildMcpConfigWithoutPlaywright });
     if (mcpConfigPath) claudeArgs += ` --strict-mcp-config --mcp-config "${mcpConfigPath}"`;
-    if (disallowedToolsList.length) claudeArgs += ` --disallowedTools ${disallowedToolsList.join(' ')}`;
+    if (disallowedToolsList.length) claudeArgs += ` --disallowedTools ${disallowedToolsList.map(shellQuote).join(' ')}`; // Issue #744: quote Bash(pkill:*)
     if (streamingInput) {
       // Prompt is delivered as the first NDJSON frame on stdin (not as -p).
       claudeArgs += ` -p --input-format stream-json --append-system-prompt ${shellQuote(systemPrompt)}`;

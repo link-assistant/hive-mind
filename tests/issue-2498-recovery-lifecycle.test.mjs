@@ -66,11 +66,12 @@ for (const [status, oom] of [
   });
 }
 
-test('a launch notice says restart accepted and outcome pending, without promising recovery or future progress', () => {
+test('a launch notice says the recovery started and that a failed attempt is added later, without promising recovery or future progress', () => {
   const body = buildKillRecoveryNotice({ exitCode: 137, diagnosis: { cause: 'out-of-memory', evidence: [] }, resumed: true, recoverySessionId: 'replacement' });
   assert.doesNotMatch(body, /recovered from|Progress below continues/);
   assert.match(body, /restarted|launch.*accepted/i);
-  assert.match(body, /pending|not yet confirmed/i);
+  // Issue #3435: the comment states the real state and is edited if the attempt fails.
+  assert.match(body, /If this attempt fails too, its outcome is added to this comment/);
 });
 
 test('in-process recovery posts the eventual failure and logs the entire attempt', { timeout: 10000 }, async () => {

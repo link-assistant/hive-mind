@@ -52,6 +52,8 @@ export { killDockerContainer };
 export { copyFromDockerContainer } from './isolation-runner.docker-cp.lib.mjs'; // Issue #2888
 import { checkDockerDiskSpace } from './docker-disk-space.lib.mjs';
 export { checkDockerDiskSpace, parseDfAvailableKb } from './docker-disk-space.lib.mjs'; // Issue #3469
+import { checkDockerLiveRestore, preflightLiveRestore } from './docker-live-restore.lib.mjs'; // Issue #2900
+export { detectDockerDaemonRestart } from './docker-daemon-restart.lib.mjs'; // Issue #2892: runner default for resolveOomKilledState
 // Issue #2189: `$ --resume` / `$ --resume-all`, added in start-command 0.33.0
 // (link-foundation/start#162). Re-exported so callers keep reaching every
 // isolation verb through this module.
@@ -78,6 +80,7 @@ const DOCKER_ISOLATION_LOW_DISK_GIB = 40;
 const DOCKER_START_GATE_WAIT_TENTHS = 300;
 import { shellQuote, buildShellCommand } from './shell-command.lib.mjs';
 import { TASK_SESSION_ID_ENV, buildSessionIdentityArgs, ownsTaskSessionId } from './task-session-id.lib.mjs';
+import { buildTaskContainerLabelArgs } from './task-container-labels.lib.mjs'; // Issue #2917
 export { buildSessionIdentityArgs, ownsTaskSessionId };
 function normalizeTool(tool) {
   return String(tool || 'claude')
@@ -347,6 +350,8 @@ export async function buildDockerIsolationStartArgs(command, args = [], options 
   }
   const taskCommand = buildShellCommand(command, args);
   const failClosedStartGate = hasContainerResourceLimits(options.containerResourceLimits);
+  // Issue #2917: label the container (tool, command, URL, session, bot instance) so `docker ps` can count and attribute it after a bot restart; start-command >= 0.37.0 keeps the labels on resume.
+  startArgs.push(...buildTaskContainerLabelArgs({ tool, command, args, url: options.taskUrl || null, sessionId, env }));
   startArgs.push('--detached', ...buildSessionIdentityArgs(sessionId, options), '--', buildDockerStartGatedCommand(taskCommand, sessionId, { failClosed: failClosedStartGate }));
   return startArgs;
 }
@@ -447,6 +452,7 @@ async function logDockerIsolationPostLaunchDiagnostics(sessionId, env = process.
  * @param {string} [options.executionId] - start-command execution id when it differs from the session name (a recovery attempt, issue #3530)
  * @param {boolean} [options.appendAttempt] - Run as the next attempt of `executionId`, appending to its log (start#229)
  * @param {string} [options.tool] - AI tool selected for the task; used to scope Docker auth mounts
+ * @param {string} [options.taskUrl] - Issue #2917: the issue/PR URL for the container's `hive-mind.url` label (default: the first URL in `args`)
  * @param {boolean} [options.verbose] - Enable verbose logging
  * @param {{cpu?: string|null, memory?: string|null, disk?: string|null}} [options.containerResourceLimits] - Optional Docker CPU, RAM, and writable-layer limits
  * @returns {Promise<{success: boolean, sessionId: string, output: string, error?: string, warning?: string, containerFilesystemStartBytes?: number|null, containerResourceLimits?: object|null}>}
@@ -1131,10 +1137,11 @@ export async function checkDockerStorageDriver(verbose = false) {
  * @param {Function} [options.checkImagePresent] - Image-presence probe (injectable for tests)
  * @param {Function} [options.checkStorageDriver] - Storage-driver probe (injectable for tests)
  * @param {Function} [options.checkDiskSpace] - Disk-space probe (injectable for tests)
- * @returns {Promise<{image: string, sock: string, socketMounted: boolean, imagePresent: boolean, isDind: boolean, storageDriver: (string|null), storageDriverOk: boolean, diskAvailableGiB: (number|null), ok: boolean, warnings: string[]}>}
+ * @param {Function} [options.checkLiveRestore] - Issue #2900: `LiveRestoreEnabled` probe (injectable for tests)
+ * @returns {Promise<{image: string, sock: string, socketMounted: boolean, imagePresent: boolean, isDind: boolean, storageDriver: (string|null), storageDriverOk: boolean, diskAvailableGiB: (number|null), liveRestore: (boolean|null), hostLiveRestore: (boolean|null), ok: boolean, warnings: string[]}>}
  */
 export async function preflightDockerIsolation(options = {}) {
-  const { env = process.env, existsSync: exists = pathExists, verbose = false, logger = console, checkImagePresent = checkDockerImagePresent, checkStorageDriver = checkDockerStorageDriver, checkDiskSpace = checkDockerDiskSpace } = options;
+  const { env = process.env, existsSync: exists = pathExists, verbose = false, logger = console, checkImagePresent = checkDockerImagePresent, checkStorageDriver = checkDockerStorageDriver, checkDiskSpace = checkDockerDiskSpace, checkLiveRestore = checkDockerLiveRestore } = options;
   const image = getDockerIsolationImage({ env });
   const sock = resolveHostDockerSock({ env });
   const isDind = shouldRunPrivilegedDockerIsolation(image, env);
@@ -1146,7 +1153,8 @@ export async function preflightDockerIsolation(options = {}) {
   // Unknown driver (probe returned null) is treated as ok — we only flag the
   // one driver known to overflow the disk, never block on missing information.
   const storageDriverOk = storageDriver !== 'vfs';
-  const result = { image, sock, socketMounted, imagePresent, isDind, storageDriver, storageDriverOk, diskAvailableGiB, ok: imagePresent, warnings: [] };
+  const live = await preflightLiveRestore({ checkLiveRestore, isDind, socketMounted, sock, verbose }); // Issue #2900: warn-only, never blocks
+  const result = { image, sock, socketMounted, imagePresent, isDind, storageDriver, storageDriverOk, diskAvailableGiB, liveRestore: live.liveRestore, hostLiveRestore: live.hostLiveRestore, ok: imagePresent, warnings: [...live.warnings] };
   const info = typeof logger.log === 'function' ? logger.log.bind(logger) : () => {};
   const warn = typeof logger.warn === 'function' ? logger.warn.bind(logger) : info;
   const preload = `node scripts/preload-dind-isolation-image.mjs --image ${image}`;

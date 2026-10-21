@@ -124,6 +124,10 @@ PERSISTABLE_FIELDS.push('killRecoverySnapshotImages', 'killRecoveryContainerName
 // Issue #3530: the one kill comment, so a restart edits it instead of posting
 // another. Issue #3533: the host reboot that ended the session.
 PERSISTABLE_FIELDS.push('containerName', 'rootContainerName', 'containerNameHistory', 'killNotice', 'hostReboot');
+PERSISTABLE_FIELDS.push('dockerDaemonRestart'); // Issue #2892
+// Issue #2809: the OOM kill count and the once-only survived-OOM report;
+// issue #3435: the once-only outcome line a recovery adds to its kill notice.
+PERSISTABLE_FIELDS.push('oomEventCount', 'oomEventCgroupKills', 'oomEventReportedAt', 'killRecoveryOutcomeReportedAt');
 
 /**
  * Resolve the directory durable bot state is written to. Honors

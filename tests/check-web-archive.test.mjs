@@ -22,7 +22,7 @@ import { spawnSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { extractBrokenLinks, extractBrokenUrls, extractErrorsSection } from '../scripts/check-web-archive.mjs';
+import { checkWaybackMachine, extractBrokenLinks, extractBrokenUrls, extractErrorsSection } from '../scripts/check-web-archive.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const report = readFileSync(join(here, 'fixtures', 'lychee-report.md'), 'utf-8');
@@ -132,5 +132,50 @@ describe('check-web-archive.mjs end to end', () => {
     assert.equal(result.status, 1, result.stdout + result.stderr);
     assert.match(readFileSync(outputPath, 'utf-8'), /all_archived=false/);
     rmSync(workDir, { recursive: true, force: true });
+  });
+});
+
+describe('checkWaybackMachine', () => {
+  const quiet = fn => async () => {
+    const warn = console.warn;
+    console.warn = () => {};
+    try {
+      await fn();
+    } finally {
+      console.warn = warn;
+    }
+  };
+  const snapshot = { archived_snapshots: { closest: { available: true, url: 'http://web.archive.org/web/2026/https://e.org/', timestamp: '20260101000000' } } };
+
+  it(
+    'a lookup that never answers is "not checked", not "no snapshot" (run 39615114233)',
+    quiet(async () => {
+      let calls = 0;
+      const hang = (_url, { signal }) => {
+        calls++;
+        return new Promise((_resolve, reject) => signal.addEventListener('abort', () => reject(new Error('This operation was aborted'))));
+      };
+      const result = await checkWaybackMachine('https://e.org/', { fetchImpl: hang, timeoutMs: 20 });
+      assert.equal(result.available, false);
+      assert.equal(calls, 2, 'retried once');
+      assert.match(result.error, /no answer within/);
+    })
+  );
+
+  it(
+    'a 5xx is reported as an error; a retry that answers wins',
+    quiet(async () => {
+      const answers = [
+        { ok: false, status: 503 },
+        { ok: true, json: async () => snapshot },
+      ];
+      const result = await checkWaybackMachine('https://e.org/', { fetchImpl: async () => answers.shift(), timeoutMs: 1000 });
+      assert.deepEqual(result, { available: true, archiveUrl: 'https://web.archive.org/web/2026/https://e.org/', timestamp: '20260101000000' });
+    })
+  );
+
+  it('an answer without a snapshot is "no snapshot", with no error', async () => {
+    const result = await checkWaybackMachine('https://e.org/', { fetchImpl: async () => ({ ok: true, json: async () => ({ archived_snapshots: {} }) }) });
+    assert.deepEqual(result, { available: false, archiveUrl: null, timestamp: null });
   });
 });

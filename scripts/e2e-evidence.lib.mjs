@@ -41,9 +41,14 @@ export function keepTail(previous, chunk, limit = MEMORY_LIMIT_BYTES) {
   return joined.length > limit ? joined.slice(-limit) : joined;
 }
 
-/** Values of these variables never appear in an argv record. */
-const SECRET_ARG = /^(--?(token|api-key|password|secret)[=]?)(.*)$/i;
-export const redactArgv = argv => (argv || []).map(arg => String(arg).replace(SECRET_ARG, (match, flag, value) => (value ? `${flag}[REDACTED]` : match)));
+/** Values of these flags never appear in an argv record, inline or as the next argument. */
+const SECRET_FLAG = /^(--?(?:token|api-key|password|secret))(=.*)?$/i;
+export const redactArgv = argv =>
+  (argv || []).map((arg, index, all) => {
+    const match = String(arg).match(SECRET_FLAG);
+    if (match) return match[2] ? `${match[1]}=[REDACTED]` : String(arg);
+    return index > 0 && SECRET_FLAG.test(String(all[index - 1])) && !String(all[index - 1]).includes('=') ? '[REDACTED]' : String(arg);
+  });
 
 const sha256 = buffer => createHash('sha256').update(buffer).digest('hex');
 

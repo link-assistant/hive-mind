@@ -34,6 +34,18 @@ export function ledgerScopeKey({ scope, pullRequest = null, sourceSha = null, ru
   return `run-${runId}`;
 }
 
+/**
+ * The scope of a run: an explicit pull request call, a main completion, a
+ * schedule or a dispatch. A called workflow sees the caller's event, so the
+ * pull request scope is an explicit input.
+ */
+export function resolveScope({ env, event }) {
+  if (env.E2E_SCOPE === 'pull-request') return { scope: 'pull-request', pullRequest: Number(env.E2E_PULL_REQUEST) || null, sourceSha: env.E2E_SOURCE_SHA || null };
+  if (env.GITHUB_EVENT_NAME === 'workflow_run') return { scope: 'main', pullRequest: null, sourceSha: event.workflow_run?.head_sha || null };
+  if (env.GITHUB_EVENT_NAME === 'schedule') return { scope: 'schedule', pullRequest: null, sourceSha: env.GITHUB_SHA || null };
+  return { scope: 'dispatch', pullRequest: null, sourceSha: env.GITHUB_SHA || null };
+}
+
 export const ledgerArtifactName = ({ scopeKey, tool, model, runAttempt }) => `e2e-ledger-${scopeKey}-${tool}-${model}-a${runAttempt}`;
 
 /** The identity of the run that produced a piece of evidence. */

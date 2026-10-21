@@ -1296,6 +1296,49 @@ jobs:
             3. The automated release workflow commits the version bump to main, publishes to npm and creates a GitHub release
   # GitHub classifies timeout-minutes as cancellation. Observe every job so a
   # timed-out main run cannot finish without a failing status.
+  # Issue #3630: the real GitHub E2E of the three Formal AI clients runs only
+  # after every other check of the pull request passed, because it creates
+  # real task issues and pull requests. A row that already passed for this pull
+  # request and Formal AI version is reused, a failed row is retried at most
+  # three times per commit, and every task is closed with its outcome. Fork
+  # pull requests have no write token, so they are not gated here; main runs
+  # the full matrix once per merged source after this workflow completes.
+  real-e2e:
+    name: Real E2E (three clients)
+    needs:
+      - detect-changes
+      - version-check
+      - changeset-check
+      - test-compilation
+      - lint
+      - check-file-line-limits
+      - test-suites
+      - test-execution
+      - memory-check-linux
+      - validate-docs
+      - docker-pr-check
+      - helm-pr-check
+      - release-preflight
+    if: |
+      !cancelled() &&
+      !contains(needs.*.result, 'failure') &&
+      !contains(needs.*.result, 'cancelled') &&
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true' || needs.detect-changes.outputs.docker-changed == 'true')
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      actions: read
+    uses: ./.github/workflows/e2e-hello-world-matrix.yml
+    with:
+      scope: pull-request
+      pull_request: ${{ github.event.pull_request.number }}
+      source_sha: ${{ github.event.pull_request.head.sha }}
+    secrets:
+      AUTOMATION_APP_PRIVATE_KEY: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
+      AUTOMATION_TOKEN: ${{ secrets.AUTOMATION_TOKEN }}
   pipeline-status:
     name: Pipeline Status
     runs-on: ubuntu-24.04
@@ -1331,6 +1374,7 @@ jobs:
       - docker-publish-dind-instant-merge
       - helm-release-instant
       - changeset-pr
+      - real-e2e
     steps:
       - uses: actions/checkout@v7
       - name: Setup Node.js

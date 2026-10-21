@@ -248,3 +248,17 @@ export function buildAddSubIssueApiArgs({ parentIssue, subIssueId, replaceParent
 export function buildParentIssueApiArgs(issue) {
   return ['api', `repos/${issue.owner}/${issue.repo}/issues/${issue.number}/parent`, '-H', 'Accept: application/vnd.github+json', '-H', `X-GitHub-Api-Version: ${GITHUB_SUB_ISSUES_API_VERSION}`];
 }
+
+/**
+ * Build the `gh api` arguments that list the sub-issues of an issue, every page
+ * in one JSON array of pages
+ * (https://docs.github.com/en/rest/issues/sub-issues#list-sub-issues).
+ *
+ * Issue #3684: a repeated run attaches only the issues that are not attached yet.
+ *
+ * @param {{owner: string, repo: string, number: number}} issue
+ * @returns {string[]}
+ */
+export function buildListSubIssuesApiArgs(issue) {
+  return ['api', `repos/${issue.owner}/${issue.repo}/issues/${issue.number}/sub_issues?per_page=100`, '--paginate', '--slurp', '-H', 'Accept: application/vnd.github+json', '-H', `X-GitHub-Api-Version: ${GITHUB_SUB_ISSUES_API_VERSION}`];
+}

@@ -1,4 +1,9 @@
 # Every row uses an isolated orphan branch, even with the default GitHub token.
+# Issue #3630: every task issue carries custody of the run attempt that owns
+# it, and the row finalizes it (outcome comment, closed issue and pull request)
+# on success, failure and cancellation. `prepare` plans the rows from a ledger:
+# a pull request reuses a recorded pass, retries a failed row at most three
+# times per commit, and a merge executes once for its own source.
 name: E2E Hello World Matrix
 
 on:
@@ -17,6 +22,31 @@ on:
         description: Optional existing task (owned resources are never cleaned up)
         type: string
         default: ''
+  # The pull request gate of "Checks and release" calls this after every other
+  # check passed (issue #3630). A called workflow sees the caller's event, so
+  # the scope, pull request and tested source are explicit inputs.
+  workflow_call:
+    inputs:
+      scope:
+        type: string
+        required: true
+      pull_request:
+        type: number
+        required: true
+      source_sha:
+        type: string
+        required: true
+    secrets:
+      AUTOMATION_APP_PRIVATE_KEY:
+        required: false
+      AUTOMATION_TOKEN:
+        required: false
+      ANTHROPIC_API_KEY:
+        required: false
+      CLAUDE_CODE_OAUTH_TOKEN:
+        required: false
+      OPENAI_API_KEY:
+        required: false
   workflow_run: # zizmor: ignore[dangerous-triggers] Only successful trusted main completions are admitted by prepare.
     workflows: ['Checks and release']
     types: [completed]
@@ -27,8 +57,19 @@ on:
 permissions:
   contents: read
 
+# Repeated events for one pull request or one main source queue instead of
+# creating a second set of tasks; the queued run then reuses the recorded pass.
+concurrency:
+  group: e2e-hello-world-${{ inputs.scope || github.event_name }}-${{ inputs.pull_request || github.event.workflow_run.head_sha || github.run_id }}
+  cancel-in-progress: false
+
 jobs:
   prepare:
+    # Issue #3630: `branches: [main]` also matches a fork's branch named main,
+    # so a completion is admitted only for a push to this repository's main,
+    # before anything is checked out. e2e-matrix-schedule.mjs explains
+    # a failed completion.
+    if: github.event_name != 'workflow_run' || (github.event.workflow_run.event == 'push' && github.event.workflow_run.head_repository.full_name == github.repository && github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -37,10 +78,17 @@ jobs:
     outputs:
       should_run: ${{ steps.prepare.outputs.should_run }}
       formal_ai_tag: ${{ steps.prepare.outputs.formal_ai_tag }}
+      plan: ${{ steps.plan.outputs.plan }}
+      scope: ${{ steps.plan.outputs.scope }}
+      scope_key: ${{ steps.plan.outputs.scope_key }}
+      source_sha: ${{ steps.plan.outputs.source_sha }}
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+          # The planning scripts come from the default branch for a completion;
+          # the merged source is taken from the event and checked out by the rows.
+          ref: ${{ inputs.source_sha || github.sha }}
       - uses: actions/setup-node@v7
         with:
           node-version: 24.x
@@ -54,11 +102,22 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           E2E_METADATA_DIR: ${{ runner.temp }}/e2e-metadata
         run: node scripts/e2e-matrix-schedule.mjs
+      - name: Plan the rows from the ledger of this pull request or source
+        id: plan
+        if: steps.prepare.outputs.should_run == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          E2E_SCOPE: ${{ inputs.scope }}
+          E2E_PULL_REQUEST: ${{ inputs.pull_request }}
+          E2E_SOURCE_SHA: ${{ inputs.source_sha }}
+          E2E_FORMAL_AI_TAG: ${{ steps.prepare.outputs.formal_ai_tag }}
+        run: node scripts/e2e-plan.mjs
       - uses: actions/upload-artifact@v7
         with:
           name: e2e-matrix-metadata
           path: ${{ runner.temp }}/e2e-metadata
           retention-days: 90
+          overwrite: true
 
   hello-world:
     name: ${{ matrix.tool }} / ${{ matrix.model }}
@@ -88,14 +147,29 @@ jobs:
         uses: actions/checkout@v7
         with:
           persist-credentials: false
+          ref: ${{ needs.prepare.outputs.source_sha || github.sha }}
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
           node-version: 24.x
       - name: Install automation dependencies
         run: npm ci --omit=dev --ignore-scripts
+      - name: Run, reuse or skip this row
+        id: plan
+        env:
+          E2E_PLAN: ${{ needs.prepare.outputs.plan }}
+          E2E_TOOL: ${{ matrix.tool }}
+          E2E_MODEL: ${{ matrix.model }}
+          E2E_SCOPE: ${{ needs.prepare.outputs.scope }}
+          E2E_SCOPE_KEY: ${{ needs.prepare.outputs.scope_key }}
+          E2E_SOURCE_SHA: ${{ needs.prepare.outputs.source_sha }}
+          E2E_PULL_REQUEST: ${{ inputs.pull_request }}
+          E2E_FORMAL_AI_TAG: ${{ needs.prepare.outputs.formal_ai_tag }}
+          E2E_LEDGER_DIR: ${{ runner.temp }}/e2e-ledger
+        run: node scripts/e2e-plan.mjs row
       - name: Resolve GitHub credentials
         id: gh
+        if: steps.plan.outputs.action == 'run'
         uses: ./.github/actions/resolve-github-token # https://github.com/link-foundation/.github/issues/1
         with:
           app-id: ${{ vars.AUTOMATION_APP_ID }}
@@ -104,9 +178,10 @@ jobs:
           default-token: ${{ github.token }}
           repository-operations: ${{ inputs.isolation == 'repository' }}
       - name: Free disk space for the task image and act
+        if: steps.plan.outputs.action == 'run'
         run: node scripts/free-disk-space.mjs
       - name: Install act for generated workflows that require approval
-        if: steps.gh.outputs.layer == 'default'
+        if: steps.plan.outputs.action == 'run' && steps.gh.outputs.layer == 'default'
         env:
           GH_TOKEN: ${{ steps.gh.outputs.token }}
           ACT_VERSION: v0.2.89
@@ -119,6 +194,7 @@ jobs:
           tar -xzf "$ACT_DIR/act_Linux_x86_64.tar.gz" -C "$ACT_DIR" act
           echo "$ACT_DIR" >> "$GITHUB_PATH"
       - name: Build the task overlay for the shipped Formal AI version
+        if: steps.plan.outputs.action == 'run'
         env:
           FORMAL_AI_VERSION: ${{ needs.prepare.outputs.formal_ai_tag }}
           E2E_IMAGE_OVERRIDE: ${{ vars.E2E_IMAGE }}
@@ -130,6 +206,7 @@ jobs:
             docker build -f Dockerfile.e2e -t hive-e2e:candidate . 2>&1 | tee "$E2E_LOG_DIR/candidate-build.log"
           fi
       - name: Run and verify
+        if: steps.plan.outputs.action == 'run'
         env:
           E2E_TOOL: ${{ matrix.tool }}
           E2E_MODEL: ${{ matrix.model }}
@@ -139,6 +216,10 @@ jobs:
           E2E_IMAGE: ${{ vars.E2E_IMAGE || 'hive-e2e:candidate' }}
           E2E_FORMAL_AI_TAG: ${{ needs.prepare.outputs.formal_ai_tag }}
           E2E_LOG_DIR: ${{ runner.temp }}/e2e-hello-world-logs
+          E2E_SCOPE: ${{ needs.prepare.outputs.scope }}
+          E2E_SOURCE_SHA: ${{ needs.prepare.outputs.source_sha }}
+          # The finalize step below closes the task after the evidence upload.
+          E2E_DEFER_FINALIZE: 'true'
           GH_TOKEN: ${{ steps.gh.outputs.token }}
           AUTOMATION_LAYER: ${{ steps.gh.outputs.layer }}
           AUTOMATION_CAN_CREATE_REPOSITORIES: ${{ steps.gh.outputs.can-create-repositories }}
@@ -149,12 +230,40 @@ jobs:
         run: |
           set -- --tool "$E2E_TOOL" --model "$E2E_MODEL" --isolation "$E2E_ISOLATION"
           if [ -n "$E2E_ISSUE_URL" ]; then set -- "$@" --issue "$E2E_ISSUE_URL"; fi
-          node scripts/e2e-hello-world.mjs "$@"
+          # exec: a cancelled job's signal reaches the runner, which records `cancelled`.
+          exec node scripts/e2e-hello-world.mjs "$@"
+      # Every attempt keeps its own evidence, including failed and cancelled ones.
       - name: Upload links, approval evidence, assertions and logs
-        if: ${{ !cancelled() }}
+        if: always() && steps.plan.outputs.action == 'run'
         uses: actions/upload-artifact@v7
         with:
-          name: e2e-hello-world-${{ matrix.tool }}-${{ matrix.model }}
+          name: e2e-hello-world-${{ matrix.tool }}-${{ matrix.model }}-a${{ github.run_attempt }}
           path: ${{ runner.temp }}/e2e-hello-world-logs
           if-no-files-found: warn
           retention-days: 30
+      - name: Finalize the task with its outcome
+        if: always() && steps.plan.outputs.action == 'run'
+        env:
+          E2E_TOOL: ${{ matrix.tool }}
+          E2E_MODEL: ${{ matrix.model }}
+          E2E_JOB_STATUS: ${{ job.status }}
+          E2E_KEEP: ${{ inputs.keep || false }}
+          E2E_SCOPE: ${{ needs.prepare.outputs.scope }}
+          E2E_SCOPE_KEY: ${{ needs.prepare.outputs.scope_key }}
+          E2E_SOURCE_SHA: ${{ needs.prepare.outputs.source_sha }}
+          E2E_PULL_REQUEST: ${{ inputs.pull_request }}
+          E2E_ATTEMPT: ${{ steps.plan.outputs.attempt }}
+          E2E_FORMAL_AI_TAG: ${{ needs.prepare.outputs.formal_ai_tag }}
+          E2E_EVIDENCE_ARTIFACT: e2e-hello-world-${{ matrix.tool }}-${{ matrix.model }}-a${{ github.run_attempt }}
+          E2E_LOG_DIR: ${{ runner.temp }}/e2e-hello-world-logs
+          E2E_LEDGER_DIR: ${{ runner.temp }}/e2e-ledger
+          GH_TOKEN: ${{ steps.gh.outputs.token || github.token }}
+        run: node scripts/e2e-finalize.mjs
+      - name: Record this row in the ledger
+        if: always() && (steps.plan.outputs.action == 'run' || steps.plan.outputs.action == 'reuse')
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-ledger-${{ needs.prepare.outputs.scope_key }}-${{ matrix.tool }}-${{ matrix.model }}-a${{ github.run_attempt }}
+          path: ${{ runner.temp }}/e2e-ledger
+          if-no-files-found: warn
+          retention-days: 90

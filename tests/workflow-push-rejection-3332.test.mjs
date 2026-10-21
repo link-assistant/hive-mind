@@ -72,6 +72,6 @@ test('verifyResults and the e2e harness share the detector', () => {
   assert.match(results, /await reportWorkflowPushRejection\(\{ owner, repo, prNumber: pr\.number, logText, \$, log \}\)/);
   const harness = fs.readFileSync(path.join(repositoryRoot, 'scripts', 'e2e-matrix-harness.lib.mjs'), 'utf8');
   assert.match(harness, /import \{ detectWorkflowPushRejection \} from '\.\.\/src\/workflow-push-rejection\.lib\.mjs'/);
-  const e2e = fs.readFileSync(path.join(repositoryRoot, 'scripts', 'e2e-hello-world.mjs'), 'utf8');
+  const e2e = fs.readFileSync(path.join(repositoryRoot, 'scripts', 'e2e-row.lib.mjs'), 'utf8');
   assert.match(e2e, /detectWorkflowPushRejection\(solveLog, \{ files: pullRequest \? files : null \}\)/);
 });

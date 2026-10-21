@@ -27,10 +27,13 @@ const sources = compareFormalAiSources({
 });
 for (const warning of sources.warnings) console.log(`::warning title=${warning.title}::${warning.message}`);
 const upstream = event.workflow_run;
-let shouldRun = process.env.GITHUB_EVENT_NAME !== 'workflow_run' || (upstream?.conclusion === 'success' && upstream?.head_branch === 'main');
+// Issue #3630: `branches: [main]` matches a fork's branch named main too; only
+// a push to this repository's main is a merged source.
+const trustedUpstream = upstream?.event === 'push' && upstream?.head_repository?.full_name === repository && upstream?.head_branch === 'main';
+let shouldRun = process.env.GITHUB_EVENT_NAME !== 'workflow_run' || (upstream?.conclusion === 'success' && trustedUpstream);
 // Issue #2923: run 37992515531 skipped after a failed release but only said
 // "last successful matrix not recorded", which reads like a scheduler defect.
-let reason = upstream ? `${upstream.name} run ${upstream.id} concluded ${upstream.conclusion} on ${upstream.head_branch}` : `${process.env.GITHUB_EVENT_NAME || 'manual'} event`;
+let reason = upstream ? `${upstream.name} run ${upstream.id} concluded ${upstream.conclusion} on ${upstream.head_branch}${trustedUpstream ? '' : ` (${upstream.event} from ${upstream.head_repository?.full_name}, not a push to ${repository})`}` : `${process.env.GITHUB_EVENT_NAME || 'manual'} event`;
 let previousTag = null;
 if (process.env.GITHUB_EVENT_NAME === 'schedule') {
   const runs = await ghJson(['run', 'list', '--repo', repository, '--workflow', 'e2e-hello-world-matrix.yml', '--status', 'success', '--branch', 'main', '--limit', '20', '--json', 'databaseId']);

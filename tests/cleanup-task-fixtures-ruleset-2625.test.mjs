@@ -42,6 +42,8 @@ const scenario = ({ rules, bypass = 'never', deleteError = null, rulesError = nu
         return rules;
       }
       if (endpoint.endsWith('/rulesets/21204104')) return { current_user_can_bypass: bypass };
+      // Issue #3630: the owning run is over, so its task issue may be finalized.
+      if (endpoint.includes('/actions/runs/')) return { status: 'completed', conclusion: 'success', run_attempt: 1 };
       if (options.method === 'DELETE' && deleteError) throw new Error(deleteError);
       return {};
     },
@@ -76,7 +78,7 @@ test('a rule that cannot be detected beforehand is still classified from the DEL
 
 test('an unreadable rules API falls back to attempting the DELETE', async () => {
   const { result, calls } = await scenario({ rules: null, rulesError: 'HTTP 403: Resource not accessible by integration' });
-  assert.deepEqual(result, { owned: result.owned, errors: [], retainedBranches: [] });
+  assert.deepEqual(result, { owned: result.owned, errors: [], retainedBranches: [], finalized: result.finalized, preserved: [] });
   assert.equal(calls.filter(call => call.method === 'DELETE').length, 3);
 });
 

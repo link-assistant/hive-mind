@@ -1294,6 +1294,27 @@ jobs:
             1. Review the changeset in this PR
             2. Merge this PR to main
             3. The automated release workflow commits the version bump to main, publishes to npm and creates a GitHub release
+  # Issue #3630: real GitHub E2E of the three Formal AI clients, only after every
+  # other check passed. Passed rows are reused, failed rows retried with a bound,
+  # every task closed with its outcome. Forks have no write token; main runs the
+  # matrix once per merged source after this workflow completes.
+  real-e2e:
+    name: Real E2E (three clients)
+    needs: [detect-changes, version-check, changeset-check, test-compilation, lint, check-file-line-limits, test-suites, test-execution, memory-check-linux, validate-docs, docker-pr-check, helm-pr-check, release-preflight]
+    if: ${{ !cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true' || needs.detect-changes.outputs.docker-changed == 'true') }}
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      actions: read
+    uses: ./.github/workflows/e2e-hello-world-matrix.yml
+    with:
+      scope: pull-request
+      pull_request: ${{ github.event.pull_request.number }}
+      source_sha: ${{ github.event.pull_request.head.sha }}
+    secrets:
+      AUTOMATION_APP_PRIVATE_KEY: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
+      AUTOMATION_TOKEN: ${{ secrets.AUTOMATION_TOKEN }}
   # GitHub classifies timeout-minutes as cancellation. Observe every job so a
   # timed-out main run cannot finish without a failing status.
   pipeline-status:
@@ -1304,33 +1325,7 @@ jobs:
       group: check-${{ github.workflow }}-${{ github.ref }}-pipeline-status
       cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
     if: always()
-    needs:
-      - detect-changes
-      - version-check
-      - changeset-check
-      - test-compilation
-      - lint
-      - check-file-line-limits
-      - test-suites
-      - test-execution
-      - memory-check-linux
-      - validate-docs
-      - docker-pr-check
-      - helm-pr-check
-      - release-preflight
-      - release
-      - docker-publish
-      - docker-publish-merge
-      - docker-publish-dind
-      - docker-publish-dind-merge
-      - helm-release
-      - instant-release
-      - docker-publish-instant
-      - docker-publish-instant-merge
-      - docker-publish-dind-instant
-      - docker-publish-dind-instant-merge
-      - helm-release-instant
-      - changeset-pr
+    needs: [detect-changes, version-check, changeset-check, test-compilation, lint, check-file-line-limits, test-suites, test-execution, memory-check-linux, validate-docs, docker-pr-check, helm-pr-check, release-preflight, release, docker-publish, docker-publish-merge, docker-publish-dind, docker-publish-dind-merge, helm-release, instant-release, docker-publish-instant, docker-publish-instant-merge, docker-publish-dind-instant, docker-publish-dind-instant-merge, helm-release-instant, changeset-pr, real-e2e]
     steps:
       - uses: actions/checkout@v7
       - name: Setup Node.js

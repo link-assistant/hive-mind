@@ -200,7 +200,7 @@ test('CLI: --skip-issue-labels and --include-bot-issues reach the selection', as
 
 test('solve.mjs and the Telegram preflight pass the selection options', async () => {
   const solveSource = await readFile(new URL('../src/solve.mjs', import.meta.url), 'utf8');
-  assert.match(solveSource, /resolveRepositoryModeTarget\(\{ url: issueUrl, log, selection: repositoryModeSelectionFromArgv\(argv\) \}\)/);
+  assert.match(solveSource, /resolveRepositoryModeTarget\(\{ url: issueUrl, log, selection: repositoryModeSelectionFromArgv\(argv\)[,} ]/);
   const botSource = await readFile(new URL('../src/telegram-bot.mjs', import.meta.url), 'utf8');
   assert.match(botSource, /preflightRepositoryTarget\(\{[^}]*selection: repositoryModeSelectionFromArgv\(parsedSolveArgs\)/);
 });

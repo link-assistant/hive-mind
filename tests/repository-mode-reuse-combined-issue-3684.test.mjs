@@ -278,3 +278,19 @@ test('the sub-issue listing reads every page', () => {
   assert.ok(args.includes('--slurp'));
   assert.match(args[1], /repos\/link-foundation\/browser-commander\/issues\/181\/sub_issues/);
 });
+
+test('--verbose traces the reuse decision of a --resume replay', async () => {
+  const gh = fakeGitHub([openIssue(179), openIssue(180), openIssue(181)]);
+  gh.parentOf.set(179, 181);
+  gh.parentOf.set(180, 181);
+  const messages = [];
+  await resolve(gh, { log: async message => messages.push(message), verbose: true, resumeId: 'd85c9a23-5c61-45c3-b1e1-7d099f9ef893' });
+  assert.ok(messages.some(message => message.includes('replayed with --resume d85c9a23-5c61-45c3-b1e1-7d099f9ef893') && message.includes('#181 (requires #179, #180)')));
+  assert.ok(messages.some(message => message.includes('decision: reuse #181 (covers every issue)')));
+  const quiet = [];
+  await resolve(gh, { log: async message => quiet.push(message) });
+  assert.equal(
+    quiet.some(message => message.includes('[VERBOSE]')),
+    false
+  );
+});

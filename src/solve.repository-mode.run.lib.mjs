@@ -132,7 +132,8 @@ export async function prepareRepositoryModeIssue({ repository, limit = MAX_SUB_I
   // the repository, so they are counted, but they are never requested.
   const totalOpen = eligibleOpen + excluded.length;
   // Issue #3684: the open combined issue of an earlier run, if any, is reused.
-  const reuse = selectReusableRepositoryModeIssue({ candidates: findRepositoryModeIssues(entries), issues: allIssues });
+  const combinedIssues = findRepositoryModeIssues(entries);
+  const reuse = selectReusableRepositoryModeIssue({ candidates: combinedIssues, issues: allIssues });
   // The reused combined issue does not list itself as an issue left out.
   const excludedIssues = reuse ? excluded.filter(issue => issue.number !== reuse.issue.number) : excluded;
 
@@ -149,6 +150,7 @@ export async function prepareRepositoryModeIssue({ repository, limit = MAX_SUB_I
     // on — unless a combined issue already requires it (issue #3684).
     singleIssue: reuse ? null : selectSingleIssueTarget({ repository, issues: allIssues }),
     reuse,
+    combinedIssues,
     title: buildCombinedIssueTitle({ owner: repository.owner, repo: repository.repo, count: allIssues.length, totalOpen: eligibleOpen }),
     body: buildCombinedIssueBody({ repository, issues: allIssues, totalOpen: totalOpen - (excluded.length - excludedIssues.length), limit, attachmentCount: selected.length, excludedIssues }),
   };
@@ -404,7 +406,7 @@ export async function reuseRepositoryModeIssue({ repository, prepared, run = run
  * @param {{skipLabels?: string[], includeBotIssues?: boolean}} [params.selection] - forwarded to {@link prepareRepositoryModeIssue}
  * @returns {Promise<{handled: boolean, issueUrl?: string, issue?: object, prepared?: object, argvOverrides?: object, noWork?: boolean, singleIssue?: boolean, reused?: boolean, message?: string, error?: string}>}
  */
-export async function resolveRepositoryModeTarget({ url, log = null, run = runCommand, limit = MAX_SUB_ISSUES_PER_PARENT, dryRun = false, attachOptions = {}, selection = {} }) {
+export async function resolveRepositoryModeTarget({ url, log = null, run = runCommand, limit = MAX_SUB_ISSUES_PER_PARENT, dryRun = false, attachOptions = {}, selection = {}, verbose = false, resumeId = null }) {
   const repository = parseRepositoryModeUrl(url);
   if (!repository) return { handled: false };
 
@@ -428,6 +430,14 @@ export async function resolveRepositoryModeTarget({ url, log = null, run = runCo
   if (prepared.excluded.length > 0) {
     await emit(`   Skipping ${prepared.excluded.length} open issue(s) that are not work (use --include-bot-issues or --skip-issue-labels to change this):`);
     for (const issue of prepared.excluded) await emit(`     #${issue.number} ${issue.title} — ${issue.reason}`);
+  }
+
+  // Issue #3684: trace the reuse decision, so a repeated run (a kill recovery
+  // replays the repository URL with --resume) shows why it reused or created.
+  if (verbose) {
+    const describe = issue => `#${issue.number} (requires ${issue.requiredNumbers.map(number => `#${number}`).join(', ') || 'nothing'})`;
+    await emit(`   [VERBOSE] repository mode: ${resumeId ? `replayed with --resume ${resumeId}` : 'not a --resume replay'}; open combined issues of earlier runs: ${prepared.combinedIssues?.length ? prepared.combinedIssues.map(describe).join(', ') : 'none'}`);
+    await emit(`   [VERBOSE] repository mode: work #${prepared.allIssues.map(issue => issue.number).join(', #') || '-'}; decision: ${prepared.reuse ? `reuse #${prepared.reuse.issue.number} (${prepared.reuse.covers ? 'covers every issue' : `missing #${prepared.reuse.missing.join(', #')}`})` : prepared.singleIssue ? `solve #${prepared.singleIssue.number} directly` : 'create a combined issue'}`);
   }
 
   // Issue #3108: a combined issue around a single issue would only duplicate

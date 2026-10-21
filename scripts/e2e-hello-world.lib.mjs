@@ -95,6 +95,14 @@ const WORKFLOW_FILE = /^\.github\/workflows\/[^/]+\.ya?ml$/;
  */
 const PLACEHOLDER_FILES = new Set(['CLAUDE.md', 'AGENTS.md', '.gitkeep', 'HANDOFF.md']);
 const ARTEFACT_FILE = /(^|\/)(target|build|bin|obj|out|node_modules|__pycache__)\/|\.(class|jar|o|obj|exe|out|pyc|so|dll|dylib)$/i;
+/**
+ * #3630: what solve commits about its own session, not the answer — the
+ * development log (`dev/log/issues/<n>/pulls/<pr>/…`, see
+ * buildDevelopmentLogDirectory) and Formal AI's self-authored evidence
+ * (`dev/log/self-authored/…`, FORMAL_AI_EVIDENCE_ROOT). Run 39505806192's
+ * codex row failed the shape check on these five files alone.
+ */
+const SOLVE_OWNED_FILE = /^dev\/log\/(issues\/\d+\/pulls\/[^/]+|self-authored)\//;
 
 /**
  * The shape of the diff: one workflow, at least one program file, and nothing
@@ -109,7 +117,7 @@ const ARTEFACT_FILE = /(^|\/)(target|build|bin|obj|out|node_modules|__pycache__)
  * @returns {{ok: boolean, reason: string}}
  */
 export function checkDiffShape(files, { workflowDir = '.github/workflows/' } = {}) {
-  const paths = (Array.isArray(files) ? files : []).map(String);
+  const paths = (Array.isArray(files) ? files : []).map(String).filter(path => !SOLVE_OWNED_FILE.test(path));
   const isWorkflow = path => WORKFLOW_FILE.test(path) || (path.startsWith(workflowDir) && /^[^/]+\.ya?ml$/.test(path.slice(workflowDir.length)));
   const workflows = paths.filter(isWorkflow);
   const placeholders = paths.filter(path => PLACEHOLDER_FILES.has(path.split('/').pop()));
@@ -135,19 +143,23 @@ export function checkDiffShape(files, { workflowDir = '.github/workflows/' } = {
  * @returns {boolean}
  */
 export function logPrintsHelloWorld(logText) {
-  return String(logText ?? '')
-    .split(/\r?\n/)
-    .map(line => {
-      try {
-        return JSON.parse(line).msg || line;
-      } catch {
-        return line;
-      }
-    })
-    .map(line => stripVTControlCharacters(line).replace(/^\[[^\]]+\]\s*\|\s?/, ''))
-    .map(line => line.split('\t').pop())
-    .map(line => line.replace(/^\uFEFF?\d{4}-\d{2}-\d{2}T[\d:.]+Z ?/, ''))
-    .some(line => line === HELLO_WORLD_OUTPUT);
+  return (
+    String(logText ?? '')
+      .split(/\r?\n/)
+      // act's JSON logger keeps the program's newline in `msg` ("Hello, World!\n",
+      // run 39505806192), so a message is split into its own lines.
+      .flatMap(line => {
+        try {
+          return String(JSON.parse(line).msg || line).split(/\r?\n/);
+        } catch {
+          return [line];
+        }
+      })
+      .map(line => stripVTControlCharacters(line).replace(/^\[[^\]]+\]\s*\|\s?/, ''))
+      .map(line => line.split('\t').pop())
+      .map(line => line.replace(/^\uFEFF?\d{4}-\d{2}-\d{2}T[\d:.]+Z ?/, ''))
+      .some(line => line === HELLO_WORLD_OUTPUT)
+  );
 }
 
 /**

@@ -11,6 +11,7 @@ The Telegram bot checks each container or session at most once every 5 s, so at 
 - The session monitor, `/top` and the interactive-mode pollers start the next tick only after the previous one has finished, and sidecar maintenance skips a tick while one is still running. One slow session no longer delays the monitor's checks of the other sessions.
 - Concurrent `/version` requests share one result for 30 s.
 - New lint rules `no-login-shell-probe` and `no-overlapping-interval` block new `sh -l -c` status probes and new async `setInterval` callbacks on bot paths.
-- `docs/case-studies/issue-3614` lists every polling mechanism in the bot. start-command's own 1 s per-task loop is reported upstream as link-foundation/start#238.
+- `docs/case-studies/issue-3614` lists every polling mechanism in the bot.
+- The images pin start-command 0.39.0. Its detached monitor checks each docker task every 5 s instead of every 1 s (link-foundation/start#238, reported from this issue), and its `$ --status` answers every docker probe with one `docker inspect`. `START_COMMAND_CGROUP_SAMPLE_INTERVAL_SECONDS` set where the bot runs changes that monitor's interval.
 
 Also brings the `@dotenvx/dotenvx` use-m pin up to 2.38.2, which the CI dependency-freshness gate reported as stale.

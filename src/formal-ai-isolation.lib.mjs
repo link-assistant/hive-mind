@@ -16,7 +16,9 @@
  * @see https://github.com/link-assistant/hive-mind/issues/2146
  */
 
-import { buildFormalAiSidecarProvenanceEnv } from './formal-ai-runtime.lib.mjs';
+import { buildFormalAiSidecarProvenanceEnv, FORMAL_AI_SIDECAR_WARNING_ENV } from './formal-ai-runtime.lib.mjs';
+
+export { FORMAL_AI_SIDECAR_WARNING_ENV };
 import { acquireFormalAiSidecar, attachTaskToFormalAiNetwork, isFormalAiSidecarEnabled, isFormalAiTask, releaseFormalAiSidecar } from './formal-ai-sidecar.lib.mjs';
 
 const logToConsole = message => console.log(message);
@@ -53,9 +55,20 @@ export const acquireFormalAiSidecarForTask = async ({ backend, args = [], model 
  * accepted image Hive Mind leased, and let the task record the digest rather
  * than a mutable tag.
  *
+ * It also carries the sidecar's logging warning (issue #3583), so a sidecar
+ * that cannot write its logs or memory is reported in the task's solve log and
+ * not only in the bot log.
+ *
  * @returns {object} The task environment (`env` itself when Formal AI is not involved).
  */
-export const buildFormalAiTaskEnv = ({ sidecar, env = process.env } = {}) => (sidecar ? { ...env, HIVE_MIND_FORMAL_AI_BASE_URL: sidecar.baseUrl, ...buildFormalAiSidecarProvenanceEnv(sidecar) } : env);
+export const buildFormalAiTaskEnv = ({ sidecar, env = process.env } = {}) => {
+  if (!sidecar) return env;
+  const taskEnv = { ...env, HIVE_MIND_FORMAL_AI_BASE_URL: sidecar.baseUrl, ...buildFormalAiSidecarProvenanceEnv(sidecar) };
+  // Issue #3583: a lease never inherits the warning of an earlier one from the host env.
+  delete taskEnv[FORMAL_AI_SIDECAR_WARNING_ENV];
+  if (sidecar.loggingWarning) taskEnv[FORMAL_AI_SIDECAR_WARNING_ENV] = sidecar.loggingWarning;
+  return taskEnv;
+};
 
 /**
  * Add the internal Formal AI network to the freshly-created task container.

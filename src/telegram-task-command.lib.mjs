@@ -237,7 +237,7 @@ export function registerTaskCommands(bot, options) {
           log: message => VERBOSE && console.log(`[VERBOSE] ${message}`),
         });
         const followUp = `${generatedIssueMode.followUp}${reportingOptions.reportDependenciesIssues === false ? ' --no-report-dependencies-issues' : ''}`;
-        await editTelegramMessage(ctx, statusMessage, `Created GitHub issue:\n${createdIssue.url}\n\nReply to this message with ${followUp} to continue ${generatedIssueMode.followUpDescription}.`);
+        await editTelegramMessage(ctx, statusMessage, `${createdIssue.reused ? 'Reused open GitHub issue' : 'Created GitHub issue'}:\n${createdIssue.url}\n\nReply to this message with ${followUp} to continue ${generatedIssueMode.followUpDescription}.`);
       } catch (error) {
         await editTelegramMessage(ctx, statusMessage, `Error creating ${generatedIssueMode.context} issue:\n${error.message || String(error)}`);
       }

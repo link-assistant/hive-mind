@@ -167,14 +167,14 @@ async function main() {
     return;
   }
 
-  console.log('\n📝 Creating issue...');
+  console.log('\n📝 Creating issue (or reusing the open one of an earlier run)...');
   const issue = await handler.create({
     repository,
     prepared,
     log: message => console.log(message),
     verbose,
   });
-  console.log(`✅ Created issue: ${issue.url}`);
+  console.log(issue.reused ? `♻️  Reusing the open issue of an earlier run${issue.refreshed ? ' (body refreshed)' : ''}: ${issue.url}` : `✅ Created issue: ${issue.url}`);
   const branch = prepared.defaultBranch || null;
   // Issue #3326: `[HIVE-MIND FIX]` lines let the Telegram bot show each phase.
   console.log(fixProgressLogLine({ phase: 'issue-created', issueUrl: issue.url, branch }));

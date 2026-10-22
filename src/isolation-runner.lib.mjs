@@ -19,7 +19,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { isExecutingSessionStatus, isTerminalSessionStatus } from './session-status.lib.mjs';
-import { acquireFormalAiSidecarForTask, attachFormalAiTaskContainer, buildFormalAiTaskEnv, releaseFormalAiSidecarForTask } from './formal-ai-isolation.lib.mjs';
+import { acquireFormalAiSidecarForTask, attachFormalAiTaskContainer, buildFormalAiTaskEnv, FORMAL_AI_SIDECAR_WARNING_ENV, releaseFormalAiSidecarForTask } from './formal-ai-isolation.lib.mjs';
 // The image references live in their own module so the Formal AI sidecar can
 // resolve the locally present Hive Mind image (which bakes `formal-ai`) without
 // importing this runner and creating a cycle. Re-exported here because callers
@@ -311,6 +311,10 @@ export async function buildDockerIsolationStartArgs(command, args = [], options 
   // A persistent Formal AI server normally runs beside the Telegram/root container. Docker-isolated `/solve` jobs must receive the same endpoint; otherwise the wrapper starts a per-job server and loses shared memory.
   if (env.HIVE_MIND_FORMAL_AI_BASE_URL) {
     startArgs.push('-e', `HIVE_MIND_FORMAL_AI_BASE_URL=${env.HIVE_MIND_FORMAL_AI_BASE_URL}`);
+  }
+  // Issue #3583: the sidecar's logging warning is written to the solve log by the task itself.
+  if (env.HIVE_MIND_FORMAL_AI_BASE_URL && env[FORMAL_AI_SIDECAR_WARNING_ENV]) {
+    startArgs.push('-e', `${FORMAL_AI_SIDECAR_WARNING_ENV}=${env[FORMAL_AI_SIDECAR_WARNING_ENV]}`);
   }
   for (const [name, value] of Object.entries(routerEnv)) {
     startArgs.push('-e', `${name}=${value}`);

@@ -401,3 +401,67 @@ export async function createTaskIssue({ repository, title, body, issueType = nul
     await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {});
   }
 }
+
+function firstOpenIssueWithTitle(items, title) {
+  if (!Array.isArray(items)) return null;
+  const expectedTitle = normalizeIssueText(title);
+  for (const issue of items) {
+    if (!issue || issue.pull_request || issue.state !== 'open' || normalizeIssueText(issue.title) !== expectedTitle) continue;
+    try {
+      return parseCreatedTaskIssueOutput(issue.html_url);
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
+async function readJson(request) {
+  try {
+    const result = await request();
+    return result?.code === 0 ? JSON.parse(result.stdout?.toString() || '') : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Issue #3684: an issue with a fixed title (`/fix --ci-cd`,
+ * `/fix --update-all-dependencies`) is one standing task per repository. The
+ * newest open issue with exactly that title, or null when there is none or
+ * GitHub cannot be read.
+ *
+ * The newest open issues are listed first: the search index is updated
+ * asynchronously and can miss an issue created seconds ago (a run repeated
+ * right after a kill). The search then finds an older one.
+ */
+export async function findOpenIssueWithTitle({ repository, title, run = runCommand, perPage = 100 }) {
+  const recent = await readJson(() => run('gh', ['api', `repos/${repository.fullName}/issues?state=open&sort=created&direction=desc&per_page=${perPage}`]));
+  const listed = firstOpenIssueWithTitle(recent, title);
+  if (listed) return listed;
+  const query = `repo:${repository.fullName} is:issue is:open in:title "${String(title).replace(/"/g, ' ')}"`;
+  const found = await readJson(() => run('gh', ['api', '-X', 'GET', 'search/issues', '-f', `q=${query}`, '-f', 'sort=created', '-f', 'order=desc', '-f', 'per_page=30']));
+  return firstOpenIssueWithTitle(found?.items, title);
+}
+
+/**
+ * `createTaskIssue` for an issue with a fixed title: a repeated run refreshes
+ * the body of the open issue an earlier run created and returns it with
+ * `reused: true` instead of filing the same task again (issue #3684), so
+ * `/solve` continues that issue's pull request.
+ */
+export async function createOrReuseTaskIssue({ repository, title, body, issueType = null, labels = [], run = runCommand, log = null, verbose = false }) {
+  const existing = await findOpenIssueWithTitle({ repository, title: await sanitizeForPublication(title), run });
+  if (!existing) return createTaskIssue({ repository, title, body, issueType, labels, run, log, verbose });
+
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'hive-mind-task-issue-'));
+  const bodyFile = path.join(tempDir, 'body.md');
+  try {
+    await writeSanitizedPublicationFile(bodyFile, body);
+    const result = await run('gh', ['issue', 'edit', String(existing.number), '--repo', repository.fullName, '--body-file', bodyFile]);
+    if (result?.code !== 0) await log?.(`⚠️  Could not refresh the body of ${existing.url} (${commandOutputText(result) || `exit code ${result?.code}`}); reusing it as is`);
+    return { ...existing, reused: true, refreshed: result?.code === 0 };
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {});
+  }
+}

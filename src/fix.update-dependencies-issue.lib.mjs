@@ -14,7 +14,7 @@
 
 import { UPDATE_DEPENDENCIES_ISSUE_LABELS, UPDATE_DEPENDENCIES_ISSUE_TYPE, buildUpdateDependenciesIssueBody, buildUpdateDependenciesIssueTitle, mapRepositoryToEcosystems } from './fix.update-dependencies.lib.mjs';
 import { detectLanguages, getDefaultBranch, getLatestCommit, getRepositoryFiles, runCommand } from './fix.github.lib.mjs';
-import { createTaskIssue } from './task.issue-creation.lib.mjs';
+import { createOrReuseTaskIssue } from './task.issue-creation.lib.mjs';
 import { mergeDependabotPullRequests } from './fix.dependabot-merge.lib.mjs';
 
 /**
@@ -51,7 +51,8 @@ export async function prepareUpdateDependenciesIssue({ repository, run = runComm
 
 export async function createUpdateDependenciesIssue({ repository, prepared = null, run = runCommand, log = null, warn = message => console.warn(message), reportDependenciesIssues = true, mergeDependabotPrs = true, verbose = false }) {
   const issueDraft = prepared || (await prepareUpdateDependenciesIssue({ repository, run, warn, log, reportDependenciesIssues, mergeDependabotPrs, verbose }));
-  const issue = await createTaskIssue({
+  // Issue #3684: a repeated run refreshes the open issue of an earlier run.
+  const issue = await createOrReuseTaskIssue({
     repository,
     title: issueDraft.title,
     body: issueDraft.body,

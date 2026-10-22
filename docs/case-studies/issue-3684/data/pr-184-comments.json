@@ -1,0 +1,47 @@
+[
+  {
+    "url": "https://api.github.com/repos/link-foundation/browser-commander/issues/comments/6323913013",
+    "html_url": "https://github.com/link-foundation/browser-commander/pull/184#issuecomment-6323913013",
+    "issue_url": "https://api.github.com/repos/link-foundation/browser-commander/issues/184",
+    "id": 6323913013,
+    "node_id": "IC_kwDOQYTTi88AAAABeO9BNQ",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "created_at": "2026-10-21T18:50:24Z",
+    "updated_at": "2026-10-21T18:50:24Z",
+    "body": "<!-- hive-mind:working-session-summary -->\n## Working session summary\n\nIssues #183, #179, #180 and #181 are all done in PR https://github.com/link-foundation/browser-commander/pull/184, which is now marked ready for review. All 10 CI workflows passed on the latest commit (`43248a4`). The PR can be merged, `main` is merged in, and the working tree is clean. There are no comments or reviews on the four issues or the PR. The PR description keeps the lines `Fixes #183`, `Fixes #179`, `Fixes #180` and `Fixes #181`.\n\nAll changes apply to JS, Python and Rust, plus the docs and the feature catalogue.\n\n**#179 – Chrome for Testing**\n- Chrome for Testing is now the default browser instead of Google Chrome.\n- It is recognised by its install path (for example the `chrome-linux64` or `chrome-mac-arm64` folders, or the Selenium cache layout). When it is in use, two flags are added by default:\n```text\n  - `no-chrome-for-testing-infobar` (`--test-type=gpu`), which hides the \"for testing only\" bar;\n  - `--use-mock-keychain`.\n- If the exact build an engine expects isn't installed, the launcher now picks another Chrome for Testing from the download caches, newest version first:\n  - Playwright looks in its own cache.\n  - Puppeteer looks in its own cache.\n  - Selenium looks in the Playwright, Puppeteer and Selenium caches, in that order, and falls back to Selenium Manager's download last.\n  - I added this because on my machine Playwright expected build 1243 while only 1248 was installed, so JS and Python failed to find a browser.\n- Each behaviour has tests, and the docs explain how to move cookies across.\n```\n\n**#180 – screenshots without a clip**\n- Screenshots go through CDP without a clip region. This avoids the page being left drawn at its old size when a window is resized during a capture.\n- The experiment that reproduces the problem is `experiments/issue-180/resize-during-screenshot.mjs`.\n\n**Other changes on the branch**\n- Two end-to-end tests launch Chrome without saying which one, so now that Chrome for Testing is the default they failed on macOS CI. Those launches now ask for regular Chrome by name (`channel: 'chrome'`).\n- I updated three dependencies in the lock files (launch-editor, markdown-it and rustls-webpki) because the Security check failed on advisories published after `main`'s last run.\n- I regenerated the feature-parity table in `docs/feature-parity.md`.\n\n**Local test results**\n- JS: 1935 unit tests pass, plus lint, formatting and duplication checks.\n- Python: 1330 pass and 2 are skipped, plus ruff and mypy.\n- Rust: `cargo check --locked` passes.\n- The repository's own checks (lint, line limits and feature parity) pass.\n\n---\n*This summary was automatically extracted from the AI working session output.*",
+    "author_association": "MEMBER",
+    "reactions": { "url": "https://api.github.com/repos/link-foundation/browser-commander/issues/comments/6323913013/reactions", "total_count": 0, "+1": 0, "-1": 0, "laugh": 0, "hooray": 0, "confused": 0, "heart": 0, "rocket": 0, "eyes": 0 },
+    "performed_via_github_app": null,
+    "minimized": null
+  },
+  {
+    "url": "https://api.github.com/repos/link-foundation/browser-commander/issues/comments/6323924941",
+    "html_url": "https://github.com/link-foundation/browser-commander/pull/184#issuecomment-6323924941",
+    "issue_url": "https://api.github.com/repos/link-foundation/browser-commander/issues/184",
+    "id": 6323924941,
+    "node_id": "IC_kwDOQYTTi88AAAABeO9vzQ",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "created_at": "2026-10-21T18:51:01Z",
+    "updated_at": "2026-10-21T18:51:01Z",
+    "body": "## 🤖 Solution Draft Log\nThis log file contains the complete execution trace of the AI solution draft process.\n\n### 💰 **Cost estimation:**\n- Calculated by Anthropic: $20.779802\n\n### 🤖 **Models used:**\n- Tool: Anthropic Claude Code\n- Requested: `opus` (`claude-opus-5-5`)\n- Thinking level: high (~23999 tokens)\n- **Model: Claude Opus 5.5** (`claude-opus-5-5`)\n\n### 📎 **Log file uploaded as Gist** (13804KB)\n- [View complete solution draft log](https://gist.githubusercontent.com/konard/da0ac45b0466f9684b54f08e15b64cad/raw/2ad78022adf3d8bef2374dcfeb7539a1ceda1199/tmp-hive-mind-log-upload-fGL1Mt-sanitized.log.txt)\n\n---\n*Now working session is ended, feel free to review and add any feedback on the solution draft.*",
+    "author_association": "MEMBER",
+    "reactions": { "url": "https://api.github.com/repos/link-foundation/browser-commander/issues/comments/6323924941/reactions", "total_count": 0, "+1": 0, "-1": 0, "laugh": 0, "hooray": 0, "confused": 0, "heart": 0, "rocket": 0, "eyes": 0 },
+    "performed_via_github_app": null,
+    "minimized": null
+  },
+  {
+    "url": "https://api.github.com/repos/link-foundation/browser-commander/issues/comments/6323994850",
+    "html_url": "https://github.com/link-foundation/browser-commander/pull/184#issuecomment-6323994850",
+    "issue_url": "https://api.github.com/repos/link-foundation/browser-commander/issues/184",
+    "id": 6323994850,
+    "node_id": "IC_kwDOQYTTi88AAAABePCA4g",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "created_at": "2026-10-21T18:54:36Z",
+    "updated_at": "2026-10-21T18:54:36Z",
+    "body": "## 🎉 Auto-merged\n\nThis pull request has been automatically merged by hive-mind.\n- All CI checks have passed\n\n### Linked issues\n\n- 🔒 Closed by GitHub: link-foundation/browser-commander#179, link-foundation/browser-commander#180, link-foundation/browser-commander#181, link-foundation/browser-commander#183\n- ℹ️  Parent issues kept open: link-foundation/browser-commander#185 (the description has unchecked task-list items)",
+    "author_association": "MEMBER",
+    "reactions": { "url": "https://api.github.com/repos/link-foundation/browser-commander/issues/comments/6323994850/reactions", "total_count": 0, "+1": 0, "-1": 0, "laugh": 0, "hooray": 0, "confused": 0, "heart": 0, "rocket": 0, "eyes": 0 },
+    "performed_via_github_app": null,
+    "minimized": null
+  }
+]

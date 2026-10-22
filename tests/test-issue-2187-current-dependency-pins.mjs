@@ -27,7 +27,7 @@ const expected = {
   jscpd: '5.4.2',
   jscpdThreshold: 12,
   lintStaged: '17.6.0',
-  node: '26.12.0',
+  node: '26.12.1',
   prettier: '3.9.10',
   sentry: '11.8.0',
   sentryProfiler: '2.4.4',

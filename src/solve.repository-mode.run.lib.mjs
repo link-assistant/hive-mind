@@ -17,16 +17,27 @@
  * A repository with exactly one open issue skips steps 2–4: that issue is
  * handed back to `/solve` as is, with no combined issue (issue #3108).
  *
+ * Every step is done only when it was not done yet (issue #3684): an open
+ * combined issue of an earlier run is reused instead of creating another one
+ * (its scope is updated when new issues were opened since), and only the issues
+ * that are not attached yet are attached as sub-issues. A rerun or a kill
+ * recovery therefore lands on the same combined issue, and `--auto-continue`
+ * then continues its pull request.
+ *
  * The pure helpers live in `solve.repository-mode.lib.mjs`.
  */
 
 // Issue #3552: the shared runner retries every gh call through the one GitHub retry loop.
+import os from 'os';
+import path from 'path';
+import { promises as fs } from 'fs';
 import { commandOutput, runCommand } from './fix.github.lib.mjs';
 import { parseGitHubUrl } from './github-url-parser.lib.mjs';
 import { createTaskIssue } from './task.issue-creation.lib.mjs';
-import { buildAddSubIssueApiArgs, buildParentIssueApiArgs } from './task.split.lib.mjs';
-import { MAX_SUB_ISSUES_PER_PARENT, buildCombinedIssueBody, buildCombinedIssueTitle, buildOpenIssuesApiArgs, buildRepositoryModeSummaryLines, isRepositoryModeIssueBody, selectOldestOpenIssues, selectSingleIssueTarget } from './solve.repository-mode.lib.mjs';
+import { buildAddSubIssueApiArgs, buildListSubIssuesApiArgs, buildParentIssueApiArgs } from './task.split.lib.mjs';
+import { MAX_SUB_ISSUES_PER_PARENT, buildCombinedIssueBody, buildCombinedIssueTitle, buildOpenIssuesApiArgs, buildRepositoryModeSummaryLines, findRepositoryModeIssues, isRepositoryModeIssueBody, selectOldestOpenIssues, selectReusableRepositoryModeIssue, selectSingleIssueTarget } from './solve.repository-mode.lib.mjs';
 import { isRateLimitError } from './github-rate-limit.lib.mjs';
+import { sanitizeForPublication, writeSanitizedPublicationFile } from './token-sanitization.lib.mjs';
 
 /** Labels applied best-effort to the generated combined issue. */
 export const REPOSITORY_MODE_ISSUE_LABELS = Object.freeze(['enhancement']);
@@ -55,6 +66,17 @@ export const SUB_ISSUE_ATTACH_MAX_ATTEMPTS = 3;
  * (https://docs.github.com/en/rest/using-the-rest-api/best-practices-for-using-the-rest-api#handle-rate-limit-errors-appropriately).
  */
 export const SUB_ISSUE_ATTACH_BACKOFF_MS = Object.freeze([60000, 120000]);
+
+/**
+ * Repository mode always asks for deep analysis (like /fix) and always double
+ * checks that the pull request description lists every issue.
+ */
+const REPOSITORY_MODE_ARGV_OVERRIDES = Object.freeze({
+  'deep-analysis': true,
+  deepAnalysis: true,
+  'ensure-all-sub-issues-addressed': true,
+  ensureAllSubIssuesAddressed: true,
+});
 
 const defaultSleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -99,7 +121,7 @@ export async function fetchOpenIssues({ repository, run = runCommand }) {
  * @param {number} [params.limit=MAX_SUB_ISSUES_PER_PARENT]
  * @param {Function} [params.run]
  * @param {{skipLabels?: string[], includeBotIssues?: boolean}} [params.selection] - which open issues are not work (issue #3176)
- * @returns {Promise<{repository, selected, allIssues, excluded, singleIssue, totalOpen, skipped, title, body}>}
+ * @returns {Promise<{repository, selected, allIssues, excluded, singleIssue, reuse, totalOpen, skipped, title, body}>}
  */
 export async function prepareRepositoryModeIssue({ repository, limit = MAX_SUB_ISSUES_PER_PARENT, run = runCommand, selection = {} }) {
   const entries = await fetchOpenIssues({ repository, run });
@@ -109,6 +131,11 @@ export async function prepareRepositoryModeIssue({ repository, limit = MAX_SUB_I
   // Issue #3176: status pages and other skipped issues are still open issues of
   // the repository, so they are counted, but they are never requested.
   const totalOpen = eligibleOpen + excluded.length;
+  // Issue #3684: the open combined issue of an earlier run, if any, is reused.
+  const combinedIssues = findRepositoryModeIssues(entries);
+  const reuse = selectReusableRepositoryModeIssue({ candidates: combinedIssues, issues: allIssues });
+  // The reused combined issue does not list itself as an issue left out.
+  const excludedIssues = reuse ? excluded.filter(issue => issue.number !== reuse.issue.number) : excluded;
 
   return {
     repository,
@@ -119,10 +146,13 @@ export async function prepareRepositoryModeIssue({ repository, limit = MAX_SUB_I
     skipped: 0,
     unattachedCount: skipped,
     limit,
-    // Issue #3108: set when the repository has exactly one open issue to work on.
-    singleIssue: selectSingleIssueTarget({ repository, issues: allIssues }),
+    // Issue #3108: set when the repository has exactly one open issue to work
+    // on — unless a combined issue already requires it (issue #3684).
+    singleIssue: reuse ? null : selectSingleIssueTarget({ repository, issues: allIssues }),
+    reuse,
+    combinedIssues,
     title: buildCombinedIssueTitle({ owner: repository.owner, repo: repository.repo, count: allIssues.length, totalOpen: eligibleOpen }),
-    body: buildCombinedIssueBody({ repository, issues: allIssues, totalOpen, limit, attachmentCount: selected.length, excludedIssues: excluded }),
+    body: buildCombinedIssueBody({ repository, issues: allIssues, totalOpen: totalOpen - (excluded.length - excludedIssues.length), limit, attachmentCount: selected.length, excludedIssues }),
   };
 }
 
@@ -204,6 +234,7 @@ export async function attachSubIssues({ parentIssue, issues, run = runCommand, l
     let lastError = null;
     let replaceParent = false;
     let currentParent = null;
+    let alreadyAttached = false;
     // The parent replacement gets one extra attempt on top of the rate-limit budget.
     for (let attempt = 1; attempt <= Math.max(1, maxAttempts) + (replaceParent ? 1 : 0); attempt++) {
       try {
@@ -222,6 +253,12 @@ export async function attachSubIssues({ parentIssue, issues, run = runCommand, l
             currentParent = await fetchParentIssue({ issue: { owner: parentIssue.owner, repo: parentIssue.repo, number: issue.number }, run });
           } catch (parentError) {
             await log?.(`   ⚠️  Could not read the current parent of #${issue.number}: ${String(parentError?.message || parentError).split('\n')[0]}`);
+          }
+          // Issue #3684: already attached to this very parent — nothing to do.
+          if (currentParent && Number(currentParent.number) === Number(parentIssue.number)) {
+            lastError = null;
+            alreadyAttached = true;
+            break;
           }
           if (shouldReplaceSubIssueParent(currentParent)) {
             replaceParent = true;
@@ -248,6 +285,7 @@ export async function attachSubIssues({ parentIssue, issues, run = runCommand, l
       }
     } else {
       attached.push(issue);
+      if (alreadyAttached) await log?.(`   ✔️  #${issue.number} is already a sub-issue of #${parentIssue.number}`);
       if (replaceParent) moved.push({ issue, previousParent: { number: currentParent.number, state: currentParent.state, url: currentParent.html_url } });
     }
   }
@@ -283,6 +321,76 @@ export async function createRepositoryModeIssue({ repository, prepared, run = ru
 }
 
 /**
+ * Numbers of the issues already attached to `parentIssue` as sub-issues.
+ *
+ * Returns null when they cannot be read: the caller then attaches every issue,
+ * and {@link attachSubIssues} still recognizes the ones already attached.
+ *
+ * @returns {Promise<Set<number>|null>}
+ */
+export async function fetchSubIssueNumbers({ parentIssue, run = runCommand }) {
+  const output = await commandOutput(run, 'gh', buildListSubIssuesApiArgs(parentIssue));
+  const pages = JSON.parse(output || '[]');
+  if (!Array.isArray(pages)) return null;
+  const entries = pages.flatMap(page => (Array.isArray(page) ? page : [page]));
+  return new Set(entries.map(entry => Number(entry?.number)).filter(number => Number.isInteger(number) && number > 0));
+}
+
+/**
+ * Update the title and body of a reused combined issue to the current scope.
+ *
+ * @returns {Promise<void>}
+ */
+async function updateCombinedIssue({ repository, number, title, body, run }) {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'hive-mind-repository-mode-'));
+  const bodyFile = path.join(tempDir, 'body.md');
+  try {
+    await writeSanitizedPublicationFile(bodyFile, body);
+    const safeTitle = await sanitizeForPublication(title);
+    await commandOutput(run, 'gh', ['issue', 'edit', String(number), '--repo', repository.fullName, '--title', safeTitle, '--body-file', bodyFile]);
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
+/**
+ * Reuse the open combined issue of an earlier run (issue #3684).
+ *
+ * Nothing is done twice: the issue is edited only when issues were opened
+ * after it was written, and only the issues that are not its sub-issues yet are
+ * attached.
+ *
+ * @param {object} params
+ * @returns {Promise<{owner, repo, number, url, prepared, reused: true, updated: boolean, attached, failed, moved, alreadyAttached: number}>}
+ */
+export async function reuseRepositoryModeIssue({ repository, prepared, run = runCommand, log = null, attachOptions = {} }) {
+  const { issue: existing, covers, missing } = prepared.reuse;
+  const parentIssue = { owner: repository.owner, repo: repository.repo, number: existing.number };
+
+  let updated = false;
+  if (!covers) {
+    await log?.(`   🔄 #${existing.number} does not require ${missing.map(number => `#${number}`).join(', ')} yet; updating its scope instead of creating another combined issue...`);
+    await updateCombinedIssue({ repository, number: existing.number, title: prepared.title, body: prepared.body, run });
+    updated = true;
+  }
+
+  let attachedNumbers = null;
+  try {
+    attachedNumbers = await fetchSubIssueNumbers({ parentIssue, run });
+  } catch (error) {
+    await log?.(`   ⚠️  Could not list the sub-issues of #${existing.number}: ${String(error?.message || error).split('\n')[0]}`);
+  }
+  const toAttach = attachedNumbers ? prepared.selected.filter(issue => !attachedNumbers.has(issue.number)) : prepared.selected;
+  const alreadyAttached = prepared.selected.length - toAttach.length;
+  if (toAttach.length > 0) {
+    await log?.(`   Attaching ${toAttach.length} issue(s) that are not sub-issues of #${existing.number} yet (${alreadyAttached} already are)...`);
+  }
+  const { attached, failed, moved } = await attachSubIssues({ parentIssue, issues: toAttach, run, log, ...attachOptions });
+
+  return { owner: repository.owner, repo: repository.repo, number: existing.number, url: existing.url || `${repository.url}/issues/${existing.number}`, prepared, reused: true, updated, attached, failed, moved, alreadyAttached };
+}
+
+/**
  * Entry point used by solve.mjs.
  *
  * Returns `{ handled: false }` when the URL is not a repository URL so the
@@ -296,9 +404,9 @@ export async function createRepositoryModeIssue({ repository, prepared, run = ru
  * @param {boolean} [params.dryRun] - prepare only; do not create anything
  * @param {object} [params.attachOptions] - forwarded to {@link attachSubIssues}
  * @param {{skipLabels?: string[], includeBotIssues?: boolean}} [params.selection] - forwarded to {@link prepareRepositoryModeIssue}
- * @returns {Promise<{handled: boolean, issueUrl?: string, issue?: object, prepared?: object, argvOverrides?: object, noWork?: boolean, singleIssue?: boolean, message?: string, error?: string}>}
+ * @returns {Promise<{handled: boolean, issueUrl?: string, issue?: object, prepared?: object, argvOverrides?: object, noWork?: boolean, singleIssue?: boolean, reused?: boolean, message?: string, error?: string}>}
  */
-export async function resolveRepositoryModeTarget({ url, log = null, run = runCommand, limit = MAX_SUB_ISSUES_PER_PARENT, dryRun = false, attachOptions = {}, selection = {} }) {
+export async function resolveRepositoryModeTarget({ url, log = null, run = runCommand, limit = MAX_SUB_ISSUES_PER_PARENT, dryRun = false, attachOptions = {}, selection = {}, verbose = false, resumeId = null }) {
   const repository = parseRepositoryModeUrl(url);
   if (!repository) return { handled: false };
 
@@ -324,6 +432,14 @@ export async function resolveRepositoryModeTarget({ url, log = null, run = runCo
     for (const issue of prepared.excluded) await emit(`     #${issue.number} ${issue.title} — ${issue.reason}`);
   }
 
+  // Issue #3684: trace the reuse decision, so a repeated run (a kill recovery
+  // replays the repository URL with --resume) shows why it reused or created.
+  if (verbose) {
+    const describe = issue => `#${issue.number} (requires ${issue.requiredNumbers.map(number => `#${number}`).join(', ') || 'nothing'})`;
+    await emit(`   [VERBOSE] repository mode: ${resumeId ? `replayed with --resume ${resumeId}` : 'not a --resume replay'}; open combined issues of earlier runs: ${prepared.combinedIssues?.length ? prepared.combinedIssues.map(describe).join(', ') : 'none'}`);
+    await emit(`   [VERBOSE] repository mode: work #${prepared.allIssues.map(issue => issue.number).join(', #') || '-'}; decision: ${prepared.reuse ? `reuse #${prepared.reuse.issue.number} (${prepared.reuse.covers ? 'covers every issue' : `missing #${prepared.reuse.missing.join(', #')}`})` : prepared.singleIssue ? `solve #${prepared.singleIssue.number} directly` : 'create a combined issue'}`);
+  }
+
   // Issue #3108: a combined issue around a single issue would only duplicate
   // it (one parent, one sub-issue). Solve that issue directly instead — the
   // same as if its URL had been given — and create nothing.
@@ -346,6 +462,28 @@ export async function resolveRepositoryModeTarget({ url, log = null, run = runCo
 
   if (dryRun) {
     return { handled: true, dryRun: true, prepared };
+  }
+
+  if (prepared.reuse) {
+    // Issue #3684: a rerun or a kill recovery replays the repository URL; it
+    // must land on the combined issue the first run created, not on a new one.
+    const { issue: existing, covers } = prepared.reuse;
+    await emit('');
+    await emit(`♻️  Reusing the open combined issue #${existing.number} of an earlier run${covers ? ': it already requires every open issue' : ''}. No new combined issue is created.`);
+    let issue;
+    try {
+      issue = await reuseRepositoryModeIssue({ repository, prepared, run, log: emit, attachOptions });
+    } catch (error) {
+      return { handled: true, error: `Could not update the combined issue #${existing.number} in ${repository.fullName}: ${error.message}` };
+    }
+    await emit(`✅ Reused combined issue: ${issue.url}${issue.updated ? ' (scope updated)' : ''}`);
+    await emit(`   Sub-issues: ${issue.alreadyAttached} already attached, ${issue.attached.length} attached now${issue.failed.length > 0 ? `, ${issue.failed.length} could not be attached` : ''}`);
+    if (issue.failed.length > 0) {
+      await emit(`   Not attached, still required by the closing references in the issue body: ${issue.failed.map(entry => `#${entry.issue.number}`).join(', ')}`);
+    }
+    await emit('   Continuing with the normal /solve flow for that issue (an existing pull request is continued).');
+    await emit('');
+    return { handled: true, reused: true, issueUrl: issue.url, issue, prepared, argvOverrides: { ...REPOSITORY_MODE_ARGV_OVERRIDES } };
   }
 
   await emit('');
@@ -374,14 +512,7 @@ export async function resolveRepositoryModeTarget({ url, log = null, run = runCo
     issueUrl: issue.url,
     issue,
     prepared,
-    // Repository mode always asks for deep analysis (like /fix) and always
-    // double checks that the pull request description lists every issue.
-    argvOverrides: {
-      'deep-analysis': true,
-      deepAnalysis: true,
-      'ensure-all-sub-issues-addressed': true,
-      ensureAllSubIssuesAddressed: true,
-    },
+    argvOverrides: { ...REPOSITORY_MODE_ARGV_OVERRIDES },
   };
 }
 
@@ -395,5 +526,7 @@ export default {
   prepareRepositoryModeIssue,
   attachSubIssues,
   createRepositoryModeIssue,
+  fetchSubIssueNumbers,
+  reuseRepositoryModeIssue,
   resolveRepositoryModeTarget,
 };

@@ -1,0 +1,18 @@
+[
+  {
+    "url": "https://api.github.com/repos/link-foundation/browser-commander/issues/comments/6323993825",
+    "html_url": "https://github.com/link-foundation/browser-commander/issues/185#issuecomment-6323993825",
+    "issue_url": "https://api.github.com/repos/link-foundation/browser-commander/issues/185",
+    "id": 6323993825,
+    "node_id": "IC_kwDOQYTTi88AAAABePB84Q",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "created_at": "2026-10-21T18:54:33Z",
+    "updated_at": "2026-10-21T18:54:33Z",
+    "body": "<!-- hive-mind:parent-completion-status -->\nAll 4 sub-issues are closed; still open because: the description has unchecked task-list items.",
+    "author_association": "MEMBER",
+    "pin": null,
+    "reactions": { "url": "https://api.github.com/repos/link-foundation/browser-commander/issues/comments/6323993825/reactions", "total_count": 0, "+1": 0, "-1": 0, "laugh": 0, "hooray": 0, "confused": 0, "heart": 0, "rocket": 0, "eyes": 0 },
+    "performed_via_github_app": null,
+    "minimized": null
+  }
+]

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 3,
-  "collectedAt": "2026-10-22T10:58:23.260Z",
+  "collectedAt": "2026-10-22T11:01:08.726Z",
   "issueNumber": "3701",
   "prNumber": "3706",
   "branchName": "issue-3701-3950b4f9de6e",
@@ -13,7 +13,7 @@
     "solveLog": "./dev/log/issues/3701/pulls/3706/sessions/ses_e9cd15181ffeGwDcgyChlr3Sr5/solve.log",
     "solveLogRange": {
       "startByte": 0,
-      "endByte": 3784925
+      "endByte": 4728904
     },
     "sessionFiles": []
   }

@@ -251,7 +251,7 @@ RUN bun install -g @openai/codex && \
 # Note: start-command provides `$` CLI for isolation modes (--isolation screen/tmux/docker)
 # The Box base image includes screen. For tmux/docker isolation, ensure they are
 # available in the base image or install them separately.
-# start-command is pinned to 0.38.0: 0.29.1 fixed detached docker
+# start-command is pinned to 0.39.0: 0.29.1 fixed detached docker
 # `--status`/`--list` reporting a terminal status (`executed`) with the `-1`
 # sentinel while the container is still running (link-foundation/start#136,
 # link-assistant/hive-mind#1939); 0.29.2 (start#138 / start PR #139) records the
@@ -320,6 +320,15 @@ RUN bun install -g @openai/codex && \
 # START_EXECUTION_ID/START_SESSION_NAME/START_ATTEMPT, adds aliases and
 # continuation chains; start#229-#231). Hive Mind passes `--session`, not
 # `--session-id`, so the refusal does not affect its launches.
+# 0.39.0 samples the detached task's cgroup every 5 s instead of every 1 s and
+# looks up the cgroup namespace once (start#238, filed from issue #3614). With a
+# private namespace it keeps one long-lived `docker exec -i` per task and asks
+# Docker for liveness only after a failed round (start#242). `$ --status` /
+# `$ --list` decode the store once and answer every docker probe with one
+# `docker inspect` (start#243). `START_COMMAND_CGROUP_SAMPLE_INTERVAL_SECONDS`
+# overrides the sampler interval. Its new exit reason
+# `killed (docker daemon restart)` (start#241) is only shown as a reported reason
+# in kill and recovery reports, and `--init` (start#244) is opt-in and unused.
 # `@link-assistant/agent` is pinned to current 0.26.15. Version 0.26.1 stopped the
 # unbounded snapshot leak of issue #2186. Up to 0.26.0 `Snapshot.track()` built a
 # standalone git object store per project — keyed on the worktree's root commit,
@@ -341,7 +350,7 @@ RUN echo "Installing @link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
     fi && \
     bun install -g @link-assistant/claude-profiles && \
     bun install -g @link-assistant/agent@0.26.15 && \
-    bun install -g start-command@0.38.0 && \
+    bun install -g start-command@0.39.0 && \
     bun install -g gh-setup-git-identity && \
     bun install -g gh-pull-all && \
     bun install -g gh-load-issue && \

@@ -19,7 +19,7 @@
 #
 # Build: docker build -t konard/hive-mind .
 
-ARG FORMAL_AI_VERSION=0.355.0
+ARG FORMAL_AI_VERSION=0.355.2
 # Bookworm's glibc 2.36 remains compatible with the Ubuntu 24.04 Box runtime.
 FROM rust:1.99-slim-bookworm AS formal-ai-builder
 ARG FORMAL_AI_VERSION
@@ -167,7 +167,7 @@ RUN command -v jq >/dev/null || HOMEBREW_NO_AUTO_UPDATE=1 brew install jq
 # directory is removed. `.node-bin`, `nvm use default` and a bare `node` then
 # all resolve to the same, newest runtime (issue #2187, item A).
 ARG HIVE_MIND_NODE_VERSION=26.12.1
-ARG HIVE_MIND_BUN_VERSION=1.4.3
+ARG HIVE_MIND_BUN_VERSION=1.4.4
 RUN set -e && \
     . "$NVM_DIR/nvm.sh" && \
     PREVIOUS_GLOBAL_LIB="$(dirname "$(dirname "$(command -v node)")")/lib/node_modules" && \
@@ -329,7 +329,7 @@ RUN bun install -g @openai/codex && \
 # overrides the sampler interval. Its new exit reason
 # `killed (docker daemon restart)` (start#241) is only shown as a reported reason
 # in kill and recovery reports, and `--init` (start#244) is opt-in and unused.
-# `@link-assistant/agent` is pinned to current 0.26.15. Version 0.26.1 stopped the
+# `@link-assistant/agent` is pinned to current 0.27.0. Version 0.26.1 stopped the
 # unbounded snapshot leak of issue #2186. Up to 0.26.0 `Snapshot.track()` built a
 # standalone git object store per project — keyed on the worktree's root commit,
 # with no `objects/info/alternates` and no garbage collection — so a harness that
@@ -349,7 +349,7 @@ RUN echo "Installing @link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
       test "$(hive --version)" = "${HIVE_MIND_VERSION}"; \
     fi && \
     bun install -g @link-assistant/claude-profiles && \
-    bun install -g @link-assistant/agent@0.26.15 && \
+    bun install -g @link-assistant/agent@0.27.0 && \
     bun install -g start-command@0.39.0 && \
     bun install -g gh-setup-git-identity && \
     bun install -g gh-pull-all && \

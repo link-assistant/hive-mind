@@ -14,4 +14,4 @@ The Telegram bot checks each container or session at most once every 5 s, so at 
 - `docs/case-studies/issue-3614` lists every polling mechanism in the bot.
 - The images pin start-command 0.39.0. Its detached monitor checks each docker task every 5 s instead of every 1 s (link-foundation/start#238, reported from this issue), and its `$ --status` answers every docker probe with one `docker inspect`. `START_COMMAND_CGROUP_SAMPLE_INTERVAL_SECONDS` set where the bot runs changes that monitor's interval.
 
-Also brings the `@dotenvx/dotenvx` use-m pin up to 2.38.2, which the CI dependency-freshness gate reported as stale.
+Also brings the `@dotenvx/dotenvx` use-m pin up to 2.38.2, and Bun 1.4.4, Formal AI 0.355.2, `@link-assistant/agent` 0.27.0 and agent-commander 0.12.0 up to their current releases, which the CI dependency-freshness gate reported as stale.

@@ -1,10 +1,10 @@
 {
   "src/agent-commander.lib.mjs": {
-    "count": 4,
+    "count": 3,
     "reason": "git/gh work of the per-task solve process; the bot reaches this module only through imports and never runs these calls from a handler."
   },
   "src/agent.lib.mjs": {
-    "count": 4,
+    "count": 3,
     "reason": "git/gh work of the per-task solve process; the bot reaches this module only through imports and never runs these calls from a handler."
   },
   "src/agents-md-claude-support.lib.mjs": {
@@ -16,11 +16,11 @@
     "reason": "git/gh work of the per-task solve process; the bot reaches this module only through imports and never runs these calls from a handler."
   },
   "src/claude.uncommitted-changes.lib.mjs": {
-    "count": 4,
+    "count": 3,
     "reason": "git/gh work of the per-task solve process; the bot reaches this module only through imports and never runs these calls from a handler."
   },
   "src/codex.lib.mjs": {
-    "count": 4,
+    "count": 3,
     "reason": "git/gh work of the per-task solve process; the bot reaches this module only through imports and never runs these calls from a handler."
   },
   "src/contributing-guidelines.lib.mjs": {
@@ -36,7 +36,7 @@
     "reason": "git/gh work of the per-task solve process; the bot reaches this module only through imports and never runs these calls from a handler."
   },
   "src/gemini.lib.mjs": {
-    "count": 4,
+    "count": 3,
     "reason": "git/gh work of the per-task solve process; the bot reaches this module only through imports and never runs these calls from a handler."
   },
   "src/git.lib.mjs": {
@@ -64,7 +64,7 @@
     "reason": "git/gh work of the per-task solve process; the bot reaches this module only through imports and never runs these calls from a handler."
   },
   "src/opencode.lib.mjs": {
-    "count": 4,
+    "count": 3,
     "reason": "git/gh work of the per-task solve process; the bot reaches this module only through imports and never runs these calls from a handler."
   },
   "src/playwright-skill.lib.mjs": {
@@ -92,7 +92,7 @@
     "reason": "git/gh work of the per-task solve process; the bot reaches this module only through imports and never runs these calls from a handler."
   },
   "src/qwen.lib.mjs": {
-    "count": 4,
+    "count": 3,
     "reason": "git/gh work of the per-task solve process; the bot reaches this module only through imports and never runs these calls from a handler."
   },
   "src/review.mjs": {

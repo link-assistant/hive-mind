@@ -37,7 +37,7 @@ import { createToolCallLoopGuard, resolveRepeatedToolCallLimit } from './tool-ca
 import { describeAgentToolError, detectAgentErrorsInOutput, detectFatalAgentLogRecord, extractAgentErrorText, isAgentErrorRecord, isRecoverableAgentToolError, omitRawRecords } from './agent-error-events.lib.mjs';
 import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { attachStreamingInput, finalizeBidirectionalHandler, setupBidirectionalHandler } from './bidirectional-interactive.lib.mjs';
-import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
+import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus, stageAllExceptAiToolScratch } from './ai-tool-scratch.lib.mjs';
 import { buildAgentArgs, detectFormalAiAgentRoutingMismatch, formatAgentArgsForDisplay, isAgentIdleEvent, isAgentStrongCompletionEvent, resolveStreamingErrorRecovery } from './agent-command.lib.mjs';
 import { isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236 / #2247 (H5)
 
@@ -1194,7 +1194,7 @@ export const checkForUncommittedChanges = async (tempDir, owner, repo, branchNam
         if (autoCommit) {
           await log('💾 Auto-committing changes (--auto-commit-uncommitted-changes is enabled)...');
 
-          const addResult = await $({ cwd: tempDir })`git add -A`;
+          const addResult = await stageAllExceptAiToolScratch(tempDir, $);
           if (addResult.code === 0) {
             const commitMessage = 'Auto-commit: Changes made by Agent during problem-solving session';
             const commitResult = await $({ cwd: tempDir })`git commit -m ${commitMessage}`;

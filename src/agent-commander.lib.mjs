@@ -18,7 +18,7 @@ import { detectUsageLimit } from './usage-limit.lib.mjs';
 import { isRecoverableAgentToolError } from './agent-error-events.lib.mjs';
 import { applyServedModelPricing } from './formal-ai-pricing.lib.mjs'; // Issue #2119, #3279
 import { getCacheReadTokenCount, getCumulativeContextInputTokens, getOutputTokenCount } from './context-fill.lib.mjs';
-import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
+import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus, stageAllExceptAiToolScratch } from './ai-tool-scratch.lib.mjs';
 import { CLAUDE_MEMORY_DISABLE_ENV, buildCodexMemoryDisableConfigArgs, isAgentMemoryDisabled } from './agent-memory-policy.lib.mjs'; // Issue #2178
 import { buildCodexAuxiliaryDisableConfigArgs, buildCodexEssentialFeatureConfigArgs, isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236, #2406
 
@@ -459,7 +459,7 @@ export const checkForUncommittedChanges = async (tempDir, owner, repo, branchNam
 
   if (autoCommit) {
     await log('💾 Auto-committing changes (--auto-commit-uncommitted-changes is enabled)...');
-    const addResult = await $({ cwd: tempDir })`git add -A`;
+    const addResult = await stageAllExceptAiToolScratch(tempDir, $);
     if (addResult.code === 0) {
       const commitResult = await $({ cwd: tempDir })`git commit -m ${'Auto-commit: Changes made through agent-commander during problem-solving session'}`;
       if (commitResult.code === 0) {

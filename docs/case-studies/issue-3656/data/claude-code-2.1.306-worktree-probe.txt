@@ -1,0 +1,47 @@
+# Claude Code 2.1.306 (Claude Code) — Agent tool with isolation: "worktree" in a repository whose .gitignore and .git/info/exclude do not mention .claude/worktrees/
+# The subagent committed one file in its worktree (agent a8f64aabd1c583ac2), so Claude Code kept the worktree.
+$ git worktree list
+/tmp/gh-issue-solver-1792589505230                                            afb66297f [issue-3656-9c2fd987b3d1]
+/tmp/gh-issue-solver-1792589505230/.claude/worktrees/agent-a8f64aabd1c583ac2  c9a207920 [worktree-agent-a8f64aabd1c583ac2]
+$ grep -v '^#' .git/info/exclude
+.formal-ai/
+data/cache/derivations/
+.playwright-mcp/
+$ git check-ignore -v .claude/worktrees/agent-a8f64aabd1c583ac2 || echo not-ignored
+not-ignored
+$ git status --porcelain --untracked-files=all
+?? .claude/worktrees/agent-a8f64aabd1c583ac2/
+?? docs/case-studies/issue-3656/data/claude-code-2.1.306-worktree-probe.txt
+?? docs/case-studies/issue-3656/data/issue-3656.json
+?? docs/case-studies/issue-3656/data/pr-3531-auto-commit-06df2d0ad0.json
+?? docs/case-studies/issue-3656/data/pr-3531-comments-timeline.txt
+?? docs/case-studies/issue-3656/data/pr-3531-head-gitlinks.json
+?? docs/case-studies/issue-3656/data/pr-3531-session-log-excerpts.txt
+?? docs/case-studies/issue-3656/data/pr-3531-usage-limit-comment-6275529236.md
+?? docs/case-studies/issue-3656/data/pr-3531.json
+?? docs/case-studies/issue-3656/failure-comment-6289611497.md
+$ git add --dry-run -A
+warning: adding embedded git repository: .claude/worktrees/agent-a8f64aabd1c583ac2
+hint: You've added another git repository inside your current repository.
+hint: Clones of the outer repository will not contain the contents of
+hint: the embedded repository and will not know how to obtain it.
+hint: If you meant to add a submodule, use:
+hint: 
+hint: 	git submodule add <url> .claude/worktrees/agent-a8f64aabd1c583ac2
+hint: 
+hint: If you added this path by mistake, you can remove it from the
+hint: index with:
+hint: 
+hint: 	git rm --cached .claude/worktrees/agent-a8f64aabd1c583ac2
+hint: 
+hint: See "git help submodule" for more information.
+add '.claude/worktrees/agent-a8f64aabd1c583ac2/'
+add 'docs/case-studies/issue-3656/data/claude-code-2.1.306-worktree-probe.txt'
+add 'docs/case-studies/issue-3656/data/issue-3656.json'
+add 'docs/case-studies/issue-3656/data/pr-3531-auto-commit-06df2d0ad0.json'
+add 'docs/case-studies/issue-3656/data/pr-3531-comments-timeline.txt'
+add 'docs/case-studies/issue-3656/data/pr-3531-head-gitlinks.json'
+add 'docs/case-studies/issue-3656/data/pr-3531-session-log-excerpts.txt'
+add 'docs/case-studies/issue-3656/data/pr-3531-usage-limit-comment-6275529236.md'
+add 'docs/case-studies/issue-3656/data/pr-3531.json'
+add 'docs/case-studies/issue-3656/failure-comment-6289611497.md'

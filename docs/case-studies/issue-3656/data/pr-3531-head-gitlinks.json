@@ -1,0 +1,8 @@
+[
+  { "mode": "040000", "path": ".claude/worktrees", "sha": "1768cebff9cae239782f8caa24234100febc48d4", "type": "tree" },
+  { "mode": "160000", "path": ".claude/worktrees/agent-a6f6b1eccdeeb44b8", "sha": "5e554d8c1c87a214b6d2af564beffd9e13cdd2fc", "type": "commit" },
+  { "mode": "160000", "path": ".claude/worktrees/agent-a758fc82a9ac2def0", "sha": "0de0bf746c749fea5a1ddc0b31b36954eacd2515", "type": "commit" },
+  { "mode": "160000", "path": ".claude/worktrees/agent-a7ccb079b1b6b6c63", "sha": "cd00f3baae5bd07b0c4f27830f7fddc4fe43b221", "type": "commit" },
+  { "mode": "160000", "path": ".claude/worktrees/agent-a8535b865ad943702", "sha": "b7cdfd377aeb44c3daf10a6eba6194f5ff31ae6c", "type": "commit" },
+  { "mode": "160000", "path": ".claude/worktrees/agent-aa7c6edc4e36e9fc6", "sha": "cde61d28c396dd74519e42bed277a5d8fc559eb1", "type": "commit" }
+]

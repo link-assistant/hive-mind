@@ -1,0 +1,80 @@
+# Excerpts from the PR #3531 session log (37 MB, not committed)
+# Source: https://raw.githubusercontent.com/konard/public-logs/main/tmp-hive-mind-log-upload-umED6q/dc4ed8d28257fdc6/sanitized.log.txt
+# Selection: grep -n '"isolation": "worktree"' (top-level tool_use entries), first worktree path use, and the tail of the session (lines 386226-386275).
+
+## Agent tool calls with isolation: worktree
+75121:[2026-10-19T18:34:18.003Z] [INFO]       "isolation": "worktree",
+75447:[2026-10-19T18:34:32.156Z] [INFO]       "isolation": "worktree",
+76454:[2026-10-19T18:34:47.071Z] [INFO]       "isolation": "worktree",
+78124:[2026-10-19T18:35:00.972Z] [INFO]       "isolation": "worktree",
+79598:[2026-10-19T18:35:18.224Z] [INFO]       "isolation": "worktree",
+
+## Worktree paths referenced by subagents
+     86 /tmp/gh-issue-solver-1792434128449/.claude/worktrees/agent-a6f6b1eccdeeb44b8
+     91 /tmp/gh-issue-solver-1792434128449/.claude/worktrees/agent-a758fc82a9ac2def0
+    161 /tmp/gh-issue-solver-1792434128449/.claude/worktrees/agent-a7ccb079b1b6b6c63
+     83 /tmp/gh-issue-solver-1792434128449/.claude/worktrees/agent-a8535b865ad943702
+    122 /tmp/gh-issue-solver-1792434128449/.claude/worktrees/agent-aa7c6edc4e36e9fc6
+
+## Session end (usage limit), uncommitted status and log upload
+[2026-10-19T19:29:20.971Z] [INFO]   "result_index": 3
+[2026-10-19T19:29:20.971Z] [INFO] }
+[2026-10-19T19:29:20.976Z] [INFO] 📌 Result event received, starting 30s stream close timeout (Issue #1280)
+[2026-10-19T19:29:20.983Z] [INFO] 📌 Claude result: subtype=success is_error=true api_error=usage_limit_reached http=429
+[2026-10-19T19:29:20.992Z] [INFO] 💰 Anthropic official cost captured from success result: $57.516747
+[2026-10-19T19:29:20.995Z] [INFO] 📊 Session num_turns: 1
+[2026-10-19T19:29:21.002Z] [INFO] ⚠️ Detected error from Claude CLI (subtype: success)
+[2026-10-19T19:29:21.007Z] [INFO] ⚠️ Detected session limit in result
+[2026-10-19T19:29:21.911Z] [INFO] ✅ Stream closed normally after result event
+[2026-10-19T19:29:21.932Z] [INFO] ℹ️ 49 subagent tool result error(s) were handled inside subagents and do not decide this session's result
+[2026-10-19T19:29:21.977Z] [WARNING] 
+[2026-10-19T19:29:21.982Z] [WARNING] ⏳ Usage Limit Reached!
+[2026-10-19T19:29:21.986Z] [WARNING] 
+[2026-10-19T19:29:21.990Z] [WARNING] Your Anthropic Claude Code usage limit has been reached.
+[2026-10-19T19:29:21.992Z] [WARNING] The limit will reset at: 11:00 AM
+[2026-10-19T19:29:21.994Z] [WARNING] 
+[2026-10-19T19:29:21.996Z] [WARNING] 📌 Session ID: d7cb90ca-53a3-482f-895c-b4b050591ef6
+[2026-10-19T19:29:21.999Z] [WARNING] 
+[2026-10-19T19:29:22.001Z] [WARNING] To resume this session after the limit resets:
+[2026-10-19T19:29:22.005Z] [WARNING] 
+[2026-10-19T19:29:22.010Z] [WARNING]    Interactive mode (opens Claude Code for user interaction):
+[2026-10-19T19:29:22.013Z] [WARNING]    (cd "/tmp/gh-issue-solver-1792434128449" && claude --resume d7cb90ca-53a3-482f-895c-b4b050591ef6 --model opus)
+[2026-10-19T19:29:22.015Z] [WARNING] 
+[2026-10-19T19:29:22.017Z] [WARNING]    Autonomous mode (continues work without user interaction):
+[2026-10-19T19:29:22.019Z] [WARNING]    (cd "/tmp/gh-issue-solver-1792434128449" && claude --resume d7cb90ca-53a3-482f-895c-b4b050591ef6 --output-format stream-json --dangerously-skip-permissions --model opus -p "Continue.")
+[2026-10-19T19:29:22.021Z] [WARNING] 
+[2026-10-19T19:29:22.097Z] [INFO] 
+[2026-10-19T19:29:22.097Z] [INFO] 📈 System resources after execution:
+[2026-10-19T19:29:22.099Z] [INFO]    Memory: MemFree:         7961328 kB
+[2026-10-19T19:29:22.101Z] [INFO]    Load: 7.10 7.50 10.10 2/910 494491
+[2026-10-19T19:29:22.103Z] [INFO] 
+[2026-10-19T19:29:22.103Z] [INFO] 💡 To continue this session:
+[2026-10-19T19:29:22.103Z] [INFO] 
+[2026-10-19T19:29:22.106Z] [INFO]    Interactive mode:    (cd "/tmp/gh-issue-solver-1792434128449" && claude --resume d7cb90ca-53a3-482f-895c-b4b050591ef6 --model opus)
+[2026-10-19T19:29:22.106Z] [INFO] 
+[2026-10-19T19:29:22.109Z] [INFO]    Autonomous mode:     (cd "/tmp/gh-issue-solver-1792434128449" && claude --resume d7cb90ca-53a3-482f-895c-b4b050591ef6 --output-format stream-json --dangerously-skip-permissions --model opus -p "Continue.")
+[2026-10-19T19:29:22.109Z] [INFO] 
+[2026-10-19T19:29:22.304Z] [INFO] 🔍 No processes left running in /tmp/gh-issue-solver-1792434128449 after the session
+[2026-10-19T19:29:23.271Z] [INFO] 
+[2026-10-19T19:29:23.271Z] [INFO] 📊 [DISK] phase=after_agent bytes=11199491280 deltaBytes=8914063285 path=/tmp/gh-issue-solver-1792434128449 size=10.4 GB delta=+8.3 GB
+[2026-10-19T19:29:23.279Z] [INFO] 📈 Resource usage (after AI execution):
+[2026-10-19T19:29:23.279Z] [INFO]    CPU load: 7.10 7.50 10.10 (6 CPUs)
+[2026-10-19T19:29:23.279Z] [INFO]    Memory: 10.2 GB available / 11.7 GB total (1.5 GB used)
+[2026-10-19T19:29:23.279Z] [INFO]    Process RSS: 210 MB, V8 heap: 37 MB used of 1.6 GB limit (2.3%)
+[2026-10-19T19:29:23.279Z] [INFO]    Disk (/): 130.5 GB available / 192.7 GB total (32.3% used)
+[2026-10-19T19:29:23.279Z] [INFO]    Container memory (cgroup v2): 1.3 GB used of 2.9 GB limit, peak 2.9 GB; processes killed by the OOM killer so far: 0
+[2026-10-19T19:29:23.279Z] [INFO] 📈 [RESOURCES] phase=after_agent ts=2026-10-19T19%3A29%3A23.273Z load1=7.1 load5=7.5 load15=10.1 cpuCount=6 memTotalBytes=12541485056 memAvailableBytes=10922201088 memUsedBytes=1619283968 processRssBytes=220061696 processHeapUsedBytes=38380112 processHeapTotalBytes=42041344 processExternalBytes=48833617 processHeapLimitBytes=1668546560 processHeapUsedPercent=2.3
+[2026-10-19T19:29:23.430Z] [STDOUT] ?? .claude/
+?? experiments/run-tests-from.sh
+[2026-10-19T19:29:23.469Z] [INFO] 
+[2026-10-19T19:29:23.469Z] [INFO] 📄 Attaching logs to Pull Request (auto-continue mode)...
+[2026-10-19T19:29:23.474Z] [STDERR] [use-m] use('fs') joined an in-flight load (alias fs-v-latest)
+[2026-10-19T19:29:23.521Z] [INFO] 📈 Resource usage (log upload start, 37MB log):
+[2026-10-19T19:29:23.521Z] [INFO]    CPU load: 7.10 7.50 10.10 (6 CPUs)
+[2026-10-19T19:29:23.521Z] [INFO]    Memory: 10.2 GB available / 11.7 GB total (1.5 GB used)
+[2026-10-19T19:29:23.521Z] [INFO]    Process RSS: 210 MB, V8 heap: 37 MB used of 1.6 GB limit (2.3%)
+[2026-10-19T19:29:23.521Z] [INFO]    Disk (/): 130.5 GB available / 192.7 GB total (32.3% used)
+[2026-10-19T19:29:23.521Z] [INFO]    Container memory (cgroup v2): 1.3 GB used of 2.9 GB limit, peak 2.9 GB; processes killed by the OOM killer so far: 0
+[2026-10-19T19:29:23.521Z] [INFO] 📈 [RESOURCES] phase=log_upload_start ts=2026-10-19T19%3A29%3A23.517Z load1=7.1 load5=7.5 load15=10.1 cpuCount=6 memTotalBytes=12541485056 memAvailableBytes=10920202240 memUsedBytes=1621282816 processRssBytes=220454912 processHeapUsedBytes=38534552 processHeapTotalBytes=40992768 processExternalBytes=48833815 processHeapLimitBytes=1668546560 processHeapUsedPercen
+[2026-10-19T19:29:23.531Z] [STDERR] [use-m] use('https') loading (alias https-v-latest)
+[2026-10-19T19:29:23.535Z] [STDERR] [use-m] use('https') loaded in 5ms

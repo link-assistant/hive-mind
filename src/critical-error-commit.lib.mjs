@@ -18,11 +18,13 @@
 import { open, rm } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 
-import { isAiToolScratchFile } from './ai-tool-scratch.lib.mjs';
+import { AI_TOOL_SCRATCH_TRACKED_PATHS, filterAiToolScratchFromStatus, isAiToolScratchFile } from './ai-tool-scratch.lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 
 /** Directories that hold build output in the ecosystems Hive Mind works on. */
 export const BUILD_OUTPUT_DIR_PATTERN = /(^|\/)(target|build|out|bin|obj|dist|node_modules|__pycache__|\.gradle|\.venv|venv|\.next|coverage)\//;
+
+const GIT_QUERY_TIMEOUT_MS = 30 * 1000;
 
 /** The branch that receives the preserved work of `branchName`. */
 export const recoveryBranchFor = branchName => `recovery/${branchName || 'detached-head'}`;
@@ -109,7 +111,20 @@ export const commitUncommittedChangesOnCriticalError = async ({ tempDir, branchN
       await log('   ℹ️ No uncommitted changes to preserve before recovery.', { verbose: true });
       return { committed: false, pushed: false };
     }
-    const recoveryBranch = recoveryBranchFor(branchName);
+    // Issue #3656: moved `.claude/worktrees/agent-*` gitlinks were the whole
+    // status, yet the private-index pass below ran for 40 s over a 10.4 GB
+    // working directory to find nothing worth preserving.
+    if (!filterAiToolScratchFromStatus(statusOutput)) {
+      await log('   ℹ️ Only AI tool state is uncommitted; nothing to preserve before recovery.', { verbose: true });
+      for (const line of statusOutput.split('\n')) await log(`   ${line}`, { verbose: true });
+      return { committed: false, pushed: false };
+    }
+    // Issue #3656: an error raised before solve.mjs records the branch (the
+    // resume status check) was announced as `recovery/detached-head` while HEAD
+    // sat on the PR branch. Name it after the checked-out branch; still only
+    // push when the caller named the branch.
+    const checkedOutBranch = branchName ? '' : (await $({ cwd: tempDir, signal: AbortSignal.timeout(GIT_QUERY_TIMEOUT_MS) })`git branch --show-current`).stdout?.toString().trim();
+    const recoveryBranch = recoveryBranchFor(branchName || checkedOutBranch);
     await log(`💾 Critical error (${reason}) — preserving uncommitted changes on ${recoveryBranch} (the PR branch is not changed)...`);
     for (const line of statusOutput.split('\n')) await log(`   ${line}`, { verbose: true });
 
@@ -120,7 +135,10 @@ export const commitUncommittedChangesOnCriticalError = async ({ tempDir, branchN
 
     const indexPath = (await git`git rev-parse --git-path hive-mind-recovery.index`).stdout?.toString().trim();
     indexFile = isAbsolute(indexPath) ? indexPath : join(tempDir, indexPath);
-    const steps = [() => git`GIT_INDEX_FILE=${indexFile} git read-tree HEAD`, () => git`GIT_INDEX_FILE=${indexFile} git add -u`, ...keep.map(path => () => git`GIT_INDEX_FILE=${indexFile} git add -- ${path}`)];
+    // Issue #3656: `git add -u` also re-records committed AI tool scratch (a
+    // `.claude/worktrees/agent-*` gitlink whose worktree moved on), so put it
+    // back the way HEAD has it: it is not work worth a recovery branch.
+    const steps = [() => git`GIT_INDEX_FILE=${indexFile} git read-tree HEAD`, () => git`GIT_INDEX_FILE=${indexFile} git add -u`, ...AI_TOOL_SCRATCH_TRACKED_PATHS.map(path => () => git`GIT_INDEX_FILE=${indexFile} git reset -q HEAD -- ${path}`), ...keep.map(path => () => git`GIT_INDEX_FILE=${indexFile} git add -- ${path}`)];
     for (const step of steps) {
       const result = await step();
       if (result.code !== 0) {

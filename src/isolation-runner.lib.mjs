@@ -47,10 +47,13 @@ export { findStartCommandBinary };
 export { getStartCommandVersion } from './start-command-cli.lib.mjs';
 export { applyDockerContainerResourceLimits };
 import { killDockerContainer } from './docker-container-control.lib.mjs';
+import { parseRunningContainerFamily } from './session-container-identity.lib.mjs';
 export { killDockerContainer };
 export { copyFromDockerContainer } from './isolation-runner.docker-cp.lib.mjs'; // Issue #2888
 import { checkDockerDiskSpace } from './docker-disk-space.lib.mjs';
 export { checkDockerDiskSpace, parseDfAvailableKb } from './docker-disk-space.lib.mjs'; // Issue #3469
+import { checkDockerLiveRestore, preflightLiveRestore } from './docker-live-restore.lib.mjs'; // Issue #2900
+export { detectDockerDaemonRestart } from './docker-daemon-restart.lib.mjs'; // Issue #2892: runner default for resolveOomKilledState
 // Issue #2189: `$ --resume` / `$ --resume-all`, added in start-command 0.33.0
 // (link-foundation/start#162). Re-exported so callers keep reaching every
 // isolation verb through this module.
@@ -76,6 +79,9 @@ const DOCKER_ISOLATION_LOW_DISK_GIB = 40;
 // Docker-only start gate used to capture the container writable-layer baseline before the task command begins cloning or generating files. Unlimited tasks retain a timeout fallback so a parent exit cannot strand them. Resource-limited tasks fail closed and require an explicit release: a timeout could otherwise start user code after limit enforcement and container cleanup both failed.
 const DOCKER_START_GATE_WAIT_TENTHS = 300;
 import { shellQuote, buildShellCommand } from './shell-command.lib.mjs';
+import { TASK_SESSION_ID_ENV, buildSessionIdentityArgs, ownsTaskSessionId } from './task-session-id.lib.mjs';
+import { buildTaskContainerLabelArgs } from './task-container-labels.lib.mjs'; // Issue #2917
+export { buildSessionIdentityArgs, ownsTaskSessionId };
 function normalizeTool(tool) {
   return String(tool || 'claude')
     .trim()
@@ -298,6 +304,7 @@ export async function buildDockerIsolationStartArgs(command, args = [], options 
   // Force the inner shell so start-command does not probe the image to detect one (see DOCKER_ISOLATION_SHELL).
   startArgs.push('--shell', DOCKER_ISOLATION_SHELL);
   // The image already sets HOME=/home/box and WORKDIR /home/box; pass HOME explicitly anyway so the credential mounts under /home/box resolve even if a future image forgets to. start-command has no --workdir flag, so the working directory comes from the image's WORKDIR.
+  if (ownsTaskSessionId(command, sessionId)) startArgs.push('-e', `${TASK_SESSION_ID_ENV}=${options.executionId || sessionId}`);
   startArgs.push('-e', `HOME=${DOCKER_CONTAINER_HOME}`, '-e', `HIVE_MIND_PARENT_SESSION_ID=${sessionId || ''}`, '-e', `HIVE_MIND_IMAGE_VARIANT=${resolveImageVariant(image, env)}`);
   // Issue #2247 (H1): the three 2026-09-13 tasks ran a week-old `solve` and no
   // comment said so. The image the container was created from - and the digest
@@ -343,7 +350,9 @@ export async function buildDockerIsolationStartArgs(command, args = [], options 
   }
   const taskCommand = buildShellCommand(command, args);
   const failClosedStartGate = hasContainerResourceLimits(options.containerResourceLimits);
-  startArgs.push('--detached', '--session', sessionId, '--', buildDockerStartGatedCommand(taskCommand, sessionId, { failClosed: failClosedStartGate }));
+  // Issue #2917: label the container (tool, command, URL, session, bot instance) so `docker ps` can count and attribute it after a bot restart; start-command >= 0.37.0 keeps the labels on resume.
+  startArgs.push(...buildTaskContainerLabelArgs({ tool, command, args, url: options.taskUrl || null, sessionId, env }));
+  startArgs.push('--detached', ...buildSessionIdentityArgs(sessionId, options), '--', buildDockerStartGatedCommand(taskCommand, sessionId, { failClosed: failClosedStartGate }));
   return startArgs;
 }
 export async function buildStartCommandArgs(command, args = [], options = {}) {
@@ -351,7 +360,9 @@ export async function buildStartCommandArgs(command, args = [], options = {}) {
   if (backend === 'docker') {
     return await buildDockerIsolationStartArgs(command, args, { ...options, sessionId });
   }
-  return ['--isolated', backend, '--detached', '--session', sessionId, '--', buildShellCommand(command, args)];
+  // Only a `solve` task owns the id; `$` exports START_EXECUTION_ID to every child (issue #3530).
+  const envPrefix = ownsTaskSessionId(command, sessionId) ? `${TASK_SESSION_ID_ENV}=${shellQuote(options.executionId || sessionId)} ` : '';
+  return ['--isolated', backend, '--detached', ...buildSessionIdentityArgs(sessionId, options), '--', `${envPrefix}${buildShellCommand(command, args)}`];
 }
 async function runStartCommand(binPath, startCommandArgs) {
   return await new Promise(resolve => {
@@ -438,7 +449,10 @@ async function logDockerIsolationPostLaunchDiagnostics(sessionId, env = process.
  * @param {Object} options - Isolation options
  * @param {string} options.backend - Isolation backend: 'screen', 'tmux', or 'docker'
  * @param {string} [options.sessionId] - UUID for session tracking (auto-generated if not provided)
+ * @param {string} [options.executionId] - start-command execution id when it differs from the session name (a recovery attempt, issue #3530)
+ * @param {boolean} [options.appendAttempt] - Run as the next attempt of `executionId`, appending to its log (start#229)
  * @param {string} [options.tool] - AI tool selected for the task; used to scope Docker auth mounts
+ * @param {string} [options.taskUrl] - Issue #2917: the issue/PR URL for the container's `hive-mind.url` label (default: the first URL in `args`)
  * @param {boolean} [options.verbose] - Enable verbose logging
  * @param {{cpu?: string|null, memory?: string|null, disk?: string|null}} [options.containerResourceLimits] - Optional Docker CPU, RAM, and writable-layer limits
  * @returns {Promise<{success: boolean, sessionId: string, output: string, error?: string, warning?: string, containerFilesystemStartBytes?: number|null, containerResourceLimits?: object|null}>}
@@ -823,6 +837,27 @@ export async function checkDockerContainerRunning(containerName, verbose = false
   }
 }
 /**
+ * Running containers of one task: `root` and its `-resume-<n>` successors
+ * (issue #3532). A recovery must not be declared dead — and a second one must
+ * not be launched — while any of them still runs.
+ *
+ * @param {string} root - The task's original container name
+ * @param {{verbose?: boolean}} [options]
+ * @returns {Promise<string[]>}
+ */
+export async function findRunningDockerContainerFamily(root, { verbose = false } = {}) {
+  if (!root) return [];
+  try {
+    const $ = await getCommandStreamDollar();
+    const result = await $({ mirror: false, signal: AbortSignal.timeout(DOCKER_CLI_TIMEOUT_MS) })`docker ps --filter ${`name=${root}`} --format ${'{{.Names}}'}`;
+    const names = parseRunningContainerFamily(result.stdout?.toString() || '', root);
+    if (verbose) console.log(`[VERBOSE] isolation-runner: running containers of '${root}': ${names.join(', ') || 'none'} (issue #3532)`);
+    return names;
+  } catch {
+    return [];
+  }
+}
+/**
  * Check whether the Docker container backing a session still exists at all —
  * running or stopped.
  *
@@ -1102,10 +1137,11 @@ export async function checkDockerStorageDriver(verbose = false) {
  * @param {Function} [options.checkImagePresent] - Image-presence probe (injectable for tests)
  * @param {Function} [options.checkStorageDriver] - Storage-driver probe (injectable for tests)
  * @param {Function} [options.checkDiskSpace] - Disk-space probe (injectable for tests)
- * @returns {Promise<{image: string, sock: string, socketMounted: boolean, imagePresent: boolean, isDind: boolean, storageDriver: (string|null), storageDriverOk: boolean, diskAvailableGiB: (number|null), ok: boolean, warnings: string[]}>}
+ * @param {Function} [options.checkLiveRestore] - Issue #2900: `LiveRestoreEnabled` probe (injectable for tests)
+ * @returns {Promise<{image: string, sock: string, socketMounted: boolean, imagePresent: boolean, isDind: boolean, storageDriver: (string|null), storageDriverOk: boolean, diskAvailableGiB: (number|null), liveRestore: (boolean|null), hostLiveRestore: (boolean|null), ok: boolean, warnings: string[]}>}
  */
 export async function preflightDockerIsolation(options = {}) {
-  const { env = process.env, existsSync: exists = pathExists, verbose = false, logger = console, checkImagePresent = checkDockerImagePresent, checkStorageDriver = checkDockerStorageDriver, checkDiskSpace = checkDockerDiskSpace } = options;
+  const { env = process.env, existsSync: exists = pathExists, verbose = false, logger = console, checkImagePresent = checkDockerImagePresent, checkStorageDriver = checkDockerStorageDriver, checkDiskSpace = checkDockerDiskSpace, checkLiveRestore = checkDockerLiveRestore } = options;
   const image = getDockerIsolationImage({ env });
   const sock = resolveHostDockerSock({ env });
   const isDind = shouldRunPrivilegedDockerIsolation(image, env);
@@ -1117,7 +1153,8 @@ export async function preflightDockerIsolation(options = {}) {
   // Unknown driver (probe returned null) is treated as ok — we only flag the
   // one driver known to overflow the disk, never block on missing information.
   const storageDriverOk = storageDriver !== 'vfs';
-  const result = { image, sock, socketMounted, imagePresent, isDind, storageDriver, storageDriverOk, diskAvailableGiB, ok: imagePresent, warnings: [] };
+  const live = await preflightLiveRestore({ checkLiveRestore, isDind, socketMounted, sock, verbose }); // Issue #2900: warn-only, never blocks
+  const result = { image, sock, socketMounted, imagePresent, isDind, storageDriver, storageDriverOk, diskAvailableGiB, liveRestore: live.liveRestore, hostLiveRestore: live.hostLiveRestore, ok: imagePresent, warnings: [...live.warnings] };
   const info = typeof logger.log === 'function' ? logger.log.bind(logger) : () => {};
   const warn = typeof logger.warn === 'function' ? logger.warn.bind(logger) : info;
   const preload = `node scripts/preload-dind-isolation-image.mjs --image ${image}`;
@@ -1249,6 +1286,8 @@ export async function isSessionRunning(sessionId, options = {}) {
   // Support legacy call signature: isSessionRunning(sessionId, verbose)
   const opts = typeof options === 'boolean' ? { verbose: options } : options;
   const { backend, verbose = false } = opts;
+  // Issue #3532: the container may be named differently from the status id.
+  const containerName = opts.containerName || sessionId;
   const result = await querySessionStatus(sessionId, verbose);
   if (result.exists && result.status) {
     if (isExecutingSessionStatus(result.status)) {
@@ -1262,7 +1301,7 @@ export async function isSessionRunning(sessionId, options = {}) {
       // terminal status only when a real exit code was captured; otherwise
       // cross-check the live container before declaring the session finished.
       if (backend === 'docker' && isUnknownDockerExitCode(result.exitCode)) {
-        const containerRunning = await checkDockerContainerRunning(sessionId, verbose);
+        const containerRunning = await checkDockerContainerRunning(containerName, verbose);
         if (containerRunning) {
           if (verbose) {
             console.log(`[VERBOSE] isolation-runner: $ --status reports '${result.status}' (exitCode ${result.exitCode}) for docker session '${sessionId}', but docker inspect shows the container is still running — treating as active (issue #1939)`);
@@ -1290,9 +1329,9 @@ export async function isSessionRunning(sessionId, options = {}) {
       return screenRunning;
     }
     if (backend === 'docker') {
-      const containerRunning = await checkDockerContainerRunning(sessionId, verbose);
+      const containerRunning = await checkDockerContainerRunning(containerName, verbose);
       if (containerRunning && verbose) {
-        console.log(`[VERBOSE] isolation-runner: $ --status says not running, but docker inspect confirms container '${sessionId}' is still active`);
+        console.log(`[VERBOSE] isolation-runner: $ --status says not running, but docker inspect confirms container '${containerName}' is still active`);
       }
       return containerRunning;
     }

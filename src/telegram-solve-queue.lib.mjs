@@ -17,12 +17,15 @@ export { QUEUE_CONFIG, THRESHOLD_STRATEGIES } from './queue-config.lib.mjs';
 import { QUEUE_CONFIG } from './queue-config.lib.mjs';
 import { escapeMarkdown } from './telegram-markdown.lib.mjs';
 import { reserveStartSlotForQueue } from './queue-start-reservation.lib.mjs';
+import { describeQueueTaskLimits } from './queue-task-limits.lib.mjs';
 import { classifySessionOutcome, formatExecutingWorkSessionMessage, formatFailedLaunchMessage, formatStartingWorkSessionMessage } from './work-session-formatting.lib.mjs';
 import { canonicalizeGitHubUrl as canonicalizeQueueUrl } from './github-url-parser.lib.mjs';
 import { t } from './i18n.lib.mjs';
 import { isTelegramMessageNotModifiedError, safeEditMessageText } from './telegram-safe-reply.lib.mjs';
 import { isTelegramRateLimitError, TELEGRAM_PRIORITY_LOW, withTelegramRequestPriority } from './telegram-rate-limit.lib.mjs';
 import { lt } from './limits-i18n.lib.mjs';
+// Issue #2917: docker-isolated tasks run in sibling containers, invisible to pgrep and to the in-memory session map.
+import { getTaskContainerSnapshot, mergeTaskContainerCounts } from './task-container-inventory.lib.mjs';
 // Issue #2175: throttling decisions live in their own module to keep this file under the 1350-line warning threshold.
 import { checkApiLimits as checkApiLimitsImpl, checkSystemResources as checkSystemResourcesImpl, getLocale } from './telegram-solve-queue.throttling.lib.mjs';
 export const QueueItemStatus = {
@@ -57,7 +60,7 @@ function buildQueueItemTelegramOptions(item, verbose) {
 /**
  * Queue item representing a /solve command request
  */
-class SolveQueueItem {
+export class SolveQueueItem {
   constructor(options) {
     this.id = `solve-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
     this.url = options.url;
@@ -169,6 +172,7 @@ export class SolveQueue {
     this.getRunningIsolatedSessionsFn = options.getRunningIsolatedSessions || getRunningIsolatedSessions;
     // Source of currently-executing detached sessions (with issue/PR URLs) used to list executing tasks in the detailed status (issue #1837).
     this.getRunningSessionItemsFn = options.getRunningSessionItems || getRunningSessionItems;
+    this.getTaskContainerSnapshotFn = options.getTaskContainerSnapshot || getTaskContainerSnapshot; // Issue #2917
     this.autoStart = options.autoStart !== false;
     // Separate queues per tool type - claude tasks never block other tool tasks See: https://github.com/link-assistant/hive-mind/issues/1159
     this.queues = {
@@ -359,6 +363,17 @@ export class SolveQueue {
     }
     return count;
   }
+  /**
+   * Issue #2917: the processing count that throttling must use — this queue's own
+   * launches or what is observably running (tracked sessions, task containers,
+   * host processes), whichever is larger.
+   * @param {string} tool
+   * @param {Object|null} [external] - getExternalProcessingSnapshot() result.
+   * @returns {number}
+   */
+  getEffectiveProcessingCountByTool(tool, external = this.lastExternalProcessingSnapshot) {
+    return Math.max(this.getProcessingCountByTool(tool), external?.byTool?.[tool] || 0);
+  }
   recordStart(tool = 'claude', startTime = Date.now()) {
     this.lastStartTimeByTool[tool] = startTime;
     this.lastStartTime = startTime;
@@ -395,7 +410,7 @@ export class SolveQueue {
       const item = toolQueue[0];
       if (!item) continue;
       // Determine startability and capture the blocking reason(s) for diagnostics. For tool-specific one-at-a-time, only count that tool's processing items.
-      const toolProcessingCount = this.getProcessingCountByTool(tool);
+      const toolProcessingCount = this.getEffectiveProcessingCountByTool(tool); // Issue #2917: uses the snapshot canStartCommand just took
       let startable = false;
       const blockReasons = Array.isArray(check.reasons) ? [...check.reasons] : [];
       if (check.canStart) {
@@ -516,14 +531,16 @@ export class SolveQueue {
     );
     const processTotal = Object.values(processByTool).reduce((sum, count) => sum + count, 0);
     const isolatedTotal = isolated.count || Object.values(isolatedByTool).reduce((sum, count) => sum + count, 0);
-    return {
-      byTool,
-      processByTool,
-      isolatedByTool,
-      total: Math.max(processTotal, isolatedTotal),
-      isolatedTotal,
-      processTotal,
-    };
+    const snapshot = { byTool, processByTool, isolatedByTool, total: Math.max(processTotal, isolatedTotal), isolatedTotal, processTotal };
+    // Issue #2917: running task containers count too, even when untracked or `$ --status` says `executed`.
+    let containers;
+    try {
+      containers = await this.getTaskContainerSnapshotFn(this.verbose);
+    } catch {
+      containers = null;
+    }
+    this.lastExternalProcessingSnapshot = mergeTaskContainerCounts(snapshot, containers, uniqueTools);
+    return this.lastExternalProcessingSnapshot;
   }
   /**
    * Check if a new command can start.
@@ -616,7 +633,7 @@ export class SolveQueue {
     // See: https://github.com/link-assistant/hive-mind/issues/1159
     // See: https://github.com/link-assistant/hive-mind/issues/1253 (strategies)
     const hasRunningToolProcess = (externalProcessing.byTool[tool] || 0) > 0;
-    const toolProcessingCount = this.getProcessingCountByTool(tool);
+    const toolProcessingCount = this.getEffectiveProcessingCountByTool(tool, externalProcessing);
     const limitCheck = await this.checkApiLimits(hasRunningToolProcess, toolProcessingCount, tool, { locale });
     if (limitCheck.rejected) {
       rejected = true;
@@ -809,7 +826,7 @@ export class SolveQueue {
         this.recordStart(tool);
         this.stats.totalStarted++;
         await this.updateItemMessage(item, formatStartingWorkSessionMessage({ infoBlock: item.infoBlock, locale: item.locale }));
-        this.log(`Starting: ${item.toString()} from ${tool} queue`);
+        this.log(`Starting: ${item.toString()} from ${tool} queue${describeQueueTaskLimits(item)}`); // Issue #3048: effective limits
         // Execute in background
         this.executeItem(item).catch(error => {
           console.error(`[solve_queue] Execution error for ${item.id}:`, error);
@@ -1078,7 +1095,8 @@ export class SolveQueue {
     for (const [tool, toolQueue] of Object.entries(this.queues)) {
       const pending = toolQueue.length;
       const processing = externalProcessing.byTool[tool] || 0;
-      message += `${tool} (${lt('queue_pending', {}, { locale })}: ${pending}, ${lt('queue_processing', {}, { locale })}: ${processing})\n`;
+      const untracked = externalProcessing.untrackedByTool?.[tool] || 0; // Issue #2917: say what the bot does not track
+      message += `${tool} (${lt('queue_pending', {}, { locale })}: ${pending}, ${lt('queue_processing', {}, { locale })}: ${processing}${untracked > 0 ? `, ${lt('queue_untracked', { count: untracked }, { locale })}` : ''})\n`;
     }
     return message;
   }

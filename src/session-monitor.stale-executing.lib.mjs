@@ -15,6 +15,7 @@
  */
 
 import { classifyExitStatus } from './session-status.lib.mjs';
+import { probeSessionBackendAlive } from './session-container-identity.lib.mjs';
 
 /**
  * Issue #1927: minimum age before a session that `$ --status` still reports as
@@ -88,7 +89,8 @@ export async function resolveStaleExecutingState(sessionName, sessionInfo, statu
   const ageMs = startMs != null ? Date.now() - startMs : Infinity;
   if (ageMs >= STALE_EXECUTING_MIN_AGE_MS && sessionInfo?.isolationBackend) {
     const probe = backendAlive || runner.checkBackendSessionAlive;
-    const alive = probe ? await probe(sessionInfo.sessionId || sessionName, sessionInfo.isolationBackend, verbose) : null;
+    // Issue #3532: probe the container (and its resume family), not the execution UUID.
+    const alive = await probeSessionBackendAlive(sessionName, sessionInfo, { probe, runner, verbose });
     // Only `false` (definitively gone) counts as killed; `null` (unknown backend)
     // is treated as "no signal" so we don't kill on an indeterminate probe.
     if (alive === false) {

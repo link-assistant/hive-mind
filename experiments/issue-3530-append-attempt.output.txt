@@ -1,0 +1,33 @@
+start-command: start-command version: 0.38.0
+--- attempt 1: --session 50186c25-881c-447f-b8a1-b266f51c4557 --session-id 50186c25-881c-447f-b8a1-b266f51c4557 (exits 137 like a kill)
+│ session   50186c25-881c-447f-b8a1-b266f51c4557
+│ container 50186c25-881c-447f-b8a1-b266f51c4557
+│ container 50186c25-881c-447f-b8a1-b266f51c4557
+│ log       /tmp/start-command/logs/isolation/docker/50186c25-881c-447f-b8a1-b266f51c4557.log
+│ session   50186c25-881c-447f-b8a1-b266f51c4557
+--- attempt 2 without --append-attempt (refused):
+Error: execution 50186c25-881c-447f-b8a1-b266f51c4557 already exists; use $ --resume 50186c25-881c-447f-b8a1-b266f51c4557 -- <command> to continue it, or pass --append-attempt
+--- attempt 2: --session 01cb9fe5-d92d-4bdd-8d39-1f8278bdbd08 --session-id 50186c25-881c-447f-b8a1-b266f51c4557 --append-attempt
+│ session   50186c25-881c-447f-b8a1-b266f51c4557
+│ container 01cb9fe5-d92d-4bdd-8d39-1f8278bdbd08
+│ container 01cb9fe5-d92d-4bdd-8d39-1f8278bdbd08
+│ log       /tmp/start-command/logs/isolation/docker/50186c25-881c-447f-b8a1-b266f51c4557.log
+│ session   50186c25-881c-447f-b8a1-b266f51c4557
+--- $ --status <new container name> answers about the same execution:
+{
+  uuid: '50186c25-881c-447f-b8a1-b266f51c4557',
+  status: 'executed',
+  exitCode: 0,
+  attempt: 2,
+  history: [ [ '50186c25-881c-447f-b8a1-b266f51c4557', 137 ] ],
+  logPath: '/tmp/start-command/logs/isolation/docker/50186c25-881c-447f-b8a1-b266f51c4557.log'
+}
+--- one log, both attempts:
+Session: 50186c25-881c-447f-b8a1-b266f51c4557
+attempt1
+Exit Code:  137 (SIGKILL - 128+9)
+Exit Code: 137
+[Start Command Lifecycle] {"event":"attempt-appended","at":"2026-10-19T18:48:32.220Z","uuid":"50186c25-881c-447f-b8a1-b266f51c4557","attemptNumber":2,"number":2
+Session: 01cb9fe5-d92d-4bdd-8d39-1f8278bdbd08
+attempt2 SID=50186c25-881c-447f-b8a1-b266f51c4557 ATT=2 NAME=01cb9fe5-d92d-4bdd-8d39-1f8278bdbd08
+Exit Code: 0

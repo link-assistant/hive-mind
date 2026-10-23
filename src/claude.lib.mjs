@@ -18,7 +18,7 @@ import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import { createSubAgentCallEntry, accumulateSubAgentUsage, displaySessionTokenUsage } from './claude.budget-stats.lib.mjs';
 import { buildClaudeResumeCommand, buildClaudeAutonomousResumeCommand } from './claude.command-builder.lib.mjs';
 import { beginAnthropicCostScope, seedCumulativeAnthropicCost, addAnthropicRunCost, captureAnthropicResultCost } from './anthropic-cost-accumulator.lib.mjs'; // Issues #1886, #2056, #2119
-import { buildSolveResumeCommand } from './solve.resume-command.lib.mjs'; // Issue #942
+import { buildSolveResumeCommandFromArgv } from './solve.resume-command.lib.mjs'; // Issues #942, #2843
 import { postTrackedComment } from './tool-comments.lib.mjs'; // Issue #1625
 import { buildSessionForceKilledComment } from './session-force-killed-comment.lib.mjs'; // Issue #1510/#2492
 import { handleClaudeRuntimeSwitch } from './claude.runtime-switch.lib.mjs'; // see issue #1141
@@ -158,19 +158,17 @@ export const executeClaude = async params => {
     })
   );
 };
-// Issue #1710: calculateModelCost extracted to ./claude.cost.lib.mjs to keep
-// this file under the 1500-line repo cap (see check-file-line-limits CI job).
+// Issue #1710: calculateModelCost lives in ./claude.cost.lib.mjs (1500-line repo cap, check-file-line-limits CI job).
 import { calculateModelCost } from './claude.cost.lib.mjs';
 export { calculateModelCost };
 // Issue #2175: session token accounting lives in claude.session-tokens.lib.mjs
 // so this file stays under the 1350-line early-warning threshold (issue #1593).
 import { calculateSessionTokens } from './claude.session-tokens.lib.mjs';
 export { calculateSessionTokens };
-// Extracted to claude.stderr.lib.mjs (Issue #477, #1337)
-import { isStderrError } from './claude.stderr.lib.mjs';
+import { isStderrError } from './claude.stderr.lib.mjs'; // Extracted (Issue #477, #1337)
 import { checkForUncommittedChanges } from './claude.uncommitted-changes.lib.mjs';
-export { checkForUncommittedChanges };
-export { isStderrError };
+import { claimClaudeTaskSessionIdArgs } from './task-session-id.lib.mjs'; // Issue #3530: AI session id = task id
+export { checkForUncommittedChanges, isStderrError };
 export const executeClaudeCommand = async params => {
   const {
     tempDir,
@@ -336,11 +334,13 @@ export const executeClaudeCommand = async params => {
       await log(`🔄 Resuming from session: ${argv.resume}`);
       claudeArgs = `--resume ${argv.resume} ${claudeArgs}`;
     }
+    const taskSessionIdArgs = argv.resume ? [] : await claimClaudeTaskSessionIdArgs({ log, verbose: argv.verbose });
+    if (taskSessionIdArgs.length) claudeArgs += ` ${taskSessionIdArgs.join(' ')}`;
     const claudeWorkLanguage = await import('./i18n.lib.mjs').then(i18n => i18n.getWorkLocale?.() ?? null).catch(() => null);
     await ensureClaudeQuietConfig({ log, workLanguage: claudeWorkLanguage });
     const { mcpConfigPath, disallowedToolsList } = await resolveClaudeSessionToolFlags({ argv, log, fallbackBuildMcpConfigWithoutPlaywright: buildMcpConfigWithoutPlaywright });
     if (mcpConfigPath) claudeArgs += ` --strict-mcp-config --mcp-config "${mcpConfigPath}"`;
-    if (disallowedToolsList.length) claudeArgs += ` --disallowedTools ${disallowedToolsList.join(' ')}`;
+    if (disallowedToolsList.length) claudeArgs += ` --disallowedTools ${disallowedToolsList.map(shellQuote).join(' ')}`; // Issue #744: quote Bash(pkill:*)
     if (streamingInput) {
       // Prompt is delivered as the first NDJSON frame on stdin (not as -p).
       claudeArgs += ` -p --input-format stream-json --append-system-prompt ${shellQuote(systemPrompt)}`;
@@ -391,9 +391,9 @@ export const executeClaudeCommand = async params => {
         // stdin. Initial prompt + later PR comments are written as NDJSON
         // frames by attachStreamingInput (see bidirectional-interactive.lib.mjs).
         const streamingInputArgs = ['-p', '--input-format', 'stream-json'];
-        execCommand = $({ cwd: tempDir, stdin: 'pipe', mirror: false, env: claudeEnv })`${toolInvocation.command} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${fallbackModelArgs} ${mcpDisableArgs} ${disallowedToolsArgs} ${streamingInputArgs} --append-system-prompt ${systemPrompt}`;
+        execCommand = $({ cwd: tempDir, stdin: 'pipe', mirror: false, env: claudeEnv })`${toolInvocation.command} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${taskSessionIdArgs} ${fallbackModelArgs} ${mcpDisableArgs} ${disallowedToolsArgs} ${streamingInputArgs} --append-system-prompt ${systemPrompt}`;
       } else {
-        execCommand = $({ cwd: tempDir, stdin: promptForAttempt, mirror: false, env: claudeEnv })`${toolInvocation.command} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${fallbackModelArgs} ${mcpDisableArgs} ${disallowedToolsArgs} --append-system-prompt ${systemPrompt}`;
+        execCommand = $({ cwd: tempDir, stdin: promptForAttempt, mirror: false, env: claudeEnv })`${toolInvocation.command} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${taskSessionIdArgs} ${fallbackModelArgs} ${mcpDisableArgs} ${disallowedToolsArgs} --append-system-prompt ${systemPrompt}`;
       }
       if (streamingInput) {
         await attachStreamingInput(bidirectionalHandler, execCommand, promptForAttempt, log, !!argv.verbose);
@@ -1181,7 +1181,7 @@ export const executeClaudeCommand = async params => {
             sessionId,
             interactiveResumeCommand: hasSession ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : null,
             autonomousResumeCommand: hasSession ? buildClaudeAutonomousResumeCommand({ tempDir, sessionId, model: argv.model }) : null,
-            solveResumeCommand: hasSession && argv?.url ? buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool: argv.tool || 'claude', model: argv.model, fallbackModel: argv.fallbackModel, tempDir }) : null,
+            solveResumeCommand: hasSession ? buildSolveResumeCommandFromArgv({ argv, sessionId, tempDir }) : null,
           });
           for (const line of messageLines) await log(line, { level: 'warning' });
         } else if (lastMessage.includes('context_length_exceeded')) {

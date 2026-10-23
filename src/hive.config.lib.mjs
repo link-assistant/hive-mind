@@ -12,7 +12,7 @@ const HIVE_ONLY_OPTION_NAMES = new Set(['monitor-tag', 'all-issues', 'skip-issue
 
 // Solve-only options that should NOT be registered in hive
 // (they are internal to solve and not meaningful when passed from hive)
-const SOLVE_ONLY_OPTION_NAMES = new Set(['resume', 'working-directory', 'only-prepare-command', 'session-type', 'auto-resume-iteration', 'previous-anthropic-cost']);
+const SOLVE_ONLY_OPTION_NAMES = new Set(['resume', 'working-directory', 'only-prepare-command', 'session-type', 'recovery-attempt', 'auto-resume-iteration', 'previous-anthropic-cost']);
 
 // Options that hive defines with different defaults/descriptions than solve.
 // These are registered manually in hive config to preserve hive-specific behavior.
@@ -129,6 +129,10 @@ export const createYargsConfig = yargsInstance => {
       description: 'Number of concurrent solve instances',
       default: 2,
       alias: 'c',
+    })
+    .option('min-memory-per-worker', {
+      type: 'number',
+      description: 'Minimum cgroup memory (MB) per worker; --concurrency is lowered when the container memory limit cannot give every worker this much (0 disables; env HIVE_MIND_MIN_MEMORY_PER_WORKER, default 2048)',
     })
     .option('pull-requests-per-issue', {
       type: 'number',

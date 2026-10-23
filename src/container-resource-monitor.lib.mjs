@@ -1,5 +1,6 @@
 /** Runtime enforcement and reporting for Docker task disk limits (issue #449). */
 import { detectContainerDiskLimitBreach } from './container-resource-limits.lib.mjs';
+import { resolveSessionContainerName } from './session-container-identity.lib.mjs';
 
 function formatResourceLimitBytes(bytes) {
   if (!Number.isFinite(bytes)) return 'unknown';
@@ -40,7 +41,7 @@ export async function enforceContainerDiskLimitForSession(sessionName, sessionIn
     });
   let result;
   try {
-    result = await stop(sessionInfo?.sessionId || sessionName, verbose);
+    result = await stop(resolveSessionContainerName(sessionName, sessionInfo), verbose);
   } catch (error) {
     result = { success: false, error: error?.message || String(error) };
   }

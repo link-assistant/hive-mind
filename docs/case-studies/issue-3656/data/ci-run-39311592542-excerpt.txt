@@ -1,0 +1,11 @@
+detect-changes	UNKNOWN STEP	2026-10-19T19:39:30.5262330Z Removing SSH command configuration
+detect-changes	UNKNOWN STEP	2026-10-19T19:39:30.5267812Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+detect-changes	UNKNOWN STEP	2026-10-19T19:39:30.5297617Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+detect-changes	UNKNOWN STEP	2026-10-19T19:39:30.5506691Z fatal: No url found for submodule path '.claude/worktrees/agent-a6f6b1eccdeeb44b8' in .gitmodules
+detect-changes	UNKNOWN STEP	2026-10-19T19:39:30.5542309Z ##[warning]The process '/usr/bin/git' failed with exit code 128
+detect-changes	UNKNOWN STEP	2026-10-19T19:39:30.5644333Z Evaluate and set job outputs
+detect-changes	UNKNOWN STEP	2026-10-19T19:39:30.5651928Z Cleaning up orphan processes
+detect-changes	UNKNOWN STEP	2026-10-19T19:39:30.5506691Z fatal: No url found for submodule path '.claude/worktrees/agent-a6f6b1eccdeeb44b8' in .gitmodules
+Release Preflight / Probe publishing credentials	UNKNOWN STEP	2026-10-19T19:33:38.5336194Z ##[error]fatal: No url found for submodule path '.claude/worktrees/agent-a6f6b1eccdeeb44b8' in .gitmodules
+Release Preflight / Probe publishing credentials	UNKNOWN STEP	2026-10-19T19:33:38.8223127Z fatal: No url found for submodule path '.claude/worktrees/agent-a6f6b1eccdeeb44b8' in .gitmodules
+Pipeline Status	UNKNOWN STEP	2026-10-19T19:41:06.0398702Z fatal: No url found for submodule path '.claude/worktrees/agent-a6f6b1eccdeeb44b8' in .gitmodules

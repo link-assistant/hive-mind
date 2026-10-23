@@ -27,6 +27,8 @@ claude
 solve https://github.com/owner/repo/issues/123
 ```
 
+> **पहली बार start करने से पहले:** host पर Docker live-restore चालू करें, ताकि `dockerd` restart bot और उसके चल रहे tasks को न मारे। देखें [Host Docker daemon settings](#host-docker-daemon-settings)।
+
 ### विकल्प 2: स्थानीय रूप से Build करना
 
 ```bash
@@ -52,6 +54,8 @@ docker run --rm --privileged -it konard/hive-mind-dind:latest bash
 docker info
 docker run hello-world
 ```
+
+Inner daemon `--live-restore` के साथ start होता है (`DIND_LIVE_RESTORE=1`)। इस container को चलाने वाले host daemon को भी यह setting चाहिए: देखें [Host Docker daemon settings](#host-docker-daemon-settings)।
 
 यह image inner Docker daemon को default रूप से `DIND_STORAGE_DRIVER=fuse-overlayfs` पर चलाती है। यह एक **copy-on-write** driver है, इसलिए कई गीगाबाइट की Hive Mind images डिस्क पर लगभग अपने असली आकार जितनी ही जगह (एक बार) लेती हैं — जबकि `vfs` हर layer की पूरी copy बनाता है और on-disk footprint को image आकार के कई गुना तक बढ़ा देता है, जिससे डिस्क `failed to register layer: no space left on device` के साथ भर जाती है ([issue #1914](https://github.com/link-assistant/hive-mind/issues/1914))। `fuse-overlayfs` overlay-on-overlay भी काम करता है (वही compatibility जिसके लिए शुरू में `vfs` चुना गया था), image में `fuse-overlayfs` binary पहले से मौजूद है, और Hive Mind DinD container को `--privileged` के साथ launch करता है, इसलिए `/dev/fuse` उपलब्ध रहता है। Override विकल्प:
 
@@ -204,30 +208,62 @@ host-side start-command log उपलब्ध रहता है। Failed run
 
 #### Docker task resource limits
 
-Telegram से शुरू किए गए Docker tasks की memory limit default रूप से host RAM का 25% है।
-CPU और disk limits वैकल्पिक हैं; आवश्यकता के अनुसार memory limit बदलें:
+Telegram से शुरू किए गए Docker tasks को, अगर आप कुछ और set न करें, ये limits मिलती हैं:
+
+| Limit                        | Default         | Option                           | Environment variable                    |
+| ---------------------------- | --------------- | -------------------------------- | --------------------------------------- |
+| CPU                          | host CPU का 50% | `--container-cpu`                | `TELEGRAM_CONTAINER_CPU`                |
+| RAM hard limit               | host RAM का 60% | `--container-memory`             | `TELEGRAM_CONTAINER_MEMORY`             |
+| RAM soft limit (reservation) | host RAM का 25% | `--container-memory-reservation` | `TELEGRAM_CONTAINER_MEMORY_RESERVATION` |
+| Writable-layer disk          | कोई नहीं        | `--container-disk`               | `TELEGRAM_CONTAINER_DISK`               |
 
 ```bash
 hive-telegram-bot --isolation docker \
   --container-cpu 50% \
-  --container-memory 2GiB \
+  --container-memory 60% \
+  --container-memory-reservation 25% \
   --container-disk 20GB
 ```
 
-इसके समकक्ष environment variables `TELEGRAM_CONTAINER_CPU`, `TELEGRAM_CONTAINER_MEMORY`, और
-`TELEGRAM_CONTAINER_DISK` हैं। CPU value एक fixed core count, जैसे `1.5`, या host के logical CPUs
-का percentage हो सकती है। Memory और disk decimal units (`MB`, `GB`, `TB`), binary units (`MiB`,
-`GiB`, `TiB`), या percentages स्वीकार करते हैं। Memory percentage कुल host RAM का उपयोग करता है;
-disk percentage task launch के समय filesystem की available space का उपयोग करता है।
+CPU value एक fixed core count, जैसे `1.5`, या host के logical CPUs का percentage हो सकती है।
+Memory और disk decimal units (`MB`, `GB`, `TB`), binary units (`MiB`, `GiB`, `TiB`), या
+percentages स्वीकार करते हैं। Memory percentage कुल host RAM का उपयोग करता है; disk percentage
+task launch के समय filesystem की available space का उपयोग करता है। `unlimited` किसी limit को,
+default limit को भी, बंद करता है (जैसे `--container-cpu unlimited`)।
 
-कोई limit अनुमानित नहीं की जाती: setting छोड़ने पर मौजूदा unlimited behavior बना रहता है। Task command
-चलने से पहले, task को start gate के पीछे रोके रखते हुए Docker CPU और RAM limits लागू करता है। Docker
-storage quotas सभी storage drivers पर portable नहीं हैं, इसलिए Hive Mind हर session-monitor tick पर
-(default रूप से 30 seconds) container के writable layer के विरुद्ध disk setting लागू करता है। Usage limit
-से अधिक होने पर container रोक दिया जाता है और completion message measured usage और configured limit बताता
-है। Docker daemon में संबंधित CPU और memory cgroup controllers delegated होने चाहिए; यदि Docker requested
-kernel limit लागू नहीं कर सकता, तो Hive Mind start gate बंद रखता है, जहाँ संभव हो container हटाता या रोकता
-है, और task को बिना limit के चुपचाप चलाने के बजाय launch failure report करता है।
+**Memory (issue #3125).** पुरानी default 25% hard cap छोटे hosts (11.7 GiB में से 2.9 GiB) पर
+सामान्य builds को OOM-kill कर देती थी, जबकि बाकी RAM खाली पड़ी रहती थी। अब task host RAM का 60%
+तक उपयोग कर सकता है। 25% reservation एक soft limit है (`docker update --memory-reservation`):
+host पर free RAM रहने तक task इससे आगे बढ़ सकता है, और host पर memory pressure होने पर kernel
+पहले उन tasks की memory reclaim करता है जो अपने reservation से ऊपर हैं। Reservation hard limit से
+कम होना चाहिए। `--container-memory` hard limit को बदल देता है और default reservation हटा देता है;
+reservation रखने के लिए `--container-memory-reservation` भी set करें। Swap नहीं जोड़ा जाता:
+`--memory-swap` hard limit के बराबर है।
+
+हर task के अंदर, जिन bash shells में AI tool commands चलाता है, वे `BASH_ENV` hook से अपना
+`oom_score_adj` 500 कर लेते हैं, इसलिए memory खत्म होने पर kernel AI CLI से पहले build या test run
+को kill करता है। CLI अपना score रखता है, इसलिए session बचा रहता है और कम parallelism के साथ फिर
+कोशिश कर सकता है। `HIVE_MIND_TOOL_SHELL_OOM_SCORE_ADJ` value (1-1000) बदलता है या इसे बंद
+(`off`) करता है। bash के अलावा shells (`sh`, `zsh`) default score रखते हैं।
+
+**CPU (issue #3048).** CPU limit के बिना एक multi-core task host CPU का 100% दिखता है, और queue
+का CPU gate उसके खत्म होने तक हर tool queue को रोके रखता है। अब हर task host CPUs के 50% तक
+सीमित है। Queue किसी capped task के इस्तेमाल किए जा रहे CPU को उसी task के लिए reserved मानता है:
+बाकी load की तुलना उन CPUs से की जाती है जिन्हें capped tasks इस्तेमाल नहीं कर सकते। इसलिए अपनी cap
+तक busy task दूसरे tools को block नहीं करता, जबकि uncapped load पहले की तरह block करता है। Docker
+tasks बिना CPU limit के चलें तो bot startup पर warning देता है, और queue की `Starting:` log line हर
+task की limits दिखाती है, जैसे `[limits: CPU=50% (3 CPUs), RAM=60% (7.2 GiB), reservation=25% (3.0 GiB), disk=unlimited]`।
+
+Task command चलने से पहले, task को start gate के पीछे रोके रखते हुए Docker `docker update` से CPU
+और RAM limits लागू करता है। start-command 0.38.0 में `--memory` और `--cpus` launch flags हैं, पर
+`--memory-reservation` नहीं, इसलिए सभी limits इसी तरह लागू होती हैं। Docker storage quotas सभी
+storage drivers पर portable नहीं हैं, इसलिए Hive Mind हर session-monitor tick पर (default रूप से
+30 seconds) container के writable layer के विरुद्ध disk setting लागू करता है। Usage limit से अधिक
+होने पर container रोक दिया जाता है और completion message measured usage और configured limit बताता
+है। Docker daemon में संबंधित CPU और memory cgroup controllers delegated होने चाहिए; यदि Docker
+requested kernel limit लागू नहीं कर सकता, तो Hive Mind start gate बंद रखता है, जहाँ संभव हो
+container हटाता या रोकता है, और task को बिना limit के चुपचाप चलाने के बजाय launch failure report
+करता है।
 
 **CPU penalty (issue #2801).** जो Docker task लंबे समय तक अपने सभी CPUs व्यस्त रखता है, उसे limit किया जाता है, और load कम होने पर limit हटा दी जाती है। `--isolation docker` के लिए यह default रूप से चालू है। "सभी CPUs" का अर्थ है Docker host के CPUs (`docker info` NCPU, हर 5 मिनट पर दोबारा पढ़ा जाता है), या `--container-cpu` limit, अगर वह कम हो।
 
@@ -236,6 +272,8 @@ kernel limit लागू नहीं कर सकता, तो Hive Mind sta
 3. इसके बाद निगरानी फिर से शुरू होती है। सभी CPUs पर फिर 15 मिनट चलने पर task फिर limit हो जाता है।
 
 Options: `--container-cpu-penalty-cpus` (2), `--container-cpu-penalty-trigger` (95%), `--container-cpu-penalty-trigger-window` (15m), `--container-cpu-penalty-release` (65%), `--container-cpu-penalty-release-window` (15m)। Environment variables: `TELEGRAM_CONTAINER_CPU_PENALTY_*`। बंद करने के लिए: `--no-container-cpu-penalty`। Penalty state bot restart के बाद भी बनी रहती है। जिस task पर limit लगी थी, उसके completion message में `🐢 CPU penalty` section दिखता है।
+
+start-command 0.38.0 (Hive Mind images का version) में उन्हीं options और defaults के साथ अपना opt-in `$ --cpu-penalty*` है। Hive Mind इसे pass नहीं करता: bot का अपना monitor हर start-command version के साथ काम करता है और completion message में penalty बताता है। एक ही container के लिए दोनों penalties चालू न करें, वरना वे उसकी CPU cap पर आपस में टकराएँगी। असली Docker daemon पर दोनों की जाँच के लिए [issue #2801 case study](case-studies/issue-2801/README.md) देखें।
 
 **Manual fallback.** पहले से चल रहे container को तुरंत seed करने के लिए (या जब आप deployment नहीं बदल
 सकते), host image को inner daemon में copy करें:
@@ -355,6 +393,59 @@ docker run --rm -it \
 1. **Docker:** Docker Desktop या Docker Engine (version 20.10 या उच्चतर) install करें
 2. **Internet Connection:** Images pull करने और authentication के लिए आवश्यक
 
+## Host Docker daemon settings
+
+Docker के default `"live-restore": false` के साथ host `dockerd` का कोई भी restart —
+crash, kernel OOM killer, package upgrade, `systemctl restart docker` — हर container
+को ज़बरदस्ती बंद कर देता है: bot container, हर चल रहा `--isolation docker` task और bot
+की memory में रखी solve queue ([issue #2900](https://github.com/link-assistant/hive-mind/issues/2900))। `"live-restore": true` के साथ
+daemon चल रहे containers से फिर से जुड़ जाता है ([Docker documentation](https://docs.docker.com/engine/daemon/live-restore/))।
+
+Setting जाँचें (`true` होना चाहिए):
+
+```bash
+docker info -f '{{.LiveRestoreEnabled}}'
+```
+
+`--isolation docker` preflight bot के start होने पर यही जाँच करता है और daemon के
+`false` बताने पर warning लिखता है। Docker-in-Docker image में यह nested daemon को, और
+host socket mount होने पर host daemon को भी जाँचता है। Warning कभी startup नहीं रोकती।
+
+इसे Docker host पर लागू करें (container के अंदर नहीं):
+
+```bash
+# "live-restore": true को /etc/docker/daemon.json में merge करें, बाकी सभी keys रखते हुए
+sudo python3 -c 'import json,os
+p="/etc/docker/daemon.json"
+d=json.load(open(p)) if os.path.exists(p) and os.path.getsize(p) else {}
+d["live-restore"]=True
+os.makedirs("/etc/docker",exist_ok=True)
+open(p,"w").write(json.dumps(d,indent=2)+"\n")'
+
+# Reload (SIGHUP) करें, restart कभी नहीं: live-restore बंद रहते restart हर container को मार देता है
+sudo systemctl reload docker
+
+# जाँच: true छापता है
+docker info -f '{{.LiveRestoreEnabled}}'
+```
+
+सीमाएँ:
+
+- Live-restore host reboot के बाद नहीं बचता: हर container रुक जाता है। Bot container पर
+  `--restart unless-stopped` रखें ताकि वह वापस आ जाए; reboot से रुका task वैसा ही report
+  होता है ([issue #3533](https://github.com/link-assistant/hive-mind/issues/3533))।
+- Daemon upgrade के दौरान containers केवल patch releases के बीच चलते रहते हैं।
+- Live-restore Swarm mode में काम नहीं करता; यह standalone containers के लिए है।
+- Daemon बंद रहने पर, जो container अपना log pipe buffer (लगभग 64 KiB) भर देता है, वह
+  daemon लौटने तक write पर रुका रहता है।
+- अभी शुरू न हुए tasks की queue bot की memory में रहती है और bot के restart पर अब भी खो
+  जाती है ([issue #2890](https://github.com/link-assistant/hive-mind/issues/2890))।
+- इस repository की कोई script host पर Docker install नहीं करती, इसलिए यह एक बार का manual
+  step है।
+- `konard/hive-mind-dind` image अपना nested `dockerd` पहले से `--live-restore` के साथ
+  चलाता है (`DIND_LIVE_RESTORE=1`, बंद करने के लिए `-e DIND_LIVE_RESTORE=0`)। Host
+  daemon को फिर भी ऊपर वाली setting चाहिए।
+
 ## डायरेक्टरी संरचना
 
 ```
@@ -384,6 +475,10 @@ docker run -it -v box-home:/home/box konard/hive-mind:latest
 ```
 
 यदि पूरा home mount नहीं करते हैं, तो `/home/box/.codex` और optional `/home/box/.agents` को अलग-अलग persist करें। `--isolation docker` tasks को ये directories पूरी तरह **नहीं** मिलतीं: [issue #2190](https://github.com/link-assistant/hive-mind/issues/2190) से task container में केवल credential file (`~/.claude/.credentials.json` या `~/.codex/auth.json`) और session directories (`~/.claude/projects`, `~/.claude/sessions`, `~/.codex/sessions`) mount होती हैं; plugins, marketplace, skills, MCP और settings image से आते हैं और container के साथ ही समाप्त हो जाते हैं। हर `solve`/`hive` start पर global configuration audit होती है और default रूप से minimal profile तक साफ़ की जाती है (`--no-agent-config-auto-repair` से बंद करें)। Hive Mind `codex exec` से पहले issue, सभी comments और repository instruction files पढ़ता है, स्पष्ट plugin/Agent Skill requirements resolve करता है और चुने गए provider को `.codex/hive-mind/repositories/<owner>/<repo>` में install करता है। हर task इस scope को खाली plugin/skill state से फिर बनाता है, remote plugin sync बंद करता है और host cache या global skills copy नहीं करता। Target repository में कोई skill file deploy या commit नहीं होती।
+
+**Telegram bot की queue restart के बाद भी बनी रहती है (issue #2890)।** Bot अपनी `/solve` queue को `~/.hive-mind/state/` में save करता है (`queue.json`, एक `queue.lino` copy और, यदि link-cli tool `clink` installed है, तो `queue.links` doublets database); `HIVE_MIND_STATE_DIR` यह directory बदलता है। Restart के बाद bot हर queued task को उसके मूल क्रम में वापस रखता है और हर chat को बताता है कि क्या वापस आया। जो task रुकने के समय launch हो रहा था, वह तभी दोबारा start होता है जब कोई container या tracked session उसे नहीं चला रहा हो। Bot container दोबारा बनने पर भी queue रखने के लिए `docker run` command में `-v /root/.hive-mind/state:/home/box/.hive-mind/state` जोड़ें (और directory का owner `box` बनाएँ)। यदि सभी stores खो जाएँ, तो bot `~/.hive-mind/logs/` में अपने log से queue फिर बनाता है। `HIVE_MIND_QUEUE_CLINK=0` link-cli copy बंद करता है, और `HIVE_MIND_CLINK_PATH` `clink` binary का path देता है (`dotnet tool install --global clink`)।
+
+**चल रहे tasks limits में गिने जाते हैं (issue #2917)।** `--isolation docker` में queue चल रहे task containers (`docker ps`) गिनती है, इसलिए जिस task को bot अब track नहीं करता (जैसे bot restart के बाद), वह भी one-at-a-time limits में गिना जाता है। `/limits` इन्हें `N ट्रैक नहीं` के रूप में दिखाता है। Bot हर task container पर `hive-mind.*` labels (tool, URL, command, instance) लगाता है। जब कई bots एक Docker daemon साझा करते हैं, तो `HIVE_MIND_INSTANCE_ID` सेट करें ताकि हर bot केवल अपने task containers adopt करे।
 
 Catalog में provider न होने पर preflight AI harness शुरू होने से पहले exact capability बताता है। Marketplace inspect या refresh करने के लिए parent container में `codex plugin list --available --json` चलाएं। Preflight हर task के लिए `codex debug prompt-input` से पूरा model-visible catalog जांचता है, भले कोई optional capability घोषित न हो। केवल scoped core skills, स्पष्ट repository skills और चुने गए scoped plugin skills स्वीकार होते हैं; unexpected skill, untrusted path या supported CLI पर unavailable/unparseable probe execution रोक देता है। Verbose log accepted name, provider, version और normalized path दिखाता है।
 

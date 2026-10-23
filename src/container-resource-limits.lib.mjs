@@ -12,8 +12,10 @@ import os from 'node:os';
 const DECIMAL_UNITS = Object.freeze({ b: 1, kb: 1000, mb: 1000 ** 2, gb: 1000 ** 3, tb: 1000 ** 4 });
 const BINARY_UNITS = Object.freeze({ kib: 1024, mib: 1024 ** 2, gib: 1024 ** 3, tib: 1024 ** 4, k: 1024, m: 1024 ** 2, g: 1024 ** 3, t: 1024 ** 4 });
 
+// Issue #3048/#3125: `unlimited` opts out of a limit, including a default one.
 function normalizeOptionalValue(value) {
   const normalized = String(value ?? '').trim();
+  if (normalized.toLowerCase() === 'unlimited') return null;
   return normalized || null;
 }
 
@@ -61,17 +63,24 @@ export function normalizeContainerResourceLimits(input = {}) {
   const normalized = {
     cpu: normalizeOptionalValue(input.cpu),
     memory: normalizeOptionalValue(input.memory),
+    memoryReservation: normalizeOptionalValue(input.memoryReservation),
     disk: normalizeOptionalValue(input.disk),
   };
   if (normalized.cpu) parseCpuCores(normalized.cpu);
-  if (normalized.memory) parseBytes(normalized.memory, 'Memory');
+  const memory = normalized.memory ? parseBytes(normalized.memory, 'Memory') : null;
+  // Issue #3125: the soft limit (`docker update --memory-reservation`) lets a
+  // task burst above it into idle host RAM, while host pressure reclaims it first.
+  const reservation = normalized.memoryReservation ? parseBytes(normalized.memoryReservation, 'Memory reservation') : null;
+  if (memory && reservation && memory.kind === reservation.kind && reservation.value >= memory.value) {
+    throw new Error(`Memory reservation must be below the memory limit (${normalized.memoryReservation} >= ${normalized.memory})`);
+  }
   if (normalized.disk) parseBytes(normalized.disk, 'Disk');
   return normalized;
 }
 
 export function hasContainerResourceLimits(input = {}) {
   const normalized = normalizeContainerResourceLimits(input);
-  return Boolean(normalized.cpu || normalized.memory || normalized.disk);
+  return Boolean(normalized.cpu || normalized.memory || normalized.memoryReservation || normalized.disk);
 }
 
 /** Resource controls apply only to commands whose effective backend is Docker. */
@@ -94,10 +103,17 @@ export function resolveContainerResourceLimits(input = {}, capacity) {
   const requested = normalizeContainerResourceLimits(input);
   const cpu = requested.cpu ? parseCpuCores(requested.cpu) : null;
   const memory = requested.memory ? parseBytes(requested.memory, 'Memory') : null;
+  const reservation = requested.memoryReservation ? parseBytes(requested.memoryReservation, 'Memory reservation') : null;
   const disk = requested.disk ? parseBytes(requested.disk, 'Disk') : null;
+  const memoryBytes = resolveValue(memory, capacity?.memoryBytes, 'Memory');
+  let memoryReservationBytes = resolveValue(reservation, capacity?.memoryBytes, 'Memory reservation');
+  // Mixed units (e.g. 1GiB hard limit, 25% reservation) are only comparable
+  // here; Docker rejects a reservation that is not below the hard limit.
+  if (Number.isFinite(memoryBytes) && Number.isFinite(memoryReservationBytes) && memoryReservationBytes >= memoryBytes) memoryReservationBytes = null;
   return {
     cpuCores: resolveValue(cpu, capacity?.cpuCores, 'CPU', { integer: false }),
-    memoryBytes: resolveValue(memory, capacity?.memoryBytes, 'Memory'),
+    memoryBytes,
+    memoryReservationBytes,
     diskBytes: resolveValue(disk, capacity?.diskBytes, 'Disk'),
     requested,
   };
@@ -112,6 +128,10 @@ export function buildDockerUpdateArgs(resolved = {}) {
   const args = [];
   if (Number.isFinite(resolved.cpuCores)) args.push('--cpus', formatDockerCpu(resolved.cpuCores));
   if (Number.isFinite(resolved.memoryBytes)) args.push('--memory', String(resolved.memoryBytes), '--memory-swap', String(resolved.memoryBytes));
+  // Issue #3125: start-command <= 0.38.0 has no --memory-reservation launch
+  // flag, so the soft limit is applied here, behind the same start gate.
+  const reservation = resolved.memoryReservationBytes;
+  if (Number.isFinite(reservation) && reservation > 0 && !(Number.isFinite(resolved.memoryBytes) && reservation >= resolved.memoryBytes)) args.push('--memory-reservation', String(reservation));
   return args.length ? ['update', ...args] : [];
 }
 

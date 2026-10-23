@@ -1,0 +1,21 @@
+start-command: start-command version: 0.37.8
+id: afdce9a5-879e-4957-a6b1-e55c5fc18a68
+
+== 1. one id for session and execution
+first-run lines in log: 2
+
+== 2. $ --resume keeps the id and appends
+first-run lines in log after resume (grows): 3
+
+== 3. a new launch with the same --session-id
+first-run lines left in log (0 = earlier attempts lost): 0
+second-launch lines: 2
+  status executed
+  command "sh -c 'echo second-launch-output'"
+  logPath /tmp/start-command/logs/isolation/screen/afdce9a5-879e-4957-a6b1-e55c5fc18a68.log
+    sessionName other-afdce9a5-879e-4957-a6b1-e55c5fc18a68
+    commandHandoff true
+    useCommandStream false
+
+== 4. does the command see its id?
+env variables holding the id (0 = not exported): 0

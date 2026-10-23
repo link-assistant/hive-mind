@@ -36,13 +36,17 @@ import { readLogMarkerLines, readLogTextBounded, scanLogTextChunks } from './log
 import { resolveFailedSessionPullRequestState } from './github-pr-state.lib.mjs';
 import { sessionStartMs } from './session-monitor.stale-executing.lib.mjs';
 // Issue #2134: kill-cause diagnostics + the matching pull-request notice.
-import { buildKillCompletionSections, announceKillOnPullRequest, hasContainerOomEvidence, startedPullRequestUrl } from './session-monitor.kill-sections.lib.mjs';
-import { runKillRecoveryForCompletion } from './session-kill-resume.lib.mjs';
+import { buildKillCompletionSections, hasContainerOomEvidence, startedPullRequestUrl } from './session-monitor.kill-sections.lib.mjs';
+import { announcePendingKillNotice, finishKillNotice } from './session-monitor.kill-notice.lib.mjs';
+import { reportRecoveryAttemptOutcome } from './session-kill-recovery-outcome.lib.mjs'; // Issue #3435
+import { reportSurvivedOomEvent } from './session-oom-event-report.lib.mjs'; // Issue #2809
+import { planKillRecovery, runKillRecoveryForCompletion } from './session-kill-resume.lib.mjs';
 import { isDiskRefusedRecovery } from './session-kill-resume.disk-retry.lib.mjs';
 import { detectFailedInPlaceStart } from './session-kill-resume.start-failure.lib.mjs';
 import { createSessionPullRequestUrlScanner, lookupSessionPullRequestUrl } from './session-own-pr.lib.mjs';
 // Issue #2189: the handled latch + the memoized last-tool-session-id read that keep a completed session from replaying its whole completion pipeline on every poll.
 import { isCompletionHandled, markCompletionHandled, resolveCachedLastToolSessionId } from './session-completion-state.lib.mjs';
+import { markSessionsEndedByHostReboot } from './host-boot-state.lib.mjs';
 import { createSessionRegistryQueries } from './session-monitor.queries.lib.mjs';
 // Issue #3209: a session is not finished before its execution was observed once.
 import { hasUnknownExitLatch, reconcileLaunchObservation, releaseCompletionLatch } from './session-monitor.launch-state.lib.mjs';
@@ -50,6 +54,7 @@ import { getNonIsolationSessionProgress, readScreenExitMarker, removeScreenExitM
 import { enforceContainerDiskLimitForSession as enforceContainerDiskLimit, formatContainerResourceLimitExceededSection } from './container-resource-monitor.lib.mjs';
 import { runDockerCpuPenaltyPass, formatDockerCpuPenaltySection } from './docker-cpu-penalty.lib.mjs';
 import { removeSnapshotImages, snapshotImagesForContainer } from './kill-recovery-snapshot-cleanup.lib.mjs';
+import { resolveSessionContainerName } from './session-container-identity.lib.mjs';
 export { formatSessionCompletionMessage, getSessionCompletionExitCode } from './work-session-formatting.lib.mjs';
 export { DOCKER_TERMINAL_FOOTER_GRACE_MS } from './session-monitor.docker-terminal.lib.mjs';
 export { STALE_EXECUTING_MIN_AGE_MS, DOCKER_BACKEND_GONE_GRACE_MS } from './session-monitor.stale-executing.lib.mjs';
@@ -504,7 +509,7 @@ export function buildSessionNotificationOptions(sessionInfo, verbose = false) {
 }
 async function getDockerContainerFilesystemSizeForSession(sessionName, sessionInfo, { verbose = false, sizeProvider = null } = {}) {
   if (sessionInfo?.isolationBackend !== 'docker') return null;
-  const containerName = sessionInfo.sessionId || sessionName;
+  const containerName = resolveSessionContainerName(sessionName, sessionInfo);
   if (!containerName) return null;
   try {
     if (typeof sizeProvider === 'function') {
@@ -588,7 +593,7 @@ export function buildDockerTaskContainerCompletionAction({ sessionName, sessionI
   if (sessionInfo?.isolationBackend !== 'docker') {
     return { applies: false, containerName: null, keepPolicy: null, shouldRemove: false, extraSection: '' };
   }
-  const containerName = sessionInfo.sessionId || sessionName || null;
+  const containerName = resolveSessionContainerName(sessionName, sessionInfo);
   if (!containerName) {
     return { applies: false, containerName: null, keepPolicy: null, shouldRemove: false, extraSection: '' };
   }
@@ -804,6 +809,8 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
   }
   if (stillRunning) await reportRecoveryLifecycle({ bot, sessionName, sessionInfo, statusResult, options, verbose, lookupPullRequest: () => resolvePullRequestUrlForSession(sessionInfo, { verbose, lookupLinkedPullRequest: options.lookupLinkedPullRequest, statusResult, readFile: options.readFile }), persist: () => persistSessionSnapshot(sessionName, sessionInfo), logEvent });
   if (stillRunning && sessionInfo?.command === 'fix' && !sessionInfo.recoveryLifecycle) await (options.reportFixProgress || reportFixProgress)({ bot, sessionName, sessionInfo, statusResult, verbose, persist: () => persistSessionSnapshot(sessionName, sessionInfo) });
+  // Issue #2809: a survived container OOM event is reported once, when it is first seen.
+  if (stillRunning && sessionInfo.oomEventObservedAt && !sessionInfo.oomEventReportedAt) await reportSurvivedOomEvent({ bot, sessionName, sessionInfo, options, verbose, lookupPullRequest: () => resolvePullRequestUrlForSession(sessionInfo, { verbose, lookupLinkedPullRequest: options.lookupLinkedPullRequest, statusResult, readFile: options.readFile }), persist: () => persistSessionSnapshot(sessionName, sessionInfo) });
   if (stillRunning) await (options.reportLivePullRequestLink || reportLivePullRequestLink)({ bot, sessionName, sessionInfo, statusResult, verbose, persist: () => persistSessionSnapshot(sessionName, sessionInfo) });
   if (stillRunning && sessionInfo.isolationBackend) {
     // Issue #2303: log markers can be an hour stale when the disk fills, and the removed container frees it again — only a live sample shows it.
@@ -869,6 +876,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
           outcome: completionOutcome,
           killEvidence: hasContainerOomEvidence({ sessionInfo, statusResult }),
           lookupPullRequestState: options.lookupPullRequestState,
+          lookupCommentBodies: options.lookupPullRequestCommentBodies, // Issue #2809: "Ready to merge"
           verbose,
           sessionName,
           exitCode: finalExitCode,
@@ -1001,6 +1009,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
         verbose,
         readFile: options.readFile,
         env: options.env || process.env,
+        detectDaemonRestart: options.detectDaemonRestart || _isolationRunner?.detectDockerDaemonRestart || null, // Issue #2892
       });
       // Issue #2498: a merged pull request means the work is fully done — no
       // recovery is started and no recovery or kill notice is published.
@@ -1010,7 +1019,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
       // message is built so the Telegram report and the pull-request notice
       // below name the very same recovery session.
       let killRecovery = { resumed: false, sessionId: null, attempt: 0, maxAttempts: 0 };
-      const shouldAttemptKillRecovery = (killReport.killed || killReport.oomEventOnly) && !killReport.deliberateStop && !sessionInfo?.containerResourceLimitExceeded;
+      const shouldAttemptKillRecovery = (killReport.killed || killReport.oomEventOnly) && !killReport.deliberateStop && !killReport.skippedReason && !sessionInfo?.containerResourceLimitExceeded;
       if (killReport.killed || killReport.oomEventOnly) {
         // Issue #2408: one durable line per kill/OOM decision, so "why was this
         // (not) restarted?" can be answered from the session log afterwards.
@@ -1019,6 +1028,10 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
       }
       // Issue #2888: a recovery session solve refused for disk space is relaunched;
       // issue #2887: so is an in-place recovery whose command never started (126/127).
+      // Issue #3530: one comment per kill, posted now (with the log under --attach-logs) and edited once the recovery decision is known.
+      const killNoticeContext = { pullRequestUrl, sessionName, sessionInfo, killReport, exitCode: finalExitCode, resumeCommand: killResumeCommand, options, verbose, persist: () => persistSessionSnapshot(sessionName, sessionInfo) };
+      const planRecovery = async () => (await planKillRecovery({ sessionInfo, logPath: statusResult?.logPath || sessionInfo?.logPath || null, killed: true, env: options.env || process.env, verbose, readLastSessionId: resolveLastToolSessionId })).shouldResume;
+      if (shouldAttemptKillRecovery) await announcePendingKillNotice({ ...killNoticeContext, planRecovery });
       if (shouldAttemptKillRecovery || (!killReport.skippedReason && (isDiskRefusedRecovery({ sessionInfo, exitCode: finalExitCode }) || detectFailedInPlaceStart({ sessionInfo, exitCode: finalExitCode })))) {
         const recovered = await runKillRecoveryForCompletion({
           exitCode: finalExitCode,
@@ -1036,6 +1049,9 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
           readLastSessionId: logPath => resolveLastToolSessionId(logPath),
           // Issue #2498: the random pre-launch delay, replaceable in tests.
           sleep: options.sleepBeforeRecovery,
+          // Issue #3530: wait for stable resources; #3532: never launch a second copy of running work.
+          resourceGate: options.recoveryResourceGate || null,
+          findActiveSibling: async (url, name) => (await findOtherActiveSessionForUrl(url, name, verbose, probeOptions)) || (await options.findLaunchingSibling?.(url)) || null,
           locale: sessionInfo?.locale || null,
           verbose,
         });
@@ -1070,36 +1086,16 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
         launchUnobserved,
         killCause: killReport.diagnosis?.cause || null,
       });
-      if (killReport.killed || killReport.recovered || killReport.oomEventOnly) {
-        const notice = await announceKillOnPullRequest({
-          pullRequestUrl,
-          sessionName,
-          sessionInfo,
-          diagnosis: killReport.diagnosis,
-          exitCode: finalExitCode,
-          observedAt: killReport.observedAt,
-          policy: killReport.policy,
-          recovered: killReport.recovered,
-          oomEventOnly: killReport.oomEventOnly,
-          deliberateStop: killReport.deliberateStop,
-          resumed: killRecovery.resumed,
-          recoverySessionId: killRecovery.resumed ? killRecovery.sessionId : null,
-          attempt: killRecovery.resumed ? killRecovery.attempt : null,
-          maxAttempts: killRecovery.resumed ? killRecovery.maxAttempts : null,
-          resumeCommand: killResumeCommand,
-          runCommand: options.runCommand || undefined,
-          attachLog: options.attachLog || undefined,
-          verbose,
-        });
-        if (verbose && !notice.posted) {
-          console.log(`[VERBOSE] Killed-session notice not posted for ${sessionName}: ${notice.skipped || 'unknown reason'}`);
-        }
-      }
+      // Issue #2809: a session that finished well reports a survived OOM event in Telegram only.
+      if (killReport.killed || killReport.oomEventOnly) await finishKillNotice({ ...killNoticeContext, killRecovery });
+      if (sessionInfo.killRecoveryOfSession) await reportRecoveryAttemptOutcome({ ...killNoticeContext, status: resolvedStatus, killRecovery, pullRequestState }); // Issue #3435
       // Update the original reply message if messageId is available, otherwise send new message
       let notifyFromChatId = null;
       let notifyMessageId = null;
       const notificationOptions = buildSessionNotificationOptions(sessionInfo, verbose);
-      if (sessionInfo.messageId) {
+      if (sessionInfo.chatId === null || sessionInfo.chatId === undefined) {
+        console.log(`Session ${sessionName} has no chat to notify (adopted task container, issue #2917); completion is logged only`);
+      } else if (sessionInfo.messageId) {
         await safeEditMessageText(bot.telegram, sessionInfo.chatId, sessionInfo.messageId, undefined, message, notificationOptions);
         notifyFromChatId = sessionInfo.chatId;
         notifyMessageId = sessionInfo.messageId;
@@ -1278,10 +1274,11 @@ export function startSessionMonitoring(bot, verbose = false, intervalMs = 30000,
  * @param {object} [options.store] - Session store to load from (default: the store set via setSessionStore).
  * @param {number} [options.botStartTime] - Epoch seconds; only sessions started strictly before this are resumed. Defaults to now.
  * @param {boolean} [options.verbose]
- * @returns {Promise<{resumed: Array<{sessionName: string, sessionInfo: object}>, skipped: Array<{sessionName: string, reason: string}>}>}
+ * @param {object|null} [options.hostReboot] - Issue #3533: detectHostReboot() result; marks the sessions it ended
+ * @returns {Promise<{resumed: Array<{sessionName: string, sessionInfo: object}>, skipped: Array<{sessionName: string, reason: string}>, hostRebootSessions: string[]}>}
  */
 export async function resumeTrackedSessions(options = {}) {
-  const { store = sessionStore, verbose = false, botStartTime = Math.floor(Date.now() / 1000) } = options;
+  const { store = sessionStore, verbose = false, botStartTime = Math.floor(Date.now() / 1000), hostReboot = null } = options;
   const resumed = [];
   const skipped = [];
   if (!store) {
@@ -1329,15 +1326,18 @@ export async function resumeTrackedSessions(options = {}) {
   } else if (verbose) {
     console.log('[VERBOSE] resumeTrackedSessions: no eligible sessions to resume');
   }
-  return { resumed, skipped };
+  // Issue #3533: every session the host reboot ended is reported as that one event.
+  const hostRebootSessions = await markSessionsEndedByHostReboot({ sessions: resumed, event: hostReboot, isHandled: isCompletionHandled, persist: persistSessionSnapshot, verbose });
+  if (hostRebootSessions.length > 0) logEvent('host_reboot_sessions_marked', { sessions: hostRebootSessions, bootedAt: hostReboot.bootedAt, lastHeartbeatAt: hostReboot.lastHeartbeatAt, shutdownRecorded: hostReboot.shutdownRecorded });
+  return { resumed, skipped, hostRebootSessions };
 }
 // Issue #2175: the read-only registry queries live in their own module so this
 // file stays under the 1350-line early-warning threshold (see issue #1593).
-const { hasActiveSessionForUrl, findStoppableSessionByUrl, hasActiveSessionForUrlAsync, getRunningTrackedIsolationSessions, getRunningSessionItems, getSessionStats } = createSessionRegistryQueries({
+const { hasActiveSessionForUrl, findStoppableSessionByUrl, hasActiveSessionForUrlAsync, getRunningTrackedIsolationSessions, getRunningSessionItems, getSessionStats, findOtherActiveSessionForUrl, listTrackedSessionEntries } = createSessionRegistryQueries({
   activeSessions,
   normalizeSessionUrl,
   isNonIsolationSessionActive,
   getIsolationSessionState,
   checkScreenSessionExists,
 });
-export { hasActiveSessionForUrl, findStoppableSessionByUrl, hasActiveSessionForUrlAsync, getRunningTrackedIsolationSessions, getRunningSessionItems, getSessionStats };
+export { hasActiveSessionForUrl, findStoppableSessionByUrl, hasActiveSessionForUrlAsync, getRunningTrackedIsolationSessions, getRunningSessionItems, getSessionStats, findOtherActiveSessionForUrl, listTrackedSessionEntries };

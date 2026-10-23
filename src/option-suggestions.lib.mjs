@@ -244,6 +244,7 @@ const KNOWN_OPTION_NAMES = [
   'prompt-experiments-folder',
   'prompt-examples-folder',
   'session-type',
+  'recovery-attempt',
   'working-directory',
   'auto-init-repository',
   'requirements-report',

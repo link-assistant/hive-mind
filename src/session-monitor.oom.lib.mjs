@@ -35,6 +35,8 @@
  */
 
 import { classifyExitStatus, normalizeExitCode, RUNNING_SESSION_STATUSES } from './session-status.lib.mjs';
+import { probeSessionBackendAlive, resolveSessionContainerName } from './session-container-identity.lib.mjs';
+import { resolveDaemonRestartKill } from './docker-daemon-restart.lib.mjs';
 
 /**
  * Field written on the persisted session snapshot the first time an OOM event is
@@ -43,19 +45,56 @@ import { classifyExitStatus, normalizeExitCode, RUNNING_SESSION_STATUSES } from 
  */
 export const OOM_EVENT_OBSERVED_FIELD = 'oomEventObservedAt';
 
+/** Issue #2809: how many OOM kills this work saw (inherited by its recovery sessions). */
+export const OOM_EVENT_COUNT_FIELD = 'oomEventCount';
+/** Issue #2809: the cgroup `oom_kill` counter last counted into {@link OOM_EVENT_COUNT_FIELD}. */
+export const OOM_EVENT_CGROUP_KILLS_FIELD = 'oomEventCgroupKills';
+
+/**
+ * Issue #2809: count the OOM kills. The cgroup `oom_kill` counter (from
+ * `$ --status` `cgroupMemory.oomKills`) is cumulative, so only its growth is
+ * added; a lower reading is a new container's counter. Without a counter one
+ * event is counted per first observation.
+ *
+ * @returns {boolean} True when the count changed
+ */
+function countOomEvents(sessionInfo, firstObservation, cgroupMemory) {
+  const kills = Number(cgroupMemory?.oomKills);
+  const previous = Number(sessionInfo[OOM_EVENT_CGROUP_KILLS_FIELD]) || 0;
+  let added;
+  let counted;
+  if (Number.isInteger(kills) && kills > 0) {
+    if (kills === previous) return false;
+    added = kills > previous ? kills - previous : kills;
+    counted = kills;
+  } else {
+    if (!firstObservation) return false;
+    // The event behind this observation; a later counter reading includes it.
+    added = 1;
+    counted = previous + 1;
+  }
+  sessionInfo[OOM_EVENT_COUNT_FIELD] = (Number(sessionInfo[OOM_EVENT_COUNT_FIELD]) || 0) + added;
+  sessionInfo[OOM_EVENT_CGROUP_KILLS_FIELD] = counted;
+  return true;
+}
+
 /**
  * Remember that the kernel OOM killer fired inside this session's container.
- * Idempotent: only the FIRST observation timestamp is kept.
+ * Idempotent: only the FIRST observation timestamp is kept; the OOM kill count
+ * (issue #2809) grows with the cgroup counter.
  *
  * @param {Object} sessionInfo - Mutable persisted session info
  * @param {Function} [persistSnapshot] - Callback that mirrors sessionInfo to disk
+ * @param {{oomKills?: number}|null} [cgroupMemory] - `$ --status` cgroup memory counters
  * @returns {boolean} True when this call recorded a new observation
  */
-export function markOomEventObserved(sessionInfo, persistSnapshot) {
-  if (!sessionInfo || sessionInfo[OOM_EVENT_OBSERVED_FIELD]) return false;
-  sessionInfo[OOM_EVENT_OBSERVED_FIELD] = new Date().toISOString();
-  if (typeof persistSnapshot === 'function') persistSnapshot();
-  return true;
+export function markOomEventObserved(sessionInfo, persistSnapshot, cgroupMemory = null) {
+  if (!sessionInfo) return false;
+  const firstObservation = !sessionInfo[OOM_EVENT_OBSERVED_FIELD];
+  if (firstObservation) sessionInfo[OOM_EVENT_OBSERVED_FIELD] = new Date().toISOString();
+  const counted = countOomEvents(sessionInfo, firstObservation, cgroupMemory);
+  if ((firstObservation || counted) && typeof persistSnapshot === 'function') persistSnapshot();
+  return firstObservation;
 }
 
 /**
@@ -73,7 +112,7 @@ async function probeBackendAlive(sessionName, sessionInfo, { verbose, runner, ba
   const probe = backendAlive || runner?.checkBackendSessionAlive;
   if (!probe) return null;
   try {
-    return await probe(sessionInfo.sessionId || sessionName, sessionInfo.isolationBackend, verbose);
+    return await probeSessionBackendAlive(sessionName, sessionInfo, { probe, runner, verbose });
   } catch (error) {
     if (verbose) {
       console.log(`[VERBOSE] Session ${sessionName} OOM liveness probe failed: ${error?.message || error}`);
@@ -95,9 +134,10 @@ async function probeBackendAlive(sessionName, sessionInfo, { verbose, runner, ba
  * @param {Function} [deps.exitFromLog] - Injectable footer reader
  * @param {Function} [deps.backendAlive] - Injectable liveness probe
  * @param {Function} [deps.persistSnapshot] - Persist the session snapshot
+ * @param {Function} [deps.detectDaemonRestart] - Issue #2892: injectable detectDockerDaemonRestart (default: the runner's)
  * @returns {Promise<Object>} Monitor state object
  */
-export async function resolveOomKilledState(sessionName, sessionInfo, statusResult, { verbose, runner, exitFromLog, backendAlive, persistSnapshot } = {}) {
+export async function resolveOomKilledState(sessionName, sessionInfo, statusResult, { verbose, runner, exitFromLog, backendAlive, persistSnapshot, detectDaemonRestart } = {}) {
   const logPath = statusResult?.logPath || sessionInfo?.logPath || null;
   let footer = null;
   if (logPath) {
@@ -112,7 +152,7 @@ export async function resolveOomKilledState(sessionName, sessionInfo, statusResu
     // Any ordinary exit proves the main work process outlived the cgroup OOM
     // event, even when the lost child later caused it to fail (issue #2301).
     const survivedOom = footerExitCode !== null && footerExitCode < 128;
-    markOomEventObserved(sessionInfo, persistSnapshot);
+    markOomEventObserved(sessionInfo, persistSnapshot, statusResult?.cgroupMemory);
     if (verbose) {
       console.log(`[VERBOSE] Session ${sessionName} reported oomKilled=true, but its log footer says exit ${footerExitCode} (${correctedStatus}) and wins${survivedOom ? ' — the session SURVIVED the out-of-memory event (issue #2134)' : ''}`);
     }
@@ -131,7 +171,7 @@ export async function resolveOomKilledState(sessionName, sessionInfo, statusResu
     // Issue #2408: this branch runs on every 30 s poll for as long as the
     // container lives on (1,800 identical lines in one 15-hour session), so
     // say it once — when the event is first recorded.
-    const firstObservation = markOomEventObserved(sessionInfo, persistSnapshot);
+    const firstObservation = markOomEventObserved(sessionInfo, persistSnapshot, statusResult?.cgroupMemory);
     if (verbose && firstObservation) {
       console.log(`[VERBOSE] Session ${sessionName} reported oomKilled=true but its ${sessionInfo.isolationBackend} backend is still alive; an OOM event hit the container, not the command — keeping the session tracked (issue #2134)`);
     }
@@ -142,7 +182,7 @@ export async function resolveOomKilledState(sessionName, sessionInfo, statusResu
   // The kernel OOM killer sends SIGKILL. A sticky observation cannot explain
   // SIGTERM, SIGABRT or SIGSEGV; retain the event and classify that exit as-is.
   if (statusExitCode !== null && statusExitCode >= 128 && statusExitCode !== 137) {
-    markOomEventObserved(sessionInfo, persistSnapshot);
+    markOomEventObserved(sessionInfo, persistSnapshot, statusResult?.cgroupMemory);
     const status = classifyExitStatus(statusExitCode) || 'failed';
     return { running: false, exitCode: statusExitCode, status, statusResult: { ...statusResult, status }, oomEventObserved: true };
   }
@@ -155,13 +195,23 @@ export async function resolveOomKilledState(sessionName, sessionInfo, statusResu
   //    be read as an OOM kill (exit 137) and restarted.
   const terminalRecord = !RUNNING_SESSION_STATUSES.has(String(statusResult?.status || '').toLowerCase());
   if (statusExitCode !== null && statusExitCode < 128 && (statusExitCode > 0 || (statusExitCode === 0 && terminalRecord))) {
-    markOomEventObserved(sessionInfo, persistSnapshot);
+    markOomEventObserved(sessionInfo, persistSnapshot, statusResult?.cgroupMemory);
     const correctedStatus = classifyExitStatus(statusExitCode) || 'failed';
     if (verbose) {
       console.log(`[VERBOSE] Session ${sessionName} reported oomKilled=true with an ordinary exit ${statusExitCode} and no log footer yet; the main process exited by itself, so it SURVIVED the OOM event (${correctedStatus}, issue #2408)`);
     }
     const endTime = statusResult?.endTime || footer?.endTime || statusResult?.currentTime || null;
     return { running: false, exitCode: statusExitCode, status: correctedStatus, statusResult: { ...statusResult, status: correctedStatus, exitCode: statusExitCode, endTime }, oomEventObserved: true };
+  }
+
+  // Issue #2892: a Docker daemon restart (or any non-memory attribution from
+  // start-command) explains the SIGKILL better than the sticky OOMKilled flag.
+  const restartKill = await resolveDaemonRestartKill(sessionName, sessionInfo, statusResult, { exitCode: statusExitCode, endTime: statusResult?.endTime || footer?.endTime || null, containerName: resolveSessionContainerName(sessionName, sessionInfo), detect: detectDaemonRestart || runner?.detectDockerDaemonRestart || null, persistSnapshot, verbose });
+  if (restartKill) {
+    markOomEventObserved(sessionInfo, persistSnapshot, statusResult?.cgroupMemory);
+    const status = classifyExitStatus(137);
+    const endTime = statusResult?.endTime || footer?.endTime || statusResult?.currentTime || null;
+    return { running: false, exitCode: 137, status, statusResult: { ...statusResult, status, exitCode: 137, endTime }, stale: true, oomEventObserved: true, dockerDaemonRestart: restartKill.verdict === 'daemon-restart' };
   }
 
   // 4. Nothing contradicts the status record: this really is an OOM kill (#2015).
@@ -171,7 +221,7 @@ export async function resolveOomKilledState(sessionName, sessionInfo, statusResu
   }
   const endTime = statusResult?.endTime || footer?.endTime || statusResult?.currentTime || null;
   const corrected = { ...statusResult, status: 'oom-killed', exitCode, endTime };
-  markOomEventObserved(sessionInfo, persistSnapshot);
+  markOomEventObserved(sessionInfo, persistSnapshot, statusResult?.cgroupMemory);
 
   if (verbose) {
     console.log(`[VERBOSE] Session ${sessionName} status includes oomKilled=true (backend alive: ${alive === null ? 'unknown' : alive}); treating it as terminal oom-killed (exit ${exitCode})`);

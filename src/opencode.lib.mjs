@@ -34,7 +34,9 @@ import { createToolCallLoopGuard, resolveRepeatedToolCallLimit } from './tool-ca
 import { calculateAgentPricing } from './agent.lib.mjs';
 import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
+import { unstageUnregisteredGitlinks } from './unregistered-gitlinks.lib.mjs';
 import { buildOpencodeAuxiliaryAgentConfig, isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236
+import { buildSolveResumeCommandFromArgv } from './solve.resume-command.lib.mjs'; // Issue #2843
 
 export { parseOpenCodeTokenUsage };
 
@@ -560,7 +562,7 @@ export const executeOpenCodeCommand = async params => {
             tool: 'OpenCode',
             resetTime: limitInfo.resetTime,
             sessionId,
-            resumeCommand: sessionId ? `${process.argv[0]} ${process.argv[1]} ${argv.url} --resume ${sessionId}` : null,
+            resumeCommand: buildSolveResumeCommandFromArgv({ argv, sessionId, tool: 'opencode' }), // Issue #2843
           });
 
           for (const line of messageLines) {
@@ -688,6 +690,8 @@ export const checkForUncommittedChanges = async (tempDir, owner, repo, branchNam
 
           const addResult = await $({ cwd: tempDir })`git add -A`;
           if (addResult.code === 0) {
+            // Issue #3572: `git add -A` stages nested repositories (Claude subagent worktrees) as gitlinks.
+            await unstageUnregisteredGitlinks(tempDir, $, log);
             const commitMessage = 'Auto-commit: Changes made by OpenCode during problem-solving session';
             const commitResult = await $({ cwd: tempDir })`git commit -m ${commitMessage}`;
 

@@ -313,7 +313,12 @@ test('a fresh recovery launch keeps pointing at the earlier execution logs', asy
   assert.deepEqual(collectPreviousExecutionUuids({ executionUuid: '0760afb4' }, '0760afb4'), [], 'an in-place resume keeps one log');
 
   const message = formatSessionCompletionMessage({ sessionName: '2b185a46', observedEndTime: new Date(3600_000), sessionInfo: { startTime: new Date(0), rootSessionName: '6bf35d99', executionUuid: '88951cec', previousExecutionUuids: ['0760afb4'], killRecoveryResumed: true, killRecoveryAttempts: 1 }, exitCode: 0 });
-  assert.match(message, /🆔 Execution: `88951cec` \(earlier logs: `0760afb4`\)/);
+  // Issue #3530: only the latest ids are shown; `/log` returns every attempt's log.
+  assert.match(message, /📊 Session: `2b185a46`\n🆔 Execution: `88951cec`\n📜 2 attempts; reply \/log for the log of all of them/);
+  assert.doesNotMatch(message, /0760afb4|6bf35d99/);
+  const unified = formatSessionCompletionMessage({ sessionName: '2b185a46', observedEndTime: new Date(3600_000), sessionInfo: { startTime: new Date(0), rootSessionName: '6bf35d99', executionUuid: '2b185a46', previousExecutionUuids: ['6bf35d99'], killRecoveryResumed: true, killRecoveryAttempts: 1 }, exitCode: 0 });
+  assert.doesNotMatch(unified, /🆔/, 'a session started with --session-id has one id for the session and the execution');
+  assert.match(unified, /📊 Session: `2b185a46`\n📜 2 attempts/);
 });
 
 test('the exit notifier does not post a second failure report after the loop posted one', () => {

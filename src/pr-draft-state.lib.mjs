@@ -34,18 +34,23 @@
  * The auto-restart loop answers it with another AI session, and at the end of the
  * run {@link restoreDeliberateDraftsAtRunEnd} puts every pull request back into the
  * state it had before the run (or ready for review when this run created it). Only
- * a draft a human made before the run stays a draft.
+ * a draft a human made before the run stays a draft. Issue #3434: so does a pull
+ * request whose title or description is still the #1162 placeholder, and one whose
+ * placeholder state cannot be read.
  *
  * @see https://github.com/link-assistant/hive-mind/issues/2123
  * @see https://github.com/link-assistant/hive-mind/issues/2182
  * @see https://github.com/link-assistant/hive-mind/issues/2247
  * @see https://github.com/link-assistant/hive-mind/issues/2263
  * @see https://github.com/link-assistant/hive-mind/issues/2312
+ * @see https://github.com/link-assistant/hive-mind/issues/3434
  * @see docs/case-studies/issue-2182/README.md for the full timeline and evidence
  */
 
 // rate-limit marker (#1726): callers pass in a `$` already wrapped by wrapDollarWithGhRetry.
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs';
+// Issue #3434: dependency-free on purpose - this module must not import solve.results.lib.mjs.
+import { hasPRBodyPlaceholder, hasPRTitlePlaceholder } from './pr-placeholder.lib.mjs';
 
 const noopLog = async () => {};
 
@@ -224,12 +229,66 @@ export const restoreDeliberateDraftsAtRunEnd = async ({ $, log = noopLog, format
       results.push({ owner, repo, prNumber, ok: true, changed: false, skipped: true, reason: 'session_effect_unverified' });
       continue;
     }
+    // Issue #3433: the branch points a submodule at a commit nobody can fetch; "ready" would publish a broken checkout.
+    if (entry.kind === 'unreachable_submodule_pointer') {
+      await log(`  ℹ️  PR #${prNumber} stays a draft: ${entry.reason || 'a submodule pointer is not reachable from its .gitmodules URL'}`);
+      results.push({ owner, repo, prNumber, ok: true, changed: false, skipped: true, reason: 'unreachable_submodule_pointer' });
+      continue;
+    }
+    // Issue #3434: a failed run never wrote the title/description, so the #1162
+    // placeholder is still there and "ready for review" would ask for review of
+    // unfinished work. A failed read keeps the draft too: staying a draft is the
+    // safe default, and the failure comment already explains the run.
+    const placeholder = await getPullRequestPlaceholderState({ owner, repo, prNumber, $ });
+    if (!placeholder.ok) {
+      await log(`  ℹ️  PR #${prNumber} stays a draft: could not read its title and description (${placeholder.error})`, { level: 'warning' });
+      results.push({ owner, repo, prNumber, ok: true, changed: false, skipped: true, reason: 'placeholder_check_failed', error: placeholder.error });
+      continue;
+    }
+    if (placeholder.title || placeholder.body) {
+      const what = placeholder.title && placeholder.body ? 'its title and description still have' : placeholder.title ? 'its title still has' : 'its description still has';
+      await log(`  ℹ️  PR #${prNumber} stays a draft: ${what} the placeholder text`);
+      results.push({ owner, repo, prNumber, ok: true, changed: false, skipped: true, reason: 'placeholder_pr', placeholder: { title: placeholder.title, body: placeholder.body } });
+      continue;
+    }
     await log(`🩹 PR #${prNumber} was left in draft by a working session (${entry.reason || entry.kind}); restoring its pre-run state at ${reason}`);
     const result = await ensurePullRequestIsReady({ owner, repo, prNumber, $, log, formatAligned, reason, reportError, force: true });
     if (result?.ok) clearPullRequestLeftInDraft({ owner, repo, prNumber });
     results.push({ owner, repo, prNumber, ...result });
   }
   return results;
+};
+
+/**
+ * Issue #3434: does the pull request still carry the #1162 placeholder title or body?
+ *
+ * Never throws. `ok: false` (gh exit code, exception, unparsable output) means
+ * "unknown", and the caller keeps the draft.
+ *
+ * @returns {Promise<{ok: boolean, title: boolean, body: boolean, error: (string|null)}>}
+ */
+export const getPullRequestPlaceholderState = async ({ owner, repo, prNumber, $ }) => {
+  try {
+    // hive-exec-timeout-ok: read-only call of the per-task solve process at run end, like the baselined gh calls of this module; test fakes of `$` take no options.
+    const result = await $`gh pr view ${prNumber} --repo ${owner}/${repo} --json title,body`;
+    if (result.code !== 0) {
+      const stderr = result.stderr?.toString() ? result.stderr.toString().trim() : '';
+      return { ok: false, title: false, body: false, error: stderr || `gh exited with code ${result.code}` };
+    }
+    const raw = (result.stdout?.toString() || '').trim();
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return { ok: false, title: false, body: false, error: `could not parse gh output: ${raw.slice(0, 200)}` };
+    }
+    if (!parsed || typeof parsed !== 'object') return { ok: false, title: false, body: false, error: `unexpected gh output: ${raw.slice(0, 200)}` };
+    const title = typeof parsed.title === 'string' && Boolean(hasPRTitlePlaceholder(parsed.title));
+    const body = typeof parsed.body === 'string' && Boolean(hasPRBodyPlaceholder(parsed.body));
+    return { ok: true, title, body, error: null };
+  } catch (error) {
+    return { ok: false, title: false, body: false, error: error?.message || String(error) };
+  }
 };
 
 /**
@@ -431,6 +490,7 @@ export default {
   getInitialDraftState,
   getPullRequestDraftState,
   getPullRequestLeftInDraft,
+  getPullRequestPlaceholderState,
   getPullRequestsLeftInDraft,
   ensurePullRequestIsDraft,
   ensurePullRequestIsReady,

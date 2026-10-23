@@ -95,7 +95,7 @@ test('in-place recovery of router#728 runs the verified workaround command, neve
     await fs.writeFile(path.join(dir, 'solve'), '#!/usr/bin/env node\nconsole.log(JSON.stringify(process.argv.slice(2)));\n', { mode: 0o755 });
     await fs.writeFile(path.join(dir, 'codex'), '#!/bin/sh\necho "the alias was executed" >&2\nexit 99\n', { mode: 0o755 });
     const output = execFileSync('sh', ['-c', command], { env: { ...process.env, PATH: `${dir}:${process.env.PATH}` }, encoding: 'utf8' });
-    assert.deepEqual(JSON.parse(output), [...ARGS, '--resume', THREAD]);
+    assert.deepEqual(JSON.parse(output), [...ARGS, '--resume', THREAD, '--session-type', 'kill-resume', '--recovery-attempt', '1/3']);
   } finally {
     await fs.rm(dir, { recursive: true, force: true });
   }
@@ -108,9 +108,9 @@ test('when the resumed container still exits 127 at startup, the fresh launch al
   assert.equal(recovered.inPlace, false);
   assert.equal(h.launches.length, 1);
   assert.equal(h.launches[0].binary, 'solve');
-  assert.deepEqual(h.launches[0].args, [...ARGS, '--resume', THREAD]);
+  assert.deepEqual(h.launches[0].args, [...ARGS, '--resume', THREAD, '--session-type', 'kill-resume', '--recovery-attempt', '1/3']);
   assert.equal(h.tracked[0].name, 'fresh-session');
-  assert.deepEqual(h.tracked[0].data.args, [...ARGS, '--resume', THREAD]);
+  assert.deepEqual(h.tracked[0].data.args, [...ARGS, '--resume', THREAD, '--session-type', 'kill-resume', '--recovery-attempt', '1/3']);
   assert.equal(h.tracked[0].data.commandAlias, 'codex');
   assert.ok(h.events.some(event => event.phase === 'launching' && /exited with code 127/.test(event.reason || '')));
 });
@@ -162,7 +162,7 @@ test('an in-place recovery that exits 127 at completion is relaunched fresh unde
   assert.equal(h.resumeCommands.length, 0, 'the snapshot path is not tried again');
   assert.equal(h.launches.length, 1);
   assert.equal(h.launches[0].binary, 'solve');
-  assert.deepEqual(h.launches[0].args, [...ARGS, '--resume', THREAD]);
+  assert.deepEqual(h.launches[0].args, [...ARGS, '--resume', THREAD, '--session-type', 'kill-resume', '--recovery-attempt', '1/3']);
   assert.equal(h.tracked[0].name, 'fresh-session');
   assert.equal(h.tracked[0].data.killRecoveryAttempts, 1);
   assert.equal(h.tracked[0].data.killRecoveryInPlace, false);

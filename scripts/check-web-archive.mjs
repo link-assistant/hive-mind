@@ -124,47 +124,50 @@ export function extractBrokenUrls(content) {
  * Check if a URL has an archived version in the Wayback Machine
  * Uses the Wayback Machine Availability API:
  * https://archive.org/help/wayback_api.php
+ *
+ * A lookup that times out or gets a non-2xx answer is not "no snapshot": it
+ * says nothing about the archive, so it is retried once and then returned with
+ * `error` set (the 10 s abort in run 39615114233 was reported as "No archived
+ * version was found").
  * @param {string} url - The URL to check
- * @returns {Promise<{available: boolean, archiveUrl: string|null, timestamp: string|null}>}
+ * @param {{fetchImpl?: typeof fetch, timeoutMs?: number, attempts?: number}} [options]
+ * @returns {Promise<{available: boolean, archiveUrl: string|null, timestamp: string|null, error?: string}>}
  */
-async function checkWaybackMachine(url) {
+export async function checkWaybackMachine(url, { fetchImpl = fetch, timeoutMs = 30000, attempts = 2 } = {}) {
   const apiUrl = `${WAYBACK_API}${encodeURIComponent(url)}`;
+  let error = null;
 
-  const controller = new AbortController();
-  const timeoutId = globalThis.setTimeout(() => controller.abort(), 10000);
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = globalThis.setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetchImpl(apiUrl, {
+        headers: {
+          'User-Agent': 'broken-link-checker/1.0 (GitHub Actions CI)',
+        },
+        signal: controller.signal,
+      });
 
-  try {
-    const response = await fetch(apiUrl, {
-      headers: {
-        'User-Agent': 'broken-link-checker/1.0 (GitHub Actions CI)',
-      },
-      signal: controller.signal,
-    });
-
-    if (!response.ok) {
-      console.warn(`  Wayback API returned ${response.status} for ${url}`);
-      return { available: false, archiveUrl: null, timestamp: null };
+      if (!response.ok) {
+        error = `Wayback API returned ${response.status}`;
+      } else {
+        const data = await response.json();
+        if (data.archived_snapshots?.closest?.available === true) {
+          const snapshot = data.archived_snapshots.closest;
+          const archiveUrl = snapshot.url.replace(/^http:\/\//, 'https://');
+          return { available: true, archiveUrl, timestamp: snapshot.timestamp };
+        }
+        return { available: false, archiveUrl: null, timestamp: null };
+      }
+    } catch (fetchError) {
+      error = controller.signal.aborted ? `no answer within ${timeoutMs / 1000} s` : fetchError.message;
+    } finally {
+      globalThis.clearTimeout(timeoutId);
     }
-
-    const data = await response.json();
-
-    if (data.archived_snapshots?.closest?.available === true) {
-      const snapshot = data.archived_snapshots.closest;
-      const archiveUrl = snapshot.url.replace(/^http:\/\//, 'https://');
-      return {
-        available: true,
-        archiveUrl,
-        timestamp: snapshot.timestamp,
-      };
-    }
-
-    return { available: false, archiveUrl: null, timestamp: null };
-  } catch (error) {
-    console.warn(`  Failed to check Wayback Machine for ${url}: ${error.message}`);
-    return { available: false, archiveUrl: null, timestamp: null };
-  } finally {
-    globalThis.clearTimeout(timeoutId);
+    console.warn(`  Wayback Machine lookup ${attempt}/${attempts} failed for ${url}: ${error}`);
   }
+
+  return { available: false, archiveUrl: null, timestamp: null, error };
 }
 
 /**
@@ -225,22 +228,23 @@ function reportArchivedLinks(withArchive) {
 
 /**
  * Report broken links that have no Wayback Machine snapshot as errors
- * @param {string[]} withoutArchive - Broken URLs with no archived version
+ * @param {Array<{url: string, error?: string}>} withoutArchive - Broken URLs with no archived version, or whose lookup failed (`error`)
  */
 function reportUnarchivedUrls(withoutArchive) {
   if (withoutArchive.length === 0) {
     return;
   }
 
-  console.log(`✗ ${withoutArchive.length} broken link(s) have NO Web Archive version:`);
-  for (const url of withoutArchive) {
-    console.log(`  ${url}`);
+  console.log(`✗ ${withoutArchive.length} broken link(s) have NO Web Archive version, or the Web Archive could not be checked:`);
+  for (const { url, error } of withoutArchive) {
+    console.log(`  ${url}${error ? ` (Wayback Machine not checked: ${error})` : ''}`);
   }
   console.log('');
 
   // Print GitHub Actions annotations as errors (one per link)
-  for (const url of withoutArchive) {
-    console.log(`::error title=Broken link - No Web Archive fallback::` + `Broken link detected: ${url}\n` + `No archived version was found in the Wayback Machine.\n` + `How to fix:\n` + `  1. Find an updated URL for the same or equivalent content and replace the link.\n` + `  2. Remove the link if the content is no longer relevant.\n` + `  3. Add the URL to .lycheeignore if it is a known false positive (e.g. localhost, example.com).`);
+  for (const { url, error } of withoutArchive) {
+    const archiveStatus = error ? `The Wayback Machine could not be checked (${error}); an archived version may exist.\n` : `No archived version was found in the Wayback Machine.\n`;
+    console.log(`::error title=Broken link - No Web Archive fallback::` + `Broken link detected: ${url}\n` + archiveStatus + `How to fix:\n` + `  1. Find an updated URL for the same or equivalent content and replace the link.\n` + `  2. Remove the link if the content is no longer relevant.\n` + `  3. Add the URL to .lycheeignore if it is a known false positive (e.g. localhost, example.com).`);
   }
 }
 
@@ -290,9 +294,12 @@ async function main() {
       const date = formatTimestamp(result.timestamp);
       console.log(`  ✓ Archived on ${date}: ${result.archiveUrl}`);
       withArchive.push({ url, archiveUrl: result.archiveUrl, date });
+    } else if (result.error) {
+      console.log(`  ? Web Archive not checked: ${result.error}`);
+      withoutArchive.push({ url, error: result.error });
     } else {
       console.log('  ✗ Not found in Web Archive');
-      withoutArchive.push(url);
+      withoutArchive.push({ url });
     }
 
     // Small delay to avoid rate-limiting the Wayback API

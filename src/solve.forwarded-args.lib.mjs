@@ -30,7 +30,7 @@ export const SOLVE_CLI_OPTION_DEFINITIONS = Object.freeze({
  * Options that only describe ONE process's place in a relaunch chain. They are
  * never replayed verbatim: the relaunch re-adds the fresh values.
  */
-export const SOLVE_RELAUNCH_STATE_OPTIONS = Object.freeze(['resume', 'working-directory', 'session-type', 'auto-resume-iteration', 'previous-anthropic-cost', 'help']);
+export const SOLVE_RELAUNCH_STATE_OPTIONS = Object.freeze(['resume', 'working-directory', 'session-type', 'recovery-attempt', 'auto-resume-iteration', 'previous-anthropic-cost', 'help']);
 
 /**
  * Options `autoContinueWhenLimitResets` sets itself from the live argv (the

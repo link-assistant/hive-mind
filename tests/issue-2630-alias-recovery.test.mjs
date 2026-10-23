@@ -82,7 +82,7 @@ test('in-place alias recovery executes solve and preserves shell argument bounda
   try {
     await fs.writeFile(path.join(dir, 'solve'), '#!/usr/bin/env node\nconsole.log(JSON.stringify(process.argv.slice(2)));\n', { mode: 0o755 });
     const output = execFileSync('sh', ['-c', h.commands[0]], { env: { ...process.env, PATH: `${dir}:${process.env.PATH}` }, encoding: 'utf8' });
-    assert.deepEqual(JSON.parse(output), [...sessionInfo.args, '--resume', TOOL_SESSION]);
+    assert.deepEqual(JSON.parse(output), [...sessionInfo.args, '--resume', TOOL_SESSION, '--session-type', 'kill-resume', '--recovery-attempt', '1/3']);
   } finally {
     await fs.rm(dir, { recursive: true, force: true });
   }

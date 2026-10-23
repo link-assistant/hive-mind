@@ -148,7 +148,7 @@ const screenStartArgs = await buildStartCommandArgs('solve', ['https://github.co
   backend: 'screen',
   sessionId: 'a68dc7f8-900a-4f22-9940-b59f1e95b736',
 });
-assertDeepEqual(screenStartArgs, ['--isolated', 'screen', '--detached', '--session', 'a68dc7f8-900a-4f22-9940-b59f1e95b736', '--', "'solve' 'https://github.com/link-assistant/hive-mind/issues/1855'"], 'non-Docker isolation keeps the original backend and command shape');
+assertDeepEqual(screenStartArgs, ['--isolated', 'screen', '--detached', '--session', 'a68dc7f8-900a-4f22-9940-b59f1e95b736', '--session-id', 'a68dc7f8-900a-4f22-9940-b59f1e95b736', '--', "HIVE_MIND_TASK_SESSION_ID='a68dc7f8-900a-4f22-9940-b59f1e95b736' 'solve' 'https://github.com/link-assistant/hive-mind/issues/1855'"], 'non-Docker isolation keeps the original backend and command shape, with one ID for the session and the execution');
 
 console.log('\n--- Native docker log path ---');
 

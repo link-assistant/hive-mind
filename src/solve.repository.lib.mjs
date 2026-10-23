@@ -580,7 +580,7 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
             }
             await log(`  💡 Manual fix required: back up work, then: gh repo delete ${existingForkName} --yes`);
             await log(`     Then run this command again to create a proper fork of ${owner}/${repo}`);
-            await log(`  🔧 Or force deletion (DANGEROUS): solve ${argv.url || argv['issue-url'] || argv._[0] || '<issue-url>'} --allow-force-non-fork-repository-deletion`);
+            await log(`  🔧 Or force deletion (DANGEROUS): solve ${argv['issue-url'] || argv._[0] || '<issue-url>'} --allow-force-non-fork-repository-deletion`);
             await safeExit(
               1,
               buildForkReplacementBlockedReason({

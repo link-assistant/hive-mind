@@ -59,6 +59,10 @@ const createFakeGh = ({ isDraft }) => {
     if (command.includes('--json isDraft,state')) {
       return Promise.resolve({ code: 0, stdout: JSON.stringify({ isDraft: pr.isDraft, state: 'OPEN' }), stderr: '' });
     }
+    // Issue #3434: the run-end restore reads the title and body; these are real ones.
+    if (command.includes('--json title,body')) {
+      return Promise.resolve({ code: 0, stdout: JSON.stringify({ title: 'Fix the greeting', body: 'Fixes #1' }), stderr: '' });
+    }
     if (command.startsWith('gh pr ready')) {
       pr.isDraft = command.includes('--undo');
       return Promise.resolve({ code: 0, stdout: '', stderr: '' });

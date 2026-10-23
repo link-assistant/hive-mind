@@ -30,7 +30,7 @@ async function test(name, fn) {
 
 await test('omitted limits preserve the current unlimited behavior', () => {
   const normalized = normalizeContainerResourceLimits({});
-  assert.deepEqual(normalized, { cpu: null, memory: null, disk: null });
+  assert.deepEqual(normalized, { cpu: null, memory: null, memoryReservation: null, disk: null });
   assert.deepEqual(
     resolveContainerResourceLimits(normalized, {
       cpuCores: 8,
@@ -40,6 +40,7 @@ await test('omitted limits preserve the current unlimited behavior', () => {
     {
       cpuCores: null,
       memoryBytes: null,
+      memoryReservationBytes: null,
       diskBytes: null,
       requested: normalized,
     }
@@ -48,7 +49,7 @@ await test('omitted limits preserve the current unlimited behavior', () => {
 
 await test('fixed CPU, RAM, and disk values resolve without defaults', () => {
   const requested = normalizeContainerResourceLimits({ cpu: '1.5', memory: '512MiB', disk: '20GB' });
-  assert.deepEqual(requested, { cpu: '1.5', memory: '512MiB', disk: '20GB' });
+  assert.deepEqual(requested, { cpu: '1.5', memory: '512MiB', memoryReservation: null, disk: '20GB' });
   assert.deepEqual(
     resolveContainerResourceLimits(requested, {
       cpuCores: 8,
@@ -58,6 +59,7 @@ await test('fixed CPU, RAM, and disk values resolve without defaults', () => {
     {
       cpuCores: 1.5,
       memoryBytes: 512 * 1024 ** 2,
+      memoryReservationBytes: null,
       diskBytes: 20_000_000_000,
       requested,
     }
@@ -75,6 +77,7 @@ await test('percentages resolve against host CPU, RAM, and available disk', () =
     {
       cpuCores: 2,
       memoryBytes: 8 * 1024 ** 3,
+      memoryReservationBytes: null,
       diskBytes: 10_000_000_000,
       requested,
     }
@@ -189,10 +192,10 @@ await test('resource limits fail closed on non-Docker isolation backends', async
 });
 
 await test('Telegram startup requires Docker only when a limit is configured', () => {
-  assert.deepEqual(resolveTelegramContainerResourceLimits({}, 'screen').limits, { cpu: null, memory: null, disk: null });
+  assert.deepEqual(resolveTelegramContainerResourceLimits({}, 'screen').limits, { cpu: null, memory: null, memoryReservation: null, disk: null });
   assert.throws(() => resolveTelegramContainerResourceLimits({ containerCpu: '1' }, 'screen'), /require --isolation docker/i);
   const configured = resolveTelegramContainerResourceLimits({ containerCpu: '50%', containerMemory: '2GiB' }, 'docker');
-  assert.deepEqual(configured.limits, { cpu: '50%', memory: '2GiB', disk: null });
+  assert.deepEqual(configured.limits, { cpu: '50%', memory: '2GiB', memoryReservation: null, disk: null });
   assert.match(configured.summary, /CPU=50%, RAM=2GiB, disk=unlimited/);
 });
 
@@ -203,8 +206,9 @@ await test('Telegram startup adapter logs configured limits and exits cleanly on
     logError: message => logs.push(message),
     exit: code => logs.push(`exit:${code}`),
   });
-  assert.deepEqual(limits, { cpu: '50%', memory: '25%', disk: null });
-  assert.match(logs[0], /CPU=50%, RAM=25%, disk=unlimited/);
+  // Issue #3125: the Docker default is a 60% hard limit with a 25% soft reservation.
+  assert.deepEqual(limits, { cpu: '50%', memory: '60%', memoryReservation: '25%', disk: null });
+  assert.match(logs[0], /CPU=50%, RAM=60% \(reservation 25%\), disk=unlimited/);
 
   logs.length = 0;
   initializeTelegramContainerResourceLimits({ containerCpu: '1' }, 'screen', {

@@ -29,6 +29,7 @@ import { checkPlaywrightMcpPackageAvailability } from './playwright-mcp.lib.mjs'
 import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { getCumulativeContextInputTokens, getRestoredContextInputTokens, toTokenCount } from './context-fill.lib.mjs';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
+import { unstageUnregisteredGitlinks } from './unregistered-gitlinks.lib.mjs';
 import { getTerminalEventCompletionHealth } from './tool-run-health.lib.mjs'; // Issue #1990
 import { takeJsonRecords } from './json-stream.lib.mjs'; // Issue #2119
 import { createToolCallLoopGuard, resolveRepeatedToolCallLimit } from './tool-call-loop-guard.lib.mjs'; // Issue #2316, #2395
@@ -36,6 +37,7 @@ import { stringifyErrorValue } from './error-text.lib.mjs'; // Issue #2141
 import { ensureGeminiFamilyMemoryDisabled, isAgentMemoryDisabled } from './agent-memory-policy.lib.mjs'; // Issue #2178
 import { ensureGeminiFamilyAuxiliaryDisabled, isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236
 import { applyGeminiFamilyPricingTier } from './pricing-tier.lib.mjs'; // Issue #2771
+import { buildSolveResumeCommandFromArgv } from './solve.resume-command.lib.mjs'; // Issue #2843
 
 export const mapModelToId = model => qwenModels[model] || model;
 
@@ -625,7 +627,7 @@ export const executeQwenCommand = async params => {
           tool: 'Qwen Code',
           resetTime: limitInfo.resetTime,
           sessionId,
-          resumeCommand: sessionId ? `${process.argv[0]} ${process.argv[1]} ${argv.url} --tool qwen --resume ${sessionId}` : null,
+          resumeCommand: buildSolveResumeCommandFromArgv({ argv, sessionId, tool: 'qwen' }), // Issue #2843
         });
         for (const line of messageLines) {
           await log(line, { level: 'warning' });
@@ -818,6 +820,8 @@ export const checkForUncommittedChanges = async (tempDir, owner, repo, branchNam
 
           const addResult = await $({ cwd: tempDir })`git add -A`;
           if (addResult.code === 0) {
+            // Issue #3572: `git add -A` stages nested repositories (Claude subagent worktrees) as gitlinks.
+            await unstageUnregisteredGitlinks(tempDir, $, log);
             const commitMessage = 'Auto-commit: Changes made by Qwen Code during problem-solving session';
             const commitResult = await $({ cwd: tempDir })`git commit -m ${commitMessage}`;
 

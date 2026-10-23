@@ -38,6 +38,7 @@ import { describeAgentToolError, detectAgentErrorsInOutput, detectFatalAgentLogR
 import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { attachStreamingInput, finalizeBidirectionalHandler, setupBidirectionalHandler } from './bidirectional-interactive.lib.mjs';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
+import { unstageUnregisteredGitlinks } from './unregistered-gitlinks.lib.mjs';
 import { buildAgentArgs, detectFormalAiAgentRoutingMismatch, formatAgentArgsForDisplay, isAgentIdleEvent, isAgentStrongCompletionEvent, resolveStreamingErrorRecovery } from './agent-command.lib.mjs';
 import { isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236 / #2247 (H5)
 
@@ -276,6 +277,7 @@ export const mapModelToId = model => {
 // `agent.lib.mjs` -- tests/test-codex-support.mjs and
 // tests/test-issue-2186-agent-snapshot-leak.mjs among them -- do not move.
 import { MIN_AGENT_LIVE_INPUT_VERSION, MIN_AGENT_FORMAL_AI_VERSION, MIN_AGENT_SNAPSHOT_HYGIENE_VERSION, getAgentCliVersion } from './agent.version-gates.lib.mjs';
+import { buildSolveResumeCommandFromArgv } from './solve.resume-command.lib.mjs'; // Issue #2843
 
 export { MIN_AGENT_LIVE_INPUT_VERSION, MIN_AGENT_FORMAL_AI_VERSION, MIN_AGENT_SNAPSHOT_HYGIENE_VERSION, getAgentCliVersion, agentCliSupportsLiveInput, agentCliFailsClosedOnModelMismatch, agentCliPrunesOrphanSnapshots } from './agent.version-gates.lib.mjs';
 
@@ -1026,7 +1028,7 @@ export const executeAgentCommand = async params => {
             tool: 'Agent CLI',
             resetTime: limitInfo.resetTime,
             sessionId,
-            resumeCommand: sessionId ? `${process.argv[0]} ${process.argv[1]} ${argv.url} --resume ${sessionId}` : null,
+            resumeCommand: buildSolveResumeCommandFromArgv({ argv, sessionId, tool: 'agent' }), // Issue #2843
           });
 
           for (const line of messageLines) {
@@ -1196,6 +1198,8 @@ export const checkForUncommittedChanges = async (tempDir, owner, repo, branchNam
 
           const addResult = await $({ cwd: tempDir })`git add -A`;
           if (addResult.code === 0) {
+            // Issue #3572: `git add -A` stages nested repositories (Claude subagent worktrees) as gitlinks.
+            await unstageUnregisteredGitlinks(tempDir, $, log);
             const commitMessage = 'Auto-commit: Changes made by Agent during problem-solving session';
             const commitResult = await $({ cwd: tempDir })`git commit -m ${commitMessage}`;
 

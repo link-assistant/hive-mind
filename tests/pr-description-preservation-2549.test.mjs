@@ -54,6 +54,8 @@ async function complete(body, restart = false, argv = {}) {
     repairRequiredIssueLinks: f.repair,
     ensurePullRequestIsReady: async options => f.ready.push(options),
     ensurePullRequestStaysDraftAfterFailure: async () => {},
+    // Issue #3433: the readiness veto for submodule pointers no `.gitmodules` URL serves.
+    vetoUnreachableSubmodulePointers: async () => ({ keepsDraft: false }),
   };
   const bindings = {
     ...context,
@@ -77,6 +79,9 @@ async function complete(body, restart = false, argv = {}) {
     sanitizeForPublication: async text => text,
     // Issue #3332: the block reads the solve log for a refused workflow push.
     getLogFile: () => null,
+    // Issue #3433: the submodule readiness veto needs the clone and the branch.
+    tempDir: null,
+    branchName: 'issue-1-example',
     readFile: async () => '',
     reportWorkflowPushRejection: async () => null,
     writeSanitizedPublicationFile: async (file, text) => (await import('node:fs/promises')).writeFile(file, text),

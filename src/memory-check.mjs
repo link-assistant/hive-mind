@@ -19,11 +19,10 @@ const { $ } = await use('command-stream');
 // These are filtered out by consuming code when parsing JSON
 const $silent = $({ mirror: false, capture: true });
 
-const fs = (await use('fs')).promises;
-
 // Import log function from lib.mjs
 const lib = await import('./lib.mjs');
 const { log: libLog, setLogFile } = lib;
+const { describeMemoryLimit, formatMemorySummary, formatSwap, readEffectiveMemory } = await import('./cgroup-memory-budget.lib.mjs');
 
 // Function to check available disk space
 export const checkDiskSpace = async (minSpaceMB = 10240, options = {}) => {
@@ -181,66 +180,42 @@ export const checkRAM = async (minMemoryMB = 256, options = {}) => {
       return { success: false, availableMB: 0, error: error.message };
     }
   } else {
-    // Linux memory check using /proc/meminfo
+    // Linux memory check using /proc/meminfo, capped by the own cgroup (issue #2838):
+    // inside a Docker task /proc/meminfo describes the host, while the kernel
+    // OOM killer acts on memory.max / memory.swap.max of the task's cgroup.
     try {
-      const meminfoContent = await fs.readFile('/proc/meminfo', 'utf8');
-      const lines = meminfoContent.split('\n');
-
-      const getValue = key => {
-        const line = lines.find(l => l.startsWith(key));
-        if (!line) return 0;
-        const match = line.match(/(\d+)/);
-        return match ? parseInt(match[1]) : 0;
-      };
-
-      // Get memory values in KB
-      const memFree = getValue('MemFree:');
-      const buffers = getValue('Buffers:');
-      const cached = getValue('Cached:');
-      const sReclaimable = getValue('SReclaimable:');
-      const swapTotal = getValue('SwapTotal:');
-      const swapFree = getValue('SwapFree:');
-
-      // Calculate available memory (similar to 'free' command)
-      const availableKB = memFree + buffers + cached + sReclaimable;
-      const availableMB = Math.floor(availableKB / 1024);
-
-      // Calculate swap info
-      const swapUsedKB = swapTotal - swapFree;
-      const swapMB = Math.floor(swapTotal / 1024);
-      const swapUsedMB = Math.floor(swapUsedKB / 1024);
-      const swapAvailableMB = Math.floor(swapFree / 1024);
-
-      let swapInfo;
-      if (swapTotal > 0) {
-        swapInfo = `${swapMB}MB (${swapUsedMB}MB used)`;
-      } else {
-        swapInfo = 'none';
-      }
-
-      // Calculate total available memory (RAM + swap)
-      const totalAvailable = availableMB + swapAvailableMB;
+      const effective = (options.readEffectiveMemory || readEffectiveMemory)();
+      if (!effective) throw new Error('/proc/meminfo is not readable');
+      const { availableMB, hostAvailableMB, limitedBy } = effective;
+      const swapInfo = formatSwap(effective);
+      const totalAvailable = effective.totalAvailableMB;
+      const limitInfo = describeMemoryLimit(effective);
+      const limitSuffix = limitInfo ? `, ${limitInfo}` : '';
+      const details = { availableMB, required: minMemoryMB, swap: swapInfo, totalAvailable, hostAvailableMB, limitedBy, limitSource: effective.cgroup ? `cgroup v${effective.cgroup.version} memory.max` : 'host /proc/meminfo' };
 
       // Check only total memory against the requirement
       const success = totalAvailable >= minMemoryMB;
 
       if (!success) {
-        await log(`❌ Insufficient memory: ${availableMB}MB available, swap: ${swapInfo}, total: ${totalAvailable}MB (${minMemoryMB}MB required)`);
+        await log(`❌ Insufficient memory: ${availableMB}MB available, swap: ${swapInfo}, total: ${totalAvailable}MB (${minMemoryMB}MB required)${limitSuffix}`);
 
-        if (swapTotal === 0) {
+        // A host swap file does not help a cgroup that is not allowed to swap.
+        if (effective.hostSwapTotalMB === 0 && limitedBy !== 'cgroup') {
           await log('   No swap configured. Consider adding swap:');
           await log('   sudo fallocate -l 2G /swapfile');
           await log('   sudo chmod 600 /swapfile');
           await log('   sudo mkswap /swapfile');
           await log('   sudo swapon /swapfile');
           await log('   echo "/swapfile none swap sw 0 0" | sudo tee -a /etc/fstab');
+        } else if (limitedBy === 'cgroup') {
+          await log('   The container memory limit applies, not host memory: raise the task limit (for example --container-memory) or run fewer jobs at once.');
         }
 
-        return { success: false, availableMB, required: minMemoryMB, swap: swapInfo, totalAvailable };
+        return { success: false, ...details };
       }
 
-      await log(`🧠 Memory check: ${availableMB}MB available, swap: ${swapInfo}, total: ${totalAvailable}MB (${minMemoryMB}MB required) ✅`);
-      return { success: true, availableMB, required: minMemoryMB, swap: swapInfo, totalAvailable };
+      await log(`🧠 Memory check: ${availableMB}MB available, swap: ${swapInfo}, total: ${totalAvailable}MB (${minMemoryMB}MB required)${limitSuffix} ✅`);
+      return { success: true, ...details };
     } catch (error) {
       await log(`❌ Linux memory check failed: ${error.message}`);
       return { success: false, availableMB: 0, error: error.message };
@@ -252,7 +227,7 @@ export const checkRAM = async (minMemoryMB = 256, options = {}) => {
 export const checkMemory = checkRAM;
 
 // Function to get system resource snapshot
-export const getResourceSnapshot = async () => {
+export const getResourceSnapshot = async (options = {}) => {
   try {
     if (process.platform === 'darwin') {
       // macOS resource snapshot
@@ -271,10 +246,21 @@ export const getResourceSnapshot = async () => {
       const memInfo = await $silent`grep -E "MemTotal|MemAvailable|MemFree|SwapTotal|SwapFree" /proc/meminfo 2>/dev/null`;
       const loadAvg = await $silent`cat /proc/loadavg`;
       const uptime = await $silent`uptime`;
+      // Issue #2838: callers log `memory.split('\n')[1]` as the "System resources"
+      // line, so the cgroup-aware summary goes first, before the raw host lines.
+      let memorySummary = null;
+      try {
+        const effective = (options.readEffectiveMemory || readEffectiveMemory)();
+        memorySummary = effective ? formatMemorySummary(effective) : null;
+      } catch {
+        memorySummary = null;
+      }
+      const hostMemory = memInfo.stdout.toString().trim();
 
       return {
         timestamp: new Date().toISOString(),
-        memory: memInfo.stdout.toString().trim(),
+        memory: memorySummary ? `${hostMemory.split('\n')[0]}\n${memorySummary}\n${hostMemory}` : hostMemory,
+        memorySummary,
         load: loadAvg.stdout.toString().trim(),
         uptime: uptime.stdout.toString().trim(),
       };

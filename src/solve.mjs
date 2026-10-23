@@ -5,6 +5,7 @@ import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 const earlyArgs = process.argv.slice(2);
 const { handleSolveEarlyExit, resolveStartupLogDirectory } = await import('./solve.bootstrap.lib.mjs');
 await handleSolveEarlyExit(earlyArgs);
+(await import('./tool-shell-oom-score.lib.mjs')).armToolShellOomScoreAdj(); // Issue #3125: AI tool shells, not the CLI, are OOM-killed first
 const use = (globalThis.use = await ensureUseM());
 const { $: __rawDollar$ } = await use('command-stream');
 const { configureGitHubRateLimitLogging, wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
@@ -31,7 +32,8 @@ const { processAutoContinueForIssue } = autoContinue;
 const repository = await import('./solve.repository.lib.mjs');
 const { setupTempDirectory, cleanupTempDirectory } = repository;
 const results = await import('./solve.results.lib.mjs');
-const { cleanupClaudeFile, showSessionSummary, verifyResults, buildClaudeResumeCommand, buildClaudeAutonomousResumeCommand, buildSolveResumeCommand, maybeAttachWorkingSessionSummary, verifyPullRequestIssueLinkAfterAutoRestart } = results;
+const { cleanupClaudeFile, showSessionSummary, verifyResults, buildClaudeResumeCommand, buildClaudeAutonomousResumeCommand, maybeAttachWorkingSessionSummary, verifyPullRequestIssueLinkAfterAutoRestart } = results;
+const { buildSolveResumeCommandFromArgv } = await import('./solve.resume-command.lib.mjs'); // Issue #2843
 const claudeLib = await import('./claude.lib.mjs');
 const { executeClaude } = claudeLib;
 const usageLimitLib = await import('./usage-limit.lib.mjs');
@@ -69,7 +71,7 @@ const { prepareFeedbackAndTimestamps, checkUncommittedChanges, checkForkActions 
 const { canonicalFormalAiModel, validateAndExitOnInvalidClaudeSubAgentModel, validateAndExitOnInvalidModel } = await import('./models/index.mjs');
 const { autoAcceptInviteForRepo } = await import('./solve.accept-invite.lib.mjs');
 const { handleAutoForkOption, handleMaintainerForkAccess } = await import('./solve.fork-detection.lib.mjs');
-const { resolveUncommittedChangesTool } = await import('./solve.tool-uncommitted.lib.mjs');
+const { resolveUncommittedChangesToolWithSubmodules } = await import('./solve.tool-uncommitted.lib.mjs'); // #3433: the checks also look inside git submodules
 const { classifySessionResult } = await import('./session-result.lib.mjs'); // Issue #2316
 await initializeLogFile(null);
 await (await import('./solve.log-dir.lib.mjs')).moveLogFileToLogDir(resolveStartupLogDirectory(earlyArgs), { getLogFile, setLogFile, log });
@@ -103,7 +105,7 @@ configureGitHubRateLimitLogging({
   log,
 });
 await recordResourceSnapshot({ phase: RESOURCE_PHASE_SOLVE_START, log, diskPath: '/', label: 'solve start', logExecutionContext: true }); // #2001: detect+report container context
-let { checkForUncommittedChanges, agentCommanderLib } = await resolveUncommittedChangesTool({ argv, claudeLib });
+let { checkForUncommittedChanges, agentCommanderLib } = await resolveUncommittedChangesToolWithSubmodules({ argv, claudeLib });
 const shouldAttachLogs = argv.attachLogs || argv['attach-logs'];
 await showAttachLogsWarning(shouldAttachLogs);
 const absoluteLogPath = path.resolve(getLogFile());
@@ -364,6 +366,7 @@ cleanupContext.argv = argv;
 cleanupContext.owner = owner;
 cleanupContext.repo = repo;
 if (prNumber) cleanupContext.prNumber = prNumber;
+cleanupContext.prBranch = prBranch || null; // #3572: names the recovery branch if solve fails before branchName is set
 let limitReached = false;
 let sessionId = null;
 let branchName = null;
@@ -399,6 +402,7 @@ try {
     owner,
     repo,
     issueUrl,
+    reusedWorkingDirectory: !needsClone, // Issue #3572
   });
   // Create or checkout branch using the new module
   branchName = await createOrCheckoutBranch({
@@ -762,9 +766,9 @@ try {
           await log(`   Interactive mode: ${buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model })}`);
           await log(`   Autonomous mode:  ${buildClaudeAutonomousResumeCommand({ tempDir, sessionId, model: argv.model })}`);
           await log('');
-        } else if (argv.url) {
+        } else if (issueUrl) {
           const toolForResume = argv.tool || 'claude';
-          const solveResumeCmd = buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool: toolForResume, model: argv.model, fallbackModel: argv.fallbackModel, tempDir, extraArgs: argv._solveResumeExtraArgs });
+          const solveResumeCmd = buildSolveResumeCommandFromArgv({ argv, issueUrl, sessionId, tool: toolForResume, tempDir });
           await log(`💡 To continue this ${toolForResume} session with solve:`);
           await log('');
           await log(`   ${solveResumeCmd}`);
@@ -777,7 +781,7 @@ try {
         try {
           // Build Claude CLI resume command
           const tool = argv.tool || 'claude';
-          const resumeCommand = tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : sessionId ? buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool, model: argv.model, fallbackModel: argv.fallbackModel, tempDir, extraArgs: argv._solveResumeExtraArgs }) : null;
+          const resumeCommand = tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : sessionId ? buildSolveResumeCommandFromArgv({ argv, issueUrl, sessionId, tool, tempDir }) : null;
           const logUploadSuccess = await attachLogToGitHub({
             logFile: getLogFile(),
             targetType: 'pr',
@@ -839,7 +843,7 @@ try {
           try {
             // Build Claude CLI resume command (only for logging, not shown to users when auto-resume is enabled)
             const tool = argv.tool || 'claude';
-            const resumeCommand = tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : sessionId ? buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool, model: argv.model, fallbackModel: argv.fallbackModel, tempDir, extraArgs: argv._solveResumeExtraArgs }) : null;
+            const resumeCommand = tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : sessionId ? buildSolveResumeCommandFromArgv({ argv, issueUrl, sessionId, tool, tempDir }) : null;
             const logUploadSuccess = await attachLogToGitHub({
               logFile: getLogFile(),
               targetType: 'pr',
@@ -936,8 +940,8 @@ try {
         await log(`   Interactive mode:    ${buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model })}`);
         await log(`   Autonomous mode:     ${buildClaudeAutonomousResumeCommand({ tempDir, sessionId, model: argv.model })}`);
       }
-      if (argv.url) {
-        const solveResumeCmd = buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool: toolForFailure, model: argv.model, fallbackModel: argv.fallbackModel, tempDir, extraArgs: argv._solveResumeExtraArgs });
+      if (issueUrl) {
+        const solveResumeCmd = buildSolveResumeCommandFromArgv({ argv, issueUrl, sessionId, tool: toolForFailure, tempDir });
         await log(`   Solve resume mode:   ${solveResumeCmd}`);
       }
       await log('');
@@ -965,7 +969,7 @@ try {
         tempDir,
         branchName,
         committed: preservedWork ? preservedWork.committed : null,
-        resumeCommand: sessionId && argv.url ? buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool: toolForFailure, model: argv.model, fallbackModel: argv.fallbackModel, tempDir, extraArgs: argv._solveResumeExtraArgs }) : null,
+        resumeCommand: buildSolveResumeCommandFromArgv({ argv, issueUrl, sessionId, tool: toolForFailure, tempDir }),
       });
       for (const line of reportLines) await log(line, { level: 'error' });
     }
@@ -980,7 +984,7 @@ try {
       try {
         // Build Claude CLI resume command
         const tool = argv.tool || 'claude';
-        const resumeCommand = sessionId ? (tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool, model: argv.model, fallbackModel: argv.fallbackModel, tempDir, extraArgs: argv._solveResumeExtraArgs })) : null;
+        const resumeCommand = sessionId ? (tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : buildSolveResumeCommandFromArgv({ argv, issueUrl, sessionId, tool, tempDir })) : null;
         const logUploadSuccess = await attachLogToGitHub({
           logFile: getLogFile(),
           targetType: logTargetType,

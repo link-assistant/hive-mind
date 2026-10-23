@@ -49,6 +49,8 @@ codex mcp list | grep playwright
 exit
 ```
 
+> **Before the first start:** enable Docker live-restore on the host, so a `dockerd` restart does not kill the bot and its running tasks. See [Host Docker daemon settings](#host-docker-daemon-settings).
+
 ### Option 2: Building Locally
 
 ```bash
@@ -75,6 +77,8 @@ docker run --rm --privileged -it konard/hive-mind-dind:latest bash
 docker info
 docker run hello-world
 ```
+
+The inner daemon starts with `--live-restore` (`DIND_LIVE_RESTORE=1`). The host daemon that runs this container needs the setting too: see [Host Docker daemon settings](#host-docker-daemon-settings).
 
 The image defaults the inner Docker daemon to
 `DIND_STORAGE_DRIVER=fuse-overlayfs`. This is a **copy-on-write** driver, so the
@@ -294,34 +298,69 @@ with `HIVE_MIND_KEEP_TASK_CONTAINER=always|on-failure|never` (default:
 
 #### Docker task resource limits
 
-Telegram-launched Docker tasks have a default memory cap of 25% of host RAM.
-CPU and disk limits are optional; override the memory cap as needed:
+Telegram-launched Docker tasks get these limits unless you set them:
+
+| Limit                     | Default         | Option                           | Environment variable                    |
+| ------------------------- | --------------- | -------------------------------- | --------------------------------------- |
+| CPU                       | 50% of host CPU | `--container-cpu`                | `TELEGRAM_CONTAINER_CPU`                |
+| RAM hard limit            | 60% of host RAM | `--container-memory`             | `TELEGRAM_CONTAINER_MEMORY`             |
+| RAM soft limit (reserved) | 25% of host RAM | `--container-memory-reservation` | `TELEGRAM_CONTAINER_MEMORY_RESERVATION` |
+| Writable-layer disk       | none            | `--container-disk`               | `TELEGRAM_CONTAINER_DISK`               |
 
 ```bash
 hive-telegram-bot --isolation docker \
   --container-cpu 50% \
-  --container-memory 2GiB \
+  --container-memory 60% \
+  --container-memory-reservation 25% \
   --container-disk 20GB
 ```
 
-The equivalent environment variables are `TELEGRAM_CONTAINER_CPU`,
-`TELEGRAM_CONTAINER_MEMORY`, and `TELEGRAM_CONTAINER_DISK`. A CPU value is a
-fixed core count such as `1.5`, or a percentage of the host's logical CPUs.
-Memory and disk accept decimal units (`MB`, `GB`, `TB`), binary units (`MiB`,
-`GiB`, `TiB`), or percentages. Memory percentages use total host RAM; disk
-percentages use the space available on the filesystem at task launch.
+A CPU value is a fixed core count such as `1.5`, or a percentage of the host's
+logical CPUs. Memory and disk accept decimal units (`MB`, `GB`, `TB`), binary
+units (`MiB`, `GiB`, `TiB`), or percentages. Memory percentages use total host
+RAM; disk percentages use the space available on the filesystem at task launch.
+`unlimited` turns a limit off, including a default one (for example
+`--container-cpu unlimited`).
 
-No limit is inferred: omitting a setting preserves the existing unlimited
-behavior. Docker applies CPU and RAM limits while the task is held behind its
-start gate, before the task command runs. Docker storage quotas are not portable
-across storage drivers, so Hive Mind enforces the disk setting against the
-container's writable layer on each session-monitor tick (30 seconds by default).
-When usage exceeds the limit, the container is stopped and the completion
-message reports the measured usage and configured limit. The Docker daemon must
-have the relevant CPU and memory cgroup controllers delegated; if Docker cannot
-apply a requested kernel limit, Hive Mind keeps the start gate closed, removes
-or stops the container where possible, and reports the launch failure instead
-of silently running the task unlimited.
+**Memory (issue #3125).** The old default, a 25% hard cap, OOM-killed ordinary
+builds on small hosts (2.9 GiB of 11.7 GiB) while the rest of the RAM was idle.
+A task may now use up to 60% of host RAM. The 25% reservation is a soft limit
+(`docker update --memory-reservation`): while the host has free RAM a task can
+grow past it, and under host memory pressure the kernel reclaims tasks that are
+above their reservation first. The reservation must be below the hard limit.
+Setting `--container-memory` replaces the hard limit and drops the default
+reservation; set `--container-memory-reservation` as well to keep one. Swap is
+not added: `--memory-swap` equals the hard limit.
+
+Inside every task, the bash shells the AI tool runs commands in raise their own
+`oom_score_adj` to 500 through a `BASH_ENV` hook, so when the task's memory
+runs out the kernel kills a build or test run before the AI CLI. The CLI keeps
+its score, so the session survives and can retry with less parallelism.
+`HIVE_MIND_TOOL_SHELL_OOM_SCORE_ADJ` changes the value (1-1000) or turns this
+off (`off`). Shells that are not bash (`sh`, `zsh`) keep the default score.
+
+**CPU (issue #3048).** Without a CPU limit, one multi-core task reads as 100%
+host CPU, and the queue's CPU gate holds every tool queue until it ends. Each
+task is now capped at 50% of the host CPUs. The queue also counts the CPU a
+capped task is using as reserved for that task: it compares the rest of the
+load with the CPUs the capped tasks cannot use. So a task busy at its own cap
+does not block other tools, while uncapped load still does. The bot prints a
+warning at startup when Docker tasks run without a CPU limit, and the queue's
+`Starting:` log line shows the limits each task starts with, for example
+`[limits: CPU=50% (3 CPUs), RAM=60% (7.2 GiB), reservation=25% (3.0 GiB), disk=unlimited]`.
+
+Docker applies CPU and RAM limits with `docker update` while the task is held
+behind its start gate, before the task command runs. start-command 0.38.0 has
+`--memory` and `--cpus` launch flags but no `--memory-reservation`, so all
+limits are applied the same way. Docker storage quotas are not portable across
+storage drivers, so Hive Mind enforces the disk setting against the container's
+writable layer on each session-monitor tick (30 seconds by default). When usage
+exceeds the limit, the container is stopped and the completion message reports
+the measured usage and configured limit. The Docker daemon must have the
+relevant CPU and memory cgroup controllers delegated; if Docker cannot apply a
+requested kernel limit, Hive Mind keeps the start gate closed, removes or stops
+the container where possible, and reports the launch failure instead of
+silently running the task unlimited.
 
 **CPU penalty (issue #2801).** A Docker task that keeps all of its CPUs busy
 for a long time is capped, then released once it calms down. This is on by
@@ -358,7 +397,7 @@ penalty cap still in place is watched as penalized, so the cap is lifted later.
 A task that was capped shows a `🐢 CPU penalty` section in its completion
 message.
 
-start-command 0.37.8 (the version in the Hive Mind images) has its own opt-in
+start-command 0.38.0 (the version in the Hive Mind images) has its own opt-in
 `$ --cpu-penalty*` with the same options and defaults. Hive Mind does not pass
 it: the bot's own monitor works with every start-command version and reports a
 penalty in the completion message. Do not enable both penalties for the same
@@ -512,6 +551,61 @@ If the first command shows `playwright` and the second does not, the host-mounte
 1. **Docker:** Install Docker Desktop or Docker Engine (version 20.10 or higher)
 2. **Internet Connection:** Required for pulling images and authentication
 
+## Host Docker daemon settings
+
+With Docker's default `"live-restore": false`, any restart of the host `dockerd`
+— a crash, the kernel OOM killer, a package upgrade, `systemctl restart docker` —
+force-kills every container: the bot container, every running
+`--isolation docker` task and the bot's in-memory solve queue
+([issue #2900](https://github.com/link-assistant/hive-mind/issues/2900)). With `"live-restore": true` the daemon re-attaches to
+the running containers instead ([Docker documentation](https://docs.docker.com/engine/daemon/live-restore/)).
+
+Check the setting (`true` is what you want):
+
+```bash
+docker info -f '{{.LiveRestoreEnabled}}'
+```
+
+The `--isolation docker` preflight runs the same check when the bot starts and
+logs a warning when a daemon reports `false`. In the Docker-in-Docker image it
+checks the nested daemon and, when the host socket is mounted, the host daemon
+too. The warning never blocks startup.
+
+Apply it on the Docker host (not inside a container):
+
+```bash
+# Merge "live-restore": true into /etc/docker/daemon.json, keeping every other key
+sudo python3 -c 'import json,os
+p="/etc/docker/daemon.json"
+d=json.load(open(p)) if os.path.exists(p) and os.path.getsize(p) else {}
+d["live-restore"]=True
+os.makedirs("/etc/docker",exist_ok=True)
+open(p,"w").write(json.dumps(d,indent=2)+"\n")'
+
+# Reload (SIGHUP), never restart: a restart while live-restore is still off kills every container
+sudo systemctl reload docker
+
+# Verify: prints true
+docker info -f '{{.LiveRestoreEnabled}}'
+```
+
+Limits:
+
+- Live-restore does not survive a host reboot: every container stops. Keep
+  `--restart unless-stopped` on the bot container so it comes back; a task ended
+  by the reboot is reported as such ([issue #3533](https://github.com/link-assistant/hive-mind/issues/3533)).
+- Containers keep running across daemon upgrades only between patch releases.
+- Live-restore does not work in Swarm mode; it covers standalone containers.
+- While the daemon is down, a container that fills its log pipe buffer (about
+  64 KiB) blocks on writes until the daemon returns.
+- The bot's queue of not-yet-started tasks lives in memory and is still lost when
+  the bot itself restarts ([issue #2890](https://github.com/link-assistant/hive-mind/issues/2890)).
+- No script in this repository installs Docker on a host, so this is a one-time
+  manual step.
+- The `konard/hive-mind-dind` image already starts its nested `dockerd` with
+  `--live-restore` (`DIND_LIVE_RESTORE=1`, set `-e DIND_LIVE_RESTORE=0` to opt
+  out). The host daemon still needs the setting above.
+
 ## Directory Structure
 
 ```
@@ -560,6 +654,10 @@ The mounted Codex directory keeps the files we rely on:
 - `/home/box/.codex/hive-mind/repositories/<owner>/<repo>/` (repository-scoped capability working state, rebuilt before each task)
 
 The optional `/home/box/.agents/skills/` mount stores user-level Agent Skills for the long-running container itself. It is **not** propagated into `--isolation docker` task containers (see the next section). Hive Mind does not deploy or commit these capabilities to the target repository.
+
+**Keep the Telegram bot's queue across restarts (issue #2890).** The bot saves its solve queue to `~/.hive-mind/state/` (`queue.json`, a `queue.lino` copy and, when the `clink` link-cli tool is installed, a `queue.links` doublets database). `HIVE_MIND_STATE_DIR` moves that directory. After a restart the bot puts every queued task back in its original order and tells each chat what came back. A task that was being launched is started again only when no container or tracked session runs it. To keep the queue when the bot's container is recreated, add `-v /root/.hive-mind/state:/home/box/.hive-mind/state` to the `docker run` command above (and `chown` the directory to `box`). If every store is lost, the bot rebuilds the queue from its own log in `~/.hive-mind/logs/`. Set `HIVE_MIND_QUEUE_CLINK=0` to skip the link-cli copy, or `HIVE_MIND_CLINK_PATH` to point to the `clink` binary (`dotnet tool install --global clink`).
+
+**Running tasks count against the limits (issue #2917).** Under `--isolation docker` the queue counts the running task containers (`docker ps`), so a task the bot no longer tracks, for example after a bot restart, still counts for the one-at-a-time limits. `/limits` shows these as `N untracked`. The bot labels each task container with `hive-mind.*` labels (tool, URL, command, instance). Set `HIVE_MIND_INSTANCE_ID` when several bots share one Docker daemon, so each bot adopts only its own task containers.
 
 ### What a `--isolation docker` task receives (issue #2190)
 

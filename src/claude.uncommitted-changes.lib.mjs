@@ -1,6 +1,7 @@
 /** Preserve and report uncommitted Claude work before retrying a task. */
 import { reportError } from './sentry.lib.mjs';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
+import { unstageUnregisteredGitlinks } from './unregistered-gitlinks.lib.mjs';
 
 export const checkForUncommittedChanges = async (tempDir, owner, repo, branchName, $, log, autoCommit = false, autoRestartEnabled = true) => {
   await log('\n🔍 Checking for uncommitted changes...');
@@ -21,6 +22,8 @@ export const checkForUncommittedChanges = async (tempDir, owner, repo, branchNam
           await log('💾 Auto-committing changes (--auto-commit-uncommitted-changes is enabled)...');
           const addResult = await $({ cwd: tempDir })`git add -A`;
           if (addResult.code === 0) {
+            // Issue #3572: `git add -A` stages nested repositories (Claude subagent worktrees) as gitlinks.
+            await unstageUnregisteredGitlinks(tempDir, $, log);
             const commitMessage = 'Auto-commit: Changes made by Claude during problem-solving session';
             const commitResult = await $({ cwd: tempDir })`git commit -m ${commitMessage}`;
             if (commitResult.code === 0) {

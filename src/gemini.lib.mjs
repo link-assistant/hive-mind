@@ -18,8 +18,8 @@ import { log, buildToolErrorMessage } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
-import { buildSolveResumeCommand } from './solve.resume-command.lib.mjs'; // Issue #942
-const __geminiBuildSolveResumeCmd = (argv, sessionId, tempDir) => (sessionId && argv?.url ? buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool: 'gemini', model: argv.model, fallbackModel: argv.fallbackModel, tempDir, extraArgs: argv._solveResumeExtraArgs }) : null);
+import { buildSolveResumeCommandFromArgv } from './solve.resume-command.lib.mjs'; // Issues #942, #2843
+const __geminiBuildSolveResumeCmd = (argv, sessionId, tempDir) => buildSolveResumeCommandFromArgv({ argv, sessionId, tool: 'gemini', tempDir });
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import { stringifyErrorValue } from './error-text.lib.mjs'; // Issue #2141
 import { defaultModels, geminiModels } from './models/index.mjs';
@@ -29,6 +29,7 @@ import { checkPlaywrightMcpPackageAvailability } from './playwright-mcp.lib.mjs'
 import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { getCumulativeContextInputTokens, toTokenCount } from './context-fill.lib.mjs';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
+import { unstageUnregisteredGitlinks } from './unregistered-gitlinks.lib.mjs';
 import { getTerminalEventCompletionHealth } from './tool-run-health.lib.mjs'; // Issue #1990
 import { takeJsonRecords } from './json-stream.lib.mjs'; // Issue #2119
 import { createToolCallLoopGuard, resolveRepeatedToolCallLimit } from './tool-call-loop-guard.lib.mjs'; // Issue #2316, #2395
@@ -735,6 +736,8 @@ export const checkForUncommittedChanges = async (tempDir, owner, repo, branchNam
 
           const addResult = await $({ cwd: tempDir })`git add -A`;
           if (addResult.code === 0) {
+            // Issue #3572: `git add -A` stages nested repositories (Claude subagent worktrees) as gitlinks.
+            await unstageUnregisteredGitlinks(tempDir, $, log);
             const commitMessage = 'Auto-commit: Changes made by Gemini during problem-solving session';
             const commitResult = await $({ cwd: tempDir })`git commit -m ${commitMessage}`;
 

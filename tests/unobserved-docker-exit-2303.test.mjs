@@ -249,6 +249,7 @@ test('end to end: killed, diagnosed as disk full, announced and auto-resumed', a
   const recoveryLaunches = [];
   const removedContainers = [];
   const prComments = [];
+  const logComments = [];
   const statusResult = { ...incidentStatus, logPath };
   const common = {
     dockerContainerSizeProvider: async () => 122.7 * 1e9,
@@ -259,7 +260,12 @@ test('end to end: killed, diagnosed as disk full, announced and auto-resumed', a
       prComments.push(args.join(' '));
       return { code: 0, stdout: 'https://github.com/link-foundation/meta-language/pull/196#issuecomment-1\n', stderr: '' };
     },
-    attachLog: async () => true,
+    // Issue #3530: with --attach-logs the kill notice leads the log comment.
+    attachLog: async options => {
+      logComments.push(options.leadingSection);
+      await options.onCommentPosted?.({ commentId: '1' });
+      return true;
+    },
     removeDockerContainer: async name => {
       removedContainers.push(name);
       return { success: true };
@@ -304,6 +310,7 @@ test('end to end: killed, diagnosed as disk full, announced and auto-resumed', a
   assert.ok(recoveryLaunches[0].args.includes('--resume') && recoveryLaunches[0].args.includes(TOOL_SESSION), 'the restart resumes the last tool session');
   assert.doesNotMatch(completion, /Docker container kept/, 'a container start-command already removed is not advertised as kept');
   assert.equal(removedContainers.length, 0, 'Hive Mind does not try to remove a container that is already gone');
-  assert.ok(prComments.length > 0, 'the kill is announced on the pull request');
+  assert.equal(logComments.length, 1, 'the kill is announced on the pull request, in one comment with the log');
+  assert.match(logComments[0], /disk full/i);
   assert.equal(getActiveSessionCount(false), 1, 'only the recovery session remains tracked');
 });

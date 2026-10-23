@@ -310,6 +310,7 @@ hi
         started "शुरू"
         starting "शुरू हो रहा"
         waiting "प्रतीक्षा"
+      untracked "{{count}} ट्रैक नहीं"
       waiting
         current
           command "वर्तमान कमांड की प्रतीक्षा"
@@ -712,6 +713,7 @@ hi
       recovered
         oom "मेमोरी समाप्त होने से पुनर्प्राप्त"
         kill "जबरन समाप्ति से पुनर्प्राप्त"
+        count "{{count}} OOM किल"
         at "यह घटना {{observedAt}} पर देखी गई; कार्य सत्र चलता रहा और पूरा हुआ।"
         resumed "समाप्ति से पुनर्प्राप्ति हेतु नया कार्य सत्र शुरू किया गया।"
       kill
@@ -725,10 +727,15 @@ hi
       label "Isolation"
     execution
       label "निष्पादन"
-      earlier "पहले के लॉग"
+      attempts "{{count}} प्रयास; सभी प्रयासों का लॉग पाने के लिए /log से उत्तर दें"
     error
       executing
         command "❌ {{commandName}} command चलाने में त्रुटि"
+    queue
+      restored
+        title "♻️ बॉट पुनः आरंभ हुआ; कतार के {{count}} कार्य {{source}} से बहाल किए गए और अपनी बारी पर शुरू होंगे:"
+        running "▶️ {{count}} कार्य पहले से चल रहे थे और उन्हें वैसे ही छोड़ दिया गया:"
+        more "… और {{count}} अन्य"
   language
     en "अंग्रेज़ी"
     ru "रूसी"

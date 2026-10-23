@@ -32,7 +32,7 @@ const DEFAULT_HEARTBEAT_INTERVAL_MS = 60 * 1000;
  *
  * @returns {{ start: () => void, stop: () => void, beat: () => void, get timer(): any }}
  */
-export function createHeartbeat({ logger, getActiveSessionCount, intervalMs = DEFAULT_HEARTBEAT_INTERVAL_MS, processImpl = process, setIntervalImpl = setInterval, clearIntervalImpl = clearInterval, captureResources = captureResourceSnapshot, resourceDiskPath = '/', getHandlerStats = null } = {}) {
+export function createHeartbeat({ logger, getActiveSessionCount, intervalMs = DEFAULT_HEARTBEAT_INTERVAL_MS, processImpl = process, setIntervalImpl = setInterval, clearIntervalImpl = clearInterval, captureResources = captureResourceSnapshot, resourceDiskPath = '/', getHandlerStats = null, onBeat = null } = {}) {
   let timer = null;
 
   const beat = () => {
@@ -69,6 +69,9 @@ export function createHeartbeat({ logger, getActiveSessionCount, intervalMs = DE
       if (isHeapUnderPressure(resources?.memory) && typeof logger.warn === 'function') {
         logger.warn(`Bot V8 heap is under pressure: ${formatHeapUsage(resources.memory)} — the process will abort with "JavaScript heap out of memory" if it keeps growing`, { heap: resources.memory });
       }
+      // Issue #3533: the host's boot id and the time of this beat, so the next
+      // start can tell that the host restarted while tasks were running.
+      if (typeof onBeat === 'function') Promise.resolve(onBeat()).catch(() => {});
     } catch {
       /* heartbeat must never crash the bot */
     }
@@ -153,12 +156,20 @@ async function reconcileIsolationExecutions({ reconcileIsolationSessions, verbos
  * (`$ --resume-all`) settles the isolation backend's own record of what is
  * still running, so the replayed sessions are matched against the truth.
  *
- * @returns {Promise<{ resumed: any[], skipped: any[], reconciliation: object, error?: Error }>}
+ * Issue #3533: `detectHostReboot` (the host boot tracker) runs first, so the
+ * sessions the host took down are reported as that one event.
+ *
+ * @returns {Promise<{ resumed: any[], skipped: any[], reconciliation: object, hostReboot: object|null, error?: Error }>}
  */
-export async function resumeSessionsOnLaunch({ resumeTrackedSessions, reconcileIsolationSessions = null, botStartTime, verbose = false, logger, consoleImpl = console } = {}) {
+export async function resumeSessionsOnLaunch({ resumeTrackedSessions, reconcileIsolationSessions = null, detectHostReboot = null, botStartTime, verbose = false, logger, consoleImpl = console } = {}) {
+  const hostReboot = typeof detectHostReboot === 'function' ? await Promise.resolve(detectHostReboot()).catch(() => null) : null;
+  if (hostReboot) {
+    consoleImpl.log(`🖥️  The host restarted while the bot was down (${hostReboot.shutdownRecorded === false ? 'hard reset, no shutdown recorded' : 'reboot'}; booted at ${hostReboot.bootedAt || 'unknown'}, last heartbeat ${hostReboot.lastHeartbeatAt || 'unknown'})`);
+    logger?.event?.('host_reboot_detected', hostReboot);
+  }
   const reconciliation = await reconcileIsolationExecutions({ reconcileIsolationSessions, verbose, logger, consoleImpl });
   try {
-    const { resumed, skipped } = await resumeTrackedSessions({ botStartTime, verbose });
+    const { resumed, skipped } = await resumeTrackedSessions({ botStartTime, verbose, hostReboot });
     if (resumed.length > 0) {
       consoleImpl.log(`♻️  Resumed ${resumed.length} session(s) from previous run`);
     }
@@ -167,11 +178,11 @@ export async function resumeSessionsOnLaunch({ resumeTrackedSessions, reconcileI
       skipped: skipped.length,
       sessions: resumed.map(r => r.sessionName),
     });
-    return { resumed, skipped, reconciliation };
+    return { resumed, skipped, reconciliation, hostReboot };
   } catch (error) {
     consoleImpl.error(`[telegram-bot] Failed to resume tracked sessions: ${error.message}`);
     logger.error('Failed to resume tracked sessions', { error: error.message });
-    return { resumed: [], skipped: [], reconciliation, error };
+    return { resumed: [], skipped: [], reconciliation, hostReboot, error };
   }
 }
 

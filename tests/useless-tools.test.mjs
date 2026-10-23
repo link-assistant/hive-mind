@@ -261,7 +261,7 @@ async function runTests() {
     try {
       const { mcpConfigPath, disallowedToolsList } = await resolveClaudeSessionToolFlags({ argv: {}, log: null });
       assert.ok(mcpConfigPath, 'default path returns a temp mcp config path');
-      assert.equal(disallowedToolsList.length, buildDisallowedToolsList().length, 'default returns full disallowed list');
+      assert.equal(disallowedToolsList.length, buildDisallowedToolsList().length + 2, 'default returns full disallowed list plus the issue #744 process-kill deny rules');
       await fs.rm(mcpConfigPath, { force: true });
     } finally {
       process.env.HOME = originalHome;
@@ -273,7 +273,7 @@ async function runTests() {
     const { resolveClaudeSessionToolFlags } = await import('../src/useless-tools.lib.mjs');
     const { mcpConfigPath, disallowedToolsList } = await resolveClaudeSessionToolFlags({ argv: { uselessToolsDisabled: false }, log: null });
     assert.equal(mcpConfigPath, null, 'when fully disabled, no mcp config is produced');
-    assert.deepEqual(disallowedToolsList, [], 'no disallowed tools when opted out');
+    assert.deepEqual(disallowedToolsList, ['Bash(pkill:*)', 'Bash(killall:*)'], 'no useless tools when opted out; the issue #744 process-kill deny rules stay');
   });
 
   await asyncTest('Dockerfile bakes disallowedTools into baseline ~/.claude/settings.json via published configure-claude', async () => {

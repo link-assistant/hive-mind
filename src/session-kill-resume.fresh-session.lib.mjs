@@ -34,6 +34,7 @@ import { parseGitHubUrl } from './github-url-parser.lib.mjs';
 import { DOCKER_ISOLATION_TOOL_MOUNTS } from './isolation-runner.lib.mjs';
 import { hasUseRouterFlag } from './router-isolation.lib.mjs';
 import { quoteArg, stripResumeFlag } from './session-resume.lib.mjs';
+import { resolveSessionContainerName } from './session-container-identity.lib.mjs';
 
 /** Home directory of the task user inside a Hive Mind task container. */
 export const TASK_CONTAINER_CODEX_HOME = '/home/box/.codex';
@@ -124,7 +125,7 @@ export async function resolveFreshRecoveryCommand({ sessionName, sessionInfo, co
     if (verbose) console.log(`[VERBOSE] Fresh recovery of ${sessionName}: Codex rollout ${present} is mounted; resuming thread ${threadId}`);
     return keep(FRESH_RESUME_OUTCOMES.KEPT);
   }
-  const containerName = sessionInfo?.sessionId || sessionName || null;
+  const containerName = resolveSessionContainerName(sessionName, sessionInfo);
   const restored = await restoreCodexRolloutFromContainer({ containerName, sessionInfo, threadId, hostSessionsDir, runner, fsImpl, tmpDir, verbose });
   if (restored.restored) {
     if (verbose) console.log(`[VERBOSE] Fresh recovery of ${sessionName}: copied Codex rollout of ${threadId} from ${containerName} to ${restored.file}`);

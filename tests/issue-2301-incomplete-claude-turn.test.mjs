@@ -16,6 +16,7 @@ import { getClaudeEnv } from '../src/config.lib.mjs';
 import { initI18n, preloadAllLocales } from '../src/i18n.lib.mjs';
 import { monitorSessions, resetSessionMonitorForTests, trackSession, STALE_EXECUTING_MIN_AGE_MS } from '../src/session-monitor.lib.mjs';
 import { serializeSessionInfo } from '../src/session-store.lib.mjs';
+import { createGhCommentRecorder } from './helpers/gh-comment-recorder.mjs';
 
 const rejection = "The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.";
 const cancelledSubagent = {
@@ -102,7 +103,10 @@ test('a recovery session surviving a later OOM does not claim another replacemen
 });
 
 test('Docker task memory is capped by default and remains configurable', () => {
-  assert.equal(resolveTelegramContainerResourceLimits({}, 'docker').limits.memory, '25%');
+  // Issue #3125: the default is a 60% hard limit with a 25% soft reservation.
+  const defaults = resolveTelegramContainerResourceLimits({}, 'docker').limits;
+  assert.equal(defaults.memory, '60%');
+  assert.equal(defaults.memoryReservation, '25%');
   assert.equal(resolveTelegramContainerResourceLimits({ containerMemory: '4GiB' }, 'docker').limits.memory, '4GiB');
   assert.equal(resolveTelegramContainerResourceLimits({}, 'screen').limits.memory, null);
 });
@@ -137,7 +141,7 @@ test('the monitor resumes an exit-1 session after a child OOM event and reports 
   };
   const edits = [];
   const launches = [];
-  const comments = [];
+  const github = createGhCommentRecorder();
   const bot = {
     telegram: {
       editMessageText: async (_chatId, _messageId, _inline, message) => {
@@ -165,21 +169,21 @@ test('the monitor resumes an exit-1 session after a child OOM event and reports 
           return { success: true };
         },
       },
-      runCommand: async (_command, args) => {
-        const inputFlag = args.includes('--input') ? '--input' : '--body-file';
-        const input = await fs.readFile(args[args.indexOf(inputFlag) + 1], 'utf8');
-        comments.push(args.includes('--input') ? JSON.parse(input).body : input);
-        return { code: 0, stdout: 'https://github.com/link-foundation/links-notation/pull/319#issuecomment-1', stderr: '' };
-      },
+      runCommand: github.runCommand,
     });
     assert.equal(launches.length, 1);
     assert.ok(launches[0].args.includes('--resume'));
     assert.ok(launches[0].args.includes(toolSessionId));
     assert.match(edits.at(-1) || '', new RegExp(recoverySessionId));
-    const launchNotice = comments.find(body => body.includes('new working session was started'));
-    assert.match(launchNotice || '', /new working session was started/i);
-    assert.match(launchNotice || '', new RegExp(recoverySessionId));
-    assert.match(launchNotice || '', /container OOM event/i);
+    // Issue #3530: one kill comment, posted with a pending note that is removed
+    // once the recovery starts; the new session's ID is reported in Telegram and
+    // by the recovery session's own start comment.
+    assert.equal(github.posts.length, 1);
+    assert.match(github.posts[0], /container OOM event/i);
+    assert.match(github.posts[0], /recovery-pending-start/);
+    const [settled] = github.current();
+    assert.match(settled, /container OOM event/i);
+    assert.doesNotMatch(settled, /recovery-pending-start|is pending/);
   } finally {
     resetSessionMonitorForTests();
     await fs.rm(logPath, { force: true });

@@ -2,6 +2,9 @@
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 import { maskToken, setupStdioLogInterceptor } from './lib.mjs';
 
+// Issue #744: a distinct process name keeps the bot out of `pkill node`, `pkill -f node`
+// and `killall node`, which an AI session without Docker isolation killed it with (#733).
+process.title = 'hive-telegram-bot';
 setupStdioLogInterceptor();
 // Early exit for --version (issue #1318: avoid dotenvx MISSING_ENV_FILE warnings)
 if (process.argv.includes('--version')) {
@@ -80,6 +83,7 @@ const authEnabled = config.auth;
 const ISOLATION_BACKEND = (config.isolation || getenv('TELEGRAM_ISOLATION', '')).trim().toLowerCase();
 const { initializeTelegramContainerResourceLimits, initializeTelegramDockerCpuPenalty } = await import('./telegram-container-resource-limits.lib.mjs');
 const CONTAINER_RESOURCE_LIMITS = initializeTelegramContainerResourceLimits(config, ISOLATION_BACKEND);
+(await import('./queue-task-limits.lib.mjs')).configureQueueTaskLimits({ isolationBackend: ISOLATION_BACKEND, containerResourceLimits: CONTAINER_RESOURCE_LIMITS }); // Issue #3048
 const CONTAINER_CPU_PENALTY = initializeTelegramDockerCpuPenalty(config, ISOLATION_BACKEND);
 let isolationRunner = null;
 if (ISOLATION_BACKEND) {
@@ -182,6 +186,7 @@ const { escapeMarkdown, escapeMarkdownKeepingCodeSpans, escapeMarkdownV2, cleanN
 const { revealHiddenCharacters } = await import('./github-url-recovery.lib.mjs'); // #2194
 
 const { getSolveQueue, createQueueExecuteCallback } = await import('./telegram-solve-queue.lib.mjs');
+const { createQueueRecoveryResourceGate, findLaunchingQueueItem } = await import('./session-kill-resume.resource-gate.lib.mjs');
 const { applySolveToolAlias, getFirstParsedPositionalArg, getSolveCommandNameFromText, getSolveToolAliasFromText, moveArgumentToFront, parseArgsWithYargs, parseCommandArgs, SOLVE_COMMAND_NAMES } = await import('./telegram-solve-command.lib.mjs');
 const { preflightRepositoryTarget, redirectRepositoryArgsToSingleIssue } = await import('./telegram-solve-repository-preflight.lib.mjs');
 const { repositoryModeSelectionFromArgv } = await import('./solve.repository-mode.lib.mjs');
@@ -201,6 +206,7 @@ const { addSessionCompletionListener, trackSession, untrackSession, startSession
 const { createBotLogger } = await import('./bot-logger.lib.mjs');
 const { createSessionStore } = await import('./session-store.lib.mjs');
 const { createHeartbeat, resumeSessionsOnLaunch, createShutdownHandler } = await import('./bot-lifecycle.lib.mjs');
+const { setupSolveQueueDurability } = await import('./solve-queue-bot-wiring.lib.mjs'); // Issue #2890, #2917
 const { formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage } = await import('./work-session-formatting.lib.mjs');
 const { buildTelegramHelpMessage, buildTelegramInfoBlock, buildSolveQueuedMessage } = await import('./telegram-ui-messages.lib.mjs');
 const { startFormalAiMaintenance } = await import('./formal-ai-maintenance.lib.mjs');
@@ -740,10 +746,7 @@ async function handleSolveCommand(ctx) {
       const startingMessage = await safeReply(ctx, formatStartingWorkSessionMessage({ infoBlock, locale: solveLocale }), { reply_to_message_id: ctx.message.message_id });
       await executeAndUpdateMessage(ctx, startingMessage, 'solve', argsWithLocale, infoBlock, effectiveSolveIsolation, solveTool, solveUrlContext, { showLimits: solveShowLimits, limitsAtStart: solveLimitsAtStart, locale: solveLocale, commandAlias: solveCommandName });
     } else {
-      if (!solveQueue.executeCallback) {
-        const _t = (s, i) => trackSession(s, i, VERBOSE);
-        solveQueue.executeCallback = createIsolationAwareQueueCallback(ISOLATION_BACKEND, isolationRunner, _t, createQueueExecuteCallback(executeStartScreen, _t), VERBOSE, CONTAINER_RESOURCE_LIMITS);
-      }
+      queueDurability.ensureExecuteCallback(solveQueue);
       const queueItem = solveQueue.enqueue({ url: normalizedUrl, args: argsWithLocale, ctx, requester, infoBlock, commandAlias: solveCommandName, tool: solveTool, perCommandIsolation: effectiveSolveIsolation, urlContext: solveUrlContext, showLimits: solveShowLimits, limitsAtStart: solveLimitsAtStart, locale: solveLocale });
       const queueMessage = buildSolveQueuedMessage({ locale: solveLocale, tool: solveTool, position: toolQueuedCount + 1, infoBlock, reason: check.reason ? escapeMarkdown(check.reason) : '' }); // tool-specific position (#1551)
       const queuedMessage = await safeReply(ctx, queueMessage, { reply_to_message_id: ctx.message.message_id });
@@ -1093,12 +1096,26 @@ let launchAnnouncementShown = false;
 // Issue #2823: a launched /solve task is not a completed one. Tell the queue
 // how each tracked session ended so /queue lists it as Completed or Failed.
 addSessionCompletionListener(event => getSolveQueue({ verbose: VERBOSE }).recordSessionCompletion(event));
+// Issue #2890: the queue is saved on every change and restored after a restart.
+// Issue #2917: under docker isolation, task containers are counted and untracked ones adopted.
+const trackQueueSession = (s, i) => trackSession(s, i, VERBOSE);
+const queueDurability = setupSolveQueueDurability({
+  getSolveQueue,
+  createExecuteCallback: () => createIsolationAwareQueueCallback(ISOLATION_BACKEND, isolationRunner, trackQueueSession, createQueueExecuteCallback(executeStartScreen, trackQueueSession), VERBOSE, CONTAINER_RESOURCE_LIMITS, url => hasActiveSessionForUrlAsync(url, VERBOSE)),
+  isolationBackend: ISOLATION_BACKEND,
+  isolationRunner,
+  trackSession: trackQueueSession,
+  hasActiveSessionForUrl: url => hasActiveSessionForUrlAsync(url, VERBOSE),
+  logger: botLogger,
+  verbose: VERBOSE,
+});
 function startSessionMonitoringOnce() {
   if (sessionMonitoringTimer) return;
   // Issue #2134: the monitor needs the isolation runner to start a recovery
   // working session when `--on-session-kill=resume` is in effect.
   // Issue #2801: it also applies and lifts the Docker task CPU penalty.
-  sessionMonitoringTimer = startSessionMonitoring(bot, VERBOSE, 30000, { isolationRunner, cpuPenalty: CONTAINER_CPU_PENALTY });
+  // Issue #3530: a recovery waits behind the same resource gate as queued tasks.
+  sessionMonitoringTimer = startSessionMonitoring(bot, VERBOSE, 30000, { isolationRunner, cpuPenalty: CONTAINER_CPU_PENALTY, recoveryResourceGate: createQueueRecoveryResourceGate(() => getSolveQueue({ verbose: VERBOSE })), findLaunchingSibling: url => findLaunchingQueueItem(getSolveQueue({ verbose: VERBOSE }), url, launchingUrls) });
 }
 // Issue #2146 (PR #2147 review): stop the Formal AI sidecar once no Formal AI
 // task holds a lease, then — while the host is idle — update its image (with a
@@ -1131,7 +1148,10 @@ function startRouterMaintenanceOnce() {
 // Issue #1927 (requirements #3/#4): a periodic timestamped heartbeat so the "last
 // time the bot was alive" is always discoverable from the log. The heartbeat
 // logic lives in bot-lifecycle.lib.mjs so it can be unit tested.
-const heartbeat = createHeartbeat({ logger: botLogger, getActiveSessionCount, getHandlerStats: () => ({ ...handlerWatchdog.getStats(), background: getBackgroundTaskStats(), launchingUrls: launchingUrls.size }) });
+// Issue #3533: the host's boot id, recorded with every beat, tells the next start that the host restarted.
+const { createHostBootTracker } = await import('./host-boot-state.lib.mjs');
+const hostBootTracker = createHostBootTracker({ verbose: VERBOSE });
+const heartbeat = createHeartbeat({ logger: botLogger, getActiveSessionCount, getHandlerStats: () => ({ ...handlerWatchdog.getStats(), background: getBackgroundTaskStats(), launchingUrls: launchingUrls.size }), onBeat: () => hostBootTracker.recordHeartbeat() });
 async function onBotLaunched() {
   if (isShuttingDown || launchAnnouncementShown) return;
   launchAnnouncementShown = true;
@@ -1151,10 +1171,13 @@ async function onBotLaunched() {
   await resumeSessionsOnLaunch({
     resumeTrackedSessions,
     reconcileIsolationSessions: typeof isolationRunner?.resumeAllIsolationSessions === 'function' ? ({ verbose }) => isolationRunner.resumeAllIsolationSessions({ verbose }) : null,
+    detectHostReboot: () => hostBootTracker.detect(),
     botStartTime: BOT_START_TIME,
     verbose: VERBOSE,
     logger: botLogger,
   });
+  await queueDurability.restoreOnLaunch(bot.telegram); // Issue #2890: after the sessions, so a running task is not queued again
+  queueDurability.startAdoption(); // Issue #2917
 
   startSessionMonitoringOnce();
   startFormalAiMaintenanceOnce();
@@ -1249,6 +1272,7 @@ const handleShutdownSignal = createShutdownHandler({
   bot,
   onShutdown: () => {
     isShuttingDown = true;
+    hostBootTracker.recordStop().catch(() => {}); // issue #3533: an orderly stop, not a hard reset
   },
   cleanup: () => {
     launchAbortController.abort();
@@ -1257,6 +1281,7 @@ const handleShutdownSignal = createShutdownHandler({
     routerMaintenance?.stop();
     mergedPullRequestSweeper?.stop();
     heartbeat.stop();
+    queueDurability.stop();
     stopSolveQueue();
   },
 });
@@ -1273,5 +1298,6 @@ process.once('SIGTERM', () => {
 // the process exits (shutdown event, a crash report) is written synchronously.
 process.once('exit', () => {
   sessionStore.flushSync(); // hive-sync-ok: exit handler, the event loop is gone
+  queueDurability.flushSync(); // hive-sync-ok: exit handler, Issue #2890
   botLogger.flushSync(); // hive-sync-ok: exit handler, the event loop is gone
 });

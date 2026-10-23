@@ -1,5 +1,6 @@
 /** Isolation-state reconciliation; terminal evidence is scoped to each attempt. */
 import { scopeRecoveryFooter } from './session-recovery-footer.lib.mjs';
+import { probeSessionBackendAlive, resolveSessionContainerName } from './session-container-identity.lib.mjs';
 import { classifyExitStatus, normalizeExitCode } from './session-status.lib.mjs';
 import { isDockerIsolation, resolveOomKilledState, resolveStaleExecutingState } from './session-monitor.stale-executing.lib.mjs';
 import { clearUnverifiedDockerTerminalMarker, shouldDeferUnverifiedDockerTerminal } from './session-monitor.docker-terminal.lib.mjs';
@@ -80,7 +81,7 @@ export async function getIsolationSessionState(sessionName, sessionInfo, options
           let alive = null;
           if (probe && sessionInfo?.isolationBackend) {
             try {
-              alive = await probe(sessionId, sessionInfo.isolationBackend, verbose);
+              alive = await probeSessionBackendAlive(sessionName, sessionInfo, { probe, runner, verbose });
             } catch {
               alive = null;
             }
@@ -104,6 +105,8 @@ export async function getIsolationSessionState(sessionName, sessionInfo, options
     const checkRunning = sessionRunning || runner.isSessionRunning;
     const running = await checkRunning(sessionId, {
       backend: sessionInfo.isolationBackend,
+      // Issue #3532: `sessionId` may be an execution UUID, never a container name.
+      containerName: resolveSessionContainerName(sessionName, sessionInfo),
       verbose,
     });
     if (!running) {

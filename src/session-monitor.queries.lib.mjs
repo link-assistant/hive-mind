@@ -15,6 +15,9 @@
  */
 import { getNonIsolationSessionProgress } from './start-screen-exit-marker.lib.mjs';
 
+// Issue #3532: how long a recovery's "launching" mark keeps its URL busy at most.
+const RECOVERY_LAUNCH_WINDOW_MS = 10 * 60 * 1000;
+
 /**
  * Bind the registry queries to a session-monitor instance.
  *
@@ -24,9 +27,15 @@ import { getNonIsolationSessionProgress } from './start-screen-exit-marker.lib.m
  * @param {(sessionName: string, sessionInfo: object, verbose?: boolean) => boolean} deps.isNonIsolationSessionActive
  * @param {(sessionName: string, sessionInfo: object, options?: object) => Promise<object>} deps.getIsolationSessionState
  * @param {(sessionName: string) => Promise<boolean>} deps.checkScreenSessionExists
- * @returns {{hasActiveSessionForUrl: Function, findStoppableSessionByUrl: Function, hasActiveSessionForUrlAsync: Function, getRunningTrackedIsolationSessions: Function, getRunningSessionItems: Function, getSessionStats: Function}}
+ * @returns {{hasActiveSessionForUrl: Function, findOtherActiveSessionForUrl: Function, findStoppableSessionByUrl: Function, hasActiveSessionForUrlAsync: Function, getRunningTrackedIsolationSessions: Function, getRunningSessionItems: Function, getSessionStats: Function, listTrackedSessionEntries: Function}}
  */
 export function createSessionRegistryQueries({ activeSessions, normalizeSessionUrl, isNonIsolationSessionActive, getIsolationSessionState, checkScreenSessionExists }) {
+  // Issue #3532: a recovery between its duplicate check and its tracked launch.
+  // Bounded, so a mark persisted by a crash mid-launch cannot block the URL.
+  const isRecoveryLaunching = sessionInfo => {
+    const since = Date.parse(sessionInfo?.killRecoveryLaunchingSince || '');
+    return !sessionInfo?.killRecoverySessionId && Number.isFinite(since) && Date.now() - since < RECOVERY_LAUNCH_WINDOW_MS;
+  };
   /**
    * Issue #1567: Check if there's an active session for a given URL.
    * This prevents concurrent sessions on the same PR/issue, which causes
@@ -53,6 +62,7 @@ export function createSessionRegistryQueries({ activeSessions, normalizeSessionU
     // Normalize the URL for comparison (remove trailing slashes, fragments, etc.)
     const normalizedUrl = normalizeSessionUrl(url);
     for (const [sessionName, sessionInfo] of activeSessions.entries()) {
+      if (sessionInfo.url && normalizeSessionUrl(sessionInfo.url) === normalizedUrl && isRecoveryLaunching(sessionInfo)) return { isActive: true, sessionName };
       // Issue #1586: Auto-expire non-isolation sessions after timeout
       if (!sessionInfo.isolationBackend && !isNonIsolationSessionActive(sessionName, sessionInfo, verbose)) {
         continue;
@@ -69,6 +79,42 @@ export function createSessionRegistryQueries({ activeSessions, normalizeSessionU
       console.log(`[VERBOSE] No active session found for URL ${url}`);
     }
     return { isActive: false, sessionName: null };
+  }
+  /**
+   * Issue #3532: another tracked, unfinished session working on `url`, other
+   * than `excludeSessionName` — the recovery guard's view of "is this pull
+   * request already being worked on?". Sessions whose completion was already
+   * handled, and sessions that are themselves waiting to be recovered, do not
+   * count.
+   *
+   * @param {string} url
+   * @param {string|null} excludeSessionName
+   * @param {boolean} [verbose]
+   * @param {Object} [options] - Probe options for getIsolationSessionState (statusProvider, backendAlive, exitFromLog)
+   * @returns {Promise<string|null>} The other session's name
+   */
+  async function findOtherActiveSessionForUrl(url, excludeSessionName = null, verbose = false, options = {}) {
+    if (!url) return null;
+    const normalizedUrl = normalizeSessionUrl(url);
+    for (const [sessionName, sessionInfo] of activeSessions.entries()) {
+      if (sessionName === excludeSessionName || !sessionInfo?.url || normalizeSessionUrl(sessionInfo.url) !== normalizedUrl) continue;
+      if (isRecoveryLaunching(sessionInfo)) return sessionName;
+      if (sessionInfo.completionNotifiedAt || sessionInfo.killRecoverySessionId || sessionInfo.killRecoveryPendingSince) continue;
+      if (!sessionInfo.isolationBackend && !isNonIsolationSessionActive(sessionName, sessionInfo, verbose)) continue;
+      // A tracked isolation session counts only while it still executes: a
+      // stale record awaiting its completion must not cancel the recovery.
+      if (sessionInfo.isolationBackend) {
+        let running = true;
+        try {
+          running = (await getIsolationSessionState(sessionName, sessionInfo, { ...options, verbose })).running !== false;
+        } catch {
+          // Unknown counts as running: a missed recovery is retried, a duplicate solve is not undone.
+        }
+        if (!running) continue;
+      }
+      return sessionName;
+    }
+    return null;
   }
   const SESSION_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   /**
@@ -149,6 +195,7 @@ export function createSessionRegistryQueries({ activeSessions, normalizeSessionU
       if (!sessionInfo.url || normalizeSessionUrl(sessionInfo.url) !== normalizedUrl) {
         continue;
       }
+      if (isRecoveryLaunching(sessionInfo)) return { isActive: true, sessionName, status: 'launching-recovery' };
       if (!sessionInfo.isolationBackend) {
         if (isNonIsolationSessionActive(sessionName, sessionInfo, verbose)) {
           return { isActive: true, sessionName, status: null };
@@ -306,5 +353,14 @@ export function createSessionRegistryQueries({ activeSessions, normalizeSessionU
     };
   }
 
-  return { hasActiveSessionForUrl, findStoppableSessionByUrl, hasActiveSessionForUrlAsync, getRunningTrackedIsolationSessions, getRunningSessionItems, getSessionStats };
+  /**
+   * Issue #3048: a snapshot of every tracked session, for the queue's fair CPU
+   * gate, which reads each Docker task's `--cpus` cap and CPU samples.
+   * @returns {Array<{sessionName: string, sessionInfo: object}>}
+   */
+  function listTrackedSessionEntries() {
+    return Array.from(activeSessions, ([sessionName, sessionInfo]) => ({ sessionName, sessionInfo }));
+  }
+
+  return { hasActiveSessionForUrl, findOtherActiveSessionForUrl, findStoppableSessionByUrl, hasActiveSessionForUrlAsync, getRunningTrackedIsolationSessions, getRunningSessionItems, getSessionStats, listTrackedSessionEntries };
 }

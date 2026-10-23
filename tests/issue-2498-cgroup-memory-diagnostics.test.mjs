@@ -38,6 +38,9 @@ test('cgroup v2: limit, usage, peak and OOM counters are read', () => {
     limitBytes: LIMIT,
     currentBytes: 2_900_000_000,
     peakBytes: LIMIT,
+    // Issue #2838: swap fields; null when memory.swap.max/current are absent.
+    swapLimitBytes: null,
+    swapCurrentBytes: null,
     oomEvents: 2,
     oomKills: 5,
   });
@@ -67,7 +70,7 @@ test('cgroup v1 fallback, and nothing at all outside Linux or without a memory c
     }),
     'linux'
   );
-  assert.deepEqual(v1, { version: 1, path: '/sys/fs/cgroup/memory', limitBytes: null, currentBytes: 500, peakBytes: 700, oomEvents: null, oomKills: 3 });
+  assert.deepEqual(v1, { version: 1, path: '/sys/fs/cgroup/memory', limitBytes: null, currentBytes: 500, peakBytes: 700, swapLimitBytes: null, swapCurrentBytes: null, oomEvents: null, oomKills: 3 });
   assert.equal(readCgroupMemory(fakeReader({}), 'linux'), null);
   assert.equal(readCgroupMemory(fakeReader(V2_FILES), 'darwin'), null);
 });

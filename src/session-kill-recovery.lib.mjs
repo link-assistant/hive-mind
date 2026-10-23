@@ -26,22 +26,86 @@ import { spawn } from 'child_process';
 import { describeChildExit } from './child-exit.lib.mjs';
 import { wrapRunnerWithTransientRetry } from './github-operation-retry.lib.mjs';
 import { sanitizeForPublication } from './token-sanitization.lib.mjs'; // issue #2156: this body is published to a pull request
-import { KILL_CAUSE_DISK_FULL, KILL_CAUSE_FORCED_KILL, KILL_CAUSE_OUT_OF_MEMORY } from './session-kill-diagnostics.lib.mjs';
+import { KILL_CAUSE_DAEMON_RESTART, KILL_CAUSE_DISK_FULL, KILL_CAUSE_FORCED_KILL, KILL_CAUSE_HOST_REBOOT, KILL_CAUSE_OUT_OF_MEMORY } from './session-kill-diagnostics.lib.mjs';
+import { describeHostRebootScope } from './host-boot-state.lib.mjs';
 import { ON_SESSION_KILL_RESUME } from './session-kill-policy.lib.mjs';
+import { describeSessionExitCodes } from './session-tool-exit.lib.mjs';
 
 /** Marker used to recognise (and avoid duplicating) our own notices. */
 export const KILL_RECOVERY_NOTICE_MARKER = '<!-- hive-mind:session-kill-notice -->';
+
+/**
+ * Issue #3530: the one kill comment carries a "recovery is pending" note
+ * between these markers. Once the recovery starts the note is removed; if it
+ * cannot start, the note is replaced with the reason. All intermediate states
+ * (waiting for resources, launching, heartbeats) go to Telegram only.
+ */
+export const RECOVERY_PENDING_START_MARKER = '<!-- hive-mind:recovery-pending-start -->';
+export const RECOVERY_PENDING_END_MARKER = '<!-- hive-mind:recovery-pending-end -->';
+
+/** Per-session marker, so the notice of one kill is recognisable later. */
+export function killNoticeSessionMarker(sessionName) {
+  return `<!-- hive-mind:kill-notice-session:${String(sessionName || 'session').replace(/[^A-Za-z0-9._-]/g, '-')} -->`;
+}
+
+export function buildRecoveryPendingBlock() {
+  return [RECOVERY_PENDING_START_MARKER, '⏳ **Auto recovery (resume or restart as per configuration) is pending.** Hive Mind starts it once memory and the other resources are free and stable; the progress is shown in Telegram. This note is removed when the recovery starts.', RECOVERY_PENDING_END_MARKER].join('\n');
+}
+
+// Plain words for the recovery outcome codes, so the pending note never ends as a bare code.
+const RECOVERY_NOT_STARTED_REASONS = {
+  'max-attempts-reached': 'all automatic recovery attempts are used up',
+  'policy-report': 'the on-kill policy is `report`',
+  'stopped-by-user': 'the session was stopped with /stop',
+  'no-session-id': 'no AI tool session id was found in the log to resume from',
+  'not-resumable': 'this session cannot be resumed automatically',
+  'plan-error': 'the recovery could not be planned',
+  'start-failed': 'the recovery session could not be started',
+  'start-error': 'starting the recovery session failed with an unexpected error',
+  'no-plan': 'no recovery command could be built',
+  'no-isolation-runner': 'no isolation runner is available to start the recovery',
+  'no-tracker': 'the bot could not track a recovery session',
+  'no-isolation-backend': 'the session did not run in an isolated environment',
+  'resource-wait-timeout': 'resources did not become free and stable in time',
+  'already-running': 'another session of this task is still running',
+};
+
+export function describeRecoveryNotStarted({ reason = null, detail = null } = {}) {
+  return String(detail || RECOVERY_NOT_STARTED_REASONS[reason] || reason || 'unknown reason');
+}
+
+/**
+ * Replace the pending note of a kill notice with the recovery outcome.
+ *
+ * @param {string} body - Current comment body
+ * @param {{resumed: boolean, reason?: string|null, detail?: string|null}} outcome
+ * @returns {string|null} New body, or null when the body has no pending note
+ */
+export function settleRecoveryPendingBlock(body, { resumed = false, reason = null, detail = null } = {}) {
+  const text = String(body || '');
+  const start = text.indexOf(RECOVERY_PENDING_START_MARKER);
+  const end = text.indexOf(RECOVERY_PENDING_END_MARKER, start + 1);
+  if (start < 0 || end < 0) return null;
+  const why = describeRecoveryNotStarted({ reason, detail }).replace(/\.+$/, '').slice(0, 500);
+  const replacement = resumed ? '' : `❌ **Automatic recovery did not start:** ${why}. No replacement session was launched.`;
+  const before = text.slice(0, start);
+  const after = text.slice(end + RECOVERY_PENDING_END_MARKER.length);
+  return resumed ? `${before.replace(/\n+$/, '\n')}${after.replace(/^\n+/, '\n')}` : `${before}${replacement}${after}`;
+}
 
 const CAUSE_HEADLINES = {
   [KILL_CAUSE_OUT_OF_MEMORY]: 'recovered from out of memory',
   [KILL_CAUSE_FORCED_KILL]: 'recovered from forced kill',
   [KILL_CAUSE_DISK_FULL]: 'recovered from disk exhaustion',
+  [KILL_CAUSE_DAEMON_RESTART]: 'recovered from a Docker daemon restart', // Issue #2892
 };
 
 const CAUSE_TITLES = {
   [KILL_CAUSE_OUT_OF_MEMORY]: 'Working session was killed: out of memory',
   [KILL_CAUSE_DISK_FULL]: 'Working session was killed: disk full',
   [KILL_CAUSE_FORCED_KILL]: 'Working session was force-killed',
+  [KILL_CAUSE_HOST_REBOOT]: 'Working session ended: the host restarted',
+  [KILL_CAUSE_DAEMON_RESTART]: 'Working session was killed by Docker daemon restart', // Issue #2892
 };
 
 /**
@@ -55,6 +119,33 @@ export function killRecoveryHeadline(cause) {
   return CAUSE_HEADLINES[cause] || 'recovered from an unexpected kill';
 }
 
+const SURVIVED_OOM_GAP_MS = 10 * 60 * 1000;
+
+function formatGap(ms) {
+  const minutes = Math.round(ms / 60000);
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  return `${hours} h${minutes % 60 ? ` ${minutes % 60} min` : ''}`;
+}
+
+/**
+ * Issue #3533: "Detected at" is when the session ended. An OOM event it had
+ * survived well before that is listed on its own line, never as the end.
+ *
+ * @param {Object} options
+ * @returns {string[]} Markdown list items
+ */
+export function describeEventTimes({ observedAt = null, endedAt = null, eventOnly = false, victim = null, endedByOom = false } = {}) {
+  if (eventOnly || !endedAt) return observedAt ? [`- **OOM event observed at:** ${observedAt}`] : [];
+  const facts = [`- **Detected at:** ${endedAt}`];
+  const gap = observedAt ? Date.parse(endedAt) - Date.parse(observedAt) : NaN;
+  // An OOM kill that ended the session can take a while to end it; only an
+  // event well before the end, of a session not ended by OOM, was survived.
+  if (Number.isFinite(gap) && gap > SURVIVED_OOM_GAP_MS && !endedByOom) facts.push(`- **Earlier OOM event:** ${victim ? `OOM kill of \`${victim}\` ` : ''}at ${observedAt}, survived — the session kept running for ${formatGap(gap)} after it`);
+  else if (observedAt) facts.push(`- **OOM event observed at:** ${observedAt}`);
+  return facts;
+}
+
 /**
  * Render the pull-request notice for a killed (and possibly resumed) session.
  *
@@ -63,6 +154,8 @@ export function killRecoveryHeadline(cause) {
  * @param {number|null} [options.exitCode]
  * @param {string} [options.sessionName]
  * @param {string|null} [options.observedAt] - ISO timestamp of the kill/OOM event
+ * @param {string|null} [options.endedAt] - Issue #3533: when the session actually ended
+ * @param {Object|null} [options.hostReboot] - Issue #3533: the host reboot that ended it
  * @param {string} [options.policy] - Resolved --on-session-kill policy
  * @param {boolean} [options.resumed] - A new working session was actually started
  * @param {boolean} [options.survived] - The work session completed after a child OOM event
@@ -74,9 +167,12 @@ export function killRecoveryHeadline(cause) {
  * @param {number|null} [options.maxAttempts]
  * @param {boolean} [options.attachLogs] - Whether --attach-logs is enabled
  * @param {string|null} [options.logUrl] - URL of the uploaded intermediate log
+ * @param {{tool: string, exitCode: number}|null} [options.toolExit] - Issue #3435: the AI tool's own exit (from the solve log)
+ * @param {boolean} [options.oomEvidence] - Issue #3435: a container OOM event was observed
+ * @param {string} [options.processLabel] - Issue #3435: the command the session ran (`solve`)
  * @returns {string} Markdown body
  */
-export function buildKillRecoveryNotice({ diagnosis = null, exitCode = null, sessionName = null, observedAt = null, policy = null, resumed = false, survived = false, oomEventOnly = false, deliberateStop = null, recoverySessionId = null, resumeCommand = null, attempt = null, maxAttempts = null, attachLogs = false, logAttached = false, logUrl = null } = {}) {
+export function buildKillRecoveryNotice({ diagnosis = null, exitCode = null, sessionName = null, observedAt = null, endedAt = null, hostReboot = null, policy = null, resumed = false, survived = false, oomEventOnly = false, deliberateStop = null, recoverySessionId = null, resumeCommand = null, attempt = null, maxAttempts = null, attachLogs = false, logAttached = false, logUrl = null, logInline = false, recoveryPending = false, toolExit = null, oomEvidence = false, processLabel = 'solve', recoveryOutcome = null } = {}) {
   const cause = diagnosis?.cause || null;
   // Issue #2498: when solve stopped on its own (e.g. expired authentication),
   // the OOM event did not end the run — lead with the real reason instead of
@@ -86,21 +182,24 @@ export function buildKillRecoveryNotice({ diagnosis = null, exitCode = null, ses
   if (stopLine && oomEventOnly) title = 'ℹ️ Work session stopped on its own — the earlier container OOM event did not cause it';
   else if (stopLine) title = '⚠️ Working session was killed after solve had already stopped on its own';
   else if (oomEventOnly) title = resumed ? '⚠️ Work session restarted after a failed run with a container OOM event' : '⚠️ Container OOM event during a failed work session';
-  else if (resumed) title = '⚠️ Working session restarted after a kill — outcome pending';
+  else if (resumed) title = '⚠️ Working session restarted after a kill';
   // Issue #2498 (package-registry-manager#31): a session that exited 0 was
   // never killed or restarted, so "recovered from out of memory" read as if a
   // recovery had happened. Say what did happen instead.
   else if (survived && cause === KILL_CAUSE_OUT_OF_MEMORY) title = 'ℹ️ Work session completed — an earlier container OOM event did not stop it';
   else title = survived ? `⚠️ Working session ${killRecoveryHeadline(cause)}` : `❌ ${CAUSE_TITLES[cause] || 'Working session was killed'}`;
 
-  const lines = [KILL_RECOVERY_NOTICE_MARKER, `## ${title}`, ''];
+  const lines = [KILL_RECOVERY_NOTICE_MARKER, ...(sessionName ? [killNoticeSessionMarker(sessionName)] : []), `## ${title}`, ''];
 
   if (stopLine) lines.push('**Why the work session stopped** (from its log):', '', `> ${stopLine}`, '');
   if (diagnosis?.summary) lines.push(stopLine && oomEventOnly ? `Earlier event (not the cause of this stop): ${diagnosis.summary}` : diagnosis.summary, '');
+  // Issue #3533: one host event took every running task down; say so once.
+  if (cause === KILL_CAUSE_HOST_REBOOT && hostReboot) lines.push(`🖥️ ${describeHostRebootScope(hostReboot)}`, '');
 
   const facts = [];
-  if (exitCode !== null && exitCode !== undefined) facts.push(`- **Exit code:** ${exitCode}`);
-  if (observedAt) facts.push(oomEventOnly || survived ? `- **OOM event observed at:** ${observedAt}` : `- **Detected at:** ${observedAt}`);
+  // Issue #3435: name the process behind each code — solve's own exit and the AI tool's.
+  if (exitCode !== null && exitCode !== undefined) facts.push(`- **Exit code:** ${describeSessionExitCodes({ exitCode, processLabel, toolExit, oomEvidence, cause })}`);
+  facts.push(...describeEventTimes({ observedAt, endedAt, eventOnly: oomEventOnly || survived, victim: diagnosis?.victims?.at?.(-1)?.comm || null, endedByOom: diagnosis?.cause === KILL_CAUSE_OUT_OF_MEMORY }));
   if (sessionName) facts.push(`- **Working session:** \`${sessionName}\``);
   if (policy) facts.push(`- **On-kill policy:** \`${policy}\`${policy === ON_SESSION_KILL_RESUME ? ' (`--on-session-kill=resume`)' : ' (`--on-session-kill=report`)'}`);
   if (facts.length > 0) lines.push(...facts, '');
@@ -112,10 +211,18 @@ export function buildKillRecoveryNotice({ diagnosis = null, exitCode = null, ses
     lines.push('', '</details>', '');
   }
 
-  if (resumed) {
+  if (recoveryPending && !resumed) {
+    // Issue #3530: posted before the recovery, so the kill is on GitHub at once.
+    lines.push(buildRecoveryPendingBlock(), '');
+  } else if (resumed) {
     const attemptSuffix = attempt && maxAttempts ? ` (attempt ${attempt}/${maxAttempts})` : '';
-    const sessionSuffix = recoverySessionId ? ` Its working session is \`${recoverySessionId}\`.` : '';
-    lines.push(`🔄 A **new working session was started** to recover from this event${attemptSuffix}. The launch was accepted; activity and the final outcome are not yet confirmed.${sessionSuffix}`, '');
+    const sessionSuffix = recoverySessionId ? ` in working session \`${recoverySessionId}\`` : '';
+    // Issue #3435: state only what is known when this is posted; a failed
+    // attempt is added to this comment later (session-kill-recovery-outcome).
+    lines.push(`🔄 **Automatic recovery started**${attemptSuffix}${sessionSuffix}. If this attempt fails too, its outcome is added to this comment.`, '');
+  } else if (!stopLine && recoveryOutcome && (recoveryOutcome.reason || recoveryOutcome.detail)) {
+    // Issue #3435: a notice posted after the decision (no pending note was posted) says why no recovery started.
+    lines.push(`❌ **Automatic recovery did not start:** ${describeRecoveryNotStarted(recoveryOutcome).replace(/\.+$/, '').slice(0, 500)}. No replacement session was launched.`, '');
   } else if (stopLine && oomEventOnly) {
     lines.push('A child process was OOM-killed earlier, but the work process kept running and later stopped for the reason above. No replacement session was launched.', '');
   } else if (stopLine) {
@@ -130,6 +237,8 @@ export function buildKillRecoveryNotice({ diagnosis = null, exitCode = null, ses
 
   if (logUrl) {
     lines.push(`📎 Intermediate working-session log: ${logUrl}`, '');
+  } else if (logInline) {
+    // Issue #3530: the log follows in this very comment.
   } else if (logAttached) {
     lines.push('📎 The intermediate working-session log was uploaded as a separate comment.', '');
   } else if (!attachLogs && !survived) {
@@ -238,6 +347,89 @@ export async function postKillRecoveryNotice({ pullRequestUrl, commentUrl = null
   } finally {
     await unlink(bodyFile);
   }
+}
+
+const COMMENT_URL_PATTERN = /^https:\/\/github\.com\/([\w.-]+)\/([\w.-]+)\/(pull|issues)\/(\d+)#issuecomment-(\d+)$/;
+
+/**
+ * Issue #3530: find the still-pending kill notice of a session when its comment
+ * id was not captured at posting time (the log uploader did not report it).
+ * The newest comment carrying both the session marker and the pending note wins.
+ * Issue #3435: `pendingOnly: false` also finds a notice that was settled already.
+ *
+ * @returns {Promise<string|null>} The comment URL, or null
+ */
+export async function findPendingKillNoticeUrl({ targetUrl, sessionName, runCommand = spawnCapture, verbose = false, pendingOnly = true } = {}) {
+  const target = /^https:\/\/github\.com\/([\w.-]+)\/([\w.-]+)\/(pull|issues)\/(\d+)/.exec(targetUrl || '');
+  if (!target || !sessionName || typeof runCommand !== 'function') return null;
+  const pending = pendingOnly ? ` and contains(${JSON.stringify(RECOVERY_PENDING_START_MARKER)})` : '';
+  const jq = `[.[] | select((.body // "") | contains(${JSON.stringify(killNoticeSessionMarker(sessionName))})${pending}) | .html_url] | last // empty`;
+  try {
+    const result = await wrapRunnerWithTransientRetry(runCommand)('gh', ['api', `repos/${target[1]}/${target[2]}/issues/${target[4]}/comments`, '--paginate', '--jq', jq]);
+    if (result?.code !== 0) return null;
+    const urls = String(result.stdout?.toString() || '')
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => COMMENT_URL_PATTERN.test(line));
+    if (verbose) console.log(`[VERBOSE] Pending kill notice of ${sessionName} on ${targetUrl}: ${urls.at(-1) || 'not found'}`);
+    return urls.at(-1) || null;
+  } catch (error) {
+    if (verbose) console.log(`[VERBOSE] Could not look up the kill notice of ${sessionName}: ${error?.message || error}`);
+    return null;
+  }
+}
+
+/**
+ * Issue #3435: rewrite a published kill notice. The current body is read back
+ * first, so the embedded log and anything else in the comment stay exactly as
+ * published; `transform` returns the new body, or null to leave it unchanged.
+ *
+ * @param {Object} options
+ * @param {string} options.commentUrl - `https://github.com/o/r/pull/N#issuecomment-ID`
+ * @param {Function} options.transform - body => string|null
+ * @param {Function} [options.runCommand]
+ * @param {string} [options.fileSuffix] - Temp file suffix (`<suffix>-<comment id>`)
+ * @param {boolean} [options.verbose]
+ * @returns {Promise<{edited: boolean, changed: boolean, error: string|null}>}
+ */
+export async function editKillRecoveryNotice({ commentUrl, transform, runCommand = spawnCapture, fileSuffix = 'edit', verbose = false, ...rest } = {}) {
+  const match = COMMENT_URL_PATTERN.exec(commentUrl || '');
+  if (!match) return { edited: false, changed: false, error: 'no editable comment url' };
+  if (typeof runCommand !== 'function') return { edited: false, changed: false, error: 'no command runner' };
+  let read;
+  try {
+    read = await wrapRunnerWithTransientRetry(runCommand)('gh', ['api', `repos/${match[1]}/${match[2]}/issues/comments/${match[5]}`, '--jq', '.body']);
+  } catch (error) {
+    read = { code: 1, stderr: error?.message || String(error) };
+  }
+  if (read?.code !== 0) {
+    const error = String(read?.stderr?.toString() || read?.stdout?.toString() || 'gh api failed').trim();
+    console.warn(`[session-kill-recovery] Could not read kill notice ${commentUrl}: ${error}`);
+    return { edited: false, changed: false, error };
+  }
+  const body = transform(String(read.stdout?.toString() || '').replace(/\n$/, ''));
+  if (body === null || body === undefined) return { edited: false, changed: false, error: null };
+  const posted = await postKillRecoveryNotice({ pullRequestUrl: `https://github.com/${match[1]}/${match[2]}/${match[3]}/${match[4]}`, commentUrl, body, runCommand, fileSuffix: `${fileSuffix}-${match[5]}`, verbose, ...rest });
+  return { edited: posted.posted, changed: true, error: posted.error };
+}
+
+/**
+ * Issue #3530: edit the kill notice once the recovery decision is known —
+ * remove the pending note when the recovery started, or replace it with the
+ * reason it did not.
+ *
+ * @param {Object} options
+ * @param {string} options.commentUrl - `https://github.com/o/r/pull/N#issuecomment-ID`
+ * @param {{resumed: boolean, reason?: string|null, detail?: string|null}} options.outcome
+ * @param {Function} [options.runCommand]
+ * @param {boolean} [options.verbose]
+ * @returns {Promise<{edited: boolean, error: string|null}>}
+ */
+export async function settleKillRecoveryNotice({ commentUrl, outcome = {}, runCommand = spawnCapture, verbose = false, ...rest } = {}) {
+  const result = await editKillRecoveryNotice({ commentUrl, transform: body => settleRecoveryPendingBlock(body, outcome), runCommand, fileSuffix: 'settle', verbose, ...rest });
+  if (verbose && !result.changed && !result.error) console.log(`[VERBOSE] Kill notice ${commentUrl} has no pending recovery note; nothing to edit`);
+  else if (verbose && result.changed) console.log(`[VERBOSE] Kill notice ${commentUrl} ${result.edited ? 'updated' : `not updated: ${result.error}`} (recovery ${outcome.resumed ? 'started' : 'did not start'})`);
+  return { edited: result.edited, error: result.error };
 }
 
 /**

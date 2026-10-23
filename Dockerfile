@@ -315,11 +315,12 @@ RUN bun install -g @openai/codex && \
 # misses the final kill; 0.37.3-0.37.6 only change the release pipeline.
 # 0.37.7 keeps penalizedMs and lifts the CPU cap promptly when the monitor
 # stops gracefully. 0.37.8 keeps the command running and exits with its own
-# code when stdout/stderr is a closed pipe (start#222). 0.38.0 gives executions
-# a stable identity (refuses a reused explicit `--session-id`, exports
-# START_EXECUTION_ID/START_SESSION_NAME/START_ATTEMPT, adds aliases and
-# continuation chains; start#229-#231). Hive Mind passes `--session`, not
-# `--session-id`, so the refusal does not affect its launches.
+# code when stdout/stderr is a closed pipe (start#222). 0.37.9 reports a removed
+# docker container in `$ --status` and adds opt-in snapshot-resume safeguards.
+# 0.38.0 refuses a reused `--session-id` unless `--append-attempt` is given,
+# which a kill recovery in a new container uses to stay the same execution
+# with one log (start#229), and exports START_EXECUTION_ID/START_SESSION_NAME/
+# START_ATTEMPT, aliases and continuation chains (start#230, start#231).
 # `@link-assistant/agent` is pinned to current 0.26.15. Version 0.26.1 stopped the
 # unbounded snapshot leak of issue #2186. Up to 0.26.0 `Snapshot.track()` built a
 # standalone git object store per project — keyed on the worktree's root commit,

@@ -68,30 +68,10 @@ const { buildIssueReference } = prIssueLinking;
 // Issue #2119: the one place that decides whether a pull request changed anything.
 const { formatChangesSection, getPullRequestChangeStats } = await import('./pull-request-changes.lib.mjs');
 const { buildNoChangesNotice, capWorkingSessionSummary, formatWorkingSessionSummaryMarkdown, redactWorkspacePaths, replaceEchoedToolOutputSummary } = await import('./working-session-summary.lib.mjs');
-/**
- * Placeholder patterns used to detect auto-generated PR content that was not updated by the agent.
- * These patterns match the initial WIP PR created by solve.auto-pr.lib.mjs.
- */
-export const PR_TITLE_PLACEHOLDER_PREFIX = '[WIP]';
-
-export const PR_BODY_PLACEHOLDER_PATTERNS = ['_Details will be added as the solution draft is developed..._', '**Work in Progress** - The AI assistant is currently analyzing and implementing the solution draft.', '### 🚧 Status'];
-/**
- * Check if PR title still contains auto-generated placeholder content
- * @param {string} title - PR title
- * @returns {boolean} - true if title has placeholder content
- */
-export const hasPRTitlePlaceholder = title => {
-  return title && title.startsWith(PR_TITLE_PLACEHOLDER_PREFIX);
-};
-
-/**
- * Check if PR body still contains auto-generated placeholder content
- * @param {string} body - PR body
- * @returns {boolean} - true if body has placeholder content
- */
-export const hasPRBodyPlaceholder = body => {
-  return body && PR_BODY_PLACEHOLDER_PATTERNS.some(pattern => body.includes(pattern));
-};
+// Issue #3434: the #1162 placeholder helpers live in a dependency-free module so
+// pr-draft-state.lib.mjs can use them at run end without importing this file.
+import { hasPRTitlePlaceholder, hasPRBodyPlaceholder } from './pr-placeholder.lib.mjs';
+export { PR_TITLE_PLACEHOLDER_PREFIX, PR_BODY_PLACEHOLDER_PATTERNS, hasPRTitlePlaceholder, hasPRBodyPlaceholder } from './pr-placeholder.lib.mjs';
 /**
  * Build a short factual hint for auto-restart when PR title/description was not updated.
  * Uses neutral, fact-stating language (no forcing words).
@@ -818,7 +798,11 @@ Fixes ${issueRef}
           const sessionOutcome = await reportSessionWithoutChanges({ owner, repo, prNumber: pr.number, issueNumber, $, log });
           noChanges = sessionOutcome.noChanges;
           effectUnverified = sessionOutcome.unmeasured === true;
-          if (!sessionOutcome.keepsDraft) {
+          // Issue #3433: a submodule pointer no `.gitmodules` URL serves keeps the PR a draft
+          // (its checkout fails with "not our ref"); the check publishes the commits first.
+          const { vetoUnreachableSubmodulePointers } = await import('./submodule-pointers.lib.mjs');
+          const submoduleVeto = tempDir ? await vetoUnreachableSubmodulePointers({ tempDir, owner, repo, prNumber: pr.number, branchName, $, log }) : { keepsDraft: false };
+          if (!sessionOutcome.keepsDraft && !submoduleVeto.keepsDraft) {
             const { ensurePullRequestIsReady } = await import('./pr-draft-state.lib.mjs');
             const readyResult = await ensurePullRequestIsReady({ owner, repo, prNumber: pr.number, $, log, reason: 'solution draft verified', requireChanges: true });
             if (readyResult.reason === 'no_changes' && !noChanges) {

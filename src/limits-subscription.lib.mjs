@@ -216,30 +216,26 @@ export async function getCodexSubscriptionInfo({ verbose = false, authPath = DEF
  * Cached Claude subscription metadata. Uses the same 20-minute
  * TTL as `/limits` so we don't add traffic to the Anthropic OAuth API.
  */
-export async function getCachedClaudeSubscription(verbose = false) {
+export async function getCachedClaudeSubscription(verbose = false, { load = () => getClaudeSubscriptionInfo({ verbose }) } = {}) {
   const cache = getLimitCache();
   const cached = cache.get('claude-subscription', CACHE_TTL.USAGE_API);
   if (cached) {
     if (verbose) console.log('[VERBOSE] /limits-cache: Using cached Claude subscription');
     return cached;
   }
-  const result = await getClaudeSubscriptionInfo({ verbose });
-  if (result.success) cache.set('claude-subscription', result, CACHE_TTL.USAGE_API);
-  return result;
+  return cache.getOrLoad('claude-subscription', CACHE_TTL.USAGE_API, load);
 }
 
 /**
  * Cached Codex subscription metadata. The JWT decode is local, but we still
  * cache for parity with the rest of the /limits pipeline.
  */
-export async function getCachedCodexSubscription(verbose = false) {
+export async function getCachedCodexSubscription(verbose = false, { load = () => getCodexSubscriptionInfo({ verbose }) } = {}) {
   const cache = getLimitCache();
   const cached = cache.get('codex-subscription', CACHE_TTL.USAGE_API);
   if (cached) {
     if (verbose) console.log('[VERBOSE] /limits-cache: Using cached Codex subscription');
     return cached;
   }
-  const result = await getCodexSubscriptionInfo({ verbose });
-  if (result.success) cache.set('codex-subscription', result, CACHE_TTL.USAGE_API);
-  return result;
+  return cache.getOrLoad('codex-subscription', CACHE_TTL.USAGE_API, load);
 }

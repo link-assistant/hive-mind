@@ -1169,6 +1169,7 @@ class LimitCache {
   constructor(defaultTtlMs = CACHE_TTL.API) {
     this.defaultTtlMs = defaultTtlMs;
     this.cache = new Map();
+    this.inflight = new Map();
   }
   get(key, ttlMs) {
     const entry = this.cache.get(key);
@@ -1184,11 +1185,32 @@ class LimitCache {
   set(key, value, ttlMs) {
     this.cache.set(key, { value, timestamp: Date.now(), ttlMs: ttlMs ?? this.defaultTtlMs });
   }
+  // Issue #3614: a cold /limits cache must not start the same process or
+  // request once per concurrent message. Keep existing TTLs and retry failed
+  // results, while sharing the one pending load across every caller.
+  async getOrLoad(key, ttlMs, load) {
+    const cached = this.get(key, ttlMs);
+    if (cached) return cached;
+    if (this.inflight.has(key)) return this.inflight.get(key);
+    const promise = Promise.resolve().then(load);
+    this.inflight.set(key, promise);
+    try {
+      const result = await promise;
+      // delete()/clear() can detach this load after a state change; its
+      // original callers still get the result, but it cannot replace a fresh one.
+      if (this.inflight.get(key) === promise && result.success) this.set(key, result, ttlMs);
+      return result;
+    } finally {
+      if (this.inflight.get(key) === promise) this.inflight.delete(key);
+    }
+  }
   delete(key) {
     this.cache.delete(key);
+    this.inflight.delete(key);
   }
   clear() {
     this.cache.clear();
+    this.inflight.clear();
   }
 
   getStats() {
@@ -1226,51 +1248,43 @@ export async function getCachedClaudeLimits(verbose = false, { credentialsPath =
 export async function getCachedCodexLimits(verbose = false, { authPath = DEFAULT_CODEX_AUTH_PATH, fetchLimits = () => getCodexUsageLimits(verbose, authPath) } = {}) {
   return getCachedUsageLimits({ key: 'codex', fetchLimits, credentialsPath: authPath, verbose, cache: getLimitCache(), ttlMs: CACHE_TTL.USAGE_API });
 }
-export async function getCachedGitHubLimits(verbose = false) {
+export async function getCachedGitHubLimits(verbose = false, { load = () => getGitHubRateLimits(verbose) } = {}) {
   const cache = getLimitCache();
   const cached = cache.get('github', CACHE_TTL.API);
   if (cached) {
     if (verbose) console.log('[VERBOSE] /limits-cache: Using cached GitHub limits');
     return cached;
   }
-  const result = await getGitHubRateLimits(verbose);
-  if (result.success) cache.set('github', result, CACHE_TTL.API);
-  return result;
+  return cache.getOrLoad('github', CACHE_TTL.API, load);
 }
 
-export async function getCachedMemoryInfo(verbose = false) {
+export async function getCachedMemoryInfo(verbose = false, { load = () => getMemoryInfo(verbose) } = {}) {
   const cache = getLimitCache();
   const cached = cache.get('memory', CACHE_TTL.SYSTEM);
   if (cached) {
     if (verbose) console.log('[VERBOSE] /limits-cache: Using cached memory info');
     return cached;
   }
-  const result = await getMemoryInfo(verbose);
-  if (result.success) cache.set('memory', result, CACHE_TTL.SYSTEM);
-  return result;
+  return cache.getOrLoad('memory', CACHE_TTL.SYSTEM, load);
 }
-export async function getCachedCpuInfo(verbose = false) {
+export async function getCachedCpuInfo(verbose = false, { load = () => getCpuLoadInfo(verbose) } = {}) {
   const cache = getLimitCache();
   const cached = cache.get('cpu', CACHE_TTL.SYSTEM);
   if (cached) {
     if (verbose) console.log('[VERBOSE] /limits-cache: Using cached CPU info');
     return cached;
   }
-  const result = await getCpuLoadInfo(verbose);
-  if (result.success) cache.set('cpu', result, CACHE_TTL.SYSTEM);
-  return result;
+  return cache.getOrLoad('cpu', CACHE_TTL.SYSTEM, load);
 }
 
-export async function getCachedDiskInfo(verbose = false) {
+export async function getCachedDiskInfo(verbose = false, { load = () => getDiskSpaceInfo(verbose) } = {}) {
   const cache = getLimitCache();
   const cached = cache.get('disk', CACHE_TTL.SYSTEM);
   if (cached) {
     if (verbose) console.log('[VERBOSE] /limits-cache: Using cached disk info');
     return cached;
   }
-  const result = await getDiskSpaceInfo(verbose);
-  if (result.success) cache.set('disk', result, CACHE_TTL.SYSTEM);
-  return result;
+  return cache.getOrLoad('disk', CACHE_TTL.SYSTEM, load);
 }
 export async function getAllCachedLimits(verbose = false) {
   const [claude, codex, github, memory, cpu, disk, claudeSubscription, codexSubscription, telegram] = await Promise.all([getCachedClaudeLimits(verbose), getCachedCodexLimits(verbose), getCachedGitHubLimits(verbose), getCachedMemoryInfo(verbose), getCachedCpuInfo(verbose), getCachedDiskInfo(verbose), getCachedClaudeSubscription(verbose), getCachedCodexSubscription(verbose), getTelegramRateLimits(verbose)]);

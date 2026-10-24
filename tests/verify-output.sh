@@ -1,0 +1,37 @@
+#!/bin/sh
+set -eu
+source_path='Main.scala'
+test -f "$source_path" && test ! -L "$source_path"
+verification_dir=$(mktemp -d "${TMPDIR:-/tmp}/formal-ai-verification.XXXXXXXXXX")
+trap 'rm -rf -- "$verification_dir"' EXIT
+printf '%s' '// scalac Main.scala
+// scala run Main.scala
+// Emit the requested text followed by a newline.
+object Main {
+  def main(args: Array[String]): Unit = {
+    println("Hello, World!")
+  }
+}
+' > "$verification_dir/declared-source"
+cmp "$source_path" "$verification_dir/declared-source"
+mkdir -p "$verification_dir/workspace/$(dirname "$source_path")"
+cp -- "$source_path" "$verification_dir/workspace/$source_path"
+cmp "$source_path" "$verification_dir/workspace/$source_path"
+cd "$verification_dir/workspace"
+printf '%s\n' 'Hello, World!' > "$verification_dir/expected"
+if scalac Main.scala; then
+  :
+else
+  process_status=$?
+  printf '\n%s\n' '__formal_ai_owned_process_failed_0__' >&2
+  exit "$process_status"
+fi
+if scala run Main.scala > "$verification_dir/actual"; then
+  :
+else
+  process_status=$?
+  printf '\n%s\n' '__formal_ai_owned_process_failed_1__' >&2
+  exit "$process_status"
+fi
+cmp "$verification_dir/expected" "$verification_dir/actual"
+cat "$verification_dir/actual"

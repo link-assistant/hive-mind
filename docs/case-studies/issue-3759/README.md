@@ -1,0 +1,97 @@
+# Unclear failure after a cancelled Claude subscription
+
+Issue: [3759](https://github.com/link-assistant/hive-mind/issues/3759). Implementation: [PR 3762](https://github.com/link-assistant/hive-mind/pull/3762).
+
+The reporter says the subscription had ended after cancellation. The linked run confirms an Anthropic Messages HTTP 403, an unreadable SDK error (`message: undefined`), and exit 1 without a terminal stream event. Hive Mind published the beginning of an opaque body dump as the reason. The log does **not** independently establish why access was denied or when the subscription ended.
+
+The fix preserves that distinction: a missing-body 403 gets an access-denied explanation, possible subscription/billing causes and concrete recovery steps; an explicit cancellation message from the stream or transcript supplies the more specific billing diagnosis. A 99% usage warning does not become a usage limit or schedule a retry.
+
+## Evidence and scope
+
+All incident evidence is archived in [data/](data/). `failure.log` is the complete 8 MB sanitized gist supplied by the reporter, fetched with authenticated `gh gist view` (SHA-256 `3387414c4556c40a90c6e772a56570405c38dae7c0b2da8da70a41f727a17341`). The original source is [revision 79629ec4a8308afa6b2cf41ce4aabe90b1bdcf0e](https://gist.github.com/konard/bd4f0225ec74136d85cacd47947c80ab/79629ec4a8308afa6b2cf41ce4aabe90b1bdcf0e). The failure comment and linked PR metadata, reviews and inline comments are retained as `3759-source-*.json`. The issue and all PR 3762 conversation/review/inline comments were read and archived. There were no issue comments or required sub-issues at investigation time. The website feature in konard/konard.github.io#17 is incident context, not an additional implementation requirement.
+
+Environment in the incident: solve 2.39.6, Claude Code 2.1.310, Anthropic SDK 0.128.0, Node 26.3.0 in the CLI user-agent; the parent solver ran Node 26.12.1 in Docker. Session `4b241afc-c5bf-4ea5-a425-f0bcdd392493`; PR 18; branch `issue-17-c029b2b48293`. The preserved log contains no cgroup OOM kill at the final snapshot. It does not include the actual session transcript, a billing dashboard record or the decoded 403 response body.
+
+`timeline-index.json` records selected timestamps and physical line numbers. `replay.json` preserves the SDK summary and response block while reducing the opaque prefix to 160 characters. Regenerate both with:
+
+```sh
+python3 experiments/issue-3759/extract-evidence.py
+```
+
+## Timeline (2026-10-24, UTC)
+
+| Time                | Evidence and interpretation                                                                                                                                                                                                                               |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 14:57:52–14:57:54   | Solver log opens and records the command for website issue 17, with Claude, attached logs and verbose mode (log lines 3–10).                                                                                                                              |
+| 14:58:56.862        | Claude session ID is recorded (line 823).                                                                                                                                                                                                                 |
+| Through 16:15:06    | The session performs website work and reads screenshots. These are output capture times; embedded message timestamps can be older.                                                                                                                        |
+| 16:15:17.688        | A long opaque dump is immediately followed, without a newline, by the SDK summary: Messages API failed with status 403, not retryable, duration 1,038,692 ms (line 36803).                                                                                |
+| 16:16:24.525–.573   | SDK response block reports 403, `content-encoding: br`, JSON content type, `message: undefined`, request ID `req_011CgMM7s2E3s8XGWrwAMd1U`, duration 1,040,528 ms (lines 36804–36829).                                                                    |
+| 16:16:24.799–.948   | Usage cross-check finds no usage-limit text, no rejected event and no 429. The last rate event was `allowed_warning` at 99%. CLI exit 1 is recorded (lines 36831–36840). No synthetic API-error assistant or terminal `result` event follows the refusal. |
+| 16:16:25.919        | Work preservation uses the beginning of the opaque dump as the failure reason.                                                                                                                                                                            |
+| 16:16:27.333–28.673 | Two modified source files are committed as `3cc79a14` on `recovery/issue-17-c029b2b48293`, then pushed (lines 36942, 36949). Existing recovery behavior remains in use.                                                                                   |
+| 16:16:28–29         | Failure-log attachment begins; this is where the supplied log ends.                                                                                                                                                                                       |
+| 16:16:47            | The archived GitHub failure comment repeats the opaque prefix instead of an actionable error.                                                                                                                                                             |
+
+The response's server `date` is 16:05:35, earlier than host capture. Together with the approximately 17-minute SDK duration, this suggests delayed handling/output, but does not locate the delay or prove a clock, compression or event-loop defect. The exact cancellation time cannot be reconstructed from these data.
+
+## Root causes and coverage
+
+1. **Mixed opaque/debug lines bypassed filtering.** The collector rejected only lines consisting entirely of base64. An SDK summary appended directly to a dump was neither a pure dump nor a line starting with `[log_…]`; it became `lastMessage`. The shared meaningful-error predicate accepted any string containing letters or digits. Its output fed GitHub comments, recovery reasons and terminal failures.
+2. **Access evidence was discarded.** The existing cross-check retained debug 429 quota headers, but no Messages API 403 status/request ID. With no terminal result or synthetic error, subscription detection had no input. A transcript was already read for usage limits, but subscription diagnosis did not consume that result.
+3. **Chunk boundaries could damage stderr parsing.** Each stderr chunk was split independently, losing SDK fields spanning two chunks. A final stdout fragment without a newline also bypassed evidence collection.
+4. **Broad authentication codes hid explicit billing text.** A local CLI probe produced `error: authentication_failed` together with “Your subscription has ended because it was cancelled.” The shared detector trusted the broad code before the specific reason and reported a login problem. This is separately covered by replaying actual CLI traces for plain and compressed responses.
+5. **Upstream terminal-event absence is observed, not explained.** The original session has no readable terminal event. A short mocked 403 does emit one; a valid Brotli body is decoded correctly. Neither cancellation timing nor Brotli alone is established as its root cause. Default-off verbose source diagnostics remain necessary.
+
+The new collector stores only status and a validated request ID for the Messages endpoint, using fixed-size per-stream parser state; it does not retain body dumps. Later ordinary assistant output or a successful terminal event clears recovered SDK access evidence. Explicit provider/transcript messages take priority over a bare 403. Unrelated URLs, file permissions, other HTTP statuses, successful sessions and readable unrelated API errors are negative regression cases.
+
+## Requirements, alternatives and execution plan
+
+| Requirement                                                                         | Alternatives considered and chosen plan                                                                                                                                                                          | Implementation / evidence                                                                                                                                                                                        |
+| ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| R1. Download all related incident logs/data into the repository                     | Preserve source files verbatim; derive a small replay rather than editing the source log.                                                                                                                        | `data/failure.log`, GitHub JSON snapshots, documentation snapshots, replay and timeline index.                                                                                                                   |
+| R2. Reconstruct sequence, requirements and causes                                   | Separate observed facts from cancellation context and unverified upstream hypotheses.                                                                                                                            | Timeline, causes, requirement inventory and limitations in this document.                                                                                                                                        |
+| R3. Research online facts and existing components/libraries                         | Reuse shared subscription reporting, transcript tail reader and line buffering. A new SDK or compression dependency cannot recover a response body the CLI omitted.                                              | Primary documentation and recent merged PR research below; no dependency added.                                                                                                                                  |
+| R4. Explain the cancelled/ended subscription clearly                                | Calling every 403 “cancelled” would fabricate a cause; retaining a generic exit code loses available evidence. Prefer explicit billing text, otherwise report access denied with possible causes.                | `claude.access-error.lib.mjs`; `subscription-error.lib.mjs` includes renewal/reactivation, billing, `/status`, credential override, organization admin/support and API billing guidance.                         |
+| R5. Add diagnostics when causes remain uncertain                                    | Avoid dumping bodies/credentials; log source verdicts and the SDK status/request ID only in verbose mode.                                                                                                        | `Access-error cross-check` uses `{ verbose: true }`; stream, transcript and last-message evidence are checked.                                                                                                   |
+| R6. Apply the fix throughout affected code paths                                    | A bespoke GitHub comment would leave terminal/recovery/Telegram inconsistent. Return the shared subscription result and filter opaque errors at the common boundary for all six tools.                           | `claude.lib.mjs`, `claude.stderr.lib.mjs`, `error-text.lib.mjs`, `lib.mjs`; existing solve/hive stop, preservation and report paths reused. Tests assert terminal report → Telegram parsing and all tool labels. |
+| R7. Report applicable upstream behavior with repro, workaround and code suggestions | Avoid a duplicate of Claude Code #103820; add the 403 evidence and bounded mock reproduction to that report. Distinguish directly reproduced stdout pollution from missing events observed only in the incident. | [Posted upstream follow-up](https://github.com/anthropics/claude-code/issues/103820#issuecomment-6387013641), [archived text](upstream-followup.md), CLI probes and outputs.                                     |
+| R8. Implement and verify everything in this PR                                      | First replay the failure, implement the fix, exercise negative/control cases, run local checks, add a patch changeset, review the final diff and verify final-SHA CI.                                            | 17 issue regressions; focused existing tests; repository checks; `.changeset/clear-claude-access-errors-3759.md`; completion record in `PLAN.md`.                                                                |
+
+## Online research and related implementations
+
+Research date: 2026-10-24. Primary sources are archived in `data/claude-api-errors.md`, `claude-errors.md` and `claude-cli-reference.md`.
+
+- [Anthropic API errors](https://platform.claude.com/docs/en/api/errors): 403 represents a permission refusal; billing and rate limits have distinct error categories. Error envelopes normally contain readable type/message fields and request IDs help support investigate. This supports the status-only fallback and retaining the request ID, not inferring a confirmed cancellation.
+- [Claude Code troubleshooting](https://code.claude.com/docs/en/errors#your-organization-has-disabled-claude-subscription-access): organization policy can disable subscription access. The same documentation describes environment API keys taking precedence over a saved subscription login and checking the active credential with `/status`. These are alternative explanations worth checking if billing is active.
+- [CLI reference](https://code.claude.com/docs/en/cli-reference): stream-json and verbose logging provide the available integration surface. The SDK's typed exceptions would be preferable inside the CLI, but Hive Mind only receives subprocess output and local session artifacts.
+- Recent merged [PR 3571](https://github.com/link-assistant/hive-mind/pull/3571) supplies bounded transcript reads and quota evidence collection; this fix extends that existing mechanism to access failures. [PR 2398](https://github.com/link-assistant/hive-mind/pull/2398) uses shared subscription reporting rather than duplicate failure comments. [PR 2270](https://github.com/link-assistant/hive-mind/pull/2270) cautions against treating old/recovered access errors as a current account-wide failure. Their descriptions are preserved as `related-pr-*.json`.
+
+Existing code components were sufficient: `detectSubscriptionError`, `formatSubscriptionErrorReport`, shared failure formatting, the Telegram subscription-block parser, `readClaudeTranscriptApiError` (bounded to 1 MiB), and `createLineBuffer`. No new external package or account-health request is needed.
+
+## Reproduction and verification
+
+```sh
+node tests/claude-access-error-3759.test.mjs
+```
+
+The first test replays the reported sequence with exit 1, no terminal event, 99% warning and the concatenated dump/403 summary. Before implementation, five of the initial six regressions failed (archived in `data/regression-before.log`). The finished suite contains 17 passing regressions, including both actual CLI traces, explicit transcript cancellation, arbitrary 73-character chunks on both output streams, missing trailing newlines, report rendering and negative/control cases. The passing output is archived in `data/regression-after.log`. Each asynchronous stream replay has a 15-second test bound.
+
+Local validation passed all 692 default test files, ten focused suites, repository-wide Prettier, ESLint, duplication and secret checks, all-module syntax, file-size limits, package-manager validation and patch-changeset validation. Verbatim evidence is excluded from formatting; whitespace in the original captures is retained. CI results and final publication status are recorded in PR 3762.
+
+The existing truncation test now uses repeated readable prose instead of a 500-character opaque alphabetic token, preserving its purpose while allowing the shared opaque-dump guard.
+
+An optional upstream control uses the installed Claude CLI (2.1.308 here, compared with 2.1.310 in the incident):
+
+```sh
+node experiments/issue-3759/probe-claude-403.mjs json
+node experiments/issue-3759/probe-claude-403.mjs br
+```
+
+Both probes bind only localhost, use dummy credentials and temporary configuration, disable tools and nonessential traffic, bound requests/output/runtime, and clean up the child/server/config. Each made one HTTP request, exited 1 and emitted an assistant error and `result` (`subtype: success` but `is_error: true`). Plain JSON produced 67 non-JSON stdout lines; Brotli produced 68. Both retained the cancellation text. Thus debug logging contaminating stream-json stdout reproduces, while lost terminal events and an unreadable Brotli error body do not reproduce with this short control.
+
+The caller must honor `is_error`, even when `subtype` is `success`. Existing error-result precedence tests cover that behavior. No live subscription was cancelled and no paid API was called.
+
+## Remaining evidence limits
+
+The original account's billing state and exact upstream error-body loss cannot be recovered from the supplied artifact. These are diagnostic uncertainty, not deferred Hive Mind functionality: the implemented fallback reports every fact available without inventing a billing event. Further upstream investigation can correlate the request ID with provider logs; future verbose runs expose which diagnostic sources were present. The solver retains its existing usage-limit retry and work-preservation behavior, and does not attempt to renew subscriptions or change credentials automatically.

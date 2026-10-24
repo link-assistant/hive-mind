@@ -1,0 +1,110 @@
+✖ replay the incident: missing result, exit 1, 403, and 99% warning (39.29356ms)
+✖ an explicit cancellation in the transcript supplies the diagnosis (newline=true) (20.167626ms)
+✖ an explicit cancellation in the transcript supplies the diagnosis (newline=false) (16.834499ms)
+✖ the shared error boundary rejects pure and concatenated opaque dumps for every tool (0.45067ms)
+✖ SDK summary is debug output even when concatenated with a base64 body (0.387613ms)
+✔ a successful terminal result never becomes an access failure (16.850108ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 1
+ℹ fail 5
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 103.365997
+
+✖ failing tests:
+
+test at tests/claude-access-error-3759.test.mjs:21:1
+✖ replay the incident: missing result, exit 1, 403, and 99% warning (39.29356ms)
+  AssertionError [ERR_ASSERTION]: HTTP access refusal must reach the shared access report
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792860018377/tests/claude-access-error-3759.test.mjs:25:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests/claude-access-error-3759.test.mjs:41:3
+✖ an explicit cancellation in the transcript supplies the diagnosis (newline=true) (20.167626ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'billing'
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792860018377/tests/claude-access-error-3759.test.mjs:43:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'billing',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/claude-access-error-3759.test.mjs:41:3
+✖ an explicit cancellation in the transcript supplies the diagnosis (newline=false) (16.834499ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'billing'
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792860018377/tests/claude-access-error-3759.test.mjs:43:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'billing',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/claude-access-error-3759.test.mjs:50:1
+✖ the shared error boundary rejects pure and concatenated opaque dumps for every tool (0.45067ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792860018377/tests/claude-access-error-3759.test.mjs:52:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/claude-access-error-3759.test.mjs:59:1
+✖ SDK summary is debug output even when concatenated with a base64 body (0.387613ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792860018377/tests/claude-access-error-3759.test.mjs:61:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

@@ -143,7 +143,7 @@ test('does not duplicate the base phrase when the core already says "execution f
 });
 
 test('truncates very long core errors with an ellipsis', () => {
-  const long = 'x'.repeat(500);
+  const long = 'A readable failure explanation. '.repeat(20);
   const result = formatToolExecutionFailure({
     tool: 'claude',
     toolResult: { errorInfo: { message: long } },

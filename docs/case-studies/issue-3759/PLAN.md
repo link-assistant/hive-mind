@@ -1,0 +1,26 @@
+# Issue 3759 work plan
+
+Objective: implement and verify every requirement of issue 3759 in PR 3762.
+
+- [x] Read the complete issue, issue comments, PR conversation, inline comments and reviews; inspect repository contribution guidance.
+- [x] Download the referenced failure log and linked PR data into this case-study directory.
+- [x] Reconstruct the incident timeline, separate observed evidence from the reporter's cancellation context, and identify every failure path.
+- [x] Search primary online sources and recent related PRs for relevant error formats, known components and solutions.
+- [x] Inventory all issue requirements and map each to implementation and verification evidence.
+- [x] Create a minimal automated regression that fails before the fix; keep reusable probes under experiments/issue-3759.
+- [x] Fix the root cause across affected execution/reporting paths; retain default-off diagnostics if evidence remains insufficient.
+- [x] Report independently reproducible upstream defects with repro, workaround and code suggestions when applicable.
+- [x] Complete case-study analysis, solution alternatives, implementation plan, evidence and limitations.
+- [x] Add a patch changeset; remove the repository placeholder.
+- [x] Run focused regressions, repository local checks and all feasible tests sequentially within the memory limit; save large output to files.
+- [ ] Commit atomic verified changes; merge current main into the prepared branch if needed; push only issue-3759-54e1dde0ad42.
+- [ ] Inspect recent CI runs with timestamps and SHAs; preserve and read logs for non-passing runs; resolve failures and verify passing checks on the final commit.
+- [ ] Review the full PR diff for consistency, regressions, retained features and requirement coverage.
+- [ ] Update PR title/body with reproduction, tests and positive closing reference; mark PR 3762 ready; verify a clean working tree.
+
+No required sub-issues were listed in the issue or PR feedback at initial inspection.
+The linked website feature issue is incident context, not a required sub-issue of this diagnostic fix.
+
+Local verification complete: 17 issue regressions, all ten focused suites and all 692 default test files pass. Repository-wide formatting, ESLint, duplication, secret scan, syntax, file-size, package-manager and changeset checks pass. The initial full run caught the 1350-line warning guard; extracting failure cross-checks and using the shared line buffer reduced `claude.lib.mjs` to 1349 lines. The guard passes. Plain/Brotli local CLI controls both retain terminal errors; stdout debug pollution reproduces. No sub-agents or paid provider calls were used.
+
+Upstream follow-up posted: https://github.com/anthropics/claude-code/issues/103820#issuecomment-6387013641. Full source log hash matches the downloaded gist. `origin/main` was already an ancestor of the prepared branch at the initial fetch.

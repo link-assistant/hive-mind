@@ -26,6 +26,7 @@ import { promises as fsPromises } from 'fs';
 import { detectUsageLimit } from './usage-limit.lib.mjs';
 import { resolveSessionTranscriptPath } from './claude.session-transcript-repair.lib.mjs';
 import { readLogTailText } from './log-bounded-read.lib.mjs';
+import { isOpaqueErrorText } from './error-text.lib.mjs';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const TRANSCRIPT_TAIL_BYTES = 1024 * 1024;
@@ -95,11 +96,13 @@ export const classifyAnthropicDebugRateLimit = block => {
  * flow by itself; the failure branch asks it for a verdict.
  */
 export const createClaudeUsageLimitEvidence = () => {
-  const state = { apiErrorText: null, apiErrorCode: null, rateLimitInfo: null, rateLimitEventCount: 0, debugBlocks: 0, debugRateLimit: null };
-  const openBlocks = new Map(); // stream -> the 429 block being parsed, or { skip: true } for other blocks
+  const state = { apiErrorText: null, apiErrorCode: null, rateLimitInfo: null, rateLimitEventCount: 0, debugBlocks: 0, debugRateLimit: null, debugApiError: null };
+  const openBlocks = new Map(); // stream -> the response error being parsed, or { skip: true } for other blocks
 
   const observeEvent = data => {
     if (!data || typeof data !== 'object') return;
+    // A later assistant turn supersedes an earlier refusal that the CLI recovered.
+    if ((data.type === 'assistant' && !data.is_api_error_message) || (data.type === 'result' && data.subtype === 'success' && !data.is_error)) state.debugApiError = null;
     if (data.type === 'rate_limit_event' && data.rate_limit_info) {
       state.rateLimitInfo = data.rate_limit_info;
       state.rateLimitEventCount++;
@@ -122,17 +125,32 @@ export const createClaudeUsageLimitEvidence = () => {
    * became the reported failure reason).
    */
   const observeRawLine = (rawLine, stream = 'stdout') => {
-    const line = String(rawLine ?? '').replace(/\r$/, '');
+    let line = String(rawLine ?? '').replace(/\r$/, '');
+    // SDK logging does not always put a newline between a dump and its summary.
+    if (isOpaqueErrorText(line)) {
+      const markerAt = line.indexOf('[log_');
+      if (markerAt < 0) return { isDebugOutput: true };
+      line = line.slice(markerAt);
+    }
+    const summary = line.match(/^\[log_[0-9a-f]+(?:,[^\]]*)?\]\s+\w+\s+https:\/\/api\.anthropic\.com\/v1\/messages(?:\?[^\s]*)?\s+failed with status (\d{3})\b/i);
+    if (summary) {
+      state.debugApiError = { status: Number(summary[1]), requestId: line.match(/request-id:\s*"?(req_[A-Za-z0-9_-]+)/)?.[1] || null };
+      return { isDebugOutput: true };
+    }
     const debugBlock = openBlocks.get(stream);
     if (debugBlock) {
       if (/^}\s*$/.test(line)) {
         if (!debugBlock.skip && debugBlock.status === 429) state.debugRateLimit = { status: debugBlock.status, headers: debugBlock.headers, retriesExhausted: debugBlock.retriesExhausted };
+        if (!debugBlock.skip && debugBlock.status >= 400 && debugBlock.isMessagesApi) state.debugApiError = { status: debugBlock.status, requestId: debugBlock.requestId || null };
         openBlocks.delete(stream);
         return { isDebugOutput: true };
       }
       if (!debugBlock.skip) {
         const statusMatch = line.match(/^\s*status:\s*(\d{3}),?\s*$/);
         if (statusMatch) debugBlock.status = Number(statusMatch[1]);
+        if (/^\s*url:\s*"https:\/\/api\.anthropic\.com\/v1\/messages(?:\?[^"\s]*)?",?\s*$/.test(line)) debugBlock.isMessagesApi = true;
+        const requestId = line.match(/^\s*"request-id":\s*"(req_[A-Za-z0-9_-]+)",?\s*$/);
+        if (requestId) debugBlock.requestId = requestId[1];
         const header = line.match(HEADER_LINE);
         if (header && /^(anthropic-ratelimit-|retry-after$)/i.test(header[1])) debugBlock.headers[header[1].toLowerCase()] = header[2].trim();
       }

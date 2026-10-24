@@ -9,8 +9,9 @@ import { isENOSPC, buildToolErrorMessage } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits, claudeCode, getClaudeEnv, getMaxOutputTokensForModel } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage, isUsageLimitError } from './usage-limit.lib.mjs';
-import { createClaudeUsageLimitEvidence, resolveClaudeUsageLimit } from './claude.usage-limit-sources.lib.mjs'; // Issue #3570
+import { createClaudeUsageLimitEvidence } from './claude.usage-limit-sources.lib.mjs'; // Issue #3570
 import { detectSubscriptionError, SUBSCRIPTION_BLOCKED_MARKER } from './subscription-error.lib.mjs'; // Issue #2161
+import { resolveClaudeFailureEvidence } from './claude.access-error.lib.mjs';
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
 import { setupBidirectionalHandler, finalizeBidirectionalHandler, validateBidirectionalModeConfig, attachStreamingInput } from './bidirectional-interactive.lib.mjs';
 import { initProgressMonitoring } from './solve.progress-monitoring.lib.mjs';
@@ -41,7 +42,7 @@ import { formatRouterAuthViolation, startRouterAuthGuard } from './router-auth-g
 import { createThinkingBlockRecovery } from './claude.thinking-block-recovery.lib.mjs'; // Issue #1834 (PR #1835 feedback)
 import { buildMissingClaudeResultMessage, collectClaudeStreamEventFacts, getClaudeMessageContent, shouldFailClaudeStreamWithoutResult, updateTerminalToolResult } from './claude.stream-events.lib.mjs';
 import { assessClaudeTurnCompletion, buildIncompleteTurnContinuationPrompt, createClaudePrintTurnTracker } from './claude.print-turn.lib.mjs'; // Issue #2301
-import { interpretClaudeExitCode, isProcessGroupAlive, selectClaudeFailureMessage } from './claude.process-exit.lib.mjs'; // Issue #3015
+import { interpretClaudeExitCode, isProcessGroupAlive } from './claude.process-exit.lib.mjs'; // Issue #3015
 import { createClaudeResultCloseController } from './claude.result-close.lib.mjs'; // Issue #3015
 import { createRepeatedToolCallBreaker, explainFailureWithToolHistory, publishRepeatedToolCallVerdict, resolveRepeatedToolCallLimit } from './repeated-tool-call-breaker.lib.mjs'; // Issue #2247 (H4/H10), #2316, #2395
 import { formatNumber, mapModelToId, checkModelVisionCapability, resolveClaudeModelForExecution } from './claude.model-utils.lib.mjs';
@@ -167,7 +168,7 @@ export { calculateModelCost };
 import { calculateSessionTokens } from './claude.session-tokens.lib.mjs';
 export { calculateSessionTokens };
 // Extracted to claude.stderr.lib.mjs (Issue #477, #1337)
-import { isStderrError } from './claude.stderr.lib.mjs';
+import { isStderrError, createClaudeStderrObserver } from './claude.stderr.lib.mjs';
 import { checkForUncommittedChanges } from './claude.uncommitted-changes.lib.mjs';
 export { checkForUncommittedChanges };
 export { isStderrError };
@@ -408,6 +409,7 @@ export const executeClaudeCommand = async params => {
       await log(`\n${formatAligned('▶️', 'Streaming output:', '')}\n`);
       let exitCode = 0;
       let stdoutLineBuffer = '';
+      const stderrObserver = createClaudeStderrObserver({ evidence: usageLimitEvidence, errors: stderrErrors });
       let resultEventReceived = false;
       const printTurn = createClaudePrintTurnTracker(); // Issue #2301
       let postResultCancelledToolResultCount = 0;
@@ -841,9 +843,7 @@ export const executeClaudeCommand = async params => {
             }
             const ceilingSeconds = printTurn.observeStderr(errorOutput);
             if (ceilingSeconds !== null) await log(`⚠️ Claude Code print mode reached its ${ceilingSeconds}s background-task wait ceiling and is stopping background tasks (issue #2301)`, { level: 'warning' });
-            for (const line of errorOutput.split('\n')) {
-              if (!usageLimitEvidence.observeRawLine(line, 'stderr').isDebugOutput && isStderrError(line)) stderrErrors.push(line.trim());
-            }
+            stderrObserver.write(errorOutput);
           }
         } else if (chunk.type === 'exit') {
           // command-stream v0.9.4 stream() did not yield exit chunks (Issue #1280); newer releases do.
@@ -856,6 +856,7 @@ export const executeClaudeCommand = async params => {
       }
 
       // Issue #1183: Process remaining buffer content - extract cost from result type if present
+      stderrObserver.flush();
       // Issue #1472: Also forward remaining buffer events to interactive handler
       if (stdoutLineBuffer.trim()) {
         try {
@@ -896,6 +897,7 @@ export const executeClaudeCommand = async params => {
           if (progressMonitor) await progressMonitor.processStreamEvent(data, true).catch(e => log(`⚠️ Progress: ${e.message}`, { verbose: true }));
         } catch {
           if (!stdoutLineBuffer.includes('node:internal')) await log(stdoutLineBuffer, { stream: 'stdout' });
+          if (!usageLimitEvidence.observeRawLine(stdoutLineBuffer).isDebugOutput) lastMessage = stdoutLineBuffer;
         }
       }
       if (startupTimeoutId) {
@@ -1037,12 +1039,9 @@ export const executeClaudeCommand = async params => {
       if (dominantToolCallFailure) {
         await log(`🔁 Repeated failing tool call in this session: ${dominantToolCallFailure.tool} x${dominantToolCallFailure.count}`, { verbose: true });
       }
-      // Issue #3015: after a successful result `lastMessage` is the work summary, not an error;
-      // classifying or publishing it as one produced "CLAUDE execution failed with I fixed…".
-      if (commandFailed) lastMessage = selectClaudeFailureMessage({ lastMessage, exitCode, resultSuccessReceived, resultSummary });
-      // Issue #3570: the limit may exist only in the transcript, a rate_limit_event or the debug 429 headers.
-      const crossCheckedLimit = commandFailed && !subscriptionError ? await resolveClaudeUsageLimit({ lastMessage, evidence: usageLimitEvidence, tempDir, sessionId, log }) : null;
-      if (crossCheckedLimit?.isUsageLimit) [limitReached, lastMessage] = [true, crossCheckedLimit.message];
+      // Issues #3015/#3570/#3759: cross-check terminal evidence without publishing a work summary as an error.
+      let crossCheckedLimit;
+      if (commandFailed) ({ lastMessage, limitReached, subscriptionError, crossCheckedLimit } = await resolveClaudeFailureEvidence({ lastMessage, limitReached, subscriptionError, exitCode, resultSuccessReceived, resultSummary, evidence: usageLimitEvidence, tempDir, sessionId, log }));
       const retryableLastError = classifyRetryableError(lastMessage);
       // Issue #1834: Corrupted extended-thinking blocks → try to resume the session first, then fall
       // back to a fresh restart (PR #1835 feedback). When both caps are reached, tryThinkingBlockRecovery
@@ -1167,8 +1166,8 @@ export const executeClaudeCommand = async params => {
         }
       }
       if (commandFailed) {
-        // Check for usage limit errors first (more specific)
-        const limitInfo = crossCheckedLimit?.isUsageLimit ? crossCheckedLimit : detectUsageLimit(lastMessage);
+        // A terminal account block supersedes stale quota evidence (issue #3759).
+        const limitInfo = subscriptionError ? { isUsageLimit: false } : crossCheckedLimit?.isUsageLimit ? crossCheckedLimit : detectUsageLimit(lastMessage);
         if (limitInfo.isUsageLimit) {
           limitReached = true;
           limitResetTime = limitInfo.resetTime;

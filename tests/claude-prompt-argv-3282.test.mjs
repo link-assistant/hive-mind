@@ -10,7 +10,7 @@
  *   made that quoting literal, so /bin/sh expanded the prompt: every run logged
  *   `/bin/sh: 1: .png: not found`, and the system prompt's `$(gh auth token)`
  *   example became the token itself;
- * - with 2.4.0, the version `USE_M_PACKAGE_VERSIONS` pins, nothing is expanded,
+ * - with 2.4.0, used to reproduce the issue, nothing is expanded,
  *   but Claude gets each `"` of the system prompt (and of a resumed session's
  *   prompt) as `\"`.
  *

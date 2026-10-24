@@ -35,6 +35,10 @@ const truncateErrorText = (text, maxLength) => {
   return `${text.slice(0, maxLength)}… (truncated)`;
 };
 
+// Issue #3759: SDK debug summaries can be appended directly to an opaque body
+// dump. Such a line is still binary noise, not a human-readable failure reason.
+export const isOpaqueErrorText = value => typeof value === 'string' && /^[A-Za-z0-9+/_=-]{120,}(?:$|(?=\[log_[0-9a-f]+[,\]]))/i.test(value.trim());
+
 const safeJsonStringify = value => {
   const seen = new WeakSet();
   try {

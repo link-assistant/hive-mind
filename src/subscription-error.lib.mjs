@@ -41,6 +41,7 @@ export const SUBSCRIPTION_ERROR_KINDS = {
   BILLING: 'billing',
   PLAN_RESTRICTED: 'plan_restricted',
   API_KEY_INVALID: 'api_key_invalid',
+  ACCESS_DENIED: 'access_denied',
 };
 
 const K = SUBSCRIPTION_ERROR_KINDS;
@@ -60,6 +61,7 @@ export const SUBSCRIPTION_ERROR_CODES = Object.freeze({
   invalid_api_key: K.API_KEY_INVALID,
   billing_error: K.BILLING,
   credit_balance_low: K.BILLING,
+  permission_error: K.ACCESS_DENIED,
   // Codex
   missing_codex_entitlement: K.ACCOUNT_NO_ACCESS,
   disabled_by_admin: K.ORG_SUBSCRIPTION_DISABLED,
@@ -78,6 +80,7 @@ const SUBSCRIPTION_ERROR_CODE_TOOLS = Object.freeze({
   invalid_api_key: 'claude',
   billing_error: 'claude',
   credit_balance_low: 'claude',
+  permission_error: 'claude',
   missing_codex_entitlement: 'codex',
   disabled_by_admin: 'codex',
   plan_not_eligible: 'codex',
@@ -158,6 +161,7 @@ const KIND_LABELS = Object.freeze({
   [K.BILLING]: 'Subscription/billing problem',
   [K.PLAN_RESTRICTED]: 'Current plan does not allow this request',
   [K.API_KEY_INVALID]: 'Invalid API key or auth token',
+  [K.ACCESS_DENIED]: 'Provider denied access (HTTP 403)',
 });
 
 const KIND_REASONS = Object.freeze({
@@ -167,6 +171,7 @@ const KIND_REASONS = Object.freeze({
   [K.BILLING]: 'The subscription is expired, cancelled or out of credit. Requests stay rejected until billing is restored.',
   [K.PLAN_RESTRICTED]: 'The account is authenticated, but the requested model/mode is not included in the current plan.',
   [K.API_KEY_INVALID]: 'The configured API key or auth token was rejected by the provider.',
+  [K.ACCESS_DENIED]: 'HTTP 403 confirms that access was denied, but does not identify why. A cancelled or expired subscription, an organization access policy, or the active API credential can cause this response.',
 });
 
 /** Per-tool re-authentication commands, used to build actionable guidance. */
@@ -214,6 +219,8 @@ const buildGuidance = (kind, tool) => {
   const steps = [];
   switch (kind) {
     case K.ORG_SUBSCRIPTION_DISABLED:
+      steps.push('Check whether the subscription ended after cancellation or a failed renewal; reactivate it if needed.');
+      if (accountUrl) steps.push(`Billing page: ${accountUrl}`);
       steps.push('Ask the organization/workspace admin to renew or enable subscription access to this tool.');
       steps.push('Or switch this run to API-key billing instead of the subscription.');
       break;
@@ -238,6 +245,13 @@ const buildGuidance = (kind, tool) => {
       break;
     case K.API_KEY_INVALID:
       steps.push('Fix or regenerate the configured API key / auth token, then re-run.');
+      break;
+    case K.ACCESS_DENIED:
+      steps.push('Check whether the subscription ended after cancellation or expiry; renew/reactivate it if needed.');
+      if (accountUrl) steps.push(`Billing page: ${accountUrl}`);
+      steps.push('Run /status in Claude Code to verify the active account and authentication method; check whether ANTHROPIC_API_KEY overrides the subscription login.');
+      steps.push('For an active subscription, ask the organization admin to check access settings, or contact Anthropic support with the request ID.');
+      steps.push('Alternatively, configure an authorized Anthropic API key for API billing.');
       break;
     default:
       steps.push(`Re-authenticate the tool: ${loginHint}`);
@@ -265,7 +279,11 @@ export const detectSubscriptionError = input => {
   if (rawCode && Object.hasOwn(SUBSCRIPTION_ERROR_CODES, rawCode)) {
     const codeTool = SUBSCRIPTION_ERROR_CODE_TOOLS[rawCode] || null;
     if (tool && codeTool && tool !== codeTool) return null;
-    const kind = SUBSCRIPTION_ERROR_CODES[rawCode];
+    const codeKind = SUBSCRIPTION_ERROR_CODES[rawCode];
+    // Claude can wrap an explicit cancellation in `authentication_failed`.
+    // Its broad auth/access category must not hide a specific billing reason.
+    const explicitBilling = (codeKind === K.LOGIN_REQUIRED || codeKind === K.ACCESS_DENIED) && MESSAGE_RULES.some(rule => rule.kind === K.BILLING && (!tool || !rule.tool || tool === rule.tool) && rule.needles.every(needle => message.toLowerCase().includes(needle)));
+    const kind = explicitBilling ? K.BILLING : codeKind;
     return {
       isSubscriptionError: true,
       kind,

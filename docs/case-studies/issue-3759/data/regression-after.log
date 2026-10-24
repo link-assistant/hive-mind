@@ -1,0 +1,26 @@
+✔ replay the incident: missing result, exit 1, 403, and 99% warning (46.886895ms)
+✔ an explicit cancellation in the transcript supplies the diagnosis (newline=true) (15.987405ms)
+✔ an explicit cancellation in the transcript supplies the diagnosis (newline=false) (13.168381ms)
+✔ the shared error boundary rejects pure and concatenated opaque dumps for every tool (0.528847ms)
+✔ SDK summary is debug output even when concatenated with a base64 body (0.254635ms)
+✔ a successful terminal result never becomes an access failure (10.37693ms)
+✔ SDK response block alone survives arbitrary stream chunks (stderr=true, newline=true) (5.577903ms)
+✔ SDK response block alone survives arbitrary stream chunks (stderr=true, newline=false) (5.876289ms)
+✔ SDK response block alone survives arbitrary stream chunks (stderr=false, newline=true) (9.067647ms)
+✔ SDK response block alone survives arbitrary stream chunks (stderr=false, newline=false) (12.781671ms)
+✔ a bare 403 without a response block is recovered from the concatenated summary (9.332793ms)
+✔ a terminal access refusal supersedes an earlier quota rejection (9.127158ms)
+✔ ordinary prose and a file permission error remain meaningful (0.267499ms)
+✔ a subsequent assistant turn clears a recovered SDK access error (0.317413ms)
+✔ unrelated endpoints and non-access failures are not subscription failures (0.751312ms)
+✔ a readable provider error takes precedence over a bare SDK 403 (0.27371ms)
+✔ an actual Claude CLI mock-403 trace retains the explicit cancellation (json) (13.510009ms)
+✔ an actual Claude CLI mock-403 trace retains the explicit cancellation (br) (49.177021ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 18
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 216.281209

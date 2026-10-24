@@ -1,0 +1,45 @@
+✔ replay the incident: missing result, exit 1, 403, and 99% warning (45.120861ms)
+✔ an explicit cancellation in the transcript supplies the diagnosis (newline=true) (18.850449ms)
+✔ an explicit cancellation in the transcript supplies the diagnosis (newline=false) (20.930594ms)
+✔ the shared error boundary rejects pure and concatenated opaque dumps for every tool (0.586545ms)
+✔ SDK summary is debug output even when concatenated with a base64 body (0.238285ms)
+✔ a successful terminal result never becomes an access failure (12.001414ms)
+✔ SDK response block alone survives arbitrary stream chunks (stderr=true, newline=true) (7.26994ms)
+✔ SDK response block alone survives arbitrary stream chunks (stderr=true, newline=false) (7.251526ms)
+✔ SDK response block alone survives arbitrary stream chunks (stderr=false, newline=true) (13.405596ms)
+✔ SDK response block alone survives arbitrary stream chunks (stderr=false, newline=false) (12.135104ms)
+✔ a bare 403 without a response block is recovered from the concatenated summary (9.151896ms)
+✖ a terminal access refusal supersedes an earlier quota rejection (13.364238ms)
+✔ ordinary prose and a file permission error remain meaningful (0.40657ms)
+✔ a subsequent assistant turn clears a recovered SDK access error (0.381121ms)
+✔ unrelated endpoints and non-access failures are not subscription failures (0.760399ms)
+✔ a readable provider error takes precedence over a bare SDK 403 (0.434621ms)
+✔ an actual Claude CLI mock-403 trace retains the explicit cancellation (json) (17.803986ms)
+✔ an actual Claude CLI mock-403 trace retains the explicit cancellation (br) (37.624076ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 17
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 236.550068
+
+✖ failing tests:
+
+test at tests/claude-access-error-3759.test.mjs:89:1
+✖ a terminal access refusal supersedes an earlier quota rejection (13.364238ms)
+  AssertionError [ERR_ASSERTION]: an access refusal must not schedule a quota reset retry
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792860018377/tests/claude-access-error-3759.test.mjs:93:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

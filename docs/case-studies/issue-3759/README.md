@@ -79,6 +79,8 @@ The first test replays the reported sequence with exit 1, no terminal event, 99%
 
 Local validation passed all 692 default test files, ten focused suites, repository-wide Prettier, ESLint, duplication and secret checks, all-module syntax, file-size limits, package-manager validation and patch-changeset validation. Verbatim evidence is excluded from formatting; whitespace in the original captures is retained. CI results and final publication status are recorded in PR 3762.
 
+The first implementation CI run, [40115790126](https://github.com/link-assistant/hive-mind/actions/runs/40115790126), stopped before code checks because the inherited dependency pins were stale: 49 declarations/lockfile entries, with no unresolved lookups. The job log is preserved in `data/ci-detect-changes-40115790126.log` (lines 3694–3746). A separate maintenance commit refreshes those npm/runtime/Docker/action pins and the lockfile; the freshness check then passes with no stale declarations or lockfile lag. The gate remains enforced. The command-stream 2.6.0 update is checked against the existing real-command prompt-quoting regression; the preinstall unit fixture now supplies its historical version explicitly.
+
 The existing truncation test now uses repeated readable prose instead of a 500-character opaque alphabetic token, preserving its purpose while allowing the shared opaque-dump guard.
 
 An optional upstream control uses the installed Claude CLI (2.1.308 here, compared with 2.1.310 in the incident):

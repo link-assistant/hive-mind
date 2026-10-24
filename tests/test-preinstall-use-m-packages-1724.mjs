@@ -74,6 +74,7 @@ await test('installWithRetry disables package bin links so versioned aliases can
   let command = '';
   const result = await installWithRetry({
     packageName: 'command-stream',
+    version: '2.4.0',
     alias: 'command-stream-v-2.4.0',
     globalRoot: '/tmp/nonexistent-root',
     runner: async value => {

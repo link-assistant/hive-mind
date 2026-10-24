@@ -13,6 +13,7 @@ Objective: implement and verify every requirement of issue 3759 in PR 3762.
 - [x] Complete case-study analysis, solution alternatives, implementation plan, evidence and limitations.
 - [x] Add a patch changeset; remove the repository placeholder.
 - [x] Run focused regressions, repository local checks and all feasible tests sequentially within the memory limit; save large output to files.
+- [x] Investigate CI's inherited dependency-freshness failure; preserve its log, refresh the reported pins and lockfile, and verify freshness locally.
 - [ ] Commit atomic verified changes; merge current main into the prepared branch if needed; push only issue-3759-54e1dde0ad42.
 - [ ] Inspect recent CI runs with timestamps and SHAs; preserve and read logs for non-passing runs; resolve failures and verify passing checks on the final commit.
 - [ ] Review the full PR diff for consistency, regressions, retained features and requirement coverage.
@@ -24,3 +25,5 @@ The linked website feature issue is incident context, not a required sub-issue o
 Local verification complete: 17 issue regressions, all ten focused suites and all 692 default test files pass. Repository-wide formatting, ESLint, duplication, secret scan, syntax, file-size, package-manager and changeset checks pass. The initial full run caught the 1350-line warning guard; extracting failure cross-checks and using the shared line buffer reduced `claude.lib.mjs` to 1349 lines. The guard passes. Plain/Brotli local CLI controls both retain terminal errors; stdout debug pollution reproduces. No sub-agents or paid provider calls were used.
 
 Upstream follow-up posted: https://github.com/anthropics/claude-code/issues/103820#issuecomment-6387013641. Full source log hash matches the downloaded gist. `origin/main` was already an ancestor of the prepared branch at the initial fetch.
+
+CI investigation: run 40115790126 was created after implementation commit `7b3ece270` and checked that SHA. Its `detect-changes` job failed at the dependency-freshness prerequisite (49 stale, 0 unresolved); code jobs were skipped. The retained job log identifies each stale pin. Updated dependency freshness passes locally; the refreshed dependency set is being revalidated before final publication.

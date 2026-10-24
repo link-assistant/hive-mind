@@ -37,7 +37,7 @@ function getWorkflowJob(source, jobName) {
 }
 
 await test('package depends on lino-arguments', () => {
-  assert.equal(packageJson.dependencies?.['lino-arguments'], '^0.3.0');
+  assert.equal(packageJson.dependencies?.['lino-arguments'], '^0.4.0');
 });
 
 await test('CLI argument parsers route through lino-arguments adapter', async () => {

@@ -51,10 +51,12 @@ await writeStub(
   for last; do :; done
   [ "$last" = gone ] && { echo "Error: No such object: gone" >&2; exit 1; }
   [ "$2" = --size ] && { echo 4096; exit 0; }
-  case "$3" in *.State.Status*) echo running ;; *) printf '{"Running":false,"ExitCode":3,"OOMKilled":false,"FinishedAt":"2026-10-20T10:00:00Z"}\\n' ;; esac
+  case "$3" in
+    *.State.Running*) case "$last" in aaaaaaaaaaaa|bbbb) echo true ;; a) echo 'ambiguous ID' >&2; exit 1 ;; *) echo false ;; esac ;;
+    *.State.Status*) echo running ;; *) printf '{"Running":false,"ExitCode":3,"OOMKilled":false,"FinishedAt":"2026-10-20T10:00:00Z"}\\n' ;; esac
   exit 0
 fi
-printf 'aaaaaaaa\\tsession-a\\nbbbbbbbb\\tsession-b,alias-b\\n'`
+printf 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\tsession-a\\nbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\\tsession-b,alias-b\\n'`
 );
 await writeStub('screen', `printf 'There are screens on:\\n\\t123.screen-a\\t(Detached)\\n'; exit 1`);
 await writeStub('tmux', `[ "$3" = "alive" ] && exit 0; exit 1`);
@@ -171,6 +173,17 @@ try {
     assert.equal(docker.length, 1);
     assert.match(docker[0], /^docker ps --no-trunc --format/);
     assert.equal(await checkDockerContainerRunning(''), false);
+  });
+
+  await test('batched docker liveness retains full IDs, unique ID prefixes and slash-prefixed names', async () => {
+    const answers = await Promise.all([checkDockerContainerRunning('a'.repeat(64)), checkDockerContainerRunning('a'.repeat(12)), checkDockerContainerRunning('bbbb'), checkDockerContainerRunning('/session-b'), checkDockerContainerRunning('session'), checkDockerContainerRunning('cccc'), checkDockerContainerRunning('a')]);
+    assert.deepEqual(answers, [true, true, true, true, false, false, false]);
+    assert.equal((await calls('docker')).filter(line => line.startsWith('docker ps ')).length, 1);
+    await checkDockerContainerRunning('a'.repeat(12));
+    assert.equal((await calls('docker')).length, 5, 'abbreviated IDs reuse engine lookups within the interval');
+    await stopIsolatedSession('a'.repeat(12));
+    await checkDockerContainerRunning('a'.repeat(12));
+    assert.equal((await calls('docker')).length, 7, 'stop invalidates both the ID lookup and shared listing');
   });
 
   await test('screen liveness for many sessions comes from one screen -ls', async () => {

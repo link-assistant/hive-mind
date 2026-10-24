@@ -816,7 +816,16 @@ export async function checkDockerContainerRunning(containerName, verbose = false
   // Issue #3614: one shared `docker ps` (no shell, at most once per interval)
   // answers every container instead of a `docker inspect` per container. A
   // daemon that cannot be queried reads as "not running", as before.
-  const running = Boolean(containerName) && Boolean((await getRunningDockerContainerNames({ verbose }))?.has(containerName));
+  const target = String(containerName || '').replace(/^\//, '');
+  let running = Boolean(target) && Boolean((await getRunningDockerContainerNames({ verbose }))?.has(target));
+  // docker inspect also accepts abbreviated IDs. Let Docker resolve them so
+  // ambiguity with stopped containers retains the engine's semantics.
+  if (!running && /^[a-f0-9]{1,63}$/.test(target)) {
+    running = await statusCheckCache.get(`docker-id:${target}`, async () => {
+      const result = await runProbe('docker', ['inspect', '-f', '{{.State.Running}}', target], { timeout: DOCKER_CLI_TIMEOUT_MS });
+      return result.code === 0 && result.stdout.trim() === 'true';
+    });
+  }
   if (verbose) {
     console.log(`[VERBOSE] isolation-runner: docker ps check for '${containerName}': ${running ? 'running' : 'not running'}`);
   }

@@ -3,7 +3,7 @@
 /**
  * @hive-mind-test-suite default
  *
- * Issue #3614: the images pin start-command 0.39.0, which fixes the
+ * Issue #3614: the images pin start-command 0.39.2, which fixes the
  * detached monitor's 1 s docker loop this issue reported upstream
  * (link-foundation/start#238, #242) and makes `$ --status` cheaper (#243).
  * 0.39.0 also adds fields to the status record. This test feeds a 0.39.0

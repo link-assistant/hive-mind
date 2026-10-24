@@ -19,7 +19,7 @@
 #
 # Build: docker build -t konard/hive-mind .
 
-ARG FORMAL_AI_VERSION=0.355.2
+ARG FORMAL_AI_VERSION=0.355.7
 # Bookworm's glibc 2.36 remains compatible with the Ubuntu 24.04 Box runtime.
 FROM rust:1.99-slim-bookworm AS formal-ai-builder
 ARG FORMAL_AI_VERSION
@@ -251,7 +251,7 @@ RUN bun install -g @openai/codex && \
 # Note: start-command provides `$` CLI for isolation modes (--isolation screen/tmux/docker)
 # The Box base image includes screen. For tmux/docker isolation, ensure they are
 # available in the base image or install them separately.
-# start-command is pinned to 0.39.0: 0.29.1 fixed detached docker
+# start-command is pinned to 0.39.2: 0.29.1 fixed detached docker
 # `--status`/`--list` reporting a terminal status (`executed`) with the `-1`
 # sentinel while the container is still running (link-foundation/start#136,
 # link-assistant/hive-mind#1939); 0.29.2 (start#138 / start PR #139) records the
@@ -329,6 +329,9 @@ RUN bun install -g @openai/codex && \
 # overrides the sampler interval. Its new exit reason
 # `killed (docker daemon restart)` (start#241) is only shown as a reported reason
 # in kill and recovery reports, and `--init` (start#244) is opt-in and unused.
+# 0.39.1 stops sampling when cgroup counters are permanently unreadable
+# (start#247), and backs off transient failures up to a 60-second interval.
+# 0.39.2 preserves these fixes and updates log sanitization (start#249).
 # `@link-assistant/agent` is pinned to current 0.27.0. Version 0.26.1 stopped the
 # unbounded snapshot leak of issue #2186. Up to 0.26.0 `Snapshot.track()` built a
 # standalone git object store per project — keyed on the worktree's root commit,
@@ -350,7 +353,7 @@ RUN echo "Installing @link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
     fi && \
     bun install -g @link-assistant/claude-profiles && \
     bun install -g @link-assistant/agent@0.27.0 && \
-    bun install -g start-command@0.39.0 && \
+    bun install -g start-command@0.39.2 && \
     bun install -g gh-setup-git-identity && \
     bun install -g gh-pull-all && \
     bun install -g gh-load-issue && \

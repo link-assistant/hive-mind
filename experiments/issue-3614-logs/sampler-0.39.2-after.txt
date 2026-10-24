@@ -1,0 +1,10 @@
+Published start-command 0.39.2
+PASS unreadable stream stops after one exec, without liveness checks or sleep
+PASS unreadable per-round counters stop after the stream and one fallback exec
+PASS failed rounds back off from five seconds
+PASS backoff is capped at sixty seconds
+PASS backoff respects intervals over sixty seconds
+PASS readable local counters retain the five-second default
+PASS readable remote counters use one stream and the configured interval
+PASS off disables sampling
+Failures: 0

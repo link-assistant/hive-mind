@@ -22,7 +22,9 @@
  *   node experiments/issue-3614-live-measurement.mjs [--start-command <path to $>]
  *     [--seconds 60] [--tasks 3] [--interval-ms <bot min interval>]
  *     [--src <hive-mind src dir, e.g. a main worktree>] [--image alpine:3.20]
- *     [--skip-bot]
+ *     [--skip-bot] [--idle-chat]
+ * --idle-chat runs the session monitor's isolation-state reconciliation and
+ * default CPU penalty pass every 30 seconds instead of the synthetic callers.
  */
 import { execFile } from 'node:child_process';
 import { chmod, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
@@ -43,6 +45,7 @@ const taskCount = Number(option('tasks', 3));
 const image = option('image', 'alpine:3.20');
 const intervalMs = option('interval-ms', null);
 const skipBot = process.argv.includes('--skip-bot');
+const idleChat = process.argv.includes('--idle-chat');
 const realStart = path.resolve(option('start-command', (await execFileAsync('sh', ['-c', 'command -v "$"'])).stdout.trim()));
 const realDocker = (await execFileAsync('sh', ['-c', 'command -v docker'])).stdout.trim();
 
@@ -114,16 +117,23 @@ try {
     if (intervalMs !== null) process.env.HIVE_MIND_DOCKER_STATUS_MIN_INTERVAL_MS = intervalMs;
     const { querySessionStatus, isSessionRunning, checkBackendSessionAlive } = await import(path.join(srcDir, 'isolation-runner.lib.mjs'));
     const { getRunningProcesses } = await import(path.join(srcDir, 'telegram-solve-queue.helpers.lib.mjs'));
-    const lookup = session => Promise.all([querySessionStatus(session), isSessionRunning(session, { backend: 'docker' }), checkBackendSessionAlive(session, 'docker'), getRunningProcesses('claude')]);
+    const { getIsolationSessionState } = await import(path.join(srcDir, 'session-monitor.isolation-state.lib.mjs'));
+    const { normalizeDockerCpuPenaltyConfig, runDockerCpuPenaltyPass } = await import(path.join(srcDir, 'docker-cpu-penalty.lib.mjs'));
+    const sessionInfo = new Map(sessions.map(session => [session, { sessionId: session, isolationBackend: 'docker' }]));
+    const trackedSessions = sessions.map(session => ({ sessionName: session, sessionInfo: sessionInfo.get(session) }));
+    const cpuPenaltyConfig = normalizeDockerCpuPenaltyConfig();
+    const lookup = session => (idleChat ? getIsolationSessionState(session, sessionInfo.get(session)) : Promise.all([querySessionStatus(session), isSessionRunning(session, { backend: 'docker' }), checkBackendSessionAlive(session, 'docker'), getRunningProcesses('claude')]));
     const cpuBefore = await childCpuSeconds();
     const ownBefore = process.cpuUsage();
     let lookups = 0;
     let lastRunning = null;
     while (Date.now() - windowStart < seconds * 1000) {
+      const penaltyPass = idleChat ? runDockerCpuPenaltyPass(trackedSessions, { config: cpuPenaltyConfig }) : null;
       const results = await Promise.all(sessions.map(lookup));
-      lastRunning = results.map(([, running]) => running);
+      await penaltyPass;
+      lastRunning = results.map(result => (idleChat ? result.running : result[1]));
       lookups++;
-      await sleep(60_000 / 95);
+      await sleep(idleChat ? 30_000 : 60_000 / 95);
     }
     const own = process.cpuUsage(ownBefore);
     bot = { lookups, lastRunning, childCpu: (await childCpuSeconds()) - cpuBefore, ownCpu: (own.user + own.system) / 1e6 };
@@ -153,7 +163,7 @@ try {
   if (bot) {
     const botLines = await readLines(botLog);
     const statusFor = session => botLines.filter(line => line.startsWith(`$ --status ${session}`)).length;
-    console.log(`\nbot callers (4 per task, ${bot.lookups} lookup rounds = ${perMin(bot.lookups)}/min per caller per task; HIVE_MIND_DOCKER_STATUS_MIN_INTERVAL_MS=${intervalMs ?? 'unset'}):`);
+    console.log(`\nbot callers (${idleChat ? 'idle chat: isolation-state reconciliation + CPU penalty every 30 s' : '4 per task'}, ${bot.lookups} lookup rounds = ${perMin(bot.lookups)}/min per caller per task; HIVE_MIND_DOCKER_STATUS_MIN_INTERVAL_MS=${intervalMs ?? 'unset'}):`);
     for (const session of sessions) console.log(`  $ --status ${session.replace(`-${runId}`, '')}: ${perMin(statusFor(session))}/min`);
     const docker = botLines.filter(line => line.startsWith('docker '));
     console.log(`  docker processes (the bot's own + those inside $ --status): ${perMin(docker.length)}/min (${perMin(docker.length / taskCount)}/min per task)`);

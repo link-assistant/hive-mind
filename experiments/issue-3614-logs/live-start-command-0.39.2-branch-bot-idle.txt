@@ -1,0 +1,13 @@
+start-command version: 0.39.2; 3 tasks; 60 s window; image alpine:3.20; hive-mind src /tmp/gh-issue-solver-1792855100658/src
+
+start-command detached monitors (all 3 tasks, 65 s):
+  docker processes: 0 → 0.0/min per task
+  monitor shells' CPU (4 processes, incl. their reaped docker children): 0.000 cores (0.000 per task)
+
+bot callers (idle chat: isolation-state reconciliation + CPU penalty every 30 s, 2 lookup rounds = 1.8/min per caller per task; HIVE_MIND_DOCKER_STATUS_MIN_INTERVAL_MS=unset):
+  $ --status hive-3614-live-1: 1.8/min
+  $ --status hive-3614-live-2: 1.8/min
+  $ --status hive-3614-live-3: 1.8/min
+  docker processes (the bot's own + those inside $ --status): 12.9/min (4.3/min per task)
+  all shimmed processes: 18.4/min; last isSessionRunning: [true,true,true]
+  bot child-process CPU: 2.30 s in 65 s = 0.035 cores; bot's own code: 0.001 cores

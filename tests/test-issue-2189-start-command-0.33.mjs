@@ -178,14 +178,14 @@ assert(diagnosis?.cause === KILL_CAUSE_OUT_OF_MEMORY, `a killed session with onl
 assert(sections.join('\n').includes('v8-heap-limit'), 'the Telegram/PR section names the mechanism');
 
 // ---------------------------------------------------------------------------
-// 4. Both images pin the version that delivers all of the above
+// 4. All images pin the version that delivers all of the above
 // ---------------------------------------------------------------------------
 console.log('\n4. Image pins\n');
 
-for (const file of ['Dockerfile', 'Dockerfile.dind']) {
+for (const file of ['Dockerfile', 'Dockerfile.dind', 'coolify/Dockerfile', 'Dockerfile.e2e']) {
   const text = await fs.readFile(path.join(repoRoot, file), 'utf8');
   const pins = [...text.matchAll(/start-command@(\d+\.\d+\.\d+)/g)].map(match => match[1]);
-  assert(pins.length > 0 && pins.every(version => version === '0.39.0'), `${file} installs current start-command@0.39.0, which includes the 0.33.0 fixes (found ${JSON.stringify(pins)})`);
+  assert(pins.length > 0 && pins.every(version => version === '0.39.2'), `${file} installs current start-command@0.39.2, which includes the 0.33.0 fixes (found ${JSON.stringify(pins)})`);
 }
 
 printSummary('Issue #2189 — start-command 0.33.0 adoption');

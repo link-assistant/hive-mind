@@ -86,6 +86,16 @@ test('a bare 403 without a response block is recovered from the concatenated sum
   assert.equal(result.subscriptionError?.kind, 'access_denied');
 });
 
+test('a terminal access refusal supersedes an earlier quota rejection', { timeout: 15000 }, async () => {
+  const rejected = { ...warning, rate_limit_info: { ...warning.rate_limit_info, status: 'rejected', utilization: 1 } };
+  const { result, calls } = await replay({ events: [init, working, rejected], rawLines });
+  assert.equal(result.subscriptionError?.kind, 'access_denied');
+  assert.equal(result.limitReached, false, 'an access refusal must not schedule a quota reset retry');
+  assert.equal(result.limitResetTime, null);
+  assert.match(result.errorInfo.message, /HTTP 403/);
+  assert.equal(calls, 1);
+});
+
 test('ordinary prose and a file permission error remain meaningful', () => {
   assert.equal(isMeaningfulErrorText('EACCES: permission denied opening a file'), true);
   assert.equal(isMeaningfulErrorText('API Error: 400 prompt is too long'), true);

@@ -1166,8 +1166,8 @@ export const executeClaudeCommand = async params => {
         }
       }
       if (commandFailed) {
-        // Check for usage limit errors first (more specific)
-        const limitInfo = crossCheckedLimit?.isUsageLimit ? crossCheckedLimit : detectUsageLimit(lastMessage);
+        // A terminal account block supersedes stale quota evidence (issue #3759).
+        const limitInfo = subscriptionError ? { isUsageLimit: false } : crossCheckedLimit?.isUsageLimit ? crossCheckedLimit : detectUsageLimit(lastMessage);
         if (limitInfo.isUsageLimit) {
           limitReached = true;
           limitResetTime = limitInfo.resetTime;

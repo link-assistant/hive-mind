@@ -69,6 +69,16 @@ export function parseCliArgumentsWithLino({ argv = process.argv, commandName = '
       yargs: ({ yargs, getenv: getenvHelper }) => {
         const parser = yargs.exitProcess(false);
         configuredParser = createYargsConfig ? createYargsConfig(parser, getenvHelper) : parser;
+        // makeConfig reserves -c for configuration. Preserve an application's
+        // existing -c (Hive's concurrency), keeping --configuration available.
+        const options = configuredParser.getOptions();
+        const aliases = options.alias;
+        const applicationOwner = Object.entries(aliases).find(([key, values]) => key !== 'configuration' && values.includes('c'));
+        if (applicationOwner) {
+          aliases.configuration = (aliases.configuration || []).filter(alias => alias !== 'c');
+          // yargs copied the configuration string type onto its alias too.
+          if (!options.string.includes(applicationOwner[0])) options.string = options.string.filter(key => key !== 'c');
+        }
         return configuredParser.exitProcess(false);
       },
     });

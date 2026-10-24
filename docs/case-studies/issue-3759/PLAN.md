@@ -27,3 +27,5 @@ Local verification complete: 17 issue regressions, all ten focused suites and al
 Upstream follow-up posted: https://github.com/anthropics/claude-code/issues/103820#issuecomment-6387013641. Full source log hash matches the downloaded gist. `origin/main` was already an ancestor of the prepared branch at the initial fetch.
 
 CI investigation: run 40115790126 was created after implementation commit `7b3ece270` and checked that SHA. Its `detect-changes` job failed at the dependency-freshness prerequisite (49 stale, 0 unresolved); code jobs were skipped. The retained job log identifies each stale pin. Updated dependency freshness passes locally; the refreshed dependency set is being revalidated before final publication.
+
+Dependency compatibility verification caught the Formal AI bootstrap/image mismatch and lino-arguments 0.4.0 reserving Hive's `-c`. Runtime/test pins were aligned; the adapter retains the application alias and numeric type. Eight alias regressions, 33 Hive outcome tests and 25 input diagnostic tests pass. The complete refreshed suite is being rerun before completion.

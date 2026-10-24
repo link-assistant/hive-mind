@@ -81,6 +81,10 @@ const ISOLATION_BACKEND = (config.isolation || getenv('TELEGRAM_ISOLATION', ''))
 const { initializeTelegramContainerResourceLimits, initializeTelegramDockerCpuPenalty } = await import('./telegram-container-resource-limits.lib.mjs');
 const CONTAINER_RESOURCE_LIMITS = initializeTelegramContainerResourceLimits(config, ISOLATION_BACKEND);
 const CONTAINER_CPU_PENALTY = initializeTelegramDockerCpuPenalty(config, ISOLATION_BACKEND);
+// Issue #3614: rate limit and share every Docker/session status check.
+const { configureDockerStatusMinIntervalMs } = await import('./status-check-cache.lib.mjs');
+const DOCKER_STATUS_MIN_INTERVAL_MS = configureDockerStatusMinIntervalMs(config.dockerStatusMinIntervalMs);
+if (VERBOSE) console.log(`[VERBOSE] Status checks per container/session: at most one every ${DOCKER_STATUS_MIN_INTERVAL_MS}ms`);
 let isolationRunner = null;
 if (ISOLATION_BACKEND) {
   if (!['screen', 'tmux', 'docker'].includes(ISOLATION_BACKEND)) {
@@ -177,7 +181,7 @@ const { resolveIsolation, createIsolationAwareQueueCallback } = await import('./
 const limitsLib = await import('./limits.lib.mjs');
 const { formatUsageMessage, formatCodexLimitsSection, getAllCachedLimits } = limitsLib;
 const { handleShowLimitsFlag, captureStartSnapshotAndAppend } = await import('./telegram-show-limits.lib.mjs'); // #594
-const { getVersionInfo, formatVersionMessage } = await import('./version-info.lib.mjs');
+const { getSharedVersionInfo, formatVersionMessage } = await import('./version-info.lib.mjs');
 const { escapeMarkdown, escapeMarkdownKeepingCodeSpans, escapeMarkdownV2, cleanNonPrintableChars } = await import('./telegram-markdown.lib.mjs');
 const { revealHiddenCharacters } = await import('./github-url-recovery.lib.mjs'); // #2194
 
@@ -418,7 +422,7 @@ bot.command(
     const fetchingMessage = await ctx.reply(t('telegram.gathering_version', {}, { locale: versionLocale }), {
       reply_to_message_id: ctx.message.message_id,
     });
-    const result = await getVersionInfo(VERBOSE);
+    const result = await getSharedVersionInfo(VERBOSE);
     if (!result.success) return await safeEditMessageText(ctx.telegram, fetchingMessage.chat.id, fetchingMessage.message_id, undefined, `❌ ${escapeMarkdownV2(result.error, { preserveCodeBlocks: true })}`, { parse_mode: 'MarkdownV2', fallbackLocale: versionLocale, verbose: VERBOSE });
     await safeEditMessageText(ctx.telegram, fetchingMessage.chat.id, fetchingMessage.message_id, undefined, t('telegram.version_information_title', {}, { locale: versionLocale }) + '\n\n' + formatVersionMessage(result.versions, { locale: versionLocale }), { parse_mode: 'Markdown', fallbackLocale: versionLocale, verbose: VERBOSE });
   })
@@ -1084,7 +1088,7 @@ if (VERBOSE) {
 // The launcher handles deleteWebhook + bot.launch() with retry on transient errors.
 // Non-retryable errors (401 Unauthorized) cause immediate exit.
 const launchAbortController = new AbortController();
-let sessionMonitoringTimer = null;
+let sessionMonitoring = null;
 let formalAiMaintenance = null;
 let routerMaintenance = null;
 let mergedPullRequestSweeper = null; // issue #3356: merges done outside Hive Mind
@@ -1094,11 +1098,12 @@ let launchAnnouncementShown = false;
 // how each tracked session ended so /queue lists it as Completed or Failed.
 addSessionCompletionListener(event => getSolveQueue({ verbose: VERBOSE }).recordSessionCompletion(event));
 function startSessionMonitoringOnce() {
-  if (sessionMonitoringTimer) return;
+  if (sessionMonitoring) return;
   // Issue #2134: the monitor needs the isolation runner to start a recovery
   // working session when `--on-session-kill=resume` is in effect.
   // Issue #2801: it also applies and lifts the Docker task CPU penalty.
-  sessionMonitoringTimer = startSessionMonitoring(bot, VERBOSE, 30000, { isolationRunner, cpuPenalty: CONTAINER_CPU_PENALTY });
+  // Issue #3614: the monitor is a self-rescheduling poller that never overlaps itself.
+  sessionMonitoring = startSessionMonitoring(bot, VERBOSE, 30000, { isolationRunner, cpuPenalty: CONTAINER_CPU_PENALTY });
 }
 // Issue #2146 (PR #2147 review): stop the Formal AI sidecar once no Formal AI
 // task holds a lease, then — while the host is idle — update its image (with a
@@ -1252,7 +1257,7 @@ const handleShutdownSignal = createShutdownHandler({
   },
   cleanup: () => {
     launchAbortController.abort();
-    if (sessionMonitoringTimer) clearInterval(sessionMonitoringTimer);
+    sessionMonitoring?.stop();
     formalAiMaintenance?.stop();
     routerMaintenance?.stop();
     mergedPullRequestSweeper?.stop();

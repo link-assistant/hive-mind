@@ -57,6 +57,15 @@ export function addCliCompatibilityAliases(parsed, { positionalAliases = [] } = 
 
 export function parseCliArgumentsWithLino({ argv = process.argv, commandName = 'cli', createYargsConfig, positionalAliases = [], lenv = { enabled: true }, env = { enabled: false }, getenv: getenvOptions = { enabled: true } } = {}) {
   const fullArgv = normalizeCliArgs(ensureFullArgv(argv, commandName));
+  // lino-arguments reads -c as a configuration path before invoking our
+  // schema. Hive has always used it for concurrency: expand it before that
+  // first pass, preserving --configuration and arguments after --.
+  if (commandName === 'hive') {
+    for (let index = 2; index < fullArgv.length && fullArgv[index] !== '--'; index++) {
+      if (fullArgv[index] === '-c') fullArgv[index] = '--concurrency';
+      else if (/^-c=?[+-]?\d/.test(fullArgv[index])) fullArgv[index] = `--concurrency=${fullArgv[index].slice(2).replace(/^=/, '')}`;
+    }
+  }
   let configuredParser = null;
   let parsed;
 
@@ -69,6 +78,18 @@ export function parseCliArgumentsWithLino({ argv = process.argv, commandName = '
       yargs: ({ yargs, getenv: getenvHelper }) => {
         const parser = yargs.exitProcess(false);
         configuredParser = createYargsConfig ? createYargsConfig(parser, getenvHelper) : parser;
+        // lino-arguments supplies -c for configuration. Hive already owns -c
+        // for concurrency; keep the application's alias and the explicit
+        // --configuration option without registering two owners (0.4+).
+        const options = configuredParser.getOptions();
+        const aliases = options.alias;
+        const owner = Object.entries(aliases).find(([key, names]) => key !== 'configuration' && names.includes('c'));
+        if (owner) {
+          aliases.configuration = (aliases.configuration || []).filter(name => name !== 'c');
+          // yargs propagates the built-in string type to -c when registering
+          // it. Drop that type too when the application owns a numeric flag.
+          if (!options.string.includes(owner[0])) options.string = options.string.filter(name => name !== 'c');
+        }
         return configuredParser.exitProcess(false);
       },
     });

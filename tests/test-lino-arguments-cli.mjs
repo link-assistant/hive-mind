@@ -6,6 +6,8 @@
 
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { parseCliArgumentsWithLino } from '../src/cli-arguments.lib.mjs';
+import { createYargsConfig as createHiveConfig } from '../src/hive.config.lib.mjs';
 
 const packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
 const releaseWorkflow = await readFile(new URL('../.github/workflows/release.yml', import.meta.url), 'utf8');
@@ -37,7 +39,30 @@ function getWorkflowJob(source, jobName) {
 }
 
 await test('package depends on lino-arguments', () => {
-  assert.equal(packageJson.dependencies?.['lino-arguments'], '^0.3.0');
+  assert.equal(packageJson.dependencies?.['lino-arguments'], '^0.4.0');
+});
+
+await test('Hive keeps its concurrency alias without conflicting with the configuration alias', () => {
+  for (const args of [[], ['-c', '6'], ['-c6'], ['-c=6'], ['--concurrency', '6']]) {
+    const parsed = parseCliArgumentsWithLino({ argv: args, commandName: 'hive', createYargsConfig: createHiveConfig, lenv: { enabled: false } });
+    assert.equal(parsed.concurrency, args.length ? 6 : 2);
+    assert.equal(parsed.configuration, undefined);
+  }
+});
+
+await test('commands without a competing alias retain -c for configuration', () => {
+  const parsed = parseCliArgumentsWithLino({ argv: ['-c', 'missing-config.lenv'], lenv: { enabled: false } });
+  assert.equal(parsed.configuration, 'missing-config.lenv');
+});
+
+await test('Hive retains the explicit --configuration option', () => {
+  const parsed = parseCliArgumentsWithLino({ argv: ['--configuration', 'missing-config.lenv', '-c', '4'], commandName: 'hive', createYargsConfig: createHiveConfig, lenv: { enabled: false } });
+  assert.equal(parsed.configuration, 'missing-config.lenv');
+  assert.equal(parsed.concurrency, 4);
+});
+
+await test('unrelated ambiguous aliases still fail validation', () => {
+  assert.throws(() => parseCliArgumentsWithLino({ argv: [], lenv: { enabled: false }, createYargsConfig: parser => parser.option('one', { alias: 'x' }).option('two', { alias: 'x' }) }), /Ambiguous option alias X/);
 });
 
 await test('CLI argument parsers route through lino-arguments adapter', async () => {

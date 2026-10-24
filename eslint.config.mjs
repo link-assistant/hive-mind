@@ -14,6 +14,8 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath, URL } from 'node:url';
 import promisePlugin from 'eslint-plugin-promise';
 import noSyncInBotProcess from './eslint-rules/no-sync-in-bot-process.mjs';
+import noLoginShellProbe from './eslint-rules/no-login-shell-probe.mjs';
+import noOverlappingInterval from './eslint-rules/no-overlapping-interval.mjs';
 import requireExecTimeout from './eslint-rules/require-exec-timeout.mjs';
 import noSlowAwaitInTelegramHandler from './eslint-rules/no-slow-await-in-telegram-handler.mjs';
 import { computeImportClosure } from './eslint-rules/bot-import-closure.mjs';
@@ -77,9 +79,16 @@ const outputSanitizationPlugin = {
 // - hive/no-slow-await-in-telegram-handler: handlers hand slow work to
 //   detachHandler/runInBackground instead of awaiting it;
 // - hive/require-exec-timeout: docker/git/gh child processes get a timeout.
+// Issue #3614: polling from the bot must not multiply processes, so:
+// - hive/no-login-shell-probe: status probes run without command-stream's
+//   `sh -l -c` wrapper;
+// - hive/no-overlapping-interval: pollers use startSerialPoller, not
+//   setInterval.
 const hivePlugin = {
   rules: {
     'no-sync-in-bot-process': noSyncInBotProcess,
+    'no-login-shell-probe': noLoginShellProbe,
+    'no-overlapping-interval': noOverlappingInterval,
     'require-exec-timeout': requireExecTimeout,
     'no-slow-await-in-telegram-handler': noSlowAwaitInTelegramHandler,
   },
@@ -134,6 +143,7 @@ export default [
         // Web API globals available in Node.js 18+
         AbortController: 'readonly',
         AbortSignal: 'readonly',
+        structuredClone: 'readonly',
 
         // Custom globals
         use: 'readonly',
@@ -253,6 +263,8 @@ export default [
     },
     rules: {
       'hive/no-sync-in-bot-process': ['error', { baseline: readBaseline('no-sync-in-bot-process') }],
+      'hive/no-login-shell-probe': ['error', { baseline: readBaseline('no-login-shell-probe') }],
+      'hive/no-overlapping-interval': ['error', { baseline: readBaseline('no-overlapping-interval') }],
       'promise/catch-or-return': ['error', { allowFinally: true }],
     },
   },

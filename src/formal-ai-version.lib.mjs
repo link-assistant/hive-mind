@@ -30,7 +30,7 @@ export const FORMAL_AI_MEMORY_CONTRACT_MINIMUM_VERSION = '0.336.0';
  * `src/formal-ai-updater.lib.mjs` replaces it with the newest published image
  * while no Formal AI task holds a lease. 0.339.0 restored `cargo install
  * formal-ai --locked` on stock Rust images (formal-ai#988) and 0.339.1 routed
- * command execution through the published command-stream component. 0.355.0 is
+ * command execution through the published command-stream component. 0.355.7 is
  * the current release and remains a safe bootstrap: its Cargo.lock carries no
  * `openssl-sys`, its rust-version matches the 1.99 builder, and the new GPU
  * stack (`wgpu`) sits behind the non-default `provenance-gpu` feature, so the
@@ -41,7 +41,7 @@ export const FORMAL_AI_MEMORY_CONTRACT_MINIMUM_VERSION = '0.336.0';
  * CLI/health contract is unchanged.
  * Verified against the published crates; see docs/case-studies/issue-2186.
  */
-export const FORMAL_AI_BOOTSTRAP_VERSION = '0.355.0';
+export const FORMAL_AI_BOOTSTRAP_VERSION = '0.355.7';
 
 export const parseFormalAiVersion = stdout => {
   const line = String(stdout || '')

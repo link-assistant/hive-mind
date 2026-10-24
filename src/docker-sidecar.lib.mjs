@@ -319,12 +319,27 @@ export const reconcileSidecarLeases = async (leases, { run = execFileAsync, time
  * @returns {{stop: () => void}}
  */
 export const startSidecarMaintenance = ({ runTick, logPrefix = 'sidecar-maintenance', env = process.env, log = null, verbose = false, intervalMs, setIntervalImpl = setInterval, clearIntervalImpl = clearInterval } = {}) => {
+  // Issue #3614: a tick that outlasts the interval (a hung Docker daemon, a
+  // long image update) is not started again on top of itself; the overdue tick
+  // is skipped and the next one runs on schedule.
+  let inFlight = false;
   const tick = () => {
-    runTick({ env, log, verbose }).catch(error => {
-      console.error(`[${logPrefix}] tick failed: ${error?.message || error}`);
-    });
+    if (inFlight) {
+      if (verbose) console.log(`[VERBOSE] ${logPrefix}: previous tick still running; skipping this one (issue #3614)`);
+      return;
+    }
+    inFlight = true;
+    Promise.resolve()
+      .then(() => runTick({ env, log, verbose }))
+      .catch(error => {
+        console.error(`[${logPrefix}] tick failed: ${error?.message || error}`);
+      })
+      .finally(() => {
+        inFlight = false;
+      });
   };
 
+  // hive-interval-ok: ticks are skipped while one is still in flight (see above).
   const timer = setIntervalImpl(tick, intervalMs);
   timer?.unref?.();
   tick();

@@ -1,0 +1,16 @@
+start-command version: 0.38.0; 3 tasks; 60 s window; image alpine:3.20; hive-mind src /tmp/hm-main/src
+
+start-command detached monitors (all 3 tasks, 62 s):
+  docker processes: 246 → 79.3/min per task
+    26.7/min per task  docker exec <task> sh -c __start_command_cgroup_dir() { __scd_id=$(docker inspect -f '{{.I
+    26.4/min per task  docker inspect -f {{.State.Running}} <task>
+    26.1/min per task  docker inspect -f {{.HostConfig.CgroupnsMode}} <task>
+  monitor shells' CPU (6 processes, incl. their reaped docker children): 0.309 cores (0.103 per task)
+
+bot callers (4 per task, 20 lookup rounds = 19.3/min per caller per task; HIVE_MIND_DOCKER_STATUS_MIN_INTERVAL_MS=unset):
+  $ --status hive-3614-live-1: 38.7/min
+  $ --status hive-3614-live-2: 38.7/min
+  $ --status hive-3614-live-3: 38.7/min
+  docker processes (the bot's own + those inside $ --status): 290.0/min (96.7/min per task)
+  all shimmed processes: 405.9/min; last isSessionRunning: [true,true,true]
+  bot child-process CPU: 71.40 s in 62 s = 1.150 cores; bot's own code: 0.050 cores

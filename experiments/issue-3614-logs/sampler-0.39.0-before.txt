@@ -1,0 +1,36 @@
+Published start-command 0.39.0
+FAIL unreadable stream stops after one exec, without liveness checks or sleep: Expected values to be strictly equal:
+
+4 !== 1
+
+FAIL unreadable per-round counters stop after the stream and one fallback exec: Expected values to be strictly equal:
+
+4 !== 2
+
+FAIL failed rounds back off from five seconds: Expected values to be strictly deep-equal:
++ actual - expected
+
+  [
+    5,
++   5,
++   5
+-   10,
+-   20
+  ]
+
+FAIL backoff is capped at sixty seconds: Expected values to be strictly deep-equal:
++ actual - expected
+
+  [
+    40,
++   40,
++   40
+-   60,
+-   60
+  ]
+
+PASS backoff respects intervals over sixty seconds
+PASS readable local counters retain the five-second default
+PASS readable remote counters use one stream and the configured interval
+PASS off disables sampling
+Failures: 4

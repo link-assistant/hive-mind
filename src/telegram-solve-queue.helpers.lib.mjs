@@ -1,10 +1,8 @@
 #!/usr/bin/env node
 
-import { exec } from 'node:child_process';
-import { promisify } from 'node:util';
 import { lt } from './limits-i18n.lib.mjs';
-
-const execAsync = promisify(exec);
+import { statusCheckCache } from './status-check-cache.lib.mjs';
+import { runProbe } from './status-probes.lib.mjs';
 
 /**
  * Build a clickable, human-readable link to a queued issue/PR for the
@@ -372,6 +370,38 @@ export async function getRunningSessionItems(verbose = false) {
   }
 }
 
+// Issue #3614: the queue counted each tool with its own `pgrep` through a shell
+// (`exec`), once per tool for every `canStartCommand`, /limits and /queue. One
+// `pgrep` (no shell) now lists every known tool at once, and the listing is
+// shared through the status-check cache, so it runs at most once per
+// HIVE_MIND_DOCKER_STATUS_MIN_INTERVAL_MS however many callers ask.
+export const PGREP_TOOL_NAMES = Object.freeze(['claude', 'agent', 'codex', 'qwen', 'gemini']);
+const PROCESS_NAME_PATTERN = /^[\w.+-]+$/;
+
+/**
+ * Parse `pgrep -l` output into `{pid, name}` records.
+ * @param {string} stdout
+ * @returns {Array<{pid: string, name: string}>}
+ */
+export function parsePgrepOutput(stdout) {
+  return String(stdout || '')
+    .trim()
+    .split('\n')
+    .filter(line => line.trim())
+    .map(line => {
+      const parts = line.trim().split(/\s+/);
+      return { pid: parts[0], name: parts.slice(1).join(' ') };
+    })
+    .filter(p => p.pid);
+}
+
+async function listProcessesByExactName(names) {
+  const result = await runProbe('pgrep', ['-l', '-x', names.join('|')]);
+  // pgrep exits 1 when nothing matches; anything else is a failed probe.
+  if (result.code !== 0 && result.code !== 1) throw new Error(result.error || `pgrep exited with code ${result.code}`);
+  return parsePgrepOutput(result.stdout);
+}
+
 /**
  * Count running processes by name.
  * @param {string} processName - Process name to search for (e.g., 'claude', 'agent', 'codex', 'gemini')
@@ -380,21 +410,10 @@ export async function getRunningSessionItems(verbose = false) {
  */
 export async function getRunningProcesses(processName, verbose = false) {
   try {
-    const { stdout } = await execAsync(`pgrep -l -x ${processName} 2>/dev/null || true`);
-    const lines = stdout
-      .trim()
-      .split('\n')
-      .filter(line => line.trim());
-
-    const processes = lines
-      .map(line => {
-        const parts = line.trim().split(/\s+/);
-        return {
-          pid: parts[0],
-          name: parts.slice(1).join(' ') || processName,
-        };
-      })
-      .filter(p => p.pid);
+    if (!PROCESS_NAME_PATTERN.test(String(processName || ''))) throw new Error(`invalid process name ${JSON.stringify(processName)}`);
+    const known = PGREP_TOOL_NAMES.includes(processName);
+    const listing = await statusCheckCache.get(known ? 'pgrep' : `pgrep:${processName}`, () => listProcessesByExactName(known ? PGREP_TOOL_NAMES : [processName]));
+    const processes = listing.filter(p => p.name === processName);
 
     if (verbose) {
       console.log(`[VERBOSE] /queue found ${processes.length} running ${processName} processes`);

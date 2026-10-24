@@ -74,7 +74,7 @@ await test('installWithRetry disables package bin links so versioned aliases can
   let command = '';
   const result = await installWithRetry({
     packageName: 'command-stream',
-    alias: 'command-stream-v-2.4.0',
+    alias: aliasForPackage('command-stream'),
     globalRoot: '/tmp/nonexistent-root',
     runner: async value => {
       calls++;
@@ -84,14 +84,14 @@ await test('installWithRetry disables package bin links so versioned aliases can
     sleeper: async () => {},
   });
   assert.deepEqual({ ok: result.ok, attempt: result.attempt, calls }, { ok: true, attempt: 1, calls: 1 });
-  assert.match(command, /npm install -g --no-bin-links command-stream-v-2\.4\.0@npm:command-stream@2\.4\.0/);
+  assert.equal(command, `npm install -g --no-bin-links ${aliasForPackage('command-stream')}@npm:command-stream@${USE_M_PACKAGE_VERSIONS['command-stream']}`);
 });
 
 await test('installWithRetry retries on ENOTEMPTY then succeeds', async () => {
   let calls = 0;
   const result = await installWithRetry({
     packageName: 'command-stream',
-    alias: 'command-stream-v-2.4.0',
+    alias: aliasForPackage('command-stream'),
     globalRoot: '/tmp/nonexistent-root',
     runner: async () => {
       calls++;
@@ -129,7 +129,7 @@ await test('installWithRetry aborts immediately on non-retryable error', async (
   let calls = 0;
   const result = await installWithRetry({
     packageName: 'command-stream',
-    alias: 'command-stream-v-2.4.0',
+    alias: aliasForPackage('command-stream'),
     globalRoot: '/tmp/nonexistent-root',
     runner: async () => {
       calls++;
@@ -148,7 +148,7 @@ await test('installWithRetry aborts immediately on non-retryable error', async (
 await test('installWithRetry treats package-present-on-disk as recovered success', async () => {
   const tmp = mkdtempSync(join(tmpdir(), 'preinstall-1724-'));
   try {
-    const alias = 'command-stream-v-2.4.0';
+    const alias = aliasForPackage('command-stream');
     mkdirSync(join(tmp, alias));
     writeFileSync(join(tmp, alias, 'package.json'), JSON.stringify({ name: 'command-stream', version: '1.0.0' }));
     let calls = 0;

@@ -1,0 +1,46 @@
+{
+  "src/agent.lib.mjs": {
+    "count": 1,
+    "reason": "Starts the agent CLI itself for a solve run (solver process); it is the task's own long-running command, not a status probe."
+  },
+  "src/claude.lib.mjs": {
+    "count": 4,
+    "reason": "Solver-side: `which start-agent` once per run and the claude CLI launch itself; never called on a bot polling path."
+  },
+  "src/claude.runtime-switch.lib.mjs": {
+    "count": 4,
+    "reason": "`which bun`, `which node` and `which claude` during the one-time claude runtime switch command; not polled."
+  },
+  "src/codex.lib.mjs": {
+    "count": 1,
+    "reason": "Solver-side `which start-agent` once per codex run; never called on a bot polling path."
+  },
+  "src/docker-container-control.lib.mjs": {
+    "count": 1,
+    "reason": "`docker kill` is a one-time user action (/stop, /kill), bounded by DOCKER_KILL_TIMEOUT_MS, and invalidates the shared status cache afterwards."
+  },
+  "src/docker-disk-space.lib.mjs": {
+    "count": 1,
+    "reason": "`docker info` once per Docker task launch as a disk-space preflight; not polled."
+  },
+  "src/gemini.lib.mjs": {
+    "count": 1,
+    "reason": "Starts the gemini CLI itself for a solve run (solver process); not a status probe."
+  },
+  "src/isolation-runner.docker-cp.lib.mjs": {
+    "count": 1,
+    "reason": "`docker cp` copies a result file out of a finished container once; not polled."
+  },
+  "src/isolation-runner.lib.mjs": {
+    "count": 5,
+    "reason": "One-time lifecycle actions: `$ --stop` (invalidates the shared cache), the start-gate `docker exec`, `docker rm -f` at completion, and the `docker image inspect` / `docker info` launch preflights. The polled status probes in this module go through runProbe and the shared cache (issue #3614)."
+  },
+  "src/isolation-runner.resume.lib.mjs": {
+    "count": 3,
+    "reason": "`$ --resume` / `$ --resume-all` are one-time user actions that start a session; the login shell gives start-command the user's PATH."
+  },
+  "src/start-command-cli.lib.mjs": {
+    "count": 2,
+    "reason": "Fallbacks only: `which $` when $ is not on the bot's PATH (a miss is cached for 60 s), and the login-shell `$` query when execFile cannot find the binary (exit 127), so a PATH set only in the login profile keeps working."
+  }
+}

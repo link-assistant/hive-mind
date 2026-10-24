@@ -1,0 +1,38 @@
+{
+  "src/bot-lifecycle.lib.mjs": {
+    "count": 1,
+    "reason": "The heartbeat tick is synchronous (it logs a resource snapshot), so it can never overlap itself."
+  },
+  "src/docker-sidecar.lib.mjs": {
+    "count": 1,
+    "reason": "Default parameter of startSidecarMaintenance; the tick it schedules skips while the previous one is still in flight (issue #3614, covered by tests/serial-poller-3614.test.mjs)."
+  },
+  "src/formal-ai-maintenance.lib.mjs": {
+    "count": 1,
+    "reason": "Passed through to startSidecarMaintenance, whose tick skips while the previous one is still in flight."
+  },
+  "src/github-rate-limit.lib.mjs": {
+    "count": 1,
+    "reason": "A synchronous countdown log line once a minute while waiting for a rate-limit reset; starts no work."
+  },
+  "src/merged-pr-sweeper.lib.mjs": {
+    "count": 1,
+    "reason": "The sweep tick returns the running sweep instead of starting a second one (`if (running) return running`)."
+  },
+  "src/router-auth-guard.lib.mjs": {
+    "count": 1,
+    "reason": "The guard's check is a synchronous filesystem inspection; it cannot overlap itself."
+  },
+  "src/router-maintenance.lib.mjs": {
+    "count": 1,
+    "reason": "Passed through to startSidecarMaintenance, whose tick skips while the previous one is still in flight."
+  },
+  "src/tool-retry.lib.mjs": {
+    "count": 1,
+    "reason": "A countdown log line once a minute while a retry waits; starts no process."
+  },
+  "src/use-m-single-flight.lib.mjs": {
+    "count": 1,
+    "reason": "Touches the lock file's mtime with fire-and-forget utimes; starts no process and takes microseconds."
+  }
+}

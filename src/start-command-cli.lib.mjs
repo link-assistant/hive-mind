@@ -11,6 +11,7 @@
  */
 
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
+import { runProbe, STATUS_PROBE_TIMEOUT_MS } from './status-probes.lib.mjs';
 
 /** The message every wrapper reports when `$` is not installed. */
 export const START_COMMAND_MISSING_ERROR = '`$` (start-command) binary not found on PATH. Install link-foundation/start.';
@@ -43,12 +44,38 @@ export async function getCommandStreamDollar() {
   }
 }
 
-/**
- * Find the `$` CLI binary path.
- *
- * @returns {Promise<string|null>} Path to the `$` binary, or null when absent
- */
-export async function findStartCommandBinary() {
+// Issue #3614: `findStartCommandBinary()` ran `which $` through command-stream's
+// login shell (`sh -l -c`) before every `$ --status`, `$ --list` and launch —
+// a process pair per status check. The answer only changes when PATH or the
+// installation changes, so a found path is kept for as long as PATH is the
+// same, and a miss is re-checked after a minute (an operator may install `$`
+// while the bot runs).
+const START_COMMAND_MISS_TTL_MS = 60_000;
+let startCommandBinaryCache = null; // { pathEnv, value, at }
+let startCommandBinaryInflight = null; // { pathEnv, promise }
+
+/** Look `$` up on the bot's own PATH without starting a process. */
+async function findExecutableOnPath(name, pathEnv) {
+  const { access, constants } = await import('node:fs/promises');
+  const path = await import('node:path');
+  for (const dir of String(pathEnv || '').split(path.delimiter)) {
+    if (!dir) continue;
+    const candidate = path.join(dir, name);
+    try {
+      await access(candidate, constants.X_OK);
+      return candidate;
+    } catch {
+      // Not in this directory.
+    }
+  }
+  return null;
+}
+
+async function lookupStartCommandBinary(pathEnv) {
+  const direct = await findExecutableOnPath('$', pathEnv);
+  if (direct) return direct;
+  // A login shell can add directories (~/.bun/bin) the bot's PATH lacks, so a
+  // miss is confirmed the way it always was. This runs at most once a minute.
   try {
     const $ = await getCommandStreamDollar();
     const result = await $({ mirror: false })`which $`;
@@ -58,6 +85,65 @@ export async function findStartCommandBinary() {
     return null;
   }
 }
+
+/**
+ * Find the `$` CLI binary path.
+ *
+ * Cached per PATH value (issue #3614); concurrent callers share one lookup.
+ *
+ * @returns {Promise<string|null>} Path to the `$` binary, or null when absent
+ */
+export async function findStartCommandBinary() {
+  const pathEnv = process.env.PATH || '';
+  const cached = startCommandBinaryCache;
+  if (cached && cached.pathEnv === pathEnv && (cached.value || Date.now() - cached.at < START_COMMAND_MISS_TTL_MS)) {
+    return cached.value;
+  }
+  if (startCommandBinaryInflight?.pathEnv === pathEnv) return startCommandBinaryInflight.promise;
+  const promise = lookupStartCommandBinary(pathEnv);
+  const record = { pathEnv, promise };
+  startCommandBinaryInflight = record;
+  try {
+    const value = await promise;
+    startCommandBinaryCache = { pathEnv, value, at: Date.now() };
+    return value;
+  } finally {
+    if (startCommandBinaryInflight === record) startCommandBinaryInflight = null;
+  }
+}
+
+/** Forget the cached `$` path (tests, and after an in-process install). */
+export function resetStartCommandBinaryCacheForTests() {
+  startCommandBinaryCache = null;
+  startCommandBinaryInflight = null;
+  startCommandNeedsLoginShell = false;
+}
+
+/**
+ * Run a read-only `$` query (`--status`, `--list`) without a shell.
+ *
+ * Issue #3614: command-stream runs every command as `/bin/sh -l -c …`, so each
+ * status check cost a login shell on top of `$` itself. The binary is run
+ * directly; only when that cannot start it (exit 127: `#!/usr/bin/env bun`
+ * with bun only on a login shell's PATH) does it fall back to command-stream,
+ * and the fallback is remembered for the rest of the process.
+ *
+ * @param {string} binPath - Path from findStartCommandBinary()
+ * @param {string[]} args
+ * @param {{run?: Function}} [options]
+ * @returns {Promise<{code: number, stdout: string, stderr: string}>}
+ */
+export async function runStartCommandQuery(binPath, args, { run = runProbe } = {}) {
+  if (!startCommandNeedsLoginShell) {
+    const direct = await run(binPath, args);
+    if (direct.code !== 127) return direct;
+    startCommandNeedsLoginShell = true;
+  }
+  const $ = await getCommandStreamDollar();
+  const result = await $({ mirror: false, signal: AbortSignal.timeout(STATUS_PROBE_TIMEOUT_MS) })`${binPath} ${args}`;
+  return { code: Number.isFinite(result.code) ? result.code : 0, stdout: result.stdout?.toString() || '', stderr: result.stderr?.toString() || '' };
+}
+let startCommandNeedsLoginShell = false;
 
 const VERSION_PROBE_TIMEOUT_MS = 30_000;
 let startCommandVersionPromise = null;

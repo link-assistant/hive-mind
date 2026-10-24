@@ -40,7 +40,7 @@ import { isUnknownDockerExitCode, parseSessionExitFooter, parseSessionListOutput
 export { isUnknownDockerExitCode, parseSessionExitFooter, parseSessionListOutput, parseSessionStatusOutput, parseStartCommandExecutionUuid, readSessionExitFromLog, shouldFallbackToScreenStatus };
 // Issue #2189: the `$` loader and PATH lookup live in their own module so the
 // resume/attach wrappers can use them without importing this runner (a cycle).
-import { findStartCommandBinary, getCommandStreamDollar } from './start-command-cli.lib.mjs';
+import { findStartCommandBinary, getCommandStreamDollar, runStartCommandQuery } from './start-command-cli.lib.mjs';
 export { findStartCommandBinary };
 // Issue #2408: version gate for resume behaviour that changed in start 0.35.0,
 // and the `docker update` limits helper a snapshot resume re-asserts.
@@ -48,6 +48,9 @@ export { getStartCommandVersion } from './start-command-cli.lib.mjs';
 export { applyDockerContainerResourceLimits };
 import { killDockerContainer } from './docker-container-control.lib.mjs';
 export { killDockerContainer };
+// Issue #3614: every status probe goes through one shared rate limit and cache.
+import { invalidateSessionStatus, statusCheckCache } from './status-check-cache.lib.mjs';
+import { getRunningDockerContainerNames, getScreenSessionListing, hasTmuxSession, runProbe } from './status-probes.lib.mjs';
 export { copyFromDockerContainer } from './isolation-runner.docker-cp.lib.mjs'; // Issue #2888
 import { checkDockerDiskSpace } from './docker-disk-space.lib.mjs';
 export { checkDockerDiskSpace, parseDfAvailableKb } from './docker-disk-space.lib.mjs'; // Issue #3469
@@ -552,6 +555,7 @@ export async function executeWithIsolation(command, args, options = {}) {
     }
   }
   const result = await runStartCommand(binPath, startCommandArgs);
+  invalidateSessionStatus(sessionId); // Issue #3614: the bot just changed this session's state.
   if (verbose) {
     const stream = result.success ? console.log : console.error;
     stream(`[VERBOSE] isolation-runner: Output: ${result.output.substring(0, 500)}`);
@@ -652,6 +656,11 @@ export async function executeWithIsolation(command, args, options = {}) {
  * @returns {Promise<{exists: boolean, uuid: string|null, status: string|null, exitCode: number|null, startTime: string|null, endTime: string|null, currentTime: string|null, raw: string}>}
  */
 export async function querySessionStatus(sessionId, verbose = false) {
+  // Issue #3614: one `$ --status` per session per interval, shared by every
+  // caller; each caller gets its own copy of the result.
+  return structuredClone(await statusCheckCache.get(`status:${sessionId}`, () => runSessionStatusQuery(sessionId, verbose)));
+}
+async function runSessionStatusQuery(sessionId, verbose) {
   const binPath = await findStartCommandBinary();
   if (!binPath) {
     if (verbose) {
@@ -660,13 +669,12 @@ export async function querySessionStatus(sessionId, verbose = false) {
     return { exists: false, uuid: null, status: null, exitCode: null, startTime: null, endTime: null, currentTime: null, logPath: null, command: null, isolation: null, workingDirectory: null, sessionName: null, processIds: {}, raw: '', queryError: 'start-command ($) binary not found' };
   }
   try {
-    const $ = await getCommandStreamDollar();
-    const result = await $({ mirror: false })`${binPath} --status ${sessionId} --output-format json`;
-    const stdout = result.stdout?.toString().trim() || '';
+    const result = await runStartCommandQuery(binPath, ['--status', sessionId, '--output-format', 'json']);
+    const stdout = result.stdout.trim();
     if (verbose) {
       console.log(`[VERBOSE] isolation-runner: Status query result: ${stdout.substring(0, 300)}`);
     }
-    return withStatusQueryError(parseSessionStatusOutput(stdout), { code: result.code, stderr: result.stderr?.toString() }); // Issue #2303
+    return withStatusQueryError(parseSessionStatusOutput(stdout), { code: result.code, stderr: result.stderr }); // Issue #2303
   } catch (error) {
     if (verbose) {
       console.log(`[VERBOSE] isolation-runner: Status query error: ${error.message}`);
@@ -688,15 +696,17 @@ export async function querySessionStatus(sessionId, verbose = false) {
  * @returns {Promise<Array<object>>} Normalized session records (see parseSessionListOutput)
  */
 export async function listIsolationSessions(verbose = false) {
+  return structuredClone(await statusCheckCache.get('list', () => runListIsolationSessions(verbose))); // Issue #3614
+}
+async function runListIsolationSessions(verbose) {
   const binPath = await findStartCommandBinary();
   if (!binPath) {
     if (verbose) console.log('[VERBOSE] isolation-runner: Cannot list sessions - $ binary not found');
     return [];
   }
   try {
-    const $ = await getCommandStreamDollar();
-    const result = await $({ mirror: false })`${binPath} --list --output-format json`;
-    const stdout = result.stdout?.toString().trim() || '';
+    const result = await runStartCommandQuery(binPath, ['--list', '--output-format', 'json']);
+    const stdout = result.stdout.trim();
     const sessions = parseSessionListOutput(stdout);
     if (verbose) console.log(`[VERBOSE] isolation-runner: $ --list returned ${sessions.length} session(s)`);
     return sessions;
@@ -731,6 +741,7 @@ export async function stopIsolatedSession(sessionId, verbose = false) {
   try {
     const $ = await getCommandStreamDollar();
     const result = await $({ mirror: false })`${binPath} --stop ${sessionId}`;
+    invalidateSessionStatus(sessionId); // Issue #3614: the next check sees the stop.
     const stdout = result.stdout?.toString() || '';
     const stderr = result.stderr?.toString() || '';
     if (verbose) {
@@ -779,19 +790,12 @@ export async function stopIsolatedSession(sessionId, verbose = false) {
  * @see https://github.com/link-assistant/hive-mind/issues/1545
  */
 export async function checkScreenSessionRunning(sessionName, verbose = false) {
-  try {
-    const $ = await getCommandStreamDollar();
-    const result = await $({ mirror: false })`screen -ls`;
-    const output = result.stdout?.toString() || '';
-    const exists = output.includes(sessionName);
-    if (verbose) {
-      console.log(`[VERBOSE] isolation-runner: screen -ls check for '${sessionName}': ${exists ? 'running' : 'not found'}`);
-    }
-    return exists;
-  } catch {
-    // screen -ls returns exit code 1 when no sessions exist
-    return false;
+  // Issue #3614: one shared `screen -ls` (no shell) answers every session.
+  const exists = (await getScreenSessionListing()).includes(sessionName);
+  if (verbose) {
+    console.log(`[VERBOSE] isolation-runner: screen -ls check for '${sessionName}': ${exists ? 'running' : 'not found'}`);
   }
+  return exists;
 }
 /**
  * Check whether the Docker container backing a native `$ --isolated docker`
@@ -809,18 +813,23 @@ export async function checkScreenSessionRunning(sessionName, verbose = false) {
  * @returns {Promise<boolean>} True if the container exists and is running
  */
 export async function checkDockerContainerRunning(containerName, verbose = false) {
-  try {
-    const $ = await getCommandStreamDollar();
-    const result = await $({ mirror: false, signal: AbortSignal.timeout(DOCKER_CLI_TIMEOUT_MS) })`docker inspect -f ${'{{.State.Running}}'} ${containerName}`;
-    const running = (result.stdout?.toString() || '').trim() === 'true';
-    if (verbose) {
-      console.log(`[VERBOSE] isolation-runner: docker inspect for '${containerName}': ${running ? 'running' : 'not running'}`);
-    }
-    return running;
-  } catch {
-    // `docker inspect` exits non-zero when no such container exists.
-    return false;
+  // Issue #3614: one shared `docker ps` (no shell, at most once per interval)
+  // answers every container instead of a `docker inspect` per container. A
+  // daemon that cannot be queried reads as "not running", as before.
+  const target = String(containerName || '').replace(/^\//, '');
+  let running = Boolean(target) && Boolean((await getRunningDockerContainerNames({ verbose }))?.has(target));
+  // docker inspect also accepts abbreviated IDs. Let Docker resolve them so
+  // ambiguity with stopped containers retains the engine's semantics.
+  if (!running && /^[a-f0-9]{1,63}$/.test(target)) {
+    running = await statusCheckCache.get(`docker-id:${target}`, async () => {
+      const result = await runProbe('docker', ['inspect', '-f', '{{.State.Running}}', target], { timeout: DOCKER_CLI_TIMEOUT_MS });
+      return result.code === 0 && result.stdout.trim() === 'true';
+    });
   }
+  if (verbose) {
+    console.log(`[VERBOSE] isolation-runner: docker ps check for '${containerName}': ${running ? 'running' : 'not running'}`);
+  }
+  return running;
 }
 /**
  * Check whether the Docker container backing a session still exists at all —
@@ -838,20 +847,15 @@ export async function checkDockerContainerRunning(containerName, verbose = false
  */
 export async function checkDockerContainerExists(containerName, verbose = false) {
   if (!containerName) return false;
-  try {
-    const $ = await getCommandStreamDollar();
-    const result = await $({ mirror: false, signal: AbortSignal.timeout(DOCKER_CLI_TIMEOUT_MS) })`docker inspect -f ${'{{.State.Status}}'} ${containerName}`;
-    const code = Number.isFinite(result.code) ? result.code : 0;
-    const state = (result.stdout?.toString() || '').trim();
-    const exists = code === 0 && state !== '';
-    if (verbose) {
-      console.log(`[VERBOSE] isolation-runner: docker inspect state for '${containerName}': ${exists ? state : 'no such container'}`);
-    }
-    return exists;
-  } catch {
-    // `docker inspect` exits non-zero when no such container exists.
-    return false;
+  // Issue #3614: docker runs directly, not through command-stream's login shell.
+  // `docker inspect` exits non-zero when no such container exists.
+  const result = await runProbe('docker', ['inspect', '-f', '{{.State.Status}}', String(containerName)], { timeout: DOCKER_CLI_TIMEOUT_MS });
+  const state = result.stdout.trim();
+  const exists = result.code === 0 && state !== '';
+  if (verbose) {
+    console.log(`[VERBOSE] isolation-runner: docker inspect state for '${containerName}': ${exists ? state : 'no such container'}`);
   }
+  return exists;
 }
 export function parseDockerContainerWritableLayerSizeOutput(output) {
   const text = String(output || '').trim();
@@ -872,22 +876,21 @@ export function parseDockerContainerWritableLayerSizeOutput(output) {
  */
 export async function getDockerContainerWritableLayerSize(containerName, verbose = false) {
   if (!containerName) return null;
-  try {
-    const $ = await getCommandStreamDollar();
-    const result = await $({ mirror: false, signal: AbortSignal.timeout(DOCKER_CLI_TIMEOUT_MS) })`docker inspect --size -f ${'{{.SizeRw}}'} ${containerName}`;
-    const bytes = parseDockerContainerWritableLayerSizeOutput(result.stdout?.toString() || '');
+  // Issue #3614: the session monitor asks this on its tick, so docker runs
+  // directly, not through command-stream's login shell.
+  const result = await runProbe('docker', ['inspect', '--size', '-f', '{{.SizeRw}}', String(containerName)], { timeout: DOCKER_CLI_TIMEOUT_MS });
+  if (result.code !== 0) {
     if (verbose) {
-      const label = bytes === null ? 'unknown' : `${bytes} bytes`;
-      console.log(`[VERBOSE] isolation-runner: docker writable layer size for '${containerName}': ${label}`);
-    }
-    return bytes;
-  } catch (error) {
-    if (verbose) {
-      const stderr = error?.stderr?.toString?.().trim();
-      console.log(`[VERBOSE] isolation-runner: could not inspect writable layer size for '${containerName}': ${stderr || error?.message || error}`);
+      console.log(`[VERBOSE] isolation-runner: could not inspect writable layer size for '${containerName}': ${result.stderr.trim() || result.error || `exit ${result.code}`}`);
     }
     return null;
   }
+  const bytes = parseDockerContainerWritableLayerSizeOutput(result.stdout);
+  if (verbose) {
+    const label = bytes === null ? 'unknown' : `${bytes} bytes`;
+    console.log(`[VERBOSE] isolation-runner: docker writable layer size for '${containerName}': ${label}`);
+  }
+  return bytes;
 }
 /**
  * Release the Docker-only start gate after the writable-layer baseline has been
@@ -980,23 +983,19 @@ export async function finalizeDockerContainerStartGate(containerName, { resource
 }
 /**
  * Check whether a tmux session with the given name still exists.
- * `tmux has-session -t <name>` exits 0 when it exists and non-zero otherwise,
- * so command-stream throwing is treated as "not found".
+ * `tmux has-session -t <name>` exits 0 when it exists and non-zero otherwise.
  *
  * @param {string} sessionName
  * @param {boolean} [verbose]
  * @returns {Promise<boolean>}
  */
 export async function checkTmuxSessionRunning(sessionName, verbose = false) {
-  try {
-    const $ = await getCommandStreamDollar();
-    await $({ mirror: false })`tmux has-session -t ${sessionName}`;
-    if (verbose) console.log(`[VERBOSE] isolation-runner: tmux has-session '${sessionName}': running`);
-    return true;
-  } catch {
-    if (verbose) console.log(`[VERBOSE] isolation-runner: tmux has-session '${sessionName}': not found`);
-    return false;
-  }
+  // Issue #3614: run tmux directly and read its exit code. command-stream
+  // resolves (not throws) on a non-zero exit, so the old try/catch reported a
+  // missing session as running.
+  const running = await hasTmuxSession(sessionName);
+  if (verbose) console.log(`[VERBOSE] isolation-runner: tmux has-session '${sessionName}': ${running ? 'running' : 'not found'}`);
+  return running;
 }
 /**
  * Directly probe whether the backend session/container is still alive, bypassing

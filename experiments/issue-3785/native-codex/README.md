@@ -235,3 +235,22 @@ logs append failures while continuing. Application-level refusal before
 authenticated execution, all-writer crash/publication semantics, backing
 attestation and production integration remain open; these storage controls
 do not establish those acceptance criteria.
+
+The actual TUI has a separate publication-order defect: it queues a model turn
+before its asynchronous prompt-history append and only logs persistence errors.
+`probe-codex-native-tui-history.py` drives the real terminal with bounded PTY
+input and a synthetic loopback model. The earlier downloaded native executable
+passes the healthy input/request control, then fails strict refusal for unsafe
+selected history. The canonical-history CLI is checked again before the repair
+in CI, so passing lower-level storage tests cannot conceal this application path.
+
+`apply_tui_message_history.py` pins five full source hashes. It sends the native
+mention-aware history text and operation together, awaits canonical publication,
+and forwards the turn through the existing command handler only after success.
+An image-only prompt validates selected storage without adding an empty row.
+Selected direct/missing-thread paths refuse; absent selection preserves native
+asynchronous persistence. The actual full CLI before/after/legacy controls are
+required in CI. Local applicability, rustfmt, 14 history controls and 12 upstream
+tests pass in the focused harness; full patched TUI compilation and execution
+remain pending. Other operation paths, read-error propagation, complete writer
+semantics and production integration remain open.

@@ -306,6 +306,15 @@ Current continuation:
 - [ ] Verify real native prompt-history crate before/after controls, upstream
       tests and full CLI compilation in CI. Fix application-level refusal for
       selected history errors before execution; audit remaining native writers.
+- [x] Drive the actual native TUI through bounded PTY input and a synthetic
+      model endpoint; healthy history/request passes, then strict unsafe-history
+      refusal fails. Trace queued model submission preceding async persistence.
+      Prepare a five-file pinned compound-event publication patch. Fresh-source
+      applicability, rustfmt, 14 focused history controls and 12 upstream tests
+      pass; keep full native compilation/execution evidence distinct.
+- [ ] Verify the current canonical-history CLI reproduces TUI execution after
+      refusal, then compile the TUI ordering repair and require actual healthy,
+      unsafe and no-selector controls. Continue other operation/read paths.
 - [ ] Complete production integration and all previously open six-tool criteria.
 
 Resource policy: use sequential builds/tests; no real credentials in experiments

@@ -9,6 +9,7 @@ on:
       - 'experiments/issue-3785/probe-codex-native-request-auth.mjs'
       - 'experiments/issue-3785/probe-codex-native-maintenance.mjs'
       - 'experiments/issue-3785/probe-codex-native-message-history.mjs'
+      - 'experiments/issue-3785/probe-codex-native-tui-history.py'
       - 'experiments/issue-3785/probe-codex-native-rollout-recovery.mjs'
       - 'src/codex-sessions.lib.mjs'
       - 'src/codex-rollout-publication.lib.mjs'
@@ -165,10 +166,8 @@ jobs:
         run: |
           cd "$NATIVE_SOURCE/codex-rs"
           cargo +1.99.1 test --locked --profile dev-small -p codex-rollout --lib session_index:: -- --test-threads=1 > "$RUNNER_TEMP/native-session-index-tests.log" 2>&1
-      - name: Verify native prompt-history upstream behavior remains intact
-        run: |
-          cd "$NATIVE_SOURCE/codex-rs"
-          cargo +1.99.1 test --locked --profile dev-small -p codex-message-history -- --test-threads=1 > "$RUNNER_TEMP/native-prompt-history-tests.log" 2>&1
+      - name: Reproduce actual native TUI executing after canonical history refusal
+        run: python3 experiments/issue-3785/probe-codex-native-tui-history.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --expect-unsafe-execution > "$RUNNER_TEMP/native-tui-history-before.log" 2>&1
       - name: Exercise native status, replacement and logout across private homes
         run: node experiments/issue-3785/probe-codex-native-auth-root.mjs "$NATIVE_SOURCE/codex-rs/target/dev-small/codex"
       - name: Reproduce unauthenticated model execution after canonical logout
@@ -180,8 +179,17 @@ jobs:
       - name: Apply and build canonical request admission
         run: |
           python3 experiments/issue-3785/native-codex/apply_request_auth.py "$NATIVE_SOURCE"
+          python3 experiments/issue-3785/native-codex/apply_tui_message_history.py "$NATIVE_SOURCE"
           cd "$NATIVE_SOURCE/codex-rs"
           cargo +1.99.1 build --locked --profile dev-small -p codex-cli --bin codex >> "$RUNNER_TEMP/native-codex-build.log" 2>&1
+      - name: Verify actual native TUI refuses before executing without safe history
+        run: python3 experiments/issue-3785/probe-codex-native-tui-history.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" > "$RUNNER_TEMP/native-tui-history-after.log" 2>&1
+      - name: Verify native TUI history behavior without the canonical selector
+        run: python3 experiments/issue-3785/probe-codex-native-tui-history.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --without-selector --expect-private-history --expect-unsafe-execution > "$RUNNER_TEMP/native-tui-history-legacy.log" 2>&1
+      - name: Verify native prompt-history upstream behavior remains intact
+        run: |
+          cd "$NATIVE_SOURCE/codex-rs"
+          cargo +1.99.1 test --locked --profile dev-small -p codex-message-history -- --test-threads=1 > "$RUNNER_TEMP/native-prompt-history-tests.log" 2>&1
       - name: Verify actual model requests across canonical authority changes
         run: node experiments/issue-3785/probe-codex-native-request-auth.mjs "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" > "$RUNNER_TEMP/native-request-after.log" 2>&1
       - name: Verify provider authority overrides refuse before model execution
@@ -219,6 +227,7 @@ jobs:
             ${{ runner.temp }}/native-request-*.log
             ${{ runner.temp }}/native-maintenance-*.log
             ${{ runner.temp }}/native-prompt-history-*.log
+            ${{ runner.temp }}/native-tui-history-*.log
             ${{ runner.temp }}/native-session-index-tests.log
             ${{ runner.temp }}/native-index-*.log
           if-no-files-found: ignore

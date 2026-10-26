@@ -128,3 +128,16 @@ at lines 2846 and 3063, with complete container verification passing at lines
 2859 and 3076. Security 40297721178, Links 40297721957 and manually dispatched
 Workflows 40297734362 also succeeded on that exact SHA. The later strict native
 catalog and mount-backing changes still require their own newest-head CI.
+
+On head `b0ae348d10bc44cff4c90375111b7077a619577f`,
+[Checks and release 40304694014](https://github.com/link-assistant/hive-mind/actions/runs/40304694014)
+started at 10:05:46 UTC. The completed detector job 121510796719 compared the
+previous passing head `06ae4833e` with this head (downloaded
+`detect-40304694014.log:3730`). Its changed-file list includes the new image
+gate and installed runtime at lines 3751–3757, but line 3766 reports
+`docker=false`; Docker job 121512007180 was skipped. This does not validate
+the newly required packaged mount check. The real-detector regression reproduces
+the source-only skip, then passes after adding packaged source/dependencies,
+startup and image verification inputs to Docker selection. Both existing
+change-range regression scripts also pass (44 legacy cases plus the untested-
+head scenarios). Newest-head actual image validation is still required.

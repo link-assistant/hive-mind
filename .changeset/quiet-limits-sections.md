@@ -26,6 +26,8 @@ Verify Docker mount sources against their actual device/inode backing before fre
 
 Require an installed-package mount-backing check in Docker PR verification for both host-socket and nested daemons. Launch two concurrent synthetic filesystem tasks, verify host-visible session writes and unchanged fixture auth, and wait for both children before cleanup even if a peer fails. Native CLI refresh, full history and release/deployment lifecycle gates remain separate requirements.
 
+Include branch-package source, dependency, image startup and verification-script changes when deciding whether PR image checks are required. Incremental source-only updates must not skip installed-runtime or daemon mount verification.
+
 Keep in-flight usage requests within their cache instance so resetting the cache cannot join obsolete work or overwrite a fresh result. Isolate queue unit tests from automatic background consumers.
 
 Validate the approved Playwright MCP command, package arguments, transport and environment rather than trusting its registration name. Inspect both conventional Claude user-state paths, including the native CLAUDE_CONFIG_DIR relocation. Reject unapproved registrations before any repair while preserving protected state.

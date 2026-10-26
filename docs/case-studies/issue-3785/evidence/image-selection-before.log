@@ -1,0 +1,26 @@
+✖ the real detector requires image checks for packaged runtime and gate updates (317.750096ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 520.345539
+
+✖ failing tests:
+
+test at tests/issue-3785-image-gate-selection.test.mjs:13:1
+✖ the real detector requires image checks for packaged runtime and gate updates (317.750096ms)
+  AssertionError [ERR_ASSERTION]: src/isolation-runner.lib.mjs
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-image-gate-selection.test.mjs:41:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'Detecting file changes for CI/CD...\n\nComparing full PR: 726ecbca13da4c06ba8b1f9253faf8183a84ca39..d7adef4898c56076bcf9f5e3ecb916f76352002c\nChanged files:\n  src/isolation-runner.lib.mjs\n\nmjs=true\npackage=false\ndocs=false\nworkflow=false\ndocker=false\nhelm=false\n\nFiles considered as code changes:\n  src/isolation-runner.lib.mjs\n\ncode=true\n\nChange detection completed.\n',
+    expected: /^docker=true$/mu,
+    operator: 'match',
+    diff: 'simple'
+  }

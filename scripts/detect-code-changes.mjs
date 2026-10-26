@@ -43,7 +43,7 @@
  *   - package: 'true' if package.json changed
  *   - docs: 'true' if any .md files changed
  *   - workflow: 'true' if any .github/workflows/ files changed
- *   - docker: 'true' if Dockerfile, Dockerfile.dind, coolify/Dockerfile, .dockerignore, or scripts/dind/ (files copied into the DinD image) changed
+ *   - docker: 'true' if image definitions, packaged runtime/dependencies, startup or image verification inputs changed
  *   - code: 'true' if any code files changed (excludes docs, changesets, experiments, data)
  *   - helm: 'true' if any helm/ files changed
  */
@@ -433,10 +433,12 @@ async function detectChanges() {
   const workflowChanged = changedFiles.some(file => file.startsWith('.github/workflows/'));
   setOutput('workflow', workflowChanged ? 'true' : 'false');
 
-  // Detect docker-related changes
-  // Note: ubuntu-24-server-install.sh was removed in issue #1394 - now using pinned konard/box base image
-  const dockerPattern = /^(Dockerfile|Dockerfile\.dind|coolify\/Dockerfile|\.dockerignore|scripts\/dind\/.+)$/;
-  const dockerChanged = changedFiles.some(file => dockerPattern.test(file));
+  // PR builds install this branch's package. Changes to installed source or
+  // verification scripts therefore invalidate image evidence even when the
+  // Dockerfile is unchanged. An incremental source-only update must not skip
+  // the stock/runtime and both-daemon mount gates (issue #3785).
+  const dockerPattern = /^(Dockerfile|Dockerfile\.dind|coolify\/(Dockerfile|start\.sh)|\.dockerignore|src\/.+|scripts\/(dind\/.+|docker-[^/]+|verify-(docker|dind|mounted)[^/]+|check-docker-[^/]+|detect-code-changes\.mjs))$/;
+  const dockerChanged = packageChanged || changedFiles.some(file => dockerPattern.test(file));
   setOutput('docker', dockerChanged ? 'true' : 'false');
 
   // Detect helm chart changes

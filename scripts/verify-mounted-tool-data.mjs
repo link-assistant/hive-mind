@@ -72,6 +72,8 @@ for (const [tool, app] of [
     await fs.writeFile(auth, '{"synthetic":"G3"}', { mode: 0o600 });
     for (const name of names) await check(name, `${requireGeneration('G3')}if(await fs.readFile(${JSON.stringify(`${target}/task-b-history`)},'utf8')!=='persisted')throw new Error('Peer history missing');let rejected=false;try{await assertSharedToolData({tool:${JSON.stringify(tool)},env:{...process.env,XDG_DATA_HOME:'/tmp/private-data'}});}catch{rejected=true;}if(!rejected)throw new Error('Private storage accepted');`);
     if (tool === 'agent') {
+      // Execute the image's search command with the production noexec mask.
+      for (const name of names) await check(name, `const {execFileSync}=await import('node:child_process');await fs.writeFile('/tmp/search-fixture','synthetic-search-marker');const found=execFileSync('rg',['--files','--hidden','/tmp'],{encoding:'utf8',maxBuffer:16384});if(!found.split('\\n').includes('/tmp/search-fixture'))throw new Error('Masked-cache search failed');`);
       await check(names[0], `await fs.writeFile(${JSON.stringify(`${target}/bin/task-cache`)},'private');try{await fs.access(${JSON.stringify(`${target}/bin/operator-cache`)});throw new Error('Operator executable cache leaked');}catch(error){if(error.code!=='ENOENT')throw error;}`);
       await check(names[1], `try{await fs.access(${JSON.stringify(`${target}/bin/task-cache`)});throw new Error('Peer executable cache leaked');}catch(error){if(error.code!=='ENOENT')throw error;}`);
       await assert.rejects(fs.access(path.join(source, 'bin/task-cache')), { code: 'ENOENT' });

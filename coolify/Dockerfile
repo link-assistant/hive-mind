@@ -250,6 +250,12 @@ RUN bun install -g @openai/codex@0.164.0 && \
     bun install -g opencode-ai@1.19.4 && \
     test "$(opencode --version)" = '1.19.4'
 
+# Agent must search without executing binaries from its shared data directory.
+# Use the architecture-matched executable supplied by the pinned Codex package.
+RUN --mount=type=bind,source=.,target=/tmp/hive-mind-source,readonly \
+    node /tmp/hive-mind-source/scripts/install-image-ripgrep.mjs \
+      /home/box/.bun/install/global/node_modules/@openai/codex /home/box/.local/bin/rg
+
 # Install hive-mind workflow utilities
 # Release builds pass HIVE_MIND_VERSION after npm publish, so Docker installs
 # the exact package version that contains the configure-claude bin.

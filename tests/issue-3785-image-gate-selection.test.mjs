@@ -27,6 +27,8 @@ test('the real detector requires image checks for packaged runtime and gate upda
     ['scripts/verify-mounted-task-backing.mjs', true],
     ['scripts/verify-mounted-tool-data.mjs', true],
     ['scripts/verify-docker-image.sh', true],
+    ['scripts/install-image-package.sh', true],
+    ['scripts/install-image-ripgrep.mjs', true],
     ['scripts/verify-dind-exec-defaults.sh', true],
     ['coolify/start.sh', true],
     ['docs/case-studies/issue-3785/README.md', false],

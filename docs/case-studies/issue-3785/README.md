@@ -654,7 +654,7 @@ data path, rather than starting with private auth/history. The directory carries
 credential replacement, deletion/recreation, native conversation storage and
 sidecars. Agent's legacy executable cache inside that directory is masked by a
 private non-executable tmpfs; its pinned native implementation prefers `rg` on
-PATH. Complete packaged command execution with that mask still requires CI.
+PATH. Local Docker search execution with that mask now passes; the actual packaged-image run still requires CI.
 OpenCode is now pinned in all three image definitions, both layout-dependent
 tools are excluded from image auto-updates, and the installed runtime gate checks
 both exact versions in disposable state.
@@ -751,3 +751,28 @@ backend admission/audit and all native credential sources remain unfinished.
 The broader Router/limits selection passes 47 node tests, including the legacy
 guard's 114 internal assertions. No helper or provider request runs in these
 fixtures.
+
+Agent's executable-cache mask requires an executable `rg` on the image PATH.
+The pinned Box essentials installer does not explicitly install it, and the
+Dockerfiles did not add it. Codex supplies a private bundled search executable,
+but its private command path was not in the image PATH. The installed runtime
+verifier also accepted missing/broken search commands: two reproducing tests
+fail before the new check. A real Docker task using the production mask fails
+with `spawnSync rg ENOENT` when no image search command is provided.
+
+All three images now install the architecture-matched executable from pinned
+Codex 0.164.0 into `/home/box/.local/bin`. The installer verifies both package
+versions and actual executable startup before atomic installation; failed
+validation preserves an existing executable. Tests cover x64/arm64 selection,
+version mismatch, failed/invalid execution and linked destination refusal.
+The installed runtime gate checks search startup, and the required two-task
+mount gate actually executes search with the production cache mask active.
+A small local image built from the cached Node base and the real bundled `rg`
+passes both tool-directory probes, including search in both Agent tasks. This
+is a local Docker proof, not a completed Box-image or native Agent lifecycle
+matrix. The focused storage/search/detector selection passes all 37 cases.
+
+The real change detector also skipped `scripts/install-image-package.sh` updates.
+A reproducing throwaway-repository test records `docker=false`; image installer
+scripts now select the required Docker gate. Both installer paths are covered.
+Structural evidence is retained in `evidence/image-search-runtime.txt`.

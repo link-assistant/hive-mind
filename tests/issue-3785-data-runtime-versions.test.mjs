@@ -36,3 +36,23 @@ for (const mismatch of [false, true]) {
     }
   });
 }
+
+for (const search of ['missing', 'broken', 'working']) {
+  test(`masked Agent cache requires a ${search} PATH search runtime`, { timeout: 8000 }, async t => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'hive-search-runtime-'));
+    t.after(() => fs.rm(root, { recursive: true, force: true }));
+    const commands = {};
+    for (const [name, version] of [
+      ['agent', '0.27.0'],
+      ['opencode', '1.19.4'],
+      ['rg', search === 'working' ? 'ripgrep 14.1.1' : ''],
+    ]) {
+      const command = path.join(root, name);
+      if (name !== 'rg' || search !== 'missing') await fs.writeFile(command, `#!${process.execPath}\nconsole.log(${JSON.stringify(version)});\n`, { mode: 0o700 });
+      commands[`${name}Command`] = command;
+    }
+    const check = verifyToolDataRuntimeVersions({ ...commands, homeDir: root, cwd: root });
+    if (search === 'working') await check;
+    else await assert.rejects(check);
+  });
+}

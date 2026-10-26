@@ -103,6 +103,10 @@ push only issue-3785-4c28551ac612, and keep unmet requirements explicitly open.
 - [x] Reproduce Router guard bypasses through selected Claude config/auth roots,
       relocated account state and settings redirects; share native path selection
       with `/limits` and retain transient-state behavior. Full Router contract open.
+- [x] Reproduce missing/broken Agent search acceptance and actual Docker search
+      failure with the executable-cache mask. Install the pinned architecture's
+      bundled search command in all images, verify actual masked task execution,
+      and require image checks for installer-script updates. Packaged CI pending.
 - [ ] Implement canonical auth/history authority, explicit alternative contracts,
       coordinated refresh and fail-closed effective-path validation for all tools.
 - [ ] Isolate task catalogs/extensions and enforce clean global baseline; migrate

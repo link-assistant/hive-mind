@@ -49,3 +49,5 @@ Require the existing branch-package Docker image and daemon checks before automa
 Follow the pinned Claude CLI's independent secure-storage directory in limits readers, including explicitly empty selectors and native NFC path normalization. Verify selection and logout with disposable synthetic credentials; production canonical mounts and coordinated refresh remain unfinished.
 
 Watch selected Claude configuration, account-state and independent credential roots in Router mode. Reject settings that redirect those roots or inject host credential/file-descriptor sources, while retaining the existing handling of transient native state writes.
+
+Install Agent's PATH search executable from the architecture-matched pinned Codex package in all images, so masking shared executable caches does not break native search. Verify it at runtime and execute it inside both concurrent synthetic tasks with the production cache mask. Select required image checks for image-installer changes as well.

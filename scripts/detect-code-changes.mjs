@@ -437,7 +437,7 @@ async function detectChanges() {
   // verification scripts therefore invalidate image evidence even when the
   // Dockerfile is unchanged. An incremental source-only update must not skip
   // the stock/runtime and both-daemon mount gates (issue #3785).
-  const dockerPattern = /^(Dockerfile|Dockerfile\.dind|coolify\/(Dockerfile|start\.sh)|\.dockerignore|src\/.+|scripts\/(dind\/.+|docker-[^/]+|verify-(docker|dind|mounted)[^/]+|check-docker-[^/]+|detect-code-changes\.mjs))$/;
+  const dockerPattern = /^(Dockerfile|Dockerfile\.dind|coolify\/(Dockerfile|start\.sh)|\.dockerignore|src\/.+|scripts\/(dind\/.+|docker-[^/]+|verify-(docker|dind|mounted)[^/]+|check-docker-[^/]+|install-image-[^/]+|detect-code-changes\.mjs))$/;
   const dockerChanged = packageChanged || changedFiles.some(file => dockerPattern.test(file));
   setOutput('docker', dockerChanged ? 'true' : 'false');
 

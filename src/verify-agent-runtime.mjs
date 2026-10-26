@@ -109,7 +109,7 @@ async function materializeStock(command, home, cwd, env) {
   }
 }
 
-export async function verifyToolDataRuntimeVersions({ homeDir, cwd, agentCommand = 'agent', opencodeCommand = 'opencode' }) {
+export async function verifyToolDataRuntimeVersions({ homeDir, cwd, agentCommand = 'agent', opencodeCommand = 'opencode', rgCommand = 'rg' }) {
   for (const [command, expected] of [
     [agentCommand, '0.27.0'],
     [opencodeCommand, '1.19.4'],
@@ -117,6 +117,8 @@ export async function verifyToolDataRuntimeVersions({ homeDir, cwd, agentCommand
     const { stdout } = await execute(command, ['--version'], { env: probeEnvironment(homeDir), cwd, maxBuffer: 64 * 1024, signal: AbortSignal.timeout(DEADLINE_MS) });
     assert.equal(stdout.trim(), expected, 'Installed data-storage CLI version differs from the pinned runtime.');
   }
+  const { stdout } = await execute(rgCommand, ['--version'], { env: probeEnvironment(homeDir), cwd, maxBuffer: 16 * 1024, signal: AbortSignal.timeout(DEADLINE_MS) });
+  assert.match(stdout, /^ripgrep \d+\.\d+\.\d+\b/u, 'Installed Agent search runtime is missing or unusable.');
 }
 
 export async function verifyAgentRuntime({ homeDir = os.homedir(), env = {}, codexCommand = 'codex', claudeCommand = 'claude', agentCommand = 'agent', opencodeCommand = 'opencode' } = {}) {

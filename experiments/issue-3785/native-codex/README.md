@@ -2,8 +2,8 @@
 
 This source experiment preserves native Codex commands while separating their
 file credentials from configuration. It is **not installed by the images or
-production launcher**. Canonical production projection, verified native refresh
-coordination, history and all-writer lifecycle coverage remain open.
+production launcher**. Canonical production projection, history, request-path
+invalidation and all-writer lifecycle coverage remain open.
 
 The supported source is `openai/codex` tag `rust-v0.164.0`, peeled commit
 `6aaac694803004a63c6f393d153c96d22521a6b9`. The annotated tag object is
@@ -16,9 +16,9 @@ compiler is Rust 1.99.1.
 independent scoped auth files, and attempts to select keyring/auto/in-memory
 fallback are refused. Internal ephemeral cleanup is an empty operation.
 Without the experimental selector, the original native behavior is retained.
-Environment/header credentials and custom-provider routes still need production
-authority admission. This experiment does not establish that they cannot bypass
-the selected file store.
+Explicit environment credentials are refused by the coordination patch.
+Header credentials and custom-provider routes still need production authority
+admission; the experiment does not establish coverage of every request path.
 
 The file adapter anchors operations to an open directory descriptor; bounds
 reads to 1 MiB; rejects linked, nonregular, shared-permission and multi-link
@@ -41,12 +41,33 @@ deleting its inode. Legacy mode retains its existing authority selection.
 The patch is generated from the exact immutable source by
 `make_coordination_patch.py`; the applier rejects changed managers and storage
 modules before mutation. Local syntax, applicability and workflow checks pass.
-CI run 40352383261 at bced52471 compiles the real native manager and passes the
-original three before/after controls. **The full CLI build and newer writer-race
-controls are pending.** A bounded local compiler hit its allocation limit in
-`codex-protocol`; the native build therefore runs on CI. This patch must
-not be installed in production until the full native tests pass. Native cached
-snapshots outside `auth()` and every credential/provider route still need audit.
+CI run [40354283432](https://github.com/link-assistant/hive-mind/actions/runs/40354283432)
+at `9689667ce9c6dae46e30302c362849b3614f7281` passes all five before/after
+manager controls and builds the full native CLI. Native status, replacement,
+logout, API-key reauthentication, peer reads and environment-key refusal pass.
+The job completed at 2026-10-26 16:20:06 UTC. A bounded local compiler hit its
+allocation limit in `codex-protocol`; CI supplied the build evidence. These
+passes cover the named paths. Native cached snapshots outside `auth()` and
+every credential/provider route still need audit before production integration.
+
+The next source stage addresses a concrete remaining caller:
+`model-provider/src/auth.rs` builds synchronous request headers using
+`AuthManager::auth_cached()`, bypassing async `auth()` invalidation. CI first
+requires stale synchronous reads on the coordinated intermediate build, then
+applies `cached_reads.patch` and reruns every manager control. New controls
+cover ChatGPT token replacement, logout, malformed canonical JSON and unsafe
+file permissions. `make_cached_reads_patch.py` and `apply_cached_reads.py` pin
+the exact intermediate manager hash. Syntax and applicability pass locally;
+**the new native controls are pending CI**.
+
+This stage supports managed ChatGPT file auth and API keys only. Other stored
+modes explicitly refuse admission in canonical mode. Synchronous reads perform
+bounded file I/O and apply the manager's login/workspace restrictions without
+starting a nested async runtime or contacting an identity provider. Refresh
+retains a private pre-reload cache accessor for generation comparison, so a
+waiter does not overwrite its predecessor snapshot before checking a peer's
+commit. Production integration still requires the remaining route/history and
+lifecycle audits.
 
 The upstream release tag changes the workspace version while its lockfile
 still records 166 local packages as 0.0.0. The applier repairs only those local
@@ -91,11 +112,9 @@ both processes to pass each case, with exactly one predecessor exchange. The
 login/logout writer must wait until that exchange finishes, then its write must
 be the final canonical state. It builds the full coordinated CLI afterward and
 checks native reauthentication, peer reads and refusal of an environment-key
-override. Only the original three manager controls have passed; the newer
-writer-race and full-CLI checks remain pending. Their presence is not acceptance
-evidence.
+override. All five controls and the full-CLI probe passed in run 40354283432.
+Its uploaded diagnostics preserve each negative and positive result separately.
 It is an experimental build check; it does not certify or replace the required
-six-tool release/deployment lifecycle matrix. Await its actual result before
-claiming native-command acceptance. Local full CLI compilation must respect the
+six-tool release/deployment lifecycle matrix. Local full CLI compilation must respect the
 container memory budget; use one compiler with debug data disabled and use an
 adequately provisioned runner if a compiler is killed.

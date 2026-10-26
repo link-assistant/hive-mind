@@ -14,7 +14,7 @@ permissions:
 
 concurrency:
   group: native-codex-auth-experiment-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   native-file-authority:
@@ -70,6 +70,21 @@ jobs:
       - name: Verify native manager invalidation and one predecessor consumption
         run: |
           for scenario in replacement logout refresh refresh-login refresh-logout; do
+            node experiments/issue-3785/probe-codex-native-manager.mjs "$NATIVE_SOURCE/codex-rs/target/dev-small/hive-canonical-auth-probe" "$scenario" > "$RUNNER_TEMP/native-manager-after-$scenario.log" 2>&1
+          done
+      - name: Reproduce synchronous request-cache reads after async coordination
+        run: |
+          for scenario in cached-replacement cached-logout cached-malformed cached-permissions; do
+            node experiments/issue-3785/probe-codex-native-manager.mjs "$NATIVE_SOURCE/codex-rs/target/dev-small/hive-canonical-auth-probe" "$scenario" --expect-uncoordinated > "$RUNNER_TEMP/native-manager-before-$scenario.log" 2>&1
+          done
+      - name: Apply and build synchronous canonical reads
+        run: |
+          python3 experiments/issue-3785/native-codex/apply_cached_reads.py "$NATIVE_SOURCE"
+          cd "$NATIVE_SOURCE/codex-rs"
+          cargo +1.99.1 build --locked --profile dev-small -p codex-login --bin hive-canonical-auth-probe >> "$RUNNER_TEMP/native-codex-build.log" 2>&1
+      - name: Verify synchronous reads without regressing native coordination
+        run: |
+          for scenario in replacement logout refresh refresh-login refresh-logout cached-replacement cached-logout cached-malformed cached-permissions; do
             node experiments/issue-3785/probe-codex-native-manager.mjs "$NATIVE_SOURCE/codex-rs/target/dev-small/hive-canonical-auth-probe" "$scenario" > "$RUNNER_TEMP/native-manager-after-$scenario.log" 2>&1
           done
       - name: Build the full supported CLI with the coordinated source adapter

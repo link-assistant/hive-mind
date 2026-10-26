@@ -89,6 +89,24 @@ async fn main() -> io::Result<()> {
                 ));
             }
         }
+        "read-cached-replacement" => {
+            let tokens = manager
+                .auth_cached()
+                .ok_or_else(|| io::Error::other("Canonical auth unavailable."))?
+                .get_token_data()?;
+            if tokens.access_token != "SYNTHETIC-ACCESS-G1" {
+                return Err(io::Error::other(
+                    "Synchronous native auth read missed canonical replacement.",
+                ));
+            }
+        }
+        "read-cached-logout" => {
+            if manager.auth_cached().is_some() {
+                return Err(io::Error::other(
+                    "Synchronous native auth read missed canonical logout.",
+                ));
+            }
+        }
         "write-login" => codex_login::login_with_api_key(
             &home,
             "sk-SYNTHETIC-G1",

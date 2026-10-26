@@ -15,9 +15,10 @@ const binary = process.argv[2];
 const scenario = process.argv[3];
 const uncoordinated = process.argv[4] === '--expect-uncoordinated';
 assert.ok(binary && path.isAbsolute(binary), 'Supply the native manager probe binary.');
-assert.ok(['replacement', 'logout', 'refresh', 'refresh-login', 'refresh-logout'].includes(scenario), 'Select a finite lifecycle case.');
+assert.ok(['replacement', 'logout', 'refresh', 'refresh-login', 'refresh-logout', 'cached-replacement', 'cached-logout', 'cached-malformed', 'cached-permissions'].includes(scenario), 'Select a finite lifecycle case.');
 const writerRace = scenario.startsWith('refresh-');
 const oauth = scenario === 'refresh' || writerRace;
+const cachedRead = scenario.startsWith('cached-');
 const root = await fs.mkdtemp(path.join(os.tmpdir(), 'hive-native-manager-'));
 const children = [];
 const requests = [];
@@ -71,7 +72,7 @@ try {
   await fs.mkdir(canonical, { mode: 0o700 });
   const jwtPart = value => Buffer.from(JSON.stringify(value)).toString('base64url');
   const idToken = `${jwtPart({ alg: 'none' })}.${jwtPart({ email: 'synthetic@example.invalid', 'https://api.openai.com/auth': { chatgpt_account_id: 'synthetic-account', chatgpt_user_id: 'synthetic-user', chatgpt_plan_type: 'plus' } })}.synthetic`;
-  const original = oauth ? { auth_mode: 'chatgpt', tokens: { id_token: idToken, access_token: 'SYNTHETIC-ACCESS-G0', refresh_token: 'SYNTHETIC-REFRESH-G0', account_id: 'synthetic-account', login_owner_id: 'synthetic-login' }, last_refresh: new Date().toISOString() } : { OPENAI_API_KEY: 'sk-SYNTHETIC-G0' };
+  const original = oauth || cachedRead ? { auth_mode: 'chatgpt', tokens: { id_token: idToken, access_token: 'SYNTHETIC-ACCESS-G0', refresh_token: 'SYNTHETIC-REFRESH-G0', account_id: 'synthetic-account', login_owner_id: 'synthetic-login' }, last_refresh: new Date().toISOString() } : { OPENAI_API_KEY: 'sk-SYNTHETIC-G0' };
   await fs.writeFile(auth, JSON.stringify(original), { mode: 0o600 });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const releases = [0, 1].map(index => path.join(root, `release-${index}`));
@@ -82,7 +83,7 @@ try {
     await fs.mkdir(home, { mode: 0o700 });
     await fs.mkdir(config, { mode: 0o700 });
     const env = { PATH: process.env.PATH, HOME: home, CODEX_HOME: config, CODEX_AUTH_HOME: canonical, SYNTHETIC_READY: ready, SYNTHETIC_RELEASE: releases[index], SYNTHETIC_STARTED: path.join(root, `started-${index}`), SYNTHETIC_EXPECT_ROTATED: writerRace ? '0' : '1', CODEX_REFRESH_TOKEN_URL_OVERRIDE: `http://127.0.0.1:${server.address().port}/oauth/token`, RUST_LOG: 'off', GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' };
-    const mode = writerRace && index === 1 ? (scenario === 'refresh-login' ? 'write-login' : 'write-logout') : scenario === 'replacement' ? 'read-replacement' : scenario === 'logout' ? 'read-logout' : 'refresh';
+    const mode = writerRace && index === 1 ? (scenario === 'refresh-login' ? 'write-login' : 'write-logout') : cachedRead ? (scenario === 'cached-replacement' ? 'read-cached-replacement' : 'read-cached-logout') : scenario === 'replacement' ? 'read-replacement' : scenario === 'logout' ? 'read-logout' : 'refresh';
     const child = spawn('prlimit', ['--data=536870912', '--stack=16777216', '--core=0', '--', binary, mode], { cwd: home, env, stdio: 'ignore' });
     child.completed = new Promise(resolve => {
       child.once('error', () => resolve({ code: -1 }));
@@ -100,10 +101,13 @@ try {
       await delay(10);
     }
   }
-  if (scenario === 'replacement') {
-    await fs.writeFile(`${auth}.next`, JSON.stringify({ OPENAI_API_KEY: 'sk-SYNTHETIC-G1' }), { mode: 0o600 });
+  if (scenario === 'replacement' || scenario === 'cached-replacement') {
+    const next = cachedRead ? { ...original, tokens: { ...original.tokens, access_token: 'SYNTHETIC-ACCESS-G1', refresh_token: 'SYNTHETIC-REFRESH-G1' } } : { OPENAI_API_KEY: 'sk-SYNTHETIC-G1' };
+    await fs.writeFile(`${auth}.next`, JSON.stringify(next), { mode: 0o600 });
     await fs.rename(`${auth}.next`, auth);
-  } else if (scenario === 'logout') await fs.unlink(auth);
+  } else if (scenario === 'logout' || scenario === 'cached-logout') await fs.unlink(auth);
+  else if (scenario === 'cached-malformed') await fs.writeFile(auth, '{');
+  else if (scenario === 'cached-permissions') await fs.chmod(auth, 0o644);
   watchdog = globalThis.setTimeout(() => children.forEach(child => child.kill('SIGKILL')), 15_000);
   await fs.writeFile(releases[0], 'release', { mode: 0o600 });
   if (writerRace) await waitUntil(() => requests.length === 1, 'Native refresh must reach the paused provider before the competing write.');

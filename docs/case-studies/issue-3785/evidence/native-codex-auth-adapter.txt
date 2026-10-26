@@ -5,62 +5,62 @@ Peeled source commit: 6aaac694803004a63c6f393d153c96d22521a6b9
 Annotated tag object: fe3b29455488c2e189e43ad5526a107900c5e1b7
 Source-pinned compiler: Rust 1.99.1
 
-Before: actual installed native CLI exits 1 for login status when the synthetic
-key is outside CODEX_HOME in the proposed independent CODEX_AUTH_HOME directory.
+Before: the installed unmodified native CLI exits 1 for login status when the
+synthetic key is outside CODEX_HOME in an independent CODEX_AUTH_HOME directory.
 The probe fails its first expected-success assertion. No model call or real
-credentials are used; output is discarded and only structural results retained.
+credentials are used; only structural results are retained.
 
 Adapter: source-context/pin-checked changes in the native file-store backend,
 private directory and file validation, descriptor-anchored bounded reads,
 temporary-file/rename/fsync commits, native delete/recreate and refusal of
 independent scoped copies or alternate storage-backend fallback.
 
-Local primitive validation: exact module compiles with Rust 1.99.1; seven tests
-pass and the subprocess-only worker is intentionally ignored by the parent
-harness. Its two refresh workers are spawned explicitly, bounded and reaped.
-Coverage includes stable inode, locked generation reread/one predecessor use,
-forced owner death, atomic replacement/logout/recreation, unsafe auth/lock files,
-independent equal-content copies/links, bounded input and lock replacement.
+Seven primitive tests pass; the subprocess-only worker is intentionally ignored
+by the parent harness and spawned explicitly. Coverage includes stable inode,
+locked generation reread/one predecessor use, forced owner death, atomic
+replacement/logout/recreation, unsafe auth/lock files, independent equal-content
+copies/links, bounded input and lock replacement.
 
-Build preparation: pinned source lockfile requires 166 local package versions
-to match the release workspace. Exact before/after hashes and parsed comparison
-verify external versions, sources, checksums and dependency edges are unchanged.
-Dependency fetch then succeeds with --locked. Build/CLI acceptance is pending.
+The source lockfile requires 166 local package versions to match the release
+workspace. Exact before/after hashes and a parsed comparison verify external
+versions, sources, checksums and dependency edges are unchanged. Builds use
+--locked. The local compiler reaches its explicit allocation bound; it is not
+repeated unchanged. Actual compilation runs on the adequately provisioned CI.
 
-Limits: the images and launcher do not use this source adapter. A second source patch wires its OS lock into native manager transactions,
-but native compilation and the before/after lifecycle controls are pending. No native refresh,
-all-writer/cached-read invalidation, full history, migration, environment/custom
-provider admission, or six-tool lifecycle claim is made. The original production
-Codex credential copy remains unfinished, not fixed by this experiment.
+Native CI: https://github.com/link-assistant/hive-mind/actions/runs/40354283432
+Branch SHA: 9689667ce9c6dae46e30302c362849b3614f7281
+Created: 2026-10-26 15:56:41 UTC
+Native job completed successfully: 2026-10-26 16:20:06 UTC
+Retained log: ci-logs/native-codex-40354283432.log (470 lines)
+Native CLI acceptance output: line 420
+Downloaded diagnostics: ci-logs/native-codex-40354283432/
 
-Commands and reproducible build job are under experiments/issue-3785/native-codex
-and .github/workflows/native-codex-auth-experiment.yml.
-Local logs: /tmp/issue-3785-native-root-before.log,
-/tmp/issue-3785-native-module-tests.log and
-/tmp/issue-3785-native-cargo-fetch.log.
+All five actual codex-login manager controls pass before and after coordination:
+- replacement: before both cached reads fail; after both observe G1, no exchange
+- logout: before both cached reads fail; after both observe absence, no exchange
+- refresh: before two G0 exchanges and one failure; after one exchange, both pass
+- refresh-login: before login commits during paused exchange and refresh fails;
+  after login waits, both pass, and the login result remains canonical
+- refresh-logout: before logout commits during paused exchange and refresh fails;
+  after logout waits, both pass, and the canonical file remains absent
+Both processes must load initial auth and reach explicit barriers; startup or
+build failures cannot satisfy the negative controls.
 
-Second-stage source experiment: coordination.patch serializes native manager
-refresh/login/logout/identity writes and account-grant exchange leases, reloads
-canonical auth before use and before exchange, checks the predecessor before
-commit, and bounds exchange/wait duration. make_coordination_patch.py parses
-and formats the changed Rust; apply_coordination.py verifies immutable manager
-source and the exact storage module before mutation. Syntax/applicability and
-the corrected workflow pass local checks. These are not native runtime passes.
-The CI workflow requires explicit actual-manager negative controls first, then
-rebuilds and requires positive replacement/logout/one-exchange controls, then
-builds the full native CLI. These results remain pending.
+The coordinated full native CLI builds and passes status across two independent
+config homes, canonical atomic replacement, logout, native API-key
+reauthentication/peer status, environment-key refusal, missing-authority and
+conflicting scoped-copy rejection.
 
-The manager controls now also pause an actual native refresh at the loopback
-provider while a second native process attempts login or logout. The negative
-control requires that competing write to finish before the exchange response;
-the coordinated case requires the writer to wait, both processes to succeed,
-and the login/logout result to remain canonical. The full-CLI probe includes
-native API-key reauthentication and explicit environment-key refusal. These are
-prepared checks, not successful native runtime results.
+The second source patch serializes manager refresh/login/logout/identity writes
+and account-grant exchange leases, reloads canonical auth in async auth(),
+checks the predecessor before commit, and bounds exchange/wait duration. Its
+applier checks the immutable manager and exact storage module before mutation.
+These passes cover the named controls, not every request path: model-provider
+synchronous request headers call auth_cached(), which still needs invalidation.
+Provider-route admission, owner death after IdP consumption but before durable
+commit, full history, migration and the six-tool lifecycle matrix remain open.
 
-CI run 40352383261 at bced52471 compiles both versions of the real codex-login
-driver. Its three original before controls (cached replacement, cached logout,
-duplicate predecessor use) and three after controls pass. The full CLI build
-is still running at this observation. The two newer writer-race controls are
-not part of that SHA and have not run. This is native manager evidence only;
-it does not complete production integration or the full lifecycle matrix.
+The images and production launcher do not use this adapter. The production
+Codex credential copy is still unfinished. Reproduction and workflow live in
+experiments/issue-3785/native-codex and
+.github/workflows/native-codex-auth-experiment.yml.

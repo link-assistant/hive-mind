@@ -145,13 +145,32 @@ push only issue-3785-4c28551ac612, and keep unmet requirements explicitly open.
       Include login/logout during a paused native refresh; verify both process
       results, one exchange and the final canonical writer state. Keep the full
       CLI reauthentication and environment-override checks in the same job.
-      CI 40352383261 compiles the actual manager and passes its original three
-      before/after controls. Full CLI and the two new writer races still await
-      verification; production integration remains open.
+      CI 40354283432 at 9689667ce9 compiles the actual manager and full CLI;
+      all five negative/positive controls and full native status/replacement/
+      logout/reauthentication/environment-refusal checks pass. The synchronous
+      request-header auth_cached() path still needs invalidation; reproduce it
+      before repairing it. Production integration remains open.
+      Prepare a third, exact-intermediate-hash source patch: require four native
+      synchronous-read negative controls after async coordination, then require
+      all nine manager controls after the new patch. Cover replacement, logout,
+      malformed authority and unsafe permissions. Preserve the pre-lock cached
+      generation comparison and enforce login/workspace restrictions. Local
+      syntax and applicability pass; native runtime verification awaits CI.
 - [x] Reproduce scoped Codex config inheriting six alternate plugin-table forms,
       corrupting header-looking multiline strings and admitting malformed TOML.
       Replace regex stripping with semantic parsing; preserve typed runtime
       values and reject malformed input without private parser diagnostics.
+- [x] Reproduce two same-repository tasks reusing one mutable Codex home and
+      a linked allocation namespace reaching operator state. Allocate private
+      fresh homes outside the operator tool directory for normal and degraded
+      preflights; preserve another active task and clean up preflight failures.
+      All 28 focused task/catalog/restart/session/workflow cases pass. Retain
+      successful execution homes until full native history/SQLite projection
+      exists. The pinned native CLI passes the bounded Docker catalog probe
+      with concurrent different-capability checkouts. Refuse failed sessions
+      sharing and recover canonical rollouts before legacy scoped rollouts;
+      28 focused recovery/config/preflight cases pass. Execution cleanup and
+      the full native execution lifecycle remain open.
 - [x] Reproduce separate native Codex profile-v2 files bypassing base audit;
       validate bounded enumeration, unsafe inputs and concurrent additions before
       repair. Verify the actual pinned CLI discovers the separate-file MCP and
@@ -174,8 +193,9 @@ push only issue-3785-4c28551ac612, and keep unmet requirements explicitly open.
 - [x] Run focused tests then full local suite, lint/format and relevant checks
       sequentially; preserve large logs and inspect failures in <=1500-line chunks.
       The complete 720-file local default suite passes after the credential-cache
-      generation and disposable queue-fixture corrections. Native source adapter
-      build and full-CLI acceptance remain separate pending checks.
+      generation and disposable queue-fixture corrections. The current task-home
+      changes require a fresh full run, now in progress. The native source adapter
+      build and named full-CLI acceptance cases pass in run 40354283432.
 - [x] Commit useful atomic steps after checks; integrate latest main; review diff.
 - [x] Update PR title/body with evidence, reproduction and Fixes #3785; push branch.
 - [ ] Verify newest-SHA CI, download/analyze nonpassing logs, fix actual failures.

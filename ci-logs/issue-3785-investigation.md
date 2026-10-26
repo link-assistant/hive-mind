@@ -333,3 +333,28 @@ bare `git fetch` as bypassing the shared GitHub retry loop. The existing shell
 checker reproduces the failure locally. Route that immutable-source fetch
 through `scripts/github-retry.mjs`, retaining the exact source SHA. This is a
 workflow lint defect; no native lifecycle result is implied.
+
+### Native workflow cancellation violates the existing release policy
+
+Checks run 40354283383 at 9689667ce9 fails the default suite at file 15/720.
+The downloaded completed job log `checks-40354283383-tests.log` lines 482–494
+identifies unconditional `cancel-in-progress: true` in the native experiment
+workflow. `ci-workflow-cancellation-2082.test.mjs` reproduces that exact failure
+locally. Use the repository policy `github.ref != 'refs/heads/main'`, retaining
+superseded PR cancellation without cancelling a main-branch dispatch. All 28
+focused workflow/task-scope/catalog/restart/session cases pass after repair.
+The complete suite and new-head CI must be checked again.
+
+Native experiment 40354283432 on that same SHA compiles the real manager and
+passes all five before and after controls, including native login and logout
+during refresh. The full CLI also builds and passes native status, replacement,
+logout, API-key reauthentication/peer status and environment-key refusal. The
+job completes successfully at 2026-10-26 16:20:06 UTC. The retained 470-line
+`native-codex-40354283432.log` records native acceptance at line 420, and the
+run's separate before/after artifacts are downloaded beside it. These results
+do not establish production authority or full lifecycle coverage.
+
+Checks run 40354283383 subsequently completes: Docker, lint and every other
+nondependent job pass; only the cancellation-policy regression and dependent
+pipeline status fail. The complete run log is preserved as
+`checks-40354283383.log`. The repaired setting still needs newest-head CI.

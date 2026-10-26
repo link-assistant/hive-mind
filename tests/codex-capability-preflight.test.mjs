@@ -11,7 +11,7 @@ import { cp, lstat, mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/prom
 import os from 'node:os';
 import path from 'node:path';
 
-import { CodexCapabilityPreflightError, applyCodexCapabilityEnv, buildCodexCapabilityStatePath, buildPluginCachePath, detectRequiredCodexCapabilities, normalizePluginSelector, resolveRequiredPlugins, runCodexCapabilityPreflight } from '../src/codex-capability-preflight.lib.mjs';
+import { CodexCapabilityPreflightError, applyCodexCapabilityEnv, buildCodexCapabilityStatePath, buildCodexTaskScopeNamespace, buildPluginCachePath, detectRequiredCodexCapabilities, normalizePluginSelector, resolveRequiredPlugins, runCodexCapabilityPreflight } from '../src/codex-capability-preflight.lib.mjs';
 import { getDockerIsolationAuthMounts } from '../src/isolation-runner.lib.mjs';
 
 const issueText = `
@@ -128,7 +128,7 @@ const preflight = await runCodexCapabilityPreflight({
 
 assert.equal(preflight.required, true);
 assert.deepEqual(preflight.plugins, ['superpowers@openai-curated']);
-assert.equal(preflight.codexHome, path.join(scopedBaseHome, 'hive-mind', 'repositories', 'CEHR2005', 'GCS-TS'));
+assert.equal(path.dirname(preflight.codexHome), buildCodexTaskScopeNamespace({ baseCodexHome: scopedBaseHome, owner: 'CEHR2005', repo: 'GCS-TS' }));
 assert.equal(await readFile(path.join(scopedBaseHome, '.tmp', 'plugins.sha'), 'utf8'), 'fixture-sha\n', 'catalog discovery never updates the root marketplace');
 assert.equal(await readFile(path.join(preflight.codexHome, '.tmp', 'plugins.sha'), 'utf8'), 'task-catalog\n');
 assert.equal((await lstat(path.join(preflight.codexHome, '.tmp', 'plugins'))).isSymbolicLink(), false, 'the task owns its marketplace directory');
@@ -149,8 +149,10 @@ assert(
 // selected repository plugin enablement.
 await writeFile(path.join(preflight.codexHome, 'config.toml'), '[features]\nmulti_agent = true\n\n[plugins."superpowers@openai-curated"]\nenabled = true\n');
 await writeFile(path.join(scopedBaseHome, 'config.toml'), 'model = "gpt-updated"\n');
-await runCodexCapabilityPreflight({ owner: 'CEHR2005', repo: 'GCS-TS', issueNumber: 1, baseCodexHome: scopedBaseHome, runCommand: fakeRunCommand });
-const refreshedConfig = await readFile(path.join(preflight.codexHome, 'config.toml'), 'utf8');
+const secondPreflight = await runCodexCapabilityPreflight({ owner: 'CEHR2005', repo: 'GCS-TS', issueNumber: 1, baseCodexHome: scopedBaseHome, runCommand: fakeRunCommand });
+assert.notEqual(secondPreflight.codexHome, preflight.codexHome);
+assert.doesNotMatch(await readFile(path.join(preflight.codexHome, 'config.toml'), 'utf8'), /gpt-updated/u, 'an active task keeps its own configuration');
+const refreshedConfig = await readFile(path.join(secondPreflight.codexHome, 'config.toml'), 'utf8');
 assert.match(refreshedConfig, /model = "gpt-updated"/u, 'operator runtime configuration is refreshed');
 assert.match(refreshedConfig, /\[plugins\."superpowers@openai-curated"\]/u, 'selected repository plugin enablement is rebuilt');
 assert.match(refreshedConfig, /enabled = true/u, 'selected repository plugin settings are rebuilt');

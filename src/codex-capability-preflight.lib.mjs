@@ -3,8 +3,7 @@
  *
  * Explicit plugin and Agent Skill requirements are discovered from the issue
  * before `codex exec`. Required marketplace plugins are installed into a
- * CODEX_HOME scoped by repository and rebuilt from a clean capability state
- * for each task, leaving the operator's global state and target repository
+ * fresh task CODEX_HOME, leaving the operator's global state and target repository
  * untouched.
  */
 
@@ -19,6 +18,9 @@ import { CODEX_PLUGIN_CLI, buildPluginCachePath as buildAgentPluginCachePath, bu
 import { AGENTS_MD_FILENAMES, CLAUDE_MD_FILENAME } from './agents-md-claude-support.lib.mjs';
 import { parseModelVisibleSkillCatalog, validateModelVisibleSkillCatalog } from './codex-skill-catalog.lib.mjs';
 import { describeScopedCodexSessions, shareScopedCodexSessions } from './codex-sessions.lib.mjs';
+import { createCodexTaskScopeAllocator } from './codex-task-scope.lib.mjs';
+
+export { buildCodexCapabilityStatePath, buildCodexTaskScopeNamespace } from './codex-task-scope.lib.mjs';
 
 const execFileAsync = promisify(execFile);
 const REQUIREMENT_WORDS = /\b(?:depend(?:s|ency)?|install|invoke|mandatory|must|need(?:ed|s)?|preflight|required?|requires|us(?:e|es|ing))\b/i;
@@ -158,12 +160,6 @@ export function detectRequiredCodexCapabilities(text, { source = null } = {}) {
 }
 
 export const isExplicitRequirement = (requirements, capability) => (requirements?.explicit || []).includes(String(capability || '').toLowerCase());
-
-const sanitizePathSegment = value => String(value || '').replace(/[^a-zA-Z0-9._-]/gu, '_');
-
-export function buildCodexCapabilityStatePath({ baseCodexHome, owner, repo }) {
-  return path.join(baseCodexHome, 'hive-mind', 'repositories', sanitizePathSegment(owner), sanitizePathSegment(repo));
-}
 
 export function applyCodexCapabilityEnv(env, { codexHome, baseCodexHome } = {}) {
   if (!codexHome) return env;
@@ -716,7 +712,9 @@ const prepareScopedCodexHome = async ({ baseCodexHome, codexHome, log = async ()
   await syncFileIfPresent(path.join(baseCodexHome, 'installation_id'), path.join(codexHome, 'installation_id'));
   // Issue #2888: rollouts go to the operator's (mounted) sessions directory, so
   // a recovery run in another container can still resume this thread.
-  const sessionsShare = describeScopedCodexSessions(await shareScopedCodexSessions({ baseCodexHome, codexHome }));
+  const sessionsOutcome = await shareScopedCodexSessions({ baseCodexHome, codexHome });
+  if (sessionsOutcome.status === 'failed') throw catalogBoundaryError('Cannot establish shared Codex sessions; task execution was refused to preserve recoverable history.');
+  const sessionsShare = describeScopedCodexSessions(sessionsOutcome);
   if (sessionsShare) await log(sessionsShare, { verbose: !sessionsShare.includes('⚠️') });
 };
 
@@ -773,11 +771,11 @@ export const isCodexCapabilityStrict = (env = process.env) => /^(?:1|true|yes|on
 // scope; issue #2254 catalog/provenance failures remain non-bypassable.
 export const isCodexCapabilityAdvisory = (env = process.env) => /^(?:1|true|yes|on)$/iu.test(String(env.HIVE_MIND_CODEX_CAPABILITY_ADVISORY || ''));
 
-const provisionSafeCatalogFallback = async ({ options, error }) => {
+const provisionSafeCatalogFallback = async ({ options, error, createScope }) => {
   const { owner, repo, projectDir, env = process.env, baseCodexHome = env.HIVE_MIND_PARENT_CODEX_HOME || env.CODEX_HOME || path.join(os.homedir(), '.codex'), codexPath = 'codex', runCommand = defaultRunCommand, log = async () => {} } = options;
   if (!owner || !repo) throw catalogBoundaryError('Cannot establish a repository-scoped Codex fallback after capability provisioning failed.');
   const command = /\s/u.test(codexPath) ? 'codex' : codexPath;
-  const codexHome = buildCodexCapabilityStatePath({ baseCodexHome, owner, repo });
+  const codexHome = await createScope({ baseCodexHome, owner, repo });
   const runCodexCommand = invocation => runCommand({ ...invocation, cwd: projectDir });
   await prepareScopedCodexHome({ baseCodexHome, codexHome, log });
   await configureScopedPluginLoader({ codexHome, plugins: [], log });
@@ -787,9 +785,22 @@ const provisionSafeCatalogFallback = async ({ options, error }) => {
 };
 
 export async function runCodexCapabilityPreflight(options = {}) {
+  const allocator = createCodexTaskScopeAllocator();
+  try {
+    const result = await runScopedCapabilityPreflight(options, allocator);
+    // Teardown is safe before inference. Execution homes must be retained
+    // until every native conversation artifact has canonical storage.
+    return { ...result, dispose: allocator.dispose };
+  } catch (error) {
+    await allocator.dispose();
+    throw error;
+  }
+}
+
+async function runScopedCapabilityPreflight(options, { createScope, dispose }) {
   const { log = async () => {}, env = process.env } = options;
   try {
-    return await provisionCodexCapabilities(options);
+    return await provisionCodexCapabilities({ ...options, createScope });
   } catch (error) {
     if (!(error instanceof CodexCapabilityPreflightError)) throw error;
     if (error.details?.securityBoundary) {
@@ -814,11 +825,12 @@ export async function runCodexCapabilityPreflight(options = {}) {
     }
     await log(`⚠️  Codex capability preflight skipped: ${error.message}`);
     await log('   Continuing with an empty, provenance-checked repository scope. Set HIVE_MIND_CODEX_CAPABILITY_STRICT=1 to fail instead.');
-    return provisionSafeCatalogFallback({ options, error });
+    await dispose();
+    return provisionSafeCatalogFallback({ options, error, createScope });
   }
 }
 
-async function provisionCodexCapabilities({ owner, repo, issueNumber, projectDir, requiredPlugins, env = process.env, baseCodexHome = env.HIVE_MIND_PARENT_CODEX_HOME || env.CODEX_HOME || path.join(os.homedir(), '.codex'), codexPath = 'codex', runCommand = defaultRunCommand, log = async () => {} } = {}) {
+async function provisionCodexCapabilities({ owner, repo, issueNumber, projectDir, requiredPlugins, createScope, env = process.env, baseCodexHome = env.HIVE_MIND_PARENT_CODEX_HOME || env.CODEX_HOME || path.join(os.homedir(), '.codex'), codexPath = 'codex', runCommand = defaultRunCommand, log = async () => {} } = {}) {
   // Issue #2102: requirements no longer come from the issue alone, so a missing
   // issue number (a pull-request continuation, for example) must not skip the
   // repository's own AGENTS.md/CLAUDE.md files or an operator override. Owner and
@@ -849,7 +861,7 @@ async function provisionCodexCapabilities({ owner, repo, issueNumber, projectDir
   // Catalog discovery writes marketplace snapshots. Run it in the same private
   // scope as installation, never in the operator home or through a writable
   // link to its marketplace (issue #3785).
-  const codexHome = buildCodexCapabilityStatePath({ baseCodexHome, owner, repo });
+  const codexHome = await createScope({ baseCodexHome, owner, repo });
   await prepareScopedCodexHome({ baseCodexHome, codexHome, log });
   await configureScopedPluginLoader({ codexHome, plugins: [], log });
   const scopedEnv = { ...env, CODEX_HOME: codexHome, HIVE_MIND_PARENT_CODEX_HOME: baseCodexHome };

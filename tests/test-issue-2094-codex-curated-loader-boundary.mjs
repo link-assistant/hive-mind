@@ -194,13 +194,13 @@ const preflight = async ({ fixture, codex }) =>
   // per container, so the scope is rebuilt from the image defaults every task.
   const dockerMounts = await getDockerIsolationAuthMounts({ tool: 'codex', homeDir: fixture.root, existsSync: candidate => candidate === fixture.baseCodexHome || candidate === path.join(fixture.baseCodexHome, 'auth.json') });
   assert.deepEqual(dockerMounts, [{ source: path.join(fixture.baseCodexHome, 'auth.json'), target: '/home/box/.codex/auth.json' }], 'Docker execution mounts the credential file, not the whole operator home (issue #2190)');
-  assert.equal(path.relative(fixture.baseCodexHome, first.codexHome), path.join('hive-mind', 'repositories', 'CEHR2005', 'GCS-TS'), 'the scoped state keeps the same relative path under the (per-container) codex home');
+  assert.equal(path.dirname(first.codexHome), path.join(path.dirname(fixture.baseCodexHome), '.hive-mind', 'codex-tasks', 'CEHR2005', 'GCS-TS'), 'task discovery lives outside the mounted operator tool home');
 
   // A continued/restarted task refreshes operator settings and rematerializes
   // the selected provider after sanitizing the repository scope.
   const secondCodex = makeCodex(fixture);
   const second = await preflight({ fixture, codex: secondCodex });
-  assert.equal(second.codexHome, first.codexHome);
+  assert.notEqual(second.codexHome, first.codexHome);
   assert.deepEqual(second.repairs, [`install:${fixture.pluginId}`], 'a fresh process rebuilds selected plugin state');
   assert(
     secondCodex.calls.some(call => call.args[1] === 'add'),

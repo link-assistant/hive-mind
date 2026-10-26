@@ -79,17 +79,28 @@ export async function restoreCodexRolloutFromContainer({ containerName, sessionI
   if (!containerName || typeof runner?.copyFromDockerContainer !== 'function') return { restored: false, file: null, error: 'docker cp unavailable' };
   if (!parsed?.valid || !parsed.owner || !parsed.repo) return { restored: false, file: null, error: 'repository unknown' };
   const scopedSessions = path.posix.join(buildCodexCapabilityStatePath({ baseCodexHome: TASK_CONTAINER_CODEX_HOME, owner: parsed.owner, repo: parsed.repo }), CODEX_SESSIONS_DIRNAME);
+  const sources = [path.posix.join(TASK_CONTAINER_CODEX_HOME, CODEX_SESSIONS_DIRNAME), scopedSessions];
   let staging = null;
   try {
     staging = await fsImpl.mkdtemp(path.join(tmpDir, 'hive-mind-codex-rollout-'));
-    const copied = await runner.copyFromDockerContainer(containerName, `${scopedSessions}/.`, staging, verbose);
-    if (!copied?.success) return { restored: false, file: null, error: copied?.error || 'docker cp failed' };
-    const found = await findCodexRolloutFile({ sessionsDir: staging, threadId, fsImpl });
-    if (!found) return { restored: false, file: null, error: `no rollout for ${threadId} in ${containerName}:${scopedSessions}` };
-    const file = path.join(hostSessionsDir, path.relative(staging, found));
-    await fsImpl.mkdir(path.dirname(file), { recursive: true });
-    await fsImpl.copyFile(found, file);
-    return { restored: true, file, error: null };
+    for (const [index, source] of sources.entries()) {
+      const destination = path.join(staging, String(index));
+      await fsImpl.mkdir(destination);
+      let copied;
+      try {
+        copied = await runner.copyFromDockerContainer(containerName, `${source}/.`, destination, verbose);
+      } catch {
+        continue;
+      }
+      if (!copied?.success) continue;
+      const found = await findCodexRolloutFile({ sessionsDir: destination, threadId, fsImpl });
+      if (!found) continue;
+      const file = path.join(hostSessionsDir, path.relative(destination, found));
+      await fsImpl.mkdir(path.dirname(file), { recursive: true });
+      await fsImpl.copyFile(found, file);
+      return { restored: true, file, error: null };
+    }
+    return { restored: false, file: null, error: `no recoverable rollout for ${threadId} in ${containerName}` };
   } catch (error) {
     return { restored: false, file: null, error: error?.message || String(error) };
   } finally {

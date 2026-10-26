@@ -152,9 +152,20 @@ Discovery now runs after task scope preparation with its scoped environment;
 marketplace state remains local to that scope. Remote plugin sync is disabled
 before discovery, and no root marketplace link is created.
 
-This is a useful containment change, not a clean-root attestation. Existing
-scope reuse, stock `.system` trust, other global search paths, startup restore,
-and migration still require the larger contract described below.
+Each preflight now allocates a fresh mode-0700 task home outside the operator
+tool directory, including degraded fallbacks. Two tasks for the same repository
+cannot rewrite one another's configuration or clear active capabilities. Linked
+allocation directories fail before native discovery. The synthetic concurrent,
+sequential, failed-preflight and pre-execution teardown regressions pass.
+The actual pinned native Codex also passes an offline Docker catalog probe with
+concurrent same-repository tasks from checkouts requiring different skills.
+Each catalog excludes the peer's skill and operator configuration/auth stay
+unchanged. Failed shared-sessions setup refuses execution; fresh-container
+recovery checks the shared sessions directory before the historical scope.
+Completed execution homes are retained until all native history metadata and
+SQLite state have a verified shared projection; subsequent tasks do not reuse
+their configuration. Full lifecycle cleanup, other discovery surfaces, startup
+restore and migration still require the larger contract described below.
 
 ### Existing global-audit repair safety
 

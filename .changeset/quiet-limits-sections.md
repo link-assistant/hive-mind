@@ -61,3 +61,5 @@ Pin Gemini 0.65.0 and Qwen 0.26.1 alongside the other four installed tool runtim
 Include a bounded content digest in the internal limits credential-generation key. Same-size writes with unchanged filesystem timestamps must invalidate successful cached usage. Keep file bytes and digests out of diagnostics.
 
 Add a reusable Linux descriptor-based refresh lock for participating canonical-state adapters. Preserve one lock inode, bound waits, reap cancelled waiters and release ownership on process death without unlinking the file. Validate identity before commit. Native CLI integration and writers outside the adapter remain unfinished.
+
+Allocate a fresh private Codex configuration/discovery directory for every preflight, including degraded fallbacks, outside the operator tool home. Concurrent tasks for the same repository cannot overwrite each other's configuration or erase capabilities. Reject linked allocation directories and clean up failed preflights. Retain execution homes until full native history metadata and SQLite have verified shared storage.

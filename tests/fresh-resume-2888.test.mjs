@@ -84,12 +84,34 @@ test('the rollout is copied out of the stopped container when it is only there',
   const calls = [];
   const copy = async (container, source, destination) => {
     calls.push({ container, source });
+    if (source === '/home/box/.codex/sessions/.') return { success: false, error: 'legacy fixture has no shared directory' };
     await writeRollout(destination);
     return { success: true };
   };
   const h = freshHarness({ home, copy });
   await h.recover();
-  assert.deepEqual(calls, [{ container: SESSION, source: '/home/box/.codex/hive-mind/repositories/link-assistant/router/sessions/.' }]);
+  assert.deepEqual(calls, [
+    { container: SESSION, source: '/home/box/.codex/sessions/.' },
+    { container: SESSION, source: '/home/box/.codex/hive-mind/repositories/link-assistant/router/sessions/.' },
+  ]);
+  assert.ok(await findCodexRolloutFile({ sessionsDir: path.join(home, '.codex', 'sessions'), threadId: THREAD }));
+  assert.deepEqual(h.launches[0].args.slice(-2), ['--resume', THREAD]);
+});
+
+test('fresh task homes recover through the shared container sessions path', async () => {
+  const home = await tempHome();
+  const calls = [];
+  const h = freshHarness({
+    home,
+    copy: async (container, source, destination) => {
+      calls.push({ container, source });
+      if (source !== '/home/box/.codex/sessions/.') return { success: false, error: 'task config has a unique disposable path' };
+      await writeRollout(destination);
+      return { success: true };
+    },
+  });
+  await h.recover();
+  assert.deepEqual(calls, [{ container: SESSION, source: '/home/box/.codex/sessions/.' }]);
   assert.ok(await findCodexRolloutFile({ sessionsDir: path.join(home, '.codex', 'sessions'), threadId: THREAD }));
   assert.deepEqual(h.launches[0].args.slice(-2), ['--resume', THREAD]);
 });

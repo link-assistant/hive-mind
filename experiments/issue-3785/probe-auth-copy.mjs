@@ -1,6 +1,7 @@
 // Offline structural reproduction. Expected to report the still-unfixed defect.
 // All credentials are synthetic; this does not contact a provider.
 import assert from 'node:assert/strict';
+import console from 'node:console';
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -30,9 +31,11 @@ try {
   assert.equal(await generation(baseCodexHome), 0);
   assert.equal(await generation(b.codexHome), 0);
   console.log('REPRODUCED: task A rotation is invisible to the base and task B.');
-  await preflight('a');
-  assert.equal(await generation(a.codexHome), 0);
-  console.log('REPRODUCED: repeated preflight overwrites task A with stale base state.');
+  const repeated = await preflight('a');
+  assert.notEqual(repeated.codexHome, a.codexHome);
+  assert.equal(await generation(a.codexHome), 1);
+  assert.equal(await generation(repeated.codexHome), 0);
+  console.log('REPRODUCED: a repeated preflight copies stale base state into a fresh home; the earlier task is preserved.');
 } finally {
   await rm(root, { recursive: true, force: true });
 }

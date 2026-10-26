@@ -586,6 +586,9 @@ export const executeCodex = async params => {
   // the requirement corpus, so the preflight needs the checkout; `--require-codex-plugin`
   // is the explicit escape hatch for requirements no document states.
   const capabilityPreflight = await runCodexCapabilityPreflight({ owner, repo, issueNumber, projectDir: tempDir, codexPath, log, env: codexBaseEnv, requiredPlugins: argv.requireCodexPlugin });
+  // Retain the execution home until native history metadata/SQLite also have a
+  // verified canonical projection (issue #3785). A later task always allocates
+  // fresh configuration; deleting this home would discard unprojected data.
   // Execute the Codex command
   return await executeCodexCommand({
     tempDir,

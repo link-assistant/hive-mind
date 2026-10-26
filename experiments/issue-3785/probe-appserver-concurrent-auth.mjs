@@ -123,6 +123,10 @@ function startClient(index) {
     `type=bind,source=${fileURLToPath(new URL('appserver-auth-stub.sh', import.meta.url))},target=/handler.sh,readonly`,
     '--mount',
     `type=bind,source=${fileURLToPath(new URL('appserver-refresh-worker.mjs', import.meta.url))},target=/adapter.mjs,readonly`,
+    '--mount',
+    `type=bind,source=${fileURLToPath(new URL('../../src/shared-auth-refresh-lock.lib.mjs', import.meta.url))},target=/src/shared-auth-refresh-lock.lib.mjs,readonly`,
+    '-e',
+    `HIVE_SYNTHETIC_LOCKED=${locked ? '1' : '0'}`,
     '-e',
     'HOME=/probe/home',
     '-e',
@@ -162,9 +166,9 @@ function startClient(index) {
         assert.equal(message.params.reason, 'unauthorized');
         callbacks++;
         if (callbacks === 2) releaseCallbacks();
-        // Each callback worker runs in its own container/PID namespace. flock
-        // selects the same host-backed lock inode, then the worker rereads G.
-        const command = ['exec', name, ...(locked ? ['flock', '-x', '/authority/refresh.lock'] : []), 'node', '--max-old-space-size=64', '/adapter.mjs', '0'];
+        // Each callback uses the packaged OS-lock primitive in its own PID
+        // namespace, then rereads G under the same host-backed lock inode.
+        const command = ['exec', name, 'node', '--max-old-space-size=64', '/adapter.mjs', '0'];
         const { stdout } = await execute('docker', command, { maxBuffer: 16384 }).catch(async error => {
           await fs.writeFile('/tmp/issue-3785-concurrent-external-worker.log', error.stderr || 'Synthetic worker failed.', { mode: 0o600 });
           throw new Error('Synthetic worker failed; inspect the private local worker log.');

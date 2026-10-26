@@ -55,6 +55,12 @@ push only issue-3785-4c28551ac612, and keep unmet requirements explicitly open.
       lock; verify one exchange after locked generation reread, next-request G1,
       shared lock identity and release after forced owner-container removal.
       This remains an experimental adapter, not production/all-writer support.
+- [x] Extract the callback experiment's OS lock into a packaged Linux primitive.
+      Verify ten cases: independent processes reread G1 and exchange G0 once,
+      forced owner death preserves the inode, rejected callbacks release,
+      waiting deadlines/abort reap children, unsafe links/modes and replacement
+      refuse exchange/commit. Rerun both real two-container callback controls
+      using this exact module. Direct native/host writers remain unfinished.
 - [x] Reproduce PR checks installing published latest; pack the branch and require
       installed stock-runtime verification in root/DinD/Coolify build definitions.
 - [x] Reproduce Playwright-name command/environment spoofing and native Claude

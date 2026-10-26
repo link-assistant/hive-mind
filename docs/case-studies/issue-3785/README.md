@@ -837,3 +837,17 @@ a SHA-256 digest read through a bounded regular-file descriptor (maximum 1 MiB),
 refuses linked/nonregular inputs and never logs bytes or digests. All 26 focused
 cache/limits cases pass after repair. The failed full run is not counted as a
 pass; a new complete run was started. Evidence: `evidence/cache-generation.txt`.
+
+The external-auth worker now uses the packaged
+`src/shared-auth-refresh-lock.lib.mjs` primitive instead of wrapping its entire
+process in an experimental shell lock. It validates a private canonical
+directory and regular single-link lock, acquires a stable inode through a
+parent-owned descriptor and Linux `flock`, and rechecks identity before commit.
+It never deletes the lock. Ten tests verify independent-process generation
+rereads, one predecessor exchange, forced owner death, rejected operations,
+bounded/cancelled waiters and unsafe/replaced lock refusal. The actual native
+two-container negative and positive controls were rerun against this module;
+without locking both workers exchange G0, with locking exactly one does and
+both native clients use G1. This is a reusable primitive plus an experimental
+consumer. It does not coordinate a native or host writer that bypasses it,
+replace production exec, or establish immediate cache invalidation. A5 stays open.

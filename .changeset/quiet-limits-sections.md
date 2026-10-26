@@ -59,3 +59,5 @@ Include native Codex profile-v2 configuration files in global admission and sema
 Pin Gemini 0.65.0 and Qwen 0.26.1 alongside the other four installed tool runtimes. Verify their native versions in disposable state during installed-runtime admission and exclude all six pinned CLIs from automatic updates.
 
 Include a bounded content digest in the internal limits credential-generation key. Same-size writes with unchanged filesystem timestamps must invalidate successful cached usage. Keep file bytes and digests out of diagnostics.
+
+Add a reusable Linux descriptor-based refresh lock for participating canonical-state adapters. Preserve one lock inode, bound waits, reap cancelled waiters and release ownership on process death without unlinking the file. Validate identity before commit. Native CLI integration and writers outside the adapter remain unfinished.

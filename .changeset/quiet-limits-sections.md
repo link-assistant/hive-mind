@@ -7,3 +7,5 @@ Give Claude and Codex authentication errors separate limits sections, prefer aut
 Reject explicitly selected Router launches with missing task tokens, invalid endpoints or unavailable tool routes, and use the selected image's route dialect consistently.
 
 Refresh the CI-required Formal AI, start-command and Secretlint dependency pins and their lockfile entries.
+
+Reject malformed JSON, unsafe links and concurrent edits before the existing global configuration audit repairs state. Preserve hidden runtime files and concurrent additions when pruning empty extension directories.

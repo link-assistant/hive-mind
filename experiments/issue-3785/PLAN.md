@@ -20,6 +20,8 @@ push only issue-3785-4c28551ac612, and keep unmet requirements explicitly open.
 - [x] Reject selected Router launches without valid task token, endpoint or tool route.
 - [x] Keep Codex marketplace discovery in task-owned state; remove root catalog link.
 - [x] Remove sensitive diagnostics, including malformed JSON error excerpts.
+- [x] Reproduce legacy global-audit malformed/link/permission/concurrent-edit
+      failures; reject unsafe inputs before repair without logging input bytes.
 - [x] Add bounded real Codex logout/login Docker probe and report evidence upstream.
 - [ ] Implement canonical auth/history authority, explicit alternative contracts,
       coordinated refresh and fail-closed effective-path validation for all tools.

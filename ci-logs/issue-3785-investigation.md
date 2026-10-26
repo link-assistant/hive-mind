@@ -36,3 +36,12 @@ be rolled back by reusing a newly written store with an older CLI. Its upstream
 release also includes dependency/sanitizer fixes. Formal AI 0.355.11 is a patch
 release with tool-metadata caching and cleanup verification fixes. Registry and
 release metadata were checked before updating.
+
+Superseded heads were cancelled by the existing per-branch concurrency policy.
+Security run 40271384228 stopped in checkout (`security-40271384228.log:354`,
+390 lines total), before analysis. The cancellation logs for 78d581fed's
+security/release runs 40271576619 and 40271576799 are unavailable: `gh run view
+--log` returned `log not found` for jobs 121405332105 and 121405471144. These
+cancellations do not establish a code failure or a passing check. On e5ccc5eec,
+Security, Workflows and Broken Link Checker completed successfully; release
+checks remain in progress while the additional audit-input hardening is tested.

@@ -145,6 +145,31 @@ This is a useful containment change, not a clean-root attestation. Existing
 scope reuse, stock `.system` trust, other global search paths, startup restore,
 and migration still require the larger contract described below.
 
+### Existing global-audit repair safety
+
+The existing `runAgentConfigAudit()` could treat malformed/unreadable JSON as
+absent and follow linked settings or plugin ancestors during repair. A settings
+hard link could modify credentials, and a linked plugin ancestor could redirect
+recursive cleanup into conversation storage. Logging also yielded between
+inspection and repair, allowing a concurrent edit to invalidate its plan.
+
+Its production entry now validates its existing input paths asynchronously,
+rejecting linked roots/ancestors, linked/nonregular configuration files,
+unreadable inputs and malformed/non-object JSON before any repair. JSON reads
+use `O_NOFOLLOW` and descriptor identity checks. Directory enumeration is bounded.
+The input generations are checked again after logging before synchronous repair.
+Eight regressions fail against the retained pre-fix implementation and pass after
+the change; they verify synthetic protected content and identity preservation.
+Empty-parent pruning now counts hidden entries and uses nonrecursive removal,
+preserving stock `.system` files and refusing a directory filled concurrently.
+Run `node experiments/issue-3785/probe-audit-inputs.mjs --baseline` to reproduce
+the old failures. The same command without `--baseline` runs the current code.
+
+This is a safety precondition for the legacy repair, not a complete baseline
+guard: effective alternate homes, all native discovery surfaces, strict TOML
+validation, pristine `.system` attestation, contamination rejection, quarantine
+and adversarial races during filesystem mutation still need implementation.
+
 ### Authentication copies: reproduced and still present
 
 `prepareScopedCodexHome()` calls `syncFileIfPresent()` for `auth.json`;

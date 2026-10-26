@@ -45,9 +45,9 @@ for (const [sourcePath, name] of [
   await pipeline(createReadStream(destPath), createGzip({ level: 9 }), createWriteStream(`${dest}/${name}.gz`));
   manifest.push({ file: `${name}.gz`, contentSha256: digest.digest('hex'), sourceBytes: stats.sourceSize, sanitizedBytes: (await stat(destPath)).size, redacted: ['credentials', 'download query tokens', 'emails', 'UUIDs', 'account identity fields'], residualCredentialBlock: residual });
 }
-for (const name of ['auth-copy', 'file-mount', 'codex-storage', 'limits-before', 'cache-before', 'catalog-before', 'privacy-before', 'router-before', 'router-mapping-before', 'malformed-before', 'router-admission-before', 'router-admission-final', 'router-dialect-before', 'route-lease-before', 'route-lease-final', 'router-regressions', 'router-isolation-final', 'router-routes-final', 'router-hardening-final', 'limits-final']) {
+for (const name of ['auth-copy', 'file-mount', 'codex-storage', 'limits-before', 'cache-before', 'catalog-before', 'privacy-before', 'router-before', 'router-mapping-before', 'malformed-before', 'router-admission-before', 'router-admission-final', 'router-dialect-before', 'route-lease-before', 'route-lease-final', 'router-regressions', 'router-isolation-final', 'router-routes-final', 'router-hardening-final', 'limits-final', 'audit-before', 'audit-after']) {
   const output = await readFile(`/tmp/issue-3785-${name}.log`, 'utf8');
-  await writeFile(`${dest}/${name}.log`, output.replace(/[ \t]+$/gm, ''));
+  await writeFile(`${dest}/${name}.log`, output.replace(/data:text\/javascript;base64,[A-Za-z0-9+/=]+/gu, '<synthetic-test-module>').replace(/[ \t]+$/gm, ''));
 }
 await writeFile(`${dest}/manifest.json`, `${JSON.stringify(manifest, null, 2)}\n`);
 console.log('Sanitized context and incident logs; compressed artifacts and probes retained.');

@@ -31,6 +31,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { setTomlTableBoolean } from './codex-capability-preflight.lib.mjs';
+import { validateAgentConfigAuditInputs } from './agent-config-audit-inputs.lib.mjs';
 
 /** MCP servers that belong to the minimal hive-mind configuration. */
 export const MINIMAL_MCP_SERVERS = Object.freeze(['playwright']);
@@ -78,10 +79,11 @@ export const isAgentConfigAutoRepairEnabled = ({ argv, env = process.env, args =
   return true;
 };
 
-const safeReadDir = (fsImpl, dir) => {
+const safeReadDir = (fsImpl, dir, { includeHidden = false, strict = false } = {}) => {
   try {
-    return fsImpl.readdirSync(dir, { withFileTypes: true }).filter(entry => !entry.name.startsWith('.'));
-  } catch {
+    return fsImpl.readdirSync(dir, { withFileTypes: true }).filter(entry => includeHidden || !entry.name.startsWith('.'));
+  } catch (error) {
+    if (strict) throw error;
     return [];
   }
 };
@@ -311,7 +313,9 @@ const applyRepair = (repair, fsImpl) => {
       fsImpl.rmSync(repair.target, { recursive: true, force: true });
       if (repair.pruneEmptyParent) {
         const parent = path.dirname(repair.target);
-        if (safeReadDir(fsImpl, parent).length === 0) fsImpl.rmSync(parent, { recursive: true, force: true });
+        // Account for hidden runtime files, and let the kernel reject pruning
+        // if another writer adds an entry after the check.
+        if (safeReadDir(fsImpl, parent, { includeHidden: true, strict: true }).length === 0) fsImpl.rmdirSync(parent);
       }
       return;
     }
@@ -379,6 +383,7 @@ export const formatAgentConfigFinding = finding => `${finding.tool} ${finding.ki
  */
 export const runAgentConfigAudit = async ({ tool = 'all', homeDir = os.homedir(), autoRepair = true, log = async () => {}, verbose = false, fsImpl = fs, allowedMcpServers = MINIMAL_MCP_SERVERS } = {}) => {
   const scope = AUDITABLE_TOOLS.includes(tool) ? tool : 'all';
+  const auditInputs = await validateAgentConfigAuditInputs({ tool: scope, homeDir, fsImpl });
   const { findings, repairable, warnOnly } = auditAgentConfig({ tool: scope, homeDir, fsImpl, allowedMcpServers });
   if (verbose) await log(`🔍 ${LOG_PREFIX}: inspected global ${scope === 'all' ? 'claude/codex' : scope} configuration under ${homeDir} (${findings.length} finding${findings.length === 1 ? '' : 's'})`, { verbose: true });
   if (findings.length === 0) return { findings, repaired: [], failed: [], skipped: [] };
@@ -392,6 +397,9 @@ export const runAgentConfigAudit = async ({ tool = 'all', homeDir = os.homedir()
     await log('   Auto-repair is disabled (--no-agent-config-auto-repair); nothing was changed. Non-minimal skills and plugins may change agent behaviour and token usage.', { level: 'warn' });
     return { findings, repaired: [], failed: [], skipped: repairable };
   }
+  // Logging may yield to another editor. Reject changed state before the
+  // synchronous legacy repairs rather than applying an obsolete repair plan.
+  await validateAgentConfigAuditInputs({ tool: scope, homeDir, fsImpl, previous: auditInputs });
   const { repaired, failed } = repairAgentConfig(repairable, { fsImpl });
   if (repaired.length) await log(`🧹 Auto-repaired ${repaired.length} global agent configuration item${repaired.length === 1 ? '' : 's'} (disable with --no-agent-config-auto-repair)`);
   for (const finding of repaired) {

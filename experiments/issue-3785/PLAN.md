@@ -277,9 +277,10 @@ Current continuation:
 - [x] Reproduce eight independent native provider authority overrides using the
       downloaded source-built executable and actual local model requests. Also
       verify stock version/unset identity metadata retains canonical G0.
-- [ ] Verify the extended request guard refuses all eight provider routes while
-      preserving both stock metadata controls in the rebuilt native CLI. Audit
-      alternative constructors and agent-identity bootstrap separately.
+- [x] Verify the extended request guard refuses all eight provider routes while
+      preserving both stock metadata controls in the rebuilt native CLI.
+      Run 40384255301 passes all ten cases; alternative constructors and
+      agent-identity bootstrap remain separate unfinished work.
 - [x] Reproduce actual Bedrock/Mantle and Bedrock Runtime requests that bypass
       ordinary canonical request admission: both use an independent AWS bearer,
       and both send unauthenticated requests with requires_openai_auth=true.
@@ -304,15 +305,18 @@ Current continuation:
       storage, private competing locks and legacy behavior.
 - [ ] Verify the maintenance patch in the full native CLI and exercise actual
       concurrent compression/migration output and remaining history writers.
+      Run 40384255301 compiles the patch and passes actual named-history disposal
+      with its selector; concurrent compression/migration is still unverified.
 - [x] Reproduce native TUI split/lost prompt history using exact native modules
       with only passive configuration types stubbed after the full transitive
       build hits its 1 GiB compiler limit. Verify 14 canonical public-API controls
       and all 12 upstream tests in that focused harness: disposal, contention,
       owner death, pagination, atomic publication, stable identity, unsafe storage
       and legacy compatibility. Keep full native integration evidence separate.
-- [ ] Verify real native prompt-history crate before/after controls, upstream
-      tests and full CLI compilation in CI. Fix application-level refusal for
-      selected history errors before execution; audit remaining native writers.
+- [x] Verify real native prompt-history crate before/after controls, upstream
+      tests and full CLI compilation in CI. Run 40384255301 passes all 14 public
+      controls and 12 upstream tests. Application-level refusal and remaining
+      native writers remain open below.
 - [x] Drive the actual native TUI through bounded PTY input and a synthetic
       model endpoint; healthy history/request passes, then strict unsafe-history
       refusal fails. Trace queued model submission preceding async persistence.
@@ -322,6 +326,9 @@ Current continuation:
 - [ ] Verify the current canonical-history CLI reproduces TUI execution after
       refusal, then compile the TUI ordering repair and require actual healthy,
       unsafe and no-selector controls. Continue other operation/read paths.
+      The actual executable downloaded from 40384255301 passes the healthy
+      canonical control, reproduces unsafe execution and fails strict refusal;
+      fixed native TUI compilation/positive execution remains pending.
 - [ ] Complete production integration and all previously open six-tool criteria.
 
 Resource policy: use sequential builds/tests; no real credentials in experiments

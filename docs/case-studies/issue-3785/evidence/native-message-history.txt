@@ -33,7 +33,14 @@ After pinned canonical storage patch:
 
 The CI workflow builds the actual native history crate before/after the patch,
 uses the same public-API driver, runs upstream tests and compiles the full CLI.
-Those new CI results are pending. The TUI currently converts some history errors
+Run 40384255301 at 3f37d553db39f4a517139650017759d1e0b04a3a now verifies
+the actual native crate, full CLI build and all 14 controls. Its downloaded
+native-prompt-history-after.log:1-14 records each positive control;
+native-prompt-history-tests.log:19 records all 12 upstream tests passing.
+The named-history disposal control also passes with the maintenance selector
+in the full CLI (native-index-history.log:2). These are actual native CI results,
+separate from the earlier focused harness.
+The TUI currently converts some history errors
 to empty results/warnings and continues; pre-execution refusal, complete writer
 coordination/crash semantics, backing attestation and production integration
 remain unfinished. This evidence does not establish complete A1/A7/A9 acceptance.

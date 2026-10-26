@@ -907,8 +907,8 @@ in both API-key and managed ChatGPT modes; atomic G1 replacement and G2 recreati
 work. The provider's missing-auth fallback is the traced cause. The exact-source
 guard compiles in run 40376400046 and its actual-request positive control passes
 for both modes/peers, including malformed/unsafe/logout refusal and repaired
-authority. The subsequent eight-provider-override extension needs rebuilt CI
-evidence; alternative constructors and production integration remain open.
+authority. Run 40384255301 also verifies all eight provider-override refusals and both
+stock metadata controls. Alternate constructors and production integration remain open.
 
 Sharing native SQLite alone also fails the named-thread disposal control:
 `thread/read` can retain the name, but a fresh native `thread/resume` loses it
@@ -935,6 +935,8 @@ offsets across publications. The focused harness reproduces split/lost history
 and passes 14 repaired controls, including eight concurrent appends, owner
 death and 141-row pagination; all 12 upstream tests pass. It uses exact native
 history modules with only two passive config value types stubbed after the full
-transitive compiler hits its 1 GiB limit. Full native crate/CLI CI is separate
-and pending. TUI error propagation, remaining writers and production integration
-remain open. See [prompt-history evidence](evidence/native-message-history.txt).
+transitive compiler hits its 1 GiB limit. Run 40384255301 separately compiles
+the actual native crate/full CLI and passes those 14 controls and 12 tests.
+The downloaded CLI still reproduces unsafe-history model execution through the
+TUI; the pinned ordering repair awaits native compilation. Remaining writers
+and production integration stay open. See [prompt-history evidence](evidence/native-message-history.txt).

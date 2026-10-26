@@ -565,3 +565,23 @@ literal test names and counts without printing compared values or exceptions;
 the same regression passes afterward. The opt-in suite's existing unrelated
 assertion failures remain visible and still produce exit 1. No alert is
 dismissed or suppressed. Fresh CodeQL analysis of the repair remains required.
+
+Native run 40384255301 completes successfully at 19:42:58 UTC on the same
+3f37d553d head. Its 1,062-line workflow log is `native-40384255301.log`;
+native diagnostics are retained under `/tmp/issue-3785-native-evidence-40384255301/`.
+`native-request-overrides-after.log:1-10` records eight refusals and both stock
+metadata controls. `native-prompt-history-after.log:1-14` records all canonical
+history controls; `native-prompt-history-tests.log:19` records 12 upstream
+tests passing. Full CLI compilation, 20 native index tests and the actual
+named-history disposal/peer-update control with shared SQLite/index/maintenance
+also pass. Checks/release run 40384255196 passes all default, integration and
+packaged image jobs. The independent CodeQL failure above still prevents a
+fully passing PR status.
+
+The downloaded actual CLI independently reproduces TUI execution despite unsafe
+canonical history: the healthy canonical-history request passes first, then the
+strict zero-request assertion fails at probe line 170. Negative-control and
+strict logs are `/tmp/issue-3785-tui-canonical-before.log` and
+`/tmp/issue-3785-tui-canonical-regression.log`. Neither the alternate-constructor
+repair nor the TUI ordering patch is included in 3f37d553d; both require fresh
+full native CI evidence before production use.

@@ -45,6 +45,16 @@ Full patched TUI compilation and actual positive execution controls are pending
 CI. The workflow checks the real pre-repair canonical-history CLI separately.
 These local results do not establish that positive integration result.
 
+The executable from completed native run 40384255301 at 3f37d553d includes
+canonical prompt history and request admission, before the TUI ordering patch.
+The same actual TUI probe passes its healthy canonical-history/model control
+and reproduces unsafe-history execution without a private history file.
+The strict control then fails at probe line 170 (zero model requests required).
+Logs: /tmp/issue-3785-tui-canonical-before.log and
+/tmp/issue-3785-tui-canonical-regression.log. This independently isolates the
+application ordering bug after the real storage patch; fixed execution remains
+pending the subsequent full native CI build.
+
 Open: all other model-operation paths, metadata/read error propagation,
 all-writer/crash semantics, full history backing, deployment and production
 integration. This experiment does not complete A1/A7/A9 or the six-tool contract.

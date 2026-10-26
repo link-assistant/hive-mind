@@ -1,0 +1,2 @@
+{"adminVisible":true,"stockCount":5,"stockNames":["imagegen","openai-docs","review-agent","skill-creator","skill-installer"],"privateStockPaths":true,"stockEnabled":true,"noStockPlugins":true,"requestedCwd":true,"noErrors":true}
+Verified: real offline Codex discovers pristine stock plus a synthetic admin skill, and runtime admission rejects the extra catalog entry.

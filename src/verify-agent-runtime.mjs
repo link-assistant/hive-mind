@@ -9,6 +9,7 @@ import { pathToFileURL } from 'node:url';
 import path from 'node:path';
 import os from 'node:os';
 import { CODEX_STOCK_SKILLS, validateCodexStockSkills } from './codex-stock-skills.lib.mjs';
+import { assertCodexStockSkillDiscovery } from './codex-stock-catalog.lib.mjs';
 import { runAgentConfigAudit } from './agent-config-audit.lib.mjs';
 
 const execute = promisify(execFile);
@@ -89,7 +90,7 @@ async function materializeStock(command, home, cwd, env) {
         await request('initialize', { clientInfo: { name: 'hive-stock-runtime-gate', version: '1.0.0' } });
         child.stdin.write(`${JSON.stringify({ method: 'initialized' })}\n`);
         const result = await request('skills/list', { cwds: [cwd], forceReload: true });
-        assert.ok(result.data?.length, 'Stock CLI did not discover any skills.');
+        assertCodexStockSkillDiscovery({ result, home, cwd });
         const stock = path.join(home, '.codex/skills/.system');
         const snapshot = await validateCodexStockSkills({ directory: stock });
         assert.notEqual(snapshot.get(stock), 'missing', 'Stock CLI did not materialize its pinned runtime.');

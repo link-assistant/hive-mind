@@ -107,6 +107,12 @@ for (const name of [
   'runtime-env-before',
   'runtime-env-after',
   'runtime-env-package',
+  'native-catalog-before',
+  'native-catalog-unit-before',
+  'native-catalog-after',
+  'native-catalog-focused',
+  'native-catalog-existing',
+  'native-catalog-package',
 ]) {
   const output = await readFile(`/tmp/issue-3785-${name}.log`, 'utf8');
   await writeFile(`${dest}/${name}.log`, output.replace(/data:text\/javascript;base64,[A-Za-z0-9+/=]+/gu, '<synthetic-test-module>').replace(/[ \t]+$/gm, ''));

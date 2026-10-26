@@ -48,6 +48,8 @@ push only issue-3785-4c28551ac612, and keep unmet requirements explicitly open.
       using the updater's existing per-tool setting and preserve all other targets.
 - [x] Reproduce parent-environment inheritance in stock-gate children; isolate
       all native version and materialization subprocesses in disposable state.
+- [x] Reproduce real Codex discovering an extra admin skill beside pristine
+      stock; require the exact pinned native catalog as well as file hashes.
 - [ ] Implement canonical auth/history authority, explicit alternative contracts,
       coordinated refresh and fail-closed effective-path validation for all tools.
 - [ ] Isolate task catalogs/extensions and enforce clean global baseline; migrate

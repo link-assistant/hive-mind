@@ -489,4 +489,18 @@ The four original storage/copy probes and later stock, callback and package
 probes completed and cleaned up. These checks do not verify the unfinished
 canonical-storage contract.
 
+The real pinned Codex also exposed a separate stock-gate bypass: a synthetic
+admin skill under `/etc/codex/skills` was discovered alongside all five pristine
+system skills, and the gate admitted it. Stock file hashes alone cannot attest
+the complete native catalog. The retained `native-catalog-before.log` records
+that actual failure; the 14 malformed/unapproved catalog tests also failed
+before the change. Admission now requires one error-free result for the
+requested directory and exactly the five pinned names, private paths, enabled
+flags and system scopes, without duplicates or plugin associations. The real
+contaminated probe is rejected after the fix; the actual installed-package
+probe still accepts pristine discovery. All 15 catalog cases and 46 related
+stock, admission, environment and updater checks pass. This verifies the
+disposable installed-runtime probe; complete production effective-path and
+lifecycle attestation remains open.
+
 ![Synthetic before and after limits layout](evidence/display-comparison.png)

@@ -20,6 +20,8 @@ Install the PR branch as a release-shaped npm package in Docker checks. Require 
 
 Give every stock-gate native subprocess a disposable home and working directory with a minimal environment. Exclude inherited credentials, config overrides and preload hooks from version checks and stock materialization; force disposable file-based Codex credential storage.
 
+Require native Codex discovery to return exactly the pinned stock skills in the disposable home. Reject additional user, repository or admin skills, missing/duplicate/disabled entries, alternate paths, plugin associations and discovery errors before checking the stock file tree. Keep native paths and error excerpts out of rejection diagnostics.
+
 Keep in-flight usage requests within their cache instance so resetting the cache cannot join obsolete work or overwrite a fresh result. Isolate queue unit tests from automatic background consumers.
 
 Validate the approved Playwright MCP command, package arguments, transport and environment rather than trusting its registration name. Inspect both conventional Claude user-state paths, including the native CLAUDE_CONFIG_DIR relocation. Reject unapproved registrations before any repair while preserving protected state.

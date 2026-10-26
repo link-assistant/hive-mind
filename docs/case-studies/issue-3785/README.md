@@ -534,4 +534,24 @@ failure. Actual image execution still needs newest-head CI. This gate exercises
 filesystem backing only; native CLI refresh/history and release/deployment
 promotion requirements remain unfinished.
 
+Run 40304694014 on `b0ae348d1` skipped Docker checks: incremental detection
+recognized image definitions but not the installed branch source or new gate
+scripts. A real-detector regression reproduces the source-only skip. Detection
+now includes package source/dependencies, startup and verification inputs; the
+existing change-range and untested-head suites still pass. Image execution
+requires another newest-head run after this correction.
+
+The conventional-home audit also admitted clean homes while explicit
+`CLAUDE_CONFIG_DIR` or `CODEX_HOME` selected contaminated directories. Nine
+initial regression cases fail before the fix. The audit now includes both
+conventional and selected roots in its pre-repair snapshot and final re-audit.
+Unsafe linked ancestors/files, malformed state and concurrent edits prevent
+all repairs, including unrelated conventional-home changes. Changed selectors
+reject repair/admission after asynchronous logging. Tests verify protected
+synthetic auth/history identities and unrelated settings survive safe repairs.
+Production solve/hive/bot admission and installed-runtime verification pass the
+selected environment explicitly; library fixture callers remain independent of
+the parent environment. These checks cover the existing known surfaces under
+the selected roots, not every managed/search path or canonical storage identity.
+
 ![Synthetic before and after limits layout](evidence/display-comparison.png)

@@ -109,8 +109,8 @@ async function materializeStock(command, home, cwd, env) {
   }
 }
 
-export async function verifyAgentRuntime({ homeDir = os.homedir(), codexCommand = 'codex', claudeCommand = 'claude' } = {}) {
-  await runAgentConfigAudit({ homeDir, autoRepair: false, requireClean: true });
+export async function verifyAgentRuntime({ homeDir = os.homedir(), env = {}, codexCommand = 'codex', claudeCommand = 'claude' } = {}) {
+  await runAgentConfigAudit({ homeDir, env, autoRepair: false, requireClean: true });
   const fixture = await mkdtemp(path.join(os.tmpdir(), 'hive-stock-gate-'));
   try {
     const home = path.join(fixture, 'home');
@@ -118,16 +118,16 @@ export async function verifyAgentRuntime({ homeDir = os.homedir(), codexCommand 
     await mkdir(path.join(home, '.codex'), { recursive: true });
     await mkdir(path.join(home, '.claude'));
     await mkdir(cwd);
-    const env = probeEnvironment(home);
+    const probeEnv = probeEnvironment(home);
     for (const [command, expected] of [
       [claudeCommand, '2.1.310 (Claude Code)'],
       [codexCommand, CODEX_STOCK_SKILLS.cliVersion],
     ]) {
-      const { stdout } = await execute(command, ['--version'], { env, cwd, maxBuffer: 64 * 1024, signal: AbortSignal.timeout(DEADLINE_MS) });
+      const { stdout } = await execute(command, ['--version'], { env: probeEnv, cwd, maxBuffer: 64 * 1024, signal: AbortSignal.timeout(DEADLINE_MS) });
       assert.equal(stdout.trim(), expected, 'Installed CLI version differs from the pinned runtime.');
     }
-    await materializeStock(codexCommand, home, cwd, env);
-    await runAgentConfigAudit({ homeDir, autoRepair: false, requireClean: true });
+    await materializeStock(codexCommand, home, cwd, probeEnv);
+    await runAgentConfigAudit({ homeDir, env, autoRepair: false, requireClean: true });
   } finally {
     await rm(fixture, { recursive: true, force: true });
   }
@@ -135,7 +135,7 @@ export async function verifyAgentRuntime({ homeDir = os.homedir(), codexCommand 
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   try {
-    await verifyAgentRuntime();
+    await verifyAgentRuntime({ env: process.env });
     console.log('Installed Claude/Codex versions, known global baseline and pristine Codex stock runtime verified.');
   } catch {
     console.error('Installed agent runtime verification failed. Check pinned versions and restore a verified clean baseline.');

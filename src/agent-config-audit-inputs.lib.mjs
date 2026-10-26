@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { parse as parseToml } from 'smol-toml';
 import { CodexStockBaselineError, validateCodexStockSkills } from './codex-stock-skills.lib.mjs';
+import { agentConfigAuditScopes } from './agent-config-audit-paths.lib.mjs';
 
 const TOOL_INPUTS = {
   claude: {
@@ -50,10 +51,10 @@ async function readBoundedConfig(handle) {
  * Never include parser errors or input bytes in diagnostics. Directory scans
  * are bounded; config reads use O_NOFOLLOW and descriptor identity checks.
  */
-export async function validateAgentConfigAuditInputs({ tool = 'all', homeDir, fsImpl = fs, previous = null }) {
+export async function validateAgentConfigAuditInputs({ tool = 'all', homeDir, env = {}, fsImpl = fs, previous = null }) {
   const io = fsImpl.promises;
   const snapshot = new Map();
-  const tools = tool === 'all' ? Object.keys(TOOL_INPUTS) : [tool];
+  const scopes = agentConfigAuditScopes({ tool, homeDir, env });
   let entries = 0;
   const inspect = async (target, kind) => {
     let info;
@@ -72,11 +73,32 @@ export async function validateAgentConfigAuditInputs({ tool = 'all', homeDir, fs
   try {
     // A linked tool root or ancestor must never redirect recursive cleanup.
     await inspect(homeDir, 'dir');
-    for (const name of tools) {
+    for (const { tool: name, configDir, additional } of scopes) {
       const inputs = TOOL_INPUTS[name];
       if (!inputs) continue;
+      const targetPath = relative => (relative === `.${name}` || relative.startsWith(`.${name}/`) ? path.join(configDir, relative.slice(name.length + 2)) : path.join(homeDir, relative));
+      // An override may have a linked ancestor even when its final directory
+      // is ordinary. Validate each ancestor's identity, without tracking its
+      // unrelated directory entries or traversing auth/history contents.
+      if (additional) {
+        let ancestor = path.dirname(configDir);
+        while (true) {
+          let info;
+          try {
+            info = await io.lstat(ancestor, { bigint: true });
+          } catch (error) {
+            if (error.code !== 'ENOENT') throw unsafe();
+          }
+          if (info) {
+            if (!info.isDirectory() || info.isSymbolicLink()) throw unsafe();
+            snapshot.set(`ancestor:${ancestor}`, `${info.dev}:${info.ino}`);
+          } else snapshot.set(`ancestor:${ancestor}`, 'missing');
+          if (ancestor === path.dirname(ancestor)) break;
+          ancestor = path.dirname(ancestor);
+        }
+      }
       for (const relative of inputs.dirs) {
-        const target = path.join(homeDir, relative);
+        const target = targetPath(relative);
         if (!(await inspect(target, 'dir'))) continue;
         // Only extension roots are recursively removed by the legacy audit.
         // Do not inspect auth, transcripts or repository/task scopes here.
@@ -86,9 +108,9 @@ export async function validateAgentConfigAuditInputs({ tool = 'all', homeDir, fs
           await inspect(path.join(target, child.name));
         }
       }
-      for (const relative of inputs.opaque || []) await inspect(path.join(homeDir, relative), 'file');
+      for (const relative of inputs.opaque || []) await inspect(targetPath(relative), 'file');
       for (const relative of [...inputs.json, ...(inputs.text || [])]) {
-        const target = path.join(homeDir, relative);
+        const target = targetPath(relative);
         const info = await inspect(target, 'file');
         if (!info) continue;
         if (info.size > BigInt(CONFIG_MAX_BYTES)) throw unsafe();
@@ -109,7 +131,7 @@ export async function validateAgentConfigAuditInputs({ tool = 'all', homeDir, fs
         }
       }
       if (name === 'codex') {
-        const stock = await validateCodexStockSkills({ directory: path.join(homeDir, '.codex', 'skills', '.system'), fsImpl });
+        const stock = await validateCodexStockSkills({ directory: path.join(configDir, 'skills', '.system'), fsImpl });
         for (const [target, version] of stock) snapshot.set(target, version);
       }
     }

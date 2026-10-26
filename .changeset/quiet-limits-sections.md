@@ -28,6 +28,8 @@ Require an installed-package mount-backing check in Docker PR verification for b
 
 Include branch-package source, dependency, image startup and verification-script changes when deciding whether PR image checks are required. Incremental source-only updates must not skip installed-runtime or daemon mount verification.
 
+Audit explicit CLAUDE_CONFIG_DIR and CODEX_HOME configuration roots alongside conventional global locations. Validate all selected inputs before any repair, reject linked ancestors, malformed state, concurrent edits and changed path selectors, and preserve unrelated settings, auth and conversation evidence. Apply the same selection in solve, hive, the root bot and installed-runtime verification.
+
 Keep in-flight usage requests within their cache instance so resetting the cache cannot join obsolete work or overwrite a fresh result. Isolate queue unit tests from automatic background consumers.
 
 Validate the approved Playwright MCP command, package arguments, transport and environment rather than trusting its registration name. Inspect both conventional Claude user-state paths, including the native CLAUDE_CONFIG_DIR relocation. Reject unapproved registrations before any repair while preserving protected state.

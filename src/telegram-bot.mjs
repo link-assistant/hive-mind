@@ -54,7 +54,7 @@ if (!BOT_TOKEN) {
 // Parser-only dry runs do not inspect or mutate operator state.
 if (!config.dryRun) {
   const { isAgentConfigAutoRepairEnabled, runAgentConfigAudit } = await import('./agent-config-audit.lib.mjs');
-  await runAgentConfigAudit({ autoRepair: isAgentConfigAutoRepairEnabled(), requireClean: true, log: async message => console.log(message), verbose: VERBOSE });
+  await runAgentConfigAudit({ env: process.env, autoRepair: isAgentConfigAutoRepairEnabled(), requireClean: true, log: async message => console.log(message), verbose: VERBOSE });
 }
 
 // Resolve final config values (CLI option > environment variable)

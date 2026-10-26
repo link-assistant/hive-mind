@@ -21,8 +21,9 @@
  * ships a skill wants it, and hive-mind only ever activates skills that the
  * repository itself contains.
  *
- * The audit is pure with respect to its inputs (an injectable `fs`, `homeDir`)
- * so it can be tested against a temporary home directory. Repair is opt-out via
+ * The audit is pure with respect to its inputs (an injectable `fs`, `homeDir`,
+ * and explicit `env` path selectors). Production callers supply process.env;
+ * fixture callers do not inherit operator directories. Repair is opt-out via
  * `--no-agent-config-auto-repair` (or `HIVE_MIND_AGENT_CONFIG_AUTO_REPAIR=0` for
  * processes that have no argv, such as the Telegram bot's Docker launcher).
  */
@@ -33,6 +34,7 @@ import path from 'path';
 import { stringify as stringifyToml } from 'smol-toml';
 import { parseAgentConfigToml, validateAgentConfigAuditInputs } from './agent-config-audit-inputs.lib.mjs';
 import { assertApprovedPlaywrightRegistration } from './agent-mcp-baseline.lib.mjs';
+import { agentConfigAuditScopes } from './agent-config-audit-paths.lib.mjs';
 
 /** MCP servers that belong to the minimal hive-mind configuration. */
 export const MINIMAL_MCP_SERVERS = Object.freeze(['playwright']);
@@ -158,9 +160,8 @@ const auditGlobalInstructions = ({ tool, root, fsImpl, files = [], directories =
   return findings;
 };
 
-const auditClaude = ({ homeDir, fsImpl, allowedMcpServers }) => {
+const auditClaude = ({ homeDir, configDir: claudeDir, fsImpl, allowedMcpServers }) => {
   const findings = [];
-  const claudeDir = path.join(homeDir, '.claude');
   const pluginsDir = path.join(claudeDir, 'plugins');
   findings.push(...auditGlobalInstructions({ tool: 'claude', root: claudeDir, fsImpl, files: ['CLAUDE.md'], directories: ['rules'] }));
 
@@ -220,8 +221,7 @@ const auditClaude = ({ homeDir, fsImpl, allowedMcpServers }) => {
 
   // CLAUDE_CONFIG_DIR=$HOME/.claude relocates the native user-state file into
   // that directory. Check both conventional locations, including restored state.
-  for (const relative of ['.claude.json', '.claude/.claude.json']) {
-    const claudeJsonPath = path.join(homeDir, relative);
+  for (const claudeJsonPath of [path.join(homeDir, '.claude.json'), path.join(claudeDir, '.claude.json')]) {
     const claudeJson = safeReadJson(fsImpl, claudeJsonPath);
     if (claudeJson?.mcpServers !== undefined) {
       for (const name of Object.keys(configTable(claudeJson, 'mcpServers'))) {
@@ -236,9 +236,8 @@ const auditClaude = ({ homeDir, fsImpl, allowedMcpServers }) => {
   return findings;
 };
 
-const auditCodex = ({ homeDir, fsImpl, allowedMcpServers }) => {
+const auditCodex = ({ homeDir, configDir: codexDir, fsImpl, allowedMcpServers }) => {
   const findings = [];
-  const codexDir = path.join(homeDir, '.codex');
   findings.push(...auditGlobalInstructions({ tool: 'codex', root: codexDir, fsImpl, files: ['AGENTS.md', 'AGENTS.override.md'], directories: ['prompts'] }));
   const hooksPath = path.join(codexDir, 'hooks.json');
   const hooks = safeReadJson(fsImpl, hooksPath);
@@ -313,17 +312,19 @@ const auditCodex = ({ homeDir, fsImpl, allowedMcpServers }) => {
 /**
  * Inspect the global configuration of one or both tools.
  *
- * @param {{ tool?: 'claude'|'codex'|'all', homeDir?: string, fsImpl?: typeof fs, allowedMcpServers?: string[] }} [options]
+ * @param {{ tool?: 'claude'|'codex'|'all', homeDir?: string, env?: object, fsImpl?: typeof fs, allowedMcpServers?: string[] }} [options]
  * @returns {{ findings: object[], repairable: object[], warnOnly: object[] }}
  */
-export const auditAgentConfig = ({ tool = 'all', homeDir = os.homedir(), fsImpl = fs, allowedMcpServers = MINIMAL_MCP_SERVERS } = {}) => {
-  const tools = tool === 'all' ? AUDITABLE_TOOLS : AUDITABLE_TOOLS.includes(tool) ? [tool] : [];
+export const auditAgentConfig = ({ tool = 'all', homeDir = os.homedir(), env = {}, fsImpl = fs, allowedMcpServers = MINIMAL_MCP_SERVERS } = {}) => {
   const findings = [];
-  for (const name of tools) {
-    if (name === 'claude') findings.push(...auditClaude({ homeDir, fsImpl, allowedMcpServers }));
-    if (name === 'codex') findings.push(...auditCodex({ homeDir, fsImpl, allowedMcpServers }));
+  for (const scope of agentConfigAuditScopes({ tool, homeDir, env })) {
+    if (scope.tool === 'claude') findings.push(...auditClaude({ ...scope, homeDir, fsImpl, allowedMcpServers }));
+    if (scope.tool === 'codex') findings.push(...auditCodex({ ...scope, homeDir, fsImpl, allowedMcpServers }));
   }
-  return { findings, repairable: findings.filter(f => f.repair), warnOnly: findings.filter(f => !f.repair) };
+  // Conventional account state and .agents are shared discovery surfaces;
+  // an effective-root override must not schedule their repair twice.
+  const unique = [...new Map(findings.map(finding => [JSON.stringify(finding), finding])).values()];
+  return { findings: unique, repairable: unique.filter(f => f.repair), warnOnly: unique.filter(f => !f.repair) };
 };
 
 const applyRepair = (repair, fsImpl) => {
@@ -424,18 +425,26 @@ const requireCleanAuditedConfig = async options => {
  * the legacy repair deliberately leaves in place). This enforces the audited
  * surfaces only; it is not a full native CLI discovery/baseline attestation.
  *
- * @param {{ tool?: string, homeDir?: string, autoRepair?: boolean, requireClean?: boolean, log?: Function, verbose?: boolean, fsImpl?: typeof fs, allowedMcpServers?: string[] }} [options]
+ * @param {{ tool?: string, homeDir?: string, env?: object, autoRepair?: boolean, requireClean?: boolean, log?: Function, verbose?: boolean, fsImpl?: typeof fs, allowedMcpServers?: string[] }} [options]
  * @returns {Promise<{ findings: object[], repaired: object[], failed: object[], skipped: object[] }>}
  */
-export const runAgentConfigAudit = async ({ tool = 'all', homeDir = os.homedir(), autoRepair = true, requireClean = false, log = async () => {}, verbose = false, fsImpl = fs, allowedMcpServers = MINIMAL_MCP_SERVERS } = {}) => {
+export const runAgentConfigAudit = async ({ tool = 'all', homeDir = os.homedir(), env = {}, autoRepair = true, requireClean = false, log = async () => {}, verbose = false, fsImpl = fs, allowedMcpServers = MINIMAL_MCP_SERVERS } = {}) => {
   const scope = AUDITABLE_TOOLS.includes(tool) ? tool : 'all';
-  const auditInputs = await validateAgentConfigAuditInputs({ tool: scope, homeDir, fsImpl });
-  const { findings, repairable, warnOnly } = auditAgentConfig({ tool: scope, homeDir, fsImpl, allowedMcpServers });
+  // Capture only path selectors. Do not retain or inspect provider credentials.
+  const selectedEnv = env;
+  env = { CLAUDE_CONFIG_DIR: env.CLAUDE_CONFIG_DIR, CODEX_HOME: env.CODEX_HOME };
+  const requireSamePaths = () => {
+    if (selectedEnv.CLAUDE_CONFIG_DIR !== env.CLAUDE_CONFIG_DIR || selectedEnv.CODEX_HOME !== env.CODEX_HOME) throw new Error('Global agent configuration has unsafe effective path changes; no repair or admission is permitted.');
+  };
+  const auditOptions = { tool: scope, homeDir, env, fsImpl, allowedMcpServers };
+  const auditInputs = await validateAgentConfigAuditInputs(auditOptions);
+  const { findings, repairable, warnOnly } = auditAgentConfig(auditOptions);
   if (verbose) await log(`🔍 ${LOG_PREFIX}: inspected global ${scope === 'all' ? 'claude/codex' : scope} configuration under ${homeDir} (${findings.length} finding${findings.length === 1 ? '' : 's'})`, { verbose: true });
   if (findings.length === 0) {
     // Verbose logging yields; do not admit a now-contaminated home on the
     // strength of an earlier clean snapshot.
-    if (requireClean) await requireCleanAuditedConfig({ tool: scope, homeDir, fsImpl, allowedMcpServers });
+    if (requireClean) await requireCleanAuditedConfig(auditOptions);
+    requireSamePaths();
     return { findings, repaired: [], failed: [], skipped: [] };
   }
 
@@ -451,7 +460,8 @@ export const runAgentConfigAudit = async ({ tool = 'all', homeDir = os.homedir()
   }
   // Logging may yield to another editor. Reject changed state before the
   // synchronous legacy repairs rather than applying an obsolete repair plan.
-  await validateAgentConfigAuditInputs({ tool: scope, homeDir, fsImpl, previous: auditInputs });
+  await validateAgentConfigAuditInputs({ ...auditOptions, previous: auditInputs });
+  requireSamePaths();
   const { repaired, failed } = repairAgentConfig(repairable, { fsImpl });
   if (repaired.length) await log(`🧹 Auto-repaired ${repaired.length} global agent configuration item${repaired.length === 1 ? '' : 's'} (disable with --no-agent-config-auto-repair)`);
   for (const finding of repaired) {
@@ -460,7 +470,8 @@ export const runAgentConfigAudit = async ({ tool = 'all', homeDir = os.homedir()
   for (const { finding, error } of failed) await log(`   ✗ could not repair ${formatAgentConfigFinding(finding)}: ${error}`, { level: 'warn' });
   if (requireClean) {
     if (failed.length) throw new Error('Global agent configuration is not clean after repair. Resolve repair failures before launching tasks.');
-    await requireCleanAuditedConfig({ tool: scope, homeDir, fsImpl, allowedMcpServers });
+    await requireCleanAuditedConfig(auditOptions);
+    requireSamePaths();
   }
   return { findings, repaired, failed, skipped: [] };
 };

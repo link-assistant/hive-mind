@@ -1269,7 +1269,7 @@ if (isRunningDirectly) {
     // A dry run inspects without repairing state or admitting a worker.
     if (argv.tool === 'claude' || argv.tool === 'codex') {
       const { isAgentConfigAutoRepairEnabled, runAgentConfigAudit } = await import('./agent-config-audit.lib.mjs');
-      await runAgentConfigAudit({ tool: argv.tool, autoRepair: !argv.dryRun && isAgentConfigAutoRepairEnabled({ argv }), requireClean: !argv.dryRun, log, verbose: argv.verbose });
+      await runAgentConfigAudit({ tool: argv.tool, env: process.env, autoRepair: !argv.dryRun && isAgentConfigAutoRepairEnabled({ argv }), requireClean: !argv.dryRun, log, verbose: argv.verbose });
     }
     await startupChecksLib.runStartupChecks({ argv, log, safeExit, ensureDiskSpaceForWorker, checkSystem, validateToolConnection, validateClaudeConnection, EXIT_CODE_INSUFFICIENT_DISK_SPACE });
     // Wrap monitor function with Sentry error tracking

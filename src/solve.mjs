@@ -257,7 +257,7 @@ const skipToolConnectionCheck = prepareOnly || argv.skipToolConnectionCheck || a
 // Disabling repair does not permit execution with known contamination.
 if (tool === 'claude' || tool === 'codex') {
   const { isAgentConfigAutoRepairEnabled, runAgentConfigAudit } = await import('./agent-config-audit.lib.mjs');
-  await runAgentConfigAudit({ tool, autoRepair: !prepareOnly && isAgentConfigAutoRepairEnabled({ argv }), requireClean: !prepareOnly, log, verbose: argv.verbose });
+  await runAgentConfigAudit({ tool, env: process.env, autoRepair: !prepareOnly && isAgentConfigAutoRepairEnabled({ argv }), requireClean: !prepareOnly, log, verbose: argv.verbose });
 }
 // Issue #2202 (R6): before we start driving the agentic CLI, make sure it is the
 // version the task needs — a stale binary is the usual reason a brand-new model

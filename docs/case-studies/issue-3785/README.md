@@ -503,4 +503,25 @@ stock, admission, environment and updater checks pass. This verifies the
 disposable installed-runtime probe; complete production effective-path and
 lifecycle attestation remains open.
 
+The production Docker builder also reproduced a daemon namespace defect:
+an auth source at `/operator/.codex/auth.json` inside the root container was
+passed unchanged to the host daemon, whose actual backing source had a different
+path. The retained `mount-namespace-before.log` records the assertion before
+launch. Fresh production launches now compare source device/inode/type values
+with a read-only, network-disabled task-image probe. A mismatch can be translated
+through the root container's most specific bind/volume mapping, then must pass
+the same probe. The bounded mountinfo reader handles partial kernel reads.
+Unverifiable sources refuse launch and release acquired service leases. Missing
+images retain the detached pull lifecycle. Set `HIVE_MIND_DOCKER_MOUNT_TRACE=1`
+for constant stage diagnostics without paths or daemon output.
+
+The actual host-socket probe verifies direct backing, rejects a private root
+layer path, and verifies translated auth/session mounts plus a task history write
+into the disposable host directory. All 18 mount tests pass; the surrounding
+13-file isolation/Router/catalog run passes 56 top-level cases, including the
+existing scripts' internal assertions. These use synthetic data and a small
+Node image. They verify fresh-launch backing, not native CLI refresh, atomic
+replacement, complete history, root/two-task lifecycle, nested-daemon behavior,
+effective-path changes or resume. Those acceptance criteria remain open.
+
 ![Synthetic before and after limits layout](evidence/display-comparison.png)

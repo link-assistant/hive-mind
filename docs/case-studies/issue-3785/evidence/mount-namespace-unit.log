@@ -1,0 +1,26 @@
+✔ root bind and nested volume paths use the most specific daemon source (3.942677ms)
+✔ daemon mount mapping rejects unpersisted layer (0.683075ms)
+✔ daemon mount mapping rejects prefix sibling (0.167653ms)
+✔ daemon mount mapping rejects duplicate mapping (0.163234ms)
+✔ daemon mount mapping rejects unsupported nested mount (0.229288ms)
+✔ daemon mount mapping rejects relative path (0.191917ms)
+✔ daemon mount mapping rejects path traversal (0.273852ms)
+✔ daemon mount mapping rejects ambiguous volume argument (0.168664ms)
+✔ daemon mount mapping rejects ambiguous CSV argument (0.290803ms)
+✔ a same-namespace source requires a bounded read-only backing probe and reaps it (19.420409ms)
+✔ host-socket translation is verified after a wrong same-path identity (11.932837ms)
+✔ a missing image is pulled before probing, using the selected daemon environment (8.313593ms)
+✔ backing admission rejects remote without exposing Docker diagnostics (10.784234ms)
+✔ backing admission rejects malformed without exposing Docker diagnostics (6.59679ms)
+✔ backing admission rejects changed without exposing Docker diagnostics (7.192802ms)
+✔ backing admission rejects symlink without exposing Docker diagnostics (6.154404ms)
+✔ the launcher builder uses attested sources and preserves mount flags (2.578883ms)
+✔ production launch refuses unverifiable mounts before invoking start-command (484.887395ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 18
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 580.589743

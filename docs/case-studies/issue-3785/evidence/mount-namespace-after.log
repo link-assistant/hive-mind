@@ -1,0 +1,3 @@
+Verified: already-shared daemon paths retain their backing identity.
+Verified: a private container-layer source is rejected.
+Verified: production mount sources resolve through the root bind into the daemon namespace; task writes reach the disposable host directory.

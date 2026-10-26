@@ -22,6 +22,8 @@ Give every stock-gate native subprocess a disposable home and working directory 
 
 Require native Codex discovery to return exactly the pinned stock skills in the disposable home. Reject additional user, repository or admin skills, missing/duplicate/disabled entries, alternate paths, plugin associations and discovery errors before checking the stock file tree. Keep native paths and error excerpts out of rejection diagnostics.
 
+Verify Docker mount sources against their actual device/inode backing before fresh task launch. Translate root-container bind/volume sources into the selected local daemon namespace when direct paths fail, reject unverifiable sources before running the task, and release acquired service leases on preparation failure. Keep probes read-only, bounded and network-disabled; retain missing-image pulls through the existing detached lifecycle. Optional mount-stage tracing omits source paths and daemon diagnostics.
+
 Keep in-flight usage requests within their cache instance so resetting the cache cannot join obsolete work or overwrite a fresh result. Isolate queue unit tests from automatic background consumers.
 
 Validate the approved Playwright MCP command, package arguments, transport and environment rather than trusting its registration name. Inspect both conventional Claude user-state paths, including the native CLAUDE_CONFIG_DIR relocation. Reject unapproved registrations before any repair while preserving protected state.

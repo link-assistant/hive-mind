@@ -118,3 +118,13 @@ dispatched Workflows 40292842799 also succeeded on this exact head. The later
 MCP changes need their own newest-head checks. These stock and existing DinD
 restart checks do not test the unfinished canonical auth/history contract or
 the required restored-state and capability-isolation lifecycle matrix.
+
+On pushed head `06ae4833ec6e63d65b597e9f1aab0a8a7b9beb11`,
+[Checks and release 40297721311](https://github.com/link-assistant/hive-mind/actions/runs/40297721311)
+started at 09:12:04 UTC and succeeded, including all test suites and both actual
+image builds. The downloaded `docker-40297721311.log` has 3221 lines. Line 421
+records branch-package selection; post-boot installed stock verification passes
+at lines 2846 and 3063, with complete container verification passing at lines
+2859 and 3076. Security 40297721178, Links 40297721957 and manually dispatched
+Workflows 40297734362 also succeeded on that exact SHA. The later strict native
+catalog and mount-backing changes still require their own newest-head CI.

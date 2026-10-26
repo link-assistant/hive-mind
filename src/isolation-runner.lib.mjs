@@ -50,6 +50,8 @@ import { killDockerContainer } from './docker-container-control.lib.mjs';
 export { killDockerContainer };
 export { copyFromDockerContainer } from './isolation-runner.docker-cp.lib.mjs'; // Issue #2888
 import { checkDockerDiskSpace } from './docker-disk-space.lib.mjs';
+import { resolveDockerIsolationMountSources } from './docker-mount-namespace.lib.mjs';
+export { resolveDockerIsolationMountSources };
 export { checkDockerDiskSpace, parseDfAvailableKb } from './docker-disk-space.lib.mjs'; // Issue #3469
 // Issue #2189: `$ --resume` / `$ --resume-all`, added in start-command 0.33.0
 // (link-foundation/start#162). Re-exported so callers keep reaching every
@@ -338,7 +340,10 @@ export async function buildDockerIsolationStartArgs(command, args = [], options 
       startArgs.push('-e', `${name}=${value}`);
     }
   }
-  for (const mount of mounts) {
+  // This builder also formats synthetic commands in unit tests. The production
+  // launcher always supplies the backing-store resolver before execution.
+  const resolvedMounts = options.resolveMountSources ? await options.resolveMountSources({ mounts, image, env }) : mounts;
+  for (const mount of resolvedMounts) {
     startArgs.push('--volume', `${mount.source}:${mount.target}${mount.readOnly ? ':ro' : ''}`);
   }
   const taskCommand = buildShellCommand(command, args);
@@ -535,7 +540,14 @@ export async function executeWithIsolation(command, args, options = {}) {
       log: verbose ? message => console.log(`[VERBOSE] isolation-runner: ${message}`) : null,
     });
   }
-  const startCommandArgs = await buildStartCommandArgs(command, args, { ...effectiveOptions, sessionId, useRouter: Boolean(router), routerToken: router?.token ?? null, imageProvenance });
+  let startCommandArgs;
+  try {
+    startCommandArgs = await buildStartCommandArgs(command, args, { ...effectiveOptions, sessionId, useRouter: Boolean(router), routerToken: router?.token ?? null, imageProvenance, resolveMountSources: resolveDockerIsolationMountSources });
+  } catch {
+    await releaseRouterForTask({ router, sessionId, env: hostEnv, verbose });
+    await releaseFormalAiSidecarForTask({ sidecar, sessionId, env: hostEnv, verbose });
+    return failLaunch('Task mount preparation failed. Verify persisted source mounts and local Docker daemon connectivity before retrying.');
+  }
   if (verbose) {
     console.log(`[VERBOSE] isolation-runner: ${[binPath, ...startCommandArgs].map(shellQuote).join(' ')}`);
     if (backend === 'docker') {

@@ -15,6 +15,7 @@ import { classifyCodexRateLimitWindows } from './codex-rate-limit-windows.lib.mj
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry, execGhWithRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller. execGhWithRetry adds transient-network retry (#1756).
 import { formatLimitResetsAt, formatLimitResetsIn, formatLocalizedCurrentTime, formatLocalizedRelativeTime, formatLocalizedResetTime, localizeCompactDuration, lt, resolveLimitLocale } from './limits-i18n.lib.mjs';
 import { formatSubscriptionHeading, formatSubscriptionLines, getCachedClaudeSubscription, getCachedCodexSubscription, getClaudeSubscriptionInfo, getCodexSubscriptionInfo } from './limits-subscription.lib.mjs';
+import { getSelectedRouterLimits } from './limits-router.lib.mjs';
 export { getProgressBar } from './progress-bar.lib.mjs';
 import { getProgressBar } from './progress-bar.lib.mjs';
 import { formatTelegramLimitsSection } from './telegram-limits-section.lib.mjs';
@@ -37,9 +38,13 @@ const execAsync = promisify(exec);
 /**
  * Default path to Claude credentials file
  */
-export const DEFAULT_CREDENTIALS_PATH = join(homedir(), '.claude', '.credentials.json');
-export const DEFAULT_CODEX_AUTH_PATH = join(homedir(), '.codex', 'auth.json');
-const DEFAULT_CODEX_CONFIG_PATH = join(homedir(), '.codex', 'config.toml');
+export function resolveLimitsCredentialPaths(env = process.env, homeDir = homedir()) {
+  const claudeHome = env.CLAUDE_CONFIG_DIR || join(homeDir, '.claude');
+  const codexHome = env.CODEX_HOME || join(homeDir, '.codex');
+  return { claude: join(claudeHome, '.credentials.json'), codex: join(codexHome, 'auth.json'), codexConfig: join(codexHome, 'config.toml') };
+}
+export const DEFAULT_CREDENTIALS_PATH = resolveLimitsCredentialPaths().claude;
+export const DEFAULT_CODEX_AUTH_PATH = resolveLimitsCredentialPaths().codex;
 
 /**
  * Anthropic OAuth usage API endpoint
@@ -84,7 +89,7 @@ export function mapCodexRateLimitWindows(rateLimit) {
   };
 }
 
-export async function readCodexAuth(authPath = DEFAULT_CODEX_AUTH_PATH, verbose = false) {
+export async function readCodexAuth(authPath = resolveLimitsCredentialPaths().codex, verbose = false) {
   try {
     const content = await readFile(authPath, 'utf-8');
     const auth = JSON.parse(content);
@@ -95,12 +100,12 @@ export async function readCodexAuth(authPath = DEFAULT_CODEX_AUTH_PATH, verbose 
     return auth;
   } catch (error) {
     if (verbose) {
-      console.error('[VERBOSE] /limits failed to read Codex auth:', error.message);
+      console.error('[VERBOSE] /limits failed to read Codex auth:', error.name);
     }
     return null;
   }
 }
-async function getCodexUsageBaseUrl(configPath = DEFAULT_CODEX_CONFIG_PATH, verbose = false) {
+async function getCodexUsageBaseUrl(configPath = resolveLimitsCredentialPaths().codexConfig, verbose = false) {
   try {
     const content = await readFile(configPath, 'utf-8');
     const match = content.match(/^\s*chatgpt_base_url\s*=\s*["']([^"']+)["']/m);
@@ -128,7 +133,7 @@ async function getCodexUsageBaseUrl(configPath = DEFAULT_CODEX_CONFIG_PATH, verb
  * @param {boolean} verbose - Whether to log verbose output
  * @returns {Object|null} Credentials object or null if not found
  */
-export async function readCredentials(credentialsPath = DEFAULT_CREDENTIALS_PATH, verbose = false) {
+export async function readCredentials(credentialsPath = resolveLimitsCredentialPaths().claude, verbose = false) {
   try {
     const content = await readFile(credentialsPath, 'utf-8');
     const credentials = JSON.parse(content);
@@ -139,7 +144,7 @@ export async function readCredentials(credentialsPath = DEFAULT_CREDENTIALS_PATH
     return credentials;
   } catch (error) {
     if (verbose) {
-      console.error('[VERBOSE] /limits failed to read credentials:', error.message);
+      console.error('[VERBOSE] /limits failed to read credentials:', error.name);
     }
     return null;
   }
@@ -658,7 +663,9 @@ export async function getDiskSpaceInfo(verbose = false) {
  * @param {string} credentialsPath - Optional path to credentials file
  * @returns {Object} Object with success boolean, and either usage data or error message
  */
-export async function getClaudeUsageLimits(verbose = false, credentialsPath = DEFAULT_CREDENTIALS_PATH) {
+export async function getClaudeUsageLimits(verbose = false, credentialsPath = resolveLimitsCredentialPaths().claude) {
+  const routed = await getSelectedRouterLimits('claude', { verbose });
+  if (routed) return routed;
   try {
     // Read credentials
     const credentials = await readCredentials(credentialsPath, verbose);
@@ -689,36 +696,22 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
     if (verbose) {
       console.log('[VERBOSE] /limits fetching usage from API...');
       console.log(`[VERBOSE] /limits API request: GET ${USAGE_API_ENDPOINT}`);
-      // Log request headers with sanitized Authorization (show only last 8 chars)
-      const sanitizedHeaders = { ...requestHeaders };
-      if (sanitizedHeaders.Authorization) {
-        const token = sanitizedHeaders.Authorization;
-        sanitizedHeaders.Authorization = `Bearer ...${token.slice(-8)}`;
-      }
-      console.log('[VERBOSE] /limits API request headers:', JSON.stringify(sanitizedHeaders, null, 2));
+      console.log('[VERBOSE] /limits API authentication: bearer credential present');
     }
 
     // Call the Anthropic OAuth usage API
     const response = await fetch(USAGE_API_ENDPOINT, {
       method: 'GET',
       headers: requestHeaders,
+      signal: AbortSignal.timeout(30000),
     });
-    // Log HTTP response status and headers for debugging (always in verbose mode, not just on error)
+    // Keep transport diagnostics without recording credentials, cookies or bodies.
     if (verbose) {
-      console.log(`[VERBOSE] /limits API HTTP status: ${response.status} ${response.statusText}`);
-      // Log all response headers for debugging
-      const responseHeaders = {};
-      response.headers.forEach((value, key) => {
-        responseHeaders[key] = value;
-      });
-      console.log('[VERBOSE] /limits API response headers:', JSON.stringify(responseHeaders, null, 2));
+      console.log(`[VERBOSE] /limits API HTTP status: ${response.status}`);
     }
 
     if (!response.ok) {
-      const errorText = await response.text();
-      if (verbose) {
-        console.error('[VERBOSE] /limits API error body:', errorText);
-      }
+      await response.body?.cancel();
       // Check for specific error conditions
       if (response.status === 401) {
         return {
@@ -746,7 +739,7 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
 
     const data = await response.json();
     if (verbose) {
-      console.log('[VERBOSE] /limits API response body:', JSON.stringify(data, null, 2));
+      console.log('[VERBOSE] /limits Claude usage windows:', JSON.stringify({ session: Boolean(data.five_hour), weekly: Boolean(data.seven_day), sonnet: Boolean(data.seven_day_sonnet) }));
     }
 
     // Parse the API response
@@ -777,11 +770,11 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
     };
   } catch (error) {
     if (verbose) {
-      console.error('[VERBOSE] /limits error:', error);
+      console.error('[VERBOSE] /limits request failed:', error.name);
     }
     return {
       success: false,
-      error: `Failed to get usage limits: ${error.message}`,
+      error: 'Failed to get usage limits. Check connectivity and the provider response format.',
     };
   }
 }
@@ -800,7 +793,9 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
  * @param {string|null} baseUrl - Optional backend base URL override
  * @returns {Object} Object with success boolean, and either usage data or error message
  */
-export async function getCodexUsageLimits(verbose = false, authPath = DEFAULT_CODEX_AUTH_PATH, baseUrl = null) {
+export async function getCodexUsageLimits(verbose = false, authPath = resolveLimitsCredentialPaths().codex, baseUrl = null) {
+  const routed = await getSelectedRouterLimits('codex', { verbose });
+  if (routed) return routed;
   try {
     const auth = await readCodexAuth(authPath, verbose);
     if (!auth) {
@@ -839,40 +834,21 @@ export async function getCodexUsageLimits(verbose = false, authPath = DEFAULT_CO
       console.log('[VERBOSE] /limits fetching Codex usage from API...');
       console.log(`[VERBOSE] /limits Codex API request: GET ${usageEndpoint}`);
       console.log('[VERBOSE] /limits Codex auth mode:', auth.auth_mode || 'unknown');
-      console.log('[VERBOSE] /limits Codex account id:', auth?.tokens?.account_id || tokenPayload?.['https://api.openai.com/auth']?.chatgpt_account_id || 'unknown');
       console.log('[VERBOSE] /limits Codex plan type:', tokenPayload?.['https://api.openai.com/auth']?.chatgpt_plan_type || 'unknown');
-      console.log(
-        '[VERBOSE] /limits Codex API request headers:',
-        JSON.stringify(
-          {
-            Accept: requestHeaders.Accept,
-            Authorization: `Bearer ...${accessToken.slice(-8)}`,
-            'User-Agent': requestHeaders['User-Agent'],
-          },
-          null,
-          2
-        )
-      );
+      console.log('[VERBOSE] /limits Codex API authentication: bearer credential present');
     }
 
     const response = await fetch(usageEndpoint, {
       method: 'GET',
       headers: requestHeaders,
+      signal: AbortSignal.timeout(30000),
     });
     if (verbose) {
-      console.log(`[VERBOSE] /limits Codex API HTTP status: ${response.status} ${response.statusText}`);
-      const responseHeaders = {};
-      response.headers.forEach((value, key) => {
-        responseHeaders[key] = value;
-      });
-      console.log('[VERBOSE] /limits Codex API response headers:', JSON.stringify(responseHeaders, null, 2));
+      console.log(`[VERBOSE] /limits Codex API HTTP status: ${response.status}`);
     }
 
     if (!response.ok) {
-      const errorText = await response.text();
-      if (verbose) {
-        console.error('[VERBOSE] /limits Codex API error body:', errorText);
-      }
+      await response.body?.cancel();
       if (response.status === 401) {
         return {
           success: false,
@@ -898,7 +874,7 @@ export async function getCodexUsageLimits(verbose = false, authPath = DEFAULT_CO
     const data = await response.json();
 
     if (verbose) {
-      console.log('[VERBOSE] /limits Codex API response body:', JSON.stringify(data, null, 2));
+      console.log('[VERBOSE] /limits Codex usage windows:', JSON.stringify({ primary: Boolean(data.rate_limit?.primary_window), secondary: Boolean(data.rate_limit?.secondary_window), additional: Array.isArray(data.additional_rate_limits) ? data.additional_rate_limits.length : 0 }));
     }
     const usage = {
       ...mapCodexRateLimitWindows(data?.rate_limit),
@@ -928,11 +904,11 @@ export async function getCodexUsageLimits(verbose = false, authPath = DEFAULT_CO
     };
   } catch (error) {
     if (verbose) {
-      console.error('[VERBOSE] /limits Codex error:', error);
+      console.error('[VERBOSE] /limits Codex request failed:', error.name);
     }
     return {
       success: false,
-      error: `Failed to get Codex usage limits: ${error.message}`,
+      error: 'Failed to get Codex usage limits. Check connectivity and the provider response format.',
     };
   }
 }
@@ -1040,7 +1016,7 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
 
   const telegramSection = formatTelegramLimitsSection(options?.telegramRateLimit, { locale });
   if (telegramSection) sections.push(telegramSection);
-  const claudeHeading = formatSubscriptionHeading('claude', subscription, { locale });
+  const claudeHeading = formatSubscriptionHeading('claude', subscription, { locale }) || (claudeError ? lt('claude_limits', {}, { locale }) : '');
   const useShortClaudeLabels = Boolean(claudeHeading);
   const claudeSections = [];
 
@@ -1098,7 +1074,7 @@ export function formatCodexLimitsSection(codexLimits, codexError = null, options
   const additionalRateLimits = codexLimits?.additionalRateLimits || [];
   const credits = codexLimits?.credits || null;
   const planType = subscription?.planType || codexLimits?.planType || null;
-  const heading = formatSubscriptionHeading('codex', subscription, { locale, planType });
+  const heading = formatSubscriptionHeading('codex', subscription, { locale, planType }) || lt('codex_limits', {}, { locale });
   const useTitledLayout = Boolean(heading);
   if (codexError) {
     const errorSection = useTitledLayout ? `${codexError}\n` : `${lt('codex_limits', {}, { locale })}\n${codexError}\n`;
@@ -1219,11 +1195,15 @@ export function resetLimitCache() {
   }
 }
 // See: https://github.com/link-assistant/hive-mind/issues/1074, #1446, #1798, #2571
-export async function getCachedClaudeLimits(verbose = false, { credentialsPath = DEFAULT_CREDENTIALS_PATH, fetchLimits = () => getClaudeUsageLimits(verbose, credentialsPath) } = {}) {
+export async function getCachedClaudeLimits(verbose = false, { credentialsPath = resolveLimitsCredentialPaths().claude, fetchLimits = () => getClaudeUsageLimits(verbose, credentialsPath) } = {}) {
+  const routed = await getSelectedRouterLimits('claude', { verbose });
+  if (routed) return routed;
   return getCachedUsageLimits({ key: 'claude', fetchLimits, credentialsPath, verbose, cache: getLimitCache(), ttlMs: CACHE_TTL.USAGE_API });
 }
 
-export async function getCachedCodexLimits(verbose = false, { authPath = DEFAULT_CODEX_AUTH_PATH, fetchLimits = () => getCodexUsageLimits(verbose, authPath) } = {}) {
+export async function getCachedCodexLimits(verbose = false, { authPath = resolveLimitsCredentialPaths().codex, fetchLimits = () => getCodexUsageLimits(verbose, authPath) } = {}) {
+  const routed = await getSelectedRouterLimits('codex', { verbose });
+  if (routed) return routed;
   return getCachedUsageLimits({ key: 'codex', fetchLimits, credentialsPath: authPath, verbose, cache: getLimitCache(), ttlMs: CACHE_TTL.USAGE_API });
 }
 export async function getCachedGitHubLimits(verbose = false) {

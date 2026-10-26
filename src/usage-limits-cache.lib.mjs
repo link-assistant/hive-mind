@@ -2,6 +2,7 @@
  * Caching for the Claude and Codex usage APIs (issue #2571).
  */
 import { stat } from 'node:fs/promises';
+import { resolve } from 'node:path';
 
 /**
  * Parse an HTTP Retry-After header (delta seconds or HTTP-date) into milliseconds.
@@ -20,12 +21,13 @@ export function parseRetryAfterMs(retryAfter, now = Date.now()) {
 }
 
 /**
- * Modification time of a credentials file, or null when it cannot be read.
- * A changed mtime means the CLI refreshed or replaced the token.
+ * Structural identity of the credential generation, without reading secrets.
+ * Include inode/ctime: atomic replacement can preserve the old mtime and size.
  */
 async function credentialsVersion(path) {
   try {
-    return (await stat(path)).mtimeMs;
+    const info = await stat(path, { bigint: true });
+    return `${info.dev}:${info.ino}:${info.mtimeNs}:${info.ctimeNs}:${info.size}`;
   } catch {
     return null;
   }
@@ -49,39 +51,41 @@ const usageLimitsInFlight = new Map();
  * @param {Object} params
  * @param {string} params.key - Cache key ('claude' or 'codex')
  * @param {Function} params.fetchLimits - () => Promise<result>
- * @param {string} params.credentialsPath - File whose mtime versions auth failures
+ * @param {string} params.credentialsPath - File identity used to version cached results
  * @param {boolean} params.verbose
  * @param {{get: Function, set: Function, delete: Function}} params.cache - The /limits cache
  * @param {number} params.ttlMs - TTL of a successful result
  */
 export async function getCachedUsageLimits({ key, fetchLimits, credentialsPath, verbose, cache, ttlMs: usageTtlMs }) {
+  // Never reuse another home/account's result, including in-flight requests.
+  key = `${key}:${resolve(credentialsPath)}`;
+  const version = await credentialsVersion(credentialsPath);
   const minutes = Math.round(usageTtlMs / 60000);
   const cached = cache.get(key, usageTtlMs);
-  if (cached) {
+  if (cached && cached.credentialsVersion === version) {
     if (verbose) console.log(`[VERBOSE] /limits-cache: Using cached ${key} limits (TTL: ${minutes} minutes)`);
-    return cached;
+    return cached.result;
   }
   const failure = cache.get(`${key}-failure`);
   if (failure) {
-    const version = failure.result.failureKind === 'auth' ? await credentialsVersion(credentialsPath) : failure.credentialsVersion;
-    if (version === failure.credentialsVersion) {
+    if (failure.result.failureKind !== 'auth' || version === failure.credentialsVersion) {
       if (verbose) console.log(`[VERBOSE] /limits-cache: Using cached ${key} ${failure.result.failureKind} failure (not calling the usage API again until ${new Date(failure.until).toISOString()})`);
       return failure.result;
     }
     if (verbose) console.log(`[VERBOSE] /limits-cache: ${credentialsPath} changed since the ${key} auth failure, fetching again`);
     cache.delete(`${key}-failure`);
   }
-  if (usageLimitsInFlight.has(key)) {
+  const requestKey = `${key}:${version}`;
+  if (usageLimitsInFlight.has(requestKey)) {
     if (verbose) console.log(`[VERBOSE] /limits-cache: Joining in-flight ${key} limits request`);
-    return usageLimitsInFlight.get(key);
+    return usageLimitsInFlight.get(requestKey);
   }
   if (verbose) console.log(`[VERBOSE] /limits-cache: Cache miss for ${key} limits, fetching from API...`);
   const request = (async () => {
     // Read the version before the request so a refresh during it is not missed.
-    const version = await credentialsVersion(credentialsPath);
     const result = await fetchLimits();
     if (result.success) {
-      cache.set(key, result, usageTtlMs);
+      cache.set(key, { result, credentialsVersion: version }, usageTtlMs);
     } else if (result.failureKind === 'rate_limited' || result.failureKind === 'auth') {
       const ttlMs = Math.max(usageTtlMs, result.retryAfterMs || 0);
       cache.set(`${key}-failure`, { result, credentialsVersion: version, until: Date.now() + ttlMs }, ttlMs);
@@ -89,10 +93,10 @@ export async function getCachedUsageLimits({ key, fetchLimits, credentialsPath, 
     }
     return result;
   })();
-  usageLimitsInFlight.set(key, request);
+  usageLimitsInFlight.set(requestKey, request);
   try {
     return await request;
   } finally {
-    usageLimitsInFlight.delete(key);
+    usageLimitsInFlight.delete(requestKey);
   }
 }

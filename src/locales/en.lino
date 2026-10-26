@@ -183,6 +183,8 @@ en
   time
     current "Current time: {{time}}"
   limits
+    stored
+      metadata "stored metadata"
     additional
       codex
         limits "Additional Codex limits"

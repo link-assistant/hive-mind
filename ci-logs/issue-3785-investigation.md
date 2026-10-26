@@ -358,3 +358,14 @@ Checks run 40354283383 subsequently completes: Docker, lint and every other
 nondependent job pass; only the cancellation-policy regression and dependent
 pipeline status fail. The complete run log is preserved as
 `checks-40354283383.log`. The repaired setting still needs newest-head CI.
+
+### A new Formal AI release blocks freshness before test admission
+
+Checks 40360472344 was created at 2026-10-26 16:34:50 UTC for
+24ef9e65afed8a372df00f8f24190896dd00529b. Its retained completed log
+`checks-40360472344.log`, lines 3745–3753, reports eight stale declarations:
+the four image defaults and their install commands resolve Formal AI 0.355.11
+while crates.io has 0.355.12. All downstream test and Docker jobs are skipped;
+they are not passes. Update the four image defaults together, preserving the
+existing locked installation and all native CLI pins. New-head freshness and
+packaged image verification must run again.

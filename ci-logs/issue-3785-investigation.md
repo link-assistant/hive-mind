@@ -398,3 +398,22 @@ The fresh 722-file local suite exposes an incomplete freshness repair at file
 The current-pin regression also still expects 0.355.11. Align both declarations
 with the four images and rerun the existing pin/matrix tests before restarting
 the full suite. This failed run is not counted as a complete pass.
+
+The runtime/image alignment repair passes all ten existing matrix/current-pin
+cases and is pushed as b634acbea. Its newest-head CI test-execution, test-suites,
+lint, compilation, memory, documentation, security and workflow jobs pass;
+Docker image gates and the native auth build remain in progress. A local
+722-file retry stops at file 495: the Formal AI Docker fixture reports every
+host path absent, which now correctly refuses canonical-history admission.
+`/tmp/issue-3785-rollout-full-retry.log` records that structural refusal at
+`test-issue-2059-formal-ai-dispatch.mjs:331`. Update its host fixture to provide
+only the three required directories; all 36 Formal AI cases pass. A new complete
+723-file suite is running with the archive/writer-lock repairs included.
+
+Real native Codex 0.164.0 history controls reproduce duplicate writer ownership
+and private archive loss before projection. Both pass afterward, including
+explicit native unarchive before resume. All four original format/recovery
+controls pass again. Eight new unit regressions and the surrounding selection
+pass 41 node:test cases. Both probes now have a pinned stock-native CI job;
+installed-package host/nested gates also exercise archives and writer locks.
+Those expanded newest-head gates remain unverified until CI executes them.

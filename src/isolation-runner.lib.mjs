@@ -140,7 +140,7 @@ export function resolveHostDockerSock({ env = process.env } = {}) {
  */
 export const DOCKER_ISOLATION_TOOL_MOUNTS = Object.freeze({
   claude: Object.freeze([Object.freeze({ relativePath: path.join('.claude', '.credentials.json'), kind: 'file', role: 'auth' }), Object.freeze({ relativePath: path.join('.claude', 'projects'), kind: 'dir', role: 'sessions' }), Object.freeze({ relativePath: path.join('.claude', 'sessions'), kind: 'dir', role: 'sessions' })]),
-  codex: Object.freeze([Object.freeze({ relativePath: path.join('.codex', 'auth.json'), kind: 'file', role: 'auth' }), Object.freeze({ relativePath: path.join('.codex', 'sessions'), kind: 'dir', role: 'sessions' })]),
+  codex: Object.freeze([Object.freeze({ relativePath: path.join('.codex', 'auth.json'), kind: 'file', role: 'auth' }), Object.freeze({ relativePath: path.join('.codex', 'sessions'), kind: 'dir', role: 'sessions' }), Object.freeze({ relativePath: path.join('.codex', 'archived_sessions'), kind: 'dir', role: 'sessions' }), Object.freeze({ relativePath: path.join('.codex', 'thread-writer-locks'), kind: 'dir', role: 'coordination' })]),
 });
 /**
  * Is `relativePath` covered by one of the router-suppressed credential paths?
@@ -185,7 +185,14 @@ export async function getDockerIsolationAuthMounts({ tool = 'claude', env = proc
   await maybeAddMount(mounts, env.XDG_CONFIG_HOME ? path.join(env.XDG_CONFIG_HOME, 'git') : path.join(homeDir, '.config', 'git'), path.join(DOCKER_CONTAINER_HOME, '.config', 'git'), exists);
   for (const entry of DOCKER_ISOLATION_TOOL_MOUNTS[normalizedTool] || []) {
     if (isSuppressedPath(entry.relativePath, suppressed)) continue;
-    await maybeAddMount(mounts, path.join(homeDir, entry.relativePath), path.join(DOCKER_CONTAINER_HOME, entry.relativePath), exists);
+    const source = path.join(homeDir, entry.relativePath);
+    const target = path.join(DOCKER_CONTAINER_HOME, entry.relativePath);
+    if (normalizedTool === 'codex' && entry.kind === 'dir') {
+      if (!(await exists(source))) throw new Error('Canonical Codex history storage is unavailable; private fallback is prohibited.');
+      mounts.push({ source, target });
+    } else {
+      await maybeAddMount(mounts, source, target, exists);
+    }
   }
   const dataMount = !useRouter && toolDataMount({ tool: normalizedTool, homeDir, env });
   if (dataMount) {
@@ -208,15 +215,29 @@ export async function prepareDockerIsolationHostPaths({ tool = 'claude', homeDir
   const created = [];
   const missingAuth = [];
   if (useRouter) return { created, missingAuth };
-  const data = await prepareToolDataMount({ tool: normalizeTool(tool), homeDir, env, io: fsImpl.promises });
+  const normalizedTool = normalizeTool(tool);
+  const data = await prepareToolDataMount({ tool: normalizedTool, homeDir, env, io: fsImpl.promises });
   if (data) return { ...data, missingAuth };
-  for (const entry of DOCKER_ISOLATION_TOOL_MOUNTS[normalizeTool(tool)] || []) {
+  for (const entry of DOCKER_ISOLATION_TOOL_MOUNTS[normalizedTool] || []) {
     const hostPath = path.join(homeDir, entry.relativePath);
     const exists = await fsImpl.promises.access(hostPath).then(
       () => true,
       () => false
     );
     if (entry.kind === 'dir') {
+      if (normalizedTool === 'codex') {
+        try {
+          if (!exists) {
+            await fsImpl.promises.mkdir(hostPath, { recursive: true, mode: 0o700 });
+            created.push(hostPath);
+          }
+          const stat = await fsImpl.promises.lstat(hostPath);
+          if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error('Expected a real history directory.');
+        } catch {
+          throw new Error('Canonical Codex history storage is unavailable; private fallback is prohibited.');
+        }
+        continue;
+      }
       if (exists) continue;
       try {
         await fsImpl.promises.mkdir(hostPath, { recursive: true });

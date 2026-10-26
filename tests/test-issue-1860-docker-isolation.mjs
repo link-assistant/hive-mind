@@ -63,7 +63,7 @@ function mountPairs(mounts) {
 }
 
 // Issue #2190: the split layout — credential file + session directories, never the whole application directory.
-const existingPaths = new Set(['/home/box/.config/gh', '/home/box/.codex/auth.json', '/home/box/.codex/sessions', '/home/box/.claude/.credentials.json', '/home/box/.claude/projects', '/home/box/.claude/sessions']);
+const existingPaths = new Set(['/home/box/.config/gh', '/home/box/.codex/auth.json', '/home/box/.codex/sessions', '/home/box/.codex/archived_sessions', '/home/box/.codex/thread-writer-locks', '/home/box/.claude/.credentials.json', '/home/box/.claude/projects', '/home/box/.claude/sessions']);
 const existsSync = path => existingPaths.has(path);
 
 console.log('\n--- Docker isolation image selection ---');
@@ -86,7 +86,7 @@ const codexMounts = await getDockerIsolationAuthMounts({
   env: {},
   existsSync,
 });
-assertDeepEqual(mountPairs(codexMounts), ['/home/box/.config/gh:/home/box/.config/gh', '/home/box/.codex/auth.json:/home/box/.codex/auth.json', '/home/box/.codex/sessions:/home/box/.codex/sessions'], 'codex tasks receive gh and Codex credentials only');
+assertDeepEqual(mountPairs(codexMounts), ['/home/box/.config/gh:/home/box/.config/gh', '/home/box/.codex/auth.json:/home/box/.codex/auth.json', '/home/box/.codex/sessions:/home/box/.codex/sessions', '/home/box/.codex/archived_sessions:/home/box/.codex/archived_sessions', '/home/box/.codex/thread-writer-locks:/home/box/.codex/thread-writer-locks'], 'codex tasks receive gh and Codex credentials only');
 
 const claudeMounts = await getDockerIsolationAuthMounts({
   tool: 'claude',
@@ -100,9 +100,9 @@ const envGhMounts = await getDockerIsolationAuthMounts({
   tool: 'codex',
   homeDir: '/home/box',
   env: { GH_CONFIG_DIR: '/run/gh-auth' },
-  existsSync: path => path === '/run/gh-auth' || path === '/home/box/.codex/auth.json',
+  existsSync: path => path === '/run/gh-auth' || path.startsWith('/home/box/.codex/'),
 });
-assertDeepEqual(mountPairs(envGhMounts), ['/run/gh-auth:/home/box/.config/gh', '/home/box/.codex/auth.json:/home/box/.codex/auth.json'], 'GH_CONFIG_DIR is used when the host exposes gh auth outside the default path');
+assertDeepEqual(mountPairs(envGhMounts), ['/run/gh-auth:/home/box/.config/gh', '/home/box/.codex/auth.json:/home/box/.codex/auth.json', ...codexMounts.filter(mount => mount.target !== '/home/box/.config/gh' && !mount.target.endsWith('auth.json')).map(mount => `${mount.source}:${mount.target}`)], 'GH_CONFIG_DIR is used when the host exposes gh auth outside the default path');
 
 console.log('\n--- start-command invocation shape ---');
 

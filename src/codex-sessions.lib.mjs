@@ -4,20 +4,16 @@
  *
  * solve runs Codex with a fresh task-owned `CODEX_HOME`. Older releases used
  * `~/.codex/hive-mind/repositories/<owner>/<repo>` (issue #2074). Codex writes
- * each thread's rollout to `$CODEX_HOME/sessions/YYYY/MM/DD/
- * rollout-<timestamp>-<thread id>.jsonl`, and `codex exec resume <id>` reads only
- * that directory. A Docker task container bind-mounts just `~/.codex/auth.json`
- * and `~/.codex/sessions` (issue #2190), so the scoped home, and the only copy
- * of the thread, died with the container. A kill-recovery run in a new
- * container then failed with "no rollout found for thread id …".
+ * active rollouts under `sessions/` and moves archived transcripts into
+ * `archived_sessions/`. Fresh scopes also need one shared `thread-writer-locks/`
+ * directory so separate native processes cannot both own the same transcript.
+ * Docker tasks mount these three directories from operator storage; each scoped
+ * home projects them through relative symlinks.
  *
- * `<scoped CODEX_HOME>/sessions` is therefore a relative symlink to the operator
- * `~/.codex/sessions`, which is mounted. Config, plugins and state databases
- * stay task-owned. Full native history/index/SQLite projection remains open,
- * so successful execution homes must be retained. Checked with codex-cli
- * 0.162.1: a brand-new CODEX_HOME
- * whose `sessions` links to the shared directory resumes the thread, and one
- * without the link fails with exactly the error above.
+ * Config, plugins and state databases stay task-owned. Full native history,
+ * maintenance coordination, index and SQLite projection remains open, so
+ * successful execution homes must be retained. Native codex-cli 0.164.0 probes
+ * verify cross-scope writer exclusion and archive/read/unarchive/resume.
  *
  * @see https://github.com/link-assistant/hive-mind/issues/2888
  */
@@ -29,6 +25,18 @@ import { publishCodexRollout } from './codex-rollout-publication.lib.mjs';
 
 /** Directory under `CODEX_HOME` that holds the rollouts. */
 export const CODEX_SESSIONS_DIRNAME = 'sessions';
+export const CODEX_ARCHIVED_SESSIONS_DIRNAME = 'archived_sessions';
+export const CODEX_WRITER_LOCKS_DIRNAME = 'thread-writer-locks';
+
+/** Native discovery checks both active and archived rollouts. */
+export async function findCodexThreadRollout({ codexHome, threadId, fsImpl = fs } = {}) {
+  if (!codexHome) return null;
+  for (const name of [CODEX_SESSIONS_DIRNAME, CODEX_ARCHIVED_SESSIONS_DIRNAME]) {
+    const found = await findCodexRolloutFile({ sessionsDir: path.join(codexHome, name), threadId, fsImpl });
+    if (found) return found;
+  }
+  return null;
+}
 
 /** `YYYY/MM/DD` plus slack; the walk never goes deeper. */
 const MAX_ROLLOUT_SEARCH_DEPTH = 5;
@@ -89,7 +97,7 @@ export function createCodexResumeRolloutCheck({ homeDir = os.homedir(), fsImpl =
     if (!threadId) return false;
     if (!first) return true;
     const sessionsDir = path.join(codexHome || path.join(homeDir, '.codex'), CODEX_SESSIONS_DIRNAME);
-    const rollout = await findCodexRolloutFile({ sessionsDir, threadId, fsImpl });
+    const rollout = await findCodexThreadRollout({ codexHome: path.dirname(sessionsDir), threadId, fsImpl });
     await log(`   Codex rollout for ${threadId}: ${rollout || `not found under ${sessionsDir}`}`, { verbose: true });
     if (!rollout) await log(`⚠️  Codex thread ${threadId} has no rollout under ${sessionsDir}; starting a new Codex session on the same branch instead of resuming it (issue #2888)`, { level: 'warn' });
     return Boolean(rollout);
@@ -124,7 +132,7 @@ const linksTo = async (fsImpl, link, target) => {
 };
 
 /**
- * Make `<codexHome>/sessions` a relative symlink to `<baseCodexHome>/sessions`.
+ * Share active/archived rollout directories and the native writer-lock namespace.
  * A real directory left by an older run is merged into the shared one first;
  * publication never replaces an existing name, and the original directory is
  * set aside even after successful copying. Never throws; callers must refuse
@@ -140,31 +148,53 @@ export async function shareScopedCodexSessions({ baseCodexHome, codexHome, fsImp
   Object.assign(result, { sessionsDir, target });
   if (path.resolve(sessionsDir) === path.resolve(target)) return { ...result, status: 'same-home' };
   try {
-    await fsImpl.mkdir(target, { recursive: true, mode: 0o700 });
-    const stat = await fsImpl.lstat(sessionsDir).catch(() => null);
-    if (stat?.isSymbolicLink()) {
-      if (await linksTo(fsImpl, sessionsDir, target)) return { ...result, status: 'already-shared' };
-      await fsImpl.rm(sessionsDir, { force: true });
-    } else if (stat?.isDirectory()) {
-      const merged = await mergeDirectoryInto({ sourceDir: sessionsDir, targetDir: target, fsImpl });
-      Object.assign(result, { migrated: merged.moved, kept: merged.kept });
-      // Preserve even unrecognized entries and writes arriving during migration.
-      await fsImpl.rename(sessionsDir, `${sessionsDir}.pre-issue-2888-${now()}`);
-    } else if (stat) {
-      await fsImpl.rm(sessionsDir, { force: true });
-    }
-    await fsImpl.mkdir(path.dirname(sessionsDir), { recursive: true });
-    try {
-      await fsImpl.symlink(path.relative(path.dirname(sessionsDir), target), sessionsDir, 'dir');
-    } catch (error) {
-      // Another solve of the same repository linked it first.
-      if (error?.code !== 'EEXIST' || !(await linksTo(fsImpl, sessionsDir, target))) throw error;
-      return { ...result, status: 'already-shared' };
-    }
-    return { ...result, status: 'shared' };
+    // Never copy/rename a native lock inode: an existing private namespace may
+    // have a live owner. Fresh task homes start with no namespace at all.
+    await shareDirectory({ name: CODEX_WRITER_LOCKS_DIRNAME, baseCodexHome, codexHome, fsImpl, now, result });
+    await shareDirectory({ name: CODEX_ARCHIVED_SESSIONS_DIRNAME, baseCodexHome, codexHome, fsImpl, now, result });
+    const status = await shareDirectory({ name: CODEX_SESSIONS_DIRNAME, baseCodexHome, codexHome, fsImpl, now, result });
+    return { ...result, status };
   } catch (error) {
     return { ...result, status: 'failed', error: error?.message || String(error) };
   }
+}
+
+async function shareDirectory({ name, baseCodexHome, codexHome, fsImpl, now, result }) {
+  const sessionsDir = path.join(codexHome, name);
+  const target = path.join(baseCodexHome, name);
+  await fsImpl.mkdir(target, { recursive: true, mode: 0o700 });
+  const canonical = await fsImpl.lstat(target);
+  if (!canonical.isDirectory() || canonical.isSymbolicLink()) throw new Error('Canonical Codex history destination must be a real directory.');
+  const stat = await fsImpl.lstat(sessionsDir).catch(error => {
+    if (error.code === 'ENOENT') return null;
+    throw error;
+  });
+  if (stat?.isSymbolicLink()) {
+    if (await linksTo(fsImpl, sessionsDir, target)) return 'already-shared';
+    throw new Error('Scoped Codex history points to an unexpected authority.');
+  } else if (stat?.isDirectory()) {
+    if (name === CODEX_WRITER_LOCKS_DIRNAME) {
+      if ((await fsImpl.readdir(sessionsDir)).length) throw new Error('Existing private Codex writer locks require offline migration; refusing to move potentially live lock inodes.');
+      await fsImpl.rmdir(sessionsDir);
+    } else {
+      const merged = await mergeDirectoryInto({ sourceDir: sessionsDir, targetDir: target, fsImpl });
+      result.migrated += merged.moved;
+      result.kept += merged.kept;
+      // Preserve even unrecognized entries and writes arriving during migration.
+      await fsImpl.rename(sessionsDir, `${sessionsDir}.pre-issue-2888-${now()}`);
+    }
+  } else if (stat) {
+    throw new Error('Scoped Codex history is not a directory; existing evidence is preserved.');
+  }
+  await fsImpl.mkdir(path.dirname(sessionsDir), { recursive: true, mode: 0o700 });
+  try {
+    await fsImpl.symlink(path.relative(path.dirname(sessionsDir), target), sessionsDir, 'dir');
+  } catch (error) {
+    // Another solve of the same repository linked it first.
+    if (error?.code !== 'EEXIST' || !(await linksTo(fsImpl, sessionsDir, target))) throw error;
+    return 'already-shared';
+  }
+  return 'shared';
 }
 
 /** One log line for {@link shareScopedCodexSessions}'s outcome, or null. */

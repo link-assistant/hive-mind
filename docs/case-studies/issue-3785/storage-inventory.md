@@ -25,9 +25,15 @@ do not establish canonical storage or coordinated native refresh.
 
 An experimental native Codex file-store adapter now lives under
 `experiments/issue-3785/native-codex`. It separates a proposed auth root while
-preserving native commands and has bounded standalone primitive tests. Its
-full native build/command acceptance and refresh integration remain pending;
-production still copies scoped Codex credentials. See
+preserving native commands and has bounded standalone primitive tests. Native
+run 40360472411 builds the actual manager and full CLI and passes nine
+before/after manager controls, seven storage tests and the named native
+status/replacement/logout/reauthentication/refusal checks. This is experimental:
+every request/writer route and production integration remain open, and production
+still copies scoped Codex credentials. Active and archived rollout directories
+and native writer locks now project to operator storage; native archive and
+writer-ownership probes pass locally. Full indexes, SQLite and maintenance
+coordination remain unfinished. See
 `evidence/native-codex-auth-adapter.txt` for the exact source pin and limits.
 
 ### Claude

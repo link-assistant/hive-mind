@@ -211,7 +211,20 @@ push only issue-3785-4c28551ac612, and keep unmet requirements explicitly open.
       all five format cases pass after repair. Pinned real Codex reads/resumes
       all four formats before and after actual stopped-container docker cp
       recovery, with original bytes/filenames reset after the native control.
-      All 37 focused cases and lint pass; full 722-file suite pending.
+      All 37 focused cases and lint pass. The 722-file retry stopped at the
+      Formal AI Docker fixture, which reported every canonical history directory
+      missing. Supply only the three required directories in that fixture;
+      all 36 Formal AI cases pass. A fresh 723-file run is in progress.
+- [x] Reproduce native Codex private writer locks admitting two active owners
+      and thread/archive moving a transcript into disposable configuration.
+      Project native archives and writer locks alongside sessions, preserve
+      archived recovery location and refuse missing/linked Docker history.
+      All eight regressions and 41 focused cases pass. Real pinned Docker probes
+      verify second-writer refusal and archive/read/explicit-unarchive/resume;
+      all four format recovery controls pass again. Require both probes in CI
+      and expand installed-package host/nested backing gates to all three dirs.
+      Newest-head CI confirmation and full metadata/index/SQLite/maintenance
+      projection remain open.
 - [ ] Confirm clean working tree and requirements/evidence consistency; mark ready
       only when implementation and verification are complete. Do not merge.
 

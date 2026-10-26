@@ -6,6 +6,10 @@ on:
       - 'experiments/issue-3785/native-codex/**'
       - 'experiments/issue-3785/probe-codex-native-auth-root.mjs'
       - 'experiments/issue-3785/probe-codex-native-manager.mjs'
+      - 'experiments/issue-3785/probe-codex-native-rollout-recovery.mjs'
+      - 'src/codex-sessions.lib.mjs'
+      - 'src/codex-rollout-publication.lib.mjs'
+      - 'src/session-kill-resume.fresh-session.lib.mjs'
       - '.github/workflows/native-codex-auth-experiment.yml'
   workflow_dispatch:
 
@@ -17,6 +21,36 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
+  native-history:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+      - name: Install branch dependencies and the exact native Linux CLI
+        run: |
+          npm ci --ignore-scripts > "$RUNNER_TEMP/history-dependencies.log" 2>&1 &
+          wait "$!"
+          npm install --prefix "$RUNNER_TEMP/native-history" --ignore-scripts --no-audit --no-fund '@openai/codex-linux-x64@npm:@openai/codex@0.164.0-linux-x64' >> "$RUNNER_TEMP/history-dependencies.log" 2>&1 &
+          wait "$!"
+          echo "CODEX_PROBE_BINARY=$RUNNER_TEMP/native-history/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/bin/codex" >> "$GITHUB_ENV"
+      - name: Verify native cross-scope writer ownership and archive lifecycle
+        run: node experiments/issue-3785/probe-codex-native-rollout-recovery.mjs --history-scopes > "$RUNNER_TEMP/native-history-scopes.log" 2>&1
+      - name: Verify native formats through stopped-container recovery
+        run: node experiments/issue-3785/probe-codex-native-rollout-recovery.mjs > "$RUNNER_TEMP/native-history-recovery.log" 2>&1
+      - name: Preserve native history diagnostics
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-codex-history
+          path: |
+            ${{ runner.temp }}/history-dependencies.log
+            ${{ runner.temp }}/native-history-*.log
+          retention-days: 7
   native-file-authority:
     runs-on: ubuntu-24.04
     timeout-minutes: 90

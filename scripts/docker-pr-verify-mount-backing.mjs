@@ -22,8 +22,9 @@ const dataScript = fileURLToPath(new URL('./verify-mounted-tool-data.mjs', impor
 const socket = '/var/run/docker.sock';
 const socketGroup = String((await fs.stat(socket)).gid);
 try {
-  await fs.mkdir(path.join(fixture, 'home/.codex/sessions'), { recursive: true });
-  for (const relative of ['', 'home', 'home/.codex', 'home/.codex/sessions']) await fs.chmod(path.join(fixture, relative), 0o777);
+  const historyDirectories = ['sessions', 'archived_sessions', 'thread-writer-locks'];
+  for (const directory of historyDirectories) await fs.mkdir(path.join(fixture, 'home/.codex', directory), { recursive: true });
+  for (const relative of ['', 'home', 'home/.codex', ...historyDirectories.map(directory => `home/.codex/${directory}`)]) await fs.chmod(path.join(fixture, relative), 0o777);
   await fs.writeFile(path.join(fixture, 'home/.codex/auth.json'), '{"synthetic":"canonical"}', { mode: 0o644 });
   try {
     await docker(['image', 'inspect', '--format', '{{.Id}}', probeImage]);
@@ -35,7 +36,7 @@ try {
     ['host', `${process.env.IMAGE_NAME || 'konard/hive-mind'}:test`],
     ['nested', `${process.env.DIND_IMAGE_NAME || 'konard/hive-mind-dind'}:test`],
   ]) {
-    for (const index of [0, 1]) await fs.rm(path.join(fixture, `home/.codex/sessions/task-${index}`), { force: true });
+    for (const directory of historyDirectories) for (const index of [0, 1]) await fs.rm(path.join(fixture, `home/.codex/${directory}/task-${index}`), { force: true });
     const name = `hive-packaged-mount-${randomUUID()}`;
     try {
       const args = ['run', '--detach', '--pull', 'never', '--name', name, '--env', 'DIND_HOST_PASSTHROUGH=off', '--mount', `type=bind,source=${fixture},target=/mount-fixture`, '--mount', `type=bind,source=${script},target=/verify-mounted-task-backing.mjs,readonly`];
@@ -57,7 +58,7 @@ try {
       const searchSource = path.join(path.dirname(expectedHome), 'rg');
       const dataResult = await docker(['exec', '--env', `HIVE_MOUNT_TEST_IMAGE=${probeImage}`, '--env', `HIVE_MOUNT_TEST_EXPECTED_HOME=${expectedHome}`, '--env', `HIVE_MOUNT_TEST_SEARCH_SOURCE=${searchSource}`, name, 'bash', '-lc', 'node --max-old-space-size=128 /verify-mounted-tool-data.mjs "$(command -v hive)"'], 120_000);
       process.stdout.write(`${variant}: ${dataResult.stdout}`);
-      for (const index of [0, 1]) assert.equal(await fs.readFile(path.join(fixture, `home/.codex/sessions/task-${index}`), 'utf8'), 'persisted');
+      for (const directory of historyDirectories) for (const index of [0, 1]) assert.equal(await fs.readFile(path.join(fixture, `home/.codex/${directory}/task-${index}`), 'utf8'), 'persisted');
     } finally {
       await docker(['rm', '-f', name]).catch(() => {});
     }

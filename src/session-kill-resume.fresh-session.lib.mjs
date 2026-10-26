@@ -29,7 +29,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { buildCodexCapabilityStatePath } from './codex-capability-preflight.lib.mjs';
-import { CODEX_SESSIONS_DIRNAME, findCodexRolloutFile } from './codex-sessions.lib.mjs';
+import { CODEX_SESSIONS_DIRNAME, CODEX_ARCHIVED_SESSIONS_DIRNAME, findCodexRolloutFile, findCodexThreadRollout } from './codex-sessions.lib.mjs';
 import { publishCodexRollout } from './codex-rollout-publication.lib.mjs';
 import { parseGitHubUrl } from './github-url-parser.lib.mjs';
 import { DOCKER_ISOLATION_TOOL_MOUNTS } from './isolation-runner.lib.mjs';
@@ -79,12 +79,12 @@ export async function restoreCodexRolloutFromContainer({ containerName, sessionI
   const parsed = sessionInfo?.url ? parseGitHubUrl(sessionInfo.url) : null;
   if (!containerName || typeof runner?.copyFromDockerContainer !== 'function') return { restored: false, file: null, error: 'docker cp unavailable' };
   if (!parsed?.valid || !parsed.owner || !parsed.repo) return { restored: false, file: null, error: 'repository unknown' };
-  const scopedSessions = path.posix.join(buildCodexCapabilityStatePath({ baseCodexHome: TASK_CONTAINER_CODEX_HOME, owner: parsed.owner, repo: parsed.repo }), CODEX_SESSIONS_DIRNAME);
-  const sources = [path.posix.join(TASK_CONTAINER_CODEX_HOME, CODEX_SESSIONS_DIRNAME), scopedSessions];
+  const scopedHome = buildCodexCapabilityStatePath({ baseCodexHome: TASK_CONTAINER_CODEX_HOME, owner: parsed.owner, repo: parsed.repo });
+  const sources = [TASK_CONTAINER_CODEX_HOME, scopedHome].flatMap(home => [CODEX_SESSIONS_DIRNAME, CODEX_ARCHIVED_SESSIONS_DIRNAME].map(directory => ({ source: path.posix.join(home, directory), directory })));
   let staging = null;
   try {
     staging = await fsImpl.mkdtemp(path.join(tmpDir, 'hive-mind-codex-rollout-'));
-    for (const [index, source] of sources.entries()) {
+    for (const [index, { source, directory }] of sources.entries()) {
       const destination = path.join(staging, String(index));
       await fsImpl.mkdir(destination);
       let copied;
@@ -96,7 +96,8 @@ export async function restoreCodexRolloutFromContainer({ containerName, sessionI
       if (!copied?.success) continue;
       const found = await findCodexRolloutFile({ sessionsDir: destination, threadId, fsImpl });
       if (!found) continue;
-      const file = path.join(hostSessionsDir, path.relative(destination, found));
+      const hostDirectory = directory === CODEX_SESSIONS_DIRNAME ? hostSessionsDir : path.join(path.dirname(hostSessionsDir), directory);
+      const file = path.join(hostDirectory, path.relative(destination, found));
       await fsImpl.mkdir(path.dirname(file), { recursive: true, mode: 0o700 });
       const publication = await publishCodexRollout({ source: found, target: file, fsImpl, retainConflict: true });
       return { restored: true, file, conflictFile: publication.conflictFile, error: null };
@@ -131,7 +132,7 @@ export async function resolveFreshRecoveryCommand({ sessionName, sessionInfo, co
   // --use-router tasks get no ~/.codex mounts, so no host rollout can reach them.
   if (hasUseRouterFlag(command.args)) return drop(`Codex thread ${threadId} cannot be resumed in a new --use-router container (no ~/.codex/sessions mount). Starting a new Codex session on the same branch instead.`);
   const hostSessionsDir = path.join(homeDir, '.codex', CODEX_SESSIONS_DIRNAME);
-  const present = await findCodexRolloutFile({ sessionsDir: hostSessionsDir, threadId, fsImpl });
+  const present = await findCodexThreadRollout({ codexHome: path.dirname(hostSessionsDir), threadId, fsImpl });
   if (present) {
     if (verbose) console.log(`[VERBOSE] Fresh recovery of ${sessionName}: Codex rollout ${present} is mounted; resuming thread ${threadId}`);
     return keep(FRESH_RESUME_OUTCOMES.KEPT);

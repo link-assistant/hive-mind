@@ -886,3 +886,15 @@ all four formats; it resets original bytes after the control so native resume
 cannot hide a format error. Evidence and limits are recorded in
 [evidence/rollout-preservation.txt](evidence/rollout-preservation.txt). Full native
 history/index/SQLite authority and execution-home cleanup remain unfinished.
+
+A further real native probe reproduces private writer locks admitting two owners
+of one thread and native archiving moving history out of canonical storage.
+Fresh task scopes now share `sessions`, `archived_sessions` and
+`thread-writer-locks`; Docker projects all three host directories and refuses
+unavailable or linked history storage. Recovery preserves archived location.
+All eight new regressions pass, and the surrounding selection passes 41 cases.
+Real Codex 0.164.0 now refuses the second writer and preserves archive/read/
+explicit-unarchive/resume across fresh configurations. Both bounded native
+probes are required by CI, and packaged host/nested backing gates now exercise
+all three directories. Full indexes, SQLite, maintenance coordination and
+successful execution cleanup remain open under A9.

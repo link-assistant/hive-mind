@@ -22,7 +22,7 @@ const binary = process.env.CODEX_PROBE_BINARY || '/home/box/.bun/install/global/
 const docker = args => execute('docker', args, { maxBuffer: 128 * 1024, signal: globalThis.AbortSignal.timeout(45_000) });
 let sequence = 0;
 
-async function readAndResume({ baseCodexHome, threadId, marker }) {
+async function readAndResume({ baseCodexHome, threadId, marker, unarchive = false, afterResume = async () => {} }) {
   const config = path.join(root, `config-${++sequence}`);
   await fs.mkdir(config, { mode: 0o700 });
   await fs.writeFile(path.join(config, 'config.toml'), 'model="synthetic"\nmodel_provider="offline"\n[features]\nremote_plugin=false\n[model_providers.offline]\nname="Offline"\nbase_url="http://127.0.0.1:1/v1"\nwire_api="responses"\nrequires_openai_auth=false\n');
@@ -50,7 +50,7 @@ async function readAndResume({ baseCodexHome, threadId, marker }) {
       pending.delete(message.id);
       if (message.error) {
         diagnostics.push(fs.writeFile('/tmp/issue-3785-native-rollout-private.log', JSON.stringify(message.error), { mode: 0o600 }));
-        request.reject(new Error(`Native request rejected (${message.error.code}).`));
+        request.reject(Object.assign(new Error(`Native request rejected (${message.error.code}).`), { nativeMessage: message.error.message }));
       } else request.resolve(message.result);
     } catch {
       rejectPending(new Error('Native protocol output was malformed.'));
@@ -75,7 +75,9 @@ async function readAndResume({ baseCodexHome, threadId, marker }) {
       const result = await request(method, params);
       assert.equal(result.thread.id, threadId);
       assert.ok(JSON.stringify(result.thread.turns).includes(marker), `${method} must recover prior user content`);
+      if (unarchive && method === 'thread/read') await request('thread/unarchive', { threadId });
     }
+    await afterResume({ request, config });
   } finally {
     clearTimeout(timer);
     lines.close();
@@ -88,7 +90,10 @@ async function readAndResume({ baseCodexHome, threadId, marker }) {
 }
 
 try {
-  for (const [index, variant] of ['plain', 'compressed', 'reverted', 'reverted-compressed'].entries()) {
+  const historyScopes = process.argv.includes('--history-scopes');
+  const variants = historyScopes ? ['writer-ownership', 'archive'] : ['plain', 'compressed', 'reverted', 'reverted-compressed'];
+  const failures = [];
+  for (const [index, variant] of variants.entries()) {
     const sourceHome = path.join(root, `stopped-${index}`);
     const sessions = path.join(sourceHome, 'sessions', '2026', '10', '26');
     await fs.mkdir(sessions, { recursive: true });
@@ -106,6 +111,36 @@ try {
     const name = `rollout-2026-10-26T00-00-00-${threadId}${variant.includes('reverted') ? `_${randomUUID()}` : ''}.jsonl${variant.includes('compressed') ? '.zst' : ''}`;
     const originalBytes = variant.includes('compressed') ? zstdCompressSync(Buffer.from(lines)) : Buffer.from(lines);
     await fs.writeFile(path.join(sessions, name), originalBytes, { mode: 0o600 });
+    if (historyScopes) {
+      try {
+        if (variant === 'writer-ownership') {
+          await readAndResume({
+            baseCodexHome: sourceHome,
+            threadId,
+            marker,
+            afterResume: async () => assert.rejects(readAndResume({ baseCodexHome: sourceHome, threadId, marker }), error => error.nativeMessage?.includes('already has an active writer'), 'a peer must refuse native resume while the first process owns the thread'),
+          });
+        } else {
+          await readAndResume({
+            baseCodexHome: sourceHome,
+            threadId,
+            marker,
+            afterResume: async ({ request }) => request('thread/archive', { threadId }),
+          });
+          const archived = await fs.readdir(path.join(sourceHome, 'archived_sessions')).catch(() => []);
+          assert.ok(
+            archived.some(file => file.includes(threadId)),
+            'native archive must remain in canonical history'
+          );
+          await readAndResume({ baseCodexHome: sourceHome, threadId, marker, unarchive: true });
+        }
+        console.log(`PASS: native ${variant} is preserved across fresh configuration scopes.`);
+      } catch (error) {
+        failures.push({ variant, message: error.message });
+        console.log(`FAIL: native ${variant} contract (${error.code || 'assertion'}).`);
+      }
+      continue;
+    }
     // Establish that the native pinned reader accepts the representation first.
     await readAndResume({ baseCodexHome: sourceHome, threadId, marker });
     // Native resume may materialize compressed bytes or append new metadata.
@@ -135,6 +170,7 @@ try {
     await readAndResume({ baseCodexHome: canonical, threadId, marker });
     console.log(`PASS: native ${variant} rollout is read/resumed before and after stopped-container recovery into fresh configuration.`);
   }
+  assert.deepEqual(failures, [], 'every native history scope contract must pass');
 } finally {
   const { stdout } = await docker(['ps', '-aq', '--filter', `label=${label}`]);
   const containers = stdout.trim().split(/\s+/u).filter(Boolean);

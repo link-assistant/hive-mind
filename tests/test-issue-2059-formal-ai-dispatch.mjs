@@ -337,7 +337,7 @@ test('Docker-isolated solve jobs receive the configured persistent Formal AI end
       HIVE_MIND_DOCKER_ISOLATION_IMAGE: 'konard/hive-mind-dind:test',
     },
     homeDir: '/nonexistent',
-    existsSync: () => false,
+    existsSync: file => ['sessions', 'archived_sessions', 'thread-writer-locks'].some(directory => file === `/nonexistent/.codex/${directory}`),
   });
 
   const envIndex = args.indexOf('HIVE_MIND_FORMAL_AI_BASE_URL=http://link-assistant-formal-ai:8080');

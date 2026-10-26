@@ -28,7 +28,7 @@ if(args[0]==='run'){
   fs.writeFileSync(args[2],'synthetic image search executable',{mode:0o755});
 }else if(args[0]==='exec'&&args.at(-1).includes('/verify-mounted-task-backing.mjs')){
   const fixture=fs.readFileSync(${JSON.stringify(state)},'utf8');
-  for(const index of [0,1])fs.writeFileSync(path.join(fixture,'home/.codex/sessions/task-'+index),'persisted');
+  for(const directory of ['sessions','archived_sessions','thread-writer-locks'])for(const index of [0,1])fs.writeFileSync(path.join(fixture,'home/.codex',directory,'task-'+index),'persisted');
 }else if(args[0]==='image'&&args[1]==='save'){
   fs.writeFileSync(args[args.indexOf('-o')+1],'synthetic image archive');
 }
@@ -59,7 +59,7 @@ for (const failed of [false, true]) {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'hive-mount-gate-unit-'));
     t.after(() => fs.rm(root, { recursive: true, force: true }));
     const home = path.join(root, 'home');
-    await fs.mkdir(path.join(home, '.codex/sessions'), { recursive: true });
+    for (const directory of ['sessions', 'archived_sessions', 'thread-writer-locks']) await fs.mkdir(path.join(home, '.codex', directory), { recursive: true });
     await fs.mkdir(path.join(root, 'bin'));
     await fs.writeFile(path.join(home, '.codex/auth.json'), '{"synthetic":"canonical"}');
     const calls = path.join(root, 'calls.jsonl');
@@ -76,7 +76,7 @@ if(args[0]==='run'){
   }else{
     const index=args.at(-1);
     if(${JSON.stringify(failed)} && index==='0')process.exitCode=7;
-    else setTimeout(()=>fs.writeFileSync(mounts[1].source+'/task-'+index,'persisted'),100);
+    else setTimeout(()=>{for(const mount of mounts.slice(1))fs.writeFileSync(mount.source+'/task-'+index,'persisted')},100);
   }
 }else if(args[0]==='image')console.log('sha256:synthetic');
 `,

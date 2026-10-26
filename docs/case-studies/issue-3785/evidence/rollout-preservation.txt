@@ -45,6 +45,43 @@ The full 720-file suite for the preceding task-home change passes; the new
 production publication/matcher changes require a fresh 722-file full run.
 
 Limits: these are filesystem publication regressions. They do not establish
-native full-history projection, archive/index/SQLite sharing, recovery of all
+native full-history projection, index/SQLite sharing, recovery of all
 six tools, source-writer coordination, path-ancestry attestation, a complete
 legacy-home migration, or cleanup safety for completed execution scopes.
+
+Native history scopes, 2026-10-26
+
+The same pinned real CLI exposed two additional gaps before repair. Two fresh
+configuration scopes could both resume the same canonical thread as writers,
+because thread-writer-locks was private. Native thread/archive also moved the
+transcript into a private archived_sessions directory. Both real negative
+controls fail in /tmp/issue-3785-native-history-scopes-before.log.
+
+Fresh scopes now project active sessions, archived sessions and the native
+writer-lock namespace into canonical directories. Existing nonempty private
+lock directories refuse projection without moving potential live lock inodes.
+Docker tasks mount all three host directories; unavailable or linked history
+directories refuse host preparation. Router-selected mounts remain suppressed.
+Recovery searches active and archived canonical evidence before legacy scopes,
+and retains an archived recovered transcript in its original native category.
+
+Eight deterministic history-scope regressions reproduce these gaps before their
+corresponding changes. All eight pass afterward. The complete focused selection
+passes 41 node:test cases plus the legacy isolation assertions, recorded in
+/tmp/issue-3785-history-all-focused.log. Required packaged mount gates now check
+host/nested backing and peer writes for all three directories. The native CI
+workflow also runs the exact pinned stock CLI with both bounded Docker probes.
+
+The real cross-scope writer control now receives the native active-writer
+refusal while the first process holds ownership. Native archiving persists in
+canonical storage and a fresh peer reads the prior conversation, explicitly
+unarchives it, and resumes it. Archived status is preserved, not silently
+changed. Both cases pass in /tmp/issue-3785-native-history-scopes-after.log.
+All four stopped-container format controls pass again in
+/tmp/issue-3785-native-rollout-recovery-current.log. No live credentials or
+inference are used. The native history CI job and expanded packaged-image gates
+still require newest-head CI confirmation.
+
+Remaining native Codex history work includes session_index.jsonl, message
+history, SQLite and metadata, maintenance locks, full ancestry attestation,
+legacy live-writer migration and safe successful-execution-home cleanup.

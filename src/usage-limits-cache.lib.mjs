@@ -33,7 +33,9 @@ async function credentialsVersion(path) {
   }
 }
 
-const usageLimitsInFlight = new Map();
+// Explicit cache resets must also separate pending work: an old consumer may
+// still be completing after stop(). Keep coalescing within its cache instance.
+const usageLimitsInFlightByCache = new WeakMap();
 
 /**
  * Shared cache for the Claude and Codex usage APIs.
@@ -57,6 +59,11 @@ const usageLimitsInFlight = new Map();
  * @param {number} params.ttlMs - TTL of a successful result
  */
 export async function getCachedUsageLimits({ key, fetchLimits, credentialsPath, verbose, cache, ttlMs: usageTtlMs }) {
+  let usageLimitsInFlight = usageLimitsInFlightByCache.get(cache);
+  if (!usageLimitsInFlight) {
+    usageLimitsInFlight = new Map();
+    usageLimitsInFlightByCache.set(cache, usageLimitsInFlight);
+  }
   // Never reuse another home/account's result, including in-flight requests.
   key = `${key}:${resolve(credentialsPath)}`;
   const version = await credentialsVersion(credentialsPath);

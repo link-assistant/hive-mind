@@ -1,0 +1,48 @@
+✔ Claude authentication error has its own section without subscription metadata (5.087825ms)
+✔ both providers have separate sections when neither has authentication (0.637097ms)
+✔ authenticated Claude entitlement overrides a stale locally stored Max plan (20.149763ms)
+✔ Claude live Max entitlement and paid expiry are retained when supplied (14.01623ms)
+✔ missing Claude authentication does not invent a cancelled subscription (6.503163ms)
+✔ stored Codex claims are identified as metadata even when their expiry is in the future (10.060145ms)
+✔ a successful usage cache is invalidated when credentials rotate (17.411409ms)
+✔ equal-mtime atomic credential replacement invalidates an authentication error (8.882359ms)
+✔ different credential authorities never share a usage cache entry (5.185969ms)
+✖ resetting the usage cache isolates new callers from an obsolete in-flight request (115.146981ms)
+✔ limits paths follow effective tool homes and never fall back to another home (10.046621ms)
+✔ logout immediately invalidates cached Codex subscription claims (28.621748ms)
+✔ verbose limits diagnostics omit credential suffixes, account ids and response bodies (10.633934ms)
+✔ successful profile diagnostics omit values from credentials and provider metadata (6.932013ms)
+✔ malformed provider JSON and credential JSON cannot escape through errors or diagnostics (12.949391ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 14
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1101.308108
+
+✖ failing tests:
+
+test at tests/issue-3785-limits.test.mjs:119:1
+✖ resetting the usage cache isolates new callers from an obsolete in-flight request (115.146981ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+
+    {
+  +   marker: 'obsolete-cache',
+  -   marker: 'fresh-cache',
+      success: true
+    }
+
+      at file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-limits.test.mjs:138:14
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-limits.test.mjs:121:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { success: true, marker: 'obsolete-cache' },
+    expected: { success: true, marker: 'fresh-cache' },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

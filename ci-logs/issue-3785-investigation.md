@@ -82,3 +82,24 @@ storage and global-baseline contracts, which those image checks do not test.
 The complete run log was downloaded after completion as
 `release-40274978015.log` (53648 lines); the failing job log above provides the
 precise assertion location without unrelated build output.
+
+For pushed head `72ef43025db921defecce2cba1b3d9a29479b5f1`, the follow-up
+[Checks and release run 40281077640](https://github.com/link-assistant/hive-mind/actions/runs/40281077640)
+completed successfully at 07:04:20 UTC. Its test-suites job passed at
+06:52:52 UTC and Docker PR checks passed at 07:03:43 UTC. Security run
+40281077605, Broken Link Checker run 40281077652 and the explicitly dispatched
+Workflows run 40281141757 also succeeded on this head. This resolves the observed
+queue assertion failure; the pending semantic/global-baseline changes require
+their own newest-head validation after push.
+
+The subsequent local 699-file run found intermittent queue interference in
+`/tmp/issue-3785-global-baseline-default.log`, lines 5044–5045 (file 232).
+Unlike the earlier CI failure, the corrected cache seed was already present.
+Automatic consumers could outlive `stop()` and cross later tests' cache resets;
+in-flight usage requests were held in a module-wide map independent of the
+cache instance. A deterministic regression reproduced joining obsolete work
+(14 tests passed, one failed in `cache-reset-before.log`). A WeakMap now scopes
+pending requests by cache instance. The 22 focused cache/limits tests and all
+71 queue assertions pass; queue unit tests explicitly disable automatic
+consumers. The new full-suite and CI results must be checked before claiming
+validation for these changes.

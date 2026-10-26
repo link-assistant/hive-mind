@@ -24,6 +24,9 @@ process.env.CLAUDE_CONFIG_DIR = join(fixtureHome, 'claude');
 process.env.HIVE_MIND_USE_ROUTER = '0';
 process.once('exit', () => rmSync(fixtureHome, { recursive: true, force: true }));
 
+// Unit tests exercise queue operations explicitly. Disable automatic consumers
+// so enqueue cannot leave native usage checks running after stop().
+
 // Test utilities
 let testsPassed = 0;
 let testsFailed = 0;
@@ -118,7 +121,7 @@ console.log('\n📋 Queue Basic Operations Tests\n');
 
 test('SolveQueue initializes with empty state', () => {
   beforeEach();
-  const queue = new SolveQueue();
+  const queue = new SolveQueue({ autoStart: false });
   const stats = queue.getStats();
   assert.equal(stats.queued, 0, 'Queue should start empty');
   assert.equal(stats.processing, 0, 'No items should be processing initially');
@@ -137,7 +140,7 @@ test('SolveQueue initializes with empty state', () => {
 
 test('enqueue adds items to queue', () => {
   beforeEach();
-  const queue = new SolveQueue();
+  const queue = new SolveQueue({ autoStart: false });
   const item = queue.enqueue({
     url: 'https://github.com/test/repo/issues/1',
     args: '--model opus',
@@ -155,7 +158,7 @@ test('enqueue adds items to queue', () => {
 
 test('cancel removes items from queue', () => {
   beforeEach();
-  const queue = new SolveQueue();
+  const queue = new SolveQueue({ autoStart: false });
 
   const item = queue.enqueue({
     url: 'https://github.com/test/repo/issues/1',
@@ -174,7 +177,7 @@ test('cancel removes items from queue', () => {
 
 test('getQueueSummary returns correct structure', () => {
   beforeEach();
-  const queue = new SolveQueue();
+  const queue = new SolveQueue({ autoStart: false });
   queue.enqueue({
     url: 'https://github.com/test/repo/issues/1',
     args: '--model opus',
@@ -204,7 +207,7 @@ test('getQueueSummary returns correct structure', () => {
 console.log('\n📋 Duplicate URL Prevention Tests (Issue #1080)\n');
 test('findByUrl returns null for empty queue', () => {
   beforeEach();
-  const queue = new SolveQueue();
+  const queue = new SolveQueue({ autoStart: false });
 
   const result = queue.findByUrl('https://github.com/test/repo/issues/1');
   assert.equal(result, null, 'Should return null for empty queue');
@@ -213,7 +216,7 @@ test('findByUrl returns null for empty queue', () => {
 
 test('findByUrl finds item in queue', () => {
   beforeEach();
-  const queue = new SolveQueue();
+  const queue = new SolveQueue({ autoStart: false });
 
   const item = queue.enqueue({
     url: 'https://github.com/test/repo/issues/1',
@@ -229,7 +232,7 @@ test('findByUrl finds item in queue', () => {
 });
 test('findByUrl returns null for different URL', () => {
   beforeEach();
-  const queue = new SolveQueue();
+  const queue = new SolveQueue({ autoStart: false });
 
   queue.enqueue({
     url: 'https://github.com/test/repo/issues/1',
@@ -244,7 +247,7 @@ test('findByUrl returns null for different URL', () => {
 });
 test('findByUrl finds item among multiple queued items', () => {
   beforeEach();
-  const queue = new SolveQueue();
+  const queue = new SolveQueue({ autoStart: false });
 
   queue.enqueue({
     url: 'https://github.com/test/repo/issues/1',
@@ -274,7 +277,7 @@ test('findByUrl finds item among multiple queued items', () => {
 
 test('findByUrl does not find cancelled items', () => {
   beforeEach();
-  const queue = new SolveQueue();
+  const queue = new SolveQueue({ autoStart: false });
   const item = queue.enqueue({
     url: 'https://github.com/test/repo/issues/1',
     args: '--model opus',
@@ -297,7 +300,7 @@ console.log('\n📋 Message Update Tests\n');
 
 test('shouldUpdateMessage returns true for items without lastMessageUpdateTime', () => {
   beforeEach();
-  const queue = new SolveQueue();
+  const queue = new SolveQueue({ autoStart: false });
   const item = queue.enqueue({
     url: 'https://github.com/test/repo/issues/1',
     args: '--model opus',
@@ -318,7 +321,7 @@ test('shouldUpdateMessage returns true for items without lastMessageUpdateTime',
 
 test('shouldUpdateMessage returns false when update interval not reached', () => {
   beforeEach();
-  const queue = new SolveQueue();
+  const queue = new SolveQueue({ autoStart: false });
 
   const item = queue.enqueue({
     url: 'https://github.com/test/repo/issues/1',
@@ -336,7 +339,7 @@ test('shouldUpdateMessage returns false when update interval not reached', () =>
 
 test('shouldUpdateMessage returns true when update interval reached', () => {
   beforeEach();
-  const queue = new SolveQueue();
+  const queue = new SolveQueue({ autoStart: false });
   const item = queue.enqueue({
     url: 'https://github.com/test/repo/issues/1',
     args: '--model opus',
@@ -360,7 +363,7 @@ console.log('\n📋 Throttle Statistics Tests\n');
 
 test('recordThrottle increments throttle reason count', () => {
   beforeEach();
-  const queue = new SolveQueue();
+  const queue = new SolveQueue({ autoStart: false });
   queue.recordThrottle('cpu_high');
   queue.recordThrottle('cpu_high');
   queue.recordThrottle('ram_high');
@@ -379,7 +382,7 @@ console.log('\n📋 Format Tests\n');
 
 await asyncTest('formatStatus returns correct string for empty queue', async () => {
   beforeEach();
-  const queue = new SolveQueue();
+  const queue = new SolveQueue({ autoStart: false });
   const status = await queue.formatStatus();
   // New format: per-queue breakdown with pending/processing counts
   // Processing counts are actual running system processes (via pgrep)
@@ -393,7 +396,7 @@ await asyncTest('formatStatus returns correct string for empty queue', async () 
 });
 await asyncTest('formatStatus returns correct string for non-empty queue', async () => {
   beforeEach();
-  const queue = new SolveQueue();
+  const queue = new SolveQueue({ autoStart: false });
 
   queue.enqueue({
     url: 'https://github.com/test/repo/issues/1',
@@ -414,7 +417,7 @@ await asyncTest('formatStatus returns correct string for non-empty queue', async
 
 await asyncTest('formatDetailedStatus includes all sections', async () => {
   beforeEach();
-  const queue = new SolveQueue();
+  const queue = new SolveQueue({ autoStart: false });
   queue.enqueue({
     url: 'https://github.com/test/repo/issues/1',
     args: '--model opus',
@@ -442,7 +445,7 @@ await asyncTest('formatDetailedStatus includes all sections', async () => {
 // clickable list (not just counts), so stuck/running tasks are easy to find.
 await asyncTest('formatDetailedStatus renders clickable links for queued/completed/failed items (issue #1837)', async () => {
   beforeEach();
-  const queue = new SolveQueue();
+  const queue = new SolveQueue({ autoStart: false });
 
   // One pending item, plus one completed + one failed item placed in history.
   queue.enqueue({ url: 'https://github.com/test/repo/issues/42', args: '', requester: 'u', infoBlock: 'x' });
@@ -545,7 +548,7 @@ console.log('\n📋 Queue Item State Transitions Tests\n');
 
 test('Item transitions from QUEUED to WAITING', () => {
   beforeEach();
-  const queue = new SolveQueue();
+  const queue = new SolveQueue({ autoStart: false });
   const item = queue.enqueue({
     url: 'https://github.com/test/repo/issues/1',
     args: '--model opus',
@@ -563,7 +566,7 @@ test('Item transitions from QUEUED to WAITING', () => {
 });
 test('Item transitions from WAITING to STARTING', () => {
   beforeEach();
-  const queue = new SolveQueue();
+  const queue = new SolveQueue({ autoStart: false });
 
   const item = queue.enqueue({
     url: 'https://github.com/test/repo/issues/1',
@@ -582,7 +585,7 @@ test('Item transitions from WAITING to STARTING', () => {
 
 test('Item transitions from STARTING to STARTED', () => {
   beforeEach();
-  const queue = new SolveQueue();
+  const queue = new SolveQueue({ autoStart: false });
 
   const item = queue.enqueue({
     url: 'https://github.com/test/repo/issues/1',
@@ -602,7 +605,7 @@ test('Item transitions from STARTING to STARTED', () => {
 
 test('Item can be marked as failed', () => {
   beforeEach();
-  const queue = new SolveQueue();
+  const queue = new SolveQueue({ autoStart: false });
   const item = queue.enqueue({
     url: 'https://github.com/test/repo/issues/1',
     args: '--model opus',
@@ -619,7 +622,7 @@ test('Item can be marked as failed', () => {
 
 test('Item can be marked as failed with Error object', () => {
   beforeEach();
-  const queue = new SolveQueue();
+  const queue = new SolveQueue({ autoStart: false });
   const item = queue.enqueue({
     url: 'https://github.com/test/repo/issues/1',
     args: '--model opus',
@@ -640,7 +643,7 @@ test('Item can be marked as failed with Error object', () => {
 console.log('\n📋 Wait Time Calculation Tests\n');
 test('getWaitTime returns elapsed time for queued items', () => {
   beforeEach();
-  const queue = new SolveQueue();
+  const queue = new SolveQueue({ autoStart: false });
 
   const item = queue.enqueue({
     url: 'https://github.com/test/repo/issues/1',
@@ -667,7 +670,7 @@ test('getWaitTime returns elapsed time for queued items', () => {
 console.log('\n📋 Reason Message Ordering Tests (Issue #1078)\n');
 await asyncTest('Claude process info should be at end of reasons', async () => {
   beforeEach();
-  const queue = new SolveQueue({ verbose: false });
+  const queue = new SolveQueue({ autoStart: false, verbose: false });
 
   // Mock the check to simulate a scenario with multiple reasons
   // We can't easily mock the internal methods, but we can verify the logic by reading the code
@@ -686,7 +689,7 @@ console.log('\n📋 Total Processing Calculation Tests (Issue #1133)\n');
 
 test('totalProcessing is calculated as processing.size + Claude processes', () => {
   beforeEach();
-  const queue = new SolveQueue({ verbose: false });
+  const queue = new SolveQueue({ autoStart: false, verbose: false });
   // Initially, processing.size should be 0
   assert.equal(queue.processing.size, 0, 'Initial processing.size should be 0');
 
@@ -708,7 +711,7 @@ test('totalProcessing is calculated as processing.size + Claude processes', () =
 });
 await asyncTest('canStartCommand returns totalProcessing in result', async () => {
   beforeEach();
-  const queue = new SolveQueue({ verbose: false });
+  const queue = new SolveQueue({ autoStart: false, verbose: false });
 
   const result = await queue.canStartCommand();
   // totalProcessing should be defined
@@ -719,7 +722,7 @@ await asyncTest('canStartCommand returns totalProcessing in result', async () =>
 });
 await asyncTest('canStartCommand returns claudeProcesses count in result', async () => {
   beforeEach();
-  const queue = new SolveQueue({ verbose: false });
+  const queue = new SolveQueue({ autoStart: false, verbose: false });
 
   const result = await queue.canStartCommand();
   // claudeProcesses should be defined
@@ -737,7 +740,7 @@ console.log('\n📋 System Resource Threshold Tests (Issue #1133)\n');
 
 await asyncTest('checkSystemResources accepts totalProcessing=0 for disk one-at-a-time mode (Issue #1155)', async () => {
   beforeEach();
-  const queue = new SolveQueue({ verbose: false });
+  const queue = new SolveQueue({ autoStart: false, verbose: false });
   // checkSystemResources now accepts totalProcessing for disk one-at-a-time mode
   // RAM and CPU block unconditionally, but disk uses one-at-a-time mode
   // When totalProcessing=0, disk threshold should allow starting (nothing is running)
@@ -753,7 +756,7 @@ await asyncTest('checkSystemResources accepts totalProcessing=0 for disk one-at-
 
 await asyncTest('checkSystemResources accepts totalProcessing=1 for disk one-at-a-time mode (Issue #1155)', async () => {
   beforeEach();
-  const queue = new SolveQueue({ verbose: false });
+  const queue = new SolveQueue({ autoStart: false, verbose: false });
   // checkSystemResources with totalProcessing=1 tests behavior when something is already running
   // If disk usage is high (oneAtATime mode), this should block since totalProcessing > 0
   // See: https://github.com/link-assistant/hive-mind/issues/1155
@@ -785,7 +788,7 @@ test('QUEUE_CONFIG thresholds are valid positive ratios', () => {
 console.log('\n📋 API Threshold Behavior Tests (Issue #1133)\n');
 await asyncTest('checkApiLimits accepts totalProcessing parameter', async () => {
   beforeEach();
-  const queue = new SolveQueue({ verbose: false });
+  const queue = new SolveQueue({ autoStart: false, verbose: false });
 
   // checkApiLimits should accept hasRunningClaude and totalProcessing
   // This test verifies the function accepts these parameters without error
@@ -799,7 +802,7 @@ await asyncTest('checkApiLimits accepts totalProcessing parameter', async () => 
 
 await asyncTest('checkApiLimits with different totalProcessing values', async () => {
   beforeEach();
-  const queue = new SolveQueue({ verbose: false });
+  const queue = new SolveQueue({ autoStart: false, verbose: false });
   // Test with totalProcessing = 0
   const result0 = await queue.checkApiLimits(false, 0);
   assert.ok(result0 !== undefined, 'Should work with totalProcessing = 0');
@@ -823,7 +826,7 @@ test('oneAtATime mode blocks when totalProcessing > 0', () => {
   // new commands should wait
   // Testing via queue logic verification
   beforeEach();
-  const queue = new SolveQueue({ verbose: false });
+  const queue = new SolveQueue({ autoStart: false, verbose: false });
 
   // Simulate check result with oneAtATime and totalProcessing > 0
   const check = {
@@ -842,7 +845,7 @@ test('oneAtATime mode blocks when totalProcessing > 0', () => {
 
 test('oneAtATime mode allows when totalProcessing === 0', () => {
   beforeEach();
-  const queue = new SolveQueue({ verbose: false });
+  const queue = new SolveQueue({ autoStart: false, verbose: false });
   // Simulate check result with oneAtATime but totalProcessing === 0
   const check = {
     canStart: true,
@@ -859,7 +862,7 @@ test('oneAtATime mode allows when totalProcessing === 0', () => {
 
 test('normal mode allows parallel commands', () => {
   beforeEach();
-  const queue = new SolveQueue({ verbose: false });
+  const queue = new SolveQueue({ autoStart: false, verbose: false });
 
   // Simulate check result without oneAtATime (normal mode)
   const check = {
@@ -881,7 +884,7 @@ test('normal mode allows parallel commands', () => {
 console.log('\n📋 Throttle Recording Tests\n');
 test('recordThrottle increments correct stats for all threshold types', () => {
   beforeEach();
-  const queue = new SolveQueue({ verbose: false });
+  const queue = new SolveQueue({ autoStart: false, verbose: false });
 
   // Record various throttle reasons
   queue.recordThrottle('ram_high');
@@ -931,7 +934,7 @@ test('CLAUDE_5_HOUR_SESSION_THRESHOLD is correctly named', () => {
 console.log('\n📋 Queue Statistics Tests\n');
 test('getStats returns all required fields', () => {
   beforeEach();
-  const queue = new SolveQueue({ verbose: false });
+  const queue = new SolveQueue({ autoStart: false, verbose: false });
 
   const stats = queue.getStats();
 
@@ -953,7 +956,7 @@ test('getStats returns all required fields', () => {
 
 test('getStats tracks enqueue correctly', () => {
   beforeEach();
-  const queue = new SolveQueue({ verbose: false });
+  const queue = new SolveQueue({ autoStart: false, verbose: false });
   queue.enqueue({
     url: 'https://github.com/test/repo/issues/1',
     args: '--model opus',
@@ -982,7 +985,7 @@ test('getStats tracks enqueue correctly', () => {
 console.log('\n📋 Min Start Interval Tests\n');
 test('lastStartTime is updated when item moves to processing', () => {
   beforeEach();
-  const queue = new SolveQueue({ verbose: false });
+  const queue = new SolveQueue({ autoStart: false, verbose: false });
 
   // Initially lastStartTime should be null
   assert.equal(queue.lastStartTime, null, 'Initial lastStartTime should be null');
@@ -1010,7 +1013,7 @@ test('lastStartTime is updated when item moves to processing', () => {
 });
 await asyncTest('MIN_START_INTERVAL_MS prevents rapid consecutive starts', async () => {
   beforeEach();
-  const queue = new SolveQueue({ verbose: false });
+  const queue = new SolveQueue({ autoStart: false, verbose: false });
 
   // Set global lastStartTime to just now (simulate a recent start)
   queue.lastStartTimeByTool.claude = Date.now();
@@ -1034,7 +1037,7 @@ await asyncTest('MIN_START_INTERVAL_MS prevents rapid consecutive starts', async
 console.log('\n📋 Processing Map Tests\n');
 test('processing map correctly tracks items', () => {
   beforeEach();
-  const queue = new SolveQueue({ verbose: false });
+  const queue = new SolveQueue({ autoStart: false, verbose: false });
 
   const item1 = queue.enqueue({
     url: 'https://github.com/test/repo/issues/1',
@@ -1063,7 +1066,7 @@ test('processing map correctly tracks items', () => {
 console.log('\n📋 Format Waiting Reason Tests\n');
 await asyncTest('formatDetailedStatus shows the shared waiting reason once (issue #1891)', async () => {
   beforeEach();
-  const queue = new SolveQueue({ verbose: false });
+  const queue = new SolveQueue({ autoStart: false, verbose: false });
 
   // Two pending items sharing the same waiting reason.
   queue.enqueue({ url: 'https://github.com/test/repo/issues/1', args: '--model opus', requester: 'testuser', infoBlock: 'Test info' });
@@ -1091,7 +1094,7 @@ console.log('\n📋 Queue Consumer Logic Tests\n');
 
 await asyncTest('consumer does not start when queue is empty', async () => {
   beforeEach();
-  const queue = new SolveQueue({ verbose: false });
+  const queue = new SolveQueue({ autoStart: false, verbose: false });
   // Queue is empty
   assert.equal(queue.queue.length, 0, 'Queue should be empty');
 
@@ -1104,7 +1107,7 @@ await asyncTest('consumer does not start when queue is empty', async () => {
 });
 test('multiple items maintain FIFO order within tool queue', () => {
   beforeEach();
-  const queue = new SolveQueue({ verbose: false });
+  const queue = new SolveQueue({ autoStart: false, verbose: false });
 
   // All items default to 'claude' tool
   const item1 = queue.enqueue({
@@ -1149,7 +1152,7 @@ console.log('\n📋 Edge Case Tests\n');
 
 test('cancel returns false for non-existent or processing items', () => {
   beforeEach();
-  const queue = new SolveQueue({ verbose: false });
+  const queue = new SolveQueue({ autoStart: false, verbose: false });
   assert.equal(queue.cancel('non-existent-id'), false);
   const item = queue.enqueue({ url: 'https://github.com/test/repo/issues/1', args: '', requester: 'testuser', infoBlock: 'Test' });
   queue.getToolQueue(item.tool).shift();
@@ -1159,7 +1162,7 @@ test('cancel returns false for non-existent or processing items', () => {
 });
 test('getQueueSummary handles empty queue correctly', () => {
   beforeEach();
-  const queue = new SolveQueue({ verbose: false });
+  const queue = new SolveQueue({ autoStart: false, verbose: false });
   const summary = queue.getQueueSummary();
   assert.deepEqual(summary.pending, []);
   assert.deepEqual(summary.processing, []);
@@ -1168,7 +1171,7 @@ test('getQueueSummary handles empty queue correctly', () => {
 
 test('queue item has correct tool property', () => {
   beforeEach();
-  const queue = new SolveQueue({ verbose: false });
+  const queue = new SolveQueue({ autoStart: false, verbose: false });
   const item1 = queue.enqueue({ url: 'https://github.com/test/repo/issues/1', args: '', requester: 'testuser', infoBlock: 'Test' });
   assert.equal(item1.tool, 'claude');
   const item2 = queue.enqueue({ url: 'https://github.com/test/repo/issues/2', args: '', requester: 'testuser', infoBlock: 'Test', tool: 'codex' });
@@ -1184,7 +1187,7 @@ test('queue item has correct tool property', () => {
 console.log('\n📋 Tool Agent Claude Limits Skip Tests (Issue #1159)\n');
 await asyncTest('checkApiLimits accepts tool parameter', async () => {
   beforeEach();
-  const queue = new SolveQueue({ verbose: false });
+  const queue = new SolveQueue({ autoStart: false, verbose: false });
 
   // checkApiLimits should accept tool parameter
   const result = await queue.checkApiLimits(false, 0, 'claude');
@@ -1197,7 +1200,7 @@ await asyncTest('checkApiLimits accepts tool parameter', async () => {
 
 await asyncTest('checkApiLimits with tool agent should not block on Claude limits', async () => {
   beforeEach();
-  const queue = new SolveQueue({ verbose: false });
+  const queue = new SolveQueue({ autoStart: false, verbose: false });
   // Test with tool = 'agent' - should skip Claude limits
   // Even if the mock data would trigger Claude limits, agent should pass
   const resultAgent = await queue.checkApiLimits(false, 0, 'agent');
@@ -1211,7 +1214,7 @@ await asyncTest('checkApiLimits with tool agent should not block on Claude limit
 
 await asyncTest('checkApiLimits with tool gemini should not block on Claude limits', async () => {
   beforeEach();
-  const queue = new SolveQueue({ verbose: false });
+  const queue = new SolveQueue({ autoStart: false, verbose: false });
 
   const resultGemini = await queue.checkApiLimits(false, 0, 'gemini');
   assert.ok(resultGemini !== undefined, 'Should work with tool = gemini');
@@ -1221,7 +1224,7 @@ await asyncTest('checkApiLimits with tool gemini should not block on Claude limi
 
 await asyncTest('checkApiLimits with tool codex applies Codex limits', async () => {
   beforeEach();
-  const queue = new SolveQueue({ verbose: false });
+  const queue = new SolveQueue({ autoStart: false, verbose: false });
   // Seed through the public API so path and credential-generation partitioning
   // is exercised instead of bypassed with a stale internal cache key.
   await getCachedCodexLimits(false, {
@@ -1248,7 +1251,7 @@ await asyncTest('checkApiLimits with tool codex applies Codex limits', async () 
 });
 await asyncTest('checkApiLimits default tool is claude', async () => {
   beforeEach();
-  const queue = new SolveQueue({ verbose: false });
+  const queue = new SolveQueue({ autoStart: false, verbose: false });
 
   // When tool is not specified, it should default to 'claude'
   const resultNoTool = await queue.checkApiLimits(false, 0);
@@ -1262,7 +1265,7 @@ await asyncTest('checkApiLimits default tool is claude', async () => {
 
 await asyncTest('canStartCommand accepts tool option', async () => {
   beforeEach();
-  const queue = new SolveQueue({ verbose: false });
+  const queue = new SolveQueue({ autoStart: false, verbose: false });
   // canStartCommand should accept options with tool
   const result = await queue.canStartCommand({ tool: 'agent' });
 
@@ -1274,7 +1277,7 @@ await asyncTest('canStartCommand accepts tool option', async () => {
 
 await asyncTest('canStartCommand with tool agent skips Claude limits', async () => {
   beforeEach();
-  const queue = new SolveQueue({ verbose: false });
+  const queue = new SolveQueue({ autoStart: false, verbose: false });
   // Test with tool = 'agent' - Claude limits should be skipped
   const resultAgent = await queue.canStartCommand({ tool: 'agent' });
 
@@ -1289,7 +1292,7 @@ await asyncTest('canStartCommand with tool agent skips Claude limits', async () 
 
 await asyncTest('canStartCommand default tool is claude', async () => {
   beforeEach();
-  const queue = new SolveQueue({ verbose: false });
+  const queue = new SolveQueue({ autoStart: false, verbose: false });
   // When options not provided, tool should default to 'claude'
   const resultNoOptions = await queue.canStartCommand();
   const resultClaude = await queue.canStartCommand({ tool: 'claude' });
@@ -1301,7 +1304,7 @@ await asyncTest('canStartCommand default tool is claude', async () => {
 
 test('queue item tool property is used by consumer', () => {
   beforeEach();
-  const queue = new SolveQueue({ verbose: false });
+  const queue = new SolveQueue({ autoStart: false, verbose: false });
   // Enqueue with --tool agent
   const agentItem = queue.enqueue({
     url: 'https://github.com/test/repo/issues/1',
@@ -1322,7 +1325,7 @@ test('queue item tool property is used by consumer', () => {
 
 test('gemini queue item tool property is used by consumer', () => {
   beforeEach();
-  const queue = new SolveQueue({ verbose: false });
+  const queue = new SolveQueue({ autoStart: false, verbose: false });
   const geminiItem = queue.enqueue({
     url: 'https://github.com/test/repo/issues/2',
     args: '--tool gemini',

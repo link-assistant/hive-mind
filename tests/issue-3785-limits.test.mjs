@@ -116,6 +116,50 @@ test('different credential authorities never share a usage cache entry', async t
   });
 });
 
+test('resetting the usage cache isolates new callers from an obsolete in-flight request', { timeout: 5000 }, async t => {
+  resetLimitCache();
+  await withCredentials(t, {}, async authPath => {
+    let started;
+    let release;
+    const fetched = new Promise(resolve => {
+      started = resolve;
+    });
+    const oldResult = { success: true, marker: 'obsolete-cache' };
+    const oldRequest = getCachedCodexLimits(false, {
+      authPath,
+      fetchLimits: () => {
+        started();
+        return new Promise(resolve => {
+          release = resolve;
+        });
+      },
+    });
+    await fetched;
+    resetLimitCache();
+    const expected = { success: true, marker: 'fresh-cache' };
+    // Release the old request even on the broken implementation, so the
+    // regression fails with a result mismatch instead of hanging.
+    const fallback = setTimeout(() => release(oldResult), 100);
+    try {
+      const result = await getCachedCodexLimits(false, { authPath, fetchLimits: async () => expected });
+      assert.deepEqual(result, expected);
+    } finally {
+      clearTimeout(fallback);
+      release(oldResult);
+      await oldRequest;
+    }
+    assert.deepEqual(
+      await getCachedCodexLimits(false, {
+        authPath,
+        fetchLimits: async () => {
+          throw new Error('Fresh result must remain cached.');
+        },
+      }),
+      expected
+    );
+  });
+});
+
 test('limits paths follow effective tool homes and never fall back to another home', () => {
   assert.deepEqual(resolveLimitsCredentialPaths({ CLAUDE_CONFIG_DIR: '/selected/claude', CODEX_HOME: '/selected/codex' }, '/host'), {
     claude: '/selected/claude/.credentials.json',

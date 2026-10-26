@@ -24,7 +24,6 @@ jobs:
       CARGO_BUILD_JOBS: '1'
       CARGO_INCREMENTAL: '0'
       CARGO_PROFILE_DEV_DEBUG: '0'
-      NATIVE_SOURCE: ${{ runner.temp }}/codex-native-source
     steps:
       - uses: actions/checkout@v7
         with:
@@ -34,11 +33,13 @@ jobs:
           node-version: 24.x
       - name: Fetch the immutable supported native source
         run: |
-          git init "$NATIVE_SOURCE"
-          git -C "$NATIVE_SOURCE" remote add origin https://github.com/openai/codex.git
-          git -C "$NATIVE_SOURCE" fetch --depth 1 origin 6aaac694803004a63c6f393d153c96d22521a6b9
-          git -C "$NATIVE_SOURCE" checkout --detach FETCH_HEAD
-          python3 experiments/issue-3785/native-codex/apply_adapter.py "$NATIVE_SOURCE"
+          native_source="$RUNNER_TEMP/codex-native-source"
+          echo "NATIVE_SOURCE=$native_source" >> "$GITHUB_ENV"
+          git init "$native_source"
+          git -C "$native_source" remote add origin https://github.com/openai/codex.git
+          git -C "$native_source" fetch --depth 1 origin 6aaac694803004a63c6f393d153c96d22521a6b9
+          git -C "$native_source" checkout --detach FETCH_HEAD
+          python3 experiments/issue-3785/native-codex/apply_adapter.py "$native_source"
       - name: Install the source-pinned compiler
         run: rustup toolchain install 1.99.1 --profile minimal
       - name: Test the exact canonical storage module
@@ -47,9 +48,10 @@ jobs:
           prlimit --data=134217728 --stack=8388608 --core=0 -- "$RUNNER_TEMP/canonical-auth-tests" --test-threads=1
       - name: Install native Linux build prerequisites
         run: |
-          sudo apt-get update > "$RUNNER_TEMP/native-prerequisites.log" 2>&1 &
-          wait "$!"
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends pkg-config libcap-dev >> "$RUNNER_TEMP/native-prerequisites.log" 2>&1 &
+          {
+            sudo apt-get update
+            sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends pkg-config libcap-dev
+          } > "$RUNNER_TEMP/native-prerequisites.log" 2>&1 &
           wait "$!"
       - name: Build the real supported CLI with the source adapter
         run: |

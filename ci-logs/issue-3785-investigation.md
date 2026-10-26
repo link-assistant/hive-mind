@@ -304,3 +304,23 @@ All three controller/task-cleanup unit cases pass. The real local Docker gate
 passes for Agent and OpenCode with two participants and this read-only mount;
 fresh packaged CI still needs to pass. The native source adapter
 remains an experiment and is not covered by the earlier run.
+
+The new source experiment's first workflow run
+[40350456592](https://github.com/link-assistant/hive-mind/actions/runs/40350456592)
+on `e507eef2466372ae2ff5bd84d60e726209375175` fails before any job starts.
+GitHub reports a workflow-file issue and exposes no job log; the failed log
+request is retained as `native-codex-40350456592.log`. Local actionlint 1.7.12
+reproduces the prohibited `runner` context at job `env` (line 27), plus two
+SC2024 diagnostics around background sudo redirection. Initialize the temporary
+source path inside the fetch step and export it through `GITHUB_ENV`; group
+the background prerequisite commands before redirecting their logs. The same
+Docker actionlint/shellcheck check then passes. This is a workflow repair, not
+evidence that the native acceptance probes passed.
+
+A bounded local native `cargo +1.99.1 check --locked -j 1 -p codex-login --lib`
+with incremental/debug data disabled reaches `codex-protocol`, then exits 101
+after the compiler hits its explicit 1 GiB data bound. Log
+`/tmp/issue-3785-native-login-check.log` lines 501–508 records allocation failure
+and SIGABRT. The cgroup reports zero OOM kills. Do not repeat this build under
+the same memory budget; retain full native build/manager verification on the
+adequately provisioned CI runner.

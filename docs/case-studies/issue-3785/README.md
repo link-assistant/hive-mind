@@ -524,4 +524,14 @@ Node image. They verify fresh-launch backing, not native CLI refresh, atomic
 replacement, complete history, root/two-task lifecycle, nested-daemon behavior,
 effective-path changes or resume. Those acceptance criteria remain open.
 
+PR image verification now requires `docker-pr-verify-mount-backing.mjs` after
+the existing regular/DinD checks. It imports the installed package inside each
+actual image and uses the host socket or the image's nested daemon respectively.
+Two concurrent, bounded Node tasks read synthetic auth and write separate session
+files; the gate verifies those writes from the root and host, then cleans up.
+Its two local unit tests verify completion and cleanup after success and peer
+failure. Actual image execution still needs newest-head CI. This gate exercises
+filesystem backing only; native CLI refresh/history and release/deployment
+promotion requirements remain unfinished.
+
 ![Synthetic before and after limits layout](evidence/display-comparison.png)

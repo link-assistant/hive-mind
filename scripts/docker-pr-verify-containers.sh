@@ -48,5 +48,7 @@ docker run --rm --privileged \
 
 bash scripts/verify-dind-exec-defaults.sh "${DIND_IMAGE_NAME}:test"
 
+node scripts/docker-pr-verify-mount-backing.mjs
+
 echo ""
 echo "All system, development, and nested Docker verification checks passed!"

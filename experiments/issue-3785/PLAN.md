@@ -54,6 +54,9 @@ push only issue-3785-4c28551ac612, and keep unmet requirements explicitly open.
       persisted bind/volume paths and verify actual backing before fresh launch.
       Check direct paths, private-layer rejection, partial mountinfo reads,
       missing-image pulls and refusal before task execution with synthetic state.
+- [x] Add a required installed-package mount check to PR image verification for
+      host/nested daemons, with two synthetic filesystem writers and peer-failure
+      cleanup tests. Actual packaged-image execution must still pass in CI.
 - [ ] Implement canonical auth/history authority, explicit alternative contracts,
       coordinated refresh and fail-closed effective-path validation for all tools.
 - [ ] Isolate task catalogs/extensions and enforce clean global baseline; migrate

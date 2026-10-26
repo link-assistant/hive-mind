@@ -1,0 +1,68 @@
+// Required integration gate after both release-shaped PR images are built.
+// This checks the installed launcher against the host and nested daemons;
+// it does not claim native CLI rotation/history lifecycle coverage.
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { randomUUID } from 'node:crypto';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { setTimeout as delay } from 'node:timers/promises';
+import { startDetachedDockerPull } from '../src/docker-pull-detached.lib.mjs';
+import { TASK_IMAGE_PULL_TIMEOUT_MS } from '../src/task-image-refresh.lib.mjs';
+
+const execute = promisify(execFile);
+const docker = (args, budget = 60_000) => execute('docker', args, { maxBuffer: 1024 * 1024, signal: AbortSignal.timeout(budget) });
+const fixture = await fs.mkdtemp(path.join(os.tmpdir(), 'hive-packaged-mounts-'));
+const probeImage = process.env.HIVE_MOUNT_TEST_IMAGE || 'node:24-alpine';
+const script = fileURLToPath(new URL('./verify-mounted-task-backing.mjs', import.meta.url));
+const socket = '/var/run/docker.sock';
+const socketGroup = String((await fs.stat(socket)).gid);
+try {
+  await fs.mkdir(path.join(fixture, 'home/.codex/sessions'), { recursive: true });
+  for (const relative of ['', 'home', 'home/.codex', 'home/.codex/sessions']) await fs.chmod(path.join(fixture, relative), 0o777);
+  await fs.writeFile(path.join(fixture, 'home/.codex/auth.json'), '{"synthetic":"canonical"}', { mode: 0o644 });
+  try {
+    await docker(['image', 'inspect', '--format', '{{.Id}}', probeImage]);
+  } catch {
+    await startDetachedDockerPull(['pull', probeImage], { timeoutMs: TASK_IMAGE_PULL_TIMEOUT_MS });
+  }
+  await docker(['image', 'save', '-o', path.join(fixture, 'probe-image.tar'), probeImage]);
+  for (const [variant, image] of [
+    ['host', `${process.env.IMAGE_NAME || 'konard/hive-mind'}:test`],
+    ['nested', `${process.env.DIND_IMAGE_NAME || 'konard/hive-mind-dind'}:test`],
+  ]) {
+    for (const index of [0, 1]) await fs.rm(path.join(fixture, `home/.codex/sessions/task-${index}`), { force: true });
+    const name = `hive-packaged-mount-${randomUUID()}`;
+    try {
+      const args = ['run', '--detach', '--pull', 'never', '--name', name, '--env', 'DIND_HOST_PASSTHROUGH=off', '--mount', `type=bind,source=${fixture},target=/mount-fixture`, '--mount', `type=bind,source=${script},target=/verify-mounted-task-backing.mjs,readonly`];
+      if (variant === 'host') args.push('--group-add', socketGroup, '--mount', `type=bind,source=${socket},target=${socket}`);
+      else args.push('--privileged');
+      args.push(image, 'sleep', 'infinity');
+      await docker(args);
+      const deadline = Date.now() + 60_000;
+      let ready = false;
+      while (Date.now() < deadline) {
+        try {
+          await docker(['exec', name, 'docker', 'info', '--format', '{{.ServerVersion}}'], 5000);
+          ready = true;
+          break;
+        } catch {
+          await delay(500);
+        }
+      }
+      assert.equal(ready, true, `${variant} daemon did not become ready`);
+      if (variant === 'nested') await docker(['exec', name, 'docker', 'image', 'load', '-i', '/mount-fixture/probe-image.tar']);
+      const expectedHome = variant === 'host' ? path.join(fixture, 'home') : '/mount-fixture/home';
+      const result = await docker(['exec', '--env', `HIVE_MOUNT_TEST_IMAGE=${probeImage}`, '--env', `HIVE_MOUNT_TEST_EXPECTED_HOME=${expectedHome}`, name, 'bash', '-lc', 'node --max-old-space-size=128 /verify-mounted-task-backing.mjs "$(command -v hive)"'], 120_000);
+      process.stdout.write(`${variant}: ${result.stdout}`);
+      for (const index of [0, 1]) assert.equal(await fs.readFile(path.join(fixture, `home/.codex/sessions/task-${index}`), 'utf8'), 'persisted');
+    } finally {
+      await docker(['rm', '-f', name]).catch(() => {});
+    }
+  }
+} finally {
+  await fs.rm(fixture, { recursive: true, force: true });
+}

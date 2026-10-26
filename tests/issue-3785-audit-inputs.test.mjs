@@ -187,3 +187,60 @@ test('removing an unapproved skill preserves hidden stock runtime files', async 
     false
   );
 });
+
+test('malformed TOML stops repair without exposing configuration or changing other state', async t => {
+  const home = await fixture(t);
+  const config = path.join(home, '.codex', 'config.toml');
+  const input = '[features\nprivate_audit_sentinel = "do not log"\n';
+  const skill = path.join(home, '.claude', 'skills', 'unapproved', 'SKILL.md');
+  await mkdir(path.dirname(skill), { recursive: true });
+  await writeFile(skill, 'preserve until configuration can be parsed');
+  await writeFile(config, input);
+  await assert.rejects(runAgentConfigAudit({ homeDir: home }), error => /unsafe|invalid|unparseable/i.test(error.message) && !error.message.includes('sentinel'));
+  assert.equal(await readFile(config, 'utf8'), input);
+  assert.equal(await readFile(skill, 'utf8'), 'preserve until configuration can be parsed');
+});
+
+test('configuration growth after the size check cannot trigger an unbounded read', async t => {
+  const home = await fixture(t);
+  const config = path.join(home, '.claude', 'settings.json');
+  await writeFile(config, '{}');
+  const fs = (await import('node:fs')).default;
+  let bytesRead = 0;
+  let grown = false;
+  const fsImpl = {
+    ...fs,
+    promises: {
+      ...fs.promises,
+      open: async (target, ...options) => {
+        const handle = await fs.promises.open(target, ...options);
+        if (target !== config) return handle;
+        return {
+          stat: async options => {
+            const info = await handle.stat(options);
+            if (!grown) {
+              grown = true;
+              // Finite 2 MiB fixture models growth after the descriptor check.
+              await writeFile(config, '{}' + ' '.repeat(2 * 1024 * 1024));
+            }
+            return info;
+          },
+          readFile: async (...args) => {
+            const content = await handle.readFile(...args);
+            bytesRead += Buffer.byteLength(content);
+            return content;
+          },
+          read: async (...args) => {
+            const result = await handle.read(...args);
+            bytesRead += result.bytesRead;
+            return result;
+          },
+          close: () => handle.close(),
+        };
+      },
+    },
+  };
+  await assert.rejects(runAgentConfigAudit({ homeDir: home, fsImpl }), /unsafe/i);
+  assert.equal(grown, true);
+  assert.ok(bytesRead > 0 && bytesRead <= 1024 * 1024 + 1, 'read at most the configured limit plus one overflow byte');
+});

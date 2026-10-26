@@ -253,6 +253,12 @@ if (argv.subAgentModel) await validateAndExitOnInvalidClaudeSubAgentModel(argv.s
 // Perform all system checks (skip tool connection check in dry-run or when --skip-tool-connection-check; model validation always runs)
 const prepareOnly = argv.dryRun || argv.onlyPrepareCommand;
 const skipToolConnectionCheck = prepareOnly || argv.skipToolConnectionCheck || argv.toolConnectionCheck === false;
+// Enforce the audited global surfaces before any native CLI connection probe.
+// Disabling repair does not permit execution with known contamination.
+if (tool === 'claude' || tool === 'codex') {
+  const { isAgentConfigAutoRepairEnabled, runAgentConfigAudit } = await import('./agent-config-audit.lib.mjs');
+  await runAgentConfigAudit({ tool, autoRepair: !prepareOnly && isAgentConfigAutoRepairEnabled({ argv }), requireClean: !prepareOnly, log, verbose: argv.verbose });
+}
 // Issue #2202 (R6): before we start driving the agentic CLI, make sure it is the
 // version the task needs — a stale binary is the usual reason a brand-new model
 // name is rejected. Best effort by design: `ensureAgenticCliFreshness` never
@@ -278,15 +284,6 @@ if (!(await performSystemChecks(argv.minDiskSpace || 10240, skipToolConnectionCh
     await safeExit(EXIT_CODE_INSUFFICIENT_DISK_SPACE, `Insufficient disk space on this host (${availableMB}MB available, ${requiredMB}MB required) — the issue itself was not attempted`, { skipPreExit: true });
   }
   await safeExit(1, 'System checks failed');
-}
-// Issue #2190: the global Claude/Codex configuration must stay minimal. Globally
-// synced plugins/skills (e.g. Codex's remote "Superpowers" plugin) rewrite agent
-// behaviour and multiply token usage, so drift is reported and, unless
-// --no-agent-config-auto-repair is given, removed before the tool starts. A
-// dry run only reports.
-if (tool === 'claude' || tool === 'codex') {
-  const { isAgentConfigAutoRepairEnabled, runAgentConfigAudit } = await import('./agent-config-audit.lib.mjs');
-  await runAgentConfigAudit({ tool, autoRepair: !argv.dryRun && isAgentConfigAutoRepairEnabled({ argv }), log, verbose: argv.verbose });
 }
 // Playwright MCP preflight is local/free and stays independent from paid tool connection checks.
 if (!argv.dryRun && argv.playwrightMcp !== false) {

@@ -8,4 +8,4 @@ Reject explicitly selected Router launches with missing task tokens, invalid end
 
 Refresh the CI-required Formal AI, start-command and Secretlint dependency pins and their lockfile entries.
 
-Reject malformed JSON, unsafe links and concurrent edits before the existing global configuration audit repairs state. Preserve hidden runtime files and concurrent additions when pruning empty extension directories.
+Reject malformed JSON/TOML, unsafe links and concurrent edits before the existing global configuration audit repairs state. Bound configuration reads even during concurrent growth. Require a clean re-audit of known surfaces before native connection checks in solve, hive and the root Telegram bot, including when auto-repair is disabled. Preserve hidden runtime files and concurrent additions when pruning empty extension directories.

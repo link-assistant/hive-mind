@@ -363,7 +363,11 @@ docker volume create box-home
 docker run -it -v box-home:/home/box konard/hive-mind:latest
 ```
 
-若不挂载整个 home，请分别持久化 `/home/box/.codex` 和可选的 `/home/box/.agents`。`--isolation docker` 任务**不会**整体继承这些目录：自 [issue #2190](https://github.com/link-assistant/hive-mind/issues/2190) 起，任务容器只挂载凭据文件（`~/.claude/.credentials.json` 或 `~/.codex/auth.json`）和会话目录（`~/.claude/projects`、`~/.claude/sessions`、`~/.codex/sessions`）；插件、marketplace、技能、MCP 和设置均来自镜像，并随容器一起消失。每次启动 `solve`/`hive` 时都会审计全局配置，并默认清理到最小配置（可用 `--no-agent-config-auto-repair` 关闭）。Hive Mind 在 `codex exec` 前读取 issue、全部评论和仓库指令文件，解析明确要求的插件和 Agent Skill，并将选定的提供者安装到 `.codex/hive-mind/repositories/<owner>/<repo>`。每个任务都从空的插件/技能状态重建此作用域，关闭远程插件同步，且不复制主机缓存或全局技能。技能文件不会部署或提交到目标仓库。
+若不挂载整个 home，请分别持久化 `/home/box/.codex` 和可选的 `/home/box/.agents`。`--isolation docker` 任务**不会**整体继承这些目录：自 [issue #2190](https://github.com/link-assistant/hive-mind/issues/2190) 起，任务容器只挂载凭据文件（`~/.claude/.credentials.json` 或 `~/.codex/auth.json`）和会话目录（`~/.claude/projects`、`~/.claude/sessions`、`~/.codex/sessions`）；插件、marketplace、技能、MCP 和设置均来自镜像，并随容器一起消失。Hive Mind 在 `codex exec` 前读取 issue、全部评论和仓库指令文件，解析明确要求的插件和 Agent Skill，并将选定的提供者安装到 `.codex/hive-mind/repositories/<owner>/<repo>`。每个任务都从空的插件/技能状态重建此作用域，关闭远程插件同步，且不复制主机缓存或全局技能。技能文件不会部署或提交到目标仓库。
+
+凭据共享仍有限制：主机原子替换文件后，文件绑定挂载仍指向旧 inode；Codex 预检还会把身份验证复制到任务作用域。这些路径尚未形成统一的轮换权威存储。[案例研究](./case-studies/issue-3785/README.md) 记录了这个未解决的问题及真实 CLI 实验。
+
+根 Telegram bot 以及每次 `solve`/`hive` 启动都会在工具连接检查前审计已知的全局 Claude/Codex 配置入口，默认启用修复。`--no-agent-config-auto-repair` 或 `HIVE_MIND_AGENT_CONFIG_AUTO_REPAIR=0` 仅关闭修复；仍有发现项或修复失败时，执行会被阻止。Dry-run 和命令准备检查不会修复状态。审计尚未覆盖所有替代或托管发现路径，也未与同一固定版本的原始 CLI 比较内置运行时技能；这些更广泛的基线要求仍未完成。
 
 若 catalog 中没有要求的提供程序，预检会在 AI harness 启动前报告确切能力。请在父容器中运行 `codex plugin list --available --json` 以检查或刷新 marketplace。预检会为每个任务通过 `codex debug prompt-input` 验证完整的模型可见目录，即使没有声明可选能力也会执行。仅允许作用域内的核心技能、明确要求的仓库技能，以及选定作用域插件的技能；意外技能、不受信任的路径，或在支持该命令的 CLI 上不可用/无法解析的探测结果都会停止执行。详细日志会显示每个已接受技能的名称、提供者、版本和规范化路径。
 

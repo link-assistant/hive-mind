@@ -3,6 +3,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { parse as parseToml } from 'smol-toml';
 
 const TOOL_INPUTS = {
   claude: {
@@ -18,10 +19,24 @@ const TOOL_INPUTS = {
 
 const unsafe = () => new Error('Global agent configuration has unsafe, unreadable or unparseable audit inputs; no repair is permitted. Inspect configuration types, links and permissions.');
 const identity = info => `${info.dev}:${info.ino}:${info.size}:${info.mtimeNs}:${info.ctimeNs}:${info.nlink}`;
+const CONFIG_MAX_BYTES = 1024 * 1024;
 
-/** Reject links, nonregular files, unreadable/malformed JSON and changed inputs.
+async function readBoundedConfig(handle) {
+  // Reading through a descriptor prevents link replacement, but the inode can
+  // still grow after stat. Keep both allocation and total I/O bounded.
+  const buffer = Buffer.alloc(CONFIG_MAX_BYTES + 1);
+  let offset = 0;
+  while (offset < buffer.length) {
+    const { bytesRead } = await handle.read(buffer, offset, buffer.length - offset, offset);
+    if (bytesRead === 0) return buffer.toString('utf8', 0, offset);
+    offset += bytesRead;
+  }
+  throw unsafe();
+}
+
+/** Reject links, nonregular files, unreadable/malformed configuration and changed inputs.
  * Never include parser errors or input bytes in diagnostics. Directory scans
- * are bounded, and JSON uses O_NOFOLLOW plus a descriptor identity check.
+ * are bounded; config reads use O_NOFOLLOW and descriptor identity checks.
  */
 export async function validateAgentConfigAuditInputs({ tool = 'all', homeDir, fsImpl = fs, previous = null }) {
   const io = fsImpl.promises;
@@ -63,14 +78,18 @@ export async function validateAgentConfigAuditInputs({ tool = 'all', homeDir, fs
         const target = path.join(homeDir, relative);
         const info = await inspect(target, 'file');
         if (!info) continue;
-        if (info.size > 1024n * 1024n) throw unsafe();
+        if (info.size > BigInt(CONFIG_MAX_BYTES)) throw unsafe();
         const handle = await io.open(target, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
         try {
           if (identity(await handle.stat({ bigint: true })) !== identity(info)) throw unsafe();
-          const content = await handle.readFile('utf8');
+          const content = await readBoundedConfig(handle);
           if (inputs.json.includes(relative)) {
             const parsed = JSON.parse(content);
             if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw unsafe();
+          } else {
+            // The repair's line-oriented TOML helpers are not a syntax
+            // validator. Reject malformed input before any file is changed.
+            parseToml(content, { integersAsBigInt: 'asNeeded' });
           }
           if (identity(await handle.stat({ bigint: true })) !== identity(info)) throw unsafe();
         } finally {

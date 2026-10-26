@@ -1,0 +1,33 @@
+✔ malformed global JSON stops repair without exposing input or changing other state (60.479018ms)
+✔ symlink from settings into credentials is rejected before repair (37.045395ms)
+✔ hardlink from settings into credentials is rejected before repair (23.216719ms)
+✔ a linked plugin ancestor cannot redirect cleanup into conversation storage (17.911652ms)
+✔ unreadable audit surfaces stop repair rather than becoming an empty catalog (23.79054ms)
+✔ unreadable Codex configuration stops every repair (45.772413ms)
+✔ a concurrent configuration edit invalidates the repair plan (90.466256ms)
+✔ a concurrent file creation prevents empty-parent pruning (61.396932ms)
+✔ removing an unapproved skill preserves hidden stock runtime files (54.262702ms)
+✖ malformed TOML stops repair without exposing configuration or changing other state (55.298805ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 9
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 668.545477
+
+✖ failing tests:
+
+test at tests/issue-3785-audit-inputs.test.mjs:191:1
+✖ malformed TOML stops repair without exposing configuration or changing other state (55.298805ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-audit-inputs.test.mjs:199:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }

@@ -374,19 +374,35 @@ export const repairAgentConfig = (findings, { fsImpl = fs } = {}) => {
 /** One-line human summary of a finding. */
 export const formatAgentConfigFinding = finding => `${finding.tool} ${finding.kind} "${finding.name}" at ${finding.location} (${finding.detail})`;
 
+const requireCleanAuditedConfig = async options => {
+  const snapshot = await validateAgentConfigAuditInputs(options);
+  const { findings } = auditAgentConfig(options);
+  await validateAgentConfigAuditInputs({ ...options, previous: snapshot });
+  if (findings.length) throw new Error('Global agent configuration is not clean. Remove or safely quarantine the remaining additions before launching tasks.');
+};
+
 /**
  * Audit, log, and (optionally) repair. This is the entry point solve/hive/the
  * Docker launcher use.
  *
- * @param {{ tool?: string, homeDir?: string, autoRepair?: boolean, log?: Function, verbose?: boolean, fsImpl?: typeof fs, allowedMcpServers?: string[] }} [options]
+ * `requireClean` rejects findings that remain after repair (including items
+ * the legacy repair deliberately leaves in place). This enforces the audited
+ * surfaces only; it is not a full native CLI discovery/baseline attestation.
+ *
+ * @param {{ tool?: string, homeDir?: string, autoRepair?: boolean, requireClean?: boolean, log?: Function, verbose?: boolean, fsImpl?: typeof fs, allowedMcpServers?: string[] }} [options]
  * @returns {Promise<{ findings: object[], repaired: object[], failed: object[], skipped: object[] }>}
  */
-export const runAgentConfigAudit = async ({ tool = 'all', homeDir = os.homedir(), autoRepair = true, log = async () => {}, verbose = false, fsImpl = fs, allowedMcpServers = MINIMAL_MCP_SERVERS } = {}) => {
+export const runAgentConfigAudit = async ({ tool = 'all', homeDir = os.homedir(), autoRepair = true, requireClean = false, log = async () => {}, verbose = false, fsImpl = fs, allowedMcpServers = MINIMAL_MCP_SERVERS } = {}) => {
   const scope = AUDITABLE_TOOLS.includes(tool) ? tool : 'all';
   const auditInputs = await validateAgentConfigAuditInputs({ tool: scope, homeDir, fsImpl });
   const { findings, repairable, warnOnly } = auditAgentConfig({ tool: scope, homeDir, fsImpl, allowedMcpServers });
   if (verbose) await log(`🔍 ${LOG_PREFIX}: inspected global ${scope === 'all' ? 'claude/codex' : scope} configuration under ${homeDir} (${findings.length} finding${findings.length === 1 ? '' : 's'})`, { verbose: true });
-  if (findings.length === 0) return { findings, repaired: [], failed: [], skipped: [] };
+  if (findings.length === 0) {
+    // Verbose logging yields; do not admit a now-contaminated home on the
+    // strength of an earlier clean snapshot.
+    if (requireClean) await requireCleanAuditedConfig({ tool: scope, homeDir, fsImpl, allowedMcpServers });
+    return { findings, repaired: [], failed: [], skipped: [] };
+  }
 
   await log(`⚠️  Global agent configuration is not minimal (issue #2190): ${findings.length} finding${findings.length === 1 ? '' : 's'}`, { level: 'warn' });
   for (const finding of findings) await log(`   • ${formatAgentConfigFinding(finding)}`, { level: 'warn' });
@@ -395,6 +411,7 @@ export const runAgentConfigAudit = async ({ tool = 'all', homeDir = os.homedir()
   }
   if (!autoRepair) {
     await log('   Auto-repair is disabled (--no-agent-config-auto-repair); nothing was changed. Non-minimal skills and plugins may change agent behaviour and token usage.', { level: 'warn' });
+    if (requireClean) throw new Error('Global agent configuration is not clean. Remove or safely quarantine the reported additions before launching tasks.');
     return { findings, repaired: [], failed: [], skipped: repairable };
   }
   // Logging may yield to another editor. Reject changed state before the
@@ -406,5 +423,9 @@ export const runAgentConfigAudit = async ({ tool = 'all', homeDir = os.homedir()
     if (verbose) await log(`   ✓ ${finding.repair.type}: ${finding.repair.target}${finding.repair.table ? ` [${finding.repair.table}]` : ''}${finding.repair.keyPath ? ` ${finding.repair.keyPath.join('.')}` : ''}`, { verbose: true });
   }
   for (const { finding, error } of failed) await log(`   ✗ could not repair ${formatAgentConfigFinding(finding)}: ${error}`, { level: 'warn' });
+  if (requireClean) {
+    if (failed.length) throw new Error('Global agent configuration is not clean after repair. Resolve repair failures before launching tasks.');
+    await requireCleanAuditedConfig({ tool: scope, homeDir, fsImpl, allowedMcpServers });
+  }
   return { findings, repaired, failed, skipped: [] };
 };

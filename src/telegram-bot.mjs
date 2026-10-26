@@ -50,6 +50,13 @@ if (!BOT_TOKEN) {
   process.exit(1);
 }
 
+// Root configuration must pass the same audited-surface policy as its workers.
+// Parser-only dry runs do not inspect or mutate operator state.
+if (!config.dryRun) {
+  const { isAgentConfigAutoRepairEnabled, runAgentConfigAudit } = await import('./agent-config-audit.lib.mjs');
+  await runAgentConfigAudit({ autoRepair: isAgentConfigAutoRepairEnabled(), requireClean: true, log: async message => console.log(message), verbose: VERBOSE });
+}
+
 // Resolve final config values (CLI option > environment variable)
 const resolvedAllowedChats = config.allowedChats || getenv('TELEGRAM_ALLOWED_CHATS', '');
 const allowedChats = resolvedAllowedChats ? lino.parseNumericIds(resolvedAllowedChats) : null;

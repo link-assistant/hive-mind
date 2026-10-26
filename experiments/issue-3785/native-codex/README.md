@@ -136,6 +136,21 @@ verify both live clients observe repaired G1 afterward.
 `apply_request_auth.py` refuses missing canonical auth before an auth-required
 provider can fall through to unauthenticated execution. Its exact-source
 applicability passes; the rebuilt full-CLI positive control is pending.
+The downloaded intermediate CLI also reproduces eight independent provider
+authority routes: environment key, inline bearer, unauthenticated provider,
+explicit Authorization, extra key header, environment-derived key header,
+organization and project environment selectors.
+`--provider-overrides --expect-provider-overrides` requires each real local
+model request to use the alternate synthetic authority, and verifies that the
+stock version header and unset organization/project mappings retain canonical
+G0. The extended patch rejects unsupported provider fields and custom headers
+in canonical mode, retaining only those stock metadata declarations (identity
+environment variables must be absent). Both ordinary and scoped auth resolution
+perform admission before resolving bearer credentials. The positive
+`--provider-overrides` run must observe zero model requests for all eight routes
+and successful G0 requests for both stock metadata controls. Full native CI
+verification remains pending. This does not certify AWS, gateway construction,
+agent-identity bootstrap or every other native endpoint and writer.
 Remote plugins are disabled before startup, and every probe process group is
 killed and reaped before temporary state is removed.
 

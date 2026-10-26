@@ -15,6 +15,9 @@ import { setTimeout, clearTimeout } from 'node:timers';
 const binary = process.argv[2];
 const uncoordinated = process.argv.includes('--expect-uncoordinated');
 const unauthenticatedLogout = process.argv.includes('--expect-unauthenticated-logout');
+const providerOverrides = process.argv.includes('--provider-overrides');
+const expectProviderOverrides = process.argv.includes('--expect-provider-overrides');
+assert.ok(!expectProviderOverrides || providerOverrides, 'Provider override controls require --provider-overrides.');
 assert.ok(!uncoordinated || !unauthenticatedLogout, 'Select only one native negative control.');
 assert.ok(binary && path.isAbsolute(binary), 'Supply an absolute native Codex binary path.');
 const root = await fs.mkdtemp(path.join(os.tmpdir(), 'hive-3785-native-requests-'));
@@ -30,7 +33,7 @@ const server = http.createServer(async (request, response) => {
     }
     if (request.method === 'POST' && request.url === '/v1/responses') {
       const header = request.headers.authorization;
-      observed.push(['G0', 'G1', 'G2'].find(generation => header === `Bearer sk-SYNTHETIC-${generation}` || header === `Bearer SYNTHETIC-ACCESS-${generation}`) || (header ? 'unexpected' : 'absent'));
+      observed.push(request.headers['openai-organization'] === 'synthetic-organization' ? 'G2-organization' : request.headers['openai-project'] === 'synthetic-project' ? 'G2-project' : request.headers['x-api-key'] === 'sk-SYNTHETIC-G2' ? 'G2-extra' : ['G0', 'G1', 'G2'].find(generation => header === `Bearer sk-SYNTHETIC-${generation}` || header === `Bearer SYNTHETIC-ACCESS-${generation}`) || (header ? 'unexpected' : 'absent'));
       response.writeHead(503, { 'content-type': 'application/json', connection: 'close' });
       response.end('{"error":{"message":"Synthetic model deliberately unavailable","code":"offline"}}');
     } else if (request.method === 'GET' && request.url === '/v1/models') {
@@ -46,11 +49,11 @@ const server = http.createServer(async (request, response) => {
 server.requestTimeout = 3000;
 server.headersTimeout = 3000;
 
-async function startClient({ home, config, canonical }) {
+async function startClient({ home, config, canonical, provider = {}, providerEnv = {} }) {
   await fs.mkdir(home, { mode: 0o700 });
   await fs.mkdir(config, { mode: 0o700, recursive: true });
   await fs.writeFile(path.join(config, 'config.toml'), '[features]\nremote_plugin=false\n', { mode: 0o600 });
-  const env = { PATH: process.env.PATH, HOME: home, CODEX_HOME: config, CODEX_AUTH_HOME: canonical, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1', TOKIO_WORKER_THREADS: '2', RUST_LOG: 'off' };
+  const env = { PATH: process.env.PATH, HOME: home, CODEX_HOME: config, CODEX_AUTH_HOME: canonical, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1', TOKIO_WORKER_THREADS: '2', RUST_LOG: 'off', ...providerEnv };
   const child = spawn('prlimit', ['--data=536870912', '--stack=16777216', '--core=0', '--', binary, 'app-server'], { cwd: root, env, detached: true, stdio: ['pipe', 'pipe', 'pipe'] });
   const killGroup = () => {
     if (!child.pid) return;
@@ -126,17 +129,39 @@ async function startClient({ home, config, canonical }) {
   const initialized = await request('initialize', { clientInfo: { name: 'hive-3785-native-request-probe', version: '0.0.0' }, capabilities: { experimentalApi: true } });
   assert.match(initialized.userAgent, /0\.164\.0/u);
   child.stdin.write(`${JSON.stringify({ method: 'initialized' })}\n`);
-  const result = await request('thread/start', { cwd: root, model: 'synthetic-model', modelProvider: 'offline', approvalPolicy: 'never', sandbox: 'read-only', config: { features: { remote_plugin: false }, model_providers: { offline: { name: 'Offline', base_url: `http://127.0.0.1:${server.address().port}/v1`, wire_api: 'responses', requires_openai_auth: true, request_max_retries: 0, stream_max_retries: 0 } } } });
+  const result = await request('thread/start', { cwd: root, model: 'synthetic-model', modelProvider: 'offline', approvalPolicy: 'never', sandbox: 'read-only', config: { features: { remote_plugin: false }, model_providers: { offline: { name: 'Offline', base_url: `http://127.0.0.1:${server.address().port}/v1`, wire_api: 'responses', requires_openai_auth: true, request_max_retries: 0, stream_max_retries: 0, ...provider } } } });
   client.threadId = result.thread.id;
   return client;
 }
 
 try {
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-  for (const mode of ['api-key', 'chatgpt']) {
+  for (const mode of providerOverrides ? ['provider-routes'] : ['api-key', 'chatgpt']) {
     const canonical = path.join(root, mode);
     await fs.mkdir(canonical, { mode: 0o700 });
     const auth = path.join(canonical, 'auth.json');
+    if (providerOverrides) {
+      await fs.writeFile(auth, JSON.stringify({ OPENAI_API_KEY: 'sk-SYNTHETIC-G0' }), { mode: 0o600 });
+      const routes = [
+        { name: 'provider-env', provider: { env_key: 'HIVE_SYNTHETIC_PROVIDER_KEY' }, providerEnv: { HIVE_SYNTHETIC_PROVIDER_KEY: 'sk-SYNTHETIC-G2' }, observed: 'G2' },
+        { name: 'provider-bearer', provider: { experimental_bearer_token: 'sk-SYNTHETIC-G2' }, observed: 'G2' },
+        { name: 'provider-no-auth', provider: { requires_openai_auth: false }, observed: 'absent' },
+        { name: 'provider-header', provider: { requires_openai_auth: false, http_headers: { Authorization: 'Bearer sk-SYNTHETIC-G2' } }, observed: 'G2' },
+        { name: 'provider-extra-header', provider: { http_headers: { 'X-Api-Key': 'sk-SYNTHETIC-G2' } }, observed: 'G2-extra' },
+        { name: 'provider-env-header', provider: { env_http_headers: { 'X-Api-Key': 'HIVE_SYNTHETIC_PROVIDER_KEY' } }, providerEnv: { HIVE_SYNTHETIC_PROVIDER_KEY: 'sk-SYNTHETIC-G2' }, observed: 'G2-extra' },
+        { name: 'provider-organization', provider: { env_http_headers: { 'OpenAI-Organization': 'OPENAI_ORGANIZATION' } }, providerEnv: { OPENAI_ORGANIZATION: 'synthetic-organization' }, observed: 'G2-organization' },
+        { name: 'provider-project', provider: { env_http_headers: { 'OpenAI-Project': 'OPENAI_PROJECT' } }, providerEnv: { OPENAI_PROJECT: 'synthetic-project' }, observed: 'G2-project' },
+        { name: 'stock-version-header', provider: { http_headers: { version: '0.164.0' } }, allowed: true },
+        { name: 'stock-unset-identity-headers', provider: { env_http_headers: { 'OpenAI-Organization': 'OPENAI_ORGANIZATION', 'OpenAI-Project': 'OPENAI_PROJECT' } }, allowed: true },
+      ];
+      for (const route of routes) {
+        const client = await startClient({ home: path.join(root, `${route.name}-home`), config: path.join(root, `${route.name}-config`), canonical, ...route });
+        assert.deepEqual(await client.modelRequest(), route.allowed ? ['G0'] : expectProviderOverrides ? [route.observed] : [], 'An alternate provider must not bypass selected canonical authority; stock metadata must remain usable.');
+        await client.stop();
+        console.log(`PASS: ${route.name} ${route.allowed ? 'preserves canonical model execution' : expectProviderOverrides ? 'reproduces an alternate native authority' : 'refuses an alternate native authority before model execution'}.`);
+      }
+      continue;
+    }
     const part = value => Buffer.from(JSON.stringify(value)).toString('base64url');
     const idToken = `${part({ alg: 'none' })}.${part({ email: 'synthetic@example.invalid', 'https://api.openai.com/auth': { chatgpt_account_id: 'synthetic-account', chatgpt_user_id: 'synthetic-user', chatgpt_plan_type: 'plus' } })}.synthetic`;
     const generation = value => (mode === 'api-key' ? { OPENAI_API_KEY: `sk-SYNTHETIC-${value}` } : { auth_mode: 'chatgpt', tokens: { id_token: idToken, access_token: `SYNTHETIC-ACCESS-${value}`, refresh_token: `SYNTHETIC-REFRESH-${value}`, account_id: 'synthetic-account', login_owner_id: 'synthetic-login' }, last_refresh: new Date().toISOString() });

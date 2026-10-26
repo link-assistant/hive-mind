@@ -17,6 +17,19 @@ Before request-admission repair:
   unauthenticated execution. Pinned repair applicability passes; native build
   and positive actual-request verification remain pending.
 
+Independent provider authority controls against the same actual executable:
+  env_key: G2; experimental_bearer_token: G2; requires_openai_auth=false: absent;
+  explicit Authorization: G2; extra X-Api-Key: G2-extra; environment-derived
+  X-Api-Key: G2-extra; organization/project selectors: G2-organization/G2-project.
+  All eight negative controls PASS (defects reproduced).
+  Stock version metadata and unset stock organization/project mappings each
+  preserve a real canonical G0 request. Both positive compatibility controls PASS.
+  Extended pinned admission patch applies cleanly and checks both ordinary and
+  scoped auth resolution. The rebuilt executable must refuse all eight routes
+  without model requests while preserving both stock metadata controls.
+  Native compilation/positive refusal remain pending; alternative constructors,
+  AWS/gateway and agent-identity bootstrap are not certified by these controls.
+
 Stock Codex named metadata, real Docker app-server protocol:
   thread/name/set succeeds; dispose the complete first private configuration.
   Fresh thread/resume loses the name, including with shared CODEX_SQLITE_HOME.

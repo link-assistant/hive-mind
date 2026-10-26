@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Refuse unauthenticated model execution after canonical credentials disappear.
+"""Refuse missing canonical auth and unsupported provider authority overrides.
 
 Apply only after the full CLI request control establishes this intermediate
 behavior. This source experiment is not installed in production images.
@@ -18,20 +18,66 @@ target = root / "codex-rs/model-provider/src/auth.rs"
 source = target.read_text()
 if hashlib.sha256(source.encode()).hexdigest() != AUTH_HASH:
     raise SystemExit("Refusing a changed native request auth provider.")
-anchor = '''    if let Some(auth) = bearer_auth_for_provider(provider)? {'''
-if source.count(anchor) != 1:
-    raise SystemExit("Ambiguous native request auth context; no files changed.")
-source = source.replace(anchor, '''    // A canonical authority disappearing is logout or failed admission. Do not
-    // turn an auth-required request into unauthenticated network execution.
-    if std::env::var_os("CODEX_AUTH_HOME").is_some()
-        && provider.requires_openai_auth
-        && auth.is_none()
+
+def replace(before, after):
+    global source
+    if source.count(before) != 1:
+        raise SystemExit("Ambiguous native request auth context; no files changed.")
+    source = source.replace(before, after, 1)
+
+
+replace('''pub(crate) fn resolve_provider_auth(''', '''// Canonical mode deliberately supports file-backed API keys and managed
+// ChatGPT only. Provider credentials and custom headers need a separate,
+// validated authority contract; do not silently route around the file manager.
+fn validate_canonical_request_auth(
+    auth: Option<&CodexAuth>,
+    provider: &ModelProviderInfo,
+) -> codex_protocol::error::Result<()> {
+    if std::env::var_os("CODEX_AUTH_HOME").is_none() {
+        return Ok(());
+    }
+    let custom_headers = provider.http_headers.as_ref().is_some_and(|headers| {
+        headers.iter().any(|(name, value)| {
+            !name.eq_ignore_ascii_case("version") || value.as_str() != env!("CARGO_PKG_VERSION")
+        })
+    });
+    // The stock provider declares these optional mappings even when unset.
+    // An environment-selected organization/project is an independent identity.
+    let custom_env_headers = provider.env_http_headers.as_ref().is_some_and(|headers| {
+        headers.iter().any(|(name, variable)| {
+            !((name.eq_ignore_ascii_case("OpenAI-Organization") && variable == "OPENAI_ORGANIZATION")
+                || (name.eq_ignore_ascii_case("OpenAI-Project") && variable == "OPENAI_PROJECT"))
+                || std::env::var_os(variable).is_some()
+        })
+    });
+    if !provider.requires_openai_auth
+        || provider.env_key.is_some()
+        || provider.experimental_bearer_token.is_some()
+        || provider.auth.is_some()
+        || provider.gateway_oauth.is_some()
+        || provider.aws.is_some()
+        || custom_headers
+        || custom_env_headers
     {
+        return Err(CodexErr::InvalidRequest(
+            "Provider authority overrides are unsupported with canonical authentication.".to_string(),
+        ));
+    }
+    if !matches!(auth, Some(CodexAuth::ApiKey(_) | CodexAuth::Chatgpt(_))) {
         return Err(CodexErr::InvalidRequest(
             "Canonical authentication is unavailable; authenticate before execution.".to_string(),
         ));
     }
-    if let Some(auth) = bearer_auth_for_provider(provider)? {''', 1)
+    Ok(())
+}
+
+pub(crate) fn resolve_provider_auth(''')
+replace('''    if let Some(auth) = bearer_auth_for_provider(provider)? {''', '''    validate_canonical_request_auth(auth, provider)?;
+    if let Some(auth) = bearer_auth_for_provider(provider)? {''')
+replace('''    let ProviderAuthScope {
+        agent_identity_policy,''', '''    validate_canonical_request_auth(auth, provider)?;
+    let ProviderAuthScope {
+        agent_identity_policy,''')
 source = subprocess.run(
     ["rustfmt", "--edition", "2024", "--config", "skip_children=true"],
     input=source, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True,

@@ -256,6 +256,12 @@ Current continuation:
       canonical logout in both modes and both live clients. Preserve this as
       a separate negative control; do not mistake cache invalidation for refusal.
 - [ ] Compile and verify the exact-source request-admission repair in CI.
+- [x] Reproduce eight independent native provider authority overrides using the
+      downloaded source-built executable and actual local model requests. Also
+      verify stock version/unset identity metadata retains canonical G0.
+- [ ] Verify the extended request guard refuses all eight provider routes while
+      preserving both stock metadata controls in the rebuilt native CLI. Audit
+      alternative constructors and agent-identity bootstrap separately.
 - [x] Reproduce named-thread metadata loss after private configuration disposal,
       including with shared native SQLite. Prepare a pinned canonical index
       module; five standalone locking/storage tests pass.

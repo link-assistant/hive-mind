@@ -155,7 +155,10 @@ push only issue-3785-4c28551ac612, and keep unmet requirements explicitly open.
       all nine manager controls after the new patch. Cover replacement, logout,
       malformed authority and unsafe permissions. Preserve the pre-lock cached
       generation comparison and enforce login/workspace restrictions. Local
-      syntax and applicability pass; native runtime verification awaits CI.
+      syntax and applicability pass. CI 40360472411 compiles the actual native
+      manager and full CLI; all nine before/after controls, seven storage tests,
+      and the native status/replacement/logout/reauthentication/refusal probe
+      pass at 24ef9e65a. This remains experimental, outside production.
 - [x] Reproduce scoped Codex config inheriting six alternate plugin-table forms,
       corrupting header-looking multiline strings and admitting malformed TOML.
       Replace regex stripping with semantic parsing; preserve typed runtime
@@ -194,11 +197,21 @@ push only issue-3785-4c28551ac612, and keep unmet requirements explicitly open.
       sequentially; preserve large logs and inspect failures in <=1500-line chunks.
       The complete 720-file local default suite passes after the credential-cache
       generation and disposable queue-fixture corrections. The current task-home
-      changes require a fresh full run, now in progress. The native source adapter
+      changes pass a fresh complete 720-file run. The native source adapter
       build and named full-CLI acceptance cases pass in run 40354283432.
 - [x] Commit useful atomic steps after checks; integrate latest main; review diff.
 - [x] Update PR title/body with evidence, reproduction and Fixes #3785; push branch.
 - [ ] Verify newest-SHA CI, download/analyze nonpassing logs, fix actual failures.
+- [x] Reproduce legacy and stopped-container rollout recovery overwriting a
+      concurrent canonical writer. Stage and sync copies before exclusive
+      publication, retain original/conflicting evidence, refuse linked targets
+      and verify no partial copy has a native rollout filename. Five new cases
+      and 27 surrounding recovery/config cases pass. Reproduce rejection of
+      compressed/reverted native filenames in three additional failing cases;
+      all five format cases pass after repair. Pinned real Codex reads/resumes
+      all four formats before and after actual stopped-container docker cp
+      recovery, with original bytes/filenames reset after the native control.
+      All 37 focused cases and lint pass; full 722-file suite pending.
 - [ ] Confirm clean working tree and requirements/evidence consistency; mark ready
       only when implementation and verification are complete. Do not merge.
 

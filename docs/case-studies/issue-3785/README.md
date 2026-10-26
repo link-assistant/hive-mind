@@ -862,3 +862,27 @@ without locking both workers exchange G0, with locking exactly one does and
 both native clients use G1. This is a reusable primitive plus an experimental
 consumer. It does not coordinate a native or host writer that bypasses it,
 replace production exec, or establish immediate cache invalidation. A5 stays open.
+
+Native Codex run [40360472411](https://github.com/link-assistant/hive-mind/actions/runs/40360472411)
+at `24ef9e65afed8a372df00f8f24190896dd00529b` passes the additional synchronous
+request-provider controls. All nine manager cases reproduce their defect before
+the corresponding patch and pass afterward; the full CLI builds and passes
+status, replacement, logout, API-key reauthentication/peer status and refusal.
+Seven descriptor-storage tests also pass. This verifies the experimental source
+adapter, which remains outside production. Other native writers and complete
+refresh crash semantics still need implementation and verification.
+
+Rollout recovery had a separate data-loss race: legacy migration checked for a
+name before overwriting it with rename/copy, and stopped-container recovery copied
+over concurrent canonical writes. New tests reproduce both paths. Publication
+now stages and syncs a private copy on the destination filesystem, then links
+without replacing an existing name. It retains original migration directories
+and durable conflicting recovery snapshots. A linked destination refuses admission.
+Three more regressions reproduce rejected compressed/reverted native filenames.
+The matcher now accepts all four pinned native formats by stable thread identity.
+All 37 focused cases pass. A bounded real Codex Docker probe reads and resumes
+synthetic prior content before and after actual stopped-container recovery for
+all four formats; it resets original bytes after the control so native resume
+cannot hide a format error. Evidence and limits are recorded in
+[evidence/rollout-preservation.txt](evidence/rollout-preservation.txt). Full native
+history/index/SQLite authority and execution-home cleanup remain unfinished.

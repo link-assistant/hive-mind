@@ -369,3 +369,23 @@ while crates.io has 0.355.12. All downstream test and Docker jobs are skipped;
 they are not passes. Update the four image defaults together, preserving the
 existing locked installation and all native CLI pins. New-head freshness and
 packaged image verification must run again.
+
+
+### Actual native synchronous manager verification passes
+
+Native run [40360472411](https://github.com/link-assistant/hive-mind/actions/runs/40360472411)
+at `24ef9e65afed8a372df00f8f24190896dd00529b` completes successfully at
+2026-10-26 16:57 UTC. Its downloaded 504-line log records seven passing
+storage tests at line 342 and the full native CLI acceptance at line 454.
+All nine before/after manager logs are downloaded under
+`native-codex-40360472411/native-codex-auth-build/`. The four new synchronous
+cases reproduce replacement, logout, malformed authority and unsafe permissions
+before repair, then pass after the exact-source cached-read patch. The original
+five manager cases still pass. This does not certify production integration.
+
+The preceding task-home changes also pass a fresh complete 720-file local
+default suite in `/tmp/issue-3785-task-homes-full-retry.log`. Current rollout
+publication/filename changes have 37 passing focused cases and four actual
+native Docker recovery/read/resume controls; a new 722-file suite is required.
+The Formal AI pin repair passes the real local dependency-freshness check and
+ten focused freshness regressions. Newest-head CI remains required.

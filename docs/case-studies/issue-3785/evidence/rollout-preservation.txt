@@ -1,0 +1,50 @@
+Codex history preservation, 2026-10-26
+
+Before repair, legacy session migration checked access(target), then renamed
+the source over that name. Its cross-filesystem fallback copied without an
+exclusive flag. A writer arriving between the check and publication lost its
+canonical conversation. Stopped-container recovery used the same unsafe copy.
+
+Deterministic regressions race the actual rename/copy/link publication call.
+Both same-device and simulated cross-device legacy cases fail before repair:
+/tmp/issue-3785-rollout-race-before.log. The stopped-container race separately
+fails before repair: /tmp/issue-3785-recovery-race-before.log. The canonical
+writer's bytes are replaced by stale recovered bytes in all three cases.
+
+Publication now copies into a private temporary directory on the destination
+filesystem, sets private permissions, syncs the completed file, and links it
+to the native name. An existing name is never replaced. The source remains
+untouched; old session directories are set aside even after successful copy.
+Conflicting stopped-container evidence is retained as a synced snapshot plus
+private metadata.json in the shared sessions directory. The snapshot has no
+native rollout name, preventing it from masquerading as the active thread.
+Recovery reports its retained location. Linked/nonregular destinations fail
+admission while the conflicting recovered snapshot remains available.
+
+Five publication/preservation cases verify the three races, linked-destination
+refusal, private retained evidence and no native filename exposure during an
+incomplete copy. Five format cases additionally verify plain, compressed,
+reverted and reverted-compressed native filenames, stable thread identity and
+unsupported/lookalike refusal. Three format regressions fail before repair in
+/tmp/issue-3785-rollout-formats-before.log. All 37 focused cases, including
+27 surrounding recovery/task-scope cases, pass after repair in
+/tmp/issue-3785-rollout-all-focused.log.
+
+The bounded probe experiments/issue-3785/probe-codex-native-rollout-recovery.mjs
+runs actual Codex 0.164.0 in network-disabled Docker containers. For each of the
+four native formats, the real CLI first reads and resumes synthetic prior
+conversation content. The fixture then restores the exact original bytes and
+filename, because native resume can decompress or update its source. Production
+recovery executes actual docker cp from a stopped container, preserves those
+bytes and filename, and the real CLI reads/resumes the conversation through a
+fresh private configuration scope. All four controls pass in
+/tmp/issue-3785-native-rollout-recovery.log. No inference or live credentials
+are used. The containers and clients are reaped before fixture cleanup.
+
+The full 720-file suite for the preceding task-home change passes; the new
+production publication/matcher changes require a fresh 722-file full run.
+
+Limits: these are filesystem publication regressions. They do not establish
+native full-history projection, archive/index/SQLite sharing, recovery of all
+six tools, source-writer coordination, path-ancestry attestation, a complete
+legacy-home migration, or cleanup safety for completed execution scopes.

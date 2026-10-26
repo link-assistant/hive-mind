@@ -105,3 +105,16 @@ consumers. The new full-suite and CI results must be checked before claiming
 validation for these changes.
 
 On head `d4cfbebb8a3d73aefe7b2ea3b0dc9a434db569d2`, [Checks and release 40292041959](https://github.com/link-assistant/hive-mind/actions/runs/40292041959) failed at the changeset gate. The downloaded `release-40292041959.log` lines 7980–7994 show four added changesets where exactly one is required. The three later atomic changeset descriptions are now consolidated into the original patch changeset. Test and image jobs were skipped by this gate and are not counted as passing. Security and links succeeded on that head.
+
+On pushed head `b8f30695e66131046e854d72d03f1bef3abb5270`,
+[Checks and release 40292596806](https://github.com/link-assistant/hive-mind/actions/runs/40292596806)
+started at 08:29:20 UTC and succeeded. The changeset gate, all test suites and
+both actual image builds passed. The downloaded `docker-40292596806.log`
+(3224 lines) records selection of the branch package at line 417; build-time
+stock gates passed at lines 2234 and 2614, and the installed gate passed again
+after boot at lines 2849 and 3066. Both container verification suites passed
+at lines 2862 and 3079. Security 40292597220, Links 40292596801 and manually
+dispatched Workflows 40292842799 also succeeded on this exact head. The later
+MCP changes need their own newest-head checks. These stock and existing DinD
+restart checks do not test the unfinished canonical auth/history contract or
+the required restored-state and capability-isolation lifecycle matrix.

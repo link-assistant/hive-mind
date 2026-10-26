@@ -98,6 +98,15 @@ for (const name of [
   'coolify-baseline-before',
   'image-package',
   'package-focused-final',
+  'mcp-before',
+  'mcp-relocated-before',
+  'mcp-focused',
+  'mcp-native',
+  'pinned-updates-before',
+  'pinned-updates-after',
+  'runtime-env-before',
+  'runtime-env-after',
+  'runtime-env-package',
 ]) {
   const output = await readFile(`/tmp/issue-3785-${name}.log`, 'utf8');
   await writeFile(`${dest}/${name}.log`, output.replace(/data:text\/javascript;base64,[A-Za-z0-9+/=]+/gu, '<synthetic-test-module>').replace(/[ \t]+$/gm, ''));

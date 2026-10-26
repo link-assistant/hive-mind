@@ -42,6 +42,12 @@ push only issue-3785-4c28551ac612, and keep unmet requirements explicitly open.
       retain the internal/unstable schema warning and unverified lifecycle limits.
 - [x] Reproduce PR checks installing published latest; pack the branch and require
       installed stock-runtime verification in root/DinD/Coolify build definitions.
+- [x] Reproduce Playwright-name command/environment spoofing and native Claude
+      state relocation; reject unapproved registrations before unrelated repair.
+- [x] Reproduce automatic updates defeating image CLI pins; exclude Claude/Codex
+      using the updater's existing per-tool setting and preserve all other targets.
+- [x] Reproduce parent-environment inheritance in stock-gate children; isolate
+      all native version and materialization subprocesses in disposable state.
 - [ ] Implement canonical auth/history authority, explicit alternative contracts,
       coordinated refresh and fail-closed effective-path validation for all tools.
 - [ ] Isolate task catalogs/extensions and enforce clean global baseline; migrate

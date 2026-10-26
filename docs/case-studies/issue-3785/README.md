@@ -204,6 +204,19 @@ or quarantine. The baseline suite also verifies credential identity preservation
 linked-file rejection, malformed-manifest rejection before unrelated repairs,
 and unchanged clean profiles. All 23 baseline regressions pass.
 
+The MCP follow-up first reproduces 30 name-spoofing cases across Claude, Codex
+and Codex profiles. Registration admission now checks the supported `npx`
+package/argument shape, local transport, empty environment and typed timeout
+settings; it rejects arbitrary commands, package sources, scripts, config files,
+working directories and injected environment before any repair. A real native
+registration probe also established that `CLAUDE_CONFIG_DIR=$HOME/.claude` puts
+user MCP state in `.claude/.claude.json`. Ten additional bypasses there reproduced
+before adding that conventional path to bounded input and semantic checks.
+The focused audit suites pass 128 tests, including unchanged approved settings
+and protected credential identity. The real pinned CLIs save registrations
+accepted by this baseline in disposable homes. Arbitrary effective config paths
+and executable/package integrity still require broader attestation.
+
 The stock-runtime follow-up starts with nine failures: arbitrary hidden
 `.system` content was admitted, and image CLI versions were not pinned. The root, DinD and Coolify image definitions
 now pin Claude 2.1.310 and Codex 0.164.0 and disable Claude auto-update. A pristine
@@ -232,12 +245,30 @@ the installed module again after boot. No development source is mounted for
 this check. Two initial package/gate regressions and three Coolify checks fail
 before implementation; 19 image/stock checks now pass. A disposable Bun package
 installation also passes its installed verifier against the real offline Codex
-binary and the local Claude version check. These focused results do not stand
-in for the pending actual image builds, or for auth/history and restored-state
-lifecycle gates.
+binary and the local Claude version check. On pushed head `b8f30695e`,
+[image job 121471946536](https://github.com/link-assistant/hive-mind/actions/runs/40292596806/job/121471946536)
+also built both packaged images and passed the installed verifier during build
+and after boot. That verifies the stock gate on actual images; auth/history,
+contamination, upgrade and restored-state lifecycle gates remain open.
+
+Image pins also need protection from Hive Mind's idle and command-triggered
+updater. Three regressions show that disabling Claude's own updater alone still
+allows both attested CLIs to be replaced. All three image definitions now set
+the existing `HIVE_MIND_AGENTIC_CLI_UPDATE_EXCLUDE=claude,codex`; four tests verify
+the pinned tools stay excluded while other tools and non-image defaults retain
+their update behavior. Operator overrides and runtime version re-attestation
+remain separate admission concerns.
+
+A real child-process fixture also reproduces inherited parent environment in
+the stock probe, and version commands using the parent home. All gate children
+now receive only a minimal environment, disposable homes and a fresh working
+directory. The Codex probe explicitly uses file credential storage in its
+disposable home. The regression starts its parent with synthetic state only;
+no operator credentials need to be read to test inheritance. It fails before
+the fix and passes afterward, alongside the 21 stock and pin-preservation tests.
 
 This remains a partial guard: effective alternate homes, all native discovery
-surfaces, packaged-image stock attestation, quarantine, deployment validation and
+surfaces, quarantine, deployment validation and
 adversarial races during filesystem mutation still need implementation.
 
 ### Authentication copies: reproduced and still present
@@ -445,9 +476,13 @@ tests pass (40 tests). Existing Router isolation, routing, sidecar and hardening
 also pass after the admission change.
 Full-suite/static-check results and current-head CI are recorded in the PR.
 
-Local validation: all 700 files selected by the default runner passed. The
-image-gate changes made afterward pass their focused image/stock regressions;
-final combined focused and static-check results are recorded in the PR. The
+Local validation: the default run was interrupted while starting file 500;
+the first 499 files had completed successfully. The retained fail-fast runner
+log and `run-default-remainder.mjs` verify the interrupted file, all remaining
+files and the new updater test: all 702 selected files passed across both runs.
+The subsequent environment regression and related stock/updater checks pass
+all 22 cases; the actual disposable package probe also passes with that fix.
+Final static-check and newest-head CI results are recorded in the PR. The
 queue suite passes all 71 assertions. The retained failure outputs reproduce
 both the downloaded queue assertion and the later local pending-request race.
 The four original storage/copy probes and later stock, callback and package

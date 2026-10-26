@@ -14,10 +14,28 @@ import { runAgentConfigAudit } from './agent-config-audit.lib.mjs';
 const execute = promisify(execFile);
 const DEADLINE_MS = 30_000;
 
-async function materializeStock(command, home, cwd) {
-  const child = spawn(command, ['-c', 'features.remote_plugin=false', 'app-server'], {
+// A stock probe must not inherit provider credentials, config overrides or
+// preload hooks from the image verifier's caller. Keep even version commands
+// outside its real home and repository. PATH only locates installed binaries.
+const probeEnvironment = home => ({
+  PATH: process.env.PATH,
+  HOME: home,
+  CLAUDE_CONFIG_DIR: path.join(home, '.claude'),
+  CODEX_HOME: path.join(home, '.codex'),
+  CODEX_SQLITE_HOME: path.join(home, '.codex'),
+  XDG_CONFIG_HOME: path.join(home, '.config'),
+  XDG_DATA_HOME: path.join(home, '.local/share'),
+  XDG_STATE_HOME: path.join(home, '.local/state'),
+  XDG_CACHE_HOME: path.join(home, '.cache'),
+  TOKIO_WORKER_THREADS: '2',
+  DISABLE_AUTOUPDATER: '1',
+  CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL: '1',
+});
+
+async function materializeStock(command, home, cwd, env) {
+  const child = spawn(command, ['-c', 'features.remote_plugin=false', '-c', 'cli_auth_credentials_store="file"', 'app-server'], {
     cwd,
-    env: { ...process.env, HOME: home, CODEX_HOME: path.join(home, '.codex'), CODEX_SQLITE_HOME: path.join(home, '.codex'), XDG_CONFIG_HOME: path.join(home, '.config'), XDG_DATA_HOME: path.join(home, '.local/share'), XDG_STATE_HOME: path.join(home, '.local/state'), TOKIO_WORKER_THREADS: '2' },
+    env,
     stdio: ['pipe', 'pipe', 'pipe'],
   });
   // Native diagnostics may contain paths or input excerpts. Never print them.
@@ -91,21 +109,23 @@ async function materializeStock(command, home, cwd) {
 }
 
 export async function verifyAgentRuntime({ homeDir = os.homedir(), codexCommand = 'codex', claudeCommand = 'claude' } = {}) {
-  for (const [command, expected] of [
-    [claudeCommand, '2.1.310 (Claude Code)'],
-    [codexCommand, CODEX_STOCK_SKILLS.cliVersion],
-  ]) {
-    const { stdout } = await execute(command, ['--version'], { maxBuffer: 64 * 1024, signal: AbortSignal.timeout(DEADLINE_MS) });
-    assert.equal(stdout.trim(), expected, 'Installed CLI version differs from the pinned runtime.');
-  }
   await runAgentConfigAudit({ homeDir, autoRepair: false, requireClean: true });
   const fixture = await mkdtemp(path.join(os.tmpdir(), 'hive-stock-gate-'));
   try {
     const home = path.join(fixture, 'home');
     const cwd = path.join(fixture, 'project');
     await mkdir(path.join(home, '.codex'), { recursive: true });
+    await mkdir(path.join(home, '.claude'));
     await mkdir(cwd);
-    await materializeStock(codexCommand, home, cwd);
+    const env = probeEnvironment(home);
+    for (const [command, expected] of [
+      [claudeCommand, '2.1.310 (Claude Code)'],
+      [codexCommand, CODEX_STOCK_SKILLS.cliVersion],
+    ]) {
+      const { stdout } = await execute(command, ['--version'], { env, cwd, maxBuffer: 64 * 1024, signal: AbortSignal.timeout(DEADLINE_MS) });
+      assert.equal(stdout.trim(), expected, 'Installed CLI version differs from the pinned runtime.');
+    }
+    await materializeStock(codexCommand, home, cwd, env);
     await runAgentConfigAudit({ homeDir, autoRepair: false, requireClean: true });
   } finally {
     await rm(fixture, { recursive: true, force: true });

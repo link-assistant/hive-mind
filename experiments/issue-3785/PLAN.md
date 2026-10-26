@@ -248,8 +248,10 @@ Current continuation:
       annotation at test-issue-1706-sub-session-size.mjs:34. Reproduce inherited
       synthetic environment values in failure output before removing compared
       values/exception details; preserve named failures and nonzero status.
-- [ ] Verify fresh CodeQL marks alert 228 fixed without suppression, and inspect
-      every newest-head check rather than workflow conclusions alone.
+- [x] Verify fresh CodeQL marks alert 228 fixed without suppression, and inspect
+      every newest-head check rather than workflow conclusions alone. Check
+      121817770096 passes at 49e4cf280 with zero annotations at 20:07:09 UTC;
+      the PR instance is fixed while the unchanged main instance remains open.
 - [x] Complete the fresh local default suite: all 723 selected files pass.
 - [x] Preserve the latest checkout timeout and reproduce its false successful
       terminal PR status. Fail cancelled dependencies on every ref; the changed
@@ -330,6 +332,13 @@ Current continuation:
       canonical control, reproduces unsafe execution and fails strict refusal;
       fixed native TUI compilation/positive execution remains pending.
 - [ ] Complete production integration and all previously open six-tool criteria.
+- [x] Reproduce actual native Qwen same-timestamp replacement retaining G0 and
+      logout retaining G1, including the failing strict assertion. Prepare an
+      exact-bundle read repair; all 14 actual-manager controls pass locally with
+      bounded synthetic inputs, cleared caches and no network exchanges.
+- [ ] Verify the pinned Qwen read repair in its native CI job. Continue stable
+      OS locking, every native writer, independent auth/config roots and actual
+      CLI request refusal; none is established by the read-only experiment.
 
 Resource policy: use sequential builds/tests; no real credentials in experiments
 or artifacts. Current cgroup usage is mostly reclaimable file cache. Measure

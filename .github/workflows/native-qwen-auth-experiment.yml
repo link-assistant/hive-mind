@@ -1,0 +1,61 @@
+name: Native Qwen auth adapter experiment
+
+on:
+  pull_request:
+    paths:
+      - 'experiments/issue-3785/native-qwen/**'
+      - 'experiments/issue-3785/probe-qwen-native-reads.mjs'
+      - 'experiments/issue-3785/probe-qwen-lock-ownership.mjs'
+      - '.github/workflows/native-qwen-auth-experiment.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-qwen-auth-experiment-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  native-credential-reads:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+      - name: Install the exact native package without lifecycle scripts or optional binaries
+        run: |
+          npm ci --prefix experiments/issue-3785/native-qwen/stock-cli --ignore-scripts --omit=optional --no-audit --no-fund > "$RUNNER_TEMP/qwen-dependencies.log" 2>&1 &
+          wait "$!"
+          echo "QWEN_PROBE_MODULE=$GITHUB_WORKSPACE/experiments/issue-3785/native-qwen/stock-cli/node_modules/@qwen-code/qwen-code/chunks/chunk-KZQDCUQR.js" >> "$GITHUB_ENV"
+      - name: Reproduce actual native stale replacement and logout reads
+        run: node --max-old-space-size=128 experiments/issue-3785/probe-qwen-native-reads.mjs --expect-native-gaps > "$RUNNER_TEMP/qwen-reads-before.log" 2>&1
+      - name: Require the strict regression to fail for stale native authority
+        run: |
+          if node --max-old-space-size=128 experiments/issue-3785/probe-qwen-native-reads.mjs > "$RUNNER_TEMP/qwen-reads-regression.log" 2>&1; then
+            echo 'The native read regression unexpectedly passed before repair.'
+            exit 1
+          fi
+          grep -F 'AssertionError [ERR_ASSERTION]: A forced native credential read must observe atomic same-timestamp replacement.' "$RUNNER_TEMP/qwen-reads-regression.log"
+      - name: Preserve the separate native ownership defect and healthy control
+        run: |
+          node --max-old-space-size=128 experiments/issue-3785/probe-qwen-lock-ownership.mjs --without-observer-manager > "$RUNNER_TEMP/qwen-ownership-control.log" 2>&1
+          node --max-old-space-size=128 experiments/issue-3785/probe-qwen-lock-ownership.mjs > "$RUNNER_TEMP/qwen-ownership-before.log" 2>&1
+      - name: Apply the exact pinned native read experiment
+        run: |
+          python3 experiments/issue-3785/native-qwen/apply_reads.py experiments/issue-3785/native-qwen/stock-cli/node_modules/@qwen-code/qwen-code --check
+          python3 experiments/issue-3785/native-qwen/apply_reads.py experiments/issue-3785/native-qwen/stock-cli/node_modules/@qwen-code/qwen-code
+      - name: Verify native reads, cache clearing, repair and unsafe storage refusal
+        run: node --max-old-space-size=128 experiments/issue-3785/probe-qwen-native-reads.mjs > "$RUNNER_TEMP/qwen-reads-after.log" 2>&1
+      - name: Preserve native diagnostics
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-qwen-auth-experiment
+          path: ${{ runner.temp }}/qwen-*.log
+          if-no-files-found: ignore
+          retention-days: 7

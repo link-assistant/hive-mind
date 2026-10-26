@@ -314,6 +314,16 @@ An exiting process that never owned the refresh lock deletes a live owner's
 lock; the retained control leaves it intact. This upstream report does not
 implement the required production refresh coordinator.
 
+An additional actual-manager reproduction finds stale reads independently of
+that lock defect: same-timestamp atomic replacement retains G0, and logout
+retains G1. The strict assertion fails before the pinned native read repair.
+All 14 local repaired controls pass, including ordinary reads without a polling
+grace period, cleared client caches, unsafe storage refusal and healthy recovery.
+The [native Qwen experiment](../../../experiments/issue-3785/native-qwen/README.md)
+documents exact source bytes, reproduction, bounded execution and remaining
+writers/request-admission work. Native CI verification is pending; production
+does not load this experiment.
+
 ### Authentication copies: reproduced and still present
 
 `prepareScopedCodexHome()` calls `syncFileIfPresent()` for `auth.json`;

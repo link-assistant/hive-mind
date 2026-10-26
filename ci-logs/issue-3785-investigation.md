@@ -277,3 +277,30 @@ Pushed `e69235db1cae58514f25bb58a74200f2812b0e97` has
 [Checks and release 40339508388](https://github.com/link-assistant/hive-mind/actions/runs/40339508388),
 created 2026-10-26 14:25:24 UTC. It remains queued while the later queue-fixture
 correction is prepared; its result cannot certify that subsequent commit.
+
+After the fixture correction, the complete local default suite passes all 720
+test files on `0a3f4ddae4b64523fc45b3e9a52501ae8499943f`. The retained log
+`/tmp/issue-3785-720-full-retry.log` ends with that exact result. The suite ran
+sequentially using Node 26.12.1 and a 192 MiB heap cap on the runner only.
+No cap or operator credential selector was injected into child test processes.
+
+That head's [Checks and release 40342105431](https://github.com/link-assistant/hive-mind/actions/runs/40342105431),
+created 2026-10-26 14:42:21 UTC, passes its default tests, lint, compilation,
+memory, Helm and other completed jobs. Docker fails at 15:08:33 UTC and the
+run completes as failure at 15:10:02 UTC. Security, Links and Workflows pass
+on that same SHA. The full 71,313-line log is retained locally as
+`checks-40342105431.log`. Lines 66382–66391 identify
+`verify-mounted-tool-data.mjs:76`, the masked-cache search operation. Its task
+image is `node:24-alpine`, which has no `rg`; the actual release images built
+successfully, but their installed search executable was never supplied to the
+small task fixture. A bounded real Docker reproduction exits 9 for the missing
+command. The new controller regression fails with zero image executable copies.
+
+The controller now copies `/home/box/.local/bin/rg` from each actual release root
+into the disposable shared fixture and passes its source in the selected daemon
+namespace. Both task containers mount that exact executable read-only; they
+retain the production non-executable cache mask and the search assertion.
+All three controller/task-cleanup unit cases pass. The real local Docker gate
+passes for Agent and OpenCode with two participants and this read-only mount;
+fresh packaged CI still needs to pass. The native source adapter
+remains an experiment and is not covered by the earlier run.

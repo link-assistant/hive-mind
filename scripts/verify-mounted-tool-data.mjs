@@ -18,6 +18,8 @@ const { SHARED_TOOL_DATA_ENV } = await import(pathToFileURL(path.join(installed,
 const validator = await fs.readFile(path.join(installed, 'tool-data-mounts.lib.mjs'), 'utf8');
 const image = process.env.HIVE_MOUNT_TEST_IMAGE;
 const expectedHome = process.env.HIVE_MOUNT_TEST_EXPECTED_HOME;
+const searchSource = process.env.HIVE_MOUNT_TEST_SEARCH_SOURCE;
+const searchMount = searchSource ? ['--mount', `type=bind,source=${searchSource},target=/usr/local/bin/rg,readonly`] : [];
 const fixture = process.env.HIVE_MOUNT_TEST_FIXTURE || '/mount-fixture';
 assert.ok(image && expectedHome, 'the packaged-image gate requires explicit fixture and image paths');
 const homeDir = path.join(fixture, 'home');
@@ -58,7 +60,7 @@ for (const [tool, app] of [
   const check = (name, operation) => docker(['exec', name, 'node', '--max-old-space-size=64', '--input-type=module', '-e', `${validator}\nawait assertSharedToolData({tool:${JSON.stringify(tool)}});\n${operation}`]);
   const requireGeneration = generation => `if(JSON.parse(await fs.readFile(${JSON.stringify(`${target}/auth.json`)})).synthetic!==${JSON.stringify(generation)})throw new Error('Credential generation mismatch');`;
   try {
-    const results = await Promise.allSettled(names.map(name => docker(['run', '--detach', '--pull', 'never', '--name', name, '--network', 'none', '--read-only', '--user', `${process.getuid()}:${process.getgid()}`, '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--pids-limit', '32', '--ulimit', 'data=1073741824:1073741824', '--env', 'HOME=/tmp/task-home', '--env', 'NODE_OPTIONS=', '--env', 'XDG_DATA_HOME=/home/box/.local/share', '--env', marker, '--volume', mount, ...cacheMounts, '--tmpfs', '/tmp:rw,noexec,nosuid,size=8388608,mode=1777', '--entrypoint', 'node', image, '--max-old-space-size=64', '-e', 'setInterval(()=>{},1000)'])));
+    const results = await Promise.allSettled(names.map(name => docker(['run', '--detach', '--pull', 'never', '--name', name, '--network', 'none', '--read-only', '--user', `${process.getuid()}:${process.getgid()}`, '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--pids-limit', '32', '--ulimit', 'data=1073741824:1073741824', '--env', 'HOME=/tmp/task-home', '--env', 'NODE_OPTIONS=', '--env', 'XDG_DATA_HOME=/home/box/.local/share', '--env', marker, '--volume', mount, ...cacheMounts, ...searchMount, '--tmpfs', '/tmp:rw,noexec,nosuid,size=8388608,mode=1777', '--entrypoint', 'node', image, '--max-old-space-size=64', '-e', 'setInterval(()=>{},1000)'])));
     for (const result of results) if (result.status === 'rejected') throw result.reason;
     for (const name of names) await check(name, requireGeneration('G0'));
     await fs.writeFile(`${auth}.new`, '{"synthetic":"G1"}', { mode: 0o600 });

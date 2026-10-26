@@ -49,7 +49,13 @@ try {
       const expectedHome = variant === 'host' ? path.join(fixture, 'home') : '/mount-fixture/home';
       const result = await docker(['exec', '--env', `HIVE_MOUNT_TEST_IMAGE=${probeImage}`, '--env', `HIVE_MOUNT_TEST_EXPECTED_HOME=${expectedHome}`, name, 'bash', '-lc', 'node --max-old-space-size=128 /verify-mounted-task-backing.mjs "$(command -v hive)"'], 120_000);
       process.stdout.write(`${variant}: ${result.stdout}`);
-      const dataResult = await docker(['exec', '--env', `HIVE_MOUNT_TEST_IMAGE=${probeImage}`, '--env', `HIVE_MOUNT_TEST_EXPECTED_HOME=${expectedHome}`, name, 'bash', '-lc', 'node --max-old-space-size=128 /verify-mounted-tool-data.mjs "$(command -v hive)"'], 120_000);
+      // The small filesystem fixture has Node but no search binary. Exercise
+      // the executable actually installed in this release image, mounted from
+      // the shared fixture in the selected daemon's filesystem namespace.
+      await fs.rm(path.join(fixture, 'rg'), { force: true });
+      await docker(['cp', `${name}:/home/box/.local/bin/rg`, path.join(fixture, 'rg')]);
+      const searchSource = path.join(path.dirname(expectedHome), 'rg');
+      const dataResult = await docker(['exec', '--env', `HIVE_MOUNT_TEST_IMAGE=${probeImage}`, '--env', `HIVE_MOUNT_TEST_EXPECTED_HOME=${expectedHome}`, '--env', `HIVE_MOUNT_TEST_SEARCH_SOURCE=${searchSource}`, name, 'bash', '-lc', 'node --max-old-space-size=128 /verify-mounted-tool-data.mjs "$(command -v hive)"'], 120_000);
       process.stdout.write(`${variant}: ${dataResult.stdout}`);
       for (const index of [0, 1]) assert.equal(await fs.readFile(path.join(fixture, `home/.codex/sessions/task-${index}`), 'utf8'), 'persisted');
     } finally {

@@ -103,3 +103,5 @@ pending requests by cache instance. The 22 focused cache/limits tests and all
 71 queue assertions pass; queue unit tests explicitly disable automatic
 consumers. The new full-suite and CI results must be checked before claiming
 validation for these changes.
+
+On head `d4cfbebb8a3d73aefe7b2ea3b0dc9a434db569d2`, [Checks and release 40292041959](https://github.com/link-assistant/hive-mind/actions/runs/40292041959) failed at the changeset gate. The downloaded `release-40292041959.log` lines 7980–7994 show four added changesets where exactly one is required. The three later atomic changeset descriptions are now consolidated into the original patch changeset. Test and image jobs were skipped by this gate and are not counted as passing. Security and links succeeded on that head.

@@ -17,7 +17,11 @@ const uncoordinated = process.argv.includes('--expect-uncoordinated');
 const unauthenticatedLogout = process.argv.includes('--expect-unauthenticated-logout');
 const providerOverrides = process.argv.includes('--provider-overrides');
 const expectProviderOverrides = process.argv.includes('--expect-provider-overrides');
+const providerConstructors = process.argv.includes('--provider-constructors');
+const expectProviderConstructors = process.argv.includes('--expect-provider-constructors');
 assert.ok(!expectProviderOverrides || providerOverrides, 'Provider override controls require --provider-overrides.');
+assert.ok(!expectProviderConstructors || providerConstructors, 'Provider constructor controls require --provider-constructors.');
+assert.ok(!providerConstructors || !providerOverrides, 'Select only one provider control.');
 assert.ok(!uncoordinated || !unauthenticatedLogout, 'Select only one native negative control.');
 assert.ok(binary && path.isAbsolute(binary), 'Supply an absolute native Codex binary path.');
 const root = await fs.mkdtemp(path.join(os.tmpdir(), 'hive-3785-native-requests-'));
@@ -49,11 +53,12 @@ const server = http.createServer(async (request, response) => {
 server.requestTimeout = 3000;
 server.headersTimeout = 3000;
 
-async function startClient({ home, config, canonical, provider = {}, providerEnv = {} }) {
+async function startClient({ home, config, canonical, selectCanonical = true, provider = {}, providerEnv = {} }) {
   await fs.mkdir(home, { mode: 0o700 });
   await fs.mkdir(config, { mode: 0o700, recursive: true });
   await fs.writeFile(path.join(config, 'config.toml'), '[features]\nremote_plugin=false\n', { mode: 0o600 });
   const env = { PATH: process.env.PATH, HOME: home, CODEX_HOME: config, CODEX_AUTH_HOME: canonical, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1', TOKIO_WORKER_THREADS: '2', RUST_LOG: 'off', ...providerEnv };
+  if (!selectCanonical) delete env.CODEX_AUTH_HOME;
   const child = spawn('prlimit', ['--data=536870912', '--stack=16777216', '--core=0', '--', binary, 'app-server'], { cwd: root, env, detached: true, stdio: ['pipe', 'pipe', 'pipe'] });
   const killGroup = () => {
     if (!child.pid) return;
@@ -136,10 +141,25 @@ async function startClient({ home, config, canonical, provider = {}, providerEnv
 
 try {
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-  for (const mode of providerOverrides ? ['provider-routes'] : ['api-key', 'chatgpt']) {
+  for (const mode of providerConstructors ? ['provider-constructors'] : providerOverrides ? ['provider-routes'] : ['api-key', 'chatgpt']) {
     const canonical = path.join(root, mode);
     await fs.mkdir(canonical, { mode: 0o700 });
     const auth = path.join(canonical, 'auth.json');
+    if (providerConstructors) {
+      await fs.writeFile(auth, JSON.stringify({ OPENAI_API_KEY: 'sk-SYNTHETIC-G0' }), { mode: 0o600 });
+      for (const [index, name] of ['Amazon Bedrock', 'Amazon Bedrock Runtime'].entries()) {
+        for (const requiresAuth of [false, true]) {
+          for (const selected of [true, false]) {
+            const suffix = `${index}-${requiresAuth}-${selected}`;
+            const client = await startClient({ home: path.join(root, `constructor-home-${suffix}`), config: path.join(root, `constructor-config-${suffix}`), canonical, selectCanonical: selected, provider: { name, requires_openai_auth: requiresAuth }, providerEnv: { AWS_BEARER_TOKEN_BEDROCK: 'sk-SYNTHETIC-G2', AWS_REGION: 'us-east-1', AWS_EC2_METADATA_DISABLED: 'true' } });
+            assert.deepEqual(await client.modelRequest(), selected && !expectProviderConstructors ? [] : [requiresAuth ? 'absent' : 'G2'], 'A native provider constructor must refuse independent or absent credentials with canonical authentication selected and preserve legacy behavior without the selector.');
+            await client.stop();
+            console.log(`PASS: ${name}, requires_openai_auth=${requiresAuth}, ${selected ? (expectProviderConstructors ? 'reproduces alternate native constructor authority' : 'refuses alternate native constructor authority before model execution') : 'preserves native constructor behavior without canonical selection'}.`);
+          }
+        }
+      }
+      continue;
+    }
     if (providerOverrides) {
       await fs.writeFile(auth, JSON.stringify({ OPENAI_API_KEY: 'sk-SYNTHETIC-G0' }), { mode: 0o600 });
       const routes = [

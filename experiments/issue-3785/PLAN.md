@@ -273,6 +273,16 @@ Current continuation:
 - [ ] Verify the extended request guard refuses all eight provider routes while
       preserving both stock metadata controls in the rebuilt native CLI. Audit
       alternative constructors and agent-identity bootstrap separately.
+- [x] Reproduce actual Bedrock/Mantle and Bedrock Runtime requests that bypass
+      ordinary canonical request admission: both use an independent AWS bearer,
+      and both send unauthenticated requests with requires_openai_auth=true.
+      All four negative controls and four no-selector compatibility controls
+      pass against the downloaded actual CLI. The strict refusal assertion
+      fails before repair. Pin factory admission ahead of alternate credential
+      owners and use an inert rejected provider without remote model discovery.
+- [ ] Compile the factory repair in the real native CLI and verify zero model
+      requests for all four canonical constructor cases while preserving all
+      four no-selector controls; continue gateway/agent-identity endpoint audit.
 - [x] Reproduce named-thread metadata loss after private configuration disposal,
       including with shared native SQLite. Prepare a pinned canonical index
       module; five standalone locking/storage tests pass.

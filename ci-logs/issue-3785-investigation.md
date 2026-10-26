@@ -526,3 +526,19 @@ history modules with only `History`/`HistoryPersistence` value types stubbed;
 it reproduces split/lost private history, then passes all 14 positive controls
 and all 12 upstream history tests after repair. Retained structural evidence
 distinguishes those local results from the full native integration now in CI.
+
+### Alternate native provider constructor admission
+
+The downloaded real CLI from run 40370836766 reproduces four further canonical
+auth bypasses through the separate native Bedrock constructors. Bedrock and
+Bedrock Runtime each send the synthetic AWS G2 bearer when their ordinary
+requires_openai_auth flag is false, and each sends an unauthenticated request
+when that flag is true. The eight-case before log, including four no-selector
+compatibility controls, is `/tmp/issue-3785-native-constructors-before.log`.
+The strict refusal assertion fails in
+`/tmp/issue-3785-native-constructors-regression.log` (actual G2, expected no
+request). Every endpoint is loopback and no credentials or request bytes are
+logged. The source repair now validates provider authority before alternate
+constructors can create managers/exporters/gateways, using an inert native
+provider for refused configurations. Applicability and formatting are checked;
+full native compilation and the positive actual-request controls remain pending.

@@ -152,8 +152,22 @@ environment variables must be absent). Both ordinary and scoped auth resolution
 perform admission before resolving bearer credentials. The positive
 `--provider-overrides` run must observe zero model requests for all eight routes
 and successful G0 requests for both stock metadata controls. Full native CI
-verification remains pending. This does not certify AWS, gateway construction,
-agent-identity bootstrap or every other native endpoint and writer.
+verification remains pending.
+
+The alternate native Bedrock constructors bypass that ordinary resolver.
+`--provider-constructors --expect-provider-constructors` reproduces actual local
+requests using the synthetic AWS bearer in both Bedrock implementations; setting
+`requires_openai_auth=true` instead reproduces unauthenticated requests. All four
+negative controls and four corresponding no-selector compatibility controls pass
+against the downloaded intermediate CLI. The strict positive assertion fails
+before repair because a G2 request is observed instead of zero requests.
+The extended applier pins both auth and factory source hashes and validates the
+provider before constructing any credential manager, AWS exporter, gateway or
+remote catalog. Unsupported providers use an inert native provider that refuses
+routing/auth and supplies only an in-memory catalog. The rebuilt full CLI must
+pass all constructor refusal controls while retaining all four legacy controls.
+That integration evidence remains pending. These cases do not certify gateway
+login, agent-identity bootstrap or every other native endpoint and writer.
 Remote plugins are disabled before startup, and every probe process group is
 killed and reaped before temporary state is removed.
 

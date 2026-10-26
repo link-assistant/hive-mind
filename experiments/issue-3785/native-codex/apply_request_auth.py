@@ -11,6 +11,7 @@ import sys
 
 PIN = "6aaac694803004a63c6f393d153c96d22521a6b9"
 AUTH_HASH = "fcb210f36cc01f88b511305952aa36820bfa15d0afd0186fd49ac72e98c20153"
+PROVIDER_HASH = "1867ba1d0a45b3ac1367caa04900f95a60365475039342af04405463d7f1b534"
 root = Path(sys.argv[1]).resolve(strict=True)
 if subprocess.check_output(["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip() != PIN:
     raise SystemExit("Refusing unpinned native source.")
@@ -18,6 +19,10 @@ target = root / "codex-rs/model-provider/src/auth.rs"
 source = target.read_text()
 if hashlib.sha256(source.encode()).hexdigest() != AUTH_HASH:
     raise SystemExit("Refusing a changed native request auth provider.")
+provider_target = root / "codex-rs/model-provider/src/provider.rs"
+provider_source = provider_target.read_text()
+if hashlib.sha256(provider_source.encode()).hexdigest() != PROVIDER_HASH:
+    raise SystemExit("Refusing a changed native provider factory.")
 
 def replace(before, after):
     global source
@@ -29,8 +34,7 @@ def replace(before, after):
 replace('''pub(crate) fn resolve_provider_auth(''', '''// Canonical mode deliberately supports file-backed API keys and managed
 // ChatGPT only. Provider credentials and custom headers need a separate,
 // validated authority contract; do not silently route around the file manager.
-fn validate_canonical_request_auth(
-    auth: Option<&CodexAuth>,
+pub(crate) fn validate_canonical_provider_authority(
     provider: &ModelProviderInfo,
 ) -> codex_protocol::error::Result<()> {
     if std::env::var_os("CODEX_AUTH_HOME").is_none() {
@@ -51,6 +55,7 @@ fn validate_canonical_request_auth(
         })
     });
     if !provider.requires_openai_auth
+        || provider.is_amazon_bedrock()
         || provider.env_key.is_some()
         || provider.experimental_bearer_token.is_some()
         || provider.auth.is_some()
@@ -62,6 +67,17 @@ fn validate_canonical_request_auth(
         return Err(CodexErr::InvalidRequest(
             "Provider authority overrides are unsupported with canonical authentication.".to_string(),
         ));
+    }
+    Ok(())
+}
+
+fn validate_canonical_request_auth(
+    auth: Option<&CodexAuth>,
+    provider: &ModelProviderInfo,
+) -> codex_protocol::error::Result<()> {
+    validate_canonical_provider_authority(provider)?;
+    if std::env::var_os("CODEX_AUTH_HOME").is_none() {
+        return Ok(());
     }
     if !matches!(auth, Some(CodexAuth::ApiKey(_) | CodexAuth::Chatgpt(_))) {
         return Err(CodexErr::InvalidRequest(
@@ -78,12 +94,34 @@ replace('''    let ProviderAuthScope {
         agent_identity_policy,''', '''    validate_canonical_request_auth(auth, provider)?;
     let ProviderAuthScope {
         agent_identity_policy,''')
-source = subprocess.run(
-    ["rustfmt", "--edition", "2024", "--config", "skip_children=true"],
-    input=source, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True,
-).stdout
+
+factory_context = '''    if provider_info.is_amazon_bedrock() {
+        return Arc::new(AmazonBedrockModelProvider::new(provider_info, auth_manager));
+    }'''
+if provider_source.count(factory_context) != 1:
+    raise SystemExit("Ambiguous native provider factory context; no files changed.")
+provider_source = provider_source.replace(factory_context, '''    // Refuse before alternate constructors can create credential managers,
+    // exporters, recovery helpers or remote model catalogs.
+    if crate::auth::validate_canonical_provider_authority(&provider_info).is_err() {
+        return Arc::new(RejectedCanonicalModelProvider { info: provider_info });
+    }
+''' + factory_context, 1)
+provider_context = '''/// Runtime model provider that orchestrates primary and gateway credentials.'''
+if provider_source.count(provider_context) != 1:
+    raise SystemExit("Ambiguous native provider implementation context; no files changed.")
+provider_source = provider_source.replace(provider_context, (Path(__file__).parent / "rejected_canonical_provider.rs").read_text() + "\n" + provider_context, 1)
+
+def format_rust(value):
+    return subprocess.run(
+        ["rustfmt", "--edition", "2024", "--config", "skip_children=true"],
+        input=value, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True,
+    ).stdout
+
+source = format_rust(source)
+provider_source = format_rust(provider_source)
 if "--check" in sys.argv[2:]:
     print("Pinned canonical request auth patch is applicable; no files changed.")
 else:
     target.write_text(source)
+    provider_target.write_text(provider_source)
     print("Applied canonical request auth experiment; production is unchanged.")

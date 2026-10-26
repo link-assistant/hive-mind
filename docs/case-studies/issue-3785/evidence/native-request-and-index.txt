@@ -32,6 +32,21 @@ Independent provider authority controls against the same actual executable:
   Native compilation/positive refusal remain pending; alternative constructors,
   AWS/gateway and agent-identity bootstrap are not certified by these controls.
 
+Alternate native provider constructors against that same actual executable:
+  Amazon Bedrock and Amazon Bedrock Runtime, requires_openai_auth=false:
+    both send the independent synthetic AWS G2 bearer despite canonical G0.
+  Both constructors, requires_openai_auth=true:
+    both send an unauthenticated model request despite canonical G0.
+  All four negative controls PASS. All four no-selector compatibility controls
+  PASS with the original native behavior. The strict canonical refusal test
+  FAILS before repair (actual [G2], expected []). No real AWS endpoint is used.
+  Extended apply_request_auth.py also pins the native provider.rs source and
+  validates before alternate constructors/credential managers/exporters/gateways.
+  Rejected providers expose no auth manager, refuse provider/auth resolution,
+  and construct only an in-memory static model catalog. Source applicability
+  and Rust formatting pass; rebuilt full-CLI positive controls remain pending.
+  These controls do not establish all gateway/agent-identity endpoint coverage.
+
 Stock Codex named metadata, real Docker app-server protocol:
   thread/name/set succeeds; dispose the complete first private configuration.
   Fresh thread/resume loses the name, including with shared CODEX_SQLITE_HOME.

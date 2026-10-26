@@ -7,6 +7,7 @@ on:
       - 'experiments/issue-3785/probe-qwen-native-reads.mjs'
       - 'experiments/issue-3785/probe-qwen-lock-ownership.mjs'
       - 'experiments/issue-3785/probe-qwen-native-writers.mjs'
+      - 'experiments/issue-3785/probe-qwen-native-cli.mjs'
       - 'src/shared-auth-refresh-lock.lib.mjs'
       - '.github/workflows/native-qwen-auth-experiment.yml'
   workflow_dispatch:
@@ -73,6 +74,24 @@ jobs:
           node --max-old-space-size=128 experiments/issue-3785/probe-qwen-native-reads.mjs --native-client > "$RUNNER_TEMP/qwen-client-after.log" 2>&1
       - name: Verify native refresh, login, logout and failure ordering
         run: node --max-old-space-size=128 experiments/issue-3785/probe-qwen-native-writers.mjs > "$RUNNER_TEMP/qwen-writers-after.log" 2>&1
+      - name: Reproduce independent authority in actual native CLI requests
+        run: |
+          node --max-old-space-size=128 experiments/issue-3785/probe-qwen-native-cli.mjs --expect-provider-bypass > "$RUNNER_TEMP/qwen-cli-before.log" 2>&1
+          if node --max-old-space-size=128 experiments/issue-3785/probe-qwen-native-cli.mjs > "$RUNNER_TEMP/qwen-cli-regression.log" 2>&1; then
+            echo 'The native CLI authority regression unexpectedly passed before repair.'
+            exit 1
+          fi
+          grep -F 'AssertionError [ERR_ASSERTION]: Selected canonical Qwen authority must refuse independent provider credentials before model execution.' "$RUNNER_TEMP/qwen-cli-regression.log"
+      - name: Apply pinned native provider admission
+        run: |
+          python3 experiments/issue-3785/native-qwen/apply_request_auth.py experiments/issue-3785/native-qwen/stock-cli/node_modules/@qwen-code/qwen-code --check
+          python3 experiments/issue-3785/native-qwen/apply_request_auth.py experiments/issue-3785/native-qwen/stock-cli/node_modules/@qwen-code/qwen-code
+      - name: Verify real CLI refusal, native provider handles and preserved behavior
+        run: |
+          node --max-old-space-size=128 experiments/issue-3785/probe-qwen-native-cli.mjs > "$RUNNER_TEMP/qwen-cli-after.log" 2>&1
+          node --max-old-space-size=128 experiments/issue-3785/probe-qwen-native-cli.mjs --factory-controls > "$RUNNER_TEMP/qwen-factory-after.log" 2>&1
+          node --max-old-space-size=128 experiments/issue-3785/probe-qwen-native-cli.mjs --without-selector > "$RUNNER_TEMP/qwen-cli-legacy.log" 2>&1
+          node --max-old-space-size=128 experiments/issue-3785/probe-qwen-native-cli.mjs --oauth-sunset > "$RUNNER_TEMP/qwen-cli-sunset.log" 2>&1
       - name: Preserve native diagnostics
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7

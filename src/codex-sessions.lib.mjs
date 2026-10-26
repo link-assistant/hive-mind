@@ -63,7 +63,10 @@ export function isCodexRolloutFileName(name, threadId) {
 export async function findCodexRolloutFile({ sessionsDir, threadId, fsImpl = fs } = {}) {
   if (!sessionsDir || !THREAD_ID_PATTERN.test(String(threadId || ''))) return null;
   const walk = async (dir, depth) => {
-    const entries = await fsImpl.readdir(dir, { withFileTypes: true }).catch(() => null);
+    const entries = await fsImpl.readdir(dir, { withFileTypes: true }).catch(error => {
+      if (error.code === 'ENOENT') return null;
+      throw Object.assign(new Error('Canonical Codex history could not be inspected.'), { code: error.code });
+    });
     if (!entries) return null;
     const sorted = [...entries].sort((a, b) => (a.name < b.name ? 1 : a.name > b.name ? -1 : 0));
     const file = sorted.find(entry => entry.isFile() && isCodexRolloutFileName(entry.name, threadId));
@@ -93,13 +96,16 @@ export function createCodexResumeRolloutCheck({ homeDir = os.homedir(), fsImpl =
   let checked = false;
   return async ({ threadId = null, codexHome = null, log = async () => {} } = {}) => {
     const first = !checked;
-    checked = true;
-    if (!threadId) return false;
+    if (!threadId) {
+      checked = true;
+      return false;
+    }
     if (!first) return true;
     const sessionsDir = path.join(codexHome || path.join(homeDir, '.codex'), CODEX_SESSIONS_DIRNAME);
     const rollout = await findCodexThreadRollout({ codexHome: path.dirname(sessionsDir), threadId, fsImpl });
     await log(`   Codex rollout for ${threadId}: ${rollout || `not found under ${sessionsDir}`}`, { verbose: true });
     if (!rollout) await log(`⚠️  Codex thread ${threadId} has no rollout under ${sessionsDir}; starting a new Codex session on the same branch instead of resuming it (issue #2888)`, { level: 'warn' });
+    checked = true;
     return Boolean(rollout);
   };
 }

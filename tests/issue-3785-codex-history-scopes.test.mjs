@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { shareScopedCodexSessions, createCodexResumeRolloutCheck } from '../src/codex-sessions.lib.mjs';
+import { shareScopedCodexSessions, createCodexResumeRolloutCheck, findCodexThreadRollout } from '../src/codex-sessions.lib.mjs';
 import { getDockerIsolationAuthMounts, prepareDockerIsolationHostPaths } from '../src/isolation-runner.lib.mjs';
 import { restoreCodexRolloutFromContainer, resolveFreshRecoveryCommand, FRESH_RESUME_OUTCOMES } from '../src/session-kill-resume.fresh-session.lib.mjs';
 
@@ -137,4 +137,64 @@ test('linked canonical history refuses Docker preparation without modifying its 
   await fs.symlink(foreign, path.join(base, 'sessions'));
   await assert.rejects(prepareDockerIsolationHostPaths({ tool: 'codex', homeDir: root, env: {} }), /history.*unavailable/iu);
   assert.deepEqual(await fs.readdir(foreign), []);
+});
+
+test('unreadable canonical rollouts refuse resume on every attempt', async () => {
+  let inspections = 0;
+  const fsImpl = {
+    readdir: async () => {
+      inspections += 1;
+      throw Object.assign(new Error('Synthetic unreadable canonical history'), { code: 'EACCES' });
+    },
+  };
+  const check = createCodexResumeRolloutCheck({ fsImpl });
+  for (let attempt = 0; attempt < 2; attempt++) await assert.rejects(check({ threadId, codexHome: '/synthetic/canonical' }), { code: 'EACCES' });
+  assert.equal(inspections, 2, 'A failed inspection must not mark the resume check successful.');
+});
+
+test('fresh recovery refuses unavailable canonical history before copying or dropping resume', async () => {
+  let copied = false;
+  const command = { commandName: 'solve', args: [url, '--tool', 'codex', '--resume', threadId] };
+  await assert.rejects(
+    resolveFreshRecoveryCommand({
+      sessionName: 'stopped',
+      sessionInfo: { url, tool: 'codex', isolationBackend: 'docker' },
+      command,
+      homeDir: '/synthetic',
+      fsImpl: {
+        readdir: async () => {
+          throw Object.assign(new Error('Synthetic I/O failure'), { code: 'EIO' });
+        },
+      },
+      runner: {
+        copyFromDockerContainer: async () => {
+          copied = true;
+          return { success: false };
+        },
+      },
+    }),
+    { code: 'EIO' }
+  );
+  assert.equal(copied, false);
+  assert.deepEqual(command.args.slice(-2), ['--resume', threadId]);
+});
+
+test('nested rollout inspection errors refuse fallback to an archived transcript', async () => {
+  const inspected = [];
+  await assert.rejects(
+    findCodexThreadRollout({
+      codexHome: '/synthetic',
+      threadId,
+      fsImpl: {
+        readdir: async directory => {
+          inspected.push(directory);
+          if (directory === '/synthetic/sessions') return [{ name: '2026', isFile: () => false, isDirectory: () => true }];
+          if (directory === '/synthetic/sessions/2026') throw Object.assign(new Error('Synthetic filesystem failure'), { code: 'EIO' });
+          return [{ name, isFile: () => true, isDirectory: () => false }];
+        },
+      },
+    }),
+    { code: 'EIO' }
+  );
+  assert.deepEqual(inspected, ['/synthetic/sessions', '/synthetic/sessions/2026']);
 });

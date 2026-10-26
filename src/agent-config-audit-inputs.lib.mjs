@@ -6,6 +6,7 @@ import path from 'node:path';
 import { parse as parseToml } from 'smol-toml';
 import { CodexStockBaselineError, validateCodexStockSkills } from './codex-stock-skills.lib.mjs';
 import { agentConfigAuditScopes } from './agent-config-audit-paths.lib.mjs';
+import { auditManagedAgentConfig } from './agent-config-audit-managed.lib.mjs';
 
 const TOOL_INPUTS = {
   claude: {
@@ -51,10 +52,11 @@ async function readBoundedConfig(handle) {
  * Never include parser errors or input bytes in diagnostics. Directory scans
  * are bounded; config reads use O_NOFOLLOW and descriptor identity checks.
  */
-export async function validateAgentConfigAuditInputs({ tool = 'all', homeDir, env = {}, fsImpl = fs, previous = null }) {
+export async function validateAgentConfigAuditInputs({ tool = 'all', homeDir, env = {}, systemRoots, fsImpl = fs, previous = null }) {
   const io = fsImpl.promises;
   const snapshot = new Map();
   const scopes = agentConfigAuditScopes({ tool, homeDir, env });
+  for (const [target, value] of (await auditManagedAgentConfig({ tool, systemRoots, fsImpl })).snapshot) snapshot.set(`managed:${target}`, value);
   let entries = 0;
   const inspect = async (target, kind) => {
     let info;

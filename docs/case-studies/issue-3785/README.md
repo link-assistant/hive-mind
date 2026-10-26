@@ -554,4 +554,38 @@ selected environment explicitly; library fixture callers remain independent of
 the parent environment. These checks cover the existing known surfaces under
 the selected roots, not every managed/search path or canonical storage identity.
 
+Local managed layers exposed another clean-home bypass: all eleven initial
+negative cases admitted contaminated or unsafe system configuration. The audit
+now checks Claude's managed settings, JSON drop-ins and managed MCP file, plus
+Codex system defaults, legacy managed configuration, requirements, adjacent
+hooks and admin payload directories. Reads are asynchronous, bounded and use
+descriptor identity checks. Linked paths, malformed/oversized documents,
+concurrent edits and changed selectors prevent repair/admission. Managed
+capability findings refuse launch without rewriting administrator files;
+permission restrictions, MCP identity constraints and executable-policy rules
+remain byte-for-byte intact. An audit-only invocation reports the findings.
+
+The real offline pinned Codex probe confirms a synthetic system MCP is
+discoverable with a clean user home; launcher admission rejects it while
+preserving the managed file's bytes and inode. Two further negative tests
+reproduced admission of a Claude policy helper and a Codex required config
+server. Both can deliver new managed settings after the local file audit;
+admission now refuses these unattested dynamic sources without executing a
+helper, fetching remote policy or changing their policy files. All eighteen managed
+cases pass, including preservation and unsafe-input cases. These are local
+file-layer checks, not attestation of cloud-delivered policy, OS policy stores,
+all plugin/search paths or native auth/history identity. Those broader
+requirements remain unfinished.
+
+Locations and policy distinctions were checked against the pinned
+[Codex configuration loader](https://github.com/openai/codex/blob/rust-v0.164.0/codex-rs/config/src/loader/mod.rs),
+[requirements types](https://github.com/openai/codex/blob/rust-v0.164.0/codex-rs/config/src/config_requirements.rs),
+[MCP constraints](https://github.com/openai/codex/blob/rust-v0.164.0/codex-rs/protocol/src/mcp_policy.rs)
+and Anthropic's [managed settings reference](https://code.claude.com/docs/en/managed-settings).
+Dynamic policy sources were checked against the pinned
+[config-server type](https://github.com/openai/codex/blob/rust-v0.164.0/codex-rs/config/src/config_server.rs)
+and Anthropic's [policy-helper reference](https://code.claude.com/docs/en/settings-reference#policyhelper).
+The actual managed/native probe ran on Linux; the other platform path defaults
+are not an integration-verified policy-store implementation.
+
 ![Synthetic before and after limits layout](evidence/display-comparison.png)

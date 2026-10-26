@@ -35,6 +35,7 @@ import { stringify as stringifyToml } from 'smol-toml';
 import { parseAgentConfigToml, validateAgentConfigAuditInputs } from './agent-config-audit-inputs.lib.mjs';
 import { assertApprovedPlaywrightRegistration } from './agent-mcp-baseline.lib.mjs';
 import { agentConfigAuditScopes } from './agent-config-audit-paths.lib.mjs';
+import { auditManagedAgentConfig, managedAgentConfigRoots } from './agent-config-audit-managed.lib.mjs';
 
 /** MCP servers that belong to the minimal hive-mind configuration. */
 export const MINIMAL_MCP_SERVERS = Object.freeze(['playwright']);
@@ -310,7 +311,8 @@ const auditCodex = ({ homeDir, configDir: codexDir, fsImpl, allowedMcpServers })
 };
 
 /**
- * Inspect the global configuration of one or both tools.
+ * Synchronously inspect conventional/selected user configuration. Use
+ * runAgentConfigAudit({ autoRepair: false }) for validated managed layers too.
  *
  * @param {{ tool?: 'claude'|'codex'|'all', homeDir?: string, env?: object, fsImpl?: typeof fs, allowedMcpServers?: string[] }} [options]
  * @returns {{ findings: object[], repairable: object[], warnOnly: object[] }}
@@ -413,6 +415,7 @@ export const formatAgentConfigFinding = finding => `${finding.tool} ${finding.ki
 const requireCleanAuditedConfig = async options => {
   const snapshot = await validateAgentConfigAuditInputs(options);
   const { findings } = auditAgentConfig(options);
+  findings.push(...(await auditManagedAgentConfig(options)).findings);
   await validateAgentConfigAuditInputs({ ...options, previous: snapshot });
   if (findings.length) throw new Error('Global agent configuration is not clean. Remove or safely quarantine the remaining additions before launching tasks.');
 };
@@ -425,20 +428,26 @@ const requireCleanAuditedConfig = async options => {
  * the legacy repair deliberately leaves in place). This enforces the audited
  * surfaces only; it is not a full native CLI discovery/baseline attestation.
  *
- * @param {{ tool?: string, homeDir?: string, env?: object, autoRepair?: boolean, requireClean?: boolean, log?: Function, verbose?: boolean, fsImpl?: typeof fs, allowedMcpServers?: string[] }} [options]
+ * @param {{ tool?: string, homeDir?: string, env?: object, systemRoots?: object, autoRepair?: boolean, requireClean?: boolean, log?: Function, verbose?: boolean, fsImpl?: typeof fs, allowedMcpServers?: string[] }} [options]
  * @returns {Promise<{ findings: object[], repaired: object[], failed: object[], skipped: object[] }>}
  */
-export const runAgentConfigAudit = async ({ tool = 'all', homeDir = os.homedir(), env = {}, autoRepair = true, requireClean = false, log = async () => {}, verbose = false, fsImpl = fs, allowedMcpServers = MINIMAL_MCP_SERVERS } = {}) => {
+export const runAgentConfigAudit = async ({ tool = 'all', homeDir = os.homedir(), env = {}, systemRoots = managedAgentConfigRoots(), autoRepair = true, requireClean = false, log = async () => {}, verbose = false, fsImpl = fs, allowedMcpServers = MINIMAL_MCP_SERVERS } = {}) => {
   const scope = AUDITABLE_TOOLS.includes(tool) ? tool : 'all';
   // Capture only path selectors. Do not retain or inspect provider credentials.
   const selectedEnv = env;
+  const selectedSystemRoots = systemRoots;
+  systemRoots = { claude: systemRoots.claude, codex: systemRoots.codex };
   env = { CLAUDE_CONFIG_DIR: env.CLAUDE_CONFIG_DIR, CODEX_HOME: env.CODEX_HOME };
   const requireSamePaths = () => {
     if (selectedEnv.CLAUDE_CONFIG_DIR !== env.CLAUDE_CONFIG_DIR || selectedEnv.CODEX_HOME !== env.CODEX_HOME) throw new Error('Global agent configuration has unsafe effective path changes; no repair or admission is permitted.');
+    if (selectedSystemRoots.claude !== systemRoots.claude || selectedSystemRoots.codex !== systemRoots.codex) throw new Error('Managed agent configuration has unsafe effective path changes; no repair or admission is permitted.');
   };
-  const auditOptions = { tool: scope, homeDir, env, fsImpl, allowedMcpServers };
+  const auditOptions = { tool: scope, homeDir, env, systemRoots, fsImpl, allowedMcpServers };
   const auditInputs = await validateAgentConfigAuditInputs(auditOptions);
   const { findings, repairable, warnOnly } = auditAgentConfig(auditOptions);
+  const managed = (await auditManagedAgentConfig(auditOptions)).findings;
+  findings.push(...managed);
+  warnOnly.push(...managed);
   if (verbose) await log(`🔍 ${LOG_PREFIX}: inspected global ${scope === 'all' ? 'claude/codex' : scope} configuration under ${homeDir} (${findings.length} finding${findings.length === 1 ? '' : 's'})`, { verbose: true });
   if (findings.length === 0) {
     // Verbose logging yields; do not admit a now-contaminated home on the
@@ -453,6 +462,7 @@ export const runAgentConfigAudit = async ({ tool = 'all', homeDir = os.homedir()
   for (const finding of warnOnly) {
     if (verbose) await log(`   ℹ️  ${finding.kind} "${finding.name}" is reported only; remove it manually if it is not wanted`, { verbose: true });
   }
+  if (requireClean && findings.some(finding => finding.kind === 'managed-capability')) throw new Error('Managed agent configuration is not clean. Reconcile the reported capabilities with the administrator before launching tasks; managed security policy was left intact.');
   if (!autoRepair) {
     await log('   Auto-repair is disabled (--no-agent-config-auto-repair); nothing was changed. Non-minimal skills and plugins may change agent behaviour and token usage.', { level: 'warn' });
     if (requireClean) throw new Error('Global agent configuration is not clean. Remove or safely quarantine the reported additions before launching tasks.');

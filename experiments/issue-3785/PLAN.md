@@ -62,6 +62,13 @@ push only issue-3785-4c28551ac612, and keep unmet requirements explicitly open.
 - [x] Reproduce clean-home audit bypasses through explicit tool-home overrides;
       validate both conventional and selected roots before repair/admission,
       including unsafe ancestors, concurrent edits and changed path selectors.
+- [x] Reproduce local system/managed configuration bypasses before changing
+      admission; inspect managed settings/drop-ins/MCP and Codex system/legacy/
+      requirements files without editing security policy. Reject unsafe links,
+      malformed/oversized/changed state and unapproved admin payloads. Verify
+      actual pinned Codex system-MCP discovery with a bounded offline probe.
+      Refuse unattested dynamic policy helpers/config servers without running
+      helpers, fetching remote policy or rewriting administrator files.
 - [ ] Implement canonical auth/history authority, explicit alternative contracts,
       coordinated refresh and fail-closed effective-path validation for all tools.
 - [ ] Isolate task catalogs/extensions and enforce clean global baseline; migrate

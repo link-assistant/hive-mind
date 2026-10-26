@@ -1,0 +1,18 @@
+[
+  {
+    "file": "failed-task.log.gz",
+    "contentSha256": "779aad2bb2b5df9425dd9455dcf316bb16e8adf1adfd2addb88d2bd260ef6388",
+    "sourceBytes": 81118,
+    "sanitizedBytes": 79006,
+    "redacted": ["credentials", "download query tokens", "emails", "UUIDs", "account identity fields"],
+    "residualCredentialBlock": null
+  },
+  {
+    "file": "bot.log.gz",
+    "contentSha256": "5620292cfb9316df56b8b2db4204311cf376128de349ab8bd93ad701c7df9e4f",
+    "sourceBytes": 30298085,
+    "sanitizedBytes": 28407678,
+    "redacted": ["credentials", "download query tokens", "emails", "UUIDs", "account identity fields"],
+    "residualCredentialBlock": null
+  }
+]

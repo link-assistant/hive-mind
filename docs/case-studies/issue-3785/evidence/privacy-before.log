@@ -1,0 +1,44 @@
+✖ verbose limits diagnostics omit credential suffixes, account ids and response bodies (11.33859ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1216.144054
+
+✖ failing tests:
+
+test at tests/issue-3785-limits.test.mjs:138:1
+✖ verbose limits diagnostics omit credential suffixes, account ids and response bodies (11.33859ms)
+  AssertionError [ERR_ASSERTION]: The input was expected to not match the regular expression /sentinel|e-sentinel|l-sentinel/. Input:
+  
+  '[VERBOSE] /limits Codex auth loaded from: /tmp/hive-limits-3785-GzoVhK/credentials.json\n' +
+    '[VERBOSE] /limits fetching Codex usage from API...\n' +
+    '[VERBOSE] /limits Codex API request: GET http://127.0.0.1/wham/usage\n' +
+    '[VERBOSE] /limits Codex auth mode: chatgpt\n' +
+    '[VERBOSE] /limits Codex account id: private-account-sentinel\n' +
+    '[VERBOSE] /limits Codex plan type: unknown\n' +
+    '[VERBOSE] /limits Codex API request headers: {\n' +
+    '  "Accept": "application/json",\n' +
+    '  "Authorization": "Bearer ...sentinel",\n' +
+    '  "User-Agent": "hive-mind-codex-limits/1.0"\n' +
+    '}\n' +
+    '[VERBOSE] /limits Codex API HTTP status: 401 \n' +
+    '[VERBOSE] /limits Codex API response headers: {\n' +
+    '  "content-type": "text/plain;charset=UTF-8",\n' +
+    '  "set-cookie": "private-cookie-sentinel"\n' +
+    '}\n' +
+    '[VERBOSE] /limits Codex API error body: private-response-sentinel'
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-limits.test.mjs:147:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '[VERBOSE] /limits Codex auth loaded from: /tmp/hive-limits-3785-GzoVhK/credentials.json\n[VERBOSE] /limits fetching Codex usage from API...\n[VERBOSE] /limits Codex API request: GET http://127.0.0.1/wham/usage\n[VERBOSE] /limits Codex auth mode: chatgpt\n[VERBOSE] /limits Codex account id: private-account-sentinel\n[VERBOSE] /limits Codex plan type: unknown\n[VERBOSE] /limits Codex API request headers: {\n  "Accept": "application/json",\n  "Authorization": "Bearer ...sentinel",\n  "User-Agent": "hive-mind-codex-limits/1.0"\n}\n[VERBOSE] /limits Codex API HTTP status: 401 \n[VERBOSE] /limits Codex API response headers: {\n  "content-type": "text/plain;charset=UTF-8",\n  "set-cookie": "private-cookie-sentinel"\n}\n[VERBOSE] /limits Codex API error body: private-response-sentinel',
+    expected: /sentinel|e-sentinel|l-sentinel/,
+    operator: 'doesNotMatch',
+    diff: 'simple'
+  }

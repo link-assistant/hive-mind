@@ -1,0 +1,70 @@
+✖ explicit Router limits use its provider-neutral API and shared metadata result (22.062723ms)
+✖ an unsupported Router usage API reports selected authority failure without a local fallback (10.804684ms)
+✖ missing Router token fails before sending any usage request (12.29271ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 0
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 819.288027
+
+✖ failing tests:
+
+test at tests/issue-3785-router-limits.test.mjs:38:1
+✖ explicit Router limits use its provider-neutral API and shared metadata result (22.062723ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-router-limits.test.mjs:42:12
+      at async withRouter (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-router-limits.test.mjs:32:5)
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-router-limits.test.mjs:39:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-router-limits.test.mjs:50:1
+✖ an unsupported Router usage API reports selected authority failure without a local fallback (10.804684ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /Router.*404/. Input:
+  
+  'Could not read Codex authentication. Make sure Codex is properly installed and authenticated.'
+  
+      at file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-router-limits.test.mjs:54:12
+      at async withRouter (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-router-limits.test.mjs:32:5)
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-router-limits.test.mjs:51:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'Could not read Codex authentication. Make sure Codex is properly installed and authenticated.',
+    expected: /Router.*404/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-router-limits.test.mjs:59:1
+✖ missing Router token fails before sending any usage request (12.29271ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /Router.*token/i. Input:
+  
+  'Could not read Codex authentication. Make sure Codex is properly installed and authenticated.'
+  
+      at file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-router-limits.test.mjs:64:12
+      at async withRouter (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-router-limits.test.mjs:32:5)
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-router-limits.test.mjs:60:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'Could not read Codex authentication. Make sure Codex is properly installed and authenticated.',
+    expected: /Router.*token/i,
+    operator: 'match',
+    diff: 'simple'
+  }

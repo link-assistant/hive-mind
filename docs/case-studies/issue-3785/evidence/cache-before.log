@@ -1,0 +1,73 @@
+✔ Claude authentication error has its own section without subscription metadata (4.715015ms)
+✔ both providers have separate sections when neither has authentication (0.485115ms)
+✔ authenticated Claude entitlement overrides a stale locally stored Max plan (25.066217ms)
+✔ Claude live Max entitlement and paid expiry are retained when supplied (12.857102ms)
+✔ missing Claude authentication does not invent a cancelled subscription (15.910188ms)
+✔ stored Codex claims are identified as metadata even when their expiry is in the future (7.072292ms)
+✖ a successful usage cache is invalidated when credentials rotate (8.221165ms)
+✖ equal-mtime atomic credential replacement invalidates an authentication error (14.278574ms)
+✖ different credential authorities never share a usage cache entry (9.758403ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 6
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1003.548734
+
+✖ failing tests:
+
+test at tests/issue-3785-limits.test.mjs:78:1
+✖ a successful usage cache is invalidated when credentials rotate (8.221165ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  1 !== 2
+  
+      at file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-limits.test.mjs:86:12
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-limits.test.mjs:80:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-limits.test.mjs:90:1
+✖ equal-mtime atomic credential replacement invalidates an authentication error (14.278574ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-limits.test.mjs:103:12
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-limits.test.mjs:92:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-limits.test.mjs:108:1
+✖ different credential authorities never share a usage cache entry (9.758403ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  'first' !== 'second'
+  
+      at file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-limits.test.mjs:115:12
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-limits.test.mjs:110:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'first',
+    expected: 'second',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

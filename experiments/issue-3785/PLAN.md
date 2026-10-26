@@ -1,0 +1,43 @@
+# Issue 3785 implementation and verification plan
+
+Objective: implement every issue/comment requirement in PR 3786; preserve history,
+push only issue-3785-4c28551ac612, and keep unmet requirements explicitly open.
+
+- [x] Read full issue, both comments, PR conversation, inline comments and reviews;
+      check required sub-issues (none returned by GitHub).
+- [x] Check branch, working tree, contributing instructions and resource budget.
+- [x] List recent CI runs with SHA/timestamps; preserve unavailable-log evidence.
+- [x] Preserve related logs/images, validate image types, and inspect screenshots.
+- [x] Research Claude entitlement/expiry and Codex storage/rotation upstream sources.
+- [x] Inventory every acceptance criterion in docs/case-studies/issue-3785.
+- [x] Trace limits rendering, credential selection/refresh, task preflight,
+      mounts, resume/recovery, image startup and deployment paths.
+- [x] Reproduce layout and credential divergence with synthetic automated tests
+      before changing implementation; keep probes here and bound their resource use.
+- [x] Fix Claude section layout, entitlement detection and honest stored metadata.
+- [x] Partition cache by effective home and credential generation; invalidate on logout.
+- [x] Read selected Router usage authority without local vendor fallback.
+- [x] Reject selected Router launches without valid task token, endpoint or tool route.
+- [x] Keep Codex marketplace discovery in task-owned state; remove root catalog link.
+- [x] Remove sensitive diagnostics, including malformed JSON error excerpts.
+- [x] Add bounded real Codex logout/login Docker probe and report evidence upstream.
+- [ ] Implement canonical auth/history authority, explicit alternative contracts,
+      coordinated refresh and fail-closed effective-path validation for all tools.
+- [ ] Isolate task catalogs/extensions and enforce clean global baseline; migrate
+      persisted full homes with an allowlist preserving auth/conversation evidence.
+- [ ] Add production Docker lifecycle tests (root/two tasks, refresh/atomic writes,
+      history/resume, overrides/contamination, cleanup, host/nested daemon layouts).
+- [ ] Require packaged-image tests and deployment preflight in release workflows.
+- [x] Capture reproducible before/after display evidence and document root causes,
+      timeline, upstream findings, solutions and exact outstanding blockers.
+- [x] Run focused tests then full local suite, lint/format and relevant checks
+      sequentially; preserve large logs and inspect failures in <=1500-line chunks.
+- [ ] Commit useful atomic steps after checks; integrate latest main; review diff.
+- [ ] Update PR title/body with evidence, reproduction and Fixes #3785; push branch.
+- [ ] Verify newest-SHA CI, download/analyze nonpassing logs, fix actual failures.
+- [ ] Confirm clean working tree and requirements/evidence consistency; mark ready
+      only when implementation and verification are complete. Do not merge.
+
+Resource policy: use sequential builds/tests; no real credentials in experiments
+or artifacts. Current cgroup usage is mostly reclaimable file cache. Measure
+before heavy commands and do not retry an OOM build unchanged.

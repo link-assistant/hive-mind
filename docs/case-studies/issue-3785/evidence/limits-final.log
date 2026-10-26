@@ -1,0 +1,41 @@
+✔ Retry-After is parsed from seconds and HTTP dates (1.229744ms)
+✔ a Claude 429 is cached instead of re-asked every queue cycle (10.221595ms)
+✔ a Retry-After longer than the usage TTL is honoured (7.693991ms)
+✔ concurrent callers share one usage request (the 429 pairs two seconds apart) (4.088105ms)
+✔ a Codex 401 is cached until the auth file changes (4.756462ms)
+✔ other failures (network, 5xx) are not cached (1.7913ms)
+✔ the real fetchers classify their failures (4.149901ms)
+✔ Claude authentication error has its own section without subscription metadata (7.158944ms)
+✔ both providers have separate sections when neither has authentication (0.915778ms)
+✔ authenticated Claude entitlement overrides a stale locally stored Max plan (66.788558ms)
+✔ Claude live Max entitlement and paid expiry are retained when supplied (6.19222ms)
+✔ missing Claude authentication does not invent a cancelled subscription (5.303311ms)
+✔ stored Codex claims are identified as metadata even when their expiry is in the future (12.642883ms)
+✔ a successful usage cache is invalidated when credentials rotate (12.7435ms)
+✔ equal-mtime atomic credential replacement invalidates an authentication error (26.860692ms)
+✔ different credential authorities never share a usage cache entry (37.296198ms)
+✔ limits paths follow effective tool homes and never fall back to another home (3.947844ms)
+✔ logout immediately invalidates cached Codex subscription claims (7.699001ms)
+✔ verbose limits diagnostics omit credential suffixes, account ids and response bodies (6.663089ms)
+✔ malformed provider JSON and credential JSON cannot escape through errors or diagnostics (8.783042ms)
+✔ selected Router without a task token rejects before inspecting vendor mounts: {"useRouter":true,"env":{}} (6.366245ms)
+✔ selected Router without a task token rejects before inspecting vendor mounts: {"env":{"HIVE_MIND_USE_ROUTER":"1"}} (0.526742ms)
+✔ invalid selected Router endpoint rejects without exposing its value (0.73412ms)
+✔ a Router dialect without a route for the selected tool rejects before native fallback (5.366701ms)
+✔ task routing uses the selected image dialect from the launch environment (9.181757ms)
+✔ explicit Router limits use its provider-neutral API and shared metadata result (140.427174ms)
+✔ an unsupported Router usage API reports selected authority failure without a local fallback (58.078312ms)
+✔ missing Router token fails before sending any usage request (32.32272ms)
+✔ Router Codex maps a weekly primary window and preserves additional metered limits (40.124334ms)
+✔ Router Claude uses the same authority for usage, entitlement and paid expiration (21.154559ms)
+✔ Router unavailable or unsupported data fails closed: {"schema_version":2,"subscriptions":[]} (22.589705ms)
+✔ Router unavailable or unsupported data fails closed: {"schema_version":1,"subscriptions":[{"provider":"openai","state":"unverified","windows":[]}]} (66.32335ms)
+✔ Router unavailable or unsupported data fails closed: {"schema_version":1,"subscriptions":[{"provider":"openai","state":"available"}]} (25.750942ms)
+ℹ tests 33
+ℹ suites 0
+ℹ pass 33
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2824.715476

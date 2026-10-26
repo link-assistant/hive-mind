@@ -13,6 +13,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
+import { parse as parseToml, stringify as stringifyToml } from 'smol-toml';
 
 import { CODEX_PLUGIN_CLI, buildPluginCachePath as buildAgentPluginCachePath, buildPluginPayloadRepairs, pluginIdParts, readMaterializedPluginSkills as readAgentMaterializedPluginSkills, repairPluginPayloads } from './agent-plugin-cache.lib.mjs';
 import { AGENTS_MD_FILENAMES, CLAUDE_MD_FILENAME } from './agents-md-claude-support.lib.mjs';
@@ -691,9 +692,18 @@ const configureScopedPluginLoader = async ({ codexHome, plugins, log }) => {
 // do: each task rebuilds its exact selected provider set from an empty scope.
 const syncScopedConfig = async ({ baseConfigPath, scopedConfigPath }) => {
   const baseConfig = await readIfPresent(baseConfigPath);
-  const pluginPattern = /^\[plugins\."[^"]+"\][^\n]*(?:\n(?!\[)[^\n]*)*/gmu;
-  const baseWithoutPlugins = baseConfig.replace(pluginPattern, '').trimEnd();
-  await fs.writeFile(scopedConfigPath, baseWithoutPlugins ? `${baseWithoutPlugins}\n` : '');
+  let config;
+  try {
+    config = parseToml(baseConfig, { integersAsBigInt: 'asNeeded' });
+  } catch {
+    // TOML diagnostics can quote private values. Never pass them to task logs
+    // or degrade malformed input into a scope that reaches native discovery.
+    throw catalogBoundaryError('Cannot establish task configuration from malformed operator Codex configuration.');
+  }
+  // Quoted keys, dotted assignments, inline and nested tables all represent
+  // the same plugin authority. Headers embedded in strings are ordinary data.
+  delete config.plugins;
+  await fs.writeFile(scopedConfigPath, stringifyToml(config));
 };
 
 const prepareScopedCodexHome = async ({ baseCodexHome, codexHome, log = async () => {} }) => {

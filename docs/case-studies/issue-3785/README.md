@@ -217,6 +217,17 @@ and protected credential identity. The real pinned CLIs save registrations
 accepted by this baseline in disposable homes. Arbitrary effective config paths
 and executable/package integrity still require broader attestation.
 
+Task-scoped Codex configuration had a separate semantic bypass: its regex only
+removed one plugin-header spelling. Six valid quoted/dotted/inline/nested TOML
+forms retained operator plugin declarations, and a header-looking multiline
+string was corrupted. Eight of nine new regressions fail before the fix.
+The scoped builder now parses TOML, removes the semantic `plugins` authority,
+and serializes unrelated runtime settings with large integers and dates intact.
+Malformed input fails before native discovery with a constant diagnostic.
+All nine cases and four existing capability/catalog suites pass. This fixes
+declaration inheritance; canonical auth copies and the wider task lifecycle
+remain unfinished.
+
 The stock-runtime follow-up starts with nine failures: arbitrary hidden
 `.system` content was admitted, and image CLI versions were not pinned. The root, DinD and Coolify image definitions
 now pin Claude 2.1.310 and Codex 0.164.0 and disable Claude auto-update. A pristine

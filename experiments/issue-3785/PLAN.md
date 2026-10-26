@@ -114,6 +114,10 @@ push only issue-3785-4c28551ac612, and keep unmet requirements explicitly open.
       and require image checks for installer-script updates. Packaged CI pending.
 - [ ] Implement canonical auth/history authority, explicit alternative contracts,
       coordinated refresh and fail-closed effective-path validation for all tools.
+- [x] Reproduce scoped Codex config inheriting six alternate plugin-table forms,
+      corrupting header-looking multiline strings and admitting malformed TOML.
+      Replace regex stripping with semantic parsing; preserve typed runtime
+      values and reject malformed input without private parser diagnostics.
 - [ ] Isolate task catalogs/extensions and enforce clean global baseline; migrate
       persisted full homes with an allowlist preserving auth/conversation evidence.
 - [ ] Add production Docker lifecycle tests (root/two tasks, refresh/atomic writes,

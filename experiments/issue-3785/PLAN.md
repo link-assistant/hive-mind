@@ -202,6 +202,19 @@ push only issue-3785-4c28551ac612, and keep unmet requirements explicitly open.
 - [x] Commit useful atomic steps after checks; integrate latest main; review diff.
 - [x] Update PR title/body with evidence, reproduction and Fixes #3785; push branch.
 - [ ] Verify newest-SHA CI, download/analyze nonpassing logs, fix actual failures.
+      b634acbea passes every CI workflow, including packaged Docker and the
+      native full CLI. At 2bf8f683d, workflow security rejects the new unlocked
+      stock CLI install and native history containers exit before protocol
+      replies. Preserve both diagnostics; lock the exact npm tarball and add
+      bounded process diagnostics. Select the cgroup parent by the daemon's
+      actual driver: systemd rejects the cgroupfs-only "/" parent. All six local
+      native history controls pass again with the locked, byte-identical CLI.
+      Reproduce actual stale authorized model requests after logout in two live
+      stock CLI processes for both API-key and ChatGPT modes. API keys also
+      retain stale G0 after replacement/recreation; ChatGPT replacement already
+      observes G1. Add actual full-CLI request controls after the native adapter
+      build, requiring replacement/recreation and no model request after logout.
+      Those positive controls remain unverified until the full native CI build.
 - [x] Reproduce legacy and stopped-container rollout recovery overwriting a
       concurrent canonical writer. Stage and sync copies before exclusive
       publication, retain original/conflicting evidence, refuse linked targets

@@ -21,6 +21,7 @@ const label = `hive-3785-native-rollout=${process.pid}`;
 const binary = process.env.CODEX_PROBE_BINARY || '/home/box/.bun/install/global/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/bin/codex';
 const docker = args => execute('docker', args, { maxBuffer: 128 * 1024, signal: globalThis.AbortSignal.timeout(45_000) });
 let sequence = 0;
+let cgroupArgs;
 
 async function readAndResume({ baseCodexHome, threadId, marker, unarchive = false, afterResume = async () => {} }) {
   const config = path.join(root, `config-${++sequence}`);
@@ -28,7 +29,7 @@ async function readAndResume({ baseCodexHome, threadId, marker, unarchive = fals
   await fs.writeFile(path.join(config, 'config.toml'), 'model="synthetic"\nmodel_provider="offline"\n[features]\nremote_plugin=false\n[model_providers.offline]\nname="Offline"\nbase_url="http://127.0.0.1:1/v1"\nwire_api="responses"\nrequires_openai_auth=false\n');
   assert.equal((await shareScopedCodexSessions({ baseCodexHome, codexHome: config })).status, 'shared');
   const name = `hive-3785-rollout-reader-${process.pid}-${sequence}`;
-  const args = ['run', '--rm', '-i', '--name', name, '--label', label, '--cgroup-parent', '/', '--pids-limit', '64', '--network', 'none', '--read-only', '--user', `${process.getuid()}:${process.getgid()}`, '--ulimit', 'data=536870912:536870912', '--ulimit', 'stack=16777216:16777216', '--mount', `type=bind,source=${binary},target=/usr/local/bin/codex,readonly`, '--mount', `type=bind,source=${root},target=${root}`, '-w', root, '-e', `HOME=${config}`, '-e', `CODEX_HOME=${config}`, '-e', 'TOKIO_WORKER_THREADS=2', '-e', 'RUST_LOG=off', 'alpine:3.22', 'codex', 'app-server'];
+  const args = ['run', '--rm', '-i', '--name', name, '--label', label, ...cgroupArgs, '--pids-limit', '64', '--network', 'none', '--read-only', '--user', `${process.getuid()}:${process.getgid()}`, '--ulimit', 'data=536870912:536870912', '--ulimit', 'stack=16777216:16777216', '--mount', `type=bind,source=${binary},target=/usr/local/bin/codex,readonly`, '--mount', `type=bind,source=${root},target=${root}`, '-w', root, '-e', `HOME=${config}`, '-e', `CODEX_HOME=${config}`, '-e', 'TOKIO_WORKER_THREADS=2', '-e', 'RUST_LOG=off', 'alpine:3.22', 'codex', 'app-server'];
   const child = spawn('docker', args, { stdio: ['pipe', 'pipe', 'pipe'] });
   const closed = new Promise(resolve => child.once('close', resolve));
   const pending = new Map();
@@ -38,8 +39,14 @@ async function readAndResume({ baseCodexHome, threadId, marker, unarchive = fals
     pending.clear();
   };
   child.once('error', () => rejectPending(new Error('Native container could not start.')));
-  child.once('close', () => rejectPending(new Error('Native process closed before its reply.')));
-  child.stderr.resume();
+  let stderr = '';
+  child.stderr.on('data', chunk => {
+    stderr = (stderr + chunk.toString()).slice(-16_384);
+  });
+  child.once('close', (code, signal) => {
+    if (process.env.CODEX_PROBE_DIAGNOSTIC_FILE) diagnostics.push(fs.appendFile(process.env.CODEX_PROBE_DIAGNOSTIC_FILE, `${JSON.stringify({ code, signal, stderr })}\n`, { mode: 0o600 }));
+    rejectPending(new Error(`Native process closed before its reply (code ${code}, signal ${signal}).`));
+  });
   child.stdin.on('error', () => rejectPending(new Error('Native protocol input closed.')));
   const lines = createInterface({ input: child.stdout });
   lines.on('line', line => {
@@ -90,6 +97,13 @@ async function readAndResume({ baseCodexHome, threadId, marker, unarchive = fals
 }
 
 try {
+  const { stdout } = await docker(['info', '--format', '{{.CgroupDriver}}']);
+  const driver = stdout.trim();
+  assert.ok(['cgroupfs', 'systemd'].includes(driver), 'The probe requires a known Docker cgroup driver.');
+  // A nested cgroupfs daemon needs the writable root. Systemd rejects "/"
+  // because its parent must be a named slice; retain its configured default.
+  cgroupArgs = driver === 'cgroupfs' ? ['--cgroup-parent', '/'] : [];
+  console.log(`Native history Docker cgroup driver: ${driver}.`);
   const historyScopes = process.argv.includes('--history-scopes');
   const variants = historyScopes ? ['writer-ownership', 'archive'] : ['plain', 'compressed', 'reverted', 'reverted-compressed'];
   const failures = [];
@@ -149,7 +163,7 @@ try {
     await fs.mkdir(sessions, { recursive: true });
     await fs.writeFile(path.join(sessions, name), originalBytes, { mode: 0o600 });
     const sourceContainer = `hive-3785-stopped-${process.pid}-${index}`;
-    await docker(['run', '--name', sourceContainer, '--label', label, '--cgroup-parent', '/', '--network', 'none', '--pids-limit', '16', '--mount', `type=bind,source=${sourceHome},target=/home/box/.codex`, 'alpine:3.22', 'true']);
+    await docker(['run', '--name', sourceContainer, '--label', label, ...cgroupArgs, '--network', 'none', '--pids-limit', '16', '--mount', `type=bind,source=${sourceHome},target=/home/box/.codex`, 'alpine:3.22', 'true']);
     const canonical = path.join(root, `canonical-${index}`);
     const restored = await restoreCodexRolloutFromContainer({
       containerName: sourceContainer,

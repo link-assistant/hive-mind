@@ -417,3 +417,27 @@ controls pass again. Eight new unit regressions and the surrounding selection
 pass 41 node:test cases. Both probes now have a pinned stock-native CI job;
 installed-package host/nested gates also exercise archives and writer locks.
 Those expanded newest-head gates remain unverified until CI executes them.
+
+### Native history CI admission and real model-request controls
+
+All workflows at b634acbea complete successfully, including packaged Docker
+and native full CLI build/status checks. Native log 40365835831 is preserved.
+At 2bf8f683d, workflow run 40369651991 fails because the stock CLI installation
+is outside a lockfile (`workflows-40369651991.log:570`). Preserve the exact npm
+tarball URL/integrity in a private experiment package lock and use npm ci.
+Native history job 40369651954 exits before its first protocol reply; its
+downloaded `native-history-scopes.log` records both startup failures. The probe
+discarded stderr, so add bounded synthetic startup diagnostics. It also passed
+the cgroupfs-only `/` parent to every daemon; Moby's systemd validation requires
+a named `.slice`. Select by the actual Docker cgroup driver and verify this
+in CI before attributing every startup failure to that setting. All six local
+history controls pass with the locked CLI; its bytes match the earlier binary.
+
+The new real-request control uses a bounded local synthetic HTTP provider and
+two long-lived native app servers. The stock CLI retains API-key G0 after
+atomic replacement and logout. ChatGPT observes replacement G1, then still
+sends G1 after logout. Recreation is checked in the same clients. These are
+actual model-request headers classified internally as G0/G1/G2; no request or
+credential bytes are logged. The full source-built CLI must pass the new
+replacement/logout/recreation control before production integration; manager
+unit/control passes alone do not prove that request path.

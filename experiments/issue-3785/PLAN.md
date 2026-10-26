@@ -11,6 +11,10 @@ push only issue-3785-4c28551ac612, and keep unmet requirements explicitly open.
 - [x] Research Claude entitlement/expiry and Codex storage/rotation upstream sources.
 - [x] Inventory initial versioned storage interfaces for all six installed CLIs;
       distinguish source findings from actual lifecycle/coordination verification.
+- [x] Reproduce native Qwen refresh-lock ownership loss with its installed token
+      manager and mocked OAuth in separate processes; verify an exiting non-owner
+      permits duplicate G0 exchange while a control peer rereads committed G1.
+      Native coordination remains unfinished; preserve the source/version limits.
 - [x] Inventory every acceptance criterion in docs/case-studies/issue-3785.
 - [x] Trace limits rendering, credential selection/refresh, task preflight,
       mounts, resume/recovery, image startup and deployment paths.

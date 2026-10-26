@@ -76,6 +76,21 @@ defines its independent runtime root, pinned runtime-context precedence and
 project status sidecars. The similar default directory layouts do not imply
 identical override semantics. Neither source inventory is a refresh-lock audit.
 
+A subsequent bounded experiment exercises the actual installed Qwen 0.26.1
+`SharedTokenManager` export with mocked OAuth in three separate processes.
+An owner pauses inside its refresh. A second process constructs a manager and
+exits without acquiring the lock. Its native exit handler unlinks the live
+owner's lock, allowing a third process to exchange the same synthetic G0 before
+the owner completes. A control observer that does not construct the manager
+leaves the lock intact; the peer rereads committed G1 without another exchange.
+See `probe-qwen-lock-ownership.mjs` and
+[structural evidence](evidence/qwen-lock-ownership.txt).
+The [versioned cleanup implementation](https://github.com/QwenLM/qwen-code/blob/v0.26.1/packages/core/src/qwen/sharedTokenManager.ts#L178-L199)
+unconditionally unlinks the path, without recording lock ownership. The same
+code is present in inspected main commit `2a6f777edfd3fc805b1761f4eff971458225d7a5`.
+This establishes a native class defect; it is not a full CLI/provider,
+cross-container or production-coordinator verification.
+
 ### agent
 
 The npm metadata for installed 0.27.0 identifies commit

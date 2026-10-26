@@ -241,6 +241,28 @@ push only issue-3785-4c28551ac612, and keep unmet requirements explicitly open.
 - [ ] Confirm clean working tree and requirements/evidence consistency; mark ready
       only when implementation and verification are complete. Do not merge.
 
+Current continuation:
+
+- [x] Preserve completed latest-head failures with timestamps and SHA. At
+      24c34a39a, packaged Docker passes; default CI stops at a stale mount
+      fixture. Repair both incomplete fixtures and extract mount preparation
+      to keep the runner below its regression-tested size threshold. All 36
+      focused cases pass; a fresh 723-file suite is running.
+- [x] Reproduce EACCES/EIO being treated as missing Codex history and a failed
+      resume inspection being cached as successful. Three regressions fail
+      before repair; all 28 surrounding cases pass after structural refusal.
+- [x] Download the actual source-built native CLI from run 40370836766 and
+      reproduce auth-required model requests without Authorization after
+      canonical logout in both modes and both live clients. Preserve this as
+      a separate negative control; do not mistake cache invalidation for refusal.
+- [ ] Compile and verify the exact-source request-admission repair in CI.
+- [x] Reproduce named-thread metadata loss after private configuration disposal,
+      including with shared native SQLite. Prepare a pinned canonical index
+      module; five standalone locking/storage tests pass.
+- [ ] Compile the native index patch, run native upstream/index tests and verify
+      actual name/read/resume after both private configurations are disposed.
+- [ ] Complete production integration and all previously open six-tool criteria.
+
 Resource policy: use sequential builds/tests; no real credentials in experiments
 or artifacts. Current cgroup usage is mostly reclaimable file cache. Measure
 before heavy commands and do not retry an OOM build unchanged.

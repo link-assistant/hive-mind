@@ -18,18 +18,21 @@ import { restoreCodexRolloutFromContainer } from '../../src/session-kill-resume.
 const execute = promisify(execFile);
 const root = await fs.mkdtemp(path.join(os.tmpdir(), 'hive-3785-native-rollout-'));
 const label = `hive-3785-native-rollout=${process.pid}`;
+const image = process.env.CODEX_PROBE_IMAGE || 'alpine:3.22';
 const binary = process.env.CODEX_PROBE_BINARY || '/home/box/.bun/install/global/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/bin/codex';
 const docker = args => execute('docker', args, { maxBuffer: 128 * 1024, signal: globalThis.AbortSignal.timeout(45_000) });
 let sequence = 0;
 let cgroupArgs;
 
-async function readAndResume({ baseCodexHome, threadId, marker, unarchive = false, afterResume = async () => {} }) {
+async function readAndResume({ baseCodexHome, threadId, marker, expectedName, disposeConfig = false, unarchive = false, afterResume = async () => {} }) {
   const config = path.join(root, `config-${++sequence}`);
   await fs.mkdir(config, { mode: 0o700 });
   await fs.writeFile(path.join(config, 'config.toml'), 'model="synthetic"\nmodel_provider="offline"\n[features]\nremote_plugin=false\n[model_providers.offline]\nname="Offline"\nbase_url="http://127.0.0.1:1/v1"\nwire_api="responses"\nrequires_openai_auth=false\n');
   assert.equal((await shareScopedCodexSessions({ baseCodexHome, codexHome: config })).status, 'shared');
   const name = `hive-3785-rollout-reader-${process.pid}-${sequence}`;
-  const args = ['run', '--rm', '-i', '--name', name, '--label', label, ...cgroupArgs, '--pids-limit', '64', '--network', 'none', '--read-only', '--user', `${process.getuid()}:${process.getgid()}`, '--ulimit', 'data=536870912:536870912', '--ulimit', 'stack=16777216:16777216', '--mount', `type=bind,source=${binary},target=/usr/local/bin/codex,readonly`, '--mount', `type=bind,source=${root},target=${root}`, '-w', root, '-e', `HOME=${config}`, '-e', `CODEX_HOME=${config}`, '-e', 'TOKIO_WORKER_THREADS=2', '-e', 'RUST_LOG=off', 'alpine:3.22', 'codex', 'app-server'];
+  const sqlite = process.argv.includes('--shared-sqlite') ? ['-e', `CODEX_SQLITE_HOME=${baseCodexHome}`] : [];
+  const index = process.argv.includes('--shared-index') ? ['-e', `CODEX_SESSION_INDEX_HOME=${baseCodexHome}`] : [];
+  const args = ['run', '--rm', '-i', '--name', name, '--label', label, ...cgroupArgs, '--pids-limit', '64', '--network', 'none', '--read-only', '--user', `${process.getuid()}:${process.getgid()}`, '--ulimit', 'data=536870912:536870912', '--ulimit', 'stack=16777216:16777216', '--mount', `type=bind,source=${binary},target=/usr/local/bin/codex,readonly`, '--mount', `type=bind,source=${root},target=${root}`, '-w', root, '-e', `HOME=${config}`, '-e', `CODEX_HOME=${config}`, ...sqlite, ...index, '-e', 'TOKIO_WORKER_THREADS=2', '-e', 'RUST_LOG=off', image, 'codex', 'app-server'];
   const child = spawn('docker', args, { stdio: ['pipe', 'pipe', 'pipe'] });
   const closed = new Promise(resolve => child.once('close', resolve));
   const pending = new Map();
@@ -82,6 +85,7 @@ async function readAndResume({ baseCodexHome, threadId, marker, unarchive = fals
       const result = await request(method, params);
       assert.equal(result.thread.id, threadId);
       assert.ok(JSON.stringify(result.thread.turns).includes(marker), `${method} must recover prior user content`);
+      if (expectedName) assert.equal(result.thread.name, expectedName, `${method} must recover the native thread name`);
       if (unarchive && method === 'thread/read') await request('thread/unarchive', { threadId });
     }
     await afterResume({ request, config });
@@ -93,6 +97,7 @@ async function readAndResume({ baseCodexHome, threadId, marker, unarchive = fals
     if (child.exitCode === null) child.kill('SIGKILL');
     await closed;
     await Promise.allSettled(diagnostics);
+    if (disposeConfig) await fs.rm(config, { recursive: true, force: true });
   }
 }
 
@@ -105,10 +110,14 @@ try {
   cgroupArgs = driver === 'cgroupfs' ? ['--cgroup-parent', '/'] : [];
   console.log(`Native history Docker cgroup driver: ${driver}.`);
   const historyScopes = process.argv.includes('--history-scopes');
-  const variants = historyScopes ? ['writer-ownership', 'archive'] : ['plain', 'compressed', 'reverted', 'reverted-compressed'];
+  const metadata = process.argv.includes('--history-metadata');
+  const expectPrivateMetadata = process.argv.includes('--expect-private-metadata');
+  assert.ok(!expectPrivateMetadata || metadata, 'The private-metadata negative control requires --history-metadata.');
+  const variants = metadata ? ['metadata'] : historyScopes ? ['writer-ownership', 'archive'] : ['plain', 'compressed', 'reverted', 'reverted-compressed'];
   const failures = [];
   for (const [index, variant] of variants.entries()) {
     const sourceHome = path.join(root, `stopped-${index}`);
+    await fs.mkdir(sourceHome, { mode: 0o700 });
     const sessions = path.join(sourceHome, 'sessions', '2026', '10', '26');
     await fs.mkdir(sessions, { recursive: true });
     const threadId = randomUUID();
@@ -125,6 +134,43 @@ try {
     const name = `rollout-2026-10-26T00-00-00-${threadId}${variant.includes('reverted') ? `_${randomUUID()}` : ''}.jsonl${variant.includes('compressed') ? '.zst' : ''}`;
     const originalBytes = variant.includes('compressed') ? zstdCompressSync(Buffer.from(lines)) : Buffer.from(lines);
     await fs.writeFile(path.join(sessions, name), originalBytes, { mode: 0o600 });
+    if (metadata) {
+      const expectedName = 'Synthetic canonical thread name';
+      await readAndResume({
+        baseCodexHome: sourceHome,
+        threadId,
+        marker,
+        disposeConfig: true,
+        afterResume: async ({ request }) => {
+          await request('thread/name/set', { threadId, name: expectedName });
+          const named = await request('thread/read', { threadId, includeTurns: true });
+          assert.equal(named.thread.name, expectedName, 'The first native writer must successfully persist and read its name.');
+        },
+      });
+      const renamed = 'Synthetic peer-renamed canonical thread';
+      const recovered = readAndResume({
+        baseCodexHome: sourceHome,
+        threadId,
+        marker,
+        expectedName,
+        disposeConfig: true,
+        afterResume: async ({ request, config }) => {
+          await request('thread/name/set', { threadId, name: renamed });
+          await assert.rejects(fs.lstat(path.join(config, 'session_index.jsonl')), { code: 'ENOENT' }, 'Native index mutations must not create private copies.');
+        },
+      });
+      if (expectPrivateMetadata) {
+        await assert.rejects(recovered, error => error.code === 'ERR_ASSERTION' && error.actual === null && error.expected === expectedName, 'The negative control must lose the name after a successful native read, rather than fail at startup.');
+        console.log('PASS: native named-thread metadata loss is reproduced across fresh configuration scopes.');
+      } else {
+        await recovered;
+        await readAndResume({ baseCodexHome: sourceHome, threadId, marker, expectedName: renamed, disposeConfig: true });
+        const canonicalIndex = await fs.readFile(path.join(sourceHome, 'session_index.jsonl'), 'utf8');
+        assert.ok(canonicalIndex.includes(expectedName) && canonicalIndex.includes(renamed), 'Both native writers must persist their names to the canonical index.');
+        console.log('PASS: native named-thread metadata and peer updates survive disposed configuration scopes.');
+      }
+      continue;
+    }
     if (historyScopes) {
       try {
         if (variant === 'writer-ownership') {

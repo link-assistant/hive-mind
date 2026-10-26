@@ -123,3 +123,31 @@ It is an experimental build check; it does not certify or replace the required
 six-tool release/deployment lifecycle matrix. Local full CLI compilation must respect the
 container memory budget; use one compiler with debug data disabled and use an
 adequately provisioned runner if a compiler is killed.
+
+The actual model-request probe adds a stricter control than native status or
+manager snapshots. Two live app servers warm a synthetic local provider, then
+observe atomic G1 replacement, logout and G2 recreation in both API-key and
+managed ChatGPT modes. Stock retains stale authorization after logout. The
+source-built CLI from run 40370836766 observes replacement but sends a request
+**without** authorization after logout. `--expect-unauthenticated-logout`
+reproduces that intermediate defect using the downloaded CI executable.
+Malformed and unsafe-permission controls reproduce the same fallback and
+verify both live clients observe repaired G1 afterward.
+`apply_request_auth.py` refuses missing canonical auth before an auth-required
+provider can fall through to unauthenticated execution. Its exact-source
+applicability passes; the rebuilt full-CLI positive control is pending.
+Remote plugins are disabled before startup, and every probe process group is
+killed and reaped before temporary state is removed.
+
+Native named-history controls also reproduce a separate private-config
+dependency. After naming a thread and deleting its first configuration, fresh
+native resume loses the name even with `CODEX_SQLITE_HOME` shared. The new
+`CODEX_SESSION_INDEX_HOME` experiment routes native index scans, appends and
+removal through one owned private directory and one stable OS lock. It rejects
+private competing copies, links, unsafe permissions and changed lock identity;
+rewrites use a unique synced temporary file and atomic rename. Five standalone
+tests pass, including paused rewrite versus peer append and owner death without
+lock deletion. `apply_session_index.py` pins the exact upstream index source;
+CI must still compile the patched rollout crate and verify real native
+name/read/resume across two disposed configurations. This is one history
+component, not complete native history or production integration.

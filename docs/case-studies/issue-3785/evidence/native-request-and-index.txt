@@ -1,0 +1,37 @@
+Issue 3785 continuation, 2026-10-26 UTC. Synthetic state only.
+
+Actual executable: native-codex-experimental-cli artifact, run 40370836766,
+head 24c34a39aa30222d441adb6f741f0befff2d6926, pinned upstream Codex 0.164.0.
+Two independent long-lived app servers per mode; bounded loopback HTTP provider.
+G0 warm request, canonical atomic G1 replacement, unlink logout, G2 recreation.
+
+Before request-admission repair:
+  API key: both clients use G0, observe G1, send an unauthenticated request after
+  logout, then observe G2. --expect-unauthenticated-logout: PASS (defect reproduced).
+  Managed ChatGPT: same actual-request sequence and negative-control PASS.
+  Both modes also reproduce unauthenticated requests for malformed JSON and
+  unsafe permissions, then observe repaired G1 in the same live clients.
+  Positive control fails because invalid authority must produce zero requests.
+  No credential/header/body bytes are emitted; observations are classified.
+  Root cause: model-provider/src/auth.rs resolves missing required auth into
+  unauthenticated execution. Pinned repair applicability passes; native build
+  and positive actual-request verification remain pending.
+
+Stock Codex named metadata, real Docker app-server protocol:
+  thread/name/set succeeds; dispose the complete first private configuration.
+  Fresh thread/resume loses the name, including with shared CODEX_SQLITE_HOME.
+  Both --expect-private-metadata controls PASS (defect reproduced).
+  CODEX_SESSION_INDEX_HOME experiment standalone tests: 5 PASS, 1 ignored worker.
+  Covers canonical replacement/append/read without private copies, paused rewrite
+  versus peer append, forced owner death preserving lock identity, conflicting
+  private copies/links, unsafe modes/root aliases and replaced lock refusal.
+  Exact-source index application passes. Full native upstream/index tests and
+  name/read/resume across two disposed configurations remain pending.
+
+Production history inspection:
+  Three new EACCES/EIO regressions FAIL before repair; surrounding selection
+  passes all 28 cases after repair. Failed inspection cannot authorize a retry;
+  recovery refuses before copying or deleting the resume argument.
+
+These results do not establish production canonical auth/history, all native
+writers, post-exchange crash recovery, or the required six-tool image matrix.

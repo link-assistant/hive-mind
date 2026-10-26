@@ -898,3 +898,27 @@ explicit-unarchive/resume across fresh configurations. Both bounded native
 probes are required by CI, and packaged host/nested backing gates now exercise
 all three directories. Full indexes, SQLite, maintenance coordination and
 successful execution cleanup remain open under A9.
+
+The next actual-request control finds a limit in the passing manager tests.
+Native CI run 40370836766 builds the coordinated CLI and passes every manager
+case, but its downloaded executable still sends an auth-required model request
+without Authorization after canonical logout. Two live clients reproduce this
+in both API-key and managed ChatGPT modes; atomic G1 replacement and G2 recreation
+work. The provider's missing-auth fallback is the traced cause. A new exact-source
+guard refuses that fallback; the rebuilt full-CLI positive control is pending.
+
+Sharing native SQLite alone also fails the named-thread disposal control:
+`thread/read` can retain the name, but a fresh native `thread/resume` loses it
+without the session index. The experimental index selector routes native scans,
+appends and removal into one private authority with stable locking and synced
+atomic rewrites. Five standalone tests pass, including rewrite/append contention
+and forced owner death. Native compilation and name/read/resume after two
+configuration disposals remain pending. Production keeps its current native CLI;
+A1/A5/A9 and the full lifecycle matrix remain open.
+
+Three additional regressions reproduce history I/O errors being treated as an
+absent rollout and failed inspection being cached as successful. Only ENOENT
+now permits missing-history behavior; EACCES/EIO refuse resume/recovery on every
+attempt before copying or dropping the resume identity. All 28 surrounding
+tests pass. Structural evidence is in
+[evidence/native-request-and-index.txt](evidence/native-request-and-index.txt).

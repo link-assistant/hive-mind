@@ -441,3 +441,35 @@ actual model-request headers classified internally as G0/G1/G2; no request or
 credential bytes are logged. The full source-built CLI must pass the new
 replacement/logout/recreation control before production integration; manager
 unit/control passes alone do not prove that request path.
+
+### Latest-head fixture failure and an unauthenticated request fallback
+
+All five workflows created at 2026-10-26 17:40:35 UTC target
+`24c34a39aa30222d441adb6f741f0befff2d6926`. Checks run 40370836788 fails
+only its default suite; the complete downloaded log has 49,991 lines.
+Lines 49099–49119 identify the stale preflight mount fixture at file 38/723:
+`Canonical Codex history storage is unavailable; private fallback is prohibited.`
+The packaged Docker job succeeds, including the expanded archive/lock backing
+checks. A local continue-on-failure run also identifies the curated-loader
+fixture and the runner module's 1,350-line warning threshold. Both fixtures
+now provide only the three required history directories; the mount/preparation
+API moves into its own module. All 36 focused cases pass; the fresh 723-file
+default suite is still running.
+
+Native run 40370836766 builds the full CLI and passes all nine manager controls,
+status checks and all six stock history/format controls. Its request test fails;
+the preserved artifact initially shows temporary plugin-clone cleanup racing
+with a native child. Disable remote plugins before startup and reap the isolated
+process group before deleting state. Running the downloaded actual CI executable
+then exposes the underlying assertion: after logout the model provider sends
+one request without Authorization. Both live clients and both API-key/managed
+ChatGPT modes reproduce this with `--expect-unauthenticated-logout`; G1 replacement
+and G2 recreation still pass. The source provider permits missing auth to fall
+through to an unauthenticated request. A pinned source guard now refuses that
+case before an auth-required request; its full native CI build is pending.
+
+Native metadata controls independently demonstrate that even shared SQLite
+does not preserve a thread name through resume after private config disposal.
+A pinned canonical-index experiment has five passing standalone Rust tests;
+native upstream tests and real named read/resume after two disposals are new
+required steps in the experiment job. They are pending, not established passes.

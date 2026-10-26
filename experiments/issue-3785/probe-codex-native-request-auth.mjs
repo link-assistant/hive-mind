@@ -14,6 +14,8 @@ import { setTimeout, clearTimeout } from 'node:timers';
 
 const binary = process.argv[2];
 const uncoordinated = process.argv.includes('--expect-uncoordinated');
+const unauthenticatedLogout = process.argv.includes('--expect-unauthenticated-logout');
+assert.ok(!uncoordinated || !unauthenticatedLogout, 'Select only one native negative control.');
 assert.ok(binary && path.isAbsolute(binary), 'Supply an absolute native Codex binary path.');
 const root = await fs.mkdtemp(path.join(os.tmpdir(), 'hive-3785-native-requests-'));
 const clients = [];
@@ -47,8 +49,17 @@ server.headersTimeout = 3000;
 async function startClient({ home, config, canonical }) {
   await fs.mkdir(home, { mode: 0o700 });
   await fs.mkdir(config, { mode: 0o700, recursive: true });
+  await fs.writeFile(path.join(config, 'config.toml'), '[features]\nremote_plugin=false\n', { mode: 0o600 });
   const env = { PATH: process.env.PATH, HOME: home, CODEX_HOME: config, CODEX_AUTH_HOME: canonical, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1', TOKIO_WORKER_THREADS: '2', RUST_LOG: 'off' };
-  const child = spawn('prlimit', ['--data=536870912', '--stack=16777216', '--core=0', '--', binary, 'app-server'], { cwd: root, env, stdio: ['pipe', 'pipe', 'pipe'] });
+  const child = spawn('prlimit', ['--data=536870912', '--stack=16777216', '--core=0', '--', binary, 'app-server'], { cwd: root, env, detached: true, stdio: ['pipe', 'pipe', 'pipe'] });
+  const killGroup = () => {
+    if (!child.pid) return;
+    try {
+      process.kill(-child.pid, 'SIGKILL');
+    } catch (error) {
+      if (error.code !== 'ESRCH') throw error;
+    }
+  };
   const closed = new Promise(resolve => child.once('close', resolve));
   const pending = new Map();
   let sequence = 0;
@@ -89,15 +100,18 @@ async function startClient({ home, config, canonical }) {
     });
   const timer = setTimeout(() => {
     fail('Finite native model-request deadline exceeded.');
-    child.kill('SIGKILL');
+    killGroup();
   }, 45_000);
+  let stopped;
   const client = {
-    async stop() {
-      clearTimeout(timer);
-      lines.close();
-      child.stdin.end();
-      if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
-      await closed;
+    stop() {
+      return (stopped ||= (async () => {
+        clearTimeout(timer);
+        lines.close();
+        child.stdin.end();
+        killGroup();
+        await closed;
+      })());
     },
     async modelRequest() {
       const before = observed.length;
@@ -137,24 +151,39 @@ try {
       peers.push(client);
       assert.deepEqual(await client.modelRequest(), ['G0'], 'Every live native client must first make a real model request with G0.');
     }
+    console.log(`CHECK: ${mode} both live clients made their initial G0 model request.`);
     await commit('G1');
     for (const client of peers) assert.deepEqual(await client.modelRequest(), [uncoordinated && mode === 'api-key' ? 'G0' : 'G1'], 'The next actual model request must observe canonical atomic replacement.');
+    console.log(`CHECK: ${mode} both live clients completed replacement requests.`);
+    if (!uncoordinated) {
+      await fs.writeFile(`${auth}.next`, '{malformed synthetic authority', { mode: 0o600 });
+      await fs.rename(`${auth}.next`, auth);
+      for (const client of peers) assert.deepEqual(await client.modelRequest(), unauthenticatedLogout ? ['absent'] : [], 'Malformed canonical auth must stop execution before a model request.');
+      await commit('G1');
+      await fs.chmod(auth, 0o644);
+      for (const client of peers) assert.deepEqual(await client.modelRequest(), unauthenticatedLogout ? ['absent'] : [], 'Unsafe canonical auth permissions must stop execution before a model request.');
+      await fs.chmod(auth, 0o600);
+      for (const client of peers) assert.deepEqual(await client.modelRequest(), ['G1'], 'Refused authority must not prevent the live peer from reading a repaired canonical generation.');
+      console.log(`CHECK: ${mode} both live clients completed malformed, unsafe and repaired-authority requests.`);
+    }
     await fs.unlink(auth);
     for (const client of peers) {
       const events = await client.modelRequest();
       if (uncoordinated) assert.deepEqual(events, [mode === 'api-key' ? 'G0' : 'G1'], 'The negative control must demonstrate a stale authorized model request after logout.');
+      else if (unauthenticatedLogout) assert.deepEqual(events, ['absent'], 'The intermediate native client must reproduce an unauthenticated model request after logout.');
       else assert.deepEqual(events, [], 'Logout must stop execution before making a model request.');
     }
+    console.log(`CHECK: ${mode} both live clients completed logout requests.`);
     await commit('G2');
     for (const client of peers) assert.deepEqual(await client.modelRequest(), [uncoordinated && mode === 'api-key' ? 'G0' : 'G2'], 'Live peers must observe authority recreation on their next request.');
     await Promise.all(peers.map(client => client.stop()));
     if (!uncoordinated) for (const index of [0, 1]) await assert.rejects(fs.access(path.join(root, `${mode}-config-${index}`, 'auth.json')), { code: 'ENOENT' });
-    console.log(`PASS: ${mode} actual model requests ${uncoordinated ? 'reproduce stale native authorization after logout' : 'observe replacement, refuse logout and observe recreation'} in two live CLI processes.`);
+    console.log(`PASS: ${mode} actual model requests ${uncoordinated ? 'reproduce stale native authorization after logout' : unauthenticatedLogout ? 'reproduce unauthenticated execution after logout' : 'observe replacement, refuse logout and observe recreation'} in two live CLI processes.`);
   }
   assert.equal(invalidRequest, false, 'Only declared local synthetic endpoints may be used.');
 } finally {
   await Promise.allSettled(clients.map(client => client.stop()));
   server.closeAllConnections();
   await new Promise(resolve => server.close(resolve));
-  await fs.rm(root, { recursive: true, force: true });
+  await fs.rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
 }

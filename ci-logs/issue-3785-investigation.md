@@ -585,3 +585,13 @@ strict logs are `/tmp/issue-3785-tui-canonical-before.log` and
 `/tmp/issue-3785-tui-canonical-regression.log`. Neither the alternate-constructor
 repair nor the TUI ordering patch is included in 3f37d553d; both require fresh
 full native CI evidence before production use.
+
+Fresh CodeQL check [121817770096](https://github.com/link-assistant/hive-mind/runs/121817770096)
+passes on exact head `49e4cf2808de60afaef322558d9cea8d8fb15ebf` at
+2026-10-26 20:07:09 UTC with zero annotations. Alert 228's instance for
+`refs/pull/3786/merge` is now `fixed`; its main-branch instance remains open.
+The most recent PR instance retains the SHA where the finding was introduced,
+so the fresh check's head SHA and completion timestamp identify the repair's
+analysis. Both check metadata and instance state are retained in this directory.
+This verifies the diagnostic repair without suppressing the alert. Other native
+and packaged checks are still running or queued at this point.

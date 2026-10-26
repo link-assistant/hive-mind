@@ -1,4 +1,4 @@
-# Native Qwen read experiment
+# Native Qwen authentication experiments
 
 This patches a disposable copy of the real Qwen 0.26.1 package, whose token
 manager bundle has SHA-256
@@ -114,8 +114,55 @@ reaped, uses synthetic state and captures no native diagnostic bytes. The writer
 probe replaces `fetch` with a local response stub and counts exchanges, so it
 does not establish model-request admission through the real CLI.
 
-Native CI verification is pending. Full CLI and cross-container evidence,
+Native read and coordination CI passes in run [40396374276](https://github.com/link-assistant/hive-mind/actions/runs/40396374276)
+at c1bfa9c6c; downloaded diagnostics confirm all 11 native writer cases.
+The newer actual CLI/factory controls below still require a fresh CI run.
+Full CLI lifecycle and cross-container evidence,
 alternative credential backends, shared conversation history, production
 integration, migration of existing homes and CLI-upgrade/release/deployment
 coverage remain unfinished. Do not enable the adapter based on these controls
 alone.
+
+## Actual CLI provider admission
+
+The real pinned CLI rejects `--auth-type qwen-oauth` unconditionally, explaining
+that its OAuth free tier was discontinued on 2026-04-15. The native validator in
+`chunks/chunk-M4DATMYW.js` contains that refusal. The actual bounded CLI control
+verifies exit 1 and zero model requests, and this behavior remains intact.
+Consequently the native OAuth-method controls above do not prove a usable CLI
+OAuth login flow or support for the current Coding Plan/API-key backends.
+
+A separate actual CLI control selects `QWEN_AUTH_HOME` with synthetic G0 OAuth
+credentials, then supplies an independent G2 OpenAI-compatible API key. Before
+repair it sends a loopback model request authenticated as G2 and succeeds. The
+strict zero-request regression fails. `apply_request_auth.py` hash-checks the
+exact native provider-factory bundle before adding an explicit refusal for
+unsupported authorities. It checks creation, lazy loading and each later use
+of a retained provider handle. Other native constructors outside this inspected
+factory are not established.
+
+The actual CLI regression passes after repair: exit 1, a constant error and zero
+model requests. Without the canonical selector, the same native CLI completes
+one request using the explicit synthetic API key. The actual factory separately
+refuses five alternative provider modes, six OAuth authority overrides, and all
+15 content/stream/embedding calls through five retained provider handles after
+canonical selection changes. The probe uses private disposable homes, no
+operator environment, a finite one-turn input, 256 MiB child heap, 2 GiB data
+address bound, 16 MiB stack, 128 KiB output bound and 30-second deadline.
+Every process and loopback server is closed before cleanup.
+
+```sh
+# After read/coordination repair, before provider admission repair:
+node experiments/issue-3785/probe-qwen-native-cli.mjs --expect-provider-bypass
+# Strict default invocation must fail before repair.
+python3 experiments/issue-3785/native-qwen/apply_request_auth.py experiments/issue-3785/native-qwen/stock-cli/node_modules/@qwen-code/qwen-code --check
+python3 experiments/issue-3785/native-qwen/apply_request_auth.py experiments/issue-3785/native-qwen/stock-cli/node_modules/@qwen-code/qwen-code
+node experiments/issue-3785/probe-qwen-native-cli.mjs
+node experiments/issue-3785/probe-qwen-native-cli.mjs --factory-controls
+node experiments/issue-3785/probe-qwen-native-cli.mjs --without-selector
+node experiments/issue-3785/probe-qwen-native-cli.mjs --oauth-sunset
+```
+
+This is a refusal guard for unsupported authority, not canonical storage for
+the current API-key/Coding Plan backends. That implementation and its native
+writer/lifecycle verification remain required before production admission.

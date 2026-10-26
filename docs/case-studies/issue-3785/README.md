@@ -961,3 +961,12 @@ the actual native crate/full CLI and passes those 14 controls and 12 tests.
 The downloaded CLI still reproduces unsafe-history model execution through the
 TUI; the pinned ordering repair awaits native compilation. Remaining writers
 and production integration stay open. See [prompt-history evidence](evidence/native-message-history.txt).
+
+The next actual Qwen CLI control preserves the native OAuth-sunset refusal,
+then reproduces independent API-key model execution despite selected canonical
+OAuth authority. The strict zero-request test fails before the new pinned
+provider-factory guard and passes locally afterward. Five alternative provider
+modes, six OAuth overrides and 15 retained-provider methods refuse; the
+no-selector CLI still completes its synthetic loopback request. Current
+API-key/Coding Plan canonical storage remains open. See the native-Qwen
+experiment README for exact commands and boundaries; fresh CI is required.

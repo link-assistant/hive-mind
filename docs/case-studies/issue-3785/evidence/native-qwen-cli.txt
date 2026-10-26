@@ -1,0 +1,38 @@
+Native Qwen CLI provider admission evidence
+Pinned real package: @qwen-code/qwen-code 0.26.1
+Provider bundle SHA-256 before patch: 6ecd4c0406b7f66a8f8bcea6865644a72f7e2b5cfb6842006fb89db1ebab366f
+Synthetic private state and loopback HTTP only; no operator configuration.
+Executed locally 2026-10-26 with Node 26.12.1 on Linux.
+
+BEFORE
+REPRODUCED: the actual native Qwen CLI ignores selected canonical OAuth authority and sends a model request with an independent API key.
+
+REGRESSION
+AssertionError [ERR_ASSERTION]: Selected canonical Qwen authority must refuse independent provider credentials before model execution.
+
+AFTER
+PASS: actual native Qwen CLI refuses unsupported independent provider authority before model execution.
+
+FACTORY
+PASS: actual native provider factory refuses selected openai authority before loading its provider.
+PASS: actual native provider factory refuses selected openai-responses authority before loading its provider.
+PASS: actual native provider factory refuses selected anthropic authority before loading its provider.
+PASS: actual native provider factory refuses selected gemini authority before loading its provider.
+PASS: actual native provider factory refuses selected vertex-ai authority before loading its provider.
+PASS: actual native OAuth provider factory refuses independent apiKey.
+PASS: actual native OAuth provider factory refuses independent apiKeyEnvKey.
+PASS: actual native OAuth provider factory refuses independent baseUrl.
+PASS: actual native OAuth provider factory refuses independent proxy.
+PASS: actual native OAuth provider factory refuses independent customHeaders.
+PASS: actual native OAuth provider factory refuses independent reasoningRouteBaseUrl.
+PASS: all five retained native provider handles refuse content, stream and embedding use after canonical selection changes.
+
+
+LEGACY
+CONTROL: without a canonical selector, the actual native Qwen CLI uses its explicit synthetic API key and loopback model endpoint.
+
+SUNSET
+CONTROL: actual native Qwen CLI preserves its OAuth sunset refusal and sends no model request. Native OAuth-method controls cannot establish CLI OAuth usability.
+
+LIMITS
+This guard refuses unsupported independent provider authority. It does not implement a canonical API-key or Coding Plan backend. The pinned CLI rejects OAuth as discontinued; internal OAuth-method controls do not establish a usable CLI OAuth flow. All-tool production integration and release/lifecycle requirements remain open.

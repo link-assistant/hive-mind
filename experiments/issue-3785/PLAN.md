@@ -338,16 +338,18 @@ Current continuation:
       logout retaining G1, including the failing strict assertion. Prepare an
       exact-bundle read repair; all 14 actual-manager controls pass locally with
       bounded synthetic inputs, cleared caches and no network exchanges.
-- [ ] Verify the pinned Qwen read repair in its native CI job. Continue stable
-      OS locking, every native writer, independent auth/config roots and actual
-      CLI request refusal; none is established by the read-only experiment.
+- [x] Verify the pinned Qwen read repair in native CI run 40396374276 at
+      c1bfa9c6c. Continue all native writers/backends, actual CLI request refusal
+      and production integration; the read-only experiment establishes none.
 - [x] Reproduce actual Qwen OAuth client swallowing manager refusal; the strict
       native-client regression fails after the read-only repair. Add pinned
       native OAuth coordination and QWEN_AUTH_HOME selection. Verify all 14
       manager/client read cases, actual kernel wait across private configurations
       and 11 native OAuth writer/failure cases with synthetic fetch responses.
-- [ ] Verify Qwen coordination in native CI and the actual CLI/model request
-      path; audit alternative credential backends, all history writers and
+- [x] Verify Qwen coordination in native CI run 40396374276, including the
+      actual kernel wait, 14 manager/client controls and 11 writer cases.
+- [ ] Verify Qwen actual CLI/model request admission in native CI; audit
+      alternative credential backends, all history writers and
       cross-container/upgrade behavior before production integration. Corrupt
       refresh-intent recovery and complete compatibility/migration remain open.
 
@@ -360,3 +362,19 @@ before heavy commands and do not retry an OOM build unchanged.
       reports. Correct both returns, check exact-source applicability and
       rustfmt, then rerun full compilation and actual TUI/constructor controls.
       Positive execution evidence remains pending until that CI run passes.
+
+- [x] Drive the actual Qwen CLI against a bounded loopback model endpoint.
+      Preserve its OAuth sunset refusal; reproduce independent API-key model
+      execution despite selected canonical OAuth authority. The strict test
+      fails before repair. Pin a native provider factory/use guard, verify
+      actual CLI zero-request refusal, five provider modes, six overrides,
+      15 retained-handle methods and no-selector native behavior locally.
+- [ ] Implement Qwen's current API-key/Coding Plan canonical authority and every
+      native writer/backend; OAuth method controls and unsupported-provider
+      refusals do not establish a usable canonical CLI auth flow. Verify the
+      new actual-request and factory controls in fresh native CI.
+
+- [ ] Reproduce native Codex consuming a refresh predecessor again after forced
+      owner death during an unknown exchange outcome. Add durable intent and
+      recovery evidence before enabling its canonical auth adapter. Keep native
+      full-CLI verification separate from standalone storage tests.

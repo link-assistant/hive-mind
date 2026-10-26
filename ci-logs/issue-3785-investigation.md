@@ -595,3 +595,10 @@ so the fresh check's head SHA and completion timestamp identify the repair's
 analysis. Both check metadata and instance state are retained in this directory.
 This verifies the diagnostic repair without suppressing the alert. Other native
 and packaged checks are still running or queued at this point.
+
+The fresh local default suite at `49e4cf280` finishes with all 724 selected test
+files passing (`/tmp/issue-3785-codeql-full-suite.log`). This includes the new
+synthetic inherited-diagnostic regression. Subsequent Qwen changes are confined
+to native experiments, their workflow and evidence; their actual manager/client
+and writer controls are verified separately and do not establish production
+integration or the complete six-tool contract.

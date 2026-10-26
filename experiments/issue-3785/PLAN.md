@@ -253,6 +253,8 @@ Current continuation:
       121817770096 passes at 49e4cf280 with zero annotations at 20:07:09 UTC;
       the PR instance is fixed while the unchanged main instance remains open.
 - [x] Complete the fresh local default suite: all 723 selected files pass.
+      The subsequent complete 724-file run, including the inherited-diagnostic
+      regression, also passes at 49e4cf280.
 - [x] Preserve the latest checkout timeout and reproduce its false successful
       terminal PR status. Fail cancelled dependencies on every ref; the changed
       integrity test fails before repair and passes afterward.
@@ -339,6 +341,15 @@ Current continuation:
 - [ ] Verify the pinned Qwen read repair in its native CI job. Continue stable
       OS locking, every native writer, independent auth/config roots and actual
       CLI request refusal; none is established by the read-only experiment.
+- [x] Reproduce actual Qwen OAuth client swallowing manager refusal; the strict
+      native-client regression fails after the read-only repair. Add pinned
+      native OAuth coordination and QWEN_AUTH_HOME selection. Verify all 14
+      manager/client read cases, actual kernel wait across private configurations
+      and 11 native OAuth writer/failure cases with synthetic fetch responses.
+- [ ] Verify Qwen coordination in native CI and the actual CLI/model request
+      path; audit alternative credential backends, all history writers and
+      cross-container/upgrade behavior before production integration. Corrupt
+      refresh-intent recovery and complete compatibility/migration remain open.
 
 Resource policy: use sequential builds/tests; no real credentials in experiments
 or artifacts. Current cgroup usage is mostly reclaimable file cache. Measure

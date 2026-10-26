@@ -12,20 +12,29 @@ import { setTimeout, clearTimeout } from 'node:timers';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 if (process.argv[2] === '--worker') {
-  const { SharedTokenManager } = await import(pathToFileURL(process.argv[3]).href);
+  const { SharedTokenManager, QwenOAuth2Client } = await import(pathToFileURL(process.argv[3]).href);
+  const nativeClient = process.argv[4] === '--native-client';
   const manager = SharedTokenManager.getInstance();
   let credentials;
   let exchanges = 0;
-  const client = {
-    setCredentials: value => {
-      credentials = value;
-    },
-    getCredentials: () => credentials,
-    refreshAccessToken: async () => {
+  const client = nativeClient
+    ? new QwenOAuth2Client()
+    : {
+        setCredentials: value => {
+          credentials = value;
+        },
+        getCredentials: () => credentials,
+        refreshAccessToken: async () => {
+          exchanges++;
+          return { error: 'synthetic-refusal' };
+        },
+      };
+  // A native-client control must also remain completely offline.
+  if (nativeClient)
+    globalThis.fetch = async () => {
       exchanges++;
-      return { error: 'synthetic-refusal' };
-    },
-  };
+      throw new Error('Synthetic network refusal.');
+    };
   process.on('message', async message => {
     if (message.stop) {
       process.disconnect();
@@ -36,12 +45,12 @@ if (process.argv[2] === '--worker') {
     try {
       // Bypass only the five-second poll interval when requested: use the real
       // native forced-check method, leaving its timestamp predicate intact.
-      if (message.force) await manager.forceFileCheck(client);
-      const result = await manager.getValidCredentials(client);
-      generation = ['G0', 'G1'].find(value => result.access_token === `synthetic-access-${value}`) || 'unexpected';
+      if (message.force && !nativeClient) await manager.forceFileCheck(client);
+      const result = nativeClient ? { access_token: (await client.getAccessToken()).token } : await manager.getValidCredentials(client);
+      generation = result.access_token === undefined ? 'undefined-access-token' : ['G0', 'G1'].find(value => result.access_token === `synthetic-access-${value}`) || 'unexpected';
     } catch {
       // Never publish native exceptions or token content.
-      if (credentials?.access_token) generation = 'retained-after-refusal';
+      if (client.getCredentials()?.access_token) generation = 'retained-after-refusal';
     }
     process.send({ id: message.id, generation, exchanges: exchanges - before });
   });
@@ -50,6 +59,8 @@ if (process.argv[2] === '--worker') {
   const metadata = JSON.parse(await fs.readFile(path.join(path.dirname(moduleFile), '..', 'package.json'), 'utf8'));
   assert.equal(metadata.version, '0.26.1', 'Use the inspected native package version.');
   const negative = process.argv.includes('--expect-native-gaps');
+  const nativeClient = process.argv.includes('--native-client');
+  const undefinedExpected = process.argv.includes('--expect-undefined-token');
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'hive-3785-qwen-reads-'));
   const home = path.join(root, 'home');
   const authority = path.join(home, '.qwen');
@@ -75,7 +86,7 @@ if (process.argv[2] === '--worker') {
     const stamp = new Date(1000000000000);
     await publish('G0', stamp);
     // V8 needs virtual address reservations beyond its 128 MiB heap budget.
-    child = spawn('/usr/bin/prlimit', ['--data=1610612736', '--stack=16777216', '--core=0', '--', process.execPath, '--max-old-space-size=128', fileURLToPath(import.meta.url), '--worker', moduleFile], {
+    child = spawn('/usr/bin/prlimit', ['--data=1610612736', '--stack=16777216', '--core=0', '--', process.execPath, '--max-old-space-size=128', fileURLToPath(import.meta.url), '--worker', moduleFile, nativeClient ? '--native-client' : '--manager'], {
       cwd: root,
       env: { PATH: process.env.PATH, HOME: home, QWEN_HOME: authority, QWEN_RUNTIME_DIR: path.join(root, 'runtime'), XDG_CONFIG_HOME: path.join(home, '.config'), XDG_DATA_HOME: path.join(home, '.local/share'), XDG_CACHE_HOME: path.join(home, '.cache') },
       stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
@@ -123,9 +134,9 @@ if (process.argv[2] === '--worker') {
     assert.deepEqual(await read(true), { generation: 'G1', exchanges: 0 });
     console.log('PASS: native Qwen reads a later-timestamp G1 publication.');
     await fs.unlink(file);
-    assert.deepEqual(await read(true), { generation: negative ? 'G1' : 'rejected', exchanges: 0 }, 'Native logout must invalidate cached credentials before a read or refresh exchange.');
-    console.log(negative ? 'REPRODUCED: forced native Qwen read returns cached G1 after canonical logout.' : 'PASS: native Qwen logout refuses cached credentials without an exchange.');
-    if (!negative) {
+    assert.deepEqual(await read(true), { generation: negative ? 'G1' : undefinedExpected ? 'undefined-access-token' : 'rejected', exchanges: 0 }, 'Native logout must invalidate cached credentials before a read or refresh exchange.');
+    console.log(negative ? 'REPRODUCED: forced native Qwen read returns cached G1 after canonical logout.' : undefinedExpected ? 'REPRODUCED: actual native OAuth client swallows refusal and returns an undefined access token after logout.' : 'PASS: native Qwen logout refuses cached credentials without an exchange.');
+    if (!negative && !undefinedExpected) {
       await publish('G0', stamp);
       assert.deepEqual(await read(false), { generation: 'G0', exchanges: 0 });
       await publish('G1', stamp);

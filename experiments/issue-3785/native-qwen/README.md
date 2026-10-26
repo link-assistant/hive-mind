@@ -49,10 +49,73 @@ directory, oversized and parent-directory cases. It separately retains the
 native lock-ownership defect and its healthy control.
 
 The read repair does not complete canonical Qwen authentication. The independent
-auth/config root contract, stable OS lock, all refresh/login/logout writers,
-publication durability, invalid-grant handling and actual CLI model-request
-refusal remain unfinished. In particular, the native client can swallow a
-manager error and return an undefined access token, and an exiting non-owner
-still unlinks another native manager's refresh lock. Full CLI and cross-container
-evidence are required before enabling a production adapter. Private-storage
-admission also needs migration and compatibility coverage for existing homes.
+auth/config root contract, writer coordination and actual CLI model-request
+refusal require the next experiment and full integration evidence below.
+
+## Native writer coordination
+
+After the read repair, the actual `QwenOAuth2Client.getAccessToken()` still
+swallows the manager's storage refusal and returns an undefined token. The
+`--native-client --expect-undefined-token` control reproduces that behavior;
+the strict native-client regression fails before the coordination patch.
+
+`apply_coordination.py` accepts only the exact read-patched bundle and pinned
+shared lock implementation. It selects `QWEN_AUTH_HOME` for OAuth credentials
+independently of `QWEN_HOME` configuration. An empty/relative selector or a
+second private OAuth credential file is refused. Without the selector the
+native credential location is retained, with the experimental strict storage
+and coordination behavior. No production launcher sets the selector yet.
+
+The patch routes the actual manager, direct OAuth refresh, device-flow/cache
+publication and logout through one stable descriptor-owned Linux `flock`.
+Async-local transaction ownership lets the native invalid-grant path clear
+credentials inside its refresh transaction. Every refresh rereads disk after
+locking, retains the current refresh token if the response omits a replacement,
+and compares the predecessor file version before durable atomic publication.
+Both memory and client caches update only after manager publication succeeds;
+the native client now propagates refusal instead of returning an empty token.
+Exit handlers never unlink a lock, and a legacy native lock prevents admission
+without guessing its age or deleting another owner's evidence.
+
+A private durable intent precedes an exchange. If an owner dies or the network
+outcome is unknown before a new generation is published, peers refuse to
+consume G0 again. A fresh successful login can publish G2 and clear the intent.
+If a different generation was already durably published before owner death,
+the next transaction synchronizes it and completes intent cleanup. Unsafe or
+malformed intent evidence is preserved and refused; automated recovery of
+corrupt markers remains unimplemented.
+
+The inspected installed package references OAuth credential storage in its
+central manager/cache/clear module. The server device-flow adapter delegates to
+that cache function. Other filename matches are storage declarations or
+unrelated MCP/Google/remote SDK refreshers. This audit does not establish every
+alternative native credential backend or provider selection path.
+
+```sh
+# Run after the read-repair commands above.
+node experiments/issue-3785/probe-qwen-native-reads.mjs --native-client --expect-undefined-token
+# Strict --native-client must fail before the coordination repair.
+python3 experiments/issue-3785/native-qwen/apply_coordination.py experiments/issue-3785/native-qwen/stock-cli/node_modules/@qwen-code/qwen-code --check
+python3 experiments/issue-3785/native-qwen/apply_coordination.py experiments/issue-3785/native-qwen/stock-cli/node_modules/@qwen-code/qwen-code
+node experiments/issue-3785/probe-qwen-lock-ownership.mjs --expect-coordinated --private-configs
+node experiments/issue-3785/probe-qwen-native-reads.mjs --native-client
+node experiments/issue-3785/probe-qwen-native-writers.mjs
+```
+
+All 14 manager and 14 actual-client read controls pass locally after coordination.
+The ownership probe observes the real peer waiting in the kernel before release
+and verifies no second exchange or lock replacement after a non-owner exits.
+It also passes with three separate configuration roots and no private credential
+copies. Eleven actual native OAuth writer controls pass: two refreshers,
+refresh/login, refresh/logout, invalid grant, forced owner death, unknown network
+outcome, direct native refresh, a competing raw publication, unsafe lock, live
+legacy lock and conflicting private authority. Every worker is bounded and
+reaped, uses synthetic state and captures no native diagnostic bytes. The writer
+probe replaces `fetch` with a local response stub and counts exchanges, so it
+does not establish model-request admission through the real CLI.
+
+Native CI verification is pending. Full CLI and cross-container evidence,
+alternative credential backends, shared conversation history, production
+integration, migration of existing homes and CLI-upgrade/release/deployment
+coverage remain unfinished. Do not enable the adapter based on these controls
+alone.

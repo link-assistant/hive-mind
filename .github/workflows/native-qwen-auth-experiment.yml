@@ -6,6 +6,8 @@ on:
       - 'experiments/issue-3785/native-qwen/**'
       - 'experiments/issue-3785/probe-qwen-native-reads.mjs'
       - 'experiments/issue-3785/probe-qwen-lock-ownership.mjs'
+      - 'experiments/issue-3785/probe-qwen-native-writers.mjs'
+      - 'src/shared-auth-refresh-lock.lib.mjs'
       - '.github/workflows/native-qwen-auth-experiment.yml'
   workflow_dispatch:
 
@@ -51,6 +53,26 @@ jobs:
           python3 experiments/issue-3785/native-qwen/apply_reads.py experiments/issue-3785/native-qwen/stock-cli/node_modules/@qwen-code/qwen-code
       - name: Verify native reads, cache clearing, repair and unsafe storage refusal
         run: node --max-old-space-size=128 experiments/issue-3785/probe-qwen-native-reads.mjs > "$RUNNER_TEMP/qwen-reads-after.log" 2>&1
+      - name: Reproduce native OAuth client swallowing storage refusal
+        run: |
+          node --max-old-space-size=128 experiments/issue-3785/probe-qwen-native-reads.mjs --native-client --expect-undefined-token > "$RUNNER_TEMP/qwen-client-before.log" 2>&1
+          if node --max-old-space-size=128 experiments/issue-3785/probe-qwen-native-reads.mjs --native-client > "$RUNNER_TEMP/qwen-client-regression.log" 2>&1; then
+            echo 'The native client refusal regression unexpectedly passed before repair.'
+            exit 1
+          fi
+          grep -F 'AssertionError [ERR_ASSERTION]: Native logout must invalidate cached credentials before a read or refresh exchange.' "$RUNNER_TEMP/qwen-client-regression.log"
+      - name: Apply the exact pinned native coordination experiment
+        run: |
+          python3 experiments/issue-3785/native-qwen/apply_coordination.py experiments/issue-3785/native-qwen/stock-cli/node_modules/@qwen-code/qwen-code --check
+          python3 experiments/issue-3785/native-qwen/apply_coordination.py experiments/issue-3785/native-qwen/stock-cli/node_modules/@qwen-code/qwen-code
+      - name: Verify native ownership across private configurations
+        run: node --max-old-space-size=128 experiments/issue-3785/probe-qwen-lock-ownership.mjs --expect-coordinated --private-configs > "$RUNNER_TEMP/qwen-ownership-after.log" 2>&1
+      - name: Verify native manager and OAuth client refuse unsafe authority
+        run: |
+          node --max-old-space-size=128 experiments/issue-3785/probe-qwen-native-reads.mjs > "$RUNNER_TEMP/qwen-coordinated-reads.log" 2>&1
+          node --max-old-space-size=128 experiments/issue-3785/probe-qwen-native-reads.mjs --native-client > "$RUNNER_TEMP/qwen-client-after.log" 2>&1
+      - name: Verify native refresh, login, logout and failure ordering
+        run: node --max-old-space-size=128 experiments/issue-3785/probe-qwen-native-writers.mjs > "$RUNNER_TEMP/qwen-writers-after.log" 2>&1
       - name: Preserve native diagnostics
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7

@@ -324,6 +324,17 @@ documents exact source bytes, reproduction, bounded execution and remaining
 writers/request-admission work. Native CI verification is pending; production
 does not load this experiment.
 
+The next pinned Qwen patch coordinates its actual OAuth manager, direct refresh,
+device-flow publication and logout with one persistent OS lock and durable
+pre-exchange intent. The native client propagates storage refusal; 14 native
+client read cases, an observed kernel wait across private configurations and
+11 writer/failure controls pass locally. Owner death with an unknown remote
+outcome preserves G0 and refuses another exchange until fresh login; a competing
+G2 publication survives. `QWEN_AUTH_HOME` separates OAuth storage from private
+configuration, but the actual CLI/model path, alternative backends, history,
+production integration and full lifecycle matrix remain unfinished. Native
+CI confirmation is pending.
+
 ### Authentication copies: reproduced and still present
 
 `prepareScopedCodexHome()` calls `syncFileIfPresent()` for `auth.json`;

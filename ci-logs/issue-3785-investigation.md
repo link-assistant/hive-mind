@@ -44,4 +44,16 @@ security/release runs 40271576619 and 40271576799 are unavailable: `gh run view
 --log` returned `log not found` for jobs 121405332105 and 121405471144. These
 cancellations do not establish a code failure or a passing check. On e5ccc5eec,
 Security, Workflows and Broken Link Checker completed successfully; release
-checks remain in progress while the additional audit-input hardening is tested.
+lint, file-line, documentation, changeset and syntax checks passed before the
+release run was cancelled by a newer commit. Its partial downloaded log has
+35915 lines; `gh` then reported unavailable job log 121410311814. It does not
+provide results for the cancelled test/image jobs.
+
+Although the Security workflow jobs succeeded, CodeQL posted two findings in
+[review 5647622216](https://github.com/link-assistant/hive-mind/pull/3786#pullrequestreview-5647622216).
+Finding 309 traced the subscription success log to the credential plan label;
+its reproducing test fails when synthetic credential/provider sentinels are
+logged. The log is now constant and the test passes. Finding 310 identified a
+substring URL assertion in the Router regression test; the assertion now
+compares the complete, unique generated `base_url` line. Neither finding was
+dismissed or suppressed. Fresh CodeQL analysis must verify both corrections.

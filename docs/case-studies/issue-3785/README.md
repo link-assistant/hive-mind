@@ -104,7 +104,10 @@ Verbose usage diagnostics used to record token suffixes, account IDs, all
 response headers and raw bodies. They now retain structural usage-window
 information and HTTP status only. Malformed credential/provider JSON errors
 also omit input excerpts from diagnostics and returned messages. Provider
-requests have a 30-second bound.
+requests have a 30-second bound. A later CodeQL review identified that the
+successful subscription diagnostic still carried a credential-derived plan
+label; it now emits a constant message. A regression preserves returned
+metadata while proving credential/provider sentinel values stay out of logs.
 
 ### Explicit Router usage authority
 
@@ -122,7 +125,7 @@ invalid endpoints, invalid dialects and dialects without a provider route before
 constructing vendor mounts. Task and Git routes use the dialect selected by the
 launch environment rather than an unrelated process-global image selection.
 Route validation precedes lease acquisition, and the lease carries that dialect
-through attachment and Codex provider-file wiring. Regression tests first
+through attachment, Codex provider-file wiring and coverage diagnostics. Regression tests first
 reproduced premature acquisition and loss of the selected dialect at both steps.
 The broader backend storage/audit contract remains unvalidated.
 
@@ -338,11 +341,13 @@ tests pass (38 tests). Existing Router isolation, routing, sidecar and hardening
 also pass after the admission change.
 Full-suite/static-check results and current-head CI are recorded in the PR.
 
-Local validation: all 695 files selected by the default runner passed. The
-new admission file was added during that run; the supplemental 38-test run
-includes it, and the existing Router suites were rerun after the launcher
-change. Full lint, format, duplication, secret scan and file-line gates passed;
-the final launcher changes also passed focused lint and formatting checks.
+Local validation: all 696 files selected by the refreshed default runner passed
+after the dependency updates. The audit file was added during that run; the
+supplemental run verifies its nine regressions plus the existing 56-assertion
+audit suite. The later subscription-log regression and exact URL assertion pass
+with the focused limits/cache/Router tests (40 tests). Existing Router suites
+were rerun after the launcher changes. Full lint, format, duplication, secret
+scan and file-line gates passed; subsequent changes passed focused checks.
 The three Docker/copy probes completed and cleaned up their fixtures.
 
 ![Synthetic before and after limits layout](evidence/display-comparison.png)

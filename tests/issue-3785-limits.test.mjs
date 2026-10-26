@@ -148,6 +148,20 @@ test('verbose limits diagnostics omit credential suffixes, account ids and respo
   assert.match(output, /HTTP status: 401/);
 });
 
+test('successful profile diagnostics omit values from credentials and provider metadata', async t => {
+  const messages = [];
+  t.mock.method(console, 'log', (...args) => messages.push(args.join(' ')));
+  t.mock.method(console, 'error', (...args) => messages.push(args.join(' ')));
+  t.mock.method(globalThis, 'fetch', async () => new globalThis.Response(JSON.stringify({ organization: { subscription_status: 'private-provider-sentinel' } })));
+  await withCredentials(t, { claudeAiOauth: { accessToken: 'synthetic-token', subscriptionType: 'private-credential-sentinel' } }, async credentialsPath => {
+    const result = await getClaudeSubscriptionInfo({ verbose: true, credentialsPath });
+    assert.equal(result.success, true);
+    assert.equal(result.subscription.planType, 'private-credential-sentinel');
+    assert.equal(result.subscription.status, 'private-provider-sentinel');
+  });
+  assert.doesNotMatch(messages.join('\n'), /private-.*sentinel/);
+});
+
 test('malformed provider JSON and credential JSON cannot escape through errors or diagnostics', async t => {
   const messages = [];
   t.mock.method(console, 'log', (...args) => messages.push(args.join(' ')));

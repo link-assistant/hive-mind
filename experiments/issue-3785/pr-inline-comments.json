@@ -1,1 +1,144 @@
-[]
+[
+  {
+    "url": "https://api.github.com/repos/link-assistant/hive-mind/pulls/comments/4374105797",
+    "pull_request_review_id": 5647622216,
+    "id": 4374105797,
+    "node_id": "PRRC_kwDOPUU0qc8AAAABBLeOxQ",
+    "diff_hunk": "@@ -122,53 +127,61 @@\n       console.log(`[VERBOSE] /limits subscription: GET ${PROFILE_API_ENDPOINT}`);\n     }\n \n-    const response = await fetch(PROFILE_API_ENDPOINT, { method: 'GET', headers: requestHeaders });\n+    const response = await fetch(PROFILE_API_ENDPOINT, { method: 'GET', headers: requestHeaders, signal: AbortSignal.timeout(30000) });\n     if (!response.ok) {\n       if (verbose) {\n-        console.error(`[VERBOSE] /limits subscription HTTP ${response.status} ${response.statusText}`);\n+        console.error(`[VERBOSE] /limits subscription HTTP ${response.status}`);\n       }\n+      await response.body?.cancel();\n       return {\n         success: false,\n-        error: `Failed to fetch Claude profile: ${response.status} ${response.statusText}`,\n+        error: `Failed to fetch Claude profile: HTTP ${response.status}`,\n       };\n     }\n \n     const data = await response.json();\n+    const organization = data?.organization || {};\n+    const account = data?.account || {};\n+    // Entitlements from an authenticated profile take precedence over a label\n+    // cached before a cancellation/downgrade. A cancelled renewal can retain\n+    // paid access until the billing period ends, so status alone is insufficient.\n+    const currentPlan = account.has_claude_max === true ? 'max' : account.has_claude_pro === true ? 'pro' : account.has_claude_max === false && account.has_claude_pro === false ? 'free' : planType;\n     if (verbose) {\n-      console.log('[VERBOSE] /limits subscription body:', JSON.stringify(data, null, 2));\n+      console.log('[VERBOSE] /limits Claude subscription:', JSON.stringify({ source: 'authenticated-profile', planType: currentPlan, status: organization.subscription_status || null, hasPaidEndDate: Boolean(organization.subscription_ends_at) }));",
+    "path": "src/limits-subscription.lib.mjs",
+    "commit_id": "17ac1931e0cc18f0084b5e6362b077d1449f224b",
+    "original_commit_id": "e5ccc5eec7cc6d7338c0a012b27c72e280755c1a",
+    "user": {
+      "login": "github-advanced-security[bot]",
+      "id": 62310815,
+      "node_id": "MDM6Qm90NjIzMTA4MTU=",
+      "avatar_url": "https://avatars.githubusercontent.com/in/57789?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/github-advanced-security%5Bbot%5D",
+      "html_url": "https://github.com/apps/github-advanced-security",
+      "followers_url": "https://api.github.com/users/github-advanced-security%5Bbot%5D/followers",
+      "following_url": "https://api.github.com/users/github-advanced-security%5Bbot%5D/following{/other_user}",
+      "gists_url": "https://api.github.com/users/github-advanced-security%5Bbot%5D/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/github-advanced-security%5Bbot%5D/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/github-advanced-security%5Bbot%5D/subscriptions",
+      "organizations_url": "https://api.github.com/users/github-advanced-security%5Bbot%5D/orgs",
+      "repos_url": "https://api.github.com/users/github-advanced-security%5Bbot%5D/repos",
+      "events_url": "https://api.github.com/users/github-advanced-security%5Bbot%5D/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/github-advanced-security%5Bbot%5D/received_events",
+      "type": "Bot",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "body": "## CodeQL / Clear-text logging of sensitive information\n\nThis logs sensitive data returned by [an access to claudeAiOauth](1) as clear text.\n\n[Show more details](https://github.com/link-assistant/hive-mind/security/code-scanning/309)",
+    "created_at": "2026-10-26T05:05:20Z",
+    "updated_at": "2026-10-26T05:05:20Z",
+    "html_url": "https://github.com/link-assistant/hive-mind/pull/3786#discussion_r4374105797",
+    "pull_request_url": "https://api.github.com/repos/link-assistant/hive-mind/pulls/3786",
+    "_links": {
+      "self": {
+        "href": "https://api.github.com/repos/link-assistant/hive-mind/pulls/comments/4374105797"
+      },
+      "html": {
+        "href": "https://github.com/link-assistant/hive-mind/pull/3786#discussion_r4374105797"
+      },
+      "pull_request": {
+        "href": "https://api.github.com/repos/link-assistant/hive-mind/pulls/3786"
+      }
+    },
+    "reactions": {
+      "url": "https://api.github.com/repos/link-assistant/hive-mind/pulls/comments/4374105797/reactions",
+      "total_count": 0,
+      "+1": 0,
+      "-1": 0,
+      "laugh": 0,
+      "hooray": 0,
+      "confused": 0,
+      "heart": 0,
+      "rocket": 0,
+      "eyes": 0
+    },
+    "start_line": null,
+    "original_start_line": null,
+    "start_side": null,
+    "line": 150,
+    "original_line": 150,
+    "side": "RIGHT",
+    "author_association": "CONTRIBUTOR",
+    "original_position": 61,
+    "position": 61,
+    "subject_type": "line",
+    "is_copilot_code_review": false,
+    "copilot_code_review_sources": []
+  },
+  {
+    "url": "https://api.github.com/repos/link-assistant/hive-mind/pulls/comments/4374105808",
+    "pull_request_review_id": 5647622216,
+    "id": 4374105808,
+    "node_id": "PRRC_kwDOPUU0qc8AAAABBLeO0A",
+    "diff_hunk": "@@ -0,0 +1,64 @@\n+/** @hive-mind-test-suite default */\n+import assert from 'node:assert/strict';\n+import { test } from 'node:test';\n+import { buildDockerIsolationStartArgs } from '../src/isolation-runner.lib.mjs';\n+import { acquireRouterForTask, attachRouterTaskContainer } from '../src/router-task-isolation.lib.mjs';\n+import { wireRouterTaskContainer } from '../src/router-sidecar.lib.mjs';\n+import { ROUTER_ROUTE_DIALECTS } from '../src/router-routes.lib.mjs';\n+\n+for (const selected of [{ useRouter: true, env: {} }, { env: { HIVE_MIND_USE_ROUTER: '1' } }]) {\n+  test(`selected Router without a task token rejects before inspecting vendor mounts: ${JSON.stringify(selected)}`, async () => {\n+    let inspected = 0;\n+    await assert.rejects(buildDockerIsolationStartArgs('solve', [], { ...selected, existsSync: () => ++inspected }), /Router.*token/i);\n+    assert.equal(inspected, 0);\n+  });\n+}\n+\n+test('invalid selected Router endpoint rejects without exposing its value', async () => {\n+  await assert.rejects(buildDockerIsolationStartArgs('solve', [], { useRouter: true, routerToken: 'synthetic-task-token', env: { HIVE_MIND_ROUTER_URL: 'file:///private-endpoint-sentinel' } }), error => /Router.*origin/i.test(error.message) && !error.message.includes('sentinel'));\n+});\n+\n+test('a Router dialect without a route for the selected tool rejects before native fallback', async () => {\n+  await assert.rejects(buildDockerIsolationStartArgs('solve', [], { tool: 'gemini', useRouter: true, routerToken: 'synthetic-task-token', env: { HIVE_MIND_ROUTER_IMAGE: 'konard/router:0.125.4' } }), /Router.*route/i);\n+});\n+\n+test('task routing uses the selected image dialect from the launch environment', async () => {\n+  const args = await buildDockerIsolationStartArgs('solve', [], { sessionId: 'router-admission', tool: 'claude', useRouter: true, routerToken: 'synthetic-task-token', env: { HIVE_MIND_ROUTER_IMAGE: 'konard/router:1.0.0' }, existsSync: () => false, installGuard: async () => ({ installed: false }) });\n+  assert.ok(args.some(value => value.startsWith('ANTHROPIC_BASE_URL=') && value.endsWith('/api/services/anthropic')));\n+});\n+\n+for (const options of [{ tool: 'gemini', env: {} }, { env: { HIVE_MIND_ROUTER_ROUTES: 'invalid-private-sentinel' } }, { env: { HIVE_MIND_ROUTER_URL: 'file:///private-sentinel' } }]) {\n+  test(`unusable Router route rejects before minting a task lease: ${JSON.stringify(options)}`, async () => {\n+    let acquired = 0;\n+    const result = await acquireRouterForTask({ backend: 'docker', useRouter: true, sessionId: 'router-admission', log: null, ...options, acquire: async () => (++acquired, { token: 'synthetic-task-token' }) });\n+    assert.equal(acquired, 0);\n+    assert.equal(result.router, null);\n+    assert.match(result.error, /Router/i);\n+    assert.ok(!result.error.includes('sentinel'));\n+  });\n+}\n+\n+test('the launch dialect follows the lease through container attachment', async () => {\n+  const { router, error } = await acquireRouterForTask({ backend: 'docker', useRouter: true, tool: 'codex', sessionId: 'router-admission', env: { HIVE_MIND_ROUTER_IMAGE: 'konard/router:1.0.0' }, log: null, acquire: async () => ({ token: 'synthetic-task-token', baseUrl: 'https://router.test' }) });\n+  assert.equal(error, null);\n+  let wired;\n+  assert.equal(await attachRouterTaskContainer({ router, sessionId: 'router-admission', attach: async () => ({ attached: true }), wire: async options => ((wired = options), { wired: true }) }), null);\n+  assert.equal(wired.dialect?.id, 'canonical');\n+});\n+\n+test('Codex container wiring uses the launch dialect rather than the global default', async () => {\n+  const commands = [];\n+  const result = await wireRouterTaskContainer({\n+    sessionId: 'router-admission',\n+    tool: 'codex',\n+    baseUrl: 'https://router.test',\n+    dialect: ROUTER_ROUTE_DIALECTS.canonical,\n+    githubMode: 'off',\n+    run: async (_binary, args) => {\n+      commands.push(args);\n+      return { stdout: args.includes('tls') ? '-----BEGIN CERTIFICATE-----\\nsynthetic\\n-----END CERTIFICATE-----' : '', stderr: '' };\n+    },\n+  });\n+  assert.equal(result.wired, true);\n+  assert.ok(commands.at(-1).at(-1).includes('https://router.test/api/services/codex/v1'));",
+    "path": "tests/issue-3785-router-admission.test.mjs",
+    "commit_id": "17ac1931e0cc18f0084b5e6362b077d1449f224b",
+    "original_commit_id": "e5ccc5eec7cc6d7338c0a012b27c72e280755c1a",
+    "user": {
+      "login": "github-advanced-security[bot]",
+      "id": 62310815,
+      "node_id": "MDM6Qm90NjIzMTA4MTU=",
+      "avatar_url": "https://avatars.githubusercontent.com/in/57789?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/github-advanced-security%5Bbot%5D",
+      "html_url": "https://github.com/apps/github-advanced-security",
+      "followers_url": "https://api.github.com/users/github-advanced-security%5Bbot%5D/followers",
+      "following_url": "https://api.github.com/users/github-advanced-security%5Bbot%5D/following{/other_user}",
+      "gists_url": "https://api.github.com/users/github-advanced-security%5Bbot%5D/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/github-advanced-security%5Bbot%5D/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/github-advanced-security%5Bbot%5D/subscriptions",
+      "organizations_url": "https://api.github.com/users/github-advanced-security%5Bbot%5D/orgs",
+      "repos_url": "https://api.github.com/users/github-advanced-security%5Bbot%5D/repos",
+      "events_url": "https://api.github.com/users/github-advanced-security%5Bbot%5D/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/github-advanced-security%5Bbot%5D/received_events",
+      "type": "Bot",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "body": "## CodeQL / Incomplete URL substring sanitization\n\n'[https://router.test/api/services/codex/v1](1)' can be anywhere in the URL, and arbitrary hosts may come before or after it.\n\n[Show more details](https://github.com/link-assistant/hive-mind/security/code-scanning/310)",
+    "created_at": "2026-10-26T05:05:20Z",
+    "updated_at": "2026-10-26T05:05:20Z",
+    "html_url": "https://github.com/link-assistant/hive-mind/pull/3786#discussion_r4374105808",
+    "pull_request_url": "https://api.github.com/repos/link-assistant/hive-mind/pulls/3786",
+    "_links": {
+      "self": {
+        "href": "https://api.github.com/repos/link-assistant/hive-mind/pulls/comments/4374105808"
+      },
+      "html": {
+        "href": "https://github.com/link-assistant/hive-mind/pull/3786#discussion_r4374105808"
+      },
+      "pull_request": {
+        "href": "https://api.github.com/repos/link-assistant/hive-mind/pulls/3786"
+      }
+    },
+    "reactions": {
+      "url": "https://api.github.com/repos/link-assistant/hive-mind/pulls/comments/4374105808/reactions",
+      "total_count": 0,
+      "+1": 0,
+      "-1": 0,
+      "laugh": 0,
+      "hooray": 0,
+      "confused": 0,
+      "heart": 0,
+      "rocket": 0,
+      "eyes": 0
+    },
+    "start_line": null,
+    "original_start_line": null,
+    "start_side": null,
+    "line": 63,
+    "original_line": 63,
+    "side": "RIGHT",
+    "author_association": "CONTRIBUTOR",
+    "original_position": 63,
+    "position": 63,
+    "subject_type": "line",
+    "is_copilot_code_review": false,
+    "copilot_code_review_sources": []
+  }
+]

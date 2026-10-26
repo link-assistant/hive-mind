@@ -46,6 +46,20 @@ test('the launch dialect follows the lease through container attachment', async 
   assert.equal(wired.dialect?.id, 'canonical');
 });
 
+test('launch diagnostics describe the selected dialect', async t => {
+  const previous = process.env.HIVE_MIND_ROUTER_ROUTES;
+  process.env.HIVE_MIND_ROUTER_ROUTES = 'legacy';
+  t.after(() => {
+    if (previous === undefined) delete process.env.HIVE_MIND_ROUTER_ROUTES;
+    else process.env.HIVE_MIND_ROUTER_ROUTES = previous;
+  });
+  const messages = [];
+  const { error } = await acquireRouterForTask({ backend: 'docker', useRouter: true, tool: 'gemini', sessionId: 'router-admission', env: { HIVE_MIND_ROUTER_ROUTES: 'canonical' }, log: async message => messages.push(message), acquire: async () => ({ token: 'synthetic-task-token' }) });
+  assert.equal(error, null);
+  assert.doesNotMatch(messages.join('\n'), /serves no endpoint for 'gemini'/);
+  assert.match(messages.join('\n'), /gh has no path-prefix setting/);
+});
+
 test('Codex container wiring uses the launch dialect rather than the global default', async () => {
   const commands = [];
   const result = await wireRouterTaskContainer({
@@ -60,5 +74,10 @@ test('Codex container wiring uses the launch dialect rather than the global defa
     },
   });
   assert.equal(result.wired, true);
-  assert.ok(commands.at(-1).at(-1).includes('https://router.test/api/services/codex/v1'));
+  const providerUrls = commands
+    .at(-1)
+    .at(-1)
+    .split('\n')
+    .filter(line => line.startsWith('base_url = '));
+  assert.deepEqual(providerUrls, ['base_url = "https://router.test/api/services/codex/v1"']);
 });

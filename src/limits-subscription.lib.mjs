@@ -147,7 +147,7 @@ export async function getClaudeSubscriptionInfo({ verbose = false, credentialsPa
     // paid access until the billing period ends, so status alone is insufficient.
     const currentPlan = account.has_claude_max === true ? 'max' : account.has_claude_pro === true ? 'pro' : account.has_claude_max === false && account.has_claude_pro === false ? 'free' : planType;
     if (verbose) {
-      console.log('[VERBOSE] /limits Claude subscription:', JSON.stringify({ source: 'authenticated-profile', planType: currentPlan, status: organization.subscription_status || null, hasPaidEndDate: Boolean(organization.subscription_ends_at) }));
+      console.log('[VERBOSE] /limits Claude subscription: authenticated profile received.');
     }
     return {
       success: true,

@@ -51,7 +51,7 @@ export const acquireRouterForTask = async ({ backend, useRouter = false, model =
   const { mode: githubMode } = resolveRouterGitHubRouting({ env, external: Boolean(acquired.external) });
   if (log) {
     await log(`🔀 [EXPERIMENTAL] Task '${sessionId}' routed through the router; vendor credentials stay in the sidecar (issue #2164)`);
-    for (const gap of describeRouterCoverageGaps({ model, tool, githubMode })) {
+    for (const gap of describeRouterCoverageGaps({ model, tool, githubMode, dialect: route.dialect })) {
       await log(`⚠️ ${gap}`);
     }
   }

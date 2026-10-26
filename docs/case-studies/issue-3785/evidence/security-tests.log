@@ -1,0 +1,134 @@
+✔ Retry-After is parsed from seconds and HTTP dates (1.346392ms)
+✔ a Claude 429 is cached instead of re-asked every queue cycle (8.107483ms)
+✔ a Retry-After longer than the usage TTL is honoured (2.656065ms)
+✔ concurrent callers share one usage request (the 429 pairs two seconds apart) (5.29631ms)
+✔ a Codex 401 is cached until the auth file changes (6.663761ms)
+✔ other failures (network, 5xx) are not cached (3.903883ms)
+✔ the real fetchers classify their failures (7.134078ms)
+✔ malformed global JSON stops repair without exposing input or changing other state (80.924777ms)
+✔ symlink from settings into credentials is rejected before repair (32.291667ms)
+✔ hardlink from settings into credentials is rejected before repair (34.955636ms)
+✔ a linked plugin ancestor cannot redirect cleanup into conversation storage (42.084435ms)
+✔ unreadable audit surfaces stop repair rather than becoming an empty catalog (22.333271ms)
+✔ unreadable Codex configuration stops every repair (52.159529ms)
+✔ a concurrent configuration edit invalidates the repair plan (101.204848ms)
+✔ a concurrent file creation prevents empty-parent pruning (80.536032ms)
+✔ removing an unapproved skill preserves hidden stock runtime files (62.341012ms)
+✔ Claude authentication error has its own section without subscription metadata (10.829652ms)
+✔ both providers have separate sections when neither has authentication (1.617798ms)
+✔ authenticated Claude entitlement overrides a stale locally stored Max plan (36.205999ms)
+✔ Claude live Max entitlement and paid expiry are retained when supplied (9.919494ms)
+✔ missing Claude authentication does not invent a cancelled subscription (5.145288ms)
+✔ stored Codex claims are identified as metadata even when their expiry is in the future (44.353127ms)
+✔ a successful usage cache is invalidated when credentials rotate (13.017643ms)
+✔ equal-mtime atomic credential replacement invalidates an authentication error (22.529055ms)
+✔ different credential authorities never share a usage cache entry (34.030151ms)
+✔ limits paths follow effective tool homes and never fall back to another home (1.680966ms)
+✔ logout immediately invalidates cached Codex subscription claims (24.853632ms)
+✔ verbose limits diagnostics omit credential suffixes, account ids and response bodies (8.82882ms)
+✔ successful profile diagnostics omit values from credentials and provider metadata (11.765327ms)
+✔ malformed provider JSON and credential JSON cannot escape through errors or diagnostics (15.73954ms)
+✔ selected Router without a task token rejects before inspecting vendor mounts: {"useRouter":true,"env":{}} (9.10804ms)
+✔ selected Router without a task token rejects before inspecting vendor mounts: {"env":{"HIVE_MIND_USE_ROUTER":"1"}} (8.385462ms)
+✔ invalid selected Router endpoint rejects without exposing its value (1.092227ms)
+✔ a Router dialect without a route for the selected tool rejects before native fallback (14.431922ms)
+✔ task routing uses the selected image dialect from the launch environment (16.681919ms)
+✔ unusable Router route rejects before minting a task lease: {"tool":"gemini","env":{}} (0.842141ms)
+✔ unusable Router route rejects before minting a task lease: {"env":{"HIVE_MIND_ROUTER_ROUTES":"invalid-private-sentinel"}} (8.04622ms)
+✔ unusable Router route rejects before minting a task lease: {"env":{"HIVE_MIND_ROUTER_URL":"file:///private-sentinel"}} (0.248584ms)
+✔ the launch dialect follows the lease through container attachment (1.693539ms)
+✔ launch diagnostics describe the selected dialect (13.908144ms)
+✔ Codex container wiring uses the launch dialect rather than the global default (2.51397ms)
+✔ explicit Router limits use its provider-neutral API and shared metadata result (86.869228ms)
+✔ an unsupported Router usage API reports selected authority failure without a local fallback (52.69576ms)
+✔ missing Router token fails before sending any usage request (13.49326ms)
+✔ Router Codex maps a weekly primary window and preserves additional metered limits (45.645447ms)
+✔ Router Claude uses the same authority for usage, entitlement and paid expiration (27.338948ms)
+✔ Router unavailable or unsupported data fails closed: {"schema_version":2,"subscriptions":[]} (66.689354ms)
+✔ Router unavailable or unsupported data fails closed: {"schema_version":1,"subscriptions":[{"provider":"openai","state":"unverified","windows":[]}]} (18.681318ms)
+✔ Router unavailable or unsupported data fails closed: {"schema_version":1,"subscriptions":[{"provider":"openai","state":"available"}]} (17.012174ms)
+
+1. The drifted configuration is fully reported
+  PASS: every non-minimal item is a finding and playwright MCP is not
+  PASS: only the custom command is warn-only
+  PASS: custom commands are reported but never removed
+  PASS: everything else carries a repair
+  PASS: the codex plugin repair targets the whole <marketplace>/<plugin> directory
+
+2. Scoping by tool
+  PASS: tool=claude only inspects claude
+  PASS: tool=codex only inspects codex
+  PASS: unknown tools produce no findings
+
+3. Repair leaves exactly the minimal configuration
+  PASS: no repair failed
+  PASS: every repair was applied
+  PASS: superpowers cache is gone
+  PASS: global codex skills are gone
+  PASS: global ~/.agents skills are gone
+  PASS: codex auth is untouched
+  PASS: codex sessions are untouched
+  PASS: playwright MCP survives in config.toml
+  PASS: the extra MCP table is removed
+  PASS: the plugin table is removed
+  PASS: unrelated top-level keys survive
+  PASS: existing feature pins survive
+  PASS: features.remote_plugin is pinned to false
+  PASS: claude marketplaces are gone
+  PASS: installed_plugins.json is gone
+  PASS: known_marketplaces.json is gone
+  PASS: global claude skill is gone
+  PASS: custom command is kept
+  PASS: claude credentials are untouched
+  PASS: claude projects are untouched
+  PASS: only the plugin enable entry left settings.json
+  PASS: only playwright MCP remains in ~/.claude.json
+  PASS: auth state in ~/.claude.json survives
+
+4. A repaired home is clean
+  PASS: second audit reports only the warn-only item
+
+5. A fresh Docker-image home is clean
+  PASS: the minimal configuration has no findings
+  PASS: an empty home only needs the remote plugin pin
+  PASS: the pin creates config.toml when missing
+
+6. runAgentConfigAudit honours auto-repair and logs warnings
+  PASS: nothing is repaired when auto-repair is off
+  PASS: the skipped repairs are reported
+  PASS: superpowers stays when auto-repair is off
+  PASS: a warning is logged
+  PASS: the opt-out flag is named in the warning
+  PASS: auto-repair removes everything repairable
+  PASS: superpowers is removed by auto-repair
+  PASS: a clean home logs nothing
+
+7. Auto-repair resolution
+  PASS: auto-repair is on by default
+  PASS: --no-agent-config-auto-repair turns it off
+  PASS: raw argv from the Docker launcher is honoured
+  PASS: HIVE_MIND_AGENT_CONFIG_AUTO_REPAIR=0 turns it off
+  PASS: argv wins over the environment
+
+8. Prevention: the environment and flags that keep the configuration minimal
+  PASS: claude quiet env stops the official marketplace auto-install
+  PASS: the minimal env is exported for other launchers
+  PASS: codex exec pins remote_plugin off per run
+  PASS: playwright is the only MCP server in the minimal set
+
+9. removeTomlTable
+  PASS: a middle table is removed
+  PASS: a lone table leaves an empty file
+  PASS: quoted dotted keys are matched exactly
+  PASS: a missing table is a no-op
+
+Result: 56 passed, 0 failed
+✔ tests/test-issue-2190-agent-config-audit.mjs (340.709474ms)
+ℹ tests 50
+ℹ suites 0
+ℹ pass 50
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2936.932071

@@ -3,7 +3,8 @@
 Sources: [original issue](https://github.com/link-assistant/hive-mind/issues/3785),
 [canonical storage feedback](https://github.com/link-assistant/hive-mind/issues/3785#issuecomment-6399598109),
 and [global baseline feedback](https://github.com/link-assistant/hive-mind/issues/3785#issuecomment-6403814424).
-No required sub-issues or inline review requests were returned by the API.
+No required sub-issues were returned by the API. The two subsequent automated
+inline review findings and their review were read and are tracked below.
 
 “Open” below means unfinished in PR 3786. A reproduction of a defect is evidence
 for investigation, not verification of a fix. The native storage interface is
@@ -41,6 +42,11 @@ constrained by upstream support; remaining local implementation is still open.
 | B10 | Two concurrent different-capability tasks isolated; root stays clean through full lifecycle                           | Single synthetic catalog test only                                                                   | Open                                                              |
 | B11 | Test mount/config writes, overrides, symlinks/snapshots; safe auto-fix and malformed-state rejection                  | Audit regressions reject malformed JSON, links and stale plans; preserve hidden runtime files        | Partial: complete discovery, mutation safety and image gates open |
 | B12 | Canonical refresh/history lifecycle integration, CLI-upgrade and both-daemon release/deploy gates                     | Depends on A1–A11 plus B1–B11                                                                        | Open                                                              |
+
+| Review | Requirement                                                                  | Implementation/evidence                                                                         | Status                                               |
+| ------ | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| R1     | Remove clear-text subscription logging derived from credentials (CodeQL 309) | Constant success diagnostic; regression verifies credential/provider sentinels never enter logs | Implemented; newest-head CodeQL verification pending |
+| R2     | Compare the complete generated Router URL (CodeQL 310)                       | Exact unique `base_url` line assertion replaces substring matching                              | Implemented; newest-head CodeQL verification pending |
 
 The original issue must remain open and the pull request must remain unmerged
 until the open and partial rows have implementation and verification evidence.

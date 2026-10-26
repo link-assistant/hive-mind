@@ -27,7 +27,7 @@ import { acquireFormalAiSidecarForTask, attachFormalAiTaskContainer, buildFormal
 import { getDockerIsolationImage } from './hive-mind-image.lib.mjs';
 // Issue #2247 (H1): refresh a mutable task image before launch and record which one ran.
 import { buildTaskImageProvenanceEnv, refreshTaskImage } from './task-image-refresh.lib.mjs';
-import { buildRouterGitConfigEntries, buildRouterTaskEnv, getRouterSuppressedCredentialPaths, hasUseRouterFlag, isRouterEnabled, resolveRouterBaseUrl, resolveRouterGitHubRouting } from './router-isolation.lib.mjs';
+import { buildRouterGitConfigEntries, buildRouterTaskEnv, getRouterSuppressedCredentialPaths, hasUseRouterFlag, isRouterEnabled, resolveRouterBaseUrl, resolveRouterDialect, resolveRouterGitHubRouting } from './router-isolation.lib.mjs';
 import { acquireRouterForTask, attachRouterTaskContainer, registerFormalAiWithRouter, releaseRouterForTask, watchRouterTaskContainer } from './router-task-isolation.lib.mjs';
 import { buildGitConfigEnv, GIT_PUSH_GUARD_CONTAINER_DIR, GIT_PUSH_GUARD_ESCAPE_ENV, hasForcePushOptIn, installGitPushGuard } from './git-push-guard.lib.mjs';
 import { applyDockerContainerResourceLimits, hasContainerResourceLimits, normalizeContainerResourceLimits } from './container-resource-limits.lib.mjs';
@@ -122,8 +122,9 @@ export function resolveHostDockerSock({ env = process.env } = {}) {
  * mounted — never the whole `~/.claude` / `~/.codex` application directory and
  * never `~/.claude.json` or `~/.agents`:
  *
- *   - the credential file is shared by every task, so a token refreshed by one
- *     task (or by the host) is immediately visible to all of them;
+ *   - a credential file mount shares its initial inode. Atomic replacement and
+ *     scoped-home copies can still diverge (issue #3785); this list alone does
+ *     not attest a canonical credential authority;
  *   - `projects/` and `sessions/` stay on the host for audit and discovery;
  *   - everything else (config, plugins, marketplaces, skills, MCP registrations,
  *     settings) comes from the image, so a task can neither inherit a globally
@@ -279,16 +280,18 @@ export async function resolveFormalAiIsolationEnv(env = process.env, { lookup = 
  */
 export async function buildDockerIsolationStartArgs(command, args = [], options = {}) {
   const { sessionId, tool = 'claude', env = process.env, homeDir = os.homedir(), existsSync: exists = pathExists, useRouter = false, routerToken = null, installGuard = installGitPushGuard, imageProvenance = null } = options;
-  // Issue #2164 (EXPERIMENTAL): router isolation replaces the credential mounts
-  // with a scoped token pointing at the `hive-mind-router` sidecar. It only
-  // engages when a token was actually issued; without one the task would have
-  // neither credentials nor a route, so we fail open to the default mounts
-  // rather than launching an agent that cannot reach any model.
-  const routerActive = isRouterEnabled({ useRouter, env }) && Boolean(routerToken);
+  // Explicit authority selection cannot fall back to native credential mounts
+  // when token provisioning fails, including callers of this builder directly.
+  const routerActive = isRouterEnabled({ useRouter, env });
+  if (routerActive && !routerToken) throw new Error('Router isolation requires an issued task token; native credential fallback is prohibited.');
   const routerEndpoint = routerActive ? resolveRouterBaseUrl({ env }) : { baseUrl: null, external: false };
+  if (routerActive && (routerEndpoint.error || !routerEndpoint.baseUrl)) throw new Error('Router isolation requires a valid HTTP(S) origin; check HIVE_MIND_ROUTER_URL.');
+  const routerRoutes = routerActive ? resolveRouterDialect({ env }) : {};
+  if (routerRoutes.error) throw new Error('Router isolation requires a valid route dialect; check HIVE_MIND_ROUTER_ROUTES.');
   const routerBaseUrl = routerEndpoint.baseUrl;
   const routerGitHub = routerActive ? resolveRouterGitHubRouting({ env, external: Boolean(routerEndpoint.external) }) : { mode: 'off', ghHost: null };
-  const routerEnv = routerActive && routerBaseUrl ? buildRouterTaskEnv({ tool, baseUrl: routerBaseUrl, token: routerToken, githubMode: routerGitHub.mode, ghHost: routerGitHub.ghHost, homeDir: DOCKER_CONTAINER_HOME }) : {};
+  const routerEnv = routerActive && routerBaseUrl ? buildRouterTaskEnv({ tool, baseUrl: routerBaseUrl, token: routerToken, githubMode: routerGitHub.mode, ghHost: routerGitHub.ghHost, homeDir: DOCKER_CONTAINER_HOME, dialect: routerRoutes.dialect }) : {};
+  if (routerActive && !routerEnv.ANTHROPIC_BASE_URL && !routerEnv.OPENAI_BASE_URL && !routerEnv.GOOGLE_GEMINI_BASE_URL) throw new Error(`Router isolation has no provider route for ${tool}; select a backend dialect supporting this tool.`);
   const routerWired = Object.keys(routerEnv).length > 0;
   const image = getDockerIsolationImage({ env });
   const startArgs = ['--isolated', 'docker', '--image', image];
@@ -327,7 +330,7 @@ export async function buildDockerIsolationStartArgs(command, args = [], options 
     // One `GIT_CONFIG_COUNT` covers both the hook and the router's git
     // transport: git shares the counter across all of them, so they have to be
     // built together or the second would silently replace the first.
-    const gitConfigEntries = buildRouterGitConfigEntries({ baseUrl: routerBaseUrl, token: routerToken, githubMode: routerGitHub.mode });
+    const gitConfigEntries = buildRouterGitConfigEntries({ baseUrl: routerBaseUrl, token: routerToken, githubMode: routerGitHub.mode, dialect: routerRoutes.dialect });
     const guard = await installGuard({ env, homeDir });
     if (guard.installed) {
       mounts.push({ source: guard.dir, target: GIT_PUSH_GUARD_CONTAINER_DIR, readOnly: true });

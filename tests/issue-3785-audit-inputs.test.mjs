@@ -162,7 +162,7 @@ test('a concurrent file creation prevents empty-parent pruning', async t => {
   assert.equal(result.failed.length, 1, 'the obsolete pruning operation must fail');
 });
 
-test('removing an unapproved skill preserves hidden stock runtime files', async t => {
+test('unattested hidden stock stops repair before any extension or protected file changes', async t => {
   const home = await fixture(t);
   const stock = path.join(home, '.codex', 'skills', '.system', 'stock', 'SKILL.md');
   const extra = path.join(home, '.codex', 'skills', 'unapproved', 'SKILL.md');
@@ -170,21 +170,21 @@ test('removing an unapproved skill preserves hidden stock runtime files', async 
     await mkdir(path.dirname(file), { recursive: true });
     await writeFile(file, 'synthetic skill');
   }
-  const result = await runAgentConfigAudit({ homeDir: home });
-  assert.equal(result.failed.length, 0);
+  await assert.rejects(runAgentConfigAudit({ homeDir: home }), /unsafe|stock|configuration/);
   assert.ok(
     await stat(stock).then(
       () => true,
       () => false
     ),
-    'stock runtime files must survive removal of an unrelated skill'
+    'unattested stock content must remain available for operator review'
   );
   assert.equal(
     await stat(extra).then(
       () => true,
       () => false
     ),
-    false
+    true,
+    'no unrelated repair is allowed before stock content can be verified'
   );
 });
 

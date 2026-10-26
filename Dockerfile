@@ -233,13 +233,15 @@ RUN mkdir -p /home/box/.local/bin && \
 
 # Install Claude Code through Anthropic's native installer. Bun blocks the
 # @anthropic-ai/claude-code postinstall that links the native binary (issue #1633).
+ENV DISABLE_AUTOUPDATER=1
 RUN curl -fsSL https://claude.ai/install.sh -o /tmp/claude-code-install.sh && \
-    bash /tmp/claude-code-install.sh && \
+    bash /tmp/claude-code-install.sh 2.1.310 && \
     rm /tmp/claude-code-install.sh && \
-    claude --version
+    test "$(claude --version)" = '2.1.310 (Claude Code)'
 
 # Install AI coding assistant CLIs
-RUN bun install -g @openai/codex && \
+RUN bun install -g @openai/codex@0.164.0 && \
+    test "$(codex --version)" = 'codex-cli 0.164.0' && \
     bun install -g @qwen-code/qwen-code && \
     bun install -g @google/gemini-cli && \
     bun install -g @github/copilot && \

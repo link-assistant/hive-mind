@@ -44,7 +44,11 @@ establish the file path and process-local guard described in the case study.
 Two actual CLI processes sharing a directory reproduce a concurrent exchange
 of the same synthetic predecessor. The command-helper and app-server hooks
 described in [the case study](README.md#codex-and-concurrent-refresh) are possible
-adapter inputs; neither is integrated with the current execution flow.
+adapter inputs. A real single-client app-server callback now observes an
+externally committed replacement on the next model request without creating
+native `auth.json`. The schema labels this interface internal and unstable;
+it is not integrated with the current execution flow or verified for concurrent
+refresh, login/logout or full conversation storage.
 
 ### Gemini and Qwen
 

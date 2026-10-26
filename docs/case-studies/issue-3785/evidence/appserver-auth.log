@@ -1,0 +1,3 @@
+OBSERVED: real app-server requested an external refresh after a local synthetic 401.
+Its next model request used the externally committed generation; no native auth.json was created.
+This internal, unstable interface is not integrated into Hive Mind; concurrency, login/logout and full history remain unverified.

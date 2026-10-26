@@ -96,7 +96,7 @@ test at tests/issue-3785-global-baseline.test.mjs:30:1
 ✖ Claude inline hooks are repaired without changing provider, permissions or auth metadata (63.777321ms)
   AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
   + actual - expected
-  
+
     {
       disableAllHooks: true,
       env: {
@@ -119,7 +119,7 @@ test at tests/issue-3785-global-baseline.test.mjs:30:1
         deny: [
           'Read(secret)'
         ]
-  
+
       at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-global-baseline.test.mjs:36:10)
       at async Test.run (node:internal/test_runner/test:1409:7)
       at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
@@ -149,12 +149,12 @@ test at tests/issue-3785-global-baseline.test.mjs:49:3
 ✖ Codex inline global behavior is repaired: notify (54.833517ms)
   AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
   + actual - expected
-  
+
   + [
   +   '/usr/bin/false'
   + ]
   - undefined
-  
+
       at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-global-baseline.test.mjs:55:12)
       at async Test.run (node:internal/test_runner/test:1409:7)
       at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
@@ -170,10 +170,10 @@ test at tests/issue-3785-global-baseline.test.mjs:49:3
 ✖ Codex inline global behavior is repaired: developer_instructions (45.094699ms)
   AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
   + actual - expected
-  
+
   + 'synthetic global instruction'
   - undefined
-  
+
       at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-global-baseline.test.mjs:55:12)
       at async Test.run (node:internal/test_runner/test:1409:7)
       at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
@@ -189,10 +189,10 @@ test at tests/issue-3785-global-baseline.test.mjs:49:3
 ✖ Codex inline global behavior is repaired: model_instructions_file (49.518252ms)
   AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
   + actual - expected
-  
+
   + '/synthetic/global-instructions.md'
   - undefined
-  
+
       at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-global-baseline.test.mjs:55:12)
       at async Test.run (node:internal/test_runner/test:1409:7)
       at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
@@ -208,7 +208,7 @@ test at tests/issue-3785-global-baseline.test.mjs:49:3
 ✖ Codex inline global behavior is repaired: hooks (39.188382ms)
   AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
   + actual - expected
-  
+
   + [Object: null prototype] {
   +   SessionStart: [
   +     [Object: null prototype] {
@@ -222,7 +222,7 @@ test at tests/issue-3785-global-baseline.test.mjs:49:3
   +   ]
   + }
   - undefined
-  
+
       at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-global-baseline.test.mjs:55:12)
       at async Test.run (node:internal/test_runner/test:1409:7)
       at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
@@ -238,12 +238,12 @@ test at tests/issue-3785-global-baseline.test.mjs:61:1
 ✖ Codex profiles cannot hide global registrations and hooks (42.915635ms)
   AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
   + actual - expected
-  
+
   + [
   +   '/usr/bin/false'
   + ]
   - undefined
-  
+
       at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-global-baseline.test.mjs:68:10)
       at async Test.run (node:internal/test_runner/test:1409:7)
       at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
@@ -259,13 +259,13 @@ test at tests/issue-3785-global-baseline.test.mjs:74:1
 ✖ Codex global agent declarations are removed while concurrency limits survive (32.905052ms)
   AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
   + actual - expected
-  
+
   + [Object: null prototype] {
   +   config_file: '/synthetic/worker.toml',
   +   description: 'synthetic global role'
   + }
   - undefined
-  
+
       at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-global-baseline.test.mjs:81:10)
       at async Test.run (node:internal/test_runner/test:1409:7)
       at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {

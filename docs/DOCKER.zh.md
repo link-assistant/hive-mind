@@ -367,7 +367,7 @@ docker run -it -v box-home:/home/box konard/hive-mind:latest
 
 凭据共享仍有限制：主机原子替换文件后，文件绑定挂载仍指向旧 inode；Codex 预检还会把身份验证复制到任务作用域。这些路径尚未形成统一的轮换权威存储。[案例研究](./case-studies/issue-3785/README.md) 记录了这个未解决的问题及真实 CLI 实验。
 
-根 Telegram bot 以及每次 `solve`/`hive` 启动都会在工具连接检查前审计已知的全局 Claude/Codex 配置入口，默认启用修复。`--no-agent-config-auto-repair` 或 `HIVE_MIND_AGENT_CONFIG_AUTO_REPAIR=0` 仅关闭修复；仍有发现项或修复失败时，执行会被阻止。Dry-run 和命令准备检查不会修复状态。审计尚未覆盖所有替代或托管发现路径，也未与同一固定版本的原始 CLI 比较内置运行时技能；这些更广泛的基线要求仍未完成。
+根 Telegram bot 以及每次 `solve`/`hive` 启动都会在工具连接检查前审计已知的全局 Claude/Codex 配置入口，默认启用修复。`--no-agent-config-auto-repair` 或 `HIVE_MIND_AGENT_CONFIG_AUTO_REPAIR=0` 仅关闭修复；仍有发现项或修复失败时，执行会被阻止。Dry-run 和命令准备检查不会修复状态。已安装的 Codex 内置文件会与原始 CLI 0.164.0 的内容清单比较。两个镜像均固定 Codex 0.164.0 和 Claude 2.1.310；升级 CLI 需审核新清单。被修改、不完整或含链接的内置内容会在修复前阻止启动。完整的替代/托管路径、镜像生命周期和部署验证仍未完成。
 
 TOML 修复保留无关设置值，但会规范格式并移除注释。干净的配置保持不变。
 

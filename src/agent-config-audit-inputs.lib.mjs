@@ -4,6 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { parse as parseToml } from 'smol-toml';
+import { CodexStockBaselineError, validateCodexStockSkills } from './codex-stock-skills.lib.mjs';
 
 const TOOL_INPUTS = {
   claude: {
@@ -107,10 +108,15 @@ export async function validateAgentConfigAuditInputs({ tool = 'all', homeDir, fs
           await handle.close();
         }
       }
+      if (name === 'codex') {
+        const stock = await validateCodexStockSkills({ directory: path.join(homeDir, '.codex', 'skills', '.system'), fsImpl });
+        for (const [target, version] of stock) snapshot.set(target, version);
+      }
     }
     if (previous && (snapshot.size !== previous.size || [...snapshot].some(([target, value]) => previous.get(target) !== value))) throw unsafe();
     return snapshot;
-  } catch {
+  } catch (error) {
+    if (error instanceof CodexStockBaselineError) throw error;
     throw unsafe();
   }
 }

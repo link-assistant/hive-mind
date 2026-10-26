@@ -204,8 +204,22 @@ or quarantine. The baseline suite also verifies credential identity preservation
 linked-file rejection, malformed-manifest rejection before unrelated repairs,
 and unchanged clean profiles. All 23 baseline regressions pass.
 
+The stock-runtime follow-up starts with nine failures: arbitrary hidden
+`.system` content was admitted, and image CLI versions were not pinned. Images
+now pin Claude 2.1.310 and Codex 0.164.0 and disable Claude auto-update. A pristine
+network-disabled Codex home materializes 50 stock files; repeated clean runs
+produce the same relative-path/SHA-256 manifest. Admission checks installed
+stock content against that bundled manifest with bounded descriptor reads and
+concurrent identity checks, including nested and hidden files. Extra, changed,
+missing, linked and oversized content rejects before unrelated repair. A fresh
+home with no stock directory can still initialize; an existing incomplete tree
+is rejected. The 12 stock regressions pass, and `probe-stock-skills.mjs --verify`
+verifies the real CLI's pristine tree through production admission. CLI upgrades
+must regenerate and review the manifest. Actual release-image and deployment
+coverage remains unfinished.
+
 This remains a partial guard: effective alternate homes, all native discovery
-surfaces, pristine `.system` attestation, quarantine, deployment validation and
+surfaces, packaged-image stock attestation, quarantine, deployment validation and
 adversarial races during filesystem mutation still need implementation.
 
 ### Authentication copies: reproduced and still present
@@ -298,9 +312,19 @@ The [app-server external-auth bridge](https://github.com/openai/codex/blob/rust-
 can request refreshed ChatGPT tokens from a client. Using it would require a
 different execution adapter: the pinned [CLI dispatcher](https://github.com/openai/codex/blob/rust-v0.164.0/codex-rs/cli/src/main.rs)
 explicitly rejects remote app-server mode for `codex exec`, which Hive Mind
-currently drives. Neither hook has been integrated or verified here. These
-interfaces make a broker a research avenue; they do not establish that the
-full contract is impossible or that it is already supported by this launcher.
+currently drives. The installed CLI's generated login schema explicitly marks
+external ChatGPT-token login as internal and unstable. A bounded offline
+experiment nevertheless verifies one client's external callback: the actual
+app-server receives synthetic G0, a local provider returns 401, the external
+owner atomically commits G1, and the CLI's next model request carries G1.
+No native `auth.json` is created. The synthetic tokens retain the same account
+and user identity across rotation. The model deliberately returns 503; the
+assertions concern the callback and request credential, not successful inference.
+See `probe-appserver-auth.mjs`, `inspect-codex-auth-hooks.sh`, and their retained
+structural outputs. Neither hook is integrated into production execution;
+concurrency, login/logout and full history remain unverified through this path.
+These interfaces make a broker a research avenue; they do not establish that
+the full contract is impossible or already supported by this launcher.
 
 Claude has an existing open report for
 [credential symlink replacement and concurrent state loss](https://github.com/anthropics/claude-code/issues/76561).
@@ -405,9 +429,9 @@ Full-suite/static-check results and current-head CI are recorded in the PR.
 
 Local validation: all 698 files selected by the default runner passed before
 the latest global-instruction/hook/profile additions. The latest focused checks
-pass 99 tests, plus the existing audit suite's 56 internal assertions, including
+pass 112 tests, including the existing audit suite wrapper with 56 internal assertions and
 11 audit-input regressions, 24 admission regressions and 23 global-baseline cases.
-The new 699-file default run is still pending. The queue suite passes all
+The subsequent 699-file run was interrupted by renewed task input after file 472; it is not a passing result. A fresh 700-file default run, including the stock-runtime suite, is pending. The queue suite passes all
 71 assertions; its retained before/after outputs reproduce and resolve the
 newest downloaded CI failure. Existing Router suites were also rerun after
 the launcher changes. The four Docker/copy probes completed and cleaned up

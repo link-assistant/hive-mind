@@ -9,3 +9,5 @@ Reject explicitly selected Router launches with missing task tokens, invalid end
 Refresh the CI-required Formal AI, start-command and Secretlint dependency pins and their lockfile entries.
 
 Reject malformed JSON/TOML, unsafe links and concurrent edits before the existing global configuration audit repairs state. Bound configuration reads even during concurrent growth. Require a clean re-audit of known surfaces before native connection checks in solve, hive and the root Telegram bot, including when auto-repair is disabled. Preserve hidden runtime files and concurrent additions when pruning empty extension directories.
+
+Audit Codex TOML registrations semantically, including quoted, dotted and inline declarations. Remove each unapproved registration with its nested settings and preserve unrelated typed configuration. TOML repairs normalize formatting and remove comments; clean configuration is left unchanged.

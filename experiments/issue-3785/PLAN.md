@@ -28,6 +28,8 @@ push only issue-3785-4c28551ac612, and keep unmet requirements explicitly open.
 - [x] Reproduce overlapping refresh with two actual CLIs and a synthetic provider.
 - [x] Reject known remaining audit findings before native connection checks in
       solve/hive/root bot; validate TOML and bound reads despite concurrent growth.
+- [x] Reproduce semantic TOML audit/repair bypasses before fixing discovery;
+      verify quoted/dotted/inline entries, nested tables and typed preservation.
 - [x] Resolve newest-head CI queue-test failure from downloaded job logs; rerun
       all default tests and checks after the current audit/admission changes.
 - [ ] Implement canonical auth/history authority, explicit alternative contracts,

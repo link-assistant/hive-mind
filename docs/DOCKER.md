@@ -582,6 +582,8 @@ Hive Mind creates the session directories on the host before launching a task. T
 
 The root Telegram bot and every `solve`/`hive` start audit the known global Claude/Codex configuration surfaces before tool connection checks. Repair is enabled by default. Disable repair with `--no-agent-config-auto-repair` or `HIVE_MIND_AGENT_CONFIG_AUTO_REPAIR=0`; remaining findings or repair failures still block execution. Dry-run/command-preparation inspection does not repair state. This audit does not yet attest all alternate/managed discovery paths or compare stock runtime skills against a pristine pinned CLI; those broader baseline requirements remain open.
 
+TOML repairs preserve unrelated setting values, normalize formatting and remove comments. Clean configuration is left unchanged.
+
 ### Required Codex capability preflight
 
 For Codex tasks, Hive Mind reads the issue, all issue comments and repository instruction files before launching `codex exec`. Explicitly required plugin selectors (for example, `superpowers@openai-curated`) and skill names (for example, `superpowers:using-superpowers`) are resolved against `codex plugin list --available --json`. Selected providers are installed into the repository-scoped Codex home above and verified before execution.

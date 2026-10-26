@@ -176,8 +176,16 @@ Production callers now require a clean re-audit of these known surfaces before
 native connection checks. Remaining findings (including warn-only agents and
 commands), repair failures, disabled repair with contamination, and additions
 during audit logging reject admission. This is wired into `solve`, `hive` and
-the root Telegram bot. Dry-run/command preparation does not repair state. Seven
-additional regressions cover rejection and protected-state preservation.
+the root Telegram bot. Dry-run/command preparation does not repair state.
+
+TOML discovery and repair use the parsed document rather than table-header
+matching. Inline/dotted/quoted registrations cannot evade discovery, nested
+server settings are removed with their parent, and table-like text in multiline
+strings is not mistaken for a registration. The retained before output has 16
+failures; all 24 admission regressions pass after the semantic repair. Unrelated
+typed settings, approved MCP settings and protected state are preserved.
+Repair normalizes TOML formatting and removes comments. Clean configurations
+remain byte-for-byte unchanged.
 
 This remains a partial guard: effective alternate homes, all native discovery
 surfaces, pristine `.system` attestation, quarantine, deployment validation and
@@ -379,8 +387,8 @@ also pass after the admission change.
 Full-suite/static-check results and current-head CI are recorded in the PR.
 
 Local validation: all 698 files selected by the default runner passed after the
-audit/admission and queue-test changes. The combined focused run passes 59
-tests, including 11 audit-input regressions, seven admission regressions and
+audit/admission and queue-test changes. The combined focused run passes 76
+tests, including 11 audit-input regressions, 24 admission regressions and
 the existing audit suite's 56 internal assertions. The queue suite passes all
 71 assertions; its retained before/after outputs reproduce and resolve the
 newest downloaded CI failure. Existing Router suites were also rerun after

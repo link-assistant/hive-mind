@@ -21,6 +21,15 @@ const unsafe = () => new Error('Global agent configuration has unsafe, unreadabl
 const identity = info => `${info.dev}:${info.ino}:${info.size}:${info.mtimeNs}:${info.ctimeNs}:${info.nlink}`;
 const CONFIG_MAX_BYTES = 1024 * 1024;
 
+export function parseAgentConfigToml(content) {
+  try {
+    return parseToml(content, { integersAsBigInt: 'asNeeded' });
+  } catch {
+    // Parser diagnostics can contain configuration values, including secrets.
+    throw unsafe();
+  }
+}
+
 async function readBoundedConfig(handle) {
   // Reading through a descriptor prevents link replacement, but the inode can
   // still grow after stat. Keep both allocation and total I/O bounded.
@@ -87,9 +96,8 @@ export async function validateAgentConfigAuditInputs({ tool = 'all', homeDir, fs
             const parsed = JSON.parse(content);
             if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw unsafe();
           } else {
-            // The repair's line-oriented TOML helpers are not a syntax
-            // validator. Reject malformed input before any file is changed.
-            parseToml(content, { integersAsBigInt: 'asNeeded' });
+            // Validate the full document before building a repair plan.
+            parseAgentConfigToml(content);
           }
           if (identity(await handle.stat({ bigint: true })) !== identity(info)) throw unsafe();
         } finally {

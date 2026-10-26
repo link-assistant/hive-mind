@@ -389,6 +389,8 @@ Credential sharing में एक सीमा बाकी है: host प�
 
 Root Telegram bot और हर `solve`/`hive` start, tool connection checks से पहले ज्ञात global Claude/Codex configuration surfaces का audit करते हैं। Repair default रूप से चालू है। `--no-agent-config-auto-repair` या `HIVE_MIND_AGENT_CONFIG_AUTO_REPAIR=0` केवल repair बंद करते हैं; बाकी findings या repair failures execution रोकते हैं। Dry-run और command-preparation inspection state repair नहीं करते। Audit अभी सभी alternate/managed discovery paths नहीं जांचता और stock runtime skills को उसी pinned CLI की pristine copy से नहीं मिलाता; ये व्यापक baseline requirements अभी खुले हैं।
 
+TOML सुधार असंबंधित सेटिंग मान सुरक्षित रखता है, फ़ॉर्मैट सामान्य करता है और टिप्पणियाँ हटाता है। साफ़ कॉन्फ़िगरेशन अपरिवर्तित रहती है।
+
 Catalog में provider न होने पर preflight AI harness शुरू होने से पहले exact capability बताता है। Marketplace inspect या refresh करने के लिए parent container में `codex plugin list --available --json` चलाएं। Preflight हर task के लिए `codex debug prompt-input` से पूरा model-visible catalog जांचता है, भले कोई optional capability घोषित न हो। केवल scoped core skills, स्पष्ट repository skills और चुने गए scoped plugin skills स्वीकार होते हैं; unexpected skill, untrusted path या supported CLI पर unavailable/unparseable probe execution रोक देता है। Verbose log accepted name, provider, version और normalized path दिखाता है।
 
 यदि persisted `/home/box/.codex/config.toml` किसी पुराने image से आया है, तो उसमें newer images द्वारा जोड़ी गई Playwright MCP registration नहीं हो सकती। Container start होने के बाद फिर से चलाएं:

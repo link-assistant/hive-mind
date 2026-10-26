@@ -5,6 +5,7 @@ import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
+import { parse as parseToml } from 'smol-toml';
 import { runAgentConfigAudit } from '../src/agent-config-audit.lib.mjs';
 
 async function fixture(t) {
@@ -100,4 +101,59 @@ test('a clean initial audit is revalidated after yielding to verbose logging', a
     /configuration.*not clean/i
   );
   assert.equal(injected, true);
+});
+
+for (const declaration of ['mcp_servers = { rogue = { command = "/usr/bin/false" } }', 'mcp_servers.rogue.command = "/usr/bin/false"', '["mcp_servers"."rogue"]\ncommand = "/usr/bin/false"', '[mcp_servers."rogue.with.dot"]\ncommand = "/usr/bin/false"', '[mcp_servers.rogue]\ncommand = "/usr/bin/false"\n[mcp_servers.rogue.env]\nSYNTHETIC = "remove with parent"', 'plugins = { "rogue@synthetic" = { enabled = true } }']) {
+  test(`semantic TOML additions reject admission: ${declaration.split('\n')[0]}`, async t => {
+    const home = await fixture(t);
+    const config = `${declaration}\n[features]\nremote_plugin = false\n`;
+    const target = path.join(home, '.codex', 'config.toml');
+    await writeFile(target, config);
+    await assert.rejects(runAgentConfigAudit({ tool: 'codex', homeDir: home, autoRepair: false, requireClean: true }), /configuration.*not clean/i);
+    assert.equal(await readFile(target, 'utf8'), config);
+  });
+
+  test(`semantic TOML additions can be repaired without retaining nested state: ${declaration.split('\n')[0]}`, async t => {
+    const home = await fixture(t);
+    const target = path.join(home, '.codex', 'config.toml');
+    await writeFile(target, `${declaration}\n[features]\nremote_plugin = false\n`);
+    await runAgentConfigAudit({ tool: 'codex', homeDir: home, requireClean: true });
+    const repaired = parseToml(await readFile(target, 'utf8'));
+    assert.deepEqual(Object.keys(repaired.mcp_servers ?? {}), []);
+    assert.deepEqual(Object.keys(repaired.plugins ?? {}), []);
+    assert.equal(repaired.features.remote_plugin, false);
+  });
+}
+
+for (const config of ['["features"]\nremote_plugin = false\n', '"features"."remote_plugin" = false\n', 'features = { "remote_plugin" = false }\n']) {
+  test(`a clean quoted feature pin needs no repair: ${config.trim()}`, async t => {
+    const home = await fixture(t);
+    const target = path.join(home, '.codex', 'config.toml');
+    await writeFile(target, config);
+    const result = await runAgentConfigAudit({ tool: 'codex', homeDir: home, autoRepair: false, requireClean: true });
+    assert.equal(result.findings.length, 0);
+    assert.equal(await readFile(target, 'utf8'), config);
+  });
+}
+
+test('table-like text inside a multiline string is data and needs no repair', async t => {
+  const home = await fixture(t);
+  const target = path.join(home, '.codex', 'config.toml');
+  const config = `note = '''\n[plugins."example@synthetic"]\nenabled = true\n'''\n[features]\nremote_plugin = false\n`;
+  await writeFile(target, config);
+  const result = await runAgentConfigAudit({ tool: 'codex', homeDir: home, requireClean: true });
+  assert.equal(result.findings.length, 0);
+  assert.equal(await readFile(target, 'utf8'), config);
+});
+
+test('TOML repair preserves unrelated typed configuration and approved MCP settings', async t => {
+  const home = await fixture(t);
+  const target = path.join(home, '.codex', 'config.toml');
+  const config = `model = "synthetic-model"\nlimit = 9223372036854775807\ncreated = 2026-10-26T00:00:00Z\n[features]\nremote_plugin = true\nother_flag = false\n[mcp_servers.playwright]\ncommand = "npx"\nargs = ["@playwright/mcp"]\n[mcp_servers.rogue]\ncommand = "/usr/bin/false"\n[mcp_servers.rogue.env]\nSYNTHETIC = "remove with parent"\n`;
+  await writeFile(target, config);
+  const expected = parseToml(config, { integersAsBigInt: 'asNeeded' });
+  delete expected.mcp_servers.rogue;
+  expected.features.remote_plugin = false;
+  await runAgentConfigAudit({ tool: 'codex', homeDir: home, requireClean: true });
+  assert.deepEqual(parseToml(await readFile(target, 'utf8'), { integersAsBigInt: 'asNeeded' }), expected);
 });

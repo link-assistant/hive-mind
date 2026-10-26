@@ -369,6 +369,8 @@ docker run -it -v box-home:/home/box konard/hive-mind:latest
 
 根 Telegram bot 以及每次 `solve`/`hive` 启动都会在工具连接检查前审计已知的全局 Claude/Codex 配置入口，默认启用修复。`--no-agent-config-auto-repair` 或 `HIVE_MIND_AGENT_CONFIG_AUTO_REPAIR=0` 仅关闭修复；仍有发现项或修复失败时，执行会被阻止。Dry-run 和命令准备检查不会修复状态。审计尚未覆盖所有替代或托管发现路径，也未与同一固定版本的原始 CLI 比较内置运行时技能；这些更广泛的基线要求仍未完成。
 
+TOML 修复保留无关设置值，但会规范格式并移除注释。干净的配置保持不变。
+
 若 catalog 中没有要求的提供程序，预检会在 AI harness 启动前报告确切能力。请在父容器中运行 `codex plugin list --available --json` 以检查或刷新 marketplace。预检会为每个任务通过 `codex debug prompt-input` 验证完整的模型可见目录，即使没有声明可选能力也会执行。仅允许作用域内的核心技能、明确要求的仓库技能，以及选定作用域插件的技能；意外技能、不受信任的路径，或在支持该命令的 CLI 上不可用/无法解析的探测结果都会停止执行。详细日志会显示每个已接受技能的名称、提供者、版本和规范化路径。
 
 如果持久化的 `/home/box/.codex/config.toml` 来自较旧镜像，可能缺少新版镜像添加的 Playwright MCP 注册。容器启动后可重新运行：

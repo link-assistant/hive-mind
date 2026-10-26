@@ -30,8 +30,8 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { setTomlTableBoolean } from './codex-capability-preflight.lib.mjs';
-import { validateAgentConfigAuditInputs } from './agent-config-audit-inputs.lib.mjs';
+import { stringify as stringifyToml } from 'smol-toml';
+import { parseAgentConfigToml, validateAgentConfigAuditInputs } from './agent-config-audit-inputs.lib.mjs';
 
 /** MCP servers that belong to the minimal hive-mind configuration. */
 export const MINIMAL_MCP_SERVERS = Object.freeze(['playwright']);
@@ -136,37 +136,12 @@ export const removeTomlTable = (config, table) => {
   return out.join('\n').replace(/\n{3,}/gu, '\n\n');
 };
 
-const parseTomlTableHeaders = config => {
-  const headers = [];
-  const pattern = /^\s*\[\[?([^\]]+)\]\]?\s*(?:#.*)?$/gmu;
-  let match;
-  while ((match = pattern.exec(config)) !== null) headers.push(match[1].trim());
-  return headers;
+const configTable = (config, key) => {
+  const value = config[key];
+  if (value === undefined) return {};
+  if (!value || typeof value !== 'object' || Array.isArray(value) || value instanceof Date) throw new Error('Global agent configuration contains an invalid table; no repair is permitted.');
+  return value;
 };
-
-const readTomlFeatureValue = (config, key) => {
-  const sections = config.split(/^(?=\s*\[)/mu);
-  for (const section of sections) {
-    const headerMatch = section.match(/^\s*\[([^\]]+)\]/u);
-    const header = headerMatch ? headerMatch[1].trim() : '';
-    if (header === 'features') {
-      const line = section.match(new RegExp(`^\\s*${key}\\s*=\\s*(true|false)`, 'mu'));
-      if (line) return line[1] === 'true';
-    }
-    if (header === '') {
-      const dotted = section.match(new RegExp(`^\\s*features\\.${key}\\s*=\\s*(true|false)`, 'mu'));
-      if (dotted) return dotted[1] === 'true';
-      const inline = section.match(/^\s*features\s*=\s*\{([^}]*)\}/mu);
-      if (inline) {
-        const pair = inline[1].match(new RegExp(`(?:^|,)\\s*${key}\\s*=\\s*(true|false)`, 'u'));
-        if (pair) return pair[1] === 'true';
-      }
-    }
-  }
-  return undefined;
-};
-
-const unquoteTomlKey = key => key.trim().replace(/^"(.*)"$/u, '$1');
 
 const auditClaude = ({ homeDir, fsImpl, allowedMcpServers }) => {
   const findings = [];
@@ -268,20 +243,20 @@ const auditCodex = ({ homeDir, fsImpl, allowedMcpServers }) => {
   const configPath = path.join(codexDir, 'config.toml');
   const config = safeReadText(fsImpl, configPath);
   if (config !== null) {
-    for (const header of parseTomlTableHeaders(config)) {
-      const pluginMatch = header.match(/^plugins\.(.+)$/u);
-      if (pluginMatch) {
-        findings.push(makeFinding({ tool: 'codex', kind: 'plugin-enable', name: unquoteTomlKey(pluginMatch[1]), location: configPath, detail: `[${header}] in config.toml`, repair: { type: 'remove-toml-table', target: configPath, table: header } }));
-        continue;
-      }
-      const mcpMatch = header.match(/^mcp_servers\.([^.]+)$/u);
-      if (mcpMatch) {
-        const name = unquoteTomlKey(mcpMatch[1]);
-        if (allowedMcpServers.includes(name)) continue;
-        findings.push(makeFinding({ tool: 'codex', kind: 'mcp-server', name, location: configPath, detail: `[${header}] in config.toml`, repair: { type: 'remove-toml-table', target: configPath, table: header } }));
+    const parsed = parseAgentConfigToml(config);
+    // TOML table, dotted-key and inline-table encodings have identical meaning.
+    // Enumerate parsed keys so quoting and multiline values cannot hide or
+    // invent registrations. Delete the whole entry, including nested tables.
+    for (const [table, kind] of [
+      ['plugins', 'plugin-enable'],
+      ['mcp_servers', 'mcp-server'],
+    ]) {
+      for (const name of Object.keys(configTable(parsed, table))) {
+        if (table === 'mcp_servers' && allowedMcpServers.includes(name)) continue;
+        findings.push(makeFinding({ tool: 'codex', kind, name, location: configPath, detail: `${table} registration in config.toml`, repair: { type: 'delete-toml-key', target: configPath, keyPath: [table, name] } }));
       }
     }
-    const remotePlugin = readTomlFeatureValue(config, 'remote_plugin');
+    const remotePlugin = configTable(parsed, 'features').remote_plugin;
     if (remotePlugin !== false) {
       findings.push(makeFinding({ tool: 'codex', kind: 'remote-plugin-sync', name: 'features.remote_plugin', location: configPath, detail: remotePlugin === undefined ? 'not pinned (Codex syncs the remote plugin catalog on start)' : 'explicitly enabled', repair: { type: 'set-toml-boolean', target: configPath, table: 'features', key: 'remote_plugin', value: false } }));
     }
@@ -337,10 +312,20 @@ const applyRepair = (repair, fsImpl) => {
       fsImpl.writeFileSync(repair.target, removeTomlTable(config, repair.table));
       return;
     }
+    case 'delete-toml-key':
     case 'set-toml-boolean': {
-      const config = safeReadText(fsImpl, repair.target) ?? '';
-      fsImpl.mkdirSync(path.dirname(repair.target), { recursive: true });
-      fsImpl.writeFileSync(repair.target, setTomlTableBoolean({ config, table: repair.table, key: repair.key, value: repair.value }));
+      const config = safeReadText(fsImpl, repair.target);
+      if (config === null && repair.type === 'delete-toml-key') throw new Error('Global agent configuration is unreadable; no repair is permitted.');
+      const data = parseAgentConfigToml(config ?? '');
+      if (repair.type === 'delete-toml-key') {
+        delete configTable(data, repair.keyPath[0])[repair.keyPath[1]];
+      } else {
+        const table = configTable(data, repair.table);
+        table[repair.key] = repair.value;
+        data[repair.table] = table;
+        fsImpl.mkdirSync(path.dirname(repair.target), { recursive: true });
+      }
+      fsImpl.writeFileSync(repair.target, stringifyToml(data));
       return;
     }
     default:

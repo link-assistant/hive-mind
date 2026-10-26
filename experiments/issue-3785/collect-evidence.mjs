@@ -136,6 +136,8 @@ for (const name of [
   'cloud-managed-before',
   'cloud-final',
   'cloud-all-focused',
+  'deploy-admission-before',
+  'deploy-admission-final',
 ]) {
   const output = await readFile(`/tmp/issue-3785-${name}.log`, 'utf8');
   await writeFile(`${dest}/${name}.log`, output.replace(/data:text\/javascript;base64,[A-Za-z0-9+/=]+/gu, '<synthetic-test-module>').replace(/[ \t]+$/gm, ''));

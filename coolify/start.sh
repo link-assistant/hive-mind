@@ -53,6 +53,13 @@ fi
 # Set PATH for installed tools
 export PATH="/home/box/.bun/bin:/home/box/.node-bin:/home/box/.local/bin:/home/box/.cargo/bin:$PATH"
 
+# Validate the installed runtime against restored state before either startup
+# or the setup terminal. Never auto-repair administrator or persisted state in
+# deployment admission, and never hide a failed gate behind a keepalive process.
+HIVE_BIN=$(command -v hive) || exit 1
+HIVE_SOURCE=$(readlink -f "$HIVE_BIN") || exit 1
+node "$(dirname "$HIVE_SOURCE")/verify-agent-runtime.mjs" || exit "$?"
+
 # Check if we have auth and URL
 # github-retry-ok: startup probe; on failure the container stays up for manual setup and a restart re-probes
 if gh auth status >/dev/null 2>&1 && [ -n "$GITHUB_URL" ]; then
@@ -93,7 +100,7 @@ if gh auth status >/dev/null 2>&1 && [ -n "$GITHUB_URL" ]; then
   # Add any additional arguments from HIVE_ARGS
   [ -n "$HIVE_ARGS" ] && HIVE_CMD="$HIVE_CMD $HIVE_ARGS"
 
-  # Try to start hive-mind, but catch failures
+  # Preserve startup failures for the deployment manager.
   echo "✓ Starting hive-mind to monitor: $GITHUB_URL"
   echo "  Command: $HIVE_CMD"
   eval $HIVE_CMD
@@ -107,10 +114,7 @@ if gh auth status >/dev/null 2>&1 && [ -n "$GITHUB_URL" ]; then
     echo "  - Claude CLI not authenticated: Run '\''claude'\'' or '\''code'\'' to authenticate"
     echo "  - Missing API key: Set CLAUDE_API_KEY environment variable"
     echo ""
-    echo "Container running. Access terminal to configure."
-    echo "Keeping container alive..."
-    # Keep container running without consuming CPU
-    tail -f /dev/null
+    exit "$EXIT_CODE"
   fi
 else
   echo ""

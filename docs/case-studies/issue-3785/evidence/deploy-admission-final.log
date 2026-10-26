@@ -1,0 +1,13 @@
+✔ deployment rejects a contaminated restored home before starting hive (34.793783ms)
+✔ missing GitHub setup cannot hide a failed global baseline (48.340063ms)
+✔ startup failure remains a failed deployment after a clean baseline (28.615099ms)
+✔ a clean deployment starts hive after its installed runtime check (35.730257ms)
+✔ a clean unconfigured deployment retains the existing setup terminal (43.988945ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 376.535449

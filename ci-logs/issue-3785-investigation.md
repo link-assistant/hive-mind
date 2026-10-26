@@ -196,3 +196,22 @@ the test's intended 48 MiB limit. The same finite test passes all 40 assertions
 without that process-wide override. Subsequent full-suite runs must not set a
 heap option inherited by the worker. These local results do not count the
 failed full run as passing.
+
+On pushed head `e95fd3a6f4d0ac3292bd1b633b04f3019dd0dab5`,
+[Checks and release 40312204221](https://github.com/link-assistant/hive-mind/actions/runs/40312204221)
+started at 11:03:46 UTC and succeeded. Docker job 121537203044 completed at
+11:26:57 UTC. Its downloaded `docker-40312204221.log` has 3330 lines; stock
+verification passes during both builds (2330, 2717) and after boot (2953, 3171).
+The newly required installed-package mount gate passes on the actual host
+daemon at line 3292 and nested daemon at line 3293. Both concurrent synthetic
+task writes reached the root fixture. This resolves the observed readiness
+failure; native refresh and full-history lifecycle are not part of that gate.
+Security 40312204150, Links 40312204159 and manually dispatched Workflows
+40312203115 also succeeded on this exact head.
+
+The subsequent local full run passed all 710 selected default test files with
+the heap cap applied only to the runner command, not inherited NODE_OPTIONS.
+That run began before the cloud-policy changes. The expanded 260-case focused
+run independently covers those changes; five additional Coolify startup
+regressions reproduce missing validation/hidden failures and pass after repair.
+The newer commits require their own CI results.

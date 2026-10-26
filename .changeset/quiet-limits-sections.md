@@ -39,3 +39,5 @@ Validate the approved Playwright MCP command, package arguments, transport and e
 Supply a pinned official Docker client in the standard and Coolify images for host-socket task isolation. Execute it in build/runtime verification and distinguish client failures from daemon readiness in the required packaged mount gate. Keep daemon retry and cleanup behavior intact.
 
 Disable Claude account-synced skills/plugins, cloud connectors and automatic marketplace installation explicitly in fresh settings and launcher admission. Reject missing policy with repair disabled and managed policy that overrides these pins, preserve unrelated settings during repair, remove restored synced plugin payloads, and honor the selected native Claude directory in configuration commands.
+
+Run the installed read-only runtime verifier against restored Coolify state before startup or setup access. Exit on verification failure and preserve Hive Mind startup failures instead of keeping a failed deployment alive.

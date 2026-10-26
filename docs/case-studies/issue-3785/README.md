@@ -598,7 +598,10 @@ a missing/broken client from a daemon that is still starting. Five negative
 regressions fail before these changes; seven client/mount cases pass after.
 A bounded local probe verifies that exact client reaches the host socket as
 an unprivileged user with the socket group. This is supporting evidence;
-the complete packaged-image host/nested check still requires a passing CI run.
+the complete packaged-image host/nested mount check passed on `e95fd3a6f` in
+[run 40312204221](https://github.com/link-assistant/hive-mind/actions/runs/40312204221),
+with both concurrent synthetic task writes visible to the root fixture. This
+does not cover native refresh, full history or subsequent cloud-policy changes.
 Docker documents its [Linux static client distribution](https://docs.docker.com/engine/install/binaries/),
 and the client comes from the [official image](https://hub.docker.com/_/docker).
 
@@ -628,5 +631,19 @@ their existing configuration command supplies the settings pins. This verifies
 local policy and command routing. Authenticated native account rehydration,
 complete search-path attestation and the full image lifecycle matrix remain
 unverified and required.
+
+Coolify previously kept `tail -f /dev/null` alive after Hive Mind startup failed,
+and did not validate the restored home before offering its setup terminal.
+Its startup now runs the installed read-only runtime verifier before checking
+GitHub setup or starting Hive Mind. A failed gate exits immediately, and a later
+Hive Mind failure preserves its nonzero exit status. Clean unconfigured
+deployments retain the existing setup terminal. Five regressions execute the
+actual shell payload with mocked external commands; all fail before the change
+and pass afterward. These tests verify startup ordering and failure propagation,
+not full packaged Coolify boot, canonical-storage validation or migration.
+
+The completed local default-suite run passes all 710 selected files. That run
+started before the cloud-policy edits; the later 260-case focused run covers
+those changes separately. The five deployment tests are an additional run.
 
 ![Synthetic before and after limits layout](evidence/display-comparison.png)

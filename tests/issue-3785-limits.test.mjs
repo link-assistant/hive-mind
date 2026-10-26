@@ -87,6 +87,22 @@ test('a successful usage cache is invalidated when credentials rotate', async t 
   });
 });
 
+test('equal-size rapid credential rewrites invalidate cached usage even on coarse timestamps', async t => {
+  resetLimitCache();
+  await withCredentials(t, { generation: 0 }, async authPath => {
+    let requests = 0;
+    const fetchLimits = async () => ({ success: true, generation: ++requests });
+    await getCachedCodexLimits(false, { authPath, fetchLimits });
+    // Finite rewrites reproduce timestamp collisions on the container overlay.
+    // No artificial delay may make a credential-generation check correct.
+    for (let generation = 1; generation <= 20; generation++) {
+      await writeFile(authPath, JSON.stringify({ generation: generation % 10 }));
+      const result = await getCachedCodexLimits(false, { authPath, fetchLimits });
+      assert.equal(result.generation, generation + 1);
+    }
+  });
+});
+
 test('equal-mtime atomic credential replacement invalidates an authentication error', async t => {
   resetLimitCache();
   await withCredentials(t, { generation: 0 }, async authPath => {

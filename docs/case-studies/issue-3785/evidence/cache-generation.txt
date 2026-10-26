@@ -1,0 +1,17 @@
+Synthetic cache-generation regression, 2026-10-26
+
+Initial full local suite: 719 files selected; stopped at 166,
+tests/issue-3785-limits.test.mjs:78. Expected two usage fetches after
+credential rotation; observed one. Retained local log:
+/tmp/issue-3785-profile-full-tests.log
+
+Finite rapid rewrite reproduction (20 writes, same-size JSON):
+/tmp/issue-3785-coarse-generation-before.log
+18 pass, 1 fail. Expected request generation 20; observed 19.
+
+After bounded internal content hashing:
+/tmp/issue-3785-coarse-generation-after.log
+26 pass, 0 fail across issue-3785-limits and issue-2571-usage-limits-cache.
+
+Only synthetic credentials were used. No token bytes, content digests,
+provider account identifiers or native credential paths are recorded here.

@@ -828,3 +828,12 @@ selection passes 54 cases after pinning Gemini 0.65.0 and Qwen 0.26.1. The real
 installed Agent, OpenCode, Gemini, Qwen and search commands pass a bounded
 version probe in disposable state. All six tool pins are preserved by image
 update exclusions. This is version admission, not the native storage matrix.
+
+A later 719-file full local run stopped at file 166: the usage-cache credential
+rotation regression observed unchanged inode, size and mtime/ctime after a
+same-size in-place rewrite on the container filesystem. A finite twenty-rewrite
+regression reproduces stale reuse before repair. Generation comparison now adds
+a SHA-256 digest read through a bounded regular-file descriptor (maximum 1 MiB),
+refuses linked/nonregular inputs and never logs bytes or digests. All 26 focused
+cache/limits cases pass after repair. The failed full run is not counted as a
+pass; a new complete run was started. Evidence: `evidence/cache-generation.txt`.

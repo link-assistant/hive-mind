@@ -1,7 +1,9 @@
 /**
  * Caching for the Claude and Codex usage APIs (issue #2571).
  */
-import { stat } from 'node:fs/promises';
+import { open } from 'node:fs/promises';
+import { constants } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { resolve } from 'node:path';
 
 /**
@@ -21,15 +23,35 @@ export function parseRetryAfterMs(retryAfter, now = Date.now()) {
 }
 
 /**
- * Structural identity of the credential generation, without reading secrets.
- * Include inode/ctime: atomic replacement can preserve the old mtime and size.
+ * File identity plus a bounded content digest: same-size rewrites can share
+ * mtime/ctime even with nanosecond stats on a coarse container filesystem.
+ * The digest is only an internal equality key; never log it or file bytes.
  */
 async function credentialsVersion(path) {
+  let handle;
   try {
-    const info = await stat(path, { bigint: true });
-    return `${info.dev}:${info.ino}:${info.mtimeNs}:${info.ctimeNs}:${info.size}`;
+    handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+    const before = await handle.stat({ bigint: true });
+    const limit = 1024 * 1024;
+    if (!before.isFile() || before.size > BigInt(limit)) return null;
+    const hash = createHash('sha256');
+    const buffer = Buffer.alloc(16 * 1024);
+    let total = 0;
+    while (total <= limit) {
+      const { bytesRead } = await handle.read(buffer, 0, Math.min(buffer.length, limit + 1 - total));
+      if (!bytesRead) break;
+      total += bytesRead;
+      if (total > limit) return null;
+      hash.update(buffer.subarray(0, bytesRead));
+    }
+    const after = await handle.stat({ bigint: true });
+    const identity = info => `${info.dev}:${info.ino}:${info.mtimeNs}:${info.ctimeNs}:${info.size}`;
+    if (identity(before) !== identity(after)) return null;
+    return `${identity(after)}:${hash.digest('hex')}`;
   } catch {
     return null;
+  } finally {
+    await handle?.close();
   }
 }
 
@@ -69,7 +91,7 @@ export async function getCachedUsageLimits({ key, fetchLimits, credentialsPath, 
   const version = await credentialsVersion(credentialsPath);
   const minutes = Math.round(usageTtlMs / 60000);
   const cached = cache.get(key, usageTtlMs);
-  if (cached && cached.credentialsVersion === version) {
+  if (cached && version !== null && cached.credentialsVersion === version) {
     if (verbose) console.log(`[VERBOSE] /limits-cache: Using cached ${key} limits (TTL: ${minutes} minutes)`);
     return cached.result;
   }

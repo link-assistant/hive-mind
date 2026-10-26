@@ -57,3 +57,5 @@ Rebuild task-scoped Codex configuration with semantic TOML parsing. Remove opera
 Include native Codex profile-v2 configuration files in global admission and semantic repair. Bound their enumeration and reject unsafe, malformed, oversized or changed profiles before any configuration mutation.
 
 Pin Gemini 0.65.0 and Qwen 0.26.1 alongside the other four installed tool runtimes. Verify their native versions in disposable state during installed-runtime admission and exclude all six pinned CLIs from automatic updates.
+
+Include a bounded content digest in the internal limits credential-generation key. Same-size writes with unchanged filesystem timestamps must invalidate successful cached usage. Keep file bytes and digests out of diagnostics.

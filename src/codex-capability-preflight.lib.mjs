@@ -549,18 +549,6 @@ export async function collectCodexCapabilityRequirements({ owner, repo, issueNum
   return { plugins: [...plugins].sort(), skills: [...skills].sort(), explicit: [...explicit].sort(), evidence, rejected, sources, skippedInstructionFiles: instructions.skipped };
 }
 
-const replaceWithRelativeSymlink = async ({ source, target }) => {
-  try {
-    const current = await fs.readlink(target);
-    if (path.resolve(path.dirname(target), current) === path.resolve(source)) return;
-  } catch {
-    // Missing path or a non-symlink is reconciled below.
-  }
-  await fs.rm(target, { recursive: true, force: true });
-  await fs.mkdir(path.dirname(target), { recursive: true });
-  await fs.symlink(path.relative(path.dirname(target), source), target, 'dir');
-};
-
 const syncFileIfPresent = async (source, target) => {
   try {
     await fs.copyFile(source, target);
@@ -708,7 +696,7 @@ const syncScopedConfig = async ({ baseConfigPath, scopedConfigPath }) => {
   await fs.writeFile(scopedConfigPath, baseWithoutPlugins ? `${baseWithoutPlugins}\n` : '');
 };
 
-const prepareScopedCodexHome = async ({ baseCodexHome, codexHome, needsMarketplace, log = async () => {} }) => {
+const prepareScopedCodexHome = async ({ baseCodexHome, codexHome, log = async () => {} }) => {
   await fs.mkdir(codexHome, { recursive: true });
   // These directories can contribute instructions independently of current
   // installation metadata. Remove them before copying any runtime state.
@@ -720,18 +708,6 @@ const prepareScopedCodexHome = async ({ baseCodexHome, codexHome, needsMarketpla
   // a recovery run in another container can still resume this thread.
   const sessionsShare = describeScopedCodexSessions(await shareScopedCodexSessions({ baseCodexHome, codexHome }));
   if (sessionsShare) await log(sessionsShare, { verbose: !sessionsShare.includes('⚠️') });
-
-  if (!needsMarketplace) return;
-  const marketplaceSource = path.join(baseCodexHome, '.tmp', 'plugins');
-  const marketplaceSha = path.join(baseCodexHome, '.tmp', 'plugins.sha');
-  try {
-    await fs.access(marketplaceSource);
-    await fs.access(marketplaceSha);
-    await replaceWithRelativeSymlink({ source: marketplaceSource, target: path.join(codexHome, '.tmp', 'plugins') });
-    await fs.copyFile(marketplaceSha, path.join(codexHome, '.tmp', 'plugins.sha'));
-  } catch {
-    throw new CodexCapabilityPreflightError(`The operator Codex marketplace snapshot is unavailable at ${marketplaceSource}. ` + `Run 'codex plugin list --available --json' once in the operator container, then retry.`);
-  }
 };
 
 // --- issue #2088: repair the repository-scoped plugin payload ----------------
@@ -793,7 +769,7 @@ const provisionSafeCatalogFallback = async ({ options, error }) => {
   const command = /\s/u.test(codexPath) ? 'codex' : codexPath;
   const codexHome = buildCodexCapabilityStatePath({ baseCodexHome, owner, repo });
   const runCodexCommand = invocation => runCommand({ ...invocation, cwd: projectDir });
-  await prepareScopedCodexHome({ baseCodexHome, codexHome, needsMarketplace: false, log });
+  await prepareScopedCodexHome({ baseCodexHome, codexHome, log });
   await configureScopedPluginLoader({ codexHome, plugins: [], log });
   const scopedEnv = { ...env, CODEX_HOME: codexHome, HIVE_MIND_PARENT_CODEX_HOME: baseCodexHome };
   const visibility = await checkModelVisibleSkills({ command, env: scopedEnv, runCommand: runCodexCommand, log, codexHome, projectDir, plugins: [], requiredSkills: [] });
@@ -860,24 +836,27 @@ async function provisionCodexCapabilities({ owner, repo, issueNumber, projectDir
   // repository-local discovery deterministic without relying on Hive's launch
   // directory (issue #2094).
   const runCodexCommand = invocation => runCommand({ ...invocation, cwd: projectDir });
-  const baseEnv = { ...env, CODEX_HOME: baseCodexHome, HIVE_MIND_PARENT_CODEX_HOME: baseCodexHome };
+  // Catalog discovery writes marketplace snapshots. Run it in the same private
+  // scope as installation, never in the operator home or through a writable
+  // link to its marketplace (issue #3785).
+  const codexHome = buildCodexCapabilityStatePath({ baseCodexHome, owner, repo });
+  await prepareScopedCodexHome({ baseCodexHome, codexHome, log });
+  await configureScopedPluginLoader({ codexHome, plugins: [], log });
+  const scopedEnv = { ...env, CODEX_HOME: codexHome, HIVE_MIND_PARENT_CODEX_HOME: baseCodexHome };
   let plugins = [];
   let providers = new Map();
   if (hasRequirements) {
-    const baseCatalogResult = await runCodexCommand({ command, args: ['plugin', 'list', '--available', '--json'], env: baseEnv });
-    const baseCatalog = parseJsonCommand(baseCatalogResult, 'Codex plugin catalog discovery');
+    const catalogResult = await runCodexCommand({ command, args: ['plugin', 'list', '--available', '--json'], env: scopedEnv });
+    const catalog = parseJsonCommand(catalogResult, 'Codex plugin catalog discovery');
     // Host-global Agent Skills are instructions outside the repository contract.
     const skillDirectories = [projectDir && path.join(projectDir, '.agents', 'skills')].filter(Boolean);
-    ({ plugins, providers } = await resolveRequiredCapabilities({ requirements, catalog: baseCatalog, skillDirectories }));
+    ({ plugins, providers } = await resolveRequiredCapabilities({ requirements, catalog, skillDirectories }));
   }
   for (const plugin of plugins) {
     await log(`   ✅ Verified ${plugin} in the Codex plugin catalog`, { verbose: true });
   }
 
-  const codexHome = buildCodexCapabilityStatePath({ baseCodexHome, owner, repo });
-  await prepareScopedCodexHome({ baseCodexHome, codexHome, needsMarketplace: plugins.length > 0, log });
   await configureScopedPluginLoader({ codexHome, plugins, log });
-  const scopedEnv = { ...env, CODEX_HOME: codexHome, HIVE_MIND_PARENT_CODEX_HOME: baseCodexHome };
 
   if (plugins.length === 0) {
     if (requirements.skills.length > 0) await log('   ✅ Required Agent Skills are available from the repository skill directory');

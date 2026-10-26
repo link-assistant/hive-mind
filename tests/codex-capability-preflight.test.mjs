@@ -7,7 +7,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { cp, mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { cp, lstat, mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -81,6 +81,10 @@ const fakeRunCommand = async ({ command, args, env }) => {
   if (command === 'gh' && args[2]?.endsWith('/comments')) return { stdout: '[]', stderr: '', code: 0 };
   if (command === 'gh') return { stdout: JSON.stringify({ title: 'Task', body: issueText }), stderr: '', code: 0 };
   if (args[0] === 'plugin' && args[1] === 'list') {
+    if (args.includes('--available')) {
+      await mkdir(path.join(env.CODEX_HOME, '.tmp', 'plugins'), { recursive: true });
+      await writeFile(path.join(env.CODEX_HOME, '.tmp', 'plugins.sha'), 'task-catalog\n');
+    }
     const response = fakePluginInstalled ? { ...catalog, installed: [{ ...catalog.available[0], installed: true, enabled: true }] } : catalog;
     return { stdout: JSON.stringify(response), stderr: '', code: 0 };
   }
@@ -125,6 +129,9 @@ const preflight = await runCodexCapabilityPreflight({
 assert.equal(preflight.required, true);
 assert.deepEqual(preflight.plugins, ['superpowers@openai-curated']);
 assert.equal(preflight.codexHome, path.join(scopedBaseHome, 'hive-mind', 'repositories', 'CEHR2005', 'GCS-TS'));
+assert.equal(await readFile(path.join(scopedBaseHome, '.tmp', 'plugins.sha'), 'utf8'), 'fixture-sha\n', 'catalog discovery never updates the root marketplace');
+assert.equal(await readFile(path.join(preflight.codexHome, '.tmp', 'plugins.sha'), 'utf8'), 'task-catalog\n');
+assert.equal((await lstat(path.join(preflight.codexHome, '.tmp', 'plugins'))).isSymbolicLink(), false, 'the task owns its marketplace directory');
 assert(
   commandCalls.some(call => call.args.join(' ') === 'plugin add superpowers@openai-curated --json'),
   'required plugin is installed before execution'
@@ -134,8 +141,8 @@ assert(
   'verbose diagnostics confirm that the selected plugin exists in the authoritative CLI catalog'
 );
 assert(
-  commandCalls.filter(call => call.command === 'codex' && !call.args.includes('--available')).every(call => call.env.CODEX_HOME === preflight.codexHome),
-  'installation and verification use repository-scoped state'
+  commandCalls.filter(call => call.command === 'codex').every(call => call.env.CODEX_HOME === preflight.codexHome),
+  'catalog discovery, installation and verification all use task-owned state'
 );
 
 // A later invocation refreshes runtime settings and rebuilds exactly the

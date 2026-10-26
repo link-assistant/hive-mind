@@ -141,3 +141,16 @@ the source-only skip, then passes after adding packaged source/dependencies,
 startup and image verification inputs to Docker selection. Both existing
 change-range regression scripts also pass (44 legacy cases plus the untested-
 head scenarios). Newest-head actual image validation is still required.
+
+On `16abaede39ca1952a392f0a23014fee5c93a8f38`,
+[Checks and release 40306469137](https://github.com/link-assistant/hive-mind/actions/runs/40306469137)
+started at 10:19:12 UTC. Docker job 121518296928 now runs instead of skipping.
+The test-suites job 121518297483 failed at 10:23:46 UTC; downloaded
+`test-suites-40306469137.log:979–1004` identifies
+`tests/dind-stale-pid-cleanup-3214.test.mjs:203`. Its assertion still required
+changes to `scripts/detect-code-changes.mjs` to skip Docker selection. That
+expectation contradicts the newly required image-gate selection contract. The
+test now requires detector changes to select Docker while an unrelated script
+still does not. All 11 DinD cleanup cases and the real-detector selection
+regression pass locally. The image job's eventual result is separate from this
+test-suite failure; it must be reviewed before recording image validation.

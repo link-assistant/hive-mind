@@ -21,9 +21,9 @@
 test at tests/issue-3785-limits.test.mjs:78:1
 ✖ a successful usage cache is invalidated when credentials rotate (8.221165ms)
   AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
-  
+
   1 !== 2
-  
+
       at file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-limits.test.mjs:86:12
       at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-limits.test.mjs:80:3)
       at async Test.run (node:internal/test_runner/test:1409:7)
@@ -39,9 +39,9 @@ test at tests/issue-3785-limits.test.mjs:78:1
 test at tests/issue-3785-limits.test.mjs:90:1
 ✖ equal-mtime atomic credential replacement invalidates an authentication error (14.278574ms)
   AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
-  
+
   false !== true
-  
+
       at file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-limits.test.mjs:103:12
       at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-limits.test.mjs:92:3)
       at async Test.run (node:internal/test_runner/test:1409:7)
@@ -57,9 +57,9 @@ test at tests/issue-3785-limits.test.mjs:90:1
 test at tests/issue-3785-limits.test.mjs:108:1
 ✖ different credential authorities never share a usage cache entry (9.758403ms)
   AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
-  
+
   'first' !== 'second'
-  
+
       at file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-limits.test.mjs:115:12
       at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-limits.test.mjs:110:3)
       at async Test.run (node:internal/test_runner/test:1409:7)

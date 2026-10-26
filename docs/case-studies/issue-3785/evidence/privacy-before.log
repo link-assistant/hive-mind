@@ -13,7 +13,7 @@
 test at tests/issue-3785-limits.test.mjs:138:1
 ✖ verbose limits diagnostics omit credential suffixes, account ids and response bodies (11.33859ms)
   AssertionError [ERR_ASSERTION]: The input was expected to not match the regular expression /sentinel|e-sentinel|l-sentinel/. Input:
-  
+
   '[VERBOSE] /limits Codex auth loaded from: /tmp/hive-limits-3785-GzoVhK/credentials.json\n' +
     '[VERBOSE] /limits fetching Codex usage from API...\n' +
     '[VERBOSE] /limits Codex API request: GET http://127.0.0.1/wham/usage\n' +
@@ -31,7 +31,7 @@ test at tests/issue-3785-limits.test.mjs:138:1
     '  "set-cookie": "private-cookie-sentinel"\n' +
     '}\n' +
     '[VERBOSE] /limits Codex API error body: private-response-sentinel'
-  
+
       at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-limits.test.mjs:147:10)
       at async Test.run (node:internal/test_runner/test:1409:7)
       at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {

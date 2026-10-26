@@ -1,0 +1,344 @@
+✔ selected Router without a task token rejects before inspecting vendor mounts: {"useRouter":true,"env":{}} (2.537664ms)
+✔ selected Router without a task token rejects before inspecting vendor mounts: {"env":{"HIVE_MIND_USE_ROUTER":"1"}} (0.445111ms)
+✔ invalid selected Router endpoint rejects without exposing its value (0.480356ms)
+✔ a Router dialect without a route for the selected tool rejects before native fallback (0.623492ms)
+✔ task routing uses the selected image dialect from the launch environment (1.994209ms)
+✔ unusable Router route rejects before minting a task lease: {"tool":"gemini","env":{}} (0.507226ms)
+✔ unusable Router route rejects before minting a task lease: {"env":{"HIVE_MIND_ROUTER_ROUTES":"invalid-private-sentinel"}} (0.563781ms)
+✔ unusable Router route rejects before minting a task lease: {"env":{"HIVE_MIND_ROUTER_URL":"file:///private-sentinel"}} (0.191386ms)
+✔ the launch dialect follows the lease through container attachment (1.069785ms)
+✔ Codex container wiring uses the launch dialect rather than the global default (1.139105ms)
+
+--- The flag is off by default and readable from the environment ---
+  PASS: router isolation is off when nothing asks for it
+  PASS: --use-router turns it on
+  PASS: HIVE_MIND_USE_ROUTER=true is inherited by nested invocations
+  PASS: HIVE_MIND_USE_ROUTER=0 keeps it off
+
+--- Endpoint resolution rejects anything that is not a bare origin ---
+  PASS: a bare http origin is accepted
+  PASS: a lone trailing slash is normalized away
+  PASS: a path is rejected rather than silently dropped
+  PASS: embedded credentials are rejected
+  PASS: a non-http scheme is rejected
+  PASS: without an override the task targets the sidecar alias
+  PASS: the sidecar endpoint is not reported as external
+  PASS: HIVE_MIND_ROUTER_URL marks the router as externally managed
+  PASS: an unusable override yields no endpoint
+  PASS: an unusable override explains itself
+
+--- The sidecar is a pinned, TLS-terminating router on 443 ---
+  PASS: the router listens on 443, the only port gh will build an endpoint for
+  PASS: so the internal endpoint is https with no port, matching the certificate authority name
+  PASS: the image is pinned to an exact version rather than :latest
+  PASS: the certificate claims exactly the internal alias and api.github.com — the second is what lets an unmodified gh verify the interception, and the list is asserted whole so an extra SAN cannot slip in unnoticed
+
+--- GitHub routing: transparent for our own sidecar, declared for an external one ---
+  PASS: our own sidecar intercepts api.github.com by name, with no gh reconfiguration
+  PASS: an external router is on a network we cannot rewrite, so nothing is claimed
+  PASS: an operator-supplied HTTPS endpoint is wired through GH_HOST instead
+  PASS: and an operator can turn GitHub routing off entirely
+  PASS: no explicit gh host is needed for the default path
+  PASS: plaintext is refused here, where the reason can be explained
+
+--- Routed tasks are pointed at the router, per tool surface ---
+  PASS: claude is redirected via ANTHROPIC_BASE_URL
+  PASS: and the task's token is offered in both forms the router accepts
+  PASS: and nothing else is injected
+  PASS: gh keeps its own host: the interception happens in DNS, so every gh command form is covered
+  PASS: gh authenticates to the router with the same scoped token, and holds no GitHub credential
+  PASS: Node-based clients are given the router CA as an addition to the system store
+  PASS: clients that replace the store are given a bundle that still contains the public roots
+  PASS: codex is redirected via the OpenAI-compatible surface under /v1
+  PASS: and gets a CODEX_HOME of its own, because codex ignores OPENAI_BASE_URL without a provider entry there
+  PASS: the generated provider entry speaks the wire API the router serves
+  PASS: and names the router as its base URL
+  PASS: an external router is reached by pointing gh at its host
+  PASS: with the task token as its enterprise credential
+  PASS: an unrouted-GitHub task is given no GitHub credential of ours at all
+  PASS: no token means no redirect: a task is never pointed at a router it cannot authenticate to
+
+--- git is sent through the router, and cannot fall back to an inherited credential ---
+  PASS: github.com is rewritten to the router git proxy, over a trusted CA
+  PASS: and the operator’s inherited credential helper is cleared, so no real GitHub token can be presented
+  PASS: the token rides in a scoped header rather than in a remote URL, where it would reach reflogs and error messages
+  PASS: nothing is rewritten when GitHub is not routed
+
+--- The task container is finished off from the host, inside the start gate ---
+  PASS: the CA is written into the task container
+  PASS: api.github.com is resolved to the router, which is what makes gh routing transparent
+  PASS: and the entry is added only once, so a reused sidecar does not duplicate it
+  PASS: the replacement bundle starts from the system roots
+  PASS: a claude task gets no codex provider entry
+  PASS: a codex task does
+  PASS: an externally-hosted gh endpoint needs no hosts entry
+
+--- Vendor credentials are withheld from routed tasks (R2, R9) ---
+  PASS: a routed claude task loses both Claude credential paths
+  PASS: a routed codex task loses both Codex credential paths
+  PASS: the gh credential is withheld once GitHub is routed
+  PASS: default behaviour is unchanged: claude tasks still receive the real subscription (R9)
+  PASS: nothing named .claude survives into a routed container
+  PASS: nothing named .codex or .agents survives into a routed container
+  PASS: the git identity is still mounted: it is not a subscription credential (issue #1939)
+  PASS: once gh is routed, its host credential is withheld too (R12)
+
+--- The launcher wires it end to end ---
+  PASS: a default launch injects no router endpoint
+  PASS: a routed launch points Claude Code at the sidecar
+  PASS: the task's own token is passed in, not the operator's credential
+  PASS: and at the CA it will be given while the start gate still holds it
+  PASS: no Claude credential mount appears anywhere in a routed launch command
+  PASS: the push guard and the router git settings share one GIT_CONFIG_COUNT
+  PASS: with the push-guard hook first
+  PASS: and the github.com rewrite among them
+  PASS: without an issued token an explicitly selected Router launch is rejected
+  PASS: a guard that could not be installed leaves only the router git settings
+  PASS: and no hooksPath is set for a hook the task was never given
+  PASS: nor is the hook directory mounted
+
+--- An experimental run states its own limits (R10, R16) ---
+  PASS: every routed run names the destructive-API gap the router still forwards, and cites the upstream issue (R13)
+  PASS: and no longer claims force pushes are unblocked — router#273 closed that from 0.110.0, and the pin is past it
+  PASS: the pinned image is at or above 0.110.0, so it carries the compare-based force-push mediation the warning above stopped claiming was missing
+  PASS: the default path routes GitHub, so it claims no gap there
+  PASS: a run without GitHub routing says so
+  PASS: --model formal-ai explains how it reaches the router (R11)
+  PASS: #3215: the provider-qualified spelling is Formal AI too, not an unknown alias
+  PASS: a model alias is called out, because the router resolves advertised ids only
+  PASS: a dated id is not
+  PASS: and a non-Claude tool is flagged as the less exercised path
+
+Result: 80 passed, 0 failed
+✔ tests/test-issue-2164-router-isolation.mjs (188.133251ms)
+
+=== issue #2164: router sidecar run arguments ===
+  PASS: the sidecar is launched onto the internal network, the one address it will bind
+  PASS: under the alias tasks resolve, so the bind script can look its own address up
+  PASS: no port is published to the host
+  PASS: the container is started detached
+  PASS: the container carries the stable reconciliation name
+  PASS: the signing secret is passed to the router
+  PASS: DATA_DIR points at the mounted volume so request logs persist (R8)
+  PASS: and the audit log is written into that same volume, so who asked for what survives the container (R8)
+  PASS: the audit volume is mounted by name (R8)
+  PASS: every discovered credential directory is mounted into the sidecar (R3)
+  PASS: credential mounts are writable, so refreshed tokens survive a restart
+  PASS: the GitHub credential the router presents upstream is mounted read-only (R12)
+  PASS: and named through GH_CONFIG_DIR, which is where the router looks for it
+  PASS: the router is told where each credential home landed
+  PASS: the codex credential home is wired too
+  PASS: the image runs the bind script through the sh entrypoint
+  PASS: because the router has no bind-to-network option of its own yet (issue #2190)
+  PASS: the router is started in serve mode on 443, the only port an unmodified gh will build an api.github.com endpoint for
+  PASS: and the script's only mention of 0.0.0.0 is its refusal to bind there
+  PASS: so no argument ever asks the router to listen on every interface
+  PASS: the router terminates TLS with a certificate of its own
+  PASS: whose names cover both the internal alias and api.github.com
+  PASS: which is what lets an unmodified gh verify the interception
+
+=== issue #2164: credential discovery ===
+  PASS: only credential directories that exist on the host are mounted
+
+=== issue #2164: token identity ===
+  PASS: the token id is read from the JWT subject, without needing the signing secret
+  PASS: a non-router credential yields no id rather than a wrong one
+  PASS: a malformed token yields no id
+
+=== issue #2164: signing secret ===
+  PASS: a first run generates a secret
+  PASS: and reports that it did
+  PASS: a restart reuses the stored secret, so tokens already handed to running tasks stay valid
+  PASS: an operator-supplied secret wins
+
+=== issue #2164: sidecar toggles ===
+  PASS: Hive Mind manages the router container by default
+  PASS: an operator can opt out of container management
+  PASS: the published image is the default
+  PASS: pinned to an exact version rather than :latest
+  PASS: the image can be pinned or replaced
+
+=== issue #2164: acquire and release against a fake docker ===
+  PASS: the sidecar comes up against a healthy fake docker
+  PASS: the task is pointed at the internal alias over HTTPS
+  PASS: on the default port, so the URL carries no port for gh to disagree about
+  PASS: health is probed over the same TLS endpoint and alias a task will use; loopback is no longer bound (issue #2190)
+  PASS: the lease records the id of the token it minted
+  PASS: the acquiring task holds the only lease
+  PASS: the outbound bridge is attached after creation, so it is never the address the router binds (issue #2190)
+  PASS: the token is labelled with the session that owns it, so its log can be found later (R6)
+  PASS: the state file holding TOKEN_SECRET is owner-only
+  PASS: releasing the last task leaves no leases
+  PASS: and stops the sidecar, so it only runs while a task needs it (R5)
+  PASS: the finishing task's token is revoked rather than left live until its TTL
+  PASS: the audit volume is never removed (R8)
+
+=== issue #2164: the token is confined to one repository ===
+  PASS: the task's token names the repository it may touch, so it cannot be replayed against another (R13)
+  PASS: and anything that is not a router token is refused rather than handed to a task
+
+=== issue #2164: the task container is finished off from the host ===
+  PASS: a healthy router wires the task container
+  PASS: as root, because /etc/hosts and the CA store belong to root while the agent does not
+  PASS: inside the task container, not the sidecar
+  PASS: and the CA the router just printed is what gets installed
+  PASS: with api.github.com pointed at the router's address on the internal network
+  PASS: a router that prints no CA is reported rather than leaving the task unable to verify it
+  PASS: and so is a router with no address to intercept GitHub through
+  PASS: a missing container name is refused outright
+  PASS: a CA read that returns something other than PEM yields null rather than a broken trust file
+  PASS: and an address read against a missing container yields null rather than throwing into the launch path
+  PASS: attach and wire together report success as no error
+  PASS: the tool travels with the lease, so the wiring step writes the right provider config
+  PASS: and a container that could not be wired fails the launch instead of running with a partly-configured trust store
+
+=== issue #2164: launch policy fails closed ===
+  PASS: a default run does not touch the router
+  PASS: and is not an error
+  PASS: router isolation only applies to the docker backend
+[router-isolation] Session s: Router isolation was requested but the router is unavailable, so the task was not launched rather than being given direct access to the subscription (issue #2164): daemon unreachable
+[router-isolation] Session s: Router isolation was requested but the router is unavailable, so the task was not launched rather than being given direct access to the subscription (issue #2164): boom
+  PASS: an unavailable router yields no router handle
+  PASS: and the launch is refused with the underlying reason, not silently given the credentials it was told to withhold
+  PASS: a thrown acquire is reported rather than crashing the launch
+  PASS: a failed network attach is reported so the caller can stop the container
+
+=== issue #2164 R11: --model formal-ai is served by the same router ===
+  PASS: the Formal AI sidecar is stored as an OpenAI-compatible provider under the model id a task asks for
+  PASS: a base URL that already names the API version is not versioned twice
+  PASS: and no endpoint yields no command rather than a half-formed one
+  PASS: registering a provider succeeds when the router accepts it
+  PASS: the CLI is invoked inside the sidecar, naming the binary because docker exec bypasses the entrypoint
+  PASS: and a refusal is reported with the router's own words
+  PASS: the router joins the Formal AI network so it can resolve the alias
+  PASS: no alias is requested: nothing on that network calls the router by name
+  PASS: a Formal AI task without routing is left alone
+  PASS: and a routed task that is not a Formal AI task registers nothing
+  PASS: with both sidecars up the router is taught to serve formal-ai itself
+  PASS: the network is joined first, because the provider is useless until the alias resolves
+  PASS: the DNS endpoint is stored rather than an address that changes on every restart
+  PASS: a router that cannot reach Formal AI fails the launch
+  PASS: and so does a provider the router refuses to store, rather than running unmediated
+  PASS: an external router is somebody else's to configure
+  PASS: an external router has no network of ours to join
+  PASS: releasing a run that never routed does nothing
+
+=== issue #2164: idle maintenance stops a sidecar nothing is using (R5) ===
+  PASS: a lease whose task container is gone is dropped
+  PASS: and the sidecar it was holding up is stopped
+  PASS: the dead task's token is revoked, not left usable for the rest of its TTL
+  PASS: the audit volume survives the teardown (R8)
+  PASS: a lease whose task container is still running is kept
+  PASS: and the router keeps serving it
+  PASS: no stop is even attempted while a task holds a lease
+  PASS: an operator-managed router is left alone
+  PASS: a failing tick collects the failure instead of rejecting
+  PASS: and says what went wrong, so an idle router is never silently left running
+  PASS: the loop reconciles immediately rather than waiting a full interval after a bot restart
+  PASS: and the timer is cleared on shutdown
+
+Result: 101 passed, 0 failed
+✔ tests/test-issue-2164-router-sidecar.mjs (212.07022ms)
+
+--- The image tag decides the dialect ---
+  PASS: a 0.x tag parses as major 0
+  PASS: a 1.x tag parses as major 1
+  PASS: a v-prefixed prerelease tag parses
+  PASS: a registry port is not mistaken for the tag
+  PASS: a moving tag carries no version
+  PASS: a digest pin carries no version
+  PASS: an empty reference carries no version
+  PASS: the pinned 0.119.0 image speaks the legacy dialect
+  PASS: 1.2.0 speaks the canonical dialect
+  PASS: an unversioned reference assumes the current dialect
+  PASS: and says it guessed
+
+--- HIVE_MIND_ROUTER_ROUTES overrides the tag, and refuses nonsense ---
+  PASS: an operator can declare the dialect of a fork or a digest pin
+  PASS: the value is case-insensitive
+  PASS: an unknown value falls back rather than throwing
+  PASS: and explains itself
+
+--- Each dialect produces exactly the paths measured against a running container ---
+  PASS: legacy health is /health
+  PASS: legacy Anthropic is the origin, so Claude Code reaches /v1/messages
+  PASS: legacy Codex is /v1
+  PASS: legacy never served Gemini
+  PASS: legacy git is /git/
+  PASS: legacy gh REST is /api/v3
+  PASS: canonical health is /api/health
+  PASS: canonical Anthropic is /api/services/anthropic
+  PASS: canonical Codex is /api/services/codex/v1
+  PASS: canonical Gemini is /api/services/gemini
+  PASS: canonical git is /api/services/github/git/
+  PASS: canonical gh REST is /api/services/github/api/v3
+  PASS: no path is shared between the dialects, exactly as measured
+
+--- Every tool maps to a service, and each catalogue endpoint is declared with its shape ---
+  PASS: every routed tool has a service
+  PASS: claude resolves to the Anthropic service
+  PASS: opencode resolves to plain OpenAI, not Codex
+  PASS: an unknown tool resolves to nothing rather than to a wrong service
+  PASS: the five canonical catalogue routes are the five that answered 401 on 1.2.0
+  PASS: the legacy dialect has one merged catalogue instead
+  PASS: each endpoint declares its response shape, so a consumer never has to sniff
+
+--- The task environment follows the dialect (this is what regressed on 1.x) ---
+  PASS: claude keeps the origin on the legacy dialect (issue #2164 behaviour is preserved)
+  PASS: claude moves to the Anthropic service on the canonical dialect
+  PASS: codex keeps /v1 on the legacy dialect
+  PASS: codex moves to its own service on the canonical dialect
+  PASS: and the generated config.toml agrees, because codex ignores OPENAI_BASE_URL
+  PASS: qwen gets its own service rather than sharing codex
+  PASS: gemini is wired through the variable its CLI actually reads
+  PASS: and authenticates with the task token
+  PASS: a dialect that does not serve Gemini wires nothing rather than a 404
+  PASS: a gemini run on the legacy pin is told its model traffic is not routed
+  PASS: and is not warned when the dialect does serve it
+  PASS: the legacy anthropic service is the origin itself, which is served, not missing
+  PASS: codex is served on both dialects
+
+--- Git rewriting follows the dialect too ---
+  PASS: the legacy git prefix is unchanged
+  PASS: only the insteadOf prefix moves: sslCAInfo and extraHeader stay scoped to the origin so they cover every path under it
+
+--- The wiring script writes the same URLs the environment declares ---
+  PASS: the container's config.toml is written with the canonical Codex base URL
+  PASS: and with the legacy one when that is the pin
+
+--- The gh trade-off is reported, not discovered at runtime ---
+  PASS: gh reaches the REST proxy on the legacy dialect, which is why the default pin stays there
+  PASS: and cannot on the canonical one, because gh has no path-prefix setting
+  PASS: a canonical-dialect run says so up front
+  PASS: and names the prefix gh would have to reach
+  PASS: a legacy-dialect run does not warn about a limitation it does not have
+
+--- The health probe follows the dialect, or the acquire loop stalls ---
+  PASS: the legacy dialect probes /health
+  PASS: and the canonical one probes /api/health
+  PASS: with no dialect passed the probe is derived from the image the sidecar would run
+  PASS: so an overridden image moves the probe with it
+  PASS: the wait loop reports healthy when the probe succeeds
+  PASS: and every attempt it makes uses the dialect it was given, not the default
+
+--- The shipped default is the one that keeps every issue #2164 capability ---
+  PASS: the default pin is the highest 0.x release, so it keeps the legacy dialect and with it the gh mediation #2164 shipped
+  PASS: and it is at or above 0.120.0, where the router started sending the Codex client `version` header new models are gated behind
+  PASS: and a default run therefore speaks the legacy dialect
+  PASS: pointing HIVE_MIND_ROUTER_IMAGE at 1.x switches every URL in one step
+  PASS: the image override itself still works
+
+--- The Codex client version reaches the sidecar when an operator sets one ---
+  PASS: by default the router's own bundled version stands, so an older local codex cannot re-gate the new models
+  PASS: and an explicit CODEX_CLIENT_VERSION is passed straight through
+
+Result: 70 passed, 0 failed
+✔ tests/test-issue-2202-router-routes.mjs (122.880696ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 256.856048

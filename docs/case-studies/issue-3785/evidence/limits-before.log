@@ -18,12 +18,12 @@
 test at tests/issue-3785-limits.test.mjs:11:1
 ✖ Claude authentication error has its own section without subscription metadata (6.964853ms)
   AssertionError [ERR_ASSERTION]: The input was expected to not match the regular expression /Claude/. Input:
-  
+
   'Current time: Oct 26, 3:58am UTC\n' +
     '\n' +
     'Claude limits\n' +
     'Claude authentication expired.\n'
-  
+
       at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-limits.test.mjs:15:10)
       at Test.runInAsyncScope (node:async_hooks:226:14)
       at Test.run (node:internal/test_runner/test:1402:25)
@@ -40,7 +40,7 @@ test at tests/issue-3785-limits.test.mjs:11:1
 test at tests/issue-3785-limits.test.mjs:20:1
 ✖ both providers have separate sections when neither has authentication (1.070597ms)
   AssertionError [ERR_ASSERTION]: The input did not match the regular expression /Claude limits\n\n```\nClaude unavailable\./. Input:
-  
+
   '```\n' +
     'Current time: Oct 26, 3:58am UTC\n' +
     '\n' +
@@ -50,7 +50,7 @@ test at tests/issue-3785-limits.test.mjs:20:1
     'Codex limits\n' +
     'Codex unavailable.\n' +
     '```'
-  
+
       at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-limits.test.mjs:22:10)
       at Test.runInAsyncScope (node:async_hooks:226:14)
       at Test.run (node:internal/test_runner/test:1402:25)
@@ -69,9 +69,9 @@ test at tests/issue-3785-limits.test.mjs:20:1
 test at tests/issue-3785-limits.test.mjs:34:1
 ✖ authenticated Claude entitlement overrides a stale locally stored Max plan (28.244455ms)
   AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
-  
+
   'max' !== 'free'
-  
+
       at file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-limits.test.mjs:39:12
       at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-limits.test.mjs:36:3)
       at async Test.run (node:internal/test_runner/test:1409:7)
@@ -87,9 +87,9 @@ test at tests/issue-3785-limits.test.mjs:34:1
 test at tests/issue-3785-limits.test.mjs:45:1
 ✖ Claude live Max entitlement and paid expiry are retained when supplied (8.574805ms)
   AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
-  
+
   'pro' !== 'max'
-  
+
       at file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-limits.test.mjs:49:12
       at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-limits.test.mjs:47:3)
       at async Test.run (node:internal/test_runner/test:1409:7)
@@ -106,10 +106,10 @@ test at tests/issue-3785-limits.test.mjs:65:1
 ✖ stored Codex claims are identified as metadata even when their expiry is in the future (12.111412ms)
   AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
   + actual - expected
-  
+
   + undefined
   - 'stored-token'
-  
+
       at file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-limits.test.mjs:69:12
       at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-limits.test.mjs:67:3)
       at async Test.run (node:internal/test_runner/test:1409:7)

@@ -15,9 +15,9 @@
 test at tests/issue-3785-router-limits.test.mjs:38:1
 ✖ explicit Router limits use its provider-neutral API and shared metadata result (22.062723ms)
   AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
-  
+
   false !== true
-  
+
       at file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-router-limits.test.mjs:42:12
       at async withRouter (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-router-limits.test.mjs:32:5)
       at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-router-limits.test.mjs:39:3)
@@ -34,9 +34,9 @@ test at tests/issue-3785-router-limits.test.mjs:38:1
 test at tests/issue-3785-router-limits.test.mjs:50:1
 ✖ an unsupported Router usage API reports selected authority failure without a local fallback (10.804684ms)
   AssertionError [ERR_ASSERTION]: The input did not match the regular expression /Router.*404/. Input:
-  
+
   'Could not read Codex authentication. Make sure Codex is properly installed and authenticated.'
-  
+
       at file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-router-limits.test.mjs:54:12
       at async withRouter (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-router-limits.test.mjs:32:5)
       at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-router-limits.test.mjs:51:3)
@@ -53,9 +53,9 @@ test at tests/issue-3785-router-limits.test.mjs:50:1
 test at tests/issue-3785-router-limits.test.mjs:59:1
 ✖ missing Router token fails before sending any usage request (12.29271ms)
   AssertionError [ERR_ASSERTION]: The input did not match the regular expression /Router.*token/i. Input:
-  
+
   'Could not read Codex authentication. Make sure Codex is properly installed and authenticated.'
-  
+
       at file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-router-limits.test.mjs:64:12
       at async withRouter (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-router-limits.test.mjs:32:5)
       at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-router-limits.test.mjs:60:3)

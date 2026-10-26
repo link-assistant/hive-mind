@@ -1,6 +1,6 @@
 // Preserve incident evidence without publishing download credentials or identity.
 // Run with --max-old-space-size=192; logs are processed in 64 KiB blocks.
-import { readFile, writeFile, mkdir, rm, copyFile, stat } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, rm, stat } from 'node:fs/promises';
 import { createReadStream, createWriteStream } from 'node:fs';
 import { pipeline } from 'node:stream/promises';
 import { createGzip } from 'node:zlib';
@@ -45,8 +45,9 @@ for (const [sourcePath, name] of [
   await pipeline(createReadStream(destPath), createGzip({ level: 9 }), createWriteStream(`${dest}/${name}.gz`));
   manifest.push({ file: `${name}.gz`, contentSha256: digest.digest('hex'), sourceBytes: stats.sourceSize, sanitizedBytes: (await stat(destPath)).size, redacted: ['credentials', 'download query tokens', 'emails', 'UUIDs', 'account identity fields'], residualCredentialBlock: residual });
 }
-for (const name of ['auth-copy', 'file-mount', 'codex-storage', 'limits-before', 'cache-before', 'catalog-before', 'privacy-before', 'router-before', 'router-mapping-before', 'malformed-before', 'router-admission-before', 'router-admission-final', 'router-dialect-before', 'router-isolation-final', 'router-routes-final', 'router-hardening-final', 'catalog-final', 'limits-final']) {
-  await copyFile(`/tmp/issue-3785-${name}.log`, `${dest}/${name}.log`);
+for (const name of ['auth-copy', 'file-mount', 'codex-storage', 'limits-before', 'cache-before', 'catalog-before', 'privacy-before', 'router-before', 'router-mapping-before', 'malformed-before', 'router-admission-before', 'router-admission-final', 'router-dialect-before', 'route-lease-before', 'route-lease-final', 'router-regressions', 'router-isolation-final', 'router-routes-final', 'router-hardening-final', 'limits-final']) {
+  const output = await readFile(`/tmp/issue-3785-${name}.log`, 'utf8');
+  await writeFile(`${dest}/${name}.log`, output.replace(/[ \t]+$/gm, ''));
 }
 await writeFile(`${dest}/manifest.json`, `${JSON.stringify(manifest, null, 2)}\n`);
 console.log('Sanitized context and incident logs; compressed artifacts and probes retained.');

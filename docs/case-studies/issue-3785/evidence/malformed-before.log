@@ -13,9 +13,9 @@
 test at tests/issue-3785-limits.test.mjs:151:1
 ✖ malformed provider JSON and credential JSON cannot escape through errors or diagnostics (39.445415ms)
   AssertionError [ERR_ASSERTION]: The input was expected to not match the regular expression /private-/. Input:
-  
+
   `[{"success":false,"error":"Failed to get Claude subscription info: Unexpected token 'p', \\"private-bo\\"... is not valid JSON"},{"success":false,"error":"Failed to get usage limits: Unexpected token 'p', \\"private-bo\\"... is not valid JSON"},{"success":false,"error":"Failed to get Codex usage limits: Unexpected token 'p', \\"private-bo\\"... is not valid JSON"}]`
-  
+
       at file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-limits.test.mjs:159:12
       at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-limits.test.mjs:156:3)
       at async Test.run (node:internal/test_runner/test:1409:7)

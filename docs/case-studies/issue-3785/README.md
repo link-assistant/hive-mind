@@ -57,7 +57,8 @@ The original queue counter alone would not establish this.
 - Reproducing failures and probe outputs are in `evidence/*-before.log`,
   `evidence/auth-copy.log`, `evidence/file-mount.log`, and
   `evidence/codex-storage.log`. Successful focused tests are in
-  `evidence/limits-final.log`.
+  `evidence/limits-final.log`. Synthetic test outputs have trailing whitespace
+  removed; compressed incident logs retain the sanitized bytes in the manifest.
 
 ## Root causes and changes
 
@@ -120,6 +121,9 @@ Router was selected without an issued task token. It now rejects missing tokens,
 invalid endpoints, invalid dialects and dialects without a provider route before
 constructing vendor mounts. Task and Git routes use the dialect selected by the
 launch environment rather than an unrelated process-global image selection.
+Route validation precedes lease acquisition, and the lease carries that dialect
+through attachment and Codex provider-file wiring. Regression tests first
+reproduced premature acquisition and loss of the selected dialect at both steps.
 The broader backend storage/audit contract remains unvalidated.
 
 The repository pins Router 0.125.4 pending
@@ -303,12 +307,12 @@ Before changing production code, the display tests failed, rotation cache tests
 failed, catalog ownership test failed, Router selection tests failed, and the
 verbose redaction and malformed-response tests failed with synthetic sentinel
 values. Retained logs show those failures. The focused limits/cache/Router
-tests pass (33 tests). Existing Router isolation, routing and hardening checks
+tests pass (38 tests). Existing Router isolation, routing, sidecar and hardening checks
 also pass after the admission change.
 Full-suite/static-check results and current-head CI are recorded in the PR.
 
 Local validation: all 695 files selected by the default runner passed. The
-new admission file was added during that run; the supplemental 33-test run
+new admission file was added during that run; the supplemental 38-test run
 includes it, and the existing Router suites were rerun after the launcher
 change. Full lint, format, duplication, secret scan and file-line gates passed;
 the final launcher changes also passed focused lint and formatting checks.

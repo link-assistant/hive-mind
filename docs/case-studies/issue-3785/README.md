@@ -602,4 +602,31 @@ the complete packaged-image host/nested check still requires a passing CI run.
 Docker documents its [Linux static client distribution](https://docs.docker.com/engine/install/binaries/),
 and the client comes from the [official image](https://hub.docker.com/_/docker).
 
+Claude's pinned release can rehydrate capabilities after local cleanup:
+[`syncClaudeAiSkills`](https://code.claude.com/docs/en/settings-reference#syncclaudeaiskills)
+and [`syncClaudeAiPlugins`](https://code.claude.com/docs/en/settings-reference#syncclaudeaiplugins)
+default to account sync, while
+[`disableClaudeAiConnectors`](https://code.claude.com/docs/en/settings-reference#disableclaudeaiconnectors)
+defaults to allowing cloud MCP connectors. Admission now requires explicit
+`false`, `false` and `true` respectively, plus environment values disabling
+connectors and official-marketplace auto-installation. Repair-disabled launches
+reject even a missing settings file; enabled repair seeds or merges these
+values without touching auth/history or unrelated security/provider settings.
+Managed settings that explicitly enable account sync, connectors or either
+environment switch also reject admission before user repair, without changing
+administrator files. Restored `plugins/synced` payloads are removed
+through the validated repair path.
+
+The first ten cloud regressions all failed before implementation, and a separate
+restored-payload regression reproduced its discovery gap. Three additional
+regressions reproduced managed-policy overrides. All sixteen final cloud
+cases and the expanded 260-case surrounding selection pass, including a real
+`configure-claude` subprocess writing only the selected disposable native home.
+Both configuration helpers now resolve `CLAUDE_CONFIG_DIR` consistently with
+admission. All three image definitions carry the connector environment pin;
+their existing configuration command supplies the settings pins. This verifies
+local policy and command routing. Authenticated native account rehydration,
+complete search-path attestation and the full image lifecycle matrix remain
+unverified and required.
+
 ![Synthetic before and after limits layout](evidence/display-comparison.png)

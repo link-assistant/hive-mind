@@ -14,6 +14,8 @@ test('all stock-gate native children receive disposable homes without inherited 
   const capture = path.join(root, 'children.jsonl');
   await mkdir(path.join(home, '.codex'), { recursive: true });
   await writeFile(path.join(home, '.codex/config.toml'), '[features]\nremote_plugin = false\n');
+  await mkdir(path.join(home, '.claude'));
+  await writeFile(path.join(home, '.claude/settings.json'), JSON.stringify({ syncClaudeAiSkills: false, syncClaudeAiPlugins: false, disableClaudeAiConnectors: true, env: { CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL: '1', ENABLE_CLAUDEAI_MCP_SERVERS: 'false' } }));
   const code = `#!${process.execPath}
 import fs from 'node:fs';
 import readline from 'node:readline';

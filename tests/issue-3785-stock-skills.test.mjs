@@ -134,6 +134,8 @@ for (const missing of [false, true]) {
     const home = await mkdtemp(path.join(os.tmpdir(), 'hive-3785-native-gate-'));
     t.after(() => rm(home, { recursive: true, force: true }));
     await mkdir(path.join(home, '.codex'));
+    await mkdir(path.join(home, '.claude'));
+    await writeFile(path.join(home, '.claude/settings.json'), JSON.stringify({ syncClaudeAiSkills: false, syncClaudeAiPlugins: false, disableClaudeAiConnectors: true, env: { CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL: '1', ENABLE_CLAUDEAI_MCP_SERVERS: 'false' } }));
     await writeFile(path.join(home, '.codex/config.toml'), '[features]\nremote_plugin = false\n');
     const claude = path.join(home, 'claude');
     const codex = path.join(home, 'codex.mjs');

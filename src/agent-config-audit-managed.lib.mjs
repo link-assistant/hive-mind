@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { parse as parseToml } from 'smol-toml';
 import { assertApprovedPlaywrightRegistration } from './agent-mcp-baseline.lib.mjs';
+import { CLAUDE_CLOUD_DISABLE_ENV, CLAUDE_CLOUD_DISABLE_SETTINGS } from './claude-cloud-policy.lib.mjs';
 
 const MAX_BYTES = 1024 * 1024;
 const unsafe = () => new Error('Unsafe or changed managed agent configuration; no repair or admission is permitted. Inspect managed paths, permissions and syntax without removing security policy.');
@@ -91,7 +92,9 @@ export async function auditManagedAgentConfig({ tool = 'all', systemRoots = mana
     nonempty('claude', data, location, ['hooks', 'enabledPlugins', 'extraKnownMarketplaces', 'policyHelper']);
     servers('claude', data, location, 'managedMcpServers');
     servers('claude', data, location, 'mcpServers');
-    for (const key of ['syncClaudeAiSkills', 'allowAllClaudeAiMcps']) if (data[key] !== undefined && data[key] !== false) report('claude', location, key);
+    for (const [key, value] of Object.entries({ ...CLAUDE_CLOUD_DISABLE_SETTINGS, allowAllClaudeAiMcps: false })) if (data[key] !== undefined && data[key] !== value) report('claude', location, key);
+    const env = table(data, 'env');
+    for (const [key, value] of Object.entries(CLAUDE_CLOUD_DISABLE_ENV)) if (env[key] !== undefined && env[key] !== value) report('claude', location, `env.${key}`);
   };
   const codexSettings = (data, location, requirements = false) => {
     if (!data) return;

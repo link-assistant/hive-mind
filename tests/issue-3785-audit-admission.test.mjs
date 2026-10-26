@@ -8,11 +8,14 @@ import { test } from 'node:test';
 import { parse as parseToml } from 'smol-toml';
 import { runAgentConfigAudit } from '../src/agent-config-audit.lib.mjs';
 
+const claudeBaseline = { syncClaudeAiSkills: false, syncClaudeAiPlugins: false, disableClaudeAiConnectors: true, env: { CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL: '1', ENABLE_CLAUDEAI_MCP_SERVERS: 'false' } };
+
 async function fixture(t) {
   const home = await mkdtemp(path.join(os.tmpdir(), 'hive-3785-admission-'));
   t.after(() => rm(home, { recursive: true, force: true }));
   await mkdir(path.join(home, '.codex'), { recursive: true });
   await mkdir(path.join(home, '.claude'), { recursive: true });
+  await writeFile(path.join(home, '.claude/settings.json'), JSON.stringify(claudeBaseline));
   await writeFile(path.join(home, '.codex', 'config.toml'), '[features]\nremote_plugin = false\n');
   return home;
 }

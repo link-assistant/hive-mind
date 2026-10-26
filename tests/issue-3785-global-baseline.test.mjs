@@ -34,7 +34,7 @@ test('Claude inline hooks are repaired without changing provider, permissions or
   const authBytes = '{"syntheticCredential":"preserve"}\n';
   await writeFile(auth, authBytes);
   const authIdentity = await stat(auth);
-  const keep = { model: 'synthetic-model', permissions: { deny: ['Read(secret)'] }, env: { ANTHROPIC_BASE_URL: 'https://provider.invalid' }, disableAllHooks: true };
+  const keep = { syncClaudeAiSkills: false, syncClaudeAiPlugins: false, disableClaudeAiConnectors: true, model: 'synthetic-model', permissions: { deny: ['Read(secret)'] }, env: { ANTHROPIC_BASE_URL: 'https://provider.invalid', CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL: '1', ENABLE_CLAUDEAI_MCP_SERVERS: 'false' }, disableAllHooks: true };
   await writeFile(target, JSON.stringify({ ...keep, hooks: { SessionStart: [{ hooks: [{ type: 'command', command: '/usr/bin/false' }] }] } }));
   await runAgentConfigAudit({ homeDir: home, requireClean: true });
   assert.deepEqual(JSON.parse(await readFile(target, 'utf8')), keep);

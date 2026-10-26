@@ -1,0 +1,35 @@
+✔ admission refuses absent cloud policy when repair is disabled (78.14467ms)
+✔ admission refuses empty cloud policy when repair is disabled (31.97044ms)
+✔ admission refuses skills enabled cloud policy when repair is disabled (40.099121ms)
+✔ admission refuses plugins enabled cloud policy when repair is disabled (52.812082ms)
+✔ admission refuses connectors enabled cloud policy when repair is disabled (32.802421ms)
+✔ admission refuses marketplace enabled cloud policy when repair is disabled (62.254454ms)
+✔ cloud policy repair preserves protected state and unrelated security settings (121.520844ms)
+✔ new quiet configuration disables skills, plugins and connectors (36.922305ms)
+✔ configure-claude resolves the same selected native directory as admission (0.763293ms)
+✔ managed synced plugins reject admission before any user repair (44.725009ms)
+✖ restored synced plugin payloads cannot survive the global audit (99.479713ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 10
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1214.133852
+
+✖ failing tests:
+
+test at tests/issue-3785-claude-cloud-baseline.test.mjs:79:1
+✖ restored synced plugin payloads cannot survive the global audit (99.479713ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-claude-cloud-baseline.test.mjs:85:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /not clean/iu,
+    operator: 'rejects',
+    diff: 'simple'
+  }

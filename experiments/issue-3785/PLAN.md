@@ -76,6 +76,12 @@ push only issue-3785-4c28551ac612, and keep unmet requirements explicitly open.
 - [x] Resolve local suite isolation and stale detector assertions; restore the
       operator plugin caches affected by an inherited test selector and verify
       the worker containment probe without a conflicting global heap override.
+- [x] Reproduce cloud capability rehydration defaults and selected-home writes;
+      pin Claude account skills/plugins sync, connectors and marketplace policy
+      before admission. Reject absent policy with repair disabled, safely seed
+      missing settings and remove restored synced plugin payloads. Preserve
+      protected state and managed policy; verify actual configure-command paths.
+      Authenticated native cloud rehydration remains part of the image matrix.
 - [ ] Implement canonical auth/history authority, explicit alternative contracts,
       coordinated refresh and fail-closed effective-path validation for all tools.
 - [ ] Isolate task catalogs/extensions and enforce clean global baseline; migrate

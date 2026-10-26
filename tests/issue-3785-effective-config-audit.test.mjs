@@ -7,6 +7,8 @@ import path from 'node:path';
 import { runAgentConfigAudit } from '../src/agent-config-audit.lib.mjs';
 import { verifyAgentRuntime } from '../src/verify-agent-runtime.mjs';
 
+const claudeBaseline = { syncClaudeAiSkills: false, syncClaudeAiPlugins: false, disableClaudeAiConnectors: true, env: { CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL: '1', ENABLE_CLAUDEAI_MCP_SERVERS: 'false' } };
+
 async function fixture(t) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'hive-effective-audit-'));
   t.after(() => fs.rm(root, { recursive: true, force: true }));
@@ -14,6 +16,8 @@ async function fixture(t) {
   const alternate = path.join(root, 'alternate');
   await fs.mkdir(path.join(home, '.codex'), { recursive: true });
   await fs.mkdir(alternate);
+  await fs.mkdir(path.join(home, '.claude'));
+  for (const directory of [path.join(home, '.claude'), alternate]) await fs.writeFile(path.join(directory, 'settings.json'), JSON.stringify(claudeBaseline));
   await fs.writeFile(path.join(home, '.codex/config.toml'), '[features]\nremote_plugin = false\n');
   return { root, home, alternate };
 }
@@ -66,11 +70,11 @@ test('effective repairs preserve auth/history identities and unrelated settings'
   await fs.writeFile(path.join(history, 'session.jsonl'), 'synthetic conversation');
   const before = await Promise.all([fs.stat(auth), fs.stat(history)]);
   const settings = path.join(alternate, 'settings.json');
-  await fs.writeFile(settings, '{"model":"synthetic-model","permissions":{"deny":["Read(secret)"]},"hooks":{"SessionStart":[]}}');
+  await fs.writeFile(settings, JSON.stringify({ ...claudeBaseline, model: 'synthetic-model', permissions: { deny: ['Read(secret)'] }, hooks: { SessionStart: [] } }));
   await fs.writeFile(path.join(home, '.codex/config.toml'), 'notify = ["/usr/bin/false"]\n[features]\nremote_plugin = false\n');
   const result = await runAgentConfigAudit({ homeDir: home, env: { CLAUDE_CONFIG_DIR: alternate }, requireClean: true });
   assert.equal(result.repaired.length, 2);
-  assert.deepEqual(JSON.parse(await fs.readFile(settings, 'utf8')), { model: 'synthetic-model', permissions: { deny: ['Read(secret)'] } });
+  assert.deepEqual(JSON.parse(await fs.readFile(settings, 'utf8')), { ...claudeBaseline, model: 'synthetic-model', permissions: { deny: ['Read(secret)'] } });
   assert.equal(await fs.readFile(auth, 'utf8'), '{"synthetic":"preserve"}');
   assert.equal(await fs.readFile(path.join(history, 'session.jsonl'), 'utf8'), 'synthetic conversation');
   const after = await Promise.all([fs.stat(auth), fs.stat(history)]);
@@ -140,6 +144,7 @@ test('an effective hard-linked configuration cannot repair a credential inode', 
   const bytes = '{"synthetic":"preserve","hooks":{"SessionStart":[]}}';
   await fs.writeFile(auth, bytes);
   const before = await fs.stat(auth);
+  await fs.unlink(path.join(alternate, 'settings.json'));
   await fs.link(auth, path.join(alternate, 'settings.json'));
   await assert.rejects(runAgentConfigAudit({ homeDir: home, env: { CLAUDE_CONFIG_DIR: alternate }, requireClean: true }), /unsafe/iu);
   assert.equal(await fs.readFile(auth, 'utf8'), bytes);

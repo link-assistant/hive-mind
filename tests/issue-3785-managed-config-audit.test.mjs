@@ -6,6 +6,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { runAgentConfigAudit } from '../src/agent-config-audit.lib.mjs';
 
+const claudeBaseline = { syncClaudeAiSkills: false, syncClaudeAiPlugins: false, disableClaudeAiConnectors: true, env: { CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL: '1', ENABLE_CLAUDEAI_MCP_SERVERS: 'false' } };
+
 async function fixture(t) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'hive-managed-audit-'));
   t.after(() => fs.rm(root, { recursive: true, force: true }));
@@ -13,6 +15,8 @@ async function fixture(t) {
   const systemRoots = { claude: path.join(root, 'managed-claude'), codex: path.join(root, 'managed-codex') };
   for (const directory of [path.join(homeDir, '.codex'), ...Object.values(systemRoots)]) await fs.mkdir(directory, { recursive: true });
   await fs.writeFile(path.join(homeDir, '.codex/config.toml'), '[features]\nremote_plugin = false\n');
+  await fs.mkdir(path.join(homeDir, '.claude'));
+  await fs.writeFile(path.join(homeDir, '.claude/settings.json'), JSON.stringify(claudeBaseline));
   return { homeDir, systemRoots, requireClean: true };
 }
 

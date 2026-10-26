@@ -36,6 +36,7 @@ import { parseAgentConfigToml, validateAgentConfigAuditInputs } from './agent-co
 import { assertApprovedPlaywrightRegistration } from './agent-mcp-baseline.lib.mjs';
 import { agentConfigAuditScopes } from './agent-config-audit-paths.lib.mjs';
 import { auditManagedAgentConfig, managedAgentConfigRoots } from './agent-config-audit-managed.lib.mjs';
+import { CLAUDE_CLOUD_DISABLE_ENV, CLAUDE_CLOUD_DISABLE_SETTINGS } from './claude-cloud-policy.lib.mjs';
 
 /** MCP servers that belong to the minimal hive-mind configuration. */
 export const MINIMAL_MCP_SERVERS = Object.freeze(['playwright']);
@@ -53,7 +54,7 @@ export const AGENT_CONFIG_AUTO_REPAIR_ENV = 'HIVE_MIND_AGENT_CONFIG_AUTO_REPAIR'
  * re-adding the official marketplace the audit just removed.
  */
 export const AGENT_CONFIG_MINIMAL_ENV = Object.freeze({
-  CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL: '1',
+  ...CLAUDE_CLOUD_DISABLE_ENV,
 });
 
 /** Codex `-c` overrides that keep the remote plugin catalog from re-syncing. */
@@ -166,6 +167,11 @@ const auditClaude = ({ homeDir, configDir: claudeDir, fsImpl, allowedMcpServers 
   const pluginsDir = path.join(claudeDir, 'plugins');
   findings.push(...auditGlobalInstructions({ tool: 'claude', root: claudeDir, fsImpl, files: ['CLAUDE.md'], directories: ['rules'] }));
 
+  for (const plugin of safeReadDir(fsImpl, path.join(pluginsDir, 'synced'), { includeHidden: true })) {
+    const location = path.join(pluginsDir, 'synced', plugin.name);
+    findings.push(makeFinding({ tool: 'claude', kind: 'plugin', name: `synced/${plugin.name}`, location, detail: 'account-synced plugin persisted globally', repair: { type: 'remove-path', target: location } }));
+  }
+
   for (const marketplace of safeReadDir(fsImpl, path.join(pluginsDir, 'marketplaces'))) {
     const location = path.join(pluginsDir, 'marketplaces', marketplace.name);
     findings.push(makeFinding({ tool: 'claude', kind: 'marketplace', name: marketplace.name, location, detail: 'plugin marketplace checked out globally', repair: { type: 'remove-path', target: location } }));
@@ -207,6 +213,10 @@ const auditClaude = ({ homeDir, configDir: claudeDir, fsImpl, allowedMcpServers 
 
   const settingsPath = path.join(claudeDir, 'settings.json');
   const settings = safeReadJson(fsImpl, settingsPath);
+  const settingsEnv = configTable(settings || {}, 'env');
+  if (Object.entries(CLAUDE_CLOUD_DISABLE_SETTINGS).some(([key, value]) => settings?.[key] !== value) || Object.entries(CLAUDE_CLOUD_DISABLE_ENV).some(([key, value]) => settingsEnv[key] !== value)) {
+    findings.push(makeFinding({ tool: 'claude', kind: 'cloud-capabilities', name: 'account-sync-and-connectors', location: settingsPath, detail: 'account skill/plugin sync, connectors and marketplace auto-install must be disabled explicitly', repair: { type: 'set-claude-cloud-policy', target: settingsPath } }));
+  }
   if (settings) {
     if (Object.keys(configTable(settings, 'hooks')).length) {
       findings.push(makeFinding({ tool: 'claude', kind: 'global-hooks', name: 'hooks', location: settingsPath, detail: 'inline global hooks in settings.json', repair: { type: 'delete-json-key', target: settingsPath, keyPath: ['hooks'] } }));
@@ -331,6 +341,16 @@ export const auditAgentConfig = ({ tool = 'all', homeDir = os.homedir(), env = {
 
 const applyRepair = (repair, fsImpl) => {
   switch (repair.type) {
+    case 'set-claude-cloud-policy': {
+      const data = safeReadJson(fsImpl, repair.target) || {};
+      Object.assign(data, CLAUDE_CLOUD_DISABLE_SETTINGS);
+      data.env = { ...configTable(data, 'env'), ...CLAUDE_CLOUD_DISABLE_ENV };
+      // hive-sync-ok: startup admission repair must not yield after validating the pending repair snapshot.
+      fsImpl.mkdirSync(path.dirname(repair.target), { recursive: true });
+      // hive-sync-ok: startup admission repair must not yield between validated directory creation and the configuration write.
+      fsImpl.writeFileSync(repair.target, `${JSON.stringify(data, null, 2)}\n`);
+      return;
+    }
     case 'remove-path': {
       fsImpl.rmSync(repair.target, { recursive: true, force: true });
       if (repair.pruneEmptyParent) {

@@ -10,7 +10,7 @@ import { auditManagedAgentConfig } from './agent-config-audit-managed.lib.mjs';
 
 const TOOL_INPUTS = {
   claude: {
-    dirs: ['.claude', '.claude/plugins', '.claude/plugins/marketplaces', '.claude/plugins/cache', '.claude/plugins/repos', '.claude/skills', '.claude/agents', '.claude/commands', '.claude/rules'],
+    dirs: ['.claude', '.claude/plugins', '.claude/plugins/marketplaces', '.claude/plugins/cache', '.claude/plugins/repos', '.claude/plugins/synced', '.claude/skills', '.claude/agents', '.claude/commands', '.claude/rules'],
     json: ['.claude.json', '.claude/.claude.json', '.claude/settings.json', '.claude/plugins/installed_plugins.json', '.claude/plugins/known_marketplaces.json'],
     opaque: ['.claude/CLAUDE.md'],
   },

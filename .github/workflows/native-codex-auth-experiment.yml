@@ -7,6 +7,7 @@ on:
       - 'experiments/issue-3785/probe-codex-native-auth-root.mjs'
       - 'experiments/issue-3785/probe-codex-native-manager.mjs'
       - 'experiments/issue-3785/probe-codex-native-request-auth.mjs'
+      - 'experiments/issue-3785/probe-codex-native-maintenance.mjs'
       - 'experiments/issue-3785/probe-codex-native-rollout-recovery.mjs'
       - 'src/codex-sessions.lib.mjs'
       - 'src/codex-rollout-publication.lib.mjs'
@@ -135,6 +136,12 @@ jobs:
           done
       - name: Apply the pinned canonical session index experiment
         run: python3 experiments/issue-3785/native-codex/apply_session_index.py "$NATIVE_SOURCE"
+      - name: Reproduce private native maintenance ownership
+        run: node experiments/issue-3785/probe-codex-native-maintenance.mjs "$NATIVE_SOURCE" --expect-private-locks > "$RUNNER_TEMP/native-maintenance-before.log" 2>&1
+      - name: Apply and verify canonical native maintenance ownership
+        run: |
+          python3 experiments/issue-3785/native-codex/apply_maintenance.py "$NATIVE_SOURCE"
+          node experiments/issue-3785/probe-codex-native-maintenance.mjs "$NATIVE_SOURCE" > "$RUNNER_TEMP/native-maintenance-after.log" 2>&1
       - name: Build the full supported CLI with the coordinated source adapter
         run: |
           cd "$NATIVE_SOURCE/codex-rs"
@@ -167,7 +174,7 @@ jobs:
           npm ci --ignore-scripts > "$RUNNER_TEMP/native-index-dependencies.log" 2>&1 &
           wait "$!"
           docker build -t hive-codex-probe:0.164.0 -f experiments/issue-3785/native-codex/Dockerfile.runtime experiments/issue-3785/native-codex > "$RUNNER_TEMP/native-index-image.log" 2>&1
-          node experiments/issue-3785/probe-codex-native-rollout-recovery.mjs --history-metadata --shared-sqlite --shared-index > "$RUNNER_TEMP/native-index-history.log" 2>&1
+          node experiments/issue-3785/probe-codex-native-rollout-recovery.mjs --history-metadata --shared-sqlite --shared-index --shared-maintenance > "$RUNNER_TEMP/native-index-history.log" 2>&1
       - name: Preserve the experimental CLI for bounded lifecycle investigations
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
@@ -187,6 +194,7 @@ jobs:
             ${{ runner.temp }}/native-manager-before-*.log
             ${{ runner.temp }}/native-manager-after-*.log
             ${{ runner.temp }}/native-request-*.log
+            ${{ runner.temp }}/native-maintenance-*.log
             ${{ runner.temp }}/native-session-index-tests.log
             ${{ runner.temp }}/native-index-*.log
           if-no-files-found: ignore

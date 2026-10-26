@@ -252,7 +252,8 @@ Current continuation:
       24c34a39a, packaged Docker passes; default CI stops at a stale mount
       fixture. Repair both incomplete fixtures and extract mount preparation
       to keep the runner below its regression-tested size threshold. All 36
-      focused cases pass; a fresh 723-file suite is running.
+      focused cases and the fresh 723-file local suite pass. The latest CI
+      default and GitHub integration suites also pass; Docker remains running.
 - [x] Reproduce EACCES/EIO being treated as missing Codex history and a failed
       resume inspection being cached as successful. Three regressions fail
       before repair; all 28 surrounding cases pass after structural refusal.
@@ -272,6 +273,13 @@ Current continuation:
       module; five standalone locking/storage tests pass.
 - [ ] Compile the native index patch, run native upstream/index tests and verify
       actual name/read/resume after both private configurations are disposed.
+- [x] Compile the exact native rollout maintenance module and reproduce two
+      owners for shared rollouts across private configurations. Add a pinned
+      canonical maintenance selector; all 12 controls pass against the actual
+      patched function, including stable lock identity, owner death, unsafe
+      storage, private competing locks and legacy behavior.
+- [ ] Verify the maintenance patch in the full native CLI and exercise actual
+      concurrent compression/migration output and remaining history writers.
 - [ ] Complete production integration and all previously open six-tool criteria.
 
 Resource policy: use sequential builds/tests; no real credentials in experiments

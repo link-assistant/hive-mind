@@ -32,7 +32,8 @@ async function readAndResume({ baseCodexHome, threadId, marker, expectedName, di
   const name = `hive-3785-rollout-reader-${process.pid}-${sequence}`;
   const sqlite = process.argv.includes('--shared-sqlite') ? ['-e', `CODEX_SQLITE_HOME=${baseCodexHome}`] : [];
   const index = process.argv.includes('--shared-index') ? ['-e', `CODEX_SESSION_INDEX_HOME=${baseCodexHome}`] : [];
-  const args = ['run', '--rm', '-i', '--name', name, '--label', label, ...cgroupArgs, '--pids-limit', '64', '--network', 'none', '--read-only', '--user', `${process.getuid()}:${process.getgid()}`, '--ulimit', 'data=536870912:536870912', '--ulimit', 'stack=16777216:16777216', '--mount', `type=bind,source=${binary},target=/usr/local/bin/codex,readonly`, '--mount', `type=bind,source=${root},target=${root}`, '-w', root, '-e', `HOME=${config}`, '-e', `CODEX_HOME=${config}`, ...sqlite, ...index, '-e', 'TOKIO_WORKER_THREADS=2', '-e', 'RUST_LOG=off', image, 'codex', 'app-server'];
+  const maintenance = process.argv.includes('--shared-maintenance') ? ['-e', `CODEX_ROLLOUT_MAINTENANCE_HOME=${baseCodexHome}`] : [];
+  const args = ['run', '--rm', '-i', '--name', name, '--label', label, ...cgroupArgs, '--pids-limit', '64', '--network', 'none', '--read-only', '--user', `${process.getuid()}:${process.getgid()}`, '--ulimit', 'data=536870912:536870912', '--ulimit', 'stack=16777216:16777216', '--mount', `type=bind,source=${binary},target=/usr/local/bin/codex,readonly`, '--mount', `type=bind,source=${root},target=${root}`, '-w', root, '-e', `HOME=${config}`, '-e', `CODEX_HOME=${config}`, ...sqlite, ...index, ...maintenance, '-e', 'TOKIO_WORKER_THREADS=2', '-e', 'RUST_LOG=off', image, 'codex', 'app-server'];
   const child = spawn('docker', args, { stdio: ['pipe', 'pipe', 'pipe'] });
   const closed = new Promise(resolve => child.once('close', resolve));
   const pending = new Map();

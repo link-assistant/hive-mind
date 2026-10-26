@@ -166,3 +166,19 @@ lock deletion. `apply_session_index.py` pins the exact upstream index source;
 CI must still compile the patched rollout crate and verify real native
 name/read/resume across two disposed configurations. This is one history
 component, not complete native history or production integration.
+
+The exact upstream `rollout/src/maintenance.rs` has another private-state
+dependency: compression and legacy migration take a lock beneath each
+configuration's `.tmp`. Sharing rollouts alone permits two maintenance owners.
+`probe-codex-native-maintenance.mjs` compiles that actual module with the pinned
+compiler and reproduces both owners in separate bounded processes before the
+repair, for normal release and forced owner death. The pinned applier adds
+`CODEX_ROLLOUT_MAINTENANCE_HOME` without sharing the rest of `.tmp`. It retains
+one canonical OS lock and an anchored directory descriptor, rejects private
+competing locks, unsafe permissions, aliases, links, missing storage and
+configuration overlap, and never deletes the lock inode. All 12 local controls
+pass against the patched native function, including repaired authority and
+legacy behavior without the selector. CI applies it before full CLI compilation
+and selects it during named-history disposal tests. These controls verify lock
+admission, not real concurrent compression/migration output or complete runtime
+backing attestation; those lifecycle requirements remain open.

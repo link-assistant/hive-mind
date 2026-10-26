@@ -46,5 +46,19 @@ Production history inspection:
   passes all 28 cases after repair. Failed inspection cannot authorize a retry;
   recovery refuses before copying or deleting the resume argument.
 
+Native maintenance lock, actual pinned module compiled with rustc 1.99.1:
+  Upstream maintenance.rs SHA-256:
+    abdbd690732aaee671609fc0540c9e845a15116c0de183b0dd976d560f55c404
+  Two private configurations resolve sessions to the same canonical directory.
+  Both native maintenance owners acquire before repair: negative control PASS,
+  for normal release and forced owner death.
+  CODEX_ROLLOUT_MAINTENANCE_HOME patch: 12 actual-function controls PASS.
+  Peer refuses while owner holds the lock; successor acquires after release or
+  owner death without deleting/replacing the canonical lock inode. Unsafe modes,
+  links, aliases, private competing lock, missing root and config overlap refuse.
+  Repaired authority works; absent selector retains legacy private behavior.
+  Full CLI compilation, actual compression/migration mutation races and ongoing
+  backing attestation remain pending. This is not complete history acceptance.
+
 These results do not establish production canonical auth/history, all native
 writers, post-exchange crash recovery, or the required six-tool image matrix.

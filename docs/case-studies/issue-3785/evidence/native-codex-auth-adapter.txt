@@ -1,0 +1,40 @@
+Native Codex source adapter experiment, 2026-10-26
+
+Supported tag: openai/codex rust-v0.164.0
+Peeled source commit: 6aaac694803004a63c6f393d153c96d22521a6b9
+Annotated tag object: fe3b29455488c2e189e43ad5526a107900c5e1b7
+Source-pinned compiler: Rust 1.99.1
+
+Before: actual installed native CLI exits 1 for login status when the synthetic
+key is outside CODEX_HOME in the proposed independent CODEX_AUTH_HOME directory.
+The probe fails its first expected-success assertion. No model call or real
+credentials are used; output is discarded and only structural results retained.
+
+Adapter: source-context/pin-checked changes in the native file-store backend,
+private directory and file validation, descriptor-anchored bounded reads,
+temporary-file/rename/fsync commits, native delete/recreate and refusal of
+independent scoped copies or alternate storage-backend fallback.
+
+Local primitive validation: exact module compiles with Rust 1.99.1; seven tests
+pass and the subprocess-only worker is intentionally ignored by the parent
+harness. Its two refresh workers are spawned explicitly, bounded and reaped.
+Coverage includes stable inode, locked generation reread/one predecessor use,
+forced owner death, atomic replacement/logout/recreation, unsafe auth/lock files,
+independent equal-content copies/links, bounded input and lock replacement.
+
+Build preparation: pinned source lockfile requires 166 local package versions
+to match the release workspace. Exact before/after hashes and parsed comparison
+verify external versions, sources, checksums and dependency edges are unchanged.
+Dependency fetch then succeeds with --locked. Build/CLI acceptance is pending.
+
+Limits: the images and launcher do not use this source adapter. Its OS lock is
+not wired into native refresh/read/write entrypoints. No native refresh,
+all-writer/cached-read invalidation, full history, migration, environment/custom
+provider admission, or six-tool lifecycle claim is made. The original production
+Codex credential copy remains unfinished, not fixed by this experiment.
+
+Commands and reproducible build job are under experiments/issue-3785/native-codex
+and .github/workflows/native-codex-auth-experiment.yml.
+Local logs: /tmp/issue-3785-native-root-before.log,
+/tmp/issue-3785-native-module-tests.log and
+/tmp/issue-3785-native-cargo-fetch.log.

@@ -133,6 +133,11 @@ push only issue-3785-4c28551ac612, and keep unmet requirements explicitly open.
       and require image checks for installer-script updates. Packaged CI pending.
 - [ ] Implement canonical auth/history authority, explicit alternative contracts,
       coordinated refresh and fail-closed effective-path validation for all tools.
+      Start a native Codex file-store source adapter at immutable 0.164.0:
+      native status fails before the adapter; standalone Rust primitives compile
+      and pass. Keep it outside production until the full native CLI build,
+      refresh/read/write coordination and lifecycle gates are verified. Preserve
+      `--locked` after hash-checked repair of local workspace version entries.
 - [x] Reproduce scoped Codex config inheriting six alternate plugin-table forms,
       corrupting header-looking multiline strings and admitting malformed TOML.
       Replace regex stripping with semantic parsing; preserve typed runtime
@@ -158,6 +163,9 @@ push only issue-3785-4c28551ac612, and keep unmet requirements explicitly open.
       timeline, upstream findings, solutions and exact outstanding blockers.
 - [x] Run focused tests then full local suite, lint/format and relevant checks
       sequentially; preserve large logs and inspect failures in <=1500-line chunks.
+      The complete 720-file local default suite passes after the credential-cache
+      generation and disposable queue-fixture corrections. Native source adapter
+      build and full-CLI acceptance remain separate pending checks.
 - [x] Commit useful atomic steps after checks; integrate latest main; review diff.
 - [x] Update PR title/body with evidence, reproduction and Fixes #3785; push branch.
 - [ ] Verify newest-SHA CI, download/analyze nonpassing logs, fix actual failures.

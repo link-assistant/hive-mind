@@ -1,0 +1,76 @@
+name: Native Codex auth adapter experiment
+
+on:
+  pull_request:
+    paths:
+      - 'experiments/issue-3785/native-codex/**'
+      - 'experiments/issue-3785/probe-codex-native-auth-root.mjs'
+      - 'experiments/issue-3785/probe-codex-native-manager.mjs'
+      - '.github/workflows/native-codex-auth-experiment.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-codex-auth-experiment-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native-file-authority:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      CARGO_BUILD_JOBS: '1'
+      CARGO_INCREMENTAL: '0'
+      CARGO_PROFILE_DEV_DEBUG: '0'
+      NATIVE_SOURCE: ${{ runner.temp }}/codex-native-source
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+      - name: Fetch the immutable supported native source
+        run: |
+          git init "$NATIVE_SOURCE"
+          git -C "$NATIVE_SOURCE" remote add origin https://github.com/openai/codex.git
+          git -C "$NATIVE_SOURCE" fetch --depth 1 origin 6aaac694803004a63c6f393d153c96d22521a6b9
+          git -C "$NATIVE_SOURCE" checkout --detach FETCH_HEAD
+          python3 experiments/issue-3785/native-codex/apply_adapter.py "$NATIVE_SOURCE"
+      - name: Install the source-pinned compiler
+        run: rustup toolchain install 1.99.1 --profile minimal
+      - name: Test the exact canonical storage module
+        run: |
+          rustc +1.99.1 --edition 2024 --test experiments/issue-3785/native-codex/canonical_auth_tests.rs -o "$RUNNER_TEMP/canonical-auth-tests"
+          prlimit --data=134217728 --stack=8388608 --core=0 -- "$RUNNER_TEMP/canonical-auth-tests" --test-threads=1
+      - name: Install native Linux build prerequisites
+        run: |
+          sudo apt-get update > "$RUNNER_TEMP/native-prerequisites.log" 2>&1 &
+          wait "$!"
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends pkg-config libcap-dev >> "$RUNNER_TEMP/native-prerequisites.log" 2>&1 &
+          wait "$!"
+      - name: Build the real supported CLI with the source adapter
+        run: |
+          cd "$NATIVE_SOURCE/codex-rs"
+          cargo +1.99.1 build --locked --profile dev-small -p codex-cli --bin codex > "$RUNNER_TEMP/native-codex-build.log" 2>&1
+          cargo +1.99.1 build --locked --profile dev-small -p codex-login --bin hive-canonical-auth-probe >> "$RUNNER_TEMP/native-codex-build.log" 2>&1
+      - name: Reproduce native cached-read and refresh defects before coordination
+        run: |
+          for scenario in replacement logout refresh; do
+            node experiments/issue-3785/probe-codex-native-manager.mjs "$NATIVE_SOURCE/codex-rs/target/dev-small/hive-canonical-auth-probe" "$scenario" --expect-uncoordinated > "$RUNNER_TEMP/native-manager-before-$scenario.log" 2>&1
+          done
+      - name: Exercise native status, replacement and logout across private homes
+        run: node experiments/issue-3785/probe-codex-native-auth-root.mjs "$NATIVE_SOURCE/codex-rs/target/dev-small/codex"
+      - name: Preserve native build diagnostics
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-codex-auth-build
+          path: |
+            ${{ runner.temp }}/native-codex-build.log
+            ${{ runner.temp }}/native-prerequisites.log
+            ${{ runner.temp }}/native-manager-before-*.log
+          if-no-files-found: ignore
+          retention-days: 7

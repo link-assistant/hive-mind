@@ -23,6 +23,13 @@ do not establish canonical storage or coordinated native refresh.
 
 ## Source references and boundaries
 
+An experimental native Codex file-store adapter now lives under
+`experiments/issue-3785/native-codex`. It separates a proposed auth root while
+preserving native commands and has bounded standalone primitive tests. Its
+full native build/command acceptance and refresh integration remain pending;
+production still copies scoped Codex credentials. See
+`evidence/native-codex-auth-adapter.txt` for the exact source pin and limits.
+
 ### Claude
 
 Anthropic's [authentication reference](https://code.claude.com/docs/en/authentication)

@@ -56,4 +56,29 @@ its reproducing test fails when synthetic credential/provider sentinels are
 logged. The log is now constant and the test passes. Finding 310 identified a
 substring URL assertion in the Router regression test; the assertion now
 compares the complete, unique generated `base_url` line. Neither finding was
-dismissed or suppressed. Fresh CodeQL analysis must verify both corrections.
+dismissed or suppressed. Fresh PR-merge CodeQL analysis for head `faf96022a` (merge commit
+`2955366406d27dffb6124f6e4a6d6c42f8916a86`) marks the most recent instances of
+findings 309 and 310 as `fixed`; neither was dismissed or suppressed.
+
+
+On `faf96022a`, [Checks and release 40274978015](https://github.com/link-assistant/hive-mind/actions/runs/40274978015)
+started at 05:34:47 UTC after the 05:34:41 UTC commit. The `test-suites` job
+121419694963 failed at 05:54:45 UTC. Its downloaded
+`test-suites-40274978015.log` lines 5249–5263 identify
+`tests/solve-queue.test.mjs:1230`: mocked high Codex usage did not trigger
+one-at-a-time mode. The test seeded the old unversioned `codex` cache key,
+which the new path/generation-aware cache correctly ignores. Its synchronous
+test helper also did not await async callbacks, allowing later tests to clear
+state and the process to exit before assertions. The repaired test seeds through
+the public cache API, awaits async tests sequentially, and isolates test homes
+from operator credentials. The isolated reproducer failed on the original
+cache setup (70 passed, one failed); the repair passes all 71 assertions.
+All 698 files in the full default suite passed after these changes.
+
+That release run completed at 06:10:57 UTC. Its Docker PR checks passed, as did
+lint, compilation, docs, Helm, memory and execution checks. The pipeline status
+failed because of the queue assertion; this does not certify the new canonical
+storage and global-baseline contracts, which those image checks do not test.
+The complete run log was downloaded after completion as
+`release-40274978015.log` (53648 lines); the failing job log above provides the
+precise assertion location without unrelated build output.

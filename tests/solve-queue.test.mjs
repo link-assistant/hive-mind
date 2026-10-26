@@ -11,8 +11,18 @@
  */
 
 import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { SolveQueue, QUEUE_CONFIG, QueueItemStatus, resetSolveQueue, getRunningClaudeProcesses } from '../src/telegram-solve-queue.lib.mjs';
-import { resetLimitCache, getLimitCache, CACHE_TTL } from '../src/limits.lib.mjs';
+import { resetLimitCache, getLimitCache, getCachedCodexLimits, CACHE_TTL } from '../src/limits.lib.mjs';
+
+// Isolate native usage readers from operator credentials and external accounts.
+const fixtureHome = mkdtempSync(join(tmpdir(), 'hive-queue-usage-'));
+process.env.CODEX_HOME = join(fixtureHome, 'codex');
+process.env.CLAUDE_CONFIG_DIR = join(fixtureHome, 'claude');
+process.env.HIVE_MIND_USE_ROUTER = '0';
+process.once('exit', () => rmSync(fixtureHome, { recursive: true, force: true }));
 
 // Test utilities
 let testsPassed = 0;
@@ -43,6 +53,7 @@ async function asyncTest(name, fn) {
 function beforeEach() {
   resetSolveQueue();
   resetLimitCache();
+  getLimitCache().set('github', { success: true, githubRateLimit: { usedPercentage: 0 } }, CACHE_TTL.API);
 }
 
 // ============================================================================
@@ -695,7 +706,7 @@ test('totalProcessing is calculated as processing.size + Claude processes', () =
 
   queue.stop();
 });
-test('canStartCommand returns totalProcessing in result', async () => {
+await asyncTest('canStartCommand returns totalProcessing in result', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
 
@@ -706,7 +717,7 @@ test('canStartCommand returns totalProcessing in result', async () => {
 
   queue.stop();
 });
-test('canStartCommand returns claudeProcesses count in result', async () => {
+await asyncTest('canStartCommand returns claudeProcesses count in result', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
 
@@ -724,7 +735,7 @@ test('canStartCommand returns claudeProcesses count in result', async () => {
 // ============================================================================
 console.log('\n📋 System Resource Threshold Tests (Issue #1133)\n');
 
-test('checkSystemResources accepts totalProcessing=0 for disk one-at-a-time mode (Issue #1155)', async () => {
+await asyncTest('checkSystemResources accepts totalProcessing=0 for disk one-at-a-time mode (Issue #1155)', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
   // checkSystemResources now accepts totalProcessing for disk one-at-a-time mode
@@ -740,7 +751,7 @@ test('checkSystemResources accepts totalProcessing=0 for disk one-at-a-time mode
   queue.stop();
 });
 
-test('checkSystemResources accepts totalProcessing=1 for disk one-at-a-time mode (Issue #1155)', async () => {
+await asyncTest('checkSystemResources accepts totalProcessing=1 for disk one-at-a-time mode (Issue #1155)', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
   // checkSystemResources with totalProcessing=1 tests behavior when something is already running
@@ -772,7 +783,7 @@ test('QUEUE_CONFIG thresholds are valid positive ratios', () => {
 // ============================================================================
 
 console.log('\n📋 API Threshold Behavior Tests (Issue #1133)\n');
-test('checkApiLimits accepts totalProcessing parameter', async () => {
+await asyncTest('checkApiLimits accepts totalProcessing parameter', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
 
@@ -786,7 +797,7 @@ test('checkApiLimits accepts totalProcessing parameter', async () => {
   queue.stop();
 });
 
-test('checkApiLimits with different totalProcessing values', async () => {
+await asyncTest('checkApiLimits with different totalProcessing values', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
   // Test with totalProcessing = 0
@@ -997,7 +1008,7 @@ test('lastStartTime is updated when item moves to processing', () => {
 
   queue.stop();
 });
-test('MIN_START_INTERVAL_MS prevents rapid consecutive starts', async () => {
+await asyncTest('MIN_START_INTERVAL_MS prevents rapid consecutive starts', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
 
@@ -1078,7 +1089,7 @@ await asyncTest('formatDetailedStatus shows the shared waiting reason once (issu
 // ============================================================================
 console.log('\n📋 Queue Consumer Logic Tests\n');
 
-test('consumer does not start when queue is empty', async () => {
+await asyncTest('consumer does not start when queue is empty', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
   // Queue is empty
@@ -1171,7 +1182,7 @@ test('queue item has correct tool property', () => {
 // ============================================================================
 
 console.log('\n📋 Tool Agent Claude Limits Skip Tests (Issue #1159)\n');
-test('checkApiLimits accepts tool parameter', async () => {
+await asyncTest('checkApiLimits accepts tool parameter', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
 
@@ -1184,7 +1195,7 @@ test('checkApiLimits accepts tool parameter', async () => {
   queue.stop();
 });
 
-test('checkApiLimits with tool agent should not block on Claude limits', async () => {
+await asyncTest('checkApiLimits with tool agent should not block on Claude limits', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
   // Test with tool = 'agent' - should skip Claude limits
@@ -1198,7 +1209,7 @@ test('checkApiLimits with tool agent should not block on Claude limits', async (
   queue.stop();
 });
 
-test('checkApiLimits with tool gemini should not block on Claude limits', async () => {
+await asyncTest('checkApiLimits with tool gemini should not block on Claude limits', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
 
@@ -1208,12 +1219,13 @@ test('checkApiLimits with tool gemini should not block on Claude limits', async 
   queue.stop();
 });
 
-test('checkApiLimits with tool codex applies Codex limits', async () => {
+await asyncTest('checkApiLimits with tool codex applies Codex limits', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
-  getLimitCache().set(
-    'codex',
-    {
+  // Seed through the public API so path and credential-generation partitioning
+  // is exercised instead of bypassed with a stale internal cache key.
+  await getCachedCodexLimits(false, {
+    fetchLimits: async () => ({
       success: true,
       usage: {
         currentSession: { percentage: 95, resetTime: null, resetsAt: null },
@@ -1222,9 +1234,8 @@ test('checkApiLimits with tool codex applies Codex limits', async () => {
       planType: 'pro',
       additionalRateLimits: [],
       credits: null,
-    },
-    CACHE_TTL.USAGE_API
-  );
+    }),
+  });
 
   const result = await queue.checkApiLimits(false, 1, 'codex');
   assert.ok(result.oneAtATime, 'Codex high session usage should trigger one-at-a-time mode');
@@ -1249,7 +1260,7 @@ await asyncTest('checkApiLimits default tool is claude', async () => {
   queue.stop();
 });
 
-test('canStartCommand accepts tool option', async () => {
+await asyncTest('canStartCommand accepts tool option', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
   // canStartCommand should accept options with tool
@@ -1261,7 +1272,7 @@ test('canStartCommand accepts tool option', async () => {
   queue.stop();
 });
 
-test('canStartCommand with tool agent skips Claude limits', async () => {
+await asyncTest('canStartCommand with tool agent skips Claude limits', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
   // Test with tool = 'agent' - Claude limits should be skipped
@@ -1276,7 +1287,7 @@ test('canStartCommand with tool agent skips Claude limits', async () => {
   queue.stop();
 });
 
-test('canStartCommand default tool is claude', async () => {
+await asyncTest('canStartCommand default tool is claude', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
   // When options not provided, tool should default to 'claude'

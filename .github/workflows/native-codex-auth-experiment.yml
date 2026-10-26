@@ -7,6 +7,7 @@ on:
       - 'experiments/issue-3785/probe-codex-native-auth-root.mjs'
       - 'experiments/issue-3785/probe-codex-native-manager.mjs'
       - 'experiments/issue-3785/probe-codex-native-request-auth.mjs'
+      - 'experiments/issue-3785/probe-codex-native-refresh-crash.mjs'
       - 'experiments/issue-3785/probe-codex-native-maintenance.mjs'
       - 'experiments/issue-3785/probe-codex-native-message-history.mjs'
       - 'experiments/issue-3785/probe-codex-native-tui-history.py'
@@ -96,6 +97,8 @@ jobs:
         run: |
           rustc +1.99.1 --edition 2024 --test experiments/issue-3785/native-codex/canonical_session_index.rs -o "$RUNNER_TEMP/canonical-session-index-tests"
           prlimit --data=134217728 --stack=8388608 --core=0 -- "$RUNNER_TEMP/canonical-session-index-tests" --test-threads=1
+      - name: Test durable refresh intent storage and owner death
+        run: python3 experiments/issue-3785/native-codex/build_refresh_intent_tests.py > "$RUNNER_TEMP/native-refresh-intent-storage.log" 2>&1
       - name: Install native Linux build prerequisites
         run: |
           {
@@ -176,6 +179,24 @@ jobs:
         run: node experiments/issue-3785/probe-codex-native-request-auth.mjs "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --provider-overrides --expect-provider-overrides > "$RUNNER_TEMP/native-request-overrides-before.log" 2>&1
       - name: Reproduce alternate native provider constructor authority
         run: node experiments/issue-3785/probe-codex-native-request-auth.mjs "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --provider-constructors --expect-provider-constructors > "$RUNNER_TEMP/native-request-constructors-before.log" 2>&1
+      - name: Reproduce consumed predecessor reuse after native refresh owner death
+        run: |
+          node experiments/issue-3785/probe-codex-native-refresh-crash.mjs "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --expect-reused-predecessor > "$RUNNER_TEMP/native-refresh-crash-before.log" 2>&1
+          if node experiments/issue-3785/probe-codex-native-refresh-crash.mjs "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" > "$RUNNER_TEMP/native-refresh-crash-regression.log" 2>&1; then
+            echo "The native crash regression unexpectedly passed before repair."
+            exit 1
+          fi
+          grep -F 'A peer must not consume G0 again after an unknown native refresh outcome.' "$RUNNER_TEMP/native-refresh-crash-regression.log"
+      - name: Apply native durable refresh intent and test exact transaction modules
+        run: |
+          python3 experiments/issue-3785/native-codex/apply_refresh_intent.py "$NATIVE_SOURCE"
+          python3 experiments/issue-3785/native-codex/build_refresh_transaction_tests.py "$NATIVE_SOURCE" > "$RUNNER_TEMP/native-refresh-intent-transactions.log" 2>&1
+          cd "$NATIVE_SOURCE/codex-rs"
+          cargo +1.99.1 build --locked --profile dev-small -p codex-login --bin hive-canonical-auth-probe >> "$RUNNER_TEMP/native-codex-build.log" 2>&1
+          cd "$GITHUB_WORKSPACE"
+          for scenario in replacement logout refresh refresh-login refresh-logout cached-replacement cached-logout cached-malformed cached-permissions; do
+            node experiments/issue-3785/probe-codex-native-manager.mjs "$NATIVE_SOURCE/codex-rs/target/dev-small/hive-canonical-auth-probe" "$scenario" > "$RUNNER_TEMP/native-manager-intent-$scenario.log" 2>&1
+          done
       - name: Apply and build canonical request admission
         run: |
           python3 experiments/issue-3785/native-codex/apply_request_auth.py "$NATIVE_SOURCE"
@@ -184,6 +205,8 @@ jobs:
           cargo +1.99.1 build --locked --profile dev-small -p codex-cli --bin codex >> "$RUNNER_TEMP/native-codex-build.log" 2>&1
       - name: Verify actual native TUI refuses before executing without safe history
         run: python3 experiments/issue-3785/probe-codex-native-tui-history.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" > "$RUNNER_TEMP/native-tui-history-after.log" 2>&1
+      - name: Verify actual native peer refuses uncertain predecessor after owner death
+        run: node experiments/issue-3785/probe-codex-native-refresh-crash.mjs "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" > "$RUNNER_TEMP/native-refresh-crash-after.log" 2>&1
       - name: Verify native TUI history behavior without the canonical selector
         run: python3 experiments/issue-3785/probe-codex-native-tui-history.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --without-selector --expect-private-history --expect-unsafe-execution > "$RUNNER_TEMP/native-tui-history-legacy.log" 2>&1
       - name: Verify native prompt-history upstream behavior remains intact
@@ -224,6 +247,8 @@ jobs:
             ${{ runner.temp }}/native-prerequisites.log
             ${{ runner.temp }}/native-manager-before-*.log
             ${{ runner.temp }}/native-manager-after-*.log
+            ${{ runner.temp }}/native-manager-intent-*.log
+            ${{ runner.temp }}/native-refresh-*.log
             ${{ runner.temp }}/native-request-*.log
             ${{ runner.temp }}/native-maintenance-*.log
             ${{ runner.temp }}/native-prompt-history-*.log

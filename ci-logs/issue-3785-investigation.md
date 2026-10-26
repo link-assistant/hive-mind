@@ -389,3 +389,12 @@ publication/filename changes have 37 passing focused cases and four actual
 native Docker recovery/read/resume controls; a new 722-file suite is required.
 The Formal AI pin repair passes the real local dependency-freshness check and
 ten focused freshness regressions. Newest-head CI remains required.
+
+
+The fresh 722-file local suite exposes an incomplete freshness repair at file
+65: `e2e-matrix-harness-3332.test.mjs` refuses mismatched runtime/image versions.
+`/tmp/issue-3785-rollout-full-suite.log` lines 974–982 identify the unchanged
+`FORMAL_AI_BOOTSTRAP_VERSION` (0.355.11) against image defaults (0.355.12).
+The current-pin regression also still expects 0.355.11. Align both declarations
+with the four images and rerun the existing pin/matrix tests before restarting
+the full suite. This failed run is not counted as a complete pass.

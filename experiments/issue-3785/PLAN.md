@@ -128,6 +128,10 @@ push only issue-3785-4c28551ac612, and keep unmet requirements explicitly open.
       validate bounded enumeration, unsafe inputs and concurrent additions before
       repair. Verify the actual pinned CLI discovers the separate-file MCP and
       read-only admission refuses it; 193 surrounding tests pass.
+- [x] Reproduce missing Gemini/Qwen image and update pins and runtime version
+      admission. Pin all six CLIs; verify actual Gemini 0.65.0, Qwen 0.26.1,
+      Agent 0.27.0, OpenCode 1.19.4 and search versions in disposable state.
+      Version checks alone do not establish the requested storage contract.
 - [ ] Isolate task catalogs/extensions and enforce clean global baseline; migrate
       persisted full homes with an allowlist preserving auth/conversation evidence.
 - [ ] Add production Docker lifecycle tests (root/two tasks, refresh/atomic writes,

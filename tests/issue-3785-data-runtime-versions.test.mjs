@@ -15,6 +15,8 @@ for (const mismatch of [false, true]) {
     for (const [tool, version] of [
       ['agent', '0.27.0'],
       ['opencode', mismatch ? '1.19.5' : '1.19.4'],
+      ['gemini', '0.65.0'],
+      ['qwen', '0.26.1'],
       ['rg', 'ripgrep 14.1.1'],
     ]) {
       const command = path.join(root, `${tool}.mjs`);
@@ -28,7 +30,7 @@ for (const mismatch of [false, true]) {
       .trim()
       .split('\n')
       .map(line => JSON.parse(line));
-    assert.equal(children.length, mismatch ? 2 : 3);
+    assert.equal(children.length, mismatch ? 2 : 5);
     for (const child of children) {
       assert.deepEqual(child.args, ['--version']);
       assert.equal(child.home, root);
@@ -46,6 +48,8 @@ for (const search of ['missing', 'broken', 'working']) {
     for (const [name, version] of [
       ['agent', '0.27.0'],
       ['opencode', '1.19.4'],
+      ['gemini', '0.65.0'],
+      ['qwen', '0.26.1'],
       ['rg', search === 'working' ? 'ripgrep 14.1.1' : ''],
     ]) {
       const command = path.join(root, name);
@@ -55,5 +59,25 @@ for (const search of ['missing', 'broken', 'working']) {
     const check = verifyToolDataRuntimeVersions({ ...commands, homeDir: root, cwd: root });
     if (search === 'working') await check;
     else await assert.rejects(check);
+  });
+}
+
+for (const changed of ['gemini', 'qwen']) {
+  test(`runtime verification refuses an unattested ${changed} version`, { timeout: 8000 }, async t => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'hive-oauth-versions-'));
+    t.after(() => fs.rm(root, { recursive: true, force: true }));
+    const commands = {};
+    for (const [name, version] of [
+      ['agent', '0.27.0'],
+      ['opencode', '1.19.4'],
+      ['gemini', '0.65.0'],
+      ['qwen', '0.26.1'],
+      ['rg', 'ripgrep 14.1.1'],
+    ]) {
+      const command = path.join(root, name);
+      await fs.writeFile(command, `#!${process.execPath}\nconsole.log(${JSON.stringify(name === changed ? '999.0.0' : version)});\n`, { mode: 0o700 });
+      commands[`${name}Command`] = command;
+    }
+    await assert.rejects(verifyToolDataRuntimeVersions({ ...commands, homeDir: root, cwd: root }), /data-storage CLI version/iu);
   });
 }

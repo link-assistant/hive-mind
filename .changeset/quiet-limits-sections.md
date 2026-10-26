@@ -55,3 +55,5 @@ Install Agent's PATH search executable from the architecture-matched pinned Code
 Rebuild task-scoped Codex configuration with semantic TOML parsing. Remove operator plugin declarations in quoted, dotted, inline and nested forms while preserving unrelated strings, dates and large integers. Refuse malformed configuration before native discovery without exposing parser excerpts.
 
 Include native Codex profile-v2 configuration files in global admission and semantic repair. Bound their enumeration and reject unsafe, malformed, oversized or changed profiles before any configuration mutation.
+
+Pin Gemini 0.65.0 and Qwen 0.26.1 alongside the other four installed tool runtimes. Verify their native versions in disposable state during installed-runtime admission and exclude all six pinned CLIs from automatic updates.

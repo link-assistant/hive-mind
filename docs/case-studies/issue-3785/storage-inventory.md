@@ -14,6 +14,13 @@ real CLI writes, discovery and resume tests before production routing changes.
 | agent 0.27.0    | XDG data root `link-assistant-agent/auth.json`; additional provider credential integrations must be inventoried                            | `link-assistant-agent/storage` under the XDG data root contains project/session/message/part records                                                         | XDG config, data, cache and state roots are distinct. Sharing the data root alone has not established every history surface or all provider refresh coordination.                                      |
 | OpenCode 1.19.4 | XDG data root `opencode/auth.json`; `OPENCODE_AUTH_CONTENT` can substitute an environment snapshot                                         | SQLite `opencode.db` under the data root by default; `OPENCODE_DB` can select another path; SQLite uses WAL                                                  | XDG config/data/state are distinct and config has an override. Database sidecars, repositories/snapshots and plugin-specific OAuth implementations must be included in lifecycle tests.                |
 
+All six image CLI installations now have exact version pins, and all six are
+excluded from automatic updates. The installed-runtime gate checks Gemini
+0.65.0 and Qwen 0.26.1 as well as Claude, Codex, Agent and OpenCode. The
+bounded `probe-tool-runtime-versions.mjs` verifies the real installed data-side
+versions using disposable state. These checks detect layout-version drift; they
+do not establish canonical storage or coordinated native refresh.
+
 ## Source references and boundaries
 
 ### Claude

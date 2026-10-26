@@ -24,6 +24,9 @@ const probeEnvironment = home => ({
   CLAUDE_CONFIG_DIR: path.join(home, '.claude'),
   CODEX_HOME: path.join(home, '.codex'),
   CODEX_SQLITE_HOME: path.join(home, '.codex'),
+  GEMINI_CLI_HOME: home,
+  QWEN_HOME: path.join(home, '.qwen'),
+  QWEN_RUNTIME_DIR: path.join(home, '.qwen'),
   XDG_CONFIG_HOME: path.join(home, '.config'),
   XDG_DATA_HOME: path.join(home, '.local/share'),
   XDG_STATE_HOME: path.join(home, '.local/state'),
@@ -109,10 +112,12 @@ async function materializeStock(command, home, cwd, env) {
   }
 }
 
-export async function verifyToolDataRuntimeVersions({ homeDir, cwd, agentCommand = 'agent', opencodeCommand = 'opencode', rgCommand = 'rg' }) {
+export async function verifyToolDataRuntimeVersions({ homeDir, cwd, agentCommand = 'agent', opencodeCommand = 'opencode', geminiCommand = 'gemini', qwenCommand = 'qwen', rgCommand = 'rg' }) {
   for (const [command, expected] of [
     [agentCommand, '0.27.0'],
     [opencodeCommand, '1.19.4'],
+    [geminiCommand, '0.65.0'],
+    [qwenCommand, '0.26.1'],
   ]) {
     const { stdout } = await execute(command, ['--version'], { env: probeEnvironment(homeDir), cwd, maxBuffer: 64 * 1024, signal: AbortSignal.timeout(DEADLINE_MS) });
     assert.equal(stdout.trim(), expected, 'Installed data-storage CLI version differs from the pinned runtime.');
@@ -121,7 +126,7 @@ export async function verifyToolDataRuntimeVersions({ homeDir, cwd, agentCommand
   assert.match(stdout, /^ripgrep \d+\.\d+\.\d+\b/u, 'Installed Agent search runtime is missing or unusable.');
 }
 
-export async function verifyAgentRuntime({ homeDir = os.homedir(), env = {}, codexCommand = 'codex', claudeCommand = 'claude', agentCommand = 'agent', opencodeCommand = 'opencode' } = {}) {
+export async function verifyAgentRuntime({ homeDir = os.homedir(), env = {}, codexCommand = 'codex', claudeCommand = 'claude', agentCommand = 'agent', opencodeCommand = 'opencode', geminiCommand = 'gemini', qwenCommand = 'qwen' } = {}) {
   await runAgentConfigAudit({ homeDir, env, autoRepair: false, requireClean: true });
   const fixture = await mkdtemp(path.join(os.tmpdir(), 'hive-stock-gate-'));
   try {
@@ -139,7 +144,7 @@ export async function verifyAgentRuntime({ homeDir = os.homedir(), env = {}, cod
       assert.equal(stdout.trim(), expected, 'Installed CLI version differs from the pinned runtime.');
     }
     await materializeStock(codexCommand, home, cwd, probeEnv);
-    await verifyToolDataRuntimeVersions({ homeDir: home, cwd, agentCommand, opencodeCommand });
+    await verifyToolDataRuntimeVersions({ homeDir: home, cwd, agentCommand, opencodeCommand, geminiCommand, qwenCommand });
     await runAgentConfigAudit({ homeDir, env, autoRepair: false, requireClean: true });
   } finally {
     await rm(fixture, { recursive: true, force: true });

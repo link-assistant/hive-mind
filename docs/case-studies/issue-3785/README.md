@@ -820,3 +820,11 @@ The real change detector also skipped `scripts/install-image-package.sh` updates
 A reproducing throwaway-repository test records `docker=false`; image installer
 scripts now select the required Docker gate. Both installer paths are covered.
 Structural evidence is retained in `evidence/image-search-runtime.txt`.
+
+Gemini and Qwen also had unpinned image installations and remained automatic
+update targets despite the version-specific storage inventory. Six regressions
+reproduce missing version admission and update exclusions; the expanded related
+selection passes 54 cases after pinning Gemini 0.65.0 and Qwen 0.26.1. The real
+installed Agent, OpenCode, Gemini, Qwen and search commands pass a bounded
+version probe in disposable state. All six tool pins are preserved by image
+update exclusions. This is version admission, not the native storage matrix.

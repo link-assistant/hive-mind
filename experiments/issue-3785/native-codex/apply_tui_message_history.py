@@ -142,7 +142,7 @@ replace("tui/src/app/event_dispatch.rs", "        match event {\n            App
                     || self.chat_widget.thread_id() != Some(thread_id)
                     || self.thread_unavailable(thread_id)
                 {
-                    return Err(anyhow::anyhow!("Canonical prompt history requires the active writable thread."));
+                    return Err(color_eyre::eyre::eyre!("Canonical prompt history requires the active writable thread."));
                 }
                 let history_config = codex_message_history::HistoryConfig::new(
                     self.local_settings.codex_home.clone(),
@@ -154,7 +154,7 @@ replace("tui/src/app/event_dispatch.rs", "        match event {\n            App
                     codex_message_history::validate_canonical_history(&history_config).await
                 };
                 if result.is_err() {
-                    return Err(anyhow::anyhow!("Canonical prompt history is unavailable; no turn was sent."));
+                    return Err(color_eyre::eyre::eyre!("Canonical prompt history is unavailable; no turn was sent."));
                 }
                 AppEvent::CodexOp(op)
             }

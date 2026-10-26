@@ -602,3 +602,23 @@ synthetic inherited-diagnostic regression. Subsequent Qwen changes are confined
 to native experiments, their workflow and evidence; their actual manager/client
 and writer controls are verified separately and do not establish production
 integration or the complete six-tool contract.
+
+Native run [40390941267](https://github.com/link-assistant/hive-mind/actions/runs/40390941267)
+fails on exact head `49e4cf2808de60afaef322558d9cea8d8fb15ebf` at
+20:28:06 UTC. The workflow log is `native-40390941267.log` (1,039 lines);
+the preserved build artifact is
+`/tmp/issue-3785-native-evidence-40390941267/native-codex-build.log`
+(2,632 lines). Build lines 2581–2632 identify two `E0308` errors in native
+`tui/src/app/event_dispatch.rs:175` and `:189`: the experimental returns use
+`anyhow::Error`, but the dispatcher returns `color_eyre::Report`. The patch now
+uses the same `color_eyre::eyre::eyre!` macro as adjacent native error paths.
+Exact-source applicability and rustfmt pass locally; full native compilation
+and the repaired TUI/constructor controls must pass in a fresh run. The earlier
+full CLI build, 20 session-index tests, unsafe TUI negative control and provider
+constructor negative controls completed before this compile failure.
+
+Checks/release run [40390941430](https://github.com/link-assistant/hive-mind/actions/runs/40390941430)
+finishes successfully on the same head, including both default/integration test
+execution and packaged Docker checks. Security, Workflows, Broken Link Checker
+and the independent fresh CodeQL check pass. The native compilation failure
+above is the remaining non-passing check on that head.

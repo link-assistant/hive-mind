@@ -354,3 +354,9 @@ Current continuation:
 Resource policy: use sequential builds/tests; no real credentials in experiments
 or artifacts. Current cgroup usage is mostly reclaimable file cache. Measure
 before heavy commands and do not retry an OOM build unchanged.
+
+- [x] Preserve fresh native run 40390941267 and identify the actual compile
+      failure in the TUI patch: two anyhow errors must be native color-eyre
+      reports. Correct both returns, check exact-source applicability and
+      rustfmt, then rerun full compilation and actual TUI/constructor controls.
+      Positive execution evidence remains pending until that CI run passes.

@@ -18,6 +18,7 @@ const docker = (args, budget = 60_000) => execute('docker', args, { maxBuffer: 1
 const fixture = await fs.mkdtemp(path.join(os.tmpdir(), 'hive-packaged-mounts-'));
 const probeImage = process.env.HIVE_MOUNT_TEST_IMAGE || 'node:24-alpine';
 const script = fileURLToPath(new URL('./verify-mounted-task-backing.mjs', import.meta.url));
+const dataScript = fileURLToPath(new URL('./verify-mounted-tool-data.mjs', import.meta.url));
 const socket = '/var/run/docker.sock';
 const socketGroup = String((await fs.stat(socket)).gid);
 try {
@@ -38,6 +39,7 @@ try {
     const name = `hive-packaged-mount-${randomUUID()}`;
     try {
       const args = ['run', '--detach', '--pull', 'never', '--name', name, '--env', 'DIND_HOST_PASSTHROUGH=off', '--mount', `type=bind,source=${fixture},target=/mount-fixture`, '--mount', `type=bind,source=${script},target=/verify-mounted-task-backing.mjs,readonly`];
+      args.push('--mount', `type=bind,source=${dataScript},target=/verify-mounted-tool-data.mjs,readonly`);
       if (variant === 'host') args.push('--group-add', socketGroup, '--mount', `type=bind,source=${socket},target=${socket}`);
       else args.push('--privileged');
       args.push(image, 'sleep', 'infinity');
@@ -47,6 +49,8 @@ try {
       const expectedHome = variant === 'host' ? path.join(fixture, 'home') : '/mount-fixture/home';
       const result = await docker(['exec', '--env', `HIVE_MOUNT_TEST_IMAGE=${probeImage}`, '--env', `HIVE_MOUNT_TEST_EXPECTED_HOME=${expectedHome}`, name, 'bash', '-lc', 'node --max-old-space-size=128 /verify-mounted-task-backing.mjs "$(command -v hive)"'], 120_000);
       process.stdout.write(`${variant}: ${result.stdout}`);
+      const dataResult = await docker(['exec', '--env', `HIVE_MOUNT_TEST_IMAGE=${probeImage}`, '--env', `HIVE_MOUNT_TEST_EXPECTED_HOME=${expectedHome}`, name, 'bash', '-lc', 'node --max-old-space-size=128 /verify-mounted-tool-data.mjs "$(command -v hive)"'], 120_000);
+      process.stdout.write(`${variant}: ${dataResult.stdout}`);
       for (const index of [0, 1]) assert.equal(await fs.readFile(path.join(fixture, `home/.codex/sessions/task-${index}`), 'utf8'), 'persisted');
     } finally {
       await docker(['rm', '-f', name]).catch(() => {});

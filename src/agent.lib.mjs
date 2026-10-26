@@ -40,6 +40,7 @@ import { attachStreamingInput, finalizeBidirectionalHandler, setupBidirectionalH
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
 import { buildAgentArgs, detectFormalAiAgentRoutingMismatch, formatAgentArgsForDisplay, isAgentIdleEvent, isAgentStrongCompletionEvent, resolveStreamingErrorRecovery } from './agent-command.lib.mjs';
 import { isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236 / #2247 (H5)
+import { assertSharedToolData } from './tool-data-mounts.lib.mjs';
 
 export { createAgentTokenUsage, accumulateAgentStepFinishUsage, parseAgentTokenUsage };
 export { detectAgentErrorsInOutput, detectFatalAgentLogRecord, extractAgentErrorText };
@@ -281,6 +282,7 @@ export { MIN_AGENT_LIVE_INPUT_VERSION, MIN_AGENT_FORMAL_AI_VERSION, MIN_AGENT_SN
 
 // Function to validate Agent connection
 export const validateAgentConnection = async (model = defaultModels.agent, options = {}) => {
+  await assertSharedToolData({ tool: 'agent' });
   // Map model alias to full ID
   const mappedModel = mapModelToId(model);
   const requireLiveInput = !!options.requireLiveInput;
@@ -359,6 +361,7 @@ export const validateAgentConnection = async (model = defaultModels.agent, optio
       // Test basic Agent functionality with a simple "hi" message
       // Agent uses the same JSON interface as OpenCode
       const validationEnv = { ...process.env, ...getAgentModelOverlayEnv({ mappedModel }) }; // Issue #2625: models Agent's provider table lacks
+      await assertSharedToolData({ tool: 'agent', env: validationEnv });
       const testResult = await $({ env: validationEnv })`printf "hi" | timeout ${Math.floor(timeouts.opencodeCli / 1000)} agent --model ${mappedModel}`;
 
       if (testResult.code !== 0) {
@@ -540,6 +543,7 @@ export const executeAgentCommand = async params => {
     // Issue #1521: Build environment for agent process.
     // Pass LINK_ASSISTANT_AGENT_VERBOSE env var when --verbose is enabled so verbose logging is initialized at module load time.
     const agentEnv = { ...process.env };
+    await assertSharedToolData({ tool: 'agent', env: agentEnv });
     if (argv.verbose) {
       agentEnv.LINK_ASSISTANT_AGENT_VERBOSE = 'true';
     }
@@ -572,6 +576,7 @@ export const executeAgentCommand = async params => {
     // Issue #2130: Formal AI runs the native CLI against a local Formal AI server (no argv wrapper).
     const toolInvocation = await resolveFormalAiToolExecution({ tool: 'agent', model: argv.model, toolPath: agentPath, workdir: tempDir, log, verbose: argv.verbose, prepareOnly: isPrepareOnly(argv), env: agentEnv });
     Object.assign(agentEnv, toolInvocation.env);
+    await assertSharedToolData({ tool: 'agent', env: agentEnv });
     // Issue #2625: the default free model is on Kilo, reachable only with the provider entry Hive Mind supplies.
     const modelOverlayEnv = getAgentModelOverlayEnv({ env: agentEnv, mappedModel });
     if (modelOverlayEnv.LINK_ASSISTANT_AGENT_CONFIG_CONTENT) await log(`   Agent provider entry supplied for ${mappedModel} (LINK_ASSISTANT_AGENT_CONFIG_CONTENT)`, { verbose: true });
@@ -622,6 +627,7 @@ export const executeAgentCommand = async params => {
       const preparedResult = await logPreparedToolCommand({ argv, fullCommand, log, formatAligned });
       if (preparedResult) return preparedResult;
 
+      await assertSharedToolData({ tool: 'agent', env: agentEnv });
       if (streamingInput) {
         const commandRunner = $({
           cwd: tempDir,

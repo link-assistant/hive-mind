@@ -51,6 +51,7 @@ export { killDockerContainer };
 export { copyFromDockerContainer } from './isolation-runner.docker-cp.lib.mjs'; // Issue #2888
 import { checkDockerDiskSpace } from './docker-disk-space.lib.mjs';
 import { resolveDockerIsolationMountSources } from './docker-mount-namespace.lib.mjs';
+import { prepareToolDataMount, toolDataContainerEnv, toolDataMount, toolDataPrivateMounts } from './tool-data-mounts.lib.mjs';
 export { resolveDockerIsolationMountSources };
 export { checkDockerDiskSpace, parseDfAvailableKb } from './docker-disk-space.lib.mjs'; // Issue #3469
 // Issue #2189: `$ --resume` / `$ --resume-all`, added in start-command 0.33.0
@@ -186,6 +187,11 @@ export async function getDockerIsolationAuthMounts({ tool = 'claude', env = proc
     if (isSuppressedPath(entry.relativePath, suppressed)) continue;
     await maybeAddMount(mounts, path.join(homeDir, entry.relativePath), path.join(DOCKER_CONTAINER_HOME, entry.relativePath), exists);
   }
+  const dataMount = !useRouter && toolDataMount({ tool: normalizedTool, homeDir, env });
+  if (dataMount) {
+    if (!(await exists(dataMount.source))) throw new Error('Shared tool data storage is missing; private data fallback is prohibited.');
+    mounts.push(dataMount);
+  }
   return mounts;
 }
 /**
@@ -198,10 +204,12 @@ export async function getDockerIsolationAuthMounts({ tool = 'claude', env = proc
  *
  * @returns {Promise<{ created: string[], missingAuth: string[] }>}
  */
-export async function prepareDockerIsolationHostPaths({ tool = 'claude', homeDir = os.homedir(), fsImpl = fs, useRouter = false } = {}) {
+export async function prepareDockerIsolationHostPaths({ tool = 'claude', homeDir = os.homedir(), env = process.env, fsImpl = fs, useRouter = false } = {}) {
   const created = [];
   const missingAuth = [];
   if (useRouter) return { created, missingAuth };
+  const data = await prepareToolDataMount({ tool: normalizeTool(tool), homeDir, env, io: fsImpl.promises });
+  if (data) return { ...data, missingAuth };
   for (const entry of DOCKER_ISOLATION_TOOL_MOUNTS[normalizeTool(tool)] || []) {
     const hostPath = path.join(homeDir, entry.relativePath);
     const exists = await fsImpl.promises.access(hostPath).then(
@@ -318,6 +326,9 @@ export async function buildDockerIsolationStartArgs(command, args = [], options 
   for (const [name, value] of Object.entries(routerEnv)) {
     startArgs.push('-e', `${name}=${value}`);
   }
+  for (const [name, value] of Object.entries(toolDataContainerEnv({ tool: normalizeTool(tool), identity: options.sharedDataIdentity, useRouter: routerWired }))) {
+    startArgs.push('-e', `${name}=${value}`);
+  }
   const mounts = await getDockerIsolationAuthMounts({ tool, env, homeDir, existsSync: exists, useRouter: routerWired, ghRouted: routerWired && routerGitHub.mode !== 'off' });
   // Issue #2164 (R13): a routed task also loses the ability to destroy remote
   // history by accident. The hook lives on the host and is mounted read-only, so
@@ -346,6 +357,7 @@ export async function buildDockerIsolationStartArgs(command, args = [], options 
   for (const mount of resolvedMounts) {
     startArgs.push('--volume', `${mount.source}:${mount.target}${mount.readOnly ? ':ro' : ''}`);
   }
+  for (const mount of toolDataPrivateMounts({ tool: normalizeTool(tool), useRouter: routerWired })) startArgs.push('--mount', mount);
   const taskCommand = buildShellCommand(command, args);
   const failClosedStartGate = hasContainerResourceLimits(options.containerResourceLimits);
   startArgs.push('--detached', '--session', sessionId, '--', buildDockerStartGatedCommand(taskCommand, sessionId, { failClosed: failClosedStartGate }));
@@ -522,9 +534,16 @@ export async function executeWithIsolation(command, args, options = {}) {
     // Issue #2190: only the credential file and the session directories are
     // shared with the task; make sure the directories exist on the host and say
     // so when the credential file does not.
-    const prepared = await prepareDockerIsolationHostPaths({ tool: effectiveOptions.tool, homeDir: effectiveOptions.homeDir || os.homedir(), useRouter: Boolean(router) });
-    for (const dir of prepared.created) if (verbose) console.log(`[VERBOSE] isolation-runner: created host directory for task mounts: ${dir}`);
-    for (const file of prepared.missingAuth) console.warn(`[WARN] isolation-runner: ${file} is missing on the host; the task container will start without ${effectiveOptions.tool ?? 'claude'} credentials`);
+    try {
+      const prepared = await prepareDockerIsolationHostPaths({ tool: effectiveOptions.tool, homeDir: effectiveOptions.homeDir || os.homedir(), env: effectiveOptions.env, useRouter: Boolean(router) });
+      effectiveOptions.sharedDataIdentity = prepared.identity;
+      for (const dir of prepared.created) if (verbose) console.log(`[VERBOSE] isolation-runner: created host directory for task mounts: ${dir}`);
+      for (const file of prepared.missingAuth) console.warn(`[WARN] isolation-runner: ${file} is missing on the host; the task container will start without ${effectiveOptions.tool ?? 'claude'} credentials`);
+    } catch {
+      await releaseRouterForTask({ router, sessionId, env: hostEnv, verbose });
+      await releaseFormalAiSidecarForTask({ sidecar, sessionId, env: hostEnv, verbose });
+      return failLaunch('Shared tool data preparation failed. Verify the selected XDG data directory and its persisted host backing before retrying.');
+    }
   }
   // Issue #2247 (H1): `konard/hive-mind:latest` pulled a week earlier is still
   // "present", so Docker's default pull policy reused it and every task on

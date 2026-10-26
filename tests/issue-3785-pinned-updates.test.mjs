@@ -9,10 +9,11 @@ for (const dockerfile of ['Dockerfile', 'Dockerfile.dind', 'coolify/Dockerfile']
     const content = await readFile(new URL(`../${dockerfile}`, import.meta.url), 'utf8');
     const excluded = content.match(/^ENV HIVE_MIND_AGENTIC_CLI_UPDATE_EXCLUDE=["']?([^\s"']+)/mu)?.[1];
     const env = { HIVE_MIND_AGENTIC_CLI_UPDATE_EXCLUDE: excluded };
-    assert.deepEqual(listAgenticCliUpdateTargets(env, { only: ['claude', 'codex'] }), [], 'launch-time freshness checks must preserve the attested CLI versions');
+    assert.deepEqual(listAgenticCliUpdateTargets(env, { only: ['claude', 'codex', 'agent', 'opencode'] }), [], 'launch-time freshness checks must preserve the attested CLI versions');
+    assert.match(content, /bun install -g opencode-ai@1\.19\.4\b/u);
     assert.deepEqual(
       listAgenticCliUpdateTargets(env).map(target => target.id),
-      AGENTIC_CLI_TARGETS.filter(target => !['claude', 'codex'].includes(target.id)).map(target => target.id),
+      AGENTIC_CLI_TARGETS.filter(target => !['claude', 'codex', 'agent', 'opencode'].includes(target.id)).map(target => target.id),
       'other agentic and operational tools retain their update behavior'
     );
   });

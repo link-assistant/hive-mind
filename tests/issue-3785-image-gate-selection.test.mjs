@@ -25,6 +25,7 @@ test('the real detector requires image checks for packaged runtime and gate upda
     ['package-lock.json', true],
     ['scripts/docker-pr-verify-mount-backing.mjs', true],
     ['scripts/verify-mounted-task-backing.mjs', true],
+    ['scripts/verify-mounted-tool-data.mjs', true],
     ['scripts/verify-docker-image.sh', true],
     ['scripts/verify-dind-exec-defaults.sh', true],
     ['coolify/start.sh', true],

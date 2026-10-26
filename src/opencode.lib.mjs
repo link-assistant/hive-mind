@@ -35,6 +35,7 @@ import { calculateAgentPricing } from './agent.lib.mjs';
 import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
 import { buildOpencodeAuxiliaryAgentConfig, isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236
+import { assertSharedToolData } from './tool-data-mounts.lib.mjs';
 
 export { parseOpenCodeTokenUsage };
 
@@ -46,6 +47,7 @@ export const mapModelToId = model => {
 
 // Function to validate OpenCode connection
 export const validateOpenCodeConnection = async (model = defaultModels.opencode) => {
+  await assertSharedToolData({ tool: 'opencode' });
   // Map model alias to full ID
   const mappedModel = mapModelToId(model);
 
@@ -233,6 +235,7 @@ export const executeOpenCodeCommand = async params => {
     await log(`   Load: ${resourcesBefore.load}`, { verbose: true });
 
     const opencodeEnv = { ...process.env };
+    await assertSharedToolData({ tool: 'opencode', env: opencodeEnv });
 
     // Apply Playwright MCP session state before launching OpenCode.
     if (argv.playwrightMcp === false) {
@@ -248,6 +251,7 @@ export const executeOpenCodeCommand = async params => {
     // Issue #2130: Formal AI runs the native CLI against a local Formal AI server (no argv wrapper).
     const toolInvocation = await resolveFormalAiToolExecution({ tool: 'opencode', model: argv.model, toolPath: opencodePath, workdir: tempDir, log, verbose: argv.verbose, prepareOnly: isPrepareOnly(argv), env: opencodeEnv });
     Object.assign(opencodeEnv, toolInvocation.env);
+    await assertSharedToolData({ tool: 'opencode', env: opencodeEnv });
     const streamingTokenUsage = createAgentTokenUsage();
 
     // Build opencode command arguments
@@ -324,6 +328,7 @@ export const executeOpenCodeCommand = async params => {
 
     try {
       // Pipe the prompt file to opencode via stdin
+      await assertSharedToolData({ tool: 'opencode', env: opencodeEnv });
       if (argv.resume) {
         const commandRunner = $({
           cwd: tempDir,

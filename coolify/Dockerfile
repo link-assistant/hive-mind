@@ -235,7 +235,7 @@ RUN mkdir -p /home/box/.local/bin && \
 # @anthropic-ai/claude-code postinstall that links the native binary (issue #1633).
 ENV DISABLE_AUTOUPDATER=1
 # Keep the content-attested runtimes pinned through Hive Mind's idle updater too.
-ENV HIVE_MIND_AGENTIC_CLI_UPDATE_EXCLUDE=claude,codex
+ENV HIVE_MIND_AGENTIC_CLI_UPDATE_EXCLUDE=claude,codex,agent,opencode
 RUN curl -fsSL https://claude.ai/install.sh -o /tmp/claude-code-install.sh && \
     bash /tmp/claude-code-install.sh 2.1.310 && \
     rm /tmp/claude-code-install.sh && \
@@ -247,7 +247,8 @@ RUN bun install -g @openai/codex@0.164.0 && \
     bun install -g @qwen-code/qwen-code && \
     bun install -g @google/gemini-cli && \
     bun install -g @github/copilot && \
-    bun install -g opencode-ai
+    bun install -g opencode-ai@1.19.4 && \
+    test "$(opencode --version)" = '1.19.4'
 
 # Install hive-mind workflow utilities
 # Release builds pass HIVE_MIND_VERSION after npm publish, so Docker installs

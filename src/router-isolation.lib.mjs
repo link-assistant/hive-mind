@@ -527,6 +527,8 @@ export function getRouterSuppressedCredentialPaths({ tool = 'claude', ghRouted =
     suppressed.push('.codex', '.agents');
   } else if (normalizedTool === 'claude') {
     suppressed.push('.claude', '.claude.json');
+  } else if (normalizedTool === 'agent' || normalizedTool === 'opencode') {
+    suppressed.push(`.local/share/${normalizedTool === 'agent' ? 'link-assistant-agent' : normalizedTool}`);
   }
   // gh config is only withheld when gh actually has somewhere else to go;
   // otherwise the task would lose GitHub access entirely (see resolveRouterGitHubRouting).

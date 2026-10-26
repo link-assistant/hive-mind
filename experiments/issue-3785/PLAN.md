@@ -87,6 +87,12 @@ push only issue-3785-4c28551ac612, and keep unmet requirements explicitly open.
       validation and preserve nonzero startup status; verify the actual shell
       payload with mocked external commands. Full packaged deployment, migration
       and canonical-storage attestation remain required.
+- [x] Reproduce missing Agent/OpenCode native data projections before adding
+      directory mounts, effective-path/device/inode admission and private agent
+      executable-cache masking. Pin both layouts in images and runtime checks.
+      Verify actual Docker atomic replacements, deletion/recreation and peer
+      writes; verify both real CLIs resume native history across private homes.
+      This is partial storage projection, not a refresh coordinator or full gate.
 - [ ] Implement canonical auth/history authority, explicit alternative contracts,
       coordinated refresh and fail-closed effective-path validation for all tools.
 - [ ] Isolate task catalogs/extensions and enforce clean global baseline; migrate

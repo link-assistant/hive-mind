@@ -109,7 +109,17 @@ async function materializeStock(command, home, cwd, env) {
   }
 }
 
-export async function verifyAgentRuntime({ homeDir = os.homedir(), env = {}, codexCommand = 'codex', claudeCommand = 'claude' } = {}) {
+export async function verifyToolDataRuntimeVersions({ homeDir, cwd, agentCommand = 'agent', opencodeCommand = 'opencode' }) {
+  for (const [command, expected] of [
+    [agentCommand, '0.27.0'],
+    [opencodeCommand, '1.19.4'],
+  ]) {
+    const { stdout } = await execute(command, ['--version'], { env: probeEnvironment(homeDir), cwd, maxBuffer: 64 * 1024, signal: AbortSignal.timeout(DEADLINE_MS) });
+    assert.equal(stdout.trim(), expected, 'Installed data-storage CLI version differs from the pinned runtime.');
+  }
+}
+
+export async function verifyAgentRuntime({ homeDir = os.homedir(), env = {}, codexCommand = 'codex', claudeCommand = 'claude', agentCommand = 'agent', opencodeCommand = 'opencode' } = {}) {
   await runAgentConfigAudit({ homeDir, env, autoRepair: false, requireClean: true });
   const fixture = await mkdtemp(path.join(os.tmpdir(), 'hive-stock-gate-'));
   try {
@@ -127,6 +137,7 @@ export async function verifyAgentRuntime({ homeDir = os.homedir(), env = {}, cod
       assert.equal(stdout.trim(), expected, 'Installed CLI version differs from the pinned runtime.');
     }
     await materializeStock(codexCommand, home, cwd, probeEnv);
+    await verifyToolDataRuntimeVersions({ homeDir: home, cwd, agentCommand, opencodeCommand });
     await runAgentConfigAudit({ homeDir, env, autoRepair: false, requireClean: true });
   } finally {
     await rm(fixture, { recursive: true, force: true });
@@ -136,7 +147,7 @@ export async function verifyAgentRuntime({ homeDir = os.homedir(), env = {}, cod
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   try {
     await verifyAgentRuntime({ env: process.env });
-    console.log('Installed Claude/Codex versions, known global baseline and pristine Codex stock runtime verified.');
+    console.log('Installed pinned CLI versions, known global baseline and pristine Codex stock runtime verified.');
   } catch {
     console.error('Installed agent runtime verification failed. Check pinned versions and restore a verified clean baseline.');
     process.exitCode = 1;

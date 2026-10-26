@@ -647,3 +647,53 @@ started before the cloud-policy edits; the later 260-case focused run covers
 those changes separately. The five deployment tests are an additional run.
 
 ![Synthetic before and after limits layout](evidence/display-comparison.png)
+
+Agent 0.27.0 and OpenCode 1.19.4 have separate native XDG data/config roots.
+Their Docker tasks now mount the selected host data directory at the native task
+data path, rather than starting with private auth/history. The directory carries
+credential replacement, deletion/recreation, native conversation storage and
+sidecars. Agent's legacy executable cache inside that directory is masked by a
+private non-executable tmpfs; its pinned native implementation prefers `rg` on
+PATH. Complete packaged command execution with that mask still requires CI.
+OpenCode is now pinned in all three image definitions, both layout-dependent
+tools are excluded from image auto-updates, and the installed runtime gate checks
+both exact versions in disposable state.
+
+Preparation rejects unsafe ancestors and unavailable backing. The launcher
+records device/inode identity, verifies the daemon mount source, and passes a
+structural identity marker. Agent/OpenCode check it before validation and after
+preflight/provider setup, then immediately before fresh/resumed native execution.
+A different data directory, replaced directory inode, configuration/cache/state
+overlap, linked explicit config, OpenCode inline auth or a private OpenCode DB
+rejects execution. Router tasks receive no vendor data directory or identity.
+This marker is admission metadata, not an authenticated security boundary. Host
+launches without a marker and in-flight path changes still need the complete
+canonical authority contract.
+
+The initial directory tests failed 10 of 13 cases before implementation; four
+additional tests reproduced cache/state overlap and linked-config bypasses.
+The final focused selection passes 28 tests. The real local Docker gate executes
+the production mount planner, namespace resolver and installed-validator source
+with two concurrent synthetic filesystem participants. Both tools pass host and
+task atomic replacements, peer history-marker visibility, unlink/recreation,
+private redirection rejection, and Agent's private executable-cache checks.
+The same gate is required inside both packaged-image daemon layouts; this
+new gate still needs its first packaged CI execution. The preceding cloud and
+Coolify changes passed both image builds and post-boot checks in
+[run 40315657485](https://github.com/link-assistant/hive-mind/actions/runs/40315657485)
+on `4c96f79544c327bd908c565472fce365c41be312`.
+
+A separate bounded loopback-provider experiment executes the actual installed
+Agent and OpenCode entrypoints with private participant homes/config/cache/state
+and one shared data root. Native task A writes a conversation; the host atomically
+replaces synthetic API credentials; native task B resumes A's session, sends its
+prior messages and reads the replacement credential. Both pinned tools pass.
+OpenCode's earlier finite-deadline failures were a harness error: its
+[native run command reads piped stdin to EOF](https://github.com/anomalyco/opencode/blob/v1.19.4/packages/opencode/src/cli/cmd/run.ts#L417),
+so the harness must close its unused input pipe. This is not an upstream startup
+defect. The experiment remains in `experiments/issue-3785/probe-xdg-native-storage.mjs`;
+Docker backing checks remain in `probe-xdg-docker-storage.mjs`. Structural output
+is retained in `evidence/xdg-storage-probes.txt`. These probes do not establish
+OAuth refresh serialization, native auth writes, concurrent native Docker
+sessions, the other four CLI projections, allowlist migration, or release/deploy
+lifecycle gates. All corresponding acceptance rows remain unfinished.

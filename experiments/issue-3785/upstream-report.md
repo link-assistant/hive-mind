@@ -13,22 +13,37 @@ Additional evidence from a multi-container integration using Codex 0.164.0:
   `auth.json` is a bind-mount point. A directory-mounted control supports logout
   and synthetic API-key login. Host atomic replacement also leaves a file bind
   mount reading its original inode. These probes make no provider requests.
+- Separately, two actual 0.164.0 processes sharing one directory-mounted auth
+  store submit the same expired refresh generation to a local synthetic provider.
+  A barrier holds both exchanges before either can commit. The provider accepts
+  one and rejects the other as consumed-token reuse; the replacement is saved
+  in the shared store. This directly observes a new synthetic exchange race,
+  independently of our launcher copies. It does not reconstruct the historic
+  successful exchange or verify a coordination fix.
 
 Reproduction scripts and retained structural outputs:
 
 - [Launcher copy/overwrite probe](https://github.com/link-assistant/hive-mind/blob/issue-3785-4c28551ac612/experiments/issue-3785/probe-auth-copy.mjs)
 - [Actual CLI logout/login Docker probe](https://github.com/link-assistant/hive-mind/blob/issue-3785-4c28551ac612/experiments/issue-3785/probe-codex-storage.sh)
 - [Filesystem atomic-replacement probe](https://github.com/link-assistant/hive-mind/blob/issue-3785-4c28551ac612/experiments/issue-3785/probe-file-mount.sh)
+- [Two actual CLI refreshers and offline provider stub](https://github.com/link-assistant/hive-mind/blob/issue-3785-4c28551ac612/experiments/issue-3785/probe-concurrent-codex-refresh.sh)
 
-Run the first with Node 24+, the other two with Docker and the installed static
+Run the first with Node 24+, the other three with Docker and the installed static
 Linux Codex binary. They use disposable directories, synthetic values, bounded
-resources, networking disabled for the actual CLI, and cleanup traps.
+resources, networking disabled for the actual CLI, and cleanup traps. The
+refresh probe's model requests intentionally receive a local 503; its assertions
+check provider exchange events and the committed generation, not task success.
 
 The pinned [file storage implementation](https://github.com/openai/codex/blob/rust-v0.164.0/codex-rs/login/src/auth/storage.rs)
 places auth under `CODEX_HOME`. The
 [refresh manager](https://github.com/openai/codex/blob/rust-v0.164.0/codex-rs/login/src/auth/manager.rs)
 has a process-local guard and reread. A lock in an embedding launcher cannot
 coordinate an unmodified second CLI process.
+
+The pinned command-backed auth helper and app-server external-token callbacks
+could support a participating broker adapter. We have not verified native
+ChatGPT semantics or full storage/lifecycle compatibility through those hooks;
+the existing `codex exec` integration does not use them.
 
 Suggested code-level interface: an independently selectable credential authority
 with directory-level replacement/logout semantics, plus a cross-process lock

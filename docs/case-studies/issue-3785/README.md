@@ -7,7 +7,7 @@ Observed failed CLI: Codex 0.164.0. Local Claude CLI: 2.1.310.
 
 **The issue remains unfinished.** Display, entitlement labeling, cache invalidation,
 Router usage selection, and task-owned Codex catalog discovery are implemented.
-The default canonical authentication/history contract, global baseline enforcement,
+The default canonical authentication/history contract, complete global baseline enforcement,
 migration, and packaged-image release/deployment gates are not implemented or
 verified by these changes. Passing the tests below does not satisfy those criteria.
 
@@ -56,7 +56,7 @@ The original queue counter alone would not establish this.
   fail-closed streaming sanitizer with 64 KiB chunks and a 192 MiB JS heap cap.
 - Reproducing failures and probe outputs are in `evidence/*-before.log`,
   `evidence/auth-copy.log`, `evidence/file-mount.log`, and
-  `evidence/codex-storage.log`. Successful focused tests are in
+  `evidence/codex-storage.log`, and `evidence/concurrent-refresh.log`. Successful focused tests are in
   `evidence/limits-final.log`. Synthetic test outputs have trailing whitespace
   removed; compressed incident logs retain the sanitized bytes in the manifest.
 
@@ -158,22 +158,30 @@ inspection and repair, allowing a concurrent edit to invalidate its plan.
 
 Its production entry now validates its existing input paths asynchronously,
 rejecting linked roots/ancestors, linked/nonregular configuration files,
-unreadable inputs and malformed/non-object JSON before any repair. JSON reads
-use `O_NOFOLLOW` and descriptor identity checks. Text configuration is opened and
-read before repair as well; an unreadable Codex config cannot become an empty
-configuration. Directory enumeration is bounded.
+unreadable inputs and malformed/non-object JSON before any repair. Configuration reads
+use `O_NOFOLLOW`, descriptor identity checks and a fixed 1 MiB limit, including
+when a writer grows the file after the size check. TOML syntax is validated with
+`smol-toml` before repair; unreadable or malformed Codex configuration cannot
+become an empty configuration. Directory enumeration is bounded.
 The input generations are checked again after logging before synchronous repair.
-Nine regressions fail against the retained pre-fix implementation and pass after
-the change; they verify synthetic protected content and identity preservation.
+The original nine regressions fail against the retained pre-fix implementation
+and pass after the change; two more reproduce malformed TOML and concurrent
+file growth. They verify synthetic protected content and identity preservation.
 Empty-parent pruning now counts hidden entries and uses nonrecursive removal,
 preserving stock `.system` files and refusing a directory filled concurrently.
 Run `node experiments/issue-3785/probe-audit-inputs.mjs --baseline` to reproduce
 the old failures. The same command without `--baseline` runs the current code.
 
-This is a safety precondition for the legacy repair, not a complete baseline
-guard: effective alternate homes, all native discovery surfaces, strict TOML
-validation, pristine `.system` attestation, contamination rejection, quarantine
-and adversarial races during filesystem mutation still need implementation.
+Production callers now require a clean re-audit of these known surfaces before
+native connection checks. Remaining findings (including warn-only agents and
+commands), repair failures, disabled repair with contamination, and additions
+during audit logging reject admission. This is wired into `solve`, `hive` and
+the root Telegram bot. Dry-run/command preparation does not repair state. Seven
+additional regressions cover rejection and protected-state preservation.
+
+This remains a partial guard: effective alternate homes, all native discovery
+surfaces, pristine `.system` attestation, quarantine, deployment validation and
+adversarial races during filesystem mutation still need implementation.
 
 ### Authentication copies: reproduced and still present
 
@@ -245,11 +253,38 @@ has a process-local refresh guard and reread. A JS lock in Hive Mind cannot
 serialize a vendor process that never acquires it. A refresh lock must cover
 canonical reread, provider exchange and atomic commit for **all** refreshers.
 
+A fourth bounded probe uses two actual Codex 0.164.0 processes sharing one
+**directory-mounted** auth store and a local synthetic OAuth provider. The
+provider holds responses until both processes submit generation G0, then accepts
+one exchange and rejects the other as consumed-token reuse. G1 is committed to
+the shared store. This reproduces the exchange race independently of credential
+copies and file-mount behavior; it does not verify a coordination fix. Networking
+is disabled, no real credentials are mounted, and request bytes are not logged.
+The CLI's model requests intentionally receive a local 503; command success is
+not the probe's assertion. See `evidence/concurrent-refresh.log` and
+`experiments/issue-3785/probe-concurrent-codex-refresh.sh`.
+
+The pinned CLI does have integration hooks that warrant an adapter experiment.
+Its [command-backed provider auth](https://github.com/openai/codex/blob/rust-v0.164.0/codex-rs/login/src/auth/external_bearer.rs)
+invokes a configured helper and constructs API-key-mode auth from its output.
+That helper could participate in a broker lock, but native ChatGPT account
+semantics, logout/login and canonical history are not established by that hook.
+The [app-server external-auth bridge](https://github.com/openai/codex/blob/rust-v0.164.0/codex-rs/app-server/src/external_auth.rs)
+can request refreshed ChatGPT tokens from a client. Using it would require a
+different execution adapter: the pinned [CLI dispatcher](https://github.com/openai/codex/blob/rust-v0.164.0/codex-rs/cli/src/main.rs)
+explicitly rejects remote app-server mode for `codex exec`, which Hive Mind
+currently drives. Neither hook has been integrated or verified here. These
+interfaces make a broker a research avenue; they do not establish that the
+full contract is impossible or that it is already supported by this launcher.
+
 Claude has an existing open report for
 [credential symlink replacement and concurrent state loss](https://github.com/anthropics/claude-code/issues/76561).
 It is corroborating upstream evidence, not a real Claude refresh reproduction
-in this workspace. The actual CLI's behavior must still be tested in the
-required packaged-image matrix.
+in this workspace. Claude also documents an existing shared refresh lock;
+the Codex race must not be generalized to Claude. Its actual cross-container
+behavior must still be tested in the required packaged-image matrix. The
+[versioned six-tool storage inventory](storage-inventory.md) records distinct
+config/data/runtime interfaces and the remaining verification gaps.
 
 Router already documents coordinated backend refresh and a redacted usage API
 in its [primary README](https://github.com/link-assistant/router). Its newer
@@ -317,11 +352,13 @@ requirement to implementation and verification status.
 node --test tests/issue-3785-limits.test.mjs tests/issue-3785-router-limits.test.mjs tests/issue-3785-router-admission.test.mjs tests/issue-2571-usage-limits-cache.test.mjs
 node tests/limits-display.test.mjs
 node tests/codex-capability-preflight.test.mjs
+node --test tests/issue-3785-audit-inputs.test.mjs tests/issue-3785-audit-admission.test.mjs tests/test-issue-2190-agent-config-audit.mjs
 
 # These reproduce defects; successful exit does not mean canonical auth is fixed
 node experiments/issue-3785/probe-auth-copy.mjs
 bash experiments/issue-3785/probe-file-mount.sh
 bash experiments/issue-3785/probe-codex-storage.sh
+bash experiments/issue-3785/probe-concurrent-codex-refresh.sh
 
 # Rebuild the synthetic browser fixture
 node experiments/issue-3785/render-display.mjs
@@ -337,17 +374,18 @@ Before changing production code, the display tests failed, rotation cache tests
 failed, catalog ownership test failed, Router selection tests failed, and the
 verbose redaction and malformed-response tests failed with synthetic sentinel
 values. Retained logs show those failures. The focused limits/cache/Router
-tests pass (38 tests). Existing Router isolation, routing, sidecar and hardening checks
+tests pass (40 tests). Existing Router isolation, routing, sidecar and hardening checks
 also pass after the admission change.
 Full-suite/static-check results and current-head CI are recorded in the PR.
 
-Local validation: all 696 files selected by the refreshed default runner passed
-after the dependency updates. The audit file was added during that run; the
-supplemental run verifies its nine regressions plus the existing 56-assertion
-audit suite. The later subscription-log regression and exact URL assertion pass
-with the focused limits/cache/Router tests (40 tests). Existing Router suites
-were rerun after the launcher changes. Full lint, format, duplication, secret
-scan and file-line gates passed; subsequent changes passed focused checks.
-The three Docker/copy probes completed and cleaned up their fixtures.
+Local validation: all 698 files selected by the default runner passed after the
+audit/admission and queue-test changes. The combined focused run passes 59
+tests, including 11 audit-input regressions, seven admission regressions and
+the existing audit suite's 56 internal assertions. The queue suite passes all
+71 assertions; its retained before/after outputs reproduce and resolve the
+newest downloaded CI failure. Existing Router suites were also rerun after
+the launcher changes. The four Docker/copy probes completed and cleaned up
+their fixtures. Static-check and exact-head CI results are recorded in the PR;
+these checks do not verify the unfinished canonical-storage contract.
 
 ![Synthetic before and after limits layout](evidence/display-comparison.png)

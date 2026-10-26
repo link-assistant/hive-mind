@@ -9,6 +9,8 @@ push only issue-3785-4c28551ac612, and keep unmet requirements explicitly open.
 - [x] List recent CI runs with SHA/timestamps; preserve unavailable-log evidence.
 - [x] Preserve related logs/images, validate image types, and inspect screenshots.
 - [x] Research Claude entitlement/expiry and Codex storage/rotation upstream sources.
+- [x] Inventory initial versioned storage interfaces for all six installed CLIs;
+      distinguish source findings from actual lifecycle/coordination verification.
 - [x] Inventory every acceptance criterion in docs/case-studies/issue-3785.
 - [x] Trace limits rendering, credential selection/refresh, task preflight,
       mounts, resume/recovery, image startup and deployment paths.
@@ -23,6 +25,11 @@ push only issue-3785-4c28551ac612, and keep unmet requirements explicitly open.
 - [x] Reproduce legacy global-audit malformed/link/permission/concurrent-edit
       failures; reject unsafe inputs before repair without logging input bytes.
 - [x] Add bounded real Codex logout/login Docker probe and report evidence upstream.
+- [x] Reproduce overlapping refresh with two actual CLIs and a synthetic provider.
+- [x] Reject known remaining audit findings before native connection checks in
+      solve/hive/root bot; validate TOML and bound reads despite concurrent growth.
+- [x] Resolve newest-head CI queue-test failure from downloaded job logs; rerun
+      all default tests and checks after the current audit/admission changes.
 - [ ] Implement canonical auth/history authority, explicit alternative contracts,
       coordinated refresh and fail-closed effective-path validation for all tools.
 - [ ] Isolate task catalogs/extensions and enforce clean global baseline; migrate

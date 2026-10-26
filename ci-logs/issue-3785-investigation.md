@@ -241,3 +241,22 @@ deletion/recreation, history markers and private config/cache identities. They
 do not exercise native token refresh or the full history/migration matrix.
 Security, Links and Workflows passed on the same SHA. Later head `93d512f`
 requires its own CI; its Checks and release run is 40330696780.
+
+Head `93d512fd2251d10c61a6b900661b9f2e2bc6beeb` run
+[40330696780](https://github.com/link-assistant/hive-mind/actions/runs/40330696780),
+created at 13:27:16 UTC, completed cancelled at 13:57:24 UTC after its default
+test job failed. The full-run log endpoint cannot find a cancelled publishing
+job's log; the failed test job was downloaded separately to local
+`test-suites-40330696780.log` (3410 lines). Lines 3316–3340 identify
+`tests/issue-3785-data-runtime-versions.test.mjs:10` and `spawn rg ENOENT`.
+The first version-check unit fixture supplied only Agent/OpenCode commands and
+accidentally required a runner-installed search executable after the verifier
+added that check. Four other cases passed; package-image verification was
+cancelled and does not count as passing.
+
+Reproduced the same failure locally with PATH limited to `/usr/bin:/bin`.
+The fixture now supplies its own synthetic `rg`, captures its disposable child
+environment, and asserts all three version commands. All five cases pass under
+that same restricted PATH. The negative missing/broken search cases and the
+production image's actual `rg --version` requirement remain intact. This fixes
+test isolation; the newer branch head still needs its own complete CI result.

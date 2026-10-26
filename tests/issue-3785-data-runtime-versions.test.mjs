@@ -15,6 +15,7 @@ for (const mismatch of [false, true]) {
     for (const [tool, version] of [
       ['agent', '0.27.0'],
       ['opencode', mismatch ? '1.19.5' : '1.19.4'],
+      ['rg', 'ripgrep 14.1.1'],
     ]) {
       const command = path.join(root, `${tool}.mjs`);
       await fs.writeFile(command, `#!${process.execPath}\nimport fs from 'node:fs';\nfs.appendFileSync(${JSON.stringify(capture)}, JSON.stringify({args: process.argv.slice(2), home: process.env.HOME, data: process.env.XDG_DATA_HOME, inherited: Object.hasOwn(process.env, 'CODEX_API_KEY') || Object.hasOwn(process.env, 'NODE_OPTIONS')})+'\\n');\nconsole.log(${JSON.stringify(version)});\n`, { mode: 0o700 });
@@ -27,7 +28,7 @@ for (const mismatch of [false, true]) {
       .trim()
       .split('\n')
       .map(line => JSON.parse(line));
-    assert.equal(children.length, 2);
+    assert.equal(children.length, mismatch ? 2 : 3);
     for (const child of children) {
       assert.deepEqual(child.args, ['--version']);
       assert.equal(child.home, root);

@@ -584,6 +584,8 @@ The root Telegram bot and every `solve`/`hive` start audit the known global Clau
 
 TOML repairs preserve unrelated setting values, normalize formatting and remove comments. Clean configuration is left unchanged.
 
+The audit also rejects known global instruction files, rules, legacy prompts and hook manifests. Instruction files and hook manifests require explicit removal or quarantine; inline global hooks/instructions and unapproved Codex profile/agent registrations can be repaired automatically. Clean profiles and unrelated model, permission and concurrency settings are preserved.
+
 ### Required Codex capability preflight
 
 For Codex tasks, Hive Mind reads the issue, all issue comments and repository instruction files before launching `codex exec`. Explicitly required plugin selectors (for example, `superpowers@openai-curated`) and skill names (for example, `superpowers:using-superpowers`) are resolved against `codex plugin list --available --json`. Selected providers are installed into the repository-scoped Codex home above and verified before execution.

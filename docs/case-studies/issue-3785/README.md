@@ -95,6 +95,14 @@ and auth failures check the generation. Logout invalidates stored subscription
 claims. Existing rate-limit cooldown behavior is retained. Credential values
 are not put into cache keys or diagnostics.
 
+A full local run also exposed intermittent queue-test interference: automatic
+consumers continued usage checks after `stop()`, while later tests reset the
+cache. Pending usage requests were shared across cache instances. A deterministic
+regression fails before the fix (14 passed, one failed); requests now coalesce
+within their cache instance, and all 22 focused cache/limits tests pass. Queue
+unit tests disable automatic consumers and explicitly exercise their operations;
+all 71 assertions pass. Production queue startup behavior is unchanged.
+
 Native `/limits` credential readers resolve `CLAUDE_CONFIG_DIR` and `CODEX_HOME`
 at call time. This removes an unconditional fallback to the default home; it
 does **not** validate that a redirected home is the deployment's canonical
@@ -186,6 +194,15 @@ failures; all 24 admission regressions pass after the semantic repair. Unrelated
 typed settings, approved MCP settings and protected state are preserved.
 Repair normalizes TOML formatting and removes comments. Clean configurations
 remain byte-for-byte unchanged.
+
+The next baseline reproducer adds 13 initially failing cases: global Claude
+instructions/rules and inline hooks, Codex global instructions/prompts and hook
+manifests, inline notification/instruction hooks, profile-level additions and
+global agent roles. These now block admission. Safe configuration entries are
+removed; instruction files and hook manifests are retained for explicit removal
+or quarantine. The baseline suite also verifies credential identity preservation,
+linked-file rejection, malformed-manifest rejection before unrelated repairs,
+and unchanged clean profiles. All 23 baseline regressions pass.
 
 This remains a partial guard: effective alternate homes, all native discovery
 surfaces, pristine `.system` attestation, quarantine, deployment validation and
@@ -386,10 +403,11 @@ tests pass (40 tests). Existing Router isolation, routing, sidecar and hardening
 also pass after the admission change.
 Full-suite/static-check results and current-head CI are recorded in the PR.
 
-Local validation: all 698 files selected by the default runner passed after the
-audit/admission and queue-test changes. The combined focused run passes 76
-tests, including 11 audit-input regressions, 24 admission regressions and
-the existing audit suite's 56 internal assertions. The queue suite passes all
+Local validation: all 698 files selected by the default runner passed before
+the latest global-instruction/hook/profile additions. The latest focused checks
+pass 99 tests, plus the existing audit suite's 56 internal assertions, including
+11 audit-input regressions, 24 admission regressions and 23 global-baseline cases.
+The new 699-file default run is still pending. The queue suite passes all
 71 assertions; its retained before/after outputs reproduce and resolve the
 newest downloaded CI failure. Existing Router suites were also rerun after
 the launcher changes. The four Docker/copy probes completed and cleaned up

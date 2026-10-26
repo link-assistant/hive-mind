@@ -7,13 +7,15 @@ import { parse as parseToml } from 'smol-toml';
 
 const TOOL_INPUTS = {
   claude: {
-    dirs: ['.claude', '.claude/plugins', '.claude/plugins/marketplaces', '.claude/plugins/cache', '.claude/plugins/repos', '.claude/skills', '.claude/agents', '.claude/commands'],
+    dirs: ['.claude', '.claude/plugins', '.claude/plugins/marketplaces', '.claude/plugins/cache', '.claude/plugins/repos', '.claude/skills', '.claude/agents', '.claude/commands', '.claude/rules'],
     json: ['.claude.json', '.claude/settings.json', '.claude/plugins/installed_plugins.json', '.claude/plugins/known_marketplaces.json'],
+    opaque: ['.claude/CLAUDE.md'],
   },
   codex: {
-    dirs: ['.codex', '.codex/plugins', '.codex/plugins/cache', '.codex/plugins/marketplaces', '.codex/skills', '.agents', '.agents/skills'],
-    json: [],
+    dirs: ['.codex', '.codex/plugins', '.codex/plugins/cache', '.codex/plugins/marketplaces', '.codex/skills', '.codex/prompts', '.agents', '.agents/skills'],
+    json: ['.codex/hooks.json'],
     text: ['.codex/config.toml'],
+    opaque: ['.codex/AGENTS.md', '.codex/AGENTS.override.md'],
   },
 };
 
@@ -83,6 +85,7 @@ export async function validateAgentConfigAuditInputs({ tool = 'all', homeDir, fs
           await inspect(path.join(target, child.name));
         }
       }
+      for (const relative of inputs.opaque || []) await inspect(path.join(homeDir, relative), 'file');
       for (const relative of [...inputs.json, ...(inputs.text || [])]) {
         const target = path.join(homeDir, relative);
         const info = await inspect(target, 'file');

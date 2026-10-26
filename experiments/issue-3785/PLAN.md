@@ -30,8 +30,12 @@ push only issue-3785-4c28551ac612, and keep unmet requirements explicitly open.
       solve/hive/root bot; validate TOML and bound reads despite concurrent growth.
 - [x] Reproduce semantic TOML audit/repair bypasses before fixing discovery;
       verify quoted/dotted/inline entries, nested tables and typed preservation.
+- [x] Reproduce known global instruction/hook/profile/agent admission gaps;
+      reject them and verify safe repairs preserve credentials and clean profiles.
 - [x] Resolve newest-head CI queue-test failure from downloaded job logs; rerun
       all default tests and checks after the current audit/admission changes.
+- [x] Reproduce pending usage requests crossing cache resets; scope request
+      coalescing by cache instance and isolate manual queue unit tests.
 - [ ] Implement canonical auth/history authority, explicit alternative contracts,
       coordinated refresh and fail-closed effective-path validation for all tools.
 - [ ] Isolate task catalogs/extensions and enforce clean global baseline; migrate

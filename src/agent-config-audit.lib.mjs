@@ -2,7 +2,7 @@
  * Global Claude / Codex configuration audit and auto-repair (issue #2190).
  *
  * Hive-mind's default agent configuration must be minimalistic: no globally
- * installed plugins, marketplaces, or skills, and no MCP servers beyond the
+ * installed plugins, marketplaces, skills, hooks or global instructions, and no MCP servers beyond the
  * Playwright server the Docker image ships with. Anything else that shows up in
  * the *global* configuration (`~/.claude`, `~/.claude.json`, `~/.codex`,
  * `~/.agents`) was not put there by hive-mind and is treated as drift:
@@ -143,10 +143,25 @@ const configTable = (config, key) => {
   return value;
 };
 
+// Global instruction/command files need explicit removal or quarantine. Never
+// read their contents or run installed code to decide whether a home is clean.
+const auditGlobalInstructions = ({ tool, root, fsImpl, files = [], directories = [] }) => {
+  const findings = [];
+  const report = (name, location) => findings.push(makeFinding({ tool, kind: 'global-instructions', name, location, detail: 'global instructions or commands require explicit removal or quarantine', repair: null }));
+  for (const entry of safeReadDir(fsImpl, root, { includeHidden: true })) {
+    if (files.includes(entry.name)) report(entry.name, path.join(root, entry.name));
+  }
+  for (const directory of directories) {
+    for (const entry of safeReadDir(fsImpl, path.join(root, directory), { includeHidden: true })) report(`${directory}/${entry.name}`, path.join(root, directory, entry.name));
+  }
+  return findings;
+};
+
 const auditClaude = ({ homeDir, fsImpl, allowedMcpServers }) => {
   const findings = [];
   const claudeDir = path.join(homeDir, '.claude');
   const pluginsDir = path.join(claudeDir, 'plugins');
+  findings.push(...auditGlobalInstructions({ tool: 'claude', root: claudeDir, fsImpl, files: ['CLAUDE.md'], directories: ['rules'] }));
 
   for (const marketplace of safeReadDir(fsImpl, path.join(pluginsDir, 'marketplaces'))) {
     const location = path.join(pluginsDir, 'marketplaces', marketplace.name);
@@ -190,6 +205,9 @@ const auditClaude = ({ homeDir, fsImpl, allowedMcpServers }) => {
   const settingsPath = path.join(claudeDir, 'settings.json');
   const settings = safeReadJson(fsImpl, settingsPath);
   if (settings) {
+    if (Object.keys(configTable(settings, 'hooks')).length) {
+      findings.push(makeFinding({ tool: 'claude', kind: 'global-hooks', name: 'hooks', location: settingsPath, detail: 'inline global hooks in settings.json', repair: { type: 'delete-json-key', target: settingsPath, keyPath: ['hooks'] } }));
+    }
     for (const key of ['enabledPlugins', 'extraKnownMarketplaces']) {
       const value = settings[key];
       if (!value || typeof value !== 'object') continue;
@@ -213,6 +231,10 @@ const auditClaude = ({ homeDir, fsImpl, allowedMcpServers }) => {
 const auditCodex = ({ homeDir, fsImpl, allowedMcpServers }) => {
   const findings = [];
   const codexDir = path.join(homeDir, '.codex');
+  findings.push(...auditGlobalInstructions({ tool: 'codex', root: codexDir, fsImpl, files: ['AGENTS.md', 'AGENTS.override.md'], directories: ['prompts'] }));
+  const hooksPath = path.join(codexDir, 'hooks.json');
+  const hooks = safeReadJson(fsImpl, hooksPath);
+  if (hooks && Object.keys(configTable(hooks, 'hooks')).length) findings.push(makeFinding({ tool: 'codex', kind: 'global-hooks', name: 'hooks.json', location: hooksPath, detail: 'global hook manifest requires explicit removal or quarantine', repair: null }));
   const cacheDir = path.join(codexDir, 'plugins', 'cache');
   for (const marketplace of safeReadDir(fsImpl, cacheDir)) {
     const marketplaceDir = path.join(cacheDir, marketplace.name);
@@ -244,21 +266,32 @@ const auditCodex = ({ homeDir, fsImpl, allowedMcpServers }) => {
   const config = safeReadText(fsImpl, configPath);
   if (config !== null) {
     const parsed = parseAgentConfigToml(config);
-    // TOML table, dotted-key and inline-table encodings have identical meaning.
-    // Enumerate parsed keys so quoting and multiline values cannot hide or
-    // invent registrations. Delete the whole entry, including nested tables.
-    for (const [table, kind] of [
-      ['plugins', 'plugin-enable'],
-      ['mcp_servers', 'mcp-server'],
-    ]) {
-      for (const name of Object.keys(configTable(parsed, table))) {
-        if (table === 'mcp_servers' && allowedMcpServers.includes(name)) continue;
-        findings.push(makeFinding({ tool: 'codex', kind, name, location: configPath, detail: `${table} registration in config.toml`, repair: { type: 'delete-toml-key', target: configPath, keyPath: [table, name] } }));
+    const profiles = configTable(parsed, 'profiles');
+    const scopes = [[parsed, []], ...Object.keys(profiles).map(name => [configTable(profiles, name), ['profiles', name]])];
+    for (const [scope, prefix] of scopes) {
+      // TOML table, dotted-key and inline-table encodings have identical meaning.
+      // Profiles must not hide global additions from the baseline check.
+      const remove = (kind, name, keyPath) => findings.push(makeFinding({ tool: 'codex', kind, name, location: configPath, detail: 'global configuration registration in config.toml', repair: { type: 'delete-toml-key', target: configPath, keyPath: [...prefix, ...keyPath] } }));
+      for (const [table, kind] of [
+        ['plugins', 'plugin-enable'],
+        ['mcp_servers', 'mcp-server'],
+      ]) {
+        for (const name of Object.keys(configTable(scope, table))) {
+          if (table === 'mcp_servers' && allowedMcpServers.includes(name)) continue;
+          remove(kind, name, [table, name]);
+        }
       }
-    }
-    const remotePlugin = configTable(parsed, 'features').remote_plugin;
-    if (remotePlugin !== false) {
-      findings.push(makeFinding({ tool: 'codex', kind: 'remote-plugin-sync', name: 'features.remote_plugin', location: configPath, detail: remotePlugin === undefined ? 'not pinned (Codex syncs the remote plugin catalog on start)' : 'explicitly enabled', repair: { type: 'set-toml-boolean', target: configPath, table: 'features', key: 'remote_plugin', value: false } }));
+      for (const key of ['notify', 'developer_instructions', 'model_instructions_file']) {
+        if (scope[key] !== undefined) remove(key === 'notify' ? 'global-hooks' : 'global-instructions', key, [key]);
+      }
+      if (Object.keys(configTable(scope, 'hooks')).length) remove('global-hooks', 'hooks', ['hooks']);
+      for (const [name, value] of Object.entries(configTable(scope, 'agents'))) {
+        if (value && typeof value === 'object') remove('custom-agent', name, ['agents', name]);
+      }
+      const remotePlugin = configTable(scope, 'features').remote_plugin;
+      if (remotePlugin !== false && (prefix.length === 0 || remotePlugin !== undefined)) {
+        findings.push(makeFinding({ tool: 'codex', kind: 'remote-plugin-sync', name: 'features.remote_plugin', location: configPath, detail: remotePlugin === undefined ? 'not pinned (Codex syncs the remote plugin catalog on start)' : 'explicitly enabled', repair: { type: 'set-toml-boolean', target: configPath, table: 'features', tablePath: [...prefix, 'features'], key: 'remote_plugin', value: false } }));
+      }
     }
   } else {
     findings.push(makeFinding({ tool: 'codex', kind: 'remote-plugin-sync', name: 'features.remote_plugin', location: configPath, detail: 'config.toml missing (Codex syncs the remote plugin catalog on start)', repair: { type: 'set-toml-boolean', target: configPath, table: 'features', key: 'remote_plugin', value: false } }));
@@ -318,11 +351,17 @@ const applyRepair = (repair, fsImpl) => {
       if (config === null && repair.type === 'delete-toml-key') throw new Error('Global agent configuration is unreadable; no repair is permitted.');
       const data = parseAgentConfigToml(config ?? '');
       if (repair.type === 'delete-toml-key') {
-        delete configTable(data, repair.keyPath[0])[repair.keyPath[1]];
+        let parent = data;
+        for (const key of repair.keyPath.slice(0, -1)) parent = configTable(parent, key);
+        delete parent[repair.keyPath.at(-1)];
       } else {
-        const table = configTable(data, repair.table);
+        let table = data;
+        for (const key of repair.tablePath || [repair.table]) {
+          const child = configTable(table, key);
+          table[key] = child;
+          table = child;
+        }
         table[repair.key] = repair.value;
-        data[repair.table] = table;
         fsImpl.mkdirSync(path.dirname(repair.target), { recursive: true });
       }
       fsImpl.writeFileSync(repair.target, stringifyToml(data));

@@ -391,6 +391,8 @@ Root Telegram bot और हर `solve`/`hive` start, tool connection checks स
 
 TOML सुधार असंबंधित सेटिंग मान सुरक्षित रखता है, फ़ॉर्मैट सामान्य करता है और टिप्पणियाँ हटाता है। साफ़ कॉन्फ़िगरेशन अपरिवर्तित रहती है।
 
+ऑडिट ज्ञात वैश्विक निर्देश फ़ाइलों, नियमों, पुराने प्रॉम्प्ट और हुक मैनिफ़ेस्ट को भी अस्वीकार करता है। निर्देश फ़ाइलों और हुक मैनिफ़ेस्ट को स्पष्ट रूप से हटाना या क्वारंटीन करना आवश्यक है; इनलाइन वैश्विक हुक/निर्देश और अनधिकृत Codex प्रोफ़ाइल/एजेंट पंजीकरण अपने आप सुधारे जा सकते हैं। साफ़ प्रोफ़ाइल तथा मॉडल, अनुमति और समानांतरता की अन्य सेटिंग सुरक्षित रहती हैं।
+
 Catalog में provider न होने पर preflight AI harness शुरू होने से पहले exact capability बताता है। Marketplace inspect या refresh करने के लिए parent container में `codex plugin list --available --json` चलाएं। Preflight हर task के लिए `codex debug prompt-input` से पूरा model-visible catalog जांचता है, भले कोई optional capability घोषित न हो। केवल scoped core skills, स्पष्ट repository skills और चुने गए scoped plugin skills स्वीकार होते हैं; unexpected skill, untrusted path या supported CLI पर unavailable/unparseable probe execution रोक देता है। Verbose log accepted name, provider, version और normalized path दिखाता है।
 
 यदि persisted `/home/box/.codex/config.toml` किसी पुराने image से आया है, तो उसमें newer images द्वारा जोड़ी गई Playwright MCP registration नहीं हो सकती। Container start होने के बाद फिर से चलाएं:

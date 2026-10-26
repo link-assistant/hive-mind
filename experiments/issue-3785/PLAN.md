@@ -243,6 +243,11 @@ push only issue-3785-4c28551ac612, and keep unmet requirements explicitly open.
 
 Current continuation:
 
+- [x] Complete the fresh local default suite: all 723 selected files pass.
+- [x] Preserve the latest checkout timeout and reproduce its false successful
+      terminal PR status. Fail cancelled dependencies on every ref; the changed
+      integrity test fails before repair and passes afterward.
+- [ ] Verify the interrupted CI job's rerun and all newly unblocked checks.
 - [x] Preserve completed latest-head failures with timestamps and SHA. At
       24c34a39a, packaged Docker passes; default CI stops at a stale mount
       fixture. Repair both incomplete fixtures and extract mount preparation

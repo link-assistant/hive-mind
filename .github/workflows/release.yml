@@ -1297,7 +1297,7 @@ jobs:
             2. Merge this PR to main
             3. The automated release workflow commits the version bump to main, publishes to npm and creates a GitHub release
   # GitHub classifies timeout-minutes as cancellation. Observe every job so a
-  # timed-out main run cannot finish without a failing status.
+  # timed-out run cannot finish without a failing status, including on PRs.
   pipeline-status:
     name: Pipeline Status
     runs-on: ubuntu-24.04

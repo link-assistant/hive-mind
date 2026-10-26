@@ -473,3 +473,22 @@ does not preserve a thread name through resume after private config disposal.
 A pinned canonical-index experiment has five passing standalone Rust tests;
 native upstream tests and real named read/resume after two disposals are new
 required steps in the experiment job. They are pending, not established passes.
+
+### Checkout timeout and a false successful terminal PR status
+
+All 723 selected default test files pass locally after the fixture and history
+inspection repairs (`/tmp/issue-3785-history-full-suite-after.log`, exit 0).
+Run 40376400576 targets `c1858ca8fd7018bc935df879f0874f5d72e9b1e6`,
+created 2026-10-26 18:17:19 UTC. Its 35,047-line downloaded log is retained in
+`checks-40376400576.log`. Lines 29150–29152 show checkout fetching all branch/tag
+history at 18:18:44 and timing out at 18:28:43 before line-limit verification.
+The default tests and packaged Docker job are consequently skipped. Lines
+35009–35012 show the terminal gate warning about that cancellation and claiming
+success because the ref is a PR. This is not a passing integration run.
+
+The existing CI integrity test is changed to require a failing status for a
+cancelled PR dependency; it fails before the repair (actual 0, expected 1 at
+test line 94). The gate now fails cancelled dependencies on every ref, including
+PRs, and the entire integrity test passes afterward. Request a rerun of the
+interrupted checkout job rather than raising its timeout or treating dependent
+skips as evidence of success. Native experiment CI continues independently.

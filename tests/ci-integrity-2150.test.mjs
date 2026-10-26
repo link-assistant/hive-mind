@@ -91,7 +91,7 @@ assert.equal(result.status, 1, 'timeout cancellation fails the terminal gate on 
 assert.match(result.stdout, /cancelled jobs on main: release/i);
 
 result = runGate({ test: { result: 'cancelled' } });
-assert.equal(result.status, 0, 'superseded PR cancellations remain non-fatal');
-assert.match(result.stdout, /::warning::Cancelled jobs: test/);
+assert.equal(result.status, 1, 'a PR job timeout must fail the terminal gate, including without a replacement run');
+assert.match(result.stdout, /::error::Pipeline has cancelled jobs.*test/);
 
 console.log('ci-integrity-2150.test.mjs: all assertions passed');

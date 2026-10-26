@@ -40,6 +40,8 @@ push only issue-3785-4c28551ac612, and keep unmet requirements explicitly open.
       and compare stock against repeated pristine real-CLI manifests.
 - [x] Verify one real Codex external-token callback after a synthetic 401;
       retain the internal/unstable schema warning and unverified lifecycle limits.
+- [x] Reproduce PR checks installing published latest; pack the branch and require
+      installed stock-runtime verification in root/DinD/Coolify build definitions.
 - [ ] Implement canonical auth/history authority, explicit alternative contracts,
       coordinated refresh and fail-closed effective-path validation for all tools.
 - [ ] Isolate task catalogs/extensions and enforce clean global baseline; migrate

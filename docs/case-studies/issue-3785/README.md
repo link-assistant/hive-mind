@@ -205,7 +205,7 @@ linked-file rejection, malformed-manifest rejection before unrelated repairs,
 and unchanged clean profiles. All 23 baseline regressions pass.
 
 The stock-runtime follow-up starts with nine failures: arbitrary hidden
-`.system` content was admitted, and image CLI versions were not pinned. Images
+`.system` content was admitted, and image CLI versions were not pinned. The root, DinD and Coolify image definitions
 now pin Claude 2.1.310 and Codex 0.164.0 and disable Claude auto-update. A pristine
 network-disabled Codex home materializes 50 stock files; repeated clean runs
 produce the same relative-path/SHA-256 manifest. Admission checks installed
@@ -217,6 +217,24 @@ is rejected. The 12 stock regressions pass, and `probe-stock-skills.mjs --verify
 verifies the real CLI's pristine tree through production admission. CLI upgrades
 must regenerate and review the manifest. Actual release-image and deployment
 coverage remains unfinished.
+
+The Docker PR check previously installed the published `latest` package, so it
+could pass without any runtime implementation from the branch. PR builds now
+pack this branch through npm's release file allowlist and install that archive
+in both images. All three image definitions require `configure-claude` and run
+the installed `verify-agent-runtime.mjs` with build networking disabled. It
+checks pinned CLI versions and known global surfaces without repair, creates
+a disposable home, asks the actual Codex app-server to materialize stock, and
+verifies its complete content manifest. A successful RPC without a stock tree
+is rejected. Reads, response sizes and probe duration are bounded; the server
+is reaped before its temporary home is removed. Container verification invokes
+the installed module again after boot. No development source is mounted for
+this check. Two initial package/gate regressions and three Coolify checks fail
+before implementation; 19 image/stock checks now pass. A disposable Bun package
+installation also passes its installed verifier against the real offline Codex
+binary and the local Claude version check. These focused results do not stand
+in for the pending actual image builds, or for auth/history and restored-state
+lifecycle gates.
 
 This remains a partial guard: effective alternate homes, all native discovery
 surfaces, packaged-image stock attestation, quarantine, deployment validation and
@@ -427,15 +445,13 @@ tests pass (40 tests). Existing Router isolation, routing, sidecar and hardening
 also pass after the admission change.
 Full-suite/static-check results and current-head CI are recorded in the PR.
 
-Local validation: all 698 files selected by the default runner passed before
-the latest global-instruction/hook/profile additions. The latest focused checks
-pass 112 tests, including the existing audit suite wrapper with 56 internal assertions and
-11 audit-input regressions, 24 admission regressions and 23 global-baseline cases.
-The subsequent 699-file run was interrupted by renewed task input after file 472; it is not a passing result. A fresh 700-file default run, including the stock-runtime suite, is pending. The queue suite passes all
-71 assertions; its retained before/after outputs reproduce and resolve the
-newest downloaded CI failure. Existing Router suites were also rerun after
-the launcher changes. The four Docker/copy probes completed and cleaned up
-their fixtures. Static-check and exact-head CI results are recorded in the PR;
-these checks do not verify the unfinished canonical-storage contract.
+Local validation: all 700 files selected by the default runner passed. The
+image-gate changes made afterward pass their focused image/stock regressions;
+final combined focused and static-check results are recorded in the PR. The
+queue suite passes all 71 assertions. The retained failure outputs reproduce
+both the downloaded queue assertion and the later local pending-request race.
+The four original storage/copy probes and later stock, callback and package
+probes completed and cleaned up. These checks do not verify the unfinished
+canonical-storage contract.
 
 ![Synthetic before and after limits layout](evidence/display-comparison.png)

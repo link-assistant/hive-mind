@@ -5,10 +5,9 @@
 # check, and fails if the build logs contain errors that Docker itself does not
 # surface as a non-zero exit code.
 #
-# PR builds install @link-assistant/hive-mind@latest — the currently published
-# version, which may pre-date this PR — so the Dockerfile tolerates a missing
-# configure-claude bin. Release builds install the exact version just published
-# and enforce the bin strictly.
+# PR builds pack and install the checked-out branch through the same npm file
+# allowlist as a release. Both images require the installed runtime verifier.
+# Release builds continue installing the exact version just published.
 #
 # Multi-platform builds (amd64+arm64) are exercised by docker-publish during a
 # release. PR checks validate amd64 only, using plain `docker build` rather than
@@ -93,15 +92,15 @@ restart_dockerd() {
 echo "Building Docker image from ${BOX_BASE} base..."
 echo "Note: General-purpose tools are inherited from pinned ${BOX_BASE}"
 echo "This image adds AI-specific tools on top of the Box base."
-echo "Installing @link-assistant/hive-mind@latest; configure-claude may not yet be present in the published package."
+echo "Installing the checked-out branch as an npm package; all runtime checks are required."
 echo ""
 
-docker build --progress=plain -t "${IMAGE_NAME}:test" . 2>&1 | tee build-output.log
+docker build --progress=plain --build-arg HIVE_MIND_INSTALL_SOURCE=true -t "${IMAGE_NAME}:test" . 2>&1 | tee build-output.log
 
 echo ""
 restart_dockerd
 echo "Building Docker-in-Docker image from ${BOX_DIND_BASE} base..."
-docker build --progress=plain -f Dockerfile.dind -t "${DIND_IMAGE_NAME}:test" . 2>&1 | tee build-dind-output.log
+docker build --progress=plain -f Dockerfile.dind --build-arg HIVE_MIND_INSTALL_SOURCE=true -t "${DIND_IMAGE_NAME}:test" . 2>&1 | tee build-dind-output.log
 
 echo ""
 echo "Docker images built successfully"

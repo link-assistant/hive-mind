@@ -49,6 +49,7 @@ RUN cargo install formal-ai --version "${FORMAL_AI_VERSION}" --locked
 # restore in the nested DinD daemon (box#131).
 FROM ghcr.io/link-foundation/box:2.10.5
 ARG HIVE_MIND_VERSION=latest
+ARG HIVE_MIND_INSTALL_SOURCE=false
 # Task-container prerequisite installs stay within the workspace (formal-ai#1159).
 ENV FORMAL_AI_INSTALL_GRANT=workspace
 # Release builds pass the exact published package version here. Bake it as the
@@ -336,8 +337,12 @@ RUN bun install -g @openai/codex@0.164.0 && \
 # 0.26.14 reports a failed tool call only on its tool_use event instead of a
 # top-level error event (link-assistant/agent#332), so a missing file read no
 # longer ends the run.
-RUN echo "Installing @link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
-    bun install -g "@link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
+RUN --mount=type=bind,source=.,target=/tmp/hive-mind-source,readonly \
+    if [ "${HIVE_MIND_INSTALL_SOURCE}" = "true" ]; then \
+      bash /tmp/hive-mind-source/scripts/install-image-package.sh /tmp/hive-mind-source; \
+    else \
+      bun install -g "@link-assistant/hive-mind@${HIVE_MIND_VERSION}"; \
+    fi && \
     if [ "${HIVE_MIND_VERSION}" != "latest" ]; then \
       test "$(hive --version)" = "${HIVE_MIND_VERSION}"; \
     fi && \
@@ -419,21 +424,13 @@ RUN if command -v claude >/dev/null 2>&1; then \
 # under user/local/project scope; solve.mjs filters them at run time using
 # --strict-mcp-config --mcp-config <temp-file>.
 #
-# Behavior matrix:
-#   - Release builds (HIVE_MIND_VERSION=<exact>): `configure-claude` MUST exist
-#     in the published package and MUST succeed. Build fails otherwise.
-#   - PR builds (HIVE_MIND_VERSION=latest): the currently published package on
-#     npm may pre-date this PR and not yet ship `configure-claude`. In that
-#     case we log and skip — the baseline is re-applied at runtime by solve.
+# Every image requires the installed configuration command and verifies its result.
 RUN mkdir -p /home/box/.claude && \
-    if [ "${HIVE_MIND_VERSION}" != "latest" ]; then \
-      configure-claude --settings-path /home/box/.claude/settings.json && \
-      configure-claude --settings-path /home/box/.claude/settings.json --verify; \
-    elif command -v configure-claude >/dev/null 2>&1; then \
-      configure-claude --settings-path /home/box/.claude/settings.json && \
-      configure-claude --settings-path /home/box/.claude/settings.json --verify; \
-    else \
-      echo "configure-claude not present in @link-assistant/hive-mind@latest yet (likely a PR build before the bin is published); skipping baseline — solve re-applies it at runtime"; \
-    fi
+    command -v configure-claude >/dev/null && \
+    configure-claude --settings-path /home/box/.claude/settings.json && \
+    configure-claude --settings-path /home/box/.claude/settings.json --verify
+
+# Required installed-package baseline: no provider access or development source.
+RUN --network=none node "$(dirname "$(readlink -f "$(command -v hive)")")/verify-agent-runtime.mjs"
 
 CMD ["/bin/bash"]

@@ -41,9 +41,19 @@ has a process-local guard and reread. A lock in an embedding launcher cannot
 coordinate an unmodified second CLI process.
 
 The pinned command-backed auth helper and app-server external-token callbacks
-could support a participating broker adapter. We have not verified native
-ChatGPT semantics or full storage/lifecycle compatibility through those hooks;
-the existing `codex exec` integration does not use them.
+could support a participating broker adapter. A further bounded real-CLI probe
+now verifies one external ChatGPT-token callback: a local synthetic model
+provider rejects G0 with 401, the client atomically commits G1 and answers the
+refresh request, and the next model request carries G1. The synthetic tokens
+keep the same account/user identity; no native `auth.json` is created. The model
+then returns a deliberate 503, so this establishes token handoff rather than
+successful inference. The installed generated schema marks this login mode
+internal and unstable. Neither concurrency, native login/logout nor full
+storage/lifecycle compatibility is established; our existing `codex exec`
+integration still does not use this path.
+
+- [External-token callback probe](https://github.com/link-assistant/hive-mind/blob/issue-3785-4c28551ac612/experiments/issue-3785/probe-appserver-auth.mjs)
+- [Installed schema inspection](https://github.com/link-assistant/hive-mind/blob/issue-3785-4c28551ac612/experiments/issue-3785/inspect-codex-auth-hooks.sh)
 
 Suggested code-level interface: an independently selectable credential authority
 with directory-level replacement/logout semantics, plus a cross-process lock

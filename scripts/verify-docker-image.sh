@@ -390,14 +390,13 @@ if command -v configure-claude >/dev/null 2>&1; then
   echo "Verifying quiet Claude Code baseline..."
   configure-claude --settings-path /home/box/.claude/settings.json --verify
   echo "Quiet Claude Code baseline: OK"
-else # shell-lint: allow-nonfatal — see the reasoning below.
-  # PR Docker builds install @link-assistant/hive-mind@latest, which can pre-date
-  # this PR and therefore not ship the configure-claude bin yet. Release builds
-  # install an exact pinned version where the bin must exist (enforced in the
-  # Dockerfile itself when HIVE_MIND_VERSION != latest).
-  echo "configure-claude not found — tolerated only for PR builds where @link-assistant/hive-mind@latest pre-dates this PR"
-  echo "(solve re-applies the quiet baseline at runtime)"
+else
+  echo "ERROR: configure-claude is missing from the installed package" >&2
+  exit 1
 fi
+
+echo "Checking the installed stock-runtime baseline..."
+node "$(dirname "$(readlink -f "$(command -v hive)")")/verify-agent-runtime.mjs"
 
 echo ""
 echo "Checking Playwright MCP registration in Claude and Codex..."

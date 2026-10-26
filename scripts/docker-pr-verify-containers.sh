@@ -5,7 +5,7 @@
 # nested-Docker default checks against the DinD image.
 #
 # Verifies box user setup (/home/box access), development tools, AI tools, and
-# configure-claude (tolerantly, for PR builds — see docker-pr-build.sh).
+# configure-claude and the installed stock-runtime baseline (required).
 #
 # Environment:
 #   IMAGE_NAME       Tag for the main image      (default: konard/hive-mind)

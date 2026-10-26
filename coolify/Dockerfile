@@ -49,6 +49,7 @@ RUN cargo install formal-ai --version "${FORMAL_AI_VERSION}" --locked
 # restore in the nested DinD daemon (box#131).
 FROM ghcr.io/link-foundation/box:2.10.5
 ARG HIVE_MIND_VERSION=latest
+ARG HIVE_MIND_INSTALL_SOURCE=false
 # Task-container prerequisite installs stay within the workspace (formal-ai#1159).
 ENV FORMAL_AI_INSTALL_GRANT=workspace
 # Release builds pass the exact published package version here. Bake it as the
@@ -228,13 +229,15 @@ RUN mkdir -p /home/box/.local/bin && \
 
 # Install Claude Code through Anthropic's native installer. Bun blocks the
 # @anthropic-ai/claude-code postinstall that links the native binary (issue #1633).
+ENV DISABLE_AUTOUPDATER=1
 RUN curl -fsSL https://claude.ai/install.sh -o /tmp/claude-code-install.sh && \
-    bash /tmp/claude-code-install.sh && \
+    bash /tmp/claude-code-install.sh 2.1.310 && \
     rm /tmp/claude-code-install.sh && \
-    claude --version
+    test "$(claude --version)" = '2.1.310 (Claude Code)'
 
 # Install AI coding assistant CLIs
-RUN bun install -g @openai/codex && \
+RUN bun install -g @openai/codex@0.164.0 && \
+    test "$(codex --version)" = 'codex-cli 0.164.0' && \
     bun install -g @qwen-code/qwen-code && \
     bun install -g @google/gemini-cli && \
     bun install -g @github/copilot && \
@@ -248,8 +251,12 @@ RUN bun install -g @openai/codex && \
 # available in the base image or install them separately.
 # @link-assistant/agent and start-command carry the same pins as Dockerfile, so
 # the Coolify image ships the same agent fixes and the freshness gate tracks both.
-RUN echo "Installing @link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
-    bun install -g "@link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
+RUN --mount=type=bind,source=.,target=/tmp/hive-mind-source,readonly \
+    if [ "${HIVE_MIND_INSTALL_SOURCE}" = "true" ]; then \
+      bash /tmp/hive-mind-source/scripts/install-image-package.sh /tmp/hive-mind-source; \
+    else \
+      bun install -g "@link-assistant/hive-mind@${HIVE_MIND_VERSION}"; \
+    fi && \
     if [ "${HIVE_MIND_VERSION}" != "latest" ]; then \
       test "$(hive --version)" = "${HIVE_MIND_VERSION}"; \
     fi && \
@@ -275,6 +282,20 @@ RUN playwright --version && \
 # Configure Playwright MCP for Claude CLI — fail the build if registration fails (issue #1514)
 RUN if command -v claude &>/dev/null; then \
       claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080; \
+    fi
+
+# Issue #2190: keep the global Codex configuration minimal. Codex syncs the
+# "openai-curated-remote" plugin catalog (Superpowers and friends) into
+# ~/.codex/plugins/cache on every start unless features.remote_plugin is false;
+# those skills force approval gates and multiply token usage in autonomous runs.
+RUN if command -v codex &>/dev/null; then \
+      mkdir -p "$HOME/.codex" && touch "$HOME/.codex/config.toml" && \
+      if grep -q '^\[features\]' "$HOME/.codex/config.toml"; then \
+        sed -i 's/^\[features\]$/[features]\nremote_plugin = false/' "$HOME/.codex/config.toml"; \
+      else \
+        printf '\n[features]\nremote_plugin = false\n' >> "$HOME/.codex/config.toml"; \
+      fi && \
+      grep -q '^remote_plugin = false' "$HOME/.codex/config.toml" && cat "$HOME/.codex/config.toml"; \
     fi
 
 # Configure Playwright MCP for Codex CLI with the same server settings
@@ -306,21 +327,11 @@ RUN if command -v claude >/dev/null 2>&1; then \
 # user/local/project scope; solve.mjs filters them at run time using
 # --strict-mcp-config --mcp-config <temp-file>.
 #
-# Behavior matrix (see root Dockerfile for full rationale):
-#   - Release builds (HIVE_MIND_VERSION=<exact>): `configure-claude` MUST
-#     exist and succeed.
-#   - PR builds (HIVE_MIND_VERSION=latest): tolerate a not-yet-published bin;
-#     solve re-applies the baseline at runtime.
+# Every image requires the installed configuration command and verifies its result.
 RUN mkdir -p /home/box/.claude && \
-    if [ "${HIVE_MIND_VERSION}" != "latest" ]; then \
-      configure-claude --settings-path /home/box/.claude/settings.json && \
-      configure-claude --settings-path /home/box/.claude/settings.json --verify; \
-    elif command -v configure-claude >/dev/null 2>&1; then \
-      configure-claude --settings-path /home/box/.claude/settings.json && \
-      configure-claude --settings-path /home/box/.claude/settings.json --verify; \
-    else \
-      echo "configure-claude not present in @link-assistant/hive-mind@latest yet (likely a PR build before the bin is published); skipping baseline — solve re-applies it at runtime"; \
-    fi
+    command -v configure-claude >/dev/null && \
+    configure-claude --settings-path /home/box/.claude/settings.json && \
+    configure-claude --settings-path /home/box/.claude/settings.json --verify
 
 # --- Application Setup ---
 # Minimal USER root: only for creating /app directory and copying files.
@@ -362,6 +373,9 @@ RUN echo "[user]" > /home/box/.gitconfig && \
     echo "  defaultBranch = main" >> /home/box/.gitconfig && \
     echo "[safe]" >> /home/box/.gitconfig && \
     echo "  directory = *" >> /home/box/.gitconfig
+
+# Required installed-package baseline before deployment; no provider access.
+RUN --network=none node "$(dirname "$(readlink -f "$(command -v hive)")")/verify-agent-runtime.mjs"
 
 # Runtime configuration
 ENV NODE_ENV=production

@@ -6,6 +6,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { test } from 'node:test';
 import { runAgentConfigAudit } from '../src/agent-config-audit.lib.mjs';
+import { verifyAgentRuntime } from '../src/verify-agent-runtime.mjs';
 import { createHash } from 'node:crypto';
 import { CODEX_STOCK_SKILLS, validateCodexStockSkills } from '../src/codex-stock-skills.lib.mjs';
 
@@ -48,7 +49,7 @@ test('an empty stock directory is not a pristine CLI baseline', async t => {
   await assert.rejects(runAgentConfigAudit({ tool: 'codex', homeDir: home, requireClean: true }), /stock|unsafe|configuration/i);
 });
 
-for (const dockerfile of ['Dockerfile', 'Dockerfile.dind']) {
+for (const dockerfile of ['Dockerfile', 'Dockerfile.dind', 'coolify/Dockerfile']) {
   test(`${dockerfile} pins the CLI version used to generate the stock baseline`, async () => {
     const content = await readFile(new URL(`../${dockerfile}`, import.meta.url), 'utf8');
     const version = CODEX_STOCK_SKILLS.cliVersion.replace('codex-cli ', '');
@@ -110,3 +111,46 @@ test('concurrent stock edits reject verification without exposing content', asyn
   const manifest = { files: { file: createHash('sha256').update(content).digest('hex') } };
   await assert.rejects(validateCodexStockSkills({ directory: stock, fsImpl, manifest }), error => /stock/.test(error.message) && !error.message.includes('sentinel'));
 });
+
+test('PR image builds install this branch as a package in both images', async () => {
+  const build = await readFile(new URL('../scripts/docker-pr-build.sh', import.meta.url), 'utf8');
+  assert.equal((build.match(/--build-arg HIVE_MIND_INSTALL_SOURCE=true/g) || []).length, 2, 'both actual image builds must select the branch package');
+  for (const dockerfile of ['Dockerfile', 'Dockerfile.dind', 'coolify/Dockerfile']) {
+    const content = await readFile(new URL(`../${dockerfile}`, import.meta.url), 'utf8');
+    assert.ok(content.includes('ARG HIVE_MIND_INSTALL_SOURCE=false'));
+    assert.ok(content.includes('bash /tmp/hive-mind-source/scripts/install-image-package.sh'));
+  }
+});
+
+test('both packaged images require a network-disabled stock-runtime gate', async () => {
+  for (const dockerfile of ['Dockerfile', 'Dockerfile.dind', 'coolify/Dockerfile']) {
+    const content = await readFile(new URL(`../${dockerfile}`, import.meta.url), 'utf8');
+    assert.ok(/RUN --network=none node .*verify-agent-runtime\.mjs/u.test(content), `${dockerfile} must run the installed verifier without networking`);
+  }
+});
+
+for (const missing of [false, true]) {
+  test(`packaged runtime rejects a native CLI that ${missing ? 'does not materialize stock' : 'materializes unapproved stock'}`, { timeout: 10000 }, async t => {
+    const home = await mkdtemp(path.join(os.tmpdir(), 'hive-3785-native-gate-'));
+    t.after(() => rm(home, { recursive: true, force: true }));
+    await mkdir(path.join(home, '.codex'));
+    await writeFile(path.join(home, '.codex/config.toml'), '[features]\nremote_plugin = false\n');
+    const claude = path.join(home, 'claude');
+    const codex = path.join(home, 'codex.mjs');
+    await writeFile(claude, '#!/bin/sh\nprintf "%s\\n" "2.1.310 (Claude Code)"\n', { mode: 0o700 });
+    const code = `#!${process.execPath}
+import fs from 'node:fs';
+import readline from 'node:readline';
+if (process.argv.includes('--version')) { console.log('codex-cli 0.164.0'); process.exit(0); }
+readline.createInterface({input: process.stdin}).on('line', line => {
+  const message = JSON.parse(line);
+  if (message.method === 'skills/list') {
+    if (!${missing}) { fs.mkdirSync(process.env.CODEX_HOME + '/skills/.system', { recursive: true }); fs.writeFileSync(process.env.CODEX_HOME + '/skills/.system/extra', 'synthetic'); }
+    console.log(JSON.stringify({ id: message.id, result: { data: [{}] } }));
+  } else if (message.id) console.log(JSON.stringify({ id: message.id, result: {} }));
+});
+`;
+    await writeFile(codex, code, { mode: 0o700 });
+    await assert.rejects(verifyAgentRuntime({ homeDir: home, codexCommand: codex, claudeCommand: claude }), /stock|runtime/i);
+  });
+}

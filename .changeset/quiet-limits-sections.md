@@ -53,3 +53,5 @@ Watch selected Claude configuration, account-state and independent credential ro
 Install Agent's PATH search executable from the architecture-matched pinned Codex package in all images, so masking shared executable caches does not break native search. Verify it at runtime and execute it inside both concurrent synthetic tasks with the production cache mask. Select required image checks for image-installer changes as well.
 
 Rebuild task-scoped Codex configuration with semantic TOML parsing. Remove operator plugin declarations in quoted, dotted, inline and nested forms while preserving unrelated strings, dates and large integers. Refuse malformed configuration before native discovery without exposing parser excerpts.
+
+Include native Codex profile-v2 configuration files in global admission and semantic repair. Bound their enumeration and reject unsafe, malformed, oversized or changed profiles before any configuration mutation.

@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { parse as parseToml } from 'smol-toml';
 import { CodexStockBaselineError, validateCodexStockSkills } from './codex-stock-skills.lib.mjs';
-import { agentConfigAuditScopes } from './agent-config-audit-paths.lib.mjs';
+import { agentConfigAuditScopes, codexProfileConfigPaths } from './agent-config-audit-paths.lib.mjs';
 import { auditManagedAgentConfig } from './agent-config-audit-managed.lib.mjs';
 
 const TOOL_INPUTS = {
@@ -111,8 +111,9 @@ export async function validateAgentConfigAuditInputs({ tool = 'all', homeDir, en
         }
       }
       for (const relative of inputs.opaque || []) await inspect(targetPath(relative), 'file');
-      for (const relative of [...inputs.json, ...(inputs.text || [])]) {
-        const target = targetPath(relative);
+      const jsonTargets = new Set(inputs.json.map(targetPath));
+      const configTargets = [...jsonTargets, ...(inputs.text || []).map(targetPath), ...(name === 'codex' ? codexProfileConfigPaths({ configDir, fsImpl }) : [])];
+      for (const target of configTargets) {
         const info = await inspect(target, 'file');
         if (!info) continue;
         if (info.size > BigInt(CONFIG_MAX_BYTES)) throw unsafe();
@@ -120,7 +121,7 @@ export async function validateAgentConfigAuditInputs({ tool = 'all', homeDir, en
         try {
           if (identity(await handle.stat({ bigint: true })) !== identity(info)) throw unsafe();
           const content = await readBoundedConfig(handle);
-          if (inputs.json.includes(relative)) {
+          if (jsonTargets.has(target)) {
             const parsed = JSON.parse(content);
             if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw unsafe();
           } else {

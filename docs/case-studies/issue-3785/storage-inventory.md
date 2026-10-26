@@ -88,6 +88,8 @@ See `probe-qwen-lock-ownership.mjs` and
 The [versioned cleanup implementation](https://github.com/QwenLM/qwen-code/blob/v0.26.1/packages/core/src/qwen/sharedTokenManager.ts#L178-L199)
 unconditionally unlinks the path, without recording lock ownership. The same
 code is present in inspected main commit `2a6f777edfd3fc805b1761f4eff971458225d7a5`.
+Reported upstream as [QwenLM/qwen-code 15653](https://github.com/QwenLM/qwen-code/issues/15653),
+including the pinned reproducer, control and ownership/OS-lock suggestions.
 This establishes a native class defect; it is not a full CLI/provider,
 cross-container or production-coordinator verification.
 

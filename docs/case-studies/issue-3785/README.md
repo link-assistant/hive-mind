@@ -228,6 +228,21 @@ All nine cases and four existing capability/catalog suites pass. This fixes
 declaration inheritance; canonical auth copies and the wider task lifecycle
 remain unfinished.
 
+The pinned Codex profile-v2 loader also reads separate `<name>.config.toml`
+files beside `config.toml`. Fourteen reproducing cases bypassed the clean base
+file before this audit included those native profiles. Admission now enumerates
+native-selectable names with a finite directory-entry limit, validates every
+profile before repair, and applies the same semantic policy to each file.
+Malformed, linked, nonregular, oversized or concurrently changed profiles reject
+all pending repairs. Adding a profile during logging also invalidates the plan.
+Safe repair preserves typed runtime settings and auth/history identities.
+All 193 surrounding audit/runtime regressions pass, including the original
+wrapper's 56 internal assertions. The actual pinned offline CLI discovers a
+synthetic MCP registration from a profile-v2 file; production admission now
+refuses it without modifying the profile. Run
+`node experiments/issue-3785/probe-codex-profile-config.mjs` for that native probe.
+This closes a specific discovery gap; complete runtime attestation remains open.
+
 The stock-runtime follow-up starts with nine failures: arbitrary hidden
 `.system` content was admitted, and image CLI versions were not pinned. The root, DinD and Coolify image definitions
 now pin Claude 2.1.310 and Codex 0.164.0 and disable Claude auto-update. A pristine
@@ -281,6 +296,12 @@ the fix and passes afterward, alongside the 21 stock and pin-preservation tests.
 This remains a partial guard: effective alternate homes, all native discovery
 surfaces, quarantine, deployment validation and
 adversarial races during filesystem mutation still need implementation.
+
+The separate native Qwen lock-ownership reproduction is reported in
+[QwenLM/qwen-code 15653](https://github.com/QwenLM/qwen-code/issues/15653).
+An exiting process that never owned the refresh lock deletes a live owner's
+lock; the retained control leaves it intact. This upstream report does not
+implement the required production refresh coordinator.
 
 ### Authentication copies: reproduced and still present
 

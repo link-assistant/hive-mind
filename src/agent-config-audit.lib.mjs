@@ -34,7 +34,7 @@ import path from 'path';
 import { stringify as stringifyToml } from 'smol-toml';
 import { parseAgentConfigToml, validateAgentConfigAuditInputs } from './agent-config-audit-inputs.lib.mjs';
 import { assertApprovedPlaywrightRegistration } from './agent-mcp-baseline.lib.mjs';
-import { agentConfigAuditScopes } from './agent-config-audit-paths.lib.mjs';
+import { agentConfigAuditScopes, codexProfileConfigPaths } from './agent-config-audit-paths.lib.mjs';
 import { auditManagedAgentConfig, managedAgentConfigRoots } from './agent-config-audit-managed.lib.mjs';
 import { CLAUDE_CLOUD_DISABLE_ENV, CLAUDE_CLOUD_DISABLE_SETTINGS } from './claude-cloud-policy.lib.mjs';
 
@@ -280,42 +280,43 @@ const auditCodex = ({ homeDir, configDir: codexDir, fsImpl, allowedMcpServers })
     }
   }
 
-  const configPath = path.join(codexDir, 'config.toml');
-  const config = safeReadText(fsImpl, configPath);
-  if (config !== null) {
-    const parsed = parseAgentConfigToml(config);
-    const profiles = configTable(parsed, 'profiles');
-    const scopes = [[parsed, []], ...Object.keys(profiles).map(name => [configTable(profiles, name), ['profiles', name]])];
-    for (const [scope, prefix] of scopes) {
-      // TOML table, dotted-key and inline-table encodings have identical meaning.
-      // Profiles must not hide global additions from the baseline check.
-      const remove = (kind, name, keyPath) => findings.push(makeFinding({ tool: 'codex', kind, name, location: configPath, detail: 'global configuration registration in config.toml', repair: { type: 'delete-toml-key', target: configPath, keyPath: [...prefix, ...keyPath] } }));
-      for (const [table, kind] of [
-        ['plugins', 'plugin-enable'],
-        ['mcp_servers', 'mcp-server'],
-      ]) {
-        for (const name of Object.keys(configTable(scope, table))) {
-          if (table === 'mcp_servers' && allowedMcpServers.includes(name)) {
-            if (name === 'playwright') assertApprovedPlaywrightRegistration(scope[table][name], 'codex');
-            continue;
+  for (const configPath of [path.join(codexDir, 'config.toml'), ...codexProfileConfigPaths({ configDir: codexDir, fsImpl })]) {
+    const config = safeReadText(fsImpl, configPath);
+    if (config !== null) {
+      const parsed = parseAgentConfigToml(config);
+      const profiles = configTable(parsed, 'profiles');
+      const scopes = [[parsed, []], ...Object.keys(profiles).map(name => [configTable(profiles, name), ['profiles', name]])];
+      for (const [scope, prefix] of scopes) {
+        // TOML table, dotted-key and inline-table encodings have identical meaning.
+        // Profiles must not hide global additions from the baseline check.
+        const remove = (kind, name, keyPath) => findings.push(makeFinding({ tool: 'codex', kind, name, location: configPath, detail: 'global configuration registration', repair: { type: 'delete-toml-key', target: configPath, keyPath: [...prefix, ...keyPath] } }));
+        for (const [table, kind] of [
+          ['plugins', 'plugin-enable'],
+          ['mcp_servers', 'mcp-server'],
+        ]) {
+          for (const name of Object.keys(configTable(scope, table))) {
+            if (table === 'mcp_servers' && allowedMcpServers.includes(name)) {
+              if (name === 'playwright') assertApprovedPlaywrightRegistration(scope[table][name], 'codex');
+              continue;
+            }
+            remove(kind, name, [table, name]);
           }
-          remove(kind, name, [table, name]);
+        }
+        for (const key of ['notify', 'developer_instructions', 'model_instructions_file']) {
+          if (scope[key] !== undefined) remove(key === 'notify' ? 'global-hooks' : 'global-instructions', key, [key]);
+        }
+        if (Object.keys(configTable(scope, 'hooks')).length) remove('global-hooks', 'hooks', ['hooks']);
+        for (const [name, value] of Object.entries(configTable(scope, 'agents'))) {
+          if (value && typeof value === 'object') remove('custom-agent', name, ['agents', name]);
+        }
+        const remotePlugin = configTable(scope, 'features').remote_plugin;
+        if (remotePlugin !== false && (prefix.length === 0 || remotePlugin !== undefined)) {
+          findings.push(makeFinding({ tool: 'codex', kind: 'remote-plugin-sync', name: 'features.remote_plugin', location: configPath, detail: remotePlugin === undefined ? 'not pinned (Codex syncs the remote plugin catalog on start)' : 'explicitly enabled', repair: { type: 'set-toml-boolean', target: configPath, table: 'features', tablePath: [...prefix, 'features'], key: 'remote_plugin', value: false } }));
         }
       }
-      for (const key of ['notify', 'developer_instructions', 'model_instructions_file']) {
-        if (scope[key] !== undefined) remove(key === 'notify' ? 'global-hooks' : 'global-instructions', key, [key]);
-      }
-      if (Object.keys(configTable(scope, 'hooks')).length) remove('global-hooks', 'hooks', ['hooks']);
-      for (const [name, value] of Object.entries(configTable(scope, 'agents'))) {
-        if (value && typeof value === 'object') remove('custom-agent', name, ['agents', name]);
-      }
-      const remotePlugin = configTable(scope, 'features').remote_plugin;
-      if (remotePlugin !== false && (prefix.length === 0 || remotePlugin !== undefined)) {
-        findings.push(makeFinding({ tool: 'codex', kind: 'remote-plugin-sync', name: 'features.remote_plugin', location: configPath, detail: remotePlugin === undefined ? 'not pinned (Codex syncs the remote plugin catalog on start)' : 'explicitly enabled', repair: { type: 'set-toml-boolean', target: configPath, table: 'features', tablePath: [...prefix, 'features'], key: 'remote_plugin', value: false } }));
-      }
+    } else {
+      findings.push(makeFinding({ tool: 'codex', kind: 'remote-plugin-sync', name: 'features.remote_plugin', location: configPath, detail: 'config.toml missing (Codex syncs the remote plugin catalog on start)', repair: { type: 'set-toml-boolean', target: configPath, table: 'features', key: 'remote_plugin', value: false } }));
     }
-  } else {
-    findings.push(makeFinding({ tool: 'codex', kind: 'remote-plugin-sync', name: 'features.remote_plugin', location: configPath, detail: 'config.toml missing (Codex syncs the remote plugin catalog on start)', repair: { type: 'set-toml-boolean', target: configPath, table: 'features', key: 'remote_plugin', value: false } }));
   }
   return findings;
 };

@@ -15,6 +15,8 @@ push only issue-3785-4c28551ac612, and keep unmet requirements explicitly open.
       manager and mocked OAuth in separate processes; verify an exiting non-owner
       permits duplicate G0 exchange while a control peer rereads committed G1.
       Native coordination remains unfinished; preserve the source/version limits.
+- [x] Report native Qwen ownership defect upstream with immutable reproduction
+      and control; keep production coordination explicitly unfinished.
 - [x] Inventory every acceptance criterion in docs/case-studies/issue-3785.
 - [x] Trace limits rendering, credential selection/refresh, task preflight,
       mounts, resume/recovery, image startup and deployment paths.
@@ -122,6 +124,10 @@ push only issue-3785-4c28551ac612, and keep unmet requirements explicitly open.
       corrupting header-looking multiline strings and admitting malformed TOML.
       Replace regex stripping with semantic parsing; preserve typed runtime
       values and reject malformed input without private parser diagnostics.
+- [x] Reproduce separate native Codex profile-v2 files bypassing base audit;
+      validate bounded enumeration, unsafe inputs and concurrent additions before
+      repair. Verify the actual pinned CLI discovers the separate-file MCP and
+      read-only admission refuses it; 193 surrounding tests pass.
 - [ ] Isolate task catalogs/extensions and enforce clean global baseline; migrate
       persisted full homes with an allowlist preserving auth/conversation evidence.
 - [ ] Add production Docker lifecycle tests (root/two tasks, refresh/atomic writes,

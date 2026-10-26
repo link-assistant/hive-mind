@@ -40,6 +40,11 @@ push only issue-3785-4c28551ac612, and keep unmet requirements explicitly open.
       and compare stock against repeated pristine real-CLI manifests.
 - [x] Verify one real Codex external-token callback after a synthetic 401;
       retain the internal/unstable schema warning and unverified lifecycle limits.
+- [x] Extend that experiment to two actual app servers and callback workers in
+      separate containers. Reproduce duplicate predecessor exchanges without a
+      lock; verify one exchange after locked generation reread, next-request G1,
+      shared lock identity and release after forced owner-container removal.
+      This remains an experimental adapter, not production/all-writer support.
 - [x] Reproduce PR checks installing published latest; pack the branch and require
       installed stock-runtime verification in root/DinD/Coolify build definitions.
 - [x] Reproduce Playwright-name command/environment spoofing and native Claude

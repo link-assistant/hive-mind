@@ -370,8 +370,20 @@ No native `auth.json` is created. The synthetic tokens retain the same account
 and user identity across rotation. The model deliberately returns 503; the
 assertions concern the callback and request credential, not successful inference.
 See `probe-appserver-auth.mjs`, `inspect-codex-auth-hooks.sh`, and their retained
-structural outputs. Neither hook is integrated into production execution;
-concurrency, login/logout and full history remain unverified through this path.
+structural outputs. The later `probe-appserver-concurrent-auth.mjs` runs two
+actual app servers and two callback workers in separate containers. Both workers
+select the same host-backed lock inode and reread the generation after acquiring
+the lock. With locking disabled, the synthetic provider observes two exchanges
+of G0 and rejects its reuse. With locking enabled, it observes exactly one
+exchange; both native clients next send committed G1 without private auth files.
+Removing a third lock-owning container also releases the lock for its peer.
+See [the structural results](evidence/concurrent-external-auth.txt).
+The finite probe uses disposable synthetic state, a Unix-socket provider,
+network-disabled containers, bounded heaps/data limits and awaited cleanup.
+Neither hook is integrated into production execution or direct host CLIs;
+login/logout and full history remain unverified through this path. The native
+external bridge also caches its access token until a refresh callback; this
+probe does not establish a canonical reread before every native request.
 These interfaces make a broker a research avenue; they do not establish that
 the full contract is impossible or already supported by this launcher.
 

@@ -54,11 +54,16 @@ establish the file path and process-local guard described in the case study.
 Two actual CLI processes sharing a directory reproduce a concurrent exchange
 of the same synthetic predecessor. The command-helper and app-server hooks
 described in [the case study](README.md#codex-and-concurrent-refresh) are possible
-adapter inputs. A real single-client app-server callback now observes an
-externally committed replacement on the next model request without creating
-native `auth.json`. The schema labels this interface internal and unstable;
-it is not integrated with the current execution flow or verified for concurrent
-refresh, login/logout or full conversation storage.
+adapter inputs. Actual app-server callbacks observe an externally committed
+replacement on the next model request without creating native `auth.json`.
+The retained two-container experiment makes two callbacks overlap: an adapter
+worker in each container takes the same host-backed `flock`, rereads the stored
+generation, and exchanges the synthetic predecessor once. Removing the lock
+reproduces two exchanges and predecessor rejection. A separate owner-death check
+verifies that removing the owning container releases the same lock inode.
+The schema labels this interface internal and unstable; this experimental
+adapter is not integrated with production execution or opaque host writers.
+Login/logout and full conversation storage remain unverified through this path.
 
 ### Gemini and Qwen
 

@@ -228,3 +228,16 @@ cloud-policy and Coolify-startup changes; the later XDG storage and release
 condition commits require fresh CI. They do not verify the unfinished full
 native lifecycle or migration contract. Security, Links and the dispatched
 Workflows checks also passed on that exact head.
+
+Head `7ce5ed3fa3798980edd48f158286a81915dd76da` passed
+[Checks and release 40324630037](https://github.com/link-assistant/hive-mind/actions/runs/40324630037),
+created at 12:42:44 UTC and completed at 13:25:22 UTC on 2026-10-26. The
+downloaded local `checks-40324630037.log` preserves the full run. Targeted reads
+at lines 70213–70218 show successful installed-package legacy mount and new
+Agent/OpenCode directory-projection gates against both the host and nested
+daemons. The actual branch-package images also pass their installed stock gates.
+These tests exercise two synthetic filesystem writers, atomic replacement,
+deletion/recreation, history markers and private config/cache identities. They
+do not exercise native token refresh or the full history/migration matrix.
+Security, Links and Workflows passed on the same SHA. Later head `93d512f`
+requires its own CI; its Checks and release run is 40330696780.

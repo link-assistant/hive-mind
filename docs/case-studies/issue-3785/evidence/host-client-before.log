@@ -1,0 +1,91 @@
+✖ Dockerfile supplies and verifies the host-socket Docker client (15.385739ms)
+✖ coolify/Dockerfile supplies and verifies the host-socket Docker client (4.030203ms)
+✖ running image verification requires a working Docker client (22.937216ms)
+✖ missing packaged client fails before daemon retries without exposing exec output (5.326382ms)
+✖ a packaged client is checked before waiting for a starting daemon (3.370091ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 0
+ℹ fail 5
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 263.045364
+
+✖ failing tests:
+
+test at tests/issue-3785-host-docker-client.test.mjs:9:3
+✖ Dockerfile supplies and verifies the host-socket Docker client (15.385739ms)
+  AssertionError [ERR_ASSERTION]: the host-socket client must be installed explicitly
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-host-docker-client.test.mjs:11:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-host-docker-client.test.mjs:9:3
+✖ coolify/Dockerfile supplies and verifies the host-socket Docker client (4.030203ms)
+  AssertionError [ERR_ASSERTION]: the host-socket client must be installed explicitly
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-host-docker-client.test.mjs:11:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-host-docker-client.test.mjs:16:1
+✖ running image verification requires a working Docker client (22.937216ms)
+  AssertionError [ERR_ASSERTION]: runtime verification must execute its client
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-host-docker-client.test.mjs:18:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-host-docker-client.test.mjs:21:1
+✖ missing packaged client fails before daemon retries without exposing exec output (5.326382ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/tmp/gh-issue-solver-1792986793513/scripts/docker-pr-daemon-ready.lib.mjs' imported from /tmp/gh-issue-solver-1792986793513/tests/issue-3785-host-docker-client.test.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:241:11)
+      at moduleResolve (node:internal/modules/esm/resolve:846:10)
+      at defaultResolve (node:internal/modules/esm/resolve:973:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:582:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///tmp/gh-issue-solver-1792986793513/scripts/docker-pr-daemon-ready.lib.mjs'
+  }
+
+test at tests/issue-3785-host-docker-client.test.mjs:38:1
+✖ a packaged client is checked before waiting for a starting daemon (3.370091ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/tmp/gh-issue-solver-1792986793513/scripts/docker-pr-daemon-ready.lib.mjs' imported from /tmp/gh-issue-solver-1792986793513/tests/issue-3785-host-docker-client.test.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:241:11)
+      at moduleResolve (node:internal/modules/esm/resolve:846:10)
+      at defaultResolve (node:internal/modules/esm/resolve:973:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:582:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///tmp/gh-issue-solver-1792986793513/scripts/docker-pr-daemon-ready.lib.mjs'
+  }

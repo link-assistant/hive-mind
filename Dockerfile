@@ -48,6 +48,10 @@ RUN cargo install formal-ai --version "${FORMAL_AI_VERSION}" --locked
 # for validating downloaded attachments. Box 2.10.5 enables Docker live
 # restore in the nested DinD daemon (box#131).
 FROM ghcr.io/link-foundation/box:2.10.5
+# Host-socket task isolation needs an explicitly installed client even when
+# its daemon runs outside this image.
+COPY --from=docker:29.9.2-cli /usr/local/bin/docker /usr/local/bin/docker
+RUN docker --version
 ARG HIVE_MIND_VERSION=latest
 ARG HIVE_MIND_INSTALL_SOURCE=false
 # Task-container prerequisite installs stay within the workspace (formal-ai#1159).

@@ -35,3 +35,5 @@ Include local system and managed configuration in launcher admission and read-on
 Keep in-flight usage requests within their cache instance so resetting the cache cannot join obsolete work or overwrite a fresh result. Isolate queue unit tests from automatic background consumers.
 
 Validate the approved Playwright MCP command, package arguments, transport and environment rather than trusting its registration name. Inspect both conventional Claude user-state paths, including the native CLAUDE_CONFIG_DIR relocation. Reject unapproved registrations before any repair while preserving protected state.
+
+Supply a pinned official Docker client in the standard and Coolify images for host-socket task isolation. Execute it in build/runtime verification and distinguish client failures from daemon readiness in the required packaged mount gate. Keep daemon retry and cleanup behavior intact.

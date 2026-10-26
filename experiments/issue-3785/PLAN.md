@@ -69,6 +69,13 @@ push only issue-3785-4c28551ac612, and keep unmet requirements explicitly open.
       actual pinned Codex system-MCP discovery with a bounded offline probe.
       Refuse unattested dynamic policy helpers/config servers without running
       helpers, fetching remote policy or rewriting administrator files.
+- [x] Trace the first required packaged host-mount timeout; supply and execute
+      the missing explicit Docker client in host-socket image definitions, add
+      fail-fast client diagnostics and verify the copied binary unprivileged.
+      Await the actual new-head packaged host/nested CI gate.
+- [x] Resolve local suite isolation and stale detector assertions; restore the
+      operator plugin caches affected by an inherited test selector and verify
+      the worker containment probe without a conflicting global heap override.
 - [ ] Implement canonical auth/history authority, explicit alternative contracts,
       coordinated refresh and fail-closed effective-path validation for all tools.
 - [ ] Isolate task catalogs/extensions and enforce clean global baseline; migrate

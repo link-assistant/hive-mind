@@ -588,4 +588,18 @@ and Anthropic's [policy-helper reference](https://code.claude.com/docs/en/settin
 The actual managed/native probe ran on Linux; the other platform path defaults
 are not an integration-verified policy-store implementation.
 
+The first required packaged mount run on `16abaede3` built both images and
+passed their stock gates, then timed out before the host mount probe. The old
+loop hid client exec failures. The ordinary pinned Box image and the two
+host-socket image definitions did not explicitly supply a Docker client. The
+standard and Coolify definitions now copy and execute the official 29.9.2
+client; running-image checks execute it too, and mount readiness distinguishes
+a missing/broken client from a daemon that is still starting. Five negative
+regressions fail before these changes; seven client/mount cases pass after.
+A bounded local probe verifies that exact client reaches the host socket as
+an unprivileged user with the socket group. This is supporting evidence;
+the complete packaged-image host/nested check still requires a passing CI run.
+Docker documents its [Linux static client distribution](https://docs.docker.com/engine/install/binaries/),
+and the client comes from the [official image](https://hub.docker.com/_/docker).
+
 ![Synthetic before and after limits layout](evidence/display-comparison.png)

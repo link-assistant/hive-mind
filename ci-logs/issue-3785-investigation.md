@@ -154,3 +154,45 @@ test now requires detector changes to select Docker while an unrelated script
 still does not. All 11 DinD cleanup cases and the real-detector selection
 regression pass locally. The image job's eventual result is separate from this
 test-suite failure; it must be reviewed before recording image validation.
+
+On head `16abaede39ca1952a392f0a23014fee5c93a8f38`, required image run
+40306469137 failed at 2026-10-26 10:43:26 UTC. The downloaded job log
+`docker-40306469137.log` (3269 lines) records successful stock checks at lines
+2268, 2645, 2880 and 3097. Lines 3219–3225 identify the newly required
+installed-package mount check: `host daemon did not become ready`, at
+`scripts/docker-pr-verify-mount-backing.mjs:56`. The nested mount check was not
+reached. Existing DinD startup/restart/commit checks had passed.
+
+The old readiness loop suppressed every exec error. Pinned Box 2.10.5's ordinary
+image/essentials install sources do not install a Docker client, and neither
+standard Hive nor Coolify added one. This is the supported cause inferred from
+the image definitions; the old error cannot independently prove which exec
+failed. Both host-socket image definitions now explicitly copy Docker's official
+29.9.2 client and execute it during build. Running-image verification executes
+the client too. Mount verification checks the client before daemon retries and
+reports a distinct constant error, without publishing exec/daemon output.
+Five regressions failed before this change and seven client/mount checks pass
+after it. A finite, unprivileged, network-disabled probe confirmed a client-free
+runtime rejects Docker execution, while the exact copied binary reaches the
+host daemon through its socket group. This small probe is not the packaged
+Box-image gate; the new head's actual image job must still pass.
+
+The local 709-file run completed with three failures. At lines 5455–5472, the
+watchdog inherited the operator CODEX_HOME despite giving its child a private
+HOME; startup audit removed six cached plugin directories outside the fixture.
+Native installed-plugin reconciliation restored all six directories, including
+the original pages, plugin-management, sites and work-pets versions and 30 skill
+files. The watchdog now strips inherited tool selectors/provider variables and
+has a synthetic regression for that boundary. No model turn was started for
+recovery. The initial watchdog reproducer and isolated rerun are local logs.
+
+At lines 7617–7619 the older DinD variant test expected literal `Dockerfile.dind`
+in the detector source; the equivalent new regular expression spells the dot
+with an escape. The contract assertion now matches that spelling; actual
+selection behavior remains covered by the throwaway-repository detector tests.
+At lines 14483–14485 the real worker containment assertions did not trigger:
+NODE_OPTIONS=--max-old-space-size=192 overrides worker resourceLimits, defeating
+the test's intended 48 MiB limit. The same finite test passes all 40 assertions
+without that process-wide override. Subsequent full-suite runs must not set a
+heap option inherited by the worker. These local results do not count the
+failed full run as passing.

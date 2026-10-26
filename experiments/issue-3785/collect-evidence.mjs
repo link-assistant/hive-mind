@@ -128,6 +128,9 @@ for (const name of [
   'managed-audit-focused',
   'managed-audit-native',
   'managed-dynamic-before',
+  'host-client-before',
+  'host-client-after',
+  'host-client-native',
 ]) {
   const output = await readFile(`/tmp/issue-3785-${name}.log`, 'utf8');
   await writeFile(`${dest}/${name}.log`, output.replace(/data:text\/javascript;base64,[A-Za-z0-9+/=]+/gu, '<synthetic-test-module>').replace(/[ \t]+$/gm, ''));

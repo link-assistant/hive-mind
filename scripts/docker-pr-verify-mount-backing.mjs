@@ -9,9 +9,9 @@ import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { setTimeout as delay } from 'node:timers/promises';
 import { startDetachedDockerPull } from '../src/docker-pull-detached.lib.mjs';
 import { TASK_IMAGE_PULL_TIMEOUT_MS } from '../src/task-image-refresh.lib.mjs';
+import { waitForPackagedDockerDaemon } from './docker-pr-daemon-ready.lib.mjs';
 
 const execute = promisify(execFile);
 const docker = (args, budget = 60_000) => execute('docker', args, { maxBuffer: 1024 * 1024, signal: AbortSignal.timeout(budget) });
@@ -42,18 +42,7 @@ try {
       else args.push('--privileged');
       args.push(image, 'sleep', 'infinity');
       await docker(args);
-      const deadline = Date.now() + 60_000;
-      let ready = false;
-      while (Date.now() < deadline) {
-        try {
-          await docker(['exec', name, 'docker', 'info', '--format', '{{.ServerVersion}}'], 5000);
-          ready = true;
-          break;
-        } catch {
-          await delay(500);
-        }
-      }
-      assert.equal(ready, true, `${variant} daemon did not become ready`);
+      await waitForPackagedDockerDaemon({ docker, name, variant });
       if (variant === 'nested') await docker(['exec', name, 'docker', 'image', 'load', '-i', '/mount-fixture/probe-image.tar']);
       const expectedHome = variant === 'host' ? path.join(fixture, 'home') : '/mount-fixture/home';
       const result = await docker(['exec', '--env', `HIVE_MOUNT_TEST_IMAGE=${probeImage}`, '--env', `HIVE_MOUNT_TEST_EXPECTED_HOME=${expectedHome}`, name, 'bash', '-lc', 'node --max-old-space-size=128 /verify-mounted-task-backing.mjs "$(command -v hive)"'], 120_000);

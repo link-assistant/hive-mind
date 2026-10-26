@@ -153,6 +153,8 @@ check_tool "Clang"     clang     --version
 check_tool "Clang++"   clang++   --version
 check_tool "CMake"     cmake     --version
 check_tool "Deno"      deno      --version
+# Unlike check_tool's informational version pipeline, a broken client must fail.
+docker --version
 check_tool "Elan"      elan      --version
 check_tool "File"      file      --version
 check_tool "G++"       g++       --version

@@ -134,8 +134,11 @@ reproduces that intermediate defect using the downloaded CI executable.
 Malformed and unsafe-permission controls reproduce the same fallback and
 verify both live clients observe repaired G1 afterward.
 `apply_request_auth.py` refuses missing canonical auth before an auth-required
-provider can fall through to unauthenticated execution. Its exact-source
-applicability passes; the rebuilt full-CLI positive control is pending.
+provider can fall through to unauthenticated execution. Run 40376400046 compiles
+the full native CLI and passes the actual-request positive control in both
+auth modes with both live clients, including malformed/unsafe/logout refusal
+and replacement/repair/recreation. The subsequent override extension below
+still needs its own rebuilt positive control.
 The downloaded intermediate CLI also reproduces eight independent provider
 authority routes: environment key, inline bearer, unauthenticated provider,
 explicit Authorization, extra key header, environment-derived key header,
@@ -162,9 +165,10 @@ removal through one owned private directory and one stable OS lock. It rejects
 private competing copies, links, unsafe permissions and changed lock identity;
 rewrites use a unique synced temporary file and atomic rename. Five standalone
 tests pass, including paused rewrite versus peer append and owner death without
-lock deletion. `apply_session_index.py` pins the exact upstream index source;
-CI must still compile the patched rollout crate and verify real native
-name/read/resume across two disposed configurations. This is one history
+lock deletion. `apply_session_index.py` pins the exact upstream index source.
+Run 40376400046 compiles the full CLI, passes all 20 selected upstream/index
+tests and verifies actual native name/read/resume and peer updates after both
+private configurations are disposed. This is one history
 component, not complete native history or production integration.
 
 The exact upstream `rollout/src/maintenance.rs` has another private-state
@@ -182,3 +186,38 @@ legacy behavior without the selector. CI applies it before full CLI compilation
 and selects it during named-history disposal tests. These controls verify lock
 admission, not real concurrent compression/migration output or complete runtime
 backing attestation; those lifecycle requirements remain open.
+
+Native TUI prompt recall has a separate `history.jsonl` store. The pinned
+`apply_message_history.py` experiment selects `CODEX_MESSAGE_HISTORY_HOME`
+independently of private configuration. One stable OS lock protects native
+metadata, single-row and batch reads and streamed, synced atomic appends.
+The logical TUI identifier uses the stable lock inode, so atomic data-file
+replacement does not invalidate every native cursor. Batch continuation keeps
+row offsets but discards byte anchors across publications. Selected mode
+refuses disabled/capped persistence, private competing histories, unsafe files,
+links, missing/aliased/overlapping authorities and changed lock identities.
+No selector preserves the upstream private-history behavior.
+
+The small native public-API driver uses synthetic prompts and finite process
+limits. Full native local compilation hit the 1 GiB compiler data limit while
+compiling transitive Starlark; it was not retried unchanged. The focused unit
+harness below compiles the exact native history modules with only the two
+passive configuration value types stubbed. It reproduces split/lost private
+history before repair and passes 14 positive controls afterward, including
+eight concurrent appends, a waiting append after forced lock-owner death,
+141-row native batch pagination, replacement/recreation and unsafe storage.
+All 12 upstream history tests pass in that focused harness. This is distinct
+from full native integration: CI builds the real crate before/after the patch,
+runs the same controls and upstream tests, and includes the patch in the full
+CLI. Those new CI results remain pending.
+
+```sh
+python3 experiments/issue-3785/native-codex/build_message_history_focused.py /absolute/native/source /tmp/new-empty-history-harness --test
+node experiments/issue-3785/probe-codex-native-message-history.mjs /tmp/new-empty-history-harness/target/debug/hive-message-history-probe
+```
+
+The TUI currently converts some metadata/read failures to empty results and
+logs append failures while continuing. Application-level refusal before
+authenticated execution, all-writer crash/publication semantics, backing
+attestation and production integration remain open; these storage controls
+do not establish those acceptance criteria.

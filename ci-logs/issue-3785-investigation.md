@@ -492,3 +492,37 @@ test line 94). The gate now fails cancelled dependencies on every ref, including
 PRs, and the entire integrity test passes afterward. Request a rerun of the
 interrupted checkout job rather than raising its timeout or treating dependent
 skips as evidence of success. Native experiment CI continues independently.
+
+### Successful rerun and actual native request/index verification
+
+Attempt 2 of run 40376400576 succeeds after rerunning the interrupted checkout
+job. Default and GitHub integration suites, both packaged Docker image checks,
+and the terminal pipeline gate pass at the same c1858ca8f SHA. The complete
+attempt-2 log is retained as `checks-40376400576-attempt-2.log`. The locally
+reproduced cancellation-gate repair is a subsequent commit; this successful
+rerun does not exercise its new failure behavior.
+
+Native run 40376400046 also succeeds at c1858ca8f. Its 976-line workflow log is
+retained as `native-40376400046.log`; downloaded native diagnostics are under
+`/tmp/issue-3785-native-evidence-40376400046/`. The full native CLI compiles.
+`native-session-index-tests.log:173-195` records all 20 passing selected tests,
+including the five canonical controls and upstream cancellation/rename/scanning
+behavior. `native-index-history.log:2` verifies actual name/read/resume and peer
+updates after both private configurations are disposed. The before/after real
+request logs each pass both API-key and managed ChatGPT modes with two live
+clients: repaired admission sends no model requests after malformed credentials,
+unsafe permissions or logout, while replacement/repair/recreation still work.
+
+The subsequent provider-override extension and maintenance patch have local
+controls but are not part of this CI SHA. Full native history, production
+integration and the six-tool lifecycle/deployment matrix remain unfinished.
+
+The subsequent local full native prompt-history build stops at
+`/tmp/issue-3785-native-prompt-build.log:444`: a 21,233,680-byte allocation in
+Starlark exceeds the deliberately bounded 1 GiB compiler data limit. The log
+ends at line 497 with SIGABRT; cgroup OOM and OOM-kill counters remain zero.
+Do not repeat the same build. The focused harness compiles the exact native
+history modules with only `History`/`HistoryPersistence` value types stubbed;
+it reproduces split/lost private history, then passes all 14 positive controls
+and all 12 upstream history tests after repair. Retained structural evidence
+distinguishes those local results from the full native integration now in CI.

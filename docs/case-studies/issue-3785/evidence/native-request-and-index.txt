@@ -14,8 +14,10 @@ Before request-admission repair:
   Positive control fails because invalid authority must produce zero requests.
   No credential/header/body bytes are emitted; observations are classified.
   Root cause: model-provider/src/auth.rs resolves missing required auth into
-  unauthenticated execution. Pinned repair applicability passes; native build
-  and positive actual-request verification remain pending.
+  unauthenticated execution. The initial request guard compiles in native CI
+  run 40376400046 at c1858ca8fd7018bc935df879f0874f5d72e9b1e6. Its real-request
+  positive control PASS: zero requests after malformed/unsafe/logout authority,
+  replacement/repair G1 and recreation G2 still work in both modes and peers.
 
 Independent provider authority controls against the same actual executable:
   env_key: G2; experimental_bearer_token: G2; requires_openai_auth=false: absent;
@@ -38,8 +40,9 @@ Stock Codex named metadata, real Docker app-server protocol:
   Covers canonical replacement/append/read without private copies, paused rewrite
   versus peer append, forced owner death preserving lock identity, conflicting
   private copies/links, unsafe modes/root aliases and replaced lock refusal.
-  Exact-source index application passes. Full native upstream/index tests and
-  name/read/resume across two disposed configurations remain pending.
+  Native CI run 40376400046 compiles the full CLI, passes all 20 selected
+  upstream/index tests (one ignored worker), and passes actual named-thread
+  read/resume and peer updates across two disposed private configurations.
 
 Production history inspection:
   Three new EACCES/EIO regressions FAIL before repair; surrounding selection

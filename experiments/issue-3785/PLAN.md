@@ -247,7 +247,9 @@ Current continuation:
 - [x] Preserve the latest checkout timeout and reproduce its false successful
       terminal PR status. Fail cancelled dependencies on every ref; the changed
       integrity test fails before repair and passes afterward.
-- [ ] Verify the interrupted CI job's rerun and all newly unblocked checks.
+- [x] Verify the interrupted CI job's rerun and all newly unblocked checks.
+      Attempt 2 of run 40376400576 passes, including default/GitHub integration
+      suites and packaged Docker verification at c1858ca8f.
 - [x] Preserve completed latest-head failures with timestamps and SHA. At
       24c34a39a, packaged Docker passes; default CI stops at a stale mount
       fixture. Repair both incomplete fixtures and extract mount preparation
@@ -261,7 +263,10 @@ Current continuation:
       reproduce auth-required model requests without Authorization after
       canonical logout in both modes and both live clients. Preserve this as
       a separate negative control; do not mistake cache invalidation for refusal.
-- [ ] Compile and verify the exact-source request-admission repair in CI.
+- [x] Compile and verify the initial exact-source request-admission repair in
+      native CI run 40376400046: both modes/peers refuse actual requests after
+      malformed/unsafe/logout authority and observe G1 repair/G2 recreation.
+      The later provider-override extension still requires rebuilt CI evidence.
 - [x] Reproduce eight independent native provider authority overrides using the
       downloaded source-built executable and actual local model requests. Also
       verify stock version/unset identity metadata retains canonical G0.
@@ -271,8 +276,10 @@ Current continuation:
 - [x] Reproduce named-thread metadata loss after private configuration disposal,
       including with shared native SQLite. Prepare a pinned canonical index
       module; five standalone locking/storage tests pass.
-- [ ] Compile the native index patch, run native upstream/index tests and verify
+- [x] Compile the native index patch, run native upstream/index tests and verify
       actual name/read/resume after both private configurations are disposed.
+      Native CI run 40376400046 passes all 20 selected tests and the real Docker
+      metadata/read/resume/peer-update disposal control.
 - [x] Compile the exact native rollout maintenance module and reproduce two
       owners for shared rollouts across private configurations. Add a pinned
       canonical maintenance selector; all 12 controls pass against the actual
@@ -280,6 +287,15 @@ Current continuation:
       storage, private competing locks and legacy behavior.
 - [ ] Verify the maintenance patch in the full native CLI and exercise actual
       concurrent compression/migration output and remaining history writers.
+- [x] Reproduce native TUI split/lost prompt history using exact native modules
+      with only passive configuration types stubbed after the full transitive
+      build hits its 1 GiB compiler limit. Verify 14 canonical public-API controls
+      and all 12 upstream tests in that focused harness: disposal, contention,
+      owner death, pagination, atomic publication, stable identity, unsafe storage
+      and legacy compatibility. Keep full native integration evidence separate.
+- [ ] Verify real native prompt-history crate before/after controls, upstream
+      tests and full CLI compilation in CI. Fix application-level refusal for
+      selected history errors before execution; audit remaining native writers.
 - [ ] Complete production integration and all previously open six-tool criteria.
 
 Resource policy: use sequential builds/tests; no real credentials in experiments

@@ -904,16 +904,20 @@ Native CI run 40370836766 builds the coordinated CLI and passes every manager
 case, but its downloaded executable still sends an auth-required model request
 without Authorization after canonical logout. Two live clients reproduce this
 in both API-key and managed ChatGPT modes; atomic G1 replacement and G2 recreation
-work. The provider's missing-auth fallback is the traced cause. A new exact-source
-guard refuses that fallback; the rebuilt full-CLI positive control is pending.
+work. The provider's missing-auth fallback is the traced cause. The exact-source
+guard compiles in run 40376400046 and its actual-request positive control passes
+for both modes/peers, including malformed/unsafe/logout refusal and repaired
+authority. The subsequent eight-provider-override extension needs rebuilt CI
+evidence; alternative constructors and production integration remain open.
 
 Sharing native SQLite alone also fails the named-thread disposal control:
 `thread/read` can retain the name, but a fresh native `thread/resume` loses it
 without the session index. The experimental index selector routes native scans,
 appends and removal into one private authority with stable locking and synced
 atomic rewrites. Five standalone tests pass, including rewrite/append contention
-and forced owner death. Native compilation and name/read/resume after two
-configuration disposals remain pending. Production keeps its current native CLI;
+and forced owner death. Run 40376400046 compiles the full CLI, passes all 20
+selected upstream/index tests and verifies real name/read/resume and peer
+updates after both configurations are disposed. Production keeps its current native CLI;
 A1/A5/A9 and the full lifecycle matrix remain open.
 
 Three additional regressions reproduce history I/O errors being treated as an
@@ -922,3 +926,15 @@ now permits missing-history behavior; EACCES/EIO refuse resume/recovery on every
 attempt before copying or dropping the resume identity. All 28 surrounding
 tests pass. Structural evidence is in
 [evidence/native-request-and-index.txt](evidence/native-request-and-index.txt).
+
+Prompt recall is another independent native history store. The pinned
+`CODEX_MESSAGE_HISTORY_HOME` experiment adds stable directory locking and
+streamed atomic publication without a private `history.jsonl`. Native TUI
+logical IDs survive data replacement; bounded batch continuation retains row
+offsets across publications. The focused harness reproduces split/lost history
+and passes 14 repaired controls, including eight concurrent appends, owner
+death and 141-row pagination; all 12 upstream tests pass. It uses exact native
+history modules with only two passive config value types stubbed after the full
+transitive compiler hits its 1 GiB limit. Full native crate/CLI CI is separate
+and pending. TUI error propagation, remaining writers and production integration
+remain open. See [prompt-history evidence](evidence/native-message-history.txt).

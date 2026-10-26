@@ -33,7 +33,7 @@ push only issue-3785-4c28551ac612, and keep unmet requirements explicitly open.
 - [x] Run focused tests then full local suite, lint/format and relevant checks
       sequentially; preserve large logs and inspect failures in <=1500-line chunks.
 - [x] Commit useful atomic steps after checks; integrate latest main; review diff.
-- [ ] Update PR title/body with evidence, reproduction and Fixes #3785; push branch.
+- [x] Update PR title/body with evidence, reproduction and Fixes #3785; push branch.
 - [ ] Verify newest-SHA CI, download/analyze nonpassing logs, fix actual failures.
 - [ ] Confirm clean working tree and requirements/evidence consistency; mark ready
       only when implementation and verification are complete. Do not merge.

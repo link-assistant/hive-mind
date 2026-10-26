@@ -210,7 +210,7 @@ duplicate. Its exact submitted text is retained under `experiments/issue-3785/`.
 
 For the observed version, [file storage source](https://github.com/openai/codex/blob/rust-v0.164.0/codex-rs/login/src/auth/storage.rs)
 uses `$CODEX_HOME/auth.json`; deletion removes that path, and file saving opens
-with create/truncate. The [authentication manager](https://github.com/openai/codex/blob/rust-v0.164.0/codex-rs/login/src/auth.rs)
+with create/truncate. The [authentication manager](https://github.com/openai/codex/blob/rust-v0.164.0/codex-rs/login/src/auth/manager.rs)
 has a process-local refresh guard and reread. A JS lock in Hive Mind cannot
 serialize a vendor process that never acquires it. A refresh lock must cover
 canonical reread, provider exchange and atomic commit for **all** refreshers.

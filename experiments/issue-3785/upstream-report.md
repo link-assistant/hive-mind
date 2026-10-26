@@ -26,7 +26,7 @@ resources, networking disabled for the actual CLI, and cleanup traps.
 
 The pinned [file storage implementation](https://github.com/openai/codex/blob/rust-v0.164.0/codex-rs/login/src/auth/storage.rs)
 places auth under `CODEX_HOME`. The
-[refresh manager](https://github.com/openai/codex/blob/rust-v0.164.0/codex-rs/login/src/auth.rs)
+[refresh manager](https://github.com/openai/codex/blob/rust-v0.164.0/codex-rs/login/src/auth/manager.rs)
 has a process-local guard and reread. A lock in an embedding launcher cannot
 coordinate an unmodified second CLI process.
 

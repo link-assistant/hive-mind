@@ -18,7 +18,7 @@
 
 import { spawn as spawnChild } from 'node:child_process';
 import { FORMAL_AI_SIDECAR_NETWORK_NAME, resolveFormalAiSidecarBaseUrl } from './formal-ai-sidecar.lib.mjs';
-import { buildRouterFormalAiProviderArgs, describeRouterCoverageGaps, isRouterEnabled, resolveRouterBaseUrl, resolveRouterGitHubRouting, ROUTER_FORMAL_AI_PROVIDER_NAME } from './router-isolation.lib.mjs';
+import { buildRouterFormalAiProviderArgs, describeRouterCoverageGaps, isRouterEnabled, resolveRouterBaseUrl, resolveRouterGitHubRouting, resolveRouterTaskRoute, ROUTER_FORMAL_AI_PROVIDER_NAME } from './router-isolation.lib.mjs';
 import { acquireRouterSidecar, attachRouterToNetwork, attachTaskToRouterNetwork, registerRouterProvider, releaseRouterSidecar, wireRouterTaskContainer } from './router-sidecar.lib.mjs';
 
 const logToConsole = message => console.log(message);
@@ -32,6 +32,9 @@ const logToConsole = message => console.log(message);
  */
 export const acquireRouterForTask = async ({ backend, useRouter = false, model = null, tool = 'claude', githubRepo = null, sessionId, env = process.env, verbose = false, log = logToConsole, acquire = acquireRouterSidecar } = {}) => {
   if (backend !== 'docker' || !isRouterEnabled({ useRouter, env })) return { router: null, error: null };
+
+  const route = resolveRouterTaskRoute({ tool, env });
+  if (route.error) return { router: null, error: route.error };
 
   let acquired;
   try {
@@ -54,7 +57,7 @@ export const acquireRouterForTask = async ({ backend, useRouter = false, model =
   }
   // The mode and tool travel with the lease so the attach step, which runs
   // later and elsewhere, does not have to re-derive them from the environment.
-  return { router: { ...acquired, githubMode, tool }, error: null };
+  return { router: { ...acquired, githubMode, tool, dialect: route.dialect }, error: null };
 };
 
 /**
@@ -104,7 +107,7 @@ export const attachRouterTaskContainer = async ({ router, sessionId, env = proce
   if (!router || router.external) return null;
   const result = await attach({ sessionId, verbose, log });
   if (!result?.attached) return result?.error || 'unknown error';
-  const wired = await wire({ sessionId, tool: router.tool ?? 'claude', baseUrl: router.baseUrl || resolveRouterBaseUrl({ env }).baseUrl, githubMode: router.githubMode ?? 'transparent', verbose, log });
+  const wired = await wire({ sessionId, tool: router.tool ?? 'claude', baseUrl: router.baseUrl || resolveRouterBaseUrl({ env }).baseUrl, githubMode: router.githubMode ?? 'transparent', dialect: router.dialect, verbose, log });
   return wired?.wired ? null : wired?.error || 'unknown error';
 };
 

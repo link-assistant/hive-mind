@@ -27,7 +27,7 @@ import { acquireFormalAiSidecarForTask, attachFormalAiTaskContainer, buildFormal
 import { getDockerIsolationImage } from './hive-mind-image.lib.mjs';
 // Issue #2247 (H1): refresh a mutable task image before launch and record which one ran.
 import { buildTaskImageProvenanceEnv, refreshTaskImage } from './task-image-refresh.lib.mjs';
-import { buildRouterGitConfigEntries, buildRouterTaskEnv, getRouterSuppressedCredentialPaths, hasUseRouterFlag, isRouterEnabled, resolveRouterBaseUrl, resolveRouterDialect, resolveRouterGitHubRouting } from './router-isolation.lib.mjs';
+import { buildRouterGitConfigEntries, buildRouterTaskEnv, getRouterSuppressedCredentialPaths, hasUseRouterFlag, isRouterEnabled, resolveRouterGitHubRouting, resolveRouterTaskRoute } from './router-isolation.lib.mjs';
 import { acquireRouterForTask, attachRouterTaskContainer, registerFormalAiWithRouter, releaseRouterForTask, watchRouterTaskContainer } from './router-task-isolation.lib.mjs';
 import { buildGitConfigEnv, GIT_PUSH_GUARD_CONTAINER_DIR, GIT_PUSH_GUARD_ESCAPE_ENV, hasForcePushOptIn, installGitPushGuard } from './git-push-guard.lib.mjs';
 import { applyDockerContainerResourceLimits, hasContainerResourceLimits, normalizeContainerResourceLimits } from './container-resource-limits.lib.mjs';
@@ -284,14 +284,11 @@ export async function buildDockerIsolationStartArgs(command, args = [], options 
   // when token provisioning fails, including callers of this builder directly.
   const routerActive = isRouterEnabled({ useRouter, env });
   if (routerActive && !routerToken) throw new Error('Router isolation requires an issued task token; native credential fallback is prohibited.');
-  const routerEndpoint = routerActive ? resolveRouterBaseUrl({ env }) : { baseUrl: null, external: false };
-  if (routerActive && (routerEndpoint.error || !routerEndpoint.baseUrl)) throw new Error('Router isolation requires a valid HTTP(S) origin; check HIVE_MIND_ROUTER_URL.');
-  const routerRoutes = routerActive ? resolveRouterDialect({ env }) : {};
-  if (routerRoutes.error) throw new Error('Router isolation requires a valid route dialect; check HIVE_MIND_ROUTER_ROUTES.');
+  const routerEndpoint = routerActive ? resolveRouterTaskRoute({ tool, env }) : { baseUrl: null, external: false };
+  if (routerEndpoint.error) throw new Error(routerEndpoint.error);
   const routerBaseUrl = routerEndpoint.baseUrl;
   const routerGitHub = routerActive ? resolveRouterGitHubRouting({ env, external: Boolean(routerEndpoint.external) }) : { mode: 'off', ghHost: null };
-  const routerEnv = routerActive && routerBaseUrl ? buildRouterTaskEnv({ tool, baseUrl: routerBaseUrl, token: routerToken, githubMode: routerGitHub.mode, ghHost: routerGitHub.ghHost, homeDir: DOCKER_CONTAINER_HOME, dialect: routerRoutes.dialect }) : {};
-  if (routerActive && !routerEnv.ANTHROPIC_BASE_URL && !routerEnv.OPENAI_BASE_URL && !routerEnv.GOOGLE_GEMINI_BASE_URL) throw new Error(`Router isolation has no provider route for ${tool}; select a backend dialect supporting this tool.`);
+  const routerEnv = routerActive && routerBaseUrl ? buildRouterTaskEnv({ tool, baseUrl: routerBaseUrl, token: routerToken, githubMode: routerGitHub.mode, ghHost: routerGitHub.ghHost, homeDir: DOCKER_CONTAINER_HOME, dialect: routerEndpoint.dialect }) : {};
   const routerWired = Object.keys(routerEnv).length > 0;
   const image = getDockerIsolationImage({ env });
   const startArgs = ['--isolated', 'docker', '--image', image];
@@ -330,7 +327,7 @@ export async function buildDockerIsolationStartArgs(command, args = [], options 
     // One `GIT_CONFIG_COUNT` covers both the hook and the router's git
     // transport: git shares the counter across all of them, so they have to be
     // built together or the second would silently replace the first.
-    const gitConfigEntries = buildRouterGitConfigEntries({ baseUrl: routerBaseUrl, token: routerToken, githubMode: routerGitHub.mode, dialect: routerRoutes.dialect });
+    const gitConfigEntries = buildRouterGitConfigEntries({ baseUrl: routerBaseUrl, token: routerToken, githubMode: routerGitHub.mode, dialect: routerEndpoint.dialect });
     const guard = await installGuard({ env, homeDir });
     if (guard.installed) {
       mounts.push({ source: guard.dir, target: GIT_PUSH_GUARD_CONTAINER_DIR, readOnly: true });

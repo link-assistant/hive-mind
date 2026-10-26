@@ -586,13 +586,13 @@ export const attachTaskToRouterNetwork = async ({ sessionId, run = execFileAsync
  *
  * @returns {Promise<{wired: boolean, error: string|null}>}
  */
-export const wireRouterTaskContainer = async ({ sessionId, tool = 'claude', baseUrl = getInternalRouterBaseUrl(), githubMode = 'transparent', homeDir = TASK_CONTAINER_HOME, containerName = ROUTER_SIDECAR_CONTAINER_NAME, run = execFileAsync, timeoutMs, log = null, verbose = false } = {}) => {
+export const wireRouterTaskContainer = async ({ sessionId, tool = 'claude', baseUrl = getInternalRouterBaseUrl(), githubMode = 'transparent', dialect = null, homeDir = TASK_CONTAINER_HOME, containerName = ROUTER_SIDECAR_CONTAINER_NAME, run = execFileAsync, timeoutMs, log = null, verbose = false } = {}) => {
   if (!sessionId) return { wired: false, error: 'no sessionId' };
   const caCertificate = await readRouterCaCertificate({ containerName, run, timeoutMs });
   if (!caCertificate) return { wired: false, error: 'the router printed no TLS CA (`router tls ca`), so the task could not be given anything to trust' };
   const routerIp = githubMode === 'transparent' ? await readRouterNetworkIp({ containerName, run, timeoutMs }) : null;
   if (githubMode === 'transparent' && !routerIp) return { wired: false, error: `the router has no address on '${ROUTER_SIDECAR_NETWORK_NAME}', so api.github.com could not be pointed at it` };
-  const script = buildRouterTaskWiringScript({ routerIp, caCertificate, homeDir, tool, baseUrl, githubMode });
+  const script = buildRouterTaskWiringScript({ routerIp, caCertificate, homeDir, tool, baseUrl, githubMode, dialect });
   try {
     await dockerText(run, ['exec', '--user', '0', sessionId, 'sh', '-c', script], { timeoutMs });
   } catch (error) {

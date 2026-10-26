@@ -622,3 +622,22 @@ finishes successfully on the same head, including both default/integration test
 execution and packaged Docker checks. Security, Workflows, Broken Link Checker
 and the independent fresh CodeQL check pass. The native compilation failure
 above is the remaining non-passing check on that head.
+
+Security run [40396373241](https://github.com/link-assistant/hive-mind/actions/runs/40396373241)
+on exact head `c1bfa9c6ceea0dc2e1b8f5ac9b5c0b856f47fb12` fails Dependency
+Review at 20:44:47 UTC. The separate job log
+`dependency-review-40396373241.log:213–215` identifies `sharp@0.35.4` in the
+new locked Qwen experiment package and high-severity
+[GHSA-wq5f-xc86-pv6w](https://github.com/advisories/GHSA-wq5f-xc86-pv6w).
+The advisory's first patched version is 0.35.5. Pin an override to that exact
+version and regenerate its platform/libvips lock entries. Qwen stays at 0.26.1,
+with identical inspected bundle hashes; production dependencies are unchanged.
+A fresh `npm ci --ignore-scripts --omit=optional` and `npm audit` pass with zero
+advisories. All actual native read/client/writer and new CLI/factory controls
+pass again after reinstalling. Fresh Dependency Review remains required.
+
+Native Qwen run [40396374276](https://github.com/link-assistant/hive-mind/actions/runs/40396374276)
+passes at c1bfa9c6c. Its downloaded diagnostics confirm 14 manager reads,
+14 actual OAuth-client reads, private-root kernel-lock ownership and all 11
+native OAuth writer/failure cases. This run precedes the newer CLI provider
+admission controls; those require their own fresh run.

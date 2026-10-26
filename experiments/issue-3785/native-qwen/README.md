@@ -3,6 +3,8 @@
 This patches a disposable copy of the real Qwen 0.26.1 package, whose token
 manager bundle has SHA-256
 `76d55ad14363fa0ceb0ce4ef0f24c85096a93c1b93a25e311273838b746b95b8`.
+The locked experiment overrides `sharp` to 0.35.5 for GHSA-wq5f-xc86-pv6w;
+Qwen remains 0.26.1 and its inspected bundle bytes are unchanged.
 The version and exact bytes must match before any file is changed. Production
 images and launchers do not install or select this experiment.
 

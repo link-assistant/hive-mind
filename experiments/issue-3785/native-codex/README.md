@@ -2,8 +2,8 @@
 
 This source experiment preserves native Codex commands while separating their
 file credentials from configuration. It is **not installed by the images or
-production launcher**. Canonical production projection, history, request-path
-invalidation and all-writer lifecycle coverage remain open.
+production launcher**. Canonical production projection, history, remaining credential/provider routes
+and all-writer lifecycle coverage remain open.
 
 The supported source is `openai/codex` tag `rust-v0.164.0`, peeled commit
 `6aaac694803004a63c6f393d153c96d22521a6b9`. The annotated tag object is
@@ -57,8 +57,12 @@ requires stale synchronous reads on the coordinated intermediate build, then
 applies `cached_reads.patch` and reruns every manager control. New controls
 cover ChatGPT token replacement, logout, malformed canonical JSON and unsafe
 file permissions. `make_cached_reads_patch.py` and `apply_cached_reads.py` pin
-the exact intermediate manager hash. Syntax and applicability pass locally;
-**the new native controls are pending CI**.
+the exact intermediate manager hash. Native run
+[40360472411](https://github.com/link-assistant/hive-mind/actions/runs/40360472411)
+at `24ef9e65afed8a372df00f8f24190896dd00529b` passes all nine manager
+negative/positive controls, seven storage tests and the full native CLI
+build/status/replacement/logout/reauthentication/refusal probe. The job completes
+at 2026-10-26 16:57 UTC; separate logs retain every before/after result.
 
 This stage supports managed ChatGPT file auth and API keys only. Other stored
 modes explicitly refuse admission in canonical mode. Synchronous reads perform
@@ -112,7 +116,8 @@ both processes to pass each case, with exactly one predecessor exchange. The
 login/logout writer must wait until that exchange finishes, then its write must
 be the final canonical state. It builds the full coordinated CLI afterward and
 checks native reauthentication, peer reads and refusal of an environment-key
-override. All five controls and the full-CLI probe passed in run 40354283432.
+override. All five original controls and the full-CLI probe passed in run 40354283432;
+all nine controls and the same full-CLI probe pass in run 40360472411.
 Its uploaded diagnostics preserve each negative and positive result separately.
 It is an experimental build check; it does not certify or replace the required
 six-tool release/deployment lifecycle matrix. Local full CLI compilation must respect the

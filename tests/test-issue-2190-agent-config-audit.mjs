@@ -87,7 +87,7 @@ const makeDriftedHome = () => {
   write(path.join(home, '.claude', 'commands', 'review.md'), 'review');
   write(path.join(home, '.claude', 'settings.json'), JSON.stringify({ model: 'opus', enabledPlugins: { 'superpowers@claude-plugins-official': true } }));
   write(path.join(home, '.claude', 'projects', '-tmp-x', 'session.jsonl'), '{}');
-  write(path.join(home, '.claude.json'), JSON.stringify({ oauthAccount: { emailAddress: 'x@example.com' }, mcpServers: { playwright: { command: 'npx' }, github: { command: 'npx' } }, officialMarketplaceAutoInstalled: true }));
+  write(path.join(home, '.claude.json'), JSON.stringify({ oauthAccount: { emailAddress: 'x@example.com' }, mcpServers: { playwright: { command: 'npx', args: ['-y', '@playwright/mcp@latest'] }, github: { command: 'npx' } }, officialMarketplaceAutoInstalled: true }));
   return home;
 };
 
@@ -151,8 +151,8 @@ assertDeepEqual(after.findings.map(keyOf), ['claude:custom-command:review.md'], 
 
 console.log('\n5. A fresh Docker-image home is clean');
 const fresh = fs.mkdtempSync(path.join(os.tmpdir(), 'hive-mind-2190-fresh-'));
-write(path.join(fresh, '.codex', 'config.toml'), '[features]\nremote_plugin = false\n\n[mcp_servers.playwright]\ncommand = "npx"\n');
-write(path.join(fresh, '.claude.json'), JSON.stringify({ mcpServers: { playwright: {} } }));
+write(path.join(fresh, '.codex', 'config.toml'), '[features]\nremote_plugin = false\n\n[mcp_servers.playwright]\ncommand = "npx"\nargs = ["-y", "@playwright/mcp@latest"]\n');
+write(path.join(fresh, '.claude.json'), JSON.stringify({ mcpServers: { playwright: { command: 'npx', args: ['-y', '@playwright/mcp@latest'] } } }));
 assertEqual(auditAgentConfig({ homeDir: fresh }).findings.length, 0, 'the minimal configuration has no findings');
 const empty = fs.mkdtempSync(path.join(os.tmpdir(), 'hive-mind-2190-empty-'));
 const emptyFindings = auditAgentConfig({ homeDir: empty }).findings;

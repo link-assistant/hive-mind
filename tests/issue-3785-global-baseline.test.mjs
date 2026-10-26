@@ -121,7 +121,7 @@ test('malformed hook manifest prevents unrelated repairs and keeps diagnostics c
 test('clean profiles inherit disabled remote plugins without configuration rewrites', async t => {
   const home = await fixture(t);
   const target = path.join(home, '.codex/config.toml');
-  const input = '# retain operator comment\n[features]\nremote_plugin = false\n[profiles.alternate]\nmodel = "synthetic-model"\n[profiles.alternate.mcp_servers.playwright]\ncommand = "synthetic-playwright"\n';
+  const input = '# retain operator comment\n[features]\nremote_plugin = false\n[profiles.alternate]\nmodel = "synthetic-model"\n[profiles.alternate.mcp_servers.playwright]\ncommand = "npx"\nargs = ["-y", "@playwright/mcp@latest"]\n';
   await writeFile(target, input);
   await runAgentConfigAudit({ homeDir: home, requireClean: true });
   assert.equal(await readFile(target, 'utf8'), input);

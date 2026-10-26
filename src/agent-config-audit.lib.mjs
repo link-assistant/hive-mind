@@ -32,6 +32,7 @@ import os from 'os';
 import path from 'path';
 import { stringify as stringifyToml } from 'smol-toml';
 import { parseAgentConfigToml, validateAgentConfigAuditInputs } from './agent-config-audit-inputs.lib.mjs';
+import { assertApprovedPlaywrightRegistration } from './agent-mcp-baseline.lib.mjs';
 
 /** MCP servers that belong to the minimal hive-mind configuration. */
 export const MINIMAL_MCP_SERVERS = Object.freeze(['playwright']);
@@ -217,12 +218,19 @@ const auditClaude = ({ homeDir, fsImpl, allowedMcpServers }) => {
     }
   }
 
-  const claudeJsonPath = path.join(homeDir, '.claude.json');
-  const claudeJson = safeReadJson(fsImpl, claudeJsonPath);
-  if (claudeJson?.mcpServers && typeof claudeJson.mcpServers === 'object') {
-    for (const name of Object.keys(claudeJson.mcpServers)) {
-      if (allowedMcpServers.includes(name)) continue;
-      findings.push(makeFinding({ tool: 'claude', kind: 'mcp-server', name, location: claudeJsonPath, detail: 'user-scope MCP server outside the minimal set', repair: { type: 'delete-json-key', target: claudeJsonPath, keyPath: ['mcpServers', name] } }));
+  // CLAUDE_CONFIG_DIR=$HOME/.claude relocates the native user-state file into
+  // that directory. Check both conventional locations, including restored state.
+  for (const relative of ['.claude.json', '.claude/.claude.json']) {
+    const claudeJsonPath = path.join(homeDir, relative);
+    const claudeJson = safeReadJson(fsImpl, claudeJsonPath);
+    if (claudeJson?.mcpServers !== undefined) {
+      for (const name of Object.keys(configTable(claudeJson, 'mcpServers'))) {
+        if (allowedMcpServers.includes(name)) {
+          if (name === 'playwright') assertApprovedPlaywrightRegistration(claudeJson.mcpServers[name], 'claude');
+          continue;
+        }
+        findings.push(makeFinding({ tool: 'claude', kind: 'mcp-server', name, location: claudeJsonPath, detail: 'user-scope MCP server outside the minimal set', repair: { type: 'delete-json-key', target: claudeJsonPath, keyPath: ['mcpServers', name] } }));
+      }
     }
   }
   return findings;
@@ -277,7 +285,10 @@ const auditCodex = ({ homeDir, fsImpl, allowedMcpServers }) => {
         ['mcp_servers', 'mcp-server'],
       ]) {
         for (const name of Object.keys(configTable(scope, table))) {
-          if (table === 'mcp_servers' && allowedMcpServers.includes(name)) continue;
+          if (table === 'mcp_servers' && allowedMcpServers.includes(name)) {
+            if (name === 'playwright') assertApprovedPlaywrightRegistration(scope[table][name], 'codex');
+            continue;
+          }
           remove(kind, name, [table, name]);
         }
       }

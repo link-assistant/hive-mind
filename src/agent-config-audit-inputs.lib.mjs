@@ -9,7 +9,7 @@ import { CodexStockBaselineError, validateCodexStockSkills } from './codex-stock
 const TOOL_INPUTS = {
   claude: {
     dirs: ['.claude', '.claude/plugins', '.claude/plugins/marketplaces', '.claude/plugins/cache', '.claude/plugins/repos', '.claude/skills', '.claude/agents', '.claude/commands', '.claude/rules'],
-    json: ['.claude.json', '.claude/settings.json', '.claude/plugins/installed_plugins.json', '.claude/plugins/known_marketplaces.json'],
+    json: ['.claude.json', '.claude/.claude.json', '.claude/settings.json', '.claude/plugins/installed_plugins.json', '.claude/plugins/known_marketplaces.json'],
     opaque: ['.claude/CLAUDE.md'],
   },
   codex: {

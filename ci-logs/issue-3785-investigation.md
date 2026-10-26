@@ -260,3 +260,20 @@ environment, and asserts all three version commands. All five cases pass under
 that same restricted PATH. The negative missing/broken search cases and the
 production image's actual `rg --version` requirement remain intact. This fixes
 test isolation; the newer branch head still needs its own complete CI result.
+
+The later local 719-file run stopped at file 166 on same-size credential
+rewrites with unchanged timestamps; the retained full log is
+`/tmp/issue-3785-profile-full-tests.log`. A finite rapid-rewrite regression
+reproduces stale usage before repair; bounded internal content hashing fixes it
+and all 26 cache/limits cases pass. The next 720-file run stopped at file 253
+(`solve-queue.test.mjs`): its synthetic successful-usage seed had no available
+credential file, which is no longer eligible for successful cache reuse.
+Local log `/tmp/issue-3785-720-full-tests.log` lines 5496–5497 identify the
+exact one-at-a-time assertion. Supply an empty disposable auth file and pin
+Claude's independent credential selector to its fixture. All 71 queue assertions
+pass afterward. Neither stopped full run counts as a pass.
+
+Pushed `e69235db1cae58514f25bb58a74200f2812b0e97` has
+[Checks and release 40339508388](https://github.com/link-assistant/hive-mind/actions/runs/40339508388),
+created 2026-10-26 14:25:24 UTC. It remains queued while the later queue-fixture
+correction is prepared; its result cannot certify that subsequent commit.

@@ -27,7 +27,10 @@ push only issue-3785-4c28551ac612, and keep unmet requirements explicitly open.
 - [x] Reproduce full-suite failure from same-size credential rewrites sharing
       coarse filesystem timestamps. Add a bounded internal content digest; the
       finite rapid-rewrite regression fails before repair and 26 cache/limits
-      tests pass afterward. Restart the full default suite after this fix.
+      tests pass afterward. The next full run stops at file 253 because the
+      queue fixture seeds success without a credential generation; supply a
+      disposable empty credential file and pin its independent Claude selector.
+      All 71 queue assertions pass. Restart the complete suite again.
 - [x] Read selected Router usage authority without local vendor fallback.
 - [x] Reject selected Router launches without valid task token, endpoint or tool route.
 - [x] Keep Codex marketplace discovery in task-owned state; remove root catalog link.

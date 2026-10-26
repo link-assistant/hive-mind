@@ -11,7 +11,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { SolveQueue, QUEUE_CONFIG, QueueItemStatus, resetSolveQueue, getRunningClaudeProcesses } from '../src/telegram-solve-queue.lib.mjs';
@@ -21,6 +21,7 @@ import { resetLimitCache, getLimitCache, getCachedCodexLimits, CACHE_TTL } from 
 const fixtureHome = mkdtempSync(join(tmpdir(), 'hive-queue-usage-'));
 process.env.CODEX_HOME = join(fixtureHome, 'codex');
 process.env.CLAUDE_CONFIG_DIR = join(fixtureHome, 'claude');
+process.env.CLAUDE_SECURESTORAGE_CONFIG_DIR = process.env.CLAUDE_CONFIG_DIR;
 process.env.HIVE_MIND_USE_ROUTER = '0';
 process.once('exit', () => rmSync(fixtureHome, { recursive: true, force: true }));
 
@@ -1225,6 +1226,10 @@ await asyncTest('checkApiLimits with tool gemini should not block on Claude limi
 await asyncTest('checkApiLimits with tool codex applies Codex limits', async () => {
   beforeEach();
   const queue = new SolveQueue({ autoStart: false, verbose: false });
+  // A successful cached response needs an available credential generation.
+  // Empty synthetic auth keeps the fixture independent of real accounts.
+  mkdirSync(process.env.CODEX_HOME, { recursive: true });
+  writeFileSync(join(process.env.CODEX_HOME, 'auth.json'), '{}');
   // Seed through the public API so path and credential-generation partitioning
   // is exercised instead of bypassed with a stale internal cache key.
   await getCachedCodexLimits(false, {

@@ -99,7 +99,11 @@ push only issue-3785-4c28551ac612, and keep unmet requirements explicitly open.
       persisted full homes with an allowlist preserving auth/conversation evidence.
 - [ ] Add production Docker lifecycle tests (root/two tasks, refresh/atomic writes,
       history/resume, overrides/contamination, cleanup, host/nested daemon layouts).
-- [ ] Require packaged-image tests and deployment preflight in release workflows.
+- [x] Reproduce publication allowing a skipped PR-only Docker dependency. Run
+      the existing branch-package gates for main publication candidates and
+      require their exact success in both publishing jobs; preserve PR selection.
+      Verify actual condition/event combinations and existing release contracts.
+- [ ] Require the complete native lifecycle/image/deployment matrix for release.
 - [x] Capture reproducible before/after display evidence and document root causes,
       timeline, upstream findings, solutions and exact outstanding blockers.
 - [x] Run focused tests then full local suite, lint/format and relevant checks

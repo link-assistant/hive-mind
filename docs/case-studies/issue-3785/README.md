@@ -697,3 +697,19 @@ is retained in `evidence/xdg-storage-probes.txt`. These probes do not establish
 OAuth refresh serialization, native auth writes, concurrent native Docker
 sessions, the other four CLI projections, allowlist migration, or release/deploy
 lifecycle gates. All corresponding acceptance rows remain unfinished.
+
+The packaged Docker job used to be restricted to pull requests. Automatic and
+manual release jobs depended on it but permitted `skipped`, so publication could
+proceed without executing the image tests on the release commit. Its condition
+now includes every main-branch publication candidate, including test-only code
+changes and manual releases with no detected diff. Both publishing jobs require
+the Docker result to be exactly `success`. Docs-only main pushes and PR image
+selection keep their prior behavior. A regression evaluates the actual trusted
+workflow conditions across those event/result combinations: four cases fail
+against `4c96f7954`, and all five pass with the updated conditions. Existing
+release-order, cancellation and credential-preflight tests also pass. The
+retained experiment replays an earlier workflow without changing the checkout.
+This enforces the currently implemented image gates before publishing; it does
+not supply the unfinished native refresh/history, contamination, migration or
+full deployment matrix. Actual publishing is intentionally not exercised from
+the issue branch.

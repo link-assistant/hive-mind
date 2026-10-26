@@ -215,3 +215,16 @@ That run began before the cloud-policy changes. The expanded 260-case focused
 run independently covers those changes; five additional Coolify startup
 regressions reproduce missing validation/hidden failures and pass after repair.
 The newer commits require their own CI results.
+
+
+Head `4c96f79544c327bd908c565472fce365c41be312` passed
+[Checks and release 40315657485](https://github.com/link-assistant/hive-mind/actions/runs/40315657485),
+created at 11:31:04 UTC and completed at 12:17:30 UTC on 2026-10-26. The
+67k-line downloaded log is retained locally as `checks-40315657485.log`.
+Targeted log reads show installed stock gates at lines 43289/43676 during
+both builds and 43914/44132 after boot. Lines 44253–44254 show the required
+host and nested daemon gates both passed. These checks cover the preceding
+cloud-policy and Coolify-startup changes; the later XDG storage and release
+condition commits require fresh CI. They do not verify the unfinished full
+native lifecycle or migration contract. Security, Links and the dispatched
+Workflows checks also passed on that exact head.

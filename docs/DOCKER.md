@@ -584,6 +584,8 @@ The root Telegram bot and every `solve`/`hive` start audit the known global Clau
 
 TOML repairs preserve unrelated setting values, normalize formatting and remove comments. Clean configuration is left unchanged.
 
+Images set `HIVE_MIND_AGENTIC_CLI_UPDATE_EXCLUDE=claude,codex` to preserve those pinned versions during idle and command-triggered updates. Other agentic and operational CLIs continue to update. Keep this exclusion when overriding updater settings; change the CLI pins and reviewed stock manifest together when upgrading an image.
+
 The audit also rejects known global instruction files, rules, legacy prompts and hook manifests. Instruction files and hook manifests require explicit removal or quarantine; inline global hooks/instructions and unapproved Codex profile/agent registrations can be repaired automatically. Clean profiles and unrelated model, permission and concurrency settings are preserved.
 
 ### Required Codex capability preflight

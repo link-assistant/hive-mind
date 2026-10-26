@@ -230,6 +230,8 @@ RUN mkdir -p /home/box/.local/bin && \
 # Install Claude Code through Anthropic's native installer. Bun blocks the
 # @anthropic-ai/claude-code postinstall that links the native binary (issue #1633).
 ENV DISABLE_AUTOUPDATER=1
+# Keep the content-attested runtimes pinned through Hive Mind's idle updater too.
+ENV HIVE_MIND_AGENTIC_CLI_UPDATE_EXCLUDE=claude,codex
 RUN curl -fsSL https://claude.ai/install.sh -o /tmp/claude-code-install.sh && \
     bash /tmp/claude-code-install.sh 2.1.310 && \
     rm /tmp/claude-code-install.sh && \

@@ -389,6 +389,8 @@ Credential sharing में एक सीमा बाकी है: host प�
 
 Root Telegram bot और हर `solve`/`hive` start, tool connection checks से पहले ज्ञात global Claude/Codex configuration surfaces का audit करते हैं। Repair default रूप से चालू है। `--no-agent-config-auto-repair` या `HIVE_MIND_AGENT_CONFIG_AUTO_REPAIR=0` केवल repair बंद करते हैं; बाकी findings या repair failures execution रोकते हैं। Dry-run और command-preparation inspection state repair नहीं करते। इंस्टॉल किए गए Codex stock files को pristine CLI 0.164.0 के content manifest से मिलाया जाता है। दोनों images में Codex 0.164.0 और Claude 2.1.310 pinned हैं; CLI upgrade पर नए manifest की समीक्षा आवश्यक है। बदला, अधूरा या linked stock repair से पहले launch रोकता है। सभी alternate/managed paths, image lifecycle और deployment verification अभी खुले हैं।
 
+Images में `HIVE_MIND_AGENTIC_CLI_UPDATE_EXCLUDE=claude,codex` सेट है, ताकि idle और command-triggered updates इन pinned versions को सुरक्षित रखें। अन्य agentic और operational CLIs के updates जारी रहते हैं। Updater settings बदलते समय यह exclusion बनाए रखें; image upgrade में CLI pins और reviewed stock manifest साथ बदलें।
+
 TOML सुधार असंबंधित सेटिंग मान सुरक्षित रखता है, फ़ॉर्मैट सामान्य करता है और टिप्पणियाँ हटाता है। साफ़ कॉन्फ़िगरेशन अपरिवर्तित रहती है।
 
 ऑडिट ज्ञात वैश्विक निर्देश फ़ाइलों, नियमों, पुराने प्रॉम्प्ट और हुक मैनिफ़ेस्ट को भी अस्वीकार करता है। निर्देश फ़ाइलों और हुक मैनिफ़ेस्ट को स्पष्ट रूप से हटाना या क्वारंटीन करना आवश्यक है; इनलाइन वैश्विक हुक/निर्देश और अनधिकृत Codex प्रोफ़ाइल/एजेंट पंजीकरण अपने आप सुधारे जा सकते हैं। साफ़ प्रोफ़ाइल तथा मॉडल, अनुमति और समानांतरता की अन्य सेटिंग सुरक्षित रहती हैं।

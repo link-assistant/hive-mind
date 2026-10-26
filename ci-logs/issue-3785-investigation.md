@@ -324,3 +324,12 @@ after the compiler hits its explicit 1 GiB data bound. Log
 and SIGABRT. The cgroup reports zero OOM kills. Do not repeat this build under
 the same memory budget; retain full native build/manager verification on the
 adequately provisioned CI runner.
+
+### Native experiment fetch must use the repository retry wrapper
+
+Checks run 40352383911 at bced52471 fails its lint job. The downloaded job log
+`checks-40352383911-lint.log`, lines 3846–3849, identifies the new workflow's
+bare `git fetch` as bypassing the shared GitHub retry loop. The existing shell
+checker reproduces the failure locally. Route that immutable-source fetch
+through `scripts/github-retry.mjs`, retaining the exact source SHA. This is a
+workflow lint defect; no native lifecycle result is implied.

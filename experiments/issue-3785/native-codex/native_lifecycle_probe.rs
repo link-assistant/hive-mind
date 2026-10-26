@@ -14,7 +14,7 @@ async fn main() -> io::Result<()> {
         std::env::var_os("CODEX_HOME").ok_or_else(|| io::Error::other("Missing home."))?,
     );
     let manager = AuthManager::new(
-        home,
+        home.clone(),
         false,
         AuthCredentialsStoreMode::File,
         None,
@@ -43,12 +43,21 @@ async fn main() -> io::Result<()> {
         }
         tokio::time::sleep(Duration::from_millis(10)).await;
     }
+    if let Some(started) = std::env::var_os("SYNTHETIC_STARTED") {
+        std::fs::write(started, b"started")?;
+    }
     match mode.as_str() {
         "refresh" => {
             manager
                 .refresh_token_from_authority()
                 .await
                 .map_err(|_| io::Error::other("Synthetic native refresh failed."))?;
+            if std::env::var_os("SYNTHETIC_EXPECT_ROTATED").as_deref()
+                == Some(std::ffi::OsStr::new("0"))
+            {
+                println!("PASS: native manager refresh transaction.");
+                return Ok(());
+            }
             let tokens = manager
                 .auth()
                 .await
@@ -79,6 +88,15 @@ async fn main() -> io::Result<()> {
                     "Native cached read missed canonical logout.",
                 ));
             }
+        }
+        "write-login" => codex_login::login_with_api_key(
+            &home,
+            "sk-SYNTHETIC-G1",
+            AuthCredentialsStoreMode::File,
+            AuthKeyringBackendKind::default(),
+        )?,
+        "write-logout" => {
+            manager.logout().await?;
         }
         _ => return Err(io::Error::other("Unknown synthetic mode.")),
     }

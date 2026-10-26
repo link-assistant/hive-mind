@@ -24,10 +24,10 @@ try {
   const auth = path.join(canonical, 'auth.json');
   await fs.writeFile(auth, credential, { mode: 0o600 });
   const env = { PATH: process.env.PATH, HOME: home, CODEX_HOME: config, CODEX_AUTH_HOME: canonical, GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null', RUST_LOG: 'off' };
-  const run = async (args, extra = {}) => {
+  const run = async (args, extra = {}, input = '') => {
     try {
       const pending = execute('prlimit', ['--data=536870912', '--stack=16777216', '--core=0', '--', binary, ...args], { env: { ...env, ...extra }, cwd: home, maxBuffer: 64 * 1024, signal: globalThis.AbortSignal.timeout(15_000), killSignal: 'SIGKILL' });
-      pending.child.stdin.end();
+      pending.child.stdin.end(input);
       await pending;
       return 0;
     } catch (error) {
@@ -40,6 +40,9 @@ try {
   };
   assert.equal(await run(['login', 'status']), 0, 'Native status must read canonical auth outside its configuration home.');
   assert.equal(await run(['login', 'status'], { CODEX_HOME: otherConfig }), 0, 'A different configuration home must read the same authority.');
+  assert.equal(await run(['login', '--with-api-key'], { CODEX_HOME: otherConfig }, 'sk-SYNTHETIC-REAUTHENTICATED\n'), 0, 'Native reauthentication must commit to the selected canonical authority.');
+  assert.equal(JSON.parse(await fs.readFile(auth, 'utf8')).OPENAI_API_KEY, 'sk-SYNTHETIC-REAUTHENTICATED');
+  assert.equal(await run(['login', 'status']), 0, 'A peer must see canonical native reauthentication.');
   for (const dir of [config, otherConfig]) await assert.rejects(fs.access(path.join(dir, 'auth.json')), { code: 'ENOENT' });
   await fs.rename(auth, path.join(canonical, 'prior-synthetic-generation'));
   await fs.writeFile(auth, credential, { mode: 0o600, flag: 'wx' });
@@ -54,6 +57,7 @@ try {
   await fs.writeFile(auth, credential, { mode: 0o600 });
   assert.notEqual(await run(['login', 'status']), 0, 'An independent scoped credential copy must stop admission, even when contents match.');
   assert.equal(await run(['login', 'status'], { CODEX_HOME: otherConfig }), 0, 'A clean configuration home still reads the canonical generation.');
+  assert.notEqual(await run(['login', 'status'], { CODEX_HOME: otherConfig, CODEX_API_KEY: 'sk-SYNTHETIC-PRIVATE-OVERRIDE' }), 0, 'Environment credentials must not silently override canonical selection.');
   console.log('PASS: native Codex status/logout share a separate authority across configuration homes and canonical replacement, without copies or missing-root fallback.');
 } finally {
   await fs.rm(root, { recursive: true, force: true });

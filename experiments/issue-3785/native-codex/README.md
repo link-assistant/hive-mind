@@ -27,7 +27,7 @@ native deletion/recreation. A stable descriptor lock primitive is included and
 tested. The first build deliberately leaves native entrypoints uncoordinated;
 atomic file replacement alone does not serialize refresh-token exchanges.
 
-After all three actual-manager negative controls pass, `apply_coordination.py`
+After all five actual-manager negative controls pass, `apply_coordination.py`
 applies `coordination.patch` and installs `canonical_transaction.rs`. The patch
 holds the descriptor lock across reread, exchange and commit, coordinates native
 login/logout/identity updates, checks the predecessor again before persistence,
@@ -41,9 +41,11 @@ deleting its inode. Legacy mode retains its existing authority selection.
 The patch is generated from the exact immutable source by
 `make_coordination_patch.py`; the applier rejects changed managers and storage
 modules before mutation. Local syntax, applicability and workflow checks pass.
-**Native compilation and positive lifecycle controls are pending**, following a
-bounded local compiler allocation failure in `codex-protocol`. This patch must
-not be installed in production until the real native tests pass. Native cached
+CI run 40352383261 at bced52471 compiles the real native manager and passes the
+original three before/after controls. **The full CLI build and newer writer-race
+controls are pending.** A bounded local compiler hit its allocation limit in
+`codex-protocol`; the native build therefore runs on CI. This patch must
+not be installed in production until the full native tests pass. Native cached
 snapshots outside `auth()` and every credential/provider route still need audit.
 
 The upstream release tag changes the workspace version while its lockfile
@@ -80,13 +82,18 @@ The dedicated `Native Codex auth adapter experiment` workflow builds the full
 pinned CLI with this adapter and runs the native status/logout acceptance probe.
 It also builds a small executable using the actual `codex-login` manager, with
 two private configuration homes and a loopback rotating-token provider. Its
-three explicit negative controls must establish stale cached replacement,
-stale cached logout, and duplicate predecessor consumption after both processes
-have loaded the same generation. Startup/build failure cannot satisfy a control.
+five explicit negative controls must establish stale cached replacement,
+stale cached logout, duplicate predecessor consumption, and login/logout commits
+while a refresh exchange is paused. Both processes must first load the same
+generation. Startup/build failure cannot satisfy a control.
 The workflow then rebuilds the same native manager with coordination and requires
-both processes to pass each case, with exactly one predecessor exchange. It
-builds the full coordinated CLI afterward. These controls have not yet run;
-their presence is not acceptance evidence.
+both processes to pass each case, with exactly one predecessor exchange. The
+login/logout writer must wait until that exchange finishes, then its write must
+be the final canonical state. It builds the full coordinated CLI afterward and
+checks native reauthentication, peer reads and refusal of an environment-key
+override. Only the original three manager controls have passed; the newer
+writer-race and full-CLI checks remain pending. Their presence is not acceptance
+evidence.
 It is an experimental build check; it does not certify or replace the required
 six-tool release/deployment lifecycle matrix. Await its actual result before
 claiming native-command acceptance. Local full CLI compilation must respect the

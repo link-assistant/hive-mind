@@ -142,6 +142,12 @@ push only issue-3785-4c28551ac612, and keep unmet requirements explicitly open.
       two-process provider-stub negative/positive controls. Syntax/applicability
       pass; native compilation exceeds the bounded local compiler allocation,
       so actual before/after controls must run in CI before production use.
+      Include login/logout during a paused native refresh; verify both process
+      results, one exchange and the final canonical writer state. Keep the full
+      CLI reauthentication and environment-override checks in the same job.
+      CI 40352383261 compiles the actual manager and passes its original three
+      before/after controls. Full CLI and the two new writer races still await
+      verification; production integration remains open.
 - [x] Reproduce scoped Codex config inheriting six alternate plugin-table forms,
       corrupting header-looking multiline strings and admitting malformed TOML.
       Replace regex stripping with semantic parsing; preserve typed runtime

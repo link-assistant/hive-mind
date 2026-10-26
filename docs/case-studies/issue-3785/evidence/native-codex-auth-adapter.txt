@@ -49,3 +49,18 @@ the corrected workflow pass local checks. These are not native runtime passes.
 The CI workflow requires explicit actual-manager negative controls first, then
 rebuilds and requires positive replacement/logout/one-exchange controls, then
 builds the full native CLI. These results remain pending.
+
+The manager controls now also pause an actual native refresh at the loopback
+provider while a second native process attempts login or logout. The negative
+control requires that competing write to finish before the exchange response;
+the coordinated case requires the writer to wait, both processes to succeed,
+and the login/logout result to remain canonical. The full-CLI probe includes
+native API-key reauthentication and explicit environment-key refusal. These are
+prepared checks, not successful native runtime results.
+
+CI run 40352383261 at bced52471 compiles both versions of the real codex-login
+driver. Its three original before controls (cached replacement, cached logout,
+duplicate predecessor use) and three after controls pass. The full CLI build
+is still running at this observation. The two newer writer-race controls are
+not part of that SHA and have not run. This is native manager evidence only;
+it does not complete production integration or the full lifecycle matrix.

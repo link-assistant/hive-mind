@@ -103,8 +103,8 @@ within their cache instance, and all 22 focused cache/limits tests pass. Queue
 unit tests disable automatic consumers and explicitly exercise their operations;
 all 71 assertions pass. Production queue startup behavior is unchanged.
 
-Native `/limits` credential readers resolve `CLAUDE_CONFIG_DIR` and `CODEX_HOME`
-at call time. This removes an unconditional fallback to the default home; it
+Native `/limits` credential readers resolve `CLAUDE_SECURESTORAGE_CONFIG_DIR`,
+`CLAUDE_CONFIG_DIR` and `CODEX_HOME` at call time. This removes an unconditional fallback to the default home; it
 does **not** validate that a redirected home is the deployment's canonical
 authority. The launcher-level effective-path validation remains unfinished.
 
@@ -713,3 +713,30 @@ This enforces the currently implemented image gates before publishing; it does
 not supply the unfinished native refresh/history, contamination, migration or
 full deployment matrix. Actual publishing is intentionally not exercised from
 the issue branch.
+
+The pinned Linux Claude 2.1.310 binary supports an independent credential root,
+`CLAUDE_SECURESTORAGE_CONFIG_DIR`. An explicitly empty value selects
+`HOME/.claude`, even with a relocated `CLAUDE_CONFIG_DIR`; native paths normalize
+Unicode to NFC. This is also described in an
+[upstream documentation issue](https://github.com/anthropics/claude-code/issues/79223).
+Three regression tests reproduced `/limits` selecting the wrong credential path.
+The resolver now follows these native rules; all 18 limits regressions pass,
+and the wider focused cache/display/Router/Telegram selection passes too.
+
+A bounded native probe creates only synthetic credentials in disposable state,
+then executes `auth status --json` and `auth logout` with a minimal environment.
+Status selects the independent root, and logout removes its credential while
+leaving the private configuration and conventional default credentials unchanged.
+The explicitly empty selector selects the conventional store as expected.
+`experiments/issue-3785/probe-claude-secure-storage.mjs` retains the probe, with
+structural output in `evidence/claude-secure-storage.txt`. This verifies Linux
+status/logout selection, not fresh entitlement, login, refresh coordination,
+Docker credential projection or complete conversation persistence. The native
+selector makes separate auth/config routing possible; the legacy production
+Claude file mount has not yet been replaced.
+
+The 714-file local default run completed 626 files before its process ended
+externally. A retained resume script restarts at the interrupted file; all 88
+remaining files pass. Together these cover the original selection. The added
+release-condition file passes independently, and the later Claude changes have
+the focused coverage above. Logs remain local under `/tmp/issue-3785-*`.

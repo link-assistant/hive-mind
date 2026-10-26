@@ -93,6 +93,13 @@ push only issue-3785-4c28551ac612, and keep unmet requirements explicitly open.
       Verify actual Docker atomic replacements, deletion/recreation and peer
       writes; verify both real CLIs resume native history across private homes.
       This is partial storage projection, not a refresh coordinator or full gate.
+- [x] Reproduce independent Claude credential-root, empty-selector and NFC
+      mismatches in `/limits`; follow native precedence and verify actual pinned
+      Linux status/logout using synthetic credentials and private configuration.
+      Full native auth/history projection and refresh remain unfinished.
+- [x] Resume the externally interrupted 714-file default suite at its incomplete
+      file; all 88 remaining files pass. Verify newly added release tests and
+      later Claude changes independently.
 - [ ] Implement canonical auth/history authority, explicit alternative contracts,
       coordinated refresh and fail-closed effective-path validation for all tools.
 - [ ] Isolate task catalogs/extensions and enforce clean global baseline; migrate

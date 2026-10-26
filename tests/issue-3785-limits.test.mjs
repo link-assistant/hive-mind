@@ -169,6 +169,18 @@ test('limits paths follow effective tool homes and never fall back to another ho
   assert.equal(resolveLimitsCredentialPaths({}, '/host').codex, '/host/.codex/auth.json');
 });
 
+test('Claude limits honor the independent native credential root over configuration', () => {
+  assert.equal(resolveLimitsCredentialPaths({ CLAUDE_CONFIG_DIR: '/private/config', CLAUDE_SECURESTORAGE_CONFIG_DIR: '/canonical/auth' }, '/host').claude, '/canonical/auth/.credentials.json');
+});
+
+test('an explicitly empty Claude secure-storage selector pins the conventional credential root', () => {
+  assert.equal(resolveLimitsCredentialPaths({ CLAUDE_CONFIG_DIR: '/private/config', CLAUDE_SECURESTORAGE_CONFIG_DIR: '' }, '/host').claude, '/host/.claude/.credentials.json');
+});
+
+test('Claude secure-storage paths follow the native NFC normalization', () => {
+  assert.equal(resolveLimitsCredentialPaths({ CLAUDE_SECURESTORAGE_CONFIG_DIR: '/canonical/cafe\u0301' }, '/host').claude, '/canonical/caf\u00e9/.credentials.json');
+});
+
 test('logout immediately invalidates cached Codex subscription claims', async t => {
   resetLimitCache();
   const payload = Buffer.from(JSON.stringify({ 'https://api.openai.com/auth': { chatgpt_plan_type: 'pro' } })).toString('base64url');

@@ -84,6 +84,32 @@ test('unreadable audit surfaces stop repair rather than becoming an empty catalo
   assert.equal(denied, true);
 });
 
+test('unreadable Codex configuration stops every repair', async t => {
+  const home = await fixture(t);
+  const config = path.join(home, '.codex', 'config.toml');
+  const skill = path.join(home, '.codex', 'skills', 'unapproved', 'SKILL.md');
+  await mkdir(path.dirname(skill), { recursive: true });
+  await writeFile(skill, 'preserve until configuration can be inspected');
+  const fs = (await import('node:fs')).default;
+  const denied = () => Object.assign(new Error('private-audit-sentinel'), { code: 'EACCES' });
+  const fsImpl = {
+    ...fs,
+    promises: {
+      ...fs.promises,
+      open: (target, ...options) => {
+        if (target === config) throw denied();
+        return fs.promises.open(target, ...options);
+      },
+    },
+    readFileSync: (target, ...options) => {
+      if (target === config) throw denied();
+      return fs.readFileSync(target, ...options);
+    },
+  };
+  await assert.rejects(runAgentConfigAudit({ homeDir: home, fsImpl }), error => /unsafe|unreadable/i.test(error.message) && !error.message.includes('sentinel'));
+  assert.equal(await readFile(skill, 'utf8'), 'preserve until configuration can be inspected');
+});
+
 test('a concurrent configuration edit invalidates the repair plan', async t => {
   const home = await fixture(t);
   const settings = path.join(home, '.claude', 'settings.json');

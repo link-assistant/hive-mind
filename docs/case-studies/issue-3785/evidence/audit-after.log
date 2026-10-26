@@ -1,11 +1,12 @@
-✔ malformed global JSON stops repair without exposing input or changing other state (104.822306ms)
-✔ symlink from settings into credentials is rejected before repair (20.869983ms)
-✔ hardlink from settings into credentials is rejected before repair (24.452556ms)
-✔ a linked plugin ancestor cannot redirect cleanup into conversation storage (26.9413ms)
-✔ unreadable audit surfaces stop repair rather than becoming an empty catalog (38.627931ms)
-✔ a concurrent configuration edit invalidates the repair plan (58.714773ms)
-✔ a concurrent file creation prevents empty-parent pruning (37.728061ms)
-✔ removing an unapproved skill preserves hidden stock runtime files (25.136202ms)
+✔ malformed global JSON stops repair without exposing input or changing other state (59.687543ms)
+✔ symlink from settings into credentials is rejected before repair (32.757448ms)
+✔ hardlink from settings into credentials is rejected before repair (19.233759ms)
+✔ a linked plugin ancestor cannot redirect cleanup into conversation storage (13.183794ms)
+✔ unreadable audit surfaces stop repair rather than becoming an empty catalog (17.682065ms)
+✔ unreadable Codex configuration stops every repair (44.815299ms)
+✔ a concurrent configuration edit invalidates the repair plan (105.368137ms)
+✔ a concurrent file creation prevents empty-parent pruning (36.923368ms)
+✔ removing an unapproved skill preserves hidden stock runtime files (60.442932ms)
 
 1. The drifted configuration is fully reported
   PASS: every non-minimal item is a finding and playwright MCP is not
@@ -82,12 +83,12 @@
   PASS: a missing table is a no-op
 
 Result: 56 passed, 0 failed
-✔ tests/test-issue-2190-agent-config-audit.mjs (474.3259ms)
-ℹ tests 9
+✔ tests/test-issue-2190-agent-config-audit.mjs (448.817448ms)
+ℹ tests 10
 ℹ suites 0
-ℹ pass 9
+ℹ pass 10
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 602.324944
+ℹ duration_ms 538.15966

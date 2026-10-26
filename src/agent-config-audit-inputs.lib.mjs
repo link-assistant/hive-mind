@@ -62,13 +62,16 @@ export async function validateAgentConfigAuditInputs({ tool = 'all', homeDir, fs
       for (const relative of [...inputs.json, ...(inputs.text || [])]) {
         const target = path.join(homeDir, relative);
         const info = await inspect(target, 'file');
-        if (!info || !inputs.json.includes(relative)) continue;
+        if (!info) continue;
         if (info.size > 1024n * 1024n) throw unsafe();
         const handle = await io.open(target, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
         try {
           if (identity(await handle.stat({ bigint: true })) !== identity(info)) throw unsafe();
-          const parsed = JSON.parse(await handle.readFile('utf8'));
-          if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw unsafe();
+          const content = await handle.readFile('utf8');
+          if (inputs.json.includes(relative)) {
+            const parsed = JSON.parse(content);
+            if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw unsafe();
+          }
           if (identity(await handle.stat({ bigint: true })) !== identity(info)) throw unsafe();
         } finally {
           await handle.close();

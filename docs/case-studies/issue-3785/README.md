@@ -156,9 +156,11 @@ inspection and repair, allowing a concurrent edit to invalidate its plan.
 Its production entry now validates its existing input paths asynchronously,
 rejecting linked roots/ancestors, linked/nonregular configuration files,
 unreadable inputs and malformed/non-object JSON before any repair. JSON reads
-use `O_NOFOLLOW` and descriptor identity checks. Directory enumeration is bounded.
+use `O_NOFOLLOW` and descriptor identity checks. Text configuration is opened and
+read before repair as well; an unreadable Codex config cannot become an empty
+configuration. Directory enumeration is bounded.
 The input generations are checked again after logging before synchronous repair.
-Eight regressions fail against the retained pre-fix implementation and pass after
+Nine regressions fail against the retained pre-fix implementation and pass after
 the change; they verify synthetic protected content and identity preservation.
 Empty-parent pruning now counts hidden entries and uses nonrecursive removal,
 preserving stock `.system` files and refusing a directory filled concurrently.

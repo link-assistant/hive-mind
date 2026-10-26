@@ -47,3 +47,5 @@ Project Agent 0.27.0 and OpenCode 1.19.4 native XDG data directories into Docker
 Require the existing branch-package Docker image and daemon checks before automatic or manual publication from main, including test-only changes and manual releases with no detected diff. Refuse publishing when that gate is skipped, cancelled or failed. Keep PR image selection and docs-only push behavior. The complete native auth/history and contamination lifecycle gates remain unfinished.
 
 Follow the pinned Claude CLI's independent secure-storage directory in limits readers, including explicitly empty selectors and native NFC path normalization. Verify selection and logout with disposable synthetic credentials; production canonical mounts and coordinated refresh remain unfinished.
+
+Watch selected Claude configuration, account-state and independent credential roots in Router mode. Reject settings that redirect those roots or inject host credential/file-descriptor sources, while retaining the existing handling of transient native state writes.

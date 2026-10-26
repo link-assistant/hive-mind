@@ -740,3 +740,14 @@ externally. A retained resume script restarts at the interrupted file; all 88
 remaining files pass. Together these cover the original selection. The added
 release-condition file passes independently, and the later Claude changes have
 the focused coverage above. Logs remain local under `/tmp/issue-3785-*`.
+
+The Router credential guard previously watched only conventional Claude paths.
+Nine focused cases show eight bypasses before repair and all pass afterward:
+selected credential/config roots, relocated account state, a selected settings
+helper, and four settings-based path/credential-source redirections. Limits and
+the guard now share one native credential-root resolver. Existing Router guard
+behavior for transient half-written account state is retained; complete strict
+backend admission/audit and all native credential sources remain unfinished.
+The broader Router/limits selection passes 47 node tests, including the legacy
+guard's 114 internal assertions. No helper or provider request runs in these
+fixtures.

@@ -100,6 +100,9 @@ push only issue-3785-4c28551ac612, and keep unmet requirements explicitly open.
 - [x] Resume the externally interrupted 714-file default suite at its incomplete
       file; all 88 remaining files pass. Verify newly added release tests and
       later Claude changes independently.
+- [x] Reproduce Router guard bypasses through selected Claude config/auth roots,
+      relocated account state and settings redirects; share native path selection
+      with `/limits` and retain transient-state behavior. Full Router contract open.
 - [ ] Implement canonical auth/history authority, explicit alternative contracts,
       coordinated refresh and fail-closed effective-path validation for all tools.
 - [ ] Isolate task catalogs/extensions and enforce clean global baseline; migrate

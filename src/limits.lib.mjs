@@ -4,6 +4,7 @@
  * Provides functions to fetch and parse Claude usage limits via OAuth API
  */
 
+import { resolveClaudeCredentialDirectory } from './claude-paths.lib.mjs';
 import { exec } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
@@ -39,11 +40,7 @@ const execAsync = promisify(exec);
  * Default path to Claude credentials file
  */
 export function resolveLimitsCredentialPaths(env = process.env, homeDir = homedir()) {
-  // The pinned native CLI permits credentials to live independently of its
-  // configuration. Presence matters: an empty secure-storage selector pins
-  // the conventional store even when CLAUDE_CONFIG_DIR points elsewhere.
-  const defaultClaudeHome = join(homeDir, '.claude');
-  const claudeHome = (env.CLAUDE_SECURESTORAGE_CONFIG_DIR !== undefined ? env.CLAUDE_SECURESTORAGE_CONFIG_DIR || defaultClaudeHome : env.CLAUDE_CONFIG_DIR || defaultClaudeHome).normalize('NFC');
+  const claudeHome = resolveClaudeCredentialDirectory(env, homeDir);
   const codexHome = env.CODEX_HOME || join(homeDir, '.codex');
   return { claude: join(claudeHome, '.credentials.json'), codex: join(codexHome, 'auth.json'), codexConfig: join(codexHome, 'config.toml') };
 }

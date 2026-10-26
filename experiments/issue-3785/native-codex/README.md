@@ -2,8 +2,8 @@
 
 This source experiment preserves native Codex commands while separating their
 file credentials from configuration. It is **not installed by the images or
-production launcher**. Canonical production projection, native refresh locking,
-cached-read invalidation, history and all-writer lifecycle coverage remain open.
+production launcher**. Canonical production projection, verified native refresh
+coordination, history and all-writer lifecycle coverage remain open.
 
 The supported source is `openai/codex` tag `rust-v0.164.0`, peeled commit
 `6aaac694803004a63c6f393d153c96d22521a6b9`. The annotated tag object is
@@ -24,8 +24,27 @@ The file adapter anchors operations to an open directory descriptor; bounds
 reads to 1 MiB; rejects linked, nonregular, shared-permission and multi-link
 files; commits with a private temporary file, rename and fsync; and implements
 native deletion/recreation. A stable descriptor lock primitive is included and
-tested, **but the native refresh/read/write entrypoints do not use it yet**.
-Atomic file replacement alone does not serialize refresh-token exchanges.
+tested. The first build deliberately leaves native entrypoints uncoordinated;
+atomic file replacement alone does not serialize refresh-token exchanges.
+
+After all three actual-manager negative controls pass, `apply_coordination.py`
+applies `coordination.patch` and installs `canonical_transaction.rs`. The patch
+holds the descriptor lock across reread, exchange and commit, coordinates native
+login/logout/identity updates, checks the predecessor again before persistence,
+and invalidates managed cached reads even before token expiry. Account-grant
+leases hold the same guard through their IdP exchange. Explicit environment
+credentials and external auth are refused in this experimental canonical mode.
+Waiters poll asynchronously for at most 60 seconds; a canonical token exchange
+has a 45-second deadline. Cancellation/owner death closes the descriptor without
+deleting its inode. Legacy mode retains its existing authority selection.
+
+The patch is generated from the exact immutable source by
+`make_coordination_patch.py`; the applier rejects changed managers and storage
+modules before mutation. Local syntax, applicability and workflow checks pass.
+**Native compilation and positive lifecycle controls are pending**, following a
+bounded local compiler allocation failure in `codex-protocol`. This patch must
+not be installed in production until the real native tests pass. Native cached
+snapshots outside `auth()` and every credential/provider route still need audit.
 
 The upstream release tag changes the workspace version while its lockfile
 still records 166 local packages as 0.0.0. The applier repairs only those local
@@ -64,7 +83,10 @@ two private configuration homes and a loopback rotating-token provider. Its
 three explicit negative controls must establish stale cached replacement,
 stale cached logout, and duplicate predecessor consumption after both processes
 have loaded the same generation. Startup/build failure cannot satisfy a control.
-These controls have not yet run; their presence is not acceptance evidence.
+The workflow then rebuilds the same native manager with coordination and requires
+both processes to pass each case, with exactly one predecessor exchange. It
+builds the full coordinated CLI afterward. These controls have not yet run;
+their presence is not acceptance evidence.
 It is an experimental build check; it does not certify or replace the required
 six-tool release/deployment lifecycle matrix. Await its actual result before
 claiming native-command acceptance. Local full CLI compilation must respect the

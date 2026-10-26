@@ -138,6 +138,10 @@ push only issue-3785-4c28551ac612, and keep unmet requirements explicitly open.
       and pass. Keep it outside production until the full native CLI build,
       refresh/read/write coordination and lifecycle gates are verified. Preserve
       `--locked` after hash-checked repair of local workspace version entries.
+      Prepare exact-source manager transaction/cached-read patch and real
+      two-process provider-stub negative/positive controls. Syntax/applicability
+      pass; native compilation exceeds the bounded local compiler allocation,
+      so actual before/after controls must run in CI before production use.
 - [x] Reproduce scoped Codex config inheriting six alternate plugin-table forms,
       corrupting header-looking multiline strings and admitting malformed TOML.
       Replace regex stripping with semantic parsing; preserve typed runtime

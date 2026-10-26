@@ -27,8 +27,8 @@ to match the release workspace. Exact before/after hashes and parsed comparison
 verify external versions, sources, checksums and dependency edges are unchanged.
 Dependency fetch then succeeds with --locked. Build/CLI acceptance is pending.
 
-Limits: the images and launcher do not use this source adapter. Its OS lock is
-not wired into native refresh/read/write entrypoints. No native refresh,
+Limits: the images and launcher do not use this source adapter. A second source patch wires its OS lock into native manager transactions,
+but native compilation and the before/after lifecycle controls are pending. No native refresh,
 all-writer/cached-read invalidation, full history, migration, environment/custom
 provider admission, or six-tool lifecycle claim is made. The original production
 Codex credential copy remains unfinished, not fixed by this experiment.
@@ -38,3 +38,14 @@ and .github/workflows/native-codex-auth-experiment.yml.
 Local logs: /tmp/issue-3785-native-root-before.log,
 /tmp/issue-3785-native-module-tests.log and
 /tmp/issue-3785-native-cargo-fetch.log.
+
+Second-stage source experiment: coordination.patch serializes native manager
+refresh/login/logout/identity writes and account-grant exchange leases, reloads
+canonical auth before use and before exchange, checks the predecessor before
+commit, and bounds exchange/wait duration. make_coordination_patch.py parses
+and formats the changed Rust; apply_coordination.py verifies immutable manager
+source and the exact storage module before mutation. Syntax/applicability and
+the corrected workflow pass local checks. These are not native runtime passes.
+The CI workflow requires explicit actual-manager negative controls first, then
+rebuilds and requires positive replacement/logout/one-exchange controls, then
+builds the full native CLI. These results remain pending.

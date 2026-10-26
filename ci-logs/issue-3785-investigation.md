@@ -542,3 +542,26 @@ logged. The source repair now validates provider authority before alternate
 constructors can create managers/exporters/gateways, using an inert native
 provider for refused configurations. Applicability and formatting are checked;
 full native compilation and the positive actual-request controls remain pending.
+
+### Separate CodeQL failure despite successful workflows
+
+At head `3f37d553db39f4a517139650017759d1e0b04a3a`, all five workflow runs
+created at 19:09:53 UTC succeed. The independent CodeQL check
+[121788863524](https://github.com/link-assistant/hive-mind/runs/121788863524)
+nevertheless fails at 19:11:09 UTC with one high-severity alert, 228. Its
+downloaded annotation identifies `tests/test-issue-1706-sub-session-size.mjs:34`:
+the assertion helper prints values returned from the process environment.
+This file is unchanged from main `2498785365`, but the failing PR gate still
+requires repair. Workflow success alone did not establish a passing PR status.
+Check metadata and annotations are retained alongside this investigation.
+
+`tests/sub-session-size-diagnostics.test.mjs` executes the actual opt-in suite
+with three synthetic inherited values, a disposable HOME, bounded child output
+and a finite deadline. Installed dependencies replace the network bootstrap.
+After correcting the probe's versioned dependency resolution, the test fails
+at line 39 because the assertion output contains a synthetic environment value
+(`/tmp/issue-3785-codeql-diagnostics-before.log`). The repaired helper keeps
+literal test names and counts without printing compared values or exceptions;
+the same regression passes afterward. The opt-in suite's existing unrelated
+assertion failures remain visible and still produce exit 1. No alert is
+dismissed or suppressed. Fresh CodeQL analysis of the repair remains required.

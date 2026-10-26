@@ -243,6 +243,13 @@ push only issue-3785-4c28551ac612, and keep unmet requirements explicitly open.
 
 Current continuation:
 
+- [x] Investigate the independent CodeQL failure behind UNSTABLE even after
+      successful workflow runs. Preserve check 121788863524 and alert 228's
+      annotation at test-issue-1706-sub-session-size.mjs:34. Reproduce inherited
+      synthetic environment values in failure output before removing compared
+      values/exception details; preserve named failures and nonzero status.
+- [ ] Verify fresh CodeQL marks alert 228 fixed without suppression, and inspect
+      every newest-head check rather than workflow conclusions alone.
 - [x] Complete the fresh local default suite: all 723 selected files pass.
 - [x] Preserve the latest checkout timeout and reproduce its false successful
       terminal PR status. Fail cancelled dependencies on every ref; the changed

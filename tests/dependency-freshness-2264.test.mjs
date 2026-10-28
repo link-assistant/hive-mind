@@ -14,7 +14,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { AGENTIC_CLI_TARGETS, parseBunGlobalPackageVersion, updateAgenticClisWhenIdle } from '../src/agentic-cli-updater.lib.mjs';
-import { assessVersionPin, checkDependencyRecords, collectDependencyRecords, parseGitHubActionPins, parseNpmPackagePins, parseUseMLiteralPins, resolveDockerHubLatest, resolveGitHubLatest } from '../scripts/dependency-freshness.lib.mjs';
+import { assessVersionPin, checkDependencyRecords, collectDependencyRecords, parseGitHubActionPins, parseNpmPackagePins, parseUseMLiteralPins, resolveDockerHubLatest, resolveGitHubLatest, resolveNodeLatest } from '../scripts/dependency-freshness.lib.mjs';
 
 const repositoryRoot = path.resolve(import.meta.dirname, '..');
 
@@ -63,6 +63,61 @@ assert.equal(
 
 await assert.rejects(resolveDockerHubLatest('library/empty', {}, { fetchImpl: async () => ({ ok: true, json: async () => ({ results: [{ name: 'latest' }] }) }) }), /no semantic tags/, 'a registry answer without versions is an error, never a pass');
 
+// Node 26.13.0 was advertised in GitHub and the distribution index while its
+// checksum manifest still returned 404. NVM refuses that release, so require
+// published checksums for both Linux architectures used by our images.
+{
+  const index = [{ version: 'v27.0.0-rc.1' }, { version: 'v26.13.0' }, { version: 'v26.12.1' }];
+  const checksums = version => ['x64', 'arm64'].map(arch => `${'a'.repeat(64)}  node-${version}-linux-${arch}.tar.xz`).join('\n');
+  for (const unpublished of ['missing-manifest', 'missing-arm64', 'invalid-checksum']) {
+    const requested = [];
+    const latest = await resolveNodeLatest(
+      'nodejs/node',
+      {},
+      {
+        fetchImpl: async url => {
+          requested.push(url);
+          if (url.endsWith('/index.json')) return { ok: true, json: async () => index };
+          if (url.includes('/v26.13.0/')) {
+            return unpublished === 'missing-manifest' ? { ok: false, status: 404 } : { ok: true, text: async () => (unpublished === 'invalid-checksum' ? checksums('v26.13.0').replace(/^a{64}/gm, 'z'.repeat(64)) : checksums('v26.13.0').split('\n')[0]) };
+          }
+          return { ok: true, text: async () => checksums('v26.12.1') };
+        },
+      }
+    );
+    assert.equal(latest, 'v26.12.1', `${unpublished} cannot force an uninstallable Node pin`);
+    assert.equal(
+      requested.some(url => url.includes('27.0.0')),
+      false,
+      'prereleases are ignored'
+    );
+    assert.equal(
+      requested.every(url => url.startsWith('https://nodejs.org/dist/')),
+      true,
+      'the installer distribution is authoritative'
+    );
+  }
+  assert.equal(await resolveNodeLatest('nodejs/node', {}, { fetchImpl: async url => (url.endsWith('/index.json') ? { ok: true, json: async () => index } : { ok: true, text: async () => checksums('v26.13.0') }) }), 'v26.13.0', 'the newly published release wins once its checksums exist');
+  await assert.rejects(resolveNodeLatest('nodejs/node', {}, { fetchImpl: async url => (url.endsWith('/index.json') ? { ok: true, json: async () => index } : { ok: false, status: 503 }) }), /503/, 'service errors fail closed rather than silently choosing an old version');
+  await assert.rejects(resolveNodeLatest('nodejs/node', {}, { fetchImpl: async url => (url.endsWith('/index.json') ? { ok: true, json: async () => index } : { ok: false, status: 404 }) }), /no installable stable release/i, 'missing distributions never pass without a verified release');
+  let manifestRequests = 0;
+  await assert.rejects(
+    resolveNodeLatest(
+      'nodejs/node',
+      {},
+      {
+        fetchImpl: async url => {
+          if (url.endsWith('/index.json')) return { ok: true, json: async () => Array.from({ length: 11 }, (_, patch) => ({ version: `v26.0.${patch}` })) };
+          manifestRequests++;
+          return { ok: false, status: 404 };
+        },
+      }
+    ),
+    /no installable stable release/i
+  );
+  assert.equal(manifestRequests, 10, 'unavailable manifests cannot trigger an unbounded release-history scan');
+}
+
 assert.deepEqual(
   parseGitHubActionPins('steps:\n  - uses: actions/checkout@v7\n  - uses: zizmorcore/zizmor-action@v0.6.2\n  - uses: ./local-action\n', 'fixture.yml').map(record => [record.name, record.current, record.policy]),
   [
@@ -96,11 +151,13 @@ assert.deepEqual(
       { kind: 'npm', name: 'stale-package', current: '1.0.0', policy: 'exact', location: 'Dockerfile' },
       { kind: 'github', name: 'owner/action', current: 'v3', policy: 'major', location: 'workflow.yml' },
       { kind: 'docker', name: 'library/rust', current: '1.98', policy: 'minor', location: 'Dockerfile' },
+      { kind: 'node', name: 'nodejs/node', current: '26.12.1', policy: 'exact', location: 'Dockerfile:10' },
     ],
     {
       resolveNpmLatest: async name => ({ 'current-package': '2.1.0', 'stale-package': '1.2.0' })[name],
       resolveGitHubLatest: async () => 'v3.4.5',
       resolveDockerHubLatest: async () => '1.98.1',
+      resolveNodeLatest: async () => 'v26.12.1',
     }
   );
 
@@ -108,7 +165,7 @@ assert.deepEqual(
     result.stale.map(record => record.name),
     ['stale-package']
   );
-  assert.equal(result.current.length, 3);
+  assert.equal(result.current.length, 4);
   assert.deepEqual(result.errors, []);
 }
 
@@ -169,9 +226,9 @@ assert.equal(
   'embedded Bun builds are checked'
 );
 assert.equal(
-  repositoryRecords.some(record => record.kind === 'github' && record.name === 'nodejs/node'),
+  repositoryRecords.some(record => record.kind === 'node' && record.name === 'nodejs/node'),
   true,
-  'the latest stable Node release is checked'
+  'the latest installable stable Node distribution is checked'
 );
 assert.equal(
   repositoryRecords.some(record => record.kind === 'npm' && record.name === 'use-m'),

@@ -1,0 +1,15 @@
+✔ UI, user prompts, and system prompts merge from the requested locale tree (16.043425ms)
+✔ all backend prompts prefer bulk drafting before verification (150.036258ms)
+✔ nested catalogs merge with aliases and reject conflicting definitions (14.308816ms)
+✔ catalog files separate UI, user messages, and system instructions (71.203026ms)
+✔ work locale changes rendered prompts independently of the UI, with English fallback (18.033571ms)
+✔ catalog extraction preserves the complete English backend corpus (627.994661ms)
+✔ every literal prompt reference resolves from the merged English catalog (400.979722ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1838.261325

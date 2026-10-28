@@ -1,3 +1,4 @@
+import { promptText, localizePromptConstant } from './prompt-text.lib.mjs';
 /**
  * Pure helpers for the `/fix --update-all-dependencies` command (issue #2184).
  *
@@ -329,24 +330,24 @@ export function buildEcosystemsSection({ languages, files } = {}) {
   const lines = [];
 
   if (detected.length === 0) {
-    lines.push('No package ecosystem was detected automatically. Inspect the repository for dependency manifests by hand and update every one of them.');
+    lines.push(promptText('prompt.templates.fix-update-dependencies.buildEcosystemsSection.text1'));
   } else {
-    lines.push('Update **every** ecosystem below, in this order (most of the repository first). One pull request may cover them all, but each ecosystem must end up fully current — not partially.');
+    lines.push(promptText('prompt.templates.fix-update-dependencies.buildEcosystemsSection.text2'));
     lines.push('');
     detected.forEach((entry, position) => {
       const { ecosystem, manifests, lockfiles, languages: matchedLanguages } = entry;
       lines.push(`${position + 1}. **${ecosystem.label}**`);
-      if (matchedLanguages.length > 0) lines.push(`   - Detected languages: ${matchedLanguages.join(', ')}`);
-      lines.push(`   - Manifests: ${manifests.length > 0 ? manifests.map(file => `\`${file}\``).join(', ') : '_none found — check whether one is missing_'}`);
-      if (lockfiles.length > 0) lines.push(`   - Lockfiles to regenerate and commit: ${lockfiles.map(file => `\`${file}\``).join(', ')}`);
-      lines.push(`   - Update everything: ${ecosystem.updateCommandIsProse ? ecosystem.updateCommand : `\`${ecosystem.updateCommand}\``}`);
+      if (matchedLanguages.length > 0) lines.push(promptText('prompt.templates.fix-update-dependencies.buildEcosystemsSection.text3', { value1: String(matchedLanguages.join(', ')) }));
+      lines.push(promptText('prompt.templates.fix-update-dependencies.buildEcosystemsSection.text5', { value1: String(manifests.length > 0 ? manifests.map(file => `\`${file}\``).join(', ') : promptText('prompt.templates.fix-update-dependencies.buildEcosystemsSection.text4')) }));
+      if (lockfiles.length > 0) lines.push(promptText('prompt.templates.fix-update-dependencies.buildEcosystemsSection.text6', { value1: String(lockfiles.map(file => `\`${file}\``).join(', ')) }));
+      lines.push(promptText('prompt.templates.fix-update-dependencies.buildEcosystemsSection.text7', { value1: String(ecosystem.updateCommandIsProse ? ecosystem.updateCommand : `\`${ecosystem.updateCommand}\``) }));
       if (ecosystem.note) lines.push(`   - ${ecosystem.note}`);
       lines.push('');
     });
   }
 
   if (unmatchedLanguages.length > 0) {
-    lines.push(`Detected languages with no dependency manifest of their own: ${unmatchedLanguages.join(', ')}. Check whether they pull dependencies through one of the ecosystems above.`);
+    lines.push(promptText('prompt.templates.fix-update-dependencies.buildEcosystemsSection.text8', { value1: String(unmatchedLanguages.join(', ')) }));
   }
 
   return lines.join('\n').trimEnd();
@@ -462,23 +463,23 @@ export function buildAutomationSection({ languages, files } = {}) {
 
   const lines = [];
   if (hasDependabotConfig) {
-    lines.push('`.github/dependabot.yml` already exists — verify it covers every ecosystem and directory listed above, then keep it in sync with any manifest this work adds or moves.');
+    lines.push(promptText('prompt.templates.fix-update-dependencies.buildAutomationSection.text9'));
   } else {
-    lines.push('There is no `.github/dependabot.yml` in this repository, so nothing keeps the versions current after this issue is closed. Add one so the next drift is a pull request instead of another issue.');
+    lines.push(promptText('prompt.templates.fix-update-dependencies.buildAutomationSection.text10'));
   }
   if (entries.length > 0) {
     lines.push('');
-    lines.push(hasDependabotConfig ? 'The ecosystems found in this repository correspond to these entries:' : 'For the ecosystems found in this repository that is:');
+    lines.push(hasDependabotConfig ? promptText('prompt.templates.fix-update-dependencies.buildAutomationSection.text11') : promptText('prompt.templates.fix-update-dependencies.buildAutomationSection.text12'));
     lines.push('');
     lines.push('```yaml');
     lines.push(buildDependabotConfig(entries));
     lines.push('```');
     if (entries.some(entry => entry.truncated)) {
       lines.push('');
-      lines.push(`Only the first ${MAX_DEPENDABOT_DIRECTORIES} directories are listed per ecosystem — add the remaining ones, or replace the list with a glob (\`directories\` supports \`*\`; \`directory\` does not).`);
+      lines.push(promptText('prompt.templates.fix-update-dependencies.buildAutomationSection.text13', { MAX_DEPENDABOT_DIRECTORIES: String(MAX_DEPENDABOT_DIRECTORIES) }));
     }
     lines.push('');
-    lines.push('[Renovate](https://docs.renovatebot.com/) is the alternative if grouped or automerged updates are wanted instead.');
+    lines.push(promptText('prompt.templates.fix-update-dependencies.buildAutomationSection.text14'));
   }
   return lines.join('\n');
 }
@@ -494,53 +495,53 @@ export { REPORT_DEPENDENCIES_ISSUES_PARAGRAPH as REPORT_UPSTREAM_PARAGRAPH };
 
 /** Build the ordered, tagged paragraphs of the standard prompt. */
 export function buildStandardPromptParagraphs({ ecosystems = [], reportDependenciesIssues = true } = {}) {
-  const labels = ecosystems.length > 0 ? ecosystems.map(entry => entry.ecosystem.label).join(', ') : 'every language and package manager present in the repository';
+  const labels = ecosystems.length > 0 ? ecosystems.map(entry => entry.ecosystem.label).join(', ') : promptText('prompt.system.templates.fix-update-dependencies.buildStandardPromptParagraphs.text15');
 
   return [
     {
       providedBy: [],
-      text: `Update all dependencies to their latest versions, in ${labels}. "All" is literal: development dependencies, transitive lockfile entries, build plugins, test runners, linters, base images, GitHub Actions, and the language/toolchain versions themselves.`,
+      text: promptText('prompt.system.templates.fix-update-dependencies.buildStandardPromptParagraphs.text16', { labels: String(labels) }),
     },
     {
       providedBy: [],
-      text: 'For each ecosystem, produce a table of every dependency with the version pinned today and the version released today, resolved from the registry — not from memory. Anything left behind must have a written reason recorded (an upstream bug, a dropped platform, a paid tier), not silence.',
+      text: promptText('prompt.system.templates.fix-update-dependencies.buildStandardPromptParagraphs.text17'),
     },
     {
       providedBy: [],
-      text: 'Cross major versions deliberately. Read the changelog and the migration guide for every major bump, adapt the code to the new API, and remove the shims the old version needed. A constraint loosened or a test skipped to make a major "pass" is not an update.',
+      text: promptText('prompt.system.templates.fix-update-dependencies.buildStandardPromptParagraphs.text18'),
     },
     {
       providedBy: [],
-      text: 'Use the new features. Where a newer version replaces something this repository implements by hand, delete the hand-rolled copy and use the upstream feature, so there is less duplicated code and logic afterwards than before.',
+      text: promptText('prompt.system.templates.fix-update-dependencies.buildStandardPromptParagraphs.text19'),
     },
     {
       providedBy: [],
-      text: 'Make the constraints honest: raise floors that are years below what is actually installed, drop upper bounds that exclude the current release, and regenerate and commit every lockfile so a fresh install and CI resolve the same tree.',
+      text: promptText('prompt.system.templates.fix-update-dependencies.buildStandardPromptParagraphs.text20'),
     },
     {
       providedBy: [],
-      text: 'If the same dependency is pinned in more than one place — several language implementations, a Dockerfile, a workflow — bring every pin to the same version. A repository that pins one library at four different versions has four different behaviours.',
+      text: promptText('prompt.system.templates.fix-update-dependencies.buildStandardPromptParagraphs.text21'),
     },
     {
       providedBy: [],
-      text: 'Run the full build, test and lint suite of every ecosystem after updating, and make CI green. Resolve every new deprecation warning the update introduces rather than leaving it for the next reader.',
+      text: promptText('prompt.system.templates.fix-update-dependencies.buildStandardPromptParagraphs.text22'),
     },
     {
       providedBy: [],
-      text: 'Check the security advisories for the tree as it stands afterwards (`npm audit`, `cargo audit`, `pip-audit`, `bundle audit`, `dotnet list package --vulnerable`, or the ecosystem equivalent) and make sure the update leaves none unresolved.',
+      text: promptText('prompt.system.templates.fix-update-dependencies.buildStandardPromptParagraphs.text23'),
     },
     // Generated issues must carry this even when deep analysis is forwarded.
     // It also covers feature gaps and duplicated logic, not only blocking bugs.
-    ...(reportDependenciesIssues ? [{ providedBy: [], text: REPORT_DEPENDENCIES_ISSUES_PARAGRAPH }] : []),
+    ...(reportDependenciesIssues ? [{ providedBy: [], text: localizePromptConstant(REPORT_DEPENDENCIES_ISSUES_PARAGRAPH) }] : []),
     {
       providedBy: [],
-      text: `Follow the dependency-update practices collected in [${DEPENDENCY_BEST_PRACTICES_URL}](${DEPENDENCY_BEST_PRACTICES_URL}).`,
+      text: promptText('prompt.system.templates.fix-update-dependencies.buildStandardPromptParagraphs.text24', { DEPENDENCY_BEST_PRACTICES_URL: String(DEPENDENCY_BEST_PRACTICES_URL) }),
     },
     {
       // Identical to the reinforcement prompt /solve --keep-working-... reuses,
       // so share the single constant instead of restating it.
       providedBy: [],
-      text: KEEP_WORKING_PROMPT,
+      text: localizePromptConstant(KEEP_WORKING_PROMPT),
     },
   ];
 }
@@ -579,7 +580,28 @@ export function buildUpdateDependenciesIssueBody({ repository, defaultBranch, co
   const { detected } = mapRepositoryToEcosystems({ languages, files });
   const commitLine = commit?.sha ? `\`${shortSha(commit.sha)}\`${commit.url ? ` ([commit](${commit.url}))` : ''}${commit.message ? ` — ${String(commit.message).split('\n')[0]}` : ''}` : 'unknown';
 
-  const sections = ['### Dependency ecosystems detected in this repository', '', buildEcosystemsSection({ languages, files }), '', '### Keeping them current', '', buildAutomationSection({ languages, files }), '', buildStandardPrompt({ ecosystems: detected, omittedOptions, reportDependenciesIssues }), '', '---', '', '<details>', '<summary>Context collected by <code>/fix --update-all-dependencies</code></summary>', '', `- **Repository:** [${repository?.fullName}](${repository?.url})`, `- **Default branch:** \`${defaultBranch || 'unknown'}\``, `- **Latest commit:** ${commitLine}`, `- **Ecosystems detected:** ${detected.length}`, `- **Manifest files found:** ${detected.reduce((sum, entry) => sum + entry.manifests.length, 0)}`];
+  const sections = [
+    promptText('prompt.templates.fix-update-dependencies.buildUpdateDependenciesIssueBody.text25'),
+    '',
+    buildEcosystemsSection({ languages, files }),
+    '',
+    promptText('prompt.templates.fix-update-dependencies.buildUpdateDependenciesIssueBody.text26'),
+    '',
+    buildAutomationSection({ languages, files }),
+    '',
+    buildStandardPrompt({ ecosystems: detected, omittedOptions, reportDependenciesIssues }),
+    '',
+    '---',
+    '',
+    '<details>',
+    promptText('prompt.templates.fix-update-dependencies.buildUpdateDependenciesIssueBody.text27'),
+    '',
+    `- **Repository:** [${repository?.fullName}](${repository?.url})`,
+    promptText('prompt.templates.fix-update-dependencies.buildUpdateDependenciesIssueBody.text28', { value1: String(defaultBranch || 'unknown') }),
+    promptText('prompt.templates.fix-update-dependencies.buildUpdateDependenciesIssueBody.text29', { commitLine: String(commitLine) }),
+    promptText('prompt.templates.fix-update-dependencies.buildUpdateDependenciesIssueBody.text30', { value1: String(detected.length) }),
+    promptText('prompt.templates.fix-update-dependencies.buildUpdateDependenciesIssueBody.text31', { value1: String(detected.reduce((sum, entry) => sum + entry.manifests.length, 0)) }),
+  ];
 
   // Issue #3413: the Dependabot pull requests merged before this issue was
   // created come first, because fixing what they broke is part of the task.
@@ -587,10 +609,10 @@ export function buildUpdateDependenciesIssueBody({ repository, defaultBranch, co
   if (dependabotSection) sections.unshift(dependabotSection, '');
 
   if (filesTruncated) {
-    sections.push('- ⚠️ **The file listing returned by GitHub was truncated**, so the manifest inventory above may be incomplete. Re-check the repository tree by hand.');
+    sections.push(promptText('prompt.templates.fix-update-dependencies.buildUpdateDependenciesIssueBody.text32'));
   }
 
-  sections.push('', '**Detected languages**', '', buildLanguagesSection(languages), '', '</details>');
+  sections.push('', promptText('prompt.templates.fix-update-dependencies.buildUpdateDependenciesIssueBody.text33'), '', buildLanguagesSection(languages), '', '</details>');
 
   return sections.join('\n');
 }

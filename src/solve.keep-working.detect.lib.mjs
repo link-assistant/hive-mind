@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { promptText, localizePromptConstant } from './prompt-text.lib.mjs';
 
 /**
  * Pure detection + normalization helpers for the keep-working feature.
@@ -20,7 +21,7 @@ export const DEFAULT_KEEP_WORKING_LIMIT = 5;
  * The reinforcement prompt appended to every keep-working restart, in addition
  * to the concrete detected reasons. Taken verbatim from issue #1883.
  */
-export const KEEP_WORKING_PROMPT = 'Please plan and execute everything in this single pull request, you have unlimited time and context, as context auto-compacts and you can continue indefinitely, until it is each and every requirement fully addressed, and everything is totally done.';
+export const KEEP_WORKING_PROMPT = promptText('prompt.system.templates.solve-keep-working-detect.KEEP_WORKING_PROMPT.text1', {}, { locale: 'en' });
 
 /**
  * Strong indicators that work was deferred / delayed / left for a future pull
@@ -188,22 +189,22 @@ export const extractAddedLinesFromPatch = patch => {
  */
 export const buildKeepWorkingFeedback = (detections, iteration, limit) => {
   const limitLabel = formatKeepWorkingLimit(limit);
-  const lines = ['', '='.repeat(60), `🔁 KEEP WORKING UNTIL ALL REQUIREMENTS ARE FULLY DONE (restart ${iteration}/${limitLabel}):`, '='.repeat(60), '', 'It looks like some work was deferred, delayed or planned for a future pull request.', 'The following strong indicators of unfinished / deferred work were detected:', ''];
+  const lines = ['', '='.repeat(60), promptText('prompt.templates.solve-keep-working-detect.buildKeepWorkingFeedback.text2', { iteration: String(iteration), limitLabel: String(limitLabel) }), '='.repeat(60), '', promptText('prompt.templates.solve-keep-working-detect.buildKeepWorkingFeedback.text3'), promptText('prompt.templates.solve-keep-working-detect.buildKeepWorkingFeedback.text4'), ''];
 
   // Show up to 15 distinct detected reasons to keep the prompt focused.
   const shown = (detections || []).slice(0, 15);
   for (const detection of shown) {
-    lines.push(`  • [${detection.label}] in ${detection.source}: "${detection.snippet}"`);
+    lines.push(promptText('prompt.templates.solve-keep-working-detect.buildKeepWorkingFeedback.text5', { value1: String(detection.label), value2: String(detection.source), value3: String(detection.snippet) }));
   }
   if ((detections || []).length > shown.length) {
-    lines.push(`  • ...and ${detections.length - shown.length} more indicator(s)`);
+    lines.push(promptText('prompt.templates.solve-keep-working-detect.buildKeepWorkingFeedback.text6', { value1: String(detections.length - shown.length) }));
   }
 
   lines.push('');
-  lines.push('There is NO future pull request. This is the single pull request where everything must be done.');
-  lines.push('Do not defer, delay or postpone anything. Remove any "future work" / "out of scope" / "TODO" / "follow-up" notes by actually implementing them now.');
+  lines.push(promptText('prompt.templates.solve-keep-working-detect.buildKeepWorkingFeedback.text7'));
+  lines.push(promptText('prompt.templates.solve-keep-working-detect.buildKeepWorkingFeedback.text8'));
   lines.push('');
-  lines.push(KEEP_WORKING_PROMPT);
+  lines.push(localizePromptConstant(KEEP_WORKING_PROMPT));
   lines.push('');
 
   return lines;

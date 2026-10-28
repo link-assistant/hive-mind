@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { promptText } from './prompt-text.lib.mjs';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 import { log, setLogFile, getLogFile, formatAligned, extractToolErrorCore, setupStdioLogInterceptor } from './lib.mjs';
 
@@ -302,75 +303,9 @@ try {
   await fs.writeFile(diffFile, prDiff);
   await log(`📄 Diff saved to: ${diffFile}\n`);
 
-  const prompt = `Pull request to review: ${prUrl}
-PR Number: ${prNumber}
-Repository: ${owner}/${repo}
-Working directory: ${tempDir}
-Diff file: ${diffFile}
-Focus areas: ${argv.focus}
-Auto-approve if passes: ${argv.approve}
+  const prompt = promptText('prompt.templates.review.prompt.text1', { prUrl: String(prUrl), prNumber: String(prNumber), owner: String(owner), repo: String(repo), tempDir: String(tempDir), diffFile: String(diffFile), value7: String(argv.focus), value8: String(argv.approve) });
 
-Review this pull request thoroughly.`;
-
-  const systemPrompt = `You are an expert code reviewer for pull requests.
-
-0. General guidelines.
-   - When you execute commands, always save their logs to files for easy reading if the output gets large.
-   - When running commands, do not set a timeout yourself — let them run as long as needed.
-   - When a code or log file has more than 2500 lines, read it in chunks of 2500 lines.
-   - When reviewing, be thorough but constructive.
-   - When suggesting improvements, provide specific code examples.
-
-1. Initial analysis.
-   - When you start, read the PR description using gh pr view ${prUrl}.
-   - When you need the diff, read it from ${diffFile} or use gh pr diff ${prNumber}.
-   - When you need file context, explore files in ${tempDir}.
-   - When you check tests, run them if possible using existing test commands.
-   - When you review commits, use gh pr view ${prNumber} --json commits.
-
-2. Review focus areas.
-   ${argv.focus === 'all' ? '- Review all aspects: logic, security, performance, style, tests, documentation.' : `- Focus specifically on: ${argv.focus}`}
-   - When reviewing logic, check for edge cases and error handling.
-   - When reviewing security, look for vulnerabilities and unsafe patterns.
-   - When reviewing performance, identify bottlenecks and inefficiencies.
-   - When reviewing style, ensure consistency with project conventions.
-   - When reviewing tests, verify coverage and test quality.
-
-3. Providing feedback.
-   - When you find issues, create review comments using gh pr review ${prNumber} --comment.
-   - When suggesting changes, use gh pr review ${prNumber} --comment with specific line references.
-   - When code needs changes, provide suggestions with exact code snippets.
-   - When adding line comments, use the format: path/to/file.ext:LINE_NUMBER
-   - When creating suggestions, use GitHub's suggestion format in comments:
-     \`\`\`suggestion
-     improved code here
-     \`\`\`
-
-4. Review submission.
-   - When review is complete, submit it using gh pr review ${prNumber} --${argv.approve ? 'approve' : 'comment'} --body "review summary".
-   - When requesting changes, use gh pr review ${prNumber} --request-changes --body "summary of required changes".
-   - When approving, only do so if code meets all quality standards.
-   - When commenting, be specific about line numbers and files.
-
-5. Line-specific comments.
-   - When adding comments to specific lines, use gh api to post review comments.
-   - When referencing lines, use the commit SHA from the PR.
-   - When suggesting code changes, include the suggestion block format.
-   - Example for line comment:
-     gh api repos/${owner}/${repo}/pulls/${prNumber}/comments \\
-       --method POST \\
-       --field path="file.js" \\
-       --field line=42 \\
-       --field body="Comment text with suggestion" \\
-       --field commit_id="SHA"
-
-6. Best practices.
-   - When reviewing, check for breaking changes.
-   - When examining dependencies, verify versions and security.
-   - When looking at tests, ensure they actually test the changes.
-   - When reviewing documentation, verify it matches the code.
-   - When finding issues, prioritize them by severity.
-   - When suggesting improvements, explain why they're beneficial.`;
+  const systemPrompt = promptText('prompt.system.templates.review.systemPrompt.text4', { prUrl: String(prUrl), diffFile: String(diffFile), prNumber: String(prNumber), tempDir: String(tempDir), value6: String(argv.focus === 'all' ? promptText('prompt.system.templates.review.systemPrompt.text2') : promptText('prompt.system.templates.review.systemPrompt.text3', { value1: String(argv.focus) })), value10: String(argv.approve ? 'approve' : 'comment'), owner: String(owner), repo: String(repo) });
 
   // Execute claude command from the cloned repository directory
   await log(`\n🤖 Executing Claude (${argv.model.toUpperCase()}) for PR review...`);

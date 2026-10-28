@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { promptText } from './prompt-text.lib.mjs';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 
 /**
@@ -540,21 +541,21 @@ export const watchUntilMergeable = async params => {
       if (hasNewComments) {
         shouldRestart = true;
         restartReason = `New comment(s) from non-bot user(s): ${comments.map(c => c.user?.login).join(', ')}`;
-        feedbackLines.push('📬 New comments detected from non-bot users:');
+        feedbackLines.push(promptText('prompt.templates.solve-auto-merge.watchUntilMergeable.text1'));
         for (const comment of comments) {
           feedbackLines.push(`  - ${comment.user?.login}: "${comment.body?.substring(0, 100)}${comment.body?.length > 100 ? '...' : ''}"`);
         }
         feedbackLines.push('');
-        feedbackLines.push('Please review and address the feedback from these comments.');
+        feedbackLines.push(promptText('prompt.templates.solve-auto-merge.watchUntilMergeable.text2'));
       }
 
       // Issue #2119: Reason 1a: the pull request does not change anything yet.
       if (isEmptyPullRequest) {
         shouldRestart = true;
         restartReason = restartReason ? `${restartReason}; ${emptyPullRequestBlocker}` : emptyPullRequestBlocker;
-        feedbackLines.push(`📭 ${emptyPullRequestBlocker}.`);
+        feedbackLines.push(promptText('prompt.templates.solve-auto-merge.watchUntilMergeable.text3', { emptyPullRequestBlocker: String(emptyPullRequestBlocker) }));
         feedbackLines.push('');
-        feedbackLines.push('Implement the requested change and commit it to the pull request branch. Do not report the work as done while the diff is empty.');
+        feedbackLines.push(promptText('prompt.templates.solve-auto-merge.watchUntilMergeable.text4'));
       }
       // Issue #2312: Reason 1c: the last working session left the draft on purpose
       // (the empty diff is already reported above).
@@ -569,14 +570,14 @@ export const watchUntilMergeable = async params => {
         shouldRestart = true;
         const changedFields = issueMetadataChanges.map(c => (c.field === 'title' ? 'title' : 'description')).join(' and ');
         restartReason = restartReason ? `${restartReason}; Issue ${changedFields} edited` : `Issue ${changedFields} edited`;
-        feedbackLines.push(`✏️ The issue ${changedFields} was edited after the last session:`);
+        feedbackLines.push(promptText('prompt.templates.solve-auto-merge.watchUntilMergeable.text5', { changedFields: String(changedFields) }));
         for (const change of issueMetadataChanges) {
           const label = change.field === 'title' ? 'Issue title' : 'Issue description';
           const updated = String(change.to ?? '');
-          feedbackLines.push(`  - ${label} is now: "${updated.substring(0, 200)}${updated.length > 200 ? '...' : ''}"`);
+          feedbackLines.push(promptText('prompt.templates.solve-auto-merge.watchUntilMergeable.text6', { label: String(label), value2: String(updated.substring(0, 200)), value3: String(updated.length > 200 ? '...' : '') }));
         }
         feedbackLines.push('');
-        feedbackLines.push('Please re-read the updated issue and make sure your solution still matches the requirements.');
+        feedbackLines.push(promptText('prompt.templates.solve-auto-merge.watchUntilMergeable.text7'));
       }
       // Issue #1314: a billing limit is checked before regular CI failures,
       // because it needs a human, not an AI restart.
@@ -710,13 +711,13 @@ export const watchUntilMergeable = async params => {
       if (ciBlocker && !billingBlocker) {
         shouldRestart = true;
         restartReason = restartReason ? `${restartReason}; CI failures` : 'CI failures detected';
-        feedbackLines.push('❌ CI/CD checks are failing:');
+        feedbackLines.push(promptText('prompt.templates.solve-auto-merge.watchUntilMergeable.text8'));
         // Issue #1690: surface the blocker message (e.g. "CI/CD workflow file is invalid — no jobs were instantiated") even without check-runs.
         if (ciBlocker.message && ciBlocker.message !== 'CI/CD checks are failing') {
           feedbackLines.push(`  ${ciBlocker.message}`);
         }
         for (const check of ciBlocker.details) feedbackLines.push(`  - ${check}`);
-        feedbackLines.push('', 'Please fix the failing CI checks.');
+        feedbackLines.push('', promptText('prompt.templates.solve-auto-merge.watchUntilMergeable.text9'));
         feedbackLines.push(...buildCiFailureGuidance(), ...buildPreExistingCiFeedback(preExistingCi)); // Issue #2839: pre-existing failures block the merge too
       }
       // Reason 3: Merge conflicts or other merge issues
@@ -724,10 +725,10 @@ export const watchUntilMergeable = async params => {
       if (mergeBlocker && mergeBlocker.message.includes('conflicts')) {
         shouldRestart = true;
         restartReason = restartReason ? `${restartReason}; Merge conflicts` : 'Merge conflicts detected';
-        feedbackLines.push('⚠️ Merge conflicts detected:');
+        feedbackLines.push(promptText('prompt.templates.solve-auto-merge.watchUntilMergeable.text10'));
         feedbackLines.push(`  ${mergeBlocker.message}`);
         feedbackLines.push('');
-        feedbackLines.push('Please resolve the merge conflicts.');
+        feedbackLines.push(promptText('prompt.templates.solve-auto-merge.watchUntilMergeable.text11'));
       }
       // Reason 4: Uncommitted changes
       if (hasUncommittedChanges) {
@@ -789,10 +790,10 @@ export const watchUntilMergeable = async params => {
             if (pullLeftLocalChanges && /CONFLICT|MERGE_HEAD|unmerged|Automatic merge failed|not concluded your merge/i.test(pullOutput)) {
               await log(formatAligned('⚠️', 'Sync produced merge state:', 'Proceeding with AI restart to resolve it', 2));
               feedbackLines.push('');
-              feedbackLines.push('⚠️ Branch sync encountered an unfinished merge or conflicts:');
+              feedbackLines.push(promptText('prompt.templates.solve-auto-merge.watchUntilMergeable.text12'));
               feedbackLines.push(pullOutput);
               feedbackLines.push('');
-              feedbackLines.push('Please resolve the merge state before finishing.');
+              feedbackLines.push(promptText('prompt.templates.solve-auto-merge.watchUntilMergeable.text13'));
             } else {
               throw new Error(`git pull failed (code ${pullResult.code}): ${pullOutput}`);
             }
@@ -966,7 +967,7 @@ export const watchUntilMergeable = async params => {
                 branchName: prBranch || branchName,
                 tempDir,
                 mergeStateStatus,
-                feedbackLines: ['Continue'],
+                feedbackLines: [promptText('prompt.templates.feedback.continue')],
                 argv: resumeArgv,
               });
               if (resumeResult.success) {

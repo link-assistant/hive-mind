@@ -1,0 +1,170 @@
+[
+  {
+    "backend": "agent",
+    "profile": "default",
+    "kind": "System",
+    "bytes": 11053,
+    "sha256": "f54509a5c606a59db1eb84c4d9225e9fb6314b1a635f0c03954800328d337f24"
+  },
+  {
+    "backend": "agent",
+    "profile": "default",
+    "kind": "User",
+    "bytes": 448,
+    "sha256": "cdd1e584c5effb8540ca46ed17d6c7a18b086e7d327699aa04b5a5c85221e16c"
+  },
+  {
+    "backend": "agent",
+    "profile": "all-options",
+    "kind": "System",
+    "bytes": 21029,
+    "sha256": "63d9dbe6eac28181315b3e12f50866eb41e144a69651897df47bfe30d4404988"
+  },
+  {
+    "backend": "agent",
+    "profile": "all-options",
+    "kind": "User",
+    "bytes": 1432,
+    "sha256": "9d18b8d6df537b539013d93df623f7bcd29e806a17dabd2bd3fde63dc8770f9b"
+  },
+  {
+    "backend": "claude",
+    "profile": "default",
+    "kind": "System",
+    "bytes": 13484,
+    "sha256": "294d7316f1871a66d34d920794b97bb19e40971c6a3f63ad5ac33b5ef9f00cf7"
+  },
+  {
+    "backend": "claude",
+    "profile": "default",
+    "kind": "User",
+    "bytes": 448,
+    "sha256": "cdd1e584c5effb8540ca46ed17d6c7a18b086e7d327699aa04b5a5c85221e16c"
+  },
+  {
+    "backend": "claude",
+    "profile": "all-options",
+    "kind": "System",
+    "bytes": 24090,
+    "sha256": "70c2c54f9b420cb66e371891ed8a467855401c10e1f785f068f4fa593644a4fc"
+  },
+  {
+    "backend": "claude",
+    "profile": "all-options",
+    "kind": "User",
+    "bytes": 1432,
+    "sha256": "9d18b8d6df537b539013d93df623f7bcd29e806a17dabd2bd3fde63dc8770f9b"
+  },
+  {
+    "backend": "codex",
+    "profile": "default",
+    "kind": "System",
+    "bytes": 12787,
+    "sha256": "42414fa29b4b736095caab12255977b2ae8f433bfcecf1524fc624bf9ab7d82c"
+  },
+  {
+    "backend": "codex",
+    "profile": "default",
+    "kind": "User",
+    "bytes": 448,
+    "sha256": "cdd1e584c5effb8540ca46ed17d6c7a18b086e7d327699aa04b5a5c85221e16c"
+  },
+  {
+    "backend": "codex",
+    "profile": "all-options",
+    "kind": "System",
+    "bytes": 22256,
+    "sha256": "0c91801a26a47d4db4c5ae28c65bcbb2a177dd73b42d5c2c33aa4342382e4606"
+  },
+  {
+    "backend": "codex",
+    "profile": "all-options",
+    "kind": "User",
+    "bytes": 1432,
+    "sha256": "9d18b8d6df537b539013d93df623f7bcd29e806a17dabd2bd3fde63dc8770f9b"
+  },
+  {
+    "backend": "gemini",
+    "profile": "default",
+    "kind": "System",
+    "bytes": 11139,
+    "sha256": "6b6564cd8008f803bf9ed4a1df77b862a2f41acff6cbf4fb3f0452e51c675147"
+  },
+  {
+    "backend": "gemini",
+    "profile": "default",
+    "kind": "User",
+    "bytes": 448,
+    "sha256": "cdd1e584c5effb8540ca46ed17d6c7a18b086e7d327699aa04b5a5c85221e16c"
+  },
+  {
+    "backend": "gemini",
+    "profile": "all-options",
+    "kind": "System",
+    "bytes": 19024,
+    "sha256": "9dbd3f9e8bb78406dc83d25fdc0622e0770c21a9bf4b6224c7410ae7bd0980fc"
+  },
+  {
+    "backend": "gemini",
+    "profile": "all-options",
+    "kind": "User",
+    "bytes": 1432,
+    "sha256": "9d18b8d6df537b539013d93df623f7bcd29e806a17dabd2bd3fde63dc8770f9b"
+  },
+  {
+    "backend": "opencode",
+    "profile": "default",
+    "kind": "System",
+    "bytes": 11270,
+    "sha256": "e3edf67ba9793a64629e413ca54573931991f519b45b48426ffa1e9cdba13aed"
+  },
+  {
+    "backend": "opencode",
+    "profile": "default",
+    "kind": "User",
+    "bytes": 448,
+    "sha256": "cdd1e584c5effb8540ca46ed17d6c7a18b086e7d327699aa04b5a5c85221e16c"
+  },
+  {
+    "backend": "opencode",
+    "profile": "all-options",
+    "kind": "System",
+    "bytes": 21247,
+    "sha256": "97b24dd43f5b2b38d80542c9de6ab441c78098ae5c0c542b0b86bcc1f72ca1ae"
+  },
+  {
+    "backend": "opencode",
+    "profile": "all-options",
+    "kind": "User",
+    "bytes": 1432,
+    "sha256": "9d18b8d6df537b539013d93df623f7bcd29e806a17dabd2bd3fde63dc8770f9b"
+  },
+  {
+    "backend": "qwen",
+    "profile": "default",
+    "kind": "System",
+    "bytes": 10994,
+    "sha256": "d3271281af8e2c5337c59f1fd6dd7538cb3bcde1af9565354aabf4d7143eb163"
+  },
+  {
+    "backend": "qwen",
+    "profile": "default",
+    "kind": "User",
+    "bytes": 448,
+    "sha256": "cdd1e584c5effb8540ca46ed17d6c7a18b086e7d327699aa04b5a5c85221e16c"
+  },
+  {
+    "backend": "qwen",
+    "profile": "all-options",
+    "kind": "System",
+    "bytes": 20982,
+    "sha256": "05ee4531536f1278ac33f5a9183c975cc26879a955a04d185a2c7589fbafb13d"
+  },
+  {
+    "backend": "qwen",
+    "profile": "all-options",
+    "kind": "User",
+    "bytes": 1432,
+    "sha256": "9d18b8d6df537b539013d93df623f7bcd29e806a17dabd2bd3fde63dc8770f9b"
+  }
+]

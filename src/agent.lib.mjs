@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { promptText } from './prompt-text.lib.mjs';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 // Agent-related utility functions
 
@@ -360,7 +361,7 @@ export const validateAgentConnection = async (model = defaultModels.agent, optio
       // Test basic Agent functionality with a simple "hi" message
       // Agent uses the same JSON interface as OpenCode
       const validationEnv = { ...process.env, ...getAgentModelOverlayEnv({ mappedModel }) }; // Issue #2625: models Agent's provider table lacks
-      const testResult = await $({ env: validationEnv })`printf "hi" | timeout ${Math.floor(timeouts.opencodeCli / 1000)} agent --model ${mappedModel}`;
+      const testResult = await $({ env: validationEnv })`printf %s ${promptText('prompt.templates.connection.greeting', {}, { locale: 'en' })} | timeout ${Math.floor(timeouts.opencodeCli / 1000)} agent --model ${mappedModel}`;
 
       if (testResult.code !== 0) {
         const stderr = testResult.stderr?.toString() || '';

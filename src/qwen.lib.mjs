@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { promptText } from './prompt-text.lib.mjs';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 // Qwen Code CLI-related utility functions
 
@@ -391,7 +392,7 @@ export const validateQwenConnection = async (model = defaultModels.qwen, qwenPat
       await log(`⚠️  Qwen Code version check failed (${versionError.code}), proceeding with connection test...`, { level: 'warning' });
     }
 
-    const testResult = await $`timeout ${Math.floor(timeouts.qwenCli / 1000)} ${qwenPath} --prompt ${'Respond with exactly: hi'} --model ${mappedModel} --output-format json --yolo`;
+    const testResult = await $`timeout ${Math.floor(timeouts.qwenCli / 1000)} ${qwenPath} --prompt ${promptText('prompt.templates.connection.qwen')} --model ${mappedModel} --output-format json --yolo`;
     const output = getCommandResultOutput(testResult);
 
     if (testResult.code !== 0) {

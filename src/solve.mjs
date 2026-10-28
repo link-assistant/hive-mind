@@ -5,6 +5,7 @@ import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 const earlyArgs = process.argv.slice(2);
 const { handleSolveEarlyExit, resolveStartupLogDirectory } = await import('./solve.bootstrap.lib.mjs');
 await handleSolveEarlyExit(earlyArgs);
+const { promptText } = await import('./prompt-text.lib.mjs');
 const use = (globalThis.use = await ensureUseM());
 const { $: __rawDollar$ } = await use('command-stream');
 const { configureGitHubRateLimitLogging, wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
@@ -436,17 +437,17 @@ try {
         // Merge failed - likely due to conflicts
         await log(`${formatAligned('⚠️', 'Merge failed:', 'Conflicts detected')}`, { level: 'warning' });
         autoMergeFeedbackLines.push('');
-        autoMergeFeedbackLines.push('⚠️ AUTOMATIC MERGE FAILED:');
-        autoMergeFeedbackLines.push(`git merge ${defaultBranch} was executed but resulted in conflicts that should be resolved first.`);
-        autoMergeFeedbackLines.push('Please resolve the merge conflicts and commit the changes.');
+        autoMergeFeedbackLines.push(promptText('prompt.templates.solve.module.text1'));
+        autoMergeFeedbackLines.push(promptText('prompt.templates.solve.module.text2', { defaultBranch: String(defaultBranch) }));
+        autoMergeFeedbackLines.push(promptText('prompt.templates.solve.module.text3'));
         autoMergeFeedbackLines.push('');
       }
     } catch (mergeError) {
       await log(`${formatAligned('❌', 'Merge error:', mergeError.message)}`, { level: 'error' });
       autoMergeFeedbackLines.push('');
-      autoMergeFeedbackLines.push('⚠️ AUTOMATIC MERGE ERROR:');
-      autoMergeFeedbackLines.push(`git merge ${defaultBranch} failed with error: ${mergeError.message}`);
-      autoMergeFeedbackLines.push('Please check the repository state and resolve any issues.');
+      autoMergeFeedbackLines.push(promptText('prompt.templates.solve.module.text4'));
+      autoMergeFeedbackLines.push(promptText('prompt.templates.solve.module.text5', { defaultBranch: String(defaultBranch), value2: String(mergeError.message) }));
+      autoMergeFeedbackLines.push(promptText('prompt.templates.solve.module.text6'));
       autoMergeFeedbackLines.push('');
     }
   }

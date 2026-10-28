@@ -1,0 +1,64 @@
+file:///tmp/gh-issue-solver-1793186592138/experiments/issue-3837-reject-catalog-imports.mjs:6
+    if (specifier === 'lino-i18n' || specifier.startsWith('lino-i18n/')) throw new Error('Early CLI exit must not load prompt catalogs');
+                                                                               ^
+
+Error: Early CLI exit must not load prompt catalogs
+    at resolve (file:///tmp/gh-issue-solver-1793186592138/experiments/issue-3837-reject-catalog-imports.mjs:6:80)
+    at nextStep (node:internal/modules/customization_hooks:189:26)
+    at resolveWithHooks (node:internal/modules/customization_hooks:417:10)
+    at ModuleLoader.resolveSync (node:internal/modules/esm/loader:754:16)
+    at #resolve (node:internal/modules/esm/loader:690:17)
+    at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+    at ModuleJob.syncLink (node:internal/modules/esm/module_job:277:33)
+    at ModuleJob.link (node:internal/modules/esm/module_job:389:17)
+    at new ModuleJob (node:internal/modules/esm/module_job:368:26)
+    at #getOrCreateModuleJobAfterResolve (node:internal/modules/esm/loader:579:11)
+
+Node.js v26.12.1
+✖ the version-only CLI exit remains independent of prompt catalogs (89.405132ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 478.126118
+
+✖ failing tests:
+
+test at tests/prompt-catalogues-3837.test.mjs:140:1
+✖ the version-only CLI exit remains independent of prompt catalogs (89.405132ms)
+  Error: Command failed: /home/box/.nvm/versions/node/v26.12.1/bin/node --max-old-space-size=96 --import /tmp/gh-issue-solver-1793186592138/experiments/issue-3837-reject-catalog-imports.mjs /tmp/gh-issue-solver-1793186592138/src/solve.mjs --version
+  file:///tmp/gh-issue-solver-1793186592138/experiments/issue-3837-reject-catalog-imports.mjs:6
+      if (specifier === 'lino-i18n' || specifier.startsWith('lino-i18n/')) throw new Error('Early CLI exit must not load prompt catalogs');
+                                                                                 ^
+
+  Error: Early CLI exit must not load prompt catalogs
+      at resolve (file:///tmp/gh-issue-solver-1793186592138/experiments/issue-3837-reject-catalog-imports.mjs:6:80)
+      at nextStep (node:internal/modules/customization_hooks:189:26)
+      at resolveWithHooks (node:internal/modules/customization_hooks:417:10)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:754:16)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at ModuleJob.syncLink (node:internal/modules/esm/module_job:277:33)
+      at ModuleJob.link (node:internal/modules/esm/module_job:389:17)
+      at new ModuleJob (node:internal/modules/esm/module_job:368:26)
+      at #getOrCreateModuleJobAfterResolve (node:internal/modules/esm/loader:579:11)
+
+  Node.js v26.12.1
+
+      at genericNodeError (node:internal/errors:999:15)
+      at wrappedFn (node:internal/errors:544:14)
+      at checkExecSyncError (node:child_process:990:11)
+      at execFileSync (node:child_process:1026:15)
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1793186592138/tests/prompt-catalogues-3837.test.mjs:142:18)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    status: 1,
+    signal: null,
+    output: [ null, '', "file:///tmp/gh-issue-solver-1793186592138/experiments/issue-3837-reject-catalog-imports.mjs:6\n    if (specifier === 'lino-i18n' || specifier.startsWith('lino-i18n/')) throw new Error('Early CLI exit must not load prompt catalogs');\n                                                                               ^\n\nError: Early CLI exit must not load prompt catalogs\n    at resolve (file:///tmp/gh-issue-solver-1793186592138/experiments/issue-3837-reject-catalog-imports.mjs:6:80)\n    at nextStep (node:internal/modules/customization_hooks:189:26)\n    at resolveWithHooks (node:internal/modules/customization_hooks:417:10)\n    at ModuleLoader.resolveSync (node:internal/modules/esm/loader:754:16)\n    at #resolve (node:internal/modules/esm/loader:690:17)\n    at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)\n    at ModuleJob.syncLink (node:internal/modules/esm/module_job:277:33)\n    at ModuleJob.link (node:internal/modules/esm/module_job:389:17)\n    at new ModuleJob (node:internal/modules/esm/module_job:368:26)\n    at #getOrCreateModuleJobAfterResolve (node:internal/modules/esm/loader:579:11)\n\nNode.js v26.12.1\n" ],
+    pid: 28994,
+    stdout: '',
+    stderr: "file:///tmp/gh-issue-solver-1793186592138/experiments/issue-3837-reject-catalog-imports.mjs:6\n    if (specifier === 'lino-i18n' || specifier.startsWith('lino-i18n/')) throw new Error('Early CLI exit must not load prompt catalogs');\n                                                                               ^\n\nError: Early CLI exit must not load prompt catalogs\n    at resolve (file:///tmp/gh-issue-solver-1793186592138/experiments/issue-3837-reject-catalog-imports.mjs:6:80)\n    at nextStep (node:internal/modules/customization_hooks:189:26)\n    at resolveWithHooks (node:internal/modules/customization_hooks:417:10)\n    at ModuleLoader.resolveSync (node:internal/modules/esm/loader:754:16)\n    at #resolve (node:internal/modules/esm/loader:690:17)\n    at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)\n    at ModuleJob.syncLink (node:internal/modules/esm/module_job:277:33)\n    at ModuleJob.link (node:internal/modules/esm/module_job:389:17)\n    at new ModuleJob (node:internal/modules/esm/module_job:368:26)\n    at #getOrCreateModuleJobAfterResolve (node:internal/modules/esm/loader:579:11)\n\nNode.js v26.12.1\n"
+  }

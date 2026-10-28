@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { promptText, localizePromptConstant } from './prompt-text.lib.mjs';
 
 /**
  * Pure detection helpers for `--ensure-all-sub-issues-addressed` (issue #2212).
@@ -27,7 +28,7 @@ export const DEFAULT_ENSURE_SUB_ISSUES_LIMIT = 5;
  * Reinforcement prompt appended to every restart, in addition to the concrete
  * list of sub-issues whose closing references are missing.
  */
-export const ENSURE_SUB_ISSUES_PROMPT = 'Double check that every sub-issue listed above was really addressed in this single pull request, then make sure the pull request description closes each of them with a GitHub recognized closing reference.';
+export const ENSURE_SUB_ISSUES_PROMPT = promptText('prompt.system.templates.solve-ensure-sub-issues-detect.ENSURE_SUB_ISSUES_PROMPT.text1', {}, { locale: 'en' });
 
 /**
  * Normalize the `--ensure-all-sub-issues-addressed` value into a restart limit.
@@ -183,14 +184,14 @@ export function buildMissingReferenceBlock(subIssues, { owner = null, repo = nul
  */
 export function buildEnsureSubIssuesFeedback({ missing, total, iteration, limit, owner = null, repo = null, issueNumber = null }) {
   const missingList = Array.isArray(missing) ? missing : [];
-  const lines = ['', '='.repeat(60), '🧩 ENSURE ALL SUB-ISSUES ADDRESSED:', '='.repeat(60), '', `Restart ${iteration}/${formatEnsureSubIssuesLimit(limit)}.`, '', `This issue${issueNumber ? ` (#${issueNumber})` : ''} has ${total} sub-issue(s). The pull request description is missing a GitHub recognized closing reference for ${missingList.length} of them:`, ''];
+  const lines = ['', '='.repeat(60), promptText('prompt.templates.solve-ensure-sub-issues-detect.buildEnsureSubIssuesFeedback.text2'), '='.repeat(60), '', promptText('prompt.templates.solve-ensure-sub-issues-detect.buildEnsureSubIssuesFeedback.text3', { iteration: String(iteration), value2: String(formatEnsureSubIssuesLimit(limit)) }), '', promptText('prompt.templates.solve-ensure-sub-issues-detect.buildEnsureSubIssuesFeedback.text4', { value1: String(issueNumber ? ` (#${issueNumber})` : ''), total: String(total), value3: String(missingList.length) }), ''];
 
   for (const subIssue of missingList) {
     const reference = formatSubIssueReference(subIssue, owner, repo);
     lines.push(`  • ${reference}${subIssue.title ? ` — ${subIssue.title}` : ''}${subIssue.url ? ` (${subIssue.url})` : ''}`);
   }
 
-  lines.push('', 'For each sub-issue above:', '  1. Verify it was really addressed by the changes in this pull request. If it was not, implement it now — in this same pull request.', '  2. Then update the pull request description so it closes the sub-issue.', '', 'GitHub only recognizes the full closing syntax repeated per issue: "Fixes #1, #2" closes only #1.', 'Add these lines to the pull request description (keep any existing closing references):', '', buildMissingReferenceBlock(missingList, { owner, repo }), '', ENSURE_SUB_ISSUES_PROMPT, '');
+  lines.push('', promptText('prompt.templates.solve-ensure-sub-issues-detect.buildEnsureSubIssuesFeedback.text5'), promptText('prompt.templates.solve-ensure-sub-issues-detect.buildEnsureSubIssuesFeedback.text6'), promptText('prompt.templates.solve-ensure-sub-issues-detect.buildEnsureSubIssuesFeedback.text7'), '', promptText('prompt.templates.solve-ensure-sub-issues-detect.buildEnsureSubIssuesFeedback.text8'), promptText('prompt.templates.solve-ensure-sub-issues-detect.buildEnsureSubIssuesFeedback.text9'), '', buildMissingReferenceBlock(missingList, { owner, repo }), '', localizePromptConstant(ENSURE_SUB_ISSUES_PROMPT), '');
 
   return lines;
 }
@@ -220,13 +221,13 @@ export function buildMissingClosingReferencesBlocker({ missing, total, prNumber 
   if (missingList.length === 0) return null;
 
   const details = missingList.slice(0, 20).map(subIssue => `${formatSubIssueReference(subIssue, owner, repo)}${subIssue.title ? ` — ${subIssue.title}` : ''}`);
-  if (missingList.length > 20) details.push(`… and ${missingList.length - 20} more`);
+  if (missingList.length > 20) details.push(promptText('prompt.templates.solve-ensure-sub-issues-detect.buildMissingClosingReferencesBlocker.text10', { value1: String(missingList.length - 20) }));
 
   return {
     reason: MISSING_CLOSING_REFERENCES_REASON,
-    message: `The pull request${prNumber ? ` #${prNumber}` : ''} description does not close ${missingList.length} of the ${total} issue(s)${issueNumber ? ` required by #${issueNumber}` : ''}`,
+    message: promptText('prompt.templates.solve-ensure-sub-issues-detect.buildMissingClosingReferencesBlocker.text12', { value1: String(prNumber ? ` #${prNumber}` : ''), value2: String(missingList.length), total: String(total), value4: String(issueNumber ? promptText('prompt.templates.solve-ensure-sub-issues-detect.buildMissingClosingReferencesBlocker.text11', { issueNumber: String(issueNumber) }) : '') }),
     details,
-    resolution: `Add these lines to the pull request description, one keyword per issue: ${missingList.map(subIssue => `\`Fixes ${formatSubIssueReference(subIssue, owner, repo)}\``).join(', ')}`,
+    resolution: promptText('prompt.templates.solve-ensure-sub-issues-detect.buildMissingClosingReferencesBlocker.text13', { value1: String(missingList.map(subIssue => `\`Fixes ${formatSubIssueReference(subIssue, owner, repo)}\``).join(', ')) }),
   };
 }
 

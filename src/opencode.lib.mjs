@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { promptText } from './prompt-text.lib.mjs';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 // OpenCode-related utility functions
 
@@ -79,7 +80,7 @@ export const validateOpenCodeConnection = async (model = defaultModels.opencode)
 
       // Test basic OpenCode functionality with a simple "hi" message
       // Check for non-error result to validate the connection
-      const testResult = await $`printf "hi" | timeout ${Math.floor(timeouts.opencodeCli / 1000)} opencode run --format json --model ${mappedModel}`;
+      const testResult = await $`printf %s ${promptText('prompt.templates.connection.greeting', {}, { locale: 'en' })} | timeout ${Math.floor(timeouts.opencodeCli / 1000)} opencode run --format json --model ${mappedModel}`;
 
       if (testResult.code !== 0) {
         const stderr = testResult.stderr?.toString() || '';

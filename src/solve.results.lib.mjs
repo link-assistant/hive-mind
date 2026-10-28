@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { promptText } from './prompt-text.lib.mjs';
 import { readFile } from 'node:fs/promises';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 
@@ -102,11 +103,11 @@ export const hasPRBodyPlaceholder = body => {
 export const buildPRNotUpdatedHint = (titleNotUpdated, descriptionNotUpdated) => {
   const lines = [];
   if (titleNotUpdated && descriptionNotUpdated) {
-    lines.push('Pull request title and description were not updated.');
+    lines.push(promptText('prompt.templates.solve-results.buildPRNotUpdatedHint.text1'));
   } else if (titleNotUpdated) {
-    lines.push('Pull request title was not updated.');
+    lines.push(promptText('prompt.templates.solve-results.buildPRNotUpdatedHint.text2'));
   } else if (descriptionNotUpdated) {
-    lines.push('Pull request description was not updated.');
+    lines.push(promptText('prompt.templates.solve-results.buildPRNotUpdatedHint.text3'));
   }
   return lines;
 };

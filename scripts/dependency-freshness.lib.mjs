@@ -163,7 +163,7 @@ const ARG_SOURCES = {
   // on 2026-10-12 and never reached crates.io (issue #2801, cf. #2395).
   FORMAL_AI_VERSION: { kind: 'crate', name: 'formal-ai' },
   HIVE_MIND_BUN_VERSION: { kind: 'github', name: 'oven-sh/bun', tagPrefix: 'bun-v' },
-  HIVE_MIND_NODE_VERSION: { kind: 'github', name: 'nodejs/node' },
+  HIVE_MIND_NODE_VERSION: { kind: 'node', name: 'nodejs/node' },
   HIVE_MIND_VERSION: { kind: 'npm', name: '@link-assistant/hive-mind' },
 };
 
@@ -359,6 +359,29 @@ export const resolveCrateLatest = async (name, options = {}) => {
   return metadata.crate.max_stable_version;
 };
 
+/** NVM needs published checksums; a GitHub tag or index entry can precede them. */
+export const resolveNodeLatest = async (_name, _record = {}, options = {}) => {
+  const releases = await fetchJson('https://nodejs.org/dist/index.json', options);
+  const candidates = releases
+    .filter(release => /^v\d+\.\d+\.\d+$/.test(release?.version ?? ''))
+    .sort((left, right) => compareParsedVersions(parseVersion(right.version), parseVersion(left.version)))
+    .slice(0, 10);
+  const fetchImpl = options.fetchImpl ?? globalThis.fetch;
+  for (const { version } of candidates) {
+    const response = await fetchImpl(`https://nodejs.org/dist/${version}/SHASUMS256.txt`);
+    if (response.status === 404) continue; // Release publication is not complete.
+    if (!response.ok) throw new Error(`Node checksum manifest returned ${response.status}`);
+    const files = new Set(
+      (await response.text())
+        .split('\n')
+        .map(line => line.match(/^[a-f0-9]{64}\s+(.+)$/)?.[1])
+        .filter(Boolean)
+    );
+    if (['x64', 'arm64'].every(arch => files.has(`node-${version}-linux-${arch}.tar.xz`))) return version;
+  }
+  throw new Error('Node distribution returned no installable stable release in its newest 10 candidates');
+};
+
 /** Newest stable `X.Y.Z` tag of a Docker Hub repository such as `library/rust`. */
 export const resolveDockerHubLatest = async (repository, _record = {}, options = {}) => {
   const page = await fetchJson(`https://hub.docker.com/v2/repositories/${repository}/tags?page_size=100&ordering=last_updated`, options);
@@ -435,13 +458,13 @@ export const resolveOpenIssue = async (url, options = {}) => {
 };
 
 /** Registry errors and unrecognized pins fail closed; only verified open issues waive pins. */
-export const checkDependencyRecords = async (records, { resolveNpmLatest: npmResolver = resolveNpmLatest, resolveGitHubLatest: githubResolver = resolveGitHubLatest, resolveCrateLatest: crateResolver = resolveCrateLatest, resolveDockerHubLatest: dockerResolver = resolveDockerHubLatest, resolveContainerLatest: containerResolver = resolveContainerLatest, resolveOpenIssue: issueResolver = resolveOpenIssue } = {}) => {
+export const checkDependencyRecords = async (records, { resolveNpmLatest: npmResolver = resolveNpmLatest, resolveGitHubLatest: githubResolver = resolveGitHubLatest, resolveCrateLatest: crateResolver = resolveCrateLatest, resolveNodeLatest: nodeResolver = resolveNodeLatest, resolveDockerHubLatest: dockerResolver = resolveDockerHubLatest, resolveContainerLatest: containerResolver = resolveContainerLatest, resolveOpenIssue: issueResolver = resolveOpenIssue } = {}) => {
   const latestByDependency = new Map(),
     current = [],
     stale = [],
     errors = [],
     exceptions = [];
-  const resolvers = { npm: npmResolver, github: githubResolver, crate: crateResolver, docker: dockerResolver, container: containerResolver };
+  const resolvers = { npm: npmResolver, github: githubResolver, crate: crateResolver, node: nodeResolver, docker: dockerResolver, container: containerResolver };
   await Promise.all(
     records.map(async record => {
       try {

@@ -1,0 +1,162 @@
+{
+  "baselineCommit": "976a5a95a10a74f3f85feca2ef94a22afe80e2ca",
+  "observedAt": "2026-10-28",
+  "backendFindings": [
+    {
+      "backend": "agent",
+      "path": "src/agent.prompts.lib.mjs",
+      "matches": [
+        {
+          "line": 171,
+          "text": "- When issue is solvable, first create a test that reproduces the problem, then implement the fix."
+        },
+        {
+          "line": 186,
+          "text": "- When encountering logic bugs, write an automated test that fails due to the bug, then implement the fix to make it pass."
+        },
+        {
+          "line": 188,
+          "text": "- When creating tests, prefer minimum reproducible examples, meaning the simplest test case that demonstrates the issue."
+        },
+        {
+          "line": 225,
+          "text": "- When you check your solution draft, run all tests locally."
+        }
+      ]
+    },
+    {
+      "backend": "claude",
+      "path": "src/claude.prompts.lib.mjs",
+      "matches": [
+        {
+          "line": 183,
+          "text": "- When the user mentions CI failures or asks to investigate logs, consider adding these todos to track the investigation: (1) list recent CI runs with timestamps, (2) download logs from failed runs to the ci-logs/ directory, (3) analyze error messages and identify the root cause, (4) implement a fix, (5) verify that the fix resolves the specific errors found in the logs."
+        },
+        {
+          "line": 221,
+          "text": "- When issue is solvable, first create a test that reproduces the problem, then implement the fix."
+        },
+        {
+          "line": 235,
+          "text": "- When encountering logic bugs, write an automated test that fails due to the bug, then implement the fix to make it pass."
+        },
+        {
+          "line": 237,
+          "text": "- When creating tests, prefer minimum reproducible examples, meaning the simplest test case that demonstrates the issue."
+        },
+        {
+          "line": 248,
+          "text": "- When you are about to commit or push code, run local CI checks first if they are available in contributing guidelines (like ruff check, mypy, eslint, etc.) to catch errors before pushing."
+        },
+        {
+          "line": 273,
+          "text": "- When you check your solution draft, run all tests locally."
+        }
+      ]
+    },
+    {
+      "backend": "codex",
+      "path": "src/codex.prompts.lib.mjs",
+      "matches": [
+        {
+          "line": 166,
+          "text": "- When the user mentions CI failures or asks to investigate logs, consider adding these todos to track the investigation: (1) list recent CI runs with timestamps, (2) download logs from failed runs to the ci-logs/ directory, (3) analyze error messages and identify the root cause, (4) implement a fix, (5) verify that the fix resolves the specific errors found in the logs."
+        },
+        {
+          "line": 204,
+          "text": "- When issue is solvable, first create a test that reproduces the problem, then implement the fix."
+        },
+        {
+          "line": 218,
+          "text": "- When encountering logic bugs, write an automated test that fails due to the bug, then implement the fix to make it pass."
+        },
+        {
+          "line": 220,
+          "text": "- When creating tests, prefer minimum reproducible examples, meaning the simplest test case that demonstrates the issue."
+        },
+        {
+          "line": 231,
+          "text": "- When you are about to commit or push code, run local CI checks first if they are available in contributing guidelines (like ruff check, mypy, eslint, etc.) to catch errors before pushing."
+        },
+        {
+          "line": 256,
+          "text": "- When you check your solution draft, run all tests locally."
+        }
+      ]
+    },
+    {
+      "backend": "gemini",
+      "path": "src/gemini.prompts.lib.mjs",
+      "matches": [
+        {
+          "line": 143,
+          "text": "- When the user mentions CI failures or asks to investigate logs, consider adding these todos to track the investigation: (1) list recent CI runs with timestamps, (2) download logs from failed runs to the ci-logs/ directory, (3) analyze error messages and identify the root cause, (4) implement a fix, (5) verify that the fix resolves the specific errors found in the logs."
+        },
+        {
+          "line": 171,
+          "text": "- When issue is solvable, first create a test that reproduces the problem, then implement the fix."
+        },
+        {
+          "line": 187,
+          "text": "- When encountering logic bugs, write an automated test that fails due to the bug, then implement the fix to make it pass."
+        },
+        {
+          "line": 189,
+          "text": "- When creating tests, prefer minimum reproducible examples, meaning the simplest test case that demonstrates the issue."
+        },
+        {
+          "line": 200,
+          "text": "- When you are about to commit or push code, run local CI checks first if they are available in contributing guidelines."
+        },
+        {
+          "line": 210,
+          "text": "- When you check your solution draft, run all tests locally."
+        }
+      ]
+    },
+    {
+      "backend": "opencode",
+      "path": "src/opencode.prompts.lib.mjs",
+      "matches": [
+        {
+          "line": 172,
+          "text": "- When issue is solvable, first create a test that reproduces the problem, then implement the fix."
+        },
+        {
+          "line": 188,
+          "text": "- When encountering logic bugs, write an automated test that fails due to the bug, then implement the fix to make it pass."
+        },
+        {
+          "line": 190,
+          "text": "- When creating tests, prefer minimum reproducible examples, meaning the simplest test case that demonstrates the issue."
+        },
+        {
+          "line": 226,
+          "text": "- When you check your solution draft, run all tests locally."
+        }
+      ]
+    },
+    {
+      "backend": "qwen",
+      "path": "src/qwen.prompts.lib.mjs",
+      "matches": [
+        {
+          "line": 158,
+          "text": "- When issue is solvable, first create a test that reproduces the problem, then implement the fix."
+        },
+        {
+          "line": 174,
+          "text": "- When encountering logic bugs, write an automated test that fails due to the bug, then implement the fix to make it pass."
+        },
+        {
+          "line": 176,
+          "text": "- When creating tests, prefer minimum reproducible examples, meaning the simplest test case that demonstrates the issue."
+        },
+        {
+          "line": 212,
+          "text": "- When you check your solution draft, run all tests locally."
+        }
+      ]
+    }
+  ]
+}

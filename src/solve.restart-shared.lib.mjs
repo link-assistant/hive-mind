@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { promptText } from './prompt-text.lib.mjs';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 
 /**
@@ -589,7 +590,7 @@ export const executeToolIteration = async params => {
  */
 export const buildAutoRestartInstructions = () => {
   // Issue #2839: pre-existing CI failures are not exempt - the pull request cannot be released while CI fails.
-  return ['', '='.repeat(60), '🎯 AUTO-RESTART MODE INSTRUCTIONS:', '='.repeat(60), '', 'Ensure to get latest version of default branch to make all conflicts resolved if present.', 'Ensure you comply with all CI/CD check requirements, and they pass - including checks that already fail on the default branch.', 'Ensure all changes are correct, consistent and fully meet all discussed requirements', '(check issue description and all comments in issue and in pull request).', ''];
+  return ['', '='.repeat(60), promptText('prompt.templates.solve-restart-shared.buildAutoRestartInstructions.text1'), '='.repeat(60), '', promptText('prompt.templates.solve-restart-shared.buildAutoRestartInstructions.text2'), promptText('prompt.templates.solve-restart-shared.buildAutoRestartInstructions.text3'), promptText('prompt.templates.solve-restart-shared.buildAutoRestartInstructions.text4'), promptText('prompt.templates.solve-restart-shared.buildAutoRestartInstructions.text5'), ''];
 };
 
 // Issue #2313: shared with the pre-session check in solve.preparation.lib.mjs.

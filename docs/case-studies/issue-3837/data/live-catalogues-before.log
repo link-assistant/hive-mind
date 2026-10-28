@@ -1,0 +1,32 @@
+✔ UI, user prompts, and system prompts merge from the requested locale tree (14.644768ms)
+✔ all backend prompts prefer bulk drafting before verification (148.337872ms)
+✔ nested catalogs merge with aliases and reject conflicting definitions (20.635097ms)
+✔ catalog files separate UI, user messages, and system instructions (73.387317ms)
+✔ work locale changes rendered prompts independently of the UI, with English fallback (8.621539ms)
+✔ catalog extraction preserves the complete English backend corpus (704.035404ms)
+✔ every literal prompt reference resolves from the merged English catalog (321.309252ms)
+✖ live feedback, finalization and intervention templates are catalogued without changing English output (3.268389ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 7
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1750.745541
+
+✖ failing tests:
+
+test at tests/prompt-catalogues-3837.test.mjs:126:1
+✖ live feedback, finalization and intervention templates are catalogued without changing English output (3.268389ms)
+  AssertionError [ERR_ASSERTION]: bidirectional-interactive: missing live prompt templates
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1793186592138/tests/prompt-catalogues-3837.test.mjs:130:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

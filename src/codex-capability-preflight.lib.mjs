@@ -1,3 +1,4 @@
+import { promptText } from './prompt-text.lib.mjs';
 /**
  * Repository-scoped Codex capability preflight (issue #2074).
  *
@@ -210,7 +211,7 @@ const catalogBoundaryError = (message, details = {}) => new CodexCapabilityPrefl
 // the legacy advisory behavior. Any other probe failure or unparsable success
 // leaves a security/control decision uncertain and therefore fails closed.
 const readModelVisibleSkills = async ({ command, env, runCommand, log }) => {
-  const result = await runCommand({ command, args: ['debug', 'prompt-input', 'hive-mind capability probe'], env });
+  const result = await runCommand({ command, args: ['debug', 'prompt-input', promptText('prompt.templates.connection.codexProbe', {}, { locale: 'en' })], env });
   if (result.code !== 0) {
     if (!unsupportedPromptProbe(result))
       throw catalogBoundaryError(

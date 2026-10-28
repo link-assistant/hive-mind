@@ -1,0 +1,26 @@
+zh
+  prompt
+    user
+      issue
+        to
+          solve "要解决的问题：{{issueUrl}}"
+        linked
+          to
+            pr "要解决的问题：与 PR #{{prNumber}} 关联的问题"
+      prepared
+        branch "为你准备的分支：{{branchName}}"
+        working
+          directory "为你准备的工作目录：{{tempDir}}"
+        tmp
+          directory "为你准备的临时目录（用于日志和下载）：{{workspaceTmpDir}}"
+        pull
+          request "为你准备的 Pull Request：{{prUrl}}"
+      forked
+        repository "你的 fork 仓库：{{forkedRepo}}"
+      original
+        repository "原始仓库（upstream）：{{owner}}/{{repo}}"
+      fork
+        actions
+          url "你 fork 上的 GitHub Actions：{{forkActionsUrl}}"
+      continue "继续。"
+      proceed "开始。"

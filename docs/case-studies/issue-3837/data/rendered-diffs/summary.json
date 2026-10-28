@@ -1,0 +1,545 @@
+{
+  "baseline": "976a5a95a10a74f3f85feca2ef94a22afe80e2ca",
+  "comparisons": [
+    {
+      "backend": "agent",
+      "profile": "default",
+      "kind": "System",
+      "before": {
+        "bytes": 11407,
+        "sha256": "eaa60d574759218c75a38b0eedaf4ebd350673496e8d2f27ba776a0a9724d003"
+      },
+      "after": {
+        "bytes": 11053,
+        "sha256": "f54509a5c606a59db1eb84c4d9225e9fb6314b1a635f0c03954800328d337f24"
+      },
+      "addedLines": 9,
+      "removedLines": 18
+    },
+    {
+      "backend": "agent",
+      "profile": "default",
+      "kind": "User",
+      "before": {
+        "bytes": 448,
+        "sha256": "cdd1e584c5effb8540ca46ed17d6c7a18b086e7d327699aa04b5a5c85221e16c"
+      },
+      "after": {
+        "bytes": 448,
+        "sha256": "cdd1e584c5effb8540ca46ed17d6c7a18b086e7d327699aa04b5a5c85221e16c"
+      },
+      "addedLines": 0,
+      "removedLines": 0
+    },
+    {
+      "backend": "agent",
+      "profile": "workspace-visual",
+      "kind": "System",
+      "before": {
+        "bytes": 15894,
+        "sha256": "f3e3bf6d53eb1f8e46ca2cc918f7466e7e2e9607333c44d415edb42208480e64"
+      },
+      "after": {
+        "bytes": 15539,
+        "sha256": "bf728b269bbbfffe39d6314c2426b85acfb8c351ae49e1f448771c8d6520b3ce"
+      },
+      "addedLines": 10,
+      "removedLines": 20
+    },
+    {
+      "backend": "agent",
+      "profile": "workspace-visual",
+      "kind": "User",
+      "before": {
+        "bytes": 510,
+        "sha256": "e8f267befc67dca3b26ba4dd1b8602ec9dbe399b4d366efe22dcef53b007926e"
+      },
+      "after": {
+        "bytes": 510,
+        "sha256": "e8f267befc67dca3b26ba4dd1b8602ec9dbe399b4d366efe22dcef53b007926e"
+      },
+      "addedLines": 0,
+      "removedLines": 0
+    },
+    {
+      "backend": "agent",
+      "profile": "all-options",
+      "kind": "System",
+      "before": {
+        "bytes": 21384,
+        "sha256": "5d51c102b9efbf5da7f4bcd60e517635de6b4bd3da585c1a0f2978e246b27ac5"
+      },
+      "after": {
+        "bytes": 21029,
+        "sha256": "63d9dbe6eac28181315b3e12f50866eb41e144a69651897df47bfe30d4404988"
+      },
+      "addedLines": 10,
+      "removedLines": 20
+    },
+    {
+      "backend": "agent",
+      "profile": "all-options",
+      "kind": "User",
+      "before": {
+        "bytes": 1432,
+        "sha256": "9d18b8d6df537b539013d93df623f7bcd29e806a17dabd2bd3fde63dc8770f9b"
+      },
+      "after": {
+        "bytes": 1432,
+        "sha256": "9d18b8d6df537b539013d93df623f7bcd29e806a17dabd2bd3fde63dc8770f9b"
+      },
+      "addedLines": 0,
+      "removedLines": 0
+    },
+    {
+      "backend": "claude",
+      "profile": "default",
+      "kind": "System",
+      "before": {
+        "bytes": 14408,
+        "sha256": "75721f92e91b8b636799fd0b950ad5f48909e51d77cdd11cff949961a364b47a"
+      },
+      "after": {
+        "bytes": 13484,
+        "sha256": "294d7316f1871a66d34d920794b97bb19e40971c6a3f63ad5ac33b5ef9f00cf7"
+      },
+      "addedLines": 9,
+      "removedLines": 20
+    },
+    {
+      "backend": "claude",
+      "profile": "default",
+      "kind": "User",
+      "before": {
+        "bytes": 448,
+        "sha256": "cdd1e584c5effb8540ca46ed17d6c7a18b086e7d327699aa04b5a5c85221e16c"
+      },
+      "after": {
+        "bytes": 448,
+        "sha256": "cdd1e584c5effb8540ca46ed17d6c7a18b086e7d327699aa04b5a5c85221e16c"
+      },
+      "addedLines": 0,
+      "removedLines": 0
+    },
+    {
+      "backend": "claude",
+      "profile": "workspace-visual",
+      "kind": "System",
+      "before": {
+        "bytes": 18911,
+        "sha256": "78b4340e232be55247ce0fc85bd2c6862e3949009a019932abc0ba0e26e1a0da"
+      },
+      "after": {
+        "bytes": 17986,
+        "sha256": "696b7afc1075ce261ed6da85c56da9bf932f8ca10c3fa63991b8c79a29324b0b"
+      },
+      "addedLines": 10,
+      "removedLines": 22
+    },
+    {
+      "backend": "claude",
+      "profile": "workspace-visual",
+      "kind": "User",
+      "before": {
+        "bytes": 510,
+        "sha256": "e8f267befc67dca3b26ba4dd1b8602ec9dbe399b4d366efe22dcef53b007926e"
+      },
+      "after": {
+        "bytes": 510,
+        "sha256": "e8f267befc67dca3b26ba4dd1b8602ec9dbe399b4d366efe22dcef53b007926e"
+      },
+      "addedLines": 0,
+      "removedLines": 0
+    },
+    {
+      "backend": "claude",
+      "profile": "all-options",
+      "kind": "System",
+      "before": {
+        "bytes": 25015,
+        "sha256": "09a85dc789575e6a9499960e72752624163f4f641c267140e8312de51288ded2"
+      },
+      "after": {
+        "bytes": 24090,
+        "sha256": "70c2c54f9b420cb66e371891ed8a467855401c10e1f785f068f4fa593644a4fc"
+      },
+      "addedLines": 10,
+      "removedLines": 22
+    },
+    {
+      "backend": "claude",
+      "profile": "all-options",
+      "kind": "User",
+      "before": {
+        "bytes": 1432,
+        "sha256": "9d18b8d6df537b539013d93df623f7bcd29e806a17dabd2bd3fde63dc8770f9b"
+      },
+      "after": {
+        "bytes": 1432,
+        "sha256": "9d18b8d6df537b539013d93df623f7bcd29e806a17dabd2bd3fde63dc8770f9b"
+      },
+      "addedLines": 0,
+      "removedLines": 0
+    },
+    {
+      "backend": "codex",
+      "profile": "default",
+      "kind": "System",
+      "before": {
+        "bytes": 13711,
+        "sha256": "898a5004450cbd5b7fde23f242c09155f613df9526de62827e0188169d0e81ac"
+      },
+      "after": {
+        "bytes": 12787,
+        "sha256": "42414fa29b4b736095caab12255977b2ae8f433bfcecf1524fc624bf9ab7d82c"
+      },
+      "addedLines": 9,
+      "removedLines": 20
+    },
+    {
+      "backend": "codex",
+      "profile": "default",
+      "kind": "User",
+      "before": {
+        "bytes": 448,
+        "sha256": "cdd1e584c5effb8540ca46ed17d6c7a18b086e7d327699aa04b5a5c85221e16c"
+      },
+      "after": {
+        "bytes": 448,
+        "sha256": "cdd1e584c5effb8540ca46ed17d6c7a18b086e7d327699aa04b5a5c85221e16c"
+      },
+      "addedLines": 0,
+      "removedLines": 0
+    },
+    {
+      "backend": "codex",
+      "profile": "workspace-visual",
+      "kind": "System",
+      "before": {
+        "bytes": 17077,
+        "sha256": "c8db643a919f212cc506fc3420db0ee42007587cac1eb5248148540eec379919"
+      },
+      "after": {
+        "bytes": 16152,
+        "sha256": "a0064c77bb6d2d7f6c09aef62b7a132cf57ad11cbd1ec768bfe6f1d14d424722"
+      },
+      "addedLines": 10,
+      "removedLines": 22
+    },
+    {
+      "backend": "codex",
+      "profile": "workspace-visual",
+      "kind": "User",
+      "before": {
+        "bytes": 510,
+        "sha256": "e8f267befc67dca3b26ba4dd1b8602ec9dbe399b4d366efe22dcef53b007926e"
+      },
+      "after": {
+        "bytes": 510,
+        "sha256": "e8f267befc67dca3b26ba4dd1b8602ec9dbe399b4d366efe22dcef53b007926e"
+      },
+      "addedLines": 0,
+      "removedLines": 0
+    },
+    {
+      "backend": "codex",
+      "profile": "all-options",
+      "kind": "System",
+      "before": {
+        "bytes": 23181,
+        "sha256": "4a2bbf57c651c8ad9b8add688ae0c1aff659bab1b8d59255bfd212a7039a4945"
+      },
+      "after": {
+        "bytes": 22256,
+        "sha256": "0c91801a26a47d4db4c5ae28c65bcbb2a177dd73b42d5c2c33aa4342382e4606"
+      },
+      "addedLines": 10,
+      "removedLines": 22
+    },
+    {
+      "backend": "codex",
+      "profile": "all-options",
+      "kind": "User",
+      "before": {
+        "bytes": 1432,
+        "sha256": "9d18b8d6df537b539013d93df623f7bcd29e806a17dabd2bd3fde63dc8770f9b"
+      },
+      "after": {
+        "bytes": 1432,
+        "sha256": "9d18b8d6df537b539013d93df623f7bcd29e806a17dabd2bd3fde63dc8770f9b"
+      },
+      "addedLines": 0,
+      "removedLines": 0
+    },
+    {
+      "backend": "gemini",
+      "profile": "default",
+      "kind": "System",
+      "before": {
+        "bytes": 11915,
+        "sha256": "80bff9bf0ae2897e3b45bca8371059c0042a387932a38bd44191c7b4dec24e10"
+      },
+      "after": {
+        "bytes": 11139,
+        "sha256": "6b6564cd8008f803bf9ed4a1df77b862a2f41acff6cbf4fb3f0452e51c675147"
+      },
+      "addedLines": 9,
+      "removedLines": 19
+    },
+    {
+      "backend": "gemini",
+      "profile": "default",
+      "kind": "User",
+      "before": {
+        "bytes": 448,
+        "sha256": "cdd1e584c5effb8540ca46ed17d6c7a18b086e7d327699aa04b5a5c85221e16c"
+      },
+      "after": {
+        "bytes": 448,
+        "sha256": "cdd1e584c5effb8540ca46ed17d6c7a18b086e7d327699aa04b5a5c85221e16c"
+      },
+      "addedLines": 0,
+      "removedLines": 0
+    },
+    {
+      "backend": "gemini",
+      "profile": "workspace-visual",
+      "kind": "System",
+      "before": {
+        "bytes": 14311,
+        "sha256": "fa57400eff3f91013e4a6f46eeac21417de36670be3d6cf84c78c24d11934772"
+      },
+      "after": {
+        "bytes": 13534,
+        "sha256": "084b7f9b33b4fdd0eb9f9e889a4958d19010f1a226df310dee6c449f6ad360cb"
+      },
+      "addedLines": 10,
+      "removedLines": 21
+    },
+    {
+      "backend": "gemini",
+      "profile": "workspace-visual",
+      "kind": "User",
+      "before": {
+        "bytes": 510,
+        "sha256": "e8f267befc67dca3b26ba4dd1b8602ec9dbe399b4d366efe22dcef53b007926e"
+      },
+      "after": {
+        "bytes": 510,
+        "sha256": "e8f267befc67dca3b26ba4dd1b8602ec9dbe399b4d366efe22dcef53b007926e"
+      },
+      "addedLines": 0,
+      "removedLines": 0
+    },
+    {
+      "backend": "gemini",
+      "profile": "all-options",
+      "kind": "System",
+      "before": {
+        "bytes": 19801,
+        "sha256": "c1c8067d84d0ff6d75b0523b526e476b946c0bbf480ea9223aa4f92740907d1a"
+      },
+      "after": {
+        "bytes": 19024,
+        "sha256": "9dbd3f9e8bb78406dc83d25fdc0622e0770c21a9bf4b6224c7410ae7bd0980fc"
+      },
+      "addedLines": 10,
+      "removedLines": 21
+    },
+    {
+      "backend": "gemini",
+      "profile": "all-options",
+      "kind": "User",
+      "before": {
+        "bytes": 1432,
+        "sha256": "9d18b8d6df537b539013d93df623f7bcd29e806a17dabd2bd3fde63dc8770f9b"
+      },
+      "after": {
+        "bytes": 1432,
+        "sha256": "9d18b8d6df537b539013d93df623f7bcd29e806a17dabd2bd3fde63dc8770f9b"
+      },
+      "addedLines": 0,
+      "removedLines": 0
+    },
+    {
+      "backend": "opencode",
+      "profile": "default",
+      "kind": "System",
+      "before": {
+        "bytes": 11624,
+        "sha256": "b6516e5678822145aea6d191f5e3afb2bac24df28afdf2040dd38a594366c007"
+      },
+      "after": {
+        "bytes": 11270,
+        "sha256": "e3edf67ba9793a64629e413ca54573931991f519b45b48426ffa1e9cdba13aed"
+      },
+      "addedLines": 9,
+      "removedLines": 18
+    },
+    {
+      "backend": "opencode",
+      "profile": "default",
+      "kind": "User",
+      "before": {
+        "bytes": 448,
+        "sha256": "cdd1e584c5effb8540ca46ed17d6c7a18b086e7d327699aa04b5a5c85221e16c"
+      },
+      "after": {
+        "bytes": 448,
+        "sha256": "cdd1e584c5effb8540ca46ed17d6c7a18b086e7d327699aa04b5a5c85221e16c"
+      },
+      "addedLines": 0,
+      "removedLines": 0
+    },
+    {
+      "backend": "opencode",
+      "profile": "workspace-visual",
+      "kind": "System",
+      "before": {
+        "bytes": 16112,
+        "sha256": "d9da47640d1dbe3d67e5edef72380a011381f0637be379f94e5d0e4819df80b9"
+      },
+      "after": {
+        "bytes": 15757,
+        "sha256": "cade222a9cfa770e58a202d52d0d5a7479bbaaf85312659b67375c7454257fdf"
+      },
+      "addedLines": 10,
+      "removedLines": 20
+    },
+    {
+      "backend": "opencode",
+      "profile": "workspace-visual",
+      "kind": "User",
+      "before": {
+        "bytes": 510,
+        "sha256": "e8f267befc67dca3b26ba4dd1b8602ec9dbe399b4d366efe22dcef53b007926e"
+      },
+      "after": {
+        "bytes": 510,
+        "sha256": "e8f267befc67dca3b26ba4dd1b8602ec9dbe399b4d366efe22dcef53b007926e"
+      },
+      "addedLines": 0,
+      "removedLines": 0
+    },
+    {
+      "backend": "opencode",
+      "profile": "all-options",
+      "kind": "System",
+      "before": {
+        "bytes": 21602,
+        "sha256": "2b26efa39eca0a0b8b16580837e2caa84defbc267c72dfb0b238e45e2b633eae"
+      },
+      "after": {
+        "bytes": 21247,
+        "sha256": "97b24dd43f5b2b38d80542c9de6ab441c78098ae5c0c542b0b86bcc1f72ca1ae"
+      },
+      "addedLines": 10,
+      "removedLines": 20
+    },
+    {
+      "backend": "opencode",
+      "profile": "all-options",
+      "kind": "User",
+      "before": {
+        "bytes": 1432,
+        "sha256": "9d18b8d6df537b539013d93df623f7bcd29e806a17dabd2bd3fde63dc8770f9b"
+      },
+      "after": {
+        "bytes": 1432,
+        "sha256": "9d18b8d6df537b539013d93df623f7bcd29e806a17dabd2bd3fde63dc8770f9b"
+      },
+      "addedLines": 0,
+      "removedLines": 0
+    },
+    {
+      "backend": "qwen",
+      "profile": "default",
+      "kind": "System",
+      "before": {
+        "bytes": 11348,
+        "sha256": "25b0973d8c04ac546de77527b516987f1db98097469d7a603276ec094c120da2"
+      },
+      "after": {
+        "bytes": 10994,
+        "sha256": "d3271281af8e2c5337c59f1fd6dd7538cb3bcde1af9565354aabf4d7143eb163"
+      },
+      "addedLines": 9,
+      "removedLines": 18
+    },
+    {
+      "backend": "qwen",
+      "profile": "default",
+      "kind": "User",
+      "before": {
+        "bytes": 448,
+        "sha256": "cdd1e584c5effb8540ca46ed17d6c7a18b086e7d327699aa04b5a5c85221e16c"
+      },
+      "after": {
+        "bytes": 448,
+        "sha256": "cdd1e584c5effb8540ca46ed17d6c7a18b086e7d327699aa04b5a5c85221e16c"
+      },
+      "addedLines": 0,
+      "removedLines": 0
+    },
+    {
+      "backend": "qwen",
+      "profile": "workspace-visual",
+      "kind": "System",
+      "before": {
+        "bytes": 15847,
+        "sha256": "69ee066db169d9f9231b4153df53992f17ce1ea9645fada9e638064c501a9be2"
+      },
+      "after": {
+        "bytes": 15492,
+        "sha256": "10714eed82b9a219ee2b4b09d87b1bb4a5327d38f004888de6115eb248b65965"
+      },
+      "addedLines": 10,
+      "removedLines": 20
+    },
+    {
+      "backend": "qwen",
+      "profile": "workspace-visual",
+      "kind": "User",
+      "before": {
+        "bytes": 510,
+        "sha256": "e8f267befc67dca3b26ba4dd1b8602ec9dbe399b4d366efe22dcef53b007926e"
+      },
+      "after": {
+        "bytes": 510,
+        "sha256": "e8f267befc67dca3b26ba4dd1b8602ec9dbe399b4d366efe22dcef53b007926e"
+      },
+      "addedLines": 0,
+      "removedLines": 0
+    },
+    {
+      "backend": "qwen",
+      "profile": "all-options",
+      "kind": "System",
+      "before": {
+        "bytes": 21337,
+        "sha256": "f49fdf8e2eaee3115826960eb453de8f90fdb5b976e31dcf5341354b73c25366"
+      },
+      "after": {
+        "bytes": 20982,
+        "sha256": "05ee4531536f1278ac33f5a9183c975cc26879a955a04d185a2c7589fbafb13d"
+      },
+      "addedLines": 10,
+      "removedLines": 20
+    },
+    {
+      "backend": "qwen",
+      "profile": "all-options",
+      "kind": "User",
+      "before": {
+        "bytes": 1432,
+        "sha256": "9d18b8d6df537b539013d93df623f7bcd29e806a17dabd2bd3fde63dc8770f9b"
+      },
+      "after": {
+        "bytes": 1432,
+        "sha256": "9d18b8d6df537b539013d93df623f7bcd29e806a17dabd2bd3fde63dc8770f9b"
+      },
+      "addedLines": 0,
+      "removedLines": 0
+    }
+  ]
+}

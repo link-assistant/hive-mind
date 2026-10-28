@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { promptText } from './prompt-text.lib.mjs';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 // Google Gemini CLI-related utility functions
 
@@ -281,7 +282,7 @@ export const validateGeminiConnection = async (model = defaultModels.gemini) => 
       await log(`⚠️  Gemini CLI version check failed (${versionError.code}), proceeding with connection test...`);
     }
 
-    const testResult = await $`printf "hi" | timeout ${Math.floor(timeouts.geminiCli / 1000)} ${geminiPath} --prompt "say hi" --output-format json --model ${mappedModel}`;
+    const testResult = await $`printf %s ${promptText('prompt.templates.connection.greeting', {}, { locale: 'en' })} | timeout ${Math.floor(timeouts.geminiCli / 1000)} ${geminiPath} --prompt ${promptText('prompt.templates.connection.gemini')} --output-format json --model ${mappedModel}`;
     const stdout = testResult.stdout?.toString() || '';
     const stderr = testResult.stderr?.toString() || '';
     const combinedOutput = `${stdout}\n${stderr}`;

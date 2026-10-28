@@ -1,7 +1,7 @@
 /** Run the prompt-related regression targets sequentially within a bounded heap. */
 import { spawnSync } from 'node:child_process';
 import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
-const targets = readFileSync(new URL('../tests/../experiments/issue-3837-focused-targets.txt', import.meta.url), 'utf8')
+const targets = readFileSync(new URL('./issue-3837-focused-targets.txt', import.meta.url), 'utf8')
   .trim()
   .split('\n');
 const logDirectory = process.argv[2] || '/tmp/issue-3837-focused-tests';

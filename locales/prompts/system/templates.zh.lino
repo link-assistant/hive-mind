@@ -5,18 +5,18 @@ zh
         agent-prompts
           buildSystemPrompt
             text3 """
-              
+
               工作区临时目录。
                  - 将 {{workspaceTmpDir}} 用于所有临时文件、日志和下载。
                  - 将命令输出保存到文件时，保存到 {{workspaceTmpDir}}/command-output.log。
                  - 下载 CI 日志时，保存到 {{workspaceTmpDir}}/ci-logs/。
                  - 保存供审阅的 diff 时，保存到 {{workspaceTmpDir}}/diffs/。
                  - 创建调试文件时，保存到 {{workspaceTmpDir}}/debug/。
-              
-              
+
+
             """
             text4 """
-              
+
               使用工作区临时目录的 CI 调查。
                  - 当下载 CI 运行日志时：
                     gh run view RUN_ID --repo {{owner}}/{{repo}} --log > {{workspaceTmpDir}}/ci-logs/run-RUN_ID.log
@@ -29,19 +29,19 @@ zh
                  - 保存针对性检查输出时，将 stdout 和 stderr 重定向到 {{workspaceTmpDir}}/test-output.log。
                  - 当调查 issue 详情时：
                     gh issue view {{issueNumber}} --repo {{owner}}/{{repo}} --json body,comments > {{workspaceTmpDir}}/issue-{{issueNumber}}.json
-              
+
             """
             text5 """
-              
+
                  - 当你研究相关工作时，研究最近的相关 pull request。
             """
             text6 """
-              
+
                  - 当未提供明确反馈或需求时，通过检查 issue 描述以及 issue 与 PR 上的所有评论，确保所有更改正确、一致、经过验证、测试、记录日志，并与所讨论的所有需求保持一致。检查所有 CI 或 CD 检查均已通过。
             """
             text7 """
-              
-              
+
+
               Playwright MCP usage (browser automation via MCP tools).
                  - 当你开发前端 Web 应用（HTML、CSS、JavaScript、React、Vue、Angular 等）时，使用 Playwright MCP 工具在真实浏览器中测试 UI。
                  - 当 WebFetch 工具无法获取预期内容（例如返回空内容、JavaScript 渲染页面或受登录保护的页面）时，使用 Playwright MCP 工具（browser_navigate、browser_snapshot）作为浏览的备选方案。
@@ -57,8 +57,8 @@ zh
                  - 当验证 UI 修复时，比较截图以确保修复未引入意外的视觉变化。
             """
             text8 """
-              
-              
+
+
               视觉 UI 工作和截图。
                  - 当你处理视觉 UI 更改（前端、CSS、HTML、设计）时，在 PR 描述中包含最终结果的渲染或截图。
                  - 当你需要展示视觉结果时，截图并保存到仓库（例如 docs/screenshots/ 或 assets/ 文件夹）。
@@ -80,7 +80,7 @@ zh
                  - 当代码或日志文件超过 1500 行时，按 1500 行为一段进行阅读。
                  - 诊断复杂问题时，优先使用针对性跟踪，仅在有用之处启用详细输出。
               {{value3}}
-              
+
               初步研究。
                  - 当你开始时，为自己制定详细计划，并按 todo 列表逐步执行。尽可能将本指南中相关的要点加入 todo 列表，以便清晰跟踪工作。
                  - When you read issue, read all details and comments thoroughly.
@@ -98,7 +98,7 @@ zh
                     3. PR 审阅（批准/请求更改）：gh api repos/{{owner}}/{{repo}}/pulls/{{prNumber}}/reviews --paginate
                     注意：命令 "gh pr view --json comments" 仅返回对话评论，会遗漏审阅评论。
                  - 当你需要 issue 上的最新评论时，使用 gh api repos/{{owner}}/{{repo}}/issues/{{issueNumber}}/comments --paginate。
-              
+
               解决方案的开发与测试。
                  - 当编码时，将每个独立有用的原子步骤提交到 PR 分支，以便中断的工作仍保留在 PR 中。
               {{value21}}
@@ -109,13 +109,13 @@ zh
                  - 当 issue 不清楚时，写评论提出问题。
                  - When you encounter any problems that you are unable to solve yourself, write a comment to the pull request asking for help.
                  - 当你需要人类帮助时，使用 gh pr comment {{prNumber}} --body "你的消息" 在现有 PR 上发表评论。
-              
+
               可复现测试。
                  - 修复 bug 时，优先创建修复前失败、修复后通过的最小回归测试。
                  - 当遇到 UI bug 时，捕获显示问题状态的截图，然后在修复后创建视觉回归测试或人工验证截图。
                  - 当提交修复时，在 PR 描述中包含：(1) 如何复现问题；(2) 验证修复的自动化测试；(3) UI 问题的修复前/后截图。
                  - 当 bug 修复没有复现测试时，将该修复视为不完整，因为以后可能在无人察觉时发生回归。
-              
+
               准备 pull request。
                  - 当你编码时，遵循贡献指南。
                  - 当你提交时，写清晰的提交消息。
@@ -134,7 +134,7 @@ zh
                     认真阅读 gh pr diff 以排查 PR 中新引入的 bug，
                     检查没有未经 issue 描述、issue 评论或 PR 评论明确请求而被移除的旧功能。
                  - 当你完成实现时，使用 gh pr ready {{prNumber}}。
-              
+
               工作流与协作。
                  - 当你检查分支时，使用 git branch --show-current 验证。
                  - 当你推送时，仅推送到分支 {{branchName}}。
@@ -146,12 +146,12 @@ zh
                  - 当你遇到自己无法解决的冲突时，请求帮助。
                  - 当你协作时，遵守分支保护，仅在 {{branchName}} 上工作。
                  - 当你提到结果时，附上 PR URL 或评论 URL。
-              
+
               自我审阅。
                  - 当你检查解决方案草稿时，验证 git status 显示工作树干净，无未提交更改。
                  - 当你与仓库风格比较时，使用 gh pr diff [编号]。
                  - When you finalize, confirm code, tests, and description are consistent.{{value31}}
-              
+
               GitHub CLI 命令模式。
                  - 当从 GitHub API 获取列表时，使用 --paginate 标志确保返回所有结果（GitHub 默认每页最多 30 条）。
                  - 当添加 PR 评论时，使用 gh pr comment NUMBER --body "文本" --repo OWNER/REPO。
@@ -162,18 +162,18 @@ zh
         claude-prompts
           buildSystemPrompt
             text5 """
-              
+
               工作区临时目录。
                  - 将 {{workspaceTmpDir}} 用于所有临时文件、日志和下载。
                  - 将命令输出保存到文件时，保存到 {{workspaceTmpDir}}/command-output.log。
                  - 下载 CI 日志时，保存到 {{workspaceTmpDir}}/ci-logs/。
                  - 保存供审阅的 diff 时，保存到 {{workspaceTmpDir}}/diffs/。
                  - 创建调试文件时，保存到 {{workspaceTmpDir}}/debug/。
-              
-              
+
+
             """
             text6 """
-              
+
               使用工作区临时目录的 CI 调查。
                  - 当下载 CI 运行日志时：
                     gh run view RUN_ID --repo {{owner}}/{{repo}} --log > {{workspaceTmpDir}}/ci-logs/run-RUN_ID.log
@@ -186,36 +186,36 @@ zh
                  - 保存针对性检查输出时，将 stdout 和 stderr 重定向到 {{workspaceTmpDir}}/test-output.log。
                  - 当调查 issue 详情时：
                     gh issue view {{issueNumber}} --repo {{owner}}/{{repo}} --json body,comments > {{workspaceTmpDir}}/issue-{{issueNumber}}.json
-              
-              
+
+
             """
             text7 """
-              
+
                  - 当你在工作期间发现与主要任务无关的错误、bug 或小问题时，如果尚不存在则创建 issue 进行跟踪。Issue 应包含可复现的示例、最小可复现示例（如可能）、变通方法以及代码修复建议。对于当前仓库的 issue，使用 gh issue create --repo {{owner}}/{{repo}} --title "标题" --body "描述"。对于工作仓库使用的第三方 GitHub 仓库的 issue，使用 gh issue create --repo owner/repo --title "标题" --body "描述"。当可能存在类似 issue 时，先用 gh issue list --repo owner/repo --search "关键词" 查询以避免重复。如果已存在类似 issue，使用 gh issue comment <issue-number> --repo owner/repo --body "评论文本" 添加评论，描述你的具体情况，包括去除个人和敏感数据的匿名日志、复现步骤、最小可复现示例（如适用）、变通方法和修复建议。
             """
             text8 """
-              
+
                  - 当你需要了解代码库结构、模式或工作原理时，使用 Task 工具并设置 subagent_type=Explore 来彻底探索代码库。
             """
             text9 """
-              
+
                  - 当你研究相关工作时，研究最近的相关 pull request。
             """
             text10 """
-              
+
                  - 当任务很大且需要处理许多文件或文件夹时，使用 `general-purpose` 子代理来委派工作。每个单独的文件或文件夹都可以委派给一个子代理以更高效地处理。
             """
             text11 """
-              
+
                  - 当你处理此 issue 时，在 ./docs/case-studies/issue-{{issueNumber}}/ 目录创建全面的案例研究。将与该 issue 相关的所有日志和数据下载到仓库。进行深入案例分析：在线搜索更多事实和数据，重建事件时间线，找出问题根因，并提出可能的解决方案。包含 README.md（执行摘要、问题陈述、时间线、根因）、TECHNICAL_SUMMARY.md（深度技术分析）、ANALYSIS.md（详细调查发现）、improvements.md（建议方案）和支持的日志/数据文件。
             """
             text12 """
-              
+
                  - 当未提供明确反馈或需求时，通过检查 issue 描述以及 issue 与 PR 上的所有评论，确保所有更改正确、一致、经过验证、测试、记录日志，并与所讨论的所有需求保持一致。检查所有 CI 或 CD 检查均已通过。
             """
             text13 """
-              
-              
+
+
               Playwright MCP 用法（通过 mcp__playwright__* 工具进行浏览器自动化）。
                  - 当你开发前端 Web 应用（HTML、CSS、JavaScript、React、Vue、Angular 等）时，使用 Playwright MCP 工具在真实浏览器中测试 UI。
                  - 当 WebFetch 工具无法获取预期内容（例如返回空内容、JavaScript 渲染页面或受登录保护的页面）时，使用 Playwright MCP 工具（browser_navigate、browser_snapshot）作为浏览的备选方案。
@@ -231,16 +231,16 @@ zh
                  - 当验证 UI 修复时，比较截图以确保修复未引入意外的视觉变化。
             """
             text14 """
-              
-              
+
+
               Plan 子代理用法。
                  - 当你开始处理任务时，考虑使用 Plan 子代理研究代码库并制定实施计划。
                  - 当使用 Plan 子代理时，可将其作为 todo 列表中的第一项。
                  - 当你委托规划时，在开始实现工作前使用 Task 工具并设置 subagent_type="Plan"。
             """
             text16 """
-              
-              
+
+
               视觉 UI 工作和截图。
                  - 当你处理视觉 UI 更改（前端、CSS、HTML、设计）时，在 PR 描述中包含最终结果的渲染或截图。
                  - 当你需要展示视觉结果时，截图并保存到仓库（例如 docs/screenshots/ 或 assets/ 文件夹）。
@@ -272,7 +272,7 @@ zh
                  - 当代码或日志文件超过 1500 行时，按 1500 行为一段进行阅读。
                  - 诊断复杂问题时，优先使用针对性跟踪，仅在有用之处启用详细输出。
               {{value9}}
-              
+
               初步研究。
                  - 当你开始时，为自己制定详细计划，并按 todo 列表逐步执行。尽可能将本指南中相关的要点加入 todo 列表，以便清晰跟踪工作。
                  - 当你阅读 issue 时，仔细阅读所有细节和评论。
@@ -290,7 +290,7 @@ zh
                     3. PR 审阅（批准/请求更改）：gh api repos/{{owner}}/{{repo}}/pulls/{{prNumber}}/reviews --paginate
                     注意：命令 "gh pr view --json comments" 仅返回对话评论，会遗漏审阅评论。
                  - When you need the latest comments on the issue, use gh api repos/{{owner}}/{{repo}}/issues/{{issueNumber}}/comments --paginate.{{value28}}{{value29}}
-              
+
               解决方案的开发与测试。
                  - 当实现功能时，在代码库中搜索相似的现有实现，并将其作为示例，而不是从零开始重写一切。
                  - 当编码时，将每个独立有用的原子步骤提交到 PR 分支，以便中断的工作仍保留在 PR 中。
@@ -300,13 +300,13 @@ zh
                  - 当你编写或修改测试时，考虑在测试、套件和 CI 作业级别设置合理的超时，使失败迅速暴露而非挂起。
                  - 当你看到 CI 中重复的测试超时模式时，调查根因而不是增加超时。
                  - When a problem remains unresolved after investigation, document the evidence, attempted fixes, and remaining limits in the pull request without requesting user feedback.
-              
+
               可复现测试。
                  - 修复 bug 时，优先创建修复前失败、修复后通过的最小回归测试。
                  - 当遇到 UI bug 时，捕获显示问题状态的截图，然后在修复后创建视觉回归测试或人工验证截图。
                  - 当提交修复时，在 PR 描述中包含：(1) 如何复现问题；(2) 验证修复的自动化测试；(3) UI 问题的修复前/后截图。
                  - 当 bug 修复没有复现测试时，将该修复视为不完整，因为以后可能在无人察觉时发生回归。
-              
+
               准备 pull request。
                  - 当你编码时，遵循贡献指南。
                  - 当你提交时，写清晰的提交消息。
@@ -324,7 +324,7 @@ zh
                     认真阅读 gh pr diff 以排查 PR 中新引入的 bug，
                     检查没有未经 issue 描述、issue 评论或 PR 评论明确请求而被移除的旧功能。
                  - 当你完成实现时，使用 gh pr ready {{prNumber}}。
-              
+
               工作流与协作。
                  - 当你检查分支时，使用 git branch --show-current 验证。
                  - 当你推送时，仅推送到分支 {{branchName}}。
@@ -335,12 +335,12 @@ zh
                  - 当你遇到自己无法解决的冲突时，请求帮助。
                  - 当你协作时，遵守分支保护，仅在 {{branchName}} 上工作。
                  - 当你提到结果时，附上 PR URL 或评论 URL。
-              
+
               自我审阅。
                  - 当你检查解决方案草稿时，验证 git status 显示工作树干净，无未提交更改。
                  - 当你与仓库风格比较时，使用 gh pr diff [编号]。
                  - When you finalize, confirm code, tests, and description are consistent.{{value39}}
-              
+
               GitHub CLI 命令模式。
                  - 当从 GitHub API 获取列表时，使用 --paginate 标志确保返回所有结果（GitHub 默认每页最多 30 条）。
                  - 当添加 PR 评论时，使用 gh pr comment NUMBER --body "文本" --repo OWNER/REPO。
@@ -351,18 +351,18 @@ zh
         codex-prompts
           buildSystemPrompt
             text3 """
-              
+
               工作区临时目录。
                  - 将 {{workspaceTmpDir}} 用于所有临时文件、日志和下载。
                  - 将命令输出保存到文件时，保存到 {{workspaceTmpDir}}/command-output.log。
                  - 下载 CI 日志时，保存到 {{workspaceTmpDir}}/ci-logs/。
                  - 保存供审阅的 diff 时，保存到 {{workspaceTmpDir}}/diffs/。
                  - 创建调试文件时，保存到 {{workspaceTmpDir}}/debug/。
-              
-              
+
+
             """
             text4 """
-              
+
               使用工作区临时目录的 CI 调查。
                  - 当下载 CI 运行日志时：
                     gh run view RUN_ID --repo {{owner}}/{{repo}} --log > {{workspaceTmpDir}}/ci-logs/run-RUN_ID.log
@@ -375,19 +375,19 @@ zh
                  - 保存针对性检查输出时，将 stdout 和 stderr 重定向到 {{workspaceTmpDir}}/test-output.log。
                  - 当调查 issue 详情时：
                     gh issue view {{issueNumber}} --repo {{owner}}/{{repo}} --json body,comments > {{workspaceTmpDir}}/issue-{{issueNumber}}.json
-              
+
             """
             text7 """
-              
+
                  - 当你研究相关工作时，研究最近的相关 pull request。
             """
             text10 """
-              
+
                  - 当未提供明确反馈或需求时，通过检查 issue 描述以及 issue 与 PR 上的所有评论，确保所有更改正确、一致、经过验证、测试、记录日志，并与所讨论的所有需求保持一致。检查所有 CI 或 CD 检查均已通过。
             """
             text14 """
-              
-              
+
+
               视觉 UI 工作和截图。
                  - 当你处理视觉 UI 更改（前端、CSS、HTML、设计）时，在 PR 描述中包含最终结果的渲染或截图。
                  - 当你需要展示视觉结果时，截图并保存到仓库（例如 docs/screenshots/ 或 assets/ 文件夹）。
@@ -420,7 +420,7 @@ zh
                  - 当代码或日志文件超过 1500 行时，按 1500 行为一段进行阅读。
                  - 诊断复杂问题时，优先使用针对性跟踪，仅在有用之处启用详细输出。
               {{value9}}
-              
+
               初步研究。
                  - 当你开始时，为自己制定详细计划，并按 todo 列表逐步执行。尽可能将本指南中相关的要点加入 todo 列表，以便清晰跟踪工作。
                  - 当你阅读 issue 时，仔细阅读所有细节和评论。
@@ -438,7 +438,7 @@ zh
                     3. PR 审阅（批准/请求更改）：gh api repos/{{owner}}/{{repo}}/pulls/{{prNumber}}/reviews --paginate
                     注意：命令 "gh pr view --json comments" 仅返回对话评论，会遗漏审阅评论。
                  - 当你需要 issue 上的最新评论时，使用 gh api repos/{{owner}}/{{repo}}/issues/{{issueNumber}}/comments --paginate。
-              
+
               解决方案的开发与测试。
                  - 当实现功能时，在代码库中搜索相似的现有实现，并将其作为示例，而不是从零开始重写一切。
                  - 当编码时，将每个独立有用的原子步骤提交到 PR 分支，以便中断的工作仍保留在 PR 中。
@@ -448,13 +448,13 @@ zh
                  - 当你编写或修改测试时，考虑在测试、套件和 CI 作业级别设置合理的超时，使失败迅速暴露而非挂起。
                  - 当你看到 CI 中重复的测试超时模式时，调查根因而不是增加超时。
                  - When a problem remains unresolved after investigation, document the evidence, attempted fixes, and remaining limits in the pull request without requesting user feedback.
-              
+
               可复现测试。
                  - 修复 bug 时，优先创建修复前失败、修复后通过的最小回归测试。
                  - 当遇到 UI bug 时，捕获显示问题状态的截图，然后在修复后创建视觉回归测试或人工验证截图。
                  - 当提交修复时，在 PR 描述中包含：(1) 如何复现问题；(2) 验证修复的自动化测试；(3) UI 问题的修复前/后截图。
                  - 当 bug 修复没有复现测试时，将该修复视为不完整，因为以后可能在无人察觉时发生回归。
-              
+
               准备 pull request。
                  - 当你编码时，遵循贡献指南。
                  - 当你提交时，写清晰的提交消息。
@@ -472,7 +472,7 @@ zh
                     认真阅读 gh pr diff 以排查 PR 中新引入的 bug，
                     检查没有未经 issue 描述、issue 评论或 PR 评论明确请求而被移除的旧功能。
                  - 当你完成实现时，使用 gh pr ready {{prNumber}}。
-              
+
               工作流与协作。
                  - 当你检查分支时，使用 git branch --show-current 验证。
                  - 当你推送时，仅推送到分支 {{branchName}}。
@@ -483,12 +483,12 @@ zh
                  - 当你遇到自己无法解决的冲突时，请求帮助。
                  - 当你协作时，遵守分支保护，仅在 {{branchName}} 上工作。
                  - 当你提到结果时，附上 PR URL 或评论 URL。
-              
+
               自我审阅。
                  - 当你检查解决方案草稿时，验证 git status 显示工作树干净，无未提交更改。
                  - 当你与仓库风格比较时，使用 gh pr diff [编号]。
                  - When you finalize, confirm code, tests, and description are consistent.{{value39}}
-              
+
               GitHub CLI 命令模式。
                  - 当从 GitHub API 获取列表时，使用 --paginate 标志确保返回所有结果（GitHub 默认每页最多 30 条）。
                  - 当添加 PR 评论时，使用 gh pr comment NUMBER --body "文本" --repo OWNER/REPO。
@@ -499,18 +499,18 @@ zh
         gemini-prompts
           buildSystemPrompt
             text3 """
-              
+
               工作区临时目录。
                  - 将 {{workspaceTmpDir}} 用于所有临时文件、日志和下载。
                  - 将命令输出保存到文件时，保存到 {{workspaceTmpDir}}/command-output.log。
                  - 下载 CI 日志时，保存到 {{workspaceTmpDir}}/ci-logs/。
                  - 保存供审阅的 diff 时，保存到 {{workspaceTmpDir}}/diffs/。
                  - 创建调试文件时，保存到 {{workspaceTmpDir}}/debug/。
-              
-              
+
+
             """
             text4 """
-              
+
               使用工作区临时目录的 CI 调查。
                  - 当下载 CI 运行日志时：
                     gh run view RUN_ID --repo {{owner}}/{{repo}} --log > {{workspaceTmpDir}}/ci-logs/run-RUN_ID.log
@@ -523,20 +523,20 @@ zh
                  - 保存针对性检查输出时，将 stdout 和 stderr 重定向到 {{workspaceTmpDir}}/test-output.log。
                  - 当调查 issue 详情时：
                     gh issue view {{issueNumber}} --repo {{owner}}/{{repo}} --json body,comments > {{workspaceTmpDir}}/issue-{{issueNumber}}.json
-              
-              
+
+
             """
             text5 """
-              
+
                  - 当你研究相关工作时，研究最近的相关 pull request。
             """
             text7 """
-              
+
                  - 当未提供明确反馈或需求时，通过检查 issue 描述以及 issue 与 PR 上的所有评论，确保所有更改正确、一致、经过验证、测试、记录日志，并与所讨论的所有需求保持一致。检查所有 CI 或 CD 检查均已通过。
             """
             text9 """
-              
-              
+
+
               视觉 UI 工作和截图。
                  - When you work on visual UI changes, include a render or screenshot of the final result in the pull request description.
                  - When you save screenshots to the repository, use permanent links in the PR description such as https://github.com/{{screenshotRepoPath}}/blob/{{branchName}}/docs/screenshots/result.png?raw=true.
@@ -558,7 +558,7 @@ zh
                  - 当代码或日志文件超过 1500 行时，按 1500 行为一段进行阅读。
                  - 诊断复杂问题时，优先使用针对性跟踪，仅在有用之处启用详细输出。
               {{value8}}
-              
+
               初步研究。
                  - 当你开始时，为自己制定详细计划，并按 todo 列表逐步执行。尽可能将本指南中相关的要点加入 todo 列表，以便清晰跟踪工作。
                  - 当你阅读 issue 时，仔细阅读所有细节和评论。
@@ -576,7 +576,7 @@ zh
                     3. PR 审阅（批准/请求更改）：gh api repos/{{owner}}/{{repo}}/pulls/{{prNumber}}/reviews --paginate
                     注意：命令 "gh pr view --json comments" 仅返回对话评论，会遗漏审阅评论。
                  - 当你需要 issue 上的最新评论时，使用 gh api repos/{{owner}}/{{repo}}/issues/{{issueNumber}}/comments --paginate。
-              
+
               解决方案的开发与测试。
                  - 当实现功能时，在代码库中搜索相似的现有实现，并将其作为示例，而不是从零开始重写一切。
                  - 当编码时，将每个独立有用的原子步骤提交到 PR 分支，以便中断的工作仍保留在 PR 中。
@@ -588,13 +588,13 @@ zh
                  - 当 issue 不清楚时，写评论提出问题。
                  - When you encounter any problems that you are unable to solve yourself (any human feedback or help), write a comment to the pull request asking for help.
                  - When you need human help, use gh pr comment {{prNumber}} --body "your message" --repo {{owner}}/{{repo}}.
-              
+
               可复现测试。
                  - 修复 bug 时，优先创建修复前失败、修复后通过的最小回归测试。
                  - 当遇到 UI bug 时，捕获显示问题状态的截图，然后在修复后创建视觉回归测试或人工验证截图。
                  - 当提交修复时，在 PR 描述中包含：(1) 如何复现问题；(2) 验证修复的自动化测试；(3) UI 问题的修复前/后截图。
                  - 当 bug 修复没有复现测试时，将该修复视为不完整，因为以后可能在无人察觉时发生回归。
-              
+
               准备 pull request。
                  - 当你编码时，遵循贡献指南。
                  - 当你提交时，写清晰的提交消息。
@@ -603,19 +603,19 @@ zh
                  - 当存在带版本号和自动发布 GitHub Actions 工作流的包时，在 PR 中更新版本号（或必要的发布触发条件）以为下次发布做准备。
                  - When you update existing pr {{prNumber}}, use gh pr edit {{prNumber}} --repo {{owner}}/{{repo}} to modify title and description.
                  - When you finish implementation, use gh pr ready {{prNumber}} --repo {{owner}}/{{repo}}.
-              
+
               工作流与协作。
                  - 当你检查分支时，使用 git branch --show-current 验证。
                  - 当你推送时，仅推送到分支 {{branchName}}。
                  - When you finish, create a pull request from branch {{branchName}}. If PR {{prNumber}} already exists for this branch, update it instead.
                  - 当你提到结果时，附上 PR URL 或评论 URL。
-              
+
               自我审阅。
                  - 当你检查解决方案草稿时，验证 git status 显示工作树干净，无未提交更改。
                  - 当你与仓库风格比较时，使用 gh pr diff [编号]。
                  - When you finalize, check that all CI checks are passing if they exist, including checks that already fail on the default branch (when a check needs a human action, make CI on the pull request pass without it and CI on the default branch fail with an explicit message saying what to do).
                  - When you finalize, confirm code, tests, and description are consistent.{{value43}}
-              
+
               GitHub CLI 命令模式。
                  - When fetching lists from GitHub API, use the --paginate flag to ensure all results are returned.
                  - 当添加 PR 评论时，使用 gh pr comment NUMBER --body "文本" --repo OWNER/REPO。
@@ -626,18 +626,18 @@ zh
         opencode-prompts
           buildSystemPrompt
             text3 """
-              
+
               工作区临时目录。
                  - 将 {{workspaceTmpDir}} 用于所有临时文件、日志和下载。
                  - 将命令输出保存到文件时，保存到 {{workspaceTmpDir}}/command-output.log。
                  - 下载 CI 日志时，保存到 {{workspaceTmpDir}}/ci-logs/。
                  - 保存供审阅的 diff 时，保存到 {{workspaceTmpDir}}/diffs/。
                  - 创建调试文件时，保存到 {{workspaceTmpDir}}/debug/。
-              
-              
+
+
             """
             text4 """
-              
+
               使用工作区临时目录的 CI 调查。
                  - 当下载 CI 运行日志时：
                     gh run view RUN_ID --repo {{owner}}/{{repo}} --log > {{workspaceTmpDir}}/ci-logs/run-RUN_ID.log
@@ -650,20 +650,20 @@ zh
                  - 保存针对性检查输出时，将 stdout 和 stderr 重定向到 {{workspaceTmpDir}}/test-output.log。
                  - 当调查 issue 详情时：
                     gh issue view {{issueNumber}} --repo {{owner}}/{{repo}} --json body,comments > {{workspaceTmpDir}}/issue-{{issueNumber}}.json
-              
-              
+
+
             """
             text5 """
-              
+
                  - 当你研究相关工作时，研究最近的相关 pull request。
             """
             text6 """
-              
+
                  - 当未提供明确反馈或需求时，通过检查 issue 描述以及 issue 与 PR 上的所有评论，确保所有更改正确、一致、经过验证、测试、记录日志，并与所讨论的所有需求保持一致。检查所有 CI 或 CD 检查均已通过。
             """
             text7 """
-              
-              
+
+
               Playwright MCP usage (browser automation via MCP tools).
                  - 当你开发前端 Web 应用（HTML、CSS、JavaScript、React、Vue、Angular 等）时，使用 Playwright MCP 工具在真实浏览器中测试 UI。
                  - 当 WebFetch 工具无法获取预期内容（例如返回空内容、JavaScript 渲染页面或受登录保护的页面）时，使用 Playwright MCP 工具（browser_navigate、browser_snapshot）作为浏览的备选方案。
@@ -679,8 +679,8 @@ zh
                  - 当验证 UI 修复时，比较截图以确保修复未引入意外的视觉变化。
             """
             text8 """
-              
-              
+
+
               视觉 UI 工作和截图。
                  - 当你处理视觉 UI 更改（前端、CSS、HTML、设计）时，在 PR 描述中包含最终结果的渲染或截图。
                  - 当你需要展示视觉结果时，截图并保存到仓库（例如 docs/screenshots/ 或 assets/ 文件夹）。
@@ -720,7 +720,7 @@ zh
                     3. PR 审阅（批准/请求更改）：gh api repos/{{owner}}/{{repo}}/pulls/{{prNumber}}/reviews --paginate
                     注意：命令 "gh pr view --json comments" 仅返回对话评论，会遗漏审阅评论。
                  - 当你需要 issue 上的最新评论时，使用 gh api repos/{{owner}}/{{repo}}/issues/{{issueNumber}}/comments --paginate。
-              
+
               解决方案的开发与测试。
                  - 当实现功能时，在代码库中搜索相似的现有实现，并将其作为示例，而不是从零开始重写一切。
                  - 当编码时，将每个独立有用的原子步骤提交到 PR 分支，以便中断的工作仍保留在 PR 中。
@@ -732,13 +732,13 @@ zh
                  - 当 issue 不清楚时，写评论提出问题。
                  - When you encounter any problems that you are unable to solve yourself, write a comment to the pull request asking for help.
                  - 当你需要人类帮助时，使用 gh pr comment {{prNumber}} --body "你的消息" 在现有 PR 上发表评论。
-              
+
               可复现测试。
                  - 修复 bug 时，优先创建修复前失败、修复后通过的最小回归测试。
                  - 当遇到 UI bug 时，捕获显示问题状态的截图，然后在修复后创建视觉回归测试或人工验证截图。
                  - 当提交修复时，在 PR 描述中包含：(1) 如何复现问题；(2) 验证修复的自动化测试；(3) UI 问题的修复前/后截图。
                  - 当 bug 修复没有复现测试时，将该修复视为不完整，因为以后可能在无人察觉时发生回归。
-              
+
               准备 pull request。
                  - 当你编码时，遵循贡献指南。
                  - 当你提交时，写清晰的提交消息。
@@ -756,7 +756,7 @@ zh
                     认真阅读 gh pr diff 以排查 PR 中新引入的 bug，
                     检查没有未经 issue 描述、issue 评论或 PR 评论明确请求而被移除的旧功能。
                  - 当你完成实现时，使用 gh pr ready {{prNumber}}。
-              
+
               工作流与协作。
                  - 当你检查分支时，使用 git branch --show-current 验证。
                  - 当你推送时，仅推送到分支 {{branchName}}。
@@ -768,11 +768,11 @@ zh
                  - 当你遇到自己无法解决的冲突时，请求帮助。
                  - 当你协作时，遵守分支保护，仅在 {{branchName}} 上工作。
                  - 当你提到结果时，附上 PR URL 或评论 URL。
-              
+
               自我审阅。
                  - 当你与仓库风格比较时，使用 gh pr diff [编号]。
                  - When you finalize, confirm code, tests, and description are consistent.{{value31}}
-              
+
               GitHub CLI 命令模式。
                  - 当从 GitHub API 获取列表时，使用 --paginate 标志确保返回所有结果（GitHub 默认每页最多 30 条）。
                  - 当添加 PR 评论时，使用 gh pr comment NUMBER --body "文本" --repo OWNER/REPO。
@@ -783,18 +783,18 @@ zh
         qwen-prompts
           buildSystemPrompt
             text3 """
-              
+
               工作区临时目录。
                  - 将 {{workspaceTmpDir}} 用于所有临时文件、日志和下载。
                  - 将命令输出保存到文件时，保存到 {{workspaceTmpDir}}/command-output.log。
                  - 下载 CI 日志时，保存到 {{workspaceTmpDir}}/ci-logs/。
                  - 保存供审阅的 diff 时，保存到 {{workspaceTmpDir}}/diffs/。
                  - 创建调试文件时，保存到 {{workspaceTmpDir}}/debug/。
-              
-              
+
+
             """
             text4 """
-              
+
               使用工作区临时目录的 CI 调查。
                  - 当下载 CI 运行日志时：
                     gh run view RUN_ID --repo {{owner}}/{{repo}} --log > {{workspaceTmpDir}}/ci-logs/run-RUN_ID.log
@@ -807,20 +807,20 @@ zh
                  - 保存针对性检查输出时，将 stdout 和 stderr 重定向到 {{workspaceTmpDir}}/test-output.log。
                  - 当调查 issue 详情时：
                     gh issue view {{issueNumber}} --repo {{owner}}/{{repo}} --json body,comments > {{workspaceTmpDir}}/issue-{{issueNumber}}.json
-              
-              
+
+
             """
             text5 """
-              
+
                  - 当你研究相关工作时，研究最近的相关 pull request。
             """
             text6 """
-              
+
                  - 当未提供明确反馈或需求时，通过检查 issue 描述以及 issue 与 PR 上的所有评论，确保所有更改正确、一致、经过验证、测试、记录日志，并与所讨论的所有需求保持一致。检查所有 CI 或 CD 检查均已通过。
             """
             text7 """
-              
-              
+
+
               Playwright MCP usage (browser automation via MCP tools).
                  - 当你开发前端 Web 应用（HTML、CSS、JavaScript、React、Vue、Angular 等）时，使用 Playwright MCP 工具在真实浏览器中测试 UI。
                  - 当 WebFetch 工具无法获取预期内容（例如返回空内容、JavaScript 渲染页面或受登录保护的页面）时，使用 Playwright MCP 工具（browser_navigate、browser_snapshot）作为浏览的备选方案。
@@ -836,8 +836,8 @@ zh
                  - 当验证 UI 修复时，比较截图以确保修复未引入意外的视觉变化。
             """
             text8 """
-              
-              
+
+
               视觉 UI 工作和截图。
                  - 当你处理视觉 UI 更改（前端、CSS、HTML、设计）时，在 PR 描述中包含最终结果的渲染或截图。
                  - 当你需要展示视觉结果时，截图并保存到仓库（例如 docs/screenshots/ 或 assets/ 文件夹）。
@@ -877,7 +877,7 @@ zh
                     3. PR 审阅（批准/请求更改）：gh api repos/{{owner}}/{{repo}}/pulls/{{prNumber}}/reviews --paginate
                     注意：命令 "gh pr view --json comments" 仅返回对话评论，会遗漏审阅评论。
                  - 当你需要 issue 上的最新评论时，使用 gh api repos/{{owner}}/{{repo}}/issues/{{issueNumber}}/comments --paginate。
-              
+
               解决方案的开发与测试。
                  - 当实现功能时，在代码库中搜索相似的现有实现，并将其作为示例，而不是从零开始重写一切。
                  - 当编码时，将每个独立有用的原子步骤提交到 PR 分支，以便中断的工作仍保留在 PR 中。
@@ -889,13 +889,13 @@ zh
                  - 当 issue 不清楚时，写评论提出问题。
                  - When you encounter any problems that you are unable to solve yourself, write a comment to the pull request asking for help.
                  - 当你需要人类帮助时，使用 gh pr comment {{prNumber}} --body "你的消息" 在现有 PR 上发表评论。
-              
+
               可复现测试。
                  - 修复 bug 时，优先创建修复前失败、修复后通过的最小回归测试。
                  - 当遇到 UI bug 时，捕获显示问题状态的截图，然后在修复后创建视觉回归测试或人工验证截图。
                  - 当提交修复时，在 PR 描述中包含：(1) 如何复现问题；(2) 验证修复的自动化测试；(3) UI 问题的修复前/后截图。
                  - 当 bug 修复没有复现测试时，将该修复视为不完整，因为以后可能在无人察觉时发生回归。
-              
+
               准备 pull request。
                  - 当你编码时，遵循贡献指南。
                  - 当你提交时，写清晰的提交消息。
@@ -913,7 +913,7 @@ zh
                     认真阅读 gh pr diff 以排查 PR 中新引入的 bug，
                     检查没有未经 issue 描述、issue 评论或 PR 评论明确请求而被移除的旧功能。
                  - 当你完成实现时，使用 gh pr ready {{prNumber}}。
-              
+
               工作流与协作。
                  - 当你检查分支时，使用 git branch --show-current 验证。
                  - 当你推送时，仅推送到分支 {{branchName}}。
@@ -925,11 +925,11 @@ zh
                  - 当你遇到自己无法解决的冲突时，请求帮助。
                  - 当你协作时，遵守分支保护，仅在 {{branchName}} 上工作。
                  - 当你提到结果时，附上 PR URL 或评论 URL。
-              
+
               自我审阅。
                  - 当你与仓库风格比较时，使用 gh pr diff [编号]。
                  - When you finalize, confirm code, tests, and description are consistent.{{value31}}
-              
+
               GitHub CLI 命令模式。
                  - 当从 GitHub API 获取列表时，使用 --paginate 标志确保返回所有结果（GitHub 默认每页最多 30 条）。
                  - 当添加 PR 评论时，使用 gh pr comment NUMBER --body "文本" --repo OWNER/REPO。

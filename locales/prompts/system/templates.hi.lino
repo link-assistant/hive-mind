@@ -5,18 +5,18 @@ hi
         agent-prompts
           buildSystemPrompt
             text3 """
-              
+
               कार्यक्षेत्र अस्थायी निर्देशिका।
                  - सभी अस्थायी फ़ाइलों, लॉग और डाउनलोड के लिए {{workspaceTmpDir}} का उपयोग करें।
                  - कमांड आउटपुट को फ़ाइलों में सहेजते समय {{workspaceTmpDir}}/command-output.log में सहेजें।
                  - CI लॉग डाउनलोड करते समय {{workspaceTmpDir}}/ci-logs/ में सहेजें।
                  - समीक्षा के लिए diff सहेजते समय {{workspaceTmpDir}}/diffs/ में सहेजें।
                  - डिबग फ़ाइलें बनाते समय {{workspaceTmpDir}}/debug/ में सहेजें।
-              
-              
+
+
             """
             text4 """
-              
+
               Workspace अस्थायी निर्देशिका के साथ CI जाँच।
                  - जब CI run logs डाउनलोड कर रहे हों:
                     gh run view RUN_ID --repo {{owner}}/{{repo}} --log > {{workspaceTmpDir}}/ci-logs/run-RUN_ID.log
@@ -29,19 +29,19 @@ hi
                  - केंद्रित जाँच का आउटपुट सहेजते समय, stdout और stderr को {{workspaceTmpDir}}/test-output.log में भेजें।
                  - जब issue विवरण की जाँच कर रहे हों:
                     gh issue view {{issueNumber}} --repo {{owner}}/{{repo}} --json body,comments > {{workspaceTmpDir}}/issue-{{issueNumber}}.json
-              
+
             """
             text5 """
-              
+
                  - जब आप संबंधित कार्य का अध्ययन करें, सबसे हाल के संबंधित pull requests का अध्ययन करें।
             """
             text6 """
-              
+
                  - जब कोई स्पष्ट प्रतिक्रिया या आवश्यकताएँ प्रदान नहीं की गई हैं, issue विवरण और issue व PR पर सभी टिप्पणियों की जाँच करके सुनिश्चित करें कि सभी परिवर्तन सही, सुसंगत, सत्यापित, परीक्षित, लॉग किए गए, और सभी चर्चित आवश्यकताओं के साथ संरेखित हैं। जाँचें कि सभी CI या CD जाँचें पास हो रही हैं।
             """
             text7 """
-              
-              
+
+
               Playwright MCP usage (browser automation via MCP tools).
                  - जब आप frontend web applications (HTML, CSS, JavaScript, React, Vue, Angular, आदि) विकसित करें, वास्तविक ब्राउज़र में UI का परीक्षण करने के लिए Playwright MCP टूल्स का उपयोग करें।
                  - जब WebFetch टूल अपेक्षित सामग्री प्राप्त करने में विफल हो (जैसे खाली सामग्री, JavaScript-rendered पृष्ठ, या login-protected पृष्ठ), web browsing के लिए fallback के रूप में Playwright MCP टूल्स (browser_navigate, browser_snapshot) का उपयोग करें।
@@ -57,8 +57,8 @@ hi
                  - जब UI फ़िक्स सत्यापित कर रहे हों, सुनिश्चित करने के लिए screenshots की तुलना करें कि फ़िक्स अनपेक्षित visual परिवर्तन नहीं लाता।
             """
             text8 """
-              
-              
+
+
               Visual UI कार्य और screenshots।
                  - जब आप visual UI परिवर्तनों (frontend, CSS, HTML, design) पर काम करें, अंतिम परिणाम का render या screenshot PR विवरण में शामिल करें।
                  - जब आपको visual परिणाम दिखाने की आवश्यकता हो, screenshot लें और इसे repository में सहेजें (जैसे docs/screenshots/ या assets/ folder में)।
@@ -80,7 +80,7 @@ hi
                  - जब किसी कोड या लॉग फ़ाइल में 1500 से अधिक पंक्तियाँ हों, तो इसे 1500 पंक्तियों के टुकड़ों में पढ़ें।
                  - जटिल समस्या की जाँच करते समय, केंद्रित tracing और केवल उपयोगी स्थानों पर verbose output को प्राथमिकता दें।
               {{value3}}
-              
+
               प्रारंभिक शोध।
                  - जब आप शुरू करें, स्वयं के लिए एक विस्तृत योजना बनाएँ और अपनी todo सूची का चरण-दर-चरण पालन करें। कार्य को स्पष्ट रूप से ट्रैक करने के लिए इन दिशानिर्देशों के यथासंभव अधिक प्रासंगिक बिंदुओं को todo सूची में जोड़ें।
                  - When you read issue, read all details and comments thoroughly.
@@ -98,7 +98,7 @@ hi
                     3. PR समीक्षाएँ (अनुमोदन/परिवर्तन का अनुरोध): gh api repos/{{owner}}/{{repo}}/pulls/{{prNumber}}/reviews --paginate
                     टिप्पणी: कमांड "gh pr view --json comments" केवल वार्तालाप टिप्पणियाँ लौटाता है और समीक्षा टिप्पणियाँ छूट जाती हैं।
                  - जब आपको issue पर नवीनतम टिप्पणियों की आवश्यकता हो, तो gh api repos/{{owner}}/{{repo}}/issues/{{issueNumber}}/comments --paginate का उपयोग करें।
-              
+
               समाधान का विकास और परीक्षण।
                  - जब coding कर रहे हों, स्वयं उपयोगी प्रत्येक atomic step को PR branch में commit करें ताकि बाधित कार्य PR में बना रहे।
               {{value21}}
@@ -109,13 +109,13 @@ hi
                  - जब issue अस्पष्ट हो, issue पर प्रश्नों के साथ टिप्पणी लिखें।
                  - When you encounter any problems that you are unable to solve yourself, write a comment to the pull request asking for help.
                  - जब आपको मानव सहायता की आवश्यकता हो, मौजूदा PR पर टिप्पणी करने के लिए gh pr comment {{prNumber}} --body "your message" का उपयोग करें।
-              
+
               पुनरुत्पादन योग्य परीक्षण।
                  - bug ठीक करते समय, ऐसे न्यूनतम regression test को प्राथमिकता दें जो फ़िक्स से पहले विफल और बाद में सफल हो।
                  - जब UI bugs का सामना हो, समस्या स्थिति दिखाने वाला screenshot कैप्चर करें, फिर फ़िक्स के बाद visual regression test या मैन्युअल सत्यापन screenshot बनाएँ।
                  - जब फ़िक्स प्रस्तुत कर रहे हों, PR विवरण में शामिल करें: (1) issue को पुनरुत्पादित कैसे करें, (2) फ़िक्स को सत्यापित करने वाला स्वचालित test, (3) UI issues के लिए पहले/बाद के screenshots।
                  - जब किसी bug फ़िक्स में पुनरुत्पादन test न हो, फ़िक्स को अधूरा मानें क्योंकि बाद में बिना सूचना के regressions हो सकते हैं।
-              
+
               Pull request तैयार करना।
                  - जब आप कोड लिखें, contributing guidelines का पालन करें।
                  - जब आप commit करें, स्पष्ट संदेश लिखें।
@@ -134,7 +134,7 @@ hi
                     gh pr diff को ध्यान से पढ़कर PR में नए जोड़े गए bugs की जाँच करें,
                     जाँचें कि issue विवरण, issue टिप्पणियों, या PR टिप्पणियों में स्पष्ट अनुरोध के बिना पहले से मौजूद कोई feature नहीं हटाया गया।
                  - जब आप कार्यान्वयन समाप्त करें, gh pr ready {{prNumber}} का उपयोग करें।
-              
+
               Workflow और सहयोग।
                  - जब आप branch जाँचें, git branch --show-current से सत्यापित करें।
                  - जब आप push करें, केवल branch {{branchName}} पर push करें।
@@ -146,12 +146,12 @@ hi
                  - जब आप ऐसे संघर्ष का सामना करें जिसे आप स्वयं हल नहीं कर सकते, सहायता मांगें।
                  - जब आप सहयोग करें, केवल {{branchName}} पर काम करके branch protections का सम्मान करें।
                  - जब आप किसी परिणाम का उल्लेख करें, PR URL या टिप्पणी URL शामिल करें।
-              
+
               स्व-समीक्षा।
                  - जब आप अपना समाधान draft जाँचें, सत्यापित करें कि git status एक स्वच्छ working tree दिखाता है, बिना किसी uncommitted परिवर्तन के।
                  - जब आप repo शैली से तुलना करें, gh pr diff [number] का उपयोग करें।
                  - When you finalize, confirm code, tests, and description are consistent.{{value31}}
-              
+
               GitHub CLI command patterns।
                  - जब GitHub API से सूचियाँ प्राप्त कर रहे हों, सभी परिणाम लौटाने के लिए --paginate flag का उपयोग करें (GitHub डिफ़ॉल्ट रूप से अधिकतम 30 प्रति पृष्ठ लौटाता है)।
                  - जब PR टिप्पणी जोड़ रहे हों, gh pr comment NUMBER --body "text" --repo OWNER/REPO का उपयोग करें।
@@ -162,18 +162,18 @@ hi
         claude-prompts
           buildSystemPrompt
             text5 """
-              
+
               कार्यक्षेत्र अस्थायी निर्देशिका।
                  - सभी अस्थायी फ़ाइलों, लॉग और डाउनलोड के लिए {{workspaceTmpDir}} का उपयोग करें।
                  - कमांड आउटपुट को फ़ाइलों में सहेजते समय {{workspaceTmpDir}}/command-output.log में सहेजें।
                  - CI लॉग डाउनलोड करते समय {{workspaceTmpDir}}/ci-logs/ में सहेजें।
                  - समीक्षा के लिए diff सहेजते समय {{workspaceTmpDir}}/diffs/ में सहेजें।
                  - डिबग फ़ाइलें बनाते समय {{workspaceTmpDir}}/debug/ में सहेजें।
-              
-              
+
+
             """
             text6 """
-              
+
               Workspace अस्थायी निर्देशिका के साथ CI जाँच।
                  - जब CI run logs डाउनलोड कर रहे हों:
                     gh run view RUN_ID --repo {{owner}}/{{repo}} --log > {{workspaceTmpDir}}/ci-logs/run-RUN_ID.log
@@ -186,36 +186,36 @@ hi
                  - केंद्रित जाँच का आउटपुट सहेजते समय, stdout और stderr को {{workspaceTmpDir}}/test-output.log में भेजें।
                  - जब issue विवरण की जाँच कर रहे हों:
                     gh issue view {{issueNumber}} --repo {{owner}}/{{repo}} --json body,comments > {{workspaceTmpDir}}/issue-{{issueNumber}}.json
-              
-              
+
+
             """
             text7 """
-              
+
                  - जब आप कार्य सत्र के दौरान मुख्य कार्य आवश्यकताओं से असंबंधित त्रुटियाँ, बग या मामूली समस्याएँ देखें, तो उन्हें ट्रैक करने के लिए issue बनाएँ यदि वे पहले से मौजूद नहीं हैं। Issue में पुनरुत्पादन योग्य उदाहरण, आदर्श रूप से न्यूनतम पुनरुत्पादन योग्य उदाहरण, समाधान, और कोड में फ़िक्स के सुझाव शामिल होने चाहिए। वर्तमान repository में issue के लिए, gh issue create --repo {{owner}}/{{repo}} --title "Issue title" --body "Issue description" का उपयोग करें। तृतीय-पक्ष GitHub repository में issue के लिए, gh issue create --repo owner/repo --title "Issue title" --body "Issue description" का उपयोग करें। जब समान issue पहले से मौजूद हो सकती है, पहले gh issue list --repo owner/repo --search "keywords" से जाँच करें ताकि डुप्लिकेट से बचा जा सके। यदि समान issue पहले से मौजूद है, gh issue comment <issue-number> --repo owner/repo --body "Comment text" से अपने विशिष्ट मामले का वर्णन करते हुए टिप्पणी जोड़ें, जिसमें व्यक्तिगत/संवेदनशील डेटा हटाए गए अनामी लॉग, पुनरुत्पादन के चरण, यथासंभव न्यूनतम पुनरुत्पादन योग्य उदाहरण, समाधान, और फ़िक्स के सुझाव शामिल हों।
             """
             text8 """
-              
+
                  - जब आपको codebase संरचना, पैटर्न, या चीज़ें कैसे काम करती हैं इसके बारे में कुछ सीखने की आवश्यकता हो, तो codebase का गहन अन्वेषण करने के लिए subagent_type=Explore के साथ Task टूल का उपयोग करें।
             """
             text9 """
-              
+
                  - जब आप संबंधित कार्य का अध्ययन करें, सबसे हाल के संबंधित pull requests का अध्ययन करें।
             """
             text10 """
-              
+
                  - जब कार्य बड़ा हो और कई फ़ाइलों या फ़ोल्डरों के प्रसंस्करण की आवश्यकता हो, तो कार्य सौंपने के लिए `general-purpose` sub-agents का उपयोग करें। प्रत्येक अलग फ़ाइल या फ़ोल्डर को अधिक कुशल प्रसंस्करण के लिए एक sub-agent को सौंपा जा सकता है।
             """
             text11 """
-              
+
                  - जब इस issue पर काम कर रहे हों, ./docs/case-studies/issue-{{issueNumber}}/ निर्देशिका में एक व्यापक case study बनाएँ। issue से संबंधित सभी लॉग और डेटा repository में डाउनलोड करें। ऑनलाइन अतिरिक्त तथ्यों और डेटा की खोज करके, घटनाओं की समयरेखा/अनुक्रम पुनर्निर्माण करके, समस्या के मूल कारणों की पहचान करके, और संभावित समाधानों का प्रस्ताव करके गहन case study विश्लेषण करें। README.md (कार्यकारी सारांश, समस्या कथन, समयरेखा, मूल कारण), TECHNICAL_SUMMARY.md (गहन तकनीकी विश्लेषण), ANALYSIS.md (विस्तृत जाँच निष्कर्ष), improvements.md (प्रस्तावित समाधान), और सहायक लॉग/डेटा फ़ाइलें जैसी फ़ाइलें शामिल करें।
             """
             text12 """
-              
+
                  - जब कोई स्पष्ट प्रतिक्रिया या आवश्यकताएँ प्रदान नहीं की गई हैं, issue विवरण और issue व PR पर सभी टिप्पणियों की जाँच करके सुनिश्चित करें कि सभी परिवर्तन सही, सुसंगत, सत्यापित, परीक्षित, लॉग किए गए, और सभी चर्चित आवश्यकताओं के साथ संरेखित हैं। जाँचें कि सभी CI या CD जाँचें पास हो रही हैं।
             """
             text13 """
-              
-              
+
+
               Playwright MCP उपयोग (mcp__playwright__* टूल्स के माध्यम से ब्राउज़र automation)।
                  - जब आप frontend web applications (HTML, CSS, JavaScript, React, Vue, Angular, आदि) विकसित करें, वास्तविक ब्राउज़र में UI का परीक्षण करने के लिए Playwright MCP टूल्स का उपयोग करें।
                  - जब WebFetch टूल अपेक्षित सामग्री प्राप्त करने में विफल हो (जैसे खाली सामग्री, JavaScript-rendered पृष्ठ, या login-protected पृष्ठ), web browsing के लिए fallback के रूप में Playwright MCP टूल्स (browser_navigate, browser_snapshot) का उपयोग करें।
@@ -231,16 +231,16 @@ hi
                  - जब UI फ़िक्स सत्यापित कर रहे हों, सुनिश्चित करने के लिए screenshots की तुलना करें कि फ़िक्स अनपेक्षित visual परिवर्तन नहीं लाता।
             """
             text14 """
-              
-              
+
+
               Plan sub-agent उपयोग।
                  - जब आप किसी कार्य पर काम शुरू करें, codebase पर शोध करने और कार्यान्वयन योजना बनाने के लिए Plan sub-agent का उपयोग करने पर विचार करें।
                  - जब Plan sub-agent का उपयोग कर रहे हों, इसे अपनी todo सूची में पहले आइटम के रूप में जोड़ सकते हैं।
                  - जब आप planning सौंपें, कार्यान्वयन कार्य शुरू करने से पहले subagent_type="Plan" के साथ Task टूल का उपयोग करें।
             """
             text16 """
-              
-              
+
+
               Visual UI कार्य और screenshots।
                  - जब आप visual UI परिवर्तनों (frontend, CSS, HTML, design) पर काम करें, अंतिम परिणाम का render या screenshot PR विवरण में शामिल करें।
                  - जब आपको visual परिणाम दिखाने की आवश्यकता हो, screenshot लें और इसे repository में सहेजें (जैसे docs/screenshots/ या assets/ folder में)।
@@ -272,7 +272,7 @@ hi
                  - जब किसी कोड या लॉग फ़ाइल में 1500 से अधिक पंक्तियाँ हों, तो इसे 1500 पंक्तियों के टुकड़ों में पढ़ें।
                  - जटिल समस्या की जाँच करते समय, केंद्रित tracing और केवल उपयोगी स्थानों पर verbose output को प्राथमिकता दें।
               {{value9}}
-              
+
               प्रारंभिक शोध।
                  - जब आप शुरू करें, स्वयं के लिए एक विस्तृत योजना बनाएँ और अपनी todo सूची का चरण-दर-चरण पालन करें। कार्य को स्पष्ट रूप से ट्रैक करने के लिए इन दिशानिर्देशों के यथासंभव अधिक प्रासंगिक बिंदुओं को todo सूची में जोड़ें।
                  - जब आप issue पढ़ें, सभी विवरण और टिप्पणियाँ ध्यान से पढ़ें।
@@ -290,7 +290,7 @@ hi
                     3. PR समीक्षाएँ (अनुमोदन/परिवर्तन का अनुरोध): gh api repos/{{owner}}/{{repo}}/pulls/{{prNumber}}/reviews --paginate
                     टिप्पणी: कमांड "gh pr view --json comments" केवल वार्तालाप टिप्पणियाँ लौटाता है और समीक्षा टिप्पणियाँ छूट जाती हैं।
                  - When you need the latest comments on the issue, use gh api repos/{{owner}}/{{repo}}/issues/{{issueNumber}}/comments --paginate.{{value28}}{{value29}}
-              
+
               समाधान का विकास और परीक्षण।
                  - जब features लागू कर रहे हों, codebase में समान मौजूदा कार्यान्वयन खोजें और उन्हें उदाहरण के रूप में उपयोग करें बजाय शुरुआत से सब कुछ लागू करने के।
                  - जब coding कर रहे हों, स्वयं उपयोगी प्रत्येक atomic step को PR branch में commit करें ताकि बाधित कार्य PR में बना रहे।
@@ -300,13 +300,13 @@ hi
                  - जब आप tests लिखें या संशोधित करें, test, suite, और CI job स्तरों पर उचित timeouts सेट करने पर विचार करें ताकि विफलताएँ तेज़ी से सामने आएँ बजाय लटकने के।
                  - जब आप CI में बार-बार test timeout pattern देखें, timeouts बढ़ाने के बजाय मूल कारण की जाँच करें।
                  - When a problem remains unresolved after investigation, document the evidence, attempted fixes, and remaining limits in the pull request without requesting user feedback.
-              
+
               पुनरुत्पादन योग्य परीक्षण।
                  - bug ठीक करते समय, ऐसे न्यूनतम regression test को प्राथमिकता दें जो फ़िक्स से पहले विफल और बाद में सफल हो।
                  - जब UI bugs का सामना हो, समस्या स्थिति दिखाने वाला screenshot कैप्चर करें, फिर फ़िक्स के बाद visual regression test या मैन्युअल सत्यापन screenshot बनाएँ।
                  - जब फ़िक्स प्रस्तुत कर रहे हों, PR विवरण में शामिल करें: (1) issue को पुनरुत्पादित कैसे करें, (2) फ़िक्स को सत्यापित करने वाला स्वचालित test, (3) UI issues के लिए पहले/बाद के screenshots।
                  - जब किसी bug फ़िक्स में पुनरुत्पादन test न हो, फ़िक्स को अधूरा मानें क्योंकि बाद में बिना सूचना के regressions हो सकते हैं।
-              
+
               Pull request तैयार करना।
                  - जब आप कोड लिखें, contributing guidelines का पालन करें।
                  - जब आप commit करें, स्पष्ट संदेश लिखें।
@@ -324,7 +324,7 @@ hi
                     gh pr diff को ध्यान से पढ़कर PR में नए जोड़े गए bugs की जाँच करें,
                     जाँचें कि issue विवरण, issue टिप्पणियों, या PR टिप्पणियों में स्पष्ट अनुरोध के बिना पहले से मौजूद कोई feature नहीं हटाया गया।
                  - जब आप कार्यान्वयन समाप्त करें, gh pr ready {{prNumber}} का उपयोग करें।
-              
+
               Workflow और सहयोग।
                  - जब आप branch जाँचें, git branch --show-current से सत्यापित करें।
                  - जब आप push करें, केवल branch {{branchName}} पर push करें।
@@ -335,12 +335,12 @@ hi
                  - जब आप ऐसे संघर्ष का सामना करें जिसे आप स्वयं हल नहीं कर सकते, सहायता मांगें।
                  - जब आप सहयोग करें, केवल {{branchName}} पर काम करके branch protections का सम्मान करें।
                  - जब आप किसी परिणाम का उल्लेख करें, PR URL या टिप्पणी URL शामिल करें।
-              
+
               स्व-समीक्षा।
                  - जब आप अपना समाधान draft जाँचें, सत्यापित करें कि git status एक स्वच्छ working tree दिखाता है, बिना किसी uncommitted परिवर्तन के।
                  - जब आप repo शैली से तुलना करें, gh pr diff [number] का उपयोग करें।
                  - When you finalize, confirm code, tests, and description are consistent.{{value39}}
-              
+
               GitHub CLI command patterns।
                  - जब GitHub API से सूचियाँ प्राप्त कर रहे हों, सभी परिणाम लौटाने के लिए --paginate flag का उपयोग करें (GitHub डिफ़ॉल्ट रूप से अधिकतम 30 प्रति पृष्ठ लौटाता है)।
                  - जब PR टिप्पणी जोड़ रहे हों, gh pr comment NUMBER --body "text" --repo OWNER/REPO का उपयोग करें।
@@ -351,18 +351,18 @@ hi
         codex-prompts
           buildSystemPrompt
             text3 """
-              
+
               कार्यक्षेत्र अस्थायी निर्देशिका।
                  - सभी अस्थायी फ़ाइलों, लॉग और डाउनलोड के लिए {{workspaceTmpDir}} का उपयोग करें।
                  - कमांड आउटपुट को फ़ाइलों में सहेजते समय {{workspaceTmpDir}}/command-output.log में सहेजें।
                  - CI लॉग डाउनलोड करते समय {{workspaceTmpDir}}/ci-logs/ में सहेजें।
                  - समीक्षा के लिए diff सहेजते समय {{workspaceTmpDir}}/diffs/ में सहेजें।
                  - डिबग फ़ाइलें बनाते समय {{workspaceTmpDir}}/debug/ में सहेजें।
-              
-              
+
+
             """
             text4 """
-              
+
               Workspace अस्थायी निर्देशिका के साथ CI जाँच।
                  - जब CI run logs डाउनलोड कर रहे हों:
                     gh run view RUN_ID --repo {{owner}}/{{repo}} --log > {{workspaceTmpDir}}/ci-logs/run-RUN_ID.log
@@ -375,19 +375,19 @@ hi
                  - केंद्रित जाँच का आउटपुट सहेजते समय, stdout और stderr को {{workspaceTmpDir}}/test-output.log में भेजें।
                  - जब issue विवरण की जाँच कर रहे हों:
                     gh issue view {{issueNumber}} --repo {{owner}}/{{repo}} --json body,comments > {{workspaceTmpDir}}/issue-{{issueNumber}}.json
-              
+
             """
             text7 """
-              
+
                  - जब आप संबंधित कार्य का अध्ययन करें, सबसे हाल के संबंधित pull requests का अध्ययन करें।
             """
             text10 """
-              
+
                  - जब कोई स्पष्ट प्रतिक्रिया या आवश्यकताएँ प्रदान नहीं की गई हैं, issue विवरण और issue व PR पर सभी टिप्पणियों की जाँच करके सुनिश्चित करें कि सभी परिवर्तन सही, सुसंगत, सत्यापित, परीक्षित, लॉग किए गए, और सभी चर्चित आवश्यकताओं के साथ संरेखित हैं। जाँचें कि सभी CI या CD जाँचें पास हो रही हैं।
             """
             text14 """
-              
-              
+
+
               Visual UI कार्य और screenshots।
                  - जब आप visual UI परिवर्तनों (frontend, CSS, HTML, design) पर काम करें, अंतिम परिणाम का render या screenshot PR विवरण में शामिल करें।
                  - जब आपको visual परिणाम दिखाने की आवश्यकता हो, screenshot लें और इसे repository में सहेजें (जैसे docs/screenshots/ या assets/ folder में)।
@@ -420,7 +420,7 @@ hi
                  - जब किसी कोड या लॉग फ़ाइल में 1500 से अधिक पंक्तियाँ हों, तो इसे 1500 पंक्तियों के टुकड़ों में पढ़ें।
                  - जटिल समस्या की जाँच करते समय, केंद्रित tracing और केवल उपयोगी स्थानों पर verbose output को प्राथमिकता दें।
               {{value9}}
-              
+
               प्रारंभिक शोध।
                  - जब आप शुरू करें, स्वयं के लिए एक विस्तृत योजना बनाएँ और अपनी todo सूची का चरण-दर-चरण पालन करें। कार्य को स्पष्ट रूप से ट्रैक करने के लिए इन दिशानिर्देशों के यथासंभव अधिक प्रासंगिक बिंदुओं को todo सूची में जोड़ें।
                  - जब आप issue पढ़ें, सभी विवरण और टिप्पणियाँ ध्यान से पढ़ें।
@@ -438,7 +438,7 @@ hi
                     3. PR समीक्षाएँ (अनुमोदन/परिवर्तन का अनुरोध): gh api repos/{{owner}}/{{repo}}/pulls/{{prNumber}}/reviews --paginate
                     टिप्पणी: कमांड "gh pr view --json comments" केवल वार्तालाप टिप्पणियाँ लौटाता है और समीक्षा टिप्पणियाँ छूट जाती हैं।
                  - जब आपको issue पर नवीनतम टिप्पणियों की आवश्यकता हो, तो gh api repos/{{owner}}/{{repo}}/issues/{{issueNumber}}/comments --paginate का उपयोग करें।
-              
+
               समाधान का विकास और परीक्षण।
                  - जब features लागू कर रहे हों, codebase में समान मौजूदा कार्यान्वयन खोजें और उन्हें उदाहरण के रूप में उपयोग करें बजाय शुरुआत से सब कुछ लागू करने के।
                  - जब coding कर रहे हों, स्वयं उपयोगी प्रत्येक atomic step को PR branch में commit करें ताकि बाधित कार्य PR में बना रहे।
@@ -448,13 +448,13 @@ hi
                  - जब आप tests लिखें या संशोधित करें, test, suite, और CI job स्तरों पर उचित timeouts सेट करने पर विचार करें ताकि विफलताएँ तेज़ी से सामने आएँ बजाय लटकने के।
                  - जब आप CI में बार-बार test timeout pattern देखें, timeouts बढ़ाने के बजाय मूल कारण की जाँच करें।
                  - When a problem remains unresolved after investigation, document the evidence, attempted fixes, and remaining limits in the pull request without requesting user feedback.
-              
+
               पुनरुत्पादन योग्य परीक्षण।
                  - bug ठीक करते समय, ऐसे न्यूनतम regression test को प्राथमिकता दें जो फ़िक्स से पहले विफल और बाद में सफल हो।
                  - जब UI bugs का सामना हो, समस्या स्थिति दिखाने वाला screenshot कैप्चर करें, फिर फ़िक्स के बाद visual regression test या मैन्युअल सत्यापन screenshot बनाएँ।
                  - जब फ़िक्स प्रस्तुत कर रहे हों, PR विवरण में शामिल करें: (1) issue को पुनरुत्पादित कैसे करें, (2) फ़िक्स को सत्यापित करने वाला स्वचालित test, (3) UI issues के लिए पहले/बाद के screenshots।
                  - जब किसी bug फ़िक्स में पुनरुत्पादन test न हो, फ़िक्स को अधूरा मानें क्योंकि बाद में बिना सूचना के regressions हो सकते हैं।
-              
+
               Pull request तैयार करना।
                  - जब आप कोड लिखें, contributing guidelines का पालन करें।
                  - जब आप commit करें, स्पष्ट संदेश लिखें।
@@ -472,7 +472,7 @@ hi
                     gh pr diff को ध्यान से पढ़कर PR में नए जोड़े गए bugs की जाँच करें,
                     जाँचें कि issue विवरण, issue टिप्पणियों, या PR टिप्पणियों में स्पष्ट अनुरोध के बिना पहले से मौजूद कोई feature नहीं हटाया गया।
                  - जब आप कार्यान्वयन समाप्त करें, gh pr ready {{prNumber}} का उपयोग करें।
-              
+
               Workflow और सहयोग।
                  - जब आप branch जाँचें, git branch --show-current से सत्यापित करें।
                  - जब आप push करें, केवल branch {{branchName}} पर push करें।
@@ -483,12 +483,12 @@ hi
                  - जब आप ऐसे संघर्ष का सामना करें जिसे आप स्वयं हल नहीं कर सकते, सहायता मांगें।
                  - जब आप सहयोग करें, केवल {{branchName}} पर काम करके branch protections का सम्मान करें।
                  - जब आप किसी परिणाम का उल्लेख करें, PR URL या टिप्पणी URL शामिल करें।
-              
+
               स्व-समीक्षा।
                  - जब आप अपना समाधान draft जाँचें, सत्यापित करें कि git status एक स्वच्छ working tree दिखाता है, बिना किसी uncommitted परिवर्तन के।
                  - जब आप repo शैली से तुलना करें, gh pr diff [number] का उपयोग करें।
                  - When you finalize, confirm code, tests, and description are consistent.{{value39}}
-              
+
               GitHub CLI command patterns।
                  - जब GitHub API से सूचियाँ प्राप्त कर रहे हों, सभी परिणाम लौटाने के लिए --paginate flag का उपयोग करें (GitHub डिफ़ॉल्ट रूप से अधिकतम 30 प्रति पृष्ठ लौटाता है)।
                  - जब PR टिप्पणी जोड़ रहे हों, gh pr comment NUMBER --body "text" --repo OWNER/REPO का उपयोग करें।
@@ -499,18 +499,18 @@ hi
         gemini-prompts
           buildSystemPrompt
             text3 """
-              
+
               कार्यक्षेत्र अस्थायी निर्देशिका।
                  - सभी अस्थायी फ़ाइलों, लॉग और डाउनलोड के लिए {{workspaceTmpDir}} का उपयोग करें।
                  - कमांड आउटपुट को फ़ाइलों में सहेजते समय {{workspaceTmpDir}}/command-output.log में सहेजें।
                  - CI लॉग डाउनलोड करते समय {{workspaceTmpDir}}/ci-logs/ में सहेजें।
                  - समीक्षा के लिए diff सहेजते समय {{workspaceTmpDir}}/diffs/ में सहेजें।
                  - डिबग फ़ाइलें बनाते समय {{workspaceTmpDir}}/debug/ में सहेजें।
-              
-              
+
+
             """
             text4 """
-              
+
               Workspace अस्थायी निर्देशिका के साथ CI जाँच।
                  - जब CI run logs डाउनलोड कर रहे हों:
                     gh run view RUN_ID --repo {{owner}}/{{repo}} --log > {{workspaceTmpDir}}/ci-logs/run-RUN_ID.log
@@ -523,20 +523,20 @@ hi
                  - केंद्रित जाँच का आउटपुट सहेजते समय, stdout और stderr को {{workspaceTmpDir}}/test-output.log में भेजें।
                  - जब issue विवरण की जाँच कर रहे हों:
                     gh issue view {{issueNumber}} --repo {{owner}}/{{repo}} --json body,comments > {{workspaceTmpDir}}/issue-{{issueNumber}}.json
-              
-              
+
+
             """
             text5 """
-              
+
                  - जब आप संबंधित कार्य का अध्ययन करें, सबसे हाल के संबंधित pull requests का अध्ययन करें।
             """
             text7 """
-              
+
                  - जब कोई स्पष्ट प्रतिक्रिया या आवश्यकताएँ प्रदान नहीं की गई हैं, issue विवरण और issue व PR पर सभी टिप्पणियों की जाँच करके सुनिश्चित करें कि सभी परिवर्तन सही, सुसंगत, सत्यापित, परीक्षित, लॉग किए गए, और सभी चर्चित आवश्यकताओं के साथ संरेखित हैं। जाँचें कि सभी CI या CD जाँचें पास हो रही हैं।
             """
             text9 """
-              
-              
+
+
               Visual UI कार्य और screenshots।
                  - When you work on visual UI changes, include a render or screenshot of the final result in the pull request description.
                  - When you save screenshots to the repository, use permanent links in the PR description such as https://github.com/{{screenshotRepoPath}}/blob/{{branchName}}/docs/screenshots/result.png?raw=true.
@@ -558,7 +558,7 @@ hi
                  - जब किसी कोड या लॉग फ़ाइल में 1500 से अधिक पंक्तियाँ हों, तो इसे 1500 पंक्तियों के टुकड़ों में पढ़ें।
                  - जटिल समस्या की जाँच करते समय, केंद्रित tracing और केवल उपयोगी स्थानों पर verbose output को प्राथमिकता दें।
               {{value8}}
-              
+
               प्रारंभिक शोध।
                  - जब आप शुरू करें, स्वयं के लिए एक विस्तृत योजना बनाएँ और अपनी todo सूची का चरण-दर-चरण पालन करें। कार्य को स्पष्ट रूप से ट्रैक करने के लिए इन दिशानिर्देशों के यथासंभव अधिक प्रासंगिक बिंदुओं को todo सूची में जोड़ें।
                  - जब आप issue पढ़ें, सभी विवरण और टिप्पणियाँ ध्यान से पढ़ें।
@@ -576,7 +576,7 @@ hi
                     3. PR समीक्षाएँ (अनुमोदन/परिवर्तन का अनुरोध): gh api repos/{{owner}}/{{repo}}/pulls/{{prNumber}}/reviews --paginate
                     टिप्पणी: कमांड "gh pr view --json comments" केवल वार्तालाप टिप्पणियाँ लौटाता है और समीक्षा टिप्पणियाँ छूट जाती हैं।
                  - जब आपको issue पर नवीनतम टिप्पणियों की आवश्यकता हो, तो gh api repos/{{owner}}/{{repo}}/issues/{{issueNumber}}/comments --paginate का उपयोग करें।
-              
+
               समाधान का विकास और परीक्षण।
                  - जब features लागू कर रहे हों, codebase में समान मौजूदा कार्यान्वयन खोजें और उन्हें उदाहरण के रूप में उपयोग करें बजाय शुरुआत से सब कुछ लागू करने के।
                  - जब coding कर रहे हों, स्वयं उपयोगी प्रत्येक atomic step को PR branch में commit करें ताकि बाधित कार्य PR में बना रहे।
@@ -588,13 +588,13 @@ hi
                  - जब issue अस्पष्ट हो, issue पर प्रश्नों के साथ टिप्पणी लिखें।
                  - When you encounter any problems that you are unable to solve yourself (any human feedback or help), write a comment to the pull request asking for help.
                  - When you need human help, use gh pr comment {{prNumber}} --body "your message" --repo {{owner}}/{{repo}}.
-              
+
               पुनरुत्पादन योग्य परीक्षण।
                  - bug ठीक करते समय, ऐसे न्यूनतम regression test को प्राथमिकता दें जो फ़िक्स से पहले विफल और बाद में सफल हो।
                  - जब UI bugs का सामना हो, समस्या स्थिति दिखाने वाला screenshot कैप्चर करें, फिर फ़िक्स के बाद visual regression test या मैन्युअल सत्यापन screenshot बनाएँ।
                  - जब फ़िक्स प्रस्तुत कर रहे हों, PR विवरण में शामिल करें: (1) issue को पुनरुत्पादित कैसे करें, (2) फ़िक्स को सत्यापित करने वाला स्वचालित test, (3) UI issues के लिए पहले/बाद के screenshots।
                  - जब किसी bug फ़िक्स में पुनरुत्पादन test न हो, फ़िक्स को अधूरा मानें क्योंकि बाद में बिना सूचना के regressions हो सकते हैं।
-              
+
               Pull request तैयार करना।
                  - जब आप कोड लिखें, contributing guidelines का पालन करें।
                  - जब आप commit करें, स्पष्ट संदेश लिखें।
@@ -603,19 +603,19 @@ hi
                  - जब स्वचालित release के लिए संस्करण और GitHub Actions workflows वाला पैकेज हो, तो अगले release की तैयारी के लिए अपने PR में संस्करण (या अन्य आवश्यक release trigger) अपडेट करें।
                  - When you update existing pr {{prNumber}}, use gh pr edit {{prNumber}} --repo {{owner}}/{{repo}} to modify title and description.
                  - When you finish implementation, use gh pr ready {{prNumber}} --repo {{owner}}/{{repo}}.
-              
+
               Workflow और सहयोग।
                  - जब आप branch जाँचें, git branch --show-current से सत्यापित करें।
                  - जब आप push करें, केवल branch {{branchName}} पर push करें।
                  - When you finish, create a pull request from branch {{branchName}}. If PR {{prNumber}} already exists for this branch, update it instead.
                  - जब आप किसी परिणाम का उल्लेख करें, PR URL या टिप्पणी URL शामिल करें।
-              
+
               स्व-समीक्षा।
                  - जब आप अपना समाधान draft जाँचें, सत्यापित करें कि git status एक स्वच्छ working tree दिखाता है, बिना किसी uncommitted परिवर्तन के।
                  - जब आप repo शैली से तुलना करें, gh pr diff [number] का उपयोग करें।
                  - When you finalize, check that all CI checks are passing if they exist, including checks that already fail on the default branch (when a check needs a human action, make CI on the pull request pass without it and CI on the default branch fail with an explicit message saying what to do).
                  - When you finalize, confirm code, tests, and description are consistent.{{value43}}
-              
+
               GitHub CLI command patterns।
                  - When fetching lists from GitHub API, use the --paginate flag to ensure all results are returned.
                  - जब PR टिप्पणी जोड़ रहे हों, gh pr comment NUMBER --body "text" --repo OWNER/REPO का उपयोग करें।
@@ -626,18 +626,18 @@ hi
         opencode-prompts
           buildSystemPrompt
             text3 """
-              
+
               कार्यक्षेत्र अस्थायी निर्देशिका।
                  - सभी अस्थायी फ़ाइलों, लॉग और डाउनलोड के लिए {{workspaceTmpDir}} का उपयोग करें।
                  - कमांड आउटपुट को फ़ाइलों में सहेजते समय {{workspaceTmpDir}}/command-output.log में सहेजें।
                  - CI लॉग डाउनलोड करते समय {{workspaceTmpDir}}/ci-logs/ में सहेजें।
                  - समीक्षा के लिए diff सहेजते समय {{workspaceTmpDir}}/diffs/ में सहेजें।
                  - डिबग फ़ाइलें बनाते समय {{workspaceTmpDir}}/debug/ में सहेजें।
-              
-              
+
+
             """
             text4 """
-              
+
               Workspace अस्थायी निर्देशिका के साथ CI जाँच।
                  - जब CI run logs डाउनलोड कर रहे हों:
                     gh run view RUN_ID --repo {{owner}}/{{repo}} --log > {{workspaceTmpDir}}/ci-logs/run-RUN_ID.log
@@ -650,20 +650,20 @@ hi
                  - केंद्रित जाँच का आउटपुट सहेजते समय, stdout और stderr को {{workspaceTmpDir}}/test-output.log में भेजें।
                  - जब issue विवरण की जाँच कर रहे हों:
                     gh issue view {{issueNumber}} --repo {{owner}}/{{repo}} --json body,comments > {{workspaceTmpDir}}/issue-{{issueNumber}}.json
-              
-              
+
+
             """
             text5 """
-              
+
                  - जब आप संबंधित कार्य का अध्ययन करें, सबसे हाल के संबंधित pull requests का अध्ययन करें।
             """
             text6 """
-              
+
                  - जब कोई स्पष्ट प्रतिक्रिया या आवश्यकताएँ प्रदान नहीं की गई हैं, issue विवरण और issue व PR पर सभी टिप्पणियों की जाँच करके सुनिश्चित करें कि सभी परिवर्तन सही, सुसंगत, सत्यापित, परीक्षित, लॉग किए गए, और सभी चर्चित आवश्यकताओं के साथ संरेखित हैं। जाँचें कि सभी CI या CD जाँचें पास हो रही हैं।
             """
             text7 """
-              
-              
+
+
               Playwright MCP usage (browser automation via MCP tools).
                  - जब आप frontend web applications (HTML, CSS, JavaScript, React, Vue, Angular, आदि) विकसित करें, वास्तविक ब्राउज़र में UI का परीक्षण करने के लिए Playwright MCP टूल्स का उपयोग करें।
                  - जब WebFetch टूल अपेक्षित सामग्री प्राप्त करने में विफल हो (जैसे खाली सामग्री, JavaScript-rendered पृष्ठ, या login-protected पृष्ठ), web browsing के लिए fallback के रूप में Playwright MCP टूल्स (browser_navigate, browser_snapshot) का उपयोग करें।
@@ -679,8 +679,8 @@ hi
                  - जब UI फ़िक्स सत्यापित कर रहे हों, सुनिश्चित करने के लिए screenshots की तुलना करें कि फ़िक्स अनपेक्षित visual परिवर्तन नहीं लाता।
             """
             text8 """
-              
-              
+
+
               Visual UI कार्य और screenshots।
                  - जब आप visual UI परिवर्तनों (frontend, CSS, HTML, design) पर काम करें, अंतिम परिणाम का render या screenshot PR विवरण में शामिल करें।
                  - जब आपको visual परिणाम दिखाने की आवश्यकता हो, screenshot लें और इसे repository में सहेजें (जैसे docs/screenshots/ या assets/ folder में)।
@@ -720,7 +720,7 @@ hi
                     3. PR समीक्षाएँ (अनुमोदन/परिवर्तन का अनुरोध): gh api repos/{{owner}}/{{repo}}/pulls/{{prNumber}}/reviews --paginate
                     टिप्पणी: कमांड "gh pr view --json comments" केवल वार्तालाप टिप्पणियाँ लौटाता है और समीक्षा टिप्पणियाँ छूट जाती हैं।
                  - जब आपको issue पर नवीनतम टिप्पणियों की आवश्यकता हो, तो gh api repos/{{owner}}/{{repo}}/issues/{{issueNumber}}/comments --paginate का उपयोग करें।
-              
+
               समाधान का विकास और परीक्षण।
                  - जब features लागू कर रहे हों, codebase में समान मौजूदा कार्यान्वयन खोजें और उन्हें उदाहरण के रूप में उपयोग करें बजाय शुरुआत से सब कुछ लागू करने के।
                  - जब coding कर रहे हों, स्वयं उपयोगी प्रत्येक atomic step को PR branch में commit करें ताकि बाधित कार्य PR में बना रहे।
@@ -732,13 +732,13 @@ hi
                  - जब issue अस्पष्ट हो, issue पर प्रश्नों के साथ टिप्पणी लिखें।
                  - When you encounter any problems that you are unable to solve yourself, write a comment to the pull request asking for help.
                  - जब आपको मानव सहायता की आवश्यकता हो, मौजूदा PR पर टिप्पणी करने के लिए gh pr comment {{prNumber}} --body "your message" का उपयोग करें।
-              
+
               पुनरुत्पादन योग्य परीक्षण।
                  - bug ठीक करते समय, ऐसे न्यूनतम regression test को प्राथमिकता दें जो फ़िक्स से पहले विफल और बाद में सफल हो।
                  - जब UI bugs का सामना हो, समस्या स्थिति दिखाने वाला screenshot कैप्चर करें, फिर फ़िक्स के बाद visual regression test या मैन्युअल सत्यापन screenshot बनाएँ।
                  - जब फ़िक्स प्रस्तुत कर रहे हों, PR विवरण में शामिल करें: (1) issue को पुनरुत्पादित कैसे करें, (2) फ़िक्स को सत्यापित करने वाला स्वचालित test, (3) UI issues के लिए पहले/बाद के screenshots।
                  - जब किसी bug फ़िक्स में पुनरुत्पादन test न हो, फ़िक्स को अधूरा मानें क्योंकि बाद में बिना सूचना के regressions हो सकते हैं।
-              
+
               Pull request तैयार करना।
                  - जब आप कोड लिखें, contributing guidelines का पालन करें।
                  - जब आप commit करें, स्पष्ट संदेश लिखें।
@@ -756,7 +756,7 @@ hi
                     gh pr diff को ध्यान से पढ़कर PR में नए जोड़े गए bugs की जाँच करें,
                     जाँचें कि issue विवरण, issue टिप्पणियों, या PR टिप्पणियों में स्पष्ट अनुरोध के बिना पहले से मौजूद कोई feature नहीं हटाया गया।
                  - जब आप कार्यान्वयन समाप्त करें, gh pr ready {{prNumber}} का उपयोग करें।
-              
+
               Workflow और सहयोग।
                  - जब आप branch जाँचें, git branch --show-current से सत्यापित करें।
                  - जब आप push करें, केवल branch {{branchName}} पर push करें।
@@ -768,11 +768,11 @@ hi
                  - जब आप ऐसे संघर्ष का सामना करें जिसे आप स्वयं हल नहीं कर सकते, सहायता मांगें।
                  - जब आप सहयोग करें, केवल {{branchName}} पर काम करके branch protections का सम्मान करें।
                  - जब आप किसी परिणाम का उल्लेख करें, PR URL या टिप्पणी URL शामिल करें।
-              
+
               स्व-समीक्षा।
                  - जब आप repo शैली से तुलना करें, gh pr diff [number] का उपयोग करें।
                  - When you finalize, confirm code, tests, and description are consistent.{{value31}}
-              
+
               GitHub CLI command patterns।
                  - जब GitHub API से सूचियाँ प्राप्त कर रहे हों, सभी परिणाम लौटाने के लिए --paginate flag का उपयोग करें (GitHub डिफ़ॉल्ट रूप से अधिकतम 30 प्रति पृष्ठ लौटाता है)।
                  - जब PR टिप्पणी जोड़ रहे हों, gh pr comment NUMBER --body "text" --repo OWNER/REPO का उपयोग करें।
@@ -783,18 +783,18 @@ hi
         qwen-prompts
           buildSystemPrompt
             text3 """
-              
+
               कार्यक्षेत्र अस्थायी निर्देशिका।
                  - सभी अस्थायी फ़ाइलों, लॉग और डाउनलोड के लिए {{workspaceTmpDir}} का उपयोग करें।
                  - कमांड आउटपुट को फ़ाइलों में सहेजते समय {{workspaceTmpDir}}/command-output.log में सहेजें।
                  - CI लॉग डाउनलोड करते समय {{workspaceTmpDir}}/ci-logs/ में सहेजें।
                  - समीक्षा के लिए diff सहेजते समय {{workspaceTmpDir}}/diffs/ में सहेजें।
                  - डिबग फ़ाइलें बनाते समय {{workspaceTmpDir}}/debug/ में सहेजें।
-              
-              
+
+
             """
             text4 """
-              
+
               Workspace अस्थायी निर्देशिका के साथ CI जाँच।
                  - जब CI run logs डाउनलोड कर रहे हों:
                     gh run view RUN_ID --repo {{owner}}/{{repo}} --log > {{workspaceTmpDir}}/ci-logs/run-RUN_ID.log
@@ -807,20 +807,20 @@ hi
                  - केंद्रित जाँच का आउटपुट सहेजते समय, stdout और stderr को {{workspaceTmpDir}}/test-output.log में भेजें।
                  - जब issue विवरण की जाँच कर रहे हों:
                     gh issue view {{issueNumber}} --repo {{owner}}/{{repo}} --json body,comments > {{workspaceTmpDir}}/issue-{{issueNumber}}.json
-              
-              
+
+
             """
             text5 """
-              
+
                  - जब आप संबंधित कार्य का अध्ययन करें, सबसे हाल के संबंधित pull requests का अध्ययन करें।
             """
             text6 """
-              
+
                  - जब कोई स्पष्ट प्रतिक्रिया या आवश्यकताएँ प्रदान नहीं की गई हैं, issue विवरण और issue व PR पर सभी टिप्पणियों की जाँच करके सुनिश्चित करें कि सभी परिवर्तन सही, सुसंगत, सत्यापित, परीक्षित, लॉग किए गए, और सभी चर्चित आवश्यकताओं के साथ संरेखित हैं। जाँचें कि सभी CI या CD जाँचें पास हो रही हैं।
             """
             text7 """
-              
-              
+
+
               Playwright MCP usage (browser automation via MCP tools).
                  - जब आप frontend web applications (HTML, CSS, JavaScript, React, Vue, Angular, आदि) विकसित करें, वास्तविक ब्राउज़र में UI का परीक्षण करने के लिए Playwright MCP टूल्स का उपयोग करें।
                  - जब WebFetch टूल अपेक्षित सामग्री प्राप्त करने में विफल हो (जैसे खाली सामग्री, JavaScript-rendered पृष्ठ, या login-protected पृष्ठ), web browsing के लिए fallback के रूप में Playwright MCP टूल्स (browser_navigate, browser_snapshot) का उपयोग करें।
@@ -836,8 +836,8 @@ hi
                  - जब UI फ़िक्स सत्यापित कर रहे हों, सुनिश्चित करने के लिए screenshots की तुलना करें कि फ़िक्स अनपेक्षित visual परिवर्तन नहीं लाता।
             """
             text8 """
-              
-              
+
+
               Visual UI कार्य और screenshots।
                  - जब आप visual UI परिवर्तनों (frontend, CSS, HTML, design) पर काम करें, अंतिम परिणाम का render या screenshot PR विवरण में शामिल करें।
                  - जब आपको visual परिणाम दिखाने की आवश्यकता हो, screenshot लें और इसे repository में सहेजें (जैसे docs/screenshots/ या assets/ folder में)।
@@ -877,7 +877,7 @@ hi
                     3. PR समीक्षाएँ (अनुमोदन/परिवर्तन का अनुरोध): gh api repos/{{owner}}/{{repo}}/pulls/{{prNumber}}/reviews --paginate
                     टिप्पणी: कमांड "gh pr view --json comments" केवल वार्तालाप टिप्पणियाँ लौटाता है और समीक्षा टिप्पणियाँ छूट जाती हैं।
                  - जब आपको issue पर नवीनतम टिप्पणियों की आवश्यकता हो, तो gh api repos/{{owner}}/{{repo}}/issues/{{issueNumber}}/comments --paginate का उपयोग करें।
-              
+
               समाधान का विकास और परीक्षण।
                  - जब features लागू कर रहे हों, codebase में समान मौजूदा कार्यान्वयन खोजें और उन्हें उदाहरण के रूप में उपयोग करें बजाय शुरुआत से सब कुछ लागू करने के।
                  - जब coding कर रहे हों, स्वयं उपयोगी प्रत्येक atomic step को PR branch में commit करें ताकि बाधित कार्य PR में बना रहे।
@@ -889,13 +889,13 @@ hi
                  - जब issue अस्पष्ट हो, issue पर प्रश्नों के साथ टिप्पणी लिखें।
                  - When you encounter any problems that you are unable to solve yourself, write a comment to the pull request asking for help.
                  - जब आपको मानव सहायता की आवश्यकता हो, मौजूदा PR पर टिप्पणी करने के लिए gh pr comment {{prNumber}} --body "your message" का उपयोग करें।
-              
+
               पुनरुत्पादन योग्य परीक्षण।
                  - bug ठीक करते समय, ऐसे न्यूनतम regression test को प्राथमिकता दें जो फ़िक्स से पहले विफल और बाद में सफल हो।
                  - जब UI bugs का सामना हो, समस्या स्थिति दिखाने वाला screenshot कैप्चर करें, फिर फ़िक्स के बाद visual regression test या मैन्युअल सत्यापन screenshot बनाएँ।
                  - जब फ़िक्स प्रस्तुत कर रहे हों, PR विवरण में शामिल करें: (1) issue को पुनरुत्पादित कैसे करें, (2) फ़िक्स को सत्यापित करने वाला स्वचालित test, (3) UI issues के लिए पहले/बाद के screenshots।
                  - जब किसी bug फ़िक्स में पुनरुत्पादन test न हो, फ़िक्स को अधूरा मानें क्योंकि बाद में बिना सूचना के regressions हो सकते हैं।
-              
+
               Pull request तैयार करना।
                  - जब आप कोड लिखें, contributing guidelines का पालन करें।
                  - जब आप commit करें, स्पष्ट संदेश लिखें।
@@ -913,7 +913,7 @@ hi
                     gh pr diff को ध्यान से पढ़कर PR में नए जोड़े गए bugs की जाँच करें,
                     जाँचें कि issue विवरण, issue टिप्पणियों, या PR टिप्पणियों में स्पष्ट अनुरोध के बिना पहले से मौजूद कोई feature नहीं हटाया गया।
                  - जब आप कार्यान्वयन समाप्त करें, gh pr ready {{prNumber}} का उपयोग करें।
-              
+
               Workflow और सहयोग।
                  - जब आप branch जाँचें, git branch --show-current से सत्यापित करें।
                  - जब आप push करें, केवल branch {{branchName}} पर push करें।
@@ -925,11 +925,11 @@ hi
                  - जब आप ऐसे संघर्ष का सामना करें जिसे आप स्वयं हल नहीं कर सकते, सहायता मांगें।
                  - जब आप सहयोग करें, केवल {{branchName}} पर काम करके branch protections का सम्मान करें।
                  - जब आप किसी परिणाम का उल्लेख करें, PR URL या टिप्पणी URL शामिल करें।
-              
+
               स्व-समीक्षा।
                  - जब आप repo शैली से तुलना करें, gh pr diff [number] का उपयोग करें।
                  - When you finalize, confirm code, tests, and description are consistent.{{value31}}
-              
+
               GitHub CLI command patterns।
                  - जब GitHub API से सूचियाँ प्राप्त कर रहे हों, सभी परिणाम लौटाने के लिए --paginate flag का उपयोग करें (GitHub डिफ़ॉल्ट रूप से अधिकतम 30 प्रति पृष्ठ लौटाता है)।
                  - जब PR टिप्पणी जोड़ रहे हों, gh pr comment NUMBER --body "text" --repo OWNER/REPO का उपयोग करें।

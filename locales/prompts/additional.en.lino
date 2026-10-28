@@ -11,7 +11,7 @@ en
             Diff file: {{diffFile}}
             Focus areas: {{value7}}
             Auto-approve if passes: {{value8}}
-            
+
             Review this pull request thoroughly.
           """
       task
@@ -19,12 +19,12 @@ en
           text3 """
             Clarification analysis:
             {{value1}}
-            
-            
+
+
           """
           text1 """
             Task: "{{taskInput}}"
-            
+
             Please help clarify this task by:
             1. Identifying ambiguous aspects of the task
             2. Asking 3-5 specific clarifying questions
@@ -33,7 +33,7 @@ en
           """
           text4 """
             Task: "{{taskInput}}"
-            
+
             {{value2}}Please decompose this task into actionable subtasks with dependencies, complexity, risks, and success criteria.
           """
       solve-feedback

@@ -136,3 +136,9 @@ test('live feedback, finalization and intervention templates are catalogued with
   const actual = JSON.parse(execFileSync(process.execPath, ['--max-old-space-size=192', new URL('../experiments/issue-3837-live-prompt-corpus.mjs', import.meta.url).pathname], { encoding: 'utf8' }));
   assert.deepEqual(actual, expected);
 });
+
+test('the version-only CLI exit remains independent of prompt catalogs', { timeout: 10000 }, async () => {
+  const { execFileSync } = await import('node:child_process');
+  const output = execFileSync(process.execPath, ['--max-old-space-size=96', '--import', new URL('../experiments/issue-3837-reject-catalog-imports.mjs', import.meta.url).pathname, new URL('../src/solve.mjs', import.meta.url).pathname, '--version'], { encoding: 'utf8' });
+  assert.match(output.trim(), /^\d+\.\d+\.\d+/);
+});

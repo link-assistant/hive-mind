@@ -34,3 +34,5 @@ PASS tests/test-bidirectional-interactive.mjs
 PASS tests/test-auto-input-until-mergeable-1708.mjs
 PASS tests/restart-evidence-2293.test.mjs
 PASS tests/test-auto-report-issue.mjs
+PASS tests/test-solve-queue-command.mjs
+PASS tests/tool-result-error-classification-2160.test.mjs

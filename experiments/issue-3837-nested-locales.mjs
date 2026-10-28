@@ -13,7 +13,7 @@ try {
   const result = await loadLocalesFromDirectory(directory, { recursive: true });
   assert.equal(result.en.ui, 'UI');
   assert.equal(result.en.instruction, undefined);
-  console.log('Confirmed with lino-i18n 0.4.0: recursive: true still ignores prompts/system/en.lino.');
+  console.log('Confirmed with the installed lino-i18n: recursive: true still ignores prompts/system/en.lino.');
 } finally {
   await rm(directory, { recursive: true, force: true });
 }

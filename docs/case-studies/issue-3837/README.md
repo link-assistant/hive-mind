@@ -4,7 +4,7 @@ The solver prompts required every test to run locally even when CI already provi
 
 ## Requirements and evidence
 
-The [complete issue snapshot](data/issue.json) is the source of this inventory. There were no issue comments, required sub-issues, PR conversation comments, inline comments, or reviews when research began; the four comment/review snapshots are in `data/`.
+The [complete issue snapshot](data/issue.json) is the source of this inventory. There were no issue comments, required sub-issues, PR conversation comments, inline comments, or reviews when research began; the four comment/review snapshots and the empty sub-issue response are in `data/`.
 
 | Requirement                                                                  | Solution and plan carried out                                                                                                                                                     | Verification                                                                                                              |
 | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
@@ -81,3 +81,5 @@ node --max-old-space-size=96 experiments/issue-3837-prompt-size.mjs
 To reproduce the original failure, run the regression against the six builder files and four locale catalogs from baseline commit `976a5a95a10a74f3f85feca2ef94a22afe80e2ca`, retaining the new test and size fixture. All ten cases fail on unconditional local-validation guidance. With this change they all pass, including both prompt profiles, translated catalogs, uniqueness, byte-size reductions, complete-delivery wording, and CI requirements.
 
 Local checks use a 96 MiB Node heap limit and run sequentially because this container has a shared 2.92 GiB memory limit. Dependencies were installed from the lockfile with lifecycle scripts disabled. The full default and integration suites already run in the repository's CI; this change uses focused local checks and current-commit CI evidence for the broad checks. The final PR description records CI results.
+
+Focused local verification passed: 10 new regression cases, 26 i18n cases (including locale key parity), 140 thinking-prompt cases, the screenshot/case-study prompt check, and the existing no-progress/CI-completion regression. ESLint on changed source and tests, Prettier on changed JavaScript/Markdown/JSON, file line limits, and `git diff --check` passed. The latest default branch and automated development-log commits were merged without conflicts.

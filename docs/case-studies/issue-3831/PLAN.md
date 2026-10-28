@@ -10,10 +10,12 @@ Objective: implement and verify every issue requirement in PR 3832, preserving t
 - [x] Add minimal automated reproductions and record failures before implementation.
 - [x] Implement all required transient detection and context-preserving retry fixes, retaining permanent-error behavior.
 - [x] Add diagnostics only where evidence shows a gap; keep verbose output off by default.
-- [ ] Report reproducible upstream defects with workaround and suggested code fix where supported by evidence.
-- [ ] Complete case study with timeline, root causes, alternatives, proposed solutions, and verification.
-- [ ] Add a patch changeset; run focused tests and local quality checks sequentially within container memory limits; save large outputs to logs.
+- [x] Report reproducible upstream defects with workaround and suggested code fix where supported by evidence.
+- [x] Complete case study with timeline, root causes, alternatives, proposed solutions, and verification.
+- [x] Add a patch changeset; run focused tests and local quality checks sequentially within container memory limits; save large outputs to logs.
 - [ ] Review the complete PR diff for regressions and scope; merge current main if needed; commit atomic work and push only the prepared branch.
-- [ ] Update PR title/body with reproduction, tests, case-study links, and Fixes #3831.
+- [x] Update PR title/body with reproduction, tests, case-study links, and Fixes #3831.
 - [ ] Inspect latest CI timestamps and SHAs; download all failed-run logs, fix actual failures, and verify every check at the latest commit.
 - [ ] Re-read all latest issue/PR feedback, verify clean working tree and complete requirement mapping, then mark PR ready without merging.
+
+CI follow-up: preserve run timestamps/SHAs and full failed-run logs, correct the freshness gate's stale pins/lockfile, rerun relevant local checks, and verify the complete pipeline on the final commit.

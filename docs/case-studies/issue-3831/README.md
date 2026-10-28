@@ -61,7 +61,7 @@ Times are UTC. The run used Hive Mind 2.39.7, Codex CLI 0.164.0 and model `gpt-6
 | Oct 26 14:01:32.555    | Part 00 line 78,418         | Resume attempt 3; productive execution continues into Oct 28.                                                                                                          |
 | Oct 28 00:48:22.400    | Part 01 line 45,133         | Genuine stdout `error`: selected model at capacity.                                                                                                                    |
 | Oct 28 00:48:31.714    | Part 01 line 45,136         | Genuine stdout `turn.failed` repeats that reason.                                                                                                                      |
-| Oct 28 00:48:34.431    | Part 01 lines 45,151–45,152 | Latest attempt reports 10,298 completed items: commands, changes, reasoning and messages. This was productive execution, not 42 hours of continuous admission failure. |
+| Oct 28 00:48:34.431    | Part 01 lines 45,148–45,149 | Latest attempt reports 10,298 completed items: commands, changes, reasoning and messages. This was productive execution, not 42 hours of continuous admission failure. |
 | Oct 28 00:48:35.008    | Part 01 line 45,162         | Outer solver refuses another retry: 12-hour budget exhausted after only 3 retries over 42h24m.                                                                         |
 | Oct 28 00:48:38 onward | End of part 01              | Existing emergency handling preserves work on a recovery branch and reports failure.                                                                                   |
 
@@ -114,7 +114,19 @@ Recorded development evidence:
 - `experiments/issue-3831/transport-before.log`: thrown transport errors reproduce the same bypass in Agent, OpenCode, Qwen and Gemini before their exception-path fixes (4 failures).
 - `experiments/issue-3831/all-adapters-after.log`: all 70 focused tests pass after implementation. Coverage includes all six capacity and 529 recovery paths, unchanged selected models on overload, same-session resume, bounded continuous failures, exponential delays, successful summaries containing capacity prose, transport exceptions and their count limits in every adapter, stderr echoes, and permanent-error negatives.
 
-All 694 default-suite files were exercised locally: 693 passed in the aggregate run, and the remaining sanitizer-worker containment test passed on isolated re-run with its intended heap settings. The complete aggregate and isolated logs are archived as `data/local-default-suite.log.gz` and `data/local-worker-containment.log.gz`. Lint, formatting, duplication, secrets, syntax and line-limit checks pass. A pre-existing sanitizer-worker containment test requires an unset parent `NODE_OPTIONS`: setting a global `--max-old-space-size` overrides its deliberately smaller worker heap limit. Its isolated run without that override passes all 40 assertions; the fixture remains finite and the worker retains its explicit 48 MiB limit. The PR's Checks and release workflow additionally validates execution, memory, docs, container and chart gates. Final results are recorded in the PR description and check runs rather than claiming that a mocked stream proves live provider availability.
+All 694 default-suite files pass locally in one complete run, archived as `data/local-default-suite.log.gz`. Lint, formatting, duplication, secrets, syntax and line-limit checks pass; their complete logs are archived as `data/local-quality-checks.log.gz`. The repository-wide formatter used a 768 MiB heap; a 256 MiB probe was insufficient (`data/local-format-256-mib.log.gz`).
+
+The initial local run passed 693 files and exposed a test-launcher constraint: a global `NODE_OPTIONS=--max-old-space-size=256` overrides the sanitizer containment test's deliberately smaller worker heap limit. That original run is retained as `data/local-default-suite-parent-heap-override.log.gz`. Running that test without the parent override passes all 40 assertions (`data/local-worker-containment.log.gz`); the fixture remains finite and the worker retains its explicit 48 MiB limit. The final complete run uses the bounded launcher below and passes all 694 files.
+
+The reusable launcher applies a small heap to ordinary test processes while preserving the containment test's explicit worker limit. Run the complete default suite within the issue solver's memory cgroup with:
+
+```sh
+env -u NODE_OPTIONS node --max-old-space-size=256 scripts/run-tests.mjs \
+  --suite default --continue-on-failure \
+  --node-bin ./experiments/issue-3831/bounded-test-node.sh
+```
+
+The [complete CI run](https://github.com/link-assistant/hive-mind/actions/runs/40667084183) passed at implementation head `768a93cd2a5e79075cbdec63951c9a8c79c72d34`, including all 694 default files, both GitHub integration files, execution, memory, docs, Docker/DinD builds and container verification, and chart gates. Separate security, workflow and broken-link checks also passed. Metadata is preserved in `data/ci-validation-768a93cd2.json`, `data/ci-checks-768a93cd2.json` and `data/ci-runs-768a93cd2.json`; complete test and Docker logs are archived as `data/ci-test-suites-40667084183.log.gz` and `data/ci-docker-pr-check-40667084183.log.gz`. Final documentation checks are recorded on the PR's latest commit. Mocked streams do not establish live provider availability.
 
 ## Practical limits
 
@@ -122,4 +134,4 @@ No client can ensure that a remote service recovers before a configured bound. A
 
 ## CI investigation
 
-The first fresh implementation run, [40666057043](https://github.com/link-assistant/hive-mind/actions/runs/40666057043), used head `2b1a9e404589cacaefcbae68bc3f1ff6a8a4613e` and failed before provider tests ran. The downloaded log (`data/ci-checks-40666057043.log.gz`, original lines 769–806) reports 34 stale dependency declarations/lockfile entries and zero unresolved lookups. The gate is intentionally retained. Update the existing Formal AI, start-command and act pins, align bootstrap/test pins, and refresh Secretlint plus allowed lockfile updates so the required pipeline can validate the retry fix. This maintenance is required by the repository freshness policy, not the capacity incident's cause.
+The first fresh implementation run, [40666057043](https://github.com/link-assistant/hive-mind/actions/runs/40666057043), used head `2b1a9e404589cacaefcbae68bc3f1ff6a8a4613e` and failed before provider tests ran. The downloaded log (`data/ci-checks-40666057043.log.gz`, original lines 769–806) reports 34 stale dependency declarations/lockfile entries and zero unresolved lookups. The gate is retained. Updated the existing Formal AI, start-command and act pins, aligned bootstrap/test pins, and refreshed Secretlint plus allowed lockfile updates. The subsequent run passed the freshness gate with zero stale entries. This maintenance is required by the repository freshness policy, not the capacity incident's cause.

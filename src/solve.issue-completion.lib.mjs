@@ -1,3 +1,4 @@
+import { promptText, localizePromptConstant } from './prompt-text.lib.mjs';
 /**
  * Bounded completion restarts (issue #2406): after the solve, re-run the tool
  * until the merge guard accepts the pull request's requirements report. Only
@@ -62,7 +63,7 @@ export async function runIssueCompletionUntilVerified(params, { check = checkIss
     if (params.tempDir && params.branchName) await sync({ tempDir: params.tempDir, branchName: params.branchName, logger });
     // Issue #3469: a completion restart may rightly change only the PR description, so the
     // working tree and HEAD it ends with are no evidence that the next restart loop is stuck.
-    latest = await execute({ ...params, sessionLabel: `Completion restart ${iteration + 1}/${limit}`, stallEvidence: false, feedbackLines: [ISSUE_COMPLETION_GOAL, blocker.message, ...(blocker.details || []), blocker.resolution, 'Read all issue and review feedback again, complete the missing work in this same pull request, then refresh its requirements report after the final push.'], argv: { ...argv, promptEnsureAllRequirementsAreMet: true } });
+    latest = await execute({ ...params, sessionLabel: `Completion restart ${iteration + 1}/${limit}`, stallEvidence: false, feedbackLines: [localizePromptConstant(ISSUE_COMPLETION_GOAL), blocker.message, ...(blocker.details || []), blocker.resolution, promptText('prompt.templates.solve-issue-completion.runIssueCompletionUntilVerified.text1')], argv: { ...argv, promptEnsureAllRequirementsAreMet: true } });
     await params.cleanupClaudeFile?.(params.tempDir, params.branchName, null, argv);
     if (latest?.limitReached || latest?.errorInfo?.usageLimitReached) break;
     if (latest?.apiError || latest?.errorDuringExecution || latest?.success === false) {

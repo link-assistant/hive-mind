@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { promptText } from './prompt-text.lib.mjs';
+import { shellQuote } from './shell-command.lib.mjs';
 
 /**
  * Claude CLI Command Builder Library
@@ -84,7 +86,7 @@ export const buildClaudeAutonomousResumeCommand = ({ tempDir, sessionId, claudeP
   }
 
   // Add a simple "Continue." prompt to continue the autonomous work
-  args += ` -p "Continue."`;
+  args += ` -p ${shellQuote(promptText('prompt.user_continue'))}`;
 
   return `(cd "${tempDir}" && ${claudePath} ${args})`;
 };

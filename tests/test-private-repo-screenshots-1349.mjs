@@ -83,8 +83,8 @@ console.log('\n📋 Source code verification tests\n');
 
 for (const name of Object.keys(modules)) {
   test(`${name}.prompts.lib.mjs: uses github.com/blob/?raw=true URL format via screenshotRepoPath`, () => {
-    const content = readFileSync(join(__dirname, `../src/${name}.prompts.lib.mjs`), 'utf-8');
-    assert.ok(content.includes('github.com/${screenshotRepoPath}/blob/${branchName}'), 'Should use github.com/blob/ URL format with screenshotRepoPath');
+    const content = modules[name].buildSystemPrompt({ ...baseParams, modelSupportsVision: true });
+    assert.ok(content.includes('github.com/') && content.includes(`/blob/${baseParams.branchName}/`), 'Should render github.com/blob/ URL format with screenshotRepoPath');
     assert.ok(content.includes('?raw=true'), 'Should include ?raw=true suffix');
     assert.ok(!content.includes('raw.githubusercontent.com'), 'Should NOT use raw.githubusercontent.com');
   });

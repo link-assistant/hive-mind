@@ -1,3 +1,4 @@
+import { promptText } from './prompt-text.lib.mjs';
 /**
  * Experiments and examples folder prompts module
  * Handles building configurable prompts for experiments/examples folders
@@ -25,19 +26,19 @@ export const getExperimentsExamplesSubPrompt = argv => {
 
   // Both folders are enabled (with their respective paths)
   if (experimentsFolder && examplesFolder) {
-    lines.push(`   - When you create debug, test, or example scripts while fixing an issue, keep them in ${examplesFolder} and/or ${experimentsFolder} so you can reuse them later.`);
-    lines.push(`   - When you test assumptions, keep experiment scripts in ${experimentsFolder}.`);
-    lines.push(`   - When an experiment demonstrates a real-world use case of the software, add it to ${examplesFolder}.`);
+    lines.push(promptText('prompt.system.templates.experiments-examples-prompts.getExperimentsExamplesSubPrompt.text1', { examplesFolder: String(examplesFolder), experimentsFolder: String(experimentsFolder) }));
+    lines.push(promptText('prompt.system.templates.experiments-examples-prompts.getExperimentsExamplesSubPrompt.text2', { experimentsFolder: String(experimentsFolder) }));
+    lines.push(promptText('prompt.system.templates.experiments-examples-prompts.getExperimentsExamplesSubPrompt.text3', { examplesFolder: String(examplesFolder) }));
   }
   // Only experiments folder is enabled
   else if (experimentsFolder) {
-    lines.push(`   - When you create debug or test scripts while fixing an issue, keep them in ${experimentsFolder} so you can reuse them later.`);
-    lines.push(`   - When you test assumptions, keep experiment scripts in ${experimentsFolder}.`);
+    lines.push(promptText('prompt.system.templates.experiments-examples-prompts.getExperimentsExamplesSubPrompt.text4', { experimentsFolder: String(experimentsFolder) }));
+    lines.push(promptText('prompt.system.templates.experiments-examples-prompts.getExperimentsExamplesSubPrompt.text5', { experimentsFolder: String(experimentsFolder) }));
   }
   // Only examples folder is enabled
   else if (examplesFolder) {
-    lines.push(`   - When you create example scripts that show real-world use cases, keep them in ${examplesFolder}.`);
-    lines.push(`   - When an experiment demonstrates a real-world use case of the software, add it to ${examplesFolder}.`);
+    lines.push(promptText('prompt.system.templates.experiments-examples-prompts.getExperimentsExamplesSubPrompt.text6', { examplesFolder: String(examplesFolder) }));
+    lines.push(promptText('prompt.system.templates.experiments-examples-prompts.getExperimentsExamplesSubPrompt.text7', { examplesFolder: String(examplesFolder) }));
   }
 
   return lines.join('\n');

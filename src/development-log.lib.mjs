@@ -1,3 +1,4 @@
+import { promptText } from './prompt-text.lib.mjs';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -53,7 +54,7 @@ export const buildDevelopmentLogPrompt = ({ argv, issueNumber, prNumber, issueTy
   // instruction asks to download all logs as well; for feature/task issues, or
   // when no issue type is selected, the universal data-collection wording is used.
   const resolvedIssueType = issueType ?? argv?.issueType ?? null;
-  const collectionInstruction = isBugIssueType(resolvedIssueType) ? `Download all logs and collect data related about the issue to this repository, make sure we compile that data into the ${developmentLogDirectory} folder.` : `Collect data related about the issue to this repository, make sure we compile that data into the ${developmentLogDirectory} folder.`;
+  const collectionInstruction = isBugIssueType(resolvedIssueType) ? promptText('prompt.templates.development-log.buildDevelopmentLogPrompt.text1', { developmentLogDirectory: String(developmentLogDirectory) }) : promptText('prompt.templates.development-log.buildDevelopmentLogPrompt.text2', { developmentLogDirectory: String(developmentLogDirectory) });
 
   return `\n${collectionInstruction}\n`;
 };

@@ -74,6 +74,6 @@ test('models Agent already knows need no overlay', () => {
 test('both the task run and the connection check hand the overlay to Agent', () => {
   const agentLib = source('src/agent.lib.mjs');
   assert.match(agentLib, /const validationEnv = \{ \.\.\.process\.env, \.\.\.getAgentModelOverlayEnv\(\{ mappedModel \}\) \};/);
-  assert.match(agentLib, /\$\(\{ env: validationEnv \}\)`printf "hi" \| timeout/);
+  assert.match(agentLib, /\$\(\{ env: validationEnv \}\)`printf %s \$\{promptText\('prompt\.templates\.connection\.greeting'/);
   assert.match(agentLib, /getAgentModelOverlayEnv\(\{ env: agentEnv, mappedModel \}\)/);
 });

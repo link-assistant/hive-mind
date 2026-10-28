@@ -1,3 +1,4 @@
+import { promptText } from './prompt-text.lib.mjs';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 if (typeof globalThis.use === 'undefined') {
   await ensureUseM();
@@ -69,7 +70,7 @@ export const validateClaudeConnection = async (model = 'haiku', { useRouter = fa
       } catch (pipeError) {
         await log(`⚠️  Pipe validation failed (${pipeError.code}), trying timeout approach...`);
         try {
-          result = await $`timeout ${Math.floor(timeouts.claudeCli / 1000)} claude --model ${mappedModel} -p hi`;
+          result = await $`timeout ${Math.floor(timeouts.claudeCli / 1000)} claude --model ${mappedModel} -p ${promptText('prompt.templates.connection.greeting', {}, { locale: 'en' })}`;
         } catch (timeoutError) {
           if (timeoutError.code === 124) {
             await log(`❌ Claude CLI timed out after ${Math.floor(timeouts.claudeCli / 1000)} seconds`, {

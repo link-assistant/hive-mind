@@ -1,0 +1,77 @@
+en
+  prompt
+    templates
+      review
+        prompt
+          text1 """
+            Pull request to review: {{prUrl}}
+            PR Number: {{prNumber}}
+            Repository: {{owner}}/{{repo}}
+            Working directory: {{tempDir}}
+            Diff file: {{diffFile}}
+            Focus areas: {{value7}}
+            Auto-approve if passes: {{value8}}
+            
+            Review this pull request thoroughly.
+          """
+      task
+        runClarifyOrDecomposeMode
+          text3 """
+            Clarification analysis:
+            {{value1}}
+            
+            
+          """
+          text1 """
+            Task: "{{taskInput}}"
+            
+            Please help clarify this task by:
+            1. Identifying ambiguous aspects of the task
+            2. Asking 3-5 specific clarifying questions
+            3. Suggesting assumptions that could be made if these questions are not answered
+            4. Identifying missing context or requirements
+          """
+          text4 """
+            Task: "{{taskInput}}"
+            
+            {{value2}}Please decompose this task into actionable subtasks with dependencies, complexity, risks, and success criteria.
+          """
+      solve-feedback
+        detectAndCountFeedback
+          text1 "New comments on the pull request: {{newPrComments}}"
+          text2 "New review comments on the pull request: {{newPrReviewComments}}"
+          text3 "New comments on the issue: {{newIssueComments}}"
+          text4 "{{value1}} {{fields}} was edited after last commit:"
+          text5 "New commits on {{defaultBranch}} branch: {{value2}}"
+          text6 "Pull request state: {{prState}}"
+          text7 "Failed pull request checks: {{value1}}"
+          text8 "Changes requested in reviews: {{value1}}"
+      solve-issue-completion
+        runIssueCompletionUntilVerified
+          text1 "Read all issue and review feedback again, complete the missing work in this same pull request, then refresh its requirements report after the final push."
+      solve-auto-merge
+        watchUntilMergeable
+          text1 "📬 New comments detected from non-bot users:"
+          text2 "Please review and address the feedback from these comments."
+          text3 "📭 {{emptyPullRequestBlocker}}."
+          text4 "Implement the requested change and commit it to the pull request branch. Do not report the work as done while the diff is empty."
+          text5 "✏️ The issue {{changedFields}} was edited after the last session:"
+          text6 "  - {{label}} is now: \"{{value2}}{{value3}}\""
+          text7 "Please re-read the updated issue and make sure your solution still matches the requirements."
+          text8 "❌ CI/CD checks are failing:"
+          text9 "Please fix the failing CI checks."
+          text10 "⚠️ Merge conflicts detected:"
+          text11 "Please resolve the merge conflicts."
+          text12 "⚠️ Branch sync encountered an unfinished merge or conflicts:"
+          text13 "Please resolve the merge state before finishing."
+      agent-commander
+        validateAgentCommanderConnection
+          text1 "connection check"
+      connection
+        gemini "say hi"
+        qwen "Respond with exactly: hi"
+        greeting "hi"
+        codexProbe "hive-mind capability probe"
+      feedback
+        continue "Continue"
+        restartIteration " (Auto-restart {{restartCount}}/{{maxIterations}})"

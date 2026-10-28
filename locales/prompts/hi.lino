@@ -1,0 +1,26 @@
+hi
+  prompt
+    user
+      issue
+        to
+          solve "हल करने के लिए मुद्दा: {{issueUrl}}"
+        linked
+          to
+            pr "हल करने के लिए मुद्दा: PR #{{prNumber}} से जुड़ा मुद्दा"
+      prepared
+        branch "आपकी तैयार ब्रांच: {{branchName}}"
+        working
+          directory "आपकी तैयार कार्य निर्देशिका: {{tempDir}}"
+        tmp
+          directory "लॉग और डाउनलोड के लिए आपकी तैयार अस्थायी निर्देशिका: {{workspaceTmpDir}}"
+        pull
+          request "आपका तैयार Pull Request: {{prUrl}}"
+      forked
+        repository "आपकी forked repository: {{forkedRepo}}"
+      original
+        repository "मूल repository (upstream): {{owner}}/{{repo}}"
+      fork
+        actions
+          url "आपके fork पर GitHub Actions: {{forkActionsUrl}}"
+      continue "जारी रखें।"
+      proceed "आगे बढ़ें।"

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { promptText } from './prompt-text.lib.mjs';
 /**
  * Experimental agent-commander execution adapter.
  *
@@ -201,7 +202,7 @@ export const validateAgentCommanderConnection = async ({ tool, model, log = defa
     const controller = agent({
       tool: toolName,
       workingDirectory: process.cwd(),
-      prompt: 'connection check',
+      prompt: promptText('prompt.templates.agent-commander.validateAgentCommanderConnection.text1'),
       model: resolveAgentCommanderModel(toolName, model),
       json: toolName !== 'agent',
       toolOptions: buildAgentCommanderToolOptions({ model }, toolName),

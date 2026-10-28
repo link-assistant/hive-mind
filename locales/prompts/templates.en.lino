@@ -1,0 +1,310 @@
+en
+  prompt
+    templates
+      agent-prompts
+        buildUserPrompt
+          text1 "Issue linked to PR #{{prNumber}}"
+          text2 "Issue to solve: {{value1}}"
+      ci-pre-existing-failure
+        buildCiFailureGuidance
+          text1 "Fix every failing check, including failures that also happen on the default branch: this pull request cannot be merged or released while its CI fails, whatever the cause."
+          text2 "If a check can only pass after a human action you cannot do yourself (for example adding a secret, or granting access to a private repository or submodule), change the CI/CD configuration so that:"
+          text3 "  - CI on this pull request passes without that action (for example, skip only the step that needs the missing secret or access, and print why it was skipped);"
+          text4 "  - CI on the default branch fails with an explicit message that says exactly what a human has to do, so the job can be re-run and pass once that is done."
+          text5 "Describe that manual action in the pull request description."
+        buildPreExistingCiFeedback
+          text6 "⚠️ These CI failures are pre-existing - they also fail without this pull request's changes:"
+          text7 "That does not make them optional: they still block this pull request, so fix them here as described above."
+      claude-prompts
+        buildUserPrompt
+          text1 "Continue the auto-restart from the previous resumed session."
+          text2 "Issue linked to PR #{{prNumber}}"
+          text3 "Issue to solve: {{value1}}"
+          text4 "GitHub Actions on your fork: {{value1}}"
+      codex-prompts
+        buildUserPrompt
+          text1 "Issue linked to PR #{{prNumber}}"
+          text2 "Issue to solve: {{value1}}"
+      deep-analysis
+        buildDeepAnalysisPrompt
+          text1 "Download all logs and collect data related about the issue to this repository, and compile that data into the {{directory}} folder."
+          text2 "Collect data related about the issue to this repository, and compile that data into the {{directory}} folder."
+          text3 "Use the collected evidence to do a deep analysis (search online for additional facts and data), reconstruct the timeline/sequence of events, list each and every requirement from the issue, find the root cause of each problem, and propose possible solutions and solution plans for each requirement. Also check online for known existing components/libraries that solve a similar problem or can help."
+          text4 "If there is not enough data to find the actual root cause, add debug output and a verbose mode (if not already present) so the root cause can be found on the next iteration. Keep the default state switched off."
+          text5 "If the issue is related to another repository/project, report issues on GitHub for that project when possible. Each report must contain reproducible examples, workarounds, and suggestions for fixing the issue in code."
+          text6 "Do a deep analysis (search online for additional facts and data), list each and every requirement from the issue, and propose possible solutions and solution plans for each requirement. Also check online for known existing components/libraries that solve a similar problem or can help."
+          text7 "Double-check that the requirements are fully applied to the entire codebase: if an issue exists in multiple places, apply it in all of them."
+      development-log
+        buildDevelopmentLogPrompt
+          text1 "Download all logs and collect data related about the issue to this repository, make sure we compile that data into the {{developmentLogDirectory}} folder."
+          text2 "Collect data related about the issue to this repository, make sure we compile that data into the {{developmentLogDirectory}} folder."
+      fix-ci-cd
+        buildLanguagesSection
+          text1 "No languages were reported by the GitHub Linguist API for this repository."
+        buildTemplatesSection
+          text2 "No language-specific template matched the detected languages. Review all templates and apply the closest match:"
+          text3 "Apply the best practices from these templates, in priority order (most-used language first):"
+          text4 "Other detected languages without a dedicated template: {{value1}}."
+        buildRunsSection
+          text5 "No CI/CD runs were found for the latest default-branch commit."
+          text6 """
+            | Workflow | Status | Conclusion | Commit | Run |
+            | --- | --- | --- | --- | --- |
+          """
+          text7 """
+            | Workflow | Status | Conclusion | Run |
+            | --- | --- | --- | --- |
+          """
+        buildCiCdIssueBody
+          text13 "default branch"
+          text14 "Recent CI/CD runs on `{{value1}}`"
+          text15 "Latest default-branch CI/CD runs"
+          text16 "the default branch"
+          text17 "No recent CI/CD runs were found on `{{value1}}`."
+          text18 "No CI/CD runs were found for the latest default-branch commit."
+          text19 "<summary>Context collected by <code>/fix --ci-cd</code></summary>"
+          text20 "- **Default branch:** `{{value1}}`"
+          text21 "- **Latest commit:** {{commitLine}}"
+          text22 "- **CI/CD runs found:** {{total}} ({{failing}} not passing)"
+          text23 "**Detected languages**"
+          text24 "**Recommended CI/CD templates**"
+        DEBUG_OUTPUT_PARAGRAPH
+          text8 "If there is not enough data to find actual root cause, add debug output and verbose mode if not present, that will allow us to find root cause on next iteration."
+        REPORT_UPSTREAM_PARAGRAPH
+          text9 "If issue related to any other repository/project, where we can report issues on GitHub, please do so. Each issue must contain reproducible examples, workarounds and suggestions for fix the issue in code. Also double check to fully apply requirements to entire codebase, so if we have issue in multiple places, it should be fixed in all them."
+        buildStandardPromptParagraphs
+          text10 """
+            Use all the best practices from CI/CD templates (check full file tree to compare for all GitHub workflow and CI/CD scripts file), if the same issue is found in template report issue also in templates:
+            
+            {{templateLinks}}
+          """
+          text11 "We should compare all files, so we don't have more CI/CD errors in the future and reuse all the best practices from these templates."
+          text12 "Follow the CI/CD best practices collected in [{{CI_CD_BEST_PRACTICES_URL}}]({{CI_CD_BEST_PRACTICES_URL}})."
+      fix-update-dependencies
+        buildEcosystemsSection
+          text1 "No package ecosystem was detected automatically. Inspect the repository for dependency manifests by hand and update every one of them."
+          text2 "Update **every** ecosystem below, in this order (most of the repository first). One pull request may cover them all, but each ecosystem must end up fully current — not partially."
+          text3 "   - Detected languages: {{value1}}"
+          text4 "_none found — check whether one is missing_"
+          text5 "   - Manifests: {{value1}}"
+          text6 "   - Lockfiles to regenerate and commit: {{value1}}"
+          text7 "   - Update everything: {{value1}}"
+          text8 "Detected languages with no dependency manifest of their own: {{value1}}. Check whether they pull dependencies through one of the ecosystems above."
+        buildAutomationSection
+          text9 "`.github/dependabot.yml` already exists — verify it covers every ecosystem and directory listed above, then keep it in sync with any manifest this work adds or moves."
+          text10 "There is no `.github/dependabot.yml` in this repository, so nothing keeps the versions current after this issue is closed. Add one so the next drift is a pull request instead of another issue."
+          text11 "The ecosystems found in this repository correspond to these entries:"
+          text12 "For the ecosystems found in this repository that is:"
+          text13 "Only the first {{MAX_DEPENDABOT_DIRECTORIES}} directories are listed per ecosystem — add the remaining ones, or replace the list with a glob (`directories` supports `*`; `directory` does not)."
+          text14 "[Renovate](https://docs.renovatebot.com/) is the alternative if grouped or automerged updates are wanted instead."
+        buildUpdateDependenciesIssueBody
+          text25 "### Dependency ecosystems detected in this repository"
+          text26 "### Keeping them current"
+          text27 "<summary>Context collected by <code>/fix --update-all-dependencies</code></summary>"
+          text28 "- **Default branch:** `{{value1}}`"
+          text29 "- **Latest commit:** {{commitLine}}"
+          text30 "- **Ecosystems detected:** {{value1}}"
+          text31 "- **Manifest files found:** {{value1}}"
+          text32 "- ⚠️ **The file listing returned by GitHub was truncated**, so the manifest inventory above may be incomplete. Re-check the repository tree by hand."
+          text33 "**Detected languages**"
+      gemini-prompts
+        buildUserPrompt
+          text1 "Issue linked to PR #{{prNumber}}"
+          text2 "Issue to solve: {{value1}}"
+      opencode-prompts
+        buildUserPrompt
+          text1 "Issue linked to PR #{{prNumber}}"
+          text2 "Issue to solve: {{value1}}"
+      qwen-prompts
+        buildUserPrompt
+          text1 "Issue linked to PR #{{prNumber}}"
+          text2 "Issue to solve: {{value1}}"
+      repeated-tool-call-breaker
+        buildRepeatedToolCallFeedback
+          text5 "The previous session was stopped by the repeated-tool-call breaker: {{value1}}"
+          text6 "Do not repeat that call. Its output is already known; act on it (edit files, commit, push) or try a different approach."
+      session-progress
+        buildRepeatedSessionFeedback
+          text1 "🔁 THE LAST TWO WORKING SESSIONS ENDED IDENTICALLY:"
+          text2 "They received the same instructions and ended with the same working tree and the same commit. Repeating the same steps will not change the result."
+          text3 "The last final message was: {{value1}}"
+          text4 "Both left this `git status --porcelain` output:"
+          text5 "Find out why the previous approach did not work and resolve the blocker with a different approach before you finish."
+      solve-option-contract-prompts
+        buildRequestedBaseBranchDirective
+          text1 """
+            Requested by user --base-branch: {{baseBranch}}
+            The user expects the pull request base branch to remain {{baseBranch}}.
+          """
+      solve-ensure-sub-issues-detect
+        buildEnsureSubIssuesFeedback
+          text2 "🧩 ENSURE ALL SUB-ISSUES ADDRESSED:"
+          text3 "Restart {{iteration}}/{{value2}}."
+          text4 "This issue{{value1}} has {{total}} sub-issue(s). The pull request description is missing a GitHub recognized closing reference for {{value3}} of them:"
+          text5 "For each sub-issue above:"
+          text6 "  1. Verify it was really addressed by the changes in this pull request. If it was not, implement it now — in this same pull request."
+          text7 "  2. Then update the pull request description so it closes the sub-issue."
+          text8 "GitHub only recognizes the full closing syntax repeated per issue: \"Fixes #1, #2\" closes only #1."
+          text9 "Add these lines to the pull request description (keep any existing closing references):"
+        buildMissingClosingReferencesBlocker
+          text10 "… and {{value1}} more"
+          text11 " required by #{{issueNumber}}"
+          text12 "The pull request{{value1}} description does not close {{value2}} of the {{total}} issue(s){{value4}}"
+          text13 "Add these lines to the pull request description, one keyword per issue: {{value1}}"
+      solve-keep-working-detect
+        buildKeepWorkingFeedback
+          text2 "🔁 KEEP WORKING UNTIL ALL REQUIREMENTS ARE FULLY DONE (restart {{iteration}}/{{limitLabel}}):"
+          text3 "It looks like some work was deferred, delayed or planned for a future pull request."
+          text4 "The following strong indicators of unfinished / deferred work were detected:"
+          text5 "  • [{{value1}}] in {{value2}}: \"{{value3}}\""
+          text6 "  • ...and {{value1}} more indicator(s)"
+          text7 "There is NO future pull request. This is the single pull request where everything must be done."
+          text8 "Do not defer, delay or postpone anything. Remove any \"future work\" / \"out of scope\" / \"TODO\" / \"follow-up\" notes by actually implementing them now."
+      solve-minimal-restart-prompt
+        generateMinimalRestartPrompt
+          text1 """
+            Unstaged changes:
+            {{unstagedDiffSummary}}
+          """
+          text2 """
+            Staged changes:
+            {{stagedDiffSummary}}
+          """
+          text3 "No tracked-file diff summary available."
+          text4 """
+            🔄 Auto-restart: resume the previous session and handle its uncommitted changes.
+            
+            Uncommitted files ({{fileCount}}):
+            {{uncommittedFiles}}
+            
+            Changes summary:
+            {{diffSummary}}
+            
+            Please review these changes and commit them with an appropriate commit message.
+            Follow the repository's commit message conventions from previous commits.
+          """
+        generateFullRestartPrompt
+          text5 """
+            
+            Continuing work on issue: {{issueUrl}}
+            
+            Previous session completed but left uncommitted changes.
+              
+          """
+          text6 """
+            
+            
+            Feedback from reviewers:
+            {{value1}}
+          """
+          text7 """
+            
+            
+            Uncommitted changes:
+            {{uncommittedFiles}}
+            
+            Full diff:
+            {{fullDiff}}
+          """
+          text8 """
+            
+            
+            Please review these changes and commit them appropriately.
+          """
+      task-split
+        buildTaskSplitPrompt
+          text5 """
+            Split this GitHub issue into exactly {{splitCount}} smaller GitHub issues.
+            
+            Source issue:
+            - Repository: {{value2}}/{{value3}}
+            - Issue number: {{value4}}
+            - URL: {{value5}}
+            - Title: {{value6}}
+            
+            Issue body:
+            {{value7}}
+            
+            Return only this JSON shape:
+            {
+              "tasks": [
+                {
+                  "title": "short issue title",
+                  "body": "complete issue body with objective, scope, deliverables, and acceptance criteria",
+                  "dependencies": [1]
+                }
+              ]
+            }
+            
+            Rules:
+            - The tasks array must contain exactly {{splitCount}} items.
+            - Each task must be independently actionable.
+            - Together the tasks must cover the full source issue.
+            - Dependencies must be 1-based task numbers and should be empty when none are needed.
+            - Do not include Markdown fences, prose, comments, or extra top-level keys.
+          """
+      thinking-prompt
+        THINK_PROMPT_MESSAGES
+          text1 "Think."
+          text2 "Think."
+          text3 "Think hard."
+          text4 "Think harder."
+          text5 "Ultrathink."
+          text6 "Ultrathink."
+          text7 "Ultrathink."
+      uncommitted-changes-feedback
+        buildUncommittedChangesFeedback
+          text1 "⚠️ UNCOMMITTED CHANGES DETECTED{{iterationInfo}}:"
+          text2 "The previous working session ended with uncommitted changes. This is the exact `git status --porcelain` output of the working tree:"
+          text3 "IMPORTANT: For EVERY file listed above you MUST do exactly one of:"
+          text4 "1. COMMIT it if it is part of the solution (git add <file> && git commit && git push)."
+          text5 "2. IGNORE it if it is a build output or another generated file that must not be committed (add a matching pattern to .gitignore, then commit and push .gitignore)."
+          text6 "3. DELETE it if it is not needed (git checkout -- <file> for a tracked file, rm <file> for an untracked file)."
+          text7 "Do not end the session while `git status --porcelain` still prints any line. The session will auto-restart until the working tree is clean."
+      handoff-prompts
+        HANDOFF_SKILL_DESCRIPTION
+          text1 "Maintain a HANDOFF.md continuity document in the repository root so any session can continue a previous session's work — even across different AI tools (Claude and Codex) in the same pull request. Use when starting, resuming, or finishing work on a long-running task, issue, or pull request."
+        buildHandoffSkillBody
+          text2 """
+            # HANDOFF.md continuity skill
+            
+            {{fileName}} is a single shared handoff document in the repository root that lets any session continue the work of any previous session, even when a different AI tool (for example Claude and Codex) is used. It travels with the pull request branch, so it is the cross-tool, cross-session memory for this PR.
+            
+            ## When to use this skill
+            
+            - When you start a working session, read {{fileName}} first if it exists. Treat its "Next steps" section as your immediate starting point and honor the decisions and constraints it records before exploring anything else.
+            - When {{fileName}} does not exist yet and the task is non-trivial, create it early so an interrupted session can always be resumed.
+            - When you make meaningful progress, update {{fileName}} so it always reflects the current truth. Keep exactly one active {{fileName}} per pull request branch (do not create per-session copies).
+            - When all requirements are fully met and the work is complete, record that completion at the top of {{fileName}} (or delete the file) so the next session knows there is nothing left to continue.
+            
+            ## How to write {{fileName}}
+            
+            - Keep it concise and tool-agnostic: describe state by referencing file paths, function names, branch, and commit SHAs rather than tool-specific commands, so the next tool (Claude or Codex) can act on it directly. Prefer pointers to existing artifacts over duplicating their content.
+            - Include these sections:
+              1. **Task** — the issue/PR being solved and the goal.
+              2. **Current state** — what is done and verified.
+              3. **Decisions** — key choices made and why (so they are not re-litigated).
+              4. **Next steps** — the concrete, ordered actions the next session should take.
+              5. **Gotchas** — known pitfalls, failing checks, or constraints.
+              6. **Critical files** — the important paths and what each is for.
+            - When you record next steps, make them specific and actionable (a path, a function, a command to run) instead of vague goals, and remove items as they are completed.
+            
+            ## Committing and safety
+            
+            - When you finish a step that changes the state, commit {{fileName}} together with the related code changes so the handoff stays in sync with the branch and is never lost if the session is interrupted.
+            - Never include secrets, tokens, API keys, passwords, or personal data in {{fileName}} — it is committed to the repository.
+          """
+        buildHandoffSkillFile
+          text3 """
+            ---
+            name: {{name}}
+            description: {{description}}
+            ---
+            
+            {{value3}}
+            
+          """
+      organize-prompts
+        buildOrganizationPrompts
+          text5 "OPEN issues only"
+          text6 "Return only the required JSON plan for this chunk."

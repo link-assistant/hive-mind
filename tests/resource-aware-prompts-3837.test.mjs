@@ -65,6 +65,6 @@ for (const [locale, expected] of Object.entries(localExpectations)) {
     assert.match(validation, expected.focused);
     assert.match(validation, expected.build);
     assert.match(validation, expected.owner);
-    assert.equal(system.split(guide).length - 1, 1);
+    assert.equal(validation.split(guide).length - 1, 1);
   });
 }

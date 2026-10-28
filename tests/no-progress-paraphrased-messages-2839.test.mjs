@@ -242,10 +242,11 @@ await test('watch mode: a new human comment skips the no-progress check too', ()
 
 console.log('\nIssue #2839: every system prompt says pre-existing CI failures must be fixed too\n');
 
-for (const file of ['agent.prompts.lib.mjs', 'claude.prompts.lib.mjs', 'codex.prompts.lib.mjs', 'gemini.prompts.lib.mjs', 'opencode.prompts.lib.mjs', 'qwen.prompts.lib.mjs', 'locales/en.lino']) {
-  await test(`${file} asks for passing CI including checks that already fail on the default branch`, () => {
-    const source = readFileSync(join(root, 'src', file), 'utf8');
-    assert.match(source, /check that all CI checks are passing if they exist[^\n]*including checks that already fail on the default branch \(when a check needs a human action, make CI on the pull request pass without it and CI on the default branch fail with an explicit message saying what to do\)/);
+for (const backend of ['agent', 'claude', 'codex', 'gemini', 'opencode', 'qwen']) {
+  await test(`${backend} asks for passing CI including checks that already fail on the default branch`, async () => {
+    const { buildSystemPrompt } = await import(`../src/${backend}.prompts.lib.mjs`);
+    const prompt = buildSystemPrompt({ owner: 'example', repo: 'project', issueNumber: 1, prNumber: 2, branchName: 'issue-1', argv: {} });
+    assert.match(prompt, /check that all CI checks are passing if they exist[^\n]*including checks that already fail on the default branch \(when a check needs a human action, make CI on the pull request pass without it and CI on the default branch fail with an explicit message saying what to do\)/);
   });
 }
 

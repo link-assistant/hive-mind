@@ -1,0 +1,62 @@
+[
+  {
+    "file": "incident.part-00.log.txt.gz",
+    "originalBytes": 104848294,
+    "sha256": "8b2ed513f7274d0cf633df3e49760f1c36454ed4dd152e2be9c951119fc27ffe",
+    "lines": 356688,
+    "excerpts": [
+      {
+        "line": 229,
+        "text": "[2026-10-26T04:10:27.345Z] [INFO] \ud83d\udccc Session ID: 01a17667-0be5-7ae2-8088-2f4b6276535f"
+      },
+      {
+        "line": 14884,
+        "text": "[2026-10-26T06:24:48.060Z] [WARNING] \u26a0\ufe0f Model capacity error detected. Retry 1 in 15s (session preserved) (budget 0s/12h used)..."
+      },
+      {
+        "line": 14888,
+        "text": "[2026-10-26T06:25:03.098Z] [INFO] \ud83d\udd04 Retry attempt:            1 (budget 15s/12h used)"
+      },
+      {
+        "line": 14975,
+        "text": "[2026-10-26T06:25:08.460Z] [INFO] \ud83d\udccc Session ID: 01a17667-0be5-7ae2-8088-2f4b6276535f"
+      },
+      {
+        "line": 70391,
+        "text": "[2026-10-26T13:01:55.870Z] [WARNING] \u26a0\ufe0f Model capacity error detected. Retry 2 in 30s (session preserved) (budget 6h 37m/12h used)..."
+      },
+      {
+        "line": 70395,
+        "text": "[2026-10-26T13:02:25.881Z] [INFO] \ud83d\udd04 Retry attempt:            2 (budget 6h 38m/12h used)"
+      },
+      {
+        "line": 70545,
+        "text": "[2026-10-26T13:02:30.715Z] [INFO] \ud83d\udccc Session ID: 01a17667-0be5-7ae2-8088-2f4b6276535f"
+      },
+      {
+        "line": 78414,
+        "text": "[2026-10-26T14:00:32.536Z] [WARNING] \u26a0\ufe0f Model capacity error detected. Retry 3 in 1 min (session preserved) (budget 7h 36m/12h used)..."
+      },
+      {
+        "line": 78418,
+        "text": "[2026-10-26T14:01:32.555Z] [INFO] \ud83d\udd04 Retry attempt:            3 (budget 7h 37m/12h used)"
+      },
+      {
+        "line": 78519,
+        "text": "[2026-10-26T14:01:36.536Z] [INFO] \ud83d\udccc Session ID: 01a17667-0be5-7ae2-8088-2f4b6276535f"
+      }
+    ]
+  },
+  {
+    "file": "incident.part-01.log.txt.gz",
+    "originalBytes": 14031447,
+    "sha256": "3fcb7fe847be8f0d197d2b09a4d24c556ba5242bb6b7429f047d2f5f23c2449a",
+    "lines": 45300,
+    "excerpts": [
+      {
+        "line": 45162,
+        "text": "[2026-10-28T00:48:35.008Z] [ERROR] \u274c Model capacity error persisted: retry budget of 12h exhausted after 3 retries over 42h 24m"
+      }
+    ]
+  }
+]

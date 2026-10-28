@@ -1,0 +1,13 @@
+incident.part-00.log.txt.gz 356688 lines; SHA-256 verified
+  229: [2026-10-26T04:10:27.345Z] [INFO] 📌 Session ID: 01a17667-0be5-7ae2-8088-2f4b6276535f
+  14884: [2026-10-26T06:24:48.060Z] [WARNING] ⚠️ Model capacity error detected. Retry 1 in 15s (session preserved) (budget 0s/12h used)...
+  14888: [2026-10-26T06:25:03.098Z] [INFO] 🔄 Retry attempt:            1 (budget 15s/12h used)
+  14975: [2026-10-26T06:25:08.460Z] [INFO] 📌 Session ID: 01a17667-0be5-7ae2-8088-2f4b6276535f
+  70391: [2026-10-26T13:01:55.870Z] [WARNING] ⚠️ Model capacity error detected. Retry 2 in 30s (session preserved) (budget 6h 37m/12h used)...
+  70395: [2026-10-26T13:02:25.881Z] [INFO] 🔄 Retry attempt:            2 (budget 6h 38m/12h used)
+  70545: [2026-10-26T13:02:30.715Z] [INFO] 📌 Session ID: 01a17667-0be5-7ae2-8088-2f4b6276535f
+  78414: [2026-10-26T14:00:32.536Z] [WARNING] ⚠️ Model capacity error detected. Retry 3 in 1 min (session preserved) (budget 7h 36m/12h used)...
+  78418: [2026-10-26T14:01:32.555Z] [INFO] 🔄 Retry attempt:            3 (budget 7h 37m/12h used)
+  78519: [2026-10-26T14:01:36.536Z] [INFO] 📌 Session ID: 01a17667-0be5-7ae2-8088-2f4b6276535f
+incident.part-01.log.txt.gz 45300 lines; SHA-256 verified
+  45162: [2026-10-28T00:48:35.008Z] [ERROR] ❌ Model capacity error persisted: retry budget of 12h exhausted after 3 retries over 42h 24m

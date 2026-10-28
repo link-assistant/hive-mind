@@ -1,0 +1,14 @@
+[
+  "{\"type\":\"user\",\"message\":{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"[USER FEEDBACK FROM PR COMMENT]\\n\\nPayload: $& {{branchName}}\\n\\n[END OF USER FEEDBACK - Please address this feedback in your current work]\"}]}}",
+  "{\"type\":\"user\",\"message\":{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"[CI/CD STATUS UPDATE — auto-input-until-mergeable]\\n\\nPayload: $& {{branchName}}\\n\\n[END OF CI STATUS — Please address the failing checks before continuing]\"}]}}",
+  "{\"type\":\"user\",\"message\":{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"[ISSUE/PR METADATA UPDATE — auto-input-until-mergeable]\\n\\nPayload: $& {{branchName}}\\n\\n[END OF METADATA UPDATE — Please incorporate this into your current work]\"}]}}",
+  "{\"type\":\"user\",\"message\":{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"[UNCOMMITTED CHANGES DETECTED — auto-input-until-mergeable]\\n\\nPayload: $& {{branchName}}\\n\\n[END OF UNCOMMITTED CHANGES — Please commit them if part of the solution, or revert them otherwise]\"}]}}",
+  "The user requested --base-branch . the pull request must keep that base branch. Do not change the pull request's base. Restore or keep the base as , then continue finishing the pull request and make it ready for review.",
+  "The user requested --base-branch main. PR #2 must keep that base branch. Do not change PR #2's base to feature/$&. Restore or keep the base as main, then continue finishing the pull request and make it ready for review.\nForbidden command observed: gh pr edit --base feature/$&",
+  "Cannot continue PR #2 because its base branch changed to develop. The user requested --base-branch main; restore the PR base to main before continue.",
+  ["Pull request title and description were not updated."],
+  ["Pull request title was not updated."],
+  ["Pull request description was not updated."],
+  ["", "⚠️ These CI failures are pre-existing - they also fail without this pull request's changes:", "  - `test` also fails (`failure`) on the base branch: https://github.com/example/project/commit/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "That does not make them optional: they still block this pull request, so fix them here as described above."],
+  ["⚠️ The same checks have failed 2 restarts in a row - previous attempts did not fix them, so re-read the failing job logs and change approach."]
+]

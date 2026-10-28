@@ -153,13 +153,13 @@ export const detectPreExistingCiFailures = async ({ owner, repo, prNumber, faili
     if (baseBranch) {
       const baseSha = String((await stdoutOf(command`gh api repos/${owner}/${repo}/git/ref/heads/${baseBranch} --jq .object.sha`)) || '').trim();
       const checks = baseSha ? await fetchCommitChecks({ command, owner, repo, sha: baseSha }) : null;
-      if (checks) references.push({ label: `the head of the base branch \`${baseBranch}\``, sha: baseSha, checks });
+      if (checks) references.push({ label: promptText('prompt.templates.ci-pre-existing-failure.detectPreExistingCiFailures.text1', { baseBranch: String(baseBranch) }), sha: baseSha, checks });
     }
     const commits = parseJson(await stdoutOf(command`gh api repos/${owner}/${repo}/pulls/${prNumber}/commits --paginate --slurp`));
     const placeholderSha = findPlaceholderCommitSha(Array.isArray(commits) ? commits.flat() : []);
     if (placeholderSha) {
       const checks = await fetchCommitChecks({ command, owner, repo, sha: placeholderSha });
-      if (checks) references.push({ label: 'the placeholder commit that only adds the task file', sha: placeholderSha, checks });
+      if (checks) references.push({ label: promptText('prompt.templates.ci-pre-existing-failure.detectPreExistingCiFailures.text2'), sha: placeholderSha, checks });
     }
     if (references.length === 0) return null;
     const classification = classifyPreExistingCiFailures({ failingChecks, references });
@@ -173,7 +173,7 @@ export const detectPreExistingCiFailures = async ({ owner, repo, prNumber, faili
   }
 };
 
-const describeEvidence = (entry, owner, repo) => `\`${entry.name}\` also fails (\`${entry.conclusion}\`) on ${entry.reference.label}: https://github.com/${owner}/${repo}/commit/${entry.reference.sha}`;
+const describeEvidence = (entry, owner, repo) => promptText('prompt.templates.ci-pre-existing-failure.describeEvidence.text3', { value1: String(entry.name), value2: String(entry.conclusion), value3: String(entry.reference.label), owner: String(owner), repo: String(repo), value6: String(entry.reference.sha) });
 
 /**
  * What the next session is asked to do about failing CI, whatever its cause.

@@ -30,3 +30,7 @@ tests/deliberate-draft-restarts-ai-2312.test.mjs
 tests/draft-pr-auto-merge-loop-2182.test.mjs
 tests/claude-post-result-kill-3015.test.mjs
 tests/requirements-digest-process-independent-3469.test.mjs
+tests/test-bidirectional-interactive.mjs
+tests/test-auto-input-until-mergeable-1708.mjs
+tests/restart-evidence-2293.test.mjs
+tests/test-auto-report-issue.mjs

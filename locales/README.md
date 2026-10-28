@@ -9,3 +9,5 @@ Builders use `promptText(key, params)` with the work locale, independently of th
 Use `{{parameterName}}` placeholders. Interpolation runs once, preserving inserted issue text, paths, `$&`, and braces literally. Single braces in shell commands and JSON are literal. Keep commands, JSON field names, marker tokens and other protocols unchanged; connection probes explicitly use English where their response is a protocol check.
 
 The extraction scripts in `experiments/issue-3837-*` record the one-time migration, not a build step. The prompt corpus regression checks 24 complete English outputs from six backends, with default and optional/continuation profiles, against the pre-extraction hashes.
+
+Live feedback, status updates, finalization hints, base-branch interventions, and automatically generated issue instructions are in `prompts/live.en.lino`. The live-output corpus in `experiments/issue-3837-live-prompt-corpus.mjs` checks their English compatibility without starting tools or polling.

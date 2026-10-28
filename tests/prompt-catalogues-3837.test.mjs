@@ -122,3 +122,17 @@ test('every literal prompt reference resolves from the merged English catalog', 
   }
   assert.ok(references > 200, 'cover core and auxiliary prompt paths');
 });
+
+test('live feedback, finalization and intervention templates are catalogued without changing English output', { timeout: 10000 }, async () => {
+  const { execFileSync } = await import('node:child_process');
+  const catalog = await loadTranslations('en');
+  for (const module of ['bidirectional-interactive', 'solve-auto-ensure', 'solve-results', 'solve-pr-base-guard', 'restart-evidence']) {
+    assert.ok(
+      Object.keys(catalog).some(key => key.startsWith(`prompt.templates.${module}.`)),
+      `${module}: missing live prompt templates`
+    );
+  }
+  const expected = JSON.parse(await readFile(new URL('../docs/case-studies/issue-3837/data/live-prompt-corpus-before.json', import.meta.url), 'utf8'));
+  const actual = JSON.parse(execFileSync(process.execPath, ['--max-old-space-size=192', new URL('../experiments/issue-3837-live-prompt-corpus.mjs', import.meta.url).pathname], { encoding: 'utf8' }));
+  assert.deepEqual(actual, expected);
+});

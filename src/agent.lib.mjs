@@ -35,7 +35,8 @@ import { createAgentTokenUsage, accumulateAgentStepFinishUsage, parseAgentTokenU
 import { createJsonStreamScanner } from './json-stream.lib.mjs';
 import { createToolCallLoopGuard, resolveRepeatedToolCallLimit } from './tool-call-loop-guard.lib.mjs'; // Issue #2316, #2395
 import { describeAgentToolError, detectAgentErrorsInOutput, detectFatalAgentLogRecord, extractAgentErrorText, isAgentErrorRecord, isRecoverableAgentToolError, omitRawRecords } from './agent-error-events.lib.mjs';
-import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
+import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterError, retryTransientFailure, waitWithCountdown } from './tool-retry.lib.mjs';
+import { createRetryProgressObserver } from './tool-retry-progress.lib.mjs';
 import { attachStreamingInput, finalizeBidirectionalHandler, setupBidirectionalHandler } from './bidirectional-interactive.lib.mjs';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
 import { buildAgentArgs, detectFormalAiAgentRoutingMismatch, formatAgentArgsForDisplay, isAgentIdleEvent, isAgentStrongCompletionEvent, resolveStreamingErrorRecovery } from './agent-command.lib.mjs';
@@ -509,6 +510,15 @@ export const executeAgentCommand = async params => {
   // Issue #2169: retries are bounded by a wall-clock budget (12 h by default, configurable via
   // HIVE_MIND_TRANSIENT_ERROR_RETRY_BUDGET_MS) instead of a low attempt count.
   const transientRetryBudget = createTransientRetryBudget();
+  const retryProgress = createRetryProgressObserver({
+    tool: 'agent',
+    budget: transientRetryBudget,
+    argv,
+    log,
+    onRecovery: () => {
+      retryCount = 0;
+    },
+  });
 
   const executeWithRetry = async () => {
     // Execute agent command from the cloned repository directory
@@ -584,6 +594,7 @@ export const executeAgentCommand = async params => {
     // Agent supports stdin in both plain text and JSON format
     // We'll combine system and user prompts into a single message
     const combinedPrompt = systemPrompt ? `${systemPrompt}\n\n${prompt}` : prompt;
+    let sessionId = argv.resume || null;
 
     try {
       if (argv.acceptIncommingCommentsAsInput) {
@@ -655,7 +666,7 @@ export const executeAgentCommand = async params => {
       await log(`\n${formatAligned('▶️', 'Streaming output:', '')}\n`);
 
       let exitCode = 0;
-      let sessionId = null;
+
       let limitReached = false;
       let limitResetTime = null;
       let lastMessage = '';
@@ -714,6 +725,8 @@ export const executeAgentCommand = async params => {
         // Issue #1968: a bare `null`/primitive record must not abort event
         // processing (any data.X access would throw on null).
         if (data === null || typeof data !== 'object') return;
+        retryProgress.observe(data);
+        await retryProgress.flushLog();
         // Output formatted JSON
         await log(JSON.stringify(data, null, 2));
         // Capture session ID from the first message (agent may use stdout or stderr)
@@ -1153,11 +1166,15 @@ export const executeAgentCommand = async params => {
       });
 
       await finalizeAgentBidirectionalHandler();
+      if (await retryTransientFailure({ tool: 'agent', retryableError: classifyRetryableError(error), sessionId, argv, log, budget: transientRetryBudget, retryCount, waitForRetryDelay })) {
+        retryCount++;
+        return await executeWithRetry();
+      }
       await attribution.finalize({ branchName }); // Issue #2229
       await log(`\n\n❌ Error executing Agent command: ${error.message}`, { level: 'error' });
       return {
         success: false,
-        sessionId: null,
+        sessionId,
         limitReached: false,
         limitResetTime: null,
         tokenUsage: null,

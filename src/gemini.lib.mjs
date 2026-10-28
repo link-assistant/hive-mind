@@ -26,7 +26,8 @@ import { defaultModels, geminiModels } from './models/index.mjs';
 import { isPrepareOnly, logPreparedToolCommand, resolveFormalAiToolExecution } from './formal-ai.lib.mjs';
 import { servedModelPricingInfo } from './formal-ai-pricing.lib.mjs'; // Issue #2119, #3279
 import { checkPlaywrightMcpPackageAvailability } from './playwright-mcp.lib.mjs';
-import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
+import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterError, retryTransientFailure, waitWithCountdown } from './tool-retry.lib.mjs';
+import { createRetryProgressObserver } from './tool-retry-progress.lib.mjs';
 import { getCumulativeContextInputTokens, toTokenCount } from './context-fill.lib.mjs';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
 import { getTerminalEventCompletionHealth } from './tool-run-health.lib.mjs'; // Issue #1990
@@ -232,7 +233,7 @@ const applyGeminiJsonEvent = (event, nextState, modelId = null) => {
   }
 };
 
-export const parseGeminiJsonOutput = (output, state = {}, modelId = null) => {
+export const parseGeminiJsonOutput = (output, state = {}, modelId = null, { onEvent = null } = {}) => {
   const nextState = {
     messageCount: state.messageCount || 0,
     toolUseCount: state.toolUseCount || 0,
@@ -255,6 +256,7 @@ export const parseGeminiJsonOutput = (output, state = {}, modelId = null) => {
   for (const record of records) {
     for (const event of Array.isArray(record) ? record : [record]) {
       applyGeminiJsonEvent(event, nextState, modelId);
+      onEvent?.(event);
     }
   }
 
@@ -403,6 +405,15 @@ export const executeGeminiCommand = async params => {
   // Issue #2169: retries are bounded by a wall-clock budget (12 h by default, configurable via
   // HIVE_MIND_TRANSIENT_ERROR_RETRY_BUDGET_MS) instead of a low attempt count.
   const transientRetryBudget = createTransientRetryBudget();
+  const retryProgress = createRetryProgressObserver({
+    tool: 'gemini',
+    budget: transientRetryBudget,
+    argv,
+    log,
+    onRecovery: () => {
+      retryCount = 0;
+    },
+  });
 
   const executeWithRetry = async () => {
     if (retryCount === 0) {
@@ -490,7 +501,8 @@ export const executeGeminiCommand = async params => {
           const output = chunk.data.toString();
           await log(output, { stream: 'stdout' });
           allOutput += output;
-          geminiJsonState = parseGeminiJsonOutput(output, geminiJsonState, mappedModel);
+          geminiJsonState = parseGeminiJsonOutput(output, geminiJsonState, mappedModel, { onEvent: retryProgress.observe });
+          await retryProgress.flushLog();
           await toolCallLoopGuard.observeOutput(output);
           if (geminiJsonState.sessionId) {
             sessionId = geminiJsonState.sessionId;
@@ -551,6 +563,7 @@ export const executeGeminiCommand = async params => {
           });
           if (retryDecision.allowed) {
             transientRetryBudget.grant();
+            if (sessionId && !argv.resume) argv.resume = sessionId;
             // Issue #2037: retry the same model on capacity errors before falling back;
             // after a capacity-driven model switch, retry quickly instead of waiting the
             // full transient backoff — the new model may be available now.
@@ -691,10 +704,14 @@ export const executeGeminiCommand = async params => {
         operation: 'run_gemini_command',
       });
 
+      if (await retryTransientFailure({ tool: 'gemini', retryableError: classifyRetryableError(error), sessionId, argv, log, budget: transientRetryBudget, retryCount, waitForRetryDelay })) {
+        retryCount++;
+        return await executeWithRetry();
+      }
       await log(`\n\n❌ Error executing Gemini command: ${error.message}`, { level: 'error' });
       return {
         success: false,
-        sessionId: null,
+        sessionId,
         limitReached: false,
         limitResetTime: null,
         messageCount: 0,

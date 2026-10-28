@@ -23,7 +23,7 @@ import { codexTracePathFor, createCodexStderrLog } from './codex-stderr-log.lib.
 import { findCodexUsageLimitMessage, getCodexErrorEventSummary, getCodexCompletionHealth, getCodexPluginProvisioningHealth, logCodexResourceSnapshot, matchCodexPluginInstallRejection, reportCodexCompletionFailure, reportCodexPluginProvisioning } from './codex-health.lib.mjs';
 export { getCodexErrorEventSummary, getCodexCompletionHealth, getCodexPluginProvisioningHealth, matchCodexPluginInstallRejection };
 import { reportError } from './sentry.lib.mjs';
-import { timeouts, retryLimits } from './config.lib.mjs';
+import { timeouts } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { buildSolveResumeCommand } from './solve.resume-command.lib.mjs'; // Issue #942
 const __codexBuildSolveResumeCmd = (argv, sessionId, tempDir) => (sessionId && argv?.url ? buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool: 'codex', model: argv.model, fallbackModel: argv.fallbackModel, tempDir }) : null);
@@ -46,7 +46,8 @@ import { buildAuthRemedyLines, buildFormalAiEnvExports, isPrepareOnly, logPrepar
 import { assertFormalAiCodexConfig, classifyFormalAiCodexFailure, pinFormalAiCodexHome } from './codex.formal-ai.lib.mjs';
 import { servedModelPricingInfo } from './formal-ai-pricing.lib.mjs'; // Issue #2119, #3279
 import { createToolAttribution } from './formal-ai-attribution.lib.mjs'; // Issue #3279
-import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
+import { classifyRetryableError, createTransientRetryBudget, retryTransientFailure as retryTransientToolFailure, waitWithCountdown } from './tool-retry.lib.mjs';
+import { createRetryProgressObserver } from './tool-retry-progress.lib.mjs';
 import { parseSubSessionSize } from './sub-session-size.lib.mjs'; // Issue #1706
 import { buildCodexPricingTierConfigArgs, describePricingTier, resolvePricingTier } from './pricing-tier.lib.mjs'; // Issue #2771
 import { buildCodexMemoryDisableConfigArgs, isAgentMemoryDisabled } from './agent-memory-policy.lib.mjs'; // Issue #2178
@@ -188,7 +189,7 @@ const upsertCodexItemError = (itemErrors, item) => {
 // the #2102 plugin-install rejection), but protocol-shaped JSON found there is
 // counted into `telemetryEventCounts` and otherwise ignored — it never touches
 // eventCounts, sessionId, usage or the error buckets.
-export const parseCodexExecJsonOutput = (output, state = {}, requestedModelId = null, { source = 'stdout' } = {}) => {
+export const parseCodexExecJsonOutput = (output, state = {}, requestedModelId = null, { source = 'stdout', onEvent = null } = {}) => {
   const isProtocolStream = source === 'stdout';
   const nextState = {
     sessionId: state.sessionId || null,
@@ -262,6 +263,7 @@ export const parseCodexExecJsonOutput = (output, state = {}, requestedModelId = 
       nextState.telemetryEventCounts[eventType] = (nextState.telemetryEventCounts[eventType] || 0) + 1;
       continue;
     }
+    onEvent?.(data);
     nextState.eventCounts[eventType] = (nextState.eventCounts[eventType] || 0) + 1;
     if (eventType === 'turn.started' || eventType === 'turn.completed' || eventType === 'turn.failed') {
       nextState.turnLifecycle.push(eventType);
@@ -620,6 +622,20 @@ export const executeCodexCommand = async params => {
   // Issue #2169: retries are bounded by a wall-clock budget (12 h by default, configurable via
   // HIVE_MIND_TRANSIENT_ERROR_RETRY_BUDGET_MS) instead of a low attempt count.
   const transientRetryBudget = createTransientRetryBudget();
+  const retryProgress = createRetryProgressObserver({
+    tool: 'codex',
+    budget: transientRetryBudget,
+    argv,
+    onRecovery: () => {
+      retryCount = 0;
+    },
+    log,
+  });
+  const retryTransientFailure = async (retryableError, sessionId) => {
+    const allowed = await retryTransientToolFailure({ tool: 'codex', retryableError, sessionId, argv, log, budget: transientRetryBudget, retryCount, waitForRetryDelay });
+    if (allowed) retryCount++;
+    return allowed;
+  };
   let baseBranchInterventionPrompt = null;
   let baseBranchInterventionResumeCount = 0;
   // Issue #2888: a recovery run may resume a thread whose rollout is not here.
@@ -781,6 +797,7 @@ export const executeCodexCommand = async params => {
     const fullCommand = `(${buildFormalAiEnvExports(toolInvocation.env)}cd ${shellQuote(tempDir)} && ${toolInvocation.displayCommand} ${codexArgs} < ${shellQuote(promptFile)})`;
     const preparedResult = await logPreparedToolCommand({ argv, fullCommand, log, formatAligned });
     if (preparedResult) return preparedResult;
+    let sessionId = argv.resume || null;
     try {
       await assertFormalAiCodexConfig({ toolInvocation, model: mappedModel, log }); // fail closed: never reach a vendor endpoint (#2146)
       let interactiveHandler = null;
@@ -835,7 +852,6 @@ export const executeCodexCommand = async params => {
       let exitCode = 0;
       let signal = null;
       let stderrError = null;
-      let sessionId = null;
       let limitReached = false;
       let limitResetTime = null;
       let limitTimezone = null; // Issue #3570: an epoch-derived reset is in UTC
@@ -895,7 +911,8 @@ export const executeCodexCommand = async params => {
           const output = codexStdoutLines.write(raw);
           await codexAttribution.observeText(output); // Issue #3279: before any commit the turn makes
           await toolCallLoopGuard.observeOutput(output);
-          codexJsonState = parseCodexExecJsonOutput(output, codexJsonState, mappedModel, { source: 'stdout' });
+          codexJsonState = parseCodexExecJsonOutput(output, codexJsonState, mappedModel, { source: 'stdout', onEvent: retryProgress.observe });
+          await retryProgress.flushLog();
           await baseBranchCommandIntervention.handleCommandExecutions(codexJsonState.commandExecutions);
           if (interactiveHandler || progressMonitor) {
             for (const rawLine of output.split('\n')) {
@@ -951,7 +968,8 @@ export const executeCodexCommand = async params => {
         if (!remaining.trim()) continue;
         if (source === 'stderr') stderrError = findCodexStderrError(remaining, stderrError);
         else await codexAttribution.observeText(remaining);
-        codexJsonState = parseCodexExecJsonOutput(remaining, codexJsonState, mappedModel, { source });
+        codexJsonState = parseCodexExecJsonOutput(remaining, codexJsonState, mappedModel, { source, onEvent: retryProgress.observe });
+        await retryProgress.flushLog();
         await baseBranchCommandIntervention.handleCommandExecutions(codexJsonState.commandExecutions);
       }
       if (codexJsonState.sessionId && codexJsonState.sessionId !== sessionId) {
@@ -1088,32 +1106,7 @@ export const executeCodexCommand = async params => {
             await log(line, { level: 'warning' });
           }
         } else if (retryableError.isRetryable) {
-          const isRequestTimeoutRetry = retryableError.label === 'Request timeout';
-          const maxRetries = isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutRetries : retryLimits.maxTransientErrorRetries;
-          // Issue #2169: the attempt count is only a runaway backstop — the 12-hour wall-clock budget
-          // (configurable) decides when to stop, and every wait honours the 3-minute minimum.
-          const retryDecision = transientRetryBudget.evaluate({
-            retryCount,
-            maxRetries,
-            initialDelayMs: isRequestTimeoutRetry ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs,
-            maxDelayMs: isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs,
-            minDelayMs: retryLimits.minTransientErrorDelayMs,
-          });
-          if (retryDecision.allowed) {
-            transientRetryBudget.grant();
-            if (sessionId && !argv.resume) argv.resume = sessionId;
-            // Issue #2037: retry same model on capacity errors before falling back; a
-            // capacity-driven switch retries fast, other transient errors use standard backoff.
-            const retryPlan = await prepareRetryAfterError({ tool: 'codex', argv, log, errorMessage: retryableError.message, retryCount, initialDelayMs: isRequestTimeoutRetry ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs, maxDelayMs: isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs, minDelayMs: retryLimits.minTransientErrorDelayMs });
-            const delay = retryPlan.delay;
-            const delayLabel = delay >= 60000 ? `${Math.round(delay / 60000)} min` : `${Math.round(delay / 1000)}s`;
-            await log(`\n⚠️ ${retryableError.label} detected. Retry ${retryCount + 1} in ${delayLabel}${sessionId ? ' (session preserved)' : ''} (${transientRetryBudget.describeProgress()})...`, { level: 'warning' });
-            await waitForRetryDelay(delay, log);
-            await log('\n🔄 Retrying now...');
-            retryCount++;
-            return await executeWithRetry();
-          }
-          await log(`\n\n❌ ${retryableError.label} persisted: ${transientRetryBudget.describeExhaustion(retryDecision)}`, { level: 'error' });
+          if (await retryTransientFailure(retryableError, sessionId)) return await executeWithRetry();
         } else {
           await log(`\n\n❌ Codex emitted error event: ${codexErrorSummary.message}`, { level: 'error' });
           await log(`   Error events: item=${codexErrorSummary.counts.item}, turn=${codexErrorSummary.counts.turn}, stream=${codexErrorSummary.counts.stream}`, { level: 'error' });
@@ -1127,32 +1120,7 @@ export const executeCodexCommand = async params => {
         const failureSource = signal ? '' : stderrError || lastMessage;
         const retryableError = classifyRetryableError(failureSource);
         if (retryableError.isRetryable) {
-          const isRequestTimeoutRetry = retryableError.label === 'Request timeout';
-          const maxRetries = isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutRetries : retryLimits.maxTransientErrorRetries;
-          // Issue #2169: the attempt count is only a runaway backstop — the 12-hour wall-clock budget
-          // (configurable) decides when to stop, and every wait honours the 3-minute minimum.
-          const retryDecision = transientRetryBudget.evaluate({
-            retryCount,
-            maxRetries,
-            initialDelayMs: isRequestTimeoutRetry ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs,
-            maxDelayMs: isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs,
-            minDelayMs: retryLimits.minTransientErrorDelayMs,
-          });
-          if (retryDecision.allowed) {
-            transientRetryBudget.grant();
-            if (sessionId && !argv.resume) argv.resume = sessionId;
-            // Issue #2037: retry same model on capacity errors before falling back; a
-            // capacity-driven switch retries fast, other transient errors use standard backoff.
-            const retryPlan = await prepareRetryAfterError({ tool: 'codex', argv, log, errorMessage: retryableError.message, retryCount, initialDelayMs: isRequestTimeoutRetry ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs, maxDelayMs: isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs, minDelayMs: retryLimits.minTransientErrorDelayMs });
-            const delay = retryPlan.delay;
-            const delayLabel = delay >= 60000 ? `${Math.round(delay / 60000)} min` : `${Math.round(delay / 1000)}s`;
-            await log(`\n⚠️ ${retryableError.label} detected. Retry ${retryCount + 1} in ${delayLabel}${sessionId ? ' (session preserved)' : ''} (${transientRetryBudget.describeProgress()})...`, { level: 'warning' });
-            await waitForRetryDelay(delay, log);
-            await log('\n🔄 Retrying now...');
-            retryCount++;
-            return await executeWithRetry();
-          }
-          await log(`\n\n❌ ${retryableError.label} persisted: ${transientRetryBudget.describeExhaustion(retryDecision)}`, { level: 'error' });
+          if (await retryTransientFailure(retryableError, sessionId)) return await executeWithRetry();
         }
         // Check for usage limit errors first (more specific); issue #3570: the rollout is cross-checked too.
         const limitInfo = await resolveCodexExitUsageLimit({ failureSource, signal, exitCode, threadId: sessionId, codexHome: codexEnv.CODEX_HOME, buildResumeCommand: () => __codexBuildSolveResumeCmd(argv, sessionId, tempDir), log });
@@ -1217,6 +1185,8 @@ export const executeCodexCommand = async params => {
           operation: 'run_codex_command',
         });
       }
+      const retryableException = classifyRetryableError(error);
+      if (!error.isAuthError && retryableException.isRetryable && (await retryTransientFailure(retryableException, sessionId))) return await executeWithRetry();
       await log(`\n\n❌ Error executing Codex command: ${error.message}`, { level: 'error' });
       // Re-throw auth errors to stop any outer retry loops
       if (error.isAuthError) {
@@ -1224,7 +1194,7 @@ export const executeCodexCommand = async params => {
       }
       return {
         success: false,
-        sessionId: null,
+        sessionId,
         limitReached: false,
         limitResetTime: null,
         pricingInfo: null,

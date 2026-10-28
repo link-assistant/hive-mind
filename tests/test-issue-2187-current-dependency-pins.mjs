@@ -23,7 +23,7 @@ const expected = {
   box: '2.10.5',
   bun: '1.4.4',
   eslint: '10.13.0',
-  formalAi: '0.355.7',
+  formalAi: '0.355.14',
   jscpd: '5.4.2',
   jscpdThreshold: 12,
   lintStaged: '17.6.0',
@@ -31,7 +31,7 @@ const expected = {
   prettier: '3.9.10',
   sentry: '11.9.0',
   sentryProfiler: '2.4.4',
-  startCommand: '0.39.2',
+  startCommand: '0.40.0',
   useM: '8.16.4',
 };
 

@@ -1,0 +1,22 @@
+2067: 2026-10-28T17:33:28.2230371Z #13 2.200 Downloading and installing node v26.13.0...
+2068: 2026-10-28T17:33:28.5066896Z #13 2.484 Downloading https://nodejs.org/dist/v26.13.0/node-v26.13.0-linux-x64.tar.xz...
+2069: 2026-10-28T17:33:28.7317116Z #13 2.710
+2070: 2026-10-28T17:33:28.9320942Z #                                                                          1.5%
+2071: 2026-10-28T17:33:28.9322515Z ###################                                                       27.4%
+2072: 2026-10-28T17:33:29.1728257Z ###############################################################           88.4%
+2073: 2026-10-28T17:33:29.1730352Z ######################################################################## 100.0%
+2074: 2026-10-28T17:33:29.1731550Z #13 2.948 Computing checksum with sha256sum
+2075: 2026-10-28T17:33:29.1732586Z #13 2.983 Provided checksum to compare to is empty.
+2076: 2026-10-28T17:33:29.1733577Z #13 2.990 Binary download failed, trying source.
+2077: 2026-10-28T17:33:29.1734539Z #13 3.000 Detected that you have 4 CPU core(s)
+2078: 2026-10-28T17:33:29.1735523Z #13 3.000 Running with 3 threads to speed up the build
+2079: 2026-10-28T17:33:29.3573171Z #13 3.335 Clang v3.5+ detected! CC or CXX not specified, will use Clang as C/C++ compiler!
+2080: 2026-10-28T17:33:29.6367792Z #13 3.614 Downloading https://nodejs.org/dist/v26.13.0/node-v26.13.0.tar.xz...
+2081: 2026-10-28T17:33:29.8414740Z #13 3.819
+2082: 2026-10-28T17:33:29.9420397Z ######                                                                     9.2%
+2083: 2026-10-28T17:33:30.1571611Z ############################                                              39.8%
+2084: 2026-10-28T17:33:30.1573058Z ####################################################                      73.6%
+2085: 2026-10-28T17:33:30.1574129Z ######################################################################## 100.0%
+2086: 2026-10-28T17:33:30.1575078Z #13 4.134 Computing checksum with sha256sum
+2087: 2026-10-28T17:33:30.3340434Z #13 4.193 Provided checksum to compare to is empty.
+2088: 2026-10-28T17:33:30.3351950Z #13 ERROR: process "/bin/bash -c set -e &&     . \"$NVM_DIR/nvm.sh\" &&     PREVIOUS_GLOBAL_LIB=\"$(dirname \"$(dirname \"$(command -v node)\")\")/lib/node_modules\" &&     GLOBAL_SPECS=\"\" &&     for package_json in \"$PREVIOUS_GLOBAL_LIB\"/*/package.json \"$PREVIOUS_GLOBAL_LIB\"/@*/*/package.json; do       [ -f \"$package_json\" ] || continue;       spec=\"$(node -p 'const pkg = require(process.argv[1]); pkg.name + \"@\" + pkg.version' \"$package_json\")\";       case \"$spec\" in npm@*|corepack@*) continue ;; esac;       GLOBAL_SPECS=\"$GLOBAL_SPECS $spec\";     done &&     echo \"Inherited global npm packages to re-install:${GLOBAL_SPECS:- (none)}\" &&     nvm install \"${HIVE_MIND_NODE_VERSION}\" &&     nvm alias default \"${HIVE_MIND_NODE_VERSION}\" &&     nvm use default &&     if [ -n \"$GLOBAL_SPECS\" ]; then npm install -g $GLOBAL_SPECS --no-fund --force; fi &&     for version_dir in \"$NVM_DIR\"/versions/node/*; do       [ -d \"$version_dir\" ] || continue;       if [ \"$(basename \"$version_dir\")\" = \"v${HIVE_MIND_NODE_VERSION}\" ]; then continue; fi;       echo \"Removing superseded node $(basename \"$version_dir\")\";       rm -rf \"$version_dir\";     done &&     curl -fsSL https://bun.sh/install | bash -s \"bun-v${HIVE_MIND_BUN_VERSION}\" &&     node --version &&     npm --version &&     \"$BUN_INSTALL/bin/bun\" --version" did not complete successfully: exit code: 1

@@ -61,7 +61,7 @@ These are the remaining changes visible in the rendered diffs. They implement th
 
 The larger source diff also implements the [earlier localization review](https://github.com/link-assistant/hive-mind/pull/3838#issuecomment-6468133471): templates move into `locales/prompts/system/` for system instructions and `locales/prompts/` for other AI messages; UI messages move to `locales/`. Builders retrieve those templates using the work locale. Existing translated text is reused, with English fallback for missing translated keys.
 
-That relocation adds no further English wording edits: the existing regression compares **24/24 pre-extraction backend outputs**, and a separate corpus compares **12/12 live-feedback/intervention outputs**, byte for byte. The temporary recursive locale adapter changes catalog loading; its upstream report is [link-foundation/lino-i18n#35](https://github.com/link-foundation/lino-i18n/issues/35).
+That relocation adds no further English wording edits: the existing regression compares **24/24 pre-extraction backend outputs**, and a separate corpus compares **12/12 live-feedback/intervention outputs**, byte for byte. The recursive locale adapter changes catalog loading; its upstream report is [link-foundation/lino-i18n#35](https://github.com/link-foundation/lino-i18n/issues/35). Upstream 0.5.0 now supports recursion, and this PR uses that release. The strict merger remains to reject conflicting definitions instead of upstream's last-file-wins policy.
 
 ## Complete rendered diffs and sizes
 

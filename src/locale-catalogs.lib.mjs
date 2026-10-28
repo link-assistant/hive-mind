@@ -1,4 +1,4 @@
-/** Temporary recursive-loader adapter; https://github.com/link-foundation/lino-i18n/issues/35. */
+/** Strict locale-tree merge; upstream recursion uses last-file-wins instead of rejecting conflicts. */
 import { readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { loadLocalesFromDirectory } from 'lino-i18n/loaders';

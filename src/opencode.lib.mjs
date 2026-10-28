@@ -32,7 +32,8 @@ import { extractAgentErrorText, isAgentErrorRecord, isRecoverableAgentToolError 
 import { combineClaudeUsageLimitVerdicts, usageLimitTextVerdict } from './claude.usage-limit-sources.lib.mjs'; // Issue #3570
 import { createToolCallLoopGuard, resolveRepeatedToolCallLimit } from './tool-call-loop-guard.lib.mjs'; // Issue #2316, #2395
 import { calculateAgentPricing } from './agent.lib.mjs';
-import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
+import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterError, retryTransientFailure, waitWithCountdown } from './tool-retry.lib.mjs';
+import { createRetryProgressObserver } from './tool-retry-progress.lib.mjs';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
 import { buildOpencodeAuxiliaryAgentConfig, isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236
 
@@ -204,6 +205,15 @@ export const executeOpenCodeCommand = async params => {
   // Issue #2169: retries are bounded by a wall-clock budget (12 h by default, configurable via
   // HIVE_MIND_TRANSIENT_ERROR_RETRY_BUDGET_MS) instead of a low attempt count.
   const transientRetryBudget = createTransientRetryBudget();
+  const retryProgress = createRetryProgressObserver({
+    tool: 'opencode',
+    budget: transientRetryBudget,
+    argv,
+    log,
+    onRecovery: () => {
+      retryCount = 0;
+    },
+  });
 
   const executeWithRetry = async () => {
     // Execute opencode command from the cloned repository directory
@@ -279,6 +289,7 @@ export const executeOpenCodeCommand = async params => {
     // Fixes issue #755: "Permission required to run: Access file outside working directory"
     // Reference: https://opencode.ai/docs/config - see permissions documentation
     const opencodeConfigPath = path.join(tempDir, 'opencode.json');
+    let sessionId = argv.resume || null;
     const opencodeConfig = {
       $schema: 'https://opencode.ai/config.json',
       permission: {
@@ -351,7 +362,7 @@ export const executeOpenCodeCommand = async params => {
       await log(`\n${formatAligned('▶️', 'Streaming output:', '')}\n`);
 
       let exitCode = 0;
-      let sessionId = null;
+
       let limitReached = false;
       let limitResetTime = null;
       let limitTimezone = null;
@@ -385,6 +396,8 @@ export const executeOpenCodeCommand = async params => {
           // Issue #1968: a bare `null`/primitive record must not abort the
           // rest of the chunk (data.type access would throw on null).
           if (data === null || typeof data !== 'object') continue;
+          sessionId ||= data.sessionID || data.session_id || data.sessionId || null;
+          retryProgress.observe(data);
           accumulateAgentStepFinishUsage(streamingTokenUsage, data);
           if (isAgentErrorRecord(data) && !isRecoverableAgentToolError(data)) errorRecordTexts.push(extractAgentErrorText(data));
           // Track text content for result summary
@@ -426,6 +439,7 @@ export const executeOpenCodeCommand = async params => {
 
           // Issue #1263: Parse JSON output to extract text content for result summary
           handleOpenCodeRecords(stdoutScanner.write(output));
+          await retryProgress.flushLog();
           await toolCallLoopGuard.observeOutput(output);
         }
 
@@ -437,6 +451,7 @@ export const executeOpenCodeCommand = async params => {
 
             // Issue #1263: Also parse stderr for text content
             handleOpenCodeRecords(stderrScanner.write(errorOutput), { source: 'stderr' });
+            await retryProgress.flushLog();
           }
         } else if (chunk.type === 'exit') {
           exitCode = chunk.code;
@@ -445,7 +460,9 @@ export const executeOpenCodeCommand = async params => {
 
       // Release any record that was still being assembled when the stream ended.
       handleOpenCodeRecords(stdoutScanner.flush());
+      await retryProgress.flushLog();
       handleOpenCodeRecords(stderrScanner.flush(), { source: 'stderr' });
+      await retryProgress.flushLog();
 
       if (stderrJsonRecordCount > 0) {
         await log(`🪞 JSON records parsed from OpenCode stderr: ${stderrJsonRecordCount} (issue #2136: stderr is not a protocol stream — check these before trusting usage/summary)`, { verbose: true });
@@ -644,10 +661,14 @@ export const executeOpenCodeCommand = async params => {
         operation: 'run_opencode_command',
       });
 
+      if (await retryTransientFailure({ tool: 'opencode', retryableError: classifyRetryableError(error), sessionId, argv, log, budget: transientRetryBudget, retryCount, waitForRetryDelay })) {
+        retryCount++;
+        return await executeWithRetry();
+      }
       await log(`\n\n❌ Error executing OpenCode command: ${error.message}`, { level: 'error' });
       return {
         success: false,
-        sessionId: null,
+        sessionId,
         limitReached: false,
         limitResetTime: null,
         tokenUsage: streamingTokenUsage.stepCount > 0 ? streamingTokenUsage : null,

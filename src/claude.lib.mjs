@@ -33,6 +33,7 @@ import { resolveClaudeSessionToolFlags } from './useless-tools.lib.mjs';
 import { ensureClaudeQuietConfig } from './claude-quiet-config.lib.mjs';
 import { fetchModelInfo } from './model-info.lib.mjs';
 import { classifyRetryableError, createTransientRetryBudget, describeClassificationEvidence, logExecutionContext, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
+import { createRetryProgressObserver } from './tool-retry-progress.lib.mjs';
 import { resolveSubSessionSize } from './sub-session-size.lib.mjs'; // Issue #1706
 import { capSubSessionSizeToShortContext, describePricingTier, resolveClaudeModelForContext, resolvePricingTier } from './pricing-tier.lib.mjs'; // Issue #2771
 import { withAgentsMdAsClaudeMd } from './agents-md-claude-support.lib.mjs';
@@ -187,6 +188,7 @@ export const executeClaudeCommand = async params => {
     forkedRepo,
     feedbackLines,
     claudePath,
+    waitForRetryDelay = waitWithCountdown,
     $, // Add command-stream $ to params
     // For interactive mode
     owner,
@@ -203,23 +205,28 @@ export const executeClaudeCommand = async params => {
   // Issue #2840: model IDs reported by this session's stream, kept even if it never reaches a result.
   resetObservedModels();
   let retryCount = 0;
-  // Issue #2169: total-time budget shared by every transient-error retry of this run (default
-  // 12 h). Created outside executeWithRetry so the elapsed clock survives the recursive calls.
+  // Bound each continuous outage; provider progress starts a fresh retry window (#3831).
   const transientRetryBudget = createTransientRetryBudget();
+  const retryProgress = createRetryProgressObserver({
+    tool: 'claude',
+    budget: transientRetryBudget,
+    argv,
+    onRecovery: () => {
+      retryCount = 0;
+    },
+    log,
+  });
   let baseBranchInterventionPrompt = null;
   let baseBranchInterventionResumeCount = 0;
   let incompleteTurnRecoveryAttempts = 0;
   let incompleteTurnPrompt = null;
-  // Issue #1834 (PR #1835 feedback): corrupted-thinking-block recovery — resume the session first,
-  // then escalate to a fresh restart, auto-committing uncommitted work before each attempt. Created
-  // once so its resume/restart caps persist across recursive retry calls.
+  // Issue #1834: resume before a fresh restart; preserve recovery caps across retries.
   const tryThinkingBlockRecovery = createThinkingBlockRecovery({ argv, tempDir, branchName, $, log });
   const executeWithRetry = async () => {
     const promptForAttempt = [prompt, baseBranchInterventionPrompt, incompleteTurnPrompt].filter(Boolean).join('\n\n');
     if (retryCount === 0) {
       await log(`\n${formatAligned('🤖', 'Executing Claude:', argv.model.toUpperCase())}`);
     } else {
-      // Issue #2169: the count cap is a backstop now, so report the retry budget instead.
       await log(`\n${formatAligned('🔄', 'Retry attempt:', `${retryCount} (${transientRetryBudget.describeProgress()})`)}`);
     }
     if (argv.verbose) {
@@ -667,6 +674,8 @@ export const executeClaudeCommand = async params => {
                 if (recordObservedModel({ ...observed, requestedModel: argv.model })) await log(`🤖 Model reported by Claude (${observed.source}${observed.fromSubagent ? ', sub-agent' : ''}): ${observed.modelId}`);
               }
               const afterResult = printTurn.observeEvent(data).afterResult && !streamingInput;
+              if (!afterResult) retryProgress.observe(data);
+              await retryProgress.flushLog();
               await resultClose.observeEvent(data);
               terminalToolResult = updateTerminalToolResult(terminalToolResult, eventFacts, { afterResult });
               messageCount += eventFacts.messageCountDelta;
@@ -1064,18 +1073,10 @@ export const executeClaudeCommand = async params => {
         await log(`🔍 Transient-error pattern seen in a successful run — not retrying (Issue #2169). Pattern: ${retryableLastError.label || 'flagged by stream detector'}; last message: ${JSON.stringify(lastMessage.substring(0, 200))}`, { verbose: true });
         await log(`   Classification evidence: ${describeClassificationEvidence(lastMessage, retryableLastError.label)}`, { verbose: true });
       }
-      // Issue #2161: an account/subscription block short-circuits every retry
-      // path. Stale transient flags from earlier in the run (an overload at hour
-      // one, say) must not schedule a retry that is guaranteed to fail the same
-      // way — and each retry would burn another full startup against a provider
-      // that has already refused the credentials.
-      // Issue #2687: a terminal account limit also supersedes transient flags
-      // retained from earlier stream events; only the reset-time handler can recover it.
+      // Account/subscription blocks supersede stale transient flags (#2161, #2687).
       if (!runProducedSuccess && isTransientError && !subscriptionError && !limitReached) {
-        // Issue #1472/#1475: Startup/activity timeout → 30s–2min backoff; #1353: Request timeout → 5min–1hr; general → 3min–30min
         const isTimeoutRetry = isStartupTimeout || isActivityTimeout;
-        // Issue #2169: stream timeouts keep their own short count cap; API errors are governed by
-        // the 12-hour budget with a 3-minute floor on every wait.
+        // Issue #2169: stream timeouts keep a short cap; API waits use the outage budget.
         const maxRetries = isTimeoutRetry ? retryLimits.maxStreamTimeoutRetries : isRequestTimeout ? retryLimits.maxRequestTimeoutRetries : retryLimits.maxTransientErrorRetries;
         const initialDelay = isTimeoutRetry ? 30000 : isRequestTimeout ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs;
         const maxDelay = isTimeoutRetry ? 120000 : isRequestTimeout ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs;
@@ -1135,7 +1136,7 @@ export const executeClaudeCommand = async params => {
               await log(`   Warning: Could not post force-kill comment to PR: ${commentError.message}`, { verbose: true });
             }
           }
-          await waitWithCountdown(delay, log);
+          await waitForRetryDelay(delay, log);
           await log('\n🔄 Retrying now...');
           retryCount++;
           return await executeWithRetry();
@@ -1312,7 +1313,7 @@ export const executeClaudeCommand = async params => {
           const errorLabel = isTimeoutException ? 'Request timeout' : retryableException.label || (errorStr.includes('Overloaded') ? `API overload (${errorStr.includes('529') ? '529' : '500'})` : errorStr.includes('Internal server error') ? 'Internal server error (500)' : '503 network error');
           const delayLabel = delay >= 60000 ? `${Math.round(delay / 60000)} min` : `${Math.round(delay / 1000)}s`;
           await log(`\n⚠️ ${errorLabel} in exception. Retry ${retryCount + 1} in ${delayLabel} (session preserved, ${transientRetryBudget.describeProgress()})...`, { level: 'warning' });
-          await waitWithCountdown(delay, log);
+          await waitForRetryDelay(delay, log);
           await log('\n🔄 Retrying now...');
           retryCount++;
           return await executeWithRetry();

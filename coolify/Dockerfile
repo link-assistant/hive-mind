@@ -19,7 +19,7 @@
 #
 # Build: docker build -f coolify/Dockerfile -t konard/hive-mind .
 
-ARG FORMAL_AI_VERSION=0.355.15
+ARG FORMAL_AI_VERSION=0.355.23
 # Bookworm's glibc 2.36 remains compatible with the Ubuntu 24.04 Box runtime.
 FROM rust:1.99-slim-bookworm AS formal-ai-builder
 ARG FORMAL_AI_VERSION
@@ -242,13 +242,15 @@ RUN curl -fsSL https://claude.ai/install.sh -o /tmp/claude-code-install.sh && \
     test "$(claude --version)" = '2.1.310 (Claude Code)'
 
 # Install AI coding assistant CLIs
-RUN bun install -g @openai/codex@0.164.0 && \
-    test "$(codex --version)" = 'codex-cli 0.164.0' && \
-    bun install -g @qwen-code/qwen-code@0.26.1 && \
-    bun install -g @google/gemini-cli@0.65.0 && \
-    bun install -g @github/copilot && \
-    bun install -g opencode-ai@1.19.4 && \
-    test "$(opencode --version)" = '1.19.4'
+# Native storage probes and clean-runtime manifests attest these exact versions.
+# Upgrade them together with the storage adapters and their lifecycle evidence.
+RUN bun install -g @openai/codex@0.164.0 # https://github.com/link-assistant/hive-mind/issues/3785
+RUN test "$(codex --version)" = 'codex-cli 0.164.0'
+RUN bun install -g @qwen-code/qwen-code@0.26.1 # https://github.com/link-assistant/hive-mind/issues/3785
+RUN bun install -g @google/gemini-cli@0.65.0 # https://github.com/link-assistant/hive-mind/issues/3785
+RUN bun install -g @github/copilot
+RUN bun install -g opencode-ai@1.19.4 # https://github.com/link-assistant/hive-mind/issues/3785
+RUN test "$(opencode --version)" = '1.19.4'
 
 # Agent must search without executing binaries from its shared data directory.
 # Use the architecture-matched executable supplied by the pinned Codex package.

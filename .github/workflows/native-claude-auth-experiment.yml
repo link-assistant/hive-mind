@@ -50,6 +50,10 @@ jobs:
           for scenario in expired concurrent replace-login logout; do
             python3 experiments/issue-3785/probe-claude-native-refresh.py "$NATIVE_CLAUDE" "--$scenario" --diagnostics "$RUNNER_TEMP/claude-$scenario-native.log" > "$RUNNER_TEMP/claude-$scenario.log" 2>&1
           done
+      - name: Verify native global output-style instruction discovery
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python3 experiments/issue-3785/probe-claude-native-refresh.py "$NATIVE_CLAUDE" --global-output-style --diagnostics "$RUNNER_TEMP/claude-output-style-native.log" > "$RUNNER_TEMP/claude-output-style.log" 2>&1
       - name: Preserve the unresolved native owner-death regression
         env:
           PYTHONDONTWRITEBYTECODE: '1'

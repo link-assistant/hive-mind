@@ -89,7 +89,7 @@ export async function auditManagedAgentConfig({ tool = 'all', systemRoots = mana
   };
   const claudeSettings = (data, location) => {
     if (!data) return;
-    nonempty('claude', data, location, ['hooks', 'enabledPlugins', 'extraKnownMarketplaces', 'policyHelper']);
+    nonempty('claude', data, location, ['hooks', 'enabledPlugins', 'extraKnownMarketplaces', 'policyHelper', 'outputStyle']);
     servers('claude', data, location, 'managedMcpServers');
     servers('claude', data, location, 'mcpServers');
     for (const [key, value] of Object.entries({ ...CLAUDE_CLOUD_DISABLE_SETTINGS, allowAllClaudeAiMcps: false })) if (data[key] !== undefined && data[key] !== value) report('claude', location, key);
@@ -137,6 +137,11 @@ export async function auditManagedAgentConfig({ tool = 'all', systemRoots = mana
           if (file.startsWith('.') || !file.endsWith('.json')) continue;
           const target = path.join(fragments, file);
           claudeSettings(await read(target), target);
+        }
+        const claudeDirectory = path.join(root, '.claude');
+        if (await inspect(claudeDirectory, true)) {
+          const styles = path.join(claudeDirectory, 'output-styles');
+          if ((await children(styles)).length) report(name, styles, 'output-styles');
         }
       } else {
         for (const file of ['config.toml', 'managed_config.toml', 'requirements.toml']) {

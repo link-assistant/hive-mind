@@ -55,6 +55,24 @@ after private-home disposal; the next model request includes the earlier
 message. Full Claude crash semantics, history lifecycle and integration remain
 open.
 
+Native run [41064060494](https://github.com/link-assistant/hive-mind/actions/runs/41064060494)
+now passes the complete Claude experiment, including the expected crash-defect
+reproduction and both history controls. This verifies the TLS fixture repair;
+the native crash defect remains unresolved. Qwen run 41064059810 also passes.
+
+The pinned Claude binary additionally loads global `output-styles/*.md` into
+a system message when selected by user settings. The previous audit admitted
+that configuration. Nine reproducing regressions failed before repair; they
+now pass with 56 related controls. Admission inspects conventional/selected
+user roots and the documented managed `.claude/output-styles` directory;
+user style selection is repairable, while instruction files and managed policy
+require explicit reconciliation. Protected auth/history are unchanged. The
+[native probe](../../../experiments/issue-3785/probe-claude-native-refresh.py)
+has an optional synthetic `--global-output-style` control, retained in CI.
+[Anthropic's output-style documentation](https://code.claude.com/docs/en/output-styles)
+describes these instruction files and the managed discovery location.
+This closes a known discovery gap, not the complete baseline inventory.
+
 Router's unrestricted extra Docker arguments could override its audit path or
 volume; all 15 reproducing rejection assertions failed before repair. Extra
 arguments now allow only documented resource limits, and token issuance checks

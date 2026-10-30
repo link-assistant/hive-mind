@@ -165,7 +165,7 @@ const auditGlobalInstructions = ({ tool, root, fsImpl, files = [], directories =
 const auditClaude = ({ homeDir, configDir: claudeDir, fsImpl, allowedMcpServers }) => {
   const findings = [];
   const pluginsDir = path.join(claudeDir, 'plugins');
-  findings.push(...auditGlobalInstructions({ tool: 'claude', root: claudeDir, fsImpl, files: ['CLAUDE.md'], directories: ['rules'] }));
+  findings.push(...auditGlobalInstructions({ tool: 'claude', root: claudeDir, fsImpl, files: ['CLAUDE.md'], directories: ['rules', 'output-styles'] }));
 
   for (const plugin of safeReadDir(fsImpl, path.join(pluginsDir, 'synced'), { includeHidden: true })) {
     const location = path.join(pluginsDir, 'synced', plugin.name);
@@ -218,6 +218,9 @@ const auditClaude = ({ homeDir, configDir: claudeDir, fsImpl, allowedMcpServers 
     findings.push(makeFinding({ tool: 'claude', kind: 'cloud-capabilities', name: 'account-sync-and-connectors', location: settingsPath, detail: 'account skill/plugin sync, connectors and marketplace auto-install must be disabled explicitly', repair: { type: 'set-claude-cloud-policy', target: settingsPath } }));
   }
   if (settings) {
+    if (settings.outputStyle !== undefined) {
+      findings.push(makeFinding({ tool: 'claude', kind: 'global-instructions', name: 'outputStyle', location: settingsPath, detail: 'global output-style instructions in settings.json', repair: { type: 'delete-json-key', target: settingsPath, keyPath: ['outputStyle'] } }));
+    }
     if (Object.keys(configTable(settings, 'hooks')).length) {
       findings.push(makeFinding({ tool: 'claude', kind: 'global-hooks', name: 'hooks', location: settingsPath, detail: 'inline global hooks in settings.json', repair: { type: 'delete-json-key', target: settingsPath, keyPath: ['hooks'] } }));
     }

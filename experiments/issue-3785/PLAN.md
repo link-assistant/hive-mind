@@ -501,3 +501,13 @@ Latest CI continuation:
       this new case. Require resolved ChatGPT mode; all twelve focused cases pass.
 - [ ] Verify all nine repaired actual CLI identity controls in rebuilt native CI,
       and rerun complete Claude CI after its response-disconnect fixture repair.
+
+- [x] Verify the complete Claude experiment in run 41064060494 at 69b1e8a46;
+      expected owner-death defect and strict-failure controls remain separate
+      from a native fix. Qwen run 41064059810 also passes.
+- [x] Confirm actual pinned Claude loads a selected global output-style file
+      into a system message. Reproduce nine missed user/managed/link/race audit
+      cases before repair, then pass all nine plus 56 related controls. Add
+      directory safety snapshots and preserve auth/history/security policy.
+- [ ] Finish the new full default suite and inspect fresh native Codex CI;
+      investigate the stock ChatGPT negative control at exact failed assertion.

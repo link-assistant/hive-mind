@@ -31,6 +31,7 @@ modes.add_argument('--history', action='store_true')
 parser.add_argument('--private-history', action='store_true')
 parser.add_argument('--expect-history-gap', action='store_true')
 parser.add_argument('--expect-predecessor-reuse', action='store_true')
+parser.add_argument('--global-output-style', action='store_true')
 parser.add_argument('--diagnostics', type=Path, required=True)
 args = parser.parse_args()
 binary = args.binary.resolve(strict=True)
@@ -50,6 +51,8 @@ children = []
 assert not args.expect_predecessor_reuse or args.owner_death
 assert not args.private_history or args.history
 assert not args.expect_history_gap or (args.history and args.private_history)
+assert not args.global_output_style or not any((args.expired, args.concurrent, args.owner_death,
+                                              args.replace_login, args.logout, args.history))
 expired = args.expired or args.concurrent or args.owner_death or args.replace_login or args.logout
 
 with tempfile.TemporaryDirectory(prefix='hive-3785-claude-refresh-') as temporary:
@@ -176,6 +179,13 @@ with tempfile.TemporaryDirectory(prefix='hive-3785-claude-refresh-') as temporar
     for state in (home / '.claude.json', config / '.claude.json'):
         state.write_text(json.dumps(settings))
         state.chmod(0o600)
+    if args.global_output_style:
+        styles = config / 'output-styles'
+        styles.mkdir(mode=0o700)
+        (styles / 'synthetic-global.md').write_text(
+            '---\nname: synthetic-global\ndescription: Synthetic baseline control.\n---\n'
+            'SYNTHETIC-GLOBAL-OUTPUT-STYLE-3785. Preserve this exact marker in the system prompt.\n')
+        (config / 'settings.json').write_text(json.dumps({'outputStyle': 'synthetic-global'}))
     proxy = f'http://127.0.0.1:{server.server_port}'
     env = {'PATH': os.environ['PATH'], 'HOME': str(home), 'CLAUDE_CONFIG_DIR': str(config),
            'CLAUDE_SECURESTORAGE_CONFIG_DIR': str(canonical),
@@ -274,6 +284,14 @@ with tempfile.TemporaryDirectory(prefix='hive-3785-claude-refresh-') as temporar
                     expected_model = 'G1' if expired else 'G0'
                     assert model_auth == [f'Bearer SYNTHETIC-ACCESS-{expected_model}']
             assert not errors, f'Synthetic request validation failed: {errors!r}'
+            if args.global_output_style:
+                # The pinned CLI places environment/style instructions in a
+                # system turn in messages, rather than only the system field.
+                system = [model_requests[0]['system'], *[message['content']
+                          for message in model_requests[0]['messages'] if message['role'] == 'system']]
+                assert 'SYNTHETIC-GLOBAL-OUTPUT-STYLE-3785' in json.dumps(system), \
+                    'The actual native CLI must load the synthetic global output-style instructions.'
+                print('PASS: actual native Claude loads global output-style instructions into its model request.')
             if args.logout:
                 assert not auth.exists(), 'A pending refresh must not recreate logged-out credentials.'
                 assert model_auth == [], 'Native execution must refuse after canonical logout.'

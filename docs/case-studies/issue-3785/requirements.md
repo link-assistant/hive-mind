@@ -97,8 +97,10 @@ then reproduces the lost artifact. With the artifact stage, fresh resume and
 native read_file recover its complete content; eight unsafe-artifact CLI
 controls refuse before further inference. All 65 bounded storage controls,
 nine native truncation/masking/legacy controls and 41/30/11 authentication
-regressions pass locally. This newer stage still needs Node 24 CI; degraded
-blobs and the remaining full-history/lifecycle/production criteria stay open.
+regressions pass locally. This stage and the following degraded-blob stage pass Node 24 CI
+41132983002 at `d0b4f6b4701f018b2f0d2d577dd8183bed3f12e3`; all 433
+native diagnostic files and the complete log are preserved locally. The
+remaining full-history/lifecycle/production criteria stay open.
 
 The following local stage preserves native degraded multimodal bytes through
 private-home disposal. The strict before control first offloads and reads a real
@@ -111,3 +113,15 @@ after successful native context degradation and inference, it reproduces loss
 before repair. After repair, fresh resume/read_file sends the retained PNG in
 its new tool response with the original workspace image removed.
 They do not complete A1 or the remaining history/lifecycle/production criteria.
+
+The next native Logger experiment reproduces loss of successfully written prompt
+history and named checkpoints after private-home disposal, plus stale cached
+reads after a peer write. Canonical checked transactions coordinate prompt reads,
+appends and session message IDs; a checkpoint event journal preserves replacement,
+deletion and recreation generations. Its 30 scenarios / 36 bounded native process
+results pass locally, including four concurrent writers preserving all 40 prompts
+and 24 unsafe-storage/publication refusals. These native API controls do not
+establish interactive startup/error admission, prior-private-state migration,
+shell command/Git checkpoint/plan/tracker/task storage, child/subagent lifecycle,
+interrupted first publication, all backends or production installation. Fresh
+Node 24 CI and the remaining A1–A12 criteria stay open.

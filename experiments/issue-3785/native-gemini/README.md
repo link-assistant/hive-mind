@@ -478,6 +478,56 @@ PNG in a new `read_file` response. An image in earlier transcript content cannot
 satisfy this assertion. Seven unsafe-blob CLI controls pass, refusing before
 another model request and preserving protected bytes/inodes. The complete
 CLI tool-output resume and its eight refusal controls also run on this manager.
-Fresh Node 24 CI, complete artifact/subagent lifecycle, other history
-surfaces, interrupted publication, all backends and production integration remain
-open.
+Node 24 CI run 41132983002 passes this exact artifact/blob stage at
+`d0b4f6b4701f018b2f0d2d577dd8183bed3f12e3`, including the complete CLI
+controls and 41/30/11 authentication regressions. Complete artifact/subagent
+lifecycle, other history surfaces, interrupted publication, all backends and
+production integration remain open.
+
+## Native Logger prompt history and named checkpoints
+
+`apply_logger.py` builds on the exact blob manager and intercepts the exported
+native `Logger` methods. Strict before controls first write and read a prompt or
+named checkpoint successfully, then reproduce loss in a new native process after
+private-home disposal. A third control reproduces an initialized Logger returning
+cached prompts after a peer writes a new message.
+
+The selected implementation keeps data in a separate canonical project
+`message-history` directory. Prompt reads reload the checked UTF-8 snapshot.
+Appends hold a stable kernel lock across reread, schema validation, assignment of
+the next session message ID and synchronized publication. The serialized schema
+is checked again before publication. Each file is bounded to 32 MiB and 100,000
+records. A pre-publication generation check refuses replacement while the staged
+version is being flushed; protected and replacement files remain unchanged.
+Storage errors propagate from the native method without a private fallback.
+
+Named checkpoint saves and deletions append to a checked event journal under the
+same transaction. Load and existence checks use its latest event; deletion keeps
+all earlier checkpoint generations for audit. Recreation adds a further event.
+Native array checkpoints and objects containing a history array remain readable.
+Tags are bounded UTF-8 data, including separators, rather than path components.
+Configuration and executable material stay private.
+
+All 30 scenarios pass locally, producing 36 bounded native process results:
+fresh-process prompt/checkpoint reads, next-read peer visibility, four concurrent
+writers preserving all 40 prompts and unique IDs, checkpoint generation retention,
+unselected behavior, and 24 unsafe-storage/publication controls. These use the
+actual exported Logger and Storage without adding native exports. The finite
+replacement and I/O-failure controls instrument filesystem calls. They establish
+the inspected native API behavior, not complete interactive UI admission.
+
+```sh
+python3 experiments/issue-3785/native-gemini/apply_logger.py /path/to/disposable/gemini-cli --check
+python3 experiments/issue-3785/native-gemini/apply_logger.py /path/to/disposable/gemini-cli
+python3 experiments/issue-3785/native-gemini/probe_logger.py /path/to/disposable/gemini-cli --diagnostics /tmp/gemini-logger-controls.log
+```
+
+Logger-stage manager SHA-256:
+`439a87bb21b7c5f172d959f99629d74637cf847a4ddb9a684dbffa280b7cc68b`.
+History helper SHA-256:
+`b3d5662d58bec0036c7350bdb8b498f1edec892942131beaf7189eab3680a8ab`.
+
+Fresh Node 24 CI, interactive startup/error admission, prior-private-state
+migration, shell command history, Git checkpoints, plans/tracker/task state,
+child/subagent lifecycle, interrupted first publication, all backends and
+production installation remain open. This experiment does not complete A1–A12.

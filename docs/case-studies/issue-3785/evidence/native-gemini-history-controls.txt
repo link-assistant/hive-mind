@@ -207,4 +207,26 @@ PASS: seven full CLI unsafe-blob controls (symlink, hardlink, permissive mode,
 The full native CLI tool-output positive and eight refusal controls also run.
 All 65 storage, nine native tool-output writer/legacy and 41/30/11 native
 authentication controls also pass on the final blob manager.
-Fresh Node 24 CI and remaining full-history/lifecycle/production criteria stay open.
+Node 24 CI 41132983002 passes the complete artifact/blob stage at
+d0b4f6b4701f018b2f0d2d577dd8183bed3f12e3. All 433 native diagnostic files
+and the complete log are preserved locally. Remaining full-history/lifecycle/
+production criteria stay open.
+
+Native Logger prompt and named-checkpoint storage:
+REPRODUCED: a healthy actual native Logger writes and reads prompt/checkpoint
+            data, then a new native process loses it after private-home disposal.
+REPRODUCED: an initialized Logger returns cached prompts after a peer writes.
+PASS: 30 scenarios / 36 bounded native process results, including four writers
+      retaining all 40 prompts and unique session message IDs. Both prompt and
+      named-checkpoint discovery/read survive private-home disposal.
+PASS: checkpoint save/delete/recreation retains all prior audit generations;
+      unselected private native prompt/checkpoint behavior remains available.
+REPRODUCED: replacement during staging flush is overwritten by an earlier draft.
+PASS: pre-publication generation admission refuses the replacement without
+      changing either original or peer data. The actual native method propagates
+      errors for 24 unsafe-storage and publication controls without fallback.
+Logger-stage manager 439a87bb21b7c5f172d959f99629d74637cf847a4ddb9a684dbffa280b7cc68b
+Logger-stage helper b3d5662d58bec0036c7350bdb8b498f1edec892942131beaf7189eab3680a8ab
+These are actual exported Logger/Storage API controls; interactive UI admission,
+prior private-state migration and other full-history/lifecycle/production criteria
+remain open. Fresh exact-head Node 24 CI remains required.

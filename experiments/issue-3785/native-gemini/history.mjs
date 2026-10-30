@@ -170,7 +170,7 @@ function locked(parent, operation) {
   }
 }
 
-function publish(parent, name, content, current, replace = true) {
+function publish(parent, name, content, current, replace = true, admit = () => {}) {
   const temporary = `${parent.anchor}/.history-${randomUUID()}.tmp`;
   let fd;
   try {
@@ -178,6 +178,7 @@ function publish(parent, name, content, current, replace = true) {
     fs.writeFileSync(fd, content);
     fs.fsyncSync(fd);
     current();
+    admit();
     if (replace) fs.renameSync(temporary, `${parent.anchor}/${name}`);
     else {
       fs.linkSync(temporary, `${parent.anchor}/${name}`);
@@ -325,6 +326,104 @@ export function readNativeGeminiBlob(file) {
   } catch {
     throw refuse();
   }
+}
+
+function loggerTransaction(temporary, family, validate, operation) {
+  try {
+    assertNativeGeminiHistoryCurrent();
+    const project = projectTemps.get(temporary);
+    if (!project) throw refuse();
+    const parent = directory(['projects', project.identifier, 'message-history']);
+    const name = `${family}-history.json`;
+    const key = `${project.identifier}/${name}`;
+    return locked(parent, current => {
+      const location = { target: `${parent.anchor}/${name}` };
+      const before = checkedFile(location, true);
+      const generation = before === null ? null : version(before);
+      const unchanged = () => {
+        const named = checkedFile(location, true);
+        if ((named === null ? null : version(named)) !== generation) throw refuse();
+      };
+      const previous = snapshot(location, true);
+      unchanged();
+      if (previous === null && observed.get(key)) throw refuse();
+      const records = previous === null ? [] : JSON.parse(previous);
+      if (!Array.isArray(records) || records.length > 100000) throw refuse();
+      validate(records);
+      const result = operation(records);
+      if (result.changed) {
+        validate(records);
+        const content = JSON.stringify(records);
+        if (records.length > 100000 || Buffer.byteLength(content) > LIMIT) throw refuse();
+        validate(JSON.parse(content));
+        publish(parent, name, content, current, previous !== null, unchanged);
+        observed.set(key, digest(content));
+      } else {
+        observed.set(key, previous === null ? null : digest(previous));
+      }
+      return result.value;
+    });
+  } catch {
+    throw refuse();
+  }
+}
+
+function validatePromptHistory(records) {
+  const messages = new Map();
+  for (const entry of records) {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry) || Object.keys(entry).length !== 5 || typeof entry.sessionId !== 'string' || entry.sessionId.length > 4096 || !Number.isSafeInteger(entry.messageId) || entry.messageId < 0 || typeof entry.type !== 'string' || entry.type.length > 64 || typeof entry.message !== 'string' || typeof entry.timestamp !== 'string' || entry.timestamp.length > 64 || !Number.isFinite(Date.parse(entry.timestamp))) throw refuse();
+    const previous = messages.get(entry.sessionId) ?? -1;
+    if (entry.messageId <= previous) throw refuse();
+    messages.set(entry.sessionId, entry.messageId);
+  }
+}
+
+export function readNativeGeminiPromptHistory(temporary) {
+  if (!nativeGeminiHistorySelected()) return undefined;
+  return loggerTransaction(temporary, 'prompt', validatePromptHistory, records => ({ value: records }));
+}
+
+export function appendNativeGeminiPromptHistory(temporary, entry) {
+  if (!nativeGeminiHistorySelected()) return undefined;
+  return loggerTransaction(temporary, 'prompt', validatePromptHistory, records => {
+    let next = 0;
+    for (const previous of records) {
+      if (previous.sessionId === entry.sessionId) next = previous.messageId + 1;
+    }
+    const writtenEntry = { ...entry, messageId: next };
+    records.push(writtenEntry);
+    return { changed: true, value: { logs: records, writtenEntry } };
+  });
+}
+
+function validCheckpointTag(tag) {
+  return typeof tag === 'string' && tag.length > 0 && Buffer.byteLength(tag) <= 1024 && !/[\0\r\n]/u.test(tag) && Buffer.from(tag).toString('utf8') === tag;
+}
+
+function validCheckpoint(checkpoint) {
+  return Array.isArray(checkpoint) || (checkpoint !== null && typeof checkpoint === 'object' && Array.isArray(checkpoint.history));
+}
+
+function validateCheckpointHistory(records) {
+  for (const entry of records) {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry) || !validCheckpointTag(entry.tag) || typeof entry.timestamp !== 'string' || entry.timestamp.length > 64 || !Number.isFinite(Date.parse(entry.timestamp)) || !['save', 'delete'].includes(entry.operation) || Object.keys(entry).length !== (entry.operation === 'save' ? 4 : 3) || (entry.operation === 'save' && !validCheckpoint(entry.checkpoint))) throw refuse();
+  }
+}
+
+export function nativeGeminiCheckpoint(temporary, tag, operation = 'read', checkpoint) {
+  if (!nativeGeminiHistorySelected()) return undefined;
+  if (!validCheckpointTag(tag) || !['read', 'save', 'delete'].includes(operation)) throw refuse();
+  return loggerTransaction(temporary, 'checkpoint', validateCheckpointHistory, records => {
+    const latest = records.findLast(entry => entry.tag === tag);
+    const saved = latest?.operation === 'save' ? latest.checkpoint : undefined;
+    if (operation === 'read') return { value: saved };
+    if (operation === 'delete' && saved === undefined) return { value: false };
+    if (operation === 'save' && !validCheckpoint(checkpoint)) throw refuse();
+    const entry = { tag, operation, timestamp: new Date().toISOString() };
+    if (operation === 'save') entry.checkpoint = checkpoint;
+    records.push(entry);
+    return { changed: true, value: true };
+  });
 }
 
 function conversationLocation(file) {

@@ -943,7 +943,9 @@ Latest CI continuation:
       response and its embedded or immediately following image. Reject earlier
       and unrelated later images in finite assertion controls; rerun the full
       native PNG disposal/resume/read_file control successfully.
-- [ ] Require fresh exact-head Node 24 CI for strict decoding, artifacts and blobs.
+- [x] Verify strict decoding, complete tool-output and degraded-blob controls on
+      Node 24 in run 41132983002 at d0b4f6b47. Download all 433 native diagnostic
+      files and preserve the complete log; every native Gemini stage passes.
 - [x] Preserve a local suite invocation failure at the existing capped-worker
       test: the global NODE_OPTIONS heap override defeats its intended worker
       resource limit. The focused rerun without the override passes all 40
@@ -952,3 +954,28 @@ Latest CI continuation:
       pass. Together with the initial 561 passing files, all 739 default files
       pass across the two invocations. Preserve the original failure and resumed
       run separately. Full formatting, ESLint and focused secret scanning pass.
+
+- [x] Preserve exact-head Checks 41132983086 failure after the new Formal AI
+      release: full log lines 3816–3824 report eight stale declarations of
+      0.355.25 versus 0.355.26. Update the four Docker build arguments together.
+- [x] Rerun dependency freshness locally: all tracked declarations are current,
+      with zero stale/unresolved/lagging lockfile records. All 35 focused
+      freshness/image/release-order controls pass.
+- [ ] Require fresh full packaged-image CI after the Formal AI update; the
+      failed detect-changes stage skips all test/image verification.
+- [x] Reproduce native Gemini Logger prompt-history/checkpoint loss after a
+      healthy native write and private-home disposal, plus stale cached peer reads.
+      Coordinate fresh reads and concurrent writers, preserve old checkpoint
+      generations and refuse unsafe storage without swallowing errors. All 30
+      scenarios / 36 bounded native process results pass on the final helper.
+      Reproduce replacement during staging flush, then refuse publication while
+      preserving both the prior file and the replacement. Keep UI/lifecycle open.
+- [x] Pass all surrounding regressions on the final Logger manager/helper:
+      65 storage, nine native tool-output writer/legacy, 31 blob, both complete
+      CLI artifact/blob disposal/resume positives and 41/30/11 auth controls.
+      Full formatting, ESLint, focused secret scanning, actionlint and syntax
+      checks pass. Repeat all full CLI refusals in fresh Node 24 CI.
+- [ ] Require fresh Node 24 native Logger CI after all local checks pass.
+- [ ] Reproduce interrupted first publication before choosing a recovery design;
+      retain canonical data and publication evidence, reject unrelated hardlinks
+      and verify fresh-process recovery after the owner is reaped.

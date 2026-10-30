@@ -190,6 +190,26 @@ jobs:
           for attack in symlink hardlink unsafe-mode content-change oversized missing parent-replacement; do
             python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --history-blob --history-blob-attack "$attack" --diagnostics "$RUNNER_TEMP/gemini-blob-cli-$attack.log" > "$RUNNER_TEMP/gemini-blob-cli-$attack-control.log" 2>&1
           done
+      - name: Reproduce native prompt and named-checkpoint lifetime and stale reads
+        run: |
+          for state in prompt-healthy checkpoint-healthy prompt-peer; do
+            if python3 experiments/issue-3785/native-gemini/probe_logger.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --scenario "$state" --diagnostics "$RUNNER_TEMP/gemini-logger-before-$state.log" > "$RUNNER_TEMP/gemini-logger-before-$state-control.log" 2>&1; then
+              echo 'The native Logger history regression unexpectedly passed.'
+              exit 1
+            fi
+            case "$state" in
+              prompt-healthy) phase=peer-prompt; expected='Native prompt history must survive private-home disposal.' ;;
+              checkpoint-healthy) phase=peer-checkpoint; expected='Native named checkpoints must survive private-home disposal.' ;;
+              prompt-peer) phase=initial; expected='Native prompt reads must observe the latest peer generation.' ;;
+            esac
+            grep -F "AssertionError [ERR_ASSERTION]: $expected" "$RUNNER_TEMP/gemini-logger-before-$state-$state-$phase.log"
+          done
+      - name: Apply exact pinned native Logger storage
+        run: |
+          python3 experiments/issue-3785/native-gemini/apply_logger.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
+          python3 experiments/issue-3785/native-gemini/apply_logger.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+      - name: Preserve native prompts and checkpoint audit with independent writers
+        run: python3 experiments/issue-3785/native-gemini/probe_logger.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --diagnostics "$RUNNER_TEMP/gemini-logger-after.log" > "$RUNNER_TEMP/gemini-logger-after-control.log" 2>&1
       - name: Verify bounded history storage and independent concurrent writers
         run: python3 experiments/issue-3785/probe-gemini-native-history-storage.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --diagnostics "$RUNNER_TEMP/gemini-history-storage.log" > "$RUNNER_TEMP/gemini-history-storage-controls.log" 2>&1
       - name: Discover and resume actual CLI conversation after private home disposal

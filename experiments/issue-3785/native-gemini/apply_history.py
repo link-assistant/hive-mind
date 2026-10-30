@@ -84,6 +84,13 @@ for name, count in [('chunk-XHQ6TTKH.js', 6), ('gemini-GLQ4MVLB.js', 1), ('inter
         raise SystemExit('Ambiguous native CLI history context; no files changed: ' + name)
     if name == 'chunk-XHQ6TTKH.js':
         source = replace(source, 'const chatsDir = path2.join(tempDir, "chats");', 'const chatsDir = config.storage.getProjectChatsDir();')
+        source = replace(source, '''        } catch {
+          return { fileName: file, sessionInfo: null };
+        }''', '''        } catch {
+          assertNativeGeminiHistoryCurrent();
+          return { fileName: file, sessionInfo: null };
+        }''')
+        source = 'import { assertNativeGeminiHistoryCurrent } from "./hive-gemini-history.mjs";\n' + source
     sources[name] = source
 admission = sources['hive-gemini-admission.mjs']
 admission = replace(admission, 'export function assertNativeGeminiAuthority(content, configuration) {', '''export function assertNativeGeminiAuthority(content, configuration) {

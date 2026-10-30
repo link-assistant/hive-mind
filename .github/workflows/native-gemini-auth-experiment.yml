@@ -151,7 +151,7 @@ jobs:
         run: python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --diagnostics "$RUNNER_TEMP/gemini-cli-history-after.log" > "$RUNNER_TEMP/gemini-cli-history-after-control.log" 2>&1
       - name: Refuse unsafe native history without modifying protected files
         run: |
-          for link in symlink hardlink; do
+          for link in symlink hardlink malformed truncated; do
             python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --history-attack "$link" --diagnostics "$RUNNER_TEMP/gemini-cli-history-$link.log" > "$RUNNER_TEMP/gemini-cli-history-$link-control.log" 2>&1
           done
       - name: Preserve unselected native private history behavior

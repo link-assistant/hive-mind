@@ -27,7 +27,7 @@ parser.add_argument('--diagnostics', type=Path, required=True)
 parser.add_argument('--history', action='store_true')
 parser.add_argument('--expect-history-gap', action='store_true')
 parser.add_argument('--private-history', action='store_true')
-parser.add_argument('--history-attack', choices=('symlink', 'hardlink'))
+parser.add_argument('--history-attack', choices=('symlink', 'hardlink', 'malformed', 'truncated'))
 args = parser.parse_args()
 assert not args.expect_history_gap or args.history
 assert not args.private_history or args.history
@@ -84,6 +84,7 @@ try:
                    'token_type': 'Bearer', 'expiry_date': int(time.time()*1000) + 3600000}
     auth.write_text(json.dumps(credentials))
     auth.chmod(0o600)
+    auth_identity = (auth.stat().st_dev, auth.stat().st_ino)
     certificate, key = root / 'ca.pem', root / 'key.pem'
     subprocess.run(['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '1',
                     '-subj', '/CN=cloudcode-pa.googleapis.com', '-addext',
@@ -226,6 +227,7 @@ try:
     assert models, 'Require a real native CLI model request.'
     assert 'SYNTHETIC-GEMINI-COMPLETE' in args.diagnostics.read_text()
     assert json.loads(auth.read_text()) == credentials
+    assert (auth.stat().st_dev, auth.stat().st_ino) == auth_identity
     assert not (private / 'oauth_creds.json').exists()
     assert not (private / 'google_accounts.json').exists()
     assert json.loads((canonical / 'google_accounts.json').read_text())['active'] == 'synthetic@example.invalid'
@@ -249,8 +251,16 @@ try:
             protected_identity = (protected.stat().st_dev, protected.stat().st_ino)
             if args.history_attack == 'symlink':
                 transcripts[0].symlink_to(protected)
-            else:
+            elif args.history_attack == 'hardlink':
                 os.link(protected, transcripts[0])
+            elif args.history_attack == 'malformed':
+                transcripts[0].write_text('{malformed-native-conversation\n')
+                transcripts[0].chmod(0o600)
+            else:
+                transcripts[0].write_bytes(protected_bytes + b'{"$set":')
+                transcripts[0].chmod(0o600)
+            attacked_bytes = transcripts[0].read_bytes()
+            attacked_identity = (transcripts[0].lstat().st_dev, transcripts[0].lstat().st_ino)
         peer = root / 'peer-home'
         peer.mkdir(mode=0o700)
         private = peer / '.gemini'
@@ -267,11 +277,14 @@ try:
             assert 'Gemini canonical conversation history is unavailable or unsafe.' in listed
             assert protected.read_bytes() == protected_bytes
             assert (protected.stat().st_dev, protected.stat().st_ino) == protected_identity
+            assert transcripts[0].read_bytes() == attacked_bytes
+            assert (transcripts[0].lstat().st_dev, transcripts[0].lstat().st_ino) == attacked_identity
             assert json.loads(auth.read_text()) == credentials
+            assert (auth.stat().st_dev, auth.stat().st_ino) == auth_identity
             assert not (private / 'oauth_creds.json').exists()
             assert not (private / 'google_accounts.json').exists()
             assert not errors, errors
-            print('PASS: actual Gemini CLI refuses linked canonical history before additional inference; protected bytes and inode remain unchanged: ' + args.history_attack)
+            print('PASS: actual Gemini CLI refuses unsafe canonical history before additional inference; protected bytes and inode remain unchanged: ' + args.history_attack)
             safe_cleanup = True
             raise SystemExit(0)
         assert code == 0 and len(completions()) == 1

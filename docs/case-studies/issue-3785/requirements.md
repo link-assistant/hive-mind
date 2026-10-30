@@ -66,7 +66,8 @@ request controls. Native API-key SDK dispatch reproduces a bypass before the
 new request admission. A full CLI TLS control now completes native OAuth
 inference, and a further pinned stage preserves native conversation discovery
 and resume after private-home disposal. Native linked-transcript attacks refuse,
-and thirteen bounded storage controls include four concurrent writers and stale
+and nineteen bounded storage controls include malformed/truncated refusal,
+four concurrent writers and stale
 rewrite preservation. These expanded stages still require CI. Canonical alternate
 backends, complete history, all writers/lifecycle and production installation
 remain unfinished. These experiments do not complete A1–A12. See

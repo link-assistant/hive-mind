@@ -263,17 +263,28 @@ The full CLI control now lists the saved session from a fresh private home and
 resumes with the prior user prompt and model response in its next real native
 request. Native listing also generates a summary through the synthetic provider;
 the assertion distinguishes that operation from the two conversation requests.
-Symlink/hardlink variants first persist a healthy native conversation, then
+Symlink/hardlink and malformed/truncated variants first persist a healthy native conversation, then
 require fresh-peer refusal before another inference and preserve the protected
 file's bytes and inode. Unselected history retains the original private behavior.
 These full CLI controls use the real native parser and SDK without export or
 transport instrumentation; only external provider responses are synthetic.
 
-Thirteen separate storage controls cover a healthy rewrite, ten unsafe/changed
+Nineteen separate storage controls cover a healthy rewrite, sixteen unsafe/changed
 states, four independent writers preserving all 40 records, and a stale rewrite
 preserving all 50 records after a peer append. Each worker has a 128 MiB V8 heap,
 2 GiB data bound, 16 MiB stack, 64 KiB output bound and a 20-second deadline.
 The probes reap process groups before cleanup and retain failing fixtures.
+
+Two additional full CLI regressions reproduce silent malformed/truncated record
+handling before validation. Merely rejecting the read was insufficient: native
+retention cleanup caught the error and unlinked the rejected transcript. The
+selected CLI listing/cleanup boundary now rechecks the failed authority before
+treating a read error as a disposable session. JSON/JSONL reads and writes
+validate every record before publication; invalid appends/rewrites preserve the
+preceding bytes. The four full CLI unsafe-history controls require the canonical
+entry and protected outside file to retain their bytes and inodes, with no
+additional inference. Semantic schema validation and complete retention/deletion
+transactions still need implementation.
 
 This stage is locally verified on Node 26.12.1; Node 24 CI remains required.
 Native imports, retention/deletion and every other writer, Git/checkpoint/prompt/

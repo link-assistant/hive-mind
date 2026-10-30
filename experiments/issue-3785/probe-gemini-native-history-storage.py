@@ -90,6 +90,15 @@ if (name.startsWith('append-')) {
   } else if (name === 'oversized') {
     fs.truncateSync(file, 32 * 1024 * 1024 + 1);
     assert.throws(() => h.readNativeGeminiConversation(file), refused);
+  } else if (['malformed', 'truncated', 'scalar', 'empty'].includes(name)) {
+    const content = { malformed: '{malformed-conversation\n', truncated: saved.toString() + '{"$set":', scalar: 'null\n', empty: '' }[name];
+    fs.writeFileSync(file, content, { mode: 0o600 });
+    assert.throws(() => h.readNativeGeminiConversation(file), refused);
+    assert.equal(fs.readFileSync(file, 'utf8'), content);
+  } else if (name === 'invalid-append' || name === 'invalid-rewrite') {
+    const operation = name === 'invalid-append' ? h.appendNativeGeminiConversation : h.rewriteNativeGeminiConversation;
+    assert.throws(() => operation(file, '{invalid-writer\n'), refused);
+    assert.deepEqual(fs.readFileSync(file), saved);
   } else if (name === 'traversal') {
     assert.throws(() => h.readNativeGeminiConversation(path.join(chats, '../session-storage.jsonl')), refused);
   } else if (name === 'lock-symlink') {
@@ -145,7 +154,8 @@ def finish(group):
 try:
     for scenario in ('healthy', 'selector-change', 'selector-unset', 'root-replacement',
                      'directory-replacement', 'symlink', 'hardlink', 'unsafe-mode',
-                     'oversized', 'traversal', 'lock-symlink'):
+                     'oversized', 'traversal', 'lock-symlink', 'malformed',
+                     'truncated', 'scalar', 'empty', 'invalid-append', 'invalid-rewrite'):
         finish([launch(fixture(scenario), scenario)])
         print('PASS: native history storage ' + scenario)
     concurrent = fixture('concurrent')

@@ -218,12 +218,23 @@ function conversationLocation(file) {
   throw refuse();
 }
 
+function validateRecords(content, name) {
+  if (content === null) return;
+  const records = name.endsWith('.jsonl') ? content.split('\n').filter(line => line.trim()) : [content];
+  if (records.length === 0) throw refuse();
+  for (const line of records) {
+    const record = JSON.parse(line);
+    if (record === null || typeof record !== 'object' || Array.isArray(record)) throw refuse();
+  }
+}
+
 export function readNativeGeminiConversation(file) {
   if (!nativeGeminiHistorySelected()) return undefined;
   try {
     const location = conversationLocation(file);
     return locked(location.parent, () => {
       const content = snapshot(location, true);
+      validateRecords(content, location.name);
       observed.set(location.key, content === null ? null : digest(content));
       return content;
     });
@@ -238,7 +249,9 @@ export function appendNativeGeminiConversation(file, line) {
     const location = conversationLocation(file);
     const bytes = Buffer.from(line);
     if (bytes.length > LIMIT) throw refuse();
+    validateRecords(line, location.name);
     locked(location.parent, current => {
+      validateRecords(snapshot(location, true), location.name);
       const before = checkedFile(location, true);
       const fd = fs.openSync(location.target, fs.constants.O_WRONLY | fs.constants.O_APPEND | fs.constants.O_CREAT | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK, 0o600);
       try {
@@ -266,8 +279,10 @@ export function rewriteNativeGeminiConversation(file, content) {
   try {
     if (Buffer.byteLength(content) > LIMIT) throw refuse();
     const location = conversationLocation(file);
+    validateRecords(content, location.name);
     locked(location.parent, current => {
       const previous = snapshot(location, true);
+      validateRecords(previous, location.name);
       const generation = previous === null ? null : digest(previous);
       if (generation !== (observed.get(location.key) ?? null)) throw refuse();
       if (previous !== null) publish(location.parent, `${location.name}.preserved-${randomUUID()}`, previous, current);

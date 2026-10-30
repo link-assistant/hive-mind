@@ -768,3 +768,12 @@ Latest CI continuation:
 - [ ] Verify the new native history stage on Node 24 in CI. Complete other
       history surfaces, cleanup/import writers, child lifecycle/crash recovery,
       alternate backends and production integration; these are still open.
+- [x] Preserve all 41 native writer/account, 30 request and 11 canonical read
+      controls after adding conversation storage, locally.
+- [x] Reproduce native malformed/truncated transcript acceptance. A first read
+      refusal still lets automatic retention unlink the rejected transcript;
+      reproduce that separate data-loss path before guarding the cleanup catch.
+- [x] Validate bounded JSON/JSONL records before reads/writes and recheck failed
+      history authority in native listing/cleanup. All 19 storage controls and
+      four full CLI unsafe-history controls pass, preserving canonical and
+      protected-file bytes/inodes with no additional inference.

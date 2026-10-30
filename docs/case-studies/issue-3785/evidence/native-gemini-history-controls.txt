@@ -17,8 +17,9 @@ PASS: fresh CLI discovers the session after the entire prior process group exits
 PASS: resumed model request includes prior user content, prior model response
       and the new user prompt; both turns remain in canonical native JSONL.
 PASS: native summary generation during listing uses the same transcript authority.
-PASS: symlink and hardlink transcript attacks refuse before another inference;
-      protected outside bytes/inode and canonical credential bytes stay unchanged.
+PASS: symlink, hardlink, malformed and truncated transcript attacks refuse before
+      another inference; canonical transcript and protected outside bytes/inodes,
+      plus canonical credential bytes/inode stay unchanged.
 PASS: no private credential/account/transcript files appear with selected history.
 PASS: unselected history retains original private discovery/disposal behavior.
 
@@ -29,6 +30,16 @@ PASS: symlink/hardlink; unsafe mode; oversized file; traversal; lock symlink.
 PASS: four independent writers retain all 40 distinct records and one project map.
 PASS: stale rewrite refuses after peer append, preserving all 50 records and
       the stable kernel-lock inode.
+PASS: malformed, truncated, scalar and empty records refuse without modification;
+      invalid append/rewrite payloads preserve the preceding generation.
+
+Additional reproduction before validation:
+The full CLI silently ignores malformed/transcript trailing JSON and exits zero.
+A read-only refusal still permits native retention cleanup to unlink the rejected
+record before later admission fails. The fixed cleanup catch rechecks authority,
+and all 19 storage plus four full native unsafe-history controls pass locally.
+All 41 native writer/account, 30 request and 11 canonical-reader controls also
+pass after the conversation stage.
 
 Open: other history surfaces, import/retention/deletion writers, subagent lifecycle,
 interrupted-write/power-loss recovery, full CLI refresh/owner death, alternate

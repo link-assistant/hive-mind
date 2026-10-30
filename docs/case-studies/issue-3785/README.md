@@ -22,22 +22,37 @@ is [openai/codex 58320](https://github.com/openai/codex/issues/58320); a determi
 classifier trigger has not been established. Current main was merged while
 preserving the interrupted changes and both branches' behavior.
 
-The two reported CI failures have concrete causes. Dependency Review rejects
-the experimental Qwen dependency sharp 0.35.4, now pinned to 0.35.5. The native
-Codex CLI compiles and its actual healthy/refusal TUI controls pass in run
-40396373397, but fixture removal fails because an exited leader leaves catalog
-helpers alive. A failing process-group regression now passes after terminating
-and waiting for descendants even when the leader has exited. The downloaded
-actual CLI passes healthy/refusal, no-selector history/execution, and all eight
-Bedrock/Bedrock Runtime constructor/compatibility cases after this cleanup repair.
+The original two failures are repaired: security run 41051640552 accepts sharp
+0.35.5, and unconditional process-group cleanup fixes the native TUI fixture's
+surviving catalog helpers. Run 41051640537 builds the full Codex CLI and passes
+actual TUI, history, refresh owner-death and explicit-login repair controls.
+It then fails the ChatGPT request fixture because startup catalog discovery
+precedes the per-thread loopback override. The fixture now selects its local
+provider at startup and refuses every external proxy tunnel before TLS. The
+actual downloaded executable passes both live-client auth modes, eight provider
+overrides, eight constructor/compatibility controls, crash/login repair and TUI
+controls locally. [Structural results](evidence/native-network-controls.log)
+retain the scope of those passes. Three stale identity publications still
+reproduce in that executable; eleven focused writer tests pass after a new
+source repair, whose full native CLI result remains pending.
 
-New regressions also cover uncertain refresh outcomes. Seven exact native Codex
-transaction tests now preserve explicit login repair of malformed JSON without
-allowing another consumed-predecessor exchange. Qwen's actual OAuth writer no
-longer mistakes a metadata-only rewrite for a fresh refresh token: all 14 native
-writer controls pass locally, including non-rotating responses and preserved
-legacy uncertainty. These are experiments; full repaired Codex CLI verification
-and all production integrations remain open.
+Seven exact native Codex transaction tests preserve explicit login repair of
+malformed JSON without allowing another consumed-predecessor exchange. Qwen's
+actual OAuth writer no longer mistakes a metadata-only rewrite for a fresh
+refresh token: all 14 writer controls, including non-rotating responses and
+legacy uncertainty, pass locally and in native run 41051640593. These source
+experiments remain outside production.
+
+The actual Claude 2.1.310 executable passes healthy/expired request, ordinary
+concurrency, pending fresh-login and pending logout controls. The strict synthetic
+owner-death test still fails: a peer retries the consumed predecessor after its
+owner dies before receiving a response. [Retained results](evidence/claude-native-refresh-controls.log)
+and the [native experiment](../../../experiments/issue-3785/native-claude/README.md)
+distinguish this defect reproduction from a fix and from the live provider's
+unverified replay/grace policy. A separate actual completed-conversation control resumes a shared transcript
+after private-home disposal; the next model request includes the earlier
+message. Full Claude crash semantics, history lifecycle and integration remain
+open.
 
 Router's unrestricted extra Docker arguments could override its audit path or
 volume; all 15 reproducing rejection assertions failed before repair. Extra
@@ -47,11 +62,15 @@ All 51 new controls and both affected older lifecycle suites pass. This checks
 declared storage, while audit contents, full conversation retention and the
 external backend contract remain open.
 
-All 727 existing default test files pass in documented batches; the added Router
-file and both affected existing suites pass after the production repair. Fresh
-GitHub jobs remain queued with runner ID 0. Local Docker execution fails before
-container startup because runc cannot enter the available cgroup. These are
-validation blockers, not passing lifecycle evidence. See the
+The previous checks run fails freshness on 30 stale declarations/lock entries. Current Formal AI,
+act, lino-objects-codec and allowed-range dependencies are refreshed; deliberate
+native CLI pins use the existing verified-open-issue exception policy. The
+local freshness gate passes with zero lockfile lag. All 728 default test files
+pass with refreshed dependencies in two documented batches, including the failed
+Formal AI pin fixture retried at the same file. Full lint, formatting, secret
+scanning, changeset, file-limit and duplication checks pass. Newest-head CI is
+still required. Local Docker execution fails before
+container startup because runc cannot enter the available cgroup. See the
 [CI investigation](../../../ci-logs/issue-3785-investigation.md) and
 [acceptance inventory](requirements.md) for the exact remaining scope.
 

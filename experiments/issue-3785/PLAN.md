@@ -396,7 +396,9 @@ before heavy commands and do not retry an OOM build unchanged.
       durable intent. Reproduce malformed-JSON blocking explicit login after
       uncertainty; all seven exact-module transaction tests pass after repair.
 - [ ] Verify refreshed Codex full native CLI intent/crash/login controls in CI;
-      the native history job passes; the full native CLI job is running.
+      run 41051640537 passes actual owner-death/login repair, but its later
+      model-request fixture fails during default catalog discovery. Correct
+      startup routing and verify all retained actual request assertions.
 - [x] Reproduce Qwen retrying consumed G0 after metadata-only rewrite. Use the
       refresh-token generation in durable intent, preserve legacy uncertainty,
       and pass all 14 native writer cases plus reads/factory/CLI controls locally.
@@ -418,9 +420,59 @@ before heavy commands and do not retry an OOM build unchanged.
 
 - [x] Audit native Codex agent identity publication. Reproduce an old identity
       key being written into a replacement account/API-key login when G0 has
-      no login_owner_id. Strict actual CLI regression and two focused writer
+      no login_owner_id. Strict actual CLI regression and three focused writer
       tests fail before repair. Require a matching canonical login even for
-      legacy credentials; all ten exact-function focused tests pass afterward.
-- [ ] Verify all six actual CLI identity publication controls after rebuilding
+      legacy credentials; all eleven exact-function focused tests pass afterward.
+- [ ] Verify all eight actual CLI identity publication controls after rebuilding
       in native CI. The small harness uses mocked storage/locks; it does not
       replace that full CLI proof or production six-tool integration.
+
+- [x] Add a bounded actual Claude 2.1.310 refresh fixture with a loopback-only
+      synthetic provider/proxy and per-child certificate trust. Verify healthy
+      G0, expired G1, one exchange/two G1 requests across distinct private configs,
+      and paused-response fresh-login/logout ordering. Preserve no-private-copy
+      assertions and unconditional native process-group cleanup.
+- [x] Reproduce native Claude predecessor reuse after the owner dies between
+      provider consumption and publication. Preserve a strict failing regression
+      and an explicit negative-control CI step; this is not a repaired guarantee.
+- [ ] Report the native Claude unknown-outcome gap upstream with immutable
+      reproducer, healthy controls and an explicit synthetic-provider boundary.
+      Verify its new pinned-native CI and resolve all-writer crash semantics
+      before production integration.
+
+- [x] Download fresh Checks and native Codex failures with timestamps/SHA;
+      identify stale dependencies and startup catalog routing, preserving exact
+      assertions. Refresh unrelated dependencies and use existing verified-open
+      exceptions for the four content-attested native CLI baselines.
+- [x] Rerun all 728 default files with refreshed dependencies and required local
+      checks. Retry the stale Formal AI fixture at the same failed file.
+- [ ] Verify fresh native/image CI; inspect every nonpassing artifact.
+
+Latest CI continuation:
+
+- [x] Preserve completed 7f4f4c645 checks/native logs and verify their SHA/times.
+      Security, workflow, links and native Qwen pass. Checks fail dependency
+      freshness; native Codex passes builds/TUI/crash but fails request routing.
+- [x] Reproduce startup catalog contacting the default endpoint before a
+      thread-level loopback override. Keep uncertainty admission unchanged;
+      select local startup provider/catalog and refuse all external tunnels.
+      Actual downloaded CLI passes both auth modes, provider/constructor
+      controls, crash/login repair and TUI; identity retains three before controls.
+- [x] Refresh ordinary stale dependencies and use the existing verified-open-issue
+      exception policy for exact-version native CLI manifests/adapters.
+      Enforcing local freshness passes with zero lockfile lag.
+- [x] Finish the refreshed-dependency 728-file suite and local checks: lint,
+      formatting, secret scan, changeset validation, file limits, duplication
+      (10.06%, limit 12%), actionlint/ShellCheck and enforcing freshness.
+- [ ] Push atomic commits and inspect every fresh-head CI result and artifact.
+- [ ] Verify the actual repaired native identity writer in a fresh full CLI;
+      eleven focused writer cases alone do not establish integration.
+
+- [x] Complete and resume an actual native Claude conversation using a synthetic
+      streamed model. Reproduce explicit native missing-session discovery after
+      private-history disposal, then require strict resume to fail. Shared
+      projects/sessions directories preserve the transcript and prior message
+      after both private roots are disposed. This is host native evidence only.
+- [x] Preserve the refreshed-dependency suite's stale test at file 543. Update
+      the existing Formal AI fixture to 0.355.23 and retry from that same file;
+      do not skip the failure or the remainder.

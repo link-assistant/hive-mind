@@ -780,3 +780,76 @@ canonical-only matching-login check before metadata publication; all eleven focu
 controls pass in `native-identity-unit-after.log`. The workflow now requires the
 strict actual CLI before/after controls as well. Full native CLI positive proof
 remains pending and is not inferred from the mocked-storage result.
+
+
+At head `7f4f4c645`, [Checks and release 41051640573](https://github.com/link-assistant/hive-mind/actions/runs/41051640573)
+failed dependency freshness at 2026-10-30T12:08:46Z. The preserved 4547-line
+`checks-41051640573.log:4094–4127` identifies 30 stale declarations/lock entries:
+Formal AI, act, four deliberately pinned native CLIs, lino-objects-codec and
+seven allowed-range lockfile entries. Downstream test/image jobs were skipped.
+Formal AI 0.355.23, act v0.2.92, lino-objects-codec 0.9.4 and the allowed-range
+lockfile were refreshed against their live publishers. Each deliberate native
+CLI pin now names open issue 3785 on its declaration line, using the existing
+verified-open-issue exception policy. Their exact-version runtime manifests and
+native adapters must be upgraded together. No freshness gate was weakened.
+The enforcing local check passes: 195/208 current declarations, 13 verified
+exceptions (12 native CLI locations plus the existing Router hold), zero
+lockfile lag. Fresh CI remains required; the updated-dependency suite result is
+recorded below.
+
+The same head's [native Codex run 41051640537](https://github.com/link-assistant/hive-mind/actions/runs/41051640537)
+builds both full CLI stages and passes native transaction/history jobs, upstream
+session-index/prompt-history tests, actual TUI refusal and native refresh
+owner-death/login repair controls. The request job fails at 12:39:53Z
+(`native-codex-41051640537.log:1053`). Its downloaded `native-request-after.log`
+shows no initial G0 request in ChatGPT mode. This is reproduced locally with the
+actual artifact. Opt-in bounded native traces reveal initialization's default
+catalog discovery contacting the real default service before the fixture's
+per-thread loopback override, receiving a 401, then leaving an uncertain refresh.
+These are synthetic credentials, but the fixture's earlier loopback-only claim
+was too broad. Configure the synthetic provider at startup, route its catalog
+locally, and reject external proxy CONNECT requests and undeclared endpoints.
+Retain the same two-live-client assertions; do not bypass uncertainty admission.
+The production adapter is unchanged by this fixture correction.
+
+The actual pinned Claude 2.1.310 executable passes five host request/writer
+controls: healthy G0, expired G1, concurrent private configurations sharing one
+refresh, and fresh-login/logout during a paused response. A separate owner-death
+negative control consumes G0, kills/reaps its native owner and observes the peer
+reuse G0. The strict assertion fails at `A peer must refuse the consumed
+predecessor after owner death.` See the retained structural log and native Claude
+README. The loopback-only HTTPS proxy never forwards, uses child-scoped
+certificate trust with TLS verification enabled, and all inputs are synthetic.
+This does not establish the real provider's grace/replay policy. Native crash
+semantics, production integration and the complete Docker matrix remain open.
+
+
+After startup/provider routing and proxy confinement are corrected, the downloaded
+actual executable from 41051640537 passes both two-client auth modes, all eight
+provider refusals/two metadata controls, all eight constructor/legacy cases,
+actual crash/login repair and both TUI controls. The eight identity scenarios
+retain their expected pre-repair results, including all three stale publications;
+no regression assertion was removed. Results are preserved in
+`evidence/native-network-controls.log`. Eleven focused identity writer tests pass
+with the new repair; actual repaired full-CLI verification remains pending.
+
+
+The refreshed-dependency default suite passes all 728 files in two batches.
+`all-tests-refreshed-dependencies.log` passes files 1–542, then stops at
+`tests/test-issue-2187-current-dependency-pins.mjs` (file 543): its existing
+Formal AI fixture still expects 0.355.15. Updating the assertion to the new
+0.355.23 pin and retrying that same file through file 728 passes all 186
+remaining files (`all-tests-refreshed-resumed.log`). No file was skipped; no
+global Node heap override was used. ESLint, full Prettier, secret scanning,
+changeset validation, file limits, actionlint/ShellCheck and duplication
+(10.06%, limit 12%) pass. Final enforcing freshness again reports zero lag.
+
+The actual native Claude completed-history control separately passes: a first
+synthetic SSE completion writes a transcript; after both private roots and the
+entire native process group are removed, a fresh native peer resumes and sends
+the prior message in its successful model request. Sharing only projects/sessions
+retains the transcript; private-history disposal produces the specific native
+missing-session error and the strict regression fails. Both requests use G0
+with zero refreshes. Structural positive/negative results are retained in
+`evidence/claude-native-history-controls.log`. This verifies host native resume,
+not Docker, complete history stores, deployment or the unresolved crash contract.

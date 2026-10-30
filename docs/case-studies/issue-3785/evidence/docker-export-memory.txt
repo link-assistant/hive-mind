@@ -1,0 +1,38 @@
+Checks run 41116035200, head 4a6be5dfb30e1ae122a183ef744400f6af41cab2
+https://github.com/link-assistant/hive-mind/actions/runs/41116035200
+Created 2026-10-30T19:32:09Z; Docker started at 19:35:29Z.
+Full preserved log: ci-logs/checks-41116035200.log (local diagnostic artifact).
+
+Observed evidence, with line numbers in that full log:
+71531-71533: main image completes the installed native runtime verification.
+71535-71553: main image layer export takes 395 seconds.
+71548-71549: dockerd reaches 12,695 MiB RSS; swap reaches 7,750 MiB.
+71555-71558: restarting dockerd releases retained memory before the DinD build.
+71948-71950: DinD image also completes installed native runtime verification.
+71952-71970: DinD export stalls while dockerd reaches 13,248 MiB RSS and
+             swap eventually reaches 9,939 MiB.
+71971: the job is cancelled at its unchanged 30-minute deadline.
+72367-72370: required pipeline fails because docker-pr-check was cancelled.
+No image-container verification step ran in this attempt.
+
+Hypothesis and proposed repair:
+The repeated export-time memory/swap growth explains the observed stalled step;
+the logs do not establish whether the peak is live data or reclaimable Go heap.
+Configure the actual CI dockerd service with GOMEMLIMIT=6GiB and GOGC=50 before
+either build. A runtime systemd drop-in affects the disposable runner only.
+Setting variables only on the Docker client would not configure the exporter.
+The existing daemon restart, resource sampler and 30-minute deadline remain.
+The Go limit is soft and does not guarantee the process stays within 6 GiB.
+Reference: https://go.dev/doc/gc-guide#Memory_limit
+
+Focused regression:
+tests/test-docker-pr-memory.mjs runs the actual build script with bounded,
+non-privileged Docker/systemd mocks. Before the change it fails with:
+  CI exporter starts before the daemon memory policy is active
+After the change both image builds require the configured and restarted daemon;
+local execution performs no privileged daemon changes. Both variants still pack
+the current branch. Existing release-order, DinD and Box migration controls pass.
+
+Fresh real packaged-image CI must verify the proposed resource repair. The
+focused mock does not reproduce the export's memory usage or prove that the
+soft limit resolves it. All wider issue acceptance criteria remain open.

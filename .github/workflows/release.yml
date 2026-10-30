@@ -430,6 +430,7 @@ jobs:
           echo "Statically verifying: release Docker publish waits for npm availability"
           echo "and passes the exact published version into Docker builds."
           node tests/test-docker-release-order.mjs
+          node tests/test-docker-pr-memory.mjs
       - name: Free up disk space
         run: node scripts/free-disk-space.mjs
       - name: Build Docker images and check build logs

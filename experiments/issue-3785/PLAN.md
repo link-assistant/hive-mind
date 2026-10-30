@@ -858,3 +858,11 @@ Latest CI continuation:
       head. Preserve the full log, identify export-time resource pressure,
       reproduce a focused control before any change, and require a fresh
       successful packaged-image run without extending its timeout.
+
+- [x] Preserve exact-head Docker timeout evidence with full-log line numbers.
+      Both image instruction sequences finish; export grows dockerd to 13 GiB
+      RSS and almost 10 GiB swap. A focused build-script control fails before
+      configuring the actual daemon and passes after a CI-only soft Go memory
+      policy. Keep the 30-minute deadline and require real export verification.
+- [ ] Verify the proposed Docker export memory policy in fresh packaged-image
+      CI. Do not equate mocked setup controls with reduced real export memory.

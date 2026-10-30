@@ -81,13 +81,27 @@ if [ "${ON_ACTIONS}" = "true" ] && [ "${EXTRA_SWAP_GB}" != "0" ]; then
 fi
 restart_dockerd() {
   [ "${ON_ACTIONS}" = "true" ] || return 0
-  echo "Restarting dockerd to release the memory the previous export kept..."
+  echo "Restarting dockerd before the next build and releasing retained export memory..."
   log_resources
   sudo systemctl restart docker
   for _ in $(seq 1 30); do docker info >/dev/null 2>&1 && break; sleep 2; done
   docker info >/dev/null
   log_resources
 }
+
+# Checks 41116035200 reached almost 10 GB of swap while the second image was
+# exporting, despite restarting between builds. Configure the daemon itself:
+# exporting layers runs in dockerd, so setting Go variables on docker's client
+# would leave that allocation unchanged. This runtime-only systemd override is
+# confined to disposable Actions runners. The Go limit is soft; keep sampling
+# and the existing job deadline so a large live heap still fails visibly.
+if [ "${ON_ACTIONS}" = "true" ]; then
+  sudo install -d /run/systemd/system/docker.service.d
+  printf '[Service]\nEnvironment="GOMEMLIMIT=6GiB" "GOGC=50"\n' | sudo tee /run/systemd/system/docker.service.d/hive-pr-memory.conf >/dev/null
+  sudo systemctl daemon-reload
+  echo "Configuring CI dockerd: GOMEMLIMIT=6GiB, GOGC=50"
+  restart_dockerd
+fi
 
 echo "Building Docker image from ${BOX_BASE} base..."
 echo "Note: General-purpose tools are inherited from pinned ${BOX_BASE}"
